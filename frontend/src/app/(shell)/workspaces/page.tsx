@@ -45,11 +45,18 @@ export default function WorkspacePage() {
                 <h3 className="font-semibold">{ws.name}</h3>
                 <p className="text-sm capitalize text-gray-500">{ws.type}</p>
               </div>
-              {ws.pivot && (
-                <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-600 capitalize">
-                  {ws.pivot.role.replace("-", " ")}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {ws.is_current && (
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                    Active
+                  </span>
+                )}
+                {ws.pivot_role && (
+                  <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium capitalize text-indigo-600">
+                    {ws.pivot_role.replace("-", " ")}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex gap-2">
               <button
@@ -59,7 +66,7 @@ export default function WorkspacePage() {
               >
                 {switching === ws.uuid ? "Switching..." : "Switch"}
               </button>
-              {ws.pivot?.role === "tenant-owner" && (
+              {(ws.is_owner || ws.pivot_role === "tenant-owner") && (
                 <Link
                   href={`/workspaces/${ws.uuid}/edit`}
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50"

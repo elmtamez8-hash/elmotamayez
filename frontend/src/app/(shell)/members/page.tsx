@@ -11,6 +11,11 @@ interface Member {
   role: string;
 }
 
+/** The workspace the API is acting in, falling back to the only membership. */
+function pickCurrent(workspaces: Workspace[] | undefined): Workspace | undefined {
+  return workspaces?.find((w) => w.is_current) ?? workspaces?.[0];
+}
+
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +27,7 @@ export default function MembersPage() {
   const loadMembers = () => {
     api.get<{ data: Workspace[] }>("/workspaces")
       .then(async (res) => {
-        const current = res.data?.find((w) => w.pivot);
+        const current = pickCurrent(res.data);
         if (current) {
           const detail = await api.get<{ data: Member[] }>(`/workspaces/${current.uuid}/members`);
           setMembers(detail.data ?? []);
@@ -39,7 +44,7 @@ export default function MembersPage() {
     setError("");
     try {
       const ws = await api.get<{ data: Workspace[] }>("/workspaces");
-      const current = ws.data?.find((w) => w.pivot);
+      const current = pickCurrent(ws.data);
       if (!current) throw new Error("No active workspace");
       await api.post(`/workspaces/${current.uuid}/invitations`, { email: inviteEmail, role: inviteRole });
       setInviteEmail("");

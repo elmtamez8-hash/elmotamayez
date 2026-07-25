@@ -91,7 +91,10 @@ export interface Workspace {
   name: string;
   slug: string;
   type: string;
-  owner_user_id: number;
   settings: Record<string, unknown> | null;
-  pivot?: { role: string };
+  is_owner: boolean;
+  /** Present only when the workspace came from the membership list. */
+  pivot_role?: string;
+  is_current: boolean;
+  created_at: string;
 }

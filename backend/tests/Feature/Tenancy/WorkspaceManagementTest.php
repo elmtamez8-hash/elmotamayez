@@ -58,6 +58,23 @@ describe('workspace creation', function (): void {
             ->assertJsonPath('0.name', 'Academy A')
             ->assertJsonMissing(['name' => 'Academy B']);
     });
+
+    it('marks which workspace the request is acting in', function (): void {
+        [$workspaceA, $owner] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+        $workspaceB = $this->addOwnedWorkspace($owner, 'Academy B');
+
+        $this->setCurrentWorkspace($workspaceB, $owner);
+        Sanctum::actingAs($owner);
+
+        $response = $this->getJson('/api/v1/workspaces')->assertOk();
+
+        $current = collect($response->json())->firstWhere('is_current', true);
+
+        expect($current)->not->toBeNull()
+            ->and($current['name'])->toBe('Academy B')
+            ->and($current['pivot_role'])->toBe(Roles::TENANT_OWNER)
+            ->and(collect($response->json())->firstWhere('name', 'Academy A')['is_current'])->toBeFalse();
+    });
 });
 
 describe('workspace switching', function (): void {

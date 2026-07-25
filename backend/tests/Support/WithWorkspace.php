@@ -41,6 +41,21 @@ trait WithWorkspace
     }
 
     /**
+     * Create an additional workspace owned by an existing user.
+     */
+    protected function addOwnedWorkspace(User $owner, string $name): Workspace
+    {
+        return app(CreateWorkspace::class)->handle(
+            CreateWorkspaceDTO::fromArray([
+                'name' => $name,
+                'type' => 'academy',
+                'slug' => Str::slug($name).'-'.Str::random(6),
+            ]),
+            $owner,
+        );
+    }
+
+    /**
      * Create a user and add them as a member of the given workspace with the given role.
      */
     protected function addWorkspaceMember(Workspace $workspace, string $role = Roles::STUDENT, ?User $user = null): User
