@@ -28,6 +28,12 @@ class AcceptInvitation extends Action
             throw new \DomainException('This invitation has expired.');
         }
 
+        // The invitation names its invitee: a forwarded token must not let a
+        // different account into the workspace.
+        if (! hash_equals(mb_strtolower($invitation->email), mb_strtolower($user->email))) {
+            throw new \DomainException("This invitation was sent to {$invitation->email}. Sign in with that address to accept it.");
+        }
+
         $workspace = $invitation->workspace;
 
         return DB::transaction(function () use ($invitation, $user, $workspace): Workspace {

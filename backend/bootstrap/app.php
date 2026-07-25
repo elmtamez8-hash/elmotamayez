@@ -28,4 +28,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+
+        // Actions signal a broken business rule with DomainException (attempt limit
+        // reached, invitation expired, ...) — that's a 422, not a server error.
+        $exceptions->render(function (DomainException $e, Request $request) {
+            return $request->is('api/*')
+                ? response()->json(['message' => $e->getMessage()], 422)
+                : null;
+        });
     })->create();

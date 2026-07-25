@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import type { Workspace } from "@/lib/types";
 
 interface Member {
@@ -23,6 +23,8 @@ export default function MembersPage() {
   const [inviteRole, setInviteRole] = useState("student");
   const [inviting, setInviting] = useState(false);
   const [error, setError] = useState("");
+  const [invite, setInvite] = useState<{ email: string; link: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const loadMembers = () => {
     api.get<{ data: Workspace[] }>("/workspaces")
@@ -46,12 +48,16 @@ export default function MembersPage() {
       const ws = await api.get<{ data: Workspace[] }>("/workspaces");
       const current = pickCurrent(ws.data);
       if (!current) throw new Error("No active workspace");
-      await api.post(`/workspaces/${current.uuid}/invitations`, { email: inviteEmail, role: inviteRole });
+      const { token } = await api.post<{ token: string }>(
+        `/workspaces/${current.uuid}/invitations`,
+        { email: inviteEmail, role: inviteRole },
+      );
+      // No mail is sent yet — hand the inviter the link to pass on themselves.
+      setInvite({ email: inviteEmail, link: `${window.location.origin}/invitations/${token}` });
       setInviteEmail("");
       loadMembers();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to invite";
-      setError(msg);
+      setError(errorMessage(err, "Failed to invite"));
     } finally {
       setInviting(false);
     }
@@ -96,6 +102,41 @@ export default function MembersPage() {
           {inviting ? "Inviting..." : "Invite"}
         </button>
       </form>
+
+      {invite && (
+        <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200">
+          <div className="mb-2 flex items-start justify-between gap-4">
+            <div>
+              <p className="font-medium">Invitation ready for {invite.email}</p>
+              <p className="text-sm text-gray-500">
+                Send them this link — it expires in 7 days and only works for that address.
+              </p>
+            </div>
+            <button
+              onClick={() => setInvite(null)}
+              className="text-sm text-gray-400 transition hover:text-gray-600"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 overflow-x-auto rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700">
+              {invite.link}
+            </code>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(invite.link);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className="shrink-0 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
         <table className="w-full text-sm">

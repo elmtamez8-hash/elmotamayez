@@ -1,17 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { useRouter } from "next/navigation";
+import { errorMessage } from "@/lib/api";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function RegisterPage() {
-  const { register } = useAuth();
+function RegisterForm() {
+  const { register, login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const invitation = searchParams.get("invitation");
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
-    email: "",
+    // The invitation is bound to this address, so don't let it drift.
+    email: searchParams.get("email") ?? "",
     password: "",
     password_confirmation: "",
   });
@@ -24,10 +28,17 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await register(form);
+
+      if (invitation) {
+        // Sign the new account in and drop it back on the invitation to accept.
+        await login(form.email, form.password);
+        router.push(`/invitations/${invitation}`);
+        return;
+      }
+
       router.push("/login");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Registration failed";
-      setError(msg);
+      setError(errorMessage(err, "Registration failed"));
     } finally {
       setLoading(false);
     }
@@ -106,12 +117,22 @@ export default function RegisterPage() {
           </button>
           <p className="text-center text-sm text-gray-600">
             Already have an account?{" "}
-            <Link href="/login" className="text-indigo-600 hover:underline">
+            <Link href={invitation ? `/login?invitation=${invitation}` : "/login"} className="text-indigo-600 hover:underline">
               Sign in
             </Link>
           </p>
         </form>
       </div>
     </div>
+  );
+}
+
+// useSearchParams() reads the ?invitation= handoff, so the form needs a
+// Suspense boundary to prerender.
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-gray-400">Loading...</div>}>
+      <RegisterForm />
+    </Suspense>
   );
 }

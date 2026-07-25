@@ -88,18 +88,41 @@ class WorkspaceController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * Public lookup so the invitee can see what they were invited to before
+     * signing in. The token is the secret; nothing else identifying is exposed.
+     */
+    public function showInvitation(string $token): JsonResponse
+    {
+        $invitation = $this->findInvitation($token);
+
+        return response()->json([
+            'workspace_name' => $invitation->workspace->name,
+            'email' => $invitation->email,
+            'role' => $invitation->role,
+            'expires_at' => $invitation->expires_at,
+            'is_expired' => $invitation->isExpired(),
+            'is_accepted' => $invitation->isAccepted(),
+        ]);
+    }
+
     public function acceptInvitation(Request $request, string $token, AcceptInvitation $action): JsonResponse
     {
-        // The invitee is accepting an invitation into a workspace they are not a
-        // member of yet, so their current workspace must not filter this lookup.
-        // The single-use token is the authorization here.
-        $invitation = Invitation::query()
-            ->withoutWorkspaceScope()
-            ->where('token', $token)
-            ->firstOrFail();
-
-        $workspace = $action->handle($invitation, $this->currentUser($request));
+        $workspace = $action->handle($this->findInvitation($token), $this->currentUser($request));
 
         return response()->json(WorkspaceResource::make($workspace));
+    }
+
+    /**
+     * The invitee is not a member of the workspace yet, so their current
+     * workspace must not filter this lookup — the single-use token authorizes it.
+     */
+    private function findInvitation(string $token): Invitation
+    {
+        return Invitation::query()
+            ->withoutWorkspaceScope()
+            ->with('workspace')
+            ->where('token', $token)
+            ->firstOrFail();
     }
 }

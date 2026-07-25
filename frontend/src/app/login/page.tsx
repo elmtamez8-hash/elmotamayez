@@ -1,14 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { useRouter } from "next/navigation";
+import { errorMessage } from "@/lib/api";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function LoginPage() {
+function LoginForm() {
   const { login } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const searchParams = useSearchParams();
+  // Arrived from an invitation link: go back to it so the user can accept.
+  const invitation = searchParams.get("invitation");
+  const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,10 +23,9 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      router.push("/dashboard");
+      router.push(invitation ? `/invitations/${invitation}` : "/dashboard");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Login failed";
-      setError(msg);
+      setError(errorMessage(err, "Login failed"));
     } finally {
       setLoading(false);
     }
@@ -70,12 +73,22 @@ export default function LoginPage() {
           </button>
           <p className="text-center text-sm text-gray-600">
             Don&apos;t have an account?{" "}
-            <Link href="/register" className="text-indigo-600 hover:underline">
+            <Link href={invitation ? `/register?invitation=${invitation}` : "/register"} className="text-indigo-600 hover:underline">
               Register
             </Link>
           </p>
         </form>
       </div>
     </div>
+  );
+}
+
+// useSearchParams() reads the ?invitation= handoff, so the form needs a
+// Suspense boundary to prerender.
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-gray-400">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

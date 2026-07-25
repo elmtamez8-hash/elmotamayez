@@ -5,6 +5,9 @@ declare(strict_types=1);
 use App\Modules\Tenancy\Http\Controllers\WorkspaceController;
 use Illuminate\Support\Facades\Route;
 
+// Public: the invitee reads the invitation before they have an account.
+Route::get('/workspaces/invitations/{token}', [WorkspaceController::class, 'showInvitation']);
+
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/workspaces', [WorkspaceController::class, 'index']);
     Route::post('/workspaces', [WorkspaceController::class, 'store']);

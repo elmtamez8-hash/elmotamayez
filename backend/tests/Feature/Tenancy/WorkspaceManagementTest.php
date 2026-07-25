@@ -169,6 +169,46 @@ describe('invitation acceptance', function (): void {
         expect($workspace->members()->where('user_id', $invitee->getKey())->exists())->toBeTrue();
     });
 
+    it('exposes invitation details without authentication', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner(['name' => 'Nour Academy']);
+        Sanctum::actingAs($owner);
+
+        $token = $this->postJson("/api/v1/workspaces/{$workspace->uuid}/invitations", [
+            'email' => 'newcomer@example.test',
+            'role' => Roles::TEACHER,
+        ])->assertCreated()->json('token');
+
+        // The invitee has no account yet: this must work signed out.
+        app('auth')->forgetGuards();
+
+        $this->getJson("/api/v1/workspaces/invitations/{$token}")
+            ->assertOk()
+            ->assertJsonPath('workspace_name', 'Nour Academy')
+            ->assertJsonPath('email', 'newcomer@example.test')
+            ->assertJsonPath('role', Roles::TEACHER)
+            ->assertJsonPath('is_expired', false)
+            ->assertJsonPath('is_accepted', false);
+    });
+
+    it('refuses an invitation accepted from a different account', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+        Sanctum::actingAs($owner);
+
+        $token = $this->postJson("/api/v1/workspaces/{$workspace->uuid}/invitations", [
+            'email' => 'invited@example.test',
+            'role' => Roles::STUDENT,
+        ])->assertCreated()->json('token');
+
+        $someoneElse = User::factory()->create(['email' => 'stranger@example.test']);
+        Sanctum::actingAs($someoneElse);
+
+        $this->postJson("/api/v1/workspaces/invitations/{$token}/accept")
+            ->assertStatus(422)
+            ->assertJsonPath('message', fn (string $m) => str_contains($m, 'invited@example.test'));
+
+        expect($workspace->members()->where('user_id', $someoneElse->getKey())->exists())->toBeFalse();
+    });
+
     it('rejects an invalid invitation token', function (): void {
         $user = User::factory()->create();
         Sanctum::actingAs($user);

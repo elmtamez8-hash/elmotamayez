@@ -25,11 +25,8 @@ class AttemptController extends Controller
             return response()->json(['message' => 'Exam is not available.'], 422);
         }
 
-        try {
-            $attempt = $action->handle($exam, $this->currentUser($request));
-        } catch (DomainException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
-        }
+        // A used-up attempt allowance throws DomainException, rendered as 422.
+        $attempt = $action->handle($exam, $this->currentUser($request));
 
         $questions = $action->questionsForAttempt($attempt)->map(function ($q) use ($action, $attempt) {
             return [
