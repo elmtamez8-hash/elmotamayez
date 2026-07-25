@@ -17,6 +17,7 @@ class EnrollmentCreatedNotification extends Notification
         public readonly Enrollment $enrollment,
     ) {}
 
+    /** @return array<int, string> */
     public function via(object $notifiable): array
     {
         return ['database', 'mail'];
@@ -28,8 +29,8 @@ class EnrollmentCreatedNotification extends Notification
 
         return (new MailMessage)
             ->subject('You have been enrolled in a course')
-            ->line("You have been enrolled in: {$course?->title}")
-            ->action('Start learning', url('/courses/'.$course?->uuid));
+            ->line("You have been enrolled in: {$course->title}")
+            ->action('Start learning', url('/courses/'.$course->uuid));
     }
 
     /** @return array<string, mixed> */
@@ -39,8 +40,8 @@ class EnrollmentCreatedNotification extends Notification
             'workspace_id' => $this->enrollment->workspace_id,
             'type' => 'enrollment_created',
             'enrollment_uuid' => $this->enrollment->uuid,
-            'course_uuid' => $this->enrollment->course?->uuid,
-            'course_title' => $this->enrollment->course?->title,
+            'course_uuid' => $this->enrollment->course->uuid,
+            'course_title' => $this->enrollment->course->title,
         ];
     }
 }

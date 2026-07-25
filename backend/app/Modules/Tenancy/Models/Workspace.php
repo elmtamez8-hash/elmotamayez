@@ -8,7 +8,6 @@ use App\Models\BaseModel;
 use App\Models\User;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Tenancy\WorkspaceFactory;
-use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -29,6 +28,7 @@ class Workspace extends BaseModel
         'settings',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -36,16 +36,13 @@ class Workspace extends BaseModel
         ];
     }
 
-    protected static function newFactory(): Factory
-    {
-        return WorkspaceFactory::new();
-    }
-
+    /** @return BelongsTo<User, $this> */
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_user_id');
     }
 
+    /** @return BelongsToMany<User, $this> */
     public function members(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'workspace_members')

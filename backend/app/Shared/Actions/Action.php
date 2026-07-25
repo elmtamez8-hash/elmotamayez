@@ -12,16 +12,5 @@ namespace App\Shared\Actions;
  */
 abstract class Action
 {
-    /**
-     * Static convenience entry point to invoke an action with its dependencies resolved.
-     *
-     * @param  mixed  ...$arguments
-     */
-    public static function execute(...$arguments): mixed
-    {
-        /** @var static $instance */
-        $instance = app(static::class);
-
-        return $instance->handle(...$arguments);
-    }
+    //
 }

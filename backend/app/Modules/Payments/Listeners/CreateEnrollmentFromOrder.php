@@ -39,13 +39,13 @@ class CreateEnrollmentFromOrder implements ShouldQueue
             return;
         }
 
-        $this->workspace->set($order->workspace);
-
-        $this->enrollStudent->handle(
+        // Scoped to this job only — set() would leak the workspace into the next
+        // job handled by the same worker process.
+        $this->workspace->forWorkspace($order->workspace, fn () => $this->enrollStudent->handle(
             course: $course,
             student: $order->user,
             source: 'purchase',
             orderId: $order->getKey(),
-        );
+        ));
     }
 }

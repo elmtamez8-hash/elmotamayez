@@ -7,6 +7,7 @@ namespace App\Modules\Payments\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +18,8 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 /**
  * @property string $status
  * @property string $provider
+ * @property-read Workspace $workspace workspace_id is NOT NULL
+ * @property-read User $user user_id is NOT NULL
  */
 class Order extends BaseModel implements HasMedia
 {
@@ -38,6 +41,7 @@ class Order extends BaseModel implements HasMedia
         'metadata',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -54,26 +58,31 @@ class Order extends BaseModel implements HasMedia
             ->useDisk('local');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return BelongsTo<Course, $this> */
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
     }
 
+    /** @return BelongsTo<Product, $this> */
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
 
+    /** @return HasMany<PaymentTransaction, $this> */
     public function transactions(): HasMany
     {
         return $this->hasMany(PaymentTransaction::class);

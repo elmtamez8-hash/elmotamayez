@@ -8,7 +8,6 @@ use App\Models\BaseModel;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Courses\LessonFactory;
-use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -17,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Lesson extends BaseModel
 {
+    /** @use HasFactory<LessonFactory> */
     use BelongsToWorkspace, HasFactory, HasUuid;
 
     protected $fillable = [
@@ -34,6 +34,7 @@ class Lesson extends BaseModel
         'media',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -45,23 +46,21 @@ class Lesson extends BaseModel
         ];
     }
 
+    /** @return BelongsTo<Course, $this> */
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
     }
 
+    /** @return BelongsTo<Section, $this> */
     public function section(): BelongsTo
     {
         return $this->belongsTo(Section::class);
     }
 
+    /** @return BelongsTo<Chapter, $this> */
     public function chapter(): BelongsTo
     {
         return $this->belongsTo(Chapter::class);
-    }
-
-    protected static function newFactory(): Factory
-    {
-        return LessonFactory::new();
     }
 }

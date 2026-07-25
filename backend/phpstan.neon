@@ -1,0 +1,22 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+        - database
+
+    level: 8
+
+    # Modules ship their own migrations; scanning them lets Larastan type model
+    # properties (workspace_id, status, ...) instead of reporting them as undefined.
+    databaseMigrationsPath:
+        - database/migrations
+        - app/Modules/Analytics/Database/Migrations
+        - app/Modules/Assessments/Database/Migrations
+        - app/Modules/CMS/Database/Migrations
+        - app/Modules/Certificates/Database/Migrations
+        - app/Modules/Courses/Database/Migrations
+        - app/Modules/Learning/Database/Migrations
+        - app/Modules/Payments/Database/Migrations
+        - app/Modules/Tenancy/Database/Migrations

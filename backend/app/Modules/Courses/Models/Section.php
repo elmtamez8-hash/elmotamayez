@@ -7,13 +7,13 @@ namespace App\Modules\Courses\Models;
 use App\Models\BaseModel;
 use App\Shared\Traits\BelongsToWorkspace;
 use Database\Factories\Modules\Courses\SectionFactory;
-use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Section extends BaseModel
 {
+    /** @use HasFactory<SectionFactory> */
     use BelongsToWorkspace, HasFactory;
 
     protected $table = 'course_sections';
@@ -26,6 +26,7 @@ class Section extends BaseModel
         'is_published',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -34,18 +35,15 @@ class Section extends BaseModel
         ];
     }
 
+    /** @return BelongsTo<Course, $this> */
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
     }
 
+    /** @return HasMany<Chapter, $this> */
     public function chapters(): HasMany
     {
         return $this->hasMany(Chapter::class)->orderBy('order');
-    }
-
-    protected static function newFactory(): Factory
-    {
-        return SectionFactory::new();
     }
 }

@@ -40,6 +40,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'is_super_admin',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -51,6 +52,8 @@ class User extends Authenticatable implements MustVerifyEmail
 
     /**
      * The workspaces this user belongs to.
+     *
+     * @return BelongsToMany<Workspace, $this>
      */
     public function workspaces(): BelongsToMany
     {

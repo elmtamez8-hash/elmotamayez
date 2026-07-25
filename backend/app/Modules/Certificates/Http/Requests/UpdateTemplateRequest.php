@@ -14,6 +14,7 @@ class UpdateTemplateRequest extends FormRequest
         return $this->user()?->can(Permissions::CERTIFICATES_REGENERATE) ?? false;
     }
 
+    /** @return array<string, mixed> */
     public function rules(): array
     {
         return [

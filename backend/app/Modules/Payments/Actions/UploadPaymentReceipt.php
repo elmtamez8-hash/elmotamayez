@@ -23,6 +23,8 @@ class UploadPaymentReceipt extends Action
             $order->update(['status' => 'under_review']);
         }
 
-        return $order->fresh();
+        $order->refresh();
+
+        return $order;
     }
 }

@@ -6,8 +6,11 @@ namespace App\Providers;
 
 use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Support\WorkspaceContext;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\ServiceProvider;
+use RuntimeException;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -26,5 +29,29 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         JsonResource::withoutWrapping();
+
+        // Module models live in App\Modules\{Module}\Models and their factories in
+        // Database\Factories\Modules\{Module} — resolve that here instead of having
+        // every model override newFactory().
+        Factory::guessFactoryNamesUsing($this->guessFactoryName(...));
+    }
+
+    /**
+     * Map a model to its factory class.
+     *
+     * @param  class-string<Model>  $model
+     * @return class-string<Factory<Model>>
+     */
+    private function guessFactoryName(string $model): string
+    {
+        $factory = preg_match('/^App\\\\Modules\\\\(\w+)\\\\Models\\\\(\w+)$/', $model, $matches) === 1
+            ? "Database\\Factories\\Modules\\{$matches[1]}\\{$matches[2]}Factory"
+            : 'Database\\Factories\\'.class_basename($model).'Factory';
+
+        if (! is_subclass_of($factory, Factory::class)) {
+            throw new RuntimeException("No factory found for model [{$model}] (looked for [{$factory}]).");
+        }
+
+        return $factory;
     }
 }

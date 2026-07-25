@@ -16,9 +16,10 @@ class CourseFactory extends Factory
 {
     protected $model = Course::class;
 
+    /** @return array<string, mixed> */
     public function definition(): array
     {
-        $title = fake()->catchPhrase();
+        $title = rtrim(fake()->sentence(4), '.');
 
         return [
             'workspace_id' => 1,

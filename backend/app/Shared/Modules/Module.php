@@ -46,7 +46,7 @@ abstract class Module extends ServiceProvider
 
         $apiFile = $this->modulePath('routes/api.php');
         if (is_file($apiFile)) {
-            $this->app['router']->group([
+            $this->app->make('router')->group([
                 'prefix' => 'api/v1',
                 'namespace' => $namespace,
                 'middleware' => ['api'],
@@ -55,7 +55,7 @@ abstract class Module extends ServiceProvider
 
         $webFile = $this->modulePath('routes/web.php');
         if (is_file($webFile)) {
-            $this->app['router']->group([
+            $this->app->make('router')->group([
                 'namespace' => $namespace,
                 'middleware' => ['web'],
             ], $webFile);

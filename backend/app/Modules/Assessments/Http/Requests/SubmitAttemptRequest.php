@@ -14,6 +14,7 @@ class SubmitAttemptRequest extends FormRequest
         return $this->user()?->can(Permissions::ATTEMPTS_SUBMIT) ?? false;
     }
 
+    /** @return array<string, mixed> */
     public function rules(): array
     {
         return [

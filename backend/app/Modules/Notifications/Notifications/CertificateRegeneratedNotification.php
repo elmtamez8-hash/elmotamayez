@@ -17,6 +17,7 @@ class CertificateRegeneratedNotification extends Notification
         public readonly Certificate $certificate,
     ) {}
 
+    /** @return array<int, string> */
     public function via(object $notifiable): array
     {
         return ['database', 'mail'];

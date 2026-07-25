@@ -12,6 +12,6 @@ class NotifyStudentEnrolled implements ShouldQueue
 {
     public function handle(EnrollmentCreated $event): void
     {
-        $event->enrollment->student?->notify(new EnrollmentCreatedNotification($event->enrollment));
+        $event->enrollment->student->notify(new EnrollmentCreatedNotification($event->enrollment));
     }
 }

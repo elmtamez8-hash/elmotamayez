@@ -12,6 +12,8 @@ use JsonSerializable;
  *
  * DTOs carry typed data between layers (controllers ↔ actions ↔ resources).
  * They are constructed from validated request data and expose a typed, readonly shape.
+ *
+ * @implements Arrayable<string, mixed>
  */
 abstract class DataTransferObject implements Arrayable, JsonSerializable
 {

@@ -11,12 +11,13 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /** @mixin Enrollment */
 class EnrollmentResource extends JsonResource
 {
+    /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
         return [
             'uuid' => $this->uuid,
-            'course_uuid' => $this->course?->uuid,
-            'course_title' => $this->course?->title,
+            'course_uuid' => $this->course->uuid,
+            'course_title' => $this->course->title,
             'status' => $this->status,
             'source' => $this->source,
             'progress_pct' => $this->progress_pct,

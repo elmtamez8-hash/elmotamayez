@@ -10,7 +10,6 @@ use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use App\Shared\Traits\IsPublishable;
 use Database\Factories\Modules\CMS\ArticleFactory;
-use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -20,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  */
 class Article extends BaseModel
 {
+    /** @use HasFactory<ArticleFactory> */
     use BelongsToWorkspace, HasFactory, HasUuid, IsPublishable;
 
     protected $table = 'cms_articles';
@@ -39,6 +39,7 @@ class Article extends BaseModel
         'canonical_url',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -46,23 +47,21 @@ class Article extends BaseModel
         ];
     }
 
+    /** @return BelongsTo<User, $this> */
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'author_id');
     }
 
+    /** @return BelongsTo<Category, $this> */
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
     }
 
+    /** @return BelongsToMany<Tag, $this> */
     public function tags(): BelongsToMany
     {
         return $this->belongsToMany(Tag::class, 'cms_article_tag', 'article_id', 'tag_id');
-    }
-
-    protected static function newFactory(): Factory
-    {
-        return ArticleFactory::new();
     }
 }

@@ -23,8 +23,10 @@ class RejectOrder extends Action
             'approved_by' => $approver->getKey(),
         ]);
 
-        event(new PaymentRejected($order->fresh()));
+        $order->refresh();
 
-        return $order->fresh();
+        event(new PaymentRejected($order));
+
+        return $order;
     }
 }

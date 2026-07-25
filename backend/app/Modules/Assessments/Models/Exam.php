@@ -10,7 +10,6 @@ use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use App\Shared\Traits\IsPublishable;
 use Database\Factories\Modules\Assessments\ExamFactory;
-use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -20,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Exam extends BaseModel
 {
+    /** @use HasFactory<ExamFactory> */
     use BelongsToWorkspace, HasFactory, HasUuid, IsPublishable;
 
     protected $fillable = [
@@ -35,6 +35,7 @@ class Exam extends BaseModel
         'status',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -46,18 +47,15 @@ class Exam extends BaseModel
         ];
     }
 
+    /** @return BelongsTo<Course, $this> */
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
     }
 
+    /** @return HasMany<Question, $this> */
     public function questions(): HasMany
     {
         return $this->hasMany(Question::class)->orderBy('id');
-    }
-
-    protected static function newFactory(): Factory
-    {
-        return ExamFactory::new();
     }
 }

@@ -37,8 +37,8 @@ class CertificateController extends Controller
     {
         $query = Certificate::query()->with(['course', 'student']);
 
-        if (! $request->user()?->can(Permissions::CERTIFICATES_VIEW_ALL)) {
-            $query->where('student_user_id', $request->user()->getKey());
+        if (! $this->currentUser($request)->can(Permissions::CERTIFICATES_VIEW_ALL)) {
+            $query->where('student_user_id', $this->currentUser($request)->getKey());
         }
 
         $certificates = $query->orderByDesc('issued_at')->paginate(15);

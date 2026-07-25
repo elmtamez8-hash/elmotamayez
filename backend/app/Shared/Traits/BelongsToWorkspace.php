@@ -23,7 +23,7 @@ trait BelongsToWorkspace
     {
         static::addGlobalScope(WorkspaceScope::class);
 
-        static::creating(function (Model $model): void {
+        static::creating(function (self $model): void {
             if ($model->getAttribute($model->getWorkspaceColumn()) === null) {
                 $workspaceId = app(WorkspaceContext::class)->id();
 
@@ -44,6 +44,8 @@ trait BelongsToWorkspace
 
     /**
      * Relationship to the owning workspace.
+     *
+     * @return BelongsTo<Workspace, $this>
      */
     public function workspace(): BelongsTo
     {

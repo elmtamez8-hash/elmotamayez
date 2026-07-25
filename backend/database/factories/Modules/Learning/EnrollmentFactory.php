@@ -17,6 +17,7 @@ class EnrollmentFactory extends Factory
 {
     protected $model = Enrollment::class;
 
+    /** @return array<string, mixed> */
     public function definition(): array
     {
         return [

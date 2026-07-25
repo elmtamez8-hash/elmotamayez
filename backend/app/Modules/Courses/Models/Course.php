@@ -10,7 +10,6 @@ use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use App\Shared\Traits\IsPublishable;
 use Database\Factories\Modules\Courses\CourseFactory;
-use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -40,6 +39,7 @@ class Course extends BaseModel
         'created_by',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -49,26 +49,25 @@ class Course extends BaseModel
         ];
     }
 
-    protected static function newFactory(): Factory
-    {
-        return CourseFactory::new();
-    }
-
+    /** @return HasMany<Section, $this> */
     public function sections(): HasMany
     {
         return $this->hasMany(Section::class)->orderBy('order');
     }
 
+    /** @return HasMany<Chapter, $this> */
     public function chapters(): HasMany
     {
         return $this->hasMany(Chapter::class)->orderBy('order');
     }
 
+    /** @return HasMany<Lesson, $this> */
     public function lessons(): HasMany
     {
         return $this->hasMany(Lesson::class)->orderBy('order');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -84,6 +83,7 @@ class Course extends BaseModel
         return 'courses_index';
     }
 
+    /** @return array<string, mixed> */
     public function toSearchableArray(): array
     {
         return [

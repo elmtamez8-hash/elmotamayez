@@ -15,6 +15,7 @@ class StoreChapterRequest extends FormRequest
         return $this->user()?->can('manageLessons', $this->route('course')) ?? false;
     }
 
+    /** @return array<string, mixed> */
     public function rules(): array
     {
         /** @var Course|null $course */

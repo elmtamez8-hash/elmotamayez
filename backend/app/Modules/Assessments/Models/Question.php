@@ -7,7 +7,6 @@ namespace App\Modules\Assessments\Models;
 use App\Models\BaseModel;
 use App\Shared\Traits\BelongsToWorkspace;
 use Database\Factories\Modules\Assessments\QuestionFactory;
-use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -18,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Question extends BaseModel
 {
+    /** @use HasFactory<QuestionFactory> */
     use BelongsToWorkspace, HasFactory;
 
     protected $fillable = [
@@ -30,6 +30,7 @@ class Question extends BaseModel
         'explanation',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -37,18 +38,15 @@ class Question extends BaseModel
         ];
     }
 
+    /** @return BelongsTo<Exam, $this> */
     public function exam(): BelongsTo
     {
         return $this->belongsTo(Exam::class);
     }
 
+    /** @return HasMany<QuestionOption, $this> */
     public function options(): HasMany
     {
         return $this->hasMany(QuestionOption::class)->orderBy('order');
-    }
-
-    protected static function newFactory(): Factory
-    {
-        return QuestionFactory::new();
     }
 }

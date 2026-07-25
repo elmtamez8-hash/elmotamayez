@@ -13,6 +13,7 @@ class UpdateQuestionRequest extends FormRequest
         return $this->user()?->can('manageQuestions', $this->route('exam')) ?? false;
     }
 
+    /** @return array<string, mixed> */
     public function rules(): array
     {
         return [

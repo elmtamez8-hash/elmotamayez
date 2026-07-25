@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Shared\Middleware;
 
 use App\Models\User;
+use App\Modules\Tenancy\Support\Roles;
 use Closure;
 use Filament\Facades\Filament;
 use Illuminate\Http\Request;
@@ -27,7 +28,7 @@ class EnsureFilamentAccess
         }
 
         // Tenant staff (owner, teacher, assistant-teacher) have access.
-        $staffRoles = ['tenant-owner', 'teacher', 'assistant-teacher'];
+        $staffRoles = [Roles::TENANT_OWNER, Roles::TEACHER, Roles::ASSISTANT_TEACHER];
 
         if ($user->roles()->whereIn('name', $staffRoles)->exists()) {
             return $next($request);

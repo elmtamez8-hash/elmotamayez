@@ -10,8 +10,9 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class EnrollmentStatsWidget extends BaseWidget
 {
-    protected static ?string $pollingInterval = null;
+    protected ?string $pollingInterval = null;
 
+    /** @return list<Stat> */
     protected function getStats(): array
     {
         $counts = Enrollment::query()

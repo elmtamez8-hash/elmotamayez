@@ -30,6 +30,8 @@ class RegenerateCertificate extends Action
             'certificate_number' => $certificate->certificate_number,
         ]);
 
-        return $certificate->fresh();
+        $certificate->refresh();
+
+        return $certificate;
     }
 }

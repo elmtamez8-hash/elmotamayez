@@ -10,8 +10,9 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class ExamStatsWidget extends BaseWidget
 {
-    protected static ?string $pollingInterval = null;
+    protected ?string $pollingInterval = null;
 
+    /** @return list<Stat> */
     protected function getStats(): array
     {
         $stats = Attempt::query()

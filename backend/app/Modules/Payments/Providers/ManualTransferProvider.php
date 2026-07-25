@@ -21,6 +21,7 @@ final class ManualTransferProvider implements PaymentProviderInterface
         return 'manual';
     }
 
+    /** @return array<string, mixed> */
     public function createCharge(Order $order): array
     {
         return [
@@ -31,6 +32,7 @@ final class ManualTransferProvider implements PaymentProviderInterface
         ];
     }
 
+    /** @return array<string, mixed> */
     public function verify(array $reference): array
     {
         // Manual transfers are verified by a human approver, not by a gateway callback.

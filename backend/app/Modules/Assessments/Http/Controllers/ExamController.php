@@ -10,6 +10,7 @@ use App\Modules\Assessments\Http\Requests\StoreExamRequest;
 use App\Modules\Assessments\Http\Requests\UpdateExamRequest;
 use App\Modules\Assessments\Http\Resources\ExamResource;
 use App\Modules\Assessments\Models\Exam;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,7 @@ class ExamController extends Controller
 
         $exams = Exam::query()
             ->where('status', 'published')
-            ->when($request->user()?->can('exams.view'), fn ($q) => $q->orWhere('status', '!=', 'published'))
+            ->when($request->user()?->can(Permissions::EXAMS_VIEW), fn ($q) => $q->orWhere('status', '!=', 'published'))
             ->withCount('questions')
             ->orderByDesc('created_at')
             ->paginate(15);

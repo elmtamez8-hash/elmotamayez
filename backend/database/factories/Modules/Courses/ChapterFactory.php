@@ -16,6 +16,7 @@ class ChapterFactory extends Factory
 {
     protected $model = Chapter::class;
 
+    /** @return array<string, mixed> */
     public function definition(): array
     {
         return [

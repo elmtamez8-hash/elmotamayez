@@ -19,7 +19,7 @@ class EnrollmentController extends Controller
     public function index(Request $request): JsonResponse
     {
         $enrollments = Enrollment::query()
-            ->where('student_user_id', $request->user()->getKey())
+            ->where('student_user_id', $this->currentUser($request)->getKey())
             ->with('course')
             ->orderByDesc('enrolled_at')
             ->paginate(15);
@@ -35,7 +35,7 @@ class EnrollmentController extends Controller
             return response()->json(['message' => 'Course is not available for enrollment.'], 422);
         }
 
-        $enrollment = $action->handle($course, $request->user());
+        $enrollment = $action->handle($course, $this->currentUser($request));
 
         return response()->json(EnrollmentResource::make($enrollment), 201);
     }
@@ -62,17 +62,22 @@ class EnrollmentController extends Controller
     {
         $this->authorize('completeLessons', $enrollment);
 
+        if ($lesson->course_id !== $enrollment->course_id) {
+            return response()->json(['message' => 'This lesson does not belong to the enrolled course.'], 404);
+        }
+
         $lesson->load(['section', 'chapter']);
         if (! $enrollment->canAccessLesson($lesson)) {
             return response()->json(['message' => 'You must complete the previous lesson first.'], 422);
         }
 
         $progress = $action->handle($enrollment, $lesson->getKey());
+        $enrollment->refresh();
 
         return response()->json([
             'status' => $progress->status,
-            'course_completed' => $enrollment->fresh()->isCompleted(),
-            'progress_pct' => $enrollment->fresh()->progress_pct,
+            'course_completed' => $enrollment->isCompleted(),
+            'progress_pct' => $enrollment->progress_pct,
         ]);
     }
 }

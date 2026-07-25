@@ -14,6 +14,7 @@ class InviteMemberRequest extends FormRequest
         return $this->user()?->can(Permissions::MEMBERS_INVITE) ?? false;
     }
 
+    /** @return array<string, mixed> */
     public function rules(): array
     {
         return [

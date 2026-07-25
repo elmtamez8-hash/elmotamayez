@@ -15,6 +15,7 @@ class QuestionFactory extends Factory
 {
     protected $model = Question::class;
 
+    /** @return array<string, mixed> */
     public function definition(): array
     {
         return [

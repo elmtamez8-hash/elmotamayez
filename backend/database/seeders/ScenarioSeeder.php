@@ -275,7 +275,7 @@ final class ScenarioSeeder extends Seeder
         ]);
 
         $enrollment = app(EnrollStudent::class)->handle($course, $student);
-        app(MarkLessonComplete::class)->handle($enrollment, $lessons->first()->id);
+        app(MarkLessonComplete::class)->handle($enrollment, $lessons->firstOrFail()->id);
 
         Article::create([
             'workspace_id' => $workspace->id,
@@ -467,8 +467,8 @@ final class ScenarioSeeder extends Seeder
             ->map(fn (Question $question) => [
                 'question_id' => $question->id,
                 'selected_option_ids' => [
-                    $question->options->first(fn (QuestionOption $o) => $o->is_correct === $correct)?->id
-                        ?? $question->options->first()->id,
+                    ($question->options->first(fn (QuestionOption $o) => $o->is_correct === $correct)
+                        ?? $question->options->firstOrFail())->id,
                 ],
             ])
             ->all();
@@ -522,6 +522,6 @@ final class ScenarioSeeder extends Seeder
             'status' => 'published', 'published_at' => now()->addWeek(),
             'author_id' => $author->id,
         ]);
-        $scheduled->tags()->sync([$tags->last()->id]);
+        $scheduled->tags()->sync([$tags->reverse()->firstOrFail()->id]);
     }
 }

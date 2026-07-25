@@ -33,7 +33,9 @@ class GradeAttempt extends Action
         return DB::transaction(function () use ($attempt, $answersPayload): Attempt {
             $attempt->load('exam.questions.options');
 
-            $totalPoints = 0;
+            // The denominator is the whole exam: a question the student skipped
+            // scores zero, it does not shrink the total they are graded against.
+            $totalPoints = (int) $attempt->exam->questions->sum('points');
             $earnedPoints = 0;
 
             foreach ($answersPayload as $row) {
@@ -42,9 +44,7 @@ class GradeAttempt extends Action
                     continue;
                 }
 
-                $totalPoints += $question->points;
-
-                $correct = $this->isAnswerCorrect($question, $row['selected_option_ids'] ?? []);
+                $correct = $this->isAnswerCorrect($question, $row['selected_option_ids']);
                 $points = $correct ? $question->points : 0;
                 $earnedPoints += $points;
 
@@ -52,7 +52,7 @@ class GradeAttempt extends Action
                     'workspace_id' => $attempt->workspace_id,
                     'attempt_id' => $attempt->getKey(),
                     'question_id' => $question->getKey(),
-                    'selected_option_ids' => $row['selected_option_ids'] ?? [],
+                    'selected_option_ids' => $row['selected_option_ids'],
                     'is_correct' => $correct,
                     'points' => $points,
                 ]);
@@ -70,7 +70,9 @@ class GradeAttempt extends Action
                 'submitted_at' => now(),
             ]);
 
-            event(new ExamSubmitted($attempt->fresh()));
+            $attempt->refresh();
+
+            event(new ExamSubmitted($attempt));
 
             $this->logActivity('submitted', $attempt, [
                 'score' => $scorePct,
@@ -78,12 +80,12 @@ class GradeAttempt extends Action
             ]);
 
             if ($passed) {
-                event(new ExamPassed($attempt->fresh()));
+                event(new ExamPassed($attempt));
             } else {
-                event(new ExamFailed($attempt->fresh()));
+                event(new ExamFailed($attempt));
             }
 
-            return $attempt->fresh();
+            return $attempt;
         });
     }
 

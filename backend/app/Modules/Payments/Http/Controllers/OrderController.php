@@ -23,8 +23,8 @@ class OrderController extends Controller
         $query = Order::query();
 
         // Students see only their orders; staff with view-all see all.
-        if (! $request->user()->can(Permissions::ORDERS_VIEW_ALL)) {
-            $query->where('user_id', $request->user()->getKey());
+        if (! $this->currentUser($request)->can(Permissions::ORDERS_VIEW_ALL)) {
+            $query->where('user_id', $this->currentUser($request)->getKey());
         }
 
         $orders = $query->with(['course', 'media'])->orderByDesc('created_at')->paginate(15);
@@ -51,7 +51,7 @@ class OrderController extends Controller
             return response()->json(['message' => 'This course is free; no order needed.'], 422);
         }
 
-        $order = $action->handle($course, $request->user());
+        $order = $action->handle($course, $this->currentUser($request));
 
         return response()->json(OrderResource::make($order), 201);
     }
@@ -64,7 +64,7 @@ class OrderController extends Controller
             'receipt' => ['required', 'file', 'max:10240', 'mimes:jpg,jpeg,png,pdf', 'mimetypes:image/jpeg,image/png,application/pdf'],
         ]);
 
-        $action->handle($order, $request->file('receipt'), $request->user());
+        $action->handle($order, $request->file('receipt'), $this->currentUser($request));
 
         return response()->json(OrderResource::make($order));
     }
@@ -74,7 +74,7 @@ class OrderController extends Controller
         $this->authorize('approve', $order);
 
         try {
-            $order = $action->handle($order, $request->user());
+            $order = $action->handle($order, $this->currentUser($request));
         } catch (\DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
@@ -89,7 +89,7 @@ class OrderController extends Controller
         $request->validate(['reason' => ['required', 'string', 'max:500']]);
 
         try {
-            $order = $action->handle($order, $request->user(), $request->input('reason'));
+            $order = $action->handle($order, $this->currentUser($request), $request->input('reason'));
         } catch (\DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }

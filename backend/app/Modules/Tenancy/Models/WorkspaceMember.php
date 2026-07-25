@@ -19,6 +19,7 @@ class WorkspaceMember extends BaseModel
         'joined_at',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -26,11 +27,13 @@ class WorkspaceMember extends BaseModel
         ];
     }
 
+    /** @return BelongsTo<Workspace, $this> */
     public function workspace(): BelongsTo
     {
         return $this->belongsTo(Workspace::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

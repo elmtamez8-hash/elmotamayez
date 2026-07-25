@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
  */
 class WorkspaceFactory extends Factory
 {
+    /** @return array<string, mixed> */
     public function definition(): array
     {
         $types = ['teacher', 'academy', 'school'];

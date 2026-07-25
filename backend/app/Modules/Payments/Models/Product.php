@@ -23,6 +23,7 @@ class Product extends BaseModel
         'is_active',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -31,6 +32,7 @@ class Product extends BaseModel
         ];
     }
 
+    /** @return BelongsTo<Course, $this> */
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);

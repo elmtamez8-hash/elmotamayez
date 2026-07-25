@@ -22,6 +22,7 @@ use Illuminate\Support\Str;
 class IssueCertificate extends Action
 {
     use LogsActivity;
+
     public function handle(Enrollment $enrollment, string $reason, ?int $examAttemptId = null): Certificate
     {
         return DB::transaction(function () use ($enrollment, $reason, $examAttemptId): Certificate {
@@ -49,8 +50,8 @@ class IssueCertificate extends Action
                 'issued_at' => now(),
                 'template_id' => $template?->getKey(),
                 'metadata' => [
-                    'course_title' => $enrollment->course?->title,
-                    'student_name' => $enrollment->student?->name,
+                    'course_title' => $enrollment->course->title,
+                    'student_name' => $enrollment->student->name,
                 ],
             ]);
 

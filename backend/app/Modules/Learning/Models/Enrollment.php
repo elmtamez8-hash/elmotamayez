@@ -11,7 +11,6 @@ use App\Modules\Courses\Models\Lesson;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Learning\EnrollmentFactory;
-use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -21,9 +20,12 @@ use Illuminate\Support\Facades\DB;
 /**
  * @property string $status
  * @property string $source
+ * @property-read Course $course course_id is NOT NULL, so the relation always resolves
+ * @property-read User $student
  */
 class Enrollment extends BaseModel
 {
+    /** @use HasFactory<EnrollmentFactory> */
     use BelongsToWorkspace, HasFactory, HasUuid;
 
     protected $fillable = [
@@ -39,6 +41,7 @@ class Enrollment extends BaseModel
         'expires_at',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -49,16 +52,19 @@ class Enrollment extends BaseModel
         ];
     }
 
+    /** @return BelongsTo<Course, $this> */
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_user_id');
     }
 
+    /** @return HasMany<LessonProgress, $this> */
     public function progress(): HasMany
     {
         return $this->hasMany(LessonProgress::class);
@@ -101,6 +107,13 @@ class Enrollment extends BaseModel
      */
     public function canAccessLesson(Lesson $lesson): bool
     {
+        // A lesson from another course never counts towards this enrollment,
+        // preview flag or not — otherwise progress could be driven to 100%
+        // with lessons the student's course does not contain.
+        if ($lesson->course_id !== $this->course_id) {
+            return false;
+        }
+
         if ($lesson->is_preview) {
             return true;
         }
@@ -148,10 +161,5 @@ class Enrollment extends BaseModel
             ->where('lesson_id', $previousLessonId)
             ->where('status', 'completed')
             ->exists();
-    }
-
-    protected static function newFactory(): Factory
-    {
-        return EnrollmentFactory::new();
     }
 }

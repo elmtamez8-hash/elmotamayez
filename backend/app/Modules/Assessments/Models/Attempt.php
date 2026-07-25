@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @property string $status
  * @property int $random_seed
+ * @property-read Exam $exam exam_id is NOT NULL, so the relation always resolves
  */
 class Attempt extends BaseModel
 {
@@ -36,6 +37,7 @@ class Attempt extends BaseModel
         'submitted_at',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -48,21 +50,25 @@ class Attempt extends BaseModel
         ];
     }
 
+    /** @return BelongsTo<Exam, $this> */
     public function exam(): BelongsTo
     {
         return $this->belongsTo(Exam::class);
     }
 
+    /** @return BelongsTo<Enrollment, $this> */
     public function enrollment(): BelongsTo
     {
         return $this->belongsTo(Enrollment::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_user_id');
     }
 
+    /** @return HasMany<Answer, $this> */
     public function answers(): HasMany
     {
         return $this->hasMany(Answer::class, 'attempt_id');

@@ -18,6 +18,7 @@ class LessonFactory extends Factory
 {
     protected $model = Lesson::class;
 
+    /** @return array<string, mixed> */
     public function definition(): array
     {
         return [

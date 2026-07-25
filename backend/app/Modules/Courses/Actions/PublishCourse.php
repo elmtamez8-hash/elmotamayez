@@ -19,6 +19,8 @@ class PublishCourse extends Action
 
         $this->logActivity('published', $course);
 
-        return $course->fresh();
+        $course->refresh();
+
+        return $course;
     }
 }

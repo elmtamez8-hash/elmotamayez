@@ -20,7 +20,7 @@ class ArticleController extends Controller
         $query = Article::query();
 
         // Only staff (those who can create/update articles) see drafts; everyone else sees published only.
-        if (! $request->user()?->can(Permissions::CMS_CREATE)) {
+        if (! $this->currentUser($request)->can(Permissions::CMS_CREATE)) {
             $query->where('status', 'published')->whereNotNull('published_at');
         }
 
@@ -40,7 +40,7 @@ class ArticleController extends Controller
     {
         $data = $request->validated();
         $data['slug'] ??= Str::slug($data['title'].'-'.Str::random(6));
-        $data['author_id'] = $request->user()->getKey();
+        $data['author_id'] = $this->currentUser($request)->getKey();
 
         $article = Article::create($data);
 

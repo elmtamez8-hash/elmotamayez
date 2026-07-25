@@ -67,7 +67,9 @@ class MarkLessonComplete extends Action
                 event(new LessonCompleted($progress));
 
                 if ($shouldComplete) {
-                    event(new CourseCompleted($enrollment->fresh()));
+                    $enrollment->refresh();
+
+                    event(new CourseCompleted($enrollment));
                 }
             });
 

@@ -12,13 +12,25 @@ use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Learning\Models\Enrollment;
 use App\Shared\Actions\Action;
 use App\Shared\Support\WorkspaceContext;
+use DomainException;
 use Illuminate\Support\Collection;
 
 class StartAttempt extends Action
 {
+    /**
+     * @throws DomainException when the student has used up the exam's attempt allowance
+     */
     public function handle(Exam $exam, User $student, ?Enrollment $enrollment = null): Attempt
     {
-        $seed = random_int(1, PHP_INT_MAX);
+        // Resolve the enrollment when the caller didn't supply one, otherwise the
+        // ExamPassed → certificate chain has nothing to attach the certificate to.
+        $enrollment ??= $this->enrollmentFor($exam, $student);
+
+        $this->guardAttemptLimit($exam, $student);
+
+        // exam_attempts.random_seed is an unsignedInteger column — keep the seed
+        // inside 32 bits or strict-mode MySQL rejects the insert.
+        $seed = random_int(1, 2147483647);
 
         $attempt = Attempt::create([
             'workspace_id' => app(WorkspaceContext::class)->id(),
@@ -31,6 +43,36 @@ class StartAttempt extends Action
         ]);
 
         return $attempt;
+    }
+
+    /**
+     * The student's enrollment in the exam's course, if the exam belongs to one.
+     */
+    private function enrollmentFor(Exam $exam, User $student): ?Enrollment
+    {
+        if ($exam->course_id === null) {
+            return null;
+        }
+
+        return Enrollment::query()
+            ->where('course_id', $exam->course_id)
+            ->where('student_user_id', $student->getKey())
+            ->first();
+    }
+
+    /**
+     * @throws DomainException
+     */
+    private function guardAttemptLimit(Exam $exam, User $student): void
+    {
+        $used = Attempt::query()
+            ->where('exam_id', $exam->getKey())
+            ->where('student_user_id', $student->getKey())
+            ->count();
+
+        if ($used >= $exam->max_attempts) {
+            throw new DomainException('You have used all '.$exam->max_attempts.' attempts for this exam.');
+        }
     }
 
     /**
@@ -72,7 +114,9 @@ class StartAttempt extends Action
             return $options;
         }
 
-        $seed = $attempt->random_seed + $options->first()?->question_id ?? 0;
+        // Vary the seed per question so two questions of the same attempt don't
+        // shuffle their options identically.
+        $seed = $attempt->random_seed + ($options->isEmpty() ? 0 : $options->first()->question_id);
         mt_srand($seed);
         $shuffled = $options->values()->all();
         for ($i = count($shuffled) - 1; $i > 0; $i--) {

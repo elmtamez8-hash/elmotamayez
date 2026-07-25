@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Scope;
  * Filtering is skipped when WorkspaceContext has no current workspace (i.e. operating
  * globally, typically a Super Admin with no workspace selected). To bypass the scope
  * on a specific query, call {@see BelongsToWorkspace::withoutWorkspaceScope()}.
+ *
+ * @implements Scope<Model>
  */
 final class WorkspaceScope implements Scope
 {
@@ -27,17 +29,26 @@ final class WorkspaceScope implements Scope
             return;
         }
 
+        // The scope is only ever registered from BelongsToWorkspace, which supplies
+        // the column; the fallback keeps the type checker honest.
+        $column = method_exists($model, 'getWorkspaceColumn')
+            ? $model->getWorkspaceColumn()
+            : 'workspace_id';
+
         $builder->where(
-            $model->getTable().'.'.$model->getWorkspaceColumn(),
+            $model->getTable().'.'.$column,
             '=',
             $workspaceId,
         );
     }
 
+    /**
+     * @param  Builder<Model>  $builder
+     */
     public function extend(Builder $builder): void
     {
         $builder->macro('withoutWorkspaceScope', function (Builder $builder): Builder {
-            return $builder->withoutGlobalScope($this);
+            return $builder->withoutGlobalScope(self::class);
         });
     }
 }

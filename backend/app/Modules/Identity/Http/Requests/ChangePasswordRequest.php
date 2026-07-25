@@ -15,6 +15,7 @@ class ChangePasswordRequest extends FormRequest
         return $this->user() !== null;
     }
 
+    /** @return array<string, mixed> */
     public function rules(): array
     {
         return [
@@ -26,6 +27,12 @@ class ChangePasswordRequest extends FormRequest
     public function ensureCurrentPasswordIsValid(): void
     {
         $user = $this->user();
+
+        if ($user === null) {
+            throw ValidationException::withMessages([
+                'current_password' => __('You must be signed in to change your password.'),
+            ]);
+        }
 
         if (! Hash::check($this->validated('current_password'), $user->password)) {
             throw ValidationException::withMessages([

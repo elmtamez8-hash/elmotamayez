@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Identity\Http\Controllers;
 
+use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\Identity\Http\Requests\ChangePasswordRequest;
 use App\Modules\Identity\Http\Requests\ForgotPasswordRequest;
@@ -16,7 +17,6 @@ use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
@@ -56,19 +56,19 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()?->delete();
+        $this->currentUser($request)->currentAccessToken()->delete();
 
         return response()->json(null, 204);
     }
 
     public function me(Request $request): JsonResponse
     {
-        return response()->json(UserResource::make($request->user()));
+        return response()->json(UserResource::make($this->currentUser($request)));
     }
 
     public function updateProfile(UpdateProfileRequest $request): JsonResponse
     {
-        $user = $request->user();
+        $user = $this->currentUser($request);
         $user->update($request->validated());
 
         return response()->json(UserResource::make($user->fresh()));
@@ -78,7 +78,7 @@ class AuthController extends Controller
     {
         $request->ensureCurrentPasswordIsValid();
 
-        $user = $request->user();
+        $user = $this->currentUser($request);
         $user->update(['password' => $request->validated('password')]);
 
         return response()->json(['message' => 'Password changed successfully.']);
@@ -86,26 +86,26 @@ class AuthController extends Controller
 
     public function sendVerificationEmail(Request $request): JsonResponse
     {
-        if ($request->user()->hasVerifiedEmail()) {
+        if ($this->currentUser($request)->hasVerifiedEmail()) {
             return response()->json(['message' => 'Email already verified.']);
         }
 
-        $request->user()->sendEmailVerificationNotification();
+        $this->currentUser($request)->sendEmailVerificationNotification();
 
         return response()->json(['message' => 'Verification link sent.']);
     }
 
     public function verifyEmail(Request $request): JsonResponse
     {
-        if (! hash_equals((string) $request->route('hash'), sha1((string) $request->user()->getEmailForVerification()))) {
+        if (! hash_equals((string) $request->route('hash'), sha1((string) $this->currentUser($request)->getEmailForVerification()))) {
             throw ValidationException::withMessages(['hash' => __('Invalid verification hash.')]);
         }
 
-        if ($request->user()->hasVerifiedEmail()) {
+        if ($this->currentUser($request)->hasVerifiedEmail()) {
             return response()->json(['message' => 'Email already verified.']);
         }
 
-        $request->user()->markEmailAsVerified();
+        $this->currentUser($request)->markEmailAsVerified();
 
         return response()->json(['message' => 'Email verified.']);
     }

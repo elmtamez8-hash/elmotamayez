@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 class ApproveOrder extends Action
 {
     use LogsActivity;
+
     public function handle(Order $order, User $approver): Order
     {
         if (! $order->isPending()) {
@@ -38,11 +39,13 @@ class ApproveOrder extends Action
                 'reference' => 'manual-approval-'.$order->getKey(),
             ]);
 
-            event(new PaymentApproved($order->fresh()));
+            $order->refresh();
+
+            event(new PaymentApproved($order));
 
             $this->logActivity('approved', $order, ['amount' => (float) $order->amount]);
 
-            return $order->fresh();
+            return $order;
         });
     }
 }

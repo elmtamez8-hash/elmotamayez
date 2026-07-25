@@ -30,6 +30,7 @@ class LessonProgress extends BaseModel
         'last_position',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -40,16 +41,19 @@ class LessonProgress extends BaseModel
         ];
     }
 
+    /** @return BelongsTo<Enrollment, $this> */
     public function enrollment(): BelongsTo
     {
         return $this->belongsTo(Enrollment::class);
     }
 
+    /** @return BelongsTo<Lesson, $this> */
     public function lesson(): BelongsTo
     {
         return $this->belongsTo(Lesson::class);
     }
 
+    /** @return HasMany<ProgressHistory, $this> */
     public function history(): HasMany
     {
         return $this->hasMany(ProgressHistory::class, 'lesson_progress_id');

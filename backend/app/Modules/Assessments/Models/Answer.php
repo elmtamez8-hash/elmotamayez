@@ -23,6 +23,7 @@ class Answer extends BaseModel
         'points',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -32,11 +33,13 @@ class Answer extends BaseModel
         ];
     }
 
+    /** @return BelongsTo<Attempt, $this> */
     public function attempt(): BelongsTo
     {
         return $this->belongsTo(Attempt::class, 'attempt_id');
     }
 
+    /** @return BelongsTo<Question, $this> */
     public function question(): BelongsTo
     {
         return $this->belongsTo(Question::class);

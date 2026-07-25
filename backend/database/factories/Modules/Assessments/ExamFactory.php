@@ -15,6 +15,7 @@ class ExamFactory extends Factory
 {
     protected $model = Exam::class;
 
+    /** @return array<string, mixed> */
     public function definition(): array
     {
         return [

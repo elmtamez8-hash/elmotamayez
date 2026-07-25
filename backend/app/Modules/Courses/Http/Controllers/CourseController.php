@@ -12,6 +12,7 @@ use App\Modules\Courses\Http\Requests\CreateCourseRequest;
 use App\Modules\Courses\Http\Requests\UpdateCourseRequest;
 use App\Modules\Courses\Http\Resources\CourseResource;
 use App\Modules\Courses\Models\Course;
+use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -24,7 +25,17 @@ class CourseController extends Controller
         $searchTerm = $request->string('search')->toString();
 
         if ($searchTerm !== '') {
-            $courses = Course::search($searchTerm)->paginate(15);
+            // Scout queries the search engine directly, outside the WorkspaceScope
+            // global scope — constrain it or the page is filled with other tenants'
+            // hits that then get filtered out during hydration.
+            $search = Course::search($searchTerm);
+
+            $workspaceId = app(WorkspaceContext::class)->id();
+            if ($workspaceId !== null) {
+                $search->where('workspace_id', $workspaceId);
+            }
+
+            $courses = $search->paginate(15);
         } else {
             $courses = Course::query()->orderByDesc('created_at')->paginate(15);
         }
@@ -41,7 +52,7 @@ class CourseController extends Controller
 
     public function store(CreateCourseRequest $request, CreateCourse $action): JsonResponse
     {
-        $course = $action->handle(CreateCourseDTO::fromArray($request->validated()), $request->user());
+        $course = $action->handle(CreateCourseDTO::fromArray($request->validated()), $this->currentUser($request));
 
         return response()->json(CourseResource::make($course), 201);
     }

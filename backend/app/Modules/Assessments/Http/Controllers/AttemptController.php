@@ -11,6 +11,7 @@ use App\Modules\Assessments\Http\Requests\SubmitAttemptRequest;
 use App\Modules\Assessments\Http\Resources\AttemptResource;
 use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\Exam;
+use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -24,7 +25,11 @@ class AttemptController extends Controller
             return response()->json(['message' => 'Exam is not available.'], 422);
         }
 
-        $attempt = $action->handle($exam, $request->user());
+        try {
+            $attempt = $action->handle($exam, $this->currentUser($request));
+        } catch (DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
 
         $questions = $action->questionsForAttempt($attempt)->map(function ($q) use ($action, $attempt) {
             return [

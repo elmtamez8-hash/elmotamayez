@@ -15,6 +15,7 @@ class SectionFactory extends Factory
 {
     protected $model = Section::class;
 
+    /** @return array<string, mixed> */
     public function definition(): array
     {
         return [

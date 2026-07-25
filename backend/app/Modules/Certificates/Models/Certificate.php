@@ -35,6 +35,7 @@ class Certificate extends BaseModel implements HasMedia
         'metadata',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -48,21 +49,25 @@ class Certificate extends BaseModel implements HasMedia
         $this->addMediaCollection('certificate_pdf')->singleFile();
     }
 
+    /** @return BelongsTo<Enrollment, $this> */
     public function enrollment(): BelongsTo
     {
         return $this->belongsTo(Enrollment::class);
     }
 
+    /** @return BelongsTo<Course, $this> */
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_user_id');
     }
 
+    /** @return BelongsTo<CertificateTemplate, $this> */
     public function template(): BelongsTo
     {
         return $this->belongsTo(CertificateTemplate::class);

@@ -26,14 +26,14 @@ class WorkspaceController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $workspaces = $request->user()->workspaces()->withPivot('role')->get();
+        $workspaces = $this->currentUser($request)->workspaces()->withPivot('role')->get();
 
         return response()->json(WorkspaceResource::collection($workspaces));
     }
 
     public function store(CreateWorkspaceRequest $request, CreateWorkspace $action): JsonResponse
     {
-        $workspace = $action->handle(CreateWorkspaceDTO::fromArray($request->validated()), $request->user());
+        $workspace = $action->handle(CreateWorkspaceDTO::fromArray($request->validated()), $this->currentUser($request));
 
         return response()->json(WorkspaceResource::make($workspace), 201);
     }
@@ -52,11 +52,11 @@ class WorkspaceController extends Controller
         $this->authorize('view', $workspace);
 
         return response()->json([
-            'data' => $workspace->members()->withPivot('role')->get()->map(fn ($m) => [
-                'uuid' => $m->uuid,
-                'name' => $m->name,
-                'email' => $m->email,
-                'role' => $m->pivot->role,
+            'data' => $workspace->members()->withPivot('role')->get()->map(fn (User $member) => [
+                'uuid' => $member->uuid,
+                'name' => $member->name,
+                'email' => $member->email,
+                'role' => $member->getRelationValue('pivot')?->getAttribute('role'),
             ]),
         ]);
     }
@@ -65,7 +65,7 @@ class WorkspaceController extends Controller
     {
         $this->authorize('manageMembers', $workspace);
 
-        $invitation = $action->handle($workspace, $request->validated('email'), $request->validated('role'), $request->user());
+        $invitation = $action->handle($workspace, $request->validated('email'), $request->validated('role'), $this->currentUser($request));
 
         return response()->json(['token' => $invitation->token], 201);
     }
@@ -90,9 +90,15 @@ class WorkspaceController extends Controller
 
     public function acceptInvitation(Request $request, string $token, AcceptInvitation $action): JsonResponse
     {
-        $invitation = Invitation::where('token', $token)->firstOrFail();
+        // The invitee is accepting an invitation into a workspace they are not a
+        // member of yet, so their current workspace must not filter this lookup.
+        // The single-use token is the authorization here.
+        $invitation = Invitation::query()
+            ->withoutWorkspaceScope()
+            ->where('token', $token)
+            ->firstOrFail();
 
-        $workspace = $action->handle($invitation, $request->user());
+        $workspace = $action->handle($invitation, $this->currentUser($request));
 
         return response()->json(WorkspaceResource::make($workspace));
     }

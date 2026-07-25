@@ -20,6 +20,7 @@ class Tag extends BaseModel
         'slug',
     ];
 
+    /** @return BelongsToMany<Article, $this> */
     public function articles(): BelongsToMany
     {
         return $this->belongsToMany(Article::class, 'cms_article_tag', 'tag_id', 'article_id');

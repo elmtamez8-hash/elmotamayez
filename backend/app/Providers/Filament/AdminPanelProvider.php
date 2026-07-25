@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Modules\Analytics\Filament\Widgets\EnrollmentStatsWidget;
 use App\Modules\Analytics\Filament\Widgets\ExamStatsWidget;
+use App\Shared\Middleware\EnsureCurrentWorkspace;
 use App\Shared\Middleware\EnsureFilamentAccess;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -57,6 +58,10 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
+                // Must run after Authenticate (needs the user) and before any
+                // role check: spatie is in team mode, so permission lookups are
+                // meaningless until the team id matches the current workspace.
+                EnsureCurrentWorkspace::class,
                 EnsureFilamentAccess::class,
             ]);
     }

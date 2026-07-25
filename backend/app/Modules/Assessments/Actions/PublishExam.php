@@ -18,6 +18,8 @@ class PublishExam extends Action
 
         $this->logActivity('published', $exam);
 
-        return $exam->fresh();
+        $exam->refresh();
+
+        return $exam;
     }
 }

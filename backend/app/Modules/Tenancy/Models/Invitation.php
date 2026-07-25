@@ -6,10 +6,19 @@ namespace App\Modules\Tenancy\Models;
 
 use App\Models\BaseModel;
 use App\Models\User;
+use App\Shared\Traits\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property-read Carbon $expires_at
+ * @property-read Carbon|null $accepted_at
+ * @property-read Workspace $workspace
+ */
 class Invitation extends BaseModel
 {
+    use BelongsToWorkspace;
+
     protected $fillable = [
         'workspace_id',
         'email',
@@ -20,6 +29,7 @@ class Invitation extends BaseModel
         'accepted_by',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -28,11 +38,13 @@ class Invitation extends BaseModel
         ];
     }
 
+    /** @return BelongsTo<Workspace, $this> */
     public function workspace(): BelongsTo
     {
         return $this->belongsTo(Workspace::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function accepter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'accepted_by');

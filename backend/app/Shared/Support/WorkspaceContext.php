@@ -106,6 +106,42 @@ class WorkspaceContext
     }
 
     /**
+     * Execute a callback with the given workspace as the current one, restoring the
+     * previous context (and spatie team id) afterwards.
+     *
+     * Use this instead of {@see set()} in queued jobs, listeners and console commands:
+     * the context is an application-wide singleton, so an unrestored set() leaks the
+     * workspace into whatever the same worker process handles next.
+     *
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    public function forWorkspace(Workspace|int $workspace, callable $callback): mixed
+    {
+        $id = $workspace instanceof Workspace ? (int) $workspace->getKey() : $workspace;
+
+        $previousId = $this->resolvedId;
+        $previousResolved = $this->resolved;
+
+        $registrar = app(PermissionRegistrar::class);
+        $previousTeam = $registrar->getPermissionsTeamId();
+
+        $this->resolvedId = $id;
+        $this->resolved = true;
+        $registrar->setPermissionsTeamId($id);
+
+        try {
+            return $callback();
+        } finally {
+            $this->resolvedId = $previousId;
+            $this->resolved = $previousResolved;
+            $registrar->setPermissionsTeamId($previousTeam);
+        }
+    }
+
+    /**
      * Execute a callback while bypassing the workspace global scope.
      *
      * @template T

@@ -21,6 +21,8 @@ class UpdateWorkspace extends Action
 
         $this->logActivity('updated', $workspace, $attributes);
 
-        return $workspace->fresh();
+        $workspace->refresh();
+
+        return $workspace;
     }
 }

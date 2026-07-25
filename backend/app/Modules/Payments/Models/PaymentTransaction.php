@@ -27,6 +27,7 @@ class PaymentTransaction extends BaseModel
         'payload',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
@@ -35,6 +36,7 @@ class PaymentTransaction extends BaseModel
         ];
     }
 
+    /** @return BelongsTo<Order, $this> */
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);

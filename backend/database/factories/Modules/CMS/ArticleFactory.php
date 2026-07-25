@@ -16,6 +16,7 @@ class ArticleFactory extends Factory
 {
     protected $model = Article::class;
 
+    /** @return array<string, mixed> */
     public function definition(): array
     {
         $title = fake()->sentence(5);

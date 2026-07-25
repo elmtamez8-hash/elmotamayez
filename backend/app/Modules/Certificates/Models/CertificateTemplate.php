@@ -18,6 +18,7 @@ class CertificateTemplate extends BaseModel
         'defaults',
     ];
 
+    /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [

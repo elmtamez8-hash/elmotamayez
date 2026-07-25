@@ -11,6 +11,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /** @mixin Workspace */
 class WorkspaceResource extends JsonResource
 {
+    /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
         return [
@@ -20,7 +21,10 @@ class WorkspaceResource extends JsonResource
             'type' => $this->type,
             'settings' => $this->settings,
             'is_owner' => $request->user()?->getKey() === $this->owner_user_id,
-            'pivot_role' => $this->whenPivotLoaded('workspace_members', fn () => $this->pivot->role),
+            'pivot_role' => $this->whenPivotLoaded(
+                'workspace_members',
+                fn () => $this->resource->getRelationValue('pivot')?->getAttribute('role'),
+            ),
             'created_at' => $this->created_at,
         ];
     }
