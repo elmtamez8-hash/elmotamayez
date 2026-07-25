@@ -9,7 +9,6 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Events\EnrollmentCreated;
 use App\Modules\Learning\Models\Enrollment;
 use App\Shared\Actions\Action;
-use App\Shared\Support\WorkspaceContext;
 use App\Shared\Traits\LogsActivity;
 
 class EnrollStudent extends Action
@@ -20,7 +19,9 @@ class EnrollStudent extends Action
     {
         $enrollment = Enrollment::firstOrCreate(
             [
-                'workspace_id' => app(WorkspaceContext::class)->id(),
+                // The course owns the workspace; the current context may be null
+                // when a Super Admin or a queued job performs the enrollment.
+                'workspace_id' => $course->workspace_id,
                 'course_id' => $course->getKey(),
                 'student_user_id' => $student->getKey(),
             ],

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\Question;
@@ -12,6 +13,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
 use App\Modules\Learning\Models\Enrollment;
+use App\Shared\Support\WorkspaceContext;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 
@@ -115,6 +117,50 @@ describe('attempt rules', function (): void {
             ->assertJsonPath('passed', true);
     });
 
+    it('accepts an empty selection for a skipped question', function (): void {
+        [$workspace] = $this->createWorkspaceWithOwner();
+        [$exam, $correct] = attemptRulesExam($workspace->id);
+
+        $student = $this->addWorkspaceMember($workspace, 'student');
+        Sanctum::actingAs($student);
+
+        $attemptUuid = $this->postJson("/api/v1/exams/{$exam->uuid}/attempts")
+            ->assertCreated()
+            ->json('attempt.uuid');
+
+        // What the exam page sends: every question, the skipped one with [].
+        $answers = collect($correct)->map(fn (int $optionId, int $questionId) => [
+            'question_id' => $questionId,
+            'selected_option_ids' => [$optionId],
+        ])->values()->all();
+        $answers[1]['selected_option_ids'] = [];
+
+        $this->postJson("/api/v1/attempts/{$attemptUuid}/submit", ['answers' => $answers])
+            ->assertOk()
+            ->assertJsonPath('score', 50);
+    });
+
+    it('lets a super admin without a workspace start and submit', function (): void {
+        [$workspace] = $this->createWorkspaceWithOwner();
+        [$exam, $correct] = attemptRulesExam($workspace->id);
+
+        $superAdmin = User::factory()->create(['is_super_admin' => true]);
+        app(WorkspaceContext::class)->forget();
+
+        Sanctum::actingAs($superAdmin);
+
+        $attemptUuid = $this->postJson("/api/v1/exams/{$exam->uuid}/attempts")
+            ->assertCreated()
+            ->json('attempt.uuid');
+
+        $this->postJson("/api/v1/attempts/{$attemptUuid}/submit", [
+            'answers' => collect($correct)->map(fn (int $optionId, int $questionId) => [
+                'question_id' => $questionId,
+                'selected_option_ids' => [$optionId],
+            ])->values()->all(),
+        ])->assertOk()->assertJsonPath('passed', true);
+    });
+
     it('rejects an attempt once max_attempts is used up', function (): void {
         [$workspace] = $this->createWorkspaceWithOwner();
         [$exam, $correct] = attemptRulesExam($workspace->id, maxAttempts: 1);
@@ -192,6 +238,27 @@ describe('attempt rules', function (): void {
 
         expect($question->options()->orderBy('id')->pluck('id')->all())->toBe($optionIdsBefore)
             ->and($question->options()->where('is_correct', true)->value('content'))->toBe('Right (reworded)');
+    });
+});
+
+describe('workspace resolution', function (): void {
+    it('takes the workspace from the exam when the actor has none', function (): void {
+        [$workspace] = $this->createWorkspaceWithOwner();
+        [$exam] = attemptRulesExam($workspace->id);
+
+        // A Super Admin operating globally: no current workspace, no membership.
+        $superAdmin = User::factory()->create(['is_super_admin' => true]);
+        app(WorkspaceContext::class)->forget();
+
+        Sanctum::actingAs($superAdmin);
+
+        $attemptUuid = $this->postJson("/api/v1/exams/{$exam->uuid}/attempts")
+            ->assertCreated()
+            ->json('attempt.uuid');
+
+        $attempt = Attempt::withoutWorkspaceScope()->where('uuid', $attemptUuid)->firstOrFail();
+
+        expect($attempt->workspace_id)->toBe($workspace->id);
     });
 });
 

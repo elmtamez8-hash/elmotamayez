@@ -20,7 +20,9 @@ class SubmitAttemptRequest extends FormRequest
         return [
             'answers' => ['required', 'array', 'min:1'],
             'answers.*.question_id' => ['required', 'integer'],
-            'answers.*.selected_option_ids' => ['required', 'array', 'min:1'],
+            // An empty selection is a valid answer: the question is graded as zero.
+            // Rejecting it would force clients to drop skipped questions silently.
+            'answers.*.selected_option_ids' => ['present', 'array'],
             'answers.*.selected_option_ids.*' => ['integer'],
         ];
     }

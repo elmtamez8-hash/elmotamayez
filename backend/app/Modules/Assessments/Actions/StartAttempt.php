@@ -11,7 +11,6 @@ use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Learning\Models\Enrollment;
 use App\Shared\Actions\Action;
-use App\Shared\Support\WorkspaceContext;
 use DomainException;
 use Illuminate\Support\Collection;
 
@@ -33,7 +32,10 @@ class StartAttempt extends Action
         $seed = random_int(1, 2147483647);
 
         $attempt = Attempt::create([
-            'workspace_id' => app(WorkspaceContext::class)->id(),
+            // Take the workspace from the exam, not the ambient context: an actor
+            // operating globally (Super Admin with no current workspace) would
+            // otherwise write a NULL workspace_id.
+            'workspace_id' => $exam->workspace_id,
             'exam_id' => $exam->getKey(),
             'enrollment_id' => $enrollment?->getKey(),
             'student_user_id' => $student->getKey(),

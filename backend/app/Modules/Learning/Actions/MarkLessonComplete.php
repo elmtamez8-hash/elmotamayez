@@ -10,7 +10,6 @@ use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Models\LessonProgress;
 use App\Modules\Learning\Models\ProgressHistory;
 use App\Shared\Actions\Action;
-use App\Shared\Support\WorkspaceContext;
 use Illuminate\Support\Facades\DB;
 
 class MarkLessonComplete extends Action
@@ -22,7 +21,7 @@ class MarkLessonComplete extends Action
         return DB::transaction(function () use ($enrollment, $lessonId): LessonProgress {
             $progress = LessonProgress::firstOrCreate(
                 [
-                    'workspace_id' => app(WorkspaceContext::class)->id(),
+                    'workspace_id' => $enrollment->workspace_id,
                     'enrollment_id' => $enrollment->getKey(),
                     'lesson_id' => $lessonId,
                 ],

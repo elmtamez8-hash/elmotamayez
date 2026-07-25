@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { use } from "react";
 
@@ -33,7 +33,7 @@ export default function TakeExamPage({ params }: { params: Promise<{ uuid: strin
         res.questions.forEach((q) => { initial[q.id] = []; });
         setAnswers(initial);
       })
-      .catch((err) => setError(err.message ?? "Failed to start exam"))
+      .catch((err: unknown) => setError(errorMessage(err, "Failed to start exam")))
       .finally(() => setLoading(false));
   }, [uuid]);
 
@@ -48,8 +48,10 @@ export default function TakeExamPage({ params }: { params: Promise<{ uuid: strin
     setSubmitting(true);
     setError("");
     try {
+      // Unanswered questions are submitted with an empty selection and graded
+      // as zero — the exam total never shrinks to what was answered.
       const payload = Object.entries(answers).map(([qId, optionIds]) => ({
-        question_id: parseInt(qId),
+        question_id: parseInt(qId, 10),
         selected_option_ids: optionIds,
       }));
       const result = await api.post<{ uuid: string; status: string; score: number; passed: boolean }>(
@@ -58,8 +60,7 @@ export default function TakeExamPage({ params }: { params: Promise<{ uuid: strin
       );
       router.push(`/exams/${result.uuid}/result`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Submission failed";
-      setError(msg);
+      setError(errorMessage(err, "Submission failed"));
     } finally {
       setSubmitting(false);
     }

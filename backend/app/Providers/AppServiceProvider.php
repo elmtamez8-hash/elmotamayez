@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Models\User;
 use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 
@@ -29,6 +31,12 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         JsonResource::withoutWrapping();
+
+        // Super Admin is a platform-level flag, not a tenant role, so it holds no
+        // spatie permissions. BasePolicy::before() already lets it through policy
+        // checks; this covers the bare `can('some.permission')` calls that Form
+        // Requests use for authorization.
+        Gate::before(fn (User $user): ?bool => $user->isSuperAdmin() ? true : null);
 
         // Module models live in App\Modules\{Module}\Models and their factories in
         // Database\Factories\Modules\{Module} — resolve that here instead of having
