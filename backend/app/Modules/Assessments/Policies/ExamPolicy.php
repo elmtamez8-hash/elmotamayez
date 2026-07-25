@@ -12,11 +12,15 @@ use Illuminate\Auth\Access\Response;
 
 class ExamPolicy extends BasePolicy
 {
+    /**
+     * Any member may list exams. What they get back is narrowed by the query:
+     * published exams for everyone, drafts only with EXAMS_VIEW — the same split
+     * {@see view()} applies to a single exam. Requiring EXAMS_VIEW here would let
+     * a student open an exam by uuid but never find it in a list.
+     */
     public function viewAny(User $user): Response
     {
-        return $user->can(Permissions::EXAMS_VIEW)
-            ? Response::allow()
-            : Response::deny();
+        return Response::allow();
     }
 
     public function view(User $user, Exam $exam): Response

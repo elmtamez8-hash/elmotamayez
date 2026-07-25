@@ -241,6 +241,27 @@ describe('attempt rules', function (): void {
     });
 });
 
+describe('exam listing', function (): void {
+    it('shows students the published exams but not the drafts', function (): void {
+        [$workspace] = $this->createWorkspaceWithOwner();
+        [$published] = attemptRulesExam($workspace->id);
+        $draft = Exam::create([
+            'workspace_id' => $workspace->id,
+            'uuid' => Str::uuid(),
+            'title' => 'Unpublished draft',
+            'status' => 'draft',
+        ]);
+
+        $student = $this->addWorkspaceMember($workspace, 'student');
+        Sanctum::actingAs($student);
+
+        $titles = collect($this->getJson('/api/v1/exams')->assertOk()->json())->pluck('title');
+
+        expect($titles)->toContain($published->title)
+            ->and($titles)->not->toContain($draft->title);
+    });
+});
+
 describe('workspace resolution', function (): void {
     it('takes the workspace from the exam when the actor has none', function (): void {
         [$workspace] = $this->createWorkspaceWithOwner();
