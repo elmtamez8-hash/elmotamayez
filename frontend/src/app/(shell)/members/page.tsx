@@ -35,6 +35,7 @@ export default function MembersPage() {
           setMembers(detail.data ?? []);
         }
       })
+      .catch((err: unknown) => setError(errorMessage(err, "Could not load members")))
       .finally(() => setLoading(false));
   };
 

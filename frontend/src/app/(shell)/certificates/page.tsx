@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import type { Certificate } from "@/lib/types";
 
 export default function CertificatesPage() {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api.get<{ data: Certificate[] }>("/certificates")
       .then((res) => setCertificates(res.data ?? []))
+      .catch((err: unknown) => setError(errorMessage(err, "Could not load certificates")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -19,6 +21,8 @@ export default function CertificatesPage() {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">My Certificates</h2>
+
+      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
 
       {certificates.length === 0 ? (
         <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-gray-200">

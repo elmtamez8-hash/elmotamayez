@@ -40,8 +40,8 @@ async function request<T>(
   if (res.status === 204) return undefined as T;
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: "Request failed" }));
-    throw error;
+    const body: unknown = await res.json().catch(() => null);
+    throw new ApiError(bodyMessage(body) ?? `Request failed (${res.status})`, res.status, body);
   }
 
   const json = await res.json();
@@ -51,13 +51,32 @@ async function request<T>(
   return Array.isArray(json) ? ({ data: json } as T) : json;
 }
 
-/** The API rejects with the parsed JSON body, so `err.message` carries the reason. */
-export function errorMessage(err: unknown, fallback: string): string {
-  if (typeof err === "object" && err !== null && "message" in err) {
-    const message = (err as { message: unknown }).message;
+/**
+ * A failed request. Always an Error subclass — throwing the raw JSON body made
+ * React's overlay render "[object Object]" with no clue what broke.
+ */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly body: unknown,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+function bodyMessage(body: unknown): string | null {
+  if (typeof body === "object" && body !== null && "message" in body) {
+    const message = (body as { message: unknown }).message;
     if (typeof message === "string" && message !== "") return message;
   }
-  return fallback;
+  return null;
+}
+
+export function errorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message !== "") return err.message;
+  return bodyMessage(err) ?? fallback;
 }
 
 export const api = {

@@ -12,6 +12,7 @@ export default function ExamResultPage({ params }: { params: Promise<{ uuid: str
   useEffect(() => {
     api.get<{ status: string; score: number; max_score: number; passed: boolean }>(`/attempts/${uuid}`)
       .then(setResult)
+      .catch(() => setResult(null))
       .finally(() => setLoading(false));
   }, [uuid]);
 

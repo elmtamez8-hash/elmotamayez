@@ -1,18 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import type { Workspace } from "@/lib/types";
 import Link from "next/link";
 
 export default function WorkspacePage() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [switching, setSwitching] = useState<string | null>(null);
 
   useEffect(() => {
     api.get<{ data: Workspace[] }>("/workspaces")
       .then((res) => setWorkspaces(res.data ?? []))
+      .catch((err: unknown) => setError(errorMessage(err, "Could not load workspaces")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -30,6 +32,8 @@ export default function WorkspacePage() {
 
   return (
     <div className="space-y-6">
+      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
+
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Workspaces</h2>
         <Link href="/workspaces/new" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">

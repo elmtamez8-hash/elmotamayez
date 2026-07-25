@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import type { Course } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { use } from "react";
@@ -21,6 +21,7 @@ export default function EditCoursePage({ params }: { params: Promise<{ uuid: str
         setCourse(c);
         setForm({ title: c.title, description: c.description ?? "", price: c.price, currency: c.currency, is_sequential: c.is_sequential });
       })
+      .catch((err: unknown) => setError(errorMessage(err, "Could not load this course")))
       .finally(() => setLoading(false));
   }, [uuid]);
 

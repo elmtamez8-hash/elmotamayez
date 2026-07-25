@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import type { Enrollment } from "@/lib/types";
 
 interface EnrollmentWithCourse extends Enrollment {
@@ -11,10 +11,12 @@ interface EnrollmentWithCourse extends Enrollment {
 export default function EnrollmentsPage() {
   const [enrollments, setEnrollments] = useState<EnrollmentWithCourse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api.get<{ data: EnrollmentWithCourse[] }>("/enrollments")
       .then((res) => setEnrollments(res.data ?? []))
+      .catch((err: unknown) => setError(errorMessage(err, "Could not load your enrollments")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -23,6 +25,8 @@ export default function EnrollmentsPage() {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">My Learning</h2>
+
+      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
 
       {enrollments.length === 0 ? (
         <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-gray-200">

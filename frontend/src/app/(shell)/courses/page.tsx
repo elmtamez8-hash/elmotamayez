@@ -1,19 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import type { Course } from "@/lib/types";
 import Link from "next/link";
 
 export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     api.get<{ data: Course[] }>("/courses")
       .then((res) => setCourses(res.data ?? []))
+      .catch((err: unknown) => setError(errorMessage(err, "Could not load courses")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -38,6 +40,8 @@ export default function CoursesPage() {
 
   return (
     <div className="space-y-6">
+      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Course Catalog</h2>

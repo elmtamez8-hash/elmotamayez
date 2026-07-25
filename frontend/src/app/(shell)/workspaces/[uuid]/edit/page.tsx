@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import type { Workspace } from "@/lib/types";
 import { use } from "react";
 import { useRouter } from "next/navigation";
@@ -20,6 +20,7 @@ export default function EditWorkspacePage({ params }: { params: Promise<{ uuid: 
         const ws = res.data?.find((w) => w.uuid === uuid);
         if (ws) setForm({ name: ws.name, slug: ws.slug ?? "" });
       })
+      .catch((err: unknown) => setError(errorMessage(err, "Could not load this workspace")))
       .finally(() => setLoading(false));
   }, [uuid]);
 

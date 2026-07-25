@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import type { Exam } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { use } from "react";
@@ -37,6 +37,7 @@ export default function ManageExamPage({ params }: { params: Promise<{ uuid: str
       setEditForm({ title: ex.title, description: ex.description ?? "", duration_minutes: ex.duration_minutes, passing_score: ex.passing_score, max_attempts: ex.max_attempts });
       setQuestions(qs.data ?? []);
     })
+      .catch((err: unknown) => setError(errorMessage(err, "Could not load this exam")))
       .finally(() => setLoading(false));
   };
 

@@ -13,6 +13,7 @@ export default function OrdersPage() {
   useEffect(() => {
     api.get<{ data: Order[] }>("/orders")
       .then((res) => setOrders(res.data ?? []))
+      .catch((err: unknown) => setError(errorMessage(err, "Could not load orders")))
       .finally(() => setLoading(false));
   }, []);
 
