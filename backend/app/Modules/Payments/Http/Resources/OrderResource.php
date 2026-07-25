@@ -24,6 +24,12 @@ class OrderResource extends JsonResource
             'approved_at' => $this->approved_at,
             'course_title' => $this->course?->title,
             'has_receipt' => $this->hasMedia('receipt'),
+            // Lets the buyer's client tell "upload your receipt" apart from a
+            // staff member looking at someone else's order.
+            'is_mine' => $this->user_id === $request->user()?->getKey(),
+            'receipt_url' => $this->hasMedia('receipt')
+                ? $this->getFirstMediaUrl('receipt')
+                : null,
             'created_at' => $this->created_at,
         ];
     }

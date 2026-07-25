@@ -18,6 +18,7 @@ php vendor/bin/pest --coverage                   # needs pcov/xdebug
 ./vendor/bin/pint                                # fix PSR-12 style (--test to check only)
 ./vendor/bin/phpstan analyse                     # Larastan level 8 (phpstan.neon) — see note below
 php artisan migrate:fresh --seed                 # reset DB + roles/permissions + demo data
+php artisan storage:link                         # once per checkout — serves uploaded receipts at /storage
 php artisan serve                                # API on :8000, Filament on /admin, Horizon on /horizon
 php artisan scribe:generate                      # regenerate /docs from route annotations
 ```

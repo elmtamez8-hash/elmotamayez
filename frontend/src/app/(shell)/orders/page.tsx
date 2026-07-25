@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import type { Order } from "@/lib/types";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api.get<{ data: Order[] }>("/orders")
@@ -40,6 +41,21 @@ export default function OrdersPage() {
     }
   };
 
+  const handleReceipt = async (uuid: string, file: File) => {
+    setAction(uuid);
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("receipt", file);
+      const updated = await api.upload<Order>(`/orders/${uuid}/receipt`, form);
+      setOrders(orders.map((o) => (o.uuid === uuid ? updated : o)));
+    } catch (err: unknown) {
+      setError(errorMessage(err, "Could not upload the receipt"));
+    } finally {
+      setAction(null);
+    }
+  };
+
   const canManage = orders.some((o) => o.status === "pending" || o.status === "under_review");
 
   if (loading) return <div className="text-gray-400">Loading...</div>;
@@ -47,6 +63,8 @@ export default function OrdersPage() {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Orders</h2>
+
+      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
 
       {orders.length === 0 ? (
         <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-gray-200">
@@ -60,6 +78,7 @@ export default function OrdersPage() {
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Course</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Amount</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Receipt</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Date</th>
                 {canManage && <th className="px-4 py-3 text-left font-medium text-gray-600">Actions</th>}
               </tr>
@@ -78,6 +97,35 @@ export default function OrdersPage() {
                     }`}>
                       {order.status.replace("_", " ")}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {order.receipt_url ? (
+                      <a
+                        href={order.receipt_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium text-indigo-600 hover:underline"
+                      >
+                        View receipt
+                      </a>
+                    ) : order.is_mine && (order.status === "pending" || order.status === "under_review") ? (
+                      <label className="cursor-pointer text-xs font-medium text-indigo-600 hover:underline">
+                        {action === order.uuid ? "Uploading..." : "Upload receipt"}
+                        <input
+                          type="file"
+                          accept=".jpg,.jpeg,.png,.pdf"
+                          className="hidden"
+                          disabled={action === order.uuid}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (file) handleReceipt(order.uuid, file);
+                          }}
+                        />
+                      </label>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-gray-500">{new Date(order.created_at).toLocaleDateString()}</td>
                   {canManage && (

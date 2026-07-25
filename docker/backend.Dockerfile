@@ -27,6 +27,9 @@ COPY . .
 
 RUN composer install --no-interaction --optimize-autoloader --no-dev
 
+# public/storage → storage/app/public, so nginx can serve uploaded receipts.
+RUN php artisan storage:link --force
+
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 775 storage bootstrap/cache
 

@@ -81,6 +81,8 @@ export interface Order {
   approved_at: string | null;
   course_title: string | null;
   has_receipt: boolean;
+  is_mine: boolean;
+  receipt_url: string | null;
   created_at: string;
 }
 

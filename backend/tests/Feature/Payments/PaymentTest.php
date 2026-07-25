@@ -62,7 +62,11 @@ describe('receipt upload', function (): void {
 
         $this->postJson("/api/v1/orders/{$order->uuid}/receipt", [
             'receipt' => UploadedFile::fake()->createWithContent('receipt.pdf', '%PDF-1.4 test'),
-        ])->assertOk()->assertJsonPath('status', 'under_review');
+        ])->assertOk()
+            ->assertJsonPath('status', 'under_review')
+            ->assertJsonPath('has_receipt', true)
+            ->assertJsonPath('is_mine', true)
+            ->assertJsonPath('receipt_url', fn (?string $url) => $url !== null && str_contains($url, 'receipt'));
 
         expect($order->fresh()->getFirstMedia('receipt'))->not->toBeNull();
     });

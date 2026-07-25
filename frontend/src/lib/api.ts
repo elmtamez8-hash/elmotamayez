@@ -30,6 +30,11 @@ async function request<T>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
+  // Let the browser build the multipart Content-Type, boundary included.
+  if (options.body instanceof FormData) {
+    delete headers["Content-Type"];
+  }
+
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
   if (res.status === 204) return undefined as T;
@@ -57,6 +62,8 @@ export function errorMessage(err: unknown, fallback: string): string {
 
 export const api = {
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
+  upload: <T>(path: string, form: FormData) =>
+    request<T>(path, { method: "POST", body: form }),
   post: <T>(path: string, data?: unknown) =>
     request<T>(path, { method: "POST", body: data ? JSON.stringify(data) : undefined }),
   put: <T>(path: string, data?: unknown) =>
