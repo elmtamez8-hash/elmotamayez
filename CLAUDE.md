@@ -83,3 +83,4 @@ Pest, `RefreshDatabase` for all suites, plus the `Tests\Support\WithWorkspace` t
 - Module directory names are matched literally by `Module::registerMigrations()`/`registerFactories()`. Migrations must live in `Database/Migrations` (capital M) — a casing mismatch resolves fine on Windows/macOS and silently loads **zero** migrations on Linux.
 - Adding a tenant-scoped model without `BelongsToWorkspace` leaks data across workspaces and no test will catch it unless you add one to `tests/Feature/Tenancy/WorkspaceIsolationTest.php`.
 - Frontend stores the Sanctum token in `localStorage` and sends `Authorization: Bearer` (`frontend/src/lib/api.ts`); it relies on the Next.js rewrite, so the backend must be running on :8000.
+- Don't run `npm run build` while `npm run dev` is up — both write `.next/`, and the dev server then dies with `Cannot find module './NNN.js'`. Stop dev first (or accept that you must `rm -rf .next` and restart it).
