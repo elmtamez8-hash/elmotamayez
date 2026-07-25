@@ -195,6 +195,24 @@ describe('attempt rules', function (): void {
     });
 });
 
+describe('course detail payload', function (): void {
+    it('returns chapter lessons as a list', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+        $course = attemptRulesCourse($workspace->id);
+
+        $this->setCurrentWorkspace($workspace, $owner);
+        Sanctum::actingAs($owner);
+
+        $response = $this->getJson("/api/v1/courses/{$course->uuid}")->assertOk();
+
+        $lessons = $response->json('sections.0.chapters.0.lessons');
+
+        expect($lessons)->toBeArray()
+            ->and($lessons)->toHaveCount(1)
+            ->and($lessons[0]['title'])->toBe('Lesson 1');
+    });
+});
+
 describe('enrollment lesson boundary', function (): void {
     it('refuses to complete a lesson that belongs to another course', function (): void {
         [$workspace] = $this->createWorkspaceWithOwner();
