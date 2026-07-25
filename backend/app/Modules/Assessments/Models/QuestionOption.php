@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Assessments\Models;
+
+use App\Models\BaseModel;
+use App\Shared\Traits\BelongsToWorkspace;
+use Database\Factories\Modules\Assessments\QuestionOptionFactory;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class QuestionOption extends BaseModel
+{
+    use BelongsToWorkspace, HasFactory;
+
+    protected $fillable = [
+        'workspace_id',
+        'question_id',
+        'content',
+        'is_correct',
+        'order',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_correct' => 'boolean',
+            'order' => 'integer',
+        ];
+    }
+
+    public function question(): BelongsTo
+    {
+        return $this->belongsTo(Question::class);
+    }
+
+    protected static function newFactory(): Factory
+    {
+        return QuestionOptionFactory::new();
+    }
+}

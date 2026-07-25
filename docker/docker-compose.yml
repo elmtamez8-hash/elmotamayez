@@ -1,0 +1,120 @@
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/backend.Dockerfile
+    container_name: mteatch-backend
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ../backend:/var/www/html
+      - backend-vendor:/var/www/html/vendor
+    networks:
+      - mteatch
+    depends_on:
+      - mysql
+      - redis
+      - meilisearch
+    environment:
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_DATABASE=mteatch
+      - DB_USERNAME=mteatch
+      - DB_PASSWORD=secret
+      - CACHE_STORE=redis
+      - QUEUE_CONNECTION=redis
+      - SESSION_DRIVER=redis
+      - REDIS_HOST=redis
+      - SCOUT_DRIVER=meilisearch
+      - SCOUT_MEILISEARCH_HOST=http://meilisearch:7700
+
+  horizon:
+    build:
+      context: ../backend
+      dockerfile: ../docker/backend.Dockerfile
+    container_name: mteatch-horizon
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php artisan horizon
+    volumes:
+      - ../backend:/var/www/html
+      - backend-vendor:/var/www/html/vendor
+    networks:
+      - mteatch
+    depends_on:
+      - backend
+      - redis
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/frontend.Dockerfile
+    container_name: mteatch-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    networks:
+      - mteatch
+    depends_on:
+      - backend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://nginx/api
+
+  nginx:
+    image: nginx:alpine
+    container_name: mteatch-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ../backend/public:/var/www/html/public
+    networks:
+      - mteatch
+    depends_on:
+      - backend
+      - frontend
+
+  mysql:
+    image: mysql:8.0
+    container_name: mteatch-mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_DATABASE=mteatch
+      - MYSQL_USER=mteatch
+      - MYSQL_PASSWORD=secret
+      - MYSQL_ROOT_PASSWORD=root
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - mteatch
+
+  redis:
+    image: redis:7-alpine
+    container_name: mteatch-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - mteatch
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.6
+    container_name: mteatch-meilisearch
+    restart: unless-stopped
+    environment:
+      - MEILI_MASTER_KEY=meili-master-key-change-me
+    volumes:
+      - meili-data:/meili_data
+    networks:
+      - mteatch
+
+networks:
+  mteatch:
+    driver: bridge
+
+volumes:
+  backend-vendor:
+  mysql-data:
+  redis-data:
+  meili-data:

@@ -1,0 +1,109 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Modules\Certificates\Actions\IssueCertificate;
+use App\Modules\Certificates\Models\Certificate;
+use App\Modules\Courses\Models\Course;
+use App\Modules\Learning\Models\Enrollment;
+use Illuminate\Support\Str;
+use Laravel\Sanctum\Sanctum;
+
+function createCertificate(int $workspaceId, int $studentId): Certificate
+{
+    $course = Course::factory()->published()->create(['workspace_id' => $workspaceId, 'is_sequential' => false]);
+
+    $enrollment = Enrollment::create([
+        'workspace_id' => $workspaceId, 'uuid' => Str::uuid(), 'course_id' => $course->id,
+        'student_user_id' => $studentId, 'status' => 'completed', 'enrolled_at' => now(),
+        'completed_at' => now(),
+    ]);
+
+    return app(IssueCertificate::class)->handle($enrollment, 'course_completed');
+}
+
+describe('certificate listing', function (): void {
+    it('lists own certificates for a student', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+        $student = $this->addWorkspaceMember($workspace, 'student');
+        $cert = createCertificate($workspace->id, $student->id);
+
+        Sanctum::actingAs($student);
+
+        $this->getJson('/api/v1/certificates')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.certificate_number', $cert->certificate_number);
+    });
+
+    it('lists all certificates for staff with view-all', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+        $student = $this->addWorkspaceMember($workspace, 'student');
+        $teacher = $this->addWorkspaceMember($workspace, 'teacher');
+        createCertificate($workspace->id, $student->id);
+        createCertificate($workspace->id, $teacher->id);
+
+        Sanctum::actingAs($teacher);
+
+        $this->getJson('/api/v1/certificates')
+            ->assertOk()
+            ->assertJsonCount(2);
+    });
+
+    it('shows a single certificate', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+        $student = $this->addWorkspaceMember($workspace, 'student');
+        $cert = createCertificate($workspace->id, $student->id);
+
+        Sanctum::actingAs($student);
+
+        $this->getJson("/api/v1/certificates/{$cert->uuid}")
+            ->assertOk()
+            ->assertJsonPath('certificate_number', $cert->certificate_number);
+    });
+});
+
+describe('certificate regeneration', function (): void {
+    it('allows a teacher to regenerate a certificate', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+        $student = $this->addWorkspaceMember($workspace, 'student');
+        $teacher = $this->addWorkspaceMember($workspace, 'teacher');
+        $cert = createCertificate($workspace->id, $student->id);
+
+        Sanctum::actingAs($teacher);
+
+        $this->postJson("/api/v1/certificates/{$cert->uuid}/regenerate")
+            ->assertOk()
+            ->assertJsonPath('certificate_number', $cert->certificate_number);
+
+        expect(Certificate::where('id', $cert->id)->exists())->toBeTrue();
+    });
+
+    it('sends a regenerated notification (not the issued one) on regeneration', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+        $student = $this->addWorkspaceMember($workspace, 'student');
+        $teacher = $this->addWorkspaceMember($workspace, 'teacher');
+        $cert = createCertificate($workspace->id, $student->id);
+
+        Sanctum::actingAs($teacher);
+
+        $this->postJson("/api/v1/certificates/{$cert->uuid}/regenerate")->assertOk();
+
+        $notifications = $student->notifications()
+            ->where('type', 'App\\Modules\\Notifications\\Notifications\\CertificateRegeneratedNotification')
+            ->get();
+
+        expect($notifications)->toHaveCount(1)
+            ->and($notifications->first()->data['type'])->toBe('certificate_regenerated');
+    });
+
+    it('denies regeneration to students', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+        $student = $this->addWorkspaceMember($workspace, 'student');
+        $cert = createCertificate($workspace->id, $student->id);
+
+        Sanctum::actingAs($student);
+
+        $this->postJson("/api/v1/certificates/{$cert->uuid}/regenerate")->assertForbidden();
+    });
+});

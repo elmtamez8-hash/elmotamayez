@@ -1,0 +1,91 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Payments\Models;
+
+use App\Models\BaseModel;
+use App\Models\User;
+use App\Modules\Courses\Models\Course;
+use App\Shared\Traits\BelongsToWorkspace;
+use App\Shared\Traits\HasUuid;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+
+/**
+ * @property string $status
+ * @property string $provider
+ */
+class Order extends BaseModel implements HasMedia
+{
+    use BelongsToWorkspace, HasUuid, InteractsWithMedia;
+
+    protected $fillable = [
+        'workspace_id',
+        'user_id',
+        'product_id',
+        'course_id',
+        'amount',
+        'currency',
+        'provider',
+        'provider_ref',
+        'status',
+        'rejection_reason',
+        'approved_by',
+        'approved_at',
+        'metadata',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'amount' => 'decimal:2',
+            'approved_at' => 'datetime',
+            'metadata' => 'array',
+        ];
+    }
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('receipt')
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'application/pdf'])
+            ->useDisk('local');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(PaymentTransaction::class);
+    }
+
+    public function isPending(): bool
+    {
+        return in_array($this->status, ['pending', 'under_review'], true);
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status === 'approved';
+    }
+}

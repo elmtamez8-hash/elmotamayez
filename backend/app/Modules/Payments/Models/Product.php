@@ -1,0 +1,38 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Payments\Models;
+
+use App\Models\BaseModel;
+use App\Modules\Courses\Models\Course;
+use App\Shared\Traits\BelongsToWorkspace;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Product extends BaseModel
+{
+    use BelongsToWorkspace;
+
+    protected $fillable = [
+        'workspace_id',
+        'course_id',
+        'name',
+        'type',
+        'price',
+        'currency',
+        'is_active',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'price' => 'decimal:2',
+            'is_active' => 'boolean',
+        ];
+    }
+
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
+    }
+}
