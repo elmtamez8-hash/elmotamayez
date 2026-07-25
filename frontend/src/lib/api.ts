@@ -46,6 +46,15 @@ async function request<T>(
   return Array.isArray(json) ? ({ data: json } as T) : json;
 }
 
+/** The API rejects with the parsed JSON body, so `err.message` carries the reason. */
+export function errorMessage(err: unknown, fallback: string): string {
+  if (typeof err === "object" && err !== null && "message" in err) {
+    const message = (err as { message: unknown }).message;
+    if (typeof message === "string" && message !== "") return message;
+  }
+  return fallback;
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
   post: <T>(path: string, data?: unknown) =>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import type { Course } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { use } from "react";
@@ -34,6 +34,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ uuid: s
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
+  const [ordering, setOrdering] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -50,10 +51,24 @@ export default function CourseDetailPage({ params }: { params: Promise<{ uuid: s
       await api.post(`/courses/${uuid}/enroll`);
       router.push("/enrollments");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Enrollment failed";
-      setError(msg);
+      setError(errorMessage(err, "Enrollment failed"));
     } finally {
       setEnrolling(false);
+    }
+  };
+
+  // Manual bank transfer: the order is created as pending and a teacher approves
+  // it from /orders, which is what creates the enrollment.
+  const handlePurchase = async () => {
+    setOrdering(true);
+    setError("");
+    try {
+      await api.post(`/courses/${uuid}/orders`);
+      router.push("/orders");
+    } catch (err: unknown) {
+      setError(errorMessage(err, "Could not place the order"));
+    } finally {
+      setOrdering(false);
     }
   };
 
@@ -95,10 +110,11 @@ export default function CourseDetailPage({ params }: { params: Promise<{ uuid: s
           </button>
         ) : (
           <button
-            onClick={() => router.push(`/courses/${uuid}/order`)}
-            className="rounded-lg bg-amber-600 px-6 py-2.5 font-medium text-white transition hover:bg-amber-700"
+            onClick={handlePurchase}
+            disabled={ordering}
+            className="rounded-lg bg-amber-600 px-6 py-2.5 font-medium text-white transition hover:bg-amber-700 disabled:opacity-50"
           >
-            Purchase ({course.currency} {course.price})
+            {ordering ? "Placing order..." : `Purchase (${course.currency} ${course.price})`}
           </button>
         )}
       </div>
