@@ -1,3 +1,19 @@
+/** Null for accounts created through the academy-signup path. */
+export type PlatformRole = "student" | "teacher" | "parent";
+
+export interface StudentRegistration {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+  phone: string;
+  country: string;
+  grade_level_slug: string;
+  registered_by_parent: boolean;
+  terms_accepted: boolean;
+}
+
 export interface User {
   uuid: string;
   first_name: string;
@@ -7,6 +23,7 @@ export interface User {
   email_verified_at: string | null;
   status: string;
   is_super_admin: boolean;
+  platform_role: PlatformRole | null;
   last_workspace_id: number | null;
   created_at: string;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useAuth } from "@/lib/auth-context";
+import { homePathFor, useAuth } from "@/lib/auth-context";
 import { errorMessage } from "@/lib/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -22,8 +22,8 @@ function LoginForm() {
     setError("");
     setLoading(true);
     try {
-      await login(email, password);
-      router.push(invitation ? `/invitations/${invitation}` : "/dashboard");
+      const user = await login(email, password);
+      router.push(invitation ? `/invitations/${invitation}` : homePathFor(user));
     } catch (err: unknown) {
       setError(errorMessage(err, "Login failed"));
     } finally {

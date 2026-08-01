@@ -1,4 +1,4 @@
-import type { User } from "@/lib/types";
+import type { StudentRegistration, User } from "@/lib/types";
 
 const API_BASE = "/api/v1";
 
@@ -74,6 +74,30 @@ function bodyMessage(body: unknown): string | null {
   return null;
 }
 
+/**
+ * Laravel's 422 body, flattened to one message per field.
+ *
+ * Only the first message per field is kept: a form shows one line under each
+ * input, and stacking three there turns a fixable mistake into a wall of text.
+ */
+export function fieldErrors(err: unknown): Record<string, string> {
+  if (!(err instanceof ApiError) || err.status !== 422) return {};
+
+  const body = err.body;
+  if (typeof body !== "object" || body === null || !("errors" in body)) return {};
+
+  const errors = (body as { errors: unknown }).errors;
+  if (typeof errors !== "object" || errors === null) return {};
+
+  const flat: Record<string, string> = {};
+  for (const [field, messages] of Object.entries(errors)) {
+    if (Array.isArray(messages) && typeof messages[0] === "string") {
+      flat[field] = messages[0];
+    }
+  }
+  return flat;
+}
+
 export function errorMessage(err: unknown, fallback: string): string {
   if (err instanceof Error && err.message !== "") return err.message;
   return bodyMessage(err) ?? fallback;
@@ -97,6 +121,12 @@ export const auth = {
     api.post<{ user: User; token: string }>("/auth/login", { email, password }),
   register: (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string }) =>
     api.post<User>("/auth/register", data),
+  registerStudent: (data: StudentRegistration, idempotencyKey: string) =>
+    request<{ user: User; token: string }>("/auth/register/student", {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: { "Idempotency-Key": idempotencyKey },
+    }),
   logout: () => api.post("/auth/logout"),
   me: () => api.get<User>("/auth/me"),
 };

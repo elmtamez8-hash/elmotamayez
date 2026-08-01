@@ -4,17 +4,30 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Modules\Identity\Support\PlatformRole;
+use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
+/**
+ * Cast in casts() below; restated here because Larastan reads the column type
+ * from the migration, where platform_role is a plain string.
+ *
+ * @property PlatformRole|null $platform_role
+ * @property string|null $phone
+ * @property string|null $country
+ * @property string|null $grade_level_slug
+ * @property bool $registered_by_parent
+ */
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
@@ -51,6 +64,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_super_admin' => 'boolean',
+            'platform_role' => PlatformRole::class,
+            'registered_by_parent' => 'boolean',
         ];
     }
 
@@ -64,6 +79,16 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->belongsToMany(Workspace::class, 'workspace_members')
             ->withPivot(['role', 'joined_at'])
             ->withTimestamps();
+    }
+
+    /**
+     * The marketplace teacher profile, if this user applied to teach.
+     *
+     * @return HasOne<TeacherProfile, $this>
+     */
+    public function teacherProfile(): HasOne
+    {
+        return $this->hasOne(TeacherProfile::class);
     }
 
     /**

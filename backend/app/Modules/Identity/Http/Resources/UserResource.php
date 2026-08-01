@@ -23,6 +23,9 @@ class UserResource extends JsonResource
             'email_verified_at' => $this->email_verified_at,
             'status' => $this->status,
             'is_super_admin' => $this->is_super_admin,
+            // FR-012: the frontend routes on this after login. Hidden on the model
+            // so it never leaks through a stray ->toArray(); named here on purpose.
+            'platform_role' => $this->platform_role?->value,
             'last_workspace_id' => $this->last_workspace_id,
             'created_at' => $this->created_at,
         ];

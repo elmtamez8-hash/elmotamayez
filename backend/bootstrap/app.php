@@ -1,6 +1,7 @@
 <?php
 
 use App\Shared\Middleware\EnsureCurrentWorkspace;
+use App\Shared\Middleware\Idempotent;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->statefulApi();
         $middleware->alias([
             'workspace' => EnsureCurrentWorkspace::class,
+            'idempotent' => Idempotent::class,
             'stateful' => EnsureFrontendRequestsAreStateful::class,
         ]);
         $middleware->appendToGroup('api', [

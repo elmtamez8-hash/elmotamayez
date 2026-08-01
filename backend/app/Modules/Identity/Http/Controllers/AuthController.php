@@ -6,10 +6,13 @@ namespace App\Modules\Identity\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Modules\Identity\Actions\RegisterStudent;
+use App\Modules\Identity\Data\RegisterStudentData;
 use App\Modules\Identity\Http\Requests\ChangePasswordRequest;
 use App\Modules\Identity\Http\Requests\ForgotPasswordRequest;
 use App\Modules\Identity\Http\Requests\LoginRequest;
 use App\Modules\Identity\Http\Requests\RegisterRequest;
+use App\Modules\Identity\Http\Requests\RegisterStudentRequest;
 use App\Modules\Identity\Http\Requests\ResetPasswordRequest;
 use App\Modules\Identity\Http\Requests\UpdateProfileRequest;
 use App\Modules\Identity\Http\Resources\UserResource;
@@ -36,6 +39,18 @@ class AuthController extends Controller
         event(new Registered($user));
 
         return response()->json(UserResource::make($user), 201);
+    }
+
+    public function registerStudent(RegisterStudentRequest $request, RegisterStudent $action): JsonResponse
+    {
+        $user = $action->handle(RegisterStudentData::fromArray($request->validated()));
+
+        // Signed in straight away: the student came from a teacher's booking CTA
+        // and sending them back to a login form would drop that intent.
+        return response()->json([
+            'user' => UserResource::make($user),
+            'token' => $user->createToken('auth-token')->plainTextToken,
+        ], 201);
     }
 
     public function login(LoginRequest $request): JsonResponse

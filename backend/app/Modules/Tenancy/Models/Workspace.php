@@ -33,6 +33,7 @@ class Workspace extends BaseModel
     {
         return [
             'settings' => 'array',
+            'participates_in_marketplace' => 'boolean',
         ];
     }
 

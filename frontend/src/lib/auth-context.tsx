@@ -7,12 +7,30 @@ import type { User } from "@/lib/types";
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   register: (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string }) => Promise<void>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+/**
+ * Where a user belongs after signing in (FR-012).
+ *
+ * Students and parents have no workspace, so `/dashboard` — which resolves one —
+ * would greet them with an error. They start where the product actually is for
+ * them: the marketplace. Teachers and academy accounts keep the existing
+ * destination.
+ */
+export function homePathFor(user: User): string {
+  switch (user.platform_role) {
+    case "student":
+    case "parent":
+      return "/teachers";
+    default:
+      return "/dashboard";
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -34,6 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { user, token } = await auth.login(email, password);
     setToken(token);
     setUser(user);
+
+    return user;
   };
 
   const register = async (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string }) => {
