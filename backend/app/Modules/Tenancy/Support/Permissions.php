@@ -103,6 +103,19 @@ final class Permissions
 
     public const SETTINGS_UPDATE = 'settings.update';
 
+    // Marketplace
+    public const MARKETPLACE_TEACHERS_REVIEW = 'marketplace.teachers.review';
+
+    public const MARKETPLACE_TEACHERS_APPROVE = 'marketplace.teachers.approve';
+
+    public const MARKETPLACE_TEACHERS_SUSPEND = 'marketplace.teachers.suspend';
+
+    public const MARKETPLACE_REVIEWS_MODERATE = 'marketplace.reviews.moderate';
+
+    public const MARKETPLACE_COMPLAINTS_MANAGE = 'marketplace.complaints.manage';
+
+    public const MARKETPLACE_PARTICIPATION_MANAGE = 'marketplace.participation.manage';
+
     /** @return list<string> */
     public static function all(): array
     {
@@ -148,6 +161,12 @@ final class Permissions
             self::ANALYTICS_VIEW,
             self::SETTINGS_VIEW,
             self::SETTINGS_UPDATE,
+            self::MARKETPLACE_TEACHERS_REVIEW,
+            self::MARKETPLACE_TEACHERS_APPROVE,
+            self::MARKETPLACE_TEACHERS_SUSPEND,
+            self::MARKETPLACE_REVIEWS_MODERATE,
+            self::MARKETPLACE_COMPLAINTS_MANAGE,
+            self::MARKETPLACE_PARTICIPATION_MANAGE,
         ];
     }
 }

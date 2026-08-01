@@ -77,6 +77,20 @@ trait WithWorkspace
     }
 
     /**
+     * Drop any cached workspace resolution so the next query runs as an anonymous
+     * visitor would.
+     *
+     * WorkspaceContext is an application-wide singleton that freezes its answer on
+     * the first id() call, so a test that sets up tenant data and then exercises a
+     * public route would otherwise carry that resolution into the "guest" request.
+     */
+    protected function asGuest(): void
+    {
+        app()->forgetInstance(WorkspaceContext::class);
+        app()->instance(WorkspaceContext::class, new WorkspaceContext);
+    }
+
+    /**
      * Set the current workspace context for the given user (simulates middleware).
      */
     protected function setCurrentWorkspace(Workspace $workspace, User $user): void

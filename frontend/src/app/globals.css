@@ -1,5 +1,56 @@
 @import "tailwindcss";
 
-:root {
-  --color-brand: #4f46e5;
+/* Dark mode is driven by [data-theme] on <html>, which the theme script sets from
+   localStorage, falling back to the OS preference. A media-query-only variant
+   cannot express a user override (FR-084). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  /* Brand */
+  --color-primary: #1e5aa8;
+  --color-primary-soft: #eaf2fc;
+  --color-secondary: #1fae7a;
+  --color-accent: #ff8a34;
+  --color-danger: #e85c5c;
+
+  /* Foreground colours to pair with the fills above.
+     accent/#ff8a34 and trust-medium/#f5b301 reach ~2.4:1 against white — below the
+     4.5:1 floor in FR-081 — so their paired foreground is dark, never white. */
+  --color-accent-foreground: #1f2937;
+  --color-trust-medium-foreground: #1f2937;
+
+  /* Text & surfaces */
+  --color-ink: #1f2937;
+  --color-ink-muted: #6b7280;
+  --color-surface: #f9fafb;
+  --color-line: #e5e7eb;
+
+  /* Trust score bands */
+  --color-trust-high: #22c55e;
+  --color-trust-medium: #f5b301;
+  --color-trust-low: #ef4444;
+
+  /* Arabic type scale */
+  --font-sans: var(--font-cairo), system-ui, sans-serif;
+}
+
+/* Dark-mode surface overrides. Brand hues keep their identity; only the
+   neutral ramp inverts, so contrast pairings stay predictable. */
+[data-theme="dark"] {
+  --color-ink: #f3f4f6;
+  --color-ink-muted: #9ca3af;
+  --color-surface: #111827;
+  --color-line: #374151;
+  --color-primary-soft: #16273f;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

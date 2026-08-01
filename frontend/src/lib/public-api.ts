@@ -1,0 +1,173 @@
+/**
+ * Server-side client for the public marketplace API.
+ *
+ * Deliberately separate from lib/api.ts: that one reads a bearer token from
+ * localStorage, which does not exist on the server. Public pages are rendered on
+ * the server so a crawler that runs no JavaScript still sees the content
+ * (SC-016), so they cannot go through the browser client.
+ */
+
+const API_BASE =
+  process.env.MARKETPLACE_API_URL ?? "http://localhost:8000/api/v1";
+
+/** Matches config('marketplace.cache_ttl_seconds') — both derive from SC-010. */
+const REVALIDATE_SECONDS = 60;
+
+export type TrustBand = "high" | "medium" | "low" | "building";
+
+export type Taxonomy = {
+  slug: string;
+  name_ar: string;
+  icon?: string | null;
+  teachers_count?: number;
+};
+
+export type TeacherCard = {
+  uuid: string;
+  name: string;
+  headline: string | null;
+  photo_url: string | null;
+  subjects: Taxonomy[];
+  grade_levels: Taxonomy[];
+  years_experience: number;
+  teaching_languages: string[];
+  hourly_rate: string;
+  currency: string;
+  average_rating: number | null;
+  reviews_count: number;
+  trust_score: number | null;
+  trust_score_band: TrustBand;
+  is_verified: boolean;
+  available_now: boolean;
+};
+
+export type ReviewItem = {
+  student_display_name: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+};
+
+export type AvailabilityItem = {
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+};
+
+export type CourseCard = {
+  uuid: string;
+  title: string;
+  cover_url: string | null;
+  teacher: { uuid: string; name: string; photo_url: string | null } | null;
+  type: "private" | "group" | "recorded";
+  lessons_count: number;
+  duration_seconds: number;
+  price: string;
+  price_before_discount: string | null;
+  currency: string;
+  average_rating: number | null;
+  enrolled_count: number;
+  is_bestseller: boolean;
+};
+
+export type TeacherDetail = TeacherCard & {
+  bio: string | null;
+  qualifications: string[];
+  stats: {
+    students_taught: number;
+    completed_sessions: number;
+    response_rate: number | null;
+    attendance_rate: number | null;
+  };
+  trust_score_factors: Record<string, number> | null;
+  courses: CourseCard[];
+  reviews: {
+    average: number | null;
+    total: number;
+    distribution: Record<string, number>;
+    items: ReviewItem[];
+  };
+  availability: AvailabilityItem[];
+  faqs: { question: string; answer: string }[];
+};
+
+export type Paginated<T> = {
+  data: T[];
+  meta: {
+    current_page: number;
+    per_page: number;
+    total: number;
+    last_page: number;
+    filters?: Record<string, string>;
+  };
+};
+
+export type MarketplaceStats = {
+  students: number;
+  teachers: number;
+  sessions: number;
+  satisfaction_rate: number;
+};
+
+export type HomePayload = {
+  stats: MarketplaceStats;
+  featured_teachers: TeacherCard[];
+  featured_courses: CourseCard[];
+  subjects: Taxonomy[];
+  testimonials: {
+    name: string;
+    role: string;
+    quote: string;
+    photo_url: string | null;
+  }[];
+  faqs: { question: string; answer: string }[];
+};
+
+export class NotFoundError extends Error {}
+
+async function get<T>(
+  path: string,
+  params?: Record<string, string | undefined>,
+): Promise<T> {
+  const url = new URL(`${API_BASE}${path}`);
+
+  for (const [key, value] of Object.entries(params ?? {})) {
+    if (value !== undefined && value !== "") url.searchParams.set(key, value);
+  }
+
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+    next: { revalidate: REVALIDATE_SECONDS },
+  });
+
+  if (response.status === 404) {
+    throw new NotFoundError(`Not found: ${path}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Marketplace API ${response.status} for ${path}`,
+    );
+  }
+
+  return (await response.json()) as T;
+}
+
+export const publicApi = {
+  home: () => get<HomePayload>("/marketplace/home"),
+
+  stats: () => get<MarketplaceStats>("/marketplace/stats"),
+
+  subjects: () => get<Taxonomy[]>("/marketplace/subjects"),
+
+  gradeLevels: () => get<Taxonomy[]>("/marketplace/grade-levels"),
+
+  teachers: (params: Record<string, string | undefined>) =>
+    get<Paginated<TeacherCard>>("/marketplace/teachers", params),
+
+  teacher: (uuid: string) =>
+    get<{ data: TeacherDetail }>(`/marketplace/teachers/${uuid}`),
+
+  courses: (params: Record<string, string | undefined>) =>
+    get<Paginated<CourseCard>>("/marketplace/courses", params),
+};

@@ -3,7 +3,12 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Marketplace\Models\AvailabilitySlot;
+use App\Modules\Marketplace\Models\GradeLevel;
+use App\Modules\Marketplace\Models\Subject;
+use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Support\WorkspaceContext;
 use Laravel\Sanctum\Sanctum;
 
 describe('workspace isolation', function (): void {
@@ -74,4 +79,26 @@ describe('permission enforcement', function (): void {
         $this->getJson("/api/v1/workspaces/{$workspaceA->uuid}/members")
             ->assertOk();
     });
+});
+
+describe('marketplace models are workspace-scoped', function (): void {
+    // A tenant-owned model without BelongsToWorkspace leaks silently: it passes
+    // every other test in the suite. These cases are the only thing that catches it.
+    it('scopes marketplace models to the current workspace', function (string $model): void {
+        [$workspaceA, $ownerA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+        [$workspaceB, $ownerB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+        $context = app(WorkspaceContext::class);
+
+        $context->forWorkspace($workspaceA, fn () => $model::factory()->count(2)->create());
+        $context->forWorkspace($workspaceB, fn () => $model::factory()->count(3)->create());
+
+        expect($context->forWorkspace($workspaceA, fn () => $model::query()->count()))->toBe(2);
+        expect($context->forWorkspace($workspaceB, fn () => $model::query()->count()))->toBe(3);
+    })->with([
+        AvailabilitySlot::class,
+        GradeLevel::class,
+        Subject::class,
+        TeacherProfile::class,
+    ]);
 });

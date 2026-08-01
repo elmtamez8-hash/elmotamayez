@@ -32,12 +32,16 @@ class User extends Authenticatable implements MustVerifyEmail
         'id',
         'is_super_admin',
         'last_workspace_id',
+        // Platform role decides which product a user sees; it is set only by the
+        // registration Actions, never by a mass-assigned payload.
+        'platform_role',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
         'is_super_admin',
+        'platform_role',
     ];
 
     /** @return array<string, mixed> */

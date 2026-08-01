@@ -38,6 +38,10 @@ class DatabaseSeeder extends Seeder
 
             $this->call(DemoDataSeeder::class);
             $this->call(ScenarioSeeder::class);
+
+            // Runs last: it seeds the shared taxonomy into every workspace, so the
+            // workspaces have to exist first.
+            $this->call(MarketplaceSeeder::class);
         }
     }
 }

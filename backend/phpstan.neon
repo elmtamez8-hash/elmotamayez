@@ -17,6 +17,8 @@ parameters:
         - app/Modules/CMS/Database/Migrations
         - app/Modules/Certificates/Database/Migrations
         - app/Modules/Courses/Database/Migrations
+        - app/Modules/Identity/Database/Migrations
         - app/Modules/Learning/Database/Migrations
+        - app/Modules/Marketplace/Database/Migrations
         - app/Modules/Payments/Database/Migrations
         - app/Modules/Tenancy/Database/Migrations

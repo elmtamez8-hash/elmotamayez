@@ -1,0 +1,95 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Marketplace\Actions\Public;
+
+use App\Modules\Marketplace\DTOs\TeacherFilterDTO;
+use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Shared\Actions\Action;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+
+/**
+ * Anonymous, cross-workspace teacher listing.
+ *
+ * The query MUST start from publiclyListed(). WorkspaceScope contributes nothing
+ * here — it returns early when there is no authenticated user — so dropping that
+ * scope does not narrow the result set, it publishes every workspace's drafts.
+ */
+class ListPublicTeachers extends Action
+{
+    /** @return LengthAwarePaginator<int, TeacherProfile> */
+    public function handle(TeacherFilterDTO $filters): LengthAwarePaginator
+    {
+        $query = TeacherProfile::query()
+            ->publiclyListed()
+            ->with(['user:id,first_name,last_name', 'subjects', 'gradeLevels', 'availabilitySlots']);
+
+        $this->applyFilters($query, $filters);
+        $this->applySort($query, $filters->sort);
+
+        return $query->paginate(
+            perPage: $filters->perPage,
+            page: $filters->page,
+        );
+    }
+
+    /** @param Builder<TeacherProfile> $query */
+    private function applyFilters(Builder $query, TeacherFilterDTO $filters): void
+    {
+        // Taxonomy is matched by slug, not id: the same subject exists as a separate
+        // row in every workspace, so an id filter would only ever match one of them.
+        $query->when($filters->subject, fn (Builder $q, string $slug) => $q->whereHas(
+            'subjects',
+            fn (Builder $sub) => $sub->where('subjects.slug', $slug),
+        ));
+
+        $query->when($filters->gradeLevel, fn (Builder $q, string $slug) => $q->whereHas(
+            'gradeLevels',
+            fn (Builder $sub) => $sub->where('grade_levels.slug', $slug),
+        ));
+
+        $query->when($filters->priceMin, fn (Builder $q, float $min) => $q->where('hourly_rate', '>=', $min));
+        $query->when($filters->priceMax, fn (Builder $q, float $max) => $q->where('hourly_rate', '<=', $max));
+        $query->when($filters->minRating, fn (Builder $q, float $min) => $q->where('average_rating', '>=', $min));
+
+        $query->when($filters->language, fn (Builder $q, string $lang) => $q->whereJsonContains('teaching_languages', $lang));
+
+        $query->when($filters->search, function (Builder $q, string $term): void {
+            // Name lives on users, so this filters through the relation rather than
+            // going to Scout: mixing a search-engine result set with SQL filters
+            // would need a second source of truth to stay consistent.
+            $q->whereHas('user', function (Builder $sub) use ($term): void {
+                $sub->where('first_name', 'like', "%{$term}%")
+                    ->orWhere('last_name', 'like', "%{$term}%");
+            });
+        });
+
+        $query->when($filters->availableNow, function (Builder $q): void {
+            $now = now('UTC');
+
+            $q->whereHas('availabilitySlots', function (Builder $sub) use ($now): void {
+                $sub->where('day_of_week', (int) $now->format('w'))
+                    ->where('start_time', '<=', $now->format('H:i:s'))
+                    ->where('end_time', '>', $now->format('H:i:s'));
+            });
+        });
+    }
+
+    /** @param Builder<TeacherProfile> $query */
+    private function applySort(Builder $query, string $sort): void
+    {
+        match ($sort) {
+            TeacherFilterDTO::SORT_PRICE => $query->orderBy('hourly_rate'),
+            // Teachers still building a score sort last rather than being ranked as
+            // if they scored zero (FR-026).
+            TeacherFilterDTO::SORT_TRUST => $query->orderByRaw('trust_score is null')
+                ->orderByDesc('trust_score'),
+            default => $query->orderByRaw('average_rating is null')
+                ->orderByDesc('average_rating'),
+        };
+
+        $query->orderBy('id');
+    }
+}
