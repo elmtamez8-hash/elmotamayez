@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Modules\Marketplace\Http\Controllers\PublicMarketplaceController;
+use App\Modules\Marketplace\Http\Controllers\TeacherApplicationController;
+use App\Modules\Marketplace\Http\Controllers\TeacherReviewController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -31,4 +33,36 @@ Route::middleware('throttle:60,1')->prefix('marketplace')->name('marketplace.')-
     // without the publiclyListed() guard, which would make unpublished profiles
     // reachable by url.
     Route::get('/teachers/{uuid}', [PublicMarketplaceController::class, 'teacher'])->name('teachers.show');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Teacher application wizard
+|--------------------------------------------------------------------------
+|
+| Step 1 creates the account, so it is public; the rest are authenticated as
+| the applicant. Every step resolves the application from the token, never from
+| a route parameter — there is nothing to tamper with.
+|
+*/
+
+Route::post('/auth/register/teacher/step-1', [TeacherApplicationController::class, 'register'])
+    ->middleware(['throttle:10,1', 'idempotent']);
+
+Route::middleware('auth:sanctum')->group(function (): void {
+    Route::get('/teacher/application', [TeacherApplicationController::class, 'show']);
+    Route::put('/teacher/application/step-2', [TeacherApplicationController::class, 'stepTwo']);
+    Route::put('/teacher/application/step-3', [TeacherApplicationController::class, 'stepThree']);
+    Route::put('/teacher/application/step-4', [TeacherApplicationController::class, 'stepFour']);
+    Route::post('/teacher/application/submit', [TeacherApplicationController::class, 'submit'])
+        ->middleware('idempotent');
+
+    Route::get('/admin/teacher-applications', [TeacherReviewController::class, 'index']);
+    Route::post('/admin/teacher-applications/{uuid}/approve', [TeacherReviewController::class, 'approve']);
+    Route::post('/admin/teacher-applications/{uuid}/reject', [TeacherReviewController::class, 'reject']);
+    Route::post('/admin/teacher-applications/{uuid}/request-changes', [TeacherReviewController::class, 'requestChanges']);
+    Route::post('/admin/teachers/{uuid}/suspend', [TeacherReviewController::class, 'suspend']);
+    Route::post('/admin/teachers/{uuid}/reinstate', [TeacherReviewController::class, 'reinstate']);
+
+    Route::put('/workspace/marketplace-participation', [TeacherReviewController::class, 'setParticipation']);
 });

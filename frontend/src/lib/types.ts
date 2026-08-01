@@ -14,6 +14,26 @@ export interface StudentRegistration {
   terms_accepted: boolean;
 }
 
+export interface TeacherRegistration {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+  phone: string;
+  country: string;
+  terms_accepted: boolean;
+}
+
+/** The wizard's saved state — step_data is deliberately loose: it mirrors
+ * whatever the four steps have answered so far, and the component narrows it. */
+export interface TeacherApplication {
+  status: string;
+  current_step: number;
+  step_data: Record<string, Record<string, unknown>>;
+  rejection_reason: string | null;
+}
+
 export interface User {
   uuid: string;
   first_name: string;

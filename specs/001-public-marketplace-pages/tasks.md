@@ -237,27 +237,27 @@ description: "Task list for 001-public-marketplace-pages"
 
 ### Tests for User Story 4
 
-- [ ] T083 [P] [US4] اختبار `backend/tests/Feature/Marketplace/TeacherApplicationTest.php` — الخطوات الأربع، الاستئناف، الاعتماد والرفض وطلب التعديل
-- [ ] T084 [P] [US4] اختبار `backend/tests/Feature/Marketplace/TeacherVisibilityTest.php` — `pending`/`rejected`/`suspended` لا يظهرون؛ الاعتماد يُظهر خلال ≤ 60 ثانية (SC-010)
-- [ ] T085 [P] [US4] اختبار يثبت أن `PUT /teacher/application/step-3` **يرفض أي حمولة ملف** بـ 422 (FR-071 — قيد أمني)
+- [X] T083 [P] [US4] اختبار `backend/tests/Feature/Marketplace/TeacherApplicationTest.php` — الخطوات الأربع، الاستئناف، الاعتماد والرفض وطلب التعديل
+- [X] T084 [P] [US4] اختبار `backend/tests/Feature/Marketplace/TeacherVisibilityTest.php` — `pending`/`rejected`/`suspended` لا يظهرون؛ الاعتماد يُظهر خلال ≤ 60 ثانية (SC-010)
+- [X] T085 [P] [US4] اختبار يثبت أن `PUT /teacher/application/step-3` **يرفض أي حمولة ملف** بـ 422 (FR-071 — قيد أمني)
 
 ### Implementation for User Story 4
 
-- [ ] T086 [P] [US4] نموذج وهجرة `backend/app/Modules/Marketplace/Models/TeacherApplication.php` بـ `step_data` و`current_step` و`status`
-- [ ] T087 [P] [US4] DTOs الخطوات الأربع في `backend/app/Modules/Marketplace/Data/`
-- [ ] T088 [US4] `backend/app/Modules/Marketplace/Actions/SubmitTeacherApplication.php` يُصدر `TeacherApplicationSubmitted`
-- [ ] T089 [US4] `backend/app/Modules/Marketplace/Actions/ApproveTeacherApplication.php` — يشتقّ `is_publicly_listed` من (الاعتماد × اشتراك المساحة)، **لا** يضبطه يدوياً، ويبطل التخزين المؤقت، ويُصدر `TeacherApproved`
-- [ ] T090 [P] [US4] `backend/app/Modules/Marketplace/Actions/RejectTeacherApplication.php` و`RequestApplicationChanges.php`
-- [ ] T091 [P] [US4] `backend/app/Modules/Marketplace/Actions/SetAvailability.php` — رفض الفترات المتداخلة (FR-028) مفروضاً في الـ Action لا في التحقق فقط
-- [ ] T092 [P] [US4] `backend/app/Modules/Marketplace/Actions/SuspendTeacher.php` و`ReinstateTeacher.php` مع إبطال فوري للتخزين المؤقت
-- [ ] T093 [US4] `backend/app/Modules/Marketplace/Actions/SetMarketplaceParticipation.php` — الانسحاب يُخفي كل عناصر المساحة **دون** تغيير `approval_status` لأي مدرّس
-- [ ] T094 [P] [US4] أحداث `TeacherApplicationSubmitted`, `TeacherApproved`, `TeacherRejected` في `backend/app/Modules/Marketplace/Events/`
-- [ ] T095 [US4] ربط مستمعي الإخطارات بـ `Event::listen()` في `boot()` بـ `MarketplaceServiceProvider.php` — **لا** `EventServiceProvider` (الدستور، المبدأ III)
-- [ ] T096 [P] [US4] إخطارات القبول والرفض وطلب التعديل في `backend/app/Modules/Notifications/`
-- [ ] T097 [US4] متحكّمات ونقاط المعالج والمراجعة حسب `contracts/registration-api.md` و`contracts/teacher-admin-api.md`
-- [ ] T098 [P] [US4] مورد Filament للمراجعة في `backend/app/Modules/Marketplace/Filament/Resources/TeacherApplicationResource.php` ينادي **نفس** الـ Actions (الدستور، المبدأ II)
-- [ ] T099 [US4] `frontend/src/app/(public)/signup/teacher/page.tsx` — معالج أربع خطوات بمؤشّر تقدّم واستئناف من الخطوة المحفوظة (FR-069, FR-070)
-- [ ] T100 [US4] شاشة "طلبك قيد المراجعة من فريقنا الأكاديمي" مع المدة المتوقعة في `frontend/src/app/(public)/signup/teacher/submitted/page.tsx`
+- [X] T086 [P] [US4] نموذج وهجرة `backend/app/Modules/Marketplace/Models/TeacherApplication.php` بـ `step_data` و`current_step` و`status`
+- [X] T087 [P] [US4] DTOs الخطوات الأربع في `backend/app/Modules/Marketplace/Data/`
+- [X] T088 [US4] `backend/app/Modules/Marketplace/Actions/SubmitTeacherApplication.php` يُصدر `TeacherApplicationSubmitted`
+- [X] T089 [US4] `backend/app/Modules/Marketplace/Actions/ApproveTeacherApplication.php` — يشتقّ `is_publicly_listed` من (الاعتماد × اشتراك المساحة)، **لا** يضبطه يدوياً، ويبطل التخزين المؤقت، ويُصدر `TeacherApproved`
+- [X] T090 [P] [US4] `backend/app/Modules/Marketplace/Actions/RejectTeacherApplication.php` و`RequestApplicationChanges.php`
+- [X] T091 [P] [US4] `backend/app/Modules/Marketplace/Actions/SetAvailability.php` — رفض الفترات المتداخلة (FR-028) مفروضاً في الـ Action لا في التحقق فقط
+- [X] T092 [P] [US4] `backend/app/Modules/Marketplace/Actions/SuspendTeacher.php` و`ReinstateTeacher.php` مع إبطال فوري للتخزين المؤقت
+- [X] T093 [US4] `backend/app/Modules/Marketplace/Actions/SetMarketplaceParticipation.php` — الانسحاب يُخفي كل عناصر المساحة **دون** تغيير `approval_status` لأي مدرّس
+- [X] T094 [P] [US4] أحداث `TeacherApplicationSubmitted`, `TeacherApproved`, `TeacherRejected` في `backend/app/Modules/Marketplace/Events/`
+- [X] T095 [US4] ربط مستمعي الإخطارات بـ `Event::listen()` في `boot()` بـ `MarketplaceServiceProvider.php` — **لا** `EventServiceProvider` (الدستور، المبدأ III)
+- [X] T096 [P] [US4] إخطارات القبول والرفض وطلب التعديل في `backend/app/Modules/Notifications/`
+- [X] T097 [US4] متحكّمات ونقاط المعالج والمراجعة حسب `contracts/registration-api.md` و`contracts/teacher-admin-api.md`
+- [X] T098 [P] [US4] مورد Filament للمراجعة في `backend/app/Modules/Marketplace/Filament/Resources/TeacherApplicationResource.php` ينادي **نفس** الـ Actions (الدستور، المبدأ II)
+- [X] T099 [US4] `frontend/src/app/(public)/signup/teacher/page.tsx` — معالج أربع خطوات بمؤشّر تقدّم واستئناف من الخطوة المحفوظة (FR-069, FR-070)
+- [X] T100 [US4] شاشة "طلبك قيد المراجعة من فريقنا الأكاديمي" مع المدة المتوقعة في `frontend/src/app/(public)/signup/teacher/submitted/page.tsx`
 
 **Checkpoint**: تدفّق العرض كامل — مدرّسون حقيقيون يدخلون السوق
 

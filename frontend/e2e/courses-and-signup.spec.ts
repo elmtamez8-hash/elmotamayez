@@ -45,7 +45,7 @@ test.describe("student signup", () => {
     await page.goto("/signup/student");
 
     await page.getByLabel("الاسم الأول").fill("سارة");
-    await page.getByLabel("البريد الإلكتروني").fill(`sara${Date.now()}@example.com`);
+    await page.getByLabel("البريد الإلكتروني").fill(`sara-${test.info().project.name}-${Date.now()}@example.com`);
     await page.getByLabel("رقم الجوال", { exact: true }).fill("55512345");
     await page.getByLabel("كلمة المرور", { exact: true }).fill("password123");
     await page.getByLabel("تأكيد كلمة المرور").fill("password123");

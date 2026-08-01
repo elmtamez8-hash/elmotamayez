@@ -1,4 +1,9 @@
-import type { StudentRegistration, User } from "@/lib/types";
+import type {
+  StudentRegistration,
+  TeacherApplication,
+  TeacherRegistration,
+  User,
+} from "@/lib/types";
 
 const API_BASE = "/api/v1";
 
@@ -127,6 +132,15 @@ export const auth = {
       body: JSON.stringify(data),
       headers: { "Idempotency-Key": idempotencyKey },
     }),
+  registerTeacher: (data: TeacherRegistration, idempotencyKey: string) =>
+    request<{ application: TeacherApplication; token: string | null }>(
+      "/auth/register/teacher/step-1",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Idempotency-Key": idempotencyKey },
+      },
+    ),
   logout: () => api.post("/auth/logout"),
   me: () => api.get<User>("/auth/me"),
 };

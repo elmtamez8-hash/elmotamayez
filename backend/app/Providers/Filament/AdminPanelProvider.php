@@ -35,6 +35,13 @@ class AdminPanelProvider extends PanelProvider
                 'primary' => Color::Indigo,
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
+            // Modules keep their own admin screens next to the code they administer.
+            // Add a line per module; generalise to a scan when there are enough of
+            // them to make the list a chore.
+            ->discoverResources(
+                in: app_path('Modules/Marketplace/Filament/Resources'),
+                for: 'App\Modules\Marketplace\Filament\Resources',
+            )
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
                 Dashboard::class,

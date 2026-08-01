@@ -52,6 +52,27 @@ return [
     'cache_ttl_seconds' => 60,
 
     /*
+    |--------------------------------------------------------------------------
+    | Platform workspace
+    |--------------------------------------------------------------------------
+    |
+    | Home for teachers who applied directly rather than through an academy
+    | (FR-013). Created on first use; see Support\PlatformWorkspace.
+    |
+    */
+
+    'platform_workspace' => [
+        'slug' => env('MARKETPLACE_PLATFORM_WORKSPACE', 'platform'),
+        'name' => 'المنصة',
+    ],
+
+    /*
+    | Working days the academic team is given to review an application. Shown to
+    | the applicant on the confirmation screen, so it is a promise, not a hint.
+    */
+    'review_days' => 3,
+
+    /*
     | Enrolments a course needs before it earns the "الأكثر طلباً" badge. Low
     | enough to be reachable at launch, high enough that the badge still means
     | something once it is.
