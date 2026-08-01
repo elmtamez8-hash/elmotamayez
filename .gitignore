@@ -1,0 +1,7 @@
+# Per-developer Claude Code permissions — the shared skills under .claude/skills
+# are committed, this file is not.
+.claude/settings.local.json
+
+# OS noise
+.DS_Store
+Thumbs.db
