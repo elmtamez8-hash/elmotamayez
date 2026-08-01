@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import "./globals.css";
+import "../globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 
 export const metadata: Metadata = {
@@ -7,7 +7,10 @@ export const metadata: Metadata = {
   description: "Multi-tenant educational SaaS platform",
 };
 
-export default function RootLayout({
+// Root layout for the authenticated product. The public marketplace ships its own
+// root layout under (public) because it is Arabic/RTL; Next.js allows several root
+// layouts as long as no app/layout.tsx sits above them.
+export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
