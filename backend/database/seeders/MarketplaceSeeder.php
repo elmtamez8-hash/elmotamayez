@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Modules\Courses\Models\Course;
 use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\GradeLevel;
 use App\Modules\Marketplace\Models\Subject;
@@ -13,6 +14,7 @@ use App\Modules\Marketplace\Support\MarketplaceCache;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 /**
  * Seeds the shared taxonomy into every workspace.
@@ -148,6 +150,22 @@ class MarketplaceSeeder extends Seeder
                     }
                 }
 
+                // One published course per demo teacher so the courses page and the
+                // home carousel have real rows rather than an empty state.
+                Course::factory()->published()->create([
+                    'workspace_id' => $workspace->getKey(),
+                    'created_by' => $user->getKey(),
+                    'title' => $demo['course']['title'],
+                    'slug' => Str::slug($demo['course']['title'].'-'.$user->getKey()),
+                    'description' => $demo['bio'],
+                    'price' => $demo['course']['price'],
+                    'price_before_discount' => $demo['course']['price_before'],
+                    'currency' => 'QAR',
+                    'language' => 'ar',
+                    'course_type' => $demo['course']['type'],
+                    'duration_seconds' => $demo['course']['hours'] * 3600,
+                ]);
+
                 foreach ($demo['availability'] as [$day, $start, $end]) {
                     AvailabilitySlot::query()->create([
                         'workspace_id' => $workspace->getKey(),
@@ -175,6 +193,7 @@ class MarketplaceSeeder extends Seeder
             'years' => 12, 'rate' => '180.00', 'verified' => true,
             'score' => 91, 'sessions' => 640, 'reviews' => 48, 'rating' => 4.8,
             'subjects' => ['math', 'physics'], 'levels' => ['secondary', 'university'],
+            'course' => ['title' => 'الرياضيات للثانوية العامة — الفصل الأول', 'price' => '750.00', 'price_before' => '950.00', 'type' => 'group', 'hours' => 24],
             'availability' => [[0, '13:00:00', '17:00:00'], [2, '13:00:00', '17:00:00'], [4, '10:00:00', '14:00:00']],
         ],
         [
@@ -185,6 +204,7 @@ class MarketplaceSeeder extends Seeder
             'years' => 10, 'rate' => '120.00', 'verified' => true,
             'score' => 84, 'sessions' => 410, 'reviews' => 31, 'rating' => 4.6,
             'subjects' => ['arabic', 'islamic-studies'], 'levels' => ['primary', 'preparatory'],
+            'course' => ['title' => 'الكيمياء العضوية من الصفر', 'price' => '620.00', 'price_before' => null, 'type' => 'recorded', 'hours' => 18],
             'availability' => [[1, '14:00:00', '18:00:00'], [3, '14:00:00', '18:00:00']],
         ],
         [
@@ -195,6 +215,7 @@ class MarketplaceSeeder extends Seeder
             'years' => 7, 'rate' => '200.00', 'verified' => true,
             'score' => 76, 'sessions' => 180, 'reviews' => 14, 'rating' => 4.3,
             'subjects' => ['chemistry', 'biology'], 'levels' => ['secondary', 'university'],
+            'course' => ['title' => 'اللغة الإنجليزية للمحادثة — مستوى متوسط', 'price' => '480.00', 'price_before' => '600.00', 'type' => 'group', 'hours' => 16],
             'availability' => [[5, '09:00:00', '13:00:00'], [6, '09:00:00', '13:00:00']],
         ],
         [
@@ -206,6 +227,7 @@ class MarketplaceSeeder extends Seeder
             // No score: this is what a newly approved teacher looks like (FR-024).
             'score' => null, 'sessions' => 4, 'reviews' => 1, 'rating' => null,
             'subjects' => ['english'], 'levels' => ['preparatory', 'secondary'],
+            'course' => ['title' => 'أساسيات البرمجة بلغة بايثون', 'price' => '890.00', 'price_before' => null, 'type' => 'recorded', 'hours' => 30],
             'availability' => [[0, '18:00:00', '21:00:00'], [3, '18:00:00', '21:00:00']],
         ],
         [
@@ -216,6 +238,7 @@ class MarketplaceSeeder extends Seeder
             'years' => 6, 'rate' => '170.00', 'verified' => true,
             'score' => 68, 'sessions' => 95, 'reviews' => 9, 'rating' => 4.0,
             'subjects' => ['computer-science', 'math'], 'levels' => ['preparatory', 'secondary'],
+            'course' => ['title' => 'النحو العربي المبسّط', 'price' => '400.00', 'price_before' => null, 'type' => 'individual', 'hours' => 12],
             'availability' => [[1, '16:00:00', '20:00:00'], [4, '16:00:00', '20:00:00']],
         ],
     ];

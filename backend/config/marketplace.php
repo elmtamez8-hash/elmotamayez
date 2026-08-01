@@ -51,6 +51,13 @@ return [
 
     'cache_ttl_seconds' => 60,
 
+    /*
+    | Enrolments a course needs before it earns the "الأكثر طلباً" badge. Low
+    | enough to be reachable at launch, high enough that the badge still means
+    | something once it is.
+    */
+    'bestseller_enrollments' => 25,
+
     'pagination' => [
         'default_per_page' => 12,
         'max_per_page' => 48,

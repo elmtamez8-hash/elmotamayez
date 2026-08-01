@@ -7,6 +7,7 @@ import { TrustScoreBadge } from "@/components/marketplace/TrustScoreBadge";
 import { TrustScoreBreakdown } from "@/components/marketplace/TrustScoreBreakdown";
 import { AvailabilityCalendar } from "@/components/marketplace/AvailabilityCalendar";
 import { FaqAccordion } from "@/components/marketplace/FaqAccordion";
+import { CourseCard } from "@/components/marketplace/CourseCard";
 import { EmptyState } from "@/components/marketplace/states/EmptyState";
 import {
   ProfileTabs,
@@ -276,12 +277,19 @@ export default async function TeacherProfilePage({
               </div>
             )}
 
-            {active === "courses" && (
-              <EmptyState
-                title="لا توجد كورسات منشورة لهذا المدرّس"
-                description="يمكنك حجز حصة فردية معه مباشرة عبر زر الحجز."
-              />
-            )}
+            {active === "courses" &&
+              (teacher.courses.length === 0 ? (
+                <EmptyState
+                  title="لا توجد كورسات منشورة لهذا المدرّس"
+                  description="يمكنك حجز حصة فردية معه مباشرة عبر زر الحجز."
+                />
+              ) : (
+                <div className="grid gap-6 sm:grid-cols-2">
+                  {teacher.courses.map((course) => (
+                    <CourseCard key={course.uuid} course={course} />
+                  ))}
+                </div>
+              ))}
 
             {active === "reviews" && (
               <EmptyState

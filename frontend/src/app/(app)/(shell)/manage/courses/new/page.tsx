@@ -23,7 +23,7 @@ export default function CreateCoursePage() {
     setLoading(true);
     try {
       const course = await api.post<Course>("/courses", form);
-      router.push(`/courses/${course.uuid}`);
+      router.push(`/manage/courses/${course.uuid}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to create course";
       setError(msg);

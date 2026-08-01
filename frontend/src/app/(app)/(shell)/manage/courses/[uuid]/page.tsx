@@ -97,7 +97,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ uuid: s
       {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
 
       <div className="flex gap-3">
-        <a href={`/courses/${uuid}/edit`} className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
+        <a href={`/manage/courses/${uuid}/edit`} className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
           Edit Course
         </a>
         {course.is_free ? (

@@ -31,7 +31,7 @@ export default function EditCoursePage({ params }: { params: Promise<{ uuid: str
     setError("");
     try {
       await api.put(`/courses/${uuid}`, form);
-      router.push(`/courses/${uuid}`);
+      router.push(`/manage/courses/${uuid}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Update failed";
       setError(msg);

@@ -34,7 +34,16 @@ class CourseFactory extends Factory
             'language' => 'en',
             'duration_seconds' => 0,
             'created_by' => User::factory(),
+            'course_type' => Course::TYPE_RECORDED,
         ];
+    }
+
+    public function discounted(float $before = 199.99): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'price' => 99.99,
+            'price_before_discount' => $before,
+        ]);
     }
 
     public function published(): static

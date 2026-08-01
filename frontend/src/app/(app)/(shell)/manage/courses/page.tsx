@@ -55,7 +55,7 @@ export default function CoursesPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
-          <Link href="/courses/new" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">
+          <Link href="/manage/courses/new" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">
             + New Course
           </Link>
         </div>
@@ -72,7 +72,7 @@ export default function CoursesPage() {
               key={course.uuid}
               className="group relative overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200 transition hover:shadow-md"
             >
-              <Link href={`/courses/${course.uuid}`} className="block">
+              <Link href={`/manage/courses/${course.uuid}`} className="block">
                 <div className="h-32 bg-gradient-to-br from-indigo-400 to-purple-500" />
                 <div className="p-5">
                   <div className="mb-2 flex items-center gap-2">

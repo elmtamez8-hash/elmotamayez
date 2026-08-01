@@ -52,7 +52,7 @@ export default function DashboardPage() {
             <Link href="/enrollments" className="text-sm text-indigo-600 hover:underline">View all</Link>
           </div>
           {activeEnrollments.length === 0 ? (
-            <p className="text-sm text-gray-500">No active enrollments. <Link href="/courses" className="text-indigo-600 hover:underline">Browse courses</Link></p>
+            <p className="text-sm text-gray-500">No active enrollments. <Link href="/manage/courses" className="text-indigo-600 hover:underline">Browse courses</Link></p>
           ) : (
             <div className="space-y-3">
               {activeEnrollments.slice(0, 5).map((enr) => (

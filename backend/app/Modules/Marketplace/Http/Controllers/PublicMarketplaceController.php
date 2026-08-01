@@ -7,10 +7,13 @@ namespace App\Modules\Marketplace\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Marketplace\Actions\Public\GetMarketplaceHome;
 use App\Modules\Marketplace\Actions\Public\GetMarketplaceStats;
+use App\Modules\Marketplace\Actions\Public\ListPublicCourses;
 use App\Modules\Marketplace\Actions\Public\ListPublicTaxonomy;
 use App\Modules\Marketplace\Actions\Public\ListPublicTeachers;
 use App\Modules\Marketplace\Actions\Public\ShowPublicTeacher;
+use App\Modules\Marketplace\Http\Requests\ListPublicCoursesRequest;
 use App\Modules\Marketplace\Http\Requests\ListPublicTeachersRequest;
+use App\Modules\Marketplace\Http\Resources\PublicCourseCardResource;
 use App\Modules\Marketplace\Http\Resources\PublicTeacherCardResource;
 use App\Modules\Marketplace\Http\Resources\PublicTeacherDetailResource;
 use App\Modules\Marketplace\Support\MarketplaceCache;
@@ -72,12 +75,41 @@ class PublicMarketplaceController extends Controller
         return response()->json($payload);
     }
 
+    public function courses(ListPublicCoursesRequest $request, ListPublicCourses $action): JsonResponse
+    {
+        $filters = $request->toDto();
+
+        $payload = Cache::remember(
+            $filters->cacheKey(),
+            MarketplaceCache::ttl(),
+            function () use ($action, $filters): array {
+                $courses = $action->handle($filters);
+
+                return [
+                    'data' => PublicCourseCardResource::collection($courses->items())->resolve(),
+                    'meta' => [
+                        'current_page' => $courses->currentPage(),
+                        'per_page' => $courses->perPage(),
+                        'total' => $courses->total(),
+                        'last_page' => $courses->lastPage(),
+                        'filters' => $filters->toFilterMap(),
+                    ],
+                ];
+            },
+        );
+
+        return response()->json($payload);
+    }
+
     public function teacher(string $uuid, ShowPublicTeacher $action): JsonResponse
     {
         // Not cached: reads are cheaper here than on the lists, and a stale profile
         // is the case where showing withdrawn data hurts most.
-        return response()->json([
-            'data' => PublicTeacherDetailResource::make($action->handle($uuid))->resolve(),
-        ]);
+        $teacher = $action->handle($uuid);
+
+        $payload = PublicTeacherDetailResource::make($teacher)->resolve();
+        $payload['courses'] = PublicCourseCardResource::collection($action->coursesOf($teacher))->resolve();
+
+        return response()->json(['data' => $payload]);
     }
 }

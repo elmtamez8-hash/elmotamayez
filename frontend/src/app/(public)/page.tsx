@@ -2,6 +2,7 @@ import Link from "next/link";
 import { publicApi, type HomePayload } from "@/lib/public-api";
 import { PLATFORM_NAME } from "@/lib/platform";
 import { TeacherCard } from "@/components/marketplace/TeacherCard";
+import { CourseCard } from "@/components/marketplace/CourseCard";
 import { SubjectsGrid } from "@/components/marketplace/SubjectsGrid";
 import { FaqAccordion } from "@/components/marketplace/FaqAccordion";
 import { TestimonialsCarousel } from "@/components/marketplace/TestimonialsCarousel";
@@ -166,22 +167,35 @@ export default async function HomePage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-        <h2 className="mb-8 text-2xl font-extrabold text-ink sm:text-3xl">
-          الكورسات المميزة
-        </h2>
-        {/* Courses land in US3; until then the empty state is the honest render. */}
-        <EmptyState
-          title="لا توجد كورسات منشورة بعد"
-          description="ابدأ بتصفّح المدرّسين واحجز حصة تجريبية مباشرة معهم."
-          action={
-            <Link
-              href="/teachers"
-              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
-            >
-              تصفّح المدرّسين
-            </Link>
-          }
-        />
+        <div className="mb-8 flex items-end justify-between gap-4">
+          <h2 className="text-2xl font-extrabold text-ink sm:text-3xl">
+            الكورسات المميزة
+          </h2>
+          <Link href="/courses" className="text-sm font-semibold text-primary hover:underline">
+            عرض الكل
+          </Link>
+        </div>
+
+        {home.featured_courses.length === 0 ? (
+          <EmptyState
+            title="لا توجد كورسات منشورة بعد"
+            description="ابدأ بتصفّح المدرّسين واحجز حصة تجريبية مباشرة معهم."
+            action={
+              <Link
+                href="/teachers"
+                className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+              >
+                تصفّح المدرّسين
+              </Link>
+            }
+          />
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {home.featured_courses.map((course) => (
+              <CourseCard key={course.uuid} course={course} />
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="bg-white py-16 dark:bg-transparent">

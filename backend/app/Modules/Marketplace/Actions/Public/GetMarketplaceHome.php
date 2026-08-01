@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Marketplace\Actions\Public;
 
+use App\Modules\Marketplace\DTOs\CourseFilterDTO;
 use App\Modules\Marketplace\DTOs\TeacherFilterDTO;
+use App\Modules\Marketplace\Http\Resources\PublicCourseCardResource;
 use App\Modules\Marketplace\Http\Resources\PublicTeacherCardResource;
 use App\Modules\Marketplace\Support\MarketplaceCache;
 use App\Shared\Actions\Action;
@@ -23,6 +25,7 @@ class GetMarketplaceHome extends Action
         private readonly GetMarketplaceStats $stats,
         private readonly ListPublicTeachers $teachers,
         private readonly ListPublicTaxonomy $taxonomy,
+        private readonly ListPublicCourses $courses,
     ) {}
 
     /** @return array<string, mixed> */
@@ -39,12 +42,21 @@ class GetMarketplaceHome extends Action
             )->resolve(),
         );
 
+        $featuredCourses = Cache::remember(
+            MarketplaceCache::key('home:featured-courses'),
+            MarketplaceCache::ttl(),
+            fn () => PublicCourseCardResource::collection(
+                $this->courses->handle(CourseFilterDTO::fromArray([
+                    'sort' => CourseFilterDTO::SORT_POPULAR,
+                    'per_page' => 6,
+                ]))->items(),
+            )->resolve(),
+        );
+
         return [
             'stats' => $this->stats->handle(),
             'featured_teachers' => $featured,
-            // Filled in by US3; an empty array renders the section's empty state
-            // rather than placeholder courses pretending to be real listings.
-            'featured_courses' => [],
+            'featured_courses' => $featuredCourses,
             'subjects' => $this->taxonomy->handle(ListPublicTaxonomy::SUBJECTS),
             'testimonials' => $this->testimonials(),
             'faqs' => $this->faqs(),

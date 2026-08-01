@@ -1,0 +1,121 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import {
+  publicApi,
+  type CourseCard as Course,
+  type Paginated,
+  type Taxonomy,
+} from "@/lib/public-api";
+import { CourseCard } from "@/components/marketplace/CourseCard";
+import { CourseFilters } from "@/components/marketplace/CourseFilters";
+import { Pagination } from "@/components/marketplace/Pagination";
+import { EmptyState } from "@/components/marketplace/states/EmptyState";
+import { ErrorState } from "@/components/marketplace/states/ErrorState";
+
+export const revalidate = 60;
+
+export const metadata: Metadata = {
+  title: "الكورسات",
+  description:
+    "تصفّح الكورسات المباشرة والمسجّلة حسب المادة والمرحلة الدراسية ونوع الكورس والسعر.",
+};
+
+type SearchParams = Record<string, string | string[] | undefined>;
+
+const FILTER_KEYS = [
+  "subject",
+  "grade_level",
+  "type",
+  "price_min",
+  "price_max",
+  "teacher",
+  "sort",
+  "page",
+] as const;
+
+function toQuery(params: SearchParams): Record<string, string | undefined> {
+  return Object.fromEntries(
+    FILTER_KEYS.map((key) => [
+      key,
+      typeof params[key] === "string" ? (params[key] as string) : undefined,
+    ]),
+  );
+}
+
+export default async function CoursesPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const params = await searchParams;
+
+  let courses: Paginated<Course>;
+  let subjects: Taxonomy[] = [];
+  let gradeLevels: Taxonomy[] = [];
+
+  try {
+    [courses, subjects, gradeLevels] = await Promise.all([
+      publicApi.courses(toQuery(params)),
+      publicApi.subjects(),
+      publicApi.gradeLevels(),
+    ]);
+  } catch {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
+        <ErrorState />
+      </div>
+    );
+  }
+
+  const hasFilters = FILTER_KEYS.slice(0, -2).some(
+    (key) => typeof params[key] === "string" && params[key] !== "",
+  );
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+      <header className="mb-8">
+        <h1 className="mb-2 text-3xl font-extrabold text-ink">الكورسات</h1>
+        <p className="text-ink-muted">
+          {courses.meta.total.toLocaleString("ar-QA")} كورس متاح
+        </p>
+      </header>
+
+      <CourseFilters subjects={subjects} gradeLevels={gradeLevels} />
+
+      <section aria-label="نتائج البحث عن الكورسات">
+        {courses.data.length === 0 ? (
+          <EmptyState
+            title="لا توجد كورسات مطابقة لبحثك"
+            description={
+              hasFilters
+                ? "جرّب تغيير نوع الكورس أو توسيع نطاق السعر."
+                : "لم تُنشر كورسات على المنصة بعد. يمكنك حجز حصة فردية مع أحد المدرّسين."
+            }
+            action={
+              <Link
+                href={hasFilters ? "/courses" : "/teachers"}
+                className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+              >
+                {hasFilters ? "إزالة كل الفلاتر" : "تصفّح المدرّسين"}
+              </Link>
+            }
+          />
+        ) : (
+          <>
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              {courses.data.map((course) => (
+                <CourseCard key={course.uuid} course={course} />
+              ))}
+            </div>
+
+            <Pagination
+              currentPage={courses.meta.current_page}
+              lastPage={courses.meta.last_page}
+              searchParams={params}
+            />
+          </>
+        )}
+      </section>
+    </div>
+  );
+}

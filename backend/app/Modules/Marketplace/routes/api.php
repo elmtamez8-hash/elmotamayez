@@ -25,6 +25,7 @@ Route::middleware('throttle:60,1')->prefix('marketplace')->name('marketplace.')-
     Route::get('/subjects', [PublicMarketplaceController::class, 'subjects'])->name('subjects');
     Route::get('/grade-levels', [PublicMarketplaceController::class, 'gradeLevels'])->name('grade-levels');
     Route::get('/teachers', [PublicMarketplaceController::class, 'teachers'])->name('teachers.index');
+    Route::get('/courses', [PublicMarketplaceController::class, 'courses'])->name('courses.index');
 
     // Bound as a plain string, not a route model: implicit binding resolves by uuid
     // without the publiclyListed() guard, which would make unpublished profiles

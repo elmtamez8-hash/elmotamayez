@@ -59,7 +59,7 @@ export type CourseCard = {
   title: string;
   cover_url: string | null;
   teacher: { uuid: string; name: string; photo_url: string | null } | null;
-  type: "private" | "group" | "recorded";
+  type: "individual" | "group" | "recorded";
   lessons_count: number;
   duration_seconds: number;
   price: string;

@@ -182,21 +182,21 @@ description: "Task list for 001-public-marketplace-pages"
 
 ### Tests for User Story 2
 
-- [ ] T061 [P] [US2] اختبار `backend/tests/Feature/Marketplace/StudentRegistrationTest.php` — الدور يُضبط، **لا** مساحة عمل، الموافقة إلزامية، البريد المكرر
-- [ ] T062 [P] [US2] اختبار ارتداد في `backend/tests/Feature/Tenancy/` يثبت بقاء مسار إنشاء الأكاديمية القائم عاملاً بلا تغيير (FR-011)
+- [X] T061 [P] [US2] اختبار `backend/tests/Feature/Marketplace/StudentRegistrationTest.php` — الدور يُضبط، **لا** مساحة عمل، الموافقة إلزامية، البريد المكرر
+- [X] T062 [P] [US2] اختبار ارتداد في `backend/tests/Feature/Tenancy/` يثبت بقاء مسار إنشاء الأكاديمية القائم عاملاً بلا تغيير (FR-011)
 
 ### Implementation for User Story 2
 
-- [ ] T063 [P] [US2] DTO `backend/app/Modules/Identity/Data/RegisterStudentData.php` يمتد `DataTransferObject`
-- [ ] T064 [US2] `backend/app/Modules/Identity/Actions/RegisterStudent.php` — يضبط `platform_role`، **لا** ينشئ مساحة عمل ولا يمنح دوراً داخلها (FR-010)
-- [ ] T065 [US2] `backend/app/Modules/Identity/Http/Requests/RegisterStudentRequest.php` — `terms_accepted` بقاعدة `accepted`، والمرحلة تُتحقق بالـ slug لا بـ `exists:` (الدستور، المبدأ I)
-- [ ] T066 [US2] نقطة `POST /auth/register/student` في وحدة `Identity` مع دعم `Idempotency-Key` ضد الإرسال المزدوج
-- [ ] T067 [US2] إضافة `platform_role` إلى استجابة `POST /auth/login` لتوجيه الواجهة (FR-012)
-- [ ] T068 [P] [US2] `frontend/src/app/(public)/signup/student/page.tsx` — نموذج بخطوتين كحد أقصى
-- [ ] T069 [P] [US2] مكوّن `frontend/src/components/marketplace/PhoneInput.tsx` برمز الدولة
-- [ ] T070 [US2] مفتاح "التسجيل بواسطة ولي الأمر" يُظهر/يُخفي الحقول فوراً في `frontend/src/app/(public)/signup/student/page.tsx` (FR-064)
-- [ ] T071 [US2] حالة تحميل على زر الإرسال تمنع النقرة الثانية في `frontend/src/components/marketplace/SubmitButton.tsx`
-- [ ] T072 [US2] توجيه ما بعد الدخول بحسب `platform_role` في `frontend/src/lib/auth-context.tsx`
+- [X] T063 [P] [US2] DTO `backend/app/Modules/Identity/Data/RegisterStudentData.php` يمتد `DataTransferObject`
+- [X] T064 [US2] `backend/app/Modules/Identity/Actions/RegisterStudent.php` — يضبط `platform_role`، **لا** ينشئ مساحة عمل ولا يمنح دوراً داخلها (FR-010)
+- [X] T065 [US2] `backend/app/Modules/Identity/Http/Requests/RegisterStudentRequest.php` — `terms_accepted` بقاعدة `accepted`، والمرحلة تُتحقق بالـ slug لا بـ `exists:` (الدستور، المبدأ I)
+- [X] T066 [US2] نقطة `POST /auth/register/student` في وحدة `Identity` مع دعم `Idempotency-Key` ضد الإرسال المزدوج
+- [X] T067 [US2] إضافة `platform_role` إلى استجابة `POST /auth/login` لتوجيه الواجهة (FR-012)
+- [X] T068 [P] [US2] `frontend/src/app/(public)/signup/student/page.tsx` — نموذج بخطوتين كحد أقصى
+- [X] T069 [P] [US2] مكوّن `frontend/src/components/marketplace/PhoneInput.tsx` برمز الدولة
+- [X] T070 [US2] مفتاح "التسجيل بواسطة ولي الأمر" يُظهر/يُخفي الحقول فوراً في `frontend/src/app/(public)/signup/student/page.tsx` (FR-064)
+- [X] T071 [US2] حالة تحميل على زر الإرسال تمنع النقرة الثانية في `frontend/src/components/marketplace/SubmitButton.tsx`
+- [X] T072 [US2] توجيه ما بعد الدخول بحسب `platform_role` في `frontend/src/lib/auth-context.tsx`
 
 **Checkpoint**: US1 و US2 يعملان مستقلين
 
@@ -210,19 +210,19 @@ description: "Task list for 001-public-marketplace-pages"
 
 ### Tests for User Story 3
 
-- [ ] T073 [P] [US3] اختبار عقد `GET /marketplace/courses` في `backend/tests/Feature/Marketplace/PublicCourseListTest.php` — الفلاتر، الخصم، الكورسات غير المنشورة لا تظهر
+- [X] T073 [P] [US3] اختبار عقد `GET /marketplace/courses` في `backend/tests/Feature/Marketplace/PublicCourseListTest.php` — الفلاتر، الخصم، الكورسات غير المنشورة لا تظهر
 
 ### Implementation for User Story 3
 
-- [ ] T074 [US3] إضافة نطاق النشر العام إلى `backend/app/Modules/Courses/Models/Course.php` بإعادة استخدام `status` و`visibility` و`IsPublishable` — **بلا** عمود جديد (R9)
-- [ ] T075 [US3] تعديل `toSearchableArray()` في `backend/app/Modules/Courses/Models/Course.php` لإضافة علم النشر العام حتى تُستبعد الكورسات غير المنشورة من فهرس Scout لا بعد استرجاعها (R2)
-- [ ] T076 [US3] `backend/app/Modules/Marketplace/Actions/Public/ListPublicCourses.php` مع `publiclyListed()` إلزامي
-- [ ] T077 [US3] `backend/app/Modules/Marketplace/Http/Resources/PublicCourseCardResource.php` من `PublicFieldAllowlist` — `price_before_discount` = `null` بلا خصم
-- [ ] T078 [US3] نقطة `GET /marketplace/courses` في `backend/app/Modules/Marketplace/routes/api.php`
-- [ ] T079 [P] [US3] مكوّن `frontend/src/components/marketplace/CourseCard.tsx` — الغلاف، الشارات، السعر المشطوب، نسبة الخصم كنص للقارئ الصوتي (FR-053)
-- [ ] T080 [US3] `frontend/src/app/(public)/courses/page.tsx` — Server Component بفلاتر أفقية علوية
-- [ ] T081 [P] [US3] مكوّن `frontend/src/components/marketplace/CourseFilters.tsx` — Client Component يكتب في عنوان الصفحة
-- [ ] T082 [P] [US3] ربط الكورسات المميزة في الصفحة الرئيسية بالمصدر الحقيقي في `frontend/src/app/(public)/page.tsx`
+- [X] T074 [US3] إضافة نطاق النشر العام إلى `backend/app/Modules/Courses/Models/Course.php` بإعادة استخدام `status` و`visibility` و`IsPublishable` — **بلا** عمود جديد (R9)
+- [X] T075 [US3] تعديل `toSearchableArray()` في `backend/app/Modules/Courses/Models/Course.php` لإضافة علم النشر العام حتى تُستبعد الكورسات غير المنشورة من فهرس Scout لا بعد استرجاعها (R2)
+- [X] T076 [US3] `backend/app/Modules/Marketplace/Actions/Public/ListPublicCourses.php` مع `publiclyListed()` إلزامي
+- [X] T077 [US3] `backend/app/Modules/Marketplace/Http/Resources/PublicCourseCardResource.php` من `PublicFieldAllowlist` — `price_before_discount` = `null` بلا خصم
+- [X] T078 [US3] نقطة `GET /marketplace/courses` في `backend/app/Modules/Marketplace/routes/api.php`
+- [X] T079 [P] [US3] مكوّن `frontend/src/components/marketplace/CourseCard.tsx` — الغلاف، الشارات، السعر المشطوب، نسبة الخصم كنص للقارئ الصوتي (FR-053)
+- [X] T080 [US3] `frontend/src/app/(public)/courses/page.tsx` — Server Component بفلاتر أفقية علوية
+- [X] T081 [P] [US3] مكوّن `frontend/src/components/marketplace/CourseFilters.tsx` — Client Component يكتب في عنوان الصفحة
+- [X] T082 [P] [US3] ربط الكورسات المميزة في الصفحة الرئيسية بالمصدر الحقيقي في `frontend/src/app/(public)/page.tsx`
 
 **Checkpoint**: القصص الثلاث الأولى تعمل مستقلة
 
