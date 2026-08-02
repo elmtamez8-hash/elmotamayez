@@ -17,6 +17,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Super Admin seed password
+    |--------------------------------------------------------------------------
+    |
+    | Read by DatabaseSeeder so a developer can keep one password across
+    | re-seeds. Empty means "generate a random one and print it", which is the
+    | default and the only sane behaviour for anything but a local machine —
+    | there is deliberately no fixed fallback.
+    |
+    */
+
+    'super_admin_password' => env('SUPER_ADMIN_PASSWORD', ''),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

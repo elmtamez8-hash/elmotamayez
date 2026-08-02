@@ -24,7 +24,17 @@ class DatabaseSeeder extends Seeder
         // In production, super-admins should be provisioned via a dedicated
         // artisan command or manual DB access with a strong generated password.
         if (! app()->environment('production')) {
-            $password = Str::random(32);
+            // SUPER_ADMIN_PASSWORD lets a developer keep one password across
+            // re-seeds. Without it the password is random and printed once — which
+            // is the right default, but it scrolls past in a long seed run and the
+            // account is then only recoverable by resetting it.
+            //
+            // No fallback to a fixed string: an empty or missing variable must
+            // generate a random password, never a guessable one. The env file is
+            // not loaded in production anyway, and this whole block is skipped
+            // there.
+            $configured = trim((string) config('app.super_admin_password'));
+            $password = $configured === '' ? Str::random(32) : $configured;
 
             User::factory()->create([
                 'first_name' => 'Super',
@@ -34,7 +44,9 @@ class DatabaseSeeder extends Seeder
                 'password' => $password,
             ]);
 
-            $this->command->info("Super Admin created. Email: admin@example.com Password: {$password}");
+            $this->command->info($configured === ''
+                ? "Super Admin created. Email: admin@example.com Password: {$password}"
+                : 'Super Admin created. Email: admin@example.com Password: from SUPER_ADMIN_PASSWORD');
 
             $this->call(DemoDataSeeder::class);
             $this->call(ScenarioSeeder::class);

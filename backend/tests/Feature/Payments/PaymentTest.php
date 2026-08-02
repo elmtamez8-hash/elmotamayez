@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Payments\Actions\CreateOrder;
+use App\Modules\Payments\Actions\UploadPaymentReceipt;
 use App\Modules\Payments\Contracts\PaymentProviderInterface;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Providers\ManualTransferProvider;
@@ -272,4 +273,37 @@ describe('order listing', function (): void {
             ->assertOk()
             ->assertJsonCount(2);
     });
+});
+
+/**
+ * A receipt is a bank transfer document tied to a named person. It lives on the
+ * private disk, and the only way to read it is a signed link minted for someone
+ * the `view` policy already allowed.
+ */
+it('serves a receipt through a signed link and refuses an unsigned one', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $this->setCurrentWorkspace($workspace, $owner);
+
+    $course = Course::factory()->create(['workspace_id' => $workspace->getKey()]);
+    $order = app(CreateOrder::class)->handle($course, $owner);
+
+    app(UploadPaymentReceipt::class)->handle(
+        $order,
+        UploadedFile::fake()->image('receipt.png'),
+        $owner,
+    );
+
+    Sanctum::actingAs($owner);
+
+    $url = $this->getJson("/api/v1/orders/{$order->uuid}")->json('receipt_url');
+
+    expect($url)->toContain('signature=')
+        // The old path served the public disk; the file is on the private one.
+        ->and($url)->not->toContain('/storage/');
+
+    $path = str_replace(config('app.url'), '', (string) $url);
+
+    $this->get($path)->assertOk();
+    // Strip the signature and the door closes.
+    $this->get(explode('?', $path)[0])->assertStatus(403);
 });

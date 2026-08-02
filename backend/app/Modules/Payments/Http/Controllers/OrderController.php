@@ -15,6 +15,7 @@ use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Support\Permissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrderController extends Controller
 {
@@ -67,6 +68,24 @@ class OrderController extends Controller
         $action->handle($order, $request->file('receipt'), $this->currentUser($request));
 
         return response()->json(OrderResource::make($order));
+    }
+
+    /**
+     * Stream a receipt from the private disk.
+     *
+     * Reached by signature, not by bearer token: the client opens the URL in a new
+     * tab with a plain anchor, which cannot carry an Authorization header. The
+     * signature is minted in OrderResource only for a viewer who already passed
+     * the `view` policy, and it expires — so the link is an authorisation that was
+     * granted, not a path anyone can walk to.
+     */
+    public function downloadReceipt(Order $order): StreamedResponse
+    {
+        $media = $order->getFirstMedia('receipt');
+
+        abort_if($media === null, 404);
+
+        return $media->toInlineResponse(request());
     }
 
     public function approve(Request $request, Order $order, ApproveOrder $action): JsonResponse
