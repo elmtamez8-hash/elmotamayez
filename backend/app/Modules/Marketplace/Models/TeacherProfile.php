@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * `timestamp` reads as string and would hide the Carbon API behind it.
  *
  * @property string $approval_status
+ * @property string|null $search_name
  * @property bool $is_publicly_listed
  * @property bool $is_verified
  * @property int|null $trust_score
@@ -122,6 +123,40 @@ class TeacherProfile extends BaseModel
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Keep the denormalised `search_name` in step with the owning user.
+     *
+     * Derived, never fillable: the only correct value is whatever `users` says.
+     * Called from the model's saving hook and from the User observer that the
+     * Marketplace provider registers — see the migration for why the column
+     * exists at all.
+     */
+    public function syncSearchName(?User $user = null): void
+    {
+        $user ??= $this->user;
+
+        if ($user === null) {
+            return;
+        }
+
+        $this->search_name = trim($user->first_name.' '.($user->last_name ?? ''));
+    }
+
+    // booted(), not boot{ClassName}: Laravel auto-invokes boot{TraitName} for
+    // traits and booted() for the model itself — there is no boot-by-class-name
+    // convention, so a method named for the class is simply never called.
+    protected static function booted(): void
+    {
+        static::saving(function (self $profile): void {
+            // Only when it could actually be wrong. A profile save is rare, but
+            // loading the user on every one of them would still be a query
+            // nobody asked for.
+            if ($profile->search_name === null || $profile->isDirty('user_id')) {
+                $profile->syncSearchName();
+            }
+        });
     }
 
     /** @return BelongsToMany<Subject, $this> */

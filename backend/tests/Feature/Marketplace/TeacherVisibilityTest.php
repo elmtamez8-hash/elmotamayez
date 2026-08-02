@@ -85,3 +85,40 @@ it('hides a whole workspace on withdrawal without touching approval status', fun
 
     expect($this->getJson('/api/v1/marketplace/teachers')->json('meta.total'))->toBe(1);
 });
+
+/**
+ * search_name is a copy of the user's name kept on teacher_profiles for SC-008.
+ * A copy that drifts is worse than the join it replaced: the teacher stays
+ * findable only under a name they no longer use.
+ */
+it('finds a teacher by name without touching the users table', function (): void {
+    $teacher = marketplaceTeacher($this->workspace);
+    $teacher->user?->forceFill(['first_name' => 'بدرية', 'last_name' => 'المسند'])->save();
+
+    $this->asGuest();
+
+    expect($this->getJson('/api/v1/marketplace/teachers?q=بدرية')->json('meta.total'))->toBe(1)
+        ->and($this->getJson('/api/v1/marketplace/teachers?q=المسند')->json('meta.total'))->toBe(1)
+        ->and($this->getJson('/api/v1/marketplace/teachers?q=غيرها')->json('meta.total'))->toBe(0);
+});
+
+it('follows a rename so the old name stops matching', function (): void {
+    $teacher = marketplaceTeacher($this->workspace);
+    $teacher->user?->forceFill(['first_name' => 'بدرية', 'last_name' => 'المسند'])->save();
+
+    $this->asGuest();
+    expect($this->getJson('/api/v1/marketplace/teachers?q=بدرية')->json('meta.total'))->toBe(1);
+
+    $teacher->user?->forceFill(['first_name' => 'نورة'])->save();
+
+    expect($this->getJson('/api/v1/marketplace/teachers?q=نورة')->json('meta.total'))->toBe(1)
+        ->and($this->getJson('/api/v1/marketplace/teachers?q=بدرية')->json('meta.total'))->toBe(0);
+});
+
+it('populates search_name for a profile created without one', function (): void {
+    $teacher = marketplaceTeacher($this->workspace);
+
+    expect($teacher->fresh()?->search_name)->toBe(
+        trim($teacher->user?->first_name.' '.$teacher->user?->last_name),
+    );
+});
