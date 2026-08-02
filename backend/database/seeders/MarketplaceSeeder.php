@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\GradeLevel;
+use App\Modules\Marketplace\Models\Review;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Marketplace\Support\MarketplaceCache;
@@ -166,6 +167,8 @@ class MarketplaceSeeder extends Seeder
                     'duration_seconds' => $demo['course']['hours'] * 3600,
                 ]);
 
+                $this->seedReviews($workspace, $profile, $demo['reviews'], (float) $demo['rating']);
+
                 foreach ($demo['availability'] as [$day, $start, $end]) {
                     AvailabilitySlot::query()->create([
                         'workspace_id' => $workspace->getKey(),
@@ -182,6 +185,51 @@ class MarketplaceSeeder extends Seeder
 
         $this->command->info('Marketplace demo seeded: '.count(self::DEMO_TEACHERS).' published teachers.');
     }
+
+    /**
+     * Real review rows behind the numbers already on the profile.
+     *
+     * The ratings are chosen to land on the demo average rather than drawn at
+     * random: the profile shows the mean, the star distribution and the comments
+     * on one screen, and three sources disagreeing reads as a bug in the page.
+     */
+    private function seedReviews(Workspace $workspace, TeacherProfile $profile, int $count, float $target): void
+    {
+        if ($count === 0) {
+            return;
+        }
+
+        $ratings = array_fill(0, $count, 3);
+        $remaining = (int) round($target * $count) - 3 * $count;
+
+        for ($i = 0; $i < $count && $remaining > 0; $i++) {
+            $step = min(2, $remaining);
+            $ratings[$i] += $step;
+            $remaining -= $step;
+        }
+
+        foreach ($ratings as $index => $rating) {
+            Review::query()->create([
+                'workspace_id' => $workspace->getKey(),
+                'teacher_profile_id' => $profile->getKey(),
+                'student_id' => User::factory()->create(['platform_role' => 'student'])->getKey(),
+                'rating' => $rating,
+                'comment' => $index % 3 === 0 ? self::COMMENTS[$index % count(self::COMMENTS)] : null,
+            ]);
+        }
+
+        $profile->forceFill([
+            'reviews_count' => $count,
+            'average_rating' => round(array_sum($ratings) / $count, 2),
+        ])->save();
+    }
+
+    /** @var list<string> */
+    private const COMMENTS = [
+        'شرح واضح وصبور جداً مع ابني، تحسّنت درجاته خلال شهرين.',
+        'يلتزم بالمواعيد ويرسل ملخّصاً بعد كل حصة.',
+        'أسلوبه عملي ويركّز على نقاط الضعف بدل إعادة المنهج كله.',
+    ];
 
     /** @var list<array<string, mixed>> */
     private const DEMO_TEACHERS = [

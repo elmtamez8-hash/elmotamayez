@@ -32,6 +32,7 @@ class ListPublicTeachersRequest extends FormRequest
             'price_min' => ['sometimes', 'numeric', 'min:0'],
             'price_max' => ['sometimes', 'numeric', 'min:0', 'gte:price_min'],
             'min_rating' => ['sometimes', 'numeric', 'between:1,5'],
+            'min_trust_score' => ['sometimes', 'integer', 'between:0,100'],
             'language' => ['sometimes', 'string', 'max:5'],
             'available_now' => ['sometimes', 'boolean'],
             'q' => ['sometimes', 'string', 'max:100'],
@@ -51,6 +52,7 @@ class ListPublicTeachersRequest extends FormRequest
         return [
             'price_max.gte' => 'الحد الأعلى للسعر يجب أن يكون أكبر من الحد الأدنى.',
             'min_rating.between' => 'التقييم يجب أن يكون بين 1 و5.',
+            'min_trust_score.between' => 'درجة الثقة يجب أن تكون بين 0 و100.',
             'sort.in' => 'خيار الترتيب غير معروف.',
         ];
     }

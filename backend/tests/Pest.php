@@ -2,10 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
+use App\Modules\Courses\Models\Course;
+use App\Modules\Identity\Support\PlatformRole;
+use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
+use Laravel\Sanctum\Sanctum;
 use Tests\Support\WithWorkspace;
 use Tests\TestCase;
 
@@ -44,4 +50,50 @@ function marketplaceTeacher(Workspace $workspace, array $attrs = []): TeacherPro
             ->scored()
             ->create([...$attrs, 'workspace_id' => $workspace->getKey()]),
     );
+}
+
+/**
+ * Post a review as a marketplace student.
+ *
+ * The asGuest() call is not cosmetic: WorkspaceContext freezes on its first
+ * resolution, the fixtures resolved it to the academy, and a student with no
+ * workspace would otherwise hand spatie a stale team id.
+ */
+function postReview(User $student, string $teacherUuid, int $rating = 5, ?string $comment = 'ممتاز'): TestResponse
+{
+    Sanctum::actingAs($student);
+    test()->asGuest();
+
+    return test()->postJson("/api/v1/teachers/{$teacherUuid}/reviews", array_filter([
+        'rating' => $rating,
+        'comment' => $comment,
+    ], fn ($value) => $value !== null));
+}
+
+/**
+ * A marketplace student who has finished a course this teacher created — the
+ * evidence SubmitReview demands (FR-018). The student belongs to no workspace,
+ * which is exactly the shape of a real marketplace signup.
+ */
+function studentWhoCompletedWith(TeacherProfile $teacher): User
+{
+    $student = User::factory()->create(['platform_role' => PlatformRole::Student]);
+
+    /** @var Workspace $workspace */
+    $workspace = $teacher->workspace;
+
+    app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($teacher, $student, $workspace): void {
+        $course = Course::factory()->published()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $teacher->user_id,
+        ]);
+
+        Enrollment::factory()->completed()->create([
+            'workspace_id' => $workspace->getKey(),
+            'course_id' => $course->getKey(),
+            'student_user_id' => $student->getKey(),
+        ]);
+    });
+
+    return $student;
 }

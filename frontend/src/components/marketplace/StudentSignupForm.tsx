@@ -31,7 +31,7 @@ function Field({
       </label>
       {children}
       {error && (
-        <p id={`${id}-error`} className="mt-1 text-sm text-danger">
+        <p id={`${id}-error`} className="mt-1 text-sm text-danger-ink">
           {error}
         </p>
       )}
@@ -119,7 +119,7 @@ export function StudentSignupForm({
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5">
       {banner && (
-        <p role="alert" className="rounded-xl bg-danger/10 p-3 text-sm text-danger">
+        <p role="alert" className="rounded-xl bg-danger/10 p-3 text-sm text-danger-ink">
           {banner}
         </p>
       )}
@@ -281,7 +281,7 @@ export function StudentSignupForm({
           </span>
         </label>
         {errors.terms_accepted && (
-          <p id="terms_accepted-error" className="mt-1 text-sm text-danger">
+          <p id="terms_accepted-error" className="mt-1 text-sm text-danger-ink">
             {errors.terms_accepted}
           </p>
         )}

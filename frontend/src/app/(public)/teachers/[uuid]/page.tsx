@@ -8,6 +8,7 @@ import { TrustScoreBreakdown } from "@/components/marketplace/TrustScoreBreakdow
 import { AvailabilityCalendar } from "@/components/marketplace/AvailabilityCalendar";
 import { FaqAccordion } from "@/components/marketplace/FaqAccordion";
 import { CourseCard } from "@/components/marketplace/CourseCard";
+import { ReviewsTab } from "@/components/marketplace/ReviewsTab";
 import { EmptyState } from "@/components/marketplace/states/EmptyState";
 import {
   ProfileTabs,
@@ -121,7 +122,7 @@ export default async function TeacherProfilePage({
             <h1 className="mb-2 flex flex-wrap items-center gap-2 text-2xl font-extrabold text-ink sm:text-3xl">
               {teacher.name}
               {teacher.is_verified && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-secondary/15 px-2.5 py-1 text-xs font-semibold text-secondary">
+                <span className="inline-flex items-center gap-1 rounded-full bg-secondary/15 px-2.5 py-1 text-xs font-semibold text-secondary-ink">
                   <svg
                     className="h-3.5 w-3.5"
                     viewBox="0 0 20 20"
@@ -197,7 +198,7 @@ export default async function TeacherProfilePage({
             </Link>
 
             {teacher.available_now && (
-              <p className="mt-4 flex items-center justify-center gap-2 text-sm font-medium text-secondary">
+              <p className="mt-4 flex items-center justify-center gap-2 text-sm font-medium text-secondary-ink">
                 <span
                   className="h-2 w-2 rounded-full bg-secondary"
                   aria-hidden="true"
@@ -240,7 +241,7 @@ export default async function TeacherProfilePage({
                             className="flex items-start gap-2 text-ink-muted"
                           >
                             <svg
-                              className="mt-1 h-4 w-4 shrink-0 text-secondary"
+                              className="mt-1 h-4 w-4 shrink-0 text-secondary-ink"
                               viewBox="0 0 20 20"
                               fill="currentColor"
                               aria-hidden="true"
@@ -292,10 +293,7 @@ export default async function TeacherProfilePage({
               ))}
 
             {active === "reviews" && (
-              <EmptyState
-                title="لا توجد تقييمات بعد"
-                description="لم يقيّم أي طالب هذا المدرّس حتى الآن. التقييمات تظهر بعد إتمام الحصص."
-              />
+              <ReviewsTab teacherUuid={teacher.uuid} reviews={teacher.reviews} />
             )}
 
             {active === "schedule" && (

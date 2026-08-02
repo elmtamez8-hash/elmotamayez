@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Marketplace\Http\Controllers\PublicMarketplaceController;
+use App\Modules\Marketplace\Http\Controllers\ReviewController;
 use App\Modules\Marketplace\Http\Controllers\TeacherApplicationController;
 use App\Modules\Marketplace\Http\Controllers\TeacherReviewController;
 use Illuminate\Support\Facades\Route;
@@ -65,4 +66,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/admin/teachers/{uuid}/reinstate', [TeacherReviewController::class, 'reinstate']);
 
     Route::put('/workspace/marketplace-participation', [TeacherReviewController::class, 'setParticipation']);
+
+    // Reviews and complaints. The teacher uuid is a plain string here too — the
+    // controller resolves it through the same public Action, so an unlisted
+    // profile is no more reviewable than it is viewable.
+    Route::post('/teachers/{uuid}/reviews', [ReviewController::class, 'store']);
+    Route::delete('/admin/reviews/{uuid}', [ReviewController::class, 'moderate']);
+    Route::post('/admin/complaints/{uuid}/confirm', [ReviewController::class, 'confirmComplaint']);
+    Route::post('/admin/complaints/{uuid}/dismiss', [ReviewController::class, 'dismissComplaint']);
 });

@@ -24,7 +24,7 @@ export default function TeacherApplicationSubmittedPage() {
         className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-secondary/15"
         aria-hidden="true"
       >
-        <svg className="h-8 w-8 text-secondary" viewBox="0 0 20 20" fill="currentColor">
+        <svg className="h-8 w-8 text-secondary-ink" viewBox="0 0 20 20" fill="currentColor">
           <path
             fillRule="evenodd"
             d="M16.4 6.4a1 1 0 010 1.4l-6.6 6.6a1 1 0 01-1.4 0L5.1 11.1a1 1 0 111.4-1.4l2.6 2.6 5.9-5.9a1 1 0 011.4 0z"

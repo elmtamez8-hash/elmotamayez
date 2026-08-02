@@ -35,9 +35,9 @@ class PublicTeacherDetailResource extends PublicTeacherCardResource
             // visitor to trust an opaque figure, which is the opposite of the point.
             'trust_score_factors' => $this->trust_score_factors,
 
-            // Filled in by the controller, which has the courses Action; reviews
-            // land with US5. Empty is honest: the profile renders "no reviews yet"
-            // rather than inventing data.
+            // Both filled in by the controller, which holds the Actions that read
+            // them. The defaults here are what a profile with neither looks like,
+            // so a caller that forgets to merge gets "nothing yet", not a crash.
             'courses' => [],
             'reviews' => [
                 'average' => $this->average_rating === null ? null : (float) $this->average_rating,

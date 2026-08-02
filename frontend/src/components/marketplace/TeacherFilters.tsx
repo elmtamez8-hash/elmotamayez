@@ -164,6 +164,30 @@ export function TeacherFilters({
       </div>
 
       <div>
+        <label htmlFor={id("min_trust_score")} className="mb-1.5 block text-sm font-semibold text-ink">
+          الحد الأدنى لدرجة الثقة
+        </label>
+        <select
+          id={id("min_trust_score")}
+          value={params.get("min_trust_score") ?? ""}
+          onChange={(event) => update("min_trust_score", event.target.value)}
+          className={field}
+        >
+          <option value="">أي درجة</option>
+          {[80, 60, 40].map((score) => (
+            <option key={score} value={score}>
+              {score} فأكثر
+            </option>
+          ))}
+        </select>
+        {/* Said out loud, because the filter silently drops teachers the visitor
+            might otherwise expect to see (FR-026). */}
+        <p className="mt-1 text-xs text-ink-muted">
+          يستبعد هذا الفلتر المدرّسين الجدد الذين لم تُحتسب درجتهم بعد.
+        </p>
+      </div>
+
+      <div>
         <label htmlFor={id("language")} className="mb-1.5 block text-sm font-semibold text-ink">
           لغة التدريس
         </label>

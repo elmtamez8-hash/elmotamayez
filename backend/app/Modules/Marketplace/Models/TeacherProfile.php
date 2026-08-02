@@ -142,6 +142,18 @@ class TeacherProfile extends BaseModel
         return $this->hasMany(AvailabilitySlot::class);
     }
 
+    /** @return HasMany<Review, $this> */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    /** @return HasMany<Complaint, $this> */
+    public function complaints(): HasMany
+    {
+        return $this->hasMany(Complaint::class);
+    }
+
     /**
      * Whether the teacher is inside one of their weekly windows right now.
      *

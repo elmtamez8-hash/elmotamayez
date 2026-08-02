@@ -47,7 +47,7 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
             </Link>
             {teacher.is_verified && (
               <svg
-                className="h-4 w-4 shrink-0 text-secondary"
+                className="h-4 w-4 shrink-0 text-secondary-ink"
                 viewBox="0 0 20 20"
                 fill="currentColor"
                 role="img"
@@ -75,7 +75,7 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
           band={teacher.trust_score_band}
         />
         {teacher.available_now && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/15 px-2.5 py-1 text-xs font-semibold text-secondary">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/15 px-2.5 py-1 text-xs font-semibold text-secondary-ink">
             <span className="h-1.5 w-1.5 rounded-full bg-secondary" aria-hidden="true" />
             متاح الآن
           </span>

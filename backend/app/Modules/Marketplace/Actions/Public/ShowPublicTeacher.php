@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace\Actions\Public;
 
 use App\Modules\Courses\Models\Course;
+use App\Modules\Marketplace\Models\Review;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Actions\Action;
 use Illuminate\Database\Eloquent\Collection;
@@ -40,6 +41,45 @@ class ShowPublicTeacher extends Action
         }
 
         return $teacher;
+    }
+
+    /**
+     * The public reviews block: average, star distribution and the newest comments.
+     *
+     * Hidden reviews are excluded everywhere, including the distribution — a bar
+     * chart that counts rows the list does not show reads as a bug.
+     *
+     * @return array<string, mixed>
+     */
+    public function reviewsOf(TeacherProfile $teacher, int $limit = 20): array
+    {
+        $reviews = Review::query()
+            ->withoutWorkspaceScope()
+            ->where('teacher_profile_id', $teacher->getKey())
+            ->where('is_visible', true)
+            ->with('student:id,first_name,last_name')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $distribution = ['5' => 0, '4' => 0, '3' => 0, '2' => 0, '1' => 0];
+
+        foreach ($reviews as $review) {
+            $distribution[(string) $review->rating]++;
+        }
+
+        return [
+            'average' => $reviews->isEmpty() ? null : round((float) $reviews->avg('rating'), 2),
+            'total' => $reviews->count(),
+            // Cast to object: PHP turns numeric string keys into integers and
+            // json_encode would then emit an array instead of the keyed object.
+            'distribution' => (object) $distribution,
+            'items' => $reviews->take($limit)->map(fn (Review $review): array => [
+                'student_display_name' => $review->studentDisplayName(),
+                'rating' => $review->rating,
+                'comment' => $review->comment,
+                'created_at' => $review->created_at?->toDateString(),
+            ])->values()->all(),
+        ];
     }
 
     /**

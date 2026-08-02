@@ -73,7 +73,7 @@ function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
 
   return (
-    <p id={`${id}-error`} className="mt-1 text-sm text-danger">
+    <p id={`${id}-error`} className="mt-1 text-sm text-danger-ink">
       {message}
     </p>
   );
@@ -306,7 +306,7 @@ export function TeacherSignupWizard({
       )}
 
       {banner && (
-        <p role="alert" className="mb-6 rounded-xl bg-danger/10 p-3 text-sm text-danger">
+        <p role="alert" className="mb-6 rounded-xl bg-danger/10 p-3 text-sm text-danger-ink">
           {banner}
         </p>
       )}
@@ -697,7 +697,7 @@ export function TeacherSignupWizard({
                     <button
                       type="button"
                       onClick={() => setSlots(slots.filter((_, i) => i !== index))}
-                      className="rounded-xl border border-line px-3 py-2.5 text-sm text-danger"
+                      className="rounded-xl border border-line px-3 py-2.5 text-sm text-danger-ink"
                     >
                       حذف
                       <span className="sr-only"> فترة {DAYS[slot.day_of_week]}</span>

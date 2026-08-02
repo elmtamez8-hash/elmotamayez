@@ -109,6 +109,7 @@ class PublicMarketplaceController extends Controller
 
         $payload = PublicTeacherDetailResource::make($teacher)->resolve();
         $payload['courses'] = PublicCourseCardResource::collection($action->coursesOf($teacher))->resolve();
+        $payload['reviews'] = $action->reviewsOf($teacher);
 
         return response()->json(['data' => $payload]);
     }

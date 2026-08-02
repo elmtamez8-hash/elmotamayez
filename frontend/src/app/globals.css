@@ -19,6 +19,18 @@
   --color-accent-foreground: #1f2937;
   --color-trust-medium-foreground: #1f2937;
 
+  /* Brand hues used as TEXT, darkened until they clear 4.5:1 on the light surface
+     (FR-081). Every one of the raw hues above fails as text on white — secondary
+     at 2.5:1, trust-high at 2.2:1, danger at 3.4:1 — and the difference is only
+     visible to the people the rule exists for. The dark-theme block below points
+     these back at the raw hues, which do clear the bar against #111827, so a
+     component writes `text-danger-ink` once and is correct in both themes. */
+  --color-secondary-ink: #0f7a55;
+  --color-danger-ink: #b23b3b;
+  --color-trust-high-ink: #15803d;
+  --color-trust-medium-ink: #1f2937;
+  --color-trust-low-ink: #b91c1c;
+
   /* Text & surfaces */
   --color-ink: #1f2937;
   --color-ink-muted: #6b7280;
@@ -42,6 +54,14 @@
   --color-surface: #111827;
   --color-line: #374151;
   --color-primary-soft: #16273f;
+
+  /* On #111827 the raw hues clear 4.5:1 on their own (5.2–7.8:1), and the
+     darkened light-theme values would not. */
+  --color-secondary-ink: #1fae7a;
+  --color-danger-ink: #e85c5c;
+  --color-trust-high-ink: #22c55e;
+  --color-trust-medium-ink: #f5b301;
+  --color-trust-low-ink: #ef4444;
 }
 
 @media (prefers-reduced-motion: reduce) {

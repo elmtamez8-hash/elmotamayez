@@ -28,6 +28,7 @@ const FILTER_KEYS = [
   "price_min",
   "price_max",
   "min_rating",
+  "min_trust_score",
   "language",
   "available_now",
   "q",

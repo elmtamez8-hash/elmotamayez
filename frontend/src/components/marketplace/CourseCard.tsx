@@ -125,7 +125,7 @@ export function CourseCard({ course }: { course: Course }) {
                 السعر قبل الخصم {course.price_before_discount} {CURRENCY_LABEL}، بخصم{" "}
                 {saving}٪
               </span>
-              <span className="rounded-lg bg-danger/10 px-2 py-0.5 text-xs font-bold text-danger">
+              <span className="rounded-lg bg-danger/10 px-2 py-0.5 text-xs font-bold text-danger-ink">
                 −{saving}٪
               </span>
             </>

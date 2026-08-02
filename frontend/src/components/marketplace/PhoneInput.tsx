@@ -61,7 +61,7 @@ export function PhoneInput({
       </div>
 
       {error && (
-        <p id={describedBy} className="mt-1 text-sm text-danger">
+        <p id={describedBy} className="mt-1 text-sm text-danger-ink">
           {error}
         </p>
       )}

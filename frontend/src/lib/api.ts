@@ -1,4 +1,5 @@
 import type {
+  ParentRegistration,
   StudentRegistration,
   TeacherApplication,
   TeacherRegistration,
@@ -10,6 +11,13 @@ const API_BASE = "/api/v1";
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("auth_token");
+}
+
+/** Whether a session exists at all. Public pages need this much and no more —
+ * they are not wrapped in AuthProvider, and pulling it in for one form would put
+ * an /auth/me request on every crawlable page. */
+export function hasAuthToken(): boolean {
+  return getToken() !== null;
 }
 
 export function setToken(token: string): void {
@@ -128,6 +136,12 @@ export const auth = {
     api.post<User>("/auth/register", data),
   registerStudent: (data: StudentRegistration, idempotencyKey: string) =>
     request<{ user: User; token: string }>("/auth/register/student", {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: { "Idempotency-Key": idempotencyKey },
+    }),
+  registerParent: (data: ParentRegistration, idempotencyKey: string) =>
+    request<{ user: User; token: string }>("/auth/register/parent", {
       method: "POST",
       body: JSON.stringify(data),
       headers: { "Idempotency-Key": idempotencyKey },

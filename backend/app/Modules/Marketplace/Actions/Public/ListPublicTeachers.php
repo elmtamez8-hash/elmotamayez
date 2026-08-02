@@ -54,6 +54,16 @@ class ListPublicTeachers extends Action
         $query->when($filters->priceMax, fn (Builder $q, float $max) => $q->where('hourly_rate', '<=', $max));
         $query->when($filters->minRating, fn (Builder $q, float $min) => $q->where('average_rating', '>=', $min));
 
+        // A null score means "still building", not "scored zero" (FR-024). Asking
+        // for a minimum therefore excludes those teachers instead of comparing
+        // against a number they do not have — `null >= 60` is null, not false, and
+        // relying on that is a bug waiting for a different database.
+        $query->when(
+            $filters->minTrustScore !== null,
+            fn (Builder $q) => $q->whereNotNull('trust_score')
+                ->where('trust_score', '>=', $filters->minTrustScore),
+        );
+
         $query->when($filters->language, fn (Builder $q, string $lang) => $q->whereJsonContains('teaching_languages', $lang));
 
         $query->when($filters->search, function (Builder $q, string $term): void {

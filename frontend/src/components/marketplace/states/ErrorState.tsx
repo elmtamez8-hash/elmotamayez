@@ -20,7 +20,7 @@ export function ErrorState({
       role="alert"
     >
       <svg
-        className="mb-4 h-12 w-12 text-danger"
+        className="mb-4 h-12 w-12 text-danger-ink"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"

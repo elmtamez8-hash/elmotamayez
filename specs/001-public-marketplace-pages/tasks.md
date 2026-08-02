@@ -272,27 +272,27 @@ description: "Task list for 001-public-marketplace-pages"
 
 ### Tests for User Story 5
 
-- [ ] T101 [P] [US5] اختبار `backend/tests/Feature/Marketplace/ReviewTest.php` — منع التقييم بلا حصة مكتملة (422)، سجل فعّال واحد لكل زوج، المتوسط لا يتضخّم
-- [ ] T102 [P] [US5] اختبار `backend/tests/Feature/Marketplace/TrustScoreTest.php` — كل حالات جدول `quickstart.md` سيناريو 3 بما فيها "قيد التكوين" ≠ صفر
-- [ ] T103 [P] [US5] اختبار يثبت أن وظيفة إعادة الاحتساب تستخدم `forWorkspace()` ولا تسرّب مساحة العمل إلى مهمة تالية على نفس العامل (الدستور، المبدأ I)
+- [X] T101 [P] [US5] اختبار `backend/tests/Feature/Marketplace/ReviewTest.php` — منع التقييم بلا حصة مكتملة (422)، سجل فعّال واحد لكل زوج، المتوسط لا يتضخّم
+- [X] T102 [P] [US5] اختبار `backend/tests/Feature/Marketplace/TrustScoreTest.php` — كل حالات جدول `quickstart.md` سيناريو 3 بما فيها "قيد التكوين" ≠ صفر
+- [X] T103 [P] [US5] اختبار يثبت أن وظيفة إعادة الاحتساب تستخدم `forWorkspace()` ولا تسرّب مساحة العمل إلى مهمة تالية على نفس العامل (الدستور، المبدأ I)
 
 ### Implementation for User Story 5
 
-- [ ] T104 [P] [US5] نموذج وهجرة `backend/app/Modules/Marketplace/Models/Review.php` بقيد فريد `(teacher_profile_id, student_id)`
-- [ ] T105 [P] [US5] نموذج وهجرة `backend/app/Modules/Marketplace/Models/Complaint.php`
-- [ ] T106 [US5] `backend/app/Modules/Marketplace/Actions/SubmitReview.php` — يرفض بلا حصة مكتملة (FR-018)، ويُحدّث السجل القائم بدل إنشاء ثانٍ (FR-019)
-- [ ] T107 [US5] `backend/app/Modules/Marketplace/Actions/RecalculateTrustScore.php` — يستخدم `TrustScoreCalculator`، ويقصّ على 0–100، ويكتب `trust_score_factors` و`trust_score_calculated_at`
-- [ ] T108 [US5] `backend/app/Modules/Marketplace/Jobs/RecalculateTrustScoreJob.php` — **يستخدم `WorkspaceContext::forWorkspace()` حصراً، ممنوع `set()`**
-- [ ] T109 [P] [US5] أحداث `ReviewSubmitted` و`ComplaintConfirmed` ومستمعوها في `backend/app/Modules/Marketplace/`
-- [ ] T110 [P] [US5] `backend/app/Modules/Marketplace/Actions/ConfirmComplaint.php` و`DismissComplaint.php`
-- [ ] T111 [P] [US5] `backend/app/Modules/Marketplace/Actions/ModerateReview.php` — الإخفاء يعيد الاحتساب
-- [ ] T112 [P] [US5] سياسة `backend/app/Modules/Marketplace/Policies/ReviewPolicy.php`
-- [ ] T113 [US5] نقاط التقييمات والشكاوى حسب `contracts/teacher-admin-api.md`
-- [ ] T114 [US5] تحديث العدّادات المادّية (`reviews_count`, `average_rating`, `completed_sessions_count`) عند كل حدث في `backend/app/Modules/Marketplace/Listeners/`
-- [ ] T115 [P] [US5] مكوّن `frontend/src/components/marketplace/ReviewsTab.tsx` — المتوسط + توزيع النجوم كأشرطة + القائمة الزمنية العكسية
-- [ ] T116 [P] [US5] مكوّن `frontend/src/components/marketplace/ReviewForm.tsx` للطالب المؤهّل
-- [ ] T117 [US5] استبدال حالة "قيد التكوين" بالقيم الحقيقية في `TrustScoreBadge.tsx` و`TrustScoreBreakdown.tsx`
-- [ ] T118 [US5] تفعيل الفلترة والترتيب بدرجة الثقة مع استبعاد "قيد التكوين" من المقارنة العددية (FR-026)
+- [X] T104 [P] [US5] نموذج وهجرة `backend/app/Modules/Marketplace/Models/Review.php` بقيد فريد `(teacher_profile_id, student_id)`
+- [X] T105 [P] [US5] نموذج وهجرة `backend/app/Modules/Marketplace/Models/Complaint.php`
+- [X] T106 [US5] `backend/app/Modules/Marketplace/Actions/SubmitReview.php` — يرفض بلا حصة مكتملة (FR-018)، ويُحدّث السجل القائم بدل إنشاء ثانٍ (FR-019)
+- [X] T107 [US5] `backend/app/Modules/Marketplace/Actions/RecalculateTrustScore.php` — يستخدم `TrustScoreCalculator`، ويقصّ على 0–100، ويكتب `trust_score_factors` و`trust_score_calculated_at`
+- [X] T108 [US5] `backend/app/Modules/Marketplace/Jobs/RecalculateTrustScoreJob.php` — **يستخدم `WorkspaceContext::forWorkspace()` حصراً، ممنوع `set()`**
+- [X] T109 [P] [US5] أحداث `ReviewSubmitted` و`ComplaintConfirmed` ومستمعوها في `backend/app/Modules/Marketplace/`
+- [X] T110 [P] [US5] `backend/app/Modules/Marketplace/Actions/ConfirmComplaint.php` و`DismissComplaint.php`
+- [X] T111 [P] [US5] `backend/app/Modules/Marketplace/Actions/ModerateReview.php` — الإخفاء يعيد الاحتساب
+- [X] T112 [P] [US5] سياسة `backend/app/Modules/Marketplace/Policies/ReviewPolicy.php`
+- [X] T113 [US5] نقاط التقييمات والشكاوى حسب `contracts/teacher-admin-api.md`
+- [X] T114 [US5] تحديث العدّادات المادّية (`reviews_count`, `average_rating`, `completed_sessions_count`) عند كل حدث في `backend/app/Modules/Marketplace/Listeners/`
+- [X] T115 [P] [US5] مكوّن `frontend/src/components/marketplace/ReviewsTab.tsx` — المتوسط + توزيع النجوم كأشرطة + القائمة الزمنية العكسية
+- [X] T116 [P] [US5] مكوّن `frontend/src/components/marketplace/ReviewForm.tsx` للطالب المؤهّل
+- [X] T117 [US5] استبدال حالة "قيد التكوين" بالقيم الحقيقية في `TrustScoreBadge.tsx` و`TrustScoreBreakdown.tsx`
+- [X] T118 [US5] تفعيل الفلترة والترتيب بدرجة الثقة مع استبعاد "قيد التكوين" من المقارنة العددية (FR-026)
 
 **Checkpoint**: نظام الثقة يعمل — الميزة المميِّزة للمنصة مكتملة
 
@@ -307,19 +307,19 @@ description: "Task list for 001-public-marketplace-pages"
 
 ### Tests for User Story 6
 
-- [ ] T119 [P] [US6] اختبار `backend/tests/Feature/Marketplace/ParentAccountTest.php` — الربط، ومنع وليّ أمر من الوصول لابن غير مرتبط (403)
+- [X] T119 [P] [US6] اختبار `backend/tests/Feature/Marketplace/ParentAccountTest.php` — الربط، ومنع وليّ أمر من الوصول لابن غير مرتبط (403)
 
 ### Implementation for User Story 6
 
-- [ ] T120 [P] [US6] هجرة ونموذج `backend/app/Modules/Identity/Models/ParentChildLink.php`
-- [ ] T121 [P] [US6] هجرة ونموذج `backend/app/Modules/Identity/Models/NotificationPreference.php`
-- [ ] T122 [P] [US6] `backend/app/Modules/Identity/Actions/RegisterParent.php`
-- [ ] T123 [US6] `backend/app/Modules/Identity/Actions/AddChild.php`
-- [ ] T124 [P] [US6] سياسة `backend/app/Modules/Identity/Policies/ParentChildLinkPolicy.php` (FR-075)
-- [ ] T125 [US6] نقاط `POST /auth/register/parent`, `POST /parent/children`, `GET|PUT /parent/notification-preferences`
-- [ ] T126 [P] [US6] `frontend/src/app/(public)/signup/parent/page.tsx`
-- [ ] T127 [P] [US6] شاشة "إضافة طفل" مع إمكانية التخطّي في `frontend/src/app/(public)/signup/parent/children/page.tsx`
-- [ ] T128 [P] [US6] لوحة تفضيلات الإشعارات في `frontend/src/components/marketplace/NotificationPreferences.tsx`
+- [X] T120 [P] [US6] هجرة ونموذج `backend/app/Modules/Identity/Models/ParentChildLink.php`
+- [X] T121 [P] [US6] هجرة ونموذج `backend/app/Modules/Identity/Models/NotificationPreference.php`
+- [X] T122 [P] [US6] `backend/app/Modules/Identity/Actions/RegisterParent.php`
+- [X] T123 [US6] `backend/app/Modules/Identity/Actions/AddChild.php`
+- [X] T124 [P] [US6] سياسة `backend/app/Modules/Identity/Policies/ParentChildLinkPolicy.php` (FR-075)
+- [X] T125 [US6] نقاط `POST /auth/register/parent`, `POST /parent/children`, `GET|PUT /parent/notification-preferences`
+- [X] T126 [P] [US6] `frontend/src/app/(public)/signup/parent/page.tsx`
+- [X] T127 [P] [US6] شاشة "إضافة طفل" مع إمكانية التخطّي في `frontend/src/app/(public)/signup/parent/children/page.tsx`
+- [X] T128 [P] [US6] لوحة تفضيلات الإشعارات في `frontend/src/components/marketplace/NotificationPreferences.tsx`
 
 **Checkpoint**: كل القصص الست تعمل مستقلة
 

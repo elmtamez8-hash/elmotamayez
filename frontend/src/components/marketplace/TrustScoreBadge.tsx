@@ -7,22 +7,23 @@ import type { TrustBand } from "@/lib/public-api";
  * has not earned a low score — showing one would drive new teachers off the
  * platform for the crime of being new (FR-024).
  *
- * The medium band is amber; white text on amber sits near 2.4:1, so every band
- * pairs a light fill with dark ink rather than the reverse (FR-081).
+ * Every band is a light fill with a `-ink` foreground: the raw band hues are
+ * between 2.2:1 and 3.8:1 as text, all below the 4.5:1 floor (FR-081). The `-ink`
+ * tokens carry theme-aware darkened values, so there is no `dark:` variant here.
  */
 const BAND_STYLES: Record<TrustBand, { chip: string; dot: string; label: string }> = {
   high: {
-    chip: "bg-trust-high/15 text-trust-high",
+    chip: "bg-trust-high/15 text-trust-high-ink",
     dot: "bg-trust-high",
     label: "ثقة عالية",
   },
   medium: {
-    chip: "bg-trust-medium/20 text-trust-medium-foreground dark:text-trust-medium",
+    chip: "bg-trust-medium/20 text-trust-medium-ink",
     dot: "bg-trust-medium",
     label: "ثقة متوسطة",
   },
   low: {
-    chip: "bg-trust-low/15 text-trust-low",
+    chip: "bg-trust-low/15 text-trust-low-ink",
     dot: "bg-trust-low",
     label: "ثقة منخفضة",
   },

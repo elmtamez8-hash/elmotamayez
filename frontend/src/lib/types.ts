@@ -14,6 +14,32 @@ export interface StudentRegistration {
   terms_accepted: boolean;
 }
 
+export interface ParentRegistration {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+  phone: string;
+  country: string;
+  terms_accepted: boolean;
+}
+
+/** A child on a parent's account. `has_account` says whether the child signed up
+ * separately; the child's own uuid is deliberately not exposed here. */
+export interface ChildLink {
+  uuid: string;
+  name: string;
+  age: number | null;
+  grade_level_slug: string | null;
+  has_account: boolean;
+}
+
+export interface NotificationPreferences {
+  weekly_reports: boolean;
+  session_alerts: boolean;
+}
+
 export interface TeacherRegistration {
   first_name: string;
   last_name: string;

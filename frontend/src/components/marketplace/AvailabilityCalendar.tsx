@@ -70,7 +70,7 @@ export function AvailabilityCalendar({ slots }: { slots: AvailabilityItem[] }) {
                 {daySlots.map((slot) => (
                   <li
                     key={`${slot.start_time}-${slot.end_time}`}
-                    className="rounded-lg bg-secondary/12 px-2 py-1 text-xs font-medium text-secondary"
+                    className="rounded-lg bg-secondary/12 px-2 py-1 text-xs font-medium text-secondary-ink"
                   >
                     <bdi>{slot.start_time}</bdi> – <bdi>{slot.end_time}</bdi>
                   </li>

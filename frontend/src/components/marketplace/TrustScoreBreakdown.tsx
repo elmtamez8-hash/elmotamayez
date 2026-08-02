@@ -9,9 +9,9 @@ const FACTOR_LABELS: Record<string, string> = {
 };
 
 const BAND_COLOR: Record<TrustBand, string> = {
-  high: "text-trust-high",
-  medium: "text-trust-medium-foreground dark:text-trust-medium",
-  low: "text-trust-low",
+  high: "text-trust-high-ink",
+  medium: "text-trust-medium-ink",
+  low: "text-trust-low-ink",
   building: "text-ink-muted",
 };
 
