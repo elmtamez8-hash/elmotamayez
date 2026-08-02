@@ -209,10 +209,19 @@ class MarketplaceSeeder extends Seeder
         }
 
         foreach ($ratings as $index => $rating) {
+            // Arabic names, not the factory's faker defaults: the profile renders
+            // these as "أحمد م." beside Arabic copy, and an English name there is
+            // the kind of demo detail that gets screenshotted.
+            $student = User::factory()->create([
+                'platform_role' => 'student',
+                'first_name' => self::STUDENT_FIRST_NAMES[$index % count(self::STUDENT_FIRST_NAMES)],
+                'last_name' => self::STUDENT_LAST_NAMES[$index % count(self::STUDENT_LAST_NAMES)],
+            ]);
+
             Review::query()->create([
                 'workspace_id' => $workspace->getKey(),
                 'teacher_profile_id' => $profile->getKey(),
-                'student_id' => User::factory()->create(['platform_role' => 'student'])->getKey(),
+                'student_id' => $student->getKey(),
                 'rating' => $rating,
                 'comment' => $index % 3 === 0 ? self::COMMENTS[$index % count(self::COMMENTS)] : null,
             ]);
@@ -223,6 +232,17 @@ class MarketplaceSeeder extends Seeder
             'average_rating' => round(array_sum($ratings) / $count, 2),
         ])->save();
     }
+
+    /** @var list<string> */
+    private const STUDENT_FIRST_NAMES = [
+        'أحمد', 'سارة', 'محمد', 'نورة', 'عبدالله', 'مريم', 'خالد', 'لطيفة',
+        'يوسف', 'هند', 'راشد', 'شيخة',
+    ];
+
+    /** @var list<string> */
+    private const STUDENT_LAST_NAMES = [
+        'مبارك', 'الكواري', 'العطية', 'المري', 'الهاجري', 'النعيمي', 'السليطي',
+    ];
 
     /** @var list<string> */
     private const COMMENTS = [

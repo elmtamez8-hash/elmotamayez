@@ -85,6 +85,28 @@ it('does not inflate the average when a student re-reviews', function (): void {
     expect((float) ($this->teacher->fresh()?->average_rating ?? 0))->toBe(3.0);
 });
 
+// The definite article is not an initial: a large share of Arab family names
+// begin with "ال", and taking character zero would abbreviate all of them to the
+// same "ا." — an initial that distinguishes nobody.
+it('abbreviates a surname past the definite article', function (string $surname, string $expected): void {
+    $student = studentWhoCompletedWith($this->teacher);
+    $student->forceFill(['first_name' => 'أحمد', 'last_name' => $surname])->save();
+
+    postReview($student, $this->teacher->uuid, 5);
+
+    $this->asGuest();
+    $items = $this->getJson("/api/v1/marketplace/teachers/{$this->teacher->uuid}")->json('data.reviews.items');
+
+    expect($items[0]['student_display_name'])->toBe($expected);
+})->with([
+    ['مبارك', 'أحمد م.'],
+    ['الكواري', 'أحمد ك.'],
+    ['العطية', 'أحمد ع.'],
+    // Two letters long: "ال" here is the whole name, not an article to strip.
+    ['ال', 'أحمد ا.'],
+    ['', 'أحمد'],
+]);
+
 it('shows reviews on the public profile under a shortened student name', function (): void {
     $student = studentWhoCompletedWith($this->teacher);
     $student->forceFill(['first_name' => 'أحمد', 'last_name' => 'مبارك'])->save();

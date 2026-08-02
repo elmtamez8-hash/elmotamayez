@@ -65,7 +65,16 @@ class Review extends BaseModel
             return 'طالب';
         }
 
-        $initial = mb_substr((string) $student->last_name, 0, 1);
+        $surname = (string) $student->last_name;
+
+        // Skip the definite article first. A large share of Arab family names
+        // start with "ال", so taking character zero abbreviates الكواري, العطية
+        // and الهاجري all to "ا." — an initial that distinguishes nobody.
+        if (mb_strlen($surname) > 2 && mb_substr($surname, 0, 2) === 'ال') {
+            $surname = mb_substr($surname, 2);
+        }
+
+        $initial = mb_substr($surname, 0, 1);
 
         return $initial === '' ? $student->first_name : $student->first_name.' '.$initial.'.';
     }
