@@ -66,12 +66,14 @@ class ListPublicTeachers extends Action
 
         $query->when($filters->language, fn (Builder $q, string $lang) => $q->whereJsonContains('teaching_languages', $lang));
 
-        // Matched against the denormalised copy on this table, not through
-        // whereHas('user'): at 50k teachers the correlated subquery cost 1116 ms
-        // against SC-008's 1000 ms budget, and the paginator pays it twice (once
-        // to count, once to select). Reading the column costs 410 ms. Still not
-        // Scout — mixing a search-engine result set with these SQL filters would
-        // need a second source of truth to stay consistent.
+        // Matched against the denormalised copy on this table rather than
+        // whereHas('user'), which the paginator would evaluate twice — once to
+        // count, once to select. At 50k teachers with planner statistics present:
+        // 55 ms here against 108 ms for the relation. Both are inside SC-008's
+        // budget, so this is a 2× improvement and not the thing standing between
+        // the listing and the criterion — see the migration for the measurement
+        // that misled us about that. Still not Scout: mixing a search-engine
+        // result set with these SQL filters needs a second source of truth.
         $query->when($filters->search, function (Builder $q, string $term): void {
             $q->where('teacher_profiles.search_name', 'like', "%{$term}%");
         });

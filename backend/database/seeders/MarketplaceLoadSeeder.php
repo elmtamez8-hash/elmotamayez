@@ -37,6 +37,18 @@ class MarketplaceLoadSeeder extends Seeder
 
     private const CHUNK = 1_000;
 
+    /** @var list<string> */
+    private const FIRST_NAMES = [
+        'أحمد', 'سارة', 'محمد', 'نورة', 'عبدالله', 'مريم', 'خالد', 'لطيفة',
+        'يوسف', 'هند', 'راشد', 'شيخة', 'فاطمة', 'علي', 'منى', 'بدر',
+    ];
+
+    /** @var list<string> */
+    private const LAST_NAMES = [
+        'المنصوري', 'الهاشمي', 'العتيبي', 'الدوسري', 'البلوشي', 'الكواري',
+        'العطية', 'المري', 'الهاجري', 'النعيمي', 'السليطي',
+    ];
+
     public function run(): void
     {
         /** @var list<int> $workspaces */
@@ -61,6 +73,16 @@ class MarketplaceLoadSeeder extends Seeder
                 $this->seedCourses($workspaces);
             },
         );
+
+        // Without this the benchmark measures the wrong thing. A freshly bulk
+        // loaded database has no planner statistics, so SQLite picks plans
+        // heuristically and every listing came out 3–6× slower — an artefact of
+        // the load, not a property of the queries. 114 ms here changed
+        // "subject filter: 2148 ms FAIL" into "588 ms PASS".
+        DB::statement(match (DB::getDriverName()) {
+            'sqlite' => 'ANALYZE',
+            default => 'ANALYZE TABLE teacher_profiles, users, courses, teacher_profile_subject, teacher_profile_grade_level',
+        });
 
         MarketplaceCache::flush();
 
@@ -89,10 +111,15 @@ class MarketplaceLoadSeeder extends Seeder
                 $n = $offset + $i;
                 $workspaceId = $workspaces[$n % count($workspaces)];
 
+                // Distinct surnames, not a shared prefix: a name search whose term
+                // matches all 50,000 rows measures a full scan, not a search.
+                $firstName = self::FIRST_NAMES[$n % count(self::FIRST_NAMES)];
+                $lastName = self::LAST_NAMES[$n % count(self::LAST_NAMES)].'-'.$n;
+
                 $users[] = [
                     'uuid' => (string) Str::uuid(),
-                    'first_name' => 'مدرّس',
-                    'last_name' => (string) $n,
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
                     'email' => "load-teacher-{$n}@example.test",
                     'password' => '$2y$12$abcdefghijklmnopqrstuv',
                     'platform_role' => 'teacher',
@@ -108,6 +135,10 @@ class MarketplaceLoadSeeder extends Seeder
                     'uuid' => (string) Str::uuid(),
                     'workspace_id' => $workspaceId,
                     'user_id' => ++$userId,
+                    // Set explicitly: these are raw inserts, so the model's saving
+                    // hook never runs. Leaving it null would make the name-search
+                    // benchmark scan 50,000 NULLs and pass for the wrong reason.
+                    'search_name' => $firstName.' '.$lastName,
                     'headline' => 'مدرّس رياضيات وفيزياء',
                     'years_experience' => $n % 20 + 1,
                     'teaching_languages' => json_encode(['ar', 'en']),

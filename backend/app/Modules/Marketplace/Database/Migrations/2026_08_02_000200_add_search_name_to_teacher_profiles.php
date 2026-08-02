@@ -9,15 +9,21 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * The teacher's name, copied onto the profile so name search does not have to
- * reach into `users`.
+ * reach into `users` through a correlated subquery.
  *
- * Measured at 50,000 published teachers (SC-008): searching through
- * `whereHas('user', …)` cost 1116 ms — a correlated subquery evaluated per row,
- * run twice because the paginator counts and then selects. Reading the same
- * predicate off this column costs 410 ms.
+ * Measured at 50,000 published teachers (SC-008), with planner statistics
+ * present: `whereHas('user', …)` costs 108 ms, this column 55 ms. Both clear the
+ * 1000 ms budget comfortably; the column is a 2× improvement, not a rescue.
  *
- * No index: the search is `LIKE '%term%'`, and a leading wildcard cannot use one.
- * Adding it would only tax every write.
+ * READ THIS BEFORE CITING THE ORIGINAL NUMBER. The first measurement put
+ * whereHas at 1116 ms and this change was made to "fix" it. That figure was an
+ * artefact: the benchmark database had been bulk loaded and never ANALYZE'd, so
+ * SQLite was choosing plans with no statistics and *every* listing ran 3–6×
+ * slow. One ANALYZE (114 ms) moved the whole suite inside budget. If you are
+ * chasing a slow listing, check for statistics before restructuring a query.
+ *
+ * No index on this column: the search is `LIKE '%term%'`, a leading wildcard
+ * cannot use one, and adding it would only tax every write.
  */
 return new class extends Migration
 {
