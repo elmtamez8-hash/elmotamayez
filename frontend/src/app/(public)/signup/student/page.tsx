@@ -35,7 +35,7 @@ export default async function StudentSignupPage({
       </div>
 
       {teacher && (
-        <p className="mb-6 rounded-xl bg-primary-soft p-4 text-sm text-primary">
+        <p className="mb-6 rounded-xl bg-primary-soft p-4 text-sm text-primary-ink">
           {trial
             ? "بعد إنشاء الحساب ستعود لصفحة المدرّس لإتمام حجز الحصة التجريبية."
             : "بعد إنشاء الحساب ستعود لصفحة المدرّس لإتمام الحجز."}{" "}

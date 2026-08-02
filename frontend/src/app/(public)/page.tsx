@@ -47,7 +47,7 @@ function StatBar({ stats }: { stats: HomePayload["stats"] }) {
         {items.map((item) => (
           <div key={item.label} className="text-center">
             <dt className="order-2 text-sm text-ink-muted">{item.label}</dt>
-            <dd className="order-1 text-3xl font-extrabold text-primary">
+            <dd className="order-1 text-3xl font-extrabold text-primary-ink">
               {item.value.toLocaleString("ar-QA")}
               {item.suffix}
             </dd>
@@ -77,7 +77,7 @@ export default async function HomePage() {
         <div>
           <h1 className="mb-5 text-3xl font-extrabold leading-tight text-ink sm:text-4xl lg:text-5xl">
             مدرّسك الخصوصي الموثوق،
-            <span className="text-primary"> أينما كنت في العالم العربي</span>
+            <span className="text-primary-ink"> أينما كنت في العالم العربي</span>
           </h1>
           <p className="mb-8 max-w-xl text-lg leading-relaxed text-ink-muted">
             حصص فردية وجماعية، مباشرة ومسجّلة، مع مدرّسين يمرّون بمراجعة أكاديمية
@@ -92,7 +92,7 @@ export default async function HomePage() {
             </Link>
             <Link
               href="/signup/teacher"
-              className="rounded-xl border border-primary px-6 py-3 text-base font-semibold text-primary transition hover:bg-primary-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              className="rounded-xl border border-primary px-6 py-3 text-base font-semibold text-primary-ink transition hover:bg-primary-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               سجّل كمدرّس
             </Link>
@@ -102,7 +102,7 @@ export default async function HomePage() {
         <div className="relative aspect-[4/3] overflow-hidden rounded-3xl bg-primary-soft">
           {/* Replaced with a licensed photo in T135; the placeholder keeps the
               layout honest rather than shipping a hotlinked stock image. */}
-          <div className="flex h-full items-center justify-center text-primary/40" aria-hidden="true">
+          <div className="flex h-full items-center justify-center text-primary-ink/40" aria-hidden="true">
             <svg className="h-32 w-32" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
               <path
                 strokeLinecap="round"
@@ -139,7 +139,7 @@ export default async function HomePage() {
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
         <div className="mb-8 flex items-end justify-between gap-4">
           <h2 className="text-2xl font-extrabold text-ink sm:text-3xl">أفضل المدرّسين</h2>
-          <Link href="/teachers" className="text-sm font-semibold text-primary hover:underline">
+          <Link href="/teachers" className="text-sm font-semibold text-primary-ink hover:underline">
             عرض الكل
           </Link>
         </div>
@@ -171,7 +171,7 @@ export default async function HomePage() {
           <h2 className="text-2xl font-extrabold text-ink sm:text-3xl">
             الكورسات المميزة
           </h2>
-          <Link href="/courses" className="text-sm font-semibold text-primary hover:underline">
+          <Link href="/courses" className="text-sm font-semibold text-primary-ink hover:underline">
             عرض الكل
           </Link>
         </div>

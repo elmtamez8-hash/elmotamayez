@@ -41,7 +41,7 @@ export function SiteFooter() {
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="mb-3 text-xl font-extrabold text-primary">{PLATFORM_NAME}</p>
+            <p className="mb-3 text-xl font-extrabold text-primary-ink">{PLATFORM_NAME}</p>
             <p className="mb-4 text-sm leading-relaxed text-ink-muted">
               نربط الطلاب في العالم العربي بمدرّسين موثوقين، بحصص مباشرة ومسجّلة.
             </p>
@@ -73,7 +73,7 @@ export function SiteFooter() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-ink-muted transition hover:text-primary"
+                      className="text-sm text-ink-muted transition hover:text-primary-ink"
                     >
                       {link.label}
                     </Link>
@@ -99,7 +99,7 @@ export function SiteFooter() {
               <li key={item.href}>
                 <a
                   href={item.href}
-                  className="text-sm text-ink-muted transition hover:text-primary"
+                  className="text-sm text-ink-muted transition hover:text-primary-ink"
                   rel="noopener noreferrer"
                   target="_blank"
                 >

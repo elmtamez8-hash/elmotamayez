@@ -163,7 +163,7 @@ export function AddChildForm({ gradeLevels }: { gradeLevels: Taxonomy[] }) {
       <NotificationPreferences />
 
       <div className="flex flex-wrap justify-between gap-3 border-t border-line pt-6">
-        <Link href="/teachers" className="text-sm font-semibold text-primary hover:underline">
+        <Link href="/teachers" className="text-sm font-semibold text-primary-ink hover:underline">
           تخطّي الآن وتصفّح المدرّسين
         </Link>
         <button

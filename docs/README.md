@@ -24,6 +24,37 @@
 | Notifications | `app/Modules/Notifications/` | (Laravel notifications + listeners) | Event-driven |
 | Analytics | `app/Modules/Analytics/` | (Filament widgets) | Admin dashboard |
 | CMS | `app/Modules/CMS/` | Article, Category, Tag | Articles CRUD + publish |
+| Marketplace | `app/Modules/Marketplace/` | TeacherProfile, TeacherApplication, Subject, GradeLevel, AvailabilitySlot, Review, Complaint | Public listings (no auth) + teacher application + academic review + reviews/complaints |
+
+### Marketplace endpoints
+
+Public — **no authentication**, throttled 60/min per IP. `WorkspaceScope` contributes
+nothing on these requests; the guard is `publiclyListed()` inside each Action.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/marketplace/home` | Stats + featured teachers/courses + subjects + testimonials |
+| GET | `/marketplace/stats` | Platform counters |
+| GET | `/marketplace/subjects` · `/marketplace/grade-levels` | Taxonomy, matched by slug across workspaces |
+| GET | `/marketplace/teachers` | Filters: subject, grade_level, price, min_rating, min_trust_score, language, available_now, q; sorts: rating_desc, price_asc, trust_desc |
+| GET | `/marketplace/teachers/{uuid}` | One 404 for missing / unapproved / unlisted / withdrawn |
+| GET | `/marketplace/courses` | Filters: subject, grade_level, type, price; sorts: popular, price_asc, newest |
+
+Authenticated:
+
+| Method | Path | Guard |
+|---|---|---|
+| POST | `/auth/register/student` · `/auth/register/parent` · `/auth/register/teacher/step-1` | Public, `throttle:10,1` + `idempotent` |
+| GET/PUT | `/teacher/application`, `/teacher/application/step-2..4` | Applicant's own token |
+| POST | `/teacher/application/submit` | Applicant, `idempotent` |
+| GET/POST | `/admin/teacher-applications`, `.../approve`, `.../reject`, `.../request-changes` | `marketplace.teachers.review` / `.approve` |
+| POST | `/admin/teachers/{uuid}/suspend` · `/reinstate` | `marketplace.teachers.suspend` |
+| PUT | `/workspace/marketplace-participation` | `marketplace.participation.manage` |
+| POST | `/teachers/{uuid}/reviews` | Student with a completed session; 201 create / 200 update |
+| DELETE | `/admin/reviews/{uuid}` | `marketplace.reviews.moderate` — hides, never deletes |
+| POST | `/admin/complaints/{uuid}/confirm` · `/dismiss` | `marketplace.complaints.manage` |
+| GET/POST | `/parent/children`, `/parent/children/{uuid}` | Own links only (`ParentChildLinkPolicy`, 403 not 404) |
+| GET/PUT | `/parent/notification-preferences` | Own preferences |
 
 ## Authentication
 
@@ -40,6 +71,25 @@
 | teacher | Workspace | Course/exam CRUD + publish + approve payments + certificates |
 | assistant-teacher | Workspace | Course/exam CRUD (no publish/delete) + view all |
 | student | Workspace | View courses, enroll, take exams, view own certificates/orders |
+
+### Marketplace permissions
+
+Constants in `Tenancy\Support\Permissions` — never string literals.
+
+| Permission | Grants |
+|---|---|
+| `marketplace.teachers.review` | List and read teacher applications |
+| `marketplace.teachers.approve` | Approve, reject, request changes |
+| `marketplace.teachers.suspend` | Suspend and reinstate a listed teacher |
+| `marketplace.reviews.moderate` | Hide a review (`is_visible = false`) and trigger recalculation |
+| `marketplace.complaints.manage` | Confirm or dismiss a complaint |
+| `marketplace.participation.manage` | Toggle the workspace's marketplace participation |
+
+### Platform roles (orthogonal to workspace roles)
+
+`users.platform_role` (`student` · `teacher` · `parent`, nullable) marks accounts
+created through the marketplace signup paths. They belong to **no** workspace and
+hold **no** spatie role — `/register` remains the academy path and is unaffected.
 
 ## Development Setup
 

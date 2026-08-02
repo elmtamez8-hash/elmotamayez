@@ -57,7 +57,7 @@ function ProgressBar({ step }: { step: number }) {
               aria-hidden="true"
             />
             <span
-              className={`text-xs ${current ? "font-bold text-primary" : "text-ink-muted"}`}
+              className={`text-xs ${current ? "font-bold text-primary-ink" : "text-ink-muted"}`}
               aria-current={current ? "step" : undefined}
             >
               {number}. {label}
@@ -428,7 +428,7 @@ export function TeacherSignupWizard({
               />
               <span>
                 أوافق على{" "}
-                <Link href="/terms" className="text-primary underline">
+                <Link href="/terms" className="text-primary-ink underline">
                   الشروط والأحكام
                 </Link>
                 .
@@ -451,7 +451,7 @@ export function TeacherSignupWizard({
                   key={subject.slug}
                   className={`cursor-pointer rounded-xl border px-3 py-1.5 text-sm ${
                     professional.subjects.includes(subject.slug)
-                      ? "border-primary bg-primary-soft text-primary"
+                      ? "border-primary bg-primary-soft text-primary-ink"
                       : "border-line text-ink-muted"
                   }`}
                 >
@@ -476,7 +476,7 @@ export function TeacherSignupWizard({
                   key={level.slug}
                   className={`cursor-pointer rounded-xl border px-3 py-1.5 text-sm ${
                     professional.grade_levels.includes(level.slug)
-                      ? "border-primary bg-primary-soft text-primary"
+                      ? "border-primary bg-primary-soft text-primary-ink"
                       : "border-line text-ink-muted"
                   }`}
                 >
@@ -501,7 +501,7 @@ export function TeacherSignupWizard({
                   key={language.value}
                   className={`cursor-pointer rounded-xl border px-3 py-1.5 text-sm ${
                     professional.teaching_languages.includes(language.value)
-                      ? "border-primary bg-primary-soft text-primary"
+                      ? "border-primary bg-primary-soft text-primary-ink"
                       : "border-line text-ink-muted"
                   }`}
                 >
@@ -597,7 +597,7 @@ export function TeacherSignupWizard({
             {/* FR-071: nothing is uploaded here, and the endpoint rejects a file
                 payload outright. Verification happens through a separate secure
                 channel once that feature has its own security review. */}
-            <p className="rounded-xl bg-primary-soft p-3 text-sm text-primary">
+            <p className="rounded-xl bg-primary-soft p-3 text-sm text-primary-ink">
               لا تُرفع أي مستندات في هذه الخطوة. سيتواصل معك فريقنا عبر قناة آمنة لطلب
               المستندات بعد المراجعة الأولية.
             </p>
@@ -712,7 +712,7 @@ export function TeacherSignupWizard({
               onClick={() =>
                 setSlots([...slots, { day_of_week: 1, start_time: "16:00", end_time: "18:00" }])
               }
-              className="mt-3 text-sm font-semibold text-primary underline"
+              className="mt-3 text-sm font-semibold text-primary-ink underline"
             >
               إضافة فترة
             </button>

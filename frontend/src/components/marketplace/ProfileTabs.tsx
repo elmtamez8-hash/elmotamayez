@@ -46,7 +46,7 @@ export function ProfileTabs({
                     aria-current={isActive ? "page" : undefined}
                     className={`inline-block whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary ${
                       isActive
-                        ? "border-primary text-primary"
+                        ? "border-primary text-primary-ink"
                         : "border-transparent text-ink-muted hover:border-line hover:text-ink"
                     }`}
                   >

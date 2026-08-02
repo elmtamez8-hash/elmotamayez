@@ -25,9 +25,13 @@
      visible to the people the rule exists for. The dark-theme block below points
      these back at the raw hues, which do clear the bar against #111827, so a
      component writes `text-danger-ink` once and is correct in both themes. */
+  --color-primary-ink: #1e5aa8;
   --color-secondary-ink: #0f7a55;
   --color-danger-ink: #b23b3b;
-  --color-trust-high-ink: #15803d;
+  /* green-800, not green-700: the badge sits on a 15% tint of the band colour,
+     not on white, and green-700 lands at 4.37:1 against that tint — axe catches
+     it, a designer checking against #fff does not. */
+  --color-trust-high-ink: #166534;
   --color-trust-medium-ink: #1f2937;
   --color-trust-low-ink: #b91c1c;
 
@@ -57,6 +61,11 @@
 
   /* On #111827 the raw hues clear 4.5:1 on their own (5.2–7.8:1), and the
      darkened light-theme values would not. */
+  /* The brand blue reaches only 2.6:1 on #111827, and 2.2:1 on the dark
+     primary-soft tint — the fill keeps its identity, the text does not have to.
+     `--color-primary` itself must NOT be lightened: bg-primary carries white
+     text, and a lighter fill would fail that pairing instead. */
+  --color-primary-ink: #60a5fa;
   --color-secondary-ink: #1fae7a;
   --color-danger-ink: #e85c5c;
   --color-trust-high-ink: #22c55e;

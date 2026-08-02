@@ -1,3 +1,4 @@
+import { CheckIcon } from "@/components/icons";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -71,7 +72,7 @@ function QuickStats({ stats }: { stats: TeacherDetail["stats"] }) {
           className="rounded-xl border border-line p-4 text-center"
         >
           <dt className="order-2 text-xs text-ink-muted">{item.label}</dt>
-          <dd className="order-1 text-2xl font-extrabold text-primary">
+          <dd className="order-1 text-2xl font-extrabold text-primary-ink">
             {item.value === null
               ? "—"
               : `${item.value.toLocaleString("ar-QA")}${item.suffix ?? ""}`}
@@ -111,7 +112,7 @@ export default async function TeacherProfilePage({
             />
           ) : (
             <span
-              className="flex h-32 w-32 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-4xl font-bold text-primary"
+              className="flex h-32 w-32 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-4xl font-bold text-primary-ink"
               aria-hidden="true"
             >
               {teacher.name.charAt(0)}
@@ -123,18 +124,7 @@ export default async function TeacherProfilePage({
               {teacher.name}
               {teacher.is_verified && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-secondary/15 px-2.5 py-1 text-xs font-semibold text-secondary-ink">
-                  <svg
-                    className="h-3.5 w-3.5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M16.4 6.4a1 1 0 010 1.4l-6.6 6.6a1 1 0 01-1.4 0L5.1 11.1a1 1 0 111.4-1.4l2.6 2.6 5.9-5.9a1 1 0 011.4 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+                  <CheckIcon className="h-3.5 w-3.5" />
                   موثّق
                 </span>
               )}
@@ -160,7 +150,7 @@ export default async function TeacherProfilePage({
                   <li key={subject.slug}>
                     <Link
                       href={`/teachers?subject=${subject.slug}`}
-                      className="rounded-lg bg-primary-soft px-2.5 py-1 text-sm text-primary hover:underline"
+                      className="rounded-lg bg-primary-soft px-2.5 py-1 text-sm text-primary-ink hover:underline"
                     >
                       {subject.name_ar}
                     </Link>
@@ -192,7 +182,7 @@ export default async function TeacherProfilePage({
             </Link>
             <Link
               href={`/signup/student?teacher=${teacher.uuid}&trial=1`}
-              className="block rounded-xl border border-primary px-5 py-3 text-center text-base font-semibold text-primary transition hover:bg-primary-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              className="block rounded-xl border border-primary px-5 py-3 text-center text-base font-semibold text-primary-ink transition hover:bg-primary-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               حجز حصة تجريبية
             </Link>
@@ -240,18 +230,7 @@ export default async function TeacherProfilePage({
                             key={qualification}
                             className="flex items-start gap-2 text-ink-muted"
                           >
-                            <svg
-                              className="mt-1 h-4 w-4 shrink-0 text-secondary-ink"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                              aria-hidden="true"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M16.4 6.4a1 1 0 010 1.4l-6.6 6.6a1 1 0 01-1.4 0L5.1 11.1a1 1 0 111.4-1.4l2.6 2.6 5.9-5.9a1 1 0 011.4 0z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
+                            <CheckIcon className="mt-1 h-4 w-4 shrink-0 text-secondary-ink" />
                             {qualification}
                           </li>
                         ))}

@@ -39,7 +39,7 @@ export function Pagination({
   ).filter((page) => page <= lastPage);
 
   const linkClass =
-    "rounded-lg border border-line px-3.5 py-2 text-sm font-medium text-ink transition hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+    "rounded-lg border border-line px-3.5 py-2 text-sm font-medium text-ink transition hover:border-primary hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
 
   return (
     <nav aria-label="تصفّح الصفحات" className="mt-10 flex justify-center">

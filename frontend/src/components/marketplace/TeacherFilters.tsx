@@ -211,7 +211,7 @@ export function TeacherFilters({
           type="checkbox"
           checked={params.get("available_now") === "1"}
           onChange={(event) => update("available_now", event.target.checked ? "1" : "")}
-          className="h-4 w-4 rounded border-line text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+          className="h-4 w-4 rounded border-line text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
         />
         متاح الآن
       </label>
@@ -243,7 +243,7 @@ export function TeacherFilters({
                 <button
                   type="button"
                   onClick={() => update(key, "")}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-xs font-medium text-primary transition hover:brightness-95"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-xs font-medium text-primary-ink transition hover:brightness-95"
                 >
                   {value}
                   <span aria-hidden="true">×</span>

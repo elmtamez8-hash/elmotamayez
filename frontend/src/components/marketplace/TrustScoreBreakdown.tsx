@@ -101,19 +101,27 @@ export function TrustScoreBreakdown({
                   const isPenalty = key === "complaints_penalty";
 
                   return (
-                    <div key={key}>
-                      <div className="mb-1 flex items-center justify-between text-sm">
-                        <dt className="text-ink">{FACTOR_LABELS[key] ?? key}</dt>
-                        <dd className="font-semibold text-ink">
-                          {isPenalty ? `−${value}` : `${value}٪`}
-                        </dd>
-                      </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-line">
-                        <div
-                          className={`h-full rounded-full ${isPenalty ? "bg-danger" : "bg-primary"}`}
+                    // dt and dd must be direct children of this wrapper, and the
+                    // wrapper a direct child of <dl> — nesting them one level
+                    // deeper for layout is what axe's `dlitem` rule catches, and
+                    // it breaks the list semantics a screen reader relies on.
+                    <div
+                      key={key}
+                      className="grid grid-cols-[1fr_auto] items-center gap-x-3 text-sm"
+                    >
+                      <dt className="text-ink">{FACTOR_LABELS[key] ?? key}</dt>
+                      <dd className="font-semibold text-ink">
+                        {isPenalty ? `−${value}` : `${value}٪`}
+                      </dd>
+                      <dd
+                        className="col-span-2 mt-1 h-1.5 overflow-hidden rounded-full bg-line"
+                        aria-hidden="true"
+                      >
+                        <span
+                          className={`block h-full rounded-full ${isPenalty ? "bg-danger" : "bg-primary"}`}
                           style={{ width: `${isPenalty ? Math.min(value * 5, 100) : value}%` }}
                         />
-                      </div>
+                      </dd>
                     </div>
                   );
                 })}

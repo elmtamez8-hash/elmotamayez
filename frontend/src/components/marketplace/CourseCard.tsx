@@ -37,7 +37,7 @@ export function CourseCard({ course }: { course: Course }) {
           />
         ) : (
           <span
-            className="flex h-full w-full items-center justify-center text-4xl font-black text-primary/30"
+            className="flex h-full w-full items-center justify-center text-4xl font-black text-primary-ink/30"
             aria-hidden="true"
           >
             {course.title.charAt(0)}
@@ -53,7 +53,7 @@ export function CourseCard({ course }: { course: Course }) {
 
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div className="flex items-center gap-2 text-xs">
-          <span className="rounded-lg bg-primary-soft px-2 py-0.5 font-medium text-primary">
+          <span className="rounded-lg bg-primary-soft px-2 py-0.5 font-medium text-primary-ink">
             {TYPE_LABELS[course.type]}
           </span>
           <span className="text-ink-muted">
@@ -81,7 +81,7 @@ export function CourseCard({ course }: { course: Course }) {
         {course.teacher && (
           <Link
             href={`/teachers/${course.teacher.uuid}`}
-            className="flex items-center gap-2 text-sm text-ink-muted hover:text-primary"
+            className="flex items-center gap-2 text-sm text-ink-muted hover:text-primary-ink"
           >
             {course.teacher.photo_url ? (
               <img
@@ -92,7 +92,7 @@ export function CourseCard({ course }: { course: Course }) {
               />
             ) : (
               <span
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary"
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary-ink"
                 aria-hidden="true"
               >
                 {course.teacher.name.charAt(0)}

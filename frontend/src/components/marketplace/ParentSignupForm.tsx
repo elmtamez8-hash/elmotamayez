@@ -216,11 +216,11 @@ export function ParentSignupForm() {
           />
           <span>
             أوافق على{" "}
-            <Link href="/terms" className="text-primary underline">
+            <Link href="/terms" className="text-primary-ink underline">
               الشروط والأحكام
             </Link>{" "}
             و
-            <Link href="/privacy" className="text-primary underline">
+            <Link href="/privacy" className="text-primary-ink underline">
               سياسة الخصوصية
             </Link>
             .
@@ -239,7 +239,7 @@ export function ParentSignupForm() {
 
       <p className="text-center text-sm text-ink-muted">
         لديك حساب؟{" "}
-        <Link href="/login" className="text-primary underline">
+        <Link href="/login" className="text-primary-ink underline">
           سجّل الدخول
         </Link>
       </p>

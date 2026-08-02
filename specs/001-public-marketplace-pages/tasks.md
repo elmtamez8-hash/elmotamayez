@@ -329,18 +329,18 @@ description: "Task list for 001-public-marketplace-pages"
 
 **Purpose**: الجودة العرضية والتحقق النهائي
 
-- [ ] T129 الوضع الليلي: متغيّرات `@theme` للوضعين + سمة على الجذر + احترام تفضيل النظام في `frontend/src/app/globals.css` و`frontend/src/app/(public)/layout.tsx` (FR-084)
-- [ ] T130 **إصلاح التباين المتوقّع**: `#FF8A34` و`#F5B301` لا يحقّقان 4.5:1 مع نص أبيض — نص داكن عليهما أو درجة أغمق كخلفية للنص، في `frontend/src/app/globals.css` (FR-081)
-- [ ] T131 [P] اختبار `frontend/e2e/accessibility.spec.ts` — السبع صفحات × وضعين × ثلاثة عروض بـ axe، صفر مخالفات (SC-012, SC-013)
-- [ ] T132 [P] تسميات ARIA عربية لكل عنصر تفاعلي وصورة ذات معنى عبر `frontend/src/components/marketplace/` (FR-082)
-- [ ] T133 [P] بنية HTML دلالية + `metadata` فريدة لكل صفحة في `frontend/src/app/(public)/**/page.tsx` (FR-083, SC-016)
-- [ ] T134 [P] احترام تفضيل تقليل الحركة في كل الحركات في `frontend/src/app/globals.css` (FR-086)
-- [ ] T135 [P] تنزيل الصور واستضافتها ذاتياً في `frontend/public/marketplace/` وتوثيق المصادر والتراخيص في `LICENSES.md` (R10)
-- [ ] T136 [P] إضافة أيقونات SVG من مجموعة مفتوحة المصدر إلى `frontend/src/components/icons/` — بلا CDN وبلا مكتبات مدفوعة
-- [ ] T137 بذرة الحجم `backend/database/seeders/MarketplaceLoadSeeder.php` (50,000 مدرّس + 10,000 كورس) والتحقق من SC-008
-- [ ] T138 [P] تحديث `docs/README.md` بجداول الوحدة والنقاط والأذونات الجديدة، و`docs/erd.md` بالمخطّط (الدستور، سير العمل)
-- [ ] T139 [P] توثيق الفخّ المكتشف في `CLAUDE.md` و`AGENTS.md`: `WorkspaceScope` معطّل أمام الزوار، وكل مسار عام يلزمه `publiclyListed()` (research R1)
-- [ ] T140 تشغيل كل سيناريوهات `quickstart.md` والبوابات الأربع + المسارات الحرجة الثمانية في `AGENTS.md`
+- [X] T129 الوضع الليلي: متغيّرات `@theme` للوضعين + سمة على الجذر + احترام تفضيل النظام في `frontend/src/app/globals.css` و`frontend/src/app/(public)/layout.tsx` (FR-084)
+- [X] T130 **إصلاح التباين المتوقّع**: `#FF8A34` و`#F5B301` لا يحقّقان 4.5:1 مع نص أبيض — نص داكن عليهما أو درجة أغمق كخلفية للنص، في `frontend/src/app/globals.css` (FR-081)
+- [X] T131 [P] اختبار `frontend/e2e/accessibility.spec.ts` — السبع صفحات × وضعين × ثلاثة عروض بـ axe، صفر مخالفات (SC-012, SC-013)
+- [X] T132 [P] تسميات ARIA عربية لكل عنصر تفاعلي وصورة ذات معنى عبر `frontend/src/components/marketplace/` (FR-082)
+- [X] T133 [P] بنية HTML دلالية + `metadata` فريدة لكل صفحة في `frontend/src/app/(public)/**/page.tsx` (FR-083, SC-016)
+- [X] T134 [P] احترام تفضيل تقليل الحركة في كل الحركات في `frontend/src/app/globals.css` (FR-086)
+- [ ] T135 [P] تنزيل الصور واستضافتها ذاتياً في `frontend/public/marketplace/` وتوثيق المصادر والتراخيص في `LICENSES.md` (R10) — **معلّقة**: Unsplash/Pexels غير متاحين من بيئة البناء. الأشكال البديلة SVG محلية، وخطوات التنزيل والتوثيق مكتوبة في `LICENSES.md`.
+- [X] T136 [P] إضافة أيقونات SVG من مجموعة مفتوحة المصدر إلى `frontend/src/components/icons/` — بلا CDN وبلا مكتبات مدفوعة
+- [ ] T137 بذرة الحجم `backend/database/seeders/MarketplaceLoadSeeder.php` (50,000 مدرّس + 10,000 كورس) والتحقق من SC-008 — **الأداة جاهزة، القياس لم يُنفَّذ**: `db:seed --class=MarketplaceLoadSeeder` ثم `php artisan marketplace:benchmark`. لم تُشغَّل على قاعدة التطوير لأنها تضيف 60 ألف صف.
+- [X] T138 [P] تحديث `docs/README.md` بجداول الوحدة والنقاط والأذونات الجديدة، و`docs/erd.md` بالمخطّط (الدستور، سير العمل)
+- [X] T139 [P] توثيق الفخّ المكتشف في `CLAUDE.md` و`AGENTS.md`: `WorkspaceScope` معطّل أمام الزوار، وكل مسار عام يلزمه `publiclyListed()` (research R1)
+- [X] T140 تشغيل كل سيناريوهات `quickstart.md` والبوابات الأربع + المسارات الحرجة الثمانية في `AGENTS.md`
 
 ---
 

@@ -1,3 +1,4 @@
+import { CheckIcon } from "@/components/icons";
 import Link from "next/link";
 import type { TeacherCard as Teacher } from "@/lib/public-api";
 import { StarRating } from "./StarRating";
@@ -13,7 +14,7 @@ function Initials({ name }: { name: string }) {
 
   return (
     <span
-      className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary-soft text-lg font-bold text-primary"
+      className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary-soft text-lg font-bold text-primary-ink"
       aria-hidden="true"
     >
       {initials}
@@ -42,23 +43,11 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
 
         <div className="min-w-0 flex-1">
           <h3 className="flex items-center gap-1.5 text-base font-bold text-ink">
-            <Link href={profileHref} className="truncate hover:text-primary">
+            <Link href={profileHref} className="truncate hover:text-primary-ink">
               {teacher.name}
             </Link>
             {teacher.is_verified && (
-              <svg
-                className="h-4 w-4 shrink-0 text-secondary-ink"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                role="img"
-                aria-label="مدرّس موثّق"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M16.4 6.4a1 1 0 010 1.4l-6.6 6.6a1 1 0 01-1.4 0L5.1 11.1a1 1 0 111.4-1.4l2.6 2.6 5.9-5.9a1 1 0 011.4 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
+              <CheckIcon className="h-4 w-4 shrink-0 text-secondary-ink" />
             )}
           </h3>
           <p className="truncate text-sm text-ink-muted">{teacher.headline}</p>
@@ -87,7 +76,7 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
           {teacher.subjects.slice(0, 3).map((subject) => (
             <li
               key={subject.slug}
-              className="rounded-lg bg-primary-soft px-2 py-0.5 text-xs text-primary"
+              className="rounded-lg bg-primary-soft px-2 py-0.5 text-xs text-primary-ink"
             >
               {subject.name_ar}
             </li>
@@ -103,7 +92,7 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
       <div className="flex gap-2">
         <Link
           href={profileHref}
-          className="flex-1 rounded-xl border border-line px-3 py-2.5 text-center text-sm font-semibold text-ink transition hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="flex-1 rounded-xl border border-line px-3 py-2.5 text-center text-sm font-semibold text-ink transition hover:border-primary hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           عرض الملف
         </Link>

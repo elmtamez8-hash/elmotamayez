@@ -26,7 +26,7 @@ export function SubjectsGrid({ subjects }: { subjects: Taxonomy[] }) {
             className="flex h-full flex-col items-center gap-3 rounded-2xl border border-line bg-white p-5 text-center transition hover:border-primary hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:bg-transparent"
           >
             <span
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary"
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary-ink"
               aria-hidden="true"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

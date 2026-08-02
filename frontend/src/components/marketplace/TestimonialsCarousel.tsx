@@ -49,7 +49,7 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
           </blockquote>
           <figcaption className="flex flex-col items-center gap-2">
             <span
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary"
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary-ink"
               aria-hidden="true"
             >
               {item.name.charAt(0)}
@@ -64,7 +64,7 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
         <button
           type="button"
           onClick={() => move(-1)}
-          className="rounded-full border border-line p-2 text-ink transition hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="rounded-full border border-line p-2 text-ink transition hover:border-primary hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           aria-label="الشهادة السابقة"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
@@ -91,7 +91,7 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
         <button
           type="button"
           onClick={() => move(1)}
-          className="rounded-full border border-line p-2 text-ink transition hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="rounded-full border border-line p-2 text-ink transition hover:border-primary hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           aria-label="الشهادة التالية"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">

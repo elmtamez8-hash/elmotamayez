@@ -149,6 +149,64 @@
        └─── (users also relate to: media, activity_log, notifications, roles)
 ```
 
+## Marketplace Tables
+
+```
+┌──────────────────────────────┐        ┌──────────────────────┐
+│ teacher_profiles             │        │ teacher_applications │
+├──────────────────────────────┤        ├──────────────────────┤
+│ id · uuid · workspace_id     │        │ id · uuid            │
+│ user_id (FK → users)         │        │ user_id (unique)     │
+│ headline · bio · quals(JSON) │        │ step_data (JSON)     │
+│ years_experience · languages │        │ current_step · status│
+│ hourly_rate · currency       │        │ reviewed_by/at       │
+│ is_verified                  │        │ rejection_reason     │
+│ approval_status              │        └──────────────────────┘
+│ is_publicly_listed  ◄── derived from (approval × workspace participation)
+│ trust_score (null = building)│        ┌──────────────────────┐
+│ trust_score_factors (JSON)   │───────►│ availability_slots   │
+│ trust_score_calculated_at    │        │ day_of_week · UTC    │
+│ reviews_count · average_rating         │ start_time/end_time │
+│ completed/cancelled_sessions │        └──────────────────────┘
+│ students_taught · rates      │
+│ first_session_at             │        ┌──────────────────────┐
+└───────┬──────────────┬───────┘───────►│ complaints           │
+        │              │                │ reported_by · reason │
+        │              │                │ status · confirmed_at│
+        │              │                └──────────────────────┘
+        │              │
+        │              └──► teacher_profile_subject ──► subjects (per workspace, matched by slug)
+        │                   teacher_profile_grade_level ──► grade_levels
+        ▼
+┌──────────────────────────────┐
+│ reviews                      │
+├──────────────────────────────┤
+│ id · uuid · workspace_id     │
+│ teacher_profile_id           │
+│ student_id (FK → users)      │  UNIQUE (teacher_profile_id, student_id)
+│ rating 1–5 · comment         │  INDEX (teacher_profile_id, is_visible, created_at)
+│ is_visible (moderation)      │
+└──────────────────────────────┘
+
+Platform-level (deliberately NOT workspace-scoped — like `users`):
+
+┌──────────────────────────┐      ┌──────────────────────────┐
+│ parent_child_links       │      │ notification_preferences │
+├──────────────────────────┤      ├──────────────────────────┤
+│ id · uuid                │      │ id · uuid                │
+│ parent_id (FK → users)   │      │ user_id (unique)         │
+│ child_id (FK, nullable)  │      │ weekly_reports           │
+│ child_name · child_age   │      │ session_alerts           │
+│ child_grade_level_slug   │      └──────────────────────────┘
+└──────────────────────────┘
+   UNIQUE (parent_id, child_id)
+
+workspaces gains: participates_in_marketplace (bool, default false)
+                  owner_user_id is now NULLABLE (the platform workspace has no owner)
+users gains:      platform_role · phone · country · grade_level_slug · registered_by_parent
+courses gains:    course_type · cover_path · price_before_discount
+```
+
 ## Key Relationships
 
 - **Workspace → Users:** Many-to-many via `workspace_members` (pivot with role)
@@ -158,3 +216,7 @@
 - **Attempt → Answers:** Student responses with auto-grading
 - **Certificate:** Unique per (workspace, enrollment, course) — idempotent issuance
 - **Order → PaymentTransaction:** Manual payment flow with receipt upload + approval
+- **TeacherProfile → Reviews:** One live row per (teacher, student) — re-reviewing updates, so the average cannot be inflated; hidden reviews stay in the table so the pair stays taken
+- **TeacherProfile → Complaints:** Only `status = confirmed` deducts from the trust score (5 each, capped at 20)
+- **TeacherProfile.is_publicly_listed:** Derived from approval status × the workspace's `participates_in_marketplace`, never assigned. Withdrawal hides a whole workspace without changing anyone's `approval_status`
+- **ParentChildLink:** `child_id` is nullable — a parent can name a child who has no account yet. Authorization is ownership of the link row, so two parents can both link the same child

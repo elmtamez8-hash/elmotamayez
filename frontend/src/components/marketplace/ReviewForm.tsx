@@ -36,7 +36,7 @@ export function ReviewForm({ teacherUuid }: { teacherUuid: string }) {
   if (!signedIn) {
     return (
       <p className="rounded-xl border border-line bg-primary-soft/60 p-4 text-sm text-ink-muted">
-        <Link href="/login" className="font-semibold text-primary hover:underline">
+        <Link href="/login" className="font-semibold text-primary-ink hover:underline">
           سجّل الدخول
         </Link>{" "}
         لتترك تقييماً بعد إتمام حصة مع هذا المدرّس.
@@ -93,7 +93,7 @@ export function ReviewForm({ teacherUuid }: { teacherUuid: string }) {
                 key={value}
                 className={`cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold transition has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-primary ${
                   rating === value
-                    ? "border-primary bg-primary-soft text-primary"
+                    ? "border-primary bg-primary-soft text-primary-ink"
                     : "border-line text-ink-muted hover:border-primary/50"
                 }`}
               >

@@ -168,7 +168,7 @@ export function CourseFilters({
         <button
           type="button"
           onClick={() => startTransition(() => router.push(pathname))}
-          className="mt-4 text-sm font-semibold text-primary underline"
+          className="mt-4 text-sm font-semibold text-primary-ink underline"
         >
           إزالة كل الفلاتر
         </button>

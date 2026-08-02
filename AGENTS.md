@@ -95,6 +95,21 @@ Tests use in-memory SQLite (`DB_DATABASE=:memory:` in `phpunit.xml`).
 6. Certificate generation + idempotency — `tests/Feature/Assessments/AssessmentTest.php`
 7. Certificate verification — `tests/Feature/Assessments/AssessmentTest.php`
 8. Payment approval → enrollment auto-creation — `tests/Feature/Payments/PaymentTest.php`
+9. Public marketplace leak guard — `tests/Feature/Marketplace/PublicExposureTest.php`
+10. Trust-score job workspace isolation — `tests/Feature/Marketplace/TrustScoreJobIsolationTest.php`
+
+### Read before touching any public marketplace route
+
+`WorkspaceScope::apply()` returns early adding **no condition** when there is no
+authenticated user, so an unauthenticated request has no tenant isolation at all.
+A public query without `publiclyListed()` returns every workspace's rows, drafts
+included. `IsPubliclyListed` is the replacement guard and is mandatory on every
+Action reached from `Modules/Marketplace/routes/api.php`'s public group. Implicit
+route-model binding bypasses it — resolve public uuids inside the Action.
+
+In the queue, `WorkspaceContext::set()` is forbidden: the singleton caches its
+resolution and leaks the workspace into the next job on the same worker. Use
+`forWorkspace()`. Test 10 above fails the build if a `set()` reappears.
 
 ## Module Map
 
@@ -108,5 +123,6 @@ Tests use in-memory SQLite (`DB_DATABASE=:memory:` in `phpunit.xml`).
 | Certificates | `app/Modules/Certificates/` | Certificate, CertificateTemplate |
 | Payments | `app/Modules/Payments/` | Order, Product, PaymentTransaction |
 | Notifications | `app/Modules/Notifications/` | (Laravel notifications + listeners) |
+| Marketplace | `app/Modules/Marketplace/` | TeacherProfile, TeacherApplication, Subject, GradeLevel, AvailabilitySlot, Review, Complaint |
 | Analytics | `app/Modules/Analytics/` | (Filament widgets) |
 | CMS | `app/Modules/CMS/` | Article, Category, Tag |

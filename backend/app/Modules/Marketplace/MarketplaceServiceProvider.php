@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Marketplace;
 
+use App\Modules\Marketplace\Console\BenchmarkMarketplace;
 use App\Modules\Marketplace\Events\ComplaintConfirmed;
 use App\Modules\Marketplace\Events\ReviewModerated;
 use App\Modules\Marketplace\Events\ReviewSubmitted;
@@ -23,6 +24,12 @@ class MarketplaceServiceProvider extends Module
         // EventServiceProvider in this codebase (Constitution III).
         foreach ([ReviewSubmitted::class, ReviewModerated::class, ComplaintConfirmed::class] as $event) {
             Event::listen($event, QueueTrustScoreRecalculation::class);
+        }
+
+        // Laravel only auto-discovers commands under app/Console/Commands, and a
+        // module keeps its own; registering here is the module's job.
+        if ($this->app->runningInConsole()) {
+            $this->commands([BenchmarkMarketplace::class]);
         }
     }
 }

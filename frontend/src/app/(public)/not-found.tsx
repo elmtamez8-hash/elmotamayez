@@ -16,7 +16,7 @@ export default function PublicNotFound() {
         </Link>
         <Link
           href="/"
-          className="rounded-xl border border-line px-5 py-2.5 text-sm font-semibold text-ink transition hover:border-primary hover:text-primary"
+          className="rounded-xl border border-line px-5 py-2.5 text-sm font-semibold text-ink transition hover:border-primary hover:text-primary-ink"
         >
           العودة للرئيسية
         </Link>
