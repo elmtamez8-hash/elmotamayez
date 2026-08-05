@@ -57,11 +57,15 @@ class PlaybackController extends Controller
             return response()->json(['message' => $e->getMessage()], 403);
         }
 
-        return response()->json(
-            PlaybackGrantResource::make($grant)->additional([
-                'resume_at_seconds' => $this->resumePosition($user->getKey(), (int) $model->getKey()),
-            ])->resolve(),
-        );
+        // Merged by hand rather than with `->additional()`: additional data is
+        // attached by the resource's *response*, and `->resolve()` drops it, so
+        // the resume position never reached the player and FR-036 was dead on
+        // arrival. Going through the response instead would answer 201 here,
+        // because the grant was just created.
+        return response()->json([
+            ...PlaybackGrantResource::make($grant)->resolve(),
+            'resume_at_seconds' => $this->resumePosition($user->getKey(), (int) $model->getKey()),
+        ]);
     }
 
     /**

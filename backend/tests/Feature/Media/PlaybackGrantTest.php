@@ -129,6 +129,26 @@ it('leaks no provider identifier, key or storage path', function (): void {
         ->and($serialised)->not->toContain('storage/');
 });
 
+// FR-036. Caught in a browser, not here: `->additional()` is dropped by
+// `->resolve()`, so the field never reached the player at all — and the player
+// then crashed on the undefined it was promised.
+it('tells the player where to resume', function (): void {
+    [$workspace] = $this->createWorkspaceWithOwner();
+    $lesson = $this->lessonWithVideo($workspace);
+    $this->enrolledViewer($workspace, $lesson);
+
+    $first = $this->postJson("/api/v1/lessons/{$lesson->uuid}/playback")->assertOk();
+
+    $first->assertJsonPath('resume_at_seconds', 0);
+
+    $this->postJson("/api/v1/playback/{$first->json('grant')}/renew", ['position_seconds' => 143])
+        ->assertOk();
+
+    $this->postJson("/api/v1/lessons/{$lesson->uuid}/playback")
+        ->assertOk()
+        ->assertJsonPath('resume_at_seconds', 143);
+});
+
 it('renews a live grant and remembers the position', function (): void {
     [$workspace] = $this->createWorkspaceWithOwner();
     $lesson = $this->lessonWithVideo($workspace);

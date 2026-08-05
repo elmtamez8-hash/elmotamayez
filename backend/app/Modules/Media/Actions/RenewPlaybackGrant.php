@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Media\Actions;
 
+use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Models\LessonProgress;
 use App\Modules\Media\Models\PlaybackGrant;
 use App\Modules\Tenancy\Support\PlatformSettings;
@@ -62,13 +63,33 @@ class RenewPlaybackGrant extends Action
      */
     private function rememberPosition(PlaybackGrant $grant, int $positionSeconds): void
     {
-        $lessonId = $grant->asset->owner_id;
+        $lessonId = (int) $grant->asset->owner_id;
 
-        LessonProgress::withoutWorkspaceScope()
-            ->whereHas('enrollment', fn (Builder $query) => $query
+        $enrollment = Enrollment::withoutWorkspaceScope()
+            ->where('student_user_id', $grant->user_id)
+            ->where('workspace_id', $grant->workspace_id)
+            ->whereHas('course.lessons', fn (Builder $query) => $query
                 ->withoutGlobalScope(WorkspaceScope::class)
-                ->where('student_user_id', $grant->user_id))
-            ->where('lesson_id', $lessonId)
-            ->update(['last_position_seconds' => max(0, $positionSeconds)]);
+                ->where('lessons.id', $lessonId))
+            ->first();
+
+        if ($enrollment === null) {
+            return;
+        }
+
+        // Created, not merely updated: the first minute of the first viewing is
+        // exactly when there is no progress row yet, so an update-only write
+        // remembered nothing for every viewer who had not already finished
+        // something in the lesson.
+        LessonProgress::withoutWorkspaceScope()->updateOrCreate(
+            [
+                'enrollment_id' => $enrollment->getKey(),
+                'lesson_id' => $lessonId,
+            ],
+            [
+                'workspace_id' => $enrollment->workspace_id,
+                'last_position_seconds' => max(0, $positionSeconds),
+            ],
+        );
     }
 }

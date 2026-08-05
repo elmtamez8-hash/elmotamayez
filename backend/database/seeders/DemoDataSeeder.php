@@ -12,6 +12,7 @@ use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
+use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Tenancy\Actions\CreateWorkspace;
 use App\Modules\Tenancy\DTOs\CreateWorkspaceDTO;
 use App\Modules\Tenancy\Support\Roles;
@@ -29,6 +30,7 @@ class DemoDataSeeder extends Seeder
             'last_name' => 'Teacher',
             'email' => 'teacher@example.com',
             'password' => 'password',
+            'platform_role' => PlatformRole::Teacher,
         ]);
 
         $workspace = app(CreateWorkspace::class)->handle(
@@ -47,6 +49,10 @@ class DemoDataSeeder extends Seeder
             'last_name' => 'Student',
             'email' => 'student@example.com',
             'password' => 'password',
+            // Not the same thing as the workspace role attached below: the device
+            // limit and every other platform-level rule key off this one, so a
+            // demo student without it is a student none of those rules apply to.
+            'platform_role' => PlatformRole::Student,
         ]);
         $workspace->members()->attach($student->getKey(), [
             'role' => 'student',

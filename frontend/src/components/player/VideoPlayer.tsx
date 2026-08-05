@@ -35,9 +35,14 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
   // Pick up where they left off (FR-036).
   useEffect(() => {
     const video = videoRef.current;
-    if (video === null || grant.resume_at_seconds <= 0) return;
+    const resume = grant.resume_at_seconds;
 
-    video.currentTime = grant.resume_at_seconds;
+    // Finite check, not just > 0: a missing field arrives as undefined, and
+    // assigning that to currentTime throws — which took the whole page down with
+    // a client-side exception rather than merely starting from zero.
+    if (video === null || !Number.isFinite(resume) || resume <= 0) return;
+
+    video.currentTime = resume;
   }, [grant.resume_at_seconds]);
 
   if (!canPlay) {
