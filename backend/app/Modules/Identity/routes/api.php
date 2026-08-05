@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Identity\Http\Controllers\AuthController;
 use App\Modules\Identity\Http\Controllers\FamilyController;
 use App\Modules\Identity\Http\Controllers\ParentController;
+use App\Modules\Identity\Http\Controllers\SessionController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/register', [AuthController::class, 'register']);
@@ -16,11 +17,23 @@ Route::post('/auth/login', [AuthController::class, 'login'])->middleware('thrott
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth');
 Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
 
+/*
+| Asked only after the token is already gone, which is why it carries no auth:
+| requiring one would make the question unanswerable. Two fields, no PII, and
+| the uuid is something the client has held since sign-in.
+*/
+Route::get('/auth/sessions/{uuid}/end-reason', [SessionController::class, 'endReason'])
+    ->middleware('throttle:public');
+
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::patch('/auth/me', [AuthController::class, 'updateProfile']);
     Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
+
+    // Own devices only. A teacher never reads these, enrolment or not.
+    Route::get('/auth/sessions', [SessionController::class, 'index']);
+    Route::delete('/auth/sessions/{uuid}', [SessionController::class, 'destroy']);
     Route::post('/auth/email/verification-notification', [AuthController::class, 'sendVerificationEmail']);
     Route::get('/auth/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
         ->middleware('signed')

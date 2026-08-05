@@ -38,7 +38,6 @@ class UpdateLessonRequest extends FormRequest
             'duration_seconds' => ['nullable', 'integer', 'min:0'],
             'is_preview' => ['nullable', 'boolean'],
             'is_free' => ['nullable', 'boolean'],
-            'media' => ['nullable', 'array'],
         ];
     }
 }

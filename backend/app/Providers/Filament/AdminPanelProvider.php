@@ -6,6 +6,7 @@ use App\Modules\Analytics\Filament\Widgets\EnrollmentStatsWidget;
 use App\Modules\Analytics\Filament\Widgets\ExamStatsWidget;
 use App\Shared\Middleware\EnsureCurrentWorkspace;
 use App\Shared\Middleware\EnsureFilamentAccess;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -31,6 +32,12 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            // One enrolment, both surfaces: this reads the same
+            // user_security_settings row the API writes, so a teacher who set up
+            // their authenticator app in the product signs in with it here too.
+            ->multiFactorAuthentication([
+                AppAuthentication::make()->recoverable(),
+            ])
             ->colors([
                 'primary' => Color::Indigo,
             ])
@@ -43,6 +50,10 @@ class AdminPanelProvider extends PanelProvider
                 for: 'App\Modules\Marketplace\Filament\Resources',
             )
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
+            ->discoverPages(
+                in: app_path('Modules/Tenancy/Filament/Pages'),
+                for: 'App\Modules\Tenancy\Filament\Pages',
+            )
             ->pages([
                 Dashboard::class,
             ])

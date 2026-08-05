@@ -47,7 +47,18 @@
        │                              │ course_id · section_id       │
        │                              │ chapter_id · title · type    │
        │                              │ content · order · duration   │
-       │                              │ is_preview · is_free · media │
+       │                              │ is_preview · is_free         │
+       │                              └──────────────────────────────┘
+       │                                        │ morphOne
+       │                                        ▼
+       │                              ┌──────────────────────────────┐
+       │                              │  media_assets  (workspace)   │
+       │                              ├──────────────────────────────┤
+       │                              │ id · uuid · workspace_id     │
+       │                              │ owner_type · owner_id        │
+       │                              │ provider · provider_asset_id │
+       │                              │ status · mime_type · size    │
+       │                              │ duration · renditions        │
        │                              └──────────────────────────────┘
        │
        │ ┌─────────────────────────────────────────────────────────────┐
@@ -248,8 +259,11 @@ never scopes:
 
 workspaces gains: participates_in_marketplace (bool, default false)
                   owner_user_id is now NULLABLE (the platform workspace has no owner)
-users gains:      platform_role · phone · country · grade_level_slug · registered_by_parent
+users gains:      platform_role · phone · country
                   quiet_hours_start · quiet_hours_end · timezone  (spec 003)
+users loses:      grade_level_slug · registered_by_parent  → student_profiles  (spec 004)
+lessons loses:    media (free-form JSON)                    → media_assets     (spec 004)
+lesson_progress:  last_position (JSON, unused) → last_position_seconds        (spec 004)
 courses gains:    course_type · cover_path · price_before_discount
 ```
 
@@ -266,3 +280,34 @@ courses gains:    course_type · cover_path · price_before_discount
 - **TeacherProfile → Complaints:** Only `status = confirmed` deducts from the trust score (5 each, capped at 20)
 - **TeacherProfile.is_publicly_listed:** Derived from approval status × the workspace's `participates_in_marketplace`, never assigned. Withdrawal hides a whole workspace without changing anyone's `approval_status`
 - **ParentChildLink:** `child_id` is nullable — a parent can name a child who has no account yet. Authorization is ownership of the link row, so two parents can both link the same child
+
+
+## Video Pipeline & Sessions (spec 004)
+
+Ownership layer is stated for each table, because that classification is a
+binding decision and not an implementation detail.
+
+```
+media_assets        (workspace)  morphs to a Lesson today, a ClassSession next phase
+media_captions      (workspace)  WebVTT per language; the transcript is derived, not stored
+playback_grants     (bridge)     carries workspace_id for context, no global scope:
+                                 a grant is issued and consumed with no workspace current
+
+devices             (PLATFORM)   NO BelongsToWorkspace. A copy per workspace would give a
+                                 student a fresh device allowance per teacher — no limit at all
+auth_sessions       (PLATFORM)   one sign-in on one device; the row survives being ended,
+                                 because it IS the audit trail
+user_security_settings (PLATFORM) two-factor secret and recovery codes, off `users` so the
+                                 four nulls are not read on every authenticated request
+student_profiles    (PLATFORM)   grade_level_slug · registered_by_parent, moved off `users`
+platform_settings   (PLATFORM)   key/value an operator edits without a deploy
+```
+
+- **PlaybackGrant → AuthSession:** the binding that makes a copied link useless. When the
+  session ends, every grant it minted dies with it — checked on each range request, so
+  playback stops mid-file rather than at the next page load
+- **Device limit:** counted in DISTINCT DEVICES among live sessions, not sessions. Two
+  sessions on one laptop are one machine and never evict each other
+- **`users` rule from here on:** it carries what every account has. Anything true of one
+  role only gets its own table. No `guardian_profiles` or `admin_profiles` exist yet —
+  no field is theirs, and an empty table is not a design

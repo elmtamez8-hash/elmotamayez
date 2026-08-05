@@ -34,7 +34,6 @@ class LessonFactory extends Factory
             'duration_seconds' => fake()->numberBetween(60, 3600),
             'is_preview' => false,
             'is_free' => false,
-            'media' => null,
         ];
     }
 

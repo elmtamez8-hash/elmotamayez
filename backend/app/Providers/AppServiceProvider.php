@@ -82,6 +82,20 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(5)->by('ip:'.$request->ip()),
             Limit::perHour(10)->by('user:'.(string) $request->user()?->getKey()),
         ]);
+
+        // Playback grants. Keyed by user, not IP: a classroom behind one NAT is
+        // many legitimate viewers, and the grant is already scoped to one account.
+        // Generous because a viewer opening a course renews once a minute.
+        RateLimiter::for('playback', fn (Request $request) => Limit::perMinute(60)
+            ->by('user:'.(string) $request->user()?->getKey()));
+
+        // Two-factor setup and challenge. By account as well as IP: the challenge
+        // is a six-digit code, so a per-IP limit alone leaves it brute-forceable
+        // from a botnet.
+        RateLimiter::for('two-factor', fn (Request $request) => [
+            Limit::perMinute(5)->by('ip:'.$request->ip()),
+            Limit::perMinute(5)->by('challenge:'.(string) $request->input('challenge', $request->user()?->getKey())),
+        ]);
     }
 
     /**

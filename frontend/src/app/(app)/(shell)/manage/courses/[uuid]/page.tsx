@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { formatMoney, lessonTypeLabel } from "@/lib/labels";
 import type { Course } from "@/lib/types";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
@@ -164,6 +165,13 @@ export default function CourseDetailPage({
                             ({lessonTypeLabel(lesson.type)})
                           </span>
                           {lesson.is_preview && <Badge tone="info">معاينة مجانية</Badge>}
+                          {/* A page with no link to it is a page nobody reaches. */}
+                          <Link
+                            href={`/manage/courses/${course.uuid}/lessons/${lesson.uuid}`}
+                            className="text-xs text-primary-ink underline"
+                          >
+                            الفيديو
+                          </Link>
                         </li>
                       ))}
                     </ul>

@@ -3,12 +3,18 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Identity\Models\AuthSession;
+use App\Modules\Identity\Models\Device;
+use App\Modules\Identity\Models\StudentProfile;
 use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\GradeLevel;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Media\Models\MediaAsset;
+use App\Modules\Media\Models\MediaCaption;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
+use App\Shared\Traits\BelongsToWorkspace;
 use Laravel\Sanctum\Sanctum;
 
 describe('workspace isolation', function (): void {
@@ -101,4 +107,44 @@ describe('marketplace models are workspace-scoped', function (): void {
         Subject::class,
         TeacherProfile::class,
     ]);
+});
+
+describe('media models are workspace-scoped', function (): void {
+    // Required in the same PR that adds the model (Constitution I). Without it a
+    // missing BelongsToWorkspace passes every other test and leaks in production.
+    it('scopes media assets to the current workspace', function (): void {
+        [$workspaceA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+        [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+        $context = app(WorkspaceContext::class);
+
+        $context->forWorkspace($workspaceA, fn () => MediaAsset::factory()->count(2)->create(['owner_id' => 1]));
+        $context->forWorkspace($workspaceB, fn () => MediaAsset::factory()->count(3)->create(['owner_id' => 1]));
+
+        expect($context->forWorkspace($workspaceA, fn () => MediaAsset::query()->count()))->toBe(2);
+        expect($context->forWorkspace($workspaceB, fn () => MediaAsset::query()->count()))->toBe(3);
+    });
+
+    it('scopes captions to the current workspace', function (): void {
+        [$workspaceA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+        [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+        $context = app(WorkspaceContext::class);
+
+        $context->forWorkspace($workspaceA, function (): void {
+            $asset = MediaAsset::factory()->create(['owner_id' => 1]);
+            MediaCaption::factory()->create(['media_asset_id' => $asset->getKey()]);
+        });
+
+        expect($context->forWorkspace($workspaceB, fn () => MediaCaption::query()->count()))->toBe(0);
+    });
+
+    // Platform-owned, and their absence from the list above is the assertion:
+    // a device limit copied per workspace is a fresh allowance for every teacher
+    // the student enrols with, which is no limit at all.
+    it('keeps devices and sessions off the workspace layer', function (): void {
+        expect(in_array(BelongsToWorkspace::class, class_uses_recursive(Device::class), true))->toBeFalse()
+            ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(AuthSession::class), true))->toBeFalse()
+            ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(StudentProfile::class), true))->toBeFalse();
+    });
 });

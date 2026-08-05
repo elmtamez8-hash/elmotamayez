@@ -18,13 +18,14 @@
 
 | Module | Path | Key Models | API Endpoints |
 |---|---|---|---|
-| Identity | `app/Modules/Identity/` | User | Auth (register/login/me/change-password) |
+| Identity | `app/Modules/Identity/` | User, StudentProfile, UserSecuritySettings, Device, AuthSession, ParentStudentRelation | Auth (register/login/me/change-password), sessions & devices |
 | Tenancy | `app/Modules/Tenancy/` | Workspace, WorkspaceMember, Invitation | Workspaces (CRUD, switch, members, invitations) |
 | Courses | `app/Modules/Courses/` | Course, Section, Chapter, Lesson | Courses + sections/chapters/lessons CRUD |
 | Learning | `app/Modules/Learning/` | Enrollment, LessonProgress, ProgressHistory | Enrollments (enroll, lesson access, complete) |
 | Assessments | `app/Modules/Assessments/` | Exam, Question, QuestionOption, Attempt, Answer | Exams CRUD + questions CRUD + attempts |
 | Certificates | `app/Modules/Certificates/` | Certificate, CertificateTemplate | Certificates (list, verify, regenerate) + templates CRUD |
 | Payments | `app/Modules/Payments/` | Order, Product, PaymentTransaction | Orders (create, receipt, approve, reject) |
+| Media | `app/Modules/Media/` | MediaAsset, MediaCaption, PlaybackGrant | Upload tickets + playback grants (issue/stream/renew) |
 | Notifications | `app/Modules/Notifications/` | Notification, NotificationDelivery, NotificationPreference, MessageTemplate, ContactVerification | Notification centre + preferences + contact verification |
 | Analytics | `app/Modules/Analytics/` | (Filament widgets) | Admin dashboard |
 | CMS | `app/Modules/CMS/` | Article, Category, Tag | Articles CRUD + publish |
@@ -182,3 +183,51 @@ cd backend
 php artisan scribe:generate      # Generates OpenAPI/Scribe docs at /docs
 ```
 API docs available at `http://localhost:8000/docs` after generation.
+
+
+## Video Pipeline (spec 004)
+
+Providers sit behind `Media\Contracts\VideoProviderInterface`. Adding one is a file in
+`Modules/Media/Providers/` and a case in `MediaServiceProvider` — nothing in `Actions/`,
+`Models/` or the frontend changes. `LocalVideoProvider` is the only implementation today
+and needs no external account: the commercial choice is deliberately deferred, and what
+that costs is listed in the feature plan rather than glossed over.
+
+`ProviderContractTest` runs every registered implementation through the same set, including
+the rule that a provider claiming adaptive bitrate must actually report more than one
+rendition. `ProviderAgnosticTest` fails the build if any vendor name appears outside
+`Modules/Media/Providers/`.
+
+### Playback
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `POST /lessons/{lesson}/playback` | sanctum + `throttle:playback` | Issues a short-lived grant bound to the current session. 409 when the video is still processing — the viewer is entitled, it is simply not ready |
+| `GET /playback/{grant}/stream` | **none** | A `<video>` element cannot send a bearer token. The guard is the grant row, re-checked on every range request |
+| `POST /playback/{grant}/renew` | sanctum | Extends the grant and saves the viewing position. Also how the client discovers its session was ended elsewhere |
+| `POST /lessons/{lesson}/assets` | `LESSONS_MANAGE` | Returns an upload ticket. The client PUTs to wherever it points |
+| `POST /media/assets/{asset}/complete` | `LESSONS_MANAGE` | Settles the type from the file's own bytes, never from its name |
+
+**No new permissions.** Managing an asset is managing lesson content (`LESSONS_MANAGE`);
+watching is entitlement, not permission, and lives in `IssuePlaybackGrant`. Devices,
+sessions and two-factor are own-row ownership — a teacher never reads them, enrolment or
+not.
+
+### Sessions and devices
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `GET /auth/sessions` · `DELETE /auth/sessions/{uuid}` | sanctum | Own rows only |
+| `GET /auth/sessions/{uuid}/end-reason` | **none** | Asked after the token is gone, so it cannot be authenticated. Two fields, no PII |
+
+The device limit lives in `platform_settings` (`auth.device_limits`, default
+`{"student": 1}`) so an operator can tune it without a deploy. It counts **distinct
+devices** among live sessions, not sessions: two sign-ins on one laptop are one machine.
+
+### Breaking changes
+
+- `LessonResource.media` → `LessonResource.asset` (uuid, status, duration — never the
+  provider or its path). No frontend consumer existed, so the change lands before one does.
+- `UserResource.grade_level_slug` / `registered_by_parent` → nested under `student_profile`.
+- `POST /auth/login` now also returns `session_uuid`, which the client keeps to ask why it
+  was later signed out.

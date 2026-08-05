@@ -387,9 +387,6 @@ final class ScenarioSeeder extends Seeder
                     'section_id' => $section->id, 'chapter_id' => $chapter->id,
                     'title' => $title, 'type' => $type,
                     'content' => $type === 'article' ? "Written material for: {$title}" : null,
-                    'media' => in_array($type, ['video', 'pdf', 'file'], true)
-                        ? ['url' => 'https://example.test/media/'.Str::slug($title).'.'.($type === 'video' ? 'mp4' : 'pdf')]
-                        : null,
                     'order' => $order++,
                     'duration_seconds' => $type === 'video' ? 600 : 0,
                     'is_preview' => $isPreview,

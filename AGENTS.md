@@ -112,6 +112,24 @@ Tests use in-memory SQLite (`DB_DATABASE=:memory:` in `phpunit.xml`).
 10. Trust-score job workspace isolation — `tests/Feature/Marketplace/TrustScoreJobIsolationTest.php`
 11. Platform-owned entity guard — `tests/Feature/Notifications/PlatformOwnershipTest.php`
 12. Provider-agnostic notifications — `tests/Feature/Notifications/ProviderAgnosticTest.php`
+13. Playback grants — `tests/Feature/Media/PlaybackGrantTest.php`
+14. Video provider contract — `tests/Feature/Media/ProviderContractTest.php`
+15. Device limit and session eviction — `tests/Feature/Auth/DeviceLimitTest.php`
+16. Devices and sessions are platform-owned — `tests/Feature/Auth/PlatformOwnershipTest.php`
+
+### Read before touching playback
+
+A playback grant is a row, not a signed URL, because it must be able to die early —
+when the session ends, when an enrolment lapses, when the watermark stops renewing.
+`PlaybackGuard::resolve()` is re-run on **every byte-range request**, which is what
+makes a video stop mid-file rather than at the next page load. The stream route is
+deliberately unauthenticated (a `<video>` element cannot send a bearer token) and
+deliberately not model-bound (implicit binding would resolve before the guard runs).
+
+`ProviderContractTest` holds every implementation to what it *claims*: a provider
+declaring adaptive bitrate must report more than one rendition or the build fails.
+That check is what makes deferring the commercial provider choice safe rather than
+optimistic.
 
 ### Read before touching any public marketplace route
 

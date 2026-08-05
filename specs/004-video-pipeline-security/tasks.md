@@ -24,13 +24,13 @@ description: "Task list for 004-video-pipeline-security"
 
 **Purpose**: هيكل الوحدة والإعدادات والمحدّدات — بلا منطق.
 
-- [ ] T001 أنشئ هيكل وحدة `Media` في `backend/app/Modules/Media/` بمجلدات `Contracts` · `Providers` · `Data` · `Enums` · `Models` · `Actions` · `Jobs` · `Events` · `Http/{Controllers,Requests,Resources}` · `Policies` · `Support` · `Database/Migrations` (حرف M كبير — الدستور III) · `routes`
-- [ ] T002 أنشئ `backend/app/Modules/Media/MediaServiceProvider.php` يمتدّ `App\Shared\Modules\Module` بـ `protected string $name = 'Media'` — **يُمنع** تسجيله في `bootstrap/providers.php` (الاكتشاف تلقائي)
-- [ ] T003 أضف `app/Modules/Media/Database/Migrations` إلى `databaseMigrationsPath` في `backend/phpstan.neon` — بدونها لا يستنتج Larastan أنواع خصائص النماذج الجديدة
-- [ ] T004 [P] أنشئ `backend/config/media.php` بمفاتيح `provider` · `max_size_bytes` · `max_duration_seconds` · `grant_ttl_seconds` · `max_renewals` · `device_limits` · `two_factor_grace_days` — كلها **افتراضيات** يعلوها `platform_settings` (research §R16)
-- [ ] T005 [P] أضف `MEDIA_PROVIDER=local` إلى `backend/.env.example` مع تعليق يوضّح أن المحلّي لا يحتاج حساباً خارجياً
-- [ ] T006 [P] أضف المحدّدين المسمّيين `playback` و`two-factor` في `AppServiceProvider::registerRateLimiters()` بـ `backend/app/Providers/AppServiceProvider.php` — `playback` بمفتاح المستخدم لا IP، و`two-factor` بالاثنين. **يُمنع** أي `throttle:5,1` سطري
-- [ ] T007 [P] أنشئ `backend/app/Modules/Media/routes/api.php` فارغاً بترويسة توضّح أن `Module` يضيف البادئة `/api/v1` ومجموعة `api` تلقائياً
+- [X] T001 أنشئ هيكل وحدة `Media` في `backend/app/Modules/Media/` بمجلدات `Contracts` · `Providers` · `Data` · `Enums` · `Models` · `Actions` · `Jobs` · `Events` · `Http/{Controllers,Requests,Resources}` · `Policies` · `Support` · `Database/Migrations` (حرف M كبير — الدستور III) · `routes`
+- [X] T002 أنشئ `backend/app/Modules/Media/MediaServiceProvider.php` يمتدّ `App\Shared\Modules\Module` بـ `protected string $name = 'Media'` — **يُمنع** تسجيله في `bootstrap/providers.php` (الاكتشاف تلقائي)
+- [X] T003 أضف `app/Modules/Media/Database/Migrations` إلى `databaseMigrationsPath` في `backend/phpstan.neon` — بدونها لا يستنتج Larastan أنواع خصائص النماذج الجديدة
+- [X] T004 [P] أنشئ `backend/config/media.php` بمفاتيح `provider` · `max_size_bytes` · `max_duration_seconds` · `grant_ttl_seconds` · `max_renewals` · `device_limits` · `two_factor_grace_days` — كلها **افتراضيات** يعلوها `platform_settings` (research §R16)
+- [X] T005 [P] أضف `MEDIA_PROVIDER=local` إلى `backend/.env.example` مع تعليق يوضّح أن المحلّي لا يحتاج حساباً خارجياً
+- [X] T006 [P] أضف المحدّدين المسمّيين `playback` و`two-factor` في `AppServiceProvider::registerRateLimiters()` بـ `backend/app/Providers/AppServiceProvider.php` — `playback` بمفتاح المستخدم لا IP، و`two-factor` بالاثنين. **يُمنع** أي `throttle:5,1` سطري
+- [X] T007 [P] أنشئ `backend/app/Modules/Media/routes/api.php` فارغاً بترويسة توضّح أن `Module` يضيف البادئة `/api/v1` ومجموعة `api` تلقائياً
 
 **Checkpoint**: الوحدة مكتشَفة، وPHPStan يقرأ هجراتها، والمحدّدات مسمّاة.
 
@@ -44,57 +44,57 @@ description: "Task list for 004-video-pipeline-security"
 
 ### إعدادات المنصة (research §R16)
 
-- [ ] T008 أنشئ هجرة `platform_settings` في `backend/app/Modules/Tenancy/Database/Migrations/` بأعمدة `key` (PK) · `value` (json) · `updated_by_user_id` · `updated_at` حسب data-model §٦ب
-- [ ] T009 أنشئ `backend/app/Modules/Tenancy/Models/PlatformSetting.php` — **بلا** `BelongsToWorkspace` (مملوك للمنصة)، مفتاحه نصّي لا تسلسلي
-- [ ] T010 أنشئ `backend/app/Modules/Tenancy/Support/PlatformSettings.php` بدالّة `get(string $key, mixed $default = null)` مخزَّنة مؤقّتاً إلى الأبد، تُبطِل المخزون عند `set()`، وترجع إلى `config()` عند غياب الصفّ
-- [ ] T011 [P] أنشئ `backend/tests/Feature/Tenancy/PlatformSettingsTest.php`: قراءة بلا صفّ ⇒ قيمة `config()` · الحفظ يُبطل المخزون · **مستخدم غير `is_super_admin` لا يصل صفحة الإعدادات**
-- [ ] T012 أنشئ صفحة Filament `backend/app/Modules/Tenancy/Filament/Pages/ManagePlatformSettings.php` محميّة بـ `users.is_super_admin` حصراً، وسجّل مجلدها في `discoverPages` بـ `backend/app/Providers/Filament/AdminPanelProvider.php`
+- [X] T008 أنشئ هجرة `platform_settings` في `backend/app/Modules/Tenancy/Database/Migrations/` بأعمدة `key` (PK) · `value` (json) · `updated_by_user_id` · `updated_at` حسب data-model §٦ب
+- [X] T009 أنشئ `backend/app/Modules/Tenancy/Models/PlatformSetting.php` — **بلا** `BelongsToWorkspace` (مملوك للمنصة)، مفتاحه نصّي لا تسلسلي
+- [X] T010 أنشئ `backend/app/Modules/Tenancy/Support/PlatformSettings.php` بدالّة `get(string $key, mixed $default = null)` مخزَّنة مؤقّتاً إلى الأبد، تُبطِل المخزون عند `set()`، وترجع إلى `config()` عند غياب الصفّ
+- [X] T011 [P] أنشئ `backend/tests/Feature/Tenancy/PlatformSettingsTest.php`: قراءة بلا صفّ ⇒ قيمة `config()` · الحفظ يُبطل المخزون · **مستخدم غير `is_super_admin` لا يصل صفحة الإعدادات**
+- [X] T012 أنشئ صفحة Filament `backend/app/Modules/Tenancy/Filament/Pages/ManagePlatformSettings.php` محميّة بـ `users.is_super_admin` حصراً، وسجّل مجلدها في `discoverPages` بـ `backend/app/Providers/Filament/AdminPanelProvider.php`
 
 ### فصل جداول الأدوار (research §R17)
 
-- [ ] T013 أنشئ هجرة `student_profiles` في `backend/app/Modules/Identity/Database/Migrations/` **وتنقل** كل صفّ `users` له `grade_level_slug` أو `registered_by_parent = true` — data-model §٦أ
-- [ ] T014 أنشئ هجرة **منفصلة** تحذف `grade_level_slug` و`registered_by_parent` من `users` — الفصل يجعل `down()` ذا معنى (research §R13)
-- [ ] T015 أنشئ `backend/app/Modules/Identity/Models/StudentProfile.php` وأضف علاقة `studentProfile(): HasOne` إلى `backend/app/Models/User.php`، واحذف العمودين من docblock الخصائص وmن `casts()`
-- [ ] T016 حدّث `RegisterStudent` و`RegisterStudentData` في `backend/app/Modules/Identity/` لتكتب في `student_profiles` بدل أعمدة `users`
-- [ ] T017 حدّث `backend/app/Modules/Identity/Http/Resources/UserResource.php`: `grade_level_slug` و`registered_by_parent` ينتقلان إلى كائن `student_profile` يظهر لمن له ملف طالب فقط
-- [ ] T018 [P] أنشئ `backend/tests/Feature/Identity/StudentProfileMigrationTest.php` يعيد بناء العمودين يدوياً، يملؤهما، يشغّل الهجرتين، ويؤكّد **صفر فقد** وأن `parent_student_relations.student_grade_level_slug` **بلا مساس**
-- [ ] T019 حدّث `backend/tests/Feature/Marketplace/StudentRegistrationTest.php` و`ParentAccountTest.php` للتأكيد على `student_profiles` بدل أعمدة `users`
+- [X] T013 أنشئ هجرة `student_profiles` في `backend/app/Modules/Identity/Database/Migrations/` **وتنقل** كل صفّ `users` له `grade_level_slug` أو `registered_by_parent = true` — data-model §٦أ
+- [X] T014 أنشئ هجرة **منفصلة** تحذف `grade_level_slug` و`registered_by_parent` من `users` — الفصل يجعل `down()` ذا معنى (research §R13)
+- [X] T015 أنشئ `backend/app/Modules/Identity/Models/StudentProfile.php` وأضف علاقة `studentProfile(): HasOne` إلى `backend/app/Models/User.php`، واحذف العمودين من docblock الخصائص وmن `casts()`
+- [X] T016 حدّث `RegisterStudent` و`RegisterStudentData` في `backend/app/Modules/Identity/` لتكتب في `student_profiles` بدل أعمدة `users`
+- [X] T017 حدّث `backend/app/Modules/Identity/Http/Resources/UserResource.php`: `grade_level_slug` و`registered_by_parent` ينتقلان إلى كائن `student_profile` يظهر لمن له ملف طالب فقط
+- [X] T018 [P] أنشئ `backend/tests/Feature/Identity/StudentProfileMigrationTest.php` يعيد بناء العمودين يدوياً، يملؤهما، يشغّل الهجرتين، ويؤكّد **صفر فقد** وأن `parent_student_relations.student_grade_level_slug` **بلا مساس**
+- [X] T019 حدّث `backend/tests/Feature/Marketplace/StudentRegistrationTest.php` و`ParentAccountTest.php` للتأكيد على `student_profiles` بدل أعمدة `users`
 
 ### إعدادات الأمان للمستخدم
 
-- [ ] T020 أنشئ هجرة `user_security_settings` في `backend/app/Modules/Identity/Database/Migrations/` — data-model §٦
-- [ ] T021 أنشئ `backend/app/Modules/Identity/Models/UserSecuritySettings.php` بـ `casts()` تجعل السرّ `encrypted` والرموز `encrypted:array`
-- [ ] T022 اجعل `backend/app/Models/User.php` ينفّذ `HasAppAuthentication` و`HasAppAuthenticationRecovery` **بلا سماتهما** — الدالّات الخمس تفوّض إلى `securitySettings()` (research §R9)، وفعّل `AppAuthentication::make()->recoverable()` في `AdminPanelProvider`
+- [X] T020 أنشئ هجرة `user_security_settings` في `backend/app/Modules/Identity/Database/Migrations/` — data-model §٦
+- [X] T021 أنشئ `backend/app/Modules/Identity/Models/UserSecuritySettings.php` بـ `casts()` تجعل السرّ `encrypted` والرموز `encrypted:array`
+- [X] T022 اجعل `backend/app/Models/User.php` ينفّذ `HasAppAuthentication` و`HasAppAuthenticationRecovery` **بلا سماتهما** — الدالّات الخمس تفوّض إلى `securitySettings()` (research §R9)، وفعّل `AppAuthentication::make()->recoverable()` في `AdminPanelProvider`
 
 ### عقد المزوّد (contracts/video-provider.md)
 
-- [ ] T023 [P] أنشئ التعدادات في `backend/app/Modules/Media/Enums/`: `MediaAssetStatus` (٥ حالات) · `PlaybackFormat` · `CaptionKind` · `CaptionSource`
-- [ ] T024 [P] أنشئ أغلفة `backend/app/Modules/Media/Data/`: `ProviderCapabilities` · `UploadTicket` · `PlaybackContext` · `PlaybackManifest` · `AssetStatusReport` · `Rendition` — كلها ترث `DataTransferObject` بخصائص `readonly`
-- [ ] T025 أنشئ `backend/app/Modules/Media/Contracts/VideoProviderInterface.php` بالدالّات الستّ حسب contracts/video-provider.md
-- [ ] T026 أنشئ هجرة `media_assets` + `media_captions` + `playback_grants` في `backend/app/Modules/Media/Database/Migrations/` — data-model §١–٣، بفهارسها الثلاثة. **انتبه**: `size_bytes` هو `unsignedBigInteger` لا `unsignedInteger` (يفيض عند ٤ جيجابايت، وSQLite يخفي ذلك)
-- [ ] T027 [P] أنشئ نماذج `backend/app/Modules/Media/Models/`: `MediaAsset` (بـ `BelongsToWorkspace` + `HasUuid` + علاقة `owner()` متعدّدة الأشكال) · `MediaCaption` (نفسه) · `PlaybackGrant` (بـ `HasUuid` فقط — **جسر**، يحمل `workspace_id` بلا `BelongsToWorkspace`)
-- [ ] T028 [P] أنشئ مصانع `backend/database/factories/Modules/Media/` للنماذج الثلاثة
-- [ ] T029 أنشئ `backend/app/Modules/Media/Providers/LocalVideoProvider.php` — التذكرة تشير إلى مسارنا، والبثّ يعلن `Accept-Ranges: bytes` (research §R5)، و`capabilities()` تعلن `adaptiveBitrate: false`
-- [ ] T030 اربط `VideoProviderInterface` في `MediaServiceProvider::register()` بـ `match (config('media.provider'))` مع `local` افتراضاً — سطر الربط الذي يجعل الاستبدال ملفاً وسطراً
+- [X] T023 [P] أنشئ التعدادات في `backend/app/Modules/Media/Enums/`: `MediaAssetStatus` (٥ حالات) · `PlaybackFormat` · `CaptionKind` · `CaptionSource`
+- [X] T024 [P] أنشئ أغلفة `backend/app/Modules/Media/Data/`: `ProviderCapabilities` · `UploadTicket` · `PlaybackContext` · `PlaybackManifest` · `AssetStatusReport` · `Rendition` — كلها ترث `DataTransferObject` بخصائص `readonly`
+- [X] T025 أنشئ `backend/app/Modules/Media/Contracts/VideoProviderInterface.php` بالدالّات الستّ حسب contracts/video-provider.md
+- [X] T026 أنشئ هجرة `media_assets` + `media_captions` + `playback_grants` في `backend/app/Modules/Media/Database/Migrations/` — data-model §١–٣، بفهارسها الثلاثة. **انتبه**: `size_bytes` هو `unsignedBigInteger` لا `unsignedInteger` (يفيض عند ٤ جيجابايت، وSQLite يخفي ذلك)
+- [X] T027 [P] أنشئ نماذج `backend/app/Modules/Media/Models/`: `MediaAsset` (بـ `BelongsToWorkspace` + `HasUuid` + علاقة `owner()` متعدّدة الأشكال) · `MediaCaption` (نفسه) · `PlaybackGrant` (بـ `HasUuid` فقط — **جسر**، يحمل `workspace_id` بلا `BelongsToWorkspace`)
+- [X] T028 [P] أنشئ مصانع `backend/database/factories/Modules/Media/` للنماذج الثلاثة
+- [X] T029 أنشئ `backend/app/Modules/Media/Providers/LocalVideoProvider.php` — التذكرة تشير إلى مسارنا، والبثّ يعلن `Accept-Ranges: bytes` (research §R5)، و`capabilities()` تعلن `adaptiveBitrate: false`
+- [X] T030 اربط `VideoProviderInterface` في `MediaServiceProvider::register()` بـ `match (config('media.provider'))` مع `local` افتراضاً — سطر الربط الذي يجعل الاستبدال ملفاً وسطراً
 
 ### كسر التبعية بين الوحدات (الدستور III · research §R14)
 
-- [ ] T031 أنشئ `backend/app/Shared/Contracts/EnrollmentDirectory.php` بدالّتَي `hasActiveEnrollment(User $user, int $courseId): bool` و`activeCourseIdsFor(User $user): array`
-- [ ] T032 أنشئ `backend/app/Modules/Learning/Support/EloquentEnrollmentDirectory.php` واربطه في `LearningServiceProvider::register()` — على نمط `EloquentGuardianDirectory` في spec 003
+- [X] T031 أنشئ `backend/app/Shared/Contracts/EnrollmentDirectory.php` بدالّتَي `hasActiveEnrollment(User $user, int $courseId): bool` و`activeCourseIdsFor(User $user): array`
+- [X] T032 أنشئ `backend/app/Modules/Learning/Support/EloquentEnrollmentDirectory.php` واربطه في `LearningServiceProvider::register()` — على نمط `EloquentGuardianDirectory` في spec 003
 
 ### ترحيل `lessons.media` (research §R13)
 
-- [ ] T033 أضف الترحيل إلى هجرة `media_assets` (T026): كل `lessons.media` غير فارغ ⇒ أصل `ready`؛ والمشوّه ⇒ `failed` مع `failure_reason` — **يُرحَّل ولا يُفقد**
-- [ ] T034 أنشئ هجرة **منفصلة** في `backend/app/Modules/Courses/Database/Migrations/` تحذف عمود `media` من `lessons`
-- [ ] T035 حدّث `backend/app/Modules/Courses/Models/Lesson.php`: احذف `media` من `$fillable` و`casts()`، وأضف `mediaAsset(): MorphOne`
-- [ ] T036 حدّث `backend/app/Modules/Courses/Http/Resources/LessonResource.php`: `media` ⇒ `asset` (uuid + status + duration فقط — **يُمنع** `provider` و`provider_asset_id`)
-- [ ] T037 [P] أنشئ `backend/tests/Feature/Media/MediaMigrationTest.php` يعيد بناء العمود القديم، يملؤه بأربعة أشكال (مسار نصّي · كائن · `null` · JSON مشوّه)، ويؤكّد صفر فقد
+- [X] T033 أضف الترحيل إلى هجرة `media_assets` (T026): كل `lessons.media` غير فارغ ⇒ أصل `ready`؛ والمشوّه ⇒ `failed` مع `failure_reason` — **يُرحَّل ولا يُفقد**
+- [X] T034 أنشئ هجرة **منفصلة** في `backend/app/Modules/Courses/Database/Migrations/` تحذف عمود `media` من `lessons`
+- [X] T035 حدّث `backend/app/Modules/Courses/Models/Lesson.php`: احذف `media` من `$fillable` و`casts()`، وأضف `mediaAsset(): MorphOne`
+- [X] T036 حدّث `backend/app/Modules/Courses/Http/Resources/LessonResource.php`: `media` ⇒ `asset` (uuid + status + duration فقط — **يُمنع** `provider` و`provider_asset_id`)
+- [X] T037 [P] أنشئ `backend/tests/Feature/Media/MediaMigrationTest.php` يعيد بناء العمود القديم، يملؤه بأربعة أشكال (مسار نصّي · كائن · `null` · JSON مشوّه)، ويؤكّد صفر فقد
 
 ### اختبارات العقد (البوابة التي تجعل تأجيل المزوّد آمناً)
 
-- [ ] T038 أنشئ `backend/tests/Feature/Media/ProviderContractTest.php` يعمل على **كل** تنفيذ مسجَّل: معرّف غير فارغ · تذكرة بلا مفتاح · بيان ينتهي مع المنحة أو قبلها · `status()` لأصل محذوف ⇒ `failed` لا استثناء · `delete()` مرتين بلا خطأ · **إن أعلن `adaptiveBitrate` ⇒ `renditions` فيه اثنان فأكثر** · **إن أعلن `automaticCaptions` ⇒ ينتج WebVTT صالحاً**
-- [ ] T039 [P] أنشئ `backend/tests/Feature/Media/ProviderAgnosticTest.php` يمسح `app/Modules/*/Actions/` و`app/Modules/*/Http/` و`frontend/src/` عن أسماء المزوّدين (`bunny` · `cloudflare` · `mux` · `vimeo` · `jwplayer`) ويفشل عند أي تطابق — باستثناء `app/Modules/Media/Providers/` وحده
-- [ ] T040 [P] أنشئ `backend/tests/Support/FakeVideoProvider.php` — مزوّد اختباري يعلن `adaptiveBitrate: true` ويقدّمها فعلاً، لإثبات أن اختبار العقد يمسك الادّعاء الكاذب
+- [X] T038 أنشئ `backend/tests/Feature/Media/ProviderContractTest.php` يعمل على **كل** تنفيذ مسجَّل: معرّف غير فارغ · تذكرة بلا مفتاح · بيان ينتهي مع المنحة أو قبلها · `status()` لأصل محذوف ⇒ `failed` لا استثناء · `delete()` مرتين بلا خطأ · **إن أعلن `adaptiveBitrate` ⇒ `renditions` فيه اثنان فأكثر** · **إن أعلن `automaticCaptions` ⇒ ينتج WebVTT صالحاً**
+- [X] T039 [P] أنشئ `backend/tests/Feature/Media/ProviderAgnosticTest.php` يمسح `app/Modules/*/Actions/` و`app/Modules/*/Http/` و`frontend/src/` عن أسماء المزوّدين (`bunny` · `cloudflare` · `mux` · `vimeo` · `jwplayer`) ويفشل عند أي تطابق — باستثناء `app/Modules/Media/Providers/` وحده
+- [X] T040 [P] أنشئ `backend/tests/Support/FakeVideoProvider.php` — مزوّد اختباري يعلن `adaptiveBitrate: true` ويقدّمها فعلاً، لإثبات أن اختبار العقد يمسك الادّعاء الكاذب
 
 **Checkpoint**: العقد يعمل، والكيانات موجودة، والترحيل مثبت — يمكن بدء القصص.
 
@@ -113,39 +113,39 @@ description: "Task list for 004-video-pipeline-security"
 
 ### الاختبارات أولاً
 
-- [ ] T041 [P] [US1] أنشئ `backend/tests/Feature/Media/PlaybackGrantTest.php` بحالة «طالب مسجَّل ⇒ منحة صالحة ⇒ `206` مع `Accept-Ranges: bytes`»
-- [ ] T042 [P] [US1] أضف حالات الرفض في نفس الملف: بعد انتهاء المدة · من جلسة أخرى (FR-009) · غير مسجَّل · انتهى تسجيله · مساحة عمل أخرى (SC-001 · SC-003)
-- [ ] T043 [P] [US1] أضف حالة `FR-011` في نفس الملف: تمشي على كل حمولة تخصّ درساً وتفشل عند ظهور `provider` أو `provider_asset_id` أو مسار قرص (SC-002)
+- [X] T041 [P] [US1] أنشئ `backend/tests/Feature/Media/PlaybackGrantTest.php` بحالة «طالب مسجَّل ⇒ منحة صالحة ⇒ `206` مع `Accept-Ranges: bytes`»
+- [X] T042 [P] [US1] أضف حالات الرفض في نفس الملف: بعد انتهاء المدة · من جلسة أخرى (FR-009) · غير مسجَّل · انتهى تسجيله · مساحة عمل أخرى (SC-001 · SC-003)
+- [X] T043 [P] [US1] أضف حالة `FR-011` في نفس الملف: تمشي على كل حمولة تخصّ درساً وتفشل عند ظهور `provider` أو `provider_asset_id` أو مسار قرص (SC-002)
 
 ### التنفيذ
 
-- [ ] T044 [US1] أنشئ `backend/app/Modules/Media/Actions/IssuePlaybackGrant.php` — **الحارس هنا لا في `FormRequest`** (الدستور II): تسجيل نشط عبر `EnrollmentDirectory` **أو** `is_preview`/`is_free` **أو** ملكية مساحة العمل؛ ثم صفّ منحة بمدة `grant_ttl_seconds` مربوط بـ `auth_session_id`
-- [ ] T045 [US1] أنشئ `backend/app/Modules/Media/Actions/RenewPlaybackGrant.php` — يمدّد المنحة، يحفظ `position_seconds`، ويرفض بعد `max_renewals`
-- [ ] T046 [US1] أنشئ `backend/app/Modules/Media/Support/PlaybackGuard.php` يفحص الشروط الخمسة (موجودة · غير ملغاة · غير منتهية · الجلسة نشطة · الأصل `ready`) — **يُستدعى عند كل طلب مدى** لا مرة واحدة
-- [ ] T047 [US1] أنشئ `backend/app/Modules/Media/Policies/MediaAssetPolicy.php` وسجّله في `MediaServiceProvider::boot()`
-- [ ] T048 [US1] أنشئ `backend/app/Modules/Media/Http/Controllers/PlaybackController.php` بدالّات `issue` · `stream` · `renew` — المتحكّم تنسيق فقط
-- [ ] T049 [US1] أنشئ `backend/app/Modules/Media/Http/Resources/PlaybackGrantResource.php` حسب contracts/api.md — **بلا** أي حقل مزوّد
-- [ ] T050 [US1] سجّل المسارات في `backend/app/Modules/Media/routes/api.php`: `POST /lessons/{lesson}/playback` (`auth:sanctum` + `throttle:playback`) · `GET /playback/{grant}/stream` (**بلا مصادقة** — الحارس هو صفّ المنحة) · `POST /playback/{grant}/renew` (`auth:sanctum`). **يُمنع** ربط `{grant}` بالنموذج ضمنياً
-- [ ] T051 [US1] أضف عمود `last_position_seconds` إلى `lesson_progress` بهجرة في `backend/app/Modules/Learning/Database/Migrations/` (FR-036)
-- [ ] T052 [US1] أضف حالة `MediaAsset` إلى `backend/tests/Feature/Tenancy/WorkspaceIsolationTest.php` — إلزامي بالدستور I في نفس الـ PR
+- [X] T044 [US1] أنشئ `backend/app/Modules/Media/Actions/IssuePlaybackGrant.php` — **الحارس هنا لا في `FormRequest`** (الدستور II): تسجيل نشط عبر `EnrollmentDirectory` **أو** `is_preview`/`is_free` **أو** ملكية مساحة العمل؛ ثم صفّ منحة بمدة `grant_ttl_seconds` مربوط بـ `auth_session_id`
+- [X] T045 [US1] أنشئ `backend/app/Modules/Media/Actions/RenewPlaybackGrant.php` — يمدّد المنحة، يحفظ `position_seconds`، ويرفض بعد `max_renewals`
+- [X] T046 [US1] أنشئ `backend/app/Modules/Media/Support/PlaybackGuard.php` يفحص الشروط الخمسة (موجودة · غير ملغاة · غير منتهية · الجلسة نشطة · الأصل `ready`) — **يُستدعى عند كل طلب مدى** لا مرة واحدة
+- [X] T047 [US1] أنشئ `backend/app/Modules/Media/Policies/MediaAssetPolicy.php` وسجّله في `MediaServiceProvider::boot()`
+- [X] T048 [US1] أنشئ `backend/app/Modules/Media/Http/Controllers/PlaybackController.php` بدالّات `issue` · `stream` · `renew` — المتحكّم تنسيق فقط
+- [X] T049 [US1] أنشئ `backend/app/Modules/Media/Http/Resources/PlaybackGrantResource.php` حسب contracts/api.md — **بلا** أي حقل مزوّد
+- [X] T050 [US1] سجّل المسارات في `backend/app/Modules/Media/routes/api.php`: `POST /lessons/{lesson}/playback` (`auth:sanctum` + `throttle:playback`) · `GET /playback/{grant}/stream` (**بلا مصادقة** — الحارس هو صفّ المنحة) · `POST /playback/{grant}/renew` (`auth:sanctum`). **يُمنع** ربط `{grant}` بالنموذج ضمنياً
+- [X] T051 [US1] أضف عمود `last_position_seconds` إلى `lesson_progress` بهجرة في `backend/app/Modules/Learning/Database/Migrations/` (FR-036)
+- [X] T052 [US1] أضف حالة `MediaAsset` إلى `backend/tests/Feature/Tenancy/WorkspaceIsolationTest.php` — إلزامي بالدستور I في نفس الـ PR
 
 ### الرفع (يغذّي القصة)
 
-- [ ] T053 [P] [US1] أنشئ `backend/tests/Feature/Media/UploadLifecycleTest.php`: امتداد فيديو وليس فيديو ⇒ رفض · تجاوز الحجم/المدة ⇒ `422` قبل استهلاك الرفع · رفع مقاطَع ⇒ `failed` والدرس لا يقبل تشغيلاً (SC-010) · المزوّد متوقّف ⇒ `failed` بلا استثناء
-- [ ] T054 [US1] أنشئ `RequestUploadTicket` و`CompleteMediaUpload` و`DeleteMediaAsset` في `backend/app/Modules/Media/Actions/` — النوع يُقرأ من **محتوى** الملف لا من العميل (FR-003)
-- [ ] T055 [US1] أنشئ `backend/app/Modules/Media/Http/Controllers/MediaAssetController.php` ومسارات الرفع والإتمام والحذف حسب contracts/api.md
-- [ ] T056 [US1] أنشئ `backend/app/Modules/Media/Jobs/ReconcileAssetStatus.php` — يستطلع الأصول `processing`، ويستعمل `forWorkspace()`. **يُمنع** `WorkspaceContext::set()` (NFR-007)
-- [ ] T057 [US1] أنشئ `backend/app/Modules/Media/Events/MediaAssetReady.php` وأطلقه عند الانتقال إلى `ready` — تستهلكه 005
-- [ ] T058 [P] [US1] أضف اختبار يفشل عند وجود `WorkspaceContext::set(` تحت `app/Modules/Media/Jobs/` — على نمط `TrustScoreJobIsolationTest`
+- [X] T053 [P] [US1] أنشئ `backend/tests/Feature/Media/UploadLifecycleTest.php`: امتداد فيديو وليس فيديو ⇒ رفض · تجاوز الحجم/المدة ⇒ `422` قبل استهلاك الرفع · رفع مقاطَع ⇒ `failed` والدرس لا يقبل تشغيلاً (SC-010) · المزوّد متوقّف ⇒ `failed` بلا استثناء
+- [X] T054 [US1] أنشئ `RequestUploadTicket` و`CompleteMediaUpload` و`DeleteMediaAsset` في `backend/app/Modules/Media/Actions/` — النوع يُقرأ من **محتوى** الملف لا من العميل (FR-003)
+- [X] T055 [US1] أنشئ `backend/app/Modules/Media/Http/Controllers/MediaAssetController.php` ومسارات الرفع والإتمام والحذف حسب contracts/api.md
+- [X] T056 [US1] أنشئ `backend/app/Modules/Media/Jobs/ReconcileAssetStatus.php` — يستطلع الأصول `processing`، ويستعمل `forWorkspace()`. **يُمنع** `WorkspaceContext::set()` (NFR-007)
+- [X] T057 [US1] أنشئ `backend/app/Modules/Media/Events/MediaAssetReady.php` وأطلقه عند الانتقال إلى `ready` — تستهلكه 005
+- [X] T058 [P] [US1] أضف اختبار يفشل عند وجود `WorkspaceContext::set(` تحت `app/Modules/Media/Jobs/` — على نمط `TrustScoreJobIsolationTest`
 
 ### الواجهة
 
-- [ ] T059 [P] [US1] أنشئ `frontend/src/lib/media.ts` بأنواع `PlaybackGrant` · `MediaAsset` · `Caption` وعميل الـ API
-- [ ] T060 [US1] أنشئ `frontend/src/components/player/VideoPlayer.tsx` — عنصر `<video controls controlsList="nodownload">` أصلي بلا مكتبة (research §R11)، يرفض صيغة لا يدعمها المتصفّح **برسالة عربية** لا شاشة سوداء
-- [ ] T061 [US1] أنشئ `frontend/src/app/(app)/(shell)/learn/[enrollment]/[lesson]/page.tsx` مبنيّة على `components/ui/` حصراً — **يُمنع** `className` حرّ أو لون خارج `@theme`
-- [ ] T062 [US1] أنشئ `frontend/src/app/(app)/(shell)/manage/courses/[uuid]/lessons/[lessonUuid]/page.tsx` لرفع الأصل وعرض حالته
-- [ ] T063 [US1] أضف رابطاً إلى صفحة الدرس من `frontend/src/app/(app)/(shell)/manage/courses/[uuid]/page.tsx` — صفحة بلا رابط إليها صفحة غير مُسلَّمة (درس spec 003)
-- [ ] T064 [P] [US1] أضف حالة أداء إلى `PlaybackGrantTest`: إصدار منح لقائمة ٥٠ درساً بعدد استعلامات **ثابت** عبر `activeCourseIdsFor()` (SC-011)
+- [X] T059 [P] [US1] أنشئ `frontend/src/lib/media.ts` بأنواع `PlaybackGrant` · `MediaAsset` · `Caption` وعميل الـ API
+- [X] T060 [US1] أنشئ `frontend/src/components/player/VideoPlayer.tsx` — عنصر `<video controls controlsList="nodownload">` أصلي بلا مكتبة (research §R11)، يرفض صيغة لا يدعمها المتصفّح **برسالة عربية** لا شاشة سوداء
+- [X] T061 [US1] أنشئ `frontend/src/app/(app)/(shell)/learn/[enrollment]/[lesson]/page.tsx` مبنيّة على `components/ui/` حصراً — **يُمنع** `className` حرّ أو لون خارج `@theme`
+- [X] T062 [US1] أنشئ `frontend/src/app/(app)/(shell)/manage/courses/[uuid]/lessons/[lessonUuid]/page.tsx` لرفع الأصل وعرض حالته
+- [X] T063 [US1] أضف رابطاً إلى صفحة الدرس من `frontend/src/app/(app)/(shell)/manage/courses/[uuid]/page.tsx` — صفحة بلا رابط إليها صفحة غير مُسلَّمة (درس spec 003)
+- [X] T064 [P] [US1] أضف حالة أداء إلى `PlaybackGrantTest`: إصدار منح لقائمة ٥٠ درساً بعدد استعلامات **ثابت** عبر `activeCourseIdsFor()` (SC-011)
 
 **Checkpoint**: US1 قابلة للتسليم وحدها — أوسع قناة تسريب مغلقة.
 
@@ -182,27 +182,27 @@ description: "Task list for 004-video-pipeline-security"
 
 ### الاختبارات أولاً
 
-- [ ] T072 [P] [US3] أنشئ `backend/tests/Feature/Auth/DeviceLimitTest.php`: جهازان متتابعان ⇒ جلسات الأول `ended` بسبب `device_limit` والجديدة تعمل وحدها، و**الدخول الجديد لا يُرفض ولو مرة** (SC-006 · FR-023). وحالة ثانية: **جلستان على نفس الجهاز تبقيان معاً** — صفر إنهاء خاطئ (SC-006ج · FR-022ب)
-- [ ] T073 [P] [US3] أضف حالة **`mid-playback`** في نفس الملف: أصدر منحة، ابدأ طلبات المدى، أنهِ الجلسة من جهاز ثالث، وتأكّد أن **طلب المدى التالي `403`** والتجديد `401` — **بلا أي فعل من المشاهد** (SC-006أ · research §R15)
-- [ ] T074 [P] [US3] أضف حالة الإعدادات: غيّر `auth.device_limits` في `platform_settings` إلى `2` ⇒ جهازان يبقيان، **بلا إعادة نشر** (SC-006ب · FR-022)
+- [X] T072 [P] [US3] أنشئ `backend/tests/Feature/Auth/DeviceLimitTest.php`: جهازان متتابعان ⇒ جلسات الأول `ended` بسبب `device_limit` والجديدة تعمل وحدها، و**الدخول الجديد لا يُرفض ولو مرة** (SC-006 · FR-023). وحالة ثانية: **جلستان على نفس الجهاز تبقيان معاً** — صفر إنهاء خاطئ (SC-006ج · FR-022ب)
+- [X] T073 [P] [US3] أضف حالة **`mid-playback`** في نفس الملف: أصدر منحة، ابدأ طلبات المدى، أنهِ الجلسة من جهاز ثالث، وتأكّد أن **طلب المدى التالي `403`** والتجديد `401` — **بلا أي فعل من المشاهد** (SC-006أ · research §R15)
+- [X] T074 [P] [US3] أضف حالة الإعدادات: غيّر `auth.device_limits` في `platform_settings` إلى `2` ⇒ جهازان يبقيان، **بلا إعادة نشر** (SC-006ب · FR-022)
 
 ### الكيانات والمنطق
 
-- [ ] T075 [US3] أنشئ هجرة `devices` + `auth_sessions` في `backend/app/Modules/Identity/Database/Migrations/` — data-model §٤–٥ بفهرسَيهما
-- [ ] T076 [US3] أنشئ `backend/app/Modules/Identity/Models/{Device,AuthSession}.php` — **بلا** `BelongsToWorkspace` (مملوكان للمنصة)، و`SessionEndReason` تعداداً في `Identity/Support/`
-- [ ] T077 [P] [US3] أنشئ مصانع `backend/database/factories/Modules/Identity/` للنموذجين
-- [ ] T078 [US3] أنشئ `backend/app/Modules/Identity/Support/DeviceFingerprint.php` — `sha256` لـ `X-Device-Id` + `User-Agent` + `Accept-Language`، مع `label()` مقروء بالعربية (research §R7)
-- [ ] T079 [US3] أنشئ `backend/app/Modules/Identity/Actions/StartAuthSession.php` بالخوارزمية الخماسية في data-model §٥: يحلّ الجهاز، يُنشئ الجلسة **أولاً** (FR-023 يمنع رفض الدخول الجديد)، ثم يعدّ **`device_id` المتمايزة** بين الجلسات النشطة ويُنهي جلسات **أقدم جهاز كلها معاً** حتى يصل العدد لحدّ `PlatformSettings::get('auth.device_limits')`. **يُمنع** العدّ على الجلسات (FR-022ب)
-- [ ] T080 [US3] أنشئ `backend/app/Modules/Identity/Actions/TerminateAuthSession.php`: يحذف رمز Sanctum ويضبط `status` و`ended_reason` — **حذف الرمز هو الإنهاء**، بلا وسيط (research §R8)
-- [ ] T081 [US3] أطلق `SecurityAlert` عند الإنهاء بسبب `device_limit` عبر `DispatchNotification` من `Modules/Notifications/` — نوع إلزامي قائم من spec 003. **فقط إن كانت الجلسة المنتهية نشطة حديثاً** (`last_active_at` داخل النافذة): بحدّ جهاز واحد يقع الإنهاء عند كل تنقّل عادي، وتنبيه يومي يُدرَّب المستخدم على تجاهله فيضيع حين يقع الاختراق (FR-025)
-- [ ] T082 [US3] عدّل `login` و`registerStudent` و`registerParent` في `backend/app/Modules/Identity/Http/Controllers/AuthController.php` لتمرّ عبر `StartAuthSession`، وأضف `session_uuid` إلى استجابة الدخول
-- [ ] T083 [US3] عدّل `logout` و`changePassword` في نفس الملف: الخروج يُنهي جلسته، وتغيير كلمة المرور يُنهي **بقية** الجلسات وينبّه (FR-031)
+- [X] T075 [US3] أنشئ هجرة `devices` + `auth_sessions` في `backend/app/Modules/Identity/Database/Migrations/` — data-model §٤–٥ بفهرسَيهما
+- [X] T076 [US3] أنشئ `backend/app/Modules/Identity/Models/{Device,AuthSession}.php` — **بلا** `BelongsToWorkspace` (مملوكان للمنصة)، و`SessionEndReason` تعداداً في `Identity/Support/`
+- [X] T077 [P] [US3] أنشئ مصانع `backend/database/factories/Modules/Identity/` للنموذجين
+- [X] T078 [US3] أنشئ `backend/app/Modules/Identity/Support/DeviceFingerprint.php` — `sha256` لـ `X-Device-Id` + `User-Agent` + `Accept-Language`، مع `label()` مقروء بالعربية (research §R7)
+- [X] T079 [US3] أنشئ `backend/app/Modules/Identity/Actions/StartAuthSession.php` بالخوارزمية الخماسية في data-model §٥: يحلّ الجهاز، يُنشئ الجلسة **أولاً** (FR-023 يمنع رفض الدخول الجديد)، ثم يعدّ **`device_id` المتمايزة** بين الجلسات النشطة ويُنهي جلسات **أقدم جهاز كلها معاً** حتى يصل العدد لحدّ `PlatformSettings::get('auth.device_limits')`. **يُمنع** العدّ على الجلسات (FR-022ب)
+- [X] T080 [US3] أنشئ `backend/app/Modules/Identity/Actions/TerminateAuthSession.php`: يحذف رمز Sanctum ويضبط `status` و`ended_reason` — **حذف الرمز هو الإنهاء**، بلا وسيط (research §R8)
+- [X] T081 [US3] أطلق `SecurityAlert` عند الإنهاء بسبب `device_limit` عبر `DispatchNotification` من `Modules/Notifications/` — نوع إلزامي قائم من spec 003. **فقط إن كانت الجلسة المنتهية نشطة حديثاً** (`last_active_at` داخل النافذة): بحدّ جهاز واحد يقع الإنهاء عند كل تنقّل عادي، وتنبيه يومي يُدرَّب المستخدم على تجاهله فيضيع حين يقع الاختراق (FR-025)
+- [X] T082 [US3] عدّل `login` و`registerStudent` و`registerParent` في `backend/app/Modules/Identity/Http/Controllers/AuthController.php` لتمرّ عبر `StartAuthSession`، وأضف `session_uuid` إلى استجابة الدخول
+- [X] T083 [US3] عدّل `logout` و`changePassword` في نفس الملف: الخروج يُنهي جلسته، وتغيير كلمة المرور يُنهي **بقية** الجلسات وينبّه (FR-031)
 
 ### النقاط والحُرّاس
 
-- [ ] T084 [US3] أنشئ `backend/app/Modules/Identity/Policies/AuthSessionPolicy.php` — ملكية الصفّ للمستخدم. **يُمنع** على المدرّس مطلقاً، ولو كان الطالب مسجَّلاً عنده (research §R12)
-- [ ] T085 [US3] أنشئ `backend/app/Modules/Identity/Http/Controllers/SessionController.php` ومسارات `GET /auth/sessions` · `DELETE /auth/sessions/{uuid}` · `GET /auth/sessions/{uuid}/end-reason` (**بلا مصادقة**، `throttle:public`، حقلان لا ثالث)
-- [ ] T086 [P] [US3] أنشئ `backend/tests/Feature/Auth/PlatformOwnershipTest.php` — الاتجاهان معاً (NFR-001ب): مدرّس **لا** يقرأ أجهزة طالبه المسجَّل عنده، والطالب المسجَّل عند ثلاثة مدرّسين يرى **قائمة أجهزة واحدة** لا ثلاث نسخ
+- [X] T084 [US3] أنشئ `backend/app/Modules/Identity/Policies/AuthSessionPolicy.php` — ملكية الصفّ للمستخدم. **يُمنع** على المدرّس مطلقاً، ولو كان الطالب مسجَّلاً عنده (research §R12)
+- [X] T085 [US3] أنشئ `backend/app/Modules/Identity/Http/Controllers/SessionController.php` ومسارات `GET /auth/sessions` · `DELETE /auth/sessions/{uuid}` · `GET /auth/sessions/{uuid}/end-reason` (**بلا مصادقة**، `throttle:public`، حقلان لا ثالث)
+- [X] T086 [P] [US3] أنشئ `backend/tests/Feature/Auth/PlatformOwnershipTest.php` — الاتجاهان معاً (NFR-001ب): مدرّس **لا** يقرأ أجهزة طالبه المسجَّل عنده، والطالب المسجَّل عند ثلاثة مدرّسين يرى **قائمة أجهزة واحدة** لا ثلاث نسخ
 
 ### الواجهة — اكتشاف الإنهاء (research §R15)
 

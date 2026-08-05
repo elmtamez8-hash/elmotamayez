@@ -26,7 +26,17 @@ class LessonResource extends JsonResource
             'duration_seconds' => $this->duration_seconds,
             'is_preview' => $this->is_preview,
             'is_free' => $this->is_free,
-            'media' => $this->media,
+            // Replaces `media`. Deliberately narrow: `provider` and
+            // `provider_asset_id` must never reach a payload (FR-011), and the
+            // playable URL is not a property of the asset — it is minted per
+            // viewer, per session, with an expiry.
+            'asset' => $this->mediaAsset === null ? null : [
+                'uuid' => $this->mediaAsset->uuid,
+                'status' => $this->mediaAsset->status->value,
+                'status_label' => $this->mediaAsset->status->label(),
+                'duration_seconds' => $this->mediaAsset->duration_seconds,
+                'failure_reason' => $this->mediaAsset->failure_reason,
+            ],
             'created_at' => $this->created_at,
         ];
     }

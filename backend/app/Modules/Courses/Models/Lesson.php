@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Models;
 
 use App\Models\BaseModel;
+use App\Modules\Media\Models\MediaAsset;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Courses\LessonFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 /**
  * @property string $type
@@ -31,7 +33,6 @@ class Lesson extends BaseModel
         'duration_seconds',
         'is_preview',
         'is_free',
-        'media',
     ];
 
     /** @return array<string, mixed> */
@@ -42,8 +43,20 @@ class Lesson extends BaseModel
             'duration_seconds' => 'integer',
             'is_preview' => 'boolean',
             'is_free' => 'boolean',
-            'media' => 'array',
         ];
+    }
+
+    /**
+     * The lesson's video, if it has one.
+     *
+     * Replaces the old `media` JSON column, which held a path on the public disk
+     * — a permanent link that worked forever for anyone who copied it.
+     *
+     * @return MorphOne<MediaAsset, $this>
+     */
+    public function mediaAsset(): MorphOne
+    {
+        return $this->morphOne(MediaAsset::class, 'owner');
     }
 
     /** @return BelongsTo<Course, $this> */

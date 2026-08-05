@@ -27,7 +27,7 @@ class LessonProgress extends BaseModel
         'started_at',
         'completed_at',
         'time_spent_seconds',
-        'last_position',
+        'last_position_seconds',
     ];
 
     /** @return array<string, mixed> */
@@ -37,7 +37,7 @@ class LessonProgress extends BaseModel
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'time_spent_seconds' => 'integer',
-            'last_position' => 'array',
+            'last_position_seconds' => 'integer',
         ];
     }
 

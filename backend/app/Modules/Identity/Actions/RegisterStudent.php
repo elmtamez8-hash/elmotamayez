@@ -16,8 +16,8 @@ class RegisterStudent extends Action
     {
         $user = new User;
 
-        // forceFill, not fill: platform_role and the profile columns are guarded
-        // precisely so a request payload can never choose them.
+        // forceFill, not fill: platform_role is guarded precisely so a request
+        // payload can never choose it.
         $user->forceFill([
             'first_name' => $data->firstName,
             'last_name' => $data->lastName,
@@ -25,10 +25,15 @@ class RegisterStudent extends Action
             'password' => $data->password,
             'phone' => $data->phone,
             'country' => $data->country,
-            'grade_level_slug' => $data->gradeLevelSlug,
-            'registered_by_parent' => $data->registeredByParent,
             'platform_role' => PlatformRole::Student,
         ])->save();
+
+        // Student-only facts live in their own table (spec 004): `users` carries
+        // what every account has, and nothing more.
+        $user->studentProfile()->create([
+            'grade_level_slug' => $data->gradeLevelSlug,
+            'registered_by_parent' => $data->registeredByParent,
+        ]);
 
         // No workspace, no membership, no role (FR-010). A student browses the
         // marketplace across every workspace; belonging to one would narrow that

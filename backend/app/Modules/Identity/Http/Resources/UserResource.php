@@ -27,6 +27,18 @@ class UserResource extends JsonResource
             // so it never leaks through a stray ->toArray(); named here on purpose.
             'platform_role' => $this->platform_role?->value,
             'last_workspace_id' => $this->last_workspace_id,
+            // Nested rather than flattened onto the root: these are true of a
+            // student and of nobody else, and a null grade_level_slug on a
+            // teacher's payload reads as missing data rather than as inapplicable.
+            //
+            // Read straight off the relation, not whenLoaded: every caller of this
+            // resource passes a single user (never a collection), so the lazy load
+            // is one query, and whenLoaded would silently omit the key wherever a
+            // caller forgot to eager-load it.
+            'student_profile' => $this->studentProfile === null ? null : [
+                'grade_level_slug' => $this->studentProfile->grade_level_slug,
+                'registered_by_parent' => $this->studentProfile->registered_by_parent,
+            ],
             'created_at' => $this->created_at,
         ];
     }

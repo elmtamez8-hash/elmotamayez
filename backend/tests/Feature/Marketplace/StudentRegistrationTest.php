@@ -49,12 +49,16 @@ it('registers a student and stamps the platform role', function (): void {
         ->assertCreated()
         ->assertJsonPath('user.email', 'sara@example.com')
         ->assertJsonPath('user.platform_role', 'student')
-        ->assertJsonStructure(['user', 'token']);
+        // Nested, not flat: student-only facts live in student_profiles now, so a
+        // teacher's payload does not carry a null grade that reads as missing data.
+        ->assertJsonPath('user.student_profile.grade_level_slug', 'secondary')
+        ->assertJsonStructure(['user', 'token', 'session_uuid']);
 
     $user = User::where('email', 'sara@example.com')->sole();
 
     expect($user->platform_role)->toBe(PlatformRole::Student)
-        ->and($user->grade_level_slug)->toBe('secondary')
+        ->and($user->studentProfile->grade_level_slug)->toBe('secondary')
+        ->and($user->studentProfile->registered_by_parent)->toBeFalse()
         ->and($user->country)->toBe('QA');
 });
 

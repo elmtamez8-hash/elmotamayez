@@ -7,6 +7,8 @@ namespace App\Modules\Identity\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\Identity\Actions\RegisterStudent;
+use App\Modules\Identity\Actions\StartAuthSession;
+use App\Modules\Identity\Actions\TerminateAuthSession;
 use App\Modules\Identity\Data\RegisterStudentData;
 use App\Modules\Identity\Http\Requests\ChangePasswordRequest;
 use App\Modules\Identity\Http\Requests\ForgotPasswordRequest;
@@ -16,6 +18,8 @@ use App\Modules\Identity\Http\Requests\RegisterStudentRequest;
 use App\Modules\Identity\Http\Requests\ResetPasswordRequest;
 use App\Modules\Identity\Http\Requests\UpdateProfileRequest;
 use App\Modules\Identity\Http\Resources\UserResource;
+use App\Modules\Identity\Models\AuthSession;
+use App\Modules\Identity\Support\SessionEndReason;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
@@ -44,19 +48,25 @@ class AuthController extends Controller
         return response()->json(UserResource::make($user), 201);
     }
 
-    public function registerStudent(RegisterStudentRequest $request, RegisterStudent $action): JsonResponse
-    {
+    public function registerStudent(
+        RegisterStudentRequest $request,
+        RegisterStudent $action,
+        StartAuthSession $startSession,
+    ): JsonResponse {
         $user = $action->handle(RegisterStudentData::fromArray($request->validated()));
 
         // Signed in straight away: the student came from a teacher's booking CTA
         // and sending them back to a login form would drop that intent.
+        $result = $startSession->handle($user, $request);
+
         return response()->json([
             'user' => UserResource::make($user),
-            'token' => $user->createToken('auth-token')->plainTextToken,
+            'token' => $result->plainTextToken,
+            'session_uuid' => $result->session->uuid,
         ], 201);
     }
 
-    public function login(LoginRequest $request): JsonResponse
+    public function login(LoginRequest $request, StartAuthSession $startSession): JsonResponse
     {
         $user = User::where('email', $request->validated('email'))->first();
 
@@ -66,15 +76,29 @@ class AuthController extends Controller
             ]);
         }
 
+        $result = $startSession->handle($user, $request);
+
         return response()->json([
             'user' => UserResource::make($user),
-            'token' => $user->createToken('auth-token')->plainTextToken,
+            'token' => $result->plainTextToken,
+            // Kept by the client so it can ask why it was signed out after the
+            // token is already gone.
+            'session_uuid' => $result->session->uuid,
         ]);
     }
 
-    public function logout(Request $request): JsonResponse
+    public function logout(Request $request, TerminateAuthSession $terminate): JsonResponse
     {
-        $this->currentUser($request)->currentAccessToken()->delete();
+        $token = $this->currentUser($request)->currentAccessToken();
+
+        $session = AuthSession::query()->where('token_id', $token->getKey())->first();
+
+        if ($session !== null) {
+            $terminate->handle($session, SessionEndReason::Logout);
+        } else {
+            // A token minted before this feature existed has no session row.
+            $token->delete();
+        }
 
         return response()->json(null, 204);
     }
@@ -92,12 +116,26 @@ class AuthController extends Controller
         return response()->json(UserResource::make($user->fresh()));
     }
 
-    public function changePassword(ChangePasswordRequest $request, DispatchNotification $notify): JsonResponse
-    {
+    public function changePassword(
+        ChangePasswordRequest $request,
+        DispatchNotification $notify,
+        TerminateAuthSession $terminate,
+    ): JsonResponse {
         $request->ensureCurrentPasswordIsValid();
 
         $user = $this->currentUser($request);
         $user->update(['password' => $request->validated('password')]);
+
+        // Every other session goes (FR-031). If the password was changed because
+        // it leaked, leaving the intruder signed in defeats the change.
+        $currentTokenId = $user->currentAccessToken()->getKey();
+
+        AuthSession::query()
+            ->active()
+            ->where('user_id', $user->getKey())
+            ->where(fn ($query) => $query->whereNull('token_id')->orWhere('token_id', '!=', $currentTokenId))
+            ->get()
+            ->each(fn (AuthSession $session) => $terminate->handle($session, SessionEndReason::PasswordChange));
 
         // Mandatory type: it cannot be switched off, deferred or digested. A
         // password change the account holder did not make is the one message that
