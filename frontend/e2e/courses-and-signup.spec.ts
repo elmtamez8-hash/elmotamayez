@@ -5,6 +5,11 @@ import { test, expect } from "@playwright/test";
  * visitor. Requires the backend on :8000 with the marketplace demo seeded.
  */
 
+// Anonymous, as the docblock says. Since 002 the projects carry an
+// authenticated storageState for the panel audit, and inheriting it here
+// would quietly test a signed-in visitor instead.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 test.describe("course discovery", () => {
   test("lists courses and keeps the type filter in the URL", async ({ page }) => {
     await page.goto("/courses");

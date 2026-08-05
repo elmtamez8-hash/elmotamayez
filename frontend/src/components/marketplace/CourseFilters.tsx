@@ -48,7 +48,7 @@ export function CourseFilters({
   };
 
   const field =
-    "w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary dark:bg-transparent";
+    "w-full rounded-xl border border-line bg-surface-raised px-3 py-2.5 text-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 
   const hasFilters = ["subject", "grade_level", "type", "price_min", "price_max"].some(
     (key) => params.get(key),
@@ -57,7 +57,7 @@ export function CourseFilters({
   return (
     <div
       aria-busy={pending}
-      className="mb-8 rounded-2xl border border-line bg-white p-5 dark:bg-transparent"
+      className="mb-8 rounded-2xl border border-line bg-surface-raised p-5"
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div>

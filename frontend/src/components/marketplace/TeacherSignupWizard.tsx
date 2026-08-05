@@ -6,8 +6,8 @@ import Link from "next/link";
 import { api, auth, setToken, errorMessage, fieldErrors } from "@/lib/api";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import type { Taxonomy } from "@/lib/public-api";
-import { PhoneInput, toE164 } from "./PhoneInput";
-import { SubmitButton } from "./SubmitButton";
+import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
+import { Button } from "@/components/ui/Button";
 
 const FIELD =
   "w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
@@ -437,7 +437,7 @@ export function TeacherSignupWizard({
             <FieldError id="terms_accepted" message={errors.terms_accepted} />
           </div>
 
-          <SubmitButton loading={loading}>التالي</SubmitButton>
+          <Button type="submit" variant="accent" size="lg" fullWidth loading={loading}>التالي</Button>
         </form>
       )}
 
@@ -580,7 +580,7 @@ export function TeacherSignupWizard({
             />
           </div>
 
-          <SubmitButton loading={loading}>التالي</SubmitButton>
+          <Button type="submit" variant="accent" size="lg" fullWidth loading={loading}>التالي</Button>
         </form>
       )}
 
@@ -617,7 +617,7 @@ export function TeacherSignupWizard({
             <FieldError id="documents" message={errors.documents} />
           </div>
 
-          <SubmitButton loading={loading}>التالي</SubmitButton>
+          <Button type="submit" variant="accent" size="lg" fullWidth loading={loading}>التالي</Button>
         </form>
       )}
 
@@ -720,9 +720,9 @@ export function TeacherSignupWizard({
             <FieldError id="availability" message={errors.availability} />
           </fieldset>
 
-          <SubmitButton loading={loading} loadingLabel="جارٍ إرسال الطلب…">
+          <Button type="submit" variant="accent" size="lg" fullWidth loading={loading} loadingLabel="جارٍ إرسال الطلب…">
             إرسال الطلب للمراجعة
-          </SubmitButton>
+          </Button>
         </form>
       )}
 

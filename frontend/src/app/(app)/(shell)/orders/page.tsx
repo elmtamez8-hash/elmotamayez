@@ -1,164 +1,225 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "@/lib/api";
 import type { Order } from "@/lib/types";
+import { formatDate, formatMoney } from "@/lib/labels";
+import { Button } from "@/components/ui/Button";
+import { StatusBadge } from "@/components/ui/Badge";
+import { Table, type Column } from "@/components/ui/Table";
+
+const OPEN_STATUSES = ["pending", "under_review"];
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [action, setAction] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+  /** uuid of the order whose rejection reason is being typed. */
+  const [rejecting, setRejecting] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
 
-  useEffect(() => {
-    api.get<{ data: Order[] }>("/orders")
+  const load = useCallback(() => {
+    setLoading(true);
+    setFailed(false);
+
+    api
+      .get<{ data: Order[] }>("/orders")
       .then((res) => setOrders(res.data ?? []))
-      .catch((err: unknown) => setError(errorMessage(err, "Could not load orders")))
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, []);
 
-  const handleApprove = async (uuid: string) => {
-    setAction(uuid);
-    try {
-      await api.post(`/orders/${uuid}/approve`);
-      setOrders(orders.map((o) => (o.uuid === uuid ? { ...o, status: "approved" } : o)));
-    } catch {
-      // ignore
-    } finally {
-      setAction(null);
-    }
-  };
+  useEffect(load, [load]);
 
-  const handleReject = async (uuid: string) => {
-    const reason = prompt("Reason for rejection (optional):") ?? "";
-    setAction(uuid);
-    try {
-      await api.post(`/orders/${uuid}/reject`, { rejection_reason: reason || undefined });
-      setOrders(orders.map((o) => (o.uuid === uuid ? { ...o, status: "rejected" } : o)));
-    } catch {
-      // ignore
-    } finally {
-      setAction(null);
-    }
-  };
+  const replace = (uuid: string, patch: Partial<Order>) =>
+    setOrders((prev) => prev.map((o) => (o.uuid === uuid ? { ...o, ...patch } : o)));
 
-  const handleReceipt = async (uuid: string, file: File) => {
-    setAction(uuid);
+  const approve = async (uuid: string) => {
+    setBusy(uuid);
     setError("");
     try {
-      const form = new FormData();
-      form.append("receipt", file);
-      const updated = await api.upload<Order>(`/orders/${uuid}/receipt`, form);
-      setOrders(orders.map((o) => (o.uuid === uuid ? updated : o)));
+      await api.post(`/orders/${uuid}/approve`);
+      replace(uuid, { status: "approved" });
     } catch (err: unknown) {
-      setError(errorMessage(err, "Could not upload the receipt"));
+      // Swallowing this left the row unchanged with no explanation, so the
+      // approval looked like it had simply not registered.
+      setError(errorMessage(err, "تعذّر اعتماد الطلب. أعد المحاولة."));
     } finally {
-      setAction(null);
+      setBusy(null);
     }
   };
 
-  const canManage = orders.some((o) => o.status === "pending" || o.status === "under_review");
+  const reject = async (uuid: string) => {
+    setBusy(uuid);
+    setError("");
+    try {
+      await api.post(`/orders/${uuid}/reject`, {
+        rejection_reason: reason.trim() || undefined,
+      });
+      replace(uuid, { status: "rejected", rejection_reason: reason.trim() || null });
+      setRejecting(null);
+      setReason("");
+    } catch (err: unknown) {
+      setError(errorMessage(err, "تعذّر رفض الطلب. أعد المحاولة."));
+    } finally {
+      setBusy(null);
+    }
+  };
 
-  if (loading) return <div className="text-gray-400">Loading...</div>;
+  const uploadReceipt = async (uuid: string, file: File) => {
+    setBusy(uuid);
+    setError("");
+    try {
+      const updated = await api.upload<Order>(`/orders/${uuid}/receipt`, (() => {
+        const form = new FormData();
+        form.append("receipt", file);
+        return form;
+      })());
+      replace(uuid, updated);
+    } catch (err: unknown) {
+      setError(errorMessage(err, "تعذّر رفع الإيصال."));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const canManage = orders.some((o) => OPEN_STATUSES.includes(o.status));
+
+  const columns: Column<Order>[] = [
+    { key: "course", header: "الكورس", render: (o) => o.course_title ?? "—" },
+    {
+      key: "amount",
+      header: "المبلغ",
+      numeric: true,
+      render: (o) => formatMoney(o.amount, o.currency),
+    },
+    { key: "status", header: "الحالة", render: (o) => <StatusBadge status={o.status} /> },
+    {
+      key: "receipt",
+      header: "الإيصال",
+      render: (o) =>
+        o.receipt_url ? (
+          <a
+            href={o.receipt_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded text-xs font-medium text-primary-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            عرض الإيصال
+          </a>
+        ) : o.is_mine && OPEN_STATUSES.includes(o.status) ? (
+          <label className="cursor-pointer rounded text-xs font-medium text-primary-ink underline-offset-4 hover:underline focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary">
+            {busy === o.uuid ? "جارٍ الرفع…" : "ارفع الإيصال"}
+            <input
+              type="file"
+              accept=".jpg,.jpeg,.png,.pdf"
+              className="sr-only"
+              disabled={busy === o.uuid}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) uploadReceipt(o.uuid, file);
+              }}
+            />
+          </label>
+        ) : (
+          <span className="text-xs text-ink-muted">—</span>
+        ),
+    },
+    { key: "date", header: "التاريخ", render: (o) => formatDate(o.created_at) },
+  ];
+
+  if (canManage) {
+    columns.push({
+      key: "actions",
+      header: "إجراءات",
+      render: (o) =>
+        OPEN_STATUSES.includes(o.status) ? (
+          rejecting === o.uuid ? (
+            // Inline, not window.prompt(): a native dialog blocks the page, is
+            // untranslatable, and cannot be styled or tested.
+            <div className="flex min-w-64 flex-col gap-2">
+              <label htmlFor={`reason-${o.uuid}`} className="sr-only">
+                سبب الرفض
+              </label>
+              <input
+                id={`reason-${o.uuid}`}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="سبب الرفض (اختياري)"
+                className="w-full rounded-lg border border-line bg-surface-raised px-3 py-1.5 text-xs text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="danger"
+                  loading={busy === o.uuid}
+                  onClick={() => reject(o.uuid)}
+                >
+                  تأكيد الرفض
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setRejecting(null);
+                    setReason("");
+                  }}
+                >
+                  إلغاء
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                loading={busy === o.uuid}
+                onClick={() => approve(o.uuid)}
+              >
+                اعتماد
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={busy === o.uuid}
+                onClick={() => {
+                  setRejecting(o.uuid);
+                  setReason("");
+                }}
+              >
+                رفض
+              </Button>
+            </div>
+          )
+        ) : (
+          <span className="text-xs text-ink-muted">—</span>
+        ),
+    });
+  }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Orders</h2>
+      <h2 className="text-2xl font-bold text-ink">الطلبات</h2>
 
-      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
-
-      {orders.length === 0 ? (
-        <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-gray-200">
-          <p className="text-gray-500">No orders yet.</p>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
-          <table className="w-full text-sm">
-            <thead className="border-b border-gray-200 bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Course</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Amount</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Receipt</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Date</th>
-                {canManage && <th className="px-4 py-3 text-left font-medium text-gray-600">Actions</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {orders.map((order) => (
-                <tr key={order.uuid} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">{order.course_title ?? "—"}</td>
-                  <td className="px-4 py-3">{order.currency} {order.amount}</td>
-                  <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                      order.status === "approved" ? "bg-green-100 text-green-700" :
-                      order.status === "pending" ? "bg-amber-100 text-amber-700" :
-                      order.status === "rejected" ? "bg-red-100 text-red-700" :
-                      "bg-gray-100 text-gray-600"
-                    }`}>
-                      {order.status.replace("_", " ")}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {order.receipt_url ? (
-                      <a
-                        href={order.receipt_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs font-medium text-indigo-600 hover:underline"
-                      >
-                        View receipt
-                      </a>
-                    ) : order.is_mine && (order.status === "pending" || order.status === "under_review") ? (
-                      <label className="cursor-pointer text-xs font-medium text-indigo-600 hover:underline">
-                        {action === order.uuid ? "Uploading..." : "Upload receipt"}
-                        <input
-                          type="file"
-                          accept=".jpg,.jpeg,.png,.pdf"
-                          className="hidden"
-                          disabled={action === order.uuid}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            e.target.value = "";
-                            if (file) handleReceipt(order.uuid, file);
-                          }}
-                        />
-                      </label>
-                    ) : (
-                      <span className="text-xs text-gray-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">{new Date(order.created_at).toLocaleDateString()}</td>
-                  {canManage && (
-                    <td className="px-4 py-3">
-                      {(order.status === "pending" || order.status === "under_review") ? (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleApprove(order.uuid)}
-                            disabled={action === order.uuid}
-                            className="rounded-lg bg-green-600 px-3 py-1 text-xs font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => handleReject(order.uuid)}
-                            disabled={action === order.uuid}
-                            className="rounded-lg bg-red-100 px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-200 disabled:opacity-50"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {error && (
+        <p role="alert" className="rounded-lg bg-danger/15 p-3 text-sm text-danger-ink">
+          {error}
+        </p>
       )}
+
+      <Table
+        columns={columns}
+        rows={orders}
+        rowKey={(o) => o.uuid}
+        caption="طلبات الشراء وحالتها وإيصالاتها"
+        state={loading ? "loading" : failed ? "error" : "ready"}
+        onRetry={load}
+        emptyTitle="لا طلبات في سجلّك"
+        emptyDescription="سيظهر هنا كل طلب شراء بحالته وإيصاله."
+      />
     </div>
   );
 }

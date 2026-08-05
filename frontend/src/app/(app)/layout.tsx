@@ -1,25 +1,22 @@
 import type { Metadata } from "next";
-import "../globals.css";
 import { AuthProvider } from "@/lib/auth-context";
+import { PLATFORM_NAME } from "@/lib/platform";
 
 export const metadata: Metadata = {
-  title: "Mteatch — Learning Platform",
-  description: "Multi-tenant educational SaaS platform",
+  title: {
+    default: `لوحة التحكم | ${PLATFORM_NAME}`,
+    template: `%s | ${PLATFORM_NAME}`,
+  },
+  description: "إدارة كورساتك وحصصك واختباراتك وشهاداتك.",
 };
 
-// Root layout for the authenticated product. The public marketplace ships its own
-// root layout under (public) because it is Arabic/RTL; Next.js allows several root
-// layouts as long as no app/layout.tsx sits above them.
+// Auth context only. `<html>` and `<body>` moved to the root layout in 002 — this
+// group used to declare `lang="en"` and its own LTR body, which is what made
+// logging in feel like leaving the product.
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <html lang="en">
-      <body className="min-h-screen bg-gray-50 text-gray-900 antialiased">
-        <AuthProvider>{children}</AuthProvider>
-      </body>
-    </html>
-  );
+  return <AuthProvider>{children}</AuthProvider>;
 }

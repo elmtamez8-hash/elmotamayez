@@ -1,6 +1,6 @@
 import type { TeacherDetail } from "@/lib/public-api";
 import { StarRating } from "@/components/marketplace/StarRating";
-import { EmptyState } from "@/components/marketplace/states/EmptyState";
+import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ReviewForm } from "@/components/marketplace/ReviewForm";
 
 const STARS = [5, 4, 3, 2, 1] as const;

@@ -1,10 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api, errorMessage } from "@/lib/api";
+import { use, useCallback, useEffect, useState } from "react";
+import { api, fieldErrors } from "@/lib/api";
+import { userMessage } from "@/lib/errors";
 import type { Exam } from "@/lib/types";
 import { useRouter } from "next/navigation";
-import { use } from "react";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { StatusBadge } from "@/components/ui/Badge";
+import {
+  CheckboxField,
+  NumberField,
+  TextField,
+  TextareaField,
+} from "@/components/ui/Field";
+import { CheckIcon, TrashIcon } from "@/components/icons";
+import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
+import { ErrorState } from "@/components/ui/states/ErrorState";
 
 interface Question {
   id: number;
@@ -14,217 +27,420 @@ interface Question {
   options: Array<{ id: number; content: string; is_correct: boolean }>;
 }
 
-export default function ManageExamPage({ params }: { params: Promise<{ uuid: string }> }) {
+const BLANK_QUESTION = {
+  content: "",
+  options: [
+    { content: "", correct: false },
+    { content: "", correct: false },
+  ],
+};
+
+export default function ManageExamPage({
+  params,
+}: {
+  params: Promise<{ uuid: string }>;
+}) {
   const { uuid } = use(params);
   const router = useRouter();
+
   const [exam, setExam] = useState<Exam | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [error, setError] = useState("");
-  const [editForm, setEditForm] = useState({ title: "", description: "", duration_minutes: 60, passing_score: 60, max_attempts: 3 });
-  const [editing, setEditing] = useState(false);
-  const [showEdit, setShowEdit] = useState(false);
 
-  const [newQ, setNewQ] = useState({ content: "", options: [{ content: "", correct: false }, { content: "", correct: false }] });
+  const [settings, setSettings] = useState({
+    title: "",
+    description: "",
+    duration_minutes: "60",
+    passing_score: "60",
+    max_attempts: "3",
+  });
+  const [settingsFields, setSettingsFields] = useState<Record<string, string>>({});
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+
+  const [newQ, setNewQ] = useState(BLANK_QUESTION);
+  const [questionFields, setQuestionFields] = useState<Record<string, string>>({});
   const [adding, setAdding] = useState(false);
 
-  const loadData = () => {
+  /** id awaiting a second click before it is actually deleted. */
+  const [confirmQuestion, setConfirmQuestion] = useState<number | null>(null);
+  const [confirmExam, setConfirmExam] = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setFailed(false);
+
     Promise.all([
       api.get<Exam>(`/exams/${uuid}`),
       api.get<{ data: Question[] }>(`/exams/${uuid}/questions`),
-    ]).then(([ex, qs]) => {
-      setExam(ex);
-      setEditForm({ title: ex.title, description: ex.description ?? "", duration_minutes: ex.duration_minutes, passing_score: ex.passing_score, max_attempts: ex.max_attempts });
-      setQuestions(qs.data ?? []);
-    })
-      .catch((err: unknown) => setError(errorMessage(err, "Could not load this exam")))
+    ])
+      .then(([ex, qs]) => {
+        setExam(ex);
+        setSettings({
+          title: ex.title,
+          description: ex.description ?? "",
+          duration_minutes: String(ex.duration_minutes),
+          passing_score: String(ex.passing_score),
+          max_attempts: String(ex.max_attempts),
+        });
+        setQuestions(qs.data ?? []);
+      })
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
-  };
+  }, [uuid]);
 
-  useEffect(() => { loadData(); }, [uuid]);
+  useEffect(load, [load]);
 
-  const handleSaveSettings = async (e: React.FormEvent) => {
+  const saveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEditing(true);
+    setSavingSettings(true);
     setError("");
+    setSettingsFields({});
+
     try {
-      const updated = await api.put<Exam>(`/exams/${uuid}`, editForm);
+      const updated = await api.put<Exam>(`/exams/${uuid}`, {
+        title: settings.title,
+        description: settings.description,
+        duration_minutes: parseInt(settings.duration_minutes, 10) || 60,
+        passing_score: parseInt(settings.passing_score, 10) || 60,
+        max_attempts: parseInt(settings.max_attempts, 10) || 3,
+      });
       setExam(updated);
-      setShowEdit(false);
+      setShowSettings(false);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Update failed");
+      const found = fieldErrors(err);
+      if (Object.keys(found).length > 0) setSettingsFields(found);
+      else setError(userMessage(err));
     } finally {
-      setEditing(false);
+      setSavingSettings(false);
     }
   };
 
-  const handleAddQuestion = async (e: React.FormEvent) => {
+  const addQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     setAdding(true);
     setError("");
+    setQuestionFields({});
+
+    if (!newQ.options.some((o) => o.correct)) {
+      setError("حدّد الإجابة الصحيحة قبل إضافة السؤال.");
+      setAdding(false);
+      return;
+    }
+
     try {
       await api.post(`/exams/${uuid}/questions`, {
         type: "mcq",
         content: newQ.content,
         points: 1,
-        options: newQ.options.map((o, i) => ({ content: o.content, is_correct: o.correct, order: i + 1 })),
+        options: newQ.options.map((o, i) => ({
+          content: o.content,
+          is_correct: o.correct,
+          order: i + 1,
+        })),
       });
-      setNewQ({ content: "", options: [{ content: "", correct: false }, { content: "", correct: false }] });
-      loadData();
+      setNewQ(BLANK_QUESTION);
+      load();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to add question";
-      setError(msg);
+      const found = fieldErrors(err);
+      if (Object.keys(found).length > 0) setQuestionFields(found);
+      else setError(userMessage(err));
     } finally {
       setAdding(false);
     }
   };
 
-  const handlePublish = async () => {
-    try { await api.post(`/exams/${uuid}/publish`); loadData(); }
-    catch (err: unknown) { setError(err instanceof Error ? err.message : "Publish failed"); }
-  };
-
-  const handleDeleteQuestion = async (questionId: number) => {
-    if (!confirm("Delete this question?")) return;
+  const publish = async () => {
+    setPublishing(true);
+    setError("");
     try {
-      await api.delete(`/exams/${uuid}/questions/${questionId}`);
-      loadData();
-    } catch {
-      // ignore
+      await api.post(`/exams/${uuid}/publish`);
+      load();
+    } catch (err: unknown) {
+      setError(userMessage(err));
+    } finally {
+      setPublishing(false);
     }
   };
 
-  const handleDeleteExam = async () => {
-    if (!confirm("Delete this exam and all its questions? This cannot be undone.")) return;
+  const deleteQuestion = async (questionId: number) => {
+    setError("");
+    try {
+      await api.delete(`/exams/${uuid}/questions/${questionId}`);
+      setConfirmQuestion(null);
+      load();
+    } catch (err: unknown) {
+      setError(userMessage(err));
+    }
+  };
+
+  const deleteExam = async () => {
+    setError("");
     try {
       await api.delete(`/exams/${uuid}`);
       router.push("/exams");
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      setError(userMessage(err));
+      setConfirmExam(false);
     }
   };
 
-  if (loading) return <div className="text-gray-400">Loading...</div>;
-  if (!exam) return <div className="text-red-500">Exam not found</div>;
+  if (loading) return <RowsSkeleton count={4} />;
+  if (failed || !exam) return <ErrorState onRetry={load} />;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold">{exam.title}</h2>
-          <p className="text-gray-600">{exam.duration_minutes} min · Pass: {exam.passing_score}%</p>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-ink">{exam.title}</h2>
+            <StatusBadge status={exam.status} />
+          </div>
+          <p className="text-ink-muted">
+            <bdi>{exam.duration_minutes}</bdi> دقيقة · النجاح{" "}
+            <bdi>{exam.passing_score}%</bdi>
+          </p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => setShowEdit(!showEdit)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
-            {showEdit ? "Cancel" : "Edit Settings"}
-          </button>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowSettings(!showSettings)}
+          >
+            {showSettings ? "أغلق الإعدادات" : "إعدادات الاختبار"}
+          </Button>
+
           {exam.status === "draft" && (
-            <button onClick={handlePublish} className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700">
-              Publish Exam
-            </button>
+            <Button
+              size="sm"
+              loading={publishing}
+              loadingLabel="جارٍ النشر…"
+              onClick={publish}
+            >
+              انشر الاختبار
+            </Button>
           )}
-          <button onClick={handleDeleteExam} className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50">
-            Delete
-          </button>
+
+          {/* Two clicks, not window.confirm(): a native dialog blocks the page
+              and cannot be translated. */}
+          {confirmExam ? (
+            <>
+              <Button size="sm" variant="danger" onClick={deleteExam}>
+                أكّد حذف الاختبار
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmExam(false)}>
+                إلغاء
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" variant="ghost" onClick={() => setConfirmExam(true)}>
+              حذف
+            </Button>
+          )}
         </div>
       </div>
 
-      {showEdit && (
-        <form onSubmit={handleSaveSettings} className="space-y-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-          <h3 className="font-semibold">Exam Settings</h3>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Title</label>
-            <input type="text" value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
-            <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={2}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Duration (min)</label>
-              <input type="number" min="1" value={editForm.duration_minutes} onChange={(e) => setEditForm({ ...editForm, duration_minutes: parseInt(e.target.value) || 60 })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
+      {error && <Alert tone="danger" title={error} />}
+
+      {showSettings && (
+        <Card as="section">
+          <form onSubmit={saveSettings} className="space-y-4">
+            <h3 className="font-semibold text-ink">إعدادات الاختبار</h3>
+
+            <TextField
+              id="exam_title"
+              label="العنوان"
+              value={settings.title}
+              onChange={(v) => setSettings({ ...settings, title: v })}
+              error={settingsFields.title}
+              required
+            />
+
+            <TextareaField
+              id="exam_description"
+              label="الوصف"
+              value={settings.description}
+              onChange={(v) => setSettings({ ...settings, description: v })}
+              error={settingsFields.description}
+              rows={2}
+            />
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <NumberField
+                id="duration_minutes"
+                label="المدة بالدقائق"
+                value={settings.duration_minutes}
+                onChange={(v) => setSettings({ ...settings, duration_minutes: v })}
+                error={settingsFields.duration_minutes}
+                min={1}
+              />
+              <NumberField
+                id="passing_score"
+                label="درجة النجاح ٪"
+                value={settings.passing_score}
+                onChange={(v) => setSettings({ ...settings, passing_score: v })}
+                error={settingsFields.passing_score}
+                min={0}
+                max={100}
+              />
+              <NumberField
+                id="max_attempts"
+                label="أقصى عدد محاولات"
+                value={settings.max_attempts}
+                onChange={(v) => setSettings({ ...settings, max_attempts: v })}
+                error={settingsFields.max_attempts}
+                min={1}
+              />
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Passing (%)</label>
-              <input type="number" min="0" max="100" value={editForm.passing_score} onChange={(e) => setEditForm({ ...editForm, passing_score: parseInt(e.target.value) || 60 })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Max attempts</label>
-              <input type="number" min="1" value={editForm.max_attempts} onChange={(e) => setEditForm({ ...editForm, max_attempts: parseInt(e.target.value) || 3 })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
-            </div>
-          </div>
-          <button type="submit" disabled={editing}
-            className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50">
-            {editing ? "Saving..." : "Save Settings"}
-          </button>
-        </form>
+
+            <Button type="submit" loading={savingSettings} loadingLabel="جارٍ الحفظ…">
+              احفظ الإعدادات
+            </Button>
+          </form>
+        </Card>
       )}
 
-      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
+      <section className="space-y-3">
+        <h3 className="font-semibold text-ink">
+          الأسئلة <bdi>({questions.length})</bdi>
+        </h3>
 
-      <div className="space-y-3">
-        {questions.map((q, idx) => (
-          <div key={q.id} className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
-            <div className="flex items-start justify-between">
-              <p className="mb-2 font-medium">{idx + 1}. {q.content}</p>
-              <button
-                onClick={() => handleDeleteQuestion(q.id)}
-                className="rounded p-1 text-gray-400 transition hover:text-red-600"
-                title="Delete question"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                </svg>
-              </button>
-            </div>
-            <div className="space-y-1">
-              {q.options.map((o) => (
-                <div key={o.id} className={`text-sm ${o.is_correct ? "font-medium text-green-600" : "text-gray-500"}`}>
-                  {o.is_correct ? "✓ " : "• "}{o.content}
+        {questions.length === 0 ? (
+          <p className="text-sm text-ink-muted">
+            لا أسئلة بعد. أضف أول سؤال من النموذج أدناه.
+          </p>
+        ) : (
+          questions.map((q, idx) => (
+            <Card key={q.id} padding="sm">
+              <div className="flex items-start justify-between gap-3">
+                <p className="mb-2 font-medium text-ink">
+                  <bdi>{idx + 1}</bdi>. {q.content}
+                </p>
+
+                {confirmQuestion === q.id ? (
+                  <div className="flex shrink-0 gap-1">
+                    <Button size="sm" variant="danger" onClick={() => deleteQuestion(q.id)}>
+                      أكّد
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setConfirmQuestion(null)}
+                    >
+                      إلغاء
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmQuestion(q.id)}
+                    aria-label={`احذف السؤال ${idx + 1}`}
+                    className="shrink-0 rounded p-1 text-ink-muted transition hover:text-danger-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
+              </div>
+
+              <ul className="space-y-1">
+                {q.options.map((o) => (
+                  <li
+                    key={o.id}
+                    className={`flex items-center gap-2 text-sm ${
+                      o.is_correct ? "font-medium text-secondary-ink" : "text-ink-muted"
+                    }`}
+                  >
+                    {o.is_correct ? (
+                      <CheckIcon className="h-3.5 w-3.5 shrink-0" title="الإجابة الصحيحة" />
+                    ) : (
+                      <span aria-hidden="true" className="w-3.5 text-center">
+                        ·
+                      </span>
+                    )}
+                    {o.content}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ))
+        )}
+      </section>
+
+      <Card as="section">
+        <form onSubmit={addQuestion} className="space-y-4">
+          <h3 className="font-semibold text-ink">أضف سؤالاً</h3>
+
+          <TextareaField
+            id="question_content"
+            label="نصّ السؤال"
+            value={newQ.content}
+            onChange={(v) => setNewQ({ ...newQ, content: v })}
+            error={questionFields.content}
+            rows={2}
+            required
+          />
+
+          <fieldset className="space-y-2">
+            <legend className="mb-1 block text-sm font-medium text-ink">
+              الخيارات — علّم الإجابة الصحيحة
+            </legend>
+
+            {newQ.options.map((opt, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <CheckboxField
+                  id={`option_correct_${i}`}
+                  label={<span className="sr-only">الخيار {i + 1} صحيح</span>}
+                  checked={opt.correct}
+                  onChange={(checked) => {
+                    const opts = [...newQ.options];
+                    opts[i] = { ...opt, correct: checked };
+                    setNewQ({ ...newQ, options: opts });
+                  }}
+                />
+                <div className="flex-1">
+                  <label htmlFor={`option_${i}`} className="sr-only">
+                    نصّ الخيار {i + 1}
+                  </label>
+                  <input
+                    id={`option_${i}`}
+                    type="text"
+                    value={opt.content}
+                    onChange={(e) => {
+                      const opts = [...newQ.options];
+                      opts[i] = { ...opt, content: e.target.value };
+                      setNewQ({ ...newQ, options: opts });
+                    }}
+                    required
+                    placeholder={`الخيار ${i + 1}`}
+                    className="w-full rounded-xl border border-line bg-surface-raised px-3 py-1.5 text-sm text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+                  />
                 </div>
-              ))}
-            </div>
-          </div>
-        ))}
-        {questions.length === 0 && <p className="text-sm text-gray-500">No questions yet. Add one below.</p>}
-      </div>
+              </div>
+            ))}
 
-      <form onSubmit={handleAddQuestion} className="space-y-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-        <h3 className="font-semibold">Add Question</h3>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Question text</label>
-          <textarea value={newQ.content} onChange={(e) => setNewQ({ ...newQ, content: e.target.value })} required rows={2}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-        </div>
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700">Options (check the correct one)</label>
-          {newQ.options.map((opt, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input type="checkbox" checked={opt.correct} onChange={(e) => {
-                const opts = [...newQ.options]; opts[i] = { ...opt, correct: e.target.checked };
-                setNewQ({ ...newQ, options: opts });
-              }} className="h-4 w-4 rounded border-gray-300 text-indigo-600" />
-              <input type="text" value={opt.content} onChange={(e) => {
-                const opts = [...newQ.options]; opts[i] = { ...opt, content: e.target.value };
-                setNewQ({ ...newQ, options: opts });
-              }} required placeholder={`Option ${i + 1}`}
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none" />
-            </div>
-          ))}
-          <button type="button" onClick={() => setNewQ({ ...newQ, options: [...newQ.options, { content: "", correct: false }] })}
-            className="text-sm text-indigo-600 hover:underline">+ Add option</button>
-        </div>
-        <button type="submit" disabled={adding}
-          className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50">
-          {adding ? "Adding..." : "Add Question"}
-        </button>
-      </form>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() =>
+                setNewQ({
+                  ...newQ,
+                  options: [...newQ.options, { content: "", correct: false }],
+                })
+              }
+            >
+              أضف خياراً
+            </Button>
+          </fieldset>
+
+          <Button type="submit" loading={adding} loadingLabel="جارٍ الإضافة…">
+            أضف السؤال
+          </Button>
+        </form>
+      </Card>
     </div>
   );
 }

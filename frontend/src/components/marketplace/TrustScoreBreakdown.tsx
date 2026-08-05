@@ -44,7 +44,7 @@ export function TrustScoreBreakdown({
   return (
     <section
       aria-labelledby="trust-heading"
-      className="rounded-2xl border border-line bg-white p-6 dark:bg-transparent"
+      className="rounded-2xl border border-line bg-surface-raised p-6"
     >
       <h2 id="trust-heading" className="mb-6 text-lg font-bold text-ink">
         درجة الثقة

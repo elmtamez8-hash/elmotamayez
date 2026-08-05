@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Course, Enrollment, Certificate } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
+import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
+import { ErrorState } from "@/components/ui/states/ErrorState";
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -12,21 +14,33 @@ export default function DashboardPage() {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
+    setFailed(false);
+
     Promise.all([
-      api.get<{ data: Enrollment[] }>("/enrollments").catch(() => ({ data: [] })),
-      api.get<{ data: Certificate[] }>("/certificates").catch(() => ({ data: [] })),
-      api.get<{ data: Course[] }>("/courses").catch(() => ({ data: [] })),
-    ]).then(([enr, cert, crs]) => {
-      setEnrollments(enr.data ?? []);
-      setCertificates(cert.data ?? []);
-      setCourses(crs.data ?? []);
-      setLoading(false);
-    });
+      api.get<{ data: Enrollment[] }>("/enrollments"),
+      api.get<{ data: Certificate[] }>("/certificates"),
+      api.get<{ data: Course[] }>("/courses"),
+    ])
+      .then(([enr, cert, crs]) => {
+        setEnrollments(enr.data ?? []);
+        setCertificates(cert.data ?? []);
+        setCourses(crs.data ?? []);
+      })
+      // Swallowing the rejection used to render an empty dashboard on a dead
+      // backend, which reads as "you have nothing" rather than "we could not
+      // load this" (FR-018).
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="text-gray-400">Loading...</div>;
+  useEffect(load, [load]);
+
+  if (loading) return <RowsSkeleton />;
+  if (failed) return <ErrorState onRetry={load} />;
 
   const activeEnrollments = enrollments.filter((e) => e.status === "active");
   const completedCount = enrollments.filter((e) => e.status === "completed").length;
@@ -34,75 +48,126 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold">Welcome back, {user?.first_name}!</h2>
-        <p className="text-gray-600">Here&apos;s an overview of your learning progress.</p>
+        <h2 className="text-2xl font-bold text-ink">أهلاً بعودتك، {user?.first_name}</h2>
+        <p className="text-ink-muted">هذه نظرة عامة على تقدّمك الدراسي.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Active Courses" value={activeEnrollments.length} color="bg-indigo-500" />
-        <StatCard label="Completed" value={completedCount} color="bg-green-500" />
-        <StatCard label="Certificates" value={certificates.length} color="bg-amber-500" />
-        <StatCard label="Available Courses" value={courses.length} color="bg-blue-500" />
+        <StatCard label="كورسات جارية" value={activeEnrollments.length} />
+        <StatCard label="كورسات مكتملة" value={completedCount} />
+        <StatCard label="الشهادات" value={certificates.length} />
+        <StatCard label="كورسات متاحة" value={courses.length} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-semibold">Continue Learning</h3>
-            <Link href="/enrollments" className="text-sm text-indigo-600 hover:underline">View all</Link>
-          </div>
+        <Panel title="أكمل ما بدأته" href="/enrollments">
           {activeEnrollments.length === 0 ? (
-            <p className="text-sm text-gray-500">No active enrollments. <Link href="/manage/courses" className="text-indigo-600 hover:underline">Browse courses</Link></p>
+            <p className="text-sm text-ink-muted">
+              لا كورسات جارية.{" "}
+              <Link
+                href="/courses"
+                className="text-primary-ink underline underline-offset-4"
+              >
+                تصفّح الكورسات
+              </Link>
+            </p>
           ) : (
             <div className="space-y-3">
               {activeEnrollments.slice(0, 5).map((enr) => (
-                <div key={enr.uuid} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
-                  <div>
-                    <p className="text-sm font-medium">Course #{enr.course_id}</p>
-                    <p className="text-xs text-gray-500">Enrolled {new Date(enr.enrolled_at).toLocaleDateString()}</p>
+                <div
+                  key={enr.uuid}
+                  className="flex items-center justify-between gap-4 rounded-lg border border-line p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ink">
+                      كورس رقم <bdi>{enr.course_id}</bdi>
+                    </p>
+                    <p className="text-xs text-ink-muted">
+                      سُجِّل في {new Date(enr.enrolled_at).toLocaleDateString("ar")}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-200">
-                      <div className="h-full bg-indigo-500" style={{ width: `${enr.progress_pct}%` }} />
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div
+                      className="h-2 w-24 overflow-hidden rounded-full bg-line"
+                      role="progressbar"
+                      aria-valuenow={enr.progress_pct}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label="نسبة الإنجاز"
+                    >
+                      <div
+                        className="h-full bg-primary"
+                        style={{ width: `${enr.progress_pct}%` }}
+                      />
                     </div>
-                    <span className="text-xs font-medium text-gray-600">{enr.progress_pct}%</span>
+                    <span className="text-xs font-medium text-ink-muted">
+                      <bdi>{enr.progress_pct}%</bdi>
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Panel>
 
-        <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-semibold">Recent Certificates</h3>
-            <Link href="/certificates" className="text-sm text-indigo-600 hover:underline">View all</Link>
-          </div>
+        <Panel title="أحدث الشهادات" href="/certificates">
           {certificates.length === 0 ? (
-            <p className="text-sm text-gray-500">No certificates yet. Complete a course to earn one!</p>
+            <p className="text-sm text-ink-muted">
+              لم تحصل على شهادة بعد. أكمل كورساً لتحصل على أولى شهاداتك.
+            </p>
           ) : (
             <div className="space-y-3">
               {certificates.slice(0, 5).map((cert) => (
-                <div key={cert.uuid} className="rounded-lg border border-gray-100 p-3">
-                  <p className="text-sm font-medium">{cert.course_title}</p>
-                  <p className="text-xs text-gray-500">{cert.certificate_number} · Issued {new Date(cert.issued_at).toLocaleDateString()}</p>
+                <div key={cert.uuid} className="rounded-lg border border-line p-3">
+                  <p className="text-sm font-medium text-ink">{cert.course_title}</p>
+                  <p className="text-xs text-ink-muted">
+                    <bdi>{cert.certificate_number}</bdi> · صدرت في{" "}
+                    {new Date(cert.issued_at).toLocaleDateString("ar")}
+                  </p>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Panel>
       </div>
     </div>
   );
 }
 
-function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
+function Panel({
+  title,
+  href,
+  children,
+}: {
+  title: string;
+  href: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200">
-      <div className={`mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg ${color}`}>
-        <span className="text-lg font-bold text-white">{value}</span>
+    <section className="rounded-xl border border-line bg-surface-raised p-6">
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <h3 className="font-semibold text-ink">{title}</h3>
+        <Link
+          href={href}
+          className="rounded text-sm text-primary-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          عرض الكل
+        </Link>
       </div>
-      <p className="text-sm font-medium text-gray-600">{label}</p>
+      {children}
+    </section>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-line bg-surface-raised p-5">
+      <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
+        <span className="text-lg font-bold text-white">
+          <bdi>{value}</bdi>
+        </span>
+      </div>
+      <p className="text-sm font-medium text-ink-muted">{label}</p>
     </div>
   );
 }

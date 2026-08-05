@@ -17,6 +17,23 @@ const PAGES = [
   { path: "/signup/student", name: "تسجيل طالب" },
   { path: "/signup/teacher", name: "تسجيل مدرّس" },
   { path: "/signup/parent", name: "تسجيل وليّ أمر" },
+
+  // The panel, added in 002. It is behind a guard, so these only resolve because
+  // the setup project wrote an authenticated storageState (SC-006).
+  { path: "/login", name: "تسجيل الدخول" },
+  { path: "/register", name: "إنشاء حساب" },
+  { path: "/dashboard", name: "لوحة التحكم" },
+  { path: "/enrollments", name: "تعلّمي" },
+  { path: "/exams", name: "الاختبارات" },
+  { path: "/exams/new", name: "اختبار جديد" },
+  { path: "/certificates", name: "الشهادات" },
+  { path: "/orders", name: "الطلبات" },
+  { path: "/settings", name: "الإعدادات" },
+  { path: "/members", name: "الأعضاء" },
+  { path: "/workspaces", name: "مساحات العمل" },
+  { path: "/workspaces/new", name: "مساحة عمل جديدة" },
+  { path: "/manage/courses", name: "إدارة الكورسات" },
+  { path: "/manage/courses/new", name: "كورس جديد" },
 ];
 
 function audit(page: import("@playwright/test").Page) {

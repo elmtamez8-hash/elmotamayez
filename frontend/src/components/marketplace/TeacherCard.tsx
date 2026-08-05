@@ -26,7 +26,7 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
   const profileHref = `/teachers/${teacher.uuid}`;
 
   return (
-    <article className="flex flex-col rounded-2xl border border-line bg-white p-5 transition hover:border-primary/40 hover:shadow-lg dark:bg-transparent">
+    <article className="flex flex-col rounded-2xl border border-line bg-surface-raised p-5 transition hover:border-primary/40 hover:shadow-lg">
       <div className="mb-4 flex items-start gap-4">
         {teacher.photo_url ? (
           // A broken image must not collapse the card, so the fallback is the same

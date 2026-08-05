@@ -8,9 +8,9 @@ import {
 } from "@/lib/public-api";
 import { TeacherCard } from "@/components/marketplace/TeacherCard";
 import { TeacherFilters } from "@/components/marketplace/TeacherFilters";
-import { Pagination } from "@/components/marketplace/Pagination";
-import { EmptyState } from "@/components/marketplace/states/EmptyState";
-import { ErrorState } from "@/components/marketplace/states/ErrorState";
+import { Pagination } from "@/components/ui/Pagination";
+import { EmptyState } from "@/components/ui/states/EmptyState";
+import { ErrorState } from "@/components/ui/states/ErrorState";
 
 export const revalidate = 60;
 
@@ -87,7 +87,7 @@ export default async function TeachersPage({
         {/* On mobile this becomes a collapsible panel rather than a sidebar; the
             native <details> keeps it keyboard-operable with no extra JS. */}
         <aside>
-          <details className="rounded-2xl border border-line bg-white p-5 lg:hidden dark:bg-transparent" open={hasFilters}>
+          <details className="rounded-2xl border border-line bg-surface-raised p-5 lg:hidden" open={hasFilters}>
             <summary className="cursor-pointer text-sm font-bold text-ink">
               الفلاتر
             </summary>
@@ -100,7 +100,7 @@ export default async function TeachersPage({
             </div>
           </details>
 
-          <div className="hidden rounded-2xl border border-line bg-white p-5 lg:block dark:bg-transparent">
+          <div className="hidden rounded-2xl border border-line bg-surface-raised p-5 lg:block">
             <h2 className="mb-5 text-sm font-bold text-ink">الفلاتر</h2>
             <TeacherFilters
               subjects={subjects}

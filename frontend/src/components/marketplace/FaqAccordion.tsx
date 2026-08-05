@@ -1,3 +1,4 @@
+import { ChevronDownIcon } from "@/components/icons";
 /**
  * FAQ list built on <details>/<summary>.
  *
@@ -22,21 +23,12 @@ export function FaqAccordion({
         </h2>
       )}
 
-      <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white dark:bg-transparent">
+      <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface-raised">
         {items.map((item) => (
           <details key={item.question} className="group">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-start text-base font-semibold text-ink transition hover:bg-primary-soft focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary">
               {item.question}
-              <svg
-                className="h-5 w-5 shrink-0 text-ink-muted transition group-open:rotate-180"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-                aria-hidden="true"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
+              <ChevronDownIcon className="h-5 w-5 shrink-0 text-ink-muted transition duration-200 group-open:rotate-180 motion-reduce:transition-none" />
             </summary>
             <p className="px-5 pb-5 text-sm leading-relaxed text-ink-muted">
               {item.answer}

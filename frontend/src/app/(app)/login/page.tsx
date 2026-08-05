@@ -2,9 +2,14 @@
 
 import { Suspense, useState } from "react";
 import { homePathFor, useAuth } from "@/lib/auth-context";
-import { errorMessage } from "@/lib/api";
+import { fieldErrors } from "@/lib/api";
+import { userMessage } from "@/lib/errors";
+import { PLATFORM_NAME } from "@/lib/platform";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { TextField } from "@/components/ui/Field";
 
 function LoginForm() {
   const { login } = useAuth();
@@ -12,74 +17,84 @@ function LoginForm() {
   const searchParams = useSearchParams();
   // Arrived from an invitation link: go back to it so the user can accept.
   const invitation = searchParams.get("invitation");
+
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [fields, setFields] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setFields({});
     setLoading(true);
+
     try {
       const user = await login(email, password);
       router.push(invitation ? `/invitations/${invitation}` : homePathFor(user));
     } catch (err: unknown) {
-      setError(errorMessage(err, "Login failed"));
+      const found = fieldErrors(err);
+      if (Object.keys(found).length > 0) setFields(found);
+      else setError(userMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <main id="main" className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-indigo-600">Mteatch</h1>
-          <p className="mt-2 text-gray-600">Sign in to your account</p>
+          <h1 className="text-3xl font-bold text-primary-ink">{PLATFORM_NAME}</h1>
+          <p className="mt-2 text-ink-muted">سجّل الدخول إلى حسابك</p>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
-          {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>
-          )}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              placeholder="you@example.com"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              placeholder="••••••••"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {loading ? "Signing in..." : "Sign in"}
-          </button>
-          <p className="text-center text-sm text-gray-600">
-            Don&apos;t have an account?{" "}
-            <Link href={invitation ? `/register?invitation=${invitation}` : "/register"} className="text-indigo-600 hover:underline">
-              Register
+
+        <form
+          onSubmit={submit}
+          className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"
+        >
+          {error && <Alert tone="danger" title={error} />}
+
+          <TextField
+            id="email"
+            label="البريد الإلكتروني"
+            type="email"
+            value={email}
+            onChange={setEmail}
+            error={fields.email}
+            placeholder="you@example.com"
+            autoComplete="email"
+            required
+          />
+
+          <TextField
+            id="password"
+            label="كلمة المرور"
+            type="password"
+            value={password}
+            onChange={setPassword}
+            error={fields.password}
+            autoComplete="current-password"
+            required
+          />
+
+          <Button type="submit" fullWidth loading={loading} loadingLabel="جارٍ الدخول…">
+            تسجيل الدخول
+          </Button>
+
+          <p className="text-center text-sm text-ink-muted">
+            لا تملك حساباً؟{" "}
+            <Link
+              href={invitation ? `/register?invitation=${invitation}` : "/register"}
+              className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              أنشئ حساباً
             </Link>
           </p>
         </form>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -87,7 +102,13 @@ function LoginForm() {
 // Suspense boundary to prerender.
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-gray-400">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center text-ink-muted">
+          جارٍ التحميل…
+        </div>
+      }
+    >
       <LoginForm />
     </Suspense>
   );

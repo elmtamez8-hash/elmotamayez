@@ -1,87 +1,115 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api, errorMessage } from "@/lib/api";
+import { useCallback, useEffect, useState } from "react";
+import { api } from "@/lib/api";
+import { userMessage } from "@/lib/errors";
+import { roleLabel } from "@/lib/labels";
 import type { Workspace } from "@/lib/types";
-import Link from "next/link";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
+import { EmptyState } from "@/components/ui/states/EmptyState";
+import { ErrorState } from "@/components/ui/states/ErrorState";
 
-export default function WorkspacePage() {
+const WORKSPACE_TYPES: Record<string, string> = {
+  academy: "أكاديمية",
+  individual: "مدرّس مستقل",
+  school: "مدرسة",
+};
+
+export default function WorkspacesPage() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [error, setError] = useState("");
   const [switching, setSwitching] = useState<string | null>(null);
 
-  useEffect(() => {
-    api.get<{ data: Workspace[] }>("/workspaces")
+  const load = useCallback(() => {
+    setLoading(true);
+    setFailed(false);
+
+    api
+      .get<{ data: Workspace[] }>("/workspaces")
       .then((res) => setWorkspaces(res.data ?? []))
-      .catch((err: unknown) => setError(errorMessage(err, "Could not load workspaces")))
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, []);
 
-  const handleSwitch = async (uuid: string) => {
+  useEffect(load, [load]);
+
+  const switchTo = async (uuid: string) => {
     setSwitching(uuid);
+    setError("");
     try {
       await api.post(`/workspaces/${uuid}/switch`);
+      // A full reload, not a router refresh: the workspace is server-side
+      // session state and every cached list on the client belongs to the old one.
       window.location.reload();
-    } catch {
+    } catch (err: unknown) {
+      setError(userMessage(err));
       setSwitching(null);
     }
   };
 
-  if (loading) return <div className="text-gray-400">Loading...</div>;
-
   return (
     <div className="space-y-6">
-      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
-
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Workspaces</h2>
-        <Link href="/workspaces/new" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">
-          + New Workspace
-        </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-2xl font-bold text-ink">مساحات العمل</h2>
+        <Button href="/workspaces/new">مساحة عمل جديدة</Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {workspaces.map((ws) => (
-          <div key={ws.uuid} className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">{ws.name}</h3>
-                <p className="text-sm capitalize text-gray-500">{ws.type}</p>
+      {error && <Alert tone="danger" title={error} />}
+
+      {loading ? (
+        <RowsSkeleton />
+      ) : failed ? (
+        <ErrorState onRetry={load} />
+      ) : workspaces.length === 0 ? (
+        <EmptyState
+          title="لا مساحات عمل"
+          description="أنشئ مساحة عمل لتبدأ بإضافة كورساتك وطلابك."
+          action={<Button href="/workspaces/new">مساحة عمل جديدة</Button>}
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {workspaces.map((ws) => (
+            <Card key={ws.uuid} as="article" padding="sm">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="truncate font-semibold text-ink">{ws.name}</h3>
+                  <p className="text-sm text-ink-muted">
+                    {WORKSPACE_TYPES[ws.type] ?? ws.type}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {ws.is_current && <Badge tone="success">الحالية</Badge>}
+                  {ws.pivot_role && <Badge tone="info">{roleLabel(ws.pivot_role)}</Badge>}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                {ws.is_current && (
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                    Active
-                  </span>
-                )}
-                {ws.pivot_role && (
-                  <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium capitalize text-indigo-600">
-                    {ws.pivot_role.replace("-", " ")}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleSwitch(ws.uuid)}
-                disabled={switching === ws.uuid}
-                className="flex-1 rounded-lg bg-gray-100 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200 disabled:opacity-50"
-              >
-                {switching === ws.uuid ? "Switching..." : "Switch"}
-              </button>
-              {(ws.is_owner || ws.pivot_role === "tenant-owner") && (
-                <Link
-                  href={`/workspaces/${ws.uuid}/edit`}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50"
+
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  disabled={ws.is_current}
+                  loading={switching === ws.uuid}
+                  loadingLabel="جارٍ التبديل…"
+                  onClick={() => switchTo(ws.uuid)}
                 >
-                  Edit
-                </Link>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+                  {ws.is_current ? "أنت هنا" : "انتقل إليها"}
+                </Button>
+                {(ws.is_owner || ws.pivot_role === "tenant-owner") && (
+                  <Button href={`/workspaces/${ws.uuid}/edit`} variant="ghost">
+                    تعديل
+                  </Button>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

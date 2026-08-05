@@ -2,9 +2,13 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { api, errorMessage } from "@/lib/api";
+import { api } from "@/lib/api";
+import { userMessage } from "@/lib/errors";
+import { roleLabel } from "@/lib/labels";
+import { PLATFORM_NAME } from "@/lib/platform";
 import { useAuth } from "@/lib/auth-context";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
 
 interface InvitationDetails {
   workspace_name: string;
@@ -15,7 +19,11 @@ interface InvitationDetails {
   is_accepted: boolean;
 }
 
-export default function InvitationPage({ params }: { params: Promise<{ token: string }> }) {
+export default function InvitationPage({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}) {
   const { token } = use(params);
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -26,42 +34,53 @@ export default function InvitationPage({ params }: { params: Promise<{ token: st
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api.get<InvitationDetails>(`/workspaces/invitations/${token}`)
+    api
+      .get<InvitationDetails>(`/workspaces/invitations/${token}`)
       .then(setInvitation)
-      .catch(() => setError("This invitation link is not valid."))
+      .catch(() => setError("رابط الدعوة غير صالح."))
       .finally(() => setLoading(false));
   }, [token]);
 
-  const handleAccept = async () => {
+  const accept = async () => {
     setJoining(true);
     setError("");
     try {
       await api.post(`/workspaces/invitations/${token}/accept`);
       router.push("/dashboard");
     } catch (err: unknown) {
-      setError(errorMessage(err, "Could not accept the invitation"));
+      setError(userMessage(err));
     } finally {
       setJoining(false);
     }
   };
 
   if (loading || authLoading) {
-    return <Shell><p className="text-gray-400">Loading invitation...</p></Shell>;
+    return (
+      <Shell>
+        <p className="text-ink-muted">جارٍ تحميل الدعوة…</p>
+      </Shell>
+    );
   }
 
   if (!invitation) {
-    return <Shell><p className="text-red-600">{error || "This invitation link is not valid."}</p></Shell>;
+    return (
+      <Shell>
+        <Alert tone="danger" title={error || "رابط الدعوة غير صالح."} />
+      </Shell>
+    );
   }
 
-  const role = invitation.role.replace(/-/g, " ");
+  const role = roleLabel(invitation.role);
 
   if (invitation.is_accepted) {
     return (
       <Shell>
-        <p className="text-gray-600">This invitation has already been accepted.</p>
-        <Link href="/dashboard" className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:underline">
-          Go to dashboard
-        </Link>
+        <p className="text-ink-muted">قُبِلت هذه الدعوة سابقاً.</p>
+        <div className="mt-4">
+          <Button href="/dashboard" variant="secondary">
+            إلى لوحة التحكم
+          </Button>
+        </div>
       </Shell>
     );
   }
@@ -69,8 +88,8 @@ export default function InvitationPage({ params }: { params: Promise<{ token: st
   if (invitation.is_expired) {
     return (
       <Shell>
-        <p className="text-gray-600">
-          This invitation expired. Ask {invitation.workspace_name} to send a new one.
+        <p className="text-ink-muted">
+          انتهت صلاحية هذه الدعوة. اطلب من {invitation.workspace_name} إرسال دعوة جديدة.
         </p>
       </Shell>
     );
@@ -78,37 +97,48 @@ export default function InvitationPage({ params }: { params: Promise<{ token: st
 
   return (
     <Shell>
-      <p className="text-gray-600">
-        You have been invited to join <span className="font-semibold text-gray-900">{invitation.workspace_name}</span>{" "}
-        as <span className="capitalize">{role}</span>.
+      <p className="text-ink-muted">
+        دُعيت للانضمام إلى{" "}
+        <span className="font-semibold text-ink">{invitation.workspace_name}</span> بصفة{" "}
+        {role}.
       </p>
-      <p className="mt-1 text-sm text-gray-500">Invitation sent to {invitation.email}.</p>
+      <p className="mt-1 text-sm text-ink-muted">
+        أُرسلت الدعوة إلى <bdi>{invitation.email}</bdi>.
+      </p>
 
-      {error && <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
+      {error && (
+        <div className="mt-4">
+          <Alert tone="danger" title={error} />
+        </div>
+      )}
 
       {user ? (
-        <button
-          onClick={handleAccept}
-          disabled={joining}
-          className="mt-6 w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {joining ? "Joining..." : `Join as ${role}`}
-        </button>
+        <div className="mt-6">
+          <Button
+            fullWidth
+            loading={joining}
+            loadingLabel="جارٍ الانضمام…"
+            onClick={accept}
+          >
+            انضمّ بصفة {role}
+          </Button>
+        </div>
       ) : (
         <div className="mt-6 space-y-2">
           {/* No account yet? Register first — both routes come back here. */}
-          <Link
+          <Button
             href={`/register?invitation=${token}&email=${encodeURIComponent(invitation.email)}`}
-            className="block w-full rounded-lg bg-indigo-600 py-2.5 text-center font-medium text-white transition hover:bg-indigo-700"
+            fullWidth
           >
-            Create an account
-          </Link>
-          <Link
+            أنشئ حساباً
+          </Button>
+          <Button
             href={`/login?invitation=${token}&email=${encodeURIComponent(invitation.email)}`}
-            className="block w-full rounded-lg border border-gray-300 py-2.5 text-center font-medium text-gray-700 transition hover:bg-gray-50"
+            variant="secondary"
+            fullWidth
           >
-            I already have an account
-          </Link>
+            لديّ حساب بالفعل
+          </Button>
         </div>
       )}
     </Shell>
@@ -117,13 +147,15 @@ export default function InvitationPage({ params }: { params: Promise<{ token: st
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <main id="main" className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-indigo-600">Mteatch</h1>
+          <h1 className="text-3xl font-bold text-primary-ink">{PLATFORM_NAME}</h1>
         </div>
-        <div className="rounded-xl bg-white p-8 shadow-sm ring-1 ring-gray-200">{children}</div>
+        <div className="rounded-2xl border border-line bg-surface-raised p-8">
+          {children}
+        </div>
       </div>
-    </div>
+    </main>
   );
 }

@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api, errorMessage } from "@/lib/api";
+import { use, useCallback, useEffect, useState } from "react";
+import { api } from "@/lib/api";
+import { userMessage } from "@/lib/errors";
+import { formatMoney, lessonTypeLabel } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import { useRouter } from "next/navigation";
-import { use } from "react";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
+import { ErrorState } from "@/components/ui/states/ErrorState";
 
 interface CourseDetail extends Course {
   sections?: Array<{
@@ -28,30 +35,42 @@ interface CourseDetail extends Course {
   }>;
 }
 
-export default function CourseDetailPage({ params }: { params: Promise<{ uuid: string }> }) {
+export default function CourseDetailPage({
+  params,
+}: {
+  params: Promise<{ uuid: string }>;
+}) {
   const { uuid } = use(params);
   const router = useRouter();
+
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
   const [ordering, setOrdering] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    api.get<CourseDetail>(`/courses/${uuid}`)
+  const load = useCallback(() => {
+    setLoading(true);
+    setFailed(false);
+
+    api
+      .get<CourseDetail>(`/courses/${uuid}`)
       .then(setCourse)
-      .catch(() => setError("Course not found"))
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, [uuid]);
 
-  const handleEnroll = async () => {
+  useEffect(load, [load]);
+
+  const enroll = async () => {
     setEnrolling(true);
     setError("");
     try {
       await api.post(`/courses/${uuid}/enroll`);
       router.push("/enrollments");
     } catch (err: unknown) {
-      setError(errorMessage(err, "Enrollment failed"));
+      setError(userMessage(err));
     } finally {
       setEnrolling(false);
     }
@@ -59,93 +78,101 @@ export default function CourseDetailPage({ params }: { params: Promise<{ uuid: s
 
   // Manual bank transfer: the order is created as pending and a teacher approves
   // it from /orders, which is what creates the enrollment.
-  const handlePurchase = async () => {
+  const purchase = async () => {
     setOrdering(true);
     setError("");
     try {
       await api.post(`/courses/${uuid}/orders`);
       router.push("/orders");
     } catch (err: unknown) {
-      setError(errorMessage(err, "Could not place the order"));
+      setError(userMessage(err));
     } finally {
       setOrdering(false);
     }
   };
 
-  if (loading) return <div className="text-gray-400">Loading...</div>;
-  if (!course) return <div className="text-red-500">{error}</div>;
+  if (loading) return <RowsSkeleton count={4} />;
+  if (failed || !course) return <ErrorState onRetry={load} />;
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 p-8 text-white">
-        <h2 className="mb-2 text-3xl font-bold">{course.title}</h2>
-        <p className="mb-4 max-w-2xl text-indigo-100">{course.description}</p>
-        <div className="flex items-center gap-4">
+      {/* A soft tint, not a saturated fill. Saturated blocks are reserved for
+          status in this product — the pass/fail banner and the verified
+          certificate — and a decorative one competes with them. */}
+      <div className="rounded-2xl bg-primary-soft p-8">
+        <h2 className="mb-2 text-3xl font-bold text-ink">{course.title}</h2>
+        <p className="mb-4 max-w-2xl text-ink-muted">{course.description}</p>
+        <div className="flex flex-wrap items-center gap-3">
           {course.is_free ? (
-            <span className="rounded-full bg-white/20 px-3 py-1 text-sm font-medium">Free</span>
+            <Badge tone="success">مجاني</Badge>
           ) : (
-            <span className="rounded-full bg-white/20 px-3 py-1 text-sm font-medium">
-              {course.currency} {course.price}
-            </span>
+            <Badge tone="warning">
+              <bdi>{formatMoney(course.price, course.currency)}</bdi>
+            </Badge>
           )}
-          <span className="text-sm text-indigo-100">
-            {course.is_sequential ? "Sequential learning" : "Flexible learning"}
+          <span className="text-sm text-ink-muted">
+            {course.is_sequential ? "تسلسل إجباري للدروس" : "ترتيب مرن للدروس"}
           </span>
         </div>
       </div>
 
-      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
+      {error && <Alert tone="danger" title={error} />}
 
-      <div className="flex gap-3">
-        <a href={`/manage/courses/${uuid}/edit`} className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
-          Edit Course
-        </a>
+      <div className="flex flex-wrap gap-3">
+        <Button href={`/manage/courses/${uuid}/edit`} variant="secondary">
+          تعديل الكورس
+        </Button>
+
         {course.is_free ? (
-          <button
-            onClick={handleEnroll}
-            disabled={enrolling}
-            className="rounded-lg bg-indigo-600 px-6 py-2.5 font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {enrolling ? "Enrolling..." : "Enroll Free"}
-          </button>
+          <Button loading={enrolling} loadingLabel="جارٍ التسجيل…" onClick={enroll}>
+            سجّل مجاناً
+          </Button>
         ) : (
-          <button
-            onClick={handlePurchase}
-            disabled={ordering}
-            className="rounded-lg bg-amber-600 px-6 py-2.5 font-medium text-white transition hover:bg-amber-700 disabled:opacity-50"
-          >
-            {ordering ? "Placing order..." : `Purchase (${course.currency} ${course.price})`}
-          </button>
+          <Button loading={ordering} loadingLabel="جارٍ إنشاء الطلب…" onClick={purchase}>
+            اشترِ بـ <bdi>{formatMoney(course.price, course.currency)}</bdi>
+          </Button>
         )}
       </div>
 
       {course.sections && course.sections.length > 0 && (
-        <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-          <h3 className="mb-4 font-semibold">Course Content</h3>
+        <Card as="section">
+          <h3 className="mb-4 font-semibold text-ink">محتوى الكورس</h3>
           <div className="space-y-4">
             {course.sections.map((section) => (
               <div key={section.id}>
-                <h4 className="mb-2 text-sm font-medium text-gray-700">{section.title}</h4>
+                <h4 className="mb-2 text-sm font-medium text-ink">{section.title}</h4>
+
                 {section.chapters?.map((chapter) => (
-                  <div key={chapter.id} className="ml-4 space-y-1">
-                    <p className="text-xs text-gray-500">{chapter.title}</p>
-                    {chapter.lessons?.map((lesson) => (
-                      <div key={lesson.uuid} className="ml-4 flex items-center gap-2 text-sm">
-                        <span className="text-gray-400">•</span>
-                        <span className={lesson.is_preview ? "text-indigo-600" : "text-gray-600"}>
-                          {lesson.title}
-                        </span>
-                        {lesson.is_preview && (
-                          <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-xs text-indigo-600">Preview</span>
-                        )}
-                      </div>
-                    ))}
+                  // ms-*, not ml-*: the indent has to grow from the right in RTL.
+                  <div key={chapter.id} className="ms-4 space-y-1">
+                    <p className="text-xs text-ink-muted">{chapter.title}</p>
+
+                    <ul className="ms-4 space-y-1">
+                      {chapter.lessons?.map((lesson) => (
+                        <li key={lesson.uuid} className="flex items-center gap-2 text-sm">
+                          <span aria-hidden="true" className="text-ink-muted">
+                            ·
+                          </span>
+                          <span
+                            className={
+                              lesson.is_preview ? "text-primary-ink" : "text-ink-muted"
+                            }
+                          >
+                            {lesson.title}
+                          </span>
+                          <span className="text-xs text-ink-muted">
+                            ({lessonTypeLabel(lesson.type)})
+                          </span>
+                          {lesson.is_preview && <Badge tone="info">معاينة مجانية</Badge>}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 ))}
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

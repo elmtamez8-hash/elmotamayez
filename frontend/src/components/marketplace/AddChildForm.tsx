@@ -6,7 +6,7 @@ import Link from "next/link";
 import { api, errorMessage, fieldErrors } from "@/lib/api";
 import type { ChildLink } from "@/lib/types";
 import type { Taxonomy } from "@/lib/public-api";
-import { SubmitButton } from "./SubmitButton";
+import { Button } from "@/components/ui/Button";
 import { NotificationPreferences } from "./NotificationPreferences";
 
 const FIELD_CLASS =
@@ -155,9 +155,9 @@ export function AddChildForm({ gradeLevels }: { gradeLevels: Taxonomy[] }) {
           </div>
         </div>
 
-        <SubmitButton loading={loading} loadingLabel="جارٍ الإضافة…">
+        <Button type="submit" variant="accent" size="lg" fullWidth loading={loading} loadingLabel="جارٍ الإضافة…">
           إضافة الطفل
-        </SubmitButton>
+        </Button>
       </form>
 
       <NotificationPreferences />

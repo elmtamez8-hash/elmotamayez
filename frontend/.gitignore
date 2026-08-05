@@ -11,3 +11,6 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Playwright storageState — holds a real auth token
+/e2e/.auth/

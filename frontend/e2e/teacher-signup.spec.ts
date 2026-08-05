@@ -7,6 +7,12 @@ import { test, expect } from "@playwright/test";
  * rate-limits step 1, so this spec submits it once per test at most.
  */
 
+// An applicant is by definition signed out. Since 002 the projects carry an
+// authenticated storageState so the panel can be audited, and the wizard reads
+// `auth_token` to decide whether to create an account or attach to the current
+// one — inheriting that token silently sends this spec down the wrong branch.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 /** Unique per project *and* per millisecond: six browser projects start at once
  * and Date.now() alone collides, which the unique-email rule then rejects. */
 function freshEmail(): string {

@@ -60,7 +60,7 @@ export function TeacherFilters({
   );
 
   const field =
-    "w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary dark:bg-transparent";
+    "w-full rounded-xl border border-line bg-surface-raised px-3 py-2.5 text-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 
   return (
     <div aria-busy={pending} className="space-y-5">

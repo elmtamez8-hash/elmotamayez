@@ -1,5 +1,9 @@
 # Mteatch — Educational Multi-Tenant SaaS Platform
 
+> **Roadmap**: [`roadmap.md`](./roadmap.md) — the Madarik requirements document mapped to 12
+> phased spec-kit features (`specs/002` … `specs/013`), with a coverage matrix and the
+> architectural decisions behind the ordering.
+
 ## Architecture Overview
 
 **Monorepo structure:**

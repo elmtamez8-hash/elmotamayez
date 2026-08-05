@@ -1,3 +1,4 @@
+import { TrustShieldIcon } from "@/components/icons";
 import type { TrustBand } from "@/lib/public-api";
 
 /**
@@ -47,18 +48,7 @@ export function TrustScoreBadge({
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${style.chip}`}
     >
-      <svg
-        className="h-3.5 w-3.5"
-        viewBox="0 0 20 20"
-        fill="currentColor"
-        aria-hidden="true"
-      >
-        <path
-          fillRule="evenodd"
-          d="M10 1.5l6.5 2.6v5.1c0 4-2.7 7.7-6.5 8.8-3.8-1.1-6.5-4.8-6.5-8.8V4.1L10 1.5zm3.2 6.1a.75.75 0 10-1.15-.96l-2.9 3.48-1.4-1.4a.75.75 0 10-1.06 1.06l2 2a.75.75 0 001.1-.05l3.4-4.13z"
-          clipRule="evenodd"
-        />
-      </svg>
+      <TrustShieldIcon />
       {score === null ? (
         <span>{style.label}</span>
       ) : (

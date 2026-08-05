@@ -1,9 +1,10 @@
 "use client";
 
+import { CloseIcon, MenuIcon } from "@/components/icons";
 import Link from "next/link";
 import { useState } from "react";
 import { PLATFORM_NAME } from "@/lib/platform";
-import { ThemeToggle } from "./ThemeToggle";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const NAV = [
   { href: "/", label: "الرئيسية" },
@@ -38,7 +39,7 @@ export function SiteHeader() {
           </ul>
         </nav>
 
-        <div className="mr-auto flex items-center gap-2">
+        <div className="ms-auto flex items-center gap-2">
           <ThemeToggle />
           <Link
             href="/login"
@@ -61,9 +62,7 @@ export function SiteHeader() {
             aria-controls="mobile-nav"
             aria-label="قائمة التنقّل"
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-              <path strokeLinecap="round" d={open ? "M6 18L18 6M6 6l12 12" : "M4 7h16M4 12h16M4 17h16"} />
-            </svg>
+            {open ? <CloseIcon /> : <MenuIcon />}
           </button>
         </div>
       </div>

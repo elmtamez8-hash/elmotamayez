@@ -16,7 +16,7 @@ export function ErrorState({
 }) {
   return (
     <div
-      className="flex flex-col items-center justify-center rounded-2xl border border-line bg-white px-6 py-16 text-center dark:bg-transparent"
+      className="flex flex-col items-center justify-center rounded-2xl border border-line bg-surface-raised px-6 py-16 text-center"
       role="alert"
     >
       <svg

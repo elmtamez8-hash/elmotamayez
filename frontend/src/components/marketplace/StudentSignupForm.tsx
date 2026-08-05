@@ -7,8 +7,8 @@ import { auth, setToken, errorMessage, fieldErrors } from "@/lib/api";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import { homePathFor } from "@/lib/auth-context";
 import type { Taxonomy } from "@/lib/public-api";
-import { PhoneInput, toE164 } from "./PhoneInput";
-import { SubmitButton } from "./SubmitButton";
+import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
+import { Button } from "@/components/ui/Button";
 
 const FIELD_CLASS =
   "w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
@@ -287,9 +287,9 @@ export function StudentSignupForm({
         )}
       </div>
 
-      <SubmitButton loading={loading} loadingLabel="جارٍ إنشاء الحساب…">
+      <Button type="submit" variant="accent" size="lg" fullWidth loading={loading} loadingLabel="جارٍ إنشاء الحساب…">
         إنشاء حساب طالب
-      </SubmitButton>
+      </Button>
 
       <p className="text-center text-sm text-ink-muted">
         لديك حساب؟{" "}

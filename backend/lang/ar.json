@@ -1,0 +1,6 @@
+{
+    "Invalid verification hash.": "رابط التحقّق غير صالح أو انتهت صلاحيته.",
+    "The provided credentials are incorrect.": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+    "The provided password does not match your current password.": "كلمة المرور الحالية غير صحيحة.",
+    "You must be signed in to change your password.": "يجب تسجيل الدخول لتغيير كلمة المرور."
+}

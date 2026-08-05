@@ -70,7 +70,20 @@ npm install
 npm run dev                            # App at :3000 (proxies /api to :8000)
 npm run build                          # Production build
 npx tsc --noEmit                       # Type check
+npm run test:e2e                       # Playwright — needs the backend up and seeded
 ```
+
+Since spec 002 the frontend is **Arabic-only, RTL-only**:
+
+- One root layout (`src/app/layout.tsx`) owns `<html lang="ar" dir="rtl">`, the Cairo
+  font and the pre-paint theme script. `(public)` and `(app)` add chrome only.
+- Colours come from `@theme` in `globals.css`. No palette classes, no `bg-white`, no hex
+  in components. Layout uses logical properties (`ms-*`, `start-*`), never `ml-*`/`left-*`.
+- Shared UI is `src/components/ui/`; it accepts no free-form `className`.
+- User-facing errors: 422 → `fieldErrors()` under the field, everything else →
+  `userMessage()`. Validation text is Arabic from `backend/lang/ar/`.
+- Playwright projects run signed in. An anonymous-visitor spec must declare
+  `test.use({ storageState: { cookies: [], origins: [] } })`.
 
 ## Environment
 

@@ -1,8 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api, errorMessage } from "@/lib/api";
+import { useCallback, useEffect, useState } from "react";
+import { api, fieldErrors } from "@/lib/api";
+import { userMessage } from "@/lib/errors";
+import { roleLabel } from "@/lib/labels";
 import type { Workspace } from "@/lib/types";
+import { Card } from "@/components/ui/Card";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { TextField, SelectField } from "@/components/ui/Field";
+import { Table, type Column } from "@/components/ui/Table";
+import { CloseIcon } from "@/components/icons";
 
 interface Member {
   uuid: string;
@@ -10,6 +19,12 @@ interface Member {
   email: string;
   role: string;
 }
+
+const ROLE_OPTIONS = [
+  { value: "teacher", label: "مدرّس" },
+  { value: "assistant-teacher", label: "مدرّس مساعد" },
+  { value: "student", label: "طالب" },
+];
 
 /** The workspace the API is acting in, falling back to the only membership. */
 function pickCurrent(workspaces: Workspace[] | undefined): Workspace | undefined {
@@ -19,150 +34,176 @@ function pickCurrent(workspaces: Workspace[] | undefined): Workspace | undefined
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("student");
+  const [failed, setFailed] = useState(false);
+
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("student");
   const [inviting, setInviting] = useState(false);
   const [error, setError] = useState("");
+  const [fields, setFields] = useState<Record<string, string>>({});
   const [invite, setInvite] = useState<{ email: string; link: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const loadMembers = () => {
-    api.get<{ data: Workspace[] }>("/workspaces")
+  const load = useCallback(() => {
+    setLoading(true);
+    setFailed(false);
+
+    api
+      .get<{ data: Workspace[] }>("/workspaces")
       .then(async (res) => {
         const current = pickCurrent(res.data);
-        if (current) {
-          const detail = await api.get<{ data: Member[] }>(`/workspaces/${current.uuid}/members`);
-          setMembers(detail.data ?? []);
-        }
+        if (!current) return setMembers([]);
+
+        const detail = await api.get<{ data: Member[] }>(
+          `/workspaces/${current.uuid}/members`,
+        );
+        setMembers(detail.data ?? []);
       })
-      .catch((err: unknown) => setError(errorMessage(err, "Could not load members")))
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  useEffect(() => { loadMembers(); }, []);
+  useEffect(load, [load]);
 
-  const handleInvite = async (e: React.FormEvent) => {
+  const submitInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setInviting(true);
     setError("");
+    setFields({});
+
     try {
       const ws = await api.get<{ data: Workspace[] }>("/workspaces");
       const current = pickCurrent(ws.data);
-      if (!current) throw new Error("No active workspace");
+      if (!current) throw new Error("no workspace");
+
       const { token } = await api.post<{ token: string }>(
         `/workspaces/${current.uuid}/invitations`,
-        { email: inviteEmail, role: inviteRole },
+        { email, role },
       );
+
       // No mail is sent yet — hand the inviter the link to pass on themselves.
-      setInvite({ email: inviteEmail, link: `${window.location.origin}/invitations/${token}` });
-      setInviteEmail("");
-      loadMembers();
+      setInvite({ email, link: `${window.location.origin}/invitations/${token}` });
+      setEmail("");
+      load();
     } catch (err: unknown) {
-      setError(errorMessage(err, "Failed to invite"));
+      const found = fieldErrors(err);
+      if (Object.keys(found).length > 0) setFields(found);
+      else setError(userMessage(err));
     } finally {
       setInviting(false);
     }
   };
 
-  if (loading) return <div className="text-gray-400">Loading...</div>;
+  const columns: Column<Member>[] = [
+    {
+      key: "name",
+      header: "الاسم",
+      render: (m) => <span className="font-medium">{m.name}</span>,
+    },
+    {
+      key: "email",
+      header: "البريد الإلكتروني",
+      render: (m) => (
+        <span className="text-ink-muted">
+          <bdi>{m.email}</bdi>
+        </span>
+      ),
+    },
+    { key: "role", header: "الدور", render: (m) => <Badge tone="info">{roleLabel(m.role)}</Badge> },
+  ];
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Workspace Members</h2>
+      <h2 className="text-2xl font-bold text-ink">أعضاء مساحة العمل</h2>
 
-      <form onSubmit={handleInvite} className="flex flex-wrap items-end gap-3 rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200">
-        {error && <div className="w-full rounded-lg bg-red-50 p-2 text-sm text-red-600">{error}</div>}
-        <div className="flex-1">
-          <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
-          <input
-            type="email"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            required
-            placeholder="member@example.com"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Role</label>
-          <select
-            value={inviteRole}
-            onChange={(e) => setInviteRole(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          >
-            <option value="teacher">Teacher</option>
-            <option value="assistant-teacher">Assistant Teacher</option>
-            <option value="student">Student</option>
-          </select>
-        </div>
-        <button
-          type="submit"
-          disabled={inviting}
-          className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {inviting ? "Inviting..." : "Invite"}
-        </button>
-      </form>
+      <Card as="section" padding="sm">
+        <form onSubmit={submitInvite} className="flex flex-wrap items-end gap-3">
+          {error && (
+            <div className="w-full">
+              <Alert tone="danger" title={error} />
+            </div>
+          )}
+
+          <div className="min-w-56 flex-1">
+            <TextField
+              id="invite_email"
+              label="البريد الإلكتروني"
+              type="email"
+              value={email}
+              onChange={setEmail}
+              error={fields.email}
+              placeholder="member@example.com"
+              required
+            />
+          </div>
+
+          <div className="min-w-40">
+            <SelectField
+              id="invite_role"
+              label="الدور"
+              value={role}
+              onChange={setRole}
+              options={ROLE_OPTIONS}
+              error={fields.role}
+            />
+          </div>
+
+          <Button type="submit" loading={inviting} loadingLabel="جارٍ الإرسال…">
+            أرسل الدعوة
+          </Button>
+        </form>
+      </Card>
 
       {invite && (
-        <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200">
-          <div className="mb-2 flex items-start justify-between gap-4">
+        <Card as="section" padding="sm">
+          <div className="mb-3 flex items-start justify-between gap-4">
             <div>
-              <p className="font-medium">Invitation ready for {invite.email}</p>
-              <p className="text-sm text-gray-500">
-                Send them this link — it expires in 7 days and only works for that address.
+              <p className="font-medium text-ink">
+                الدعوة جاهزة لـ <bdi>{invite.email}</bdi>
+              </p>
+              <p className="text-sm text-ink-muted">
+                أرسل له هذا الرابط — تنتهي صلاحيته بعد سبعة أيام ولا يعمل إلا لهذا البريد.
               </p>
             </div>
             <button
+              type="button"
               onClick={() => setInvite(null)}
-              className="text-sm text-gray-400 transition hover:text-gray-600"
-              aria-label="Dismiss"
+              aria-label="إغلاق"
+              className="rounded p-1 text-ink-muted transition hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              ✕
+              <CloseIcon className="h-4 w-4" />
             </button>
           </div>
+
           <div className="flex items-center gap-2">
-            <code className="flex-1 overflow-x-auto rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700">
-              {invite.link}
+            <code className="min-w-0 flex-1 overflow-x-auto rounded-lg bg-surface px-3 py-2 text-xs text-ink">
+              <bdi>{invite.link}</bdi>
             </code>
-            <button
+            <Button
+              size="sm"
+              variant="secondary"
               onClick={() => {
                 navigator.clipboard.writeText(invite.link);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
               }}
-              className="shrink-0 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
             >
-              {copied ? "Copied" : "Copy"}
-            </button>
+              {copied ? "نُسِخ" : "انسخ"}
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
 
-      <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
-        <table className="w-full text-sm">
-          <thead className="border-b border-gray-200 bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Name</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Email</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Role</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {members.map((m) => (
-              <tr key={m.uuid} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium">{m.name}</td>
-                <td className="px-4 py-3 text-gray-500">{m.email}</td>
-                <td className="px-4 py-3">
-                  <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium capitalize text-indigo-600">
-                    {m.role.replace(/-/g, " ")}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Table
+        columns={columns}
+        rows={members}
+        rowKey={(m) => m.uuid}
+        caption="أعضاء مساحة العمل وأدوارهم"
+        state={loading ? "loading" : failed ? "error" : "ready"}
+        onRetry={load}
+        emptyTitle="لا أعضاء في مساحة العمل غيرك"
+        emptyDescription="ادعُ مدرّساً أو مساعداً أو طالباً من النموذج أعلاه."
+      />
     </div>
   );
 }

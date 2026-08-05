@@ -8,11 +8,11 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/register/student', [AuthController::class, 'registerStudent'])
-    ->middleware(['throttle:10,1', 'idempotent']);
+    ->middleware(['throttle:registration', 'idempotent']);
 Route::post('/auth/register/parent', [ParentController::class, 'register'])
-    ->middleware(['throttle:10,1', 'idempotent']);
-Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
-Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
+    ->middleware(['throttle:registration', 'idempotent']);
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth');
+Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth');
 Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
 
 Route::middleware('auth:sanctum')->group(function (): void {

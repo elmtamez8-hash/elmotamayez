@@ -26,7 +26,7 @@ export function CourseCard({ course }: { course: Course }) {
       : discountPercent(course.price, course.price_before_discount);
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-2xl border border-line bg-white transition hover:border-primary/40 hover:shadow-sm dark:bg-transparent">
+    <article className="flex flex-col overflow-hidden rounded-2xl border border-line bg-surface-raised transition hover:border-primary/40 hover:shadow-sm">
       <div className="relative aspect-video bg-primary-soft">
         {course.cover_url ? (
           <img

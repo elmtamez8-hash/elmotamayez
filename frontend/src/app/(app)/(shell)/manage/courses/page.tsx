@@ -1,107 +1,176 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api, errorMessage } from "@/lib/api";
-import type { Course } from "@/lib/types";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { api } from "@/lib/api";
+import { userMessage } from "@/lib/errors";
+import { formatMoney, statusLabel, statusTone } from "@/lib/labels";
+import type { Course } from "@/lib/types";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { TextField } from "@/components/ui/Field";
+import { TrashIcon } from "@/components/icons";
+import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
+import { EmptyState } from "@/components/ui/states/EmptyState";
+import { ErrorState } from "@/components/ui/states/ErrorState";
 
-export default function CoursesPage() {
+export default function ManageCoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  /** uuid awaiting a second click to confirm deletion. */
+  const [confirming, setConfirming] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  useEffect(() => {
-    api.get<{ data: Course[] }>("/courses")
+  const load = useCallback(() => {
+    setLoading(true);
+    setFailed(false);
+
+    api
+      .get<{ data: Course[] }>("/courses")
       .then((res) => setCourses(res.data ?? []))
-      .catch((err: unknown) => setError(errorMessage(err, "Could not load courses")))
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(load, [load]);
 
   const filtered = search
     ? courses.filter((c) => c.title.toLowerCase().includes(search.toLowerCase()))
     : courses;
 
-  const handleDelete = async (uuid: string, title: string) => {
-    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+  const remove = async (uuid: string) => {
     setDeleting(uuid);
+    setError("");
     try {
       await api.delete(`/courses/${uuid}`);
-      setCourses(courses.filter((c) => c.uuid !== uuid));
-    } catch {
-      // ignore — permission or constraint error
+      setCourses((prev) => prev.filter((c) => c.uuid !== uuid));
+      setConfirming(null);
+    } catch (err: unknown) {
+      // Swallowing this made a permission failure look like a successful delete
+      // that simply had not rendered yet.
+      setError(userMessage(err));
     } finally {
       setDeleting(null);
     }
   };
 
-  if (loading) return <div className="text-gray-400">Loading...</div>;
-
   return (
     <div className="space-y-6">
-      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
-
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Course Catalog</h2>
-          <p className="text-gray-600">Browse and enroll in available courses</p>
+          <h2 className="text-2xl font-bold text-ink">إدارة الكورسات</h2>
+          <p className="text-ink-muted">أنشئ كورساتك وحرّرها وانشرها.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <input
-            type="text"
-            placeholder="Search courses..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-          <Link href="/manage/courses/new" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">
-            + New Course
-          </Link>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-56">
+            <TextField
+              id="course_search"
+              label="ابحث في كورساتك"
+              type="search"
+              value={search}
+              onChange={setSearch}
+              placeholder="اسم الكورس"
+            />
+          </div>
+          <Button href="/manage/courses/new">كورس جديد</Button>
         </div>
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-gray-200">
-          <p className="text-gray-500">No courses found.</p>
-        </div>
+      {error && <Alert tone="danger" title={error} />}
+
+      {loading ? (
+        <RowsSkeleton />
+      ) : failed ? (
+        <ErrorState onRetry={load} />
+      ) : filtered.length === 0 ? (
+        // "No results for your filter" is not "you have no courses": the first
+        // needs the filter cleared, the second needs a course created. Offering
+        // the wrong one leaves the user staring at data they cannot see.
+        search ? (
+          <EmptyState
+            title="لا نتائج تطابق البحث"
+            description={`لا كورس يطابق «${search}».`}
+            action={
+              <Button variant="secondary" onClick={() => setSearch("")}>
+                امسح البحث
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            title="لم تنشئ كورساً بعد"
+            description="ابدأ بكورس واحد، أضف دروسه، ثم انشره لطلابك."
+            action={<Button href="/manage/courses/new">أنشئ كورساً</Button>}
+          />
+        )
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((course) => (
-            <div
+            <article
               key={course.uuid}
-              className="group relative overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200 transition hover:shadow-md"
+              className="group relative overflow-hidden rounded-2xl border border-line bg-surface-raised transition hover:border-primary/40"
             >
-              <Link href={`/manage/courses/${course.uuid}`} className="block">
-                <div className="h-32 bg-gradient-to-br from-indigo-400 to-purple-500" />
+              <Link
+                href={`/manage/courses/${course.uuid}`}
+                className="block rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <div className="h-32 bg-primary-soft" />
                 <div className="p-5">
-                  <div className="mb-2 flex items-center gap-2">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
                     {course.is_free ? (
-                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Free</span>
+                      <Badge tone="success">مجاني</Badge>
                     ) : (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                        {course.currency} {course.price}
-                      </span>
+                      <Badge tone="warning">
+                        <bdi>{formatMoney(course.price, course.currency)}</bdi>
+                      </Badge>
                     )}
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 capitalize">
-                      {course.status}
-                    </span>
+                    <Badge tone={statusTone(course.status)}>
+                      {statusLabel(course.status)}
+                    </Badge>
                   </div>
-                  <h3 className="mb-1 font-semibold group-hover:text-indigo-600">{course.title}</h3>
-                  <p className="line-clamp-2 text-sm text-gray-500">{course.description}</p>
+                  <h3 className="mb-1 font-semibold text-ink group-hover:text-primary-ink">
+                    {course.title}
+                  </h3>
+                  <p className="line-clamp-2 text-sm text-ink-muted">
+                    {course.description}
+                  </p>
                 </div>
               </Link>
-              <button
-                onClick={() => handleDelete(course.uuid, course.title)}
-                disabled={deleting === course.uuid}
-                className="absolute right-3 top-3 rounded-lg bg-white/90 p-1.5 text-gray-500 shadow-sm opacity-0 transition group-hover:opacity-100 hover:text-red-600 disabled:opacity-50"
-                title="Delete course"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                </svg>
-              </button>
-            </div>
+
+              {/* Two clicks, not window.confirm(): a native dialog blocks the
+                  page, cannot be translated, and cannot be tested. */}
+              <div className="absolute top-3 end-3">
+                {confirming === course.uuid ? (
+                  <div className="flex gap-1 rounded-lg bg-surface-raised p-1 shadow-sm">
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      loading={deleting === course.uuid}
+                      loadingLabel="جارٍ الحذف…"
+                      onClick={() => remove(course.uuid)}
+                    >
+                      أكّد الحذف
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setConfirming(null)}>
+                      إلغاء
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirming(course.uuid)}
+                    aria-label={`احذف كورس ${course.title}`}
+                    className="rounded-lg bg-surface-raised p-1.5 text-ink-muted opacity-0 transition hover:text-danger-ink focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary group-hover:opacity-100"
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
+              </div>
+            </article>
           ))}
         </div>
       )}

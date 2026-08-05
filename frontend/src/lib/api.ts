@@ -1,3 +1,5 @@
+import { userMessage, UNKNOWN_MESSAGE } from "./errors";
+
 import type {
   ParentRegistration,
   StudentRegistration,
@@ -111,9 +113,23 @@ export function fieldErrors(err: unknown): Record<string, string> {
   return flat;
 }
 
+/**
+ * A user-facing message for a failed request.
+ *
+ * Only 422 bodies are echoed: those are validation messages, translated at their
+ * source in `backend/lang/ar/`. Every other status goes through the Arabic table
+ * in `errors.ts` — the framework's own strings ("Too Many Attempts.", "Server
+ * Error") are English and reach the screen otherwise, which FR-017 forbids.
+ *
+ * `fallback` is used only when the status maps to nothing more specific.
+ */
 export function errorMessage(err: unknown, fallback: string): string {
-  if (err instanceof Error && err.message !== "") return err.message;
-  return bodyMessage(err) ?? fallback;
+  if (err instanceof ApiError && err.status === 422 && err.message !== "") {
+    return err.message;
+  }
+
+  const mapped = userMessage(err);
+  return mapped === UNKNOWN_MESSAGE ? fallback : mapped;
 }
 
 export const api = {

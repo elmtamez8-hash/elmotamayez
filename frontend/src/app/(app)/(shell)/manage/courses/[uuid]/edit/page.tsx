@@ -1,110 +1,182 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api, errorMessage } from "@/lib/api";
+import { use, useCallback, useEffect, useState } from "react";
+import { api, fieldErrors } from "@/lib/api";
+import { userMessage } from "@/lib/errors";
 import type { Course } from "@/lib/types";
 import { useRouter } from "next/navigation";
-import { use } from "react";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import {
+  CheckboxField,
+  NumberField,
+  SelectField,
+  TextField,
+  TextareaField,
+} from "@/components/ui/Field";
+import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
+import { ErrorState } from "@/components/ui/states/ErrorState";
 
-export default function EditCoursePage({ params }: { params: Promise<{ uuid: string }> }) {
+const CURRENCIES = [
+  { value: "QAR", label: "ريال قطري" },
+  { value: "SAR", label: "ريال سعودي" },
+  { value: "AED", label: "درهم إماراتي" },
+  { value: "EGP", label: "جنيه مصري" },
+  { value: "USD", label: "دولار أمريكي" },
+];
+
+export default function EditCoursePage({
+  params,
+}: {
+  params: Promise<{ uuid: string }>;
+}) {
   const { uuid } = use(params);
   const router = useRouter();
-  const [course, setCourse] = useState<Course | null>(null);
-  const [form, setForm] = useState({ title: "", description: "", price: 0, currency: "USD", is_sequential: true });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
 
-  useEffect(() => {
-    api.get<Course>(`/courses/${uuid}`)
+  const [course, setCourse] = useState<Course | null>(null);
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    price: "0",
+    currency: "QAR",
+    is_sequential: true,
+  });
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [error, setError] = useState("");
+  const [fields, setFields] = useState<Record<string, string>>({});
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setFailed(false);
+
+    api
+      .get<Course>(`/courses/${uuid}`)
       .then((c) => {
         setCourse(c);
-        setForm({ title: c.title, description: c.description ?? "", price: c.price, currency: c.currency, is_sequential: c.is_sequential });
+        setForm({
+          title: c.title,
+          description: c.description ?? "",
+          price: String(c.price ?? 0),
+          currency: c.currency,
+          is_sequential: c.is_sequential,
+        });
       })
-      .catch((err: unknown) => setError(errorMessage(err, "Could not load this course")))
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, [uuid]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(load, [load]);
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError("");
+    setFields({});
+
     try {
-      await api.put(`/courses/${uuid}`, form);
+      await api.put(`/courses/${uuid}`, { ...form, price: parseFloat(form.price) || 0 });
       router.push(`/manage/courses/${uuid}`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Update failed";
-      setError(msg);
+      const found = fieldErrors(err);
+      if (Object.keys(found).length > 0) setFields(found);
+      else setError(userMessage(err));
     } finally {
       setSaving(false);
     }
   };
 
-  const handlePublish = async () => {
+  const publish = async () => {
+    setPublishing(true);
+    setError("");
     try {
       await api.post(`/courses/${uuid}/publish`);
-      router.refresh();
+      // Refetch rather than router.refresh(): this is a client component and
+      // the status badge is read from state, not from a server render.
+      load();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Publish failed";
-      setError(msg);
+      setError(userMessage(err));
+    } finally {
+      setPublishing(false);
     }
   };
 
-  if (loading) return <div className="text-gray-400">Loading...</div>;
-  if (!course) return <div className="text-red-500">Course not found</div>;
+  if (loading) return <RowsSkeleton count={4} />;
+  if (failed || !course) return <ErrorState onRetry={load} />;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Edit Course</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-2xl font-bold text-ink">تعديل الكورس</h2>
         {course.status === "draft" && (
-          <button onClick={handlePublish} className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700">
-            Publish Course
-          </button>
+          <Button loading={publishing} loadingLabel="جارٍ النشر…" onClick={publish}>
+            انشر الكورس
+          </Button>
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-        {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Title</label>
-          <input type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
-          <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={4}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Price</label>
-            <input type="number" step="0.01" min="0" value={form.price}
-              onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+      <Card as="section">
+        <form onSubmit={submit} className="space-y-4">
+          {error && <Alert tone="danger" title={error} />}
+
+          <TextField
+            id="title"
+            label="عنوان الكورس"
+            value={form.title}
+            onChange={(v) => setForm({ ...form, title: v })}
+            error={fields.title}
+            required
+          />
+
+          <TextareaField
+            id="description"
+            label="الوصف"
+            value={form.description}
+            onChange={(v) => setForm({ ...form, description: v })}
+            error={fields.description}
+          />
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <NumberField
+              id="price"
+              label="السعر"
+              value={form.price}
+              onChange={(v) => setForm({ ...form, price: v })}
+              error={fields.price}
+              min={0}
+              step={0.01}
+              hint="صفر يعني كورساً مجانياً."
+            />
+            <SelectField
+              id="currency"
+              label="العملة"
+              value={form.currency}
+              onChange={(v) => setForm({ ...form, currency: v })}
+              options={CURRENCIES}
+              error={fields.currency}
+            />
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Currency</label>
-            <select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-              <option value="USD">USD</option><option value="EUR">EUR</option><option value="SAR">SAR</option><option value="AED">AED</option><option value="EGP">EGP</option>
-            </select>
+
+          <CheckboxField
+            id="is_sequential"
+            label="تسلسل إجباري — لا يفتح الدرس التالي قبل إتمام السابق"
+            checked={form.is_sequential}
+            onChange={(v) => setForm({ ...form, is_sequential: v })}
+          />
+
+          <div className="flex flex-wrap gap-3">
+            <Button type="submit" loading={saving} loadingLabel="جارٍ الحفظ…">
+              احفظ التغييرات
+            </Button>
+            <Button variant="secondary" onClick={() => router.back()}>
+              إلغاء
+            </Button>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <input type="checkbox" id="seq" checked={form.is_sequential} onChange={(e) => setForm({ ...form, is_sequential: e.target.checked })}
-            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-          <label htmlFor="seq" className="text-sm text-gray-700">Sequential learning</label>
-        </div>
-        <div className="flex gap-3">
-          <button type="submit" disabled={saving}
-            className="rounded-lg bg-indigo-600 px-6 py-2.5 font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50">
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
-          <button type="button" onClick={() => router.back()}
-            className="rounded-lg border border-gray-300 px-6 py-2.5 font-medium text-gray-600 transition hover:bg-gray-50">Cancel</button>
-        </div>
-      </form>
+        </form>
+      </Card>
     </div>
   );
 }

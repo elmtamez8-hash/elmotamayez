@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, errorMessage, hasAuthToken } from "@/lib/api";
-import { SubmitButton } from "./SubmitButton";
+import { Button } from "@/components/ui/Button";
 
 const RATINGS = [5, 4, 3, 2, 1] as const;
 
@@ -132,7 +132,7 @@ export function ReviewForm({ teacherUuid }: { teacherUuid: string }) {
           </p>
         )}
 
-        <SubmitButton loading={submitting}>إرسال التقييم</SubmitButton>
+        <Button type="submit" variant="accent" size="lg" fullWidth loading={submitting}>إرسال التقييم</Button>
       </form>
     </section>
   );

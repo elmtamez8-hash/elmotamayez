@@ -10,7 +10,7 @@ import { AvailabilityCalendar } from "@/components/marketplace/AvailabilityCalen
 import { FaqAccordion } from "@/components/marketplace/FaqAccordion";
 import { CourseCard } from "@/components/marketplace/CourseCard";
 import { ReviewsTab } from "@/components/marketplace/ReviewsTab";
-import { EmptyState } from "@/components/marketplace/states/EmptyState";
+import { EmptyState } from "@/components/ui/states/EmptyState";
 import {
   ProfileTabs,
   isProfileTab,
@@ -165,7 +165,7 @@ export default async function TeacherProfilePage({
             while the tabs scroll. On mobile it sits between the identity block and
             the tabs, which is where a price belongs on a phone. */}
         <aside className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-24">
-          <div className="rounded-2xl border border-line bg-white p-6 dark:bg-transparent">
+          <div className="rounded-2xl border border-line bg-surface-raised p-6">
             <p className="mb-1 text-sm text-ink-muted">السعر لكل حصة</p>
             <p className="mb-5 text-3xl font-extrabold text-ink">
               {teacher.hourly_rate}{" "}

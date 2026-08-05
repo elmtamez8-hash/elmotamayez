@@ -7,6 +7,11 @@ import { test, expect } from "@playwright/test";
  * are about structure and shareability, not styling.
  */
 
+// Anonymous, as the docblock says. Since 002 the projects carry an
+// authenticated storageState for the panel audit, and inheriting it here
+// would quietly test a signed-in visitor instead.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 const PROFILE_URL = /\/teachers\/[0-9a-f-]{36}/;
 
 test.describe("public discovery", () => {

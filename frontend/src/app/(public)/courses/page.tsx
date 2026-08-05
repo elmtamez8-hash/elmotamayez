@@ -8,9 +8,9 @@ import {
 } from "@/lib/public-api";
 import { CourseCard } from "@/components/marketplace/CourseCard";
 import { CourseFilters } from "@/components/marketplace/CourseFilters";
-import { Pagination } from "@/components/marketplace/Pagination";
-import { EmptyState } from "@/components/marketplace/states/EmptyState";
-import { ErrorState } from "@/components/marketplace/states/ErrorState";
+import { Pagination } from "@/components/ui/Pagination";
+import { EmptyState } from "@/components/ui/states/EmptyState";
+import { ErrorState } from "@/components/ui/states/ErrorState";
 
 export const revalidate = 60;
 

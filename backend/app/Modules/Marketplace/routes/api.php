@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware('throttle:60,1')->prefix('marketplace')->name('marketplace.')->group(function (): void {
+Route::middleware('throttle:public')->prefix('marketplace')->name('marketplace.')->group(function (): void {
     Route::get('/home', [PublicMarketplaceController::class, 'home'])->name('home');
     Route::get('/stats', [PublicMarketplaceController::class, 'stats'])->name('stats');
     Route::get('/subjects', [PublicMarketplaceController::class, 'subjects'])->name('subjects');
@@ -48,7 +48,7 @@ Route::middleware('throttle:60,1')->prefix('marketplace')->name('marketplace.')-
 */
 
 Route::post('/auth/register/teacher/step-1', [TeacherApplicationController::class, 'register'])
-    ->middleware(['throttle:10,1', 'idempotent']);
+    ->middleware(['throttle:registration', 'idempotent']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/teacher/application', [TeacherApplicationController::class, 'show']);

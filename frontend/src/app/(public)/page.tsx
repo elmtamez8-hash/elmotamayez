@@ -6,8 +6,8 @@ import { CourseCard } from "@/components/marketplace/CourseCard";
 import { SubjectsGrid } from "@/components/marketplace/SubjectsGrid";
 import { FaqAccordion } from "@/components/marketplace/FaqAccordion";
 import { TestimonialsCarousel } from "@/components/marketplace/TestimonialsCarousel";
-import { EmptyState } from "@/components/marketplace/states/EmptyState";
-import { ErrorState } from "@/components/marketplace/states/ErrorState";
+import { EmptyState } from "@/components/ui/states/EmptyState";
+import { ErrorState } from "@/components/ui/states/ErrorState";
 
 // Server-rendered: a crawler that runs no JavaScript must still read the teachers
 // and copy (SC-016), and client-side fetching would put first paint out of reach
@@ -42,7 +42,7 @@ function StatBar({ stats }: { stats: HomePayload["stats"] }) {
   ];
 
   return (
-    <section aria-label="أرقام المنصة" className="border-y border-line bg-white dark:bg-transparent">
+    <section aria-label="أرقام المنصة" className="border-y border-line bg-surface-raised">
       <dl className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-10 sm:px-6 lg:grid-cols-4">
         {items.map((item) => (
           <div key={item.label} className="text-center">
@@ -73,7 +73,10 @@ export default async function HomePage() {
 
   return (
     <>
-      <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
+      {/* bg-grid paints squared-paper lines behind the hero and fades them out
+          before they reach the body copy. Decorative only — it is a ::before with
+          no content, so nothing new lands in the accessibility tree. */}
+      <section className="bg-grid mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
         <div>
           <h1 className="mb-5 text-3xl font-extrabold leading-tight text-ink sm:text-4xl lg:text-5xl">
             مدرّسك الخصوصي الموثوق،
@@ -124,7 +127,7 @@ export default async function HomePage() {
           {STEPS.map((step, index) => (
             <li
               key={step.title}
-              className="rounded-2xl border border-line bg-white p-6 dark:bg-transparent"
+              className="rounded-2xl border border-line bg-surface-raised p-6"
             >
               <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-base font-bold text-white">
                 {index + 1}
@@ -198,7 +201,7 @@ export default async function HomePage() {
         )}
       </section>
 
-      <section className="bg-white py-16 dark:bg-transparent">
+      <section className="bg-surface-raised py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <h2 className="mb-10 text-center text-2xl font-extrabold text-ink sm:text-3xl">
             ماذا يقول الطلاب وأولياء الأمور

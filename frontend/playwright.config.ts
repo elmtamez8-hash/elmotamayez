@@ -24,16 +24,25 @@ export default defineConfig({
     trace: "on-first-retry",
   },
 
-  projects: WIDTHS.flatMap(({ name, width, height }) =>
-    SCHEMES.map((colorScheme) => ({
-      name: `${name}-${colorScheme}`,
-      use: {
-        ...devices["Desktop Chrome"],
-        viewport: { width, height },
-        colorScheme,
-      },
-    })),
-  ),
+  projects: [
+    // Signs in once and writes the token to storageState; every project below
+    // reuses it. Panel pages are behind a guard, so without this the whole
+    // matrix would audit /login six times over (SC-006).
+    { name: "setup", testMatch: /auth\.setup\.ts/ },
+
+    ...WIDTHS.flatMap(({ name, width, height }) =>
+      SCHEMES.map((colorScheme) => ({
+        name: `${name}-${colorScheme}`,
+        dependencies: ["setup"],
+        use: {
+          ...devices["Desktop Chrome"],
+          viewport: { width, height },
+          colorScheme,
+          storageState: "e2e/.auth/user.json",
+        },
+      })),
+    ),
+  ],
 
   // A production build, not `next dev`. The dev server compiles each route on
   // first request, which makes a cold run flaky for no product reason, and its
