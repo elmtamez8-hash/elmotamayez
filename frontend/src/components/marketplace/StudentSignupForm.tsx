@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { auth, setToken, errorMessage, fieldErrors } from "@/lib/api";
+import { auth, setToken, setSessionUuid, errorMessage, fieldErrors } from "@/lib/api";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import { homePathFor } from "@/lib/auth-context";
 import type { Taxonomy } from "@/lib/public-api";
@@ -92,7 +92,7 @@ export function StudentSignupForm({
     setLoading(true);
 
     try {
-      const { user, token } = await auth.registerStudent(
+      const { user, token, session_uuid } = await auth.registerStudent(
         {
           ...form,
           phone: toE164(dial, phone),
@@ -102,6 +102,7 @@ export function StudentSignupForm({
       );
 
       setToken(token);
+      setSessionUuid(session_uuid);
       // Came from a teacher's booking CTA — return there rather than to a
       // generic landing page, so the intent that started the signup survives it.
       router.push(teacherUuid ? `/teachers/${teacherUuid}` : homePathFor(user));

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { auth, setToken, clearToken } from "@/lib/api";
+import { auth, setToken, setSessionUuid, clearToken } from "@/lib/api";
 import type { User } from "@/lib/types";
 
 interface AuthContextValue {
@@ -49,8 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const { user, token } = await auth.login(email, password);
+    const { user, token, session_uuid } = await auth.login(email, password);
     setToken(token);
+    setSessionUuid(session_uuid);
     setUser(user);
 
     return user;

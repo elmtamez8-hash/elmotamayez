@@ -100,6 +100,29 @@ export function difficultyLabel(level: string): string {
   return DIFFICULTY_LABELS[level] ?? level;
 }
 
+/**
+ * Why a session ended, as the person who was signed out reads it.
+ *
+ * Kept here rather than taken from the API on purpose: the endpoint that answers
+ * this is unauthenticated, so it returns a code and two fields — a sentence
+ * there would be a sentence anyone could fetch. `null` is a real answer, not a
+ * failure: it means the session is still alive and the sign-out was ordinary.
+ */
+const SESSION_ENDED_LABELS: Record<string, string> = {
+  device_limit: "سُجّل الدخول إلى حسابك من جهاز آخر، فأُنهيت هذه الجلسة.",
+  password_change: "تغيّرت كلمة مرور حسابك، فأُنهيت الجلسات الأخرى.",
+  two_factor_change: "تغيّرت إعدادات التحقّق بخطوتين، فأُنهيت الجلسات الأخرى.",
+  manual: "أُنهيت هذه الجلسة من قائمة أجهزتك.",
+  expired: "انتهت صلاحية الجلسة.",
+  logout: "سجّلت الخروج.",
+};
+
+export function sessionEndedLabel(reason: string | null): string | null {
+  if (reason === null) return null;
+
+  return SESSION_ENDED_LABELS[reason] ?? "انتهت جلستك. سجّل الدخول من جديد.";
+}
+
 const ROLE_LABELS: Record<string, string> = {
   owner: "مالك",
   admin: "مدير",

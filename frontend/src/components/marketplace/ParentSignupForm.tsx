@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { auth, setToken, errorMessage, fieldErrors } from "@/lib/api";
+import { auth, setToken, setSessionUuid, errorMessage, fieldErrors } from "@/lib/api";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
 import { Button } from "@/components/ui/Button";
@@ -84,12 +84,13 @@ export function ParentSignupForm() {
     setLoading(true);
 
     try {
-      const { token } = await auth.registerParent(
+      const { token, session_uuid } = await auth.registerParent(
         { ...form, phone: toE164(dial, phone) },
         idempotencyKey,
       );
 
       setToken(token);
+      setSessionUuid(session_uuid);
       router.push("/signup/parent/children");
     } catch (err: unknown) {
       const fields = fieldErrors(err);

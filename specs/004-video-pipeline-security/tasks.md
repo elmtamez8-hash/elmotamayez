@@ -206,11 +206,11 @@ description: "Task list for 004-video-pipeline-security"
 
 ### الواجهة — اكتشاف الإنهاء (research §R15)
 
-- [ ] T087 [US3] أضف معالج `401` عاماً في `frontend/src/lib/api.ts`: مسح الرمز + تحويل إلى `/login?ended={reason}` بالسبب من `end-reason`، وحفظ `session_uuid` عند الدخول
-- [ ] T088 [US3] حوّل `frontend/src/components/app/NotificationBell.tsx` من نداء واحد عند التركيب إلى **استطلاع كل ٦٠ ثانية** — يصلح الشارة ويؤدّي دور نبض الجلسة بنفس النداء. أضف تعليق `ponytail:` يسمّي Reverb (المرحلة 010) مسار الترقية
-- [ ] T089 [US3] اعرض سبب الخروج على `frontend/src/app/(app)/login/page.tsx` من `?ended=` برسالة عربية من `src/lib/labels.ts`
-- [ ] T090 [US3] أنشئ `frontend/src/app/(app)/(shell)/settings/security/page.tsx` بقائمة الأجهزة والجلسات وزر إنهاء لكلٍّ منها (FR-024)، مبنيّة على `components/ui/`
-- [ ] T091 [US3] أضف بطاقة رابط إلى `/settings/security` في `frontend/src/app/(app)/(shell)/settings/page.tsx` — **في نفس المهمة** التي تُنشئ الصفحة
+- [X] T087 [US3] أضف معالج `401` عاماً في `frontend/src/lib/api.ts`: مسح الرمز + تحويل إلى `/login?ended={reason}` بالسبب من `end-reason`، وحفظ `session_uuid` عند الدخول
+- [X] T088 [US3] حوّل `frontend/src/components/app/NotificationBell.tsx` من نداء واحد عند التركيب إلى **استطلاع كل ٦٠ ثانية** — يصلح الشارة ويؤدّي دور نبض الجلسة بنفس النداء. أضف تعليق `ponytail:` يسمّي Reverb (المرحلة 010) مسار الترقية
+- [X] T089 [US3] اعرض سبب الخروج على `frontend/src/app/(app)/login/page.tsx` من `?ended=` برسالة عربية من `src/lib/labels.ts`
+- [X] T090 [US3] أنشئ `frontend/src/app/(app)/(shell)/settings/security/page.tsx` بقائمة الأجهزة والجلسات وزر إنهاء لكلٍّ منها (FR-024)، مبنيّة على `components/ui/`
+- [X] T091 [US3] أضف بطاقة رابط إلى `/settings/security` في `frontend/src/app/(app)/(shell)/settings/page.tsx` — **في نفس المهمة** التي تُنشئ الصفحة
 
 **Checkpoint**: البديل المجاني للشراء مغلق، والإنهاء يصل صاحبه بلا أن يفعل شيئاً.
 

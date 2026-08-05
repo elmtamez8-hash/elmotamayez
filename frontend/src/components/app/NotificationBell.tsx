@@ -15,24 +15,42 @@ import { notifications } from "@/lib/notifications";
  *
  * A failed count renders as no badge. A header that cannot count is not worth
  * an error banner — the notifications page will say so if it is also down.
+ *
+ * It also polls, and that second job is why the interval exists at all: the bell
+ * is on every panel page, so this is the request that discovers a session ended
+ * from another device even when the user is doing nothing — reading a page,
+ * watching a video, or away from the keyboard. The 401 handler in lib/api.ts
+ * does the rest. Without it, a signed-out account keeps showing its owner a
+ * screen they are no longer entitled to until they next click something.
+ *
+ * ponytail: polling, not push. Reverb (spec 010) replaces this with a socket;
+ * one request a minute per open tab is not worth a WebSocket before then.
  */
+const POLL_SECONDS = 60;
+
 export function NotificationBell() {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
 
-    notifications
-      .unreadCount()
-      .then(({ unread_count }) => {
-        if (!cancelled) setCount(unread_count);
-      })
-      .catch(() => {
-        if (!cancelled) setCount(0);
-      });
+    const poll = () => {
+      notifications
+        .unreadCount()
+        .then(({ unread_count }) => {
+          if (!cancelled) setCount(unread_count);
+        })
+        .catch(() => {
+          if (!cancelled) setCount(0);
+        });
+    };
+
+    poll();
+    const timer = window.setInterval(poll, POLL_SECONDS * 1000);
 
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
   }, []);
 

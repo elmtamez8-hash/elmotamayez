@@ -7,6 +7,7 @@ import { userMessage } from "@/lib/errors";
 import { PLATFORM_NAME } from "@/lib/platform";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { sessionEndedLabel } from "@/lib/labels";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/Field";
@@ -17,6 +18,9 @@ function LoginForm() {
   const searchParams = useSearchParams();
   // Arrived from an invitation link: go back to it so the user can accept.
   const invitation = searchParams.get("invitation");
+  // Arrived here because a session ended elsewhere — say which, so an eviction
+  // by someone else using the account does not read as a bug in the app.
+  const ended = sessionEndedLabel(searchParams.get("ended"));
 
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
@@ -54,6 +58,12 @@ function LoginForm() {
           onSubmit={submit}
           className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"
         >
+          {ended !== null && error === "" && (
+            <Alert tone="warning" title="أُنهيت جلستك">
+              {ended}
+            </Alert>
+          )}
+
           {error && <Alert tone="danger" title={error} />}
 
           <TextField
