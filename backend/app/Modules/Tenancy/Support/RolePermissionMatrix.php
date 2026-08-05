@@ -43,6 +43,11 @@ final class RolePermissionMatrix
             Permissions::CMS_CREATE,
             Permissions::CMS_UPDATE,
             Permissions::ANALYTICS_VIEW,
+            // Reaching a student's guardians is gated twice: this permission, and
+            // an active enrollment in this workspace (ParentStudentRelationPolicy).
+            // The relations table is platform-owned and carries no workspace_id,
+            // so nothing else stops a teacher from reading another teacher's rows.
+            Permissions::RELATIONS_VIEW_STUDENT,
         ]);
 
         $teacher = array_merge($assistantTeacher, [

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Identity\Http\Controllers\AuthController;
+use App\Modules\Identity\Http\Controllers\FamilyController;
 use App\Modules\Identity\Http\Controllers\ParentController;
 use Illuminate\Support\Facades\Route;
 
@@ -25,9 +26,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('signed')
         ->name('verification.verify');
 
-    Route::get('/parent/children', [ParentController::class, 'children']);
-    Route::post('/parent/children', [ParentController::class, 'addChild']);
-    Route::get('/parent/children/{uuid}', [ParentController::class, 'showChild']);
-    Route::get('/parent/notification-preferences', [ParentController::class, 'notificationPreferences']);
-    Route::put('/parent/notification-preferences', [ParentController::class, 'updateNotificationPreferences']);
+    // Guardians and the students they follow. Replaces /parent/children, which
+    // could only express "linked", not who may see what (spec 003).
+    Route::get('/family/relations', [FamilyController::class, 'index']);
+    Route::post('/family/relations', [FamilyController::class, 'store']);
+    Route::get('/family/relations/{uuid}', [FamilyController::class, 'show']);
+    Route::patch('/family/relations/{uuid}', [FamilyController::class, 'update']);
+    Route::delete('/family/relations/{uuid}', [FamilyController::class, 'destroy']);
 });

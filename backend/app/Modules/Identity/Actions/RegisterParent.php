@@ -6,7 +6,6 @@ namespace App\Modules\Identity\Actions;
 
 use App\Models\User;
 use App\Modules\Identity\Data\RegisterParentData;
-use App\Modules\Identity\Models\NotificationPreference;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Shared\Actions\Action;
 use Illuminate\Auth\Events\Registered;
@@ -28,14 +27,11 @@ class RegisterParent extends Action
             'platform_role' => PlatformRole::Parent,
         ])->save();
 
-        // Both on by default. A parent signs up precisely to be told how their
-        // child is doing; defaulting to silence would make the account useless
-        // until they find a settings page (FR-077).
-        NotificationPreference::query()->create([
-            'user_id' => $user->getKey(),
-            'weekly_reports' => true,
-            'session_alerts' => true,
-        ]);
+        // No preference rows are written. Since spec 003, absence means "use the
+        // type's defaults" (FR-028), and every default is on — a parent signs up
+        // precisely to be told how their child is doing. Seeding a row per type
+        // per user would say the same thing in twelve rows instead of none, and
+        // would freeze today's defaults for accounts created today.
 
         // No workspace and no tenant role, same as a student (FR-010).
         event(new Registered($user));

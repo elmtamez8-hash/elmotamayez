@@ -9,6 +9,7 @@ use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Support\WorkspaceContext;
+use Database\Seeders\NotificationTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
@@ -18,6 +19,19 @@ use Tests\TestCase;
 uses(TestCase::class, RefreshDatabase::class)->in('Feature', 'Unit');
 
 uses(WithWorkspace::class)->in('Feature');
+
+/*
+ * Message templates are reference data, not fixtures.
+ *
+ * A dispatch with no template for its type renders nothing and is dropped with a
+ * logged error (FR-037), so without this every notification assertion in the
+ * suite would pass vacuously — asserting zero and getting zero. Seeded here
+ * rather than per-test for the same reason roles are: it is a precondition of
+ * the app running at all, not of any one scenario.
+ */
+uses()->beforeEach(function (): void {
+    $this->seed(NotificationTemplateSeeder::class);
+})->in('Feature');
 
 /*
 |--------------------------------------------------------------------------

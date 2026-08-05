@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Modules\Identity\Models\ParentStudentRelation;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Notifications\Models\Notification;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -89,6 +92,42 @@ class User extends Authenticatable implements MustVerifyEmail
     public function teacherProfile(): HasOne
     {
         return $this->hasOne(TeacherProfile::class);
+    }
+
+    /**
+     * The user's notification feed.
+     *
+     * Overrides the relation Notifiable ships, which points at Laravel's own
+     * notifications schema — a table this application replaced (spec 003). The
+     * trait itself stays: Laravel's password-reset and email-verification mails
+     * go through notify(), and a reset link delivered in-app would be unreachable
+     * by definition, since the person asking for it cannot sign in to read it.
+     *
+     * @return HasMany<Notification, $this>
+     */
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(Notification::class, 'recipient_user_id')->latest('id');
+    }
+
+    /**
+     * Guardians and parents linked to this user as the student.
+     *
+     * @return HasMany<ParentStudentRelation, $this>
+     */
+    public function guardianRelations(): HasMany
+    {
+        return $this->hasMany(ParentStudentRelation::class, 'student_user_id');
+    }
+
+    /**
+     * Students this user is a guardian or parent of.
+     *
+     * @return HasMany<ParentStudentRelation, $this>
+     */
+    public function wardRelations(): HasMany
+    {
+        return $this->hasMany(ParentStudentRelation::class, 'guardian_user_id');
     }
 
     /**

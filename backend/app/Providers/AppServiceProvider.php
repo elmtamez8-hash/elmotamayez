@@ -74,6 +74,14 @@ class AppServiceProvider extends ServiceProvider
         // Public browsing. Generous: a visitor opening several teacher profiles in
         // a row is the behaviour the marketplace exists for.
         RateLimiter::for('public', fn (Request $request) => Limit::perMinute(60)->by((string) $request->ip()));
+
+        // Contact verification. Keyed by user as well as IP: sending codes costs
+        // money at the provider, and one account looping the endpoint should not
+        // be able to spend the whole office's allowance.
+        RateLimiter::for('contact-verification', fn (Request $request) => [
+            Limit::perMinute(5)->by('ip:'.$request->ip()),
+            Limit::perHour(10)->by('user:'.(string) $request->user()?->getKey()),
+        ]);
     }
 
     /**

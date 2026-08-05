@@ -16,6 +16,9 @@ use App\Modules\Identity\Http\Requests\RegisterStudentRequest;
 use App\Modules\Identity\Http\Requests\ResetPasswordRequest;
 use App\Modules\Identity\Http\Requests\UpdateProfileRequest;
 use App\Modules\Identity\Http\Resources\UserResource;
+use App\Modules\Notifications\Actions\DispatchNotification;
+use App\Modules\Notifications\Data\NotificationRequest;
+use App\Modules\Notifications\Support\NotificationType;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
@@ -89,12 +92,24 @@ class AuthController extends Controller
         return response()->json(UserResource::make($user->fresh()));
     }
 
-    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    public function changePassword(ChangePasswordRequest $request, DispatchNotification $notify): JsonResponse
     {
         $request->ensureCurrentPasswordIsValid();
 
         $user = $this->currentUser($request);
         $user->update(['password' => $request->validated('password')]);
+
+        // Mandatory type: it cannot be switched off, deferred or digested. A
+        // password change the account holder did not make is the one message that
+        // has to arrive at 3am if it happens at 3am.
+        $notify->handle(new NotificationRequest(
+            recipient: $user,
+            type: NotificationType::SecurityAlert,
+            variables: [
+                'name' => $user->name,
+                'event' => 'تم تغيير كلمة مرور حسابك.',
+            ],
+        ));
 
         return response()->json(['message' => 'Password changed successfully.']);
     }

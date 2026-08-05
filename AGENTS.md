@@ -110,6 +110,8 @@ Tests use in-memory SQLite (`DB_DATABASE=:memory:` in `phpunit.xml`).
 8. Payment approval → enrollment auto-creation — `tests/Feature/Payments/PaymentTest.php`
 9. Public marketplace leak guard — `tests/Feature/Marketplace/PublicExposureTest.php`
 10. Trust-score job workspace isolation — `tests/Feature/Marketplace/TrustScoreJobIsolationTest.php`
+11. Platform-owned entity guard — `tests/Feature/Notifications/PlatformOwnershipTest.php`
+12. Provider-agnostic notifications — `tests/Feature/Notifications/ProviderAgnosticTest.php`
 
 ### Read before touching any public marketplace route
 
@@ -124,6 +126,34 @@ In the queue, `WorkspaceContext::set()` is forbidden: the singleton caches its
 resolution and leaks the workspace into the next job on the same worker. Use
 `forWorkspace()`. Test 10 above fails the build if a `set()` reappears.
 
+### Read before adding any model (spec 003 onward)
+
+The constitution classifies every entity into one of three ownership layers, and
+the classification must be stated in the feature spec before the migration is
+written:
+
+- **Platform-owned** — follows the student across every teacher (feed,
+  preferences, guardians). **No** `BelongsToWorkspace`; the guard is row ownership,
+  written explicitly in the Action or Policy. There is no global scope on these.
+- **Workspace-owned** — what a teacher produces. `BelongsToWorkspace`,
+  `WorkspaceRules::exists()`, plus a case in `WorkspaceIsolationTest`.
+- **Bridge** — carries `workspace_id` for context and points at the platform user.
+
+A teacher reading a platform-owned row about a student needs an **active
+enrollment in their own workspace**, not just a permission. Both failure
+directions are covered by `PlatformOwnershipTest`, including the mirror-image bug:
+`BelongsToWorkspace` applied where it does not belong duplicates one person per
+teacher, and shows up months later as several accounts for one child.
+
+### Notifications
+
+Business logic calls `DispatchNotification` with a recipient and a
+`NotificationType`. It never names a channel — channels live behind
+`NotificationChannelInterface` and are added with one `->tag()` line.
+`ProviderAgnosticTest` fails the build if a provider name appears under any
+`Actions/`. `Notifiable` stays on `User` for password reset and email
+verification only.
+
 ## Module Map
 
 | Module | Path | Key Models |
@@ -135,7 +165,7 @@ resolution and leaks the workspace into the next job on the same worker. Use
 | Assessments | `app/Modules/Assessments/` | Exam, Question, QuestionOption, Attempt, Answer |
 | Certificates | `app/Modules/Certificates/` | Certificate, CertificateTemplate |
 | Payments | `app/Modules/Payments/` | Order, Product, PaymentTransaction |
-| Notifications | `app/Modules/Notifications/` | (Laravel notifications + listeners) |
+| Notifications | `app/Modules/Notifications/` | Notification, NotificationDelivery, NotificationPreference, MessageTemplate, ContactVerification |
 | Marketplace | `app/Modules/Marketplace/` | TeacherProfile, TeacherApplication, Subject, GradeLevel, AvailabilitySlot, Review, Complaint |
 | Analytics | `app/Modules/Analytics/` | (Filament widgets) |
 | CMS | `app/Modules/CMS/` | Article, Category, Tag |

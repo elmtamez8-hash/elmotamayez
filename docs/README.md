@@ -25,7 +25,7 @@
 | Assessments | `app/Modules/Assessments/` | Exam, Question, QuestionOption, Attempt, Answer | Exams CRUD + questions CRUD + attempts |
 | Certificates | `app/Modules/Certificates/` | Certificate, CertificateTemplate | Certificates (list, verify, regenerate) + templates CRUD |
 | Payments | `app/Modules/Payments/` | Order, Product, PaymentTransaction | Orders (create, receipt, approve, reject) |
-| Notifications | `app/Modules/Notifications/` | (Laravel notifications + listeners) | Event-driven |
+| Notifications | `app/Modules/Notifications/` | Notification, NotificationDelivery, NotificationPreference, MessageTemplate, ContactVerification | Notification centre + preferences + contact verification |
 | Analytics | `app/Modules/Analytics/` | (Filament widgets) | Admin dashboard |
 | CMS | `app/Modules/CMS/` | Article, Category, Tag | Articles CRUD + publish |
 | Marketplace | `app/Modules/Marketplace/` | TeacherProfile, TeacherApplication, Subject, GradeLevel, AvailabilitySlot, Review, Complaint | Public listings (no auth) + teacher application + academic review + reviews/complaints |
@@ -88,6 +88,53 @@ Constants in `Tenancy\Support\Permissions` — never string literals.
 | `marketplace.reviews.moderate` | Hide a review (`is_visible = false`) and trigger recalculation |
 | `marketplace.complaints.manage` | Confirm or dismiss a complaint |
 | `marketplace.participation.manage` | Toggle the workspace's marketplace participation |
+
+### Notification permissions
+
+| Permission | Grants |
+|---|---|
+| `notifications.logs.view` | Read the delivery log in the admin panel (super admin) |
+| `notifications.templates.manage` | Edit message wording without a deploy (super admin) |
+| `relations.view.student` | May *ever* read a student's guardians — teacher and assistant |
+
+`relations.view.student` is **not sufficient on its own.** `parent_student_relations`
+is platform-owned and carries no `workspace_id`, so nothing scopes it implicitly.
+`ParentStudentRelationPolicy` additionally requires the student to hold an **active
+enrollment in the reader's own workspace** (Constitution I, teacher-visibility
+guard). The permission answers "may this role ever look?"; the policy answers "at
+this student?". Both, or 403.
+
+### Notification endpoints
+
+All behind `auth:sanctum`; there is no public route in this module.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/notifications` | Feed, newest first. `?unread=1` · `?workspace={uuid}` · `?type=` |
+| GET | `/notifications/unread-count` | Served by the `(recipient_user_id, read_at, id)` index |
+| POST | `/notifications/{uuid}/read` | Idempotent. 404 (not 403) for someone else's row |
+| POST | `/notifications/read-all` | One UPDATE |
+| GET | `/notifications/types` | Types + **implemented** channels only |
+| GET·PUT | `/notifications/preferences` | 422 on a mandatory type or an unimplemented channel |
+| PUT | `/notifications/quiet-hours` | Both ends or neither |
+| GET·POST | `/family/relations` | Guardians; POST refuses a second active parent |
+| GET·PATCH·DELETE | `/family/relations/{uuid}` | DELETE revokes, never deletes |
+| POST | `/contact-verifications` | `throttle:contact-verification` — never an inline limit |
+| POST | `/contact-verifications/{uuid}/confirm` | Code is hashed; never returned over HTTP |
+
+`?workspace=` is a **filter, not a scope**: omitting it returns the whole feed
+across every teacher, which is what lets one parent follow one child in one place.
+
+### Notification events
+
+`NotificationRequested` → `NotificationQueued` → `NotificationDelivered` |
+`NotificationFailed`. Everything after dispatch runs in a queue worker, so this
+chain is the only window into a message that never arrived.
+
+Channels sit behind `Notifications\Contracts\NotificationChannelInterface`. Adding
+one is a class plus a `->tag('notification.channels')` line — no listener, action
+or type changes. `ProviderAgnosticTest` fails the build if any `Actions/` file
+names a channel or provider.
 
 ### Platform roles (orthogonal to workspace roles)
 

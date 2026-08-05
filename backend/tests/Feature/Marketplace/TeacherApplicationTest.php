@@ -10,14 +10,13 @@ use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherApplication;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Marketplace\Support\PlatformWorkspace;
-use App\Modules\Notifications\Notifications\TeacherApprovedNotification;
-use App\Modules\Notifications\Notifications\TeacherChangesRequestedNotification;
-use App\Modules\Notifications\Notifications\TeacherRejectedNotification;
+use App\Modules\Notifications\Models\Notification;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Support\WorkspaceContext;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -80,6 +79,24 @@ function seedPlatformTaxonomy(): Workspace
     });
 
     return $workspace;
+}
+
+/**
+ * Notifications of one type that actually reached a user.
+ *
+ * Since spec 003 there is no Notification::fake() to assert against: dispatch
+ * writes a row and queues per-channel jobs, so the row IS the evidence. This also
+ * asserts something the fake could not — that exactly one record exists however
+ * many channels carried it (FR-007).
+ *
+ * @return Collection<int, Notification>
+ */
+function notificationsFor(User $user, NotificationType $type)
+{
+    return Notification::query()
+        ->forRecipient($user)
+        ->where('type', $type->value)
+        ->get();
 }
 
 /** A reviewer holding the marketplace review permissions inside a workspace. */
@@ -237,7 +254,6 @@ it('freezes the application once submitted', function (): void {
 });
 
 it('approves an application, lists the teacher and notifies them', function (): void {
-    Notification::fake();
 
     $application = completeWizard();
     $this->postJson('/api/v1/teacher/application/submit')->assertOk();
@@ -251,7 +267,7 @@ it('approves an application, lists the teacher and notifies them', function (): 
 
     expect($application->fresh()?->reviewed_by)->toBe($reviewer->getKey());
 
-    Notification::assertSentTo($application->user, TeacherApprovedNotification::class);
+    expect(notificationsFor($application->user, NotificationType::TeacherApplicationApproved))->toHaveCount(1);
 });
 
 // The rule that keeps FR-001 honest: approval is about the person, participation
@@ -271,7 +287,6 @@ it('approves without listing when the workspace has not joined the marketplace',
 });
 
 it('rejects an application with a reason and notifies the applicant', function (): void {
-    Notification::fake();
 
     $application = completeWizard();
     $this->postJson('/api/v1/teacher/application/submit')->assertOk();
@@ -284,7 +299,7 @@ it('rejects an application with a reason and notifies the applicant', function (
 
     expect($application->fresh()?->rejection_reason)->toBe('المؤهلات المرفقة غير كافية.');
 
-    Notification::assertSentTo($application->user, TeacherRejectedNotification::class);
+    expect(notificationsFor($application->user, NotificationType::TeacherApplicationRejected))->toHaveCount(1);
 });
 
 it('refuses a rejection with no reason', function (): void {
@@ -299,7 +314,6 @@ it('refuses a rejection with no reason', function (): void {
 });
 
 it('reopens the wizard when changes are requested (FR-072)', function (): void {
-    Notification::fake();
 
     $application = completeWizard();
     $this->postJson('/api/v1/teacher/application/submit')->assertOk();
@@ -310,7 +324,7 @@ it('reopens the wizard when changes are requested (FR-072)', function (): void {
         'reason' => 'أضف شهادة الخبرة.',
     ])->assertOk()->assertJsonPath('status', TeacherApplication::STATUS_CHANGES_REQUESTED);
 
-    Notification::assertSentTo($application->user, TeacherChangesRequestedNotification::class);
+    expect(notificationsFor($application->user, NotificationType::TeacherApplicationChangesRequested))->toHaveCount(1);
 
     // The applicant can edit and resubmit rather than starting a new application.
     Sanctum::actingAs($application->user);

@@ -188,22 +188,68 @@
 │ is_visible (moderation)      │
 └──────────────────────────────┘
 
-Platform-level (deliberately NOT workspace-scoped — like `users`):
+Platform-level (deliberately NOT workspace-scoped — like `users`).
+Classification is a constitutional requirement (Principle I, three ownership
+layers); these carry no workspace_id and therefore no global scope, so each one's
+guard is written explicitly in its Action or Policy.
 
-┌──────────────────────────┐      ┌──────────────────────────┐
-│ parent_child_links       │      │ notification_preferences │
-├──────────────────────────┤      ├──────────────────────────┤
-│ id · uuid                │      │ id · uuid                │
-│ parent_id (FK → users)   │      │ user_id (unique)         │
-│ child_id (FK, nullable)  │      │ weekly_reports           │
-│ child_name · child_age   │      │ session_alerts           │
-│ child_grade_level_slug   │      └──────────────────────────┘
-└──────────────────────────┘
-   UNIQUE (parent_id, child_id)
+┌──────────────────────────────┐    ┌──────────────────────────────┐
+│ parent_student_relations     │    │ notification_preferences     │
+├──────────────────────────────┤    ├──────────────────────────────┤
+│ id · uuid                    │    │ id · uuid                    │
+│ guardian_user_id (FK → users)│    │ user_id (FK → users)         │
+│ student_user_id (FK, null)   │    │ type (NotificationType)      │
+│ student_name · student_age   │    │ channels (json)              │
+│ student_grade_level_slug     │    │ digest_window_minutes (null) │
+│ relation_type parent|guardian│    └──────────────────────────────┘
+│ permissions (json, 5 keys)   │       UNIQUE (user_id, type)
+│ status pending|active|revoked│
+│ revoked_at                   │    Replaces parent_child_links (spec 003), whose
+└──────────────────────────────┘    rows migrated in as full parent relations.
+   UNIQUE (guardian_user_id, student_user_id)
+   INDEX  (student_user_id, status)          ← recipient resolution
+
+┌──────────────────────────────┐    ┌──────────────────────────────┐
+│ message_templates            │    │ contact_verifications        │
+├──────────────────────────────┤    ├──────────────────────────────┤
+│ id · uuid · key              │    │ id · uuid                    │
+│ type · channel               │    │ user_id (FK → users)         │
+│ title_ar · body_ar           │    │ channel · contact_value      │
+│ variables (json)             │    │ code_hash (HASHED, never raw)│
+│ provider_approval_status     │    │ attempts · expires_at        │
+│ is_active                    │    │ verified_at                  │
+└──────────────────────────────┘    └──────────────────────────────┘
+   UNIQUE (type, channel)              INDEX (user_id, channel)
+
+Bridge layer — owned by a person, carrying workspace context that filters but
+never scopes:
+
+┌──────────────────────────────┐    ┌──────────────────────────────┐
+│ notifications                │    │ notification_deliveries      │
+├──────────────────────────────┤    ├──────────────────────────────┤
+│ id · uuid                    │◄───│ id · uuid                    │
+│ recipient_user_id  ← THE GUARD│   │ notification_id (cascade)    │
+│ workspace_id (NULLABLE, ctx) │    │ channel · template_id        │
+│ type · subject_user_id       │    │ status · attempts            │
+│ payload (json)               │    │ failure_reason               │
+│ title_ar · body_ar (rendered)│    │ deferred_until               │
+│ action_url · read_at         │    │ last_attempted_at            │
+└──────────────────────────────┘    │ delivered_at                 │
+   INDEX (recipient_user_id,        └──────────────────────────────┘
+          read_at, id)  ← unread count + first page in one index
+   INDEX (recipient_user_id, created_at) · (workspace_id) · (created_at)
+
+   One notification row per (recipient, event) however many channels carry it;
+   one delivery row per channel attempt. Replaces Laravel's own `notifications`
+   table, which could represent only the first of those two.
+
+   No phone or email column on deliveries, by design: the channel reads the
+   destination off the user at send time and never copies it into the log.
 
 workspaces gains: participates_in_marketplace (bool, default false)
                   owner_user_id is now NULLABLE (the platform workspace has no owner)
 users gains:      platform_role · phone · country · grade_level_slug · registered_by_parent
+                  quiet_hours_start · quiet_hours_end · timezone  (spec 003)
 courses gains:    course_type · cover_path · price_before_discount
 ```
 

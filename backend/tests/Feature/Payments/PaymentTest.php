@@ -5,13 +5,14 @@ declare(strict_types=1);
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\Notifications\Models\Notification;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Actions\CreateOrder;
 use App\Modules\Payments\Actions\UploadPaymentReceipt;
 use App\Modules\Payments\Contracts\PaymentProviderInterface;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Providers\ManualTransferProvider;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Notifications\DatabaseNotification;
 use Laravel\Sanctum\Sanctum;
 
 function createPaidCourse(int $workspaceId): Course
@@ -123,10 +124,15 @@ describe('payment approval critical path', function (): void {
             ->and($enrollment->source)->toBe('purchase')
             ->and($enrollment->order_id)->not->toBeNull();
 
-        // Student should have received a database notification for enrollment.
-        $notification = DatabaseNotification::where('notifiable_id', $student->id)->first();
+        // Student should have been notified about the enrollment. One record, on
+        // our own table — Laravel's notifications schema was replaced in spec 003.
+        $notification = Notification::query()
+            ->where('recipient_user_id', $student->id)
+            ->where('type', NotificationType::EnrollmentCreated->value)
+            ->first();
+
         expect($notification)->not->toBeNull()
-            ->and($notification->data['type'])->toBe('enrollment_created');
+            ->and($notification->payload['course_title'])->toBe($course->title);
     });
 
     it('rejects an order with a reason', function (): void {

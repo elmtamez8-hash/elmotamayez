@@ -116,6 +116,19 @@ final class Permissions
 
     public const MARKETPLACE_PARTICIPATION_MANAGE = 'marketplace.participation.manage';
 
+    // Notifications
+    public const NOTIFICATIONS_LOGS_VIEW = 'notifications.logs.view';
+
+    public const NOTIFICATIONS_TEMPLATES_MANAGE = 'notifications.templates.manage';
+
+    /**
+     * Lets a role reach a student's guardian records *at all*. It is deliberately
+     * not sufficient on its own: ParentStudentRelationPolicy also requires an
+     * active enrollment in the teacher's own workspace. The permission answers
+     * "may this role ever look?", the policy answers "at this student?".
+     */
+    public const RELATIONS_VIEW_STUDENT = 'relations.view.student';
+
     /** @return list<string> */
     public static function all(): array
     {
@@ -167,6 +180,9 @@ final class Permissions
             self::MARKETPLACE_REVIEWS_MODERATE,
             self::MARKETPLACE_COMPLAINTS_MANAGE,
             self::MARKETPLACE_PARTICIPATION_MANAGE,
+            self::NOTIFICATIONS_LOGS_VIEW,
+            self::NOTIFICATIONS_TEMPLATES_MANAGE,
+            self::RELATIONS_VIEW_STUDENT,
         ];
     }
 }

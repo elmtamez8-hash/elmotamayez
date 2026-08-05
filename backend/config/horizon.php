@@ -199,7 +199,10 @@ return [
     'defaults' => [
         'supervisor-1' => [
             'connection' => 'redis',
-            'queue' => ['default', 'notifications', 'certificates'],
+            // Order is priority order. `notifications-high` carries the mandatory
+            // types (security, financial); a thousand queued reminders must not
+            // make a security alert wait behind them.
+            'queue' => ['notifications-high', 'default', 'notifications', 'certificates'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 1,

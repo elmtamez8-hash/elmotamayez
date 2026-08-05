@@ -18,6 +18,9 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             RolesAndPermissionsSeeder::class,
+            // Before anything that can trigger a notification: a dispatch with no
+            // template renders nothing and logs an error instead.
+            NotificationTemplateSeeder::class,
         ]);
 
         // Only seed the super-admin in non-production environments.

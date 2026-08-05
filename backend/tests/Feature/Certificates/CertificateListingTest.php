@@ -6,6 +6,7 @@ use App\Modules\Certificates\Actions\IssueCertificate;
 use App\Modules\Certificates\Models\Certificate;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\Notifications\Support\NotificationType;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 
@@ -89,12 +90,13 @@ describe('certificate regeneration', function (): void {
 
         $this->postJson("/api/v1/certificates/{$cert->uuid}/regenerate")->assertOk();
 
+        // `type` is a domain key now, not a PHP class name (spec 003).
         $notifications = $student->notifications()
-            ->where('type', 'App\\Modules\\Notifications\\Notifications\\CertificateRegeneratedNotification')
+            ->where('type', NotificationType::CertificateRegenerated->value)
             ->get();
 
         expect($notifications)->toHaveCount(1)
-            ->and($notifications->first()->data['type'])->toBe('certificate_regenerated');
+            ->and($notifications->first()->payload['certificate_number'])->toBe($cert->certificate_number);
     });
 
     it('denies regeneration to students', function (): void {

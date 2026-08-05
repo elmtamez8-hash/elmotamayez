@@ -201,6 +201,11 @@ return [
         'terms_accepted' => 'الموافقة على الشروط',
         'registered_by_parent' => 'التسجيل بواسطة وليّ الأمر',
         'child_uuid' => 'الابن',
+        'student_uuid' => 'الطالب',
+        'student_name' => 'اسم الطالب',
+        'relation_type' => 'صفة الارتباط',
+        'permissions' => 'الصلاحيات',
+        'permissions.*' => 'الصلاحيات',
         'grade_level' => 'المرحلة الدراسية',
         'grade_level_slug' => 'المرحلة الدراسية',
         'grade_levels' => 'المراحل الدراسية',
@@ -292,5 +297,19 @@ return [
 
         // الشهادات
         'verification_code' => 'رمز التحقّق',
+
+        // الإشعارات
+        'preferences' => 'تفضيلات الإشعارات',
+        'preferences.*.type' => 'نوع الإشعار',
+        'preferences.*.channels' => 'قنوات الإشعار',
+        'preferences.*.channels.*' => 'قناة الإشعار',
+        'preferences.*.digest_window_minutes' => 'فترة التجميع',
+        'channels' => 'القنوات',
+        'channel' => 'القناة',
+        'quiet_hours_start' => 'بداية فترة الهدوء',
+        'quiet_hours_end' => 'نهاية فترة الهدوء',
+        'timezone' => 'المنطقة الزمنية',
+        'contact_value' => 'وسيلة التواصل',
+        'code' => 'رمز التحقّق',
     ],
 ];

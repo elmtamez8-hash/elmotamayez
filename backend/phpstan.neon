@@ -20,5 +20,6 @@ parameters:
         - app/Modules/Identity/Database/Migrations
         - app/Modules/Learning/Database/Migrations
         - app/Modules/Marketplace/Database/Migrations
+        - app/Modules/Notifications/Database/Migrations
         - app/Modules/Payments/Database/Migrations
         - app/Modules/Tenancy/Database/Migrations
