@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { TextField } from "@/components/ui/Field";
 import { errorMessage, fieldErrors } from "@/lib/api";
 import {
   notifications,
@@ -26,7 +30,7 @@ export default function NotificationSettingsPage() {
   const [quietEnd, setQuietEnd] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
@@ -75,7 +79,7 @@ export default function NotificationSettingsPage() {
 
   const save = async () => {
     setSaving(true);
-    setError(null);
+    setError("");
     setSaved(false);
 
     try {
@@ -99,8 +103,7 @@ export default function NotificationSettingsPage() {
     } catch (err) {
       // 422 lands under its field; everything else goes through the Arabic table.
       const fields = fieldErrors(err);
-      const first = Object.values(fields)[0];
-      setError(first ?? errorMessage(err, "تعذّر حفظ الإعدادات."));
+      setError(Object.values(fields)[0] ?? errorMessage(err, "تعذّر حفظ الإعدادات."));
     } finally {
       setSaving(false);
     }
@@ -109,104 +112,101 @@ export default function NotificationSettingsPage() {
   if (loading) return <p className="text-ink-muted">جارٍ التحميل…</p>;
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <p className="mb-6 text-sm text-ink-muted">
-        اختر كيف تصلك كل فئة من الإشعارات. الإشعارات الإلزامية لا يمكن إيقافها.
-      </p>
+    <div className="mx-auto max-w-2xl space-y-8">
+      <h2 className="text-2xl font-bold text-ink">إعدادات الإشعارات</h2>
 
-      {error && (
-        <p role="alert" className="mb-4 rounded-lg border border-danger bg-surface-raised px-4 py-3 text-sm text-danger-ink">
-          {error}
-        </p>
-      )}
-      {saved && (
-        <p role="status" className="mb-4 rounded-lg border border-secondary bg-surface-raised px-4 py-3 text-sm text-secondary-ink">
-          حُفظت الإعدادات.
-        </p>
-      )}
+      {error && <Alert tone="danger" title={error} />}
+      {saved && <Alert tone="success" title="حُفِظت الإعدادات." />}
 
-      <div className="overflow-x-auto rounded-lg border border-line bg-surface-raised">
-        <table className="w-full text-start text-sm">
-          <thead>
-            <tr className="border-b border-line">
-              <th scope="col" className="p-3 text-start font-semibold text-ink">نوع الإشعار</th>
-              {channels.map((channel) => (
-                <th key={channel.key} scope="col" className="p-3 text-start font-semibold text-ink">
-                  {channel.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {types.map((type) => (
-              <tr key={type.key} className="border-b border-line last:border-b-0">
-                <th scope="row" className="p-3 text-start font-normal text-ink">
-                  {type.label}
-                  {type.is_mandatory && (
-                    <span className="ms-2 rounded border border-line px-1.5 py-0.5 text-xs text-ink-muted">
-                      إلزامي
-                    </span>
-                  )}
-                </th>
-                {channels.map((channel) => {
-                  const checked = (selected[type.key] ?? []).includes(channel.key);
-                  const locked = type.is_mandatory && type.default_channels.includes(channel.key);
-
-                  return (
-                    <td key={channel.key} className="p-3">
-                      <input
-                        type="checkbox"
-                        checked={checked || locked}
-                        disabled={locked}
-                        onChange={() => toggle(type.key, channel.key)}
-                        aria-label={`${type.label} على ${channel.label}`}
-                        title={locked ? "إشعار إلزامي لا يمكن إيقافه" : undefined}
-                        className="h-4 w-4 accent-primary disabled:opacity-60"
-                      />
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <fieldset className="mt-8 rounded-lg border border-line bg-surface-raised p-4">
-        <legend className="px-2 text-sm font-semibold text-ink">فترة الهدوء</legend>
+      <Card as="section">
+        <h3 className="mb-1 font-semibold text-ink">كيف تصلك الإشعارات</h3>
         <p className="mb-4 text-sm text-ink-muted">
-          لن تصلك الإشعارات غير الإلزامية على القنوات الخارجية خلال هذه الفترة، وتُرسَل بعدها.
+          اختر القنوات لكل فئة. الإشعارات الإلزامية لا يمكن إيقافها.
         </p>
-        <div className="flex flex-wrap gap-4">
-          <label className="text-sm text-ink">
-            من
-            <input
-              type="time"
-              value={quietStart}
-              onChange={(event) => setQuietStart(event.target.value)}
-              className="ms-2 rounded-lg border border-line bg-surface px-2 py-1 text-ink"
-            />
-          </label>
-          <label className="text-sm text-ink">
-            إلى
-            <input
-              type="time"
-              value={quietEnd}
-              onChange={(event) => setQuietEnd(event.target.value)}
-              className="ms-2 rounded-lg border border-line bg-surface px-2 py-1 text-ink"
-            />
-          </label>
-        </div>
-      </fieldset>
 
-      <button
-        type="button"
-        onClick={save}
-        disabled={saving}
-        className="mt-6 rounded-lg bg-primary px-4 py-2 font-medium text-white transition hover:opacity-90 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      >
-        {saving ? "جارٍ الحفظ…" : "حفظ"}
-      </button>
+        <div className="overflow-x-auto">
+          <table className="w-full text-start text-sm">
+            <thead>
+              <tr className="border-b border-line">
+                <th scope="col" className="pb-3 text-start font-semibold text-ink">
+                  الفئة
+                </th>
+                {channels.map((channel) => (
+                  <th
+                    key={channel.key}
+                    scope="col"
+                    className="pb-3 text-start font-semibold text-ink"
+                  >
+                    {channel.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {types.map((type) => (
+                <tr key={type.key} className="border-b border-line last:border-b-0">
+                  <th scope="row" className="py-3 pe-4 text-start font-normal text-ink">
+                    {type.label}
+                    {type.is_mandatory && (
+                      <span className="ms-2 rounded border border-line px-1.5 py-0.5 text-xs text-ink-muted">
+                        إلزامي
+                      </span>
+                    )}
+                  </th>
+                  {channels.map((channel) => {
+                    const checked = (selected[type.key] ?? []).includes(channel.key);
+                    const locked = type.is_mandatory && type.default_channels.includes(channel.key);
+
+                    return (
+                      <td key={channel.key} className="py-3">
+                        <input
+                          type="checkbox"
+                          checked={checked || locked}
+                          disabled={locked}
+                          onChange={() => toggle(type.key, channel.key)}
+                          aria-label={`${type.label} على ${channel.label}`}
+                          title={locked ? "إشعار إلزامي لا يمكن إيقافه" : undefined}
+                          className="h-4 w-4 accent-primary disabled:opacity-60"
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card as="section">
+        <h3 className="mb-1 font-semibold text-ink">فترة الهدوء</h3>
+        <p className="mb-4 text-sm text-ink-muted">
+          لن تصلك الإشعارات غير الإلزامية على القنوات الخارجية خلال هذه الفترة، وتُرسَل
+          بعد انتهائها بدل أن تُلغى.
+        </p>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <TextField
+            id="quiet_hours_start"
+            label="من"
+            type="time"
+            value={quietStart}
+            onChange={setQuietStart}
+          />
+          <TextField
+            id="quiet_hours_end"
+            label="إلى"
+            type="time"
+            value={quietEnd}
+            onChange={setQuietEnd}
+            hint="اتركهما فارغين لإلغاء فترة الهدوء."
+          />
+        </div>
+      </Card>
+
+      <Button onClick={save} loading={saving} loadingLabel="جارٍ الحفظ…">
+        احفظ التغييرات
+      </Button>
     </div>
   );
 }

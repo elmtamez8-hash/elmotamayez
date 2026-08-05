@@ -123,6 +123,16 @@ export default function SettingsPage() {
       </Card>
 
       <Card as="section">
+        <h3 className="mb-1 font-semibold text-ink">الإشعارات</h3>
+        <p className="mb-4 text-sm text-ink-muted">
+          اختر القنوات لكل فئة من الإشعارات، واضبط فترة الهدوء.
+        </p>
+        <Button href="/settings/notifications" variant="secondary">
+          إعدادات الإشعارات
+        </Button>
+      </Card>
+
+      <Card as="section">
         <h3 className="mb-4 font-semibold text-ink">تغيير كلمة المرور</h3>
         <form onSubmit={submitPassword} className="space-y-4">
           {pwError && <Alert tone="danger" title={pwError} />}

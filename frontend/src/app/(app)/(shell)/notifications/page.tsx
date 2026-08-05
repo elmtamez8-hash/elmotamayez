@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { errorMessage } from "@/lib/api";
 import { formatDate } from "@/lib/labels";
 import { notifications, type NotificationItem } from "@/lib/notifications";
@@ -18,11 +21,11 @@ export default function NotificationsPage() {
   const [lastPage, setLastPage] = useState(1);
   const [onlyUnread, setOnlyUnread] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setError("");
 
     try {
       const result = await notifications.list({ page, unread: onlyUnread });
@@ -68,115 +71,111 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div className="mx-auto max-w-2xl space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ink-muted">
-          {unread > 0 ? `لديك ${unread.toLocaleString("ar-EG")} إشعاراً غير مقروء` : "لا إشعارات غير مقروءة"}
+          {unread > 0
+            ? `لديك ${unread.toLocaleString("ar-EG")} إشعاراً غير مقروء`
+            : "لا إشعارات غير مقروءة"}
         </p>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => {
               setPage(1);
               setOnlyUnread((value) => !value);
             }}
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:bg-primary-soft hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             {onlyUnread ? "عرض الكل" : "غير المقروء فقط"}
-          </button>
-          <button
-            type="button"
-            onClick={markAllRead}
-            disabled={unread === 0}
-            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
+          </Button>
+          <Button size="sm" onClick={markAllRead} disabled={unread === 0}>
             تعليم الكل مقروءاً
-          </button>
+          </Button>
         </div>
       </div>
 
-      {error && (
-        <p role="alert" className="mb-4 rounded-lg border border-danger bg-surface-raised px-4 py-3 text-sm text-danger-ink">
-          {error}
-        </p>
-      )}
+      {error && <Alert tone="danger" title={error} />}
 
       {loading && <p className="text-ink-muted">جارٍ التحميل…</p>}
 
       {!loading && items.length === 0 && (
-        <p className="rounded-lg border border-line bg-surface-raised px-4 py-10 text-center text-ink-muted">
-          لا توجد إشعارات بعد.
-        </p>
+        <Card>
+          <p className="py-6 text-center text-ink-muted">لا توجد إشعارات بعد.</p>
+        </Card>
       )}
 
-      <ul className="space-y-2">
+      <ul className="space-y-3">
         {items.map((item) => {
           const isUnread = item.read_at === null;
 
           return (
-            <li
-              key={item.uuid}
-              className={`rounded-lg border p-4 transition ${
-                isUnread ? "border-primary bg-primary-soft" : "border-line bg-surface-raised"
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="mb-1 text-xs text-ink-muted">
-                    {item.type_label}
-                    {item.workspace && ` · ${item.workspace.name}`}
-                    {item.subject && ` · ${item.subject.name}`}
-                  </p>
-                  <p className="font-semibold text-ink">{item.title}</p>
-                  <p className="mt-1 text-sm text-ink-muted">{item.body}</p>
-                  <p className="mt-2 text-xs text-ink-muted">{formatDate(item.created_at)}</p>
-                </div>
-                {isUnread && (
-                  <button
-                    type="button"
-                    onClick={() => markRead(item.uuid)}
-                    className="shrink-0 rounded-lg border border-line px-2 py-1 text-xs text-ink transition hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                  >
-                    تعليم كمقروء
-                  </button>
-                )}
-              </div>
+            <li key={item.uuid}>
+              <Card padding="sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="mb-1 flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
+                      {isUnread && (
+                        <span
+                          aria-hidden="true"
+                          className="inline-block h-2 w-2 shrink-0 rounded-full bg-primary"
+                        />
+                      )}
+                      <span>{item.type_label}</span>
+                      {item.workspace && <span>· {item.workspace.name}</span>}
+                      {item.subject && <span>· {item.subject.name}</span>}
+                    </p>
+                    <p className="font-semibold text-ink">
+                      {item.title}
+                      {isUnread && <span className="sr-only"> (غير مقروء)</span>}
+                    </p>
+                    <p className="mt-1 text-sm text-ink-muted">{item.body}</p>
+                    <p className="mt-2 text-xs text-ink-muted">{formatDate(item.created_at)}</p>
+                  </div>
 
-              {item.action_url && (
-                <Link
-                  href={item.action_url}
-                  onClick={() => isUnread && markRead(item.uuid)}
-                  className="mt-3 inline-block rounded text-sm font-medium text-primary-ink underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                >
-                  الانتقال
-                </Link>
-              )}
+                  {isUnread && (
+                    <Button variant="ghost" size="sm" onClick={() => markRead(item.uuid)}>
+                      تعليم كمقروء
+                    </Button>
+                  )}
+                </div>
+
+                {item.action_url && (
+                  <Link
+                    href={item.action_url}
+                    onClick={() => isUnread && markRead(item.uuid)}
+                    className="mt-3 inline-block rounded text-sm font-semibold text-primary-ink underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    الانتقال
+                  </Link>
+                )}
+              </Card>
             </li>
           );
         })}
       </ul>
 
       {lastPage > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-3">
-          <button
-            type="button"
+        <div className="flex items-center justify-center gap-3">
+          <Button
+            variant="secondary"
+            size="sm"
             disabled={page <= 1}
             onClick={() => setPage((value) => value - 1)}
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             السابق
-          </button>
+          </Button>
           <span className="text-sm text-ink-muted">
             {page.toLocaleString("ar-EG")} / {lastPage.toLocaleString("ar-EG")}
           </span>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             disabled={page >= lastPage}
             onClick={() => setPage((value) => value + 1)}
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             التالي
-          </button>
+          </Button>
         </div>
       )}
     </div>
