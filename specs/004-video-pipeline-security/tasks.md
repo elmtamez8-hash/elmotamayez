@@ -159,13 +159,13 @@ description: "Task list for 004-video-pipeline-security"
 
 **Depends on**: US1 (لا علامة بلا مشغّل).
 
-- [ ] T065 [P] [US2] أنشئ `backend/tests/Feature/Media/WatermarkTest.php`: مشاهدان ⇒ حمولتا علامة مختلفتان (SC-004) · **الرقم الكامل لا يظهر في أي استجابة** (FR-019)
-- [ ] T066 [US2] أنشئ `backend/app/Modules/Media/Support/WatermarkPayload.php` — يبني `{name, phone_masked}` في **الخادم**، آخر أربعة أرقام فقط (research §R6)
-- [ ] T067 [US2] أضف `watermark` إلى `PlaybackGrantResource` في `backend/app/Modules/Media/Http/Resources/`
-- [ ] T068 [US2] أنشئ `frontend/src/components/player/Watermark.tsx` — الطبقة الشفافة **وحلقة التجديد كل ٦٠ ثانية**. المكوّن نفسه هو ما يستدعي `renew`؛ إزالته توقف التجديد فتنتهي المنحة (research §R5 · FR-018)
-- [ ] T069 [US2] اجعل موضع العلامة يتغيّر دورياً في `Watermark.tsx` (FR-017) بحيث لا تُقصّ ولا تُغطّى بموضع ثابت، وبلا حجب محتوى الشرح (FR-020)
-- [ ] T070 [US2] أضف `MutationObserver` في `Watermark.tsx` يوقف التشغيل فوراً عند إزالة العنصر — **تحسين تجربة لا حارس**؛ الحارس هو انتهاء المنحة
-- [ ] T071 [P] [US2] أنشئ `frontend/e2e/player.spec.ts` بحالة تحذف العلامة من DOM، تتخطّى مهلة المنحة، وتؤكّد **توقّف التشغيل** (SC-005)
+- [X] T065 [P] [US2] أنشئ `backend/tests/Feature/Media/WatermarkTest.php`: مشاهدان ⇒ حمولتا علامة مختلفتان (SC-004) · **الرقم الكامل لا يظهر في أي استجابة** (FR-019)
+- [X] T066 [US2] أنشئ `backend/app/Modules/Media/Support/WatermarkPayload.php` — يبني `{name, phone_masked}` في **الخادم**، آخر أربعة أرقام فقط (research §R6)
+- [X] T067 [US2] أضف `watermark` إلى `PlaybackGrantResource` في `backend/app/Modules/Media/Http/Resources/`
+- [X] T068 [US2] أنشئ `frontend/src/components/player/Watermark.tsx` — الطبقة الشفافة **وحلقة التجديد كل ٦٠ ثانية**. المكوّن نفسه هو ما يستدعي `renew`؛ إزالته توقف التجديد فتنتهي المنحة (research §R5 · FR-018)
+- [X] T069 [US2] اجعل موضع العلامة يتغيّر دورياً في `Watermark.tsx` (FR-017) بحيث لا تُقصّ ولا تُغطّى بموضع ثابت، وبلا حجب محتوى الشرح (FR-020)
+- [X] T070 [US2] أضف `MutationObserver` في `Watermark.tsx` يوقف التشغيل فوراً عند إزالة العنصر — **تحسين تجربة لا حارس**؛ الحارس هو انتهاء المنحة
+- [X] T071 [P] [US2] أنشئ `frontend/e2e/player.spec.ts` بحالة تحذف العلامة من DOM، تتخطّى مهلة المنحة، وتؤكّد **توقّف التشغيل** (SC-005)
 
 **Checkpoint**: قناة التصوير الخارجي صار لها رادع، والإخفاء لا يُجدي.
 

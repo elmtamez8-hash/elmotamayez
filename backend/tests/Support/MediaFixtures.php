@@ -9,11 +9,14 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Models\Device;
+use App\Modules\Identity\Support\PlatformRole;
+use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Sanctum\Sanctum;
 
 trait MediaFixtures
 {
@@ -50,6 +53,33 @@ trait MediaFixtures
 
             return $lesson->refresh();
         });
+    }
+
+    /**
+     * A student enrolled in the lesson's course, signed in, with a live session.
+     *
+     * @return array{0: User, 1: AuthSession}
+     */
+    protected function enrolledViewer(Workspace $workspace, Lesson $lesson, ?User $student = null): array
+    {
+        $student ??= User::factory()->create(['platform_role' => PlatformRole::Student]);
+
+        app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace, $lesson, $student): void {
+            Enrollment::factory()->create([
+                'workspace_id' => $workspace->getKey(),
+                'course_id' => $lesson->course_id,
+                'student_user_id' => $student->getKey(),
+                'status' => 'active',
+            ]);
+        });
+
+        Sanctum::actingAs($student);
+        $this->asGuest();
+
+        $session = $this->sessionFor($student);
+        $session->forceFill(['token_id' => $student->currentAccessToken()->getKey()])->save();
+
+        return [$student, $session];
     }
 
     /** A signed-in session for this user, which grants bind to. */

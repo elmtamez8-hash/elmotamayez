@@ -116,6 +116,7 @@ Tests use in-memory SQLite (`DB_DATABASE=:memory:` in `phpunit.xml`).
 14. Video provider contract — `tests/Feature/Media/ProviderContractTest.php`
 15. Device limit and session eviction — `tests/Feature/Auth/DeviceLimitTest.php`
 16. Devices and sessions are platform-owned — `tests/Feature/Auth/PlatformOwnershipTest.php`
+17. Watermark identity and phone masking — `tests/Feature/Media/WatermarkTest.php`
 
 ### Read before touching playback
 

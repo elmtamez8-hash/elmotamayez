@@ -13,7 +13,6 @@ use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Media\Actions\IssuePlaybackGrant;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\PlaybackGrant;
-use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -22,33 +21,10 @@ use Tests\Support\MediaFixtures;
 
 uses(MediaFixtures::class);
 
-/** A student enrolled in the lesson's course, signed in, with a live session. */
-function enrolledViewer(Workspace $workspace, Lesson $lesson): array
-{
-    $student = User::factory()->create(['platform_role' => PlatformRole::Student]);
-
-    app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace, $lesson, $student): void {
-        Enrollment::factory()->create([
-            'workspace_id' => $workspace->getKey(),
-            'course_id' => $lesson->course_id,
-            'student_user_id' => $student->getKey(),
-            'status' => 'active',
-        ]);
-    });
-
-    Sanctum::actingAs($student);
-    test()->asGuest();
-
-    $session = test()->sessionFor($student);
-    $session->forceFill(['token_id' => $student->currentAccessToken()->getKey()])->save();
-
-    return [$student, $session];
-}
-
 it('lets an enrolled student play, by byte range', function (): void {
     [$workspace] = $this->createWorkspaceWithOwner();
     $lesson = $this->lessonWithVideo($workspace);
-    [, $session] = enrolledViewer($workspace, $lesson);
+    [, $session] = $this->enrolledViewer($workspace, $lesson);
 
     $response = $this->postJson("/api/v1/lessons/{$lesson->uuid}/playback")->assertOk();
 
@@ -69,7 +45,7 @@ it('lets an enrolled student play, by byte range', function (): void {
 it('refuses a link once it has expired', function (): void {
     [$workspace] = $this->createWorkspaceWithOwner();
     $lesson = $this->lessonWithVideo($workspace);
-    enrolledViewer($workspace, $lesson);
+    $this->enrolledViewer($workspace, $lesson);
 
     $url = $this->postJson("/api/v1/lessons/{$lesson->uuid}/playback")->json('manifest_url');
 
@@ -85,7 +61,7 @@ it('refuses a link once it has expired', function (): void {
 it('refuses a link once its session has ended', function (): void {
     [$workspace] = $this->createWorkspaceWithOwner();
     $lesson = $this->lessonWithVideo($workspace);
-    [, $session] = enrolledViewer($workspace, $lesson);
+    [, $session] = $this->enrolledViewer($workspace, $lesson);
 
     $url = $this->postJson("/api/v1/lessons/{$lesson->uuid}/playback")->json('manifest_url');
 
@@ -115,7 +91,7 @@ it('refuses to issue a grant to anyone not entitled', function (): void {
 it('refuses once an enrolment is no longer active', function (): void {
     [$workspace] = $this->createWorkspaceWithOwner();
     $lesson = $this->lessonWithVideo($workspace);
-    [$student] = enrolledViewer($workspace, $lesson);
+    [$student] = $this->enrolledViewer($workspace, $lesson);
 
     $this->postJson("/api/v1/lessons/{$lesson->uuid}/playback")->assertOk();
 
@@ -130,7 +106,7 @@ it('refuses once an enrolment is no longer active', function (): void {
 it('says the video is being prepared rather than erroring', function (): void {
     [$workspace] = $this->createWorkspaceWithOwner();
     $lesson = $this->lessonWithVideo($workspace);
-    enrolledViewer($workspace, $lesson);
+    $this->enrolledViewer($workspace, $lesson);
 
     $lesson->mediaAsset->forceFill(['status' => MediaAssetStatus::Processing])->save();
 
@@ -143,7 +119,7 @@ it('says the video is being prepared rather than erroring', function (): void {
 it('leaks no provider identifier, key or storage path', function (): void {
     [$workspace] = $this->createWorkspaceWithOwner();
     $lesson = $this->lessonWithVideo($workspace);
-    enrolledViewer($workspace, $lesson);
+    $this->enrolledViewer($workspace, $lesson);
 
     $payload = $this->postJson("/api/v1/lessons/{$lesson->uuid}/playback")->assertOk()->json();
     $serialised = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '';
@@ -153,25 +129,10 @@ it('leaks no provider identifier, key or storage path', function (): void {
         ->and($serialised)->not->toContain('storage/');
 });
 
-// FR-019 · SC-004. Masking client-side would mean shipping the full number.
-it('watermarks with the viewer own identity and never the full phone', function (): void {
-    [$workspace] = $this->createWorkspaceWithOwner();
-    $lesson = $this->lessonWithVideo($workspace);
-    [$student] = enrolledViewer($workspace, $lesson);
-
-    $student->forceFill(['phone' => '+97455512345'])->save();
-
-    $watermark = $this->postJson("/api/v1/lessons/{$lesson->uuid}/playback")->json('watermark');
-
-    expect($watermark['name'])->toBe($student->name)
-        ->and($watermark['phone_masked'])->toBe('…2345')
-        ->and($watermark['phone_masked'])->not->toContain('97455512345');
-});
-
 it('renews a live grant and remembers the position', function (): void {
     [$workspace] = $this->createWorkspaceWithOwner();
     $lesson = $this->lessonWithVideo($workspace);
-    enrolledViewer($workspace, $lesson);
+    $this->enrolledViewer($workspace, $lesson);
 
     $grant = $this->postJson("/api/v1/lessons/{$lesson->uuid}/playback")->json('grant');
 
@@ -226,7 +187,7 @@ it('keeps grants of one workspace out of another', function (): void {
     [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'B']);
 
     $lesson = $this->lessonWithVideo($workspaceA);
-    enrolledViewer($workspaceA, $lesson);
+    $this->enrolledViewer($workspaceA, $lesson);
 
     $this->postJson("/api/v1/lessons/{$lesson->uuid}/playback")->assertOk();
 
@@ -244,7 +205,7 @@ it('refuses a grant token that does not exist without revealing anything', funct
 it('binds a grant to a session that is still active', function (): void {
     [$workspace] = $this->createWorkspaceWithOwner();
     $lesson = $this->lessonWithVideo($workspace);
-    [, $session] = enrolledViewer($workspace, $lesson);
+    [, $session] = $this->enrolledViewer($workspace, $lesson);
 
     expect($session->status)->toBe(AuthSession::STATUS_ACTIVE);
 });

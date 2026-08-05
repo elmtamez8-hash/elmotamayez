@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import { Watermark } from "@/components/player/Watermark";
 import { Alert } from "@/components/ui/Alert";
-import { media, type PlaybackGrant } from "@/lib/media";
-import { userMessage } from "@/lib/errors";
+import { type PlaybackGrant } from "@/lib/media";
 
 /**
  * A native <video> element, and deliberately nothing more.
@@ -27,35 +27,10 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
 
   const canPlay = grant.format === "progressive" || isNativeHlsSupported();
 
-  /*
-   * Keep the grant alive while watching.
-   *
-   * The grant is short-lived by design, so without this the video stops a few
-   * minutes in. This loop is also how the client finds out its session was ended
-   * from another device: the renewal fails, and it fails whether or not the
-   * viewer is doing anything at all.
-   *
-   * Ownership of this loop moves to the watermark overlay in the next phase,
-   * which is what makes removing the watermark stop playback.
-   */
-  useEffect(() => {
-    if (!canPlay) return;
-
-    const interval = window.setInterval(async () => {
-      const video = videoRef.current;
-      if (video === null) return;
-
-      try {
-        const renewed = await media.renew(grant.grant, video.currentTime);
-        setSource(renewed.manifest_url);
-      } catch (err: unknown) {
-        video.pause();
-        setError(userMessage(err));
-      }
-    }, grant.renew_after_seconds * 1000);
-
-    return () => window.clearInterval(interval);
-  }, [grant.grant, grant.renew_after_seconds, canPlay]);
+  // Renewal belongs to the watermark, not here — see Watermark.tsx. This
+  // component only reacts to what that loop reports.
+  const onRenewed = useCallback((manifestUrl: string) => setSource(manifestUrl), []);
+  const onStopped = useCallback((message: string) => setError(message), []);
 
   // Pick up where they left off (FR-036).
   useEffect(() => {
@@ -77,29 +52,38 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
     <div className="flex flex-col gap-3">
       {error !== "" && <Alert tone="danger" title="توقّف التشغيل">{error}</Alert>}
 
-      <video
-        ref={videoRef}
-        src={source}
-        controls
-        // Removes the download item from the browser's own menu. Not a
-        // protection on its own — the grant expiring is — but there is no reason
-        // to offer the button.
-        controlsList="nodownload"
-        preload="metadata"
-        playsInline
-        onError={() => setError("تعذّر تشغيل الفيديو. حدّث الصفحة وحاول مجدداً.")}
-        className="w-full rounded-xl bg-surface"
-      >
-        {grant.captions.map((caption) => (
-          <track
-            key={caption.uuid}
-            kind="captions"
-            srcLang={caption.language}
-            label={caption.language === "ar" ? "العربية" : caption.language}
-            default={caption.is_default}
-          />
-        ))}
-      </video>
+      <div className="relative">
+        <video
+          ref={videoRef}
+          src={source}
+          controls
+          // Removes the download item from the browser's own menu. Not a
+          // protection on its own — the grant expiring is — but there is no
+          // reason to offer the button.
+          controlsList="nodownload"
+          preload="metadata"
+          playsInline
+          onError={() => setError("تعذّر تشغيل الفيديو. حدّث الصفحة وحاول مجدداً.")}
+          className="w-full rounded-xl bg-surface"
+        >
+          {grant.captions.map((caption) => (
+            <track
+              key={caption.uuid}
+              kind="captions"
+              srcLang={caption.language}
+              label={caption.language === "ar" ? "العربية" : caption.language}
+              default={caption.is_default}
+            />
+          ))}
+        </video>
+
+        <Watermark
+          grant={grant}
+          videoRef={videoRef}
+          onRenewed={onRenewed}
+          onStopped={onStopped}
+        />
+      </div>
     </div>
   );
 }
