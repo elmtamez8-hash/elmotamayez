@@ -1,0 +1,233 @@
+# Quickstart — التحقّق من خط أنابيب الفيديو والحماية
+
+**Feature**: `004-video-pipeline-security`
+
+دليل تشغيل يثبت أن الميزة تعمل من طرف إلى طرف. الكيانات في [data-model.md](./data-model.md)،
+والعقود في [contracts/](./contracts/).
+
+---
+
+## المتطلّبات
+
+```bash
+cd backend
+php artisan migrate:fresh --seed     # يشمل ترحيل lessons.media و users → student_profiles
+php artisan storage:link             # مرة واحدة لكل نسخة
+```
+
+المزوّد الافتراضي `local`: **لا حساب خارجي ولا اتصال شبكي**. القيمة في
+`config/media.php` عن `MEDIA_PROVIDER`.
+
+```bash
+cd frontend && npm run dev      # :3000 — يوجّه /api/* إلى :8000
+```
+
+> **تذكير**: **يُمنع** تشغيل `npm run build` وخادم `npm run dev` معاً — كلاهما يكتب في `.next/`.
+
+---
+
+## البوابات الأربع (SC-014)
+
+```bash
+cd backend && php vendor/bin/pest && ./vendor/bin/pint --test && ./vendor/bin/phpstan analyse
+cd ../frontend && npx tsc --noEmit
+```
+
+الأربع خضراء شرط قبول. **يُمنع** baseline جديد أو `@phpstan-ignore` لتمريرها.
+
+---
+
+## السيناريو ١ — العقد يُبدَّل بملف وسطر (FR-002 · SC-002)
+
+```bash
+php vendor/bin/pest tests/Feature/Media/ProviderContractTest.php
+```
+
+**المتوقّع**: كل تنفيذ مسجَّل يمرّ بنفس المجموعة — تذكرة بلا مفتاح، بيان ينتهي مع المنحة،
+حذف عديم الأثر عند التكرار. و**إن أعلن تنفيذٌ `adaptiveBitrate`** ⇒ يُفرض عليه أن يقدّم
+جودتين فأكثر فعلاً. هذا السطر هو ما يجعل تأجيل المزوّد آمناً.
+
+```bash
+php vendor/bin/pest tests/Feature/Media/ProviderAgnosticTest.php
+```
+
+يمسح `Actions/` و`Http/` و`frontend/src/` بحثاً عن أي اسم مزوّد ويفشل عند أي تطابق.
+
+---
+
+## السيناريو ٢ — الرابط لا يعمل خارج جلسته (SC-001 · SC-003 · SC-009)
+
+```bash
+php vendor/bin/pest tests/Feature/Media/PlaybackGrantTest.php
+```
+
+**المتوقّع**:
+- طالب مسجَّل ⇒ منحة صالحة ⇒ `206` مع `Accept-Ranges: bytes`.
+- **نفس الرابط بعد انتهاء مدته** ⇒ `403`.
+- **نفس الرابط من جلسة أخرى للمستخدم نفسه** ⇒ `403` (FR-009).
+- غير مسجَّل · انتهى تسجيله · مساحة عمل أخرى ⇒ `403` في الثلاث (SC-003).
+- انتهاء الرابط **أثناء** المشاهدة ⇒ طلب المدى التالي `403`، والتجديد يعيده بلا انقطاع
+  محسوس (SC-009 · FR-012).
+
+**يدوياً**: افتح درساً على `http://localhost:3000/learn/…`، انسخ `manifest_url` من لسان
+الشبكة، والصقه في نافذة خفية ⇒ لا يعمل.
+
+**فحص FR-011**:
+
+```bash
+php vendor/bin/pest tests/Feature/Media/PlaybackGrantTest.php --filter="provider"
+```
+
+يمشي على كل حمولة تخصّ درساً ويفشل عند ظهور `provider` أو `provider_asset_id` أو مسار قرص.
+
+---
+
+## السيناريو ٣ — العلامة المائية والتوقّف عند إخفائها (SC-004 · SC-005)
+
+```bash
+php vendor/bin/pest tests/Feature/Media/WatermarkTest.php
+```
+
+**المتوقّع**: مشاهدان مختلفان ⇒ حمولتا علامة مختلفتان تحملان بيانات كلٍّ منهما (SC-004)،
+والرقم **مقنَّع في الخادم** — الرقم الكامل لا يظهر في أي استجابة (FR-019 · research §R6).
+
+**إخفاء العلامة** (SC-005):
+
+```bash
+cd frontend && npx playwright test e2e/player.spec.ts --config=e2e/playwright.local.config.ts
+```
+
+الحالة تحذف عنصر العلامة من DOM، تتخطّى مهلة المنحة، ثم تؤكّد **توقّف التشغيل** — لأن
+التجديد توقّف بتوقّف المكوّن الذي يستدعيه، وطلب المدى التالي رُفض.
+
+---
+
+## السيناريو ٤ — الخروج التلقائي للجلسة الأقدم (SC-006 · FR-023)
+
+```bash
+php vendor/bin/pest tests/Feature/Auth/DeviceLimitTest.php
+```
+
+**المتوقّع**:
+- ثلاث جلسات متتابعة ⇒ **الأقدم `ended` بسبب `device_limit`، والجديدة تعمل** — الدخول
+  الجديد **لا يُرفض ولو مرة** (FR-023).
+- الحدّ يُقرأ من `platform_settings` لا من ملف الإعدادات: غيّر الصفّ إلى `3` ⇒ ثلاث جلسات
+  تبقى بلا نشر (FR-022 · research §R16).
+- رمز الجلسة المنتهية محذوف من `personal_access_tokens` ⇒ `401` على أي مسار.
+- `SecurityAlert` وصل بجهاز الدخول الجديد ووقته (FR-025).
+
+**السيناريو الذي سأل عنه المستخدم** — الطالب يشاهد ولا يفعل شيئاً:
+
+```bash
+php vendor/bin/pest tests/Feature/Auth/DeviceLimitTest.php --filter="mid-playback"
+```
+
+الحالة تُصدر منحة، تبدأ طلبات المدى، تُنهي الجلسة من جهاز ثالث، ثم تؤكّد أن **طلب المدى
+التالي `403`** ونداء التجديد `401` — بلا أي فعل من المشاهد (research §R15).
+
+**يدوياً**: افتح درساً وشغّله، ثم سجّل الدخول بنفس الحساب من نافذة خفية ومن ثالثة ⇒ الفيديو
+في النافذة الأولى يتوقّف وتظهر رسالة الخروج خلال ٦٠ ثانية على الأكثر.
+
+**قائمة الأجهزة**: `http://localhost:3000/settings/security` — إنهاء أي جلسة يدوياً (FR-024).
+
+---
+
+## السيناريو ٥ — التحقق الثنائي (SC-007)
+
+```bash
+php vendor/bin/pest tests/Feature/Auth/TwoFactorTest.php
+```
+
+**المتوقّع**:
+- حساب مفعَّل ⇒ الدخول بكلمة المرور وحدها يعيد `{two_factor: true, challenge}` **بلا رمز**
+  (SC-007 — صفر دخول ناجح بكلمة المرور وحدها).
+- رمز استرداد يعمل **مرة واحدة**، ويُبطَل، ويُسجَّل، ويُطلق `SecurityAlert` (FR-029).
+- تغيير كلمة المرور أو وسيلة التحقق ⇒ **إنهاء بقية الجلسات** + تنبيه (FR-031).
+- بعد انقضاء المهلة بلا تفعيل ⇒ `403` على مسار حسّاس برمز `two_factor_required` (FR-028).
+
+**السرّ الواحد للسطحين**: فعّل التحقق من `http://localhost:3000/settings/security`، ثم ادخل
+على `http://localhost:8000/admin` ⇒ **نفس التطبيق المصادق يعمل** بلا تسجيل ثانٍ (research §R9).
+
+> **تذكير محلي**: `SESSION_DOMAIN` في `backend/.env` يجب أن يطابق المضيف الذي تتصفّحه.
+> كوكي على `.localhost` لا يُرسَل أبداً إلى `127.0.0.1`، والنتيجة `419` صامتة عند الدخول.
+
+---
+
+## السيناريو ٦ — الرفع ودورة حياة الأصل (SC-010 · SC-012)
+
+```bash
+php vendor/bin/pest tests/Feature/Media/UploadLifecycleTest.php
+```
+
+**المتوقّع**:
+- ملف بامتداد فيديو وليس فيديو ⇒ **يُرفَض** — النوع من محتوى الملف لا من العميل (FR-003).
+- تجاوز الحجم أو المدة ⇒ `422` **قبل** استهلاك الرفع كاملاً.
+- رفع مقاطَع في منتصفه ⇒ الأصل `failed` والدرس **لا** يقبل تشغيلاً (SC-010 · FR-007).
+- المزوّد متوقّف ⇒ `status()` يعيد `failed` بلا استثناء، والأصول الجاهزة تبقى قابلة للتشغيل.
+
+**النصّ المصاحب** (SC-012):
+
+```bash
+php vendor/bin/pest tests/Feature/Media/CaptionsTest.php
+```
+
+ارفع WebVTT ⇒ يظهر في المشغّل ويُشغَّل ويُخفى بطلب المشاهد، والنصّ الكامل معروض قابلاً
+للبحث ومرتبطاً بمواضعه الزمنية (FR-034) — **مشتقّاً من نفس الملف** لا مخزَّناً مرتين.
+
+**يدوياً**: `http://localhost:3000/manage/courses/{uuid}/lessons/{lessonUuid}`.
+
+---
+
+## السيناريو ٧ — الترحيل بلا فقد (FR-006 · research §R13 · §R17)
+
+```bash
+php vendor/bin/pest tests/Feature/Media/MediaMigrationTest.php
+php vendor/bin/pest tests/Feature/Identity/StudentProfileMigrationTest.php
+```
+
+**المتوقّع**:
+- كل `lessons.media` غير فارغ ⇒ أصل `ready` — و**المشوّه ⇒ `failed` لا مفقود**. صفر فقد.
+- كل `users.grade_level_slug` / `registered_by_parent` ⇒ صفّ في `student_profiles`، والعمودان
+  محذوفان من `users` بعدها.
+- `parent_student_relations.student_grade_level_slug` **بلا مساس** — لقطة تاريخية.
+
+---
+
+## السيناريو ٨ — الملكية والعزل والأداء (NFR-001ب · SC-011 · SC-013)
+
+```bash
+php vendor/bin/pest tests/Feature/Auth/PlatformOwnershipTest.php
+php vendor/bin/pest tests/Feature/Tenancy/WorkspaceIsolationTest.php
+```
+
+**المتوقّع**:
+- مدرّس **لا** يقرأ أجهزة طالبه ولا جلساته **ولو كان الطالب مسجَّلاً عنده** — الجهاز ليس
+  معلومة تعليمية (research §R12).
+- الطالب المسجَّل عند ثلاثة مدرّسين يرى **جهازين اثنين** لا ستة (NFR-001ب).
+- `MediaAsset` لا يُقرأ من مساحة عمل أخرى.
+
+**الأداء** (SC-011):
+
+```bash
+php vendor/bin/pest tests/Feature/Media/PlaybackGrantTest.php --filter="N+1"
+```
+
+إصدار منح لقائمة ٥٠ درساً بعدد استعلامات **ثابت** — الأهلية تُقرأ مرة عبر
+`EnrollmentDirectory::activeCourseIdsFor()` ثم تُرشَّح في الذاكرة (research §R14).
+
+**إمكانية الوصول** (SC-013):
+
+```bash
+cd frontend && npx playwright test e2e/accessibility.spec.ts --config=e2e/playwright.local.config.ts
+```
+
+صفر انتهاك `serious` أو `critical` على صفحات المشاهدة والأمان وإدارة الأصول، والمشغّل
+قابل للتشغيل الكامل بلوحة المفاتيح — ضوابط المتصفّح الأصلية لا مشغّل مخصّص (research §R11).
+
+---
+
+## تنظيف
+
+```bash
+cd backend && php artisan migrate:fresh --seed
+```
