@@ -17,6 +17,7 @@
 import {
   IconAlertTriangle,
   IconArrowUp,
+  IconBell,
   IconBook2,
   IconChevronDown,
   IconChevronLeft,
@@ -49,6 +50,7 @@ import {
   IconTrash,
   IconUserPlus,
   IconUsers,
+  IconUsersGroup,
   IconX,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
@@ -117,6 +119,8 @@ export const MembersIcon = wrap(IconUsers, "h-5 w-5");
 export const SettingsIcon = wrap(IconSettings, "h-5 w-5");
 export const LogoutIcon = wrap(IconLogout, "h-4 w-4");
 export const TrashIcon = wrap(IconTrash, "h-4 w-4");
+export const BellIcon = wrap(IconBell, "h-5 w-5");
+export const FamilyIcon = wrap(IconUsersGroup, "h-5 w-5");
 
 /**
  * Directional icons carry their direction in the NAME, not in a CSS flip.

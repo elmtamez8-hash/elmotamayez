@@ -6,9 +6,12 @@ import { useEffect, type ReactNode, type ComponentType } from "react";
 import Link from "next/link";
 import { PLATFORM_NAME } from "@/lib/platform";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { NotificationBell } from "@/components/app/NotificationBell";
 import {
+  BellIcon,
   CertificateIcon,
   CoursesIcon,
+  FamilyIcon,
   HomeIcon,
   ExamIcon,
   LearningIcon,
@@ -31,6 +34,8 @@ const mainNav: NavItem[] = [
   { href: "/exams", label: "الاختبارات", Icon: ExamIcon },
   { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },
   { href: "/orders", label: "الطلبات", Icon: OrdersIcon },
+  { href: "/notifications", label: "الإشعارات", Icon: BellIcon },
+  { href: "/family", label: "المرتبطون", Icon: FamilyIcon },
 ];
 
 const adminNav: NavItem[] = [
@@ -140,7 +145,10 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
           <h1 className="text-lg font-semibold text-ink">
             {allNav.find((i) => pathname.startsWith(i.href))?.label ?? "لوحة التحكم"}
           </h1>
-          <ThemeToggle />
+          <div className="flex items-center gap-1">
+            <NotificationBell />
+            <ThemeToggle />
+          </div>
         </header>
         <main id="main" className="p-6">
           {children}
