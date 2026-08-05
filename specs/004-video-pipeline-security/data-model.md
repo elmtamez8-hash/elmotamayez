@@ -2,8 +2,8 @@
 
 **Feature**: `004-video-pipeline-security` | **Date**: 2026-08-05
 
-ستة جداول جديدة، وعمودان على `users`، وعمود واحد على `lesson_progress`، وحذف
-`lessons.media`. الطبقة مذكورة لكل جدول — **قرار مُلزِم** بحكم الدستور I.
+تسعة جداول جديدة، وعمود واحد على `lesson_progress`، وحذف `lessons.media` وعمودَي الطالب
+من `users`. الطبقة مذكورة لكل جدول — **قرار مُلزِم** بحكم الدستور I.
 
 ---
 
@@ -113,9 +113,9 @@ pending ──► uploading ──► processing ──► ready
 
 ## ٤. `devices` — **مملوك للمنصة**
 
-> **يُمنع** `BelongsToWorkspace`. حدّ الجهازين على حساب الطالب كله؛ نسخة لكل مدرّس تعني
-> جهازين × عدد المدرّسين — أي لا حدّ أصلاً. `docs/roadmap.md` §٥ج يسمّي `Device` صراحةً
-> في طبقة المنصة.
+> **يُمنع** `BelongsToWorkspace`. الحدّ على حساب الطالب كله؛ نسخة لكل مدرّس تعني الحدّ ×
+> عدد المدرّسين — أي لا حدّ أصلاً. `docs/roadmap.md` §٥ج يسمّي `Device` صراحةً في طبقة
+> المنصة.
 
 | العمود | النوع | ملاحظات |
 |---|---|---|
@@ -147,7 +147,8 @@ pending ──► uploading ──► processing ──► ready
 | `last_active_at` · `ended_at` | timestamp nullable | |
 | `created_at` · `updated_at` | | |
 
-**فهرس**: `(user_id, status, created_at)` — يخدم «أقدم جلسة نشطة» في استعلام واحد.
+**فهرس**: `(user_id, status, device_id, created_at)` — يخدم عدّ الأجهزة المتمايزة وإيجاد
+أقدمها في استعلام واحد.
 
 ### `SessionEndReason`
 
