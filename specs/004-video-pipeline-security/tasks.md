@@ -27,7 +27,7 @@ description: "Task list for 004-video-pipeline-security"
 - [ ] T001 أنشئ هيكل وحدة `Media` في `backend/app/Modules/Media/` بمجلدات `Contracts` · `Providers` · `Data` · `Enums` · `Models` · `Actions` · `Jobs` · `Events` · `Http/{Controllers,Requests,Resources}` · `Policies` · `Support` · `Database/Migrations` (حرف M كبير — الدستور III) · `routes`
 - [ ] T002 أنشئ `backend/app/Modules/Media/MediaServiceProvider.php` يمتدّ `App\Shared\Modules\Module` بـ `protected string $name = 'Media'` — **يُمنع** تسجيله في `bootstrap/providers.php` (الاكتشاف تلقائي)
 - [ ] T003 أضف `app/Modules/Media/Database/Migrations` إلى `databaseMigrationsPath` في `backend/phpstan.neon` — بدونها لا يستنتج Larastan أنواع خصائص النماذج الجديدة
-- [ ] T004 [P] أنشئ `backend/config/media.php` بمفاتيح `provider` · `max_size_bytes` · `max_duration_seconds` · `grant_ttl_seconds` · `max_renewals` · `session_limits` · `two_factor_grace_days` — كلها **افتراضيات** يعلوها `platform_settings` (research §R16)
+- [ ] T004 [P] أنشئ `backend/config/media.php` بمفاتيح `provider` · `max_size_bytes` · `max_duration_seconds` · `grant_ttl_seconds` · `max_renewals` · `device_limits` · `two_factor_grace_days` — كلها **افتراضيات** يعلوها `platform_settings` (research §R16)
 - [ ] T005 [P] أضف `MEDIA_PROVIDER=local` إلى `backend/.env.example` مع تعليق يوضّح أن المحلّي لا يحتاج حساباً خارجياً
 - [ ] T006 [P] أضف المحدّدين المسمّيين `playback` و`two-factor` في `AppServiceProvider::registerRateLimiters()` بـ `backend/app/Providers/AppServiceProvider.php` — `playback` بمفتاح المستخدم لا IP، و`two-factor` بالاثنين. **يُمنع** أي `throttle:5,1` سطري
 - [ ] T007 [P] أنشئ `backend/app/Modules/Media/routes/api.php` فارغاً بترويسة توضّح أن `Module` يضيف البادئة `/api/v1` ومجموعة `api` تلقائياً
@@ -173,18 +173,18 @@ description: "Task list for 004-video-pipeline-security"
 
 ## Phase 5: User Story 3 — حساب واحد لا يخدم فصلاً كاملاً (P3)
 
-**Goal**: جلستان لكل حساب طالب، والثالثة تُنهي الأقدم تلقائياً — ولو كان صاحبها يشاهد ولا يفعل شيئاً.
+**Goal**: **جهاز واحد نشط** لكل حساب طالب. الدخول من جهاز ثانٍ يُنهي جلسات الأول تلقائياً — ولو كان صاحبها يشاهد ولا يفعل شيئاً. والعدّ على الأجهزة لا على الجلسات.
 
-**Independent Test**: سجّل الدخول من ثلاث جلسات متتابعة وتحقّق من بقاء اثنتين وانتهاء الأقدم.
+**Independent Test**: سجّل الدخول من جهازين متتابعين وتحقّق من انتهاء الأول وبقاء الثاني وحده؛ ثم من جلستين على **نفس** الجهاز وتحقّق من بقاء الاثنتين.
 
 > **تنبيه ترتيب**: T075–T076 (هجرة `auth_sessions` ونموذجها) **تُنفَّذ قبل T044** لأن المنحة
 > تُربط بـ`auth_session_id`. بقية القصة مستقلّة عن US1 و US2.
 
 ### الاختبارات أولاً
 
-- [ ] T072 [P] [US3] أنشئ `backend/tests/Feature/Auth/DeviceLimitTest.php`: ثلاث جلسات ⇒ الأقدم `ended` بسبب `device_limit` والجديدة تعمل، و**الدخول الجديد لا يُرفض ولو مرة** (SC-006 · FR-023)
+- [ ] T072 [P] [US3] أنشئ `backend/tests/Feature/Auth/DeviceLimitTest.php`: جهازان متتابعان ⇒ جلسات الأول `ended` بسبب `device_limit` والجديدة تعمل وحدها، و**الدخول الجديد لا يُرفض ولو مرة** (SC-006 · FR-023). وحالة ثانية: **جلستان على نفس الجهاز تبقيان معاً** — صفر إنهاء خاطئ (SC-006ج · FR-022ب)
 - [ ] T073 [P] [US3] أضف حالة **`mid-playback`** في نفس الملف: أصدر منحة، ابدأ طلبات المدى، أنهِ الجلسة من جهاز ثالث، وتأكّد أن **طلب المدى التالي `403`** والتجديد `401` — **بلا أي فعل من المشاهد** (SC-006أ · research §R15)
-- [ ] T074 [P] [US3] أضف حالة الإعدادات: غيّر `auth.session_limits` في `platform_settings` إلى `3` ⇒ ثلاث جلسات تبقى، **بلا إعادة نشر** (SC-006ب · FR-022)
+- [ ] T074 [P] [US3] أضف حالة الإعدادات: غيّر `auth.device_limits` في `platform_settings` إلى `2` ⇒ جهازان يبقيان، **بلا إعادة نشر** (SC-006ب · FR-022)
 
 ### الكيانات والمنطق
 
@@ -192,9 +192,9 @@ description: "Task list for 004-video-pipeline-security"
 - [ ] T076 [US3] أنشئ `backend/app/Modules/Identity/Models/{Device,AuthSession}.php` — **بلا** `BelongsToWorkspace` (مملوكان للمنصة)، و`SessionEndReason` تعداداً في `Identity/Support/`
 - [ ] T077 [P] [US3] أنشئ مصانع `backend/database/factories/Modules/Identity/` للنموذجين
 - [ ] T078 [US3] أنشئ `backend/app/Modules/Identity/Support/DeviceFingerprint.php` — `sha256` لـ `X-Device-Id` + `User-Agent` + `Accept-Language`، مع `label()` مقروء بالعربية (research §R7)
-- [ ] T079 [US3] أنشئ `backend/app/Modules/Identity/Actions/StartAuthSession.php`: يحلّ الجهاز، يُنشئ الجلسة **أولاً**، ثم يُنهي الأقدم حتى يصل العدد لحدّ `PlatformSettings::get('auth.session_limits')` — الترتيب مقصود (FR-023)
+- [ ] T079 [US3] أنشئ `backend/app/Modules/Identity/Actions/StartAuthSession.php` بالخوارزمية الخماسية في data-model §٥: يحلّ الجهاز، يُنشئ الجلسة **أولاً** (FR-023 يمنع رفض الدخول الجديد)، ثم يعدّ **`device_id` المتمايزة** بين الجلسات النشطة ويُنهي جلسات **أقدم جهاز كلها معاً** حتى يصل العدد لحدّ `PlatformSettings::get('auth.device_limits')`. **يُمنع** العدّ على الجلسات (FR-022ب)
 - [ ] T080 [US3] أنشئ `backend/app/Modules/Identity/Actions/TerminateAuthSession.php`: يحذف رمز Sanctum ويضبط `status` و`ended_reason` — **حذف الرمز هو الإنهاء**، بلا وسيط (research §R8)
-- [ ] T081 [US3] أطلق `SecurityAlert` عند الإنهاء بسبب `device_limit` عبر `DispatchNotification` من `Modules/Notifications/` — نوع إلزامي قائم من spec 003 (FR-025)
+- [ ] T081 [US3] أطلق `SecurityAlert` عند الإنهاء بسبب `device_limit` عبر `DispatchNotification` من `Modules/Notifications/` — نوع إلزامي قائم من spec 003. **فقط إن كانت الجلسة المنتهية نشطة حديثاً** (`last_active_at` داخل النافذة): بحدّ جهاز واحد يقع الإنهاء عند كل تنقّل عادي، وتنبيه يومي يُدرَّب المستخدم على تجاهله فيضيع حين يقع الاختراق (FR-025)
 - [ ] T082 [US3] عدّل `login` و`registerStudent` و`registerParent` في `backend/app/Modules/Identity/Http/Controllers/AuthController.php` لتمرّ عبر `StartAuthSession`، وأضف `session_uuid` إلى استجابة الدخول
 - [ ] T083 [US3] عدّل `logout` و`changePassword` في نفس الملف: الخروج يُنهي جلسته، وتغيير كلمة المرور يُنهي **بقية** الجلسات وينبّه (FR-031)
 
@@ -202,7 +202,7 @@ description: "Task list for 004-video-pipeline-security"
 
 - [ ] T084 [US3] أنشئ `backend/app/Modules/Identity/Policies/AuthSessionPolicy.php` — ملكية الصفّ للمستخدم. **يُمنع** على المدرّس مطلقاً، ولو كان الطالب مسجَّلاً عنده (research §R12)
 - [ ] T085 [US3] أنشئ `backend/app/Modules/Identity/Http/Controllers/SessionController.php` ومسارات `GET /auth/sessions` · `DELETE /auth/sessions/{uuid}` · `GET /auth/sessions/{uuid}/end-reason` (**بلا مصادقة**، `throttle:public`، حقلان لا ثالث)
-- [ ] T086 [P] [US3] أنشئ `backend/tests/Feature/Auth/PlatformOwnershipTest.php` — الاتجاهان معاً (NFR-001ب): مدرّس **لا** يقرأ أجهزة طالبه المسجَّل عنده، والطالب المسجَّل عند ثلاثة مدرّسين يرى **جهازين** لا ستة
+- [ ] T086 [P] [US3] أنشئ `backend/tests/Feature/Auth/PlatformOwnershipTest.php` — الاتجاهان معاً (NFR-001ب): مدرّس **لا** يقرأ أجهزة طالبه المسجَّل عنده، والطالب المسجَّل عند ثلاثة مدرّسين يرى **قائمة أجهزة واحدة** لا ثلاث نسخ
 
 ### الواجهة — اكتشاف الإنهاء (research §R15)
 
