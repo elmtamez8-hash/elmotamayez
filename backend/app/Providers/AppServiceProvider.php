@@ -108,6 +108,14 @@ class AppServiceProvider extends ServiceProvider
         // the endpoint open. It is a write on every call, so it is not unlimited.
         RateLimiter::for('presence', fn (Request $request) => Limit::perMinute(240)
             ->by('user:'.(string) $request->user()?->getKey()));
+
+        // Settlement writes: asking for a rate, approving one, closing a period,
+        // recording a payout. Tight because none of them is a thing anyone does
+        // repeatedly — a teacher asks for a new rate once a month, and an admin
+        // closes a period once a period. Keyed by user: these all require
+        // authentication, and an office behind one address is many admins.
+        RateLimiter::for('settlement-write', fn (Request $request) => Limit::perMinute(20)
+            ->by('user:'.(string) $request->user()?->getKey()));
     }
 
     /**

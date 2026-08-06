@@ -48,6 +48,13 @@ final class PlatformSettings
         'sessions.presence_interval_seconds' => 'sessions.presence_interval_seconds',
         'sessions.attendance_edit_window_hours' => 'sessions.attendance_edit_window_hours',
         'sessions.report_delay_minutes' => 'sessions.report_delay_minutes',
+        'settlement.period_days' => 'settlement.period_days',
+        'settlement.required_package_components' => 'settlement.required_package_components',
+        'settlement.zero_attendance_compensation_enabled' => 'settlement.zero_attendance_compensation_enabled',
+        'settlement.zero_attendance_compensation_percent' => 'settlement.zero_attendance_compensation_percent',
+        'settlement.rate_requests_per_window' => 'settlement.rate_requests_per_window',
+        'settlement.rate_request_window_days' => 'settlement.rate_request_window_days',
+        'settlement.currency' => 'settlement.currency',
     ];
 
     public static function get(string $key, mixed $default = null): mixed

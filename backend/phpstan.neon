@@ -24,4 +24,5 @@ parameters:
         - app/Modules/Media/Database/Migrations
         - app/Modules/Notifications/Database/Migrations
         - app/Modules/Payments/Database/Migrations
+        - app/Modules/Settlement/Database/Migrations
         - app/Modules/Tenancy/Database/Migrations

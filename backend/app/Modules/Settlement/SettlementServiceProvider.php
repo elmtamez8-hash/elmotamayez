@@ -1,0 +1,42 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Settlement;
+
+use App\Modules\Settlement\Models\RateChangeRequest;
+use App\Modules\Settlement\Models\SettlementPeriod;
+use App\Modules\Settlement\Models\TeachingUnit;
+use App\Modules\Settlement\Policies\RateChangeRequestPolicy;
+use App\Modules\Settlement\Policies\SettlementPeriodPolicy;
+use App\Modules\Settlement\Policies\TeachingUnitPolicy;
+use App\Shared\Modules\Module;
+use Illuminate\Support\Facades\Gate;
+
+/**
+ * The teacher's side of the money, and nothing else.
+ *
+ * This module is separate from Payments on purpose. The whole value of spec 014
+ * is that what a student pays and what a teacher is owed are two contexts with
+ * no join between them: putting this ledger inside Payments would turn FR-030
+ * and FR-031 into an agreement between programmers who share a folder, and the
+ * first query that joins the two tables would get written because it was within
+ * reach.
+ *
+ * The bridge is one event, `SessionDelivered` from LiveSessions. Never a foreign
+ * key, never a query across the boundary — ContextIsolationTest fails the build
+ * on either.
+ */
+class SettlementServiceProvider extends Module
+{
+    protected string $name = 'Settlement';
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        Gate::policy(TeachingUnit::class, TeachingUnitPolicy::class);
+        Gate::policy(RateChangeRequest::class, RateChangeRequestPolicy::class);
+        Gate::policy(SettlementPeriod::class, SettlementPeriodPolicy::class);
+    }
+}

@@ -16,6 +16,12 @@ use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Models\MediaCaption;
+use App\Modules\Settlement\Models\LedgerEntry;
+use App\Modules\Settlement\Models\RateChangeRequest;
+use App\Modules\Settlement\Models\SettlementPeriod;
+use App\Modules\Settlement\Models\SettlementRate;
+use App\Modules\Settlement\Models\TeacherPayout;
+use App\Modules\Settlement\Models\TeachingUnit;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use App\Shared\Traits\BelongsToWorkspace;
@@ -179,5 +185,39 @@ describe('live session models are workspace-scoped', function (): void {
             ->and($context->forWorkspace($workspaceB, fn () => SessionBooking::query()->count()))->toBe(0)
             ->and($context->forWorkspace($workspaceB, fn () => Attendance::query()->count()))->toBe(0)
             ->and($context->forWorkspace($workspaceB, fn () => FreezePeriod::query()->count()))->toBe(0);
+    });
+});
+
+describe('settlement models are workspace-scoped', function (): void {
+    // Required in the same PR that adds the model (Constitution I). Money is the
+    // worst possible place for a scope to be missing: one teacher reading
+    // another's rate is the dispute this whole context was built to prevent, and
+    // it would pass every other test in this suite.
+    it('scopes rates, requests, units, ledger, periods and payouts to the current workspace', function (): void {
+        [$workspaceA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+        [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+        $context = app(WorkspaceContext::class);
+
+        $context->forWorkspace($workspaceA, function (): void {
+            SettlementRate::factory()->create();
+            RateChangeRequest::factory()->create();
+            TeachingUnit::factory()->create();
+            LedgerEntry::factory()->create();
+            $period = SettlementPeriod::factory()->create();
+            TeacherPayout::factory()->create(['settlement_period_id' => $period->getKey()]);
+        });
+
+        $context->forWorkspace($workspaceB, function (): void {
+            SettlementRate::factory()->count(2)->create();
+        });
+
+        expect($context->forWorkspace($workspaceA, fn () => SettlementRate::query()->count()))->toBe(1)
+            ->and($context->forWorkspace($workspaceB, fn () => SettlementRate::query()->count()))->toBe(2)
+            ->and($context->forWorkspace($workspaceB, fn () => RateChangeRequest::query()->count()))->toBe(0)
+            ->and($context->forWorkspace($workspaceB, fn () => TeachingUnit::query()->count()))->toBe(0)
+            ->and($context->forWorkspace($workspaceB, fn () => LedgerEntry::query()->count()))->toBe(0)
+            ->and($context->forWorkspace($workspaceB, fn () => SettlementPeriod::query()->count()))->toBe(0)
+            ->and($context->forWorkspace($workspaceB, fn () => TeacherPayout::query()->count()))->toBe(0);
     });
 });

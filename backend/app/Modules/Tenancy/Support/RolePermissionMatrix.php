@@ -76,6 +76,14 @@ final class RolePermissionMatrix
             Permissions::SESSIONS_HOST,
             Permissions::ATTENDANCE_OVERRIDE,
             Permissions::FREEZE_MANAGE,
+            // The teacher's own contract: ask for a rate, read their statement.
+            // Deliberately on $teacher and NOT on $assistantTeacher — an
+            // assistant runs the classroom, they do not read the teacher's money
+            // (FR-020). Approving a rate, closing a period and executing a payout
+            // are platform decisions and reach only super-admin through $all,
+            // exactly like MARKETPLACE_TEACHERS_APPROVE.
+            Permissions::SETTLEMENT_RATE_REQUEST,
+            Permissions::SETTLEMENT_STATEMENT_VIEW,
         ]);
 
         $tenantOwner = array_merge($teacher, [

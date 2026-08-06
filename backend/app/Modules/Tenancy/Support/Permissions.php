@@ -157,6 +157,41 @@ final class Permissions
      */
     public const RELATIONS_VIEW_STUDENT = 'relations.view.student';
 
+    /*
+    | Settlement (spec 014) — the teacher's own money.
+    |
+    | Deliberately NOT operational permissions. An assistant teacher may hold
+    | every session permission there is and still hold none of these: reading a
+    | teacher's statement is reading their contract, not running their classroom
+    | (FR-020). The same split that separated SESSIONS_VIEW from ATTENDANCE_VIEW
+    | in spec 005 — "you may see your sessions" is a different question from
+    | "you may read a record about people".
+    */
+
+    /** Ask for a new settlement rate. The teacher's own; it does not take effect. */
+    public const SETTLEMENT_RATE_REQUEST = 'settlement.rate.request';
+
+    /** Approve or reject one. Platform-level: approving changes the sale price. */
+    public const SETTLEMENT_RATE_APPROVE = 'settlement.rate.approve';
+
+    /** Read one's own statement and ledger. */
+    public const SETTLEMENT_STATEMENT_VIEW = 'settlement.statement.view';
+
+    /** Close a settlement period and freeze its totals. */
+    public const SETTLEMENT_PERIOD_MANAGE = 'settlement.period.manage';
+
+    /** Record a payout against a closed period. */
+    public const SETTLEMENT_PAYOUT_EXECUTE = 'settlement.payout.execute';
+
+    /**
+     * See both sides of the audit trail.
+     *
+     * Granted to nobody by default, not even the workspace owner: FR-034 filters
+     * the trail so neither party sees the other's side, and this is the one key
+     * that lifts the filter. A default grant would make the filter decorative.
+     */
+    public const SETTLEMENT_AUDIT_VIEW = 'settlement.audit.view';
+
     /** @return list<string> */
     public static function all(): array
     {
@@ -217,6 +252,12 @@ final class Permissions
             self::NOTIFICATIONS_LOGS_VIEW,
             self::NOTIFICATIONS_TEMPLATES_MANAGE,
             self::RELATIONS_VIEW_STUDENT,
+            self::SETTLEMENT_RATE_REQUEST,
+            self::SETTLEMENT_RATE_APPROVE,
+            self::SETTLEMENT_STATEMENT_VIEW,
+            self::SETTLEMENT_PERIOD_MANAGE,
+            self::SETTLEMENT_PAYOUT_EXECUTE,
+            self::SETTLEMENT_AUDIT_VIEW,
         ];
     }
 }
