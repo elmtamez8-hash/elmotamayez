@@ -119,6 +119,34 @@ Tests use in-memory SQLite (`DB_DATABASE=:memory:` in `phpunit.xml`).
 17. Watermark identity and phone masking — `tests/Feature/Media/WatermarkTest.php`
 18. Two-factor challenge, recovery codes and the sensitive-route guard — `tests/Feature/Auth/TwoFactorTest.php`
 19. Caption validation and grant-scoped delivery — `tests/Feature/Media/CaptionsTest.php`
+20. Seat concurrency — `tests/Feature/LiveSessions/SeatConcurrencyTest.php`
+21. Room-entry guard — `tests/Feature/LiveSessions/RoomAccessTest.php`
+22. When absence is recorded — `tests/Feature/LiveSessions/AttendanceSheetTest.php`
+23. Attendance has no financial effect — `tests/Feature/LiveSessions/AttendanceHasNoFinancialEffectTest.php`
+24. Recording reaches its seats and nobody else — `tests/Feature/LiveSessions/RecordingAccessTest.php`
+25. Broadcast provider contract — `tests/Feature/LiveSessions/BroadcastProviderContractTest.php`
+26. Freeze counts nothing — `tests/Feature/LiveSessions/FreezePeriodTest.php`
+
+### Read before touching sessions
+
+Attendance never passes through the broadcast provider. The register is built from a
+heartbeat on our own route and the server does the arithmetic —
+`stay_seconds += min(now − last_ping_at, 2 × interval)` — which is why two devices do
+not double a stay, a return aggregates into one stay, and an hour of silence is not
+credited as attendance.
+
+Seats are claimed by an atomic conditional UPDATE, never `count()` then `insert()` and
+never `lockForUpdate()`: the latter is a no-op on SQLite, so a test written around it
+passes locally and proves nothing about MySQL.
+
+`SessionCompleted` is not `SessionDelivered`. Two events rather than one with a flag,
+because a flag makes the condition optional for the listener — and only delivery
+carries the frozen seat count spec 006 will bill against.
+
+Jobs in this module dispatch with `->delay()`. On the `sync` connection a delay runs
+IMMEDIATELY (a delay is a queue-driver feature and sync has no queue), so a test that
+exercises a session timeline must `Queue::fake()` or the close will land before the
+teacher has joined.
 
 ### Read before touching playback
 

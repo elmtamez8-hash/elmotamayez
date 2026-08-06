@@ -30,6 +30,7 @@
 | Analytics | `app/Modules/Analytics/` | (Filament widgets) | Admin dashboard |
 | CMS | `app/Modules/CMS/` | Article, Category, Tag | Articles CRUD + publish |
 | Marketplace | `app/Modules/Marketplace/` | TeacherProfile, TeacherApplication, Subject, GradeLevel, AvailabilitySlot, Review, Complaint | Public listings (no auth) + teacher application + academic review + reviews/complaints |
+| LiveSessions | `app/Modules/LiveSessions/` | ClassSession, SessionBooking, Attendance, ClassSessionFeedback, FreezePeriod | Calendar + booking + broadcast room + register + freeze periods |
 
 ### Marketplace endpoints
 
@@ -269,3 +270,101 @@ Before `two_factor_required_at` it passes and the screen nags; after it, `403` w
   for an enrolled account. A client that assumed `token` is always present must narrow.
 - `PlaybackGrantResource.captions[]` gained `url`, which points through the grant. There is
   no caption URL that outlives it.
+
+
+## Live Sessions and Attendance (spec 005)
+
+The model is `ClassSession`, never `Session`: `AuthSession` (004) already owns that word,
+and two things called Session in one product is a line every reader misreads once. The
+frontend follows — `lib/class-sessions.ts` next to `lib/sessions.ts`.
+
+Broadcast providers sit behind `LiveSessions\Contracts\BroadcastProviderInterface` with an
+explicit `BroadcastCapabilities` declaration, the same shape as `VideoProviderInterface`
+(004) and `PaymentProviderInterface`. `NullBroadcastProvider` is the only implementation
+today; `BroadcastProviderContractTest` holds each one to exactly what it claims, which is
+what makes deferring the commercial choice safe rather than merely convenient.
+
+**Attendance never passes through the provider.** The register is built from a heartbeat
+hitting our own route, and the server does the arithmetic:
+
+```
+stay_seconds += min(now − last_ping_at, 2 × presence_interval)
+```
+
+Three properties fall out of that one line: two devices do not double the time, leaving and
+returning aggregates into one stay, and a long silence is capped at two intervals rather
+than credited as attendance. It is also why the whole of attendance was buildable and
+provable before any broadcast contract existed.
+
+### Endpoints
+
+| Method | Path | Guard |
+|---|---|---|
+| GET | `/schedule` · `/schedule/next` | sanctum — the student's own timetable across **every** teacher they study with |
+| GET | `/class-sessions` · `/class-sessions/{uuid}` | `sessions.view` |
+| POST | `/class-sessions` · `/class-sessions/generate` | `sessions.manage`, `throttle:sessions` |
+| PUT | `/class-sessions/{uuid}` | `sessions.manage` — refuses a `type` change once a seat is taken |
+| POST | `/class-sessions/{uuid}/cancel` | `sessions.manage` |
+| POST | `/class-sessions/{uuid}/book` · DELETE `/bookings/{uuid}` | Student's own seat |
+| POST | `/class-sessions/{uuid}/join` | Seat or `sessions.host`. One 403 for every refusal — a refusal that distinguishes them tells the caller the session exists and when to come back |
+| POST | `/class-sessions/{uuid}/leave` | Ticket holder |
+| POST | `/class-sessions/{uuid}/presence` | Ticket holder, `throttle:presence` — its own limiter, since one participant sends two a minute |
+| POST | `/class-sessions/{uuid}/host/{action}` | `sessions.host`. `501` when the provider cannot do it — the honest answer, not a 500 |
+| GET | `/class-sessions/{uuid}/attendance` | `sessions.view`, workspace-scoped |
+| POST | `/attendances/{uuid}/override` | `attendance.override`; past the edit window it takes `settings.update` |
+| POST | `/class-sessions/{uuid}/feedback` | `sessions.manage` — writing on a student's record is not something a reader gains by being able to read |
+| GET/POST/DELETE | `/freeze-periods` | `freeze.manage` |
+
+### Permissions
+
+`sessions.view` · `sessions.manage` · `sessions.host` · `attendance.view` ·
+`attendance.override` · `freeze.manage`. Students hold `sessions.view`; assistants add
+`attendance.view`; the other four are the teacher's.
+
+### Events
+
+`SessionScheduled` · `SessionCancelled` · `SessionCompleted` · `SessionDelivered` ·
+`AttendanceConfirmed` · `AttendanceOverridden`.
+
+**`SessionCompleted` is not `SessionDelivered`.** Two events rather than one with a flag,
+because a flag makes the condition optional for the listener. Completion is "the session
+ended"; delivery is "the teacher joined, stayed long enough, and it ended normally", and
+only delivery carries the frozen seat count that spec 006 will bill against.
+
+**`billable_seats` is written once**, at the cancellation deadline, and never recomputed
+(FR-060): it answers a question about a moment that has passed. A consumer must read the
+column, never derive it from live bookings.
+
+### `attendance_rate` means the teacher's attendance
+
+`teacher_profiles.attendance_rate` is the share of countable sessions the teacher actually
+**delivered** — not their students' attendance. A student's absence never touches it. That
+reading is not the obvious one from the column name, which is why it is written here, in
+`SyncTeacherCountersJob`, and in a test that fails if anyone changes it: marking a teacher
+down for an unreliable student would let one person lower a profile the marketplace ranks
+on.
+
+### Recordings
+
+A finished session's recording is published as an ordinary `Lesson` carrying
+`class_session_id`, so it inherits every protection built in 004 — the short-lived grant,
+the watermark, the renewal loop, the refusal after expiry — without a line of new security
+code. Who may watch is one branch in `IssuePlaybackGrant`, and it sits **above** the
+workspace-membership shortcut: every enrolled student is a member of their teacher's
+workspace, so membership alone would hand the whole cohort an hour only its seats paid
+for. A late cancellation still entitles — the seat was counted.
+
+Recordings land in a per-course «تسجيلات الحصص» section created on demand. A session with
+no course is marked `no_course` rather than having a course invented for it.
+
+### Freeze periods
+
+A freeze writes nothing to attendance rows, counters or streaks. It is **read** by
+scheduling, booking, `MarkAbsenteesJob` and `SyncTeacherCountersJob` — which is why
+resuming afterwards cannot fail: there is nothing to undo. Sessions already booked inside
+one are **suspended, not deleted**, their seats released, and every seat holder told.
+
+### Rate limiters
+
+`throttle:sessions` (writes) and `throttle:presence` (the heartbeat), both named in
+`AppServiceProvider::registerRateLimiters()`. Inline limits stay banned.

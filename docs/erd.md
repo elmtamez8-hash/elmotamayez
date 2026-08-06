@@ -311,3 +311,41 @@ platform_settings   (PLATFORM)   key/value an operator edits without a deploy
 - **`users` rule from here on:** it carries what every account has. Anything true of one
   role only gets its own table. No `guardian_profiles` or `admin_profiles` exist yet —
   no field is theirs, and an empty table is not a design
+
+
+## Live Sessions & Attendance (spec 005)
+
+```
+class_sessions      (workspace)  the taught hour. Named ClassSession, not Session:
+                                 auth_sessions already owns that word
+session_bookings    (bridge)     workspace_id for context, student_user_id pointing at the
+                                 one platform-wide student
+attendances         (bridge)     same shape; one row per student per session
+class_session_feedback (workspace) the teacher's remark, one per (session, student)
+freeze_periods      (workspace)  student_user_id NULL = every student of this teacher
+
+lessons gains:      class_session_id  → the recording, published as an ordinary lesson
+attendances gains:  report_sent_at    → when the guardian was told what this row says
+```
+
+- **ClassSession → SessionBookings:** `unique(class_session_id, student_user_id)` stops one
+  student holding two seats. It is **not** the guard against overbooking — that is the
+  conditional `UPDATE … WHERE seats_taken < seats_total`, which is atomic where
+  `lockForUpdate()` is a no-op on SQLite and would prove nothing about MySQL
+- **ClassSession.billable_seats:** written once at the cancellation deadline, never
+  recomputed. It answers a question about a moment that has passed
+- **ClassSession.delivered_at:** a column, not a status, because completion and delivery are
+  different facts — spec 006 bills against this one
+- **Attendance.auto_status:** survives every override, so the register always shows what the
+  system concluded next to what a person decided. A record that hides having been edited is
+  trusted more than it has earned
+- **Attendance.recording_watched_at:** an independent fact that never moves `status`. The
+  teacher may mark someone present on the strength of it; the system never does
+- **Lesson.class_session_id:** the recording's entitlement hangs off this one column, checked
+  in `IssuePlaybackGrant` **above** the workspace-membership shortcut — every enrolled
+  student is a member of their teacher's workspace, so membership alone would hand the
+  cohort an hour only its seats paid for
+- **FreezePeriod:** read, never written to by anything. Scheduling, booking and the counting
+  jobs consult it; no counter moves, so nothing has to be restored when it ends
+- **`broadcast_provider` / `broadcast_room_id`:** on the row, never in a payload and never
+  in the frontend bundle (FR-019)

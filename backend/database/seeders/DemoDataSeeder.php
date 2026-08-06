@@ -13,6 +13,10 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
 use App\Modules\Identity\Support\PlatformRole;
+use App\Modules\Learning\Actions\EnrollStudent;
+use App\Modules\LiveSessions\Actions\BookSeat;
+use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Actions\CreateWorkspace;
 use App\Modules\Tenancy\DTOs\CreateWorkspaceDTO;
 use App\Modules\Tenancy\Support\Roles;
@@ -133,7 +137,35 @@ class DemoDataSeeder extends Seeder
             }
         }
 
-        $this->command->info('Demo data seeded: workspace, teacher, student, course with lessons, and exam.');
+        // A booked seat for the demo student, so /schedule is not empty for the
+        // account the e2e suite signs in as. Without it the sessions specs walk
+        // into an empty state and prove only that an empty state renders — the
+        // same silent skip that let spec 004's player ship unreachable.
+        app(EnrollStudent::class)->handle($course, $student);
+
+        $profile = TeacherProfile::factory()->create([
+            'workspace_id' => $workspace->id,
+            'user_id' => $owner->getKey(),
+        ]);
+
+        // Starting inside the join window, so the room is enterable during a run
+        // that follows the seed. The walk is what the spec asserts either way:
+        // a refused ticket renders a stated reason, not a broken page.
+        $startsAt = now()->addMinutes(10);
+
+        $session = ClassSession::factory()->create([
+            'teacher_profile_id' => $profile->id,
+            'course_id' => $course->id,
+            'title' => 'حصة تجريبية — مراجعة Laravel',
+            'starts_at' => $startsAt,
+            'ends_at' => $startsAt->copy()->addHour(),
+            'duration_minutes' => 60,
+            'seats_total' => 5,
+        ]);
+
+        app(BookSeat::class)->handle($session, $student);
+
+        $this->command->info('Demo data seeded: workspace, teacher, student, course with lessons, exam, and a booked session.');
     }
 
     /**

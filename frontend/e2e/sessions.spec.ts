@@ -46,6 +46,57 @@ test.describe("الوصول إلى الحصص", () => {
     await expect(page.getByRole("button", { name: "توليد" })).toBeDisabled();
   });
 
+  // The whole walk: sidebar → my schedule → a session → the room. The seed
+  // books the demo student a seat (DemoDataSeeder) precisely so this does not
+  // stop at an empty state and report green.
+  test("جدولي ← حصة ← الغرفة", async ({ page }) => {
+    await page.goto("/dashboard");
+    await page.getByRole("link", { name: "جدولي" }).click();
+
+    // The list is fetched client-side, so counting before it settles counts
+    // zero and skips a test that would have passed. Wait for either outcome
+    // first — that is the difference between "no seat" and "not loaded yet".
+    await expect(page.getByText(/لا حصص محجوزة|حصة تجريبية/).first()).toBeVisible();
+
+    const session = page.getByRole("link", { name: /حصة تجريبية/ }).first();
+
+    test.skip(
+      (await session.count()) === 0,
+      "لا حصة محجوزة للطالب المبذور — نفّذ php artisan migrate:fresh --seed ثم أعد التشغيل.",
+    );
+
+    // On the student's own timetable the title IS the way in: the room is the
+    // only thing they can do with a booked hour.
+    await session.click();
+
+    await expect(page).toHaveURL(/\/sessions\/[0-9a-f-]+\/room$/);
+    await expect(page.getByRole("heading", { name: "غرفة الحصة" })).toBeVisible();
+
+    // A ticket or a stated refusal — the room outside its window is a refusal
+    // with a reason, never a blank page or a raw error.
+    await expect(
+      page.getByText(/الغرفة مفتوحة|تعذّر الدخول|جارٍ التحضير…/).first(),
+    ).toBeVisible();
+    await expect(page.locator("body")).not.toContainText(/Request failed|undefined/);
+  });
+
+  // And the teacher's half: sidebar → my sessions → a session → the register.
+  test("حصصي ← حصة ← كشف الحضور", async ({ page }) => {
+    await page.goto("/dashboard");
+    await page.getByRole("link", { name: "حصصي" }).click();
+
+    await expect(page.getByText(/لا حصص بعد|حصة تجريبية/).first()).toBeVisible();
+
+    const card = page.getByRole("link", { name: /حصة تجريبية/ }).first();
+
+    test.skip((await card.count()) === 0, "لا حصص مبذورة — أعد تنفيذ migrate:fresh --seed.");
+
+    await card.click();
+
+    await expect(page).toHaveURL(/\/manage\/sessions\/[0-9a-f-]+$/);
+    await expect(page.getByRole("heading", { name: "كشف الحضور" })).toBeVisible();
+  });
+
   // FR-055 · the empty state is an answer, not a failure.
   test("العدّاد يعرض حالة مفهومة بلا حصص", async ({ page }) => {
     await page.goto("/schedule");

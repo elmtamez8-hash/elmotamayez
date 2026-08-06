@@ -46,11 +46,14 @@ php artisan tinker --execute="…"   # أو من الواجهة: /manage/session
 **التزامن (SC-001)** — يُثبَت باختبار لا بالمتصفّح:
 
 ```bash
-php vendor/bin/pest --filter="لا يتجاوز عدد المحجوزين عدد المقاعد"
+php vendor/bin/pest tests/Feature/LiveSessions/SeatConcurrencyTest.php
 ```
 
 الحارس تحديث شرطي ذرّي (`WHERE seats_taken < seats_total`) لا `lockForUpdate` — الأخير بلا
 أثر على SQLite، فاختباره يمرّ محلياً ولا يثبت شيئاً عن MySQL.
+
+> بمسار الملف لا بـ`--filter` على نصّ عربي: أسماء الاختبارات إنجليزية، والتصفية بنصّ لا
+> يطابق شيئاً تُرجع **صفر اختبار ونجاحاً** — أخطر ناتج ممكن من أمر تحقّق.
 
 ---
 
@@ -97,8 +100,10 @@ php vendor/bin/pest tests/Feature/LiveSessions/RecordingPublicationTest.php
 ## 4. التقرير والتجميد (US5 · US6)
 
 ```bash
-php vendor/bin/pest --filter="تقرير ما بعد الحصة"
-php vendor/bin/pest --filter="تجميد"
+php vendor/bin/pest tests/Feature/LiveSessions/SessionReportTest.php
+php vendor/bin/pest tests/Feature/LiveSessions/FreezePeriodTest.php \
+                    tests/Feature/LiveSessions/FreezeResumptionTest.php \
+                    tests/Feature/LiveSessions/FreezeHasNoFinancialEffectTest.php
 ```
 
 **المتوقّع في التقرير**: يصل وليَّي أمر الطالب معاً ويُسجَّل **مرة واحدة**، ويصل الطالب نفسه
