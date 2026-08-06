@@ -54,6 +54,19 @@ test.describe("الوصول إلى الحصص", () => {
     await expect(page.locator("body")).not.toContainText(/NaN|Invalid Date/);
   });
 
-  // The freeze-periods link is asserted here once user story 6 ships the screen
-  // it opens. Asserting it now would pass on a button pointing at a 404.
+  // Freezing has no nav entry on purpose — it is an action on the calendar, not
+  // a section. Which makes this link the ONLY way in, so the walk is the test.
+  test("حصصي ← فترات التجميد", async ({ page }) => {
+    await page.goto("/manage/sessions");
+
+    await page.getByRole("link", { name: "فترات التجميد" }).click();
+
+    await expect(page).toHaveURL(/\/manage\/freeze$/);
+    await expect(page.getByRole("heading", { name: "فترات التجميد", level: 2 })).toBeVisible();
+    await expect(page.getByRole("button", { name: "تجميد الفترة" })).toBeDisabled();
+
+    // And back the way we came.
+    await page.getByRole("link", { name: "← حصصي" }).click();
+    await expect(page).toHaveURL(/\/manage\/sessions$/);
+  });
 });

@@ -6,8 +6,10 @@ namespace App\Modules\LiveSessions;
 
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Events\AttendanceOverridden;
+use App\Modules\LiveSessions\Events\SessionCancelled;
 use App\Modules\LiveSessions\Events\SessionCompleted;
 use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
+use App\Modules\LiveSessions\Listeners\NotifySeatHolders;
 use App\Modules\LiveSessions\Listeners\PublishRecordingAsLesson;
 use App\Modules\LiveSessions\Listeners\SendAttendanceCorrection;
 use App\Modules\LiveSessions\Listeners\UpdateTeacherCounters;
@@ -73,6 +75,11 @@ class LiveSessionsServiceProvider extends Module
         // a session recording and publishes it. Media knows nothing about
         // sessions, which is what Constitution III asks for.
         Event::listen(MediaAssetReady::class, PublishRecordingAsLesson::class);
+
+        // A seat that will not be honoured is explained to the person who took
+        // it — whether the teacher called the session off or a freeze suspended
+        // it (FR-006 · FR-040).
+        Event::listen(SessionCancelled::class, NotifySeatHolders::class);
 
         // A report already in a guardian's hands is corrected rather than left
         // standing (FR-037).

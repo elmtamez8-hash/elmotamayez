@@ -6,6 +6,7 @@ use App\Modules\LiveSessions\Http\Controllers\AttendanceController;
 use App\Modules\LiveSessions\Http\Controllers\BookingController;
 use App\Modules\LiveSessions\Http\Controllers\BroadcastController;
 use App\Modules\LiveSessions\Http\Controllers\ClassSessionController;
+use App\Modules\LiveSessions\Http\Controllers\FreezePeriodController;
 use App\Modules\LiveSessions\Http\Controllers\ScheduleController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +25,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // The student's own timetable, across every teacher they study with.
     Route::get('/schedule', [ScheduleController::class, 'index']);
     Route::get('/schedule/next', [ScheduleController::class, 'next']);
+
+    Route::get('/freeze-periods', [FreezePeriodController::class, 'index']);
 
     Route::get('/class-sessions', [ClassSessionController::class, 'index']);
     Route::get('/class-sessions/{session}', [ClassSessionController::class, 'show']);
@@ -44,6 +47,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
         Route::post('/attendances/{attendance}/override', [AttendanceController::class, 'override']);
         Route::post('/class-sessions/{session}/feedback', [AttendanceController::class, 'feedback']);
+
+        Route::post('/freeze-periods', [FreezePeriodController::class, 'store']);
+        Route::delete('/freeze-periods/{period}', [FreezePeriodController::class, 'destroy']);
     });
 
     // Its own limiter: one participant sends two a minute, and the ceiling has

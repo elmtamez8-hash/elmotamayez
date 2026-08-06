@@ -58,6 +58,12 @@ class FreezePeriod extends BaseModel
         return $this->belongsTo(User::class, 'student_user_id');
     }
 
+    /** @return BelongsTo<User, $this> */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     /**
      * Periods covering a moment, for everyone or for this student in particular.
      *

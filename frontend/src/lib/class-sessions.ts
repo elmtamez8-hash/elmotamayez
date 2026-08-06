@@ -129,6 +129,36 @@ export const attendance = {
   ) => api.post<{ data: unknown[] }>(`/class-sessions/${sessionUuid}/feedback`, { entries }),
 };
 
+export interface FreezePeriod {
+  uuid: string;
+  starts_on: string;
+  ends_on: string;
+  reason: string | null;
+  /** Absent means the whole workspace — every student of this teacher. */
+  student?: { uuid: string; name: string } | null;
+  creator?: { uuid: string; name: string } | null;
+}
+
+export interface FreezeResult {
+  data: FreezePeriod;
+  /** What the freeze took away. Shown, never swallowed. */
+  suspended: ClassSession[];
+  notified: number;
+}
+
+export const freezePeriods = {
+  list: () => api.get<{ data: FreezePeriod[] }>("/freeze-periods"),
+
+  create: (body: {
+    starts_on: string;
+    ends_on: string;
+    student_uuid?: string;
+    reason?: string;
+  }) => api.post<FreezeResult>("/freeze-periods", body),
+
+  remove: (uuid: string) => api.delete<{ deleted: boolean }>(`/freeze-periods/${uuid}`),
+};
+
 export interface GenerateResult {
   created: ClassSession[];
   /** Reported, never swallowed: the teacher must see which slots were skipped. */

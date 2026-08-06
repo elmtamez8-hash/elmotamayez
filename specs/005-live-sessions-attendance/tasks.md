@@ -262,16 +262,16 @@ description: "Task list for 005-live-sessions-attendance"
 
 **Independent Test**: تجميد فترة → لا حصص ولا غياب ولا تقدّم عدّادات → استئناف.
 
-- [ ] T117 [US6] أنشئ `backend/app/Modules/LiveSessions/Actions/CreateFreezePeriod.php`: نطاق المدرّس (`student_user_id = null`) أو طالب بعينه (FR-039)، **ويُرجع ما عُلِّق من حصص وكم طالباً أُبلغ** — التجميد الصامت الذي يُلغي حصصاً محجوزة هو ما تمنعه الحالة الحافّة الأخيرة
-- [ ] T118 [US6] أضف تعليق الحصص المجدولة داخل الفترة إلى الحالة `suspended` مع إبلاغ من حجز (FR-040) — **تُعلَّق ولا تُحذف**
-- [ ] T119 [US6] أضف حارس التجميد إلى `ScheduleClassSession` و`GenerateSessionsFromAvailability` و`BookSeat`: **يُمنع** إنشاء أو حجز داخل فترة سارية (FR-040 · FR-011)
-- [ ] T120 [US6] أضف حارس التجميد إلى `MarkAbsenteesJob` و`SyncTeacherCountersJob`: **صفر غياب محتسَب وصفر عدّاد متقدّم** داخل الفترة (FR-041)
-- [ ] T121 [P] [US6] أنشئ `FreezePeriodController` ومساراته الثلاثة محروسةً بـ`Permissions::FREEZE_MANAGE`، و`FreezePeriodResource` تكشف السبب والمنشئ لمن يملك الاطلاع (FR-044)
-- [ ] T122 [P] [US6] أنشئ `backend/tests/Feature/LiveSessions/FreezePeriodTest.php` (SC-010): صفر حصة جديدة · تعليق مع إبلاغ · صفر غياب · صفر عدّاد متقدّم
-- [ ] T123 [P] [US6] أنشئ `backend/tests/Feature/LiveSessions/FreezeResumptionTest.php` (FR-043): بعد الانتهاء تعود العدّادات **بقيمها نفسها بلا فقدان** — وهو ما يجعل «الاستئناف» غياب عملية لا عملية قابلة للفشل (research §R11)
-- [ ] T124 [P] [US6] أنشئ `backend/tests/Feature/LiveSessions/FreezeHasNoFinancialEffectTest.php` (FR-042): التجميد **لا يمسّ** أي حقل خارج نطاق هذه المرحلة — القاعدة تُدوَّن الآن لأن 006 ستقرأ التجميد
-- [ ] T125 [US6] أنشئ `frontend/src/app/(app)/(shell)/manage/freeze/page.tsx`: إنشاء فترة وعرض القائمة وما عُلِّق بسببها
-- [ ] T126 [US6] **أضف رابط «فترات التجميد»** من صفحة `/manage/sessions` (لا عنصر تنقّل مستقلّ — التجميد إجراء على الجدول لا قسم قائم بذاته)، وتأكّد أن الرابط مُختبَر في e2e
+- [X] T117 [US6] أنشئ `backend/app/Modules/LiveSessions/Actions/CreateFreezePeriod.php`: نطاق المدرّس (`student_user_id = null`) أو طالب بعينه (FR-039)، **ويُرجع ما عُلِّق من حصص وكم طالباً أُبلغ** — التجميد الصامت الذي يُلغي حصصاً محجوزة هو ما تمنعه الحالة الحافّة الأخيرة
+- [X] T118 [US6] أضف تعليق الحصص المجدولة داخل الفترة إلى الحالة `suspended` مع إبلاغ من حجز (FR-040) — **تُعلَّق ولا تُحذف**
+- [X] T119 [US6] أضف حارس التجميد إلى `ScheduleClassSession` و`GenerateSessionsFromAvailability` و`BookSeat`: **يُمنع** إنشاء أو حجز داخل فترة سارية (FR-040 · FR-011)
+- [X] T120 [US6] أضف حارس التجميد إلى `MarkAbsenteesJob` و`SyncTeacherCountersJob`: **صفر غياب محتسَب وصفر عدّاد متقدّم** داخل الفترة (FR-041)
+- [X] T121 [P] [US6] أنشئ `FreezePeriodController` ومساراته الثلاثة محروسةً بـ`Permissions::FREEZE_MANAGE`، و`FreezePeriodResource` تكشف السبب والمنشئ لمن يملك الاطلاع (FR-044)
+- [X] T122 [P] [US6] أنشئ `backend/tests/Feature/LiveSessions/FreezePeriodTest.php` (SC-010): صفر حصة جديدة · تعليق مع إبلاغ · صفر غياب · صفر عدّاد متقدّم
+- [X] T123 [P] [US6] أنشئ `backend/tests/Feature/LiveSessions/FreezeResumptionTest.php` (FR-043): بعد الانتهاء تعود العدّادات **بقيمها نفسها بلا فقدان** — وهو ما يجعل «الاستئناف» غياب عملية لا عملية قابلة للفشل (research §R11)
+- [X] T124 [P] [US6] أنشئ `backend/tests/Feature/LiveSessions/FreezeHasNoFinancialEffectTest.php` (FR-042): التجميد **لا يمسّ** أي حقل خارج نطاق هذه المرحلة — القاعدة تُدوَّن الآن لأن 006 ستقرأ التجميد
+- [X] T125 [US6] أنشئ `frontend/src/app/(app)/(shell)/manage/freeze/page.tsx`: إنشاء فترة وعرض القائمة وما عُلِّق بسببها
+- [X] T126 [US6] **أضف رابط «فترات التجميد»** من صفحة `/manage/sessions` (لا عنصر تنقّل مستقلّ — التجميد إجراء على الجدول لا قسم قائم بذاته)، وتأكّد أن الرابط مُختبَر في e2e
 
 **Checkpoint**: أول إجازة مدرسية لا تنهار عندها العدّادات.
 
@@ -279,9 +279,9 @@ description: "Task list for 005-live-sessions-attendance"
 
 ## Phase 9: Polish & Cross-Cutting
 
-- [ ] T127 [P] أضف الأربع المؤجّلة إلى الجدولة في `backend/routes/console.php` إن لزم تنظيف دوري (وظيفة تنظّف حصصاً عالقة في `live` تجاوزت نهايتها بساعات)، **مُزاحة** عن `03:30` و`03:45` القائمتين — عمليتا حذف جماعي في الدقيقة نفسها تنازع أقفال لم يخطّط له أحد
+- [X] T127 [P] أضف الأربع المؤجّلة إلى الجدولة في `backend/routes/console.php` إن لزم تنظيف دوري (وظيفة تنظّف حصصاً عالقة في `live` تجاوزت نهايتها بساعات)، **مُزاحة** عن `03:30` و`03:45` القائمتين — عمليتا حذف جماعي في الدقيقة نفسها تنازع أقفال لم يخطّط له أحد
 - [ ] T128 [P] أنشئ `frontend/e2e/sessions.spec.ts` بمسارين يدخلان **من التنقّل**: الشريط الجانبي ← جدولي ← حصة ← الغرفة، والشريط ← حصصي ← حصة ← كشف الحضور. اختبار يفتح الرابط مباشرةً **لا يثبت أن الطريق موجود** — وهو الخطأ الذي وقع مرتين
-- [ ] T129 [P] أضف حالات الحصة إلى `backend/database/seeders/ScenarioSeeder.php`: حصة قادمة بمقاعد شاغرة · حصة ممتلئة · حصة منتهية بكشف حضور · فترة تجميد — بلا بيانات مبذورة تتخطّى اختبارات e2e نفسها بصمت
+- [X] T129 [P] أضف حالات الحصة إلى `backend/database/seeders/ScenarioSeeder.php`: حصة قادمة بمقاعد شاغرة · حصة ممتلئة · حصة منتهية بكشف حضور · فترة تجميد — بلا بيانات مبذورة تتخطّى اختبارات e2e نفسها بصمت
 - [ ] T130 [P] حدّث `docs/README.md`: جدول الوحدة الجديدة ونقاط النهاية العشرين والصلاحيات الستّ والأحداث الأربعة، **ودلالة `attendance_rate`** صراحةً (حضور المدرّس لا طلابه)
 - [ ] T131 [P] حدّث `docs/erd.md` بالجداول الخمسة وعلاقاتها وبعمود `lessons.class_session_id`
 - [ ] T132 [P] أضف المزالق الجديدة إلى `CLAUDE.md`: الحضور لا يمرّ بالمزوّد · التحديث الشرطي لا `lockForUpdate` · `billable_seats` يُكتب مرة · `SessionCompleted` ≠ `SessionDelivered` · `ClassSession` لا `Session`

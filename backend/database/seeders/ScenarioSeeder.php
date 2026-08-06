@@ -21,6 +21,13 @@ use App\Modules\Courses\Models\Section;
 use App\Modules\Learning\Actions\EnrollStudent;
 use App\Modules\Learning\Actions\MarkLessonComplete;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\LiveSessions\Actions\BookSeat;
+use App\Modules\LiveSessions\Enums\AttendanceSource;
+use App\Modules\LiveSessions\Enums\AttendanceStatus;
+use App\Modules\LiveSessions\Models\Attendance;
+use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\FreezePeriod;
+use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\CreateOrder;
 use App\Modules\Payments\Actions\RejectOrder;
@@ -234,7 +241,81 @@ final class ScenarioSeeder extends Seeder
         // Attempt still in progress (no answers yet).
         app(StartAttempt::class)->handle($exam, $graduate, $graduateEnrollment);
 
+        $this->sessions($workspace, $teacher, [$buyer, $halfway, $graduate]);
+
         $this->cms($workspace, $owner);
+    }
+
+    /**
+     * The four session states the e2e suite walks through.
+     *
+     * Without them every sessions spec skips itself on an empty schedule and
+     * reports green — which is the failure mode this seeder exists to prevent,
+     * and the one that let spec 004's player ship unreachable.
+     *
+     * @param  list<User>  $students
+     */
+    private function sessions(Workspace $workspace, User $teacherUser, array $students): void
+    {
+        $profile = TeacherProfile::factory()->create([
+            'workspace_id' => $workspace->id,
+            'user_id' => $teacherUser->id,
+        ]);
+
+        // 1. Upcoming with seats free — the one a student can actually book.
+        $upcoming = ClassSession::factory()->create([
+            'teacher_profile_id' => $profile->id,
+            'title' => 'مراجعة Laravel — أسئلة مفتوحة',
+            'starts_at' => now()->addDays(2)->setHour(17)->startOfHour(),
+            'ends_at' => now()->addDays(2)->setHour(18)->startOfHour(),
+            'seats_total' => 6,
+        ]);
+
+        app(BookSeat::class)->handle($upcoming, $students[0]);
+
+        // 2. Full — so the seat badge has a state other than "available" to show.
+        ClassSession::factory()->create([
+            'teacher_profile_id' => $profile->id,
+            'title' => 'ورشة الطوابير — اكتملت المقاعد',
+            'starts_at' => now()->addDays(3)->setHour(19)->startOfHour(),
+            'ends_at' => now()->addDays(3)->setHour(20)->startOfHour(),
+            'seats_total' => 2,
+            'seats_taken' => 2,
+        ]);
+
+        // 3. Finished, with a register that has both outcomes in it.
+        $past = ClassSession::factory()->past()->create([
+            'teacher_profile_id' => $profile->id,
+            'title' => 'حصة العلاقات في Eloquent',
+            'seats_total' => 6,
+            'delivered_at' => now()->subDays(2),
+            'billable_seats' => 2,
+        ]);
+
+        foreach ([AttendanceStatus::Present, AttendanceStatus::Absent] as $index => $status) {
+            Attendance::create([
+                'workspace_id' => $workspace->id,
+                'class_session_id' => $past->id,
+                'student_user_id' => $students[$index]->id,
+                'status' => $status,
+                'auto_status' => $status,
+                'source' => AttendanceSource::Automatic,
+                'stay_seconds' => $status === AttendanceStatus::Present ? 3480 : 0,
+                'first_joined_at' => $status === AttendanceStatus::Present ? $past->starts_at : null,
+                'confirmed_at' => $past->ends_at,
+            ]);
+        }
+
+        // 4. A holiday, far enough out that it suspends nothing seeded above —
+        // a seeder that silently cancels its own scheduled sessions leaves the
+        // schedule screen empty for reasons nobody can see.
+        FreezePeriod::create([
+            'workspace_id' => $workspace->id,
+            'starts_on' => now()->addMonth()->startOfMonth()->toDateString(),
+            'ends_on' => now()->addMonth()->startOfMonth()->addDays(9)->toDateString(),
+            'reason' => 'إجازة نصف العام',
+            'created_by' => $teacherUser->id,
+        ]);
     }
 
     /**

@@ -107,9 +107,11 @@ export default function ManageSessionsPage() {
           >
             توليد
           </Button>
-          {/* The freeze-periods link belongs here and lands with the screen it
-              opens (US6). A button pointing at a route that does not exist yet
-              is the orphan problem inverted — a promise instead of a page. */}
+          {/* Reached from here rather than from the nav: freezing is an action
+              on the calendar, not a section of the product. */}
+          <Button href="/manage/freeze" variant="secondary">
+            فترات التجميد
+          </Button>
         </div>
 
         {error !== "" && (

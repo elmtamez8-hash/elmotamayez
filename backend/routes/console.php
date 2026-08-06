@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
 use App\Modules\Media\Jobs\PruneExpiredGrantsJob;
 use App\Modules\Notifications\Jobs\PruneOldNotificationsJob;
 use Illuminate\Foundation\Inspiring;
@@ -18,3 +19,9 @@ Schedule::job(new PruneOldNotificationsJob)->dailyAt('03:30');
 // last Tuesday can still be answered. Staggered off the notification prune: two
 // bulk deletes on the same minute is one lock contention nobody planned for.
 Schedule::job(new PruneExpiredGrantsJob)->dailyAt('03:45');
+
+// The safety net under each session's own delayed close. Hourly rather than
+// nightly because what it repairs is a register nobody can read and a report no
+// guardian received — and at :20, off both bulk deletes above, since a sweep
+// that closes sessions has no business waiting behind a mass delete's locks.
+Schedule::job(new CloseStaleSessionsJob)->hourlyAt(20);
