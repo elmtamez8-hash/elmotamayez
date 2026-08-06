@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Settlement;
 
 use App\Modules\LiveSessions\Events\SessionDelivered;
+use App\Modules\Settlement\Events\SettlementRateApproved;
 use App\Modules\Settlement\Events\TeachingUnitAccrued;
 use App\Modules\Settlement\Listeners\AccrueUnitsOnDelivery;
+use App\Modules\Settlement\Listeners\NotifyRateDecision;
 use App\Modules\Settlement\Listeners\RecordUnitInLedger;
 use App\Modules\Settlement\Models\RateChangeRequest;
 use App\Modules\Settlement\Models\SettlementPeriod;
@@ -54,5 +56,11 @@ class SettlementServiceProvider extends Module
         // entries is three chances for the balance to stop being the sum of its
         // rows.
         Event::listen(TeachingUnitAccrued::class, RecordUnitInLedger::class);
+
+        // The teacher hears that their rate moved AND from when. A new number
+        // with no date reads as applying to last week's hours, and finding out
+        // otherwise on the statement is the argument this context exists to
+        // prevent.
+        Event::listen(SettlementRateApproved::class, NotifyRateDecision::class);
     }
 }

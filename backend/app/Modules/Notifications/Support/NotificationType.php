@@ -35,6 +35,10 @@ enum NotificationType: string
     case SessionReport = 'session_report';
     case SessionCancelled = 'session_cancelled';
     case SessionRecordingFailed = 'session_recording_failed';
+    case SettlementRateApproved = 'settlement_rate_approved';
+    case SettlementRateRejected = 'settlement_rate_rejected';
+    case SettlementPeriodClosed = 'settlement_period_closed';
+    case TeacherPayoutIssued = 'teacher_payout_issued';
 
     public function label(): string
     {
@@ -54,6 +58,10 @@ enum NotificationType: string
             self::SessionReport => 'تقرير ما بعد الحصة',
             self::SessionCancelled => 'إلغاء حصة',
             self::SessionRecordingFailed => 'تعذّر نشر تسجيل الحصة',
+            self::SettlementRateApproved => 'اعتماد سعر التسوية',
+            self::SettlementRateRejected => 'رفض طلب سعر التسوية',
+            self::SettlementPeriodClosed => 'إغلاق فترة التسوية',
+            self::TeacherPayoutIssued => 'تنفيذ صرف',
         };
     }
 

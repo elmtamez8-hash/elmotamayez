@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Settlement\Http\Controllers\RateChangeController;
 use App\Modules\Settlement\Http\Controllers\TeachingUnitController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,8 +20,19 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/settlement/units', [TeachingUnitController::class, 'index']);
+    Route::get('/settlement/rates', [RateChangeController::class, 'rates']);
+    Route::get('/settlement/rate-requests', [RateChangeController::class, 'index']);
 
     Route::middleware('throttle:settlement-write')->group(function (): void {
+        // The teacher asks. Nothing takes effect here.
+        Route::post('/settlement/rate-requests', [RateChangeController::class, 'store']);
+
+        // The platform decides. Approval is the only thing anywhere that writes a
+        // settlement_rates row, which is what makes "no rate without approval" a
+        // property of the code rather than a rule to remember.
+        Route::post('/admin/settlement/rate-requests/{rateRequest}/approve', [RateChangeController::class, 'approve']);
+        Route::post('/admin/settlement/rate-requests/{rateRequest}/reject', [RateChangeController::class, 'reject']);
+
         // The correction. An explicit administrative act with an author and a
         // reason — never an attendance edit (spec Q7).
         Route::post('/admin/settlement/units/{unit}/reverse', [TeachingUnitController::class, 'reverse']);

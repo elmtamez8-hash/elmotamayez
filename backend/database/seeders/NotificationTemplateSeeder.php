@@ -73,6 +73,31 @@ class NotificationTemplateSeeder extends Seeder
                 'لم يُنشر تسجيل حصة «{{ title }}» بعد عدّة محاولات ({{ reason }}). يمكنك رفعه يدوياً من صفحة الحصة.',
                 ['title', 'reason'],
             ],
+            // Settlement (014). The teacher's own contract: a decision on their
+            // rate, a period closing, money leaving. None of these names a
+            // student, a payment or a sale price — FR-018 forbids all three in
+            // anything that reaches a teacher, and a notification body is a
+            // payload like any other.
+            NotificationType::SettlementRateApproved->value => [
+                'اعتُمد سعر تسويتك الجديد',
+                'اعتُمد سعرك الجديد {{ amount }} لحصص {{ session_type }}، ويسري من {{ effective_from }} على ما بعده. الوحدات المُنفَّذة قبل هذا التاريخ تبقى بسعرها.',
+                ['amount', 'session_type', 'effective_from'],
+            ],
+            NotificationType::SettlementRateRejected->value => [
+                'لم يُعتمد طلب تغيير السعر',
+                'لم يُعتمد طلبك لسعر {{ amount }}. السبب: {{ reason }}. سعرك الحالي ساري كما هو.',
+                ['amount', 'reason'],
+            ],
+            NotificationType::SettlementPeriodClosed->value => [
+                'أُغلقت فترة تسويتك',
+                'أُغلقت فترة {{ starts_on }} — {{ ends_on }}: {{ units_count }} وحدة، والصافي {{ net }}. تفاصيلها في كشفك.',
+                ['starts_on', 'ends_on', 'units_count', 'net'],
+            ],
+            NotificationType::TeacherPayoutIssued->value => [
+                'نُفِّذ صرف مستحقّك',
+                'نُفِّذ صرف بمبلغ {{ amount }} بمرجع {{ reference }}. يظهر في سجلّ صرفك.',
+                ['amount', 'reference'],
+            ],
             NotificationType::EnrollmentCreated->value => [
                 'تم تسجيلك في كورس',
                 'مرحباً {{ name }}، تم تسجيلك في «{{ course_title }}». يمكنك البدء الآن.',

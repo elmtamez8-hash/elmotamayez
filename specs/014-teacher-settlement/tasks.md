@@ -104,21 +104,21 @@ description: "Task list for 014-teacher-settlement"
 
 ### الاختبارات أولاً
 
-- [ ] T038 [P] [US2] اكتب `backend/tests/Feature/Settlement/RateVersioningTest.php` — «تغيير السعر لا يعيد تسعير وحدة سابقة» بمقارنة قبل/بعد على المبلغ المخزَّن لا على الصف المرجعي (SC-005)
-- [ ] T039 [P] [US2] أضف «صفر سعر يسري بلا اعتماد»: ارفع سعراً ونفّذ حصة وتوقّع السعر **السابق** (SC-005أ)
-- [ ] T040 [P] [US2] اكتب `backend/tests/Feature/Settlement/RateResolutionTest.php` — أولوية النطاقات الثلاثة (عام · مادة · مادة+مرحلة) بحالة لكل ترتيب (SC-005ج)
-- [ ] T041 [P] [US2] اكتب `backend/tests/Feature/Settlement/RateRequestTest.php`: الرفض يُبقي السابق ويوجب سبباً · طلبان معلّقان على نطاق واحد مرفوضان · تجاوز الحدّ الترددي **٤٢٢ بموعد الإتاحة التالي** (FR-013أ · FR-013ب)
-- [ ] T042 [P] [US2] أضف اختباراً يفحص المخطّط والكود: **صفر** عمود أو حقل نسبة مئوية في التسعير (SC-006 · FR-009)
+- [X] T038 [P] [US2] اكتب `backend/tests/Feature/Settlement/RateVersioningTest.php` — «تغيير السعر لا يعيد تسعير وحدة سابقة» بمقارنة قبل/بعد على المبلغ المخزَّن لا على الصف المرجعي (SC-005)
+- [X] T039 [P] [US2] أضف «صفر سعر يسري بلا اعتماد»: ارفع سعراً ونفّذ حصة وتوقّع السعر **السابق** (SC-005أ)
+- [X] T040 [P] [US2] اكتب `backend/tests/Feature/Settlement/RateResolutionTest.php` — أولوية النطاقات الثلاثة (عام · مادة · مادة+مرحلة) بحالة لكل ترتيب (SC-005ج)
+- [X] T041 [P] [US2] اكتب `backend/tests/Feature/Settlement/RateRequestTest.php`: الرفض يُبقي السابق ويوجب سبباً · طلبان معلّقان على نطاق واحد مرفوضان · تجاوز الحدّ الترددي **٤٢٢ بموعد الإتاحة التالي** (FR-013أ · FR-013ب)
+- [X] T042 [P] [US2] أضف اختباراً يفحص المخطّط والكود: **صفر** عمود أو حقل نسبة مئوية في التسعير (SC-006 · FR-009)
 
 ### التنفيذ
 
-- [ ] T043 [P] [US2] أنشئ `backend/app/Modules/Settlement/Data/RateChangeData.php` يرث `DataTransferObject` بخصائص `readonly` ومُنشئ `fromArray()`
-- [ ] T044 [US2] أنشئ `backend/app/Modules/Settlement/Actions/RequestRateChange.php` — يفرض الحدّ الترددي من `SettlementSettings` **داخل الـAction** لا في `FormRequest` وحده (الدستور II: اللوحة تلتفّ على تحقّق الطلب)
-- [ ] T045 [US2] أنشئ `backend/app/Modules/Settlement/Actions/DecideRateChange.php` — الاعتماد **وحده** يُنشئ صفّ `settlement_rates`؛ لا مسار ثانٍ ينشئه، وهو ما يجعل SC-005أ خاصيةً بنيوية لا قاعدة يُذكَّر بها المراجع
-- [ ] T046 [US2] أطلق `SettlementRateApproved` من `DecideRateChange` مع تعليق يسمّي **006** مستهلكاً مؤجَّلاً — ويمنع أن يمسّ شراءً تمّ أو رصيداً قائماً (FR-013ج)
-- [ ] T047 [P] [US2] أنشئ `SettlementRateResource` و`RateChangeRequestResource` في `Http/Resources/` — تكشف `uuid` فقط
-- [ ] T048 [US2] أنشئ `RateChangeController` و`StoreRateChangeRequest` ومساري الاعتماد والرفض الإداريَّين بـ`throttle:settlement-write` ([contracts/api.md](./contracts/api.md))
-- [ ] T049 [P] [US2] أضف قوالب إشعارات الاعتماد والرفض إلى `backend/database/seeders/NotificationTemplateSeeder.php` — قالب مفقود يعني إشعاراً يُسقَط بصمت وتأكيداً يمرّ على صفر
+- [X] T043 [P] [US2] أنشئ `backend/app/Modules/Settlement/Data/RateChangeData.php` يرث `DataTransferObject` بخصائص `readonly` ومُنشئ `fromArray()`
+- [X] T044 [US2] أنشئ `backend/app/Modules/Settlement/Actions/RequestRateChange.php` — يفرض الحدّ الترددي من `SettlementSettings` **داخل الـAction** لا في `FormRequest` وحده (الدستور II: اللوحة تلتفّ على تحقّق الطلب)
+- [X] T045 [US2] أنشئ `backend/app/Modules/Settlement/Actions/DecideRateChange.php` — الاعتماد **وحده** يُنشئ صفّ `settlement_rates`؛ لا مسار ثانٍ ينشئه، وهو ما يجعل SC-005أ خاصيةً بنيوية لا قاعدة يُذكَّر بها المراجع
+- [X] T046 [US2] أطلق `SettlementRateApproved` من `DecideRateChange` مع تعليق يسمّي **006** مستهلكاً مؤجَّلاً — ويمنع أن يمسّ شراءً تمّ أو رصيداً قائماً (FR-013ج)
+- [X] T047 [P] [US2] أنشئ `SettlementRateResource` و`RateChangeRequestResource` في `Http/Resources/` — تكشف `uuid` فقط
+- [X] T048 [US2] أنشئ `RateChangeController` و`StoreRateChangeRequest` ومساري الاعتماد والرفض الإداريَّين بـ`throttle:settlement-write` ([contracts/api.md](./contracts/api.md))
+- [X] T049 [P] [US2] أضف قوالب إشعارات الاعتماد والرفض إلى `backend/database/seeders/NotificationTemplateSeeder.php` — قالب مفقود يعني إشعاراً يُسقَط بصمت وتأكيداً يمرّ على صفر
 
 **Checkpoint**: السعر مُؤرَّخ ومحروس، وUS1 ما زالت خضراء.
 

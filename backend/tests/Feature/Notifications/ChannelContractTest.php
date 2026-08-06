@@ -44,6 +44,18 @@ function dispatchOf(User $user, NotificationType $type): void
             'title' => 'حصّة الجبر',
             'status' => 'حاضر',
             'minutes' => '45',
+            // Settlement (014). The bag has to satisfy EVERY template, because
+            // TemplateRenderer refuses a missing variable and DispatchNotification
+            // logs the refusal rather than failing — so a type whose variables
+            // are absent here simply never arrives, and the count below is what
+            // notices.
+            'session_type' => 'فردية',
+            'effective_from' => '2026-09-01',
+            'starts_on' => '2026-08-01',
+            'ends_on' => '2026-08-30',
+            'units_count' => '12',
+            'net' => '900 ر.ق',
+            'reference' => 'TRF-1',
         ],
     ));
 }
