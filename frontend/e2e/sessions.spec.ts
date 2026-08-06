@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 /**
  * The two routes into the sessions feature, walked the way a person walks them.
@@ -12,9 +12,29 @@ import { test, expect } from "@playwright/test";
  * backend up and seeded.
  */
 
+/**
+ * Below `md` the sidebar is a drawer, so the walk starts by opening it — which
+ * is also what a person does. On a wide viewport the toggle is not there and
+ * this does nothing.
+ */
+async function openNav(page: Page): Promise<void> {
+  // Decided from the viewport, not from `isVisible()`. The shell is a client
+  // component that renders "جارٍ التحميل…" until auth resolves, so an immediate
+  // visibility check answers false for a button that is about to appear — and
+  // the helper then does nothing, silently, leaving the test to fail on a link
+  // that was never going to be there. Clicking auto-waits; the check does not.
+  const width = page.viewportSize()?.width ?? 1440;
+
+  // 768px is Tailwind's `md`, which is where the drawer becomes a sidebar.
+  if (width < 768) {
+    await page.getByRole("button", { name: "فتح التنقّل" }).click();
+  }
+}
+
 test.describe("الوصول إلى الحصص", () => {
   test("الشريط الجانبي ← جدولي", async ({ page }) => {
     await page.goto("/dashboard");
+    await openNav(page);
 
     await page.getByRole("link", { name: "جدولي" }).click();
 
@@ -34,6 +54,7 @@ test.describe("الوصول إلى الحصص", () => {
 
   test("الشريط الجانبي ← حصصي ← التوليد ظاهر", async ({ page }) => {
     await page.goto("/dashboard");
+    await openNav(page);
 
     await page.getByRole("link", { name: "حصصي" }).click();
 
@@ -51,6 +72,7 @@ test.describe("الوصول إلى الحصص", () => {
   // stop at an empty state and report green.
   test("جدولي ← حصة ← الغرفة", async ({ page }) => {
     await page.goto("/dashboard");
+    await openNav(page);
     await page.getByRole("link", { name: "جدولي" }).click();
 
     // The list is fetched client-side, so counting before it settles counts
@@ -83,6 +105,7 @@ test.describe("الوصول إلى الحصص", () => {
   // And the teacher's half: sidebar → my sessions → a session → the register.
   test("حصصي ← حصة ← كشف الحضور", async ({ page }) => {
     await page.goto("/dashboard");
+    await openNav(page);
     await page.getByRole("link", { name: "حصصي" }).click();
 
     await expect(page.getByText(/لا حصص بعد|حصة تجريبية/).first()).toBeVisible();

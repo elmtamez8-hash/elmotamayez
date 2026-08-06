@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect, type ReactNode, type ComponentType } from "react";
+import { useEffect, useState, type ReactNode, type ComponentType } from "react";
 import Link from "next/link";
 import { PLATFORM_NAME } from "@/lib/platform";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -10,6 +10,7 @@ import { NotificationBell } from "@/components/app/NotificationBell";
 import {
   BellIcon,
   CertificateIcon,
+  CloseIcon,
   CoursesIcon,
   FamilyIcon,
   HomeIcon,
@@ -17,6 +18,7 @@ import {
   LearningIcon,
   LogoutIcon,
   MembersIcon,
+  MenuIcon,
   OrdersIcon,
   ScheduleIcon,
   SessionsIcon,
@@ -58,11 +60,21 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  // Below `md` the 16rem sidebar is wider than half a phone and sits over the
+  // page, so it is a drawer there and permanent from `md` up. Without this the
+  // panel is not merely cramped on a phone — the nav intercepts every click
+  // meant for the content behind it.
+  const [navOpen, setNavOpen] = useState(false);
+
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
     }
   }, [user, loading, router]);
+
+  // Closed on every navigation. The drawer sits above the page on a phone, so
+  // one left open covers the screen the link just went to.
+  useEffect(() => setNavOpen(false), [pathname]);
 
   if (loading) {
     return (
@@ -98,7 +110,10 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
       {/* Logical `start-0` / `ms-64`, not `left-0` / `ml-64`: in RTL the sidebar
           belongs on the right, and physical offsets put it on the wrong edge
           while leaving a 16rem gutter on the other one (FR-015). */}
-      <aside className="fixed inset-y-0 start-0 z-20 w-64 overflow-y-auto border-e border-line bg-surface-raised">
+      <aside
+        id="panel-nav"
+        className={`fixed inset-y-0 start-0 z-20 w-64 overflow-y-auto border-e border-line bg-surface-raised md:block ${navOpen ? "block" : "hidden"}`}
+      >
         <div className="flex h-16 items-center px-6">
           <Link
             href="/dashboard"
@@ -147,11 +162,24 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="ms-64 flex-1">
+      <div className="flex-1 md:ms-64">
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b border-line bg-surface-raised px-6">
-          <h1 className="text-lg font-semibold text-ink">
-            {allNav.find((i) => pathname.startsWith(i.href))?.label ?? "لوحة التحكم"}
-          </h1>
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setNavOpen((open) => !open)}
+              aria-expanded={navOpen}
+              aria-controls="panel-nav"
+              aria-label={navOpen ? "إغلاق التنقّل" : "فتح التنقّل"}
+              className="rounded-lg p-1 text-ink hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:hidden"
+            >
+              {navOpen ? <CloseIcon /> : <MenuIcon />}
+            </button>
+
+            <h1 className="truncate text-lg font-semibold text-ink">
+              {allNav.find((i) => pathname.startsWith(i.href))?.label ?? "لوحة التحكم"}
+            </h1>
+          </div>
           <div className="flex items-center gap-1">
             <NotificationBell />
             <ThemeToggle />
