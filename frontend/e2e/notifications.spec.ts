@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { useIsolatedAccount } from "./isolated-accounts";
+
 /**
  * The three screens spec 003 added, driven the way a person drives them.
  *
@@ -94,7 +96,12 @@ test.describe("إعدادات الإشعارات", () => {
     await expect(box).toBeDisabled();
   });
 
-  test("النوع الاختياري يُطفأ ويُحفظ ويبقى مطفأً بعد إعادة التحميل", async ({ page }) => {
+  // Writes. A preference is one row per (account, type), so six projects sharing
+  // the seeded student are six writers to one value — and the failure that
+  // produces reads as a product bug that is not there.
+  test("النوع الاختياري يُطفأ ويُحفظ ويبقى مطفأً بعد إعادة التحميل", async ({ page }, testInfo) => {
+    await useIsolatedAccount(page, testInfo);
+
     await page.goto("/settings/notifications");
 
     const row = page.getByRole("row").filter({ hasText: "نتيجة اختبار" });
@@ -112,19 +119,19 @@ test.describe("إعدادات الإشعارات", () => {
       page.getByRole("row").filter({ hasText: "نتيجة اختبار" }).getByRole("checkbox").first(),
     ).not.toBeChecked();
 
-    // Put it back so a re-run starts from the same place.
-    await page.getByRole("row").filter({ hasText: "نتيجة اختبار" }).getByRole("checkbox").first().check();
-    await page.getByRole("button", { name: "احفظ التغييرات" }).click();
-    await expect(page.getByText("حُفِظت الإعدادات.")).toBeVisible();
   });
 });
 
 test.describe("وليّ الأمر والأوصياء", () => {
-  test("إضافة وصيّ ثم إلغاء ارتباطه يُبقيه بحالة ملغاة", async ({ page }) => {
+  // Writes, and the list it asserts against is the account's whole history — six
+  // projects adding rows to one account push the row under test off the page.
+  test("إضافة وصيّ ثم إلغاء ارتباطه يُبقيه بحالة ملغاة", async ({ page }, testInfo) => {
+    await useIsolatedAccount(page, testInfo);
+
     await page.goto("/family");
 
-    // A distinct name per run: the page lists every relation the account has,
-    // and a fixed name would match rows left by an earlier run.
+    // Still distinct per run: a revoked relation is kept, never deleted, so a
+    // fixed name would match the row a previous run left behind.
     const student = `سلمى ${Date.now().toString().slice(-6)}`;
 
     await page.getByLabel("اسم الطالب").fill(student);
