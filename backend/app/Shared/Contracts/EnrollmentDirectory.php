@@ -28,6 +28,16 @@ interface EnrollmentDirectory
     public function hasActiveEnrollment(User $user, int $courseId): bool;
 
     /**
+     * Whether this user holds an active enrolment with this teacher at all.
+     *
+     * Booking a session is not tied to one course — a student studying with a
+     * teacher may book any of that teacher's sessions (FR-045). Asking course by
+     * course would make eligibility depend on which course the session happened
+     * to be filed under, which is not a rule anyone stated.
+     */
+    public function hasActiveEnrollmentInWorkspace(User $user, int $workspaceId): bool;
+
+    /**
      * Every course this user is actively enrolled in.
      *
      * The reason issuing grants for a list of lessons does not scale with the

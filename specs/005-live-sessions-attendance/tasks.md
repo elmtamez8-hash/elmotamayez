@@ -83,7 +83,7 @@ description: "Task list for 005-live-sessions-attendance"
 - [X] T032 [P] أنشئ `backend/app/Modules/LiveSessions/Support/SessionSettings.php` يقرأ العشرة من `PlatformSettings` مع الرجوع إلى `config('sessions.*')`، ويحسب `absenceThresholdSeconds(ClassSession)` و`requiredStaySeconds(ClassSession)` — **يُمنع** قراءة `config()` مباشرةً من أي Action (FR-021أ)
 - [X] T033 [P] أنشئ السياسات في `backend/app/Modules/LiveSessions/Policies/`: `ClassSessionPolicy` · `SessionBookingPolicy` · `AttendancePolicy` · `FreezePeriodPolicy` — أسماء الصلاحيات من ثوابت `Permissions` حصراً، وسجّلها بـ`Gate::policy()` في `boot()` بمزوّد الوحدة
 - [X] T034 أضف حالات الكيانات الخمسة إلى `backend/tests/Feature/Tenancy/WorkspaceIsolationTest.php` — النموذج المملوك لمساحة عمل بلا اختبار عزل يسرّب بصمت ولا بوابة آلية تكشفه
-- [ ] T035 أنشئ `backend/tests/Feature/LiveSessions/PlatformOwnershipTest.php` (NFR-001ب): مدرّس **لا** يرى صفوف طالب لا يملك حجزاً أو تسجيلاً في مساحة عمله، والطالب يرى جدوله **الواحد** عبر كل مدرّسيه بلا تكرار
+- [X] T035 أنشئ `backend/tests/Feature/LiveSessions/PlatformOwnershipTest.php` (NFR-001ب): مدرّس **لا** يرى صفوف طالب لا يملك حجزاً أو تسجيلاً في مساحة عمله، والطالب يرى جدوله **الواحد** عبر كل مدرّسيه بلا تكرار
 
 **Checkpoint**: الجداول قائمة · النماذج مصنَّفة ومُختبَرة عزلاً · العقد ملزم · الأحداث معرَّفة.
 
@@ -97,46 +97,46 @@ description: "Task list for 005-live-sessions-attendance"
 
 ### الأهلية (FR-045…047 — تسبق كل شيء لأن الحجز يستدعيها)
 
-- [ ] T036 [US1] أنشئ `backend/app/Modules/LiveSessions/Support/BookingEligibility.php` يعرّف الأهلية صراحةً كتركيبة الثلاثة: تسجيل نشط عند المدرّس أو في كورسه · لا حجب سارٍ · الحصة خارج أي تجميد يخصّ الطالب — **يُمنع** أي قاعدة ضمنية غير موثّقة (FR-047)
-- [ ] T037 [P] [US1] أنشئ `backend/tests/Feature/LiveSessions/BookingEligibilityTest.php`: كل شرط يُسقِط الأهلية وحده، والأهلية تُقيَّم **عند الحجز وعند الدخول معاً** لا مرة واحدة (FR-046)
+- [X] T036 [US1] أنشئ `backend/app/Modules/LiveSessions/Support/BookingEligibility.php` يعرّف الأهلية صراحةً كتركيبة الثلاثة: تسجيل نشط عند المدرّس أو في كورسه · لا حجب سارٍ · الحصة خارج أي تجميد يخصّ الطالب — **يُمنع** أي قاعدة ضمنية غير موثّقة (FR-047)
+- [X] T037 [P] [US1] أنشئ `backend/tests/Feature/LiveSessions/BookingEligibilityTest.php`: كل شرط يُسقِط الأهلية وحده، والأهلية تُقيَّم **عند الحجز وعند الدخول معاً** لا مرة واحدة (FR-046)
 
 ### الجدولة
 
-- [ ] T038 [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/ScheduleClassSession.php`: يبني الحصة من DTO، **يمنع التداخل** لنفس المدرّس على `[starts_at, ends_at)` (FR-003)، ويطلق `SessionScheduled`
-- [ ] T039 [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/GenerateSessionsFromAvailability.php` يقرأ `availability_slots` القائمة منذ 001 لمدى تاريخي، ويُرجع ما أُنشئ **وما تُخطّي مع سببه** — المتخطّى الصامت هو ما يجعل المدرّس يظنّ جدوله ممتلئاً
-- [ ] T040 [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/CancelClassSession.php`: يضبط `cancelled_at` والسبب، ويحرّر كل الحجوزات، ويطلق حدث إبلاغ من حجز (FR-006)
-- [ ] T041 [P] [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/UpdateClassSession.php` — **يمنع تغيير `type` بعد وجود حجز** (FR-001ب)
+- [X] T038 [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/ScheduleClassSession.php`: يبني الحصة من DTO، **يمنع التداخل** لنفس المدرّس على `[starts_at, ends_at)` (FR-003)، ويطلق `SessionScheduled`
+- [X] T039 [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/GenerateSessionsFromAvailability.php` يقرأ `availability_slots` القائمة منذ 001 لمدى تاريخي، ويُرجع ما أُنشئ **وما تُخطّي مع سببه** — المتخطّى الصامت هو ما يجعل المدرّس يظنّ جدوله ممتلئاً
+- [X] T040 [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/CancelClassSession.php`: يضبط `cancelled_at` والسبب، ويحرّر كل الحجوزات، ويطلق حدث إبلاغ من حجز (FR-006)
+- [X] T041 [P] [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/UpdateClassSession.php` — **يمنع تغيير `type` بعد وجود حجز** (FR-001ب)
 
 ### الحجز
 
-- [ ] T042 [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/BookSeat.php` بالحارس الذرّي: `UPDATE class_sessions SET seats_taken = seats_taken + 1 WHERE id = ? AND seats_taken < seats_total` ويُقبل الحجز عند `affected === 1` فقط (research §R5). **يُمنع** `count()` ثم `insert()` — هو تعريف السباق، و**يُمنع** `lockForUpdate()` لأنه بلا أثر على SQLite فاختباره يمرّ محلياً بلا أن يثبت شيئاً
-- [ ] T043 [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/CancelBooking.php`: قبل مهلة الإلغاء يحرّر المقعد ويُنقص `seats_taken`، وبعدها يُعلَّم `cancelled_late` **ويبقى محسوباً** (FR-009 · FR-010)
-- [ ] T044 [P] [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/ReleaseIneligibleBookings.php` يحرّر مقعد من انتهت أهليته قبل الموعد بحالة `released` — حالة مستقلة عن الإلغاء لأن الطالب لم يفعل شيئاً (FR-012)
-- [ ] T045 [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/GetStudentSchedule.php` — **مسار قراءة مملوك للمنصة**، عابر لمساحات العمل عمداً بـ`withoutWorkspaceScope()` مع تعليق يشرح السبب، وحارسه ملكية الطالب للصفوف (FR-052)
+- [X] T042 [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/BookSeat.php` بالحارس الذرّي: `UPDATE class_sessions SET seats_taken = seats_taken + 1 WHERE id = ? AND seats_taken < seats_total` ويُقبل الحجز عند `affected === 1` فقط (research §R5). **يُمنع** `count()` ثم `insert()` — هو تعريف السباق، و**يُمنع** `lockForUpdate()` لأنه بلا أثر على SQLite فاختباره يمرّ محلياً بلا أن يثبت شيئاً
+- [X] T043 [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/CancelBooking.php`: قبل مهلة الإلغاء يحرّر المقعد ويُنقص `seats_taken`، وبعدها يُعلَّم `cancelled_late` **ويبقى محسوباً** (FR-009 · FR-010)
+- [X] T044 [P] [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/ReleaseIneligibleBookings.php` يحرّر مقعد من انتهت أهليته قبل الموعد بحالة `released` — حالة مستقلة عن الإلغاء لأن الطالب لم يفعل شيئاً (FR-012)
+- [X] T045 [US1] أنشئ `backend/app/Modules/LiveSessions/Actions/GetStudentSchedule.php` — **مسار قراءة مملوك للمنصة**، عابر لمساحات العمل عمداً بـ`withoutWorkspaceScope()` مع تعليق يشرح السبب، وحارسه ملكية الطالب للصفوف (FR-052)
 
 ### الطبقة الشبكية
 
-- [ ] T046 [US1] أنشئ `ClassSessionController` في `backend/app/Modules/LiveSessions/Http/Controllers/` بدوالّ `index` · `store` · `generate` · `show` · `update` · `cancel` — تحقّق بـFormRequest ← DTO ← Action ← Resource، بلا منطق في المتحكّم
-- [ ] T047 [P] [US1] أنشئ `BookingController` و`ScheduleController` بدوالّ `book` · `destroy` · `schedule` · `next`
-- [ ] T048 [P] [US1] أنشئ FormRequests في `Http/Requests/`: `StoreClassSessionRequest` · `UpdateClassSessionRequest` · `GenerateSessionsRequest` · `BookSeatRequest` — كل تحقّق وجود على جدول تابع لمستأجر يستخدم `WorkspaceRules::exists()` لا `exists:table,id`
-- [ ] T049 [P] [US1] أنشئ Resources: `ClassSessionResource` · `SessionBookingResource` · `StudentScheduleResource` — تكشف `uuid` فقط، و**يُمنع** ظهور `broadcast_provider` أو `broadcast_room_id` أو `billable_seats` في حمولة الطالب (FR-019 · contracts/api.md)
-- [ ] T050 [US1] سجّل المسارات في `backend/app/Modules/LiveSessions/routes/api.php` بمحدِّد `throttle:sessions` على كل مسار كتابة
-- [ ] T051 [P] [US1] أضف مدخلات الحقول العربية الجديدة إلى `backend/lang/ar/validation.php` تحت `attributes` — الحقل بلا مدخل يُعرَض للمستخدم باسمه البرمجي
+- [X] T046 [US1] أنشئ `ClassSessionController` في `backend/app/Modules/LiveSessions/Http/Controllers/` بدوالّ `index` · `store` · `generate` · `show` · `update` · `cancel` — تحقّق بـFormRequest ← DTO ← Action ← Resource، بلا منطق في المتحكّم
+- [X] T047 [P] [US1] أنشئ `BookingController` و`ScheduleController` بدوالّ `book` · `destroy` · `schedule` · `next`
+- [X] T048 [P] [US1] أنشئ FormRequests في `Http/Requests/`: `StoreClassSessionRequest` · `UpdateClassSessionRequest` · `GenerateSessionsRequest` · `BookSeatRequest` — كل تحقّق وجود على جدول تابع لمستأجر يستخدم `WorkspaceRules::exists()` لا `exists:table,id`
+- [X] T049 [P] [US1] أنشئ Resources: `ClassSessionResource` · `SessionBookingResource` · `StudentScheduleResource` — تكشف `uuid` فقط، و**يُمنع** ظهور `broadcast_provider` أو `broadcast_room_id` أو `billable_seats` في حمولة الطالب (FR-019 · contracts/api.md)
+- [X] T050 [US1] سجّل المسارات في `backend/app/Modules/LiveSessions/routes/api.php` بمحدِّد `throttle:sessions` على كل مسار كتابة
+- [X] T051 [P] [US1] أضف مدخلات الحقول العربية الجديدة إلى `backend/lang/ar/validation.php` تحت `attributes` — الحقل بلا مدخل يُعرَض للمستخدم باسمه البرمجي
 
 ### الاختبارات
 
-- [ ] T052 [P] [US1] أنشئ `backend/tests/Feature/LiveSessions/SchedulingTest.php`: التوليد من التوفّر · **رفض التداخل** (SC-002) · التوليد يبلّغ عن المتخطّى · منع تغيير النوع بعد الحجز
-- [ ] T053 [P] [US1] أنشئ `backend/tests/Feature/LiveSessions/SeatConcurrencyTest.php` (SC-001): استدعاءان متعاقبان على المقعد الأخير — الثاني **يجب** أن يُرفض، وهو نفس المسار الذي يسلكه التزامن الحقيقي
-- [ ] T054 [P] [US1] أنشئ `backend/tests/Feature/LiveSessions/BookingLifecycleTest.php`: الإلغاء قبل المهلة يحرّر · بعدها يُحتسب ويُعلَّم · إلغاء المدرّس لا يُحتسب على أحد · انتهاء الأهلية يحرّر تلقائياً
-- [ ] T055 [P] [US1] أنشئ `backend/tests/Feature/LiveSessions/StudentScheduleTest.php`: الطالب يرى حصصه عبر **كل** مدرّسيه في جدول واحد، و**مدرّس لا يرى حصص طالبه عند غيره** (المبدأ I)
+- [X] T052 [P] [US1] أنشئ `backend/tests/Feature/LiveSessions/SchedulingTest.php`: التوليد من التوفّر · **رفض التداخل** (SC-002) · التوليد يبلّغ عن المتخطّى · منع تغيير النوع بعد الحجز
+- [X] T053 [P] [US1] أنشئ `backend/tests/Feature/LiveSessions/SeatConcurrencyTest.php` (SC-001): استدعاءان متعاقبان على المقعد الأخير — الثاني **يجب** أن يُرفض، وهو نفس المسار الذي يسلكه التزامن الحقيقي
+- [X] T054 [P] [US1] أنشئ `backend/tests/Feature/LiveSessions/BookingLifecycleTest.php`: الإلغاء قبل المهلة يحرّر · بعدها يُحتسب ويُعلَّم · إلغاء المدرّس لا يُحتسب على أحد · انتهاء الأهلية يحرّر تلقائياً
+- [X] T055 [P] [US1] أنشئ `backend/tests/Feature/LiveSessions/StudentScheduleTest.php`: الطالب يرى حصصه عبر **كل** مدرّسيه في جدول واحد، و**مدرّس لا يرى حصص طالبه عند غيره** (المبدأ I)
 
 ### الواجهة
 
-- [ ] T056 [P] [US1] أنشئ `frontend/src/lib/sessions.ts` بأنواع تطابق الـResources حرفاً بحرف ودوالّ النداء — **اقرأ الـResource قبل كتابة النوع**: نوع لا يطابق المورد يُنتج شاشة تعرض فراغاً بلا خطأ
-- [ ] T057 [P] [US1] أنشئ `frontend/src/components/sessions/SessionCard.tsx` و`SeatBadge.tsx` و`NextSessionCountdown.tsx` — العدّاد يُبنى من ثوانٍ يرسلها الخادم لا من ساعة المتصفّح (SC-016)، والألوان من رموز `@theme` حصراً
-- [ ] T058 [US1] أنشئ `frontend/src/app/(app)/(shell)/schedule/page.tsx`: جدول الطالب الموحّد + الحصة القادمة + حالة فراغ مفهومة بلا حصص (FR-055)
-- [ ] T059 [US1] أنشئ `frontend/src/app/(app)/(shell)/manage/sessions/page.tsx` (جدول المدرّس والتوليد) و`manage/sessions/[uuid]/page.tsx` (المقاعد والحجوزات)
-- [ ] T060 [US1] **أضف عنصري تنقّل** «جدولي» (`/schedule`) و«حصصي» (`/manage/sessions`) إلى `mainNav` في `frontend/src/app/(app)/(shell)/layout.tsx` مع أيقونتين في `frontend/src/components/icons/index.tsx` — شاشة بلا رابط شاشة غير مُسلَّمة
+- [X] T056 [P] [US1] أنشئ `frontend/src/lib/sessions.ts` بأنواع تطابق الـResources حرفاً بحرف ودوالّ النداء — **اقرأ الـResource قبل كتابة النوع**: نوع لا يطابق المورد يُنتج شاشة تعرض فراغاً بلا خطأ
+- [X] T057 [P] [US1] أنشئ `frontend/src/components/sessions/SessionCard.tsx` و`SeatBadge.tsx` و`NextSessionCountdown.tsx` — العدّاد يُبنى من ثوانٍ يرسلها الخادم لا من ساعة المتصفّح (SC-016)، والألوان من رموز `@theme` حصراً
+- [X] T058 [US1] أنشئ `frontend/src/app/(app)/(shell)/schedule/page.tsx`: جدول الطالب الموحّد + الحصة القادمة + حالة فراغ مفهومة بلا حصص (FR-055)
+- [X] T059 [US1] أنشئ `frontend/src/app/(app)/(shell)/manage/sessions/page.tsx` (جدول المدرّس والتوليد) و`manage/sessions/[uuid]/page.tsx` (المقاعد والحجوزات)
+- [X] T060 [US1] **أضف عنصري تنقّل** «جدولي» (`/schedule`) و«حصصي» (`/manage/sessions`) إلى `mainNav` في `frontend/src/app/(app)/(shell)/layout.tsx` مع أيقونتين في `frontend/src/components/icons/index.tsx` — شاشة بلا رابط شاشة غير مُسلَّمة
 
 **Checkpoint**: منصة تعرف مواعيدها ومن حجز فيها. قابلة للشحن وحدها.
 

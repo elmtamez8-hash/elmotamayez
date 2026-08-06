@@ -28,6 +28,16 @@ class EloquentEnrollmentDirectory implements EnrollmentDirectory
             ->exists();
     }
 
+    public function hasActiveEnrollmentInWorkspace(User $user, int $workspaceId): bool
+    {
+        return Enrollment::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $user->getKey())
+            ->where('workspace_id', $workspaceId)
+            ->where('status', 'active')
+            ->exists();
+    }
+
     /** @return list<int> */
     public function activeCourseIdsFor(User $user): array
     {

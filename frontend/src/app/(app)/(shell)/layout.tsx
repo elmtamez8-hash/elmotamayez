@@ -18,6 +18,8 @@ import {
   LogoutIcon,
   MembersIcon,
   OrdersIcon,
+  ScheduleIcon,
+  SessionsIcon,
   SettingsIcon,
   WorkspaceIcon,
   type IconProps,
@@ -30,6 +32,11 @@ const mainNav: NavItem[] = [
   // /courses is the public marketplace listing; course management lives under
   // /manage so the two do not resolve to the same route.
   { href: "/manage/courses", label: "الكورسات", Icon: CoursesIcon },
+  // /schedule is the student's own timetable across every teacher;
+  // /manage/sessions is the teacher's calendar. Two screens, two audiences —
+  // collapsing them into one route would make each show the other half nothing.
+  { href: "/schedule", label: "جدولي", Icon: ScheduleIcon },
+  { href: "/manage/sessions", label: "حصصي", Icon: SessionsIcon },
   { href: "/enrollments", label: "تعلّمي", Icon: LearningIcon },
   { href: "/exams", label: "الاختبارات", Icon: ExamIcon },
   { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },
