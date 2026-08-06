@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Modules\Settlement\Http\Controllers\TeachingUnitController;
+use Illuminate\Support\Facades\Route;
+
 /*
  * Settlement routes.
  *
@@ -13,3 +16,13 @@ declare(strict_types=1);
  * route in the key, so every inline limit in the product shares one counter and
  * the strictest one wins.
  */
+
+Route::middleware('auth:sanctum')->group(function (): void {
+    Route::get('/settlement/units', [TeachingUnitController::class, 'index']);
+
+    Route::middleware('throttle:settlement-write')->group(function (): void {
+        // The correction. An explicit administrative act with an author and a
+        // reason — never an attendance edit (spec Q7).
+        Route::post('/admin/settlement/units/{unit}/reverse', [TeachingUnitController::class, 'reverse']);
+    });
+});

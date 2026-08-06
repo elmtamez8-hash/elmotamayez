@@ -70,27 +70,27 @@ description: "Task list for 014-teacher-settlement"
 
 ### الاختبارات أولاً
 
-- [ ] T020 [P] [US1] اكتب `backend/tests/Feature/Settlement/AccrualTest.php` — «تولّد وحدة عن كل مقعد مُجمَّد» بحصة جماعية **عشرة مقاعد وستة حاضرين ← عشر وحدات** (SC-005ب). قارن بـ`billable_seats` لا بعدد صفوف الحضور: الاختبار الذي يعدّ الحضور يمرّ اليوم ويخفي العطل غداً
-- [ ] T021 [P] [US1] أضف إلى الملف نفسه حالتَي «لم يُنفّذ المدرّس»: لم يدخل · غادر قبل المدة. توقّع **صفر وحدة**، وتحقّق بـ`Event::fake()` أن `SessionDelivered` **لم يُطلَق أصلاً** — كي يثبت الاختبار أن الشرط في 005 حيث وُضع لا في مستمع هنا (SC-005د)
-- [ ] T022 [P] [US1] أضف «الحدث نفسه وصل مرتين ← وحدة واحدة»: أطلق `SessionDelivered` عشر مرات وتوقّع عدداً واحداً (SC-002)
-- [ ] T023 [P] [US1] اكتب `backend/tests/Feature/Settlement/PackageCompletionTest.php` بثلاث حالات على `recording_status`: `pending` ← معلَّقة · `published` ← مُفرَج عنها **تلقائياً بلا تدخّل** · `failed` ← **مُفرَج عنها** و`recording_fault = true` (SC-005هـ · FR-008ج)
-- [ ] T024 [P] [US1] اكتب `backend/tests/Feature/Settlement/RefundDoesNotTouchLedgerTest.php`: نفّذ حصة، ولّد وحداتها، ثم نفّذ استرداداً وخصماً وكوبوناً على جانب الطالب — الدفتر **بفارق صفر** قبل وبعد في الحالات الثلاث (SC-003 · SC-004)
-- [ ] T025 [P] [US1] اكتب `backend/tests/Feature/Settlement/ZeroBookingTest.php`: صفر مقعد ← صفر استحقاق افتراضاً · وبتفعيل المفتاح ← التعويض المضبوط · وفي الحالتين **تُعلَّم للمراجعة** (SC-005و)
-- [ ] T026 [P] [US1] اكتب `backend/tests/Feature/Settlement/UnitReversalTest.php`: عدّل الحضور بعد التوليد وتوقّع صفّاً جديداً بـ`reversal_of_id` بمنفّذه وسببه، و**بقاء** الأصل (FR-006 · SC-013)
+- [X] T020 [P] [US1] اكتب `backend/tests/Feature/Settlement/AccrualTest.php` — «تولّد وحدة عن كل مقعد مُجمَّد» بحصة جماعية **عشرة مقاعد وستة حاضرين ← عشر وحدات** (SC-005ب). قارن بـ`billable_seats` لا بعدد صفوف الحضور: الاختبار الذي يعدّ الحضور يمرّ اليوم ويخفي العطل غداً
+- [X] T021 [P] [US1] أضف إلى الملف نفسه حالتَي «لم يُنفّذ المدرّس»: لم يدخل · غادر قبل المدة. توقّع **صفر وحدة**، وتحقّق بـ`Event::fake()` أن `SessionDelivered` **لم يُطلَق أصلاً** — كي يثبت الاختبار أن الشرط في 005 حيث وُضع لا في مستمع هنا (SC-005د)
+- [X] T022 [P] [US1] أضف «الحدث نفسه وصل مرتين ← وحدة واحدة»: أطلق `SessionDelivered` عشر مرات وتوقّع عدداً واحداً (SC-002)
+- [X] T023 [P] [US1] اكتب `backend/tests/Feature/Settlement/PackageCompletionTest.php` بثلاث حالات على `recording_status`: `pending` ← معلَّقة · `published` ← مُفرَج عنها **تلقائياً بلا تدخّل** · `failed` ← **مُفرَج عنها** و`recording_fault = true` (SC-005هـ · FR-008ج)
+- [X] T024 [P] [US1] اكتب `backend/tests/Feature/Settlement/RefundDoesNotTouchLedgerTest.php`: نفّذ حصة، ولّد وحداتها، ثم نفّذ استرداداً وخصماً وكوبوناً على جانب الطالب — الدفتر **بفارق صفر** قبل وبعد في الحالات الثلاث (SC-003 · SC-004)
+- [X] T025 [P] [US1] اكتب `backend/tests/Feature/Settlement/ZeroBookingTest.php`: صفر مقعد ← صفر استحقاق افتراضاً · وبتفعيل المفتاح ← التعويض المضبوط · وفي الحالتين **تُعلَّم للمراجعة** (SC-005و)
+- [X] T026 [P] [US1] اكتب `backend/tests/Feature/Settlement/UnitReversalTest.php`: عدّل الحضور بعد التوليد وتوقّع صفّاً جديداً بـ`reversal_of_id` بمنفّذه وسببه، و**بقاء** الأصل (FR-006 · SC-013)
 
 ### التنفيذ
 
-- [ ] T027 [US1] أنشئ `backend/app/Modules/Settlement/Support/RateResolver.php`: الأخصّ (مادة+مرحلة ← مادة ← عام) ثم أحدث `effective_from` لا يتجاوز بدء الحصة (research §R4 · FR-014ب)
-- [ ] T028 [US1] أنشئ `backend/app/Modules/Settlement/Actions/AccrueTeachingUnits.php` — يقرأ `billableSeats` **من الحدث** ولا يعيد احتسابه من الحجوزات (FR-007أ)، ويخزّن `settlement_rate_id` **و**`amount_minor` **و**`frozen_seats` **و**`basis` مع الوحدة (FR-007ب)
-- [ ] T029 [US1] اجعل التوليد عديم الأثر بالفهرس الفريد `(class_session_id, student_user_id)` + `firstOrCreate` — لا بفحص `count()` قبل الإدراج، فذاك تعريف السباق
-- [ ] T030 [US1] أنشئ `backend/app/Modules/Settlement/Listeners/AccrueUnitsOnDelivery.php` وسجّله على `SessionDelivered` بـ`Event::listen()` في `SettlementServiceProvider::boot()` — **وليس** على `AttendanceConfirmed` (research §R1؛ ذاك يُطلَق عن حصة غير مُنفَّذة ولا يحمل عدد المقاعد)
-- [ ] T031 [US1] أنشئ `backend/app/Modules/Settlement/Support/PackageCompletion.php` بجدول قيم `recording_status` من [research §R6](./research.md): `published`/`failed`/`no_course`/`null` ← مكتملة · `pending`/`ingesting` ← ناقصة
-- [ ] T032 [US1] أنشئ `backend/app/Modules/Settlement/Actions/ReleasePendingUnits.php` يُفرِج تلقائياً بلا مراجعة بشرية (FR-008ب) ويكتب `pending_reason` بنصّ ما ينقص بالضبط (FR-008د)
-- [ ] T033 [US1] أنشئ `backend/app/Modules/Settlement/Jobs/ReleasePendingUnitsJob.php` مجدولة في `backend/routes/console.php` بـ`forWorkspace()` — **يُمنع** `WorkspaceContext::set()`: المفردة تُخزّن نتيجتها فتسرّب مساحة العمل إلى المهمة التالية على العامل نفسه
-- [ ] T034 [US1] أنشئ `backend/app/Modules/Settlement/Actions/ReverseTeachingUnit.php` **بمنفّذ وسبب إلزاميين**، ومساره `POST /admin/settlement/units/{unit}/reverse` — **بلا مستمع على `AttendanceOverridden`**: الوحدة بالمقعد لا بالحضور، و005 تشحن `AttendanceHasNoFinancialEffectTest` الذي يُفشِل البناء على ذلك (`Q7`)
-- [ ] T035 [US1] أنشئ `backend/app/Modules/Settlement/Actions/WriteLedgerEntry.php` — المدخل **الوحيد** للدفتر، ويرفض أي `UPDATE`/`DELETE` صراحةً (FR-016)
-- [ ] T036 [US1] أطلق `TeachingUnitAccrued` عند خروج الوحدة إلى `accrued`، واربطه بقيد الدفتر داخل الوحدة نفسها
-- [ ] T037 [US1] عالج التعويض عن الحصة بلا حجوزات في `AccrueTeachingUnits`: مطفأ افتراضاً · مشروط بتحقّق التنفيذ (FR-008ز) · والعلامة تُكتب في الحالتين (FR-008ح)
+- [X] T027 [US1] أنشئ `backend/app/Modules/Settlement/Support/RateResolver.php`: الأخصّ (مادة+مرحلة ← مادة ← عام) ثم أحدث `effective_from` لا يتجاوز بدء الحصة (research §R4 · FR-014ب)
+- [X] T028 [US1] أنشئ `backend/app/Modules/Settlement/Actions/AccrueTeachingUnits.php` — يقرأ `billableSeats` **من الحدث** ولا يعيد احتسابه من الحجوزات (FR-007أ)، ويخزّن `settlement_rate_id` **و**`amount_minor` **و**`frozen_seats` **و**`basis` مع الوحدة (FR-007ب)
+- [X] T029 [US1] اجعل التوليد عديم الأثر بالفهرس الفريد `(class_session_id, student_user_id)` + `firstOrCreate` — لا بفحص `count()` قبل الإدراج، فذاك تعريف السباق
+- [X] T030 [US1] أنشئ `backend/app/Modules/Settlement/Listeners/AccrueUnitsOnDelivery.php` وسجّله على `SessionDelivered` بـ`Event::listen()` في `SettlementServiceProvider::boot()` — **وليس** على `AttendanceConfirmed` (research §R1؛ ذاك يُطلَق عن حصة غير مُنفَّذة ولا يحمل عدد المقاعد)
+- [X] T031 [US1] أنشئ `backend/app/Modules/Settlement/Support/PackageCompletion.php` بجدول قيم `recording_status` من [research §R6](./research.md): `published`/`failed`/`no_course`/`null` ← مكتملة · `pending`/`ingesting` ← ناقصة
+- [X] T032 [US1] أنشئ `backend/app/Modules/Settlement/Actions/ReleasePendingUnits.php` يُفرِج تلقائياً بلا مراجعة بشرية (FR-008ب) ويكتب `pending_reason` بنصّ ما ينقص بالضبط (FR-008د)
+- [X] T033 [US1] أنشئ `backend/app/Modules/Settlement/Jobs/ReleasePendingUnitsJob.php` مجدولة في `backend/routes/console.php` بـ`forWorkspace()` — **يُمنع** `WorkspaceContext::set()`: المفردة تُخزّن نتيجتها فتسرّب مساحة العمل إلى المهمة التالية على العامل نفسه
+- [X] T034 [US1] أنشئ `backend/app/Modules/Settlement/Actions/ReverseTeachingUnit.php` **بمنفّذ وسبب إلزاميين**، ومساره `POST /admin/settlement/units/{unit}/reverse` — **بلا مستمع على `AttendanceOverridden`**: الوحدة بالمقعد لا بالحضور، و005 تشحن `AttendanceHasNoFinancialEffectTest` الذي يُفشِل البناء على ذلك (`Q7`)
+- [X] T035 [US1] أنشئ `backend/app/Modules/Settlement/Actions/WriteLedgerEntry.php` — المدخل **الوحيد** للدفتر، ويرفض أي `UPDATE`/`DELETE` صراحةً (FR-016)
+- [X] T036 [US1] أطلق `TeachingUnitAccrued` عند خروج الوحدة إلى `accrued`، واربطه بقيد الدفتر داخل الوحدة نفسها
+- [X] T037 [US1] عالج التعويض عن الحصة بلا حجوزات في `AccrueTeachingUnits`: مطفأ افتراضاً · مشروط بتحقّق التنفيذ (FR-008ز) · والعلامة تُكتب في الحالتين (FR-008ح)
 
 **Checkpoint**: US1 قابلة للتسليم وحدها — دفتر دقيق قابل للتدقيق، وكل ما بعدها سياسات فوقه.
 

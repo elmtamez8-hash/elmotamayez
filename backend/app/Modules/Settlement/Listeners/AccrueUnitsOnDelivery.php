@@ -7,7 +7,6 @@ namespace App\Modules\Settlement\Listeners;
 use App\Modules\LiveSessions\Events\SessionDelivered;
 use App\Modules\Settlement\Actions\AccrueTeachingUnits;
 use App\Modules\Settlement\Events\TeachingUnitAccrued;
-use App\Modules\Settlement\Models\TeachingUnit;
 
 /**
  * The bridge, and the only one.

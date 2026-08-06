@@ -37,4 +37,19 @@ class TeachingUnitPolicy extends BasePolicy
             ? Response::allow()
             : Response::deny();
     }
+
+    /**
+     * Correcting a unit is a platform act, not the teacher's.
+     *
+     * Reusing SETTLEMENT_PERIOD_MANAGE rather than minting a seventh constant
+     * for one route: whoever may close a period and freeze its totals is already
+     * the person trusted to say a unit should not have been there. A teacher
+     * reversing their own units would make the ledger self-serve.
+     */
+    public function reverse(User $user, TeachingUnit $unit): Response
+    {
+        return $user->can(Permissions::SETTLEMENT_PERIOD_MANAGE)
+            ? Response::allow()
+            : Response::deny();
+    }
 }

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Settlement;
 
 use App\Modules\LiveSessions\Events\SessionDelivered;
+use App\Modules\Settlement\Events\TeachingUnitAccrued;
 use App\Modules\Settlement\Listeners\AccrueUnitsOnDelivery;
+use App\Modules\Settlement\Listeners\RecordUnitInLedger;
 use App\Modules\Settlement\Models\RateChangeRequest;
 use App\Modules\Settlement\Models\SettlementPeriod;
 use App\Modules\Settlement\Models\TeachingUnit;
@@ -46,5 +48,11 @@ class SettlementServiceProvider extends Module
         // AttendanceConfirmed — see the listener for why the choice is forced by
         // the 005 code rather than preferred.
         Event::listen(SessionDelivered::class, AccrueUnitsOnDelivery::class);
+
+        // One writer for the ledger, whatever produced the unit — delivery, a
+        // late release, or a correction. Three call sites writing their own
+        // entries is three chances for the balance to stop being the sum of its
+        // rows.
+        Event::listen(TeachingUnitAccrued::class, RecordUnitInLedger::class);
     }
 }
