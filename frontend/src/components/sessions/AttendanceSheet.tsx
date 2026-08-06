@@ -24,6 +24,56 @@ const STATUS_TONE: Record<string, "success" | "danger" | "warning" | "info"> = {
   excused: "info",
 };
 
+/**
+ * One student's remark row.
+ *
+ * Split out so the student's uuid arrives as a plain string prop. Inline, the
+ * callbacks needed `row.student!.uuid` — a non-null assertion inside a branch
+ * that had already proved it, which is the kind of `!` that survives a refactor
+ * after the check around it is gone.
+ */
+function FeedbackField({
+  rowUuid,
+  studentUuid,
+  value,
+  onChange,
+  onSave,
+  busy,
+  saved,
+}: {
+  rowUuid: string;
+  studentUuid: string;
+  value: string;
+  onChange: (value: string, studentUuid: string) => void;
+  onSave: (studentUuid: string) => Promise<void>;
+  busy: string | null;
+  saved: string | null;
+}) {
+  return (
+    <div className="flex w-full flex-wrap items-end gap-2">
+      <div className="min-w-56 grow">
+        <TextField
+          id={`note-${rowUuid}`}
+          label="ملاحظة المدرّس"
+          value={value}
+          onChange={(next) => onChange(next, studentUuid)}
+          maxLength={500}
+          placeholder="تصل وليّ الأمر مع تقرير الحصة"
+        />
+      </div>
+
+      <Button
+        size="sm"
+        variant="secondary"
+        loading={busy === studentUuid}
+        onClick={() => void onSave(studentUuid)}
+      >
+        {saved === studentUuid ? "حُفظت" : "حفظ الملاحظة"}
+      </Button>
+    </div>
+  );
+}
+
 export function AttendanceSheet({
   rows,
   canOverride,
@@ -126,29 +176,17 @@ export function AttendanceSheet({
                 the report goes out on the announced delay with attendance alone,
                 so an empty box never holds a guardian's message back. */}
             {sessionUuid !== undefined && row.student != null && (
-              <div className="flex w-full flex-wrap items-end gap-2">
-                <div className="min-w-56 grow">
-                  <TextField
-                    id={`note-${row.uuid}`}
-                    label="ملاحظة المدرّس"
-                    value={notes[row.student.uuid] ?? ""}
-                    onChange={(value) =>
-                      setNotes((current) => ({ ...current, [row.student!.uuid]: value }))
-                    }
-                    maxLength={500}
-                    placeholder="تصل وليّ الأمر مع تقرير الحصة"
-                  />
-                </div>
-
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  loading={busy === row.student.uuid}
-                  onClick={() => void saveNote(row.student!.uuid)}
-                >
-                  {saved === row.student.uuid ? "حُفظت" : "حفظ الملاحظة"}
-                </Button>
-              </div>
+              <FeedbackField
+                rowUuid={row.uuid}
+                studentUuid={row.student.uuid}
+                value={notes[row.student.uuid] ?? ""}
+                onChange={(value, uuid) =>
+                  setNotes((current) => ({ ...current, [uuid]: value }))
+                }
+                onSave={saveNote}
+                busy={busy}
+                saved={saved}
+              />
             )}
           </li>
         ))}

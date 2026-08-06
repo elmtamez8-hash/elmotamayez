@@ -44,7 +44,7 @@ class SendSessionReport extends Action
             return;
         }
 
-        $this->dispatch->handle(new NotificationRequest(
+        $sent = $this->dispatch->handle(new NotificationRequest(
             recipient: $student,
             type: NotificationType::SessionReport,
             variables: [
@@ -59,7 +59,15 @@ class SendSessionReport extends Action
             workspaceId: (int) $attendance->workspace_id,
         ));
 
-        $attendance->forceFill(['report_sent_at' => now()])->save();
+        // Only when something was actually recorded. A notification with no
+        // template is dropped silently by design — the enrolment that triggered
+        // it must not fail over a missing row — so an unconditional stamp here
+        // would write "the guardian was told" about a message that was never
+        // created, and the retry guard would then make sure nobody ever tries
+        // again. Left null, the next run of the job picks the row back up.
+        if ($sent->isNotEmpty()) {
+            $attendance->forceFill(['report_sent_at' => now()])->save();
+        }
     }
 
     /**

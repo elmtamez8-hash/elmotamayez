@@ -16,6 +16,7 @@ use App\Modules\LiveSessions\Jobs\SendSessionReportsJob;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Notifications\Models\MessageTemplate;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Models\NotificationDelivery;
 use App\Modules\Notifications\Models\NotificationPreference;
@@ -228,4 +229,20 @@ it('does not send a correction for a row nobody has heard about', function (): v
     );
 
     expect(Notification::query()->where('type', NotificationType::SessionReport->value)->count())->toBe(0);
+});
+
+// A notification with no template is dropped silently by design (CLAUDE.md), so
+// the stamp must not claim otherwise: an unconditional write here would mark the
+// row reported and the retry guard would make sure nobody ever tried again.
+it('leaves the row unreported when the template is missing', function (): void {
+    $student = reportedLearner();
+
+    MessageTemplate::query()->where('type', NotificationType::SessionReport->value)->delete();
+
+    closeAndReport();
+
+    $attendance = Attendance::query()->where('student_user_id', $student->getKey())->firstOrFail();
+
+    expect(Notification::query()->count())->toBe(0)
+        ->and($attendance->report_sent_at)->toBeNull();
 });

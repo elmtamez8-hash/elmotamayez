@@ -28,6 +28,14 @@ class CancelClassSession extends Action
             throw new DomainException('لا يمكن إلغاء حصة منتهية أو ملغاة.');
         }
 
+        // Read while it is still true. One line later these rows are released
+        // and indistinguishable from a seat the student gave back last month.
+        $seatHolderIds = array_values($session->bookings()
+            ->where('status', BookingStatus::Booked)
+            ->pluck('student_user_id')
+            ->map(fn ($id): int => (int) $id)
+            ->all());
+
         DB::transaction(function () use ($session, $reason): void {
             $session->bookings()
                 ->where('status', BookingStatus::Booked)
@@ -48,7 +56,7 @@ class CancelClassSession extends Action
 
         // Everyone who held a seat hears about it (FR-006). Dispatched after the
         // transaction so a notification never describes a rollback.
-        SessionCancelled::dispatch($session, $reason);
+        SessionCancelled::dispatch($session, $reason, $seatHolderIds);
 
         return $session;
     }

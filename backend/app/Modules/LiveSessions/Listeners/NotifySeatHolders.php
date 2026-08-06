@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Listeners;
 
+use App\Models\User;
 use App\Modules\LiveSessions\Events\SessionCancelled;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Notifications\Actions\DispatchNotification;
@@ -18,9 +19,10 @@ use App\Modules\Notifications\Support\NotificationType;
  * reason line is what distinguishes them. A second listener would be a second
  * place to forget the guardians.
  *
- * Reads the bookings rather than the register: the register does not exist for a
- * session that never ran, and the people owed an explanation are the ones who
- * had reserved the hour.
+ * The audience comes from the event, not from a query. By the time this runs the
+ * seats have been released, so reading the bookings here would find one
+ * undifferentiated pile and tell the student who cancelled last month that their
+ * session is off — a message about an hour they had already given up.
  */
 class NotifySeatHolders
 {
@@ -33,20 +35,18 @@ class NotifySeatHolders
     {
         $session = $event->session;
 
-        $seats = $session->bookings()->with('student')->get();
+        if ($event->seatHolderIds === []) {
+            return;
+        }
+
+        $students = User::query()->whereIn('id', $event->seatHolderIds)->get();
 
         $startsAt = $session->starts_at
             ->copy()
             ->setTimezone($this->settings->timezone())
             ->format('Y-m-d H:i');
 
-        foreach ($seats as $seat) {
-            $student = $seat->student;
-
-            if ($student === null) {
-                continue;
-            }
-
+        foreach ($students as $student) {
             $this->dispatch->handle(new NotificationRequest(
                 recipient: $student,
                 type: NotificationType::SessionCancelled,

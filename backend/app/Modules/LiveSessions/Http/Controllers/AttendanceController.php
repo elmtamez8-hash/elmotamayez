@@ -21,12 +21,34 @@ use Illuminate\Validation\Rule;
 
 class AttendanceController extends Controller
 {
-    /** The full register: every billable seat, present or not (FR-023أ). */
+    /**
+     * The register: every billable seat, present or not (FR-023أ) — for whoever
+     * is entitled to read a register.
+     *
+     * SESSIONS_VIEW and ATTENDANCE_VIEW are two different questions. The first
+     * says "you may see the sessions you can book"; every student holds it. The
+     * second says "you may read who attended one", and answering the second with
+     * the first hands each student the class roll: names, stay durations, and
+     * the reason a teacher changed someone's mark.
+     *
+     * So a reader without ATTENDANCE_VIEW gets their own row and nothing else.
+     * That is ownership rather than permission, which is why it is not a 403:
+     * their attendance is theirs, and the register they are not entitled to is
+     * simply not there.
+     */
     public function index(Request $request, ClassSession $session): JsonResponse
     {
         $this->authorize('view', $session);
 
-        $attendances = $session->attendances()->with('student')->get();
+        $viewer = $this->currentUser($request);
+
+        $attendances = $session->attendances()
+            ->with('student')
+            ->unless(
+                $viewer->can(Permissions::ATTENDANCE_VIEW),
+                fn ($query) => $query->where('student_user_id', $viewer->getKey()),
+            )
+            ->get();
 
         return response()->json(['data' => AttendanceResource::collection($attendances)]);
     }

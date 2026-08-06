@@ -11,6 +11,8 @@ use App\Modules\LiveSessions\Events\SessionCancelled;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\EnrollmentDirectory;
+use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -37,6 +39,11 @@ use Illuminate\Support\Facades\DB;
  */
 class CreateFreezePeriod extends Action
 {
+    public function __construct(
+        private readonly EnrollmentDirectory $enrollments,
+        private readonly WorkspaceContext $context,
+    ) {}
+
     /**
      * @return array{period: FreezePeriod, suspended: list<ClassSession>, notified: int}
      */
@@ -49,6 +56,21 @@ class CreateFreezePeriod extends Action
     ): array {
         if ($endsOn->lessThan($startsOn)) {
             throw new DomainException('تاريخ نهاية التجميد قبل بدايته.');
+        }
+
+        // NFR-001أ — a teacher may not act on, or learn anything about, someone
+        // with no active enrolment in their own workspace. Without this the uuid
+        // is an identity probe: pass any user's and the response comes back
+        // carrying their name.
+        //
+        // In the Action rather than the FormRequest, because the panel and the
+        // seeders come through this door too (Constitution II) — and because
+        // `exists:users,uuid` answers a different question entirely.
+        if ($student !== null && ! $this->enrollments->hasActiveEnrollmentInWorkspace(
+            $student,
+            (int) $this->context->id(),
+        )) {
+            throw new DomainException('هذا الطالب ليس من طلابك.');
         }
 
         $period = FreezePeriod::query()->create([
@@ -99,7 +121,14 @@ class CreateFreezePeriod extends Action
 
     private function suspend(ClassSession $session, FreezePeriod $period): int
     {
-        $seats = (int) $session->bookings()->where('status', BookingStatus::Booked)->count();
+        // Read before the release, for the same reason CancelClassSession does:
+        // a listener running afterwards cannot tell a seat taken away from a
+        // seat given back weeks ago.
+        $seatHolderIds = array_values($session->bookings()
+            ->where('status', BookingStatus::Booked)
+            ->pluck('student_user_id')
+            ->map(fn ($id): int => (int) $id)
+            ->all());
 
         DB::transaction(function () use ($session): void {
             // Released, not cancelled: the students did nothing, and filing it
@@ -125,8 +154,9 @@ class CreateFreezePeriod extends Action
         SessionCancelled::dispatch(
             $session,
             $period->reason === null ? 'فترة تجميد' : 'فترة تجميد: '.$period->reason,
+            $seatHolderIds,
         );
 
-        return $seats;
+        return count($seatHolderIds);
     }
 }
