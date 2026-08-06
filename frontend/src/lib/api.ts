@@ -216,6 +216,9 @@ export function errorMessage(err: unknown, fallback: string): string {
   return mapped === UNKNOWN_MESSAGE ? fallback : mapped;
 }
 
+/** What a completed sign-in hands back, whichever door it came through. */
+export type SignedIn = { user: User; token: string; session_uuid: string };
+
 export const api = {
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
   upload: <T>(path: string, form: FormData) =>
@@ -226,12 +229,17 @@ export const api = {
     request<T>(path, { method: "PUT", body: data ? JSON.stringify(data) : undefined }),
   patch: <T>(path: string, data?: unknown) =>
     request<T>(path, { method: "PATCH", body: data ? JSON.stringify(data) : undefined }),
-  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  // A body on DELETE is unusual but not wrong, and turning off a second factor
+  // has to carry the password and code that authorise it.
+  delete: <T>(path: string, data?: unknown) =>
+    request<T>(path, { method: "DELETE", body: data ? JSON.stringify(data) : undefined }),
 };
 
 export const auth = {
+  // A correct password on a two-factor account returns a challenge and no
+  // token — so the caller must narrow before reaching for one.
   login: (email: string, password: string) =>
-    api.post<{ user: User; token: string; session_uuid: string }>("/auth/login", {
+    api.post<SignedIn | { two_factor: true; challenge: string }>("/auth/login", {
       email,
       password,
     }),

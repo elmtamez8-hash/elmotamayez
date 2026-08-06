@@ -33,7 +33,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/lessons/{lesson}/assets', [MediaAssetController::class, 'store']);
     Route::get('/media/assets/{asset}', [MediaAssetController::class, 'show']);
     Route::post('/media/assets/{asset}/complete', [MediaAssetController::class, 'complete']);
-    Route::delete('/media/assets/{asset}', [MediaAssetController::class, 'destroy']);
+    // Deleting an asset destroys a teacher's uploaded work irreversibly.
+    Route::delete('/media/assets/{asset}', [MediaAssetController::class, 'destroy'])
+        ->middleware('2fa.required');
 
     Route::post('/lessons/{lesson}/playback', [PlaybackController::class, 'issue'])
         ->middleware('throttle:playback');

@@ -22,6 +22,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/orders/{order}', [OrderController::class, 'show']);
     Route::post('/courses/{course}/orders', [OrderController::class, 'store']);
     Route::post('/orders/{order}/receipt', [OrderController::class, 'uploadReceipt']);
-    Route::post('/orders/{order}/approve', [OrderController::class, 'approve']);
-    Route::post('/orders/{order}/reject', [OrderController::class, 'reject']);
+    // Money moves and an enrolment is granted — sensitive by any reading, so
+    // the second factor is required here once the account's grace period is up.
+    Route::post('/orders/{order}/approve', [OrderController::class, 'approve'])->middleware('2fa.required');
+    Route::post('/orders/{order}/reject', [OrderController::class, 'reject'])->middleware('2fa.required');
 });

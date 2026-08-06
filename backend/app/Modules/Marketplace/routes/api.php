@@ -59,8 +59,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('idempotent');
 
     Route::get('/admin/teacher-applications', [TeacherReviewController::class, 'index']);
-    Route::post('/admin/teacher-applications/{uuid}/approve', [TeacherReviewController::class, 'approve']);
-    Route::post('/admin/teacher-applications/{uuid}/reject', [TeacherReviewController::class, 'reject']);
+    // Admitting or refusing a teacher decides who may sell on the platform.
+    Route::post('/admin/teacher-applications/{uuid}/approve', [TeacherReviewController::class, 'approve'])
+        ->middleware('2fa.required');
+    Route::post('/admin/teacher-applications/{uuid}/reject', [TeacherReviewController::class, 'reject'])
+        ->middleware('2fa.required');
     Route::post('/admin/teacher-applications/{uuid}/request-changes', [TeacherReviewController::class, 'requestChanges']);
     Route::post('/admin/teachers/{uuid}/suspend', [TeacherReviewController::class, 'suspend']);
     Route::post('/admin/teachers/{uuid}/reinstate', [TeacherReviewController::class, 'reinstate']);

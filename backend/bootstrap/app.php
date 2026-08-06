@@ -2,6 +2,7 @@
 
 use App\Shared\Middleware\EnsureCurrentWorkspace;
 use App\Shared\Middleware\Idempotent;
+use App\Shared\Middleware\RequireTwoFactor;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,6 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'workspace' => EnsureCurrentWorkspace::class,
             'idempotent' => Idempotent::class,
             'stateful' => EnsureFrontendRequestsAreStateful::class,
+            // Named, and applied route by route — never to a group. See the
+            // middleware's own docblock for why.
+            '2fa.required' => RequireTwoFactor::class,
         ]);
         $middleware->appendToGroup('api', [
             EnsureCurrentWorkspace::class,

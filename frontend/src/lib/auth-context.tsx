@@ -1,13 +1,26 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { auth, setToken, setSessionUuid, clearToken } from "@/lib/api";
+import { auth, setToken, setSessionUuid, clearToken, type SignedIn } from "@/lib/api";
+import { twoFactor } from "@/lib/two-factor";
 import type { User } from "@/lib/types";
+
+/**
+ * A password is no longer the whole of signing in.
+ *
+ * An account with a second factor gets a challenge and no token, so callers
+ * have to narrow on this before they can route anyone anywhere.
+ */
+export type LoginOutcome = { user: User } | { challenge: string };
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<User>;
+  login: (email: string, password: string) => Promise<LoginOutcome>;
+  completeTwoFactor: (
+    challenge: string,
+    credential: { code?: string; recovery_code?: string },
+  ) => Promise<User>;
   register: (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string }) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -48,14 +61,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const { user, token, session_uuid } = await auth.login(email, password);
+  const finishSignIn = ({ user, token, session_uuid }: SignedIn) => {
     setToken(token);
     setSessionUuid(session_uuid);
     setUser(user);
 
     return user;
   };
+
+  const login = async (email: string, password: string): Promise<LoginOutcome> => {
+    const result = await auth.login(email, password);
+
+    if ("two_factor" in result) return { challenge: result.challenge };
+
+    return { user: finishSignIn(result) };
+  };
+
+  const completeTwoFactor = async (
+    challenge: string,
+    credential: { code?: string; recovery_code?: string },
+  ) => finishSignIn(await twoFactor.challenge(challenge, credential));
 
   const register = async (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string }) => {
     await auth.register(data);
@@ -71,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, completeTwoFactor, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

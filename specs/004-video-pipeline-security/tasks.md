@@ -224,19 +224,19 @@ description: "Task list for 004-video-pipeline-security"
 
 **Depends on**: Phase 2 (T020–T022).
 
-- [ ] T092 [P] [US4] أنشئ `backend/tests/Feature/Auth/TwoFactorTest.php`: حساب مفعَّل ⇒ الدخول بكلمة المرور يعيد `{two_factor: true, challenge}` **بلا رمز** (SC-007)
-- [ ] T093 [P] [US4] أضف حالات في نفس الملف: رمز استرداد يعمل **مرة واحدة** ويُبطَل ويُنبّه (FR-029) · تغيير وسيلة التحقق يُنهي بقية الجلسات (FR-031) · بعد انقضاء المهلة ⇒ `403` برمز `two_factor_required` (FR-028)
-- [ ] T094 [US4] أنشئ `backend/app/Modules/Identity/Support/TwoFactorCodes.php` يغلّف `PragmaRX\Google2FA\Google2FA` (مثبَّت سلفاً تحت Filament) وتوليد رموز الاسترداد
-- [ ] T095 [US4] أنشئ `EnableTwoFactor` و`ConfirmTwoFactor` و`DisableTwoFactor` في `backend/app/Modules/Identity/Actions/` — التفعيل والتعطيل **يتطلّبان كلمة المرور الحالية**
-- [ ] T096 [US4] أنشئ `backend/app/Modules/Identity/Actions/CompleteTwoFactorChallenge.php` — التحدّي في `Cache` عشر دقائق لا في جدول (research §R10)
-- [ ] T097 [US4] عدّل `AuthController::login` ليعيد التحدّي بدل الرمز لحساب `two_factor_confirmed_at` غير فارغ
-- [ ] T098 [US4] أنشئ `backend/app/Modules/Identity/Http/Controllers/TwoFactorController.php` والمسارات الخمسة حسب contracts/api.md، كلها خلف `throttle:two-factor`. `GET /auth/2fa` **بلا** السرّ وبلا الرموز
-- [ ] T099 [US4] أنشئ `backend/app/Shared/Middleware/RequireTwoFactor.php` وسجّله باسم `2fa.required` في `backend/bootstrap/app.php`
-- [ ] T100 [US4] طبّق `2fa.required` **صراحةً** على مسارات مسمّاة: اعتماد الدفع ورفضه · إدارة الأعضاء · إعدادات مساحة العمل · اعتماد المدرّسين · حذف الأصول — **لا قائمة عامة تنمو بالنسيان**
-- [ ] T101 [US4] اضبط `two_factor_required_at` عند إنشاء أو ترقية حساب بصلاحيات إدارية، بمهلة من `PlatformSettings::get('auth.two_factor_grace_days')`
-- [ ] T102 [US4] أضف قسم التحقق الثنائي إلى `frontend/src/app/(app)/(shell)/settings/security/page.tsx`: التفعيل ورمز `otpauth` ورموز الاسترداد **مرة واحدة** والتعطيل
-- [ ] T103 [US4] أضف شاشة التحدّي إلى `frontend/src/app/(app)/login/page.tsx` مع خيار رمز الاسترداد
-- [ ] T104 [P] [US4] أضف حالة إلى `TwoFactorTest`: **سرّ واحد للسطحين** — تفعيل من الـ API ثم دخول لوحة `/admin` بنفس التطبيق المصادق (research §R9)
+- [X] T092 [P] [US4] أنشئ `backend/tests/Feature/Auth/TwoFactorTest.php`: حساب مفعَّل ⇒ الدخول بكلمة المرور يعيد `{two_factor: true, challenge}` **بلا رمز** (SC-007)
+- [X] T093 [P] [US4] أضف حالات في نفس الملف: رمز استرداد يعمل **مرة واحدة** ويُبطَل ويُنبّه (FR-029) · تغيير وسيلة التحقق يُنهي بقية الجلسات (FR-031) · بعد انقضاء المهلة ⇒ `403` برمز `two_factor_required` (FR-028)
+- [X] T094 [US4] أنشئ `backend/app/Modules/Identity/Support/TwoFactorCodes.php` يغلّف `PragmaRX\Google2FA\Google2FA` (مثبَّت سلفاً تحت Filament) وتوليد رموز الاسترداد
+- [X] T095 [US4] أنشئ `EnableTwoFactor` و`ConfirmTwoFactor` و`DisableTwoFactor` في `backend/app/Modules/Identity/Actions/` — التفعيل والتعطيل **يتطلّبان كلمة المرور الحالية**
+- [X] T096 [US4] أنشئ `backend/app/Modules/Identity/Actions/CompleteTwoFactorChallenge.php` — التحدّي في `Cache` عشر دقائق لا في جدول (research §R10)
+- [X] T097 [US4] عدّل `AuthController::login` ليعيد التحدّي بدل الرمز لحساب `two_factor_confirmed_at` غير فارغ
+- [X] T098 [US4] أنشئ `backend/app/Modules/Identity/Http/Controllers/TwoFactorController.php` والمسارات الخمسة حسب contracts/api.md، كلها خلف `throttle:two-factor`. `GET /auth/2fa` **بلا** السرّ وبلا الرموز
+- [X] T099 [US4] أنشئ `backend/app/Shared/Middleware/RequireTwoFactor.php` وسجّله باسم `2fa.required` في `backend/bootstrap/app.php`
+- [X] T100 [US4] طبّق `2fa.required` **صراحةً** على مسارات مسمّاة: اعتماد الدفع ورفضه · إدارة الأعضاء · إعدادات مساحة العمل · اعتماد المدرّسين · حذف الأصول — **لا قائمة عامة تنمو بالنسيان**
+- [X] T101 [US4] اضبط `two_factor_required_at` عند إنشاء أو ترقية حساب بصلاحيات إدارية، بمهلة من `PlatformSettings::get('auth.two_factor_grace_days')`
+- [X] T102 [US4] أضف قسم التحقق الثنائي إلى `frontend/src/app/(app)/(shell)/settings/security/page.tsx`: التفعيل ورمز `otpauth` ورموز الاسترداد **مرة واحدة** والتعطيل
+- [X] T103 [US4] أضف شاشة التحدّي إلى `frontend/src/app/(app)/login/page.tsx` مع خيار رمز الاسترداد
+- [X] T104 [P] [US4] أضف حالة إلى `TwoFactorTest`: **سرّ واحد للسطحين** — تفعيل من الـ API ثم دخول لوحة `/admin` بنفس التطبيق المصادق (research §R9)
 
 **Checkpoint**: الحسابات التي تملك المحتوى والمال محصّنة.
 

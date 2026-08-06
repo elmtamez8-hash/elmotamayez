@@ -12,9 +12,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/workspaces', [WorkspaceController::class, 'index']);
     Route::post('/workspaces', [WorkspaceController::class, 'store']);
     Route::post('/workspaces/{workspace}/switch', [WorkspaceController::class, 'switch']);
-    Route::patch('/workspaces/{workspace}', [WorkspaceController::class, 'update']);
+    // Workspace settings and membership: who gets in, and what the tenant is.
+    Route::patch('/workspaces/{workspace}', [WorkspaceController::class, 'update'])->middleware('2fa.required');
     Route::get('/workspaces/{workspace}/members', [WorkspaceController::class, 'members']);
-    Route::delete('/workspaces/{workspace}/members/{member}', [WorkspaceController::class, 'removeMember']);
-    Route::post('/workspaces/{workspace}/invitations', [WorkspaceController::class, 'invite']);
+    Route::delete('/workspaces/{workspace}/members/{member}', [WorkspaceController::class, 'removeMember'])
+        ->middleware('2fa.required');
+    Route::post('/workspaces/{workspace}/invitations', [WorkspaceController::class, 'invite'])
+        ->middleware('2fa.required');
     Route::post('/workspaces/invitations/{token}/accept', [WorkspaceController::class, 'acceptInvitation']);
 });

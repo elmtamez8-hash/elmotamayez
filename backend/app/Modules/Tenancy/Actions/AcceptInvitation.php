@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Tenancy\Actions;
 
 use App\Models\User;
+use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Tenancy\Events\WorkspaceMemberAdded;
 use App\Modules\Tenancy\Models\Invitation;
 use App\Modules\Tenancy\Models\Workspace;
@@ -53,6 +54,12 @@ class AcceptInvitation extends Action
             // Assign the spatie role within this workspace's team context.
             $this->context->set($workspace);
             $user->assignRole($invitation->role);
+
+            // Joining as a teacher or an assistant grants access to other
+            // people's payments and records; joining as a student does not.
+            if (TwoFactorMandate::isPrivileged($invitation->role)) {
+                TwoFactorMandate::applyTo($user);
+            }
 
             event(new WorkspaceMemberAdded($workspace, $user, $invitation->role));
 

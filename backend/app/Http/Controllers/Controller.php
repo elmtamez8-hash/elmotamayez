@@ -31,4 +31,19 @@ abstract class Controller
 
         return $user;
     }
+
+    /**
+     * The row id of the token making this request, if there is one.
+     *
+     * A session-authenticated request (the Filament panel, or a test using
+     * `Sanctum::actingAs`) carries a TransientToken, whose `getKey()` answers
+     * `false` rather than null — so anything that hands this to a typed
+     * parameter has to normalise it here rather than trust the call.
+     */
+    protected function currentTokenId(Request $request): ?int
+    {
+        $key = $request->user()?->currentAccessToken()?->getKey();
+
+        return is_numeric($key) ? (int) $key : null;
+    }
 }

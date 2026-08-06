@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Modules\Identity\Actions\RegisterStudent;
 use App\Modules\Identity\Actions\StartAuthSession;
 use App\Modules\Identity\Actions\TerminateAuthSession;
+use App\Modules\Identity\Actions\TerminateOtherSessions;
 use App\Modules\Identity\Data\RegisterStudentData;
 use App\Modules\Identity\Http\Requests\ChangePasswordRequest;
 use App\Modules\Identity\Http\Requests\ForgotPasswordRequest;
@@ -20,9 +21,7 @@ use App\Modules\Identity\Http\Requests\UpdateProfileRequest;
 use App\Modules\Identity\Http\Resources\UserResource;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Support\SessionEndReason;
-use App\Modules\Notifications\Actions\DispatchNotification;
-use App\Modules\Notifications\Data\NotificationRequest;
-use App\Modules\Notifications\Support\NotificationType;
+use App\Modules\Identity\Support\TwoFactorChallenges;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
@@ -76,6 +75,16 @@ class AuthController extends Controller
             ]);
         }
 
+        // A correct password on a two-factor account issues NO token (SC-007).
+        // Issuing one and then restricting it would mean any flaw in the
+        // restriction is a full sign-in with the password alone.
+        if ($user->hasTwoFactorEnabled()) {
+            return response()->json([
+                'two_factor' => true,
+                'challenge' => TwoFactorChallenges::issue($user),
+            ]);
+        }
+
         $result = $startSession->handle($user, $request);
 
         return response()->json([
@@ -118,8 +127,7 @@ class AuthController extends Controller
 
     public function changePassword(
         ChangePasswordRequest $request,
-        DispatchNotification $notify,
-        TerminateAuthSession $terminate,
+        TerminateOtherSessions $terminateOthers,
     ): JsonResponse {
         $request->ensureCurrentPasswordIsValid();
 
@@ -128,26 +136,12 @@ class AuthController extends Controller
 
         // Every other session goes (FR-031). If the password was changed because
         // it leaked, leaving the intruder signed in defeats the change.
-        $currentTokenId = $user->currentAccessToken()->getKey();
-
-        AuthSession::query()
-            ->active()
-            ->where('user_id', $user->getKey())
-            ->where(fn ($query) => $query->whereNull('token_id')->orWhere('token_id', '!=', $currentTokenId))
-            ->get()
-            ->each(fn (AuthSession $session) => $terminate->handle($session, SessionEndReason::PasswordChange));
-
-        // Mandatory type: it cannot be switched off, deferred or digested. A
-        // password change the account holder did not make is the one message that
-        // has to arrive at 3am if it happens at 3am.
-        $notify->handle(new NotificationRequest(
-            recipient: $user,
-            type: NotificationType::SecurityAlert,
-            variables: [
-                'name' => $user->name,
-                'event' => 'تم تغيير كلمة مرور حسابك.',
-            ],
-        ));
+        $terminateOthers->handle(
+            $user,
+            SessionEndReason::PasswordChange,
+            'تم تغيير كلمة مرور حسابك.',
+            $this->currentTokenId($request),
+        );
 
         return response()->json(['message' => 'Password changed successfully.']);
     }

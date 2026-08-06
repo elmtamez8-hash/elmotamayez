@@ -11,6 +11,7 @@ import { sessionEndedLabel } from "@/lib/labels";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/Field";
+import type { User } from "@/lib/types";
 
 function LoginForm() {
   const { login } = useAuth();
@@ -27,6 +28,13 @@ function LoginForm() {
   const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  // Set when the password was right but the account has a second factor. The
+  // form below is replaced rather than extended: there is no token yet, and
+  // leaving the password fields on screen invites re-submitting them.
+  const [challenge, setChallenge] = useState<string | null>(null);
+
+  const done = (user: User) =>
+    router.push(invitation ? `/invitations/${invitation}` : homePathFor(user));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,8 +43,10 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const user = await login(email, password);
-      router.push(invitation ? `/invitations/${invitation}` : homePathFor(user));
+      const outcome = await login(email, password);
+
+      if ("challenge" in outcome) setChallenge(outcome.challenge);
+      else done(outcome.user);
     } catch (err: unknown) {
       const found = fieldErrors(err);
       if (Object.keys(found).length > 0) setFields(found);
@@ -45,6 +55,10 @@ function LoginForm() {
       setLoading(false);
     }
   };
+
+  if (challenge !== null) {
+    return <TwoFactorChallenge challenge={challenge} onSignedIn={done} />;
+  }
 
   return (
     <main id="main" className="flex min-h-screen items-center justify-center px-4">
@@ -102,6 +116,95 @@ function LoginForm() {
               أنشئ حساباً
             </Link>
           </p>
+        </form>
+      </div>
+    </main>
+  );
+}
+
+/**
+ * The second half of signing in.
+ *
+ * Recovery codes are a deliberate second path, not a hidden one: someone whose
+ * phone is lost or reset needs the way back to be visible on the screen that is
+ * blocking them, not buried in a help page they cannot reach signed out.
+ */
+function TwoFactorChallenge({
+  challenge,
+  onSignedIn,
+}: {
+  challenge: string;
+  onSignedIn: (user: User) => void;
+}) {
+  const { completeTwoFactor } = useAuth();
+  const [code, setCode] = useState("");
+  const [useRecovery, setUseRecovery] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      onSignedIn(
+        await completeTwoFactor(
+          challenge,
+          useRecovery ? { recovery_code: code } : { code },
+        ),
+      );
+    } catch (err: unknown) {
+      setError(userMessage(err));
+      setCode("");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <main id="main" className="flex min-h-screen items-center justify-center px-4">
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-bold text-primary-ink">{PLATFORM_NAME}</h1>
+          <p className="mt-2 text-ink-muted">
+            {useRecovery
+              ? "أدخل أحد رموز الاسترداد التي حفظتها"
+              : "أدخل الرمز من تطبيق المصادقة"}
+          </p>
+        </div>
+
+        <form
+          onSubmit={submit}
+          className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"
+        >
+          {error && <Alert tone="danger" title={error} />}
+
+          <TextField
+            id="code"
+            label={useRecovery ? "رمز الاسترداد" : "الرمز"}
+            value={code}
+            onChange={setCode}
+            autoComplete="one-time-code"
+            maxLength={useRecovery ? 32 : 6}
+            required
+          />
+
+          <Button type="submit" fullWidth loading={loading} loadingLabel="جارٍ التحقق…">
+            تأكيد
+          </Button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setUseRecovery((current) => !current);
+              setCode("");
+              setError("");
+            }}
+            className="w-full rounded text-center text-sm text-ink-muted underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            {useRecovery ? "العودة إلى رمز التطبيق" : "لا يمكنك الوصول إلى تطبيق المصادقة؟"}
+          </button>
         </form>
       </div>
     </main>

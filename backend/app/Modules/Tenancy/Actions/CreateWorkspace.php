@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Tenancy\Actions;
 
 use App\Models\User;
+use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Tenancy\DTOs\CreateWorkspaceDTO;
 use App\Modules\Tenancy\Events\WorkspaceCreated;
 use App\Modules\Tenancy\Models\Workspace;
@@ -35,6 +36,10 @@ class CreateWorkspace extends Action
 
             // Set the owner's last workspace so future requests resolve the context.
             $owner->forceFill(['last_workspace_id' => $workspace->getKey()])->save();
+
+            // Owning a workspace means approving payments and managing members,
+            // so the clock on enrolling a second factor starts here (FR-028).
+            TwoFactorMandate::applyTo($owner);
 
             // WorkspaceCreated fires SeedDefaultRoles synchronously, creating the
             // workspace-scoped roles + permissions. After that, assign the

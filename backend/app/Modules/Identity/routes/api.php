@@ -6,6 +6,7 @@ use App\Modules\Identity\Http\Controllers\AuthController;
 use App\Modules\Identity\Http\Controllers\FamilyController;
 use App\Modules\Identity\Http\Controllers\ParentController;
 use App\Modules\Identity\Http\Controllers\SessionController;
+use App\Modules\Identity\Http\Controllers\TwoFactorController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/register', [AuthController::class, 'register']);
@@ -25,11 +26,26 @@ Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
 Route::get('/auth/sessions/{uuid}/end-reason', [SessionController::class, 'endReason'])
     ->middleware('throttle:public');
 
+/*
+| The second half of a sign-in, so it carries no token — there is none yet. The
+| challenge is what stands in for one, and it is keyed by the throttle below as
+| well as by IP: six digits are brute-forceable from a botnet otherwise.
+*/
+Route::post('/auth/2fa/challenge', [TwoFactorController::class, 'challenge'])
+    ->middleware('throttle:two-factor');
+
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::patch('/auth/me', [AuthController::class, 'updateProfile']);
     Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
+
+    Route::get('/auth/2fa', [TwoFactorController::class, 'show']);
+    Route::post('/auth/2fa/setup', [TwoFactorController::class, 'setup'])->middleware('throttle:two-factor');
+    Route::post('/auth/2fa/confirm', [TwoFactorController::class, 'confirm'])->middleware('throttle:two-factor');
+    Route::delete('/auth/2fa', [TwoFactorController::class, 'destroy'])->middleware('throttle:two-factor');
+    Route::post('/auth/2fa/recovery-codes', [TwoFactorController::class, 'recoveryCodes'])
+        ->middleware('throttle:two-factor');
 
     // Own devices only. A teacher never reads these, enrolment or not.
     Route::get('/auth/sessions', [SessionController::class, 'index']);
