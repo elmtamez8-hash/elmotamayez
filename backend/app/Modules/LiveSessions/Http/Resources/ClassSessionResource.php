@@ -70,11 +70,25 @@ class ClassSessionResource extends JsonResource
         ];
     }
 
-    /** The lesson a published recording became, if it has been published. */
+    /**
+     * The lesson a published recording became, if it has been published.
+     *
+     * Read from the eager-loaded relation wherever sessions are listed. The
+     * fallback query is deliberate and deliberately last: a Resource runs once
+     * per row, so a month of sessions used to cost a month of single-row SELECTs
+     * against `lessons` (QueryBudgetTest fails if that comes back). Dropping the
+     * fallback entirely would be worse — a caller who forgot to eager-load would
+     * silently publish a recording with no way in, which is a bug this product
+     * has already shipped once.
+     */
     private function recordingLessonUuid(): ?string
     {
         if ($this->recording_status !== 'published') {
             return null;
+        }
+
+        if ($this->relationLoaded('recordingLesson')) {
+            return $this->recordingLesson?->uuid;
         }
 
         $uuid = Lesson::query()

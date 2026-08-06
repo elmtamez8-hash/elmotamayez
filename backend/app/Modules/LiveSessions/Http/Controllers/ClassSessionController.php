@@ -33,8 +33,10 @@ class ClassSessionController extends Controller
             ->when($request->query('to'), fn ($query, $to) => $query->where('starts_at', '<=', $to))
             ->when($request->query('status'), fn ($query, $status) => $query->where('status', $status))
             // Eager-loaded so a month of sessions is a fixed number of queries
-            // rather than one per row (SC-011).
-            ->with(['course', 'bookings'])
+            // rather than one per row (SC-011). `recordingLesson` belongs in the
+            // list for the same reason the other two do: the Resource asks every
+            // published session where its recording went.
+            ->with(['course', 'bookings', 'recordingLesson'])
             ->orderBy('starts_at')
             ->paginate(50);
 
@@ -88,7 +90,7 @@ class ClassSessionController extends Controller
     {
         $this->authorize('view', $session);
 
-        $session->load(['course', 'bookings']);
+        $session->load(['course', 'bookings', 'recordingLesson']);
 
         return response()->json(ClassSessionResource::make($session));
     }

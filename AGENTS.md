@@ -127,6 +127,7 @@ Tests use in-memory SQLite (`DB_DATABASE=:memory:` in `phpunit.xml`).
 25. Broadcast provider contract — `tests/Feature/LiveSessions/BroadcastProviderContractTest.php`
 26. Freeze counts nothing — `tests/Feature/LiveSessions/FreezePeriodTest.php`
 27. The register is not public to the class — `tests/Feature/LiveSessions/RegisterPrivacyTest.php`
+28. Lists cost a fixed number of queries — `tests/Feature/LiveSessions/QueryBudgetTest.php`
 
 ### Read before touching sessions
 

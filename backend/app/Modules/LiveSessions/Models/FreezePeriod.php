@@ -8,6 +8,7 @@ use App\Models\BaseModel;
 use App\Models\User;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Database\Factories\Modules\LiveSessions\FreezePeriodFactory;
 use DateTimeInterface;
@@ -72,9 +73,17 @@ class FreezePeriod extends BaseModel
      */
     public function scopeCovering(Builder $query, DateTimeInterface $moment, ?int $studentUserId = null): Builder
     {
+        // Plain comparisons against a date string, NOT whereDate(): MySQL cannot
+        // use `(workspace_id, starts_on, ends_on)` once a function wraps the
+        // column, and this scope is consulted on every booking, every schedule
+        // and every absentee sweep. The columns are DATE, so comparing against a
+        // date string is exact — the cast whereDate() performs is the one thing
+        // being paid for and the one thing not needed.
+        $day = CarbonImmutable::instance($moment)->toDateString();
+
         return $query
-            ->whereDate('starts_on', '<=', $moment)
-            ->whereDate('ends_on', '>=', $moment)
+            ->where('starts_on', '<=', $day)
+            ->where('ends_on', '>=', $day)
             ->where(function (Builder $scope) use ($studentUserId): void {
                 // A workspace-wide freeze covers this student too; a freeze on a
                 // different student does not.

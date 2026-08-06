@@ -6,6 +6,7 @@ namespace App\Modules\LiveSessions\Models;
 
 use App\Models\BaseModel;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Models\Lesson;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Support\SessionSettings;
@@ -19,6 +20,7 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * One taught session: a time, a length, a number of seats, and a room.
@@ -119,6 +121,22 @@ class ClassSession extends BaseModel
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);
+    }
+
+    /**
+     * The lesson this session's recording became, if it was published.
+     *
+     * A relation rather than a lookup in the Resource, because a Resource runs
+     * once per row: a month of sessions was costing a month of single-row
+     * SELECTs against `lessons`. The workspace scope is dropped here because the
+     * student's timetable crosses workspaces by design — their own reader
+     * context is one teacher's workspace while the session belongs to another's.
+     *
+     * @return HasOne<Lesson, $this>
+     */
+    public function recordingLesson(): HasOne
+    {
+        return $this->hasOne(Lesson::class, 'class_session_id')->withoutWorkspaceScope();
     }
 
     public function seatsAvailable(): int

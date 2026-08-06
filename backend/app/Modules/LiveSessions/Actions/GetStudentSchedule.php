@@ -45,7 +45,11 @@ class GetStudentSchedule extends Action
             ->where('student_user_id', $student->getKey())
             ->where('status', BookingStatus::Booked)
             ->whereIn('class_session_id', $upcoming)
-            ->with(['classSession' => fn ($query) => $query->withoutWorkspaceScope()])
+            ->with(['classSession' => fn ($query) => $query
+                ->withoutWorkspaceScope()
+                // The Resource asks every published session where its recording
+                // went; without this that is one query per booked hour.
+                ->with('recordingLesson')])
             ->get()
             ->sortBy(fn (SessionBooking $booking): string => $booking->classSession?->starts_at->toIso8601String() ?? '')
             ->take($limit)

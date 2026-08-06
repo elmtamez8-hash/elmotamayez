@@ -93,8 +93,13 @@ class CreateFreezePeriod extends Action
     {
         $sessions = ClassSession::query()
             ->where('status', ClassSessionStatus::Scheduled)
-            ->whereDate('starts_at', '>=', $period->starts_on)
-            ->whereDate('starts_at', '<=', $period->ends_on)
+            // Range comparison, not whereDate(): a function on the column costs
+            // the `(workspace_id, status, starts_at)` index. The end bound is the
+            // START of the next day, which is what "the whole of ends_on" means
+            // for a timestamp column — `<= ends_on` would silently drop every
+            // session on the freeze's last day after midnight.
+            ->where('starts_at', '>=', $period->starts_on->copy()->startOfDay())
+            ->where('starts_at', '<', $period->ends_on->copy()->addDay()->startOfDay())
             // A freeze on one student suspends only the sessions that student
             // holds a seat in — the teacher's other classes carry on (FR-039).
             ->when(
