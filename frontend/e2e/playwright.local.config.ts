@@ -32,6 +32,9 @@ export default defineConfig({
   fullyParallel: true,
   reporter: "list",
 
+  // Same reasoning as the committed config: assertions here follow real writes.
+  expect: { timeout: 15_000 },
+
   use: {
     baseURL: process.env.BASE_URL ?? "http://localhost:3002",
     locale: "ar",

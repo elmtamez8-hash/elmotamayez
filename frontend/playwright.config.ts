@@ -17,6 +17,17 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
 
+  /*
+   * Five seconds is Playwright's default and it is a bet that the API is idle.
+   * This suite runs six browser projects at once against one backend, and its
+   * assertions routinely follow a real write — a save, a revoke, a registration.
+   * Losing that bet does not read as "slow": it reads as "the checkbox does not
+   * exist", "the revoked state never rendered", "step 2 never appeared", which
+   * sends the reader looking for a product bug that is not there. Every flake
+   * this suite has produced has been that mistake.
+   */
+  expect: { timeout: 15_000 },
+
   use: {
     baseURL: process.env.BASE_URL ?? "http://localhost:3000",
     locale: "ar",

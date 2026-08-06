@@ -115,10 +115,14 @@ test.describe("إعدادات الإشعارات", () => {
 
     await page.reload();
 
+    // Assert the screen has finished loading before asserting on what it shows.
+    // "checkbox not found" while the page still reads "جارٍ التحميل…" is a slow
+    // request reported as a missing feature.
+    await expect(page.getByText("جارٍ التحميل…")).toBeHidden();
+
     await expect(
       page.getByRole("row").filter({ hasText: "نتيجة اختبار" }).getByRole("checkbox").first(),
     ).not.toBeChecked();
-
   });
 });
 
@@ -154,6 +158,10 @@ test.describe("وليّ الأمر والأوصياء", () => {
 
     const revoked = page.getByRole("listitem").filter({ hasText: student });
     await expect(revoked).toBeVisible();
+
+    // Two round trips behind one click — the revoke, then a refetch of the whole
+    // list — and no spinner in between, so the row keeps its old text until both
+    // land. The suite's raised expect timeout is what covers that.
     await expect(revoked.getByText("ملغاة")).toBeVisible();
     await expect(revoked.getByRole("button", { name: "إلغاء الارتباط" })).toHaveCount(0);
   });
