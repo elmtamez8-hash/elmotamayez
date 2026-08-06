@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { TextField } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { attendance, type AttendanceRow } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
@@ -27,13 +28,18 @@ export function AttendanceSheet({
   rows,
   canOverride,
   onChanged,
+  sessionUuid,
 }: {
   rows: AttendanceRow[];
   canOverride: boolean;
   onChanged?: () => void;
+  /** Present only where remarks may be written — the teacher's session page. */
+  sessionUuid?: string;
 }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [saved, setSaved] = useState<string | null>(null);
 
   if (rows.length === 0) {
     return (
@@ -51,6 +57,24 @@ export function AttendanceSheet({
     try {
       await attendance.override(uuid, status, "تحضير يدوي من المدرّس");
       onChanged?.();
+    } catch (err: unknown) {
+      setError(userMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const saveNote = async (studentUuid: string) => {
+    if (sessionUuid === undefined) return;
+
+    setBusy(studentUuid);
+    setError("");
+
+    try {
+      await attendance.feedback(sessionUuid, [
+        { student_uuid: studentUuid, note: notes[studentUuid] ?? "" },
+      ]);
+      setSaved(studentUuid);
     } catch (err: unknown) {
       setError(userMessage(err));
     } finally {
@@ -97,6 +121,35 @@ export function AttendanceSheet({
                 </Button>
               )}
             </div>
+
+            {/* The remark that rides along with the report. Optional on purpose:
+                the report goes out on the announced delay with attendance alone,
+                so an empty box never holds a guardian's message back. */}
+            {sessionUuid !== undefined && row.student != null && (
+              <div className="flex w-full flex-wrap items-end gap-2">
+                <div className="min-w-56 grow">
+                  <TextField
+                    id={`note-${row.uuid}`}
+                    label="ملاحظة المدرّس"
+                    value={notes[row.student.uuid] ?? ""}
+                    onChange={(value) =>
+                      setNotes((current) => ({ ...current, [row.student!.uuid]: value }))
+                    }
+                    maxLength={500}
+                    placeholder="تصل وليّ الأمر مع تقرير الحصة"
+                  />
+                </div>
+
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  loading={busy === row.student.uuid}
+                  onClick={() => void saveNote(row.student!.uuid)}
+                >
+                  {saved === row.student.uuid ? "حُفظت" : "حفظ الملاحظة"}
+                </Button>
+              </div>
+            )}
           </li>
         ))}
       </ul>

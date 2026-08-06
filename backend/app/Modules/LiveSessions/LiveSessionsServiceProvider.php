@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions;
 
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
+use App\Modules\LiveSessions\Events\AttendanceOverridden;
 use App\Modules\LiveSessions\Events\SessionCompleted;
 use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
 use App\Modules\LiveSessions\Listeners\PublishRecordingAsLesson;
+use App\Modules\LiveSessions\Listeners\SendAttendanceCorrection;
 use App\Modules\LiveSessions\Listeners\UpdateTeacherCounters;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
@@ -71,6 +73,10 @@ class LiveSessionsServiceProvider extends Module
         // a session recording and publishes it. Media knows nothing about
         // sessions, which is what Constitution III asks for.
         Event::listen(MediaAssetReady::class, PublishRecordingAsLesson::class);
+
+        // A report already in a guardian's hands is corrected rather than left
+        // standing (FR-037).
+        Event::listen(AttendanceOverridden::class, SendAttendanceCorrection::class);
 
         // Ingest starts when the session closes, not when the room does: the
         // provider needs the session over before it has anything to hand back.

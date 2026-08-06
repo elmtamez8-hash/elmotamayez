@@ -32,6 +32,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonInterface|null $first_joined_at
  * @property CarbonInterface|null $last_ping_at
  * @property CarbonInterface|null $confirmed_at
+ * @property CarbonInterface|null $report_sent_at
  * @property CarbonInterface|null $recording_watched_at
  * @property CarbonInterface|null $overridden_at
  */
@@ -54,6 +55,7 @@ class Attendance extends BaseModel
         'overridden_at',
         'override_reason',
         'confirmed_at',
+        'report_sent_at',
         'recording_watched_at',
     ];
 
@@ -69,6 +71,7 @@ class Attendance extends BaseModel
             'stay_seconds' => 'integer',
             'overridden_at' => 'datetime',
             'confirmed_at' => 'datetime',
+            'report_sent_at' => 'datetime',
             'recording_watched_at' => 'datetime',
         ];
     }

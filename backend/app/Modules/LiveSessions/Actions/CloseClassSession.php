@@ -11,9 +11,11 @@ use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Events\AttendanceConfirmed;
 use App\Modules\LiveSessions\Events\SessionCompleted;
 use App\Modules\LiveSessions\Events\SessionDelivered;
+use App\Modules\LiveSessions\Jobs\SendSessionReportsJob;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\AttendanceLadder;
+use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Shared\Actions\Action;
 use Illuminate\Support\Facades\DB;
 
@@ -40,6 +42,7 @@ class CloseClassSession extends Action
     public function __construct(
         private readonly CloseBroadcastRoom $closeRoom,
         private readonly AttendanceLadder $ladder,
+        private readonly SessionSettings $settings,
     ) {}
 
     public function handle(ClassSession $session): ClassSession
@@ -61,6 +64,13 @@ class CloseClassSession extends Action
 
         SessionCompleted::dispatch($session);
         AttendanceConfirmed::dispatch($session);
+
+        // The guardian's report, after the announced delay. Dispatched here
+        // rather than from a listener on SessionCompleted because it belongs to
+        // the register this Action just closed — the delay is measured from the
+        // moment the register became final, which is this line.
+        SendSessionReportsJob::dispatch((int) $session->getKey())
+            ->delay(now()->addMinutes($this->settings->reportDelayMinutes()));
 
         if ($session->delivered_at !== null) {
             // The event billing (006) and payout (014) hang off. The frozen seat

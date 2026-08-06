@@ -59,9 +59,13 @@ class NotificationTemplateSeeder extends Seeder
                 'حالة {{ student_name }} في حصة «{{ title }}»: {{ status }}، مدة الحضور {{ minutes }} دقيقة. {{ note }}',
                 ['title', 'student_name', 'status', 'minutes', 'note'],
             ],
+            // Worded for both endings a booked seat can have — called off by the
+            // teacher, or suspended by a freeze. "لن تُعقد" is true of each; a
+            // template saying "أُلغيت" would tell a family their holiday was a
+            // cancellation.
             NotificationType::SessionCancelled->value => [
-                'أُلغيت حصة {{ title }}',
-                'أُلغيت حصة «{{ title }}» المقرّرة في {{ starts_at }}. السبب: {{ reason }}.',
+                'حصة {{ title }} لن تُعقد',
+                'لن تُعقد حصة «{{ title }}» المقرّرة في {{ starts_at }}. السبب: {{ reason }}.',
                 ['title', 'starts_at', 'reason'],
             ],
             NotificationType::SessionRecordingFailed->value => [

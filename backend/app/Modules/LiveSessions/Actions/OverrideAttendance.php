@@ -7,6 +7,7 @@ namespace App\Modules\LiveSessions\Actions;
 use App\Models\User;
 use App\Modules\LiveSessions\Enums\AttendanceSource;
 use App\Modules\LiveSessions\Enums\AttendanceStatus;
+use App\Modules\LiveSessions\Events\AttendanceOverridden;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Shared\Actions\Action;
@@ -63,6 +64,8 @@ class OverrideAttendance extends Action
             'overridden_at' => now(),
             'override_reason' => $reason,
         ])->save();
+
+        AttendanceOverridden::dispatch($attendance);
 
         return $attendance;
     }

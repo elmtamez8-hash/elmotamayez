@@ -116,6 +116,17 @@ export const attendance = {
 
   override: (uuid: string, status: string, reason: string) =>
     api.post<AttendanceRow>(`/attendances/${uuid}/override`, { status, reason }),
+
+  /**
+   * The teacher's remarks on this session's students.
+   *
+   * A batch, because the register is filled in one pass — and optional, because
+   * the report goes out on attendance alone rather than waiting for one.
+   */
+  feedback: (
+    sessionUuid: string,
+    entries: Array<{ student_uuid: string; rating?: number | null; note?: string | null }>,
+  ) => api.post<{ data: unknown[] }>(`/class-sessions/${sessionUuid}/feedback`, { entries }),
 };
 
 export interface GenerateResult {

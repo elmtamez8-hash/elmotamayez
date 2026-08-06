@@ -6,8 +6,11 @@ namespace App\Modules\LiveSessions\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\LiveSessions\Actions\OverrideAttendance;
+use App\Modules\LiveSessions\Actions\SubmitSessionFeedback;
 use App\Modules\LiveSessions\Enums\AttendanceStatus;
+use App\Modules\LiveSessions\Http\Requests\SubmitFeedbackRequest;
 use App\Modules\LiveSessions\Http\Resources\AttendanceResource;
+use App\Modules\LiveSessions\Http\Resources\ClassSessionFeedbackResource;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Tenancy\Support\Permissions;
@@ -26,6 +29,35 @@ class AttendanceController extends Controller
         $attendances = $session->attendances()->with('student')->get();
 
         return response()->json(['data' => AttendanceResource::collection($attendances)]);
+    }
+
+    /**
+     * The teacher's remarks on this session's students (FR-036).
+     *
+     * Guarded by `update` rather than `view`: writing on a student's record is
+     * the same power as managing the session, and a reader must not gain it by
+     * being able to read the register.
+     */
+    public function feedback(
+        SubmitFeedbackRequest $request,
+        ClassSession $session,
+        SubmitSessionFeedback $action,
+    ): JsonResponse {
+        $this->authorize('update', $session);
+
+        /** @var array<int, array{student_uuid: string, rating?: int|null, note?: string|null}> $entries */
+        $entries = $request->validated('entries');
+
+        try {
+            $saved = $action->handle($session, $this->currentUser($request), $entries);
+        } catch (DomainException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => 'student_has_no_seat',
+            ], 422);
+        }
+
+        return response()->json(['data' => ClassSessionFeedbackResource::collection($saved)]);
     }
 
     public function override(Request $request, Attendance $attendance, OverrideAttendance $action): JsonResponse

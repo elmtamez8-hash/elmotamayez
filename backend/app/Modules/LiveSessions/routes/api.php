@@ -43,6 +43,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/class-sessions/{session}/host/{action}', [BroadcastController::class, 'host']);
 
         Route::post('/attendances/{attendance}/override', [AttendanceController::class, 'override']);
+        Route::post('/class-sessions/{session}/feedback', [AttendanceController::class, 'feedback']);
     });
 
     // Its own limiter: one participant sends two a minute, and the ceiling has

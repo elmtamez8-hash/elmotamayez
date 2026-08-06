@@ -243,14 +243,14 @@ description: "Task list for 005-live-sessions-attendance"
 
 **Independent Test**: إنهاء حصة وتشغيل الوظيفة والتحقّق من محتوى الرسالة لوليّ أمر مرتبط.
 
-- [ ] T109 [US5] أضف `SessionReport` و`SessionCancelled` إلى `backend/app/Modules/Notifications/Support/NotificationType.php` مع `label()` عربية و`defaultChannels()` — و`AppointmentReminder` و`AttendanceAlert` موجودان منذ 003 بلا مُنتِج ويُستعملان كما هما
-- [ ] T110 [US5] أضف قوالب النوعين إلى `backend/database/seeders/NotificationTemplateSeeder.php` — **بلا قالب يسقط الإشعار صامتاً** ويمرّ الاختبار على صفر إشعارات فيبدو أخضر (مزلق مدوَّن في `CLAUDE.md`)
-- [ ] T111 [US5] أنشئ `backend/app/Modules/LiveSessions/Actions/SubmitSessionFeedback.php` — تقييم موجز لكل طالب (FR-036)، ومسار `POST /class-sessions/{uuid}/feedback`
-- [ ] T112 [US5] أنشئ `backend/app/Modules/LiveSessions/Jobs/SendSessionReportsJob.php` يُدفَع بعد الإغلاق بـ`report_delay_minutes`، ويمرّ بـ`DispatchNotification` حصراً — **يُمنع** تسمية أي قناة في الـAction (يحرسه `ProviderAgnosticTest`)
-- [ ] T113 [US5] عالج التوجيه في نفس الوظيفة: وليّ أمر كل طالب مرتبط، والطالب نفسه إن لم يوجد وليّ (FR-033)، ووليّان لطالب واحد يصلهما الاثنين **ويُسجَّل مرة واحدة**
-- [ ] T114 [US5] أضف مستمعاً يرسل **تصحيحاً** عند تعديل حضور بعد إرسال التقرير (FR-037) — لا يُترك التقرير خاطئاً في يد وليّ الأمر
-- [ ] T115 [P] [US5] أنشئ `backend/tests/Feature/LiveSessions/SessionReportTest.php` (SC-009): يصل خلال المهلة · لا يتأخّر انتظاراً لتقييم لم يُدخَل (FR-035) · وليّان يصلهما مرة واحدة · تعطيل التفضيل يمنع القناة ويُبقي السجلّ داخل المنصة (FR-038)
-- [ ] T116 [P] [US5] أضف نموذج التقييم إلى `AttendanceSheet.tsx` في `frontend/src/components/sessions/` — إدخال واحد لكل طالب بجانب حالته
+- [X] T109 [US5] أضف `SessionReport` و`SessionCancelled` إلى `backend/app/Modules/Notifications/Support/NotificationType.php` مع `label()` عربية و`defaultChannels()` — و`AppointmentReminder` و`AttendanceAlert` موجودان منذ 003 بلا مُنتِج ويُستعملان كما هما
+- [X] T110 [US5] أضف قوالب النوعين إلى `backend/database/seeders/NotificationTemplateSeeder.php` — **بلا قالب يسقط الإشعار صامتاً** ويمرّ الاختبار على صفر إشعارات فيبدو أخضر (مزلق مدوَّن في `CLAUDE.md`)
+- [X] T111 [US5] أنشئ `backend/app/Modules/LiveSessions/Actions/SubmitSessionFeedback.php` — تقييم موجز لكل طالب (FR-036)، ومسار `POST /class-sessions/{uuid}/feedback`
+- [X] T112 [US5] أنشئ `backend/app/Modules/LiveSessions/Jobs/SendSessionReportsJob.php` يُدفَع بعد الإغلاق بـ`report_delay_minutes`، ويمرّ بـ`DispatchNotification` حصراً — **يُمنع** تسمية أي قناة في الـAction (يحرسه `ProviderAgnosticTest`)
+- [X] T113 [US5] عالج التوجيه في نفس الوظيفة: وليّ أمر كل طالب مرتبط، والطالب نفسه إن لم يوجد وليّ (FR-033)، ووليّان لطالب واحد يصلهما الاثنين **ويُسجَّل مرة واحدة**
+- [X] T114 [US5] أضف مستمعاً يرسل **تصحيحاً** عند تعديل حضور بعد إرسال التقرير (FR-037) — لا يُترك التقرير خاطئاً في يد وليّ الأمر
+- [X] T115 [P] [US5] أنشئ `backend/tests/Feature/LiveSessions/SessionReportTest.php` (SC-009): يصل خلال المهلة · لا يتأخّر انتظاراً لتقييم لم يُدخَل (FR-035) · وليّان يصلهما مرة واحدة · تعطيل التفضيل يمنع القناة ويُبقي السجلّ داخل المنصة (FR-038)
+- [X] T116 [P] [US5] أضف نموذج التقييم إلى `AttendanceSheet.tsx` في `frontend/src/components/sessions/` — إدخال واحد لكل طالب بجانب حالته
 
 **Checkpoint**: الحلقة إلى وليّ الأمر مغلقة، وهي تمهيد مباشر لتنبيهات الدفع في 006.
 

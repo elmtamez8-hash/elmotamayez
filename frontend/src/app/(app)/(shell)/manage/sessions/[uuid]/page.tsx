@@ -118,7 +118,7 @@ export default function ManageSessionPage({
 
       <Card>
         <h3 className="mb-3 font-semibold text-ink">كشف الحضور</h3>
-        <AttendanceSheet rows={rows} canOverride onChanged={load} />
+        <AttendanceSheet rows={rows} canOverride onChanged={load} sessionUuid={session.uuid} />
       </Card>
 
       {session.recording !== null && (
