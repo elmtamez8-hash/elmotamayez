@@ -91,12 +91,36 @@ it('refuses an action that names no participant', function (): void {
 | The honest failure. A provider that never claimed host controls must say so
 | out loud — a teacher pressing "mute" on a microphone that stays open, with
 | nothing reported, is worse than a provider with no mute at all.
+|
+| Muting and removing are claims about media the PROVIDER holds, so they are the
+| capability's business. Ending is not: see the test below.
 */
-it('answers 501 when the bound provider cannot host', function (): void {
+it('answers 501 when the bound provider cannot mute', function (): void {
     $this->app->instance(BroadcastProviderInterface::class, new NullBroadcastProvider);
 
     Sanctum::actingAs($this->owner);
 
-    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/end")
-        ->assertStatus(501);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/mute", [
+        'target_uuid' => $this->owner->uuid,
+    ])->assertStatus(501);
+});
+
+/*
+| And the failure that must NOT happen.
+|
+| Ending is enforced on our side by room_closed_at — the provider's own
+| closeRoom() is a teardown hook, and the one provider that exists implements it
+| as a documented no-op for exactly that reason. Routing "end" through the
+| hostControls capability made the button dead for every provider that does not
+| claim it, which today is all of them: the teacher pressed "إنهاء الحصة" and got
+| 501, the room never closed, and the register waited for the scheduled sweep.
+*/
+it('lets the host end the session even when the provider claims no host controls', function (): void {
+    $this->app->instance(BroadcastProviderInterface::class, new NullBroadcastProvider);
+
+    Sanctum::actingAs($this->owner);
+
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/end")->assertOk();
+
+    expect($this->session->refresh()->room_closed_at)->not->toBeNull();
 });
