@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 
 import { BroadcastStage } from "@/components/sessions/BroadcastStage";
 import { PresenceLoop } from "@/components/sessions/PresenceLoop";
@@ -32,6 +33,10 @@ export default function SessionRoomPage({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [ending, setEnding] = useState(false);
+  // Ending is the only action here that succeeds by making the page empty, so
+  // it needs a state of its own: without it a successful end is indentical to a
+  // failed load — nothing on screen.
+  const [ended, setEnded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,10 +62,15 @@ export default function SessionRoomPage({
 
   const end = async () => {
     setEnding(true);
+    // Cleared before the attempt, not after it: a retry that succeeds used to
+    // leave the previous failure's banner on screen next to an empty room,
+    // which reads as "it failed again" when it did not.
+    setError("");
 
     try {
       await classSessions.host(uuid, "end");
       setTicket(null);
+      setEnded(true);
     } catch (err: unknown) {
       setError(userMessage(err));
     } finally {
@@ -77,6 +87,27 @@ export default function SessionRoomPage({
       {error !== "" && (
         <Alert tone="danger" title="تعذّر الدخول">
           {error}
+        </Alert>
+      )}
+
+      {/*
+        Says the door is shut and points away from this page. Reloading the room
+        after ending it hits the join refusal, which is deliberately identical
+        for every reason (FR-015) — so it tells a teacher who just closed the
+        room to go book a seat. The fix is not to weaken that answer; it is to
+        give the host somewhere else to be.
+      */}
+      {ended && (
+        <Alert tone="success" title="أُنهيت الحصة">
+          أُغلقت الغرفة ولا يمكن الدخول إليها مجدداً. كشف الحضور يُقفَل في موعد انتهاء الحصة.
+          <div className="mt-3">
+            <Link
+              href={`/manage/sessions/${uuid}`}
+              className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              العودة إلى تفاصيل الحصة
+            </Link>
+          </div>
         </Alert>
       )}
 
