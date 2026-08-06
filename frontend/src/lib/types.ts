@@ -90,10 +90,13 @@ export interface Course {
   created_at: string;
 }
 
+// Mirrors EnrollmentResource exactly. It flattens the course into two fields
+// rather than nesting it — `course_id` and `student_user_id` are never sent, and
+// reading them rendered "كورس رقم " with nothing after it.
 export interface Enrollment {
   uuid: string;
-  course_id: number;
-  student_user_id: number;
+  course_uuid: string;
+  course_title: string;
   source: string;
   status: string;
   progress_pct: number;

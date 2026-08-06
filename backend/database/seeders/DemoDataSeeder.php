@@ -98,6 +98,19 @@ class DemoDataSeeder extends Seeder
             ]);
         }
 
+        // One video lesson, deliberately with no media asset behind it. Without
+        // it the demo course is articles only, /learn/{lesson} has nothing
+        // linking to it from seeded data, and the player e2e suite skips every
+        // run — which is how it stayed unreachable for a whole phase. It plays
+        // once someone uploads a file from the lesson management page.
+        Lesson::create([
+            'workspace_id' => $workspace->id, 'course_id' => $course->id,
+            'section_id' => $section->id, 'chapter_id' => $chapter->id,
+            'uuid' => Str::uuid(), 'title' => 'Your First Route',
+            'type' => 'video', 'order' => 4, 'duration_seconds' => 600,
+            'is_preview' => false,
+        ]);
+
         $exam = Exam::create([
             'workspace_id' => $workspace->id, 'uuid' => Str::uuid(),
             'course_id' => $course->id, 'title' => 'Laravel Basics Quiz',

@@ -9,12 +9,8 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 
-interface EnrollmentWithCourse extends Enrollment {
-  course?: { title: string; uuid: string };
-}
-
 export default function EnrollmentsPage() {
-  const [enrollments, setEnrollments] = useState<EnrollmentWithCourse[]>([]);
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -23,7 +19,7 @@ export default function EnrollmentsPage() {
     setFailed(false);
 
     api
-      .get<{ data: EnrollmentWithCourse[] }>("/enrollments")
+      .get<{ data: Enrollment[] }>("/enrollments")
       .then((res) => setEnrollments(res.data ?? []))
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
@@ -61,11 +57,15 @@ export default function EnrollmentsPage() {
             >
               <div className="mb-3 flex items-start justify-between gap-3">
                 <h3 className="font-semibold text-ink">
-                  {enr.course?.title ?? (
-                    <>
-                      كورس رقم <bdi>{enr.course_id}</bdi>
-                    </>
-                  )}
+                  {/* The only way into the lessons — and from there into the
+                      player. Without it the whole watching flow is a route
+                      nothing points at. */}
+                  <Link
+                    href={`/enrollments/${enr.course_uuid}`}
+                    className="rounded hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    {enr.course_title}
+                  </Link>
                 </h3>
                 <span
                   className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${

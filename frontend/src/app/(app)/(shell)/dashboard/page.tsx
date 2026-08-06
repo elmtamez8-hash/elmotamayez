@@ -80,7 +80,12 @@ export default function DashboardPage() {
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-ink">
-                      كورس رقم <bdi>{enr.course_id}</bdi>
+                      <Link
+                        href={`/enrollments/${enr.course_uuid}`}
+                        className="rounded hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      >
+                        {enr.course_title}
+                      </Link>
                     </p>
                     <p className="text-xs text-ink-muted">
                       سُجِّل في {new Date(enr.enrolled_at).toLocaleDateString("ar")}

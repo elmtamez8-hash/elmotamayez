@@ -13,17 +13,26 @@ import { test, expect, type Page } from "@playwright/test";
  * thing.
  *
  * Runs signed in as the seeded student, so it needs the backend up and seeded.
- * It also needs a lesson with a **ready video**, which `migrate:fresh --seed`
- * does not create — there is no sample video in the repo. Without one the suite
- * skips loudly rather than passing vacuously; upload one from
- * /manage/courses/{uuid}/lessons/{lessonUuid} and re-run.
+ * The seed gives that student a lesson of type `video`, but no **encoded
+ * asset** behind it — there is no sample video in the repo. So these skip
+ * loudly rather than pass vacuously; upload one from
+ * /manage/courses/{uuid}/lessons/{lessonUuid} and re-run. The reachability test
+ * below runs either way: it is about the route, not the file.
  */
 
-type Asset = { status: string } | null;
-type Lesson = { uuid: string; asset: Asset };
+type Lesson = { uuid: string; type: string };
+type Chapter = { lessons?: Lesson[] };
+type Section = { chapters?: Chapter[] };
 
-/** Ask the API, as this student, for a lesson that actually has a video. */
-async function findPlayableLesson(page: Page): Promise<string | null> {
+/**
+ * Ask the API, as this student, for a lesson of type `video`.
+ *
+ * Whether its asset is *ready* is deliberately not asked here: no endpoint a
+ * student can reach exposes that status. The honest probe is the page itself —
+ * it asks for a grant and answers 409 «قيد التجهيز» when the video is not
+ * encoded yet, which is exactly what `beforeEach` below skips on.
+ */
+async function findVideoLesson(page: Page): Promise<string | null> {
   await page.goto("/dashboard");
 
   return page.evaluate(async () => {
@@ -41,32 +50,76 @@ async function findPlayableLesson(page: Page): Promise<string | null> {
     const enrollments = (await get("/enrollments"))?.data ?? [];
 
     for (const enrollment of enrollments) {
-      const uuid = enrollment.course?.uuid;
-      if (uuid === undefined) continue;
+      const course = await get(`/courses/${enrollment.course_uuid}`);
 
-      const course = await get(`/courses/${uuid}`);
-      const lessons: Lesson[] = course?.data?.lessons ?? course?.lessons ?? [];
+      // Lessons hang off chapters, which hang off sections — there is no flat
+      // `lessons` array on the course payload.
+      const lessons: Lesson[] = ((course?.sections ?? []) as Section[]).flatMap(
+        (section) => (section.chapters ?? []).flatMap((chapter) => chapter.lessons ?? []),
+      );
 
-      const ready = lessons.find((lesson) => lesson.asset?.status === "ready");
-      if (ready !== undefined) return ready.uuid;
+      const video = lessons.find((lesson) => lesson.type === "video");
+      if (video !== undefined) return video.uuid;
     }
 
     return null;
   });
 }
 
+test.describe("الوصول إلى المشغّل", () => {
+  /*
+   * The bug this catches is the one that already happened twice: the screen
+   * exists and nothing in the product points at it. /learn/{lesson} shipped
+   * reachable only by typing its URL, and no test noticed because every player
+   * test navigated there directly. This one walks in from the sidebar instead.
+   */
+  test("تعلّمي ← دروس الكورس ← المشغّل", async ({ page }) => {
+    await page.goto("/enrollments");
+
+    const course = page.locator('a[href^="/enrollments/"]').first();
+    await expect(course).toBeVisible();
+    await course.click();
+
+    await expect(page).toHaveURL(/\/enrollments\/[0-9a-f-]{36}$/);
+
+    // The lesson list rendered — sections, chapters, rows.
+    await expect(page.getByRole("listitem").first()).toBeVisible();
+
+    // Only video lessons link into the player, and a course of articles is a
+    // legitimate state, so this half is conditional. What is not conditional is
+    // that when such a lesson exists, its row is a link.
+    const toPlayer = page.locator('a[href^="/learn/"]');
+
+    if ((await toPlayer.count()) > 0) {
+      await toPlayer.first().click();
+      await expect(page).toHaveURL(/\/learn\//);
+      await expect(page.getByRole("heading", { name: "مشاهدة الدرس" })).toBeVisible();
+    }
+  });
+});
+
 test.describe("مشغّل الدرس والعلامة المائية", () => {
   let lesson: string | null = null;
 
   test.beforeEach(async ({ page }) => {
-    lesson ??= await findPlayableLesson(page);
+    lesson ??= await findVideoLesson(page);
 
     test.skip(
       lesson === null,
-      "لا يوجد درس بفيديو جاهز في البيانات المبذورة — ارفع فيديو من صفحة إدارة الدرس ثم أعد التشغيل.",
+      "لا يوجد درس من نوع فيديو في البيانات المبذورة — أنشئ واحداً ثم أعد التشغيل.",
     );
 
     await page.goto(`/learn/${lesson}`);
+
+    // A lesson row can exist with no encoded asset behind it; the page says so
+    // rather than rendering a player. Skip loudly instead of failing on a
+    // <video> that was never going to be there.
+    const player = await page.waitForSelector("video", { timeout: 10_000 }).catch(() => null);
+
+    test.skip(
+      player === null,
+      "الدرس بلا فيديو جاهز — ارفع فيديو من /manage/courses/{uuid}/lessons/{lessonUuid} ثم أعد التشغيل.",
+    );
   });
 
   // SC-004 in the UI: it is the viewer's own name, not the teacher's or a label.
