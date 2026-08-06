@@ -8,6 +8,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { NumberField, TextField } from "@/components/ui/Field";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { AttendanceSheet } from "@/components/sessions/AttendanceSheet";
@@ -18,6 +19,7 @@ import {
   type AttendanceRow,
   type ClassSession,
 } from "@/lib/class-sessions";
+import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { formatSessionTime } from "@/lib/session-format";
 
@@ -35,6 +37,9 @@ export default function ManageSessionPage({
   const [failed, setFailed] = useState(false);
   const [error, setError] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [edit, setEdit] = useState({ title: "", seats: "" });
+  const [saving, setSaving] = useState(false);
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
 
   const load = useCallback(() => {
     setLoading(true);
@@ -44,6 +49,9 @@ export default function ManageSessionPage({
       .then(([detail, register]) => {
         setSession(detail);
         setRows(register.data ?? []);
+        // Seeded from what the server just said, so the form starts as the
+        // truth rather than as a blank that would save an empty title.
+        setEdit({ title: detail.title, seats: String(detail.seats.total) });
       })
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
@@ -61,6 +69,26 @@ export default function ManageSessionPage({
       setError(userMessage(err));
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setError("");
+    setEditErrors({});
+
+    try {
+      setSession(
+        await classSessions.update(uuid, {
+          title: edit.title,
+          seats_total: Number(edit.seats),
+        }),
+      );
+    } catch (err: unknown) {
+      setEditErrors(fieldErrors(err));
+      setError(userMessage(err));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -115,6 +143,39 @@ export default function ManageSessionPage({
           )}
         </div>
       </Card>
+
+      {session.status === "scheduled" && (
+        <Card>
+          <h3 className="mb-2 font-semibold text-ink">تعديل الحصة</h3>
+          <p className="mb-4 text-sm text-ink-muted">
+            نوع الحصة لا يظهر هنا عمداً: تغييره ممنوع بعد أول حجز (FR-001ب)، والخادم هو من
+            يعرف إن كان مقعد قد حُجز.
+          </p>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <TextField
+              id="edit_title"
+              label="عنوان الحصة"
+              value={edit.title}
+              onChange={(title) => setEdit({ ...edit, title })}
+              error={editErrors.title}
+            />
+            <NumberField
+              id="edit_seats"
+              label="عدد المقاعد"
+              value={edit.seats}
+              onChange={(seats) => setEdit({ ...edit, seats })}
+              error={editErrors.seats_total}
+            />
+          </div>
+
+          <div className="mt-4">
+            <Button onClick={save} loading={saving} variant="secondary">
+              حفظ التعديل
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <Card>
         <h3 className="mb-3 font-semibold text-ink">كشف الحضور</h3>

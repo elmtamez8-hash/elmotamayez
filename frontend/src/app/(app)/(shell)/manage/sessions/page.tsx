@@ -6,7 +6,7 @@ import { SessionCard } from "@/components/sessions/SessionCard";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { TextField } from "@/components/ui/Field";
+import { NumberField, TextField } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -33,6 +33,14 @@ export default function ManageSessionsPage() {
   const [result, setResult] = useState<GenerateResult | null>(null);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // The one-off form. Shares `teacherProfileId` with the generator above: both
+  // schedule for the same person, and asking twice on one screen is a question
+  // with two answers that can disagree.
+  const [oneOff, setOneOff] = useState({ title: "", startsAt: "", duration: "60", seats: "1" });
+  const [creating, setCreating] = useState(false);
+  const [oneOffError, setOneOffError] = useState("");
+  const [oneOffErrors, setOneOffErrors] = useState<Record<string, string>>({});
 
   const load = useCallback(() => {
     setLoading(true);
@@ -63,6 +71,36 @@ export default function ManageSessionsPage() {
       setError(userMessage(err));
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const createOne = async () => {
+    setCreating(true);
+    setOneOffError("");
+    setOneOffErrors({});
+
+    const seats = Number(oneOff.seats);
+
+    try {
+      await classSessions.create({
+        teacher_profile_id: teacherProfileId,
+        title: oneOff.title,
+        // Declared, never inferred from the seat count (FR-001أ) — but one seat
+        // has exactly one meaning, and making the teacher say it twice invites
+        // the pair to disagree.
+        type: seats === 1 ? "individual" : "group",
+        starts_at: oneOff.startsAt,
+        duration_minutes: Number(oneOff.duration),
+        seats_total: seats,
+      });
+
+      setOneOff({ title: "", startsAt: "", duration: "60", seats: "1" });
+      load();
+    } catch (err: unknown) {
+      setOneOffErrors(fieldErrors(err));
+      setOneOffError(userMessage(err));
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -141,6 +179,66 @@ export default function ManageSessionsPage() {
                 </ul>
               </Alert>
             )}
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <h3 className="mb-2 font-semibold text-ink">حصة واحدة</h3>
+        <p className="mb-4 text-sm text-ink-muted">
+          خارج الجدول الأسبوعي — موعد بعينه لمرة واحدة (FR-002). التداخل مع حصة أخرى مرفوض،
+          وكذلك أي موعد داخل فترة تجميد.
+        </p>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <TextField
+            id="one_off_title"
+            label="عنوان الحصة"
+            value={oneOff.title}
+            onChange={(title) => setOneOff({ ...oneOff, title })}
+            error={oneOffErrors.title}
+          />
+          <TextField
+            id="one_off_starts_at"
+            label="موعد البدء"
+            type="datetime-local"
+            value={oneOff.startsAt}
+            onChange={(startsAt) => setOneOff({ ...oneOff, startsAt })}
+            error={oneOffErrors.starts_at}
+          />
+          <NumberField
+            id="one_off_duration"
+            label="مدة الحصة (دقيقة)"
+            value={oneOff.duration}
+            onChange={(duration) => setOneOff({ ...oneOff, duration })}
+            error={oneOffErrors.duration_minutes}
+          />
+          <NumberField
+            id="one_off_seats"
+            label="عدد المقاعد"
+            value={oneOff.seats}
+            onChange={(seats) => setOneOff({ ...oneOff, seats })}
+            error={oneOffErrors.seats_total}
+          />
+        </div>
+
+        <div className="mt-4">
+          <Button
+            onClick={createOne}
+            loading={creating}
+            disabled={
+              teacherProfileId === "" || oneOff.title === "" || oneOff.startsAt === ""
+            }
+          >
+            إنشاء الحصة
+          </Button>
+        </div>
+
+        {oneOffError !== "" && (
+          <div className="mt-4">
+            <Alert tone="danger" title="تعذّر الإنشاء">
+              {oneOffError}
+            </Alert>
           </div>
         )}
       </Card>

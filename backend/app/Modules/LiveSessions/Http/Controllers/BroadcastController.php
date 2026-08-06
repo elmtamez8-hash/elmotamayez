@@ -6,7 +6,6 @@ namespace App\Modules\LiveSessions\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Modules\LiveSessions\Actions\CloseBroadcastRoom;
 use App\Modules\LiveSessions\Actions\IssueJoinTicket;
 use App\Modules\LiveSessions\Actions\PerformHostAction;
 use App\Modules\LiveSessions\Actions\RecordPresencePing;
@@ -95,15 +94,6 @@ class BroadcastController extends Controller
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
-
-        return response()->json(['done' => true]);
-    }
-
-    public function leave(Request $request, ClassSession $session, CloseBroadcastRoom $action): JsonResponse
-    {
-        $this->authorize('host', $session);
-
-        $action->handle($session);
 
         return response()->json(['done' => true]);
     }

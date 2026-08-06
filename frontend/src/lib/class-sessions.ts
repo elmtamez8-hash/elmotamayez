@@ -179,6 +179,25 @@ export const classSessions = {
 
   show: (uuid: string) => api.get<ClassSession>(`/class-sessions/${uuid}`),
 
+  /** One session, off the weekly pattern (FR-002). */
+  create: (body: {
+    teacher_profile_id: string;
+    title: string;
+    type: "individual" | "group";
+    starts_at: string;
+    duration_minutes: number;
+    seats_total: number;
+  }) => api.post<ClassSession>("/class-sessions", body),
+
+  /**
+   * Whether `type` may still change is the server's call, not this one's: it
+   * depends on whether a seat is taken, which the client cannot see reliably.
+   */
+  update: (
+    uuid: string,
+    body: Partial<{ title: string; seats_total: number; starts_at: string; duration_minutes: number }>,
+  ) => api.put<ClassSession>(`/class-sessions/${uuid}`, body),
+
   generate: (body: {
     teacher_profile_id: string;
     from: string;

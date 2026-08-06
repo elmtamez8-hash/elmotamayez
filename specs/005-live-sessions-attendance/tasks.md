@@ -290,7 +290,7 @@ description: "Task list for 005-live-sessions-attendance"
 - [X] T135 نفّذ `specs/005-live-sessions-attendance/quickstart.md` أمراً أمراً وصحّح أي انحراف **في الملف** — الدليل الذي لم يُنفَّذ دليل غير صحيح
 - [X] T136 شغّل البوابات الأربع: `php vendor/bin/pest` · `./vendor/bin/pint --test` · `./vendor/bin/phpstan analyse` · `npx tsc --noEmit` — بلا baseline جديد ولا `@phpstan-ignore`
 - [ ] T137 شغّل `npx playwright test` على **بناء إنتاج** مع `PHP_CLI_SERVER_WORKERS=8 php artisan serve` — خادم بخيط واحد يُفشل البناء نفسه قبل أول اختبار
-- [ ] T138 راجع أن كل صفحة ومكوّن أُنشئا في هذه المرحلة **مربوطان ويصل إليهما اختبار من التنقّل**، وأن كل نقطة نهاية جديدة لها مستدعٍ في `frontend/src/lib/` أو سبب مكتوب لكونها خلفية فقط
+- [X] T138 راجع أن كل صفحة ومكوّن أُنشئا في هذه المرحلة **مربوطان ويصل إليهما اختبار من التنقّل**، وأن كل نقطة نهاية جديدة لها مستدعٍ في `frontend/src/lib/` أو سبب مكتوب لكونها خلفية فقط
 
 ---
 

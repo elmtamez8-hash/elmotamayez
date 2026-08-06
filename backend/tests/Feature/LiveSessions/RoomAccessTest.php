@@ -139,7 +139,9 @@ it('refuses every earlier ticket once the room is closed', function (): void {
 
     Sanctum::actingAs($this->owner);
     $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertOk();
-    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/leave")->assertOk();
+    // host/end is the only early close. `/leave` was a second route to the same
+    // Action, authorised the same way, and nothing called it.
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/end")->assertOk();
 
     Sanctum::actingAs($this->student);
 

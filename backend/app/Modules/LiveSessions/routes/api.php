@@ -42,7 +42,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::delete('/bookings/{booking}', [BookingController::class, 'destroy']);
 
         Route::post('/class-sessions/{session}/join', [BroadcastController::class, 'join']);
-        Route::post('/class-sessions/{session}/leave', [BroadcastController::class, 'leave']);
         Route::post('/class-sessions/{session}/host/{action}', [BroadcastController::class, 'host']);
 
         Route::post('/attendances/{attendance}/override', [AttendanceController::class, 'override']);

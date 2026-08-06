@@ -85,7 +85,9 @@ export function TextField(
   props: Shared & {
     value: string;
     onChange: (value: string) => void;
-    type?: "text" | "email" | "password" | "url" | "date" | "time" | "search";
+    // `datetime-local` because a session's start is a date AND a time; two
+    // fields for one moment is two chances to save half of it.
+    type?: "text" | "email" | "password" | "url" | "date" | "time" | "datetime-local" | "search";
     placeholder?: string;
     autoComplete?: string;
     minLength?: number;
