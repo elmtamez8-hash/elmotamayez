@@ -21,6 +21,9 @@ class DatabaseSeeder extends Seeder
             // Before anything that can trigger a notification: a dispatch with no
             // template renders nothing and logs an error instead.
             NotificationTemplateSeeder::class,
+            // Not a prerequisite — every value falls back to config() — but an
+            // operational number nobody can see is one nobody ever tunes.
+            PlatformSettingsSeeder::class,
         ]);
 
         // Only seed the super-admin in non-production environments.

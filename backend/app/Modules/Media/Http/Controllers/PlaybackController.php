@@ -51,6 +51,10 @@ class PlaybackController extends Controller
             // the screen can say "قيد التجهيز" instead of showing an error.
             return response()->json([
                 'message' => 'الفيديو قيد التجهيز، حاول بعد قليل.',
+                // `code` for the client to branch on, `status` for the screen to
+                // say which stage. A client that matched on the message text
+                // would break the day the wording improved.
+                'code' => 'asset_not_ready',
                 'status' => $e->getMessage(),
             ], 409);
         } catch (RuntimeException $e) {

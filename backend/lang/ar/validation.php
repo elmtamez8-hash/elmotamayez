@@ -238,6 +238,14 @@ return [
         'is_published' => 'منشور',
         'is_sequential' => 'التسلسل الإجباري',
 
+        // الوسائط (spec 004)
+        'file' => 'الملف',
+        'original_filename' => 'اسم الملف',
+        'size_bytes' => 'حجم الملف',
+        'position_seconds' => 'موضع التشغيل',
+        'kind' => 'نوع النصّ',
+        'is_default' => 'الافتراضي',
+
         // الاختبارات
         'duration_minutes' => 'المدة بالدقائق',
         'passing_score' => 'درجة النجاح',

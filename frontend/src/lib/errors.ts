@@ -23,6 +23,20 @@ const BY_STATUS: Record<number, string> = {
   429: "محاولات كثيرة في وقت قصير. انتظر قليلاً ثم أعد المحاولة.",
 };
 
+/**
+ * Refusals specific enough that the generic status message would mislead.
+ *
+ * Keyed on a `code` the server sends, never on its message text: matching on
+ * wording breaks the day someone improves the wording. Only codes listed here
+ * are trusted, so a framework default in English can never reach the screen
+ * through this door.
+ */
+const BY_CODE: Record<string, string> = {
+  asset_not_ready: "الفيديو قيد التجهيز. حاول بعد قليل.",
+  two_factor_required:
+    "انتهت مهلة تفعيل التحقق بخطوتين. فعّله من إعدادات الأمان لمتابعة هذه العملية.",
+};
+
 const SERVER = "حدث خطأ لدينا. أعد المحاولة بعد قليل، وإن تكرّر فتواصل مع الدعم.";
 const OFFLINE = "تعذّر الاتصال. تحقّق من اتصالك بالإنترنت.";
 
@@ -32,6 +46,9 @@ const UNKNOWN = UNKNOWN_MESSAGE;
 
 export function userMessage(err: unknown): string {
   if (err instanceof ApiError) {
+    const coded = BY_CODE[errorCode(err.body) ?? ""];
+    if (coded) return coded;
+
     // 422 arrives here only when a caller did not split field errors out. The
     // body message is already Arabic in that case, so passing it through is
     // right — this is not the English-leak path.
@@ -51,4 +68,13 @@ export function userMessage(err: unknown): string {
   if (err instanceof Error) console.error("[api]", err);
 
   return UNKNOWN;
+}
+
+function errorCode(body: unknown): string | null {
+  if (typeof body === "object" && body !== null && "code" in body) {
+    const code = (body as { code: unknown }).code;
+    if (typeof code === "string") return code;
+  }
+
+  return null;
 }

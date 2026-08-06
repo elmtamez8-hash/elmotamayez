@@ -18,14 +18,14 @@
 
 | Module | Path | Key Models | API Endpoints |
 |---|---|---|---|
-| Identity | `app/Modules/Identity/` | User, StudentProfile, UserSecuritySettings, Device, AuthSession, ParentStudentRelation | Auth (register/login/me/change-password), sessions & devices |
+| Identity | `app/Modules/Identity/` | User, StudentProfile, UserSecuritySettings, Device, AuthSession, ParentStudentRelation | Auth (register/login/me/change-password), sessions & devices, two-factor |
 | Tenancy | `app/Modules/Tenancy/` | Workspace, WorkspaceMember, Invitation | Workspaces (CRUD, switch, members, invitations) |
 | Courses | `app/Modules/Courses/` | Course, Section, Chapter, Lesson | Courses + sections/chapters/lessons CRUD |
 | Learning | `app/Modules/Learning/` | Enrollment, LessonProgress, ProgressHistory | Enrollments (enroll, lesson access, complete) |
 | Assessments | `app/Modules/Assessments/` | Exam, Question, QuestionOption, Attempt, Answer | Exams CRUD + questions CRUD + attempts |
 | Certificates | `app/Modules/Certificates/` | Certificate, CertificateTemplate | Certificates (list, verify, regenerate) + templates CRUD |
 | Payments | `app/Modules/Payments/` | Order, Product, PaymentTransaction | Orders (create, receipt, approve, reject) |
-| Media | `app/Modules/Media/` | MediaAsset, MediaCaption, PlaybackGrant | Upload tickets + playback grants (issue/stream/renew) |
+| Media | `app/Modules/Media/` | MediaAsset, MediaCaption, PlaybackGrant | Upload tickets + playback grants (issue/stream/renew) + captions |
 | Notifications | `app/Modules/Notifications/` | Notification, NotificationDelivery, NotificationPreference, MessageTemplate, ContactVerification | Notification centre + preferences + contact verification |
 | Analytics | `app/Modules/Analytics/` | (Filament widgets) | Admin dashboard |
 | CMS | `app/Modules/CMS/` | Article, Category, Tag | Articles CRUD + publish |
@@ -207,6 +207,18 @@ rendition. `ProviderAgnosticTest` fails the build if any vendor name appears out
 | `POST /playback/{grant}/renew` | sanctum | Extends the grant and saves the viewing position. Also how the client discovers its session was ended elsewhere |
 | `POST /lessons/{lesson}/assets` | `LESSONS_MANAGE` | Returns an upload ticket. The client PUTs to wherever it points |
 | `POST /media/assets/{asset}/complete` | `LESSONS_MANAGE` | Settles the type from the file's own bytes, never from its name |
+| `DELETE /media/assets/{asset}` | `LESSONS_MANAGE` + `2fa.required` | Destroys uploaded work irreversibly |
+| `POST /media/assets/{asset}/captions` · `DELETE /media/captions/{caption}` | `LESSONS_MANAGE` | WebVTT, parsed before it is stored — a file that would render an empty track is refused here rather than discovered mid-lesson |
+| `GET /playback/{grant}/captions/{caption}` | **none** | A `<track>` element sends no bearer token either. Same grant, same guard, same expiry as the video |
+
+`MediaAssetReady` fires when an asset settles to `ready`. Nothing listens yet: it exists so
+a provider webhook and the local `complete` call arrive at the same event, rather than the
+webhook growing its own copy of the follow-up work.
+
+**The transcript is derived, never stored.** `media_captions` holds a WebVTT path and
+nothing else; `WebVtt::parse()` validates and `TranscriptPanel.tsx` re-derives in the
+browser from the file the `<track>` already fetched. A transcript column would be a second
+copy of the same words, and the two drift at the first typo fix.
 
 **No new permissions.** Managing an asset is managing lesson content (`LESSONS_MANAGE`);
 watching is entitlement, not permission, and lives in `IssuePlaybackGrant`. Devices,
@@ -224,10 +236,36 @@ The device limit lives in `platform_settings` (`auth.device_limits`, default
 `{"student": 1}`) so an operator can tune it without a deploy. It counts **distinct
 devices** among live sessions, not sessions: two sign-ins on one laptop are one machine.
 
+### Two-factor authentication
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `POST /auth/2fa/setup` · `DELETE /auth/2fa` | sanctum + `throttle:two-factor` | Both re-ask for the current password; the delete also needs a live code |
+| `POST /auth/2fa/confirm` | sanctum + `throttle:two-factor` | Returns the recovery codes **once** — they are stored hashed, so no endpoint can show them again |
+| `GET /auth/2fa` | sanctum | State only: never the secret, never the codes |
+| `POST /auth/2fa/recovery-codes` | sanctum + `throttle:two-factor` | A new set; the old set stops working immediately |
+| `POST /auth/2fa/challenge` | **none** | The second half of signing in — no token exists yet |
+
+A correct password on an enrolled account returns `{two_factor: true, challenge}` and **no
+token**. The challenge lives ten minutes in the cache, not a table. The exchange goes
+through `StartAuthSession` like any other sign-in, so the device limit and its alert apply.
+
+The secret sits on `user_security_settings` and `User` implements Filament's
+`HasAppAuthentication` by hand — its traits assume columns on `users` — so one enrolment
+serves both `/admin` and the API.
+
+`2fa.required` is applied **route by route**, never to a group: order approve/reject,
+workspace update, member removal and invitation, teacher approve/reject, asset delete.
+Before `two_factor_required_at` it passes and the screen nags; after it, `403` with
+`code: two_factor_required`.
+
 ### Breaking changes
 
 - `LessonResource.media` → `LessonResource.asset` (uuid, status, duration — never the
   provider or its path). No frontend consumer existed, so the change lands before one does.
 - `UserResource.grade_level_slug` / `registered_by_parent` → nested under `student_profile`.
 - `POST /auth/login` now also returns `session_uuid`, which the client keeps to ask why it
-  was later signed out.
+  was later signed out — and returns `{two_factor: true, challenge}` **instead of** a token
+  for an enrolled account. A client that assumed `token` is always present must narrow.
+- `PlaybackGrantResource.captions[]` gained `url`, which points through the grant. There is
+  no caption URL that outlives it.

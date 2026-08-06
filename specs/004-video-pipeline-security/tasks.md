@@ -260,16 +260,16 @@ description: "Task list for 004-video-pipeline-security"
 
 ## Phase 8: Polish & Cross-Cutting
 
-- [ ] T114 [P] أضف مدخلات `attributes` العربية للحقول الجديدة في `backend/lang/ar/validation.php` — بدونها يظهر `original_filename` بالإنجليزية للمستخدم
-- [ ] T115 [P] أضف رسائل الأخطاء الجديدة (`409` قيد التجهيز · `two_factor_required` · سبب انتهاء الجلسة) إلى `frontend/src/lib/errors.ts` و`labels.ts` — **يُمنع** عرض خطأ خام
-- [ ] T116 أضف بذر القيم الافتراضية لـ`platform_settings` إلى `backend/database/seeders/` — النظام يعمل بلا بذر (الرجوع إلى `config()`)، والبذر يجعل القيم ظاهرة قابلة للتحرير
-- [ ] T117 أضف أمراً مجدولاً يوميّاً لحذف المنح المنتهية في `backend/routes/console.php` مع تعليق `ponytail:` يسمّي التقسيم مسار الترقية إن بلغ الجدول الملايين
-- [ ] T118 [P] حدّث `docs/erd.md` بالجداول التسعة وطبقة كلٍّ منها، وبحذف `lessons.media` ونقل عمودَي `users`
-- [ ] T119 [P] حدّث `docs/README.md`: وحدة `Media` · نقاط النهاية · الحدث `MediaAssetReady` · التغيير الكاسر في `LessonResource` و`UserResource`
-- [ ] T120 [P] حدّث `CLAUDE.md` بثلاث مزالق: العلامة المائية هي حلقة التجديد · الحدّ على الجلسات لا البصمة · `users` لا يقبل عمود دور
-- [ ] T121 [P] حدّث `AGENTS.md` بالاختبارات الحرجة الجديدة (منح التشغيل · حدّ الأجهزة · مطابقة العقد) وبقسم فصل جداول الأدوار
-- [ ] T122 حدّث `docs/roadmap.md`: علّم 004 مُنفَّذة، وصحّح سطرها (المزوّد مؤجَّل خلف واجهة لا «Bunny Stream»)
-- [ ] T123 شغّل البوابات الأربع: `php vendor/bin/pest` · `./vendor/bin/pint --test` · `./vendor/bin/phpstan analyse` · `npx tsc --noEmit` — **يُمنع** baseline جديد أو `@phpstan-ignore` (SC-014)
+- [X] T114 [P] أضف مدخلات `attributes` العربية للحقول الجديدة في `backend/lang/ar/validation.php` — بدونها يظهر `original_filename` بالإنجليزية للمستخدم
+- [X] T115 [P] أضف رسائل الأخطاء الجديدة (`409` قيد التجهيز · `two_factor_required` · سبب انتهاء الجلسة) إلى `frontend/src/lib/errors.ts` و`labels.ts` — **يُمنع** عرض خطأ خام
+- [X] T116 أضف بذر القيم الافتراضية لـ`platform_settings` إلى `backend/database/seeders/` — النظام يعمل بلا بذر (الرجوع إلى `config()`)، والبذر يجعل القيم ظاهرة قابلة للتحرير
+- [X] T117 أضف أمراً مجدولاً يوميّاً لحذف المنح المنتهية في `backend/routes/console.php` مع تعليق `ponytail:` يسمّي التقسيم مسار الترقية إن بلغ الجدول الملايين
+- [X] T118 [P] حدّث `docs/erd.md` بالجداول التسعة وطبقة كلٍّ منها، وبحذف `lessons.media` ونقل عمودَي `users`
+- [X] T119 [P] حدّث `docs/README.md`: وحدة `Media` · نقاط النهاية · الحدث `MediaAssetReady` · التغيير الكاسر في `LessonResource` و`UserResource`
+- [X] T120 [P] حدّث `CLAUDE.md` بثلاث مزالق: العلامة المائية هي حلقة التجديد · الحدّ على الجلسات لا البصمة · `users` لا يقبل عمود دور
+- [X] T121 [P] حدّث `AGENTS.md` بالاختبارات الحرجة الجديدة (منح التشغيل · حدّ الأجهزة · مطابقة العقد) وبقسم فصل جداول الأدوار
+- [X] T122 حدّث `docs/roadmap.md`: علّم 004 مُنفَّذة، وصحّح سطرها (المزوّد مؤجَّل خلف واجهة لا «Bunny Stream»)
+- [X] T123 شغّل البوابات الأربع: `php vendor/bin/pest` · `./vendor/bin/pint --test` · `./vendor/bin/phpstan analyse` · `npx tsc --noEmit` — **يُمنع** baseline جديد أو `@phpstan-ignore` (SC-014)
 - [ ] T124 شغّل Playwright كاملاً: `player.spec.ts` + `accessibility.spec.ts` + `rtl.spec.ts` بـ `--config=e2e/playwright.local.config.ts`
 - [ ] T125 راجع `quickstart.md` سيناريو سيناريو على نسخة نظيفة (`migrate:fresh --seed`) وصحّح أي انحراف بين الوثيقة والسلوك
 
