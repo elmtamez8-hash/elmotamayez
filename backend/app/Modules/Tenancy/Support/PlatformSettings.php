@@ -38,6 +38,16 @@ final class PlatformSettings
         'media.max_duration_seconds' => 'media.max_duration_seconds',
         'media.grant_ttl_seconds' => 'media.grant_ttl_seconds',
         'media.max_renewals' => 'media.max_renewals',
+        'sessions.timezone' => 'sessions.timezone',
+        'sessions.grace_minutes' => 'sessions.grace_minutes',
+        'sessions.absence_threshold_ratio' => 'sessions.absence_threshold_ratio',
+        'sessions.required_stay_ratio' => 'sessions.required_stay_ratio',
+        'sessions.teacher_required_stay_ratio' => 'sessions.teacher_required_stay_ratio',
+        'sessions.cancellation_window_minutes' => 'sessions.cancellation_window_minutes',
+        'sessions.join_window_minutes' => 'sessions.join_window_minutes',
+        'sessions.presence_interval_seconds' => 'sessions.presence_interval_seconds',
+        'sessions.attendance_edit_window_hours' => 'sessions.attendance_edit_window_hours',
+        'sessions.report_delay_minutes' => 'sessions.report_delay_minutes',
     ];
 
     public static function get(string $key, mixed $default = null): mixed

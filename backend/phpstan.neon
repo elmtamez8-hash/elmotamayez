@@ -19,6 +19,7 @@ parameters:
         - app/Modules/Courses/Database/Migrations
         - app/Modules/Identity/Database/Migrations
         - app/Modules/Learning/Database/Migrations
+        - app/Modules/LiveSessions/Database/Migrations
         - app/Modules/Marketplace/Database/Migrations
         - app/Modules/Media/Database/Migrations
         - app/Modules/Notifications/Database/Migrations

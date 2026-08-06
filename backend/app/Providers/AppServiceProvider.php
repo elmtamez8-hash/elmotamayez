@@ -96,6 +96,18 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(5)->by('ip:'.$request->ip()),
             Limit::perMinute(5)->by('challenge:'.(string) $request->input('challenge', $request->user()?->getKey())),
         ]);
+
+        // Session writes: booking, cancelling, issuing a join ticket. By user for
+        // the same reason as playback — a school behind one address is many
+        // legitimate students racing for the same seats.
+        RateLimiter::for('sessions', fn (Request $request) => Limit::perMinute(60)
+            ->by('user:'.(string) $request->user()?->getKey()));
+
+        // The presence heartbeat. One participant sends two a minute; the ceiling
+        // leaves room for several rooms and reconnection storms without leaving
+        // the endpoint open. It is a write on every call, so it is not unlimited.
+        RateLimiter::for('presence', fn (Request $request) => Limit::perMinute(240)
+            ->by('user:'.(string) $request->user()?->getKey()));
     }
 
     /**

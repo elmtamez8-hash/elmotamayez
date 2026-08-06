@@ -25,6 +25,9 @@ final class RolePermissionMatrix
             Permissions::ORDERS_VIEW_OWN,
             Permissions::ORDERS_CREATE,
             Permissions::CMS_VIEW,
+            // Seeing the sessions they may book, and their own schedule. Reading
+            // one's own attendance needs no permission — it is row ownership.
+            Permissions::SESSIONS_VIEW,
         ];
 
         $assistantTeacher = array_merge($student, [
@@ -48,6 +51,10 @@ final class RolePermissionMatrix
             // The relations table is platform-owned and carries no workspace_id,
             // so nothing else stops a teacher from reading another teacher's rows.
             Permissions::RELATIONS_VIEW_STUDENT,
+            // Reads the register; cannot host a room or edit a mark. Scoping
+            // assistants properly is spec 010 — until then the narrow grant is
+            // the safe default, not the generous one.
+            Permissions::ATTENDANCE_VIEW,
         ]);
 
         $teacher = array_merge($assistantTeacher, [
@@ -63,6 +70,12 @@ final class RolePermissionMatrix
             Permissions::PAYMENTS_REJECT,
             Permissions::CMS_DELETE,
             Permissions::CMS_PUBLISH,
+            Permissions::SESSIONS_MANAGE,
+            // Host controls stay with the teacher alone until 010 defines what an
+            // assistant may do (FR-016 · research §R14).
+            Permissions::SESSIONS_HOST,
+            Permissions::ATTENDANCE_OVERRIDE,
+            Permissions::FREEZE_MANAGE,
         ]);
 
         $tenantOwner = array_merge($teacher, [

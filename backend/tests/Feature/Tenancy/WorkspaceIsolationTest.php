@@ -6,6 +6,10 @@ use App\Models\User;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Models\Device;
 use App\Modules\Identity\Models\StudentProfile;
+use App\Modules\LiveSessions\Models\Attendance;
+use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\FreezePeriod;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\GradeLevel;
 use App\Modules\Marketplace\Models\Subject;
@@ -146,5 +150,34 @@ describe('media models are workspace-scoped', function (): void {
         expect(in_array(BelongsToWorkspace::class, class_uses_recursive(Device::class), true))->toBeFalse()
             ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(AuthSession::class), true))->toBeFalse()
             ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(StudentProfile::class), true))->toBeFalse();
+    });
+});
+
+describe('live session models are workspace-scoped', function (): void {
+    // Required in the same PR that adds the model (Constitution I). A session
+    // without BelongsToWorkspace passes every other test in this suite and puts
+    // one teacher's timetable in another's calendar.
+    it('scopes sessions, bookings, attendance and freezes to the current workspace', function (): void {
+        [$workspaceA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+        [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+        $context = app(WorkspaceContext::class);
+
+        $context->forWorkspace($workspaceA, function (): void {
+            $session = ClassSession::factory()->create();
+            SessionBooking::factory()->create(['class_session_id' => $session->getKey()]);
+            Attendance::factory()->create(['class_session_id' => $session->getKey()]);
+            FreezePeriod::factory()->create();
+        });
+
+        $context->forWorkspace($workspaceB, function (): void {
+            ClassSession::factory()->count(2)->create();
+        });
+
+        expect($context->forWorkspace($workspaceA, fn () => ClassSession::query()->count()))->toBe(1)
+            ->and($context->forWorkspace($workspaceB, fn () => ClassSession::query()->count()))->toBe(2)
+            ->and($context->forWorkspace($workspaceB, fn () => SessionBooking::query()->count()))->toBe(0)
+            ->and($context->forWorkspace($workspaceB, fn () => Attendance::query()->count()))->toBe(0)
+            ->and($context->forWorkspace($workspaceB, fn () => FreezePeriod::query()->count()))->toBe(0);
     });
 });

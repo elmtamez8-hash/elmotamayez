@@ -116,6 +116,34 @@ final class Permissions
 
     public const MARKETPLACE_PARTICIPATION_MANAGE = 'marketplace.participation.manage';
 
+    // Live sessions
+    public const SESSIONS_VIEW = 'sessions.view';
+
+    public const SESSIONS_MANAGE = 'sessions.manage';
+
+    /**
+     * Host controls inside the room — mute, remove, end (FR-016).
+     *
+     * Granted to the teacher alone today. The spec reserves it for assistants
+     * too, but scoping assistants is spec 010's work; naming the permission now
+     * is what lets that phase add a role assignment instead of a policy.
+     */
+    public const SESSIONS_HOST = 'sessions.host';
+
+    // Attendance
+    public const ATTENDANCE_VIEW = 'attendance.view';
+
+    /**
+     * Marking a student present by hand. Deliberately not sufficient on its own
+     * past the edit window: OverrideAttendance also requires a higher
+     * administrative permission there (FR-022ب). The permission answers "may
+     * this role ever override?", the Action answers "still, this late?".
+     */
+    public const ATTENDANCE_OVERRIDE = 'attendance.override';
+
+    // Freeze periods
+    public const FREEZE_MANAGE = 'freeze.manage';
+
     // Notifications
     public const NOTIFICATIONS_LOGS_VIEW = 'notifications.logs.view';
 
@@ -180,6 +208,12 @@ final class Permissions
             self::MARKETPLACE_REVIEWS_MODERATE,
             self::MARKETPLACE_COMPLAINTS_MANAGE,
             self::MARKETPLACE_PARTICIPATION_MANAGE,
+            self::SESSIONS_VIEW,
+            self::SESSIONS_MANAGE,
+            self::SESSIONS_HOST,
+            self::ATTENDANCE_VIEW,
+            self::ATTENDANCE_OVERRIDE,
+            self::FREEZE_MANAGE,
             self::NOTIFICATIONS_LOGS_VIEW,
             self::NOTIFICATIONS_TEMPLATES_MANAGE,
             self::RELATIONS_VIEW_STUDENT,
