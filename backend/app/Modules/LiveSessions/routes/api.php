@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\LiveSessions\Http\Controllers\BookingController;
+use App\Modules\LiveSessions\Http\Controllers\BroadcastController;
 use App\Modules\LiveSessions\Http\Controllers\ClassSessionController;
 use App\Modules\LiveSessions\Http\Controllers\ScheduleController;
 use Illuminate\Support\Facades\Route;
@@ -34,5 +35,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
         Route::post('/class-sessions/{session}/book', [BookingController::class, 'store']);
         Route::delete('/bookings/{booking}', [BookingController::class, 'destroy']);
+
+        Route::post('/class-sessions/{session}/join', [BroadcastController::class, 'join']);
+        Route::post('/class-sessions/{session}/leave', [BroadcastController::class, 'leave']);
+        Route::post('/class-sessions/{session}/host/{action}', [BroadcastController::class, 'host']);
     });
+
+    // Its own limiter: one participant sends two a minute, and the ceiling has
+    // to leave room for several rooms and reconnection storms without sharing a
+    // bucket with the booking endpoints.
+    Route::post('/class-sessions/{session}/presence', [BroadcastController::class, 'presence'])
+        ->middleware('throttle:presence');
 });

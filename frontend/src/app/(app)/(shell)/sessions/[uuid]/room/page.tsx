@@ -1,0 +1,114 @@
+"use client";
+
+import { use, useCallback, useEffect, useState } from "react";
+
+import { BroadcastStage } from "@/components/sessions/BroadcastStage";
+import { PresenceLoop } from "@/components/sessions/PresenceLoop";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { classSessions, type JoinTicket, type PresenceState } from "@/lib/class-sessions";
+import { userMessage } from "@/lib/errors";
+
+/**
+ * The room.
+ *
+ * The ticket is asked for on mount and never stored anywhere durable: it is
+ * short-lived, and eligibility is re-evaluated on the server every time it is
+ * issued. A copied ticket is worth nothing once the room closes.
+ *
+ * Everything the page shows about attendance comes back from the heartbeat.
+ * Nothing is counted here.
+ */
+export default function SessionRoomPage({
+  params,
+}: {
+  params: Promise<{ uuid: string }>;
+}) {
+  const { uuid } = use(params);
+
+  const [ticket, setTicket] = useState<JoinTicket | null>(null);
+  const [presence, setPresence] = useState<PresenceState | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [ending, setEnding] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    classSessions
+      .join(uuid)
+      .then((result) => {
+        if (!cancelled) setTicket(result);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(userMessage(err));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [uuid]);
+
+  const onPresence = useCallback((state: PresenceState) => setPresence(state), []);
+
+  const end = async () => {
+    setEnding(true);
+
+    try {
+      await classSessions.host(uuid, "end");
+      setTicket(null);
+    } catch (err: unknown) {
+      setError(userMessage(err));
+    } finally {
+      setEnding(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <h2 className="text-xl font-bold text-ink">غرفة الحصة</h2>
+
+      {loading && <p className="text-sm text-ink-muted">جارٍ التحضير…</p>}
+
+      {error !== "" && (
+        <Alert tone="danger" title="تعذّر الدخول">
+          {error}
+        </Alert>
+      )}
+
+      {ticket !== null && (
+        <>
+          <Card padding="sm">
+            <BroadcastStage ticket={ticket} />
+          </Card>
+
+          <Card>
+            <PresenceLoop
+              sessionUuid={uuid}
+              intervalSeconds={ticket.presence_interval_seconds}
+              onUpdate={onPresence}
+            />
+
+            {presence !== null && (
+              <p className="text-sm text-ink-muted">
+                مدة حضورك حتى الآن <bdi>{Math.floor(presence.stay_seconds / 60)}</bdi> دقيقة.
+              </p>
+            )}
+
+            {ticket.role === "host" && (
+              <div className="mt-4">
+                <Button onClick={end} loading={ending} variant="danger">
+                  إنهاء الحصة
+                </Button>
+              </div>
+            )}
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}

@@ -35,6 +35,11 @@ const BY_CODE: Record<string, string> = {
   asset_not_ready: "الفيديو قيد التجهيز. حاول بعد قليل.",
   two_factor_required:
     "انتهت مهلة تفعيل التحقق بخطوتين. فعّله من إعدادات الأمان لمتابعة هذه العملية.",
+  // Deliberately vague about WHY, because the server is: no seat, outside the
+  // window and already closed all answer identically, so a message naming one
+  // of them would leak what the API refused to say (FR-015).
+  session_not_joinable:
+    "لا يمكنك دخول هذه الحصة الآن. تأكّد من حجز مقعدك ومن أن موعدها قد حان.",
 };
 
 const SERVER = "حدث خطأ لدينا. أعد المحاولة بعد قليل، وإن تكرّر فتواصل مع الدعم.";

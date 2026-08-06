@@ -148,21 +148,21 @@ description: "Task list for 005-live-sessions-attendance"
 
 **Independent Test**: منح رمز للمدرّس ولطالب حاجز ولطالب غير حاجز — قبول الأولين ورفض الثالث.
 
-- [ ] T061 [US2] أنشئ `backend/app/Modules/LiveSessions/Actions/OpenBroadcastRoom.php` يستدعي `createRoom()` **متماثل الأثر** ويكتب `broadcast_room_id` و`room_opened_at` وينقل الحالة إلى `live`
-- [ ] T062 [US2] أنشئ `backend/app/Modules/LiveSessions/Actions/IssueJoinTicket.php`: **يعيد تقييم الأهلية هنا** (FR-046)، يفحص نافذة الدخول من `SessionSettings`، ويطلب التذكرة من المزوّد بدور مشتق من الصلاحية لا من مدخل العميل
-- [ ] T063 [US2] أنشئ `backend/app/Modules/LiveSessions/Actions/RecordPresencePing.php`: يضيف `min(now − last_ping_at, 2 × presence_interval)` إلى `stay_seconds` ويضبط `last_ping_at` — من هذا السطر تأتي الخصائص الثلاث معاً: جهازان لا يضاعفان، والعودة تُجمَّع، وفجوة الانقطاع لا تُحتسب (FR-024 · research §R3)
-- [ ] T064 [P] [US2] أنشئ `backend/app/Modules/LiveSessions/Actions/PerformHostAction.php` (كتم · إخراج · إنهاء) محروساً بـ`Permissions::SESSIONS_HOST`، يرمي بوضوح إن لم يعلن المزوّد `hostControls`
-- [ ] T065 [P] [US2] أنشئ `backend/app/Modules/LiveSessions/Actions/CloseBroadcastRoom.php` — بعده **يُمنع** الدخول بأي تذكرة سابقة (FR-015)
-- [ ] T066 [US2] أنشئ `BroadcastController` بدوالّ `join` · `presence` · `leave` · `host` وسجّلها بـ`throttle:sessions` و`throttle:presence` على التوالي
-- [ ] T067 [P] [US2] أنشئ `JoinTicketResource` — يحمل `room_url` · `token` · `expires_at` · `role` فقط. **يُمنع** اسم المزوّد أو مفتاحه أو سرّه (FR-019)
-- [ ] T068 [P] [US2] أنشئ `backend/tests/Feature/LiveSessions/RoomAccessTest.php` (SC-003) بأربع حالات رفض: لم يحجز · قبل النافذة · بعد النافذة · تذكرة بعد الإغلاق — والرفض **بلا كشف أي معلومة عن الحصة** (السيناريو 2)
-- [ ] T069 [P] [US2] أنشئ `backend/tests/Feature/LiveSessions/PresenceAggregationTest.php`: نبضتان من جهازين في الوقت نفسه **لا تضاعفان** المدة · انقطاع ثم عودة يُجمَّعان في مدة واحدة · الفجوة الطويلة تُحتسب بسقف `2×interval` لا كاملةً
-- [ ] T070 [P] [US2] أنشئ `backend/tests/Feature/LiveSessions/HostControlsTest.php`: المدرّس يملك الأدوات والطالب لا يملكها (FR-016)
-- [ ] T071 [P] [US2] أنشئ `frontend/src/components/sessions/PresenceLoop.tsx` — حلقة `useEffect` تنبض كل `presence_interval` وتتوقّف عند إلغاء التركيب، وتعرض حالة الاتصال بلا خطأ خام عند فشل نبضة واحدة
-- [ ] T072 [P] [US2] أنشئ `frontend/src/components/sessions/BroadcastStage.tsx` — يحجز موضع مسرح الفيديو خلف مكوّن واحد، تنفيذه اليوم لوحة حالة وغداً غلاف SDK المزوّد (research §R15). **يُمنع** إدخال أي SDK بثّ الآن
-- [ ] T073 [US2] أنشئ `frontend/src/app/(app)/(shell)/sessions/[uuid]/room/page.tsx` يجمع التذكرة والمسرح وحلقة النبض وأدوات المضيف
-- [ ] T074 [US2] **اربط الغرفة** من بطاقة الحصة في `/schedule` ومن صفحة الحصة في `/manage/sessions/[uuid]` — لا يوجد عنصر تنقّل للغرفة (لا معنى لها بلا حصة)، فالرابط من الرحلة هو الطريق الوحيد إليها
-- [ ] T075 [P] [US2] أضف رمز `session_not_joinable` إلى `BY_CODE` في `frontend/src/lib/errors.ts` برسالة عربية تشرح النافذة الزمنية — **يُمنع** عرض خطأ خام للمستخدم
+- [X] T061 [US2] أنشئ `backend/app/Modules/LiveSessions/Actions/OpenBroadcastRoom.php` يستدعي `createRoom()` **متماثل الأثر** ويكتب `broadcast_room_id` و`room_opened_at` وينقل الحالة إلى `live`
+- [X] T062 [US2] أنشئ `backend/app/Modules/LiveSessions/Actions/IssueJoinTicket.php`: **يعيد تقييم الأهلية هنا** (FR-046)، يفحص نافذة الدخول من `SessionSettings`، ويطلب التذكرة من المزوّد بدور مشتق من الصلاحية لا من مدخل العميل
+- [X] T063 [US2] أنشئ `backend/app/Modules/LiveSessions/Actions/RecordPresencePing.php`: يضيف `min(now − last_ping_at, 2 × presence_interval)` إلى `stay_seconds` ويضبط `last_ping_at` — من هذا السطر تأتي الخصائص الثلاث معاً: جهازان لا يضاعفان، والعودة تُجمَّع، وفجوة الانقطاع لا تُحتسب (FR-024 · research §R3)
+- [X] T064 [P] [US2] أنشئ `backend/app/Modules/LiveSessions/Actions/PerformHostAction.php` (كتم · إخراج · إنهاء) محروساً بـ`Permissions::SESSIONS_HOST`، يرمي بوضوح إن لم يعلن المزوّد `hostControls`
+- [X] T065 [P] [US2] أنشئ `backend/app/Modules/LiveSessions/Actions/CloseBroadcastRoom.php` — بعده **يُمنع** الدخول بأي تذكرة سابقة (FR-015)
+- [X] T066 [US2] أنشئ `BroadcastController` بدوالّ `join` · `presence` · `leave` · `host` وسجّلها بـ`throttle:sessions` و`throttle:presence` على التوالي
+- [X] T067 [P] [US2] أنشئ `JoinTicketResource` — يحمل `room_url` · `token` · `expires_at` · `role` فقط. **يُمنع** اسم المزوّد أو مفتاحه أو سرّه (FR-019)
+- [X] T068 [P] [US2] أنشئ `backend/tests/Feature/LiveSessions/RoomAccessTest.php` (SC-003) بأربع حالات رفض: لم يحجز · قبل النافذة · بعد النافذة · تذكرة بعد الإغلاق — والرفض **بلا كشف أي معلومة عن الحصة** (السيناريو 2)
+- [X] T069 [P] [US2] أنشئ `backend/tests/Feature/LiveSessions/PresenceAggregationTest.php`: نبضتان من جهازين في الوقت نفسه **لا تضاعفان** المدة · انقطاع ثم عودة يُجمَّعان في مدة واحدة · الفجوة الطويلة تُحتسب بسقف `2×interval` لا كاملةً
+- [X] T070 [P] [US2] أنشئ `backend/tests/Feature/LiveSessions/HostControlsTest.php`: المدرّس يملك الأدوات والطالب لا يملكها (FR-016)
+- [X] T071 [P] [US2] أنشئ `frontend/src/components/sessions/PresenceLoop.tsx` — حلقة `useEffect` تنبض كل `presence_interval` وتتوقّف عند إلغاء التركيب، وتعرض حالة الاتصال بلا خطأ خام عند فشل نبضة واحدة
+- [X] T072 [P] [US2] أنشئ `frontend/src/components/sessions/BroadcastStage.tsx` — يحجز موضع مسرح الفيديو خلف مكوّن واحد، تنفيذه اليوم لوحة حالة وغداً غلاف SDK المزوّد (research §R15). **يُمنع** إدخال أي SDK بثّ الآن
+- [X] T073 [US2] أنشئ `frontend/src/app/(app)/(shell)/sessions/[uuid]/room/page.tsx` يجمع التذكرة والمسرح وحلقة النبض وأدوات المضيف
+- [X] T074 [US2] **اربط الغرفة** من بطاقة الحصة في `/schedule` ومن صفحة الحصة في `/manage/sessions/[uuid]` — لا يوجد عنصر تنقّل للغرفة (لا معنى لها بلا حصة)، فالرابط من الرحلة هو الطريق الوحيد إليها
+- [X] T075 [P] [US2] أضف رمز `session_not_joinable` إلى `BY_CODE` في `frontend/src/lib/errors.ts` برسالة عربية تشرح النافذة الزمنية — **يُمنع** عرض خطأ خام للمستخدم
 
 **Checkpoint**: غرفة بدورة حياة كاملة وحارس دخول مُثبَت، ونبض يتراكم.
 

@@ -60,6 +60,22 @@ export interface SessionBooking {
   session?: ClassSession;
 }
 
+export interface JoinTicket {
+  room_url: string;
+  token: string;
+  expires_at: string;
+  role: "host" | "participant";
+  /** Sent by the server: the client must not guess the heartbeat's period, since
+   *  the crediting cap is derived from it. */
+  presence_interval_seconds: number;
+}
+
+export interface PresenceState {
+  stay_seconds: number;
+  status: string;
+  session_status: string;
+}
+
 export interface GenerateResult {
   created: ClassSession[];
   /** Reported, never swallowed: the teacher must see which slots were skipped. */
@@ -95,6 +111,24 @@ export const classSessions = {
   book: (uuid: string) => api.post<SessionBooking>(`/class-sessions/${uuid}/book`, {}),
 
   cancelBooking: (uuid: string) => api.delete<SessionBooking>(`/bookings/${uuid}`),
+
+  /**
+   * A ticket for the room.
+   *
+   * Refused with the same 403 whatever the reason — no seat, wrong time, room
+   * closed. A refusal that distinguishes them tells the caller the session
+   * exists and when to come back.
+   */
+  join: (uuid: string) => api.post<JoinTicket>(`/class-sessions/${uuid}/join`, {}),
+
+  /** One heartbeat. The reply is what the SERVER believes, not what we sent. */
+  presence: (uuid: string) =>
+    api.post<PresenceState>(`/class-sessions/${uuid}/presence`, {}),
+
+  host: (uuid: string, action: "mute" | "remove" | "end", targetUuid?: string) =>
+    api.post<{ done: boolean }>(`/class-sessions/${uuid}/host/${action}`, {
+      target_uuid: targetUuid,
+    }),
 
   /** The student's own timetable, across every teacher they study with. */
   schedule: () => api.get<{ data: SessionBooking[] }>("/schedule"),
