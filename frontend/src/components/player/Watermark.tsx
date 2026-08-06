@@ -33,6 +33,16 @@ const POSITIONS = [
   "bottom-14 start-3",
 ] as const;
 
+/**
+ * Where it may go when the lesson has captions (FR-037).
+ *
+ * The browser renders captions in a band just above the controls — exactly the
+ * `bottom-14` row — and a viewer who needs captions is precisely the one who
+ * cannot work around a word being covered. So the rotation loses the bottom two
+ * corners rather than the captions losing legibility.
+ */
+const POSITIONS_ABOVE_CAPTIONS = ["top-3 start-3", "top-3 end-3"] as const;
+
 const ROTATE_SECONDS = 20;
 
 export function Watermark({
@@ -48,6 +58,9 @@ export function Watermark({
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState(0);
+
+  const positions =
+    grant.captions.length > 0 ? POSITIONS_ABOVE_CAPTIONS : POSITIONS;
 
   const stop = useCallback(
     (message: string) => {
@@ -73,14 +86,14 @@ export function Watermark({
   // one a sticky note covers.
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setPosition((current) => (current + 1) % POSITIONS.length);
+      setPosition((current) => (current + 1) % positions.length);
 
       const host = hostRef.current;
       if (host !== null && isHidden(host)) stop(STOPPED_MESSAGE);
     }, ROTATE_SECONDS * 1000);
 
     return () => window.clearInterval(timer);
-  }, [stop]);
+  }, [stop, positions.length]);
 
   // Removed from the DOM: react now rather than waiting for the grant to lapse.
   // Records queued by our own unmount are dropped by disconnect(), so this does
@@ -106,7 +119,7 @@ export function Watermark({
       // Not focusable and not clickable: it sits over the video and must never
       // take a click meant for the controls (FR-020).
       aria-hidden="true"
-      className={`pointer-events-none absolute ${POSITIONS[position]} select-none rounded-lg bg-surface-raised/70 px-2 py-1 text-xs text-ink-muted transition-all duration-700`}
+      className={`pointer-events-none absolute ${positions[position % positions.length]} select-none rounded-lg bg-surface-raised/70 px-2 py-1 text-xs text-ink-muted transition-all duration-700`}
     >
       <span>{grant.watermark.name}</span>
       {grant.watermark.phone_masked !== null && (

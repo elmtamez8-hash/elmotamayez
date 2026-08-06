@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { TranscriptPanel } from "@/components/player/TranscriptPanel";
 import { Watermark } from "@/components/player/Watermark";
 import { Alert } from "@/components/ui/Alert";
 import { type PlaybackGrant } from "@/lib/media";
@@ -24,8 +25,13 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState("");
   const [source, setSource] = useState(grant.manifest_url);
+  const [speed, setSpeed] = useState(1);
 
   const canPlay = grant.format === "progressive" || isNativeHlsSupported();
+
+  // The default track is the one worth reading as prose; a translation of the
+  // same lesson would repeat it.
+  const transcript = grant.captions.find((caption) => caption.is_default) ?? grant.captions[0];
 
   // Renewal belongs to the watermark, not here — see Watermark.tsx. This
   // component only reacts to what that loop reports.
@@ -75,6 +81,7 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
             <track
               key={caption.uuid}
               kind="captions"
+              src={caption.url}
               srcLang={caption.language}
               label={caption.language === "ar" ? "العربية" : caption.language}
               default={caption.is_default}
@@ -89,9 +96,42 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
           onStopped={onStopped}
         />
       </div>
+
+      {/*
+        Speed is in the browser's own overflow menu, but buried differently in
+        each one. A student re-watching an explanation they did not follow should
+        not have to find it — FR-033 is about the capability being reachable.
+      */}
+      <div className="flex items-center gap-2">
+        <label htmlFor="playback-speed" className="text-sm text-ink-muted">
+          سرعة العرض
+        </label>
+        <select
+          id="playback-speed"
+          value={speed}
+          onChange={(e) => {
+            const rate = Number(e.target.value);
+            setSpeed(rate);
+            if (videoRef.current !== null) videoRef.current.playbackRate = rate;
+          }}
+          className="rounded-lg border border-line bg-surface-raised px-2 py-1 text-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          {SPEEDS.map((rate) => (
+            <option key={rate} value={rate}>
+              {rate}×
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {transcript !== undefined && (
+        <TranscriptPanel caption={transcript} videoRef={videoRef} />
+      )}
     </div>
   );
 }
+
+const SPEEDS = [0.75, 1, 1.25, 1.5, 2] as const;
 
 /** Safari plays HLS from a plain <video>; nothing else does without a library. */
 function isNativeHlsSupported(): boolean {

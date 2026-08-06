@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { test, expect, type Page } from "@playwright/test";
 
 /**
@@ -99,6 +100,29 @@ test.describe("مشغّل الدرس والعلامة المائية", () => {
     expect(before).not.toBeNull();
     expect(after).not.toBeNull();
     expect(`${after?.x},${after?.y}`).not.toBe(`${before?.x},${before?.y}`);
+  });
+
+  // SC-013. The player is the one screen that cannot be added to the static PAGES
+  // list in accessibility.spec.ts — its path needs a real lesson uuid — so its
+  // audit lives here, behind the same skip.
+  test("المشغّل خالٍ من مخالفات إمكانية الوصول", async ({ page }) => {
+    const results = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+
+    const found = results.violations.map((v) => `${v.id}: ${v.nodes[0]?.target.join(" ")}`);
+
+    expect(found, found.join("\n")).toEqual([]);
+  });
+
+  // FR-033 — reachable, not buried in a browser menu that looks different in
+  // every browser.
+  test("تغيير سرعة العرض يغيّر سرعة الفيديو فعلاً", async ({ page }) => {
+    await page.getByLabel("سرعة العرض").selectOption("1.5");
+
+    expect(
+      await page.locator("video").evaluate((element: HTMLVideoElement) => element.playbackRate),
+    ).toBe(1.5);
   });
 
   // SC-005. Deleting the node is the attack this design answers: the overlay owns

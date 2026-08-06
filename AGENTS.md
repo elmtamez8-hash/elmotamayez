@@ -118,6 +118,7 @@ Tests use in-memory SQLite (`DB_DATABASE=:memory:` in `phpunit.xml`).
 16. Devices and sessions are platform-owned — `tests/Feature/Auth/PlatformOwnershipTest.php`
 17. Watermark identity and phone masking — `tests/Feature/Media/WatermarkTest.php`
 18. Two-factor challenge, recovery codes and the sensitive-route guard — `tests/Feature/Auth/TwoFactorTest.php`
+19. Caption validation and grant-scoped delivery — `tests/Feature/Media/CaptionsTest.php`
 
 ### Read before touching playback
 

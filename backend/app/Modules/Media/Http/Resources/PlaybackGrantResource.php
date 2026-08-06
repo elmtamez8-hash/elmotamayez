@@ -48,6 +48,9 @@ class PlaybackGrantResource extends JsonResource
                 'language' => $caption->language,
                 'kind' => $caption->kind->value,
                 'is_default' => $caption->is_default,
+                // Through the grant, like the video: the track expires with it
+                // rather than being a permanent link to the lesson's script.
+                'url' => url("/api/v1/playback/{$this->uuid}/captions/{$caption->uuid}"),
             ])->all(),
         ];
     }

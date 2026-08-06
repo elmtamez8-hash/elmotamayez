@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Media\Http\Controllers\CaptionController;
 use App\Modules\Media\Http\Controllers\MediaAssetController;
 use App\Modules\Media\Http\Controllers\PlaybackController;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +25,11 @@ use Illuminate\Support\Facades\Route;
 Route::get('/playback/{grant}/stream', [PlaybackController::class, 'stream'])
     ->name('media.playback.stream');
 
+// A <track> element sends no Authorization header either, so the caption file
+// is reached through the same grant and expires with it.
+Route::get('/playback/{grant}/captions/{caption}', [CaptionController::class, 'show'])
+    ->name('media.captions.show');
+
 // The local provider's upload ticket points here. A commercial provider points
 // its ticket at its own host and this route simply goes unused.
 Route::put('/media/upload/{token}', [MediaAssetController::class, 'receiveUpload'])
@@ -33,6 +39,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/lessons/{lesson}/assets', [MediaAssetController::class, 'store']);
     Route::get('/media/assets/{asset}', [MediaAssetController::class, 'show']);
     Route::post('/media/assets/{asset}/complete', [MediaAssetController::class, 'complete']);
+    Route::post('/media/assets/{asset}/captions', [CaptionController::class, 'store']);
+    Route::delete('/media/captions/{caption}', [CaptionController::class, 'destroy']);
+
     // Deleting an asset destroys a teacher's uploaded work irreversibly.
     Route::delete('/media/assets/{asset}', [MediaAssetController::class, 'destroy'])
         ->middleware('2fa.required');

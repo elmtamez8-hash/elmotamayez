@@ -37,6 +37,11 @@ const PAGES = [
   { path: "/workspaces/new", name: "مساحة عمل جديدة" },
   { path: "/manage/courses", name: "إدارة الكورسات" },
   { path: "/manage/courses/new", name: "كورس جديد" },
+
+  // Added in 004. The security screen carries the device list and the two-factor
+  // enrolment — the one place a person acts on their own account being at risk,
+  // so it is the last page that may be hard to operate (SC-013).
+  { path: "/settings/security", name: "الأجهزة والأمان" },
 ];
 
 function audit(page: import("@playwright/test").Page) {

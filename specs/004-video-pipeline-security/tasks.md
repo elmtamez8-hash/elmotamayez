@@ -246,15 +246,15 @@ description: "Task list for 004-video-pipeline-security"
 
 **Purpose**: مجموعة متطلّبات لا قصة مستخدم — تمدّد مشغّل US1. بلا وسم قصة.
 
-- [ ] T105 [P] أنشئ `backend/tests/Feature/Media/CaptionsTest.php`: رفع WebVTT صالح ⇒ يظهر · ملف مشوّه ⇒ `422` · نصّ كامل مشتقّ من المقاطع (FR-034)
-- [ ] T106 أنشئ `AttachCaption` و`DeleteCaption` في `backend/app/Modules/Media/Actions/` مع تحقّق من بنية WebVTT
-- [ ] T107 أنشئ `backend/app/Modules/Media/Http/Controllers/CaptionController.php` والمسارين حسب contracts/api.md
-- [ ] T108 أضف `<track kind="captions">` وتغيير سرعة العرض إلى `frontend/src/components/player/VideoPlayer.tsx` (FR-033 · FR-035)
-- [ ] T109 استأنف من `resume_at_seconds` في `VideoPlayer.tsx`، واحفظ الموضع عبر نداء `renew` القائم لا بمسار جديد (FR-036)
-- [ ] T110 أنشئ `frontend/src/components/player/TranscriptPanel.tsx` — يحلّل WebVTT، يعرض المقاطع بأوقاتها، والنقر يقفز. **لا تخزين ثانٍ للنصّ**
-- [ ] T111 تأكّد أن العلامة المائية **لا تحجب** النصّ المصاحب في `Watermark.tsx` (FR-037)
-- [ ] T112 أضف قسم النصوص إلى صفحة إدارة الدرس `frontend/src/app/(app)/(shell)/manage/courses/[uuid]/lessons/[lessonUuid]/page.tsx`
-- [ ] T113 [P] أضف الصفحات الثلاث الجديدة إلى مصفوفتَي `PAGES` في `frontend/e2e/accessibility.spec.ts` و`frontend/e2e/rtl.spec.ts` (SC-013 · NFR-011)
+- [X] T105 [P] أنشئ `backend/tests/Feature/Media/CaptionsTest.php`: رفع WebVTT صالح ⇒ يظهر · ملف مشوّه ⇒ `422` · نصّ كامل مشتقّ من المقاطع (FR-034)
+- [X] T106 أنشئ `AttachCaption` و`DeleteCaption` في `backend/app/Modules/Media/Actions/` مع تحقّق من بنية WebVTT
+- [X] T107 أنشئ `backend/app/Modules/Media/Http/Controllers/CaptionController.php` والمسارين حسب contracts/api.md
+- [X] T108 أضف `<track kind="captions">` وتغيير سرعة العرض إلى `frontend/src/components/player/VideoPlayer.tsx` (FR-033 · FR-035)
+- [X] T109 استأنف من `resume_at_seconds` في `VideoPlayer.tsx`، واحفظ الموضع عبر نداء `renew` القائم لا بمسار جديد (FR-036)
+- [X] T110 أنشئ `frontend/src/components/player/TranscriptPanel.tsx` — يحلّل WebVTT، يعرض المقاطع بأوقاتها، والنقر يقفز. **لا تخزين ثانٍ للنصّ**
+- [X] T111 تأكّد أن العلامة المائية **لا تحجب** النصّ المصاحب في `Watermark.tsx` (FR-037)
+- [X] T112 أضف قسم النصوص إلى صفحة إدارة الدرس `frontend/src/app/(app)/(shell)/manage/courses/[uuid]/lessons/[lessonUuid]/page.tsx`
+- [X] T113 [P] أضف الصفحات الثلاث الجديدة إلى مصفوفتَي `PAGES` في `frontend/e2e/accessibility.spec.ts` و`frontend/e2e/rtl.spec.ts` (SC-013 · NFR-011)
 
 ---
 

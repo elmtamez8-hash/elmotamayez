@@ -49,12 +49,19 @@ export type PlaybackGrant = {
   duration_seconds: number | null;
   resume_at_seconds: number;
   renditions: Array<{ label: string; height: number }>;
-  captions: Array<{
-    uuid: string;
-    language: string;
-    kind: string;
-    is_default: boolean;
-  }>;
+  captions: Caption[];
+};
+
+/**
+ * `url` runs through the grant, exactly as the video does — so the lesson's
+ * script stops being readable at the same moment the video stops playing.
+ */
+export type Caption = {
+  uuid: string;
+  language: string;
+  kind: string;
+  is_default: boolean;
+  url: string;
 };
 
 export const media = {
@@ -110,4 +117,19 @@ export const media = {
   asset: (assetUuid: string) => api.get<MediaAsset>(`/media/assets/${assetUuid}`),
 
   remove: (assetUuid: string) => api.delete<void>(`/media/assets/${assetUuid}`),
+
+  /**
+   * Attach a WebVTT track. Re-uploading the same language replaces it rather
+   * than adding a second one — correcting a typo is the ordinary case.
+   */
+  attachCaption: (assetUuid: string, file: File, language = "ar") => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("language", language);
+
+    return api.upload<Caption>(`/media/assets/${assetUuid}/captions`, form);
+  },
+
+  removeCaption: (captionUuid: string) =>
+    api.delete<void>(`/media/captions/${captionUuid}`),
 };

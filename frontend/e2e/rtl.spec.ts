@@ -27,6 +27,7 @@ const PANEL_PAGES = [
   { path: "/members", name: "الأعضاء" },
   { path: "/workspaces", name: "مساحات العمل" },
   { path: "/manage/courses", name: "إدارة الكورسات" },
+  { path: "/settings/security", name: "الأجهزة والأمان" },
 ];
 
 const ALL_PAGES = [...PUBLIC_PAGES, ...PANEL_PAGES];
