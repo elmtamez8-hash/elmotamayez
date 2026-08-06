@@ -270,8 +270,8 @@ description: "Task list for 004-video-pipeline-security"
 - [X] T121 [P] حدّث `AGENTS.md` بالاختبارات الحرجة الجديدة (منح التشغيل · حدّ الأجهزة · مطابقة العقد) وبقسم فصل جداول الأدوار
 - [X] T122 حدّث `docs/roadmap.md`: علّم 004 مُنفَّذة، وصحّح سطرها (المزوّد مؤجَّل خلف واجهة لا «Bunny Stream»)
 - [X] T123 شغّل البوابات الأربع: `php vendor/bin/pest` · `./vendor/bin/pint --test` · `./vendor/bin/phpstan analyse` · `npx tsc --noEmit` — **يُمنع** baseline جديد أو `@phpstan-ignore` (SC-014)
-- [ ] T124 شغّل Playwright كاملاً: `player.spec.ts` + `accessibility.spec.ts` + `rtl.spec.ts` بـ `--config=e2e/playwright.local.config.ts`
-- [ ] T125 راجع `quickstart.md` سيناريو سيناريو على نسخة نظيفة (`migrate:fresh --seed`) وصحّح أي انحراف بين الوثيقة والسلوك
+- [X] T124 شغّل Playwright كاملاً: `player.spec.ts` + `accessibility.spec.ts` + `rtl.spec.ts` بـ `--config=e2e/playwright.local.config.ts`
+- [X] T125 راجع `quickstart.md` سيناريو سيناريو على نسخة نظيفة (`migrate:fresh --seed`) وصحّح أي انحراف بين الوثيقة والسلوك
 
 ---
 

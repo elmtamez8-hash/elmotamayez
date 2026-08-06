@@ -22,6 +22,11 @@ php artisan storage:link             # مرة واحدة لكل نسخة
 cd frontend && npm run dev      # :3000 — يوجّه /api/* إلى :8000
 ```
 
+> **للتشغيل القاطع لـPlaywright** (`npx playwright test` بالإعداد المُلتزَم) شغّل الـAPI
+> بـ`PHP_CLI_SERVER_WORKERS=8 php artisan serve`. البناء يُقدّم صفحتَي التسجيل مسبقاً بنداءات
+> API متوازية، وخادم PHP المدمج بخيط واحد يرفض الباقي ⇒ `ECONNREFUSED` وفشل **البناء** قبل
+> أي اختبار.
+
 > **تذكير**: **يُمنع** تشغيل `npm run build` وخادم `npm run dev` معاً — كلاهما يكتب في `.next/`.
 
 ---
