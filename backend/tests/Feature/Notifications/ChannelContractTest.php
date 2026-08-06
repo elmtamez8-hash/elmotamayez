@@ -41,6 +41,9 @@ function dispatchOf(User $user, NotificationType $type): void
             'exam_title' => 'اختبار',
             'score' => '90',
             'note' => 'ملاحظة',
+            'title' => 'حصّة الجبر',
+            'status' => 'حاضر',
+            'minutes' => '45',
         ],
     ));
 }

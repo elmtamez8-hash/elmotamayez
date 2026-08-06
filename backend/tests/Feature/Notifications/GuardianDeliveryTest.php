@@ -188,13 +188,16 @@ it('does not involve guardians in types that are not about them', function (): v
     expect(Notification::query()->forRecipient($guardian)->count())->toBe(0);
 });
 
-it('tells each of the five guardian-facing types apart', function (): void {
+it('tells every guardian-facing type apart', function (): void {
     $guardianTypes = array_filter(
         NotificationType::cases(),
         static fn (NotificationType $type): bool => $type->targetsGuardians(),
     );
 
-    expect($guardianTypes)->toHaveCount(5);
+    // Seven since spec 005 added the post-session report and the cancellation
+    // notice. The number is asserted rather than derived on purpose: a type that
+    // quietly starts reaching guardians is a consent decision, not a detail.
+    expect($guardianTypes)->toHaveCount(7);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();

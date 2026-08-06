@@ -6,6 +6,8 @@ namespace App\Modules\LiveSessions;
 
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Events\SessionCompleted;
+use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
+use App\Modules\LiveSessions\Listeners\PublishRecordingAsLesson;
 use App\Modules\LiveSessions\Listeners\UpdateTeacherCounters;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
@@ -16,6 +18,9 @@ use App\Modules\LiveSessions\Policies\ClassSessionPolicy;
 use App\Modules\LiveSessions\Policies\FreezePeriodPolicy;
 use App\Modules\LiveSessions\Policies\SessionBookingPolicy;
 use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
+use App\Modules\LiveSessions\Support\EloquentSessionAttendanceDirectory;
+use App\Modules\Media\Events\MediaAssetReady;
+use App\Shared\Contracts\SessionAttendanceDirectory;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -41,6 +46,11 @@ class LiveSessionsServiceProvider extends Module
         $this->app->bind(BroadcastProviderInterface::class, fn (): BroadcastProviderInterface => match ((string) config('sessions.provider')) {
             default => $this->app->make(NullBroadcastProvider::class),
         });
+
+        // LiveSessions owns the booking; Media asks through the interface rather
+        // than reaching into these models. Same binding shape as Learning's
+        // EnrollmentDirectory.
+        $this->app->bind(SessionAttendanceDirectory::class, EloquentSessionAttendanceDirectory::class);
     }
 
     public function boot(): void
@@ -56,5 +66,16 @@ class LiveSessionsServiceProvider extends Module
         // module's actions (Constitution III). Marketplace owns teacher_profiles;
         // this module only announces that a session ended.
         Event::listen(SessionCompleted::class, UpdateTeacherCounters::class);
+
+        // Media announces a ready asset; this module decides that one of them is
+        // a session recording and publishes it. Media knows nothing about
+        // sessions, which is what Constitution III asks for.
+        Event::listen(MediaAssetReady::class, PublishRecordingAsLesson::class);
+
+        // Ingest starts when the session closes, not when the room does: the
+        // provider needs the session over before it has anything to hand back.
+        Event::listen(SessionCompleted::class, function (SessionCompleted $event): void {
+            IngestSessionRecordingJob::dispatch((int) $event->session->getKey());
+        });
     }
 }

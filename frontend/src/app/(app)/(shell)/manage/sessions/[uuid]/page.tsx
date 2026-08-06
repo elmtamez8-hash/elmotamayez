@@ -14,6 +14,7 @@ import { AttendanceSheet } from "@/components/sessions/AttendanceSheet";
 import {
   attendance,
   classSessions,
+  recordingLabel,
   type AttendanceRow,
   type ClassSession,
 } from "@/lib/class-sessions";
@@ -123,7 +124,15 @@ export default function ManageSessionPage({
       {session.recording !== null && (
         <Card>
           <h3 className="mb-2 font-semibold text-ink">التسجيل</h3>
-          <p className="text-sm text-ink-muted">الحالة: {session.recording.status}</p>
+          <p className="mb-3 text-sm text-ink-muted">{recordingLabel(session.recording.status)}</p>
+
+          {/* A published recording without a way in is a lesson nobody can
+              reach — the exact bug this project has already shipped once. */}
+          {session.recording.lesson_uuid !== null && (
+            <Button href={`/learn/${session.recording.lesson_uuid}`} variant="secondary">
+              مشاهدة التسجيل
+            </Button>
+          )}
         </Card>
       )}
     </div>

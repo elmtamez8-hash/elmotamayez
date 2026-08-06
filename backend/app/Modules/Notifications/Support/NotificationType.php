@@ -32,6 +32,9 @@ enum NotificationType: string
     case AppointmentReminder = 'appointment_reminder';
     case ExamResult = 'exam_result';
     case AcademicWarning = 'academic_warning';
+    case SessionReport = 'session_report';
+    case SessionCancelled = 'session_cancelled';
+    case SessionRecordingFailed = 'session_recording_failed';
 
     public function label(): string
     {
@@ -48,6 +51,9 @@ enum NotificationType: string
             self::AppointmentReminder => 'تذكير موعد',
             self::ExamResult => 'نتيجة اختبار',
             self::AcademicWarning => 'إنذار أكاديمي',
+            self::SessionReport => 'تقرير ما بعد الحصة',
+            self::SessionCancelled => 'إلغاء حصة',
+            self::SessionRecordingFailed => 'تعذّر نشر تسجيل الحصة',
         };
     }
 
@@ -89,7 +95,9 @@ enum NotificationType: string
             self::PaymentReminder,
             self::AppointmentReminder,
             self::ExamResult,
-            self::AcademicWarning => true,
+            self::AcademicWarning,
+            self::SessionReport,
+            self::SessionCancelled => true,
             default => false,
         };
     }
@@ -106,6 +114,10 @@ enum NotificationType: string
             self::AppointmentReminder => GuardianPermission::Schedule,
             self::ExamResult => GuardianPermission::Results,
             self::AcademicWarning => GuardianPermission::AcademicWarnings,
+            // The post-session report is attendance news before it is
+            // anything else, so it rides the guardian's attendance consent.
+            self::SessionReport => GuardianPermission::Attendance,
+            self::SessionCancelled => GuardianPermission::Schedule,
             default => null,
         };
     }

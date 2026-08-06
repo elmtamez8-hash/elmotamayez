@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Http\Resources;
 
+use App\Modules\Courses\Models\Lesson;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\LiveSessions\Support\SessionSettings;
@@ -62,8 +63,26 @@ class ClassSessionResource extends JsonResource
             ]),
             'recording' => $this->recording_status === null ? null : [
                 'status' => $this->recording_status,
+                // The uuid is the route in. Publishing a lesson and not saying
+                // where it is has already cost this product a whole phase.
+                'lesson_uuid' => $this->recordingLessonUuid(),
             ],
         ];
+    }
+
+    /** The lesson a published recording became, if it has been published. */
+    private function recordingLessonUuid(): ?string
+    {
+        if ($this->recording_status !== 'published') {
+            return null;
+        }
+
+        $uuid = Lesson::query()
+            ->withoutWorkspaceScope()
+            ->where('class_session_id', $this->getKey())
+            ->value('uuid');
+
+        return $uuid === null ? null : (string) $uuid;
     }
 
     private function bookingFor(mixed $userId): ?SessionBooking

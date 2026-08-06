@@ -54,6 +54,21 @@ class NotificationTemplateSeeder extends Seeder
     private function templates(): array
     {
         return [
+            NotificationType::SessionReport->value => [
+                'تقرير حصة {{ title }}',
+                'حالة {{ student_name }} في حصة «{{ title }}»: {{ status }}، مدة الحضور {{ minutes }} دقيقة. {{ note }}',
+                ['title', 'student_name', 'status', 'minutes', 'note'],
+            ],
+            NotificationType::SessionCancelled->value => [
+                'أُلغيت حصة {{ title }}',
+                'أُلغيت حصة «{{ title }}» المقرّرة في {{ starts_at }}. السبب: {{ reason }}.',
+                ['title', 'starts_at', 'reason'],
+            ],
+            NotificationType::SessionRecordingFailed->value => [
+                'تعذّر نشر تسجيل الحصة',
+                'لم يُنشر تسجيل حصة «{{ title }}» بعد عدّة محاولات ({{ reason }}). يمكنك رفعه يدوياً من صفحة الحصة.',
+                ['title', 'reason'],
+            ],
             NotificationType::EnrollmentCreated->value => [
                 'تم تسجيلك في كورس',
                 'مرحباً {{ name }}، تم تسجيلك في «{{ course_title }}». يمكنك البدء الآن.',

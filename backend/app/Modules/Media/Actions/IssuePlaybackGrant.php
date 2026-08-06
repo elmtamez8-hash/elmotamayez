@@ -9,9 +9,11 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Models\PlaybackGrant;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\EnrollmentDirectory;
+use App\Shared\Contracts\SessionAttendanceDirectory;
 use DomainException;
 use RuntimeException;
 
@@ -29,6 +31,7 @@ class IssuePlaybackGrant extends Action
 {
     public function __construct(
         private readonly EnrollmentDirectory $enrollments,
+        private readonly SessionAttendanceDirectory $bookings,
     ) {}
 
     /**
@@ -63,14 +66,35 @@ class IssuePlaybackGrant extends Action
     /**
      * Entitlement for one lesson.
      *
-     * Three independent routes, in the order that is cheapest to check:
-     * a free or preview lesson, ownership of the workspace that produced it, or
-     * an active enrolment in its course.
+     * Four independent routes, in the order that is cheapest to check: a free or
+     * preview lesson, ownership of the workspace that produced it, an active
+     * enrolment in its course, or — for a lesson published from a live session's
+     * recording — a seat in that session.
+     *
+     * The last one is NOT a special case of enrolment. FR-030 restricts a
+     * recording to the people who booked the session, not to the whole cohort,
+     * so publishing it as an ordinary lesson without this check would quietly
+     * widen access to everyone enrolled in the course.
      */
     public function mayWatch(Lesson $lesson, User $viewer): bool
     {
         if ($lesson->is_free || $lesson->is_preview) {
             return true;
+        }
+
+        if ($lesson->class_session_id !== null) {
+            /*
+             * A session recording answers to its seat, and the workspace
+             * shortcut below is deliberately NOT applied to it.
+             *
+             * Every enrolled student is a member of their teacher's workspace,
+             * so letting membership open a recording would hand the hour to the
+             * entire register — including the students who were not in the room
+             * and were never charged for it (FR-030). Only someone who can run
+             * the workspace's sessions gets in without a seat.
+             */
+            return $this->bookings->hasBookingForLesson($viewer, (int) $lesson->getKey())
+                || $viewer->can(Permissions::SESSIONS_MANAGE);
         }
 
         if ($viewer->workspaces()->where('workspaces.id', $lesson->workspace_id)->exists()) {
@@ -94,12 +118,38 @@ class IssuePlaybackGrant extends Action
         $courseIds = array_flip($this->enrollments->activeCourseIdsFor($viewer));
         $workspaceIds = array_flip($viewer->workspaces()->pluck('workspaces.id')->all());
 
+        /*
+         * The seat lookup is paid for only when a recording is actually in the
+         * list. A course of ordinary lessons is the common case, and charging it
+         * two extra queries plus a permission load for a rule it never reaches
+         * would trade SC-011 for nothing.
+         */
+        $bookedLessonIds = null;
+        $mayManageSessions = null;
+
         $allowed = [];
 
         foreach ($lessons as $lesson) {
-            $allowed[(int) $lesson->getKey()] = $lesson->is_free
-                || $lesson->is_preview
-                || isset($workspaceIds[$lesson->workspace_id])
+            $lessonId = (int) $lesson->getKey();
+
+            if ($lesson->is_free || $lesson->is_preview) {
+                $allowed[$lessonId] = true;
+
+                continue;
+            }
+
+            // Same ordering as mayWatch(), and for the same reason: a recording
+            // must not be opened by workspace membership.
+            if ($lesson->class_session_id !== null) {
+                $bookedLessonIds ??= array_flip($this->bookings->bookedLessonIdsFor($viewer));
+                $mayManageSessions ??= $viewer->can(Permissions::SESSIONS_MANAGE);
+
+                $allowed[$lessonId] = isset($bookedLessonIds[$lessonId]) || $mayManageSessions;
+
+                continue;
+            }
+
+            $allowed[$lessonId] = isset($workspaceIds[$lesson->workspace_id])
                 || isset($courseIds[$lesson->course_id]);
         }
 

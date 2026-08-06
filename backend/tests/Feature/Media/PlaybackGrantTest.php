@@ -10,6 +10,8 @@ use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\SessionEndReason;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Media\Actions\IssuePlaybackGrant;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\PlaybackGrant;
@@ -127,6 +129,39 @@ it('leaks no provider identifier, key or storage path', function (): void {
     expect($serialised)->not->toContain('provider')
         ->and($serialised)->not->toContain($lesson->mediaAsset->provider_asset_id)
         ->and($serialised)->not->toContain('storage/');
+});
+
+// FR-019 · spec 005. A session recording is a lesson like any other by the time
+// it reaches this endpoint, so the same scan has to hold for it: the broadcast
+// provider's name and room id must be as absent as the video provider's.
+it('leaks no broadcast provider or room id for a session recording', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $lesson = $this->lessonWithVideo($workspace);
+
+    // Inside the workspace, because the factory reaches for a TeacherProfile
+    // and that model is tenant-owned.
+    $session = app(WorkspaceContext::class)->forWorkspace(
+        $workspace,
+        fn () => ClassSession::factory()->create([
+            'broadcast_provider' => 'some-vendor',
+            'broadcast_room_id' => 'room-abc-123',
+        ]),
+    );
+
+    $lesson->forceFill(['class_session_id' => $session->getKey()])->save();
+
+    [$viewer] = $this->enrolledViewer($workspace, $lesson);
+    SessionBooking::factory()->create([
+        'workspace_id' => $workspace->getKey(),
+        'class_session_id' => $session->getKey(),
+        'student_user_id' => $viewer->getKey(),
+    ]);
+
+    $payload = $this->postJson("/api/v1/lessons/{$lesson->uuid}/playback")->assertOk()->json();
+    $serialised = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '';
+
+    expect($serialised)->not->toContain('some-vendor')
+        ->and($serialised)->not->toContain('room-abc-123');
 });
 
 // FR-036. Caught in a browser, not here: `->additional()` is dropped by

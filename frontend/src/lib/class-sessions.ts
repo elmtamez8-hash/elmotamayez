@@ -48,7 +48,22 @@ export interface ClassSession {
     may_cancel_until: string;
   } | null;
   course?: { uuid: string; title: string };
-  recording: { status: string } | null;
+  recording: { status: string; lesson_uuid: string | null } | null;
+}
+
+/** Arabic for a recording state. The raw value is a machine word, not a message. */
+export function recordingLabel(status: string): string {
+  const labels: Record<string, string> = {
+    pending: "قيد الانتظار",
+    ingesting: "قيد المعالجة",
+    published: "منشور",
+    failed: "تعذّر النشر — يمكنك الرفع يدوياً",
+    // The session belongs to a subject rather than a course, so there is no
+    // course tree for the lesson to live in.
+    no_course: "التسجيل جاهز، ولا كورس لنشره فيه",
+  };
+
+  return labels[status] ?? status;
 }
 
 export interface SessionBooking {

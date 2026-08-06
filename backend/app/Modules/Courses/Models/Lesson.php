@@ -26,6 +26,10 @@ class Lesson extends BaseModel
         'course_id',
         'section_id',
         'chapter_id',
+        // Set when this lesson was published from a live session's recording.
+        // Its presence changes who may watch: entitlement comes from a seat in
+        // that session, not from enrolment in the course (FR-030).
+        'class_session_id',
         'title',
         'type',
         'content',

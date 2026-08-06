@@ -222,16 +222,16 @@ description: "Task list for 005-live-sessions-attendance"
 
 **Independent Test**: إنهاء حصة مسجَّلة والتحقّق من ظهورها أصلاً محمياً متاحاً لطلابها وحدهم.
 
-- [ ] T099 [US4] أنشئ `backend/app/Shared/Contracts/SessionAttendanceDirectory.php` بالتوقيعين في data-model — بنفس شكل `EnrollmentDirectory` بالضبط، لأن المبدأ III يمنع `Media` من لمس نماذج `LiveSessions`
-- [ ] T100 [US4] أنشئ `backend/app/Modules/LiveSessions/Support/EloquentSessionAttendanceDirectory.php` واربطه في مزوّد الوحدة
-- [ ] T101 [US4] أضف المسار الثالث إلى `IssuePlaybackGrant::mayWatch()` و`mayWatchMany()` في `backend/app/Modules/Media/Actions/IssuePlaybackGrant.php`: درس مرتبط بحصة يُشاهَد بحجز مقعد فيها — **لا بالتسجيل في الكورس** (FR-030)
-- [ ] T102 [US4] أنشئ `backend/app/Modules/LiveSessions/Jobs/IngestSessionRecordingJob.php` يستدعي `recording()` بعد الإغلاق، وينشئ `MediaAsset` ويسلّمه إلى خط أنابيب 004 — **`null` ليست خطأً**: هي الحالة المتوقّعة في أول استدعاء
-- [ ] T103 [US4] أضف إعادة المحاولة بحدّ معلن إلى `IngestSessionRecordingJob` مع `recording_attempts`، وعند الفشل النهائي أبلغ المدرّس **وأتِح الرفع اليدوي** (FR-031)
-- [ ] T104 [US4] أنشئ `backend/app/Modules/LiveSessions/Listeners/PublishRecordingAsLesson.php` مستمعاً على `MediaAssetReady` القائم منذ 004، ينشئ درساً مرتبطاً بالحصة (`lessons.class_session_id`) ويضبط `recording_status = published`
-- [ ] T105 [P] [US4] أنشئ `backend/tests/Feature/LiveSessions/RecordingPublicationTest.php` (SC-007) بـ`FakeBroadcastProvider` يعلن `recording: true`: السلسلة كاملةً من الإغلاق إلى درس منشور، وحالة «قيد التجهيز» تُعرَض ولا تفشل (FR-032)
-- [ ] T106 [P] [US4] أنشئ `backend/tests/Feature/LiveSessions/RecordingAccessTest.php` (SC-008): من حجز يشاهد بكل ضوابط 004، **ومن لم يحجز يُمنع** — ولو كان مسجَّلاً في الكورس
-- [ ] T107 [P] [US4] أضف حالة إلى `backend/tests/Feature/Media/PlaybackGrantTest.php` تؤكّد أن حمولة المنحة **لا تحمل** معرّف مزوّد بثّ ولا رابط تسجيل دائماً (FR-019)
-- [ ] T108 [US4] اعرض التسجيل في `frontend/src/app/(app)/(shell)/manage/sessions/[uuid]/page.tsx` وفي بطاقة الحصة المنتهية بـ`/schedule` كرابط إلى `/learn/{lesson}` — **الدرس بلا رابط درس غير موجود**
+- [X] T099 [US4] أنشئ `backend/app/Shared/Contracts/SessionAttendanceDirectory.php` بالتوقيعين في data-model — بنفس شكل `EnrollmentDirectory` بالضبط، لأن المبدأ III يمنع `Media` من لمس نماذج `LiveSessions`
+- [X] T100 [US4] أنشئ `backend/app/Modules/LiveSessions/Support/EloquentSessionAttendanceDirectory.php` واربطه في مزوّد الوحدة
+- [X] T101 [US4] أضف المسار الثالث إلى `IssuePlaybackGrant::mayWatch()` و`mayWatchMany()` في `backend/app/Modules/Media/Actions/IssuePlaybackGrant.php`: درس مرتبط بحصة يُشاهَد بحجز مقعد فيها — **لا بالتسجيل في الكورس** (FR-030)
+- [X] T102 [US4] أنشئ `backend/app/Modules/LiveSessions/Jobs/IngestSessionRecordingJob.php` يستدعي `recording()` بعد الإغلاق، وينشئ `MediaAsset` ويسلّمه إلى خط أنابيب 004 — **`null` ليست خطأً**: هي الحالة المتوقّعة في أول استدعاء
+- [X] T103 [US4] أضف إعادة المحاولة بحدّ معلن إلى `IngestSessionRecordingJob` مع `recording_attempts`، وعند الفشل النهائي أبلغ المدرّس **وأتِح الرفع اليدوي** (FR-031)
+- [X] T104 [US4] أنشئ `backend/app/Modules/LiveSessions/Listeners/PublishRecordingAsLesson.php` مستمعاً على `MediaAssetReady` القائم منذ 004، ينشئ درساً مرتبطاً بالحصة (`lessons.class_session_id`) ويضبط `recording_status = published`
+- [X] T105 [P] [US4] أنشئ `backend/tests/Feature/LiveSessions/RecordingPublicationTest.php` (SC-007) بـ`FakeBroadcastProvider` يعلن `recording: true`: السلسلة كاملةً من الإغلاق إلى درس منشور، وحالة «قيد التجهيز» تُعرَض ولا تفشل (FR-032)
+- [X] T106 [P] [US4] أنشئ `backend/tests/Feature/LiveSessions/RecordingAccessTest.php` (SC-008): من حجز يشاهد بكل ضوابط 004، **ومن لم يحجز يُمنع** — ولو كان مسجَّلاً في الكورس
+- [X] T107 [P] [US4] أضف حالة إلى `backend/tests/Feature/Media/PlaybackGrantTest.php` تؤكّد أن حمولة المنحة **لا تحمل** معرّف مزوّد بثّ ولا رابط تسجيل دائماً (FR-019)
+- [X] T108 [US4] اعرض التسجيل في `frontend/src/app/(app)/(shell)/manage/sessions/[uuid]/page.tsx` وفي بطاقة الحصة المنتهية بـ`/schedule` كرابط إلى `/learn/{lesson}` — **الدرس بلا رابط درس غير موجود**
 
 **Checkpoint**: حزمة الحصة كاملة للغائب، بحماية 004 نفسها بلا سطر حماية جديد.
 
