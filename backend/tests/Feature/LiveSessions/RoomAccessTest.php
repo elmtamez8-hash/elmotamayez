@@ -10,6 +10,7 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Support\Roles;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Tests\Support\FakeBroadcastProvider;
 
@@ -23,6 +24,12 @@ use Tests\Support\FakeBroadcastProvider;
 */
 
 beforeEach(function (): void {
+    // Opening the room dispatches two delayed jobs, and on the `sync` connection
+    // the suite runs on a delay is not honoured — CloseClassSessionJob would run
+    // on the spot and shut the door being tested. Their scheduling is asserted in
+    // AbsenceTimingTest, where it is the subject rather than a side effect.
+    Queue::fake();
+
     $this->app->instance(BroadcastProviderInterface::class, new FakeBroadcastProvider);
 
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();

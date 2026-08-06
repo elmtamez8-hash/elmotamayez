@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\LiveSessions\Data\ScheduleSessionData;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Events\SessionScheduled;
+use App\Modules\LiveSessions\Jobs\FreezeBillableSeatsJob;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Shared\Actions\Action;
@@ -44,6 +45,11 @@ class ScheduleClassSession extends Action
             'seats_taken' => 0,
             'created_by' => $actor->getKey(),
         ]);
+
+        // Fired at the cancellation deadline, so the billable seat count is
+        // settled at the moment it stops being able to change (FR-059).
+        FreezeBillableSeatsJob::dispatch((int) $session->getKey())
+            ->delay($session->cancellationDeadline());
 
         SessionScheduled::dispatch($session);
 

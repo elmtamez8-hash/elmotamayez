@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\LiveSessions\Http\Controllers\AttendanceController;
 use App\Modules\LiveSessions\Http\Controllers\BookingController;
 use App\Modules\LiveSessions\Http\Controllers\BroadcastController;
 use App\Modules\LiveSessions\Http\Controllers\ClassSessionController;
@@ -26,6 +27,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::get('/class-sessions', [ClassSessionController::class, 'index']);
     Route::get('/class-sessions/{session}', [ClassSessionController::class, 'show']);
+    Route::get('/class-sessions/{session}/attendance', [AttendanceController::class, 'index']);
 
     Route::middleware('throttle:sessions')->group(function (): void {
         Route::post('/class-sessions', [ClassSessionController::class, 'store']);
@@ -39,6 +41,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/class-sessions/{session}/join', [BroadcastController::class, 'join']);
         Route::post('/class-sessions/{session}/leave', [BroadcastController::class, 'leave']);
         Route::post('/class-sessions/{session}/host/{action}', [BroadcastController::class, 'host']);
+
+        Route::post('/attendances/{attendance}/override', [AttendanceController::class, 'override']);
     });
 
     // Its own limiter: one participant sends two a minute, and the ceiling has

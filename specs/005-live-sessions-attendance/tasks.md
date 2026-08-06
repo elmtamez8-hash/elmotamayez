@@ -176,41 +176,41 @@ description: "Task list for 005-live-sessions-attendance"
 
 ### تجميد المقاعد
 
-- [ ] T076 [US3] أنشئ `backend/app/Modules/LiveSessions/Jobs/FreezeBillableSeatsJob.php` يُدفَع عند الجدولة بتأخير حتى `starts_at − cancellation_window`، ويكتب `billable_seats` و`seats_frozen_at` **مرة واحدة** ويخرج بلا أثر إن كان مكتوباً (FR-059 · FR-060)
-- [ ] T077 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/BillableSeatsTest.php` (SC-018): الرقم يطابق الحجوزات لحظة المهلة، و**إلغاء لاحق لا يغيّره**، وحصة بلا حجز تُعلَّم `zero_attendance` وتُدرَج للمراجعة (FR-061)
+- [X] T076 [US3] أنشئ `backend/app/Modules/LiveSessions/Jobs/FreezeBillableSeatsJob.php` يُدفَع عند الجدولة بتأخير حتى `starts_at − cancellation_window`، ويكتب `billable_seats` و`seats_frozen_at` **مرة واحدة** ويخرج بلا أثر إن كان مكتوباً (FR-059 · FR-060)
+- [X] T077 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/BillableSeatsTest.php` (SC-018): الرقم يطابق الحجوزات لحظة المهلة، و**إلغاء لاحق لا يغيّره**، وحصة بلا حجز تُعلَّم `zero_attendance` وتُدرَج للمراجعة (FR-061)
 
 ### السُّلَّم والعتبة
 
-- [ ] T078 [US3] أنشئ `backend/app/Modules/LiveSessions/Support/AttendanceLadder.php` يحوّل (أول نبضة، مدة البقاء، إعدادات الحصة) إلى `AttendanceStatus` وفق الجدول في data-model §٣ — منطق خالص بلا قاعدة بيانات، ليُختبر مباشرةً
-- [ ] T079 [US3] أنشئ `backend/app/Modules/LiveSessions/Jobs/MarkAbsenteesJob.php` يُدفَع عند بدء الحصة بتأخير يساوي العتبة، ويكتب `absent` لكل مقعد لم يصله نبض — **متماثل الأثر**: يخرج بلا أثر إن كانت الحالة قد كُتبت (research §R4)
-- [ ] T080 [US3] عدّل `RecordPresencePing` ليكتب `first_joined_at` عند أول نبضة ويحدّث الحالة بـ`AttendanceLadder` — **ودخول بعد العتبة يُسمح به ولا يقلب `absent` آلياً** (FR-021ج)
-- [ ] T081 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/AttendanceLadderTest.php` (SC-020) بالمواضع الأربعة: ضمن السماح · بعده وقبل النصف · لا دخول حتى النصف · دخول بعد النصف
-- [ ] T082 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/AbsenceTimingTest.php` (SC-021) بـ`travelTo()`: `absent` تُكتب **عند انقضاء العتبة** لا عند نهاية الحصة — الاختبار يقيس اللحظة لا النتيجة
+- [X] T078 [US3] أنشئ `backend/app/Modules/LiveSessions/Support/AttendanceLadder.php` يحوّل (أول نبضة، مدة البقاء، إعدادات الحصة) إلى `AttendanceStatus` وفق الجدول في data-model §٣ — منطق خالص بلا قاعدة بيانات، ليُختبر مباشرةً
+- [X] T079 [US3] أنشئ `backend/app/Modules/LiveSessions/Jobs/MarkAbsenteesJob.php` يُدفَع عند بدء الحصة بتأخير يساوي العتبة، ويكتب `absent` لكل مقعد لم يصله نبض — **متماثل الأثر**: يخرج بلا أثر إن كانت الحالة قد كُتبت (research §R4)
+- [X] T080 [US3] عدّل `RecordPresencePing` ليكتب `first_joined_at` عند أول نبضة ويحدّث الحالة بـ`AttendanceLadder` — **ودخول بعد العتبة يُسمح به ولا يقلب `absent` آلياً** (FR-021ج)
+- [X] T081 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/AttendanceLadderTest.php` (SC-020) بالمواضع الأربعة: ضمن السماح · بعده وقبل النصف · لا دخول حتى النصف · دخول بعد النصف
+- [X] T082 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/AbsenceTimingTest.php` (SC-021) بـ`travelTo()`: `absent` تُكتب **عند انقضاء العتبة** لا عند نهاية الحصة — الاختبار يقيس اللحظة لا النتيجة
 
 ### الإغلاق والكشف والتنفيذ
 
-- [ ] T083 [US3] أنشئ `backend/app/Modules/LiveSessions/Actions/CloseClassSession.php`: يغلق الغرفة، وينتج **كشفاً كاملاً يغطّي كل مقعد مُجمَّد بلا استثناء** (FR-023أ)، ويطلق `SessionCompleted` ثم `AttendanceConfirmed`
-- [ ] T084 [US3] أضف شرط التنفيذ في `CloseClassSession`: `SessionDelivered` يُطلق **فقط** عند تحقّق الثلاثة — دخل المدرّس · بلغ `teacher_required_stay_ratio` · انتهت طبيعياً (FR-056 · FR-057)، ويُكتب `delivered_at`
-- [ ] T085 [US3] أنشئ `backend/app/Modules/LiveSessions/Jobs/CloseClassSessionJob.php` يُدفَع بتأخير حتى نهاية الحصة + سماح، ويستدعي الـAction — متماثل الأثر
-- [ ] T086 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/SessionDeliveryTest.php` (SC-017): حصة لم يدخلها المدرّس وأخرى غادرها مبكّراً — **صفر استهلاك وصفر استحقاق** في كلتيهما، و`SessionCompleted` يُطلق بلا `SessionDelivered`
-- [ ] T087 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/AttendanceSheetTest.php` (SC-022): عدد صفوف الكشف يطابق `billable_seats` **بلا نقص ولا زيادة**
-- [ ] T088 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/AttendanceHasNoFinancialEffectTest.php` (SC-024 · FR-023ج): حصة حضرها الجميع وأخرى غاب عنها الجميع بنفس المقاعد تُنتجان **الأثر المالي نفسه** — يُكتب الآن رغم غياب الفوترة، لأن الحدث الذي تستهلكه 006 يُعرَّف هنا
+- [X] T083 [US3] أنشئ `backend/app/Modules/LiveSessions/Actions/CloseClassSession.php`: يغلق الغرفة، وينتج **كشفاً كاملاً يغطّي كل مقعد مُجمَّد بلا استثناء** (FR-023أ)، ويطلق `SessionCompleted` ثم `AttendanceConfirmed`
+- [X] T084 [US3] أضف شرط التنفيذ في `CloseClassSession`: `SessionDelivered` يُطلق **فقط** عند تحقّق الثلاثة — دخل المدرّس · بلغ `teacher_required_stay_ratio` · انتهت طبيعياً (FR-056 · FR-057)، ويُكتب `delivered_at`
+- [X] T085 [US3] أنشئ `backend/app/Modules/LiveSessions/Jobs/CloseClassSessionJob.php` يُدفَع بتأخير حتى نهاية الحصة + سماح، ويستدعي الـAction — متماثل الأثر
+- [X] T086 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/SessionDeliveryTest.php` (SC-017): حصة لم يدخلها المدرّس وأخرى غادرها مبكّراً — **صفر استهلاك وصفر استحقاق** في كلتيهما، و`SessionCompleted` يُطلق بلا `SessionDelivered`
+- [X] T087 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/AttendanceSheetTest.php` (SC-022): عدد صفوف الكشف يطابق `billable_seats` **بلا نقص ولا زيادة**
+- [X] T088 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/AttendanceHasNoFinancialEffectTest.php` (SC-024 · FR-023ج): حصة حضرها الجميع وأخرى غاب عنها الجميع بنفس المقاعد تُنتجان **الأثر المالي نفسه** — يُكتب الآن رغم غياب الفوترة، لأن الحدث الذي تستهلكه 006 يُعرَّف هنا
 
 ### التعديل اليدوي
 
-- [ ] T089 [US3] أنشئ `backend/app/Modules/LiveSessions/Actions/OverrideAttendance.php`: يتطلّب `ATTENDANCE_OVERRIDE`، ويسجّل `overridden_by` و`overridden_at` و`override_reason`، **ويُبقي `auto_status` ظاهراً** (FR-022أ · FR-025)
-- [ ] T090 [US3] أضف حارس النافذة إلى `OverrideAttendance`: خارج `attendance_edit_window_hours` يُرفض بـ`code: attendance_window_closed` ويحتاج صلاحية إدارية أعلى (FR-022ب)
-- [ ] T091 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/AttendanceOverrideTest.php`: التحضير اليدوي يُقبل ويُسجَّل · المصدر الآلي يبقى · بعد النافذة يُرفض · **`excused` لا تُمنح آلياً أبداً** (SC-014)
-- [ ] T092 [P] [US3] أنشئ `backend/app/Modules/LiveSessions/Actions/RecordRecordingWatched.php` يكتب `recording_watched_at` **واقعةً مستقلة** — و`backend/tests/Feature/LiveSessions/RecordingWatchDoesNotFlipStatusTest.php` (SC-023) يثبت أن مشاهدة كاملة بعد غياب **لا تغيّر حالة واحدة** (FR-021د)
+- [X] T089 [US3] أنشئ `backend/app/Modules/LiveSessions/Actions/OverrideAttendance.php`: يتطلّب `ATTENDANCE_OVERRIDE`، ويسجّل `overridden_by` و`overridden_at` و`override_reason`، **ويُبقي `auto_status` ظاهراً** (FR-022أ · FR-025)
+- [X] T090 [US3] أضف حارس النافذة إلى `OverrideAttendance`: خارج `attendance_edit_window_hours` يُرفض بـ`code: attendance_window_closed` ويحتاج صلاحية إدارية أعلى (FR-022ب)
+- [X] T091 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/AttendanceOverrideTest.php`: التحضير اليدوي يُقبل ويُسجَّل · المصدر الآلي يبقى · بعد النافذة يُرفض · **`excused` لا تُمنح آلياً أبداً** (SC-014)
+- [X] T092 [P] [US3] أنشئ `backend/app/Modules/LiveSessions/Actions/RecordRecordingWatched.php` يكتب `recording_watched_at` **واقعةً مستقلة** — و`backend/tests/Feature/LiveSessions/RecordingWatchDoesNotFlipStatusTest.php` (SC-023) يثبت أن مشاهدة كاملة بعد غياب **لا تغيّر حالة واحدة** (FR-021د)
 
 ### عدّادات المدرّس
 
-- [ ] T093 [US3] أنشئ `backend/app/Modules/LiveSessions/Listeners/UpdateTeacherCounters.php` مسجَّلاً بـ`Event::listen()` في مزوّد الوحدة، يدفع `SyncTeacherCountersJob` — التحديث **تزايدي** لا حساب على كامل السجل عند كل قراءة (FR-027)
-- [ ] T094 [US3] أنشئ `backend/app/Modules/LiveSessions/Jobs/SyncTeacherCountersJob.php` يحدّث الحقول الأربعة القائمة منذ 001 بـ`forWorkspace()` — **يُمنع** `WorkspaceContext::set()` في وظيفة (NFR-007)
-- [ ] T095 [US3] احسب `attendance_rate` كنسبة **حصص المدرّس المنفَّذة إلى المجدولة**، واستبعد الملغاة والمعلّقة والمتعذّرة (FR-026 · FR-062)، وأضف تعليقاً على العمود وفي `docs/README.md`: مؤشّر يُقرأ خطأً مرة يبقى مقروءاً خطأً إلى الأبد
-- [ ] T096 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/TeacherCountersTest.php` (SC-012 · SC-019): مطابقة بعد ١٠٠ حصة متسلسلة، و**غياب جماعي للطلاب لا يغيّر نسبة المدرّس ولا درجة ثقته ولو بنقطة**
-- [ ] T097 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/CounterJobIsolationTest.php` يفشل البناء إن ظهر `WorkspaceContext::set()` تحت `Modules/LiveSessions/Jobs/` — بنفس شكل `TrustScoreJobIsolationTest` القائم
-- [ ] T098 [US3] أنشئ `frontend/src/components/sessions/AttendanceSheet.tsx` واعرضه في `/manage/sessions/[uuid]`: الحالة والمصدر ووقت الدخول ومدة البقاء، **والمصدر الآلي ظاهراً بجانب أي تعديل**، مع زرّ التحضير اليدوي داخل النافذة
+- [X] T093 [US3] أنشئ `backend/app/Modules/LiveSessions/Listeners/UpdateTeacherCounters.php` مسجَّلاً بـ`Event::listen()` في مزوّد الوحدة، يدفع `SyncTeacherCountersJob` — التحديث **تزايدي** لا حساب على كامل السجل عند كل قراءة (FR-027)
+- [X] T094 [US3] أنشئ `backend/app/Modules/LiveSessions/Jobs/SyncTeacherCountersJob.php` يحدّث الحقول الأربعة القائمة منذ 001 بـ`forWorkspace()` — **يُمنع** `WorkspaceContext::set()` في وظيفة (NFR-007)
+- [X] T095 [US3] احسب `attendance_rate` كنسبة **حصص المدرّس المنفَّذة إلى المجدولة**، واستبعد الملغاة والمعلّقة والمتعذّرة (FR-026 · FR-062)، وأضف تعليقاً على العمود وفي `docs/README.md`: مؤشّر يُقرأ خطأً مرة يبقى مقروءاً خطأً إلى الأبد
+- [X] T096 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/TeacherCountersTest.php` (SC-012 · SC-019): مطابقة بعد ١٠٠ حصة متسلسلة، و**غياب جماعي للطلاب لا يغيّر نسبة المدرّس ولا درجة ثقته ولو بنقطة**
+- [X] T097 [P] [US3] أنشئ `backend/tests/Feature/LiveSessions/CounterJobIsolationTest.php` يفشل البناء إن ظهر `WorkspaceContext::set()` تحت `Modules/LiveSessions/Jobs/` — بنفس شكل `TrustScoreJobIsolationTest` القائم
+- [X] T098 [US3] أنشئ `frontend/src/components/sessions/AttendanceSheet.tsx` واعرضه في `/manage/sessions/[uuid]`: الحالة والمصدر ووقت الدخول ومدة البقاء، **والمصدر الآلي ظاهراً بجانب أي تعديل**، مع زرّ التحضير اليدوي داخل النافذة
 
 **Checkpoint**: الحضور محتسَب آلياً بالكامل، والكشف كامل، والعدّادات تتحرّك.
 

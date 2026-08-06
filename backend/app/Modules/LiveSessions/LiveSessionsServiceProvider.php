@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions;
 
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
+use App\Modules\LiveSessions\Events\SessionCompleted;
+use App\Modules\LiveSessions\Listeners\UpdateTeacherCounters;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
@@ -15,6 +17,7 @@ use App\Modules\LiveSessions\Policies\FreezePeriodPolicy;
 use App\Modules\LiveSessions\Policies\SessionBookingPolicy;
 use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
 use App\Shared\Modules\Module;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 
 class LiveSessionsServiceProvider extends Module
@@ -48,5 +51,10 @@ class LiveSessionsServiceProvider extends Module
         Gate::policy(SessionBooking::class, SessionBookingPolicy::class);
         Gate::policy(Attendance::class, AttendancePolicy::class);
         Gate::policy(FreezePeriod::class, FreezePeriodPolicy::class);
+
+        // Cross-module integration is by event, never by calling into another
+        // module's actions (Constitution III). Marketplace owns teacher_profiles;
+        // this module only announces that a session ended.
+        Event::listen(SessionCompleted::class, UpdateTeacherCounters::class);
     }
 }

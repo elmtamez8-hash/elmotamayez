@@ -6,7 +6,10 @@ namespace App\Modules\LiveSessions\Actions;
 
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Jobs\CloseClassSessionJob;
+use App\Modules\LiveSessions\Jobs\MarkAbsenteesJob;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Shared\Actions\Action;
 use DomainException;
 
@@ -22,6 +25,7 @@ class OpenBroadcastRoom extends Action
 {
     public function __construct(
         private readonly BroadcastProviderInterface $provider,
+        private readonly SessionSettings $settings,
     ) {}
 
     public function handle(ClassSession $session): ClassSession
@@ -54,6 +58,18 @@ class OpenBroadcastRoom extends Action
             'room_opened_at' => now(),
             'status' => ClassSessionStatus::Live,
         ])->save();
+
+        // Both timing rules of the phase, dispatched once, at the only moment
+        // that knows the session actually started.
+        //
+        // Absent is written AT the threshold, not swept up later (FR-021ب ·
+        // SC-021), and the close runs at the scheduled end so a teacher who just
+        // shuts their laptop does not leave a session live forever.
+        MarkAbsenteesJob::dispatch((int) $session->getKey())
+            ->delay($session->absenceThresholdAt());
+
+        CloseClassSessionJob::dispatch((int) $session->getKey())
+            ->delay($session->ends_at->copy()->addMinutes($this->settings->joinWindowMinutes()));
 
         return $session;
     }

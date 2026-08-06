@@ -76,6 +76,33 @@ export interface PresenceState {
   session_status: string;
 }
 
+export interface AttendanceRow {
+  uuid: string;
+  status: string;
+  status_label: string;
+  source: string;
+  source_label: string;
+  /** What the system concluded. Survives any override, on purpose (FR-025). */
+  auto_status: string | null;
+  auto_status_label: string | null;
+  first_joined_at: string | null;
+  stay_seconds: number;
+  was_overridden: boolean;
+  override_reason: string | null;
+  overridden_at: string | null;
+  /** An independent fact that never moved the status (FR-021د). */
+  recording_watched_at: string | null;
+  student?: { uuid: string; name: string } | null;
+}
+
+export const attendance = {
+  list: (sessionUuid: string) =>
+    api.get<{ data: AttendanceRow[] }>(`/class-sessions/${sessionUuid}/attendance`),
+
+  override: (uuid: string, status: string, reason: string) =>
+    api.post<AttendanceRow>(`/attendances/${uuid}/override`, { status, reason }),
+};
+
 export interface GenerateResult {
   created: ClassSession[];
   /** Reported, never swallowed: the teacher must see which slots were skipped. */

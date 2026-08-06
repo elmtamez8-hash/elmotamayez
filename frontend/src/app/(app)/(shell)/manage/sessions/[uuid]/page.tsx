@@ -10,7 +10,13 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
-import { classSessions, type ClassSession } from "@/lib/class-sessions";
+import { AttendanceSheet } from "@/components/sessions/AttendanceSheet";
+import {
+  attendance,
+  classSessions,
+  type AttendanceRow,
+  type ClassSession,
+} from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
 import { formatSessionTime } from "@/lib/session-format";
 
@@ -23,6 +29,7 @@ export default function ManageSessionPage({
   const { uuid } = use(params);
 
   const [session, setSession] = useState<ClassSession | null>(null);
+  const [rows, setRows] = useState<AttendanceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [error, setError] = useState("");
@@ -32,9 +39,11 @@ export default function ManageSessionPage({
     setLoading(true);
     setFailed(false);
 
-    classSessions
-      .show(uuid)
-      .then(setSession)
+    Promise.all([classSessions.show(uuid), attendance.list(uuid)])
+      .then(([detail, register]) => {
+        setSession(detail);
+        setRows(register.data ?? []);
+      })
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, [uuid]);
@@ -104,6 +113,11 @@ export default function ManageSessionPage({
             </Button>
           )}
         </div>
+      </Card>
+
+      <Card>
+        <h3 className="mb-3 font-semibold text-ink">كشف الحضور</h3>
+        <AttendanceSheet rows={rows} canOverride onChanged={load} />
       </Card>
 
       {session.recording !== null && (

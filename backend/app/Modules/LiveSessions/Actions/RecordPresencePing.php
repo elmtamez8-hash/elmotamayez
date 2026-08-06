@@ -9,9 +9,11 @@ use App\Modules\LiveSessions\Enums\AttendanceSource;
 use App\Modules\LiveSessions\Enums\AttendanceStatus;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Support\AttendanceLadder;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Shared\Actions\Action;
 use Carbon\CarbonImmutable;
+use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -44,6 +46,7 @@ class RecordPresencePing extends Action
 {
     public function __construct(
         private readonly SessionSettings $settings,
+        private readonly AttendanceLadder $ladder,
     ) {}
 
     public function handle(ClassSession $session, User $user): Attendance
@@ -70,14 +73,48 @@ class RecordPresencePing extends Action
 
             $credit = $this->creditFor($attendance, $now);
 
+            $firstJoinedAt = $attendance->first_joined_at ?? $now;
+            $staySeconds = $attendance->stay_seconds + $credit;
+
             $attendance->forceFill([
-                'first_joined_at' => $attendance->first_joined_at ?? $now,
+                'first_joined_at' => $firstJoinedAt,
                 'last_ping_at' => $now,
-                'stay_seconds' => $attendance->stay_seconds + $credit,
+                'stay_seconds' => $staySeconds,
+                ...$this->automaticStatus($attendance, $session, $firstJoinedAt, $staySeconds),
             ])->save();
 
             return $attendance;
         });
+    }
+
+    /**
+     * The ladder's verdict, and whether it is allowed to touch `status`.
+     *
+     * `auto_status` always records what the system worked out, even when a
+     * teacher has overridden the visible mark (FR-025). But the override wins
+     * on `status` — a manual mark that a later heartbeat silently undid would
+     * make overriding pointless.
+     *
+     * @return array<string, AttendanceStatus>
+     */
+    private function automaticStatus(
+        Attendance $attendance,
+        ClassSession $session,
+        // DateTimeInterface, not CarbonImmutable: a value read back off the model
+        // arrives as Illuminate's mutable Carbon, and the ladder only ever
+        // compares it.
+        DateTimeInterface $firstJoinedAt,
+        int $staySeconds,
+    ): array {
+        $verdict = $this->ladder->statusFor($session, $firstJoinedAt, $staySeconds);
+
+        $fields = ['auto_status' => $verdict];
+
+        if ($attendance->source === AttendanceSource::Automatic) {
+            $fields['status'] = $verdict;
+        }
+
+        return $fields;
     }
 
     /**
