@@ -2,17 +2,15 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { userMessage } from "@/lib/errors";
 import { formatMoney, lessonTypeLabel } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
+import { EmptyState } from "@/components/ui/states/EmptyState";
 
 interface CourseDetail extends Course {
   sections?: Array<{
@@ -42,14 +40,10 @@ export default function CourseDetailPage({
   params: Promise<{ uuid: string }>;
 }) {
   const { uuid } = use(params);
-  const router = useRouter();
 
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
-  const [enrolling, setEnrolling] = useState(false);
-  const [ordering, setOrdering] = useState(false);
-  const [error, setError] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -63,34 +57,6 @@ export default function CourseDetailPage({
   }, [uuid]);
 
   useEffect(load, [load]);
-
-  const enroll = async () => {
-    setEnrolling(true);
-    setError("");
-    try {
-      await api.post(`/courses/${uuid}/enroll`);
-      router.push("/enrollments");
-    } catch (err: unknown) {
-      setError(userMessage(err));
-    } finally {
-      setEnrolling(false);
-    }
-  };
-
-  // Manual bank transfer: the order is created as pending and a teacher approves
-  // it from /orders, which is what creates the enrollment.
-  const purchase = async () => {
-    setOrdering(true);
-    setError("");
-    try {
-      await api.post(`/courses/${uuid}/orders`);
-      router.push("/orders");
-    } catch (err: unknown) {
-      setError(userMessage(err));
-    } finally {
-      setOrdering(false);
-    }
-  };
 
   if (loading) return <RowsSkeleton count={4} />;
   if (failed || !course) return <ErrorState onRetry={load} />;
@@ -117,23 +83,35 @@ export default function CourseDetailPage({
         </div>
       </div>
 
-      {error && <Alert tone="danger" title={error} />}
-
+      {/*
+        No enrol and no purchase button. This page lives under /manage — it is
+        the teacher's view of a course they own, and offering them their own
+        course for sale was a student screen copied into an author's one. The
+        student path is /enrollments and /learn.
+      */}
       <div className="flex flex-wrap gap-3">
         <Button href={`/manage/courses/${uuid}/edit`} variant="secondary">
           تعديل الكورس
         </Button>
 
-        {course.is_free ? (
-          <Button loading={enrolling} loadingLabel="جارٍ التسجيل…" onClick={enroll}>
-            سجّل مجاناً
-          </Button>
-        ) : (
-          <Button loading={ordering} loadingLabel="جارٍ إنشاء الطلب…" onClick={purchase}>
-            اشترِ بـ <bdi>{formatMoney(course.price, course.currency)}</bdi>
-          </Button>
-        )}
+        <Button href="/exams" variant="secondary">
+          اختبارات الكورس
+        </Button>
       </div>
+
+      {/*
+        An empty course used to render nothing at all below the header, which
+        reads as a page that failed rather than a course with no content yet.
+        Naming the absence is the minimum; the authoring screens that would let a
+        teacher fix it from here do not exist yet, so the copy does not pretend
+        otherwise.
+      */}
+      {(!course.sections || course.sections.length === 0) && (
+        <EmptyState
+          title="لا محتوى في هذا الكورس بعد"
+          description="الأقسام والفصول والدروس تُضاف حالياً من لوحة الإدارة. وتسجيلات الحصص المباشرة تظهر هنا تلقائياً بعد رفعها."
+        />
+      )}
 
       {course.sections && course.sections.length > 0 && (
         <Card as="section">
