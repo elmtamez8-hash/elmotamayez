@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Settlement;
 
+use App\Modules\LiveSessions\Events\SessionDelivered;
+use App\Modules\Settlement\Listeners\AccrueUnitsOnDelivery;
 use App\Modules\Settlement\Models\RateChangeRequest;
 use App\Modules\Settlement\Models\SettlementPeriod;
 use App\Modules\Settlement\Models\TeachingUnit;
@@ -11,6 +13,7 @@ use App\Modules\Settlement\Policies\RateChangeRequestPolicy;
 use App\Modules\Settlement\Policies\SettlementPeriodPolicy;
 use App\Modules\Settlement\Policies\TeachingUnitPolicy;
 use App\Shared\Modules\Module;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -38,5 +41,10 @@ class SettlementServiceProvider extends Module
         Gate::policy(TeachingUnit::class, TeachingUnitPolicy::class);
         Gate::policy(RateChangeRequest::class, RateChangeRequestPolicy::class);
         Gate::policy(SettlementPeriod::class, SettlementPeriodPolicy::class);
+
+        // The one bridge from the teaching side. Deliberately NOT
+        // AttendanceConfirmed — see the listener for why the choice is forced by
+        // the 005 code rather than preferred.
+        Event::listen(SessionDelivered::class, AccrueUnitsOnDelivery::class);
     }
 }

@@ -3,6 +3,7 @@
 use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
 use App\Modules\Media\Jobs\PruneExpiredGrantsJob;
 use App\Modules\Notifications\Jobs\PruneOldNotificationsJob;
+use App\Modules\Settlement\Jobs\ReleasePendingUnitsJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -25,3 +26,11 @@ Schedule::job(new PruneExpiredGrantsJob)->dailyAt('03:45');
 // guardian received — and at :20, off both bulk deletes above, since a sweep
 // that closes sessions has no business waiting behind a mass delete's locks.
 Schedule::job(new CloseStaleSessionsJob)->hourlyAt(20);
+
+// Waiting units become earnings the moment their recording lands. Every fifteen
+// minutes rather than hourly: this is a teacher watching an hour they taught sit
+// uncounted, and the cost of asking is one indexed query over the backlog. A
+// sweep rather than a listener because "the recording failed" is the ABSENCE of
+// an event — nothing fires when a file never arrives, and that branch has to be
+// noticed too.
+Schedule::job(new ReleasePendingUnitsJob)->everyFifteenMinutes();

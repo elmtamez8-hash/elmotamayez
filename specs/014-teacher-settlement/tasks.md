@@ -87,7 +87,7 @@ description: "Task list for 014-teacher-settlement"
 - [ ] T031 [US1] أنشئ `backend/app/Modules/Settlement/Support/PackageCompletion.php` بجدول قيم `recording_status` من [research §R6](./research.md): `published`/`failed`/`no_course`/`null` ← مكتملة · `pending`/`ingesting` ← ناقصة
 - [ ] T032 [US1] أنشئ `backend/app/Modules/Settlement/Actions/ReleasePendingUnits.php` يُفرِج تلقائياً بلا مراجعة بشرية (FR-008ب) ويكتب `pending_reason` بنصّ ما ينقص بالضبط (FR-008د)
 - [ ] T033 [US1] أنشئ `backend/app/Modules/Settlement/Jobs/ReleasePendingUnitsJob.php` مجدولة في `backend/routes/console.php` بـ`forWorkspace()` — **يُمنع** `WorkspaceContext::set()`: المفردة تُخزّن نتيجتها فتسرّب مساحة العمل إلى المهمة التالية على العامل نفسه
-- [ ] T034 [US1] أنشئ `backend/app/Modules/Settlement/Actions/ReverseTeachingUnit.php` ومستمعه على `AttendanceOverridden` — يُنشئ صفّاً عكسياً ولا يمسّ الأصل ولا يحذفه
+- [ ] T034 [US1] أنشئ `backend/app/Modules/Settlement/Actions/ReverseTeachingUnit.php` **بمنفّذ وسبب إلزاميين**، ومساره `POST /admin/settlement/units/{unit}/reverse` — **بلا مستمع على `AttendanceOverridden`**: الوحدة بالمقعد لا بالحضور، و005 تشحن `AttendanceHasNoFinancialEffectTest` الذي يُفشِل البناء على ذلك (`Q7`)
 - [ ] T035 [US1] أنشئ `backend/app/Modules/Settlement/Actions/WriteLedgerEntry.php` — المدخل **الوحيد** للدفتر، ويرفض أي `UPDATE`/`DELETE` صراحةً (FR-016)
 - [ ] T036 [US1] أطلق `TeachingUnitAccrued` عند خروج الوحدة إلى `accrued`، واربطه بقيد الدفتر داخل الوحدة نفسها
 - [ ] T037 [US1] عالج التعويض عن الحصة بلا حجوزات في `AccrueTeachingUnits`: مطفأ افتراضاً · مشروط بتحقّق التنفيذ (FR-008ز) · والعلامة تُكتب في الحالتين (FR-008ح)

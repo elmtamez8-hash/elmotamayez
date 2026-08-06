@@ -75,11 +75,13 @@
 | `recording_fault` | boolean | أُفرِج عنها رغم فشل التسجيل (`FR-008ج`) |
 | `delivered_at` · `accrued_at` · `settled_at` | | |
 | `settlement_period_id` | FK nullable | تُملأ عند الإغلاق |
-| `reversal_of_id` | FK self nullable | القيد العكسي (`FR-006`) |
+| `reversal_of_id` | `unsignedBigInteger` default **0** | 0 = أصلية. **ليس nullable**: العمود جزء من المفتاح الفريد أدناه، وكلٌّ من MySQL وSQLite يعدّ NULLين في فهرس فريد **مختلفَين** — فصفّان أصليّان للمقعد نفسه كانا سيمرّان |
+| `reversal_reason` · `reversed_by` | | سبب التصحيح ومنفّذه (`FR-006`) |
 
 **فهارس**: `(workspace_id, teacher_profile_id, settlement_period_id, status)` — مسار الكشف
-(`NFR-011`) · `(class_session_id, student_user_id)` **فريد** جزئياً على غير العكسيات — هو
-ما يجعل التوليد عديم الأثر عند تكرار الحدث (`FR-002`, `SC-002`).
+(`NFR-011`) · و**فريد** `(class_session_id, student_user_id, reversal_of_id)` — وحدة أصلية
+واحدة لكل مقعد، وأي عدد من التصحيحات بعدها لأن لكلٍّ `reversal_of_id` مختلفاً. هذا — لا
+`count()` قبل `insert()` الذي هو تعريف السباق — ما يجعل التوليد عديم الأثر (`FR-002`, `SC-002`).
 
 **انتقالات الحالة**:
 
@@ -90,7 +92,8 @@ SessionDelivered ───┤                                                   
                                                                      │
 accrued ──(شكوى)──→ disputed ──(حُسمت)──→ accrued | reversed         │
 accrued ──(إغلاق الفترة)──→ settled  ← نهائية                       │
-أي حالة ──(تصحيح حضور)──→ يُنشأ صفّ reversed جديد؛ الأصل لا يُمَسّ ────┘
+أي حالة ──(قرار بشري: نزاع حُسم أو تصحيح إداري)──→ صفّ reversed جديد ──┘
+                        الأصل لا يُمَسّ. تعديل الحضور ليس مُشغِّلاً (Q7)
 ```
 
 **قواعد**:

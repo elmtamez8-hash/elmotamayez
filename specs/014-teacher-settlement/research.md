@@ -9,8 +9,10 @@
 
 ## R1 — الحدث المستهلَك: `SessionDelivered` وحده
 
-**القرار**: يستمع هذا السياق إلى `SessionDelivered` لتوليد الوحدات، وإلى `AttendanceOverridden`
-للقيد العكسي. **لا يستمع** إلى `AttendanceConfirmed` إطلاقاً.
+**القرار**: يستمع هذا السياق إلى `SessionDelivered` **وحده** — حدث واحد لا غير. **لا يستمع**
+إلى `AttendanceConfirmed`، ولا إلى `AttendanceOverridden` (راجع `spec.md › Q7`: الوحدة بالمقعد
+لا بالحضور، و005 تشحن `AttendanceHasNoFinancialEffectTest` الذي يُفشِل البناء على أي ربط
+بينهما). القيد العكسي **قرار إداري صريح** بمنفّذ وسبب، لا حدث.
 
 **السبب** — من `backend/app/Modules/LiveSessions/Actions/CloseClassSession.php`:
 
