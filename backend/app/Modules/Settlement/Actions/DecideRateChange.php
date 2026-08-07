@@ -10,6 +10,7 @@ use App\Modules\Settlement\Events\SettlementRateApproved;
 use App\Modules\Settlement\Models\RateChangeRequest;
 use App\Modules\Settlement\Models\SettlementRate;
 use App\Shared\Actions\Action;
+use App\Shared\Traits\LogsActivity;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -27,6 +28,8 @@ use Illuminate\Support\Facades\DB;
  */
 class DecideRateChange extends Action
 {
+    use LogsActivity;
+
     public function approve(RateChangeRequest $request, User $by): SettlementRate
     {
         $this->refuseIfDecided($request);
@@ -57,6 +60,11 @@ class DecideRateChange extends Action
             // yet. Declared with its deferred consumer in contracts/events.md
             // rather than left for a review to find, which is how this phase
             // inherited SessionDelivered and how 005 lost SessionCancelled.
+            $this->logActivity('settlement.rate.approved', $rate, [
+                'amount_minor' => $rate->amount_minor,
+                'session_type' => $rate->session_type->value,
+            ]);
+
             SettlementRateApproved::dispatch($rate);
 
             return $rate;
@@ -79,6 +87,14 @@ class DecideRateChange extends Action
             'decided_at' => now(),
             'decision_reason' => $reason,
         ])->save();
+
+        // Subject is the REQUEST, not a rate: a rejection creates no rate, and
+        // pointing the entry at one that does not exist is how an audit trail
+        // acquires a row nobody can open.
+        $this->logActivity('settlement.rate.rejected', $request, [
+            'requested_amount_minor' => $request->requested_amount_minor,
+            'reason' => $reason,
+        ]);
 
         return $request;
     }

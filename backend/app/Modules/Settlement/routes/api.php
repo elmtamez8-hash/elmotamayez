@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Settlement\Http\Controllers\RateChangeController;
+use App\Modules\Settlement\Http\Controllers\SettlementAuditController;
 use App\Modules\Settlement\Http\Controllers\SettlementPeriodController;
 use App\Modules\Settlement\Http\Controllers\StatementController;
 use App\Modules\Settlement\Http\Controllers\TeachingUnitController;
@@ -30,6 +31,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/settlement/units', [TeachingUnitController::class, 'index']);
     Route::get('/settlement/periods', [SettlementPeriodController::class, 'index']);
     Route::get('/settlement/rates', [RateChangeController::class, 'rates']);
+
+    // The financial audit. Under /admin because the reader is a platform
+    // auditor, not the teacher — and it lists only this context's acts, which
+    // is FR-034 written as a query rather than as a filter (see
+    // SettlementAuditSubjects).
+    Route::get('/admin/settlement/audit', [SettlementAuditController::class, 'index']);
     Route::get('/settlement/rate-requests', [RateChangeController::class, 'index']);
 
     Route::middleware('throttle:settlement-write')->group(function (): void {

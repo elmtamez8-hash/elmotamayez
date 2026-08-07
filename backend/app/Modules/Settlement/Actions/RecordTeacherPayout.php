@@ -11,6 +11,7 @@ use App\Modules\Settlement\Events\TeacherPayoutIssued;
 use App\Modules\Settlement\Models\SettlementPeriod;
 use App\Modules\Settlement\Models\TeacherPayout;
 use App\Shared\Actions\Action;
+use App\Shared\Traits\LogsActivity;
 use DomainException;
 use Illuminate\Database\QueryException;
 
@@ -32,6 +33,8 @@ use Illuminate\Database\QueryException;
  */
 class RecordTeacherPayout extends Action
 {
+    use LogsActivity;
+
     public function __construct(
         private readonly WriteLedgerEntry $ledger,
     ) {}
@@ -105,6 +108,16 @@ class RecordTeacherPayout extends Action
             ->whereKey($period->getKey())
             ->where('status', SettlementPeriodStatus::Closed->value)
             ->update(['status' => SettlementPeriodStatus::Paid->value]);
+
+        // Only on the path that actually moved money. Both early returns above
+        // are no-ops — logging them would fill the auditor's list with entries
+        // for a cycle that was re-run, which is the noise that makes an audit
+        // log stop being read.
+        $this->logActivity('settlement.payout.executed', $payout, [
+            'amount_minor' => $payout->amount_minor,
+            'reference' => $payout->reference,
+            'method' => $payout->method,
+        ]);
 
         TeacherPayoutIssued::dispatch($payout);
 

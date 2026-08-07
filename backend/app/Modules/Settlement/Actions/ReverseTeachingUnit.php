@@ -9,6 +9,7 @@ use App\Modules\Settlement\Enums\TeachingUnitStatus;
 use App\Modules\Settlement\Events\TeachingUnitAccrued;
 use App\Modules\Settlement\Models\TeachingUnit;
 use App\Shared\Actions\Action;
+use App\Shared\Traits\LogsActivity;
 
 /**
  * Corrects a unit by writing a new one, never by touching the old.
@@ -20,6 +21,8 @@ use App\Shared\Actions\Action;
  */
 class ReverseTeachingUnit extends Action
 {
+    use LogsActivity;
+
     public function handle(TeachingUnit $original, string $reason, ?User $by = null): ?TeachingUnit
     {
         if ($original->isReversal() || $original->status === TeachingUnitStatus::Reversed) {
@@ -43,6 +46,11 @@ class ReverseTeachingUnit extends Action
             'reversal_of_id' => (int) $original->getKey(),
             'reversal_reason' => $reason,
             'reversed_by' => $by?->getKey(),
+        ]);
+
+        $this->logActivity('settlement.unit.reversed', $reversal, [
+            'amount_minor' => $reversal->amount_minor,
+            'reason' => $reason,
         ]);
 
         TeachingUnitAccrued::dispatch($reversal);

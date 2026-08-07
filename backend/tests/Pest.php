@@ -111,3 +111,36 @@ function studentWhoCompletedWith(TeacherProfile $teacher): User
 
     return $student;
 }
+
+/**
+ * Every string key in a nested payload, flattened.
+ *
+ * Recursive on purpose: a field smuggled three levels down is still on the wire,
+ * and a check on the top level only would pass while the leak sat inside
+ * `period` or `deductions`.
+ *
+ * Here rather than beside its first caller because two suites now walk payloads
+ * this way — StatementPayloadTest against the teacher's, ContextIsolationTest
+ * against the student's — and a helper declared in a test file only exists once
+ * that particular file has been loaded.
+ *
+ * @return list<string>
+ */
+function settlementPayloadKeys(mixed $value): array
+{
+    if (! is_array($value)) {
+        return [];
+    }
+
+    $keys = [];
+
+    foreach ($value as $key => $child) {
+        if (is_string($key)) {
+            $keys[] = $key;
+        }
+
+        $keys = [...$keys, ...settlementPayloadKeys($child)];
+    }
+
+    return $keys;
+}

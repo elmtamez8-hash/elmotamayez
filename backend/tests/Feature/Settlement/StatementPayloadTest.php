@@ -43,33 +43,9 @@ beforeEach(function (): void {
     ]);
 });
 
-/**
- * Every string key in a nested payload, flattened.
- *
- * Recursive on purpose: a field smuggled three levels down is still on the wire,
- * and a check on the top level only would pass while the leak sat inside
- * `period` or `deductions`.
- *
- * @return list<string>
- */
-function settlementPayloadKeys(mixed $value): array
-{
-    if (! is_array($value)) {
-        return [];
-    }
-
-    $keys = [];
-
-    foreach ($value as $key => $child) {
-        if (is_string($key)) {
-            $keys[] = $key;
-        }
-
-        $keys = [...$keys, ...settlementPayloadKeys($child)];
-    }
-
-    return $keys;
-}
+// settlementPayloadKeys() lives in tests/Pest.php — ContextIsolationTest needs
+// the same walk, and a function declared in a sibling test file only exists once
+// that file happens to have been loaded.
 
 /**
  * Everything in the export that NAMES a field, as opposed to holding a value.

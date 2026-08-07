@@ -164,6 +164,70 @@ final class TeacherFieldAllowlist
     ];
 
     /**
+     * Every key a closed window or the payout against it may carry.
+     *
+     * Separate from STATEMENT because these are FROZEN numbers describing days
+     * that have passed, not a running total — and because the period list is a
+     * second surface, which is precisely the kind of thing that grows a field
+     * the statement's test never sees.
+     *
+     * @var list<string>
+     */
+    public const PERIOD = [
+        'uuid',
+        'starts_on',
+        'ends_on',
+        'status',
+        'status_label',
+        'currency',
+        'units_count',
+        'gross_minor',
+        'deductions_minor',
+        'carried_in_minor',
+        'carried_out_minor',
+        'net_minor',
+        'closed_at',
+
+        // The payout. `reference` is the field the teacher actually needs: an
+        // amount they cannot match against a bank line is an amount they have to
+        // ask about — and asking is what a statement exists to prevent.
+        'amount_minor',
+        'reference',
+        'method',
+        'executed_at',
+    ];
+
+    /**
+     * Every key one audit entry may carry.
+     *
+     * The auditor reads more than a teacher does — who decided, and when — but
+     * not a single field more from the other context. Listing these here rather
+     * than exempting the audit resource from the scan is the point: the reader
+     * being trusted is not a reason for the payload to be unexamined.
+     *
+     * @var list<string>
+     */
+    public const AUDIT = [
+        'event',
+        'subject_type',
+        'subject_uuid',
+        'actor_name',
+        'properties',
+        'occurred_at',
+
+        // The property bags the Actions write, flattened by the recursive walk.
+        'units_count',
+        'net_minor',
+        'carried_out_minor',
+        'amount_minor',
+        'requested_amount_minor',
+        'reason',
+        'reference',
+        'method',
+        'session_type',
+    ];
+
+    /**
      * The export's unit columns, in order.
      *
      * Machine keys rather than Arabic headers, and that is the point: the export

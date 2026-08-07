@@ -10,6 +10,7 @@ use App\Modules\Settlement\Enums\LedgerEntryType;
 use App\Modules\Settlement\Models\LedgerEntry;
 use App\Modules\Settlement\Support\SettlementSettings;
 use App\Shared\Actions\Action;
+use App\Shared\Traits\LogsActivity;
 use DomainException;
 
 /**
@@ -26,6 +27,8 @@ use DomainException;
  */
 class RecordDeduction extends Action
 {
+    use LogsActivity;
+
     public function __construct(
         private readonly WriteLedgerEntry $ledger,
         private readonly SettlementSettings $settings,
@@ -45,7 +48,7 @@ class RecordDeduction extends Action
             throw new DomainException('الخصم يحتاج سبباً.');
         }
 
-        return $this->ledger->handle(
+        $entry = $this->ledger->handle(
             workspaceId: (int) $teacher->workspace_id,
             teacherProfileId: (int) $teacher->getKey(),
             type: LedgerEntryType::Deduction,
@@ -57,5 +60,16 @@ class RecordDeduction extends Action
             reason: trim($reason),
             createdBy: $by->getKey(),
         );
+
+        // The ledger row already carries the reason and the author, so this is
+        // not a second copy of the record — it is the record in the ONE place an
+        // auditor reads every administrative act in one list, next to the close
+        // and the payout that surround it.
+        $this->logActivity('settlement.deduction.recorded', $entry, [
+            'amount_minor' => $entry->amount_minor,
+            'reason' => $entry->reason,
+        ]);
+
+        return $entry;
     }
 }

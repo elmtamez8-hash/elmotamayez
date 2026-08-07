@@ -13,6 +13,7 @@ use App\Modules\Settlement\Models\SettlementPeriod;
 use App\Modules\Settlement\Models\TeachingUnit;
 use App\Modules\Settlement\Support\SettlementWindow;
 use App\Shared\Actions\Action;
+use App\Shared\Traits\LogsActivity;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -31,6 +32,8 @@ use Illuminate\Support\Facades\DB;
  */
 class CloseSettlementPeriod extends Action
 {
+    use LogsActivity;
+
     public function __construct(
         private readonly SettlementWindow $window,
     ) {}
@@ -66,6 +69,16 @@ class CloseSettlementPeriod extends Action
 
             return $fresh;
         });
+
+        // Logged AFTER the totals are frozen, so the audit entry carries the
+        // numbers that were actually written rather than the ones that were
+        // about to be. Only the winner of the conditional UPDATE gets here, so
+        // there is exactly one entry per close however many callers tried.
+        $this->logActivity('settlement.period.closed', $closed, [
+            'units_count' => $closed->units_count,
+            'net_minor' => $closed->net_minor,
+            'carried_out_minor' => $closed->carried_out_minor,
+        ]);
 
         SettlementPeriodClosed::dispatch($closed);
 
