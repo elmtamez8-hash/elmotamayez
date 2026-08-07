@@ -24,6 +24,7 @@ use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Actions\BookSeat;
 use App\Modules\LiveSessions\Enums\AttendanceSource;
 use App\Modules\LiveSessions\Enums\AttendanceStatus;
+use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
@@ -33,12 +34,22 @@ use App\Modules\Payments\Actions\CreateOrder;
 use App\Modules\Payments\Actions\RejectOrder;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Models\Product;
+use App\Modules\Settlement\Enums\LedgerEntryType;
+use App\Modules\Settlement\Enums\SettlementBasis;
+use App\Modules\Settlement\Enums\SettlementPeriodStatus;
+use App\Modules\Settlement\Enums\TeachingUnitStatus;
+use App\Modules\Settlement\Models\LedgerEntry;
+use App\Modules\Settlement\Models\SettlementPeriod;
+use App\Modules\Settlement\Models\SettlementRate;
+use App\Modules\Settlement\Models\TeacherPayout;
+use App\Modules\Settlement\Models\TeachingUnit;
 use App\Modules\Tenancy\Actions\CreateWorkspace;
 use App\Modules\Tenancy\DTOs\CreateWorkspaceDTO;
 use App\Modules\Tenancy\Models\Invitation;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -241,7 +252,9 @@ final class ScenarioSeeder extends Seeder
         // Attempt still in progress (no answers yet).
         app(StartAttempt::class)->handle($exam, $graduate, $graduateEnrollment);
 
-        $this->sessions($workspace, $teacher, [$buyer, $halfway, $graduate]);
+        $profile = $this->sessions($workspace, $teacher, [$buyer, $halfway, $graduate]);
+
+        $this->settlement($workspace, $profile, $teacher, $owner, [$buyer, $halfway]);
 
         $this->cms($workspace, $owner);
     }
@@ -255,7 +268,7 @@ final class ScenarioSeeder extends Seeder
      *
      * @param  list<User>  $students
      */
-    private function sessions(Workspace $workspace, User $teacherUser, array $students): void
+    private function sessions(Workspace $workspace, User $teacherUser, array $students): TeacherProfile
     {
         $profile = TeacherProfile::factory()->create([
             'workspace_id' => $workspace->id,
@@ -316,6 +329,192 @@ final class ScenarioSeeder extends Seeder
             'reason' => 'إجازة نصف العام',
             'created_by' => $teacherUser->id,
         ]);
+
+        return $profile;
+    }
+
+    /**
+     * A statement with something on it.
+     *
+     * A teacher opening an empty statement cannot tell "nothing is owed" from
+     * "this screen is broken", and neither can an e2e spec — which is how a
+     * settlement page would ship green and unreachable, exactly as 004's player
+     * nearly did.
+     *
+     * Written directly rather than through the Actions on purpose: the Actions
+     * start from a `SessionDelivered` event, and staging four different unit
+     * states through real session timelines would make this seeder a second,
+     * unreviewed implementation of the accrual rules. The tests own those.
+     *
+     * @param  list<User>  $students
+     */
+    private function settlement(
+        Workspace $workspace,
+        TeacherProfile $profile,
+        User $teacherUser,
+        User $approver,
+        array $students,
+    ): void {
+        // The price, approved — the only way a rate ever comes to exist.
+        // Pairs rather than a keyed map: an enum case cannot be an array key.
+        foreach ([[ClassSessionType::Individual, 12_000], [ClassSessionType::Group, 4_500]] as [$type, $amount]) {
+            SettlementRate::create([
+                'workspace_id' => $workspace->id,
+                'teacher_profile_id' => $profile->id,
+                'session_type' => $type,
+                'amount_minor' => $amount,
+                'currency' => 'QAR',
+                'effective_from' => now()->subMonths(3),
+                'approved_by' => $approver->id,
+            ]);
+        }
+
+        // A window that has ended, closed, and paid. Its numbers are FROZEN on
+        // the row — but the rows behind them are seeded too. A period claiming
+        // four units over an empty table renders a total beside an empty list,
+        // which is the screen this seeder exists to prevent, not produce.
+        $closedStart = CarbonImmutable::now()->subDays(60)->startOfDay();
+
+        $closed = SettlementPeriod::create([
+            'workspace_id' => $workspace->id,
+            'teacher_profile_id' => $profile->id,
+            'starts_on' => $closedStart,
+            'ends_on' => $closedStart->addDays(29),
+            'status' => SettlementPeriodStatus::Paid,
+            'currency' => 'QAR',
+            'units_count' => 4,
+            'gross_minor' => 48_000,
+            'deductions_minor' => 0,
+            'carried_in_minor' => 0,
+            'net_minor' => 48_000,
+            'carried_out_minor' => 0,
+            'closed_at' => $closedStart->addDays(30),
+        ]);
+
+        for ($i = 0; $i < 4; $i++) {
+            $this->teachingUnit($workspace, $profile, $students[$i % count($students)], [
+                'session_type' => ClassSessionType::Individual,
+                'amount_minor' => 12_000,
+                'frozen_seats' => 1,
+                'status' => TeachingUnitStatus::Settled,
+                'delivered_at' => $closedStart->addDays($i * 7),
+                'accrued_at' => $closedStart->addDays($i * 7),
+                'settled_at' => $closedStart->addDays(30),
+                'settlement_period_id' => $closed->id,
+            ], $closed->id);
+        }
+
+        $payout = TeacherPayout::create([
+            'workspace_id' => $workspace->id,
+            'teacher_profile_id' => $profile->id,
+            'settlement_period_id' => $closed->id,
+            'amount_minor' => 48_000,
+            'currency' => 'QAR',
+            'reference' => 'TRF-2026-0417',
+            'method' => 'bank_transfer',
+            'executed_at' => $closedStart->addDays(31),
+            'executed_by' => $approver->id,
+        ]);
+
+        $this->ledger($workspace, $profile, LedgerEntryType::Payout, -48_000, $closed->id, [
+            'payout_id' => $payout->id,
+            'reason' => 'TRF-2026-0417',
+        ]);
+
+        // The open window — one unit of each state the statement must be able to
+        // render. Anything missing here is a card nobody sees until a teacher
+        // hits it in production.
+        $states = [
+            [TeachingUnitStatus::Accrued, 12_000, ClassSessionType::Individual, 1, null],
+            [TeachingUnitStatus::Accrued, 9_000, ClassSessionType::Group, 2, null],
+            [TeachingUnitStatus::PendingPackage, 4_500, ClassSessionType::Group, 1, 'الباقة لم تكتمل بعد'],
+            [TeachingUnitStatus::Disputed, 12_000, ClassSessionType::Individual, 1, 'الطالب يقول إن الحصة لم تُعقد'],
+        ];
+
+        foreach ($states as $index => [$status, $amount, $type, $seats, $reason]) {
+            $this->teachingUnit($workspace, $profile, $students[$index % count($students)], [
+                'session_type' => $type,
+                'amount_minor' => $amount,
+                'frozen_seats' => $seats,
+                'status' => $status,
+                'pending_reason' => $reason,
+                'delivered_at' => now()->subDays(10 - $index),
+                // A pending unit has not accrued yet — that is what pending
+                // means, and a date here would make the word decorative.
+                'accrued_at' => $status === TeachingUnitStatus::PendingPackage ? null : now()->subDays(10 - $index),
+            ]);
+        }
+
+        // One adjustment with no unit behind it — the case a units-derived total
+        // would silently omit, seeded so the screen shows it from day one.
+        $this->ledger($workspace, $profile, LedgerEntryType::Deduction, -2_500, null, [
+            'reason' => 'تأخّر عن حصّتين',
+            'created_by' => $approver->id,
+        ]);
+    }
+
+    /**
+     * One unit and, when it is real money, its ledger line.
+     *
+     * The session is created alongside it because `class_session_id` is NOT
+     * NULL, and rightly so: a teaching unit is payment for a specific hour, and
+     * one that names no hour is a number nobody can check.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function teachingUnit(
+        Workspace $workspace,
+        TeacherProfile $profile,
+        User $student,
+        array $attributes,
+        ?int $periodId = null,
+    ): void {
+        $session = ClassSession::factory()->past()->create([
+            'teacher_profile_id' => $profile->id,
+            'type' => $attributes['session_type'],
+            'seats_total' => max(1, (int) $attributes['frozen_seats']),
+            'billable_seats' => $attributes['frozen_seats'],
+            'delivered_at' => $attributes['delivered_at'],
+        ]);
+
+        $unit = TeachingUnit::create(array_merge([
+            'workspace_id' => $workspace->id,
+            'student_user_id' => $student->id,
+            'teacher_profile_id' => $profile->id,
+            'class_session_id' => $session->id,
+            'currency' => 'QAR',
+            'basis' => SettlementBasis::FrozenSeat,
+        ], $attributes));
+
+        // Only accrued or settled work is money. A pending or disputed unit is a
+        // count on the screen and nothing in the balance — which is exactly why
+        // the statement's totals read the LEDGER and never the units.
+        if (in_array($attributes['status'], [TeachingUnitStatus::Accrued, TeachingUnitStatus::Settled], true)) {
+            $this->ledger($workspace, $profile, LedgerEntryType::Unit, (int) $attributes['amount_minor'], $periodId, [
+                'teaching_unit_id' => $unit->id,
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    private function ledger(
+        Workspace $workspace,
+        TeacherProfile $profile,
+        LedgerEntryType $type,
+        int $amountMinor,
+        ?int $periodId,
+        array $extra = [],
+    ): void {
+        LedgerEntry::create(array_merge([
+            'workspace_id' => $workspace->id,
+            'teacher_profile_id' => $profile->id,
+            'type' => $type,
+            'amount_minor' => $amountMinor,
+            'currency' => 'QAR',
+            'settlement_period_id' => $periodId,
+        ], $extra));
     }
 
     /**

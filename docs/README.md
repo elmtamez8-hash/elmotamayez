@@ -31,6 +31,7 @@
 | CMS | `app/Modules/CMS/` | Article, Category, Tag | Articles CRUD + publish |
 | Marketplace | `app/Modules/Marketplace/` | TeacherProfile, TeacherApplication, Subject, GradeLevel, AvailabilitySlot, Review, Complaint | Public listings (no auth) + teacher application + academic review + reviews/complaints |
 | LiveSessions | `app/Modules/LiveSessions/` | ClassSession, SessionBooking, Attendance, ClassSessionFeedback, FreezePeriod | Calendar + booking + broadcast room + register + freeze periods |
+| Settlement | `app/Modules/Settlement/` | SettlementRate, RateChangeRequest, TeachingUnit, SettlementPeriod, LedgerEntry, TeacherPayout | Teacher statement + export + units + rate requests + period close/payout + financial audit |
 
 ### Marketplace endpoints
 
@@ -368,3 +369,83 @@ one are **suspended, not deleted**, their seats released, and every seat holder 
 
 `throttle:sessions` (writes) and `throttle:presence` (the heartbeat), both named in
 `AppServiceProvider::registerRateLimiters()`. Inline limits stay banned.
+
+## Teacher Settlement (spec 014)
+
+What the **teacher is owed**. Deliberately not the same context as what a **student pays**:
+the two share no foreign key and no query, and the only bridge is the `SessionDelivered`
+event coming out of 005. `tests/Feature/Settlement/ContextIsolationTest.php` fails the build
+over a violation in either direction, including a billing event consumed here.
+
+### The one rule that decides every other
+
+**Counts come from `teaching_units`; money comes from `ledger_entries`.** `LedgerEntryType`
+carries `Deduction` and `Bonus`, which have no teaching unit behind them — so a total derived
+from units omits the first manual adjustment anyone writes, and the statement stops matching
+the close the same day. The ledger is the balance.
+
+The ledger is **append-only**, enforced on the model (`LedgerEntry::booted()` throws on
+`updating`/`deleting`), not only in the Action. A bulk `update()` retrieves no models and so
+bypasses that guard — which is exactly why period stamping is the one sanctioned post-insert
+write and nothing else does it.
+
+### Endpoints
+
+| Method | Path | Permission |
+|---|---|---|
+| GET | `/settlement/statement` | `settlement.statement.view` |
+| GET | `/settlement/statement/export` | `settlement.statement.view` (CSV, UTF-8 BOM) |
+| GET | `/settlement/units` | `settlement.statement.view` |
+| GET | `/settlement/periods` | `settlement.statement.view` |
+| GET | `/settlement/rates` | `settlement.rate.request` |
+| GET | `/settlement/rate-requests` | `settlement.rate.request` |
+| POST | `/settlement/rate-requests` | `settlement.rate.request` |
+| POST | `/admin/settlement/rate-requests/{r}/approve` | `settlement.rate.approve` |
+| POST | `/admin/settlement/rate-requests/{r}/reject` | `settlement.rate.approve` |
+| POST | `/admin/settlement/units/{unit}/reverse` | `settlement.period.manage` |
+| POST | `/admin/settlement/periods/{period}/close` | `settlement.period.manage` |
+| POST | `/admin/settlement/periods/{period}/payouts` | `settlement.payout.execute` |
+| GET | `/admin/settlement/audit` | `settlement.audit.view` |
+
+**No endpoint takes a `teacher` parameter.** The profile comes from the bearer token via
+`ResolvesOwnTeacher`, so "may I read this other teacher?" is not a question the code has to
+keep answering correctly. The workspace scope alone would not do it — a workspace can hold
+more than one teacher profile, and the seeded academy holds six.
+
+### Permissions
+
+`settlement.rate.request` and `settlement.statement.view` sit on the **teacher** role and
+deliberately not on assistant-teacher: an assistant runs the classroom, they do not read the
+teacher's money. The other four (`rate.approve`, `period.manage`, `payout.execute`,
+`audit.view`) are platform decisions and reach super-admin alone.
+
+### Closing and paying
+
+Both are one atomic conditional `UPDATE` plus an affected-rows check — never `count()` then
+write, and never `lockForUpdate()`, which is a **no-op on SQLite**. The loser of the race
+gets `null`, not an error: re-running the cycle is the expected thing, not a failure.
+
+Totals are **frozen** on the period row rather than derived on read, because a total that
+recomputes gives a different answer after any later correction — including to a teacher
+already paid against the old one. A negative net is **carried** to the next window; the
+payout column is unsigned, so "carried, never paid" is a fact of the schema.
+
+Unit claiming uses `< ends_on + 1 day`, not `<= ends_on`: `ends_on` is a DATE and
+`delivered_at` a timestamp, so the second form binds midnight and silently drops every unit
+taught on the closing day. Standalone ledger lines (a deduction, a bonus) carry **no** date
+filter at all — an adjustment is typed after the window ended, and a date filter there would
+push every deduction into the following period.
+
+### The financial audit
+
+`GET /admin/settlement/audit` reads `activity_log` filtered to six subject types
+(`SettlementAuditSubjects`). The filter is the **shape of the query**, not a pass over its
+results: `activity_log` is one shared table that billing also writes to, and asking for the
+table and then removing rows is one forgotten branch away from showing the wrong context.
+Platform-wide by design — the table carries no `workspace_id` column and the permission is a
+platform one.
+
+### Rate limiters
+
+`throttle:settlement-write` on every write, named in `AppServiceProvider::registerRateLimiters()`.
+Inline limits stay banned.

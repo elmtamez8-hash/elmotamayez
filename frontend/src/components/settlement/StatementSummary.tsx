@@ -33,7 +33,22 @@ function Figure({
   );
 }
 
-export function StatementSummary({ statement }: { statement: TeacherStatement }) {
+export function StatementSummary({
+  statement,
+  awaitingPayoutMinor,
+}: {
+  statement: TeacherStatement;
+  /**
+   * Money already earned, already frozen, and not yet transferred.
+   *
+   * Without it this screen lies by omission the moment a period closes: the
+   * close moves the total onto the period row and empties the current window,
+   * so the headline drops to near zero on a day the teacher is owed the most
+   * they have been owed all month. The number is real, it is just no longer in
+   * the window this card describes.
+   */
+  awaitingPayoutMinor: number;
+}) {
   const money = (minor: number) => formatMinorMoney(minor, statement.currency);
 
   const individual = statement.units.by_type.individual ?? 0;
@@ -50,6 +65,19 @@ export function StatementSummary({ statement }: { statement: TeacherStatement })
         {formatDate(statement.period.ends_on)} · الصرف القادم{" "}
         {formatDate(statement.next_payout_on)}
       </p>
+
+      {awaitingPayoutMinor > 0 && (
+        <Card padding="sm">
+          <p className="text-sm text-ink">
+            <span className="font-semibold">مستحقّ من فترات مغلقة لم تُصرَف:</span>{" "}
+            <bdi className="font-bold">{money(awaitingPayoutMinor)}</bdi>
+          </p>
+          <p className="mt-1 text-xs text-ink-muted">
+            أُغلقت فترته وتجمّد مبلغه، وينتظر التحويل. لا يظهر ضمن أرقام الفترة
+            الجارية أدناه.
+          </p>
+        </Card>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Figure

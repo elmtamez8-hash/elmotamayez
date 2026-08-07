@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { errorMessage } from "@/lib/api";
 import { formatDate, formatMinorMoney } from "@/lib/labels";
-import { settlement, type TeacherStatement, type TeachingUnit } from "@/lib/settlement";
+import {
+  settlement,
+  type SettlementPeriod,
+  type TeacherStatement,
+  type TeachingUnit,
+} from "@/lib/settlement";
 import { StatementSummary } from "@/components/settlement/StatementSummary";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -26,6 +31,7 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 export default function SettlementPage() {
   const [statement, setStatement] = useState<TeacherStatement | null>(null);
   const [units, setUnits] = useState<TeachingUnit[]>([]);
+  const [periods, setPeriods] = useState<SettlementPeriod[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -35,10 +41,11 @@ export default function SettlementPage() {
     setLoading(true);
     setError("");
 
-    Promise.all([settlement.statement(), settlement.units()])
-      .then(([summary, page]) => {
+    Promise.all([settlement.statement(), settlement.units(), settlement.periods()])
+      .then(([summary, page, closed]) => {
         setStatement(summary);
         setUnits(page.data ?? []);
+        setPeriods(closed.data ?? []);
       })
       .catch((err: unknown) =>
         setError(errorMessage(err, "تعذّر تحميل كشف التسوية. أعد المحاولة.")),
@@ -76,6 +83,15 @@ export default function SettlementPage() {
   }
 
   const money = (minor: number) => formatMinorMoney(minor, statement.currency);
+
+  // Closed but not yet paid. Derived from the periods list already fetched — the
+  // number is frozen on each row, so summing it here costs no query and cannot
+  // disagree with what the close wrote. `paid` periods are excluded: that money
+  // has left, and showing it as owed would ask the teacher to chase a transfer
+  // they already received.
+  const awaitingPayoutMinor = periods
+    .filter((period) => period.status === "closed")
+    .reduce((total, period) => total + period.net_minor, 0);
 
   const columns: Column<TeachingUnit>[] = [
     {
@@ -143,7 +159,10 @@ export default function SettlementPage() {
         </Alert>
       )}
 
-      <StatementSummary statement={statement} />
+      <StatementSummary
+        statement={statement}
+        awaitingPayoutMinor={awaitingPayoutMinor}
+      />
 
       {statement.pending_rate_request ? (
         <Alert tone="info" title="طلب سعر قيد الاعتماد">

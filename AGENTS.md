@@ -128,6 +128,10 @@ Tests use in-memory SQLite (`DB_DATABASE=:memory:` in `phpunit.xml`).
 26. Freeze counts nothing — `tests/Feature/LiveSessions/FreezePeriodTest.php`
 27. The register is not public to the class — `tests/Feature/LiveSessions/RegisterPrivacyTest.php`
 28. Lists cost a fixed number of queries — `tests/Feature/LiveSessions/QueryBudgetTest.php`
+29. Settlement and billing stay separate contexts — `tests/Feature/Settlement/ContextIsolationTest.php`
+30. A period closes once and pays once — `tests/Feature/Settlement/PeriodCloseTest.php`
+31. Nothing outside the allowlist reaches a teacher — `tests/Feature/Settlement/StatementPayloadTest.php`
+32. A refund never touches the ledger — `tests/Feature/Settlement/RefundDoesNotTouchLedgerTest.php`
 
 ### Read before touching sessions
 
@@ -220,3 +224,26 @@ verification only.
 | Marketplace | `app/Modules/Marketplace/` | TeacherProfile, TeacherApplication, Subject, GradeLevel, AvailabilitySlot, Review, Complaint |
 | Analytics | `app/Modules/Analytics/` | (Filament widgets) |
 | CMS | `app/Modules/CMS/` | Article, Category, Tag |
+| LiveSessions | `app/Modules/LiveSessions/` | ClassSession, SessionBooking, Attendance, ClassSessionFeedback, FreezePeriod |
+| Settlement | `app/Modules/Settlement/` | SettlementRate, RateChangeRequest, TeachingUnit, SettlementPeriod, LedgerEntry, TeacherPayout |
+
+### Read before touching settlement
+
+Settlement answers "what is the teacher owed". Billing answers "what did the student pay".
+They share **no foreign key and no query**, and the only bridge is the `SessionDelivered`
+event from 005. That absence is the deliverable, not an omission — `ContextIsolationTest`
+fails the build over a violation in either direction.
+
+Inside the context, one rule decides the rest: **counts come from `teaching_units`, money
+comes from `ledger_entries`**. `Deduction` and `Bonus` have no unit behind them, so a
+units-derived total omits the first manual adjustment anyone writes. The ledger is
+append-only, enforced on the model; the bulk update that stamps a period is the one
+sanctioned exception and stays the only one.
+
+Amounts are **integers in minor units**, unlike Payments' `decimal(12,2)` — Laravel's
+`decimal:2` cast returns a string, so every sum would go through a float.
+
+A close claims units with `< ends_on + 1 day`, never `<= ends_on` (the column is a
+timestamp, the bound is a date). Standalone ledger lines carry no date filter at all: an
+adjustment is typed after the window ends, and filtering it by date pushes every deduction
+into the next period.

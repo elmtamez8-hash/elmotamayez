@@ -349,3 +349,47 @@ attendances gains:  report_sent_at    → when the guardian was told what this r
   jobs consult it; no counter moves, so nothing has to be restored when it ends
 - **`broadcast_provider` / `broadcast_room_id`:** on the row, never in a payload and never
   in the frontend bundle (FR-019)
+
+## Teacher Settlement (spec 014)
+
+```
+settlement_rates      (workspace)  teacher_profile_id, session_type, subject_id, grade_level,
+                                   amount_minor, effective_from — INSERT-only, never updated
+rate_change_requests  (workspace)  the ask and the decision, with the reason for a "no"
+teaching_units        (workspace)  one per (class_session, student). class_session_id NOT NULL:
+                                   a unit is payment for a specific hour
+settlement_periods    (workspace)  the window, plus the SIX frozen totals written at close
+ledger_entries        (workspace)  append-only. THE balance — units are only the count
+teacher_payouts       (workspace)  money that left. unique(settlement_period_id)
+```
+
+### The absence is the design
+
+**Zero foreign keys between these six tables and `orders` / `payment_transactions` /
+`products`, in either direction.** Not an omission from the diagram — the omission *is* the
+architecture (FR-030). A teacher's pay and a student's payment are two answers to two
+questions, and a key between them is the first line of the join that eventually makes a
+refund reduce someone's salary.
+
+The only bridge is the `SessionDelivered` event from 005. Nothing here consumes a billing
+event either, and `ContextIsolationTest` fails the build over any of it — including a
+derived check that reads both modules' `Schema::create` calls, so spec 006's credit tables
+are covered the day they land.
+
+- **`amount_minor` is an integer**, departing from Payments' `decimal(12,2)`. Laravel's
+  `decimal:2` cast returns a **string**, so every sum goes through a float — which is fine
+  until the day it is not, on the one table where it would be a wrong salary
+- **`teaching_units` unique `(class_session_id, student_user_id, reversal_of_id)`** with
+  `reversal_of_id` defaulting to **0, not NULL**: NULLs in a unique index are distinct in
+  both MySQL and SQLite, so a nullable column there enforces nothing
+- **`settlement_periods` unique `(teacher_profile_id, starts_on)`** — what the loser of two
+  concurrent sweeps hits. Both racers derive the same window start from the previous close,
+  so they collide by construction rather than by luck
+- **`teacher_payouts.amount_minor` is unsigned** — a shortfall is carried into the next
+  window (`carried_out_minor`), and the column is what makes that a fact rather than a rule
+- **`ledger_entries` has no update path.** The model throws on `updating` and `deleting`.
+  Period stamping is a BULK update, which retrieves no models and so bypasses the guard —
+  the one sanctioned post-insert write, and it stays the only one
+- **`teaching_units.settlement_period_id` NULL means "the open window"** — the statement is
+  defined as "every unit no close has claimed", which is true whether or not a period row
+  names those days yet

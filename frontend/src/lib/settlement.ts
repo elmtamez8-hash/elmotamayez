@@ -102,6 +102,23 @@ export interface TeacherStatement {
   next_payout_on: string;
 }
 
+/** A window that has stopped moving. Every number on it is frozen, not derived. */
+export interface SettlementPeriod {
+  uuid: string;
+  starts_on: string;
+  ends_on: string;
+  status: SettlementPeriodStatus;
+  status_label: string;
+  currency: string;
+  units_count: number;
+  gross_minor: number;
+  deductions_minor: number;
+  carried_in_minor: number;
+  net_minor: number;
+  carried_out_minor: number;
+  closed_at: string | null;
+}
+
 interface Paginated<T> {
   data: T[];
   meta: { total: number; current_page: number; last_page: number };
@@ -112,6 +129,8 @@ export const settlement = {
   units: (page = 1) =>
     api.get<Paginated<TeachingUnit>>(`/settlement/units?page=${page}`),
   rates: () => api.get<SettlementRate[]>("/settlement/rates"),
+  periods: (page = 1) =>
+    api.get<Paginated<SettlementPeriod>>(`/settlement/periods?page=${page}`),
   rateRequests: () => api.get<Paginated<RateChangeRequest>>("/settlement/rate-requests"),
   requestRate: (body: {
     session_type: "individual" | "group";
