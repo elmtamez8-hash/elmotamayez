@@ -102,14 +102,18 @@ export default function CourseDetailPage({
       {/*
         An empty course used to render nothing at all below the header, which
         reads as a page that failed rather than a course with no content yet.
-        Naming the absence is the minimum; the authoring screens that would let a
-        teacher fix it from here do not exist yet, so the copy does not pretend
-        otherwise.
+
+        The copy used to send the teacher to /admin. It should not have: the
+        panel's CourseResource has no RelationManagers either, so that screen
+        cannot author a section any more than this one can. An empty state that
+        names a place where the thing is not sends someone hunting for a
+        control that does not exist and makes them doubt their own eyes —
+        worse than admitting the surface is missing.
       */}
       {(!course.sections || course.sections.length === 0) && (
         <EmptyState
           title="لا محتوى في هذا الكورس بعد"
-          description="الأقسام والفصول والدروس تُضاف حالياً من لوحة الإدارة. وتسجيلات الحصص المباشرة تظهر هنا تلقائياً بعد رفعها."
+          description="إضافة الأقسام والفصول والدروس ليست متاحة بعد — سطح التأليف قيد الإعداد. أما تسجيلات الحصص المباشرة فتظهر هنا تلقائياً بعد نشرها."
         />
       )}
 
