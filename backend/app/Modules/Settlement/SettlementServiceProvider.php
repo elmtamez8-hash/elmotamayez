@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace App\Modules\Settlement;
 
 use App\Modules\LiveSessions\Events\SessionDelivered;
+use App\Modules\Settlement\Events\SettlementPeriodClosed;
 use App\Modules\Settlement\Events\SettlementRateApproved;
+use App\Modules\Settlement\Events\TeacherPayoutIssued;
 use App\Modules\Settlement\Events\TeachingUnitAccrued;
 use App\Modules\Settlement\Listeners\AccrueUnitsOnDelivery;
+use App\Modules\Settlement\Listeners\NotifyPayoutIssued;
+use App\Modules\Settlement\Listeners\NotifyPeriodClosed;
 use App\Modules\Settlement\Listeners\NotifyRateDecision;
 use App\Modules\Settlement\Listeners\RecordUnitInLedger;
 use App\Modules\Settlement\Models\RateChangeRequest;
@@ -62,5 +66,11 @@ class SettlementServiceProvider extends Module
         // otherwise on the statement is the argument this context exists to
         // prevent.
         Event::listen(SettlementRateApproved::class, NotifyRateDecision::class);
+
+        // FR-029. A total that stops moving without anyone saying so, and money
+        // that arrives without a reference, are both discovered rather than told
+        // — and by then the question is an argument instead of a query.
+        Event::listen(SettlementPeriodClosed::class, NotifyPeriodClosed::class);
+        Event::listen(TeacherPayoutIssued::class, NotifyPayoutIssued::class);
     }
 }

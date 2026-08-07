@@ -3,6 +3,7 @@
 use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
 use App\Modules\Media\Jobs\PruneExpiredGrantsJob;
 use App\Modules\Notifications\Jobs\PruneOldNotificationsJob;
+use App\Modules\Settlement\Jobs\CloseDueSettlementPeriodsJob;
 use App\Modules\Settlement\Jobs\ReleasePendingUnitsJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -34,3 +35,11 @@ Schedule::job(new CloseStaleSessionsJob)->hourlyAt(20);
 // an event — nothing fires when a file never arrives, and that branch has to be
 // noticed too.
 Schedule::job(new ReleasePendingUnitsJob)->everyFifteenMinutes();
+
+// Windows whose days have run out get closed and their totals frozen. Daily and
+// at :10 past four — clear of both bulk deletes at 03:30/03:45 and of the hourly
+// session sweep at :20, because this one holds a transaction per teacher and has
+// no business queueing behind a mass delete's locks. Daily rather than hourly:
+// the boundary it acts on is a DATE, so running it twelve more times a day would
+// find nothing eleven of them.
+Schedule::job(new CloseDueSettlementPeriodsJob)->dailyAt('04:10');

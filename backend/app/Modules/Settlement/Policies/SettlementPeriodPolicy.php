@@ -19,6 +19,15 @@ use Illuminate\Auth\Access\Response;
  */
 class SettlementPeriodPolicy extends BasePolicy
 {
+    /** Reading one's own list of closed periods is reading one's own statement. */
+    public function viewAny(User $user): Response
+    {
+        return $user->canAny([
+            Permissions::SETTLEMENT_STATEMENT_VIEW,
+            Permissions::SETTLEMENT_PERIOD_MANAGE,
+        ]) ? Response::allow() : Response::deny();
+    }
+
     public function view(User $user, SettlementPeriod $period): Response
     {
         if ($user->can(Permissions::SETTLEMENT_PERIOD_MANAGE)) {

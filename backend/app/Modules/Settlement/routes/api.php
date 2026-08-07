@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Settlement\Http\Controllers\RateChangeController;
+use App\Modules\Settlement\Http\Controllers\SettlementPeriodController;
 use App\Modules\Settlement\Http\Controllers\StatementController;
 use App\Modules\Settlement\Http\Controllers\TeachingUnitController;
 use Illuminate\Support\Facades\Route;
@@ -27,6 +28,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/settlement/statement/export', [StatementController::class, 'export']);
 
     Route::get('/settlement/units', [TeachingUnitController::class, 'index']);
+    Route::get('/settlement/periods', [SettlementPeriodController::class, 'index']);
     Route::get('/settlement/rates', [RateChangeController::class, 'rates']);
     Route::get('/settlement/rate-requests', [RateChangeController::class, 'index']);
 
@@ -43,5 +45,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
         // The correction. An explicit administrative act with an author and a
         // reason — never an attendance edit (spec Q7).
         Route::post('/admin/settlement/units/{unit}/reverse', [TeachingUnitController::class, 'reverse']);
+
+        // The two irreversible acts, behind two different permissions. One
+        // "manage settlement" permission would hand both to whoever needed
+        // either — and only one of them moves money.
+        Route::post('/admin/settlement/periods/{period}/close', [SettlementPeriodController::class, 'close']);
+        Route::post('/admin/settlement/periods/{period}/payouts', [SettlementPeriodController::class, 'pay']);
     });
 });

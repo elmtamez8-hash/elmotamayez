@@ -162,21 +162,21 @@ description: "Task list for 014-teacher-settlement"
 
 ### الاختبارات أولاً
 
-- [ ] T064 [P] [US4] اكتب `backend/tests/Feature/Settlement/PeriodCloseTest.php`: أغلِق مرتين ← إغلاق واحد · صرف مرتين ← صرف واحد (SC-014). **`Queue::fake()` إلزامي**: `->delay()` يُنفَّذ فوراً على اتّصال `sync` فتعمل الوظيفة داخل الفعل الذي جدولها
-- [ ] T065 [P] [US4] أضف «الوحدة المتأخرة تُرحَّل ولا تُعيد فتح المغلقة» (FR-024)
-- [ ] T066 [P] [US4] أضف «الصافي السالب يُرحَّل ولا يُصرَف» — صفر صرف بمبلغ سالب (SC-015 · FR-026)
-- [ ] T067 [P] [US4] أضف «الوحدة المتنازع عليها لا تدخل التسوية» (FR-008)
+- [X] T064 [P] [US4] اكتب `backend/tests/Feature/Settlement/PeriodCloseTest.php`: أغلِق مرتين ← إغلاق واحد · صرف مرتين ← صرف واحد (SC-014). **`Queue::fake()` إلزامي**: `->delay()` يُنفَّذ فوراً على اتّصال `sync` فتعمل الوظيفة داخل الفعل الذي جدولها
+- [X] T065 [P] [US4] أضف «الوحدة المتأخرة تُرحَّل ولا تُعيد فتح المغلقة» (FR-024)
+- [X] T066 [P] [US4] أضف «الصافي السالب يُرحَّل ولا يُصرَف» — صفر صرف بمبلغ سالب (SC-015 · FR-026)
+- [X] T067 [P] [US4] أضف «الوحدة المتنازع عليها لا تدخل التسوية» (FR-008)
 
 ### التنفيذ
 
-- [ ] T068 [US4] أنشئ `backend/app/Modules/Settlement/Actions/CloseSettlementPeriod.php` بـ`UPDATE … WHERE status = 'open'` **ذرّي** وفحص عدد الصفوف المتأثّرة — **يُمنع** `count()` ثم `insert()` و**يُمنع** `lockForUpdate()`: الأخير عديم الأثر على SQLite فاختبارٌ مبني عليه ينجح محلياً ولا يثبت شيئاً عن MySQL
-- [ ] T069 [US4] احسب الصافي داخل معاملة واحدة، وجمّد `units_count` و`gross_minor` و`deductions_minor` و`net_minor` على صفّ الفترة (NFR-010)
-- [ ] T070 [US4] أنشئ `backend/app/Modules/Settlement/Actions/RecordTeacherPayout.php` — يرفض الصافي ≤ صفر ويرفض فترة لها صرف سابق (الفريد على `settlement_period_id` هو الحارس الحقيقي)
-- [ ] T071 [US4] أنشئ `backend/app/Modules/Settlement/Actions/RecordDeduction.php` — الخصم بسببه، ويظهر في الكشف (FR-025)
-- [ ] T072 [US4] أنشئ `backend/app/Modules/Settlement/Jobs/CloseDueSettlementPeriodsJob.php` مجدولة بـ`forWorkspace()`، في ساعة **بعيدة** عن مسحات 005 الليلية
-- [ ] T073 [US4] أطلق `SettlementPeriodClosed` و`TeacherPayoutIssued`، وأنشئ مستمعيهما للإشعار عبر `DispatchNotification` — **يُمنع** تسمية قناة في أي ملف تحت `Actions/`
-- [ ] T074 [P] [US4] أضف قوالب الإشعارين إلى `NotificationTemplateSeeder.php` (FR-029)
-- [ ] T075 [US4] أنشئ `SettlementPeriodController` بمساري الإغلاق والصرف الإداريَّين بـ`throttle:settlement-write` وصلاحيتيهما
+- [X] T068 [US4] أنشئ `backend/app/Modules/Settlement/Actions/CloseSettlementPeriod.php` بـ`UPDATE … WHERE status = 'open'` **ذرّي** وفحص عدد الصفوف المتأثّرة — **يُمنع** `count()` ثم `insert()` و**يُمنع** `lockForUpdate()`: الأخير عديم الأثر على SQLite فاختبارٌ مبني عليه ينجح محلياً ولا يثبت شيئاً عن MySQL
+- [X] T069 [US4] احسب الصافي داخل معاملة واحدة، وجمّد `units_count` و`gross_minor` و`deductions_minor` و`net_minor` على صفّ الفترة (NFR-010)
+- [X] T070 [US4] أنشئ `backend/app/Modules/Settlement/Actions/RecordTeacherPayout.php` — يرفض الصافي ≤ صفر ويرفض فترة لها صرف سابق (الفريد على `settlement_period_id` هو الحارس الحقيقي)
+- [X] T071 [US4] أنشئ `backend/app/Modules/Settlement/Actions/RecordDeduction.php` — الخصم بسببه، ويظهر في الكشف (FR-025)
+- [X] T072 [US4] أنشئ `backend/app/Modules/Settlement/Jobs/CloseDueSettlementPeriodsJob.php` مجدولة بـ`forWorkspace()`، في ساعة **بعيدة** عن مسحات 005 الليلية
+- [X] T073 [US4] أطلق `SettlementPeriodClosed` و`TeacherPayoutIssued`، وأنشئ مستمعيهما للإشعار عبر `DispatchNotification` — **يُمنع** تسمية قناة في أي ملف تحت `Actions/`
+- [X] T074 [P] [US4] أضف قوالب الإشعارين إلى `NotificationTemplateSeeder.php` (FR-029)
+- [X] T075 [US4] أنشئ `SettlementPeriodController` بمساري الإغلاق والصرف الإداريَّين بـ`throttle:settlement-write` وصلاحيتيهما
 
 **Checkpoint**: الدفتر صار مالاً يصل المدرّس، بلا تكرار وبلا سالب.
 
@@ -205,6 +205,7 @@ description: "Task list for 014-teacher-settlement"
 - [ ] T083 [P] حدّث `docs/erd.md` بالجداول الستّة، **وارسم غياب** الرابط بينها وبين جداول الفوترة صراحةً — الغياب هنا قرار معماري لا نقص في الرسم
 - [ ] T084 [P] حدّث `CLAUDE.md` و`AGENTS.md` معاً بمزالق هذه المرحلة: الحدث الجسر ولماذا هو `SessionDelivered` · المبالغ بالوحدة الصغرى ولماذا تخالف `decimal` القائم · الدفتر لا يُعدَّل
 - [ ] T085 [P] حدّث `docs/roadmap.md` بحالة 014 وأثرها على 006
+- [ ] T085أ [P] أظهر «مستحقّ من فترات مغلقة لم تُصرَف» في الكشف — بعد إغلاق بصافٍ موجب ينتظر الصرف، يهبط عنوان الكشف إلى صفر تقريباً بينما المال مستحقّ فعلاً: المبلغ صار مُجمَّداً على صفّ الفترة والنافذة الجارية فارغة. مصدره `/settlement/periods` القائم؛ لا استعلام جديد
 - [ ] T086 راجع كل مسار كتابة: محدود المعدّل بمحدِّد **مسمّى** · وكل مسار عرض مالي محروس بصلاحية صريحة (NFR-012)
 - [ ] T087 شغّل البوابات الأربع: `php vendor/bin/pest` · `./vendor/bin/pint --test` · `./vendor/bin/phpstan analyse` · `npx tsc --noEmit` (SC-018)
 - [ ] T088 شغّل `npx playwright test` على **بناء إنتاج** مع `PHP_CLI_SERVER_WORKERS=8 php artisan serve` — الخادم أحادي الخيط يرفض طلبات ما قبل التصيير المتوازية فيسقط البناء قبل أول اختبار

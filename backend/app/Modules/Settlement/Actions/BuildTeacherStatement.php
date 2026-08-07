@@ -15,8 +15,8 @@ use App\Modules\Settlement\Models\SettlementPeriod;
 use App\Modules\Settlement\Models\SettlementRate;
 use App\Modules\Settlement\Models\TeachingUnit;
 use App\Modules\Settlement\Support\SettlementSettings;
+use App\Modules\Settlement\Support\SettlementWindow;
 use App\Shared\Actions\Action;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -46,6 +46,7 @@ use Illuminate\Support\Collection;
 class BuildTeacherStatement extends Action
 {
     public function __construct(
+        private readonly SettlementWindow $window,
         private readonly SettlementSettings $settings,
     ) {}
 
@@ -57,21 +58,16 @@ class BuildTeacherStatement extends Action
         // this window's opening balance — read, never recomputed, because a total
         // that recomputes gives a different answer after any later correction,
         // including to a teacher already paid against the old one.
-        $lastClosed = SettlementPeriod::query()
-            ->where('teacher_profile_id', $teacherId)
-            ->whereIn('status', [SettlementPeriodStatus::Closed->value, SettlementPeriodStatus::Paid->value])
-            ->orderByDesc('ends_on')
-            ->first();
+        $lastClosed = $this->window->lastClosed($teacherId);
+        $open = $this->window->open($teacherId);
 
-        $open = SettlementPeriod::query()
-            ->where('teacher_profile_id', $teacherId)
-            ->where('status', SettlementPeriodStatus::Open->value)
-            ->orderByDesc('starts_on')
-            ->first();
+        // Through SettlementWindow, not derived here: the closing job asks the
+        // same question, and two derivations that disagree by a day would freeze
+        // a total over one set of days while the statement showed another.
+        [$startsOn, $endsOn] = $this->window->bounds($teacherId, $open, $lastClosed);
 
-        [$startsOn, $endsOn] = $this->window($teacherId, $open, $lastClosed);
-
-        $money = $this->money($teacherId);
+        $carriedIn = $lastClosed === null ? 0 : $lastClosed->carried_out_minor;
+        $money = $this->money($teacherId, $carriedIn);
 
         return new TeacherStatement(
             periodUuid: $open === null ? null : (string) $open->uuid,
@@ -86,7 +82,7 @@ class BuildTeacherStatement extends Action
             grossMinor: $money['gross'],
             deductions: $money['deductions'],
             netMinor: $money['net'],
-            carriedInMinor: $lastClosed === null ? 0 : $lastClosed->carried_out_minor,
+            carriedInMinor: $carriedIn,
             currency: $this->currency($open, $lastClosed),
         );
     }
@@ -111,45 +107,6 @@ class BuildTeacherStatement extends Action
         }
 
         return $this->settings->currency();
-    }
-
-    /**
-     * The window's bounds.
-     *
-     * A period row exists only once someone has closed one before it (US4), so
-     * the common case for a new teacher is no row at all. The dates shown are
-     * then derived, but the AGGREGATION is not: it is every unit not yet assigned
-     * to a period, which is what "the current window" means whether or not a row
-     * has been created to name it.
-     *
-     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
-     */
-    private function window(int $teacherId, ?SettlementPeriod $open, ?SettlementPeriod $lastClosed): array
-    {
-        if ($open !== null) {
-            return [
-                CarbonImmutable::parse($open->starts_on->toDateString()),
-                CarbonImmutable::parse($open->ends_on->toDateString()),
-            ];
-        }
-
-        if ($lastClosed !== null) {
-            $startsOn = CarbonImmutable::parse($lastClosed->ends_on->toDateString())->addDay();
-        } else {
-            // The first unsettled unit, or today for a teacher with none. Showing
-            // "the last 30 days" instead would print a start date after work the
-            // statement is already counting.
-            $earliest = TeachingUnit::query()
-                ->where('teacher_profile_id', $teacherId)
-                ->whereNull('settlement_period_id')
-                ->min('delivered_at');
-
-            $startsOn = $earliest === null
-                ? CarbonImmutable::now()->startOfDay()
-                : CarbonImmutable::parse((string) $earliest)->startOfDay();
-        }
-
-        return [$startsOn, $startsOn->addDays($this->settings->periodDays() - 1)];
     }
 
     /** @return array<string, int> */
@@ -217,7 +174,7 @@ class BuildTeacherStatement extends Action
      *
      * @return array{gross: int, deductions: list<array{type: string, type_label: string, reason: string|null, amount_minor: int}>, net: int}
      */
-    private function money(int $teacherId): array
+    private function money(int $teacherId, int $carriedIn): array
     {
         $rows = LedgerEntry::query()
             ->where('teacher_profile_id', $teacherId)
@@ -251,10 +208,14 @@ class BuildTeacherStatement extends Action
             ];
         }
 
+        // Carried in, because that is what the teacher is OWED and it is the
+        // same arithmetic CloseSettlementPeriod freezes. A net that ignored a
+        // negative balance brought forward would show money the next payout is
+        // not going to contain.
         $net = array_reduce(
             $deductions,
             static fn (int $carry, array $line): int => $carry + $line['amount_minor'],
-            $gross,
+            $gross + $carriedIn,
         );
 
         return ['gross' => $gross, 'deductions' => $deductions, 'net' => $net];
