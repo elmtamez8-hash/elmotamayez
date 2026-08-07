@@ -1,8 +1,6 @@
-import { readFileSync } from "node:fs";
-
 import { test, expect, type Page } from "@playwright/test";
 
-import { TEACHER_FILE } from "./auth.setup";
+import { useTeacherAccount } from "./teacher-account";
 
 /**
  * The teacher's statement, walked from the sidebar — and audited for what is
@@ -48,28 +46,6 @@ const FORBIDDEN_KEYS = [
   "receipt_url",
 ];
 
-/**
- * Point this browser at the seeded teacher.
- *
- * The token is minted ONCE by the setup project and read here. Logging in per
- * test would be twelve hits on `throttle:auth` across the six projects, and that
- * limiter allows five a minute for the whole suite — the run would fail on a
- * limit rather than on anything real.
- *
- * `addInitScript`, not an `evaluate` after `goto`: AuthProvider reads the token
- * on first render, and setting it later leaves that render signed in as the
- * student from storageState.
- */
-async function signInAsTeacher(page: Page): Promise<void> {
-  const { token } = JSON.parse(readFileSync(TEACHER_FILE, "utf8")) as { token: string };
-
-  expect(token, "no teacher token — did the setup project run?").toBeTruthy();
-
-  await page.addInitScript((value) => {
-    localStorage.setItem("auth_token", value);
-  }, token);
-}
-
 async function openNav(page: Page): Promise<void> {
   const width = page.viewportSize()?.width ?? 1440;
 
@@ -80,7 +56,7 @@ async function openNav(page: Page): Promise<void> {
 
 test.describe("كشف التسوية", () => {
   test("الشريط الجانبي ← كشف التسوية", async ({ page }) => {
-    await signInAsTeacher(page);
+    await useTeacherAccount(page);
 
     await page.goto("/dashboard");
     await openNav(page);
@@ -103,7 +79,7 @@ test.describe("كشف التسوية", () => {
   });
 
   test("لا يظهر أي رقم يخصّ دفع الطالب", async ({ page }) => {
-    await signInAsTeacher(page);
+    await useTeacherAccount(page);
 
     // Every settlement payload the page receives, captured as raw text so the
     // check is on what crossed the wire rather than on what React chose to

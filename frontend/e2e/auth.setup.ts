@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { test as setup, expect, type APIRequestContext } from "@playwright/test";
 
 import { ISOLATED_FILE, PROJECT_NAMES } from "./isolated-accounts";
+import { TEACHER_FILE } from "./teacher-account";
 
 /**
  * Produces the authenticated storageState the six viewport projects depend on.
@@ -16,17 +17,11 @@ import { ISOLATED_FILE, PROJECT_NAMES } from "./isolated-accounts";
 
 const AUTH_FILE = "e2e/.auth/user.json";
 
-/**
- * The seeded teacher's token, minted ONCE for the whole run.
- *
- * The settlement screens are the teacher's, and a student is refused them by
- * design — so a spec that covers them cannot use the storageState above. Signing
- * in inside each test would be 2 specs × 6 projects = 12 hits on `throttle:auth`,
- * which allows five a minute and keys guests on the IP with no route in the hash:
- * the whole suite shares one counter. One login here, read from a file by every
- * project, is the same trick the isolated accounts use and for the same reason.
- */
-export const TEACHER_FILE = "e2e/.auth/teacher.json";
+// TEACHER_FILE is imported rather than declared here: Playwright refuses to let
+// a spec import a setup file, so the constant settlement.spec.ts also needs
+// lives in teacher-account.ts. One login for the whole run either way —
+// `throttle:auth` allows five a minute and keys guests on the IP with no route
+// in the hash, so every login in the suite draws on one counter.
 
 // Seeded by `php artisan migrate:fresh --seed`. A student, not the teacher: the
 // student sees the larger set of read-only screens, and the teacher-only pages

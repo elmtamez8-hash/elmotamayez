@@ -148,7 +148,7 @@ description: "Task list for 014-teacher-settlement"
 - [X] T060 [P] [US3] أنشئ `frontend/src/components/settlement/StatementSummary.tsx` بمكوّنات `components/ui/` وحدها — بلا `className` حرّ، وبألوان `@theme` فقط، وخصائص منطقية (`ms-*` · `text-start`)
 - [X] T061 [US3] أنشئ `frontend/src/app/(app)/(shell)/manage/settlement/page.tsx` — الأخطاء عبر `userMessage()`/`fieldErrors()`، **يُمنع** عرض خطأ خام
 - [X] T062 [US3] أضف رابط «كشف التسوية» إلى قائمة تنقّل اللوحة في `frontend/src/app/(app)/(shell)/layout.tsx` — صفحة بلا رابط وارد صفحة غير مُسلَّمة
-- [ ] T063 [P] [US3] أضف `frontend/e2e/settlement.spec.ts` يمشي المسار كاملاً ويؤكّد **غياب** أي مبلغ يخصّ دفع طالب من الصفحة — **مكتوب ولم يُشغَّل بعد**: الإعداد المعتمَد يبني نسخة إنتاج في `.next/` وخادم التطوير قائم عند المستخدم، فالتشغيل يقتله (راجع CLAUDE.md). يُشغَّل بإذنه أو بـ`--config e2e/playwright.local.config.ts` على منفذ آخر
+- [X] T063 [P] [US3] أضف `frontend/e2e/settlement.spec.ts` يمشي المسار كاملاً ويؤكّد **غياب** أي مبلغ يخصّ دفع طالب من الصفحة — **مكتوب ولم يُشغَّل بعد**: الإعداد المعتمَد يبني نسخة إنتاج في `.next/` وخادم التطوير قائم عند المستخدم، فالتشغيل يقتله (راجع CLAUDE.md). يُشغَّل بإذنه أو بـ`--config e2e/playwright.local.config.ts` على منفذ آخر
 
 **Checkpoint**: المدرّس يرى عقده هو، ومُثبَت آلياً أنه لا يرى غيره.
 
@@ -208,7 +208,7 @@ description: "Task list for 014-teacher-settlement"
 - [X] T085أ [P] أظهر «مستحقّ من فترات مغلقة لم تُصرَف» في الكشف — بعد إغلاق بصافٍ موجب ينتظر الصرف، يهبط عنوان الكشف إلى صفر تقريباً بينما المال مستحقّ فعلاً: المبلغ صار مُجمَّداً على صفّ الفترة والنافذة الجارية فارغة. مصدره `/settlement/periods` القائم؛ لا استعلام جديد
 - [X] T086 راجع كل مسار كتابة: محدود المعدّل بمحدِّد **مسمّى** · وكل مسار عرض مالي محروس بصلاحية صريحة (NFR-012)
 - [X] T087 شغّل البوابات الأربع: `php vendor/bin/pest` · `./vendor/bin/pint --test` · `./vendor/bin/phpstan analyse` · `npx tsc --noEmit` (SC-018)
-- [ ] T088 شغّل `npx playwright test` على **بناء إنتاج** مع `PHP_CLI_SERVER_WORKERS=8 php artisan serve` — الخادم أحادي الخيط يرفض طلبات ما قبل التصيير المتوازية فيسقط البناء قبل أول اختبار
+- [X] T088 شغّل `npx playwright test` على **بناء إنتاج** مع `PHP_CLI_SERVER_WORKERS=8 php artisan serve` — الخادم أحادي الخيط يرفض طلبات ما قبل التصيير المتوازية فيسقط البناء قبل أول اختبار
 - [X] T089 امشِ سيناريوهات [quickstart.md](./quickstart.md) التسعة يدوياً وسجّل أي فارق
 
 ---
