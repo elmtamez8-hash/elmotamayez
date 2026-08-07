@@ -9,6 +9,7 @@ use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Settlement\Actions\DecideRateChange;
 use App\Modules\Settlement\Actions\RequestRateChange;
+use App\Modules\Settlement\Http\Controllers\Concerns\ResolvesOwnTeacher;
 use App\Modules\Settlement\Http\Requests\DecideRateChangeRequest;
 use App\Modules\Settlement\Http\Requests\StoreRateChangeRequest;
 use App\Modules\Settlement\Http\Resources\RateChangeRequestResource;
@@ -21,12 +22,16 @@ use Illuminate\Http\Request;
 
 class RateChangeController extends Controller
 {
+    use ResolvesOwnTeacher;
+
     /** The teacher's own requests, newest first. */
     public function index(Request $request): JsonResponse
     {
         $this->authorize('viewAny', RateChangeRequest::class);
 
         $requests = RateChangeRequest::query()
+            // Their own price, not their workspace's. See ResolvesOwnTeacher.
+            ->where('teacher_profile_id', $this->ownTeacherProfileId($request))
             ->orderByDesc('requested_at')
             ->paginate(50);
 
@@ -39,6 +44,7 @@ class RateChangeController extends Controller
         $this->authorize('viewAny', RateChangeRequest::class);
 
         $rates = SettlementRate::query()
+            ->where('teacher_profile_id', $this->ownTeacherProfileId($request))
             ->orderByDesc('effective_from')
             ->get();
 

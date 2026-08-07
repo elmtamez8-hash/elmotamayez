@@ -35,6 +35,17 @@ const STATUS_LABELS: Record<string, string> = {
   public: "عام",
   private: "خاص",
   hidden: "مخفي",
+
+  // Settlement (014). `accrued` and `settled` are two different answers to "am I
+  // getting paid for this": earned, and already paid out.
+  pending_package: "بانتظار اكتمال الحزمة",
+  accrued: "مستحقّة",
+  disputed: "متنازع عليها",
+  settled: "مسوّاة",
+  reversed: "عكسية",
+  open: "مفتوحة",
+  closed: "مغلقة",
+  paid: "مصروفة",
 };
 
 export function statusLabel(status: string): string {
@@ -64,6 +75,17 @@ const STATUS_TONES: Record<string, StatusTone> = {
   rejected: "danger",
   failed: "danger",
   suspended: "danger",
+
+  // Settlement. A reversal is not a failure — it is a correction with an author
+  // and a reason — so it reads neutral rather than red.
+  accrued: "success",
+  settled: "success",
+  paid: "success",
+  pending_package: "warning",
+  disputed: "danger",
+  reversed: "neutral",
+  open: "info",
+  closed: "neutral",
 };
 
 export function statusTone(status: string): StatusTone {
@@ -155,4 +177,20 @@ export function formatMoney(amount: number, currency: string): string {
     currency,
     numberingSystem: "latn",
   }).format(amount);
+}
+
+/**
+ * The same, for an amount that arrived in MINOR units.
+ *
+ * Settlement sends integers and a currency code rather than formatted text, so
+ * that the client can do arithmetic without parsing a string back. The divisor
+ * is the whole reason this is a function: every supported currency has two
+ * decimals today, and that assumption belongs in one place — the backend states
+ * it once in `Money.php`, and a `/ 100` repeated across components is where it
+ * quietly stops being true for the first currency that has three.
+ */
+export function formatMinorMoney(minor: number, currency: string): string {
+  const MINOR_UNITS = 100;
+
+  return formatMoney(minor / MINOR_UNITS, currency);
 }

@@ -16,40 +16,65 @@ import { ISOLATED_FILE, PROJECT_NAMES } from "./isolated-accounts";
 
 const AUTH_FILE = "e2e/.auth/user.json";
 
+/**
+ * The seeded teacher's token, minted ONCE for the whole run.
+ *
+ * The settlement screens are the teacher's, and a student is refused them by
+ * design — so a spec that covers them cannot use the storageState above. Signing
+ * in inside each test would be 2 specs × 6 projects = 12 hits on `throttle:auth`,
+ * which allows five a minute and keys guests on the IP with no route in the hash:
+ * the whole suite shares one counter. One login here, read from a file by every
+ * project, is the same trick the isolated accounts use and for the same reason.
+ */
+export const TEACHER_FILE = "e2e/.auth/teacher.json";
+
 // Seeded by `php artisan migrate:fresh --seed`. A student, not the teacher: the
 // student sees the larger set of read-only screens, and the teacher-only pages
 // are covered by their own audit list.
 const EMAIL = process.env.E2E_EMAIL ?? "student@example.com";
 const PASSWORD = process.env.E2E_PASSWORD ?? "password";
 
+const TEACHER_EMAIL = process.env.E2E_TEACHER_EMAIL ?? "teacher@example.com";
+
 // The login route is throttled at 5/minute. That is correct for production and
 // hostile to a test suite: one aborted run leaves the window spent, and every
 // retry for the next minute fails on a limit rather than on anything real.
 setup.setTimeout(180_000);
 
-setup("authenticate", async ({ page, request }) => {
-  let response = await request.post("/api/v1/auth/login", {
-    data: { email: EMAIL, password: PASSWORD },
-  });
+/**
+ * Sign in, waiting out the rate limit rather than fighting it.
+ *
+ * Shared by both accounts below: the limiter keys guests on the IP with no route
+ * in the hash, so every login in the run draws on one counter and a second
+ * hand-written retry loop would be a second thing to get wrong.
+ */
+async function login(request: APIRequestContext, email: string): Promise<string> {
+  const credentials = { email, password: PASSWORD };
+
+  let response = await request.post("/api/v1/auth/login", { data: credentials });
 
   for (let attempt = 0; response.status() === 429 && attempt < 3; attempt++) {
     // Wait out the window rather than hammering it — retrying immediately only
     // extends it.
     await new Promise((resolve) => setTimeout(resolve, 62_000));
-    response = await request.post("/api/v1/auth/login", {
-      data: { email: EMAIL, password: PASSWORD },
-    });
+    response = await request.post("/api/v1/auth/login", { data: credentials });
   }
 
   // A clear failure here beats 108 downstream redirects to /login: the usual
   // cause is a backend that is not running or a database that was not seeded.
   expect(
     response.ok(),
-    `login failed (${response.status()}). Is the backend up on :8000 and seeded?`,
+    `login failed for ${email} (${response.status()}). Is the backend up on :8000 and seeded?`,
   ).toBeTruthy();
 
   const { token } = (await response.json()) as { token: string };
-  expect(token, "login succeeded but returned no token").toBeTruthy();
+  expect(token, `login succeeded for ${email} but returned no token`).toBeTruthy();
+
+  return token;
+}
+
+setup("authenticate", async ({ page, request }) => {
+  const token = await login(request, EMAIL);
 
   // localStorage is per-origin, so it only exists once a page on that origin has
   // loaded. The public home page is the cheapest one to load.
@@ -57,6 +82,19 @@ setup("authenticate", async ({ page, request }) => {
   await page.evaluate((value) => localStorage.setItem("auth_token", value), token);
 
   await page.context().storageState({ path: AUTH_FILE });
+});
+
+setup("mint the teacher token", async ({ request }) => {
+  const token = await login(request, TEACHER_EMAIL);
+
+  // Written as a token rather than as a second storageState, deliberately:
+  // swapping the projects' storageState would hand the read-only audits a
+  // teacher instead of a student and quietly change what a dozen passing
+  // accessibility assertions actually look at. Specs that need the teacher opt
+  // in one at a time.
+  mkdirSync(dirname(TEACHER_FILE), { recursive: true });
+
+  writeFileSync(TEACHER_FILE, JSON.stringify({ token }, null, 2));
 });
 
 /**

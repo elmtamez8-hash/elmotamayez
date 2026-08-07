@@ -34,17 +34,36 @@
 
 ```jsonc
 {
-  "period": { "uuid": "…", "starts_on": "…", "ends_on": "…", "status": "open" },
+  "period": { "uuid": null, "starts_on": "2026-08-01", "ends_on": "2026-08-30",
+              "status": "open", "status_label": "مفتوحة" },
   "students_count": 34,
-  "units": { "accrued": 210, "disputed": 3, "pending_package": 5,
+  // عدّاد لكل حالة من حالات الوحدة، والتقسيم بنوع الحصة بجانبها.
+  "units": { "pending_package": 5, "accrued": 210, "disputed": 3,
+             "settled": 0, "reversed": 2,
              "by_type": { "individual": 120, "group": 90 } },
-  "rates": [ { "session_type": "individual", "amount": "…", "currency": "QAR",
+  "rates": [ { "uuid": "…", "session_type": "individual",
+               "session_type_label": "فردية", "amount_minor": 5000,
+               "currency": "QAR", "subject_id": null, "grade_level": null,
                "effective_from": "…" } ],
   "pending_rate_request": { "uuid": "…", "status": "pending", "requested_at": "…" },
-  "gross": "…", "deductions": [ { "reason": "…", "amount": "…" } ],
-  "net": "…", "carried_in": "…", "next_payout_on": "…"
+  "currency": "QAR",
+  "gross_minor": 1050000,
+  "deductions": [ { "type": "reversal", "type_label": "قيد عكسي",
+                    "reason": null, "amount_minor": -10000 } ],
+  "net_minor": 1040000, "carried_in_minor": 0, "next_payout_on": "2026-08-30"
 }
 ```
+
+**المبالغ بالوحدات الصغرى (`_minor`) بجانب عملتها**، لا نصّاً مُنسَّقاً: النصّ المُنسَّق
+رقمٌ يضطر العميل لتحليله قبل أن يجمع عليه شيئاً، وعند ذلك التحليل تُخمَّن خانات العملة.
+
+**`period.uuid` قد يكون `null`**: صفّ الفترة يُنشأ عند الإغلاق (US4)، والنافذة قائمة قبله —
+تعريفها هو كل وحدة لم يطالبها إغلاق بعد (`settlement_period_id IS NULL`).
+
+**الإجماليات تُقرأ من الدفتر لا من الوحدات.** `LedgerEntryType` يحمل `deduction` و`bonus`
+ولا وحدة خلفهما، فإجمالي مشتق من `teaching_units` يسقط أول تعديل يدوي يُكتب وتصبح
+«مطابقة بفارق صفر» (`FR-022`) كاذبة في يومها. العدّادات وحدها تأتي من `teaching_units`،
+لأنها تجيب سؤالاً آخر.
 
 **ما لا يعبر السلك، ولا مرة واحدة** (`FR-018`, `SC-007`): ما دفعه أي طالب · عمولة المنصة ·
 سعر البيع · أي كوبون أو خصم أو منحة على جانب الطالب · رصيد أي طالب. الحقول المصرّح بها

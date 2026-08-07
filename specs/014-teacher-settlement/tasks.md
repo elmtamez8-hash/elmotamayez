@@ -132,23 +132,23 @@ description: "Task list for 014-teacher-settlement"
 
 ### الاختبارات أولاً
 
-- [ ] T050 [P] [US3] اكتب `backend/tests/Feature/Settlement/StatementPayloadTest.php` — قائمة حقول مصرّح بها مغلقة، وأي حقل خارجها يُفشِل الاختبار. تُطبَّق على الكشف **والتصدير معاً** (SC-007 · FR-018)
-- [ ] T051 [P] [US3] أضف «إجماليات الكشف تطابق الدفتر بفارق صفر» بعد ١٠٬٠٠٠ قيد (SC-012 · FR-022)
-- [ ] T052 [P] [US3] اكتب `backend/tests/Feature/Settlement/StatementAccessTest.php`: مساعد المدرّس ← **٤٠٣** · مدرّس آخر ← لا يرى شيئاً · لا معامل `teacher` يقبل غير صاحب الرمز (SC-010 · SC-011)
-- [ ] T053 [P] [US3] اكتب `backend/tests/Feature/Settlement/QueryBudgetTest.php` بـ`DB::enableQueryLog()` — تُقاس بمقارنة **حجمين** (١٠٠ وحدة مقابل ١٠٬٠٠٠) لا برقم ثابت: الرقم الثابت يسمح لـN+1 بالاختباء داخل السماحية (SC-016)
+- [X] T050 [P] [US3] اكتب `backend/tests/Feature/Settlement/StatementPayloadTest.php` — قائمة حقول مصرّح بها مغلقة، وأي حقل خارجها يُفشِل الاختبار. تُطبَّق على الكشف **والتصدير معاً** (SC-007 · FR-018)
+- [X] T051 [P] [US3] أضف «إجماليات الكشف تطابق الدفتر بفارق صفر» بعد ١٠٬٠٠٠ قيد (SC-012 · FR-022)
+- [X] T052 [P] [US3] اكتب `backend/tests/Feature/Settlement/StatementAccessTest.php`: مساعد المدرّس ← **٤٠٣** · مدرّس آخر ← لا يرى شيئاً · لا معامل `teacher` يقبل غير صاحب الرمز (SC-010 · SC-011)
+- [X] T053 [P] [US3] اكتب `backend/tests/Feature/Settlement/QueryBudgetTest.php` بـ`DB::enableQueryLog()` — تُقاس بمقارنة **حجمين** (١٠٠ وحدة مقابل ١٠٬٠٠٠) لا برقم ثابت: الرقم الثابت يسمح لـN+1 بالاختباء داخل السماحية (SC-016)
 
 ### التنفيذ
 
-- [ ] T054 [P] [US3] أنشئ `backend/app/Modules/Settlement/Support/TeacherFieldAllowlist.php` — قائمة الحقول **مشتركة** بين الكشف والتصدير؛ نسخة ثانية منها نسخة تتباعد، والتصدير أكثر سطح يُنسى عند إضافة حقل
-- [ ] T055 [US3] أنشئ `backend/app/Modules/Settlement/Actions/BuildTeacherStatement.php` — يقرأ الإجماليات **المُجمَّدة** من الفترة المغلقة و`SUM` على الفهرس للفترة الجارية وحدها (research §R8)
-- [ ] T056 [P] [US3] أنشئ `TeacherStatementResource` و`TeachingUnitResource` — **يُمنع** استعلام داخل أيٍّ منهما: الـResource يعمل مرة لكل صف فأي استعلام فيه N+1 بالبناء (درس 005)
-- [ ] T057 [US3] أنشئ `StatementController` بمساري الكشف والوحدات، محروسَين بـ`SETTLEMENT_STATEMENT_VIEW`، ويعيدان بيانات صاحب الرمز وحده
-- [ ] T058 [US3] أنشئ `backend/app/Modules/Settlement/Actions/ExportTeacherStatement.php` يمرّ بـ`TeacherFieldAllowlist` نفسها (FR-021)
-- [ ] T059 [P] [US3] أنشئ `frontend/src/lib/settlement.ts` بأنواع الكشف ودوالّ القراءة
-- [ ] T060 [P] [US3] أنشئ `frontend/src/components/settlement/StatementSummary.tsx` بمكوّنات `components/ui/` وحدها — بلا `className` حرّ، وبألوان `@theme` فقط، وخصائص منطقية (`ms-*` · `text-start`)
-- [ ] T061 [US3] أنشئ `frontend/src/app/(app)/(shell)/manage/settlement/page.tsx` — الأخطاء عبر `userMessage()`/`fieldErrors()`، **يُمنع** عرض خطأ خام
-- [ ] T062 [US3] أضف رابط «كشف التسوية» إلى قائمة تنقّل اللوحة في `frontend/src/app/(app)/(shell)/layout.tsx` — صفحة بلا رابط وارد صفحة غير مُسلَّمة
-- [ ] T063 [P] [US3] أضف `frontend/e2e/settlement.spec.ts` يمشي المسار كاملاً ويؤكّد **غياب** أي مبلغ يخصّ دفع طالب من الصفحة
+- [X] T054 [P] [US3] أنشئ `backend/app/Modules/Settlement/Support/TeacherFieldAllowlist.php` — قائمة الحقول **مشتركة** بين الكشف والتصدير؛ نسخة ثانية منها نسخة تتباعد، والتصدير أكثر سطح يُنسى عند إضافة حقل
+- [X] T055 [US3] أنشئ `backend/app/Modules/Settlement/Actions/BuildTeacherStatement.php` — يقرأ الإجماليات **المُجمَّدة** من الفترة المغلقة و`SUM` على الفهرس للفترة الجارية وحدها (research §R8)
+- [X] T056 [P] [US3] أنشئ `TeacherStatementResource` و`TeachingUnitResource` — **يُمنع** استعلام داخل أيٍّ منهما: الـResource يعمل مرة لكل صف فأي استعلام فيه N+1 بالبناء (درس 005)
+- [X] T057 [US3] أنشئ `StatementController` بمساري الكشف والوحدات، محروسَين بـ`SETTLEMENT_STATEMENT_VIEW`، ويعيدان بيانات صاحب الرمز وحده
+- [X] T058 [US3] أنشئ `backend/app/Modules/Settlement/Actions/ExportTeacherStatement.php` يمرّ بـ`TeacherFieldAllowlist` نفسها (FR-021)
+- [X] T059 [P] [US3] أنشئ `frontend/src/lib/settlement.ts` بأنواع الكشف ودوالّ القراءة
+- [X] T060 [P] [US3] أنشئ `frontend/src/components/settlement/StatementSummary.tsx` بمكوّنات `components/ui/` وحدها — بلا `className` حرّ، وبألوان `@theme` فقط، وخصائص منطقية (`ms-*` · `text-start`)
+- [X] T061 [US3] أنشئ `frontend/src/app/(app)/(shell)/manage/settlement/page.tsx` — الأخطاء عبر `userMessage()`/`fieldErrors()`، **يُمنع** عرض خطأ خام
+- [X] T062 [US3] أضف رابط «كشف التسوية» إلى قائمة تنقّل اللوحة في `frontend/src/app/(app)/(shell)/layout.tsx` — صفحة بلا رابط وارد صفحة غير مُسلَّمة
+- [ ] T063 [P] [US3] أضف `frontend/e2e/settlement.spec.ts` يمشي المسار كاملاً ويؤكّد **غياب** أي مبلغ يخصّ دفع طالب من الصفحة — **مكتوب ولم يُشغَّل بعد**: الإعداد المعتمَد يبني نسخة إنتاج في `.next/` وخادم التطوير قائم عند المستخدم، فالتشغيل يقتله (راجع CLAUDE.md). يُشغَّل بإذنه أو بـ`--config e2e/playwright.local.config.ts` على منفذ آخر
 
 **Checkpoint**: المدرّس يرى عقده هو، ومُثبَت آلياً أنه لا يرى غيره.
 

@@ -6,6 +6,7 @@ namespace App\Modules\Settlement\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Settlement\Actions\ReverseTeachingUnit;
+use App\Modules\Settlement\Http\Controllers\Concerns\ResolvesOwnTeacher;
 use App\Modules\Settlement\Http\Requests\ReverseUnitRequest;
 use App\Modules\Settlement\Http\Resources\TeachingUnitResource;
 use App\Modules\Settlement\Models\TeachingUnit;
@@ -14,12 +15,18 @@ use Illuminate\Http\Request;
 
 class TeachingUnitController extends Controller
 {
+    use ResolvesOwnTeacher;
+
     /** The teacher's own units, filtered by period and status. */
     public function index(Request $request): JsonResponse
     {
         $this->authorize('viewAny', TeachingUnit::class);
 
         $units = TeachingUnit::query()
+            // Their own, not their workspace's. The workspace scope is not the
+            // guarantee FR-019 asks for — one workspace can hold several teacher
+            // profiles, and the seeded academy holds six.
+            ->where('teacher_profile_id', $this->ownTeacherProfileId($request))
             ->when($request->query('status'), fn ($query, $status) => $query->where('status', $status))
             ->orderByDesc('delivered_at')
             ->paginate(50);

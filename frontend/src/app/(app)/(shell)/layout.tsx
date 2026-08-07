@@ -23,6 +23,7 @@ import {
   ScheduleIcon,
   SessionsIcon,
   SettingsIcon,
+  SettlementIcon,
   WorkspaceIcon,
   type IconProps,
 } from "@/components/icons";
@@ -39,6 +40,10 @@ const mainNav: NavItem[] = [
   // collapsing them into one route would make each show the other half nothing.
   { href: "/schedule", label: "جدولي", Icon: ScheduleIcon },
   { href: "/manage/sessions", label: "حصصي", Icon: SessionsIcon },
+  // The teacher's own money. /orders is the student's side and is a different
+  // question with different permissions — SETTLEMENT_STATEMENT_VIEW reaches only
+  // the teacher, never their assistant.
+  { href: "/manage/settlement", label: "كشف التسوية", Icon: SettlementIcon },
   { href: "/enrollments", label: "تعلّمي", Icon: LearningIcon },
   { href: "/exams", label: "الاختبارات", Icon: ExamIcon },
   { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },

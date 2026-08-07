@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Settlement\Http\Controllers\RateChangeController;
+use App\Modules\Settlement\Http\Controllers\StatementController;
 use App\Modules\Settlement\Http\Controllers\TeachingUnitController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,6 +20,12 @@ use Illuminate\Support\Facades\Route;
  */
 
 Route::middleware('auth:sanctum')->group(function (): void {
+    // No `teacher` parameter on any of these, on purpose (FR-019): the profile
+    // comes from the bearer token, so "may I read this other teacher?" is not a
+    // question the code has to keep answering correctly.
+    Route::get('/settlement/statement', [StatementController::class, 'show']);
+    Route::get('/settlement/statement/export', [StatementController::class, 'export']);
+
     Route::get('/settlement/units', [TeachingUnitController::class, 'index']);
     Route::get('/settlement/rates', [RateChangeController::class, 'rates']);
     Route::get('/settlement/rate-requests', [RateChangeController::class, 'index']);

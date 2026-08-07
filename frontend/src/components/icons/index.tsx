@@ -43,6 +43,7 @@ import {
   IconHome,
   IconInfoCircle,
   IconLogout,
+  IconReceipt2,
   IconReceiptRefund,
   IconSchool,
   IconSettings,
@@ -127,6 +128,8 @@ export const FamilyIcon = wrap(IconUsersGroup, "h-5 w-5");
 export const ScheduleIcon = wrap(IconCalendarTime, "h-5 w-5");
 /** The teacher's calendar of taught sessions. */
 export const SessionsIcon = wrap(IconCalendarEvent, "h-5 w-5");
+/** The teacher's own statement — their contract, never a student's payment. */
+export const SettlementIcon = wrap(IconReceipt2, "h-5 w-5");
 
 /**
  * Directional icons carry their direction in the NAME, not in a CSS flip.

@@ -123,6 +123,38 @@ async function request<T>(
 }
 
 /**
+ * Fetch a file and hand it to the browser's downloader.
+ *
+ * A plain `<a href>` cannot be used for these: the token lives in localStorage
+ * and goes out as an `Authorization` header, which an anchor never sends — the
+ * link would simply 401. So the file is fetched like any other request and
+ * turned into a blob URL, revoked immediately after the click it triggers.
+ */
+async function download(path: string, filename: string): Promise<void> {
+  const token = getToken();
+  const device = deviceId();
+  const headers: Record<string, string> = { Accept: "*/*" };
+
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (device) headers["X-Device-Id"] = device;
+
+  const res = await fetch(`${API_BASE}${path}`, { headers });
+
+  if (!res.ok) {
+    throw new ApiError(`Request failed (${res.status})`, res.status, null);
+  }
+
+  const url = URL.createObjectURL(await res.blob());
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  link.click();
+
+  URL.revokeObjectURL(url);
+}
+
+/**
  * Clear the dead token and send the user to sign in, saying why.
  *
  * The reason comes from an unauthenticated endpoint on purpose: by the time it
@@ -233,6 +265,7 @@ export const api = {
   // has to carry the password and code that authorise it.
   delete: <T>(path: string, data?: unknown) =>
     request<T>(path, { method: "DELETE", body: data ? JSON.stringify(data) : undefined }),
+  download,
 };
 
 export const auth = {
