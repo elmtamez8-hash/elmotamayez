@@ -156,3 +156,43 @@ it('returns an empty page rather than a 404 when nothing matches', function (): 
         ->assertJsonPath('meta.total', 0)
         ->assertJsonPath('data', []);
 });
+
+/*
+| The byline is a link, so it may only name a teacher who has a page.
+|
+| /teachers/{uuid} applies publiclyListed(); a profile that merely exists does
+| not pass it. Publishing the byline anyway is a 404 the visitor discovers by
+| clicking — which is exactly how "Introduction to Laravel" behaved, its author
+| having never finished their application.
+*/
+
+it('drops the byline when the author has no public profile page', function (string $status): void {
+    // is_publicly_listed is left true on purpose: the flag is derived, and a
+    // stale one must not be able to publish a link to a teacher under review.
+    $unlisted = marketplaceTeacher($this->workspace, ['approval_status' => $status]);
+
+    marketplaceCourse($this->workspace, $unlisted, ['title' => 'كورس بلا مدرّس ظاهر']);
+
+    $this->asGuest();
+
+    $this->getJson('/api/v1/marketplace/courses')
+        ->assertOk()
+        ->assertJsonPath('meta.total', 1)
+        // The course still lists — its own gate is its status and its workspace.
+        // What it loses is the link, because there is nothing at the other end.
+        ->assertJsonPath('data.0.teacher', null);
+})->with([
+    TeacherProfile::STATUS_PENDING,
+    TeacherProfile::STATUS_REJECTED,
+    TeacherProfile::STATUS_SUSPENDED,
+]);
+
+it('keeps the byline for an approved teacher', function (): void {
+    marketplaceCourse($this->workspace, $this->teacher, ['title' => 'كورس بمدرّس ظاهر']);
+
+    $this->asGuest();
+
+    $this->getJson('/api/v1/marketplace/courses')
+        ->assertOk()
+        ->assertJsonPath('data.0.teacher.uuid', $this->teacher->uuid);
+});
