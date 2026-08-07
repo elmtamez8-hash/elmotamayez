@@ -7,6 +7,7 @@ namespace App\Modules\Courses\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use App\Shared\Traits\IsPubliclyListed;
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Laravel\Scout\Searchable;
 
 /**
@@ -103,18 +105,42 @@ class Course extends BaseModel
     }
 
     /**
-     * A course is publicly listed when it is published *and* explicitly public.
+     * A course is publicly listed when it is published, explicitly public, and
+     * its author has a public page.
      *
      * `visibility` is checked separately from isPublished() on purpose: a course
      * can be published to an academy's own students without being offered to the
      * whole marketplace, and conflating the two would publish the first kind.
+     *
+     * The author condition is the third, and it is not cosmetic. There is no
+     * standalone course page: the card's title links to the AUTHOR's profile,
+     * because that is where the course can actually be booked. So a course whose
+     * author has no public page is an entry in the marketplace whose only
+     * destination is a 404 — the visitor's first interaction with it is the
+     * error. Dropping the byline and listing it anyway leaves a card that cannot
+     * be clicked at all, which is a different way of publishing nothing.
+     *
+     * `isPubliclyListed()` below answers the same question row by row for the
+     * search index. The two must move together.
      *
      * @param  Builder<static>  $query
      * @return Builder<static>
      */
     protected function publicListingConstraints(Builder $query): Builder
     {
-        return $query->where('status', 'published')->where('visibility', 'public');
+        return $query
+            ->where('status', 'published')
+            ->where('visibility', 'public')
+            ->whereExists(function (QueryBuilder $sub): void {
+                $sub->selectRaw('1')
+                    ->from('teacher_profiles')
+                    ->whereColumn('teacher_profiles.user_id', 'courses.created_by')
+                    ->where('teacher_profiles.is_publicly_listed', true)
+                    // The constant rather than 'approved': a literal here is
+                    // coupling to another module that nobody can grep for, and
+                    // the two would drift the first time the value changed.
+                    ->where('teacher_profiles.approval_status', TeacherProfile::STATUS_APPROVED);
+            });
     }
 
     public function isFree(): bool
@@ -147,12 +173,20 @@ class Course extends BaseModel
     /**
      * Row-level answer to the same question scopePubliclyListed() asks in SQL.
      *
-     * Used by the search index, which has no query to attach a scope to.
+     * Used by the search index, which has no query to attach a scope to. It has
+     * to stay in step with `publicListingConstraints()` above — including the
+     * author condition, or search would surface exactly the courses the listing
+     * refuses to show.
      */
     public function isPubliclyListed(): bool
     {
+        $profile = $this->creator?->teacherProfile;
+
         return $this->isPublished()
             && $this->visibility === 'public'
-            && (bool) $this->workspace?->participates_in_marketplace;
+            && (bool) $this->workspace?->participates_in_marketplace
+            && $profile !== null
+            && (bool) $profile->is_publicly_listed
+            && $profile->approval_status === TeacherProfile::STATUS_APPROVED;
     }
 }

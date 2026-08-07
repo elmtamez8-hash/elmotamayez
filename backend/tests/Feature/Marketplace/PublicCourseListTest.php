@@ -158,17 +158,21 @@ it('returns an empty page rather than a 404 when nothing matches', function (): 
 });
 
 /*
-| The byline is a link, so it may only name a teacher who has a page.
+| A course whose author has no public page is not listed at all.
 |
-| /teachers/{uuid} applies publiclyListed(); a profile that merely exists does
-| not pass it. Publishing the byline anyway is a 404 the visitor discovers by
-| clicking — which is exactly how "Introduction to Laravel" behaved, its author
-| having never finished their application.
+| There is no standalone course page: the card's title links to the AUTHOR's
+| profile, because that is where the course can be booked. And /teachers/{uuid}
+| applies publiclyListed(), which a merely-existing profile does not pass. So
+| listing such a course puts an entry in the marketplace whose only destination
+| is a 404 — the visitor's first interaction with it is the error.
+|
+| That is how "Introduction to Laravel" behaved: published, public, and written
+| by someone who never finished their teaching application.
 */
 
-it('drops the byline when the author has no public profile page', function (string $status): void {
+it('hides a course whose author has no public profile page', function (string $status): void {
     // is_publicly_listed is left true on purpose: the flag is derived, and a
-    // stale one must not be able to publish a link to a teacher under review.
+    // stale one must not be able to publish the work of a teacher under review.
     $unlisted = marketplaceTeacher($this->workspace, ['approval_status' => $status]);
 
     marketplaceCourse($this->workspace, $unlisted, ['title' => 'كورس بلا مدرّس ظاهر']);
@@ -177,22 +181,49 @@ it('drops the byline when the author has no public profile page', function (stri
 
     $this->getJson('/api/v1/marketplace/courses')
         ->assertOk()
-        ->assertJsonPath('meta.total', 1)
-        // The course still lists — its own gate is its status and its workspace.
-        // What it loses is the link, because there is nothing at the other end.
-        ->assertJsonPath('data.0.teacher', null);
+        ->assertJsonPath('meta.total', 0);
 })->with([
     TeacherProfile::STATUS_PENDING,
     TeacherProfile::STATUS_REJECTED,
     TeacherProfile::STATUS_SUSPENDED,
 ]);
 
-it('keeps the byline for an approved teacher', function (): void {
+it('hides a course with no author at all', function (): void {
+    // No code path produces this today — `created_by` is nullable in the schema
+    // and nothing ever writes null to it. It is covered because the COLUMN
+    // allows it and the resource therefore has a `$creator === null` branch: a
+    // branch that exists and is never exercised is a branch that will be wrong
+    // whenever something first reaches it. Whether the column should be nullable
+    // at all is a separate question, and a migration.
+    marketplaceCourse($this->workspace, null, ['title' => 'كورس بلا مؤلّف']);
+
+    $this->asGuest();
+
+    $this->getJson('/api/v1/marketplace/courses')
+        ->assertOk()
+        ->assertJsonPath('meta.total', 0);
+});
+
+it('lists a course whose author is approved, with its byline', function (): void {
     marketplaceCourse($this->workspace, $this->teacher, ['title' => 'كورس بمدرّس ظاهر']);
 
     $this->asGuest();
 
     $this->getJson('/api/v1/marketplace/courses')
         ->assertOk()
+        ->assertJsonPath('meta.total', 1)
         ->assertJsonPath('data.0.teacher.uuid', $this->teacher->uuid);
+});
+
+it('keeps the author condition out of the search index too', function (): void {
+    // The index has no query to attach a scope to, so it stores the answer as a
+    // flag. A flag that disagrees with the scope surfaces in search exactly the
+    // courses the listing refuses to show.
+    $unlisted = marketplaceTeacher($this->workspace, ['approval_status' => TeacherProfile::STATUS_PENDING]);
+
+    $hidden = marketplaceCourse($this->workspace, $unlisted);
+    $shown = marketplaceCourse($this->workspace, $this->teacher);
+
+    expect($hidden->fresh()->isPubliclyListed())->toBeFalse()
+        ->and($shown->fresh()->isPubliclyListed())->toBeTrue();
 });

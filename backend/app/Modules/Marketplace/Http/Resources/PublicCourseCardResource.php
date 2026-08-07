@@ -50,15 +50,16 @@ class PublicCourseCardResource extends JsonResource
     /**
      * The author — but only when the public can actually reach them.
      *
-     * The byline is a LINK, and `/teachers/{uuid}` applies `publiclyListed()`. A
-     * profile that merely EXISTS is not enough: a teacher still pending review,
-     * or rejected, or suspended, has no public page, so a byline pointing at them
-     * is a 404 the visitor finds by clicking. That is exactly how "Introduction
-     * to Laravel" behaved — its author never finished their application.
+     * On any correctly-built query this now always returns a byline:
+     * `Course::publicListingConstraints()` refuses to list a course whose author
+     * has no public page, because the card's title links to that page and a
+     * listing whose only destination is a 404 is worse than no listing.
      *
-     * A course with no author at all, or one whose author never applied to teach,
-     * lands in the same place for the same reason: the card renders the title as
-     * plain text rather than as a dead link.
+     * The check stays here anyway, and not out of caution about the scope: a
+     * Resource must not assume its caller applied one. `WorkspaceScope` adds no
+     * condition for a guest, so the day someone renders these cards from a query
+     * that forgot `publiclyListed()`, this is what keeps the payload from
+     * advertising a page that refuses to open.
      *
      * Both conditions read attributes the `creator.teacherProfile` eager load in
      * `ListPublicCourses` already fetched, so this stays free. Calling
