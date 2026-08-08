@@ -53,12 +53,13 @@
 |---|---|---|
 | `id` · `uuid` | | |
 | `student_credit_account_id` | FK | |
-| `workspace_id` | FK | السياق (`research.md › R5`) |
+| `course_id` | FK | **السياق** (`Q-7` · `research.md › R5`) — الرصيد يُشترى لكورس ويُستهلك في حصصه |
+| `workspace_id` | FK | مُنزَّل من الكورس للحارس والفهارس، لا سياقاً مستقلاً |
 | `purchased_credits` · `consumed_credits` · `remaining_credits` | `integer` **موقَّع** | `NFR-011`: `unsigned` هنا يعمل على SQLite وينفجر على أول رصيد سالب في MySQL وحدها |
 | `credit_limit_credits` | `unsignedInteger` default 0 | أقصى **سالب** مسموح؛ صفر = لا تأجيل |
 | `notified_tier` | `unsignedTinyInteger` default 0 | رتبة آخر تنبيه أُطلق (`research.md › R12`) |
 | `timestamps` | | |
-| | **unique** `(student_credit_account_id, workspace_id)` | |
+| | **unique** `(student_credit_account_id, course_id)` | |
 | | index `(workspace_id, remaining_credits)` | لوحة المدرّس ومسح العتبات |
 
 `remaining_credits` **رقم مادّي**، لا `SUM()`. `NFR-012` تفرضه صراحةً، و`FR-004` تصير التزاماً
@@ -73,7 +74,6 @@
 | `type` | enum: `purchase` `consume` `bonus` `refund` `adjustment` `expire` | `FR-003` — قائمة مغلقة |
 | `credits` | `integer` **موقَّع** | موجب يزيد، سالب ينقص. القيمة **لا** تُشتقّ من النوع: `adjustment` يذهب في الاتجاهين |
 | `source_type` · `source_id` | string · `unsignedBigInteger` nullable | `FR-006`: مصدره (`class_session` · `credit_purchase` · `manual`) |
-| `course_id` | FK nullable | تقريري فقط — **لا يدخل أي قرار** (`R5`) |
 | `expires_at` | timestamp nullable | على قيود الإضافة وحدها؛ `null` = لا تنتهي (`Q-5`) |
 | `performed_by` | FK → `users` nullable | `FR-006`؛ فارغ = النظام |
 | `reason` | string nullable | **إلزامي للـ`adjustment`** (`FR-005`) — يُفرَض في الـAction |
@@ -124,7 +124,7 @@ FIFO **خاطئ**: ترتيب الاستهلاك «الأقرب انتهاءً �
 | العمود | النوع | ملاحظة |
 |---|---|---|
 | `id` · `uuid` | | |
-| `credit_balance_id` · `credit_package_id` · `workspace_id` | FK | |
+| `credit_balance_id` · `credit_package_id` · `course_id` · `workspace_id` | FK | |
 | `order_id` | FK → `orders` nullable | مسار الإيصال اليدوي القائم؛ البوابة في 007 |
 | `credits` | `unsignedSmallInteger` | منسوخ لا مقروء — الحزمة قد تتغيّر |
 | `teacher_rate_minor` · `operating_fee_minor` · `gateway_fee_minor` · `total_minor` | `unsignedInteger` | `FR-021ح` — **المكوّنات الأربعة**، لا الإجمالي وحده |
@@ -165,12 +165,20 @@ FIFO **خاطئ**: ترتيب الاستهلاك «الأقرب انتهاءً �
 `FreezePeriod::covering()` (005): الدالة حول العمود تُلغي الفهرس، والحدّ الأعلى لعمود
 timestamp مقابل تاريخ هو **بداية اليوم التالي**.
 
-### تعديلان على جدولين قائمين
+### تعديلات على كود منشور
 
-| الجدول | العمود | لماذا |
+| الجدول | التغيير | لماذا |
 |---|---|---|
-| `lessons` (Courses) | `is_high_value` boolean default false | `FR-041`: المدرّس يصنّف محتواه. القرار المالي وحده في `Payments` |
+| `lessons` (Courses) | `+ is_high_value` boolean default false | `FR-041`: المدرّس يصنّف محتواه. القرار المالي وحده في `Payments` |
+| `courses` (Courses) | `+ subject_id` · `+ grade_level` | مُدخَلا `RateResolver` في 014. بهما يُحلّ **السعر نفسه** عند الشراء وعند التسوية بنفس الدالة (`Q-7`) |
+| `class_sessions` (LiveSessions) | `course_id` → **إلزامي** | `nullable` اليوم في الهجرة وفي `StoreClassSessionRequest:28`، ولا يضبطه المصنع. حصةٌ بلا كورس حصةٌ بلا سعر معلوم، ولا يمكن أن تستهلك رصيداً |
+| `class_sessions.subject_id` | يُملأ **من الكورس** عند الجدولة | وإلا حلّ الطرفان بمُدخَلات مختلفة، وعاد الفرق من باب آخر |
 | `workspaces` (Tenancy) | — | لا هجرة: `settings` (json) موجود منذ أول هجرة وفارغ، وهذا أول مستهلك له (`R9`) |
+
+> **هجرة `course_id`**: صفوف قائمة تحمل `null`. تُملأ من كورس المدرّس إن وُجد واحد، وإلا
+> تُترك الحصة **ملغاة تشغيلياً** ويُسجَّل عددها — لا تُخترَع لها كورس. والقيد `NOT NULL`
+> يأتي في هجرة **تالية** لهجرة التعبئة، على قاعدة «الترقيم قبل الفهرس» من 016: قيدٌ يسبق
+> تنظيف بياناته يُفشِل النشر على بيانات حيّة.
 
 ---
 
@@ -236,8 +244,22 @@ UPDATE credit_balances
 **الحجب المشتقّ** (`FR-031` · `FR-042` · `FR-044`):
 
 ```
-محجوب  ⟺  remaining_credits < 0  ∧  |remaining_credits| ≥ credit_limit_credits
+محجوب في الكورس س  ⟺  remaining_credits(س) < 0  ∧  |remaining_credits(س)| ≥ credit_limit_credits(س)
 ```
 
-يُقرأ عند كل قرار: الحجز، وإصدار منحة وسائط لأصل `is_high_value`. لا وظيفة ترفع ولا وظيفة
-تخفض.
+**بالكورس لا بالطالب**: من عليه مستحقّ في الفيزياء لا تُغلَق عليه مذكّرات الرياضيات التي
+سدّدها. يُقرأ عند كل قرار — الحجز، وإصدار منحة وسائط لأصل `is_high_value` — ولا وظيفة ترفع
+ولا وظيفة تخفض.
+
+**والتسعير** (`FR-021`), في موضع واحد هو `CostPlusPricing`:
+
+```
+سعر الحصة  =  ApprovedRateDirectory::approvedRateMinorForCourse(الكورس, النوع, الآن)
+            +  billing.operating_fee_minor[النوع]
+            +  ⌈(المجموع × billing.gateway_fee_percent) ÷ 100⌉
+
+سعر الحزمة =  سعر الحصة × credits
+```
+
+`null` من العقد يعني «لا سعر معتمَد لهذا الكورس» ⇐ **الحزم لا تُعرَض**، لا سعرٌ افتراضي:
+بيع حصةٍ بسعرٍ لم يعتمده أحد هو الخطأ الذي يُدفع نقداً.
