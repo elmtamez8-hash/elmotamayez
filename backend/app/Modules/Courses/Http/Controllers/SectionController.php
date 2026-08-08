@@ -6,7 +6,9 @@ namespace App\Modules\Courses\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Courses\Actions\ManageSections;
+use App\Modules\Courses\Actions\PublishTreeNodes;
 use App\Modules\Courses\Actions\ReorderTreeNodes;
+use App\Modules\Courses\Http\Requests\PublishTreeRequest;
 use App\Modules\Courses\Http\Requests\ReorderRequest;
 use App\Modules\Courses\Http\Requests\StoreSectionRequest;
 use App\Modules\Courses\Http\Requests\UpdateSectionRequest;
@@ -61,6 +63,22 @@ class SectionController extends Controller
         ]);
 
         return response()->json(CourseTreeResource::make($course));
+    }
+
+    /**
+     * Publish, unpublish or archive a batch of nodes.
+     *
+     * Answers with the whole authoring tree rather than the changed rows: a
+     * publish moves `structure_version`, and a client left holding the old one
+     * would 409 on its very next write.
+     */
+    public function publishTree(PublishTreeRequest $request, Course $course, PublishTreeNodes $action): JsonResponse
+    {
+        $request->assertVersionMatches($course);
+
+        $action->handle($course, $request->items());
+
+        return $this->tree($course->refresh());
     }
 
     public function store(StoreSectionRequest $request, Course $course, ManageSections $action): JsonResponse

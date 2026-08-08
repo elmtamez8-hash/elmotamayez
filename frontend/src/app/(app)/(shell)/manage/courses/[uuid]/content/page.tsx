@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
+import { LessonEditor } from "@/components/courses/LessonEditor";
 import { TreeOutline } from "@/components/courses/TreeOutline";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -10,8 +11,10 @@ import { errorMessage } from "@/lib/api";
 import {
   courses,
   moveWithin,
+  type ContentStatus,
   type CourseTree,
   type LessonTypeValue,
+  type PublishItem,
   type TreeChapter,
   type TreeSection,
 } from "@/lib/courses";
@@ -42,6 +45,7 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -95,6 +99,21 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
 
   if (tree === null) return <RowsSkeleton />;
 
+  /** Every node still hidden from students, in publish order: section, then its
+      chapters, then their items — so nothing lands published-but-blocked. */
+  const drafts: PublishItem[] = tree.sections.flatMap((section) => [
+    ...(section.status === "published" ? [] : [{ uuid: section.uuid, status: "published" as const }]),
+    ...section.chapters.flatMap((chapter) => [
+      ...(chapter.status === "published" ? [] : [{ uuid: chapter.uuid, status: "published" as const }]),
+      ...chapter.lessons
+        .filter((lesson) => lesson.status !== "published")
+        .map((lesson) => ({ uuid: lesson.uuid, status: "published" as const })),
+    ]),
+  ]);
+
+  const publish = (items: PublishItem[], message: string) =>
+    void run(() => courses.publishTree(uuid, tree.structure_version, items), message);
+
   const addLesson = (chapter: TreeChapter) => {
     const title = window.prompt("عنوان العنصر الجديد");
     if (title === null || title.trim() === "") return;
@@ -121,9 +140,27 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
             تنشره.
           </p>
         </div>
-        <Button href={`/manage/courses/${uuid}`} variant="secondary">
-          العودة إلى الكورس
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/*
+            One request for the whole batch, not one per node. A section and its
+            items become visible together; publishing them in eleven separate
+            calls shows a student eleven different half-built trees on the way.
+          */}
+          {drafts.length > 0 && (
+            <Button
+              disabled={busy}
+              onClick={() =>
+                publish(drafts, `نُشر ${drafts.length} عنصراً — صارت مرئية لطلابك الآن.`)
+              }
+            >
+              نشر كل المسودّات ({drafts.length})
+            </Button>
+          )}
+
+          <Button href={`/manage/courses/${uuid}`} variant="secondary">
+            العودة إلى الكورس
+          </Button>
+        </div>
       </header>
 
       {tree.is_sequential ? (
@@ -145,9 +182,27 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
         </Alert>
       )}
 
+      {editing !== null && (
+        <LessonEditor
+          courseUuid={uuid}
+          lessonUuid={editing}
+          onSaved={() => void run(async () => undefined)}
+          onClose={() => setEditing(null)}
+        />
+      )}
+
       <TreeOutline
         tree={tree}
         busy={busy}
+        onEditLesson={setEditing}
+        onSetStatus={(nodeUuid, status: ContentStatus, label) =>
+          publish(
+            [{ uuid: nodeUuid, status }],
+            status === "published"
+              ? `نُشر «${label}» — صار مرئياً لطلابك الآن.`
+              : `أُلغي نشر «${label}» — لم يعد يظهر لطلابك.`,
+          )
+        }
         onAddSection={(title) =>
           void run(() => courses.createSection(uuid, title), "أُضيف القسم كمسودّة.")
         }

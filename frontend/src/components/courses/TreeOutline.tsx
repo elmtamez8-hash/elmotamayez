@@ -6,7 +6,7 @@ import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TrashIcon } from "@/components/icons";
-import type { CourseTree, TreeChapter, TreeSection } from "@/lib/courses";
+import type { ContentStatus, CourseTree, TreeChapter, TreeSection } from "@/lib/courses";
 
 /**
  * The course tree as its author sees it: drafts included, with the reason each
@@ -25,6 +25,8 @@ export function TreeOutline({
   onMoveSection,
   onMoveChapter,
   onMoveLesson,
+  onEditLesson,
+  onSetStatus,
 }: {
   tree: CourseTree;
   busy: boolean;
@@ -36,6 +38,8 @@ export function TreeOutline({
   onMoveSection: (uuid: string, direction: -1 | 1) => void;
   onMoveChapter: (section: TreeSection, uuid: string, direction: -1 | 1) => void;
   onMoveLesson: (chapter: TreeChapter, uuid: string, direction: -1 | 1) => void;
+  onEditLesson: (uuid: string) => void;
+  onSetStatus: (uuid: string, status: ContentStatus, label: string) => void;
 }) {
   const [newSectionTitle, setNewSectionTitle] = useState("");
 
@@ -56,6 +60,7 @@ export function TreeOutline({
                 onMove={(direction) => onMoveSection(section.uuid, direction)}
                 busy={busy}
               />
+              <StatusButton node={section} busy={busy} onSetStatus={onSetStatus} />
               <RenameButton
                 onRename={(title) => onRename("section", section.uuid, title)}
                 current={section.title}
@@ -85,6 +90,7 @@ export function TreeOutline({
                       onMove={(direction) => onMoveChapter(section, chapter.uuid, direction)}
                       busy={busy}
                     />
+                    <StatusButton node={chapter} busy={busy} onSetStatus={onSetStatus} />
                     <RenameButton
                       onRename={(title) => onRename("chapter", chapter.uuid, title)}
                       current={chapter.title}
@@ -122,6 +128,15 @@ export function TreeOutline({
                           onMove={(direction) => onMoveLesson(chapter, lesson.uuid, direction)}
                           busy={busy}
                         />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={busy}
+                          onClick={() => onEditLesson(lesson.uuid)}
+                        >
+                          تحرير
+                        </Button>
+                        <StatusButton node={lesson} busy={busy} onSetStatus={onSetStatus} />
                         <RenameButton
                           onRename={(title) => onRename("lesson", lesson.uuid, title)}
                           current={lesson.title}
@@ -171,6 +186,37 @@ export function TreeOutline({
         />
       </Card>
     </div>
+  );
+}
+
+/**
+ * Publish or unpublish one node.
+ *
+ * Publishing is what makes a node exist for a student — it enters their
+ * percentage and, in a sequential course, the gate. Unpublishing is offered on
+ * the same button because the reverse has to be one click away: a teacher who
+ * published something half-finished should not have to delete it.
+ */
+function StatusButton({
+  node,
+  busy,
+  onSetStatus,
+}: {
+  node: { uuid: string; title: string; status: ContentStatus };
+  busy: boolean;
+  onSetStatus: (uuid: string, status: ContentStatus, label: string) => void;
+}) {
+  const publishing = node.status !== "published";
+
+  return (
+    <Button
+      size="sm"
+      variant={publishing ? "secondary" : "ghost"}
+      disabled={busy}
+      onClick={() => onSetStatus(node.uuid, publishing ? "published" : "draft", node.title)}
+    >
+      {publishing ? "نشر" : "إلغاء النشر"}
+    </Button>
   );
 }
 

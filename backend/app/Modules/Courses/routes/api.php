@@ -32,6 +32,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // A separate route rather than a flag on the one above — see the controller.
     Route::get('/courses/{course}/tree', [SectionController::class, 'tree']);
 
+    // One item in full — the tree carries no bodies, only the outline.
+    Route::get('/courses/{course}/lessons/{lesson}', [LessonController::class, 'show']);
+
     /*
     | Authoring. `throttle:authoring` is named, like every other limiter in this
     | codebase: ThrottleRequests keys guests on domain|ip with no route in the
@@ -39,6 +42,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     | wins — browsing the marketplace once locked a visitor out of logging in.
     */
     Route::middleware('throttle:authoring')->group(function (): void {
+        // Whole-tree state change. One request rather than one per node: a
+        // section and its items become visible together, and eleven separate
+        // calls give the student eleven different half-built trees on the way.
+        Route::post('/courses/{course}/tree/publish', [SectionController::class, 'publishTree']);
+
         Route::post('/courses/{course}/sections', [SectionController::class, 'store']);
         Route::put('/courses/{course}/sections/order', [SectionController::class, 'reorder']);
         Route::put('/courses/{course}/sections/{section}', [SectionController::class, 'update']);
@@ -52,6 +60,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/courses/{course}/lessons', [LessonController::class, 'store']);
         Route::put('/courses/{course}/chapters/{chapter}/lessons/order', [LessonController::class, 'reorder']);
         Route::put('/courses/{course}/lessons/{lesson}', [LessonController::class, 'update']);
+        // Read what it costs, then do it. Two routes, because a "preview" flag
+        // on the write is one forgotten parameter away from doing the thing.
+        Route::get('/courses/{course}/lessons/{lesson}/type/{type}', [LessonController::class, 'typeChangePreview']);
+        Route::put('/courses/{course}/lessons/{lesson}/type', [LessonController::class, 'changeType']);
         Route::delete('/courses/{course}/lessons/{lesson}', [LessonController::class, 'destroy']);
     });
 });

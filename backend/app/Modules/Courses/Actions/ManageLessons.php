@@ -11,6 +11,7 @@ use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Support\CourseDuration;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\TreeDeletionGuard;
 use App\Shared\Actions\Action;
@@ -54,6 +55,7 @@ class ManageLessons extends Action
             $lesson->save();
 
             $course->increment('structure_version');
+            CourseDuration::recompute($course);
 
             return $lesson;
         });
@@ -87,6 +89,10 @@ class ManageLessons extends Action
 
         $lesson->update($attributes);
 
+        if ($lesson->course !== null) {
+            CourseDuration::recompute($lesson->course);
+        }
+
         return $lesson->refresh();
     }
 
@@ -99,8 +105,14 @@ class ManageLessons extends Action
             // file on disk nothing can reach, list or clean up.
             $lesson->mediaAsset()->delete();
 
-            $lesson->course?->increment('structure_version');
+            $course = $lesson->course;
+
+            $course?->increment('structure_version');
             $lesson->delete();
+
+            if ($course !== null) {
+                CourseDuration::recompute($course);
+            }
         });
     }
 

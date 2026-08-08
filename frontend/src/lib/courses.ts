@@ -90,8 +90,85 @@ export interface NewLesson {
   is_free?: boolean;
 }
 
+/**
+ * One item in full — what the tree deliberately leaves out.
+ *
+ * `content_html` is derived on the server from the Markdown source on every
+ * response and never stored. Render it; do not send it back.
+ */
+export interface LessonDetail {
+  uuid: string;
+  chapter_uuid: string | null;
+  section_uuid: string | null;
+  title: string;
+  type: LessonTypeValue;
+  type_label: string;
+  status: ContentStatus;
+  status_label: string;
+  content: string | null;
+  content_html: string;
+  external_url: string | null;
+  is_completable: boolean;
+  is_recording: boolean;
+  order: number;
+  duration_seconds: number;
+  is_preview: boolean;
+  is_free: boolean;
+  asset: {
+    uuid: string;
+    status: string;
+    status_label: string;
+    duration_seconds: number | null;
+    failure_reason: string | null;
+  } | null;
+}
+
+export interface LessonEdit {
+  title?: string;
+  content?: string | null;
+  external_url?: string | null;
+  is_preview?: boolean;
+  is_free?: boolean;
+}
+
+/** What changing an item's type would discard — read before it is done. */
+export interface TypeChangePreview {
+  type: LessonTypeValue;
+  type_label: string;
+  losses: string[];
+}
+
+export interface PublishItem {
+  uuid: string;
+  status: ContentStatus;
+}
+
 export const courses = {
   tree: (courseUuid: string) => api.get<CourseTree>(`/courses/${courseUuid}/tree`),
+
+  lesson: (courseUuid: string, lessonUuid: string) =>
+    api.get<LessonDetail>(`/courses/${courseUuid}/lessons/${lessonUuid}`),
+
+  updateLesson: (courseUuid: string, lessonUuid: string, patch: LessonEdit) =>
+    api.put<LessonDetail>(`/courses/${courseUuid}/lessons/${lessonUuid}`, patch),
+
+  typeChangePreview: (courseUuid: string, lessonUuid: string, type: LessonTypeValue) =>
+    api.get<TypeChangePreview>(`/courses/${courseUuid}/lessons/${lessonUuid}/type/${type}`),
+
+  changeLessonType: (courseUuid: string, lessonUuid: string, type: LessonTypeValue) =>
+    api.put<LessonDetail>(`/courses/${courseUuid}/lessons/${lessonUuid}/type`, { type }),
+
+  /**
+   * Publish, unpublish or archive a batch of nodes in one call.
+   *
+   * Answers with the whole tree, because the version moves — a client left
+   * holding the old one 409s on its very next write.
+   */
+  publishTree: (courseUuid: string, version: number, items: PublishItem[]) =>
+    api.post<CourseTree>(`/courses/${courseUuid}/tree/publish`, {
+      structure_version: version,
+      items,
+    }),
 
   createSection: (courseUuid: string, title: string) =>
     api.post<TreeSection>(`/courses/${courseUuid}/sections`, { title }),
