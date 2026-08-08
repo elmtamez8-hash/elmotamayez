@@ -137,10 +137,10 @@ description: "Task list for 016-course-authoring"
 **Independent Test**: إنشاء درس من كل نوع مدعوم والتحقق من أن الطالب يراه ويستهلكه، وأن حقول
 غير النوع ليست مطلوبة ولا محفوظة.
 
-- [ ] T049 [P] [US2] اكتب `backend/tests/Feature/Courses/MarkdownSanitisationTest.php`: حمولة معروفة تحوي سكربتاً ووسم `<img onerror>` ورابط `javascript:` — تخرج **منزوعةً** في كل مسار عرض (`SC-017`)
+- [X] T049 [P] [US2] اكتب `backend/tests/Feature/Courses/MarkdownSanitisationTest.php`: حمولة معروفة تحوي سكربتاً ووسم `<img onerror>` ورابط `javascript:` — تخرج **منزوعةً** في كل مسار عرض (`SC-017`)
 - [ ] T050 [P] [US2] اكتب `backend/tests/Feature/Courses/LessonTypeTest.php` — حالة لكل نوع: يُنشأ ويصل الطالب إليه؛ و`note` و`link` **لا** يدخلان المقام ولا يحجبان (`SC-009` · `FR-012`)
 - [ ] T051 [US2] فعّل التحقّق حسب النوع في `backend/app/Modules/Courses/Http/Requests/StoreLessonRequest.php` و`UpdateLessonRequest.php` من `LessonTypeRegistry` — الحقول المطلوبة تُفرض **عند النشر** لا عند الحفظ كمسودّة (`FR-022` … سيناريو US2/٨)
-- [ ] T052 [US2] أضف `content_html` **مشتقّاً** في `backend/app/Modules/Courses/Http/Resources/LessonResource.php` عبر `MarkdownRenderer` — **لا يُخزَّن**: نسخة ثانية من الكلام نفسه تنحرف عند أول تصحيح مطبعي (research §R7)
+- [X] T052 [US2] أضف `content_html` **مشتقّاً** في `backend/app/Modules/Courses/Http/Resources/LessonResource.php` عبر `MarkdownRenderer` — **لا يُخزَّن**: نسخة ثانية من الكلام نفسه تنحرف عند أول تصحيح مطبعي (research §R7)
 - [ ] T053 [US2] افرض `https` وصيغة صحيحة على `external_url` في `backend/app/Modules/Courses/Http/Requests/StoreLessonRequest.php` و`backend/app/Modules/Courses/Actions/ChangeLessonType.php` (`FR-018`)
 - [ ] T054 [US2] أنشئ `backend/app/Modules/Courses/Actions/ChangeLessonType.php` — يعيد **ما سيُفقد** ليعرضه المحرّر قبل التنفيذ (`FR-020`)
 - [ ] T055 [US2] اجعل مدّة الفيديو والصوت تُشتقّ من الأصل لا من المدرّس في `backend/app/Modules/Courses/Actions/UpdateLesson.php` (`FR-015`)، وأعد حساب `courses.duration_seconds` من العناصر المنشورة القابلة للإتمام عند كل كتابة بنيوية (`FR-016`)
