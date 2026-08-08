@@ -34,10 +34,10 @@
        │ ┌──────────────▼──────────┐    ┌─────────────────────────┐
        │ │  course_sections         │    │  course_chapters        │
        │ ├─────────────────────────┤    ├─────────────────────────┤
-       │ │ id · workspace_id       │    │ id · workspace_id       │
+       │ │ id · uuid · workspace_id│    │ id · uuid · workspace_id│
        │ │ course_id (FK)          │───►│ course_id (FK)          │
-       │ │ title · order           │    │ section_id (FK)         │
-       │ │ is_published            │    │ title · order           │
+       │ │ title · order · status  │    │ section_id (FK)         │
+       │ │                         │    │ title · order · status  │
        │ └─────────────────────────┘    └───────────┬─────────────┘
        │                                              │
        │                              ┌──────────────▼──────────────┐
@@ -47,7 +47,9 @@
        │                              │ course_id · section_id       │
        │                              │ chapter_id · title · type    │
        │                              │ content · order · duration   │
-       │                              │ is_preview · is_free         │
+       │                              │ is_preview · is_free · status│
+       │                              │ reference_id · exam_gate     │
+       │                              │ class_session_id             │
        │                              └──────────────────────────────┘
        │                                        │ morphOne
        │                                        ▼
@@ -393,3 +395,42 @@ are covered the day they land.
 - **`teaching_units.settlement_period_id` NULL means "the open window"** — the statement is
   defined as "every unit no close has claimed", which is true whether or not a period row
   names those days yet
+
+## Course Authoring (spec 016)
+
+```
+course_sections gains:  uuid    → sections and chapters had no public identifier at all;
+                        status    the endpoints took serial ids, which nothing ever called
+course_chapters gains:  uuid    → same pair
+                        status
+lessons gains:          status  → draft · published · archived, replacing nothing —
+                        reference_id     items had no lifecycle of their own before
+                        exam_gate
+courses gains:          structure_version → the concurrency token
+```
+
+- **`status` is three states, not a boolean.** A lesson any student has progress on may never
+  be hard-deleted (`FR-007`), so "gone from the course" has to be a state the row can hold.
+  `is_published` plus an `archived_at` would encode one lifecycle in two places and every
+  query would have to read both — one forgotten branch shows an archived lesson
+- **`unique(chapter_id, order)`**, and the two siblings likewise. It makes a duplicate
+  position unrepresentable rather than merely unlikely, which is why reorder parks every row
+  above the live range first: assigning final positions directly collides halfway through any
+  swap. The parking offset is `max(order) + 1`, never a constant — `max(order)` tracks the
+  group's LIFETIME create count, so a long-lived chapter holds rows past any fixed number
+- **`reference_id` is ONE column whose meaning comes from `type`** (R9). No `reference_type`
+  beside it: two columns recording one fact can disagree, and an exam id read against
+  `class_sessions` is not a link preserved. No foreign key either — the target lives in
+  another module, and `ReferenceIntegrity` resolves it at the READ instead, where every
+  reader passes through it by construction
+- **`exam_gate` is two values and no third.** A percentage field would be a second passing
+  mark beside the exam's own, free to disagree with it. `attempt` is the default because it
+  is the weaker gate, and a column default would not have applied: a model built with `new`
+  carries none
+- **`structure_version` is claimed, not compared.** One conditional
+  `UPDATE … WHERE structure_version = ?` is both the check and the bump, so two editors who
+  loaded the same tree cannot both write. Never `lockForUpdate()`, which is a no-op on SQLite
+  and would prove nothing about the MySQL it runs on
+- **The uuid backfill walks with `chunkById`, never `chunk`.** `chunk` paginates by OFFSET
+  while the predicate (`uuid IS NULL`) shrinks under it — every page after the first skipped
+  as many rows as the previous page fixed, and reported success

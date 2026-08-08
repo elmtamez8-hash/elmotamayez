@@ -247,3 +247,32 @@ A close claims units with `< ends_on + 1 day`, never `<= ends_on` (the column is
 timestamp, the bound is a date). Standalone ledger lines carry no date filter at all: an
 adjustment is typed after the window ends, and filtering it by date pushes every deduction
 into the next period.
+
+### Read before touching course authoring
+
+**Reordering is a write to access rights.** `accessTo()` derives what a student may open
+from the section/chapter/lesson positions, so moving an item changes who can reach what.
+Reorders send the complete sibling list plus `structure_version`, and
+`StructureVersion::claim()` is one conditional UPDATE that both checks and bumps — compare
+a loaded model and increment later and two editors both write, neither 409s.
+
+**An item that enters the progress denominator and can never be completed caps every
+enrolled student below 100% — so no `CourseCompleted`, no certificate, permanently.** Six
+roads led there (`docs/README.md` lists them). Recordings are excluded from the denominator
+*and* from the prerequisite chain — one without the other still bricks the course. Anything
+that moves the countable set, including archive and DELETE, fires `CourseStructureChanged`;
+`progress_pct` is otherwise written only when a lesson is completed.
+
+**The impact preview runs the publish's own code.** `PreviewPublishImpact` borrows
+`resolve()`, `assertReady()`, `progressEligible()`, `CourseProgress::percentage()` and
+`ExamGateSatisfaction`, simulating only the three status conditions. It returns the item
+list it costed and the client publishes that list — a second estimate, or a draft set
+derived on both sides, is how the teacher is shown a number no student ever had.
+
+**Migration order and `chunkById`.** Densify duplicate orders BEFORE adding
+`unique(chapter_id, order)`, or the deploy fails on live data. Backfill with `chunkById`,
+never `chunk`: OFFSET paging under a shrinking predicate skips rows and reports success.
+
+**Authored text is Markdown, rendered per response.** Raw HTML is stripped rather than
+escaped, so the allowlist is the Markdown feature set. A stored `content_html` would be a
+second copy that drifts, and an XSS sink with a teacher's keyboard attached.

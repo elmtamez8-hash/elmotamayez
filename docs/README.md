@@ -20,7 +20,7 @@
 |---|---|---|---|
 | Identity | `app/Modules/Identity/` | User, StudentProfile, UserSecuritySettings, Device, AuthSession, ParentStudentRelation | Auth (register/login/me/change-password), sessions & devices, two-factor |
 | Tenancy | `app/Modules/Tenancy/` | Workspace, WorkspaceMember, Invitation | Workspaces (CRUD, switch, members, invitations) |
-| Courses | `app/Modules/Courses/` | Course, Section, Chapter, Lesson | Courses + sections/chapters/lessons CRUD |
+| Courses | `app/Modules/Courses/` | Course, Section, Chapter, Lesson | Courses + the authoring tree: nodes, ordering, publish batches, impact preview |
 | Learning | `app/Modules/Learning/` | Enrollment, LessonProgress, ProgressHistory | Enrollments (enroll, lesson access, complete) |
 | Assessments | `app/Modules/Assessments/` | Exam, Question, QuestionOption, Attempt, Answer | Exams CRUD + questions CRUD + attempts |
 | Certificates | `app/Modules/Certificates/` | Certificate, CertificateTemplate | Certificates (list, verify, regenerate) + templates CRUD |
@@ -448,4 +448,112 @@ platform one.
 ### Rate limiters
 
 `throttle:settlement-write` on every write, named in `AppServiceProvider::registerRateLimiters()`.
+Inline limits stay banned.
+
+## Course Authoring (spec 016)
+
+Ten structure endpoints existed from the first migration and nothing in the product called
+one of them — a teacher could not create a section, a chapter or an item from any screen.
+016 is that surface, and its risk is in the EDITING rather than the creating: a course tree
+is written by three parties at once (the teacher, the 005 listener that publishes
+recordings, and students standing inside it right now).
+
+### The two rules everything else follows from
+
+**Reordering is a write to ACCESS RIGHTS.** `Enrollment::accessTo()` derives what a student
+may open from the triplet of section, chapter and item positions, so moving an item changes
+who can reach what, immediately. Every reorder therefore sends the COMPLETE sibling list
+plus `structure_version`, and `StructureVersion::claim()` — a conditional UPDATE, the seat
+idiom — makes a second writer 409 instead of silently overwriting the first.
+
+**A new node is a draft, and that is a precondition rather than a preference.** The progress
+denominator counts published items, so a half-written lesson saved into a running course
+would otherwise drop every enrolled student's percentage the moment it is created. Required
+fields are enforced at PUBLISH (`PublishReadiness`), never at save — a draft that refuses to
+save is not a draft.
+
+### Endpoints
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `GET /courses/{course}/tree` | `LESSONS_MANAGE` | The author's tree, drafts included, with the reason each node is hidden. Separate route from the student's — a shared one with `?include_drafts=1` makes leaking an unfinished lesson a matter of forgetting a query string |
+| `GET /courses/{course}/tree/publish-preview` | `LESSONS_MANAGE` | What a publish does to the students already enrolled (`FR-049`). `items` optional; without it, every draft — and the list it costed comes back in the response, which is what the client then publishes |
+| `POST /courses/{course}/tree/publish` | `LESSONS_MANAGE` + `throttle:authoring` | Publish, unpublish or archive a BATCH. One request, because a section and its items become visible together and eleven calls show a student eleven half-built trees |
+| `PUT /courses/{course}/sections/order` · `…/{section}/chapters/order` · `…/{chapter}/lessons/order` | `LESSONS_MANAGE` + `throttle:authoring` | The complete sibling list, in its new order, with `structure_version` |
+| `POST · PUT · DELETE /courses/{course}/sections\|chapters\|lessons/…` | `LESSONS_MANAGE` (`LESSONS_DELETE` to remove) | Node CRUD. Every node is addressed by uuid — sections and chapters had no public identifier at all until 016 |
+| `GET /courses/{course}/lessons/{lesson}` | `LESSONS_MANAGE` | One item in full. The tree carries no bodies, only the outline |
+| `GET · PUT /courses/{course}/lessons/{lesson}/type` | `LESSONS_MANAGE` | Read what a type change costs, then do it. Two routes, because a "preview" flag on the write is one forgotten parameter away from doing the thing |
+| `GET /courses/{course}/reference-targets` | `LESSONS_MANAGE` | This course's published exams and its sessions, for the two pickers |
+
+### The impact preview computes nothing of its own
+
+`SC-018` promises that what the teacher is shown is what happens, to the percentage point.
+That only holds while there is one of each calculation, so `PreviewPublishImpact` borrows
+every part of its answer: `PublishTreeNodes::resolve()` for the item list, its
+`assertReady()` for the refusal, `Lesson::progressEligible()` for the denominator's fixed
+half, `CourseProgress::percentage()` for the arithmetic and `ExamGateSatisfaction` for the
+students an exam item is about to credit. Exactly one thing is simulated — the three status
+conditions, which is what a publish changes.
+
+Courses does not import Learning. The enrolment half goes through
+`Shared\Contracts\ProgressImpact`, the same shape as `EnrollmentDirectory`.
+
+### Item types
+
+Ten declared in `LessonTypeRegistry`, in four families — `inline` (article, note),
+`uploaded` (video, audio, pdf, file), `reference` (exam, live_session, assignment) and
+`external` (link). The registry is the single source of truth for what each type IS, and
+the payload carries `family` and `asset_kind` so the editor branches on the registry's
+answer rather than a second copy of it in TypeScript.
+
+`assignment` is declared and **not implemented** — spec 008 owns the entity. It is refused
+by name in the Action and shown disabled with its reason in the editor: hiding it would be
+silent about the plan, offering it would be a choice that saves and then does nothing.
+
+### Progress, and the ways it used to break forever
+
+An item that enters the denominator but can never be completed caps every enrolled student
+below 100%, so `CourseCompleted` never fires and no certificate ever issues. Not eventually
+— never. Six roads led there, and `Lesson::countableForProgress()` plus
+`CourseStructureChanged` close them:
+
+1. **Session recordings** — entitled by a SEAT, not by enrolment (005 `FR-030`), so a
+   student without one can never open it. Excluded from the denominator and from the
+   sequential prerequisite chain
+2. **Exam items with no writer of their progress row** — the exam is sat from its own page,
+   so `CompleteExamLessonOnSubmission` listens to `ExamSubmitted`
+3. **Students who sat the exam BEFORE the teacher placed it** — no event will ever fire for
+   them again, so `ExamItemOpened` triggers `CompleteExamLessonsAlreadyAnswered`
+4. **Items whose referenced exam was deleted** — `ReferenceIntegrity`, applied at the READ
+   rather than in a deletion listener that must be registered, must fire, and misses bulk
+   deletes
+5. **Archiving the last item a student had left** — remaining work reaches zero with no
+   lesson left to complete, and completion is only ever decided when one is
+6. **Deleting it** — the same thing through a door no publish event reaches
+
+`progress_pct` is written when a lesson is completed and at no other moment, so anything
+that moves the countable set fires `CourseStructureChanged` → `ResyncCourseProgress`.
+Completion is granted there, never withdrawn (`FR-050`): `CourseProgress::sync()` writes
+`status` in one direction only, so content added after a student finished lowers their
+percentage and leaves their certificate alone.
+
+### Permissions
+
+**No new permissions.** Authoring the tree is `LESSONS_MANAGE`; removing a node is
+`LESSONS_DELETE`. Destroying an uploaded file stays behind `LESSONS_DELETE` + `2fa.required`
+from 004, and a type change or a re-upload that would drop one is refused rather than
+allowed to become a back door onto that decision.
+
+### Audit
+
+Every authoring verb writes to `activity_log` through `LogsActivity` — created, renamed,
+updated, deleted, published, reordered, type_changed — with the causer and the node it was
+done to (`FR-056`). Deletes log BEFORE the row goes, or the subject no longer resolves. The
+settlement audit filters `activity_log` by a closed six-type allowlist, so these subjects
+are excluded by construction rather than by anyone remembering.
+
+### Rate limiters
+
+`throttle:authoring` on every write, named in `AppServiceProvider::registerRateLimiters()`.
+Reads — the tree, one item, the impact preview, the reference targets — sit outside it.
 Inline limits stay banned.
