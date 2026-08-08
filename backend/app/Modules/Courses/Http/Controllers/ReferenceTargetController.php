@@ -33,13 +33,16 @@ class ReferenceTargetController extends Controller
         $exams = Exam::query()
             ->where('course_id', $course->getKey())
             ->where('status', 'published')
+            // Counted in the one query, not per row inside the map — the N+1 by
+            // construction CLAUDE.md names.
+            ->withCount('questions')
             ->orderBy('title')
             ->get()
             ->map(fn (Exam $exam): array => [
                 'uuid' => $exam->uuid,
                 'title' => $exam->title,
                 'passing_score' => $exam->passing_score,
-                'questions_count' => $exam->questions()->count(),
+                'questions_count' => (int) $exam->questions_count,
             ]);
 
         // Declared with the time rather than assumed by the client: rendering a

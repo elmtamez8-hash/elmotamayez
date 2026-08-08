@@ -6,7 +6,6 @@ namespace App\Modules\Learning\Models;
 
 use App\Models\BaseModel;
 use App\Models\User;
-use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Enums\ExamGate;
 use App\Modules\Courses\Enums\LessonType;
@@ -14,6 +13,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\ReferenceIntegrity;
+use App\Modules\Learning\Support\ExamGateSatisfaction;
 use App\Modules\Learning\Support\LessonAccess;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
@@ -250,16 +250,11 @@ class Enrollment extends BaseModel
     {
         $gate = ExamGate::tryFrom((string) ($previous['exam_gate'] ?? '')) ?? ExamGate::Attempt;
 
-        $attempts = Attempt::query()
-            ->where('exam_id', $previous['reference_id'])
-            ->where('student_user_id', $this->student_user_id)
-            ->whereNotNull('submitted_at');
-
-        if ($gate === ExamGate::Pass) {
-            $attempts->where('passed', true);
-        }
-
-        if ($attempts->exists()) {
+        // The predicate itself lives in one place, shared with the two writers of
+        // the item's progress row. Three copies of "attempted" would be three
+        // definitions, and the first to drift decides whether a course can be
+        // finished at all.
+        if (ExamGateSatisfaction::metBy((int) $previous['reference_id'], $gate, (int) $this->student_user_id)) {
             return LessonAccess::allow();
         }
 

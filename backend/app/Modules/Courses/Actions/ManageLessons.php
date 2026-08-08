@@ -9,6 +9,7 @@ use App\Modules\Courses\DTOs\LessonData;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Enums\ExamGate;
 use App\Modules\Courses\Enums\LessonType;
+use App\Modules\Courses\Events\ExamItemOpened;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
@@ -117,6 +118,17 @@ class ManageLessons extends Action
 
         if ($lesson->course !== null) {
             CourseDuration::recompute($lesson->course);
+        }
+
+        // A published exam item whose exam or gate just changed is asking
+        // something different, and students may already have answered the new
+        // question — loosening a gate from "must pass" to "must attempt" is
+        // exactly that. Same event as publication, because from a student's side
+        // it is the same fact.
+        if ($type === LessonType::Exam
+            && $lesson->status === ContentStatus::Published
+            && ($lesson->wasChanged('exam_gate') || $lesson->wasChanged('reference_id'))) {
+            event(new ExamItemOpened($lesson));
         }
 
         return $lesson->refresh();

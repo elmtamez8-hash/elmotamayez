@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Actions;
 
 use App\Modules\Courses\Enums\ContentStatus;
+use App\Modules\Courses\Enums\LessonType;
+use App\Modules\Courses\Events\ExamItemOpened;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
@@ -53,6 +55,17 @@ class PublishTreeNodes extends Action
             // on create/update/delete would be stale from the first publish on.
             CourseDuration::recompute($course);
         });
+
+        // Announced after the commit, so a subscriber cannot read a tree that is
+        // still half-written. An exam item entering a student's denominator is a
+        // fact Learning has to act on — see ExamItemOpened.
+        foreach ($nodes as [$node, $status]) {
+            if ($node instanceof Lesson
+                && $status === ContentStatus::Published
+                && $node->type === LessonType::Exam->value) {
+                event(new ExamItemOpened($node));
+            }
+        }
     }
 
     /**

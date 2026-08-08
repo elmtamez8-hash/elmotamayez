@@ -6,6 +6,9 @@ use App\Models\User;
 use App\Modules\Assessments\Events\ExamSubmitted;
 use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\Exam;
+use App\Modules\Courses\Actions\ManageLessons;
+use App\Modules\Courses\Actions\PublishTreeNodes;
+use App\Modules\Courses\DTOs\LessonData;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Enums\ExamGate;
 use App\Modules\Courses\Models\Chapter;
@@ -216,6 +219,56 @@ it('completes the exam item itself when the exam is sat', function (): void {
     expect($enrollment->progress()->where('lesson_id', $item->id)->exists())->toBeFalse();
 
     event(new ExamSubmitted(sitExam($exam, $enrollment, (int) $student->id, passed: false)));
+
+    expect($enrollment->progress()->where('lesson_id', $item->id)->where('status', 'completed')->exists())
+        ->toBeTrue();
+});
+
+it('credits a student who sat the exam BEFORE the item was placed', function (): void {
+    [$course, $enrollment, , $exam, $student] = gatedCourse(ExamGate::Attempt);
+
+    $item = Lesson::query()->where('course_id', $course->id)->where('type', 'exam')->firstOrFail();
+    $item->forceFill(['status' => ContentStatus::Draft])->save();
+
+    // The order that breaks it: the exam is answered from its OWN page, weeks
+    // before the teacher decides where it belongs. No ExamSubmitted will ever
+    // fire for this student again, so publishing the item would put a lesson in
+    // their denominator that nothing can ever tick off — capping them below 100%
+    // for good, with `max_attempts` possibly already spent.
+    sitExam($exam, $enrollment, (int) $student->id, passed: true);
+
+    expect($enrollment->progress()->where('lesson_id', $item->id)->exists())->toBeFalse();
+
+    app(PublishTreeNodes::class)->handle($course, [
+        ['uuid' => $item->uuid, 'status' => 'published'],
+    ]);
+
+    expect($enrollment->progress()->where('lesson_id', $item->id)->where('status', 'completed')->exists())
+        ->toBeTrue();
+});
+
+it('credits a failed student the moment the teacher loosens the gate', function (): void {
+    [$course, $enrollment, , $exam, $student] = gatedCourse(ExamGate::Pass);
+
+    $item = Lesson::query()->where('course_id', $course->id)->where('type', 'exam')->firstOrFail();
+
+    // Under "must pass" a failing submission finishes nothing, correctly.
+    event(new ExamSubmitted(sitExam($exam, $enrollment, (int) $student->id, passed: false)));
+
+    expect($enrollment->progress()->where('lesson_id', $item->id)->where('status', 'completed')->exists())
+        ->toBeFalse();
+
+    // The same door from the other side: the teacher decides the quiz should not
+    // gate after all. The student's work already answers the new question, and
+    // nothing will fire on their behalf again.
+    app(ManageLessons::class)->update(
+        $item,
+        LessonData::fromArray([
+            'title' => $item->title,
+            'type' => 'exam',
+            'exam_gate' => 'attempt',
+        ]),
+    );
 
     expect($enrollment->progress()->where('lesson_id', $item->id)->where('status', 'completed')->exists())
         ->toBeTrue();

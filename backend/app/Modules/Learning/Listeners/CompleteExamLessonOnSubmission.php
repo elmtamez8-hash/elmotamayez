@@ -11,6 +11,7 @@ use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Learning\Actions\MarkLessonComplete;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\Learning\Support\ExamGateSatisfaction;
 
 /**
  * Ticks off the exam item when its exam is sat.
@@ -62,11 +63,18 @@ class CompleteExamLessonOnSubmission
             ->get();
 
         foreach ($items as $item) {
-            if ($item->exam_gate === ExamGate::Pass && $attempt->passed !== true) {
-                continue;
-            }
+            // Read through the shared predicate rather than by inspecting this
+            // attempt: the student may hold an earlier passing attempt, and a
+            // failing submission today must not un-answer it.
+            $met = ExamGateSatisfaction::metBy(
+                (int) $attempt->exam_id,
+                $item->exam_gate ?? ExamGate::Attempt,
+                (int) $attempt->student_user_id,
+            );
 
-            $this->markComplete->handle($enrollment, (int) $item->getKey());
+            if ($met) {
+                $this->markComplete->handle($enrollment, (int) $item->getKey());
+            }
         }
     }
 
