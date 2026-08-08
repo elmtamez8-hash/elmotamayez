@@ -13,6 +13,7 @@ use App\Modules\Media\Actions\RenewPlaybackGrant;
 use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Data\PlaybackContext;
 use App\Modules\Media\Http\Resources\PlaybackGrantResource;
+use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Providers\LocalMediaProvider;
 use App\Modules\Media\Support\PlaybackGuard;
 use App\Shared\Scopes\WorkspaceScope;
@@ -26,8 +27,32 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PlaybackController extends Controller
 {
-    public function issue(Request $request, string $lesson, IssuePlaybackGrant $action): JsonResponse
-    {
+    /**
+     * A grant for one named file on the item — an attachment, or its own file.
+     *
+     * Same entitlement, same expiry, same guard on every range request. The only
+     * difference from `issue()` is which asset it points at, which is why they
+     * share everything below the first line.
+     */
+    public function issueForAsset(
+        Request $request,
+        string $lesson,
+        string $asset,
+        IssuePlaybackGrant $action,
+    ): JsonResponse {
+        $model = MediaAsset::query()->withoutWorkspaceScope()->where('uuid', $asset)->first();
+
+        abort_if($model === null, 404);
+
+        return $this->issue($request, $lesson, $action, $model);
+    }
+
+    public function issue(
+        Request $request,
+        string $lesson,
+        IssuePlaybackGrant $action,
+        ?MediaAsset $asset = null,
+    ): JsonResponse {
         $user = $this->currentUser($request);
 
         $model = Lesson::query()->withoutWorkspaceScope()->where('uuid', $lesson)->first();
@@ -45,6 +70,7 @@ class PlaybackController extends Controller
                 $user,
                 $session,
                 $request->ip() === null ? null : hash('sha256', $request->ip()),
+                $asset,
             );
         } catch (DomainException $e) {
             // Entitled, but the video is not ready. Distinct from a refusal so

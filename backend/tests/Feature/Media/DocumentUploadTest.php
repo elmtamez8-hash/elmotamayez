@@ -183,3 +183,53 @@ it('replaces the primary on re-upload and leaves attachments alone', function ()
         ->and($lesson->mediaAsset()->count())->toBe(1)
         ->and($lesson->mediaAsset?->original_filename)->toBe('بديل.pdf');
 });
+
+it('refuses to publish an item whose upload failed', function (): void {
+    Storage::fake('local');
+    $lesson = documentLesson();
+
+    // CompleteMediaUpload deletes the bytes of a rejected file and keeps the row
+    // so the teacher can see why it broke. That row alone used to satisfy the
+    // publish check — a published document item over a file that is not there.
+    $asset = uploadAndComplete($lesson, 'ملزمة.pdf', zipBytes(), 'document');
+
+    expect($asset->status)->toBe(MediaAssetStatus::Failed);
+
+    $course = $lesson->course;
+
+    $response = test()->postJson("/api/v1/courses/{$course?->uuid}/tree/publish", [
+        'structure_version' => $course?->structure_version,
+        'items' => [['uuid' => $lesson->uuid, 'status' => 'published']],
+    ]);
+
+    $response->assertStatus(422);
+    expect($response->json('message'))->toContain('ارفع الملف');
+});
+
+it('rate-limits upload tickets under a named limiter', function (): void {
+    Storage::fake('local');
+    $lesson = documentLesson('article');
+
+    // `throttle:upload`, not an inline `throttle:20,1`. ThrottleRequests keys
+    // guests on domain|ip with no route in the hash, so every inline limit
+    // shares one counter and the strictest wins.
+    $route = collect(app('router')->getRoutes()->getRoutes())
+        ->first(fn ($r): bool => $r->uri() === 'api/v1/lessons/{lesson}/assets' && in_array('POST', $r->methods(), true));
+
+    expect($route?->gatherMiddleware())->toContain('throttle:upload');
+
+    // And each ticket reserves a row, so the limit has to be real, not declared.
+    for ($i = 0; $i < 21; $i++) {
+        $response = test()->postJson("/api/v1/lessons/{$lesson->uuid}/assets", [
+            'original_filename' => "ورقة-{$i}.pdf",
+            'kind' => 'document',
+            'role' => 'attachment',
+        ]);
+
+        if ($response->status() === 429) {
+            return;
+        }
+    }
+
+    test()->fail('The upload limiter never engaged.');
+});

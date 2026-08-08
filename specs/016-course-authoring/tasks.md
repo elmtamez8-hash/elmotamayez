@@ -193,6 +193,7 @@ description: "Task list for 016-course-authoring"
 - [X] T076 [P] [US4] أنشئ `frontend/src/components/courses/editors/DocumentEditor.tsx` — الرفع، ومفتاح العرض/التحميل، **ونصّ صريح** أن حماية «يسمح بالتحميل» هي انتهاء الرابط لا منع النسخ (`FR-037`)
 - [X] T077 [P] [US4] أنشئ `frontend/src/components/courses/AttachmentsPanel.tsx` — مرفقات على أي عنصر مهما كان نوعه (`FR-019`)
 - [X] T078 [P] [US4] أنشئ `frontend/src/components/courses/editors/AudioEditor.tsx` — نفس خط الرفع بصنف `audio`
+- [X] T078أ [US4] **مضافة أثناء التنفيذ**: جانب الطالب. سيناريو US4/٦ يقول إن المرفقات «تظهر بجواره للطالب» وFR-034 يضع كل أصل خلف منحة — ولم تكن هناك نقطة نهاية تمنح مرفقاً ولا شاشة تعرضه. أُضيف `POST /lessons/{lesson}/assets/{asset}/playback` و`GET /learn/lessons/{lesson}` و`DocumentViewer` و`AttachmentList`، وصار `/learn/{lesson}` يعرف الأنواع كلها بدل الفيديو وحده
 
 **Checkpoint**: نصف الأنواع الذي كان غير قابل للتأليف صار يعمل · صفر مسار دائم.
 

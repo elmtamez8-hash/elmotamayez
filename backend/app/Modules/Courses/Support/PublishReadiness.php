@@ -6,9 +6,11 @@ namespace App\Modules\Courses\Support;
 
 use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Enums\MediaRole;
 use App\Modules\Media\Models\MediaAsset;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * What an item still needs before it may be published.
@@ -68,21 +70,47 @@ final class PublishReadiness
             'content' => trim((string) $lesson->content) !== '',
             'external_url' => trim((string) $lesson->external_url) !== '',
             'reference_id' => $lesson->reference_id !== null,
-            // Presence, not readiness: an upload still transcoding is content
-            // the teacher has provided. A failed one is not, and that is the
-            // asset's own status telling the truth on the lesson page.
-            'asset' => self::hasPrimaryAsset($lesson),
+            // Presence, not readiness: an upload still transcoding IS content
+            // the teacher has provided, and blocking on it would mean waiting
+            // for a transcode to press publish.
+            //
+            // A failed one is not. `CompleteMediaUpload` deletes the bytes and
+            // keeps the row so the teacher can see why it broke — and the row
+            // alone used to satisfy this check, publishing a document item over
+            // a file that does not exist.
+            'asset' => self::hasUsablePrimaryAsset($lesson),
             default => true,
         };
     }
 
+    /**
+     * Any primary asset row, whatever its state.
+     *
+     * This is the predicate `ChangeLessonType` uses, and it deliberately counts
+     * a FAILED upload: the row still points at a decision that belongs to the
+     * two-factor delete route, so retyping the item around it would be the back
+     * door that route exists to close.
+     */
     public static function hasPrimaryAsset(Lesson $lesson): bool
+    {
+        return self::primaryAssets($lesson)->exists();
+    }
+
+    /** A primary asset that is, or will become, a real file. */
+    private static function hasUsablePrimaryAsset(Lesson $lesson): bool
+    {
+        return self::primaryAssets($lesson)
+            ->where('status', '!=', MediaAssetStatus::Failed)
+            ->exists();
+    }
+
+    /** @return Builder<MediaAsset> */
+    private static function primaryAssets(Lesson $lesson): Builder
     {
         return MediaAsset::query()
             ->where('owner_type', Lesson::class)
             ->where('owner_id', $lesson->getKey())
-            ->where('role', MediaRole::Primary)
-            ->exists();
+            ->where('role', MediaRole::Primary);
     }
 
     private static function label(string $field, LessonType $type): string

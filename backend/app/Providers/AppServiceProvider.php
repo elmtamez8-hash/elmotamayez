@@ -124,6 +124,16 @@ class AppServiceProvider extends ServiceProvider
         // user: a school authoring from one address is many teachers.
         RateLimiter::for('authoring', fn (Request $request) => Limit::perMinute(60)
             ->by('user:'.(string) $request->user()?->getKey()));
+
+        /*
+         * Upload tickets. Tighter than authoring because each one reserves a row
+         * AND, for a primary, deletes the file that was there — so a loop over
+         * this endpoint is a loop over someone's stored work, not over writes to
+         * a title. The contract named this limiter as existing; it did not, and
+         * the ticket route carried no limit at all.
+         */
+        RateLimiter::for('upload', fn (Request $request) => Limit::perMinute(20)
+            ->by('user:'.(string) $request->user()?->getKey()));
     }
 
     /**

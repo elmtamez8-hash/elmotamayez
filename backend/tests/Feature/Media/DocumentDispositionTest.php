@@ -140,3 +140,60 @@ it('lets the teacher flip the switch on a file already uploaded', function (): v
 
     expect($asset?->refresh()->is_downloadable)->toBeTrue();
 });
+
+it('opens an attachment through its own grant', function (): void {
+    Storage::fake('local');
+
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $lesson = documentLessonFor($workspace, downloadable: false);
+
+    Sanctum::actingAs($owner);
+    $this->setCurrentWorkspace($workspace, $owner);
+
+    $attachmentUuid = $this->postJson("/api/v1/lessons/{$lesson->uuid}/assets", [
+        'original_filename' => 'worksheet.pdf',
+        'kind' => 'document',
+        'role' => 'attachment',
+    ])->assertCreated()->json('asset.uuid');
+
+    $asset = MediaAsset::query()->where('uuid', $attachmentUuid)->firstOrFail();
+
+    Storage::disk('local')->put('media/sheet.pdf', '%PDF-1.4 sheet');
+    $asset->forceFill([
+        'provider_asset_id' => 'media/sheet.pdf',
+        'status' => MediaAssetStatus::Ready,
+        'mime_type' => 'application/pdf',
+        'ready_at' => now(),
+    ])->save();
+
+    // A student, not the teacher: the attachment travels with the item it hangs
+    // on, so entitlement is the lesson's and there is no second rule to keep in
+    // step. An attachment nobody can open is an attachment that was never added.
+    $this->enrolledViewer($workspace, $lesson);
+
+    $url = $this->postJson("/api/v1/lessons/{$lesson->uuid}/assets/{$attachmentUuid}/playback")
+        ->assertOk()
+        ->json('manifest_url');
+
+    $this->get($url)->assertOk();
+});
+
+it('refuses an asset that hangs on another item', function (): void {
+    Storage::fake('local');
+
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $mine = documentLessonFor($workspace, downloadable: false);
+    $theirs = documentLessonFor($workspace, downloadable: false);
+
+    $strangerAsset = $theirs->mediaAsset?->uuid;
+
+    // A viewer genuinely entitled to `$mine`, naming an asset that hangs on a
+    // different item. Without the ownership check the path's lesson would be a
+    // decoration and any asset uuid beside it would open.
+    $this->enrolledViewer($workspace, $mine);
+
+    $this->postJson("/api/v1/lessons/{$mine->uuid}/assets/{$strangerAsset}/playback")
+        ->assertForbidden();
+
+    unset($owner);
+});

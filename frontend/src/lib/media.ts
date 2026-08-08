@@ -88,6 +88,16 @@ export const media = {
     api.post<PlaybackGrant>(`/lessons/${lessonUuid}/playback`),
 
   /**
+   * Ask for one named file on the item — an attachment, or its own file by uuid.
+   *
+   * Entitlement is the lesson's, whichever file is asked for: an attachment
+   * travels with the item it hangs on. There is no permanent path to one, which
+   * is why this exists at all.
+   */
+  requestAssetPlayback: (lessonUuid: string, assetUuid: string) =>
+    api.post<PlaybackGrant>(`/lessons/${lessonUuid}/assets/${assetUuid}/playback`),
+
+  /**
    * Keep a grant alive and record how far the viewer has got.
    *
    * Called on a timer while watching. A 401 or 403 here is how the client learns

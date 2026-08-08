@@ -36,7 +36,8 @@ Route::put('/media/upload/{token}', [MediaAssetController::class, 'receiveUpload
     ->name('media.upload.receive');
 
 Route::middleware('auth:sanctum')->group(function (): void {
-    Route::post('/lessons/{lesson}/assets', [MediaAssetController::class, 'store']);
+    Route::post('/lessons/{lesson}/assets', [MediaAssetController::class, 'store'])
+        ->middleware('throttle:upload');
     Route::get('/media/assets/{asset}', [MediaAssetController::class, 'show']);
     Route::post('/media/assets/{asset}/complete', [MediaAssetController::class, 'complete']);
     // View-only / allow-download. A separate route because the teacher flips it
@@ -50,6 +51,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('2fa.required');
 
     Route::post('/lessons/{lesson}/playback', [PlaybackController::class, 'issue'])
+        ->middleware('throttle:playback');
+
+    // One named file on the item — its attachment, or its own file by uuid.
+    // FR-034 puts EVERY uploaded asset behind a short-lived grant, and an
+    // attachment a student cannot open is an attachment that was never added.
+    Route::post('/lessons/{lesson}/assets/{asset}/playback', [PlaybackController::class, 'issueForAsset'])
         ->middleware('throttle:playback');
     Route::post('/playback/{grant}/renew', [PlaybackController::class, 'renew']);
 });

@@ -131,3 +131,40 @@ it('completes the course and issues the certificate without the recording', func
     expect($enrollment->refresh()->progress_pct)->toBe(100)
         ->and($enrollment->status)->toBe('completed');
 });
+
+it('refuses a lesson from another course through your own enrolment', function (): void {
+    [$workspace] = test()->createWorkspaceWithOwner();
+    $student = test()->addWorkspaceMember($workspace, 'student');
+
+    Sanctum::actingAs($student);
+
+    $mine = Course::factory()->published()->create(['workspace_id' => $workspace->id]);
+    $theirs = Course::factory()->published()->create(['workspace_id' => $workspace->id]);
+
+    $enrollment = Enrollment::factory()->create([
+        'workspace_id' => $workspace->id,
+        'course_id' => $mine->id,
+        'student_user_id' => $student->id,
+    ]);
+
+    $section = Section::create([
+        'workspace_id' => $workspace->id, 'course_id' => $theirs->id,
+        'title' => 'S', 'status' => ContentStatus::Published, 'order' => 0,
+    ]);
+    $chapter = Chapter::create([
+        'workspace_id' => $workspace->id, 'section_id' => $section->id, 'course_id' => $theirs->id,
+        'title' => 'C', 'status' => ContentStatus::Published, 'order' => 0,
+    ]);
+    $stranger = Lesson::create([
+        'workspace_id' => $workspace->id, 'course_id' => $theirs->id,
+        'section_id' => $section->id, 'chapter_id' => $chapter->id,
+        'uuid' => Str::uuid(), 'title' => 'درس غريب', 'type' => 'article',
+        'status' => ContentStatus::Published, 'content' => 'سرّي', 'order' => 0,
+    ]);
+
+    // `completeLesson` always checked this and `showLesson` never did, so the
+    // body of any lesson was readable through an enrolment of one's own —
+    // `canAccessLesson` answers about sequence, not about which course.
+    test()->getJson("/api/v1/enrollments/{$enrollment->uuid}/lessons/{$stranger->uuid}")
+        ->assertNotFound();
+});

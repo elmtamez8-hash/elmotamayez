@@ -43,11 +43,24 @@ class IssuePlaybackGrant extends Action
         User $viewer,
         AuthSession $session,
         ?string $ipHash = null,
+        // The item's own file when omitted. Named explicitly for an attachment,
+        // which FR-034 puts behind the same short-lived grant as everything else
+        // — a worksheet reachable by a permanent path would be the leak this
+        // module exists to remove, wearing a smaller hat.
+        ?MediaAsset $asset = null,
     ): PlaybackGrant {
-        $asset = $lesson->mediaAsset;
+        $asset ??= $lesson->mediaAsset;
 
         if ($asset === null) {
-            throw new RuntimeException('لا يوجد فيديو لهذا الدرس.');
+            throw new RuntimeException('لا يوجد ملف لهذا العنصر.');
+        }
+
+        // Entitlement is the LESSON's, whichever of its files is asked for: an
+        // attachment travels with the item it hangs on, so a second rule here
+        // would be a second thing to keep in step with `mayWatch`.
+        if ((int) $asset->owner_id !== (int) $lesson->getKey()
+            || $asset->owner_type !== Lesson::class) {
+            throw new RuntimeException('لا تملك صلاحية لهذا الإجراء.');
         }
 
         if (! $this->mayWatch($lesson, $viewer)) {

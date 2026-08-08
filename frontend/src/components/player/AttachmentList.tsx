@@ -1,0 +1,104 @@
+"use client";
+
+import { useState } from "react";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { userMessage } from "@/lib/errors";
+import { media } from "@/lib/media";
+
+/**
+ * The files that come with an item, from the student's side.
+ *
+ * No URL is carried in this list, and that is the design: every attachment is
+ * opened by asking for a grant at the moment the student clicks, and the address
+ * that comes back stops working minutes later. A list of ready-made links would
+ * be the permanent path FR-034 forbids, arriving through the back door of a
+ * convenience.
+ *
+ * So the button does the asking. One extra round-trip, and no link on the page
+ * that outlives the session it was drawn in.
+ */
+export interface StudentAttachment {
+  uuid: string;
+  original_filename: string;
+  kind: string;
+  kind_label: string;
+  is_downloadable: boolean;
+  is_ready: boolean;
+}
+
+export function AttachmentList({
+  lessonUuid,
+  attachments,
+}: {
+  lessonUuid: string;
+  attachments: StudentAttachment[];
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  if (attachments.length === 0) return null;
+
+  const open = async (attachment: StudentAttachment) => {
+    setBusy(attachment.uuid);
+    setError("");
+
+    try {
+      const grant = await media.requestAssetPlayback(lessonUuid, attachment.uuid);
+      window.open(grant.manifest_url, "_blank", "noopener,noreferrer");
+    } catch (err: unknown) {
+      setError(userMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-semibold text-ink">ملفات مع هذا الدرس</h2>
+
+      {error !== "" && (
+        <Alert tone="danger" title="تعذّر فتح الملف">
+          {error}
+        </Alert>
+      )}
+
+      <ul className="space-y-2">
+        {attachments.map((attachment) => (
+          <li
+            key={attachment.uuid}
+            className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface-raised px-3 py-2"
+          >
+            <span className="text-sm text-ink">{attachment.original_filename}</span>
+            <span className="text-xs text-ink-muted">{attachment.kind_label}</span>
+
+            {attachment.is_downloadable ? (
+              <Badge tone="info">يمكن تحميله</Badge>
+            ) : (
+              <Badge tone="neutral">عرض فقط</Badge>
+            )}
+
+            <span className="ms-auto">
+              {attachment.is_ready ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  loading={busy === attachment.uuid}
+                  loadingLabel="جارٍ الفتح"
+                  onClick={() => void open(attachment)}
+                >
+                  فتح
+                </Button>
+              ) : (
+                // Entitled, but the file is not ready. A different thing from a
+                // refusal, and it says so rather than showing a dead button.
+                <span className="text-xs text-ink-muted">قيد التجهيز</span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

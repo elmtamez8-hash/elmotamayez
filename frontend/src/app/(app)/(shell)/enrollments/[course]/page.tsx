@@ -107,26 +107,23 @@ export default function CourseLessonsPage({
                 <ul className="space-y-2">
                   {(chapter.lessons ?? []).map((lesson) => (
                     <li key={lesson.uuid}>
-                      {lesson.type === "video" ? (
-                        <Link
-                          href={`/learn/${lesson.uuid}`}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-line p-3 text-sm text-ink transition hover:border-primary hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                        >
-                          <span className="truncate">{lesson.title}</span>
-                          <span className="shrink-0 text-xs text-ink-muted">
-                            <bdi>{minutes(lesson.duration_seconds)}</bdi>
-                          </span>
-                        </Link>
-                      ) : (
-                        // Only video has a viewer today. A dead link would be a
-                        // worse promise than a plain row.
-                        <div className="flex items-center justify-between gap-3 rounded-lg border border-line p-3 text-sm text-ink-muted">
-                          <span className="truncate">{lesson.title}</span>
-                          <span className="shrink-0 text-xs">
-                            {lessonTypeLabel(lesson.type)}
-                          </span>
-                        </div>
-                      )}
+                      {/*
+                        Every type links now. It used to be video alone, and the
+                        comment said a dead link was a worse promise than a plain
+                        row — which was true while `/learn/{lesson}` played video
+                        and nothing else. It no longer does, so the row that was
+                        a promise not to disappoint is now a lesson nobody can
+                        open.
+                      */}
+                      <Link
+                        href={`/learn/${lesson.uuid}`}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-line p-3 text-sm text-ink transition hover:border-primary hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      >
+                        <span className="truncate">{lesson.title}</span>
+                        <span className="shrink-0 text-xs text-ink-muted">
+                          <bdi>{minutes(lesson.duration_seconds)}</bdi>
+                        </span>
+                      </Link>
                     </li>
                   ))}
                 </ul>
