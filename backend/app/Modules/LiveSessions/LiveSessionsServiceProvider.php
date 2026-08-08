@@ -40,7 +40,7 @@ class LiveSessionsServiceProvider extends Module
         /*
          * The inversion point. Adding a commercial broadcast provider is a file
          * in Providers/ and a case here — nothing in Actions/, Models/ or the
-         * frontend changes. Same shape as VideoProviderInterface (004) and
+         * frontend changes. Same shape as MediaProviderInterface (004) and
          * PaymentProviderInterface, both of which shipped with one implementation.
          *
          * Attendance deliberately does not pass through this interface at all

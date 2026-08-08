@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Media\Actions;
 
 use App\Modules\Courses\Models\Lesson;
-use App\Modules\Media\Contracts\VideoProviderInterface;
+use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Data\UploadTicket;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\MediaAsset;
@@ -24,7 +24,7 @@ use DomainException;
 class RequestUploadTicket extends Action
 {
     public function __construct(
-        private readonly VideoProviderInterface $provider,
+        private readonly MediaProviderInterface $provider,
     ) {}
 
     /** @return array{asset: MediaAsset, ticket: UploadTicket} */

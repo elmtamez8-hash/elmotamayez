@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /*
-| The rule that keeps VideoProviderInterface a contract rather than an intention.
+| The rule that keeps MediaProviderInterface a contract rather than an intention.
 |
 | Same shape as ProviderAgnosticTest for notification channels: business logic
 | may name a capability, never a vendor. Providers/ is the one place a vendor name

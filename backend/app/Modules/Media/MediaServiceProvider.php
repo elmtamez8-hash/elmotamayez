@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Media;
 
-use App\Modules\Media\Contracts\VideoProviderInterface;
+use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Policies\MediaAssetPolicy;
-use App\Modules\Media\Providers\LocalVideoProvider;
+use App\Modules\Media\Providers\LocalMediaProvider;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Gate;
 
@@ -25,8 +25,8 @@ class MediaServiceProvider extends Module
          * frontend changes. Same shape as PaymentProviderInterface, which has
          * shipped with a single implementation since launch.
          */
-        $this->app->bind(VideoProviderInterface::class, fn (): VideoProviderInterface => match ((string) config('media.provider')) {
-            default => $this->app->make(LocalVideoProvider::class),
+        $this->app->bind(MediaProviderInterface::class, fn (): MediaProviderInterface => match ((string) config('media.provider')) {
+            default => $this->app->make(LocalMediaProvider::class),
         });
     }
 

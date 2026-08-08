@@ -13,7 +13,7 @@ use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Http\Requests\StoreMediaAssetRequest;
 use App\Modules\Media\Http\Resources\MediaAssetResource;
 use App\Modules\Media\Models\MediaAsset;
-use App\Modules\Media\Providers\LocalVideoProvider;
+use App\Modules\Media\Providers\LocalMediaProvider;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -80,7 +80,7 @@ class MediaAssetController extends Controller
      * with the same shape — keeping one upload path in the client whichever
      * provider is configured.
      */
-    public function receiveUpload(Request $request, string $token, LocalVideoProvider $provider): JsonResponse
+    public function receiveUpload(Request $request, string $token, LocalMediaProvider $provider): JsonResponse
     {
         $asset = MediaAsset::query()->withoutWorkspaceScope()->where('uuid', $token)->first();
 

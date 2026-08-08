@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Media\Actions;
 
-use App\Modules\Media\Contracts\VideoProviderInterface;
+use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Events\MediaAssetReady;
 use App\Modules\Media\Models\MediaAsset;
@@ -24,7 +24,7 @@ use App\Shared\Actions\Action;
 class CompleteMediaUpload extends Action
 {
     public function __construct(
-        private readonly VideoProviderInterface $provider,
+        private readonly MediaProviderInterface $provider,
     ) {}
 
     public function handle(MediaAsset $asset): MediaAsset

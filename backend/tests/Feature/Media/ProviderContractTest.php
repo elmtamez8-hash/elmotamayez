@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use App\Modules\Media\Contracts\VideoProviderInterface;
+use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Data\ProviderCapabilities;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\MediaAsset;
-use App\Modules\Media\Providers\LocalVideoProvider;
+use App\Modules\Media\Providers\LocalMediaProvider;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Tests\Support\FakeVideoProvider;
+use Tests\Support\FakeMediaProvider;
 
 /*
 | The gate that makes deferring the provider choice safe rather than optimistic.
@@ -21,8 +21,8 @@ use Tests\Support\FakeVideoProvider;
 */
 
 dataset('providers', [
-    'local' => fn () => new LocalVideoProvider,
-    'fake' => fn () => new FakeVideoProvider,
+    'local' => fn () => new LocalMediaProvider,
+    'fake' => fn () => new FakeMediaProvider,
 ]);
 
 function contractAsset(): MediaAsset
@@ -41,14 +41,14 @@ function contractAsset(): MediaAsset
     return $asset;
 }
 
-it('names itself', function (VideoProviderInterface $provider): void {
+it('names itself', function (MediaProviderInterface $provider): void {
     expect($provider->identifier())->not->toBe('');
 })->with('providers');
 
 // FR-011 · NFR-008. A ticket is handed to a browser, so anything secret in it is
 // public. Scanned for shapes rather than exact keys: a provider that invents its
 // own header name should still fail.
-it('puts no credential in an upload ticket', function (VideoProviderInterface $provider): void {
+it('puts no credential in an upload ticket', function (MediaProviderInterface $provider): void {
     $ticket = $provider->createUploadTicket(contractAsset());
 
     $serialised = strtolower(json_encode([
@@ -62,7 +62,7 @@ it('puts no credential in an upload ticket', function (VideoProviderInterface $p
     }
 })->with('providers');
 
-it('reports a failure instead of throwing when the asset is gone', function (VideoProviderInterface $provider): void {
+it('reports a failure instead of throwing when the asset is gone', function (MediaProviderInterface $provider): void {
     Storage::fake('local');
 
     $asset = MediaAsset::factory()->makeOne([
@@ -72,15 +72,15 @@ it('reports a failure instead of throwing when the asset is gone', function (Vid
     ]);
 
     // A provider outage must degrade uploading, not break every lesson screen.
-    $report = $provider instanceof FakeVideoProvider
-        ? (new FakeVideoProvider(unreachable: true))->status($asset)
+    $report = $provider instanceof FakeMediaProvider
+        ? (new FakeMediaProvider(unreachable: true))->status($asset)
         : $provider->status($asset);
 
     expect($report->status)->toBe(MediaAssetStatus::Failed)
         ->and($report->failureReason)->not->toBeNull();
 })->with('providers');
 
-it('deletes idempotently', function (VideoProviderInterface $provider): void {
+it('deletes idempotently', function (MediaProviderInterface $provider): void {
     $asset = contractAsset();
 
     $provider->delete($asset);
@@ -88,7 +88,7 @@ it('deletes idempotently', function (VideoProviderInterface $provider): void {
 })->with('providers')->throwsNoExceptions();
 
 // The two rules that hold a future provider to its word.
-it('delivers adaptive bitrate if it claims it', function (VideoProviderInterface $provider): void {
+it('delivers adaptive bitrate if it claims it', function (MediaProviderInterface $provider): void {
     $capabilities = $provider->capabilities();
 
     if (! $capabilities->adaptiveBitrate) {
@@ -104,13 +104,13 @@ it('delivers adaptive bitrate if it claims it', function (VideoProviderInterface
 it('fails a provider that claims adaptive bitrate and does not deliver', function (): void {
     // Proves the rule above actually executes. Without this, a test that only ever
     // sees honest implementations would pass forever while checking nothing.
-    $liar = new FakeVideoProvider(breakPromise: true);
+    $liar = new FakeMediaProvider(breakPromise: true);
 
     expect($liar->capabilities()->adaptiveBitrate)->toBeTrue()
         ->and($liar->status(contractAsset())->renditions)->toHaveCount(0);
 });
 
-it('declares limits the upload path can enforce', function (VideoProviderInterface $provider): void {
+it('declares limits the upload path can enforce', function (MediaProviderInterface $provider): void {
     $capabilities = $provider->capabilities();
 
     expect($capabilities)->toBeInstanceOf(ProviderCapabilities::class)

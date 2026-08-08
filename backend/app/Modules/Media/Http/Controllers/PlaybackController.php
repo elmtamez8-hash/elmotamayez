@@ -10,10 +10,10 @@ use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Learning\Models\LessonProgress;
 use App\Modules\Media\Actions\IssuePlaybackGrant;
 use App\Modules\Media\Actions\RenewPlaybackGrant;
-use App\Modules\Media\Contracts\VideoProviderInterface;
+use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Data\PlaybackContext;
 use App\Modules\Media\Http\Resources\PlaybackGrantResource;
-use App\Modules\Media\Providers\LocalVideoProvider;
+use App\Modules\Media\Providers\LocalMediaProvider;
 use App\Modules\Media\Support\PlaybackGuard;
 use App\Shared\Scopes\WorkspaceScope;
 use DomainException;
@@ -80,7 +80,7 @@ class PlaybackController extends Controller
      * which is what stops playback mid-file when the session is ended elsewhere
      * or the watermark stops renewing.
      */
-    public function stream(Request $request, string $grant, VideoProviderInterface $provider): Response|StreamedResponse
+    public function stream(Request $request, string $grant, MediaProviderInterface $provider): Response|StreamedResponse
     {
         $model = PlaybackGuard::resolve($grant);
 
@@ -105,7 +105,7 @@ class PlaybackController extends Controller
 
         // Only the local provider serves bytes itself, and only it knows where
         // they are — hence the concrete type here rather than the interface.
-        abort_unless($provider instanceof LocalVideoProvider, 500);
+        abort_unless($provider instanceof LocalMediaProvider, 500);
 
         $path = $model->asset->provider_asset_id;
         abort_if($path === null, 404);

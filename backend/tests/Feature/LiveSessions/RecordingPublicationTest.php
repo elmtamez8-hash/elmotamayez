@@ -13,7 +13,7 @@ use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Media\Actions\CompleteMediaUpload;
-use App\Modules\Media\Contracts\VideoProviderInterface;
+use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Notifications\Actions\DispatchNotification;
@@ -85,7 +85,7 @@ function ingest(): void
         ->handle(
             app(WorkspaceContext::class),
             app(BroadcastProviderInterface::class),
-            app(VideoProviderInterface::class),
+            app(MediaProviderInterface::class),
             app(SessionSettings::class),
             app(CompleteMediaUpload::class),
             app(DispatchNotification::class),

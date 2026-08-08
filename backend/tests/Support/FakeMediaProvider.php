@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
-use App\Modules\Media\Contracts\VideoProviderInterface;
+use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Data\AssetStatusReport;
 use App\Modules\Media\Data\PlaybackContext;
 use App\Modules\Media\Data\PlaybackManifest;
@@ -27,7 +27,7 @@ use Carbon\CarbonImmutable;
  * `$breakPromise` flips it into an implementation that lies, so the test can
  * confirm the check fails when it should.
  */
-class FakeVideoProvider implements VideoProviderInterface
+class FakeMediaProvider implements MediaProviderInterface
 {
     public function __construct(
         public bool $breakPromise = false,

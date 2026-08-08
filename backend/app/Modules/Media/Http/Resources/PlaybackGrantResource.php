@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Media\Http\Resources;
 
-use App\Modules\Media\Contracts\VideoProviderInterface;
+use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Data\PlaybackContext;
 use App\Modules\Media\Models\PlaybackGrant;
 use App\Modules\Media\Support\WatermarkPayload;
@@ -25,7 +25,7 @@ class PlaybackGrantResource extends JsonResource
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
-        $provider = app(VideoProviderInterface::class);
+        $provider = app(MediaProviderInterface::class);
 
         $manifest = $provider->manifest(new PlaybackContext(
             asset: $this->asset,

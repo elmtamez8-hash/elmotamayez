@@ -19,7 +19,7 @@ use App\Modules\LiveSessions\Models\ClassSession;
  *
  * Session logic depends on this interface and never names a provider. Adding one
  * is a file in Providers/ plus a case in LiveSessionsServiceProvider — the same
- * shape as VideoProviderInterface (004) and PaymentProviderInterface, both of
+ * shape as MediaProviderInterface (004) and PaymentProviderInterface, both of
  * which have shipped with a single implementation.
  *
  * Note what is NOT here: attendance. No participant_joined, no participant_left,

@@ -12,7 +12,14 @@ use App\Modules\Media\Data\UploadTicket;
 use App\Modules\Media\Models\MediaAsset;
 
 /**
- * Abstraction over a video provider (local disk, Bunny Stream, Cloudflare, Mux, ...).
+ * Abstraction over a media provider (local disk, Bunny Stream, Cloudflare, Mux, ...).
+ *
+ * Named for video until 016, which is when `pdf`, `audio` and `file` gained an
+ * upload path. Nothing in the interface was video-specific — a ticket, a status
+ * report, a manifest and a delete describe any stored file — so the rename is
+ * the whole change. Leaving it called Video would have meant every document
+ * upload travelling through a contract whose name says it does not handle them,
+ * which is how the wrong mime list survives a review.
  *
  * Lesson and session logic depends on this interface and never names a provider.
  * Adding one is a file in Providers/ plus a case in MediaServiceProvider — the
@@ -24,7 +31,7 @@ use App\Modules\Media\Models\MediaAsset;
  * What that costs is stated rather than hidden — see the deferred-verification
  * table in the feature plan.
  */
-interface VideoProviderInterface
+interface MediaProviderInterface
 {
     /** Identifier: 'local', 'bunny', 'cloudflare', ... Never exposed in a payload. */
     public function identifier(): string;

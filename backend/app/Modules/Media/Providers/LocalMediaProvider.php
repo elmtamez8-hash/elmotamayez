@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Media\Providers;
 
-use App\Modules\Media\Contracts\VideoProviderInterface;
+use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Data\AssetStatusReport;
 use App\Modules\Media\Data\PlaybackContext;
 use App\Modules\Media\Data\PlaybackManifest;
@@ -29,7 +29,7 @@ use Throwable;
  * What it does not do is transcode. Adaptive bitrate is declared false, and the
  * contract test only holds an implementation to what it claims.
  */
-class LocalVideoProvider implements VideoProviderInterface
+class LocalMediaProvider implements MediaProviderInterface
 {
     public function identifier(): string
     {

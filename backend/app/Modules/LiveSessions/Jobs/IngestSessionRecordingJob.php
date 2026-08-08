@@ -8,7 +8,7 @@ use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Media\Actions\CompleteMediaUpload;
-use App\Modules\Media\Contracts\VideoProviderInterface;
+use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Notifications\Actions\DispatchNotification;
@@ -47,7 +47,7 @@ class IngestSessionRecordingJob implements ShouldQueue
     public function handle(
         WorkspaceContext $context,
         BroadcastProviderInterface $broadcast,
-        VideoProviderInterface $video,
+        MediaProviderInterface $video,
         SessionSettings $settings,
         CompleteMediaUpload $complete,
         DispatchNotification $notify,
