@@ -69,8 +69,11 @@ class CompleteMediaUpload extends Action
 
     private function rejectionReason(?string $mimeType, ?int $sizeBytes, ?int $durationSeconds): ?string
     {
+        // Video for now; 016 replaces the literal with the asset's own kind once
+        // media_assets carries one. The list moved under a per-kind key first so
+        // documents and audio have somewhere to be declared.
         /** @var list<string> $allowed */
-        $allowed = config('media.allowed_mime_types', []);
+        $allowed = config('media.allowed_mime_types.video', []);
 
         // Fails closed. An undetectable type is not a permission to publish it as
         // a video — that is precisely the shape of a file pretending to be one.

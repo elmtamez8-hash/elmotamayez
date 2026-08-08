@@ -34,14 +34,14 @@ description: "Task list for 016-course-authoring"
 
 **Purpose**: المفردات المشتركة التي تقرؤها كل مرحلة بعدها.
 
-- [ ] T001 [P] وسّع `backend/app/Modules/Courses/Enums/LessonType.php` من أربع قيم إلى عشر: `Video` · `Audio` · `Pdf` · `File` · `Article` · `Note` · `Link` · `Exam` · `Assignment` · `LiveSession` — بدالة `label()` عربية لكل قيمة
-- [ ] T002 [P] أنشئ `backend/app/Modules/Courses/Enums/ContentStatus.php` (`draft` · `published` · `archived`) بدالة `label()` عربية ودالة `isVisibleToStudents()`
-- [ ] T003 [P] أنشئ `backend/app/Modules/Media/Enums/MediaKind.php` (`video` · `audio` · `document`) و`MediaRole.php` (`primary` · `attachment`)
-- [ ] T004 أنشئ `backend/app/Modules/Courses/Support/LessonTypeRegistry.php`: لكل نوع **العائلة** و**قابلية الإتمام** و**الحقول المطلوبة للنشر** و**صنف الأصل المتوقَّع** — المصدر الوحيد لهذه الحقائق ([data-model.md](./data-model.md) § أنواع العناصر). **يُمنع** تكرار أيٍّ منها في FormRequest أو مكوّن واجهة
-- [ ] T005 [P] أنشئ `backend/app/Modules/Courses/Support/MarkdownRenderer.php` يلفّ `league/commonmark` بـ`html_input: 'strip'` و`allow_unsafe_links: false` (research §R7) — **يُمنع** إضافة أي مُنقّي HTML إلى `composer.json`
-- [ ] T006 [P] أضف المحدّد المسمّى `authoring` (٦٠/دقيقة بالمستخدم) في `AppServiceProvider::registerRateLimiters()` بـ `backend/app/Providers/AppServiceProvider.php` — **يُمنع** أي `throttle:N,M` سطري
-- [ ] T007 [P] وسّع `backend/config/media.php`: `allowed_mime_types` المسطّحة تصير خريطة بمفتاح `kind` (`video` · `audio` · `document`)، وحدود الحجم والمدة لكل صنف
-- [ ] T008 [P] أضف مفاتيح `media.max_document_size_bytes` و`media.max_audio_duration_seconds` إلى `PlatformSettings::KEYS` بـ `backend/app/Modules/Tenancy/Support/PlatformSettings.php` وصفوفها إلى `backend/database/seeders/PlatformSettingsSeeder.php` — الأرقام التشغيلية صفوف يضبطها المشغّل لا ثوابت في الكود (`FR-033`)
+- [X] T001 [P] وسّع `backend/app/Modules/Courses/Enums/LessonType.php` من أربع قيم إلى عشر: `Video` · `Audio` · `Pdf` · `File` · `Article` · `Note` · `Link` · `Exam` · `Assignment` · `LiveSession` — بدالة `label()` عربية لكل قيمة
+- [X] T002 [P] أنشئ `backend/app/Modules/Courses/Enums/ContentStatus.php` (`draft` · `published` · `archived`) بدالة `label()` عربية ودالة `isVisibleToStudents()`
+- [X] T003 [P] أنشئ `backend/app/Modules/Media/Enums/MediaKind.php` (`video` · `audio` · `document`) و`MediaRole.php` (`primary` · `attachment`)
+- [X] T004 أنشئ `backend/app/Modules/Courses/Support/LessonTypeRegistry.php`: لكل نوع **العائلة** و**قابلية الإتمام** و**الحقول المطلوبة للنشر** و**صنف الأصل المتوقَّع** — المصدر الوحيد لهذه الحقائق ([data-model.md](./data-model.md) § أنواع العناصر). **يُمنع** تكرار أيٍّ منها في FormRequest أو مكوّن واجهة
+- [X] T005 [P] أنشئ `backend/app/Modules/Courses/Support/MarkdownRenderer.php` يلفّ `league/commonmark` بـ`html_input: 'strip'` و`allow_unsafe_links: false` (research §R7) — **يُمنع** إضافة أي مُنقّي HTML إلى `composer.json`
+- [X] T006 [P] أضف المحدّد المسمّى `authoring` (٦٠/دقيقة بالمستخدم) في `AppServiceProvider::registerRateLimiters()` بـ `backend/app/Providers/AppServiceProvider.php` — **يُمنع** أي `throttle:N,M` سطري
+- [X] T007 [P] وسّع `backend/config/media.php`: `allowed_mime_types` المسطّحة تصير خريطة بمفتاح `kind` (`video` · `audio` · `document`)، وحدود الحجم والمدة لكل صنف
+- [X] T008 [P] أضف مفاتيح `media.max_document_size_bytes` و`media.max_audio_duration_seconds` إلى `PlatformSettings::KEYS` بـ `backend/app/Modules/Tenancy/Support/PlatformSettings.php` وصفوفها إلى `backend/database/seeders/PlatformSettingsSeeder.php` — الأرقام التشغيلية صفوف يضبطها المشغّل لا ثوابت في الكود (`FR-033`)
 
 **Checkpoint**: التعدادات موجودة · السجلّ هو المصدر الوحيد لخصائص الأنواع · المحدّد مسمّى · الحدود صفوف.
 

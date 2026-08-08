@@ -30,12 +30,48 @@ return [
     'max_size_bytes' => (int) env('MEDIA_MAX_SIZE_BYTES', 2_147_483_648),   // 2 GiB
     'max_duration_seconds' => (int) env('MEDIA_MAX_DURATION_SECONDS', 14_400), // 4 h
 
+    /*
+    | Per kind since 016. It was one flat list while video was the only thing
+    | that could be uploaded — and `pdf` and `file` had been declared lesson
+    | types since the first migration with no way to author either. Keeping one
+    | list would mean a PDF is accepted by the same rule as a 2 GiB video, or
+    | that documents stay unauthorable. The keys match MediaKind.
+    */
     'allowed_mime_types' => [
-        'video/mp4',
-        'video/webm',
-        'video/quicktime',
-        'video/x-matroska',
+        'video' => [
+            'video/mp4',
+            'video/webm',
+            'video/quicktime',
+            'video/x-matroska',
+        ],
+        'audio' => [
+            'audio/mpeg',
+            'audio/mp4',
+            'audio/aac',
+            'audio/ogg',
+            'audio/wav',
+            'audio/x-wav',
+        ],
+        'document' => [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'image/png',
+            'image/jpeg',
+        ],
     ],
+
+    /*
+    | Size ceilings per kind. A lecture note is not a lecture: giving a PDF the
+    | video allowance means one mis-picked file uploads a gigabyte before anyone
+    | notices. Overridden at runtime by platform_settings, like every other
+    | operational number here.
+    */
+    'max_document_size_bytes' => (int) env('MEDIA_MAX_DOCUMENT_SIZE_BYTES', 52_428_800),  // 50 MiB
+    'max_audio_size_bytes' => (int) env('MEDIA_MAX_AUDIO_SIZE_BYTES', 209_715_200),       // 200 MiB
+    'max_audio_duration_seconds' => (int) env('MEDIA_MAX_AUDIO_DURATION_SECONDS', 14_400), // 4 h
 
     /*
     | Playback grants (FR-008, FR-012). The TTL is short because the watermark

@@ -116,6 +116,14 @@ class AppServiceProvider extends ServiceProvider
         // authentication, and an office behind one address is many admins.
         RateLimiter::for('settlement-write', fn (Request $request) => Limit::perMinute(20)
             ->by('user:'.(string) $request->user()?->getKey()));
+
+        // Course authoring: creating, renaming, reordering, publishing, deleting.
+        // Looser than the settlement writes because this is the opposite kind of
+        // work — a teacher building a unit saves dozens of times in an hour, and
+        // a limit that interrupts that is a limit that loses their text. Keyed by
+        // user: a school authoring from one address is many teachers.
+        RateLimiter::for('authoring', fn (Request $request) => Limit::perMinute(60)
+            ->by('user:'.(string) $request->user()?->getKey()));
     }
 
     /**
