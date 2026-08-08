@@ -90,8 +90,16 @@ export default function LearnLessonPage({
   // grant for an article would burn one and answer 403 for the right reason at
   // the wrong time — and for a BLOCKED item it would answer 403 for the right
   // reason with the wrong sentence, over the top of the one the server gave.
+  //
+  // `detail !== null`, and the `detail === null` that used to stand there is the
+  // bug this replaces: on the first render nothing is known yet, so the condition
+  // was true for EVERY item and the grant request fired before the type came
+  // back. On an article it answered 403, correctly, and the screen showed
+  // "تعذّرت المشاهدة — لا تملك صلاحية لهذا الإجراء" in red over content that had
+  // loaded and was perfectly readable. Waiting one render costs nothing: the
+  // detail fetch is already in flight when this runs.
   const wantsPlayer =
-    blocked === null && (detail === null || detail.type === "video" || detail.type === "audio");
+    blocked === null && detail !== null && (detail.type === "video" || detail.type === "audio");
 
   useEffect(() => {
     let cancelled = false;

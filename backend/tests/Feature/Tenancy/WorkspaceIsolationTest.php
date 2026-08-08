@@ -3,6 +3,11 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Courses\Enums\ContentStatus;
+use App\Modules\Courses\Models\Chapter;
+use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Models\Section;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Models\Device;
 use App\Modules\Identity\Models\StudentProfile;
@@ -219,5 +224,83 @@ describe('settlement models are workspace-scoped', function (): void {
             ->and($context->forWorkspace($workspaceB, fn () => LedgerEntry::query()->count()))->toBe(0)
             ->and($context->forWorkspace($workspaceB, fn () => SettlementPeriod::query()->count()))->toBe(0)
             ->and($context->forWorkspace($workspaceB, fn () => TeacherPayout::query()->count()))->toBe(0);
+    });
+});
+
+describe('course tree models are workspace-scoped', function (): void {
+    /*
+     * Sections and chapters predate 016, and until it they had no public
+     * identifier at all — the endpoints took serial ids, which nothing in the
+     * product ever called, so nothing ever noticed. 016 gave them uuids, a
+     * lifecycle and eight routes each. A tenant-owned model without
+     * `BelongsToWorkspace` passes every other test in this suite and leaks in
+     * production; these cases are the only thing that catches it.
+     */
+    it('scopes every node of the tree to the current workspace', function (): void {
+        [$workspaceA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+        [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+        $context = app(WorkspaceContext::class);
+
+        $build = function (int $lessons, int $workspaceId): callable {
+            return function () use ($lessons, $workspaceId): void {
+                // `workspace_id` stated, because `CourseFactory` hardcodes 1 and
+                // would quietly file both academies' courses under the first one.
+                $course = Course::factory()->create(['workspace_id' => $workspaceId]);
+
+                $section = Section::create([
+                    'course_id' => $course->id, 'title' => 'قسم',
+                    'status' => ContentStatus::Published, 'order' => 1,
+                ]);
+
+                $chapter = Chapter::create([
+                    'course_id' => $course->id, 'section_id' => $section->id,
+                    'title' => 'فصل', 'status' => ContentStatus::Published, 'order' => 1,
+                ]);
+
+                foreach (range(1, $lessons) as $index) {
+                    Lesson::create([
+                        'course_id' => $course->id, 'section_id' => $section->id,
+                        'chapter_id' => $chapter->id, 'title' => "درس {$index}",
+                        'type' => 'article', 'content' => 'نصّ',
+                        'status' => ContentStatus::Published, 'order' => $index,
+                    ]);
+                }
+            };
+        };
+
+        // `workspace_id` is deliberately NOT passed: the trait fills it from the
+        // current context on create, and a model missing the trait would leave it
+        // null — which is the failure this is looking for.
+        $context->forWorkspace($workspaceA, $build(2, (int) $workspaceA->id));
+        $context->forWorkspace($workspaceB, $build(3, (int) $workspaceB->id));
+
+        foreach ([Section::class, Chapter::class] as $model) {
+            expect($context->forWorkspace($workspaceA, fn () => $model::query()->count()))->toBe(1)
+                ->and($context->forWorkspace($workspaceB, fn () => $model::query()->count()))->toBe(1);
+        }
+
+        expect($context->forWorkspace($workspaceA, fn () => Lesson::query()->count()))->toBe(2)
+            ->and($context->forWorkspace($workspaceB, fn () => Lesson::query()->count()))->toBe(3);
+    });
+
+    it('keeps one workspace out of another tree through the API', function (): void {
+        [$workspaceA, $ownerA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+        [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+        $context = app(WorkspaceContext::class);
+
+        $foreign = $context->forWorkspace(
+            $workspaceB,
+            fn () => Course::factory()->create(['workspace_id' => $workspaceB->id]),
+        );
+
+        Sanctum::actingAs($ownerA);
+        $this->setCurrentWorkspace($workspaceA, $ownerA);
+
+        // Not 200-with-an-empty-tree: the course is not this teacher's to read at
+        // all, and answering "here is an empty course" would confirm the uuid
+        // names something.
+        $this->getJson("/api/v1/courses/{$foreign->uuid}/tree")->assertNotFound();
     });
 });

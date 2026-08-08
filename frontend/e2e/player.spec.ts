@@ -85,15 +85,23 @@ test.describe("الوصول إلى المشغّل", () => {
     // The lesson list rendered — sections, chapters, rows.
     await expect(page.getByRole("listitem").first()).toBeVisible();
 
-    // Only video lessons link into the player, and a course of articles is a
-    // legitimate state, so this half is conditional. What is not conditional is
-    // that when such a lesson exists, its row is a link.
+    // EVERY type links now, not video alone — 016 turned `/learn/{lesson}` into
+    // the one screen a student opens any item on. So what follows can no longer
+    // assume a player: it asserts what is true of every type.
     const toPlayer = page.locator('a[href^="/learn/"]');
 
     if ((await toPlayer.count()) > 0) {
       await toPlayer.first().click();
       await expect(page).toHaveURL(/\/learn\//);
-      await expect(page.getByRole("heading", { name: "مشاهدة الدرس" })).toBeVisible();
+
+      // The item's own title, whatever it turned out to be.
+      await expect(page.getByRole("heading", { level: 1 }).last()).toBeVisible();
+
+      // And no failure over it. This caught a real one: the page decided whether
+      // to ask for a playback grant BEFORE the item's type had arrived, so it
+      // asked for every item — and an article answered 403, correctly, painting
+      // "تعذّرت المشاهدة" in red across content that had loaded fine.
+      await expect(page.getByText("تعذّرت المشاهدة")).toHaveCount(0);
     }
   });
 });

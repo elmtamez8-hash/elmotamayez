@@ -188,7 +188,10 @@ test.describe("016 — سطح تأليف الكورس", () => {
     await page.goto("/manage/courses");
     await expectNotRedirectedToLogin(page, "/manage/courses");
 
-    await page.getByRole("link", { name: /^إدارة$|عرض|تفاصيل/ }).first().click();
+    // The list renders each course as one link carrying the whole card's text, so
+    // there is no stable accessible NAME to match on — the href is the stable
+    // thing. `:not([href$="/new"])` because "كورس جديد" sits under the same prefix.
+    await page.locator('a[href^="/manage/courses/"]:not([href$="/new"])').first().click();
     await page.getByRole("link", { name: "محتوى الكورس" }).first().click();
 
     await expect(page).toHaveURL(/\/manage\/courses\/[^/]+\/content$/);

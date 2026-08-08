@@ -30,12 +30,22 @@ interface Lesson {
   duration_seconds: number;
 }
 
+/**
+ * Mirrors `CourseSectionResource`, which 016 rewrote.
+ *
+ * This shape said `id` and `is_published`, and the API stopped sending either:
+ * nodes are addressed by uuid now, and `is_published` became `status`, because a
+ * node also has to be able to be ARCHIVED — a lesson any student has progress on
+ * may never be hard-deleted, so "gone from the course" has to be a state the row
+ * can hold. The filter below then matched `undefined` on every section and this
+ * page told every enrolled student their course had no lessons in it.
+ */
 interface CourseWithLessons extends Course {
   sections?: Array<{
-    id: number;
+    uuid: string;
     title: string;
-    is_published: boolean;
-    chapters?: Array<{ id: number; title: string; lessons?: Lesson[] }>;
+    status: string;
+    chapters?: Array<{ uuid: string; title: string; status: string; lessons?: Lesson[] }>;
   }>;
 }
 
@@ -70,10 +80,15 @@ export default function CourseLessonsPage({
   if (loading) return <RowsSkeleton />;
   if (failed || course === null) return <ErrorState onRetry={load} />;
 
-  const sections = (course.sections ?? []).filter((s) => s.is_published);
+  // Published, not "not draft": an archived section is one the teacher has
+  // retired, and showing it would put back exactly what archiving removed.
+  const sections = (course.sections ?? []).filter((s) => s.status === "published");
   const lessonCount = sections.reduce(
     (total, s) =>
-      total + (s.chapters ?? []).reduce((n, c) => n + (c.lessons?.length ?? 0), 0),
+      total +
+    (s.chapters ?? [])
+      .filter((c) => c.status === "published")
+      .reduce((n, c) => n + (c.lessons?.length ?? 0), 0),
     0,
   );
 
@@ -96,11 +111,13 @@ export default function CourseLessonsPage({
         />
       ) : (
         sections.map((section) => (
-          <Card key={section.id}>
+          <Card key={section.uuid}>
             <h3 className="mb-3 font-semibold text-ink">{section.title}</h3>
 
-            {(section.chapters ?? []).map((chapter) => (
-              <div key={chapter.id} className="mb-4 last:mb-0">
+            {(section.chapters ?? [])
+              .filter((chapter) => chapter.status === "published")
+              .map((chapter) => (
+              <div key={chapter.uuid} className="mb-4 last:mb-0">
                 <p className="mb-2 text-sm text-ink-muted">{chapter.title}</p>
 
                 <ul className="space-y-2">
