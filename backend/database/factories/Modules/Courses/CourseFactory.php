@@ -33,6 +33,11 @@ class CourseFactory extends Factory
             'is_sequential' => true,
             'language' => 'en',
             'duration_seconds' => 0,
+            // Set here rather than left to the column default: a model that was
+            // just created does not carry a default it never assigned, so a
+            // caller reading $course->structure_version would get null and send
+            // it as the concurrency token.
+            'structure_version' => 1,
             'created_by' => User::factory(),
             'course_type' => Course::TYPE_RECORDED,
         ];

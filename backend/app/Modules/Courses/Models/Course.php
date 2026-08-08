@@ -57,6 +57,10 @@ class Course extends BaseModel
         'is_sequential',
         'language',
         'duration_seconds',
+        // Raised by every structural write, and sent back by the client on the
+        // next one — an editor whose token is stale is looking at a tree that
+        // has changed under them.
+        'structure_version',
         'created_by',
         'course_type',
         'cover_path',
@@ -71,6 +75,7 @@ class Course extends BaseModel
             'price_before_discount' => 'decimal:2',
             'is_sequential' => 'boolean',
             'duration_seconds' => 'integer',
+            'structure_version' => 'integer',
         ];
     }
 

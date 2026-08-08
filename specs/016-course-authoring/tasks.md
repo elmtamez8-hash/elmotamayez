@@ -60,7 +60,7 @@ description: "Task list for 016-course-authoring"
 - [X] T011 حدّث `backend/app/Modules/Courses/routes/api.php`: كل `{section}` و`{chapter}` و`{lesson}` يُحلّ بـuuid؛ وأضف `throttle:authoring` إلى كل مسار كاتب
 - [X] T012 استبدل `Rule::exists()` الخام بـ`App\Shared\Support\WorkspaceRules::exists()` في `StoreLessonRequest` · `UpdateLessonRequest` · `StoreChapterRequest` · `UpdateChapterRequest` بـ `backend/app/Modules/Courses/Http/Requests/` — قاعدة Laravel استعلام خام يتجاوز النطاق العام
 - [X] T013 اجعل `backend/app/Modules/Courses/Http/Requests/StoreLessonRequest.php` يستقبل `chapter_uuid` وحده ويشتقّ `section_id` منه (`FR-002`)، و**يتحقّق أن الفصل يخصّ القسم والكورس المذكور في المسار** (`FR-059`) — اليوم يمكن إنشاء درس بقسم من فرع وفصل من فرع آخر
-- [ ] T014 [P] اكتب `backend/tests/Feature/Courses/StructureValidationTest.php`: فصل من كورس آخر ⇒ 404 · فصل لا يخصّ قسمه ⇒ 422 · معرّف تسلسلي في أي حمولة ⇒ فشل الاختبار
+- [X] T014 [P] اكتب `backend/tests/Feature/Courses/StructureValidationTest.php`: فصل من كورس آخر ⇒ 404 · فصل لا يخصّ قسمه ⇒ 422 · معرّف تسلسلي في أي حمولة ⇒ فشل الاختبار
 
 ### ٢ب — المخطّط
 
@@ -80,11 +80,11 @@ description: "Task list for 016-course-authoring"
 > **هاتان المهمتان تمسّان اثنين من المسارات الحرجة الثمانية في `AGENTS.md`.** تُشحنان معاً
 > ومع اختبارهما، ولا تُدمجان مع دفعة أخرى.
 
-- [ ] T025 اكتب `backend/tests/Feature/Learning/RecordingProgressTest.php` **أولاً**: طالب مسجَّل **بلا مقعد** في حصة نُشر تسجيلها **في وسط الشجرة** يبلغ ١٠٠٪ وتصدر شهادته، وما بعد التسجيل مفتوح له (`SC-019`). **موضع الوسط شرط**: تسجيل في آخر الشجرة لا يقف أمام شيء، فالاختبار ينجح والعطل حيّ
-- [ ] T026 [P] اكتب `backend/tests/Feature/Learning/DraftGatingTest.php`: عنصر مسودّة لا يدخل المقام ولا يقف في التسلسل ولا يظهر للطالب (`SC-005` · `SC-006`)
+- [X] T025 اكتب `backend/tests/Feature/Learning/RecordingProgressTest.php` **أولاً**: طالب مسجَّل **بلا مقعد** في حصة نُشر تسجيلها **في وسط الشجرة** يبلغ ١٠٠٪ وتصدر شهادته، وما بعد التسجيل مفتوح له (`SC-019`). **موضع الوسط شرط**: تسجيل في آخر الشجرة لا يقف أمام شيء، فالاختبار ينجح والعطل حيّ
+- [X] T026 [P] اكتب `backend/tests/Feature/Learning/DraftGatingTest.php`: عنصر مسودّة لا يدخل المقام ولا يقف في التسلسل ولا يظهر للطالب (`SC-005` · `SC-006`)
 - [X] T027 عدّل `recomputeProgress()` و`shouldCompleteCourse()` في `backend/app/Modules/Learning/Actions/MarkLessonComplete.php` ليستعملا نطاق `countableForProgress()` بدل `$enrollment->course->lessons()->count()` (`FR-026` · `FR-026أ`)
 - [X] T028 عدّل `canAccessLesson()` في `backend/app/Modules/Learning/Models/Enrollment.php` ليتخطّى كشرط سابق: المسودّة والمؤرشف (`FR-027`) **ودرس التسجيل** (`FR-027أ`) — الاستبعاد من المقام وحده يترك العطل نفسه عائداً من باب الترتيب
-- [ ] T029 شغّل المسارات الحرجة الثمانية كاملةً وثبّت خضرتها قبل المتابعة: `php vendor/bin/pest tests/Feature/Learning tests/Feature/Certificates tests/Feature/Tenancy`
+- [X] T029 شغّل المسارات الحرجة الثمانية كاملةً وثبّت خضرتها قبل المتابعة: `php vendor/bin/pest tests/Feature/Learning tests/Feature/Certificates tests/Feature/Tenancy`
 
 **Checkpoint**: `php artisan migrate` يمرّ فوق قاعدة قائمة · صفر تعادل · PHPStan نظيف · المسارات الحرجة خضراء · العطل الأبدي مُصلَح ومُختبَر من بابيه.
 
@@ -100,10 +100,10 @@ description: "Task list for 016-course-authoring"
 
 ### الاختبارات أولاً
 
-- [ ] T030 [P] [US1] اكتب `backend/tests/Feature/Courses/TreeOrderingTest.php`: بعد ثلاث عمليات إعادة ترتيب، قيم الإخوة **متمايزة ومتصلة** في المستويات الثلاثة (`SC-003`)
-- [ ] T031 [P] [US1] أضف إلى `backend/tests/Feature/Courses/TreeOrderingTest.php`: قائمة ترتيب ناقصة عنصراً ⇒ 422 · قائمة فيها uuid ليس من الإخوة ⇒ 422 — الترتيب المكرّر **غير قابل للتعبير عنه** بهذه الحمولة (research §R3)
-- [ ] T032 [P] [US1] اكتب `backend/tests/Feature/Courses/SequentialAccessTest.php`: تبديل موضع درسين في كورس `is_sequential` يغيّر **ما يُفتح** للطالب — الاختبار يقرأ الفتح لا عمود `order` (`SC-004`)
-- [ ] T033 [P] [US1] اكتب `backend/tests/Feature/Courses/DeleteGuardTest.php`: حذف درس عليه تقدّم ⇒ **423** بالأرشفة بديلاً، وصفوف التقدّم **باقية**، والنسبة لم تنقص (`SC-008`)
+- [X] T030 [P] [US1] اكتب `backend/tests/Feature/Courses/TreeOrderingTest.php`: بعد ثلاث عمليات إعادة ترتيب، قيم الإخوة **متمايزة ومتصلة** في المستويات الثلاثة (`SC-003`)
+- [X] T031 [P] [US1] أضف إلى `backend/tests/Feature/Courses/TreeOrderingTest.php`: قائمة ترتيب ناقصة عنصراً ⇒ 422 · قائمة فيها uuid ليس من الإخوة ⇒ 422 — الترتيب المكرّر **غير قابل للتعبير عنه** بهذه الحمولة (research §R3)
+- [X] T032 [P] [US1] اكتب `backend/tests/Feature/Courses/SequentialAccessTest.php`: تبديل موضع درسين في كورس `is_sequential` يغيّر **ما يُفتح** للطالب — الاختبار يقرأ الفتح لا عمود `order` (`SC-004`)
+- [X] T033 [P] [US1] اكتب `backend/tests/Feature/Courses/DeleteGuardTest.php`: حذف درس عليه تقدّم ⇒ **423** بالأرشفة بديلاً، وصفوف التقدّم **باقية**، والنسبة لم تنقص (`SC-008`)
 
 ### الخلفية
 
@@ -111,7 +111,7 @@ description: "Task list for 016-course-authoring"
 - [X] T035 [P] [US1] أنشئ `CreateChapter` · `UpdateChapter` · `DeleteChapter` في `backend/app/Modules/Courses/Actions/` بنفس القواعد
 - [X] T036 [P] [US1] أنشئ `CreateLesson` · `UpdateLesson` · `DeleteLesson` في `backend/app/Modules/Courses/Actions/` — والحذف يرفض ما عليه تقدّم (`FR-007`) ويرفض ما يملك أصلاً مرفوعاً (`FR-038أ`)، ويعرض الأرشفة بديلاً
 - [X] T037 [US1] أنشئ `backend/app/Modules/Courses/Actions/ReorderTreeNodes.php`: يستقبل قائمة uuid الإخوة كاملةً، ويكتبها في **معاملة واحدة**، ويرفع `structure_version` (`FR-004`)
-- [ ] T038 [US1] أنشئ `backend/app/Modules/Courses/Actions/ArchiveTreeNode.php` — الأرشفة تُخرج العنصر من المقام والتسلسل و**لا** تنقص نسبة أُحرزت (`FR-008`)
+- [X] T038 [US1] أنشئ `backend/app/Modules/Courses/Actions/ArchiveTreeNode.php` — الأرشفة تُخرج العنصر من المقام والتسلسل و**لا** تنقص نسبة أُحرزت (`FR-008`)
 - [X] T039 [US1] أعد بناء `SectionController` · `ChapterController` · `LessonController` بـ `backend/app/Modules/Courses/Http/Controllers/` على الـActions — أربعة أسطر لكل دالة، بلا منطق (الدستور II · research §R14)
 - [X] T040 [US1] أضف مسارات إعادة الترتيب الثلاثة إلى `backend/app/Modules/Courses/routes/api.php` ([contracts/api.md](./contracts/api.md) §١)
 - [ ] T041 [US1] أنشئ `backend/app/Modules/Courses/Http/Resources/CourseTreeResource.php` — شجرة المؤلّف بحالاتها الحقيقية وسبب الحجب؛ **منفصلة** عن الشجرة الطلابية عمداً، فتسريب المسودّة لا يصير نسيانَ مُعامِل ([contracts/api.md](./contracts/api.md) §١)
