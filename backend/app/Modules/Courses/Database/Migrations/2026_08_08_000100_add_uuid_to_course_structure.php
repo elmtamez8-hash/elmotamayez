@@ -72,11 +72,27 @@ return new class extends Migration
      * No portable single statement generates a distinct value per row, and these
      * tables hold tens of rows per course rather than millions. Chunked so a
      * large instance does not load the whole table to do it.
+     *
+     * **`chunkById`, never `chunk`.** `chunk()` paginates by OFFSET, and the
+     * predicate here — `whereNull('uuid')` — shrinks as the callback fills the
+     * column. Page 2 asks for `OFFSET 500` of a set that now starts at row 501,
+     * so rows 501–1000 are skipped and never seen again; the short page then ends
+     * the loop early. At 1,200 rows, 500 keep a NULL uuid. And the migration
+     * still SUCCEEDS, because a unique index permits any number of NULLs — so the
+     * damage surfaces only after deploy, as 404s on every section and chapter
+     * route and a reorder that refuses every affected group.
+     *
+     * `chunkById` walks a key cursor (`where id > last`) instead, which a
+     * shrinking predicate cannot disturb.
+     *
+     * Public so `StructureMigrationTest` can call it over 1,200 seeded rows. A
+     * private method here would mean the guarantee this docblock claims is
+     * asserted by nothing — which is exactly how the `chunk()` bug survived.
      */
-    private function backfill(string $table): void
+    public function backfill(string $table): void
     {
-        DB::table($table)->select('id')->whereNull('uuid')->orderBy('id')
-            ->chunk(500, function ($rows) use ($table): void {
+        DB::table($table)->select('id')->whereNull('uuid')
+            ->chunkById(500, function ($rows) use ($table): void {
                 foreach ($rows as $row) {
                     DB::table($table)
                         ->where('id', $row->id)

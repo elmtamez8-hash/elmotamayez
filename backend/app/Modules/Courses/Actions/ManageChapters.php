@@ -18,6 +18,13 @@ use Illuminate\Support\Facades\DB;
  */
 class ManageChapters extends Action
 {
+    public function __construct(
+        // Deleting a chapter deletes its items, and an item's deletion has rules
+        // — attachments swept through the provider, the course duration
+        // recomputed. Reimplementing them here is how the two paths drifted.
+        private readonly ManageLessons $lessons,
+    ) {}
+
     public function create(Course $course, Section $section, string $title): Chapter
     {
         return DB::transaction(function () use ($course, $section, $title): Chapter {
@@ -51,9 +58,23 @@ class ManageChapters extends Action
     {
         TreeDeletionGuard::assertChapterDeletable($chapter);
 
-        DB::transaction(function () use ($chapter): void {
-            $chapter->lessons()->delete();
+        // Each child goes through `ManageLessons::delete`, not `lessons()->delete()`.
+        //
+        // The bulk form is a query-builder delete: it retrieves no models, fires
+        // no events, and sweeps no attachments — so the rows vanished while their
+        // BYTES stayed on disk with nothing able to list or remove them, their
+        // caption rows survived pointing at a deleted lesson, and any live
+        // playback grant was never revoked (`PlaybackGuard` checks the grant and
+        // the asset, never the lesson). `FR-038ب` names this exact form as
+        // forbidden, and `ManageLessons::delete` has a comment explaining why —
+        // this path simply did not use it. `TreeDeletionGuard` asks about
+        // `role = primary` alone, so a lesson carrying only worksheets passes and
+        // reaches it.
+        foreach ($chapter->lessons as $lesson) {
+            $this->lessons->delete($lesson);
+        }
 
+        DB::transaction(function () use ($chapter): void {
             $chapter->course?->increment('structure_version');
             $chapter->delete();
         });

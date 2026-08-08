@@ -173,6 +173,45 @@ it('destroys a lesson that carries only attachments, and takes their bytes', fun
         ->and(Storage::disk('local')->exists('media/worksheet.pdf'))->toBeFalse();
 });
 
+it('sweeps attachment bytes when a whole chapter or section goes', function (): void {
+    Storage::fake('local');
+
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    [$course, $section, , $lesson] = guardedLesson($workspace->id);
+
+    Storage::disk('local')->put('media/deep.pdf', '%PDF-1.4');
+
+    $attachment = MediaAsset::create([
+        'workspace_id' => $workspace->id,
+        'owner_type' => Lesson::class,
+        'owner_id' => $lesson->id,
+        'provider' => 'local',
+        'kind' => MediaKind::Document,
+        'role' => MediaRole::Attachment,
+        'status' => MediaAssetStatus::Ready,
+        'original_filename' => 'ورقة.pdf',
+        'provider_asset_id' => 'media/deep.pdf',
+    ]);
+
+    Sanctum::actingAs($owner);
+
+    // Deleting the SECTION reaches the same state as deleting the item, and used
+    // to reach it by a different road: `$chapter->lessons()->delete()`, the bulk
+    // relation delete FR-038ب forbids. A query-builder delete retrieves no models
+    // and fires no events, so the lesson rows went and the attachment's bytes
+    // stayed on disk with nothing able to list or remove them — and any live
+    // playback grant was never revoked, since PlaybackGuard checks the grant and
+    // the asset, never the lesson.
+    //
+    // The guard permits this delete because it asks about `role = primary` alone,
+    // which is exactly what makes the attachment path reachable here.
+    $this->deleteJson("/api/v1/courses/{$course->uuid}/sections/{$section->uuid}")->assertNoContent();
+
+    expect(Lesson::query()->whereKey($lesson->id)->exists())->toBeFalse()
+        ->and(MediaAsset::query()->whereKey($attachment->id)->exists())->toBeFalse()
+        ->and(Storage::disk('local')->exists('media/deep.pdf'))->toBeFalse();
+});
+
 it('destroys a lesson nobody has touched', function (): void {
     [$workspace, $owner] = $this->createWorkspaceWithOwner();
     [$course, , , $lesson] = guardedLesson($workspace->id);

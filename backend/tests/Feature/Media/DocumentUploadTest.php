@@ -160,7 +160,7 @@ it('lets an attachment be any kind, on any type of item', function (): void {
     ])->assertCreated();
 });
 
-it('replaces the primary on re-upload and leaves attachments alone', function (): void {
+it('refuses a second primary instead of destroying the first', function (): void {
     Storage::fake('local');
     $lesson = documentLesson();
 
@@ -172,16 +172,46 @@ it('replaces the primary on re-upload and leaves attachments alone', function ()
         'original_filename' => 'أصلي.pdf', 'kind' => 'document', 'role' => 'primary',
     ])->assertCreated();
 
-    $this->postJson("/api/v1/lessons/{$lesson->uuid}/assets", [
+    // This used to succeed, and succeeding was the defect: it deleted the
+    // existing primary at the provider and in the database from a route carrying
+    // only `auth:sanctum`. So the two-factor gate on `DELETE /media/assets/{asset}`
+    // was optional in practice, `LESSONS_DELETE` was not required at all, and the
+    // deletion skipped `DeleteMediaAsset` — leaving live grants un-revoked and
+    // caption rows orphaned with their files on disk.
+    //
+    // 423 with `alternative`, not 422: the request was fine, the file is not this
+    // route's to destroy, and the teacher is told which route is.
+    $response = $this->postJson("/api/v1/lessons/{$lesson->uuid}/assets", [
         'original_filename' => 'بديل.pdf', 'kind' => 'document', 'role' => 'primary',
+    ])->assertStatus(423);
+
+    expect($response->json('alternative'))->toBe('delete_asset')
+        ->and($response->json('message'))->toContain('تحقّقاً بخطوتين')
+        // The first file still stands, and the attachment is untouched — a
+        // refusal that half-destroyed something would be worse than either.
+        ->and($lesson->mediaAsset()->count())->toBe(1)
+        ->and($lesson->mediaAsset?->original_filename)->toBe('أصلي.pdf')
+        ->and($lesson->attachments()->count())->toBe(1);
+});
+
+it('states is_downloadable on the ticket rather than leaving it to the column', function (): void {
+    Storage::fake('local');
+    $lesson = documentLesson();
+
+    // A model built with `new` carries no column default, and the key IS in
+    // `casts()`, so the accessor returned null rather than falling back to false.
+    // `POST /lessons/{l}/assets` answered `"is_downloadable": null` while
+    // `GET /media/assets/{a}` answered `false` for the same row — one boolean with
+    // two types, told apart only by which endpoint you asked.
+    $created = $this->postJson("/api/v1/lessons/{$lesson->uuid}/assets", [
+        'original_filename' => 'ملزمة.pdf', 'kind' => 'document', 'role' => 'primary',
     ])->assertCreated();
 
-    // One primary — the newest — and the attachment untouched. The replace path
-    // used to read an unscoped relation, which would have taken out whichever
-    // row the database returned first.
-    expect($lesson->attachments()->count())->toBe(1)
-        ->and($lesson->mediaAsset()->count())->toBe(1)
-        ->and($lesson->mediaAsset?->original_filename)->toBe('بديل.pdf');
+    expect($created->json('asset.is_downloadable'))->toBeFalse();
+
+    $uuid = $created->json('asset.uuid');
+
+    expect($this->getJson("/api/v1/media/assets/{$uuid}")->json('is_downloadable'))->toBeFalse();
 });
 
 it('refuses to publish an item whose upload failed', function (): void {

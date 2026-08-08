@@ -134,6 +134,16 @@ class Lesson extends BaseModel implements OrdersSiblings
 
         return $query
             ->where('lessons.status', ContentStatus::Published)
+            // The chain, exactly as `visibleToStudents` requires it — and the
+            // reason this line exists is that it did NOT. A lesson published
+            // inside a draft chapter is the state `blockedBy` renders for the
+            // teacher as `blocked_by: "chapter"`: hidden from the student by
+            // `visibleToStudents`, ungrantable by `accessTo`, and yet counted in
+            // the denominator. Nobody could ever complete it, so every enrolled
+            // student's ceiling sat below 100% and no certificate issued. A
+            // fourth road into the same forever-bug, through the publish chain.
+            ->whereHas('chapter', fn (Builder $q) => $q->where('status', ContentStatus::Published))
+            ->whereHas('section', fn (Builder $q) => $q->where('status', ContentStatus::Published))
             ->whereIn('lessons.type', LessonTypeRegistry::completableValues())
             ->whereNull('lessons.class_session_id');
     }

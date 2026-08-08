@@ -25,6 +25,12 @@ use Illuminate\Support\Facades\DB;
  */
 class ManageSections extends Action
 {
+    public function __construct(
+        // Same reason as ManageChapters: a section delete is a chapter delete is
+        // an item delete, and the rules live at the leaf.
+        private readonly ManageChapters $chapters,
+    ) {}
+
     public function create(Course $course, string $title): Section
     {
         return DB::transaction(function () use ($course, $title): Section {
@@ -57,15 +63,19 @@ class ManageSections extends Action
     {
         TreeDeletionGuard::assertSectionDeletable($section);
 
-        DB::transaction(function () use ($section): void {
-            // Children go explicitly rather than by database cascade: there is no
-            // foreign key here to cascade from, and a section removed while its
-            // chapters survive leaves rows nothing can reach or clean up.
-            $section->chapters()->each(function ($chapter): void {
-                $chapter->lessons()->delete();
-                $chapter->delete();
-            });
+        // Children go explicitly rather than by database cascade: there is no
+        // foreign key here to cascade from, and a section removed while its
+        // chapters survive leaves rows nothing can reach or clean up.
+        //
+        // Through `ManageChapters::delete` now, which routes each item through
+        // `ManageLessons::delete`. The old form was `$chapter->lessons()->delete()`
+        // — the bulk relation delete `FR-038ب` forbids by name, which left every
+        // attachment's bytes on disk unreachable and every live grant un-revoked.
+        foreach ($section->chapters as $chapter) {
+            $this->chapters->delete($chapter);
+        }
 
+        DB::transaction(function () use ($section): void {
             $section->course?->increment('structure_version');
             $section->delete();
         });

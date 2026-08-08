@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Media\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Courses\Exceptions\ContentLockedException;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Media\Actions\CompleteMediaUpload;
 use App\Modules\Media\Actions\DeleteMediaAsset;
@@ -34,6 +35,14 @@ class MediaAssetController extends Controller
                 $request->kind(),
                 $request->role(),
             );
+        } catch (ContentLockedException $e) {
+            // Rethrown rather than folded into the 422 below. A locked item is
+            // not a malformed request: it answers 423 and carries the way out
+            // (`alternative`), and catching `DomainException` first — which this
+            // extends — turned that into a validation error on `original_filename`,
+            // where the client shows it under the filename box as if the teacher
+            // had typed something wrong.
+            throw $e;
         } catch (DomainException $e) {
             return response()->json([
                 'message' => $e->getMessage(),
