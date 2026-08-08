@@ -1,6 +1,7 @@
 # Data Model: محرّك الأرصدة والتحصيل (006)
 
-**التاريخ**: 2026-08-08 · **المرحلة**: Phase 1 من [plan.md](./plan.md) · القرارات في [research.md](./research.md)
+**التاريخ**: 2026-08-08 · **المرحلة**: Phase 1 · القرارات في [research.md](./research.md)
+· **مُراجَع** بخمس مراجعات وكلاء؛ ما صحّحته مُعلَّم بـ⚠️.
 
 كل الجداول تحت `backend/app/Modules/Payments/Database/Migrations/` (M كبيرة) — التبرير في
 `research.md › R1`.
@@ -9,257 +10,339 @@
 
 ## ١ — طبقات الملكية
 
-الدستور v1.1.0 يصنّف كل نموذج في واحدة من ثلاث. التصنيف هنا **صريح**، لأن الخطأ فيه لا يظهر
-في أي اختبار لم يُكتب له:
+| الجدول | الطبقة | `BelongsToWorkspace`؟ | الحارس |
+|---|---|---|---|
+| `student_credit_accounts` | **مملوك للمنصة** | **لا** | ملكية الصفّ للطالب + `NFR-001أ` |
+| `terms_consents` | **مملوك للمنصة** | **لا** | ملكية الصفّ للموقِّع، وتفويض الوصاية للكتابة |
+| `credit_balances` · `credit_transactions` · `credit_lots` · `credit_allocations` · `credit_purchases` | **جسر** | **نعم** | النطاق العام + تجاوزٌ صريح واحد (أدناه) |
+| `credit_packages` | ⚠️ **متنازَع** | — | راجع §٦ |
+| `exam_mode_windows` | **مملوك لمساحة العمل** | **نعم** | النطاق + حالة في `WorkspaceIsolationTest` |
 
-| الجدول | الطبقة | الحارس |
-|---|---|---|
-| `student_credit_accounts` | **مملوك للمنصة** | ملكية الصفّ للطالب + `NFR-001أ` (رؤية المدرّس بالتسجيل) |
-| `terms_consents` | **مملوك للمنصة** | ملكية الصفّ للموقِّع |
-| `credit_balances` | **جسر** | `workspace_id` للسياق + إشارة إلى الحساب المنصّي |
-| `credit_transactions` | **جسر** | `workspace_id` موروث من رصيده |
-| `credit_allocations` | **جسر** | تابع لقيوده |
-| `credit_purchases` | **جسر** | `workspace_id` للسياق |
-| `credit_packages` | **مملوك للمنصة** | `FR-016`: المنصة تعرّفها، لا المدرّس |
-| `exam_mode_windows` | **مملوك لمساحة العمل** | `BelongsToWorkspace` + حالة في `WorkspaceIsolationTest` |
+⚠️ **قرار الجسر كان مسكوتاً عنه، وكلا الجوابين يكسر شيئاً.** بالسمة: قراءة الطالب لحسابه
+تُرشَّح إلى مساحة العمل التي صادف أن حملها سياقه، فيرى رصيداً جزئياً و`FR-009ج` تنكسر بصمت.
+بدونها: كل استعلام للمدرّس يكتب مرشّحه بيده بلا شبكة، وأول من ينسى يعيد أرصدة الجميع.
 
-> **الطبقة المنصّية لا يحرسها نطاق عام.** `WorkspaceScope` لا يمسّها أصلاً، فهي مكشوفة تماماً
-> ما لم يُكتب الحارس صراحةً — نفس درس `notifications` و`parent_student_relations` في 003.
-> `NFR-001ب` تفرض اختباراً مخصّصاً بالاتجاهين: مدرّس لا يرى طالباً غير مسجَّل عنده، وطالب
-> يرى حسابه الواحد عبر كل مدرّسيه.
+**الحسم — السمة، بتجاوزٍ واحد صريح**، وله سابقة منشورة تفعل هذا بالضبط: `Enrollment` جسرٌ
+**ويستعمل السمة**، ولذلك يُنادي `EloquentEnrollmentDirectory` على `withoutWorkspaceScope()`
+في كل استعلام بتعليق يقول إن التقييد «سيعيد لا شيء ويمنع كل تشغيل بصمت». قراءة الطالب لحسابه
+عبر مدرّسيه هي الموقف نفسه حرفاً بحرف.
+
+فالتجاوز الوحيد المسموح: قراءة الطالب لحسابه — `withoutWorkspaceScope()` **مع ترشيح صريح
+بـ`student_credit_account_id`** وتعليق يذكر السبب. كل ما عداه بالنطاق.
+
+> **الطبقة المنصّية لا يحرسها نطاق.** `WorkspaceScope` لا يمسّها، فهي مكشوفة تماماً ما لم
+> يُكتب الحارس صراحةً — درس `notifications` في 003. و`NFR-001ب` تفرض اختباراً بالاتجاهين.
+> ⚠️ و`SC-016` تَعِد بحالة في اختبار العزل لـ«الحساب والمعاملة والحد»، وكنتُ قد خصّصتها
+> لـ`exam_mode_windows` وحده: تُضاف حالات لـ`credit_balances` و`credit_transactions`
+> و`credit_purchases`.
 
 ---
 
 ## ٢ — الجداول
 
-### `student_credit_accounts` — الحساب الواحد
+### `student_credit_accounts`
 
 | العمود | النوع | ملاحظة |
 |---|---|---|
-| `id` · `uuid` | — | `HasUuid`؛ المسارات تكشف الـuuid |
+| `id` · `uuid` | | `HasUuid` |
 | `user_id` | FK → `users` · **unique** | `FR-001`: حساب واحد لا يتكرّر بعدد المدرّسين |
 | `timestamps` | | |
 
-**لا `workspace_id`، ولا `BelongsToWorkspace`.** إضافتهما تنتج شخصاً مكرّراً لكل مدرّس —
-مرآة العطل الذي يختبره `PlatformOwnershipTest` في 003.
+بلا `workspace_id` وبلا السمة. إضافتهما تنتج شخصاً مكرّراً لكل مدرّس — مرآة العطل الذي
+يختبره `PlatformOwnershipTest`.
 
-يُنشأ **كسولاً** عند أول حاجة (`firstOrCreate` داخل الـAction)، لا بمستمع على تسجيل المستخدم:
-حساب لكل حساب مسجَّل ولو لم يشترِ شيئاً هو صفوف بلا معنى، و`US1/1` («يُنشأ له حساب برصيد
-صفر») يُستوفى بأن القراءة تعيد صفراً — لا بأن يوجد الصفّ.
+يُنشأ **كسولاً**؛ `US1/1` («حساب برصيد صفر») يُستوفى بأن القراءة تعيد صفراً. والإنشاء
+المتزامن يُمتَصّ بالتقاط `UniqueConstraintViolationException` ثم إعادة القراءة — صراحةً، على
+شكل `BookSeat.php:76-83`، لا اتّكالاً على سلوك نسخةٍ من الإطار.
 
-### `credit_balances` — الرصيد في سياقه
+### `credit_balances`
 
 | العمود | النوع | ملاحظة |
 |---|---|---|
 | `id` · `uuid` | | |
 | `student_credit_account_id` | FK | |
-| `course_id` | FK | **السياق** (`Q-7` · `research.md › R5`) — الرصيد يُشترى لكورس ويُستهلك في حصصه |
-| `workspace_id` | FK | مُنزَّل من الكورس للحارس والفهارس، لا سياقاً مستقلاً |
-| `purchased_credits` · `consumed_credits` · `remaining_credits` | `integer` **موقَّع** | `NFR-011`: `unsigned` هنا يعمل على SQLite وينفجر على أول رصيد سالب في MySQL وحدها |
-| `credit_limit_credits` | `unsignedInteger` default 0 | أقصى **سالب** مسموح؛ صفر = لا تأجيل |
-| `notified_tier` | `unsignedTinyInteger` default 0 | رتبة آخر تنبيه أُطلق (`research.md › R12`) |
+| `student_user_id` | FK | ⚠️ **مُنزَّل** — بدونه تقفز لوحة المدرّس عبر ثلاثة جداول (`R18`) |
+| `course_id` | FK | **السياق** (`Q-7`) |
+| `workspace_id` | FK | مُنزَّل من الكورس. ⚠️ **يُسنَد صراحةً**، لا بالملء التلقائي: المستمع المطبور بلا سياق، فالتلقائي يكتب فارغاً |
+| `purchased_credits` · `consumed_credits` · `remaining_credits` | `integer` **مُوقَّع** | `unsigned` يعمل على SQLite وينفجر على أول رصيد سالب في MySQL وحدها |
+| `credit_limit_credits` | ⚠️ `integer` **مُوقَّع** (فحص `>= 0` في الـAction) | كان `unsigned`، وهو مصدر فخّ الحساب في `R6` |
+| `negative_since` | timestamp nullable | ⚠️ يُكتب عند النزول تحت الصفر ويُمحى عند العودة — بدونه يشتقّ كنسُ الحدّ «كم يوماً سالباً» بمسح سجلٍّ لكل رصيد |
+| `last_transaction_at` | timestamp nullable | ⚠️ لكنس الخمول (`Q-8`) — بدونه `MAX()` لكل رصيد |
+| `notified_tier` | `unsignedTinyInteger` default 0 | رتبة آخر تنبيه (`R12`) |
 | `timestamps` | | |
 | | **unique** `(student_credit_account_id, course_id)` | |
-| | index `(workspace_id, remaining_credits)` | لوحة المدرّس ومسح العتبات |
+| | index `(workspace_id, course_id, student_user_id)` | ⚠️ لوحة المدرّس. الفهرس السابق `(workspace_id, remaining_credits)` **حُذف**: لا اللوحة تستعمله ولا «مسح العتبات» الذي بُرِّر به موجود |
+| | index `(workspace_id, negative_since)` | كنس الحدّ الائتماني |
 
-`remaining_credits` **رقم مادّي**، لا `SUM()`. `NFR-012` تفرضه صراحةً، و`FR-004` تصير التزاماً
-يُختبَر (`SC-001`) بدل أن تكون بنيةً.
+`remaining_credits` رقم **مادّي** (`NFR-012`)، و`FR-004` التزامٌ يُختبَر (`SC-001`).
+
+**والثابتة بين العدّادات تُعلَن**: `remaining = purchased − consumed`. الاسترداد يزيد
+`remaining` و**يُنقص `purchased`**؛ ⚠️ ولا يمسّ `consumed` أبداً — وإلا انحرف العمودان اللذان
+تعرضهما لوحة المدرّس بلا أن تلحظه `SC-001`، لأنها تفحص `remaining` وحده.
 
 ### `credit_transactions` — السجلّ المضاف
 
 | العمود | النوع | ملاحظة |
 |---|---|---|
-| `id` · `uuid` | | |
-| `credit_balance_id` | FK | ومنه `workspace_id` و`account_id` |
-| `type` | enum: `purchase` `consume` `bonus` `refund` `adjustment` `expire` | `FR-003` — قائمة مغلقة |
-| `credits` | `integer` **موقَّع** | موجب يزيد، سالب ينقص. القيمة **لا** تُشتقّ من النوع: `adjustment` يذهب في الاتجاهين |
-| `source_type` · `source_id` | string · `unsignedBigInteger` nullable | `FR-006`: مصدره (`class_session` · `credit_purchase` · `manual`) |
-| `expires_at` | timestamp nullable | على قيود الإضافة وحدها؛ `null` = لا تنتهي (`Q-5`) |
-| `performed_by` | FK → `users` nullable | `FR-006`؛ فارغ = النظام |
-| `reason` | string nullable | **إلزامي للـ`adjustment`** (`FR-005`) — يُفرَض في الـAction |
+| `id` · `uuid` | | ⚠️ يُملأ **صراحةً** في مصفوفة الإدراج — `insertOrIgnore` لا تُطلق `creating` فلا تعمل `HasUuid` |
+| `credit_balance_id` | FK | |
+| `type` | `string(16)` | `purchase` `consume` `bonus` `refund` `adjustment` `expire` |
+| `credits` | `integer` **موقَّع** | موجب يزيد، سالب ينقص. **لا** تُشتقّ من النوع |
+| `source_type` | `string(32)` | ⚠️ بطول صريح: يقع في فهرس فريد رباعي |
+| `source_id` | `unsignedBigInteger` nullable | |
+| `performed_by` | FK → `users` nullable | فارغ = النظام |
+| `reason` | string nullable | **إلزامي** للـ`adjustment` — يُفرَض في الـAction |
 | `meta` | json nullable | |
-| `created_at` | | **بلا `updated_at`**: عمودٌ لصفٍّ لا يُعدَّل كذبة صغيرة تدعو للتعديل |
-| | **unique** `(credit_balance_id, type, source_type, source_id)` | `FR-007` — عدم التكرار بالقاعدة (`R7`) |
-| | index `(credit_balance_id, created_at)` | |
+| `created_at` | | ⚠️ يُملأ **صراحةً**. بلا `updated_at`: عمودٌ لصفٍّ لا يُعدَّل دعوةٌ لتعديله |
+| | **unique** `(credit_balance_id, type, source_type, source_id)` | `FR-007` |
+| | index `(credit_balance_id, created_at)` · index `(credit_balance_id, type, source_type, source_id)` | القراءة والتحقّق من التكرار |
 
-**مضاف لا يُعدَّل**: `booted()` ترمي على `updating` و`deleting` — نسخة `LedgerEntry` (`R8`).
+**مضاف لا يُعدَّل**: `booted()` ترمي على `updating`/`deleting` — نسخة `LedgerEntry`.
 
-### `credit_allocations` — أي قيدِ إضافةٍ دفع أي استهلاك
+⚠️ **والمفتاح لا يمنع تكرار القيد اليدوي**: `source_id` فارغة، والقيم الفارغة متمايزة في
+الفهرس الفريد على MySQL وSQLite معاً. فالـAction تسكّ `source_id` من مفتاح تعامُد يرسله
+العميل — وإلا منح الضغط المزدوج مكافأتين. **والاسترداد يُفتَح بهويّته هو**
+(`source_type='credit_refund'`)، لا بهوية الشراء، وإلا مُنع الاسترداد الجزئي الثاني وأُبلغ
+نجاحاً.
+
+### `credit_lots` — ⚠️ **جديد**: الدفعة، وحدها قابلة للتعديل
 
 | العمود | النوع |
 |---|---|
 | `id` | |
-| `consumed_transaction_id` | FK → `credit_transactions` |
-| `lot_transaction_id` | FK → `credit_transactions` (قيد `purchase` أو `bonus`) |
-| `credits` | `unsignedInteger` |
-| `created_at` | |
-| | index `(lot_transaction_id)` |
+| `credit_transaction_id` | FK · **unique** — قيد `purchase` أو `bonus` |
+| `credit_balance_id` | FK |
+| `credits_total` · `credits_remaining` | `integer` |
+| `expires_at` | timestamp nullable |
+| `timestamps` | |
+| | index `(credit_balance_id, expires_at, id)` |
 
-**لماذا جدول لا عمود**: انتهاء الصلاحية يحتاج «كم بقي من هذه الدفعة». واشتقاقه بافتراض
-FIFO **خاطئ**: ترتيب الاستهلاك «الأقرب انتهاءً أولاً» (`FR-009`)، فحزمةٌ اشتُريت متأخرة
-بانتهاء أقرب تتخطّى الطابور — ويتغيّر معها **بأثر رجعي** أي دفعةٍ دفعت أي استهلاك ماضٍ.
-والجدول مضاف مثل السجلّ، فلا نقطة تعديل جديدة.
+**لماذا جدول قابل للتعديل بجوار سجلٍّ مضاف**: اختيار الدفعة كان يشتقّ «كم بقي» بـ
+`SUM(credit_allocations)` — قراءةٌ ثم كتابة، في الموضع الوحيد الذي لم تُطبَّق فيه قاعدة
+المقعد. مستهلكان متزامنان يقرآن «بقي ١» فيُدرجان تخصيصين، **و`SC-001` تمرّ** لأنها لا تنظر
+إلى التخصيصات. والدفعة **حزمةٌ من ٨ أو ١٦**، فالعطل حيٌّ من اليوم الأول حتى مع إطفاء الانتهاء.
 
-الانتهاء مطفأ في الإطلاق (كل `expires_at` فارغة)، فالتخصيص حينها واحدٌ لواحد. بُني الآن لأن
-بناءه لاحقاً هجرة على استهلاك ماضٍ لا يمكن إعادة اشتقاقه (`R10`).
+السحب بـUPDATE شرطي لكل دفعة (§٥). والعدّاد لا يمكن أن يعيش على `credit_transactions` لأنها
+ترمي على التعديل — ومن هنا الجدول.
+
+### `credit_allocations` — سجلّ ما ادّعاه السحب
+
+| العمود | النوع |
+|---|---|
+| `id` · `consumed_transaction_id` FK · `lot_transaction_id` FK · `credits` `integer` · `created_at` | |
+| | **unique** `(consumed_transaction_id, lot_transaction_id)` — ⚠️ بدونه تُكرّر إعادةُ محاولةٍ صفوفَ التخصيص |
+| | index `(lot_transaction_id)` · index `(consumed_transaction_id)` |
+
+مضاف. يجيب «أي دفعةٍ دفعت أي استهلاك» — سؤالٌ **لا يمكن اشتقاقه لاحقاً**، لأن ترتيب «الأقرب
+انتهاءً أولاً» يعيد كتابة الجواب بأثر رجعي كلما دخلت دفعةٌ أقرب انتهاءً.
 
 ### `credit_packages` — القالب، لا السعر
 
-| العمود | النوع | ملاحظة |
-|---|---|---|
-| `id` · `uuid` | | |
-| `name` | string | |
-| `credits` | `unsignedSmallInteger` | ١ · ٨ · ١٦ … **قيمة لا ثابت** (`FR-017`) |
-| `session_type` | enum من `ClassSessionType` | نوع الحصة التي تُستهلَك بها |
-| `validity_days` | `unsignedSmallInteger` nullable | `null` = لا تنتهي (`Q-5`) |
-| `is_active` | boolean | التعطيل لا يمسّ ما اشتُري منها (`FR-019`) |
-| `sort_order` | `unsignedSmallInteger` | |
-| `timestamps` | | |
+`id` · `uuid` · `name` · `credits` (`unsignedSmallInteger`) · `session_type` · `validity_days`
+(nullable) · `is_active` · `sort_order` · `timestamps`.
 
-**لا عمود سعر.** السعر `cost-plus` يُحتسب **لكل مدرّس** لحظة العرض، لأن مُدخَله سعرُ ذلك
-المدرّس المعتمَد (`FR-021`). عمود سعر هنا يعني سعراً واحداً لكل المدرّسين — نقضٌ للمعادلة.
+**لا عمود سعر**: السعر يُحتسب **لكل كورس** لأن مُدخَله سعر مدرّس ذلك الكورس. عمود سعر هنا
+يعني سعراً واحداً لكل المدرّسين.
+
+⚠️ **الملكية متنازَع عليها** — راجع §٦. و`FR-016` تذكر «نطاق سريانها» ولا عمود له؛ يُضاف أو
+يُقيَّد نصّ `FR-016` بـ«النطاق = نوع الحصة في هذه المرحلة».
 
 ### `credit_purchases` — اللقطة
 
 | العمود | النوع | ملاحظة |
 |---|---|---|
-| `id` · `uuid` | | |
-| `credit_balance_id` · `credit_package_id` · `course_id` · `workspace_id` | FK | |
-| `order_id` | FK → `orders` nullable | مسار الإيصال اليدوي القائم؛ البوابة في 007 |
-| `credits` | `unsignedSmallInteger` | منسوخ لا مقروء — الحزمة قد تتغيّر |
-| `teacher_rate_minor` · `operating_fee_minor` · `gateway_fee_minor` · `total_minor` | `unsignedInteger` | `FR-021ح` — **المكوّنات الأربعة**، لا الإجمالي وحده |
-| `currency` | char(3) | |
-| `purchased_at` | timestamp | |
+| `id` · `uuid` · `credit_balance_id` · `credit_package_id` · `course_id` · `workspace_id` | | |
+| `order_id` | FK → `orders` | مسار الإيصال القائم |
+| `credits` | `unsignedSmallInteger` | منسوخ لا مقروء |
+| `teacher_rate_minor` · `operating_fee_minor` · `gateway_fee_minor` · `total_minor` | ⚠️ `bigInteger` | كان `unsignedInteger`؛ وهجرة 014 تقول لماذا: «٢٫١ مليار وحدة صغرى ليست إلا ٢١ مليون ريالاً، وهو سقف تبلغه منصة» |
+| `currency` `char(3)` · `purchased_at` | | |
+| | index `(workspace_id, purchased_at)` · index `(credit_balance_id)` | ⚠️ كان بلا فهرس بينما له ثلاثة قرّاء: 015، وشاشة اعتماد السعر في 014، وتاريخ الطالب |
 
-هذا الصفّ هو ما تُولَّد منه دفاتر 015 (`Q-2`). يُكتب **مرة**، ولا يُعاد حسابه عند أي اعتماد
-سعر لاحق (`FR-020` · `FR-021ز` · `SC-015ج`).
+يُكتب **مرة**، ولا يُعاد حسابه عند أي اعتماد سعر لاحق (`FR-020` · `FR-021ز` · `SC-015ج`).
 
-### `terms_consents` — الموافقة الموثّقة
+### `terms_consents`
 
-| العمود | النوع | ملاحظة |
-|---|---|---|
-| `id` · `uuid` | | |
-| `user_id` | FK | الموقِّع: وليّ الأمر أو الطالب البالغ |
-| `student_user_id` | FK | عمّن وُقِّعت |
-| `document` | string | `deferred_payment` — الأداة صالحة لغيره |
-| `version` | string | `FR-049`: نسخة جديدة ⇐ قبول جديد (`US9/3`) |
-| `ip_address` · `user_agent` | | |
-| `consented_at` | timestamp | |
-| | index `(student_user_id, document, version)` | |
+`id` · `uuid` · `user_id` (الموقِّع) · `student_user_id` (عمّن) · `document` · `version` ·
+`ip_address` · `user_agent` · `consented_at`.
+فهارس: `(student_user_id, document, version)` و⚠️`(user_id, consented_at)`.
 
-**مملوك للمنصة**، بلا `workspace_id`: الموافقة على شروط الدفع موافقةٌ للمنصة — هي البائع
-والمطالِبة (`Q-4`) — لا لمدرّس. و`FR-050` تمنع خلطها بموافقة معالجة البيانات (013): جدول
-مستقلّ وقيمة `document` مستقلّة.
+**مملوك للمنصة** بلا `workspace_id`: الموافقة للمنصة — هي البائع والمطالِبة (`Q-4`).
+⚠️ **والكتابة تحتاج إثبات تفويض**: `GuardianDirectory::isAuthorised($signer, $student,
+GuardianPermission::Payments)` أو أن يكون الموقِّع الطالبَ نفسه — وإلا وقّع أي مستخدم وثيقةً
+قانونية باسم غيره، وأكّدت الاستجابة أن المعرّف لشخص حقيقي.
+⚠️ **ومصدر `ip_address`**: `bootstrap/app.php` لا يهيّئ `TrustProxies`، فـ`$request->ip()`
+يعيد عنوان موازِن الحمل في الإنتاج — أي **العنوان نفسه للجميع** في السجلّ الذي وُجد للاحتجاج.
+يُهيَّأ قبل الاعتماد عليه، وتُكتب مدّة الحفظ واستثناؤها من محو 013 كسجلٍّ لالتزام قانوني.
 
-### `exam_mode_windows` — وضع الامتحانات
+### `exam_mode_windows`
 
-| العمود | النوع |
-|---|---|
-| `id` · `uuid` · `workspace_id` | |
-| `starts_on` · `ends_on` | `date` |
-| `created_by` | FK |
-| `timestamps` | |
-| | index `(workspace_id, starts_on, ends_on)` |
+`id` · `uuid` · `workspace_id` · `starts_on` `date` · `ends_on` `date` · `created_by` ·
+`timestamps` · index `(workspace_id, starts_on, ends_on)`.
 
-`BelongsToWorkspace`. والقراءة تُقارن بنصّ تاريخ لا بـ`whereDate()` — الدرس المدفوع في
-`FreezePeriod::covering()` (005): الدالة حول العمود تُلغي الفهرس، والحدّ الأعلى لعمود
-timestamp مقابل تاريخ هو **بداية اليوم التالي**.
-
-### تعديلات على كود منشور
-
-| الجدول | التغيير | لماذا |
-|---|---|---|
-| `lessons` (Courses) | `+ is_high_value` boolean default false | `FR-041`: المدرّس يصنّف محتواه. القرار المالي وحده في `Payments` |
-| `courses` (Courses) | `+ subject_id` · `+ grade_level` | مُدخَلا `RateResolver` في 014. بهما يُحلّ **السعر نفسه** عند الشراء وعند التسوية بنفس الدالة (`Q-7`) |
-| `class_sessions` (LiveSessions) | `course_id` → **إلزامي** | `nullable` اليوم في الهجرة وفي `StoreClassSessionRequest:28`، ولا يضبطه المصنع. حصةٌ بلا كورس حصةٌ بلا سعر معلوم، ولا يمكن أن تستهلك رصيداً |
-| `class_sessions.subject_id` | يُملأ **من الكورس** عند الجدولة | وإلا حلّ الطرفان بمُدخَلات مختلفة، وعاد الفرق من باب آخر |
-| `workspaces` (Tenancy) | — | لا هجرة: `settings` (json) موجود منذ أول هجرة وفارغ، وهذا أول مستهلك له (`R9`) |
-
-> **هجرة `course_id`**: صفوف قائمة تحمل `null`. تُملأ من كورس المدرّس إن وُجد واحد، وإلا
-> تُترك الحصة **ملغاة تشغيلياً** ويُسجَّل عددها — لا تُخترَع لها كورس. والقيد `NOT NULL`
-> يأتي في هجرة **تالية** لهجرة التعبئة، على قاعدة «الترقيم قبل الفهرس» من 016: قيدٌ يسبق
-> تنظيف بياناته يُفشِل النشر على بيانات حيّة.
+`BelongsToWorkspace`. والقراءة تقارن بنصّ تاريخ لا بـ`whereDate()` — الدالة حول العمود تُلغي
+الفهرس، والحدّ الأعلى لعمود timestamp مقابل تاريخ هو **بداية اليوم التالي**.
 
 ---
 
-## ٣ — ما **لا** يوجد له جدول، عمداً
+## ٣ — تعديلات على كود منشور
 
-| الكيان في السبيك | القرار | لماذا |
+| الجدول / الملف | التغيير | لماذا |
 |---|---|---|
-| **`AccessHold`** | **مشتقّ** — دالة على الرصيد والحد والنمط | `FR-033` تفرض رفع الحجب «فوراً بلا تدخّل يدوي». الصفّ المخزَّن هو ما يجعل ذلك مهمةً تُنسى؛ المشتقّ يجعله صحيحاً بالبناء. نفس منطق `is_publicly_listed` و«درجة الثقة» في `CLAUDE.md` |
-| **`CreditLimit` كتاريخ** | `activity_log` | `FR-039` تطلب القيمة السابقة والجديدة والسبب — وهو بالضبط ما يخزّنه `spatie/activitylog` المستعمل في 014. جدولٌ لذلك ثالث نسخة من نفس الفكرة |
-| **`PricingPolicy`** | `platform_settings` بمفاتيح `billing.*` | رسم تشغيل لكل نوع حصة ونسبة بوابة — قيم يضبطها مشغّل، لا صفوف يملكها أحد (`R9`) |
-| **`BillingMode Setting`** | `workspaces.settings` | لكل مساحة عمل، و`PlatformSettings` منصّي بحكم بنيته |
-| **`CreditBalance` كمجموع** | عمود مادّي | `NFR-012` |
+| `lessons` | `+ is_high_value` | `FR-041` |
+| `courses` | `+ subject_id` · `+ grade_level` | مُدخَلا `RateResolver` |
+| `courses` | ⚠️ `+ teacher_profile_id` | بدونه `approvedRateMinorForCourse` **غير قابلة للتنفيذ**: `RateResolver` يبدأ من `teacher_profile_id`، و`courses` تحمل `created_by` القابل للإفراغ فقط |
+| `courses.price` · `currency` | ⚠️ **قرار مطلوب** | موجودان ومنشوران (`PublicCourseCardResource:36-40`). سعرٌ يملكه المدرّس بجوار سعرٍ تحسبه المنصة سعران لشيء واحد، و`FR-021ب` تمنع الأول |
+| `orders` | ⚠️ `+ kind` `string(16)` default `course` | بدونه يستقبل `CreateEnrollmentFromOrder` طلبَ الأرصدة ويُسجّل الطالب مجاناً (يفحص `course_id === null` وحده) |
+| `class_sessions.course_id` | → **إلزامي** | حصةٌ بلا كورس حصةٌ بلا سعر |
+| `class_sessions.subject_id` · `grade_level` | يُملآن **من الكورس** عند الجدولة | وإلا حلّ الطرفان بمُدخَلات مختلفة |
+| `class_sessions` | ⚠️ `+ charged_at` | «سُلِّمت ولم تُشحَن» يجب أن تكون مجموعةً **قابلة للاستعلام** (`R17`) |
+| `AccrueTeachingUnits:48-53` | ⚠️ يمرّر `grade_level` | يمرّر أربعة وسائط اليوم، فكل سعر مخصَّص بصفّ **غير مرئي عند التسوية** — والتساوي المُدَّعى لا يقوم بدون هذا |
+| `RolePermissionMatrix` | ⚠️ اعتماد طلب `credits` يخرج من `$teacher` | ثغرة سكّ نقود (`R16`) |
+| `Marketplace` + الواجهة | إخراج `hourly_rate` — **١٩ موضعاً** | `research.md › R14` |
+
+> ⚠️ **هجرة `course_id` ثلاث لا اثنتان.** نسختي الأولى قالت «ما لا يُملأ يُترك ويُسجَّل عدده»
+> ثم اشترطت `quickstart` «صفر صفّ فارغ» — والاثنان لا يجتمعان: هجرة القيد **تفشل** على أول
+> صفّ ناجٍ، بعد أن التزمت هجرة التعبئة. الترتيب:
+> 1. **تعبئة** بـ`chunkById` لا `chunk` — المُسنَد `course_id IS NULL` يتقلّص تحت ترقيمٍ
+>    بـOFFSET فتُتخطّى صفوف ويُبلَّغ نجاح (درس backfill الـuuid في 016). ولا `UPDATE … JOIN`:
+>    MySQL وSQLite تختلفان في صياغته.
+> 2. **حسم البقية صراحةً** — الأرجح: تبقى `course_id` قابلة للإفراغ **إلى الأبد** ويُفرَض
+>    الوجود في `ScheduleClassSession` و`StoreClassSessionRequest`. أرخص وأصدق من اختراع
+>    كورسات لحصص تاريخية.
+> 3. إن اختير القيد: **تأكيد قبل التغيير** يرمي برسالة تحمل العدد، لا `errno` من MySQL.
+>    و`->nullable(false)->change()` **يعيد تصريح العمود**، فكل مُعدِّل لا يُكرَّر (`unsigned`)
+>    يسقط بصمت.
 
 ---
 
 ## ٤ — المفاتيح المضبوطة
 
-**منصّية (`platform_settings`، خاصة — `FR-021ب`)**:
+**منصّية (`platform_settings`، خاصة)**:
 
 ```
-billing.operating_fee_minor.individual     رسم التشغيل الثابت للحصة الفردية
-billing.operating_fee_minor.group          ورسم الجماعية — واحدةٌ لكل الحضور لا لكلٍّ منهم (Q-1)
-billing.gateway_fee_percent                النسبي الوحيد فعلاً
-billing.currency                           موحّدة في الإطلاق
-billing.limit.increase_after_on_time       ← اقتراح تشغيلي، لا قرار منتج (R15)
-billing.limit.increase_by_credits          ←
-billing.limit.decrease_after_late_days     ←
+billing.operating_fee_minor.individual · .group
+billing.gateway_fee_bps                    ⚠️ نقاط أساس صحيحة، لا نسبة مئوية صحيحة:
+                                              لا بوابة تتقاضى ٪ صحيحاً، والعشري يعيد المال عائماً
+billing.gateway_fixed_fee_minor            ⚠️ مكوّن ثابت — كل بوابة حقيقية تحمله
+billing.currency
+billing.limit.initial_credits · .increase_after_on_time · .increase_by_credits
+billing.limit.max_credits · .decrease_after_late_days
+billing.dormant_notice_months
 ```
 
-**لكل مساحة عمل (`workspaces.settings.billing`)**:
-
-```
-mode                 prepaid_credits | manual_collection | payment_gateway | hybrid
-zero_behavior        block | remind | both
-thresholds           [2, 0]   ← الرتبة ١ تنبّه الطالب، الرتبة ٢ تنبّه وليّ الأمر
-```
+**لكل مساحة عمل (`workspaces.settings.billing`)**: `mode` · `zero_behavior` · `thresholds`.
 
 ---
 
-## ٥ — انتقالات وقواعد
+## ٥ — القواعد التنفيذية
 
-**دورة الشراء** (`FR-018`): `credit_purchases` يُنشأ عند رفع الإيصال بحالة الطلب القائمة،
-و**قيد `purchase` لا يُكتب إلا على `PaymentApproved`**. لا رصيد قبل الاعتماد — والشرط مكانه
-المستمع، لا التحقّق.
+### أ — المُسنَد الواحد
 
-**الخصم الذرّي** (`FR-008` · `NFR-008` · `SC-003` · `SC-004`):
+⚠️ نسختي الأولى حملت مُسنَدين متعارضين. **واحد، يُعرَّف مرة**:
+
+```
+floor(balance) = mode == prepaid || insideExamWindow  ?  0
+                                                      :  −credit_limit_credits
+canAfford(balance, n) ⟺ remaining_credits − n ≥ floor(balance)
+blocked(balance)      ⟺ ¬canAfford(balance, 1)
+```
+
+عند `remaining = 0, limit = 0` ⇒ **محجوب**، وهو ما تشترطه `quickstart §9`. الصيغة القديمة
+كانت تقول «غير محجوب» في الحالة الافتراضية بالذات.
+
+### ب — الترتيب داخل المعاملة، **معاملةٌ لكل مقعد**
+
+1. `insertOrIgnore` القيد، بـ`uuid` و`created_at` صراحةً.
+2. **صفر صفوف ⇒ `SELECT` بالمفتاح.** وُجد ⇒ تكرار، لا عمل. **لم يوجد ⇒ يُرمى**: الصفر كان
+   خطأً (انتهاك `NOT NULL`، مفتاح أجنبي، مدىً) لا مُعادَلة — `INSERT IGNORE` تخفض صنف
+   الأخطاء كله إلى «صفر صفوف».
+3. سحب الدفعات، ثم الخصم.
+
+**الترتيب هو القاعدة**: الخصم أولاً يعني أن إعادة تسليمٍ للحدث تخصم مرتين ويُتجاهَل الإدراج
+مرة ⇒ الرصيد لا يساوي مجموع قيوده، **نهائياً وبصمت**.
+
+**ومعاملةٌ لكل مقعد**: معاملة واحدة لثلاثين مقعداً تجعل رفض طالبٍ واحد يُسقط التسعة والعشرين،
+وتحمل ثلاثين قفلاً عبر المستمع كلّه. وأي عبارة تمسّ أرصدةً متعدّدة **ترتّب بـ`credit_balances.id`**
+— حصّتان متزامنتان تتقاسمان طالبين تُقفلان بترتيبين متعاكسين فتتجمّدان.
+
+### ج — سحب الدفعة
+
+```sql
+UPDATE credit_lots SET credits_remaining = credits_remaining - :take
+ WHERE id = :lot AND credits_remaining >= :take
+```
+
+بترتيب `(expires_at IS NULL), expires_at, id`؛ صفر صفوف ⇒ استُنفدت، إلى التالية. `MySQL` لا
+ترتّب بتعبير من فهرس، لكن المرشَّحات محصورة برصيد واحد فالفرز محدود — ويُعلَن سقفٌ لعدد
+الدفعات في السحب الواحد لأن الحلقة استعلامٌ لكل دفعة، مقابل ميزانية `NFR-012`.
+
+### د — الخصم الذرّي
 
 ```sql
 UPDATE credit_balances
    SET remaining_credits = remaining_credits - :n,
        consumed_credits  = consumed_credits  + :n
  WHERE id = :id
-   AND remaining_credits - :n >= :floor
+   AND remaining_credits - :n >= GREATEST(:floorCap, -1 * CAST(credit_limit_credits AS SIGNED))
 ```
 
-`:floor` = `0` في `prepaid_credits` وفي نافذة وضع الامتحانات، وإلا `-credit_limit_credits`.
-صفر صفوف متأثّرة = رُفض، بلا استثناء ولا قراءة سابقة. **يُمنع `lockForUpdate()`** — لا أثر
-له على SQLite، فاختبارٌ مبني عليه ينجح محلياً ولا يقول شيئاً عن الإنتاج.
+⚠️ **العمود في `WHERE` لا قيمةً مربوطة** — وإلا فتغييرٌ متزامن للحدّ لا يراه الخصم، وهو
+القراءة-ثم-الكتابة نفسها التي بُنيت العبارة لإلغائها.
+⚠️ **و`CAST(... AS SIGNED)` إلزامي، والترتيب الجبري ممنوع**: في MySQL يكفي معاملٌ بلا إشارة
+ليصير الناتج بلا إشارة، فتصير `remaining + limit >= :n` خطأً `1690` عند `remaining = −3` —
+٥٠٠ على كل حالة وُجد الحارس ليرفضها، ولفئة المتأخّرين وحدهم، وSQLite لا يُظهر شيئاً.
 
-**الرتبة والتنبيه** (`FR-034`): تُحسب الرتبة الجديدة من `remaining_credits` والعتبات، وتُقارن
-بـ`notified_tier` في نفس المعاملة. التنبيه على **الانتقال هبوطاً** وحده؛ الصعود يصفّر الرتبة.
+**يُمنع `lockForUpdate()`**: لا أثر له على SQLite، فالاختبار المبنيّ عليه ينجح محلياً ولا
+يقول شيئاً عن الإنتاج.
 
-**الحجب المشتقّ** (`FR-031` · `FR-042` · `FR-044`):
+### هـ — الأرضية تحرس **الحجز**، لا تسجيل دَينٍ وقع
+
+⚠️ خصم **التسليم** يكتب القيد ويُنزل الرصيد **بلا أرضية**: الحصة وقعت، و014 استحقّت أجرها من
+الحدث نفسه. رفضُ التسجيل يعني أن المنصة مدينة للمدرّس بلا مطالبة على أحد — ووضع الامتحانات
+يجعلها منهجية لأنه يُجبر الأرضية إلى صفر. المنع مكانه **الحجز**، و`SC-004` تُعاد صياغتها
+قاعدةً على الحجز — وهو ما تقوله `US6/4` و`US8/1` أصلاً.
+
+### و — الرتبة والحجب
+
+الرتبة تُحسب من `remaining_credits` وتُقارن بـ`notified_tier` في نفس المعاملة؛ التنبيه على
+الانتقال هبوطاً وحده.
+
+**والحجب مشتقّ** — لا جدول: `FR-033` («يُرفع فوراً بلا تدخّل يدوي») تصير صحيحة بالبناء بدل
+أن تكون مهمّةً تُنسى. ⚠️ **لكنه ينقلب في ثلاثة مواضع لا تكتب قيداً**: تغيير الحدّ، وفتح نافذة
+امتحانات، وإغلاقها. الثلاثة مواضع إطلاق لـ`AccessWithheld`/`AccessRestored`، وإلا فالتنبيه
+لا يصل إلا مع الحركة المالية التالية.
+
+### ز — التسعير، في موضع واحد
 
 ```
-محجوب في الكورس س  ⟺  remaining_credits(س) < 0  ∧  |remaining_credits(س)| ≥ credit_limit_credits(س)
+سعر الحصة = approvedRateMinorForCourse(الكورس, النوع, الآن)
+          + billing.operating_fee_minor[النوع]
+          + gateway(المجموع)
 ```
 
-**بالكورس لا بالطالب**: من عليه مستحقّ في الفيزياء لا تُغلَق عليه مذكّرات الرياضيات التي
-سدّدها. يُقرأ عند كل قرار — الحجز، وإصدار منحة وسائط لأصل `is_high_value` — ولا وظيفة ترفع
-ولا وظيفة تخفض.
+⚠️ **واتجاه رسوم البوابة يُكتب صراحةً**: إن كانت البوابة تقتطع نسبةً من **المبلغ المحصَّل**
+فالصيغة الصحيحة `المجموع ÷ (1 − نسبة)` لا `المجموع + نسبة×المجموع` — والثانية تُقصّر عن
+التغطية في كل عملية، والفرق يقع على هامش المنصة بصمت.
 
-**والتسعير** (`FR-021`), في موضع واحد هو `CostPlusPricing`:
+`null` من العقد ⇒ **الحزم لا تُعرَض**، لا سعر افتراضي.
 
-```
-سعر الحصة  =  ApprovedRateDirectory::approvedRateMinorForCourse(الكورس, النوع, الآن)
-            +  billing.operating_fee_minor[النوع]
-            +  ⌈(المجموع × billing.gateway_fee_percent) ÷ 100⌉
+### ح — ما لا جدول له، عمداً
 
-سعر الحزمة =  سعر الحصة × credits
-```
+| الكيان | القرار |
+|---|---|
+| `AccessHold` | مشتقّ (§٥و) |
+| تاريخ `CreditLimit` | `activity_log` — يخزّن القيمة السابقة والجديدة والسبب، وهو نصّ `FR-039` |
+| `PricingPolicy` | `platform_settings` |
+| `BillingMode Setting` | `workspaces.settings` |
 
-`null` من العقد يعني «لا سعر معتمَد لهذا الكورس» ⇐ **الحزم لا تُعرَض**، لا سعرٌ افتراضي:
-بيع حصةٍ بسعرٍ لم يعتمده أحد هو الخطأ الذي يُدفع نقداً.
+---
+
+## ٦ — ⚠️ تعارض دستوري مفتوح: ملكية `credit_packages`
+
+الدستور v1.1.0 سطر ٥٢ يعدّد «**حزم الأرصدة**» ضمن ما تملكه **مساحة العمل**. وسبيك 006 يقول
+عكسه نصّاً — `FR-016`: «**المنصة** (لا المدرّس) **يجب** أن تعرّف حزم الأرصدة»، وهو مشتقّ من
+`Q-1` (التسعير `cost-plus` تملكه المنصة، والمدرّس لا يعرّف سعراً).
+
+هذا **تعارض** لا خيار تصميم، وقسم الحوكمة يفرض تعديلاً موصوفاً بموافقة ورفع إصدار في نفس
+الـPR. يُحسَم قبل التنفيذ بأحد أمرين، ويُسجَّل في `Complexity Tracking` — لا يُمرَّر بادّعاء
+«لا مخالفة»، وهو ما كتبتُه أولاً.
