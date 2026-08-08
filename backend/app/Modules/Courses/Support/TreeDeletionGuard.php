@@ -22,11 +22,20 @@ use Illuminate\Support\Facades\DB;
  * those rows. Archiving removes the lesson from the course and leaves the
  * history intact, which is what "I don't teach this any more" actually means.
  *
- * **An uploaded asset.** Deleting an asset is gated behind two-factor
+ * **The item's own file.** Deleting an asset is gated behind two-factor
  * authentication (004) precisely because it destroys a teacher's own work
  * irreversibly. A lesson delete that took its video down by cascade would be a
  * back door onto that decision, so the asset has to go first, through its own
  * guarded route.
+ *
+ * **Attachments are deliberately NOT covered, and the line is here on purpose**
+ * (FR-038ب). This asks about `role = primary` only; `ManageLessons::delete` then
+ * sweeps the attachments through `DeleteMediaAsset`, bytes and live grants
+ * included. A primary asset IS the item — remove it and what is left is an empty
+ * lesson with a title, so refusing protects something unrecoverable. An
+ * attachment is a file BESIDE it, and an item carrying three worksheets would
+ * otherwise need three two-factor confirmations before it could be deleted at
+ * all, which teaches the teacher to click past the prompt rather than read it.
  *
  * The same rules apply at every level: deleting a section that contains such a
  * lesson is the same act with more rows.

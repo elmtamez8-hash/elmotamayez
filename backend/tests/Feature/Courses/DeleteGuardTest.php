@@ -13,6 +13,7 @@ use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Enums\MediaKind;
 use App\Modules\Media\Enums\MediaRole;
 use App\Modules\Media\Models\MediaAsset;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 
@@ -20,10 +21,14 @@ use Laravel\Sanctum\Sanctum;
  * Two deletions that destroy something nobody can get back.
  *
  * A `lesson_progress` row is the record that a student did the work, and their
- * percentage is computed from those rows. An uploaded asset is the teacher's own
- * work, and destroying one is deliberately gated behind two-factor
- * authentication since 004 — a lesson delete that took the video down by cascade
- * would be a back door onto that decision.
+ * percentage is computed from those rows. The item's own file is the teacher's own
+ * work, and destroying one is deliberately gated behind two-factor authentication
+ * since 004 — a lesson delete that took the video down by cascade would be a back
+ * door onto that decision.
+ *
+ * **Attachments are the deliberate exception** (FR-038ب), and it is pinned here
+ * rather than left as prose: they follow the item with no second factor, through
+ * `DeleteMediaAsset` so the bytes go with the row.
  */
 function guardedLesson(int $workspaceId): array
 {
@@ -122,6 +127,50 @@ it('refuses to destroy a lesson that owns an uploaded asset', function (): void 
         ->assertStatus(423);
 
     expect(Lesson::where('id', $lesson->id)->exists())->toBeTrue();
+});
+
+it('destroys a lesson that carries only attachments, and takes their bytes', function (): void {
+    Storage::fake('local');
+
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    [$course, , , $lesson] = guardedLesson($workspace->id);
+
+    Storage::disk('local')->put('media/worksheet.pdf', '%PDF-1.4');
+
+    $attachment = MediaAsset::create([
+        'workspace_id' => $workspace->id,
+        'owner_type' => Lesson::class,
+        'owner_id' => $lesson->id,
+        'provider' => 'local',
+        'kind' => MediaKind::Document,
+        'role' => MediaRole::Attachment,
+        'status' => MediaAssetStatus::Ready,
+        'original_filename' => 'ورقة-عمل.pdf',
+        // Where the LOCAL PROVIDER looks — it deletes `provider_asset_id`, and a
+        // fixture that set some other column would have asserted nothing.
+        'provider_asset_id' => 'media/worksheet.pdf',
+    ]);
+
+    Sanctum::actingAs($owner);
+
+    // The line the guard draws, pinned in both directions (FR-038ب). The test
+    // above proves a PRIMARY asset refuses the delete; this one proves an
+    // attachment does not. Nothing else in the suite says so, and the contract
+    // used to claim the two-factor route was the only door to destroying "an
+    // uploaded asset" — true of the item's own file, and not of a worksheet
+    // hanging off it.
+    //
+    // A primary asset IS the item; an attachment sits beside it, and an item with
+    // three worksheets would otherwise need three two-factor confirmations before
+    // it could be deleted at all.
+    $this->deleteJson("/api/v1/courses/{$course->uuid}/lessons/{$lesson->uuid}")->assertNoContent();
+
+    expect(Lesson::where('id', $lesson->id)->exists())->toBeFalse()
+        ->and(MediaAsset::query()->whereKey($attachment->id)->exists())->toBeFalse()
+        // Through DeleteMediaAsset, not a bulk delete on the relation: that form
+        // leaves the bytes on disk with no row pointing at them, and revokes no
+        // live grant (FR-038).
+        ->and(Storage::disk('local')->exists('media/worksheet.pdf'))->toBeFalse();
 });
 
 it('destroys a lesson nobody has touched', function (): void {
