@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionOption;
+use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
@@ -82,14 +83,16 @@ class DemoDataSeeder extends Seeder
             'created_by' => $owner->getKey(),
         ]);
 
+        // Published throughout: seeded content exists to be looked at. A draft
+        // course would leave every demo screen and every e2e spec empty.
         $section = Section::create([
             'workspace_id' => $workspace->id, 'course_id' => $course->id,
-            'title' => 'Getting Started', 'order' => 1,
+            'title' => 'Getting Started', 'status' => ContentStatus::Published, 'order' => 1,
         ]);
 
         $chapter = Chapter::create([
             'workspace_id' => $workspace->id, 'section_id' => $section->id, 'course_id' => $course->id,
-            'title' => 'Installation & Setup', 'order' => 1,
+            'title' => 'Installation & Setup', 'status' => ContentStatus::Published, 'order' => 1,
         ]);
 
         foreach (['Composer & Laravel Installer', 'Project Structure', 'Configuration'] as $i => $title) {
@@ -97,6 +100,7 @@ class DemoDataSeeder extends Seeder
                 'workspace_id' => $workspace->id, 'course_id' => $course->id,
                 'section_id' => $section->id, 'chapter_id' => $chapter->id,
                 'uuid' => Str::uuid(), 'title' => $title, 'type' => 'article',
+                'status' => ContentStatus::Published,
                 'content' => "Content for: {$title}", 'order' => $i + 1,
                 'is_preview' => $i === 0,
             ]);
@@ -111,7 +115,8 @@ class DemoDataSeeder extends Seeder
             'workspace_id' => $workspace->id, 'course_id' => $course->id,
             'section_id' => $section->id, 'chapter_id' => $chapter->id,
             'uuid' => Str::uuid(), 'title' => 'Your First Route',
-            'type' => 'video', 'order' => 4, 'duration_seconds' => 600,
+            'type' => 'video', 'status' => ContentStatus::Published,
+            'order' => 4, 'duration_seconds' => 600,
             'is_preview' => false,
         ]);
 

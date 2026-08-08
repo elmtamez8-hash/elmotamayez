@@ -15,11 +15,14 @@ class SectionResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
-            'course_id' => $this->course_id,
+            // uuid, not id: the constitution allows no serial key in a payload,
+            // and sections had no public identifier at all until 016.
+            'uuid' => $this->uuid,
+            'course_uuid' => $this->course?->uuid,
             'title' => $this->title,
             'order' => $this->order,
-            'is_published' => $this->is_published,
+            'status' => $this->status->value,
+            'status_label' => $this->status->label(),
             'created_at' => $this->created_at,
         ];
     }

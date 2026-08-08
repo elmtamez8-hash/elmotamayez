@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories\Modules\Courses;
 
+use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
@@ -29,8 +30,12 @@ class LessonFactory extends Factory
             'uuid' => Str::uuid(),
             'title' => fake()->sentence(4),
             'type' => fake()->randomElement(['article', 'video', 'pdf', 'file']),
+            // Published by default: the overwhelming majority of tests are about
+            // a lesson a student can reach, and a factory that produced drafts
+            // would make every one of them set the state by hand.
+            'status' => ContentStatus::Published,
             'content' => fake()->paragraphs(3, true),
-            'order' => fake()->numberBetween(1, 20),
+            // Position assigned by HasSiblingOrder — see SectionFactory.
             'duration_seconds' => fake()->numberBetween(60, 3600),
             'is_preview' => false,
             'is_free' => false,

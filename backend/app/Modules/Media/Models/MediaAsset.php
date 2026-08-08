@@ -6,6 +6,8 @@ namespace App\Modules\Media\Models;
 
 use App\Models\BaseModel;
 use App\Modules\Media\Enums\MediaAssetStatus;
+use App\Modules\Media\Enums\MediaKind;
+use App\Modules\Media\Enums\MediaRole;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Carbon\CarbonInterface;
@@ -25,6 +27,9 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * `provider` and `provider_asset_id` must never appear in a resource (FR-011).
  *
  * @property MediaAssetStatus $status
+ * @property MediaKind $kind
+ * @property MediaRole $role
+ * @property bool $is_downloadable
  * @property array<int, array<string, mixed>>|null $renditions
  * @property CarbonInterface|null $ready_at
  */
@@ -39,6 +44,9 @@ class MediaAsset extends BaseModel
         'owner_id',
         'provider',
         'provider_asset_id',
+        'kind',
+        'role',
+        'is_downloadable',
         'status',
         'original_filename',
         'mime_type',
@@ -54,6 +62,9 @@ class MediaAsset extends BaseModel
     {
         return [
             'status' => MediaAssetStatus::class,
+            'kind' => MediaKind::class,
+            'role' => MediaRole::class,
+            'is_downloadable' => 'boolean',
             'renditions' => 'array',
             'size_bytes' => 'integer',
             'duration_seconds' => 'integer',

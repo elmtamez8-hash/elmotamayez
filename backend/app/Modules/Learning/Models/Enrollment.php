@@ -6,8 +6,10 @@ namespace App\Modules\Learning\Models;
 
 use App\Models\BaseModel;
 use App\Models\User;
+use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Learning\EnrollmentFactory;
@@ -134,6 +136,23 @@ class Enrollment extends BaseModel
             ->join('course_chapters', 'lessons.chapter_id', '=', 'course_chapters.id')
             ->where('lessons.course_id', $this->course_id)
             ->where('lessons.workspace_id', $this->workspace_id)
+            // Only a lesson the student can actually see and finish may stand in
+            // front of the next one.
+            //
+            // A draft is work nobody has been asked to do, and its whole chain
+            // has to be published for it to be visible at all (FR-027).
+            //
+            // A recording is the sharper case (FR-027أ). It is entitled by a SEAT
+            // in that session, not by enrolment, and since 016 it lands where the
+            // teacher placed the session — mid-tree. Left as a prerequisite it
+            // would lock everything after it, permanently, for every student who
+            // was not in that room. That is the same forever-bug the progress
+            // denominator had, arriving through the ordering instead.
+            ->whereNull('lessons.class_session_id')
+            ->where('lessons.status', ContentStatus::Published->value)
+            ->where('course_chapters.status', ContentStatus::Published->value)
+            ->where('course_sections.status', ContentStatus::Published->value)
+            ->whereIn('lessons.type', LessonTypeRegistry::completableValues())
             ->where(function ($q) use ($lessonSectionOrder, $lessonChapterOrder, $lesson) {
                 $q->where('course_sections.order', '<', $lessonSectionOrder)
                     ->orWhere(function ($q2) use ($lessonSectionOrder, $lessonChapterOrder) {

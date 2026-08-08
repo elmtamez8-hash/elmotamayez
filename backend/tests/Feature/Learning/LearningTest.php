@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
@@ -21,10 +22,15 @@ function createCourseWithLessons(int $workspaceId, int $lessonCount = 3, bool $s
         'is_sequential' => $sequential,
     ]);
 
+    // Published at every level, explicitly. Since 016 a node that does not say
+    // so is a draft, and a draft is invisible to students, outside the progress
+    // denominator and skipped by the sequential gate — so a fixture that omits
+    // the state builds a course these tests cannot see.
     $section = Section::create([
         'workspace_id' => $workspaceId,
         'course_id' => $course->id,
         'title' => 'Section 1',
+        'status' => ContentStatus::Published,
         'order' => 1,
     ]);
 
@@ -33,6 +39,7 @@ function createCourseWithLessons(int $workspaceId, int $lessonCount = 3, bool $s
         'section_id' => $section->id,
         'course_id' => $course->id,
         'title' => 'Chapter 1',
+        'status' => ContentStatus::Published,
         'order' => 1,
     ]);
 
@@ -45,6 +52,7 @@ function createCourseWithLessons(int $workspaceId, int $lessonCount = 3, bool $s
             'uuid' => Str::uuid(),
             'title' => "Lesson {$i}",
             'type' => 'article',
+            'status' => ContentStatus::Published,
             'content' => "Content for lesson {$i}",
             'order' => $i,
         ]);

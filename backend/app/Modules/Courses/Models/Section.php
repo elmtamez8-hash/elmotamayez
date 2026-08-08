@@ -5,32 +5,45 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Models;
 
 use App\Models\BaseModel;
+use App\Modules\Courses\Enums\ContentStatus;
+use App\Modules\Courses\Support\HasSiblingOrder;
+use App\Modules\Courses\Support\OrdersSiblings;
 use App\Shared\Traits\BelongsToWorkspace;
+use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Courses\SectionFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Section extends BaseModel
+/**
+ * @property ContentStatus $status
+ */
+class Section extends BaseModel implements OrdersSiblings
 {
     /** @use HasFactory<SectionFactory> */
-    use BelongsToWorkspace, HasFactory;
+    use BelongsToWorkspace, HasFactory, HasSiblingOrder, HasUuid;
 
     protected $table = 'course_sections';
+
+    public function siblingScopeColumn(): string
+    {
+        return 'course_id';
+    }
 
     protected $fillable = [
         'workspace_id',
         'course_id',
         'title',
+        'status',
         'order',
-        'is_published',
     ];
 
     /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
-            'is_published' => 'boolean',
+            'status' => ContentStatus::class,
             'order' => 'integer',
         ];
     }
@@ -45,5 +58,14 @@ class Section extends BaseModel
     public function chapters(): HasMany
     {
         return $this->hasMany(Chapter::class)->orderBy('order');
+    }
+
+    /**
+     * @param  Builder<Section>  $query
+     * @return Builder<Section>
+     */
+    public function scopePublished(Builder $query): Builder
+    {
+        return $query->where('status', ContentStatus::Published);
     }
 }

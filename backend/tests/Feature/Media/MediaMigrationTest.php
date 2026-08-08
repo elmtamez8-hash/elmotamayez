@@ -21,9 +21,20 @@ function replayMediaMigration(string $path): void
     $migration->up();
 }
 
-/** @param array<string, mixed> $overrides */
+/**
+ * A raw insert, so it has to satisfy the schema by hand.
+ *
+ * `order` is a running counter rather than a constant: since 016 there is a
+ * unique(chapter_id, order) index, and four legacy lessons all claiming
+ * position 1 in the same chapter is precisely the collision that index exists
+ * to make impossible.
+ *
+ * @param  array<string, mixed>  $overrides
+ */
 function legacyLesson(mixed $media, array $overrides = []): int
 {
+    static $order = 0;
+
     return (int) DB::table('lessons')->insertGetId(array_merge([
         'workspace_id' => 1,
         'course_id' => 1,
@@ -32,7 +43,8 @@ function legacyLesson(mixed $media, array $overrides = []): int
         'uuid' => (string) Str::orderedUuid(),
         'title' => 'درس',
         'type' => 'video',
-        'order' => 1,
+        'status' => 'published',
+        'order' => $order++,
         'duration_seconds' => 600,
         'is_preview' => false,
         'is_free' => false,

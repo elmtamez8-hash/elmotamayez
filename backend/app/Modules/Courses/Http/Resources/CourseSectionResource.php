@@ -17,14 +17,15 @@ class CourseSectionResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'uuid' => $this->uuid,
             'title' => $this->title,
             'order' => $this->order,
-            'is_published' => $this->is_published,
+            'status' => $this->status->value,
             'chapters' => $this->whenLoaded('chapters', fn () => $this->chapters->map(fn (Chapter $chapter): array => [
-                'id' => $chapter->id,
+                'uuid' => $chapter->uuid,
                 'title' => $chapter->title,
                 'order' => $chapter->order,
+                'status' => $chapter->status->value,
                 'lessons' => $this->lessonsOf($chapter),
             ])->values()->all()),
         ];
@@ -48,6 +49,7 @@ class CourseSectionResource extends JsonResource
             'title' => $lesson->title,
             'type' => $lesson->type,
             'order' => $lesson->order,
+            'status' => $lesson->status->value,
             'is_preview' => $lesson->is_preview,
             'duration_seconds' => $lesson->duration_seconds,
         ])->values()->all();

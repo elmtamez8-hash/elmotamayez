@@ -13,13 +13,16 @@ class UpdateSectionRequest extends FormRequest
         return $this->user()?->can('manageLessons', $this->route('course')) ?? false;
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Renaming only — position and publication each have their own endpoint.
+     * See StoreSectionRequest for why position is not writable here.
+     *
+     * @return array<string, mixed>
+     */
     public function rules(): array
     {
         return [
-            'title' => ['sometimes', 'string', 'max:255'],
-            'order' => ['nullable', 'integer', 'min:0'],
-            'is_published' => ['nullable', 'boolean'],
+            'title' => ['required', 'string', 'max:255'],
         ];
     }
 }

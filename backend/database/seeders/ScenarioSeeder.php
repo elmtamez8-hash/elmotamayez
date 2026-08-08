@@ -14,6 +14,7 @@ use App\Modules\Certificates\Models\CertificateTemplate;
 use App\Modules\CMS\Models\Article;
 use App\Modules\CMS\Models\Category;
 use App\Modules\CMS\Models\Tag;
+use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
@@ -651,21 +652,25 @@ final class ScenarioSeeder extends Seeder
         $order = 1;
 
         foreach ($spec as $sectionIndex => [$sectionTitle, $lessonSpecs]) {
+            // Published throughout — see DemoDataSeeder for why seeded content
+            // is never left as a draft.
             $section = Section::create([
                 'workspace_id' => $course->workspace_id, 'course_id' => $course->id,
-                'title' => $sectionTitle, 'order' => $sectionIndex + 1,
+                'title' => $sectionTitle, 'status' => ContentStatus::Published,
+                'order' => $sectionIndex + 1,
             ]);
 
             $chapter = Chapter::create([
                 'workspace_id' => $course->workspace_id, 'course_id' => $course->id,
-                'section_id' => $section->id, 'title' => $sectionTitle.' — Part 1', 'order' => 1,
+                'section_id' => $section->id, 'title' => $sectionTitle.' — Part 1',
+                'status' => ContentStatus::Published, 'order' => 1,
             ]);
 
             foreach ($lessonSpecs as [$title, $type, $isPreview]) {
                 $lessons->push(Lesson::create([
                     'workspace_id' => $course->workspace_id, 'course_id' => $course->id,
                     'section_id' => $section->id, 'chapter_id' => $chapter->id,
-                    'title' => $title, 'type' => $type,
+                    'title' => $title, 'type' => $type, 'status' => ContentStatus::Published,
                     'content' => $type === 'article' ? "Written material for: {$title}" : null,
                     'order' => $order++,
                     'duration_seconds' => $type === 'video' ? 600 : 0,

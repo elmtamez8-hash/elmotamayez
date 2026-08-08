@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Http\Requests;
 
 use App\Modules\Courses\Models\Course;
+use App\Shared\Support\WorkspaceRules;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class StoreChapterRequest extends FormRequest
 {
@@ -21,15 +21,18 @@ class StoreChapterRequest extends FormRequest
         /** @var Course|null $course */
         $course = $this->route('course');
 
-        $sectionRule = Rule::exists('course_sections', 'id');
+        // WorkspaceRules, not Rule::exists. Laravel's exists rule is a raw query
+        // that never sees the global scope, so the plain form lets a payload
+        // name another tenant's section by id and have it validate.
+        $sectionRule = WorkspaceRules::exists('course_sections', 'uuid');
+
         if ($course !== null) {
-            $sectionRule->where('course_id', $course->id);
+            $sectionRule->where('course_id', $course->getKey());
         }
 
         return [
-            'section_id' => ['required', 'integer', $sectionRule],
+            'section_uuid' => ['required', 'string', $sectionRule],
             'title' => ['required', 'string', 'max:255'],
-            'order' => ['nullable', 'integer', 'min:0'],
         ];
     }
 }

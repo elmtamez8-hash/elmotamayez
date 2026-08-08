@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Listeners;
 
+use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
@@ -66,7 +67,15 @@ class PublishRecordingAsLesson
             'chapter_id' => $chapter->getKey(),
             'title' => 'تسجيل: '.$session->title,
             'type' => 'video',
-            'order' => 0,
+            // Published explicitly. Since 016 a new lesson defaults to draft, and
+            // a recording that lands as a draft is a recording nobody can watch —
+            // a silent break in a shipped feature.
+            'status' => ContentStatus::Published,
+            // No `order` written here any more. It used to be 0 for every
+            // recording, so a course with two recorded sessions had two lessons
+            // claiming the same position — which the unique index now forbids
+            // and which made sequential access undefined before it did.
+            // HasSiblingOrder appends.
             'duration_seconds' => $asset->duration_seconds ?? 0,
             // Never free and never preview: those two flags bypass entitlement
             // entirely, and this recording answers to a seat (FR-030).
@@ -103,9 +112,10 @@ class PublishRecordingAsLesson
                 [
                     'workspace_id' => $session->workspace_id,
                     // Last in the tree: the recordings follow the taught
-                    // material rather than pushing it down.
-                    'order' => 999,
-                    'is_published' => true,
+                    // material rather than pushing it down. Appended rather than
+                    // pinned to a magic 999, which a unique index would let
+                    // exactly one section per course hold.
+                    'status' => ContentStatus::Published,
                 ],
             );
 
@@ -119,7 +129,7 @@ class PublishRecordingAsLesson
                 [
                     'workspace_id' => $session->workspace_id,
                     'course_id' => $session->course_id,
-                    'order' => 1,
+                    'status' => ContentStatus::Published,
                 ],
             );
     }

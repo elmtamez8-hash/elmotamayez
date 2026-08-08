@@ -8,6 +8,7 @@ use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Certificates\Models\Certificate;
+use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
@@ -75,18 +76,20 @@ function attemptRulesCourse(int $workspaceId): Course
 
     $section = Section::create([
         'workspace_id' => $workspaceId, 'course_id' => $course->id,
-        'title' => 'Section 1', 'order' => 1,
+        'title' => 'Section 1', 'status' => ContentStatus::Published, 'order' => 1,
     ]);
 
     $chapter = Chapter::create([
         'workspace_id' => $workspaceId, 'course_id' => $course->id,
-        'section_id' => $section->id, 'title' => 'Chapter 1', 'order' => 1,
+        'section_id' => $section->id, 'title' => 'Chapter 1',
+        'status' => ContentStatus::Published, 'order' => 1,
     ]);
 
     Lesson::create([
         'workspace_id' => $workspaceId, 'course_id' => $course->id,
         'section_id' => $section->id, 'chapter_id' => $chapter->id,
-        'uuid' => Str::uuid(), 'title' => 'Lesson 1', 'type' => 'article', 'order' => 1,
+        'uuid' => Str::uuid(), 'title' => 'Lesson 1', 'type' => 'article',
+        'status' => ContentStatus::Published, 'order' => 1,
     ]);
 
     return $course->fresh();

@@ -55,23 +55,23 @@ description: "Task list for 016-course-authoring"
 
 > هذه المهام تصحّح كوداً يعمل اليوم. تُشحن **أولاً** لأن سطح التأليف يضاعف كلاً منها.
 
-- [ ] T009 أنشئ هجرة `add_uuid_to_course_structure` في `backend/app/Modules/Courses/Database/Migrations/` تضيف `uuid` قابلاً للإفراغ إلى `course_sections` و`course_chapters`، **تملأ القائم**، ثم تجعله `unique` وغير قابل للإفراغ (research §R1)
-- [ ] T010 أضف `HasUuid` إلى `backend/app/Modules/Courses/Models/Section.php` و`Chapter.php` — `getRouteKeyName()` يصير `uuid`
-- [ ] T011 حدّث `backend/app/Modules/Courses/routes/api.php`: كل `{section}` و`{chapter}` و`{lesson}` يُحلّ بـuuid؛ وأضف `throttle:authoring` إلى كل مسار كاتب
-- [ ] T012 استبدل `Rule::exists()` الخام بـ`App\Shared\Support\WorkspaceRules::exists()` في `StoreLessonRequest` · `UpdateLessonRequest` · `StoreChapterRequest` · `UpdateChapterRequest` بـ `backend/app/Modules/Courses/Http/Requests/` — قاعدة Laravel استعلام خام يتجاوز النطاق العام
-- [ ] T013 اجعل `backend/app/Modules/Courses/Http/Requests/StoreLessonRequest.php` يستقبل `chapter_uuid` وحده ويشتقّ `section_id` منه (`FR-002`)، و**يتحقّق أن الفصل يخصّ القسم والكورس المذكور في المسار** (`FR-059`) — اليوم يمكن إنشاء درس بقسم من فرع وفصل من فرع آخر
+- [X] T009 أنشئ هجرة `add_uuid_to_course_structure` في `backend/app/Modules/Courses/Database/Migrations/` تضيف `uuid` قابلاً للإفراغ إلى `course_sections` و`course_chapters`، **تملأ القائم**، ثم تجعله `unique` وغير قابل للإفراغ (research §R1)
+- [X] T010 أضف `HasUuid` إلى `backend/app/Modules/Courses/Models/Section.php` و`Chapter.php` — `getRouteKeyName()` يصير `uuid`
+- [X] T011 حدّث `backend/app/Modules/Courses/routes/api.php`: كل `{section}` و`{chapter}` و`{lesson}` يُحلّ بـuuid؛ وأضف `throttle:authoring` إلى كل مسار كاتب
+- [X] T012 استبدل `Rule::exists()` الخام بـ`App\Shared\Support\WorkspaceRules::exists()` في `StoreLessonRequest` · `UpdateLessonRequest` · `StoreChapterRequest` · `UpdateChapterRequest` بـ `backend/app/Modules/Courses/Http/Requests/` — قاعدة Laravel استعلام خام يتجاوز النطاق العام
+- [X] T013 اجعل `backend/app/Modules/Courses/Http/Requests/StoreLessonRequest.php` يستقبل `chapter_uuid` وحده ويشتقّ `section_id` منه (`FR-002`)، و**يتحقّق أن الفصل يخصّ القسم والكورس المذكور في المسار** (`FR-059`) — اليوم يمكن إنشاء درس بقسم من فرع وفصل من فرع آخر
 - [ ] T014 [P] اكتب `backend/tests/Feature/Courses/StructureValidationTest.php`: فصل من كورس آخر ⇒ 404 · فصل لا يخصّ قسمه ⇒ 422 · معرّف تسلسلي في أي حمولة ⇒ فشل الاختبار
 
 ### ٢ب — المخطّط
 
-- [ ] T015 أنشئ هجرة `add_status_to_course_structure` في `backend/app/Modules/Courses/Database/Migrations/`: عمود `status` على `lessons` و`course_chapters` و`course_sections`؛ ورحّل `course_sections.is_published` (`true → published` · `false → draft`) ثم احذفه؛ **وكل الصفوف القائمة تصل `published`** — الترحيل لا يُخفي محتوى يراه طلاب الآن
-- [ ] T016 أنشئ هجرة `densify_structure_order` **واحدة** في `backend/app/Modules/Courses/Database/Migrations/` تفعل بالترتيب: (١) ترقيم كثيف لكل مجموعة إخوة بترتيبها الحالي ثم `id` فاصلاً للتعادل، مع إبقاء قسم «تسجيلات الحصص» **آخر** كورسه، ثم (٢) إضافة `unique(course_id, order)` و`unique(section_id, order)` و`unique(chapter_id, order)`. **العكس يفشل على بيانات قائمة**: كل تسجيل حصة يُكتب اليوم بـ`order => 0` ([data-model.md](./data-model.md) § ترتيب الهجرة)
-- [ ] T017 [P] أنشئ هجرة `add_reference_columns_to_lessons` في `backend/app/Modules/Courses/Database/Migrations/`: `reference_id` (`unsignedBigInteger` قابل للإفراغ) و`external_url` (`string` قابل للإفراغ). **يُمنع** أي مفتاح خارجي إلى `exams` أو `class_sessions` (research §R9)
-- [ ] T018 [P] أنشئ هجرة `add_structure_version_to_courses` في `backend/app/Modules/Courses/Database/Migrations/`: `structure_version` (`unsignedInteger` افتراضه ١)
-- [ ] T019 [P] أنشئ هجرة `add_kind_and_role_to_media_assets` في `backend/app/Modules/Media/Database/Migrations/`: `kind` · `role` · `is_downloadable`؛ والصفوف القائمة كلها `kind=video` و`role=primary`
-- [ ] T020 حدّث النماذج الأربعة في `backend/app/Modules/Courses/Models/` بـ`casts()` للأعمدة الجديدة و`@property` لما يقرأ Larastan نوعه من الهجرة، و`backend/app/Modules/Media/Models/MediaAsset.php` بمثلها
-- [ ] T021 أضف إلى `backend/app/Modules/Courses/Models/Lesson.php` نطاقين معلَنين: `visibleToStudents()` (الحالة + سلسلة الآباء) و`countableForProgress()` (منشور · قابل للإتمام حسب `LessonTypeRegistry` · **بلا `class_session_id`**) — هذان النطاقان هما المفردة المشتركة مع `Learning` ([contracts/events.md](./contracts/events.md) §٣)
-- [ ] T022 [P] حدّث `backend/database/factories/Modules/Courses/` بالأعمدة الجديدة؛ **يُمنع** تعريف `newFactory()` على النماذج
+- [X] T015 أنشئ هجرة `add_status_to_course_structure` في `backend/app/Modules/Courses/Database/Migrations/`: عمود `status` على `lessons` و`course_chapters` و`course_sections`؛ ورحّل `course_sections.is_published` (`true → published` · `false → draft`) ثم احذفه؛ **وكل الصفوف القائمة تصل `published`** — الترحيل لا يُخفي محتوى يراه طلاب الآن
+- [X] T016 أنشئ هجرة `densify_structure_order` **واحدة** في `backend/app/Modules/Courses/Database/Migrations/` تفعل بالترتيب: (١) ترقيم كثيف لكل مجموعة إخوة بترتيبها الحالي ثم `id` فاصلاً للتعادل، مع إبقاء قسم «تسجيلات الحصص» **آخر** كورسه، ثم (٢) إضافة `unique(course_id, order)` و`unique(section_id, order)` و`unique(chapter_id, order)`. **العكس يفشل على بيانات قائمة**: كل تسجيل حصة يُكتب اليوم بـ`order => 0` ([data-model.md](./data-model.md) § ترتيب الهجرة)
+- [X] T017 [P] أنشئ هجرة `add_reference_columns_to_lessons` في `backend/app/Modules/Courses/Database/Migrations/`: `reference_id` (`unsignedBigInteger` قابل للإفراغ) و`external_url` (`string` قابل للإفراغ). **يُمنع** أي مفتاح خارجي إلى `exams` أو `class_sessions` (research §R9)
+- [X] T018 [P] أنشئ هجرة `add_structure_version_to_courses` في `backend/app/Modules/Courses/Database/Migrations/`: `structure_version` (`unsignedInteger` افتراضه ١)
+- [X] T019 [P] أنشئ هجرة `add_kind_and_role_to_media_assets` في `backend/app/Modules/Media/Database/Migrations/`: `kind` · `role` · `is_downloadable`؛ والصفوف القائمة كلها `kind=video` و`role=primary`
+- [X] T020 حدّث النماذج الأربعة في `backend/app/Modules/Courses/Models/` بـ`casts()` للأعمدة الجديدة و`@property` لما يقرأ Larastan نوعه من الهجرة، و`backend/app/Modules/Media/Models/MediaAsset.php` بمثلها
+- [X] T021 أضف إلى `backend/app/Modules/Courses/Models/Lesson.php` نطاقين معلَنين: `visibleToStudents()` (الحالة + سلسلة الآباء) و`countableForProgress()` (منشور · قابل للإتمام حسب `LessonTypeRegistry` · **بلا `class_session_id`**) — هذان النطاقان هما المفردة المشتركة مع `Learning` ([contracts/events.md](./contracts/events.md) §٣)
+- [X] T022 [P] حدّث `backend/database/factories/Modules/Courses/` بالأعمدة الجديدة؛ **يُمنع** تعريف `newFactory()` على النماذج
 - [ ] T023 [P] أضف حالات الأعمدة الجديدة إلى `backend/tests/Feature/Tenancy/WorkspaceIsolationTest.php` — الشجرة وعناصرها ومرفقاتها كلها مملوكة لمساحة العمل ([data-model.md](./data-model.md) § طبقة الملكية)
 - [ ] T024 [P] اكتب `backend/tests/Feature/Courses/StructureMigrationTest.php`: صفر صفّ بلا uuid · صفر تعادل ترتيب في أي مستوى · كل المحتوى القائم `published` · قسم التسجيلات آخر كورسه (quickstart §٩)
 
@@ -82,8 +82,8 @@ description: "Task list for 016-course-authoring"
 
 - [ ] T025 اكتب `backend/tests/Feature/Learning/RecordingProgressTest.php` **أولاً**: طالب مسجَّل **بلا مقعد** في حصة نُشر تسجيلها **في وسط الشجرة** يبلغ ١٠٠٪ وتصدر شهادته، وما بعد التسجيل مفتوح له (`SC-019`). **موضع الوسط شرط**: تسجيل في آخر الشجرة لا يقف أمام شيء، فالاختبار ينجح والعطل حيّ
 - [ ] T026 [P] اكتب `backend/tests/Feature/Learning/DraftGatingTest.php`: عنصر مسودّة لا يدخل المقام ولا يقف في التسلسل ولا يظهر للطالب (`SC-005` · `SC-006`)
-- [ ] T027 عدّل `recomputeProgress()` و`shouldCompleteCourse()` في `backend/app/Modules/Learning/Actions/MarkLessonComplete.php` ليستعملا نطاق `countableForProgress()` بدل `$enrollment->course->lessons()->count()` (`FR-026` · `FR-026أ`)
-- [ ] T028 عدّل `canAccessLesson()` في `backend/app/Modules/Learning/Models/Enrollment.php` ليتخطّى كشرط سابق: المسودّة والمؤرشف (`FR-027`) **ودرس التسجيل** (`FR-027أ`) — الاستبعاد من المقام وحده يترك العطل نفسه عائداً من باب الترتيب
+- [X] T027 عدّل `recomputeProgress()` و`shouldCompleteCourse()` في `backend/app/Modules/Learning/Actions/MarkLessonComplete.php` ليستعملا نطاق `countableForProgress()` بدل `$enrollment->course->lessons()->count()` (`FR-026` · `FR-026أ`)
+- [X] T028 عدّل `canAccessLesson()` في `backend/app/Modules/Learning/Models/Enrollment.php` ليتخطّى كشرط سابق: المسودّة والمؤرشف (`FR-027`) **ودرس التسجيل** (`FR-027أ`) — الاستبعاد من المقام وحده يترك العطل نفسه عائداً من باب الترتيب
 - [ ] T029 شغّل المسارات الحرجة الثمانية كاملةً وثبّت خضرتها قبل المتابعة: `php vendor/bin/pest tests/Feature/Learning tests/Feature/Certificates tests/Feature/Tenancy`
 
 **Checkpoint**: `php artisan migrate` يمرّ فوق قاعدة قائمة · صفر تعادل · PHPStan نظيف · المسارات الحرجة خضراء · العطل الأبدي مُصلَح ومُختبَر من بابيه.
@@ -107,13 +107,13 @@ description: "Task list for 016-course-authoring"
 
 ### الخلفية
 
-- [ ] T034 [P] [US1] أنشئ `CreateSection` · `UpdateSection` · `DeleteSection` في `backend/app/Modules/Courses/Actions/` — الإنشاء يمنح ترتيباً متمايزاً (آخر الإخوة) لا صفراً (`FR-003`)
-- [ ] T035 [P] [US1] أنشئ `CreateChapter` · `UpdateChapter` · `DeleteChapter` في `backend/app/Modules/Courses/Actions/` بنفس القواعد
-- [ ] T036 [P] [US1] أنشئ `CreateLesson` · `UpdateLesson` · `DeleteLesson` في `backend/app/Modules/Courses/Actions/` — والحذف يرفض ما عليه تقدّم (`FR-007`) ويرفض ما يملك أصلاً مرفوعاً (`FR-038أ`)، ويعرض الأرشفة بديلاً
-- [ ] T037 [US1] أنشئ `backend/app/Modules/Courses/Actions/ReorderTreeNodes.php`: يستقبل قائمة uuid الإخوة كاملةً، ويكتبها في **معاملة واحدة**، ويرفع `structure_version` (`FR-004`)
+- [X] T034 [P] [US1] أنشئ `CreateSection` · `UpdateSection` · `DeleteSection` في `backend/app/Modules/Courses/Actions/` — الإنشاء يمنح ترتيباً متمايزاً (آخر الإخوة) لا صفراً (`FR-003`)
+- [X] T035 [P] [US1] أنشئ `CreateChapter` · `UpdateChapter` · `DeleteChapter` في `backend/app/Modules/Courses/Actions/` بنفس القواعد
+- [X] T036 [P] [US1] أنشئ `CreateLesson` · `UpdateLesson` · `DeleteLesson` في `backend/app/Modules/Courses/Actions/` — والحذف يرفض ما عليه تقدّم (`FR-007`) ويرفض ما يملك أصلاً مرفوعاً (`FR-038أ`)، ويعرض الأرشفة بديلاً
+- [X] T037 [US1] أنشئ `backend/app/Modules/Courses/Actions/ReorderTreeNodes.php`: يستقبل قائمة uuid الإخوة كاملةً، ويكتبها في **معاملة واحدة**، ويرفع `structure_version` (`FR-004`)
 - [ ] T038 [US1] أنشئ `backend/app/Modules/Courses/Actions/ArchiveTreeNode.php` — الأرشفة تُخرج العنصر من المقام والتسلسل و**لا** تنقص نسبة أُحرزت (`FR-008`)
-- [ ] T039 [US1] أعد بناء `SectionController` · `ChapterController` · `LessonController` بـ `backend/app/Modules/Courses/Http/Controllers/` على الـActions — أربعة أسطر لكل دالة، بلا منطق (الدستور II · research §R14)
-- [ ] T040 [US1] أضف مسارات إعادة الترتيب الثلاثة إلى `backend/app/Modules/Courses/routes/api.php` ([contracts/api.md](./contracts/api.md) §١)
+- [X] T039 [US1] أعد بناء `SectionController` · `ChapterController` · `LessonController` بـ `backend/app/Modules/Courses/Http/Controllers/` على الـActions — أربعة أسطر لكل دالة، بلا منطق (الدستور II · research §R14)
+- [X] T040 [US1] أضف مسارات إعادة الترتيب الثلاثة إلى `backend/app/Modules/Courses/routes/api.php` ([contracts/api.md](./contracts/api.md) §١)
 - [ ] T041 [US1] أنشئ `backend/app/Modules/Courses/Http/Resources/CourseTreeResource.php` — شجرة المؤلّف بحالاتها الحقيقية وسبب الحجب؛ **منفصلة** عن الشجرة الطلابية عمداً، فتسريب المسودّة لا يصير نسيانَ مُعامِل ([contracts/api.md](./contracts/api.md) §١)
 - [ ] T042 [US1] أضف `GET /courses/{course}/tree` بحمل ثابت الاستعلامات: تحميل مسبق للمستويات الثلاثة (`FR-010`)
 - [ ] T043 [P] [US1] اكتب `backend/tests/Feature/Courses/TreeQueryBudgetTest.php`: عدد استعلامات شجرة بعشرين عنصراً = عددها لشجرة بمئتين (`SC-015`)

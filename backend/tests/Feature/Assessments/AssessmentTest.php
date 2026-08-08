@@ -10,6 +10,7 @@ use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Certificates\Actions\IssueCertificate;
 use App\Modules\Certificates\Models\Certificate;
+use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
@@ -153,15 +154,21 @@ describe('certificate generation', function (): void {
         [$workspace] = $this->createWorkspaceWithOwner();
         $course = Course::factory()->published()->create(['workspace_id' => $workspace->id, 'is_sequential' => false]);
 
+        // Published at every level: a draft is outside the progress denominator,
+        // so a course built without saying so can never complete and this test
+        // would be asserting against a certificate that was right not to issue.
         $section = Section::create([
-            'workspace_id' => $workspace->id, 'course_id' => $course->id, 'title' => 'S', 'order' => 1,
+            'workspace_id' => $workspace->id, 'course_id' => $course->id, 'title' => 'S',
+            'status' => ContentStatus::Published, 'order' => 1,
         ]);
         $chapter = Chapter::create([
-            'workspace_id' => $workspace->id, 'section_id' => $section->id, 'course_id' => $course->id, 'title' => 'C', 'order' => 1,
+            'workspace_id' => $workspace->id, 'section_id' => $section->id, 'course_id' => $course->id, 'title' => 'C',
+            'status' => ContentStatus::Published, 'order' => 1,
         ]);
         $lesson = Lesson::create([
             'workspace_id' => $workspace->id, 'course_id' => $course->id, 'section_id' => $section->id, 'chapter_id' => $chapter->id,
-            'uuid' => Str::uuid(), 'title' => 'L1', 'type' => 'article', 'content' => 'x', 'order' => 1,
+            'uuid' => Str::uuid(), 'title' => 'L1', 'type' => 'article', 'status' => ContentStatus::Published,
+            'content' => 'x', 'order' => 1,
         ]);
 
         $student = $this->addWorkspaceMember($workspace, 'student');

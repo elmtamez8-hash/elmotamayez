@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories\Modules\Courses;
 
+use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Section;
@@ -24,7 +25,8 @@ class ChapterFactory extends Factory
             'section_id' => Section::factory(),
             'course_id' => Course::factory(),
             'title' => fake()->sentence(2),
-            'order' => fake()->numberBetween(1, 10),
+            // Position assigned by HasSiblingOrder — see SectionFactory.
+            'status' => ContentStatus::Published,
         ];
     }
 }

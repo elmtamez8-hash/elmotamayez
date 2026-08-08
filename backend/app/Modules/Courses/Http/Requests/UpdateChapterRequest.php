@@ -13,12 +13,16 @@ class UpdateChapterRequest extends FormRequest
         return $this->user()?->can('manageLessons', $this->route('course')) ?? false;
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Renaming only — see StoreSectionRequest for why position is not writable
+     * through the ordinary update path.
+     *
+     * @return array<string, mixed>
+     */
     public function rules(): array
     {
         return [
-            'title' => ['sometimes', 'string', 'max:255'],
-            'order' => ['nullable', 'integer', 'min:0'],
+            'title' => ['required', 'string', 'max:255'],
         ];
     }
 }

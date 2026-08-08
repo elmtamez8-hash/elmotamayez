@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Courses\Exceptions\ContentLockedException;
 use App\Shared\Middleware\EnsureCurrentWorkspace;
 use App\Shared\Middleware\Idempotent;
 use App\Shared\Middleware\RequireTwoFactor;
@@ -34,6 +35,18 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+
+        // Registered BEFORE the DomainException handler it extends: Laravel walks
+        // these newest-first, and the general rule would otherwise answer 422 for
+        // a case that has its own status and its own alternative.
+        $exceptions->render(function (ContentLockedException $e, Request $request) {
+            return $request->is('api/*')
+                ? response()->json([
+                    'message' => $e->getMessage(),
+                    'alternative' => $e->alternative,
+                ], 423)
+                : null;
+        });
 
         // Actions signal a broken business rule with DomainException (attempt limit
         // reached, invitation expired, ...) — that's a 422, not a server error.

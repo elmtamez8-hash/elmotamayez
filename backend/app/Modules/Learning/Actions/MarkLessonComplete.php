@@ -76,25 +76,62 @@ class MarkLessonComplete extends Action
         });
     }
 
+    /**
+     * The denominator: published, completable, non-recording lessons.
+     *
+     * It used to be `$enrollment->course->lessons()->count()` — every row, no
+     * distinction. Two consequences, both live in production:
+     *
+     * A half-written lesson saved into a live course dropped every enrolled
+     * student's percentage the moment it was created.
+     *
+     * And worse, a session recording sat in the denominator of students who
+     * cannot open it. A recording is entitled by holding a SEAT in that session,
+     * not by enrolling in the course (005 FR-030) — so an enrolled student
+     * without a seat could never reach 100%, `shouldCompleteCourse()` could
+     * never fire, and their certificate could never issue. Not late: never.
+     */
+    private function countableLessons(Enrollment $enrollment): int
+    {
+        return $enrollment->course->lessons()->countableForProgress()->count();
+    }
+
+    /**
+     * Completed lessons that still count.
+     *
+     * Filtered the same way as the denominator: a student who finished a lesson
+     * that was later archived should not end up at 110%, and one who watched a
+     * recording should not be credited against a total it is not part of.
+     */
+    private function countableCompleted(Enrollment $enrollment): int
+    {
+        return $enrollment->progress()
+            ->where('lesson_progress.status', 'completed')
+            ->whereIn(
+                'lesson_progress.lesson_id',
+                $enrollment->course->lessons()->countableForProgress()->select('lessons.id'),
+            )
+            ->count();
+    }
+
     private function recomputeProgress(Enrollment $enrollment): void
     {
-        $totalLessons = $enrollment->course->lessons()->count();
-        $completedLessons = $enrollment->progress()->where('status', 'completed')->count();
+        $totalLessons = $this->countableLessons($enrollment);
+        $completedLessons = $this->countableCompleted($enrollment);
 
         $pct = $totalLessons > 0 ? (int) round(($completedLessons / $totalLessons) * 100) : 0;
 
-        $enrollment->update(['progress_pct' => $pct]);
+        $enrollment->update(['progress_pct' => min(100, $pct)]);
     }
 
     private function shouldCompleteCourse(Enrollment $enrollment): bool
     {
-        $totalLessons = $enrollment->course->lessons()->count();
+        $totalLessons = $this->countableLessons($enrollment);
+
         if ($totalLessons === 0) {
             return false;
         }
 
-        $completedLessons = $enrollment->progress()->where('status', 'completed')->count();
-
-        return $completedLessons >= $totalLessons;
+        return $this->countableCompleted($enrollment) >= $totalLessons;
     }
 }
