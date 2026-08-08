@@ -182,17 +182,17 @@ description: "Task list for 016-course-authoring"
 **Independent Test**: رفع مستند بكل قيمة من قيمتي المفتاح، والتحقق من ترويسة الاستجابة وأن
 الرابط ينتهي.
 
-- [ ] T068 [P] [US4] اكتب `backend/tests/Feature/Media/DocumentUploadTest.php`: PDF بامتداد `.mp4` يُقبل بمحتواه · zip بامتداد `.pdf` يُرفض · ملف يتجاوز الحد يُرفض **برسالة تذكر الحدّ الفعلي** (`FR-032` · `FR-039`)
-- [ ] T069 [P] [US4] اكتب `backend/tests/Feature/Media/DocumentDispositionTest.php`: «عرض فقط» ⇒ `inline` · «يسمح بالتحميل» ⇒ `attachment` · طلب بلا منحة ⇒ رفض · صفر مسار عام دائم (`SC-010` · `SC-011`)
-- [ ] T070 [US4] أعد تسمية `VideoProviderInterface` إلى `MediaProviderInterface` في `backend/app/Modules/Media/Contracts/` وحدّث كل مستعمليه ومزوّده المحلي واسم اختبار العقد (research §R5) — PHPStan يمسك ما فات
-- [ ] T071 [US4] وسّع `backend/app/Modules/Media/Actions/RequestUploadTicket.php`: يستقبل `kind` و`role`، ويقابل الحدود بقائمة الصنف، و**يستبدل الأصل القائم فقط عند `role=primary`** — المرفقات كثيرة (research §R11)
-- [ ] T072 [US4] وسّع `rejectionReason()` في `backend/app/Modules/Media/Actions/CompleteMediaUpload.php` ليقابل خريطة `kind` بدل القائمة الواحدة، ورسالة الرفض تسمّي الصنف لا «ليس ملف فيديو»
-- [ ] T073 [US4] اجعل `stream()` في `backend/app/Modules/Media/Http/Controllers/PlaybackController.php` يقدّم المستند بـ`Content-Disposition` حسب `is_downloadable` — **القرار على الخادم**: إخفاء زرّ في الواجهة ليس منعاً (`FR-036`)
-- [ ] T074 [US4] أضف `PUT /media/assets/{asset}/disposition` وActionها ([contracts/api.md](./contracts/api.md) §٢)
-- [ ] T075 [US4] اجعل حذف العنصر وأرشفته يُتبعان أصوله ومرفقاته بلا ملف يتيم في `backend/app/Modules/Courses/Actions/DeleteLesson.php` و`ArchiveTreeNode.php` (`FR-038`)
-- [ ] T076 [P] [US4] أنشئ `frontend/src/components/courses/editors/DocumentEditor.tsx` — الرفع، ومفتاح العرض/التحميل، **ونصّ صريح** أن حماية «يسمح بالتحميل» هي انتهاء الرابط لا منع النسخ (`FR-037`)
-- [ ] T077 [P] [US4] أنشئ `frontend/src/components/courses/AttachmentsPanel.tsx` — مرفقات على أي عنصر مهما كان نوعه (`FR-019`)
-- [ ] T078 [P] [US4] أنشئ `frontend/src/components/courses/editors/AudioEditor.tsx` — نفس خط الرفع بصنف `audio`
+- [X] T068 [P] [US4] اكتب `backend/tests/Feature/Media/DocumentUploadTest.php`: PDF بامتداد `.mp4` يُقبل بمحتواه · zip بامتداد `.pdf` يُرفض · ملف يتجاوز الحد يُرفض **برسالة تذكر الحدّ الفعلي** (`FR-032` · `FR-039`)
+- [X] T069 [P] [US4] اكتب `backend/tests/Feature/Media/DocumentDispositionTest.php`: «عرض فقط» ⇒ `inline` · «يسمح بالتحميل» ⇒ `attachment` · طلب بلا منحة ⇒ رفض · صفر مسار عام دائم (`SC-010` · `SC-011`)
+- [X] T070 [US4] أعد تسمية `VideoProviderInterface` إلى `MediaProviderInterface` في `backend/app/Modules/Media/Contracts/` وحدّث كل مستعمليه ومزوّده المحلي واسم اختبار العقد (research §R5) — PHPStan يمسك ما فات
+- [X] T071 [US4] وسّع `backend/app/Modules/Media/Actions/RequestUploadTicket.php`: يستقبل `kind` و`role`، ويقابل الحدود بقائمة الصنف، و**يستبدل الأصل القائم فقط عند `role=primary`** — المرفقات كثيرة (research §R11)
+- [X] T072 [US4] وسّع `rejectionReason()` في `backend/app/Modules/Media/Actions/CompleteMediaUpload.php` ليقابل خريطة `kind` بدل القائمة الواحدة، ورسالة الرفض تسمّي الصنف لا «ليس ملف فيديو»
+- [X] T073 [US4] اجعل `stream()` في `backend/app/Modules/Media/Http/Controllers/PlaybackController.php` يقدّم المستند بـ`Content-Disposition` حسب `is_downloadable` — **القرار على الخادم**: إخفاء زرّ في الواجهة ليس منعاً (`FR-036`)
+- [X] T074 [US4] أضف `PUT /media/assets/{asset}/disposition` وActionها ([contracts/api.md](./contracts/api.md) §٢)
+- [X] T075 [US4] اجعل حذف العنصر وأرشفته يُتبعان أصوله ومرفقاته بلا ملف يتيم (`FR-038`) — **انحراف مقصود**: لا وجود لـ`DeleteLesson.php` ولا `ArchiveTreeNode.php`؛ الحذف في `ManageLessons::delete()` والأرشفة حالة `archived` عبر `PublishTreeNodes`. والأرشفة تُبقي ملفاتها بحكم تعريفها، فلا يتيم فيها — الخلل كان في الحذف وحده وقد أُصلح
+- [X] T076 [P] [US4] أنشئ `frontend/src/components/courses/editors/DocumentEditor.tsx` — الرفع، ومفتاح العرض/التحميل، **ونصّ صريح** أن حماية «يسمح بالتحميل» هي انتهاء الرابط لا منع النسخ (`FR-037`)
+- [X] T077 [P] [US4] أنشئ `frontend/src/components/courses/AttachmentsPanel.tsx` — مرفقات على أي عنصر مهما كان نوعه (`FR-019`)
+- [X] T078 [P] [US4] أنشئ `frontend/src/components/courses/editors/AudioEditor.tsx` — نفس خط الرفع بصنف `audio`
 
 **Checkpoint**: نصف الأنواع الذي كان غير قابل للتأليف صار يعمل · صفر مسار دائم.
 

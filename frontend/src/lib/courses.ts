@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { MediaAsset } from "./media";
 
 /**
  * The course tree, as its author sees it.
@@ -114,13 +115,10 @@ export interface LessonDetail {
   duration_seconds: number;
   is_preview: boolean;
   is_free: boolean;
-  asset: {
-    uuid: string;
-    status: string;
-    status_label: string;
-    duration_seconds: number | null;
-    failure_reason: string | null;
-  } | null;
+  /** The item's own file — one, or none. */
+  asset: MediaAsset | null;
+  /** Files beside it, whatever the item's type. Many, or none. */
+  attachments: MediaAsset[];
 }
 
 export interface LessonEdit {

@@ -16,10 +16,28 @@ export type MediaAssetStatus =
   | "ready"
   | "failed";
 
+/** What the file IS. Decides its mime list, its size ceiling and its editor. */
+export type MediaKind = "video" | "audio" | "document";
+
+/**
+ * `primary` is the item's own file — one per item, replaced on re-upload.
+ * `attachment` sits beside it, and there may be many, on an item of any type.
+ */
+export type MediaRole = "primary" | "attachment";
+
 export type MediaAsset = {
   uuid: string;
   status: MediaAssetStatus;
   status_label: string;
+  kind: MediaKind;
+  kind_label: string;
+  role: MediaRole;
+  /**
+   * View-only versus allow-download. The server reads this on every range
+   * request and sets `Content-Disposition` from it — this field is what the
+   * teacher's switch reflects, not what enforces it.
+   */
+  is_downloadable: boolean;
   original_filename: string;
   mime_type: string | null;
   size_bytes: number | null;
@@ -87,6 +105,9 @@ export const media = {
       original_filename: string;
       size_bytes?: number;
       duration_seconds?: number;
+      /** Defaults to video/primary on the server, for the page that predates 016. */
+      kind?: MediaKind;
+      role?: MediaRole;
     },
   ) =>
     api.post<{ asset: MediaAsset; upload: UploadTicket }>(
@@ -115,6 +136,17 @@ export const media = {
     api.post<MediaAsset>(`/media/assets/${assetUuid}/complete`),
 
   asset: (assetUuid: string) => api.get<MediaAsset>(`/media/assets/${assetUuid}`),
+
+  /**
+   * Flip view-only / allow-download on a file already uploaded.
+   *
+   * Separate from the upload because the teacher changes their mind later, and
+   * making them re-upload to change one boolean is how a switch stops being used.
+   */
+  setDisposition: (assetUuid: string, isDownloadable: boolean) =>
+    api.put<MediaAsset>(`/media/assets/${assetUuid}/disposition`, {
+      is_downloadable: isDownloadable,
+    }),
 
   remove: (assetUuid: string) => api.delete<void>(`/media/assets/${assetUuid}`),
 

@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AttachmentsPanel } from "./AttachmentsPanel";
 import { ArticleEditor } from "./editors/ArticleEditor";
+import { AudioEditor } from "./editors/AudioEditor";
+import { DocumentEditor } from "./editors/DocumentEditor";
 import { LinkEditor } from "./editors/LinkEditor";
 import { NoteEditor } from "./editors/NoteEditor";
 import { Alert } from "@/components/ui/Alert";
@@ -24,14 +27,22 @@ import { courses, type LessonDetail, type LessonTypeValue } from "@/lib/courses"
  * happens.
  */
 
-/** Types this surface can edit today. The rest name the phase that brings them. */
+/** Types whose body is text and is saved by the button at the bottom. */
 const INLINE: LessonTypeValue[] = ["article", "note", "link"];
 
+/** Types whose own file is a document, whatever the label on the type says. */
+const DOCUMENT: LessonTypeValue[] = ["pdf", "file"];
+
+/**
+ * The types that still have no editor here, each naming what brings it.
+ *
+ * Kept honest deliberately: this spec started because an empty state told
+ * teachers to add content from a panel where it could not be added. A "not yet"
+ * message left standing over a working editor is the same bug wearing the
+ * opposite face.
+ */
 const PENDING: Partial<Record<LessonTypeValue, string>> = {
-  video: "الفيديو يُرفع من صفحة العنصر — الرفع والمعالجة والمشاهدة المحميّة.",
-  audio: "رفع الصوت يصل مع مرحلة المستندات والمرفقات.",
-  pdf: "رفع المستندات يصل مع مرحلة المستندات والمرفقات.",
-  file: "رفع الملفات يصل مع مرحلة المستندات والمرفقات.",
+  video: "الفيديو له صفحته الخاصة — الرفع والترجمات والمشاهدة المحميّة.",
   exam: "ربط الاختبار بالعنصر يصل مع مرحلة الإحالة.",
   live_session: "تسجيلات الحصص تُنشر تلقائياً من الحصة نفسها، ولا تُربط يدوياً من هنا.",
   assignment: "الواجبات تصل مع بنك الأسئلة.",
@@ -214,6 +225,14 @@ export function LessonEditor({
           <LinkEditor lesson={lesson} url={url} disabled={busy} onChange={setUrl} />
         )}
 
+        {DOCUMENT.includes(lesson.type) && (
+          <DocumentEditor lessonUuid={lesson.uuid} asset={lesson.asset} onChanged={load} />
+        )}
+
+        {lesson.type === "audio" && (
+          <AudioEditor lessonUuid={lesson.uuid} asset={lesson.asset} onChanged={load} />
+        )}
+
         {pending !== undefined && (
           <Alert tone="info" title="محرّر هذا النوع لم يصل بعد">
             {pending}
@@ -278,6 +297,14 @@ export function LessonEditor({
             حفظ
           </Button>
         )}
+
+        {/* On every type, including the ones with no editor of their own: a
+            worksheet under a video is the ordinary case, not an edge one. */}
+        <AttachmentsPanel
+          lessonUuid={lesson.uuid}
+          attachments={lesson.attachments}
+          onChanged={load}
+        />
       </div>
     </Card>
   );

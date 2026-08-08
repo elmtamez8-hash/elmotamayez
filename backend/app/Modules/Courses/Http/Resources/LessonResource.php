@@ -8,6 +8,7 @@ use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\MarkdownRenderer;
+use App\Modules\Media\Models\MediaAsset;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -44,18 +45,45 @@ class LessonResource extends JsonResource
             'duration_seconds' => $this->duration_seconds,
             'is_preview' => $this->is_preview,
             'is_free' => $this->is_free,
-            // Replaces `media`. Deliberately narrow: `provider` and
-            // `provider_asset_id` must never reach a payload (FR-011), and the
-            // playable URL is not a property of the asset — it is minted per
-            // viewer, per session, with an expiry.
-            'asset' => $this->mediaAsset === null ? null : [
-                'uuid' => $this->mediaAsset->uuid,
-                'status' => $this->mediaAsset->status->value,
-                'status_label' => $this->mediaAsset->status->label(),
-                'duration_seconds' => $this->mediaAsset->duration_seconds,
-                'failure_reason' => $this->mediaAsset->failure_reason,
-            ],
+            'asset' => $this->asset($this->mediaAsset),
+            // Files beside the item, whatever its type (FR-019). Separate from
+            // `asset` rather than one list with a role flag: they answer
+            // different questions — "what is this item" and "what comes with it"
+            // — and a single list makes the first one a filter every caller has
+            // to remember.
+            'attachments' => $this->attachments->map(
+                fn (MediaAsset $attachment): array => $this->asset($attachment) ?? [],
+            )->values()->all(),
             'created_at' => $this->created_at,
+        ];
+    }
+
+    /**
+     * One asset, narrowly.
+     *
+     * `provider` and `provider_asset_id` must never reach a payload (004
+     * FR-011), and the playable URL is not a property of the asset — it is
+     * minted per viewer, per session, with an expiry.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function asset(?MediaAsset $asset): ?array
+    {
+        if ($asset === null) {
+            return null;
+        }
+
+        return [
+            'uuid' => $asset->uuid,
+            'kind' => $asset->kind->value,
+            'kind_label' => $asset->kind->label(),
+            'role' => $asset->role->value,
+            'is_downloadable' => $asset->is_downloadable,
+            'status' => $asset->status->value,
+            'status_label' => $asset->status->label(),
+            'original_filename' => $asset->original_filename,
+            'duration_seconds' => $asset->duration_seconds,
+            'failure_reason' => $asset->failure_reason,
         ];
     }
 }
