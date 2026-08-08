@@ -6,6 +6,7 @@ namespace App\Modules\Courses\Actions;
 
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Enums\LessonType;
+use App\Modules\Courses\Events\CourseStructurePublished;
 use App\Modules\Courses\Events\ExamItemOpened;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
@@ -39,11 +40,7 @@ class PublishTreeNodes extends Action
     {
         $nodes = $this->resolve($course, $items);
 
-        foreach ($nodes as [$node, $status]) {
-            if ($node instanceof Lesson && $status === ContentStatus::Published) {
-                PublishReadiness::assertPublishable($node);
-            }
-        }
+        $this->assertReady($nodes);
 
         DB::transaction(function () use ($course, $nodes, $submittedVersion): void {
             // Claimed inside the transaction, and the claim IS the bump. The
@@ -69,6 +66,36 @@ class PublishTreeNodes extends Action
                 && $status === ContentStatus::Published
                 && $node->type === LessonType::Exam->value) {
                 event(new ExamItemOpened($node));
+            }
+        }
+
+        // And the fact that covers everyone else: the denominator moved.
+        //
+        // `progress_pct` is written when a LESSON is completed and at no other
+        // moment, so before this event every stored percentage in the course went
+        // stale the instant a batch was published — the teacher was shown a drop
+        // in the preview that never reached a single student's screen (`FR-051`).
+        // Fired last, after the exam items, so the backfill has already credited
+        // whoever it credits and the resync corrects one consistent picture.
+        event(new CourseStructurePublished($course));
+    }
+
+    /**
+     * Refuses a node that is not ready to be opened to students (`FR-022`).
+     *
+     * Public and separate because the impact preview must refuse the SAME batch
+     * for the same reason: a preview that only counted items would answer "3
+     * items, 12 students affected", and the publish it invited would then 422 on
+     * an article with an empty body. The preview's promise is that pressing
+     * confirm does what it just described — including doing nothing at all.
+     *
+     * @param  list<array{0: Model, 1: ContentStatus}>  $nodes
+     */
+    public function assertReady(array $nodes): void
+    {
+        foreach ($nodes as [$node, $status]) {
+            if ($node instanceof Lesson && $status === ContentStatus::Published) {
+                PublishReadiness::assertPublishable($node);
             }
         }
     }

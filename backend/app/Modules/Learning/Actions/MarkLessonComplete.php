@@ -9,6 +9,7 @@ use App\Modules\Learning\Events\LessonCompleted;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Models\LessonProgress;
 use App\Modules\Learning\Models\ProgressHistory;
+use App\Modules\Learning\Support\CourseProgress;
 use App\Shared\Actions\Action;
 use Illuminate\Support\Facades\DB;
 
@@ -47,25 +48,12 @@ class MarkLessonComplete extends Action
                 'payload' => ['completed_at' => now()->toIso8601String()],
             ]);
 
-            // Counted ONCE and used twice. `recomputeProgress()` needed both
-            // numbers and `shouldCompleteCourse()` then asked for the same two
-            // again — four COUNTs, one of them carrying a subquery, where two do.
-            // On every lesson completion in the product, and multiplied by every
-            // enrolment when the backfill listener runs.
-            $total = $this->countableLessons($enrollment);
-            $completed = $this->countableCompleted($enrollment);
-
-            $enrollment->update([
-                'progress_pct' => $total > 0 ? min(100, (int) round(($completed / $total) * 100)) : 0,
-            ]);
-
-            $shouldComplete = $total > 0 && $completed >= $total;
-            if ($shouldComplete && ! $enrollment->isCompleted()) {
-                $enrollment->update([
-                    'status' => 'completed',
-                    'completed_at' => now(),
-                ]);
-            }
+            // The arithmetic itself lives in `CourseProgress`, shared with the
+            // resync that runs after a publish and with the preview that promises
+            // the teacher what that publish will do. Three copies of one formula
+            // would be three answers to "what percentage is this student at", and
+            // `SC-018` is the promise that the preview's answer is the real one.
+            $shouldComplete = CourseProgress::sync($enrollment);
 
             // Dispatch events after the transaction commits so listeners
             // (certificate issuance, notifications) don't run inside the open transaction.
@@ -84,43 +72,5 @@ class MarkLessonComplete extends Action
 
             return $progress;
         });
-    }
-
-    /**
-     * The denominator: published, completable, non-recording lessons.
-     *
-     * It used to be `$enrollment->course->lessons()->count()` — every row, no
-     * distinction. Two consequences, both live in production:
-     *
-     * A half-written lesson saved into a live course dropped every enrolled
-     * student's percentage the moment it was created.
-     *
-     * And worse, a session recording sat in the denominator of students who
-     * cannot open it. A recording is entitled by holding a SEAT in that session,
-     * not by enrolling in the course (005 FR-030) — so an enrolled student
-     * without a seat could never reach 100%, `shouldCompleteCourse()` could
-     * never fire, and their certificate could never issue. Not late: never.
-     */
-    private function countableLessons(Enrollment $enrollment): int
-    {
-        return $enrollment->course->lessons()->countableForProgress()->count();
-    }
-
-    /**
-     * Completed lessons that still count.
-     *
-     * Filtered the same way as the denominator: a student who finished a lesson
-     * that was later archived should not end up at 110%, and one who watched a
-     * recording should not be credited against a total it is not part of.
-     */
-    private function countableCompleted(Enrollment $enrollment): int
-    {
-        return $enrollment->progress()
-            ->where('lesson_progress.status', 'completed')
-            ->whereIn(
-                'lesson_progress.lesson_id',
-                $enrollment->course->lessons()->countableForProgress()->select('lessons.id'),
-            )
-            ->count();
     }
 }

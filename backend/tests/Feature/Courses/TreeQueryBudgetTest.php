@@ -8,6 +8,7 @@ use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
+use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Models\ClassSession;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -126,4 +127,52 @@ it('costs the same for a small tree and a ten-times larger one', function (): vo
     // 7 nodes against 210. A per-row query would make the second number an order
     // of magnitude larger; a fixed set of eager loads makes them equal.
     expect($largeCost)->toBe($smallCost);
+});
+
+it('costs the impact preview the same for one student and forty', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+
+    Sanctum::actingAs($owner);
+
+    $quiet = budgetTree($workspace->id, 2, 3);
+    $busy = budgetTree($workspace->id, 2, 3);
+
+    $enrol = function (Course $course, int $count) use ($workspace): void {
+        for ($i = 0; $i < $count; $i++) {
+            $student = $this->addWorkspaceMember($workspace, 'student');
+
+            Enrollment::create([
+                'workspace_id' => $workspace->id,
+                'course_id' => $course->id,
+                'student_user_id' => $student->id,
+                'source' => 'manual',
+                'status' => 'active',
+                'progress_pct' => 0,
+                'enrolled_at' => now(),
+            ]);
+        }
+    };
+
+    $enrol($quiet, 1);
+    $enrol($busy, 40);
+
+    $cost = function (Course $course): int {
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        $this->getJson("/api/v1/courses/{$course->uuid}/tree/publish-preview")->assertOk();
+
+        $count = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $count;
+    };
+
+    $cost($quiet);
+
+    // The percentages are computed from two id sets and ONE grouped read of
+    // `lesson_progress`. Asking each enrolment for its own count — which is what
+    // `MarkLessonComplete` does, correctly, for one student — would make this
+    // endpoint cost a query per student on a course with thirty of them.
+    expect($cost($busy))->toBe($cost($quiet));
 });

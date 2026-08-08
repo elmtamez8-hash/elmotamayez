@@ -6,8 +6,10 @@ namespace App\Modules\Courses\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Courses\Actions\ManageSections;
+use App\Modules\Courses\Actions\PreviewPublishImpact;
 use App\Modules\Courses\Actions\PublishTreeNodes;
 use App\Modules\Courses\Actions\ReorderTreeNodes;
+use App\Modules\Courses\Http\Requests\PublishPreviewRequest;
 use App\Modules\Courses\Http\Requests\PublishTreeRequest;
 use App\Modules\Courses\Http\Requests\ReorderRequest;
 use App\Modules\Courses\Http\Requests\StoreSectionRequest;
@@ -48,35 +50,32 @@ class SectionController extends Controller
     /**
      * The AUTHOR's tree — drafts included.
      *
-     * Three eager loads, not one query per node: a Resource runs once per row,
-     * so a query inside one is an N+1 by construction. QueryBudgetTest holds
-     * this to a fixed count regardless of how big the tree gets.
+     * The eager loads and their column list live on the Resource, because the
+     * 409 body needs the identical tree and a second copy of that list would
+     * drift — see CourseTreeResource::for().
      */
     public function tree(Course $course): JsonResponse
     {
         $this->authorize('manageLessons', $course);
 
-        $course->load([
-            'sections' => fn ($query) => $query->orderBy('order'),
-            'sections.chapters' => fn ($query) => $query->orderBy('order'),
-            // A column list, because `content` is a longText and this resource
-            // emits no body at all — the editor asks for the one item it opens
-            // (see LessonController::show). Without it, drawing an outline shipped
-            // every article in the course into PHP memory, on the endpoint that is
-            // re-read after every authoring write.
-            //
-            // `QueryBudgetTest` cannot catch this: it counts queries, not bytes,
-            // and its fixture stores five-character bodies.
-            'sections.chapters.lessons' => fn ($query) => $query
-                ->select([
-                    'id', 'uuid', 'course_id', 'section_id', 'chapter_id', 'title', 'type',
-                    'status', 'order', 'duration_seconds', 'is_preview', 'is_free',
-                    'class_session_id', 'reference_id', 'exam_gate',
-                ])
-                ->orderBy('order'),
-        ]);
+        return response()->json(CourseTreeResource::for($course));
+    }
 
-        return response()->json(CourseTreeResource::make($course));
+    /**
+     * What this publish would do to the students already enrolled (`FR-049`).
+     *
+     * A read, so it sits outside `throttle:authoring` with the other reads. It
+     * answers with the item list it costed, and the client publishes THAT list —
+     * a preview computed over one batch and a publish sent with another is two
+     * different questions with one answer shown, which is precisely the drift
+     * `SC-018` forbids.
+     */
+    public function publishPreview(
+        PublishPreviewRequest $request,
+        Course $course,
+        PreviewPublishImpact $action,
+    ): JsonResponse {
+        return response()->json($action->handle($course, $request->items()));
     }
 
     /**

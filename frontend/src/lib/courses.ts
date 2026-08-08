@@ -202,8 +202,53 @@ export interface PublishItem {
   status: ContentStatus;
 }
 
+/**
+ * What a publish would do to the students already enrolled.
+ *
+ * `items` is the batch the server costed, and it is what must be published: ask
+ * for the impact of one set and then send another and the number on screen
+ * describes something that did not happen.
+ */
+export interface PublishPreview {
+  structure_version: number;
+  items: PublishItem[];
+  /** Items entering the progress denominator — and leaving it. */
+  added_items: number;
+  removed_items: number;
+  /** How many enrolled students' percentages move, and by how much at the edges. */
+  students_affected: number;
+  /** Zero or negative. */
+  largest_drop_pct: number;
+  /** Zero or positive. */
+  largest_gain_pct: number;
+  /** Items that will start being unlocked by something else. Empty unless sequential. */
+  resequenced: Array<{ uuid: string; title: string; unlocked_by: string | null }>;
+  warnings: Array<{ code: string; message: string }>;
+}
+
 export const courses = {
   tree: (courseUuid: string) => api.get<CourseTree>(`/courses/${courseUuid}/tree`),
+
+  /**
+   * The impact of a publish, before it happens.
+   *
+   * Called with no `items` it costs everything still in draft and returns that
+   * list — which is why the page no longer works out the draft set itself. Two
+   * implementations of "which nodes are drafts" would be one edit away from
+   * showing the impact of one batch and publishing another.
+   */
+  publishPreview: (courseUuid: string, items?: PublishItem[]) => {
+    const query = new URLSearchParams();
+
+    items?.forEach((item, index) => {
+      query.set(`items[${index}][uuid]`, item.uuid);
+      query.set(`items[${index}][status]`, item.status);
+    });
+
+    const suffix = query.toString() === "" ? "" : `?${query.toString()}`;
+
+    return api.get<PublishPreview>(`/courses/${courseUuid}/tree/publish-preview${suffix}`);
+  },
 
   lesson: (courseUuid: string, lessonUuid: string) =>
     api.get<LessonDetail>(`/courses/${courseUuid}/lessons/${lessonUuid}`),

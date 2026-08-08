@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Courses\Support;
 
+use App\Modules\Courses\Http\Resources\CourseTreeResource;
 use App\Modules\Courses\Models\Course;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
@@ -79,11 +80,21 @@ final class StructureVersion
         self::conflict($course->fresh() ?? $course);
     }
 
+    /**
+     * The refusal carries the tree AS IT NOW IS, not just the new number.
+     *
+     * The editor's map is what went stale, and a version alone only tells it so;
+     * it would then have to fetch the tree itself, and that second read is taken
+     * at a different moment than the one that refused it — so the map it rebuilds
+     * can already be stale again. Sending the tree with the refusal makes the
+     * answer and the state one response (contract §5, `FR-009`).
+     */
     private static function conflict(Course $course): never
     {
         throw new HttpResponseException(response()->json([
             'message' => 'تغيّرت الشجرة منذ فتحتها. أعد تحميلها قبل الحفظ حتى لا يُدهس تعديل غيرك.',
             'structure_version' => $course->structure_version,
+            'tree' => CourseTreeResource::for($course),
         ], 409));
     }
 }

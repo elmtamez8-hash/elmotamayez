@@ -111,3 +111,36 @@ it('parks above the highest live order, not at a fixed 1000', function (): void 
         // Densified from zero, so the group does not carry its history forward.
         ->and($chapter->lessons()->orderBy('order')->pluck('order')->all())->toBe([0, 1, 2]);
 });
+
+it('answers a stale write with 409 and the tree as it actually is', function (): void {
+    [$course, $chapter, $lessons] = concurrentTree();
+
+    $stale = (int) $course->fresh()?->structure_version;
+
+    // Somebody else lands a write first, so `$stale` is now spent.
+    app(ReorderTreeNodes::class)->handle(
+        $course,
+        $chapter->lessons()->getQuery(),
+        $lessons->pluck('uuid')->reverse()->values()->all(),
+        $stale,
+    );
+
+    $response = test()->putJson("/api/v1/courses/{$course->uuid}/sections/order", [
+        'structure_version' => $stale,
+        'order' => [$course->sections()->firstOrFail()->uuid],
+    ]);
+
+    // The version alone would only tell the editor it is out of date; it would
+    // then fetch the tree itself, at a moment later than the one that refused it,
+    // so the map it redraws can already be stale again. The refusal and the state
+    // are one response (contract §5).
+    $response->assertStatus(409)
+        ->assertJsonPath('structure_version', $stale + 1)
+        ->assertJsonPath('tree.uuid', $course->uuid)
+        ->assertJsonPath('tree.structure_version', $stale + 1);
+
+    // And it is the CURRENT tree, not the one the caller drew from: the first
+    // teacher's reversal is in it.
+    expect(collect($response->json('tree.sections.0.chapters.0.lessons'))->pluck('uuid')->all())
+        ->toBe($lessons->pluck('uuid')->reverse()->values()->all());
+});

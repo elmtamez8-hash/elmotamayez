@@ -270,15 +270,22 @@ description: "Task list for 016-course-authoring"
 **Independent Test**: نشر دفعة تعديلات على كورس عليه تسجيلات، ومقارنة ما عُرِض قبل النشر بما
 وقع فعلاً.
 
-- [ ] T090 [P] [US6] اكتب `backend/tests/Feature/Courses/PublishImpactTest.php`: المعروض يطابق الواقع بعد النشر ١٠٠٪ (`SC-018`)
-- [ ] T091 [P] [US6] اكتب `backend/tests/Feature/Courses/ConcurrentEditTest.php`: محرّران على الشجرة نفسها ⇒ **409** بالشجرة المحدَّثة في الردّ، بلا دهس صامت (`FR-009`)
-- [ ] T092 [US6] أنشئ `backend/app/Modules/Courses/Actions/PreviewPublishImpact.php` — **نفس حساب النشر** لا تقدير ثانٍ ينحرف عنه (`FR-049`)
-- [ ] T093 [US6] أضف `GET /courses/{course}/tree/publish-preview`
-- [ ] T094 [US6] افرض فحص `structure_version` في `backend/app/Modules/Courses/Actions/ReorderTreeNodes.php` و`PublishTreeNodes.php` ⇒ 409 بحالة الشجرة الجديدة (`FR-009` · [contracts/api.md](./contracts/api.md) §٥)
-- [ ] T095 [US6] أضف تحذيرات الحالات الخطرة في `backend/app/Modules/Courses/Actions/`: حذف درس تسجيل حصة (`FR-053`) · سحب كل عناصر كورس منشور إلى المسودّة (`FR-055`)
-- [ ] T096 [US6] امنع تعديل `class_session_id` من أي مسار تأليف — في `backend/app/Modules/Courses/Actions/UpdateLesson.php` و`Http/Requests/UpdateLessonRequest.php` (`FR-054`) — الكاتب يبقى مستمع 005 وحده
-- [ ] T097 [P] [US6] أنشئ `frontend/src/components/courses/PublishImpactDialog.tsx` — العناصر المضافة · الطلاب الذين تتغيّر نسبتهم · الدروس التي يتغيّر ترتيب فتحها
-- [ ] T098 [US6] عالج 409 في `frontend/src/lib/courses.ts` برسالة عربية عبر `userMessage()` وإعادة بناء الشجرة من الردّ — **يُمنع** خطأ خام على الشاشة
+- [X] T090 [P] [US6] اكتب `backend/tests/Feature/Courses/PublishImpactTest.php`: المعروض يطابق الواقع بعد النشر ١٠٠٪ (`SC-018`) — ١١ حالة، كلٌّ منها تقرأ المعاينة ثم تنشر `items` التي أعادتها ثم تقارن `progress_pct` **المخزَّنة** بما عُرِض
+- [X] T091 [P] [US6] محرّران على الشجرة نفسها ⇒ **409** بالشجرة المحدَّثة في الردّ، بلا دهس صامت (`FR-009`) — **أُضيفت إلى `StructureConcurrencyTest.php` بدل ملف ثانٍ**: نصف المهمة (منع الدهس) كان قد سبق تنفيذه في مراجعة الوكلاء (`StructureVersion::claim`) واختباره هناك، وملفّ `ConcurrentEditTest.php` كان سيكرّر تجهيزته وحالتَيه
+- [X] T092 [US6] أنشئ `backend/app/Modules/Courses/Actions/PreviewPublishImpact.php` — **نفس حساب النشر** لا تقدير ثانٍ ينحرف عنه (`FR-049`)
+- [X] T093 [US6] أضف `GET /courses/{course}/tree/publish-preview` (خارج `throttle:authoring` — قراءة)
+- [X] T094 [US6] افرض فحص `structure_version` في `ReorderTreeNodes` و`PublishTreeNodes` ⇒ 409 بحالة الشجرة الجديدة (`FR-009`) — الفرض نفسه سبق في المراجعة؛ **الجديد هنا أن الردّ صار يحمل `tree`** لا الرقم وحده: الرقم يقول «خريطتك قديمة» فيذهب المحرّر ليقرأ الشجرة في لحظة تالية لِلحظة الرفض، فقد تكون قديمة هي الأخرى
+- [X] T095 [US6] تحذيرات الحالات الخطرة: `recording_hidden` (`FR-053`) و`course_emptied` (`FR-055`) في حمولة المعاينة — لا رفض: المدرّس يملك إخفاء تسجيله وسحب كورسه، وما لا يملكه هو أن يكتشف المعنى بعد التنفيذ. ونصف `FR-053` الآخر — **الحذف** لا المرور بالمعاينة — جملةٌ خاصّة في تأكيد الحذف تقرأ `is_recording` من الشجرة
+- [X] T096 [US6] امنع تعديل `class_session_id` من أي مسار تأليف (`FR-054`) — **المسمّيان في المهمة غير موجودين**: لا `UpdateLesson.php` ولا كتابةً للعمود أصلاً، فالحقل غائب عن `UpdateLessonRequest::rules()` و`ManageLessons::update()` يبني مصفوفته حقلاً حقلاً. فالمُسلَّم هو الحارس: `RecordingAuthoringTest.php` — سطر واحد في أيٍّ منهما يفتح الباب ولا شيء آخر في المجموعة ينتبه. وفيه نصف `FR-052`: إعادة التسمية والنقل **تُقبَل** والتسجيل يبقى تسجيلاً
+- [X] T097 [P] [US6] أنشئ `frontend/src/components/courses/PublishImpactDialog.tsx` — العناصر الداخلة/الخارجة · الطلاب وأكبر تغيّر · ما يتغيّر ترتيب فتحه · التحذيرات
+- [X] T098 [US6] عالج 409 في صفحة المحتوى برسالة عربية عبر `errorMessage()` وإعادة بناء الشجرة **من جسم الردّ** لا بقراءة ثانية — **يُمنع** خطأ خام على الشاشة
+
+### مضافة أثناء التنفيذ
+
+- [X] T098أ [US6] **النسبة المخزَّنة كانت تكذب بعد كل نشر.** `progress_pct` يُكتب عند إتمام **درس** ولا شيء غيره، والنشر يُحرّك المقام للجميع دفعةً — فالانخفاض الذي يَعِد به `FR-051` كان يظهر للمدرّس في المعاينة ولا يصل شاشة طالب واحد. أُضيف `Courses\Events\CourseStructurePublished` و`Learning\Listeners\ResyncCourseProgressAfterPublish` (مطبور، `chunkById`، المقام يُحسب مرّة للكورس لا مرّة لكل طالب)
+- [X] T098ب [US6] **الطريق الخامس إلى عطل «إلى الأبد».** المسار نفسه يؤرشف: أرشِف العنصر الوحيد المتبقّي لطالب فيصير المتبقّي صفراً — والإتمام لا يُقرَّر إلا عند إتمام درس، ولم يبقَ درس يُتَمّ. فيجلس على ١٠٠٪ بلا `CourseCompleted` وبلا شهادة، دائماً. القرار كلّه انتقل إلى `Learning\Support\CourseProgress::sync()` ليصل إليه `MarkLessonComplete` والمستمع بالطريق نفسه، و`status` يُكتب في اتجاه واحد فقط — فـ`FR-050` شكلُ الدالة لا شرطٌ فيها
+- [X] T098ج [US6] **المعاينة كانت ستكذب على من أدّى الاختبار قبل وضعه.** `CompleteExamLessonsAlreadyAnswered` يكتب صفوفهم لحظة النشر، فقراءة `lesson_progress` كما هي تَعِد بانخفاضٍ لا يقع. المعاينة تسأل `ExamGateSatisfaction` نفسها، **مجموعةً لكل عنصر** لا سؤالاً لكل طالب
+- [X] T098د [US6] **`Courses` لا يستورد `Learning`.** الاعتماد بين الوحدتين باتجاه واحد، وحساب أثر النشر كان سيقلبه. فُصل نصفه إلى `Shared\Contracts\ProgressImpact` و`Learning\Support\EloquentProgressImpact` — بشكل `EnrollmentDirectory` نفسه. و`Lesson::progressEligible()` فُصلت عن `countableForProgress` ليُحاكى **شرط الحالة وحده**، وحمّال الشجرة انتقل إلى `CourseTreeResource::for()` لأن قائمة الأعمدة صار لها قارئان
 
 **Checkpoint**: التحرير على شجرة مأهولة صار مرئي الأثر ومحميّاً من الدهس.
 

@@ -36,6 +36,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // One item in full — the tree carries no bodies, only the outline.
     Route::get('/courses/{course}/lessons/{lesson}', [LessonController::class, 'show']);
 
+    // What publishing would do to the students already enrolled (FR-049). A read,
+    // so it sits here with the other reads rather than under the authoring
+    // limiter — and a separate route from the publish itself, because a "just
+    // tell me" flag on a write is one forgotten parameter away from doing it.
+    Route::get('/courses/{course}/tree/publish-preview', [SectionController::class, 'publishPreview']);
+
     // What a reference item may point at: this course's published exams and its
     // sessions. Read by the two pickers in the item editor.
     Route::get('/courses/{course}/reference-targets', [ReferenceTargetController::class, 'index']);

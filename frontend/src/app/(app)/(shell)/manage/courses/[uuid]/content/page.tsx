@@ -2,12 +2,13 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import { LessonEditor } from "@/components/courses/LessonEditor";
+import { PublishImpactDialog } from "@/components/courses/PublishImpactDialog";
 import { TreeOutline } from "@/components/courses/TreeOutline";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
-import { errorMessage } from "@/lib/api";
+import { ApiError, errorMessage } from "@/lib/api";
 import {
   courses,
   moveWithin,
@@ -18,6 +19,19 @@ import {
   type TreeChapter,
   type TreeSection,
 } from "@/lib/courses";
+
+/**
+ * A status change waiting on the teacher, once they have seen what it costs.
+ *
+ * `items` absent means "every draft in this course" — the server derives that
+ * set and returns it with the impact, so this screen never assembles its own.
+ */
+interface PendingPublish {
+  items?: PublishItem[];
+  title: string;
+  confirmLabel: string;
+  message: string;
+}
 
 /**
  * The course authoring surface.
@@ -46,6 +60,7 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  const [pending, setPending] = useState<PendingPublish | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -81,9 +96,21 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
         if (successMessage) setNotice(successMessage);
       } catch (err: unknown) {
         setError(errorMessage(err, "تعذّر حفظ التغيير. أعد المحاولة."));
-        // Re-read even on failure: a 409 means the tree moved under us, and the
-        // screen must show what is actually there before the next attempt.
-        await courses.tree(uuid).then(setTree).catch(() => undefined);
+
+        // A 409 answers with the tree as it actually is, so the map is redrawn
+        // from the refusal itself. Fetching it again instead would read a moment
+        // later than the one that refused us — and could already be stale.
+        const conflict = err instanceof ApiError && err.status === 409 ? err.body : null;
+        const fresh =
+          typeof conflict === "object" && conflict !== null && "tree" in conflict
+            ? ((conflict as { tree: CourseTree }).tree ?? null)
+            : null;
+
+        if (fresh !== null) {
+          setTree(fresh);
+        } else {
+          await courses.tree(uuid).then(setTree).catch(() => undefined);
+        }
       } finally {
         setBusy(false);
       }
@@ -100,26 +127,24 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
   if (tree === null) return <RowsSkeleton />;
 
   /**
-   * Every DRAFT node, in publish order: section, then its chapters, then their
-   * items — so nothing lands published-but-blocked by an ancestor.
+   * Nothing here changes state directly — every status change opens the impact
+   * dialog first (`FR-049`).
    *
-   * `=== "draft"`, not `!== "published"`. Archived means "I don't teach this any
-   * more"; sweeping it into a bulk publish would resurrect it into every
-   * student's denominator from a button labelled "نشر كل المسودّات". Restoring
-   * an archived node stays a deliberate, per-node act.
+   * That includes a single node. Publishing one item still adds it to thirty
+   * students' denominator and, in a sequential course, still puts it in front of
+   * whatever follows it; a confirmation for the batch and a silent toggle for one
+   * node would be drawing the line at the size of the click rather than at the
+   * size of the consequence.
+   *
+   * The set for "publish everything" is deliberately NOT computed here. The
+   * server derives it and returns it with the impact, so what is costed and what
+   * is sent cannot be two different lists.
    */
-  const drafts: PublishItem[] = tree.sections.flatMap((section) => [
-    ...(section.status === "draft" ? [{ uuid: section.uuid, status: "published" as const }] : []),
-    ...section.chapters.flatMap((chapter) => [
-      ...(chapter.status === "draft" ? [{ uuid: chapter.uuid, status: "published" as const }] : []),
-      ...chapter.lessons
-        .filter((lesson) => lesson.status === "draft")
-        .map((lesson) => ({ uuid: lesson.uuid, status: "published" as const })),
-    ]),
-  ]);
-
-  const publish = (items: PublishItem[], message: string) =>
-    void run(() => courses.publishTree(uuid, tree.structure_version, items), message);
+  const confirmPublish = (pending: PendingPublish) => {
+    setError("");
+    setNotice("");
+    setPending(pending);
+  };
 
   const addLesson = (chapter: TreeChapter) => {
     const title = window.prompt("عنوان العنصر الجديد");
@@ -152,17 +177,22 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
             One request for the whole batch, not one per node. A section and its
             items become visible together; publishing them in eleven separate
             calls shows a student eleven different half-built trees on the way.
+
+            No `items`: the server works out what is still a draft and answers
+            with that list, which is then what gets published.
           */}
-          {drafts.length > 0 && (
-            <Button
-              disabled={busy}
-              onClick={() =>
-                publish(drafts, `نُشر ${drafts.length} عنصراً — صارت مرئية لطلابك الآن.`)
-              }
-            >
-              نشر كل المسودّات ({drafts.length})
-            </Button>
-          )}
+          <Button
+            disabled={busy}
+            onClick={() =>
+              confirmPublish({
+                title: "نشر كل المسودّات",
+                confirmLabel: "انشر الآن",
+                message: "نُشرت المسودّات — صارت مرئية لطلابك الآن.",
+              })
+            }
+          >
+            نشر كل المسودّات
+          </Button>
 
           <Button href={`/manage/courses/${uuid}`} variant="secondary">
             العودة إلى الكورس
@@ -189,6 +219,26 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
         </Alert>
       )}
 
+      {pending !== null && (
+        <PublishImpactDialog
+          courseUuid={uuid}
+          items={pending.items}
+          title={pending.title}
+          confirmLabel={pending.confirmLabel}
+          onClose={() => setPending(null)}
+          onConfirm={(preview) => {
+            setPending(null);
+            // The version comes from the preview too: it is the one the impact
+            // was computed against, so a tree that moved in between 409s instead
+            // of publishing numbers nobody was shown.
+            void run(
+              () => courses.publishTree(uuid, preview.structure_version, preview.items),
+              pending.message,
+            );
+          }}
+        />
+      )}
+
       {editing !== null && (
         <LessonEditor
           courseUuid={uuid}
@@ -203,12 +253,16 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
         busy={busy}
         onEditLesson={setEditing}
         onSetStatus={(nodeUuid, status: ContentStatus, label) =>
-          publish(
-            [{ uuid: nodeUuid, status }],
-            status === "published"
-              ? `نُشر «${label}» — صار مرئياً لطلابك الآن.`
-              : `أُلغي نشر «${label}» — لم يعد يظهر لطلابك.`,
-          )
+          confirmPublish({
+            items: [{ uuid: nodeUuid, status }],
+            title:
+              status === "published" ? `نشر «${label}»` : `إخفاء «${label}» عن الطلاب`,
+            confirmLabel: status === "published" ? "انشر" : "نفّذ",
+            message:
+              status === "published"
+                ? `نُشر «${label}» — صار مرئياً لطلابك الآن.`
+                : `أُلغي نشر «${label}» — لم يعد يظهر لطلابك.`,
+          })
         }
         onAddSection={(title) =>
           void run(() => courses.createSection(uuid, title), "أُضيف القسم كمسودّة.")
@@ -228,7 +282,22 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
           // Confirmed here, and refused on the server when it would destroy
           // recorded progress or an uploaded file — the dialog is a courtesy,
           // the guard is the Action.
-          if (!window.confirm(`سيُحذف «${label}» وكل ما بداخله. متابعة؟`)) return;
+          //
+          // A recording gets its own sentence (FR-053). Deleting one is not
+          // "removing an item from a course": it is the only route anyone who
+          // attended that session has back to it, and the row is what carries the
+          // entitlement — nothing else in the product links them to it.
+          const recording = tree.sections.some((section) =>
+            section.chapters.some((chapter) =>
+              chapter.lessons.some((lesson) => lesson.uuid === nodeUuid && lesson.is_recording),
+            ),
+          );
+
+          const question = recording
+            ? `«${label}» تسجيل حصة، وهو الطريق الوحيد لمن حضرها إليه. حذفه يقطعه عنهم نهائياً. متابعة؟`
+            : `سيُحذف «${label}» وكل ما بداخله. متابعة؟`;
+
+          if (!window.confirm(question)) return;
 
           void run(() => {
             if (kind === "section") return courses.deleteSection(uuid, nodeUuid);

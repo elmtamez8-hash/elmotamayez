@@ -35,6 +35,38 @@ class CourseTreeResource extends JsonResource
      */
     private array $missingReferences = [];
 
+    /**
+     * The resource WITH the loads it needs — the only supported way to build it.
+     *
+     * A Resource runs once per row, so a relation it touches that was not eager
+     * loaded is an N+1 by construction. That was already true of `tree`; it became
+     * a drift risk the moment a second caller appeared, because the eager loads
+     * are not three lines of `with()` — they carry a column list that exists
+     * because `content` is a longText this response never emits, and a second
+     * caller copying two of the three would ship every article in the course into
+     * memory with nothing failing.
+     *
+     * The second caller is the 409 body: a stale-version write answers with the
+     * tree as it actually is, so the editor can redraw its map instead of guessing
+     * (contract §5).
+     */
+    public static function for(Course $course): self
+    {
+        $course->load([
+            'sections' => fn ($query) => $query->orderBy('order'),
+            'sections.chapters' => fn ($query) => $query->orderBy('order'),
+            'sections.chapters.lessons' => fn ($query) => $query
+                ->select([
+                    'id', 'uuid', 'course_id', 'section_id', 'chapter_id', 'title', 'type',
+                    'status', 'order', 'duration_seconds', 'is_preview', 'is_free',
+                    'class_session_id', 'reference_id', 'exam_gate',
+                ])
+                ->orderBy('order'),
+        ]);
+
+        return self::make($course);
+    }
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {

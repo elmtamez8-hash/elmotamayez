@@ -128,32 +128,18 @@ class Lesson extends BaseModel implements OrdersSiblings
     /**
      * The items a course's completion percentage is measured against.
      *
-     * Three exclusions, and the third is the one that matters most:
-     *
-     * 1. Anything not published — a draft is not work the student has failed to
-     *    do.
-     * 2. Types that cannot be completed (`note`, `link`) — nothing is asked of
-     *    the reader, so nothing can be marked done.
-     * 3. **Session recordings.** A recording is entitled by holding a SEAT in
-     *    that session, not by enrolment in the course (005 FR-030). Leaving it
-     *    in the denominator gives every enrolled student without a seat a lesson
-     *    they can never open: they never reach 100%, `shouldCompleteCourse()`
-     *    never fires, and their certificate never issues. Not eventually —
-     *    never. That is true of the code as shipped, and it is what this scope
-     *    exists to fix.
+     * Two halves. The status chain is asked here, because publishing changes it;
+     * everything else is asked by `progressEligible` below, because publishing
+     * cannot — which is what lets the impact preview simulate one and reuse the
+     * other rather than growing a second denominator (`FR-049` · `SC-018`).
      *
      * @param  Builder<Lesson>  $query
      * @return Builder<Lesson>
      */
     public function scopeCountableForProgress(Builder $query): Builder
     {
-        // And a fourth, arriving with the reference types: an exam item whose
-        // exam was deleted can never be completed by anyone. Left in the
-        // denominator it caps every student below 100% permanently — the same
-        // forever-bug as the recording, through a different door (FR-045).
-        ReferenceIntegrity::apply($query);
-
         return $query
+            ->progressEligible()
             ->where('lessons.status', ContentStatus::Published)
             // The chain, exactly as `visibleToStudents` requires it — and the
             // reason this line exists is that it did NOT. A lesson published
@@ -164,7 +150,35 @@ class Lesson extends BaseModel implements OrdersSiblings
             // student's ceiling sat below 100% and no certificate issued. A
             // fourth road into the same forever-bug, through the publish chain.
             ->whereHas('chapter', fn (Builder $q) => $q->where('status', ContentStatus::Published))
-            ->whereHas('section', fn (Builder $q) => $q->where('status', ContentStatus::Published))
+            ->whereHas('section', fn (Builder $q) => $q->where('status', ContentStatus::Published));
+    }
+
+    /**
+     * The half of `countableForProgress` that a publish cannot change.
+     *
+     * Split out for the impact preview (`FR-049`), which has to answer what the
+     * denominator WOULD be — so it must simulate the three status conditions and
+     * must not simulate anything else. Every condition here is a fact about the
+     * item itself that publishing leaves untouched:
+     *
+     * - a type nothing is asked of (`note`, `link`, an unheld `live_session`)
+     *   can never be completed, so it never counts;
+     * - a session recording is entitled by a SEAT, not by enrolment (005
+     *   `FR-030`), so counting it caps every seatless student below 100% forever;
+     * - an item whose exam was deleted points at nothing (`FR-045`), same road.
+     *
+     * Keeping them in a scope rather than restating them in the preview is the
+     * whole point: a preview that drew its own version of "countable" would be a
+     * second denominator, and `SC-018` is the promise that there is only one.
+     *
+     * @param  Builder<Lesson>  $query
+     * @return Builder<Lesson>
+     */
+    public function scopeProgressEligible(Builder $query): Builder
+    {
+        ReferenceIntegrity::apply($query);
+
+        return $query
             ->whereIn('lessons.type', LessonTypeRegistry::completableValues())
             ->whereNull('lessons.class_session_id');
     }
