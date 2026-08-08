@@ -105,6 +105,27 @@ class Lesson extends BaseModel implements OrdersSiblings
     }
 
     /**
+     * The same three conditions as `visibleToStudents`, asked of THIS row.
+     *
+     * A scope answers "which rows", and two readers need "does this one" —
+     * `Enrollment::accessTo` and `IssuePlaybackGrant::mayWatch`, the two places
+     * that decide what one student may open. Both had no status check at all, so a
+     * draft item's body and its video were served to anyone enrolled; asking the
+     * scope again per row would be a second query for a fact already loaded.
+     *
+     * Reads the parents through `loadMissing`, so a caller that already eager
+     * loaded them — both do, for the ordering — pays nothing.
+     */
+    public function isVisibleChain(): bool
+    {
+        $this->loadMissing(['section', 'chapter']);
+
+        return $this->status->isVisibleToStudents()
+            && $this->chapter?->status->isVisibleToStudents() === true
+            && $this->section?->status->isVisibleToStudents() === true;
+    }
+
+    /**
      * The items a course's completion percentage is measured against.
      *
      * Three exclusions, and the third is the one that matters most:

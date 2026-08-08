@@ -8,6 +8,7 @@ use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Section;
+use App\Modules\Courses\Support\SiblingOrderRetry;
 use App\Modules\Courses\Support\TreeDeletionGuard;
 use App\Shared\Actions\Action;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +28,7 @@ class ManageChapters extends Action
 
     public function create(Course $course, Section $section, string $title): Chapter
     {
-        return DB::transaction(function () use ($course, $section, $title): Chapter {
+        return SiblingOrderRetry::around(fn (): Chapter => DB::transaction(function () use ($course, $section, $title): Chapter {
             $chapter = new Chapter([
                 'workspace_id' => $course->workspace_id,
                 'course_id' => $course->getKey(),
@@ -44,7 +45,7 @@ class ManageChapters extends Action
             $course->increment('structure_version');
 
             return $chapter;
-        });
+        }));
     }
 
     public function rename(Chapter $chapter, string $title): Chapter

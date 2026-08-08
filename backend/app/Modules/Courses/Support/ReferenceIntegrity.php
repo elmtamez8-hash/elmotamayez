@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Courses\Support;
 
-use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Lesson;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -43,6 +42,27 @@ final class ReferenceIntegrity
     ];
 
     /**
+     * Extra conditions the target row must satisfy to count as present.
+     *
+     * An exam that has been pulled back to draft is, from the student's side, the
+     * same absence as an exam that has been deleted: `AttemptController::start`
+     * refuses them 422 and `ExamPolicy::view` refuses them 403, so there is
+     * nothing at the end of the item. Treating it as missing rather than as
+     * present-but-unusable is what stops it becoming a permanent lock — in a
+     * sequential course the gate would otherwise hold everything after it shut,
+     * while telling the student to go and sit an exam they cannot open, and cap
+     * their percentage below 100 for good.
+     *
+     * A session has no equivalent: a cancelled one still happened as a fact in
+     * the timetable, and `ReferenceSummary` gives it a state to say so.
+     *
+     * @var array<string, array<string, string>>
+     */
+    private const REQUIRED = [
+        'exams' => ['status' => 'published'],
+    ];
+
+    /**
      * Drops items whose target is gone — and items of a reference type that
      * never got one, which is the same thing seen a moment earlier.
      *
@@ -65,18 +85,16 @@ final class ReferenceIntegrity
                             $exists->select(1)
                                 ->from($table)
                                 ->whereColumn($table.'.id', 'lessons.reference_id');
+
+                            foreach (self::REQUIRED[$table] ?? [] as $column => $value) {
+                                $exists->where($table.'.'.$column, $value);
+                            }
                         });
                 });
             }
         });
 
         return $query;
-    }
-
-    /** The types whose `reference_id` must resolve to a live row. */
-    public static function isReference(LessonType $type): bool
-    {
-        return array_key_exists($type->value, self::TARGETS);
     }
 
     /**
@@ -113,9 +131,22 @@ final class ReferenceIntegrity
                 $items,
             )));
 
+            $table = self::TARGETS[$type];
+
             $live = $ids === []
                 ? []
-                : DB::table(self::TARGETS[$type])->whereIn('id', $ids)->pluck('id')->all();
+                : DB::table($table)
+                    ->whereIn('id', $ids)
+                    // The same extra conditions `apply()` uses, so the teacher's
+                    // "broken" marker and the student's filter agree about what
+                    // missing means. Two definitions here would show the author a
+                    // healthy item their students cannot see.
+                    ->where(function (QueryBuilder $query) use ($table): void {
+                        foreach (self::REQUIRED[$table] ?? [] as $column => $value) {
+                            $query->where($column, $value);
+                        }
+                    })
+                    ->pluck('id')->all();
 
             foreach ($items as $lesson) {
                 if ($lesson->reference_id === null || ! in_array($lesson->reference_id, $live, true)) {

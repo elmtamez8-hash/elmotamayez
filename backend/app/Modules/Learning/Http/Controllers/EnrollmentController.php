@@ -15,6 +15,7 @@ use App\Modules\Learning\Actions\EnrollStudent;
 use App\Modules\Learning\Actions\MarkLessonComplete;
 use App\Modules\Learning\Http\Resources\EnrollmentResource;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\Learning\Support\LessonAccess;
 use App\Modules\Media\Models\MediaAsset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -100,6 +101,17 @@ class EnrollmentController extends Controller
     {
         $lesson->load(['section', 'chapter', 'attachments']);
         $access = $enrollment->accessTo($lesson);
+
+        // A draft or archived item answers 404, not a payload with a reason.
+        //
+        // The other refusals — sequence, exam gate — describe an item the student
+        // will reach, so naming it is the help FR-043 asks for. An unfinished one
+        // is different in kind: FR-025 allows zero draft fields in a student
+        // payload, and even the title is a field. That a particular lesson exists
+        // at this uuid is itself information about work the teacher has not
+        // published.
+        abort_if($access->code === LessonAccess::NOT_VISIBLE, 404, 'لا يوجد درس بهذا المعرّف.');
+
         $canAccess = $access->allowed;
         $type = LessonType::from($lesson->type);
 

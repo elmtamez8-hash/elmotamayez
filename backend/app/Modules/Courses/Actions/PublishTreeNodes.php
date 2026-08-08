@@ -13,6 +13,7 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
 use App\Modules\Courses\Support\CourseDuration;
 use App\Modules\Courses\Support\PublishReadiness;
+use App\Modules\Courses\Support\StructureVersion;
 use App\Shared\Actions\Action;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -34,7 +35,7 @@ class PublishTreeNodes extends Action
     /**
      * @param  list<array{uuid: string, status: string}>  $items
      */
-    public function handle(Course $course, array $items): void
+    public function handle(Course $course, array $items, int $submittedVersion): void
     {
         $nodes = $this->resolve($course, $items);
 
@@ -44,12 +45,16 @@ class PublishTreeNodes extends Action
             }
         }
 
-        DB::transaction(function () use ($course, $nodes): void {
+        DB::transaction(function () use ($course, $nodes, $submittedVersion): void {
+            // Claimed inside the transaction, and the claim IS the bump. The
+            // FormRequest's earlier comparison is advisory: it reads a loaded model,
+            // so two concurrent publishes both pass it. A conditional UPDATE is
+            // what makes one of them 409 — see StructureVersion.
+            StructureVersion::claim($course, $submittedVersion);
+
             foreach ($nodes as [$node, $status]) {
                 $node->forceFill(['status' => $status])->save();
             }
-
-            $course->increment('structure_version');
 
             // Publishing changes the published set, so a recompute that only ran
             // on create/update/delete would be stale from the first publish on.
@@ -80,6 +85,15 @@ class PublishTreeNodes extends Action
      */
     public function resolve(Course $course, array $items): array
     {
+        // No column list here, deliberately — and it was tried.
+        //
+        // `PublishReadiness::satisfies` decides whether an article may be published
+        // by reading `content` and trimming it, so a select that omitted the body
+        // would report every article as empty and refuse to publish a finished one.
+        // The heavy read is the price of checking that the content exists before
+        // opening it to students, which is this Action's whole job (FR-022). The
+        // tree READ is where a column list is free, because nothing there emits a
+        // body — see SectionController::tree.
         $sections = Section::query()->where('course_id', $course->getKey())->get()->keyBy('uuid');
         $chapters = Chapter::query()->where('course_id', $course->getKey())->get()->keyBy('uuid');
         $lessons = Lesson::query()->where('course_id', $course->getKey())->get()->keyBy('uuid');

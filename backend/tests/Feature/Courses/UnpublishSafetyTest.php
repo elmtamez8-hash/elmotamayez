@@ -67,7 +67,12 @@ it('keeps recorded progress when an item is withdrawn to draft', function (): vo
         'workspace_id' => $workspace->id,
         'enrollment_id' => $enrollment->id,
         'lesson_id' => $lessons[0]->id,
-        'is_completed' => true,
+        // `status`, not `is_completed` — which is neither a column nor fillable, so
+        // the row this fixture built had `status = null`. It still proved the row
+        // survived, but not the thing the docblock claims: that the record of a
+        // COMPLETED lesson survives. A fixture that silently drops the field under
+        // test is a test agreeing with itself.
+        'status' => 'completed',
         'completed_at' => now(),
     ]);
 
@@ -78,9 +83,12 @@ it('keeps recorded progress when an item is withdrawn to draft', function (): vo
         'items' => [['uuid' => $lessons[0]->uuid, 'status' => 'draft']],
     ])->assertOk();
 
-    // The row survives. It is the record of work someone did, and unpublishing
-    // is a statement about the course, not about them.
-    expect(LessonProgress::query()->where('lesson_id', $lessons[0]->id)->exists())->toBeTrue()
+    // The row survives, AND it still says completed. It is the record of work
+    // someone did, and unpublishing is a statement about the course, not about
+    // them. Asserting existence alone passed while the fixture stored no status
+    // at all.
+    expect(LessonProgress::query()->where('lesson_id', $lessons[0]->id)->where('status', 'completed')->exists())
+        ->toBeTrue()
         ->and($lessons[0]->refresh()->status)->toBe(ContentStatus::Draft);
 });
 

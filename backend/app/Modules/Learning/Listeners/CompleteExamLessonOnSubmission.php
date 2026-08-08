@@ -12,6 +12,9 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Learning\Actions\MarkLessonComplete;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Support\ExamGateSatisfaction;
+use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Ticks off the exam item when its exam is sat.
@@ -33,9 +36,20 @@ use App\Modules\Learning\Support\ExamGateSatisfaction;
  *
  * One exam may be placed more than once in a course; each placement is its own
  * item with its own gate, so all of them are answered.
+ *
+ * **Queued, and after the commit.** `GradeAttempt` fires `ExamSubmitted` from
+ * inside its own transaction, so running here synchronously tied the student's
+ * GRADED ATTEMPT to progress bookkeeping: any throw in this listener — a history
+ * insert failing, a deadlock on `enrollments` — rolled the submission back. They
+ * sat the exam, it was marked, and they got a 500 with nothing stored and possibly
+ * an attempt spent. Bookkeeping must not be able to destroy the thing it is
+ * bookkeeping for. `ShouldHandleEventsAfterCommit` also means the job never sees a
+ * transaction that was rolled back after it was dispatched.
  */
-class CompleteExamLessonOnSubmission
+class CompleteExamLessonOnSubmission implements ShouldHandleEventsAfterCommit, ShouldQueue
 {
+    use InteractsWithQueue;
+
     public function __construct(
         private readonly MarkLessonComplete $markComplete,
     ) {}
@@ -45,9 +59,14 @@ class CompleteExamLessonOnSubmission
         $attempt = $event->attempt;
         $enrollment = $this->enrollmentFor($attempt->enrollment_id, $attempt->exam_id, (int) $attempt->student_user_id);
 
-        if ($enrollment === null) {
-            // An exam sat outside any enrolment — a standalone quiz, or a
-            // teacher previewing their own. There is no progress to move.
+        if ($enrollment === null || ! $enrollment->isActive()) {
+            // An exam sat outside any enrolment — a standalone quiz, or a teacher
+            // previewing their own. There is no progress to move.
+            //
+            // And an expired or cancelled enrolment is refused for the same
+            // reason the controller refuses it: completing a lesson there would
+            // tip the enrolment to `completed` and issue a certificate to someone
+            // the API will not let finish anything.
             return;
         }
 

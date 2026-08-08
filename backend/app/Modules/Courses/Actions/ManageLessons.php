@@ -15,6 +15,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\CourseDuration;
 use App\Modules\Courses\Support\LessonTypeRegistry;
+use App\Modules\Courses\Support\SiblingOrderRetry;
 use App\Modules\Courses\Support\TreeDeletionGuard;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Media\Actions\DeleteMediaAsset;
@@ -40,9 +41,11 @@ class ManageLessons extends Action
 
     public function create(Course $course, Chapter $chapter, LessonData $data): Lesson
     {
-        $this->assertImplemented($data->type);
+        LessonTypeRegistry::assertImplemented($data->type);
 
-        return DB::transaction(function () use ($course, $chapter, $data): Lesson {
+        // Retried on a duplicate position: the order is allocated by reading
+        // `max('order')`, so two creates into one chapter can pick the same number.
+        return SiblingOrderRetry::around(fn (): Lesson => DB::transaction(function () use ($course, $chapter, $data): Lesson {
             $lesson = new Lesson([
                 'workspace_id' => $course->workspace_id,
                 'course_id' => $course->getKey(),
@@ -67,8 +70,10 @@ class ManageLessons extends Action
                     ? ($data->examGate ?? ExamGate::Attempt)
                     : null,
                 'duration_seconds' => $data->durationSeconds ?? 0,
-                'is_preview' => $data->isPreview,
-                'is_free' => $data->isFree,
+                // On create, absent means off — a new item is not a free preview
+                // unless it was asked for.
+                'is_preview' => $data->isPreview ?? false,
+                'is_free' => $data->isFree ?? false,
             ]);
             $lesson->save();
 
@@ -76,7 +81,7 @@ class ManageLessons extends Action
             CourseDuration::recompute($course);
 
             return $lesson;
-        });
+        }));
     }
 
     public function update(Lesson $lesson, LessonData $data, ?Chapter $chapter = null): Lesson
@@ -85,13 +90,36 @@ class ManageLessons extends Action
             'title' => $data->title,
             'content' => $data->content,
             'external_url' => $data->externalUrl,
-            'is_preview' => $data->isPreview,
-            'is_free' => $data->isFree,
         ];
+
+        // Written only when mentioned. The merge semantics live HERE and not in
+        // the controller's carry-forward list, which is where they drifted from
+        // the DTO's shape in the first place: that list covered five fields and
+        // these two were not among them.
+        if ($data->isPreview !== null) {
+            $attributes['is_preview'] = $data->isPreview;
+        }
+
+        if ($data->isFree !== null) {
+            $attributes['is_free'] = $data->isFree;
+        }
+
+        $moved = $chapter !== null && $chapter->getKey() !== $lesson->chapter_id;
 
         if ($chapter !== null) {
             $attributes['section_id'] = $chapter->section_id;
             $attributes['chapter_id'] = $chapter->getKey();
+        }
+
+        if ($moved) {
+            // A move has to be given a position in its NEW group. `HasSiblingOrder`
+            // hooks `creating` only, so the row arrived carrying the order it held
+            // in the old chapter — which `unique(chapter_id, order)` rejects the
+            // moment the target has a row there (a 500 with a raw SQL message), and
+            // which leaves a sparse group when it happens not to.
+            $attributes['order'] = ((int) Lesson::query()
+                ->where('chapter_id', $chapter->getKey())
+                ->max('order')) + 1;
         }
 
         $type = $this->typeOf($lesson);
@@ -114,11 +142,24 @@ class ManageLessons extends Action
             $attributes['duration_seconds'] = $data->durationSeconds;
         }
 
-        $lesson->update($attributes);
+        // One transaction, like every other verb in this class. Two writes with no
+        // transaction between them — the update and the duration recompute — could
+        // leave a course whose stated length disagrees with its items.
+        DB::transaction(function () use ($lesson, $attributes, $moved): void {
+            $lesson->update($attributes);
 
-        if ($lesson->course !== null) {
-            CourseDuration::recompute($lesson->course);
-        }
+            // A move is a STRUCTURAL write, so it raises the token a concurrent
+            // editor's stale layout is detected against (FR-009). Without it their
+            // next reorder fails `assertCoversExactly` instead — a 422 about a list
+            // not matching a level, which sends them looking for a client bug.
+            if ($moved) {
+                $lesson->course?->increment('structure_version');
+            }
+
+            if ($lesson->course !== null) {
+                CourseDuration::recompute($lesson->course);
+            }
+        });
 
         // A published exam item whose exam or gate just changed is asking
         // something different, and students may already have answered the new
@@ -196,6 +237,18 @@ class ManageLessons extends Action
                 throw new DomainException('الاختبار المحدَّد غير موجود في هذا الكورس.');
             }
 
+            // Published only (FR-040) — asked HERE and not only where the picker
+            // reads its list. A draft exam refuses the student at
+            // `AttemptController::start` and at `ExamPolicy::view`, so an item
+            // placing one is a door that opens onto nothing: in a sequential
+            // course, a permanent lock behind a gate whose own message tells the
+            // student to go and sit the exam they cannot reach.
+            if ($exam->status !== 'published') {
+                throw new DomainException(
+                    'انشر الاختبار أولاً. عنصر يشير إلى اختبار مسودّة يقف بطلابك أمام باب لا يُفتح.',
+                );
+            }
+
             return (int) $exam->getKey();
         }
 
@@ -213,22 +266,5 @@ class ManageLessons extends Action
         }
 
         return null;
-    }
-
-    /**
-     * Refuses a type that is declared but not built.
-     *
-     * Named rather than generic: "assignments arrive with the question bank" is
-     * an answer; "invalid type" sends the teacher to look for their own mistake.
-     */
-    private function assertImplemented(LessonType $type): void
-    {
-        if (LessonTypeRegistry::isImplemented($type)) {
-            return;
-        }
-
-        throw new DomainException(
-            'الواجبات لم تُفعَّل بعد — تصل مع بنك الأسئلة. اختر نوعاً آخر لهذا العنصر.',
-        );
     }
 }

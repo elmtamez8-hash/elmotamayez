@@ -4,7 +4,6 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 import { api } from "@/lib/api";
-import { lessonTypeLabel } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";

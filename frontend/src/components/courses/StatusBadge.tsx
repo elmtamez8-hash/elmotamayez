@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/Badge";
 import type { ContentStatus } from "@/lib/courses";
+import { statusLabel, statusTone } from "@/lib/labels";
 
 /**
  * A node's state, and the reason it is hidden when its own state is not it.
@@ -26,8 +27,7 @@ export function StatusBadge({
     );
   }
 
-  if (status === "published") return <Badge tone="success">منشور</Badge>;
-  if (status === "archived") return <Badge tone="neutral">مؤرشف</Badge>;
-
-  return <Badge tone="neutral">مسودّة</Badge>;
+  // Through labels.ts, which already held these exact three strings — a second
+  // copy here is a second place for "مسودّة" to become "مسوّدة".
+  return <Badge tone={statusTone(status)}>{statusLabel(status)}</Badge>;
 }

@@ -6,6 +6,7 @@ namespace App\Modules\Courses\Support;
 
 use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Media\Enums\MediaKind;
+use DomainException;
 
 /**
  * The single source of truth for what each content type IS.
@@ -147,6 +148,29 @@ final class LessonTypeRegistry
     public static function isImplemented(LessonType $type): bool
     {
         return self::MAP[$type->value]['implemented'];
+    }
+
+    /**
+     * Refuses a declared-but-unbuilt type, by name.
+     *
+     * Here rather than in each Action: `ManageLessons::create` and
+     * `ChangeLessonType::handle` are two doors onto the same decision and each held
+     * a byte-identical copy of the sentence. The registry owns `implemented`, so it
+     * owns what to say when the answer is false — "assignments arrive with the
+     * question bank" is an answer; "invalid type" sends the teacher to look for
+     * their own mistake.
+     *
+     * @throws DomainException
+     */
+    public static function assertImplemented(LessonType $type): void
+    {
+        if (self::isImplemented($type)) {
+            return;
+        }
+
+        throw new DomainException(
+            'الواجبات لم تُفعَّل بعد — تصل مع بنك الأسئلة. اختر نوعاً آخر لهذا العنصر.',
+        );
     }
 
     /**

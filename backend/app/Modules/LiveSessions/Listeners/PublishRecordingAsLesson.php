@@ -70,7 +70,7 @@ class PublishRecordingAsLesson
             // "الحصة الثالثة: المشتقات" to "تسجيل: …" behind their back is a
             // background job editing their course.
             'title' => $lesson->exists ? $lesson->title : 'تسجيل: '.$session->title,
-            'type' => 'video',
+            'type' => LessonType::Video->value,
             // The item stops being a placeholder for a session and becomes the
             // recording itself, so what it pointed at is no longer true. Left
             // set, the reference-integrity filter would keep judging this video
@@ -97,6 +97,17 @@ class PublishRecordingAsLesson
             'owner_type' => Lesson::class,
             'owner_id' => $lesson->getKey(),
         ])->save();
+
+        // The machine writer raises the token too.
+        //
+        // Every Courses Action bumps `structure_version` so a concurrent editor's
+        // stale layout is detectable (FR-009), and this listener creates a lesson —
+        // or converts the teacher's `live_session` item into a video and publishes
+        // it — without touching it. So a teacher looking at version 12 while a
+        // recording took over the item on their screen could submit a reorder at
+        // version 12 and have it accepted: the silent overwrite the guard exists to
+        // prevent, against the one writer they cannot see coming.
+        $lesson->course?->increment('structure_version');
 
         $session->forceFill(['recording_status' => 'published'])->save();
     }

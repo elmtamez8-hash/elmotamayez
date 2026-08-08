@@ -101,11 +101,30 @@ export const TONE_CLASSES: Record<StatusTone, string> = {
   info: "bg-primary-soft text-primary-ink",
 };
 
+/**
+ * A fallback for a payload that carries no `type_label`, and nothing more.
+ *
+ * The API sends `type_label` on every lesson it serialises, straight from
+ * `LessonType::label()` — prefer that. This map existed before it did and had
+ * already drifted: it said "مقال" and "ملف PDF" where the enum says "مقالة" and
+ * "مستند PDF", and it covered four of the ten types. So one teacher saw two names
+ * for one type on two panels of the same screen.
+ *
+ * Aligned to the enum and completed, but it stays a fallback: a second list of
+ * these strings in the client is a second thing to keep in step, and the one that
+ * is not shipped with the value it labels is the one that drifts.
+ */
 const LESSON_TYPE_LABELS: Record<string, string> = {
   video: "فيديو",
-  pdf: "ملف PDF",
-  article: "مقال",
+  audio: "صوت",
+  pdf: "مستند PDF",
   file: "ملف",
+  article: "مقالة",
+  note: "تنويه",
+  link: "رابط خارجي",
+  exam: "اختبار",
+  assignment: "واجب",
+  live_session: "حصة مباشرة",
 };
 
 export function lessonTypeLabel(type: string): string {

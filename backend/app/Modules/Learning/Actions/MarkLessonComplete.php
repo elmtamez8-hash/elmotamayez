@@ -47,9 +47,19 @@ class MarkLessonComplete extends Action
                 'payload' => ['completed_at' => now()->toIso8601String()],
             ]);
 
-            $this->recomputeProgress($enrollment);
+            // Counted ONCE and used twice. `recomputeProgress()` needed both
+            // numbers and `shouldCompleteCourse()` then asked for the same two
+            // again — four COUNTs, one of them carrying a subquery, where two do.
+            // On every lesson completion in the product, and multiplied by every
+            // enrolment when the backfill listener runs.
+            $total = $this->countableLessons($enrollment);
+            $completed = $this->countableCompleted($enrollment);
 
-            $shouldComplete = $this->shouldCompleteCourse($enrollment);
+            $enrollment->update([
+                'progress_pct' => $total > 0 ? min(100, (int) round(($completed / $total) * 100)) : 0,
+            ]);
+
+            $shouldComplete = $total > 0 && $completed >= $total;
             if ($shouldComplete && ! $enrollment->isCompleted()) {
                 $enrollment->update([
                     'status' => 'completed',
@@ -112,26 +122,5 @@ class MarkLessonComplete extends Action
                 $enrollment->course->lessons()->countableForProgress()->select('lessons.id'),
             )
             ->count();
-    }
-
-    private function recomputeProgress(Enrollment $enrollment): void
-    {
-        $totalLessons = $this->countableLessons($enrollment);
-        $completedLessons = $this->countableCompleted($enrollment);
-
-        $pct = $totalLessons > 0 ? (int) round(($completedLessons / $totalLessons) * 100) : 0;
-
-        $enrollment->update(['progress_pct' => min(100, $pct)]);
-    }
-
-    private function shouldCompleteCourse(Enrollment $enrollment): bool
-    {
-        $totalLessons = $this->countableLessons($enrollment);
-
-        if ($totalLessons === 0) {
-            return false;
-        }
-
-        return $this->countableCompleted($enrollment) >= $totalLessons;
     }
 }

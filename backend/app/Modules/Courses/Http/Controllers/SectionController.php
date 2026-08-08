@@ -59,7 +59,21 @@ class SectionController extends Controller
         $course->load([
             'sections' => fn ($query) => $query->orderBy('order'),
             'sections.chapters' => fn ($query) => $query->orderBy('order'),
-            'sections.chapters.lessons' => fn ($query) => $query->orderBy('order'),
+            // A column list, because `content` is a longText and this resource
+            // emits no body at all — the editor asks for the one item it opens
+            // (see LessonController::show). Without it, drawing an outline shipped
+            // every article in the course into PHP memory, on the endpoint that is
+            // re-read after every authoring write.
+            //
+            // `QueryBudgetTest` cannot catch this: it counts queries, not bytes,
+            // and its fixture stores five-character bodies.
+            'sections.chapters.lessons' => fn ($query) => $query
+                ->select([
+                    'id', 'uuid', 'course_id', 'section_id', 'chapter_id', 'title', 'type',
+                    'status', 'order', 'duration_seconds', 'is_preview', 'is_free',
+                    'class_session_id', 'reference_id', 'exam_gate',
+                ])
+                ->orderBy('order'),
         ]);
 
         return response()->json(CourseTreeResource::make($course));
@@ -76,7 +90,7 @@ class SectionController extends Controller
     {
         $request->assertVersionMatches($course);
 
-        $action->handle($course, $request->items());
+        $action->handle($course, $request->items(), $request->integer('structure_version'));
 
         return $this->tree($course->refresh());
     }
@@ -116,7 +130,7 @@ class SectionController extends Controller
         $this->authorize('manageLessons', $course);
         $request->assertVersionMatches($course);
 
-        $action->handle($course, $course->sections()->getQuery(), $request->orderedUuids());
+        $action->handle($course, $course->sections()->getQuery(), $request->orderedUuids(), $request->integer('structure_version'));
 
         return response()->json(['structure_version' => $course->refresh()->structure_version]);
     }

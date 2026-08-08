@@ -99,8 +99,11 @@ export function MarkdownField({
             className="min-h-32 rounded-xl border border-line bg-surface-raised p-3 text-sm text-ink"
             // Produced by the server from the Markdown source with raw HTML
             // stripped, not escaped — the same string the student is served.
-            // MarkdownSanitisationTest fails the build if a script, an
-            // `onerror` attribute or a `javascript:` href survives that path.
+            // `tests/Feature/Courses/CourseContentTest.php` fails the build if a
+            // `<script` or a `javascript:` href survives that path. (It named
+            // MarkdownSanitisationTest, which does not exist, and claimed an
+            // `onerror` case it did not cover — the assertion is now in the file
+            // that actually holds it.)
             dangerouslySetInnerHTML={{ __html: savedHtml }}
           />
           <p className="text-xs text-ink-muted">

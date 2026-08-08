@@ -11,6 +11,9 @@ use App\Modules\Courses\Events\ExamItemOpened;
 use App\Modules\Learning\Actions\MarkLessonComplete;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Support\ExamGateSatisfaction;
+use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Credits the work students had already done before the item existed.
@@ -28,9 +31,20 @@ use App\Modules\Learning\Support\ExamGateSatisfaction;
  *
  * Idempotent through `MarkLessonComplete`, which returns early on a row that is
  * already complete: a teacher toggling a gate back and forth changes nothing.
+ *
+ * **Queued, and it has to be.** This runs when the teacher publishes an exam item,
+ * and the set it walks is every student of the course who already sat that exam —
+ * a number this code does not get to assume. Each one costs `MarkLessonComplete`,
+ * which is a transaction plus a progress recompute; at 5,000 students that is tens
+ * of thousands of statements. Synchronously it blocked the publish request until
+ * the gateway killed it — and by then `PublishTreeNodes` had already committed, so
+ * the item was live with an arbitrary prefix of students credited and the rest
+ * capped below 100% for good. The failure mode was worse than the latency.
  */
-class CompleteExamLessonsAlreadyAnswered
+class CompleteExamLessonsAlreadyAnswered implements ShouldHandleEventsAfterCommit, ShouldQueue
 {
+    use InteractsWithQueue;
+
     public function __construct(
         private readonly MarkLessonComplete $markComplete,
     ) {}
@@ -55,13 +69,32 @@ class CompleteExamLessonsAlreadyAnswered
             return;
         }
 
-        $enrollments = Enrollment::query()
+        Enrollment::query()
             ->where('course_id', $item->course_id)
             ->whereIn('student_user_id', $studentIds)
-            ->get();
-
-        foreach ($enrollments as $enrollment) {
-            $this->markComplete->handle($enrollment, (int) $item->getKey());
-        }
+            // Active only — the condition `accessTo` applies and the controller
+            // path returns 422 over. Without it this credited an expired or
+            // cancelled enrolment, `MarkLessonComplete` flipped it to `completed`,
+            // `CourseCompleted` fired and a certificate issued to someone the API
+            // refuses to let finish a single lesson.
+            ->where('status', 'active')
+            // Nobody has a completed row for this item yet, so the ones that do
+            // are already done — and `MarkLessonComplete` costs a transaction each
+            // to discover that. Filtering here makes a re-publish nearly free.
+            ->whereDoesntHave('progress', fn ($query) => $query
+                ->where('lesson_id', $item->getKey())
+                ->where('status', 'completed'))
+            // `with('course')`, because `MarkLessonComplete` opens with
+            // `loadMissing('course')` — without it that is one SELECT of the SAME
+            // course row per student.
+            ->with('course')
+            // Chunked by key: the set is every student of a course, which is not a
+            // number this code gets to assume. `get()` held all of them in memory
+            // at once.
+            ->chunkById(200, function ($enrollments) use ($item): void {
+                foreach ($enrollments as $enrollment) {
+                    $this->markComplete->handle($enrollment, (int) $item->getKey());
+                }
+            });
     }
 }

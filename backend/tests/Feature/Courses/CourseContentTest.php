@@ -245,11 +245,18 @@ describe('course lessons', function (): void {
             'chapter_uuid' => $chapter->uuid,
             'title' => 'خبيث',
             'type' => 'article',
-            'content' => "مرحباً <script>alert(1)</script>\n\n[اضغط](javascript:alert(2))",
+            // The third case is `onerror`: an event handler on a tag that is
+            // otherwise harmless. `html_input: 'strip'` removes the whole tag, so
+            // the attribute cannot survive — but a future reviewer swapping the
+            // renderer for one that escapes instead of strips would keep the
+            // handler and the `<script`/`javascript:` cases alone would still pass.
+            'content' => "مرحباً <script>alert(1)</script>\n\n[اضغط](javascript:alert(2))"
+                ."\n\n<img src=x onerror=alert(3)>",
         ])->assertCreated()->json();
 
         expect($lesson['content_html'])->not->toContain('<script')
-            ->not->toContain('javascript:');
+            ->not->toContain('javascript:')
+            ->not->toContain('onerror');
     });
 
     it('refuses a lesson type that is declared but not built', function (): void {

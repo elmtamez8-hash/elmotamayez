@@ -105,12 +105,10 @@ class Enrollment extends BaseModel
     }
 
     /**
-     * Determines whether the student can access the given lesson, respecting
-     * sequential gating and preview flags.
+     * Whether the student can open this item — the bool form.
      *
-     * Uses a targeted SQL query to find the immediately preceding lesson in course order,
-     * then checks its completion status — avoids loading the full lesson rowset (which
-     * includes heavy longText content) into memory.
+     * Kept because a dozen call sites ask it as one. The reasoning, and the
+     * documentation of how it is answered, live on `accessTo()` below.
      */
     public function canAccessLesson(Lesson $lesson): bool
     {
@@ -120,9 +118,13 @@ class Enrollment extends BaseModel
     /**
      * The same decision, carrying its reason (FR-043).
      *
-     * `canAccessLesson()` above stays a bool because a dozen call sites ask it
-     * as one; this is the form the student's own screen needs, since "locked"
-     * with nothing after it tells them nothing about what to go and do.
+     * "Locked" with nothing after it tells the student nothing about what to go
+     * and do — and an exam gate is invisible from the locked item, because what
+     * has to happen is on another page.
+     *
+     * Finds the immediately preceding lesson with one targeted query and a column
+     * list rather than loading the rowset: `content` is a longText and this runs
+     * on every lesson open.
      */
     public function accessTo(Lesson $lesson): LessonAccess
     {
@@ -133,6 +135,27 @@ class Enrollment extends BaseModel
             return LessonAccess::deny(
                 LessonAccess::NOT_ENROLLED,
                 'هذا الدرس ليس من الكورس المسجَّل فيه.',
+            );
+        }
+
+        // What the student is opening has to be visible in its own right, and
+        // this is checked BEFORE the preview flag — a preview lesson pulled back
+        // to draft is still a draft.
+        //
+        // `visibleToStudents` was the only place `status` was read on the item
+        // being fetched, and it guards the two LIST endpoints. The three status
+        // conditions further down apply to the PREVIOUS lesson, in the
+        // prerequisite query. So `/learn/lessons/{lesson}`, the endpoint that
+        // carries the actual body, never asked — and `HasUuid` resolves a route
+        // parameter by uuid OR id, so the ids could simply be walked until one
+        // landed in the student's own course. It also meant a teacher withdrawing
+        // a published lesson to revise it kept serving the old body, and a
+        // student could still complete an archived item — which then made it
+        // undeletable through TreeDeletionGuard.
+        if (! $lesson->isVisibleChain()) {
+            return LessonAccess::deny(
+                LessonAccess::NOT_VISIBLE,
+                'هذا الدرس غير متاح حالياً.',
             );
         }
 

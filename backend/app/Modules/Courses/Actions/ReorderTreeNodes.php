@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Actions;
 
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Support\StructureVersion;
 use App\Shared\Actions\Action;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
@@ -39,15 +40,26 @@ class ReorderTreeNodes extends Action
      * @param  Builder<TNode>  $siblings  every node in the group, unordered
      * @param  list<string>  $orderedUuids  the group's new order, complete
      */
-    public function handle(Course $course, Builder $siblings, array $orderedUuids): void
+    public function handle(Course $course, Builder $siblings, array $orderedUuids, int $submittedVersion): void
     {
         $existing = (clone $siblings)->pluck('id', 'uuid')->all();
 
         $this->assertCoversExactly(array_keys($existing), $orderedUuids);
 
-        DB::transaction(function () use ($course, $siblings, $existing, $orderedUuids): void {
+        DB::transaction(function () use ($course, $siblings, $existing, $orderedUuids, $submittedVersion): void {
             $table = $siblings->getModel()->getTable();
-            $offset = 1_000;
+
+            // Computed, never the constant 1000 it used to be.
+            //
+            // The parking pass must land outside the range any live row occupies,
+            // and `HasSiblingOrder` allocates `max('order') + 1` with nothing
+            // renumbering after a delete — so `max(order)` grows with the group's
+            // LIFETIME create count, not its row count. A chapter where a teacher
+            // created and removed a thousand items over a year holds ten rows with
+            // orders past 1000, and parking the first at 1000 hit the row already
+            // sitting there: a duplicate-key 500 with a raw SQL message, which the
+            // project forbids showing at all.
+            $offset = ((int) (clone $siblings)->max('order')) + 1;
 
             // Park every row above the range it will land in, so no intermediate
             // state collides with the unique index.
@@ -59,7 +71,12 @@ class ReorderTreeNodes extends Action
                 DB::table($table)->where('id', $existing[$uuid])->update(['order' => $position]);
             }
 
-            $course->increment('structure_version');
+            // The claim, not an increment — inside this transaction, so a second
+            // reorder computed against the same version 409s instead of silently
+            // overwriting the first. Which matters more here than anywhere: these
+            // positions are what `Enrollment::accessTo` derives a student's access
+            // from.
+            StructureVersion::claim($course, $submittedVersion);
         });
     }
 

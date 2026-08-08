@@ -148,7 +148,7 @@ class LessonController extends Controller
         abort_unless($chapter->course_id === $course->getKey(), 404);
         $request->assertVersionMatches($course);
 
-        $action->handle($course, $chapter->lessons()->getQuery(), $request->orderedUuids());
+        $action->handle($course, $chapter->lessons()->getQuery(), $request->orderedUuids(), $request->integer('structure_version'));
 
         return response()->json(['structure_version' => $course->refresh()->structure_version]);
     }

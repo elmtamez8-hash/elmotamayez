@@ -241,7 +241,7 @@ it('credits a student who sat the exam BEFORE the item was placed', function ():
 
     app(PublishTreeNodes::class)->handle($course, [
         ['uuid' => $item->uuid, 'status' => 'published'],
-    ]);
+    ], (int) $course->structure_version);
 
     expect($enrollment->progress()->where('lesson_id', $item->id)->where('status', 'completed')->exists())
         ->toBeTrue();

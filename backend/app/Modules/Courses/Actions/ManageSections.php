@@ -7,6 +7,7 @@ namespace App\Modules\Courses\Actions;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Section;
+use App\Modules\Courses\Support\SiblingOrderRetry;
 use App\Modules\Courses\Support\TreeDeletionGuard;
 use App\Shared\Actions\Action;
 use Illuminate\Support\Facades\DB;
@@ -33,7 +34,7 @@ class ManageSections extends Action
 
     public function create(Course $course, string $title): Section
     {
-        return DB::transaction(function () use ($course, $title): Section {
+        return SiblingOrderRetry::around(fn (): Section => DB::transaction(function () use ($course, $title): Section {
             $section = new Section([
                 'workspace_id' => $course->workspace_id,
                 'course_id' => $course->getKey(),
@@ -49,7 +50,7 @@ class ManageSections extends Action
             $course->increment('structure_version');
 
             return $section;
-        });
+        }));
     }
 
     public function rename(Section $section, string $title): Section

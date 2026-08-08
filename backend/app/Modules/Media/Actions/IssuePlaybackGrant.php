@@ -15,6 +15,7 @@ use App\Shared\Actions\Action;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\SessionAttendanceDirectory;
 use DomainException;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use RuntimeException;
 
 /**
@@ -91,10 +92,6 @@ class IssuePlaybackGrant extends Action
      */
     public function mayWatch(Lesson $lesson, User $viewer): bool
     {
-        if ($lesson->is_free || $lesson->is_preview) {
-            return true;
-        }
-
         if ($lesson->class_session_id !== null) {
             /*
              * A session recording answers to its seat, and the workspace
@@ -110,7 +107,25 @@ class IssuePlaybackGrant extends Action
                 || $viewer->can(Permissions::SESSIONS_MANAGE);
         }
 
+        // The author's side, and it comes BEFORE the visibility check on purpose:
+        // watching back the video you just uploaded to a draft item is what the
+        // authoring surface is for. A student is not a workspace member — the only
+        // writers of that pivot are `AcceptInvitation` and `CreateWorkspace`, so
+        // enrolling does not grant it.
         if ($viewer->workspaces()->where('workspaces.id', $lesson->workspace_id)->exists()) {
+            return true;
+        }
+
+        // Everyone else needs the item to be published, and its chapter and section
+        // with it. This check did not exist: a student enrolled in the course got a
+        // playing grant for a draft lesson's video, and `is_free`/`is_preview`
+        // below — which open the file to a signed-out visitor — were read before
+        // any status at all, so an unfinished free lesson was public.
+        if (! $lesson->isVisibleChain()) {
+            return false;
+        }
+
+        if ($lesson->is_free || $lesson->is_preview) {
             return true;
         }
 
@@ -128,6 +143,28 @@ class IssuePlaybackGrant extends Action
      */
     public function mayWatchMany(iterable $lessons, User $viewer): array
     {
+        $lessons = $lessons instanceof EloquentCollection
+            ? $lessons
+            : new EloquentCollection(is_array($lessons) ? $lessons : iterator_to_array($lessons));
+
+        // Which of these are published, chain and all — ONE query for the list,
+        // asked through the same scope the student-facing readers use.
+        //
+        // Per-row `isVisibleChain()` was the first attempt and `PlaybackGrantTest`
+        // rejected it: `loadMissing` on a single model is a round trip per parent,
+        // so a fixed-cost method became four queries and then more. Reading the
+        // scope also means this cannot drift from `visibleToStudents` — the risk
+        // that put the status check in only one of the two entitlement paths to
+        // begin with.
+        $visibleIds = array_flip(
+            Lesson::query()
+                ->withoutGlobalScopes()
+                ->whereIn('lessons.id', $lessons->modelKeys())
+                ->visibleToStudents()
+                ->pluck('lessons.id')
+                ->all(),
+        );
+
         $courseIds = array_flip($this->enrollments->activeCourseIdsFor($viewer));
         $workspaceIds = array_flip($viewer->workspaces()->pluck('workspaces.id')->all());
 
@@ -145,12 +182,6 @@ class IssuePlaybackGrant extends Action
         foreach ($lessons as $lesson) {
             $lessonId = (int) $lesson->getKey();
 
-            if ($lesson->is_free || $lesson->is_preview) {
-                $allowed[$lessonId] = true;
-
-                continue;
-            }
-
             // Same ordering as mayWatch(), and for the same reason: a recording
             // must not be opened by workspace membership.
             if ($lesson->class_session_id !== null) {
@@ -162,8 +193,20 @@ class IssuePlaybackGrant extends Action
                 continue;
             }
 
-            $allowed[$lessonId] = isset($workspaceIds[$lesson->workspace_id])
-                || isset($courseIds[$lesson->course_id]);
+            if (isset($workspaceIds[$lesson->workspace_id])) {
+                // The author, who may watch their own unfinished work.
+                $allowed[$lessonId] = true;
+
+                continue;
+            }
+
+            // The status chain, in the same order as mayWatch() — including
+            // before the free/preview shortcut, which opens a file to a
+            // signed-out visitor. The two methods answer one question and a
+            // condition present in only one of them is a hole reachable through
+            // whichever caller uses the other.
+            $allowed[$lessonId] = isset($visibleIds[$lessonId])
+                && ($lesson->is_free || $lesson->is_preview || isset($courseIds[$lesson->course_id]));
         }
 
         return $allowed;

@@ -30,8 +30,20 @@ class LessonData extends DataTransferObject
         /** Read only when the type is `exam`; ignored, not stored, elsewhere. */
         public readonly ?ExamGate $examGate = null,
         public readonly ?int $durationSeconds = null,
-        public readonly bool $isPreview = false,
-        public readonly bool $isFree = false,
+        /**
+         * Nullable, and that is the fix rather than a nicety.
+         *
+         * As `bool $isPreview = false` an omitted key was indistinguishable from
+         * an explicit `false`, and `ManageLessons::update` wrote both flags
+         * unconditionally — so every partial update cleared them. Live in the
+         * shipped UI: each checkbox PUTs only its own field, so ticking "متاح بلا
+         * تسجيل" cleared "بلا مقابل داخل الكورس", and saving an article body
+         * cleared both. `is_preview` is real access (FR-021), not a badge, so a
+         * free preview lesson stopped being reachable by visitors on the next
+         * body edit.
+         */
+        public readonly ?bool $isPreview = null,
+        public readonly ?bool $isFree = null,
     ) {}
 
     /** @param  array<string, mixed>  $data */
@@ -51,8 +63,11 @@ class LessonData extends DataTransferObject
                 default => ExamGate::from((string) $data['exam_gate']),
             },
             durationSeconds: isset($data['duration_seconds']) ? (int) $data['duration_seconds'] : null,
-            isPreview: (bool) ($data['is_preview'] ?? false),
-            isFree: (bool) ($data['is_free'] ?? false),
+            // `array_key_exists`, not `??`: an explicit false is the teacher
+            // turning the flag off, which is a different instruction from not
+            // mentioning it.
+            isPreview: array_key_exists('is_preview', $data) ? (bool) $data['is_preview'] : null,
+            isFree: array_key_exists('is_free', $data) ? (bool) $data['is_free'] : null,
         );
     }
 }

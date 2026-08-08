@@ -28,6 +28,15 @@ final class LessonAccess
 
     public const NOT_ENROLLED = 'not_enrolled';
 
+    /**
+     * The item, or a parent of it, is a draft or archived.
+     *
+     * Worded to the student as "not available", with no hint of what is behind it:
+     * that a teacher has an unfinished lesson at this position is the teacher's
+     * business, and "coming soon" invites the student to keep trying the URL.
+     */
+    public const NOT_VISIBLE = 'not_visible';
+
     public const INACTIVE = 'inactive';
 
     private function __construct(

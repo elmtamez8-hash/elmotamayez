@@ -64,7 +64,12 @@ class ChangeLessonType extends Action
             $losses[] = 'النصّ المكتوب';
         }
 
-        if (trim((string) $lesson->external_url) !== '' && $target !== LessonType::Link) {
+        // Read from the registry like the content rule above it, not compared
+        // against `Link` by name. The registry already states which types require
+        // an `external_url`; a second external type added later would otherwise
+        // keep its body and silently drop its URL.
+        if (trim((string) $lesson->external_url) !== ''
+            && ! in_array('external_url', LessonTypeRegistry::requiredToPublish($target), true)) {
             $losses[] = 'الرابط الخارجي';
         }
 
@@ -101,7 +106,7 @@ class ChangeLessonType extends Action
             $lesson->forceFill([
                 'type' => $target->value,
                 'content' => in_array('content', $keeps, true) ? $lesson->content : null,
-                'external_url' => $target === LessonType::Link ? $lesson->external_url : null,
+                'external_url' => in_array('external_url', $keeps, true) ? $lesson->external_url : null,
                 // Always cleared — see losses(). The teacher repicks, which takes
                 // one click and cannot point an item at a row in the wrong table.
                 'reference_id' => null,
@@ -124,11 +129,7 @@ class ChangeLessonType extends Action
 
     private function assertChangeable(Lesson $lesson, LessonType $target): void
     {
-        if (! LessonTypeRegistry::isImplemented($target)) {
-            throw new DomainException(
-                'الواجبات لم تُفعَّل بعد — تصل مع بنك الأسئلة. اختر نوعاً آخر لهذا العنصر.',
-            );
-        }
+        LessonTypeRegistry::assertImplemented($target);
 
         if ($lesson->class_session_id !== null) {
             throw new DomainException(

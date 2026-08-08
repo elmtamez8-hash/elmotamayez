@@ -106,6 +106,52 @@ it('leaks no draft to an enrolled student, anywhere in the payload', function ()
         ->assertJsonFragment(['title' => 'درس منشور']);
 });
 
+it('refuses the item endpoint that carries the body, by uuid AND by id', function (): void {
+    [$workspace] = $this->createWorkspaceWithOwner();
+    $student = $this->addWorkspaceMember($workspace, 'student');
+    [$course] = exposureTree($workspace->id);
+
+    Enrollment::factory()->create([
+        'workspace_id' => $workspace->id,
+        'course_id' => $course->id,
+        'student_user_id' => $student->id,
+    ]);
+
+    Sanctum::actingAs($student);
+
+    // The two endpoints above carry the OUTLINE. This one carries the body — and
+    // it never checked the requested item's status: `visibleToStudents` guards the
+    // lists, and the three status conditions in `accessTo` apply to the PREVIOUS
+    // lesson in the prerequisite query.
+    $draft = Lesson::query()->where('title', DRAFT_SENTINEL.'-lesson')->firstOrFail();
+    $buried = Lesson::query()->where('title', DRAFT_SENTINEL.'-buried')->firstOrFail();
+
+    foreach ([$draft, $buried] as $hidden) {
+        // By uuid, and by autoincrement id — `HasUuid::resolveRouteBindingQuery`
+        // resolves either, so no uuid had to be guessed at all: the ids could be
+        // walked until one landed in the student's own course.
+        foreach ([$hidden->uuid, (string) $hidden->id] as $key) {
+            $body = (string) $this->getJson("/api/v1/learn/lessons/{$key}")->getContent();
+
+            expect(substr_count($body, DRAFT_SENTINEL))->toBe(0, "leaked at /learn/lessons/{$key}");
+        }
+
+        // And it cannot be completed either — a progress row on an archived item
+        // is what made the item undeletable through TreeDeletionGuard.
+        $enrollment = Enrollment::query()->where('course_id', $course->id)->firstOrFail();
+
+        $this->postJson("/api/v1/enrollments/{$enrollment->uuid}/lessons/{$hidden->uuid}/complete")
+            ->assertStatus(422);
+    }
+
+    // The published item still opens — otherwise this passes on a blanket refusal.
+    $visible = Lesson::query()->where('title', 'درس منشور')->firstOrFail();
+
+    $this->getJson("/api/v1/learn/lessons/{$visible->uuid}")
+        ->assertOk()
+        ->assertJsonPath('can_access', true);
+});
+
 it('refuses the authoring tree to a student outright', function (): void {
     [$workspace] = $this->createWorkspaceWithOwner();
     $student = $this->addWorkspaceMember($workspace, 'student');
