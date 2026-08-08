@@ -11,6 +11,7 @@ use App\Modules\Courses\Http\Requests\ReorderRequest;
 use App\Modules\Courses\Http\Requests\StoreSectionRequest;
 use App\Modules\Courses\Http\Requests\UpdateSectionRequest;
 use App\Modules\Courses\Http\Resources\CourseSectionResource;
+use App\Modules\Courses\Http\Resources\CourseTreeResource;
 use App\Modules\Courses\Http\Resources\SectionResource;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Section;
@@ -40,6 +41,26 @@ class SectionController extends Controller
             ->get();
 
         return response()->json(CourseSectionResource::collection($sections));
+    }
+
+    /**
+     * The AUTHOR's tree — drafts included.
+     *
+     * Three eager loads, not one query per node: a Resource runs once per row,
+     * so a query inside one is an N+1 by construction. QueryBudgetTest holds
+     * this to a fixed count regardless of how big the tree gets.
+     */
+    public function tree(Course $course): JsonResponse
+    {
+        $this->authorize('manageLessons', $course);
+
+        $course->load([
+            'sections' => fn ($query) => $query->orderBy('order'),
+            'sections.chapters' => fn ($query) => $query->orderBy('order'),
+            'sections.chapters.lessons' => fn ($query) => $query->orderBy('order'),
+        ]);
+
+        return response()->json(CourseTreeResource::make($course));
     }
 
     public function store(StoreSectionRequest $request, Course $course, ManageSections $action): JsonResponse

@@ -114,17 +114,17 @@ description: "Task list for 016-course-authoring"
 - [X] T038 [US1] أنشئ `backend/app/Modules/Courses/Actions/ArchiveTreeNode.php` — الأرشفة تُخرج العنصر من المقام والتسلسل و**لا** تنقص نسبة أُحرزت (`FR-008`)
 - [X] T039 [US1] أعد بناء `SectionController` · `ChapterController` · `LessonController` بـ `backend/app/Modules/Courses/Http/Controllers/` على الـActions — أربعة أسطر لكل دالة، بلا منطق (الدستور II · research §R14)
 - [X] T040 [US1] أضف مسارات إعادة الترتيب الثلاثة إلى `backend/app/Modules/Courses/routes/api.php` ([contracts/api.md](./contracts/api.md) §١)
-- [ ] T041 [US1] أنشئ `backend/app/Modules/Courses/Http/Resources/CourseTreeResource.php` — شجرة المؤلّف بحالاتها الحقيقية وسبب الحجب؛ **منفصلة** عن الشجرة الطلابية عمداً، فتسريب المسودّة لا يصير نسيانَ مُعامِل ([contracts/api.md](./contracts/api.md) §١)
-- [ ] T042 [US1] أضف `GET /courses/{course}/tree` بحمل ثابت الاستعلامات: تحميل مسبق للمستويات الثلاثة (`FR-010`)
+- [X] T041 [US1] أنشئ `backend/app/Modules/Courses/Http/Resources/CourseTreeResource.php` — شجرة المؤلّف بحالاتها الحقيقية وسبب الحجب؛ **منفصلة** عن الشجرة الطلابية عمداً، فتسريب المسودّة لا يصير نسيانَ مُعامِل ([contracts/api.md](./contracts/api.md) §١)
+- [X] T042 [US1] أضف `GET /courses/{course}/tree` بحمل ثابت الاستعلامات: تحميل مسبق للمستويات الثلاثة (`FR-010`)
 - [ ] T043 [P] [US1] اكتب `backend/tests/Feature/Courses/TreeQueryBudgetTest.php`: عدد استعلامات شجرة بعشرين عنصراً = عددها لشجرة بمئتين (`SC-015`)
 
 ### الواجهة
 
-- [ ] T044 [P] [US1] أنشئ `frontend/src/lib/courses.ts` وانقل إليه استدعاءات الكورس المتناثرة في صفحات `manage/courses/` (`FR-064`)، وأضف دوال الشجرة وإعادة الترتيب
-- [ ] T045 [US1] أنشئ `frontend/src/app/(app)/(shell)/manage/courses/[uuid]/content/page.tsx` — سطح التأليف
-- [ ] T046 [P] [US1] أنشئ `frontend/src/components/courses/TreeOutline.tsx` — الشجرة بمستوياتها الثلاثة، بمسافات بادئة `ms-*` لا `ml-*`
-- [ ] T047 [P] [US1] أنشئ `frontend/src/components/courses/MoveControls.tsx` — «لأعلى» · «لأسفل» · «انقل إلى…» **بلا سحب وإفلات** (research §R8): صفر تبعية، ووصولية بالبناء، وصحيحة في RTL بلا قلب
-- [ ] T048 [P] [US1] أنشئ `frontend/src/components/courses/DeleteNodeDialog.tsx` — يعرض ما سيُحذف مع العنصر **قبل** التنفيذ (`FR-006`)، ويعرض الأرشفة عند الردّ 423
+- [X] T044 [P] [US1] أنشئ `frontend/src/lib/courses.ts` وانقل إليه استدعاءات الكورس المتناثرة في صفحات `manage/courses/` (`FR-064`)، وأضف دوال الشجرة وإعادة الترتيب
+- [X] T045 [US1] أنشئ `frontend/src/app/(app)/(shell)/manage/courses/[uuid]/content/page.tsx` — سطح التأليف
+- [X] T046 [P] [US1] أنشئ `frontend/src/components/courses/TreeOutline.tsx` — الشجرة بمستوياتها الثلاثة، بمسافات بادئة `ms-*` لا `ml-*`
+- [X] T047 [P] [US1] أنشئ `frontend/src/components/courses/MoveControls.tsx` — «لأعلى» · «لأسفل» · «انقل إلى…» **بلا سحب وإفلات** (research §R8): صفر تبعية، ووصولية بالبناء، وصحيحة في RTL بلا قلب
+- [X] T048 [P] [US1] أنشئ `frontend/src/components/courses/DeleteNodeDialog.tsx` — يعرض ما سيُحذف مع العنصر **قبل** التنفيذ (`FR-006`)، ويعرض الأرشفة عند الردّ 423
 
 **Checkpoint**: كورس فارغ يصير شجرة كاملة من المتصفّح · إعادة الترتيب تغيّر ما يُفتح · الحذف الخطر مرفوض.
 
@@ -168,7 +168,7 @@ description: "Task list for 016-course-authoring"
 - [ ] T063 [US3] أنشئ `backend/app/Modules/Courses/Actions/PublishTreeNodes.php` — دفعة، مع سريان السلسلة (`FR-028`) ورفع `structure_version`
 - [ ] T064 [US3] أضف `POST /courses/{course}/tree/publish` إلى المسارات ([contracts/api.md](./contracts/api.md) §١)
 - [ ] T065 [US3] اجعل `GET /courses/{course}/sections` القائم يقدّم الشجرة **المنشورة فقط** — هو المسار الطلابي، ولا يتغيّر عقده حتى لا ينكسر شيء أثناء الترحيل
-- [ ] T066 [P] [US3] أنشئ `frontend/src/components/courses/StatusBadge.tsx` — يعرض «مسودّة» و«منشور» و«مؤرشف» و**«محجوب بقسمه»** كحالة رابعة مشتقّة
+- [X] T066 [P] [US3] أنشئ `frontend/src/components/courses/StatusBadge.tsx` — يعرض «مسودّة» و«منشور» و«مؤرشف» و**«محجوب بقسمه»** كحالة رابعة مشتقّة
 - [ ] T067 [US3] أضف أدوات النشر إلى `frontend/src/components/courses/TreeOutline.tsx`: نشر عنصر · نشر دفعة · سحب إلى مسودّة، مع تأكيد على السحب
 
 **Checkpoint**: التأليف على كورس حيّ صار آمناً · صفر مسودّة تصل طالباً.
@@ -245,8 +245,8 @@ description: "Task list for 016-course-authoring"
 
 ## Phase 9: Polish & Cross-Cutting
 
-- [ ] T099 حدّث نصّ الحالة الفارغة في `frontend/src/app/(app)/(shell)/manage/courses/[uuid]/page.tsx` من «سطح التأليف قيد الإعداد» إلى **دعوة تقود إلى السطح** (`FR-063`) — السطح لا يُعدّ مكتملاً بلا مدخل إليه
-- [ ] T100 [P] أضف زرّ «محتوى الكورس» بجوار «تعديل الكورس» في `frontend/src/app/(app)/(shell)/manage/courses/[uuid]/page.tsx` — مدخل ثانٍ ظاهر لا مخفيّ خلف حالة فارغة
+- [X] T099 حدّث نصّ الحالة الفارغة في `frontend/src/app/(app)/(shell)/manage/courses/[uuid]/page.tsx` من «سطح التأليف قيد الإعداد» إلى **دعوة تقود إلى السطح** (`FR-063`) — السطح لا يُعدّ مكتملاً بلا مدخل إليه
+- [X] T100 [P] أضف زرّ «محتوى الكورس» بجوار «تعديل الكورس» في `frontend/src/app/(app)/(shell)/manage/courses/[uuid]/page.tsx` — مدخل ثانٍ ظاهر لا مخفيّ خلف حالة فارغة
 - [ ] T101 [P] أضف `logActivity()` إلى Actions التأليف في `backend/app/Modules/Courses/Actions/` بمن نفّذ ووقته على العنصر (`FR-056`)
 - [ ] T102 [P] وسّع `backend/app/Modules/Marketplace/Support/PublicFieldAllowlist.php` وحالة في `PublicExposureTest` — صفر حقل من عنصر مسودّة أو مؤرشف في أي حمولة عامة (`FR-062`)
 - [ ] T103 [P] أضف `frontend/e2e/course-authoring.spec.ts`: من صفحة الكورس إلى عنصر منشور — يبدأ من المدخل وينتهي بما يراه الطالب (`SC-016`). يستعمل `useTeacherAccount()` من `e2e/teacher-account.ts`، و**يُمنع** استيراد ملف إعداد من ملف اختبار

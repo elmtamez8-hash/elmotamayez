@@ -28,6 +28,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // The student-facing tree: published nodes only.
     Route::get('/courses/{course}/sections', [SectionController::class, 'index']);
 
+    // The author's tree: drafts included, with the reason each node is hidden.
+    // A separate route rather than a flag on the one above — see the controller.
+    Route::get('/courses/{course}/tree', [SectionController::class, 'tree']);
+
     /*
     | Authoring. `throttle:authoring` is named, like every other limiter in this
     | codebase: ThrottleRequests keys guests on domain|ip with no route in the

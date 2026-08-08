@@ -90,6 +90,10 @@ export default function CourseDetailPage({
         student path is /enrollments and /learn.
       */}
       <div className="flex flex-wrap gap-3">
+        {/* First, and primary: content is what a course is. The other two edit
+            its wrapper. */}
+        <Button href={`/manage/courses/${uuid}/content`}>محتوى الكورس</Button>
+
         <Button href={`/manage/courses/${uuid}/edit`} variant="secondary">
           تعديل الكورس
         </Button>
@@ -103,17 +107,17 @@ export default function CourseDetailPage({
         An empty course used to render nothing at all below the header, which
         reads as a page that failed rather than a course with no content yet.
 
-        The copy used to send the teacher to /admin. It should not have: the
-        panel's CourseResource has no RelationManagers either, so that screen
-        cannot author a section any more than this one can. An empty state that
-        names a place where the thing is not sends someone hunting for a
-        control that does not exist and makes them doubt their own eyes —
-        worse than admitting the surface is missing.
+        The copy has been wrong twice. It first sent the teacher to /admin,
+        where CourseResource has no RelationManagers and no section could be
+        created either; then it admitted the surface did not exist. Now it
+        does, so the empty state does what an empty state should: name the
+        absence and point at the one control that fixes it.
       */}
       {(!course.sections || course.sections.length === 0) && (
         <EmptyState
           title="لا محتوى في هذا الكورس بعد"
-          description="إضافة الأقسام والفصول والدروس ليست متاحة بعد — سطح التأليف قيد الإعداد. أما تسجيلات الحصص المباشرة فتظهر هنا تلقائياً بعد نشرها."
+          description="ابدأ بإضافة قسم، ثم فصلاً بداخله، ثم عناصر المحتوى. وتسجيلات الحصص المباشرة تظهر هنا تلقائياً بعد نشرها."
+          action={<Button href={`/manage/courses/${uuid}/content`}>ابدأ بإضافة قسم</Button>}
         />
       )}
 

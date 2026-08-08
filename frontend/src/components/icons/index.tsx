@@ -22,6 +22,7 @@ import {
   IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
+  IconChevronUp,
   IconMenu2,
   IconMoodEmpty,
   IconMoon,
@@ -141,6 +142,10 @@ export const SettlementIcon = wrap(IconReceipt2, "h-5 w-5");
  * because no rule exists.
  */
 export const ChevronDownIcon = wrap(IconChevronDown, "h-5 w-5");
+// Up and down do NOT get direction-neutral names the way start/end do: the
+// vertical axis is the same in both writing directions, and calling this
+// "ChevronStart" would be a lie the first time someone reads it.
+export const ChevronUpIcon = wrap(IconChevronUp, "h-5 w-5");
 export const ChevronStartIcon = wrap(IconChevronRight, "h-4 w-4");
 export const ChevronEndIcon = wrap(IconChevronLeft, "h-4 w-4");
 export const SearchIcon = wrap(IconSearch, "h-6 w-6");
