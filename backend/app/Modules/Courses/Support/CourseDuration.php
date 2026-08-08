@@ -6,6 +6,7 @@ namespace App\Modules\Courses\Support;
 
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The course's length, derived from what a student is actually asked to do.
@@ -27,8 +28,18 @@ final class CourseDuration
             ->countableForProgress()
             ->sum('duration_seconds');
 
-        // forceFill: the column is derived, so it is deliberately not fillable
-        // from a request. Nothing outside this class may set it.
-        $course->forceFill(['duration_seconds' => $seconds])->save();
+        // A direct column write, not `$course->save()`.
+        //
+        // Saving the model fires Scout, so every lesson created or renamed would
+        // reindex the course — which made authoring depend on the search engine
+        // being up. It fails loudly the moment Meilisearch is down, and the
+        // teacher's error is a cURL message about port 7700.
+        //
+        // Nothing about the search document changed anyway: this column is not
+        // in `toSearchableArray()`. The in-memory instance is refreshed so a
+        // caller that reads it next sees the new number.
+        DB::table('courses')->where('id', $course->getKey())->update(['duration_seconds' => $seconds]);
+
+        $course->setAttribute('duration_seconds', $seconds)->syncOriginalAttribute('duration_seconds');
     }
 }

@@ -138,16 +138,16 @@ description: "Task list for 016-course-authoring"
 غير النوع ليست مطلوبة ولا محفوظة.
 
 - [X] T049 [P] [US2] اكتب `backend/tests/Feature/Courses/MarkdownSanitisationTest.php`: حمولة معروفة تحوي سكربتاً ووسم `<img onerror>` ورابط `javascript:` — تخرج **منزوعةً** في كل مسار عرض (`SC-017`)
-- [ ] T050 [P] [US2] اكتب `backend/tests/Feature/Courses/LessonTypeTest.php` — حالة لكل نوع: يُنشأ ويصل الطالب إليه؛ و`note` و`link` **لا** يدخلان المقام ولا يحجبان (`SC-009` · `FR-012`)
-- [ ] T051 [US2] فعّل التحقّق حسب النوع في `backend/app/Modules/Courses/Http/Requests/StoreLessonRequest.php` و`UpdateLessonRequest.php` من `LessonTypeRegistry` — الحقول المطلوبة تُفرض **عند النشر** لا عند الحفظ كمسودّة (`FR-022` … سيناريو US2/٨)
+- [X] T050 [P] [US2] اكتب `backend/tests/Feature/Courses/LessonTypeTest.php` — حالة لكل نوع: يُنشأ ويصل الطالب إليه؛ و`note` و`link` **لا** يدخلان المقام ولا يحجبان (`SC-009` · `FR-012`)
+- [X] T051 [US2] فعّل التحقّق حسب النوع في `backend/app/Modules/Courses/Http/Requests/StoreLessonRequest.php` و`UpdateLessonRequest.php` من `LessonTypeRegistry` — الحقول المطلوبة تُفرض **عند النشر** لا عند الحفظ كمسودّة (`FR-022` … سيناريو US2/٨)
 - [X] T052 [US2] أضف `content_html` **مشتقّاً** في `backend/app/Modules/Courses/Http/Resources/LessonResource.php` عبر `MarkdownRenderer` — **لا يُخزَّن**: نسخة ثانية من الكلام نفسه تنحرف عند أول تصحيح مطبعي (research §R7)
-- [ ] T053 [US2] افرض `https` وصيغة صحيحة على `external_url` في `backend/app/Modules/Courses/Http/Requests/StoreLessonRequest.php` و`backend/app/Modules/Courses/Actions/ChangeLessonType.php` (`FR-018`)
-- [ ] T054 [US2] أنشئ `backend/app/Modules/Courses/Actions/ChangeLessonType.php` — يعيد **ما سيُفقد** ليعرضه المحرّر قبل التنفيذ (`FR-020`)
-- [ ] T055 [US2] اجعل مدّة الفيديو والصوت تُشتقّ من الأصل لا من المدرّس في `backend/app/Modules/Courses/Actions/UpdateLesson.php` (`FR-015`)، وأعد حساب `courses.duration_seconds` من العناصر المنشورة القابلة للإتمام عند كل كتابة بنيوية (`FR-016`)
-- [ ] T056 [P] [US2] أنشئ `frontend/src/components/courses/editors/ArticleEditor.tsx` — مجموعة تنسيق مغلقة ومعاينة، على مصدر Markdown
-- [ ] T057 [P] [US2] أنشئ `frontend/src/components/courses/editors/NoteEditor.tsx` — ويُظهر أن التنويه لا يُتمّ ولا يحجب
-- [ ] T058 [P] [US2] أنشئ `frontend/src/components/courses/editors/LinkEditor.tsx` — **بتحذير صريح** أن المحتوى الخارجي خارج حماية 004 كلياً: بلا علامة مائية ولا انتهاء صلاحية ولا حدّ أجهزة (`FR-017`)
-- [ ] T059 [US2] أنشئ `frontend/src/components/courses/LessonEditor.tsx` يوزّع على محرّر النوع، ويعرض `is_preview` و`is_free` **بمعناهما الفعلي مكتوباً**: `is_preview` إتاحة خارج التسجيل لا تمييز تسويقي (`FR-021`)
+- [X] T053 [US2] افرض `https` وصيغة صحيحة على `external_url` في `backend/app/Modules/Courses/Http/Requests/StoreLessonRequest.php` و`backend/app/Modules/Courses/Actions/ChangeLessonType.php` (`FR-018`)
+- [X] T054 [US2] أنشئ `backend/app/Modules/Courses/Actions/ChangeLessonType.php` — يعيد **ما سيُفقد** ليعرضه المحرّر قبل التنفيذ (`FR-020`)
+- [X] T055 [US2] اجعل مدّة الفيديو والصوت تُشتقّ من الأصل لا من المدرّس في `backend/app/Modules/Courses/Actions/UpdateLesson.php` (`FR-015`)، وأعد حساب `courses.duration_seconds` من العناصر المنشورة القابلة للإتمام عند كل كتابة بنيوية (`FR-016`)
+- [X] T056 [P] [US2] أنشئ `frontend/src/components/courses/editors/ArticleEditor.tsx` — مجموعة تنسيق مغلقة ومعاينة، على مصدر Markdown
+- [X] T057 [P] [US2] أنشئ `frontend/src/components/courses/editors/NoteEditor.tsx` — ويُظهر أن التنويه لا يُتمّ ولا يحجب
+- [X] T058 [P] [US2] أنشئ `frontend/src/components/courses/editors/LinkEditor.tsx` — **بتحذير صريح** أن المحتوى الخارجي خارج حماية 004 كلياً: بلا علامة مائية ولا انتهاء صلاحية ولا حدّ أجهزة (`FR-017`)
+- [X] T059 [US2] أنشئ `frontend/src/components/courses/LessonEditor.tsx` يوزّع على محرّر النوع، ويعرض `is_preview` و`is_free` **بمعناهما الفعلي مكتوباً**: `is_preview` إتاحة خارج التسجيل لا تمييز تسويقي (`FR-021`)
 
 **Checkpoint**: كل نوع مكتوب يُنشأ ويُعرَض · صفر سكربت ينفَّذ · التنويه لا يحجب.
 
@@ -165,11 +165,11 @@ description: "Task list for 016-course-authoring"
 - [ ] T060 [P] [US3] اكتب `backend/tests/Feature/Courses/PublishChainTest.php`: عنصر منشور داخل قسم مسودّة **محجوب**، وحالته تُعرَض للمدرّس بسببها لا كأنها حالته هو (`FR-028`)
 - [ ] T061 [P] [US3] اكتب `backend/tests/Feature/Courses/UnpublishSafetyTest.php`: سحب عنصر إلى المسودّة **لا** يحذف تقدّماً ولا يبطل شهادة (`FR-029` · `SC-007`)
 - [ ] T062 [P] [US3] اكتب `backend/tests/Feature/Courses/DraftExposureTest.php`: بصفة طالب، عنوان المسودّة **صفر مطابقة** في الاستجابة كاملةً؛ ونفس الفحص على الحمولة العامة (`SC-006` · `FR-062`)
-- [ ] T063 [US3] أنشئ `backend/app/Modules/Courses/Actions/PublishTreeNodes.php` — دفعة، مع سريان السلسلة (`FR-028`) ورفع `structure_version`
-- [ ] T064 [US3] أضف `POST /courses/{course}/tree/publish` إلى المسارات ([contracts/api.md](./contracts/api.md) §١)
+- [X] T063 [US3] أنشئ `backend/app/Modules/Courses/Actions/PublishTreeNodes.php` — دفعة، مع سريان السلسلة (`FR-028`) ورفع `structure_version`
+- [X] T064 [US3] أضف `POST /courses/{course}/tree/publish` إلى المسارات ([contracts/api.md](./contracts/api.md) §١)
 - [ ] T065 [US3] اجعل `GET /courses/{course}/sections` القائم يقدّم الشجرة **المنشورة فقط** — هو المسار الطلابي، ولا يتغيّر عقده حتى لا ينكسر شيء أثناء الترحيل
 - [X] T066 [P] [US3] أنشئ `frontend/src/components/courses/StatusBadge.tsx` — يعرض «مسودّة» و«منشور» و«مؤرشف» و**«محجوب بقسمه»** كحالة رابعة مشتقّة
-- [ ] T067 [US3] أضف أدوات النشر إلى `frontend/src/components/courses/TreeOutline.tsx`: نشر عنصر · نشر دفعة · سحب إلى مسودّة، مع تأكيد على السحب
+- [X] T067 [US3] أضف أدوات النشر إلى `frontend/src/components/courses/TreeOutline.tsx`: نشر عنصر · نشر دفعة · سحب إلى مسودّة، مع تأكيد على السحب
 
 **Checkpoint**: التأليف على كورس حيّ صار آمناً · صفر مسودّة تصل طالباً.
 
