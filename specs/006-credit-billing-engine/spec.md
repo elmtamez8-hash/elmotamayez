@@ -6,7 +6,7 @@
 
 **Updated**: 2026-08-05 — ملحق التصميم (SDD Addendum) + تسعير **cost-plus** تملكه المنصة، وفصل سياق تسوية المدرّس (014)
 
-**Status**: Draft — Needs Clarification
+**Status**: Planned — جاهزة للتنفيذ (`/speckit-plan` 2026-08-08)
 
 **Input**: ملحق التصميم — قسم *Billing & Collections Architecture*: «Students do not purchase
 sessions directly. Students own a Credit Account. Every educational session consumes credits.»
@@ -89,6 +89,28 @@ sessions directly. Students own a Credit Account. Every educational session cons
   أرصدة قائمة اشتراها الناس على أنها دائمة. فالبنية جاهزة والسياسة مطفأة.
 
   ويترتّب عليه: أرصدة بلا تاريخ انتهاء تُستهلَك **بعد** الأرصدة المؤقّتة، لا قبلها.
+
+### Session 2026-08-08 — إغلاق تناقض داخلي، لا قرار جديد
+
+- **Q-6 — زناد الاستهلاك: `SessionDelivered` والمقعد المُجمَّد**. السبيك كان يحمل صيغتين
+  متعارضتين من جلستَي توضيح مختلفتين:
+
+  | المصدر | التاريخ | ما يقوله |
+  |---|---|---|
+  | `FR-022` · `Q3` · `US4/1` | 2026-08-04 | `SessionCompleted` ← `AttendanceConfirmed` ← `CreditConsumed` |
+  | `FR-025` · `FR-025أ` · `FR-025د` · `Q-3` | 2026-08-05 | المقعد المُجمَّد وحده، مشروطاً بـ`SessionDelivered`، و**يُمنع** أن تدخل حالة الحضور أي قرار مالي |
+
+  والمتأخّر ينسخ المتقدّم — `FR-025د` تمنع صراحةً ما تبنيه السلسلة القديمة. والكود المنشور
+  يقف مع المتأخّر: `SessionDelivered` موجود ويحمل `billableSeats`، و**`AttendanceConfirmed`
+  اسمٌ لا حدثَ له**. فالسلسلة المعلنة تصير:
+
+  ```
+  SessionDelivered (005) → ChargeSessionSeats → CreditConsumed → BalanceUpdated
+  ```
+
+  ويترتّب عليه أن `FR-024` و`FR-025أ` و`FR-025ج` **شروط إطلاق الحدث نفسه** في 005، لا فحوصاً
+  تُكتب هنا؛ وأن `FR-026` (تصحيح الاستهلاك عند تعديل الحضور) **تسقط**: لا شيء يُصحَّح، لأن
+  الحضور لا يدخل القرار المالي أصلاً.
 
 ---
 
