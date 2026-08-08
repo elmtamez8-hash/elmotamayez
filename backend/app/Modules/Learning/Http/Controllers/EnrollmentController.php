@@ -10,6 +10,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\MarkdownRenderer;
+use App\Modules\Courses\Support\ReferenceSummary;
 use App\Modules\Learning\Actions\EnrollStudent;
 use App\Modules\Learning\Actions\MarkLessonComplete;
 use App\Modules\Learning\Http\Resources\EnrollmentResource;
@@ -98,7 +99,8 @@ class EnrollmentController extends Controller
     private function lessonPayload(Enrollment $enrollment, Lesson $lesson): array
     {
         $lesson->load(['section', 'chapter', 'attachments']);
-        $canAccess = $enrollment->canAccessLesson($lesson);
+        $access = $enrollment->accessTo($lesson);
+        $canAccess = $access->allowed;
         $type = LessonType::from($lesson->type);
 
         return [
@@ -114,6 +116,14 @@ class EnrollmentController extends Controller
                 'content_html' => $canAccess ? MarkdownRenderer::toHtml($lesson->content) : '',
                 'external_url' => $canAccess ? $lesson->external_url : null,
                 'has_asset' => $canAccess && $lesson->mediaAsset !== null,
+                // The exam this item places, or the session it holds a spot for
+                // — with the date and the state a `live_session` row needs to
+                // say something other than "coming soon" forever (FR-047,
+                // FR-048). Not gated on access: knowing that the item ahead is
+                // an exam asking for 60% is what tells the student what to do.
+                'reference' => ReferenceSummary::for($lesson),
+                'exam_gate' => $lesson->exam_gate?->value,
+                'exam_gate_label' => $lesson->exam_gate?->label(),
                 // FR-019: attachments appear beside the item for the student.
                 // Each is opened through its own short-lived grant — there is no
                 // permanent path to one, so the list carries a uuid to ask with,
@@ -130,6 +140,13 @@ class EnrollmentController extends Controller
                 )->values()->all() : [],
             ],
             'can_access' => $canAccess,
+            // Why not, in words the student can act on (FR-043). A lock with
+            // nothing after it is a support ticket — and an exam gate is
+            // invisible from the locked item, since what has to happen is on a
+            // different page.
+            'blocked_reason' => $access->code,
+            'blocked_message' => $access->message,
+            'blocked_by_title' => $access->blockedByTitle,
             'enrollment_uuid' => $enrollment->uuid,
         ];
     }
@@ -143,8 +160,17 @@ class EnrollmentController extends Controller
         }
 
         $lesson->load(['section', 'chapter']);
-        if (! $enrollment->canAccessLesson($lesson)) {
-            return response()->json(['message' => 'You must complete the previous lesson first.'], 422);
+        $access = $enrollment->accessTo($lesson);
+
+        if (! $access->allowed) {
+            // The same sentence the item's own screen shows, rather than the raw
+            // English string that used to be here — a refusal that names the
+            // previous lesson is one the student can act on, and there is no
+            // reason for the two paths to word it differently.
+            return response()->json([
+                'message' => $access->message,
+                'code' => $access->code,
+            ], 422);
         }
 
         $progress = $action->handle($enrollment, $lesson->getKey());

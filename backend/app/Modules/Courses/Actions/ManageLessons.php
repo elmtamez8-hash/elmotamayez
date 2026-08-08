@@ -7,6 +7,7 @@ namespace App\Modules\Courses\Actions;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Courses\DTOs\LessonData;
 use App\Modules\Courses\Enums\ContentStatus;
+use App\Modules\Courses\Enums\ExamGate;
 use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
@@ -14,6 +15,7 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\CourseDuration;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\TreeDeletionGuard;
+use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Media\Actions\DeleteMediaAsset;
 use App\Shared\Actions\Action;
 use DomainException;
@@ -55,7 +57,14 @@ class ManageLessons extends Action
                 'status' => ContentStatus::Draft,
                 'content' => $data->content,
                 'external_url' => $data->externalUrl,
-                'reference_id' => $this->resolveReference($course, $data),
+                'reference_id' => $this->resolveReference($course, $data, $data->type),
+                // Stated, not defaulted in the column: a model built with `new`
+                // carries no column default, which is how `status` and `kind`
+                // were silently null earlier in this spec. `Attempt` is the
+                // weaker gate — see ExamGate.
+                'exam_gate' => $data->type === LessonType::Exam
+                    ? ($data->examGate ?? ExamGate::Attempt)
+                    : null,
                 'duration_seconds' => $data->durationSeconds ?? 0,
                 'is_preview' => $data->isPreview,
                 'is_free' => $data->isFree,
@@ -84,8 +93,17 @@ class ManageLessons extends Action
             $attributes['chapter_id'] = $chapter->getKey();
         }
 
+        $type = $this->typeOf($lesson);
+
         if ($data->referenceUuid !== null && $lesson->course !== null) {
-            $attributes['reference_id'] = $this->resolveReference($lesson->course, $data);
+            $attributes['reference_id'] = $this->resolveReference($lesson->course, $data, $type);
+        }
+
+        // Only on the type that has one. A gate written onto an article is a
+        // column nobody reads until someone changes the type and inherits a
+        // condition they never set.
+        if ($type === LessonType::Exam && $data->examGate !== null) {
+            $attributes['exam_gate'] = $data->examGate;
         }
 
         // Duration is read from the uploaded file for the kinds that have one
@@ -146,13 +164,17 @@ class ManageLessons extends Action
      * payload: a uuid is guessable in principle and the scope is the only thing
      * that says the exam belongs to the teacher asking.
      */
-    private function resolveReference(Course $course, LessonData $data): ?int
+    private function resolveReference(Course $course, LessonData $data, LessonType $type): ?int
     {
         if ($data->referenceUuid === null) {
             return null;
         }
 
-        if ($data->type === LessonType::Exam) {
+        // The type is taken from the ITEM, not from the DTO. On an update the
+        // DTO's type is whatever the controller carried forward, and a
+        // `live_session` item edited through it used to fall past the `Exam`
+        // branch and resolve to null — the picker wrote nothing, silently.
+        if ($type === LessonType::Exam) {
             $exam = Exam::query()
                 ->where('uuid', $data->referenceUuid)
                 ->where('course_id', $course->getKey())
@@ -163,6 +185,19 @@ class ManageLessons extends Action
             }
 
             return (int) $exam->getKey();
+        }
+
+        if ($type === LessonType::LiveSession) {
+            $session = ClassSession::query()
+                ->where('uuid', $data->referenceUuid)
+                ->where('course_id', $course->getKey())
+                ->first();
+
+            if ($session === null) {
+                throw new DomainException('الحصة المحدَّدة غير موجودة في هذا الكورس.');
+            }
+
+            return (int) $session->getKey();
         }
 
         return null;

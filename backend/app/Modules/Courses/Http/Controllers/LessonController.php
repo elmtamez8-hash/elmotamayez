@@ -72,8 +72,13 @@ class LessonController extends Controller
         // Renaming an item therefore erased its body. `array_key_exists`, not
         // `??=`: an explicit null is the teacher clearing the field, which is a
         // different instruction from not mentioning it.
-        foreach (['content', 'external_url', 'reference_uuid', 'duration_seconds'] as $field) {
+        foreach (['content', 'external_url', 'reference_uuid', 'exam_gate', 'duration_seconds'] as $field) {
             if (! array_key_exists($field, $payload)) {
+                // `reference_uuid` is the one exception: the item stores an id
+                // and the payload speaks uuids, so there is nothing to carry
+                // forward — the Action leaves `reference_id` alone when it is
+                // null. Everything else keeps its stored value, `exam_gate`
+                // included: renaming an exam item must not quietly reopen it.
                 $payload[$field] = $field === 'reference_uuid' ? null : $lesson->{$field};
             }
         }

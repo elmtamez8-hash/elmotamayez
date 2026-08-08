@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Courses\Http\Controllers\ChapterController;
 use App\Modules\Courses\Http\Controllers\CourseController;
 use App\Modules\Courses\Http\Controllers\LessonController;
+use App\Modules\Courses\Http\Controllers\ReferenceTargetController;
 use App\Modules\Courses\Http\Controllers\SectionController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,6 +35,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     // One item in full — the tree carries no bodies, only the outline.
     Route::get('/courses/{course}/lessons/{lesson}', [LessonController::class, 'show']);
+
+    // What a reference item may point at: this course's published exams and its
+    // sessions. Read by the two pickers in the item editor.
+    Route::get('/courses/{course}/reference-targets', [ReferenceTargetController::class, 'index']);
 
     /*
     | Authoring. `throttle:authoring` is named, like every other limiter in this

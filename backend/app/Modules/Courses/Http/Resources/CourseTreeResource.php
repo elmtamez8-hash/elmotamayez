@@ -11,6 +11,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
 use App\Modules\Courses\Support\LessonTypeRegistry;
+use App\Modules\Courses\Support\ReferenceIntegrity;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -27,9 +28,24 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class CourseTreeResource extends JsonResource
 {
+    /**
+     * Items whose exam or session has been deleted, resolved once per response.
+     *
+     * @var array<int, true>
+     */
+    private array $missingReferences = [];
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
+        // Two queries for the whole tree, here rather than in `lesson()` where
+        // they would be one pair per row.
+        $this->missingReferences = ReferenceIntegrity::missingAmong(
+            $this->sections->flatMap(
+                fn (Section $section) => $section->chapters->flatMap->lessons,
+            ),
+        );
+
         return [
             'uuid' => $this->uuid,
             'title' => $this->title,
@@ -91,6 +107,10 @@ class CourseTreeResource extends JsonResource
             // on it: it is entitled by a seat rather than by enrolment, and the
             // authoring surface may not repoint it.
             'is_recording' => $lesson->class_session_id !== null,
+            // Shown to the teacher and to nobody else. The student's tree drops
+            // the row (FR-045); the author has to be told, because the exam they
+            // deleted took a position in their course with it.
+            'reference_missing' => isset($this->missingReferences[(int) $lesson->getKey()]),
             'is_preview' => $lesson->is_preview,
             'is_free' => $lesson->is_free,
             'duration_seconds' => $lesson->duration_seconds,

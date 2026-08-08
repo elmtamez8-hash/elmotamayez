@@ -188,7 +188,12 @@ export function SelectField(
   props: Shared & {
     value: string;
     onChange: (value: string) => void;
-    options: Array<{ value: string; label: string }>;
+    /**
+     * `disabled` on one option, not on the whole field: a type that is declared
+     * but not built has to be VISIBLE and unpickable, and hiding it would be
+     * silent about a plan the label states out loud (016 FR-046).
+     */
+    options: Array<{ value: string; label: string; disabled?: boolean }>;
     placeholder?: string;
   },
 ) {
@@ -208,7 +213,7 @@ export function SelectField(
       >
         {placeholder && <option value="">{placeholder}</option>}
         {options.map((o) => (
-          <option key={o.value} value={o.value}>
+          <option key={o.value} value={o.value} disabled={o.disabled}>
             {o.label}
           </option>
         ))}

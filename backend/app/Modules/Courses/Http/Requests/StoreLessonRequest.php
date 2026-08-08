@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Courses\Http\Requests;
 
+use App\Modules\Courses\Enums\ExamGate;
 use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Course;
 use App\Shared\Support\WorkspaceRules;
@@ -48,6 +49,7 @@ class StoreLessonRequest extends FormRequest
             'content' => ['nullable', 'string'],
             'external_url' => ['nullable', 'string', 'url', 'starts_with:https://', 'max:2048'],
             'reference_uuid' => ['nullable', 'string'],
+            'exam_gate' => ['nullable', Rule::enum(ExamGate::class)],
             'duration_seconds' => ['nullable', 'integer', 'min:0'],
             'is_preview' => ['nullable', 'boolean'],
             'is_free' => ['nullable', 'boolean'],

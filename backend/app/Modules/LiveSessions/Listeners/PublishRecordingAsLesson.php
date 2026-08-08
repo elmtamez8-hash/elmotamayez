@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Listeners;
 
 use App\Modules\Courses\Enums\ContentStatus;
+use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
@@ -52,21 +53,30 @@ class PublishRecordingAsLesson
             return;
         }
 
-        $chapter = $this->recordingsChapter($session);
-
-        // Idempotent: a re-ingested recording updates its lesson rather than
-        // leaving the class with two copies of the same hour.
-        $lesson = Lesson::query()
-            ->withoutWorkspaceScope()
-            ->firstOrNew(['class_session_id' => $session->getKey()]);
+        $lesson = $this->lessonFor($session);
+        $placement = $lesson->exists
+            // Either the recording's own lesson from a previous ingest, or the
+            // `live_session` item the teacher placed — both already sit where
+            // they belong, and rewriting their parent would move them.
+            ? []
+            : $this->recordingsChapterPlacement($session);
 
         $lesson->fill([
             'workspace_id' => $session->workspace_id,
             'course_id' => $session->course_id,
-            'section_id' => $chapter->section_id,
-            'chapter_id' => $chapter->getKey(),
-            'title' => 'تسجيل: '.$session->title,
+            ...$placement,
+            // A title the teacher typed into their own sequence survives. Only a
+            // row this listener created gets the generated one — renaming
+            // "الحصة الثالثة: المشتقات" to "تسجيل: …" behind their back is a
+            // background job editing their course.
+            'title' => $lesson->exists ? $lesson->title : 'تسجيل: '.$session->title,
             'type' => 'video',
+            // The item stops being a placeholder for a session and becomes the
+            // recording itself, so what it pointed at is no longer true. Left
+            // set, the reference-integrity filter would keep judging this video
+            // against a `class_sessions` row (FR-047أ).
+            'reference_id' => null,
+            'class_session_id' => $session->getKey(),
             // Published explicitly. Since 016 a new lesson defaults to draft, and
             // a recording that lands as a draft is a recording nobody can watch —
             // a silent break in a shipped feature.
@@ -89,6 +99,62 @@ class PublishRecordingAsLesson
         ])->save();
 
         $session->forceFill(['recording_status' => 'published'])->save();
+    }
+
+    /**
+     * The row this recording becomes — in the order that keeps one session to
+     * one item (`FR-047أ` · SC-020).
+     *
+     * **(1) The recording's own lesson**, by `class_session_id`. Idempotence
+     * first: a re-ingested recording must update the lesson it already produced
+     * rather than leave the class with two copies of the same hour.
+     *
+     * **(2) The `live_session` item the teacher placed**, by `reference_id`.
+     * This is the case 016 adds: the teacher put the session in the middle of
+     * their sequence, so the recording belongs THERE and not appended at the end
+     * of the tree, where it would be a second row for one session.
+     *
+     * The order between those two is load-bearing. Reversed, a course where a
+     * recording was appended before the teacher created an item would convert the
+     * item as well and end up with both — the exact duplication SC-020 forbids.
+     *
+     * **(3) A new row**, placed in the recordings chapter as 005 always did.
+     */
+    private function lessonFor(ClassSession $session): Lesson
+    {
+        $own = Lesson::query()
+            ->withoutWorkspaceScope()
+            ->where('class_session_id', $session->getKey())
+            ->first();
+
+        if ($own !== null) {
+            return $own;
+        }
+
+        $placed = Lesson::query()
+            ->withoutWorkspaceScope()
+            ->where('course_id', $session->course_id)
+            ->where('type', LessonType::LiveSession->value)
+            ->where('reference_id', $session->getKey())
+            ->orderBy('id')
+            ->first();
+
+        return $placed ?? new Lesson;
+    }
+
+    /**
+     * Where a recording with no item of its own goes.
+     *
+     * @return array{section_id: int, chapter_id: int}
+     */
+    private function recordingsChapterPlacement(ClassSession $session): array
+    {
+        $chapter = $this->recordingsChapter($session);
+
+        return [
+            'section_id' => (int) $chapter->section_id,
+            'chapter_id' => (int) $chapter->getKey(),
+        ];
     }
 
     /**

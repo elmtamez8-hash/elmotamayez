@@ -8,6 +8,7 @@ use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\MarkdownRenderer;
+use App\Modules\Courses\Support\ReferenceSummary;
 use App\Modules\Media\Models\MediaAsset;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -39,6 +40,12 @@ class LessonResource extends JsonResource
             // feature set itself.
             'content_html' => MarkdownRenderer::toHtml($this->content),
             'external_url' => $this->external_url,
+            // What this item points at, and what it asks. Null on the eight types
+            // that point at nothing, and null on a reference whose target has
+            // been deleted — which is the same row the tree marks as broken.
+            'reference' => ReferenceSummary::for($this->resource),
+            'exam_gate' => $this->exam_gate?->value,
+            'exam_gate_label' => $this->exam_gate?->label(),
             'is_completable' => LessonTypeRegistry::isCompletable($type),
             'is_recording' => $this->class_session_id !== null,
             'order' => $this->order,

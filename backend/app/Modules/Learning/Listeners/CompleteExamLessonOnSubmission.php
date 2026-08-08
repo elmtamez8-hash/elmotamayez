@@ -1,0 +1,95 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Learning\Listeners;
+
+use App\Modules\Assessments\Events\ExamSubmitted;
+use App\Modules\Courses\Enums\ContentStatus;
+use App\Modules\Courses\Enums\ExamGate;
+use App\Modules\Courses\Enums\LessonType;
+use App\Modules\Courses\Models\Lesson;
+use App\Modules\Learning\Actions\MarkLessonComplete;
+use App\Modules\Learning\Models\Enrollment;
+
+/**
+ * Ticks off the exam item when its exam is sat.
+ *
+ * Without this the exam type is a trap rather than a feature. It is completable,
+ * so it enters the progress denominator (`LessonTypeRegistry`) — but no student
+ * can ever mark one done: `POST /enrollments/{e}/lessons/{l}/complete` is the
+ * only writer of a progress row, and an exam is finished from the exam's own
+ * page, not from the item. So the moment a teacher placed a quiz in their tree,
+ * every enrolled student's ceiling dropped below 100%, `CourseCompleted` stopped
+ * firing and no certificate issued. Not slowly — never. Exactly the shape of the
+ * recording bug `FR-026أ` was written for, arriving through a different door.
+ *
+ * It listens to `ExamSubmitted` and not to `ExamPassed`, because which of the
+ * two counts is the ITEM's decision (`FR-041`): under "يكفي أن يُحاول" sitting
+ * it is the work, and a failing mark completes the item while still telling the
+ * student they got it wrong. Under "يجب أن ينجح" only a pass does. Listening to
+ * `ExamPassed` would silently impose the strict reading on every item.
+ *
+ * One exam may be placed more than once in a course; each placement is its own
+ * item with its own gate, so all of them are answered.
+ */
+class CompleteExamLessonOnSubmission
+{
+    public function __construct(
+        private readonly MarkLessonComplete $markComplete,
+    ) {}
+
+    public function handle(ExamSubmitted $event): void
+    {
+        $attempt = $event->attempt;
+        $enrollment = $this->enrollmentFor($attempt->enrollment_id, $attempt->exam_id, (int) $attempt->student_user_id);
+
+        if ($enrollment === null) {
+            // An exam sat outside any enrolment — a standalone quiz, or a
+            // teacher previewing their own. There is no progress to move.
+            return;
+        }
+
+        $items = Lesson::query()
+            ->withoutWorkspaceScope()
+            ->where('course_id', $enrollment->course_id)
+            ->where('type', LessonType::Exam->value)
+            ->where('reference_id', $attempt->exam_id)
+            // A draft item is not work the student has been asked to do, and it
+            // is not in the denominator either — completing it would credit them
+            // against a total that does not include it.
+            ->where('status', ContentStatus::Published)
+            ->get();
+
+        foreach ($items as $item) {
+            if ($item->exam_gate === ExamGate::Pass && $attempt->passed !== true) {
+                continue;
+            }
+
+            $this->markComplete->handle($enrollment, (int) $item->getKey());
+        }
+    }
+
+    /**
+     * The enrolment this attempt belongs to.
+     *
+     * `enrollment_id` is nullable on the attempt (`StartAttempt` leaves it null
+     * for an exam with no course), so the fallback looks it up the same way
+     * `StartAttempt` does rather than giving up on a row that predates the
+     * enrolment.
+     */
+    private function enrollmentFor(?int $enrollmentId, int $examId, int $studentUserId): ?Enrollment
+    {
+        if ($enrollmentId !== null) {
+            return Enrollment::query()->withoutWorkspaceScope()->find($enrollmentId);
+        }
+
+        return Enrollment::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $studentUserId)
+            ->whereIn('course_id', function ($query) use ($examId): void {
+                $query->select('course_id')->from('exams')->where('id', $examId);
+            })
+            ->first();
+    }
+}

@@ -9,8 +9,10 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ApiError, api } from "@/lib/api";
+import type { ExamReference, SessionReference } from "@/lib/courses";
 import { userMessage } from "@/lib/errors";
 import { media, type PlaybackGrant } from "@/lib/media";
+import { formatSessionTime } from "@/lib/session-format";
 
 interface StudentLesson {
   uuid: string;
@@ -23,6 +25,18 @@ interface StudentLesson {
   external_url: string | null;
   has_asset: boolean;
   attachments: StudentAttachment[];
+  reference: ExamReference | SessionReference | null;
+  exam_gate: "attempt" | "pass" | null;
+  exam_gate_label: string | null;
+}
+
+interface LessonResponse {
+  lesson: StudentLesson;
+  can_access: boolean;
+  /** Null when access was granted. Set to the reason, in words, when it was not. */
+  blocked_reason: string | null;
+  blocked_message: string | null;
+  blocked_by_title: string | null;
 }
 
 /**
@@ -45,6 +59,7 @@ export default function LearnLessonPage({
   const { lesson } = use(params);
 
   const [detail, setDetail] = useState<StudentLesson | null>(null);
+  const [blocked, setBlocked] = useState<LessonResponse | null>(null);
   const [grant, setGrant] = useState<PlaybackGrant | null>(null);
   const [error, setError] = useState("");
   const [preparing, setPreparing] = useState(false);
@@ -54,9 +69,15 @@ export default function LearnLessonPage({
     let cancelled = false;
 
     api
-      .get<{ lesson: StudentLesson; can_access: boolean }>(`/learn/lessons/${lesson}`)
+      .get<LessonResponse>(`/learn/lessons/${lesson}`)
       .then((result) => {
-        if (!cancelled) setDetail(result.can_access ? result.lesson : null);
+        if (cancelled) return;
+
+        // Held either way. A blocked item still has a title and a type, and the
+        // student is owed the reason it is closed — dropping the payload was why
+        // this page used to show a bare heading and nothing else (FR-043).
+        setDetail(result.lesson);
+        setBlocked(result.can_access ? null : result);
       })
       .catch(() => undefined);
 
@@ -67,8 +88,10 @@ export default function LearnLessonPage({
 
   // The player is asked for only when there is something to play. Requesting a
   // grant for an article would burn one and answer 403 for the right reason at
-  // the wrong time.
-  const wantsPlayer = detail === null || detail.type === "video" || detail.type === "audio";
+  // the wrong time — and for a BLOCKED item it would answer 403 for the right
+  // reason with the wrong sentence, over the top of the one the server gave.
+  const wantsPlayer =
+    blocked === null && (detail === null || detail.type === "video" || detail.type === "audio");
 
   useEffect(() => {
     let cancelled = false;
@@ -102,7 +125,8 @@ export default function LearnLessonPage({
     };
   }, [lesson, wantsPlayer]);
 
-  const isDocument = detail !== null && (detail.type === "pdf" || detail.type === "file");
+  const open = blocked === null && detail !== null;
+  const isDocument = open && detail !== null && (detail.type === "pdf" || detail.type === "file");
 
   return (
     <div className="flex flex-col gap-6">
@@ -114,7 +138,25 @@ export default function LearnLessonPage({
         </p>
       )}
 
-      {loading && <p className="text-sm text-ink-muted">جارٍ التحضير…</p>}
+      {/*
+        Why it is closed, and what opens it. An exam gate is invisible from here
+        otherwise: what has to happen is on a different page, so "مغلق" alone
+        leaves the student with nowhere to go (FR-043).
+      */}
+      {blocked !== null && (
+        <Alert tone="warning" title="هذا الدرس غير مفتوح بعد">
+          {blocked.blocked_message ?? "أكمِل ما قبله أولاً."}
+          {(blocked.blocked_reason === "exam_pass" || blocked.blocked_reason === "exam_attempt") && (
+            <span className="mt-2 block">
+              <Button href="/exams" size="sm" variant="secondary">
+                اختباراتي
+              </Button>
+            </span>
+          )}
+        </Alert>
+      )}
+
+      {loading && blocked === null && <p className="text-sm text-ink-muted">جارٍ التحضير…</p>}
 
       {preparing && (
         <Alert tone="info" title="الفيديو قيد التجهيز">
@@ -140,7 +182,28 @@ export default function LearnLessonPage({
         </Card>
       )}
 
-      {detail !== null && (detail.type === "article" || detail.type === "note") && (
+      {/*
+        A reference item is a POSITION, so what it shows is a way in — never a
+        copy of the exam or a second player for the session.
+      */}
+      {open && detail !== null && detail.type === "exam" && detail.reference !== null && (
+        <Card>
+          <p className="mb-3 text-sm text-ink-muted">
+            {"passing_score" in detail.reference &&
+              `النجاح من ${detail.reference.passing_score}٪ · ${detail.reference.duration_minutes} دقيقة`}
+            {detail.exam_gate === "pass" && " · لا يُفتح ما بعده حتى تجتازه"}
+          </p>
+          <Button href={`/exams/${detail.reference.uuid}`}>فتح الاختبار</Button>
+        </Card>
+      )}
+
+      {open && detail !== null && detail.type === "live_session" && detail.reference !== null && (
+        <Card>
+          <SessionSlot reference={detail.reference} />
+        </Card>
+      )}
+
+      {open && detail !== null && (detail.type === "article" || detail.type === "note") && (
         <Card>
           {/* Rendered from Markdown on the server with raw HTML stripped, not
               escaped — the same string every reader is served. The page used to
@@ -152,7 +215,7 @@ export default function LearnLessonPage({
         </Card>
       )}
 
-      {detail !== null && detail.type === "link" && detail.external_url !== null && (
+      {open && detail !== null && detail.type === "link" && detail.external_url !== null && (
         <Card>
           <p className="mb-3 text-sm text-ink-muted">
             هذا المحتوى على موقع خارجي — خارج حماية المنصّة، ولا يُحتسب في نسبة تقدّمك.
@@ -163,9 +226,53 @@ export default function LearnLessonPage({
         </Card>
       )}
 
-      {detail !== null && (
+      {open && detail !== null && (
         <AttachmentList lessonUuid={lesson} attachments={detail.attachments} />
       )}
     </div>
+  );
+}
+
+/**
+ * The place a session holds in the sequence, before and after its recording.
+ *
+ * `unavailable` is the state the spec names (FR-048): the hour has passed and no
+ * recording ever arrived. Anything that left this row saying "coming soon" would
+ * promise a class that already happened without them, permanently — which is why
+ * the server decides the word and this only renders it.
+ */
+function SessionSlot({ reference }: { reference: ExamReference | SessionReference }) {
+  if (!("state" in reference)) return null;
+
+  const when = formatSessionTime(reference.starts_at, reference.timezone);
+
+  if (reference.state === "upcoming") {
+    return (
+      <Alert tone="info" title="حصة مباشرة قادمة">
+        {when} — يصلك تسجيلها في هذا الموضع بعد انتهائها. حضورها يحتاج مقعداً محجوزاً.
+      </Alert>
+    );
+  }
+
+  if (reference.state === "processing") {
+    return (
+      <Alert tone="info" title="التسجيل قيد التجهيز">
+        انتهت الحصة ({when}) وتسجيلها يُجهَّز الآن. عُد بعد قليل.
+      </Alert>
+    );
+  }
+
+  if (reference.state === "cancelled") {
+    return (
+      <Alert tone="warning" title="أُلغيت هذه الحصة">
+        لن يصل تسجيل لها. لا شيء ينتظرك في هذا الموضع.
+      </Alert>
+    );
+  }
+
+  return (
+    <Alert tone="warning" title="لا تسجيل لهذه الحصة">
+      مضى موعد الحصة ({when}) ولم يُنشر تسجيل لها. اسأل مدرّسك إن كنت تنتظره.
+    </Alert>
   );
 }

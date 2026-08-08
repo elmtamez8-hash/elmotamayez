@@ -207,17 +207,20 @@ description: "Task list for 016-course-authoring"
 **Independent Test**: وضع اختبار في منتصف كورس متسلسل بكل قيمة من قيمتي بوابته، والتحقق من
 سلوك الفتح في الحالات الأربع.
 
-- [ ] T079 [P] [US5] اكتب `backend/tests/Feature/Courses/ExamGateTest.php` — الحالات الأربع: (يكفي أن يُحاول × ناجح/راسب) و(يجب أن ينجح × ناجح/راسب)؛ وفي المحجوبة يُعرَض **سبب** الحجب وما يفكّه (`SC-012` · `FR-043`)
-- [ ] T080 [P] [US5] اكتب `backend/tests/Feature/Courses/ReferenceIntegrityTest.php`: حذف عنصر الإحالة **لا** يمسّ الاختبار ولا محاولة واحدة عليه (`SC-013`)؛ وحذف الاختبار نفسه يُخفي عنصره من الشجرة بلا صفّ يشير إلى معدوم (`FR-045`)
-- [ ] T081 [P] [US5] اكتب `backend/tests/Feature/Courses/AssignmentReservedTest.php`: `type = assignment` ⇒ **422** برسالة تسمّي سبيك 008؛ ويفشل الاختبار إن صار النوع يعمل بلا 008 (research §R12)
-- [ ] T082 [US5] أضف `exam_gate` إلى بيانات عنصر الاختبار (يكفي أن يُحاول / يجب أن ينجح) وتحقّقه في `CreateLesson` و`UpdateLesson` (`FR-041`)
-- [ ] T083 [US5] اجعل `canAccessLesson()` في `backend/app/Modules/Learning/Models/Enrollment.php` يقرأ بوابة عنصر الاختبار من محاولات الطالب (`FR-042`) — ⚠️ **مسار حرج**: تُشحن مع T079
-- [ ] T084 [US5] أضف فلترة «الهدف معدوم» إلى نطاق الشجرة في `backend/app/Modules/Courses/Models/Lesson.php` — الحماية **عند القراءة** لا بمستمع حذف: مستمع يمكن ألا يُسجَّل، وسطر الفلترة يمرّ به كل قارئ بالضرورة (research §R9)
-- [ ] T085 [US5] عدّل `backend/app/Modules/LiveSessions/Listeners/PublishRecordingAsLesson.php`: يبحث **أولاً** عن عنصر `live_session` بـ`reference_id` فيحوّله في مكانه (`type → video` · `class_session_id` يُضبط · `reference_id` يُفرَّغ · `chapter_id` و`order` و`uuid` كما هي)، وفي غيابه يبقى سلوك 005؛ و**يضبط `status = published` صراحةً** ([contracts/events.md](./contracts/events.md) §١)
-- [ ] T086 [P] [US5] اكتب `backend/tests/Feature/LiveSessions/RecordingPlacementTest.php`: حصة لها عنصر ⇒ **عنصر واحد** في موضع العنصر لا في آخر الشجرة · إعادة الاستيعاب تحدّث الدرس نفسه · التسجيل يصل `published` (`SC-014` · `SC-020`)
-- [ ] T087 [P] [US5] أنشئ `frontend/src/components/courses/editors/ExamPicker.tsx` — اختيار اختبار منشور من الكورس ومفتاح بوابته
-- [ ] T088 [P] [US5] أنشئ `frontend/src/components/courses/editors/LiveSessionPicker.tsx` — الحصة القادمة، وحالة نهائية مفهومة لحصة مضى موعدها بلا تسجيل (`FR-048`)
-- [ ] T089 [US5] أضف `assignment` إلى قائمة الأنواع في `frontend/src/components/courses/LessonEditor.tsx` **معطّلاً برسالته** — لا يظهر كخيار يعمل ثم يفشل صامتاً (`FR-046`)
+- [X] T079 [P] [US5] اكتب `backend/tests/Feature/Courses/ExamGateTest.php` — الحالات الأربع: (يكفي أن يُحاول × ناجح/راسب) و(يجب أن ينجح × ناجح/راسب)؛ وفي المحجوبة يُعرَض **سبب** الحجب وما يفكّه (`SC-012` · `FR-043`)
+- [X] T080 [P] [US5] اكتب `backend/tests/Feature/Courses/ReferenceIntegrityTest.php`: حذف عنصر الإحالة **لا** يمسّ الاختبار ولا محاولة واحدة عليه (`SC-013`)؛ وحذف الاختبار نفسه يُخفي عنصره من الشجرة بلا صفّ يشير إلى معدوم (`FR-045`)
+- [X] T081 [P] [US5] اكتب `backend/tests/Feature/Courses/AssignmentReservedTest.php`: `type = assignment` ⇒ **422** برسالة تسمّي سبيك 008؛ ويفشل الاختبار إن صار النوع يعمل بلا 008 (research §R12)
+- [X] T082 [US5] أضف `exam_gate` إلى بيانات عنصر الاختبار (يكفي أن يُحاول / يجب أن ينجح) وتحقّقه في `CreateLesson` و`UpdateLesson` (`FR-041`)
+- [X] T083 [US5] اجعل `canAccessLesson()` في `backend/app/Modules/Learning/Models/Enrollment.php` يقرأ بوابة عنصر الاختبار من محاولات الطالب (`FR-042`) — ⚠️ **مسار حرج**: تُشحن مع T079
+- [X] T084 [US5] أضف فلترة «الهدف معدوم» إلى نطاق الشجرة في `backend/app/Modules/Courses/Models/Lesson.php` — الحماية **عند القراءة** لا بمستمع حذف: مستمع يمكن ألا يُسجَّل، وسطر الفلترة يمرّ به كل قارئ بالضرورة (research §R9)
+- [X] T085 [US5] عدّل `backend/app/Modules/LiveSessions/Listeners/PublishRecordingAsLesson.php`: يبحث **أولاً** عن عنصر `live_session` بـ`reference_id` فيحوّله في مكانه (`type → video` · `class_session_id` يُضبط · `reference_id` يُفرَّغ · `chapter_id` و`order` و`uuid` كما هي)، وفي غيابه يبقى سلوك 005؛ و**يضبط `status = published` صراحةً** ([contracts/events.md](./contracts/events.md) §١)
+- [X] T086 [P] [US5] اكتب `backend/tests/Feature/LiveSessions/RecordingPlacementTest.php`: حصة لها عنصر ⇒ **عنصر واحد** في موضع العنصر لا في آخر الشجرة · إعادة الاستيعاب تحدّث الدرس نفسه · التسجيل يصل `published` (`SC-014` · `SC-020`)
+- [X] T087 [P] [US5] أنشئ `frontend/src/components/courses/editors/ExamPicker.tsx` — اختيار اختبار منشور من الكورس ومفتاح بوابته
+- [X] T088 [P] [US5] أنشئ `frontend/src/components/courses/editors/LiveSessionPicker.tsx` — الحصة القادمة، وحالة نهائية مفهومة لحصة مضى موعدها بلا تسجيل (`FR-048`)
+- [X] T089 [US5] أضف `assignment` إلى قائمة الأنواع في `frontend/src/components/courses/LessonEditor.tsx` **معطّلاً برسالته** — لا يظهر كخيار يعمل ثم يفشل صامتاً (`FR-046`)
+- [X] T089أ [US5] **مضافة أثناء التنفيذ**: إتمام عنصر الاختبار. النوع `exam` قابل للإتمام فيدخل مقام النسبة، ولا كاتب لصفّ تقدّمه إلا `POST /enrollments/…/complete` — والاختبار يُؤدّى من صفحته لا من العنصر. فأي كورس فيه عنصر اختبار كان يعجز عن بلوغ ١٠٠٪، فلا `CourseCompleted` ولا شهادة، **إلى الأبد** — العطل نفسه الذي كُتب له `FR-026أ` من باب آخر. أُضيف `Learning\Listeners\CompleteExamLessonOnSubmission` على `ExamSubmitted` (لا `ExamPassed`: أيّ الحدثين يُعتدّ به قرارُ **العنصر** بـ`FR-041`)
+- [X] T089ب [US5] **مضافة أثناء التنفيذ**: جانب الطالب. `FR-043` يوجب عرض سبب الحجب، و`FR-047`/`FR-048` يوجبان عرض موعد الحصة وحالتها النهائية — وصفحة `/learn/{lesson}` كانت تُسقط الحمولة كلها عند الحجب فتُظهر عنواناً فارغاً. أُضيف `Learning\Support\LessonAccess` و`Courses\Support\ReferenceSummary`، وحقول `blocked_reason`/`blocked_message`/`reference` في حمولة الطالب، و`SessionSlot` في الصفحة. ووُحّد رفض `completeLesson` على الجملة نفسها بدل نصّه الإنجليزي
+- [X] T089ج [US5] **مضافة أثناء التنفيذ**: `GET /courses/{course}/reference-targets` — المنتقيان يحتاجان قائمتين مقصورتين على الكورس، و`/exams` و`/class-sessions` تُرقّمان صفحاتٍ بلا مرشّح كورس؛ فالصفحة الثانية تُخفي هدفاً من قائمة منسدلة بصمت
 
 **Checkpoint**: الاختبار صار عنصراً ببوابة · الواجب محجوز بلا وهم · التسجيل يحلّ في موضعه.
 

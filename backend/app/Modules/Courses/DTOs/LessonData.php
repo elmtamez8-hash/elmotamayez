@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Courses\DTOs;
 
+use App\Modules\Courses\Enums\ExamGate;
 use App\Modules\Courses\Enums\LessonType;
 use App\Shared\Data\DataTransferObject;
 
@@ -26,6 +27,8 @@ class LessonData extends DataTransferObject
         public readonly ?string $content = null,
         public readonly ?string $externalUrl = null,
         public readonly ?string $referenceUuid = null,
+        /** Read only when the type is `exam`; ignored, not stored, elsewhere. */
+        public readonly ?ExamGate $examGate = null,
         public readonly ?int $durationSeconds = null,
         public readonly bool $isPreview = false,
         public readonly bool $isFree = false,
@@ -42,6 +45,11 @@ class LessonData extends DataTransferObject
             content: isset($data['content']) ? (string) $data['content'] : null,
             externalUrl: isset($data['external_url']) ? (string) $data['external_url'] : null,
             referenceUuid: isset($data['reference_uuid']) ? (string) $data['reference_uuid'] : null,
+            examGate: match (true) {
+                ! isset($data['exam_gate']) => null,
+                $data['exam_gate'] instanceof ExamGate => $data['exam_gate'],
+                default => ExamGate::from((string) $data['exam_gate']),
+            },
             durationSeconds: isset($data['duration_seconds']) ? (int) $data['duration_seconds'] : null,
             isPreview: (bool) ($data['is_preview'] ?? false),
             isFree: (bool) ($data['is_free'] ?? false),

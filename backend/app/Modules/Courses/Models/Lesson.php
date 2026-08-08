@@ -6,9 +6,11 @@ namespace App\Modules\Courses\Models;
 
 use App\Models\BaseModel;
 use App\Modules\Courses\Enums\ContentStatus;
+use App\Modules\Courses\Enums\ExamGate;
 use App\Modules\Courses\Support\HasSiblingOrder;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\OrdersSiblings;
+use App\Modules\Courses\Support\ReferenceIntegrity;
 use App\Modules\Media\Enums\MediaRole;
 use App\Modules\Media\Models\MediaAsset;
 use App\Shared\Traits\BelongsToWorkspace;
@@ -24,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
  * @property string $type
  * @property ContentStatus $status
  * @property int|null $reference_id
+ * @property ExamGate|null $exam_gate
  * @property string|null $external_url
  * @property int|null $class_session_id
  */
@@ -55,6 +58,9 @@ class Lesson extends BaseModel implements OrdersSiblings
         // deliberately no second column saying which, because two columns
         // recording one fact can disagree.
         'reference_id',
+        // What the referenced exam asks before the course goes on. Null on every
+        // other type — a gate on an article is a fact with no meaning (FR-041).
+        'exam_gate',
         'order',
         'duration_seconds',
         'is_preview',
@@ -66,6 +72,7 @@ class Lesson extends BaseModel implements OrdersSiblings
     {
         return [
             'status' => ContentStatus::class,
+            'exam_gate' => ExamGate::class,
             'order' => 'integer',
             'duration_seconds' => 'integer',
             'is_preview' => 'boolean',
@@ -87,6 +94,10 @@ class Lesson extends BaseModel implements OrdersSiblings
      */
     public function scopeVisibleToStudents(Builder $query): Builder
     {
+        // An item whose exam or session has been deleted points at nothing, and
+        // nobody can sit an exam that is gone (FR-045).
+        ReferenceIntegrity::apply($query);
+
         return $query
             ->where('lessons.status', ContentStatus::Published)
             ->whereHas('chapter', fn (Builder $q) => $q->where('status', ContentStatus::Published))
@@ -115,6 +126,12 @@ class Lesson extends BaseModel implements OrdersSiblings
      */
     public function scopeCountableForProgress(Builder $query): Builder
     {
+        // And a fourth, arriving with the reference types: an exam item whose
+        // exam was deleted can never be completed by anyone. Left in the
+        // denominator it caps every student below 100% permanently — the same
+        // forever-bug as the recording, through a different door (FR-045).
+        ReferenceIntegrity::apply($query);
+
         return $query
             ->where('lessons.status', ContentStatus::Published)
             ->whereIn('lessons.type', LessonTypeRegistry::completableValues())

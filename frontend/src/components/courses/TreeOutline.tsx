@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { MoveControls } from "./MoveControls";
 import { StatusBadge } from "./StatusBadge";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TrashIcon } from "@/components/icons";
@@ -118,6 +119,12 @@ export function TreeOutline({
                             a seat in that session, not by whoever enrolled. */}
                         {lesson.is_recording ? (
                           <span className="text-xs text-ink-muted">تسجيل حصة — يُشاهده أصحاب المقاعد</span>
+                        ) : null}
+                        {/* The student's tree drops this row entirely; the author
+                            is the only person who can repoint or remove it, so
+                            they are the one who must be told. */}
+                        {lesson.reference_missing ? (
+                          <Badge tone="danger">الاختبار أو الحصة محذوفة — لا يراه طلابك</Badge>
                         ) : null}
                       </span>
                       <span className="flex items-center gap-1">

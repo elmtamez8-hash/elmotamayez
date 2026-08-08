@@ -47,6 +47,13 @@ export interface TreeLesson {
   is_completable: boolean;
   /** A published session recording: watched by seat, and not repointable from here. */
   is_recording: boolean;
+  /**
+   * The exam or session this item points at has been deleted.
+   *
+   * Shown to the author and to nobody else: the student's tree drops the row, but
+   * the teacher is the only person who can repoint or remove it.
+   */
+  reference_missing: boolean;
   is_preview: boolean;
   is_free: boolean;
   duration_seconds: number;
@@ -115,6 +122,13 @@ export interface LessonDetail {
   duration_seconds: number;
   is_preview: boolean;
   is_free: boolean;
+  /**
+   * What this item points at — the exam, or the session. Null on the eight types
+   * that point at nothing, and null when the target has been deleted.
+   */
+  reference: ExamReference | SessionReference | null;
+  exam_gate: ExamGate | null;
+  exam_gate_label: string | null;
   /** The item's own file — one, or none. */
   asset: MediaAsset | null;
   /** Files beside it, whatever the item's type. Many, or none. */
@@ -125,8 +139,55 @@ export interface LessonEdit {
   title?: string;
   content?: string | null;
   external_url?: string | null;
+  /** The exam or session this item places, by uuid. */
+  reference_uuid?: string;
+  exam_gate?: ExamGate;
   is_preview?: boolean;
   is_free?: boolean;
+}
+
+/** What an exam item asks before the course goes on. Two values, no third. */
+export type ExamGate = "attempt" | "pass";
+
+/** What a reference item may be pointed at, for one course. */
+export interface ReferenceTargets {
+  exams: Array<{
+    uuid: string;
+    title: string;
+    passing_score: number;
+    questions_count: number;
+  }>;
+  sessions: Array<{
+    uuid: string;
+    title: string;
+    starts_at: string;
+    /** Declared with the time — never render a session in the browser's zone. */
+    timezone: string;
+    status: string;
+    status_label: string;
+    has_recording: boolean;
+  }>;
+}
+
+export interface ExamReference {
+  uuid: string;
+  title: string;
+  passing_score: number;
+  duration_minutes: number;
+}
+
+export interface SessionReference {
+  uuid: string;
+  title: string;
+  starts_at: string;
+  timezone: string;
+  status: string;
+  status_label: string;
+  /**
+   * The one word a screen switches on. `unavailable` is the case the spec singles
+   * out (FR-048): the session's time has passed and no recording ever arrived.
+   */
+  state: "upcoming" | "processing" | "recorded" | "cancelled" | "unavailable";
 }
 
 /** What changing an item's type would discard — read before it is done. */
@@ -146,6 +207,10 @@ export const courses = {
 
   lesson: (courseUuid: string, lessonUuid: string) =>
     api.get<LessonDetail>(`/courses/${courseUuid}/lessons/${lessonUuid}`),
+
+  /** This course's published exams and its sessions, for the two pickers. */
+  referenceTargets: (courseUuid: string) =>
+    api.get<ReferenceTargets>(`/courses/${courseUuid}/reference-targets`),
 
   updateLesson: (courseUuid: string, lessonUuid: string, patch: LessonEdit) =>
     api.put<LessonDetail>(`/courses/${courseUuid}/lessons/${lessonUuid}`, patch),

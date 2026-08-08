@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Actions;
 
 use App\Modules\Courses\Enums\ContentStatus;
+use App\Modules\Courses\Enums\ExamGate;
 use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Exceptions\ContentLockedException;
 use App\Modules\Courses\Models\Lesson;
@@ -67,8 +68,13 @@ class ChangeLessonType extends Action
             $losses[] = 'الرابط الخارجي';
         }
 
-        if ($lesson->reference_id !== null
-            && LessonTypeRegistry::family($target) !== LessonTypeRegistry::FAMILY_REFERENCE) {
+        // Lost on ANY change of type, including one reference type to another.
+        // `reference_id` is a bare id whose meaning comes from `type` (R9), so an
+        // exam id carried over to `live_session` is not the same link preserved —
+        // it is the same number now read against a different table. Which is
+        // exactly the ambiguity a `reference_type` column would have created, got
+        // in through the back door of "keeping" the value.
+        if ($lesson->reference_id !== null) {
             $losses[] = 'الاختبار أو الحصة المرتبطة';
         }
 
@@ -96,9 +102,10 @@ class ChangeLessonType extends Action
                 'type' => $target->value,
                 'content' => in_array('content', $keeps, true) ? $lesson->content : null,
                 'external_url' => $target === LessonType::Link ? $lesson->external_url : null,
-                'reference_id' => LessonTypeRegistry::family($target) === LessonTypeRegistry::FAMILY_REFERENCE
-                    ? $lesson->reference_id
-                    : null,
+                // Always cleared — see losses(). The teacher repicks, which takes
+                // one click and cannot point an item at a row in the wrong table.
+                'reference_id' => null,
+                'exam_gate' => $target === LessonType::Exam ? ExamGate::Attempt : null,
                 // A type with no file has no duration to state. Video and audio
                 // get theirs back from the asset when one is uploaded.
                 'duration_seconds' => LessonTypeRegistry::assetKind($target)?->hasDuration() === true

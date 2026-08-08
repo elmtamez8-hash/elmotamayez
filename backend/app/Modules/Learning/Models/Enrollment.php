@@ -6,10 +6,15 @@ namespace App\Modules\Learning\Models;
 
 use App\Models\BaseModel;
 use App\Models\User;
+use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Courses\Enums\ContentStatus;
+use App\Modules\Courses\Enums\ExamGate;
+use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\LessonTypeRegistry;
+use App\Modules\Courses\Support\ReferenceIntegrity;
+use App\Modules\Learning\Support\LessonAccess;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Learning\EnrollmentFactory;
@@ -109,29 +114,47 @@ class Enrollment extends BaseModel
      */
     public function canAccessLesson(Lesson $lesson): bool
     {
+        return $this->accessTo($lesson)->allowed;
+    }
+
+    /**
+     * The same decision, carrying its reason (FR-043).
+     *
+     * `canAccessLesson()` above stays a bool because a dozen call sites ask it
+     * as one; this is the form the student's own screen needs, since "locked"
+     * with nothing after it tells them nothing about what to go and do.
+     */
+    public function accessTo(Lesson $lesson): LessonAccess
+    {
         // A lesson from another course never counts towards this enrollment,
         // preview flag or not — otherwise progress could be driven to 100%
         // with lessons the student's course does not contain.
         if ($lesson->course_id !== $this->course_id) {
-            return false;
+            return LessonAccess::deny(
+                LessonAccess::NOT_ENROLLED,
+                'هذا الدرس ليس من الكورس المسجَّل فيه.',
+            );
         }
 
         if ($lesson->is_preview) {
-            return true;
+            return LessonAccess::allow();
         }
 
         if (! $this->isActive()) {
-            return false;
+            return LessonAccess::deny(
+                LessonAccess::INACTIVE,
+                'تسجيلك في هذا الكورس غير نشط حالياً.',
+            );
         }
 
         if (! $this->course->is_sequential) {
-            return true;
+            return LessonAccess::allow();
         }
 
         $lessonSectionOrder = $lesson->section->order ?? 0;
         $lessonChapterOrder = $lesson->chapter->order ?? 0;
 
-        $previousLessonId = DB::table('lessons')
+        $query = DB::table('lessons')
             ->join('course_sections', 'lessons.section_id', '=', 'course_sections.id')
             ->join('course_chapters', 'lessons.chapter_id', '=', 'course_chapters.id')
             ->where('lessons.course_id', $this->course_id)
@@ -167,18 +190,89 @@ class Enrollment extends BaseModel
             })
             ->orderBy('course_sections.order', 'desc')
             ->orderBy('course_chapters.order', 'desc')
-            ->orderBy('lessons.order', 'desc')
-            ->value('lessons.id');
+            ->orderBy('lessons.order', 'desc');
+
+        // A reference item whose exam was deleted must not stand in front of
+        // anything: nobody can sit an exam that is gone, so it would lock the
+        // rest of the course permanently (FR-045).
+        ReferenceIntegrity::apply($query);
+
+        // More than the id now — the gate reads the previous item's type and,
+        // for an exam, which of the two conditions it was given. Still a column
+        // list rather than the model: `content` is a longText and this runs on
+        // every lesson open.
+        $row = $query
+            ->select('lessons.id', 'lessons.title', 'lessons.type', 'lessons.reference_id', 'lessons.exam_gate')
+            ->first();
 
         // If this is the first lesson, it's always accessible.
-        if ($previousLessonId === null) {
-            return true;
+        if ($row === null) {
+            return LessonAccess::allow();
         }
 
-        // The previous lesson must be completed.
-        return $this->progress()
-            ->where('lesson_id', $previousLessonId)
+        $previous = (array) $row;
+        $title = (string) $previous['title'];
+
+        if ($previous['type'] === LessonType::Exam->value) {
+            return $this->examGateFor($previous, $title);
+        }
+
+        $completed = $this->progress()
+            ->where('lesson_id', $previous['id'])
             ->where('status', 'completed')
             ->exists();
+
+        return $completed
+            ? LessonAccess::allow()
+            : LessonAccess::deny(
+                LessonAccess::SEQUENCE,
+                "أكمِل «{$title}» أولاً — هذا الكورس متسلسل.",
+                $title,
+            );
+    }
+
+    /**
+     * The exam item standing in front of this one, and what it asks (FR-042).
+     *
+     * Read from the ATTEMPTS, not from a `lesson_progress` row. The two answer
+     * different questions and can disagree: a student may have passed the exam
+     * from the exam's own page before the teacher ever placed it in the tree,
+     * and refusing them on the grounds that a progress row is missing would be
+     * refusing them over our bookkeeping rather than over their work.
+     *
+     * "Attempted" means SUBMITTED. A started-and-abandoned attempt is a row that
+     * exists because the student opened the page; treating it as a pass through
+     * the gate would make the weaker gate no gate at all.
+     *
+     * @param  array<string, mixed>  $previous
+     */
+    private function examGateFor(array $previous, string $title): LessonAccess
+    {
+        $gate = ExamGate::tryFrom((string) ($previous['exam_gate'] ?? '')) ?? ExamGate::Attempt;
+
+        $attempts = Attempt::query()
+            ->where('exam_id', $previous['reference_id'])
+            ->where('student_user_id', $this->student_user_id)
+            ->whereNotNull('submitted_at');
+
+        if ($gate === ExamGate::Pass) {
+            $attempts->where('passed', true);
+        }
+
+        if ($attempts->exists()) {
+            return LessonAccess::allow();
+        }
+
+        return $gate === ExamGate::Pass
+            ? LessonAccess::deny(
+                LessonAccess::EXAM_PASS,
+                "لا يُفتح ما بعد «{$title}» حتى تجتاز الاختبار بالدرجة المطلوبة. أعِد المحاولة من صفحة الاختبار.",
+                $title,
+            )
+            : LessonAccess::deny(
+                LessonAccess::EXAM_ATTEMPT,
+                "أدِّ اختبار «{$title}» وسلّم إجابتك ليُفتح ما بعده — الدرجة لا تحجبك.",
+                $title,
+            );
     }
 }

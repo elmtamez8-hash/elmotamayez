@@ -5,7 +5,9 @@ import { AttachmentsPanel } from "./AttachmentsPanel";
 import { ArticleEditor } from "./editors/ArticleEditor";
 import { AudioEditor } from "./editors/AudioEditor";
 import { DocumentEditor } from "./editors/DocumentEditor";
+import { ExamPicker } from "./editors/ExamPicker";
 import { LinkEditor } from "./editors/LinkEditor";
+import { LiveSessionPicker } from "./editors/LiveSessionPicker";
 import { NoteEditor } from "./editors/NoteEditor";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -43,10 +45,30 @@ const DOCUMENT: LessonTypeValue[] = ["pdf", "file"];
  */
 const PENDING: Partial<Record<LessonTypeValue, string>> = {
   video: "الفيديو له صفحته الخاصة — الرفع والترجمات والمشاهدة المحميّة.",
-  exam: "ربط الاختبار بالعنصر يصل مع مرحلة الإحالة.",
-  live_session: "تسجيلات الحصص تُنشر تلقائياً من الحصة نفسها، ولا تُربط يدوياً من هنا.",
   assignment: "الواجبات تصل مع بنك الأسئلة.",
 };
+
+/**
+ * The types the selector offers, and the one it offers WITHOUT letting it be
+ * chosen.
+ *
+ * `assignment` is listed and disabled with its reason attached (FR-046). Hiding
+ * it would be honest about today and silent about the plan; letting it be picked
+ * would be a choice that saves and then does nothing. Disabled with a sentence is
+ * the only reading that is true of both.
+ */
+const TYPE_OPTIONS: Array<{ value: LessonTypeValue; label: string; disabled?: boolean }> = [
+  { value: "article", label: "مقالة" },
+  { value: "note", label: "تنويه" },
+  { value: "link", label: "رابط خارجي" },
+  { value: "video", label: "فيديو" },
+  { value: "audio", label: "صوت" },
+  { value: "pdf", label: "مستند PDF" },
+  { value: "file", label: "ملف" },
+  { value: "exam", label: "اختبار" },
+  { value: "live_session", label: "حصة مباشرة" },
+  { value: "assignment", label: "واجب — يصل مع بنك الأسئلة", disabled: true },
+];
 
 export function LessonEditor({
   courseUuid,
@@ -201,16 +223,7 @@ export function LessonEditor({
             hint="تغيير النوع يعرض ما سيُفقد قبل التنفيذ، ولا يُسمح به على عنصر منشور."
             value={lesson.type}
             disabled={busy || lesson.status === "published"}
-            options={[
-              { value: "article", label: "مقالة" },
-              { value: "note", label: "تنويه" },
-              { value: "link", label: "رابط خارجي" },
-              { value: "video", label: "فيديو" },
-              { value: "audio", label: "صوت" },
-              { value: "pdf", label: "مستند PDF" },
-              { value: "file", label: "ملف" },
-              { value: "exam", label: "اختبار" },
-            ]}
+            options={TYPE_OPTIONS}
             onChange={(value) => void changeType(value as LessonTypeValue)}
           />
         )}
@@ -231,6 +244,34 @@ export function LessonEditor({
 
         {lesson.type === "audio" && (
           <AudioEditor lessonUuid={lesson.uuid} asset={lesson.asset} onChanged={load} />
+        )}
+
+        {lesson.type === "exam" && (
+          <ExamPicker
+            courseUuid={courseUuid}
+            lesson={lesson}
+            disabled={busy}
+            onSave={(patch) =>
+              void run(
+                () => courses.updateLesson(courseUuid, lesson.uuid, patch),
+                "حُفظ العنصر.",
+              )
+            }
+          />
+        )}
+
+        {lesson.type === "live_session" && (
+          <LiveSessionPicker
+            courseUuid={courseUuid}
+            lesson={lesson}
+            disabled={busy}
+            onSave={(patch) =>
+              void run(
+                () => courses.updateLesson(courseUuid, lesson.uuid, patch),
+                "حُفظ العنصر.",
+              )
+            }
+          />
         )}
 
         {pending !== undefined && (
