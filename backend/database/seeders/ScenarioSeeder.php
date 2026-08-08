@@ -15,6 +15,7 @@ use App\Modules\CMS\Models\Article;
 use App\Modules\CMS\Models\Category;
 use App\Modules\CMS\Models\Tag;
 use App\Modules\Courses\Enums\ContentStatus;
+use App\Modules\Courses\Enums\ExamGate;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
@@ -30,6 +31,10 @@ use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Media\Enums\MediaAssetStatus;
+use App\Modules\Media\Enums\MediaKind;
+use App\Modules\Media\Enums\MediaRole;
+use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\CreateOrder;
 use App\Modules\Payments\Actions\RejectOrder;
@@ -158,6 +163,8 @@ final class ScenarioSeeder extends Seeder
                 ['Your First Commit', 'video', false],
             ]],
         ]);
+
+        $this->authoredCourse($workspace, $teacher);
 
         $this->course($workspace, $teacher, [
             'title' => 'Vue 3 Composition API',
@@ -637,6 +644,168 @@ final class ScenarioSeeder extends Seeder
             'language' => 'en',
             'created_by' => $author->getKey(),
         ], $attributes));
+    }
+
+    /**
+     * A course that exercises the whole authoring surface (016).
+     *
+     * The other seeded courses are shaped for the STUDENT screens: articles and
+     * videos, one chapter per section, everything published. Nothing in them lets
+     * a person open `/manage/courses/{uuid}/content` and see what that surface
+     * actually does — four families of item type, two chapters under one section,
+     * a draft sitting beside its published siblings, an item pointing at an exam,
+     * another at a live session, and the two dispositions a document can have.
+     *
+     * **The uploaded items carry asset rows whose bytes do not exist.** A demo
+     * that fabricated files would be faking the one thing the media pipeline is
+     * for; what this course demonstrates is the TREE. The assets are here to make
+     * those items publishable and their editors complete, and playback on them
+     * fails exactly as it should for a file nobody uploaded.
+     */
+    private function authoredCourse(Workspace $workspace, User $teacher): Course
+    {
+        $course = $this->course($workspace, $teacher, [
+            'title' => 'Authoring Showcase',
+            'slug' => 'authoring-showcase',
+            'description' => 'Every supported item type, laid out the way the authoring surface builds them.',
+            'price' => 0,
+            'status' => 'published',
+            'visibility' => 'public',
+            'is_sequential' => true,
+        ]);
+
+        $exam = $this->exam($workspace, $course, [
+            'title' => 'Showcase — end of unit',
+            'status' => 'published',
+            'passing_score' => 60,
+        ]);
+
+        $session = ClassSession::factory()->create([
+            'workspace_id' => $workspace->id,
+            'course_id' => $course->id,
+            'title' => 'Showcase — live walkthrough',
+            'type' => ClassSessionType::Group,
+            'starts_at' => now()->addDays(5)->setHour(18)->startOfHour(),
+            'ends_at' => now()->addDays(5)->setHour(19)->startOfHour(),
+        ]);
+
+        // Two sections, four chapters — the shape a teacher actually builds, and
+        // the one that makes "a draft beside its published siblings" visible.
+        $plan = [
+            ['Written & linked', [
+                ['Inline', [
+                    ['Welcome', 'article', ContentStatus::Published, []],
+                    ['House rules', 'note', ContentStatus::Published, []],
+                ]],
+                ['Elsewhere', [
+                    ['The official docs', 'link', ContentStatus::Published, ['external_url' => 'https://laravel.com/docs']],
+                ]],
+            ]],
+            ['Uploaded & referenced', [
+                ['Files', [
+                    ['Lecture recording', 'video', ContentStatus::Published, []],
+                    ['Audio summary', 'audio', ContentStatus::Published, []],
+                    ['Handout (read here)', 'pdf', ContentStatus::Published, []],
+                    ['Worksheet (download)', 'file', ContentStatus::Published, []],
+                    // A draft on purpose: the surface's central rule is that
+                    // nothing is visible or counted until it is published, and a
+                    // course with no draft in it cannot show that rule at all.
+                    ['Bonus chapter (still writing)', 'article', ContentStatus::Draft, []],
+                ]],
+                ['What comes next', [
+                    ['Sit the unit test', 'exam', ContentStatus::Published, [
+                        'reference_id' => $exam->id,
+                        'exam_gate' => ExamGate::Attempt,
+                    ]],
+                    ['Join the walkthrough', 'live_session', ContentStatus::Published, [
+                        'reference_id' => $session->id,
+                    ]],
+                ]],
+            ]],
+        ];
+
+        $order = 1;
+
+        foreach ($plan as $sectionIndex => [$sectionTitle, $chapters]) {
+            $section = Section::create([
+                'workspace_id' => $workspace->id, 'course_id' => $course->id,
+                'title' => $sectionTitle, 'status' => ContentStatus::Published,
+                'order' => $sectionIndex + 1,
+            ]);
+
+            foreach ($chapters as $chapterIndex => [$chapterTitle, $items]) {
+                $chapter = Chapter::create([
+                    'workspace_id' => $workspace->id, 'course_id' => $course->id,
+                    'section_id' => $section->id, 'title' => $chapterTitle,
+                    'status' => ContentStatus::Published, 'order' => $chapterIndex + 1,
+                ]);
+
+                foreach ($items as [$title, $type, $status, $extra]) {
+                    $lesson = Lesson::create([
+                        'workspace_id' => $workspace->id, 'course_id' => $course->id,
+                        'section_id' => $section->id, 'chapter_id' => $chapter->id,
+                        'title' => $title, 'type' => $type, 'status' => $status,
+                        'content' => in_array($type, ['article', 'note'], true)
+                            ? "Written material for: {$title}"
+                            : null,
+                        'order' => $order++,
+                        'duration_seconds' => 0,
+                        'is_preview' => false,
+                        'is_free' => false,
+                        ...$extra,
+                    ]);
+
+                    $this->showcaseAsset($lesson, $type);
+                }
+            }
+        }
+
+        return $course;
+    }
+
+    /**
+     * The primary asset an uploaded item needs in order to be publishable at all.
+     *
+     * The two documents differ in ONE field, and it is the field 016 added: `pdf`
+     * is read in the browser and `file` is downloaded. A demo carrying only one
+     * value of that switch shows a control with nothing to compare it against.
+     */
+    private function showcaseAsset(Lesson $lesson, string $type): void
+    {
+        $spec = match ($type) {
+            'video' => [MediaKind::Video, 'video/mp4', 'lecture.mp4', 600, false],
+            'audio' => [MediaKind::Audio, 'audio/mpeg', 'summary.mp3', 300, false],
+            'pdf' => [MediaKind::Document, 'application/pdf', 'handout.pdf', 0, false],
+            'file' => [MediaKind::Document, 'application/pdf', 'worksheet.pdf', 0, true],
+            default => null,
+        };
+
+        if ($spec === null) {
+            return;
+        }
+
+        [$kind, $mime, $filename, $duration, $downloadable] = $spec;
+
+        MediaAsset::create([
+            'workspace_id' => $lesson->workspace_id,
+            'owner_type' => Lesson::class,
+            'owner_id' => $lesson->getKey(),
+            'provider' => 'local',
+            'provider_asset_id' => 'media/showcase/'.Str::uuid().'-'.$filename,
+            'kind' => $kind,
+            'role' => MediaRole::Primary,
+            'status' => MediaAssetStatus::Ready,
+            'original_filename' => $filename,
+            'mime_type' => $mime,
+            'size_bytes' => 1_048_576,
+            'duration_seconds' => $duration,
+            'is_downloadable' => $downloadable,
+            'ready_at' => now(),
+        ]);
+
+        if ($duration > 0) {
+            $lesson->update(['duration_seconds' => $duration]);
+        }
     }
 
     /**

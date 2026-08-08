@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Learning;
 
 use App\Modules\Assessments\Events\ExamSubmitted;
-use App\Modules\Courses\Events\CourseStructurePublished;
+use App\Modules\Courses\Events\CourseStructureChanged;
 use App\Modules\Courses\Events\ExamItemOpened;
 use App\Modules\Learning\Listeners\CompleteExamLessonOnSubmission;
 use App\Modules\Learning\Listeners\CompleteExamLessonsAlreadyAnswered;
-use App\Modules\Learning\Listeners\ResyncCourseProgressAfterPublish;
+use App\Modules\Learning\Listeners\ResyncCourseProgress;
 use App\Modules\Learning\Support\EloquentEnrollmentDirectory;
 use App\Modules\Learning\Support\EloquentProgressImpact;
 use App\Shared\Contracts\EnrollmentDirectory;
@@ -55,6 +55,6 @@ class LearningServiceProvider extends Module
         // `progress_pct` is otherwise written only when a lesson is completed —
         // so without this every stored percentage in the course describes a tree
         // that no longer exists.
-        Event::listen(CourseStructurePublished::class, ResyncCourseProgressAfterPublish::class);
+        Event::listen(CourseStructureChanged::class, ResyncCourseProgress::class);
     }
 }

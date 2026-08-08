@@ -7,6 +7,7 @@ namespace App\Modules\Courses\Actions;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Support\StructureVersion;
 use App\Shared\Actions\Action;
+use App\Shared\Traits\LogsActivity;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -34,6 +35,8 @@ use Illuminate\Support\Facades\DB;
  */
 class ReorderTreeNodes extends Action
 {
+    use LogsActivity;
+
     /**
      * @template TNode of Model
      *
@@ -77,6 +80,15 @@ class ReorderTreeNodes extends Action
             // positions are what `Enrollment::accessTo` derives a student's access
             // from.
             StructureVersion::claim($course, $submittedVersion);
+
+            // The subject is the COURSE, not a node: a reorder is one fact about
+            // one sibling group, and writing it once per moved row would bury the
+            // shape of what happened under its mechanics. The level is named
+            // because a course, a section and a chapter all reorder through here.
+            $this->logActivity('reordered', $course, [
+                'level' => $table,
+                'count' => count($orderedUuids),
+            ]);
         });
     }
 

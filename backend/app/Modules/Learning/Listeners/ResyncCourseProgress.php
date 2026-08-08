@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Learning\Listeners;
 
-use App\Modules\Courses\Events\CourseStructurePublished;
+use App\Modules\Courses\Events\CourseStructureChanged;
 use App\Modules\Learning\Events\CourseCompleted;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Support\CourseProgress;
@@ -39,11 +39,11 @@ use Illuminate\Queue\InteractsWithQueue;
  * costs an update and a count. Run inline it would hold the publish request open
  * behind work the teacher is not waiting for.
  */
-class ResyncCourseProgressAfterPublish implements ShouldHandleEventsAfterCommit, ShouldQueue
+class ResyncCourseProgress implements ShouldHandleEventsAfterCommit, ShouldQueue
 {
     use InteractsWithQueue;
 
-    public function handle(CourseStructurePublished $event): void
+    public function handle(CourseStructureChanged $event): void
     {
         $course = $event->course;
 

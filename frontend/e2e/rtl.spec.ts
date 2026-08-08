@@ -1,4 +1,6 @@
+import AxeBuilder from "@axe-core/playwright";
 import { test, expect, type Page } from "@playwright/test";
+import { useTeacherAccount } from "./teacher-account";
 
 /**
  * The direction, theme and layout criteria that axe cannot see.
@@ -166,4 +168,64 @@ test.describe("SC-002 — لا نصّ إنجليزي ظاهر", () => {
       ).toEqual([]);
     });
   }
+});
+
+/**
+ * The authoring surface, audited with the account that can actually open it.
+ *
+ * A separate describe because the path carries a uuid: the lists above are
+ * static, and a spec that hardcoded one would break the day the seeder changes
+ * an id. And with a TEACHER, because the projects' storageState is a student —
+ * on that account `/manage/courses` has nothing to open, so the audit would pass
+ * over an empty list and prove nothing about the screen it names.
+ */
+test.describe("016 — سطح تأليف الكورس", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  async function openContentSurface(page: Page): Promise<void> {
+    await useTeacherAccount(page);
+
+    await page.goto("/manage/courses");
+    await expectNotRedirectedToLogin(page, "/manage/courses");
+
+    await page.getByRole("link", { name: /^إدارة$|عرض|تفاصيل/ }).first().click();
+    await page.getByRole("link", { name: "محتوى الكورس" }).first().click();
+
+    await expect(page).toHaveURL(/\/manage\/courses\/[^/]+\/content$/);
+  }
+
+  test("محتوى الكورس يُقدَّم بـ lang=ar dir=rtl", async ({ page }) => {
+    await openContentSurface(page);
+
+    const html = page.locator("html");
+    await expect(html).toHaveAttribute("lang", "ar");
+    await expect(html).toHaveAttribute("dir", "rtl");
+  });
+
+  test("محتوى الكورس لا يتمدّد أفقياً", async ({ page, viewport }) => {
+    test.skip((viewport?.width ?? 0) !== 360, "المعيار مضبوط على أضيق قياس");
+
+    await openContentSurface(page);
+
+    // The tree nests three levels deep and each row carries four buttons, which
+    // is exactly the shape that overflows a 360px screen — and the teacher on a
+    // phone is the person most likely to be editing between classes.
+    const overflow = await page.evaluate(() => ({
+      root: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      body: document.body.scrollWidth - document.body.clientWidth,
+    }));
+
+    expect(overflow.root, "الجذر يتمدّد أفقياً").toBeLessThanOrEqual(0);
+    expect(overflow.body, "جسم الصفحة يتمدّد أفقياً").toBeLessThanOrEqual(0);
+  });
+
+  test("محتوى الكورس بلا مخالفات axe", async ({ page }) => {
+    await openContentSurface(page);
+
+    const results = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+
+    expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
+  });
 });

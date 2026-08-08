@@ -118,6 +118,17 @@ export interface LessonDetail {
   external_url: string | null;
   is_completable: boolean;
   is_recording: boolean;
+  /**
+   * What kind of thing this type IS, from `LessonTypeRegistry` — not restated here.
+   *
+   * `inline` has a body to type, `external` a URL, `uploaded` a file,
+   * `reference` a target to pick. The editor branches on this and on
+   * `asset_kind`; it used to keep its own arrays of type names, which meant the
+   * registry's answer existed twice and only one copy was authoritative.
+   */
+  family: "inline" | "uploaded" | "reference" | "external";
+  /** Which uploader an `uploaded` item needs. Null on every other family. */
+  asset_kind: "video" | "audio" | "document" | null;
   order: number;
   duration_seconds: number;
   is_preview: boolean;

@@ -47,6 +47,22 @@ class LessonResource extends JsonResource
             'exam_gate' => $this->exam_gate?->value,
             'exam_gate_label' => $this->exam_gate?->label(),
             'is_completable' => LessonTypeRegistry::isCompletable($type),
+            // The two registry facts the editor needs in order to decide which
+            // editor to draw — sent rather than restated in TypeScript.
+            //
+            // `LessonEditor` held its own `INLINE` and `DOCUMENT` arrays, which is
+            // the registry's job done a second time in another language: the class
+            // that exists so "what each type IS" has one answer had ten types
+            // described in PHP and five of them described again, differently, in
+            // the browser. Adding a type meant remembering a file the registry
+            // says nothing about.
+            //
+            // `family` decides whether the item has a body to type (`inline`), a
+            // URL (`external`), a file (`uploaded`) or a target to pick
+            // (`reference`); `asset_kind` decides WHICH uploader, since a pdf and
+            // a `file` are one uploader and audio is another.
+            'family' => LessonTypeRegistry::family($type),
+            'asset_kind' => LessonTypeRegistry::assetKind($type)?->value,
             'is_recording' => $this->class_session_id !== null,
             'order' => $this->order,
             'duration_seconds' => $this->duration_seconds,

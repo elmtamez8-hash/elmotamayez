@@ -9,6 +9,7 @@ use App\Modules\Courses\DTOs\LessonData;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Enums\ExamGate;
 use App\Modules\Courses\Enums\LessonType;
+use App\Modules\Courses\Events\CourseStructureChanged;
 use App\Modules\Courses\Events\ExamItemOpened;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
@@ -20,6 +21,7 @@ use App\Modules\Courses\Support\TreeDeletionGuard;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Media\Actions\DeleteMediaAsset;
 use App\Shared\Actions\Action;
+use App\Shared\Traits\LogsActivity;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -32,6 +34,8 @@ use Illuminate\Support\Facades\DB;
  */
 class ManageLessons extends Action
 {
+    use LogsActivity;
+
     public function __construct(
         // Injected rather than called statically: it is the only path that takes
         // the bytes down at the provider as well as the row, and a second way to
@@ -79,6 +83,11 @@ class ManageLessons extends Action
 
             $course->increment('structure_version');
             CourseDuration::recompute($course);
+
+            $this->logActivity('created', $lesson, [
+                'title' => $lesson->title,
+                'type' => $lesson->type,
+            ]);
 
             return $lesson;
         }));
@@ -161,6 +170,8 @@ class ManageLessons extends Action
             }
         });
 
+        $this->logActivity('updated', $lesson, ['changed' => array_keys($lesson->getChanges())]);
+
         // A published exam item whose exam or gate just changed is asking
         // something different, and students may already have answered the new
         // question — loosening a gate from "must pass" to "must attempt" is
@@ -172,12 +183,38 @@ class ManageLessons extends Action
             event(new ExamItemOpened($lesson));
         }
 
+        // Two edits to a PUBLISHED item move the countable set, and neither is a
+        // publish:
+        //
+        // A move can carry an item from a published chapter into a draft one, or
+        // back — its own status never changes and it leaves or enters every
+        // student's denominator all the same.
+        //
+        // A repointed reference does it through `ReferenceIntegrity`: an exam
+        // item whose exam was deleted counts for nobody, so pointing it at a live
+        // exam puts it back. `ExamItemOpened` above only reaches the students who
+        // already sat that exam; everyone else's percentage still moved.
+        if ($lesson->status === ContentStatus::Published
+            && ($moved || $lesson->wasChanged('reference_id'))
+            && $lesson->course !== null) {
+            event(new CourseStructureChanged($lesson->course));
+        }
+
         return $lesson->refresh();
     }
 
-    public function delete(Lesson $lesson): void
+    /**
+     * @param  bool  $announce  false when a chapter or section sweep is calling,
+     *                          so the outermost verb announces once rather than once per item
+     */
+    public function delete(Lesson $lesson, bool $announce = true): void
     {
         TreeDeletionGuard::assertLessonDeletable($lesson);
+
+        $this->logActivity('deleted', $lesson, [
+            'title' => $lesson->title,
+            'type' => $lesson->type,
+        ]);
 
         // Attachments follow the item — but through DeleteMediaAsset, not a bulk
         // `->delete()` on the relation.
@@ -193,9 +230,9 @@ class ManageLessons extends Action
             $this->deleteAsset->handle($attachment);
         }
 
-        DB::transaction(function () use ($lesson): void {
-            $course = $lesson->course;
+        $course = $lesson->course;
 
+        DB::transaction(function () use ($lesson, $course): void {
             $course?->increment('structure_version');
             $lesson->delete();
 
@@ -203,6 +240,15 @@ class ManageLessons extends Action
                 CourseDuration::recompute($course);
             }
         });
+
+        // Removing a countable item moves the denominator for everyone enrolled,
+        // and unlike a publish there is nothing left to trigger a recompute: the
+        // row is gone, so `MarkLessonComplete` will never run on it. A student
+        // whose last unfinished item this was reaches zero remaining work and
+        // would sit below 100% for good — see CourseStructureChanged.
+        if ($announce && $course !== null) {
+            event(new CourseStructureChanged($course));
+        }
     }
 
     private function typeOf(Lesson $lesson): LessonType

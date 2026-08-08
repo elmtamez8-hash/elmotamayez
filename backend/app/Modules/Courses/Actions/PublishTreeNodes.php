@@ -6,7 +6,7 @@ namespace App\Modules\Courses\Actions;
 
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Enums\LessonType;
-use App\Modules\Courses\Events\CourseStructurePublished;
+use App\Modules\Courses\Events\CourseStructureChanged;
 use App\Modules\Courses\Events\ExamItemOpened;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
@@ -16,6 +16,7 @@ use App\Modules\Courses\Support\CourseDuration;
 use App\Modules\Courses\Support\PublishReadiness;
 use App\Modules\Courses\Support\StructureVersion;
 use App\Shared\Actions\Action;
+use App\Shared\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -33,6 +34,8 @@ use Illuminate\Support\Facades\DB;
  */
 class PublishTreeNodes extends Action
 {
+    use LogsActivity;
+
     /**
      * @param  list<array{uuid: string, status: string}>  $items
      */
@@ -51,6 +54,11 @@ class PublishTreeNodes extends Action
 
             foreach ($nodes as [$node, $status]) {
                 $node->forceFill(['status' => $status])->save();
+
+                // One line per node, not one per batch. FR-056 asks for the record
+                // to sit on the item concerned, and a single line naming eleven
+                // uuids is a record nobody can read from the item's own history.
+                $this->logActivity($status->value, $node);
             }
 
             // Publishing changes the published set, so a recompute that only ran
@@ -77,7 +85,7 @@ class PublishTreeNodes extends Action
         // in the preview that never reached a single student's screen (`FR-051`).
         // Fired last, after the exam items, so the backfill has already credited
         // whoever it credits and the resync corrects one consistent picture.
-        event(new CourseStructurePublished($course));
+        event(new CourseStructureChanged($course));
     }
 
     /**

@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Actions;
 
 use App\Modules\Courses\Enums\ContentStatus;
+use App\Modules\Courses\Events\CourseStructureChanged;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Section;
 use App\Modules\Courses\Support\SiblingOrderRetry;
 use App\Modules\Courses\Support\TreeDeletionGuard;
 use App\Shared\Actions\Action;
+use App\Shared\Traits\LogsActivity;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -26,6 +28,8 @@ use Illuminate\Support\Facades\DB;
  */
 class ManageSections extends Action
 {
+    use LogsActivity;
+
     public function __construct(
         // Same reason as ManageChapters: a section delete is a chapter delete is
         // an item delete, and the rules live at the leaf.
@@ -49,12 +53,19 @@ class ManageSections extends Action
 
             $course->increment('structure_version');
 
+            // Who did what, on the node it was done to (FR-056). Inside the
+            // transaction with the write it describes: an audit line for a create
+            // that then rolled back is a record of something that never happened.
+            $this->logActivity('created', $section, ['title' => $section->title]);
+
             return $section;
         }));
     }
 
     public function rename(Section $section, string $title): Section
     {
+        $this->logActivity('renamed', $section, ['from' => $section->title, 'to' => $title]);
+
         $section->update(['title' => $title]);
 
         return $section->refresh();
@@ -73,12 +84,23 @@ class ManageSections extends Action
         // — the bulk relation delete `FR-038ب` forbids by name, which left every
         // attachment's bytes on disk unreachable and every live grant un-revoked.
         foreach ($section->chapters as $chapter) {
-            $this->chapters->delete($chapter);
+            $this->chapters->delete($chapter, announce: false);
         }
 
-        DB::transaction(function () use ($section): void {
-            $section->course?->increment('structure_version');
+        $course = $section->course;
+
+        // Logged BEFORE the delete: `performedOn` needs a row with a key, and
+        // after the delete the subject it would record is a row that is gone.
+        $this->logActivity('deleted', $section, ['title' => $section->title]);
+
+        DB::transaction(function () use ($section, $course): void {
+            $course?->increment('structure_version');
             $section->delete();
         });
+
+        // Once, here — the outermost verb. Everything under it stayed quiet.
+        if ($course !== null) {
+            event(new CourseStructureChanged($course));
+        }
     }
 }

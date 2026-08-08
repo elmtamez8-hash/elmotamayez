@@ -97,7 +97,16 @@ class ShowPublicTeacher extends Action
             ->publiclyListed()
             ->where('created_by', $teacher->user_id)
             ->with(['creator:id,first_name,last_name', 'creator.teacherProfile'])
-            ->withCount(['lessons as lessons_count', 'enrollments as enrolled_count'])
+            ->withCount([
+                // Scoped, and it was not. `withCount('lessons')` counts every row
+                // — so a teacher's half-written drafts and their retired archive
+                // both inflated the number a visitor is shown, and the course
+                // advertised more items than it opens. `FR-062` bans a draft
+                // item's fields from a public payload, and a count computed from
+                // those items is the same leak arriving as one number.
+                'lessons as lessons_count' => fn ($query) => $query->visibleToStudents(),
+                'enrollments as enrolled_count',
+            ])
             ->orderByDesc('created_at')
             ->get();
     }

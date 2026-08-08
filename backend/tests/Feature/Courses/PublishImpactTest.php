@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\Exam;
+use App\Modules\Courses\Actions\ManageLessons;
+use App\Modules\Courses\Actions\ManageSections;
 use App\Modules\Courses\Actions\PreviewPublishImpact;
 use App\Modules\Courses\Actions\PublishTreeNodes;
 use App\Modules\Courses\Enums\ContentStatus;
+use App\Modules\Courses\Events\CourseStructureChanged;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
@@ -14,6 +17,7 @@ use App\Modules\Courses\Models\Section;
 use App\Modules\Learning\Models\Enrollment;
 use App\Shared\Support\WorkspaceContext;
 use DomainException;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 
@@ -356,4 +360,64 @@ it('refuses the preview of a batch the publish itself would refuse', function ()
     $lessons['draftA']->forceFill(['content' => ''])->save();
 
     expect(fn () => previewOf($course))->toThrow(DomainException::class);
+});
+
+it('completes a student when the last item they had left is DELETED', function (): void {
+    [$course, $enrollment, , , $lessons] = populatedCourse();
+
+    $enrollment->progress()->create([
+        'workspace_id' => $course->workspace_id,
+        'lesson_id' => $lessons['three']->id,
+        'status' => 'completed',
+        'started_at' => now(),
+        'completed_at' => now(),
+    ]);
+
+    // The mirror of the archive case, through a door the publish event does not
+    // reach. Three of four done; the teacher DELETES the fourth. The denominator
+    // is now three, the student's truth is 100% — and the row is gone, so
+    // `MarkLessonComplete` will never run on it and completion, which is only
+    // ever decided there, would never be decided again. 75% stored, no
+    // certificate, permanently.
+    app(ManageLessons::class)->delete($lessons['four']->refresh());
+
+    expect((int) $enrollment->refresh()->progress_pct)->toBe(100)
+        ->and($enrollment->status)->toBe('completed');
+});
+
+it('resyncs once for a section delete, not once per item swept', function (): void {
+    [$course, $enrollment] = populatedCourse();
+
+    // A second section, untouched by any student — `TreeDeletionGuard` refuses to
+    // delete content anyone has progress on, and rightly: archiving is the verb
+    // for that.
+    $spare = Section::create([
+        'workspace_id' => $course->workspace_id, 'course_id' => $course->id,
+        'title' => 'وحدة إضافية', 'status' => ContentStatus::Published, 'order' => 2,
+    ]);
+
+    $spareChapter = Chapter::create([
+        'workspace_id' => $course->workspace_id, 'section_id' => $spare->id,
+        'course_id' => $course->id, 'title' => 'فصل', 'status' => ContentStatus::Published, 'order' => 1,
+    ]);
+
+    foreach (range(1, 4) as $index) {
+        Lesson::create([
+            'workspace_id' => $course->workspace_id, 'course_id' => $course->id,
+            'section_id' => $spare->id, 'chapter_id' => $spareChapter->id,
+            'uuid' => Str::uuid(), 'title' => "إضافي {$index}", 'type' => 'article',
+            'content' => 'نصّ', 'status' => ContentStatus::Published, 'order' => $index,
+        ]);
+    }
+
+    Event::fake([CourseStructureChanged::class]);
+
+    app(ManageSections::class)->delete($spare->refresh());
+
+    // A section holding fifty items would otherwise queue fifty full-course
+    // progress resyncs for one click — the sweeps stay quiet and the outermost
+    // verb speaks.
+    Event::assertDispatchedTimes(CourseStructureChanged::class, 1);
+
+    expect($enrollment->exists)->toBeTrue();
 });

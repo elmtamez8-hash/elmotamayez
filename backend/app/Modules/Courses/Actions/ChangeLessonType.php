@@ -13,6 +13,7 @@ use App\Modules\Courses\Support\CourseDuration;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\PublishReadiness;
 use App\Shared\Actions\Action;
+use App\Shared\Traits\LogsActivity;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -42,6 +43,8 @@ use Illuminate\Support\Facades\DB;
  */
 class ChangeLessonType extends Action
 {
+    use LogsActivity;
+
     /**
      * What this change will discard, in the teacher's words. Empty means nothing
      * is lost.
@@ -100,7 +103,12 @@ class ChangeLessonType extends Action
 
         $this->assertChangeable($lesson, $target);
 
-        DB::transaction(function () use ($lesson, $target): void {
+        // Read BEFORE the write. Asking afterwards would compare the new type
+        // against itself and record that nothing was lost — on the one action
+        // whose whole point is that something was.
+        $lost = $this->losses($lesson, $target);
+
+        DB::transaction(function () use ($lesson, $target, $current, $lost): void {
             $keeps = LessonTypeRegistry::requiredToPublish($target);
 
             $lesson->forceFill([
@@ -122,6 +130,15 @@ class ChangeLessonType extends Action
                 $lesson->course->increment('structure_version');
                 CourseDuration::recompute($lesson->course);
             }
+
+            // What was discarded is recorded with it. "type_changed" alone would
+            // leave an auditor unable to answer the only question anyone asks
+            // afterwards: where did the text go.
+            $this->logActivity('type_changed', $lesson, [
+                'from' => $current->value,
+                'to' => $target->value,
+                'lost' => $lost,
+            ]);
         });
 
         return $lesson->refresh();

@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Actions;
 
 use App\Modules\Courses\Enums\ContentStatus;
+use App\Modules\Courses\Events\CourseStructureChanged;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Section;
 use App\Modules\Courses\Support\SiblingOrderRetry;
 use App\Modules\Courses\Support\TreeDeletionGuard;
 use App\Shared\Actions\Action;
+use App\Shared\Traits\LogsActivity;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -19,6 +21,8 @@ use Illuminate\Support\Facades\DB;
  */
 class ManageChapters extends Action
 {
+    use LogsActivity;
+
     public function __construct(
         // Deleting a chapter deletes its items, and an item's deletion has rules
         // — attachments swept through the provider, the course duration
@@ -44,18 +48,23 @@ class ManageChapters extends Action
 
             $course->increment('structure_version');
 
+            $this->logActivity('created', $chapter, ['title' => $chapter->title]);
+
             return $chapter;
         }));
     }
 
     public function rename(Chapter $chapter, string $title): Chapter
     {
+        $this->logActivity('renamed', $chapter, ['from' => $chapter->title, 'to' => $title]);
+
         $chapter->update(['title' => $title]);
 
         return $chapter->refresh();
     }
 
-    public function delete(Chapter $chapter): void
+    /** @param  bool  $announce  false when a section sweep is calling — see CourseStructureChanged */
+    public function delete(Chapter $chapter, bool $announce = true): void
     {
         TreeDeletionGuard::assertChapterDeletable($chapter);
 
@@ -71,13 +80,23 @@ class ManageChapters extends Action
         // this path simply did not use it. `TreeDeletionGuard` asks about
         // `role = primary` alone, so a lesson carrying only worksheets passes and
         // reaches it.
+        $this->logActivity('deleted', $chapter, ['title' => $chapter->title]);
+
         foreach ($chapter->lessons as $lesson) {
-            $this->lessons->delete($lesson);
+            // `announce: false` — a chapter of fifty items would otherwise queue
+            // fifty full-course progress resyncs for one delete.
+            $this->lessons->delete($lesson, announce: false);
         }
 
-        DB::transaction(function () use ($chapter): void {
-            $chapter->course?->increment('structure_version');
+        $course = $chapter->course;
+
+        DB::transaction(function () use ($chapter, $course): void {
+            $course?->increment('structure_version');
             $chapter->delete();
         });
+
+        if ($announce && $course !== null) {
+            event(new CourseStructureChanged($course));
+        }
     }
 }

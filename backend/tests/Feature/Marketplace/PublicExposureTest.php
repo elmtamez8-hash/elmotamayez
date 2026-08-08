@@ -2,9 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Modules\Courses\Enums\ContentStatus;
+use App\Modules\Courses\Models\Chapter;
+use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Models\Section;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Marketplace\Support\MarketplaceCache;
 use App\Modules\Marketplace\Support\PublicFieldAllowlist;
+use App\Shared\Support\WorkspaceContext;
+use Illuminate\Support\Str;
 
 /**
  * The guard test for the public marketplace.
@@ -130,4 +137,52 @@ it('returns an empty list rather than a 404 when filters match nothing', functio
     $response->assertOk();
     expect($response->json('data'))->toBe([]);
     expect($response->json('meta.total'))->toBe(0);
+});
+
+it('counts only what a visitor would actually get, not the drafts behind it', function () {
+    $workspace = marketplaceWorkspace('Academy');
+    $teacher = marketplaceTeacher($workspace);
+
+    app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace, $teacher): void {
+        $course = Course::factory()->published()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $teacher->user_id,
+            'visibility' => 'public',
+        ]);
+
+        $section = Section::create([
+            'workspace_id' => $workspace->getKey(), 'course_id' => $course->id,
+            'title' => 'الوحدة', 'status' => ContentStatus::Published, 'order' => 1,
+        ]);
+
+        $chapter = Chapter::create([
+            'workspace_id' => $workspace->getKey(), 'section_id' => $section->id,
+            'course_id' => $course->id, 'title' => 'الفصل',
+            'status' => ContentStatus::Published, 'order' => 1,
+        ]);
+
+        $make = fn (string $title, ContentStatus $status, int $order) => Lesson::create([
+            'workspace_id' => $workspace->getKey(), 'course_id' => $course->id,
+            'section_id' => $section->id, 'chapter_id' => $chapter->id,
+            'uuid' => Str::uuid(), 'title' => $title, 'type' => 'article',
+            'content' => 'نصّ', 'status' => $status, 'order' => $order,
+        ]);
+
+        $make('منشور', ContentStatus::Published, 1);
+        $make('مسودّة', ContentStatus::Draft, 2);
+        $make('مؤرشف', ContentStatus::Archived, 3);
+    });
+
+    MarketplaceCache::flush();
+
+    $this->asGuest();
+
+    $courses = $this->getJson('/api/v1/marketplace/courses')->json('data');
+
+    // One, not three. `withCount('lessons')` counted every row, so a teacher's
+    // half-written drafts and their retired archive both inflated the number a
+    // visitor is shown — the course advertised three items and opens one.
+    // FR-062 bans a draft item's fields from a public payload, and a count
+    // computed over those items is the same leak arriving as a single number.
+    expect(collect($courses)->pluck('lessons_count')->all())->toBe([1]);
 });

@@ -29,11 +29,18 @@ import { courses, type LessonDetail, type LessonTypeValue } from "@/lib/courses"
  * happens.
  */
 
-/** Types whose body is text and is saved by the button at the bottom. */
-const INLINE: LessonTypeValue[] = ["article", "note", "link"];
-
-/** Types whose own file is a document, whatever the label on the type says. */
-const DOCUMENT: LessonTypeValue[] = ["pdf", "file"];
+/*
+ * There is deliberately no type list here any more.
+ *
+ * This file held `INLINE` and `DOCUMENT` — the registry's job done a second time
+ * in another language. `LessonTypeRegistry` exists so that "what each type IS"
+ * has one answer, and it described ten types in PHP while five of them were
+ * described again, differently, in the browser: adding a type meant remembering
+ * a file the registry says nothing about, and nothing would have failed.
+ *
+ * The API now sends `family` and `asset_kind` with every item, so every branch
+ * below asks the registry through the payload.
+ */
 
 /**
  * The types that still have no editor here, each naming what brings it.
@@ -139,8 +146,8 @@ export function LessonEditor({
     void run(
       () =>
         courses.updateLesson(courseUuid, lesson.uuid, {
-          content: INLINE.includes(lesson.type) && lesson.type !== "link" ? content : undefined,
-          external_url: lesson.type === "link" ? url : undefined,
+          content: lesson.family === "inline" ? content : undefined,
+          external_url: lesson.family === "external" ? url : undefined,
         }),
       "حُفظ العنصر.",
     );
@@ -238,11 +245,11 @@ export function LessonEditor({
           <LinkEditor lesson={lesson} url={url} disabled={busy} onChange={setUrl} />
         )}
 
-        {DOCUMENT.includes(lesson.type) && (
+        {lesson.asset_kind === "document" && (
           <DocumentEditor lessonUuid={lesson.uuid} asset={lesson.asset} onChanged={load} />
         )}
 
-        {lesson.type === "audio" && (
+        {lesson.asset_kind === "audio" && (
           <AudioEditor lessonUuid={lesson.uuid} asset={lesson.asset} onChanged={load} />
         )}
 
@@ -333,7 +340,7 @@ export function LessonEditor({
           />
         </div>
 
-        {INLINE.includes(lesson.type) && (
+        {(lesson.family === "inline" || lesson.family === "external") && (
           <Button onClick={save} loading={busy} loadingLabel="جارٍ الحفظ">
             حفظ
           </Button>
