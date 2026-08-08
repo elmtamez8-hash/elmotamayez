@@ -33,6 +33,16 @@ interface PendingPublish {
   message: string;
 }
 
+/** The 409 body this screen knows how to act on: our own, carrying the tree. */
+function isTreeConflict(body: unknown): body is { message: string; tree: CourseTree } {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    "tree" in body &&
+    typeof (body as { message?: unknown }).message === "string"
+  );
+}
+
 /**
  * The course authoring surface.
  *
@@ -95,20 +105,24 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
         setTree(fresh);
         if (successMessage) setNotice(successMessage);
       } catch (err: unknown) {
-        setError(errorMessage(err, "تعذّر حفظ التغيير. أعد المحاولة."));
-
         // A 409 answers with the tree as it actually is, so the map is redrawn
         // from the refusal itself. Fetching it again instead would read a moment
         // later than the one that refused us — and could already be stale.
-        const conflict = err instanceof ApiError && err.status === 409 ? err.body : null;
-        const fresh =
-          typeof conflict === "object" && conflict !== null && "tree" in conflict
-            ? ((conflict as { tree: CourseTree }).tree ?? null)
+        const conflict =
+          err instanceof ApiError && err.status === 409 && isTreeConflict(err.body)
+            ? err.body
             : null;
 
-        if (fresh !== null) {
-          setTree(fresh);
+        if (conflict !== null) {
+          setTree(conflict.tree);
+          // The server's own sentence, not the table's. `errors.ts` maps 409 to
+          // "حدّث الصفحة وأعد المحاولة" — which was right until this screen
+          // started redrawing itself from the refusal, and is now an instruction
+          // to do something that has already happened. The rule that bans raw
+          // errors bans FRAMEWORK strings; this one is ours and is in Arabic.
+          setError(conflict.message);
         } else {
+          setError(errorMessage(err, "تعذّر حفظ التغيير. أعد المحاولة."));
           await courses.tree(uuid).then(setTree).catch(() => undefined);
         }
       } finally {

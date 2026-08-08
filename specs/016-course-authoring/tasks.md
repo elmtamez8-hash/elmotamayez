@@ -287,6 +287,15 @@ description: "Task list for 016-course-authoring"
 - [X] T098ج [US6] **المعاينة كانت ستكذب على من أدّى الاختبار قبل وضعه.** `CompleteExamLessonsAlreadyAnswered` يكتب صفوفهم لحظة النشر، فقراءة `lesson_progress` كما هي تَعِد بانخفاضٍ لا يقع. المعاينة تسأل `ExamGateSatisfaction` نفسها، **مجموعةً لكل عنصر** لا سؤالاً لكل طالب
 - [X] T098د [US6] **`Courses` لا يستورد `Learning`.** الاعتماد بين الوحدتين باتجاه واحد، وحساب أثر النشر كان سيقلبه. فُصل نصفه إلى `Shared\Contracts\ProgressImpact` و`Learning\Support\EloquentProgressImpact` — بشكل `EnrollmentDirectory` نفسه. و`Lesson::progressEligible()` فُصلت عن `countableForProgress` ليُحاكى **شرط الحالة وحده**، وحمّال الشجرة انتقل إلى `CourseTreeResource::for()` لأن قائمة الأعمدة صار لها قارئان
 
+> **مؤجَّل بقرار، لا سهواً — الطريق السادس إلى العطل نفسه.** `CourseStructurePublished` يُطلَق
+> من `PublishTreeNodes` وحده، فمسار **الحذف** يُحرّك المقام بلا مزامنة: طالب أتمّ ٣ من ٤، فيحذف
+> المدرّس الرابع (لا تقدّم عليه ولا أصل، فيمرّ من `TreeDeletionGuard`) — فيصير المتبقّي صفراً،
+> ولا درس بقي ليُطلق `MarkLessonComplete`. يجلس على ٧٥٪ المخزَّنة بلا `CourseCompleted` وبلا
+> شهادة، دائماً. والعائلة نفسها: حذف فصل أو قسم (بكنس دروسه)، و`ChangeLessonType` إلى نوع لا
+> يقبل الإتمام. سابقٌ لهذا السبيك وخارج `FR` من فروضه — والأرشفة، وهي ما تملكه US6، مغطّاة —
+> لكن US6 بنى الآلة التي تُصلحه: إطلاق الحدث نفسه من أفعال الحذف وتغيير النوع، وحالة اختبار
+> واحدة. يُحسم في Polish.
+
 **Checkpoint**: التحرير على شجرة مأهولة صار مرئي الأثر ومحميّاً من الدهس.
 
 ---
