@@ -198,6 +198,60 @@ describe('course lessons', function (): void {
         expect(Lesson::where('course_id', $course->id)->count())->toBe(0);
     });
 
+    it('builds a whole branch using only what the responses return', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+        $course = Course::factory()->create(['workspace_id' => $workspace->id]);
+
+        Sanctum::actingAs($owner);
+
+        // The ordinary three-step, driven the way a client drives it: each call
+        // uses an identifier the PREVIOUS response gave it. Reading uuids off
+        // the models instead is what let ChapterResource ship with no uuid in it
+        // at all — every unit test passed and the second step was impossible.
+        $sectionUuid = $this->postJson("/api/v1/courses/{$course->uuid}/sections", ['title' => 'قسم'])
+            ->assertCreated()->json('uuid');
+
+        expect($sectionUuid)->toBeString()->not->toBeEmpty();
+
+        $chapterUuid = $this->postJson("/api/v1/courses/{$course->uuid}/chapters", [
+            'section_uuid' => $sectionUuid,
+            'title' => 'فصل',
+        ])->assertCreated()->json('uuid');
+
+        expect($chapterUuid)->toBeString()->not->toBeEmpty();
+
+        $lesson = $this->postJson("/api/v1/courses/{$course->uuid}/lessons", [
+            'chapter_uuid' => $chapterUuid,
+            'title' => 'عنصر',
+            'type' => 'article',
+            'content' => '**نصّ**',
+        ])->assertCreated()->json();
+
+        expect($lesson['chapter_uuid'])->toBe($chapterUuid)
+            ->and($lesson['section_uuid'])->toBe($sectionUuid)
+            // Rendered per response from the Markdown source, never stored.
+            ->and($lesson['content_html'])->toContain('<strong>نصّ</strong>');
+    });
+
+    it('strips script from authored text at render', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+        $course = Course::factory()->create(['workspace_id' => $workspace->id]);
+        $section = publishedSection($workspace->id, $course);
+        $chapter = publishedChapter($workspace->id, $course, $section);
+
+        Sanctum::actingAs($owner);
+
+        $lesson = $this->postJson("/api/v1/courses/{$course->uuid}/lessons", [
+            'chapter_uuid' => $chapter->uuid,
+            'title' => 'خبيث',
+            'type' => 'article',
+            'content' => "مرحباً <script>alert(1)</script>\n\n[اضغط](javascript:alert(2))",
+        ])->assertCreated()->json();
+
+        expect($lesson['content_html'])->not->toContain('<script')
+            ->not->toContain('javascript:');
+    });
+
     it('refuses a lesson type that is declared but not built', function (): void {
         [$workspace, $owner] = $this->createWorkspaceWithOwner();
         $course = Course::factory()->create(['workspace_id' => $workspace->id]);
