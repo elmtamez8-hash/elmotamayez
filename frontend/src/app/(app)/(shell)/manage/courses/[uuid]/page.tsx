@@ -115,9 +115,9 @@ export default function CourseDetailPage({
       */}
       {(!course.sections || course.sections.length === 0) && (
         <EmptyState
-          title="لا محتوى في هذا الكورس بعد"
-          description="ابدأ بإضافة قسم، ثم فصلاً بداخله، ثم عناصر المحتوى. وتسجيلات الحصص المباشرة تظهر هنا تلقائياً بعد نشرها."
-          action={<Button href={`/manage/courses/${uuid}/content`}>ابدأ بإضافة قسم</Button>}
+          title="لا محتوى منشور في هذا الكورس بعد"
+          description="هذه الصفحة تعرض ما يراه طلابك. مسودّاتك — إن وُجدت — تظهر في صفحة المحتوى، ومن هناك تنشرها. وتسجيلات الحصص المباشرة تظهر تلقائياً بعد نشرها."
+          action={<Button href={`/manage/courses/${uuid}/content`}>افتح محتوى الكورس</Button>}
         />
       )}
 

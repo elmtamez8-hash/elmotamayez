@@ -12,7 +12,6 @@ use App\Modules\Courses\Models\Section;
 use App\Modules\Courses\Support\CourseDuration;
 use App\Modules\Courses\Support\PublishReadiness;
 use App\Shared\Actions\Action;
-use DomainException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -81,10 +80,11 @@ class PublishTreeNodes extends Action
             $node = $sections->get($uuid) ?? $chapters->get($uuid) ?? $lessons->get($uuid);
 
             if ($node === null) {
-                // 404 rather than 422: the uuid may well be a real node — of
-                // someone else's course. Saying "not in this course" is the
-                // whole answer, and saying more is an identity probe (FR-059).
-                throw new DomainException('أحد العناصر المحدَّدة لا ينتمي إلى هذا الكورس. أعد تحميل الشجرة.');
+                // 404, not 422 (contract §5, FR-059). The uuid may well name a
+                // real node — of another course. Through this route it does not
+                // exist, and answering anything more specific turns the endpoint
+                // into a way to test whether a given uuid is a node at all.
+                abort(404, 'أحد العناصر المحدَّدة لا ينتمي إلى هذا الكورس. أعد تحميل الشجرة.');
             }
 
             $resolved[] = [$node, ContentStatus::from($item['status'])];

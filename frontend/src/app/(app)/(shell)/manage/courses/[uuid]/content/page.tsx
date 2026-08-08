@@ -99,14 +99,21 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
 
   if (tree === null) return <RowsSkeleton />;
 
-  /** Every node still hidden from students, in publish order: section, then its
-      chapters, then their items — so nothing lands published-but-blocked. */
+  /**
+   * Every DRAFT node, in publish order: section, then its chapters, then their
+   * items — so nothing lands published-but-blocked by an ancestor.
+   *
+   * `=== "draft"`, not `!== "published"`. Archived means "I don't teach this any
+   * more"; sweeping it into a bulk publish would resurrect it into every
+   * student's denominator from a button labelled "نشر كل المسودّات". Restoring
+   * an archived node stays a deliberate, per-node act.
+   */
   const drafts: PublishItem[] = tree.sections.flatMap((section) => [
-    ...(section.status === "published" ? [] : [{ uuid: section.uuid, status: "published" as const }]),
+    ...(section.status === "draft" ? [{ uuid: section.uuid, status: "published" as const }] : []),
     ...section.chapters.flatMap((chapter) => [
-      ...(chapter.status === "published" ? [] : [{ uuid: chapter.uuid, status: "published" as const }]),
+      ...(chapter.status === "draft" ? [{ uuid: chapter.uuid, status: "published" as const }] : []),
       ...chapter.lessons
-        .filter((lesson) => lesson.status !== "published")
+        .filter((lesson) => lesson.status === "draft")
         .map((lesson) => ({ uuid: lesson.uuid, status: "published" as const })),
     ]),
   ]);

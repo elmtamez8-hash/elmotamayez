@@ -116,7 +116,7 @@ description: "Task list for 016-course-authoring"
 - [X] T040 [US1] أضف مسارات إعادة الترتيب الثلاثة إلى `backend/app/Modules/Courses/routes/api.php` ([contracts/api.md](./contracts/api.md) §١)
 - [X] T041 [US1] أنشئ `backend/app/Modules/Courses/Http/Resources/CourseTreeResource.php` — شجرة المؤلّف بحالاتها الحقيقية وسبب الحجب؛ **منفصلة** عن الشجرة الطلابية عمداً، فتسريب المسودّة لا يصير نسيانَ مُعامِل ([contracts/api.md](./contracts/api.md) §١)
 - [X] T042 [US1] أضف `GET /courses/{course}/tree` بحمل ثابت الاستعلامات: تحميل مسبق للمستويات الثلاثة (`FR-010`)
-- [ ] T043 [P] [US1] اكتب `backend/tests/Feature/Courses/TreeQueryBudgetTest.php`: عدد استعلامات شجرة بعشرين عنصراً = عددها لشجرة بمئتين (`SC-015`)
+- [X] T043 [P] [US1] اكتب `backend/tests/Feature/Courses/TreeQueryBudgetTest.php`: عدد استعلامات شجرة بعشرين عنصراً = عددها لشجرة بمئتين (`SC-015`)
 
 ### الواجهة
 
@@ -162,12 +162,12 @@ description: "Task list for 016-course-authoring"
 
 > آلة المسودّة نزلت في Phase 2 (انظر الانحراف المقصود أعلاه). هذه المرحلة **تجربتها**.
 
-- [ ] T060 [P] [US3] اكتب `backend/tests/Feature/Courses/PublishChainTest.php`: عنصر منشور داخل قسم مسودّة **محجوب**، وحالته تُعرَض للمدرّس بسببها لا كأنها حالته هو (`FR-028`)
-- [ ] T061 [P] [US3] اكتب `backend/tests/Feature/Courses/UnpublishSafetyTest.php`: سحب عنصر إلى المسودّة **لا** يحذف تقدّماً ولا يبطل شهادة (`FR-029` · `SC-007`)
-- [ ] T062 [P] [US3] اكتب `backend/tests/Feature/Courses/DraftExposureTest.php`: بصفة طالب، عنوان المسودّة **صفر مطابقة** في الاستجابة كاملةً؛ ونفس الفحص على الحمولة العامة (`SC-006` · `FR-062`)
+- [X] T060 [P] [US3] اكتب `backend/tests/Feature/Courses/PublishChainTest.php`: عنصر منشور داخل قسم مسودّة **محجوب**، وحالته تُعرَض للمدرّس بسببها لا كأنها حالته هو (`FR-028`)
+- [X] T061 [P] [US3] اكتب `backend/tests/Feature/Courses/UnpublishSafetyTest.php`: سحب عنصر إلى المسودّة **لا** يحذف تقدّماً ولا يبطل شهادة (`FR-029` · `SC-007`)
+- [X] T062 [P] [US3] اكتب `backend/tests/Feature/Courses/DraftExposureTest.php`: بصفة طالب، عنوان المسودّة **صفر مطابقة** في الاستجابة كاملةً؛ ونفس الفحص على الحمولة العامة (`SC-006` · `FR-062`)
 - [X] T063 [US3] أنشئ `backend/app/Modules/Courses/Actions/PublishTreeNodes.php` — دفعة، مع سريان السلسلة (`FR-028`) ورفع `structure_version`
 - [X] T064 [US3] أضف `POST /courses/{course}/tree/publish` إلى المسارات ([contracts/api.md](./contracts/api.md) §١)
-- [ ] T065 [US3] اجعل `GET /courses/{course}/sections` القائم يقدّم الشجرة **المنشورة فقط** — هو المسار الطلابي، ولا يتغيّر عقده حتى لا ينكسر شيء أثناء الترحيل
+- [X] T065 [US3] اجعل `GET /courses/{course}/sections` القائم يقدّم الشجرة **المنشورة فقط** — هو المسار الطلابي، ولا يتغيّر عقده حتى لا ينكسر شيء أثناء الترحيل
 - [X] T066 [P] [US3] أنشئ `frontend/src/components/courses/StatusBadge.tsx` — يعرض «مسودّة» و«منشور» و«مؤرشف» و**«محجوب بقسمه»** كحالة رابعة مشتقّة
 - [X] T067 [US3] أضف أدوات النشر إلى `frontend/src/components/courses/TreeOutline.tsx`: نشر عنصر · نشر دفعة · سحب إلى مسودّة، مع تأكيد على السحب
 

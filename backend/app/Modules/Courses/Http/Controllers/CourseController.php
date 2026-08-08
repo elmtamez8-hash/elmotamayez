@@ -43,11 +43,28 @@ class CourseController extends Controller
         return response()->json(CourseResource::collection($courses));
     }
 
+    /**
+     * The course, with its PUBLISHED outline.
+     *
+     * The eager load used to be a bare `sections.chapters.lessons`, which handed
+     * every enrolled student every draft in the course — titles and all — from
+     * the one endpoint the detail page calls. The authoring tree that shows
+     * drafts is `/courses/{course}/tree`, and it is 403 to anyone without
+     * `LESSONS_MANAGE`.
+     *
+     * Filtered here rather than by a flag on the caller: only one endpoint in
+     * this module returns drafts, and it is the one whose name says so.
+     * `DraftExposureTest` greps the whole response body for a sentinel title.
+     */
     public function show(Course $course): JsonResponse
     {
         $this->authorize('view', $course);
 
-        return response()->json(CourseResource::make($course->load(['sections.chapters.lessons'])));
+        return response()->json(CourseResource::make($course->load([
+            'sections' => fn ($query) => $query->published()->orderBy('order'),
+            'sections.chapters' => fn ($query) => $query->published()->orderBy('order'),
+            'sections.chapters.lessons' => fn ($query) => $query->visibleToStudents()->orderBy('order'),
+        ])));
     }
 
     public function store(CreateCourseRequest $request, CreateCourse $action): JsonResponse
