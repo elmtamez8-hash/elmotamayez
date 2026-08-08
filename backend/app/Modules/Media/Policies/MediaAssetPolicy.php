@@ -31,6 +31,18 @@ class MediaAssetPolicy
             && $this->belongsToUsersWorkspace($user, (int) $asset->workspace_id);
     }
 
+    /**
+     * Changing the view-only switch is editing lesson content, not destroying
+     * it — LESSONS_MANAGE, the same as uploading the file in the first place.
+     * Requiring LESSONS_DELETE would mean an assistant who may replace a
+     * worksheet may not decide whether it downloads.
+     */
+    public function update(User $user, MediaAsset $asset): bool
+    {
+        return $user->can(Permissions::LESSONS_MANAGE)
+            && $this->belongsToUsersWorkspace($user, (int) $asset->workspace_id);
+    }
+
     public function delete(User $user, MediaAsset $asset): bool
     {
         return $user->can(Permissions::LESSONS_DELETE)

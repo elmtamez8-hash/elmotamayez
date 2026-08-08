@@ -6,9 +6,10 @@ namespace App\Modules\Media\Actions;
 
 use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Enums\MediaAssetStatus;
+use App\Modules\Media\Enums\MediaKind;
 use App\Modules\Media\Events\MediaAssetReady;
 use App\Modules\Media\Models\MediaAsset;
-use App\Modules\Tenancy\Support\PlatformSettings;
+use App\Modules\Media\Support\MediaLimits;
 use App\Shared\Actions\Action;
 
 /**
@@ -35,7 +36,7 @@ class CompleteMediaUpload extends Action
         $failureReason = $report->failureReason;
 
         if ($status === MediaAssetStatus::Ready) {
-            $rejection = $this->rejectionReason($report->mimeType, $report->sizeBytes, $report->durationSeconds);
+            $rejection = $this->rejectionReason($asset->kind, $report->mimeType, $report->sizeBytes, $report->durationSeconds);
 
             if ($rejection !== null) {
                 $status = MediaAssetStatus::Failed;
@@ -67,26 +68,37 @@ class CompleteMediaUpload extends Action
         return $asset;
     }
 
-    private function rejectionReason(?string $mimeType, ?int $sizeBytes, ?int $durationSeconds): ?string
-    {
-        // Video for now; 016 replaces the literal with the asset's own kind once
-        // media_assets carries one. The list moved under a per-kind key first so
-        // documents and audio have somewhere to be declared.
-        /** @var list<string> $allowed */
-        $allowed = config('media.allowed_mime_types.video', []);
-
-        // Fails closed. An undetectable type is not a permission to publish it as
-        // a video — that is precisely the shape of a file pretending to be one.
-        if ($mimeType === null || ! in_array($mimeType, $allowed, true)) {
-            return 'الملف المرفوع ليس ملف فيديو مدعوماً.';
+    /**
+     * The check that counts.
+     *
+     * The ticket-time check reads what the client declared, which is a number
+     * the client chooses. This one reads the file that arrived — its bytes for
+     * the type, its actual length on disk for the size.
+     *
+     * Per kind since 016. It matched the video list and the 2 GiB video ceiling
+     * whatever had been uploaded, so a 60 MB "PDF" passed the only real check
+     * and its rejection message, when one came, said "not a supported video".
+     */
+    private function rejectionReason(
+        MediaKind $kind,
+        ?string $mimeType,
+        ?int $sizeBytes,
+        ?int $durationSeconds,
+    ): ?string {
+        // Fails closed. An undetectable type is not a permission to publish it —
+        // that is precisely the shape of a file pretending to be one.
+        if ($mimeType === null || ! in_array($mimeType, MediaLimits::allowedMimeTypes($kind), true)) {
+            return $kind->rejectionMessage();
         }
 
-        if ($sizeBytes !== null && $sizeBytes > (int) PlatformSettings::get('media.max_size_bytes')) {
-            return 'حجم الملف يتجاوز الحد المسموح.';
+        if ($sizeBytes !== null && $sizeBytes > MediaLimits::maxSizeBytes($kind)) {
+            return MediaLimits::sizeRefusal($kind);
         }
 
-        if ($durationSeconds !== null && $durationSeconds > (int) PlatformSettings::get('media.max_duration_seconds')) {
-            return 'مدة الفيديو تتجاوز الحد المسموح.';
+        $maxDuration = MediaLimits::maxDurationSeconds($kind);
+
+        if ($durationSeconds !== null && $maxDuration !== null && $durationSeconds > $maxDuration) {
+            return MediaLimits::durationRefusal($kind);
         }
 
         return null;

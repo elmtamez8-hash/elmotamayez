@@ -9,6 +9,7 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Media\Actions\CompleteMediaUpload;
 use App\Modules\Media\Actions\DeleteMediaAsset;
 use App\Modules\Media\Actions\RequestUploadTicket;
+use App\Modules\Media\Actions\SetAssetDisposition;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Http\Requests\StoreMediaAssetRequest;
 use App\Modules\Media\Http\Resources\MediaAssetResource;
@@ -30,6 +31,8 @@ class MediaAssetController extends Controller
                 $request->validated('original_filename'),
                 $request->validated('size_bytes'),
                 $request->validated('duration_seconds'),
+                $request->kind(),
+                $request->role(),
             );
         } catch (DomainException $e) {
             return response()->json([
@@ -61,6 +64,27 @@ class MediaAssetController extends Controller
         $this->authorize('view', $asset);
 
         return response()->json(MediaAssetResource::make($action->handle($asset)));
+    }
+
+    /**
+     * Flip view-only / allow-download.
+     *
+     * Not part of the upload payload: the teacher changes their mind about a
+     * file that is already there, and making them re-upload to change one
+     * boolean is how a switch stops being used.
+     */
+    public function disposition(
+        Request $request,
+        MediaAsset $asset,
+        SetAssetDisposition $action,
+    ): JsonResponse {
+        $this->authorize('update', $asset);
+
+        $validated = $request->validate(['is_downloadable' => ['required', 'boolean']]);
+
+        return response()->json(
+            MediaAssetResource::make($action->handle($asset, (bool) $validated['is_downloadable'])),
+        );
     }
 
     public function destroy(MediaAsset $asset, DeleteMediaAsset $action): JsonResponse

@@ -39,6 +39,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/lessons/{lesson}/assets', [MediaAssetController::class, 'store']);
     Route::get('/media/assets/{asset}', [MediaAssetController::class, 'show']);
     Route::post('/media/assets/{asset}/complete', [MediaAssetController::class, 'complete']);
+    // View-only / allow-download. A separate route because the teacher flips it
+    // long after the file landed.
+    Route::put('/media/assets/{asset}/disposition', [MediaAssetController::class, 'disposition']);
     Route::post('/media/assets/{asset}/captions', [CaptionController::class, 'store']);
     Route::delete('/media/captions/{caption}', [CaptionController::class, 'destroy']);
 

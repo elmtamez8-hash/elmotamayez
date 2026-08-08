@@ -14,6 +14,7 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\CourseDuration;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\TreeDeletionGuard;
+use App\Modules\Media\Actions\DeleteMediaAsset;
 use App\Shared\Actions\Action;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +28,13 @@ use Illuminate\Support\Facades\DB;
  */
 class ManageLessons extends Action
 {
+    public function __construct(
+        // Injected rather than called statically: it is the only path that takes
+        // the bytes down at the provider as well as the row, and a second way to
+        // remove an asset is a second way to leave a file behind.
+        private readonly DeleteMediaAsset $deleteAsset,
+    ) {}
+
     public function create(Course $course, Chapter $chapter, LessonData $data): Lesson
     {
         $this->assertImplemented($data->type);
@@ -100,11 +108,21 @@ class ManageLessons extends Action
     {
         TreeDeletionGuard::assertLessonDeletable($lesson);
 
-        DB::transaction(function () use ($lesson): void {
-            // Attachments follow the lesson: an asset whose owner is gone is a
-            // file on disk nothing can reach, list or clean up.
-            $lesson->mediaAsset()->delete();
+        // Attachments follow the item — but through DeleteMediaAsset, not a bulk
+        // `->delete()` on the relation.
+        //
+        // The bulk form removed the rows and left the BYTES on disk: a file
+        // nothing can reach, list, or clean up, and nothing to say it was ever
+        // there. It also skipped revoking live grants, so a viewer mid-stream
+        // kept reading a file with no owner. The guard above has already refused
+        // this delete if a PRIMARY asset exists, so what is swept here is
+        // attachments only — the primary still leaves through its own
+        // two-factor route (FR-038أ).
+        foreach ($lesson->attachments as $attachment) {
+            $this->deleteAsset->handle($attachment);
+        }
 
+        DB::transaction(function () use ($lesson): void {
             $course = $lesson->course;
 
             $course?->increment('structure_version');

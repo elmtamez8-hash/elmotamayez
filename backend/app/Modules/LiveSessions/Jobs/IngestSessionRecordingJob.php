@@ -10,6 +10,8 @@ use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Media\Actions\CompleteMediaUpload;
 use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Enums\MediaAssetStatus;
+use App\Modules\Media\Enums\MediaKind;
+use App\Modules\Media\Enums\MediaRole;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
@@ -96,6 +98,11 @@ class IngestSessionRecordingJob implements ShouldQueue
                     'owner_id' => $session->getKey(),
                     'provider' => $video->identifier(),
                     'provider_asset_id' => $path,
+                    // Stated, not left to the column default: a model built with
+                    // `new` carries no default until it round-trips, and
+                    // CompleteMediaUpload reads the kind to pick its mime list.
+                    'kind' => MediaKind::Video,
+                    'role' => MediaRole::Primary,
                     'status' => MediaAssetStatus::Processing,
                     'original_filename' => 'session-'.$session->uuid.'.mp4',
                     'duration_seconds' => $artifact->durationSeconds,

@@ -6,6 +6,8 @@ namespace Database\Factories\Modules\Media;
 
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Media\Enums\MediaAssetStatus;
+use App\Modules\Media\Enums\MediaKind;
+use App\Modules\Media\Enums\MediaRole;
 use App\Modules\Media\Models\MediaAsset;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -22,6 +24,8 @@ class MediaAssetFactory extends Factory
             'owner_id' => 1,
             'provider' => 'local',
             'provider_asset_id' => 'media/'.$this->faker->uuid().'.mp4',
+            'kind' => MediaKind::Video,
+            'role' => MediaRole::Primary,
             'status' => MediaAssetStatus::Ready,
             'original_filename' => 'lesson.mp4',
             'mime_type' => 'video/mp4',

@@ -25,6 +25,13 @@ class MediaAssetResource extends JsonResource
             'uuid' => $this->uuid,
             'status' => $this->status->value,
             'status_label' => $this->status->label(),
+            'kind' => $this->kind->value,
+            'kind_label' => $this->kind->label(),
+            'role' => $this->role->value,
+            // The view-only switch. Exposed because this is the OWNER's view of
+            // their own upload — it is the control they are about to flip, not a
+            // hint to a viewer.
+            'is_downloadable' => $this->is_downloadable,
             'original_filename' => $this->original_filename,
             'mime_type' => $this->mime_type,
             'size_bytes' => $this->size_bytes,

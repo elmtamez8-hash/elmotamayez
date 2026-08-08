@@ -115,11 +115,26 @@ class PlaybackController extends Controller
 
         // Range support is not a detail: it is what makes each further chunk a
         // fresh trip through the guard above.
-        return $disk->response($path, null, [
-            'Accept-Ranges' => 'bytes',
-            'Cache-Control' => 'no-store, private',
-            'Content-Type' => $model->asset->mime_type ?? 'video/mp4',
-        ]);
+        //
+        // The disposition is decided HERE, from the stored switch — not by a
+        // button the frontend chooses to render. Hiding a download control is
+        // not preventing a download; a viewer who knows the URL asks for the
+        // bytes directly, and the only place that can refuse is the place that
+        // serves them. `attachment` also carries the original filename, so a
+        // downloadable worksheet arrives named as the teacher named it rather
+        // than as a uuid.
+        $asset = $model->asset;
+
+        return $disk->response(
+            $path,
+            $asset->is_downloadable ? $asset->original_filename : null,
+            [
+                'Accept-Ranges' => 'bytes',
+                'Cache-Control' => 'no-store, private',
+                'Content-Type' => $asset->mime_type ?? 'video/mp4',
+            ],
+            $asset->is_downloadable ? 'attachment' : 'inline',
+        );
     }
 
     /**

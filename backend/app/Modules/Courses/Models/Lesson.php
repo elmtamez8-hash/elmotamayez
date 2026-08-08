@@ -9,6 +9,7 @@ use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Support\HasSiblingOrder;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\OrdersSiblings;
+use App\Modules\Media\Enums\MediaRole;
 use App\Modules\Media\Models\MediaAsset;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
@@ -16,6 +17,7 @@ use Database\Factories\Modules\Courses\LessonFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 /**
@@ -120,16 +122,37 @@ class Lesson extends BaseModel implements OrdersSiblings
     }
 
     /**
-     * The lesson's video, if it has one.
+     * The lesson's own file — its video, its audio, its document.
      *
      * Replaces the old `media` JSON column, which held a path on the public disk
      * — a permanent link that worked forever for anyone who copied it.
+     *
+     * **Scoped to `primary`, and that is not cosmetic.** Since 016 a lesson may
+     * carry attachments beside its own file, and an unscoped `morphOne` returns
+     * whichever row the database hands back first. Everything that reads this —
+     * the resource's `asset` field, the replace-on-re-upload path, the duration
+     * sync — would then be describing an arbitrary worksheet. It fails silently,
+     * which is why the scope is here rather than at each call site.
      *
      * @return MorphOne<MediaAsset, $this>
      */
     public function mediaAsset(): MorphOne
     {
-        return $this->morphOne(MediaAsset::class, 'owner');
+        return $this->morphOne(MediaAsset::class, 'owner')->where('role', MediaRole::Primary);
+    }
+
+    /**
+     * Files attached beside the item, whatever its type (FR-019).
+     *
+     * A worksheet under a video, the slides under an article. Many per lesson,
+     * where the primary is one — enforced in the Action, since MySQL has no
+     * partial unique index to say "one row per owner where role = primary".
+     *
+     * @return MorphMany<MediaAsset, $this>
+     */
+    public function attachments(): MorphMany
+    {
+        return $this->morphMany(MediaAsset::class, 'owner')->where('role', MediaRole::Attachment);
     }
 
     /** @return BelongsTo<Course, $this> */
