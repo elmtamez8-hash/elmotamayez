@@ -131,6 +131,72 @@ class CreditLedger
         );
     }
 
+    /**
+     * How deep this balance has fallen, as a RANK in the workspace's thresholds.
+     *
+     * 0 is above every threshold; 1 is past the first; and so on. A rank rather
+     * than a remembered number because thresholds are editable — storing "we
+     * alerted at 3" and then editing 3 to 2 would either replay the alert or
+     * swallow the next one, depending on which way the edit went.
+     *
+     * @param  list<int>  $thresholds  highest first, as BillingSettings returns them
+     */
+    public function tierFor(int $remaining, array $thresholds): int
+    {
+        $tier = 0;
+
+        foreach ($thresholds as $threshold) {
+            if ($remaining <= $threshold) {
+                $tier++;
+            }
+        }
+
+        return $tier;
+    }
+
+    /**
+     * Move `notified_tier` to match where the balance now stands, and report a
+     * crossing only when it went DOWN (FR-034).
+     *
+     * Two conditional UPDATEs, the seat idiom, inside the movement's own
+     * transaction. That placement is what makes "the same alert never repeats"
+     * true under concurrency: two workers charging the same balance both compute
+     * the same tier, and exactly one of them affects a row.
+     *
+     * Both directions run for EVERY movement type, never only for consumption.
+     * A purchase that lifts the balance back up has to reset the rank, or the
+     * next fall to the same depth finds `notified_tier` already there and is
+     * announced to nobody.
+     */
+    private function reconcileTier(CreditMovement $movement): ?int
+    {
+        $id = $movement->balance->getKey();
+
+        // Read back inside the transaction, so it is our own write we are
+        // ranking — not the value the caller loaded before the movement.
+        $remaining = (int) DB::table('credit_balances')->where('id', $id)->value('remaining_credits');
+
+        $tier = $this->tierFor($remaining, $this->settings->alertThresholds($movement->balance->workspace));
+
+        $claimed = DB::table('credit_balances')
+            ->where('id', $id)
+            ->where('notified_tier', '<', $tier)
+            ->update(['notified_tier' => $tier]);
+
+        if ($claimed > 0) {
+            return $tier;
+        }
+
+        // Rising. Reset so the next fall is heard, and announce nothing — nobody
+        // needs telling that they are better off than they were.
+        DB::table('credit_balances')
+            ->where('id', $id)
+            ->where('notified_tier', '>', $tier)
+            ->update(['notified_tier' => $tier]);
+
+        return null;
+    }
+
     // ── The write ───────────────────────────────────────────────────────────
 
     /**
@@ -170,6 +236,12 @@ class CreditLedger
             if (in_array($movement->type, CreditTransactionType::lotOpening(), true)) {
                 $this->openLot($entry, $movement);
             }
+
+            // Inside the transaction, and stamped on the caller's own instance
+            // rather than dispatched. The instance is how the Action learns what
+            // to announce AFTER commit, which is the same reason nothing else
+            // here dispatches — precedent: WithholdingReader::stamp().
+            $movement->balance->setAttribute('crossed_tier', $this->reconcileTier($movement));
 
             return $entry;
         });

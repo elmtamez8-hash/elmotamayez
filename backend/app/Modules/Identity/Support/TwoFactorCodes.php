@@ -29,9 +29,24 @@ final class TwoFactorCodes
         private readonly Google2FA $google2FA,
     ) {}
 
+    /**
+     * A 160-bit secret — 32 base32 characters.
+     *
+     * ⚠️ NOT the provider's `generateSecret()`, which returns 16 characters (80
+     * bits). Google Authenticator REFUSES that on manual entry with "the key
+     * value is too short": it requires at least 128 bits, and RFC 4226 §4
+     * recommends 160. The QR path happened to work, so the defect only showed
+     * for the person who types the key in by hand — which is exactly the person
+     * whose camera or phone would not do it for them.
+     *
+     * Length is the only thing that changes. Verification still goes through the
+     * provider's window, /admin still reads the same column, and a secret already
+     * enrolled keeps working: TOTP does not care how long the shared key is, only
+     * that both sides hold the same one.
+     */
     public function generateSecret(): string
     {
-        return $this->provider->generateSecret();
+        return $this->google2FA->generateSecretKey(32);
     }
 
     /**

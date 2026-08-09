@@ -56,6 +56,12 @@ function dispatchOf(User $user, NotificationType $type): void
             'units_count' => '12',
             'net' => '900 ر.ق',
             'reference' => 'TRF-1',
+            // Credits (006). Exactly the mechanism the comment above describes:
+            // without these three the four credit types render nothing, are
+            // logged and dropped, and the count below came back 19 against 23.
+            'course' => 'الرياضيات',
+            'credits' => '3',
+            'credits_needed' => '2',
         ],
     ));
 }

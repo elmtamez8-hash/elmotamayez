@@ -156,6 +156,17 @@ function TwoFactorSection() {
     }
   };
 
+  /**
+   * The base32 secret out of the `otpauth://` URI.
+   *
+   * Read here rather than requested from the API, because the URI already
+   * carries it and a second field would be a second copy of a secret to keep in
+   * step. A regex rather than `new URL()`: the custom scheme parses
+   * inconsistently across browsers, and failing to read the key is the one
+   * outcome this screen cannot afford.
+   */
+  const setupKey = uri === null ? null : (/[?&]secret=([A-Z2-7]+)/i.exec(uri)?.[1] ?? null);
+
   const start = () =>
     run(async () => {
       const { otpauth_uri } = await twoFactor.setup(password);
@@ -273,15 +284,33 @@ function TwoFactorSection() {
       ) : uri !== null ? (
         <div className="mt-4 space-y-4">
           <p className="text-sm text-ink-muted">
-            افتح تطبيق المصادقة وأضف حساباً جديداً بهذا الرابط، ثم أدخل الرمز الذي
-            يعرضه.
+            افتح تطبيق المصادقة واختر «إدخال مفتاح الإعداد»، ثم الصق المفتاح
+            التالي وأدخل الرمز الذي يعرضه التطبيق.
           </p>
+
+          {/*
+            ⚠️ THE KEY, NOT THE URI. This block used to print the whole
+            `otpauth://…` string under "add an account with this link", and an
+            authenticator's manual-entry field takes only the base32 secret — so
+            pasting what the screen offered was refused as an invalid or
+            too-short key. `otpauth://` is a target for a camera or a tap, never
+            something a person types.
+          */}
           <code
             dir="ltr"
-            className="block overflow-x-auto rounded-xl border border-line p-3 text-start text-xs text-ink-muted"
+            className="block overflow-x-auto rounded-xl border border-line p-3 text-center text-base font-bold tracking-widest text-ink"
           >
-            {uri}
+            {setupKey ?? uri}
           </code>
+
+          {/* On a phone this opens the authenticator with the account already
+              filled in, which is the path that needs no typing at all. */}
+          <a
+            href={uri}
+            className="block text-sm font-medium text-primary underline underline-offset-4"
+          >
+            فتح تطبيق المصادقة مباشرةً
+          </a>
 
           <TextField
             id="confirm-code"

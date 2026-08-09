@@ -61,6 +61,10 @@ const adminNav: NavItem[] = [
   // How this academy collects. Under admin, not beside /billing: that one is the
   // student's own balance, this one is the policy that produces it.
   { href: "/manage/billing/settings", label: "إعدادات الفوترة", Icon: CreditsIcon },
+  // Who has sessions left and who has stopped. Beside the policy rather than
+  // under /manage/sessions, because it answers a money question about students
+  // — in credits only, never in money.
+  { href: "/manage/billing/students", label: "أرصدة الطلاب", Icon: CreditsIcon },
   { href: "/workspaces", label: "مساحات العمل", Icon: WorkspaceIcon },
   { href: "/members", label: "الأعضاء", Icon: MembersIcon },
   { href: "/settings", label: "الإعدادات", Icon: SettingsIcon },

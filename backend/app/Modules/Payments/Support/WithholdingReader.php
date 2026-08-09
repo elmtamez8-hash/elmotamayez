@@ -6,6 +6,7 @@ namespace App\Modules\Payments\Support;
 
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\ExamModeWindow;
+use App\Modules\Tenancy\Models\Workspace;
 use Illuminate\Support\Collection;
 
 /**
@@ -21,7 +22,10 @@ use Illuminate\Support\Collection;
  */
 class WithholdingReader
 {
-    public function __construct(private readonly CreditLedger $ledger) {}
+    public function __construct(
+        private readonly CreditLedger $ledger,
+        private readonly BillingSettings $settings,
+    ) {}
 
     /**
      * Stamp `is_withheld` onto each balance and return them.
@@ -45,13 +49,43 @@ class WithholdingReader
             ->unique()
             ->flip();
 
-        return $balances->each(function (CreditBalance $balance) use ($inExamMode): void {
-            $floor = $this->ledger->floorForBalance(
+        /*
+         * ⚠️ THE WORKSPACES ARE FETCHED HERE, and reading them off the balances
+         * instead is the N+1 this class exists to prevent. Both inputs to the
+         * predicate — the billing mode and the zero-balance behaviour — are read
+         * from a Workspace, so `$balance->workspace` inside the loop lazy-loads
+         * one row per balance. It cost 26 queries for 40 rows against 9 for four,
+         * which is exactly what BalanceQueryBudgetTest compares.
+         *
+         * That is also why the explicit-argument forms of the predicate exist:
+         * the resolving forms are right for a single balance and wrong for a
+         * list, and having both is what lets this loop stay flat.
+         */
+        $workspaces = Workspace::query()->whereIn('id', $workspaceIds)->get()->keyBy('id');
+
+        return $balances->each(function (CreditBalance $balance) use ($inExamMode, $workspaces): void {
+            $workspace = $workspaces->get($balance->workspace_id);
+
+            if ($workspace === null) {
+                // No workspace, no mode to read. Not withheld rather than
+                // withheld: a balance whose tenant vanished is a broken row, and
+                // locking its owner out is punishing them for it.
+                $balance->setAttribute('is_withheld', false);
+
+                return;
+            }
+
+            $floor = $this->ledger->floorFor(
                 $balance,
+                $this->settings->mode($workspace),
                 $inExamMode->has($balance->workspace_id),
             );
 
-            $balance->setAttribute('is_withheld', $this->ledger->isBlockedForBalance($balance, $floor));
+            $balance->setAttribute('is_withheld', $this->ledger->isBlocked(
+                $balance,
+                $floor,
+                $this->settings->zeroBalanceBehavior($workspace),
+            ));
         });
     }
 }

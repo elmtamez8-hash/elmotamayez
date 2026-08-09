@@ -93,6 +93,38 @@ class NotificationTemplateSeeder extends Seeder
                 'أُغلقت فترة {{ starts_on }} — {{ ends_on }}: {{ units_count }} وحدة، والصافي {{ net }}. تفاصيلها في كشفك.',
                 ['starts_on', 'ends_on', 'units_count', 'net'],
             ],
+            /*
+            | Credits (006). Every body names the COURSE, because withholding is
+            | per course: a student who owes for physics keeps their maths notes,
+            | and a message that said only "رصيدك" would read as though both had
+            | stopped. And every one of them ends at what to DO — FR-032 asks for
+            | the amount needed and the way to pay, not a statement of fact.
+            |
+            | No price anywhere. The credit count is what the student holds; the
+            | riyals are on the purchase screen, where the platform sets them.
+            */
+            NotificationType::CreditBalanceLow->value => [
+                'اقترب رصيدك من النفاد في {{ course }}',
+                'بقيت لك {{ credits }} حصة في «{{ course }}». يمكنك شراء المزيد قبل أن تنفد.',
+                ['course', 'credits'],
+            ],
+            NotificationType::CreditBalanceCritical->value => [
+                'رصيد {{ course }} على وشك النفاد',
+                'لم يبق في «{{ course }}» سوى {{ credits }} حصة. جدّد الرصيد كي لا يتوقّف الحجز.',
+                ['course', 'credits'],
+            ],
+            // The one a student reads while locked out, so it carries the reason,
+            // the number and the way back — in that order.
+            NotificationType::AccessWithheld->value => [
+                'أُوقف الحجز في {{ course }}',
+                'رصيدك في «{{ course }}» لم يعد يكفي، فتوقّف حجز الحصص الجديدة. المطلوب {{ credits_needed }} حصة على الأقل لاستئنافه، وتُشترى من صفحة الأرصدة.',
+                ['course', 'credits_needed'],
+            ],
+            NotificationType::AccessRestored->value => [
+                'استُؤنف الحجز في {{ course }}',
+                'عاد رصيدك في «{{ course }}» إلى ما يكفي، ويمكنك الحجز الآن. رصيدك الحالي {{ credits }} حصة.',
+                ['course', 'credits'],
+            ],
             NotificationType::TeacherPayoutIssued->value => [
                 'نُفِّذ صرف مستحقّك',
                 'نُفِّذ صرف بمبلغ {{ amount }} بمرجع {{ reference }}. يظهر في سجلّ صرفك.',

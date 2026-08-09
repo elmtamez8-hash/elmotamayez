@@ -146,6 +146,19 @@ export interface PurchaseStarted {
  * component crashes on `.map is not a function` — in the browser, at runtime,
  * with a green build behind it.
  */
+/** One row of the teacher's panel: who, which course, how many sessions left. */
+export interface StudentBalanceRow {
+  student_uuid: string;
+  student_name: string;
+  course_uuid: string;
+  course_title: string;
+  remaining_credits: number;
+  purchased_credits: number;
+  consumed_credits: number;
+  credit_limit_credits: number;
+  is_withheld: boolean;
+}
+
 export const billing = {
   balances: () => api.get<{ data: CreditBalance[] }>("/billing/balance"),
   /*
@@ -163,6 +176,22 @@ export const billing = {
       course: courseUuid,
       package: packageUuid,
     }),
+  /*
+   * A guardian's read of one child's balances. Its own call, not a parameter on
+   * `balances()`: this one has to prove the relation AND the payments consent,
+   * and folding them together would make the student's own request answer a
+   * question it should never have to.
+   */
+  childBalances: (studentUuid: string) =>
+    api.get<{ data: CreditBalance[] }>(
+      `/billing/children/balance?student=${encodeURIComponent(studentUuid)}`,
+    ),
+  /*
+   * The teacher's panel. Credits and withheld state, and no money at all — the
+   * total a student paid is the platform's price, and a teacher who could read
+   * it would solve for the platform's margin from any two rows.
+   */
+  students: () => api.get<{ data: StudentBalanceRow[] }>("/manage/billing/students"),
   settings: () => api.get<BillingSettings>("/manage/billing/settings"),
   // PATCH, not PUT: a request carrying one key changes one thing, so saving the
   // mode cannot silently reset thresholds nobody looked at.

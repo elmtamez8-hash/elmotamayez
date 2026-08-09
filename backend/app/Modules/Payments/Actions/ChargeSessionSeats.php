@@ -10,11 +10,12 @@ use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\CreditTransactionType;
-use App\Modules\Payments\Events\BalanceUpdated;
 use App\Modules\Payments\Events\CreditConsumed;
 use App\Modules\Payments\Models\CreditTransaction;
+use App\Modules\Payments\Support\BalanceAnnouncer;
 use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Payments\Support\CreditLedger;
+use App\Modules\Payments\Support\ExamMode;
 use App\Shared\Actions\Action;
 use Illuminate\Support\Facades\Log;
 
@@ -49,6 +50,8 @@ class ChargeSessionSeats extends Action
     public function __construct(
         private readonly CreditAccounts $accounts,
         private readonly CreditLedger $ledger,
+        private readonly BalanceAnnouncer $announcer,
+        private readonly ExamMode $examMode,
     ) {}
 
     /** @return list<CreditTransaction> */
@@ -87,10 +90,14 @@ class ChargeSessionSeats extends Action
             ]);
         }
 
+        // Once for the session, not once per seat: it is a fact about the
+        // workspace and the moment, and thirty students share both.
+        $inExamWindow = $this->examMode->isOpen((int) $session->workspace_id);
+
         $entries = [];
 
         foreach ($seatHolders as $student) {
-            $entry = $this->chargeOne($session, $course, $student, $billableSeats, count($seatHolders), $mismatch);
+            $entry = $this->chargeOne($session, $course, $student, $billableSeats, count($seatHolders), $mismatch, $inExamWindow);
 
             if ($entry !== null) {
                 $entries[] = $entry;
@@ -135,8 +142,13 @@ class ChargeSessionSeats extends Action
         int $billableSeats,
         int $seatHolders,
         bool $mismatch,
+        bool $inExamWindow,
     ): ?CreditTransaction {
         $balance = $this->accounts->balanceFor($student, $course);
+
+        // Before the write. Afterwards it would be the state the balance is in
+        // now, and every transition would be invisible.
+        $wasBlocked = $this->announcer->isBlocked($balance, $inExamWindow);
 
         $entry = $this->ledger->post(new CreditMovement(
             balance: $balance,
@@ -177,10 +189,10 @@ class ChargeSessionSeats extends Action
         // may still roll back.
         CreditConsumed::dispatch($entry, (int) $session->getKey());
 
-        // Refreshed first, so the event carries the balance AFTER the write. A
-        // listener that had to re-read the row would be reading it to learn what
-        // the event was supposed to tell it.
-        BalanceUpdated::dispatch($balance->refresh(), -1);
+        // BalanceUpdated, the threshold crossing and any withholding flip — all
+        // four in one place, so the three Actions that write to the ledger cannot
+        // drift into announcing three different subsets.
+        $this->announcer->announce($balance, $wasBlocked, -1, $inExamWindow);
 
         return $entry;
     }

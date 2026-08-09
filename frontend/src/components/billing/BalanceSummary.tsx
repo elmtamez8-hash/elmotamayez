@@ -1,3 +1,4 @@
+import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -67,6 +68,31 @@ export function BalanceSummary({ balances }: { balances: CreditBalance[] }) {
                 <bdi>{balance.credit_limit_credits.toLocaleString("ar-EG")}</bdi>{" "}
                 حصة قبل السداد.
               </p>
+            )}
+
+            {/*
+              What a withheld student is owed: the reason, the amount, and the way
+              out — never a bare error (FR-032 · US5/7). It sits on the card of the
+              course that stopped, because withholding is per course and a banner
+              at the top of the page would read as though everything had stopped.
+
+              The number is derived here rather than sent, and deliberately so:
+              the API already sends the balance and the ceiling, and a
+              `credits_needed` field would be a second copy of one subtraction —
+              wrong the first time the two disagree.
+            */}
+            {balance.is_withheld && (
+              <Alert tone="warning" title="توقّف الحجز في هذا الكورس">
+                رصيدك لم يعد يكفي لحجز حصة جديدة. تحتاج{" "}
+                <bdi>
+                  {Math.max(
+                    1,
+                    1 - balance.remaining_credits - balance.credit_limit_credits,
+                  ).toLocaleString("ar-EG")}
+                </bdi>{" "}
+                حصة على الأقل لاستئنافه. حصصك المحجوزة سابقاً وتسجيلك في الكورس لا
+                يتأثّران، ويعود الحجز فور اعتماد الدفع بلا أي إجراء منك.
+              </Alert>
             )}
 
             {/* The way IN to buying more, and it belongs here rather than on one

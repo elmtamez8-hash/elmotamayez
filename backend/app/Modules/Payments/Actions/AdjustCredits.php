@@ -7,10 +7,10 @@ namespace App\Modules\Payments\Actions;
 use App\Models\User;
 use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\CreditTransactionType;
-use App\Modules\Payments\Events\BalanceUpdated;
 use App\Modules\Payments\Events\RefundIssued;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditTransaction;
+use App\Modules\Payments\Support\BalanceAnnouncer;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Shared\Actions\Action;
 use DomainException;
@@ -30,7 +30,10 @@ use Illuminate\Support\Facades\DB;
  */
 class AdjustCredits extends Action
 {
-    public function __construct(private readonly CreditLedger $ledger) {}
+    public function __construct(
+        private readonly CreditLedger $ledger,
+        private readonly BalanceAnnouncer $announcer,
+    ) {}
 
     /**
      * @param  int  $credits  signed — positive adds, negative removes
@@ -54,6 +57,8 @@ class AdjustCredits extends Action
             throw new DomainException('لا يمكن تقييد حركة بصفر رصيد.');
         }
 
+        $wasBlocked = $this->announcer->isBlocked($balance);
+
         $entry = $this->ledger->post(new CreditMovement(
             balance: $balance,
             type: $type,
@@ -68,12 +73,12 @@ class AdjustCredits extends Action
             return null;
         }
 
-        DB::afterCommit(function () use ($entry, $balance, $type): void {
+        DB::afterCommit(function () use ($entry, $balance, $type, $wasBlocked): void {
             if ($type === CreditTransactionType::Refund) {
                 RefundIssued::dispatch($entry);
             }
 
-            BalanceUpdated::dispatch($balance->refresh(), $entry->credits);
+            $this->announcer->announce($balance, $wasBlocked, $entry->credits);
         });
 
         return $entry;

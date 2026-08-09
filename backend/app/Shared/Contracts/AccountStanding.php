@@ -37,6 +37,18 @@ interface AccountStanding
     public function isWithheld(User $student, int $courseId): bool;
 
     /**
+     * How many credits would restore this student in this course, or 0 when they
+     * are not withheld in it.
+     *
+     * On the contract rather than left to each refuser, because FR-032 requires
+     * the refusal to state the amount needed and the way to pay — and a refuser
+     * outside Payments cannot compute it without reaching into a balance it is
+     * not allowed to know about. Each caller phrases its own sentence around the
+     * number; only the number crosses the boundary.
+     */
+    public function creditsNeededFor(User $student, int $courseId): int;
+
+    /**
      * Every course in which this student is currently withheld.
      *
      * The bulk form is mandatory, not a convenience: both sibling contracts

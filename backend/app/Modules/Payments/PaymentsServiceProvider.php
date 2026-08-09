@@ -6,10 +6,15 @@ namespace App\Modules\Payments;
 
 use App\Modules\LiveSessions\Events\SessionDelivered;
 use App\Modules\Payments\Contracts\PaymentProviderInterface;
+use App\Modules\Payments\Events\AccessRestored;
+use App\Modules\Payments\Events\AccessWithheld;
+use App\Modules\Payments\Events\BalanceThresholdCrossed;
 use App\Modules\Payments\Events\PaymentApproved;
 use App\Modules\Payments\Listeners\ChargeSeatsOnDelivery;
 use App\Modules\Payments\Listeners\CreateEnrollmentFromOrder;
 use App\Modules\Payments\Listeners\CreditPurchaseOnApproval;
+use App\Modules\Payments\Listeners\NotifyAccessChange;
+use App\Modules\Payments\Listeners\NotifyBalanceThreshold;
 use App\Modules\Payments\Listeners\StampCourseDelivery;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditPackage;
@@ -26,6 +31,8 @@ use App\Modules\Payments\Policies\ExamModeWindowPolicy;
 use App\Modules\Payments\Policies\StudentCreditAccountPolicy;
 use App\Modules\Payments\Policies\TermsConsentPolicy;
 use App\Modules\Payments\Providers\ManualTransferProvider;
+use App\Modules\Payments\Support\EloquentAccountStanding;
+use App\Shared\Contracts\AccountStanding;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -40,6 +47,16 @@ class PaymentsServiceProvider extends Module
 
         // Bind the manual provider as the default implementation.
         $this->app->bind(PaymentProviderInterface::class, ManualTransferProvider::class);
+
+        // Payments owns the balance, so Payments answers "is this student
+        // withheld" — and LiveSessions and Media ask through the interface
+        // without learning that `credit_balances` exists. Same shape as
+        // Settlement's ApprovedRateDirectory and Identity's GuardianDirectory.
+        //
+        // bind(), not singleton(): the reader resolves a mode and an exam window
+        // per call, and a memo held across a queued job would keep answering
+        // about a window that closed while the worker was alive.
+        $this->app->bind(AccountStanding::class, EloquentAccountStanding::class);
     }
 
     public function boot(): void
@@ -62,6 +79,25 @@ class PaymentsServiceProvider extends Module
         // a seat into money — see the listener for the two neighbouring
         // attendance events left alone and why the 005 code forces that choice.
         Event::listen(SessionDelivered::class, ChargeSeatsOnDelivery::class);
+
+        /*
+        | The collection ladder (FR-030 … FR-034).
+        |
+        | Three events, and the split carries the design: a THRESHOLD warns about
+        | where the balance is heading, and being WITHHELD states what the
+        | account can do right now. One listener serves both access events
+        | because they are a single fact stated twice — the predicate flipped —
+        | and two files would end with the lift reaching fewer people than the
+        | block did.
+        |
+        | None of them fires twice for one crossing. The tier is claimed with a
+        | conditional UPDATE inside the transaction that moved the balance, so an
+        | event that reaches a listener is already known to be new; a second
+        | check here would be a second definition of "already announced".
+        */
+        Event::listen(BalanceThresholdCrossed::class, NotifyBalanceThreshold::class);
+        Event::listen(AccessWithheld::class, [NotifyAccessChange::class, 'handleWithheld']);
+        Event::listen(AccessRestored::class, [NotifyAccessChange::class, 'handleRestored']);
 
         // Registered explicitly, like Identity's, LiveSessions' and
         // Settlement's. Laravel's guesser would find them anyway — it walks the

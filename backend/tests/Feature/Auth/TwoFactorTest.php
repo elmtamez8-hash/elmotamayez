@@ -255,3 +255,28 @@ it('gives the admin panel the same secret the API enrolled', function (): void {
     expect($provider->isEnabled($user))->toBeTrue()
         ->and($provider->getSecret($user))->toBe($user->getAppAuthenticationSecret());
 });
+
+/*
+| The defect that only appeared for the person typing the key in by hand.
+|
+| Google Authenticator refuses a manually entered key shorter than 128 bits with
+| "the key value is too short", and the provider's own generator returns 80 bits
+| (16 base32 characters). Scanning the QR worked, so every automated path was
+| green while enrolment was impossible for anyone whose camera or phone would not
+| do it for them. RFC 4226 §4 recommends 160 bits, which is 32 characters.
+*/
+it('mints a secret long enough for an authenticator app to accept by hand', function (): void {
+    $user = teacherAccount();
+
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/v1/auth/2fa/setup', ['current_password' => 'password'])->assertOk();
+
+    $secret = $user->refresh()->getAppAuthenticationSecret();
+
+    expect($secret)->not->toBeNull()
+        ->and(strlen((string) $secret))->toBe(32)
+        // Base32, and nothing else: a character outside the alphabet is a key an
+        // app rejects for a different reason with the same result.
+        ->and((string) $secret)->toMatch('/^[A-Z2-7]+$/');
+});

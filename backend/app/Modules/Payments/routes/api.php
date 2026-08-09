@@ -8,6 +8,7 @@ use App\Modules\Payments\Http\Controllers\Admin\OutstandingCreditsController;
 use App\Modules\Payments\Http\Controllers\BillingController;
 use App\Modules\Payments\Http\Controllers\BillingSettingsController;
 use App\Modules\Payments\Http\Controllers\CreditPurchaseController;
+use App\Modules\Payments\Http\Controllers\Manage\StudentBalanceController;
 use App\Modules\Payments\Http\Controllers\OrderController;
 use Illuminate\Support\Facades\Route;
 
@@ -35,6 +36,16 @@ Route::get('/orders/{order}/receipt', [OrderController::class, 'downloadReceipt'
 Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void {
     Route::get('/billing/balance', [BillingController::class, 'balance']);
     Route::get('/billing/transactions', [BillingController::class, 'transactions']);
+
+    // The guardian's read. A separate route rather than a `student` parameter on
+    // the one above, because it has to prove the relation AND the Payments
+    // consent — and folding the two together would make the student's own route
+    // carry a check it should never have to answer.
+    Route::get('/billing/children/balance', [BillingController::class, 'childBalance']);
+
+    // The teacher's panel: credits and withheld state for their own students,
+    // with no money in the payload (StudentBalanceAllowlist).
+    Route::get('/manage/billing/students', [StudentBalanceController::class, 'index']);
 
     // FR-011 — the mode is switched from settings, never by shipping code. Both
     // verbs carry the workspace implicitly: it is the one the request is already

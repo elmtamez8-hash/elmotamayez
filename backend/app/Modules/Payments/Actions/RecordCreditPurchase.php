@@ -7,11 +7,11 @@ namespace App\Modules\Payments\Actions;
 use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Enums\OrderKind;
-use App\Modules\Payments\Events\BalanceUpdated;
 use App\Modules\Payments\Events\CreditsPurchased;
 use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Models\Order;
+use App\Modules\Payments\Support\BalanceAnnouncer;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Shared\Actions\Action;
 use Carbon\CarbonImmutable;
@@ -33,7 +33,10 @@ use RuntimeException;
  */
 class RecordCreditPurchase extends Action
 {
-    public function __construct(private readonly CreditLedger $ledger) {}
+    public function __construct(
+        private readonly CreditLedger $ledger,
+        private readonly BalanceAnnouncer $announcer,
+    ) {}
 
     public function handle(Order $order): ?CreditTransaction
     {
@@ -56,6 +59,11 @@ class RecordCreditPurchase extends Action
 
         $balance = $purchase->balance()->withoutWorkspaceScope()->firstOrFail();
 
+        // FR-033 — this is the movement that lifts a hold, and the reason the
+        // lift needs no job and no operator: the predicate simply answers
+        // differently on the next attempt, and this tells the student so.
+        $wasBlocked = $this->announcer->isBlocked($balance);
+
         $entry = $this->ledger->post(new CreditMovement(
             balance: $balance,
             type: CreditTransactionType::Purchase,
@@ -73,9 +81,10 @@ class RecordCreditPurchase extends Action
         // After commit, never inside. An event fired inside the transaction
         // announces a movement that may still roll back — and the student is
         // told they have credits they do not have.
-        DB::afterCommit(function () use ($entry, $balance, $purchase): void {
+        DB::afterCommit(function () use ($entry, $balance, $purchase, $wasBlocked): void {
             CreditsPurchased::dispatch($entry, $purchase);
-            BalanceUpdated::dispatch($balance->refresh(), $entry->credits);
+
+            $this->announcer->announce($balance, $wasBlocked, $entry->credits);
         });
 
         return $entry;

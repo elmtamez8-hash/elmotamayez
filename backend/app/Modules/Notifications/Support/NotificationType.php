@@ -40,6 +40,18 @@ enum NotificationType: string
     case SettlementPeriodClosed = 'settlement_period_closed';
     case TeacherPayoutIssued = 'teacher_payout_issued';
 
+    /*
+    | Credits (006). Four types rather than one with a "level" variable: a
+    | preference switches a TYPE off, so folding them together would make
+    | silencing the gentle first nudge also silence the notice that access has
+    | been withheld — and the mandatory flag below could then only be all or
+    | nothing.
+    */
+    case CreditBalanceLow = 'credit_balance_low';
+    case CreditBalanceCritical = 'credit_balance_critical';
+    case AccessWithheld = 'access_withheld';
+    case AccessRestored = 'access_restored';
+
     public function label(): string
     {
         return match ($this) {
@@ -62,6 +74,10 @@ enum NotificationType: string
             self::SettlementRateRejected => 'رفض طلب سعر التسوية',
             self::SettlementPeriodClosed => 'إغلاق فترة التسوية',
             self::TeacherPayoutIssued => 'تنفيذ صرف',
+            self::CreditBalanceLow => 'اقتراب نفاد الرصيد',
+            self::CreditBalanceCritical => 'الرصيد على وشك النفاد',
+            self::AccessWithheld => 'إيقاف الوصول لعدم كفاية الرصيد',
+            self::AccessRestored => 'استئناف الوصول',
         };
     }
 
@@ -88,6 +104,13 @@ enum NotificationType: string
     {
         return match ($this) {
             self::SecurityAlert, self::PaymentReminder => true,
+            // FR-035 — hard financial consequence. Being withheld, and being let
+            // back in, are facts about what the account can DO right now; a
+            // preference that hid them would leave someone locked out with no
+            // way to learn why, and then unlocked without knowing they may
+            // return. The two gentler tiers stay optional, because a nudge is a
+            // nudge.
+            self::AccessWithheld, self::AccessRestored => true,
             default => false,
         };
     }
@@ -105,7 +128,13 @@ enum NotificationType: string
             self::ExamResult,
             self::AcademicWarning,
             self::SessionReport,
-            self::SessionCancelled => true,
+            self::SessionCancelled,
+            // The second tier and the block reach the guardian; the first does
+            // not. FR-030's ladder is the whole point — a quiet word to the
+            // student first, and only then the person who pays.
+            self::CreditBalanceCritical,
+            self::AccessWithheld,
+            self::AccessRestored => true,
             default => false,
         };
     }
@@ -126,6 +155,13 @@ enum NotificationType: string
             // anything else, so it rides the guardian's attendance consent.
             self::SessionReport => GuardianPermission::Attendance,
             self::SessionCancelled => GuardianPermission::Schedule,
+            // Payments, specifically. A guardian with no right to see the
+            // financial record has no business being told about a payment due
+            // on it — the permission is the message's audience, not a filter
+            // applied afterwards.
+            self::CreditBalanceCritical,
+            self::AccessWithheld,
+            self::AccessRestored => GuardianPermission::Payments,
             default => null,
         };
     }

@@ -10,6 +10,8 @@ use App\Modules\Payments\Http\Resources\CreditTransactionResource;
 use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Payments\Support\WithholdingReader;
+use App\Shared\Contracts\GuardianDirectory;
+use App\Shared\Support\GuardianPermission;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -43,6 +45,43 @@ class BillingController extends Controller
     ): AnonymousResourceCollection {
         $balances = $accounts->balancesFor($this->currentUser($request))
             ->load(['course', 'workspace']);
+
+        return CreditBalanceResource::collection($withholding->stamp($balances));
+    }
+
+    /**
+     * A guardian reading one of their children's balances (FR-031 · T127).
+     *
+     * ⚠️ THE GATE IS `childrenOf(..., Payments)`, AND THE PERMISSION IS THE
+     * POINT. A guardian entitled to attendance news but not to the financial
+     * record has no business seeing a ledger — asking "is this my child" and
+     * then showing money would be the right relation with the wrong consent.
+     *
+     * ⚠️ AND THE CHILD IS MATCHED INSIDE THE AUTHORISED LIST, never fetched by
+     * the uuid and then checked. `exists:users,uuid` answers a different
+     * question, and a bare uuid parameter is an identity probe: the response
+     * comes back carrying a name whether or not the relation exists. Same rule
+     * as CreateFreezePeriod.
+     */
+    public function childBalance(
+        Request $request,
+        CreditAccounts $accounts,
+        WithholdingReader $withholding,
+        GuardianDirectory $guardians,
+    ): AnonymousResourceCollection {
+        $requested = $request->query('student');
+
+        abort_unless(is_string($requested) && $requested !== '', 422);
+
+        $child = $guardians
+            ->childrenOf($this->currentUser($request), GuardianPermission::Payments)
+            ->firstWhere('uuid', $requested);
+
+        // 403 rather than 404: the two answers differ, and the difference tells
+        // an unauthorised reader whether that uuid names a real person.
+        abort_if($child === null, 403);
+
+        $balances = $accounts->balancesFor($child)->load(['course', 'workspace']);
 
         return CreditBalanceResource::collection($withholding->stamp($balances));
     }
