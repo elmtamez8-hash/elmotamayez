@@ -50,6 +50,13 @@ class AccrueTeachingUnits extends Action
             $session->type,
             $session->starts_at,
             $session->subject_id === null ? null : (int) $session->subject_id,
+            // Passed, not left to default. Omitting it left the fifth argument
+            // null, which made `orWhere('grade_level', null)` the only branch
+            // that could ever match — so every grade-specific rate a teacher had
+            // approved was invisible at settlement and the general rate was paid
+            // instead. Spec 006 resolves the SAME rate for the purchase price,
+            // so the two sides would disagree from the first grade-scoped rate.
+            $session->grade_level,
         );
 
         $missing = $this->package->missingReason($session);
@@ -158,6 +165,13 @@ class AccrueTeachingUnits extends Action
             $session->type,
             $session->starts_at,
             $session->subject_id === null ? null : (int) $session->subject_id,
+            // Passed, not left to default. Omitting it left the fifth argument
+            // null, which made `orWhere('grade_level', null)` the only branch
+            // that could ever match — so every grade-specific rate a teacher had
+            // approved was invisible at settlement and the general rate was paid
+            // instead. Spec 006 resolves the SAME rate for the purchase price,
+            // so the two sides would disagree from the first grade-scoped rate.
+            $session->grade_level,
         );
 
         if ($rate === null) {

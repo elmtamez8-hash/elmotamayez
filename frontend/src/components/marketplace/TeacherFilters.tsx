@@ -14,7 +14,6 @@ import type { Taxonomy } from "@/lib/public-api";
 const SORTS = [
   { value: "rating_desc", label: "الأعلى تقييمًا" },
   { value: "trust_desc", label: "الأعلى ثقة" },
-  { value: "price_asc", label: "الأقل سعرًا" },
 ];
 
 const LANGUAGES = [
@@ -115,34 +114,6 @@ export function TeacherFilters({
           ))}
         </select>
       </div>
-
-      <fieldset>
-        <legend className="mb-1.5 text-sm font-semibold text-ink">السعر لكل حصة</legend>
-        <div className="flex gap-2">
-          <label className="flex-1">
-            <span className="sr-only">الحد الأدنى للسعر</span>
-            <input
-              type="number"
-              min={0}
-              placeholder="من"
-              defaultValue={params.get("price_min") ?? ""}
-              onChange={(event) => update("price_min", event.target.value)}
-              className={field}
-            />
-          </label>
-          <label className="flex-1">
-            <span className="sr-only">الحد الأعلى للسعر</span>
-            <input
-              type="number"
-              min={0}
-              placeholder="إلى"
-              defaultValue={params.get("price_max") ?? ""}
-              onChange={(event) => update("price_max", event.target.value)}
-              className={field}
-            />
-          </label>
-        </div>
-      </fieldset>
 
       <div>
         <label htmlFor={id("min_rating")} className="mb-1.5 block text-sm font-semibold text-ink">

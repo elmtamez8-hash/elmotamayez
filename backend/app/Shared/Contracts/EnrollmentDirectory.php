@@ -30,10 +30,23 @@ interface EnrollmentDirectory
     /**
      * Whether this user holds an active enrolment with this teacher at all.
      *
-     * Booking a session is not tied to one course — a student studying with a
-     * teacher may book any of that teacher's sessions (FR-045). Asking course by
-     * course would make eligibility depend on which course the session happened
-     * to be filed under, which is not a rule anyone stated.
+     * ⚠️ This is NO LONGER the whole eligibility question for booking.
+     *
+     * 005 wrote it as the whole question, on the grounds that a student studying
+     * with a teacher may book any of that teacher's sessions (FR-045), and that
+     * asking course by course would make eligibility depend on which course the
+     * session happened to be filed under.
+     *
+     * Spec 006's Q-7 supersedes that. The session price is a property of the
+     * course, credits are bought for a course and spent on its sessions, and a
+     * session with no course has no price at all. So booking IS course-bound
+     * now: BookingEligibility asks this question for enrolment AND asks
+     * AccountStanding whether that specific course is withheld.
+     *
+     * The method keeps its meaning and its callers — it is the enrolment half.
+     * It is simply no longer sufficient on its own, which is why the change is
+     * recorded here rather than left for whoever writes the charge path to
+     * rediscover and settle by coin toss.
      */
     public function hasActiveEnrollmentInWorkspace(User $user, int $workspaceId): bool;
 

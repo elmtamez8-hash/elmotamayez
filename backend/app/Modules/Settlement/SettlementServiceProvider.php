@@ -20,6 +20,8 @@ use App\Modules\Settlement\Models\TeachingUnit;
 use App\Modules\Settlement\Policies\RateChangeRequestPolicy;
 use App\Modules\Settlement\Policies\SettlementPeriodPolicy;
 use App\Modules\Settlement\Policies\TeachingUnitPolicy;
+use App\Modules\Settlement\Support\EloquentApprovedRateDirectory;
+use App\Shared\Contracts\ApprovedRateDirectory;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -41,6 +43,20 @@ use Illuminate\Support\Facades\Gate;
 class SettlementServiceProvider extends Module
 {
     protected string $name = 'Settlement';
+
+    public function register(): void
+    {
+        parent::register();
+
+        // Settlement owns the approved rate; Payments asks through the interface
+        // and never learns that `settlement_rates` exists. Same binding shape as
+        // Identity's GuardianDirectory.
+        //
+        // bind(), not singleton(): the implementation memoises per request, and a
+        // singleton's memo would outlive a Horizon job and keep quoting a rate
+        // that was superseded while the worker was alive.
+        $this->app->bind(ApprovedRateDirectory::class, EloquentApprovedRateDirectory::class);
+    }
 
     public function boot(): void
     {

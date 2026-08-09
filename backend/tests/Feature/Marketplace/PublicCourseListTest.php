@@ -122,7 +122,16 @@ it('filters by the teaching subject of the course author', function (): void {
 });
 
 // FR-053: a struck-through price must mean an actual saving.
-it('reports the original price only when it is higher than the current one', function (): void {
+/*
+| ⚠️ This pair used to assert the struck-through "before" price on the browse
+| card. Spec 006 (FR-021هـ · T089أ) took BOTH prices off browsing surfaces: the
+| price appears when a buyable unit is chosen, and a card in a list is not the
+| unit.
+|
+| Replaced by its inverse rather than deleted — a test that simply vanishes says
+| nothing about why, and the discount rendering comes back as a bug fix.
+*/
+it('carries neither price nor its discounted original on a browse card', function (): void {
     marketplaceCourse($this->workspace, $this->teacher, [
         'price' => 99.99,
         'price_before_discount' => 199.99,
@@ -130,22 +139,13 @@ it('reports the original price only when it is higher than the current one', fun
 
     $this->asGuest();
 
-    $this->getJson('/api/v1/marketplace/courses')
-        ->assertOk()
-        ->assertJsonPath('data.0.price_before_discount', '199.99');
-});
+    $card = $this->getJson('/api/v1/marketplace/courses')->assertOk()->json('data.0');
 
-it('omits the original price when it does not beat the current one', function (): void {
-    marketplaceCourse($this->workspace, $this->teacher, [
-        'price' => 99.99,
-        'price_before_discount' => 99.99,
-    ]);
-
-    $this->asGuest();
-
-    $this->getJson('/api/v1/marketplace/courses')
-        ->assertOk()
-        ->assertJsonPath('data.0.price_before_discount', null);
+    expect($card)->not->toHaveKey('price')
+        ->and($card)->not->toHaveKey('price_before_discount')
+        ->and($card)->not->toHaveKey('currency')
+        // And the card is still a card: removing the price must not empty it.
+        ->and($card['title'])->toBeString();
 });
 
 it('returns an empty page rather than a 404 when nothing matches', function (): void {

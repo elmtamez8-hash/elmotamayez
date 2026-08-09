@@ -33,11 +33,18 @@ class PublicCourseCardResource extends JsonResource
             'type' => $this->course_type,
             'lessons_count' => (int) ($this->getAttribute('lessons_count') ?? 0),
             'duration_seconds' => $this->duration_seconds,
-            'price' => (string) $this->price,
-            // Null unless there really is a discount. A "before" price equal to the
-            // price would render a struck-through number that saves nothing (FR-053).
-            'price_before_discount' => $this->hasDiscount() ? (string) $this->price_before_discount : null,
-            'currency' => $this->currency,
+            /*
+            | ⚠️ NO PRICE ON A BROWSE CARD (spec 006, FR-021هـ · T089أ).
+            |
+            | The price appears when a buyable unit is CHOSEN, and a card in a
+            | list is a browsing surface, not the unit. The course's own page is
+            | the unit, and it still shows it.
+            |
+            | Unlike `hourly_rate`, this is NOT added to FORBIDDEN: a one-off
+            | course total is not tied to a settlement rate by any equation, so
+            | it cannot be used to read what another teacher is paid. It is a
+            | placement rule, not a secret.
+            */
             // Courses have no reviews yet; the card renders "لا توجد تقييمات بعد"
             // rather than borrowing the teacher's score, which would rate the wrong
             // thing.
@@ -92,11 +99,5 @@ class PublicCourseCardResource extends JsonResource
             'name' => $creator->name,
             'photo_url' => $profile->photo_path === null ? null : asset('storage/'.$profile->photo_path),
         ];
-    }
-
-    private function hasDiscount(): bool
-    {
-        return $this->price_before_discount !== null
-            && (float) $this->price_before_discount > (float) $this->price;
     }
 }

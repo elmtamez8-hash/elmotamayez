@@ -29,12 +29,24 @@ class ListPublicCoursesRequest extends FormRequest
             'subject' => ['sometimes', 'string', 'max:100'],
             'grade_level' => ['sometimes', 'string', 'max:100'],
             'type' => ['sometimes', Rule::in(Course::types())],
-            'price_min' => ['sometimes', 'numeric', 'min:0'],
-            'price_max' => ['sometimes', 'numeric', 'min:0', 'gte:price_min'],
+            /*
+            | ⚠️ REFUSED, not ignored (spec 006, FR-021و · T083).
+            |
+            | A range filter is a price oracle even with no price on the card:
+            | binary search on `price_min` reads any course's price to the riyal in a
+            | dozen requests. So the parameter cannot merely stop being read — a
+            | rule dropped from this array would leave the query string accepted
+            | and silently ineffective, which reads to a caller as a filter that
+            | works and to a reviewer as a filter that is gone.
+            |
+            | `prohibited` answers 422 and names the field, so an old bookmark
+            | fails loudly instead of quietly returning an unfiltered list.
+            */
+            'price_min' => ['prohibited'],
+            'price_max' => ['prohibited'],
             'teacher' => ['sometimes', 'uuid'],
             'sort' => ['sometimes', Rule::in([
                 CourseFilterDTO::SORT_POPULAR,
-                CourseFilterDTO::SORT_PRICE,
                 CourseFilterDTO::SORT_NEWEST,
             ])],
             'page' => ['sometimes', 'integer', 'min:1'],
@@ -46,7 +58,8 @@ class ListPublicCoursesRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'price_max.gte' => 'الحد الأعلى للسعر يجب أن يكون أكبر من الحد الأدنى.',
+            'price_min.prohibited' => 'لم يعد التصفية بالسعر متاحة.',
+            'price_max.prohibited' => 'لم يعد التصفية بالسعر متاحة.',
             'type.in' => 'نوع الكورس غير معروف.',
             'sort.in' => 'خيار الترتيب غير معروف.',
         ];

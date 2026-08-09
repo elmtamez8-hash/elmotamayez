@@ -43,4 +43,23 @@ class WorkspacePolicy extends BasePolicy
             ? Response::allow()
             : Response::deny('You are not authorized to manage workspace members.');
     }
+
+    /**
+     * Switch how this workspace collects (spec 006, FR-011).
+     *
+     * Membership first, permission second — the same order as manageMembers,
+     * and for the same reason: BILLING_SETTINGS_MANAGE is a tenant permission,
+     * so someone holding it in their own workspace would otherwise carry it into
+     * anyone else's.
+     */
+    public function manageBillingSettings(User $user, Workspace $workspace): Response
+    {
+        if (! $workspace->members()->where('user_id', $user->getKey())->exists()) {
+            return Response::deny('You do not belong to this workspace.');
+        }
+
+        return $user->can(Permissions::BILLING_SETTINGS_MANAGE)
+            ? Response::allow()
+            : Response::deny('You are not authorized to change billing settings.');
+    }
 }

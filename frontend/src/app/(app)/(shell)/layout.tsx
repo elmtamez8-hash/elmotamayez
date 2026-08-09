@@ -12,6 +12,7 @@ import {
   CertificateIcon,
   CloseIcon,
   CoursesIcon,
+  CreditsIcon,
   FamilyIcon,
   HomeIcon,
   ExamIcon,
@@ -48,11 +49,18 @@ const mainNav: NavItem[] = [
   { href: "/exams", label: "الاختبارات", Icon: ExamIcon },
   { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },
   { href: "/orders", label: "الطلبات", Icon: OrdersIcon },
+  // The student's credits, counted in sessions and never in money. Separate
+  // from /orders, which is one payment at a time: this is the standing balance
+  // those payments produce, per course.
+  { href: "/billing", label: "رصيدي", Icon: CreditsIcon },
   { href: "/notifications", label: "الإشعارات", Icon: BellIcon },
   { href: "/family", label: "المرتبطون", Icon: FamilyIcon },
 ];
 
 const adminNav: NavItem[] = [
+  // How this academy collects. Under admin, not beside /billing: that one is the
+  // student's own balance, this one is the policy that produces it.
+  { href: "/manage/billing/settings", label: "إعدادات الفوترة", Icon: CreditsIcon },
   { href: "/workspaces", label: "مساحات العمل", Icon: WorkspaceIcon },
   { href: "/members", label: "الأعضاء", Icon: MembersIcon },
   { href: "/settings", label: "الإعدادات", Icon: SettingsIcon },

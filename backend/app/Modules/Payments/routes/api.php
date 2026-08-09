@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Modules\Payments\Http\Controllers\Admin\BillingPricingController;
+use App\Modules\Payments\Http\Controllers\Admin\CreditPackageAdminController;
+use App\Modules\Payments\Http\Controllers\Admin\OutstandingCreditsController;
+use App\Modules\Payments\Http\Controllers\BillingController;
+use App\Modules\Payments\Http\Controllers\BillingSettingsController;
+use App\Modules\Payments\Http\Controllers\CreditPurchaseController;
 use App\Modules\Payments\Http\Controllers\OrderController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,6 +22,58 @@ use Illuminate\Support\Facades\Route;
 Route::get('/orders/{order}/receipt', [OrderController::class, 'downloadReceipt'])
     ->middleware('signed')
     ->name('orders.receipt');
+
+/*
+| Billing reads (spec 006).
+|
+| `throttle:billing`, never `throttle:auth`: that limiter's second rule keys on
+| `'email:'.$request->input('email')`, and a billing request carries no email —
+| so the key collapses to the constant `'email:'` and every visitor on the
+| platform shares one bucket. One person refreshing their balance would lock
+| everyone else out of buying credits.
+*/
+Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void {
+    Route::get('/billing/balance', [BillingController::class, 'balance']);
+    Route::get('/billing/transactions', [BillingController::class, 'transactions']);
+
+    // FR-011 — the mode is switched from settings, never by shipping code. Both
+    // verbs carry the workspace implicitly: it is the one the request is already
+    // authenticated into, so there is no id anyone could substitute.
+    Route::get('/manage/billing/settings', [BillingSettingsController::class, 'show']);
+    Route::patch('/manage/billing/settings', [BillingSettingsController::class, 'update']);
+
+    // Buying credits. The course arrives as a QUERY/BODY value, never as a path
+    // parameter: `/{course}` would resolve the model by uuid before any guard
+    // ran, and this is the surface where a total is invertible back to a
+    // teacher's approved settlement rate.
+    Route::get('/billing/packages', [CreditPurchaseController::class, 'index']);
+    Route::post('/billing/purchases', [CreditPurchaseController::class, 'store']);
+
+    /*
+    | The platform's catalogue and the platform's half of the price (FR-016 ·
+    | FR-021أ). Both are guarded by PLATFORM permissions that no tenant role
+    | holds — a package a teacher could define is a sale price a teacher sets,
+    | which FR-021ب forbids — so the workspace owner fails every write here.
+    |
+    | No DELETE on packages: retirement is `is_active = false` (FR-019). Credits
+    | already bought keep pointing at the row, and deleting it would orphan
+    | purchases that have been paid for.
+    */
+    Route::get('/admin/billing/packages', [CreditPackageAdminController::class, 'index']);
+    Route::post('/admin/billing/packages', [CreditPackageAdminController::class, 'store']);
+    Route::patch('/admin/billing/packages/{uuid}', [CreditPackageAdminController::class, 'update']);
+
+    Route::get('/admin/billing/pricing', [BillingPricingController::class, 'show']);
+    Route::put('/admin/billing/pricing', [BillingPricingController::class, 'update']);
+
+    /*
+    | Read by the RATE-APPROVAL screen, and deliberately not part of its payload:
+    | a `credits_sold` field on a Settlement response would be computed from
+    | `credit_purchases`, which is the coupling ContextIsolationTest exists to
+    | refuse. Two contexts, two requests (Q-7 · T097).
+    */
+    Route::get('/admin/billing/outstanding', [OutstandingCreditsController::class, 'show']);
+});
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/orders', [OrderController::class, 'index']);

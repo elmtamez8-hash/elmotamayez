@@ -7,6 +7,7 @@ namespace App\Modules\Payments\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
@@ -18,6 +19,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 /**
  * @property string $status
  * @property string $provider
+ * @property OrderKind $kind
  * @property-read Workspace $workspace workspace_id is NOT NULL
  * @property-read User $user user_id is NOT NULL
  */
@@ -30,6 +32,7 @@ class Order extends BaseModel implements HasMedia
         'user_id',
         'product_id',
         'course_id',
+        'kind',
         'amount',
         'currency',
         'provider',
@@ -46,9 +49,16 @@ class Order extends BaseModel implements HasMedia
     {
         return [
             'amount' => 'decimal:2',
+            'kind' => OrderKind::class,
             'approved_at' => 'datetime',
             'metadata' => 'array',
         ];
+    }
+
+    /** A credit purchase, which only the platform may approve. */
+    public function isCreditPurchase(): bool
+    {
+        return $this->kind === OrderKind::Credits;
     }
 
     public function registerMediaCollections(): void

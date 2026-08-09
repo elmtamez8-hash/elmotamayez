@@ -65,13 +65,13 @@ test.describe("public discovery", () => {
   });
 
   test("filters live in the url so a filtered result is shareable", async ({ page, context }) => {
-    await page.goto("/teachers?sort=price_asc&price_max=200");
+    await page.goto("/teachers?sort=trust_desc&min_rating=4");
 
     const rendered = await page.locator("main").innerText();
 
     // Same url, fresh page: an identical render is what SC-015 asks for.
     const other = await context.newPage();
-    await other.goto("/teachers?sort=price_asc&price_max=200");
+    await other.goto("/teachers?sort=trust_desc&min_rating=4");
 
     expect(await other.locator("main").innerText()).toBe(rendered);
   });

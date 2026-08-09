@@ -11,15 +11,11 @@ class TeacherFilterDTO extends DataTransferObject
 {
     public const SORT_RATING = 'rating_desc';
 
-    public const SORT_PRICE = 'price_asc';
-
     public const SORT_TRUST = 'trust_desc';
 
     public function __construct(
         public readonly ?string $subject = null,
         public readonly ?string $gradeLevel = null,
-        public readonly ?float $priceMin = null,
-        public readonly ?float $priceMax = null,
         public readonly ?float $minRating = null,
         public readonly ?int $minTrustScore = null,
         public readonly ?string $language = null,
@@ -41,8 +37,6 @@ class TeacherFilterDTO extends DataTransferObject
         return new self(
             subject: $data['subject'] ?? null,
             gradeLevel: $data['grade_level'] ?? null,
-            priceMin: isset($data['price_min']) ? (float) $data['price_min'] : null,
-            priceMax: isset($data['price_max']) ? (float) $data['price_max'] : null,
             minRating: isset($data['min_rating']) ? (float) $data['min_rating'] : null,
             minTrustScore: isset($data['min_trust_score']) ? (int) $data['min_trust_score'] : null,
             language: $data['language'] ?? null,
@@ -65,8 +59,6 @@ class TeacherFilterDTO extends DataTransferObject
         return array_filter([
             'subject' => $this->subject,
             'grade_level' => $this->gradeLevel,
-            'price_min' => $this->priceMin !== null ? (string) $this->priceMin : null,
-            'price_max' => $this->priceMax !== null ? (string) $this->priceMax : null,
             'min_rating' => $this->minRating !== null ? (string) $this->minRating : null,
             'min_trust_score' => $this->minTrustScore !== null ? (string) $this->minTrustScore : null,
             'language' => $this->language,

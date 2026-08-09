@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Actions;
 
 use App\Models\User;
+use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Data\ScheduleSessionData;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Models\ClassSession;
@@ -39,6 +40,7 @@ class GenerateSessionsFromAvailability extends Action
      */
     public function handle(
         TeacherProfile $teacher,
+        Course $course,
         CarbonImmutable $from,
         CarbonImmutable $to,
         User $actor,
@@ -58,7 +60,12 @@ class GenerateSessionsFromAvailability extends Action
         foreach ($this->occurrences($slots, $from, $to) as $occurrence) {
             $data = new ScheduleSessionData(
                 teacherProfileId: (int) $teacher->getKey(),
-                title: $title ?? 'حصة',
+                // Required since Q-7: the generator produces sessions OF a
+                // course, because the price is the course's. A bulk generate
+                // that left it null would create a week of sessions no student
+                // could ever be charged for.
+                courseId: (int) $course->getKey(),
+                title: $title ?? $course->title,
                 type: $type,
                 startsAt: $occurrence['starts_at'],
                 durationMinutes: $occurrence['duration_minutes'],

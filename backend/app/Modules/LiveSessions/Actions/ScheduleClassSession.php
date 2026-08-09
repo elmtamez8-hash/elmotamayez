@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Actions;
 
 use App\Models\User;
+use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Data\ScheduleSessionData;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Events\SessionScheduled;
@@ -28,13 +29,21 @@ class ScheduleClassSession extends Action
     public function handle(ScheduleSessionData $data, User $actor): ClassSession
     {
         $this->assertTypeMatchesSeats($data);
+        $course = $this->requireCourse($data);
         $this->assertNoOverlap($data);
         $this->assertNotFrozen($data);
 
         $session = ClassSession::query()->create([
             'teacher_profile_id' => $data->teacherProfileId,
             'course_id' => $data->courseId,
-            'subject_id' => $data->subjectId,
+            // Copied FROM THE COURSE, and the caller's subject_id is only the
+            // fallback. Both sides of the money — the purchase price in 006 and
+            // the settlement rate in 014 — resolve from these two values, so
+            // they have to come from one place. Copied rather than read through
+            // the course, so a course reclassified next term does not reprice
+            // sessions already taught.
+            'subject_id' => $course->subject_id ?? $data->subjectId,
+            'grade_level' => $course->grade_level,
             'title' => $data->title,
             'type' => $data->type,
             'status' => ClassSessionStatus::Scheduled,
@@ -61,6 +70,30 @@ class ScheduleClassSession extends Action
         if (! $data->type->allowsSeats($data->seatsTotal)) {
             throw new DomainException('عدد المقاعد لا يناسب نوع الحصة.');
         }
+    }
+
+    /**
+     * A schedulable session must belong to a course.
+     *
+     * `class_sessions.course_id` stays nullable in the schema — historic rows
+     * predate Q-7 and inventing courses for them would be a lie in the data —
+     * so the rule is enforced HERE, at the one door every scheduler comes
+     * through. A session with no course is a session with no price, and it could
+     * never consume a credit.
+     */
+    private function requireCourse(ScheduleSessionData $data): Course
+    {
+        if ($data->courseId === null) {
+            throw new DomainException('الحصة يجب أن تكون ضمن كورس — سعر الحصة خاصية الكورس.');
+        }
+
+        $course = Course::query()->find($data->courseId);
+
+        if ($course === null) {
+            throw new DomainException('الكورس غير موجود في مساحة العمل هذه.');
+        }
+
+        return $course;
     }
 
     /**

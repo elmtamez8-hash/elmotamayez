@@ -14,6 +14,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * @property string $type
+ * @property array<string, mixed>|null $settings the `array` cast, which Larastan
+ *                                               reads from the migration as raw json text; null until a workspace
+ *                                               configures anything (spec 006's billing block is its first consumer)
  */
 class Workspace extends BaseModel
 {

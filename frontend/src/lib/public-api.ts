@@ -31,8 +31,13 @@ export type TeacherCard = {
   grade_levels: Taxonomy[];
   years_experience: number;
   teaching_languages: string[];
-  hourly_rate: string;
-  currency: string;
+  /*
+   * ⚠️ NO `hourly_rate` AND NO `currency` — the API stopped sending both
+   * (spec 006, FR-021و). The platform is the seller: the student pays a
+   * cost-plus total and the teacher is paid an approved settlement rate, and
+   * publishing the second beside the first is the whole equation. The column
+   * still exists; it is the teacher's own input, not a public field.
+   */
   average_rating: number | null;
   reviews_count: number;
   trust_score: number | null;
@@ -62,9 +67,11 @@ export type CourseCard = {
   type: "individual" | "group" | "recorded";
   lessons_count: number;
   duration_seconds: number;
-  price: string;
-  price_before_discount: string | null;
-  currency: string;
+  /*
+   * ⚠️ NO PRICE ON A BROWSE CARD (FR-021هـ). The price belongs on the buyable
+   * unit's own page, which is the course page — a card in a list is a browsing
+   * surface. Unlike the teacher's rate this is a placement rule, not a secret.
+   */
   average_rating: number | null;
   enrolled_count: number;
   is_bestseller: boolean;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Actions\CancelClassSession;
 use App\Modules\LiveSessions\Actions\GenerateSessionsFromAvailability;
 use App\Modules\LiveSessions\Actions\ScheduleClassSession;
@@ -67,8 +68,13 @@ class ClassSessionController extends Controller
             ->where('id', $request->validated('teacher_profile_id'))
             ->firstOrFail();
 
+        $course = Course::query()
+            ->where('id', $request->validated('course_id'))
+            ->firstOrFail();
+
         $result = $action->handle(
             $teacher,
+            $course,
             CarbonImmutable::parse((string) $request->validated('from')),
             CarbonImmutable::parse((string) $request->validated('to')),
             $this->currentUser($request),

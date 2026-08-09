@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Actions\CreateFreezePeriod;
 use App\Modules\LiveSessions\Actions\ScheduleClassSession;
 use App\Modules\LiveSessions\Data\ScheduleSessionData;
@@ -36,6 +37,9 @@ beforeEach(function (): void {
         'cancelled_sessions_count' => 2,
         'attendance_rate' => 86,
     ]);
+
+    // Every session belongs to a course since Q-7 (spec 006).
+    $this->course = Course::factory()->create(['workspace_id' => $this->workspace->getKey()]);
 });
 
 it('leaves every counter exactly as it found them', function (): void {
@@ -71,6 +75,8 @@ it('takes new sessions again the day the period ends', function (): void {
     $session = app(ScheduleClassSession::class)->handle(
         new ScheduleSessionData(
             teacherProfileId: (int) $this->teacher->getKey(),
+            // Required since Q-7 (spec 006) — the price is the course's.
+            courseId: (int) $this->course->getKey(),
             title: 'حصة بعد الإجازة',
             type: ClassSessionType::Individual,
             startsAt: $end->addDay()->setHour(10),

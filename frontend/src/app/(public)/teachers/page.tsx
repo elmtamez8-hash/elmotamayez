@@ -17,7 +17,7 @@ export const revalidate = 60;
 export const metadata: Metadata = {
   title: "المدرسون",
   description:
-    "تصفّح المدرّسين المعتمدين حسب المادة والمرحلة الدراسية والسعر والتقييم، واحجز حصة تجريبية.",
+    "تصفّح المدرّسين المعتمدين حسب المادة والمرحلة الدراسية والتقييم ودرجة الثقة، واحجز حصة تجريبية.",
 };
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -25,8 +25,11 @@ type SearchParams = Record<string, string | string[] | undefined>;
 const FILTER_KEYS = [
   "subject",
   "grade_level",
-  "price_min",
-  "price_max",
+  /*
+   * ⚠️ No `price_min`/`price_max` (spec 006, FR-021و). The API answers 422 for
+   * either, so forwarding a stale bookmark's query string would turn the whole
+   * listing into an error page — this list is the filter that stops that.
+   */
   "min_rating",
   "min_trust_score",
   "language",

@@ -64,6 +64,8 @@ function scheduleAt(CarbonImmutable $startsAt): ClassSession
     return app(ScheduleClassSession::class)->handle(
         new ScheduleSessionData(
             teacherProfileId: (int) test()->teacher->getKey(),
+            // Required since Q-7 (spec 006) — the price is the course's.
+            courseId: (int) test()->course->getKey(),
             title: 'حصة',
             type: ClassSessionType::Group,
             startsAt: $startsAt,

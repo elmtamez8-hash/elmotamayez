@@ -21,6 +21,9 @@ class GenerateSessionsRequest extends FormRequest
     {
         return [
             'teacher_profile_id' => ['required', WorkspaceRules::exists('teacher_profiles')],
+            // Required since Q-7 for the same reason as on a single session: the
+            // price is a property of the course.
+            'course_id' => ['required', WorkspaceRules::exists('courses')],
             'from' => ['required', 'date'],
             // Bounded so one request cannot generate a decade of sessions and
             // spend the rest of the afternoon doing it.

@@ -58,6 +58,20 @@ final class PlatformSettings
         'settlement.rate_requests_per_window' => 'settlement.rate_requests_per_window',
         'settlement.rate_request_window_days' => 'settlement.rate_request_window_days',
         'settlement.currency' => 'settlement.currency',
+        // Billing (spec 006). The platform's half of the price and of the credit
+        // policy; the workspace's half lives in `workspaces.settings.billing`.
+        'billing.operating_fee_minor.individual' => 'billing.operating_fee_minor.individual',
+        'billing.operating_fee_minor.group' => 'billing.operating_fee_minor.group',
+        'billing.gateway_fee_bps' => 'billing.gateway_fee_bps',
+        'billing.gateway_fixed_fee_minor' => 'billing.gateway_fixed_fee_minor',
+        'billing.currency' => 'billing.currency',
+        'billing.limit.initial_credits' => 'billing.limit.initial_credits',
+        'billing.limit.increase_after_on_time' => 'billing.limit.increase_after_on_time',
+        'billing.limit.increase_by_credits' => 'billing.limit.increase_by_credits',
+        'billing.limit.max_credits' => 'billing.limit.max_credits',
+        'billing.limit.decrease_after_late_days' => 'billing.limit.decrease_after_late_days',
+        'billing.dormant_notice_months' => 'billing.dormant_notice_months',
+        'billing.max_lots_per_draw' => 'billing.max_lots_per_draw',
     ];
 
     public static function get(string $key, mixed $default = null): mixed

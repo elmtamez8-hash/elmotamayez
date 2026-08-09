@@ -47,4 +47,29 @@ class EloquentGuardianDirectory implements GuardianDirectory
 
         return $relation !== null && $relation->allows($permission);
     }
+
+    /** @return Collection<int, User> */
+    public function childrenOf(User $guardian, GuardianPermission $permission): Collection
+    {
+        $studentIds = ParentStudentRelation::query()
+            ->where('guardian_user_id', $guardian->getKey())
+            ->active()
+            // A child known only by name has no account to act on. Filtered in
+            // SQL rather than after mapping, so a null never reaches the caller
+            // as a Collection element it has to remember to check.
+            ->whereNotNull('student_user_id')
+            ->get()
+            ->filter(fn (ParentStudentRelation $relation): bool => $relation->allows($permission))
+            ->pluck('student_user_id')
+            // One person, one row — a student holding both a parent and a
+            // guardian relation to the same adult is a data fault, but listing
+            // them twice would double every total computed from this list.
+            ->unique()
+            ->all();
+
+        // Loaded by id rather than through the relation: `student` is nullable
+        // on the model, and a mapped-then-filtered collection carries that null
+        // through the type without ever being able to produce one here.
+        return User::query()->whereIn('id', $studentIds)->get()->values();
+    }
 }

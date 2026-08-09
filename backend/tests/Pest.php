@@ -7,8 +7,15 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Payments\Data\CreditMovement;
+use App\Modules\Payments\Enums\CreditTransactionType;
+use App\Modules\Payments\Models\CreditBalance;
+use App\Modules\Payments\Support\CreditAccounts;
+use App\Modules\Payments\Support\CreditLedger;
+use App\Modules\Settlement\Models\SettlementRate;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Support\WorkspaceContext;
+use Carbon\CarbonImmutable;
 use Database\Seeders\NotificationTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
@@ -110,6 +117,84 @@ function studentWhoCompletedWith(TeacherProfile $teacher): User
     });
 
     return $student;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Billing helpers (spec 006)
+|--------------------------------------------------------------------------
+|
+| Here rather than in one test file for the reason stated above: a function
+| declared in a test file exists only for the files Pest loads after it, and
+| eight suites need these.
+|
+*/
+
+function billingCourse(Workspace $workspace): Course
+{
+    return app(WorkspaceContext::class)->forWorkspace(
+        $workspace,
+        fn (): Course => Course::factory()->create(['workspace_id' => $workspace->getKey()]),
+    );
+}
+
+/**
+ * A course with a teacher profile and an approved settlement rate behind it.
+ *
+ * `$amountMinor = null` builds the other half of the pair: a course whose
+ * teacher has NO approved rate, which prices as null and therefore sells
+ * nothing. Both failure modes are silent by construction — the contract answers
+ * null and the caller turns it into an empty list — so the unpriced case needs a
+ * fixture as much as the priced one does.
+ */
+function courseWithRate(int $workspaceId, ?int $amountMinor = 5000): Course
+{
+    return app(WorkspaceContext::class)->forWorkspace($workspaceId, function () use ($workspaceId, $amountMinor): Course {
+        $profile = TeacherProfile::factory()->create(['workspace_id' => $workspaceId]);
+
+        if ($amountMinor !== null) {
+            SettlementRate::factory()->create([
+                'workspace_id' => $workspaceId,
+                'teacher_profile_id' => $profile->getKey(),
+                'amount_minor' => $amountMinor,
+                'effective_from' => CarbonImmutable::now()->subMonth(),
+            ]);
+        }
+
+        return Course::factory()->create([
+            'workspace_id' => $workspaceId,
+            'teacher_profile_id' => $profile->getKey(),
+            'subject_id' => null,
+            'grade_level' => null,
+        ]);
+    });
+}
+
+/**
+ * A student's balance in one course, through the same lazy path production uses.
+ *
+ * Built with CreditAccounts rather than the factory so the account is created
+ * once and shared — a factory call per balance would give one person several
+ * accounts, which is the defect PlatformOwnershipTest exists to catch.
+ */
+function billingBalance(Workspace $workspace, User $student, ?Course $course = null): CreditBalance
+{
+    return app(CreditAccounts::class)->balanceFor($student, $course ?? billingCourse($workspace));
+}
+
+/** Credits added the way a purchase adds them: an entry plus a lot. */
+function grantCredits(CreditBalance $balance, int $credits, string $source, ?DateTimeInterface $expiresAt = null): void
+{
+    app(CreditLedger::class)->post(new CreditMovement(
+        balance: $balance,
+        type: CreditTransactionType::Purchase,
+        credits: $credits,
+        sourceType: 'test_grant',
+        sourceId: crc32($source),
+        expiresAt: $expiresAt,
+    ));
+
+    $balance->refresh();
 }
 
 /**

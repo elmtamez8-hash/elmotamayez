@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Actions\GenerateSessionsFromAvailability;
 use App\Modules\LiveSessions\Actions\ScheduleClassSession;
 use App\Modules\LiveSessions\Data\ScheduleSessionData;
@@ -20,12 +21,17 @@ beforeEach(function (): void {
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
     $this->setCurrentWorkspace($this->workspace, $this->owner);
     $this->teacher = TeacherProfile::factory()->create(['user_id' => $this->owner->getKey()]);
+    // Every session belongs to a course since Q-7 (spec 006): the price is a
+    // property of the course, so a session with no course is a session with no
+    // price and could never consume a credit.
+    $this->course = Course::factory()->create(['workspace_id' => $this->workspace->getKey()]);
 });
 
 function scheduleData(TeacherProfile $teacher, CarbonImmutable $startsAt, int $minutes = 60): ScheduleSessionData
 {
     return new ScheduleSessionData(
         teacherProfileId: (int) $teacher->getKey(),
+        courseId: (int) Course::query()->where('workspace_id', $teacher->workspace_id)->value('id'),
         title: 'حصة رياضيات',
         type: ClassSessionType::Group,
         startsAt: $startsAt,
@@ -75,6 +81,7 @@ it('allows a session that starts exactly when another ends', function (): void {
 it('refuses a session whose seat count contradicts its type', function (): void {
     $data = new ScheduleSessionData(
         teacherProfileId: (int) $this->teacher->getKey(),
+        courseId: (int) $this->course->getKey(),
         title: 'حصة',
         type: ClassSessionType::Individual,
         startsAt: CarbonImmutable::now()->addDay(),
@@ -114,6 +121,7 @@ describe('generating from availability', function (): void {
 
         $result = app(GenerateSessionsFromAvailability::class)->handle(
             $this->teacher,
+            $this->course,
             $tomorrow->startOfDay(),
             $tomorrow->addDays(6),
             $this->owner,
@@ -142,6 +150,7 @@ describe('generating from availability', function (): void {
 
         $result = app(GenerateSessionsFromAvailability::class)->handle(
             $this->teacher,
+            $this->course,
             $tomorrow->startOfDay(),
             $tomorrow->addDays(6),
             $this->owner,

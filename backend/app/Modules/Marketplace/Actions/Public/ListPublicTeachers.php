@@ -50,8 +50,11 @@ class ListPublicTeachers extends Action
             fn (Builder $sub) => $sub->where('grade_levels.slug', $slug),
         ));
 
-        $query->when($filters->priceMin, fn (Builder $q, float $min) => $q->where('hourly_rate', '>=', $min));
-        $query->when($filters->priceMax, fn (Builder $q, float $max) => $q->where('hourly_rate', '<=', $max));
+        // No price filter, and no price sort below (spec 006, FR-021و). A range
+        // filter is a price oracle even without the number on the card: binary
+        // search on `price_min` reads any teacher's rate to the riyal in a dozen
+        // requests, so removing the field and keeping the filter would publish
+        // exactly what it was removed to hide.
         $query->when($filters->minRating, fn (Builder $q, float $min) => $q->where('average_rating', '>=', $min));
 
         // A null score means "still building", not "scored zero" (FR-024). Asking
@@ -93,7 +96,6 @@ class ListPublicTeachers extends Action
     private function applySort(Builder $query, string $sort): void
     {
         match ($sort) {
-            TeacherFilterDTO::SORT_PRICE => $query->orderBy('hourly_rate'),
             // Teachers still building a score sort last rather than being ranked as
             // if they scored zero (FR-026).
             TeacherFilterDTO::SORT_TRUST => $query->orderByRaw('trust_score is null')

@@ -48,6 +48,12 @@ class ClassSession extends BaseModel
         'teacher_profile_id',
         'course_id',
         'subject_id',
+        // Copied from the course at scheduling time, not read through it: the
+        // settlement rate and the purchase price must resolve from identical
+        // inputs, and a course whose grade changes later must not reprice
+        // sessions already taught.
+        'grade_level',
+        'charged_at',
         'title',
         'type',
         'status',
@@ -90,6 +96,11 @@ class ClassSession extends BaseModel
             'recording_attempts' => 'integer',
             'delivered_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            // Set when the seats were charged (006). Null on a delivered session
+            // is the "delivered but never billed" set the sweep repairs — and
+            // that set is unavoidable, because CloseClassSession returns early on
+            // a terminal status, so SessionDelivered fires exactly once, ever.
+            'charged_at' => 'datetime',
         ];
     }
 

@@ -337,5 +337,39 @@ return [
         'timezone' => 'المنطقة الزمنية',
         'contact_value' => 'وسيلة التواصل',
         'code' => 'رمز التحقّق',
+
+        // الفوترة والأرصدة (006). حقل بلا مدخل هنا يُعرَض للمستخدم باسمه البرمجي.
+        'mode' => 'نمط الفوترة',
+        'cadence' => 'دورة الدفع',
+        // ⚠️ الأسماء هي أسماء الحقول في `UpdateBillingSettingsRequest` حرفياً.
+        // كانت `zero_behavior` و`thresholds` وهما لا يطابقان أي حقل، فكانت
+        // الرسالة تُعرَض بالاسم البرمجي — وهو العطل الصامت الذي تحذّر منه ترويسة
+        // هذا الملف.
+        'zero_balance_behavior' => 'السلوك عند نفاد الرصيد',
+        'alert_thresholds' => 'عتبات التنبيه',
+        'alert_thresholds.*' => 'عتبة التنبيه',
+        'course' => 'الكورس',
+        'student' => 'الطالب',
+        'credit_package' => 'حزمة الأرصدة',
+        'package' => 'الحزمة',
+        'credits' => 'عدد الأرصدة',
+        'session_type' => 'نوع الحصة',
+        'validity_days' => 'مدة الصلاحية بالأيام',
+        'is_active' => 'حالة التفعيل',
+        'sort_order' => 'ترتيب العرض',
+        'reason' => 'السبب',
+        'idempotency_key' => 'مفتاح التعامد',
+        'credit_limit_credits' => 'الحد الائتماني',
+        'starts_on' => 'تاريخ البداية',
+        'ends_on' => 'تاريخ النهاية',
+        'document' => 'وثيقة الشروط',
+        'version' => 'نسخة الشروط',
+        'accepted' => 'الموافقة على الشروط',
+        'operating_fee_minor' => 'رسم التشغيل',
+        'operating_fee_minor.individual' => 'رسم تشغيل الحصة الفردية',
+        'operating_fee_minor.group' => 'رسم تشغيل الحصة الجماعية',
+        'gateway_fee_bps' => 'نسبة رسوم البوابة',
+        'gateway_fixed_fee_minor' => 'الرسم الثابت للبوابة',
+        'is_high_value' => 'أصل عالي القيمة',
     ],
 ];

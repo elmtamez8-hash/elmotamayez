@@ -40,6 +40,7 @@ import {
   IconCertificate,
   IconCheck,
   IconClipboardText,
+  IconCoins,
   IconFileText,
   IconHome,
   IconInfoCircle,
@@ -131,6 +132,12 @@ export const ScheduleIcon = wrap(IconCalendarTime, "h-5 w-5");
 export const SessionsIcon = wrap(IconCalendarEvent, "h-5 w-5");
 /** The teacher's own statement — their contract, never a student's payment. */
 export const SettlementIcon = wrap(IconReceipt2, "h-5 w-5");
+/**
+ * The student's credits. A coin rather than a receipt: the balance is counted in
+ * credits and carries no money at all, and a receipt glyph would promise a figure
+ * the screen deliberately never shows.
+ */
+export const CreditsIcon = wrap(IconCoins, "h-5 w-5");
 
 /**
  * Directional icons carry their direction in the NAME, not in a CSS flip.

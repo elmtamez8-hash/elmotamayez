@@ -56,6 +56,22 @@ class OrderPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
+        // Approving a credit purchase is minting money, and it is the teacher who
+        // gets paid out of the credits once the sessions are delivered (spec
+        // 014). PAYMENTS_APPROVE sits in the teacher array and the workspace
+        // check above is one the teacher satisfies by definition — so on its own
+        // it would let the payee approve a transfer that never happened. And
+        // because the two contexts are deliberately isolated, nothing on the
+        // settlement side could ever surface it.
+        //
+        // Q-4 moved the seller role to the platform; this is that decision
+        // finished. PAYMENTS_APPROVE keeps working for course orders.
+        if ($order->isCreditPurchase()) {
+            return $user->can(Permissions::BILLING_PURCHASE_APPROVE)
+                ? Response::allow()
+                : Response::deny('اعتماد شراء الأرصدة صلاحية منصّية.');
+        }
+
         return $user->can(Permissions::PAYMENTS_APPROVE)
             ? Response::allow()
             : Response::deny('You are not authorized to approve payments.');

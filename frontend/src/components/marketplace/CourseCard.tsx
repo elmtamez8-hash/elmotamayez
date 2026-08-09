@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { CourseCard as Course } from "@/lib/public-api";
 import { StarRating } from "./StarRating";
-import { CURRENCY_LABEL } from "@/lib/platform";
 
 const TYPE_LABELS: Record<Course["type"], string> = {
   individual: "فردي",
@@ -15,16 +14,15 @@ function hours(seconds: number): string {
   return value > 0 ? `${value.toLocaleString("ar-QA")} ساعة` : "—";
 }
 
-function discountPercent(price: string, before: string): number {
-  return Math.round((1 - Number(price) / Number(before)) * 100);
-}
-
+/*
+ * ⚠️ No price, and no discount badge with it (spec 006, FR-021هـ · T089أ).
+ *
+ * A card in a list is a browsing surface; the price belongs on the buyable unit,
+ * which is the course's own page. The API stopped sending both fields, so the
+ * badge could not be rendered here even if the rule changed back — it would need
+ * the payload to change first, which is the right order.
+ */
 export function CourseCard({ course }: { course: Course }) {
-  const saving =
-    course.price_before_discount === null
-      ? null
-      : discountPercent(course.price, course.price_before_discount);
-
   return (
     <article className="flex flex-col overflow-hidden rounded-2xl border border-line bg-surface-raised transition hover:border-primary/40 hover:shadow-sm">
       <div className="relative aspect-video bg-primary-soft">
@@ -110,26 +108,9 @@ export function CourseCard({ course }: { course: Course }) {
         </div>
 
         <div className="mt-auto flex items-baseline gap-2 pt-2">
-          <span className="text-xl font-extrabold text-ink">
-            {course.price} <span className="text-sm font-medium">{CURRENCY_LABEL}</span>
+          <span className="text-sm font-semibold text-primary-ink">
+            عرض التفاصيل والسعر
           </span>
-
-          {course.price_before_discount && (
-            <>
-              <s className="text-sm text-ink-muted" aria-hidden="true">
-                {course.price_before_discount}
-              </s>
-              {/* The strike-through is decorative; the saving has to be said out
-                  loud for anyone not reading the visual comparison (FR-053). */}
-              <span className="sr-only">
-                السعر قبل الخصم {course.price_before_discount} {CURRENCY_LABEL}، بخصم{" "}
-                {saving}٪
-              </span>
-              <span className="rounded-lg bg-danger/10 px-2 py-0.5 text-xs font-bold text-danger-ink">
-                −{saving}٪
-              </span>
-            </>
-          )}
         </div>
       </div>
     </article>

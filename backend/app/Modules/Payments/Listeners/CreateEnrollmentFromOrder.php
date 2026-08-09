@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Listeners;
 
 use App\Modules\Learning\Actions\EnrollStudent;
+use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Events\PaymentApproved;
 use App\Shared\Support\WorkspaceContext;
+use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 
@@ -15,8 +17,15 @@ use Illuminate\Queue\InteractsWithQueue;
  *
  * Reuses the EnrollStudent action so the same EnrollmentCreated event pipeline fires
  * (notifications, activity log, etc.).
+ *
+ * ShouldHandleEventsAfterCommit because ApproveOrder fires PaymentApproved from
+ * INSIDE its own DB::transaction. Without it this job is pushed to the queue
+ * while that transaction is still open, a worker picks it up within
+ * milliseconds, and it reads the order as `pending` — or does not find it at
+ * all. The student has paid and got nothing, with no retry, because the job
+ * "succeeded". Same reason as CompleteExamLessonOnSubmission.
  */
-class CreateEnrollmentFromOrder implements ShouldQueue
+class CreateEnrollmentFromOrder implements ShouldHandleEventsAfterCommit, ShouldQueue
 {
     use InteractsWithQueue;
 
@@ -28,6 +37,13 @@ class CreateEnrollmentFromOrder implements ShouldQueue
     public function handle(PaymentApproved $event): void
     {
         $order = $event->order;
+
+        // A credit order carries a course too — that is the whole point of Q-7 —
+        // so `course_id === null` no longer separates the two. Without this
+        // branch, buying credits would hand the student the entire course free.
+        if ($order->kind !== OrderKind::Course) {
+            return;
+        }
 
         if ($order->course_id === null) {
             return;

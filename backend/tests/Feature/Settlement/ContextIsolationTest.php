@@ -6,8 +6,10 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Settlement\Actions\RecordDeduction;
+use App\Modules\Settlement\Support\EloquentApprovedRateDirectory;
 use App\Modules\Settlement\Support\TeacherFieldAllowlist;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Contracts\ApprovedRateDirectory;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Symfony\Component\Finder\Finder;
@@ -57,6 +59,35 @@ function moduleFiles(string $module): Finder
     return Finder::create()->files()->in(app_path("Modules/{$module}"))->name('*.php');
 }
 
+/**
+ * One file's source with every comment removed.
+ *
+ * The payload scan below reads CODE. Without this it fires on the docblock that
+ * explains why a field is absent — so the only way to keep it green would be to
+ * stop writing down the reason, which is the opposite of what the guard is for.
+ * CreditBalanceResource's own comment, naming this context to say that none of
+ * its numbers appear, is exactly the case.
+ *
+ * Applied here and NOT to the two module scans above: those forbid an import and
+ * a quoted table name, which is coupling wherever it appears, and a stricter
+ * guard on the thing that actually joins the contexts is worth the false
+ * positive it has never yet produced.
+ */
+function codeWithoutComments(string $source): string
+{
+    $kept = [];
+
+    foreach (token_get_all($source) as $token) {
+        if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+            continue;
+        }
+
+        $kept[] = is_array($token) ? $token[1] : $token;
+    }
+
+    return implode('', $kept);
+}
+
 // ---------------------------------------------------------------------------
 // FR-030 — zero foreign keys, in both directions.
 // ---------------------------------------------------------------------------
@@ -68,7 +99,11 @@ it('declares no foreign key between the settlement and billing schemas', functio
     // Sanity: a scan that found no tables would pass by finding nothing, which
     // is the failure mode every architectural test has.
     expect($settlementTables)->toContain('teaching_units', 'ledger_entries', 'settlement_periods')
-        ->and($billingTables)->toContain('orders', 'payment_transactions');
+        // The credit tables are named here on purpose. The derivation above is
+        // what keeps this list current, but a broken glob or a renamed directory
+        // would make it return nothing and every scan below would pass by
+        // finding nothing to forbid.
+        ->and($billingTables)->toContain('orders', 'payment_transactions', 'credit_balances', 'credit_transactions');
 
     $offenders = [];
 
@@ -122,6 +157,53 @@ it('never names a billing model, table or event anywhere in the settlement modul
     expect($offenders)->toBe([]);
 });
 
+/*
+ * ⚠️ The scan above is ONE-DIRECTIONAL, and spec 006 is what makes that matter.
+ *
+ * `moduleFiles('Settlement')` is the whole sweep: nothing has ever read the
+ * billing side looking for a settlement reference, because until now the billing
+ * side had no reason to want one. 006 gives it one — a credit package is priced
+ * from the teacher's approved rate — and the sanctioned route is the shared
+ * contract, which names neither module.
+ *
+ * So the reverse case: Payments MAY name `Shared\Contracts\ApprovedRateDirectory`
+ * and MUST NOT name `App\Modules\Settlement`. Without it, the first developer to
+ * find `RateResolver` and use it directly gets a green build and a join between
+ * the two contexts.
+ */
+it('never names the settlement module anywhere in the billing module', function (): void {
+    $forbidden = array_merge(
+        ['use App\Modules\Settlement'],
+        array_map(fn (string $table): string => "'{$table}'", tablesCreatedBy('Settlement')),
+    );
+
+    $offenders = [];
+
+    foreach (moduleFiles('Payments') as $file) {
+        $contents = $file->getContents();
+
+        foreach ($forbidden as $needle) {
+            if (str_contains($contents, $needle)) {
+                $offenders[] = $file->getRelativePathname().' → '.$needle;
+            }
+        }
+    }
+
+    expect($offenders)->toBe([]);
+});
+
+// And the permitted route, named — the mirror of the SessionDelivered case
+// below. Asserting only the absence of the wrong coupling says nothing about
+// whether the right one still exists: delete the binding and the scan above
+// stays green over a module that can no longer price anything.
+it('reaches the approved rate through the shared contract alone', function (): void {
+    expect(interface_exists(ApprovedRateDirectory::class))->toBeTrue()
+        // Bound by Settlement, resolved by Payments, and neither one names the
+        // other to do it.
+        ->and(app(ApprovedRateDirectory::class))
+        ->toBeInstanceOf(EloquentApprovedRateDirectory::class);
+});
+
 // The bridge itself, named. Asserting the absence of every wrong integration
 // says nothing about whether the right one is still there — delete the listener
 // and the scan above stays green over a module that accrues nothing.
@@ -161,7 +243,7 @@ it('keeps settlement vocabulary out of every payload outside this module', funct
     $offenders = [];
 
     foreach ($resources as $file) {
-        $contents = $file->getContents();
+        $contents = codeWithoutComments($file->getContents());
 
         foreach ($forbidden as $needle) {
             if (str_contains($contents, $needle)) {
@@ -171,6 +253,20 @@ it('keeps settlement vocabulary out of every payload outside this module', funct
     }
 
     expect($offenders)->toBe([]);
+});
+
+// The stripper is what stands between "the absence is documented" and "the guard
+// fires on its own documentation". One that returned an empty string would make
+// the scan above pass over everything, so both halves are asserted.
+it('strips comments without stripping code', function (): void {
+    $source = (string) file_get_contents(
+        app_path('Modules/Payments/Http/Resources/CreditBalanceResource.php'),
+    );
+
+    expect($source)->toContain('settlement')
+        ->and(codeWithoutComments($source))
+        ->not->toContain('settlement')
+        ->toContain('class CreditBalanceResource');
 });
 
 // The scan above proves nothing is written down; this proves nothing arrives.

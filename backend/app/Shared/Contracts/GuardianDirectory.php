@@ -38,4 +38,21 @@ interface GuardianDirectory
      * time: the relation may have been revoked while the job waited (FR-023).
      */
     public function isAuthorised(User $guardian, User $student, GuardianPermission $permission): bool;
+
+    /**
+     * The students this guardian may act for under this permission.
+     *
+     * The mirror of {@see self::authorisedGuardians()}, and added for spec 006:
+     * without it a guardian has no route to their children's balances at all,
+     * and the only alternative — Payments querying `parent_student_relations`
+     * itself — is a Constitution III breach on a platform-owned table that
+     * carries no workspace scope to fall back on.
+     *
+     * Children registered by name alone are absent by design: the relation
+     * carries `student_name` with no `student_user_id` until that child signs
+     * up, and there is no account to show a balance for.
+     *
+     * @return Collection<int, User>
+     */
+    public function childrenOf(User $guardian, GuardianPermission $permission): Collection;
 }

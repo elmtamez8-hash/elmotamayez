@@ -55,6 +55,15 @@ final class RolePermissionMatrix
             // assistants properly is spec 010 — until then the narrow grant is
             // the safe default, not the generous one.
             Permissions::ATTENDANCE_VIEW,
+            // Whether a student is blocked and how many credits they hold, in
+            // credits and never in money (FR-052). Operational — the assistant
+            // who schedules a session needs to know who can book — and it is the
+            // opposite of SETTLEMENT_STATEMENT_VIEW below: this is a fact about
+            // the student's standing, not about the teacher's contract. Reaching
+            // any given student is gated a second time by an active enrollment
+            // in this workspace (FR-055), the same double gate as
+            // RELATIONS_VIEW_STUDENT.
+            Permissions::BILLING_BALANCE_VIEW,
         ]);
 
         $teacher = array_merge($assistantTeacher, [
@@ -84,6 +93,22 @@ final class RolePermissionMatrix
             // exactly like MARKETPLACE_TEACHERS_APPROVE.
             Permissions::SETTLEMENT_RATE_REQUEST,
             Permissions::SETTLEMENT_STATEMENT_VIEW,
+            // Opening an exam-mode window over their own workspace: a scheduling
+            // decision about their own calendar, so it belongs here.
+            //
+            // Note what is NOT here, and why PAYMENTS_APPROVE above is no longer
+            // enough on its own. Approving a credit purchase, granting a bonus
+            // and raising a credit limit each create a claim on money with no
+            // payment leg behind it — and spec 014 pays this same teacher out of
+            // the credits that get consumed. The party who is paid cannot be the
+            // party who mints. Q-4 moved the seller role to the platform; these
+            // three are that decision finished. They reach super-admin through
+            // $all, exactly like SETTLEMENT_RATE_APPROVE.
+            //
+            // PAYMENTS_APPROVE stays: it still approves a course order. The
+            // split is enforced on `orders.kind` in OrderPolicy::approve, not by
+            // taking a working permission away.
+            Permissions::BILLING_EXAM_MODE_MANAGE,
         ]);
 
         $tenantOwner = array_merge($teacher, [
@@ -92,6 +117,10 @@ final class RolePermissionMatrix
             Permissions::MEMBERS_REMOVE,
             Permissions::SETTINGS_VIEW,
             Permissions::SETTINGS_UPDATE,
+            // Switching the billing mode changes whether students may owe money
+            // at all — an ownership decision about the workspace, not a teaching
+            // one, so it sits beside SETTINGS_UPDATE rather than on $teacher.
+            Permissions::BILLING_SETTINGS_MANAGE,
         ]);
 
         return [

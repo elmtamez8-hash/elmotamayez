@@ -32,8 +32,20 @@ class PublicTeacherCardResource extends JsonResource
             'grade_levels' => PublicTaxonomyResource::collection($this->whenLoaded('gradeLevels')),
             'years_experience' => $this->years_experience,
             'teaching_languages' => $this->teaching_languages ?? [],
-            'hourly_rate' => (string) $this->hourly_rate,
-            'currency' => $this->currency,
+            /*
+            | ⚠️ NO RATE, AND NO CURRENCY BESIDE IT (spec 006, FR-021و).
+            |
+            | 001 published this. 006 makes the platform the seller: the student
+            | pays a cost-plus total and the teacher is paid an approved
+            | settlement rate, and FR-021ب forbids the two meeting on any screen.
+            | Published side by side they are the whole equation, and the
+            | platform's margin is a subtraction away.
+            |
+            | The column stays — it is the teacher's own input on their
+            | application and the seed of a rate-change request in 014.
+            | `hourly_rate` is in PublicFieldAllowlist::FORBIDDEN so this cannot
+            | come back by accident, at any nesting depth.
+            */
             'average_rating' => $this->average_rating === null ? null : (float) $this->average_rating,
             'reviews_count' => $this->reviews_count,
             // Null with band "building" — never 0 with band "low", which would read

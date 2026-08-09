@@ -18,7 +18,6 @@ const TYPES = [
 
 const SORTS = [
   { value: "popular", label: "الأكثر طلباً" },
-  { value: "price_asc", label: "الأقل سعراً" },
   { value: "newest", label: "الأحدث" },
 ];
 
@@ -50,7 +49,7 @@ export function CourseFilters({
   const field =
     "w-full rounded-xl border border-line bg-surface-raised px-3 py-2.5 text-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 
-  const hasFilters = ["subject", "grade_level", "type", "price_min", "price_max"].some(
+  const hasFilters = ["subject", "grade_level", "type"].some(
     (key) => params.get(key),
   );
 
@@ -116,34 +115,6 @@ export function CourseFilters({
             ))}
           </select>
         </div>
-
-        <fieldset>
-          <legend className="mb-1.5 text-sm font-semibold text-ink">السعر</legend>
-          <div className="flex gap-2">
-            <label className="flex-1">
-              <span className="sr-only">الحد الأدنى للسعر</span>
-              <input
-                type="number"
-                min={0}
-                placeholder="من"
-                defaultValue={params.get("price_min") ?? ""}
-                onChange={(event) => update("price_min", event.target.value)}
-                className={field}
-              />
-            </label>
-            <label className="flex-1">
-              <span className="sr-only">الحد الأعلى للسعر</span>
-              <input
-                type="number"
-                min={0}
-                placeholder="إلى"
-                defaultValue={params.get("price_max") ?? ""}
-                onChange={(event) => update("price_max", event.target.value)}
-                className={field}
-              />
-            </label>
-          </div>
-        </fieldset>
 
         <div>
           <label htmlFor="f-sort" className="mb-1.5 block text-sm font-semibold text-ink">

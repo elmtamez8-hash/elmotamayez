@@ -192,6 +192,58 @@ final class Permissions
      */
     public const SETTLEMENT_AUDIT_VIEW = 'settlement.audit.view';
 
+    /*
+    | Billing (spec 006) — the student's money.
+    |
+    | Read the "who" column of contracts/api.md §1 before adding a grant here.
+    | Five of these eight are PLATFORM permissions and must never reach a tenant
+    | role by default: approving a credit purchase, granting a bonus, and raising
+    | a credit limit each create a claim on money with no payment leg behind it,
+    | and Q-4 made the platform — not the teacher — the seller who carries the
+    | bad-debt risk. The teacher being the party paid out of those credits is
+    | precisely why they cannot be the party who mints them.
+    */
+
+    /** Read a student's balance *in credits* and their withheld state. Teacher-side. */
+    public const BILLING_BALANCE_VIEW = 'billing.balance.view';
+
+    /** Switch the workspace billing mode and its thresholds. Workspace owner. */
+    public const BILLING_SETTINGS_MANAGE = 'billing.settings.manage';
+
+    /**
+     * Approve an order of kind `credits`.
+     *
+     * Separate from PAYMENTS_APPROVE on purpose. That one sits inside the
+     * teacher array in RolePermissionMatrix, and OrderPolicy::approve accepts it
+     * with a workspace check the teacher satisfies by definition — so without
+     * this split a teacher marks a transfer that never happened as approved,
+     * credits are minted, the session is delivered, and spec 014 pays them for
+     * it. Context isolation makes that undetectable from the settlement side.
+     */
+    public const BILLING_PURCHASE_APPROVE = 'billing.purchase.approve';
+
+    /** Grant a bonus or write a correcting adjustment. Platform-level. */
+    public const BILLING_CREDITS_ADJUST = 'billing.credits.adjust';
+
+    /** Raise or lower a student's negative-balance ceiling. Platform-level. */
+    public const BILLING_LIMIT_MANAGE = 'billing.limit.manage';
+
+    /** Open and close an exam-mode window over the teacher's own workspace. */
+    public const BILLING_EXAM_MODE_MANAGE = 'billing.exam_mode.manage';
+
+    /**
+     * Define credit packages.
+     *
+     * Platform-owned reference data under constitution v1.2.0 §I: the row has no
+     * individual owner, so write permission is its only guard. FR-016 puts the
+     * packages with the platform because cost-plus pricing is the platform's,
+     * and a package the teacher owns is a sale price the teacher sets.
+     */
+    public const BILLING_PACKAGES_MANAGE = 'billing.packages.manage';
+
+    /** Operating fee and gateway rate — the private half of the price. */
+    public const BILLING_PRICING_MANAGE = 'billing.pricing.manage';
+
     /** @return list<string> */
     public static function all(): array
     {
@@ -258,6 +310,14 @@ final class Permissions
             self::SETTLEMENT_PERIOD_MANAGE,
             self::SETTLEMENT_PAYOUT_EXECUTE,
             self::SETTLEMENT_AUDIT_VIEW,
+            self::BILLING_BALANCE_VIEW,
+            self::BILLING_SETTINGS_MANAGE,
+            self::BILLING_PURCHASE_APPROVE,
+            self::BILLING_CREDITS_ADJUST,
+            self::BILLING_LIMIT_MANAGE,
+            self::BILLING_EXAM_MODE_MANAGE,
+            self::BILLING_PACKAGES_MANAGE,
+            self::BILLING_PRICING_MANAGE,
         ];
     }
 }

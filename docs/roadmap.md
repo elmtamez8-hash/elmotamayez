@@ -4,7 +4,7 @@
 **تاريخ التحويل**: 2026-08-04
 **آخر تعديل**: 2026-08-05 — ملحق التصميم (SDD Addendum) · **الطالب مملوك للمنصة** (§٥ج) · **فصل سياق تسوية المدرّس عن فوترة الطالب** (§٥د) · تسعير `cost-plus` تملكه المنصة · القيد المزدوج
 **الحالة**: معتمدة — كل مرحلة لها مجلد spec-kit مستقل تحت `specs/`
-**آخر مراجعة**: 2026-08-08 — **016 مُنفَّذة، فاكتملت الموجة أ بالكامل** (002 · 003 · 004 · 005 · 016). كانت فجوة مكتشَفة بعد تنفيذ 014 لا بنداً من الوثيقة: بنية محتوى الكورس قائمة في الخلفية وبلا أي سطح يؤلّفها
+**آخر مراجعة**: 2026-08-08 — **الدستور → v1.2.0**: الطبقة المملوكة للمنصة صارت صنفين (هوية الطالب · بيانات مرجعية منصّية)، و`CreditPackage` انتقلت إليها من مساحة العمل (§٥ج). و**016 مُنفَّذة، فاكتملت الموجة أ بالكامل** (002 · 003 · 004 · 005 · 016). كانت فجوة مكتشَفة بعد تنفيذ 014 لا بنداً من الوثيقة: بنية محتوى الكورس قائمة في الخلفية وبلا أي سطح يؤلّفها
 
 **آخر مراجعة سابقة**: 2026-08-04 — مراجعة تعارضات وممارسات LMS؛ أُضيفت المرحلة 013 وحُسمت ٣ تصادمات تسمية (القسم ٥ب) وسُدّت ٩ فجوات (القسم ٤.٤ب)
 
@@ -377,8 +377,9 @@ Enrollment  ──────►  Course  ──────►  Teacher Worksp
 
 | الطبقة | القاعدة | أمثلة |
 |---|---|---|
-| **مملوك للمنصة** | **يُمنع** `BelongsToWorkspace`. الحارس = ملكية الصفّ للمستخدم الطالب | هوية الطالب · `StudentCreditAccount` · `StudentProgress` (خبرة · مستوى · سلسلة · شارات) · `Device` و`AuthSession` · الإشعارات والتفضيلات · `Parent` و`Guardian` و`ParentStudentRelation` · `ProcessingConsent` و`DataRequest` · `ReferralCode` · `StudentSchedule` · `ReportCard` |
-| **مملوك لمساحة العمل** | `BelongsToWorkspace` + `WorkspaceRules::exists()` + حالة في `WorkspaceIsolationTest` | `Course` · `Lesson` · `ClassSession` · `Exam` · بنك الأسئلة · `Assignment` · `StoreItem` · `Coupon` · `Reward` · `Announcement` · `TeacherProfile` · `CreditPackage` |
+| **مملوك للمنصة — (أ) هوية الطالب** | **يُمنع** `BelongsToWorkspace`. الحارس = ملكية الصفّ للمستخدم الطالب | هوية الطالب · `StudentCreditAccount` · `StudentProgress` (خبرة · مستوى · سلسلة · شارات) · `Device` و`AuthSession` · الإشعارات والتفضيلات · `Parent` و`Guardian` و`ParentStudentRelation` · `ProcessingConsent` و`DataRequest` · `ReferralCode` · `StudentSchedule` · `ReportCard` · `TermsConsent` |
+| **مملوك للمنصة — (ب) بيانات مرجعية** *(دستور v1.2.0)* | **يُمنع** `BelongsToWorkspace`. لا مالك فرداً لها، فالحارس = **صلاحية كتابة منصّية** لا صلاحية مستأجر | `PlatformSetting` · `MessageTemplate` · **`CreditPackage`** وسياسة تسعيرها |
+| **مملوك لمساحة العمل** | `BelongsToWorkspace` + `WorkspaceRules::exists()` + حالة في `WorkspaceIsolationTest` | `Course` · `Lesson` · `ClassSession` · `Exam` · بنك الأسئلة · `Assignment` · `StoreItem` · `Coupon` · `Reward` · `Announcement` · `TeacherProfile` · `ExamModeWindow` |
 | **جسر بين الطبقتين** | يحمل `workspace_id` للسياق ويشير إلى الطالب العام | `Enrollment` · `SessionBooking` · `Attendance` · `CreditTransaction` · `AwardEntry` · `Certificate` |
 
 ### الحارس الحرج

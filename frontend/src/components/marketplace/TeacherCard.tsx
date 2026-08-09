@@ -3,7 +3,6 @@ import Link from "next/link";
 import type { TeacherCard as Teacher } from "@/lib/public-api";
 import { StarRating } from "./StarRating";
 import { TrustScoreBadge } from "./TrustScoreBadge";
-import { CURRENCY_LABEL } from "@/lib/platform";
 
 function Initials({ name }: { name: string }) {
   const initials = name
@@ -84,12 +83,7 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
         </ul>
       )}
 
-      <p className="mb-4 mt-auto text-sm text-ink-muted">
-        <span className="text-lg font-bold text-ink">{teacher.hourly_rate}</span>{" "}
-        {CURRENCY_LABEL} / الحصة
-      </p>
-
-      <div className="flex gap-2">
+      <div className="mt-auto flex gap-2 pt-4">
         <Link
           href={profileHref}
           className="flex-1 rounded-xl border border-line px-3 py-2.5 text-center text-sm font-semibold text-ink transition hover:border-primary hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"

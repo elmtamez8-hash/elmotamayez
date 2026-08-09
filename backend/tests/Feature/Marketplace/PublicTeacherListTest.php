@@ -53,24 +53,29 @@ it('finds teachers across workspaces sharing a subject slug', function () {
     expect($this->getJson('/api/v1/marketplace/teachers?subject=math')->json('meta.total'))->toBe(2);
 });
 
-it('filters by price range', function () {
+/*
+| ⚠️ These three used to assert the price filter, the range validation and the
+| price sort — all shipped in 001, all retired by spec 006 (FR-021و).
+|
+| They are replaced rather than deleted, and by their own inverse: a test that
+| merely disappears leaves nothing saying the behaviour was removed on purpose,
+| and the next reader restores the filter as a missing feature. The full
+| retirement is covered in PublicExposureTest; what these hold is the shape of
+| the refusal at this endpoint.
+*/
+it('no longer filters by price, and says so with a 422', function () {
     marketplaceTeacher($this->workspace, ['hourly_rate' => 80]);
-    marketplaceTeacher($this->workspace, ['hourly_rate' => 150]);
     marketplaceTeacher($this->workspace, ['hourly_rate' => 400]);
 
     $this->asGuest();
 
-    $response = $this->getJson('/api/v1/marketplace/teachers?price_min=100&price_max=200');
-
-    expect($response->json('meta.total'))->toBe(1);
-});
-
-it('rejects a price range whose maximum is below its minimum', function () {
-    $this->asGuest();
-
-    $this->getJson('/api/v1/marketplace/teachers?price_min=300&price_max=100')
+    $this->getJson('/api/v1/marketplace/teachers?price_min=100&price_max=200')
         ->assertStatus(422)
-        ->assertJsonValidationErrors('price_max');
+        ->assertJsonValidationErrors('price_min');
+
+    // And the unfiltered list still answers — the refusal is about the
+    // parameter, not about the endpoint.
+    expect($this->getJson('/api/v1/marketplace/teachers')->json('meta.total'))->toBe(2);
 });
 
 it('rejects an unknown sort option', function () {
@@ -81,15 +86,23 @@ it('rejects an unknown sort option', function () {
         ->assertJsonValidationErrors('sort');
 });
 
-it('sorts by price ascending', function () {
+it('no longer sorts by price, and never publishes the rate it would have sorted on', function () {
     marketplaceTeacher($this->workspace, ['hourly_rate' => 300]);
     marketplaceTeacher($this->workspace, ['hourly_rate' => 90]);
 
     $this->asGuest();
 
-    $prices = $this->getJson('/api/v1/marketplace/teachers?sort=price_asc')->json('data.*.hourly_rate');
+    $this->getJson('/api/v1/marketplace/teachers?sort=price_asc')
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('sort');
 
-    expect($prices)->toBe(['90.00', '300.00']);
+    // The ordering is gone AND the field is gone. Either alone leaves a rate a
+    // visitor can read: the sort without the field still ranks teachers by what
+    // they charge, one request at a time.
+    // `data.*.hourly_rate` yields one null per row when the key is absent — the
+    // assertion is that no ROW carries a rate, not that no row came back.
+    expect(array_filter($this->getJson('/api/v1/marketplace/teachers')->json('data.*.hourly_rate')))
+        ->toBe([]);
 });
 
 it('ranks teachers still building a trust score below scored ones', function () {
@@ -119,9 +132,9 @@ it('echoes applied filters back for removable chips', function () {
 
     $this->asGuest();
 
-    $filters = $this->getJson('/api/v1/marketplace/teachers?subject=math&sort=price_asc')->json('meta.filters');
+    $filters = $this->getJson('/api/v1/marketplace/teachers?subject=math&sort=trust_desc')->json('meta.filters');
 
-    expect($filters)->toMatchArray(['subject' => 'math', 'sort' => 'price_asc']);
+    expect($filters)->toMatchArray(['subject' => 'math', 'sort' => 'trust_desc']);
 });
 
 it('caps per_page at the configured maximum', function () {

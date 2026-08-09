@@ -69,15 +69,15 @@ class ListPublicCourses extends Action
             fn (Builder $q, string $type) => $q->where('course_type', $type),
         );
 
-        $query->when($filters->priceMin, fn (Builder $q, float $min) => $q->where('price', '>=', $min));
-        $query->when($filters->priceMax, fn (Builder $q, float $max) => $q->where('price', '<=', $max));
+        // No price filter and no price sort (T002 · T089أ): the course price left
+        // the browsing surface and stayed on the buyable unit's own page. A range
+        // filter is a browsing surface too, and the noisiest one.
     }
 
     /** @param Builder<Course> $query */
     private function applySort(Builder $query, string $sort): void
     {
         match ($sort) {
-            CourseFilterDTO::SORT_PRICE => $query->orderBy('price'),
             CourseFilterDTO::SORT_NEWEST => $query->orderByDesc('created_at'),
             default => $query->orderByDesc('enrolled_count'),
         };

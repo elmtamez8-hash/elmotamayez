@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Carbon;
 use Laravel\Scout\Searchable;
 
 /**
@@ -26,6 +27,8 @@ use Laravel\Scout\Searchable;
  * @property string $course_type
  * @property string|null $cover_path
  * @property string|null $price_before_discount
+ * @property Carbon|null $last_delivered_at
+ * @property Carbon|null $created_at
  * @property-read User|null $creator created_by is nullable — a course can outlive its author
  */
 class Course extends BaseModel
@@ -50,8 +53,30 @@ class Course extends BaseModel
         'title',
         'slug',
         'description',
+        /*
+        | `price` and `currency` are FROZEN, not extended.
+        |
+        | They price a one-off course order (`orders.kind = course`) and nothing
+        | else: CreateOrder reads them, and Course::isFree() compares price to
+        | zero to decide free enrolment — so removing them breaks two shipped
+        | paths. Spec 006 writes no code that reads them; credit pricing is
+        | cost-plus and per session, and a course total is not derivable from a
+        | session rate.
+        |
+        | Known and deliberate: the teacher still sets this value, which FR-021ب
+        | forbids for credit pricing. It is a grandfathered exception scoped to
+        | course orders, not a precedent. Retiring it is a product decision with
+        | revenue consequences and belongs to spec 011.
+        */
         'price',
         'currency',
+        // The three pricing keys (spec 006, Q-7). teacher_profile_id is the one
+        // without which the approved-rate lookup cannot run at all: RateResolver
+        // starts from it, and `created_by` is nullable because a course may
+        // outlive its author.
+        'subject_id',
+        'grade_level',
+        'teacher_profile_id',
         'status',
         'visibility',
         'is_sequential',
@@ -76,6 +101,10 @@ class Course extends BaseModel
             'is_sequential' => 'boolean',
             'duration_seconds' => 'integer',
             'structure_version' => 'integer',
+            // Stamped by Payments' StampCourseDelivery, never by course
+            // authoring — and deliberately not fillable: the only writer is that
+            // listener's conditional UPDATE (spec 006, FR-021ط).
+            'last_delivered_at' => 'datetime',
         ];
     }
 

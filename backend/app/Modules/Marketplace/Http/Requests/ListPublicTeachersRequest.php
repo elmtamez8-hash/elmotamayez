@@ -29,8 +29,21 @@ class ListPublicTeachersRequest extends FormRequest
             // guest has none — it would either pass everything or nothing.
             'subject' => ['sometimes', 'string', 'max:100'],
             'grade_level' => ['sometimes', 'string', 'max:100'],
-            'price_min' => ['sometimes', 'numeric', 'min:0'],
-            'price_max' => ['sometimes', 'numeric', 'min:0', 'gte:price_min'],
+            /*
+            | ⚠️ REFUSED, not ignored (spec 006, FR-021و · T083).
+            |
+            | A range filter is a price oracle even with no price on the card:
+            | binary search on `price_min` reads any teacher's rate to the riyal in a
+            | dozen requests. So the parameter cannot merely stop being read — a
+            | rule dropped from this array would leave the query string accepted
+            | and silently ineffective, which reads to a caller as a filter that
+            | works and to a reviewer as a filter that is gone.
+            |
+            | `prohibited` answers 422 and names the field, so an old bookmark
+            | fails loudly instead of quietly returning an unfiltered list.
+            */
+            'price_min' => ['prohibited'],
+            'price_max' => ['prohibited'],
             'min_rating' => ['sometimes', 'numeric', 'between:1,5'],
             'min_trust_score' => ['sometimes', 'integer', 'between:0,100'],
             'language' => ['sometimes', 'string', 'max:5'],
@@ -38,7 +51,6 @@ class ListPublicTeachersRequest extends FormRequest
             'q' => ['sometimes', 'string', 'max:100'],
             'sort' => ['sometimes', Rule::in([
                 TeacherFilterDTO::SORT_RATING,
-                TeacherFilterDTO::SORT_PRICE,
                 TeacherFilterDTO::SORT_TRUST,
             ])],
             'page' => ['sometimes', 'integer', 'min:1'],
@@ -50,7 +62,8 @@ class ListPublicTeachersRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'price_max.gte' => 'الحد الأعلى للسعر يجب أن يكون أكبر من الحد الأدنى.',
+            'price_min.prohibited' => 'لم يعد التصفية بالسعر متاحة.',
+            'price_max.prohibited' => 'لم يعد التصفية بالسعر متاحة.',
             'min_rating.between' => 'التقييم يجب أن يكون بين 1 و5.',
             'min_trust_score.between' => 'درجة الثقة يجب أن تكون بين 0 و100.',
             'sort.in' => 'خيار الترتيب غير معروف.',

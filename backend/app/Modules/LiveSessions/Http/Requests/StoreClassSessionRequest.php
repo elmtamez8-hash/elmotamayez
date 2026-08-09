@@ -25,7 +25,11 @@ class StoreClassSessionRequest extends FormRequest
             // WorkspaceRules, not `exists:` — Laravel's rule is a raw query that
             // walks straight past the global scope (Constitution I).
             'teacher_profile_id' => ['required', WorkspaceRules::exists('teacher_profiles')],
-            'course_id' => ['nullable', WorkspaceRules::exists('courses')],
+            // Required since Q-7: the session price is a property of the course,
+            // so a session with no course is a session with no price and can
+            // never consume a credit. The COLUMN stays nullable for historic
+            // rows; the rule is enforced here and in ScheduleClassSession.
+            'course_id' => ['required', WorkspaceRules::exists('courses')],
             'subject_id' => ['nullable', 'integer'],
             'title' => ['required', 'string', 'max:255'],
             'type' => ['required', Rule::enum(ClassSessionType::class)],

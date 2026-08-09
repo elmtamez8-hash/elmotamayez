@@ -117,6 +117,20 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('settlement-write', fn (Request $request) => Limit::perMinute(20)
             ->by('user:'.(string) $request->user()?->getKey()));
 
+        // Billing writes: buying credits, recording a consent, adjusting credits,
+        // moving a limit, opening an exam window, switching the mode.
+        //
+        // Keyed by USER, and that is the whole point of not reusing `auth` here.
+        // The `auth` limiter's second bucket is `by('email:'.$request->input('email'))`,
+        // and a billing write carries no `email` field — so the key collapses to
+        // the constant string 'email:', one bucket for the entire platform. An
+        // attacker looping POST /billing/consents would stop every student on the
+        // site from buying anything.
+        RateLimiter::for('billing', fn (Request $request) => [
+            Limit::perMinute(30)->by('user:'.(string) $request->user()?->getKey()),
+            Limit::perMinute(60)->by('ip:'.$request->ip()),
+        ]);
+
         // Course authoring: creating, renaming, reordering, publishing, deleting.
         // Looser than the settlement writes because this is the opposite kind of
         // work — a teacher building a unit saves dozens of times in an hour, and

@@ -21,6 +21,14 @@ use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Models\MediaCaption;
+use App\Modules\Payments\Enums\CreditTransactionType;
+use App\Modules\Payments\Models\CreditAllocation;
+use App\Modules\Payments\Models\CreditBalance;
+use App\Modules\Payments\Models\CreditLot;
+use App\Modules\Payments\Models\CreditPurchase;
+use App\Modules\Payments\Models\CreditTransaction;
+use App\Modules\Payments\Models\ExamModeWindow;
+use App\Modules\Payments\Models\StudentCreditAccount;
 use App\Modules\Settlement\Models\LedgerEntry;
 use App\Modules\Settlement\Models\RateChangeRequest;
 use App\Modules\Settlement\Models\SettlementPeriod;
@@ -224,6 +232,98 @@ describe('settlement models are workspace-scoped', function (): void {
             ->and($context->forWorkspace($workspaceB, fn () => LedgerEntry::query()->count()))->toBe(0)
             ->and($context->forWorkspace($workspaceB, fn () => SettlementPeriod::query()->count()))->toBe(0)
             ->and($context->forWorkspace($workspaceB, fn () => TeacherPayout::query()->count()))->toBe(0);
+    });
+});
+
+describe('credit models are workspace-scoped', function (): void {
+    /*
+     * SC-016 promises a case for "the account, the transaction and the limit".
+     * A tenant-owned model without `BelongsToWorkspace` passes every other test
+     * in this suite and leaks in production, so these cases are the only thing
+     * standing between the credit engine and one teacher reading another's
+     * balances.
+     *
+     * `credit_allocations` is deliberately absent from the counting case and
+     * covered by the trait assertion below instead: it is the one credit table
+     * with no `workspace_id`, being a join between two rows that are both
+     * already scoped. The standard "create in A, invisible from B" shape cannot
+     * be written for a model that has no tenant key — asserting the absence is
+     * the honest test, in the same direction PlatformOwnershipTest asserts its
+     * mirror-image case.
+     */
+    it('scopes balances, transactions, lots, purchases and exam windows to the current workspace', function (): void {
+        [$workspaceA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+        [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+        $context = app(WorkspaceContext::class);
+
+        // `workspace_id` is deliberately never passed: the trait fills it from
+        // the current context on create, and a model missing the trait would
+        // leave it null — which is the failure this is looking for.
+        $seed = function (int $balances) use ($workspaceA): callable {
+            return function () use ($balances, $workspaceA): void {
+                foreach (range(1, $balances) as $index) {
+                    $balance = CreditBalance::factory()->create([
+                        'course_id' => Course::factory()->create([
+                            'workspace_id' => $workspaceA->id,
+                        ])->getKey(),
+                    ]);
+
+                    $transaction = CreditTransaction::create([
+                        'credit_balance_id' => $balance->getKey(),
+                        'type' => CreditTransactionType::Purchase,
+                        'credits' => 8,
+                        'source_type' => 'test',
+                        'source_id' => $index,
+                        'created_at' => now(),
+                    ]);
+
+                    CreditLot::create([
+                        'credit_transaction_id' => $transaction->getKey(),
+                        'credit_balance_id' => $balance->getKey(),
+                        'credits_total' => 8,
+                        'credits_remaining' => 8,
+                    ]);
+                }
+
+                ExamModeWindow::factory()->create();
+            };
+        };
+
+        $context->forWorkspace($workspaceA, $seed(1));
+        $context->forWorkspace($workspaceB, $seed(2));
+
+        foreach ([CreditBalance::class, CreditTransaction::class, CreditLot::class] as $model) {
+            expect($context->forWorkspace($workspaceA, fn () => $model::query()->count()))->toBe(1)
+                ->and($context->forWorkspace($workspaceB, fn () => $model::query()->count()))->toBe(2);
+        }
+
+        expect($context->forWorkspace($workspaceA, fn () => ExamModeWindow::query()->count()))->toBe(1)
+            ->and($context->forWorkspace($workspaceB, fn () => ExamModeWindow::query()->count()))->toBe(1);
+    });
+
+    it('declares the tenant key on every credit model that has one', function (): void {
+        $scoped = [
+            CreditBalance::class,
+            CreditTransaction::class,
+            CreditLot::class,
+            CreditPurchase::class,
+            ExamModeWindow::class,
+        ];
+
+        foreach ($scoped as $model) {
+            expect(in_array(BelongsToWorkspace::class, class_uses_recursive($model), true))
+                ->toBeTrue("{$model} must use BelongsToWorkspace");
+        }
+
+        // And the two that must NOT have it. Adding the trait to a platform-owned
+        // account produces one duplicate person per teacher; adding it to the
+        // allocation join adds a third copy of a key nothing queries, on a table
+        // whose only readers already hold scoped transaction ids.
+        foreach ([StudentCreditAccount::class, CreditAllocation::class] as $model) {
+            expect(in_array(BelongsToWorkspace::class, class_uses_recursive($model), true))
+                ->toBeFalse("{$model} must NOT use BelongsToWorkspace");
+        }
     });
 });
 

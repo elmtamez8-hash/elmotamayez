@@ -16,7 +16,6 @@ import {
   isProfileTab,
   type ProfileTabId,
 } from "@/components/marketplace/ProfileTabs";
-import { CURRENCY_LABEL } from "@/lib/platform";
 
 type Params = { uuid: string };
 type Search = { tab?: string };
@@ -166,13 +165,17 @@ export default async function TeacherProfilePage({
             the tabs, which is where a price belongs on a phone. */}
         <aside className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-24">
           <div className="rounded-2xl border border-line bg-surface-raised p-6">
-            <p className="mb-1 text-sm text-ink-muted">السعر لكل حصة</p>
-            <p className="mb-5 text-3xl font-extrabold text-ink">
-              {teacher.hourly_rate}{" "}
-              <span className="text-base font-medium text-ink-muted">
-                {CURRENCY_LABEL}
-              </span>
-            </p>
+            {/* ⚠️ The price is gone from this panel (spec 006, FR-021و · FR-021هـ).
+                It is not hidden pending a redesign: the platform is the seller
+                now, the student's total is computed per package on the purchase
+                screen, and the teacher's own rate is what they are PAID — a
+                number FR-021ب keeps off every student-facing surface.
+
+                The panel keeps its job. What sold the booking was never the
+                number; it was knowing who this teacher is, which is what stands
+                here instead. */}
+            <p className="mb-1 text-sm text-ink-muted">الحجز مع</p>
+            <p className="mb-5 text-2xl font-extrabold text-ink">{teacher.name}</p>
 
             <Link
               href={`/signup/student?teacher=${teacher.uuid}`}
@@ -298,9 +301,9 @@ export default async function TeacherProfilePage({
         <div className="flex items-center gap-3">
           <p className="shrink-0 text-sm text-ink-muted">
             <span className="block text-lg font-bold text-ink">
-              {teacher.hourly_rate}
+              {teacher.name}
             </span>
-            {CURRENCY_LABEL} / الحصة
+            {teacher.subjects[0]?.name_ar ?? "حصص خاصة"}
           </p>
           <Link
             href={`/signup/student?teacher=${teacher.uuid}`}

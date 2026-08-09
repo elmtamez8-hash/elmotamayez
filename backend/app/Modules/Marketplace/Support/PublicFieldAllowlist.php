@@ -38,6 +38,21 @@ final class PublicFieldAllowlist
         'is_super_admin',
         'platform_role',
         'internal_notes',
+        /*
+        | Added by spec 006, FR-021و — and it AMENDS shipped behaviour.
+        |
+        | 001 published the teacher's hourly rate on the card, on their profile,
+        | and as a filter and a sort. 006 makes the platform the seller: the
+        | student pays a cost-plus total and the teacher is paid an approved
+        | settlement rate, and FR-021ب forbids the two ever meeting on a screen.
+        | A published `hourly_rate` beside a published total is the whole
+        | equation, solved by anyone who cares to subtract.
+        |
+        | The COLUMN stays (T089): it is the teacher's own input on their
+        | application and the seed of a rate-change request in 014. Forbidden to
+        | SHOW, not forbidden to store.
+        */
+        'hourly_rate',
     ];
 
     /** @var list<string> */
@@ -50,8 +65,9 @@ final class PublicFieldAllowlist
         'grade_levels',
         'years_experience',
         'teaching_languages',
-        'hourly_rate',
-        'currency',
+        // No `hourly_rate` and no `currency` beside it: a currency with no amount
+        // is a column nobody reads, and leaving it would make the removal look
+        // like an oversight rather than a decision (FR-021و).
         'average_rating',
         'reviews_count',
         'trust_score',
@@ -89,6 +105,46 @@ final class PublicFieldAllowlist
         'enrolled_count',
         'is_bestseller',
     ];
+
+    /*
+    | The nested shapes, which had no constants until spec 006 made this class
+    | load-bearing.
+    |
+    | ⚠️ They were MISSING, not deliberately unlisted. While PublicExposureTest
+    | only checked FORBIDDEN, nothing referenced these constants at all — so the
+    | teacher's stats block, their trust-score breakdown, the review summary, the
+    | home testimonials and the FAQ were all published with no entry describing
+    | them, and adding a field to any of those five shapes needed no decision
+    | from anyone. Writing them down is the point of the allowlist.
+    */
+
+    /** The teacher's own counters, nested under `stats` on their detail page. */
+    public const TEACHER_STATS = [
+        'students_taught',
+        'completed_sessions',
+        'response_rate',
+        // ⚠️ The TEACHER's attendance — the share of countable sessions actually
+        // delivered — never their students'. The name reads the other way.
+        'attendance_rate',
+    ];
+
+    /** The trust score broken into its components (FR-024). */
+    public const TRUST_FACTORS = [
+        'student_rating',
+        'punctuality',
+        'completion',
+        'tenure',
+        'complaints_penalty',
+    ];
+
+    /** The review block: a headline number, a histogram, and the reviews. */
+    public const REVIEW_SUMMARY = ['average', 'distribution', 'items'];
+
+    /** @var list<string> */
+    public const TESTIMONIAL = ['name', 'role', 'quote'];
+
+    /** @var list<string> */
+    public const FAQ = ['question', 'answer'];
 
     /** @var list<string> */
     public const TAXONOMY = ['slug', 'name_ar', 'icon', 'teachers_count'];
