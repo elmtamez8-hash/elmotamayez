@@ -77,12 +77,20 @@ class BillingSettings
      * at ZERO however generous the cadence is, and {@see self::initialLimitCredits()}
      * is that half. Two methods, two questions, and the composition is:
      *
-     *     ceiling = consentRecorded ? min(cadenceAllows, maxLimitCredits) : 0
+     *     initial = consentRecorded ? max(initialLimitCredits, cadenceAllows) : 0
      *
-     * Written down here because nothing applies it yet — balances are created at
-     * zero, and the story that raises them is US6. An implementer who reached for
-     * whichever method they found first would either ignore the consent
-     * requirement or ignore the cadence, and both read as working.
+     * ⚠️ AN INITIAL, NOT A CAP — corrected when US6 came to apply it. An earlier
+     * note here wrote the composition as `min(cadenceAllows, max)` and called it
+     * the ceiling, which under the DEFAULT `Session` cadence pins every student at
+     * one credit for ever: Q-9's "+1 after three on-time payments, up to four"
+     * could never move a single ceiling, and the requirement would have read as
+     * implemented. The cap is {@see self::maxLimitCredits()} and it is enforced in
+     * `SetCreditLimit`, which every writer goes through.
+     *
+     * The initial grant itself is still unapplied: balances are created at zero,
+     * and the Action that records the consent it depends on is US9's. What US6
+     * shipped is the movement — the raises, the demotion, and the platform's
+     * manual exception.
      *
      * Zero in a prepaid mode whatever the cadence says: FR-014 forbids going
      * below zero there at all, and a ceiling the floor ignores is a number in

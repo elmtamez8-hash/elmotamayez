@@ -96,6 +96,16 @@ class CreditLedger
      * to `remind` carry a student straight past their credit limit, which is the
      * one number the ceiling exists to be.
      *
+     * ⚠️ `$floor < 0` WAS THE WHOLE TEST FOR "OWES MONEY", AND US6 BROKE IT. A
+     * demoted student (FR-040) keeps their negative balance and has their ceiling
+     * set to zero, so the floor stops reporting the debt that is still there — and
+     * in a `remind` workspace they would carry on booking at −3, −4, for ever,
+     * which is exactly the student the demotion was aimed at. The balance itself
+     * is asked as well, and either answer blocks unconditionally.
+     *
+     * What survives of `remind` is the case it was written for: a balance that ran
+     * out AT zero with nothing deferred.
+     *
      * The `remind` HALF of the behaviour is not here and cannot be: a
      * notification with no seeded template is dropped silently, so it lands with
      * its NotificationType and template in US5.
@@ -106,7 +116,7 @@ class CreditLedger
             return false;
         }
 
-        if ($floor < 0) {
+        if ($floor < 0 || $balance->remaining_credits < 0) {
             return true;
         }
 
@@ -197,6 +207,37 @@ class CreditLedger
         return null;
     }
 
+    /**
+     * Stamp or clear `negative_since` to match where the balance now stands.
+     *
+     * Two conditional UPDATEs keyed on the column's own state, inside the
+     * movement's transaction — no read, so nothing can be decided from a value
+     * that changed between the SELECT and the UPDATE. The stamp is set only when
+     * it is null, which is what makes it the moment the balance FIRST went under
+     * rather than the moment of the last charge; a plain `SET negative_since =
+     * now()` on every negative movement would keep pushing the date forward and
+     * the fourteen-day window would never elapse.
+     *
+     * Stored rather than derived because the sweep's alternative is scanning the
+     * ledger of every balance on the platform to ask one question.
+     */
+    private function reconcileNegativeSince(CreditMovement $movement): void
+    {
+        $id = $movement->balance->getKey();
+
+        DB::table('credit_balances')
+            ->where('id', $id)
+            ->where('remaining_credits', '<', 0)
+            ->whereNull('negative_since')
+            ->update(['negative_since' => now()]);
+
+        DB::table('credit_balances')
+            ->where('id', $id)
+            ->where('remaining_credits', '>=', 0)
+            ->whereNotNull('negative_since')
+            ->update(['negative_since' => null]);
+    }
+
     // ── The write ───────────────────────────────────────────────────────────
 
     /**
@@ -242,6 +283,8 @@ class CreditLedger
             // to announce AFTER commit, which is the same reason nothing else
             // here dispatches — precedent: WithholdingReader::stamp().
             $movement->balance->setAttribute('crossed_tier', $this->reconcileTier($movement));
+
+            $this->reconcileNegativeSince($movement);
 
             return $entry;
         });

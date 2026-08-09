@@ -4,6 +4,7 @@ use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
 use App\Modules\Media\Jobs\PruneExpiredGrantsJob;
 use App\Modules\Notifications\Jobs\PruneOldNotificationsJob;
 use App\Modules\Payments\Jobs\ChargeUnbilledDeliveriesJob;
+use App\Modules\Payments\Jobs\EvaluateCreditLimitsJob;
 use App\Modules\Settlement\Jobs\CloseDueSettlementPeriodsJob;
 use App\Modules\Settlement\Jobs\ReleasePendingUnitsJob;
 use Illuminate\Foundation\Inspiring;
@@ -52,3 +53,11 @@ Schedule::job(new CloseDueSettlementPeriodsJob)->dailyAt('04:10');
 // who keeps booking on credits they have already spent, and every quarter hour of
 // delay is another seat taken on money that was never deducted.
 Schedule::job(new ChargeUnbilledDeliveriesJob)->cron('5,20,35,50 * * * *');
+
+// Balances that have owed for longer than the platform allows lose their ceiling
+// (FR-040). Daily, because the boundary it acts on is measured in DAYS — running
+// it hourly would ask the same question twenty-three more times for one answer —
+// and at 04:25, clear of every sweep above so it never queues behind their locks.
+// A sweep rather than a listener: falling behind is the absence of an event, and
+// nothing fires on the fourteenth day of owing.
+Schedule::job(new EvaluateCreditLimitsJob)->dailyAt('04:25');

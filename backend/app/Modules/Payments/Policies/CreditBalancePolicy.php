@@ -51,8 +51,14 @@ class CreditBalancePolicy extends BasePolicy
      *
      * Platform-level, not the teacher's: raising it creates a debt the platform
      * carries alone (Q-4), and the teacher is the party paid out of it.
+     *
+     * The balance is OPTIONAL because the decision does not depend on it — it is
+     * the grant alone. That is what lets the endpoint ask before it has a balance
+     * in hand: the row is created on first use, and creating one for a caller who
+     * turns out to be refused would let an unauthorised request leave a trace in
+     * the table.
      */
-    public function manageLimit(User $user, CreditBalance $balance): Response
+    public function manageLimit(User $user, ?CreditBalance $balance = null): Response
     {
         return $user->can(Permissions::BILLING_LIMIT_MANAGE)
             ? Response::allow()

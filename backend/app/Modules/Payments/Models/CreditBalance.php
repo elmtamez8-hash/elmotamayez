@@ -10,6 +10,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -44,7 +45,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $consumed_credits
  * @property int $remaining_credits
  * @property int $credit_limit_credits
+ * @property int $on_time_payments
  * @property int $notified_tier
+ * @property CarbonInterface|null $negative_since restated because Larastan reads
+ *                                                the migration's raw column type and would have the cast's Carbon
+ *                                                back as a string
+ * @property CarbonInterface|null $last_transaction_at
  * @property-read Workspace $workspace workspace_id is NOT NULL
  * @property-read Course $course course_id is NOT NULL
  */
@@ -62,6 +68,7 @@ class CreditBalance extends BaseModel
         'remaining_credits',
         'credit_limit_credits',
         'negative_since',
+        'on_time_payments',
         'last_transaction_at',
         'notified_tier',
     ];
@@ -74,6 +81,7 @@ class CreditBalance extends BaseModel
             'consumed_credits' => 'integer',
             'remaining_credits' => 'integer',
             'credit_limit_credits' => 'integer',
+            'on_time_payments' => 'integer',
             'notified_tier' => 'integer',
             'negative_since' => 'datetime',
             'last_transaction_at' => 'datetime',

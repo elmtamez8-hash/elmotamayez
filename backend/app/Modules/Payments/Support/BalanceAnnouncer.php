@@ -83,4 +83,33 @@ class BalanceAnnouncer
             AccessRestored::dispatch($balance);
         }
     }
+
+    /**
+     * The same flip, announced when NO credit moved.
+     *
+     * The other two writers of the withheld state are not movements at all — the
+     * credit limit (US6) and the exam-mode window (US8) change the FLOOR, and the
+     * balance beneath it does not move a credit. Sending them through
+     * {@see self::announce()} would announce a `BalanceUpdated` with a delta of
+     * zero and re-rank a threshold nothing crossed, so a student would be told
+     * their balance changed on a day nobody touched it.
+     *
+     * ⚠️ WITHOUT THIS, A STUDENT LEARNS THEY ARE BLOCKED BY BEING REFUSED.
+     * Detecting the change inside the movement alone misses every flip that a
+     * ceiling caused, and the person finds out at their next booking (FR-033).
+     */
+    public function announceStandingChange(CreditBalance $balance, bool $wasBlocked): void
+    {
+        $balance->refresh();
+
+        $isBlocked = $this->isBlocked($balance);
+
+        if ($isBlocked && ! $wasBlocked) {
+            AccessWithheld::dispatch($balance);
+        }
+
+        if (! $isBlocked && $wasBlocked) {
+            AccessRestored::dispatch($balance);
+        }
+    }
 }

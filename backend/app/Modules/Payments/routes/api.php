@@ -8,6 +8,7 @@ use App\Modules\Payments\Http\Controllers\Admin\OutstandingCreditsController;
 use App\Modules\Payments\Http\Controllers\BillingController;
 use App\Modules\Payments\Http\Controllers\BillingSettingsController;
 use App\Modules\Payments\Http\Controllers\CreditPurchaseController;
+use App\Modules\Payments\Http\Controllers\Manage\CreditLimitController;
 use App\Modules\Payments\Http\Controllers\Manage\StudentBalanceController;
 use App\Modules\Payments\Http\Controllers\OrderController;
 use Illuminate\Support\Facades\Route;
@@ -46,6 +47,15 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     // The teacher's panel: credits and withheld state for their own students,
     // with no money in the payload (StudentBalanceAllowlist).
     Route::get('/manage/billing/students', [StudentBalanceController::class, 'index']);
+
+    /*
+    | The exception FR-038 allows: a ceiling moved by hand, with a recorded
+    | reason. A PLATFORM permission, not the teacher's — and `{student}` is a
+    | plain string, never bound to a User: route-model binding resolves by uuid
+    | before any guard in the controller runs, which turns a bare uuid into a
+    | fact about a real person.
+    */
+    Route::patch('/manage/billing/students/{student}/limit', [CreditLimitController::class, 'update']);
 
     // FR-011 — the mode is switched from settings, never by shipping code. Both
     // verbs carry the workspace implicitly: it is the one the request is already

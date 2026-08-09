@@ -8,10 +8,12 @@ use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Events\CreditsPurchased;
+use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Support\BalanceAnnouncer;
+use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Shared\Actions\Action;
 use Carbon\CarbonImmutable;
@@ -36,6 +38,8 @@ class RecordCreditPurchase extends Action
     public function __construct(
         private readonly CreditLedger $ledger,
         private readonly BalanceAnnouncer $announcer,
+        private readonly BillingSettings $settings,
+        private readonly EvaluateCreditLimit $limits,
     ) {}
 
     public function handle(Order $order): ?CreditTransaction
@@ -64,6 +68,12 @@ class RecordCreditPurchase extends Action
         // differently on the next attempt, and this tells the student so.
         $wasBlocked = $this->announcer->isBlocked($balance);
 
+        // ⚠️ ASKED BEFORE THE MOVEMENT, for the same reason `$wasBlocked` is.
+        // Paying is what clears `negative_since`, so a purchase that settled a
+        // twenty-day-old debt looks — one line later — exactly like a purchase by
+        // a student who was never overdue at all. Every payer would be on time.
+        $onTime = $this->wasOnTime($balance);
+
         $entry = $this->ledger->post(new CreditMovement(
             balance: $balance,
             type: CreditTransactionType::Purchase,
@@ -78,6 +88,8 @@ class RecordCreditPurchase extends Action
             return null;
         }
 
+        $this->recordPunctuality($balance, $onTime);
+
         // After commit, never inside. An event fired inside the transaction
         // announces a movement that may still roll back — and the student is
         // told they have credits they do not have.
@@ -85,9 +97,43 @@ class RecordCreditPurchase extends Action
             CreditsPurchased::dispatch($entry, $purchase);
 
             $this->announcer->announce($balance, $wasBlocked, $entry->credits);
+
+            // After the announcement, because `announce()` refreshes the instance
+            // — and the streak this reads was written a moment ago by a query the
+            // model in memory knows nothing about.
+            $this->limits->handle($balance);
         });
 
         return $entry;
+    }
+
+    /**
+     * Was the balance clear of a late debt when this payment landed? (FR-037)
+     *
+     * "Late" is the same fourteen days the demotion uses, read from the same key:
+     * two definitions of lateness would let a student be punished by one and
+     * rewarded by the other in the same week.
+     */
+    private function wasOnTime(CreditBalance $balance): bool
+    {
+        $since = $balance->negative_since;
+
+        return $since === null || $since->gt(now()->subDays($this->settings->decreaseAfterLateDays()));
+    }
+
+    /**
+     * Move the streak: one step forward, or all the way back.
+     *
+     * A relative increment rather than a read-and-write — two purchases approved
+     * in the same second would otherwise both read 2 and both write 3.
+     */
+    private function recordPunctuality(CreditBalance $balance, bool $onTime): void
+    {
+        $row = DB::table('credit_balances')->where('id', $balance->getKey());
+
+        $onTime
+            ? $row->increment('on_time_payments')
+            : $row->update(['on_time_payments' => 0]);
     }
 
     /**
