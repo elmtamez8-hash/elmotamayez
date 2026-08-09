@@ -252,23 +252,35 @@ description: "Task list for 006-credit-billing-engine"
 
 ### الاختبارات أولاً
 
-- [ ] T098 [P] [US4] اكتب `backend/tests/Feature/Payments/ConsumptionChainTest.php` — السلسلة `SessionDelivered → ChargeSessionSeats → CreditConsumed → BalanceUpdated` بترتيبها برصد الأحداث (`SC-006`). **و`Queue::fake()` جزئي إلزامي**: `Queue::fake([CloseClassSessionJob::class, SendSessionReportsJob::class])` — بلا وسائط يسافر المستمعُ المطبور على الطابور نفسه فيصير التأكيد على **صفر صفوف**؛ وبلا `fake` أصلاً يعمل `->delay()` فوراً على اتصال `sync` فيغلق `CloseClassSessionJob` الحصة قبل أن يدخل المدرّس
-- [ ] T099 [P] [US4] اكتب `backend/tests/Feature/Payments/SeatNotAttendanceTest.php`: أربع حالات حضور على حصة **نُفِّذت** (`Present` · `Late` · `Absent` · `Excused`) ⇒ **أربعة قيود** (`SC-008` · `FR-025د`)؛ ثم حصة لم ينفّذها المدرّس ⇒ صفر قيد أياً كانت الحالات. و`Excused` تربوية لا إعفاء مالي (`FR-025ب`)
-- [ ] T100 [P] [US4] اكتب `backend/tests/Feature/Payments/NoChargeTest.php` على ملغاة ومتعذّرة وواقعة في تجميد ⇒ صفر قيد في الثلاث، وتحقّق بـ`Event::fake()` أن **`SessionDelivered` لم يُطلَق أصلاً** — كي يثبت الاختبار أن `FR-024` و`FR-025أ` و`FR-025ج` شروط إطلاق الحدث **في 005** لا فحوصاً هنا (`SC-007`)
-- [ ] T101 [P] [US4] أضف «الحدث نفسه وصل مرتين ⇒ استهلاك واحد» بإطلاق `SessionDelivered` عشر مرات (`SC-003` · `US4/5`)
-- [ ] T102 [P] [US4] اكتب `backend/tests/Feature/Payments/UnbilledDeliveryTest.php` ([quickstart §١٣](./quickstart.md)): أغلِق حصةً منفَّذة مع تعطيل الطابور، ثم شغّل `ChargeUnbilledDeliveriesJob` ⇒ تُشحَن **مرة واحدة**؛ أعد تشغيلها ⇒ صفر قيد جديد
-- [ ] T103 [P] [US4] أضف حالة **الأرضية لا تحرس التسليم**: طالب عند أرضيته تماماً وحصةٌ نُفِّذت ⇒ **يُسجَّل الدَّين** وينزل الرصيد تحت الأرضية؛ رفضُ التسجيل يعني أن المنصة مدينة للمدرّس بلا مطالبة على أحد، ووضع الامتحانات يجعلها منهجية لأنه يُجبر الأرضية إلى صفر ([research.md › R17](./research.md))
+- [X] T098 [P] [US4] اكتب `backend/tests/Feature/Payments/ConsumptionChainTest.php` — السلسلة `SessionDelivered → ChargeSessionSeats → CreditConsumed → BalanceUpdated` بترتيبها برصد الأحداث (`SC-006`). **و`Queue::fake()` جزئي إلزامي**: `Queue::fake([CloseClassSessionJob::class, SendSessionReportsJob::class])` — بلا وسائط يسافر المستمعُ المطبور على الطابور نفسه فيصير التأكيد على **صفر صفوف**؛ وبلا `fake` أصلاً يعمل `->delay()` فوراً على اتصال `sync` فيغلق `CloseClassSessionJob` الحصة قبل أن يدخل المدرّس
+- [X] T099 [P] [US4] اكتب `backend/tests/Feature/Payments/SeatNotAttendanceTest.php`: أربع حالات حضور على حصة **نُفِّذت** (`Present` · `Late` · `Absent` · `Excused`) ⇒ **أربعة قيود** (`SC-008` · `FR-025د`)؛ ثم حصة لم ينفّذها المدرّس ⇒ صفر قيد أياً كانت الحالات. و`Excused` تربوية لا إعفاء مالي (`FR-025ب`)
+- [X] T100 [P] [US4] اكتب `backend/tests/Feature/Payments/NoChargeTest.php` على ملغاة ومتعذّرة وواقعة في تجميد ⇒ صفر قيد في الثلاث، وتحقّق بـ`Event::fake()` أن **`SessionDelivered` لم يُطلَق أصلاً** — كي يثبت الاختبار أن `FR-024` و`FR-025أ` و`FR-025ج` شروط إطلاق الحدث **في 005** لا فحوصاً هنا (`SC-007`)
+- [X] T101 [P] [US4] أضف «الحدث نفسه وصل مرتين ⇒ استهلاك واحد» بإطلاق `SessionDelivered` عشر مرات (`SC-003` · `US4/5`)
+- [X] T102 [P] [US4] اكتب `backend/tests/Feature/Payments/UnbilledDeliveryTest.php` ([quickstart §١٣](./quickstart.md)): أغلِق حصةً منفَّذة مع تعطيل الطابور، ثم شغّل `ChargeUnbilledDeliveriesJob` ⇒ تُشحَن **مرة واحدة**؛ أعد تشغيلها ⇒ صفر قيد جديد
+- [X] T103 [P] [US4] أضف حالة **الأرضية لا تحرس التسليم**: طالب عند أرضيته تماماً وحصةٌ نُفِّذت ⇒ **يُسجَّل الدَّين** وينزل الرصيد تحت الأرضية؛ رفضُ التسجيل يعني أن المنصة مدينة للمدرّس بلا مطالبة على أحد، ووضع الامتحانات يجعلها منهجية لأنه يُجبر الأرضية إلى صفر ([research.md › R17](./research.md))
 
 ### التنفيذ
 
-- [ ] T104 [US4] أنشئ `backend/app/Modules/Payments/Actions/ChargeSessionSeats.php` — يقرأ **العدد** `billableSeats` من الحدث و**الهوية** من الحجوزات مباشرة، بنفس قسمة `Settlement/Actions/AccrueTeachingUnits.php:41`: «العدد سلطته الحدث، والحجوزات تُقرأ للهوية فقط، واختلافهما تباينٌ يستحقّ نظر إنسان لا رقماً يُفضَّل بصمت». **والمجموعة** هي التي يعدّها `FreezeBillableSeatsJob` — `Booked` أو `CancelledLate`
-- [ ] T105 [US4] **يُمنع** أي تعديل على `SessionDelivered` أو مصنعه أو اختباره في 005 — كان التصميم يضيف `billableSeatHolders` ونُقض: القيمة الافتراضية `= []` تجعل منادياً نسي التمرير **يشحن صفر طالب بلا خطأ ولا اختبار أحمر**، من عائلة «`->delay()` على `sync`» ([events.md §١ج](./contracts/events.md))
-- [ ] T106 [US4] أنشئ `backend/app/Modules/Payments/Listeners/ChargeSeatsOnDelivery.php` بـ`ShouldQueue, ShouldHandleEventsAfterCommit` وسجّله على `SessionDelivered` في `PaymentsServiceProvider::boot()`، **مع تعليق يسمّي `AttendanceConfirmed` و`AttendanceOverridden` متروكَين عمداً** — الأول موجود ويُطلَق من `CloseClassSession.php:66` **بلا شرط** حتى لحصةٍ لم تُدرَّس ولا يحمل عدد المقاعد، والثاني لا أثر مالي له لأن الاستهلاك بالمقعد لا بالحالة. السابقة `SettlementServiceProvider.php:54`؛ والاشتراك الذي لم يُذكر يُقترَح ثانيةً بعد ستة أشهر
-- [ ] T107 [US4] اجعل خصم التسليم يمرّ **بلا أرضية** في `CreditLedger` (وسيط صريح، لا فرع مخفي) — الأرضية تحرس **الحجز** لا تسجيل دَينٍ وقع
-- [ ] T108 [US4] اكتب `class_sessions.charged_at` عند نجاح الشحن، واستعمله مُسنَداً لمجموعة «سُلِّمت ولم تُشحَن»
-- [ ] T109 [US4] أنشئ `backend/app/Modules/Payments/Jobs/ChargeUnbilledDeliveriesJob.php` مجدولة في `backend/routes/console.php` بـ`forWorkspace()` — **يُمنع** `WorkspaceContext::set()`. آمنةٌ بالتكرار بفضل المفتاح الفريد من T050
-- [ ] T110 [US4] ارفع `SessionDelivered::dispatch` فوق بقيّة الإطلاقات في `backend/app/Modules/LiveSessions/Actions/CloseClassSession.php` — الفعل يعود مبكراً على حالة نهائية، فرميةُ مستمعٍ سابق تبتلع الحدث و**لا يُطلَق ثانيةً أبداً**، والحجب مشتقٌّ من الرصيد فيبقى الطالب نظيف السجلّ ويواصل الحجز وفتح الأصول
-- [ ] T111 [US4] طبّق سلوك بلوغ الصفر المضبوط في `CreditLedger` عند نزول الرصيد إلى الصفر: منع الحجز الجديد أو توليد تذكير دفع أو كلاهما، مقروءاً من `BillingSettings` (`FR-027`)
+- [X] T104 [US4] أنشئ `backend/app/Modules/Payments/Actions/ChargeSessionSeats.php` — يقرأ **العدد** `billableSeats` من الحدث و**الهوية** من الحجوزات مباشرة، بنفس قسمة `Settlement/Actions/AccrueTeachingUnits.php:41`: «العدد سلطته الحدث، والحجوزات تُقرأ للهوية فقط، واختلافهما تباينٌ يستحقّ نظر إنسان لا رقماً يُفضَّل بصمت». **والمجموعة** هي التي يعدّها `FreezeBillableSeatsJob` — `Booked` أو `CancelledLate`
+- [X] T105 [US4] **يُمنع** أي تعديل على `SessionDelivered` أو مصنعه أو اختباره في 005 — كان التصميم يضيف `billableSeatHolders` ونُقض: القيمة الافتراضية `= []` تجعل منادياً نسي التمرير **يشحن صفر طالب بلا خطأ ولا اختبار أحمر**، من عائلة «`->delay()` على `sync`» ([events.md §١ج](./contracts/events.md))
+- [X] T106 [US4] أنشئ `backend/app/Modules/Payments/Listeners/ChargeSeatsOnDelivery.php` بـ`ShouldQueue, ShouldHandleEventsAfterCommit` وسجّله على `SessionDelivered` في `PaymentsServiceProvider::boot()`، **مع تعليق يسمّي `AttendanceConfirmed` و`AttendanceOverridden` متروكَين عمداً** — الأول موجود ويُطلَق من `CloseClassSession.php:66` **بلا شرط** حتى لحصةٍ لم تُدرَّس ولا يحمل عدد المقاعد، والثاني لا أثر مالي له لأن الاستهلاك بالمقعد لا بالحالة. السابقة `SettlementServiceProvider.php:54`؛ والاشتراك الذي لم يُذكر يُقترَح ثانيةً بعد ستة أشهر
+- [X] T107 [US4] اجعل خصم التسليم يمرّ **بلا أرضية** في `CreditLedger` (وسيط صريح، لا فرع مخفي) — الأرضية تحرس **الحجز** لا تسجيل دَينٍ وقع
+- [X] T108 [US4] اكتب `class_sessions.charged_at` عند نجاح الشحن، واستعمله مُسنَداً لمجموعة «سُلِّمت ولم تُشحَن»
+- [X] T109 [US4] أنشئ `backend/app/Modules/Payments/Jobs/ChargeUnbilledDeliveriesJob.php` مجدولة في `backend/routes/console.php` بـ`forWorkspace()` — **يُمنع** `WorkspaceContext::set()`. آمنةٌ بالتكرار بفضل المفتاح الفريد من T050
+- [X] T110 [US4] ارفع `SessionDelivered::dispatch` فوق بقيّة الإطلاقات في `backend/app/Modules/LiveSessions/Actions/CloseClassSession.php` — الفعل يعود مبكراً على حالة نهائية، فرميةُ مستمعٍ سابق تبتلع الحدث و**لا يُطلَق ثانيةً أبداً**، والحجب مشتقٌّ من الرصيد فيبقى الطالب نظيف السجلّ ويواصل الحجز وفتح الأصول
+- [~] T111 [US4] طبّق سلوك بلوغ الصفر المضبوط في `CreditLedger` عند نزول الرصيد إلى الصفر: منع الحجز الجديد أو توليد تذكير دفع أو كلاهما، مقروءاً من `BillingSettings` (`FR-027`)
+
+> **تصحيحان أثناء التنفيذ:**
+>
+> - **`T111` جزئية عمداً.** نصفها الحاجب مُنفَّذ: `CreditLedger::isBlocked` صار يفصل بين
+>   **بلوغ الصفر** (`floor === 0`، وهنا يقرّر `ZeroBalanceBehavior`) و**استنفاد الحد**
+>   (`floor < 0`، وهنا الحجب غير مشروط) — وإخضاع المُسنَد كلّه للمفتاح كان سيُمرّر طالب
+>   مساحةٍ على `remind` **متجاوزاً حدّه الائتماني**، وهو الرقم الوحيد الذي وُجد السقف ليكونه.
+>   ونصفها المُذكِّر **لا يمكن أن يقع هنا**: إشعارٌ بلا قالب مبذور يُسقَط بصمت، فيهبط مع
+>   نوعه وقالبه في `T120`–`T122`.
+> - **`T104` تختم `charged_at` أيضاً على حصةٍ بلا كورس.** `course_id` يبقى `nullable` نهائياً
+>   (هجرة `2026_08_08_000800` تشرح لماذا)، والرصيد لكل (طالب × كورس) — فلا شيء يُشحَن. وترك
+>   الختم فارغاً هناك يعني أن الكنّاسة تلتقط الحصة نفسها كل ربع ساعة إلى الأبد.
 
 **Checkpoint**: التشغيل صار مالاً، وحصةٌ لم تُشحَن صارت صفّاً يُستعلَم عنه ووظيفةً تُعيد المحاولة — لا خسارة صامتة.
 

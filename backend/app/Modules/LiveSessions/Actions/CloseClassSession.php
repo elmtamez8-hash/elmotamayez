@@ -32,10 +32,15 @@ use Illuminate\Support\Facades\DB;
  *     stayed long enough, and the session ended normally (FR-056). It is the
  *     single place that judgement is made, so the rule is read in one file
  *     rather than chased through controllers.
- *  3. AttendanceConfirmed is announced. FR-051 forbids any financial
- *     consumption before it, so it is a moment with a timestamp rather than an
- *     implication — SC-015 asserts the ordering, and you cannot assert an
- *     implication.
+ *  3. AttendanceConfirmed is announced — a moment with a timestamp rather than
+ *     an implication, so the register becoming final is something a consumer can
+ *     be told about instead of inferring.
+ *
+ *     ⚠️ It is NO LONGER the gate on money. FR-051 once forbade consumption
+ *     before it; 006's Q-6 retired that, because consumption is per frozen SEAT
+ *     and never reads an attendance status, so there is nothing for it to wait
+ *     on. SessionDelivered is dispatched FIRST for the reason written at that
+ *     line: it fires exactly once in a session's life.
  */
 class CloseClassSession extends Action
 {
@@ -62,6 +67,27 @@ class CloseClassSession extends Action
             ])->save();
         });
 
+        if ($session->delivered_at !== null) {
+            // FIRST of the four, and the order is load-bearing. This Action
+            // returns early on a terminal status, so SessionDelivered fires
+            // exactly once in a session's life: a throw in any listener
+            // dispatched ahead of it swallows the event permanently, and nothing
+            // ever fires it again. The teacher then goes unpaid and the seat
+            // uncharged — and because withholding is DERIVED from the balance,
+            // the student's record stays clean and they carry on booking and
+            // opening assets (research › R17).
+            //
+            // It used to sit last, below the guardian report. That ordering also
+            // read as "money follows AttendanceConfirmed" (the old FR-051), which
+            // Q-6 retired: consumption is per frozen seat and never touches an
+            // attendance status, so there is nothing left for it to wait on.
+            //
+            // The frozen seat count travels with it because it is a fact about a
+            // past moment, and a consumer must never recompute it from live
+            // bookings (FR-060).
+            SessionDelivered::dispatch($session, $session->billable_seats ?? 0);
+        }
+
         SessionCompleted::dispatch($session);
         AttendanceConfirmed::dispatch($session);
 
@@ -71,13 +97,6 @@ class CloseClassSession extends Action
         // moment the register became final, which is this line.
         SendSessionReportsJob::dispatch((int) $session->getKey())
             ->delay(now()->addMinutes($this->settings->reportDelayMinutes()));
-
-        if ($session->delivered_at !== null) {
-            // The event billing (006) and payout (014) hang off. The frozen seat
-            // count travels with it because it is a fact about a past moment, and
-            // a consumer must never recompute it from live bookings (FR-060).
-            SessionDelivered::dispatch($session, $session->billable_seats ?? 0);
-        }
 
         return $session;
     }

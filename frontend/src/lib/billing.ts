@@ -134,8 +134,20 @@ export interface PurchaseStarted {
   currency: string;
 }
 
+/*
+ * ⚠️ EVERY LIST ENDPOINT IS TYPED `{ data: T[] }`, NEVER `T[]`.
+ *
+ * The API disables resource wrapping, so a collection route answers with a bare
+ * array — and `lib/api.ts` re-wraps that array into `{ data: [...] }` so the
+ * pages see one shape whatever the route did. Typing the client as `T[]` is
+ * therefore a lie the compiler cannot catch: the value arrives as an object, the
+ * page's `rows ?? []` guard passes it straight through because it is not
+ * nullish, `rows.length === 0` is false because objects have no length, and the
+ * component crashes on `.map is not a function` — in the browser, at runtime,
+ * with a green build behind it.
+ */
 export const billing = {
-  balances: () => api.get<CreditBalance[]>("/billing/balance"),
+  balances: () => api.get<{ data: CreditBalance[] }>("/billing/balance"),
   /*
    * An empty list is a real answer, not an error: a course whose teacher has no
    * approved rate cannot be priced, and one that has stopped delivering sessions
@@ -143,7 +155,7 @@ export const billing = {
    * state, because from the student's side they are the same fact.
    */
   packages: (courseUuid: string) =>
-    api.get<CreditPackageOffer[]>(
+    api.get<{ data: CreditPackageOffer[] }>(
       `/billing/packages?course=${encodeURIComponent(courseUuid)}`,
     ),
   purchase: (courseUuid: string, packageUuid: string) =>

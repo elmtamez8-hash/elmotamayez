@@ -35,7 +35,7 @@ export default function BillingPage() {
 
     billing
       .balances()
-      .then((rows) => setBalances(rows ?? []))
+      .then((res) => setBalances(res.data ?? []))
       .catch((err: unknown) => {
         setFailed(true);
         setError(errorMessage(err, "تعذّر تحميل رصيدك. أعد المحاولة."));

@@ -52,7 +52,7 @@ export default function PurchaseCreditsPage() {
 
     billing
       .packages(course)
-      .then((rows) => setOffers(rows ?? []))
+      .then((res) => setOffers(res.data ?? []))
       .catch((err: unknown) => {
         setFailed(true);
         setError(errorMessage(err, "تعذّر تحميل الحزم المتاحة. أعد المحاولة."));

@@ -7,6 +7,7 @@ namespace App\Modules\Payments\Support;
 use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\BillingMode;
 use App\Modules\Payments\Enums\CreditTransactionType;
+use App\Modules\Payments\Enums\ZeroBalanceBehavior;
 use App\Modules\Payments\Exceptions\InsufficientCreditsException;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditLot;
@@ -83,10 +84,51 @@ class CreditLedger
      * "Cannot afford one more credit", which at `remaining = 0, limit = 0` is
      * TRUE. An earlier formulation answered "not withheld" in exactly that case,
      * which is the state a student is in before they have bought anything.
+     *
+     * FR-027 then splits that refusal in two, and the split is not cosmetic:
+     *
+     *   · `$floor < 0` — the student had real deferral room and has now used all
+     *     of it. That is owing money, and the block is UNCONDITIONAL (US5/3).
+     *   · `$floor === 0` — the balance simply ran out, with nothing deferred.
+     *     This is the case FR-027 makes configurable: block, remind, or both.
+     *
+     * Gating the whole predicate on the switch instead would let a workspace set
+     * to `remind` carry a student straight past their credit limit, which is the
+     * one number the ceiling exists to be.
+     *
+     * The `remind` HALF of the behaviour is not here and cannot be: a
+     * notification with no seeded template is dropped silently, so it lands with
+     * its NotificationType and template in US5.
      */
-    public function isBlocked(CreditBalance $balance, int $floor): bool
+    public function isBlocked(CreditBalance $balance, int $floor, ZeroBalanceBehavior $behavior): bool
     {
-        return ! $this->canAfford($balance, 1, $floor);
+        if ($this->canAfford($balance, 1, $floor)) {
+            return false;
+        }
+
+        if ($floor < 0) {
+            return true;
+        }
+
+        return $behavior->blocks();
+    }
+
+    /**
+     * The form every call site should use — the behaviour read from settings.
+     *
+     * Paired with {@see self::isBlocked()} for the same reason
+     * {@see self::floorForBalance()} is paired with {@see self::floorFor()}: the
+     * explicit-argument version is what makes the arithmetic testable without a
+     * workspace behind it, and the resolving version is what keeps FR-013's "one
+     * place reads the billing decision" true at the call sites.
+     */
+    public function isBlockedForBalance(CreditBalance $balance, int $floor): bool
+    {
+        return $this->isBlocked(
+            $balance,
+            $floor,
+            $this->settings->zeroBalanceBehavior($balance->workspace),
+        );
     }
 
     // ── The write ───────────────────────────────────────────────────────────

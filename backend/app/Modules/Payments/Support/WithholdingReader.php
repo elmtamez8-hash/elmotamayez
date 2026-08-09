@@ -51,7 +51,7 @@ class WithholdingReader
                 $inExamMode->has($balance->workspace_id),
             );
 
-            $balance->setAttribute('is_withheld', $this->ledger->isBlocked($balance, $floor));
+            $balance->setAttribute('is_withheld', $this->ledger->isBlockedForBalance($balance, $floor));
         });
     }
 }

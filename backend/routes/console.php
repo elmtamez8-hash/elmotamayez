@@ -3,6 +3,7 @@
 use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
 use App\Modules\Media\Jobs\PruneExpiredGrantsJob;
 use App\Modules\Notifications\Jobs\PruneOldNotificationsJob;
+use App\Modules\Payments\Jobs\ChargeUnbilledDeliveriesJob;
 use App\Modules\Settlement\Jobs\CloseDueSettlementPeriodsJob;
 use App\Modules\Settlement\Jobs\ReleasePendingUnitsJob;
 use Illuminate\Foundation\Inspiring;
@@ -43,3 +44,11 @@ Schedule::job(new ReleasePendingUnitsJob)->everyFifteenMinutes();
 // the boundary it acts on is a DATE, so running it twelve more times a day would
 // find nothing eleven of them.
 Schedule::job(new CloseDueSettlementPeriodsJob)->dailyAt('04:10');
+
+// Delivered sessions nobody charged. Every fifteen minutes, at :05 past the
+// quarter so it trails ReleasePendingUnitsJob rather than racing it — both walk
+// recently delivered sessions, and staggering keeps two sweeps off the same rows
+// in the same second. Frequent for the same reason: what it repairs is a student
+// who keeps booking on credits they have already spent, and every quarter hour of
+// delay is another seat taken on money that was never deducted.
+Schedule::job(new ChargeUnbilledDeliveriesJob)->cron('5,20,35,50 * * * *');

@@ -6,6 +6,11 @@ use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\LiveSessions\Actions\CloseClassSession;
+use App\Modules\LiveSessions\Actions\OpenBroadcastRoom;
+use App\Modules\LiveSessions\Actions\RecordPresencePing;
+use App\Modules\LiveSessions\Models\Attendance;
+use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\CreditTransactionType;
@@ -228,4 +233,68 @@ function settlementPayloadKeys(mixed $value): array
     }
 
     return $keys;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Delivered-session helpers (spec 006, US4)
+|--------------------------------------------------------------------------
+|
+| Four suites charge a delivered session, and the setup is eight lines of
+| broadcast plumbing that has nothing to do with what any of them asserts. Here
+| for the reason stated above, and named for the whole product rather than for
+| one file: `deliver()` is already taken by Settlement's PackageCompletionTest,
+| and a redeclared global function in a test file is a FATAL that takes the whole
+| run down — not a failing test.
+|
+*/
+
+/**
+ * A session on a course, with a teacher whose profile belongs to the workspace.
+ *
+ * The course is passed in rather than made here because billing holds a balance
+ * per (student, COURSE): a fixture that invented its own course would charge a
+ * balance no assertion is looking at.
+ */
+function billableSession(Workspace $workspace, User $teacherUser, Course $course, int $seatsTotal = 1): ClassSession
+{
+    return app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace, $teacherUser, $course, $seatsTotal): ClassSession {
+        $profile = TeacherProfile::query()->where('user_id', $teacherUser->getKey())->first()
+            ?? TeacherProfile::factory()->create([
+                'workspace_id' => $workspace->getKey(),
+                'user_id' => $teacherUser->getKey(),
+            ]);
+
+        return ClassSession::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'teacher_profile_id' => $profile->getKey(),
+            'course_id' => $course->getKey(),
+            'seats_total' => $seatsTotal,
+            'starts_at' => CarbonImmutable::now()->addMinutes(5),
+            'ends_at' => CarbonImmutable::now()->addMinutes(65),
+            'duration_minutes' => 60,
+        ]);
+    });
+}
+
+/**
+ * Run the session the way a delivered one runs: the teacher joins, stays long
+ * enough, and it is closed.
+ *
+ * Never forces `delivered_at` directly. FR-025أ makes delivery the whole
+ * premise of the charge, and a fixture that writes the column skips the very
+ * judgement CloseClassSession exists to make — so a regression in that judgement
+ * would leave every one of these tests green.
+ */
+function deliverBillableSession(ClassSession $session, User $teacherUser): ClassSession
+{
+    app(OpenBroadcastRoom::class)->handle($session->refresh());
+    app(RecordPresencePing::class)->handle($session, $teacherUser);
+
+    Attendance::query()
+        ->where('class_session_id', $session->getKey())
+        ->where('student_user_id', $teacherUser->getKey())
+        ->update(['stay_seconds' => 3000]);
+
+    return app(CloseClassSession::class)->handle($session->refresh());
 }

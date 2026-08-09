@@ -7,6 +7,7 @@ namespace App\Modules\Payments;
 use App\Modules\LiveSessions\Events\SessionDelivered;
 use App\Modules\Payments\Contracts\PaymentProviderInterface;
 use App\Modules\Payments\Events\PaymentApproved;
+use App\Modules\Payments\Listeners\ChargeSeatsOnDelivery;
 use App\Modules\Payments\Listeners\CreateEnrollmentFromOrder;
 use App\Modules\Payments\Listeners\CreditPurchaseOnApproval;
 use App\Modules\Payments\Listeners\StampCourseDelivery;
@@ -56,6 +57,11 @@ class PaymentsServiceProvider extends Module
         // settlement tables that also know it are across a boundary
         // ContextIsolationTest fails the build over.
         Event::listen(SessionDelivered::class, StampCourseDelivery::class);
+
+        // The charge. Same event, because delivery is the ONLY thing that turns
+        // a seat into money — see the listener for the two neighbouring
+        // attendance events left alone and why the 005 code forces that choice.
+        Event::listen(SessionDelivered::class, ChargeSeatsOnDelivery::class);
 
         // Registered explicitly, like Identity's, LiveSessions' and
         // Settlement's. Laravel's guesser would find them anyway — it walks the
