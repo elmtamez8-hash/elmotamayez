@@ -31,7 +31,19 @@ class WithholdingReader
     ) {}
 
     /**
-     * Stamp `is_withheld` onto each balance and return them.
+     * Stamp `is_withheld` and `credits_needed` onto each balance and return them.
+     *
+     * ⚠️ THE DEFICIT IS STAMPED HERE BECAUSE THIS IS WHERE THE FLOOR IS KNOWN.
+     * It used to be recomputed by AccountStanding beside the stamp, from
+     * `floorForBalance()` with the exam-window flag left at its default — so
+     * during a window the block was computed against a floor of zero and the
+     * quote against the ceiling that window had just suspended. The student was
+     * told "تحتاج 1", bought one, and was refused again; the same number is
+     * printed by the booking refusal, the playback refusal and the withheld
+     * notification, so one line was wrong in three places.
+     *
+     * Two answers to one question is the shape of the defect, not the arithmetic.
+     * There is one floor per balance and it is computed once, right here.
      *
      * @param  Collection<int, CreditBalance>  $balances
      * @return Collection<int, CreditBalance>
@@ -92,6 +104,7 @@ class WithholdingReader
                 // withheld: a balance whose tenant vanished is a broken row, and
                 // locking its owner out is punishing them for it.
                 $balance->setAttribute('is_withheld', false);
+                $balance->setAttribute('credits_needed', 0);
 
                 return;
             }
@@ -103,11 +116,22 @@ class WithholdingReader
                 isset($consented[$balance->student_user_id]),
             );
 
-            $balance->setAttribute('is_withheld', $this->ledger->isBlocked(
+            $withheld = $this->ledger->isBlocked(
                 $balance,
                 $floor,
                 $this->settings->zeroBalanceBehavior($workspace),
-            ));
+            );
+
+            $balance->setAttribute('is_withheld', $withheld);
+
+            // What it would take to afford ONE more session: the distance from
+            // here up to the floor, plus that session. Never the raw negative
+            // balance — a student with a ceiling owes less than their balance
+            // reads, and quoting the debt would ask for credits they do not need.
+            $balance->setAttribute(
+                'credits_needed',
+                $withheld ? max(1, $floor + 1 - $balance->remaining_credits) : 0,
+            );
         });
     }
 }

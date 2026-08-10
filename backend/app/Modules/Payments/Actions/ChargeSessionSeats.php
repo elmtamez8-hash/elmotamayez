@@ -11,12 +11,14 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Events\CreditConsumed;
+use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Support\BalanceAnnouncer;
 use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Payments\Support\ExamMode;
 use App\Shared\Actions\Action;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -74,10 +76,40 @@ class ChargeSessionSeats extends Action
 
         $seatHolders = $this->seatHolders($session);
 
-        if ($seatHolders === [] || $billableSeats === 0) {
+        if ($seatHolders === []) {
+            // Nobody held a seat, so there is nothing to charge and nothing to
+            // repair. Stamped, or the sweep picks this session up every fifteen
+            // minutes for the life of the product.
             $this->stamp($session);
 
             return [];
+        }
+
+        /*
+        | ⚠️ ZERO WITH SEAT HOLDERS PRESENT IS A MISSING FACT, NOT A FACT.
+        |
+        | `billable_seats` is nullable — written once, at the cancellation
+        | deadline — and ChargeUnbilledDeliveriesJob coerces null to zero on the
+        | way in. Zero is an honest reading of a SEAT COUNT; it is not an honest
+        | reading of `charged_at`, which means "the charge ran to completion".
+        |
+        | This branch used to exit here with the stamp written, which took the
+        | session out of the sweep — the only path that could ever have repaired
+        | it — over a room of students nobody debited. And silently: the mismatch
+        | warning below never ran, because this returned first. The nightly
+        | reconciliation then reported that session every night, permanently,
+        | with nothing anywhere able to clear it.
+        |
+        | So the seat holders win. They are the fact; the frozen count is an
+        | optimisation of it, and a missing optimisation does not erase the fact.
+        */
+        if ($billableSeats === 0) {
+            Log::warning('006: charging a delivered session whose frozen seat count is missing', [
+                'class_session_id' => $session->getKey(),
+                'seat_holders' => count($seatHolders),
+            ]);
+
+            $billableSeats = count($seatHolders);
         }
 
         $mismatch = count($seatHolders) !== $billableSeats;
@@ -90,18 +122,66 @@ class ChargeSessionSeats extends Action
             ]);
         }
 
-        // Once for the session, not once per seat: it is a fact about the
-        // workspace and the moment, and thirty students share both.
+        /*
+        | ⚠️ EVERY SHARED FACT IS READ ONCE FOR THE SESSION, NEVER ONCE PER SEAT.
+        |
+        | The exam window was already hoisted here; the billing mode, the
+        | zero-balance behaviour, the workspace row itself and the terms consent
+        | were not, and each of them was resolved inside the loop — three times
+        | per seat for the workspace alone, once through the lazy relation, again
+        | through `refresh()`, and again through the blocked check. Thirty
+        | students in one class share all four facts, exactly as they share the
+        | exam window.
+        |
+        | The before-state is therefore taken for the WHOLE ROOM in one bulk read,
+        | and the flips are announced for the whole room afterwards. Both methods
+        | already existed on the announcer — they were written for the exam-mode
+        | window, which moves every balance in a workspace at once. This is the
+        | same shape, one room smaller.
+        */
         $inExamWindow = $this->examMode->isOpen((int) $session->workspace_id);
+
+        $balances = new EloquentCollection(array_map(
+            fn (User $student): CreditBalance => $this->accounts->balanceFor($student, $course),
+            $seatHolders,
+        ));
+
+        /*
+        | One Workspace instance, shared by every balance in the room.
+        |
+        | The ledger reads the alert thresholds off `$balance->workspace` while
+        | ranking a crossing, and that relation is lazy — so without this line the
+        | same row is SELECTed once per seat, at the exact moment the loop is
+        | already at its most expensive. Set from the course, which was loaded
+        | before any of this began.
+        */
+        $workspace = $course->workspace;
+
+        if ($workspace !== null) {
+            $balances->each(fn (CreditBalance $balance) => $balance->setRelation('workspace', $workspace));
+        }
+
+        $wasBlocked = $this->announcer->standingsFor($balances);
 
         $entries = [];
 
-        foreach ($seatHolders as $student) {
-            $entry = $this->chargeOne($session, $course, $student, $billableSeats, count($seatHolders), $mismatch, $inExamWindow);
+        foreach ($balances as $balance) {
+            $entry = $this->chargeOne($session, $balance, $billableSeats, count($seatHolders), $mismatch);
 
             if ($entry !== null) {
                 $entries[] = $entry;
             }
+        }
+
+        // Re-read rather than re-stamped: `stamp()` writes `is_withheld` onto the
+        // instance it is given, so re-stamping the same collection would
+        // overwrite the very answers being compared against and every transition
+        // would read as "no change".
+        if ($entries !== []) {
+            $this->announcer->announceStandingChanges(
+                CreditBalance::query()->withoutWorkspaceScope()->whereIn('id', $balances->modelKeys())->get(),
+                $wasBlocked,
+            );
         }
 
         // AFTER the whole loop, never per seat. A throw partway through leaves
@@ -137,18 +217,11 @@ class ChargeSessionSeats extends Action
 
     private function chargeOne(
         ClassSession $session,
-        Course $course,
-        User $student,
+        CreditBalance $balance,
         int $billableSeats,
         int $seatHolders,
         bool $mismatch,
-        bool $inExamWindow,
     ): ?CreditTransaction {
-        $balance = $this->accounts->balanceFor($student, $course);
-
-        // Before the write. Afterwards it would be the state the balance is in
-        // now, and every transition would be invisible.
-        $wasBlocked = $this->announcer->isBlocked($balance, $inExamWindow);
 
         $entry = $this->ledger->post(new CreditMovement(
             balance: $balance,
@@ -189,10 +262,10 @@ class ChargeSessionSeats extends Action
         // may still roll back.
         CreditConsumed::dispatch($entry, (int) $session->getKey());
 
-        // BalanceUpdated, the threshold crossing and any withholding flip — all
-        // four in one place, so the three Actions that write to the ledger cannot
-        // drift into announcing three different subsets.
-        $this->announcer->announce($balance, $wasBlocked, -1, $inExamWindow);
+        // The movement's own half only. The withholding flip is announced for the
+        // whole room after the loop, because its four inputs are facts about the
+        // workspace and the moment rather than about this student.
+        $this->announcer->announceMovement($balance, -1);
 
         return $entry;
     }

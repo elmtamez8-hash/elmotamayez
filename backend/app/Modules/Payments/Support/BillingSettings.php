@@ -108,8 +108,34 @@ class BillingSettings
         return min($this->cadence($workspace)->sessionsPerCycle(), $this->maxLimitCredits());
     }
 
+    /**
+     * What happens at zero (FR-027) — with the mode having the last word.
+     *
+     * ⚠️ A MODE THAT FORBIDS DEBT BLOCKS, WHATEVER THE DROPDOWN SAYS. FR-027
+     * makes this configurable and FR-014 says a prepaid balance never goes below
+     * zero at all; the two meet inside `CreditLedger::isBlocked()`, where a floor
+     * of zero and a balance of zero fall through to this answer. `remind` used to
+     * win there — so a teacher choosing "remind only" switched off the first
+     * sentence of the mode they were in, silently, and their students booked at
+     * zero until the delivery drove them negative.
+     *
+     * Resolved HERE rather than in the predicate for the reason FR-013 gives:
+     * this class is the one place the billing decision is read, and `isBlocked()`
+     * takes the behaviour as an argument precisely so the arithmetic is testable
+     * without a workspace behind it. Widening its signature to re-ask the mode
+     * would put the decision in two files.
+     *
+     * The stored value is left ALONE, not rewritten. A workspace switched to
+     * prepaid for a term and back keeps the reminder setting it chose, and the
+     * mode stops overriding it the moment deferral is allowed again — the same
+     * reason FR-049 ignores a stale credit ceiling rather than zeroing it.
+     */
     public function zeroBalanceBehavior(Workspace $workspace): ZeroBalanceBehavior
     {
+        if (! $this->mode($workspace)->allowsDeferral()) {
+            return ZeroBalanceBehavior::Block;
+        }
+
         $stored = $this->workspaceValue($workspace, 'zero_balance_behavior');
         $default = (string) config('billing.workspace_defaults.zero_balance_behavior', 'block');
 

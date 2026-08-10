@@ -132,7 +132,7 @@ it('lets a paid-up student book straight through it', function (): void {
     expect(SessionBooking::query()->withoutWorkspaceScope()->count())->toBe(1);
 });
 
-it('returns the mode on its own the day after the last one (FR-046)', function (): void {
+it('returns the mode on its own the day after the last one (FR-047)', function (): void {
     // A window that ends today. The boundary is the assertion: `ends_on` is a
     // DATE and coverage is a date-string comparison, so tomorrow is outside it
     // with nothing to run and no flag to clear.
@@ -250,4 +250,45 @@ it('refuses a window that ends before it starts', function (): void {
         'starts_on' => CarbonImmutable::now()->addDays(5)->toDateString(),
         'ends_on' => CarbonImmutable::now()->toDateString(),
     ])->assertStatus(422);
+});
+
+/*
+| FR-032 · SC-010 — the number the refusal quotes is the number that unblocks.
+|
+| ⚠️ TWO ANSWERS TO ONE QUESTION, AND ONLY ONE OF THEM KNEW ABOUT EXAM MODE.
+| `isWithheld` goes through WithholdingReader::stamp(), which reads the open
+| window; `creditsNeededFor` recomputed the floor beside it and never passed the
+| flag, so it defaulted to false. During a window the floor is forced to zero and
+| the true requirement is the whole way back up from the debt — but the quote was
+| computed against the ceiling exam mode had just suspended.
+|
+| What the student saw: "تحتاج 1 حصة"، buys exactly one, is refused again. The
+| same number is printed by the booking refusal, the playback refusal and the
+| withheld notification, so it was wrong in three places from one line.
+*/
+it('quotes what it will actually take to book, with the window open', function (): void {
+    $standing = app(AccountStanding::class);
+    $courseId = (int) $this->course->getKey();
+
+    // Two sessions into their three-session ceiling.
+    consumeCredits($this->balance, 2);
+
+    openWindow();
+
+    expect($standing->isWithheld($this->student, $courseId))->toBeTrue()
+        // Zero floor + one session + two owed. NOT 1, which is what the
+        // suspended ceiling of 3 would have answered.
+        ->and($standing->creditsNeededFor($this->student, $courseId))->toBe(3);
+});
+
+it('quotes the smaller number the moment the window closes', function (): void {
+    // The same balance, the same debt, the ceiling back in force — and the
+    // requirement drops to one session. Derived, so nothing has to sweep.
+    $standing = app(AccountStanding::class);
+    $courseId = (int) $this->course->getKey();
+
+    consumeCredits($this->balance, 2);
+
+    expect($standing->isWithheld($this->student, $courseId))->toBeFalse()
+        ->and($standing->creditsNeededFor($this->student, $courseId))->toBe(0);
 });

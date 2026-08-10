@@ -325,8 +325,10 @@ paid for which past session. **The dormancy notice needs `notified_dormant_at`**
 no credits, so a predicate on `last_transaction_at` alone re-sends it every night for ever.
 
 **`insertOrIgnore` skips the model, so `HasUuid` never fires** and the row lands with an
-empty uuid — the column every route exposes. Idempotency is the unique index plus an ordinary
-`create()` in a try/catch.
+empty uuid — the column every route exposes. A rule about the insert ARRAY, not a ban on the
+call: `CreditLedger::writeEntry()` uses it deliberately and passes `uuid` and `created_at`
+explicitly. `create()` in a try/catch was rejected in R7 — it cannot tell a duplicate from a
+real failure. Zero rows is therefore read back by the idempotency key, and a miss **throws**.
 
 **The floor comparison is CAST to signed.** `remaining + limit >= n` at `remaining = −3` on
 unsigned columns is MySQL **ERROR 1690**, and SQLite has no unsigned arithmetic to overflow —

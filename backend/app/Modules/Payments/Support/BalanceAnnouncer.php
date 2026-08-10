@@ -57,15 +57,39 @@ class BalanceAnnouncer
         return $this->ledger->isBlockedForBalance($balance, $this->ledger->floorForBalance($balance, $inExam));
     }
 
-    public function announce(
-        CreditBalance $balance,
-        bool $wasBlocked,
-        int $deltaCredits,
-        ?bool $insideExamWindow = null,
-    ): void {
+    /**
+     * The part of an announcement that is about the MOVEMENT alone.
+     *
+     * Split out because the withholding flip is the only half whose inputs are
+     * shared by a whole room — the billing mode, the zero-balance behaviour, an
+     * open exam window and a terms consent are facts about a workspace and a
+     * moment, and thirty students in one class share every one of them. A caller
+     * moving many balances at once therefore uses this per balance and
+     * {@see self::announceStandingChanges()} once, instead of paying for those
+     * four facts thirty times over.
+     *
+     * A single-balance caller wants both halves and should keep calling
+     * {@see self::announce()}, which is this plus the flip.
+     */
+    public function announceMovement(CreditBalance $balance, int $deltaCredits): void
+    {
         $crossed = $balance->getAttribute('crossed_tier');
 
-        $balance->refresh();
+        /*
+        | ⚠️ ATTRIBUTES ONLY — `refresh()` WOULD RELOAD THE RELATIONS TOO.
+        |
+        | What is needed here is the counters after the atomic UPDATE, nothing
+        | more. `refresh()` also re-`load()`s every relation already on the model,
+        | so a balance carrying its workspace — which it does, because the ledger
+        | reads the alert thresholds off it — pays a second `workspaces` SELECT
+        | per movement. In a thirty-seat class that is thirty needless reads of
+        | one row, on top of the thirty the loading itself caused.
+        */
+        $fresh = $balance->newQueryWithoutScopes()->whereKey($balance->getKey())->first();
+
+        if ($fresh !== null) {
+            $balance->setRawAttributes($fresh->getAttributes(), true);
+        }
 
         // The declared fourth link of the consumption chain, and the first thing
         // said about any movement whatever produced it.
@@ -74,6 +98,15 @@ class BalanceAnnouncer
         if (is_int($crossed) && $crossed > 0) {
             BalanceThresholdCrossed::dispatch($balance, $crossed);
         }
+    }
+
+    public function announce(
+        CreditBalance $balance,
+        bool $wasBlocked,
+        int $deltaCredits,
+        ?bool $insideExamWindow = null,
+    ): void {
+        $this->announceMovement($balance, $deltaCredits);
 
         $isBlocked = $this->isBlocked($balance, $insideExamWindow);
 

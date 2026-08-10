@@ -76,20 +76,21 @@ export function BalanceSummary({ balances }: { balances: CreditBalance[] }) {
               course that stopped, because withholding is per course and a banner
               at the top of the page would read as though everything had stopped.
 
-              The number is derived here rather than sent, and deliberately so:
-              the API already sends the balance and the ceiling, and a
-              `credits_needed` field would be a second copy of one subtraction —
-              wrong the first time the two disagree.
+              ⚠️ THE NUMBER IS SENT, AND IT USED TO BE DERIVED HERE. The comment
+              that stood in this place argued that `credits_needed` would be "a
+              second copy of one subtraction, wrong the first time the two
+              disagree" — and it was exactly right about the danger and exactly
+              wrong about which copy this was. The deficit is the distance to the
+              EFFECTIVE floor, which depends on the billing mode, an open exam
+              window and a current terms consent. None of the three is in this
+              payload, so the browser could not be right during an exam window,
+              nor for any indebted student on the day new terms are published:
+              the card said "buy 1", the booking gate demanded three.
             */}
             {balance.is_withheld && (
               <Alert tone="warning" title="توقّف الحجز في هذا الكورس">
                 رصيدك لم يعد يكفي لحجز حصة جديدة. تحتاج{" "}
-                <bdi>
-                  {Math.max(
-                    1,
-                    1 - balance.remaining_credits - balance.credit_limit_credits,
-                  ).toLocaleString("ar-EG")}
-                </bdi>{" "}
+                <bdi>{balance.credits_needed.toLocaleString("ar-EG")}</bdi>{" "}
                 حصة على الأقل لاستئنافه. حصصك المحجوزة سابقاً وتسجيلك في الكورس لا
                 يتأثّران، ويعود الحجز فور اعتماد الدفع بلا أي إجراء منك.
               </Alert>

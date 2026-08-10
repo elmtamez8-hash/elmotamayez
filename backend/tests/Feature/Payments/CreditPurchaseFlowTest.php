@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\CreditTransactionType;
@@ -88,6 +89,50 @@ it('answers 403 to a stranger rather than a priced list', function (): void {
         ->assertForbidden();
 });
 
+/*
+| ⚠️ AND THE TEACHER IS NOT A STRANGER — THEY ARE WORSE.
+|
+| A stranger who reads two totals solves for the platform's two constants and
+| stops there, because the third unknown is a rate they do not have. The teacher
+| HAS one: their own, asked for by them and read on their own statement. Two
+| package sizes therefore hand them the constants by subtraction, and from there
+| every OTHER course's total inverts to its teacher's approved rate exactly.
+|
+| This is the one direction TeacherFieldAllowlist and StudentBalanceAllowlist
+| cannot guard. Nothing here is a field on a teacher-facing payload — it is the
+| STUDENT'S own screen, opened by the wrong person.
+*/
+it('answers 403 to the teacher whose course it is', function (): void {
+    Sanctum::actingAs($this->teacher);
+
+    $this->getJson("/api/v1/billing/packages?course={$this->course->uuid}")
+        ->assertForbidden();
+});
+
+it('answers 403 to an assistant teacher in the same workspace', function (): void {
+    Sanctum::actingAs($this->addWorkspaceMember($this->workspace, Roles::ASSISTANT_TEACHER));
+
+    $this->getJson("/api/v1/billing/packages?course={$this->course->uuid}")
+        ->assertForbidden();
+});
+
+it('answers 403 to a teacher who enrolled in their own course', function (): void {
+    // The loophole that survives merely deleting the membership branch. An
+    // enrolment is a row the teacher can cause to exist, so "is this person on
+    // the teaching side" has to be asked FIRST and OVERRIDE the enrolment —
+    // not merely fail to be one of the ways in.
+    Enrollment::factory()->completed()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $this->course->getKey(),
+        'student_user_id' => $this->teacher->getKey(),
+    ]);
+
+    Sanctum::actingAs($this->teacher);
+
+    $this->getJson("/api/v1/billing/packages?course={$this->course->uuid}")
+        ->assertForbidden();
+});
+
 it('offers nothing on a course with no approved rate', function (): void {
     $unpriced = courseWithRate((int) $this->workspace->getKey(), null);
 
@@ -154,6 +199,17 @@ it('keeps the snapshot when the teacher rate is approved anew', function (): voi
 
 it('refuses a purchase from a stranger', function (): void {
     Sanctum::actingAs(User::factory()->create());
+
+    $this->postJson('/api/v1/billing/purchases', purchasePayload($this->course, $this->package))
+        ->assertForbidden();
+
+    expect(CreditPurchase::query()->withoutWorkspaceScope()->count())->toBe(0);
+});
+
+it('refuses a purchase from the teacher whose course it is', function (): void {
+    // The second door on the same leak: the 201 body carries `total_minor`, so
+    // a refusal on the listing alone would leave the number one POST away.
+    Sanctum::actingAs($this->teacher);
 
     $this->postJson('/api/v1/billing/purchases', purchasePayload($this->course, $this->package))
         ->assertForbidden();

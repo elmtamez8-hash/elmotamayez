@@ -55,6 +55,9 @@ function frozenLearner(): User
     $student = $test->addWorkspaceMember($test->workspace, Roles::STUDENT);
     $test->createEnrollment($test->workspace, $test->course, $student);
     $test->setCurrentWorkspace($test->workspace, $test->owner);
+    // Prepaid is the default, so a seat has to be paid for before it can be
+    // taken. The subject of this file is a holiday, not money.
+    fundBooking($test->workspace, $student, $test->course);
 
     return $student;
 }

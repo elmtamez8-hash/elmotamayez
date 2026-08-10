@@ -48,6 +48,24 @@ beforeEach(function (): void {
     $this->createEnrollment($this->workspace, $this->course, $this->student);
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
+    /*
+     | Deferral, so the SEAT is free to take and each test can then state the
+     | balance it wants to reason about.
+     |
+     | Funding the student instead would have been the obvious move and it is the
+     | wrong one here: every test below counts entries and asserts an exact
+     | remaining, and three of them start from a balance they set themselves —
+     | including "sitting exactly at their floor", whose whole premise is ZERO.
+     | Credits added to make a booking possible would have to be subtracted from
+     | three sets of expectations, which is a fixture editing the claims.
+     |
+     | The mode does not touch what this file measures: the charge is posted with
+     | `enforceFloor: false` in every mode (R17), so the chain, the idempotency
+     | key and the counters are identical. The one test that needs the prepaid
+     | floor says so in its own body.
+     */
+    app(BillingSettings::class)->save($this->workspace, ['mode' => BillingMode::ManualCollection->value]);
+
     $this->session = billableSession($this->workspace, $this->owner, $this->course);
 
     app(BookSeat::class)->handle($this->session->refresh(), $this->student);

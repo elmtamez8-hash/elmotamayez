@@ -46,6 +46,9 @@ beforeEach(function (): void {
     $this->student = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
     $this->createEnrollment($this->workspace, $this->course, $this->student);
     $this->setCurrentWorkspace($this->workspace, $this->owner);
+    // Prepaid is the default, so a seat has to be paid for before it can be
+    // taken. The subject of this file is not money; the funding is fixture.
+    fundBooking($this->workspace, $this->student, $this->course);
 
     $this->session = billableSession($this->workspace, $this->owner, $this->course);
 

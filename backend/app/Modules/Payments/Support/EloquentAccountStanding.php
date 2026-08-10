@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Support;
 
 use App\Models\User;
+use App\Modules\Courses\Models\Course;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Shared\Contracts\AccountStanding;
 use Illuminate\Database\Eloquent\Collection;
@@ -20,23 +21,48 @@ use Illuminate\Database\Eloquent\Collection;
  * for maths keeps the maths notes. Answering per workspace closes both, which is
  * not a rounding error — it is the wrong answer for a course that is paid up.
  *
- * ⚠️ A COURSE WITH NO BALANCE ROW IS NOT WITHHELD. The account is created lazily,
- * so a student who has never bought anything has no row at all, and reading that
- * absence as "owing" would lock out every student on their first day — including
- * in a workspace that collects by hand and never sells a credit. Withholding is
- * a statement about a balance that exists and has run out.
+ * ⚠️ A MISSING BALANCE ROW MEANS ZERO CREDITS, AND WHETHER ZERO IS ENOUGH IS THE
+ * MODE'S QUESTION, NOT THIS CLASS'S. The account is created lazily — by the
+ * first purchase or the first charge — so a newly enrolled student has no row at
+ * all. Reading that absence as "nothing owing" in every mode is what left the
+ * prepaid wall with a hole the exact shape of every student's first day: a
+ * newcomer booked the whole timetable, the sessions were delivered, spec 014
+ * earned the teacher their fee from the same event, and only then was the row
+ * created — at −1, −2, −8. Thirty newcomers in one group class is 240 seats
+ * taught and nothing collected.
+ *
+ * So the absence is answered by asking the workspace how it collects:
+ *
+ *   · deferral allowed (manual collection, gateway, hybrid) — NOT withheld. This
+ *     is the case the old comment was right about: a workspace that takes cash
+ *     and never sells a credit must not lock its students out of a table it
+ *     never writes to.
+ *   · deferral forbidden (prepaid, the launch default) — WITHHELD. Zero credits
+ *     cannot pay for a session, and that is the whole of what prepaid means.
+ *
+ * ⚠️ AND IT IS A READ. The obvious alternative — materialise the row through
+ * CreditAccounts and let the ordinary predicate answer — would have a booking
+ * ATTEMPT write to `credit_balances`, so every refused newcomer would leave a
+ * row behind and the reconciliation job would count them for ever.
  */
 class EloquentAccountStanding implements AccountStanding
 {
     public function __construct(
         private readonly CreditAccounts $accounts,
         private readonly WithholdingReader $withholding,
-        private readonly CreditLedger $ledger,
+        // No CreditLedger here any more, and its absence is the fix: this class
+        // used to hold one so it could compute a floor of its own beside the
+        // reader's. One floor per balance, computed where its inputs are known.
+        private readonly BillingSettings $settings,
     ) {}
 
     public function isWithheld(User $student, int $courseId): bool
     {
-        return in_array($courseId, $this->withheldCourseIdsFor($student), true);
+        if (in_array($courseId, $this->withheldCourseIdsFor($student), true)) {
+            return true;
+        }
+
+        return $this->prepaidWithNoBalance($student, $courseId);
     }
 
     /**
@@ -64,24 +90,43 @@ class EloquentAccountStanding implements AccountStanding
         return array_values($withheld->all());
     }
 
+    /**
+     * Whether the absence of a row is itself a refusal, in this workspace.
+     *
+     * The course is fetched without the workspace scope on purpose: this is
+     * asked from LiveSessions and Media while the reader's current workspace may
+     * be another teacher's entirely, and the question is about the COURSE's
+     * workspace. A course that has been deleted, or one attached to no workspace
+     * (the pre-Q-7 rows the backfill left alone), answers "not withheld" — there
+     * is no mode to ask, and inventing one would refuse a booking over a fact
+     * nobody recorded.
+     */
+    private function prepaidWithNoBalance(User $student, int $courseId): bool
+    {
+        if ($this->accounts->balancesFor($student)->firstWhere('course_id', $courseId) !== null) {
+            return false;
+        }
+
+        $workspace = Course::query()->withoutWorkspaceScope()->find($courseId)?->workspace;
+
+        return $workspace !== null && ! $this->settings->mode($workspace)->allowsDeferral();
+    }
+
     public function creditsNeededFor(User $student, int $courseId): int
     {
         $balance = $this->accounts->balancesFor($student)->firstWhere('course_id', $courseId);
 
         if ($balance === null) {
-            return 0;
+            // One session's worth, when the missing row is itself the refusal.
+            // Zero here would print "تحتاج 0 حصة على الأقل" on the one screen a
+            // newcomer sees first — a refusal that asks for nothing.
+            return $this->prepaidWithNoBalance($student, $courseId) ? 1 : 0;
         }
 
-        $stamped = $this->withholding->stamp(new Collection([$balance]))->first();
-
-        if ($stamped === null || ! (bool) $stamped->getAttribute('is_withheld')) {
-            return 0;
-        }
-
-        // What it would take to afford ONE more session: the distance from here
-        // up to the floor, plus that session. Never the raw negative balance — a
-        // student with a ceiling owes less than their balance reads, and quoting
-        // the deficit would ask them for credits they do not need.
-        return max(1, $this->ledger->floorForBalance($stamped) + 1 - $stamped->remaining_credits);
+        // READ off the stamp, never recomputed beside it. The reader knows the
+        // exam window and the consent; a second computation here knew neither,
+        // and quoted a number the booking gate did not agree with.
+        return (int) ($this->withholding->stamp(new Collection([$balance]))
+            ->first()?->getAttribute('credits_needed') ?? 0);
     }
 }

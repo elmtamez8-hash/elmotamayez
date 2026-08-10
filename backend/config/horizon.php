@@ -213,6 +213,42 @@ return [
             'timeout' => 60,
             'nice' => 0,
         ],
+
+        /*
+        | The nightly sweeps, on their own workers (spec 006).
+        |
+        | ⚠️ SEPARATE BECAUSE OF THE TIMEOUT, NOT ONLY THE PRIORITY. Every sweep
+        | above walks the whole platform, and supervisor-1 kills a job at 60
+        | seconds — so a reconciliation that grew past a minute would be killed,
+        | retried by the scheduler the next night, and killed again, silently,
+        | for as long as the platform kept growing. `tries` stays at 1 for the
+        | same reason it is 1 above: these are idempotent by their unique keys,
+        | but a retry storm on a sweep is a second full walk, not a fix.
+        |
+        | One process, because every one of them carries `withoutOverlapping()`
+        | — a second worker would only ever be waiting on a lock.
+        |
+        | ⚠️ AND IT IS LISTED IN `environments` BELOW, NOT ONLY HERE. `defaults`
+        | supplies shared VALUES; `environments` is what decides which
+        | supervisors actually run. A supervisor defined only in defaults is a
+        | queue with no worker — the jobs enqueue, nothing drains them, and
+        | nothing anywhere says so.
+        */
+        'supervisor-maintenance' => [
+            'connection' => 'redis',
+            'queue' => ['maintenance'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => 900,
+            // Below the web workers: a sweep must never make a student's charge
+            // or a security alert wait for CPU.
+            'nice' => 10,
+        ],
     ],
 
     'environments' => [
@@ -222,11 +258,19 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],
+
+            'supervisor-maintenance' => [
+                'maxProcesses' => 1,
+            ],
         ],
 
         'local' => [
             'supervisor-1' => [
                 'maxProcesses' => 3,
+            ],
+
+            'supervisor-maintenance' => [
+                'maxProcesses' => 1,
             ],
         ],
     ],

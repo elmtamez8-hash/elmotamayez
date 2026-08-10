@@ -446,8 +446,12 @@ credit_transactions     (workspace) APPEND-ONLY. Signed `credits`. unique(balanc
                                     source_type, source_id) — the idempotency key itself
 credit_lots             (workspace) a batch with its own remaining counter. THE one mutable
                                     row beside the ledger, and mutable so the draw can claim
-credit_allocations      (workspace) which lot paid for which consumption. What the draw
-                                    CLAIMED, never re-derivable afterwards
+credit_allocations      (NO KEY)    which lot paid for which consumption. What the draw
+                                    CLAIMED, never re-derivable afterwards. The one table here
+                                    with NEITHER a tenant key NOR platform ownership — a pure
+                                    join between two rows that are both already scoped,
+                                    reached only through transaction ids the caller has
+                                    resolved. No route reads it and no payload carries it
 credit_purchases        (workspace) what was bought, at the price frozen when it was bought
 credit_packages         (PLATFORM)  the catalogue. No workspace_id: a package a teacher could
                                     define is a sale price a teacher sets (FR-021ب)
@@ -487,6 +491,9 @@ about each other. `ContextIsolationTest` derives its table lists from each side'
 - **`terms_consents` stores the version it was signed against** and the readers ask for the
   one in force, so publishing new terms invalidates every old acceptance with no migration
   and no sweep — and touches not a single stored row
-- **Money on `credit_purchases` follows Payments' `decimal(12,2)`, not Settlement's integer
-  minor units.** Two conventions in one product is a real cost, and it is paid here rather
-  than in a migration of shipped order data; the API never sends a formatted amount either way
+- **Money on `credit_purchases` is an integer in MINOR UNITS** (`bigInteger`, plus a
+  `char(3)` currency), following Settlement rather than Payments' `decimal(12,2)`. NFR-009
+  requires it: Laravel's `decimal:2` cast returns a **string**, so every sum goes through a
+  float — tolerable on an order total, not on the snapshot spec 015's books are generated
+  from. `orders` keeps its decimal columns; the two conventions meet at `order_id` and
+  nowhere else, and the API never sends a formatted amount either way

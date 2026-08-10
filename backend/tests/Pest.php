@@ -187,6 +187,53 @@ function billingBalance(Workspace $workspace, User $student, ?Course $course = n
     return app(CreditAccounts::class)->balanceFor($student, $course ?? billingCourse($workspace));
 }
 
+/**
+ * A student who can BOOK, for a fixture whose subject is not money.
+ *
+ * ⚠️ ENROLMENT IS NOT ENOUGH ANY MORE, AND THAT IS THE PRODUCT, NOT THE TEST.
+ * The launch default is PREPAID_CREDITS, in which zero credits — including the
+ * zero of a balance row that does not exist yet — refuses a booking. So a
+ * scheduling, attendance, recording or settlement fixture that books a seat has
+ * to fund the student first, exactly as a real one would have had to buy a
+ * package first.
+ *
+ * ⚠️ AND IT IS CALLED PER FILE, NEVER FOLDED INTO `createEnrollment()`. Thirty-one
+ * suites enrol a student and several of them — WithholdingTest, ExamModeTest,
+ * CreditLimitTest, TeacherPanelRowTest — exist precisely to watch what an EMPTY
+ * balance does. Funding every enrolment would leave those green and vacuous,
+ * which is worse than leaving them red.
+ */
+function fundBooking(Workspace $workspace, User $student, Course $course, int $credits = 10): void
+{
+    grantCredits(billingBalance($workspace, $student, $course), $credits, 'fixture-funding');
+}
+
+/**
+ * Sessions taught, the way delivery records them.
+ *
+ * `enforceFloor: false`, because that is how ChargeSessionSeats posts: the floor
+ * guards the BOOKING, and a session already taught is a debt whether or not it
+ * fits (R17). A helper that enforced it could not put a balance below zero,
+ * which is the state half the withholding fixtures need.
+ */
+function consumeCredits(CreditBalance $balance, int $sessions, string $source = 'test_consume'): void
+{
+    foreach (range(1, $sessions) as $n) {
+        app(CreditLedger::class)->post(new CreditMovement(
+            balance: $balance,
+            type: CreditTransactionType::Consume,
+            credits: -1,
+            sourceType: $source,
+            // Distinct per session: the ledger's unique key is
+            // (balance, type, source_type, source_id), so a constant would make
+            // every call after the first a silently ignored duplicate.
+            sourceId: $n,
+        ));
+    }
+
+    $balance->refresh();
+}
+
 /** Credits added the way a purchase adds them: an entry plus a lot. */
 function grantCredits(CreditBalance $balance, int $credits, string $source, ?DateTimeInterface $expiresAt = null): void
 {

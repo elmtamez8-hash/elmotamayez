@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Jobs;
 
-use App\Models\User;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
@@ -52,7 +51,10 @@ class NotifyDormantBalancesJob implements ShouldQueue
             ->whereNotNull('last_transaction_at')
             ->where('last_transaction_at', '<=', $cutoff)
             ->whereNull('notified_dormant_at')
-            ->with(['course'])
+            // The student as well as the course: the notice names both, and one
+            // of the two used to be fetched per row inside the loop — a 1 + N
+            // hiding behind an eager load that looked complete.
+            ->with(['course', 'student'])
             ->chunkById(200, function (iterable $balances) use ($months, $notifications): void {
                 foreach ($balances as $balance) {
                     $this->notify($balance, $months, $notifications);
@@ -62,7 +64,7 @@ class NotifyDormantBalancesJob implements ShouldQueue
 
     private function notify(CreditBalance $balance, int $months, DispatchNotification $notifications): void
     {
-        $student = User::query()->find($balance->student_user_id);
+        $student = $balance->student;
 
         if ($student === null) {
             return;

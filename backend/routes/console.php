@@ -49,13 +49,34 @@ Schedule::job(new ReleasePendingUnitsJob)->everyFifteenMinutes();
 // find nothing eleven of them.
 Schedule::job(new CloseDueSettlementPeriodsJob)->dailyAt('04:10');
 
+/*
+| ⚠️ EVERY BILLING SWEEP CARRIES `withoutOverlapping()` AND ITS OWN QUEUE.
+|
+| Overlap first: ChargeUnbilledDeliveriesJob runs every fifteen minutes, and one
+| run that takes longer than its interval used to start a second copy over the
+| same rows. The CHARGES stay safe — the ledger's unique index is what makes a
+| replay harmless — but both copies re-walk the whole scan and both re-fetch a
+| workspace per row, so the backlog that caused the overrun feeds itself. And a
+| reconciliation overlapping itself writes two `credit_reconciliation_runs` rows
+| for one night with different totals, after which "the last run" is a question
+| with two answers.
+|
+| The queue second: none of these named one, so five sweeps that walk the whole
+| platform shared the default queue with ChargeSeatsOnDelivery and every
+| notification dispatch. A student's credits would be deducted behind a
+| reconciliation — latency-sensitive work queued behind the least urgent work on
+| the system, once a night, at exactly the hour nobody is watching.
+*/
+
 // Delivered sessions nobody charged. Every fifteen minutes, at :05 past the
 // quarter so it trails ReleasePendingUnitsJob rather than racing it — both walk
 // recently delivered sessions, and staggering keeps two sweeps off the same rows
 // in the same second. Frequent for the same reason: what it repairs is a student
 // who keeps booking on credits they have already spent, and every quarter hour of
 // delay is another seat taken on money that was never deducted.
-Schedule::job(new ChargeUnbilledDeliveriesJob)->cron('5,20,35,50 * * * *');
+Schedule::job(new ChargeUnbilledDeliveriesJob, 'maintenance')
+    ->cron('5,20,35,50 * * * *')
+    ->withoutOverlapping();
 
 // Balances that have owed for longer than the platform allows lose their ceiling
 // (FR-040). Daily, because the boundary it acts on is measured in DAYS — running
@@ -63,23 +84,31 @@ Schedule::job(new ChargeUnbilledDeliveriesJob)->cron('5,20,35,50 * * * *');
 // and at 04:25, clear of every sweep above so it never queues behind their locks.
 // A sweep rather than a listener: falling behind is the absence of an event, and
 // nothing fires on the fourteenth day of owing.
-Schedule::job(new EvaluateCreditLimitsJob)->dailyAt('04:25');
+Schedule::job(new EvaluateCreditLimitsJob, 'maintenance')
+    ->dailyAt('04:25')
+    ->withoutOverlapping();
 
 // Lots whose validity has run out. Before the reconciliation below, deliberately:
 // an expiry moves a balance, and a sweep that checked the books first would
 // report every lot it was about to write off as a discrepancy for one night.
 // Switched off in practice — `validity_days` defaults to null, so this finds
 // nothing until an operator sets one (Q-5).
-Schedule::job(new ExpireCreditLotsJob)->dailyAt('04:35');
+Schedule::job(new ExpireCreditLotsJob, 'maintenance')
+    ->dailyAt('04:35')
+    ->withoutOverlapping();
 
 // Does the ledger still add up? Nightly, after every sweep that moves a balance,
 // so what it reads is the settled state rather than a snapshot mid-write. Three
 // GROUP BYs over the fastest-growing tables of this phase — which is exactly why
 // it is a job and not the GET that reads its results.
-Schedule::job(new ReconcileCreditBalancesJob)->dailyAt('04:45');
+Schedule::job(new ReconcileCreditBalancesJob, 'maintenance')
+    ->dailyAt('04:45')
+    ->withoutOverlapping();
 
 // Credits nobody came back for (Q-8). Weekly, not nightly: the boundary is
 // measured in MONTHS, and the notice is a courtesy — asking the same question
 // every night for a year is how a courtesy becomes the reason someone turns
 // notifications off. Sunday, clear of the nightly run above.
-Schedule::job(new NotifyDormantBalancesJob)->weeklyOn(0, '05:00');
+Schedule::job(new NotifyDormantBalancesJob, 'maintenance')
+    ->weeklyOn(0, '05:00')
+    ->withoutOverlapping();

@@ -61,9 +61,18 @@ enum BillingCadence: string
      * How many sessions one payment covers, by convention.
      *
      * A convention, not a measurement: the real number depends on how often a
-     * given teacher meets a given student, which nothing here knows. It sets the
-     * DEFAULT package size and the DEFAULT credit ceiling, both of which an
-     * operator overrides per workspace and per student (FR-038).
+     * given teacher meets a given student, which nothing here knows. It suggests
+     * a package size, and it BOUNDS the credit ceiling from above — it does not
+     * produce either.
+     *
+     * ⚠️ THE CADENCE DERIVES NOTHING, AND FR-010ب SAYS SO IN THOSE WORDS: the
+     * credit count, the price and the ceiling belong to the package (FR-016), to
+     * FR-021's formula and to the consent, in that order. An earlier note here
+     * called this "the DEFAULT credit ceiling" and cited FR-038, which is a rule
+     * about the TEACHER not editing a limit and has nothing to say about where
+     * the number comes from. {@see BillingSettings::cadenceAllowsCredits()} is
+     * the composition, and it is a `min`: a bound can only ever lower the
+     * platform's number, never originate one.
      *
      * Read from config so a platform whose students meet twice a week rather
      * than once does not need a deploy to say so.

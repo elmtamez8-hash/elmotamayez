@@ -71,6 +71,9 @@ function seatHolder(): void
     $student = $test->addWorkspaceMember($test->workspace, Roles::STUDENT);
     $test->createEnrollment($test->workspace, $test->course, $student);
     $test->setCurrentWorkspace($test->workspace, $test->owner);
+    // Prepaid is the default, so a seat has to be paid for before it can be
+    // taken. The subject of this file is not money; the funding is fixture.
+    fundBooking($test->workspace, $student, $test->course);
 
     app(BookSeat::class)->handle($test->session->refresh(), $student);
 }

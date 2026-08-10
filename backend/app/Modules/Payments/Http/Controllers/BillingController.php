@@ -96,6 +96,11 @@ class BillingController extends Controller
     public function transactions(Request $request, CreditAccounts $accounts): JsonResponse
     {
         $balanceIds = $accounts->balancesFor($this->currentUser($request))
+            // Loaded before the filter touches `course`, the way the sibling
+            // method above already does. Without it the predicate lazy-loads one
+            // course per balance — and `?course=` is exactly what the billing
+            // page sends, so the filtered path was the expensive one.
+            ->load('course')
             ->when(
                 is_string($request->query('course')),
                 fn ($balances) => $balances->filter(

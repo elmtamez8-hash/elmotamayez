@@ -461,15 +461,53 @@ class CreditLedger
      * Only purchases and bonuses open one. A refund or a correction moves the
      * total without being a batch anyone can consume from — giving them lots
      * would let a negative correction be "spent".
+     *
+     * ⚠️ AND IT OPENS ALREADY REDUCED BY ANY DEBT IT IS PAYING OFF. A session
+     * delivered at zero moves `remaining_credits` and draws from no lot — there
+     * is nothing to draw from — which is consistent while the balance is
+     * negative and invisible, because ReconcileCreditBalancesJob skips negative
+     * balances for that very reason. The moment the student pays, the balance
+     * turns positive with a lot still holding every credit bought, and the
+     * nightly check reports it FOR EVER: every deferring student, plus every
+     * prepaid student who ever had a session delivered at zero.
+     *
+     * The invariant restored here is `sum(credits_remaining) = max(remaining, 0)`,
+     * which is what `lotsAgainstBalances()` actually asserts. `credits_total` is
+     * left alone: it is the receipt, and they did buy eight.
+     *
+     * The debt is not written into `credit_allocations`. Those consumptions drew
+     * from no lot when they happened, and minting allocations now would claim a
+     * link that did not exist at the time — the same retroactive rewriting that
+     * soonest-expiring-first is ordered from day one to avoid.
      */
     private function openLot(CreditTransaction $entry, CreditMovement $movement): void
     {
+        /*
+        | Read AFTER applyToBalance, so this is the balance including the credits
+        | just added — and read from the database, because the move was an atomic
+        | conditional UPDATE and the in-memory model still holds the old figure.
+        */
+        $remaining = (int) CreditBalance::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($movement->balance->getKey())
+            ->value('remaining_credits');
+
+        $heldElsewhere = (int) CreditLot::query()
+            ->withoutWorkspaceScope()
+            ->where('credit_balance_id', $movement->balance->getKey())
+            ->sum('credits_remaining');
+
+        // Clamped at both ends: never below zero (a purchase cannot un-buy an
+        // older lot), never above what was bought (a debt cannot make a lot
+        // larger than its receipt).
+        $survives = max(0, min($movement->credits, max(0, $remaining) - $heldElsewhere));
+
         CreditLot::query()->create([
             'credit_transaction_id' => $entry->getKey(),
             'credit_balance_id' => $movement->balance->getKey(),
             'workspace_id' => $movement->balance->workspace_id,
             'credits_total' => $movement->credits,
-            'credits_remaining' => $movement->credits,
+            'credits_remaining' => $survives,
             'expires_at' => $movement->expiresAt,
         ]);
     }

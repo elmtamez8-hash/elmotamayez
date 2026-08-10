@@ -102,11 +102,50 @@ it('lifts the hold on the very next attempt, with nothing run in between', funct
     expect($second->refresh()->seats_taken)->toBe(1);
 });
 
-it('does not withhold a student who simply has no balance row yet', function (): void {
-    // Withholding is a statement about a balance that RAN OUT. Reading the
-    // absence of a lazily-created row as "owing" would lock out every student on
-    // their first day — including in a workspace that collects by hand and never
-    // sells a credit at all.
+/*
+| FR-031 · US2/2 · SC-004 — the prepaid wall, and the ONE case it does not cover.
+|
+| ⚠️ THE MISSING ROW WAS THE HOLE, AND IT WAS EVERY STUDENT'S FIRST DAY. The
+| balance row is created lazily — by the first purchase, or by the first charge —
+| so a newly enrolled student has none, and "no row" used to read as "nothing
+| owing" in every mode. In PREPAID_CREDITS, which is the launch default, that let
+| a newcomer book the whole timetable at once; the sessions were then delivered,
+| the teacher earned their fee from the same event (spec 014), and only THEN was
+| the row created, at −1, −2, −8. Thirty newcomers in one group class is 240
+| seats taught and nothing collected.
+|
+| The two tests below are the same fact from both sides. The old single test
+| asserted only the second one and called it the rule.
+*/
+
+it('refuses a newcomer with no balance row where credits are prepaid', function (): void {
+    $newcomer = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->physics, $newcomer);
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+
+    $session = sessionOnCourse($this->physics);
+
+    // The refusal still names a number and a way to pay (SC-010): a newcomer is
+    // the person most in need of being told what to do next, not least.
+    try {
+        app(BookSeat::class)->handle($session->refresh(), $newcomer);
+
+        expect(false)->toBeTrue('a prepaid workspace let a booking through at zero');
+    } catch (DomainException $e) {
+        expect($e->getMessage())->toContain('1')
+            ->and($e->getMessage())->toContain('الأرصدة');
+    }
+
+    expect($session->refresh()->seats_taken)->toBe(0);
+});
+
+it('lets a newcomer with no balance row book where collection is by hand', function (): void {
+    // The argument the old comment made, kept where it is true. A workspace that
+    // collects cash and never sells a credit must not have its students locked
+    // out by a table it never writes to — deferral is exactly the mode that says
+    // "the money arrives by another route".
+    app(BillingSettings::class)->save($this->workspace, ['mode' => BillingMode::ManualCollection->value]);
+
     $newcomer = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
     $this->createEnrollment($this->workspace, $this->physics, $newcomer);
     $this->setCurrentWorkspace($this->workspace, $this->owner);
@@ -116,4 +155,29 @@ it('does not withhold a student who simply has no balance row yet', function ():
     app(BookSeat::class)->handle($session->refresh(), $newcomer);
 
     expect($session->refresh()->seats_taken)->toBe(1);
+});
+
+it('blocks at zero in a prepaid workspace even when the switch says remind only', function (): void {
+    // FR-027 makes the zero-balance behaviour configurable; FR-014 says a
+    // prepaid balance never goes below zero, full stop. Two rules meeting at one
+    // predicate, and `remind` used to win — so the mode's own first sentence was
+    // switched off by a dropdown, silently, for whoever changed it.
+    app(BillingSettings::class)->save($this->workspace, [
+        'mode' => BillingMode::PrepaidCredits->value,
+        'zero_balance_behavior' => 'remind',
+    ]);
+
+    $emptied = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->maths, $emptied);
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+
+    // A row that exists and holds nothing — the case `remind` was written for.
+    billingBalance($this->workspace, $emptied, $this->maths);
+
+    $session = sessionOnCourse($this->maths);
+
+    expect(fn () => app(BookSeat::class)->handle($session->refresh(), $emptied))
+        ->toThrow(DomainException::class);
+
+    expect($session->refresh()->seats_taken)->toBe(0);
 });

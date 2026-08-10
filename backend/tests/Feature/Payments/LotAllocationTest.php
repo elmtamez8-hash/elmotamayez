@@ -108,3 +108,73 @@ it('records which lot paid for which consumption', function (): void {
         ->and((int) $rows[0]->credits + (int) $rows[1]->credits)->toBe(3)
         ->and((int) $rows[0]->consumed_transaction_id)->toBe((int) $rows[1]->consumed_transaction_id);
 });
+
+/*
+| B2 — a debt carried below zero is paid by the NEXT purchase, in the lots too.
+|
+| ⚠️ THE INVARIANT USED TO BREAK PERMANENTLY, AND THE NIGHTLY CHECK COULD ONLY
+| SHOUT ABOUT IT. `drawFromLots` takes only from lots with credits left, so a
+| session delivered at zero moves `remaining_credits` and touches no lot — which
+| is consistent while the balance is negative, and invisible, because
+| ReconcileCreditBalancesJob skips negative balances for exactly that reason.
+|
+| Then the student pays. `remaining` climbs to 6 while the fresh lot still holds
+| all 8, and the balance is now POSITIVE — so from that night on it is reported
+| as broken, every night, for ever, with nothing anyone can do about it. The
+| population is every deferring student plus every prepaid student who ever had a
+| session delivered at zero, and a reconciliation report full of findings nobody
+| can act on is a reconciliation report nobody reads.
+|
+| The lot's `credits_total` still says 8. That is the receipt and it is true: they
+| bought eight. What they have LEFT is six, and the lot is the thing that knows.
+*/
+it('opens the next lot already reduced by the debt it is paying off', function (): void {
+    grantCredits($this->balance, 2, 'first');
+
+    // Four sessions delivered against two credits. `enforceFloor` stays false,
+    // which is how ChargeSessionSeats posts: a session taught is a debt whether
+    // or not it fits (R17).
+    consumeCredits($this->balance, 4, 'delivery');
+
+    expect($this->balance->refresh()->remaining_credits)->toBe(-2)
+        ->and((int) CreditLot::query()->withoutWorkspaceScope()->sum('credits_remaining'))->toBe(0);
+
+    grantCredits($this->balance, 8, 'settling-up');
+
+    expect($this->balance->refresh()->remaining_credits)->toBe(6)
+        ->and((int) CreditLot::query()->withoutWorkspaceScope()->sum('credits_remaining'))->toBe(6);
+
+    $settling = CreditLot::query()->withoutWorkspaceScope()->orderByDesc('id')->firstOrFail();
+
+    // The receipt is untouched: eight were bought, six survive the debt.
+    expect($settling->credits_total)->toBe(8)
+        ->and($settling->credits_remaining)->toBe(6);
+});
+
+it('opens an empty lot when the purchase does not cover the debt', function (): void {
+    grantCredits($this->balance, 1, 'first');
+    consumeCredits($this->balance, 6, 'delivery');
+
+    expect($this->balance->refresh()->remaining_credits)->toBe(-5);
+
+    grantCredits($this->balance, 2, 'partial');
+
+    // Still owing three. A lot holding two while the balance reads −3 is the
+    // same divergence one payment earlier — the invariant is `sum(lots)` equals
+    // the balance ONLY where the balance is positive, and zero everywhere below.
+    expect($this->balance->refresh()->remaining_credits)->toBe(-3)
+        ->and((int) CreditLot::query()->withoutWorkspaceScope()->sum('credits_remaining'))->toBe(0);
+});
+
+it('leaves an ordinary purchase on a healthy balance exactly as it was', function (): void {
+    grantCredits($this->balance, 4, 'first');
+    consumeCredits($this->balance, 1, 'delivery');
+    grantCredits($this->balance, 8, 'second');
+
+    expect($this->balance->refresh()->remaining_credits)->toBe(11)
+        ->and((int) CreditLot::query()->withoutWorkspaceScope()->sum('credits_remaining'))->toBe(11);
+
+    // The new lot is untouched: there was no debt for it to pay.
+    expect(CreditLot::query()->withoutWorkspaceScope()->orderByDesc('id')->firstOrFail()->credits_remaining)
+        ->toBe(8);
+});

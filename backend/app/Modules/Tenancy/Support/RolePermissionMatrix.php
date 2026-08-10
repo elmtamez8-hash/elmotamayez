@@ -117,10 +117,20 @@ final class RolePermissionMatrix
             Permissions::MEMBERS_REMOVE,
             Permissions::SETTINGS_VIEW,
             Permissions::SETTINGS_UPDATE,
-            // Switching the billing mode changes whether students may owe money
-            // at all — an ownership decision about the workspace, not a teaching
-            // one, so it sits beside SETTINGS_UPDATE rather than on $teacher.
-            Permissions::BILLING_SETTINGS_MANAGE,
+            //
+            // ⚠️ BILLING_SETTINGS_MANAGE USED TO BE HERE, ARGUED AS "AN OWNERSHIP
+            // DECISION ABOUT THE WORKSPACE, NOT A TEACHING ONE". The argument was
+            // about the wrong ownership. Since spec 014 the teacher is paid from
+            // DELIVERY, not from collection — so the debt a teacher would be
+            // permitting on their own students is a debt on the PLATFORM, which
+            // carries it until somebody pays. Deferred payment is the platform
+            // lending money, and the borrower's teacher does not set the terms.
+            //
+            // It joins the other five in $all, beside BILLING_LIMIT_MANAGE, which
+            // was already platform-only for exactly this reason: a ceiling a
+            // teacher could raise is a teacher deciding how much the platform may
+            // be owed. Switching the mode is the same decision at wholesale.
+            //
         ]);
 
         return [
@@ -129,6 +139,21 @@ final class RolePermissionMatrix
             Roles::TEACHER => $teacher,
             Roles::ASSISTANT_TEACHER => $assistantTeacher,
             Roles::STUDENT => $student,
+            /*
+            | The delegated finance officer — one permission, listed literally.
+            |
+            | Not built from another array: every other row here is `$smaller +
+            | extras`, and that shape is right for roles that nest. This one does
+            | not nest in anything. Composing it from $teacher or $tenantOwner
+            | would hand a finance clerk a classroom, and composing $tenantOwner
+            | from it would hand a teacher the approval Q-4 took away.
+            */
+            Roles::FINANCE_ADMIN => [
+                Permissions::BILLING_PURCHASE_APPROVE,
+                // What they are approving. Without it the approval screen is a
+                // button with no receipt behind it.
+                Permissions::ORDERS_VIEW_ALL,
+            ],
         ];
     }
 }

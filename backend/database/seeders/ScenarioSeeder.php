@@ -44,7 +44,6 @@ use App\Modules\Payments\Enums\BillingMode;
 use App\Modules\Payments\Enums\ConsentDocument;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Models\CreditBalance;
-use App\Modules\Payments\Models\CreditPackage;
 use App\Modules\Payments\Models\ExamModeWindow;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Models\Product;
@@ -548,25 +547,15 @@ final class ScenarioSeeder extends Seeder
 
         $workspace->refresh();
 
-        // Two sizes, one of each session type, so the purchase screen has a
-        // choice to render. Priced by the platform from the teacher's approved
-        // rate — which the settlement seed above has already created.
-        foreach ([
-            ['حزمة ٨ حصص فردية', 8, ClassSessionType::Individual, 1],
-            ['حزمة ١٦ حصة فردية', 16, ClassSessionType::Individual, 2],
-            ['حزمة ١٢ حصة جماعية', 12, ClassSessionType::Group, 3],
-        ] as [$name, $credits, $type, $order]) {
-            CreditPackage::create([
-                'name' => $name,
-                'credits' => $credits,
-                'session_type' => $type,
-                // Null: credits do not expire at launch (Q-5). Seeding a validity
-                // would switch on a policy the product has not sold.
-                'validity_days' => null,
-                'is_active' => true,
-                'sort_order' => $order,
-            ]);
-        }
+        // The catalogue comes from the reference seeder, not from here.
+        //
+        // It used to be created inline, and that made the demo the only place a
+        // package existed — so the screen this scenario exists to populate was
+        // green in a seeded database and empty in a real one, which is the exact
+        // inversion a demo seed is supposed to catch. `callOnce` rather than a
+        // plain call: DatabaseSeeder already ran it, and this line is only here
+        // for `db:seed --class=ScenarioSeeder` on its own.
+        $this->callOnce(CreditPackageSeeder::class);
 
         [$healthy, $onThreshold, $withheld] = $students;
 

@@ -6,8 +6,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/states/EmptyState";
-import { CardGridSkeleton } from "@/components/ui/states/LoadingSkeleton";
-import { errorMessage } from "@/lib/api";
+import { CardGridSkeleton, RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
+import { api, errorMessage } from "@/lib/api";
+import type { Enrollment } from "@/lib/types";
 import { billing, formatCredits, type CreditPackageOffer } from "@/lib/billing";
 import { formatMinorMoney } from "@/lib/labels";
 
@@ -29,6 +30,101 @@ import { formatMinorMoney } from "@/lib/labels";
  * therefore stopped selling (FR-021ط). Both are the same fact from here, so both
  * get the same honest message instead of a reason the student cannot act on.
  */
+/**
+ * Which course? — asked here, answered here.
+ *
+ * ⚠️ THIS SCREEN USED TO SEND THE STUDENT BACK TO `/billing`, WHICH SENT THEM
+ * HERE. A student with no balance saw "بعد أول عملية شراء ستظهر هنا" on the
+ * balance page, whose only purchase link lives inside the balance card that
+ * renders only when a balance exists; arriving here without a course, they were
+ * told to go back and pick one — from a page that offers no picker. A closed
+ * loop with the product's entire revenue path inside it, and the launch default
+ * is PREPAID_CREDITS, where a student who cannot buy cannot book.
+ *
+ * The list is the student's own enrolments, which is exactly the set
+ * CourseParticipation admits: what the API will price is what the screen offers,
+ * rather than a catalogue that 403s on half its entries.
+ */
+function CoursePicker() {
+  const [courses, setCourses] = useState<Enrollment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setFailed(false);
+
+    api
+      .get<{ data: Enrollment[] }>("/enrollments")
+      .then((res) => setCourses(res.data ?? []))
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(load, [load]);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-bold text-ink">شراء أرصدة</h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          اختر الكورس أولاً — سعر الحصة يختلف باختلاف المدرّس، فلا يوجد سعر واحد
+          لكل كورساتك.
+        </p>
+      </div>
+
+      {loading && <RowsSkeleton />}
+
+      {!loading && failed && (
+        <EmptyState
+          title="تعذّر تحميل كورساتك"
+          description="أعد المحاولة بعد قليل."
+          action={
+            <Button variant="secondary" onClick={load}>
+              إعادة المحاولة
+            </Button>
+          }
+        />
+      )}
+
+      {!loading && !failed && courses.length === 0 && (
+        <EmptyState
+          title="لم تسجّل في أي كورس بعد"
+          description="الأرصدة تُشترى على كورس، فابدأ بالتسجيل في واحد."
+          action={
+            <Button variant="primary" href="/courses">
+              تصفّح الكورسات
+            </Button>
+          }
+        />
+      )}
+
+      {!loading && !failed && courses.length > 0 && (
+        <ul className="grid gap-4 sm:grid-cols-2">
+          {courses.map((enrollment) => (
+            <li key={enrollment.uuid}>
+              <Card>
+                <h2 className="text-base font-semibold text-ink">
+                  {enrollment.course_title}
+                </h2>
+
+                <div className="mt-4">
+                  <Button
+                    variant="primary"
+                    href={`/billing/purchase?course=${encodeURIComponent(enrollment.course_uuid)}`}
+                  >
+                    عرض الحزم
+                  </Button>
+                </div>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export default function PurchaseCreditsPage() {
   const router = useRouter();
   const params = useSearchParams();
@@ -93,17 +189,7 @@ export default function PurchaseCreditsPage() {
   }
 
   if (!course) {
-    return (
-      <EmptyState
-        title="اختر الكورس أولاً"
-        description="تُشترى الأرصدة على كورس بعينه، لأن سعرها يختلف باختلاف المدرّس."
-        action={
-          <Button variant="secondary" href="/billing">
-            رصيدي
-          </Button>
-        }
-      />
-    );
+    return <CoursePicker />;
   }
 
   return (

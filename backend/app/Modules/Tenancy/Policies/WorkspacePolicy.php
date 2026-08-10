@@ -47,10 +47,23 @@ class WorkspacePolicy extends BasePolicy
     /**
      * Switch how this workspace collects (spec 006, FR-011).
      *
-     * Membership first, permission second — the same order as manageMembers,
-     * and for the same reason: BILLING_SETTINGS_MANAGE is a tenant permission,
-     * so someone holding it in their own workspace would otherwise carry it into
-     * anyone else's.
+     * ⚠️ THE ONLY CALLER THAT REACHES THE `allow` BRANCH TODAY NEVER RUNS THIS
+     * METHOD. `BILLING_SETTINGS_MANAGE` moved to platform-only after 006 shipped
+     * — since 014 pays the teacher from delivery, deferred collection is the
+     * PLATFORM lending money — so it now sits in `$all` alone, and super-admin is
+     * waved past every policy by {@see BasePolicy::before()}. What is left below
+     * is therefore a refusal for everyone else, which is correct.
+     *
+     * The membership check stays because the permission may yet be delegated: a
+     * grant made in one workspace must not carry into another, since `can()`
+     * answers for the CURRENT team rather than for `$workspace`. That is the same
+     * reason it precedes the permission in manageMembers.
+     *
+     * ⚠️ AND IT IS A TRAP FOR THE PLATFORM-STAFF MECHANISM WHEN IT IS CHOSEN. A
+     * finance officer editing a teacher's collection mode is by definition not a
+     * member of that teacher's workspace, so granting them this permission
+     * without touching this line gives them an unexplainable 403. Whoever picks
+     * the mechanism reads this method first.
      */
     public function manageBillingSettings(User $user, Workspace $workspace): Response
     {

@@ -43,6 +43,15 @@ export interface CreditBalance {
   credit_limit_credits: number;
   /** Derived server-side from the balance, the limit, the mode and exam mode. */
   is_withheld: boolean;
+  /**
+   * Sessions to buy before booking resumes — zero when nothing is withheld.
+   *
+   * Sent rather than subtracted here: the deficit is measured against the
+   * EFFECTIVE floor, which also depends on the billing mode, an open exam window
+   * and a current terms consent. None of those is in this payload, so the number
+   * cannot be computed correctly in the browser — it can only look correct.
+   */
+  credits_needed: number;
 }
 
 export interface CreditTransaction {

@@ -41,6 +41,12 @@ use Illuminate\Support\Facades\Log;
  * destroy the evidence of what went wrong, and the append-only ledger has no
  * shape for an undo — a correction is `AdjustCredits`, typed by a person, with a
  * reason.
+ *
+ * ⚠️ ALL THREE WALKS USE `chunkById`, NEVER `chunk`. Not the OFFSET-skipping bug
+ * of spec 016 — nothing here shrinks the predicate under the paginator — but
+ * `chunk` pages with LIMIT/OFFSET, so page k makes the engine walk k×500 rows
+ * before returning any. That is O(n²) row visits per night, over precisely the
+ * tables this job exists because they grow fastest.
  */
 class ReconcileCreditBalancesJob implements ShouldQueue
 {
@@ -100,8 +106,12 @@ class ReconcileCreditBalancesJob implements ShouldQueue
 
         DB::table('credit_balances')
             ->select(['id', 'workspace_id', 'student_user_id', 'remaining_credits'])
-            ->orderBy('id')
-            ->chunk(500, function (iterable $balances) use ($sums, &$findings): void {
+            // chunkById, not chunk: `chunk` pages with LIMIT/OFFSET, so page k
+            // makes the engine walk k×500 rows before it returns any — O(n²)
+            // row visits per night over the fastest-growing tables of this
+            // phase. The ordering is chunkById's own; a manual orderBy('id')
+            // above it was a second clause on the same column.
+            ->chunkById(500, function (iterable $balances) use ($sums, &$findings): void {
                 foreach ($balances as $balance) {
                     $expected = (int) ($sums[$balance->id] ?? 0);
 
@@ -143,8 +153,12 @@ class ReconcileCreditBalancesJob implements ShouldQueue
         DB::table('credit_balances')
             ->select(['id', 'workspace_id', 'student_user_id', 'remaining_credits'])
             ->where('remaining_credits', '>', 0)
-            ->orderBy('id')
-            ->chunk(500, function (iterable $balances) use ($lots, &$findings): void {
+            // chunkById, not chunk: `chunk` pages with LIMIT/OFFSET, so page k
+            // makes the engine walk k×500 rows before it returns any — O(n²)
+            // row visits per night over the fastest-growing tables of this
+            // phase. The ordering is chunkById's own; a manual orderBy('id')
+            // above it was a second clause on the same column.
+            ->chunkById(500, function (iterable $balances) use ($lots, &$findings): void {
                 foreach ($balances as $balance) {
                     $held = (int) ($lots[$balance->id] ?? 0);
 
@@ -199,8 +213,12 @@ class ReconcileCreditBalancesJob implements ShouldQueue
         DB::table('class_sessions')
             ->select(['id', 'workspace_id'])
             ->whereNotNull('charged_at')
-            ->orderBy('id')
-            ->chunk(500, function (iterable $sessions) use ($seats, $entries, &$findings): void {
+            // chunkById, not chunk: `chunk` pages with LIMIT/OFFSET, so page k
+            // makes the engine walk k×500 rows before it returns any — O(n²)
+            // row visits per night over the fastest-growing tables of this
+            // phase. The ordering is chunkById's own; a manual orderBy('id')
+            // above it was a second clause on the same column.
+            ->chunkById(500, function (iterable $sessions) use ($seats, $entries, &$findings): void {
                 foreach ($sessions as $session) {
                     $expected = (int) ($seats[$session->id] ?? 0);
                     $actual = (int) ($entries[$session->id] ?? 0);

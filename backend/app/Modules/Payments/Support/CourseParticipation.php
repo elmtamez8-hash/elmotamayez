@@ -6,26 +6,43 @@ namespace App\Modules\Payments\Support;
 
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Contracts\EnrollmentDirectory;
 
 /**
- * Is this person party to this course? — the guard on every priced surface.
+ * Is this person a BUYER on this course? — the guard on every priced surface.
  *
  * ⚠️ IT IS ABOUT THE PRICE, NOT ABOUT THE CONTENT. A total is
  * `(approved rate + operating fee) × credits` grossed up for the gateway, and
- * the platform's two components are the SAME CONSTANTS for everyone. So a
- * stranger who could read one course's totals for two package sizes could solve
- * for both constants and then invert any other course's total back to its
- * teacher's approved settlement rate, exactly. Several package sizes make the
- * system overdetermined, so rounding hides nothing.
+ * the platform's two components are the SAME CONSTANTS for everyone. So anyone
+ * who can read one course's totals for two package sizes solves for both
+ * constants, and can then invert any other course's total back to its teacher's
+ * approved settlement rate, exactly. Several package sizes make the system
+ * overdetermined, so rounding hides nothing.
  *
- * That is why signed-in is not enough, and why the answer for a stranger is 403
- * rather than an unpriced or empty list.
+ * That is why signed-in is not enough, and why the answer is 403 rather than an
+ * unpriced or empty list.
  *
- * Workspace membership counts alongside enrolment, and that is the FIRST
- * purchase rather than a loophole: a student buying credits for their first
- * session has no enrolment yet, and requiring one would leave the packages
- * screen reachable only by people who no longer need it.
+ * ⚠️ AND WHY THE TEACHING SIDE IS REFUSED FIRST, BEFORE ANY WAY IN IS ASKED.
+ * A stranger's arithmetic stalls at three unknowns and two equations; the
+ * teacher's does not, because they already hold their own approved rate — they
+ * asked for it and they read it on their statement. Two package sizes hand them
+ * the platform's constants by subtraction, and every OTHER teacher's rate
+ * follows from any other course's total. FR-021ب forbids a teacher those
+ * numbers, and this is the one door neither TeacherFieldAllowlist nor
+ * StudentBalanceAllowlist watches: nothing here is a field on a teacher-facing
+ * payload — it is the STUDENT'S screen, opened by the wrong person.
+ *
+ * The refusal OVERRIDES an enrolment rather than merely not being one of the
+ * ways in. An enrolment is a row the teacher can cause to exist, so a check
+ * that only failed to admit them would be one `Enrollment::create` from being
+ * no check at all.
+ *
+ * Membership is an allowlist on the pivot role — STUDENT and nothing else, so a
+ * role added by a later spec cannot buy until somebody says it may. It counts
+ * alongside enrolment because it is the FIRST purchase: a student buying credits
+ * for their first session has no enrolment yet, and requiring one would leave
+ * the packages screen reachable only by people who no longer need it.
  */
 class CourseParticipation
 {
@@ -33,8 +50,35 @@ class CourseParticipation
 
     public function isPartyTo(User $user, Course $course): bool
     {
+        if ($this->teachesIn($user, $course)) {
+            return false;
+        }
+
         return $this->enrollments->hasActiveEnrollment($user, (int) $course->getKey())
             || $this->enrollments->hasActiveEnrollmentInWorkspace($user, (int) $course->workspace_id)
-            || $user->workspaces()->whereKey($course->workspace_id)->exists();
+            || $this->buysIn($user, $course);
+    }
+
+    /**
+     * On the teaching side of this workspace — owner, teacher or assistant.
+     *
+     * Asked as "a member whose role is not STUDENT" rather than by naming the
+     * three: a denylist of role names lets the next role added ship with the
+     * leak open, and this is the predicate a leak would be invisible in.
+     */
+    private function teachesIn(User $user, Course $course): bool
+    {
+        return $user->workspaces()
+            ->whereKey($course->workspace_id)
+            ->wherePivot('role', '!=', Roles::STUDENT)
+            ->exists();
+    }
+
+    private function buysIn(User $user, Course $course): bool
+    {
+        return $user->workspaces()
+            ->whereKey($course->workspace_id)
+            ->wherePivot('role', Roles::STUDENT)
+            ->exists();
     }
 }

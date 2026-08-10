@@ -48,12 +48,16 @@ beforeEach(function (): void {
     $this->createEnrollment($this->workspace, $this->course, $this->student);
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
+    // BEFORE the booking, not after it. The credits were always here; they used
+    // to be granted below the seat, which only worked while a prepaid workspace
+    // let an empty balance book. The order is now the real one — buy, then book
+    // — and the numbers the assertions use are unchanged.
+    grantCredits(billingBalance($this->workspace, $this->student, $this->course), 5, 'unbilled');
+
     $this->session = billableSession($this->workspace, $this->owner, $this->course);
 
     app(BookSeat::class)->handle($this->session->refresh(), $this->student);
     $this->session->refresh()->forceFill(['billable_seats' => 1])->save();
-
-    grantCredits(billingBalance($this->workspace, $this->student, $this->course), 5, 'unbilled');
 });
 
 it('charges a delivered session the queue never got to, exactly once', function (): void {
@@ -113,4 +117,68 @@ it('leaves an undelivered session alone', function (): void {
     expect(CreditTransaction::query()->withoutWorkspaceScope()
         ->where('type', CreditTransactionType::Consume)->count())->toBe(0)
         ->and($this->session->refresh()->charged_at)->toBeNull();
+});
+
+/*
+| A6 — a session whose frozen seat count never got written must not be stamped
+| "charged" over a room full of students.
+|
+| ⚠️ THE STAMP IS WHAT REMOVES A SESSION FROM THE SWEEP, SO STAMPING IT UNCHARGED
+| CLOSES THE ONLY REPAIR PATH. `billable_seats` is nullable — it is written once,
+| at the cancellation deadline — and the sweep coerces null to zero because "zero
+| is the honest reading of a deadline that never ran". Zero is an honest reading
+| of the SEAT COUNT. It is not an honest reading of `charged_at`, which the
+| migration defines as "the charge ran to completion".
+|
+| So a queue outage that dropped the deadline job produced: five students taught,
+| nobody debited, the session marked done, and — because
+| ReconcileCreditBalancesJob looks for one entry per seat of a CHARGED session —
+| a finding on that session every night thereafter, permanently, with no
+| mechanism anywhere able to clear it. And silently: the mismatch warning one
+| branch below never ran, because this branch returns first.
+|
+| The seat holders are the fact that survives. The frozen count is an optimisation
+| of it, and when the optimisation is missing the fact is still there to be read.
+*/
+it('charges the seats it can see when the frozen count never got written', function (): void {
+    Event::fake([SessionDelivered::class]);
+
+    // The deadline job never ran: the column is still null.
+    $this->session->forceFill(['billable_seats' => null])->save();
+
+    deliverBillableSession($this->session, $this->owner);
+
+    app(WorkspaceContext::class)->forWorkspace(
+        $this->workspace,
+        fn () => app(ChargeSessionSeats::class)->handle(
+            $this->session->refresh(),
+            $this->session->billable_seats ?? 0,
+        ),
+    );
+
+    expect(CreditTransaction::query()->withoutWorkspaceScope()
+        ->where('type', CreditTransactionType::Consume)->count())->toBe(1)
+        ->and($this->session->refresh()->charged_at)->not->toBeNull();
+});
+
+it('stamps a session nobody booked, because there is nothing to repair', function (): void {
+    Event::fake([SessionDelivered::class]);
+
+    // The other reading of zero, and here it is the true one: the seats were
+    // released before the deadline, so no student owes anything. Stamping is
+    // right — leaving it null would have the sweep pick this session up every
+    // fifteen minutes for the life of the product.
+    $this->session->bookings()->delete();
+    $this->session->forceFill(['billable_seats' => 0])->save();
+
+    deliverBillableSession($this->session, $this->owner);
+
+    app(WorkspaceContext::class)->forWorkspace(
+        $this->workspace,
+        fn () => app(ChargeSessionSeats::class)->handle($this->session->refresh(), 0),
+    );
+
+    expect(CreditTransaction::query()->withoutWorkspaceScope()
+        ->where('type', CreditTransactionType::Consume)->count())->toBe(0)
+        ->and($this->session->refresh()->charged_at)->not->toBeNull();
 });

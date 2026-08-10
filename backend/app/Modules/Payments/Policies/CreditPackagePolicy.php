@@ -19,15 +19,22 @@ use Illuminate\Auth\Access\Response;
  * must fail every write here, because a package the teacher can define is a sale
  * price the teacher sets, which FR-016 and FR-021ب both forbid.
  *
- * Reading is open to any authenticated user: a package carries a size and a
- * session type and no price at all. The price is computed per course, by the
- * pricing endpoint, which has its own party-to-the-course guard.
+ * ⚠️ READING IS THE SAME PERMISSION AS WRITING, AND THAT IS A CORRECTION.
+ * It used to be open to any authenticated user, argued from "a package carries a
+ * size and a session type and no price at all" — true of the row, and beside the
+ * point of the ENDPOINT. `/admin/billing/packages` lists retired sizes and ones
+ * not yet launched, which is the platform's commercial roadmap, and the route's
+ * own comment already claimed it was "guarded by PLATFORM permissions that no
+ * tenant role holds". One of the two was wrong; this is the one that moved.
+ *
+ * The STUDENT'S priced list is unaffected — it never comes through here. It goes
+ * through ListCreditPackages, guarded by CourseParticipation.
  */
 class CreditPackagePolicy extends BasePolicy
 {
     public function viewAny(User $user): Response
     {
-        return Response::allow();
+        return $this->create($user);
     }
 
     public function create(User $user): Response
@@ -43,14 +50,23 @@ class CreditPackagePolicy extends BasePolicy
     }
 
     /**
-     * Retire a package, never erase it.
+     * Retire a package, never erase it — so this is a flat refusal.
      *
-     * `is_active` is what the endpoints read; the row itself is referenced by
-     * every purchase ever made from it, and deleting it would leave those
-     * receipts pointing at nothing.
+     * `is_active` is what every endpoint reads; the row itself is referenced by
+     * every purchase ever made from it, and by credits still being consumed
+     * today, so deleting it would leave those receipts pointing at nothing.
+     *
+     * It used to return {@see self::create()}, which authorised the one operation
+     * `routes/api.php` refuses to route — a policy saying yes to an act the
+     * router says no to is a door already unlocked, waiting for someone to add
+     * the handle. Note that BasePolicy::before() still lets a super-admin past
+     * anything, so the refusal that actually holds a BUTTON off the screen is
+     * CreditPackageResource::canDelete(); this one stops every holder of
+     * BILLING_PACKAGES_MANAGE who is not a super-admin — the delegated finance
+     * role among them.
      */
     public function delete(User $user, CreditPackage $package): Response
     {
-        return $this->create($user);
+        return Response::deny('تُتقاعد الحزمة ولا تُحذف، لأن كل عملية شراء تمّت منها ما تزال تشير إليها.');
     }
 }

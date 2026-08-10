@@ -5,6 +5,7 @@ import { BalanceSummary } from "@/components/billing/BalanceSummary";
 import { TermsConsentCard } from "@/components/billing/TermsConsentCard";
 import { TransactionList } from "@/components/billing/TransactionList";
 import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { CardGridSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { errorMessage } from "@/lib/api";
@@ -96,6 +97,19 @@ export default function BillingPage() {
               failed
                 ? "حدث خطأ أثناء جلب رصيدك. تحقّق من اتصالك ثم أعد المحاولة."
                 : "بعد أول عملية شراء ستظهر هنا حصصك المتبقّية عند كل معلّم."
+            }
+            /* The way OUT of the empty state, and it was missing.
+               The only link to `/billing/purchase` lived inside BalanceSummary,
+               which renders only when a balance already exists — so the student
+               this message is written for was the one person who could not act
+               on it. Not shown on the error branch: the balances failed to load,
+               so "you have none" is not something we know. */
+            action={
+              failed ? undefined : (
+                <Button variant="primary" href="/billing/purchase">
+                  شراء حصص
+                </Button>
+              )
             }
           />
         ) : (

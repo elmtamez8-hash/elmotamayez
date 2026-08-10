@@ -54,6 +54,21 @@ class CreditBalanceResource extends JsonResource
             'remaining_credits' => $this->resource->remaining_credits,
             'credit_limit_credits' => $this->resource->credit_limit_credits,
             'is_withheld' => $withheld,
+            /*
+            | ⚠️ SENT, NOT LEFT TO THE BROWSER. The client cannot compute this and
+            | never could: the deficit is the distance to the EFFECTIVE floor,
+            | which depends on the billing mode, an open exam window and a current
+            | terms consent — none of which is in this payload, and none of which
+            | belongs in it. BalanceSummary.tsx derived it from `remaining` and
+            | `credit_limit` alone and was therefore wrong for every indebted
+            | student the day new terms are published, and for everyone during an
+            | exam window.
+            |
+            | Zero when nothing is withheld, so the card has no branch to get
+            | wrong. It is a count of sessions, like every other number here —
+            | there is no money in it to leak.
+            */
+            'credits_needed' => (int) ($this->resource->getAttribute('credits_needed') ?? 0),
         ];
     }
 }

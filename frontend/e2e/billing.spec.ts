@@ -55,6 +55,39 @@ test.describe("الوصول إلى الأرصدة", () => {
     await expect(page.locator("main")).not.toContainText(MONEY);
   });
 
+  test("من الأرصدة يوجد دائماً طريق إلى الشراء، ولا يعود بك إلى حيث بدأت", async ({
+    page,
+  }) => {
+    /*
+     * The loop this closes: `/billing` told a student with no balance to buy
+     * first, and its only purchase link lived inside the balance card that
+     * renders only when a balance exists. Arriving at `/billing/purchase`
+     * without a course, they were sent back to `/billing` to "choose a course" —
+     * from a page with no chooser. Both ends of that circle are asserted here,
+     * because fixing either one alone leaves the student stuck at the other.
+     */
+    await page.goto("/dashboard");
+    await openNav(page);
+    await page.getByRole("link", { name: "رصيدي" }).click();
+
+    // Whatever state the balances are in — some, none, or failed to load — a way
+    // to buy must be on the page. This is the invariant that broke.
+    const toPurchase = page.locator("#main").getByRole("link", { name: /شراء|حزم/ }).first();
+    await expect(toPurchase).toBeVisible();
+    await toPurchase.click();
+
+    await expect(page).toHaveURL(/\/billing\/purchase/);
+
+    // And the destination is not the dead end it used to be: either the packages
+    // for a chosen course, or the chooser itself. Never a signpost back.
+    await expect(
+      page.locator("#main").getByRole("heading", { name: "شراء أرصدة", level: 1 }),
+    ).toBeVisible();
+    await expect(page.locator("body")).not.toContainText(
+      /Request failed|Server Error|undefined/,
+    );
+  });
+
   test("الشريط الجانبي ← أرصدة الطلاب، بلا رقم مال", async ({ page }) => {
     await page.goto("/dashboard");
     await openNav(page);

@@ -24,6 +24,11 @@ class DatabaseSeeder extends Seeder
             // Not a prerequisite — every value falls back to config() — but an
             // operational number nobody can see is one nobody ever tunes.
             PlatformSettingsSeeder::class,
+            // Reference data for the same reason the templates above are: the
+            // launch default is PREPAID_CREDITS, so an empty catalogue is not an
+            // empty screen — it is a student who cannot buy and therefore cannot
+            // book, on every fresh install.
+            CreditPackageSeeder::class,
         ]);
 
         // Only seed the super-admin in non-production environments.

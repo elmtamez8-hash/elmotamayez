@@ -88,6 +88,10 @@ function bookedEverywhere(): User
     $student = $test->addWorkspaceMember($test->workspace, Roles::STUDENT);
     $test->createEnrollment($test->workspace, $test->course, $student);
     $test->setCurrentWorkspace($test->workspace, $test->owner);
+    // One per session and then some: prepaid is the default, and this student
+    // takes a seat in every session the file creates — including the ten added
+    // after the first measurement.
+    fundBooking($test->workspace, $student, $test->course, 40);
 
     foreach (ClassSession::query()->get() as $session) {
         app(BookSeat::class)->handle($session, $student);
@@ -178,6 +182,8 @@ it('keeps the heartbeat cheap', function (): void {
     $student = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
     $this->createEnrollment($this->workspace, $this->course, $student);
     $this->setCurrentWorkspace($this->workspace, $this->owner);
+    // Prepaid is the default; the heartbeat's cost is the subject here.
+    fundBooking($this->workspace, $student, $this->course);
     app(BookSeat::class)->handle($session, $student);
 
     // The first ping creates the row; every later one is the steady state, and

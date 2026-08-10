@@ -196,12 +196,19 @@ final class Permissions
     | Billing (spec 006) — the student's money.
     |
     | Read the "who" column of contracts/api.md §1 before adding a grant here.
-    | Five of these eight are PLATFORM permissions and must never reach a tenant
+    | SIX of these eight are PLATFORM permissions and must never reach a tenant
     | role by default: approving a credit purchase, granting a bonus, and raising
     | a credit limit each create a claim on money with no payment leg behind it,
     | and Q-4 made the platform — not the teacher — the seller who carries the
     | bad-debt risk. The teacher being the party paid out of those credits is
     | precisely why they cannot be the party who mints them.
+    |
+    | The sixth is BILLING_SETTINGS_MANAGE, and it moved here after 006 shipped:
+    | switching a workspace to deferred collection is the same decision at
+    | wholesale, since 014 pays the teacher from DELIVERY and leaves the platform
+    | holding the debt. Only BILLING_BALANCE_VIEW and BILLING_EXAM_MODE_MANAGE
+    | remain tenant-side — reading your own students, and a date range on your own
+    | calendar.
     */
 
     /** Read a student's balance *in credits* and their withheld state. Teacher-side. */

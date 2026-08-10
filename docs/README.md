@@ -588,12 +588,28 @@ limiter's second bucket keys on `'email:'.$request->input('email')`, and a billi
 carries no email — so the key collapses to the constant `'email:'` and the whole platform
 shares one counter.
 
-### Permissions (eight, and four of them are PLATFORM-level)
+**`credits_needed` is sent by the server, and the browser must never compute it.** The
+deficit is `floor + 1 − remaining`, and the FLOOR is derived from five inputs — the balance,
+the ceiling, the billing mode, an open exam window and a current terms consent. A client
+holding only `remaining` and `credit_limit` can reproduce it on an ordinary day and gets it
+wrong on every interesting one: inside an exam window the floor is forced to zero, and the
+day new terms are published every debtor's ceiling drops. Both quote a number smaller than
+the booking gate will actually demand, so the student buys what they were told and is
+refused again.
+
+It is stamped in ONE place — `WithholdingReader::stamp()`, which already resolves all five
+inputs in bulk for the withheld flag itself — and read from the stamp by
+`EloquentAccountStanding::creditsNeededFor()` and by `CreditBalanceResource`. The refusal
+message at the booking gate, the playback refusal and the withholding notification all print
+that same number, which is the point: three surfaces quoting a figure each derived
+separately is three chances to disagree.
+
+### Permissions (eight, and six of them are PLATFORM-level)
 
 | Constant | Reaches |
 |---|---|
 | `billing.balance.view` | the teacher's panel of their own students |
-| `billing.settings.manage` | the workspace's billing mode and thresholds |
+| `billing.settings.manage` | the workspace's billing mode and thresholds — **platform** |
 | `billing.exam_mode.manage` | opening and closing the exam window |
 | `billing.purchase.approve` | approving a credit purchase — **platform**, not the teacher |
 | `billing.credits.adjust` | a bonus, a correction, a refund — **platform** |
@@ -601,15 +617,55 @@ shares one counter.
 | `billing.packages.manage` | the credit catalogue — **platform** |
 | `billing.pricing.manage` | the platform's fees, and the reconciliation report — **platform** |
 
-The four platform permissions are held by no tenant role. A package a teacher could define
+The six platform permissions are held by no tenant role. A package a teacher could define
 is a sale price a teacher sets, which FR-021ب forbids; a ceiling a teacher could raise is a
 teacher deciding how much the platform may be owed.
+
+⚠️ **`billing.settings.manage` is platform-level too, and that is a change.** It was on the
+workspace owner until the post-006 review: since 014 the teacher is paid from DELIVERY, so
+the credit a student owes is owed to the PLATFORM — and the collection mode, the reminder
+thresholds and the withholding ceiling decide how much the platform may be owed and when it
+stops lending. A teacher switching their own workspace to `remind` was a teacher granting
+credit against someone else's balance sheet.
+
+**`finance-admin` is the one delegated platform role** (`Roles::FINANCE_ADMIN`), carrying
+`billing.purchase.approve` and `orders.view_all` — receipt approval and nothing else. It is
+seeded from `RolePermissionMatrix::map()` alongside `super-admin` by
+`Roles::platformRoles()`, and like `super-admin` it is **not assignable yet**: spatie's
+`model_has_roles.team_id` is NOT NULL and part of the composite primary key, so a role with
+no team cannot be attached to a user. Two tests in `PlatformBillingRolesTest` are skipped
+with that reason written on them. Choosing the mechanism (a column beside `is_super_admin`,
+a `platform_staff` table, or altering spatie's key) is an open decision, not an oversight.
 
 ⚠️ **`billing.credits.adjust` has no HTTP surface yet.** `AdjustCredits` is reachable from
 tests and from code, and the permission exists, but no route or panel page calls it — a
 correction today is a tinker-level operation. Recorded here rather than left for someone to
 discover: the gap is in the SURFACE, not in the rule, and the Action already enforces the
 mandatory reason and the idempotency key that a future screen would need.
+
+### The catalogue is seeded, and edited from `/admin`
+
+**`credit_packages` shipped empty, and an empty catalogue is a closed loop.** No package
+means no purchase; no purchase means no credits; and the default mode is prepaid, so on a
+fresh install every booking is refused with the remedy unreachable. Two things close it:
+
+- **`CreditPackageSeeder`** — six sizes, in the unconditional reference block of
+  `DatabaseSeeder` beside the roles and the notification templates. `firstOrCreate` **on the
+  name alone**: these rows are reference data at birth and operator data ever after, so a
+  re-seed must not undo a size or a label an operator has since edited. `validity_days` is
+  null — expiry is off at launch (Q-5). `ScenarioSeeder` calls it rather than creating its
+  own, so the demo data and a fresh install show the same catalogue.
+- **`Payments/Filament/Resources/CreditPackageResource`** — the platform's screen for it,
+  gated by `billing.packages.manage`. **No price field anywhere on the form**: the price is
+  derived (`teacher rate + platform constants`), and a typed total is a second answer that
+  drifts from the formula. **And no delete, refused at the Resource as well as the policy** —
+  `BasePolicy::before()` waves super-admin past every policy, so a refusal written only in
+  `CreditPackagePolicy::delete()` still renders a working button. Retirement is
+  `is_active = false` (FR-019); purchases and credits still being consumed point at the row.
+
+A module's Filament resources need their own `discoverResources()` line in
+`AdminPanelProvider` — there is no scan across `app/Modules/*/Filament`, so a new module's
+screens are invisible until that line exists.
 
 ### Scheduled sweeps
 
@@ -620,6 +676,22 @@ mandatory reason and the idempotency key that a future screen would need.
 | 04:35 daily | `ExpireCreditLotsJob` | finds nothing until an operator sets a validity (Q-5) |
 | 04:45 daily | `ReconcileCreditBalancesJob` | after every sweep that moves a balance |
 | Sunday 05:00 | `NotifyDormantBalancesJob` | the boundary is months; nightly would be nagging |
+
+**All five run `->onQueue('maintenance')->withoutOverlapping()`, and both halves matter.**
+`ChargeUnbilledDeliveriesJob` runs every fifteen minutes: one run overrunning its own window
+starts a second over the same rows, and while the charge itself is safe (the unique index
+refuses the duplicate), the SCAN doubles — so the lateness that caused the overlap feeds
+itself. Two `ReconcileCreditBalancesJob` runs in one night write two "run" rows and make
+"the last run" ambiguous, which is the one thing the reconciliation endpoint reports.
+
+The queue is separate because these are long scans and the charge listener is queued too:
+on `default` a nightly reconciliation walking every balance sits in front of a student's
+withholding notification. **`maintenance` needs a Horizon supervisor to exist in every
+environment it runs in** — `environments` decides which supervisors are STARTED, and
+`defaults` only supplies shared values, so a queue named there but absent from
+`environments.production` is a queue whose jobs enqueue and are never drained, silently.
+`supervisor-maintenance` is declared with `maxProcesses: 1` (the overlap guard again, one
+worker deep) and `nice: 10`, so a scan yields to request-path work.
 
 ### Reconciliation, and why the naive check is blind
 

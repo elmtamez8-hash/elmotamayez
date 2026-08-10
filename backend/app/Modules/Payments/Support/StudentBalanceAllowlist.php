@@ -13,12 +13,24 @@ namespace App\Modules\Payments\Support;
  * teacher two totals and they solve for the constants; give a student two and
  * they read every teacher's pay.
  *
- * ⚠️ THE SWEEP THAT ENFORCES THIS COVERS `Http/Resources/Manage/` ONLY, and that
- * narrowing is deliberate. `OrderResource` exports `amount`, `currency` and
- * `receipt_url` to the STUDENT WHO PAID, entirely by right — a sweep over the
- * whole module would fail on the day it was written, and the usual response to a
- * guard that fails on arrival is to delete the guard. Settlement's equivalent
- * could be module-wide only because every Resource it owns faces the teacher.
+ * ⚠️ NOTHING SWEEPS FOR THIS. The enforcement is a single payload assertion —
+ * `TeacherPanelRowTest`, "sends the teacher no money, only credits" — which
+ * fetches `/manage/billing/students` and diffs the row's keys against
+ * {@see self::fields()} and {@see self::forbidden()}. An earlier note here
+ * described a sweep over `Http/Resources/Manage/`; there is no such directory in
+ * this module and no such test, and a guard described but not written is worse
+ * than none, because it is read as covered.
+ *
+ * A module-wide sweep is what Settlement could afford and this cannot:
+ * `OrderResource` exports `amount`, `currency` and `receipt_url` to the STUDENT
+ * WHO PAID, entirely by right, so a sweep over `Payments/Http/Resources/` would
+ * fail on the day it was written — and the usual response to a guard that fails
+ * on arrival is to delete the guard. Every Resource Settlement owns faces the
+ * teacher, which is the difference.
+ *
+ * The cost of the narrower guard is that it watches ONE endpoint. A second
+ * teacher-facing payload carrying a total would pass; adding one means adding
+ * its assertion beside that test.
  *
  * ⚠️ AND A FIELD LIST DOES NOT CLOSE THE INFERENCE. A teacher knows their own
  * approved rate, so `purchased_credits` times that rate is a LOWER BOUND on what
