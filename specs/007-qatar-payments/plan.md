@@ -17,7 +17,7 @@
 
 **والمقاربة التقنية محكومة بحقيقتين:**
 
-1. **المرحلة توسّع ما شُحن ولا تبني موازياً له.** جدولان جديدان فقط، وثلاث هجرات على القائم.
+1. **المرحلة توسّع ما شُحن ولا تبني موازياً له.** جدولان جديدان، و**تسع هجرات مرتَّبة** على القائم — وترتيبها ليس تفصيلاً: ثلاثٌ منها تُسقط النشر إن سبقت تنظيفها (`data-model.md` §ط).
    وستّة من متطلبات السبيك **منفَّذة سلفاً** فتُثبَّت باختبار ولا تُبنى (‏`research.md` §و).
 2. **البوابة مؤجَّلة، والعمل ليس كذلك.** `FR-001`…`FR-036` تُنفَّذ كاملةً فوق عقد المزوّد
    المُوسَّع وتُختبر بمزوّدٍ وهميّ. محوّل البوابة الحقيقية ملفٌّ واحد لاحق لا يلمس منطق
@@ -54,8 +54,8 @@
 **Constraints**: `QAR` وحدها · وحدات صحيحة صغرى (`NFR-007`) · لا بيان وسيلة دفع في أي
 موضع · لا نداء شبكي في اختبار · لا كيان تسوية مدرّس
 
-**Scale/Scope**: ‎٥‎ قصص مستخدم · ‎٣٦‎ متطلباً وظيفياً (‏**٦ منها منفَّذة سلفاً**) ·
-‎١٣‎ غير وظيفي · ‎١٥‎ معيار نجاح · جدولان جديدان · ‎٣‎ هجرات على القائم
+**Scale/Scope**: ‎٥‎ قصص مستخدم · ‎٣٦‎ متطلباً وظيفياً (‏**٥ منفَّذة و‎١‎ نصفه**) ·
+‎١٣‎ غير وظيفي · ‎١٥‎ معيار نجاح · جدولان جديدان · **‎٩‎ هجرات مرتَّبة** (‏`data-model.md` §ط)
 
 ---
 
@@ -65,21 +65,27 @@
 
 | المبدأ | الحال | كيف |
 |---|---|---|
-| **I. عزل المستأجرين** | ✅ | كل كيان مصنَّف في `data-model.md` §ي قبل هجرته. `provider_callbacks` مملوك لمساحة عمل + حالة في `WorkspaceIsolationTest`؛ `payment_reconciliation_runs` بلا مفتاح كالشكل المشحون في ‎006‎ |
+| **I. عزل المستأجرين** | ✅ | كل كيان مصنَّف في `data-model.md` §ي قبل هجرته. `provider_callbacks` مملوك لمساحة عمل بمستأجرٍ **يُحلّ عند المعالجة**؛ و`payment_reconciliation_runs` **مملوك للمنصّة صنف (ب)** — و«بلا مفتاح» في نسختي الأولى وصفٌ للمخطَّط لا طبقةٌ من الثلاث، والدستور يرفض كياناً بلا تصنيف |
 | **I — حارس الويب-هوك** | ⚠️ **يحتاج انتباهاً** | مسارٌ عامّ فـ`WorkspaceScope` عديم الأثر تماماً. المستأجر يُشتقّ صراحةً من الطلب المرجعيّ، **ولا يُقرأ من الحمولة** |
-| **I — صنف (ب)** | ✅ | `PAYMENTS_AUDIT_VIEW` و`PAYMENTS_COLLECTION_VIEW` منصّيتان + اختبار ‎403‎ لأعلى دورٍ مستأجر |
+| **I — صنف (ب)** | ✅ | `BILLING_AUDIT_VIEW` و`BILLING_COLLECTION_VIEW` منصّيتان + اختبار ‎403‎ لأعلى دورٍ مستأجر. ⚠️ **`billing.*` لا `payments.*`** — الأخيرة عائلةٌ مستأجرة في هذا المستودع |
 | **II. المنطق في Actions** | ✅ | `InitiatePayment` · `HandleProviderCallback` · `ReconcilePayments` · `ReversePayment`. القواعد في الـAction لا في التحقّق |
-| **III. التكامل بالأحداث** | ✅ | ستّة أحداث جديدة، `Event::listen()` في مزوّد الوحدة. لا استدعاء مباشر عبر الوحدات |
+| **III. التكامل بالأحداث** | ✅ | ستّة أحداث جديدة **ومستمعوها مُسمَّون** في `contracts/api.md §٤` — وبلا ذلك كان الدفع الفوريّ ينتهي بعمليةٍ `captured` ورصيدٍ لم يتحرّك |
 | **IV. البوابات خضراء** | ✅ | الأربع + فحص التسريب (`SC-012`). **بلا baseline جديد وبلا `@phpstan-ignore`** |
-| **V. التفويض بالسياسات** | ✅ | صلاحيتان جديدتان ثابتتان في `Permissions`. لا اسم مكتوب نصّاً |
-| **VI. العقود الظاهرة** | ⚠️ **انحراف معلَن** | `payment_transactions` بلا `uuid` اليوم، وهذه المرحلة أوّل من يكشفه على مسار. يُضاف في الهجرة |
+| **V. التفويض بالسياسات** | ✅ | صلاحيتان جديدتان + `PaymentTransactionPolicy` بملكيةٍ عبر `order.user_id` — **لا عضوية مساحة**، وإلا مرّ المدرّس |
+| **VI. العقود الظاهرة** | ⚠️ **انحراف معلَن** | `payment_transactions` بلا `uuid` اليوم، وهذه المرحلة أوّل من يكشفه. يُضاف **بثلاث خطوات** (‏`data-model.md` §ط) |
+| **VI — شكل الـDTO** | ✅ **بعد تصحيح** | نسختي الأولى كتبت `final readonly class` ترث صنفاً **غير `readonly`** — **خطأ قاتل** في PHP ‎8.2+‎. صُحّح إلى خصائص `readonly` مُرقّاة |
+| **IV — المسار الحرج ‎#٨‎** | ✅ **بعد تصحيح** | نسختي الأولى فرضت `redirectUrl` غير قابل للإفراغ على `ManualTransferProvider` — **والتحويل البنكي لا صفحة دفع له** — فتكسر `PaymentTest` والدمج |
 
-**انحرافان معلَنان، وكلاهما مُبرَّر في `Complexity Tracking`:** توسيع عقد المزوّد (يأذن به
-السبيك نصّاً) · هجرة `orders`/`payment_transactions` إلى الوحدات الصغرى (تخالف ملاحظةً
-في `docs/erd.md` كُتبت على فرض وجود بيانات إنتاج).
+**ثلاثة انحرافات معلَنة، وكلٌّ مُبرَّر في `Complexity Tracking`:** توسيع عقد المزوّد (يأذن
+به السبيك نصّاً) · توحيد الوحدات الصغرى عبر **أربعة** جداول · إصلاح سباقَين في كودٍ مشحون.
 
-**إعادة التقييم بعد Phase 1:** ✅ لا مبدأ يُخرَق. الكيانان الجديدان مصنَّفان، والحرّاس
-مسمّاة، ولا جدول يُنشأ لما هو قائم.
+⚠️ **وحجّة الانحراف الثاني كانت في نسختي الأولى مبنيّة على اقتباسٍ من `docs/erd.md` لا وجود
+له** — وقد صُحّح في `research.md` §د، والحجّة الصحيحة قائمة بذاتها.
+
+**إعادة التقييم بعد مراجعة الوكلاء:** ⚠️ **رسبت النسخة الأولى على ثلاثة مبادئ** —
+§VI (شكل الـDTO)، §IV (المسار الحرج الثامن)، §I (تصنيف كيانٍ خارج الطبقات الثلاث) —
+وجدولُ التحقّق أعلاه كان يقول ✅ على الثلاثة. **جدولٌ يقيّم نفسه ليس بوّابة**؛ ما وجدها
+ستّة وكلاء بأبعادٍ مستقلّة، والتفصيل في `review-findings.md`.
 
 ---
 
@@ -106,31 +112,56 @@ specs/007-qatar-payments/
 backend/app/Modules/Payments/            # ⚠️ الوحدة قائمة — توسيعٌ لا إنشاء
 ├── Actions/
 │   ├── InitiatePayment.php          ★
-│   ├── HandleProviderCallback.php   ★
+│   ├── HandleProviderCallback.php   ★  (يتحقّق من المبلغ والعملة — provider.md §د)
 │   ├── ReconcilePayments.php        ★
 │   ├── ReversePayment.php           ★  (النزاع البنكي — د4)
 │   ├── ApproveOrder.php             ⚠️ يُصلَح سباقه
-│   └── UploadPaymentReceipt.php     ⚠️ يُطلق ReceiptUploaded
+│   ├── RejectOrder.php              ⚠️ **السباق نفسه** — research.md §هـ2
+│   ├── UploadPaymentReceipt.php     ⚠️ يُطلق ReceiptUploaded
+│   ├── CreateOrder.php              ⚠️ وحدات صغرى
+│   └── PurchaseCredits.php          ⚠️ تُحذف minorToDecimal()
 ├── Contracts/PaymentProviderInterface.php   ⚠️ يُوسَّع (يأذن السبيك)
-├── Data/{ChargeIntent,CallbackEvent}.php    ★
-├── Enums/PaymentStatus.php                  ★
+├── Providers/                       ⚠️ **كان ساقطاً**
+│   ├── ManualTransferProvider.php   ⚠️ ينفّذ الدوالّ الثلاث الجديدة — verifySignature() ⇒ false
+│   └── PaymentProviderRegistry.php  ★ {provider} ⇒ تنفيذ. مجهولٌ ⇒ 404
+├── Data/{ChargeIntent,CallbackEvent}.php    ★ ⚠️ ترث DataTransferObject بخصائص مُرقّاة
+├── Enums/{PaymentStatus,PaymentMethod}.php  ★
 ├── Events/{ReceiptUploaded,ReceiptApproved,ReceiptRejected,
 │           PaymentCaptured,PaymentFailed,PaymentReversed}.php  ★
-├── Http/Controllers/{PaymentController,WebhookController,
-│                     PaymentAuditController,CollectionReportController}.php ★
+├── Listeners/                       ⚠️ **كان ساقطاً** — بلاه لا يضيف الدفع رصيداً
+│   └── ReevaluateOnReversal.php     ★  (والمشحونان يُربطان بـPaymentCaptured)
+├── Http/
+│   ├── Controllers/{PaymentController,WebhookController}.php   ★
+│   ├── Controllers/Admin/{PaymentAuditController,
+│   │                      CollectionReportController}.php      ★ ⚠️ Admin/ كالمشحون
+│   ├── Requests/                    ⚠️ **كان ساقطاً** — الدستور §II يوجب السلسلة
+│   └── Resources/                   ⚠️ **كان ساقطاً** — §VI: كل استجابة عبر Resource
 ├── Jobs/{ProcessProviderCallbackJob,ReconcilePaymentsJob}.php  ★
 ├── Models/{ProviderCallback,PaymentReconciliationRun}.php      ★
 ├── Policies/PaymentTransactionPolicy.php                       ★
 ├── Support/{BillingAuditSubjects,PaymentFieldAllowlist}.php    ★
-└── Database/Migrations/                # ⚠️ M كبيرة — خطؤها يُحمّل صفر هجرة على لينكس
+├── PaymentsServiceProvider.php      ⚠️ **كان ساقطاً** — Event::listen() ولا EventServiceProvider
+├── routes/api.php                   ⚠️ **كان ساقطاً** — الموضع الوحيد للمسارات
+└── Database/Migrations/             # ⚠️ M كبيرة — خطؤها يُحمّل صفر هجرة على لينكس
 
-backend/tests/Feature/Payments/          # ٩ ملفات ★ (سيناريوهات quickstart)
+backend/app/Modules/Notifications/Support/NotificationType.php   ⚠️ خمسة أنواع
+backend/database/seeders/NotificationTemplateSeeder.php          ⚠️ صفٌّ لكلٍّ — وإلا يُسقَط بصمت
+backend/database/factories/Modules/Payments/                     ★ نموذجان جديدان
+backend/config/horizon.php · backend/routes/console.php          ⚠️ مشرف وطابور وجدولة
+
+backend/tests/Feature/Payments/          # ١٢ ملفاً ★
+backend/tests/Unit/Payments/             # ★ التوقيع · مدى التسوية (NFR-003ب)
 backend/tests/Support/FakePaymentProvider.php   ★ ⚠️ في tests/ لا app/
 
 frontend/src/
-├── app/(app)/(shell)/billing/pay/       ★ بدء الدفع والعودة
-├── app/(app)/(shell)/billing/receipts/  ⚠️ قائم جزئياً
-└── lib/payments.ts                      ★
+├── app/(app)/(shell)/billing/pay/       ★ بدء الدفع
+├── app/(app)/(shell)/billing/pay/return/ ★ ثلاث حالات: نجاح · فشل · ما زالت معلّقة
+├── app/(app)/(shell)/orders/page.tsx    ⚠️ **قائم** — وهو مسار الإيصال الحقيقي
+│                                        (‏`billing/receipts/` في نسختي الأولى **لا وجود له**)
+├── app/(app)/(shell)/admin/payments/    ★ تدقيق · تحصيل · تسوية — وإلا فـUS4/US5 واجهاتٌ
+│                                        لا يصل إليها شيء
+├── lib/payments.ts                      ★
+└── e2e/payments.spec.ts                 ★
 ```
 
 **Structure Decision**: توسيعٌ لوحدة `Payments` القائمة. **لا وحدة جديدة** — الطلبات
@@ -146,6 +177,7 @@ frontend/src/
 |---|---|---|
 | **توسيع `PaymentProviderInterface`** | العقد القائم بلا مدخل لحمولةٍ موقَّعة، و`verify()` تسأل «ما حال ما أعرفه؟» بينما التسوية تسأل «ما الذي نجح عندك ولم أعرفه؟» — وهذا الفرق هو `US2` كلها | إبقاء العقد وبناء التسوية على `verify()`: تمشي المعروف وحده فتبقى **عمياء عن دفعةٍ ضاع إشعارها**، وهي الحالة التي وُجدت لأجلها. والسبيك يأذن بالتوسيع نصّاً |
 | **هجرة `orders`/`payment_transactions` إلى وحداتٍ صغرى** | `NFR-007` يمنع العشريّات، وقالب `decimal:2` يعيد **نصّاً** فكل جمعٍ يمرّ بعددٍ عائم. والمرحلة تجعل `payment_transactions` كيانها المركزي | إبقاء العشريّات كما تقول ملاحظة `docs/erd.md`: لكنها كُتبت على فرض وجود بيانات إنتاج، و`PRODUCT.md` يقول **قبل الإطلاق، لا مستخدمين**. فلا بيانات تُهاجَر، وهذه آخر لحظةٍ مجانية. والتأجيل يعني بناء المرحلة فوق النوع الخطأ |
+| **هجرة `courses.price` و`products.price`** | `CreateOrder` يكتب `$course->price` في `orders.amount`، فتوحيدٌ نصفيّ يجعل كورس ‎49.99‎ يساوي **‎0.49‎ ريال** — وهو الصنف الذي **لا يعيد اختبارٌ محليّ إنتاجه** | توحيد `orders` وحده: يكسر كل طلب كورس. وترك الاثنين: يبني المرحلة فوق النوع الخطأ ويقارن صحيحاً بنصّ عند كل شحن. **قصّة أساس مستقلّة، وأوّل ما يُقتطع** |
 | **إصلاح سباقٍ في كود مشحون** | `isPending()` ثم `update()` تعريف السباق، وصفّان محتجزان لطلبٍ واحد يكسران `FR-032` و`SC-010` مباشرةً — نقدٌ دخل مرّةً يُحسب مرّتين | تركه: `SC-007` يطلب صراحةً صفر أثرٍ مضاعف **بتزامن**، ولا اختبار تزامن على هذا المسار اليوم. والإصلاح فهرسٌ فريد وتحديثٌ شرطيّ ذرّي — أرخص من توثيق العيب |
 
 ---
@@ -178,6 +210,9 @@ frontend/src/
 | **الويب-هوك يسبق الكتابة المحلية** | دفعةٌ نجحت وطالبٌ محجوب | `payment_transaction_id` **nullable** عمداً + وظيفة مؤجَّلة + ردّ `202` |
 | **التسوية تصحّح ضدّ الطالب** | سحبُ رصيدٍ دُفع ثمنه | `FR-014`: الاتجاه المضرّ يحتاج بشراً — واختبارٌ يفرّق بين الاتجاهين |
 | **`finance-admin` غير قابل للإسناد** | لا محاسب مفوَّض | قيدٌ معروف ومُوثَّق؛ السوبر أدمن يعتمد اليوم. الآلية قرارٌ مفتوح للمالك |
+| ⚠️ **طابورٌ بلا مشرف Horizon** | `202` أُرسل، والوظيفة **لا يصرّفها أحد** — بصمت | `environments` هي التي تُشغّل المشرفين لا `defaults`. الدرس دُفع ثمنه في الجولة ‎٦‎ من ‎006‎ |
+| ⚠️ **الويب-هوك على `maintenance`** | أحسّ وظيفةٍ في المنتج (`SC-001`: ثوانٍ) خلف مسحٍ ليليّ بعمليةٍ واحدة و`nice 10` | طابورٌ خاصّ `payments` بمهلةٍ قصيرة؛ والتسوية وحدها على `maintenance` مع `withoutOverlapping()` |
+| ⚠️ **بوابةٌ لا يمكن تشغيلها** | `BillingMode::PaymentGateway::isReady()` يعيد `false`، فلا مساحة تُحوَّل إلى النمط الذي تبنيه المرحلة | تُقلَب في هذه المرحلة، **بعد** أن يخضرّ مسار `US1` كاملاً — لا قبله |
 | **الهجرة تكسر بيانات تطوير** | إزعاج محليّ | `php artisan migrate` وحدها — **ويُسأل المالك قبل أي `migrate:fresh`** |
 
 ---
