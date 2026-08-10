@@ -6,6 +6,7 @@ use App\Modules\Payments\Enums\BillingMode;
 use App\Modules\Payments\Enums\ZeroBalanceBehavior;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Support\BillingSettings;
+use App\Modules\Payments\Support\ConsentRegistry;
 use App\Modules\Payments\Support\CreditLedger;
 
 /*
@@ -34,7 +35,7 @@ function balanceWith(int $remaining, int $limit): CreditBalance
 }
 
 beforeEach(function (): void {
-    $this->ledger = new CreditLedger(new BillingSettings);
+    $this->ledger = new CreditLedger(new BillingSettings, new ConsentRegistry);
 });
 
 it('forces the floor to zero in prepaid mode whatever the limit says', function (): void {
@@ -46,8 +47,15 @@ it('forces the floor to zero inside an exam window even in a deferring mode', fu
         ->toBe(0);
 });
 
-it('uses minus the limit in a deferring mode', function (): void {
-    expect($this->ledger->floorFor(balanceWith(0, 5), BillingMode::ManualCollection))->toBe(-5);
+it('uses minus the limit in a deferring mode, and only with a current consent', function (): void {
+    expect($this->ledger->floorFor(balanceWith(0, 5), BillingMode::ManualCollection, consentCurrent: true))
+        ->toBe(-5);
+
+    // ⚠️ THE DEFAULT IS THE REFUSAL, not the permission (FR-048). Asserted here
+    // rather than assumed: a caller that forgets the argument must get the floor
+    // that tells the student to pay, not the one that lets debt run on an
+    // agreement nobody gave.
+    expect($this->ledger->floorFor(balanceWith(0, 5), BillingMode::ManualCollection))->toBe(0);
 });
 
 /*
@@ -74,14 +82,14 @@ it('does not withhold while a credit remains', function (): void {
 it('does not withhold inside an unused ceiling', function (): void {
     $balance = balanceWith(0, 2);
 
-    expect($this->ledger->isBlocked($balance, $this->ledger->floorFor($balance, BillingMode::ManualCollection), ZeroBalanceBehavior::Block))
+    expect($this->ledger->isBlocked($balance, $this->ledger->floorFor($balance, BillingMode::ManualCollection, consentCurrent: true), ZeroBalanceBehavior::Block))
         ->toBeFalse();
 });
 
 it('withholds once the ceiling is reached', function (): void {
     $balance = balanceWith(-2, 2);
 
-    expect($this->ledger->isBlocked($balance, $this->ledger->floorFor($balance, BillingMode::ManualCollection), ZeroBalanceBehavior::Block))
+    expect($this->ledger->isBlocked($balance, $this->ledger->floorFor($balance, BillingMode::ManualCollection, consentCurrent: true), ZeroBalanceBehavior::Block))
         ->toBeTrue();
 });
 
@@ -112,7 +120,7 @@ it('lets a remind-only workspace book on at zero', function (): void {
 
 it('still withholds at the ceiling however the switch is set', function (): void {
     $balance = balanceWith(-2, 2);
-    $floor = $this->ledger->floorFor($balance, BillingMode::ManualCollection);
+    $floor = $this->ledger->floorFor($balance, BillingMode::ManualCollection, consentCurrent: true);
 
     // Owing the full ceiling. `remind` is about running out, not about debt.
     expect($this->ledger->isBlocked($balance, $floor, ZeroBalanceBehavior::Remind))->toBeTrue();

@@ -58,7 +58,7 @@ class CourseTreeResource extends JsonResource
             'sections.chapters.lessons' => fn ($query) => $query
                 ->select([
                     'id', 'uuid', 'course_id', 'section_id', 'chapter_id', 'title', 'type',
-                    'status', 'order', 'duration_seconds', 'is_preview', 'is_free',
+                    'status', 'order', 'duration_seconds', 'is_preview', 'is_free', 'is_high_value',
                     'class_session_id', 'reference_id', 'exam_gate',
                 ])
                 ->orderBy('order'),
@@ -145,6 +145,7 @@ class CourseTreeResource extends JsonResource
             'reference_missing' => isset($this->missingReferences[(int) $lesson->getKey()]),
             'is_preview' => $lesson->is_preview,
             'is_free' => $lesson->is_free,
+            'is_high_value' => $lesson->is_high_value,
             'duration_seconds' => $lesson->duration_seconds,
         ];
     }

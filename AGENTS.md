@@ -276,3 +276,65 @@ never `chunk`: OFFSET paging under a shrinking predicate skips rows and reports 
 **Authored text is Markdown, rendered per response.** Raw HTML is stripped rather than
 escaped, so the allowlist is the Markdown feature set. A stored `content_html` would be a
 second copy that drifts, and an XSS sink with a teacher's keyboard attached.
+### Read before touching billing (spec 006)
+
+**A credit is one session at ONE teacher's rate, and the account it hangs off is
+platform-wide.** `student_credit_accounts`, `credit_packages` and `terms_consents` carry no
+`workspace_id` — one person, one account, one catalogue, one signature. The BALANCE beneath
+is workspace-scoped, because a credit is not portable. Adding `BelongsToWorkspace` to the
+account duplicates one person per teacher, silently.
+
+**The floor guards booking, never the recording of a debt.** `enforceFloor` defaults to
+false: a delivered session is owed whether or not it can be paid for, and 014 has already
+earned the teacher their fee from the same event. A test expecting
+`InsufficientCreditsException` must pass `enforceFloor: true`.
+
+**`is_withheld` is derived from five inputs and stored as none of them** — balance, ceiling,
+mode, exam window, and a CURRENT terms consent. A lift is instantaneous, a published new
+version of the terms stops deferral on the next booking with nothing to sweep, and no
+`access_holds` table can drift from it. `WithholdingReader::stamp()` is the bulk form; a
+per-row read inside a Resource is an N+1 by construction.
+
+**The demotion IS the switch to prepaid for that student.** The floor is `−limit`, so a
+ceiling of zero and a prepaid mode are the same predicate. The limit moves by DELTAS with the
+earning counter consumed — recomputed from scratch it hands the defaulted student their
+ceiling back on their first payment. The initial `0 → 1` is an EVENT (first consent, and the
+birth of any later balance), never derived state. And `isBlocked` asks the BALANCE too:
+`$floor < 0` stops reporting the debt the moment the demotion zeroes the ceiling.
+
+**Withholding is per course; balances are never summed.** +10 in maths and −6 in physics
+reads as +4 and unblocked, while the design withholds per course so the paid-up one stays
+open. And no money reaches either side's screen: a credit's price is the teacher's approved
+rate plus two platform constants, so a total is solvable for the rate across two package
+sizes.
+
+**Approving a purchase and moving a ceiling are PLATFORM permissions**, held by no tenant
+role. `billing.credits.adjust` has no HTTP surface at all yet — the Action exists, the screen
+does not.
+
+**Reconciliation is a job, and its obvious check is blind.** Both sides of a
+ledger-vs-balance comparison are written by the same path in the same transaction, so an
+uncharged session leaves them agreeing. The invariants that see it come from outside: one
+consumption entry per seat of a charged session, and a positive balance equalling what its
+lots hold. Nothing is repaired automatically.
+
+**An expiry claims its lot, then posts with `drawsFromLots: false`** — otherwise the drawer
+takes the same credits again out of lots that have not expired. Expiry is off at launch;
+the soonest-expiring-first order is live anyway, so switching it on cannot rewrite which lot
+paid for which past session. **The dormancy notice needs `notified_dormant_at`**: it moves
+no credits, so a predicate on `last_transaction_at` alone re-sends it every night for ever.
+
+**`insertOrIgnore` skips the model, so `HasUuid` never fires** and the row lands with an
+empty uuid — the column every route exposes. Idempotency is the unique index plus an ordinary
+`create()` in a try/catch.
+
+**The floor comparison is CAST to signed.** `remaining + limit >= n` at `remaining = −3` on
+unsigned columns is MySQL **ERROR 1690**, and SQLite has no unsigned arithmetic to overflow —
+no local test can reproduce it. **And the entry is written before the lots are drawn and
+before the balance moves**: decrement first and a redelivered event debits twice while the
+duplicate entry is ignored once.
+
+**`Queue::fake()` with no arguments makes half the billing suite assert zero rows** — the
+charge listener is queued, so "four attendance states ⇒ four entries" becomes a confident
+claim about an empty table. Fake the timeline jobs only
+(`CloseClassSessionJob`, `SendSessionReportsJob`) and let the charge run on `sync`.

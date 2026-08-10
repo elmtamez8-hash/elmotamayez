@@ -51,6 +51,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *                                                the migration's raw column type and would have the cast's Carbon
  *                                                back as a string
  * @property CarbonInterface|null $last_transaction_at
+ * @property CarbonInterface|null $notified_dormant_at
  * @property-read Workspace $workspace workspace_id is NOT NULL
  * @property-read Course $course course_id is NOT NULL
  */
@@ -70,6 +71,7 @@ class CreditBalance extends BaseModel
         'negative_since',
         'on_time_payments',
         'last_transaction_at',
+        'notified_dormant_at',
         'notified_tier',
     ];
 
@@ -85,6 +87,7 @@ class CreditBalance extends BaseModel
             'notified_tier' => 'integer',
             'negative_since' => 'datetime',
             'last_transaction_at' => 'datetime',
+            'notified_dormant_at' => 'datetime',
         ];
     }
 

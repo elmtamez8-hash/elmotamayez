@@ -159,8 +159,46 @@ export interface StudentBalanceRow {
   is_withheld: boolean;
 }
 
+/**
+ * The exam-mode window in force, if any (FR-046).
+ *
+ * Dates, not timestamps: it is a period on a calendar, and the day it ends is
+ * included. There is no `is_open` field because there is no stored flag — the
+ * absence of a window IS the off state.
+ */
+export interface ExamModeWindow {
+  uuid: string;
+  starts_on: string;
+  ends_on: string;
+}
+
+/**
+ * A document this person has been asked to accept, and whether they have.
+ *
+ * `consented_at` is null for both "never accepted" and "accepted a version that
+ * has since been superseded" (FR-049) — one field, because to the person facing
+ * the screen they are the same fact: this text is outstanding.
+ *
+ * ⚠️ THE VERSION IS READ, NEVER SENT. The server stamps the one in force at the
+ * moment of signing; a client that named its own could accept superseded terms
+ * for ever.
+ */
+export interface ConsentState {
+  document: "deferred_payment_terms" | "data_processing";
+  label: string;
+  version: string;
+  consented_at: string | null;
+}
+
 export const billing = {
   balances: () => api.get<{ data: CreditBalance[] }>("/billing/balance"),
+  /*
+   * Agreeing to owe (FR-048). The whole list on both verbs, so the screen
+   * re-renders from the response of the signature instead of asking again.
+   */
+  consents: () => api.get<{ data: ConsentState[] }>("/billing/consents"),
+  accept: (document: ConsentState["document"]) =>
+    api.post<{ data: ConsentState[] }>("/billing/consents", { document }),
   /*
    * An empty list is a real answer, not an error: a course whose teacher has no
    * approved rate cannot be priced, and one that has stopped delivering sessions
@@ -192,6 +230,24 @@ export const billing = {
    * it would solve for the platform's margin from any two rows.
    */
   students: () => api.get<{ data: StudentBalanceRow[] }>("/manage/billing/students"),
+  /*
+   * Exam mode: the window in which nothing is deferred (FR-046).
+   *
+   * `data` is null when none is in force, which is the whole state — there is no
+   * stored on/off flag anywhere. A window covers today or it does not, so the
+   * mode returns by itself the day after the last one with nothing to run.
+   *
+   * `close()` carries no uuid on purpose: the question is "turn it off", and
+   * closing one row would leave an overlapping second window quietly in force
+   * behind a screen showing it as off.
+   */
+  examMode: () => api.get<{ data: ExamModeWindow | null }>("/manage/billing/exam-mode"),
+  openExamMode: (startsOn: string, endsOn: string) =>
+    api.post<{ data: ExamModeWindow }>("/manage/billing/exam-mode", {
+      starts_on: startsOn,
+      ends_on: endsOn,
+    }),
+  closeExamMode: () => api.delete<{ data: null }>("/manage/billing/exam-mode"),
   settings: () => api.get<BillingSettings>("/manage/billing/settings"),
   // PATCH, not PUT: a request carrying one key changes one thing, so saving the
   // mode cannot silently reset thresholds nobody looked at.

@@ -12,6 +12,7 @@ use App\Modules\Media\Actions\IssuePlaybackGrant;
 use App\Modules\Media\Actions\RenewPlaybackGrant;
 use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Data\PlaybackContext;
+use App\Modules\Media\Exceptions\AccessWithheldException;
 use App\Modules\Media\Http\Resources\PlaybackGrantResource;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Providers\LocalMediaProvider;
@@ -83,6 +84,23 @@ class PlaybackController extends Controller
                 'code' => 'asset_not_ready',
                 'status' => $e->getMessage(),
             ], 409);
+        } catch (AccessWithheldException $e) {
+            // BEFORE the generic RuntimeException below, which it extends —
+            // Laravel walks catch blocks in order and the wider one would flatten
+            // this into the sentence written for a stranger.
+            //
+            // 402 rather than 403: the viewer is entitled and their sessions are
+            // open; what is missing is a payment. A distinct status lets the
+            // player branch without matching on message text, and `code` lets it
+            // branch without hardcoding the status either.
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => 'access_withheld',
+                'credits_needed' => $e->creditsNeeded,
+                // The way out travels with the refusal, so the screen does not
+                // have to know which course the file belonged to.
+                'course' => $e->courseUuid,
+            ], 402);
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 403);
         }

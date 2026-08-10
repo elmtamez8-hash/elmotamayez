@@ -7,6 +7,7 @@ use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\BillingMode;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Exceptions\InsufficientCreditsException;
+use App\Modules\Payments\Models\TermsConsent;
 use App\Modules\Payments\Support\CreditLedger;
 
 /*
@@ -25,8 +26,19 @@ use App\Modules\Payments\Support\CreditLedger;
 
 beforeEach(function (): void {
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
-    $this->balance = billingBalance($this->workspace, User::factory()->create());
+    $this->student = User::factory()->create();
+    $this->balance = billingBalance($this->workspace, $this->student);
     $this->ledger = app(CreditLedger::class);
+
+    // A recorded consent, because both files test balances that hold a real
+    // deferral ceiling — and since US9 the floor asks for one (FR-048). Without
+    // it every ceiling below reads as zero and the tests pass for the wrong
+    // reason.
+    TermsConsent::factory()->create([
+        'user_id' => $this->student->getKey(),
+        'student_user_id' => $this->student->getKey(),
+    ]);
+
 });
 
 function consume(int $credits, int $source, bool $enforce = true, bool $zeroFloor = true): void
@@ -91,7 +103,7 @@ it('lets a deferring mode go negative down to the limit and no further', functio
     $this->balance->forceFill(['credit_limit_credits' => 2])->save();
 
     // Manual collection allows deferral, so the floor is −limit rather than zero.
-    expect(app(CreditLedger::class)->floorFor($this->balance, BillingMode::ManualCollection))->toBe(-2);
+    expect(app(CreditLedger::class)->floorFor($this->balance, BillingMode::ManualCollection, consentCurrent: true))->toBe(-2);
 
     consume(1, 1, enforce: true, zeroFloor: false);
     consume(1, 2, enforce: true, zeroFloor: false);

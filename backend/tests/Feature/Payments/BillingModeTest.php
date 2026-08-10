@@ -11,6 +11,7 @@ use App\Modules\Payments\Enums\BillingMode;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Exceptions\InsufficientCreditsException;
 use App\Modules\Payments\Models\CreditTransaction;
+use App\Modules\Payments\Models\TermsConsent;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Tenancy\Support\Permissions;
@@ -36,6 +37,16 @@ beforeEach(function (): void {
     $this->balance = billingBalance($this->workspace, $this->student);
     $this->settings = app(BillingSettings::class);
     $this->ledger = app(CreditLedger::class);
+
+    // A recorded consent, because both files test balances that hold a real
+    // deferral ceiling — and since US9 the floor asks for one (FR-048). Without
+    // it every ceiling below reads as zero and the tests pass for the wrong
+    // reason.
+    TermsConsent::factory()->create([
+        'user_id' => $this->student->getKey(),
+        'student_user_id' => $this->student->getKey(),
+    ]);
+
 });
 
 function switchTo(BillingMode $mode, ?BillingCadence $cadence = null): void

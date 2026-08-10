@@ -5,12 +5,15 @@ declare(strict_types=1);
 use App\Modules\Payments\Http\Controllers\Admin\BillingPricingController;
 use App\Modules\Payments\Http\Controllers\Admin\CreditPackageAdminController;
 use App\Modules\Payments\Http\Controllers\Admin\OutstandingCreditsController;
+use App\Modules\Payments\Http\Controllers\Admin\ReconciliationController;
 use App\Modules\Payments\Http\Controllers\BillingController;
 use App\Modules\Payments\Http\Controllers\BillingSettingsController;
 use App\Modules\Payments\Http\Controllers\CreditPurchaseController;
 use App\Modules\Payments\Http\Controllers\Manage\CreditLimitController;
+use App\Modules\Payments\Http\Controllers\Manage\ExamModeController;
 use App\Modules\Payments\Http\Controllers\Manage\StudentBalanceController;
 use App\Modules\Payments\Http\Controllers\OrderController;
+use App\Modules\Payments\Http\Controllers\TermsConsentController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -44,6 +47,19 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     // carry a check it should never have to answer.
     Route::get('/billing/children/balance', [BillingController::class, 'childBalance']);
 
+    /*
+    | Agreeing to owe (FR-048 · FR-049). `throttle:billing` like the rest of the
+    | group and never `throttle:auth`, whose second rule keys on an email this
+    | request does not carry.
+    |
+    | No `{document}` in the path and no student in it either: the document is a
+    | body value validated against the enum, and the subject is the signer unless
+    | a guardian names a child — which is a 403 in every branch, including one
+    | that names nobody.
+    */
+    Route::get('/billing/consents', [TermsConsentController::class, 'index']);
+    Route::post('/billing/consents', [TermsConsentController::class, 'store']);
+
     // The teacher's panel: credits and withheld state for their own students,
     // with no money in the payload (StudentBalanceAllowlist).
     Route::get('/manage/billing/students', [StudentBalanceController::class, 'index']);
@@ -56,6 +72,18 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     | fact about a real person.
     */
     Route::patch('/manage/billing/students/{student}/limit', [CreditLimitController::class, 'update']);
+
+    /*
+    | Exam mode (FR-046). The teacher's own calendar, so the workspace is the
+    | authenticated one and no id appears in the payload.
+    |
+    | DELETE carries no uuid on purpose: the question is "turn it off", and
+    | closing one row at a time would leave an overlapping second window in force
+    | behind a screen showing it as off.
+    */
+    Route::get('/manage/billing/exam-mode', [ExamModeController::class, 'show']);
+    Route::post('/manage/billing/exam-mode', [ExamModeController::class, 'store']);
+    Route::delete('/manage/billing/exam-mode', [ExamModeController::class, 'destroy']);
 
     // FR-011 — the mode is switched from settings, never by shipping code. Both
     // verbs carry the workspace implicitly: it is the one the request is already
@@ -84,6 +112,14 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     Route::post('/admin/billing/packages', [CreditPackageAdminController::class, 'store']);
     Route::patch('/admin/billing/packages/{uuid}', [CreditPackageAdminController::class, 'update']);
 
+    /*
+    | What the nightly reconciliation found, read back — never computed here.
+    | Three GROUP BYs with no tenant filter would run on every refresh of the
+    | screen. The payload carries the LAST RUN TIME, because "no findings" and
+    | "the sweep stopped on Tuesday" are otherwise the same empty list.
+    */
+    Route::get('/admin/billing/reconciliation', [ReconciliationController::class, 'show']);
+
     Route::get('/admin/billing/pricing', [BillingPricingController::class, 'show']);
     Route::put('/admin/billing/pricing', [BillingPricingController::class, 'update']);
 
@@ -96,7 +132,16 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     Route::get('/admin/billing/outstanding', [OutstandingCreditsController::class, 'show']);
 });
 
-Route::middleware('auth:sanctum')->group(function (): void {
+/*
+| Orders — the money path a credit purchase finishes on.
+|
+| `throttle:billing` was added in 006's audit (T167), and its absence was not
+| cosmetic: uploading a receipt writes a file, and approving one grants an
+| enrolment and moves a balance. Both were reachable at request speed. Named
+| rather than inline for the reason every other group here is — an inline
+| `throttle:N,M` shares one bucket with every other inline limit on the domain.
+*/
+Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void {
     Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{order}', [OrderController::class, 'show']);
     Route::post('/courses/{course}/orders', [OrderController::class, 'store']);

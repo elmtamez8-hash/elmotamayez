@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Database\Factories\Modules\Payments;
 
 use App\Models\User;
+use App\Modules\Payments\Enums\ConsentDocument;
 use App\Modules\Payments\Models\TermsConsent;
+use App\Modules\Payments\Support\ConsentRegistry;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -30,8 +32,16 @@ class TermsConsentFactory extends Factory
             // own, so a shared instance creates TWO users and the default would
             // silently be the guardian case it claims not to be.
             'student_user_id' => fn (array $attributes): int => (int) $attributes['user_id'],
-            'document' => 'deferred_payment_terms',
-            'version' => '1.0',
+            'document' => ConsentDocument::DeferredPaymentTerms->value,
+
+            // The version in force, resolved rather than written: a literal here
+            // would go stale the first time the terms were republished, and every
+            // fixture would then be an acceptance of superseded text — which the
+            // readers correctly ignore, so the suite would fail everywhere except
+            // where it should.
+            'version' => fn (array $attributes): string => app(ConsentRegistry::class)->currentVersion(
+                ConsentDocument::tryFrom((string) $attributes['document']) ?? ConsentDocument::DeferredPaymentTerms,
+            ),
             'ip_address' => '203.0.113.10',
             'user_agent' => 'PHPUnit',
             'consented_at' => now(),

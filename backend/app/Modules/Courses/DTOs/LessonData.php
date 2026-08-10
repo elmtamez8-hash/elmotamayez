@@ -44,6 +44,19 @@ class LessonData extends DataTransferObject
          */
         public readonly ?bool $isPreview = null,
         public readonly ?bool $isFree = null,
+        /**
+         * High value — worth withholding from a student who owes (FR-041).
+         *
+         * The teacher's own classification: a revision paper, a mark scheme, a
+         * predicted-question bank. Spec 006 withholds these from a negative
+         * balance while leaving the sessions themselves open, on the reasoning
+         * that cutting off a student's lesson punishes their learning, while
+         * handing them the answer key removes the last reason to settle up.
+         *
+         * Nullable for the same reason the two above are: an omitted key is not
+         * an instruction to turn the flag off.
+         */
+        public readonly ?bool $isHighValue = null,
     ) {}
 
     /** @param  array<string, mixed>  $data */
@@ -68,6 +81,7 @@ class LessonData extends DataTransferObject
             // mentioning it.
             isPreview: array_key_exists('is_preview', $data) ? (bool) $data['is_preview'] : null,
             isFree: array_key_exists('is_free', $data) ? (bool) $data['is_free'] : null,
+            isHighValue: array_key_exists('is_high_value', $data) ? (bool) $data['is_high_value'] : null,
         );
     }
 }

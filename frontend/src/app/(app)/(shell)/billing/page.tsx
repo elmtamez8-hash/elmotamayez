@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { BalanceSummary } from "@/components/billing/BalanceSummary";
+import { TermsConsentCard } from "@/components/billing/TermsConsentCard";
 import { TransactionList } from "@/components/billing/TransactionList";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/states/EmptyState";
@@ -75,6 +76,11 @@ export default function BillingPage() {
           {error}
         </Alert>
       )}
+
+      {/* Above the balances, and it renders nothing when nothing is
+          outstanding — a student who has signed never sees it, and it comes
+          back by itself the day new terms are published. */}
+      <TermsConsentCard />
 
       <section aria-labelledby="balances-heading" className="space-y-4">
         <h2 id="balances-heading" className="text-lg font-semibold text-ink">

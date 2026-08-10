@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Actions;
 
+use App\Modules\Payments\Enums\ConsentDocument;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Support\BillingSettings;
-use App\Modules\Payments\Support\DeferralConsent;
+use App\Modules\Payments\Support\ConsentRegistry;
 use App\Shared\Actions\Action;
 use Illuminate\Support\Facades\DB;
 
@@ -33,18 +34,19 @@ use Illuminate\Support\Facades\DB;
  * twice over the same balance moves nothing the second time. That idempotence is
  * what lets a nightly sweep and a purchase both call it without coordination.
  *
- * ⚠️ THE INITIAL 0 → 1 GRANT IS NOT HERE. FR-048 makes recorded consent the gate,
- * and recording that consent is US9's Action, which does not exist yet. Granting
- * a ceiling here from the mere absence of a refusal would be the opposite of what
- * the requirement says. Until then a ceiling starts at zero and moves by the
- * platform's own hand (`PATCH .../limit`), which is where FR-048's check can be
- * enforced today.
+ * ⚠️ THE INITIAL 0 → 1 GRANT IS NOT HERE, AND US9 DID NOT MOVE IT HERE. It is an
+ * EVENT — the moment a person agrees to owe ({@see RecordTermsConsent}) — not a
+ * state this class could derive. Derived, it would read `limit === 0 && consent`
+ * and re-grant the ceiling of the student FR-040 had just demoted, the first time
+ * they cleared their debt; the demotion would last exactly one sweep. A balance
+ * opened after the consent gets its ceiling at birth instead, in
+ * `CreditAccounts::balanceFor()`, which also runs once.
  */
 class EvaluateCreditLimit extends Action
 {
     public function __construct(
         private readonly BillingSettings $settings,
-        private readonly DeferralConsent $consent,
+        private readonly ConsentRegistry $consent,
         private readonly SetCreditLimit $writer,
     ) {}
 
@@ -81,7 +83,7 @@ class EvaluateCreditLimit extends Action
         // the raise anyway, but it refuses by throwing — and this call sits in the
         // after-commit block of an approved purchase, where an exception is a
         // 500 on a payment that has already been taken.
-        if (! $this->consent->recordedFor($balance->student()->firstOrFail())) {
+        if (! $this->consent->has($balance->student()->firstOrFail(), ConsentDocument::DeferredPaymentTerms)) {
             return $balance->credit_limit_credits;
         }
 

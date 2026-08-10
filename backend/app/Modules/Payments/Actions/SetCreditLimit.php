@@ -5,22 +5,32 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Actions;
 
 use App\Models\User;
+use App\Modules\Payments\Enums\ConsentDocument;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Support\BalanceAnnouncer;
 use App\Modules\Payments\Support\BillingSettings;
-use App\Modules\Payments\Support\DeferralConsent;
+use App\Modules\Payments\Support\ConsentRegistry;
 use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
 
 /**
- * The one place `credit_limit_credits` is written.
+ * The one place `credit_limit_credits` is CHANGED.
  *
- * Both writers arrive here — the rules ({@see EvaluateCreditLimit}) and the
- * platform's exception (`Manage\CreditLimitController`) — because everything that has to happen around the write is the same for both:
- * the cap, the consent gate, the audit line and telling whoever it just blocked
- * or freed. Left in each caller, the second one written would be the one missing
- * the audit line, and FR-039 would hold only for the path someone remembered.
+ * Three writers arrive here — the rules ({@see EvaluateCreditLimit}), the
+ * platform's exception (`Manage\CreditLimitController`) and the initial grant
+ * that a recorded consent earns ({@see RecordTermsConsent}) — because everything
+ * that has to happen around the write is the same for all three: the cap, the
+ * consent gate, the audit line and telling whoever it just blocked or freed. Left
+ * in each caller, the last one written would be the one missing the audit line,
+ * and FR-039 would hold only for the path someone remembered.
+ *
+ * ⚠️ "CHANGED", NOT "WRITTEN", AND THE DISTINCTION IS ONE DELIBERATE EXCEPTION.
+ * `CreditAccounts::balanceFor()` gives a NEW balance its opening ceiling as a
+ * column default, which is not a change: there is no `from` to audit, nobody to
+ * announce a transition to, and the row does not exist yet to be blocked. The gate
+ * and the cap still apply there — they are inside
+ * `BillingSettings::initialLimitFor()`, which is what that path writes.
  *
  * ⚠️ THE CAP AND THE GATE ARE ENFORCED HERE, NOT IN A FormRequest (R16). The
  * sweep, the purchase path and the panel all reach this Action, and a rule that
@@ -37,7 +47,7 @@ class SetCreditLimit extends Action
     public function __construct(
         private readonly BillingSettings $settings,
         private readonly BalanceAnnouncer $announcer,
-        private readonly DeferralConsent $consent,
+        private readonly ConsentRegistry $consent,
     ) {}
 
     /** @return int the ceiling as it stands after the write */
@@ -60,7 +70,7 @@ class SetCreditLimit extends Action
         // FR-048 — no agreement, no debt. Refused rather than silently clamped to
         // zero: a request that answers 200 with a ceiling the caller did not ask
         // for reads as a bug in the panel, and the person retries.
-        if ($limit > 0 && ! $this->consent->recordedFor($balance->student()->firstOrFail())) {
+        if ($limit > 0 && ! $this->consent->has($balance->student()->firstOrFail(), ConsentDocument::DeferredPaymentTerms)) {
             throw new DomainException(
                 'لا يمكن منح حد ائتماني قبل تسجيل موافقة صريحة على شروط الدفع المؤجَّل.',
             );

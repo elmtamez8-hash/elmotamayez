@@ -7,6 +7,7 @@ namespace App\Modules\Payments\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Shared\Traits\HasUuid;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
@@ -25,6 +26,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * A new version of the terms cannot inherit an old acceptance (FR-049), and this
  * consent never substitutes for the data-processing consent of spec 013, nor the
  * other way round (FR-050).
+ *
+ * The property is declared for Larastan, which reads the column's raw type from
+ * the migration — a `datetime`-cast timestamp is a string to it, and reading a
+ * date off one is an error at level 8.
+ *
+ * @property CarbonInterface $consented_at
  */
 class TermsConsent extends BaseModel
 {

@@ -78,6 +78,7 @@ class ManageLessons extends Action
                 // unless it was asked for.
                 'is_preview' => $data->isPreview ?? false,
                 'is_free' => $data->isFree ?? false,
+                'is_high_value' => $data->isHighValue ?? false,
             ]);
             $lesson->save();
 
@@ -111,6 +112,10 @@ class ManageLessons extends Action
 
         if ($data->isFree !== null) {
             $attributes['is_free'] = $data->isFree;
+        }
+
+        if ($data->isHighValue !== null) {
+            $attributes['is_high_value'] = $data->isHighValue;
         }
 
         $moved = $chapter !== null && $chapter->getKey() !== $lesson->chapter_id;

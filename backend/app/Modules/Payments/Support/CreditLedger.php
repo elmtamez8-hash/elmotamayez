@@ -6,6 +6,7 @@ namespace App\Modules\Payments\Support;
 
 use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\BillingMode;
+use App\Modules\Payments\Enums\ConsentDocument;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Enums\ZeroBalanceBehavior;
 use App\Modules\Payments\Exceptions\InsufficientCreditsException;
@@ -37,19 +38,40 @@ use RuntimeException;
  */
 class CreditLedger
 {
-    public function __construct(private readonly BillingSettings $settings) {}
+    public function __construct(
+        private readonly BillingSettings $settings,
+        private readonly ConsentRegistry $consent,
+    ) {}
 
     // ── The predicate ───────────────────────────────────────────────────────
 
     /**
      * How far below zero this balance may go, as a negative number or zero.
      *
-     * An exam-mode window forces it to zero for the same reason prepaid does:
-     * during exams nothing is deferred, whatever ceiling the student has earned.
+     * Four ways to reach zero, and each is a different refusal wearing the same
+     * number: a mode that defers nothing, an exam-mode window, a ceiling of zero
+     * — and no CURRENT agreement to owe.
+     *
+     * ⚠️ THE CONSENT ARGUMENT DEFAULTS TO `false`, WHICH IS THE SAFE DIRECTION.
+     * FR-048 permits no deferral without a recorded agreement, so a caller that
+     * forgets to ask gets a floor of zero: the student is told to pay, which is
+     * wrong and visible. The other default would let debt run silently on an
+     * agreement nobody gave, which is wrong and invisible.
+     *
+     * ⚠️ AND IT IS ASKED PER READ, never stamped on the balance (FR-049). The
+     * ceiling of a student who has not signed the newly published terms is not
+     * zeroed — it is IGNORED, and starts meaning something again the moment they
+     * sign. Zeroing the column instead would need a sweep on publish, a second
+     * sweep to restore, and a stored number that disagrees with the rule between
+     * them.
      */
-    public function floorFor(CreditBalance $balance, BillingMode $mode, bool $insideExamWindow = false): int
-    {
-        if (! $mode->allowsDeferral() || $insideExamWindow) {
+    public function floorFor(
+        CreditBalance $balance,
+        BillingMode $mode,
+        bool $insideExamWindow = false,
+        bool $consentCurrent = false,
+    ): int {
+        if (! $mode->allowsDeferral() || $insideExamWindow || ! $consentCurrent) {
             return 0;
         }
 
@@ -57,20 +79,37 @@ class CreditLedger
     }
 
     /**
-     * The floor for this balance, reading the mode from settings itself.
+     * The floor for this balance, reading the mode and the consent itself.
      *
-     * The form every caller should use. {@see self::floorFor()} takes the mode as
-     * an argument, which is right for a unit test and wrong for a call site: a
-     * caller that fetches the mode itself is a second place the mode is read, and
-     * FR-013 gives that job to BillingSettings alone.
+     * The form every caller should use. {@see self::floorFor()} takes both as
+     * arguments, which is right for a unit test and for a bulk reader and wrong
+     * for a call site: a caller that fetches the mode itself is a second place the
+     * mode is read, and FR-013 gives that job to BillingSettings alone.
      *
      * The exam window is passed in rather than looked up here, because the one
      * caller that charges a whole session's seats reads it once for the session
      * instead of once per student.
+     *
+     * The zero-ceiling short circuit is not an optimisation of the arithmetic —
+     * it is what keeps the consent query off the path of the launch default. A
+     * workspace in `PREPAID_CREDITS` has every ceiling at zero, so the floor is
+     * zero whatever the answer would have been.
      */
     public function floorForBalance(CreditBalance $balance, bool $insideExamWindow = false): int
     {
-        return $this->floorFor($balance, $this->settings->mode($balance->workspace), $insideExamWindow);
+        if ($balance->credit_limit_credits === 0) {
+            return 0;
+        }
+
+        return $this->floorFor(
+            $balance,
+            $this->settings->mode($balance->workspace),
+            $insideExamWindow,
+            $this->consent->forStudentIds(
+                [(int) $balance->student_user_id],
+                ConsentDocument::DeferredPaymentTerms,
+            ) !== [],
+        );
     }
 
     public function canAfford(CreditBalance $balance, int $credits, int $floor): bool
@@ -261,7 +300,7 @@ class CreditLedger
                 return null;
             }
 
-            if ($movement->credits < 0) {
+            if ($movement->credits < 0 && $movement->drawsFromLots) {
                 $this->drawFromLots($entry, -$movement->credits);
             }
 
@@ -401,6 +440,17 @@ class CreditLedger
         // concurrent one.
         return $query->incrementEach($deltas, [
             'last_transaction_at' => now(),
+            // The dormancy notice is about a balance nobody has touched, so any
+            // movement ends the dormancy it was sent about. Cleared here rather
+            // than in the sweep: this is the moment it stopped being true, and a
+            // sweep that cleared it would only notice the next night.
+            //
+            // "Any movement" includes an EXPIRY, which resets a dormant balance's
+            // clock without its owner doing anything. Deliberate and harmless
+            // here: expiry is switched off at launch, and a lot running out IS
+            // activity on the account — the notice would be re-sent a year later
+            // about whatever is left, which is the right thing to say.
+            'notified_dormant_at' => null,
             'updated_at' => now(),
         ]) > 0;
     }

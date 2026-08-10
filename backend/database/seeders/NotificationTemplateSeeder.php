@@ -125,6 +125,16 @@ class NotificationTemplateSeeder extends Seeder
                 'عاد رصيدك في «{{ course }}» إلى ما يكفي، ويمكنك الحجز الآن. رصيدك الحالي {{ credits }} حصة.',
                 ['course', 'credits'],
             ],
+            /*
+            | A reminder, never a notice of expiry (Q-8). The credits stay, and
+            | the message says so — a message that hinted otherwise would be the
+            | platform quietly inventing an expiry it does not have.
+            */
+            NotificationType::CreditBalanceDormant->value => [
+                'لديك رصيد غير مستخدَم في {{ course }}',
+                'لم تستخدم رصيدك في «{{ course }}» منذ {{ months }} شهراً، وما زالت لديك {{ credits }} حصة. الرصيد لا ينتهي، ويمكنك استخدامه في أي وقت أو طلب استرداده.',
+                ['course', 'credits', 'months'],
+            ],
             NotificationType::TeacherPayoutIssued->value => [
                 'نُفِّذ صرف مستحقّك',
                 'نُفِّذ صرف بمبلغ {{ amount }} بمرجع {{ reference }}. يظهر في سجلّ صرفك.',

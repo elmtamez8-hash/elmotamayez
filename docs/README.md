@@ -557,3 +557,114 @@ are excluded by construction rather than by anyone remembering.
 `throttle:authoring` on every write, named in `AppServiceProvider::registerRateLimiters()`.
 Reads — the tree, one item, the impact preview, the reference targets — sit outside it.
 Inline limits stay banned.
+
+## Credit Billing (spec 006)
+
+A credit is one session at one teacher's approved rate. Ten tables, three ownership layers,
+and one rule that decides most of the rest: **the ledger is append-only, and every number a
+student sees is either an entry in it or derived from one.**
+
+### Endpoints
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/v1/billing/balance` | the student's own balances, per course |
+| GET | `/api/v1/billing/transactions` | their ledger, paginated |
+| GET | `/api/v1/billing/children/balance` | a guardian, with `GuardianPermission::Payments` |
+| GET · POST | `/api/v1/billing/consents` | what is outstanding, and accepting it |
+| GET | `/api/v1/billing/packages` | the catalogue, priced for one course |
+| POST | `/api/v1/billing/purchases` | starts an order; the receipt flow is unchanged |
+| GET | `/api/v1/manage/billing/students` | the teacher's panel — credits, no money |
+| PATCH | `/api/v1/manage/billing/students/{student}/limit` | the platform's manual exception |
+| GET · PATCH | `/api/v1/manage/billing/settings` | mode, cadence, thresholds, zero-balance |
+| GET · POST · DELETE | `/api/v1/manage/billing/exam-mode` | the window in which nothing defers |
+| GET · POST · PATCH | `/api/v1/admin/billing/packages` | the platform catalogue (no DELETE) |
+| GET · PUT | `/api/v1/admin/billing/pricing` | the platform's half of the price |
+| GET | `/api/v1/admin/billing/outstanding` | read by the rate-approval screen (Q-7) |
+| GET | `/api/v1/admin/billing/reconciliation` | what the nightly sweep found, and when |
+
+Every write here carries `throttle:billing`, keyed by USER. Never `throttle:auth`: that
+limiter's second bucket keys on `'email:'.$request->input('email')`, and a billing request
+carries no email — so the key collapses to the constant `'email:'` and the whole platform
+shares one counter.
+
+### Permissions (eight, and four of them are PLATFORM-level)
+
+| Constant | Reaches |
+|---|---|
+| `billing.balance.view` | the teacher's panel of their own students |
+| `billing.settings.manage` | the workspace's billing mode and thresholds |
+| `billing.exam_mode.manage` | opening and closing the exam window |
+| `billing.purchase.approve` | approving a credit purchase — **platform**, not the teacher |
+| `billing.credits.adjust` | a bonus, a correction, a refund — **platform** |
+| `billing.limit.manage` | moving a credit ceiling by hand — **platform** |
+| `billing.packages.manage` | the credit catalogue — **platform** |
+| `billing.pricing.manage` | the platform's fees, and the reconciliation report — **platform** |
+
+The four platform permissions are held by no tenant role. A package a teacher could define
+is a sale price a teacher sets, which FR-021ب forbids; a ceiling a teacher could raise is a
+teacher deciding how much the platform may be owed.
+
+⚠️ **`billing.credits.adjust` has no HTTP surface yet.** `AdjustCredits` is reachable from
+tests and from code, and the permission exists, but no route or panel page calls it — a
+correction today is a tinker-level operation. Recorded here rather than left for someone to
+discover: the gap is in the SURFACE, not in the rule, and the Action already enforces the
+mandatory reason and the idempotency key that a future screen would need.
+
+### Scheduled sweeps
+
+| When | Job | Why a sweep rather than a listener |
+|---|---|---|
+| `:05,:20,:35,:50` | `ChargeUnbilledDeliveriesJob` | a delivery that was never charged fires no event |
+| 04:25 daily | `EvaluateCreditLimitsJob` | nothing fires on the fourteenth day of owing |
+| 04:35 daily | `ExpireCreditLotsJob` | finds nothing until an operator sets a validity (Q-5) |
+| 04:45 daily | `ReconcileCreditBalancesJob` | after every sweep that moves a balance |
+| Sunday 05:00 | `NotifyDormantBalancesJob` | the boundary is months; nightly would be nagging |
+
+### Reconciliation, and why the naive check is blind
+
+`ReconcileCreditBalancesJob` asks three questions, and the first one alone would prove almost
+nothing: the balance and its entries are written by the SAME path inside the SAME
+transaction, so a session that was never charged at all leaves them in perfect agreement.
+The two that see it come from outside the ledger — a charged session must carry one
+consumption entry per seat it was taught to, and a positive balance must equal what its lots
+still hold. Nothing is repaired automatically: a sweep that silently corrected a balance
+would destroy the evidence, and the append-only ledger has no shape for an undo.
+
+The read endpoint reports the LAST RUN TIME alongside the findings, because "no findings"
+and "the sweep stopped on Tuesday" are otherwise the same empty list.
+
+### Recorded consents, and how long they are kept
+
+`terms_consents` is the record of somebody agreeing to owe. It stores the SIGNER, the
+STUDENT they signed for, the document, the version in force at the time, the timestamp, the
+IP address and the user agent. FR-048 makes it the gate on every credit limit above zero,
+and FR-049 makes the version part of the question rather than a note beside it.
+
+**Retention: kept for the life of the account, and excluded from spec 013's erasure.** It is
+the evidence of a legal commitment, not a record of behaviour — a deleted consent turns
+every session taken on credit into a debt nobody can show was agreed to. When 013 lands, its
+erasure must skip this table and say so in its own spec; it is called out here because a
+sweep written from a list of tables is a sweep that will otherwise include it. The
+data-processing consent 013 introduces is stored in the SAME table, under a different
+`document`, and never substitutes for this one in either direction (FR-050).
+
+**Publishing new terms is a settings change, not a migration.** The version in force is
+`consents.versions.<document>` in `platform_settings` (`config/consents.php` is the
+fallback). Bumping it makes every acceptance of the old text outstanding immediately: the
+reader asks for the current version, so nothing walks the table and no consent row is
+touched. The ceiling a student earned is NOT zeroed either — `CreditLedger::floorForBalance()`
+simply ignores it until the new text is signed, and it starts counting again on the next
+booking after that.
+
+**The opening ceiling is granted once**, on a person's FIRST acceptance of the
+deferred-payment terms (`RecordTermsConsent`) and at the birth of any balance opened
+afterwards (`CreditAccounts::balanceFor()`). Never on a re-acceptance: a grant that ran on
+every signature would hand back the ceiling FR-040's demotion took away, the next time the
+terms were republished.
+
+**`TRUSTED_PROXIES` must be set in production or the recorded IP is the load balancer's** —
+the same address for every person, in the column that exists to be relied on in a dispute.
+It is read in `AppServiceProvider::trustConfiguredProxies()` and defaults to trusting
+nothing; `'*'` is worse than the default unless the proxy always overwrites
+`X-Forwarded-For`, because it lets any client choose what that column says.

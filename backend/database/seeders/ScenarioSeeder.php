@@ -38,8 +38,21 @@ use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\CreateOrder;
 use App\Modules\Payments\Actions\RejectOrder;
+use App\Modules\Payments\Data\CreditMovement;
+use App\Modules\Payments\Enums\BillingCadence;
+use App\Modules\Payments\Enums\BillingMode;
+use App\Modules\Payments\Enums\ConsentDocument;
+use App\Modules\Payments\Enums\CreditTransactionType;
+use App\Modules\Payments\Models\CreditBalance;
+use App\Modules\Payments\Models\CreditPackage;
+use App\Modules\Payments\Models\ExamModeWindow;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Models\Product;
+use App\Modules\Payments\Models\TermsConsent;
+use App\Modules\Payments\Support\BillingSettings;
+use App\Modules\Payments\Support\ConsentRegistry;
+use App\Modules\Payments\Support\CreditAccounts;
+use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Settlement\Enums\LedgerEntryType;
 use App\Modules\Settlement\Enums\SettlementBasis;
 use App\Modules\Settlement\Enums\SettlementPeriodStatus;
@@ -263,6 +276,11 @@ final class ScenarioSeeder extends Seeder
         $profile = $this->sessions($workspace, $teacher, [$buyer, $halfway, $graduate]);
 
         $this->settlement($workspace, $profile, $teacher, $owner, [$buyer, $halfway]);
+
+        // After settlement, deliberately: a credit package is priced from the
+        // teacher's APPROVED rate, and with none the catalogue prices nothing and
+        // the purchase screen renders an empty list (FR-021ز).
+        $this->billing($workspace, $paid, [$buyer, $halfway, $graduate]);
 
         $this->cms($workspace, $owner);
     }
@@ -502,6 +520,116 @@ final class ScenarioSeeder extends Seeder
                 'teaching_unit_id' => $unit->id,
             ]);
         }
+    }
+
+    /**
+     * The credit screens, with something on them (spec 006).
+     *
+     * Four states, because each renders differently and an empty screen is how a
+     * broken one ships: a healthy positive balance, one sitting ON an alert
+     * threshold, one below zero and withheld, and the catalogue that sells the
+     * credits. Plus an open exam window, which is the state the exam-mode screen
+     * has no other way to show.
+     *
+     * The workspace is switched to a DEFERRING mode here and nowhere else. In the
+     * launch default nothing can go below zero (FR-014), so the withheld student
+     * would be indistinguishable from a student who has simply not bought
+     * anything — and the credit limit, the consent and the exam window would all
+     * render as numbers that do nothing.
+     *
+     * @param  list<User>  $students
+     */
+    private function billing(Workspace $workspace, Course $course, array $students): void
+    {
+        app(BillingSettings::class)->save($workspace, [
+            'mode' => BillingMode::ManualCollection->value,
+            'cadence' => BillingCadence::Month->value,
+        ]);
+
+        $workspace->refresh();
+
+        // Two sizes, one of each session type, so the purchase screen has a
+        // choice to render. Priced by the platform from the teacher's approved
+        // rate — which the settlement seed above has already created.
+        foreach ([
+            ['حزمة ٨ حصص فردية', 8, ClassSessionType::Individual, 1],
+            ['حزمة ١٦ حصة فردية', 16, ClassSessionType::Individual, 2],
+            ['حزمة ١٢ حصة جماعية', 12, ClassSessionType::Group, 3],
+        ] as [$name, $credits, $type, $order]) {
+            CreditPackage::create([
+                'name' => $name,
+                'credits' => $credits,
+                'session_type' => $type,
+                // Null: credits do not expire at launch (Q-5). Seeding a validity
+                // would switch on a policy the product has not sold.
+                'validity_days' => null,
+                'is_active' => true,
+                'sort_order' => $order,
+            ]);
+        }
+
+        [$healthy, $onThreshold, $withheld] = $students;
+
+        $this->creditBalance($workspace, $course, $healthy, 10);
+
+        // Exactly the second alert tier, so the "low balance" badge and the
+        // notification ladder both have a subject.
+        $this->creditBalance($workspace, $course, $onThreshold, 3);
+
+        // Below zero and blocked. The consent is what makes the ceiling legal
+        // (FR-048) — without it the limit could not have been granted, and the
+        // balance could never have gone negative in the first place.
+        TermsConsent::create([
+            'user_id' => $withheld->id,
+            'student_user_id' => $withheld->id,
+            'document' => ConsentDocument::DeferredPaymentTerms->value,
+            'version' => app(ConsentRegistry::class)->currentVersion(ConsentDocument::DeferredPaymentTerms),
+            'ip_address' => '198.51.100.24',
+            'user_agent' => 'ScenarioSeeder',
+            'consented_at' => now()->subMonths(2),
+        ]);
+
+        $balance = $this->creditBalance($workspace, $course, $withheld, 2);
+        $balance->forceFill(['credit_limit_credits' => 2])->save();
+
+        // Four sessions taken against two credits and a ceiling of two: the
+        // student is at the floor, which is the state the withheld badge, the 402
+        // on a high-value asset and the guardian notice all describe.
+        for ($source = 1; $source <= 4; $source++) {
+            app(CreditLedger::class)->post(new CreditMovement(
+                balance: $balance,
+                type: CreditTransactionType::Consume,
+                credits: -1,
+                sourceType: 'class_session',
+                sourceId: 900 + $source,
+            ));
+        }
+
+        // Exam season, in force today. There is no stored on/off flag anywhere,
+        // so a window that has passed would leave the screen showing the same
+        // thing as no window at all.
+        ExamModeWindow::create([
+            'workspace_id' => $workspace->id,
+            'starts_on' => CarbonImmutable::now()->subDay()->toDateString(),
+            'ends_on' => CarbonImmutable::now()->addDays(6)->toDateString(),
+            'created_by' => $workspace->owner_user_id,
+        ]);
+    }
+
+    /** A balance with credits in it, bought the way a purchase buys them. */
+    private function creditBalance(Workspace $workspace, Course $course, User $student, int $credits): CreditBalance
+    {
+        $balance = app(CreditAccounts::class)->balanceFor($student, $course);
+
+        app(CreditLedger::class)->post(new CreditMovement(
+            balance: $balance,
+            type: CreditTransactionType::Purchase,
+            credits: $credits,
+            sourceType: 'seeded_purchase',
+            sourceId: (int) $balance->getKey(),
+        ));
+
+        return $balance->refresh();
     }
 
     /**

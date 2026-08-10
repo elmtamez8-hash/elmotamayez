@@ -5,6 +5,9 @@ use App\Modules\Media\Jobs\PruneExpiredGrantsJob;
 use App\Modules\Notifications\Jobs\PruneOldNotificationsJob;
 use App\Modules\Payments\Jobs\ChargeUnbilledDeliveriesJob;
 use App\Modules\Payments\Jobs\EvaluateCreditLimitsJob;
+use App\Modules\Payments\Jobs\ExpireCreditLotsJob;
+use App\Modules\Payments\Jobs\NotifyDormantBalancesJob;
+use App\Modules\Payments\Jobs\ReconcileCreditBalancesJob;
 use App\Modules\Settlement\Jobs\CloseDueSettlementPeriodsJob;
 use App\Modules\Settlement\Jobs\ReleasePendingUnitsJob;
 use Illuminate\Foundation\Inspiring;
@@ -61,3 +64,22 @@ Schedule::job(new ChargeUnbilledDeliveriesJob)->cron('5,20,35,50 * * * *');
 // A sweep rather than a listener: falling behind is the absence of an event, and
 // nothing fires on the fourteenth day of owing.
 Schedule::job(new EvaluateCreditLimitsJob)->dailyAt('04:25');
+
+// Lots whose validity has run out. Before the reconciliation below, deliberately:
+// an expiry moves a balance, and a sweep that checked the books first would
+// report every lot it was about to write off as a discrepancy for one night.
+// Switched off in practice — `validity_days` defaults to null, so this finds
+// nothing until an operator sets one (Q-5).
+Schedule::job(new ExpireCreditLotsJob)->dailyAt('04:35');
+
+// Does the ledger still add up? Nightly, after every sweep that moves a balance,
+// so what it reads is the settled state rather than a snapshot mid-write. Three
+// GROUP BYs over the fastest-growing tables of this phase — which is exactly why
+// it is a job and not the GET that reads its results.
+Schedule::job(new ReconcileCreditBalancesJob)->dailyAt('04:45');
+
+// Credits nobody came back for (Q-8). Weekly, not nightly: the boundary is
+// measured in MONTHS, and the notice is a courtesy — asking the same question
+// every night for a year is how a courtesy becomes the reason someone turns
+// notifications off. Sunday, clear of the nightly run above.
+Schedule::job(new NotifyDormantBalancesJob)->weeklyOn(0, '05:00');

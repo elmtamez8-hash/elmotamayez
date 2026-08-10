@@ -65,6 +65,10 @@ const adminNav: NavItem[] = [
   // under /manage/sessions, because it answers a money question about students
   // — in credits only, never in money.
   { href: "/manage/billing/students", label: "أرصدة الطلاب", Icon: CreditsIcon },
+  // Exam season, when nothing is deferred. Its own entry rather than a switch on
+  // the settings screen: it is a period on a calendar with a start and an end,
+  // not a preference, and it expires by itself.
+  { href: "/manage/billing/exam-mode", label: "وضع الامتحانات", Icon: CreditsIcon },
   { href: "/workspaces", label: "مساحات العمل", Icon: WorkspaceIcon },
   { href: "/members", label: "الأعضاء", Icon: MembersIcon },
   { href: "/settings", label: "الإعدادات", Icon: SettingsIcon },
@@ -129,9 +133,15 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
           while leaving a 16rem gutter on the other one (FR-015). */}
       <aside
         id="panel-nav"
-        className={`fixed inset-y-0 start-0 z-20 w-64 overflow-y-auto border-e border-line bg-surface-raised md:block ${navOpen ? "block" : "hidden"}`}
+        /* ⚠️ A FLEX COLUMN, and the footer is a CHILD of it — not an
+           `absolute bottom-0` panel over a scrolling list. Positioned, it sat
+           on top of the last nav entries on a short viewport and INTERCEPTED
+           THEIR CLICKS: the admin links were visible, focusable and unreachable
+           on a phone, which is a link that does not exist wearing the costume of
+           one. Found by e2e on the 360×780 project. */
+        className={`fixed inset-y-0 start-0 z-20 flex w-64 flex-col border-e border-line bg-surface-raised md:flex ${navOpen ? "flex" : "hidden"}`}
       >
-        <div className="flex h-16 items-center px-6">
+        <div className="flex h-16 shrink-0 items-center px-6">
           <Link
             href="/dashboard"
             className="rounded text-xl font-extrabold text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -139,7 +149,9 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
             {PLATFORM_NAME}
           </Link>
         </div>
-        <nav aria-label="التنقّل الرئيسي" className="px-3 py-4">
+        {/* The one thing that scrolls. Everything else keeps its height, so a
+            long nav never pushes the account panel off the screen. */}
+        <nav aria-label="التنقّل الرئيسي" className="flex-1 overflow-y-auto px-3 py-4">
           {mainNav.map(renderItem)}
           <div className="mb-1 mt-4 border-t border-line pt-4">
             <p className="mb-2 px-3 text-xs font-semibold tracking-wide text-ink-muted">
@@ -148,7 +160,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
             {adminNav.map(renderItem)}
           </div>
         </nav>
-        <div className="absolute inset-x-0 bottom-0 border-t border-line bg-surface-raised p-4">
+        <div className="shrink-0 border-t border-line bg-surface-raised p-4">
           <div className="mb-3 flex items-center gap-3">
             <div
               aria-hidden="true"

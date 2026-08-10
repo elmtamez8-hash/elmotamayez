@@ -57,6 +57,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Trusted Proxies
+    |--------------------------------------------------------------------------
+    |
+    | A comma-separated list of the addresses (or CIDR ranges) of the load
+    | balancers this application sits behind, read in bootstrap/app.php. Empty
+    | means trust nothing, which is the safe default: `$request->ip()` then
+    | reports the balancer rather than the visitor, but nobody can choose what
+    | it reports. `'*'` is accepted and should be set only where the proxy is
+    | guaranteed to overwrite `X-Forwarded-For` — otherwise every client picks
+    | its own address, including in `terms_consents.ip_address`.
+    |
+    */
+
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application URL
     |--------------------------------------------------------------------------
     |

@@ -40,6 +40,16 @@ const BY_CODE: Record<string, string> = {
   // of them would leak what the API refused to say (FR-015).
   session_not_joinable:
     "لا يمكنك دخول هذه الحصة الآن. تأكّد من حجز مقعدك ومن أن موعدها قد حان.",
+  // A classified file held back for an unpaid balance (FR-042). Without an entry
+  // here a 402 falls through to "حدث خطأ غير متوقّع" — a dead end on the one
+  // refusal the student can clear themselves in a minute.
+  //
+  // The exact number is deliberately not repeated: the server sends
+  // `credits_needed` for a screen that wants to show it, and a count hardcoded
+  // in this table would be wrong for every case. `/billing` states it per course
+  // and is where the payment happens anyway.
+  access_withheld:
+    "هذا الملف موقوف حتى سداد رصيد الكورس. حصصك ودروسك العادية لا تتأثّر، ويُفتح فور اعتماد الدفع من صفحة الأرصدة.",
 };
 
 const SERVER = "حدث خطأ لدينا. أعد المحاولة بعد قليل، وإن تكرّر فتواصل مع الدعم.";

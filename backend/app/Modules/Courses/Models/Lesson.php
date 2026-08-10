@@ -65,6 +65,7 @@ class Lesson extends BaseModel implements OrdersSiblings
         'duration_seconds',
         'is_preview',
         'is_free',
+        'is_high_value',
     ];
 
     /** @return array<string, mixed> */
@@ -77,6 +78,7 @@ class Lesson extends BaseModel implements OrdersSiblings
             'duration_seconds' => 'integer',
             'is_preview' => 'boolean',
             'is_free' => 'boolean',
+            'is_high_value' => 'boolean',
         ];
     }
 

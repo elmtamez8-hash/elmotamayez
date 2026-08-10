@@ -6,6 +6,8 @@ namespace App\Modules\Payments\Support;
 
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Payments\Actions\RecordTermsConsent;
+use App\Modules\Payments\Enums\ConsentDocument;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\StudentCreditAccount;
 use Illuminate\Database\Eloquent\Collection;
@@ -25,6 +27,11 @@ use Illuminate\Database\UniqueConstraintViolationException;
  */
 class CreditAccounts
 {
+    public function __construct(
+        private readonly BillingSettings $settings,
+        private readonly ConsentRegistry $consent,
+    ) {}
+
     public function accountFor(User $student): StudentCreditAccount
     {
         $existing = StudentCreditAccount::query()->where('user_id', $student->getKey())->first();
@@ -51,6 +58,20 @@ class CreditAccounts
      * WorkspaceContext::id() is null, so auto-fill would write the first
      * production row with an empty tenant key and nothing would notice until a
      * teacher's panel came back empty.
+     *
+     * ⚠️ AND THE OPENING CEILING IS SET HERE, which is the second half of Q-9's
+     * "zero without a recorded consent, ١ after one". The other half is
+     * {@see RecordTermsConsent}, which grants it to
+     * the balances that already exist when the person signs; this is the one that
+     * catches every balance opened AFTERWARDS — a student enrolling with a second
+     * teacher next month. Without it their new balance would sit at zero until
+     * three on-time payments earned a raise from nothing.
+     *
+     * It does not go through `SetCreditLimit` because it is not a change: there is
+     * no previous value to audit, and no standing to announce a transition in — the
+     * row is being born. The gate and the cap that Action enforces are both still
+     * honoured, the first by the consent read below and the second inside
+     * `initialLimitFor()`.
      */
     public function balanceFor(User $student, Course $course): CreditBalance
     {
@@ -67,10 +88,19 @@ class CreditAccounts
             return $existing;
         }
 
+        // The cadence and the mode are read from it, so no workspace means no
+        // ceiling — the same answer WithholdingReader gives a balance whose
+        // tenant cannot be resolved.
+        $workspace = $course->workspace;
+
         try {
             return CreditBalance::query()->create($attributes + [
                 'student_user_id' => $student->getKey(),
                 'workspace_id' => $course->workspace_id,
+                'credit_limit_credits' => $workspace !== null
+                    && $this->consent->has($student, ConsentDocument::DeferredPaymentTerms)
+                        ? $this->settings->initialLimitFor($workspace)
+                        : 0,
             ]);
         } catch (UniqueConstraintViolationException) {
             return CreditBalance::query()->withoutWorkspaceScope()->where($attributes)->firstOrFail();

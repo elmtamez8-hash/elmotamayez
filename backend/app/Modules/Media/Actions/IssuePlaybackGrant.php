@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace App\Modules\Media\Actions;
 
 use App\Models\User;
+use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Identity\Models\AuthSession;
+use App\Modules\Media\Exceptions\AccessWithheldException;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Models\PlaybackGrant;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\AccountStanding;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\SessionAttendanceDirectory;
 use DomainException;
@@ -33,6 +36,7 @@ class IssuePlaybackGrant extends Action
     public function __construct(
         private readonly EnrollmentDirectory $enrollments,
         private readonly SessionAttendanceDirectory $bookings,
+        private readonly AccountStanding $standing,
     ) {}
 
     /**
@@ -68,6 +72,8 @@ class IssuePlaybackGrant extends Action
             throw new RuntimeException('لا تملك صلاحية لهذا الإجراء.');
         }
 
+        $this->assertNotWithheld($lesson, $viewer);
+
         if (! $asset->isPlayable()) {
             // Distinct from "not allowed": the viewer is entitled, the video is
             // simply not ready. The screen says "قيد التجهيز" instead of an error.
@@ -75,6 +81,58 @@ class IssuePlaybackGrant extends Action
         }
 
         return $this->mint($asset, $viewer, $session, $ipHash);
+    }
+
+    /**
+     * The money check, and it is a SEPARATE axis from entitlement (FR-042).
+     *
+     * Deliberately not folded into {@see self::mayWatch()}: that method answers
+     * "may this person see this at all", and a student who owes is entitled — the
+     * item is theirs, their sessions stay open, and the refusal has to say so with
+     * a number and a way to pay. A false returned from `mayWatch` would carry
+     * none of that, and the screen would show the sentence written for a stranger.
+     *
+     * It sits after every entitlement route rather than inside one, so an
+     * attachment asked for through `issueForAsset` is covered by the same line —
+     * classification lives on the LESSON and its files inherit it, which is the
+     * rule the entitlement check above already follows.
+     *
+     * ⚠️ RE-ASKED ON EVERY ISSUE (FR-043). Checked once at enrolment it would be a
+     * stale snapshot: a student who was paid up in September gets everything in
+     * December while owing. Same reasoning that keeps the enrolment check here.
+     *
+     * The author needs no exemption and gets none: a teacher holds no balance in
+     * their own course, and a balance row that does not exist is not withheld.
+     * An explicit membership test here would be a second query for a case the
+     * predicate already answers.
+     */
+    private function assertNotWithheld(Lesson $lesson, User $viewer): void
+    {
+        // `course_id` is NOT NULL on lessons — spec 006's backfill made it so, on
+        // the grounds that a session with no course has no price at all. So the
+        // classification is the whole condition.
+        if (! $lesson->is_high_value) {
+            return;
+        }
+
+        $courseId = (int) $lesson->course_id;
+
+        if (! $this->standing->isWithheld($viewer, $courseId)) {
+            return;
+        }
+
+        $needed = $this->standing->creditsNeededFor($viewer, $courseId);
+
+        // Read past the scope by primary key: the viewer's current workspace is
+        // whichever teacher they last visited, and a student studying with three
+        // of them would be told their own course does not exist.
+        $courseUuid = (string) Course::query()->withoutWorkspaceScope()->whereKey($courseId)->value('uuid');
+
+        throw new AccessWithheldException(
+            "هذا الملف موقوف حتى سداد رصيد هذا الكورس. تحتاج {$needed} حصة على الأقل، وتُشترى من صفحة الأرصدة. حصصك المحجوزة ودروسك العادية لا تتأثّر.",
+            creditsNeeded: $needed,
+            courseUuid: $courseUuid,
+        );
     }
 
     /**
@@ -177,6 +235,14 @@ class IssuePlaybackGrant extends Action
         $bookedLessonIds = null;
         $mayManageSessions = null;
 
+        /*
+         * And the same for withholding: one read of the whole withheld set, paid
+         * for only when a classified item is actually in the list, then filtered
+         * in memory (SC-011). Asking the contract per row is an N+1 by
+         * construction — which is why the contract forbids it inside a Resource.
+         */
+        $withheldCourseIds = null;
+
         $allowed = [];
 
         foreach ($lessons as $lesson) {
@@ -189,24 +255,35 @@ class IssuePlaybackGrant extends Action
                 $mayManageSessions ??= $viewer->can(Permissions::SESSIONS_MANAGE);
 
                 $allowed[$lessonId] = isset($bookedLessonIds[$lessonId]) || $mayManageSessions;
-
-                continue;
-            }
-
-            if (isset($workspaceIds[$lesson->workspace_id])) {
+            } elseif (isset($workspaceIds[$lesson->workspace_id])) {
                 // The author, who may watch their own unfinished work.
                 $allowed[$lessonId] = true;
-
-                continue;
+            } else {
+                // The status chain, in the same order as mayWatch() — including
+                // before the free/preview shortcut, which opens a file to a
+                // signed-out visitor. The two methods answer one question and a
+                // condition present in only one of them is a hole reachable
+                // through whichever caller uses the other.
+                $allowed[$lessonId] = isset($visibleIds[$lessonId])
+                    && ($lesson->is_free || $lesson->is_preview || isset($courseIds[$lesson->course_id]));
             }
 
-            // The status chain, in the same order as mayWatch() — including
-            // before the free/preview shortcut, which opens a file to a
-            // signed-out visitor. The two methods answer one question and a
-            // condition present in only one of them is a hole reachable through
-            // whichever caller uses the other.
-            $allowed[$lessonId] = isset($visibleIds[$lessonId])
-                && ($lesson->is_free || $lesson->is_preview || isset($courseIds[$lesson->course_id]));
+            /*
+             * The money veto, applied to whatever the branches above decided —
+             * NOT inside one of them. A revision recording is both a classified
+             * asset and a session recording, and hanging this off the ordinary
+             * branch alone would let the highest-value item in the spec's own list
+             * («تسجيلات المراجعة») walk straight past it.
+             *
+             * Authors and session managers come out unscathed without a special
+             * case: neither holds a balance in the course, and a balance row that
+             * does not exist is not withheld.
+             */
+            if ($allowed[$lessonId] && $lesson->is_high_value) {
+                $withheldCourseIds ??= array_flip($this->standing->withheldCourseIdsFor($viewer));
+
+                $allowed[$lessonId] = ! isset($withheldCourseIds[$lesson->course_id]);
+            }
         }
 
         return $allowed;

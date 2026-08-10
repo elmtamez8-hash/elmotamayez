@@ -434,3 +434,59 @@ courses gains:          structure_version → the concurrency token
 - **The uuid backfill walks with `chunkById`, never `chunk`.** `chunk` paginates by OFFSET
   while the predicate (`uuid IS NULL`) shrinks under it — every page after the first skipped
   as many rows as the previous page fixed, and reported success
+
+## Credit Billing (spec 006)
+
+```
+student_credit_accounts (PLATFORM)  one per person, across every teacher. No workspace_id
+credit_balances         (workspace) one per (account, course). purchased/consumed/remaining,
+                                    credit_limit_credits, notified_tier, negative_since,
+                                    on_time_payments, last_transaction_at, notified_dormant_at
+credit_transactions     (workspace) APPEND-ONLY. Signed `credits`. unique(balance, type,
+                                    source_type, source_id) — the idempotency key itself
+credit_lots             (workspace) a batch with its own remaining counter. THE one mutable
+                                    row beside the ledger, and mutable so the draw can claim
+credit_allocations      (workspace) which lot paid for which consumption. What the draw
+                                    CLAIMED, never re-derivable afterwards
+credit_purchases        (workspace) what was bought, at the price frozen when it was bought
+credit_packages         (PLATFORM)  the catalogue. No workspace_id: a package a teacher could
+                                    define is a sale price a teacher sets (FR-021ب)
+terms_consents          (PLATFORM)  who agreed, for whom, when, from where, to which version
+exam_mode_windows       (workspace) a period on the teacher's calendar. Dates, not timestamps
+credit_reconciliation_runs (PLATFORM) what the nightly sweep found, and that it ran at all
+```
+
+### Three ownership layers, in one diagram
+
+The account and the catalogue and the consent are **platform-owned** — no `workspace_id`, no
+global scope, and therefore no scope to fall back on: the guard is written explicitly in the
+Action, the same rule spec 003's notification tables live under. A student has ONE credit
+account across every teacher they study with, and giving it a `workspace_id` would silently
+duplicate one person per teacher. The **balance** underneath it is workspace-owned, because
+a credit is worth one session at one teacher's approved rate and is not portable.
+
+### The absence is the design, restated from the other side
+
+**Zero foreign keys between any of these ten tables and `teaching_units` / `ledger_entries` /
+`settlement_periods`.** The student's payment and the teacher's pay share no key and no
+query; the only bridge is 005's `SessionDelivered`, which both sides consume without knowing
+about each other. `ContextIsolationTest` derives its table lists from each side's
+`Schema::create` calls, so every table above was covered the day it landed.
+
+- **`credit_transactions` has no update path.** The model throws on `updating` and
+  `deleting`; a correction is a NEW entry of type `adjustment`, with a mandatory reason
+- **The floor is `−credit_limit_credits`, and a ceiling of zero IS prepaid** for that
+  student. There is no per-student `mode` column, because it would be a second answer to a
+  question the floor already answers — and the two would disagree the first time either moved
+- **`is_withheld` is not a column.** It is derived from the balance, the ceiling, the mode,
+  the exam window and a CURRENT terms consent, so lifting it is instantaneous by
+  construction and no `access_holds` table can drift from it
+- **`credit_lots.expires_at` defaults to NULL — "never expires", the launch policy (Q-5).**
+  The soonest-expiring-first draw order is live from day one anyway: switching expiry on
+  later must not rewrite which lot paid for which past session
+- **`terms_consents` stores the version it was signed against** and the readers ask for the
+  one in force, so publishing new terms invalidates every old acceptance with no migration
+  and no sweep — and touches not a single stored row
+- **Money on `credit_purchases` follows Payments' `decimal(12,2)`, not Settlement's integer
+  minor units.** Two conventions in one product is a real cost, and it is paid here rather
+  than in a migration of shipped order data; the API never sends a formatted amount either way

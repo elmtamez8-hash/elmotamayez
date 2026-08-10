@@ -40,5 +40,14 @@ class CreditMovement extends DataTransferObject
         public readonly bool $zeroFloor = true,
         /** Null means "never expires", which is the launch default (Q-5). */
         public readonly ?DateTimeInterface $expiresAt = null,
+        /**
+         * Whether a negative movement should take its credits out of the lots.
+         *
+         * True for every movement but one. An EXPIRY has already emptied the
+         * exact lot it is writing off — with the conditional UPDATE that makes
+         * the claim safe — so letting the drawer run again would take the same
+         * credits a second time, out of lots that have not expired at all.
+         */
+        public readonly bool $drawsFromLots = true,
     ) {}
 }

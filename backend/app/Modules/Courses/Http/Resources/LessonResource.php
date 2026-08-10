@@ -68,6 +68,10 @@ class LessonResource extends JsonResource
             'duration_seconds' => $this->duration_seconds,
             'is_preview' => $this->is_preview,
             'is_free' => $this->is_free,
+            // FR-041. Shown to the student too, and deliberately: it is what lets
+            // the screen explain a refusal as "مذكّرة محجوبة حتى السداد" rather
+            // than as an error on a file that looks like any other.
+            'is_high_value' => $this->is_high_value,
             'asset' => $this->asset($this->mediaAsset),
             // Files beside the item, whatever its type (FR-019). Separate from
             // `asset` rather than one list with a role flag: they answer

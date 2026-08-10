@@ -18,6 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Trusted proxies are configured in AppServiceProvider::boot(), not here.
+        // This closure runs while the application is still being built, before
+        // the config repository is bound — and env() is not an alternative,
+        // because a cached config means .env is never loaded at all.
         $middleware->statefulApi();
         $middleware->alias([
             'workspace' => EnsureCurrentWorkspace::class,

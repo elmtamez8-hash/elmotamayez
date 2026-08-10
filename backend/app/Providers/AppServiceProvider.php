@@ -10,6 +10,7 @@ use App\Shared\Support\WorkspaceContext;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;
@@ -47,6 +48,37 @@ class AppServiceProvider extends ServiceProvider
         Factory::guessFactoryNamesUsing($this->guessFactoryName(...));
 
         $this->registerRateLimiters();
+        $this->trustConfiguredProxies();
+    }
+
+    /**
+     * Who is allowed to tell us where a request came from.
+     *
+     * ⚠️ AN UNCONFIGURED APPLICATION BEHIND A LOAD BALANCER RECORDS THE BALANCER
+     * (FR-049). `$request->ip()` then answers the same address for every person
+     * on the platform — including in `terms_consents.ip_address`, the column that
+     * exists to be relied on in a dispute.
+     *
+     * ⚠️ AND THE DEFAULT IS TO TRUST NOTHING, never `'*'`. A wildcard makes
+     * `X-Forwarded-For` client-supplied, so anyone can put any address in that
+     * record; a forgeable address is worse than an honest wrong one, because it
+     * looks right. The deployment names its own proxies in `TRUSTED_PROXIES`.
+     *
+     * Here rather than in `bootstrap/app.php`, where it belongs by convention:
+     * that closure runs while the application is still being built and the config
+     * repository is not bound yet. env() is not the way round it either — a
+     * cached config means .env is never loaded, so the one deployment that needs
+     * this would silently read null.
+     */
+    private function trustConfiguredProxies(): void
+    {
+        $proxies = config('app.trusted_proxies');
+
+        if (! is_string($proxies) || trim($proxies) === '') {
+            return;
+        }
+
+        TrustProxies::at($proxies === '*' ? '*' : array_map(trim(...), explode(',', $proxies)));
     }
 
     /**

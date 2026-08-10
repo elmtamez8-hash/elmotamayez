@@ -9,6 +9,7 @@ use App\Modules\Payments\Events\AccessWithheld;
 use App\Modules\Payments\Events\BalanceThresholdCrossed;
 use App\Modules\Payments\Events\BalanceUpdated;
 use App\Modules\Payments\Models\CreditBalance;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 
 /**
  * Everything a balance movement has to announce, in one place.
@@ -39,6 +40,7 @@ class BalanceAnnouncer
     public function __construct(
         private readonly CreditLedger $ledger,
         private readonly ExamMode $examMode,
+        private readonly WithholdingReader $withholding,
     ) {}
 
     /**
@@ -110,6 +112,64 @@ class BalanceAnnouncer
 
         if (! $isBlocked && $wasBlocked) {
             AccessRestored::dispatch($balance);
+        }
+    }
+
+    /**
+     * The same question for a whole list, in a fixed number of queries.
+     *
+     * One writer moves many people at once: an exam-mode window forces the floor
+     * to zero for every student in the workspace (US8). Announcing that through
+     * {@see self::isBlocked()} would resolve the mode and the window once per
+     * student — two queries each, on a workspace-sized list.
+     *
+     * @param  EloquentCollection<int, CreditBalance>  $balances
+     * @return array<int, bool> keyed by balance id
+     */
+    public function standingsFor(EloquentCollection $balances): array
+    {
+        $stamped = $this->withholding->stamp($balances);
+
+        $standings = [];
+
+        foreach ($stamped as $balance) {
+            $standings[(int) $balance->getKey()] = (bool) $balance->getAttribute('is_withheld');
+        }
+
+        return $standings;
+    }
+
+    /**
+     * Announce every flip in a list against the standings taken before the write.
+     *
+     * ⚠️ THE BALANCES MUST BE RE-READ, not the same instances measured before:
+     * `stamp()` writes `is_withheld` onto the model it is given, so re-stamping
+     * the earlier collection would overwrite the very answers being compared
+     * against and every transition would read as "no change".
+     *
+     * @param  EloquentCollection<int, CreditBalance>  $balances
+     * @param  array<int, bool>  $wasBlocked  keyed by balance id
+     */
+    public function announceStandingChanges(EloquentCollection $balances, array $wasBlocked): void
+    {
+        foreach ($this->withholding->stamp($balances) as $balance) {
+            $id = (int) $balance->getKey();
+            $isBlocked = (bool) $balance->getAttribute('is_withheld');
+            // Absent means the row did not exist when the before-state was taken
+            // — a balance created by a purchase between the two reads. `false` is
+            // the right default rather than a convenient one: a balance that does
+            // not exist is not withheld, the same rule the whole predicate rests
+            // on, so a newcomer who lands blocked is correctly announced as a
+            // fresh withholding.
+            $before = $wasBlocked[$id] ?? false;
+
+            if ($isBlocked && ! $before) {
+                AccessWithheld::dispatch($balance);
+            }
+
+            if (! $isBlocked && $before) {
+                AccessRestored::dispatch($balance);
+            }
         }
     }
 }

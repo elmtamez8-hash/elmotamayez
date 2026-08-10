@@ -76,13 +76,26 @@ class FreezePeriod extends BaseModel
         // Plain comparisons against a date string, NOT whereDate(): MySQL cannot
         // use `(workspace_id, starts_on, ends_on)` once a function wraps the
         // column, and this scope is consulted on every booking, every schedule
-        // and every absentee sweep. The columns are DATE, so comparing against a
-        // date string is exact — the cast whereDate() performs is the one thing
-        // being paid for and the one thing not needed.
-        $day = CarbonImmutable::instance($moment)->toDateString();
+        // and every absentee sweep.
+        //
+        // ⚠️ THE LOWER BOUND IS `< NEXT DAY`, NOT `<= TODAY`, AND THAT IS A FIX.
+        // The columns are declared DATE, but Eloquent writes a date-cast
+        // attribute through the model's datetime format, so the stored value is
+        // `2026-08-09 00:00:00`. MySQL truncates that on insert into a DATE
+        // column and the old `<= '2026-08-09'` held; SQLite keeps the string, and
+        // `'2026-08-09 00:00:00' <= '2026-08-09'` is FALSE — so a freeze covering
+        // today matched NOTHING, every test that asserted a freeze blocked a
+        // booking was asserting against zero rows, and only production behaved.
+        // Found while writing spec 006's exam-mode window, whose scope is this one.
+        //
+        // The next-day form is correct whichever way the value was stored, and
+        // both halves stay plain column comparisons, so the index survives.
+        $moment = CarbonImmutable::instance($moment);
+        $day = $moment->toDateString();
+        $nextDay = $moment->addDay()->toDateString();
 
         return $query
-            ->where('starts_on', '<=', $day)
+            ->where('starts_on', '<', $nextDay)
             ->where('ends_on', '>=', $day)
             ->where(function (Builder $scope) use ($studentUserId): void {
                 // A workspace-wide freeze covers this student too; a freeze on a

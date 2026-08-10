@@ -53,6 +53,9 @@ class StoreLessonRequest extends FormRequest
             'duration_seconds' => ['nullable', 'integer', 'min:0'],
             'is_preview' => ['nullable', 'boolean'],
             'is_free' => ['nullable', 'boolean'],
+            // FR-041 — the teacher classifies their own content. Nullable, so an
+            // untouched checkbox is not an instruction to clear the flag.
+            'is_high_value' => ['nullable', 'boolean'],
         ];
     }
 }

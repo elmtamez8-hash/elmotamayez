@@ -194,17 +194,22 @@ it('tells every guardian-facing type apart', function (): void {
         static fn (NotificationType $type): bool => $type->targetsGuardians(),
     );
 
-    // Ten since spec 006 added the second credit threshold, the withholding
-    // notice and the restoration. The number is asserted rather than derived on
-    // purpose: a type that quietly starts reaching guardians is a consent
-    // decision, not a detail — this assertion failing is the mechanism, and
-    // raising it is meant to be an act with a reason attached.
+    // Eleven since spec 006 added the second credit threshold, the withholding
+    // notice, the restoration and — in phase 12 — the dormancy reminder. The
+    // number is asserted rather than derived on purpose: a type that quietly
+    // starts reaching guardians is a consent decision, not a detail — this
+    // assertion failing is the mechanism, and raising it is meant to be an act
+    // with a reason attached.
     //
-    // The reason here: money owed on a child's account is the guardian's
-    // business by definition, and all three ride GuardianPermission::Payments.
-    // The FIRST credit threshold deliberately does not — the ladder starts with
-    // a quiet word to the student alone (FR-030).
-    expect($guardianTypes)->toHaveCount(10);
+    // The reason for the first three: money owed on a child's account is the
+    // guardian's business by definition, and all of them ride
+    // GuardianPermission::Payments. The FIRST credit threshold deliberately does
+    // not — the ladder starts with a quiet word to the student alone (FR-030).
+    //
+    // And for the eleventh: the dormancy notice is about money the family has
+    // already paid and nobody has used. The person who paid it is exactly who
+    // would want to hear.
+    expect($guardianTypes)->toHaveCount(11);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();

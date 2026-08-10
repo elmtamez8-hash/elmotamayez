@@ -62,6 +62,11 @@ function dispatchOf(User $user, NotificationType $type): void
             'course' => 'الرياضيات',
             'credits' => '3',
             'credits_needed' => '2',
+            // And `months`, added with the dormancy notice. Without it that
+            // template refuses to render, the notification is logged and
+            // dropped, and the count below comes back one short — which is this
+            // test doing its job, not a channel that failed.
+            'months' => '12',
         ],
     ));
 }

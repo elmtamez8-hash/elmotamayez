@@ -75,9 +75,12 @@ class BillingSettings
      * ⚠️ NOT "the ceiling a student starts with". Q-9 and FR-048 make consent
      * the gate: a student with no recorded agreement to deferred payment starts
      * at ZERO however generous the cadence is, and {@see self::initialLimitCredits()}
-     * is that half. Two methods, two questions, and the composition is:
-     *
-     *     initial = consentRecorded ? max(initialLimitCredits, cadenceAllows) : 0
+     * is that half. Two methods, two questions, composed in
+     * {@see self::initialLimitFor()} — which US9 wrote as `min`, not the `max`
+     * this note used to claim. Under a monthly cadence `max` opens with four
+     * credits of debt and Q-9 says one; it also hands the student the whole
+     * ladder on day one, so "+1 after three on-time payments" could never move a
+     * ceiling in the workspaces where it mattered most.
      *
      * ⚠️ AN INITIAL, NOT A CAP — corrected when US6 came to apply it. An earlier
      * note here wrote the composition as `min(cadenceAllows, max)` and called it
@@ -87,10 +90,10 @@ class BillingSettings
      * implemented. The cap is {@see self::maxLimitCredits()} and it is enforced in
      * `SetCreditLimit`, which every writer goes through.
      *
-     * The initial grant itself is still unapplied: balances are created at zero,
-     * and the Action that records the consent it depends on is US9's. What US6
-     * shipped is the movement — the raises, the demotion, and the platform's
-     * manual exception.
+     * ⚠️ AND THE CADENCE STILL DOES NOT DERIVE THE CEILING, which the spec forbids
+     * in the paragraph before the one that writes the formula. `min` is what
+     * reconciles them: the cadence can only ever LOWER the platform's number, so
+     * it bounds the ceiling and never produces one.
      *
      * Zero in a prepaid mode whatever the cadence says: FR-014 forbids going
      * below zero there at all, and a ceiling the floor ignores is a number in
@@ -231,10 +234,31 @@ class BillingSettings
 
     // The credit-limit policy (FR-036 … FR-040) -------------------------------
 
-    /** The ceiling a student starts with ONCE a deferred-payment consent exists (FR-048). */
+    /**
+     * The platform's half of the opening ceiling — one of two numbers, never the
+     * answer alone. {@see self::initialLimitFor()} composes them.
+     */
     public function initialLimitCredits(): int
     {
         return max(0, (int) PlatformSettings::get('billing.limit.initial_credits', 1));
+    }
+
+    /**
+     * The ceiling a balance opens with once a deferred-payment consent exists.
+     *
+     * `min` of the platform's conservative start (Q-9's ١) and what this
+     * workspace's cadence and the platform's cap allow — so a monthly workspace
+     * does not open at four and skip the earning ladder, and a prepaid one opens
+     * at zero because {@see self::cadenceAllowsCredits()} is zero there.
+     *
+     * ⚠️ THE CONSENT IS NOT ASKED HERE. This is the number, not the permission:
+     * every caller has already answered FR-048 (`SetCreditLimit` by refusing,
+     * `CreditAccounts` by asking the registry), and a second copy of the gate
+     * inside the arithmetic would be the copy that drifts.
+     */
+    public function initialLimitFor(Workspace $workspace): int
+    {
+        return min($this->initialLimitCredits(), $this->cadenceAllowsCredits($workspace));
     }
 
     public function increaseAfterOnTime(): int

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Support;
 
+use App\Modules\Payments\Enums\ConsentDocument;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\ExamModeWindow;
 use App\Modules\Tenancy\Models\Workspace;
@@ -13,8 +14,9 @@ use Illuminate\Support\Collection;
  * Withholding for a whole list of balances, in a fixed number of queries.
  *
  * The predicate itself lives in {@see CreditLedger} and is not repeated here —
- * this class only gathers its two per-workspace inputs, the billing mode and
- * whether an exam window is open, for every workspace in the list at once.
+ * this class only gathers its inputs for the whole list at once: the billing mode
+ * and whether an exam window is open, per workspace, and whether the current
+ * deferred-payment terms have been accepted, per student.
  *
  * A per-row read would be an N+1 by construction, and NFR-012 gives the whole
  * panel a fixed query budget. It is the same reason AccountStanding carries a
@@ -25,6 +27,7 @@ class WithholdingReader
     public function __construct(
         private readonly CreditLedger $ledger,
         private readonly BillingSettings $settings,
+        private readonly ConsentRegistry $consent,
     ) {}
 
     /**
@@ -63,7 +66,25 @@ class WithholdingReader
          */
         $workspaces = Workspace::query()->whereIn('id', $workspaceIds)->get()->keyBy('id');
 
-        return $balances->each(function (CreditBalance $balance) use ($inExamMode, $workspaces): void {
+        /*
+         * The third input, and it costs a query only when somebody has a ceiling
+         * (FR-048 · FR-049). Balances at zero are filtered out first because their
+         * floor is zero whatever the answer is — which, with the feature switched
+         * off at launch, is every balance on the platform and therefore no query
+         * at all.
+         */
+        $consented = $this->consent->forStudentIds(
+            array_values(
+                $balances->where('credit_limit_credits', '>', 0)
+                    ->pluck('student_user_id')
+                    ->unique()
+                    ->map(fn (mixed $id): int => (int) $id)
+                    ->all(),
+            ),
+            ConsentDocument::DeferredPaymentTerms,
+        );
+
+        return $balances->each(function (CreditBalance $balance) use ($inExamMode, $workspaces, $consented): void {
             $workspace = $workspaces->get($balance->workspace_id);
 
             if ($workspace === null) {
@@ -79,6 +100,7 @@ class WithholdingReader
                 $balance,
                 $this->settings->mode($workspace),
                 $inExamMode->has($balance->workspace_id),
+                isset($consented[$balance->student_user_id]),
             );
 
             $balance->setAttribute('is_withheld', $this->ledger->isBlocked(

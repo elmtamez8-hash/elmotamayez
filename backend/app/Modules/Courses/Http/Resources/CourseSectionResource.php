@@ -51,6 +51,7 @@ class CourseSectionResource extends JsonResource
             'order' => $lesson->order,
             'status' => $lesson->status->value,
             'is_preview' => $lesson->is_preview,
+            'is_high_value' => $lesson->is_high_value,
             'duration_seconds' => $lesson->duration_seconds,
         ])->values()->all();
     }

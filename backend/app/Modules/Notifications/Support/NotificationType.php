@@ -52,6 +52,14 @@ enum NotificationType: string
     case AccessWithheld = 'access_withheld';
     case AccessRestored = 'access_restored';
 
+    /*
+    | The credits nobody came back for (Q-8). Its own type rather than a second
+    | use of CreditBalanceLow, which says the opposite thing — and optional,
+    | because it is a courtesy about money the student already holds and which
+    | never expires.
+    */
+    case CreditBalanceDormant = 'credit_balance_dormant';
+
     public function label(): string
     {
         return match ($this) {
@@ -76,6 +84,7 @@ enum NotificationType: string
             self::TeacherPayoutIssued => 'تنفيذ صرف',
             self::CreditBalanceLow => 'اقتراب نفاد الرصيد',
             self::CreditBalanceCritical => 'الرصيد على وشك النفاد',
+            self::CreditBalanceDormant => 'رصيد غير مستخدَم',
             self::AccessWithheld => 'إيقاف الوصول لعدم كفاية الرصيد',
             self::AccessRestored => 'استئناف الوصول',
         };
@@ -134,7 +143,10 @@ enum NotificationType: string
             // student first, and only then the person who pays.
             self::CreditBalanceCritical,
             self::AccessWithheld,
-            self::AccessRestored => true,
+            self::AccessRestored,
+            // Money the student is holding and has forgotten. The guardian who
+            // paid it is precisely who would want to know.
+            self::CreditBalanceDormant => true,
             default => false,
         };
     }
@@ -161,7 +173,8 @@ enum NotificationType: string
             // applied afterwards.
             self::CreditBalanceCritical,
             self::AccessWithheld,
-            self::AccessRestored => GuardianPermission::Payments,
+            self::AccessRestored,
+            self::CreditBalanceDormant => GuardianPermission::Payments,
             default => null,
         };
     }

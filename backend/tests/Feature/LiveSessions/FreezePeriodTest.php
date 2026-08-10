@@ -98,6 +98,23 @@ it('refuses to schedule inside a freeze', function (): void {
         ->toBeInstanceOf(ClassSession::class);
 });
 
+// ⚠️ THE FIRST DAY, which every test above missed by asking about a middle one.
+//
+// `covering()` compared `starts_on <= today`, and the DATE column holds
+// `2026-08-14 00:00:00` because Eloquent writes a date-cast attribute through the
+// model's datetime format. MySQL truncates that on insert, so production was
+// right; SQLite keeps the string and `'…14 00:00:00' <= '…14'` is false — the
+// freeze did not cover its own opening day, in the test suite only. Found while
+// writing spec 006's exam-mode window, which copied this scope verbatim.
+it('covers its own first day, and its last', function (): void {
+    freeze();
+
+    expect(fn () => scheduleAt($this->holidayStart->setHour(10)))
+        ->toThrow(DomainException::class)
+        ->and(fn () => scheduleAt($this->holidayEnd->setHour(10)))
+        ->toThrow(DomainException::class);
+});
+
 // FR-040 — suspended, not deleted, and everybody who held a seat is told.
 it('suspends the sessions already booked inside it and tells their seats', function (): void {
     $session = scheduleAt($this->holidayStart->addDays(2)->setHour(10));
