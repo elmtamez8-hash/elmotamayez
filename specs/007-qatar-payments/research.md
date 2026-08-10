@@ -70,9 +70,10 @@ Order → PaymentTransaction → CreditPurchase → CreditTransaction → Credit
 أجور المدرّسين ما دفعه طالب. ولذلك `SettlementAuditSubjects` **ليس مرشّحاً بل شكلُ
 الاستعلام**: يسأل عن ستّة أنواع موضوعات، ولا فرع فيه يسأل عن أكثر.
 
-**القرار:** `BillingAuditSubjects` صورته المقابلة، وقائمته: `Order` · `PaymentTransaction`
-· `CreditTransaction` · `CreditPurchase` · `CreditBalance` · `TermsConsent`. والاتجاهان
-مُختبَران، تماماً كما يفعل `ContextIsolationTest` اليوم.
+**القرار:** `BillingAuditSubjects` صورته المقابلة، وقائمته **سبعة**: `Order` ·
+`PaymentTransaction` · `CreditTransaction` · `CreditPurchase` · `CreditBalance` ·
+`TermsConsent` · **`ExamModeWindow`** (أُضيف بعد المراجعة الأولى — يكتب في السجلّ اليوم).
+والاتجاهان مُختبَران، تماماً كما يفعل `ContextIsolationTest` اليوم.
 
 **نقطتا تصميم صريحتان:**
 
@@ -210,13 +211,29 @@ Order → PaymentTransaction → CreditPurchase → CreditTransaction → Credit
 | `FR-018` إيصال بنكي/محفظة | ⚠️ **نصفه** | `UploadPaymentReceipt` قائم، لكن `ManualTransferProvider:28` يثبّت `bank_transfer` وحدها و**لا ذكر لمحفظة في الكود كلّه**. ومنه يسقط بُعد «الطريقة» في `FR-031` — `data-model.md` §ز |
 | `FR-019` رابط موقّع قصير المدة | ✅ **كاملاً** | `URL::temporarySignedRoute('orders.receipt', 15 min)` على قرص `local` الخاص — والتعليق يشرح لماذا لا `getFirstMediaUrl()` |
 | `FR-021` لا رفض بلا سبب | ✅ | `RejectOrder::handle(..., string $reason)` — إلزاميّ بالتوقيع لا بالتحقّق |
-| `FR-025` الاسترداد | ✅ **كاملاً** | **`AdjustCredits` هو الـAction** — يفرض السبب في الـAction لا في التحقّق، ومفتاح تكرارٍ مُجزَّأ، ويُطلق `RefundIssued` بعد الإيداع. كتبتُ «الناقص الـAction» خطأً؛ خطّةٌ عليه تبني مساراً ثانياً **يتجاوز الحارسَين** |
+| `FR-025` الاسترداد | ⚠️ **الباب قائم والأرضية ليست** | `AdjustCredits` هو الـAction ✅ — يفرض السبب في الـAction (`:52-54`)، ومفتاح تكرارٍ مُجزَّأ (`:109-112`)، ويُطلق `RefundIssued` بعد الإيداع (`:76-79`). **لكنّ `AdjustCredits:62-70` لا يمرّر `enforceFloor` إطلاقاً، وقيمته الافتراضية `false`** (`CreditMovement:38`) — فالاسترداد اليوم يهبط بالرصيد تحت الصفر، وهو نقيض ما يشترطه §د3. ⚠️ **وكتبتُ هنا «✅ كاملاً» فناقضتُ §د3 في هذا الملف نفسه.** الفجوة سطرٌ واحد ومعه اختباره |
 | `FR-035/036` لا كيان تسوية | ✅ **محروس** | `ContextIsolationTest` يُسقط البناء على الاتجاهين |
 
 **والفجوة الحقيقية في `US3`** بعد هذا الجرد ضيّقة: ثلاثة أحداث إيصال غير موجودة
 (`ReceiptUploaded` · `ReceiptApproved` · `ReceiptRejected` — الموجود `PaymentApproved`
 و`PaymentRejected` وهما عن الطلب لا الإيصال) · عنوان الشبكة والجهاز على قرار الاعتماد ·
-زمن المراجعة المعلن (`FR-024`) · وسباق `ApproveOrder`.
+زمن المراجعة المعلن (`FR-024`) · سباق `ApproveOrder` · **وأرضية الاسترداد**.
+
+> ⚠️ **وثلاثة تصحيحات على «الأثر التدقيقي» كشفتها المراجعة الثانية، وكلّها ادّعاءُ وجود:**
+>
+> 1. **`RejectOrder` و`UploadPaymentReceipt` لا تستعملان `LogsActivity` إطلاقاً.** النداء
+>    الوحيد في `Payments/Actions/` على مسار الطلب هو `ApproveOrder:46`، ومعه
+>    `ManageExamModeWindow:63,87` و`SetCreditLimit:103`. فـ`FR-023` («كل قرار اعتماد **أو
+>    رفض**») ليس «إضافة حقلين» بل **إنشاء أثرٍ لقرارٍ ماليّ لا أثر له اليوم**.
+> 2. **ولا نداء `logActivity()` في أيّ مجلّد `Jobs/` في أيّ وحدة في المستودع.** فقاعدة
+>    «مرّر المساحة والمنفّذ صراحةً» صحيحةٌ بحجّتها وسابقةٌ لأوانها: تسري على القيود التي
+>    **ستكتبها** وظائف هذه المرحلة، لا على نداءات قائمة.
+> 3. **وأربعة من أنواع `BillingAuditSubjects` السبعة بلا كاتب اليوم**: `Order` و
+>    `ExamModeWindow` و`CreditBalance` وحدها تُكتب، بينما `PaymentTransaction` و
+>    `CreditTransaction` و`CreditPurchase` و`TermsConsent` لا `logActivity()` لها في
+>    المستودع كلّه. القائمة **صحيحة كعقد** — هي شكل الاستعلام لا جرد الموجود — لكنّ
+>    اختباراً يؤكّد على الأربعة يقيس جدولاً فارغاً **وينجح**، وهو الخطأ نفسه الذي يحرسه
+>    `NotificationTemplateSeeder` في الإشعارات.
 
 ---
 
@@ -256,8 +273,16 @@ Order → PaymentTransaction → CreditPurchase → CreditTransaction → Credit
 
 ## ط — `SC-014`: ‎١٠٬٠٠٠‎ عملية في ثانية
 
-**القرار: استعلام مُجمَّع على فهرس، ولا جدول تجميع.** `(workspace_id, status, created_at)`
-موجود جزئياً ويُستكمل في الهجرة. ‎١٠٬٠٠٠‎ صفّ رقمٌ صغير لمحرّكٍ يقرأ فهرساً مغطّياً.
+**القرار: استعلام مُجمَّع على فهرس، ولا جدول تجميع.** ‎١٠٬٠٠٠‎ صفّ رقمٌ صغير لمحرّكٍ يقرأ
+مدىً على فهرس.
+
+> ⚠️ **تصحيحان بعد المراجعة الثانية.** كتبتُ أنّ `(workspace_id, status, created_at)`
+> «موجود جزئياً» — وهو **ليس موجوداً على `payment_transactions` إطلاقاً**: الجدول يحمل
+> فهرسين مفردين (`workspace_id` و`order_id`) وحدهما، والمركّب `(workspace_id, status)`
+> على **`orders`**، جدولٌ آخر. وكتبتُ «فهرساً **مغطّياً**» — وهو ليس كذلك: الفهرس المقرَّر
+> `(created_at, status, method)` **لا يحمل `amount_minor`**، و`SC-010` يطلب مطابقة
+> المجاميع بفارق صفر، فكل صفٍّ مطابق يكلّف قفزةً إلى الصفّ. مقبولٌ عند ‎١٠٬٠٠٠‎، وهو
+> بالضبط ما يجعل مسار الترقية أدناه لازماً لا احتياطياً.
 
 **ومسار الترقية مكتوب سلفاً كي لا يُخترع تحت الضغط:** إن ثبت قصوره بقياس — لا بظنّ — فالشكل
 التالي لقطةٌ ليليّة بنفس شكل `credit_reconciliation_runs`. جدولُ تجميعٍ يُبنى قبل القياس
