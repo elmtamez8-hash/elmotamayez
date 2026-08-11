@@ -95,7 +95,11 @@ class GetMarketplaceHome extends Action
      * On launch day this returns an empty list and the section does not render.
      * That is the honest state, and it is the one the carousel already handles.
      *
-     * @return list<array{student_display_name: string, rating: int, comment: string, created_at: string}>
+     * Each quote carries the teacher it is ABOUT — name, photo and uuid — so the
+     * card has a face without publishing the reviewer's. See the note on
+     * PublicFieldAllowlist::REVIEW for why that direction is the only one open.
+     *
+     * @return list<array{student_display_name: string, rating: int, comment: string, created_at: string, teacher_uuid: string|null, teacher_name: string|null, teacher_photo_url: string|null}>
      */
     private function testimonials(): array
     {
@@ -114,16 +118,28 @@ class GetMarketplaceHome extends Action
                 'teacher_profile_id',
                 TeacherProfile::query()->publiclyListed()->select('teacher_profiles.id'),
             )
-            ->with('student:id,first_name,last_name')
+            // teacherProfile.user eager loaded together: a Resource-style read of
+            // the teacher inside the map would be one query per quote, which is
+            // six on every home page render.
+            ->with(['student:id,first_name,last_name', 'teacherProfile.user'])
             ->latest('id')
             ->limit(6)
             ->get()
-            ->map(fn (Review $review): array => [
-                'student_display_name' => $review->studentDisplayName(),
-                'rating' => $review->rating,
-                'comment' => (string) $review->comment,
-                'created_at' => $review->created_at?->toIso8601String() ?? '',
-            ])
+            ->map(function (Review $review): array {
+                $profile = $review->teacherProfile;
+
+                return [
+                    'student_display_name' => $review->studentDisplayName(),
+                    'rating' => $review->rating,
+                    'comment' => (string) $review->comment,
+                    'created_at' => $review->created_at?->toIso8601String() ?? '',
+                    'teacher_uuid' => $profile?->uuid,
+                    'teacher_name' => $profile?->user?->name,
+                    'teacher_photo_url' => $profile?->photo_path === null
+                        ? null
+                        : asset('storage/'.$profile->photo_path),
+                ];
+            })
             ->all());
     }
 

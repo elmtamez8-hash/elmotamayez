@@ -130,6 +130,11 @@ export type HomePayload = {
     rating: number;
     comment: string;
     created_at: string;
+    // The teacher the review is ABOUT. The reviewer stays initials-only —
+    // PublicFieldAllowlist::REVIEW carries the reason.
+    teacher_uuid: string | null;
+    teacher_name: string | null;
+    teacher_photo_url: string | null;
   }[];
   faqs: { question: string; answer: string }[];
 };

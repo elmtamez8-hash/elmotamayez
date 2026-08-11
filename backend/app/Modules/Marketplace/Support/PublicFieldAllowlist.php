@@ -166,8 +166,29 @@ final class PublicFieldAllowlist
     /** @var list<string> */
     public const TAXONOMY = ['slug', 'name_ar', 'icon', 'teachers_count'];
 
+    /*
+    | The reviewer stays a pair of initials; the TEACHER is named and pictured.
+    |
+    | A quote on the home page needs a face beside it or it reads as filler, and
+    | the only face that may go there is the one the review is ABOUT. Publishing
+    | the reviewer's photo would undo `studentDisplayName()` in a single image:
+    | that method truncates the family name precisely so a reviewer cannot be
+    | identified to the teacher they just rated (FR-021), and a headshot beside
+    | the truncation identifies them completely.
+    |
+    | The teacher's name and photo are already published on their own card and
+    | profile, so nothing new is exposed — the review simply says who it is for.
+    */
     /** @var list<string> */
-    public const REVIEW = ['student_display_name', 'rating', 'comment', 'created_at'];
+    public const REVIEW = [
+        'student_display_name',
+        'rating',
+        'comment',
+        'created_at',
+        'teacher_uuid',
+        'teacher_name',
+        'teacher_photo_url',
+    ];
 
     /** @var list<string> */
     public const AVAILABILITY = ['day_of_week', 'start_time', 'end_time'];

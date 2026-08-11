@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { publicApi, type HomePayload } from "@/lib/public-api";
 import { PLATFORM_NAME } from "@/lib/platform";
@@ -102,18 +103,29 @@ export default async function HomePage() {
           </div>
         </div>
 
-        <div className="relative aspect-[4/3] overflow-hidden rounded-3xl bg-primary-soft">
-          {/* Replaced with a licensed photo in T135; the placeholder keeps the
-              layout honest rather than shipping a hotlinked stock image. */}
-          <div className="flex h-full items-center justify-center text-primary-ink/40" aria-hidden="true">
-            <svg className="h-32 w-32" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-              />
-            </svg>
-          </div>
+        {/*
+          | The photo, not the placeholder icon that shipped here before.
+          |
+          | Self-hosted under /marketplace and logged in that folder's
+          | LICENSES.md — a hotlinked stock URL is a page that breaks the day
+          | someone else's account lapses.
+          |
+          | `priority`, because this is the LCP element on the home page: Next
+          | lazy-loads images by default, and the largest thing above the fold
+          | loading last is the whole of SC-007 lost to a default.
+          |
+          | The 4/3 aspect is baked into the file itself (the crop is 1600×1200),
+          | so the box cannot letterbox or jump while it loads.
+        */}
+        <div className="relative aspect-[4/3] overflow-hidden rounded-3xl bg-surface-raised">
+          <Image
+            src="/marketplace/hero-study.webp"
+            alt="طالبة تراجع دروسها"
+            fill
+            priority
+            sizes="(min-width: 1024px) 50vw, 100vw"
+            className="object-cover"
+          />
         </div>
       </section>
 

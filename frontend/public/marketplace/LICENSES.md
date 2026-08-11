@@ -1,45 +1,65 @@
 # Marketplace image licences
 
-كل صورة في هذا المجلد **يجب** أن يكون لها سطر هنا قبل استخدامها في أي صفحة.
-الاستضافة ذاتية عمداً — روابط المصادر الخارجية الحيّة تنكسر أو تُحذف، والاعتماد
-عليها يجعل الصفحة العامة رهينة لخدمة طرف ثالث.
+كل صورة تُعرض على صفحة عامة **يجب** أن يكون لها سطر هنا قبل استخدامها. الاستضافة
+ذاتية عمداً — روابط المصادر الخارجية الحيّة تنكسر أو تُحذف، والاعتماد عليها يجعل
+الصفحة العامة رهينة لخدمة طرف ثالث.
 
-الرخص المقبولة: **Unsplash License** و **Pexels License** (استخدام تجاري، بلا نسب إجباري).
+الرخص المقبولة: **Unsplash License** و **Pexels License** (استخدام تجاري، بلا نسب
+إجباري). النسب في الجدول أدناه ليس شرطاً قانونياً، بل هو ما يجعل السطر قابلاً
+للتحقّق: اسم مصوّر ورابط صفحة أصلية يمكن فتحهما.
 
-## الحالة الآن: لا توجد صور فوتوغرافية في المستودع
+> ⚠️ **`plus.unsplash.com` ليس Unsplash License.** بحث Unsplash يخلط صور
+> **Unsplash+** المدفوعة في نفس قائمة النتائج، ولا شيء في وصف الصورة يميّزها —
+> النطاق وحده هو الدليل. خمس صور من أول اختيار في هذه الدفعة كانت مدفوعة
+> واستُبدلت. أي تنزيل جديد يجب أن يبدأ رابطه بـ `images.unsplash.com`.
 
-| الملف | القسم | كلمات البحث | المصدر | الرخصة | تاريخ التنزيل |
+## الصفحات العامة — `frontend/public/marketplace/`
+
+| الملف | الموضع | المقاس | الحجم | المصوّر | الصفحة الأصلية |
 |---|---|---|---|---|---|
-| _(لا شيء)_ | | | | | |
+| `hero-study.webp` | البطل في الصفحة الرئيسية | 1600×1200 | 156 KB | Deddy Yoga Pratama | https://unsplash.com/photos/woman-in-gray-traditional-dress-reading-book-FgN3JKkW3hI |
 
-**لماذا فارغ**: لم تُنزَّل أي صورة لأن Unsplash و Pexels غير متاحين من بيئة التطوير
-التي بُنيت فيها هذه الصفحات. وتسجيل سطر في هذا الجدول لملف لم يُنزَّل فعلاً يجعل
-سجلّ التراخيص نفسه غير موثوق — وهو المستند الوحيد الذي يُرجَع إليه عند أي نزاع حقوق.
+نُزّلت جميعها في **٢٠٢٦-٠٨-١٢** بصيغة WebP وجودة 80، مقصوصة على مقاس الحاوية
+النهائي (`fit=crop`) حتى لا يقفز التخطيط أثناء التحميل.
 
-**ما يظهر الآن بدلاً منها**: أشكال SVG محلية داخل المكوّنات (قسم Hero، والبطاقات بلا
-صورة). لا طلب خارجي، ولا سؤال ترخيص، والتخطيط بالمقاسات النهائية فلا يقفز عند الاستبدال.
+## بيانات العرض التجريبية — `backend/database/seeders/assets/`
 
-**قبل الإطلاق** — لكل موضع في الجدول أدناه:
+هذه ليست أصول واجهة: `MarketplaceSeeder` ينسخها إلى `storage/app/public/marketplace`
+ويكتب مسارها في `teacher_profiles.photo_path` و `courses.cover_path`، فتصل إلى
+المتصفّح كأنها رفعُ مدرّسٍ حقيقي. وهي تخضع لنفس القاعدة تماماً — بل أكثر: صورة
+منسوبة إلى **شخص مُخترَع** يجب ألّا تخرج من بيئة التطوير. الحارس أن السيدر
+لا يعمل في `production` أصلاً (`seedDemoMarketplace`).
 
-1. ابحث بالكلمات المعتمدة في Unsplash أو Pexels.
-2. نزّل الصورة بعرض ≥ 1600px، حوّلها إلى WebP، وضعها هنا.
-3. أضف سطراً في الجدول أعلاه: اسم الملف، القسم، كلمات البحث، رابط الصفحة الأصلية،
-   الرخصة، وتاريخ التنزيل.
-4. استبدل الشكل البديل في المكوّن، مع `alt` عربي وصفي — أو `alt=""` إن كانت الصورة
-   زخرفية بحتة.
+### صور المدرّسين — `assets/teachers/` (640×640، `crop=faces`)
 
-## كلمات البحث المعتمدة لكل موضع
+| الملف | المدرّس التجريبي | المصوّر | الصفحة الأصلية |
+|---|---|---|---|
+| `ahmed-almansouri.webp` | أحمد المنصوري — رياضيات وفيزياء | Levi Meir Clancy | https://unsplash.com/photos/man-in-white-dress-shirt-wearing-red-and-white-hijab-ruWf1KGPPsY |
+| `fatima-alhashimi.webp` | فاطمة الهاشمي — لغة عربية | Damon Zaidmus | https://unsplash.com/photos/woman-wearing-white-dress-and-white-hijab-scarf-7ncPcGL60-s |
+| `sara-alotaibi.webp` | سارة العتيبي — كيمياء وأحياء | irwan wahyudi | https://unsplash.com/photos/woman-in-blue-hijab-smiling-O1z8oNDidaM |
+| `khaled-aldosari.webp` | خالد الدوسري — لغة إنجليزية | Vitaly Gariev | https://unsplash.com/photos/a-smiling-man-with-a-beard-wearing-a-collared-shirt-4HNK1yce-Vg |
+| `mona-albalushi.webp` | منى البلوشي — حاسب آلي | Lisa Marie Theck | https://unsplash.com/photos/a-woman-in-a-headscarf-smiles-at-the-camera-6awpFbYse3o |
 
-| الموضع | كلمات البحث |
-|---|---|
-| Hero | `arab students online learning laptop` · `middle eastern teacher online class` |
-| كيف تعمل المنصة | `student video call laptop home` · `teacher explaining whiteboard online` · `student taking notes screen` |
-| بطاقات المدرّسين | `professional teacher portrait smiling` · `arab tutor headshot` |
-| بطاقات الكورسات | `math book laptop study` · `science classroom online` · `arabic language book` |
-| آراء الطلاب | `happy student portrait` · `parent and child laptop` |
-| تسجيل وليّ الأمر | `parent child studying together home` |
+### أغلفة الكورسات — `assets/courses/` (1280×720)
 
-## الأيقونات
+| الملف | الكورس | المصوّر | الصفحة الأصلية |
+|---|---|---|---|
+| `mathematics.webp` | الرياضيات للثانوية العامة | Erwan Hesry | https://unsplash.com/photos/blackboard-with-complex-mathematical-formulas-and-symbols-aTpgq-1PdrU |
+| `arabic-grammar.webp` | النحو العربي المبسّط | The Cleveland Museum of Art | https://unsplash.com/photos/an-ornate-manuscript-with-gold-arabic-calligraphy-on-parchment-DeY0NCS4BpE |
+| `chemistry.webp` | الكيمياء العضوية من الصفر | Egor Myznik | https://unsplash.com/photos/laboratory-glassware-sits-on-a-dark-illuminated-table-C5pAjKmUSJE |
+| `english.webp` | اللغة الإنجليزية للمحادثة | Priscilla Du Preez | https://unsplash.com/photos/brown-and-red-books-on-white-surface-ZkR9yT1cR7g |
+| `python.webp` | أساسيات البرمجة بلغة بايثون | Mohammad Rahmani | https://unsplash.com/photos/laptop-screen-displaying-colorful-code-8qEB0fTe9Vw |
 
-أيقونات Heroicons (رخصة MIT) منسوخة كمسارات SVG داخل `src/components/icons/`
-وداخل المكوّنات التي تستخدمها مرة واحدة — لا CDN ولا حزمة مدفوعة.
+## لماذا لا توجد صور للطلاب المراجِعين
+
+نُزّلت ستّ صور شخصية لهذا الغرض ثم **حُذفت قبل الإيداع**. السبب مكتوب في
+`PublicFieldAllowlist::REVIEW`: `Review::studentDisplayName()` يقصّ اسم العائلة
+عمداً حتى لا يتعرّف المدرّس على من قيّمه للتوّ (FR-021)، وصورةُ وجهٍ بجانب الاسم
+المقصوص تُلغي ذلك القصّ بالكامل. الوجه الذي يظهر بجانب الاقتباس هو وجه **المدرّس**
+الذي تتحدّث عنه المراجعة — وهو منشور أصلاً على بطاقته وملفّه.
+
+## الأيقونات والعلامة
+
+أيقونات Heroicons (رخصة MIT) منسوخة كمسارات SVG داخل `src/components/icons/`.
+`brand/wordmark-mask.png` مشتقّ من ملف اللوجو الذي زوّده مالك المنتج — ملكيّته له،
+وليست له علاقة بهذا الجدول.

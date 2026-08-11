@@ -73,6 +73,9 @@ class ShowPublicTeacher extends Action
             // Cast to object: PHP turns numeric string keys into integers and
             // json_encode would then emit an array instead of the keyed object.
             'distribution' => (object) $distribution,
+            // The `teacher_*` keys the home carousel adds are deliberately absent
+            // here: this page IS the teacher, and repeating their photo on every
+            // row would be the same image sent twenty times to say nothing.
             'items' => $reviews->take($limit)->map(fn (Review $review): array => [
                 'student_display_name' => $review->studentDisplayName(),
                 'rating' => $review->rating,

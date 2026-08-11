@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronEndIcon, ChevronStartIcon } from "@/components/icons";
+import Link from "next/link";
 import { StarRating } from "./StarRating";
 import { useState } from "react";
 
@@ -13,6 +14,9 @@ type Testimonial = {
   rating: number;
   comment: string;
   created_at: string;
+  teacher_uuid: string | null;
+  teacher_name: string | null;
+  teacher_photo_url: string | null;
 };
 
 /**
@@ -60,19 +64,51 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
           hidden={i !== index}
           aria-roledescription="مراجعة"
           aria-label={`${i + 1} من ${items.length}`}
-          className="rounded-2xl border border-line bg-surface-raised p-8 text-center"
+          // min-h, because every slide is in the DOM and only one is shown: a
+          // one-line quote followed by a three-line one made the whole band jump
+          // on each arrow press. rounded-3xl to match Card and the pill buttons.
+          className="flex min-h-72 flex-col justify-center rounded-3xl border border-line bg-surface-raised p-10 text-center"
         >
-          <blockquote className="mb-6 text-lg leading-relaxed text-ink">
+          <blockquote className="mb-8 text-xl leading-relaxed text-ink sm:text-2xl">
             «{item.comment}»
           </blockquote>
-          <figcaption className="flex flex-col items-center gap-2">
-            <span
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary-ink"
-              aria-hidden="true"
-            >
-              {item.student_display_name.charAt(0)}
-            </span>
-            <span className="font-semibold text-ink">
+          {/* The face belongs to the TEACHER, never the reviewer.
+              `studentDisplayName()` truncates the family name on purpose so a
+              reviewer cannot be identified to the teacher they just rated, and a
+              photo beside that truncation would identify them completely. The
+              teacher's photo is already published on their own card. */}
+          <figcaption className="flex flex-col items-center gap-3">
+            {item.teacher_name && (
+              <Link
+                href={item.teacher_uuid ? `/teachers/${item.teacher_uuid}` : "/teachers"}
+                className="flex items-center gap-3 rounded-full py-1 ps-1 pe-4 transition hover:bg-primary-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                {item.teacher_photo_url ? (
+                  // Plain <img>, not next/image: this URL points at the API host
+                  // and next/image refuses a remote host that is not in
+                  // remotePatterns. TeacherCard and CourseCard do the same.
+                  <img
+                    src={item.teacher_photo_url}
+                    alt=""
+                    className="h-12 w-12 rounded-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <span
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary-ink"
+                    aria-hidden="true"
+                  >
+                    {item.teacher_name.charAt(0)}
+                  </span>
+                )}
+                <span className="text-start">
+                  <span className="block text-xs text-ink-muted">مراجعة عن</span>
+                  <span className="block font-semibold text-ink">{item.teacher_name}</span>
+                </span>
+              </Link>
+            )}
+
+            <span className="text-sm text-ink-muted">
               {item.student_display_name}
             </span>
             {/* The rating replaces the invented "role". It is a real number the

@@ -15,6 +15,8 @@ use App\Modules\Marketplace\Support\MarketplaceCache;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Database\Seeder;
+use Illuminate\Http\File;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -26,6 +28,9 @@ use Illuminate\Support\Str;
  */
 class MarketplaceSeeder extends Seeder
 {
+    /** Walks COMMENTS across every teacher seeded — see the note on that list. */
+    private int $commentCursor = 0;
+
     /** @var list<array{slug: string, name_ar: string, icon: string}> */
     private const SUBJECTS = [
         ['slug' => 'math', 'name_ar' => 'الرياضيات', 'icon' => 'calculator'],
@@ -114,6 +119,7 @@ class MarketplaceSeeder extends Seeder
                         'hourly_rate' => $demo['rate'],
                         'teaching_languages' => ['ar', 'en'],
                         'is_verified' => $demo['verified'],
+                        'photo_path' => $this->publishAsset('teachers', $demo['photo']),
                     ]);
 
                 // One teacher is left with no score so the "building" state is
@@ -165,6 +171,7 @@ class MarketplaceSeeder extends Seeder
                     'language' => 'ar',
                     'course_type' => $demo['course']['type'],
                     'duration_seconds' => $demo['course']['hours'] * 3600,
+                    'cover_path' => $this->publishAsset('courses', $demo['course']['cover']),
                 ]);
 
                 $this->seedReviews($workspace, $profile, $demo['reviews'], (float) $demo['rating']);
@@ -184,6 +191,44 @@ class MarketplaceSeeder extends Seeder
         MarketplaceCache::flush();
 
         $this->command->info('Marketplace demo seeded: '.count(self::DEMO_TEACHERS).' published teachers.');
+    }
+
+    /**
+     * Copy a committed demo image into the public disk and return its stored path.
+     *
+     * `photo_path` and `cover_path` are read back as `asset('storage/'.$path)`, so
+     * the file has to sit under `storage/app/public` — the uploads directory,
+     * which is gitignored. Committing the source under `database/seeders/assets`
+     * and copying on seed is what makes a fresh checkout render the same page as
+     * this one; a path pointing at a file nobody shipped is a broken image with a
+     * plausible name.
+     *
+     * Idempotent by design: the seeder is re-run against an existing database far
+     * more often than against an empty one.
+     */
+    private function publishAsset(string $folder, string $file): ?string
+    {
+        $source = database_path('seeders/assets/'.$folder.'/'.$file);
+
+        if (! is_file($source)) {
+            // Not an exception: a missing demo image must never stop the seed that
+            // creates the accounts everyone signs in with. The card falls back to
+            // initials, which is exactly what it does for a real teacher who has
+            // not uploaded a photo.
+            $this->command->warn("Demo asset missing, skipped: {$folder}/{$file}");
+
+            return null;
+        }
+
+        $path = 'marketplace/'.$folder.'/'.$file;
+
+        Storage::disk('public')->putFileAs(
+            'marketplace/'.$folder,
+            new File($source),
+            $file,
+        );
+
+        return $path;
     }
 
     /**
@@ -223,7 +268,13 @@ class MarketplaceSeeder extends Seeder
                 'teacher_profile_id' => $profile->getKey(),
                 'student_id' => $student->getKey(),
                 'rating' => $rating,
-                'comment' => $index % 3 === 0 ? self::COMMENTS[$index % count(self::COMMENTS)] : null,
+                // The cursor is a property, not a local: the home carousel reads
+                // the latest six reviews ACROSS teachers, so a counter that reset
+                // per teacher would still hand it the same opening sentence six
+                // times over.
+                'comment' => $index % 3 === 0
+                    ? self::COMMENTS[$this->commentCursor++ % count(self::COMMENTS)]
+                    : null,
             ]);
         }
 
@@ -244,11 +295,33 @@ class MarketplaceSeeder extends Seeder
         'مبارك', 'الكواري', 'العطية', 'المري', 'الهاجري', 'النعيمي', 'السليطي',
     ];
 
-    /** @var list<string> */
+    /**
+     * ⚠️ Read `$written`, not `$index`, when picking from this list.
+     *
+     * The old line was `$index % 3 === 0 ? COMMENTS[$index % count(COMMENTS)]`.
+     * Only every third review got a comment, so `$index` was always a multiple of
+     * three — and with three entries, `$index % 3` was always **0**. Every
+     * commented review on the platform carried the same sentence, and the home
+     * carousel, which takes the latest six across all teachers, showed one quote
+     * repeated six times behind six different names.
+     *
+     * The pool is also longer than the stride now, because a pool whose length
+     * divides the stride reproduces the same collapse with different numbers.
+     *
+     * @var list<string>
+     */
     private const COMMENTS = [
         'شرح واضح وصبور جداً مع ابني، تحسّنت درجاته خلال شهرين.',
         'يلتزم بالمواعيد ويرسل ملخّصاً بعد كل حصة.',
         'أسلوبه عملي ويركّز على نقاط الضعف بدل إعادة المنهج كله.',
+        'ابنتي كانت تكره المادة، والآن تسألني متى الحصة القادمة.',
+        'التقرير الأسبوعي وحده يستحق الاشتراك — أعرف تماماً أين وصلنا.',
+        'يشرح الفكرة بأكثر من طريقة حتى تصل، ولا يستعجل الطالب أبداً.',
+        'حجزنا حصة تجريبية للتجربة فقط، وأكملنا الفصل كاملاً معه.',
+        'ملتزمة ومنظّمة، وترسل تمارين إضافية عند طلبها بلا تردّد.',
+        'أفضل ما فيه أنه يصحّح طريقة الحل لا الإجابة فقط.',
+        'تعاملها مع الأطفال هادئ ومشجّع، وابني صار يشارك من نفسه.',
+        'استفدنا كثيراً في مراجعة الامتحان النهائي، والدرجة تحسّنت فعلاً.',
     ];
 
     /** @var list<array<string, mixed>> */
@@ -261,7 +334,8 @@ class MarketplaceSeeder extends Seeder
             'years' => 12, 'rate' => '180.00', 'verified' => true,
             'score' => 91, 'sessions' => 640, 'reviews' => 48, 'rating' => 4.8,
             'subjects' => ['math', 'physics'], 'levels' => ['secondary', 'university'],
-            'course' => ['title' => 'الرياضيات للثانوية العامة — الفصل الأول', 'price' => '750.00', 'price_before' => '950.00', 'type' => 'group', 'hours' => 24],
+            'photo' => 'ahmed-almansouri.webp',
+            'course' => ['title' => 'الرياضيات للثانوية العامة — الفصل الأول', 'price' => '750.00', 'price_before' => '950.00', 'type' => 'group', 'hours' => 24, 'cover' => 'mathematics.webp'],
             'availability' => [[0, '13:00:00', '17:00:00'], [2, '13:00:00', '17:00:00'], [4, '10:00:00', '14:00:00']],
         ],
         [
@@ -272,7 +346,8 @@ class MarketplaceSeeder extends Seeder
             'years' => 10, 'rate' => '120.00', 'verified' => true,
             'score' => 84, 'sessions' => 410, 'reviews' => 31, 'rating' => 4.6,
             'subjects' => ['arabic', 'islamic-studies'], 'levels' => ['primary', 'preparatory'],
-            'course' => ['title' => 'الكيمياء العضوية من الصفر', 'price' => '620.00', 'price_before' => null, 'type' => 'recorded', 'hours' => 18],
+            'photo' => 'fatima-alhashimi.webp',
+            'course' => ['title' => 'النحو العربي المبسّط', 'price' => '400.00', 'price_before' => null, 'type' => 'individual', 'hours' => 12, 'cover' => 'arabic-grammar.webp'],
             'availability' => [[1, '14:00:00', '18:00:00'], [3, '14:00:00', '18:00:00']],
         ],
         [
@@ -283,7 +358,8 @@ class MarketplaceSeeder extends Seeder
             'years' => 7, 'rate' => '200.00', 'verified' => true,
             'score' => 76, 'sessions' => 180, 'reviews' => 14, 'rating' => 4.3,
             'subjects' => ['chemistry', 'biology'], 'levels' => ['secondary', 'university'],
-            'course' => ['title' => 'اللغة الإنجليزية للمحادثة — مستوى متوسط', 'price' => '480.00', 'price_before' => '600.00', 'type' => 'group', 'hours' => 16],
+            'photo' => 'sara-alotaibi.webp',
+            'course' => ['title' => 'الكيمياء العضوية من الصفر', 'price' => '620.00', 'price_before' => null, 'type' => 'recorded', 'hours' => 18, 'cover' => 'chemistry.webp'],
             'availability' => [[5, '09:00:00', '13:00:00'], [6, '09:00:00', '13:00:00']],
         ],
         [
@@ -295,7 +371,8 @@ class MarketplaceSeeder extends Seeder
             // No score: this is what a newly approved teacher looks like (FR-024).
             'score' => null, 'sessions' => 4, 'reviews' => 1, 'rating' => null,
             'subjects' => ['english'], 'levels' => ['preparatory', 'secondary'],
-            'course' => ['title' => 'أساسيات البرمجة بلغة بايثون', 'price' => '890.00', 'price_before' => null, 'type' => 'recorded', 'hours' => 30],
+            'photo' => 'khaled-aldosari.webp',
+            'course' => ['title' => 'اللغة الإنجليزية للمحادثة — مستوى متوسط', 'price' => '480.00', 'price_before' => '600.00', 'type' => 'group', 'hours' => 16, 'cover' => 'english.webp'],
             'availability' => [[0, '18:00:00', '21:00:00'], [3, '18:00:00', '21:00:00']],
         ],
         [
@@ -306,7 +383,8 @@ class MarketplaceSeeder extends Seeder
             'years' => 6, 'rate' => '170.00', 'verified' => true,
             'score' => 68, 'sessions' => 95, 'reviews' => 9, 'rating' => 4.0,
             'subjects' => ['computer-science', 'math'], 'levels' => ['preparatory', 'secondary'],
-            'course' => ['title' => 'النحو العربي المبسّط', 'price' => '400.00', 'price_before' => null, 'type' => 'individual', 'hours' => 12],
+            'photo' => 'mona-albalushi.webp',
+            'course' => ['title' => 'أساسيات البرمجة بلغة بايثون', 'price' => '890.00', 'price_before' => null, 'type' => 'recorded', 'hours' => 30, 'cover' => 'python.webp'],
             'availability' => [[1, '16:00:00', '20:00:00'], [4, '16:00:00', '20:00:00']],
         ],
     ];
