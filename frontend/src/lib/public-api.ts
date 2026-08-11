@@ -48,6 +48,9 @@ export type TeacherCard = {
 
 export type ReviewItem = {
   student_display_name: string;
+  // Null far more often than not — a student who never uploaded one. Initials
+  // are the designed fallback, not a placeholder waiting to be replaced.
+  student_avatar_url: string | null;
   rating: number;
   comment: string | null;
   created_at: string;

@@ -50,13 +50,31 @@
 | `english.webp` | اللغة الإنجليزية للمحادثة | Priscilla Du Preez | https://unsplash.com/photos/brown-and-red-books-on-white-surface-ZkR9yT1cR7g |
 | `python.webp` | أساسيات البرمجة بلغة بايثون | Mohammad Rahmani | https://unsplash.com/photos/laptop-screen-displaying-colorful-code-8qEB0fTe9Vw |
 
-## لماذا لا توجد صور للطلاب المراجِعين
+### صور الطلاب المراجِعين — `assets/students/` (256×256، `crop=faces`)
 
-نُزّلت ستّ صور شخصية لهذا الغرض ثم **حُذفت قبل الإيداع**. السبب مكتوب في
-`PublicFieldAllowlist::REVIEW`: `Review::studentDisplayName()` يقصّ اسم العائلة
-عمداً حتى لا يتعرّف المدرّس على من قيّمه للتوّ (FR-021)، وصورةُ وجهٍ بجانب الاسم
-المقصوص تُلغي ذلك القصّ بالكامل. الوجه الذي يظهر بجانب الاقتباس هو وجه **المدرّس**
-الذي تتحدّث عنه المراجعة — وهو منشور أصلاً على بطاقته وملفّه.
+| الملف | المراجِع التجريبي | المصوّر | الصفحة الأصلية |
+|---|---|---|---|
+| `student-1.webp` | ذكر (أحمد، خالد، …) | Lisa Marie Theck | https://unsplash.com/photos/a-young-boy-smiles-for-the-camera-2nVhppaWZNY |
+| `student-2.webp` | أنثى (سارة، لطيفة، …) | Fajar Herlambang STUDIO | https://unsplash.com/photos/a-smiling-woman-in-red-smiles-at-the-camera-RgQnC0qaEz4 |
+| `student-3.webp` | ذكر (محمد، يوسف، …) | Afif Ramdhasuma | https://unsplash.com/photos/man-in-blue-dress-shirt-holding-brown-smartphone-t9UhWwC7Lnw |
+| `student-4.webp` | أنثى (نورة، هند، …) | Olga Nayda | https://unsplash.com/photos/a-woman-standing-with-her-arms-crossed-Db-4HBUQVvk |
+| `student-5.webp` | ذكر (عبدالله، راشد، …) | BABz | https://unsplash.com/photos/man-in-black-crew-neck-t-shirt-ia18UiPzfZo |
+| `student-6.webp` | أنثى (مريم، شيخة، …) | Fajar Herlambang STUDIO | https://unsplash.com/photos/a-young-woman-wearing-a-black-hijab-smiles-RWiLPZD5XyU |
+
+> ⚠️ الترتيب ذكر/أنثى/ذكر/… **ليس تزييناً**. `STUDENT_FIRST_NAMES` يتناوب بنفس
+> النمط، والستّة عدد زوجي، فالقائمتان تبقيان متوافقتين عند أي فهرس. إعادة ترتيب
+> أيٍّ منهما تُعطي أحمد صورة امرأة.
+
+## صورة المراجِع: قرار، لا إعداد افتراضي
+
+`Review::studentDisplayName()` يقصّ اسم العائلة عمداً — «أحمد م.» — حتى لا يتعرّف
+المدرّس على من قيّمه للتوّ (FR-021)، وصورةُ وجهٍ بجانب الاسم المقصوص تُلغي ذلك القصّ.
+مالك المنتج طلب الصورة في **تبويب آراء الطلاب على صفحة المدرّس** بعد عرض هذه
+المقايضة، والقرار مسجّل في `PublicFieldAllowlist::REVIEW` وفي الهجرة نفسها.
+
+الحقل يصل إلى **تلك الصفحة وحدها**. كاروسيل الصفحة الرئيسية لا يرسله — الاقتباس
+هناك يقرؤه زائر لا صلة له بأيّ من الطرفين — ويعرض بدلاً منه وجه **المدرّس** الذي
+تتحدّث عنه المراجعة، وهو منشور أصلاً على بطاقته.
 
 ## الأيقونات والعلامة
 

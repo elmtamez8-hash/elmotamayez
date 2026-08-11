@@ -57,7 +57,13 @@ class ShowPublicTeacher extends Action
             ->withoutWorkspaceScope()
             ->where('teacher_profile_id', $teacher->getKey())
             ->where('is_visible', true)
-            ->with('student:id,first_name,last_name')
+            // The nested select needs `user_id`: without the foreign key the
+            // hasOne has nothing to match on and every profile comes back null,
+            // which reads as "no student uploaded a photo" rather than as a bug.
+            ->with([
+                'student:id,first_name,last_name',
+                'student.studentProfile:id,user_id,avatar_path',
+            ])
             ->orderByDesc('created_at')
             ->get();
 
@@ -76,12 +82,20 @@ class ShowPublicTeacher extends Action
             // The `teacher_*` keys the home carousel adds are deliberately absent
             // here: this page IS the teacher, and repeating their photo on every
             // row would be the same image sent twenty times to say nothing.
-            'items' => $reviews->take($limit)->map(fn (Review $review): array => [
-                'student_display_name' => $review->studentDisplayName(),
-                'rating' => $review->rating,
-                'comment' => $review->comment,
-                'created_at' => $review->created_at?->toDateString(),
-            ])->values()->all(),
+            'items' => $reviews->take($limit)->map(function (Review $review): array {
+                $avatar = $review->student?->studentProfile?->avatar_path;
+
+                return [
+                    'student_display_name' => $review->studentDisplayName(),
+                    // Published here and nowhere else — see the note on
+                    // PublicFieldAllowlist::REVIEW for what that costs and who
+                    // decided to pay it.
+                    'student_avatar_url' => $avatar === null ? null : asset('storage/'.$avatar),
+                    'rating' => $review->rating,
+                    'comment' => $review->comment,
+                    'created_at' => $review->created_at?->toDateString(),
+                ];
+            })->values()->all(),
         ];
     }
 

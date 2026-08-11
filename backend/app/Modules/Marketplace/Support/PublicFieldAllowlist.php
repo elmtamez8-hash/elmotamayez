@@ -167,21 +167,33 @@ final class PublicFieldAllowlist
     public const TAXONOMY = ['slug', 'name_ar', 'icon', 'teachers_count'];
 
     /*
-    | The reviewer stays a pair of initials; the TEACHER is named and pictured.
+    | TWO faces are publishable on a review, and they are not the same decision.
     |
-    | A quote on the home page needs a face beside it or it reads as filler, and
-    | the only face that may go there is the one the review is ABOUT. Publishing
-    | the reviewer's photo would undo `studentDisplayName()` in a single image:
-    | that method truncates the family name precisely so a reviewer cannot be
-    | identified to the teacher they just rated (FR-021), and a headshot beside
-    | the truncation identifies them completely.
+    | `teacher_*` — the teacher the review is ABOUT. Their name and photo are
+    | already published on their own card and profile, so a quote carrying them
+    | exposes nothing new; it only says who the quote is for. The home carousel
+    | uses these.
     |
-    | The teacher's name and photo are already published on their own card and
-    | profile, so nothing new is exposed — the review simply says who it is for.
+    | `student_avatar_url` — the REVIEWER's own photo, and this one is a
+    | deliberate trade-off the product owner made, not a default:
+    |
+    |   `Review::studentDisplayName()` truncates the family name — "أحمد م." —
+    |   precisely so a teacher cannot identify who rated them (FR-021). A face
+    |   beside that truncation identifies them completely. The truncation is not
+    |   thereby wrong: it still keeps the name off the page, and a student who
+    |   uploads no avatar is unaffected. But nobody should re-derive the reason
+    |   this field is here from the field itself.
+    |
+    | It reaches ONE surface today: the teacher's own reviews tab, where the
+    | owner asked for it. The home carousel deliberately does not send it —
+    | a quote on the marketplace front page is read by people with no relation
+    | to either party. A third surface that wants this field makes the decision
+    | again, out loud, rather than inheriting it from this list.
     */
     /** @var list<string> */
     public const REVIEW = [
         'student_display_name',
+        'student_avatar_url',
         'rating',
         'comment',
         'created_at',

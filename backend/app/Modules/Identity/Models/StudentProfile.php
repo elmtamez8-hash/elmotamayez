@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * one person several grades.
  *
  * @property string|null $grade_level_slug
+ * @property string|null $avatar_path
  * @property bool $registered_by_parent
  */
 class StudentProfile extends Model
@@ -23,6 +24,10 @@ class StudentProfile extends Model
     protected $fillable = [
         'user_id',
         'grade_level_slug',
+        // Stored path on the `public` disk, never a URL: the host changes between
+        // environments and a saved absolute URL is a broken image after the first
+        // deploy. It becomes `asset('storage/'.$path)` at the edge of the payload.
+        'avatar_path',
         'registered_by_parent',
     ];
 

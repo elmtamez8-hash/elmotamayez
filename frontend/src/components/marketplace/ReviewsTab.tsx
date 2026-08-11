@@ -98,7 +98,26 @@ export function ReviewsTab({
               className="rounded-xl border border-line p-5"
             >
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p className="font-semibold text-ink">
+                <p className="flex items-center gap-3 font-semibold text-ink">
+                  {review.student_avatar_url ? (
+                    // Plain <img>: the URL points at the API host, and next/image
+                    // refuses a remote host that is not in remotePatterns.
+                    <img
+                      src={review.student_avatar_url}
+                      alt=""
+                      className="h-10 w-10 shrink-0 rounded-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    // Same 40px box as the photo it stands in for, so a row with
+                    // an avatar and a row without do not sit at different heights.
+                    <span
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary-ink"
+                      aria-hidden="true"
+                    >
+                      {review.student_display_name.charAt(0)}
+                    </span>
+                  )}
                   {review.student_display_name}
                 </p>
                 <time

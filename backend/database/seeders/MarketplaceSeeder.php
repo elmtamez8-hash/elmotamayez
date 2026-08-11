@@ -31,6 +31,9 @@ class MarketplaceSeeder extends Seeder
     /** Walks COMMENTS across every teacher seeded — see the note on that list. */
     private int $commentCursor = 0;
 
+    /** @var array<string, string|null> published demo asset paths, keyed folder/file */
+    private array $publishedAssets = [];
+
     /** @var list<array{slug: string, name_ar: string, icon: string}> */
     private const SUBJECTS = [
         ['slug' => 'math', 'name_ar' => 'الرياضيات', 'icon' => 'calculator'],
@@ -208,6 +211,13 @@ class MarketplaceSeeder extends Seeder
      */
     private function publishAsset(string $folder, string $file): ?string
     {
+        // Memoised: the six student avatars are shared across a hundred-odd
+        // reviews, and copying the same bytes once per row is a hundred writes
+        // to say one thing.
+        if (array_key_exists($folder.'/'.$file, $this->publishedAssets)) {
+            return $this->publishedAssets[$folder.'/'.$file];
+        }
+
         $source = database_path('seeders/assets/'.$folder.'/'.$file);
 
         if (! is_file($source)) {
@@ -217,10 +227,8 @@ class MarketplaceSeeder extends Seeder
             // not uploaded a photo.
             $this->command->warn("Demo asset missing, skipped: {$folder}/{$file}");
 
-            return null;
+            return $this->publishedAssets[$folder.'/'.$file] = null;
         }
-
-        $path = 'marketplace/'.$folder.'/'.$file;
 
         Storage::disk('public')->putFileAs(
             'marketplace/'.$folder,
@@ -228,7 +236,7 @@ class MarketplaceSeeder extends Seeder
             $file,
         );
 
-        return $path;
+        return $this->publishedAssets[$folder.'/'.$file] = 'marketplace/'.$folder.'/'.$file;
     }
 
     /**
@@ -261,6 +269,17 @@ class MarketplaceSeeder extends Seeder
                 'platform_role' => 'student',
                 'first_name' => self::STUDENT_FIRST_NAMES[$index % count(self::STUDENT_FIRST_NAMES)],
                 'last_name' => self::STUDENT_LAST_NAMES[$index % count(self::STUDENT_LAST_NAMES)],
+            ]);
+
+            // The avatar has to agree with the NAME, not just cycle: the six
+            // portraits run m,f,m,f,m,f and STUDENT_FIRST_NAMES alternates the
+            // same way, so both stay in step for every index because six is even.
+            // Reorder either list and أحمد gets a photo of a woman.
+            $student->studentProfile()->create([
+                'avatar_path' => $this->publishAsset(
+                    'students',
+                    'student-'.(($index % 6) + 1).'.webp',
+                ),
             ]);
 
             Review::query()->create([
