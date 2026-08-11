@@ -1,7 +1,16 @@
 /**
- * The platform name is still a placeholder. It lives here, in one place, so
- * naming the product later is a single edit rather than a grep across every
- * heading, title tag and footer.
+ * The product is «المتميز» — PRODUCT.md records it as a binding brand
+ * commitment, and the wordmark in the header spells it.
+ *
+ * ⚠️ The fallback below is a placeholder and shipped as the real name for
+ * months, because NEXT_PUBLIC_PLATFORM_NAME was set nowhere and documented
+ * nowhere — not even in .env.example. Every title tag, header and footer said
+ * «منصّتي». A decided name that the deployment never carries is not a naming
+ * problem; it is a page whose logo and heading disagree in the first second.
+ *
+ * The key is in .env.example now. The fallback stays because a missing
+ * environment variable should degrade, not crash — but it is the failure
+ * state, not the default.
  */
 export const PLATFORM_NAME = process.env.NEXT_PUBLIC_PLATFORM_NAME ?? "منصّتي";
 

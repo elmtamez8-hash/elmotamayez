@@ -29,6 +29,12 @@ type Testimonial = {
  * state of a product before launch, and the one PRODUCT.md requires.
  */
 export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
+  // ⚠️ Keyed by index deliberately. The obvious key — display name plus
+  // timestamp — collides in production, because `studentDisplayName()` is
+  // built NOT to be unique: it truncates the family name on purpose so a
+  // reviewer cannot be identified to the teacher they just rated. Two students
+  // called "أحمد م." reviewing in the same second is normal, not a coincidence.
+  // The list is fetched once and never reorders, so the index is stable.
   const [index, setIndex] = useState(0);
 
   if (items.length === 0) return null;
@@ -50,7 +56,7 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
     >
       {items.map((item, i) => (
         <figure
-          key={`${item.student_display_name}-${item.created_at}`}
+          key={i}
           hidden={i !== index}
           aria-roledescription="مراجعة"
           aria-label={`${i + 1} من ${items.length}`}
@@ -88,7 +94,7 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
 
         <ul className="flex gap-2">
           {items.map((item, i) => (
-            <li key={`${item.student_display_name}-${item.created_at}`}>
+            <li key={i}>
               <button
                 type="button"
                 onClick={() => setIndex(i)}

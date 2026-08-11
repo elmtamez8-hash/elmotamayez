@@ -5,19 +5,40 @@
    cannot express a user override (FR-084). */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/*
+| BRAND: Qatar maroon, warm limestone, brass.
+|--------------------------------------------------------------------------
+| The palette that shipped here was a placeholder — a generic product blue on
+| cool grey. PRODUCT.md now pins the primary: #8A1538, Pantone 1955 C, the
+| colour of the State of Qatar's flag, confirmed by the owner.
+|
+| It is a position, not a preference. It serves the "concrete Qatari fit" the
+| owner named as one of four honest proofs, and it separates the product from
+| the reference it was measured against — Faheem is Saudi and orange is its
+| identity — along the one axis a market judging trust actually reads.
+|
+| The neutrals moved with it. A maroon this deep sits wrong on cool grey: the
+| ground is warm limestone (#FAF6F0) and the ink is a warm near-black, so the
+| surface reads as paper in daylight rather than a dashboard. That warmth is
+| the brief's other half — "not banking-cold" was rejected by name.
+*/
 @theme {
   /* Brand */
-  --color-primary: #1e5aa8;
-  --color-primary-soft: #eaf2fc;
-  --color-secondary: #1fae7a;
-  --color-accent: #ff8a34;
-  --color-danger: #e85c5c;
+  --color-primary: #8a1538;
+  --color-primary-soft: #f7ebef;
+  --color-secondary: #14785a;
+  --color-accent: #b8873a;
+  /* ⚠️ Danger must not read as the brand. Maroon is a wine red at ~345°; this
+     is a rust red at ~12°, dark enough to carry white text at 6.6:1, which the
+     old #e85c5c never did (3.2:1 — the rule allowed a pairing that failed). */
+  --color-danger: #a8321f;
 
   /* Foreground colours to pair with the fills above.
-     accent/#ff8a34 and trust-medium/#f5b301 reach ~2.4:1 against white — below the
-     4.5:1 floor in FR-081 — so their paired foreground is dark, never white. */
-  --color-accent-foreground: #1f2937;
-  --color-trust-medium-foreground: #1f2937;
+     accent/#b8873a (brass) reaches 2.9:1 against white and trust-medium/#c89b2e
+     2.6:1 — both below the 4.5:1 floor in FR-081 — so their paired foreground
+     is the warm ink, never white. */
+  --color-accent-foreground: #2a2224;
+  --color-trust-medium-foreground: #2a2224;
 
   /* Brand hues used as TEXT, darkened until they clear 4.5:1 on the light surface
      (FR-081). Every one of the raw hues above fails as text on white — secondary
@@ -25,31 +46,31 @@
      visible to the people the rule exists for. The dark-theme block below points
      these back at the raw hues, which do clear the bar against #111827, so a
      component writes `text-danger-ink` once and is correct in both themes. */
-  --color-primary-ink: #1e5aa8;
-  --color-secondary-ink: #0f7a55;
-  --color-danger-ink: #b23b3b;
-  /* green-800, not green-700: the badge sits on a 15% tint of the band colour,
-     not on white, and green-700 lands at 4.37:1 against that tint — axe catches
-     it, a designer checking against #fff does not. */
-  --color-trust-high-ink: #166534;
-  --color-trust-medium-ink: #1f2937;
-  --color-trust-low-ink: #b91c1c;
+  --color-primary-ink: #8a1538;
+  --color-secondary-ink: #0b5c44;
+  --color-danger-ink: #8f2a19;
+  /* The badge sits on a 15% tint of the band colour, not on white, so each ink
+     is darkened until it clears the bar against ITS OWN tint — checking against
+     #fff passes values that axe then fails. */
+  --color-trust-high-ink: #0b5c44;
+  --color-trust-medium-ink: #2a2224;
+  --color-trust-low-ink: #8f2a19;
 
   /* Text & surfaces.
      surface is the page; surface-raised is anything that sits on it — card,
      table, sticky header, sidebar. It replaces the `bg-white dark:bg-transparent`
      pair that had accumulated in 57 places, which was a hand-written colour and
      therefore a standing violation of the no-literal-colour rule. */
-  --color-ink: #1f2937;
-  --color-ink-muted: #6b7280;
-  --color-surface: #f9fafb;
+  --color-ink: #2a2224;
+  --color-ink-muted: #6e625e;
+  --color-surface: #faf6f0;
   --color-surface-raised: #ffffff;
-  --color-line: #e5e7eb;
+  --color-line: #e8dfd4;
 
-  /* Trust score bands */
-  --color-trust-high: #22c55e;
-  --color-trust-medium: #f5b301;
-  --color-trust-low: #ef4444;
+  /* Trust score bands, warmed to sit with the maroon rather than beside it. */
+  --color-trust-high: #14785a;
+  --color-trust-medium: #c89b2e;
+  --color-trust-low: #a8321f;
 
   /* Arabic type scale */
   --font-sans: var(--font-cairo), system-ui, sans-serif;
@@ -58,32 +79,61 @@
 /* Dark-mode surface overrides. Brand hues keep their identity; only the
    neutral ramp inverts, so contrast pairings stay predictable. */
 [data-theme="dark"] {
-  --color-ink: #f3f4f6;
-  --color-ink-muted: #9ca3af;
-  --color-surface: #111827;
+  --color-ink: #f5efe9;
+  --color-ink-muted: #a79c96;
+  --color-surface: #191315;
   /* One step lighter than the page, not darker: raised means closer to the
-     light source in both themes, and #1f2937 keeps ink at 13:1 on top of it. */
-  --color-surface-raised: #1f2937;
-  --color-line: #374151;
-  --color-primary-soft: #16273f;
+     light source in both themes, and #241c1f keeps ink at 12.6:1 on top of it. */
+  --color-surface-raised: #241c1f;
+  --color-line: #3b2f33;
+  --color-primary-soft: #331520;
 
   /* On #111827 the raw hues clear 4.5:1 on their own (5.2–7.8:1), and the
      darkened light-theme values would not. */
-  /* The brand blue reaches only 2.6:1 on #111827, and 2.2:1 on the dark
-     primary-soft tint — the fill keeps its identity, the text does not have to.
-     `--color-primary` itself must NOT be lightened: bg-primary carries white
-     text, and a lighter fill would fail that pairing instead. */
-  --color-primary-ink: #60a5fa;
-  --color-secondary-ink: #1fae7a;
-  --color-danger-ink: #e85c5c;
-  --color-trust-high-ink: #22c55e;
-  --color-trust-medium-ink: #f5b301;
-  /* red-400, not the band's own #ef4444: the low badge puts its ink on a 15%
-     tint of itself, and against that tint #ef4444 lands at 4.08:1. The high and
-     medium bands clear it on their own tints (6.0:1 and 6.4:1) — only this one
+  /* Maroon reaches 1.7:1 on #191315 — as TEXT it is unreadable in the dark,
+     which is the whole reason this token exists apart from --color-primary.
+     The rose below is the maroon lifted until it clears the bar (8.3:1); the
+     fill keeps the brand, the text does not have to.
+     ⚠️ `--color-primary` itself must NOT be lightened: bg-primary carries white
+     text at 10:1, and a lighter fill would fail that pairing instead. */
+  --color-primary-ink: #e9a0b2;
+  --color-secondary-ink: #4fc79b;
+  --color-danger-ink: #e88b78;
+  --color-trust-high-ink: #4fc79b;
+  --color-trust-medium-ink: #e0ba5e;
+  /* Lifted well past the band's own #a8321f: the low badge puts its ink on a
+     15% tint of itself, and the raw hue lands under the bar against that tint.
+     The high and medium bands clear it on their own tints — only this one
      needed lifting. Surfaced by seed data that finally contained a low-band
      teacher; the bug was there all along with nothing to render it. */
-  --color-trust-low-ink: #f87171;
+  --color-trust-low-ink: #e88b78;
+}
+
+/*
+| The wordmark.
+|--------------------------------------------------------------------------
+| Painted with mask-image rather than shipped as two coloured files, so ONE
+| asset serves both themes: the mask carries the shape and background-color
+| carries the brand. Maroon on light, warm white in the dark — which is the
+| owner's instruction, expressed as a rule instead of a second export.
+|
+| The source PNG is a contour trace with hollow letters. `wordmark-mask.png` is
+| that trace flood-filled from the border inward, so the enclosed counters stay
+| solid and the square dots survive. Outline strokes turn to mud below 48px;
+| a filled mark does not, and the nav bar is where a logo is actually seen.
+*/
+.wordmark {
+  display: block;
+  background-color: var(--color-primary);
+  mask-image: url("/brand/wordmark-mask.png");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  aspect-ratio: 941 / 789;
+}
+
+[data-theme="dark"] .wordmark {
+  background-color: var(--color-ink);
 }
 
 /*
@@ -107,7 +157,7 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' fill='none'%3E%3Cpath d='M40 0H0v40' stroke='%231e5aa8' stroke-opacity='.12' stroke-width='1'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' fill='none'%3E%3Cpath d='M40 0H0v40' stroke='%238a1538' stroke-opacity='.12' stroke-width='1'/%3E%3C/svg%3E");
   background-size: 40px 40px;
   /* Faded at the edges so the pattern never competes with the text on top of
      it — a full-bleed grid behind body copy is a legibility problem wearing a
@@ -116,7 +166,7 @@
 }
 
 [data-theme="dark"] .bg-grid::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' fill='none'%3E%3Cpath d='M40 0H0v40' stroke='%2360a5fa' stroke-opacity='.10' stroke-width='1'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' fill='none'%3E%3Cpath d='M40 0H0v40' stroke='%23e9a0b2' stroke-opacity='.10' stroke-width='1'/%3E%3C/svg%3E");
 }
 
 /* Dot lattice for the footer — quieter than the grid, and different enough that
@@ -126,13 +176,13 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='2' cy='2' r='1.4' fill='%231e5aa8' fill-opacity='.16'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='2' cy='2' r='1.4' fill='%238a1538' fill-opacity='.16'/%3E%3C/svg%3E");
   background-size: 24px 24px;
   mask-image: linear-gradient(to bottom, #000, transparent 65%);
 }
 
 [data-theme="dark"] .bg-dots::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='2' cy='2' r='1.4' fill='%2360a5fa' fill-opacity='.14'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='2' cy='2' r='1.4' fill='%23e9a0b2' fill-opacity='.14'/%3E%3C/svg%3E");
 }
 
 /*

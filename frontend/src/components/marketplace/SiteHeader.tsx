@@ -20,8 +20,11 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
-        <Link href="/" className="text-xl font-extrabold text-primary-ink">
-          {PLATFORM_NAME}
+        {/* The mark carries the name, so the name is not repeated beside it —
+            a wordmark plus its own text set twice is the tell of a logo nobody
+            trusts to be legible. The accessible name still says it. */}
+        <Link href="/" aria-label={PLATFORM_NAME} className="shrink-0">
+          <span className="wordmark h-10" aria-hidden="true" />
         </Link>
 
         <nav aria-label="التنقّل الرئيسي" className="hidden flex-1 lg:block">

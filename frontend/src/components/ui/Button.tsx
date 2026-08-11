@@ -32,7 +32,11 @@ const SIZES: Record<Size, string> = {
 };
 
 const BASE =
-  "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition " +
+  // rounded-full, not rounded-xl: the pill is the shape language the owner
+  // pinned (Faheem's, for warmth and roundness — its palette explicitly did not
+  // come across). A 12px corner on a maroon field reads institutional, which is
+  // the "banking cold" the brief rejected by name.
+  "inline-flex items-center justify-center gap-2 rounded-full font-semibold transition " +
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary " +
   "disabled:cursor-not-allowed disabled:opacity-60";
 

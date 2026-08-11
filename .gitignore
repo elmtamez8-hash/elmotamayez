@@ -5,3 +5,6 @@
 # OS noise
 .DS_Store
 Thumbs.db
+
+# Impeccable design-skill working state (question pages, hook cache).
+.impeccable/

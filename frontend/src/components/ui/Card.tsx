@@ -23,7 +23,9 @@ export function Card({
 }) {
   return (
     <Tag
-      className={`rounded-2xl border border-line bg-surface-raised ${PADDING[padding]}`}
+      // rounded-3xl to sit with the pill controls: a card corner tighter than
+      // its own buttons reads as two systems in one frame.
+      className={`rounded-3xl border border-line bg-surface-raised ${PADDING[padding]}`}
     >
       {children}
     </Tag>
