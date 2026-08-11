@@ -121,11 +121,15 @@ export type HomePayload = {
   featured_teachers: TeacherCard[];
   featured_courses: CourseCard[];
   subjects: Taxonomy[];
+  // Real reviews, not authored copy. This used to be a `{name, role, quote}`
+  // shape holding three invented quotes signed with real Qatari family names;
+  // it now carries the same review shape the teacher's own page publishes, and
+  // arrives empty until a student writes one.
   testimonials: {
-    name: string;
-    role: string;
-    quote: string;
-    photo_url: string | null;
+    student_display_name: string;
+    rating: number;
+    comment: string;
+    created_at: string;
   }[];
   faqs: { question: string; answer: string }[];
 };

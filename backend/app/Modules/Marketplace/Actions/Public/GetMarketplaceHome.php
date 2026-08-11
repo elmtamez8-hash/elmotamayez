@@ -8,6 +8,8 @@ use App\Modules\Marketplace\DTOs\CourseFilterDTO;
 use App\Modules\Marketplace\DTOs\TeacherFilterDTO;
 use App\Modules\Marketplace\Http\Resources\PublicCourseCardResource;
 use App\Modules\Marketplace\Http\Resources\PublicTeacherCardResource;
+use App\Modules\Marketplace\Models\Review;
+use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Marketplace\Support\MarketplaceCache;
 use App\Shared\Actions\Action;
 use Illuminate\Support\Facades\Cache;
@@ -58,39 +60,71 @@ class GetMarketplaceHome extends Action
             'featured_teachers' => $featured,
             'featured_courses' => $featuredCourses,
             'subjects' => $this->taxonomy->handle(ListPublicTaxonomy::SUBJECTS),
-            'testimonials' => $this->testimonials(),
+            'testimonials' => Cache::remember(
+                MarketplaceCache::key('home:testimonials'),
+                MarketplaceCache::ttl(),
+                fn () => $this->testimonials(),
+            ),
             'faqs' => $this->faqs(),
         ];
     }
 
     /**
-     * Editorial content with no admin surface yet. Kept here rather than hardcoded
-     * in the React tree so moving it to the CMS later touches one file.
+     * Real reviews, written by students who took a session.
      *
-     * @return list<array{name: string, role: string, quote: string, photo_url: string|null}>
+     * ⚠️ THIS METHOD USED TO RETURN THREE HARDCODED QUOTES. They were attributed
+     * to invented people carrying real Qatari family names — نورة العلي,
+     * عبدالله المري, مريم الكواري — and served to every visitor with nothing
+     * marking them as samples. PRODUCT.md's `Evidence on Hand` bans exactly
+     * that: the product is pre-launch with no customers, and any quote on a
+     * surface is labelled demo data or does not appear.
+     *
+     * The shape returned here is PublicFieldAllowlist::REVIEW, unchanged — the
+     * same one the teacher's own page publishes. Reusing it rather than
+     * inventing a second `{name, role, quote}` shape means the allowlist
+     * already governs these fields, and a name shown here is the same
+     * `studentDisplayName()` ("أحمد م.") the reviewer already agreed to on the
+     * teacher page: enough to show a real person wrote it, not enough to
+     * identify them to the teacher they just rated (FR-021).
+     *
+     * ⚠️ The query starts from publiclyListed(), like every other public read
+     * in this module. Review carries BelongsToWorkspace, and WorkspaceScope is
+     * INERT for a guest — so without this guard the home page would publish
+     * reviews of teachers who never agreed to be listed.
+     *
+     * On launch day this returns an empty list and the section does not render.
+     * That is the honest state, and it is the one the carousel already handles.
+     *
+     * @return list<array{student_display_name: string, rating: int, comment: string, created_at: string}>
      */
     private function testimonials(): array
     {
-        return [
-            [
-                'name' => 'نورة العلي',
-                'role' => 'وليّة أمر',
-                'quote' => 'ابني تحسّن في الرياضيات خلال شهرين. أهم ما أعجبني أنني أرى تقييمات المدرّس قبل الحجز.',
-                'photo_url' => null,
-            ],
-            [
-                'name' => 'عبدالله المري',
-                'role' => 'طالب ثانوية',
-                'quote' => 'الحصص المباشرة مرنة وأقدر أعيد الحصص المسجّلة قبل الاختبار مباشرة.',
-                'photo_url' => null,
-            ],
-            [
-                'name' => 'مريم الكواري',
-                'role' => 'وليّة أمر',
-                'quote' => 'درجة الثقة وفّرت عليّ وقت البحث — أعرف التزام المدرّس بالمواعيد قبل أن أحجز.',
-                'photo_url' => null,
-            ],
-        ];
+        // array_values, not ->all(): a Collection's keys survive ->all(), so the
+        // result is an array<int, …> and not the list the return type promises.
+        // It also decides how this serialises — a non-list becomes a JSON object
+        // instead of an array, and the carousel would receive something it
+        // cannot map over.
+        return array_values(Review::query()
+            ->withoutWorkspaceScope()
+            ->where('is_visible', true)
+            ->whereNotNull('comment')
+            ->where('comment', '!=', '')
+            ->where('rating', '>=', 4)
+            ->whereIn(
+                'teacher_profile_id',
+                TeacherProfile::query()->publiclyListed()->select('teacher_profiles.id'),
+            )
+            ->with('student:id,first_name,last_name')
+            ->latest('id')
+            ->limit(6)
+            ->get()
+            ->map(fn (Review $review): array => [
+                'student_display_name' => $review->studentDisplayName(),
+                'rating' => $review->rating,
+                'comment' => (string) $review->comment,
+                'created_at' => $review->created_at?->toIso8601String() ?? '',
+            ])
+            ->all());
     }
 
     /** @return list<array{question: string, answer: string}> */

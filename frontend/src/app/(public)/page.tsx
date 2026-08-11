@@ -3,9 +3,9 @@ import { publicApi, type HomePayload } from "@/lib/public-api";
 import { PLATFORM_NAME } from "@/lib/platform";
 import { TeacherCard } from "@/components/marketplace/TeacherCard";
 import { CourseCard } from "@/components/marketplace/CourseCard";
+import { TestimonialsCarousel } from "@/components/marketplace/TestimonialsCarousel";
 import { SubjectsGrid } from "@/components/marketplace/SubjectsGrid";
 import { FaqAccordion } from "@/components/marketplace/FaqAccordion";
-import { TestimonialsCarousel } from "@/components/marketplace/TestimonialsCarousel";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 
@@ -201,14 +201,19 @@ export default async function HomePage() {
         )}
       </section>
 
-      <section className="bg-surface-raised py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <h2 className="mb-10 text-center text-2xl font-extrabold text-ink sm:text-3xl">
-            ماذا يقول الطلاب وأولياء الأمور
-          </h2>
-          <TestimonialsCarousel items={home.testimonials} />
-        </div>
-      </section>
+      {/* Absent until a student writes one — the carousel returns null on an
+          empty list, so a launch-day page simply does not carry this section
+          rather than carrying invented quotes. */}
+      {home.testimonials.length > 0 && (
+        <section className="bg-surface-raised py-16">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <h2 className="mb-10 text-center text-2xl font-extrabold text-ink sm:text-3xl">
+              ماذا كتب الطلاب عن مدرّسيهم
+            </h2>
+            <TestimonialsCarousel items={home.testimonials} />
+          </div>
+        </section>
+      )}
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
         <h2 className="mb-10 text-center text-2xl font-extrabold text-ink sm:text-3xl">

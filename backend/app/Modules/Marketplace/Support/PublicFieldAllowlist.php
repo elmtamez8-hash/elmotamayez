@@ -140,8 +140,25 @@ final class PublicFieldAllowlist
     /** The review block: a headline number, a histogram, and the reviews. */
     public const REVIEW_SUMMARY = ['average', 'distribution', 'items'];
 
-    /** @var list<string> */
-    public const TESTIMONIAL = ['name', 'role', 'quote'];
+    /*
+    | ⚠️ THERE IS NO `TESTIMONIAL` CONSTANT, AND THAT IS THE DESIGN.
+    |
+    | The home page used to publish a `{name, role, quote, photo_url}` shape
+    | filled with three hardcoded quotes, attributed to invented people carrying
+    | real Qatari family names, with nothing marking them as demonstration data.
+    | PRODUCT.md's `Evidence on Hand` bans it: pre-launch, no customers, and any
+    | quote on a surface is labelled demo data or does not appear.
+    |
+    | The home carousel now reads real reviews and publishes them through
+    | `REVIEW` below — the same shape the teacher's own page uses. One shape for
+    | one thing: a second constant would have let the two drift, and the field a
+    | reviewer agreed to expose on the teacher page is exactly the field the home
+    | page may show.
+    |
+    | So a quote reaching the public home page must be a row a student wrote.
+    | Re-introducing an authored testimonial shape is a product decision about
+    | evidence, not a layout decision, and it comes back through PRODUCT.md.
+    */
 
     /** @var list<string> */
     public const FAQ = ['question', 'answer'];

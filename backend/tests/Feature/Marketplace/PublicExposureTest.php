@@ -134,7 +134,6 @@ it('publishes only allowlisted fields, in every public payload', function () {
         ...PublicFieldAllowlist::TEACHER_STATS,
         ...PublicFieldAllowlist::TRUST_FACTORS,
         ...PublicFieldAllowlist::REVIEW_SUMMARY,
-        ...PublicFieldAllowlist::TESTIMONIAL,
         ...PublicFieldAllowlist::FAQ,
         ...marketplaceEnvelopeKeys(),
     ];

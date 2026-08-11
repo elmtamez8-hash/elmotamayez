@@ -1,21 +1,32 @@
 "use client";
 
 import { ChevronEndIcon, ChevronStartIcon } from "@/components/icons";
+import { StarRating } from "./StarRating";
 import { useState } from "react";
 
+/**
+ * A review a student actually wrote — the same shape the teacher's own page
+ * publishes, not an authored `{name, role, quote}`.
+ */
 type Testimonial = {
-  name: string;
-  role: string;
-  quote: string;
-  photo_url: string | null;
+  student_display_name: string;
+  rating: number;
+  comment: string;
+  created_at: string;
 };
 
 /**
- * Testimonials carousel.
+ * Reviews carousel.
  *
  * All slides stay in the DOM and the inactive ones are hidden with the `hidden`
  * attribute, so the crawler in SC-016 reads every quote even though only one is
  * on screen. Arrow keys move between them (FR-042).
+ *
+ * ⚠️ It renders nothing on an empty list, and that matters more than it looks:
+ * this used to be fed three hardcoded quotes from invented people, so the
+ * section could never be empty and never told the truth. Reading real reviews
+ * means the section is absent until a student writes one — which is the honest
+ * state of a product before launch, and the one PRODUCT.md requires.
  */
 export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
   const [index, setIndex] = useState(0);
@@ -29,8 +40,8 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
     <div
       className="mx-auto max-w-3xl"
       role="group"
-      aria-roledescription="عارض شهادات"
-      aria-label="آراء الطلاب وأولياء الأمور"
+      aria-roledescription="عارض مراجعات"
+      aria-label="مراجعات الطلاب"
       onKeyDown={(event) => {
         // RTL: ArrowLeft advances, ArrowRight goes back.
         if (event.key === "ArrowLeft") move(1);
@@ -39,24 +50,28 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
     >
       {items.map((item, i) => (
         <figure
-          key={item.name}
+          key={`${item.student_display_name}-${item.created_at}`}
           hidden={i !== index}
-          aria-roledescription="شهادة"
+          aria-roledescription="مراجعة"
           aria-label={`${i + 1} من ${items.length}`}
           className="rounded-2xl border border-line bg-surface-raised p-8 text-center"
         >
           <blockquote className="mb-6 text-lg leading-relaxed text-ink">
-            «{item.quote}»
+            «{item.comment}»
           </blockquote>
           <figcaption className="flex flex-col items-center gap-2">
             <span
               className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary-ink"
               aria-hidden="true"
             >
-              {item.name.charAt(0)}
+              {item.student_display_name.charAt(0)}
             </span>
-            <span className="font-semibold text-ink">{item.name}</span>
-            <span className="text-sm text-ink-muted">{item.role}</span>
+            <span className="font-semibold text-ink">
+              {item.student_display_name}
+            </span>
+            {/* The rating replaces the invented "role". It is a real number the
+                reviewer chose, and it is why the quote carries weight. */}
+            <StarRating value={item.rating} />
           </figcaption>
         </figure>
       ))}
@@ -73,12 +88,12 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
 
         <ul className="flex gap-2">
           {items.map((item, i) => (
-            <li key={item.name}>
+            <li key={`${item.student_display_name}-${item.created_at}`}>
               <button
                 type="button"
                 onClick={() => setIndex(i)}
                 aria-current={i === index}
-                aria-label={`الشهادة ${i + 1}`}
+                aria-label={`المراجعة ${i + 1}`}
                 className={`h-2.5 w-2.5 rounded-full transition ${
                   i === index ? "bg-primary" : "bg-line hover:bg-ink-muted"
                 }`}
