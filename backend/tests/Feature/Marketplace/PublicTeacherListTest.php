@@ -7,6 +7,7 @@ use App\Modules\Marketplace\Models\GradeLevel;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Support\WorkspaceContext;
+use Carbon\CarbonImmutable;
 
 beforeEach(function () {
     $this->workspace = marketplaceWorkspace('Academy');
@@ -146,6 +147,21 @@ it('caps per_page at the configured maximum', function () {
 });
 
 it('matches only teachers inside an active availability window for available_now', function () {
+    // The clock is pinned, and that is the whole point of this line.
+    //
+    // The window below is `now ± 1 hour`, and the query it must satisfy is
+    // `day_of_week = today AND start_time <= now < end_time` — three columns
+    // that all wrap at midnight while the window does not. Run this between
+    // 00:00 and 01:00 UTC and `start_time` becomes 23:xx of the previous day,
+    // so `start_time <= now` is false; run it in the last hour of the day and
+    // `end_time` becomes 00:xx, so `end_time > now` is false. Two hours out of
+    // every twenty-four the test fails against code that is correct, which is
+    // the worst kind of red: it points at the wrong file.
+    //
+    // Midday on a fixed Wednesday sits an hour away from nothing. Laravel
+    // restores the clock in tearDown, so no other test sees this.
+    $this->travelTo(CarbonImmutable::parse('2026-08-05 12:00:00', 'UTC'));
+
     $available = marketplaceTeacher($this->workspace);
     marketplaceTeacher($this->workspace);
 
