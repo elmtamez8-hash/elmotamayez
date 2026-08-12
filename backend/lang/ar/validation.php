@@ -201,6 +201,7 @@ return [
         'recovery_code' => 'رمز الاسترداد',
         'challenge' => 'طلب التحقق',
         'role' => 'الدور',
+        'slug' => 'الرابط',
         'terms_accepted' => 'الموافقة على الشروط',
         'registered_by_parent' => 'التسجيل بواسطة وليّ الأمر',
         'child_uuid' => 'الابن',

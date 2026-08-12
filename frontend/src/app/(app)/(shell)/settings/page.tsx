@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/Field";
+import { PublicProfileUrlCard } from "@/components/marketplace/PublicProfileUrlCard";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -121,6 +122,12 @@ export default function SettingsPage() {
           </Button>
         </form>
       </Card>
+
+      {/* Renders nothing for an account with no teacher profile, so it is
+          mounted unconditionally — a `platform_role === "teacher"` check here
+          would be a second answer to a question the API already answers, and the
+          two would disagree the first time a role changed. */}
+      <PublicProfileUrlCard />
 
       <Card as="section">
         <h3 className="mb-1 font-semibold text-ink">الإشعارات</h3>

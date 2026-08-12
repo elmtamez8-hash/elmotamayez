@@ -115,6 +115,16 @@ class AppServiceProvider extends ServiceProvider
             Limit::perHour(10)->by('user:'.(string) $request->user()?->getKey()),
         ]);
 
+        // Changing the public profile URL. Keyed by account, not IP: the
+        // endpoint answers "is this slug taken?" as a side effect of validating,
+        // so an unthrottled one is a way to enumerate the namespace. Ten an hour
+        // is far more than anyone renames themselves and far too few to walk a
+        // dictionary with.
+        RateLimiter::for('profile-slug', fn (Request $request) => [
+            Limit::perMinute(5)->by('user:'.(string) $request->user()?->getKey()),
+            Limit::perHour(10)->by('user:'.(string) $request->user()?->getKey()),
+        ]);
+
         // Playback grants. Keyed by user, not IP: a classroom behind one NAT is
         // many legitimate viewers, and the grant is already scoped to one account.
         // Generous because a viewer opening a course renews once a minute.

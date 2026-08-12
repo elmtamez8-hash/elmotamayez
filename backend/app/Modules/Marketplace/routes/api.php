@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Marketplace\Http\Controllers\PublicMarketplaceController;
 use App\Modules\Marketplace\Http\Controllers\ReviewController;
 use App\Modules\Marketplace\Http\Controllers\TeacherApplicationController;
+use App\Modules\Marketplace\Http\Controllers\TeacherProfileController;
 use App\Modules\Marketplace\Http\Controllers\TeacherReviewController;
 use Illuminate\Support\Facades\Route;
 
@@ -57,6 +58,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::put('/teacher/application/step-4', [TeacherApplicationController::class, 'stepFour']);
     Route::post('/teacher/application/submit', [TeacherApplicationController::class, 'submit'])
         ->middleware('idempotent');
+
+    // The teacher's own listing. No route parameter: the profile is resolved
+    // from the authenticated user, so there is no ownership check to forget.
+    // Throttled by account — the uniqueness check makes this an endpoint you
+    // could otherwise probe to enumerate which slugs are taken.
+    Route::get('/teacher/profile', [TeacherProfileController::class, 'show']);
+    Route::put('/teacher/profile/slug', [TeacherProfileController::class, 'updateSlug'])
+        ->middleware('throttle:profile-slug');
 
     Route::get('/admin/teacher-applications', [TeacherReviewController::class, 'index']);
     // Admitting or refusing a teacher decides who may sell on the platform.

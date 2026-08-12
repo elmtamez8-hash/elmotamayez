@@ -44,7 +44,7 @@ nothing on these requests; the guard is `publiclyListed()` inside each Action.
 | GET | `/marketplace/stats` | Platform counters |
 | GET | `/marketplace/subjects` · `/marketplace/grade-levels` | Taxonomy, matched by slug across workspaces |
 | GET | `/marketplace/teachers` | Filters: subject, grade_level, price, min_rating, min_trust_score, language, available_now, q; sorts: rating_desc, price_asc, trust_desc |
-| GET | `/marketplace/teachers/{uuid}` | One 404 for missing / unapproved / unlisted / withdrawn |
+| GET | `/marketplace/teachers/{slug}` | Resolves a slug **or** a uuid — links shared before slugs existed are uuids; the page 308s to the canonical slug. One 404 for missing / unapproved / unlisted / withdrawn |
 | GET | `/marketplace/courses` | Filters: subject, grade_level, type, price; sorts: popular, price_asc, newest |
 
 Authenticated:
@@ -54,6 +54,8 @@ Authenticated:
 | POST | `/auth/register/student` · `/auth/register/parent` · `/auth/register/teacher/step-1` | Public, `throttle:10,1` + `idempotent` |
 | GET/PUT | `/teacher/application`, `/teacher/application/step-2..4` | Applicant's own token |
 | POST | `/teacher/application/submit` | Applicant, `idempotent` |
+| GET | `/teacher/profile` | The signed-in teacher's own slug; `slug: null` when no listing exists yet |
+| PUT | `/teacher/profile/slug` | The teacher renames their public URL. No route parameter — the profile comes from the token. `throttle:profile-slug`. Rejects a uuid-shaped value: the public lookup accepts both, so that value would shadow another teacher's URL |
 | GET/POST | `/admin/teacher-applications`, `.../approve`, `.../reject`, `.../request-changes` | `marketplace.teachers.review` / `.approve` |
 | POST | `/admin/teachers/{uuid}/suspend` · `/reinstate` | `marketplace.teachers.suspend` |
 | PUT | `/workspace/marketplace-participation` | `marketplace.participation.manage` |
