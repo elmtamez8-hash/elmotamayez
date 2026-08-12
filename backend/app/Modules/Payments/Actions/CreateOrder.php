@@ -17,7 +17,7 @@ class CreateOrder extends Action
             'workspace_id' => $course->workspace_id,
             'user_id' => $user->getKey(),
             'course_id' => $course->getKey(),
-            'amount' => $course->price,
+            'amount_minor' => $course->price_minor,
             'currency' => $course->currency,
             'provider' => 'manual',
             'status' => 'pending',

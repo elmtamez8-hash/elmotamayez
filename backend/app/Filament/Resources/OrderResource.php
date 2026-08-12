@@ -31,8 +31,8 @@ class OrderResource extends Resource
                         'rejected' => 'Rejected',
                     ])
                     ->required(),
-                TextInput::make('amount')
-                    ->numeric()
+                TextInput::make('amount_minor')
+                    ->integer()
                     ->disabled(),
                 TextInput::make('currency')
                     ->disabled(),
@@ -51,7 +51,7 @@ class OrderResource extends Resource
             ->columns([
                 TextColumn::make('course.title')->searchable()->sortable(),
                 TextColumn::make('user.email')->searchable(),
-                TextColumn::make('amount')->money(fn (Order $record): string => $record->currency)->sortable(),
+                TextColumn::make('amount_minor')->money(fn (Order $record): string => $record->currency, divideBy: 100)->sortable(),
                 TextColumn::make('status')->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'approved' => 'success',

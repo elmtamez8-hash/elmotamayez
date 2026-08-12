@@ -36,12 +36,7 @@ final class ManualTransferProvider implements PaymentProviderInterface
             // break a bare unique(order_id) would have caused on captures.
             reference: 'MT-'.strtoupper(Str::random(10)),
             method: PaymentMethod::BankTransfer,
-            // ⚠️ Reads `amount` because phase 2ج has not converted the column
-            // yet; it becomes `(int) $order->amount_minor` there, and this line
-            // is the reason that phase is a barrier rather than a cleanup. One
-            // rounded multiplication on a two-decimal total is exact — what the
-            // conversion forbids is a float carrying a SUM.
-            amountMinor: (int) round(((float) $order->amount) * 100),
+            amountMinor: $order->amount_minor,
             currency: $order->currency,
             // No payment page: a wire is made in the payer's own bank.
             redirectUrl: null,

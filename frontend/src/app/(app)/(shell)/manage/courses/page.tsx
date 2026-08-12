@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { formatMoney, statusLabel, statusTone } from "@/lib/labels";
+import { formatMinorMoney, statusLabel, statusTone } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
@@ -125,7 +125,7 @@ export default function ManageCoursesPage() {
                       <Badge tone="success">مجاني</Badge>
                     ) : (
                       <Badge tone="warning">
-                        <bdi>{formatMoney(course.price, course.currency)}</bdi>
+                        <bdi>{formatMinorMoney(course.price_minor, course.currency)}</bdi>
                       </Badge>
                     )}
                     <Badge tone={statusTone(course.status)}>

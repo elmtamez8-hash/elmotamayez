@@ -154,7 +154,8 @@ it('creates a pending order and a snapshot, and not one credit', function (): vo
 
     expect($order->kind)->toBe(OrderKind::Credits)
         ->and($order->status)->toBe('pending')
-        ->and((string) $order->amount)->toBe('220.00')
+        // An int since 007, not the string `decimal:2` used to return.
+        ->and($order->amount_minor)->toBe(22_000)
         ->and($response->json('order'))->toBe($order->uuid);
 
     $purchase = CreditPurchase::query()->withoutWorkspaceScope()->firstOrFail();

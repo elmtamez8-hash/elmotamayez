@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import { api, fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
+import { fromMinorMoney, toMinorMoney } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
@@ -60,7 +61,7 @@ export default function EditCoursePage({
         setForm({
           title: c.title,
           description: c.description ?? "",
-          price: String(c.price ?? 0),
+          price: fromMinorMoney(c.price_minor ?? 0),
           currency: c.currency,
           is_sequential: c.is_sequential,
         });
@@ -78,7 +79,9 @@ export default function EditCoursePage({
     setFields({});
 
     try {
-      await api.put(`/courses/${uuid}`, { ...form, price: parseFloat(form.price) || 0 });
+      const { price, ...rest } = form;
+
+      await api.put(`/courses/${uuid}`, { ...rest, price_minor: toMinorMoney(price) });
       router.push(`/manage/courses/${uuid}`);
     } catch (err: unknown) {
       const found = fieldErrors(err);
@@ -145,7 +148,7 @@ export default function EditCoursePage({
               label="السعر"
               value={form.price}
               onChange={(v) => setForm({ ...form, price: v })}
-              error={fields.price}
+              error={fields.price_minor}
               min={0}
               step={0.01}
               hint="صفر يعني كورساً مجانياً."

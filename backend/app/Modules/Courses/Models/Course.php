@@ -26,7 +26,8 @@ use Laravel\Scout\Searchable;
  * @property string $visibility
  * @property string $course_type
  * @property string|null $cover_path
- * @property string|null $price_before_discount
+ * @property int $price_minor
+ * @property int|null $price_before_discount_minor
  * @property Carbon|null $last_delivered_at
  * @property Carbon|null $created_at
  * @property-read User|null $creator created_by is nullable — a course can outlive its author
@@ -68,7 +69,7 @@ class Course extends BaseModel
         | course orders, not a precedent. Retiring it is a product decision with
         | revenue consequences and belongs to spec 011.
         */
-        'price',
+        'price_minor',
         'currency',
         // The three pricing keys (spec 006, Q-7). teacher_profile_id is the one
         // without which the approved-rate lookup cannot run at all: RateResolver
@@ -89,15 +90,15 @@ class Course extends BaseModel
         'created_by',
         'course_type',
         'cover_path',
-        'price_before_discount',
+        'price_before_discount_minor',
     ];
 
     /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
-            'price' => 'decimal:2',
-            'price_before_discount' => 'decimal:2',
+            'price_minor' => 'integer',
+            'price_before_discount_minor' => 'integer',
             'is_sequential' => 'boolean',
             'duration_seconds' => 'integer',
             'structure_version' => 'integer',
@@ -179,7 +180,7 @@ class Course extends BaseModel
 
     public function isFree(): bool
     {
-        return (float) $this->price === 0.0;
+        return $this->price_minor === 0;
     }
 
     protected function searchableAs(): string
@@ -196,7 +197,7 @@ class Course extends BaseModel
             'title' => $this->title,
             'description' => $this->description,
             'status' => $this->status,
-            'price' => (float) $this->price,
+            'price_minor' => $this->price_minor,
             // Indexed, not filtered after the fact (R2): Scout runs outside every
             // global scope, so an unpublished course excluded only on the way out
             // would still consume a result slot and leak its title in the count.

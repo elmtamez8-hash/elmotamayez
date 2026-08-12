@@ -44,9 +44,12 @@ class CourseResource extends Resource
                         'public' => 'Public',
                     ])
                     ->required(),
-                TextInput::make('price')
-                    ->numeric()
-                    ->prefix('$')
+                // Minor units since 007: the field takes 4999, not 49.99. A
+                // `numeric` input here would accept a decimal and store a
+                // hundredth of what the operator typed.
+                TextInput::make('price_minor')
+                    ->integer()
+                    ->helperText('بالوحدات الصغرى — ٤٩٫٩٩ ر.ق تُكتب 4999')
                     ->default(0),
                 TextInput::make('currency')
                     ->maxLength(3)
@@ -77,7 +80,7 @@ class CourseResource extends Resource
                         'archived' => 'danger',
                         default => 'gray',
                     }),
-                TextColumn::make('price')->money(fn (Course $record): string => $record->currency),
+                TextColumn::make('price_minor')->money(fn (Course $record): string => $record->currency, divideBy: 100),
                 TextColumn::make('created_at')->dateTime()->sortable(),
             ])
             ->filters([

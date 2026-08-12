@@ -17,7 +17,7 @@ class OrderResource extends JsonResource
     {
         return [
             'uuid' => $this->uuid,
-            'amount' => (float) $this->amount,
+            'amount_minor' => $this->amount_minor,
             'currency' => $this->currency,
             'provider' => $this->provider,
             'status' => $this->status,

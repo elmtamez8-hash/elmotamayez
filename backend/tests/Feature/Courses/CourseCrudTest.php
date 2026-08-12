@@ -36,7 +36,7 @@ describe('course CRUD', function (): void {
         $this->postJson('/api/v1/courses', [
             'title' => 'New Course',
             'description' => 'A test course',
-            'price' => 49.99,
+            'price_minor' => 4999,
             'currency' => 'USD',
             'is_sequential' => true,
         ])->assertCreated()
@@ -52,10 +52,10 @@ describe('course CRUD', function (): void {
 
         Sanctum::actingAs($owner);
 
-        $this->putJson("/api/v1/courses/{$course->uuid}", ['title' => 'Updated Title', 'price' => 99.99])
+        $this->putJson("/api/v1/courses/{$course->uuid}", ['title' => 'Updated Title', 'price_minor' => 9999])
             ->assertOk()
             ->assertJsonPath('title', 'Updated Title')
-            ->assertJsonPath('price', 99.99);
+            ->assertJsonPath('price_minor', 9999);
     });
 
     it('publishes a course', function (): void {

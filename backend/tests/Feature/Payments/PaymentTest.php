@@ -20,7 +20,7 @@ function createPaidCourse(int $workspaceId): Course
 {
     return Course::factory()->published()->create([
         'workspace_id' => $workspaceId,
-        'price' => 49.99,
+        'price_minor' => 4999,
         'is_sequential' => false,
     ]);
 }
@@ -35,7 +35,7 @@ describe('order creation', function (): void {
 
         $this->postJson("/api/v1/courses/{$course->uuid}/orders")
             ->assertCreated()
-            ->assertJsonPath('amount', 49.99)
+            ->assertJsonPath('amount_minor', 4999)
             ->assertJsonPath('status', 'pending');
 
         expect(Order::where('course_id', $course->id)->count())->toBe(1);
@@ -226,7 +226,7 @@ describe('order details', function (): void {
         $this->getJson("/api/v1/orders/{$order->uuid}")
             ->assertOk()
             ->assertJsonPath('uuid', $order->uuid)
-            ->assertJsonPath('amount', 49.99);
+            ->assertJsonPath('amount_minor', 4999);
     });
 
     it('allows staff with view-all to see any order', function (): void {

@@ -23,7 +23,7 @@ class CreateCourse extends Action
             'title' => $dto->title,
             'slug' => $dto->slug ?? Str::slug($dto->title.'-'.Str::random(6)),
             'description' => $dto->description,
-            'price' => $dto->price,
+            'price_minor' => $dto->priceMinor,
             'currency' => $dto->currency,
             'status' => $dto->status,
             'visibility' => $dto->visibility,

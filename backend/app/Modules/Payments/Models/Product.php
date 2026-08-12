@@ -18,7 +18,7 @@ class Product extends BaseModel
         'course_id',
         'name',
         'type',
-        'price',
+        'price_minor',
         'currency',
         'is_active',
     ];
@@ -27,7 +27,7 @@ class Product extends BaseModel
     protected function casts(): array
     {
         return [
-            'price' => 'decimal:2',
+            'price_minor' => 'integer',
             'is_active' => 'boolean',
         ];
     }

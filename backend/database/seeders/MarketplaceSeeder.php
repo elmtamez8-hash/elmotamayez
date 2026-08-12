@@ -173,8 +173,8 @@ class MarketplaceSeeder extends Seeder
                     'title' => $demo['course']['title'],
                     'slug' => Str::slug($demo['course']['title'].'-'.$user->getKey()),
                     'description' => $demo['bio'],
-                    'price' => $demo['course']['price'],
-                    'price_before_discount' => $demo['course']['price_before'],
+                    'price_minor' => $demo['course']['price_minor'],
+                    'price_before_discount_minor' => $demo['course']['price_before_minor'],
                     'currency' => 'QAR',
                     'language' => 'ar',
                     'course_type' => $demo['course']['type'],
@@ -360,7 +360,7 @@ class MarketplaceSeeder extends Seeder
             'subjects' => ['math', 'physics'], 'levels' => ['secondary', 'university'],
             'photo' => 'ahmed-almansouri.webp',
             'slug' => 'ahmed-almansouri',
-            'course' => ['title' => 'الرياضيات للثانوية العامة — الفصل الأول', 'price' => '750.00', 'price_before' => '950.00', 'type' => 'group', 'hours' => 24, 'cover' => 'mathematics.webp'],
+            'course' => ['title' => 'الرياضيات للثانوية العامة — الفصل الأول', 'price_minor' => 75000, 'price_before_minor' => 95000, 'type' => 'group', 'hours' => 24, 'cover' => 'mathematics.webp'],
             'availability' => [[0, '13:00:00', '17:00:00'], [2, '13:00:00', '17:00:00'], [4, '10:00:00', '14:00:00']],
         ],
         [
@@ -373,7 +373,7 @@ class MarketplaceSeeder extends Seeder
             'subjects' => ['arabic', 'islamic-studies'], 'levels' => ['primary', 'preparatory'],
             'photo' => 'fatima-alhashimi.webp',
             'slug' => 'fatima-alhashimi',
-            'course' => ['title' => 'النحو العربي المبسّط', 'price' => '400.00', 'price_before' => null, 'type' => 'individual', 'hours' => 12, 'cover' => 'arabic-grammar.webp'],
+            'course' => ['title' => 'النحو العربي المبسّط', 'price_minor' => 40000, 'price_before_minor' => null, 'type' => 'individual', 'hours' => 12, 'cover' => 'arabic-grammar.webp'],
             'availability' => [[1, '14:00:00', '18:00:00'], [3, '14:00:00', '18:00:00']],
         ],
         [
@@ -386,7 +386,7 @@ class MarketplaceSeeder extends Seeder
             'subjects' => ['chemistry', 'biology'], 'levels' => ['secondary', 'university'],
             'photo' => 'sara-alotaibi.webp',
             'slug' => 'sara-alotaibi',
-            'course' => ['title' => 'الكيمياء العضوية من الصفر', 'price' => '620.00', 'price_before' => null, 'type' => 'recorded', 'hours' => 18, 'cover' => 'chemistry.webp'],
+            'course' => ['title' => 'الكيمياء العضوية من الصفر', 'price_minor' => 62000, 'price_before_minor' => null, 'type' => 'recorded', 'hours' => 18, 'cover' => 'chemistry.webp'],
             'availability' => [[5, '09:00:00', '13:00:00'], [6, '09:00:00', '13:00:00']],
         ],
         [
@@ -400,7 +400,7 @@ class MarketplaceSeeder extends Seeder
             'subjects' => ['english'], 'levels' => ['preparatory', 'secondary'],
             'photo' => 'khaled-aldosari.webp',
             'slug' => 'khaled-aldosari',
-            'course' => ['title' => 'اللغة الإنجليزية للمحادثة — مستوى متوسط', 'price' => '480.00', 'price_before' => '600.00', 'type' => 'group', 'hours' => 16, 'cover' => 'english.webp'],
+            'course' => ['title' => 'اللغة الإنجليزية للمحادثة — مستوى متوسط', 'price_minor' => 48000, 'price_before_minor' => 60000, 'type' => 'group', 'hours' => 16, 'cover' => 'english.webp'],
             'availability' => [[0, '18:00:00', '21:00:00'], [3, '18:00:00', '21:00:00']],
         ],
         [
@@ -413,7 +413,7 @@ class MarketplaceSeeder extends Seeder
             'subjects' => ['computer-science', 'math'], 'levels' => ['preparatory', 'secondary'],
             'photo' => 'mona-albalushi.webp',
             'slug' => 'mona-albalushi',
-            'course' => ['title' => 'أساسيات البرمجة بلغة بايثون', 'price' => '890.00', 'price_before' => null, 'type' => 'recorded', 'hours' => 30, 'cover' => 'python.webp'],
+            'course' => ['title' => 'أساسيات البرمجة بلغة بايثون', 'price_minor' => 89000, 'price_before_minor' => null, 'type' => 'recorded', 'hours' => 30, 'cover' => 'python.webp'],
             'availability' => [[1, '16:00:00', '20:00:00'], [4, '16:00:00', '20:00:00']],
         ],
     ];

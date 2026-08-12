@@ -233,7 +233,7 @@ class MarketplaceLoadSeeder extends Seeder
                     'title' => "كورس تجريبي {$n}",
                     'slug' => "load-course-{$n}",
                     'description' => 'بيانات حِمل، ليست محتوى حقيقياً.',
-                    'price' => 100 + ($n % 400),
+                    'price_minor' => (100 + ($n % 400)) * 100,
                     'currency' => 'QAR',
                     'status' => 'published',
                     'visibility' => 'public',

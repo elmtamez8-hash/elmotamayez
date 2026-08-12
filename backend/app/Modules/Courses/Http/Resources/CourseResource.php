@@ -19,7 +19,7 @@ class CourseResource extends JsonResource
             'title' => $this->title,
             'slug' => $this->slug,
             'description' => $this->description,
-            'price' => (float) $this->price,
+            'price_minor' => $this->price_minor,
             'currency' => $this->currency,
             'status' => $this->status,
             'is_published' => $this->isPublished(),

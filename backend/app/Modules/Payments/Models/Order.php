@@ -33,7 +33,7 @@ class Order extends BaseModel implements HasMedia
         'product_id',
         'course_id',
         'kind',
-        'amount',
+        'amount_minor',
         'currency',
         'provider',
         'provider_ref',
@@ -48,7 +48,7 @@ class Order extends BaseModel implements HasMedia
     protected function casts(): array
     {
         return [
-            'amount' => 'decimal:2',
+            'amount_minor' => 'integer',
             'kind' => OrderKind::class,
             'approved_at' => 'datetime',
             'metadata' => 'array',

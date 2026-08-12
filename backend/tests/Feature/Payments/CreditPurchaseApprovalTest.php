@@ -33,7 +33,7 @@ beforeEach(function (): void {
         'workspace_id' => $this->workspace->getKey(),
         'user_id' => $this->student->getKey(),
         'kind' => OrderKind::Credits,
-        'amount' => 400.00,
+        'amount_minor' => 40000,
         'currency' => 'QAR',
         'status' => 'approved',
         'approved_by' => $this->owner->getKey(),
@@ -91,7 +91,7 @@ it('refuses an approved credit order with no purchase behind it', function (): v
         'workspace_id' => $this->workspace->getKey(),
         'user_id' => $this->student->getKey(),
         'kind' => OrderKind::Credits,
-        'amount' => 100.00,
+        'amount_minor' => 10000,
         'status' => 'approved',
     ]);
 

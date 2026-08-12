@@ -21,7 +21,9 @@ class CreateCourseRequest extends FormRequest
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'slug' => ['nullable', 'string', 'max:255'],
-            'price' => ['nullable', 'numeric', 'min:0'],
+            // Integer minor units, never `numeric`: a decimal accepted here is
+            // a hundredth of the price the teacher meant.
+            'price_minor' => ['nullable', 'integer', 'min:0'],
             'currency' => ['nullable', 'string', 'size:3'],
             'is_sequential' => ['nullable', 'boolean'],
         ];

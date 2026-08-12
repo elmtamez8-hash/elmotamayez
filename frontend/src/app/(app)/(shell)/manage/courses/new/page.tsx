@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { api, fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
+import { toMinorMoney } from "@/lib/labels";
 import { CURRENCY } from "@/lib/platform";
 import { useRouter } from "next/navigation";
 import type { Course } from "@/lib/types";
@@ -47,9 +48,14 @@ export default function CreateCoursePage() {
     setLoading(true);
 
     try {
+      // The field is riyals, the API takes fils. `price` itself is dropped
+      // rather than sent alongside — a payload carrying both is one rename away
+      // from the wrong one winning.
+      const { price, ...rest } = form;
+
       const course = await api.post<Course>("/courses", {
-        ...form,
-        price: parseFloat(form.price) || 0,
+        ...rest,
+        price_minor: toMinorMoney(price),
       });
       router.push(`/manage/courses/${course.uuid}`);
     } catch (err: unknown) {
@@ -96,7 +102,7 @@ export default function CreateCoursePage() {
               label="السعر"
               value={form.price}
               onChange={(v) => setForm({ ...form, price: v })}
-              error={fields.price}
+              error={fields.price_minor}
               min={0}
               step={0.01}
               hint="صفر يعني كورساً مجانياً."

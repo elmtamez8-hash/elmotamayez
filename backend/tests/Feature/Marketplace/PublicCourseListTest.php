@@ -133,8 +133,8 @@ it('filters by the teaching subject of the course author', function (): void {
 */
 it('carries neither price nor its discounted original on a browse card', function (): void {
     marketplaceCourse($this->workspace, $this->teacher, [
-        'price' => 99.99,
-        'price_before_discount' => 199.99,
+        'price_minor' => 9999,
+        'price_before_discount_minor' => 19999,
     ]);
 
     $this->asGuest();

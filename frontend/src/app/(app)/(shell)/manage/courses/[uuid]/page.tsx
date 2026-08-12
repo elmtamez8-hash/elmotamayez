@@ -2,7 +2,7 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { formatMoney, lessonTypeLabel } from "@/lib/labels";
+import { formatMinorMoney, lessonTypeLabel } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
@@ -74,7 +74,7 @@ export default function CourseDetailPage({
             <Badge tone="success">مجاني</Badge>
           ) : (
             <Badge tone="warning">
-              <bdi>{formatMoney(course.price, course.currency)}</bdi>
+              <bdi>{formatMinorMoney(course.price_minor, course.currency)}</bdi>
             </Badge>
           )}
           <span className="text-sm text-ink-muted">

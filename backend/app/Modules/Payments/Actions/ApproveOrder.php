@@ -33,7 +33,7 @@ class ApproveOrder extends Action
                 'workspace_id' => $order->workspace_id,
                 'order_id' => $order->getKey(),
                 'provider' => $order->provider,
-                'amount' => $order->amount,
+                'amount_minor' => $order->amount_minor,
                 'currency' => $order->currency,
                 'status' => 'captured',
                 'reference' => 'manual-approval-'.$order->getKey(),
@@ -43,7 +43,7 @@ class ApproveOrder extends Action
 
             event(new PaymentApproved($order));
 
-            $this->logActivity('approved', $order, ['amount' => (float) $order->amount]);
+            $this->logActivity('approved', $order, ['amount_minor' => $order->amount_minor]);
 
             return $order;
         });

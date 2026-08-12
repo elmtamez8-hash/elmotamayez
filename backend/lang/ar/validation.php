@@ -240,6 +240,7 @@ return [
         'title' => 'العنوان',
         'description' => 'الوصف',
         'price' => 'السعر',
+        'price_minor' => 'السعر',
         'currency' => 'العملة',
         'language' => 'اللغة',
         'status' => 'الحالة',
@@ -321,6 +322,7 @@ return [
         'receipt' => 'الإيصال',
         'rejection_reason' => 'سبب الرفض',
         'amount' => 'المبلغ',
+        'amount_minor' => 'المبلغ',
 
         // الشهادات
         'verification_code' => 'رمز التحقّق',

@@ -79,7 +79,8 @@ export interface Course {
   title: string;
   slug: string;
   description: string;
-  price: number;
+  /** Minor units — 4999 is 49.99. Format with formatMinorMoney, never directly. */
+  price_minor: number;
   currency: string;
   status: string;
   visibility: string;
@@ -139,7 +140,8 @@ export interface Certificate {
 
 export interface Order {
   uuid: string;
-  amount: number;
+  /** Minor units. Same rule as Course.price_minor. */
+  amount_minor: number;
   currency: string;
   provider: string;
   status: string;

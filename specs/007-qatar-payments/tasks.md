@@ -100,18 +100,18 @@
 > **فإن أراد المالك اقتطاعه فالثمن مُسمّى**: تُكتب المقارنة على `decimal` بتحويلٍ صريح
 > موثَّق في مكانٍ واحد، ويُسجَّل خرق `NFR-007` صراحةً.
 
-- [ ] T027 هجرة ‎٨‎: `courses.price`/`currency` · `products.price`/`currency` · `orders.amount → amount_minor` · `payment_transactions.amount → amount_minor` في `.../2026_08_11_001100_convert_money_to_minor_units.php` — ⚠️ **الضرب ×‎١٠٠‎ في PHP لا في المحرّك** (‏MySQL وSQLite لا يتّفقان على ما يصير `49.99`)، **وبـ`chunkById` لا `chunk`** [‏م‏٢‏]: المُسنِد `amount_minor IS NULL` ينكمش تحت OFFSET فتُتخطّى صفوف — وصفٌّ متخطّى هنا **سعرٌ مقسومٌ على مئة بصمت**
-- [ ] T028 تمرير `price_minor` في `backend/app/Modules/Payments/Actions/CreateOrder.php:20`
-- [ ] T029 [P] حذف `minorToDecimal()` من `backend/app/Modules/Payments/Actions/PurchaseCredits.php:118,166`
-- [ ] T030 [P] إسقاط `decimal:2` من `backend/app/Modules/Payments/Models/Order.php:51` و`backend/app/Modules/Payments/Models/PaymentTransaction.php:34` — ⚠️ **[‏م‏٢‏] الرقمان مُصحَّحان**: كانا ‎:52‎ و‎:32‎، والسطران هناك `'kind'` وقوس `casts()`
-- [ ] T031 [P] إسقاط `(float)` من `backend/app/Modules/Payments/Http/Resources/OrderResource.php:20` — ⚠️ **[‏م‏٢‏]** كان ‎:19‎، وهو `'uuid'`
-- [ ] T032 نسخ المبلغ الصحيح في `backend/app/Modules/Payments/Actions/ApproveOrder.php`
-- [ ] T033 ⚠️ **[‏م‏٢‏]** قرّاء `courses.price` في `backend/app/Modules/Courses/Models/Course.php`: القالبان `:99,100` · `isFree()` `:182` (‏`(float) $this->price === 0.0`) · **فهرس Scout `:199`** — والجرد كان ناقصاً للمرّة الثالثة
-- [ ] T034 [P] ⚠️ **[‏م‏٢‏]** `backend/app/Modules/Courses/Http/Resources/CourseResource.php:22` — **سطحٌ عامّ**: `price` مُدرَج في `Marketplace/Support/PublicFieldAllowlist.php:101`، فعرضٌ ×‎١٠٠‎ هنا يظهر لكل زائر
-- [ ] T035 [P] ⚠️ **[‏م‏٢‏]** `backend/app/Modules/Payments/Models/Product.php:30` والقالب `decimal:2`
-- [ ] T036 [P] ⚠️ **[‏م‏٢‏]** لوحة Filament: `backend/app/Filament/Resources/OrderResource.php:34,54` (`TextInput::make('amount')` · `TextColumn::make('amount')->money(...)`) — **لم تذكرها مهمّةٌ واحدة في النسخة الأولى**
-- [ ] T037 [P] ⚠️ **[‏م‏٢‏]** `frontend/src/app/(app)/(shell)/orders/page.tsx` — يستورد `formatMoney` (وحدات كبرى)؛ يتحوّل إلى `formatMinorMoney`
-- [ ] T038 اختبار وحدة لذهاب المال وإيابه صحيحاً بلا عددٍ عائم في `backend/tests/Unit/Payments/MinorUnitsTest.php`، وتشغيل `php vendor/bin/pest` كاملاً
+- [x] T027 هجرة ‎٨‎: `courses.price`/`currency` · `products.price`/`currency` · `orders.amount → amount_minor` · `payment_transactions.amount → amount_minor` في `.../2026_08_11_001100_convert_money_to_minor_units.php` — ⚠️ **الضرب ×‎١٠٠‎ في PHP لا في المحرّك** (‏MySQL وSQLite لا يتّفقان على ما يصير `49.99`)، **وبـ`chunkById` لا `chunk`** [‏م‏٢‏]: المُسنِد `amount_minor IS NULL` ينكمش تحت OFFSET فتُتخطّى صفوف — وصفٌّ متخطّى هنا **سعرٌ مقسومٌ على مئة بصمت**
+- [x] T028 تمرير `price_minor` في `backend/app/Modules/Payments/Actions/CreateOrder.php:20`
+- [x] T029 [P] حذف `minorToDecimal()` من `backend/app/Modules/Payments/Actions/PurchaseCredits.php:118,166`
+- [x] T030 [P] إسقاط `decimal:2` من `backend/app/Modules/Payments/Models/Order.php:51` و`backend/app/Modules/Payments/Models/PaymentTransaction.php:34` — ⚠️ **[‏م‏٢‏] الرقمان مُصحَّحان**: كانا ‎:52‎ و‎:32‎، والسطران هناك `'kind'` وقوس `casts()`
+- [x] T031 [P] إسقاط `(float)` من `backend/app/Modules/Payments/Http/Resources/OrderResource.php:20` — ⚠️ **[‏م‏٢‏]** كان ‎:19‎، وهو `'uuid'`
+- [x] T032 نسخ المبلغ الصحيح في `backend/app/Modules/Payments/Actions/ApproveOrder.php`
+- [x] T033 ⚠️ **[‏م‏٢‏]** قرّاء `courses.price` في `backend/app/Modules/Courses/Models/Course.php`: القالبان `:99,100` · `isFree()` `:182` (‏`(float) $this->price === 0.0`) · **فهرس Scout `:199`** — والجرد كان ناقصاً للمرّة الثالثة
+- [x] T034 [P] ⚠️ **[‏م‏٢‏]** `backend/app/Modules/Courses/Http/Resources/CourseResource.php:22` — **سطحٌ عامّ**: `price` مُدرَج في `Marketplace/Support/PublicFieldAllowlist.php:101`، فعرضٌ ×‎١٠٠‎ هنا يظهر لكل زائر
+- [x] T035 [P] ⚠️ **[‏م‏٢‏]** `backend/app/Modules/Payments/Models/Product.php:30` والقالب `decimal:2`
+- [x] T036 [P] ⚠️ **[‏م‏٢‏]** لوحة Filament: `backend/app/Filament/Resources/OrderResource.php:34,54` (`TextInput::make('amount')` · `TextColumn::make('amount')->money(...)`) — **لم تذكرها مهمّةٌ واحدة في النسخة الأولى**
+- [x] T037 [P] ⚠️ **[‏م‏٢‏]** `frontend/src/app/(app)/(shell)/orders/page.tsx` — يستورد `formatMoney` (وحدات كبرى)؛ يتحوّل إلى `formatMinorMoney`
+- [x] T038 اختبار وحدة لذهاب المال وإيابه صحيحاً بلا عددٍ عائم في `backend/tests/Unit/Payments/MinorUnitsTest.php`، وتشغيل `php vendor/bin/pest` كاملاً
 
 > ⚠️ **[‏م‏٢‏] وحجّةٌ إضافية للاقتطاع كشفها الكود:** `Course.php:57` يحمل تعليقاً مشحوناً —
 > «`price` and `currency` are **FROZEN, not extended**» — فهذا الطور يعيد كتابة نوع

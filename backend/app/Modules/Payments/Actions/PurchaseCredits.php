@@ -115,7 +115,7 @@ class PurchaseCredits extends Action
                 'user_id' => $student->getKey(),
                 'course_id' => $course->getKey(),
                 'kind' => OrderKind::Credits,
-                'amount' => $this->minorToDecimal($price->totalMinor),
+                'amount_minor' => $price->totalMinor,
                 'currency' => $price->currency,
                 'provider' => 'manual',
                 'status' => 'pending',
@@ -154,17 +154,5 @@ class PurchaseCredits extends Action
             ->where('credit_balance_id', $balance->getKey())
             ->whereHas('order', fn (Builder $query) => $query->where('status', 'pending'))
             ->sum('credits');
-    }
-
-    /**
-     * Minor units to the `decimal(12,2)` string `orders.amount` expects.
-     *
-     * Built by integer division rather than `/ 100`: settlement money is an
-     * integer precisely so no sum passes through a float, and the one place it
-     * becomes text must not undo that.
-     */
-    private function minorToDecimal(int $minor): string
-    {
-        return sprintf('%d.%02d', intdiv($minor, 100), abs($minor) % 100);
     }
 }

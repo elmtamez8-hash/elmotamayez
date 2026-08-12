@@ -26,8 +26,8 @@ class CourseFactory extends Factory
             'title' => $title,
             'slug' => Str::slug($title.'-'.fake()->randomNumber(4)),
             'description' => fake()->paragraph(),
-            'price' => fake()->randomElement([0, 19.99, 49.99, 99.99]),
-            'currency' => 'USD',
+            'price_minor' => fake()->randomElement([0, 1999, 4999, 9999]),
+            'currency' => 'QAR',
             'status' => 'draft',
             'visibility' => 'private',
             'is_sequential' => true,
@@ -43,11 +43,11 @@ class CourseFactory extends Factory
         ];
     }
 
-    public function discounted(float $before = 199.99): static
+    public function discounted(int $beforeMinor = 19999): static
     {
         return $this->state(fn (array $attributes) => [
-            'price' => 99.99,
-            'price_before_discount' => $before,
+            'price_minor' => 9999,
+            'price_before_discount_minor' => $beforeMinor,
         ]);
     }
 
@@ -62,7 +62,7 @@ class CourseFactory extends Factory
     public function free(): static
     {
         return $this->state(fn (array $attributes) => [
-            'price' => 0,
+            'price_minor' => 0,
         ]);
     }
 }

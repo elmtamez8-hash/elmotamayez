@@ -142,7 +142,7 @@ final class ScenarioSeeder extends Seeder
             'title' => 'Laravel Mastery',
             'slug' => 'laravel-mastery',
             'description' => 'Build production APIs with Laravel: routing, Eloquent, queues and testing.',
-            'price' => 49.99,
+            'price_minor' => 4999,
             'status' => 'published',
             'visibility' => 'public',
             'is_sequential' => true,
@@ -164,7 +164,7 @@ final class ScenarioSeeder extends Seeder
             'title' => 'Git Basics',
             'slug' => 'git-basics',
             'description' => 'Version control from zero: commits, branches and merges.',
-            'price' => 0,
+            'price_minor' => 0,
             'status' => 'published',
             'visibility' => 'public',
             'is_sequential' => false,
@@ -182,7 +182,7 @@ final class ScenarioSeeder extends Seeder
             'title' => 'Vue 3 Composition API',
             'slug' => 'vue-3-composition-api',
             'description' => 'Work in progress — not visible to students yet.',
-            'price' => 39.00,
+            'price_minor' => 3900,
             'status' => 'draft',
             'visibility' => 'private',
             'is_sequential' => true,
@@ -192,7 +192,7 @@ final class ScenarioSeeder extends Seeder
             'title' => 'PHP 7 Legacy Track',
             'slug' => 'php-7-legacy-track',
             'description' => 'Retired course, kept for existing students.',
-            'price' => 19.00,
+            'price_minor' => 1900,
             'status' => 'archived',
             'visibility' => 'private',
             'is_sequential' => false,
@@ -201,12 +201,12 @@ final class ScenarioSeeder extends Seeder
         Product::create([
             'workspace_id' => $workspace->id, 'course_id' => $paid->id,
             'name' => 'Laravel Mastery — lifetime access', 'type' => 'course',
-            'price' => 49.99, 'currency' => 'USD', 'is_active' => true,
+            'price_minor' => 4999, 'currency' => 'QAR', 'is_active' => true,
         ]);
         Product::create([
             'workspace_id' => $workspace->id, 'course_id' => $free->id,
             'name' => 'Git Basics — free', 'type' => 'course',
-            'price' => 0, 'currency' => 'USD', 'is_active' => true,
+            'price_minor' => 0, 'currency' => 'QAR', 'is_active' => true,
         ]);
 
         // Approved order → the PaymentApproved listener creates the enrollment (source=order).
@@ -217,7 +217,7 @@ final class ScenarioSeeder extends Seeder
         $pending = app(CreateOrder::class)->handle($paid, $browser);
         PaymentTransaction::create([
             'workspace_id' => $workspace->id, 'order_id' => $pending->id,
-            'provider' => 'manual', 'amount' => $pending->amount, 'currency' => $pending->currency,
+            'provider' => 'manual', 'amount_minor' => $pending->amount_minor, 'currency' => $pending->currency,
             'status' => 'pending', 'reference' => 'bank-transfer-'.$pending->id,
             'payload' => ['bank' => 'Demo Bank', 'sender' => 'Hana Newcomer'],
         ]);
@@ -667,7 +667,7 @@ final class ScenarioSeeder extends Seeder
             'title' => 'Arabic Calligraphy',
             'slug' => 'arabic-calligraphy',
             'description' => 'Private lessons in classical Arabic calligraphy.',
-            'price' => 25.00,
+            'price_minor' => 2500,
             'status' => 'published',
             'visibility' => 'public',
             'is_sequential' => true,
@@ -785,7 +785,7 @@ final class ScenarioSeeder extends Seeder
             'title' => 'Authoring Showcase',
             'slug' => 'authoring-showcase',
             'description' => 'Every supported item type, laid out the way the authoring surface builds them.',
-            'price' => 0,
+            'price_minor' => 0,
             'status' => 'published',
             'visibility' => 'public',
             'is_sequential' => true,

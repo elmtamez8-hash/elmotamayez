@@ -228,10 +228,25 @@ it('bridges to the rest of the product through SessionDelivered alone', function
 // ---------------------------------------------------------------------------
 
 it('keeps settlement vocabulary out of every payload outside this module', function (): void {
-    // Field names, not concepts: `amount_minor` is this context's unit of money
-    // and appears nowhere else in the product, so its appearance in another
-    // module's Resource is a teacher's rate on a student's screen.
-    $forbidden = ['amount_minor', 'net_minor', 'gross_minor', 'settlement', 'teaching_unit', 'ledger_entr'];
+    // Field names, not concepts: a teacher's rate on a student's screen is what
+    // this catches, and these words are how it would arrive.
+    $forbidden = ['net_minor', 'gross_minor', 'settlement', 'teaching_unit', 'ledger_entr'];
+
+    /*
+    | ⚠️ `amount_minor` IS NO LONGER FORBIDDEN EVERYWHERE, and the reason is a
+    | fact about the product rather than a concession to a failing test.
+    |
+    | It was on the list above because it was this context's private unit of
+    | money and «appeared nowhere else». Spec 007 converted every money column
+    | on the platform to minor units, so the word now names a student's own
+    | order total as well — a number they must see in order to pay it.
+    |
+    | The narrowest correct guard is therefore an EXCEPTION FOR PAYMENTS, not a
+    | deletion: anywhere else, a resource emitting `amount_minor` is still
+    | reaching across the boundary, and Courses or LiveSessions naming it is
+    | still the failure this test was written for.
+    */
+    $paymentsExempt = ['amount_minor'];
 
     $resources = Finder::create()
         ->files()
@@ -244,8 +259,9 @@ it('keeps settlement vocabulary out of every payload outside this module', funct
 
     foreach ($resources as $file) {
         $contents = codeWithoutComments($file->getContents());
+        $inPayments = str_contains(str_replace('\\', '/', $file->getRelativePathname()), 'Payments/');
 
-        foreach ($forbidden as $needle) {
+        foreach (array_merge($forbidden, $inPayments ? [] : $paymentsExempt) as $needle) {
             if (str_contains($contents, $needle)) {
                 $offenders[] = $file->getRelativePathname().' → '.$needle;
             }

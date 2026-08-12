@@ -79,6 +79,7 @@ class StudentBalanceAllowlist
             'gateway_fee_minor',
             'currency',
             'price',
+            'price_minor',
             'hourly_rate',
         ];
     }

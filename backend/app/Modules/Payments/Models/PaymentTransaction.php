@@ -26,7 +26,7 @@ class PaymentTransaction extends BaseModel
         'workspace_id',
         'order_id',
         'provider',
-        'amount',
+        'amount_minor',
         'currency',
         'status',
         'method',
@@ -48,7 +48,7 @@ class PaymentTransaction extends BaseModel
     protected function casts(): array
     {
         return [
-            'amount' => 'decimal:2',
+            'amount_minor' => 'integer',
             'status' => PaymentStatus::class,
             'method' => PaymentMethod::class,
             'settled_at' => 'datetime',

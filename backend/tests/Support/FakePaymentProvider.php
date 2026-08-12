@@ -78,7 +78,7 @@ class FakePaymentProvider implements PaymentProviderInterface
         return new ChargeIntent(
             reference: 'FAKE-'.$order->getKey().'-'.$this->chargeCount,
             method: PaymentMethod::Gateway,
-            amountMinor: (int) round(((float) $order->amount) * 100),
+            amountMinor: $order->amount_minor,
             currency: $order->currency,
             redirectUrl: 'https://fake.test/pay/'.$order->uuid,
         );

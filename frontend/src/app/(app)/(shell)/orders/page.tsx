@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "@/lib/api";
 import type { Order } from "@/lib/types";
-import { formatDate, formatMoney } from "@/lib/labels";
+import { formatDate, formatMinorMoney } from "@/lib/labels";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Table, type Column } from "@/components/ui/Table";
@@ -90,10 +90,10 @@ export default function OrdersPage() {
   const columns: Column<Order>[] = [
     { key: "course", header: "الكورس", render: (o) => o.course_title ?? "—" },
     {
-      key: "amount",
+      key: "amount_minor",
       header: "المبلغ",
       numeric: true,
-      render: (o) => formatMoney(o.amount, o.currency),
+      render: (o) => formatMinorMoney(o.amount_minor, o.currency),
     },
     { key: "status", header: "الحالة", render: (o) => <StatusBadge status={o.status} /> },
     {
