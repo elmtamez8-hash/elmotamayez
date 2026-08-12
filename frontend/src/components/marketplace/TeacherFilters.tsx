@@ -12,10 +12,12 @@ import type { Taxonomy } from "@/lib/public-api";
  * SC-015), and it lets the page stay a Server Component: this control only
  * rewrites the query string and lets the server re-render.
  *
- * ⚠️ SUBJECT IS NOT HERE. It moved to `SubjectPills` — real links, above the
- * results — because it is the axis a parent starts from and it was buried as
- * the second of six identical dropdowns. What is left is refinement: narrow the
- * set you already chose to look at.
+ * ⚠️ THE SUBJECT LIST DEPENDS ON THE STAGE, and the server produces it. The
+ * page fetches `/marketplace/subjects?grade_level=…`, so choosing «المرحلة
+ * الابتدائية» leaves two subjects in the control instead of eleven. That is why
+ * the stage sits BEFORE the subject here: the second control is narrowed by the
+ * first, and reading them in the other order asks the visitor to pick from a
+ * list that is about to change under them.
  */
 const SORTS = [
   { value: "rating_desc", label: "الأعلى تقييمًا" },
@@ -34,12 +36,15 @@ const TRUST_SCORES = [80, 60, 40];
 const ar = (value: number) => value.toLocaleString("ar-QA");
 
 export function TeacherFilters({
+  subjects,
   gradeLevels,
   // The page renders this twice — a mobile drawer and a desktop bar — so ids
   // must be namespaced. Duplicate ids break every label/control association on
   // the page, not just the second copy.
   idPrefix,
 }: {
+  /** Already scoped to the chosen stage by the page that fetched them. */
+  subjects: Taxonomy[];
   gradeLevels: Taxonomy[];
   idPrefix: string;
 }) {
@@ -60,6 +65,14 @@ export function TeacherFilters({
     // narrowed search lands on an empty page that looks like "no results".
     next.delete("page");
 
+    // ⚠️ Changing the stage CLEARS the subject, and it has to.
+    // The subject options come from the server scoped to the stage, so a subject
+    // that is not taught at the new one has no matching <option>: the browser
+    // would show «كل المواد» while the URL still filtered by it — the control
+    // and the results saying different things, which is worse than losing a
+    // choice the visitor can remake in one click.
+    if (key === "grade_level") next.delete("subject");
+
     startTransition(() => router.push(`${pathname}?${next.toString()}`, { scroll: false }));
   };
 
@@ -73,7 +86,7 @@ export function TeacherFilters({
   return (
     <div
       aria-busy={pending}
-      className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1.4fr_repeat(4,1fr)_auto] lg:items-end"
+      className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1.2fr_repeat(5,1fr)_auto] lg:items-end"
     >
       <div>
         <label htmlFor={id("q")} className={labelClass}>
@@ -103,6 +116,35 @@ export function TeacherFilters({
           {gradeLevels.map((level) => (
             <option key={level.slug} value={level.slug}>
               {level.name_ar}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* A select, not a row of pills. There are eleven subjects seeded and the
+          real catalogue is longer; eleven pills already scrolled sideways on a
+          phone before the visitor saw a single teacher, and the list only grows.
+          Scoped by the stage above, so it opens with what is actually taught
+          there. */}
+      <div>
+        <label htmlFor={id("subject")} className={labelClass}>
+          المادة
+        </label>
+        <select
+          id={id("subject")}
+          value={params.get("subject") ?? ""}
+          onChange={(event) => update("subject", event.target.value)}
+          className={field}
+        >
+          <option value="">
+            {params.get("grade_level") ? "كل مواد المرحلة" : "كل المواد"}
+          </option>
+          {subjects.map((subject) => (
+            <option key={subject.slug} value={subject.slug}>
+              {subject.name_ar}
+              {subject.teachers_count !== undefined
+                ? ` (${ar(subject.teachers_count)})`
+                : ""}
             </option>
           ))}
         </select>

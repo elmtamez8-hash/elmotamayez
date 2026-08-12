@@ -18,6 +18,7 @@ use App\Modules\Marketplace\Http\Resources\PublicTeacherCardResource;
 use App\Modules\Marketplace\Http\Resources\PublicTeacherDetailResource;
 use App\Modules\Marketplace\Support\MarketplaceCache;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -39,9 +40,30 @@ class PublicMarketplaceController extends Controller
         return response()->json($action->handle());
     }
 
-    public function subjects(ListPublicTaxonomy $action): JsonResponse
+    /**
+     * Subjects, optionally narrowed to one stage.
+     *
+     * `?grade_level=secondary` answers "what is taught to secondary students" —
+     * derived from the teachers, not from a table of assumptions. The list page
+     * asks for it so the subject control does not open with every subject on the
+     * platform, which on a phone is a wall of options before the visitor has
+     * said anything about who they are shopping for.
+     */
+    public function subjects(Request $request, ListPublicTaxonomy $action): JsonResponse
     {
-        return response()->json($action->handle(ListPublicTaxonomy::SUBJECTS));
+        // Validated, not trusted: the value reaches a `where` on a slug column.
+        // Eloquent binds it either way, but a 200-character query string has no
+        // business becoming a cache key.
+        $validated = $request->validate([
+            'grade_level' => ['nullable', 'string', 'max:60'],
+        ]);
+
+        $gradeLevel = $validated['grade_level'] ?? null;
+
+        return response()->json($action->handle(
+            ListPublicTaxonomy::SUBJECTS,
+            is_string($gradeLevel) && $gradeLevel !== '' ? $gradeLevel : null,
+        ));
     }
 
     public function gradeLevels(ListPublicTaxonomy $action): JsonResponse

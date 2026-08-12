@@ -6,6 +6,7 @@ use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\GradeLevel;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Marketplace\Support\MarketplaceCache;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 
@@ -24,6 +25,19 @@ function attachSubject(TeacherProfile $teacher, string $slug, string $name): voi
         ]);
 
         $teacher->subjects()->attach($subject->getKey());
+    });
+}
+
+/** Attach a grade level (created in the workspace) to a teacher. */
+function attachGradeLevel(TeacherProfile $teacher, string $slug, string $name): void
+{
+    app(WorkspaceContext::class)->forWorkspace($teacher->workspace_id, function () use ($teacher, $slug, $name): void {
+        $level = GradeLevel::query()->firstOrCreate(
+            ['workspace_id' => $teacher->workspace_id, 'slug' => $slug],
+            ['name_ar' => $name],
+        );
+
+        $teacher->gradeLevels()->syncWithoutDetaching([$level->getKey()]);
     });
 }
 
@@ -200,4 +214,56 @@ it('filters by grade level slug', function () {
     $this->asGuest();
 
     expect($this->getJson('/api/v1/marketplace/teachers?grade_level=secondary')->json('meta.total'))->toBe(1);
+});
+
+it('narrows the subject list to what is taught at a grade level', function () {
+    // ⚠️ There is no subject↔grade_level table. The relation is DERIVED from the
+    // teachers, so this is also the test that the derivation is real: فاطمة
+    // teaches Arabic to primary, أحمد teaches maths to secondary, and asking for
+    // primary must not return maths.
+    $primary = marketplaceTeacher($this->workspace);
+    attachSubject($primary, 'arabic', 'اللغة العربية');
+    attachGradeLevel($primary, 'primary', 'المرحلة الابتدائية');
+
+    $secondary = marketplaceTeacher($this->workspace);
+    attachSubject($secondary, 'math', 'الرياضيات');
+    attachGradeLevel($secondary, 'secondary', 'المرحلة الثانوية');
+
+    $this->asGuest();
+
+    $all = collect($this->getJson('/api/v1/marketplace/subjects')->json())->pluck('slug');
+    expect($all)->toContain('arabic')->toContain('math');
+
+    $forPrimary = collect(
+        $this->getJson('/api/v1/marketplace/subjects?grade_level=primary')->json(),
+    )->pluck('slug');
+
+    expect($forPrimary)->toContain('arabic')->not->toContain('math');
+});
+
+it('caches the scoped subject list separately from the unscoped one', function () {
+    // ⚠️ The regression this exists for: without the stage in the cache key, the
+    // first request warms one list and every later visitor gets it whatever they
+    // picked — a filter that looks like it works and answers the wrong question
+    // for a whole TTL.
+    $teacher = marketplaceTeacher($this->workspace);
+    attachSubject($teacher, 'arabic', 'اللغة العربية');
+    attachGradeLevel($teacher, 'primary', 'المرحلة الابتدائية');
+
+    $this->asGuest();
+
+    // Warm the SCOPED list first, then ask for a different stage.
+    $this->getJson('/api/v1/marketplace/subjects?grade_level=primary')->assertOk();
+
+    $secondary = marketplaceTeacher($this->workspace);
+    attachSubject($secondary, 'math', 'الرياضيات');
+    attachGradeLevel($secondary, 'secondary', 'المرحلة الثانوية');
+
+    MarketplaceCache::flush();
+
+    $forSecondary = collect(
+        $this->getJson('/api/v1/marketplace/subjects?grade_level=secondary')->json(),
+    )->pluck('slug');
+
+    expect($forSecondary)->toContain('math')->not->toContain('arabic');
 });

@@ -11,7 +11,6 @@ import {
   ActiveFilters,
   TeacherFilters,
 } from "@/components/marketplace/TeacherFilters";
-import { SubjectPills } from "@/components/marketplace/SubjectPills";
 import { Pagination } from "@/components/ui/Pagination";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -66,7 +65,11 @@ export default async function TeachersPage({
   try {
     [teachers, subjects, gradeLevels] = await Promise.all([
       publicApi.teachers(toQuery(params)),
-      publicApi.subjects(),
+      // Scoped to the chosen stage, so the subject control opens with what is
+      // taught there rather than with every subject on the platform.
+      publicApi.subjects(
+        typeof params.grade_level === "string" ? params.grade_level : undefined,
+      ),
       publicApi.gradeLevels(),
     ]);
   } catch {
@@ -77,11 +80,12 @@ export default async function TeachersPage({
     );
   }
 
-  const hasFilters = FILTER_KEYS.slice(0, -2).some(
+  // slice(0, -2) drops `sort` and `page`, which narrow nothing.
+  const appliedCount = FILTER_KEYS.slice(0, -2).filter(
     (key) => typeof params[key] === "string" && params[key] !== "",
-  );
+  ).length;
 
-  const query = toQuery(params);
+  const hasFilters = appliedCount > 0;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
@@ -94,8 +98,8 @@ export default async function TeachersPage({
         | "I need someone for physics") the second row of a control stack, no
         | more prominent than "minimum trust score".
         |
-        | So the axis comes first as pills, refinement sits under it in one bar,
-        | and the results get the whole width.
+        | So every control sits in one bar and the results get the whole width —
+        | and SUBJECT leads that bar, narrowed by the stage above it.
       */}
       <header className="mb-6">
         <h1 className="mb-2 text-3xl font-extrabold text-ink sm:text-4xl">
@@ -106,19 +110,26 @@ export default async function TeachersPage({
         </p>
       </header>
 
-      <div className="mb-6">
-        <h2 className="sr-only">تصفية حسب المادة</h2>
-        <SubjectPills subjects={subjects} params={query} />
-      </div>
-
-      {/* `open` on a filtered load, so arriving from a shared link shows what is
-          narrowing the list rather than hiding it behind a summary. */}
+      {/* ⚠️ CLOSED on a filtered load, and open only when nothing matched.
+          It used to open whenever any filter was set, which on a phone meant six
+          stacked controls between the heading and the first teacher — the
+          visitor pays a screenful to be told what they already chose. The chips
+          below say what is applied in one line and remove it in one tap; the
+          panel is only worth the space when the answer is "nothing matched" and
+          widening the search is the next move. */}
       <details
-        open={hasFilters}
+        open={teachers.data.length === 0 && hasFilters}
         className="group mb-4 rounded-3xl border border-line bg-surface-raised px-5 py-4 lg:hidden"
       >
         <summary className="flex cursor-pointer items-center justify-between text-sm font-bold text-ink">
-          خيارات أدق
+          <span>
+            خيارات أدق
+            {appliedCount > 0 && (
+              <span className="ms-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white">
+                {appliedCount.toLocaleString("ar-QA")}
+              </span>
+            )}
+          </span>
           <span
             className="text-ink-muted transition duration-200 group-open:rotate-180"
             aria-hidden="true"
@@ -127,13 +138,13 @@ export default async function TeachersPage({
           </span>
         </summary>
         <div className="mt-5">
-          <TeacherFilters gradeLevels={gradeLevels} idPrefix="m" />
+          <TeacherFilters subjects={subjects} gradeLevels={gradeLevels} idPrefix="m" />
         </div>
       </details>
 
       <div className="mb-4 hidden rounded-3xl border border-line bg-surface-raised px-5 py-4 lg:block">
         <h2 className="sr-only">خيارات تصفية أدق</h2>
-        <TeacherFilters gradeLevels={gradeLevels} idPrefix="d" />
+        <TeacherFilters subjects={subjects} gradeLevels={gradeLevels} idPrefix="d" />
       </div>
 
       <div className="mb-8">

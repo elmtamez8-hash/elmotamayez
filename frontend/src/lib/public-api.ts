@@ -185,7 +185,10 @@ export const publicApi = {
 
   stats: () => get<MarketplaceStats>("/marketplace/stats"),
 
-  subjects: () => get<Taxonomy[]>("/marketplace/subjects"),
+  // The stage narrows the list: subjects are what teachers OF THAT STAGE
+  // actually teach, derived server-side rather than from a stored mapping.
+  subjects: (gradeLevel?: string) =>
+    get<Taxonomy[]>("/marketplace/subjects", { grade_level: gradeLevel }),
 
   gradeLevels: () => get<Taxonomy[]>("/marketplace/grade-levels"),
 
