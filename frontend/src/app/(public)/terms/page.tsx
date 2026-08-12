@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PolicyPlaceholder } from "@/components/marketplace/PolicyPlaceholder";
+import { DocumentIcon } from "@/components/icons";
 
 export const metadata: Metadata = {
   title: "الشروط والأحكام",
@@ -11,6 +12,9 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <PolicyPlaceholder
+      icon={DocumentIcon}
+      image="/marketplace/banner-terms.webp"
+      tone="primary"
       title="الشروط والأحكام"
       summary="القواعد التي تحكم استخدام المنصة للطلاب وأولياء الأمور والمدرّسين."
     />

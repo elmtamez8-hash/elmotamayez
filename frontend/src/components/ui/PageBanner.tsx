@@ -88,15 +88,21 @@ export function PageBanner({
         aria-hidden="true"
       />
 
+      {/* One authored arrival, staggered by 90ms: mark, then name, then the
+          sentence — the order the page is read in. It runs once on load and
+          never again; a masthead that re-animates is a masthead performing. */}
       <div className="relative p-6 sm:p-10">
         <span
-          className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-white backdrop-blur-sm"
+          className="banner-rise mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-white backdrop-blur-sm"
           aria-hidden="true"
         >
           <Icon className="h-6 w-6" />
         </span>
 
-        <h1 className="mb-3 text-3xl font-extrabold text-white sm:text-4xl lg:text-5xl">
+        <h1
+          className="banner-rise mb-3 text-3xl font-extrabold text-white sm:text-4xl lg:text-5xl"
+          style={{ animationDelay: "90ms" }}
+        >
           {title}
         </h1>
 
@@ -104,7 +110,10 @@ export function PageBanner({
             is tuned against the page surface, and none of them was checked
             against a photograph. White at 85% over a 95% tone stays past 4.5:1
             wherever the crop lands. */}
-        <p className="max-w-2xl text-base leading-relaxed text-white/85 sm:text-lg">
+        <p
+          className="banner-rise max-w-2xl text-base leading-relaxed text-white/85 sm:text-lg"
+          style={{ animationDelay: "180ms" }}
+        >
           {description}
         </p>
 

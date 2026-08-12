@@ -240,6 +240,27 @@
   animation: float-in 0.22s ease-out;
 }
 
+/* The banner's content arriving.
+   ⚠️ Keyframes, not a JS transition, and `both` rather than `forwards`: the fill
+   mode has to cover the delay too, or the icon is visible for 120ms, vanishes
+   when its animation starts, and reappears — a flicker only on the elements that
+   were staggered. The reduced-motion block below zeroes all of it for free,
+   which a requestAnimationFrame version would not get. */
+@keyframes banner-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.banner-rise {
+  animation: banner-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

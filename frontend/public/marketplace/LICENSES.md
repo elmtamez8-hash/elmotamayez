@@ -27,6 +27,9 @@
 | `banner-courses.webp` | الكورسات | Anna Hunko | https://unsplash.com/photos/brown-wooden-shelves-with-books-kmDWZzDpp3k |
 | `banner-pricing.webp` | الأسعار | Diana Polekhina | https://unsplash.com/photos/white-notebook-with-pen-on-top-1ixT36dfuSQ |
 | `banner-about.webp` | عن المنصة | Thomas Lohmann | https://unsplash.com/photos/modern-cityscape-skyline-on-a-clear-day-pU-TZ3rRVoM |
+| `banner-terms.webp` | الشروط والأحكام | Milad Alizadeh | https://unsplash.com/photos/a-building-that-has-a-bunch-of-arches-in-it-88bkrZBQ1iY |
+| `banner-privacy.webp` | سياسة الخصوصية | KC Shum | https://unsplash.com/photos/a-close-up-of-a-white-wall-with-a-pattern-on-it-PE7PiuPkBt8 |
+| `banner-refunds.webp` | سياسة الاسترجاع | Faruk Kaymak | https://unsplash.com/photos/brown-concrete-building-close-up-photography-P_Ne56WEe5s |
 
 > ⚠️ **ثلاثة اختيارات أولى رُفضت لأسباب تستحق التسجيل**، لا لجودتها:
 > صورة «مدرّس يساعد طالباً» كانت مشهداً أوروبياً مُخرَجاً بطفل أشقر ومدرّس مسنّ —
@@ -37,6 +40,12 @@
 >
 > `banner-about.webp` هو **الخليج الغربي في الدوحة**: أول جملة في الصفحة «منصة
 > عربية تنطلق من قطر»، والأفق يقولها قبل أن تُقرأ.
+>
+> **الصفحات القانونية الثلاث عمارةٌ لا أشخاص، وذلك اختيار.** صفحة تتحدّث عن
+> بياناتك ومالك ليست مكان وجهٍ من بنك صور — والعمارة العربية تحمل المعنى بنفسها:
+> **مشربية محفورة للخصوصية** (وهي حرفياً عمارة الخصوصية في العالم العربي)، وواجهة
+> مدرسة بأقواسها للشروط، ورواق أعمدة متناظر للاسترجاع. ولا وجه يمكن أن يكون من
+> المنطقة الخطأ.
 
 نُزّلت جميعها في **٢٠٢٦-٠٨-١٢** بصيغة WebP وجودة 80، مقصوصة على مقاس الحاوية
 النهائي (`fit=crop`) حتى لا يقفز التخطيط أثناء التحميل.
