@@ -25,13 +25,11 @@ export function PolicyPlaceholder({
   summary,
   icon,
   image,
-  tone = "primary",
 }: {
   title: string;
   summary: string;
   icon: ComponentType<{ className?: string }>;
   image: string;
-  tone?: "primary" | "secondary" | "accent" | "ink";
 }) {
   return (
     // max-w-7xl to match every other public page's frame, with the reading
@@ -44,7 +42,6 @@ export function PolicyPlaceholder({
         image={image}
         title={title}
         description={summary}
-        tone={tone}
       />
 
       <div className="max-w-3xl">

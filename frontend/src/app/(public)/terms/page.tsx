@@ -14,7 +14,6 @@ export default function TermsPage() {
     <PolicyPlaceholder
       icon={DocumentIcon}
       image="/marketplace/banner-terms.webp"
-      tone="primary"
       title="الشروط والأحكام"
       summary="القواعد التي تحكم استخدام المنصة للطلاب وأولياء الأمور والمدرّسين."
     />

@@ -12,7 +12,6 @@ export default function RefundsPage() {
     <PolicyPlaceholder
       icon={RefundIcon}
       image="/marketplace/banner-refunds.webp"
-      tone="secondary"
       title="سياسة الاسترجاع"
       summary="متى يحقّ لك استرداد قيمة حصة أو كورس، وكيف تُقدَّم الطلبات ومدة معالجتها."
     />

@@ -12,7 +12,6 @@ export default function PrivacyPage() {
     <PolicyPlaceholder
       icon={ShieldIcon}
       image="/marketplace/banner-privacy.webp"
-      tone="ink"
       title="سياسة الخصوصية"
       summary="ما البيانات التي نجمعها، ولماذا، ومن يطّلع عليها، وكيف تطلب حذفها."
     />

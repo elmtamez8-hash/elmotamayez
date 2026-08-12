@@ -26,10 +26,11 @@ import type { ComponentType, ReactNode } from "react";
  * through the whole banner — about 30% of it survives where the text sits,
  * rising to 100% above — instead of being replaced by a colour at the bottom.
  *
- * The numbers were measured, not chosen: across all four tones, white over the
- * text band lands between 5.5:1 and 9.4:1 against a PURE-WHITE photo pixel,
- * which is the worst case a crop can produce. `accent` is the constraint — the
- * brass is the lightest fill, and it is what sets the scrim's floor.
+ * The numbers were measured, not chosen: white over the text band lands between
+ * 6.9:1 and 8.7:1 against a PURE-WHITE photo pixel, which is the worst case a
+ * crop can produce. The floor was set while four tones existed and the brass
+ * was the lightest of them; keeping it now that only the maroon remains costs
+ * nothing and survives the next colour anyone adds.
  *
  * Both layers hold their strength to 55% of the height and fall to nothing by
  * 85%. That boundary is not arbitrary either: the content is bottom-anchored,
@@ -43,21 +44,18 @@ import type { ComponentType, ReactNode } from "react";
  */
 
 /**
- * ⚠️ Full class strings, never `from-${tone}/95`. Tailwind scans source text and
- * generates only the classes it can SEE; an interpolated name produces no CSS
- * at all, and the failure is a banner with no scrim — which looks like a design
- * choice rather than a missing file.
+ * ⚠️ ONE COLOUR, NOT A PROP. The wash was per-page — maroon here, green there,
+ * ink on two others — and four mastheads in four colours read as four products
+ * to a visitor moving between them. The identity colour is the maroon; a page
+ * does not get its own. Full class strings, never `from-${tone}/95`: Tailwind
+ * scans source text and generates only the classes it can SEE, and an
+ * interpolated name produces no CSS at all — a banner with no scrim, which
+ * looks like a design choice rather than a missing file.
  */
-const TONES = {
-  primary: "from-primary/55 via-primary/45 via-55% to-transparent to-85%",
-  secondary: "from-secondary/55 via-secondary/45 via-55% to-transparent to-85%",
-  accent: "from-accent/55 via-accent/45 via-55% to-transparent to-85%",
-  ink: "from-ink/55 via-ink/45 via-55% to-transparent to-85%",
-} as const;
+const TONE = "from-primary/55 via-primary/45 via-55% to-transparent to-85%";
 
 /** The neutral half. Same shape, so the two fade out together. */
-const SCRIM =
-  "from-black/50 via-black/45 via-55% to-transparent to-85%";
+const SCRIM = "from-black/50 via-black/45 via-55% to-transparent to-85%";
 
 export function PageBanner({
   title,
@@ -65,7 +63,6 @@ export function PageBanner({
   image,
   imageAlt = "",
   icon: Icon,
-  tone = "primary",
   children,
 }: {
   title: string;
@@ -79,7 +76,6 @@ export function PageBanner({
    */
   imageAlt?: string;
   icon: ComponentType<{ className?: string }>;
-  tone?: keyof typeof TONES;
   /** A count, a filter summary — anything the page wants under its description. */
   children?: ReactNode;
 }) {
@@ -104,7 +100,7 @@ export function PageBanner({
         aria-hidden="true"
       />
       <div
-        className={`absolute inset-0 bg-gradient-to-t ${TONES[tone]}`}
+        className={`absolute inset-0 bg-gradient-to-t ${TONE}`}
         aria-hidden="true"
       />
 

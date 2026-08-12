@@ -83,7 +83,6 @@ export default async function CoursesPage({
         image="/marketplace/banner-courses.webp"
         title="الكورسات"
         description="مسارات كاملة — مباشرة ومسجّلة — يبنيها المدرّس ويتابع فيها تقدّمك درساً بدرس، لا حصصاً متفرّقة."
-        tone="ink"
       >
         <p className="mt-5 inline-flex items-center rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur-sm">
           {courses.meta.total.toLocaleString("ar-QA")} كورس متاح
