@@ -8,3 +8,7 @@ Thumbs.db
 
 # Impeccable design-skill working state (question pages, hook cache).
 .impeccable/
+
+# Playwright MCP scratch output — snapshots, console logs and ad-hoc screenshots.
+# Written into the repo root by the browser tooling; none of it is a deliverable.
+.playwright-mcp/

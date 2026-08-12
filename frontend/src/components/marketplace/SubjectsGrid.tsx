@@ -24,7 +24,7 @@ export function SubjectsGrid({ subjects }: { subjects: Taxonomy[] }) {
         <li key={subject.slug}>
           <Link
             href={`/teachers?subject=${subject.slug}`}
-            className="flex h-full flex-col items-center gap-3 rounded-2xl border border-line bg-surface-raised p-5 text-center transition hover:border-primary hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="group flex h-full flex-col items-center gap-3 rounded-3xl border border-line bg-surface-raised p-5 text-center transition duration-200 ease-out hover:-translate-y-1 hover:border-primary hover:shadow-md active:translate-y-0 active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             {/* Outlined, not filled. Nine tiles each carrying a `bg-primary-soft`
                 disc turned the largest grid on the page into a field of pale
@@ -32,7 +32,7 @@ export function SubjectsGrid({ subjects }: { subjects: Taxonomy[] }) {
                 brand colour and starts reading as the background. The maroon
                 stays — on the glyph, where it is one stroke wide. */}
             <span
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface text-primary-ink"
+              className="flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface text-primary-ink transition duration-200 ease-out group-hover:border-primary group-hover:bg-primary group-hover:text-white"
               aria-hidden="true"
             >
               <AcademicCapIcon className="h-6 w-6" />

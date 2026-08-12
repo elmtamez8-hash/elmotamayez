@@ -27,7 +27,7 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
   const profileHref = `/teachers/${teacher.slug ?? teacher.uuid}`;
 
   return (
-    <article className="flex flex-col rounded-2xl border border-line bg-surface-raised p-5 transition hover:border-primary/40 hover:shadow-lg">
+    <article className="group flex flex-col rounded-3xl border border-line bg-surface-raised p-5 transition duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg active:translate-y-0 active:duration-100">
       <div className="mb-4 flex items-start gap-4">
         {teacher.photo_url ? (
           // A broken image must not collapse the card, so the fallback is the same
@@ -35,7 +35,7 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
           <img
             src={teacher.photo_url}
             alt=""
-            className="h-16 w-16 shrink-0 rounded-full object-cover"
+            className="h-16 w-16 shrink-0 rounded-full object-cover transition duration-300 ease-out group-hover:scale-105"
             loading="lazy"
           />
         ) : (

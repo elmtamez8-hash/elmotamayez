@@ -36,9 +36,14 @@ const BASE =
   // pinned (Faheem's, for warmth and roundness — its palette explicitly did not
   // come across). A 12px corner on a maroon field reads institutional, which is
   // the "banking cold" the brief rejected by name.
-  "inline-flex items-center justify-center gap-2 rounded-full font-semibold transition " +
+  "inline-flex items-center justify-center gap-2 rounded-full font-semibold " +
+  // Press feedback, and the reason it is here rather than per-button: a tap that
+  // acknowledges nothing is what "static" means on a touch screen, where there
+  // is no hover to fall back on. 120ms — long enough to see, short enough that
+  // it never reads as latency.
+  "transition duration-200 ease-out active:scale-[0.97] active:duration-100 " +
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary " +
-  "disabled:cursor-not-allowed disabled:opacity-60";
+  "disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100";
 
 type CommonProps = {
   children: ReactNode;

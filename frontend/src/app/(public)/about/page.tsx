@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PLATFORM_NAME } from "@/lib/platform";
+import {
+  TrustFactorBars,
+  type TrustFactor,
+} from "@/components/marketplace/TrustFactorBars";
 
 export const metadata: Metadata = {
   title: "عن المنصة",
@@ -33,12 +37,21 @@ const HOW_WE_VET = [
   },
 ];
 
-const TRUST_FACTORS = [
-  { label: "تقييم الطلاب", weight: "35٪" },
-  { label: "الالتزام بالمواعيد", weight: "25٪" },
-  { label: "إكمال الحصص دون إلغاء", weight: "25٪" },
-  { label: "مدة العمل على المنصة", weight: "15٪" },
-  { label: "خصم الشكاوى المؤكدة", weight: "حتى −20 نقطة" },
+/*
+ * Numbers, not the strings this list used to hold ("35٪"). A weight that is a
+ * string can only be printed; a weight that is a number can also be drawn — and
+ * these five ARE a division of one hundred, which is the fact the page promises
+ * to show and a right-aligned column of percentages never does.
+ *
+ * The deduction is negative for the same reason: it is not a fifth share, it is
+ * subtracted from what the other four earned.
+ */
+const TRUST_FACTORS: TrustFactor[] = [
+  { label: "تقييم الطلاب", weight: 35 },
+  { label: "الالتزام بالمواعيد", weight: 25 },
+  { label: "إكمال الحصص دون إلغاء", weight: 25 },
+  { label: "مدة العمل على المنصة", weight: 15 },
+  { label: "خصم الشكاوى المؤكدة", weight: -20, note: "حتى −" },
 ];
 
 export default function AboutPage() {
@@ -87,14 +100,9 @@ export default function AboutPage() {
           تقييمات — لا نعرض له صفراً، لأن قلّة البيانات ليست حكماً عليه.
         </p>
 
-        <dl className="divide-y divide-line rounded-xl border border-line">
-          {TRUST_FACTORS.map((factor) => (
-            <div key={factor.label} className="flex items-center justify-between gap-4 p-4">
-              <dt className="text-ink">{factor.label}</dt>
-              <dd className="font-semibold text-ink">{factor.weight}</dd>
-            </div>
-          ))}
-        </dl>
+        <div className="rounded-3xl border border-line bg-surface-raised p-6">
+          <TrustFactorBars factors={TRUST_FACTORS} />
+        </div>
       </section>
 
       <section aria-labelledby="next" className="rounded-2xl bg-primary-soft p-6 text-center">

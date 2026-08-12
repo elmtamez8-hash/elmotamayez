@@ -9,6 +9,7 @@ import { SubjectsGrid } from "@/components/marketplace/SubjectsGrid";
 import { FaqAccordion } from "@/components/marketplace/FaqAccordion";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 
 // Server-rendered: a crawler that runs no JavaScript must still read the teachers
 // and copy (SC-016), and client-side fetching would put first paint out of reach
@@ -46,11 +47,10 @@ function StatBar({ stats }: { stats: HomePayload["stats"] }) {
     <section aria-label="أرقام المنصة" className="border-y border-line bg-surface-raised">
       <dl className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-10 sm:px-6 lg:grid-cols-4">
         {items.map((item) => (
-          <div key={item.label} className="text-center">
+          <div key={item.label} className="flex flex-col text-center">
             <dt className="order-2 text-sm text-ink-muted">{item.label}</dt>
-            <dd className="order-1 text-3xl font-extrabold text-primary-ink">
-              {item.value.toLocaleString("ar-QA")}
-              {item.suffix}
+            <dd className="order-1 text-3xl font-extrabold text-primary-ink sm:text-4xl">
+              <AnimatedNumber value={item.value} suffix={item.suffix} />
             </dd>
           </div>
         ))}
@@ -131,24 +131,82 @@ export default async function HomePage() {
 
       <StatBar stats={home.stats} />
 
+      {/*
+        | A path, not four cards.
+        |
+        | These are four MOMENTS OF ONE JOURNEY, and four identically sized
+        | bordered boxes say the opposite — they say "four features", which is
+        | the shape every generated landing page reaches for and the reason this
+        | section read as machine-made. The numbers stay, because here the order
+        | is the information: you cannot attend before you book.
+        |
+        | The rule is drawn once behind the row and the markers sit ON it, so the
+        | connection is a line the eye follows rather than a gap it infers. It is
+        | hidden below `lg`, where the steps stack and a horizontal rule would
+        | run through nothing.
+      */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-        <h2 className="mb-10 text-center text-2xl font-extrabold text-ink sm:text-3xl">
+        <h2 className="mb-12 text-center text-2xl font-extrabold text-ink sm:text-3xl">
           كيف تعمل المنصة
         </h2>
-        <ol className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((step, index) => (
-            <li
-              key={step.title}
-              className="rounded-2xl border border-line bg-surface-raised p-6"
-            >
-              <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-base font-bold text-white">
-                {index + 1}
-              </span>
-              <h3 className="mb-2 text-base font-bold text-ink">{step.title}</h3>
-              <p className="text-sm leading-relaxed text-ink-muted">{step.body}</p>
-            </li>
-          ))}
-        </ol>
+
+        <div className="relative">
+          {/* Spans marker centre to marker centre, not edge to edge. With four
+              equal columns those centres sit at 12.5% and 87.5%, so a rule that
+              runs the full width sticks out past the first and last steps and
+              reads as a track the journey is only part of. */}
+          <div
+            className="absolute inset-x-[12.5%] top-5 hidden h-px bg-line lg:block"
+            aria-hidden="true"
+          />
+
+          {/* One column until `lg`, not two at `sm`. Two columns cannot carry a
+              connector — the second column's line would join steps that do not
+              follow each other — and a journey that loses its thread on a tablet
+              is four boxes again. */}
+          <ol className="relative grid gap-10 lg:grid-cols-4 lg:gap-8">
+            {STEPS.map((step, index) => (
+              <li
+                key={step.title}
+                className="group relative flex gap-4 text-start lg:block lg:text-center lg:px-3"
+              >
+                {/* The vertical half of the same rule, for the stacked layout.
+                    Qatar reads this on a phone first, and a connector that only
+                    exists on desktop leaves the journey as four unrelated blocks
+                    exactly where most people meet it.
+
+                    `start-5` is the marker's centre (w-10 ÷ 2), and `-bottom-10`
+                    is the `gap-10` between items, so the line lands ON the next
+                    marker instead of stopping short of it. Not drawn after the
+                    last step, and gone at `lg` where the horizontal rule takes
+                    over. */}
+                {index < STEPS.length - 1 && (
+                  <span
+                    className="absolute start-5 top-12 -bottom-10 w-px bg-line lg:hidden"
+                    aria-hidden="true"
+                  />
+                )}
+
+                <span
+                  // bg-surface, not transparent: the marker has to punch a hole
+                  // in the rule it sits on, or the line runs through the digit.
+                  className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-base font-bold text-primary-ink transition duration-300 ease-out group-hover:border-primary group-hover:bg-primary group-hover:text-white lg:mx-auto lg:mb-5"
+                >
+                  {(index + 1).toLocaleString("ar-QA")}
+                </span>
+
+                <span className="lg:block">
+                  <span className="mb-2 block text-base font-bold text-ink">
+                    {step.title}
+                  </span>
+                  <span className="mx-auto block max-w-xs text-sm leading-relaxed text-ink-muted">
+                    {step.body}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">

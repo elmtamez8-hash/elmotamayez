@@ -1,0 +1,108 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+
+export type TrustFactor = {
+  label: string;
+  /** Percentage points of the score. Negative for the complaints deduction. */
+  weight: number;
+  /** Shown instead of the bare number when the figure needs a qualifier. */
+  note?: string;
+};
+
+/**
+ * The trust score broken into the parts it is made of.
+ *
+ * The page's own copy promises this — «نوضّح مكوّناته بدل الاكتفاء بالرقم» — and
+ * a column of right-aligned percentages does not deliver it: five numbers of
+ * similar size read as a list, not as a division of one hundred. The bars make
+ * the proportion the thing you see first and the number the confirmation.
+ *
+ * ⚠️ The deduction is drawn from the opposite edge in danger, not as a shorter
+ * maroon bar. It does not take a share of the hundred — it is subtracted from
+ * whatever the other four earned, and a bar in the same row and colour as them
+ * would say the opposite.
+ */
+export function TrustFactorBars({ factors }: { factors: TrustFactor[] }) {
+  const [filled, setFilled] = useState(false);
+  const ref = useRef<HTMLDListElement>(null);
+
+  useEffect(() => {
+    const node = ref.current;
+
+    if (node === null) return;
+
+    if (!("IntersectionObserver" in window)) {
+      setFilled(true);
+
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setFilled(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.3 },
+    );
+
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <dl ref={ref} className="space-y-5">
+      {factors.map((factor, index) => {
+        const negative = factor.weight < 0;
+        const width = Math.abs(factor.weight);
+
+        return (
+          <div key={factor.label}>
+            <div className="mb-2 flex items-baseline justify-between gap-4">
+              <dt className="text-ink">{factor.label}</dt>
+              <dd
+                className={`text-sm font-bold ${negative ? "text-danger-ink" : "text-primary-ink"}`}
+              >
+                {factor.note ? (
+                  <>
+                    {factor.note}{" "}
+                    <AnimatedNumber value={width} suffix=" نقطة" />
+                  </>
+                ) : (
+                  <AnimatedNumber value={width} suffix="٪" />
+                )}
+              </dd>
+            </div>
+
+            {/* aria-hidden: the dt/dd pair above already states the figure, and a
+                second announcement of the same number is noise, not a graphic. */}
+            <div
+              className="h-2 overflow-hidden rounded-full bg-primary-soft"
+              aria-hidden="true"
+            >
+              <div
+                className={`h-full rounded-full ${negative ? "bg-danger" : "bg-primary"}`}
+                style={{
+                  width: filled ? `${width}%` : "0%",
+                  // Staggered by row so the five read as one thing dividing
+                  // rather than five bars racing. Capped: the last row starts a
+                  // third of a second after the first, not two seconds after.
+                  transitionDelay: `${index * 80}ms`,
+                  transitionDuration: "700ms",
+                  transitionProperty: "width",
+                  transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+                  // The deduction grows from the other edge — it takes away.
+                  marginInlineStart: negative ? "auto" : undefined,
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </dl>
+  );
+}

@@ -24,13 +24,16 @@ function hours(seconds: number): string {
  */
 export function CourseCard({ course }: { course: Course }) {
   return (
-    <article className="flex flex-col overflow-hidden rounded-2xl border border-line bg-surface-raised transition hover:border-primary/40 hover:shadow-sm">
+    <article className="group flex flex-col overflow-hidden rounded-3xl border border-line bg-surface-raised transition duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg active:translate-y-0 active:duration-100">
       <div className="relative aspect-video bg-primary-soft">
         {course.cover_url ? (
           <img
             src={course.cover_url}
             alt=""
-            className="h-full w-full object-cover"
+            // The cover is what the card is ABOUT, so it is the thing that moves.
+            // 400ms and a 4% scale: slow and small enough to read as the image
+            // breathing, not as a zoom effect applied to a photo.
+            className="h-full w-full object-cover transition duration-[400ms] ease-out group-hover:scale-[1.04]"
             loading="lazy"
           />
         ) : (
