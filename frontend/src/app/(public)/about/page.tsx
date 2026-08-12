@@ -68,7 +68,7 @@ const TRUST_FACTORS: TrustFactor[] = [
 
 export default function AboutPage() {
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       {/* Doha's West Bay, not a generic classroom. «منصة عربية تنطلق من قطر» is
           the page's first sentence, and the skyline says it before the sentence
           is read — the one place on the site where the market is the subject. */}
@@ -124,13 +124,16 @@ export default function AboutPage() {
         <h2 id="trust" className="mb-3 text-2xl font-bold text-ink">
           ما الذي تقيسه درجة الثقة
         </h2>
-        <p className="mb-5 leading-relaxed text-ink-muted">
+        <p className="mb-5 max-w-3xl leading-relaxed text-ink-muted">
           رقم من ١٠٠ نعرضه على كل ملف، ونوضّح مكوّناته بدل الاكتفاء بالرقم. المدرّس
           الجديد تظهر درجته بحالة «قيد التكوين» حتى يُكمل ١٠ حصص ويحصل على ٣
           تقييمات — لا نعرض له صفراً، لأن قلّة البيانات ليست حكماً عليه.
         </p>
 
-        <div className="rounded-3xl border border-line bg-surface-raised p-6">
+        {/* The bars are a proportion, not prose, and a 1280px bar makes a 15%
+            share four pixels of difference from a 25% one. Held to the width
+            where the comparison is still readable. */}
+        <div className="max-w-3xl rounded-3xl border border-line bg-surface-raised p-6">
           <TrustFactorBars factors={TRUST_FACTORS} />
         </div>
       </section>

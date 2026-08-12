@@ -20,22 +20,33 @@ export function PolicyPlaceholder({
   summary: string;
 }) {
   return (
-    <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6">
-      <h1 className="mb-4 text-3xl font-extrabold text-ink">{title}</h1>
+    // max-w-7xl to match every other public page's frame, with the reading
+    // column held at max-w-3xl inside it. A policy is the one page type that is
+    // ALL prose, so widening the container without capping the measure would
+    // turn the terms of service into 150-character lines.
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+      <div className="max-w-3xl">
+        <h1 className="mb-4 text-3xl font-extrabold text-ink sm:text-4xl">
+          {title}
+        </h1>
 
-      <p className="mb-8 text-lg leading-relaxed text-ink-muted">{summary}</p>
+        <p className="mb-8 text-lg leading-relaxed text-ink-muted">{summary}</p>
 
-      <div className="mb-8 rounded-xl border border-line bg-primary-soft/60 p-5">
-        <p className="font-semibold text-ink">هذه الوثيقة قيد الإعداد</p>
-        <p className="mt-1 leading-relaxed text-ink-muted">
-          لم تُنشر بعد النسخة المعتمدة من هذا المستند. لا يوجد هنا نص ملزم، ولا
-          يُعتدّ بأي صياغة مؤقتة. سيُنشر النص الكامل قبل إتاحة الدفع على المنصة.
-        </p>
+        <div className="mb-8 rounded-3xl border border-line bg-primary-soft/60 p-5">
+          <p className="font-semibold text-ink">هذه الوثيقة قيد الإعداد</p>
+          <p className="mt-1 leading-relaxed text-ink-muted">
+            لم تُنشر بعد النسخة المعتمدة من هذا المستند. لا يوجد هنا نص ملزم، ولا
+            يُعتدّ بأي صياغة مؤقتة. سيُنشر النص الكامل قبل إتاحة الدفع على المنصة.
+          </p>
+        </div>
+
+        <Link
+          href="/"
+          className="text-sm font-semibold text-primary-ink hover:underline"
+        >
+          العودة إلى الصفحة الرئيسية
+        </Link>
       </div>
-
-      <Link href="/" className="text-sm font-semibold text-primary-ink hover:underline">
-        العودة إلى الصفحة الرئيسية
-      </Link>
     </div>
   );
 }

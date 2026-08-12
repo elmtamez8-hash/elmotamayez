@@ -119,7 +119,7 @@ const FAQ = [
 
 export default function PricingPage() {
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <PageBanner
         icon={TagIcon}
         image="/marketplace/banner-pricing.webp"
@@ -176,7 +176,7 @@ export default function PricingPage() {
           </ol>
         </div>
 
-        <p className="mt-8 text-sm text-ink-muted">
+        <p className="mt-8 max-w-2xl text-sm text-ink-muted">
           السعر يختلف باختلاف المدرّس والكورس، ويظهر كاملاً عند اختيار الحزمة.
         </p>
       </section>
@@ -188,7 +188,7 @@ export default function PricingPage() {
         <h2 id="never" className="mb-2 text-2xl font-bold text-ink">
           ما لا تدفعه أبداً
         </h2>
-        <p className="mb-8 text-ink-muted">
+        <p className="mb-8 max-w-2xl text-ink-muted">
           ثلاثة بنود لا توجد في هذا المنتج، لا مؤجّلة ولا مخفية في التفاصيل.
         </p>
 
@@ -223,8 +223,16 @@ export default function PricingPage() {
 
         {/* The same accordion the home page and every teacher profile use. A
             static <dl> here meant five answers always open on a phone, and a
-            second pattern for the same job on a third surface. */}
-        <FaqAccordion items={FAQ} />
+            second pattern for the same job on a third surface.
+
+            ⚠️ Held to max-w-4xl inside a max-w-7xl page ON PURPOSE. The frame
+            matches /teachers so every public page lines up, but an answer is
+            prose: at 1280px a line runs past 150 characters, roughly double the
+            65–75 the eye can track without losing its place on the return
+            sweep. Matching the frame is not the same as matching the measure. */}
+        <div className="max-w-4xl">
+          <FaqAccordion items={FAQ} />
+        </div>
       </section>
 
       <section className="rounded-3xl bg-primary p-8 text-center sm:p-10">
