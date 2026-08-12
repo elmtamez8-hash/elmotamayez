@@ -145,7 +145,12 @@ export default function AboutPage() {
         <h2 id="next" className="mb-2 text-xl font-bold text-white sm:text-2xl">
           ابدأ من هنا
         </h2>
-        <p className="mx-auto mb-6 max-w-lg text-primary-soft">
+        {/* ⚠️ White, not `text-primary-soft`. That token is a light maroon TINT
+            meant to sit under dark ink on the page surface — and dark mode
+            redefines it to #331520, which is all but invisible on the #8a1538
+            panel it was painted on. The panel's ground does not follow the
+            theme, so its foreground must not either. */}
+        <p className="mx-auto mb-6 max-w-lg text-white/85">
           تصفّح المدرّسين بلا تسجيل، أو انضم كمدرّس وقدّم طلبك للمراجعة.
         </p>
         <div className="flex flex-wrap justify-center gap-3">

@@ -301,7 +301,7 @@ export default async function HomePage() {
           <h2 className="mb-3 text-2xl font-extrabold text-white sm:text-3xl">
             ابدأ رحلتك مع {PLATFORM_NAME} اليوم
           </h2>
-          <p className="mx-auto mb-7 max-w-xl text-primary-soft">
+          <p className="mx-auto mb-7 max-w-xl text-white/85">
             أنشئ حسابك مجاناً، وتصفّح المدرّسين، واحجز حصتك التجريبية الأولى.
           </p>
           <Link

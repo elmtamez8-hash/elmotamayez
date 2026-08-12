@@ -239,7 +239,7 @@ export default function PricingPage() {
         <h2 className="mb-2 text-xl font-bold text-white sm:text-2xl">
           الرقم الذي يخصّك يظهر على الكورس
         </h2>
-        <p className="mx-auto mb-6 max-w-lg text-primary-soft">
+        <p className="mx-auto mb-6 max-w-lg text-white/85">
           اختر مدرّساً أو كورساً لترى إجمالي الحزمة كاملاً قبل أن تدفع شيئاً.
         </p>
         <div className="flex flex-wrap justify-center gap-3">
