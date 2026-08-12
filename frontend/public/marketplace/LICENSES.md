@@ -19,6 +19,25 @@
 |---|---|---|---|---|---|
 | `hero-study.webp` | البطل في الصفحة الرئيسية | 1600×1200 | 156 KB | Deddy Yoga Pratama | https://unsplash.com/photos/woman-in-gray-traditional-dress-reading-book-FgN3JKkW3hI |
 
+### بنرات الصفحات — `PageBanner` (1800×640)
+
+| الملف | الصفحة | المصوّر | الصفحة الأصلية |
+|---|---|---|---|
+| `banner-teachers.webp` | المدرسون | Windows | https://unsplash.com/photos/a-person-sitting-at-a-table-with-a-laptop-dD4QVRywr1w |
+| `banner-courses.webp` | الكورسات | Anna Hunko | https://unsplash.com/photos/brown-wooden-shelves-with-books-kmDWZzDpp3k |
+| `banner-pricing.webp` | الأسعار | Diana Polekhina | https://unsplash.com/photos/white-notebook-with-pen-on-top-1ixT36dfuSQ |
+| `banner-about.webp` | عن المنصة | Thomas Lohmann | https://unsplash.com/photos/modern-cityscape-skyline-on-a-clear-day-pU-TZ3rRVoM |
+
+> ⚠️ **ثلاثة اختيارات أولى رُفضت لأسباب تستحق التسجيل**، لا لجودتها:
+> صورة «مدرّس يساعد طالباً» كانت مشهداً أوروبياً مُخرَجاً بطفل أشقر ومدرّس مسنّ —
+> نفس نوع الخطأ الذي رُفض في صورة البطل من قبل. وصورة «رفّ كتب» كانت أغلفة كتب
+> تسويق إنجليزية مقروءة بالكامل على منصة تعليم عربية. والثالثة — سيدتان بحجاب
+> تقرآن كتاباً — كانت على **خلفية استوديو برتقالية**، والبرتقالي في `PRODUCT.md`
+> هوية «فهيم» المرجعية التي يُمنع نقل لوحتها بنصّ الملف.
+>
+> `banner-about.webp` هو **الخليج الغربي في الدوحة**: أول جملة في الصفحة «منصة
+> عربية تنطلق من قطر»، والأفق يقولها قبل أن تُقرأ.
+
 نُزّلت جميعها في **٢٠٢٦-٠٨-١٢** بصيغة WebP وجودة 80، مقصوصة على مقاس الحاوية
 النهائي (`fit=crop`) حتى لا يقفز التخطيط أثناء التحميل.
 

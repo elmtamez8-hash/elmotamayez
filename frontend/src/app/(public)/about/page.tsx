@@ -4,8 +4,10 @@ import {
   ApplicationIcon,
   HumanReviewIcon,
   OngoingReviewIcon,
+  InfoIcon,
   SecureChannelIcon,
 } from "@/components/icons";
+import { PageBanner } from "@/components/ui/PageBanner";
 import { PLATFORM_NAME } from "@/lib/platform";
 import {
   TrustFactorBars,
@@ -66,16 +68,16 @@ const TRUST_FACTORS: TrustFactor[] = [
 
 export default function AboutPage() {
   return (
-    <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6">
-      <h1 className="mb-4 text-3xl font-extrabold text-ink sm:text-4xl lg:text-5xl">
-        عن {PLATFORM_NAME}
-      </h1>
-
-      <p className="mb-14 max-w-2xl text-lg leading-relaxed text-ink-muted">
-        منصة عربية تنطلق من قطر وتخدم العالم العربي. نربط الطلاب وأولياء الأمور
-        بمدرّسين لحصص فردية وجماعية، مباشرة ومسجّلة — والفارق الذي نراهن عليه هو
-        أنك تعرف عن المدرّس ما يكفي قبل أن تحجز، لا بعدها.
-      </p>
+    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+      {/* Doha's West Bay, not a generic classroom. «منصة عربية تنطلق من قطر» is
+          the page's first sentence, and the skyline says it before the sentence
+          is read — the one place on the site where the market is the subject. */}
+      <PageBanner
+        icon={InfoIcon}
+        image="/marketplace/banner-about.webp"
+        title={`عن ${PLATFORM_NAME}`}
+        description="منصة عربية تنطلق من قطر وتخدم العالم العربي. نربط الطلاب وأولياء الأمور بمدرّسين لحصص فردية وجماعية، مباشرة ومسجّلة — والفارق الذي نراهن عليه هو أنك تعرف عن المدرّس ما يكفي قبل أن تحجز، لا بعدها."
+      />
 
       <section aria-labelledby="vetting" className="mb-12">
         <h2 id="vetting" className="mb-5 text-2xl font-bold text-ink">

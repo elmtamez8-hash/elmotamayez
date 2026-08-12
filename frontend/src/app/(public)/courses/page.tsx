@@ -9,6 +9,8 @@ import {
 import { CourseCard } from "@/components/marketplace/CourseCard";
 import { CourseFilters } from "@/components/marketplace/CourseFilters";
 import { Pagination } from "@/components/ui/Pagination";
+import { PageBanner } from "@/components/ui/PageBanner";
+import { BookIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 
@@ -76,12 +78,17 @@ export default async function CoursesPage({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-      <header className="mb-8">
-        <h1 className="mb-2 text-3xl font-extrabold text-ink">الكورسات</h1>
-        <p className="text-ink-muted">
+      <PageBanner
+        icon={BookIcon}
+        image="/marketplace/banner-courses.webp"
+        title="الكورسات"
+        description="مسارات كاملة — مباشرة ومسجّلة — يبنيها المدرّس ويتابع فيها تقدّمك درساً بدرس، لا حصصاً متفرّقة."
+        tone="ink"
+      >
+        <p className="mt-5 inline-flex items-center rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur-sm">
           {courses.meta.total.toLocaleString("ar-QA")} كورس متاح
         </p>
-      </header>
+      </PageBanner>
 
       <CourseFilters subjects={subjects} gradeLevels={gradeLevels} />
 

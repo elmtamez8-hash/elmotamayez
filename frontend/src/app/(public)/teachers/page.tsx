@@ -12,6 +12,8 @@ import {
   TeacherFilters,
 } from "@/components/marketplace/TeacherFilters";
 import { Pagination } from "@/components/ui/Pagination";
+import { PageBanner } from "@/components/ui/PageBanner";
+import { UsersIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 
@@ -101,14 +103,16 @@ export default async function TeachersPage({
         | So every control sits in one bar and the results get the whole width —
         | and SUBJECT leads that bar, narrowed by the stage above it.
       */}
-      <header className="mb-6">
-        <h1 className="mb-2 text-3xl font-extrabold text-ink sm:text-4xl">
-          المدرسون
-        </h1>
-        <p className="text-ink-muted">
+      <PageBanner
+        icon={UsersIcon}
+        image="/marketplace/banner-teachers.webp"
+        title="المدرسون"
+        description="كل مدرّس هنا مرّ بمراجعة أكاديمية قبل أن يظهر، ودرجة ثقته محسوبة من أدائه الفعلي لا من وصفه لنفسه."
+      >
+        <p className="mt-5 inline-flex items-center rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur-sm">
           {teachers.meta.total.toLocaleString("ar-QA")} مدرّس متاح
         </p>
-      </header>
+      </PageBanner>
 
       {/* ⚠️ CLOSED on a filtered load, and open only when nothing matched.
           It used to open whenever any filter was set, which on a phone meant six
