@@ -135,6 +135,44 @@ class NotificationTemplateSeeder extends Seeder
                 'لم تستخدم رصيدك في «{{ course }}» منذ {{ months }} شهراً، وما زالت لديك {{ credits }} حصة. الرصيد لا ينتهي، ويمكنك استخدامه في أي وقت أو طلب استرداده.',
                 ['course', 'credits', 'months'],
             ],
+            /*
+            | The payment path (007).
+            |
+            | ⚠️ NO AMOUNT IN ANY OF THEM, and that is not an omission. A credit's
+            | price is the teacher's approved settlement rate plus two platform
+            | constants, so a total sent to a student — or to their guardian —
+            | is solvable for the teacher's rate across two package sizes
+            | (FR-035). The message names the COURSE and what changed; the number
+            | lives on the billing screen, which is the platform's own surface.
+            |
+            | And a failure says what to do next. «تعذّر الدفع» alone leaves the
+            | reader unable to tell a wrong card from a platform outage.
+            */
+            NotificationType::PaymentConfirmed->value => [
+                'وصلت دفعتك',
+                'استلمنا دفعتك عن «{{ course }}»، وأُضيف رصيدك. يمكنك الحجز الآن.',
+                ['course'],
+            ],
+            NotificationType::PaymentFailed->value => [
+                'تعذّر إتمام الدفع',
+                'لم تكتمل عملية الدفع عن «{{ course }}». السبب: {{ reason }}. لم يُخصم منك شيء، ويمكنك المحاولة مرة أخرى من صفحة الأرصدة.',
+                ['course', 'reason'],
+            ],
+            NotificationType::ReceiptApproved->value => [
+                'اعتُمد إيصالك',
+                'راجع الفريق إيصالك عن «{{ course }}» واعتمده، وأُضيف رصيدك.',
+                ['course'],
+            ],
+            NotificationType::ReceiptRejected->value => [
+                'لم يُعتمد الإيصال',
+                'لم يُعتمد الإيصال المرفوع عن «{{ course }}». السبب: {{ reason }}. يمكنك رفع إيصال آخر من صفحة الطلب.',
+                ['course', 'reason'],
+            ],
+            NotificationType::PaymentReversed->value => [
+                'أُعيدت دفعة سابقة',
+                'أُعيدت دفعة سابقة كنت قد سدّدتها. السبب: {{ reason }}. قد يتوقّف الحجز حتى تُسوّى، وفريق الأكاديمية على تواصل معك.',
+                ['reason'],
+            ],
             NotificationType::TeacherPayoutIssued->value => [
                 'نُفِّذ صرف مستحقّك',
                 'نُفِّذ صرف بمبلغ {{ amount }} بمرجع {{ reference }}. يظهر في سجلّ صرفك.',

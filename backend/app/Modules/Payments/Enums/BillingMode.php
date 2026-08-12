@@ -44,12 +44,18 @@ enum BillingMode: string
     /**
      * Whether the platform can actually run this mode today (FR-015).
      *
-     * PAYMENT_GATEWAY names a provider that spec 007 has not shipped, so saving
-     * it would leave a workspace in a mode with no way to take money. Refused at
-     * the Action, not only in the FormRequest — the panel shares the Action.
+     * ⚠️ EVERY MODE IS READY SINCE 007, and the exception was REMOVED rather
+     * than inverted. `return $this !== self::PaymentGateway` inverted naively
+     * becomes `$this === self::PaymentGateway`, which makes the method answer
+     * false for the three modes that have worked all along — a two-character
+     * edit that switches off manual collection on every workspace.
+     *
+     * The method itself stays. A future mode that names infrastructure nobody
+     * has built yet is exactly what it exists to refuse, and deleting it would
+     * mean rediscovering the need the next time.
      */
     public function isReady(): bool
     {
-        return $this !== self::PaymentGateway;
+        return true;
     }
 }

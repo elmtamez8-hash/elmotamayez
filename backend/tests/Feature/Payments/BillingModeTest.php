@@ -151,11 +151,28 @@ it('recomputes no existing entry and voids no standing debt', function (): void 
         ->and(fn () => tryConsume(1, 2))->toThrow(InsufficientCreditsException::class);
 });
 
-// FR-015 — a mode with no way to take money must not be saveable.
-it('refuses payment_gateway before spec 007 ships it', function (): void {
-    expect(fn () => switchTo(BillingMode::PaymentGateway))
-        ->toThrow(DomainException::class)
-        ->and($this->settings->mode($this->workspace->refresh()))->toBe(BillingMode::PrepaidCredits);
+/*
+| FR-015 — a mode with no way to take money must not be saveable.
+|
+| ⚠️ THIS TEST USED TO ASSERT THE OPPOSITE, and the inversion is the deliverable
+| rather than a broken guard being loosened: spec 007 shipped the gateway path,
+| so refusing the mode it enables would now be refusing a mode that works.
+|
+| What the refusal protected is protected still — `isReady()` and
+| `refusalToAdopt()` both stay, and the test below asserts that every mode this
+| workspace may be moved into can actually take money today. The next mode that
+| names infrastructure nobody has built is caught by the same two methods.
+*/
+it('accepts payment_gateway now that 007 has shipped it', function (): void {
+    switchTo(BillingMode::PaymentGateway);
+
+    expect($this->settings->mode($this->workspace->refresh()))->toBe(BillingMode::PaymentGateway);
+});
+
+it('reports every mode as ready, because every mode now has a path', function (): void {
+    foreach (BillingMode::cases() as $mode) {
+        expect($mode->isReady())->toBeTrue("{$mode->value} must be adoptable");
+    }
 });
 
 /*
@@ -211,13 +228,15 @@ it('switches mode alone without touching the stored cadence', function (): void 
         ->toBe([null]);
 });
 
-it('names a reason for every mode it refuses', function (): void {
-    // A boolean here becomes "تعذّر الحفظ" on a screen where the person can see
-    // nothing wrong with what they typed.
-    expect($this->settings->refusalToAdopt(BillingMode::PaymentGateway))
-        ->toBeString()->not->toBe('')
-        ->and($this->settings->refusalToAdopt(BillingMode::PrepaidCredits))
-        ->toBeNull();
+it('refuses no mode today, and would still say why if it did', function (): void {
+    // ⚠️ The mechanism is asserted even though nothing currently trips it. A
+    // boolean refusal becomes "تعذّر الحفظ" on a screen where the person can see
+    // nothing wrong with what they typed — so the day a mode is held back, the
+    // reason has to travel with it. Deleting this test with the last refusal is
+    // how that lesson gets relearned.
+    foreach (BillingMode::cases() as $mode) {
+        expect($this->settings->refusalToAdopt($mode))->toBeNull();
+    }
 });
 
 // The route, and the permission behind it -----------------------------------

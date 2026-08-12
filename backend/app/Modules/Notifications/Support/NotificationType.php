@@ -72,6 +72,11 @@ enum NotificationType: string
             self::SecurityAlert => 'تنبيه أمني',
             self::AttendanceAlert => 'تنبيه حضور',
             self::PaymentReminder => 'تذكير دفع',
+            self::PaymentConfirmed => 'تأكيد دفع',
+            self::PaymentFailed => 'فشل دفع',
+            self::ReceiptApproved => 'اعتماد إيصال',
+            self::ReceiptRejected => 'رفض إيصال',
+            self::PaymentReversed => 'إعادة دفعة',
             self::AppointmentReminder => 'تذكير موعد',
             self::ExamResult => 'نتيجة اختبار',
             self::AcademicWarning => 'إنذار أكاديمي',
@@ -103,6 +108,22 @@ enum NotificationType: string
         return [NotificationChannel::InApp];
     }
 
+    /*
+    | The payment path (007). Five types, because each answers a different
+    | question the payer is actually asking: did my money arrive, why did it
+    | not, was my receipt accepted, was it refused, and was a payment I already
+    | made taken back.
+    |
+    | All five are mandatory: every one of them changes what the account can do,
+    | and a preference that hid a failed payment would leave someone blocked
+    | with no way to learn why.
+    */
+    case PaymentConfirmed = 'payment_confirmed';
+    case PaymentFailed = 'payment_failed';
+    case ReceiptApproved = 'receipt_approved';
+    case ReceiptRejected = 'receipt_rejected';
+    case PaymentReversed = 'payment_reversed';
+
     /**
      * A mandatory type cannot be switched off by the user (FR-029) and is never
      * deferred or digested (FR-035). Reserved for security and hard financial
@@ -120,6 +141,13 @@ enum NotificationType: string
             // return. The two gentler tiers stay optional, because a nudge is a
             // nudge.
             self::AccessWithheld, self::AccessRestored => true,
+            // 007 — money that arrived, money that did not, and money taken
+            // back. Each one changes what the account can do next.
+            self::PaymentConfirmed,
+            self::PaymentFailed,
+            self::ReceiptApproved,
+            self::ReceiptRejected,
+            self::PaymentReversed => true,
             default => false,
         };
     }
@@ -146,7 +174,14 @@ enum NotificationType: string
             self::AccessRestored,
             // Money the student is holding and has forgotten. The guardian who
             // paid it is precisely who would want to know.
-            self::CreditBalanceDormant => true,
+            self::CreditBalanceDormant,
+            // 007 — the guardian is usually the payer, so these are addressed to
+            // them as much as to the student.
+            self::PaymentConfirmed,
+            self::PaymentFailed,
+            self::ReceiptApproved,
+            self::ReceiptRejected,
+            self::PaymentReversed => true,
             default => false,
         };
     }
@@ -174,7 +209,12 @@ enum NotificationType: string
             self::CreditBalanceCritical,
             self::AccessWithheld,
             self::AccessRestored,
-            self::CreditBalanceDormant => GuardianPermission::Payments,
+            self::CreditBalanceDormant,
+            self::PaymentConfirmed,
+            self::PaymentFailed,
+            self::ReceiptApproved,
+            self::ReceiptRejected,
+            self::PaymentReversed => GuardianPermission::Payments,
             default => null,
         };
     }

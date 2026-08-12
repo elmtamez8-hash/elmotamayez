@@ -209,7 +209,14 @@ it('tells every guardian-facing type apart', function (): void {
     // And for the eleventh: the dormancy notice is about money the family has
     // already paid and nobody has used. The person who paid it is exactly who
     // would want to hear.
-    expect($guardianTypes)->toHaveCount(11);
+    //
+    // Sixteen since 007 added the five payment outcomes — confirmed, failed,
+    // receipt approved, receipt rejected, reversed. Every one of them is about
+    // money leaving or failing to leave the family's account, and the guardian
+    // is usually the person whose account it is. They ride the same
+    // GuardianPermission::Payments as the rest, so a guardian with no right to
+    // the financial record still receives none of them.
+    expect($guardianTypes)->toHaveCount(16);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();

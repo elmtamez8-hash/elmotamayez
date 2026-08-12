@@ -34,12 +34,18 @@ return [
     | to forget: a provider present in one and absent from the other resolves to
     | 404 for a caller holding a perfectly valid id.
     |
-    | `manual_transfer` is the only implementation until a real gateway adapter
-    | lands (Q8). It takes no credentials, which is why it can be the default.
+    | ⚠️ THE VALUE IS THE PROVIDER'S OWN `identifier()`, not its class name.
+    | `manual_transfer` looked right and matched nothing: the registry answers
+    | 404 for an unknown id, so every charge on the platform returned "no such
+    | route" while the code, the config and the registry each looked correct on
+    | their own.
+    |
+    | `manual` is the only implementation until a real gateway adapter lands
+    | (Q8). It takes no credentials, which is why it can be the default.
     |
     */
 
-    'default' => env('PAYMENTS_PROVIDER', 'manual_transfer'),
+    'default' => env('PAYMENTS_PROVIDER', 'manual'),
 
     /*
     |--------------------------------------------------------------------------
@@ -84,6 +90,23 @@ return [
 
         'backoff_seconds' => [10, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 14400],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Allocation order (FR-004, guardian edge)
+    |--------------------------------------------------------------------------
+    |
+    | Which order one payment settles when the payer has several open — a parent
+    | paying for three children.
+    |
+    | ⚠️ DECLARED HERE BECAUSE THE ALTERNATIVE IS A QUERY PLAN. Left to whatever
+    | order the database returned, adding an index silently re-points the money,
+    | and the child whose access is restored changes with it. Oldest first: the
+    | debt that has been outstanding longest is the one already causing a block.
+    |
+    */
+
+    'allocation_order' => 'oldest_first',
 
     /*
     |--------------------------------------------------------------------------

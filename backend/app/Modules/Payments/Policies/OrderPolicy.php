@@ -50,6 +50,23 @@ class OrderPolicy extends BasePolicy
             : Response::deny('You can only upload receipts for your own orders.');
     }
 
+    /**
+     * Starting a payment is the buyer's act and nobody else's.
+     *
+     * ⚠️ Written as its own ability rather than reused from `view()`: a teacher
+     * holding ORDERS_VIEW_ALL passes that one, and paying is not reading.
+     */
+    public function pay(User $user, Order $order): Response
+    {
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($order))->denied()) {
+            return $workspaceCheck;
+        }
+
+        return $order->user_id === $user->getKey()
+            ? Response::allow()
+            : Response::deny('You can only pay for your own orders.');
+    }
+
     public function approve(User $user, Order $order): Response
     {
         if (($workspaceCheck = $this->belongsToCurrentWorkspace($order))->denied()) {

@@ -6,7 +6,7 @@ namespace App\Modules\Payments\Listeners;
 
 use App\Modules\Payments\Actions\RecordCreditPurchase;
 use App\Modules\Payments\Enums\OrderKind;
-use App\Modules\Payments\Events\PaymentApproved;
+use App\Modules\Payments\Events\Contracts\CarriesPaidOrder;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Contracts\Queue\ShouldQueue;
 
@@ -31,12 +31,19 @@ class CreditPurchaseOnApproval implements ShouldHandleEventsAfterCommit, ShouldQ
 {
     public function __construct(private readonly RecordCreditPurchase $record) {}
 
-    public function handle(PaymentApproved $event): void
+    /**
+     * ⚠️ Typed on the CONTRACT, not on PaymentApproved. Both the manual approval
+     * and the gateway capture mint credits, and a class type here threw a
+     * TypeError on the first successful gateway payment.
+     */
+    public function handle(CarriesPaidOrder $event): void
     {
-        if ($event->order->kind !== OrderKind::Credits) {
+        $order = $event->order();
+
+        if ($order->kind !== OrderKind::Credits) {
             return;
         }
 
-        $this->record->handle($event->order);
+        $this->record->handle($order);
     }
 }

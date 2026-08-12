@@ -28,6 +28,7 @@ use App\Modules\Payments\Models\CreditLot;
 use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Models\ExamModeWindow;
+use App\Modules\Payments\Models\ProviderCallback;
 use App\Modules\Payments\Models\StudentCreditAccount;
 use App\Modules\Settlement\Models\LedgerEntry;
 use App\Modules\Settlement\Models\RateChangeRequest;
@@ -402,5 +403,52 @@ describe('course tree models are workspace-scoped', function (): void {
         // all, and answering "here is an empty course" would confirm the uuid
         // names something.
         $this->getJson("/api/v1/courses/{$foreign->uuid}/tree")->assertNotFound();
+    });
+});
+
+describe('provider callbacks are scoped once they can be', function (): void {
+    /*
+     * ⚠️ THE LATE PATH, NOT THE HAPPY ONE. A callback arrives with no tenant —
+     * there is no user on a webhook, so WorkspaceScope adds no condition at all —
+     * and `workspace_id` is filled when the row is PROCESSED, from the order it
+     * names. Testing only a resolved row would miss the window this table spends
+     * most of its life in.
+     */
+    it('hides a resolved callback from another workspace and shows an unresolved one to nobody', function (): void {
+        [$workspaceA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+        [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+        $context = app(WorkspaceContext::class);
+
+        ProviderCallback::factory()->create([
+            'workspace_id' => $workspaceA->getKey(),
+            'external_id' => 'evt_a',
+        ]);
+
+        // The row in the state it arrives in: no tenant yet.
+        ProviderCallback::factory()->create(['external_id' => 'evt_unresolved']);
+
+        expect($context->forWorkspace($workspaceA, fn () => ProviderCallback::query()->count()))->toBe(1)
+            // ⚠️ ZERO, not one: the unresolved row is invisible to every
+            // workspace, which is exactly right — nobody can yet say whose it is.
+            // Only the deferred worker reads it, and it says
+            // withoutWorkspaceScope() out loud.
+            ->and($context->forWorkspace($workspaceB, fn () => ProviderCallback::query()->count()))->toBe(0);
+
+        expect(ProviderCallback::query()->withoutWorkspaceScope()->count())->toBe(2);
+    });
+
+    it('declares the tenant key on the callback table, and nowhere it does not belong', function (): void {
+        // ⚠️ BOTH DIRECTIONS. The trait is what hides a resolved row from another
+        // teacher; and the nullable column is what lets an unattributed one exist
+        // at all. Dropping the trait leaks every callback across the platform;
+        // making the column NOT NULL forces the tenant to be read from a payload
+        // the other side wrote, which is not an authorisation source.
+        expect(in_array(BelongsToWorkspace::class, class_uses_recursive(ProviderCallback::class), true))
+            ->toBeTrue('ProviderCallback must use BelongsToWorkspace');
+
+        $callback = ProviderCallback::factory()->create(['external_id' => 'evt_null_ok']);
+
+        expect($callback->workspace_id)->toBeNull();
     });
 });

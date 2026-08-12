@@ -131,6 +131,29 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('playback', fn (Request $request) => Limit::perMinute(60)
             ->by('user:'.(string) $request->user()?->getKey()));
 
+        /*
+        | Provider webhooks.
+        |
+        | ⚠️ TWO KEYS, NOT ONE. The provider comes from the ROUTE, and the
+        | network address beside it — the shape `auth` (ip + email) and `billing`
+        | (user + ip) already use. Keyed by provider alone, the bucket is one
+        | counter for the entire planet: an attacker drains it, the real provider
+        | is answered 429, and everyone who paid stays withheld until the nightly
+        | sweep — the worst case the spec names.
+        |
+        | ⚠️ AND THE AUTHENTICATED SHAPE MUST NOT BE COPIED HERE. This route has
+        | no user, so `by('user:'.$request->user()?->getKey())` collapses to the
+        | constant `'user:'` — one bucket for everybody.
+        |
+        | Generous on purpose: a gateway recovering from its own outage sends its
+        | backlog in one burst, and that burst is the moment refusing it hurts
+        | most.
+        */
+        RateLimiter::for('webhook', fn (Request $request) => [
+            Limit::perMinute(300)->by('provider:'.(string) $request->route('provider')),
+            Limit::perMinute(120)->by('ip:'.$request->ip()),
+        ]);
+
         // Two-factor setup and challenge. By account as well as IP: the challenge
         // is a six-digit code, so a per-IP limit alone leaves it brute-forceable
         // from a botnet.

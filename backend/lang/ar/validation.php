@@ -323,6 +323,7 @@ return [
         'rejection_reason' => 'سبب الرفض',
         'amount' => 'المبلغ',
         'amount_minor' => 'المبلغ',
+        'provider' => 'مزوّد الدفع',
 
         // الشهادات
         'verification_code' => 'رمز التحقّق',

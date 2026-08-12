@@ -10,17 +10,23 @@ use App\Modules\Payments\Events\AccessRestored;
 use App\Modules\Payments\Events\AccessWithheld;
 use App\Modules\Payments\Events\BalanceThresholdCrossed;
 use App\Modules\Payments\Events\PaymentApproved;
+use App\Modules\Payments\Events\PaymentCaptured;
+use App\Modules\Payments\Events\PaymentFailed;
+use App\Modules\Payments\Events\PaymentReversed;
 use App\Modules\Payments\Listeners\ChargeSeatsOnDelivery;
 use App\Modules\Payments\Listeners\CreateEnrollmentFromOrder;
 use App\Modules\Payments\Listeners\CreditPurchaseOnApproval;
 use App\Modules\Payments\Listeners\NotifyAccessChange;
 use App\Modules\Payments\Listeners\NotifyBalanceThreshold;
+use App\Modules\Payments\Listeners\NotifyPaymentOutcome;
+use App\Modules\Payments\Listeners\ReevaluateOnReversal;
 use App\Modules\Payments\Listeners\StampCourseDelivery;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditPackage;
 use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Models\ExamModeWindow;
+use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Models\StudentCreditAccount;
 use App\Modules\Payments\Models\TermsConsent;
 use App\Modules\Payments\Policies\CreditBalancePolicy;
@@ -28,6 +34,7 @@ use App\Modules\Payments\Policies\CreditPackagePolicy;
 use App\Modules\Payments\Policies\CreditPurchasePolicy;
 use App\Modules\Payments\Policies\CreditTransactionPolicy;
 use App\Modules\Payments\Policies\ExamModeWindowPolicy;
+use App\Modules\Payments\Policies\PaymentTransactionPolicy;
 use App\Modules\Payments\Policies\StudentCreditAccountPolicy;
 use App\Modules\Payments\Policies\TermsConsentPolicy;
 use App\Modules\Payments\Providers\ManualTransferProvider;
@@ -82,6 +89,34 @@ class PaymentsServiceProvider extends Module
         Event::listen(PaymentApproved::class, CreateEnrollmentFromOrder::class);
         Event::listen(PaymentApproved::class, CreditPurchaseOnApproval::class);
 
+        /*
+        | The instant path (007) — and WITHOUT THESE TWO LINES THE WHOLE OF US1
+        | ENDS IN A CAPTURED TRANSACTION AND A BALANCE THAT NEVER MOVED.
+        |
+        | The two listeners are the ones already bound to PaymentApproved, on
+        | purpose: a gateway capture and a hand-approved receipt are the same
+        | business fact — this order is paid for — and a second pair of listeners
+        | would be a second definition of what being paid for means. They accept
+        | both events through CarriesPaidOrder; before that contract they were
+        | typed on PaymentApproved and this binding would have thrown a TypeError
+        | on the first successful payment.
+        |
+        | The PaymentApproved bindings above stay exactly as they are: the manual
+        | path is not being replaced.
+        */
+        Event::listen(PaymentCaptured::class, CreateEnrollmentFromOrder::class);
+        Event::listen(PaymentCaptured::class, CreditPurchaseOnApproval::class);
+
+        Event::listen(PaymentCaptured::class, [NotifyPaymentOutcome::class, 'handleCaptured']);
+        Event::listen(PaymentFailed::class, [NotifyPaymentOutcome::class, 'handleFailed']);
+
+        /*
+        | A reversal re-opens the question the payment had closed. Bound here and
+        | not only created: an unbound listener is the same defect as an unbound
+        | PaymentCaptured — code that exists, reads correctly, and never runs.
+        */
+        Event::listen(PaymentReversed::class, ReevaluateOnReversal::class);
+
         // The stop-selling signal (FR-021ط). SessionDelivered is the ONLY bridge
         // billing may use to learn that a course is still being taught — the
         // settlement tables that also know it are across a boundary
@@ -124,6 +159,11 @@ class PaymentsServiceProvider extends Module
         Gate::policy(CreditPurchase::class, CreditPurchasePolicy::class);
         Gate::policy(CreditPackage::class, CreditPackagePolicy::class);
         Gate::policy(TermsConsent::class, TermsConsentPolicy::class);
+        // ⚠️ Ownership of the order and nothing else — see the policy. Without
+        // it a teacher reads the total a named student paid, which FR-033
+        // forbids, and BelongsToWorkspace lets them through the only automatic
+        // filter there is.
+        Gate::policy(PaymentTransaction::class, PaymentTransactionPolicy::class);
         Gate::policy(ExamModeWindow::class, ExamModeWindowPolicy::class);
     }
 }

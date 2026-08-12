@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property string $uuid
  * @property PaymentStatus $status
+ * @property ?PaymentMethod $method
+ * @property int $amount_minor
  * @property string $provider
  * @property ?int $captured_order_id
  */

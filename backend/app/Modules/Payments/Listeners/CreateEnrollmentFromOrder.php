@@ -6,7 +6,7 @@ namespace App\Modules\Payments\Listeners;
 
 use App\Modules\Learning\Actions\EnrollStudent;
 use App\Modules\Payments\Enums\OrderKind;
-use App\Modules\Payments\Events\PaymentApproved;
+use App\Modules\Payments\Events\Contracts\CarriesPaidOrder;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -34,9 +34,15 @@ class CreateEnrollmentFromOrder implements ShouldHandleEventsAfterCommit, Should
         private readonly WorkspaceContext $workspace,
     ) {}
 
-    public function handle(PaymentApproved $event): void
+    /**
+     * ⚠️ Typed on the CONTRACT, not on PaymentApproved — the manual approval and
+     * the gateway capture both enrol, and a class type here threw a TypeError on
+     * the first successful gateway payment. This listener is the constitution's
+     * eighth critical path; its whole route runs before this phase is committed.
+     */
+    public function handle(CarriesPaidOrder $event): void
     {
-        $order = $event->order;
+        $order = $event->order();
 
         // A credit order carries a course too — that is the whole point of Q-7 —
         // so `course_id === null` no longer separates the two. Without this

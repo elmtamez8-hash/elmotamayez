@@ -13,7 +13,10 @@ use App\Modules\Payments\Http\Controllers\Manage\CreditLimitController;
 use App\Modules\Payments\Http\Controllers\Manage\ExamModeController;
 use App\Modules\Payments\Http\Controllers\Manage\StudentBalanceController;
 use App\Modules\Payments\Http\Controllers\OrderController;
+use App\Modules\Payments\Http\Controllers\PaymentController;
 use App\Modules\Payments\Http\Controllers\TermsConsentController;
+use App\Modules\Payments\Http\Controllers\WebhookController;
+use App\Modules\Payments\Http\Middleware\VerifyWebhookSource;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -151,3 +154,35 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     Route::post('/orders/{order}/approve', [OrderController::class, 'approve'])->middleware('2fa.required');
     Route::post('/orders/{order}/reject', [OrderController::class, 'reject'])->middleware('2fa.required');
 });
+
+/*
+| The payer's two routes (spec 007).
+|
+| Same group as the orders above for the same reason: starting a payment writes
+| a transaction row and reaches an external provider.
+*/
+Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void {
+    Route::post('/payments/{order}/charge', [PaymentController::class, 'charge']);
+    Route::get('/payments/{transaction}', [PaymentController::class, 'show']);
+});
+
+/*
+| The provider's notification endpoint — the one unauthenticated write path in
+| this module.
+|
+| ⚠️ NO `auth:sanctum`, BY NECESSITY: a gateway holds no token of ours. The
+| signature is the authentication, and it is checked before the body is read.
+|
+| ⚠️ THE MIDDLEWARE ORDER IS PART OF THE DESIGN. The source guard runs FIRST, so
+| that junk from a refused address never reaches the limiter and never consumes
+| the provider's bucket — which is what a real resend burst needs to find free.
+|
+| ⚠️ `throttle:webhook` is named, and keyed by the provider from the path plus
+| the address. An inline `throttle:N,M` keys a guest on `domain|ip` with no route
+| in the hash, so every inline limit on the platform shares one counter and the
+| strictest wins — that is how browsing the marketplace once locked people out of
+| logging in.
+*/
+Route::post('/webhooks/payments/{provider}', WebhookController::class)
+    ->middleware([VerifyWebhookSource::class, 'throttle:webhook'])
+    ->name('webhooks.payments');

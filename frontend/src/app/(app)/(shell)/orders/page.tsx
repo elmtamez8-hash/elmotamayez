@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { api, errorMessage } from "@/lib/api";
 import type { Order } from "@/lib/types";
 import { formatDate, formatMinorMoney } from "@/lib/labels";
@@ -124,6 +125,30 @@ export default function OrdersPage() {
               }}
             />
           </label>
+        ) : (
+          <span className="text-xs text-ink-muted">—</span>
+        ),
+    },
+    /*
+     * ⚠️ THE ONLY WAY IN TO THE PAYMENT SCREEN, and without it that screen is
+     * unreachable: /billing/pay needs an order uuid, and nothing else on the
+     * platform hands one over. A page with no inbound link is a page nobody
+     * visits, however correct it is.
+     *
+     * Shown for the payer's own open orders only. A settled order has nothing
+     * left to pay, and someone else's is not theirs to settle.
+     */
+    {
+      key: "pay",
+      header: "السداد",
+      render: (o) =>
+        o.is_mine && OPEN_STATUSES.includes(o.status) ? (
+          <Link
+            href={`/billing/pay?order=${o.uuid}`}
+            className="rounded text-xs font-semibold text-primary-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            ادفع الآن
+          </Link>
         ) : (
           <span className="text-xs text-ink-muted">—</span>
         ),
