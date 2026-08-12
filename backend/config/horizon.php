@@ -98,6 +98,19 @@ return [
 
     'waits' => [
         'redis:default' => 60,
+
+        /*
+        | ⚠️ A NEW QUEUE WITH NO ENTRY HERE NEVER FIRES LongWaitDetected AT ALL —
+        | the thresholds are per connection/queue pair, and a pair that is absent
+        | is not watched at a default, it is not watched. A backed-up payments
+        | queue would then tell nobody, while every provider callback in it had
+        | already been answered `202`: we said we had it, and the queue quietly
+        | said otherwise.
+        |
+        | Half a minute, not the sixty seconds `default` gets. A student is on
+        | the payment result screen while this drains.
+        */
+        'redis:payments' => 30,
     ],
 
     /*
@@ -249,6 +262,43 @@ return [
             // or a security alert wait for CPU.
             'nice' => 10,
         ],
+
+        /*
+        | Provider callbacks and payment side effects, on their own workers
+        | (spec 007).
+        |
+        | ⚠️ SEPARATE BECAUSE OF WHO IS WAITING, NOT BECAUSE OF THE WORKLOAD. A
+        | callback is answered `202` before it is processed, so from the
+        | gateway's side the payment is already settled — every second this
+        | queue spends behind a bulk notification run is a second the student
+        | watches a result screen that our own API has already promised. It is
+        | also why the timeout is the shortest on the platform: work here is one
+        | transaction against one row, and a payment job still running after
+        | thirty seconds is stuck, not slow.
+        |
+        | `tries` is 1 for the reason it is 1 above — these jobs are idempotent
+        | by their unique keys, and the deferred-callback job declares its own
+        | twelve attempts and backoff from `config/payments.php`, which is the
+        | one retry policy in this module that is a decision rather than an
+        | accident.
+        |
+        | ⚠️ AND IT IS LISTED IN `environments` BELOW, NOT ONLY HERE — see the
+        | note on supervisor-maintenance. A supervisor defined only in defaults
+        | is a queue with no worker, and nothing anywhere says so.
+        */
+        'supervisor-payments' => [
+            'connection' => 'redis',
+            'queue' => ['payments'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 128,
+            'tries' => 1,
+            'timeout' => 30,
+            'nice' => 0,
+        ],
     ],
 
     'environments' => [
@@ -262,6 +312,14 @@ return [
             'supervisor-maintenance' => [
                 'maxProcesses' => 1,
             ],
+
+            // Scales with traffic, unlike the sweeps: these arrive when students
+            // pay, not on a schedule.
+            'supervisor-payments' => [
+                'maxProcesses' => 3,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+            ],
         ],
 
         'local' => [
@@ -270,6 +328,10 @@ return [
             ],
 
             'supervisor-maintenance' => [
+                'maxProcesses' => 1,
+            ],
+
+            'supervisor-payments' => [
                 'maxProcesses' => 1,
             ],
         ],
