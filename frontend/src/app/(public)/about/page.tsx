@@ -63,7 +63,14 @@ const TRUST_FACTORS: TrustFactor[] = [
   { label: "الالتزام بالمواعيد", weight: 25 },
   { label: "إكمال الحصص دون إلغاء", weight: 25 },
   { label: "مدة العمل على المنصة", weight: 15 },
-  { label: "خصم الشكاوى المؤكدة", weight: -20, note: "حتى −" },
+  // ⚠️ No minus sign in the note, and it must not come back. A `−` is a bidi
+  // NEUTRAL: between the Arabic word before it and the Arabic-Indic digits
+  // after it, the algorithm — not the stylesheet — decides which side it lands
+  // on, and it lands on the left of the figure while the whole line runs right
+  // to left. The reader sees a stray dash starting a line that starts nowhere.
+  // Nothing is lost by dropping it: the label opens with «خصم», the row is the
+  // only red one, and its bar is the only one drawn from the opposite edge.
+  { label: "خصم الشكاوى المؤكدة", weight: -20, note: "حتى" },
 ];
 
 export default function AboutPage() {
