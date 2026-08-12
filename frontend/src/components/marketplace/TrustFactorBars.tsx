@@ -19,13 +19,14 @@ export type TrustFactor = {
  * similar size read as a list, not as a division of one hundred. The bars make
  * the proportion the thing you see first and the number the confirmation.
  *
- * ⚠️ EVERY BAR STARTS AT THE INLINE START — the right, in Arabic — including the
- * deduction. Growing that one from the far edge was meant to say "this takes
- * away", and it said something else entirely: five bars in one stack are read as
- * one scale, and the odd one out looks like a rendering fault before it looks
- * like a meaning. The subtraction is carried by the label, which opens with
- * «خصم», by the red fill, and by the sign on the figure — three statements that
- * cost the reader nothing.
+ * ⚠️ FIVE IDENTICAL BARS — same edge, same colour, including the deduction. It
+ * was drawn from the far edge in red to say "this one takes away", and both
+ * devices said something else first: five bars in one stack are read as ONE
+ * scale, so the odd one out looks like a rendering fault, and red on a page
+ * explaining how teachers are judged reads as a warning about a teacher rather
+ * than a note about arithmetic. What carries the subtraction is the label, which
+ * opens with «خصم», and the sign on the figure — words, where a reader cannot
+ * misread them as a fault in the chart.
  */
 export function TrustFactorBars({ factors }: { factors: TrustFactor[] }) {
   const [filled, setFilled] = useState(false);
@@ -67,9 +68,7 @@ export function TrustFactorBars({ factors }: { factors: TrustFactor[] }) {
           <div key={factor.label}>
             <div className="mb-2 flex items-baseline justify-between gap-4">
               <dt className="text-ink">{factor.label}</dt>
-              <dd
-                className={`text-sm font-bold ${negative ? "text-danger-ink" : "text-primary-ink"}`}
-              >
+              <dd className="text-sm font-bold text-primary-ink">
                 {factor.note ? (
                   <>
                     {factor.note}{" "}
@@ -106,7 +105,7 @@ export function TrustFactorBars({ factors }: { factors: TrustFactor[] }) {
               aria-hidden="true"
             >
               <div
-                className={`h-full rounded-full ${negative ? "bg-danger" : "bg-primary"}`}
+                className="h-full rounded-full bg-primary"
                 style={{
                   width: filled ? `${width}%` : "0%",
                   // Staggered by row so the five read as one thing dividing
