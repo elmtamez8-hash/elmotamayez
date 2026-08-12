@@ -19,10 +19,13 @@ export type TrustFactor = {
  * similar size read as a list, not as a division of one hundred. The bars make
  * the proportion the thing you see first and the number the confirmation.
  *
- * ⚠️ The deduction is drawn from the opposite edge in danger, not as a shorter
- * maroon bar. It does not take a share of the hundred — it is subtracted from
- * whatever the other four earned, and a bar in the same row and colour as them
- * would say the opposite.
+ * ⚠️ EVERY BAR STARTS AT THE INLINE START — the right, in Arabic — including the
+ * deduction. Growing that one from the far edge was meant to say "this takes
+ * away", and it said something else entirely: five bars in one stack are read as
+ * one scale, and the odd one out looks like a rendering fault before it looks
+ * like a meaning. The subtraction is carried by the label, which opens with
+ * «خصم», by the red fill, and by the sign on the figure — three statements that
+ * cost the reader nothing.
  */
 export function TrustFactorBars({ factors }: { factors: TrustFactor[] }) {
   const [filled, setFilled] = useState(false);
@@ -113,8 +116,6 @@ export function TrustFactorBars({ factors }: { factors: TrustFactor[] }) {
                   transitionDuration: "700ms",
                   transitionProperty: "width",
                   transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
-                  // The deduction grows from the other edge — it takes away.
-                  marginInlineStart: negative ? "auto" : undefined,
                 }}
               />
             </div>
