@@ -10,6 +10,7 @@ use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Actions\CreateOrder;
 use App\Modules\Payments\Actions\UploadPaymentReceipt;
 use App\Modules\Payments\Contracts\PaymentProviderInterface;
+use App\Modules\Payments\Enums\PaymentMethod;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Providers\ManualTransferProvider;
 use Illuminate\Http\UploadedFile;
@@ -200,8 +201,15 @@ describe('provider abstraction (OCP)', function (): void {
 
         $charge = app(PaymentProviderInterface::class)->createCharge($order);
 
-        expect($charge['method'])->toBe('bank_transfer')
-            ->and($charge['amount'])->toBe(49.99);
+        // A typed ChargeIntent since 007, not an array: an array contract is a
+        // contract nothing checks, and the first gateway adapter would have had
+        // to learn its keys by reading this provider's implementation.
+        expect($charge->method)->toBe(PaymentMethod::BankTransfer)
+            ->and($charge->amountMinor)->toBe(4999)
+            // No payment page — a wire is made in the payer's own bank, and a
+            // caller that assumed a redirect would send the student nowhere.
+            ->and($charge->redirectUrl)->toBeNull()
+            ->and($charge->instructions)->not->toBeNull();
     });
 });
 

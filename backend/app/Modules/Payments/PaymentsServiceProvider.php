@@ -31,6 +31,7 @@ use App\Modules\Payments\Policies\ExamModeWindowPolicy;
 use App\Modules\Payments\Policies\StudentCreditAccountPolicy;
 use App\Modules\Payments\Policies\TermsConsentPolicy;
 use App\Modules\Payments\Providers\ManualTransferProvider;
+use App\Modules\Payments\Providers\PaymentProviderRegistry;
 use App\Modules\Payments\Support\EloquentAccountStanding;
 use App\Shared\Contracts\AccountStanding;
 use App\Shared\Modules\Module;
@@ -47,6 +48,18 @@ class PaymentsServiceProvider extends Module
 
         // Bind the manual provider as the default implementation.
         $this->app->bind(PaymentProviderInterface::class, ManualTransferProvider::class);
+
+        // ⚠️ ONE LINE PER PROVIDER, and that is the acceptance criterion NFR-003
+        // states — ProviderExtensibilityTest registers a second implementation
+        // and fails the build if anything under Actions/ or Models/ had to
+        // change for it to work. The tag is also the type check: a class that
+        // does not implement the interface fails analysis, not production.
+        $this->app->tag([ManualTransferProvider::class], 'payment.providers');
+
+        $this->app->singleton(
+            PaymentProviderRegistry::class,
+            fn ($app) => new PaymentProviderRegistry($app->tagged('payment.providers')),
+        );
 
         // Payments owns the balance, so Payments answers "is this student
         // withheld" — and LiveSessions and Media ask through the interface
