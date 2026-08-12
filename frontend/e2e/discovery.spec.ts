@@ -12,7 +12,11 @@ import { test, expect } from "@playwright/test";
 // would quietly test a signed-in visitor instead.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-const PROFILE_URL = /\/teachers\/[0-9a-f-]{36}/;
+// ⚠️ A SLUG NOW, NOT A UUID. The public profile URL became `/teachers/{slug}`
+// and the uuid still resolves but 308s here, so a uuid-shaped pattern matched
+// nothing and every test waiting on it timed out. Excludes `/` and `?` so it
+// cannot accidentally match the LIST page we navigated from.
+const PROFILE_URL = /\/teachers\/[^/?]+(\?|$)/;
 
 test.describe("public discovery", () => {
   test("home page is Arabic and RTL with every section present", async ({ page }) => {
@@ -120,9 +124,16 @@ test.describe("public discovery", () => {
     await profileLink.click();
     await page.waitForURL(PROFILE_URL);
 
-    const uuid = page.url().split("/teachers/")[1].split("?")[0];
+    // Read the uuid off the CTA, not off the address bar. The URL carries the
+    // SLUG now; signup stays keyed by the uuid, which is the whole reason both
+    // exist — a write path must not depend on a value the teacher can rename.
+    const cta = page.getByRole("link", { name: "احجز الآن" }).first();
+    const href = (await cta.getAttribute("href")) ?? "";
+    const uuid = new URL(href, page.url()).searchParams.get("teacher");
 
-    await page.getByRole("link", { name: "احجز الآن" }).first().click();
+    expect(uuid).toMatch(/^[0-9a-f-]{36}$/);
+
+    await cta.click();
     await expect(page).toHaveURL(new RegExp(`/signup/student\\?teacher=${uuid}`));
   });
 

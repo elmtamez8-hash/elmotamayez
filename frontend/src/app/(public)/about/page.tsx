@@ -79,7 +79,7 @@ export default function AboutPage() {
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white"
                 aria-hidden="true"
               >
-                {index + 1}
+                {(index + 1).toLocaleString("ar-QA")}
               </span>
               <span>
                 <span className="block font-semibold text-ink">{step.title}</span>
@@ -95,8 +95,8 @@ export default function AboutPage() {
           ما الذي تقيسه درجة الثقة
         </h2>
         <p className="mb-5 leading-relaxed text-ink-muted">
-          رقم من 100 نعرضه على كل ملف، ونوضّح مكوّناته بدل الاكتفاء بالرقم. المدرّس
-          الجديد تظهر درجته بحالة «قيد التكوين» حتى يُكمل 10 حصص ويحصل على 3
+          رقم من ١٠٠ نعرضه على كل ملف، ونوضّح مكوّناته بدل الاكتفاء بالرقم. المدرّس
+          الجديد تظهر درجته بحالة «قيد التكوين» حتى يُكمل ١٠ حصص ويحصل على ٣
           تقييمات — لا نعرض له صفراً، لأن قلّة البيانات ليست حكماً عليه.
         </p>
 

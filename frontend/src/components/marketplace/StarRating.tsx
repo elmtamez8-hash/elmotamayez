@@ -1,4 +1,5 @@
 import { StarIcon } from "@/components/icons";
+import { arabicDecimal, arabicNumber } from "@/lib/numerals";
 /**
  * Star rating with a text equivalent.
  *
@@ -34,14 +35,14 @@ export function StarRating({
         ))}
       </span>
       <span className={size === "lg" ? "text-base font-semibold" : "text-sm font-medium"}>
-        {value.toFixed(1)}
+        {arabicDecimal(value)}
       </span>
       {count !== undefined && (
-        <span className="text-sm text-ink-muted">({count})</span>
+        <span className="text-sm text-ink-muted">({arabicNumber(count)})</span>
       )}
       <span className="sr-only">
-        {`التقييم ${value.toFixed(1)} من 5`}
-        {count !== undefined ? ` بناءً على ${count} تقييماً` : ""}
+        {`التقييم ${arabicDecimal(value)} من ٥`}
+        {count !== undefined ? ` بناءً على ${arabicNumber(count)} تقييماً` : ""}
       </span>
     </span>
   );

@@ -66,19 +66,21 @@ function QuickStats({ stats }: { stats: TeacherDetail["stats"] }) {
     { label: "نسبة الحضور", value: stats.attendance_rate, suffix: "٪" },
   ];
 
+  // Four bordered boxes of big-number-small-label is the hero-metric template,
+  // and it was standing inside the «نبذة» tab as if these facts were part of the
+  // biography. They are facts about the teacher whichever tab is open, so they
+  // sit under the masthead — as a rule of figures separated by dividers, which
+  // is what a row of related numbers looks like when it is not four cards.
   return (
-    <dl className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-x-8 gap-y-5 sm:gap-x-12">
       {items.map((item) => (
-        <div
-          key={item.label}
-          className="rounded-xl border border-line p-4 text-center"
-        >
-          <dt className="order-2 text-xs text-ink-muted">{item.label}</dt>
-          <dd className="order-1 text-2xl font-extrabold text-primary-ink">
+        <div key={item.label} className="flex flex-col">
+          <dd className="text-2xl font-extrabold text-primary-ink">
             {item.value === null
               ? "—"
               : `${item.value.toLocaleString("ar-QA")}${item.suffix ?? ""}`}
           </dd>
+          <dt className="text-xs text-ink-muted">{item.label}</dt>
         </div>
       ))}
     </dl>
@@ -111,11 +113,17 @@ export default async function TeacherProfilePage({
   return (
     // pb-28 on mobile keeps the fixed booking bar from covering the last section.
     <div className="mx-auto max-w-7xl px-4 py-10 pb-28 sm:px-6 lg:pb-10">
-      {/* One page-level grid, not a header-scoped one: `sticky` only sticks inside
-          its containing block, so an aside nested in <header> scrolls away the
-          moment the header ends — which is exactly what FR-054 forbids. */}
-      <div className="grid gap-8 lg:grid-cols-[1fr_320px] lg:items-start">
-        <header className="flex flex-col gap-6 sm:flex-row lg:col-start-1 lg:row-start-1">
+      {/*
+        | The masthead spans the page; the two-column grid starts BELOW it.
+        |
+        | It used to be the first cell of a `[1fr_320px]` grid, which capped the
+        | teacher's name, headline, rating and subjects at two thirds of the
+        | width while a booking box with two buttons held the other third at the
+        | top of the page. The one thing every visitor is here to read was the
+        | narrower of the two.
+      */}
+      <header className="mb-8 flex flex-col gap-8 rounded-3xl border border-line bg-surface-raised p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-6 sm:flex-row">
           {teacher.photo_url ? (
             <img
               src={teacher.photo_url}
@@ -157,12 +165,12 @@ export default async function TeacherProfilePage({
             </div>
 
             {teacher.subjects.length > 0 && (
-              <ul className="flex flex-wrap gap-2">
+              <ul className="mb-4 flex flex-wrap gap-2">
                 {teacher.subjects.map((subject) => (
                   <li key={subject.slug}>
                     <Link
                       href={`/teachers?subject=${subject.slug}`}
-                      className="rounded-lg bg-primary-soft px-2.5 py-1 text-sm text-primary-ink hover:underline"
+                      className="inline-block rounded-full bg-primary-soft px-3 py-1 text-sm font-medium text-primary-ink transition duration-200 ease-out hover:brightness-95 active:scale-[0.97] active:duration-100"
                     >
                       {subject.name_ar}
                     </Link>
@@ -170,14 +178,37 @@ export default async function TeacherProfilePage({
                 ))}
               </ul>
             )}
-          </div>
-        </header>
 
+            {/* The stage was published by the API and shown nowhere. It is the
+                second thing a parent checks after the subject — «ثانوي» decides
+                whether this teacher is relevant at all. */}
+            {teacher.grade_levels.length > 0 && (
+              <p className="text-sm text-ink-muted">
+                يدرّس{" "}
+                {teacher.grade_levels.map((level) => level.name_ar).join(" · ")}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* The facts, INSIDE the masthead rather than in a strip beneath it.
+            They used to sit in the «نبذة» tab, which made "how many students has
+            he taught" a property of his biography rather than of him — and
+            moving them to their own full-width row left the masthead with an
+            empty half and the numbers floating under it. One block: who he is,
+            and what he has actually done. */}
+        <div className="shrink-0 border-t border-line pt-6 lg:border-s lg:border-t-0 lg:ps-10 lg:pt-0">
+          <h2 className="sr-only">إحصائيات المدرّس</h2>
+          <QuickStats stats={teacher.stats} />
+        </div>
+      </header>
+
+      <div className="grid gap-8 lg:grid-cols-[1fr_320px] lg:items-start">
         {/* Sticky booking panel (FR-054): spans both content rows so it stays put
             while the tabs scroll. On mobile it sits between the identity block and
             the tabs, which is where a price belongs on a phone. */}
-        <aside className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-24">
-          <div className="rounded-2xl border border-line bg-surface-raised p-6">
+        <aside className="lg:col-start-2 lg:row-start-1 lg:sticky lg:top-24">
+          <div className="rounded-3xl border border-line bg-surface-raised p-6">
             {/* ⚠️ The price is gone from this panel (spec 006, FR-021و · FR-021هـ).
                 It is not hidden pending a redesign: the platform is the seller
                 now, the student's total is computed per package on the purchase
@@ -192,13 +223,13 @@ export default async function TeacherProfilePage({
 
             <Link
               href={`/signup/student?teacher=${teacher.uuid}`}
-              className="mb-3 block rounded-xl bg-accent px-5 py-3 text-center text-base font-semibold text-accent-foreground transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="mb-3 block rounded-full bg-accent px-5 py-3 text-center text-base font-semibold text-accent-foreground transition duration-200 ease-out hover:brightness-105 active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               احجز الآن
             </Link>
             <Link
               href={`/signup/student?teacher=${teacher.uuid}&trial=1`}
-              className="block rounded-xl border border-primary px-5 py-3 text-center text-base font-semibold text-primary-ink transition hover:bg-primary-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              className="block rounded-full border border-primary px-5 py-3 text-center text-base font-semibold text-primary-ink transition duration-200 ease-out hover:bg-primary-soft active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               حجز حصة تجريبية
             </Link>
@@ -213,12 +244,26 @@ export default async function TeacherProfilePage({
               </p>
             )}
           </div>
+
+          {/* Under the booking panel, not beside the biography.
+              FR-024 and the product's third differentiator make the visible
+              factor breakdown load-bearing, so it stays on the first screen of
+              desktop — but as a 380px column nested inside an already-narrowed
+              content column it squeezed the bio to about 440px and read as the
+              page's subject. It belongs where the decision is made. */}
+          <div className="mt-6">
+            <TrustScoreBreakdown
+              score={teacher.trust_score}
+              band={teacher.trust_score_band}
+              factors={teacher.trust_score_factors}
+            />
+          </div>
         </aside>
 
-        <div className="lg:col-start-1 lg:row-start-2">
+        <div className="lg:col-start-1 lg:row-start-1">
           <ProfileTabs slug={teacher.slug ?? teacher.uuid} active={active}>
             {active === "about" && (
-              <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
+              <div>
                 <div className="space-y-8">
                   <section aria-labelledby="bio-heading">
                     <h2
@@ -254,22 +299,7 @@ export default async function TeacherProfilePage({
                     </section>
                   )}
 
-                  <section aria-labelledby="stats-heading">
-                    <h2
-                      id="stats-heading"
-                      className="mb-3 text-lg font-bold text-ink"
-                    >
-                      إحصائيات سريعة
-                    </h2>
-                    <QuickStats stats={teacher.stats} />
-                  </section>
                 </div>
-
-                <TrustScoreBreakdown
-                  score={teacher.trust_score}
-                  band={teacher.trust_score_band}
-                  factors={teacher.trust_score_factors}
-                />
               </div>
             )}
 
@@ -320,7 +350,7 @@ export default async function TeacherProfilePage({
           </p>
           <Link
             href={`/signup/student?teacher=${teacher.uuid}`}
-            className="flex-1 rounded-xl bg-accent px-5 py-3 text-center text-base font-semibold text-accent-foreground transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="flex-1 rounded-full bg-accent px-5 py-3 text-center text-base font-semibold text-accent-foreground transition duration-200 ease-out hover:brightness-105 active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             احجز الآن
           </Link>

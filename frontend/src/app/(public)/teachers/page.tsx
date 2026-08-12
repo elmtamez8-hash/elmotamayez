@@ -7,7 +7,11 @@ import {
   type TeacherCard as Teacher,
 } from "@/lib/public-api";
 import { TeacherCard } from "@/components/marketplace/TeacherCard";
-import { TeacherFilters } from "@/components/marketplace/TeacherFilters";
+import {
+  ActiveFilters,
+  TeacherFilters,
+} from "@/components/marketplace/TeacherFilters";
+import { SubjectPills } from "@/components/marketplace/SubjectPills";
 import { Pagination } from "@/components/ui/Pagination";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -77,49 +81,72 @@ export default async function TeachersPage({
     (key) => typeof params[key] === "string" && params[key] !== "",
   );
 
+  const query = toQuery(params);
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-      <header className="mb-8">
-        <h1 className="mb-2 text-3xl font-extrabold text-ink">المدرسون</h1>
+      {/*
+        | The sidebar is gone, and it was the page's central mistake.
+        |
+        | A 280px column of six identical dropdowns ran taller than the results
+        | it filtered — with five teachers seeded, two thirds of the page was
+        | empty space beside a form. Worse, it made SUBJECT (how a parent starts:
+        | "I need someone for physics") the second row of a control stack, no
+        | more prominent than "minimum trust score".
+        |
+        | So the axis comes first as pills, refinement sits under it in one bar,
+        | and the results get the whole width.
+      */}
+      <header className="mb-6">
+        <h1 className="mb-2 text-3xl font-extrabold text-ink sm:text-4xl">
+          المدرسون
+        </h1>
         <p className="text-ink-muted">
           {teachers.meta.total.toLocaleString("ar-QA")} مدرّس متاح
         </p>
       </header>
 
-      <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
-        {/* On mobile this becomes a collapsible panel rather than a sidebar; the
-            native <details> keeps it keyboard-operable with no extra JS. */}
-        <aside>
-          <details className="rounded-2xl border border-line bg-surface-raised p-5 lg:hidden" open={hasFilters}>
-            <summary className="cursor-pointer text-sm font-bold text-ink">
-              الفلاتر
-            </summary>
-            <div className="mt-5">
-              <TeacherFilters
-                subjects={subjects}
-                gradeLevels={gradeLevels}
-                idPrefix="m"
-              />
-            </div>
-          </details>
+      <div className="mb-6">
+        <h2 className="sr-only">تصفية حسب المادة</h2>
+        <SubjectPills subjects={subjects} params={query} />
+      </div>
 
-          <div className="hidden rounded-2xl border border-line bg-surface-raised p-5 lg:block">
-            <h2 className="mb-5 text-sm font-bold text-ink">الفلاتر</h2>
-            <TeacherFilters
-              subjects={subjects}
-              gradeLevels={gradeLevels}
-              idPrefix="d"
-            />
-          </div>
-        </aside>
+      {/* `open` on a filtered load, so arriving from a shared link shows what is
+          narrowing the list rather than hiding it behind a summary. */}
+      <details
+        open={hasFilters}
+        className="group mb-4 rounded-3xl border border-line bg-surface-raised px-5 py-4 lg:hidden"
+      >
+        <summary className="flex cursor-pointer items-center justify-between text-sm font-bold text-ink">
+          خيارات أدق
+          <span
+            className="text-ink-muted transition duration-200 group-open:rotate-180"
+            aria-hidden="true"
+          >
+            ▾
+          </span>
+        </summary>
+        <div className="mt-5">
+          <TeacherFilters gradeLevels={gradeLevels} idPrefix="m" />
+        </div>
+      </details>
 
-        <section aria-label="نتائج البحث عن المدرّسين">
+      <div className="mb-4 hidden rounded-3xl border border-line bg-surface-raised px-5 py-4 lg:block">
+        <h2 className="sr-only">خيارات تصفية أدق</h2>
+        <TeacherFilters gradeLevels={gradeLevels} idPrefix="d" />
+      </div>
+
+      <div className="mb-8">
+        <ActiveFilters subjects={subjects} gradeLevels={gradeLevels} />
+      </div>
+
+      <section aria-label="نتائج البحث عن المدرّسين">
           {teachers.data.length === 0 ? (
             <EmptyState
               title="لا يوجد مدرّسون مطابقون لبحثك"
               description={
                 hasFilters
-                  ? "جرّب توسيع نطاق السعر أو إزالة أحد الفلاتر للحصول على نتائج أكثر."
+                  ? "جرّب اختيار مادة أخرى أو إزالة أحد الفلاتر للحصول على نتائج أكثر."
                   : "لم ينضم مدرّسون إلى المنصة بعد. إن كنت مدرّساً، يمكنك التقديم الآن."
               }
               action={
@@ -142,7 +169,7 @@ export default async function TeachersPage({
             />
           ) : (
             <>
-              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {teachers.data.map((teacher) => (
                   <TeacherCard key={teacher.uuid} teacher={teacher} />
                 ))}
@@ -155,8 +182,7 @@ export default async function TeachersPage({
               />
             </>
           )}
-        </section>
-      </div>
+      </section>
     </div>
   );
 }

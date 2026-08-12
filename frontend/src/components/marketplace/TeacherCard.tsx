@@ -51,9 +51,19 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
               <CheckIcon className="h-4 w-4 shrink-0 text-secondary-ink" />
             )}
           </h3>
-          <p className="truncate text-sm text-ink-muted">{teacher.headline}</p>
+          {/* Two lines, not `truncate`. The headline is the teacher's own pitch
+              and the only line that tells two maths teachers apart — cutting it
+              mid-word at «مدرّس رياضيات وفيزياء للمر…» removed the differentiator
+              from every card on the page. Clamped rather than free so a long one
+              cannot push the buttons out of alignment across a row. */}
+          <p className="line-clamp-2 text-sm leading-snug text-ink-muted">
+            {teacher.headline}
+          </p>
           <p className="mt-1 text-xs text-ink-muted">
-            {teacher.years_experience} سنوات خبرة
+            {teacher.years_experience.toLocaleString("ar-QA")} سنوات خبرة
+            {teacher.grade_levels.length > 0 && (
+              <> · {teacher.grade_levels.map((level) => level.name_ar).join(" · ")}</>
+            )}
           </p>
         </div>
       </div>
@@ -85,18 +95,22 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
         </ul>
       )}
 
+      {/* One filled action, one quiet one. Two buttons of equal weight make the
+          visitor choose between them before choosing a teacher; the trial is
+          what this page is for, and the profile is already reachable from the
+          name above. Pills, matching every other control in the world. */}
       <div className="mt-auto flex gap-2 pt-4">
         <Link
-          href={profileHref}
-          className="flex-1 rounded-xl border border-line px-3 py-2.5 text-center text-sm font-semibold text-ink transition hover:border-primary hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        >
-          عرض الملف
-        </Link>
-        <Link
           href={`/signup/student?teacher=${teacher.uuid}`}
-          className="flex-1 rounded-xl bg-accent px-3 py-2.5 text-center text-sm font-semibold text-accent-foreground transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="flex-[1.4] rounded-full bg-accent px-3 py-2.5 text-center text-sm font-semibold text-accent-foreground transition duration-200 ease-out hover:brightness-105 active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           حصة تجريبية
+        </Link>
+        <Link
+          href={profileHref}
+          className="flex-1 rounded-full border border-line px-3 py-2.5 text-center text-sm font-semibold text-ink transition duration-200 ease-out hover:border-primary hover:text-primary-ink active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          عرض الملف
         </Link>
       </div>
     </article>

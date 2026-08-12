@@ -240,6 +240,20 @@
   animation: float-in 0.22s ease-out;
 }
 
+/* A horizontal scroller whose own scrollbar is noise.
+   The subject pills scroll sideways below `sm`; the cut-off pill at the edge is
+   already the affordance, and on a phone the bar is an overlay that fades. It is
+   only ever painted on a desktop browser dragged narrow, where it reads as an
+   unfinished element rather than a control. Scrolling itself is untouched —
+   wheel, drag, and keyboard all still work. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

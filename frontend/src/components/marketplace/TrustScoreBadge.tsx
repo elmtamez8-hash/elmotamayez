@@ -1,5 +1,6 @@
 import { TrustShieldIcon } from "@/components/icons";
 import type { TrustBand } from "@/lib/public-api";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * Compact trust score chip.
@@ -53,14 +54,14 @@ export function TrustScoreBadge({
         <span>{style.label}</span>
       ) : (
         <span>
-          {score}
+          {arabicNumber(score)}
           <span className="opacity-70">٪</span>
         </span>
       )}
       <span className="sr-only">
         {score === null
           ? "درجة الثقة قيد التكوين — لم تتوفّر بيانات كافية بعد"
-          : `درجة الثقة ${score} من 100، ${style.label}`}
+          : `درجة الثقة ${arabicNumber(score)} من ١٠٠، ${style.label}`}
       </span>
     </span>
   );
