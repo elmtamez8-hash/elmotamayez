@@ -22,7 +22,9 @@ function Initials({ name }: { name: string }) {
 }
 
 export function TeacherCard({ teacher }: { teacher: Teacher }) {
-  const profileHref = `/teachers/${teacher.uuid}`;
+  // slug, falling back to uuid — the API resolves either, so a profile whose
+  // slug has not been generated yet still links somewhere real.
+  const profileHref = `/teachers/${teacher.slug ?? teacher.uuid}`;
 
   return (
     <article className="flex flex-col rounded-2xl border border-line bg-surface-raised p-5 transition hover:border-primary/40 hover:shadow-lg">

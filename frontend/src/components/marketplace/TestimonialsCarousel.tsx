@@ -14,7 +14,7 @@ type Testimonial = {
   rating: number;
   comment: string;
   created_at: string;
-  teacher_uuid: string | null;
+  teacher_slug: string | null;
   teacher_name: string | null;
   teacher_photo_url: string | null;
 };
@@ -80,7 +80,7 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
           <figcaption className="flex flex-col items-center gap-3">
             {item.teacher_name && (
               <Link
-                href={item.teacher_uuid ? `/teachers/${item.teacher_uuid}` : "/teachers"}
+                href={item.teacher_slug ? `/teachers/${item.teacher_slug}` : "/teachers"}
                 className="flex items-center gap-3 rounded-full py-1 ps-1 pe-4 transition hover:bg-primary-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 {item.teacher_photo_url ? (

@@ -101,11 +101,11 @@ class PublicMarketplaceController extends Controller
         return response()->json($payload);
     }
 
-    public function teacher(string $uuid, ShowPublicTeacher $action): JsonResponse
+    public function teacher(string $key, ShowPublicTeacher $action): JsonResponse
     {
         // Not cached: reads are cheaper here than on the lists, and a stale profile
         // is the case where showing withdrawn data hurts most.
-        $teacher = $action->handle($uuid);
+        $teacher = $action->handle($key);
 
         $payload = PublicTeacherDetailResource::make($teacher)->resolve();
         $payload['courses'] = PublicCourseCardResource::collection($action->coursesOf($teacher))->resolve();

@@ -58,6 +58,9 @@ final class PublicFieldAllowlist
     /** @var list<string> */
     public const TEACHER_CARD = [
         'uuid',
+        // The public URL segment. `uuid` stays: it is still the key every
+        // write endpoint takes, and the old profile URLs still resolve by it.
+        'slug',
         'name',
         'headline',
         'photo_url',
@@ -197,7 +200,7 @@ final class PublicFieldAllowlist
         'rating',
         'comment',
         'created_at',
-        'teacher_uuid',
+        'teacher_slug',
         'teacher_name',
         'teacher_photo_url',
     ];

@@ -66,7 +66,7 @@ export function CourseCard({ course }: { course: Course }) {
         <h3 className="text-base font-bold leading-snug text-ink">
           {course.teacher ? (
             <Link
-              href={`/teachers/${course.teacher.uuid}?tab=courses`}
+              href={`/teachers/${course.teacher.slug ?? course.teacher.uuid}?tab=courses`}
               className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               {course.title}
@@ -78,7 +78,7 @@ export function CourseCard({ course }: { course: Course }) {
 
         {course.teacher && (
           <Link
-            href={`/teachers/${course.teacher.uuid}`}
+            href={`/teachers/${course.teacher.slug ?? course.teacher.uuid}`}
             className="flex items-center gap-2 text-sm text-ink-muted hover:text-primary-ink"
           >
             {course.teacher.photo_url ? (

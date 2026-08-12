@@ -123,6 +123,11 @@ class MarketplaceSeeder extends Seeder
                         'teaching_languages' => ['ar', 'en'],
                         'is_verified' => $demo['verified'],
                         'photo_path' => $this->publishAsset('teachers', $demo['photo']),
+                        // Hand-written, overriding TeacherSlug's generated
+                        // `ahmd-almnswry`: Arabic writes no short vowels, so the
+                        // transliterator cannot recover them. This is what the
+                        // column is fillable FOR, and the demo proves it works.
+                        'slug' => $demo['slug'],
                     ]);
 
                 // One teacher is left with no score so the "building" state is
@@ -354,6 +359,7 @@ class MarketplaceSeeder extends Seeder
             'score' => 91, 'sessions' => 640, 'reviews' => 48, 'rating' => 4.8,
             'subjects' => ['math', 'physics'], 'levels' => ['secondary', 'university'],
             'photo' => 'ahmed-almansouri.webp',
+            'slug' => 'ahmed-almansouri',
             'course' => ['title' => 'الرياضيات للثانوية العامة — الفصل الأول', 'price' => '750.00', 'price_before' => '950.00', 'type' => 'group', 'hours' => 24, 'cover' => 'mathematics.webp'],
             'availability' => [[0, '13:00:00', '17:00:00'], [2, '13:00:00', '17:00:00'], [4, '10:00:00', '14:00:00']],
         ],
@@ -366,6 +372,7 @@ class MarketplaceSeeder extends Seeder
             'score' => 84, 'sessions' => 410, 'reviews' => 31, 'rating' => 4.6,
             'subjects' => ['arabic', 'islamic-studies'], 'levels' => ['primary', 'preparatory'],
             'photo' => 'fatima-alhashimi.webp',
+            'slug' => 'fatima-alhashimi',
             'course' => ['title' => 'النحو العربي المبسّط', 'price' => '400.00', 'price_before' => null, 'type' => 'individual', 'hours' => 12, 'cover' => 'arabic-grammar.webp'],
             'availability' => [[1, '14:00:00', '18:00:00'], [3, '14:00:00', '18:00:00']],
         ],
@@ -378,6 +385,7 @@ class MarketplaceSeeder extends Seeder
             'score' => 76, 'sessions' => 180, 'reviews' => 14, 'rating' => 4.3,
             'subjects' => ['chemistry', 'biology'], 'levels' => ['secondary', 'university'],
             'photo' => 'sara-alotaibi.webp',
+            'slug' => 'sara-alotaibi',
             'course' => ['title' => 'الكيمياء العضوية من الصفر', 'price' => '620.00', 'price_before' => null, 'type' => 'recorded', 'hours' => 18, 'cover' => 'chemistry.webp'],
             'availability' => [[5, '09:00:00', '13:00:00'], [6, '09:00:00', '13:00:00']],
         ],
@@ -391,6 +399,7 @@ class MarketplaceSeeder extends Seeder
             'score' => null, 'sessions' => 4, 'reviews' => 1, 'rating' => null,
             'subjects' => ['english'], 'levels' => ['preparatory', 'secondary'],
             'photo' => 'khaled-aldosari.webp',
+            'slug' => 'khaled-aldosari',
             'course' => ['title' => 'اللغة الإنجليزية للمحادثة — مستوى متوسط', 'price' => '480.00', 'price_before' => '600.00', 'type' => 'group', 'hours' => 16, 'cover' => 'english.webp'],
             'availability' => [[0, '18:00:00', '21:00:00'], [3, '18:00:00', '21:00:00']],
         ],
@@ -403,6 +412,7 @@ class MarketplaceSeeder extends Seeder
             'score' => 68, 'sessions' => 95, 'reviews' => 9, 'rating' => 4.0,
             'subjects' => ['computer-science', 'math'], 'levels' => ['preparatory', 'secondary'],
             'photo' => 'mona-albalushi.webp',
+            'slug' => 'mona-albalushi',
             'course' => ['title' => 'أساسيات البرمجة بلغة بايثون', 'price' => '890.00', 'price_before' => null, 'type' => 'recorded', 'hours' => 30, 'cover' => 'python.webp'],
             'availability' => [[1, '16:00:00', '20:00:00'], [4, '16:00:00', '20:00:00']],
         ],

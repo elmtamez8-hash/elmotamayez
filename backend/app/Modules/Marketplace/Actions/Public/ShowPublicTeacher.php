@@ -20,7 +20,20 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class ShowPublicTeacher extends Action
 {
-    public function handle(string $uuid): TeacherProfile
+    /**
+     * Resolve by slug, and by uuid as well.
+     *
+     * The uuid was the public URL until the slug replaced it, so every link
+     * already shared — a WhatsApp message, a bookmark, a search result — is a
+     * uuid. Refusing it turns a rename of the URL scheme into a wave of 404s on
+     * pages that still exist. The page redirects to the canonical slug so only
+     * one of the two is ever indexed.
+     *
+     * One `orWhere`, not a shape test on the string: a uuid is recognisable, but
+     * a rule that decides which column to search from the FORM of the input is
+     * one malformed uuid away from silently searching the wrong one.
+     */
+    public function handle(string $key): TeacherProfile
     {
         $teacher = TeacherProfile::query()
             ->publiclyListed()
@@ -30,7 +43,10 @@ class ShowPublicTeacher extends Action
                 'gradeLevels',
                 'availabilitySlots',
             ])
-            ->where('teacher_profiles.uuid', $uuid)
+            ->where(function ($query) use ($key): void {
+                $query->where('teacher_profiles.slug', $key)
+                    ->orWhere('teacher_profiles.uuid', $key);
+            })
             ->first();
 
         if ($teacher === null) {

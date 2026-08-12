@@ -1,7 +1,7 @@
 import { CheckIcon } from "@/components/icons";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { publicApi, NotFoundError, type TeacherDetail } from "@/lib/public-api";
 import { StarRating } from "@/components/marketplace/StarRating";
 import { TrustScoreBadge } from "@/components/marketplace/TrustScoreBadge";
@@ -17,12 +17,15 @@ import {
   type ProfileTabId,
 } from "@/components/marketplace/ProfileTabs";
 
-type Params = { uuid: string };
+type Params = { slug: string };
 type Search = { tab?: string };
 
-async function loadTeacher(uuid: string): Promise<TeacherDetail> {
+// `key` because the API resolves a slug OR a uuid: every profile link shared
+// before the slug existed is a uuid, and refusing those would 404 pages that
+// still exist.
+async function loadTeacher(key: string): Promise<TeacherDetail> {
   try {
-    const { data } = await publicApi.teacher(uuid);
+    const { data } = await publicApi.teacher(key);
 
     return data;
   } catch (error) {
@@ -39,10 +42,10 @@ export async function generateMetadata({
 }: {
   params: Promise<Params>;
 }): Promise<Metadata> {
-  const { uuid } = await params;
+  const { slug } = await params;
 
   try {
-    const teacher = await loadTeacher(uuid);
+    const teacher = await loadTeacher(slug);
 
     return {
       title: `${teacher.name} — ${teacher.headline ?? "مدرّس"}`,
@@ -89,11 +92,21 @@ export default async function TeacherProfilePage({
   params: Promise<Params>;
   searchParams: Promise<Search>;
 }) {
-  const { uuid } = await params;
+  const { slug } = await params;
   const { tab } = await searchParams;
 
-  const teacher = await loadTeacher(uuid);
+  const teacher = await loadTeacher(slug);
   const active: ProfileTabId = isProfileTab(tab) ? tab : "about";
+
+  // 308 to the canonical slug when the visitor arrived on the old uuid URL.
+  // Serving the same profile at two addresses splits its ranking between them
+  // and is the reason a redirect is permanent rather than a rewrite: the search
+  // engine has to be told which of the two to keep.
+  if (teacher.slug && decodeURIComponent(slug) !== teacher.slug) {
+    permanentRedirect(
+      `/teachers/${teacher.slug}${active === "about" ? "" : `?tab=${active}`}`,
+    );
+  }
 
   return (
     // pb-28 on mobile keeps the fixed booking bar from covering the last section.
@@ -203,7 +216,7 @@ export default async function TeacherProfilePage({
         </aside>
 
         <div className="lg:col-start-1 lg:row-start-2">
-          <ProfileTabs uuid={teacher.uuid} active={active}>
+          <ProfileTabs slug={teacher.slug ?? teacher.uuid} active={active}>
             {active === "about" && (
               <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
                 <div className="space-y-8">

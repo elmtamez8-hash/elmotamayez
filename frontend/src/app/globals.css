@@ -27,17 +27,25 @@
   --color-primary: #8a1538;
   --color-primary-soft: #f7ebef;
   --color-secondary: #14785a;
-  --color-accent: #b8873a;
+  /* ⚠️ Darkened from #b8873a — the same hue and saturation, 9% less lightness —
+     so the accent can carry WHITE text, which is what the owner asked for.
+     White on #b8873a is 3.20:1 and fails FR-081's 4.5:1 floor for the 14px
+     semibold label on «حصة تجريبية»; on this it is 4.66:1. The pairing was the
+     constraint, not the swatch: keeping the lighter brass would have meant
+     either black text or a button that fails an audit. */
+  --color-accent: #956d2f;
   /* ⚠️ Danger must not read as the brand. Maroon is a wine red at ~345°; this
      is a rust red at ~12°, dark enough to carry white text at 6.6:1, which the
      old #e85c5c never did (3.2:1 — the rule allowed a pairing that failed). */
   --color-danger: #a8321f;
 
   /* Foreground colours to pair with the fills above.
-     accent/#b8873a (brass) reaches 2.9:1 against white and trust-medium/#c89b2e
-     2.6:1 — both below the 4.5:1 floor in FR-081 — so their paired foreground
-     is the warm ink, never white. */
-  --color-accent-foreground: #2a2224;
+     The brass now carries white (4.66:1) because the FILL was darkened to earn
+     it — see the note on --color-accent. trust-medium/#c89b2e was not: it is a
+     band colour on a badge, its meaning is the hue itself, and darkening it
+     would move it toward the "low" band it has to be distinguishable from. So
+     it keeps the warm ink at 2.6:1-against-white avoided rather than accepted. */
+  --color-accent-foreground: #ffffff;
   --color-trust-medium-foreground: #2a2224;
 
   /* Brand hues used as TEXT, darkened until they clear 4.5:1 on the light surface

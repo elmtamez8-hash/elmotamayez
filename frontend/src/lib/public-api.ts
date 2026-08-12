@@ -24,6 +24,9 @@ export type Taxonomy = {
 
 export type TeacherCard = {
   uuid: string;
+  // The public URL segment. `uuid` stays because the write endpoints — posting
+  // a review, pre-filling signup — are still keyed by it.
+  slug: string | null;
   name: string;
   headline: string | null;
   photo_url: string | null;
@@ -66,7 +69,12 @@ export type CourseCard = {
   uuid: string;
   title: string;
   cover_url: string | null;
-  teacher: { uuid: string; name: string; photo_url: string | null } | null;
+  teacher: {
+    uuid: string;
+    slug: string | null;
+    name: string;
+    photo_url: string | null;
+  } | null;
   type: "individual" | "group" | "recorded";
   lessons_count: number;
   duration_seconds: number;
@@ -135,7 +143,7 @@ export type HomePayload = {
     created_at: string;
     // The teacher the review is ABOUT. The reviewer stays initials-only —
     // PublicFieldAllowlist::REVIEW carries the reason.
-    teacher_uuid: string | null;
+    teacher_slug: string | null;
     teacher_name: string | null;
     teacher_photo_url: string | null;
   }[];
@@ -184,8 +192,12 @@ export const publicApi = {
   teachers: (params: Record<string, string | undefined>) =>
     get<Paginated<TeacherCard>>("/marketplace/teachers", params),
 
-  teacher: (uuid: string) =>
-    get<{ data: TeacherDetail }>(`/marketplace/teachers/${uuid}`),
+  // Accepts a slug or a uuid: the API resolves both, and an old shared link
+  // is a uuid.
+  teacher: (key: string) =>
+    get<{ data: TeacherDetail }>(
+      `/marketplace/teachers/${encodeURIComponent(key)}`,
+    ),
 
   courses: (params: Record<string, string | undefined>) =>
     get<Paginated<CourseCard>>("/marketplace/courses", params),

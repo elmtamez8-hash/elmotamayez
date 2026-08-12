@@ -25,6 +25,7 @@ class PublicTeacherCardResource extends JsonResource
     {
         return [
             'uuid' => $this->uuid,
+            'slug' => $this->slug,
             'name' => $this->user?->name,
             'headline' => $this->headline,
             'photo_url' => $this->photo_path === null ? null : asset('storage/'.$this->photo_path),

@@ -73,7 +73,7 @@ class PublicCourseCardResource extends JsonResource
      * `publiclyListed()` here would be one query per card, and a Resource runs
      * once per row.
      *
-     * @return array{uuid: string, name: string, photo_url: string|null}|null
+     * @return array{uuid: string, slug: string|null, name: string, photo_url: string|null}|null
      */
     private function teacherByline(): ?array
     {
@@ -96,6 +96,7 @@ class PublicCourseCardResource extends JsonResource
             // The uuid, never a raw created_by: a public payload carries no
             // internal id, and the uuid is what links the card to the profile.
             'uuid' => (string) $profile->uuid,
+            'slug' => $profile->slug,
             'name' => $creator->name,
             'photo_url' => $profile->photo_path === null ? null : asset('storage/'.$profile->photo_path),
         ];

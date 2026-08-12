@@ -95,11 +95,11 @@ class GetMarketplaceHome extends Action
      * On launch day this returns an empty list and the section does not render.
      * That is the honest state, and it is the one the carousel already handles.
      *
-     * Each quote carries the teacher it is ABOUT — name, photo and uuid — so the
+     * Each quote carries the teacher it is ABOUT — name, photo and slug — so the
      * card has a face without publishing the reviewer's. See the note on
      * PublicFieldAllowlist::REVIEW for why that direction is the only one open.
      *
-     * @return list<array{student_display_name: string, rating: int, comment: string, created_at: string, teacher_uuid: string|null, teacher_name: string|null, teacher_photo_url: string|null}>
+     * @return list<array{student_display_name: string, rating: int, comment: string, created_at: string, teacher_slug: string|null, teacher_name: string|null, teacher_photo_url: string|null}>
      */
     private function testimonials(): array
     {
@@ -133,7 +133,7 @@ class GetMarketplaceHome extends Action
                     'rating' => $review->rating,
                     'comment' => (string) $review->comment,
                     'created_at' => $review->created_at?->toIso8601String() ?? '',
-                    'teacher_uuid' => $profile?->uuid,
+                    'teacher_slug' => $profile?->slug,
                     'teacher_name' => $profile?->user?->name,
                     'teacher_photo_url' => $profile?->photo_path === null
                         ? null

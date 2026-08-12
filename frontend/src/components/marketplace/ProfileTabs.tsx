@@ -22,11 +22,11 @@ export function isProfileTab(value: unknown): value is ProfileTabId {
  * reload, so the interaction still feels like a tab switch.
  */
 export function ProfileTabs({
-  uuid,
+  slug,
   active,
   children,
 }: {
-  uuid: string;
+  slug: string;
   active: ProfileTabId;
   children: ReactNode;
 }) {
@@ -41,7 +41,7 @@ export function ProfileTabs({
               return (
                 <li key={tab.id}>
                   <Link
-                    href={`/teachers/${uuid}?tab=${tab.id}`}
+                    href={`/teachers/${slug}?tab=${tab.id}`}
                     scroll={false}
                     aria-current={isActive ? "page" : undefined}
                     className={`inline-block whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary ${

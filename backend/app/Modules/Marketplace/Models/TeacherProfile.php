@@ -6,6 +6,7 @@ namespace App\Modules\Marketplace\Models;
 
 use App\Models\BaseModel;
 use App\Models\User;
+use App\Modules\Marketplace\Support\TeacherSlug;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use App\Shared\Traits\IsPubliclyListed;
@@ -25,6 +26,7 @@ use Illuminate\Support\Carbon;
  * `timestamp` reads as string and would hide the Carbon API behind it.
  *
  * @property string $approval_status
+ * @property string|null $slug
  * @property string|null $search_name
  * @property bool $is_publicly_listed
  * @property bool $is_verified
@@ -68,6 +70,10 @@ class TeacherProfile extends BaseModel
     protected $fillable = [
         'workspace_id',
         'user_id',
+        // Fillable on purpose: the generated value is a consonant skeleton
+        // («أحمد المنصوري» → `ahmd-almnswry`) and someone has to be able to
+        // correct it. TeacherSlug carries the reason it cannot do better.
+        'slug',
         'headline',
         'bio',
         'qualifications',
@@ -155,6 +161,15 @@ class TeacherProfile extends BaseModel
             // nobody asked for.
             if ($profile->search_name === null || $profile->isDirty('user_id')) {
                 $profile->syncSearchName();
+            }
+
+            // Filled once and then left alone. A slug that follows a renamed
+            // teacher is a public URL that dies silently — every link already
+            // shared to it 404s, and the search engine that indexed it drops the
+            // page. Renaming is a request to change an address, not a side
+            // effect of correcting a spelling.
+            if ($profile->slug === null && $profile->search_name !== null) {
+                $profile->slug = TeacherSlug::for($profile->search_name, $profile->getKey());
             }
         });
     }
