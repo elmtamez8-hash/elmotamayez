@@ -19,43 +19,53 @@ import {
   IconArrowUp,
   IconBell,
   IconBook2,
-  IconChevronDown,
-  IconChevronLeft,
-  IconChevronRight,
-  IconChevronUp,
-  IconMenu2,
-  IconMoodEmpty,
-  IconMoon,
-  IconSearch,
-  IconStarFilled,
-  IconSun,
   IconBrandInstagram,
   IconBrandWhatsapp,
   IconBrandX,
   IconBrandYoutube,
   IconBuilding,
   IconBuildingBank,
+  IconCalendarCheck,
   IconCalendarEvent,
   IconCalendarTime,
   IconCertificate,
+  IconChartLine,
   IconCheck,
+  IconChevronDown,
+  IconChevronLeft,
+  IconChevronRight,
+  IconChevronUp,
+  IconClipboardList,
   IconClipboardText,
   IconCoins,
+  IconDiscountOff,
   IconFileText,
   IconHome,
+  IconInfinity,
   IconInfoCircle,
   IconLogout,
+  IconMenu2,
+  IconMoodEmpty,
+  IconMoon,
   IconReceipt2,
+  IconReceiptOff,
   IconReceiptRefund,
+  IconRepeatOff,
   IconSchool,
+  IconSearch,
   IconSettings,
   IconShieldCheck,
+  IconShieldLock,
   IconShoppingBag,
+  IconStarFilled,
+  IconSun,
   IconTag,
   IconTrash,
   IconUserPlus,
+  IconUserSearch,
   IconUsers,
   IconUsersGroup,
+  IconWallet,
   IconX,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
@@ -171,3 +181,26 @@ export const TrustShieldIcon = wrap(IconShieldCheck, "h-3.5 w-3.5");
  * star at 14px reads as "empty" and this component draws both states.
  */
 export const StarIcon = wrap(IconStarFilled, "h-4 w-4");
+
+/*
+| Marketing-page vocabulary.
+|--------------------------------------------------------------------------
+| The public pricing and about pages describe how the money and the vetting
+| actually work, and a wall of paragraphs is not readable on a phone. These
+| name the IDEA each block carries, not the picture — `NoSubscriptionIcon`
+| survives a change of glyph, `RepeatOffIcon` would not.
+|
+| The three "no" icons are the crossed-out variants deliberately: the page's
+| strongest claim is what it does NOT charge, and a wallet with a line through
+| it says that before the sentence under it is read.
+*/
+export const WalletIcon = wrap(IconWallet, "h-5 w-5");
+export const SessionChargedIcon = wrap(IconCalendarCheck, "h-5 w-5");
+export const NeverExpiresIcon = wrap(IconInfinity, "h-5 w-5");
+export const NoSubscriptionIcon = wrap(IconRepeatOff, "h-5 w-5");
+export const NoSignupFeeIcon = wrap(IconReceiptOff, "h-5 w-5");
+export const NoCommissionIcon = wrap(IconDiscountOff, "h-5 w-5");
+export const ApplicationIcon = wrap(IconClipboardList, "h-5 w-5");
+export const HumanReviewIcon = wrap(IconUserSearch, "h-5 w-5");
+export const SecureChannelIcon = wrap(IconShieldLock, "h-5 w-5");
+export const OngoingReviewIcon = wrap(IconChartLine, "h-5 w-5");
