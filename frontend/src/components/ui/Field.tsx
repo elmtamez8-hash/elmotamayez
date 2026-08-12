@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ReactNode, SelectHTMLAttributes } from "react";
+import { ChevronDownIcon } from "@/components/icons";
 
 /**
  * Form controls, wired for accessibility by construction.
@@ -184,6 +185,58 @@ export function TextareaField(
   );
 }
 
+/**
+ * A styled `<select>` with a direction-aware chevron.
+ *
+ * ⚠️ THE NATIVE ARROW IS TURNED OFF, and that is the whole point of this
+ * component existing. Every browser draws its own control at the inline end,
+ * hard against the border with no padding of its own, and none of them let CSS
+ * move it — so on an RTL page the arrow sat glued to the left edge of a pill
+ * whose text had 1rem of breathing room on the right. Thirteen selects across
+ * the app each reproduced it.
+ *
+ * `appearance-none` removes it; the icon below is an absolutely positioned
+ * element using `end-3` — Tailwind's alias for `inset-inline-end`, a LOGICAL
+ * property. It sits on the
+ * left in Arabic and moves to the right by itself the day a second direction
+ * ships — there is no `dir` check here and there must never be one, because a
+ * direction read in JavaScript is a direction that is wrong during the first
+ * paint.
+ *
+ * `pointer-events-none` on the icon: it is decoration over a real control, and
+ * a click that lands on it must still open the menu.
+ */
+export function Select({
+  className = "",
+  chevron = "md",
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement> & {
+  /**
+   * How much room the icon gets. `sm` is for controls already running on tight
+   * padding — the player's speed picker is `px-2 py-1`, and a 2.5rem lane on a
+   * 2-character option is most of the control.
+   */
+  chevron?: "sm" | "md";
+}) {
+  const room = chevron === "sm" ? "pe-7" : "pe-10";
+  const place = chevron === "sm" ? "end-1.5 h-3.5 w-3.5" : "end-3 h-4 w-4";
+
+  return (
+    <div className="relative">
+      <select
+        {...props}
+        // The end padding reserves the icon's lane, so a long option label
+        // cannot run underneath it.
+        className={`${className} appearance-none ${room}`}
+      />
+      <ChevronDownIcon
+        className={`pointer-events-none absolute ${place} top-1/2 -translate-y-1/2 text-ink-muted`}
+        aria-hidden="true"
+      />
+    </div>
+  );
+}
+
 export function SelectField(
   props: Shared & {
     value: string;
@@ -201,7 +254,7 @@ export function SelectField(
 
   return (
     <Field {...props}>
-      <select
+      <Select
         id={id}
         name={id}
         value={value}
@@ -217,7 +270,7 @@ export function SelectField(
             {o.label}
           </option>
         ))}
-      </select>
+      </Select>
     </Field>
   );
 }

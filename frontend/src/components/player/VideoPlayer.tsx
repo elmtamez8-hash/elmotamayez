@@ -6,6 +6,7 @@ import { TranscriptPanel } from "@/components/player/TranscriptPanel";
 import { Watermark } from "@/components/player/Watermark";
 import { Alert } from "@/components/ui/Alert";
 import { type PlaybackGrant } from "@/lib/media";
+import { Select } from "@/components/ui/Field";
 
 /**
  * A native <video> element, and deliberately nothing more.
@@ -106,8 +107,9 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
         <label htmlFor="playback-speed" className="text-sm text-ink-muted">
           سرعة العرض
         </label>
-        <select
+        <Select
           id="playback-speed"
+          chevron="sm"
           value={speed}
           onChange={(e) => {
             const rate = Number(e.target.value);
@@ -121,7 +123,7 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
               {rate}×
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       {transcript !== undefined && (

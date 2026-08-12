@@ -1,6 +1,7 @@
 "use client";
 
 import { COUNTRIES } from "@/lib/countries";
+import { Select } from "./Field";
 
 /**
  * Dial code + national number, emitting one E.164 string.
@@ -33,7 +34,7 @@ export function PhoneInput({
       </label>
 
       <div className="flex gap-2">
-        <select
+        <Select
           value={dial}
           onChange={(event) => onDialChange(event.target.value)}
           aria-label="رمز الدولة"
@@ -44,7 +45,7 @@ export function PhoneInput({
               {country.dial} {country.name_ar}
             </option>
           ))}
-        </select>
+        </Select>
 
         <input
           id={id}

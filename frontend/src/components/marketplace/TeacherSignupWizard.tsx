@@ -8,6 +8,7 @@ import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import type { Taxonomy } from "@/lib/public-api";
 import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
 import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/ui/Field";
 
 const FIELD =
   "w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
@@ -371,7 +372,7 @@ export function TeacherSignupWizard({
               <label htmlFor="t-country" className="mb-1 block text-sm font-medium text-ink">
                 الدولة
               </label>
-              <select
+              <Select
                 id="t-country"
                 value={account.country}
                 onChange={(e) => setAccount({ ...account, country: e.target.value })}
@@ -382,7 +383,7 @@ export function TeacherSignupWizard({
                     {country.name_ar}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div>
@@ -648,7 +649,7 @@ export function TeacherSignupWizard({
                 <li key={index} className="flex flex-wrap items-end gap-2">
                   <label className="flex-1">
                     <span className="sr-only">اليوم</span>
-                    <select
+                    <Select
                       value={slot.day_of_week}
                       onChange={(e) =>
                         setSlots(slots.map((s, i) =>
@@ -662,7 +663,7 @@ export function TeacherSignupWizard({
                           {day}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
 
                   <label>

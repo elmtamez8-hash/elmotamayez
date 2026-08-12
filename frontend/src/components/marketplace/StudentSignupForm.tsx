@@ -9,6 +9,7 @@ import { homePathFor } from "@/lib/auth-context";
 import type { Taxonomy } from "@/lib/public-api";
 import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
 import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/ui/Field";
 
 const FIELD_CLASS =
   "w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
@@ -176,7 +177,7 @@ export function StudentSignupForm({
 
       <div className="grid gap-5 sm:grid-cols-2">
         <Field id="country" label="الدولة" error={errors.country}>
-          <select
+          <Select
             id="country"
             value={form.country}
             onChange={(e) => set("country", e.target.value)}
@@ -187,11 +188,11 @@ export function StudentSignupForm({
                 {country.name_ar}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
 
         <Field id="grade_level_slug" label="المرحلة الدراسية" error={errors.grade_level_slug}>
-          <select
+          <Select
             id="grade_level_slug"
             value={form.grade_level_slug}
             onChange={(e) => set("grade_level_slug", e.target.value)}
@@ -203,7 +204,7 @@ export function StudentSignupForm({
                 {level.name_ar}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
       </div>
 

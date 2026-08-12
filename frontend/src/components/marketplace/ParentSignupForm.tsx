@@ -7,6 +7,7 @@ import { auth, setToken, setSessionUuid, errorMessage, fieldErrors } from "@/lib
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
 import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/ui/Field";
 
 const FIELD_CLASS =
   "w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
@@ -161,7 +162,7 @@ export function ParentSignupForm() {
       />
 
       <Field id="country" label="الدولة" error={errors.country}>
-        <select
+        <Select
           id="country"
           value={form.country}
           onChange={(e) => set("country", e.target.value)}
@@ -172,7 +173,7 @@ export function ParentSignupForm() {
               {country.name_ar}
             </option>
           ))}
-        </select>
+        </Select>
       </Field>
 
       <div className="grid gap-5 sm:grid-cols-2">

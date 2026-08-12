@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTransition } from "react";
 import { CloseIcon } from "@/components/icons";
+import { Select } from "@/components/ui/Field";
 import type { Taxonomy } from "@/lib/public-api";
 
 /**
@@ -106,7 +107,7 @@ export function TeacherFilters({
         <label htmlFor={id("grade_level")} className={labelClass}>
           المرحلة
         </label>
-        <select
+        <Select
           id={id("grade_level")}
           value={params.get("grade_level") ?? ""}
           onChange={(event) => update("grade_level", event.target.value)}
@@ -118,7 +119,7 @@ export function TeacherFilters({
               {level.name_ar}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       {/* A select, not a row of pills. There are eleven subjects seeded and the
@@ -130,7 +131,7 @@ export function TeacherFilters({
         <label htmlFor={id("subject")} className={labelClass}>
           المادة
         </label>
-        <select
+        <Select
           id={id("subject")}
           value={params.get("subject") ?? ""}
           onChange={(event) => update("subject", event.target.value)}
@@ -147,14 +148,14 @@ export function TeacherFilters({
                 : ""}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div>
         <label htmlFor={id("min_rating")} className={labelClass}>
           التقييم
         </label>
-        <select
+        <Select
           id={id("min_rating")}
           value={params.get("min_rating") ?? ""}
           onChange={(event) => update("min_rating", event.target.value)}
@@ -166,14 +167,14 @@ export function TeacherFilters({
               {ar(rating)} فأكثر
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div>
         <label htmlFor={id("min_trust_score")} className={labelClass}>
           درجة الثقة
         </label>
-        <select
+        <Select
           id={id("min_trust_score")}
           value={params.get("min_trust_score") ?? ""}
           onChange={(event) => update("min_trust_score", event.target.value)}
@@ -185,14 +186,14 @@ export function TeacherFilters({
               {ar(score)} فأكثر
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div>
         <label htmlFor={id("language")} className={labelClass}>
           لغة التدريس
         </label>
-        <select
+        <Select
           id={id("language")}
           value={params.get("language") ?? ""}
           onChange={(event) => update("language", event.target.value)}
@@ -204,7 +205,7 @@ export function TeacherFilters({
               {lang.label}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="flex flex-wrap items-center gap-4 sm:col-span-2 lg:col-span-1 lg:pb-2.5">
@@ -221,7 +222,7 @@ export function TeacherFilters({
         <label htmlFor={id("sort")} className="sr-only">
           ترتيب حسب
         </label>
-        <select
+        <Select
           id={id("sort")}
           value={params.get("sort") ?? "rating_desc"}
           onChange={(event) => update("sort", event.target.value)}
@@ -232,7 +233,7 @@ export function TeacherFilters({
               {sort.label}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import type { ChildLink } from "@/lib/types";
 import type { Taxonomy } from "@/lib/public-api";
 import { Button } from "@/components/ui/Button";
 import { NotificationPreferences } from "./NotificationPreferences";
+import { Select } from "@/components/ui/Field";
 
 const FIELD_CLASS =
   "w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
@@ -139,7 +140,7 @@ export function AddChildForm({ gradeLevels }: { gradeLevels: Taxonomy[] }) {
             <label htmlFor="child-grade" className="mb-1 block text-sm font-medium text-ink">
               المرحلة الدراسية
             </label>
-            <select
+            <Select
               id="child-grade"
               value={form.grade_level_slug}
               onChange={(e) => set("grade_level_slug", e.target.value)}
@@ -151,7 +152,7 @@ export function AddChildForm({ gradeLevels }: { gradeLevels: Taxonomy[] }) {
                   {level.name_ar}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
 

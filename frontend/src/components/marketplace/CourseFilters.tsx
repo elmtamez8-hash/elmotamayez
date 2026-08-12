@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTransition } from "react";
 import type { Taxonomy } from "@/lib/public-api";
+import { Select } from "@/components/ui/Field";
 
 /**
  * Horizontal filter bar for the courses page.
@@ -63,7 +64,7 @@ export function CourseFilters({
           <label htmlFor="f-subject" className="mb-1.5 block text-sm font-semibold text-ink">
             المادة
           </label>
-          <select
+          <Select
             id="f-subject"
             value={params.get("subject") ?? ""}
             onChange={(event) => update("subject", event.target.value)}
@@ -75,14 +76,14 @@ export function CourseFilters({
                 {subject.name_ar}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div>
           <label htmlFor="f-grade" className="mb-1.5 block text-sm font-semibold text-ink">
             المرحلة الدراسية
           </label>
-          <select
+          <Select
             id="f-grade"
             value={params.get("grade_level") ?? ""}
             onChange={(event) => update("grade_level", event.target.value)}
@@ -94,14 +95,14 @@ export function CourseFilters({
                 {level.name_ar}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div>
           <label htmlFor="f-type" className="mb-1.5 block text-sm font-semibold text-ink">
             نوع الكورس
           </label>
-          <select
+          <Select
             id="f-type"
             value={params.get("type") ?? ""}
             onChange={(event) => update("type", event.target.value)}
@@ -113,14 +114,14 @@ export function CourseFilters({
                 {type.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div>
           <label htmlFor="f-sort" className="mb-1.5 block text-sm font-semibold text-ink">
             ترتيب حسب
           </label>
-          <select
+          <Select
             id="f-sort"
             value={params.get("sort") ?? "popular"}
             onChange={(event) => update("sort", event.target.value)}
@@ -131,7 +132,7 @@ export function CourseFilters({
                 {sort.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
