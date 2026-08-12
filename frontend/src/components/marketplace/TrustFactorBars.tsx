@@ -70,7 +70,25 @@ export function TrustFactorBars({ factors }: { factors: TrustFactor[] }) {
                 {factor.note ? (
                   <>
                     {factor.note}{" "}
-                    <AnimatedNumber value={width} suffix=" نقطة" />
+                    {/* ⚠️ `dir="ltr"` is what puts the minus on the LEFT of the
+                        digits, and nothing else can. `−` is a bidi NEUTRAL, and
+                        Arabic-Indic digits count as right-to-left for the rule
+                        that resolves neutrals — so in the surrounding Arabic the
+                        sign is pushed to the far side of the figure and reads as
+                        a stray dash. The attribute carries `unicode-bidi:
+                        isolate` from the UA stylesheet, which makes the sign and
+                        its number ONE run laid out left to right, exactly as a
+                        negative number is written inside Arabic text. No CSS
+                        property can do this; direction is resolved before paint.
+
+                        The sign comes from `negative`, never from the note
+                        string: a `−` typed into the data would be back outside
+                        the isolate and back on the wrong side. */}
+                    <span dir="ltr">
+                      {negative ? "−" : ""}
+                      <AnimatedNumber value={width} />
+                    </span>{" "}
+                    نقطة
                   </>
                 ) : (
                   <AnimatedNumber value={width} suffix="٪" />
