@@ -74,7 +74,28 @@ const adminNav: NavItem[] = [
   { href: "/settings", label: "الإعدادات", Icon: SettingsIcon },
 ];
 
-const allNav = [...mainNav, ...adminNav];
+/*
+ * ⚠️ ITS OWN ARRAY, SHOWN TO THE SUPER ADMIN ALONE — and that is not decoration.
+ * Every entry above is a workspace question a teacher may legitimately ask;
+ * `billing.collection.view` is held by no tenant role at all, so putting the
+ * reconciliation beside "إعدادات الفوترة" would show every teacher on the
+ * platform a link that answers 403. A menu item nobody may open is worse than a
+ * missing one: it reads as something broken rather than something private.
+ *
+ * The server is still the guard — this array only decides what is offered.
+ */
+const platformNav: NavItem[] = [
+  // What the hourly payment sweep found: money that settled without telling us,
+  // and what it could not resolve on its own.
+  { href: "/manage/payments/reconciliation", label: "تسوية المدفوعات", Icon: CreditsIcon },
+  // Every financial decision and the terminal it came from. Beside the
+  // reconciliation rather than under it: one asks what the machine could not
+  // settle, the other asks what people decided — and an auditor opens the second
+  // when the first has already been dealt with.
+  { href: "/manage/payments/audit", label: "سجلّ التدقيق المالي", Icon: OrdersIcon },
+];
+
+const allNav = [...mainNav, ...adminNav, ...platformNav];
 
 export default function ShellLayout({ children }: { children: ReactNode }) {
   const { user, loading, logout } = useAuth();
@@ -159,6 +180,14 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
             </p>
             {adminNav.map(renderItem)}
           </div>
+          {user.is_super_admin && (
+            <div className="mb-1 mt-4 border-t border-line pt-4">
+              <p className="mb-2 px-3 text-xs font-semibold tracking-wide text-ink-muted">
+                المنصّة
+              </p>
+              {platformNav.map(renderItem)}
+            </div>
+          )}
         </nav>
         <div className="shrink-0 border-t border-line bg-surface-raised p-4">
           <div className="mb-3 flex items-center gap-3">

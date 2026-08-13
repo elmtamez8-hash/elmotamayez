@@ -78,6 +78,21 @@ class CreditPurchase extends BaseModel
         return $this->belongsTo(Course::class);
     }
 
+    /*
+    | ⚠️ THERE IS NO `creditTransaction()` RELATION, AND THE ABSENCE IS THE
+    | DESIGN. The link is `source_type` + `source_id`, and the only index over
+    | those columns is `credit_tx_idempotency` — `(credit_balance_id, type,
+    | source_type, source_id)`. A relation cannot carry the leading
+    | `credit_balance_id`: an eager load compiles to one statement over many
+    | parents, so a `whereColumn` against `credit_purchases.id` refers to a table
+    | that is not in scope, and a relation without the balance uses no index at
+    | all — every chain read becoming a full scan of the fastest-growing table in
+    | the product.
+    |
+    | So the one reader that needs it — `PaymentAuditController::show()` — asks
+    | for all four indexed columns directly. One place, one statement, one index.
+    */
+
     /** @return BelongsTo<Order, $this> */
     public function order(): BelongsTo
     {

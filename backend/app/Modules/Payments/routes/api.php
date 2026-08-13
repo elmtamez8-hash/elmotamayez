@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Modules\Payments\Http\Controllers\Admin\BillingPricingController;
 use App\Modules\Payments\Http\Controllers\Admin\CreditPackageAdminController;
 use App\Modules\Payments\Http\Controllers\Admin\OutstandingCreditsController;
+use App\Modules\Payments\Http\Controllers\Admin\PaymentAuditController;
+use App\Modules\Payments\Http\Controllers\Admin\PaymentReconciliationController;
 use App\Modules\Payments\Http\Controllers\Admin\ReconciliationController;
 use App\Modules\Payments\Http\Controllers\BillingController;
 use App\Modules\Payments\Http\Controllers\BillingSettingsController;
@@ -122,6 +124,31 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     | "the sweep stopped on Tuesday" are otherwise the same empty list.
     */
     Route::get('/admin/billing/reconciliation', [ReconciliationController::class, 'show']);
+
+    /*
+    | US2 — what the hourly payment sweep found (FR-016 · FR-017).
+    |
+    | ⚠️ Under `/admin/payments/`, deliberately beside and not inside
+    | `/admin/billing/`: the row above answers "does the credit ledger add up",
+    | this one answers "did a payment settle without telling us". Two sweeps, two
+    | tables, two questions — one path for both would make "the reconciliation"
+    | ambiguous in every conversation that followed.
+    |
+    | GET only, and guarded by a PLATFORM permission no tenant role holds: the
+    | findings name orders across every workspace on the platform.
+    */
+    Route::get('/admin/payments/reconciliation', [PaymentReconciliationController::class, 'show']);
+
+    /*
+    | US4 — every financial decision, and the chain behind one payment.
+    |
+    | Two routes rather than one with a filter: the list answers "what has been
+    | decided lately" and the chain answers "what became of this money". The
+    | second is not a narrower version of the first — it reads five tables the
+    | list never touches.
+    */
+    Route::get('/admin/payments/audit', [PaymentAuditController::class, 'index']);
+    Route::get('/admin/payments/audit/{transaction}', [PaymentAuditController::class, 'show']);
 
     Route::get('/admin/billing/pricing', [BillingPricingController::class, 'show']);
     Route::put('/admin/billing/pricing', [BillingPricingController::class, 'update']);

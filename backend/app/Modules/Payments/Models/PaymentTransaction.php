@@ -9,6 +9,7 @@ use App\Modules\Payments\Enums\PaymentMethod;
 use App\Modules\Payments\Enums\PaymentStatus;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
@@ -18,6 +19,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $amount_minor
  * @property string $provider
  * @property ?int $captured_order_id
+ * @property int $order_id order_id is NOT NULL
+ * @property ?CarbonInterface $settled_at
  */
 class PaymentTransaction extends BaseModel
 {

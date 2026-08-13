@@ -10,11 +10,9 @@ use App\Modules\Payments\Jobs\ProcessProviderCallbackJob;
 use App\Modules\Payments\Models\ProviderCallback;
 use App\Modules\Payments\Providers\PaymentProviderRegistry;
 use App\Modules\Payments\Support\CallbackPayloadSanitizer;
+use App\Modules\Payments\Support\CallbackRecorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
-use RuntimeException;
 
 /**
  * The provider's notification endpoint.
@@ -39,6 +37,8 @@ use RuntimeException;
  */
 class WebhookController extends Controller
 {
+    public function __construct(private readonly CallbackRecorder $recorder) {}
+
     public function __invoke(Request $request, string $provider, PaymentProviderRegistry $registry): JsonResponse
     {
         // An unregistered identifier is a route that does not exist. So is a
@@ -82,19 +82,11 @@ class WebhookController extends Controller
     }
 
     /**
-     * ⚠️ insertOrIgnore WITH `uuid` AND `created_at` IN THE ARRAY, then a read
-     * back, then a throw.
-     *
-     * The query builder does not boot the model, so HasUuid never fires — and on
-     * MySQL the resulting NOT NULL violation is downgraded to a warning and `''`
-     * is stored, after which every later row collides with it on unique(uuid)
-     * and is silently skipped for ever. Both columns are therefore passed by
-     * hand.
-     *
-     * `create()` in a try/catch was rejected in round 7 of 006 for the reason
-     * that applies here too: it cannot tell a real failure — a null, a foreign
-     * key, an out-of-range value — from a duplicate. Zero affected rows means
-     * EITHER, so the row is fetched by its key and a miss throws.
+     * ⚠️ THE WRITE ITSELF LIVES IN {@see CallbackRecorder}, and it moved there
+     * when the reconciliation sweep needed the same thing: a payment settled
+     * without a notification is handled by delivering the callback ourselves, so
+     * the sweep and this controller must record it identically or the unique
+     * index stops meaning what it says.
      *
      * @param  array<array-key, mixed>  $payload
      */
@@ -105,44 +97,7 @@ class WebhookController extends Controller
         array $payload,
         ?CallbackResult $result,
     ): ProviderCallback {
-        $now = now();
-
-        $inserted = DB::table('provider_callbacks')->insertOrIgnore([
-            'uuid' => (string) Str::orderedUuid(),
-            'workspace_id' => null,
-            'payment_transaction_id' => null,
-            'provider' => $provider,
-            'external_id' => $externalId,
-            'signature_valid' => $signatureValid,
-            'payload' => json_encode($payload, JSON_UNESCAPED_UNICODE),
-            'received_at' => $now,
-            'processed_at' => $result === null ? null : $now,
-            'attempts' => 0,
-            'result' => $result?->value,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
-        $existing = ProviderCallback::query()
-            ->withoutWorkspaceScope()
-            ->where('provider', $provider)
-            ->when($externalId === null, fn ($query) => $query->whereNull('external_id')->latest('id'))
-            ->when($externalId !== null, fn ($query) => $query->where('external_id', $externalId))
-            ->first();
-
-        if ($existing === null) {
-            // Zero rows AND nothing to read back: the insert failed for a reason
-            // that was not a duplicate, and swallowing it would report success
-            // on a callback that was never stored.
-            throw new RuntimeException('Failed to record provider callback.');
-        }
-
-        if ($inserted === 0 && $existing->result === null) {
-            // A duplicate of something still in flight — leave it alone.
-            $existing->setAttribute('result', CallbackResult::Duplicate);
-        }
-
-        return $existing;
+        return $this->recorder->record($provider, $externalId, $signatureValid, $payload, $result);
     }
 
     /**

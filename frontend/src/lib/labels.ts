@@ -190,6 +190,25 @@ export function formatDate(value: string | null): string {
   });
 }
 
+/**
+ * Date AND time, for a record whose whole point is when it happened.
+ *
+ * Separate from formatDate rather than a flag on it: "آخر تشغيل: ١٣ أغسطس" is
+ * useless for a sweep that runs every hour — it answers a question nobody asked
+ * while looking like it answered theirs.
+ */
+export function formatDateTime(value: string | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("ar", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    numberingSystem: "latn",
+  });
+}
+
 export function formatMoney(amount: number, currency: string): string {
   return new Intl.NumberFormat("ar", {
     style: "currency",

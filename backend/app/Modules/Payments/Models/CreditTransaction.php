@@ -10,6 +10,7 @@ use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use RuntimeException;
 
@@ -85,6 +86,21 @@ class CreditTransaction extends BaseModel
     public function balance(): BelongsTo
     {
         return $this->belongsTo(CreditBalance::class, 'credit_balance_id');
+    }
+
+    /**
+     * Which lots paid for this consumption (FR-028's last link).
+     *
+     * The draw's own record, and it cannot be derived afterwards:
+     * soonest-expiring-first rewrites the answer retroactively every time a
+     * sooner-expiring lot arrives, so what a past consumption CLAIMED is only
+     * knowable from the row written at the time.
+     *
+     * @return HasMany<CreditAllocation, $this>
+     */
+    public function allocations(): HasMany
+    {
+        return $this->hasMany(CreditAllocation::class, 'consumed_transaction_id');
     }
 
     /** @return BelongsTo<User, $this> */

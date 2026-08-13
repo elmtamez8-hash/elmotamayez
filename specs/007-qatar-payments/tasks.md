@@ -242,26 +242,45 @@
 
 ### اختبارات US2
 
-- [ ] T103 [P] [US2] `SC-004` — نجاحٌ بلا إشعار ثم تسوية، في `backend/tests/Feature/Payments/ReconciliationSweepTest.php`
-- [ ] T104 [P] [US2] `SC-005` في `backend/tests/Feature/Payments/ReconciliationIdempotencyTest.php` — تشغيلان متتاليان **وتشغيلان متداخلان**
-- [ ] T105 [P] [US2] **الاتجاه هو الاختبار** في `.../ReconciliationDirectionTest.php`: `Pending → Captured` آليٌّ، و`Captured → Failed` يحتاج بشراً
-- [ ] T106 [P] [US2] المهلة والحالة النهائية وغير المحسوم في `.../ReconciliationTimeoutTest.php`. ⚠️ **[‏م‏٢‏] وحالةٌ لـ`abandoned`**: إشعارٌ استنفد محاولاته **يظهر في التقرير** — كان يُكتب ولا يقرؤه أحد فلا يبلغ `FR-017` أبداً
-- [ ] T107 [P] [US2] **الثابت الثالث** في `.../ReconciliationInvariantTest.php`: كل `captured` على طلب أرصدة يحمل قيداً — المقارنة حالةً-بحالة **عمياء** عن المستمع المطبور الذي مات
-- [ ] T108 [P] [US2] اختبار وحدة للمدى **نصف المفتوح `[from, to)`** في `backend/tests/Unit/Payments/ReconciliationWindowTest.php`
+- [x] T103 [P] [US2] `SC-004` — نجاحٌ بلا إشعار ثم تسوية، في `backend/tests/Feature/Payments/ReconciliationSweepTest.php`
+- [x] T104 [P] [US2] `SC-005` في `backend/tests/Feature/Payments/ReconciliationIdempotencyTest.php` — تشغيلان متتاليان **وتشغيلان متداخلان**
+- [x] T105 [P] [US2] **الاتجاه هو الاختبار** في `.../ReconciliationDirectionTest.php`: `Pending → Captured` آليٌّ، و`Captured → Failed` يحتاج بشراً
+- [x] T106 [P] [US2] المهلة والحالة النهائية وغير المحسوم في `.../ReconciliationTimeoutTest.php`. ⚠️ **[‏م‏٢‏] وحالةٌ لـ`abandoned`**: إشعارٌ استنفد محاولاته **يظهر في التقرير** — كان يُكتب ولا يقرؤه أحد فلا يبلغ `FR-017` أبداً
+- [x] T107 [P] [US2] **الثابت الثالث** في `.../ReconciliationInvariantTest.php`: كل `captured` على طلب أرصدة يحمل قيداً — المقارنة حالةً-بحالة **عمياء** عن المستمع المطبور الذي مات
+- [x] T108 [P] [US2] اختبار وحدة للمدى **نصف المفتوح `[from, to)`** في `backend/tests/Unit/Payments/ReconciliationWindowTest.php`
 
 ### تنفيذ US2
 
-- [ ] T109 [US2] هجرة `payment_reconciliation_runs` في `.../2026_08_11_001300_create_payment_reconciliation_runs_table.php` — **مملوك للمنصّة صنف (ب)** بـ`uuid`
-- [ ] T110 [P] [US2] نموذج `.../Models/PaymentReconciliationRun.php` **بـ`HasUuid`** [‏م‏٢‏] ومصنعه
-- [ ] T111 [US2] `backend/app/Modules/Payments/Actions/ReconcilePayments.php` — يبني على `transactionsInWindow()` **لا `verify()`**. ⚠️ **[‏م‏٢‏] والمشية الرئيسية بقاموسٍ مُجمَّع**: مطابقةُ كل عملية يبلّغها المزوّد باستعلامٍ لكلٍّ هي N استعلاماً ليلياً ينمو مع الحجم؛ الشكل هو `->pluck()` ثم مقارنةٌ في الذاكرة كما في `ReconcileCreditBalancesJob:100-103`
-- [ ] T112 [US2] الثابت الثالث داخل نفس الـAction بقراءتين مُجمَّعتين، **وقراءة `provider_callbacks WHERE result = 'abandoned'`** [‏م‏٢‏] لتدخل `unresolved_count`؛ و`findings` **عيّنة** بينما `unresolved_count` هو العدد الحقيقي دائماً
-- [ ] T113 [US2] `backend/app/Modules/Payments/Jobs/ReconcilePaymentsJob.php` — **كل المشيات `chunkById`** · `forWorkspace()` لا `WorkspaceContext::set()`. ⚠️ **[‏م‏٢‏] و`withoutOverlapping()` على الجدولة لا كوسيط وظيفة**: قفل الجدولة ينتهي تلقائياً بعد ‎١٤٤٠‎ دقيقة، وقفل الوسيط بلا انتهاء — فعاملٌ يُقتل عند مهلة ‎٩٠٠‎ ثانية يترك قفلاً دائماً **ولا تعمل التسوية ثانيةً أبداً، بصمت**
-- [ ] T114 [P] [US2] الجدولة في `backend/routes/console.php` على شكل `Schedule::job(new X, 'maintenance')->withoutOverlapping()` المشحون
-- [ ] T115 [US2] ثابت `BILLING_COLLECTION_VIEW` في `backend/app/Modules/Tenancy/Support/Permissions.php` **وإدراجه في `Permissions::all()`** — ⚠️ **[‏م‏٢‏] نُقل من الطور ‎٧‎**: `T117` يستند إليه، وكان يُنشأ بعد طورين. ⚠️ **ولا إسناد في `RolePermissionMatrix`**: `$all` تصل السوبر أدمن وحدها (`:16`, `:137`)، والمصفوفات الأخرى مستأجرة وهو ما يمنعه اختبار الـ‎403‎. وثابتٌ خارج `all()` **لا يُبذَر فلا يعمل لأحد**
-- [ ] T116 [US2] `backend/app/Modules/Payments/Http/Controllers/Admin/PaymentReconciliationController.php` **+ Resource** — `GET` لأنه يقرأ لقطةً مخزَّنة، والمسح **وظيفة**
-- [ ] T117 [US2] ⚠️ **[‏م‏٢‏]** تسجيل مسارات الإدارة في `backend/app/Modules/Payments/routes/api.php` — **ملف المسارات الوحيد للوحدة**، ولم تكن تلمسه إلا مهمّة الطور ‎٣‎
-- [ ] T118 [P] [US2] صفحة التسوية في `frontend/src/app/(app)/(shell)/manage/payments/reconciliation/page.tsx` — ⚠️ **[‏م‏٢‏] `manage/` لا `admin/`**: لا وجود لمقطع `admin/` في الواجهة، وكل شاشةٍ إدارية شُحنت تحت `manage/`
-- [ ] T119 [US2] ⚠️ **[‏م‏٢‏]** مدخلٌ في مصفوفة `NavItem[]` داخل `frontend/src/app/(app)/(shell)/layout.tsx:35-74` — **سطحٌ بلا رابطٍ واصل غير مُسلَّم**، والخطر مكتوبٌ في `plan.md` ولم تغطّه مهمّة
+- [x] T109 [US2] هجرة `payment_reconciliation_runs` في `.../2026_08_11_001300_create_payment_reconciliation_runs_table.php` — **مملوك للمنصّة صنف (ب)** بـ`uuid`
+- [x] T110 [P] [US2] نموذج `.../Models/PaymentReconciliationRun.php` **بـ`HasUuid`** [‏م‏٢‏] ومصنعه
+- [x] T111 [US2] `backend/app/Modules/Payments/Actions/ReconcilePayments.php` — يبني على `transactionsInWindow()` **لا `verify()`**. ⚠️ **[‏م‏٢‏] والمشية الرئيسية بقاموسٍ مُجمَّع**: مطابقةُ كل عملية يبلّغها المزوّد باستعلامٍ لكلٍّ هي N استعلاماً ليلياً ينمو مع الحجم؛ الشكل هو `->pluck()` ثم مقارنةٌ في الذاكرة كما في `ReconcileCreditBalancesJob:100-103`
+- [x] T112 [US2] الثابت الثالث داخل نفس الـAction بقراءتين مُجمَّعتين، **وقراءة `provider_callbacks WHERE result = 'abandoned'`** [‏م‏٢‏] لتدخل `unresolved_count`؛ و`findings` **عيّنة** بينما `unresolved_count` هو العدد الحقيقي دائماً
+- [x] T113 [US2] `backend/app/Modules/Payments/Jobs/ReconcilePaymentsJob.php` — **كل المشيات `chunkById`** · `forWorkspace()` لا `WorkspaceContext::set()`. ⚠️ **[‏م‏٢‏] و`withoutOverlapping()` على الجدولة لا كوسيط وظيفة**: قفل الجدولة ينتهي تلقائياً بعد ‎١٤٤٠‎ دقيقة، وقفل الوسيط بلا انتهاء — فعاملٌ يُقتل عند مهلة ‎٩٠٠‎ ثانية يترك قفلاً دائماً **ولا تعمل التسوية ثانيةً أبداً، بصمت**
+- [x] T114 [P] [US2] الجدولة في `backend/routes/console.php` على شكل `Schedule::job(new X, 'maintenance')->withoutOverlapping()` المشحون
+- [x] T115 [US2] ثابت `BILLING_COLLECTION_VIEW` في `backend/app/Modules/Tenancy/Support/Permissions.php` **وإدراجه في `Permissions::all()`** — ⚠️ **[‏م‏٢‏] نُقل من الطور ‎٧‎**: `T117` يستند إليه، وكان يُنشأ بعد طورين. ⚠️ **ولا إسناد في `RolePermissionMatrix`**: `$all` تصل السوبر أدمن وحدها (`:16`, `:137`)، والمصفوفات الأخرى مستأجرة وهو ما يمنعه اختبار الـ‎403‎. وثابتٌ خارج `all()` **لا يُبذَر فلا يعمل لأحد**
+- [x] T116 [US2] `backend/app/Modules/Payments/Http/Controllers/Admin/PaymentReconciliationController.php` **+ Resource** — `GET` لأنه يقرأ لقطةً مخزَّنة، والمسح **وظيفة**
+- [x] T117 [US2] ⚠️ **[‏م‏٢‏]** تسجيل مسارات الإدارة في `backend/app/Modules/Payments/routes/api.php` — **ملف المسارات الوحيد للوحدة**، ولم تكن تلمسه إلا مهمّة الطور ‎٣‎
+- [x] T118 [P] [US2] صفحة التسوية في `frontend/src/app/(app)/(shell)/manage/payments/reconciliation/page.tsx` — ⚠️ **[‏م‏٢‏] `manage/` لا `admin/`**: لا وجود لمقطع `admin/` في الواجهة، وكل شاشةٍ إدارية شُحنت تحت `manage/`
+- [x] T119 [US2] ⚠️ **[‏م‏٢‏]** مدخلٌ في مصفوفة `NavItem[]` داخل `frontend/src/app/(app)/(shell)/layout.tsx:35-74` — **سطحٌ بلا رابطٍ واصل غير مُسلَّم**، والخطر مكتوبٌ في `plan.md` ولم تغطّه مهمّة
+
+> ⚠️ **[‏م‏٣‏] ثلاثة قرارات في الطور ‎٥‎ تتجاوز نصّ المهامّ:**
+>
+> 1. **`FR-015` لم تكن منفَّذة ولا مهمّةَ تنفيذٍ لها** — `T106` يختبر «المهلة والحالة
+>    النهائية» و`pending_timeout_minutes` كان مفتاحاً في `config/` **لا يقرؤه أحد**،
+>    و`PaymentStatus::Expired` حالةً في التعداد **لا يكتبها أحد**. فأُضيفت مشية رابعة
+>    إلى `ReconcilePayments`: تحديثٌ شرطيّ لكل صفّ (لا تحديثاً جماعياً — الادّعاء هو
+>    الفحص)، **بعد مشية المزوّد** كي لا تنتهي مهلةُ دفعةٍ أكّدها المزوّد لتوّه.
+> 2. **والمسحة تُعيد تشغيل الإشعار بدل أن تلتقط بيدها.** مسارٌ ثانٍ يكتب `captured`
+>    هو جوابٌ ثانٍ عمّن يُسجَّل وأيّ طلبٍ يُقفَل وماذا يحدث لدفعةٍ على طلبٍ ملغى.
+>    فالمسحة تسجّل الإشعار الذي كان على المزوّد إرساله وتناوله لـ`HandleProviderCallback`
+>    — ومن ثمّ يُدمج تشغيلُ المسحة وإشعارٌ متأخّرٌ بنفس المعرّف في صفٍّ واحد بالفهرس
+>    الفريد. ولهذا استُخرج `CallbackRecorder` من `WebhookController`: نسختان من ذلك
+>    الإدراج جوابان لسؤال «هل رأينا هذا الحدث».
+> 3. **ومدخل التنقّل في مصفوفةٍ ثالثة `platformNav` تظهر للسوبر أدمن وحده** — لا في
+>    `adminNav` كما تقول `T119`. كل مدخلٍ هناك سؤالٌ عن مساحة العمل يحقّ للمدرّس أن
+>    يسأله، و`billing.collection.view` **لا يحمله أيّ دور مستأجر**: فمدخلٌ بجانب
+>    «إعدادات الفوترة» يعرض على كل مدرّس رابطاً يردّ ‎403‎ — وبندٌ لا يُفتح أسوأ من بندٍ
+>    غائب، لأنه يُقرأ كعطبٍ لا كخصوصية.
 
 **نقطة تفتيش:** ما ضاع يُلتقط، وما لم يُحسم يُرى.
 
@@ -271,21 +290,38 @@
 
 ### اختبارات US4
 
-- [ ] T120 [P] [US4] خمس عمليات ⇒ خمسة قيود بمنفّذها ووقتها وعنوانها (`SC-008`) في `backend/tests/Feature/Payments/BillingAuditTest.php`
-- [ ] T121 [P] [US4] رفض التعديل والحذف (`SC-009`) في `backend/tests/Feature/Payments/ImmutableAuditTest.php` — **ويُختبر الشكل الجُملي**: `update()` على مُنشئ استعلام لا يستحضر نماذج فلا يمرّ بحارس النموذج
-- [ ] T122 [P] [US4] **الاتجاهان معاً** في `.../AuditSubjectIsolationTest.php`
-- [ ] T123 [P] [US4] `FR-029` في `.../BillingAuditAccessTest.php` — بلا الصلاحية ‎403‎، **وحاملُ أعلى دورٍ مستأجر يُردّ كذلك**
-- [ ] T124 [P] [US4] `FR-028` — السلسلة الكاملة **بعدد استعلاماتٍ ثابت مع نموّ العيّنة** [‏م‏٢‏] في `.../AuditChainTest.php`: سقفٌ ثابت على عيّنةٍ صغيرة يمرّ فوق N+1، والمساواة وحدها تفشل للسبب الصحيح — الحجّة مكتوبة في ترويسة `BalanceQueryBudgetTest:14-18`
+- [x] T120 [P] [US4] خمس عمليات ⇒ خمسة قيود بمنفّذها ووقتها وعنوانها (`SC-008`) في `backend/tests/Feature/Payments/BillingAuditTest.php`
+- [x] T121 [P] [US4] رفض التعديل والحذف (`SC-009`) في `backend/tests/Feature/Payments/ImmutableAuditTest.php` — **ويُختبر الشكل الجُملي**: `update()` على مُنشئ استعلام لا يستحضر نماذج فلا يمرّ بحارس النموذج
+- [x] T122 [P] [US4] **الاتجاهان معاً** في `.../AuditSubjectIsolationTest.php`
+- [x] T123 [P] [US4] `FR-029` في `.../BillingAuditAccessTest.php` — بلا الصلاحية ‎403‎، **وحاملُ أعلى دورٍ مستأجر يُردّ كذلك**
+- [x] T124 [P] [US4] `FR-028` — السلسلة الكاملة **بعدد استعلاماتٍ ثابت مع نموّ العيّنة** [‏م‏٢‏] في `.../AuditChainTest.php`: سقفٌ ثابت على عيّنةٍ صغيرة يمرّ فوق N+1، والمساواة وحدها تفشل للسبب الصحيح — الحجّة مكتوبة في ترويسة `BalanceQueryBudgetTest:14-18`
 
 ### تنفيذ US4
 
-- [ ] T125 [P] [US4] ثابت `BILLING_AUDIT_VIEW` في `backend/app/Modules/Tenancy/Support/Permissions.php` **وفي `Permissions::all()`** — ⚠️ **[‏م‏٢‏] ولا إسناد في `RolePermissionMatrix`**: النسخة الأولى أمرت بإسنادٍ لا وجود له، و`$all` تصل السوبر أدمن تلقائياً بينما المصفوفات الباقية مستأجرة. **و`billing.*` لا `payments.*`** لأن الأخيرة عائلةٌ مستأجرة هنا
-- [ ] T126 [US4] `backend/app/Modules/Payments/Support/BillingAuditSubjects.php` بالأنواع السبعة — ⚠️ **[‏م‏٢‏] وثلاثةٌ منها وحدها لها كاتب اليوم** (`Order:46` · `ExamModeWindow:63,87` · `CreditBalance:103`)؛ القائمة صحيحةٌ **كعقد** لأنها شكل الاستعلام لا جرد الموجود، **لكنّ تأكيداً على الأربعة الباقية يقيس جدولاً فارغاً وينجح** — فيُقصر التأكيد على ما يُكتب فعلاً، ويُضاف الباقي مع كاتبه
-- [ ] T127 [US4] نموذج نشاطٍ مُعاد ربطه بحارس عدم التعديل في `backend/app/Shared/Models/ActivityEntry.php` + مفتاح `activity_model` في `backend/config/activitylog.php` (**غير منشور اليوم**) — شكل `LedgerEntry::booted()` المشحون، فspatie لا يفرض `FR-027`. ⚠️ **[‏م‏٢‏] وهذا تغييرٌ عبر المنتج كلّه**: يسري على ‎٢٣‎ Action في سبع وحدات ومنها قارئ تدقيق ‎014‎ — **نفس المدى الذي مُنع لأجله تعديل `LogsActivity`**، فيُعلَن ويُختبر أثره على `SettlementAuditController`
-- [ ] T128 [US4] ⚠️ **[‏م‏٢‏]** تمرير المساحة والمنفّذ صراحةً من داخل `forWorkspace()` في القيود التي **تكتبها وظائف هذه المرحلة** (`T063` · `T113`) — النسخة الأولى قالت «في نداءات `Jobs/` كلّها»، **و لا نداء `logActivity()` في أيّ `Jobs/` في المستودع**. الحجّة صحيحة (المفردة تخزّن أول نتيجة، و`activity_log` بلا `workspace_id`) والهدف سابقٌ لأوانه، فيُصاغ على ما سيُكتب
-- [ ] T129 [US4] ⚠️ **[‏م‏٢‏]** علاقات سلسلة `FR-028` في `backend/app/Modules/Payments/Models/` — `CreditPurchase::creditTransaction()` و`CreditTransaction::allocations()` **غير موجودتين**، والوصلة `source_type`/`source_id` بلا فهرسٍ يقودها. **فالمسند يحمل `credit_balance_id` معها** ليستعمل `credit_tx_idempotency`، وإلا فكل قراءة سلسلةٍ مسحٌ كامل للدفتر
-- [ ] T130 [US4] `backend/app/Modules/Payments/Http/Controllers/Admin/PaymentAuditController.php` **+ Resource** [‏م‏٢‏] — ⚠️ **[‏تحليل] وبلا Action ولا FormRequest عمداً، على سابقة `SettlementAuditController` المشحونة**؛ الدستور §II يوجب السلسلة، والانحراف هنا **يُعلَن في `plan.md` §Complexity Tracking** لا يُترك ضمناً: المُرشِّح كلّه `BillingAuditSubjects` وهو صنفٌ نهائيّ بلا فرع. مع `->with(['subject','causer'])` منسوخاً **مع** المُرشِّح من `SettlementAuditController:49`، وتحميلٍ مسبق لهَوْبات السلسلة
-- [ ] T131 [P] [US4] صفحة التدقيق في `frontend/src/app/(app)/(shell)/manage/payments/audit/page.tsx` + مدخل التنقّل في `layout.tsx`
+- [x] T125 [P] [US4] ثابت `BILLING_AUDIT_VIEW` في `backend/app/Modules/Tenancy/Support/Permissions.php` **وفي `Permissions::all()`** — ⚠️ **[‏م‏٢‏] ولا إسناد في `RolePermissionMatrix`**: النسخة الأولى أمرت بإسنادٍ لا وجود له، و`$all` تصل السوبر أدمن تلقائياً بينما المصفوفات الباقية مستأجرة. **و`billing.*` لا `payments.*`** لأن الأخيرة عائلةٌ مستأجرة هنا
+- [x] T126 [US4] `backend/app/Modules/Payments/Support/BillingAuditSubjects.php` بالأنواع السبعة — ⚠️ **[‏م‏٢‏] وثلاثةٌ منها وحدها لها كاتب اليوم** (`Order:46` · `ExamModeWindow:63,87` · `CreditBalance:103`)؛ القائمة صحيحةٌ **كعقد** لأنها شكل الاستعلام لا جرد الموجود، **لكنّ تأكيداً على الأربعة الباقية يقيس جدولاً فارغاً وينجح** — فيُقصر التأكيد على ما يُكتب فعلاً، ويُضاف الباقي مع كاتبه
+- [x] T127 [US4] نموذج نشاطٍ مُعاد ربطه بحارس عدم التعديل في `backend/app/Shared/Models/ActivityEntry.php` + مفتاح `activity_model` في `backend/config/activitylog.php` (**غير منشور اليوم**) — شكل `LedgerEntry::booted()` المشحون، فspatie لا يفرض `FR-027`. ⚠️ **[‏م‏٢‏] وهذا تغييرٌ عبر المنتج كلّه**: يسري على ‎٢٣‎ Action في سبع وحدات ومنها قارئ تدقيق ‎014‎ — **نفس المدى الذي مُنع لأجله تعديل `LogsActivity`**، فيُعلَن ويُختبر أثره على `SettlementAuditController`
+- [x] T128 [US4] ⚠️ **[‏م‏٢‏]** تمرير المساحة والمنفّذ صراحةً من داخل `forWorkspace()` في القيود التي **تكتبها وظائف هذه المرحلة** (`T063` · `T113`) — النسخة الأولى قالت «في نداءات `Jobs/` كلّها»، **و لا نداء `logActivity()` في أيّ `Jobs/` في المستودع**. الحجّة صحيحة (المفردة تخزّن أول نتيجة، و`activity_log` بلا `workspace_id`) والهدف سابقٌ لأوانه، فيُصاغ على ما سيُكتب
+- [x] T129 [US4] ⚠️ **[‏م‏٢‏]** علاقات سلسلة `FR-028` في `backend/app/Modules/Payments/Models/` — `CreditPurchase::creditTransaction()` و`CreditTransaction::allocations()` **غير موجودتين**، والوصلة `source_type`/`source_id` بلا فهرسٍ يقودها. **فالمسند يحمل `credit_balance_id` معها** ليستعمل `credit_tx_idempotency`، وإلا فكل قراءة سلسلةٍ مسحٌ كامل للدفتر
+- [x] T130 [US4] `backend/app/Modules/Payments/Http/Controllers/Admin/PaymentAuditController.php` **+ Resource** [‏م‏٢‏] — ⚠️ **[‏تحليل] وبلا Action ولا FormRequest عمداً، على سابقة `SettlementAuditController` المشحونة**؛ الدستور §II يوجب السلسلة، والانحراف هنا **يُعلَن في `plan.md` §Complexity Tracking** لا يُترك ضمناً: المُرشِّح كلّه `BillingAuditSubjects` وهو صنفٌ نهائيّ بلا فرع. مع `->with(['subject','causer'])` منسوخاً **مع** المُرشِّح من `SettlementAuditController:49`، وتحميلٍ مسبق لهَوْبات السلسلة
+- [x] T131 [P] [US4] صفحة التدقيق في `frontend/src/app/(app)/(shell)/manage/payments/audit/page.tsx` + مدخل التنقّل في `layout.tsx`
+
+> ⚠️ **[‏م‏٣‏] انحرافان في الطور ‎٦‎:**
+>
+> 1. **`CreditPurchase::creditTransaction()` لم تُكتب، وغيابها هو القرار.** الوصلة
+>    `source_type` + `source_id`، والفهرس الوحيد فوقهما هو `credit_tx_idempotency`
+>    ‏= `(credit_balance_id, type, source_type, source_id)`. وعلاقةٌ **لا تستطيع** حمل
+>    `credit_balance_id` المتصدّر: التحميل المسبق يُترجم إلى جملةٍ واحدة فوق آباءٍ كثر،
+>    فـ`whereColumn` على `credit_purchases.id` يشير إلى جدولٍ خارج النطاق (وهذا **فشلٌ
+>    وقع فعلاً** في `AuditChainTest`)، وعلاقةٌ بلا الرصيد لا تستعمل أيّ فهرس فتصير كل
+>    قراءة سلسلةٍ مسحاً كاملاً لأسرع جدولٍ نموّاً في المنتج. فالقارئ الوحيد الذي يحتاجها
+>    يسأل بالأعمدة الأربعة مباشرةً. `CreditTransaction::allocations()` كُتبت كما طُلبت.
+> 2. **و`{@see}` عبر السياقين ممنوع.** كتبتُ `{@see \App\Modules\Settlement\...}` في
+>    ترويسة `BillingAuditSubjects` فحوّلها pint إلى `use`، و`ContextIsolationTest` أسقط
+>    البناء — **وهو محقّ**: الاستيراد هو الطريق الذي يصير به مرجعُ تعليقٍ نداءً. الاسم
+>    الآن نصٌّ بين علامتين.
+>
+> **وثلاثةٌ من السبعة وحدها لها كاتب اليوم**، فالتأكيدات تقتصر عليها كما تقول `T126`.
 
 **نقطة تفتيش:** السجلّ يحسم الخلاف ولا يُعدَّل.
 

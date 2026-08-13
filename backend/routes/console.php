@@ -8,6 +8,7 @@ use App\Modules\Payments\Jobs\EvaluateCreditLimitsJob;
 use App\Modules\Payments\Jobs\ExpireCreditLotsJob;
 use App\Modules\Payments\Jobs\NotifyDormantBalancesJob;
 use App\Modules\Payments\Jobs\ReconcileCreditBalancesJob;
+use App\Modules\Payments\Jobs\ReconcilePaymentsJob;
 use App\Modules\Settlement\Jobs\CloseDueSettlementPeriodsJob;
 use App\Modules\Settlement\Jobs\ReleasePendingUnitsJob;
 use Illuminate\Foundation\Inspiring;
@@ -111,4 +112,27 @@ Schedule::job(new ReconcileCreditBalancesJob, 'maintenance')
 // notifications off. Sunday, clear of the nightly run above.
 Schedule::job(new NotifyDormantBalancesJob, 'maintenance')
     ->weeklyOn(0, '05:00')
+    ->withoutOverlapping();
+
+/*
+| The payment that succeeded and never told us (US2 · SC-004).
+|
+| Hourly, not nightly, and that is the one number here with a person behind it:
+| what this repairs is a student who paid and is still blocked, so the ceiling on
+| how long they stay blocked IS the interval. A nightly sweep would make "paid at
+| 09:00" mean "reachable at 04:00 tomorrow".
+|
+| At :50, clear of the quarter-hour billing sweeps at :05/:20/:35 and of the
+| hourly session sweep at :20 — this one calls out to every provider and then
+| joins the two tables that grow with every sale, and has no business queueing
+| behind a mass delete's locks.
+|
+| ⚠️ `withoutOverlapping()` HERE AND NOT AS JOB MIDDLEWARE: the scheduler's lock
+| expires on its own after 1440 minutes, the middleware's does not expire at all.
+| A worker killed at its timeout would leave a permanent lock and the sweep would
+| never run again, silently — the worst failure available to the thing whose
+| entire job is noticing silence.
+*/
+Schedule::job(new ReconcilePaymentsJob, 'maintenance')
+    ->hourlyAt(50)
     ->withoutOverlapping();

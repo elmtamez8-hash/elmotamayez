@@ -189,6 +189,16 @@ class HandleProviderCallback extends Action
         if ($purchase === null) {
             $this->logActivity('payment.captured_surplus_unresolved', $transaction, [
                 'order_id' => $order->getKey(),
+                /*
+                 * ⚠️ THE WORKSPACE IS PASSED, NOT LEFT TO THE TRAIT (FR-026).
+                 * This Action runs inside a queued job and inside the
+                 * reconciliation sweep, where `WorkspaceContext` resolves to
+                 * null — and the trait's ambient stamp would therefore write
+                 * `workspace_id: null` onto the one entry a person will later
+                 * need to attribute. The order knows; nothing else in scope does.
+                 * The trait merges properties second, so this wins.
+                 */
+                'workspace_id' => $order->workspace_id,
             ]);
 
             return;

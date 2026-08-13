@@ -251,6 +251,36 @@ final class Permissions
     /** Operating fee and gateway rate — the private half of the price. */
     public const BILLING_PRICING_MANAGE = 'billing.pricing.manage';
 
+    /**
+     * Read what was collected across the platform, and what the sweep could not
+     * resolve (FR-030 · FR-033).
+     *
+     * ⚠️ PLATFORM-LEVEL AND HELD BY NO TENANT ROLE — including the workspace
+     * owner, who is the person this most needs keeping from. The collection
+     * report is every student's payment across every teacher; a teacher who
+     * could read it could derive another teacher's rate from two package prices,
+     * which is the one number FR-021ب keeps off every surface. It is deliberately
+     * absent from every array in RolePermissionMatrix: `all()` reaches the super
+     * admin alone, and that is the whole assignment.
+     */
+    public const BILLING_COLLECTION_VIEW = 'billing.collection.view';
+
+    /**
+     * Read the financial audit trail — who decided what, when, and from where
+     * (FR-027 · FR-029).
+     *
+     * ⚠️ `billing.*` AND NOT `payments.*`, WHICH IS NOT COSMETIC. The `payments.*`
+     * family is TENANT-scoped in this product: `payments.approve` sits in the
+     * teacher's array, so a permission named `payments.audit.view` would be read
+     * — by the next person adding a role — as belonging beside it. This one is
+     * platform-level and reaches super-admin alone through `all()`.
+     *
+     * Held by no tenant role for the same reason the collection report is: the
+     * trail spans every workspace, and it names the people who took each
+     * decision.
+     */
+    public const BILLING_AUDIT_VIEW = 'billing.audit.view';
+
     /** @return list<string> */
     public static function all(): array
     {
@@ -325,6 +355,10 @@ final class Permissions
             self::BILLING_EXAM_MODE_MANAGE,
             self::BILLING_PACKAGES_MANAGE,
             self::BILLING_PRICING_MANAGE,
+            // ⚠️ A constant outside `all()` is never seeded, so nothing holds it
+            // and every check against it fails — for the super admin too.
+            self::BILLING_COLLECTION_VIEW,
+            self::BILLING_AUDIT_VIEW,
         ];
     }
 }

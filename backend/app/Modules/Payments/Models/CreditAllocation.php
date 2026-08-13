@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Models;
 
 use App\Models\BaseModel;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
@@ -19,6 +20,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * The one credit table with NO workspace_id, deliberately: a join table between
  * two rows that are both already scoped, reachable only through transaction ids
  * the caller has already resolved. No route reads it and no payload carries it.
+ *
+ * @property int $credits
+ * @property ?CarbonInterface $created_at restated because `$timestamps = false`
+ *                                        leaves Larastan reading the raw column type rather than the cast
  */
 class CreditAllocation extends BaseModel
 {
