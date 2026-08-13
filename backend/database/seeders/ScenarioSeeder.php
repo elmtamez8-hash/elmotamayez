@@ -92,6 +92,34 @@ final class ScenarioSeeder extends Seeder
 {
     public function run(): void
     {
+        /*
+        | ⚠️ A SECOND RUN IS A DECLARED NO-OP, NOT A CRASH AND NOT A TOP-UP.
+        |
+        | `php artisan db:seed --class=ScenarioSeeder` on a database that already
+        | holds this scenario used to die on `UNIQUE constraint failed:
+        | users.email` — a stack trace, after an unknown number of rows had
+        | already been written.
+        |
+        | And `firstOrCreate` on the accounts is NOT the fix, however much it
+        | looks like one. The accounts are the only things with a natural key:
+        | the courses, sessions, orders, ledger entries and certificates below are
+        | created through factories and Actions, so a second pass would sail past
+        | the users and write every one of them AGAIN — a demo database quietly
+        | holding two of everything, which is harder to notice than an exception
+        | and much harder to reason about.
+        |
+        | So the honest answer to "seed this twice" is "there is nothing to add",
+        | said once, cleanly. A rebuild is `migrate:fresh --seed`, and it says so.
+        */
+        if (User::query()->where('email', 'owner@academy.test')->exists()) {
+            $this->command->warn(
+                'Scenario data is already present — nothing was seeded. '
+                .'Run `php artisan migrate:fresh --seed` to rebuild it from scratch.'
+            );
+
+            return;
+        }
+
         // Enrollment-from-order, certificate issuance and notification listeners are
         // ShouldQueue; run them inline so the seeded data lands complete without a worker.
         config(['queue.default' => 'sync']);

@@ -153,10 +153,22 @@ class DemoDataSeeder extends Seeder
             'user_id' => $owner->getKey(),
         ]);
 
-        // Starting inside the join window, so the room is enterable during a run
-        // that follows the seed. The walk is what the spec asserts either way:
-        // a refused ticket renders a stated reason, not a broken page.
-        $startsAt = now()->addMinutes(10);
+        /*
+        | ⚠️ DAYS OUT, NOT MINUTES — AND THE ENTERABLE ROOM WAS THE TRADE.
+        |
+        | This used to be `now()->addMinutes(10)` so the room could be walked into
+        | during a run that followed the seed. It bought seventy minutes: after
+        | that the session is in the past, drops off the student's timetable, and
+        | `e2e/sessions.spec.ts` — "جدولي ← حصة ← الغرفة" — skips itself with a
+        | message telling the reader to re-seed. A suite that reports "575 passed"
+        | while a walk silently stopped running an hour after the last seed is
+        | worse than one that fails.
+        |
+        | Nothing is lost by moving it: that test asserts the room renders a
+        | ticket OR a stated refusal, and the refusal is the branch that can
+        | actually break. The open room is the easy case.
+        */
+        $startsAt = now()->addDays(3);
 
         $session = ClassSession::factory()->create([
             'teacher_profile_id' => $profile->id,
