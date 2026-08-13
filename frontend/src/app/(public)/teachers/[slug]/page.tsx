@@ -207,8 +207,16 @@ export default async function TeacherProfilePage({
         {/* Sticky booking panel (FR-054): spans both content rows so it stays put
             while the tabs scroll. On mobile it sits between the identity block and
             the tabs, which is where a price belongs on a phone. */}
-        <aside className="lg:col-start-2 lg:row-start-1 lg:sticky lg:top-24">
-          <div className="rounded-3xl border border-line bg-surface-raised p-6">
+        <aside className="lg:col-start-2 lg:row-start-1">
+          {/* ⚠️ THE STICKY IS ON THE PANEL, NOT ON THE `aside`. A grid item's
+              containing block is its grid area, and this one is a single-row
+              grid — so the aside was already as tall as the column beside it and
+              a sticky box with no room to travel never moves at all. It read as
+              sticky and scrolled away with the page, taking the only desktop
+              booking CTA off screen at the bottom of the profile (FR-054), where
+              below `lg` a fixed bar exists precisely to prevent that. Playwright
+              caught it; no unit test can see a computed layout. */}
+          <div className="rounded-3xl border border-line bg-surface-raised p-6 lg:sticky lg:top-24">
             {/* ⚠️ The price is gone from this panel (spec 006, FR-021و · FR-021هـ).
                 It is not hidden pending a redesign: the platform is the seller
                 now, the student's total is computed per package on the purchase
