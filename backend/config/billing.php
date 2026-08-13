@@ -139,4 +139,16 @@ return [
     | an unbounded query count against the NFR-012 budget.
     */
     'max_lots_per_draw' => 20,
+
+    /*
+    | How long a payer is told a receipt review takes, in hours (FR-023).
+    |
+    | A promise, not a measurement — and it belongs to the operator running the
+    | approval queue, which is why it is a platform setting they can edit rather
+    | than an average computed from past approvals. An average silently changes
+    | the promise every time a quiet week or a backlog moves it, and a payer who
+    | was told twelve hours yesterday and forty-eight today reads that as the
+    | platform having no idea.
+    */
+    'review_sla_hours' => 24,
 ];

@@ -188,29 +188,51 @@
 
 ### اختبارات US3
 
-- [ ] T083 [US3] ⚠️ **اختبارٌ يجب أن يفشل أوّلاً** — اعتمادان متزامنان في `backend/tests/Feature/Payments/ApprovalConcurrencyTest.php`. ⚠️ **[‏م‏٢‏] ويُستحضَر نموذجا `Order` مستقلّان قبل أوّل اعتماد**: `update()` يُغيّر النسخة في الذاكرة، و`refresh()` يعيد `approved` — فاختبارٌ على نسخةٍ واحدة يخضرّ من أوّل تشغيل **ولا يقيس السباق**، وهو ما تعلنه المهمّة نفسها دليلَ فشل
-- [ ] T084 [US3] اعتمادٌ ورفضٌ متزامنان في الملف نفسه — طلبٌ **مرفوض** وقد سُكّت أرصدته وأُنشئ تسجيله، **بلا مسار تعويض**
-- [ ] T085 [P] [US3] **تثبيت** `FR-019` في `backend/tests/Feature/Payments/ReceiptLinkTest.php` — موقّع ‎١٥‎ دقيقة وينتهي فيُردّ
-- [ ] T086 [P] [US3] **تثبيت** `FR-021` و`FR-002` في `backend/tests/Feature/Payments/ManualPathTest.php` — ومعهما **[‏تحليل]** نصفُ `SC-006` الموجب («صفر إيصال معتمد **بلا إضافة أرصدة**»، وكان موزّعاً على اختبار التزامن) **وتثبيت حالة الحافّة «تغيّر رسم التشغيل `يُمنع` أن يعيد تسعير شراء تمّ»** — مضمونةٌ باللقطة الرباعية في `credit_purchases`، وضمانٌ بلا اختبارٍ يسقط عند أوّل إعادة هيكلة
-- [ ] T087 [P] [US3] أحداث الإيصال الثلاثة **وإنشاء** الأثر التدقيقيّ بعنوان الشبكة والجهاز في `backend/tests/Feature/Payments/ReceiptLifecycleTest.php` — ⚠️ **[‏تحليل] ومسار الحالات المعلَن نفسه** (`FR-020`: مرفوع ← قيد المراجعة ← معتمد **أو** مرفوض): الانتقالات المسموحة **والممنوعة**، فمتطلّبٌ يقول «مسارٌ معلن» ولا يُختبر إلا بأحداثه هو مسارٌ غير مُعلَن
-- [ ] T088 [P] [US3] ⚠️ **[‏م‏٢‏] ثغرة `ORDERS_VIEW_ALL` على مسارَيها** في `backend/tests/Feature/Payments/OrderKindVisibilityTest.php` — القائمة **و`show`**: مدرّسٌ حاملٌ الصلاحية لا يرى طلب `kind = credits` بأيٍّ منهما. **ولا يرفضه**
-- [ ] T089 [P] [US3] ⚠️ **[‏م‏٢‏] أرضية الاسترداد** في `backend/tests/Feature/Payments/RefundFloorTest.php` — سيناريو `quickstart` ‎٩ج‎: رصيدٌ ‎٦‎ وطلبُ ‎٨‎ ⇒ **يُستردّ ‎٦‎** · سببٌ إلزاميّ · `RefundIssued` يُطلَق · ودفتر المدرّس لا يتحرّك. **كان السيناريو الوحيد بلا مهمّة، والمتطلّب الوحيد الذي أعلنتُه منفَّذاً وليس كذلك**
-- [ ] T090 [P] [US3] ⚠️ **[‏م‏٢‏] الفائض النقدي** (`FR-025أ` · حالة الحافّة «دفع مرتين») في `backend/tests/Feature/Payments/SurplusCreditedTest.php` — يُقيَّد رصيداً بسياسةٍ معلنة و**يُمنع أن يضيع**
+- [x] T083 [US3] ⚠️ **اختبارٌ يجب أن يفشل أوّلاً** — اعتمادان متزامنان في `backend/tests/Feature/Payments/ApprovalConcurrencyTest.php`. ⚠️ **[‏م‏٢‏] ويُستحضَر نموذجا `Order` مستقلّان قبل أوّل اعتماد**: `update()` يُغيّر النسخة في الذاكرة، و`refresh()` يعيد `approved` — فاختبارٌ على نسخةٍ واحدة يخضرّ من أوّل تشغيل **ولا يقيس السباق**، وهو ما تعلنه المهمّة نفسها دليلَ فشل
+- [x] T084 [US3] اعتمادٌ ورفضٌ متزامنان في الملف نفسه — طلبٌ **مرفوض** وقد سُكّت أرصدته وأُنشئ تسجيله، **بلا مسار تعويض**
+- [x] T085 [P] [US3] **تثبيت** `FR-019` في `backend/tests/Feature/Payments/ReceiptLinkTest.php` — موقّع ‎١٥‎ دقيقة وينتهي فيُردّ
+- [x] T086 [P] [US3] **تثبيت** `FR-021` و`FR-002` في `backend/tests/Feature/Payments/ManualPathTest.php` — ومعهما **[‏تحليل]** نصفُ `SC-006` الموجب («صفر إيصال معتمد **بلا إضافة أرصدة**»، وكان موزّعاً على اختبار التزامن) **وتثبيت حالة الحافّة «تغيّر رسم التشغيل `يُمنع` أن يعيد تسعير شراء تمّ»** — مضمونةٌ باللقطة الرباعية في `credit_purchases`، وضمانٌ بلا اختبارٍ يسقط عند أوّل إعادة هيكلة
+- [x] T087 [P] [US3] أحداث الإيصال الثلاثة **وإنشاء** الأثر التدقيقيّ بعنوان الشبكة والجهاز في `backend/tests/Feature/Payments/ReceiptLifecycleTest.php` — ⚠️ **[‏تحليل] ومسار الحالات المعلَن نفسه** (`FR-020`: مرفوع ← قيد المراجعة ← معتمد **أو** مرفوض): الانتقالات المسموحة **والممنوعة**، فمتطلّبٌ يقول «مسارٌ معلن» ولا يُختبر إلا بأحداثه هو مسارٌ غير مُعلَن
+- [x] T088 [P] [US3] ⚠️ **[‏م‏٢‏] ثغرة `ORDERS_VIEW_ALL` على مسارَيها** في `backend/tests/Feature/Payments/OrderKindVisibilityTest.php` — القائمة **و`show`**: مدرّسٌ حاملٌ الصلاحية لا يرى طلب `kind = credits` بأيٍّ منهما. **ولا يرفضه**
+- [x] T089 [P] [US3] ⚠️ **[‏م‏٢‏] أرضية الاسترداد** في `backend/tests/Feature/Payments/RefundFloorTest.php` — سيناريو `quickstart` ‎٩ج‎: رصيدٌ ‎٦‎ وطلبُ ‎٨‎ ⇒ **يُستردّ ‎٦‎** · سببٌ إلزاميّ · `RefundIssued` يُطلَق · ودفتر المدرّس لا يتحرّك. **كان السيناريو الوحيد بلا مهمّة، والمتطلّب الوحيد الذي أعلنتُه منفَّذاً وليس كذلك**
+- [x] T090 [P] [US3] ⚠️ **[‏م‏٢‏] الفائض النقدي** (`FR-025أ` · حالة الحافّة «دفع مرتين») في `backend/tests/Feature/Payments/SurplusCreditedTest.php` — يُقيَّد رصيداً بسياسةٍ معلنة و**يُمنع أن يضيع**
 
 ### تنفيذ US3
 
-- [ ] T091 [US3] تحديثٌ شرطيّ ذرّي على الحالة (`WHERE status IN (pending, under_review)`) في `backend/app/Modules/Payments/Actions/ApproveOrder.php` **و**`RejectOrder.php` — الاثنان في مهمّةٍ واحدة لأن السباق واحد والقرار من يكسبه؛ والاعتماد يكتب `captured_order_id` في نفس الجملة
-- [ ] T092 [US3] ⚠️ **[‏م‏٢‏]** تمرير `enforceFloor: true` من `backend/app/Modules/Payments/Actions/AdjustCredits.php:62-70` حين يكون النوع `Refund` — **الفجوة سطرٌ واحد**، وبدونه يهبط الاسترداد بالرصيد تحت الصفر. والتسليم يبقى `false` (دَينٌ وقع)، والاسترداد `true` (إخراجُ مال): **هذا هو الموضع الوحيد الذي تُفرَض فيه الأرضية في المرحلة**
-- [ ] T093 [US3] ⚠️ **[‏م‏٢‏]** قيد الفائض النقدي عن سعر الحزمة في `backend/app/Modules/Payments/Actions/PurchaseCredits.php` عبر `AdjustCredits` بسياسةٍ معلنة — `FR-025أ`، و**يُمنع أن يضيع**
-- [ ] T094 [P] [US3] أحداث `ReceiptUploaded` · `ReceiptApproved` · `ReceiptRejected` في `.../Events/` — **تُضاف ولا يُعاد تسمية القائم**
-- [ ] T095 [US3] إطلاقها من `backend/app/Modules/Payments/Actions/UploadPaymentReceipt.php` و`.../ApproveOrder.php` و`.../RejectOrder.php`
-- [ ] T096 [US3] ⚠️ **[‏م‏٢‏] إنشاء** الأثر التدقيقيّ لا تعديله: `backend/app/Modules/Payments/Actions/ApproveOrder.php:46` يُضاف إليه عنوان الشبكة والجهاز، **أمّا `.../RejectOrder.php` و`.../UploadPaymentReceipt.php` فلا تستعملان `LogsActivity` إطلاقاً** — فتُضاف السمة وأوّل نداء لكلٍّ منهما. النسخة الأولى قالت «إضافة حقلين إلى نداءات» وثلثاها لا نداء له. **ويُمنع تعديل السمة المشتركة** (‏٢٣ Action في سبع وحدات)
-- [ ] T097 [US3] قبول `PaymentMethod::MobileWallet` وكتابة `method` في `backend/app/Modules/Payments/Actions/UploadPaymentReceipt.php` — ⚠️ **[‏م‏٢‏] بلا `[P]`**: `T095` و`T096` يعدّلان الملف نفسه
-- [ ] T098 [P] [US3] زمن المراجعة المتوقّع في `backend/app/Modules/Payments/Http/Resources/OrderResource.php` — والقيمة تُقرأ من `platform_settings` لا تُحسب في الـResource
-- [ ] T099 [US3] ⚠️ **[‏م‏٢‏]** فرعٌ على `kind` في `backend/app/Modules/Payments/Policies/OrderPolicy.php` — **في `view():25` و`reject():86` معاً**، على شكل `approve():69` المشحون. النسخة الأولى أغلقت `index` وحده، **و`show` يبقى مفتوحاً**: المدرّس يقرأ الإجمالي uuid بعد uuid ومعه رابط الإيصال البنكي (`OrderResource:36-42`)، **ويرفض شراء أرصدةٍ منصّياً** — الدافعُ يُنقض عليه بيعُ المنصّة
-- [ ] T100 [US3] تقييد `OrderController::index` والحمولة على `kind` في `.../Http/Controllers/OrderController.php`
-- [ ] T101 [US3] ⚠️ **[‏تحليل]** الاسترداد **الجزئي** لدفعةٍ أغلقت مستحقاً — في `backend/app/Modules/Payments/Actions/AdjustCredits.php` وحالةٌ في `backend/tests/Feature/Payments/RefundFloorTest.php`: **المستحق يُعاد جزئياً والحجب يُعاد تقييمه**. و`WithholdingReader` مشتقٌّ من خمسة مدخلات فالتقييم لحظيّ بلا جدول — **لكن لا شيء يعيد فتح المستحق إن لم تُكتب هذه المهمّة**، فيبقى الطالب مفتوحاً بعد استردادٍ سحب ثمن ما فُتح له. حالة حافّة معلَنة بلا مهمّة
-- [ ] T102 [P] [US3] عرض الحالة وزمن المراجعة في `frontend/src/app/(app)/(shell)/orders/page.tsx` — **الصفحة قائمة**
+- [x] T091 [US3] تحديثٌ شرطيّ ذرّي على الحالة (`WHERE status IN (pending, under_review)`) في `backend/app/Modules/Payments/Actions/ApproveOrder.php` **و**`RejectOrder.php` — الاثنان في مهمّةٍ واحدة لأن السباق واحد والقرار من يكسبه؛ والاعتماد يكتب `captured_order_id` في نفس الجملة
+- [x] T092 [US3] ⚠️ **[‏م‏٢‏]** تمرير `enforceFloor: true` من `backend/app/Modules/Payments/Actions/AdjustCredits.php:62-70` حين يكون النوع `Refund` — **الفجوة سطرٌ واحد**، وبدونه يهبط الاسترداد بالرصيد تحت الصفر. والتسليم يبقى `false` (دَينٌ وقع)، والاسترداد `true` (إخراجُ مال): **هذا هو الموضع الوحيد الذي تُفرَض فيه الأرضية في المرحلة**
+- [x] T093 [US3] ⚠️ **[‏م‏٢‏]** قيد الفائض النقدي عن سعر الحزمة في `backend/app/Modules/Payments/Actions/PurchaseCredits.php` عبر `AdjustCredits` بسياسةٍ معلنة — `FR-025أ`، و**يُمنع أن يضيع**
+- [x] T094 [P] [US3] أحداث `ReceiptUploaded` · `ReceiptApproved` · `ReceiptRejected` في `.../Events/` — **تُضاف ولا يُعاد تسمية القائم**
+- [x] T095 [US3] إطلاقها من `backend/app/Modules/Payments/Actions/UploadPaymentReceipt.php` و`.../ApproveOrder.php` و`.../RejectOrder.php`
+- [x] T096 [US3] ⚠️ **[‏م‏٢‏] إنشاء** الأثر التدقيقيّ لا تعديله: `backend/app/Modules/Payments/Actions/ApproveOrder.php:46` يُضاف إليه عنوان الشبكة والجهاز، **أمّا `.../RejectOrder.php` و`.../UploadPaymentReceipt.php` فلا تستعملان `LogsActivity` إطلاقاً** — فتُضاف السمة وأوّل نداء لكلٍّ منهما. النسخة الأولى قالت «إضافة حقلين إلى نداءات» وثلثاها لا نداء له. **ويُمنع تعديل السمة المشتركة** (‏٢٣ Action في سبع وحدات)
+- [x] T097 [US3] قبول `PaymentMethod::MobileWallet` وكتابة `method` في `backend/app/Modules/Payments/Actions/UploadPaymentReceipt.php` — ⚠️ **[‏م‏٢‏] بلا `[P]`**: `T095` و`T096` يعدّلان الملف نفسه
+- [x] T098 [P] [US3] زمن المراجعة المتوقّع في `backend/app/Modules/Payments/Http/Resources/OrderResource.php` — والقيمة تُقرأ من `platform_settings` لا تُحسب في الـResource
+- [x] T099 [US3] ⚠️ **[‏م‏٢‏]** فرعٌ على `kind` في `backend/app/Modules/Payments/Policies/OrderPolicy.php` — **في `view():25` و`reject():86` معاً**، على شكل `approve():69` المشحون. النسخة الأولى أغلقت `index` وحده، **و`show` يبقى مفتوحاً**: المدرّس يقرأ الإجمالي uuid بعد uuid ومعه رابط الإيصال البنكي (`OrderResource:36-42`)، **ويرفض شراء أرصدةٍ منصّياً** — الدافعُ يُنقض عليه بيعُ المنصّة
+- [x] T100 [US3] تقييد `OrderController::index` والحمولة على `kind` في `.../Http/Controllers/OrderController.php`
+- [x] T101 [US3] ⚠️ **[‏تحليل]** الاسترداد **الجزئي** لدفعةٍ أغلقت مستحقاً — في `backend/app/Modules/Payments/Actions/AdjustCredits.php` وحالةٌ في `backend/tests/Feature/Payments/RefundFloorTest.php`: **المستحق يُعاد جزئياً والحجب يُعاد تقييمه**. و`WithholdingReader` مشتقٌّ من خمسة مدخلات فالتقييم لحظيّ بلا جدول — **لكن لا شيء يعيد فتح المستحق إن لم تُكتب هذه المهمّة**، فيبقى الطالب مفتوحاً بعد استردادٍ سحب ثمن ما فُتح له. حالة حافّة معلَنة بلا مهمّة
+- [x] T102 [P] [US3] عرض الحالة وزمن المراجعة في `frontend/src/app/(app)/(shell)/orders/page.tsx` — **الصفحة قائمة**
+
+> ⚠️ **[‏م‏٣‏] ثلاثة انحرافات عن نصّ المهامّ، مكتوبة هنا لا مسكوتٌ عنها:**
+>
+> 1. **`T093` نُفِّذ في `HandleProviderCallback` و`RecordCreditPurchase`، لا في
+>    `PurchaseCredits`.** الأخير **لا يستلم مالاً أبداً** (‏`FR-018`: لا رصيد يُسكّ عند
+>    النيّة)، فلا فائض يمرّ به. الفائض يقع في موضعين، كلاهما في الإشعار: دفعةٌ ثانية على
+>    الطلب نفسه، ودفعةٌ نجحت بعد الإلغاء. والسياسة المعلنة (تحويلٌ بلقطة سعر الشراء
+>    وتقريبٌ **لأعلى**) في `RecordCreditPurchase::recordSurplus()`، حيث يُكتب كل رصيد
+>    مقابل عوض — تحويلٌ ثانٍ في المتحكّم بالإشعار هو النسخة التي تنحرف.
+> 2. **و«دفع مرتين» كان `500` لا فائضاً.** `captured_order_id` فريد، والالتقاط الثاني على
+>    طلبٍ ما زال مفتوحاً كان يكتبه فيرتطم بالفهرس — فسؤال «هل يحمل الطلبَ التقاطٌ سابق؟»
+>    هو ما حوّل الانهيار إلى الجواب الذي يقوله السبيك.
+> 3. **و`T101` لا كود له، وهذا هو الجواب.** الحجب مشتقٌّ من خمسة مدخلات ومخزَّنٌ بلا
+>    واحد منها، فالحجز التالي يجيب جواباً مختلفاً بلا شيء يُعاد تقييمه. ما احتاج كتابةً
+>    هو **الإخبار** — وهو ما يفعله `BalanceAnnouncer` داخل `AdjustCredits`، وما تثبّته
+>    حالة `RefundFloorTest` الأخيرة.
+>
+> **ورابعٌ لم تسمّه أيّ مهمّة:** `OrderController::index` كان يلفّ المجموعة بـ
+> `response()->json()`، فتُسلسَل **مصفوفةً عارية** بلا غلاف `data` — و`orders/page.tsx`
+> يقرأ `res.data`. كل قائمة طلبات في المنتج كانت تعود `undefined` وتعرض «لا طلبات في
+> سجلّك» لمن له طلبات. والصفحة كانت ترسل `rejection_reason` حيث ينتظر الـAPI `reason`،
+> فكلّ رفضٍ من الشاشة يعود `422` بلا أثر.
 
 **نقطة تفتيش:** المسار اليدوي مغلق التزامن ومسجَّل، والاسترداد بأرضيته.
 

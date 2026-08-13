@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Http\Resources;
 
 use App\Modules\Payments\Models\Order;
+use App\Modules\Payments\Support\BillingSettings;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\URL;
@@ -39,6 +40,12 @@ class OrderResource extends JsonResource
                     now()->addMinutes(15),
                     ['order' => $this->uuid],
                 )
+                : null,
+            // Only while the answer is still owed. On a decided order the promise
+            // is spent, and repeating it beside "معتمد" reads as a second wait
+            // about to begin.
+            'review_sla_hours' => $this->isPending()
+                ? app(BillingSettings::class)->reviewSlaHours()
                 : null,
             'created_at' => $this->created_at,
         ];

@@ -268,7 +268,9 @@ describe('order listing', function (): void {
 
         $this->getJson('/api/v1/orders')
             ->assertOk()
-            ->assertJsonCount(1);
+            // In `data`, because the index returns the resource collection and
+            // its envelope — the shape orders/page.tsx has always read.
+            ->assertJsonCount(1, 'data');
     });
 
     it('lists all orders for staff with view-all', function (): void {
@@ -285,7 +287,7 @@ describe('order listing', function (): void {
 
         $this->getJson('/api/v1/orders')
             ->assertOk()
-            ->assertJsonCount(2);
+            ->assertJsonCount(2, 'data');
     });
 });
 

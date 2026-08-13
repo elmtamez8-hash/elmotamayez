@@ -57,6 +57,10 @@ class AdjustCredits extends Action
             throw new DomainException('لا يمكن تقييد حركة بصفر رصيد.');
         }
 
+        if ($type === CreditTransactionType::Refund && $credits < 0) {
+            $credits = $this->refundable($balance, $credits);
+        }
+
         $wasBlocked = $this->announcer->isBlocked($balance);
 
         $entry = $this->ledger->post(new CreditMovement(
@@ -67,6 +71,13 @@ class AdjustCredits extends Action
             sourceId: $this->sourceIdFrom($idempotencyKey),
             performedBy: $performedBy?->getKey() === null ? null : (int) $performedBy->getKey(),
             reason: trim($reason),
+            // ⚠️ THE ONE PLACE IN THIS PHASE THE FLOOR IS ENFORCED, and the
+            // asymmetry with delivery is the whole design. A delivered session is
+            // a debt that happened whether or not the student can pay it, so
+            // recording it must never be refused. A refund is money going OUT —
+            // and money paid out against credits that were already consumed is a
+            // session the teacher delivered and would now be unpaid for.
+            enforceFloor: $type === CreditTransactionType::Refund,
         ));
 
         if ($entry === null) {
@@ -82,6 +93,44 @@ class AdjustCredits extends Action
         });
 
         return $entry;
+    }
+
+    /**
+     * How much of a requested refund there is actually left to give back.
+     *
+     * ⚠️ CLAMPED, NOT REFUSED. Quickstart 9ج: a student holding 6 credits asks
+     * for 8 back, and 6 is what returns — the other two bought sessions that were
+     * delivered, and the teacher has already earned their fee for them (spec
+     * 014). Refusing the whole request would hold hostage the credits nobody
+     * disputes; paying all eight would buy back a delivery that happened.
+     *
+     * ⚠️ AND THE FLOOR IS STILL ENFORCED ON TOP OF THIS. The clamp reads a number
+     * and the ledger writes with a conditional UPDATE, so a session charged in
+     * between would make this figure stale — the statement then affects zero rows
+     * and an honest exception is raised. Two guards for one rule is not
+     * duplication here: this one decides the AMOUNT, that one decides whether the
+     * amount is still true at the moment of the write.
+     *
+     * @param  int  $credits  negative, as every refund is
+     * @return int negative, and never deeper than the balance holds
+     */
+    private function refundable(CreditBalance $balance, int $credits): int
+    {
+        $remaining = (int) CreditBalance::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($balance->getKey())
+            ->value('remaining_credits');
+
+        $available = max(0, $remaining);
+
+        if ($available === 0) {
+            // Distinct from the "zero credits" refusal above, which reads as a
+            // caller mistake. This one is a fact about the account, and the
+            // operator needs to be told which it is.
+            throw new DomainException('لا يوجد رصيد قابل للاسترداد على هذا الحساب.');
+        }
+
+        return -min(abs($credits), $available);
     }
 
     private function sourceTypeFor(CreditTransactionType $type): string

@@ -10,27 +10,52 @@ use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\CreateOrder;
 use App\Modules\Payments\Actions\RejectOrder;
 use App\Modules\Payments\Actions\UploadPaymentReceipt;
+use App\Modules\Payments\Enums\OrderKind;
+use App\Modules\Payments\Enums\PaymentMethod;
 use App\Modules\Payments\Http\Resources\OrderResource;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Support\Permissions;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrderController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): AnonymousResourceCollection
     {
+        $user = $this->currentUser($request);
         $query = Order::query();
 
         // Students see only their orders; staff with view-all see all.
-        if (! $this->currentUser($request)->can(Permissions::ORDERS_VIEW_ALL)) {
-            $query->where('user_id', $this->currentUser($request)->getKey());
+        if (! $user->can(Permissions::ORDERS_VIEW_ALL)) {
+            $query->where('user_id', $user->getKey());
+        } elseif (! $user->can(Permissions::BILLING_PURCHASE_APPROVE)) {
+            /*
+            | ⚠️ THE SAME CUT AS `OrderPolicy::view()`, HERE BECAUSE A LIST TAKES
+            | NO POLICY. A credit purchase is a sale between the student and the
+            | platform (Q-4), so a teacher holding ORDERS_VIEW_ALL sees every
+            | course order in their workspace and none of the platform's sales —
+            | except any they made themselves as a buyer.
+            */
+            $query->where(fn (Builder $rows) => $rows
+                ->where('kind', '!=', OrderKind::Credits->value)
+                ->orWhere('user_id', $user->getKey()));
         }
 
         $orders = $query->with(['course', 'media'])->orderByDesc('created_at')->paginate(15);
 
-        return response()->json(OrderResource::collection($orders));
+        /*
+        | ⚠️ RETURNED, NOT `response()->json(...)`-ED, AND THE PAGE DEPENDED ON IT.
+        | Wrapped in `json()` the collection serialises to a BARE ARRAY — the
+        | `data`/`links`/`meta` envelope is added by the resource's own
+        | `toResponse()`, which `json()` never calls. `orders/page.tsx` reads
+        | `res.data`, so every order list on the product came back undefined and
+        | rendered "لا طلبات في سجلّك" to people who had orders.
+        */
+        return OrderResource::collection($orders);
     }
 
     public function show(Request $request, Order $order): JsonResponse
@@ -61,11 +86,26 @@ class OrderController extends Controller
     {
         $this->authorize('uploadReceipt', $order);
 
-        $request->validate([
+        $validated = $request->validate([
             'receipt' => ['required', 'file', 'max:10240', 'mimes:jpg,jpeg,png,pdf', 'mimetypes:image/jpeg,image/png,application/pdf'],
+            // Not required: every payer before this field existed made a bank
+            // transfer, and a suddenly-required field would refuse the upload
+            // from a client that has not shipped the input yet.
+            'method' => ['sometimes', 'string', Rule::enum(PaymentMethod::class)],
         ]);
 
-        $action->handle($order, $request->file('receipt'), $this->currentUser($request));
+        try {
+            $order = $action->handle(
+                $order,
+                $request->file('receipt'),
+                $this->currentUser($request),
+                PaymentMethod::tryFrom((string) ($validated['method'] ?? '')) ?? PaymentMethod::BankTransfer,
+                $request->ip(),
+                $request->userAgent(),
+            );
+        } catch (\DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
 
         return response()->json(OrderResource::make($order));
     }
@@ -93,7 +133,7 @@ class OrderController extends Controller
         $this->authorize('approve', $order);
 
         try {
-            $order = $action->handle($order, $this->currentUser($request));
+            $order = $action->handle($order, $this->currentUser($request), $request->ip(), $request->userAgent());
         } catch (\DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
@@ -108,7 +148,13 @@ class OrderController extends Controller
         $request->validate(['reason' => ['required', 'string', 'max:500']]);
 
         try {
-            $order = $action->handle($order, $this->currentUser($request), $request->input('reason'));
+            $order = $action->handle(
+                $order,
+                $this->currentUser($request),
+                $request->string('reason')->toString(),
+                $request->ip(),
+                $request->userAgent(),
+            );
         } catch (\DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }

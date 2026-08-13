@@ -333,6 +333,21 @@ class BillingSettings
     }
 
     /**
+     * The review time a payer is promised while their receipt waits (FR-023).
+     *
+     * Read from `platform_settings`, never computed in the Resource that shows
+     * it: a Resource runs once per row, so an average derived there is a query
+     * per order on a page that lists fifteen of them.
+     */
+    public function reviewSlaHours(): int
+    {
+        return max(1, (int) PlatformSettings::get(
+            'billing.review_sla_hours',
+            config('billing.review_sla_hours', 24),
+        ));
+    }
+
+    /**
      * How many lots one consumption may draw from.
      *
      * Withdrawal is one conditional UPDATE per lot, so an unbounded loop is an

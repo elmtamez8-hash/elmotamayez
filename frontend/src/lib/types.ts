@@ -151,6 +151,8 @@ export interface Order {
   has_receipt: boolean;
   is_mine: boolean;
   receipt_url: string | null;
+  /** Hours the platform promises a receipt review in — null once decided. */
+  review_sla_hours: number | null;
   created_at: string;
 }
 

@@ -12,6 +12,7 @@ use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Models\Order;
+use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Support\BalanceAnnouncer;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Payments\Support\CreditLedger;
@@ -103,6 +104,65 @@ class RecordCreditPurchase extends Action
             // model in memory knows nothing about.
             $this->limits->handle($balance);
         });
+
+        return $entry;
+    }
+
+    /**
+     * Money that arrived with no order left to close — credited, never kept.
+     *
+     * FR-025أ, and the two ways it happens are the same shape: a payer who pays
+     * twice for one order, and a payment that succeeds after the order was
+     * cancelled. Both leave a captured transaction the platform holds and a payer
+     * who is out the money.
+     *
+     * ⚠️ THE DECLARED POLICY, in one place: the money buys credits at the price
+     * THIS purchase was snapshotted at, rounded UP to a whole credit. Up, because
+     * Q-4 removed the cash balance a remainder could have lived in — rounding
+     * down would leave a few riyals with nowhere to go, which is the "يُمنع أن
+     * يضيع" the requirement is written against. The platform absorbs less than one
+     * credit; the payer loses nothing. In practice it is exact: the amount is
+     * provider-verified equal to the order, so it converts to whole credits.
+     *
+     * ⚠️ AND IT IS A `purchase`, NOT A `refund`. The shipped placeholder posted
+     * `+1 refund`, which said the opposite of what happened in the student's own
+     * statement, fired `RefundIssued` for money coming IN, and — because only
+     * purchases and bonuses open a lot — raised `remaining` with no lot behind it.
+     * That last one is not cosmetic: `sum(lots) = max(remaining, 0)` is an
+     * invariant ReconcileCreditBalancesJob checks every night, and the balance
+     * would have been reported broken for ever.
+     */
+    public function recordSurplus(PaymentTransaction $transaction, CreditPurchase $purchase): ?CreditTransaction
+    {
+        if ($purchase->total_minor <= 0 || $purchase->credits <= 0) {
+            return null;
+        }
+
+        $balance = $purchase->balance()->withoutWorkspaceScope()->firstOrFail();
+
+        $credits = (int) ceil($transaction->amount_minor * $purchase->credits / $purchase->total_minor);
+
+        $wasBlocked = $this->announcer->isBlocked($balance);
+
+        $entry = $this->ledger->post(new CreditMovement(
+            balance: $balance,
+            type: CreditTransactionType::Purchase,
+            credits: $credits,
+            // Its own key, not the purchase's: keyed by the purchase it would
+            // collide with the mint that closed the order, be read as a duplicate
+            // and swallowed — the exact failure the refund key was moved away
+            // from.
+            sourceType: 'payment_surplus',
+            sourceId: (int) $transaction->getKey(),
+            reason: 'دفعة زائدة عن قيمة الطلب — قُيِّدت رصيداً ولم تُرفض.',
+            expiresAt: $this->expiryFor($purchase),
+        ));
+
+        if ($entry === null) {
+            return null;
+        }
+
+        DB::afterCommit(fn () => $this->announcer->announce($balance, $wasBlocked, $entry->credits));
 
         return $entry;
     }

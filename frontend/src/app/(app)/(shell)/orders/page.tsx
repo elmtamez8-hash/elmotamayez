@@ -56,10 +56,12 @@ export default function OrdersPage() {
     setBusy(uuid);
     setError("");
     try {
-      await api.post(`/orders/${uuid}/reject`, {
-        rejection_reason: reason.trim() || undefined,
-      });
-      replace(uuid, { status: "rejected", rejection_reason: reason.trim() || null });
+      // ⚠️ `reason`, NOT `rejection_reason`. The API has always validated
+      // `reason` as required, so every rejection from this screen came back 422
+      // and the row simply never changed — the field name was the bug, and the
+      // "(اختياري)" placebo beside it was what made it look like a choice.
+      await api.post(`/orders/${uuid}/reject`, { reason: reason.trim() });
+      replace(uuid, { status: "rejected", rejection_reason: reason.trim() });
       setRejecting(null);
       setReason("");
     } catch (err: unknown) {
@@ -96,7 +98,23 @@ export default function OrdersPage() {
       numeric: true,
       render: (o) => formatMinorMoney(o.amount_minor, o.currency),
     },
-    { key: "status", header: "الحالة", render: (o) => <StatusBadge status={o.status} /> },
+    {
+      key: "status",
+      header: "الحالة",
+      render: (o) => (
+        <div className="flex flex-col items-start gap-1">
+          <StatusBadge status={o.status} />
+          {/* The promise, shown only while it is still owed (FR-023). A payer
+              who uploaded a receipt and sees nothing but "قيد المراجعة" has no
+              way to tell waiting from being forgotten. */}
+          {o.review_sla_hours !== null && o.has_receipt && (
+            <span className="text-xs text-ink-muted">
+              تُراجَع خلال {o.review_sla_hours} ساعة
+            </span>
+          )}
+        </div>
+      ),
+    },
     {
       key: "receipt",
       header: "الإيصال",
@@ -173,7 +191,7 @@ export default function OrdersPage() {
                 id={`reason-${o.uuid}`}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="سبب الرفض (اختياري)"
+                placeholder="سبب الرفض"
                 className="w-full rounded-lg border border-line bg-surface-raised px-3 py-1.5 text-xs text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
               />
               <div className="flex gap-2">
@@ -181,6 +199,7 @@ export default function OrdersPage() {
                   size="sm"
                   variant="danger"
                   loading={busy === o.uuid}
+                  disabled={reason.trim() === ""}
                   onClick={() => reject(o.uuid)}
                 >
                   تأكيد الرفض

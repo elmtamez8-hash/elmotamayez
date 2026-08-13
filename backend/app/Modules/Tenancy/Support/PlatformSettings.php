@@ -72,6 +72,7 @@ final class PlatformSettings
         'billing.limit.decrease_after_late_days' => 'billing.limit.decrease_after_late_days',
         'billing.dormant_notice_months' => 'billing.dormant_notice_months',
         'billing.max_lots_per_draw' => 'billing.max_lots_per_draw',
+        'billing.review_sla_hours' => 'billing.review_sla_hours',
         // Publishing new terms is bumping one of these (FR-049). Editable from
         // the panel because that is the whole mechanism: a stored consent names
         // the version it was given for, and the readers ask for the current one.

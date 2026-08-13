@@ -6,11 +6,10 @@ namespace App\Modules\Payments\Actions;
 
 use App\Modules\Payments\Data\CallbackEvent;
 use App\Modules\Payments\Enums\CallbackResult;
-use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Enums\PaymentStatus;
 use App\Modules\Payments\Events\PaymentCaptured;
 use App\Modules\Payments\Events\PaymentFailed;
-use App\Modules\Payments\Models\CreditBalance;
+use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Models\ProviderCallback;
@@ -40,16 +39,17 @@ use Illuminate\Support\Facades\DB;
  * EFFECT — one event, one mint — which is what makes a webhook racing the
  * reconciliation sweep safe under concurrency rather than merely in sequence.
  *
- * ⚠️ 4. A PAYMENT THAT SUCCEEDS ON AN ORDER THAT NO LONGER STANDS IS NEVER
- * REFUSED. The money left the student's account; refusing the transaction would
- * be a debit with nothing behind it. It is captured and turned into credits with
- * a recorded reason, and it closes no order.
+ * ⚠️ 4. A PAYMENT WITH NO ORDER LEFT TO CLOSE IS NEVER REFUSED — whether the
+ * order was cancelled first or the payer simply paid twice. The money left their
+ * account; refusing the transaction would be a debit with nothing behind it. It
+ * is captured and turned into credits with a recorded reason, and it claims no
+ * order.
  */
 class HandleProviderCallback extends Action
 {
     use LogsActivity;
 
-    public function __construct(private readonly AdjustCredits $adjustCredits) {}
+    public function __construct(private readonly RecordCreditPurchase $purchases) {}
 
     public function handle(ProviderCallback $callback, CallbackEvent $event): CallbackResult
     {
@@ -101,7 +101,7 @@ class HandleProviderCallback extends Action
         | An order that no longer stands takes NULL for `captured_order_id`: the
         | capture is real, but there is no order for it to lock.
         */
-        $stillOpen = $order->status !== 'cancelled' && $order->status !== 'rejected';
+        $closesOrder = $this->closesOrder($order);
 
         $claimed = PaymentTransaction::query()
             ->withoutWorkspaceScope()
@@ -109,7 +109,7 @@ class HandleProviderCallback extends Action
             ->where('status', PaymentStatus::Pending->value)
             ->update([
                 'status' => PaymentStatus::Captured->value,
-                'captured_order_id' => $stillOpen ? $order->getKey() : null,
+                'captured_order_id' => $closesOrder ? $order->getKey() : null,
                 'settled_at' => now(),
             ]);
 
@@ -121,8 +121,8 @@ class HandleProviderCallback extends Action
 
         $transaction->refresh();
 
-        if (! $stillOpen) {
-            $this->creditOrphanedPayment($transaction, $order);
+        if (! $closesOrder) {
+            $this->creditSurplusPayment($transaction, $order);
 
             return $this->finish($callback, CallbackResult::Accepted, $transaction);
         }
@@ -135,38 +135,66 @@ class HandleProviderCallback extends Action
     }
 
     /**
-     * The money arrived for an order that had been cancelled or rejected.
+     * Whether this capture is the one that closes its order.
      *
-     * ⚠️ The spec answers this explicitly: it is credited and MUST NOT be
-     * refused after the debit succeeded. Refusing it would leave the student
-     * charged with nothing to show. It becomes credits with a recorded reason,
-     * and it closes no order — the order is gone.
+     * Two ways it is not, and the second was a 500 waiting to happen:
+     *
+     *   · the order was cancelled or rejected before the money landed;
+     *   · the order is ALREADY HELD by a captured transaction — the payer paid
+     *     twice. `captured_order_id` is unique, so writing it a second time
+     *     throws; asking first is what turns "طالب دفع مرتين" from a crashed
+     *     webhook into the surplus the spec says it is.
+     *
+     * The narrow race — two callbacks for two payments claiming the order in the
+     * same instant — still hits the index, and that is the correct end of it: the
+     * queued job retries, the retry sees the captured row, and takes the surplus
+     * path. Self-healing, because the invariant is in the engine rather than in
+     * this method.
      */
-    private function creditOrphanedPayment(PaymentTransaction $transaction, Order $order): void
+    private function closesOrder(Order $order): bool
     {
-        $balance = CreditBalance::query()
+        if ($order->status === 'cancelled' || $order->status === 'rejected') {
+            return false;
+        }
+
+        return ! PaymentTransaction::query()
             ->withoutWorkspaceScope()
-            ->where('student_user_id', $order->user_id)
-            ->where('course_id', $order->course_id)
+            ->where('captured_order_id', $order->getKey())
+            ->exists();
+    }
+
+    /**
+     * Money that arrived with no order left to close (FR-025أ).
+     *
+     * ⚠️ NEVER REFUSED AFTER THE DEBIT SUCCEEDED. The money left the payer's
+     * account; refusing the transaction would be a charge with nothing behind it.
+     * It becomes credits with a recorded reason and closes no order.
+     *
+     * The conversion and the policy behind it live in {@see RecordCreditPurchase},
+     * which is where every credit added for consideration is written — a second
+     * conversion here would be the copy that drifts from the snapshot.
+     *
+     * ⚠️ AND A COURSE ORDER IS RECORDED, NOT INVENTED. There is no price snapshot
+     * to convert against, so there is no honest number of credits; the operator
+     * gets a row naming the transaction instead of the student getting a figure
+     * nobody derived.
+     */
+    private function creditSurplusPayment(PaymentTransaction $transaction, Order $order): void
+    {
+        $purchase = CreditPurchase::query()
+            ->withoutWorkspaceScope()
+            ->where('order_id', $order->getKey())
             ->first();
 
-        if ($balance === null) {
-            // Nothing to credit it onto — recorded and left for the operator
-            // rather than silently dropped.
-            $this->logActivity('payment.captured_orphan_unresolved', $transaction, [
+        if ($purchase === null) {
+            $this->logActivity('payment.captured_surplus_unresolved', $transaction, [
                 'order_id' => $order->getKey(),
             ]);
 
             return;
         }
 
-        $this->adjustCredits->handle(
-            balance: $balance,
-            type: CreditTransactionType::Refund,
-            credits: 1,
-            reason: 'دفعة نجحت بعد إلغاء الطلب — قُيِّدت رصيداً ولم تُرفض.',
-            idempotencyKey: 'orphan-capture-'.$transaction->uuid,
-        );
+        $this->purchases->recordSurplus($transaction, $purchase);
     }
 
     /**

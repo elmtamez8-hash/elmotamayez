@@ -22,6 +22,23 @@ class OrderPolicy extends BasePolicy
             return Response::allow();
         }
 
+        /*
+        | ⚠️ `ORDERS_VIEW_ALL` IS A TEACHER PERMISSION, AND A CREDIT ORDER IS THE
+        | PLATFORM'S SALE. Left on the general branch, a teacher reads what each
+        | of their students paid the platform — uuid by uuid through `show`, since
+        | filtering the index alone leaves that door open — and `OrderResource`
+        | hands over the signed link to the payer's bank receipt with it.
+        |
+        | Q-4 moved the seller role to the platform and `approve()` was written to
+        | that decision; view and reject are the same decision, and were the two
+        | halves left behind.
+        */
+        if ($order->isCreditPurchase()) {
+            return $user->can(Permissions::BILLING_PURCHASE_APPROVE)
+                ? Response::allow()
+                : Response::deny('شراء الأرصدة بين الطالب والمنصّة.');
+        }
+
         return $user->can(Permissions::ORDERS_VIEW_ALL)
             ? Response::allow()
             : Response::deny();
@@ -98,6 +115,16 @@ class OrderPolicy extends BasePolicy
     {
         if (($workspaceCheck = $this->belongsToCurrentWorkspace($order))->denied()) {
             return $workspaceCheck;
+        }
+
+        // Refusing a platform sale is the platform's call, for the reason
+        // approving it is: the money is owed to the platform and the teacher is
+        // the payee downstream (spec 014). A teacher who may reject it may cancel
+        // a payment made to someone else.
+        if ($order->isCreditPurchase()) {
+            return $user->can(Permissions::BILLING_PURCHASE_APPROVE)
+                ? Response::allow()
+                : Response::deny('رفض شراء الأرصدة صلاحية منصّية.');
         }
 
         return $user->can(Permissions::PAYMENTS_REJECT)

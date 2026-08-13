@@ -20,6 +20,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string $status
  * @property string $provider
  * @property OrderKind $kind
+ * @property ?array<string, mixed> $metadata cast to array; the column is json
  * @property-read Workspace $workspace workspace_id is NOT NULL
  * @property-read User $user user_id is NOT NULL
  */
