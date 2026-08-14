@@ -85,7 +85,13 @@ class PaymentAuditController extends Controller
 
         $payment = PaymentTransaction::query()
             ->withoutWorkspaceScope()
-            ->with('order')
+            // ⚠️ THE BYPASS IS PER MODEL, AND AN EAGER LOAD IS ITS OWN QUERY. A
+            // bare `->with('order')` runs Order's global scope inside the
+            // relation, so a payment from any workspace but the reader's
+            // fallback comes back with a null order — and the whole chain below
+            // it silently answers "nothing was bought". Found while writing the
+            // collection report, which walks the same tables.
+            ->with(['order' => fn ($query) => $query->withoutWorkspaceScope()])
             ->where('uuid', $transaction)
             ->firstOrFail();
 

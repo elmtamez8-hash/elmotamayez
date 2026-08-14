@@ -14,6 +14,9 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\CreditTransactionType;
+use App\Modules\Payments\Enums\OrderKind;
+use App\Modules\Payments\Enums\PaymentMethod;
+use App\Modules\Payments\Enums\PaymentStatus;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Payments\Support\CreditLedger;
@@ -23,6 +26,8 @@ use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Database\Seeders\NotificationTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Tests\Support\WithWorkspace;
@@ -344,4 +349,99 @@ function deliverBillableSession(ClassSession $session, User $teacherUser): Class
         ->update(['stay_seconds' => 3000]);
 
     return app(CloseClassSession::class)->handle($session->refresh());
+}
+
+/**
+ * `$count` orders and their payments, spread across BOTH of the calling test's
+ * workspaces, both order kinds, three methods and three statuses.
+ *
+ * Here rather than beside its first caller for the reason `settlementPayloadKeys`
+ * is: two suites use it — the collection report's correctness and its query
+ * budget — and a helper declared in a test file only exists once that particular
+ * file has been loaded.
+ *
+ * ⚠️ BULK INSERTED WITH `uuid` AND THE TIMESTAMPS PASSED EXPLICITLY. A bulk
+ * insert boots no model, so `HasUuid` never fires and the timestamps are never
+ * filled — the same fact that makes `CreditLedger::writeEntry()` pass both by
+ * hand. On MySQL a missing uuid would be silently stored as `''` and every later
+ * row would collide with it. Ten thousand `create()` calls would also cost more
+ * than the assertion they set up.
+ *
+ * Expects `$this->workspace`, `$this->otherWorkspace`, `$this->owner` and
+ * `$this->otherOwner` on the calling test.
+ */
+function seedCollection(int $count): void
+{
+    $test = test();
+
+    $workspaces = [(int) $test->workspace->getKey(), (int) $test->otherWorkspace->getKey()];
+    $users = [(int) $test->owner->getKey(), (int) $test->otherOwner->getKey()];
+    $methods = [PaymentMethod::BankTransfer->value, PaymentMethod::MobileWallet->value, PaymentMethod::Gateway->value];
+    $statuses = [PaymentStatus::Captured->value, PaymentStatus::Failed->value, PaymentStatus::Reversed->value];
+    $kinds = [OrderKind::Course->value, OrderKind::Credits->value];
+
+    $stamp = now()->subDays(3);
+
+    for ($chunk = 0; $chunk < $count; $chunk += 500) {
+        $orders = [];
+        $payments = [];
+        $size = min(500, $count - $chunk);
+
+        for ($i = $chunk; $i < $chunk + $size; $i++) {
+            $side = $i % 2;
+
+            $orders[] = [
+                'uuid' => (string) Str::uuid(),
+                'workspace_id' => $workspaces[$side],
+                'user_id' => $users[$side],
+                'kind' => $kinds[$side],
+                'amount_minor' => 1_000 + $i,
+                'currency' => 'QAR',
+                'provider' => 'manual',
+                'status' => 'approved',
+                'created_at' => $stamp,
+                'updated_at' => $stamp,
+            ];
+        }
+
+        // The first row goes in alone to learn the id the rest will follow, so
+        // the payments can point at their orders without a second read.
+        $firstId = (int) DB::table('orders')->insertGetId($orders[0]);
+
+        if ($size > 1) {
+            DB::table('orders')->insert(array_slice($orders, 1));
+        }
+
+        for ($i = 0; $i < $size; $i++) {
+            $index = $chunk + $i;
+
+            $payments[] = [
+                'uuid' => (string) Str::uuid(),
+                'workspace_id' => $workspaces[$index % 2],
+                'order_id' => $firstId + $i,
+                'provider' => 'manual',
+                'amount_minor' => 1_000 + $index,
+                'currency' => 'QAR',
+                'status' => $statuses[$index % 3],
+                'method' => $methods[$index % 3],
+                'reference' => 'REF-SEED-'.$index.'-'.$firstId,
+                'created_at' => $stamp,
+                'updated_at' => $stamp,
+            ];
+        }
+
+        DB::table('payment_transactions')->insert($payments);
+    }
+}
+
+/**
+ * The amount held by one key of a collection-report breakdown, across currencies.
+ *
+ * @param  array<int, array<string, mixed>>  $rows
+ */
+function collectionTotal(array $rows, ?string $key): int
+{
+    $matching = array_filter($rows, fn (array $row): bool => $row['key'] === $key);
+
+    return (int) array_sum(array_column($matching, 'amount_minor'));
 }

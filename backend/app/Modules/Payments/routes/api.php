@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Payments\Http\Controllers\Admin\BillingPricingController;
+use App\Modules\Payments\Http\Controllers\Admin\CollectionReportController;
 use App\Modules\Payments\Http\Controllers\Admin\CreditPackageAdminController;
 use App\Modules\Payments\Http\Controllers\Admin\OutstandingCreditsController;
 use App\Modules\Payments\Http\Controllers\Admin\PaymentAuditController;
@@ -147,6 +148,18 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     | second is not a narrower version of the first — it reads five tables the
     | list never touches.
     */
+    /*
+    | US5 — what the platform collected in a period, and the same thing as a file.
+    |
+    | The export is a SEPARATE PATH rather than a `?format=csv` on the row above,
+    | so that a browser can be sent straight at it — but it shares the Request,
+    | the filter and the query, which is what FR-034's "the same data and the same
+    | restrictions" actually requires. A format flag would have shared them too;
+    | what it would not have shared is the ability to hand somebody a link.
+    */
+    Route::get('/admin/payments/collection', [CollectionReportController::class, 'show']);
+    Route::get('/admin/payments/collection/export', [CollectionReportController::class, 'export']);
+
     Route::get('/admin/payments/audit', [PaymentAuditController::class, 'index']);
     Route::get('/admin/payments/audit/{transaction}', [PaymentAuditController::class, 'show']);
 

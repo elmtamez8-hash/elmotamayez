@@ -93,6 +93,11 @@ const platformNav: NavItem[] = [
   // settle, the other asks what people decided — and an auditor opens the second
   // when the first has already been dealt with.
   { href: "/manage/payments/audit", label: "سجلّ التدقيق المالي", Icon: OrdersIcon },
+  // What came in, over a period. Beside the two above rather than under the
+  // teacher's billing screens: this is the platform's collection across every
+  // workspace, and a teacher holding every tenant permission there is cannot
+  // open it.
+  { href: "/manage/payments/collection", label: "سجلّ التحصيل", Icon: CreditsIcon },
 ];
 
 const allNav = [...mainNav, ...adminNav, ...platformNav];

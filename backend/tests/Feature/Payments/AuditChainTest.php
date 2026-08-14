@@ -148,6 +148,55 @@ it('follows one payment all the way to the sessions it paid for', function (): v
     expect($chain['trail'])->toBeArray();
 });
 
+it('follows a payment taken in a workspace the auditor is not in', function (): void {
+    /*
+    | ⚠️ THE CASE EVERY OTHER TEST HERE MISSES, AND IT WAS A REAL BUG. The chain
+    | is platform-wide by permission, and its first query says so — but the ORDER
+    | arrived through `->with('order')`, whose relation query runs Order's global
+    | scope on its own. `WorkspaceContext::id()` falls back to
+    | `users.last_workspace_id` for every user including a super admin, so a
+    | payment taken anywhere but the reader's fallback workspace came back with a
+    | null order and the whole chain answered "nothing was bought" — quietly,
+    | with a 200.
+    |
+    | A fixture with one workspace cannot see it, which is why this one builds a
+    | second and audits from the first.
+    */
+    [$elsewhere, $otherOwner] = $this->createWorkspaceWithOwner();
+
+    $course = courseWithRate((int) $elsewhere->getKey(), 5000);
+    $student = $this->addWorkspaceMember($elsewhere, Roles::STUDENT);
+
+    $order = Order::create([
+        'workspace_id' => $elsewhere->getKey(),
+        'user_id' => $student->getKey(),
+        'course_id' => $course->getKey(),
+        'kind' => OrderKind::Credits,
+        'amount_minor' => 110_000,
+        'currency' => 'QAR',
+        'provider' => 'manual',
+        'status' => 'approved',
+    ]);
+
+    $payment = PaymentTransaction::create([
+        'workspace_id' => $elsewhere->getKey(),
+        'order_id' => $order->getKey(),
+        'provider' => 'manual',
+        'amount_minor' => 110_000,
+        'currency' => 'QAR',
+        'status' => PaymentStatus::Captured,
+        'reference' => 'REF-ELSEWHERE',
+    ]);
+
+    // Back to the auditor's own workspace, which is NOT the one above.
+    $this->setCurrentWorkspace($this->workspace, $this->auditor);
+    Sanctum::actingAs($this->auditor);
+
+    $chain = $this->getJson("/api/v1/admin/payments/audit/{$payment->uuid}")->assertOk()->json('data');
+
+    expect($chain['order_uuid'])->toBe($order->uuid);
+});
+
 it('costs the same number of queries however long the chain gets', function (): void {
     Sanctum::actingAs($this->auditor);
 

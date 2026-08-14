@@ -103,7 +103,19 @@ it('declares no foreign key between the settlement and billing schemas', functio
         // what keeps this list current, but a broken glob or a renamed directory
         // would make it return nothing and every scan below would pass by
         // finding nothing to forbid.
-        ->and($billingTables)->toContain('orders', 'payment_transactions', 'credit_balances', 'credit_transactions');
+        // 007's two tables are named beside 006's for the same reason: the
+        // derivation picks them up on its own, and naming them is what proves
+        // the derivation still runs. `provider_callbacks` holds the provider's
+        // raw body and `payment_reconciliation_runs` the sweep's findings —
+        // both of them money, both of them the student's side of it.
+        ->and($billingTables)->toContain(
+            'orders',
+            'payment_transactions',
+            'credit_balances',
+            'credit_transactions',
+            'provider_callbacks',
+            'payment_reconciliation_runs',
+        );
 
     $offenders = [];
 

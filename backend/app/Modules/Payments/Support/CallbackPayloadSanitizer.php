@@ -83,6 +83,21 @@ final class CallbackPayloadSanitizer
         return $clean;
     }
 
+    /**
+     * The names this class refuses, shared with {@see PaymentFieldAllowlist}.
+     *
+     * Exposed rather than duplicated: a second list of secret-shaped key names
+     * is a second list to forget to extend, and the two guards answer the same
+     * question at opposite ends of the same data — one on the way in, one on the
+     * way out.
+     *
+     * @return list<string>
+     */
+    public static function forbiddenKeys(): array
+    {
+        return self::FORBIDDEN_KEYS;
+    }
+
     private static function isForbiddenKey(string $key): bool
     {
         $needle = strtolower($key);
@@ -111,7 +126,7 @@ final class CallbackPayloadSanitizer
      * A digit run of 13–19 that passes Luhn, with spaces and dashes ignored
      * because that is how a human types one.
      */
-    private static function looksLikeCardNumber(string $value): bool
+    public static function looksLikeCardNumber(string $value): bool
     {
         $digits = preg_replace('/[\s-]/', '', $value) ?? '';
 
