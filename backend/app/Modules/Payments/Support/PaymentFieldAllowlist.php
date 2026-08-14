@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Support;
 
+use App\Modules\Payments\Http\Resources\CollectionRowResource;
+
 /**
  * What a payment payload may carry, and what must never appear in one (FR-030 · SC-012).
  *
@@ -30,6 +32,12 @@ final class PaymentFieldAllowlist
 {
     /**
      * The fields a collection row may carry.
+     *
+     * `teacher_rate_minor` is absent and its absence is the point: FR-035 forbids
+     * a teacher's settlement rate in any payload of this phase, and the column
+     * sitting on `credit_purchases` is that rate under its own name. See
+     * {@see CollectionRowResource} for why
+     * the line is worth drawing even though the number is derivable.
      *
      * @return list<string>
      */

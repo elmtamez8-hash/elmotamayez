@@ -20,16 +20,23 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * record AND in its exports, and `PaymentFieldAllowlist` walks this payload for
  * both the key names and the values.
  *
- * ⚠️ THE PRICE SNAPSHOT INCLUDES THE TEACHER'S RATE, AND OMITTING IT WOULD BE
- * FALSE COMFORT. `total = credits × (rate + operating) + gateway`, so any three
- * of the four solve for the fourth: a reader given the total, the credits and
- * the two platform fees already has the rate, whatever this class does. The two
- * guards that actually hold are elsewhere and are real — FR-033 keeps every
- * teacher and assistant off this endpoint entirely (`CollectionAccessTest`), and
- * `ContextIsolationTest` fails the build if any query here reaches a Settlement
- * table. What is stored on `credit_purchases` is Payments' own snapshot, written
- * by Payments at purchase time; FR-035's line is a cross-context READ, not a
- * number that happens to also exist on the other side of it.
+ * ⚠️ AND `teacher_rate_minor` IS NOT IN THE SNAPSHOT, THOUGH THE COLUMN IS RIGHT
+ * THERE. FR-035 forbids a teacher's settlement rate in ANY payload of this
+ * phase, and the field is that rate under its own name — that the row lives on
+ * `credit_purchases`, a table Payments owns, changes what it is stored in and
+ * not what it is.
+ *
+ * ⚠️ WHICH DOES NOT CLOSE THE INFERENCE, and pretending otherwise would be the
+ * lie. `total = credits × (rate + operating) + gateway`, so any three of the
+ * four solve for the fourth: a reader holding the total, the credits and the two
+ * platform fees can compute the rate whatever this class emits. The line is
+ * still worth drawing — a computed number is a step somebody takes deliberately,
+ * a named column is one they copy into a spreadsheet — but the guards that
+ * actually hold are elsewhere and are real: FR-033 keeps every teacher and
+ * assistant off this endpoint entirely (`CollectionAccessTest`), and
+ * `ContextIsolationTest` fails the build if a query here reaches a Settlement
+ * table. `StudentBalanceAllowlist` carries the same admission for the same
+ * reason.
  *
  * @mixin PaymentTransaction
  */
@@ -60,7 +67,6 @@ class CollectionRowResource extends JsonResource
             'student_name' => $order?->user?->name,
             'pricing' => $purchase === null ? null : [
                 'credits' => $purchase->credits,
-                'teacher_rate_minor' => $purchase->teacher_rate_minor,
                 'operating_fee_minor' => $purchase->operating_fee_minor,
                 'gateway_fee_minor' => $purchase->gateway_fee_minor,
                 'total_minor' => $purchase->total_minor,

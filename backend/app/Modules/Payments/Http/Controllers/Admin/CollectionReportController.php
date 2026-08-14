@@ -54,7 +54,7 @@ class CollectionReportController extends Controller
         $columns = [
             'uuid', 'occurred_at', 'settled_at', 'status', 'method', 'provider',
             'amount_minor', 'currency', 'order_uuid', 'source', 'student_uuid',
-            'student_name', 'credits', 'teacher_rate_minor', 'operating_fee_minor',
+            'student_name', 'credits', 'operating_fee_minor',
             'gateway_fee_minor', 'total_minor',
         ];
 

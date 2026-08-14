@@ -100,6 +100,28 @@ it('leaks nothing on any payload this phase serves', function (): void {
     expect($leaks)->toBe([]);
 });
 
+it('carries no teacher settlement rate on any payload, which is scenario 6', function (): void {
+    $window = 'from='.now()->subWeek()->toDateString().'&to='.now()->addDay()->toDateString();
+
+    Sanctum::actingAs($this->platform);
+
+    // FR-035, checked rather than asserted in a comment. The rate IS derivable
+    // from the credits and the two platform fees — `StudentBalanceAllowlist`
+    // makes the same admission about the teacher's side — but a derivation is a
+    // step somebody takes on purpose, and a named column is one they copy into a
+    // spreadsheet without noticing what it is.
+    $payloads = [
+        json_encode($this->getJson('/api/v1/admin/payments/collection?'.$window)->assertOk()->json()),
+        json_encode($this->getJson("/api/v1/admin/payments/audit/{$this->payment->uuid}")->assertOk()->json()),
+        $this->get('/api/v1/admin/payments/collection/export?'.$window)->assertOk()->streamedContent(),
+    ];
+
+    foreach ($payloads as $payload) {
+        expect((string) $payload)->not->toContain('teacher_rate')
+            ->and((string) $payload)->not->toContain('settlement');
+    }
+});
+
 it('sends exactly the fields the allowlist names, and no more', function (): void {
     Sanctum::actingAs($this->platform);
 
