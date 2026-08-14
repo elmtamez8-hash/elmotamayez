@@ -57,7 +57,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     auth.me()
       .then(setUser)
-      .catch(() => clearToken())
+      /*
+       * ⚠️ A FAILED REQUEST IS NOT A REFUSED TOKEN, and treating the two as one
+       * signed people out for free. This used to `clearToken()` on ANY error —
+       * including the fetch being ABORTED because the person clicked a link
+       * before the page settled, which is not a rare event but the ordinary way
+       * a fast reader uses a nav. The abort rejects, the token is deleted from
+       * localStorage, and the page they were navigating to loads with no
+       * credentials: a sign-out caused by nothing but their own speed, with no
+       * message and nothing to retry.
+       *
+       * The 401 case is already handled one layer down, in `request()`, which
+       * clears the token AND says which of the three reasons ended the session.
+       * So there is nothing left for this branch to do but keep the token and
+       * let the next page ask again — a 500, an offline moment and an abort all
+       * recover by themselves.
+       *
+       * Found by `payments.spec.ts`, whose student walks two pages in a row.
+       */
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 

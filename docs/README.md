@@ -742,3 +742,118 @@ the same address for every person, in the column that exists to be relied on in 
 It is read in `AppServiceProvider::trustConfiguredProxies()` and defaults to trusting
 nothing; `'*'` is worse than the default unless the proxy always overwrites
 `X-Forwarded-For`, because it lets any client choose what that column says.
+
+---
+
+## Qatar Payments (spec 007)
+
+The gateway itself is **not chosen**, and everything around it is built: the provider
+contract, the callback path, the sweep that finds money nobody told us about, the audit
+trail, and the platform's collection report. A real gateway is one class implementing
+`PaymentProviderInterface` — `ProviderExtensibilityTest` fails the build if an Action names
+the registry, because resolving a provider by string is the coupling the interface removes.
+
+**Refunds are credits, always.** `supportsRefund()` returns `false` and no money leaves
+through code: a refund posts a negative ledger entry with `enforceFloor: true`, and the
+transfer out of the system is a human decision taken elsewhere.
+
+### Endpoints
+
+| Method | Path | Who |
+|---|---|---|
+| POST | `/api/v1/payments/{order}/charge` | the payer, starting a gateway payment |
+| GET | `/api/v1/payments/{transaction}` | the payer, reading their own attempt |
+| POST | `/api/v1/webhooks/payments/{provider}` | the provider — **no `auth:sanctum`** |
+| GET | `/api/v1/admin/payments/reconciliation` | the last sweep and what it could not settle |
+| GET | `/api/v1/admin/payments/audit` | every financial decision, newest first |
+| GET | `/api/v1/admin/payments/audit/{transaction}` | the whole chain behind one payment |
+| GET | `/api/v1/admin/payments/collection` | what the platform collected in a period |
+| GET | `/api/v1/admin/payments/collection/export` | the same rows, as a file |
+
+The webhook carries no token because a gateway holds none of ours: **the signature is the
+authentication**, and it is checked before the body is read. `VerifyWebhookSource` runs
+BEFORE `throttle:webhook` so that junk from a refused address never consumes the provider's
+bucket — which is what a real resend burst needs to find free. The answer is `202` whether
+the signature verified or not: a distinct reply for a bad one is an oracle telling an
+attacker when they are getting warm.
+
+### Permissions (two, both PLATFORM)
+
+| Constant | Reaches |
+|---|---|
+| `billing.collection.view` | the collection report, its export, and the payment sweep's findings |
+| `billing.audit.view` | the financial audit list and the chain behind one payment |
+
+Both are refused to the workspace owner, who holds every tenant permission there is. FR-033
+is the reason: a teacher reading a collection total reads what other teachers' students paid,
+and `activity_log` has no `workspace_id` column at all, so the audit is platform-wide by
+construction rather than by choice.
+
+### The sweep replays the callback
+
+`ReconcilePaymentsJob` runs hourly on the `payments` queue. It does **not** capture payments
+by hand — it records the notification the provider should have sent and hands it to
+`HandleProviderCallback`, so a sweep and a late notification for the same payment collapse on
+`unique(provider, external_id)`. A second code path that wrote `captured` would be a second
+answer to "who gets recorded, and what happens to a payment on a cancelled order".
+
+The window is **half-open**, `[from, to)`, and the next run starts where the last one ended —
+never at `now() − 1 hour`, which loses every payment taken while a run was late.
+
+**The direction is asymmetric.** `pending → captured` is automatic; `captured → failed` is
+never automatic, only recorded, so a reversal is a decision a person takes and can see.
+
+**And the check that matters comes from outside both parties.** Comparing our status to the
+provider's is a comparison between two sides that agree: when the queued credit-minting dies,
+both say "captured" and the student is still blocked. `captured_without_credits` is the
+finding that sees it.
+
+`FR-015`'s timeout closes `pending` payments older than `payments.pending_timeout_minutes`
+with `Expired` — one conditional UPDATE per row, after the provider pass.
+
+### The audit cannot be rewritten, and the guard is ours
+
+spatie enforces nothing of this: `activity_log` is an ordinary table with `$guarded = []`.
+`App\Shared\Models\ActivityEntry` throws on `updating` and `deleting`, and it is registered as
+`activity_model` in `config/activitylog.php` — **so the whole product's entries are covered**,
+not billing's alone. Three doors past it are named in `ImmutableAuditTest` as passing tests
+rather than comments: `Model::query()->update()`, `DB::table()->update()`, and a row loaded
+through spatie's own `Activity` class. A "tamper-proof" claim with an unwritten exception is
+how that claim ends up in a document shown to an auditor.
+
+`BillingAuditSubjects` and `SettlementAuditSubjects` name their own model types and neither
+ever asks for the table. The two lists are asserted to share **no** entry: one in both would
+pass every per-direction test and still join the two contexts.
+
+### The collection report is one grouped statement
+
+Method, status and source are the **marginals of a single joint grouping**, and a marginal
+summed from a joint distribution is exact — three `GROUP BY`s over the fastest-growing table
+in the product would be three scans to learn what one already said. Currency is part of every
+key, because a total that adds QAR to anything else matches no source.
+
+⚠️ **The reader declares `withoutWorkspaceScope()` and the index starts at `created_at`.**
+The permission is platform-level but `payment_transactions` carries `BelongsToWorkspace`, and
+`WorkspaceContext::id()` falls back to `users.last_workspace_id` for **every** user including
+a super admin. Left scoped, the report shows one teacher's money as the platform's total —
+and agrees with its own source perfectly while doing it, on any single-workspace fixture.
+
+⚠️ **The bypass is per model, and an eager load is its own query.** A bare `->with('order')`
+runs Order's global scope inside the relation and returns null for every row outside the
+reader's fallback workspace. This shipped in the audit chain and was fixed here; the test
+that catches it builds a second workspace and audits from the first.
+
+The export shares the Request, the filter and the query — never a second one written beside
+it. `teacher_rate_minor` is **not** in either payload (FR-035), though the number is derivable
+from the credits and the two platform fees; `PaymentFieldAllowlist` says so out loud rather
+than implying the omission closes the inference.
+
+### The queue, and who is told when it stops
+
+The charge listener, the callback processing and the hourly sweep all run on the queue, so a
+stuck worker now means money that settled and was never credited. `viewHorizon` compared
+against an **empty array** until this phase — the dashboard was unreachable in every
+environment but local — and is now the `is_super_admin` flag. `HORIZON_NOTIFICATION_EMAIL`
+routes the long-wait notice; unset, Horizon tells nobody, which is fine locally and is a
+payments outage nobody hears about in production. A queue with no entry in `waits` is not
+watched at a default — it is not watched.

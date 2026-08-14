@@ -138,18 +138,39 @@
        │ │  orders                                                       │
        │ ├─────────────────────────────────────────────────────────────┤
        │ │ id · uuid · workspace_id · user_id · product_id · course_id  │
-       │ │ amount · currency · provider · provider_ref · status         │
-       │ │ rejection_reason · approved_by · approved_at · metadata      │
+       │ │ amount_minor · currency · provider · provider_ref · status   │
+       │ │ kind · rejection_reason · approved_by · approved_at·metadata │
        │ └──────────┬──────────────────────────────────────────────────┘
        │            │
-       │ ┌──────────▼─────────────┐
-       │ │ payment_transactions    │
-       │ ├─────────────────────────┤
-       │ │ id · workspace_id       │
-       │ │ order_id (FK)           │
-       │ │ provider · reference    │
-       │ │ amount · status         │
-       │ └─────────────────────────┘
+       │ ┌──────────▼───────────────────────┐
+       │ │ payment_transactions              │
+       │ ├───────────────────────────────────┤
+       │ │ id · uuid · workspace_id          │
+       │ │ order_id (FK)                     │
+       │ │ captured_order_id  ← unique, null │
+       │ │ provider · reference · method     │
+       │ │ amount_minor · status · payload   │
+       │ │ failure_reason · settled_at       │
+       │ └──────────┬────────────────────────┘
+       │            │
+       │ ┌──────────▼─────────────────────────┐
+       │ │ provider_callbacks         (007)   │
+       │ ├────────────────────────────────────┤
+       │ │ id · uuid · workspace_id           │
+       │ │ payment_transaction_id (nullable)  │
+       │ │ provider · external_id  ← unique   │
+       │ │ payload (scrubbed) · result        │
+       │ │ received_at · processed_at         │
+       │ └────────────────────────────────────┘
+       │
+       │ ┌────────────────────────────────────┐
+       │ │ payment_reconciliation_runs (007)  │
+       │ ├────────────────────────────────────┤
+       │ │ id · uuid · ran_at                 │
+       │ │ window_from · window_to  ← [ , )   │
+       │ │ checked · corrected · unresolved   │
+       │ │ findings (JSON sample)             │
+       │ └────────────────────────────────────┘
        │
        │ ┌─────────────────────────────────────────────┐
        │ │  cms_articles                                │
@@ -495,5 +516,11 @@ about each other. `ContextIsolationTest` derives its table lists from each side'
   `char(3)` currency), following Settlement rather than Payments' `decimal(12,2)`. NFR-009
   requires it: Laravel's `decimal:2` cast returns a **string**, so every sum goes through a
   float — tolerable on an order total, not on the snapshot spec 015's books are generated
-  from. `orders` keeps its decimal columns; the two conventions meet at `order_id` and
-  nowhere else, and the API never sends a formatted amount either way
+  from. The API never sends a formatted amount either way.
+
+  ⚠️ **«`orders` keeps its decimal columns» was true when it was written and is not now.**
+  Spec 007 converted `orders.amount` and `payment_transactions.amount` to `amount_minor`
+  (`bigInteger`), so minor units are the platform's ONE convention and there is no longer a
+  boundary at `order_id` where two meet. Corrected here rather than deleted, because the
+  sentence describes a real decision that was later reversed, and a reader who remembers the
+  old rule needs to see it retired

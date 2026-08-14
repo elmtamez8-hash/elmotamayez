@@ -96,6 +96,16 @@ return [
     |
     */
 
+    /*
+    | Where a LongWaitDetected notice goes.
+    |
+    | ⚠️ FROM THE ENVIRONMENT, NEVER FROM HERE. An operator's mailbox is not a
+    | fact about the code, and one written into the repository is a credential in
+    | it. Unset means Horizon notifies nobody — the state this shipped in, but
+    | now visible in configuration instead of buried in a commented-out line.
+    */
+    'notification_email' => env('HORIZON_NOTIFICATION_EMAIL'),
+
     'waits' => [
         'redis:default' => 60,
 

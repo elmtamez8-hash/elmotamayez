@@ -340,3 +340,30 @@ duplicate entry is ignored once.
 charge listener is queued, so "four attendance states ⇒ four entries" becomes a confident
 claim about an empty table. Fake the timeline jobs only
 (`CloseClassSessionJob`, `SendSessionReportsJob`) and let the charge run on `sync`.
+
+**A signature is not a check on the amount.** A provider can sign a perfectly correct
+notification saying 100 for a payment of 500: the signature proves who sent the body, not
+that the body agrees with the order. `HandleProviderCallback` compares separately and
+answers `mismatch` — no charge, no credits, withholding intact, and the case enters the
+reconciliation report. **And `manual` accepts no notification at all**, having no gateway:
+anything arriving under its name is impersonation, refused with zero effect.
+
+**One capture per order is a unique COLUMN, not a partial index.** `captured_order_id` is
+nullable, carries `unique()`, and is written `= order_id` inside the same conditional UPDATE
+that sets the status — NULL does not collide with NULL. MySQL has no partial indexes, so the
+`WHERE status = 'captured'` form of this guard does not exist on the database this ships to.
+It is deliberately not `$fillable`. **The callback's key is two columns**, `(provider,
+external_id)`: an id is unique within the provider that issued it and nowhere else. The
+sweep replays the notification rather than capturing by hand, so a sweep and a late callback
+for one payment collapse onto that index instead of racing.
+
+**A Horizon supervisor needs `defaults` AND `environments`** — the first supplies values, the
+second decides what STARTS, so a queue named only in defaults never drains. A pair absent
+from `waits` is not watched at a default; it is not watched.
+
+**A platform-wide read declares `withoutWorkspaceScope()` in every eager load too.**
+`WorkspaceContext::id()` falls back to `users.last_workspace_id` for every user including a
+super admin, so a scoped platform report shows one teacher's money as the platform's total —
+and passes on a single-workspace fixture. `->with('order')` runs the relation's own global
+scope: that shipped in the audit chain and answered "nothing was bought" with a 200. Test
+platform reads with TWO workspaces or they prove nothing.

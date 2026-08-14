@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { test as setup, expect, type APIRequestContext } from "@playwright/test";
 
 import { ISOLATED_FILE, PROJECT_NAMES } from "./isolated-accounts";
+import { PLATFORM_FILE } from "./platform-account";
 import { TEACHER_FILE } from "./teacher-account";
 
 /**
@@ -30,6 +31,11 @@ const EMAIL = process.env.E2E_EMAIL ?? "student@example.com";
 const PASSWORD = process.env.E2E_PASSWORD ?? "password";
 
 const TEACHER_EMAIL = process.env.E2E_TEACHER_EMAIL ?? "teacher@example.com";
+
+// The seeded super admin. Needed because spec 007 put three screens behind
+// PLATFORM permissions that no tenant role holds — not the owner, not the
+// teacher — so nothing already minted here can open them.
+const PLATFORM_EMAIL = process.env.E2E_PLATFORM_EMAIL ?? "admin@example.com";
 
 // The login route is throttled at 5/minute. That is correct for production and
 // hostile to a test suite: one aborted run leaves the window spent, and every
@@ -90,6 +96,17 @@ setup("mint the teacher token", async ({ request }) => {
   mkdirSync(dirname(TEACHER_FILE), { recursive: true });
 
   writeFileSync(TEACHER_FILE, JSON.stringify({ token }, null, 2));
+});
+
+setup("mint the platform token", async ({ request }) => {
+  const token = await login(request, PLATFORM_EMAIL);
+
+  // A token, not a storageState, for the reason the teacher's is: the six
+  // viewport projects audit a student's screens, and handing them a super admin
+  // would change what a dozen passing accessibility assertions look at.
+  mkdirSync(dirname(PLATFORM_FILE), { recursive: true });
+
+  writeFileSync(PLATFORM_FILE, JSON.stringify({ token }, null, 2));
 });
 
 /**

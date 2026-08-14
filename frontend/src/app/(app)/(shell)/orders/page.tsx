@@ -7,6 +7,7 @@ import type { Order } from "@/lib/types";
 import { formatDate, formatMinorMoney } from "@/lib/labels";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/Badge";
+import { Select } from "@/components/ui/Field";
 import { Table, type Column } from "@/components/ui/Table";
 
 const OPEN_STATUSES = ["pending", "under_review"];
@@ -20,6 +21,8 @@ export default function OrdersPage() {
   /** uuid of the order whose rejection reason is being typed. */
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  /** How each payer says they paid, by order uuid. Bank transfer until told. */
+  const [methods, setMethods] = useState<Record<string, string>>({});
 
   const load = useCallback(() => {
     setLoading(true);
@@ -78,6 +81,13 @@ export default function OrdersPage() {
       const updated = await api.upload<Order>(`/orders/${uuid}/receipt`, (() => {
         const form = new FormData();
         form.append("receipt", file);
+        // ⚠️ THE FIELD THE API HAS ACCEPTED SINCE THE GATEWAY LANDED, AND THAT
+        // NOTHING ASKED FOR. It is optional on purpose — an older client must
+        // not be refused — so every receipt arrived stamped "bank transfer",
+        // including the wallet ones, and `mobile_wallet` was a value the product
+        // could not produce. A column filled by nobody is not half an
+        // implementation; it is one that reads as finished.
+        form.append("method", methods[uuid] ?? "bank_transfer");
         return form;
       })());
       replace(uuid, updated);
@@ -129,20 +139,43 @@ export default function OrdersPage() {
             عرض الإيصال
           </a>
         ) : o.is_mine && OPEN_STATUSES.includes(o.status) ? (
-          <label className="cursor-pointer rounded text-xs font-medium text-primary-ink underline-offset-4 hover:underline focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary">
-            {busy === o.uuid ? "جارٍ الرفع…" : "ارفع الإيصال"}
-            <input
-              type="file"
-              accept=".jpg,.jpeg,.png,.pdf"
-              className="sr-only"
+          <div className="flex flex-col items-start gap-1.5">
+            {/* Asked BEFORE the file, because the file picker is a one-way door:
+                once it closes the upload is already on its way, and a method
+                chosen afterwards would be a method chosen for the next receipt. */}
+            <label htmlFor={`method-${o.uuid}`} className="sr-only">
+              وسيلة الدفع
+            </label>
+            <Select
+              id={`method-${o.uuid}`}
+              value={methods[o.uuid] ?? "bank_transfer"}
+              onChange={(e) => setMethods((prev) => ({ ...prev, [o.uuid]: e.target.value }))}
               disabled={busy === o.uuid}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (file) uploadReceipt(o.uuid, file);
-              }}
-            />
-          </label>
+              chevron="sm"
+              className="rounded-lg border border-line bg-surface-raised px-2 py-1 text-xs text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              {/* No «بوابة دفع» here: a gateway payment leaves no receipt to
+                  upload — it is «ادفع الآن» in the next column, and offering it
+                  beside a file picker would invite a receipt for a payment the
+                  platform already watched happen. */}
+              <option value="bank_transfer">تحويل بنكي</option>
+              <option value="mobile_wallet">محفظة إلكترونية</option>
+            </Select>
+            <label className="cursor-pointer rounded text-xs font-medium text-primary-ink underline-offset-4 hover:underline focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary">
+              {busy === o.uuid ? "جارٍ الرفع…" : "ارفع الإيصال"}
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png,.pdf"
+                className="sr-only"
+                disabled={busy === o.uuid}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) uploadReceipt(o.uuid, file);
+                }}
+              />
+            </label>
+          </div>
         ) : (
           <span className="text-xs text-ink-muted">—</span>
         ),
