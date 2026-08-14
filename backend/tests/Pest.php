@@ -21,7 +21,9 @@ use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Settlement\Models\SettlementRate;
+use App\Modules\Tenancy\Models\PlatformStaff;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\PlatformStaffDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Database\Seeders\NotificationTemplateSeeder;
@@ -444,4 +446,33 @@ function collectionTotal(array $rows, ?string $key): int
     $matching = array_filter($rows, fn (array $row): bool => $row['key'] === $key);
 
     return (int) array_sum(array_column($matching, 'amount_minor'));
+}
+
+/**
+ * A platform officer: somebody with a standing in `platform_staff` and no
+ * workspace of their own.
+ *
+ * ⚠️ NOT `assignRole()`, WHICH CANNOT WORK HERE. spatie runs in team mode, and
+ * `model_has_roles` puts `team_id` inside its primary key with NOT NULL — so a
+ * teamless role has nobody to be attached to. The standing is a row of ours, and
+ * `Gate::before` in TenancyServiceProvider is what turns it into permissions.
+ *
+ * The directory memoises per user for the life of the container, so a test that
+ * grants a standing after asking a question about the same person must forget
+ * them first — which is exactly what the Action does in production.
+ */
+function makePlatformStaff(string $role, ?User $user = null): User
+{
+    $user ??= User::factory()->create();
+
+    PlatformStaff::query()->create([
+        'user_id' => $user->getKey(),
+        'role' => $role,
+        'assigned_by' => User::factory()->create()->getKey(),
+        'reason' => 'تجهيزة اختبار',
+    ]);
+
+    app(PlatformStaffDirectory::class)->forget($user);
+
+    return $user->refresh();
 }

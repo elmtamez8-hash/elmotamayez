@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Tenancy\Listeners;
 
 use App\Modules\Tenancy\Events\WorkspaceCreated;
+use App\Modules\Tenancy\Models\Role;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\RolePermissionMatrix;
 use App\Modules\Tenancy\Support\Roles;
 use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -17,6 +17,9 @@ use Spatie\Permission\PermissionRegistrar;
  * is created. Runs synchronously within the creating transaction. Ensures all
  * permissions exist first so workspace creation is self-contained.
  */
+// ⚠️ OURS, NOT SPATIE'S — see the note in RolesAndPermissionsSeeder. The
+// platform-permission guard on `syncPermissions()` below only exists if the
+// class holding it is the class being called.
 class SeedDefaultRoles
 {
     public function __construct(

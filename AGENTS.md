@@ -367,3 +367,25 @@ super admin, so a scoped platform report shows one teacher's money as the platfo
 and passes on a single-workspace fixture. `->with('order')` runs the relation's own global
 scope: that shipped in the audit chain and answered "nothing was bought" with a 200. Test
 platform reads with TWO workspaces or they prove nothing.
+
+**A workspace role may never hold a platform permission.** Roles are editable from
+`/admin`, and the picker is not the guard — a filtered form shapes one request,
+not the next. `Tenancy\Models\Role` throws on `givePermissionTo()`/`syncPermissions()`
+when a platform permission reaches a role with a `team_id`, and the platform set
+is DERIVED (`all()` minus what any workspace role holds) so a new permission is
+closed by default. Both seeders import that class rather than spatie's: a class
+named directly is the class that runs.
+
+**`roles` is workspace-scoped, because every teacher can reach `/admin`.**
+`TeamRoleScope` keys on spatie's team id and is inert when it is null;
+`RolePolicy` is the row-level half, since a filtered list and a record fetched by
+id are different questions. Default roles cannot be deleted — `SeedDefaultRoles`
+runs once, at workspace creation.
+
+**Platform standing is `platform_staff`, not a role assignment.** `model_has_roles`
+puts `team_id` in its primary key and forbids NULL, so a teamless role can be
+seeded and given to nobody. A `Gate::before` turns the standing into that role's
+permissions — returning **null, never false**, because false short-circuits every
+policy behind it — and only for names in `Permissions::all()`. Shield generates
+nothing: both generators off, and `format_custom_permission_keys` false or our
+dotted names get pascal-cased into strings no policy knows.

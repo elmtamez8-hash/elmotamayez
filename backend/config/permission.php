@@ -1,8 +1,8 @@
 <?php
 
+use App\Modules\Tenancy\Models\Role;
 use Spatie\Permission\DefaultTeamResolver;
 use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 
 return [
 
@@ -28,6 +28,14 @@ return [
          * `Spatie\Permission\Contracts\Role` contract.
          */
 
+        /*
+         * ⚠️ OURS, NOT SPATIE'S, AND THE SWAP IS LOAD-BEARING. `Tenancy\Models\Role`
+         * refuses to attach a PLATFORM permission to a workspace-scoped role —
+         * the one rule the role screen must not be able to talk past, since a
+         * filtered picker only shapes the form and not the request that follows
+         * it. Every writer goes through `givePermissionTo()`/`syncPermissions()`,
+         * so the refusal sits where all of them pass.
+         */
         'role' => Role::class,
 
         /*

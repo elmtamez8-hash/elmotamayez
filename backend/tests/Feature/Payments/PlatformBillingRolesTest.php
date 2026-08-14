@@ -11,7 +11,6 @@ use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Laravel\Sanctum\Sanctum;
-use Spatie\Permission\PermissionRegistrar;
 
 /*
 | Who decides how a workspace collects, and who turns a receipt into credits.
@@ -66,7 +65,7 @@ it('lets the platform switch it', function (): void {
 });
 
 /*
-| ⚠️ BLOCKED ON A SCHEMA FACT, NOT ON A DECISION.
+| ⚠️ WAS BLOCKED ON A SCHEMA FACT, AND THE MECHANISM IS NOW CHOSEN.
 |
 | `model_has_roles.team_id` is NOT NULL *and part of the composite primary key*
 | in spatie's own stock migration, so a role with `team_id = null` can be SEEDED
@@ -74,22 +73,17 @@ it('lets the platform switch it', function (): void {
 | role in this database and is held by no user: every super-admin capability
 | runs off the `users.is_super_admin` column and `Gate::before`.
 |
-| So a delegated platform role cannot be a global spatie role here. The
-| mechanism has to be chosen — a second column beside `is_super_admin`, a
-| `platform_staff` table (which the constitution's "anything true of one role
-| gets its own table" points at, and which doubles as the audit trail for who
-| may approve money), or altering a primary key on the auth tables. That is the
-| user's call, and these two skips are the marker for it.
+| So a delegated platform role cannot be a global spatie role here — and since
+| 2026-08-14 it is not one. `platform_staff` carries the standing (who, which
+| role, granted by whom, and why), and a `Gate::before` in TenancyServiceProvider
+| turns it into the permissions of the teamless spatie role, in whichever
+| workspace the officer happens to be looking at.
 |
-| The role constant, the matrix row and the seeder are already in place and
-| correct as reference data; only the assignment path is missing.
+| The two tests below were skipped for that reason and are not any more. What was
+| chosen and what was refused is written on the migration.
 */
 it('gives the finance role the receipt approval and nothing beside it', function (): void {
-    $finance = User::factory()->create();
-
-    app(PermissionRegistrar::class)->setPermissionsTeamId(null);
-    $finance->assignRole(Roles::FINANCE_ADMIN);
-    $finance->refresh();
+    $finance = makePlatformStaff(Roles::FINANCE_ADMIN);
 
     expect($finance->can(Permissions::BILLING_PURCHASE_APPROVE))->toBeTrue()
         // The three that stay with the platform alone. A role that could price a
@@ -99,7 +93,7 @@ it('gives the finance role the receipt approval and nothing beside it', function
         ->and($finance->can(Permissions::BILLING_CREDITS_ADJUST))->toBeFalse()
         ->and($finance->can(Permissions::BILLING_SETTINGS_MANAGE))->toBeFalse()
         ->and($finance->can(Permissions::BILLING_LIMIT_MANAGE))->toBeFalse();
-})->skip('finance-admin cannot be assigned until the platform-staff mechanism is chosen');
+});
 
 it('approves a credit order as the finance role, in a workspace it does not belong to', function (): void {
     // The whole point of a GLOBAL role: receipts arrive from every workspace on
@@ -117,12 +111,13 @@ it('approves a credit order as the finance role, in a workspace it does not belo
         'status' => 'pending',
     ]);
 
-    $finance = User::factory()->create();
-    app(PermissionRegistrar::class)->setPermissionsTeamId(null);
-    $finance->assignRole(Roles::FINANCE_ADMIN);
+    $finance = makePlatformStaff(Roles::FINANCE_ADMIN);
 
-    expect($finance->refresh()->can('approve', $order))->toBeTrue();
-})->skip('finance-admin cannot be assigned until the platform-staff mechanism is chosen');
+    // ⚠️ AND THE WORKSPACE CONTEXT IS SOMEBODY ELSE'S. The officer belongs to no
+    // workspace, so whatever `users.last_workspace_id` resolves to is not
+    // theirs — which is the ordinary case, not the exotic one.
+    expect($finance->can('approve', $order))->toBeTrue();
+});
 
 it('still refuses a teacher the credit order their own students pay', function (): void {
     // Unchanged, and re-asserted here because the finance role is the change

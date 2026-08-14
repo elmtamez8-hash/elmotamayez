@@ -216,8 +216,16 @@ export default async function TeacherProfilePage({
               booking CTA off screen at the bottom of the profile (FR-054), where
               below `lg` a fixed bar exists precisely to prevent that. Playwright
               caught it; no unit test can see a computed layout. */}
-          <div className="rounded-3xl border border-line bg-surface-raised p-6 lg:sticky lg:top-24">
-            {/* ⚠️ The price is gone from this panel (spec 006, FR-021و · FR-021هـ).
+          {/* ⚠️ ONE STICKY CONTAINER FOR BOTH CARDS, NOT A STICKY CARD WITH A
+              SIBLING UNDER IT. A `sticky` box paints in normal order, so the
+              breakdown — which comes AFTER it in the DOM — slid up and covered
+              the booking CTA on the way past. Raising a z-index would have
+              stopped the overlap and left the breakdown sliding under the panel
+              instead, which is the same problem wearing a lower number. Sticking
+              the PAIR keeps their spacing fixed, so neither can reach the other. */}
+          <div className="lg:sticky lg:top-24">
+            <div className="rounded-3xl border border-line bg-surface-raised p-6">
+              {/* ⚠️ The price is gone from this panel (spec 006, FR-021و · FR-021هـ).
                 It is not hidden pending a redesign: the platform is the seller
                 now, the student's total is computed per package on the purchase
                 screen, and the teacher's own rate is what they are PAID — a
@@ -226,45 +234,48 @@ export default async function TeacherProfilePage({
                 The panel keeps its job. What sold the booking was never the
                 number; it was knowing who this teacher is, which is what stands
                 here instead. */}
-            <p className="mb-1 text-sm text-ink-muted">الحجز مع</p>
-            <p className="mb-5 text-2xl font-extrabold text-ink">{teacher.name}</p>
-
-            <Link
-              href={`/signup/student?teacher=${teacher.uuid}`}
-              className="mb-3 block rounded-full bg-accent px-5 py-3 text-center text-base font-semibold text-accent-foreground transition duration-200 ease-out hover:brightness-105 active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            >
-              احجز الآن
-            </Link>
-            <Link
-              href={`/signup/student?teacher=${teacher.uuid}&trial=1`}
-              className="block rounded-full border border-primary px-5 py-3 text-center text-base font-semibold text-primary-ink transition duration-200 ease-out hover:bg-primary-soft active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              حجز حصة تجريبية
-            </Link>
-
-            {teacher.available_now && (
-              <p className="mt-4 flex items-center justify-center gap-2 text-sm font-medium text-secondary-ink">
-                <span
-                  className="h-2 w-2 rounded-full bg-secondary"
-                  aria-hidden="true"
-                />
-                متاح الآن
+              <p className="mb-1 text-sm text-ink-muted">الحجز مع</p>
+              <p className="mb-5 text-2xl font-extrabold text-ink">
+                {teacher.name}
               </p>
-            )}
-          </div>
 
-          {/* Under the booking panel, not beside the biography.
+              <Link
+                href={`/signup/student?teacher=${teacher.uuid}`}
+                className="mb-3 block rounded-full bg-accent px-5 py-3 text-center text-base font-semibold text-accent-foreground transition duration-200 ease-out hover:brightness-105 active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                احجز الآن
+              </Link>
+              <Link
+                href={`/signup/student?teacher=${teacher.uuid}&trial=1`}
+                className="block rounded-full border border-primary px-5 py-3 text-center text-base font-semibold text-primary-ink transition duration-200 ease-out hover:bg-primary-soft active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                حجز حصة تجريبية
+              </Link>
+
+              {teacher.available_now && (
+                <p className="mt-4 flex items-center justify-center gap-2 text-sm font-medium text-secondary-ink">
+                  <span
+                    className="h-2 w-2 rounded-full bg-secondary"
+                    aria-hidden="true"
+                  />
+                  متاح الآن
+                </p>
+              )}
+            </div>
+
+            {/* Under the booking panel, not beside the biography.
               FR-024 and the product's third differentiator make the visible
               factor breakdown load-bearing, so it stays on the first screen of
               desktop — but as a 380px column nested inside an already-narrowed
               content column it squeezed the bio to about 440px and read as the
               page's subject. It belongs where the decision is made. */}
-          <div className="mt-6">
-            <TrustScoreBreakdown
-              score={teacher.trust_score}
-              band={teacher.trust_score_band}
-              factors={teacher.trust_score_factors}
-            />
+            <div className="mt-6">
+              <TrustScoreBreakdown
+                score={teacher.trust_score}
+                band={teacher.trust_score_band}
+                factors={teacher.trust_score_factors}
+              />
+            </div>
           </div>
         </aside>
 
@@ -306,7 +317,6 @@ export default async function TeacherProfilePage({
                       </ul>
                     </section>
                   )}
-
                 </div>
               </div>
             )}
@@ -326,7 +336,10 @@ export default async function TeacherProfilePage({
               ))}
 
             {active === "reviews" && (
-              <ReviewsTab teacherUuid={teacher.uuid} reviews={teacher.reviews} />
+              <ReviewsTab
+                teacherUuid={teacher.uuid}
+                reviews={teacher.reviews}
+              />
             )}
 
             {active === "schedule" && (

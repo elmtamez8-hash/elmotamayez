@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Tenancy\Support;
 
+use App\Modules\Tenancy\Models\Role;
+
 /**
  * Maps roles to their granted permissions, per the Permission Matrix.
  * Used by the seeder to sync role-permission assignments.
@@ -112,6 +114,12 @@ final class RolePermissionMatrix
         ]);
 
         $tenantOwner = array_merge($teacher, [
+            // The owner, and nobody below them, rearranges their own roles. It is
+            // the same authority as inviting and removing people, expressed once
+            // instead of per member — and it can only ever move permissions the
+            // owner already holds, because the picker offers no others and the
+            // model refuses the rest.
+            Permissions::ROLES_MANAGE,
             Permissions::MEMBERS_INVITE,
             Permissions::MEMBERS_UPDATE,
             Permissions::MEMBERS_REMOVE,
@@ -155,5 +163,43 @@ final class RolePermissionMatrix
                 Permissions::ORDERS_VIEW_ALL,
             ],
         ];
+    }
+
+    /**
+     * The permissions no tenant role holds.
+     *
+     * ⚠️ DERIVED, NEVER LISTED. A second array naming the platform's permissions
+     * is a second place to forget one, and the one forgotten is the one that
+     * matters: a permission absent from that list becomes tickable on a
+     * workspace role, and a teacher grants themselves the platform. The
+     * subtraction below cannot fall behind, because it reads the same arrays the
+     * seeder does — a new permission is platform-level until somebody puts it in
+     * a tenant role ON PURPOSE.
+     *
+     * This is what {@see Role} refuses to attach
+     * to a workspace-scoped role, and what the role screen never offers.
+     *
+     * @return list<string>
+     */
+    public static function platformPermissions(): array
+    {
+        $map = self::map();
+        $held = [];
+
+        foreach (Roles::workspaceRoles() as $role) {
+            $held = array_merge($held, $map[$role] ?? []);
+        }
+
+        return array_values(array_diff(Permissions::all(), $held));
+    }
+
+    /**
+     * The permissions a workspace role may hold — the complement of the above.
+     *
+     * @return list<string>
+     */
+    public static function tenantPermissions(): array
+    {
+        return array_values(array_diff(Permissions::all(), self::platformPermissions()));
     }
 }

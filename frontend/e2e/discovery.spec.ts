@@ -115,6 +115,50 @@ test.describe("public discovery", () => {
     await expect(page.getByRole("link", { name: "احجز الآن" }).last()).toBeInViewport();
   });
 
+  test("لوحة الحجز ومؤشّر الثقة لا يتراكبان أثناء التمرير", async ({ page }, testInfo) => {
+    /*
+     * The bug this replaces: the booking panel was `sticky` and the trust
+     * breakdown was its NEXT SIBLING, so on the way past the breakdown — later in
+     * the DOM, and therefore painted on top — slid straight over the booking CTA.
+     * A z-index would have swapped which one was buried, not stopped the burying.
+     *
+     * Measured rather than eyeballed, because "they overlap" is a fact about two
+     * rectangles, and a screenshot review is how a two-pixel version of this ships
+     * unnoticed.
+     */
+    test.skip(
+      (testInfo.project.use.viewport?.width ?? 1440) < 1024,
+      "the panels stack below lg, where there is no sticky and nothing to overlap",
+    );
+
+    await page.goto("/teachers");
+
+    const profileLink = page.locator('a[href^="/teachers/"]').first();
+    test.skip((await profileLink.count()) === 0, "no teachers seeded");
+
+    await profileLink.click();
+    await page.waitForURL(PROFILE_URL);
+
+    const panel = page.locator("aside").getByText("الحجز مع").locator("..");
+    const breakdown = page.locator("aside").getByText(/الثقة|درجة/).first();
+
+    test.skip((await breakdown.count()) === 0, "this teacher shows no trust breakdown");
+
+    await page.mouse.wheel(0, 900);
+    // One frame for the sticky to settle before the rectangles are read.
+    await page.waitForTimeout(300);
+
+    const above = await panel.boundingBox();
+    const below = await breakdown.boundingBox();
+
+    expect(above).not.toBeNull();
+    expect(below).not.toBeNull();
+
+    // The breakdown starts at or after the panel ends. One pixel of tolerance for
+    // sub-pixel layout, and not one more: two is an overlap somebody can see.
+    expect(below!.y).toBeGreaterThanOrEqual(above!.y + above!.height - 1);
+  });
+
   test("booking carries the teacher context into signup", async ({ page }) => {
     await page.goto("/teachers");
 

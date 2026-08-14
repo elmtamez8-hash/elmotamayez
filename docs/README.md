@@ -857,3 +857,80 @@ environment but local — and is now the `is_super_admin` flag. `HORIZON_NOTIFIC
 routes the long-wait notice; unset, Horizon tells nobody, which is fine locally and is a
 payments outage nobody hears about in production. A queue with no entry in `waits` is not
 watched at a default — it is not watched.
+
+---
+
+## Roles, permissions, and who may grant them
+
+Roles became editable from `/admin` (Filament Shield), and two facts make that
+safe rather than reckless.
+
+### Shield is the screen; it is not the source
+
+The package's usual job is to DERIVE permission names from your Filament
+resources. This product already has seventy-three of them as constants in
+`Tenancy\Support\Permissions`, read by every policy, route and test — so both
+generators are off in `config/filament-shield.php`:
+
+| Key | Value | Why |
+|---|---|---|
+| `permissions.generate` | `false` | Shield invents no names |
+| `policies.generate` | `false` | the policies here are hand-written and carry their reasoning |
+| `permissions.format_custom_permission_keys` | `false` | our names are dotted and lower-case; the formatter would pascal-case `billing.audit.view` into a string no policy has heard of |
+| `super_admin.enabled` · `panel_user.enabled` | `false` | super-admin here is the `users.is_super_admin` column; a second one wearing a role is two answers to one question |
+| `custom_permissions` | `PermissionLabels::tenantMap()` | the picker's whole vocabulary, in Arabic |
+
+`PermissionLabels` **composes** the Arabic instead of listing it: names are
+`{subject}.{action}`, so twenty nouns and forty actions cover every permission
+including the ones nobody has written yet. `PermissionPanelTest` fails the build
+if any offered permission falls back to its raw name.
+
+### A workspace role can never hold a platform permission
+
+`RolePermissionMatrix::platformPermissions()` is **derived** — `Permissions::all()`
+minus everything any workspace role holds — so a permission added tomorrow is
+platform-level **until somebody puts it in a tenant role on purpose**. The screen
+offers the complement, and `Tenancy\Models\Role` (registered as
+`permission.models.role`) throws on `givePermissionTo()`/`syncPermissions()` if a
+platform permission reaches a role with a `team_id`.
+
+⚠️ **The picker is not the guard.** A filtered form shapes the request; it does
+not constrain the next one. The model is where the refusal lives, which is why
+both seeders now import `Tenancy\Models\Role` rather than spatie's — a class
+named directly is the class that runs, guard and all.
+
+⚠️ **And `roles` is scoped now.** `TeamRoleScope` filters by spatie's team id,
+because `/admin` is reachable by every teacher and an unscoped list hands one
+teacher another teacher's roles with an edit button beside each. `RolePolicy` is
+the row-level half: a list filtered by a query and a record fetched by id are two
+different questions, and the second is the one an address bar asks. Default roles
+cannot be deleted — `SeedDefaultRoles` runs once, at workspace creation, so a
+deleted `teacher` never comes back.
+
+### Platform standing is a table, not a role assignment
+
+`model_has_roles` puts `team_id` inside its primary key and forbids NULL, so a
+role belonging to no workspace can be seeded and given to nobody. That is why
+`finance-admin` was correct and unassignable from 006 until 2026-08-14.
+
+`platform_staff` carries the standing — **who, which role, granted by whom, and
+why** — and a `Gate::before` in `TenancyServiceProvider` turns it into the
+permissions of the teamless spatie role, in whichever workspace the officer is
+looking at. The alternatives were a boolean column beside `is_super_admin` (the
+constitution refuses it: a column true of one role gets its own table, and the
+third platform role would want a third column) and altering a primary key on an
+auth table (a NULL inside a composite PK behaves differently on MySQL and
+SQLite — the failing environment being the one nobody runs the suite in).
+
+- The `Gate::before` returns `null`, never `false`: a hook that answers false
+  short-circuits every policy behind it.
+- It answers only for names in `Permissions::all()`, because Filament checks
+  `view`/`update` against models constantly.
+- `PlatformStaffDirectory` memoises per request — a `Gate::before` runs on every
+  ability check, and a query inside one is a query per checkbox. It declares
+  `withoutTeamScope()`, the one sanctioned bypass: a workspace team id is set on
+  almost every request an officer makes, and the scope would otherwise hide the
+  teamless role that carries their permissions.
+- The screen (`PlatformStaffResource`) grants a ROLE, never a permission, and is
+  super-admin only. A finance officer who could appoint a finance officer can
+  grant themselves a colleague.

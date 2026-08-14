@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Tenancy\Support;
 
+use App\Modules\Tenancy\Models\Role;
+
 /**
  * Permission name constants. Seeded into spatie/permission's permissions table.
  * Each permission is a granular action scoped to a resource and operation.
@@ -281,10 +283,23 @@ final class Permissions
      */
     public const BILLING_AUDIT_VIEW = 'billing.audit.view';
 
+    /**
+     * Edit the workspace's own roles — who may tick a permission onto one.
+     *
+     * ⚠️ TENANT-LEVEL, AND THAT IS SAFE ONLY BECAUSE OF WHAT THE SCREEN CANNOT
+     * OFFER. The picker's vocabulary is `RolePermissionMatrix::tenantPermissions()`
+     * and {@see Role} refuses a platform permission
+     * on a workspace role whatever the request says — so the worst an owner can
+     * do with this is rearrange authority they already hold. Without both of
+     * those, this constant would be "grant yourself anything" under a modest name.
+     */
+    public const ROLES_MANAGE = 'roles.manage';
+
     /** @return list<string> */
     public static function all(): array
     {
         return [
+            self::ROLES_MANAGE,
             self::MEMBERS_VIEW,
             self::MEMBERS_INVITE,
             self::MEMBERS_UPDATE,

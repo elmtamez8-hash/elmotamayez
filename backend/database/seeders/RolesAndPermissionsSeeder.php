@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Modules\Tenancy\Models\Role;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\RolePermissionMatrix;
 use App\Modules\Tenancy\Support\Roles;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
+// ⚠️ OURS, NOT `Spatie\Permission\Models\Role`. `config('permission.models.role')`
+// governs what the PACKAGE resolves internally; a class named directly here is
+// the class that is used, guard and scope and all. Reaching for the base class
+// is how a seeder would quietly become the one writer the role guard cannot
+// see — the same door `ImmutableAuditTest` names for the activity log.
 class RolesAndPermissionsSeeder extends Seeder
 {
     public function run(): void
@@ -33,7 +38,9 @@ class RolesAndPermissionsSeeder extends Seeder
         $matrix = RolePermissionMatrix::map();
 
         foreach (Roles::platformRoles() as $name) {
-            Role::firstOrCreate(['name' => $name, 'guard_name' => 'web'])
+            // The declared bypass: these rows ARE the teamless ones, which the
+            // scope keeps out of every screen.
+            Role::query()->withoutTeamScope()->firstOrCreate(['name' => $name, 'guard_name' => 'web'])
                 ->syncPermissions($matrix[$name] ?? []);
         }
 
