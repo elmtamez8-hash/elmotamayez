@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Assessments\Enums\DuplicatePolicy;
 use App\Modules\Assessments\Models\AttemptItem;
 use App\Modules\Assessments\Models\Concept;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\ExamItem;
 use App\Modules\Assessments\Models\Question;
+use App\Modules\Assessments\Models\QuestionImport;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
@@ -482,12 +484,32 @@ describe('question bank models are workspace-scoped', function (): void {
             ->and(Concept::query()->where('workspace_id', $theirs->id)->count())->toBe(0);
     });
 
+    it('hides one teacher’s uploads and their row-by-row reports from another', function (): void {
+        [$mine, $me] = $this->createWorkspaceWithOwner();
+        [$theirs, $them] = $this->createWorkspaceWithOwner();
+
+        $this->setCurrentWorkspace($theirs, $them);
+        QuestionImport::create([
+            'workspace_id' => $theirs->id, 'uploaded_by' => $them->id,
+            'original_filename' => 'بنكهم.csv', 'stored_path' => 'imports/theirs.csv',
+            'duplicate_policy' => DuplicatePolicy::Skip,
+        ]);
+
+        $this->setCurrentWorkspace($mine, $me);
+
+        // ⚠️ THE REPORT CARRIES THE TEXT OF EVERY ROW THAT FAILED — so an import
+        // list without the tenant key is one teacher reading the questions
+        // another teacher could not import. `ImportController::index` has no
+        // filter of its own; the global scope is the whole guard.
+        expect(QuestionImport::query()->count())->toBe(0);
+    });
+
     it('declares the tenant key on every bank model', function (): void {
         // ⚠️ Spec 008 adds eleven tables and not one of them is platform-owned.
         // The one that was argued for — accommodations — is a BRIDGE: extra time
         // applies to one teacher's assessments, and granting it is that teacher's
         // act recorded in their name (research.md §و).
-        foreach ([Concept::class, Question::class, ExamItem::class, AttemptItem::class] as $model) {
+        foreach ([Concept::class, Question::class, ExamItem::class, AttemptItem::class, QuestionImport::class] as $model) {
             expect(in_array(BelongsToWorkspace::class, class_uses_recursive($model), true))
                 ->toBeTrue("{$model} must use BelongsToWorkspace");
         }

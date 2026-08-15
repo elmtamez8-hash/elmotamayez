@@ -7,6 +7,7 @@ use App\Modules\Assessments\Http\Controllers\BankController;
 use App\Modules\Assessments\Http\Controllers\ConceptController;
 use App\Modules\Assessments\Http\Controllers\ExamController;
 use App\Modules\Assessments\Http\Controllers\ExamItemsController;
+use App\Modules\Assessments\Http\Controllers\ImportController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -63,6 +64,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
         });
 
         Route::get('/concepts', [ConceptController::class, 'index']);
+
+        // The upload answers 202 and hands back an id; the report is polled at
+        // the second route, and the notification is what brings the teacher back
+        // to it once they have closed the tab.
+        Route::get('/imports', [ImportController::class, 'index']);
+        Route::get('/imports/{import}', [ImportController::class, 'show']);
+        Route::post('/imports', [ImportController::class, 'store'])
+            ->middleware('throttle:upload');
     });
 
     // Which bank questions an exam includes, and in what order. The complete

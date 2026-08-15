@@ -67,6 +67,16 @@ function dispatchOf(User $user, NotificationType $type): void
             // dropped, and the count below comes back one short — which is this
             // test doing its job, not a channel that failed.
             'months' => '12',
+            // And these four, added with spec 008's import report. Same mechanism
+            // a third time: the template refuses to render without them, the
+            // notification is logged and dropped, and the count comes back 29
+            // against 30 — which is this test noticing a type that would have
+            // silently reached nobody in production.
+            // (`reason` is already above, and the failed-import template reuses it.)
+            'filename' => 'questions.csv',
+            'imported' => '990',
+            'skipped' => '0',
+            'failed' => '10',
         ],
     ));
 }

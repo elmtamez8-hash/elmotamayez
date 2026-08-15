@@ -12,9 +12,18 @@ namespace App\Modules\Assessments\Enums;
  * a question is a job that hangs for ever. The report names every skipped row by
  * its line number instead, which is the answer they would have given anyway.
  *
- * `Skip` is decided by the database, not by a lookup: `unique(workspace_id,
- * content_hash)` makes it a constraint. Reading first and then inserting is the
- * definition of the race two browser tabs win together.
+ * ⚠️ `Skip` IS A LOOKUP, AND THAT IS A CORRECTION. It was designed as a database
+ * constraint — `unique(workspace_id, content_hash)` — because reading first and
+ * then inserting is the definition of the race two uploads win together. That
+ * index could not be created: real workspaces already hold questions sharing a
+ * text, written into different exams back when a question BELONGED to one, and
+ * `exam_answers.question_id` points at each of them from real attempts. They are
+ * legitimate rows and merging them would orphan or rewrite graded papers.
+ *
+ * So the race is closed where it actually happens instead: `WithoutOverlapping`
+ * on the workspace serialises imports, and the lookup runs inside that lock. A
+ * constraint the existing rows cannot satisfy is not a stronger guarantee — it
+ * is a deploy that fails.
  */
 enum DuplicatePolicy: string
 {

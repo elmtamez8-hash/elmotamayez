@@ -3,10 +3,12 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Assessments\Enums\DuplicatePolicy;
 use App\Modules\Assessments\Models\Concept;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\ExamItem;
 use App\Modules\Assessments\Models\Question;
+use App\Modules\Assessments\Models\QuestionImport;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Learning\Models\Enrollment;
@@ -33,6 +35,7 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\NotificationTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
@@ -527,4 +530,44 @@ function bankQuestion(Workspace $workspace, ?Exam $exam = null, array $attribute
     }
 
     return $question;
+}
+
+/*
+| Spec 008's importer fixtures.
+|
+| ⚠️ THEY LIVE HERE, NOT IN THE FIRST TEST FILE THAT NEEDED THEM. A helper
+| defined inside one spec file is a global that exists only when that file
+| happens to be loaded first — so the second file passes in a full run and fails
+| the moment somebody runs it alone to debug it, with "undefined function"
+| instead of the assertion they were looking at.
+*/
+const IMPORT_HEADER = "content,concept,difficulty,bloom_level,type,points,explanation,options,correct\n";
+
+function importFile(string $body, bool $withBom = false): string
+{
+    Storage::fake('local');
+
+    $path = 'imports/questions.csv';
+    Storage::disk(config('filesystems.default'))->put(
+        $path,
+        ($withBom ? "\xEF\xBB\xBF" : '').IMPORT_HEADER.$body
+    );
+
+    return $path;
+}
+
+function startImport(int $workspaceId, int $userId, string $path, DuplicatePolicy $policy = DuplicatePolicy::Skip): QuestionImport
+{
+    return QuestionImport::create([
+        'workspace_id' => $workspaceId,
+        'uploaded_by' => $userId,
+        'original_filename' => 'questions.csv',
+        'stored_path' => $path,
+        'duplicate_policy' => $policy,
+    ]);
+}
+
+function mcqRow(string $content, string $concept = 'الجبر'): string
+{
+    return "\"{$content}\",{$concept},easy,remember,mcq,1,,صحيح|خطأ,1\n";
 }

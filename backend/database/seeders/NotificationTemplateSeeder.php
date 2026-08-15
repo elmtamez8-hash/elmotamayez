@@ -136,6 +136,22 @@ class NotificationTemplateSeeder extends Seeder
                 ['course', 'credits', 'months'],
             ],
             /*
+            | Spec 008. Written as a summary rather than "your import is done",
+            | because the three numbers are the whole answer for the teacher whose
+            | file went through cleanly — and the only ones who need to open the
+            | report are those whose `failed` is not zero.
+            */
+            NotificationType::QuestionImportReady->value => [
+                'اكتمل استيراد {{ filename }}',
+                'اكتمل استيراد الأسئلة من «{{ filename }}»: أُضيف {{ imported }} سؤالاً، وتُخطّي {{ skipped }}، وتعذّر {{ failed }}. افتح التقرير لمعرفة سبب كل صفّ لم يُضَف.',
+                ['filename', 'imported', 'skipped', 'failed'],
+            ],
+            NotificationType::QuestionImportFailed->value => [
+                'تعذّر استيراد {{ filename }}',
+                'لم يكتمل استيراد الأسئلة من «{{ filename }}»: {{ reason }}. لم يُضَف أيّ سؤال، ويمكنك تصحيح الملف ورفعه من جديد.',
+                ['filename', 'reason'],
+            ],
+            /*
             | The payment path (007).
             |
             | ⚠️ NO AMOUNT IN ANY OF THEM, and that is not an omission. A credit's

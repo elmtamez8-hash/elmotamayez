@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Notifications;
 
+use App\Modules\Assessments\Events\QuestionImported;
 use App\Modules\Certificates\Events\CertificateIssued;
 use App\Modules\Certificates\Events\CertificateRegenerated;
 use App\Modules\Learning\Events\EnrollmentCreated;
@@ -12,6 +13,7 @@ use App\Modules\Marketplace\Events\TeacherChangesRequested;
 use App\Modules\Marketplace\Events\TeacherRejected;
 use App\Modules\Notifications\Channels\ChannelRegistry;
 use App\Modules\Notifications\Channels\InAppChannel;
+use App\Modules\Notifications\Listeners\NotifyImportReady;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateIssued;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateRegenerated;
 use App\Modules\Notifications\Listeners\NotifyStudentEnrolled;
@@ -57,5 +59,10 @@ class NotificationsServiceProvider extends Module
         Event::listen(TeacherApproved::class, NotifyTeacherApproved::class);
         Event::listen(TeacherRejected::class, NotifyTeacherRejected::class);
         Event::listen(TeacherChangesRequested::class, NotifyTeacherChangesRequested::class);
+
+        // Spec 008 — the import runs off the request, so the teacher has closed
+        // the tab. This notification is the only route back to the report naming
+        // the rows that failed.
+        Event::listen(QuestionImported::class, NotifyImportReady::class);
     }
 }

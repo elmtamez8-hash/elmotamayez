@@ -60,6 +60,25 @@ enum NotificationType: string
     */
     case CreditBalanceDormant = 'credit_balance_dormant';
 
+    /*
+    | Spec 008. The import runs in a queued job, so the teacher has closed the
+    | tab long before it finishes — this notification IS how they learn it is
+    | done, and the only route to the row-by-row report.
+    |
+    | Optional and never reaching a guardian: it is a teacher's own housekeeping,
+    | and it says nothing about any student.
+    */
+    case QuestionImportReady = 'question_import_ready';
+
+    /*
+    | ⚠️ AND ITS OWN TYPE FOR THE FAILURE, on the precedent of PaymentConfirmed
+    | vs PaymentFailed below. A file that was not a CSV at all produces no rows,
+    | so the "done" message would read «اكتمل الاستيراد… أُضيف 0» — which is a
+    | success sentence describing a failure. The teacher closed the tab after the
+    | 202; without this they learn nothing at all.
+    */
+    case QuestionImportFailed = 'question_import_failed';
+
     public function label(): string
     {
         return match ($this) {
@@ -92,6 +111,8 @@ enum NotificationType: string
             self::CreditBalanceDormant => 'رصيد غير مستخدَم',
             self::AccessWithheld => 'إيقاف الوصول لعدم كفاية الرصيد',
             self::AccessRestored => 'استئناف الوصول',
+            self::QuestionImportReady => 'تقرير استيراد الأسئلة',
+            self::QuestionImportFailed => 'تعذّر استيراد الأسئلة',
         };
     }
 

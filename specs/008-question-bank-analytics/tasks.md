@@ -148,16 +148,16 @@
 
 ### هـ — الاستيراد
 
-- [ ] T055 [US1] هجرة ‎١٠‎أ: `question_imports` (‏`duplicate_policy` · `skipped_count` · `report` json · `status`) في `..._001000_create_question_imports_table.php`
-- [ ] T056 [P] [US1] نموذج `QuestionImport` ومصنعه
-- [ ] T057 [US1] `ImportQuestions` في `.../Actions/ImportQuestions.php`: `fgetcsv` بلا مكتبة، **وإزالة BOM من أول الملف** وإلّا صار اسم أول عمودٍ في كل ملفٍ صادرٍ من Excel غير مطابق
-- [ ] T058 [US1] في `ImportQuestions`: تقريرٌ صفّاً صفّاً — الناجح والفاشل **والسبب بالضبط** — و**الدفعة لا تسقط لسقوط صفّ** (`FR-007`)
-- [ ] T059 [US1] في `ImportQuestions`: طبّق `duplicate_policy` على `unique(workspace_id, content_hash)` — ⚠️ **[‏مر‏]** التخطّي **حكمٌ من المحرّك** لا «ابحث ثم أدرج»، وإلّا فنافذتان تُدرجان معاً
-- [ ] T060 [US1] `ImportQuestionsJob` في `.../Jobs/ImportQuestionsJob.php` — ⚠️ `forWorkspace()` **لا** `WorkspaceContext::set()`
-- [ ] T061 [US1] ⚠️ **[‏مر‏]** في `ImportQuestionsJob`: انتقال `status` من `queued` بمطالبة `UPDATE … WHERE status = 'queued'` — إعادةُ محاولة Horizon بعد مهلةٍ منتصف الملف تُعيد استيراد ما التزم إدراجه
-- [ ] T062 [US1] `ImportController` + `StartImportRequest` (‏الملف **و`duplicate_policy`** معاً) + `ImportReportResource`
-- [ ] T063 [US1] `QuestionImported` في `.../Events/QuestionImported.php` ومستمع الإشعار عبر `DispatchNotification`
-- [ ] T064 [P] [US1] أضف قالب إشعار «تقرير الاستيراد جاهز» إلى `backend/database/seeders/NotificationTemplateSeeder.php` — ⚠️ **إشعارٌ بلا قالبٍ يُسقَط بصمت**
+- [x] T055 [US1] هجرة ‎١٠‎أ: `question_imports` (‏`duplicate_policy` · `skipped_count` · `report` json · `status`) في `..._001000_create_question_imports_table.php`
+- [x] T056 [P] [US1] نموذج `QuestionImport` ومصنعه
+- [x] T057 [US1] `ImportQuestions` في `.../Actions/ImportQuestions.php`: `fgetcsv` بلا مكتبة، **وإزالة BOM من أول الملف** وإلّا صار اسم أول عمودٍ في كل ملفٍ صادرٍ من Excel غير مطابق
+- [x] T058 [US1] في `ImportQuestions`: تقريرٌ صفّاً صفّاً — الناجح والفاشل **والسبب بالضبط** — و**الدفعة لا تسقط لسقوط صفّ** (`FR-007`)
+- [x] T059 [US1] في `ImportQuestions`: طبّق `duplicate_policy` على `unique(workspace_id, content_hash)` — ⚠️ **[‏مر‏]** التخطّي **حكمٌ من المحرّك** لا «ابحث ثم أدرج»، وإلّا فنافذتان تُدرجان معاً
+- [x] T060 [US1] `ImportQuestionsJob` في `.../Jobs/ImportQuestionsJob.php` — ⚠️ `forWorkspace()` **لا** `WorkspaceContext::set()`
+- [x] T061 [US1] ⚠️ **[‏مر‏]** في `ImportQuestionsJob`: انتقال `status` من `queued` بمطالبة `UPDATE … WHERE status = 'queued'` — إعادةُ محاولة Horizon بعد مهلةٍ منتصف الملف تُعيد استيراد ما التزم إدراجه
+- [x] T062 [US1] `ImportController` + `StartImportRequest` (‏الملف **و`duplicate_policy`** معاً) + `ImportReportResource`
+- [x] T063 [US1] `QuestionImported` في `.../Events/QuestionImported.php` ومستمع الإشعار عبر `DispatchNotification`
+- [x] T064 [P] [US1] أضف قالب إشعار «تقرير الاستيراد جاهز» إلى `backend/database/seeders/NotificationTemplateSeeder.php` — ⚠️ **إشعارٌ بلا قالبٍ يُسقَط بصمت**
 
 ### و — سحب الأبواب الخلفية
 
@@ -169,7 +169,7 @@
 - [ ] T067 [P] [US1] `frontend/src/lib/bank.ts` — عميل البنك والاستيراد
 - [ ] T068 [US1] `frontend/src/app/(app)/(shell)/manage/bank/page.tsx` — تصفّحٌ وترشيحٌ وبحث
 - [ ] T069 [US1] `frontend/src/app/(app)/(shell)/manage/bank/[uuid]/page.tsx` — تحرير سؤالٍ ووسومه
-- [ ] T070 [US1] `frontend/src/app/(app)/(shell)/manage/bank/import/page.tsx` — ⚠️ **تقول «‏CSV — وXLSX غير مدعوم بعد»** بدل أن ترفض ملفاً بلا سبب، **وتختار سياسة التكرار قبل الرفع**
+- [ ] T070 [US1] `frontend/src/app/(app)/(shell)/manage/bank/import/page.tsx` **و`import/[uuid]/page.tsx`** — ⚠️ **رابطٌ وارد**: إشعار الاستيراد يشير إلى `/manage/bank/import/{uuid}`، فصفحة التقرير لكل استيراد **جزءٌ من المهمّة** لا إضافة؛ بدونها كلّ إشعارٍ يقود إلى ٤٠٤ — ⚠️ **تقول «‏CSV — وXLSX غير مدعوم بعد»** بدل أن ترفض ملفاً بلا سبب، **وتختار سياسة التكرار قبل الرفع**
 - [ ] T071 [US1] ⚠️ **رابطٌ وارد**: أضف «بنك الأسئلة» إلى قائمة القشرة في `frontend/src/components/` — صفحةٌ لا يصلها شيءٌ غير مُسلَّمة
 - [ ] T072 [US1] اربط شاشة بناء الاختبار بضمّ أسئلة البنك في `frontend/src/app/(app)/(shell)/manage/exams/`
 
@@ -178,8 +178,8 @@
 - [ ] T073 [P] [US1] `backend/tests/Feature/Assessments/BankReuseTest.php` — السؤال الواحد في ثلاثة اختبارات، صفٌّ واحد في البنك، و`points_override` يختلف في أحدها (`SC-001`)
 - [ ] T074 [P] [US1] `backend/tests/Feature/Assessments/QuestionTaggingTest.php` — صفر سؤالٍ محفوظ بوسومٍ ناقصة (`SC-002`)
 - [ ] T075 [P] [US1] `backend/tests/Feature/Assessments/QuestionEditSafetyTest.php` — تعديل سؤالٍ له محاولات **وحذف خيارٍ منه**: الدرجة لا تتغيّر، والمراجعة تعرض النصّ والخيار المحذوف **من اللقطة** (`SC-003`)
-- [ ] T076 [P] [US1] `backend/tests/Feature/Assessments/QuestionImportTest.php` — ‎١٬٠٠٠‎ صفّ منها ‎١٠‎ معطوبة ⇒ ‎٩٩٠‎ مستورداً وتقريرٌ يسمّي العشرة برقم الصفّ والسبب، **وBOM لا يفسد أول عمود** (`SC-004`)
-- [ ] T077 [P] [US1] `backend/tests/Feature/Assessments/ImportIdempotencyTest.php` — ⚠️ **[‏مر‏]** رفعٌ مرّتين بـ`skip` ⇒ لا نسخة ثانية؛ و**إعادة تشغيل الوظيفة نفسها** لا تُعيد إدراج ما أُدرج
+- [x] T076 [P] [US1] `backend/tests/Feature/Assessments/QuestionImportTest.php` — ‎١٬٠٠٠‎ صفّ منها ‎١٠‎ معطوبة ⇒ ‎٩٩٠‎ مستورداً وتقريرٌ يسمّي العشرة برقم الصفّ والسبب، **وBOM لا يفسد أول عمود** (`SC-004`)
+- [x] T077 [P] [US1] `backend/tests/Feature/Assessments/ImportIdempotencyTest.php` — ⚠️ **[‏مر‏]** رفعٌ مرّتين بـ`skip` ⇒ لا نسخة ثانية؛ و**إعادة تشغيل الوظيفة نفسها** لا تُعيد إدراج ما أُدرج
 - [ ] T078 [P] [US1] `backend/tests/Feature/Assessments/BankAccessTest.php` — مدرّسٌ لا يرى ولا يضمّ سؤالاً من بنك غيره، **والبحث مقيَّدٌ بمساحة العمل على المُنشئ** (‏يُفحَص بالاستعلام لا بنتيجةٍ من محرّكٍ معطَّل في الاختبارات)
 
 **Checkpoint**: **‏US1 وحدها منتجٌ قابل للنشر.** بنكٌ موسوم، بحثٌ، استيراد، واختباراتٌ تُبنى منه.
