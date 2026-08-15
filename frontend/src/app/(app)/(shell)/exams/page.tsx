@@ -9,8 +9,11 @@ import { Badge } from "@/components/ui/Badge";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
+import { useAuth } from "@/lib/auth-context";
+import { P, can } from "@/lib/permissions";
 
 export default function ExamsPage() {
+  const { user } = useAuth();
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -28,11 +31,18 @@ export default function ExamsPage() {
 
   useEffect(load, [load]);
 
+  const canCreate = can(user, P.examsCreate);
+  const canManage = can(user, P.examsUpdate);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-2xl font-bold text-ink">الاختبارات</h2>
-        <Button href="/exams/new">اختبار جديد</Button>
+        {/* ⚠️ This page is one screen for two readers. A student opens it to SIT
+            an exam and a teacher to write one, and both buttons used to show to
+            both — so a student was offered "new exam" and "manage" on a paper
+            they were about to take. The server refused; the offer was the bug. */}
+        {canCreate && <Button href="/exams/new">اختبار جديد</Button>}
       </div>
 
       {loading ? (
@@ -42,8 +52,12 @@ export default function ExamsPage() {
       ) : exams.length === 0 ? (
         <EmptyState
           title="لا اختبارات متاحة الآن"
-          description="أنشئ اختباراً لتقيس فهم طلابك لما شرحته."
-          action={<Button href="/exams/new">اختبار جديد</Button>}
+          description={
+            canCreate
+              ? "أنشئ اختباراً لتقيس فهم طلابك لما شرحته."
+              : "لم ينشر مدرّسك اختباراً بعد. ستجده هنا حين ينشره."
+          }
+          action={canCreate ? <Button href="/exams/new">اختبار جديد</Button> : undefined}
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -76,14 +90,21 @@ export default function ExamsPage() {
                   <Button href={`/exams/${exam.uuid}/take`} fullWidth>
                     ابدأ الاختبار
                   </Button>
-                  <Button href={`/exams/${exam.uuid}/manage`} variant="secondary">
-                    إدارة
-                  </Button>
+                  {canManage && (
+                    <Button href={`/exams/${exam.uuid}/manage`} variant="secondary">
+                      إدارة
+                    </Button>
+                  )}
                 </div>
               ) : (
-                <Button href={`/exams/${exam.uuid}/manage`} variant="secondary" fullWidth>
-                  إدارة الاختبار
-                </Button>
+                // An unpublished exam is the teacher's draft. A reader who cannot
+                // manage it has no business being offered its editor — and the
+                // list only shows drafts to somebody who can see them anyway.
+                canManage && (
+                  <Button href={`/exams/${exam.uuid}/manage`} variant="secondary" fullWidth>
+                    إدارة الاختبار
+                  </Button>
+                )
               )}
             </Card>
           ))}

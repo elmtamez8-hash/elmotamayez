@@ -7,6 +7,7 @@ import Link from "next/link";
 import { PLATFORM_NAME } from "@/lib/platform";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationBell } from "@/components/app/NotificationBell";
+import { P, can } from "@/lib/permissions";
 import {
   BellIcon,
   CertificateIcon,
@@ -32,22 +33,37 @@ import {
   type IconProps,
 } from "@/components/icons";
 
-type NavItem = { href: string; label: string; Icon: ComponentType<IconProps> };
+/**
+ * `permission` absent means everyone who is signed in may see it.
+ *
+ * ⚠️ THE LIST USED TO BE FLAT AND UNGATED, and that is what the student was
+ * complaining about: the course editor, the exam builder, the question bank, the
+ * settlement statement and the whole «الإدارة» block were offered to every
+ * account. The server refused each one — this was never an authorisation hole —
+ * but a menu of links that answer 403 teaches the reader that the product does
+ * not know who they are.
+ */
+type NavItem = {
+  href: string;
+  label: string;
+  Icon: ComponentType<IconProps>;
+  permission?: string;
+};
 
 const mainNav: NavItem[] = [
   { href: "/dashboard", label: "لوحة التحكم", Icon: HomeIcon },
   // /courses is the public marketplace listing; course management lives under
   // /manage so the two do not resolve to the same route.
-  { href: "/manage/courses", label: "الكورسات", Icon: CoursesIcon },
+  { href: "/manage/courses", label: "الكورسات", Icon: CoursesIcon, permission: P.coursesUpdate },
   // /schedule is the student's own timetable across every teacher;
   // /manage/sessions is the teacher's calendar. Two screens, two audiences —
   // collapsing them into one route would make each show the other half nothing.
   { href: "/schedule", label: "جدولي", Icon: ScheduleIcon },
-  { href: "/manage/sessions", label: "حصصي", Icon: SessionsIcon },
+  { href: "/manage/sessions", label: "حصصي", Icon: SessionsIcon, permission: P.sessionsManage },
   // The teacher's own money. /orders is the student's side and is a different
   // question with different permissions — SETTLEMENT_STATEMENT_VIEW reaches only
   // the teacher, never their assistant.
-  { href: "/manage/settlement", label: "كشف التسوية", Icon: SettlementIcon },
+  { href: "/manage/settlement", label: "كشف التسوية", Icon: SettlementIcon, permission: P.settlementStatement },
   { href: "/enrollments", label: "تعلّمي", Icon: LearningIcon },
   // ⚠️ The student's own notebook, and it needs its own entry. It is derived
   // from answers rather than authored, so nothing in the product would ever link
@@ -58,12 +74,12 @@ const mainNav: NavItem[] = [
   // The teacher's own question library. Separate from /exams, which is the
   // student's list of what they may sit: one question here serves three exams
   // there, and collapsing them would make the bank look like a fourth exam.
-  { href: "/manage/bank", label: "بنك الأسئلة", Icon: QuestionBankIcon },
+  { href: "/manage/bank", label: "بنك الأسئلة", Icon: QuestionBankIcon, permission: P.bankView },
   // ⚠️ The analysis needs its own entry, not a tab inside the bank. It answers a
   // different question — "which of these is failing my students" rather than
   // "what do I have" — and a screen reachable only from another screen is a
   // screen nobody opens.
-  { href: "/manage/analytics/questions", label: "تحليل الأسئلة", Icon: ItemAnalysisIcon },
+  { href: "/manage/analytics/questions", label: "تحليل الأسئلة", Icon: ItemAnalysisIcon, permission: P.analyticsView },
   { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },
   { href: "/orders", label: "الطلبات", Icon: OrdersIcon },
   // The student's credits, counted in sessions and never in money. Separate
@@ -77,17 +93,17 @@ const mainNav: NavItem[] = [
 const adminNav: NavItem[] = [
   // How this academy collects. Under admin, not beside /billing: that one is the
   // student's own balance, this one is the policy that produces it.
-  { href: "/manage/billing/settings", label: "إعدادات الفوترة", Icon: CreditsIcon },
+  { href: "/manage/billing/settings", label: "إعدادات الفوترة", Icon: CreditsIcon, permission: P.billingSettings },
   // Who has sessions left and who has stopped. Beside the policy rather than
   // under /manage/sessions, because it answers a money question about students
   // — in credits only, never in money.
-  { href: "/manage/billing/students", label: "أرصدة الطلاب", Icon: CreditsIcon },
+  { href: "/manage/billing/students", label: "أرصدة الطلاب", Icon: CreditsIcon, permission: P.billingBalanceView },
   // Exam season, when nothing is deferred. Its own entry rather than a switch on
   // the settings screen: it is a period on a calendar with a start and an end,
   // not a preference, and it expires by itself.
-  { href: "/manage/billing/exam-mode", label: "وضع الامتحانات", Icon: CreditsIcon },
+  { href: "/manage/billing/exam-mode", label: "وضع الامتحانات", Icon: CreditsIcon, permission: P.billingExamMode },
   { href: "/workspaces", label: "مساحات العمل", Icon: WorkspaceIcon },
-  { href: "/members", label: "الأعضاء", Icon: MembersIcon },
+  { href: "/members", label: "الأعضاء", Icon: MembersIcon, permission: P.membersView },
   { href: "/settings", label: "الإعدادات", Icon: SettingsIcon },
 ];
 
@@ -104,17 +120,17 @@ const adminNav: NavItem[] = [
 const platformNav: NavItem[] = [
   // What the hourly payment sweep found: money that settled without telling us,
   // and what it could not resolve on its own.
-  { href: "/manage/payments/reconciliation", label: "تسوية المدفوعات", Icon: CreditsIcon },
+  { href: "/manage/payments/reconciliation", label: "تسوية المدفوعات", Icon: CreditsIcon, permission: P.billingCollection },
   // Every financial decision and the terminal it came from. Beside the
   // reconciliation rather than under it: one asks what the machine could not
   // settle, the other asks what people decided — and an auditor opens the second
   // when the first has already been dealt with.
-  { href: "/manage/payments/audit", label: "سجلّ التدقيق المالي", Icon: OrdersIcon },
+  { href: "/manage/payments/audit", label: "سجلّ التدقيق المالي", Icon: OrdersIcon, permission: P.billingAudit },
   // What came in, over a period. Beside the two above rather than under the
   // teacher's billing screens: this is the platform's collection across every
   // workspace, and a teacher holding every tenant permission there is cannot
   // open it.
-  { href: "/manage/payments/collection", label: "سجلّ التحصيل", Icon: CreditsIcon },
+  { href: "/manage/payments/collection", label: "سجلّ التحصيل", Icon: CreditsIcon, permission: P.billingCollection },
 ];
 
 const allNav = [...mainNav, ...adminNav, ...platformNav];
@@ -149,6 +165,8 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
   }
 
   if (!user) return null;
+
+  const allowed = (items: NavItem[]) => items.filter((item) => can(user, item.permission));
 
   const renderItem = ({ href, label, Icon }: NavItem) => {
     const active = pathname === href || pathname.startsWith(href + "/");
@@ -195,19 +213,28 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
         {/* The one thing that scrolls. Everything else keeps its height, so a
             long nav never pushes the account panel off the screen. */}
         <nav aria-label="التنقّل الرئيسي" className="flex-1 overflow-y-auto px-3 py-4">
-          {mainNav.map(renderItem)}
-          <div className="mb-1 mt-4 border-t border-line pt-4">
-            <p className="mb-2 px-3 text-xs font-semibold tracking-wide text-ink-muted">
-              الإدارة
-            </p>
-            {adminNav.map(renderItem)}
-          </div>
-          {user.is_super_admin && (
+          {allowed(mainNav).map(renderItem)}
+          {/* ⚠️ The heading is hidden with its list, not left standing over an
+              empty box. A section title with nothing under it reads as content
+              that failed to load. */}
+          {allowed(adminNav).length > 0 && (
+            <div className="mb-1 mt-4 border-t border-line pt-4">
+              <p className="mb-2 px-3 text-xs font-semibold tracking-wide text-ink-muted">
+                الإدارة
+              </p>
+              {allowed(adminNav).map(renderItem)}
+            </div>
+          )}
+          {/* ⚠️ Per item, no longer on `is_super_admin`. That flag had the bug
+              running the other way too: a platform finance officer holds
+              `billing.audit.view` through `platform_staff` and never saw the
+              link, because they are not a super admin. */}
+          {allowed(platformNav).length > 0 && (
             <div className="mb-1 mt-4 border-t border-line pt-4">
               <p className="mb-2 px-3 text-xs font-semibold tracking-wide text-ink-muted">
                 المنصّة
               </p>
-              {platformNav.map(renderItem)}
+              {allowed(platformNav).map(renderItem)}
             </div>
           )}
         </nav>

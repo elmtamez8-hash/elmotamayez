@@ -67,7 +67,7 @@ trait WithWorkspace
             'joined_at' => now(),
         ]);
 
-        $user->update(['last_workspace_id' => $workspace->getKey()]);
+        $user->forceFill(['last_workspace_id' => $workspace->getKey()])->save();
 
         // Set team context and assign the spatie role.
         app(WorkspaceContext::class)->set($workspace);
@@ -95,7 +95,11 @@ trait WithWorkspace
      */
     protected function setCurrentWorkspace(Workspace $workspace, User $user): void
     {
-        $user->update(['last_workspace_id' => $workspace->getKey()]);
+        // ⚠️ forceFill, NOT update(): `last_workspace_id` is in User's `$guarded`,
+        // so the mass-assigned form here has been a silent no-op — the helper
+        // claimed to simulate the middleware while writing nothing at all, and
+        // every test that reads the column back got null.
+        $user->forceFill(['last_workspace_id' => $workspace->getKey()])->save();
         app(WorkspaceContext::class)->set($workspace);
     }
 

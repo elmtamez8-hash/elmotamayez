@@ -71,6 +71,15 @@ export interface User {
   is_super_admin: boolean;
   platform_role: PlatformRole | null;
   last_workspace_id: number | null;
+  /**
+   * What this person may do IN THE WORKSPACE THEY ARE IN — names from
+   * `lib/permissions.ts`, never spelled inline.
+   *
+   * ⚠️ It decides what is OFFERED, never what is allowed. Every one of these is
+   * enforced by a policy on the server, and the client's copy exists so the
+   * panel stops showing a student the course editor.
+   */
+  permissions: string[];
   created_at: string;
 }
 
