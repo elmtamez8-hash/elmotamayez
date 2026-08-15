@@ -114,13 +114,24 @@ backend/app/Modules/Assessments/          ← تتوسّع، ولا تُستبد
 │           · Answer · RubricCriterion ★ · GradingRecord ★ · Concept ★
 │           · Assignment ★ · Submission ★ · Accommodation ★ · QuestionImport ★
 │           · QuestionStat ★ · ConceptStat ★
-├── Support/  BankSearch ★ · MistakeNotebook ★ · UnlockRule ★ · LatePolicy ★
+├── Http/
+│   ├── Controllers/  Bank · Grading · Practice · Mistakes · Assignments · Submissions
+│   │                 · Accommodations · UnlockRules · Analytics · Eligibility
+│   ├── Requests/     واحدٌ لكل مسار كتابة — التحقّق هنا، والقاعدة في الـAction
+│   └── Resources/    ⚠️ كلٌّ منها بخطّة تحميلٍ مسبق مُعلَنة عند نداءِ موقعِها
+├── Data/     DTOs ترث `DataTransferObject` (‏`NFR-005`)
+├── Enums/    BloomLevel · SubmissionType · LatePolicy · SubmissionState
+│           · DuplicatePolicy · ImportStatus — تعداداتٌ مغلقة، لا نصٌّ حرّ
+├── Events/   QuestionImported ★ · AttemptPendingGrading ★ · AttemptFinalized ★
+│           · AssignmentSubmitted ★ · SubmissionGraded ★ · MistakeResolved ★
+├── Support/  BankSearch ★ · MistakeNotebook ★ · UnlockResolver ★ · UnlockReader ★
+│           · LatePenalty ★ · AssessmentFieldAllowlist ★
 ├── Policies/ QuestionPolicy ★ · AssignmentPolicy ★ · SubmissionPolicy ★
 │           · GradingPolicy ★ · AccommodationPolicy ★ (‏+ ExamPolicy · AttemptPolicy القائمتان)
 └── Database/Migrations/                  ⚠️ سلسلة مرتَّبة — `data-model.md` §ط
 
 backend/app/Shared/Contracts/
-└── SessionAttendanceDirectory.php        ⚠️ يتوسّع بسؤالٍ واحد: هل حضر الحصة؟
+└── SessionAttendanceDirectory.php        ⚠️ يتوسّع بسؤالٍ **جماعي**: أي هذه الحصص حضر؟
 
 frontend/src/app/(app)/(shell)/
 ├── manage/bank/                          ★ البنك: تصفّح · وسم · استيراد
@@ -144,8 +155,28 @@ frontend/src/app/(app)/(shell)/
 |---|---|---|
 | **`student_user_id` مُكرَّر على `exam_answers`** بينما هو مشتقّ عبر `attempt_id` | دفتر الأخطاء (‏`FR-016`–`FR-019`) واختبار «اختبرني في أخطائي» يسألان «كل إجابات هذا الطالب الخاطئة» — وهو استعلامٌ على عمودٍ غير موجود اليوم، فيصير وصلةً إلى `exam_attempts` عند كل قراءة وفهرساً لا يبدأ بالطالب. | **الاشتقاق بوصلة**: مرفوض لأن `NFR-010` يمنع نموّ التكلفة مع عدد المحاولات، ودفتر الأخطاء أطول ما يقرؤه الطالب. **جدول `mistake_entries`**: مرفوض لسببٍ أقوى — نسخةٌ ثانية من واقعةٍ مسجَّلة سلفاً تنحرف عن أصلها، و«الخطأ المُصلَح» يصير عموداً يُحدَّث بدل أن يكون سؤالاً يُسأل. العمود المُكرَّر يُملأ **مرّةً واحدة عند إنشاء الصفّ** ولا يتغيّر بعدها، فلا مصدر انحراف. |
 
+| **`content_hash` مُكرَّر على `questions`** بينما هو مشتقٌّ من النصّ | `Q7` يَعِد بسياسة «تخطٍّ»، ولا شيء في الجدول يعبّر عن «مكرّر» — فتصير قراءةً ثمّ كتابة، أي سباقاً بين نافذتين، وإعادةُ محاولة Horizon تُعيد إدراج ما التزم إدراجه. | **المقارنة بالنصّ عند الاستيراد**: مرفوضة — `content` من نوع `longText` فلا يُفهرَس، والمقارنة مسحٌ كامل لكل صفٍّ في الملف. **ولا سياسة تخطٍّ أصلاً**: مرفوضة لأن `Q7` قرارُ المستخدم. العمود يُحسب عند الكتابة ولا يُقرأ من مكانٍ آخر. |
+
 > ولا انحراف آخر. تحديداً: لا `Repository`، ولا طبقة خدمات، ولا كيان «نتيجة» رابع —
 > الدرجة تبقى على المحاولة والتسليم كما هي اليوم.
+
+---
+
+## ما تغيّر بعد مراجعة الوكلاء (‏2026-08-15)
+
+خمسة وكلاء، بُعدٌ لكلٍّ. ما دون هذا السطر **مُتحقَّقٌ منه في الكود المشحون** لا مستنتَجاً:
+
+| الاكتشاف | أين كان يظهر |
+|---|---|
+| `unique(...)` على أعمدةٍ قابلة للإفراغ **لا يعضّ** — ‎٣‎ مواضع | إنتاجٌ فقط، وبعد أسابيع |
+| `exam_answers` بلا `uuid` وبلا `HasUuid` — ومسارا التصحيح يربطان به | أوّل يومٍ من التنفيذ |
+| التقديم قراءةٌ ثمّ كتابة، ولا قيد فريد يحرسه | تحت التزامن، ونادراً |
+| المحاولة التدريبية تستهلك رصيد المحاولات الرسمية | أوّل طالبٍ يتدرّب |
+| الاختبار الذاتي يسحب أسئلة امتحانٍ لم يُمتحَن بعد | لا يظهر — يُستغَلّ |
+| `throttle:uploads` غير مسجَّل (‏الاسم `upload`) | ‎500‎ على كل رفع |
+| المسارات القديمة تلتفّ على قواعد البنك كلّها | بابٌ خلفي لا تراه الشاشة |
+| صفّ الإجابة لا يُكتب للسؤال المتروك | دفترٌ ناقصٌ يبدو كاملاً |
+| المكنسة تُدرج بلا `uuid` فتشلّ الجدول | MySQL فقط، وبعد النشرة |
 
 ---
 
