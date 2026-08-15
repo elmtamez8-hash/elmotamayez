@@ -79,6 +79,7 @@ exam_answers  (قائم)
 exam_attempts (قائم)
   + status: يضيف `pending_grading`
   + finalized_at ★ (nullable)       ← متى صارت الدرجة نهائية
+  + is_practice ★ (bool, default false)   ← Q4: الوسم على المحاولة لا على الاختبار
 ```
 
 ---
@@ -114,7 +115,8 @@ assignments ★
   title · description · points · due_at
   submission_type (enum: text · file · questions)
   question_set_id (nullable) → exams        ← «مجموعة أسئلة من البنك» هي اختبارٌ بلا كشف
-  late_policy (enum: accept · reject · penalise) · late_penalty_pct (nullable)
+  late_policy (enum: accept · reject · penalise)
+  late_penalty_pct_per_day (nullable) · late_penalty_cap_pct (nullable)   ← Q6
   status (draft · published) · published_at
   timestamps
   index(workspace_id, course_id, due_at)
@@ -124,7 +126,8 @@ submissions ★                                ← جسر
   content_text (nullable) · media_asset_id (nullable) · attempt_id (nullable)
   submitted_at (nullable) · state (enum: on_time · late · missed)
   late_by_minutes (nullable)
-  score (nullable) · feedback (nullable) · graded_by · graded_at
+  score (nullable) · late_penalty_applied_pct (nullable) · feedback (nullable)
+  graded_by · graded_at
   extension_until (nullable)                 ← تأجيل لطالبٍ بعينه (FR-047)
   timestamps
   unique(assignment_id, student_user_id)     ← تسليمٌ واحد لكل طالب لكل واجب
@@ -141,6 +144,12 @@ accommodations ★                             ← جسر
 الموعد — أي أن الحالة تتغيّر **بمرور الوقت لا بفعل أحد**، وهو بالضبط ما لا يستطيع الاشتقاق
 عند القراءة أن يبلّغ عنه. المكنسة الليلية تكتب `missed`، والتسليم يكتب `on_time`/`late` وقت
 وقوعه.
+
+⚠️ **و`late_penalty_applied_pct` يُكتب مرّةً وقت الاعتماد، ولا يُشتقّ بعدها** — على سابقة
+`billable_seats` في ‎005‎. الخصم مشتقٌّ من سياسة الواجب، **والسياسة عمودٌ قابل للتعديل**: مدرّسٌ
+يخفّف سياسته في آخر الفصل يعيد تسعير كل تسليمٍ صُحِّح قبلها لو كان الرقم يُحسب عند القراءة.
+والدرجة المعتمَدة جوابٌ عن لحظةٍ مضت. **وقاعُ الصفر يُفرَض في الـAction** (`FR-046أ`) — لا
+عمودَ يحرسه.
 
 ---
 
@@ -165,7 +174,8 @@ concept_stats ★
 ```
 question_imports ★
   id · uuid · workspace_id · created_by · filename
-  total_rows · imported_count · failed_count
+  total_rows · imported_count · failed_count · skipped_count
+  duplicate_policy (enum: skip · create)   ← يُختار عند الرفع (Q7)، لا يُسأل عنه لاحقاً
   report (json)         ← صفٌّ صفّاً: الرقم والسبب
   status (queued · running · done · failed) · timestamps
 ```
@@ -179,7 +189,9 @@ unlock_rules ★
   id · uuid · workspace_id · course_id (nullable) · class_session_id (nullable)
   requires_attendance (bool) · requires_assignment (bool) · min_score_pct (nullable)
   is_active · timestamps
-  ⚠️ نطاقٌ واحد على الأقل: كورس أو حصة. الاثنان فارغان قاعدةٌ تحكم كل شيء بلا أن يقصدها أحد.
+  unique(workspace_id, course_id, class_session_id)   ← قاعدةٌ واحدة لكل نطاق
+
+  الأسبقية: حصة ← كورس ← مساحة العمل. الأخصّ الموجود يفوز، ولا اندماج بين الصفوف.
 
 unlock_exemptions ★
   id · uuid · workspace_id · student_user_id · class_session_id
@@ -188,6 +200,11 @@ unlock_exemptions ★
 ```
 
 **ولا عمود `is_unlocked` في أي جدول** — `research.md` §ح.
+
+⚠️ **والصفّ الفارغ النطاقين هو الافتراضي المقصود، لا خطأً** (‏`Q5`). المدرّس يضبط شرطه مرّةً
+فيسري على كورساته كلّها، ويخصّص حيث يختلف. وغيابُ صفّ الكورس **رجوعٌ إلى الافتراضي، لا
+تعطيلٌ للشرط** — ولو قُرئ الغياب تعطيلاً، لصار كل كورسٍ جديد يُنشئه المدرّس مفتوحاً بلا شرط
+وهو يظنّه محروساً. وتعطيلُ الشرط لكورسٍ بعينه فعلٌ صريح: صفٌّ بـ`is_active = false`.
 
 ---
 
@@ -243,3 +260,4 @@ unlock_exemptions ★
 | `question_versions` | **يسقط** | اللقطة على عناصر المحاولة — §ب |
 | `is_unlocked` على أي جدول | **يسقط** | يُحسَب عند كل طلب — §ح |
 | جدول «نتيجة» رابع | **يسقط** | الدرجة على المحاولة والتسليم، كما اليوم |
+| `grade_entries` / كشف تقديرات | **يسقط** | `Q4` — «رسمي» وسمٌ يُرشَّح (`is_practice`)، والكشف التراكمي وعدُ ‎010‎ يُبنى من هذه الصفوف. جدولٌ ثالث للدرجة يعني ثلاثة أرقامٍ لدرجةٍ واحدة |

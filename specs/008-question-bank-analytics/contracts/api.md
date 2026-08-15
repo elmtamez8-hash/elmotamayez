@@ -33,7 +33,7 @@
 | `POST` · `PATCH` | `/api/v1/manage/bank/questions[/{uuid}]` | `bank.manage` |
 | `DELETE` | `/api/v1/manage/bank/questions/{uuid}` | `bank.manage` — **تعطيل، لا حذف** إن كانت له محاولات (`FR-005`) |
 | `GET` · `POST` | `/api/v1/manage/bank/concepts` | `bank.manage` |
-| `POST` | `/api/v1/manage/bank/imports` | `bank.manage` — يردّ `202` ومعرّف الاستيراد |
+| `POST` | `/api/v1/manage/bank/imports` | `bank.manage` — الملف **و`duplicate_policy`** معاً (‏`Q7`)؛ يردّ `202` ومعرّف الاستيراد |
 | `GET` | `/api/v1/manage/bank/imports/{uuid}` | `bank.manage` — التقرير صفّاً صفّاً |
 | `GET` · `PUT` | `/api/v1/manage/exams/{uuid}/items` | `exams.update` — ضمّ أسئلة البنك وترتيبها |
 
@@ -65,7 +65,7 @@
 `ThrottleRequests` يفهرس الضيف بـ`domain|ip` بلا المسار، فكل حدٍّ مضمَّن يتشارك عدّاداً
 واحداً ويفوز أشدّها.
 
-⚠️ **ولا اختبار ذاتي يدخل كشف التقديرات** (`FR-025` · `SC-009`): المحاولة تُوسَم `is_practice`
+⚠️ **ولا اختبار ذاتي يدخل قراءةً رسمية للدرجات** (`FR-025` · `SC-009`): المحاولة تُوسَم `is_practice`
 والكشف يُرشِّحها — والوسم **على المحاولة لا على الاختبار**، لأن الاختبار نفسه قد يُحلّ رسمياً
 وتدريباً.
 
@@ -84,13 +84,17 @@
 
 | Method | Path | الصلاحية |
 |---|---|---|
-| `GET` · `PUT` | `/api/v1/manage/unlock-rules` | `unlock_rules.manage` |
+| `GET` · `PUT` · `DELETE` | `/api/v1/manage/unlock-rules` | `unlock_rules.manage` — الافتراضي والتخصيصات؛ نطاق التخصيص في الجسم لا في المسار |
 | `POST` | `/api/v1/manage/unlock-exemptions` | `unlock_rules.manage` — **السبب إلزامي** |
 | `GET` | `/api/v1/manage/analytics/questions` | `analytics.questions.view` — من التجميع |
 | `GET` | `/api/v1/sessions/{uuid}/eligibility` | التسجيل — **ما ينقص الطالب بالضبط** (`FR-038`) |
 
 ⚠️ **`eligibility` مسارٌ قائم بذاته لأن الرفض يجب أن يقول ماذا ينقص.** «غير متاح» بلا سبب
 يحوّل ميزةَ تحفيزٍ إلى عطلٍ يراسل الطالبُ مدرّسَه عنه.
+
+⚠️ **وجواب `eligibility` يسمّي القاعدة التي حكمت** (‏مساحة عمل · كورس · حصة)، لأن الأسبقية
+لا تُرى (‏`Q5`): مدرّسٌ يخصّص كورساً ثم ينسى، فيقرأ منعاً لا يفسّره الإعداد الذي يفتحه —
+والشاشة نفسها تعرض عند التخصيص أيَّ افتراضيٍّ يُلغى.
 
 ---
 
