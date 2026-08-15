@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Assessments\Enums\DuplicatePolicy;
+use App\Modules\Assessments\Models\Answer;
+use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\Concept;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\ExamItem;
@@ -570,4 +572,53 @@ function startImport(int $workspaceId, int $userId, string $path, DuplicatePolic
 function mcqRow(string $content, string $concept = 'الجبر'): string
 {
     return "\"{$content}\",{$concept},easy,remember,mcq,1,,صحيح|خطأ,1\n";
+}
+
+/**
+ * Sits a question a known number of times, with a known number of wrong answers.
+ *
+ * ⚠️ IT WRITES ANSWERS THE WAY `GradeAttempt` DOES — one attempt per sitting,
+ * and an answer row for every question shown. A helper that wrote several
+ * answers under one attempt would still produce the right ratio, and would hide
+ * the one thing the rollup's join exists for: `is_practice` lives on the
+ * ATTEMPT, so a fixture with one attempt cannot tell a practice run from an
+ * exam.
+ *
+ * @param  array<string, mixed>  $answerOverrides  applied to every answer row
+ */
+function sitQuestion(
+    Workspace $workspace,
+    Question $question,
+    int $correct,
+    int $wrong,
+    bool $practice = false,
+    array $answerOverrides = [],
+): void {
+    $student = User::factory()->create();
+
+    for ($i = 0; $i < $correct + $wrong; $i++) {
+        $attempt = Attempt::create([
+            'workspace_id' => $workspace->getKey(),
+            'exam_id' => null,
+            'student_user_id' => $student->getKey(),
+            'status' => Attempt::STATUS_GRADED,
+            'is_practice' => $practice,
+            'score' => 0,
+            'max_score' => 100,
+            'passed' => false,
+            'random_seed' => 1,
+            'started_at' => now(),
+            'submitted_at' => now(),
+        ]);
+
+        Answer::create(array_merge([
+            'workspace_id' => $workspace->getKey(),
+            'attempt_id' => $attempt->getKey(),
+            'question_id' => $question->getKey(),
+            'student_user_id' => $student->getKey(),
+            'selected_option_ids' => [],
+            'is_correct' => $i < $correct,
+            'points' => $i < $correct ? 1 : 0,
+        ], $answerOverrides));
+    }
 }

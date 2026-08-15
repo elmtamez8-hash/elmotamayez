@@ -28,7 +28,12 @@ export type Column<T> = {
 type TableProps<T> = {
   columns: Column<T>[];
   rows: T[];
-  rowKey: (row: T) => string;
+  /**
+   * The React key. The index is passed as a fallback for rows whose only
+   * natural id lives behind a relation that may not have loaded — never reach
+   * for it when the row carries a uuid.
+   */
+  rowKey: (row: T, index: number) => string;
   /** Required. A table with no description is unreadable to a screen reader. */
   caption: string;
   state?: "ready" | "loading" | "empty" | "error";
@@ -83,8 +88,8 @@ export function Table<T>({
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
-          {rows.map((row) => (
-            <tr key={rowKey(row)} className="transition hover:bg-primary-soft/40">
+          {rows.map((row, index) => (
+            <tr key={rowKey(row, index)} className="transition hover:bg-primary-soft/40">
               {columns.map((col) => (
                 <td
                   key={col.key}

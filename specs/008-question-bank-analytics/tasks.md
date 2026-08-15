@@ -192,23 +192,23 @@
 
 **Independent Test**: محاولاتٌ معلومة النتيجة على أسئلةٍ موسومة، ومقارنة أرقام اللوحة بحسابٍ يدويّ.
 
-- [ ] T079 [US2] هجرة ‎١٠‎ب: `question_stats` (‏`unique(question_id)`) و`concept_stats` — ⚠️ **[‏مر‏]** `lesson_id` **`NOT NULL` والصفر يعني «الفكرة إجمالاً»**، وإلّا لم يعضّ القيدُ الفريد على الصفّ الذي يقرؤه كل شيء — في `..._001010_create_analytics_rollup_tables.php`
-- [ ] T080 [P] [US2] نموذجا `QuestionStat` و`ConceptStat` ومصنعاهما
-- [ ] T081 [US2] أضف `assessments.min_sample_size` إلى `backend/database/seeders/PlatformSettingsSeeder.php` — ⚠️ حدٌّ لا يتغيّر إلا بنشرةٍ هو حدٌّ لا يُضبَط أبداً
-- [ ] T082 [US2] `RollUpQuestionStatsJob` في `.../Jobs/RollUpQuestionStatsJob.php` على طابور `maintenance` بـ`forWorkspace()` — ⚠️ **[‏مر‏]** و**بـ`chunkById`**: `chunk` يرقّم بالإزاحة على أسرع الجداول نموّاً
-- [ ] T083 [US2] في الوظيفة: ⚠️ **[‏مر‏]** **استثنِ `is_practice`** بوصلةٍ إلى `exam_attempts` — بدونها تخلط النِّسَبُ تدريبَ الطالب باختبار المدرّس، ورقمٌ يقرّر حذف سؤالٍ يُحسب على محاولاتٍ لم تكن اختباراً
-- [ ] T084 [US2] في الوظيفة: العيّنة دون الحدّ الأدنى تُكتب **`null` لا صفراً** (`FR-013`) — «صفر بالمئة أخطأوا» و«لا نعرف» جملتان مختلفتان
-- [ ] T085 [US2] جدولة الوظيفة ليلياً في `backend/routes/console.php`
-- [ ] T086 [P] [US2] `QuestionStatResource` و`ConceptStatResource` — ⚠️ نسبةٌ فارغة تُقدَّم ببيان «بيانات غير كافية»، لا بصفر
-- [ ] T087 [US2] `AnalyticsController` في `.../Http/Controllers/AnalyticsController.php` على `Permissions::ANALYTICS_VIEW` — **يقرأ من الجدولين حصراً** (`FR-014`)
-- [ ] T088 [US2] القراءة العابرة للمدرّسين على `ANALYTICS_CROSS_TEACHER_VIEW` — ⚠️ **`withoutWorkspaceScope()` وتكرارُه في كل تحميلٍ مسبق**: `WorkspaceContext::id()` يرجع إلى `users.last_workspace_id` **للمشرف الأعلى أيضاً**، فتقريرٌ منصّي مُبقًى في نطاقه يعرض مساحةً واحدة ويسمّيها المنصّة
-- [ ] T089 [US2] المسارات في `routes/api.php`
-- [ ] T090 [P] [US2] `frontend/src/lib/analytics.ts` و`frontend/src/app/(app)/(shell)/manage/analytics/questions/page.tsx`
-- [ ] T091 [US2] ⚠️ **رابطٌ وارد** لشاشة التحليل من قائمة القشرة
-- [ ] T092 [P] [US2] `backend/tests/Feature/Assessments/ItemAnalysisTest.php` — عشرون محاولةً معلومة النتيجة، والنِّسَب **تطابق الحساب اليدوي بفارق صفر** (`SC-005`)
-- [ ] T093 [P] [US2] `backend/tests/Feature/Assessments/InsufficientSampleTest.php` — سؤالٌ حلّه طالبان ⇒ `null` وبيانٌ صريح، **لا صفر** (`SC-006`)
-- [ ] T094 [P] [US2] ⚠️ **[‏مر‏]** `backend/tests/Feature/Assessments/RollupIdempotencyTest.php` — **تشغيل الوظيفة ليلتين ⇒ صفٌّ واحد لكل فكرة**؛ تشغيلةٌ واحدة تمرّ خضراء إلى الأبد وتثبت العكس
-- [ ] T095 [P] [US2] `backend/tests/Feature/Assessments/CrossTeacherAnalyticsTest.php` — ⚠️ **بمساحتَي عملٍ اثنتين**: مساحةٌ واحدة تُمرّر الاختبارَ الخاطئ
+- [x] T079 [US2] هجرة ‎١٠‎ب: `question_stats` (‏`unique(question_id)`) و`concept_stats` — ⚠️ **[‏مر‏]** `lesson_id` **`NOT NULL` والصفر يعني «الفكرة إجمالاً»**، وإلّا لم يعضّ القيدُ الفريد على الصفّ الذي يقرؤه كل شيء — في `..._001010_create_analytics_rollup_tables.php`
+- [x] T080 [P] [US2] نموذجا `QuestionStat` و`ConceptStat` ومصنعاهما
+- [x] T081 [US2] أضف `assessments.min_sample_size` إلى `backend/database/seeders/PlatformSettingsSeeder.php` — ⚠️ حدٌّ لا يتغيّر إلا بنشرةٍ هو حدٌّ لا يُضبَط أبداً
+- [x] T082 [US2] `RollUpQuestionStatsJob` في `.../Jobs/RollUpQuestionStatsJob.php` على طابور `maintenance` بـ`forWorkspace()` — ⚠️ **[‏مر‏]** و**بـ`chunkById`**: `chunk` يرقّم بالإزاحة على أسرع الجداول نموّاً
+- [x] T083 [US2] في الوظيفة: ⚠️ **[‏مر‏]** **استثنِ `is_practice`** بوصلةٍ إلى `exam_attempts` — بدونها تخلط النِّسَبُ تدريبَ الطالب باختبار المدرّس، ورقمٌ يقرّر حذف سؤالٍ يُحسب على محاولاتٍ لم تكن اختباراً
+- [x] T084 [US2] في الوظيفة: العيّنة دون الحدّ الأدنى تُكتب **`null` لا صفراً** (`FR-013`) — «صفر بالمئة أخطأوا» و«لا نعرف» جملتان مختلفتان
+- [x] T085 [US2] جدولة الوظيفة ليلياً في `backend/routes/console.php`
+- [x] T086 [P] [US2] `QuestionStatResource` و`ConceptStatResource` — ⚠️ نسبةٌ فارغة تُقدَّم ببيان «بيانات غير كافية»، لا بصفر
+- [x] T087 [US2] `AnalyticsController` في `.../Http/Controllers/AnalyticsController.php` على `Permissions::ANALYTICS_VIEW` — **يقرأ من الجدولين حصراً** (`FR-014`)
+- [x] T088 [US2] القراءة العابرة للمدرّسين على `ANALYTICS_CROSS_TEACHER_VIEW` — ⚠️ **`withoutWorkspaceScope()` وتكرارُه في كل تحميلٍ مسبق**: `WorkspaceContext::id()` يرجع إلى `users.last_workspace_id` **للمشرف الأعلى أيضاً**، فتقريرٌ منصّي مُبقًى في نطاقه يعرض مساحةً واحدة ويسمّيها المنصّة
+- [x] T089 [US2] المسارات في `routes/api.php`
+- [x] T090 [P] [US2] `frontend/src/lib/analytics.ts` و`frontend/src/app/(app)/(shell)/manage/analytics/questions/page.tsx`
+- [x] T091 [US2] ⚠️ **رابطٌ وارد** لشاشة التحليل من قائمة القشرة
+- [x] T092 [P] [US2] `backend/tests/Feature/Assessments/ItemAnalysisTest.php` — عشرون محاولةً معلومة النتيجة، والنِّسَب **تطابق الحساب اليدوي بفارق صفر** (`SC-005`)
+- [x] T093 [P] [US2] `backend/tests/Feature/Assessments/InsufficientSampleTest.php` — سؤالٌ حلّه طالبان ⇒ `null` وبيانٌ صريح، **لا صفر** (`SC-006`)
+- [x] T094 [P] [US2] ⚠️ **[‏مر‏]** `backend/tests/Feature/Assessments/RollupIdempotencyTest.php` — **تشغيل الوظيفة ليلتين ⇒ صفٌّ واحد لكل فكرة**؛ تشغيلةٌ واحدة تمرّ خضراء إلى الأبد وتثبت العكس
+- [x] T095 [P] [US2] `backend/tests/Feature/Assessments/CrossTeacherAnalyticsTest.php` — ⚠️ **بمساحتَي عملٍ اثنتين**: مساحةٌ واحدة تُمرّر الاختبارَ الخاطئ
 
 ---
 

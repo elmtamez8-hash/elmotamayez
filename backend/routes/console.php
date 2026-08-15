@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Assessments\Jobs\RollUpQuestionStatsJob;
 use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
 use App\Modules\Media\Jobs\PruneExpiredGrantsJob;
 use App\Modules\Notifications\Jobs\PruneOldNotificationsJob;
@@ -135,4 +136,14 @@ Schedule::job(new NotifyDormantBalancesJob, 'maintenance')
 */
 Schedule::job(new ReconcilePaymentsJob, 'maintenance')
     ->hourlyAt(50)
+    ->withoutOverlapping();
+
+// Which questions students get wrong, recomputed (spec 008 · FR-014). Nightly
+// at 05:15: clear of every sweep above and of the Sunday dormancy notice at
+// 05:00, because this one holds a grouped scan per workspace over the two
+// fastest-growing tables in the product. Daily rather than hourly — the screen
+// it feeds is a teacher deciding whether a question is broken, and that decision
+// does not change between breakfast and lunch.
+Schedule::job(new RollUpQuestionStatsJob, 'maintenance')
+    ->dailyAt('05:15')
     ->withoutOverlapping();

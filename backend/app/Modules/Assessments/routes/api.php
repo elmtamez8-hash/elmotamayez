@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Assessments\Http\Controllers\AnalyticsController;
 use App\Modules\Assessments\Http\Controllers\AttemptController;
 use App\Modules\Assessments\Http\Controllers\BankController;
 use App\Modules\Assessments\Http\Controllers\ConceptController;
@@ -79,6 +80,18 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/manage/exams/{exam}/items', [ExamItemsController::class, 'index']);
     Route::put('/manage/exams/{exam}/items', [ExamItemsController::class, 'sync'])
         ->middleware('throttle:authoring');
+
+    /*
+     | Item analysis (spec 008 · US2). Read-only, and read from the rollup.
+     |
+     | No named limiter: these are GETs behind `auth:sanctum` that touch two
+     | small tables and run no aggregate. The cross-teacher view is the same two
+     | routes with `?scope=platform`, gated on a permission no tenant role holds
+     | — a separate `/admin` path would be a second reader of the same rows, and
+     | the one most likely to be left scoped by accident.
+     */
+    Route::get('/manage/analytics/questions', [AnalyticsController::class, 'questions']);
+    Route::get('/manage/analytics/concepts', [AnalyticsController::class, 'concepts']);
 
     // Attempts (student-facing).
     Route::post('/exams/{exam}/attempts', [AttemptController::class, 'start']);

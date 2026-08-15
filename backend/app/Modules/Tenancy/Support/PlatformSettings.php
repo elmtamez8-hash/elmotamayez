@@ -78,6 +78,10 @@ final class PlatformSettings
         // the version it was given for, and the readers ask for the current one.
         'consents.versions.deferred_payment_terms' => 'consents.versions.deferred_payment_terms',
         'consents.versions.data_processing' => 'consents.versions.data_processing',
+        // Assessments (spec 008). The sample floor below which an item-analysis
+        // rate is withheld rather than stated (FR-013) — editable, because a
+        // threshold that only moves with a release never moves.
+        'assessments.min_sample_size' => 'assessments.min_sample_size',
     ];
 
     public static function get(string $key, mixed $default = null): mixed

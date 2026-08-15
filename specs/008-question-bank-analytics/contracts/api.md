@@ -133,7 +133,13 @@
 | `GET` · `PUT` · `DELETE` | `/api/v1/manage/unlock-rules` | `unlock_rules.manage` — الافتراضي والتخصيصات؛ نطاق التخصيص في الجسم لا في المسار |
 | `POST` | `/api/v1/manage/unlock-exemptions` | `unlock_rules.manage` + `throttle:authoring` — **السبب إلزامي** |
 | `GET` | `/api/v1/manage/analytics/questions` | `analytics.view` — من التجميع |
+| `GET` | `/api/v1/manage/analytics/concepts` | `analytics.view` — نسبة الخطأ لكل فكرة، إجمالاً وداخل كل درس (`FR-011`) |
 | `GET` | `/api/v1/class-sessions/{uuid}/eligibility` | التسجيل — **ما ينقص الطالب بالضبط** (`FR-038`) |
+
+⚠️ **والقراءة العابرة للمدرّسين هي المساران نفسهما بـ`?scope=platform`**، لا مسارٌ ثالث تحت
+`/admin`. قارئان لنفس الصفوف يعنيان نسخةً ثانيةً من `withoutWorkspaceScope()` — وهي النسخة
+التي تُنسى، فيعرض التقرير المنصّي أرقام مساحةٍ واحدة ويسمّيها المنصّة، وينجح في اختباره على
+تجهيزةٍ بمساحةٍ واحدة.
 
 ⚠️ **`eligibility` مسارٌ قائم بذاته لأن الرفض يجب أن يقول ماذا ينقص.** «غير متاح» بلا سبب
 يحوّل ميزةَ تحفيزٍ إلى عطلٍ يراسل الطالبُ مدرّسَه عنه.

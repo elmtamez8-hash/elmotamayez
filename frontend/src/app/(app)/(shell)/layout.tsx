@@ -21,6 +21,7 @@ import {
   MembersIcon,
   MenuIcon,
   OrdersIcon,
+  ItemAnalysisIcon,
   QuestionBankIcon,
   ScheduleIcon,
   SessionsIcon,
@@ -52,6 +53,11 @@ const mainNav: NavItem[] = [
   // student's list of what they may sit: one question here serves three exams
   // there, and collapsing them would make the bank look like a fourth exam.
   { href: "/manage/bank", label: "بنك الأسئلة", Icon: QuestionBankIcon },
+  // ⚠️ The analysis needs its own entry, not a tab inside the bank. It answers a
+  // different question — "which of these is failing my students" rather than
+  // "what do I have" — and a screen reachable only from another screen is a
+  // screen nobody opens.
+  { href: "/manage/analytics/questions", label: "تحليل الأسئلة", Icon: ItemAnalysisIcon },
   { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },
   { href: "/orders", label: "الطلبات", Icon: OrdersIcon },
   // The student's credits, counted in sessions and never in money. Separate

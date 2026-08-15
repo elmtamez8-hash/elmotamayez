@@ -6,10 +6,12 @@ use App\Models\User;
 use App\Modules\Assessments\Enums\DuplicatePolicy;
 use App\Modules\Assessments\Models\AttemptItem;
 use App\Modules\Assessments\Models\Concept;
+use App\Modules\Assessments\Models\ConceptStat;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\ExamItem;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionImport;
+use App\Modules\Assessments\Models\QuestionStat;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
@@ -509,7 +511,17 @@ describe('question bank models are workspace-scoped', function (): void {
         // The one that was argued for — accommodations — is a BRIDGE: extra time
         // applies to one teacher's assessments, and granting it is that teacher's
         // act recorded in their name (research.md §و).
-        foreach ([Concept::class, Question::class, ExamItem::class, AttemptItem::class, QuestionImport::class] as $model) {
+        $models = [
+            Concept::class, Question::class, ExamItem::class, AttemptItem::class,
+            QuestionImport::class,
+            // ⚠️ The two rollup tables belong here as much as the rest. Their
+            // writer passes `workspace_id` explicitly — `upsert()` boots no model,
+            // so the trait's auto-fill never runs — which means the READ side is
+            // the only place the tenant key is enforced at all.
+            QuestionStat::class, ConceptStat::class,
+        ];
+
+        foreach ($models as $model) {
             expect(in_array(BelongsToWorkspace::class, class_uses_recursive($model), true))
                 ->toBeTrue("{$model} must use BelongsToWorkspace");
         }

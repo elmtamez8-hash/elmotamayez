@@ -29,6 +29,7 @@ import {
   IconCalendarEvent,
   IconCalendarTime,
   IconCertificate,
+  IconChartHistogram,
   IconChartLine,
   IconCheck,
   IconChevronDown,
@@ -133,6 +134,11 @@ export const ExamIcon = wrap(IconClipboardText, "h-5 w-5");
 // it would put a bank building next to "بنك الأسئلة" in the sidebar, which is
 // the exact failure the naming rule at the top of this file exists to prevent.
 export const QuestionBankIcon = wrap(IconDatabase, "h-5 w-5");
+// Item analysis. A histogram rather than the line already used by
+// OngoingReviewIcon: this screen is a distribution across questions, not a
+// trend over time, and two identical glyphs in one sidebar are two links the
+// reader has to click to tell apart.
+export const ItemAnalysisIcon = wrap(IconChartHistogram, "h-5 w-5");
 export const CertificateIcon = wrap(IconCertificate, "h-5 w-5");
 export const OrdersIcon = wrap(IconShoppingBag, "h-5 w-5");
 export const WorkspaceIcon = wrap(IconBuilding, "h-5 w-5");
