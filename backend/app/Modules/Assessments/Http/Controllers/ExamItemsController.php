@@ -29,9 +29,9 @@ class ExamItemsController extends Controller
     {
         $this->authorize('manageQuestions', $exam);
 
-        return response()->json(
-            ExamItemResource::collection($exam->items()->with(self::EAGER)->get())
-        );
+        return response()->json([
+            'data' => ExamItemResource::collection($exam->items()->with(self::EAGER)->get()),
+        ]);
     }
 
     public function sync(SyncExamItemsRequest $request, Exam $exam, SyncExamItems $action): JsonResponse
@@ -45,8 +45,8 @@ class ExamItemsController extends Controller
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
-        return response()->json(
-            ExamItemResource::collection($exam->items()->with(self::EAGER)->get())
-        );
+        return response()->json([
+            'data' => ExamItemResource::collection($exam->items()->with(self::EAGER)->get()),
+        ]);
     }
 }

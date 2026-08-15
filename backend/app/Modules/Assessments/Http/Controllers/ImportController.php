@@ -21,9 +21,16 @@ class ImportController extends Controller
     {
         $this->authorize('create', Question::class);
 
-        return response()->json(ImportReportResource::collection(
-            QuestionImport::query()->latest('id')->paginate(20)
-        ));
+        $imports = QuestionImport::query()->latest('id')->paginate(20);
+
+        return response()->json([
+            'data' => ImportReportResource::collection($imports->items()),
+            'meta' => [
+                'total' => $imports->total(),
+                'current_page' => $imports->currentPage(),
+                'last_page' => $imports->lastPage(),
+            ],
+        ]);
     }
 
     /**
@@ -55,7 +62,7 @@ class ImportController extends Controller
 
         ImportQuestionsJob::dispatch((int) $import->getKey());
 
-        return response()->json(ImportReportResource::make($import), 202);
+        return response()->json(['data' => ImportReportResource::make($import)], 202);
     }
 
     public function show(QuestionImport $import): JsonResponse
@@ -67,6 +74,6 @@ class ImportController extends Controller
         // are two different questions.
         abort_if((int) $import->workspace_id !== app(WorkspaceContext::class)->id(), 404);
 
-        return response()->json(ImportReportResource::make($import));
+        return response()->json(['data' => ImportReportResource::make($import)]);
     }
 }

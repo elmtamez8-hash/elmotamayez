@@ -18,22 +18,7 @@ import {
 import { CheckIcon, TrashIcon } from "@/components/icons";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
-
-interface Question {
-  id: number;
-  type: string;
-  content: string;
-  points: number;
-  options: Array<{ id: number; content: string; is_correct: boolean }>;
-}
-
-const BLANK_QUESTION = {
-  content: "",
-  options: [
-    { content: "", correct: false },
-    { content: "", correct: false },
-  ],
-};
+import { ExamItemsPanel } from "@/components/bank/ExamItemsPanel";
 
 export default function ManageExamPage({
   params,
@@ -44,7 +29,6 @@ export default function ManageExamPage({
   const router = useRouter();
 
   const [exam, setExam] = useState<Exam | null>(null);
-  const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [error, setError] = useState("");
@@ -61,12 +45,6 @@ export default function ManageExamPage({
   const [showSettings, setShowSettings] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
-  const [newQ, setNewQ] = useState(BLANK_QUESTION);
-  const [questionFields, setQuestionFields] = useState<Record<string, string>>({});
-  const [adding, setAdding] = useState(false);
-
-  /** id awaiting a second click before it is actually deleted. */
-  const [confirmQuestion, setConfirmQuestion] = useState<number | null>(null);
   const [confirmExam, setConfirmExam] = useState(false);
 
   const load = useCallback(() => {
@@ -75,9 +53,8 @@ export default function ManageExamPage({
 
     Promise.all([
       api.get<Exam>(`/exams/${uuid}`),
-      api.get<{ data: Question[] }>(`/exams/${uuid}/questions`),
     ])
-      .then(([ex, qs]) => {
+      .then(([ex]) => {
         setExam(ex);
         setSettings({
           title: ex.title,
@@ -86,7 +63,6 @@ export default function ManageExamPage({
           passing_score: String(ex.passing_score),
           max_attempts: String(ex.max_attempts),
         });
-        setQuestions(qs.data ?? []);
       })
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
@@ -119,40 +95,6 @@ export default function ManageExamPage({
     }
   };
 
-  const addQuestion = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAdding(true);
-    setError("");
-    setQuestionFields({});
-
-    if (!newQ.options.some((o) => o.correct)) {
-      setError("حدّد الإجابة الصحيحة قبل إضافة السؤال.");
-      setAdding(false);
-      return;
-    }
-
-    try {
-      await api.post(`/exams/${uuid}/questions`, {
-        type: "mcq",
-        content: newQ.content,
-        points: 1,
-        options: newQ.options.map((o, i) => ({
-          content: o.content,
-          is_correct: o.correct,
-          order: i + 1,
-        })),
-      });
-      setNewQ(BLANK_QUESTION);
-      load();
-    } catch (err: unknown) {
-      const found = fieldErrors(err);
-      if (Object.keys(found).length > 0) setQuestionFields(found);
-      else setError(userMessage(err));
-    } finally {
-      setAdding(false);
-    }
-  };
-
   const publish = async () => {
     setPublishing(true);
     setError("");
@@ -163,17 +105,6 @@ export default function ManageExamPage({
       setError(userMessage(err));
     } finally {
       setPublishing(false);
-    }
-  };
-
-  const deleteQuestion = async (questionId: number) => {
-    setError("");
-    try {
-      await api.delete(`/exams/${uuid}/questions/${questionId}`);
-      setConfirmQuestion(null);
-      load();
-    } catch (err: unknown) {
-      setError(userMessage(err));
     }
   };
 
@@ -304,143 +235,15 @@ export default function ManageExamPage({
         </Card>
       )}
 
-      <section className="space-y-3">
-        <h3 className="font-semibold text-ink">
-          الأسئلة <bdi>({questions.length})</bdi>
-        </h3>
+      {/* ⚠️ THE INLINE QUESTION FORM THAT WAS HERE CALLED FOUR ROUTES THAT NO
+          LONGER EXIST. `/exams/{uuid}/questions` was removed in spec 008: its
+          POST created a question with no concept and no Bloom level, and its
+          DELETE hard-deleted a question that students had already sat. The
+          screen kept rendering and every button 404'd.
 
-        {questions.length === 0 ? (
-          <p className="text-sm text-ink-muted">
-            لا أسئلة بعد. أضف أول سؤال من النموذج أدناه.
-          </p>
-        ) : (
-          questions.map((q, idx) => (
-            <Card key={q.id} padding="sm">
-              <div className="flex items-start justify-between gap-3">
-                <p className="mb-2 font-medium text-ink">
-                  <bdi>{idx + 1}</bdi>. {q.content}
-                </p>
+          A question belongs to the bank now; the exam merely includes it. */}
+      <ExamItemsPanel examUuid={uuid} />
 
-                {confirmQuestion === q.id ? (
-                  <div className="flex shrink-0 gap-1">
-                    <Button size="sm" variant="danger" onClick={() => deleteQuestion(q.id)}>
-                      أكّد
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setConfirmQuestion(null)}
-                    >
-                      إلغاء
-                    </Button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmQuestion(q.id)}
-                    aria-label={`احذف السؤال ${idx + 1}`}
-                    className="shrink-0 rounded p-1 text-ink-muted transition hover:text-danger-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                  >
-                    <TrashIcon />
-                  </button>
-                )}
-              </div>
-
-              <ul className="space-y-1">
-                {q.options.map((o) => (
-                  <li
-                    key={o.id}
-                    className={`flex items-center gap-2 text-sm ${
-                      o.is_correct ? "font-medium text-secondary-ink" : "text-ink-muted"
-                    }`}
-                  >
-                    {o.is_correct ? (
-                      <CheckIcon className="h-3.5 w-3.5 shrink-0" title="الإجابة الصحيحة" />
-                    ) : (
-                      <span aria-hidden="true" className="w-3.5 text-center">
-                        ·
-                      </span>
-                    )}
-                    {o.content}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          ))
-        )}
-      </section>
-
-      <Card as="section">
-        <form onSubmit={addQuestion} className="space-y-4">
-          <h3 className="font-semibold text-ink">أضف سؤالاً</h3>
-
-          <TextareaField
-            id="question_content"
-            label="نصّ السؤال"
-            value={newQ.content}
-            onChange={(v) => setNewQ({ ...newQ, content: v })}
-            error={questionFields.content}
-            rows={2}
-            required
-          />
-
-          <fieldset className="space-y-2">
-            <legend className="mb-1 block text-sm font-medium text-ink">
-              الخيارات — علّم الإجابة الصحيحة
-            </legend>
-
-            {newQ.options.map((opt, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <CheckboxField
-                  id={`option_correct_${i}`}
-                  label={<span className="sr-only">الخيار {i + 1} صحيح</span>}
-                  checked={opt.correct}
-                  onChange={(checked) => {
-                    const opts = [...newQ.options];
-                    opts[i] = { ...opt, correct: checked };
-                    setNewQ({ ...newQ, options: opts });
-                  }}
-                />
-                <div className="flex-1">
-                  <label htmlFor={`option_${i}`} className="sr-only">
-                    نصّ الخيار {i + 1}
-                  </label>
-                  <input
-                    id={`option_${i}`}
-                    type="text"
-                    value={opt.content}
-                    onChange={(e) => {
-                      const opts = [...newQ.options];
-                      opts[i] = { ...opt, content: e.target.value };
-                      setNewQ({ ...newQ, options: opts });
-                    }}
-                    required
-                    placeholder={`الخيار ${i + 1}`}
-                    className="w-full rounded-xl border border-line bg-surface-raised px-3 py-1.5 text-sm text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
-                  />
-                </div>
-              </div>
-            ))}
-
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() =>
-                setNewQ({
-                  ...newQ,
-                  options: [...newQ.options, { content: "", correct: false }],
-                })
-              }
-            >
-              أضف خياراً
-            </Button>
-          </fieldset>
-
-          <Button type="submit" loading={adding} loadingLabel="جارٍ الإضافة…">
-            أضف السؤال
-          </Button>
-        </form>
-      </Card>
     </div>
   );
 }

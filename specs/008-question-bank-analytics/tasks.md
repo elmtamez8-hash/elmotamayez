@@ -166,21 +166,21 @@
 
 ### ز — الواجهة
 
-- [ ] T067 [P] [US1] `frontend/src/lib/bank.ts` — عميل البنك والاستيراد
-- [ ] T068 [US1] `frontend/src/app/(app)/(shell)/manage/bank/page.tsx` — تصفّحٌ وترشيحٌ وبحث
-- [ ] T069 [US1] `frontend/src/app/(app)/(shell)/manage/bank/[uuid]/page.tsx` — تحرير سؤالٍ ووسومه
-- [ ] T070 [US1] `frontend/src/app/(app)/(shell)/manage/bank/import/page.tsx` **و`import/[uuid]/page.tsx`** — ⚠️ **رابطٌ وارد**: إشعار الاستيراد يشير إلى `/manage/bank/import/{uuid}`، فصفحة التقرير لكل استيراد **جزءٌ من المهمّة** لا إضافة؛ بدونها كلّ إشعارٍ يقود إلى ٤٠٤ — ⚠️ **تقول «‏CSV — وXLSX غير مدعوم بعد»** بدل أن ترفض ملفاً بلا سبب، **وتختار سياسة التكرار قبل الرفع**
-- [ ] T071 [US1] ⚠️ **رابطٌ وارد**: أضف «بنك الأسئلة» إلى قائمة القشرة في `frontend/src/components/` — صفحةٌ لا يصلها شيءٌ غير مُسلَّمة
-- [ ] T072 [US1] اربط شاشة بناء الاختبار بضمّ أسئلة البنك في `frontend/src/app/(app)/(shell)/manage/exams/`
+- [x] T067 [P] [US1] `frontend/src/lib/bank.ts` — عميل البنك والاستيراد
+- [x] T068 [US1] `frontend/src/app/(app)/(shell)/manage/bank/page.tsx` — تصفّحٌ وترشيحٌ وبحث
+- [x] T069 [US1] `frontend/src/app/(app)/(shell)/manage/bank/[uuid]/page.tsx` — تحرير سؤالٍ ووسومه
+- [x] T070 [US1] `frontend/src/app/(app)/(shell)/manage/bank/import/page.tsx` **و`import/[uuid]/page.tsx`** — ⚠️ **رابطٌ وارد**: إشعار الاستيراد يشير إلى `/manage/bank/import/{uuid}`، فصفحة التقرير لكل استيراد **جزءٌ من المهمّة** لا إضافة؛ بدونها كلّ إشعارٍ يقود إلى ٤٠٤ — ⚠️ **تقول «‏CSV — وXLSX غير مدعوم بعد»** بدل أن ترفض ملفاً بلا سبب، **وتختار سياسة التكرار قبل الرفع**
+- [x] T071 [US1] ⚠️ **رابطٌ وارد**: أضف «بنك الأسئلة» إلى قائمة القشرة في `frontend/src/components/` — صفحةٌ لا يصلها شيءٌ غير مُسلَّمة
+- [x] T072 [US1] اربط شاشة بناء الاختبار بضمّ أسئلة البنك في `frontend/src/app/(app)/(shell)/manage/exams/`
 
 ### ح — اختبارات US1
 
-- [ ] T073 [P] [US1] `backend/tests/Feature/Assessments/BankReuseTest.php` — السؤال الواحد في ثلاثة اختبارات، صفٌّ واحد في البنك، و`points_override` يختلف في أحدها (`SC-001`)
-- [ ] T074 [P] [US1] `backend/tests/Feature/Assessments/QuestionTaggingTest.php` — صفر سؤالٍ محفوظ بوسومٍ ناقصة (`SC-002`)
-- [ ] T075 [P] [US1] `backend/tests/Feature/Assessments/QuestionEditSafetyTest.php` — تعديل سؤالٍ له محاولات **وحذف خيارٍ منه**: الدرجة لا تتغيّر، والمراجعة تعرض النصّ والخيار المحذوف **من اللقطة** (`SC-003`)
+- [x] T073 [P] [US1] `backend/tests/Feature/Assessments/BankReuseTest.php` — السؤال الواحد في ثلاثة اختبارات، صفٌّ واحد في البنك، و`points_override` يختلف في أحدها (`SC-001`)
+- [x] T074 [P] [US1] `backend/tests/Feature/Assessments/QuestionTaggingTest.php` — صفر سؤالٍ محفوظ بوسومٍ ناقصة (`SC-002`)
+- [x] T075 [P] [US1] `backend/tests/Feature/Assessments/QuestionEditSafetyTest.php` — تعديل سؤالٍ له محاولات **وحذف خيارٍ منه**: الدرجة لا تتغيّر، والمراجعة تعرض النصّ والخيار المحذوف **من اللقطة** (`SC-003`)
 - [x] T076 [P] [US1] `backend/tests/Feature/Assessments/QuestionImportTest.php` — ‎١٬٠٠٠‎ صفّ منها ‎١٠‎ معطوبة ⇒ ‎٩٩٠‎ مستورداً وتقريرٌ يسمّي العشرة برقم الصفّ والسبب، **وBOM لا يفسد أول عمود** (`SC-004`)
 - [x] T077 [P] [US1] `backend/tests/Feature/Assessments/ImportIdempotencyTest.php` — ⚠️ **[‏مر‏]** رفعٌ مرّتين بـ`skip` ⇒ لا نسخة ثانية؛ و**إعادة تشغيل الوظيفة نفسها** لا تُعيد إدراج ما أُدرج
-- [ ] T078 [P] [US1] `backend/tests/Feature/Assessments/BankAccessTest.php` — مدرّسٌ لا يرى ولا يضمّ سؤالاً من بنك غيره، **والبحث مقيَّدٌ بمساحة العمل على المُنشئ** (‏يُفحَص بالاستعلام لا بنتيجةٍ من محرّكٍ معطَّل في الاختبارات)
+- [x] T078 [P] [US1] `backend/tests/Feature/Assessments/BankAccessTest.php` — مدرّسٌ لا يرى ولا يضمّ سؤالاً من بنك غيره، **والبحث مقيَّدٌ بمساحة العمل على المُنشئ** (‏يُفحَص بالاستعلام لا بنتيجةٍ من محرّكٍ معطَّل في الاختبارات)
 
 **Checkpoint**: **‏US1 وحدها منتجٌ قابل للنشر.** بنكٌ موسوم، بحثٌ، استيراد، واختباراتٌ تُبنى منه.
 

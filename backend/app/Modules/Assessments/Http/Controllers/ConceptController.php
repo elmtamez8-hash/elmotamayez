@@ -26,7 +26,7 @@ class ConceptController extends Controller
             ->orderBy('name')
             ->get();
 
-        return response()->json(ConceptResource::collection($concepts));
+        return response()->json(['data' => ConceptResource::collection($concepts)]);
     }
 
     public function store(SaveConceptRequest $request): JsonResponse
@@ -44,7 +44,7 @@ class ConceptController extends Controller
             'created_by' => $this->currentUser($request)->getKey(),
         ]);
 
-        return response()->json(ConceptResource::make($concept), 201);
+        return response()->json(['data' => ConceptResource::make($concept)], 201);
     }
 
     public function update(SaveConceptRequest $request, Concept $concept): JsonResponse
@@ -54,7 +54,7 @@ class ConceptController extends Controller
             'subject_id' => $this->subjectId($request),
         ]);
 
-        return response()->json(ConceptResource::make($concept));
+        return response()->json(['data' => ConceptResource::make($concept)]);
     }
 
     private function subjectId(SaveConceptRequest $request): ?int

@@ -21,6 +21,7 @@ import {
   MembersIcon,
   MenuIcon,
   OrdersIcon,
+  QuestionBankIcon,
   ScheduleIcon,
   SessionsIcon,
   SettingsIcon,
@@ -47,6 +48,10 @@ const mainNav: NavItem[] = [
   { href: "/manage/settlement", label: "كشف التسوية", Icon: SettlementIcon },
   { href: "/enrollments", label: "تعلّمي", Icon: LearningIcon },
   { href: "/exams", label: "الاختبارات", Icon: ExamIcon },
+  // The teacher's own question library. Separate from /exams, which is the
+  // student's list of what they may sit: one question here serves three exams
+  // there, and collapsing them would make the bank look like a fourth exam.
+  { href: "/manage/bank", label: "بنك الأسئلة", Icon: QuestionBankIcon },
   { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },
   { href: "/orders", label: "الطلبات", Icon: OrdersIcon },
   // The student's credits, counted in sessions and never in money. Separate

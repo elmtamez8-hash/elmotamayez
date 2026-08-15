@@ -37,6 +37,7 @@ import {
   IconChevronUp,
   IconClipboardList,
   IconClipboardText,
+  IconDatabase,
   IconCoins,
   IconDiscountOff,
   IconFileText,
@@ -127,6 +128,11 @@ export const HomeIcon = wrap(IconHome, "h-5 w-5");
 export const CoursesIcon = wrap(IconBook2, "h-5 w-5");
 export const LearningIcon = wrap(IconSchool, "h-5 w-5");
 export const ExamIcon = wrap(IconClipboardText, "h-5 w-5");
+// ⚠️ NOT `BankIcon` — that one is IconBuildingBank, a FINANCIAL bank, and the
+// site footer uses it beside a transfer instruction. A question bank borrowing
+// it would put a bank building next to "بنك الأسئلة" in the sidebar, which is
+// the exact failure the naming rule at the top of this file exists to prevent.
+export const QuestionBankIcon = wrap(IconDatabase, "h-5 w-5");
 export const CertificateIcon = wrap(IconCertificate, "h-5 w-5");
 export const OrdersIcon = wrap(IconShoppingBag, "h-5 w-5");
 export const WorkspaceIcon = wrap(IconBuilding, "h-5 w-5");

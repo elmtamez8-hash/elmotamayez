@@ -46,16 +46,30 @@ class BankController extends Controller
             'active' => $request->query('active'),
         ], self::EAGER, (int) $request->integer('per_page', 20));
 
-        return response()->json(BankQuestionResource::collection($questions));
+        /*
+         | ⚠️ WRAPPED BY HAND, because `JsonResource::withoutWrapping()` is on
+         | globally. Without the wrapper this returns a BARE ARRAY — the client's
+         | `response.data` is then `undefined`, `?? []` swallows it, and the bank
+         | screen renders "no questions yet" against a full table with no error
+         | anywhere.
+         */
+        return response()->json([
+            'data' => BankQuestionResource::collection($questions->items()),
+            'meta' => [
+                'total' => $questions->total(),
+                'current_page' => $questions->currentPage(),
+                'last_page' => $questions->lastPage(),
+            ],
+        ]);
     }
 
     public function show(Question $question): JsonResponse
     {
         $this->authorize('view', $question);
 
-        return response()->json(
-            BankQuestionResource::make($question->loadMissing(self::EAGER)->loadCount('examItems'))
-        );
+        return response()->json([
+            'data' => BankQuestionResource::make($question->loadMissing(self::EAGER)->loadCount('examItems')),
+        ]);
     }
 
     public function store(SaveQuestionRequest $request, SaveQuestion $action): JsonResponse
@@ -79,7 +93,7 @@ class BankController extends Controller
         }
 
         return response()->json(
-            BankQuestionResource::make($question->loadMissing(self::EAGER)),
+            ['data' => BankQuestionResource::make($question->loadMissing(self::EAGER))],
             201
         );
     }
@@ -94,7 +108,7 @@ class BankController extends Controller
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
-        return response()->json(BankQuestionResource::make($question->loadMissing(self::EAGER)));
+        return response()->json(['data' => BankQuestionResource::make($question->loadMissing(self::EAGER))]);
     }
 
     /**
