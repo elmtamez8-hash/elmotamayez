@@ -13,6 +13,7 @@ use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionImport;
 use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Models\Lesson;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Actions\CloseClassSession;
@@ -696,4 +697,24 @@ function practiceQuestion(Workspace $workspace, string $content, array $attribut
     ]);
 
     return $question->load('options');
+}
+
+/**
+ * A lesson this student is actively enrolled in — the entitlement US4 draws on.
+ *
+ * ⚠️ ENROLMENT, NOT MEMBERSHIP. `addWorkspaceMember` alone entitles a student to
+ * nothing: FR-022 draws the practice pool from active enrolments, and a fixture
+ * that only attached a member would make every self-exam test assert against an
+ * empty pool.
+ */
+function enrolledLesson(Workspace $workspace, User $student): Lesson
+{
+    $course = Course::factory()->create(['workspace_id' => $workspace->getKey()]);
+
+    test()->createEnrollment($workspace, $course, $student);
+
+    return Lesson::factory()->create([
+        'workspace_id' => $workspace->getKey(),
+        'course_id' => $course->getKey(),
+    ]);
 }

@@ -6,9 +6,8 @@ namespace App\Modules\Assessments\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Assessments\Actions\BuildPracticeFromMistakes;
-use App\Modules\Assessments\Http\Resources\AttemptResource;
 use App\Modules\Assessments\Http\Resources\MistakeResource;
-use App\Modules\Assessments\Models\Attempt;
+use App\Modules\Assessments\Http\Resources\PracticeAttemptResource;
 use App\Modules\Assessments\Support\MistakeNotebook;
 use App\Shared\Support\WorkspaceContext;
 use DomainException;
@@ -75,45 +74,10 @@ class MistakeController extends Controller
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
-        return response()->json([
-            'data' => AttemptResource::make($attempt),
-            'questions' => $this->paper($attempt),
-        ], 201);
-    }
-
-    /**
-     * The paper as the student must see it — read from the frozen snapshot.
-     *
-     * ⚠️ `correct_option_ids` IS IN THAT SNAPSHOT AND IS NOT COPIED OUT HERE.
-     * The snapshot exists so grading compares against what was shown; handing
-     * the whole of it to the browser publishes the answer key of every question
-     * on the page, in the response that opens the page.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private function paper(Attempt $attempt): array
-    {
-        $questions = [];
-
-        foreach ($attempt->items()->orderBy('order')->get() as $item) {
-            $snapshot = $item->snapshot;
-
-            $questions[] = [
-                'id' => (int) $item->question_id,
-                'type' => $snapshot['type'] ?? 'mcq',
-                'content' => $snapshot['content'] ?? '',
-                'points' => (int) $item->points,
-                'options' => array_map(
-                    static fn (array $option): array => [
-                        'id' => (int) $option['id'],
-                        'content' => (string) $option['content'],
-                    ],
-                    is_array($snapshot['options'] ?? null) ? $snapshot['options'] : [],
-                ),
-            ];
-        }
-
-        return $questions;
+        // The same shape the self-generated paper answers with — one screen
+        // sits both, and two shapes for one page is two renderers to keep in
+        // step.
+        return response()->json(['data' => PracticeAttemptResource::make($attempt)], 201);
     }
 
     /**

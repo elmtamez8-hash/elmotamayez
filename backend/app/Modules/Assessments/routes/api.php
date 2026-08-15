@@ -10,6 +10,7 @@ use App\Modules\Assessments\Http\Controllers\ExamController;
 use App\Modules\Assessments\Http\Controllers\ExamItemsController;
 use App\Modules\Assessments\Http\Controllers\ImportController;
 use App\Modules\Assessments\Http\Controllers\MistakeController;
+use App\Modules\Assessments\Http\Controllers\PracticeController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -107,6 +108,18 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/mistakes', [MistakeController::class, 'index']);
     Route::post('/practice/from-mistakes', [MistakeController::class, 'practice'])
         ->middleware('throttle:practice');
+
+    /*
+     | The self-generated paper (spec 008 · US4), and reading it back marked.
+     |
+     | The result route carries no limiter and needs none — it is a read of two
+     | small tables belonging to one attempt. The generator carries the same
+     | user-keyed limiter as the mistake paper: each call writes an attempt plus
+     | a row per question.
+     */
+    Route::post('/practice/exams', [PracticeController::class, 'store'])
+        ->middleware('throttle:practice');
+    Route::get('/practice/attempts/{attempt}/result', [PracticeController::class, 'result']);
 
     // Attempts (student-facing).
     Route::post('/exams/{exam}/attempts', [AttemptController::class, 'start']);

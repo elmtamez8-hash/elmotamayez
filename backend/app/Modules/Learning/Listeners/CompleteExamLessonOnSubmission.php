@@ -58,10 +58,18 @@ class CompleteExamLessonOnSubmission implements ShouldHandleEventsAfterCommit, S
     {
         $attempt = $event->attempt;
 
-        if ($attempt->exam_id === null) {
-            // A self-generated practice run (spec 008): it belongs to no exam
-            // anybody authored, so there is no exam lesson in any tree for it to
-            // complete. Revision is not coursework.
+        if ($attempt->exam_id === null || $attempt->is_practice) {
+            /*
+            | Revision is not coursework.
+            |
+            | A self-generated paper (spec 008) belongs to no exam anybody
+            | authored, so there is no exam lesson for it to complete. And the
+            | second half of the condition is the one that is easy to miss: the
+            | SAME exam may be sat officially and again for practice, and that
+            | row does carry an `exam_id` — so the null check alone lets a
+            | revision run tick off the lesson, move course progress, and
+            | eventually issue a certificate.
+            */
             return;
         }
 

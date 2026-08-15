@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { PracticePaper } from "./practice";
 
 /**
  * The student's mistake notebook, and the paper built from it.
@@ -50,15 +51,6 @@ function query(filters: MistakeFilters): string {
   return q ? `?${q}` : "";
 }
 
-/** One question of a built paper, as the student sees it — no answer key. */
-export interface PracticeQuestion {
-  id: number;
-  type: string;
-  content: string;
-  points: number;
-  options: { id: number; content: string }[];
-}
-
 export const mistakes = {
   list: (filters: MistakeFilters = {}) =>
     api.get<{ data: Mistake[]; meta: { total: number; current_page: number; last_page: number } }>(
@@ -72,7 +64,7 @@ export const mistakes = {
    * official attempt and enters no grade report.
    */
   practice: (filters: MistakeFilters = {}, count = 10) =>
-    api.post<{ data: { uuid: string; status: string }; questions: PracticeQuestion[] }>("/practice/from-mistakes", {
+    api.post<{ data: PracticePaper }>("/practice/from-mistakes", {
       ...filters,
       count,
     }),

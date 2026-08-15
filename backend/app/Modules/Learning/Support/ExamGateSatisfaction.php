@@ -32,7 +32,16 @@ final class ExamGateSatisfaction
     {
         $query = Attempt::query()
             ->where('exam_id', $examId)
-            ->whereNotNull('submitted_at');
+            ->whereNotNull('submitted_at')
+            /*
+            | ⚠️ AND A PRACTICE SITTING IS NOT AN ANSWER. The same exam may be sat
+            | officially and again for revision (spec 008, FR-025), and both rows
+            | carry the same `exam_id` — so without this line a student unlocks
+            | the next chapter, and under `ExamGate::Pass` records a pass, by
+            | setting themselves the paper and marking it instantly with the
+            | explanations in front of them.
+            */
+            ->where('is_practice', false);
 
         if ($gate === ExamGate::Pass) {
             $query->where('passed', true);

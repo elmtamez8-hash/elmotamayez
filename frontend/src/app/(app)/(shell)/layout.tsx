@@ -23,6 +23,7 @@ import {
   MenuIcon,
   MistakesIcon,
   OrdersIcon,
+  PracticeIcon,
   ItemAnalysisIcon,
   QuestionBankIcon,
   ScheduleIcon,
@@ -70,6 +71,11 @@ const mainNav: NavItem[] = [
   // to it — a screen reachable only by typing its address is a screen nobody
   // opens.
   { href: "/mistakes", label: "دفتر أخطائي", Icon: MistakesIcon },
+  // Building your own paper is a different act from reading what you got wrong:
+  // one starts from the bank and the other from your own history. Two entries,
+  // because a student who wants to revise a topic they have never been tested on
+  // would never look for it inside a notebook of mistakes.
+  { href: "/practice", label: "درّب نفسك", Icon: PracticeIcon },
   { href: "/exams", label: "الاختبارات", Icon: ExamIcon },
   // The teacher's own question library. Separate from /exams, which is the
   // student's list of what they may sit: one question here serves three exams

@@ -6,14 +6,12 @@ namespace App\Modules\Assessments\Actions;
 
 use App\Models\User;
 use App\Modules\Assessments\Models\Attempt;
-use App\Modules\Assessments\Models\AttemptItem;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Support\MistakeNotebook;
+use App\Modules\Assessments\Support\PracticePaper;
 use App\Modules\Assessments\Support\PracticePool;
-use App\Modules\Assessments\Support\QuestionSnapshot;
 use App\Shared\Actions\Action;
 use DomainException;
-use Illuminate\Support\Facades\DB;
 
 /**
  * "Test me on my mistakes" (FR-018).
@@ -39,6 +37,7 @@ class BuildPracticeFromMistakes extends Action
     public function __construct(
         private readonly MistakeNotebook $notebook,
         private readonly PracticePool $pool,
+        private readonly PracticePaper $paper,
     ) {}
 
     /**
@@ -86,32 +85,6 @@ class BuildPracticeFromMistakes extends Action
             throw new DomainException('لا أخطاء قائمة لبناء اختبارٍ منها.');
         }
 
-        return DB::transaction(function () use ($workspaceId, $student, $questions): Attempt {
-            $attempt = Attempt::create([
-                'workspace_id' => $workspaceId,
-                'exam_id' => null,
-                'enrollment_id' => null,
-                'student_user_id' => $student->getKey(),
-                'status' => Attempt::STATUS_IN_PROGRESS,
-                'is_practice' => true,
-                // `random_seed` is NOT NULL and the column is a 32-bit unsigned
-                // integer; a wider value is rejected outright by strict MySQL.
-                'random_seed' => random_int(1, 2147483647),
-                'started_at' => now(),
-            ]);
-
-            foreach ($questions as $index => $question) {
-                AttemptItem::create([
-                    'workspace_id' => $workspaceId,
-                    'attempt_id' => $attempt->getKey(),
-                    'question_id' => $question->getKey(),
-                    'order' => $index + 1,
-                    'points' => (int) $question->points,
-                    'snapshot' => QuestionSnapshot::of($question),
-                ]);
-            }
-
-            return $attempt;
-        });
+        return $this->paper->write($workspaceId, $student, $questions);
     }
 }

@@ -31,6 +31,7 @@ import {
   IconCertificate,
   IconChartHistogram,
   IconEraser,
+  IconBarbell,
   IconChartLine,
   IconCheck,
   IconChevronDown,
@@ -144,6 +145,10 @@ export const ItemAnalysisIcon = wrap(IconChartHistogram, "h-5 w-5");
 // is where a mistake gets corrected, and a hazard sign in a sidebar reads as
 // something wrong with the product.
 export const MistakesIcon = wrap(IconEraser, "h-5 w-5");
+// Self-training. Not a second clipboard: ExamIcon is already one, and a student
+// scanning the sidebar for "the exam" must not have to read two labels to find
+// out which clipboard is the teacher's paper and which is their own.
+export const PracticeIcon = wrap(IconBarbell, "h-5 w-5");
 export const CertificateIcon = wrap(IconCertificate, "h-5 w-5");
 export const OrdersIcon = wrap(IconShoppingBag, "h-5 w-5");
 export const WorkspaceIcon = wrap(IconBuilding, "h-5 w-5");

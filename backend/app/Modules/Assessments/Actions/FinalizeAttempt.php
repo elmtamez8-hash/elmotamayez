@@ -53,15 +53,30 @@ class FinalizeAttempt extends Action
                 'status' => Attempt::STATUS_GRADED,
                 'score' => $scorePct,
                 'max_score' => 100,
-                'passed' => $passed,
+                /*
+                 | ⚠️ A PRACTICE RUN IS STORED AS `passed = false` WHATEVER IT
+                 | SCORED, and this line used to write the computed value while
+                 | the comment below claimed the opposite. Suppressing the EVENT
+                 | is not enough: `passed` is a COLUMN, and the first reader who
+                 | writes `where('passed', true)` — a transcript, a report, a
+                 | certificate sweep — counts a paper the student set themselves
+                 | as a paper they passed. FR-025 forbids exactly that, and the
+                 | disagreement between a comment and its code is the kind that
+                 | survives review because both halves read correctly on their own.
+                 */
+                'passed' => $attempt->is_practice ? false : $passed,
                 'finalized_at' => now(),
             ]);
 
             $attempt->refresh();
 
+            // ⚠️ The STORED value, not the computed one. An audit line that says
+            // "passed" over a row that says otherwise is the same disagreement as
+            // above, one layer down — and the layer whose whole job is to be
+            // believed later.
             $this->logActivity('finalized', $attempt, [
                 'score' => $scorePct,
-                'passed' => $passed,
+                'passed' => (bool) $attempt->passed,
             ]);
 
             event(new AttemptFinalized($attempt));
