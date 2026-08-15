@@ -10,6 +10,7 @@ use App\Modules\Assessments\Models\AttemptItem;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionOption;
+use App\Modules\Assessments\Support\QuestionSnapshot;
 use App\Modules\Learning\Models\Enrollment;
 use App\Shared\Actions\Action;
 use DomainException;
@@ -80,21 +81,9 @@ class StartAttempt extends Action
                 'question_id' => $question->getKey(),
                 'order' => $item->order !== 0 ? $item->order : $index + 1,
                 'points' => $item->effectivePoints(),
-                'snapshot' => [
-                    'type' => $question->type,
-                    'content' => $question->content,
-                    'explanation' => $question->explanation,
-                    'options' => $question->options
-                        ->map(fn (QuestionOption $option) => [
-                            'id' => $option->getKey(),
-                            'content' => $option->content,
-                            'order' => $option->order,
-                        ])->values()->all(),
-                    'correct_option_ids' => $question->options
-                        ->filter(fn (QuestionOption $option) => $option->is_correct)
-                        ->map(fn (QuestionOption $option) => $option->getKey())
-                        ->values()->all(),
-                ],
+                // Built by the shared builder, because BuildPracticeFromMistakes
+                // writes the same array and GradeAttempt reads one key out of it.
+                'snapshot' => QuestionSnapshot::of($question),
             ]);
         }
     }

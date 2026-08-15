@@ -11,6 +11,7 @@ use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\ExamItem;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionImport;
+use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Learning\Models\Enrollment;
@@ -621,4 +622,78 @@ function sitQuestion(
             'points' => $i < $correct ? 1 : 0,
         ], $answerOverrides));
     }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Mistake-notebook helpers (spec 008 · US3)
+|--------------------------------------------------------------------------
+|
+| ⚠️ HERE AND NOT IN A SPEC FILE. A global function declared inside a test file
+| exists only for the files Pest happens to load AFTER it, so the same helper
+| passes when the suite runs whole and dies with "undefined function" when one
+| file is run alone.
+|
+*/
+
+/**
+ * One answer, written the way GradeAttempt writes them.
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function answerRow(int $workspaceId, User $student, int $questionId, bool $correct, array $overrides = []): Answer
+{
+    $attempt = Attempt::create([
+        'workspace_id' => $workspaceId,
+        'exam_id' => null,
+        'student_user_id' => $student->getKey(),
+        'status' => Attempt::STATUS_GRADED,
+        'is_practice' => $overrides['is_practice'] ?? false,
+        'score' => 0,
+        'max_score' => 100,
+        'passed' => false,
+        'random_seed' => 1,
+        'started_at' => now(),
+        'submitted_at' => now(),
+    ]);
+
+    unset($overrides['is_practice']);
+
+    return Answer::create(array_merge([
+        'workspace_id' => $workspaceId,
+        'attempt_id' => $attempt->getKey(),
+        'question_id' => $questionId,
+        'student_user_id' => $student->getKey(),
+        'selected_option_ids' => [],
+        'is_correct' => $correct,
+        'points' => $correct ? 1 : 0,
+    ], $overrides));
+}
+
+/**
+ * A bank question with one right answer and one wrong one.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function practiceQuestion(Workspace $workspace, string $content, array $attributes = []): Question
+{
+    $question = bankQuestion($workspace, null, array_merge(['content' => $content], $attributes));
+
+    QuestionOption::create([
+        'workspace_id' => $workspace->getKey(),
+        'question_id' => $question->getKey(),
+        'content' => 'صح',
+        'is_correct' => true,
+        'order' => 1,
+    ]);
+
+    QuestionOption::create([
+        'workspace_id' => $workspace->getKey(),
+        'question_id' => $question->getKey(),
+        'content' => 'خطأ',
+        'is_correct' => false,
+        'order' => 2,
+    ]);
+
+    return $question->load('options');
 }

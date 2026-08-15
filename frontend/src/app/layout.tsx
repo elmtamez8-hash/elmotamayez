@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/lib/auth-context";
 import { PLATFORM_NAME } from "@/lib/platform";
 
 // Self-hosted by next/font — no runtime request to Google, which would otherwise
@@ -60,7 +61,15 @@ export default function RootLayout({
         >
           تخطَّ إلى المحتوى الرئيسي
         </a>
-        {children}
+        {/*
+          ⚠️ THE AUTH CONTEXT IS ROOT-LEVEL, NOT `(app)`-LEVEL, and the bug it
+          fixes is the same one 002 fixed for direction and font. Mounted inside
+          the panel group, the marketplace had no idea who was signed in — so a
+          student, whose sign-in destination IS the marketplace, landed on a
+          header that still said "sign in" and offered no way into the product
+          they had just been admitted to.
+        */}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

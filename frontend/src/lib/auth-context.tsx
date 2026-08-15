@@ -45,6 +45,25 @@ export function homePathFor(user: User): string {
   }
 }
 
+/**
+ * Where the signed-in product lives for this person.
+ *
+ * ⚠️ NOT the same question as {@link homePathFor}. A student's sign-in
+ * destination IS the marketplace, so reusing that here would give them a link
+ * to the page they are already standing on — which is exactly how a signed-in
+ * student ends up with no route into their own enrolments at all. `/dashboard`
+ * resolves a workspace and greets them with an error, so theirs is `/enrollments`.
+ */
+export function panelPathFor(user: User): string {
+  switch (user.platform_role) {
+    case "student":
+    case "parent":
+      return "/enrollments";
+    default:
+      return "/dashboard";
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);

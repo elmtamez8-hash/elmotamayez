@@ -6,6 +6,7 @@ namespace App\Modules\Assessments\Actions;
 
 use App\Modules\Assessments\Events\AttemptPendingGrading;
 use App\Modules\Assessments\Events\ExamSubmitted;
+use App\Modules\Assessments\Events\MistakeResolved;
 use App\Modules\Assessments\Models\Answer;
 use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\AttemptItem;
@@ -51,6 +52,18 @@ class GradeAttempt extends Action
             $items = $attempt->items()->get();
             $submitted = collect($answersPayload)->keyBy('question_id');
 
+            /*
+             | ⚠️ ONE QUERY BEFORE THE LOOP, NEVER ONE INSIDE IT. Whether a
+             | correct answer FIXES something is a question about the student's
+             | history, and asking it per question turns the hottest write path
+             | in this module into an N+1 that grows with the paper.
+             |
+             | Read before any answer row is written, deliberately: after the
+             | insert below, every question on this paper has a wrong answer of
+             | its own to find.
+             */
+            $previouslyWrong = $this->previouslyWrongQuestionIds($attempt, $items->map(fn (AttemptItem $item): int => (int) $item->question_id)->values()->all());
+
             // The denominator is what was SHOWN, resolved at start time. It used
             // to be recomputed from the exam's live questions, so deleting a
             // question mid-attempt moved the total under the student.
@@ -84,6 +97,14 @@ class GradeAttempt extends Action
                     'points' => $points,
                     'requires_grading' => $isEssay,
                 ]);
+
+                if ($correct && in_array((int) $item->question_id, $previouslyWrong, true)) {
+                    event(new MistakeResolved(
+                        (int) $attempt->student_user_id,
+                        (int) $item->question_id,
+                        (int) $attempt->workspace_id,
+                    ));
+                }
             }
 
             $maxScore = max($totalPoints, 1);
@@ -130,6 +151,39 @@ class GradeAttempt extends Action
 
             return app(FinalizeAttempt::class)->handle($attempt);
         });
+    }
+
+    /**
+     * Which of these questions this student has already got wrong before.
+     *
+     * @param  array<int, int>  $questionIds
+     * @return list<int>
+     */
+    private function previouslyWrongQuestionIds(Attempt $attempt, array $questionIds): array
+    {
+        if ($questionIds === []) {
+            return [];
+        }
+
+        $rows = Answer::query()
+            ->withoutWorkspaceScope()
+            ->where('workspace_id', $attempt->workspace_id)
+            ->where('student_user_id', $attempt->student_user_id)
+            ->whereIn('question_id', $questionIds)
+            ->where('is_correct', false)
+            // The same predicate the notebook uses: an essay nobody has read is
+            // not a mistake, so answering it correctly later fixes nothing.
+            ->where(fn ($query) => $query->where('requires_grading', false)->orWhereNotNull('graded_at'))
+            ->distinct()
+            ->pluck('question_id');
+
+        $ids = [];
+
+        foreach ($rows as $id) {
+            $ids[] = (int) $id;
+        }
+
+        return $ids;
     }
 
     /**

@@ -20,6 +20,7 @@ import {
   LogoutIcon,
   MembersIcon,
   MenuIcon,
+  MistakesIcon,
   OrdersIcon,
   ItemAnalysisIcon,
   QuestionBankIcon,
@@ -48,6 +49,11 @@ const mainNav: NavItem[] = [
   // the teacher, never their assistant.
   { href: "/manage/settlement", label: "كشف التسوية", Icon: SettlementIcon },
   { href: "/enrollments", label: "تعلّمي", Icon: LearningIcon },
+  // ⚠️ The student's own notebook, and it needs its own entry. It is derived
+  // from answers rather than authored, so nothing in the product would ever link
+  // to it — a screen reachable only by typing its address is a screen nobody
+  // opens.
+  { href: "/mistakes", label: "دفتر أخطائي", Icon: MistakesIcon },
   { href: "/exams", label: "الاختبارات", Icon: ExamIcon },
   // The teacher's own question library. Separate from /exams, which is the
   // student's list of what they may sit: one question here serves three exams

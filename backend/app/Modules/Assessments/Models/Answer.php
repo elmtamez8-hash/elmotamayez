@@ -6,6 +6,7 @@ namespace App\Modules\Assessments\Models;
 
 use App\Models\BaseModel;
 use App\Models\User;
+use App\Modules\Assessments\Support\MistakeNotebook;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,9 +24,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * answer, and the table shipped with an autoincrement id only; the alternative
  * was exposing a sequential id, which no route in this product does.
  *
+ * ⚠️ `is_resolved` and `times_wrong` ARE NOT COLUMNS. {@see MistakeNotebook}
+ * derives them in its grouped query and sets them on the model it hands back —
+ * a stored "fixed" flag drifts at the first manual regrade and needs a sweep to
+ * repair it, and the sweep needs a sweep watching it.
+ *
  * @property bool $is_correct
  * @property int $points
  * @property int $grading_version
+ * @property array<int, int>|null $selected_option_ids the `array` cast, not the raw json column
+ * @property bool $is_resolved derived by MistakeNotebook, never stored
+ * @property int $times_wrong derived by MistakeNotebook, never stored
  */
 class Answer extends BaseModel
 {

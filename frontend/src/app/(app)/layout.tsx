@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { AuthProvider } from "@/lib/auth-context";
 import { PLATFORM_NAME } from "@/lib/platform";
 
 export const metadata: Metadata = {
@@ -10,13 +9,13 @@ export const metadata: Metadata = {
   description: "إدارة كورساتك وحصصك واختباراتك وشهاداتك.",
 };
 
-// Auth context only. `<html>` and `<body>` moved to the root layout in 002 — this
-// group used to declare `lang="en"` and its own LTR body, which is what made
-// logging in feel like leaving the product.
+// Metadata only now. `<html>` and `<body>` moved to the root layout in 002, and
+// the auth context followed them there: held here, it made the marketplace a
+// place where nobody was ever signed in.
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AuthProvider>{children}</AuthProvider>;
+  return <>{children}</>;
 }

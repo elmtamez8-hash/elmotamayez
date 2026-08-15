@@ -9,6 +9,7 @@ use App\Modules\Assessments\Http\Controllers\ConceptController;
 use App\Modules\Assessments\Http\Controllers\ExamController;
 use App\Modules\Assessments\Http\Controllers\ExamItemsController;
 use App\Modules\Assessments\Http\Controllers\ImportController;
+use App\Modules\Assessments\Http\Controllers\MistakeController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -92,6 +93,20 @@ Route::middleware('auth:sanctum')->group(function (): void {
      */
     Route::get('/manage/analytics/questions', [AnalyticsController::class, 'questions']);
     Route::get('/manage/analytics/concepts', [AnalyticsController::class, 'concepts']);
+
+    /*
+     | The mistake notebook, and the paper built from it (spec 008 · US3).
+     |
+     | ⚠️ The GET carries no limiter and the POST carries `throttle:practice`,
+     | and the asymmetry is the point: reading is two queries over one student's
+     | own rows, while building writes an attempt plus a row per question. The
+     | limiter is keyed by USER and not by ip — the callers are students, and
+     | students sit in classrooms behind one address, where an ip key lets one
+     | bored pupil in the back row lock their whole class out of revising.
+     */
+    Route::get('/mistakes', [MistakeController::class, 'index']);
+    Route::post('/practice/from-mistakes', [MistakeController::class, 'practice'])
+        ->middleware('throttle:practice');
 
     // Attempts (student-facing).
     Route::post('/exams/{exam}/attempts', [AttemptController::class, 'start']);

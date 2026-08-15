@@ -30,6 +30,7 @@ import {
   IconCalendarTime,
   IconCertificate,
   IconChartHistogram,
+  IconEraser,
   IconChartLine,
   IconCheck,
   IconChevronDown,
@@ -139,6 +140,10 @@ export const QuestionBankIcon = wrap(IconDatabase, "h-5 w-5");
 // trend over time, and two identical glyphs in one sidebar are two links the
 // reader has to click to tell apart.
 export const ItemAnalysisIcon = wrap(IconChartHistogram, "h-5 w-5");
+// The mistake notebook. An eraser rather than a warning triangle: the notebook
+// is where a mistake gets corrected, and a hazard sign in a sidebar reads as
+// something wrong with the product.
+export const MistakesIcon = wrap(IconEraser, "h-5 w-5");
 export const CertificateIcon = wrap(IconCertificate, "h-5 w-5");
 export const OrdersIcon = wrap(IconShoppingBag, "h-5 w-5");
 export const WorkspaceIcon = wrap(IconBuilding, "h-5 w-5");

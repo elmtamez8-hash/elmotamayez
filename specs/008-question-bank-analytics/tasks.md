@@ -218,18 +218,18 @@
 
 **Independent Test**: طالبٌ أخطأ في أسئلة معروفة ⇒ قراءةُ دفتره وبناءُ اختبارٍ منه.
 
-- [ ] T096 [US3] `MistakeNotebook` في `.../Support/MistakeNotebook.php` — ⚠️ **استعلامٌ واحد مجمَّع لكل صفحة** (`GROUP BY question_id` مع `MAX(is_correct)`)، لا استعلامٌ لكل خطأ: الاشتقاق ينمو مع **تاريخ الطالب** لا مع طول الصفحة
-- [ ] T097 [US3] في `MistakeNotebook`: «مُصلَح» = وجودُ إجابةٍ صحيحةٍ **لاحقة** للطالب نفسه على السؤال نفسه — سؤالٌ يُسأل، لا عمودٌ يُحدَّث
-- [ ] T098 [US3] ⚠️ **[‏مر‏]** الدفتر **مقيَّدٌ بمساحة العمل** (`FR-016أ`): السؤال وفكرته ملكُ بنكِ مدرّسٍ بعينه، وجمعُهما إمّا يعرض للطالب نصف أخطائه ويسمّيه كلَّها وإمّا يُخرج سؤال مدرّسٍ إلى سياق آخر
-- [ ] T099 [P] [US3] `MistakeResource` في `.../Http/Resources/MistakeResource.php` — ⚠️ السؤالُ بلا شرحٍ يُعرض بإجابته الصحيحة **ولا يفشل العرض**
-- [ ] T100 [US3] `MistakeController` على **ملكية الصفّ** في `.../Http/Controllers/MistakeController.php`، بالترشيح بالفكرة والدرس والفترة
-- [ ] T101 [US3] `BuildPracticeFromMistakes` في `.../Actions/BuildPracticeFromMistakes.php` — **الأخطاء القائمة وحدها**، والمُصلَح مستثنًى افتراضياً (`FR-019`)
-- [ ] T102 [P] [US3] `MistakeResolved` في `.../Events/MistakeResolved.php` يُطلَق من `GradeAttempt` — ⚠️ **بلا مستهلكٍ اليوم ومقصود**: ‎009‎ تسمّيه فعلاً مُلعَّباً، وإطلاقُه الآن يوفّر تعديلَ مسار التصحيح الساخن لاحقاً
-- [ ] T103 [US3] المسارات `‏/mistakes` و`‏/practice/from-mistakes` بـ`throttle:practice`
-- [ ] T104 [P] [US3] `frontend/src/lib/mistakes.ts` و`frontend/src/app/(app)/(shell)/mistakes/page.tsx` — **بحالة فراغٍ مفهومة** لطالبٍ بلا أخطاء، من `components/ui/states/`
-- [ ] T105 [US3] ⚠️ **رابطٌ وارد** لدفتر الأخطاء من قائمة الطالب
-- [ ] T106 [P] [US3] `backend/tests/Feature/Assessments/MistakeNotebookTest.php` — ‎١٠٠٪‎ من أخطاء الطالب و**صفر خطأٍ لغيره**، **والسؤال المتروك بلا إجابة يظهر** (`SC-007`)
-- [ ] T107 [P] [US3] `backend/tests/Feature/Assessments/PracticeFromMistakesTest.php` — خمسة أخطاء، اثنان أُصلحا ⇒ الاختبار يُبنى من **الثلاثة القائمة** (`SC-008`)
+- [x] T096 [US3] `MistakeNotebook` في `.../Support/MistakeNotebook.php` — ⚠️ **استعلامٌ واحد مجمَّع لكل صفحة** (`GROUP BY question_id` مع `MAX(is_correct)`)، لا استعلامٌ لكل خطأ: الاشتقاق ينمو مع **تاريخ الطالب** لا مع طول الصفحة
+- [x] T097 [US3] في `MistakeNotebook`: «مُصلَح» = وجودُ إجابةٍ صحيحةٍ **لاحقة** للطالب نفسه على السؤال نفسه — سؤالٌ يُسأل، لا عمودٌ يُحدَّث
+- [x] T098 [US3] ⚠️ **[‏مر‏]** الدفتر **مقيَّدٌ بمساحة العمل** (`FR-016أ`): السؤال وفكرته ملكُ بنكِ مدرّسٍ بعينه، وجمعُهما إمّا يعرض للطالب نصف أخطائه ويسمّيه كلَّها وإمّا يُخرج سؤال مدرّسٍ إلى سياق آخر
+- [x] T099 [P] [US3] `MistakeResource` في `.../Http/Resources/MistakeResource.php` — ⚠️ السؤالُ بلا شرحٍ يُعرض بإجابته الصحيحة **ولا يفشل العرض**
+- [x] T100 [US3] `MistakeController` على **ملكية الصفّ** في `.../Http/Controllers/MistakeController.php`، بالترشيح بالفكرة والدرس والفترة
+- [x] T101 [US3] `BuildPracticeFromMistakes` في `.../Actions/BuildPracticeFromMistakes.php` — **الأخطاء القائمة وحدها**، والمُصلَح مستثنًى افتراضياً (`FR-019`)
+- [x] T102 [P] [US3] `MistakeResolved` في `.../Events/MistakeResolved.php` يُطلَق من `GradeAttempt` — ⚠️ **بلا مستهلكٍ اليوم ومقصود**: ‎009‎ تسمّيه فعلاً مُلعَّباً، وإطلاقُه الآن يوفّر تعديلَ مسار التصحيح الساخن لاحقاً
+- [x] T103 [US3] المسارات `‏/mistakes` و`‏/practice/from-mistakes` بـ`throttle:practice`
+- [x] T104 [P] [US3] `frontend/src/lib/mistakes.ts` و`frontend/src/app/(app)/(shell)/mistakes/page.tsx` — **بحالة فراغٍ مفهومة** لطالبٍ بلا أخطاء، من `components/ui/states/`
+- [x] T105 [US3] ⚠️ **رابطٌ وارد** لدفتر الأخطاء من قائمة الطالب
+- [x] T106 [P] [US3] `backend/tests/Feature/Assessments/MistakeNotebookTest.php` — ‎١٠٠٪‎ من أخطاء الطالب و**صفر خطأٍ لغيره**، **والسؤال المتروك بلا إجابة يظهر** (`SC-007`)
+- [x] T107 [P] [US3] `backend/tests/Feature/Assessments/PracticeFromMistakesTest.php` — خمسة أخطاء، اثنان أُصلحا ⇒ الاختبار يُبنى من **الثلاثة القائمة** (`SC-008`)
 
 ---
 
