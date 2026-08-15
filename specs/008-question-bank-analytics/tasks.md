@@ -121,30 +121,30 @@
 
 ### أ — العقد والحرّاس
 
-- [ ] T040 [P] [US1] `QuestionPolicy` في `.../Policies/QuestionPolicy.php` على `Permissions::QUESTIONS_MANAGE` و`BANK_VIEW`
-- [ ] T041 [P] [US1] `ConceptPolicy` في `.../Policies/ConceptPolicy.php`
-- [ ] T042 [US1] سجّل البوليصتين في `backend/app/Modules/Assessments/AssessmentsServiceProvider.php`
+- [x] T040 [P] [US1] `QuestionPolicy` في `.../Policies/QuestionPolicy.php` على `Permissions::QUESTIONS_MANAGE` و`BANK_VIEW`
+- [x] T041 [P] [US1] `ConceptPolicy` في `.../Policies/ConceptPolicy.php`
+- [x] T042 [US1] سجّل البوليصتين في `backend/app/Modules/Assessments/AssessmentsServiceProvider.php`
 
 ### ب — الأسئلة والوسوم
 
-- [ ] T043 [P] [US1] `SaveQuestionData` DTO في `.../Data/SaveQuestionData.php` يرث `DataTransferObject`
-- [ ] T044 [US1] وسّع `.../Actions/SaveQuestion.php`: الوسوم الأربعة **إلزامية** ويُرفَض الناقص (`FR-002`)، و`content_hash` يُحسب عند الكتابة
-- [ ] T045 [US1] `DisableQuestion` في `.../Actions/DisableQuestion.php` — **تعطيلٌ لا حذف** متى وُجدت محاولة (`FR-005`)
-- [ ] T046 [P] [US1] `SaveQuestionRequest` و`SaveConceptRequest` في `.../Http/Requests/` — ⚠️ التحقّق بـ`WorkspaceRules::exists()` لا `exists:table,id`
-- [ ] T047 [P] [US1] أضف أسماء الحقول العربية إلى `backend/lang/ar/validation.php` تحت `attributes` — بدونها يُعرض `concept_id` نصّاً للمدرّس
-- [ ] T048 [P] [US1] `BankQuestionResource` و`ConceptResource` في `.../Http/Resources/`
+- [x] T043 [P] [US1] `SaveQuestionData` DTO في `.../Data/SaveQuestionData.php` يرث `DataTransferObject`
+- [x] T044 [US1] وسّع `.../Actions/SaveQuestion.php`: الوسوم الأربعة **إلزامية** ويُرفَض الناقص (`FR-002`)، و`content_hash` يُحسب عند الكتابة
+- [x] T045 [US1] `DisableQuestion` في `.../Actions/DisableQuestion.php` — **تعطيلٌ لا حذف** متى وُجدت محاولة (`FR-005`)
+- [x] T046 [P] [US1] `SaveQuestionRequest` و`SaveConceptRequest` في `.../Http/Requests/` — ⚠️ التحقّق بـ`WorkspaceRules::exists()` لا `exists:table,id`
+- [x] T047 [P] [US1] أضف أسماء الحقول العربية إلى `backend/lang/ar/validation.php` تحت `attributes` — بدونها يُعرض `concept_id` نصّاً للمدرّس
+- [x] T048 [P] [US1] `BankQuestionResource` و`ConceptResource` في `.../Http/Resources/`
 
 ### ج — البحث والتصفّح
 
-- [ ] T049 [US1] `BankSearch` في `.../Support/BankSearch.php`: الترشيح (‏فكرة · درس · صعوبة · مستوى · نشط) **استعلام SQL مفهرَس**، والنصّ الحرّ بـScout **مع `->where('workspace_id', …)` صريح** (`NFR-007`)
-- [ ] T050 [US1] `BankController` في `.../Http/Controllers/BankController.php` — ⚠️ **بخطّة تحميلٍ مسبق مُعلَنة** (`concept` · `lesson` · `stats` · عدد الاستعمال)، فـ`Resource` بلا تحميلٍ مسبق **‎N+1‎ بالبناء**
-- [ ] T051 [US1] `ConceptController` في `.../Http/Controllers/ConceptController.php`
-- [ ] T052 [US1] المسارات في `backend/app/Modules/Assessments/routes/api.php` بمحدِّداتها المسمّاة (`throttle:authoring`)
+- [x] T049 [US1] `BankSearch` في `.../Support/BankSearch.php`: الترشيح (‏فكرة · درس · صعوبة · مستوى · نشط) **استعلام SQL مفهرَس**، والنصّ الحرّ بـScout **مع `->where('workspace_id', …)` صريح** (`NFR-007`)
+- [x] T050 [US1] `BankController` في `.../Http/Controllers/BankController.php` — ⚠️ **بخطّة تحميلٍ مسبق مُعلَنة** (`concept` · `lesson` · `stats` · عدد الاستعمال)، فـ`Resource` بلا تحميلٍ مسبق **‎N+1‎ بالبناء**
+- [x] T051 [US1] `ConceptController` في `.../Http/Controllers/ConceptController.php`
+- [x] T052 [US1] المسارات في `backend/app/Modules/Assessments/routes/api.php` بمحدِّداتها المسمّاة (`throttle:authoring`)
 
 ### د — عناصر الاختبار
 
-- [ ] T053 [P] [US1] `SyncExamItems` في `.../Actions/SyncExamItems.php` — **القائمة الكاملة** لا التعديل الجزئي، على سابقة إعادة ترتيب الشجرة في ‎016‎
-- [ ] T054 [US1] `ExamItemsController` + `SyncExamItemsRequest` + `ExamItemResource`
+- [x] T053 [P] [US1] `SyncExamItems` في `.../Actions/SyncExamItems.php` — **القائمة الكاملة** لا التعديل الجزئي، على سابقة إعادة ترتيب الشجرة في ‎016‎
+- [x] T054 [US1] `ExamItemsController` + `SyncExamItemsRequest` + `ExamItemResource`
 
 ### هـ — الاستيراد
 

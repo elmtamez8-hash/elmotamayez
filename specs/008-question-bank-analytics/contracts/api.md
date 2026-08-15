@@ -50,7 +50,8 @@
 | `GET` | `/api/v1/manage/bank/questions` | `bank.view` — ترشيح بالفكرة والدرس والصعوبة والمستوى والنصّ |
 | `POST` · `PATCH` | `/api/v1/manage/bank/questions[/{uuid}]` | `questions.manage` + `throttle:authoring` |
 | `DELETE` | `/api/v1/manage/bank/questions/{uuid}` | `questions.manage` — **تعطيل، لا حذف** إن كانت له محاولات (`FR-005`) |
-| `GET` · `POST` | `/api/v1/manage/bank/concepts` | `questions.manage` |
+| `GET` | `/api/v1/manage/bank/concepts` | `bank.view` — ⚠️ **قراءةٌ لا تأليف**: مُرشِّح شاشة البنك بلا هذه القائمة غير قابلٍ للاستعمال، وكل حامل `questions.manage` يحمل `bank.view` أصلاً، فالبوّابة الأوسع لا تُرخي شيئاً على أحد |
+| `POST` · `PATCH` | `/api/v1/manage/bank/concepts[/{uuid}]` | `questions.manage` + `throttle:authoring` — ولا `DELETE`: فكرةٌ خلفها أسئلة لا تُحذف بلا يُتمٍ أو إعادة وسمٍ صامتة، و`concept_id` عمودٌ `NOT NULL` |
 | `POST` | `/api/v1/manage/bank/imports` | `questions.manage` + `throttle:upload` — الملف **و`duplicate_policy`** معاً (‏`Q7`)؛ يردّ `202` ومعرّف الاستيراد |
 | `GET` | `/api/v1/manage/bank/imports/{uuid}` | `questions.manage` — التقرير صفّاً صفّاً |
 | `GET` · `PUT` | `/api/v1/manage/exams/{uuid}/items` | `exams.update` + `throttle:authoring` — ضمّ أسئلة البنك وترتيبها |

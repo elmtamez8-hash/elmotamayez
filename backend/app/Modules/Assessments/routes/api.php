@@ -3,7 +3,10 @@
 declare(strict_types=1);
 
 use App\Modules\Assessments\Http\Controllers\AttemptController;
+use App\Modules\Assessments\Http\Controllers\BankController;
+use App\Modules\Assessments\Http\Controllers\ConceptController;
 use App\Modules\Assessments\Http\Controllers\ExamController;
+use App\Modules\Assessments\Http\Controllers\ExamItemsController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -33,6 +36,40 @@ Route::middleware('auth:sanctum')->group(function (): void {
      |
      | Their replacement is `/manage/bank/questions` plus `/manage/exams/{uuid}/items`.
      */
+
+    /*
+     | The question bank (spec 008).
+     |
+     | Reads are `bank.view`, writes are `questions.manage`, and the split is
+     | enforced in QuestionPolicy rather than here — a permission named in a route
+     | file is a permission the importer and the panel do not consult.
+     |
+     | ⚠️ `throttle:authoring` IS A NAMED LIMITER, and inline `throttle:60,1` is
+     | banned across this codebase: ThrottleRequests keys guests on `domain|ip`
+     | with no route in the hash, so every inline limit shares one counter and the
+     | strictest one wins.
+     */
+    Route::prefix('manage/bank')->group(function (): void {
+        Route::get('/questions', [BankController::class, 'index']);
+        Route::get('/questions/{question}', [BankController::class, 'show']);
+
+        Route::middleware('throttle:authoring')->group(function (): void {
+            Route::post('/questions', [BankController::class, 'store']);
+            Route::patch('/questions/{question}', [BankController::class, 'update']);
+            Route::delete('/questions/{question}', [BankController::class, 'destroy']);
+
+            Route::post('/concepts', [ConceptController::class, 'store']);
+            Route::patch('/concepts/{concept}', [ConceptController::class, 'update']);
+        });
+
+        Route::get('/concepts', [ConceptController::class, 'index']);
+    });
+
+    // Which bank questions an exam includes, and in what order. The complete
+    // list every time — see SyncExamItems for why a partial edit cannot work.
+    Route::get('/manage/exams/{exam}/items', [ExamItemsController::class, 'index']);
+    Route::put('/manage/exams/{exam}/items', [ExamItemsController::class, 'sync'])
+        ->middleware('throttle:authoring');
 
     // Attempts (student-facing).
     Route::post('/exams/{exam}/attempts', [AttemptController::class, 'start']);

@@ -6,6 +6,7 @@ namespace App\Modules\Assessments\Models;
 
 use App\Models\BaseModel;
 use App\Modules\Assessments\Enums\BloomLevel;
+use App\Modules\Assessments\Support\BankSearch;
 use App\Modules\Courses\Models\Lesson;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Laravel\Scout\Searchable;
 
 /**
  * A question in the teacher's bank.
@@ -33,7 +35,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Question extends BaseModel
 {
     /** @use HasFactory<QuestionFactory> */
-    use BelongsToWorkspace, HasFactory, HasUuid;
+    use BelongsToWorkspace, HasFactory, HasUuid, Searchable;
 
     protected $fillable = [
         'workspace_id',
@@ -69,6 +71,36 @@ class Question extends BaseModel
     public static function hashOf(string $content): string
     {
         return hash('sha256', trim($content));
+    }
+
+    /**
+     * What the search engine holds.
+     *
+     * ⚠️ EVERY FILTER COLUMN IS INDEXED, NOT JUST THE TEXT. Scout runs outside
+     * every global scope, so a filter applied to the rows it returns arrives too
+     * late: another teacher's question has already consumed a result slot and
+     * counted toward the total. {@see BankSearch}
+     * hands each of these to the engine instead, `workspace_id` first.
+     *
+     * The explanation is deliberately absent — it is the answer key in prose, and
+     * a search index is one misconfigured engine away from being readable.
+     *
+     * @return array<string, mixed>
+     */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'workspace_id' => $this->workspace_id,
+            'concept_id' => $this->concept_id,
+            'lesson_id' => $this->lesson_id,
+            'difficulty' => $this->difficulty,
+            'bloom_level' => $this->bloom_level->value,
+            'content' => $this->content,
+            // An int rather than a bool: engines filter on scalars, and `false`
+            // reaches Meilisearch as an empty string that matches everything.
+            'is_active' => $this->is_active ? 1 : 0,
+        ];
     }
 
     /** @return BelongsTo<Concept, $this> */

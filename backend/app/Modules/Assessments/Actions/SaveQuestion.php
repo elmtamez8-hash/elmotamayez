@@ -104,12 +104,18 @@ class SaveQuestion extends Action
      * the fourth tag rather than a hole in it.
      *
      * @param  array<string, mixed>  $attributes
+     * @param  bool  $present  on an update, only check the tags the payload actually
+     *                         carries — a PATCH that omits a tag is not clearing it
      *
      * @throws DomainException
      */
-    private function guardTags(array $attributes): void
+    private function guardTags(array $attributes, bool $present = false): void
     {
         foreach (['concept_id', 'difficulty', 'bloom_level'] as $tag) {
+            if ($present && ! array_key_exists($tag, $attributes)) {
+                continue;
+            }
+
             if (($attributes[$tag] ?? null) === null || $attributes[$tag] === '') {
                 throw new DomainException("A bank question needs its {$tag}.");
             }
@@ -123,6 +129,12 @@ class SaveQuestion extends Action
     public function update(Question $question, array $attributes, ?array $options = null): Question
     {
         return DB::transaction(function () use ($question, $attributes, $options): Question {
+            // FR-002 applies to an edit exactly as it applies to a create. A PATCH
+            // that blanks `difficulty` is the same untagged question as a POST
+            // that never carried one — and only `concept_id` is NOT NULL, so the
+            // database would catch one of the three and let the other two past.
+            $this->guardTags($attributes, present: true);
+
             // The hash follows the text, always. Leaving it stale would make the
             // importer skip a row that no longer matches anything.
             if (array_key_exists('content', $attributes)) {
