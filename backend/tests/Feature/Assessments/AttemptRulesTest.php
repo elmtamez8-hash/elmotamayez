@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Assessments\Actions\SaveQuestion;
 use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\Question;
@@ -37,13 +38,8 @@ function attemptRulesExam(int $workspaceId, ?int $courseId = null, int $maxAttem
     $correct = [];
 
     for ($i = 1; $i <= 2; $i++) {
-        $question = Question::create([
-            'workspace_id' => $workspaceId,
-            'exam_id' => $exam->id,
-            'type' => 'mcq',
-            'difficulty' => 'easy',
+        $question = bankQuestion($exam->workspace, $exam, [
             'content' => "Question {$i}?",
-            'points' => 1,
         ]);
 
         $correct[$question->id] = QuestionOption::create([
@@ -228,16 +224,17 @@ describe('attempt rules', function (): void {
         $this->setCurrentWorkspace($workspace, $owner);
         Sanctum::actingAs($owner);
 
-        $question = Question::where('exam_id', $exam->id)->firstOrFail();
+        $question = $exam->questions()->firstOrFail();
         $optionIdsBefore = $question->options()->orderBy('id')->pluck('id')->all();
 
-        $this->putJson("/api/v1/exams/{$exam->uuid}/questions/{$question->id}", [
-            'content' => 'Reworded question?',
-            'options' => [
-                ['content' => 'Right (reworded)', 'is_correct' => true],
-                ['content' => 'Wrong (reworded)', 'is_correct' => false],
-            ],
-        ])->assertOk();
+        // Through the Action rather than a route: the nested question endpoints
+        // were removed with spec 008 (they hard-deleted questions with attempts),
+        // and the bank controller that replaces them lands in US1. The guarantee
+        // under test belongs to `SaveQuestion` either way.
+        app(SaveQuestion::class)->update($question, ['content' => 'Reworded question?'], [
+            ['content' => 'Right (reworded)', 'is_correct' => true],
+            ['content' => 'Wrong (reworded)', 'is_correct' => false],
+        ]);
 
         expect($question->options()->orderBy('id')->pluck('id')->all())->toBe($optionIdsBefore)
             ->and($question->options()->where('is_correct', true)->value('content'))->toBe('Right (reworded)');

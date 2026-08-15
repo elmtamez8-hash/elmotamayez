@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\Assessments\Actions;
 
 use App\Modules\Assessments\Models\Exam;
+use App\Modules\Assessments\Models\ExamItem;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionOption;
 use App\Shared\Actions\Action;
 use App\Shared\Support\WorkspaceContext;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -27,8 +29,37 @@ class SaveQuestion extends Action
     public function create(Exam $exam, array $attributes, array $options = []): Question
     {
         return DB::transaction(function () use ($exam, $attributes, $options): Question {
-            $question = $exam->questions()->create(array_merge($attributes, [
-                'workspace_id' => app(WorkspaceContext::class)->id() ?? $exam->workspace_id,
+            $workspaceId = app(WorkspaceContext::class)->id() ?? $exam->workspace_id;
+
+            $question = $this->createInBank($workspaceId, $attributes, $options);
+
+            // The question belongs to the bank; the exam merely includes it. This
+            // is the one call that used to be implicit in `$exam->questions()`.
+            $this->includeInExam($exam, $question);
+
+            return $question->load('options');
+        });
+    }
+
+    /**
+     * Create a question that belongs to the bank and to no exam yet.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @param  array<int, array{content: string, is_correct?: bool, order?: int}>  $options
+     */
+    public function createInBank(int $workspaceId, array $attributes, array $options = []): Question
+    {
+        return DB::transaction(function () use ($workspaceId, $attributes, $options): Question {
+            $this->guardTags($attributes);
+
+            $content = (string) ($attributes['content'] ?? '');
+
+            $question = Question::create(array_merge($attributes, [
+                'workspace_id' => $workspaceId,
+                // Derived here and never accepted from a caller: a hash the client
+                // supplies is a hash the client can make collide or miss.
+                'content_hash' => Question::hashOf($content),
+                'is_active' => $attributes['is_active'] ?? true,
             ]));
 
             $this->syncOptions($question, $options);
@@ -38,12 +69,66 @@ class SaveQuestion extends Action
     }
 
     /**
+     * Add a bank question to an exam, at the end, once.
+     */
+    public function includeInExam(Exam $exam, Question $question, ?int $pointsOverride = null): ExamItem
+    {
+        /** @var ExamItem|null $existing */
+        $existing = ExamItem::query()
+            ->where('exam_id', $exam->getKey())
+            ->where('question_id', $question->getKey())
+            ->first();
+
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        return ExamItem::create([
+            'workspace_id' => $exam->workspace_id,
+            'exam_id' => $exam->getKey(),
+            'question_id' => $question->getKey(),
+            'order' => (int) ExamItem::query()->where('exam_id', $exam->getKey())->max('order') + 1,
+            'points_override' => $pointsOverride,
+        ]);
+    }
+
+    /**
+     * FR-002: all four tags, or the question is not saved.
+     *
+     * ⚠️ ENFORCED HERE AND NOT ONLY IN THE FORM REQUEST, because the Action is
+     * the single door the API, the importer and the seeder all come through. A
+     * rule that lives in validation is a rule the importer does not have.
+     *
+     * `lesson_id` is deliberately absent from this check: a question can belong
+     * to a concept without belonging to any one lesson, and that is the shape of
+     * the fourth tag rather than a hole in it.
+     *
+     * @param  array<string, mixed>  $attributes
+     *
+     * @throws DomainException
+     */
+    private function guardTags(array $attributes): void
+    {
+        foreach (['concept_id', 'difficulty', 'bloom_level'] as $tag) {
+            if (($attributes[$tag] ?? null) === null || $attributes[$tag] === '') {
+                throw new DomainException("A bank question needs its {$tag}.");
+            }
+        }
+    }
+
+    /**
      * @param  array<string, mixed>  $attributes  question attributes (without `options`)
      * @param  array<int, array{content: string, is_correct?: bool, order?: int}>|null  $options  null leaves the existing options untouched
      */
     public function update(Question $question, array $attributes, ?array $options = null): Question
     {
         return DB::transaction(function () use ($question, $attributes, $options): Question {
+            // The hash follows the text, always. Leaving it stale would make the
+            // importer skip a row that no longer matches anything.
+            if (array_key_exists('content', $attributes)) {
+                $attributes['content_hash'] = Question::hashOf((string) $attributes['content']);
+            }
+
             $question->update($attributes);
 
             if ($options !== null) {

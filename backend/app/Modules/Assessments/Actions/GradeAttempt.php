@@ -4,99 +4,145 @@ declare(strict_types=1);
 
 namespace App\Modules\Assessments\Actions;
 
-use App\Modules\Assessments\Events\ExamFailed;
-use App\Modules\Assessments\Events\ExamPassed;
+use App\Modules\Assessments\Events\AttemptPendingGrading;
 use App\Modules\Assessments\Events\ExamSubmitted;
 use App\Modules\Assessments\Models\Answer;
 use App\Modules\Assessments\Models\Attempt;
-use App\Modules\Assessments\Models\Question;
+use App\Modules\Assessments\Models\AttemptItem;
 use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Grades a submitted exam attempt:
- * - Records each answer with its correctness.
- * - Computes the score as a percentage.
- * - Marks the attempt as passed/failed against the exam's passing score.
- * - Fires ExamSubmitted → ExamPassed/ExamFailed.
+ * Marks everything a machine can mark, and stops where a person is needed.
+ *
+ * ⚠️ IT READS THE SNAPSHOT, NEVER THE LIVE QUESTION. `attempt_items` holds what
+ * the student was shown when they started; grading against the current question
+ * would re-score a paper the teacher edited afterwards (FR-004).
+ *
+ * ⚠️ AND IT WRITES A ROW FOR EVERY QUESTION, NOT ONLY FOR THE ANSWERED ONES.
+ * The old loop walked the submitted payload, so a question the student left
+ * blank produced no row at all — and the mistake notebook, derived from
+ * `is_correct = false`, was blind to it. A skipped question is the strongest
+ * evidence of a gap on the whole page: whoever left it did not know where to
+ * begin, while whoever answered wrongly knew and was wrong.
  */
 class GradeAttempt extends Action
 {
     use LogsActivity;
 
     /**
-     * @param  array<int, array{question_id: int, selected_option_ids: array<int>}>  $answersPayload
+     * @param  array<int, array{question_id: int, selected_option_ids?: array<int>, answer_text?: string|null}>  $answersPayload
+     *
+     * @throws DomainException when another request already claimed this attempt
      */
     public function handle(Attempt $attempt, array $answersPayload): Attempt
     {
+        // ⚠️ CLAIM BEFORE ANY WRITE. The check and the write are one statement;
+        // reading a status and then acting on it is the race two taps win
+        // together, and a duplicated answer set double-counts every mistake in
+        // the notebook and doubles the denominator of every wrong_pct.
+        if (! $attempt->claimForGrading()) {
+            throw new DomainException('This attempt has already been submitted.');
+        }
+
         return DB::transaction(function () use ($attempt, $answersPayload): Attempt {
-            $attempt->load('exam.questions.options');
+            $items = $attempt->items()->get();
+            $submitted = collect($answersPayload)->keyBy('question_id');
 
-            // The denominator is the whole exam: a question the student skipped
-            // scores zero, it does not shrink the total they are graded against.
-            $totalPoints = (int) $attempt->exam->questions->sum('points');
+            // The denominator is what was SHOWN, resolved at start time. It used
+            // to be recomputed from the exam's live questions, so deleting a
+            // question mid-attempt moved the total under the student.
+            $totalPoints = (int) $items->sum('points');
             $earnedPoints = 0;
+            $needsGrading = false;
 
-            foreach ($answersPayload as $row) {
-                $question = $attempt->exam->questions->firstWhere('id', $row['question_id']);
-                if ($question === null) {
-                    continue;
+            foreach ($items as $item) {
+                $row = $submitted->get($item->question_id);
+                $isEssay = $item->requiresGrading();
+
+                if ($isEssay) {
+                    $needsGrading = true;
                 }
 
-                $correct = $this->isAnswerCorrect($question, $row['selected_option_ids']);
-                $points = $correct ? $question->points : 0;
+                $selected = array_values(array_map('intval', $row['selected_option_ids'] ?? []));
+                $correct = ! $isEssay && $this->matchesSnapshot($item, $selected);
+                $points = $correct ? $item->points : 0;
                 $earnedPoints += $points;
 
                 Answer::create([
                     'workspace_id' => $attempt->workspace_id,
                     'attempt_id' => $attempt->getKey(),
-                    'question_id' => $question->getKey(),
-                    'selected_option_ids' => $row['selected_option_ids'],
+                    'question_id' => $item->question_id,
+                    // Written once, here, and never updated: this is what keeps
+                    // the duplicated column from drifting (plan.md §Complexity).
+                    'student_user_id' => $attempt->student_user_id,
+                    'selected_option_ids' => $selected,
+                    'answer_text' => $row['answer_text'] ?? null,
                     'is_correct' => $correct,
                     'points' => $points,
+                    'requires_grading' => $isEssay,
                 ]);
             }
 
             $maxScore = max($totalPoints, 1);
             $scorePct = round(($earnedPoints / $maxScore) * 100, 2);
-            $passed = $scorePct >= $attempt->exam->passing_score;
 
             $attempt->update([
-                'status' => 'graded',
+                // ⚠️ AN ESSAY-BEARING ATTEMPT NEITHER PASSES NOR FAILS YET, and
+                // no ExamPassed is emitted. That event is the certificate
+                // contract: firing it on a partial score issues a certificate for
+                // half an exam, and the listener is idempotent so it will not
+                // issue twice — but it cannot withdraw one that went out.
+                'status' => $needsGrading ? Attempt::STATUS_PENDING_GRADING : Attempt::STATUS_GRADED,
                 'score' => $scorePct,
                 'max_score' => 100,
-                'passed' => $passed,
+                'passed' => false,
                 'submitted_at' => now(),
             ]);
 
             $attempt->refresh();
 
+            /*
+             | ⚠️ FIRED IN BOTH BRANCHES, BEFORE THE SPLIT. "Submitted" is true the
+             | moment the student hands the paper in, whether or not an essay on it
+             | still needs a person — and `CompleteExamLessonOnSubmission` hangs off
+             | this event to move course progress. Dropping it while restructuring
+             | this action broke exam-lesson progress silently: the whole suite
+             | stayed green, because every test that covers that listener raises
+             | the event by hand rather than going through here.
+             |
+             | It is deliberately NOT `ExamPassed`. Which way the exam went does not
+             | decide whether the lesson was done; sitting it does.
+             */
             event(new ExamSubmitted($attempt));
 
-            $this->logActivity('submitted', $attempt, [
-                'score' => $scorePct,
-                'passed' => $passed,
-            ]);
+            if ($needsGrading) {
+                event(new AttemptPendingGrading($attempt));
 
-            if ($passed) {
-                event(new ExamPassed($attempt));
-            } else {
-                event(new ExamFailed($attempt));
+                $this->logActivity('submitted.pending_grading', $attempt, [
+                    'auto_score' => $scorePct,
+                ]);
+
+                return $attempt;
             }
 
-            return $attempt;
+            return app(FinalizeAttempt::class)->handle($attempt);
         });
     }
 
     /**
-     * @param  array<int>  $selectedOptionIds
+     * Compare against the correct set as it stood when the paper was handed over.
+     *
+     * @param  list<int>  $selected
      */
-    private function isAnswerCorrect(Question $question, array $selectedOptionIds): bool
+    private function matchesSnapshot(AttemptItem $item, array $selected): bool
     {
-        $correctOptionIds = $question->options->where('is_correct', true)->pluck('id')->sort()->values()->all();
-        $selected = collect($selectedOptionIds)->sort()->values()->all();
+        $correct = $item->correctOptionIds();
+        sort($correct);
+        sort($selected);
 
-        return $correctOptionIds === $selected && count($correctOptionIds) > 0;
+        return $correct === $selected && $correct !== [];
     }
 }

@@ -69,45 +69,45 @@
 
 ### أ — البنك: الجداول والوسوم
 
-- [ ] T010 هجرة ‎١‎: أنشئ `concepts` (‏`unique(workspace_id, name)` · `created_by` قابل للإفراغ) في `backend/app/Modules/Assessments/Database/Migrations/2026_08_15_000100_create_concepts_table.php`
-- [ ] T011 هجرة ‎١‎ب: أنشئ فكرة «غير مصنّف» لكل مساحة عملٍ قائمة في `..._000110_seed_unclassified_concept.php` — ⚠️ الكتابة بـ`DB::table()` لأن `BelongsToWorkspace` بلا سياقٍ في CLI، **فيُمرَّر `uuid` و`created_at` صراحةً**
-- [ ] T012 هجرة ‎٢‎: أضف إلى `questions` أعمدةً **كلَّها قابلة للإفراغ بعد**: `uuid` · `concept_id` · `lesson_id` · `bloom_level` · `content_hash` · `is_active` في `..._000200_add_bank_columns_to_questions.php`
-- [ ] T013 هجرة ‎٣‎: املأ `uuid` و`concept_id` (‏«غير مصنّف») و`bloom_level` (‏`unclassified`) و`content_hash` بـ**`chunkById`** في `..._000300_backfill_question_bank_columns.php` — ⚠️ `chunk` يرقّم بالإزاحة والشرط يتقلّص تحته، فيقفز صفوفاً **ويبلّغ نجاحاً**
-- [ ] T014 هجرة ‎٤‎: حوّل `concept_id` و`bloom_level` إلى `NOT NULL` **ثم** أنشئ `unique(uuid)` و`unique(workspace_id, content_hash)` في `..._000400_lock_question_bank_columns.php` — ⚠️ **[‏مر‏]** التحويل يعيد بناء الجدول على SQLite، فالفهرس الفريد **بعده لا معه** وإلّا سقط بصمت
-- [ ] T015 هجرة ‎٥‎: أنشئ `exam_items` (‏`unique(exam_id, question_id)` · `index(question_id)`) **واملأه من `questions.exam_id`** في `..._000500_create_exam_items_table.php` — الضمّ يُبنى قبل أن يُحذف مصدره
+- [x] T010 هجرة ‎١‎: أنشئ `concepts` (‏`unique(workspace_id, name)` · `created_by` قابل للإفراغ) في `backend/app/Modules/Assessments/Database/Migrations/2026_08_15_000100_create_concepts_table.php`
+- [x] T011 هجرة ‎١‎ب: أنشئ فكرة «غير مصنّف» لكل مساحة عملٍ قائمة في `..._000110_seed_unclassified_concept.php` — ⚠️ الكتابة بـ`DB::table()` لأن `BelongsToWorkspace` بلا سياقٍ في CLI، **فيُمرَّر `uuid` و`created_at` صراحةً**
+- [x] T012 هجرة ‎٢‎: أضف إلى `questions` أعمدةً **كلَّها قابلة للإفراغ بعد**: `uuid` · `concept_id` · `lesson_id` · `bloom_level` · `content_hash` · `is_active` في `..._000200_add_bank_columns_to_questions.php`
+- [x] T013 هجرة ‎٣‎: املأ `uuid` و`concept_id` (‏«غير مصنّف») و`bloom_level` (‏`unclassified`) و`content_hash` بـ**`chunkById`** في `..._000300_backfill_question_bank_columns.php` — ⚠️ `chunk` يرقّم بالإزاحة والشرط يتقلّص تحته، فيقفز صفوفاً **ويبلّغ نجاحاً**
+- [x] T014 هجرة ‎٤‎: حوّل `concept_id` و`bloom_level` إلى `NOT NULL` **ثم** أنشئ `unique(uuid)` و`unique(workspace_id, content_hash)` في `..._000400_lock_question_bank_columns.php` — ⚠️ **[‏مر‏]** التحويل يعيد بناء الجدول على SQLite، فالفهرس الفريد **بعده لا معه** وإلّا سقط بصمت
+- [x] T015 هجرة ‎٥‎: أنشئ `exam_items` (‏`unique(exam_id, question_id)` · `index(question_id)`) **واملأه من `questions.exam_id`** في `..._000500_create_exam_items_table.php` — الضمّ يُبنى قبل أن يُحذف مصدره
 
 ### ب — المحاولة: اللقطة والمقام
 
-- [ ] T016 هجرة ‎٧‎أ: أنشئ `attempt_items` (‏`snapshot` json · `points` · `order` · `unique(attempt_id, question_id)`) في `..._000700_create_attempt_items_table.php`
-- [ ] T017 هجرة ‎٧‎ب: أضف إلى `exam_answers`: `uuid` · `student_user_id` · `answer_text` · `requires_grading` · `graded_at` · `graded_by` · `grading_version` في `..._000710_add_grading_columns_to_exam_answers.php` — ⚠️ **[‏مر‏]** الجدول **لا يحمل `uuid` اليوم**، ومسارا التصحيح يربطان به؛ البديل كشفُ المعرّف المتسلسل
-- [ ] T018 هجرة ‎٧‎ج: املأ `exam_answers.uuid` و`student_user_id` من `exam_attempts` بـ`chunkById` في `..._000720_backfill_exam_answer_columns.php`
-- [ ] T019 هجرة ‎٧‎د: ⚠️ **[‏مر‏]** ابنِ `attempt_items` **للمحاولات القائمة** من `exam_answers` + `questions` الحيّة، موسومةً `backfilled: true` في اللقطة، في `..._000730_backfill_attempt_items.php` — بدونها مقامُ كل محاولةٍ قديمة **صفر**، و**اختبار `SC-015` يمرّ وهو أعمى** لأنه يقيس `score` وحده
-- [ ] T020 هجرة ‎٧‎هـ: أضف `unique(attempt_id, question_id)` إلى `exam_answers` في `..._000740_add_answer_uniqueness.php` — حارس `NFR-011` عند المحرّك
-- [ ] T021 هجرة ‎٧‎و: على `exam_attempts` أضف `pending_grading` إلى الحالات · `finalized_at` · `is_practice` · **اجعل `exam_id` قابلاً للإفراغ** · `index(workspace_id, status, submitted_at)` في `..._000750_extend_exam_attempts.php`
+- [x] T016 هجرة ‎٧‎أ: أنشئ `attempt_items` (‏`snapshot` json · `points` · `order` · `unique(attempt_id, question_id)`) في `..._000700_create_attempt_items_table.php`
+- [x] T017 هجرة ‎٧‎ب: أضف إلى `exam_answers`: `uuid` · `student_user_id` · `answer_text` · `requires_grading` · `graded_at` · `graded_by` · `grading_version` في `..._000710_add_grading_columns_to_exam_answers.php` — ⚠️ **[‏مر‏]** الجدول **لا يحمل `uuid` اليوم**، ومسارا التصحيح يربطان به؛ البديل كشفُ المعرّف المتسلسل
+- [x] T018 هجرة ‎٧‎ج: املأ `exam_answers.uuid` و`student_user_id` من `exam_attempts` بـ`chunkById` في `..._000720_backfill_exam_answer_columns.php`
+- [x] T019 هجرة ‎٧‎د: ⚠️ **[‏مر‏]** ابنِ `attempt_items` **للمحاولات القائمة** من `exam_answers` + `questions` الحيّة، موسومةً `backfilled: true` في اللقطة، في `..._000730_backfill_attempt_items.php` — بدونها مقامُ كل محاولةٍ قديمة **صفر**، و**اختبار `SC-015` يمرّ وهو أعمى** لأنه يقيس `score` وحده
+- [x] T020 هجرة ‎٧‎هـ: أضف `unique(attempt_id, question_id)` إلى `exam_answers` في `..._000740_add_answer_uniqueness.php` — حارس `NFR-011` عند المحرّك
+- [x] T021 هجرة ‎٧‎و: على `exam_attempts` أضف `pending_grading` إلى الحالات · `finalized_at` · `is_practice` · **اجعل `exam_id` قابلاً للإفراغ** · `index(workspace_id, status, submitted_at)` في `..._000750_extend_exam_attempts.php`
 
 ### ج — النماذج والأفعال القائمة
 
-- [ ] T022 [P] نموذج `Concept` في `backend/app/Modules/Assessments/Models/Concept.php` بـ`HasUuid` و`BelongsToWorkspace`
-- [ ] T023 [P] نموذج `ExamItem` في `.../Models/ExamItem.php` بـ`HasUuid` و`BelongsToWorkspace`
-- [ ] T024 [P] نموذج `AttemptItem` في `.../Models/AttemptItem.php` بـ`BelongsToWorkspace` وصبّ `snapshot` إلى `array`
-- [ ] T025 [P] مصانع الثلاثة في `backend/database/factories/Modules/Assessments/`
-- [ ] T026 وسّع `.../Models/Question.php`: علاقات `concept` و`examItems`، ونطاق `active()`، وإسقاط `exam_id` من `$fillable`
-- [ ] T027 وسّع `.../Models/Answer.php` بـ`HasUuid` والأعمدة الجديدة، وعلاقة `gradingRecords`
-- [ ] T028 وسّع `.../Actions/StartAttempt.php`: يكتب صفّ `attempt_items` لكل سؤالٍ **عند البدء** بلقطته وترتيبه ودرجته
-- [ ] T029 ⚠️ **[‏مر‏]** في `StartAttempt::guardAttemptLimit()`: استثنِ `is_practice` من العدّ — العدّاد المشحون يَعُدّ **كل** المحاولات، فأوّل تدريبٍ يلتهم فرصةً رسمية (`FR-026أ`)
-- [ ] T030 ⚠️ **[‏مر‏]** استبدل `count()` ثمّ `insert()` في `guardAttemptLimit()` بمطالبةٍ شرطية ذرّية — الشكل الذي يمنعه المشروع نصّاً، ومحاولتان متزامنتان عند `max_attempts - 1` تمرّان اليوم كلتاهما
-- [ ] T031 وسّع `.../Actions/GradeAttempt.php`: المقام من `attempt_items` لا من أسئلة الاختبار الحيّة، والتصحيح يقرأ **اللقطة**
-- [ ] T032 ⚠️ **[‏مر‏]** في `GradeAttempt`: اكتب صفّ إجابةٍ **لكل `attempt_item`** لا للمُجاب عنه وحده — السؤال المتروك بلا صفٍّ يغيب عن دفتر الأخطاء، وهو **أقوى دليلٍ على فجوةٍ معرفية** فيه
-- [ ] T033 ⚠️ **[‏مر‏]** في `backend/app/Modules/Assessments/Http/Controllers/AttemptController.php`: استبدل فحص `isGraded()` بمطالبةٍ ذرّية `UPDATE … WHERE status = 'in_progress'` قبل أي كتابة — القراءةُ ثم الكتابة تعريف السباق، ونقرتان تكتبان مجموعة الإجابات مرّتين
-- [ ] T034 [P] `AssessmentFieldAllowlist` في `.../Support/AssessmentFieldAllowlist.php` — ⚠️ **[‏مر‏]** ويكتب في ترويسته أن الحظورات الصفّية (‏إجابةُ غيرك · تسليمُ غيرك · وجودُ تسهيل) **ليست من اختصاصه**، لأن حارساً موصوفاً بلا حدودٍ يُقرأ كتغطية
+- [x] T022 [P] نموذج `Concept` في `backend/app/Modules/Assessments/Models/Concept.php` بـ`HasUuid` و`BelongsToWorkspace`
+- [x] T023 [P] نموذج `ExamItem` في `.../Models/ExamItem.php` بـ`HasUuid` و`BelongsToWorkspace`
+- [x] T024 [P] نموذج `AttemptItem` في `.../Models/AttemptItem.php` بـ`BelongsToWorkspace` وصبّ `snapshot` إلى `array`
+- [x] T025 [P] مصانع الثلاثة في `backend/database/factories/Modules/Assessments/`
+- [x] T026 وسّع `.../Models/Question.php`: علاقات `concept` و`examItems`، ونطاق `active()`، وإسقاط `exam_id` من `$fillable`
+- [x] T027 وسّع `.../Models/Answer.php` بـ`HasUuid` والأعمدة الجديدة، وعلاقة `gradingRecords`
+- [x] T028 وسّع `.../Actions/StartAttempt.php`: يكتب صفّ `attempt_items` لكل سؤالٍ **عند البدء** بلقطته وترتيبه ودرجته
+- [x] T029 ⚠️ **[‏مر‏]** في `StartAttempt::guardAttemptLimit()`: استثنِ `is_practice` من العدّ — العدّاد المشحون يَعُدّ **كل** المحاولات، فأوّل تدريبٍ يلتهم فرصةً رسمية (`FR-026أ`)
+- [x] T030 ⚠️ **[‏مر‏]** استبدل `count()` ثمّ `insert()` في `guardAttemptLimit()` بمطالبةٍ شرطية ذرّية — الشكل الذي يمنعه المشروع نصّاً، ومحاولتان متزامنتان عند `max_attempts - 1` تمرّان اليوم كلتاهما
+- [x] T031 وسّع `.../Actions/GradeAttempt.php`: المقام من `attempt_items` لا من أسئلة الاختبار الحيّة، والتصحيح يقرأ **اللقطة**
+- [x] T032 ⚠️ **[‏مر‏]** في `GradeAttempt`: اكتب صفّ إجابةٍ **لكل `attempt_item`** لا للمُجاب عنه وحده — السؤال المتروك بلا صفٍّ يغيب عن دفتر الأخطاء، وهو **أقوى دليلٍ على فجوةٍ معرفية** فيه
+- [x] T033 ⚠️ **[‏مر‏]** في `backend/app/Modules/Assessments/Http/Controllers/AttemptController.php`: استبدل فحص `isGraded()` بمطالبةٍ ذرّية `UPDATE … WHERE status = 'in_progress'` قبل أي كتابة — القراءةُ ثم الكتابة تعريف السباق، ونقرتان تكتبان مجموعة الإجابات مرّتين
+- [x] T034 [P] `AssessmentFieldAllowlist` في `.../Support/AssessmentFieldAllowlist.php` — ⚠️ **[‏مر‏]** ويكتب في ترويسته أن الحظورات الصفّية (‏إجابةُ غيرك · تسليمُ غيرك · وجودُ تسهيل) **ليست من اختصاصه**، لأن حارساً موصوفاً بلا حدودٍ يُقرأ كتغطية
 
 ### د — حرّاس الطبقات
 
-- [ ] T035 اختبار: أضف الجداول الجديدة إلى `backend/tests/Feature/Tenancy/WorkspaceIsolationTest.php` — `concepts` · `exam_items` · `attempt_items` وبقيّة الأحد عشر: **صفر تسريبٍ لسؤالٍ أو محاولةٍ أو تحليلٍ بين مساحات العمل** (`SC-014`)
-- [ ] T036 ⚠️ **[‏مر‏]** اختبار: `backend/tests/Feature/Assessments/BridgeOwnershipTest.php` — لكلٍّ من الجسور السبعة اتجاهان: مدرّسٌ يسمّي طالباً **بلا تسجيلٍ نشط عنده** يُمنع، والطالب يرى صفّه (`NFR-001ب` كان يُستوفى بصفر اختبارات)
-- [ ] T037 اختبار: `backend/tests/Feature/Assessments/MigrationIntegrityTest.php` — درجات المحاولات القائمة **بفارق صفر** بعد السلسلة، **ومراجعةُ محاولةٍ قديمة تُفتح بمقامها الصحيح لا بصفر** (`SC-015`)
-- [ ] T038 اختبار: `backend/tests/Feature/Assessments/AttemptConcurrencyTest.php` — تقديمٌ متزامن مرّتين ⇒ **مجموعة إجاباتٍ واحدة وحدثٌ واحد**؛ ومحاولتان متزامنتان عند حدّ المحاولات ⇒ واحدة (`NFR-011` · `SC-021`)
-- [ ] T039 [P] أضف الوحدة إلى `phpstan.neon` إن لزم، وشغّل `./vendor/bin/phpstan analyse` للتأكد من نظافة الشجرة بعد الأعمدة الجديدة
+- [x] T035 اختبار: أضف الجداول الجديدة إلى `backend/tests/Feature/Tenancy/WorkspaceIsolationTest.php` — `concepts` · `exam_items` · `attempt_items` وبقيّة الأحد عشر: **صفر تسريبٍ لسؤالٍ أو محاولةٍ أو تحليلٍ بين مساحات العمل** (`SC-014`)
+- [x] T036 ⚠️ **[‏مر‏]** اختبار: `backend/tests/Feature/Assessments/BridgeOwnershipTest.php` — لكلٍّ من الجسور السبعة اتجاهان: مدرّسٌ يسمّي طالباً **بلا تسجيلٍ نشط عنده** يُمنع، والطالب يرى صفّه (`NFR-001ب` كان يُستوفى بصفر اختبارات)
+- [x] T037 اختبار: `backend/tests/Feature/Assessments/MigrationIntegrityTest.php` — درجات المحاولات القائمة **بفارق صفر** بعد السلسلة، **ومراجعةُ محاولةٍ قديمة تُفتح بمقامها الصحيح لا بصفر** (`SC-015`)
+- [x] T038 اختبار: `backend/tests/Feature/Assessments/AttemptConcurrencyTest.php` — تقديمٌ متزامن مرّتين ⇒ **مجموعة إجاباتٍ واحدة وحدثٌ واحد**؛ ومحاولتان متزامنتان عند حدّ المحاولات ⇒ واحدة (`NFR-011` · `SC-021`)
+- [x] T039 [P] أضف الوحدة إلى `phpstan.neon` إن لزم، وشغّل `./vendor/bin/phpstan analyse` للتأكد من نظافة الشجرة بعد الأعمدة الجديدة
 
 **Checkpoint**: البنك موجود، واللقطة تُكتب، والمحاولات القديمة سليمة. **كل قصّةٍ بعدها مستقلّة.**
 
@@ -161,8 +161,8 @@
 
 ### و — سحب الأبواب الخلفية
 
-- [ ] T065 [US1] ⚠️ **[‏مر‏]** احذف المسارات الأربعة `‏/exams/{exam}/questions` من `backend/app/Modules/Assessments/routes/api.php` و`QuestionController` القديم — `DELETE` منها **حذفٌ نهائي** لسؤالٍ له محاولات (‏خرق `FR-005`)، و`POST` ينشئ سؤالاً **بلا وسوم** (‏خرق `FR-002`)، وحارس ملكيّتها الوحيد `exam_id` الذي تحذفه الهجرة ‎٦‎
-- [ ] T066 [US1] حدّث `backend/database/seeders/ScenarioSeeder.php` لبناء البنك بالوسوم وضمّ الأسئلة بـ`exam_items`
+- [x] T065 [US1] ⚠️ **[‏مر‏]** احذف المسارات الأربعة `‏/exams/{exam}/questions` من `backend/app/Modules/Assessments/routes/api.php` و`QuestionController` القديم — `DELETE` منها **حذفٌ نهائي** لسؤالٍ له محاولات (‏خرق `FR-005`)، و`POST` ينشئ سؤالاً **بلا وسوم** (‏خرق `FR-002`)، وحارس ملكيّتها الوحيد `exam_id` الذي تحذفه الهجرة ‎٦‎
+- [x] T066 [US1] حدّث `backend/database/seeders/ScenarioSeeder.php` لبناء البنك بالوسوم وضمّ الأسئلة بـ`exam_items`
 
 ### ز — الواجهة
 

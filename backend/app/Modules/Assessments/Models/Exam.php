@@ -12,6 +12,7 @@ use App\Shared\Traits\IsPublishable;
 use Database\Factories\Modules\Assessments\ExamFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -53,9 +54,27 @@ class Exam extends BaseModel
         return $this->belongsTo(Course::class);
     }
 
-    /** @return HasMany<Question, $this> */
-    public function questions(): HasMany
+    /** @return HasMany<ExamItem, $this> */
+    public function items(): HasMany
     {
-        return $this->hasMany(Question::class)->orderBy('id');
+        return $this->hasMany(ExamItem::class)->orderBy('order')->orderBy('id');
+    }
+
+    /**
+     * The bank questions this exam includes, in their exam order.
+     *
+     * ⚠️ THIS USED TO BE `hasMany(Question::class)` ON `questions.exam_id`, and
+     * the difference is the whole of spec 008: a question is no longer owned by
+     * an exam, it is INCLUDED by one. The old relation could not express the same
+     * question appearing in three exams, which is the feature.
+     *
+     * @return BelongsToMany<Question, $this>
+     */
+    public function questions(): BelongsToMany
+    {
+        return $this->belongsToMany(Question::class, 'exam_items')
+            ->withPivot(['order', 'points_override'])
+            ->orderBy('exam_items.order')
+            ->orderBy('exam_items.id');
     }
 }

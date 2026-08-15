@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\Question;
-use App\Modules\Assessments\Models\QuestionOption;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 
@@ -88,151 +87,23 @@ describe('exam management', function (): void {
     });
 });
 
-describe('question management', function (): void {
-    it('lists questions of an exam with options', function (): void {
-        [$workspace, $owner] = $this->createWorkspaceWithOwner();
-        $exam = Exam::create([
-            'workspace_id' => $workspace->id, 'uuid' => Str::uuid(),
-            'title' => 'Exam', 'status' => 'draft',
-        ]);
-        $question = Question::create([
-            'workspace_id' => $workspace->id, 'exam_id' => $exam->id, 'type' => 'mcq',
-            'content' => 'Q1?', 'points' => 1,
-        ]);
-        QuestionOption::create([
-            'workspace_id' => $workspace->id, 'question_id' => $question->id,
-            'content' => 'A', 'is_correct' => true, 'order' => 1,
-        ]);
-
-        Sanctum::actingAs($owner);
-
-        $this->getJson("/api/v1/exams/{$exam->uuid}/questions")
-            ->assertOk()->assertJsonCount(1)
-            ->assertJsonPath('0.options.0.content', 'A');
-    });
-
-    it('creates a question with nested options', function (): void {
-        [$workspace, $owner] = $this->createWorkspaceWithOwner();
-        $exam = Exam::create([
-            'workspace_id' => $workspace->id, 'uuid' => Str::uuid(),
-            'title' => 'Exam', 'status' => 'draft',
-        ]);
-
-        Sanctum::actingAs($owner);
-
-        $this->postJson("/api/v1/exams/{$exam->uuid}/questions", [
-            'type' => 'mcq',
-            'content' => 'What is 2+2?',
-            'points' => 2,
-            'options' => [
-                ['content' => '4', 'is_correct' => true, 'order' => 1],
-                ['content' => '5', 'is_correct' => false, 'order' => 2],
-            ],
-        ])->assertCreated()->assertJsonPath('content', 'What is 2+2?')
-            ->assertJsonPath('options', function ($options): bool {
-                return count($options) === 2;
-            });
-
-        expect(Question::where('exam_id', $exam->id)->count())->toBe(1)
-            ->and(QuestionOption::where('question_id', Question::first()->id)->count())->toBe(2);
-    });
-
-    it('updates a question and replaces options', function (): void {
-        [$workspace, $owner] = $this->createWorkspaceWithOwner();
-        $exam = Exam::create([
-            'workspace_id' => $workspace->id, 'uuid' => Str::uuid(),
-            'title' => 'Exam', 'status' => 'draft',
-        ]);
-        $question = Question::create([
-            'workspace_id' => $workspace->id, 'exam_id' => $exam->id, 'type' => 'mcq',
-            'content' => 'Old Q', 'points' => 1,
-        ]);
-        QuestionOption::create([
-            'workspace_id' => $workspace->id, 'question_id' => $question->id,
-            'content' => 'Old', 'is_correct' => true, 'order' => 1,
-        ]);
-
-        Sanctum::actingAs($owner);
-
-        $this->putJson("/api/v1/exams/{$exam->uuid}/questions/{$question->id}", [
-            'content' => 'Updated Q',
-            'options' => [
-                ['content' => 'Yes', 'is_correct' => true, 'order' => 1],
-                ['content' => 'No', 'is_correct' => false, 'order' => 2],
-                ['content' => 'Maybe', 'is_correct' => false, 'order' => 3],
-            ],
-        ])->assertOk()->assertJsonPath('content', 'Updated Q');
-
-        expect(QuestionOption::where('question_id', $question->id)->count())->toBe(3)
-            ->and(QuestionOption::where('question_id', $question->id)->where('content', 'Old')->exists())->toBeFalse();
-    });
-
-    it('deletes a question', function (): void {
-        [$workspace, $owner] = $this->createWorkspaceWithOwner();
-        $exam = Exam::create([
-            'workspace_id' => $workspace->id, 'uuid' => Str::uuid(),
-            'title' => 'Exam', 'status' => 'draft',
-        ]);
-        $question = Question::create([
-            'workspace_id' => $workspace->id, 'exam_id' => $exam->id, 'type' => 'mcq',
-            'content' => 'Q', 'points' => 1,
-        ]);
-
-        Sanctum::actingAs($owner);
-
-        $this->deleteJson("/api/v1/exams/{$exam->uuid}/questions/{$question->id}")->assertNoContent();
-        expect(Question::where('id', $question->id)->exists())->toBeFalse();
-    });
-
-    it('denies question management to students', function (): void {
-        [$workspace] = $this->createWorkspaceWithOwner();
-        $exam = Exam::create([
-            'workspace_id' => $workspace->id, 'uuid' => Str::uuid(),
-            'title' => 'Exam', 'status' => 'draft',
-        ]);
-        $student = $this->addWorkspaceMember($workspace, 'student');
-        Sanctum::actingAs($student);
-
-        $this->getJson("/api/v1/exams/{$exam->uuid}/questions")->assertForbidden();
-    });
-});
-
-describe('cross-exam ownership enforcement', function (): void {
-    it('prevents updating a question that belongs to a different exam', function (): void {
-        [$workspace, $owner] = $this->createWorkspaceWithOwner();
-        $examA = Exam::create([
-            'workspace_id' => $workspace->id, 'uuid' => Str::uuid(), 'title' => 'A', 'status' => 'draft',
-        ]);
-        $examB = Exam::create([
-            'workspace_id' => $workspace->id, 'uuid' => Str::uuid(), 'title' => 'B', 'status' => 'draft',
-        ]);
-        $questionOfB = Question::create([
-            'workspace_id' => $workspace->id, 'exam_id' => $examB->id, 'type' => 'mcq', 'content' => 'Q', 'points' => 1,
-        ]);
-
-        Sanctum::actingAs($owner);
-
-        $this->putJson("/api/v1/exams/{$examA->uuid}/questions/{$questionOfB->id}", ['content' => 'Hijacked'])
-            ->assertNotFound();
-
-        expect(Question::find($questionOfB->id)->content)->toBe('Q');
-    });
-
-    it('prevents deleting a question that belongs to a different exam', function (): void {
-        [$workspace, $owner] = $this->createWorkspaceWithOwner();
-        $examA = Exam::create([
-            'workspace_id' => $workspace->id, 'uuid' => Str::uuid(), 'title' => 'A', 'status' => 'draft',
-        ]);
-        $examB = Exam::create([
-            'workspace_id' => $workspace->id, 'uuid' => Str::uuid(), 'title' => 'B', 'status' => 'draft',
-        ]);
-        $questionOfB = Question::create([
-            'workspace_id' => $workspace->id, 'exam_id' => $examB->id, 'type' => 'mcq', 'content' => 'Q', 'points' => 1,
-        ]);
-
-        Sanctum::actingAs($owner);
-
-        $this->deleteJson("/api/v1/exams/{$examA->uuid}/questions/{$questionOfB->id}")->assertNotFound();
-        expect(Question::where('id', $questionOfB->id)->exists())->toBeTrue();
-    });
-});
+/*
+| ⚠️ THE "QUESTION MANAGEMENT" AND "CROSS-EXAM OWNERSHIP" BLOCKS THAT USED TO
+| LIVE HERE WERE DELETED WITH THE ROUTES THEY EXERCISED, and the deletion is the
+| point rather than a casualty of it.
+|
+| They drove `POST|PUT|DELETE /exams/{exam}/questions`, four routes that wrote
+| straight into the `questions` table with `questions.manage` as their only
+| guard. After spec 008 that table is a bank shared across every exam, and those
+| routes bypassed every rule the bank has: `DELETE` hard-deleted a question with
+| recorded attempts, which FR-005 forbids in favour of disabling, and `POST`
+| created one with no concept and no Bloom level, which FR-002 forbids.
+|
+| Their ownership check was `$question->exam_id !== $exam->id` — a comparison
+| against the column that stops being written this release and is dropped in the
+| next. The tests passed because they asserted the old model was intact.
+|
+| What replaces them: `BankReuseTest` (one question, three exams, one row),
+| `QuestionTaggingTest` (FR-002), `QuestionEditSafetyTest` (FR-004) and
+| `BankAccessTest` (isolation and the search constraint).
+*/

@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 use App\Modules\Assessments\Actions\GradeAttempt;
+use App\Modules\Assessments\Actions\StartAttempt;
 use App\Modules\Assessments\Models\Answer;
 use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\Exam;
-use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Certificates\Actions\IssueCertificate;
 use App\Modules\Certificates\Models\Certificate;
@@ -38,13 +38,8 @@ function createExamWithQuestions(int $workspaceId, int $questionCount = 2): arra
     $correctOptionIds = [];
 
     for ($i = 1; $i <= $questionCount; $i++) {
-        $question = Question::create([
-            'workspace_id' => $workspaceId,
-            'exam_id' => $exam->id,
-            'type' => 'mcq',
-            'difficulty' => 'easy',
+        $question = bankQuestion($exam->workspace, $exam, [
             'content' => "Question {$i}?",
-            'points' => 1,
         ]);
 
         $correct = QuestionOption::create([
@@ -223,12 +218,10 @@ describe('certificate generation', function (): void {
         [$exam, $correctOptionIds] = createExamWithQuestions($workspace->id, 1);
         $exam->update(['course_id' => $course->id]);
 
-        // Start attempt, then manually fire the ExamPassed event via the GradeAttempt action.
-        $attempt = Attempt::create([
-            'workspace_id' => $workspace->id, 'uuid' => Str::uuid(), 'exam_id' => $exam->id,
-            'enrollment_id' => $enrollment->id, 'student_user_id' => $student->id, 'status' => 'in_progress',
-            'random_seed' => 12345, 'started_at' => now(),
-        ]);
+        // ⚠️ THROUGH StartAttempt, NOT BY HAND. Since spec 008 an attempt carries
+        // frozen items and the denominator is read from them; a hand-built row
+        // has none, so it grades zero out of zero and quietly never passes.
+        $attempt = app(StartAttempt::class)->handle($exam, $student, $enrollment);
 
         $answers = [];
         foreach ($correctOptionIds as $qId => $optId) {

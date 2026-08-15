@@ -57,6 +57,14 @@ class CompleteExamLessonOnSubmission implements ShouldHandleEventsAfterCommit, S
     public function handle(ExamSubmitted $event): void
     {
         $attempt = $event->attempt;
+
+        if ($attempt->exam_id === null) {
+            // A self-generated practice run (spec 008): it belongs to no exam
+            // anybody authored, so there is no exam lesson in any tree for it to
+            // complete. Revision is not coursework.
+            return;
+        }
+
         $enrollment = $this->enrollmentFor($attempt->enrollment_id, $attempt->exam_id, (int) $attempt->student_user_id);
 
         if ($enrollment === null || ! $enrollment->isActive()) {

@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Assessments\Models\Concept;
+use App\Modules\Assessments\Models\Exam;
+use App\Modules\Assessments\Models\ExamItem;
+use App\Modules\Assessments\Models\Question;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Learning\Models\Enrollment;
@@ -475,4 +479,52 @@ function makePlatformStaff(string $role, ?User $user = null): User
     app(PlatformStaffDirectory::class)->forget($user);
 
     return $user->refresh();
+}
+
+/**
+ * A tagged bank question, optionally included in an exam.
+ *
+ * ⚠️ IT EXISTS BECAUSE `Question::create([... 'exam_id' => $exam->id ...])` NO
+ * LONGER WORKS, and that is spec 008 in one line: a question belongs to the
+ * bank, an exam merely includes it. The four tags are mandatory (FR-002), so
+ * every test that wants a question now needs a concept — and repeating that
+ * setup in thirty places is how a mandatory tag quietly becomes optional in the
+ * one place somebody forgot.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function bankQuestion(Workspace $workspace, ?Exam $exam = null, array $attributes = []): Question
+{
+    $concept = Concept::query()->firstOrCreate(
+        ['workspace_id' => $workspace->getKey(), 'name' => $attributes['concept_name'] ?? Concept::UNCLASSIFIED],
+        ['uuid' => (string) Str::uuid()],
+    );
+
+    unset($attributes['concept_name']);
+
+    $content = $attributes['content'] ?? 'سؤال '.Str::random(6).'؟';
+
+    $question = Question::create(array_merge([
+        'workspace_id' => $workspace->getKey(),
+        'concept_id' => $concept->getKey(),
+        'type' => 'mcq',
+        'difficulty' => 'easy',
+        'bloom_level' => 'unclassified',
+        'points' => 1,
+        'is_active' => true,
+    ], $attributes, [
+        'content' => $content,
+        'content_hash' => Question::hashOf($content),
+    ]));
+
+    if ($exam !== null) {
+        ExamItem::create([
+            'workspace_id' => $workspace->getKey(),
+            'exam_id' => $exam->getKey(),
+            'question_id' => $question->getKey(),
+            'order' => (int) ExamItem::query()->where('exam_id', $exam->getKey())->max('order') + 1,
+        ]);
+    }
+
+    return $question;
 }

@@ -15,10 +15,12 @@ class QuestionResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
-            'exam_id' => $this->exam_id,
+            'uuid' => $this->uuid,
             'type' => $this->type,
             'difficulty' => $this->difficulty,
+            'bloom_level' => $this->bloom_level->value,
+            'concept' => $this->whenLoaded('concept', fn () => ['uuid' => $this->concept->uuid, 'name' => $this->concept->name]),
+            'is_active' => $this->is_active,
             'content' => $this->content,
             'points' => $this->points,
             'explanation' => $this->explanation,

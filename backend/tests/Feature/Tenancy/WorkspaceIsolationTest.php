@@ -3,6 +3,11 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Assessments\Models\AttemptItem;
+use App\Modules\Assessments\Models\Concept;
+use App\Modules\Assessments\Models\Exam;
+use App\Modules\Assessments\Models\ExamItem;
+use App\Modules\Assessments\Models\Question;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
@@ -450,5 +455,41 @@ describe('provider callbacks are scoped once they can be', function (): void {
         $callback = ProviderCallback::factory()->create(['external_id' => 'evt_null_ok']);
 
         expect($callback->workspace_id)->toBeNull();
+    });
+});
+
+describe('question bank models are workspace-scoped', function (): void {
+    it('hides one teacher’s bank, concepts and frozen items from another', function (): void {
+        [$mine, $me] = $this->createWorkspaceWithOwner();
+        [$theirs, $them] = $this->createWorkspaceWithOwner();
+
+        $this->setCurrentWorkspace($theirs, $them);
+        $theirExam = Exam::create([
+            'workspace_id' => $theirs->id, 'uuid' => Str::uuid(),
+            'title' => 'اختبارهم', 'max_attempts' => 3, 'status' => 'published',
+        ]);
+        bankQuestion($theirs, $theirExam, ['content' => 'سؤالٌ لا يخصّني؟']);
+
+        $this->setCurrentWorkspace($mine, $me);
+        $myExam = Exam::create([
+            'workspace_id' => $mine->id, 'uuid' => Str::uuid(),
+            'title' => 'اختباري', 'max_attempts' => 3, 'status' => 'published',
+        ]);
+        bankQuestion($mine, $myExam, ['content' => 'سؤالي؟']);
+
+        expect(Question::query()->pluck('content')->all())->toBe(['سؤالي؟'])
+            ->and(ExamItem::query()->count())->toBe(1)
+            ->and(Concept::query()->where('workspace_id', $theirs->id)->count())->toBe(0);
+    });
+
+    it('declares the tenant key on every bank model', function (): void {
+        // ⚠️ Spec 008 adds eleven tables and not one of them is platform-owned.
+        // The one that was argued for — accommodations — is a BRIDGE: extra time
+        // applies to one teacher's assessments, and granting it is that teacher's
+        // act recorded in their name (research.md §و).
+        foreach ([Concept::class, Question::class, ExamItem::class, AttemptItem::class] as $model) {
+            expect(in_array(BelongsToWorkspace::class, class_uses_recursive($model), true))
+                ->toBeTrue("{$model} must use BelongsToWorkspace");
+        }
     });
 });

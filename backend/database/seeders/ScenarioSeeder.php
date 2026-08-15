@@ -7,7 +7,9 @@ namespace Database\Seeders;
 use App\Models\User;
 use App\Modules\Assessments\Actions\GradeAttempt;
 use App\Modules\Assessments\Actions\StartAttempt;
+use App\Modules\Assessments\Models\Concept;
 use App\Modules\Assessments\Models\Exam;
+use App\Modules\Assessments\Models\ExamItem;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Certificates\Models\CertificateTemplate;
@@ -1010,34 +1012,56 @@ final class ScenarioSeeder extends Seeder
             'duration_minutes' => 30,
         ], $attributes));
 
+        // Every tuple states all four tags explicitly rather than deriving them
+        // from the difficulty: the demo box exists to show the bank fully tagged,
+        // and a derived level is one `match` away from seeding a level nobody
+        // meant. It also keeps the seed data readable as data.
         $questions = [
-            ['mcq', 'easy', 'Which command starts the Laravel dev server?', [
+            ['mcq', 'easy', 'remember', 1, 'Which command starts the Laravel dev server?', [
                 ['php artisan serve', true],
                 ['php artisan run', false],
                 ['npm start', false],
             ]],
-            ['mcq', 'medium', 'Which Eloquent method eager-loads a relationship?', [
+            ['mcq', 'medium', 'understand', 1, 'Which Eloquent method eager-loads a relationship?', [
                 ['with()', true],
                 ['join()', false],
                 ['attach()', false],
             ]],
-            ['true_false', 'easy', 'Migrations can be rolled back with php artisan migrate:rollback.', [
+            ['true_false', 'easy', 'remember', 1, 'Migrations can be rolled back with php artisan migrate:rollback.', [
                 ['True', true],
                 ['False', false],
             ]],
-            ['mcq', 'hard', 'Which queue driver runs jobs immediately in-process?', [
+            ['mcq', 'hard', 'analyze', 2, 'Which queue driver runs jobs immediately in-process?', [
                 ['sync', true],
                 ['redis', false],
                 ['database', false],
             ]],
         ];
 
-        foreach ($questions as [$type, $difficulty, $content, $options]) {
+        // Spec 008: a question belongs to the bank and is INCLUDED in an exam, so
+        // the demo data has to show that shape — a concept to file it under, and
+        // an `exam_items` row rather than a foreign key on the question.
+        $concept = Concept::query()->firstOrCreate(
+            ['workspace_id' => $workspace->id, 'name' => 'أساسيات لارافيل'],
+            ['uuid' => (string) Str::uuid()],
+        );
+
+        foreach ($questions as $order => [$type, $difficulty, $bloom, $points, $content, $options]) {
             $question = Question::create([
-                'workspace_id' => $workspace->id, 'exam_id' => $exam->id,
+                'workspace_id' => $workspace->id,
+                'concept_id' => $concept->id,
                 'type' => $type, 'difficulty' => $difficulty,
-                'content' => $content, 'points' => $difficulty === 'hard' ? 2 : 1,
+                // Demo data has to show all four tags filled in, or the screens
+                // that filter by Bloom level render an empty list on a seeded box.
+                'bloom_level' => $bloom,
+                'content' => $content, 'content_hash' => Question::hashOf($content),
+                'points' => $points,
                 'explanation' => 'Reviewed in the course material.',
+            ]);
+
+            ExamItem::create([
+                'workspace_id' => $workspace->id, 'exam_id' => $exam->id,
+                'question_id' => $question->id, 'order' => $order + 1,
             ]);
 
             foreach ($options as $i => [$text, $isCorrect]) {

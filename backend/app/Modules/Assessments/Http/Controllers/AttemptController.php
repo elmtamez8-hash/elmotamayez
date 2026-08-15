@@ -51,11 +51,19 @@ class AttemptController extends Controller
     {
         $this->authorize('submit', $attempt);
 
-        if ($attempt->isGraded()) {
-            return response()->json(['message' => 'This attempt has already been submitted.'], 422);
+        /*
+         | ⚠️ THE "ALREADY SUBMITTED" CHECK MOVED INTO THE ACTION, and it is not a
+         | tidying. Reading `isGraded()` here and writing there is a read followed
+         | by a write — two taps on a flaky connection both pass this line and both
+         | write the full answer set, which double-counts every mistake in the
+         | notebook and doubles the denominator of every wrong_pct. The Action now
+         | claims the attempt with one conditional UPDATE and throws when it loses.
+         */
+        try {
+            $graded = $action->handle($attempt, $request->validated('answers'));
+        } catch (DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
         }
-
-        $graded = $action->handle($attempt, $request->validated('answers'));
 
         return response()->json(AttemptResource::make($graded));
     }
