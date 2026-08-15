@@ -213,6 +213,17 @@ class AppServiceProvider extends ServiceProvider
          */
         RateLimiter::for('upload', fn (Request $request) => Limit::perMinute(20)
             ->by('user:'.(string) $request->user()?->getKey()));
+
+        /*
+         * Self-generated practice exams (spec 008, FR-026). Keyed by user and NOT
+         * by ip, which matters more here than anywhere else in this file: the
+         * people hitting it are students, and students sit in classrooms behind
+         * one address. An ip key would let one bored student in the back row lock
+         * their entire class out of practising. Each request costs a bank query
+         * plus a written attempt with a row per question, so the ceiling is low.
+         */
+        RateLimiter::for('practice', fn (Request $request) => Limit::perMinute(10)
+            ->by('user:'.(string) $request->user()?->getKey()));
     }
 
     /**

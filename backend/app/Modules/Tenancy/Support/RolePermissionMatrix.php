@@ -42,7 +42,16 @@ final class RolePermissionMatrix
             Permissions::EXAMS_VIEW,
             Permissions::EXAMS_CREATE,
             Permissions::EXAMS_UPDATE,
-            Permissions::QUESTIONS_MANAGE,
+            // ⚠️ QUESTIONS_MANAGE USED TO BE HERE, and spec 008 took it away.
+            // It authorised editing questions inside one exam; after 008 the same
+            // permission governs a BANK shared across every exam of the workspace,
+            // where a delete is refused in favour of a disable and every question
+            // carries four mandatory tags. Widening what a permission means while
+            // leaving its holders alone is how an assistant silently inherits the
+            // teacher's whole question library. BANK_VIEW below is the read half
+            // they do keep — browsing and searching, which is what an assistant
+            // building a lesson actually needs.
+            Permissions::BANK_VIEW,
             Permissions::ATTEMPTS_VIEW_ALL,
             Permissions::CERTIFICATES_VIEW_ALL,
             Permissions::CMS_CREATE,
@@ -111,6 +120,26 @@ final class RolePermissionMatrix
             // split is enforced on `orders.kind` in OrderPolicy::approve, not by
             // taking a working permission away.
             Permissions::BILLING_EXAM_MODE_MANAGE,
+            // Spec 008. All seven sit on $teacher and NOT on $assistantTeacher,
+            // and that placement IS the delivery channel for FR-031: the matrix
+            // seeds a default, the roles screen lets the owner tick any of them
+            // onto a custom assistant role. Seeding grading onto every assistant
+            // by default would read "the assistant may grade if granted" as "the
+            // assistant grades", which is the opposite requirement.
+            Permissions::QUESTIONS_MANAGE,
+            Permissions::GRADING_PERFORM,
+            Permissions::GRADING_REVISE,
+            Permissions::ASSIGNMENTS_MANAGE,
+            Permissions::SUBMISSIONS_GRADE,
+            Permissions::ACCOMMODATIONS_MANAGE,
+            Permissions::UNLOCK_RULES_MANAGE,
+            //
+            // ⚠️ ANALYTICS_CROSS_TEACHER_VIEW IS DELIBERATELY ABSENT, HERE AND IN
+            // EVERY OTHER ARRAY IN THIS FILE. platformPermissions() is derived by
+            // SUBTRACTION — all() minus everything any tenant role holds — so the
+            // absence is not an oversight to be corrected later, it is the whole
+            // mechanism. Adding it to any array below silently hands one teacher
+            // the error rates of every other teacher on the platform.
         ]);
 
         $tenantOwner = array_merge($teacher, [

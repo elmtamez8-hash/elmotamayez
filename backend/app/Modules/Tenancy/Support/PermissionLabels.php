@@ -46,6 +46,13 @@ final class PermissionLabels
         'relations' => 'أولياء الأمور',
         'settlement' => 'تسوية المدرّس',
         'billing' => 'الأرصدة والفوترة',
+        // Spec 008.
+        'bank' => 'بنك الأسئلة',
+        'grading' => 'التصحيح',
+        'assignments' => 'الواجبات',
+        'submissions' => 'تسليمات الواجبات',
+        'accommodations' => 'تسهيلات التقييم',
+        'unlock_rules' => 'شرط فتح الحصة',
     ];
 
     /** @var array<string, string> */
@@ -93,6 +100,10 @@ final class PermissionLabels
         'teachers.approve' => 'اعتماد المدرّسين',
         'teachers.suspend' => 'إيقاف مدرّس',
         'progress.complete.own' => 'إكمال تقدّمه',
+        // Spec 008.
+        'perform' => 'تنفيذ',
+        'revise' => 'تعديل بسببٍ مسجَّل',
+        'grade' => 'اعتماد الدرجة',
     ];
 
     /** The handful whose Arabic is not a noun and a verb. @var array<string, string> */
@@ -102,6 +113,7 @@ final class PermissionLabels
         'notifications.templates.manage' => 'إدارة قوالب الرسائل',
         'settlement.audit.view' => 'عرض تدقيق أجور المدرّسين',
         'billing.audit.view' => 'عرض سجلّ التدقيق المالي',
+        'analytics.cross_teacher.view' => 'عرض التحليل عابراً للمدرّسين',
     ];
 
     public static function for(string $permission): string

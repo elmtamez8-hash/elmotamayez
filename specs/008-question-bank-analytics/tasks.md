@@ -48,15 +48,15 @@
 
 **Purpose**: ما تحتاجه كل قصّةٍ بعدها، ولا يلمس بياناتٍ قائمة.
 
-- [ ] T001 أضف الثمانية الجديدة كثوابت في `backend/app/Modules/Tenancy/Support/Permissions.php`: `BANK_VIEW` · `GRADING_PERFORM` · `GRADING_REVISE` · `ANALYTICS_CROSS_TEACHER_VIEW` · `ASSIGNMENTS_MANAGE` · `SUBMISSIONS_GRADE` · `ACCOMMODATIONS_MANAGE` · `UNLOCK_RULES_MANAGE`
-- [ ] T002 ⚠️ **[‏مر‏]** أضف الثمانية إلى `Permissions::all()` في نفس الملف — ثابتٌ خارجها **لا يُزرع فلا يحمله أحد ولا المشرف الأعلى**، وكل فحصٍ عليه يفشل بلا سببٍ ظاهر
-- [ ] T003 في `backend/app/Modules/Tenancy/Support/RolePermissionMatrix.php`: ضع السبعة المستأجرة في مصفوفة **المدرّس** لا المساعد (‏`FR-031` «إن مُنح»)، واترك `ANALYTICS_CROSS_TEACHER_VIEW` خارج كل مصفوفة فتصير منصّية بالاشتقاق
-- [ ] T004 ⚠️ **[‏مر‏]** **اسحب `Permissions::QUESTIONS_MANAGE` من مصفوفة `$assistantTeacher`** في نفس الملف — هي عنده اليوم، أي أن المساعد يملك البنك كاملاً قبل أن يُكتب سطرٌ واحد
-- [ ] T005 [P] أضف تسميات الثمانية العربية إلى `backend/app/Modules/Tenancy/Support/PermissionLabels.php` (`SUBJECTS` و`ACTIONS`) لتظهر مقروءةً في شاشة الأدوار
-- [ ] T006 ⚠️ **[‏مر‏]** سجّل محدِّد `practice` **بمفتاح المستخدم لا بعنوان الشبكة** في `AppServiceProvider::registerRateLimiters()` بـ`backend/app/Providers/AppServiceProvider.php` (`FR-026`) — بالعنوان وحده تُسكِت مدرسةٌ خلف عنوانٍ واحد صفَّها كلَّه بطالبٍ واحد. `authoring` و`upload` **مسجَّلان سلفاً ويُعاد استعمالهما**
-- [ ] T007 [P] أنشئ التعدادات المغلقة في `backend/app/Modules/Assessments/Enums/`: `BloomLevel` · `SubmissionType` · `LatePolicy` · `SubmissionState` · `DuplicatePolicy` · `ImportStatus`
-- [ ] T008 [P] أنشئ مجلدات الوحدة الناقصة تحت `backend/app/Modules/Assessments/`: `Http/Requests/` · `Http/Resources/` · `Data/` · `Events/` · `Jobs/` (‏`Http/Controllers` و`Actions` و`Models` و`Policies` قائمة)
-- [ ] T009 اختبار: `backend/tests/Feature/Tenancy/PermissionSeedTest.php` — كل ثابتٍ في `Permissions::all()` مزروعٌ بعد `RolesAndPermissionsSeeder`، ولا صلاحية منصّية يحملها دورٌ بـ`team_id`
+- [x] T001 أضف الثمانية الجديدة كثوابت في `backend/app/Modules/Tenancy/Support/Permissions.php`: `BANK_VIEW` · `GRADING_PERFORM` · `GRADING_REVISE` · `ANALYTICS_CROSS_TEACHER_VIEW` · `ASSIGNMENTS_MANAGE` · `SUBMISSIONS_GRADE` · `ACCOMMODATIONS_MANAGE` · `UNLOCK_RULES_MANAGE`
+- [x] T002 ⚠️ **[‏مر‏]** أضف الثمانية إلى `Permissions::all()` في نفس الملف — ثابتٌ خارجها **لا يُزرع فلا يحمله أحد ولا المشرف الأعلى**، وكل فحصٍ عليه يفشل بلا سببٍ ظاهر
+- [x] T003 في `backend/app/Modules/Tenancy/Support/RolePermissionMatrix.php`: ضع السبعة المستأجرة في مصفوفة **المدرّس** لا المساعد (‏`FR-031` «إن مُنح»)، واترك `ANALYTICS_CROSS_TEACHER_VIEW` خارج كل مصفوفة فتصير منصّية بالاشتقاق
+- [x] T004 ⚠️ **[‏مر‏]** **اسحب `Permissions::QUESTIONS_MANAGE` من مصفوفة `$assistantTeacher`** في نفس الملف — هي عنده اليوم، أي أن المساعد يملك البنك كاملاً قبل أن يُكتب سطرٌ واحد
+- [x] T005 [P] أضف تسميات الثمانية العربية إلى `backend/app/Modules/Tenancy/Support/PermissionLabels.php` (`SUBJECTS` و`ACTIONS`) لتظهر مقروءةً في شاشة الأدوار
+- [x] T006 ⚠️ **[‏مر‏]** سجّل محدِّد `practice` **بمفتاح المستخدم لا بعنوان الشبكة** في `AppServiceProvider::registerRateLimiters()` بـ`backend/app/Providers/AppServiceProvider.php` (`FR-026`) — بالعنوان وحده تُسكِت مدرسةٌ خلف عنوانٍ واحد صفَّها كلَّه بطالبٍ واحد. `authoring` و`upload` **مسجَّلان سلفاً ويُعاد استعمالهما**
+- [x] T007 [P] أنشئ التعدادات المغلقة في `backend/app/Modules/Assessments/Enums/`: `BloomLevel` · `SubmissionType` · `LatePolicy` · `SubmissionState` · `DuplicatePolicy` · `ImportStatus`
+- [x] T008 [P] أنشئ مجلدات الوحدة الناقصة تحت `backend/app/Modules/Assessments/`: `Http/Requests/` · `Http/Resources/` · `Data/` · `Events/` · `Jobs/` (‏`Http/Controllers` و`Actions` و`Models` و`Policies` قائمة)
+- [x] T009 اختبار: `backend/tests/Feature/Tenancy/PermissionSeedTest.php` — كل ثابتٍ في `Permissions::all()` مزروعٌ بعد `RolesAndPermissionsSeeder`، ولا صلاحية منصّية يحملها دورٌ بـ`team_id`
 
 ---
 

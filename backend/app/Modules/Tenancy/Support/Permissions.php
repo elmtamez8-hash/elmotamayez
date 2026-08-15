@@ -59,7 +59,18 @@ final class Permissions
 
     public const EXAMS_PUBLISH = 'exams.publish';
 
+    /*
+     | Spec 008 deliberately reuses this constant for the question bank instead
+     | of minting `bank.manage`. Two names for one action would contend for one
+     | screen, and every custom role a teacher built before 008 would silently
+     | lose the bank. What DID change is who holds it: assistants no longer do,
+     | because the same permission now authorises permanent-delete refusal and
+     | mandatory tagging on a bank shared across every exam.
+     */
     public const QUESTIONS_MANAGE = 'questions.manage';
+
+    /** Browsing and searching the bank without editing it (spec 008). */
+    public const BANK_VIEW = 'bank.view';
 
     // Attempts
     public const ATTEMPTS_VIEW_ALL = 'attempts.view.all';
@@ -97,8 +108,29 @@ final class Permissions
 
     public const CMS_PUBLISH = 'cms.publish';
 
+    // Grading (spec 008)
+    public const GRADING_PERFORM = 'grading.perform';
+
+    public const GRADING_REVISE = 'grading.revise';
+
+    // Assignments (spec 008)
+    public const ASSIGNMENTS_MANAGE = 'assignments.manage';
+
+    public const SUBMISSIONS_GRADE = 'submissions.grade';
+
+    public const ACCOMMODATIONS_MANAGE = 'accommodations.manage';
+
+    public const UNLOCK_RULES_MANAGE = 'unlock_rules.manage';
+
     // Analytics
     public const ANALYTICS_VIEW = 'analytics.view';
+
+    /*
+     | Platform-level: reading item analysis ACROSS teachers (FR-015). Held by no
+     | tenant role, which `RolePermissionMatrix::platformPermissions()` derives by
+     | subtraction — so leaving it out of every role array is the whole mechanism.
+     */
+    public const ANALYTICS_CROSS_TEACHER_VIEW = 'analytics.cross_teacher.view';
 
     // Settings
     public const SETTINGS_VIEW = 'settings.view';
@@ -374,6 +406,17 @@ final class Permissions
             // and every check against it fails — for the super admin too.
             self::BILLING_COLLECTION_VIEW,
             self::BILLING_AUDIT_VIEW,
+            // Spec 008. The same rule as the two lines above applies to every one
+            // of these — including ANALYTICS_CROSS_TEACHER_VIEW, which no tenant
+            // role holds: unseeded, even the super admin's check would fail.
+            self::BANK_VIEW,
+            self::GRADING_PERFORM,
+            self::GRADING_REVISE,
+            self::ASSIGNMENTS_MANAGE,
+            self::SUBMISSIONS_GRADE,
+            self::ACCOMMODATIONS_MANAGE,
+            self::UNLOCK_RULES_MANAGE,
+            self::ANALYTICS_CROSS_TEACHER_VIEW,
         ];
     }
 }
