@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Modules\Assessments\Models\Concept;
 use App\Modules\Assessments\Models\Exam;
+use App\Modules\Assessments\Models\ExamItem;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Courses\Enums\ContentStatus;
@@ -18,6 +20,10 @@ use App\Modules\Learning\Actions\EnrollStudent;
 use App\Modules\LiveSessions\Actions\BookSeat;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Payments\Data\CreditMovement;
+use App\Modules\Payments\Enums\CreditTransactionType;
+use App\Modules\Payments\Support\CreditAccounts;
+use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Tenancy\Actions\CreateWorkspace;
 use App\Modules\Tenancy\DTOs\CreateWorkspaceDTO;
 use App\Modules\Tenancy\Support\Roles;
@@ -128,10 +134,35 @@ class DemoDataSeeder extends Seeder
             'status' => 'published',
         ]);
 
-        foreach ($this->sampleQuestions() as $qData) {
+        /*
+        | ⚠️ THE LAST WRITER OF `questions.exam_id`, AND `$fillable` DID NOT STOP IT.
+        | `SeedCommand` runs every seeder inside `Model::unguarded()`, so dropping
+        | the column from `Question::$fillable` in 008 protected the application
+        | and left this line writing it — the one place mass-assignment guards do
+        | not reach. Removing it is what makes the column droppable next release;
+        | left in, the drop turns `migrate --seed` into "Unknown column".
+        |
+        | The concept is `firstOrCreate` because migration `_000110` seeded
+        | «غير مصنّف» for the workspaces alive AT THAT MOMENT, and this workspace
+        | is born afterwards. A seeder that assumed the row exists would pass on a
+        | database that had been migrated once and fail on a fresh one.
+        */
+        $concept = Concept::query()->firstOrCreate(
+            ['workspace_id' => $workspace->id, 'name' => 'Laravel Basics'],
+            ['uuid' => (string) Str::uuid()],
+        );
+
+        foreach ($this->sampleQuestions() as $order => $qData) {
             $question = Question::create([
+                'workspace_id' => $workspace->id, 'concept_id' => $concept->id,
+                'type' => 'mcq', 'difficulty' => 'medium', 'bloom_level' => 'understand',
+                'content' => $qData['content'], 'content_hash' => Question::hashOf($qData['content']),
+                'points' => 1,
+            ]);
+
+            ExamItem::create([
                 'workspace_id' => $workspace->id, 'exam_id' => $exam->id,
-                'type' => 'mcq', 'content' => $qData['content'], 'points' => 1,
+                'question_id' => $question->id, 'order' => $order + 1,
             ]);
 
             foreach ($qData['options'] as $i => $opt) {
@@ -179,6 +210,23 @@ class DemoDataSeeder extends Seeder
             'duration_minutes' => 60,
             'seats_total' => 5,
         ]);
+
+        /*
+        | ⚠️ THE SEAT IS PAID FOR FIRST, BECAUSE 006 PUT A FLOOR UNDER BOOKING.
+        | `BookSeat` asks `openingRefusal()`, which refuses a student with no
+        | credits in this course — so a seeder written before the credit engine
+        | existed now throws on the last line of the demo. The credits are posted
+        | through `CreditLedger` rather than written onto the balance, because the
+        | balance is the sum of its entries and a hand-written number is the
+        | discrepancy `ReconcileCreditBalancesJob` reports on a demo box.
+        */
+        app(CreditLedger::class)->post(new CreditMovement(
+            balance: app(CreditAccounts::class)->balanceFor($student, $course),
+            type: CreditTransactionType::Purchase,
+            credits: 4,
+            sourceType: 'seeded_purchase',
+            sourceId: (int) $course->id,
+        ));
 
         app(BookSeat::class)->handle($session, $student);
 
