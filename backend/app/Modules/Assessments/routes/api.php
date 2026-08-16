@@ -15,6 +15,7 @@ use App\Modules\Assessments\Http\Controllers\ImportController;
 use App\Modules\Assessments\Http\Controllers\MistakeController;
 use App\Modules\Assessments\Http\Controllers\PracticeController;
 use App\Modules\Assessments\Http\Controllers\SubmissionFileController;
+use App\Modules\Assessments\Http\Controllers\UnlockRuleController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -196,6 +197,25 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/submissions/{submission}/file', SubmissionFileController::class)
         ->middleware('signed')
         ->name('submissions.file');
+
+    /*
+     | The unlock condition (spec 008 · US7).
+     |
+     | Reads and writes are `unlock.rules.manage`, checked in the controller
+     | rather than named here — a permission in a route file is a permission the
+     | panel and the seeder do not consult. `throttle:authoring` on the writes,
+     | the same limiter the bank and the grading board use.
+     |
+     | The STUDENT's side of this feature has no route here at all: it is
+     | `/class-sessions/{uuid}/eligibility`, owned by LiveSessions because that
+     | module binds the session. Both answers come from one resolver.
+     */
+    Route::get('/manage/unlock-rules', [UnlockRuleController::class, 'index']);
+
+    Route::middleware('throttle:authoring')->group(function (): void {
+        Route::post('/manage/unlock-rules', [UnlockRuleController::class, 'store']);
+        Route::post('/manage/class-sessions/{session}/unlock-exemptions', [UnlockRuleController::class, 'exempt']);
+    });
 
     // Attempts (student-facing).
     Route::post('/exams/{exam}/attempts', [AttemptController::class, 'start']);

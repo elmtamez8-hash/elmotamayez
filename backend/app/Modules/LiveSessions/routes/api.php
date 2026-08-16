@@ -6,6 +6,7 @@ use App\Modules\LiveSessions\Http\Controllers\AttendanceController;
 use App\Modules\LiveSessions\Http\Controllers\BookingController;
 use App\Modules\LiveSessions\Http\Controllers\BroadcastController;
 use App\Modules\LiveSessions\Http\Controllers\ClassSessionController;
+use App\Modules\LiveSessions\Http\Controllers\EligibilityController;
 use App\Modules\LiveSessions\Http\Controllers\FreezePeriodController;
 use App\Modules\LiveSessions\Http\Controllers\ScheduleController;
 use Illuminate\Support\Facades\Route;
@@ -31,6 +32,19 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/class-sessions', [ClassSessionController::class, 'index']);
     Route::get('/class-sessions/{session}', [ClassSessionController::class, 'show']);
     Route::get('/class-sessions/{session}/attendance', [AttendanceController::class, 'index']);
+
+    /*
+     | ⚠️ `class-sessions`, NEVER `sessions` (spec 005's rule, still binding).
+     | `AuthSession` already owns that word; a third meaning for one word is the
+     | line every reader misreads once.
+     |
+     | ⚠️ AND IT IS A READ ASKED AT EVERY REQUEST (FR-041), not a cached verdict:
+     | homework handed in at 9pm opens the session at 9pm, with no sweep in
+     | between. No limiter — it is six indexed queries behind `auth:sanctum`,
+     | and rate-limiting the explanation of a block would leave a student
+     | staring at a screen that cannot tell them why.
+     */
+    Route::get('/class-sessions/{session}/eligibility', EligibilityController::class);
 
     Route::middleware('throttle:sessions')->group(function (): void {
         Route::post('/class-sessions', [ClassSessionController::class, 'store']);

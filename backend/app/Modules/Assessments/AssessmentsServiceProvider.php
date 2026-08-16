@@ -16,12 +16,28 @@ use App\Modules\Assessments\Policies\ConceptPolicy;
 use App\Modules\Assessments\Policies\GradingPolicy;
 use App\Modules\Assessments\Policies\QuestionPolicy;
 use App\Modules\Assessments\Policies\SubmissionPolicy;
+use App\Modules\Assessments\Support\EloquentUnlockDirectory;
+use App\Shared\Contracts\UnlockDirectory;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Gate;
 
 class AssessmentsServiceProvider extends Module
 {
     protected string $name = 'Assessments';
+
+    public function register(): void
+    {
+        parent::register();
+
+        /*
+        | Spec 008 · US7. LiveSessions asks whether a student has earned the next
+        | session; Assessments owns the rule, the homework and the exemption, so
+        | it binds the answer. Exactly the arrow `AccountStanding` already draws
+        | from 005 to Payments — a query contract, not an event, because the
+        | caller needs the answer before its next line runs.
+        */
+        $this->app->bind(UnlockDirectory::class, EloquentUnlockDirectory::class);
+    }
 
     public function boot(): void
     {

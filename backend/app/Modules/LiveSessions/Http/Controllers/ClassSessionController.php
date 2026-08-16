@@ -18,6 +18,7 @@ use App\Modules\LiveSessions\Http\Requests\UpdateClassSessionRequest;
 use App\Modules\LiveSessions\Http\Resources\ClassSessionResource;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Shared\Contracts\UnlockDirectory;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +26,7 @@ use Illuminate\Http\Request;
 
 class ClassSessionController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, UnlockDirectory $unlock): JsonResponse
     {
         $this->authorize('viewAny', ClassSession::class);
 
@@ -40,6 +41,16 @@ class ClassSessionController extends Controller
             ->with(['course', 'bookings', 'recordingLesson'])
             ->orderBy('starts_at')
             ->paginate(50);
+
+        /*
+        | ⚠️ STAMPED IN BULK, NEVER ASKED PER ROW. FR-041 checks the unlock
+        | condition at every access, and this list is a month of sessions — asked
+        | inside the Resource it is six queries times fifty on the screen a
+        | student opens first every morning. `UnlockReader` answers the whole page
+        | in a fixed handful, the same shape `WithholdingReader::stamp()` has in
+        | 006, and `UnlockQueryBudgetTest` fails if it stops being flat.
+        */
+        $unlock->stamp(collect($sessions->items()), $this->currentUser($request));
 
         return response()->json(ClassSessionResource::collection($sessions)->response()->getData(true));
     }

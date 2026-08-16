@@ -31,6 +31,47 @@ interface SessionAttendanceDirectory
     public function hasBookingForLesson(User $user, int $lessonId): bool;
 
     /**
+     * Which of these sessions this student actually ATTENDED.
+     *
+     * ⚠️ ATTENDANCE, NOT A BOOKING, and the difference is the whole of FR-036.
+     * The two methods above answer "did they hold a seat" and deliberately count
+     * a late cancellation — the seat was charged for, so the recording is owed.
+     * This one answers "were they there", which is what a teacher means when
+     * they say the next session is earned by attending the last one. Reusing the
+     * booking question would hand the next chapter to a student who paid for a
+     * session they never opened.
+     *
+     * ⚠️ AND EXCUSED COUNTS AS ATTENDED. Only `absent` fails. An excusal is the
+     * teacher's own decision that the absence is not held against the student;
+     * a gate that then holds it against them contradicts the person who granted
+     * it, and the exemption below would exist only to undo the teacher's other
+     * hand.
+     *
+     * ⚠️ AND IT IS BULK. A timetable is twenty sessions, and asking per session
+     * inside a Resource is 120 queries — literally the defect QueryBudgetTest
+     * exists to catch.
+     *
+     * @param  list<int>  $classSessionIds
+     * @return list<int>
+     */
+    public function attendedSessionIds(User $user, array $classSessionIds): array;
+
+    /**
+     * The countable sessions of one course that ended before this one started.
+     *
+     * ⚠️ "PREVIOUS" IS NOT id − 1. A cancelled session, or one suspended by a
+     * freeze, was never attendable by anybody — gating on it would shut the
+     * whole course behind a class that did not happen. So the implementation
+     * returns only sessions that counted, newest first, and the caller takes the
+     * head.
+     *
+     * @param  list<int>  $classSessionIds
+     * @return array<int, int|null> keyed by session id; null means there is no
+     *                              countable session before it
+     */
+    public function previousCountableSessionIds(array $classSessionIds): array;
+
+    /**
      * Every lesson this user may watch by virtue of a seat.
      *
      * The reason issuing grants for a list does not scale with its length: read

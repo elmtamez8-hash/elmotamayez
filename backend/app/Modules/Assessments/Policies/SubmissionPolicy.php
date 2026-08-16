@@ -6,6 +6,7 @@ namespace App\Modules\Assessments\Policies;
 
 use App\Models\User;
 use App\Modules\Assessments\Models\Submission;
+use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
 use Illuminate\Auth\Access\Response;
@@ -31,9 +32,50 @@ class SubmissionPolicy extends BasePolicy
             return Response::allow();
         }
 
-        return $user->can(Permissions::SUBMISSIONS_GRADE)
-            ? Response::allow()
-            : Response::deny();
+        if (! $user->can(Permissions::SUBMISSIONS_GRADE)) {
+            return Response::deny();
+        }
+
+        /*
+        | ⚠️ THE PERMISSION IS NOT THE WHOLE GUARD — THE SAME OMISSION
+        | `AttemptPolicy` WAS FIXED FOR, IN THE SAME MODULE. `submissions.grade`
+        | alone lets an assistant open the coursework of somebody whose enrolment
+        | lapsed a year ago; NFR-001أ draws the line at an enrolment, not at a row
+        | that happens to carry the same workspace id. And this policy is not only
+        | read here: `SubmissionFileController` re-runs it at every file open, so
+        | the gap was a permanent read on a former student's uploaded work.
+        |
+        | The second branch keeps a paper handed in during a term readable after
+        | that term ends, or work submitted on the last day would be unmarkable
+        | for ever — the same pairing, and the same reason, as the attempt guard.
+        */
+        return $this->belongsToATaughtStudent($submission) ? Response::allow() : Response::deny();
+    }
+
+    /** An active enrolment now, or an enrolment behind the work itself. */
+    private function belongsToATaughtStudent(Submission $submission): bool
+    {
+        $active = Enrollment::query()
+            ->where('workspace_id', $submission->workspace_id)
+            ->where('student_user_id', $submission->student_user_id)
+            ->where('status', 'active')
+            ->exists();
+
+        if ($active) {
+            return true;
+        }
+
+        $courseId = $submission->assignment?->course_id;
+
+        if ($courseId === null) {
+            return false;
+        }
+
+        return Enrollment::query()
+            ->where('workspace_id', $submission->workspace_id)
+            ->where('student_user_id', $submission->student_user_id)
+            ->where('course_id', $courseId)
+            ->exists();
     }
 
     public function grade(User $user, Submission $submission): Response

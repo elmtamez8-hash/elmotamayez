@@ -323,21 +323,21 @@
 
 **Independent Test**: ضبطُ الشرط ومحاولةُ الوصول قبل استيفائه وبعده.
 
-- [ ] T165 [US7] هجرة ‎١١‎: `unlock_rules` (‏⚠️ **[‏مر‏]** `course_id` **`NOT NULL` والصفر = الافتراضي**، `unique(workspace_id, course_id)`، **ولا مستوى حصة**) و`unlock_exemptions` في `..._001100_create_unlock_tables.php`
-- [ ] T166 [US7] هجرة ‎١١‎ب: ⚠️ **[‏مر‏]** فهرسا الشرط اللحظي في `..._001110_add_unlock_lookup_indexes.php` — `assignments(class_session_id)` و**`class_sessions(workspace_id, course_id, starts_at)`**: العمود شُحن قابلاً للإفراغ **بلا فهرس** وليس في مقدّمة أيٍّ من فهارس الجدول الثلاثة، والشرط يمرّ به عند كل طلب
-- [ ] T167 [P] [US7] نموذجا `UnlockRule` و`UnlockExemption` ومصنعاهما
-- [ ] T168 [US7] `UnlockResolver` في `.../Support/UnlockResolver.php` — الأسبقية **كورس ← مساحة عمل**، والأخصّ يفوز بلا اندماج، **وغياب الأخصّ رجوعٌ إلى الأعمّ لا تعطيل**
-- [ ] T169 [US7] ⚠️ **[‏مر‏]** `UnlockReader` في `.../Support/UnlockReader.php` بـ`stamp(Collection)` على سابقة `WithholdingReader` — تقويمٌ فيه عشرون حصة يعني **مئةً وعشرين استعلاماً داخل Resource** بلا هذا، وهو حرفياً العطل الذي تحرسه `QueryBudgetTest`
-- [ ] T170 [US7] ⚠️ **[‏مر‏]** وسّع `backend/app/Shared/Contracts/SessionAttendanceDirectory.php` بسؤالٍ **جماعي** `attendedSessionIds(User, array)` — لا مفرد؛ ونفّذه في `EloquentSessionAttendanceDirectory`. ⚠️ **والحضور الفعليّ لا الحجز**: التنفيذ القائم يَعُدّ من ألغى متأخراً «مخوَّلاً»، و`FR-036` يسأل عن الحضور
-- [ ] T171 [US7] في `UnlockResolver`: `FR-042` — **واجبٌ لم يُنشَر لا يحجب**، وإلّا حجب المدرّسُ صفَّه كلَّه بمسوّدةٍ نسيها
-- [ ] T172 [US7] `GrantUnlockExemption` بسببٍ إلزامي — ⚠️ **وبحارس `EnrollmentDirectory`** كـ`T147`
-- [ ] T173 [US7] `EligibilityController` على المسار `‏/class-sessions/{uuid}/eligibility` — ⚠️ **`class-sessions` لا `sessions`**: الكلمة محجوزة لجلسات المصادقة، وثالثُ معنًى لكلمةٍ واحدة هو ما تجنّبته ‎005‎
-- [ ] T174 [US7] جواب `eligibility` يقول **ما ينقص بالضبط** (`FR-038`) **ويسمّي القاعدة التي حكمت** — الأسبقية لا تُرى، ومنعٌ بلا تفسير يحوّل ميزةَ تحفيزٍ إلى عطلٍ يراسل الطالبُ مدرّسَه عنه
-- [ ] T175 [US7] اربط الحجب في `frontend/src/app/(app)/(shell)/` بجواب `eligibility`، **برسالةٍ تسمّي الناقص** لا «غير متاح»
-- [ ] T176 [US7] شاشة ضبط الشرط في `manage/unlock-rules/` — **تعرض عند التخصيص أيَّ افتراضيٍّ يُلغى**
-- [ ] T177 [P] [US7] `backend/tests/Feature/Assessments/UnlockGateTest.php` — الحالات الخمس في `quickstart.md` §٩، **وصفر فتحٍ لغير مستوفٍ وصفر حجبٍ لمستوفٍ** (`SC-012`)
-- [ ] T178 [P] [US7] ⚠️ **[‏مر‏]** `backend/tests/Feature/Assessments/UnlockPrecedenceTest.php` — افتراضيٌّ عند ‎٥٠٪‎ وتخصيصٌ لكورسٍ عند ‎٨٠‎: طالبٌ بـ‎٦٠‎ **يُفتح له في كورسٍ ويُمنع في الآخر**، وكورسٌ بلا تخصيص **يرث ولا يُقرأ غيابه فتحاً**
-- [ ] T179 [P] [US7] `backend/tests/Feature/Assessments/UnlockQueryBudgetTest.php` — ⚠️ **بعيّنتين تُعرَّفان بصفوف الحمولة لا بحجم الجدول** (‏ثلاثة صفوف مقابل صفحةٍ ممتلئة)، **وبمساواةٍ وسقف ‎١٥‎ معاً**: المسار مرقَّم فالمساواة وحدها صحيحةٌ بالبناء (`SC-013`)
+- [x] T165 [US7] هجرة ‎١١‎: `unlock_rules` (‏⚠️ **[‏مر‏]** `course_id` **`NOT NULL` والصفر = الافتراضي**، `unique(workspace_id, course_id)`، **ولا مستوى حصة**) و`unlock_exemptions` في `..._001100_create_unlock_tables.php`
+- [x] T166 [US7] هجرة ‎١١‎ب: ⚠️ **[‏مر‏]** فهرسا الشرط اللحظي في `..._001110_add_unlock_lookup_indexes.php` — `assignments(class_session_id)` و**`class_sessions(workspace_id, course_id, starts_at)`**: العمود شُحن قابلاً للإفراغ **بلا فهرس** وليس في مقدّمة أيٍّ من فهارس الجدول الثلاثة، والشرط يمرّ به عند كل طلب
+- [x] T167 [P] [US7] نموذجا `UnlockRule` و`UnlockExemption` ومصنعاهما
+- [x] T168 [US7] `UnlockResolver` في `.../Support/UnlockResolver.php` — الأسبقية **كورس ← مساحة عمل**، والأخصّ يفوز بلا اندماج، **وغياب الأخصّ رجوعٌ إلى الأعمّ لا تعطيل**
+- [x] T169 [US7] ⚠️ **[‏مر‏]** `UnlockReader` في `.../Support/UnlockReader.php` بـ`stamp(Collection)` على سابقة `WithholdingReader` — تقويمٌ فيه عشرون حصة يعني **مئةً وعشرين استعلاماً داخل Resource** بلا هذا، وهو حرفياً العطل الذي تحرسه `QueryBudgetTest`
+- [x] T170 [US7] ⚠️ **[‏مر‏]** وسّع `backend/app/Shared/Contracts/SessionAttendanceDirectory.php` بسؤالٍ **جماعي** `attendedSessionIds(User, array)` — لا مفرد؛ ونفّذه في `EloquentSessionAttendanceDirectory`. ⚠️ **والحضور الفعليّ لا الحجز**: التنفيذ القائم يَعُدّ من ألغى متأخراً «مخوَّلاً»، و`FR-036` يسأل عن الحضور
+- [x] T171 [US7] في `UnlockResolver`: `FR-042` — **واجبٌ لم يُنشَر لا يحجب**، وإلّا حجب المدرّسُ صفَّه كلَّه بمسوّدةٍ نسيها
+- [x] T172 [US7] `GrantUnlockExemption` بسببٍ إلزامي — ⚠️ **وبحارس `EnrollmentDirectory`** كـ`T147`
+- [x] T173 [US7] `EligibilityController` على المسار `‏/class-sessions/{uuid}/eligibility` — ⚠️ **`class-sessions` لا `sessions`**: الكلمة محجوزة لجلسات المصادقة، وثالثُ معنًى لكلمةٍ واحدة هو ما تجنّبته ‎005‎
+- [x] T174 [US7] جواب `eligibility` يقول **ما ينقص بالضبط** (`FR-038`) **ويسمّي القاعدة التي حكمت** — الأسبقية لا تُرى، ومنعٌ بلا تفسير يحوّل ميزةَ تحفيزٍ إلى عطلٍ يراسل الطالبُ مدرّسَه عنه
+- [x] T175 [US7] اربط الحجب في `frontend/src/app/(app)/(shell)/` بجواب `eligibility`، **برسالةٍ تسمّي الناقص** لا «غير متاح»
+- [x] T176 [US7] شاشة ضبط الشرط في `manage/unlock-rules/` — **تعرض عند التخصيص أيَّ افتراضيٍّ يُلغى**
+- [x] T177 [P] [US7] `backend/tests/Feature/Assessments/UnlockGateTest.php` — الحالات الخمس في `quickstart.md` §٩، **وصفر فتحٍ لغير مستوفٍ وصفر حجبٍ لمستوفٍ** (`SC-012`)
+- [x] T178 [P] [US7] ⚠️ **[‏مر‏]** `backend/tests/Feature/Assessments/UnlockPrecedenceTest.php` — افتراضيٌّ عند ‎٥٠٪‎ وتخصيصٌ لكورسٍ عند ‎٨٠‎: طالبٌ بـ‎٦٠‎ **يُفتح له في كورسٍ ويُمنع في الآخر**، وكورسٌ بلا تخصيص **يرث ولا يُقرأ غيابه فتحاً**
+- [x] T179 [P] [US7] `backend/tests/Feature/Assessments/UnlockQueryBudgetTest.php` — ⚠️ **بعيّنتين تُعرَّفان بصفوف الحمولة لا بحجم الجدول** (‏ثلاثة صفوف مقابل صفحةٍ ممتلئة)، **وبمساواةٍ وسقف ‎١٥‎ معاً**: المسار مرقَّم فالمساواة وحدها صحيحةٌ بالبناء (`SC-013`)
 
 ---
 

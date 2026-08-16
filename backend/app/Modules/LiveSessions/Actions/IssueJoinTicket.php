@@ -82,7 +82,7 @@ class IssueJoinTicket extends Action
             return null;
         }
 
-        return $this->eligibility->allows($session, $user)
+        return $this->eligibility->maySit($session, $user)
             ? ParticipantRole::Participant
             : null;
     }

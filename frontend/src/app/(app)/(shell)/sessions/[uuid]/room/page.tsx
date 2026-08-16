@@ -6,6 +6,7 @@ import Link from "next/link";
 import { BroadcastStage } from "@/components/sessions/BroadcastStage";
 import { PresenceLoop } from "@/components/sessions/PresenceLoop";
 import { Alert } from "@/components/ui/Alert";
+import { UnlockNotice } from "@/components/sessions/UnlockNotice";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { classSessions, type JoinTicket, type PresenceState } from "@/lib/class-sessions";
@@ -85,9 +86,19 @@ export default function SessionRoomPage({
       {loading && <p className="text-sm text-ink-muted">جارٍ التحضير…</p>}
 
       {error !== "" && (
-        <Alert tone="danger" title="تعذّر الدخول">
-          {error}
-        </Alert>
+        <>
+          <Alert tone="danger" title="تعذّر الدخول">
+            {error}
+          </Alert>
+          {/*
+            ⚠️ ONLY AFTER A REFUSAL, and only then. The join answer says the door
+            is shut; this says WHY in terms the student can act on (FR-038) —
+            «تعذّر الدخول» alone is indistinguishable from an outage, and a
+            student who cannot tell a rule from a bug writes to their teacher.
+            Asked here rather than on load, so an ordinary entry costs nothing.
+          */}
+          <UnlockNotice sessionUuid={uuid} />
+        </>
       )}
 
       {/*

@@ -40,6 +40,7 @@ import {
   IconChevronUp,
   IconChecklist,
   IconClipboardList,
+  IconLock,
   IconClipboardText,
   IconDatabase,
   IconCoins,
@@ -155,6 +156,9 @@ export const GradingIcon = wrap(IconWriting, "h-5 w-5");
 // ExamIcon, ApplicationIcon and DocumentIcon already own those shapes, and an
 // assignment is the one thing in the sidebar with a box you tick.
 export const AssignmentIcon = wrap(IconChecklist, "h-5 w-5");
+// The unlock condition. A padlock, because that is what the student meets: the
+// screen sets the rule, and the rule is a closed door until it is met.
+export const LockIcon = wrap(IconLock, "h-5 w-5");
 // Self-training. Not a second clipboard: ExamIcon is already one, and a student
 // scanning the sidebar for "the exam" must not have to read two labels to find
 // out which clipboard is the teacher's paper and which is their own.

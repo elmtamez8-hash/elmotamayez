@@ -48,7 +48,9 @@ class BookSeat extends Action
             throw new DomainException('لا يمكن حجز حصة بدأت أو انتهت.');
         }
 
-        $refusal = $this->eligibility->refusalReason($session, $student);
+        // ⚠️ `openingRefusal`, not `refusalReason`: booking is one of the two
+        // doors FR-041 names, so 008's unlock condition is asked here too.
+        $refusal = $this->eligibility->openingRefusal($session, $student);
 
         if ($refusal !== null) {
             throw new DomainException($refusal);

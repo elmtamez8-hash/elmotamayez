@@ -22,6 +22,7 @@ import {
   HomeIcon,
   ExamIcon,
   LearningIcon,
+  LockIcon,
   LogoutIcon,
   MembersIcon,
   MenuIcon,
@@ -104,6 +105,10 @@ const mainNav: NavItem[] = [
   // student's sidebar offer them the exam builder.
   { href: "/assignments", label: "واجباتي", Icon: AssignmentIcon },
   { href: "/manage/assignments", label: "الواجبات", Icon: AssignmentIcon, permission: P.assignmentsManage },
+  // ⚠️ ITS OWN ENTRY, not a tab inside the session calendar. It answers a
+  // question about the WHOLE course — what earns the next class — and a screen
+  // reachable only from one session reads as a setting on that session.
+  { href: "/manage/unlock-rules", label: "شرط فتح الحصة", Icon: LockIcon, permission: P.unlockRulesManage },
   { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },
   { href: "/orders", label: "الطلبات", Icon: OrdersIcon },
   // The student's credits, counted in sessions and never in money. Separate

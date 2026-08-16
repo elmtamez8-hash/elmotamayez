@@ -165,6 +165,24 @@ export interface GenerateResult {
   skipped: Array<{ starts_at: string; reason: string }>;
 }
 
+/**
+ * ⚠️ TWO REFUSALS, KEPT APART. A student can be short of credit AND short of
+ * homework at once; folding them into one string would tell them whichever the
+ * server checked first, and send them to do the wrong thing.
+ */
+export interface SessionEligibility {
+  session_uuid: string;
+  open: boolean;
+  unlock: {
+    open: boolean;
+    reason: string | null;
+    missing: ("attendance" | "assignment" | "score")[];
+    rule_scope: "default" | "course" | "none";
+    exempt: boolean;
+  };
+  booking_refusal: string | null;
+}
+
 export const classSessions = {
   list: (params: { from?: string; to?: string; status?: string } = {}) => {
     const entries = Object.entries(params).filter(
@@ -211,6 +229,16 @@ export const classSessions = {
     api.post<ClassSession>(`/class-sessions/${uuid}/cancel`, { reason }),
 
   book: (uuid: string) => api.post<SessionBooking>(`/class-sessions/${uuid}/book`, {}),
+
+  /**
+   * May I open this one, and if not, what exactly is missing? (FR-038)
+   *
+   * ⚠️ ASKED PER SESSION AND ONLY WHERE ONE IS BEING OPENED. The gate itself is
+   * bulk on the server; this is the single door. Calling it in a list would be
+   * the N+1 the server-side reader exists to prevent, moved into the browser.
+   */
+  eligibility: (uuid: string) =>
+    api.get<{ data: SessionEligibility }>(`/class-sessions/${uuid}/eligibility`),
 
   cancelBooking: (uuid: string) => api.delete<SessionBooking>(`/bookings/${uuid}`),
 

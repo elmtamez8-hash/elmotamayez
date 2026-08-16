@@ -9,6 +9,7 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Shared\Contracts\AccountStanding;
 use App\Shared\Contracts\EnrollmentDirectory;
+use App\Shared\Contracts\UnlockDirectory;
 
 /**
  * What "an eligible student" means, spelled out.
@@ -27,6 +28,7 @@ class BookingEligibility
     public function __construct(
         private readonly EnrollmentDirectory $enrollments,
         private readonly AccountStanding $standing,
+        private readonly UnlockDirectory $unlock,
     ) {}
 
     /** The reason a student may not book, or null when they may. */
@@ -73,9 +75,44 @@ class BookingEligibility
         return "رصيدك في هذا الكورس لا يكفي لحجز حصة جديدة. تحتاج {$needed} حصة على الأقل، وتُشترى من صفحة الأرصدة.";
     }
 
+    /**
+     * The reason a student may not OPEN this session — everything above, plus
+     * spec 008's unlock condition (FR-036 → FR-042).
+     *
+     * ⚠️ A SECOND ENTRY POINT, AND THE SEPARATION IS LOAD-BEARING.
+     * `ReleaseIneligibleBookings` sweeps booked seats through `allows()` and
+     * CANCELS the ones it finds ineligible. Folding the unlock condition into
+     * `refusalReason()` would therefore repossess a paid-for seat over a missed
+     * piece of homework — a punishment no requirement asks for, delivered by a
+     * nightly job with a cancellation notice attached. Losing your enrolment or
+     * running out of credit is a reason to release a seat; not having done your
+     * homework is a reason not to be given the NEXT one.
+     *
+     * Asked at both doors FR-041 names — booking, and entering the room.
+     */
+    public function openingRefusal(ClassSession $session, User $student): ?string
+    {
+        $refusal = $this->refusalReason($session, $student);
+
+        if ($refusal !== null) {
+            return $refusal;
+        }
+
+        return $this->unlock->refusalFor($student, (int) $session->getKey());
+    }
+
+    /**
+     * ⚠️ THE SWEEP'S QUESTION, DELIBERATELY NARROWER. See openingRefusal() for
+     * why the unlock condition is not asked here.
+     */
     public function allows(ClassSession $session, User $student): bool
     {
         return $this->refusalReason($session, $student) === null;
+    }
+
+    public function maySit(ClassSession $session, User $student): bool
+    {
+        return $this->openingRefusal($session, $student) === null;
     }
 
     /**

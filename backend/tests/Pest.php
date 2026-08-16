@@ -22,6 +22,8 @@ use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Actions\CloseClassSession;
 use App\Modules\LiveSessions\Actions\OpenBroadcastRoom;
 use App\Modules\LiveSessions\Actions\RecordPresencePing;
+use App\Modules\LiveSessions\Enums\AttendanceStatus;
+use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
@@ -827,4 +829,56 @@ function courseAssignment(Workspace $workspace, User $author, User $student, arr
     ]);
 
     return [$assignment, $course];
+}
+
+/*
+|--------------------------------------------------------------------------
+| Unlock-gate fixtures (spec 008 · US7)
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * Two sessions of one course, the first already taught and the second ahead.
+ *
+ * ⚠️ THE FIRST MUST BE `completed` AND IN THE PAST. "Previous" is the latest
+ * COUNTABLE earlier session, so a scheduled one is not a predecessor at all —
+ * and a fixture that left it scheduled would make every gate test assert against
+ * the no-previous branch and pass for the wrong reason.
+ *
+ * @return array{0: ClassSession, 1: ClassSession, 2: Course}
+ */
+function gatedPair(Workspace $workspace, User $student): array
+{
+    $course = Course::factory()->create(['workspace_id' => $workspace->getKey()]);
+    test()->createEnrollment($workspace, $course, $student);
+
+    $first = ClassSession::factory()->create([
+        'workspace_id' => $workspace->getKey(),
+        'course_id' => $course->getKey(),
+        'status' => ClassSessionStatus::Completed,
+        'starts_at' => now()->subWeek(),
+        'ends_at' => now()->subWeek()->addHour(),
+    ]);
+
+    $second = ClassSession::factory()->create([
+        'workspace_id' => $workspace->getKey(),
+        'course_id' => $course->getKey(),
+        'status' => ClassSessionStatus::Scheduled,
+        'starts_at' => now()->addWeek(),
+        'ends_at' => now()->addWeek()->addHour(),
+    ]);
+
+    return [$first, $second, $course];
+}
+
+/** The register row a gate reads. */
+function attendanceRow(Workspace $workspace, ClassSession $session, User $student, AttendanceStatus $status): Attendance
+{
+    return Attendance::create([
+        'workspace_id' => $workspace->getKey(),
+        'class_session_id' => $session->getKey(),
+        'student_user_id' => $student->getKey(),
+        'status' => $status,
+        'source' => 'automatic',
+    ]);
 }

@@ -6,6 +6,7 @@ use App\Modules\Assessments\Actions\SubmitAssignment;
 use App\Modules\Assessments\Http\Controllers\SubmissionFileController;
 use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\Submission;
+use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Tenancy\Support\Permissions;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
@@ -173,4 +174,40 @@ it('keeps the state and timing of one student out of a classmate payload', funct
         ->where('assignment_id', $assignment->getKey())
         ->where('student_user_id', $classmate->getKey())
         ->count())->toBe(0);
+});
+
+it('refuses a grader the coursework of somebody the workspace no longer teaches', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $this->setCurrentWorkspace($workspace, $owner);
+
+    $student = $this->addWorkspaceMember($workspace);
+    $assistant = $this->addWorkspaceMember($workspace);
+    $assistant->givePermissionTo(Permissions::SUBMISSIONS_GRADE);
+
+    [$assignment] = courseAssignment($workspace, $owner, $student, ['due_at' => now()->addDay()]);
+
+    $submission = app(SubmitAssignment::class)->handle($assignment, $student, 'إجابتي.');
+
+    // The term ends: the paper stays readable, because it was handed in under an
+    // enrolment on this very course and would otherwise be unmarkable for ever.
+    Enrollment::query()->where('student_user_id', $student->getKey())->update(['status' => 'completed']);
+
+    expect($assistant->can('view', $submission))->toBeTrue();
+
+    /*
+    | ⚠️ AND A ROW WITH NO ENROLMENT BEHIND IT AT ALL IS REFUSED. `submissions.grade`
+    | alone was the whole guard until this test — the same omission `AttemptPolicy`
+    | was fixed for, in the same module, on work a student uploaded. And this
+    | policy is re-run by `SubmissionFileController` at every file open, so the
+    | gap was a permanent read on a former student's uploaded document.
+    */
+    $stranger = $this->addWorkspaceMember($workspace);
+
+    $orphan = Submission::factory()->create([
+        'workspace_id' => $workspace->getKey(),
+        'assignment_id' => $assignment->getKey(),
+        'student_user_id' => $stranger->getKey(),
+    ]);
+
+    expect($assistant->can('view', $orphan))->toBeFalse();
 });

@@ -32,6 +32,16 @@ class ClassSessionResource extends JsonResource
         $booking = $this->bookingFor($viewer?->getKey());
 
         return [
+            /*
+             | ⚠️ STAMPED BY THE CALLER, NEVER ASKED HERE. A Resource runs once
+             | per row, so resolving the unlock condition in this method is six
+             | queries per session on a fifty-row page — the ClassSessionResource
+             | defect this class already carries a fix for once. Null when the
+             | caller did not stamp, which reads as "not asked" rather than
+             | "open": a screen that needs the answer asks for it.
+             */
+            'unlock_open' => $this->getAttribute('unlock_open'),
+            'unlock_reason' => $this->getAttribute('unlock_reason'),
             'uuid' => $this->uuid,
             'title' => $this->title,
             'type' => $this->type->value,
