@@ -131,4 +131,25 @@ class Attempt extends BaseModel
             ->where('status', self::STATUS_IN_PROGRESS)
             ->update(['status' => self::STATUS_GRADING]) === 1;
     }
+
+    /**
+     * Claim the right to close this attempt out, atomically.
+     *
+     * ⚠️ TWO GRADERS FINISHING THE LAST TWO ESSAYS BOTH SEE ZERO LEFT. Each
+     * counts the ungraded answers, each finds none, and each finalizes: two
+     * `AttemptFinalized` events and two "your result is out" messages to one
+     * student. `ExamPassed` is absorbed — its certificate listener is idempotent
+     * — but a notification has no such defence, and the student reads the same
+     * result twice with two different graders' names behind it.
+     *
+     * The false return is the refusal, and it is not an error: it means the
+     * other grader owns the close.
+     */
+    public function claimForFinalize(): bool
+    {
+        return static::query()
+            ->whereKey($this->getKey())
+            ->where('status', self::STATUS_PENDING_GRADING)
+            ->update(['status' => self::STATUS_GRADED]) === 1;
+    }
 }

@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Assessments\Actions\GradeAttempt;
+use App\Modules\Assessments\Actions\StartAttempt;
 use App\Modules\Assessments\Enums\DuplicatePolicy;
 use App\Modules\Assessments\Models\Answer;
 use App\Modules\Assessments\Models\Attempt;
@@ -717,4 +719,79 @@ function enrolledLesson(Workspace $workspace, User $student): Lesson
         'workspace_id' => $workspace->getKey(),
         'course_id' => $course->getKey(),
     ]);
+}
+
+/*
+|--------------------------------------------------------------------------
+| Essay-grading fixtures (spec 008 · US5)
+|--------------------------------------------------------------------------
+|
+| Here rather than in the first spec file that needed them, for the reason
+| written twice above: a helper declared in a test file exists only for the
+| files Pest loads after it.
+*/
+
+/**
+ * A published exam holding one essay and one multiple-choice question, sat and
+ * handed in by this student.
+ *
+ * ⚠️ IT GOES THROUGH `GradeAttempt`, NEVER THROUGH A HAND-WRITTEN ROW. The whole
+ * subject of US5 is what submission does when a person is still needed —
+ * `pending_grading`, no `ExamPassed`, the auto-score alone — and a fixture that
+ * wrote the attempt itself would assert against its own arrangement.
+ *
+ * @return array{0: Exam, 1: Attempt, 2: Question}
+ */
+function sitEssayExam(Workspace $workspace, User $student, int $essayPoints = 10, int $passingScore = 60, int $essays = 1): array
+{
+    $course = Course::factory()->create(['workspace_id' => $workspace->getKey()]);
+    test()->createEnrollment($workspace, $course, $student);
+
+    $exam = Exam::factory()->create([
+        'workspace_id' => $workspace->getKey(),
+        // ⚠️ ATTACHED TO THE COURSE, and it matters beyond realism: `StartAttempt`
+        // records `enrollment_id` only for an exam that belongs to one, and that
+        // column is what keeps a paper readable — and therefore markable — after
+        // the term it was handed in during has ended.
+        'course_id' => $course->getKey(),
+        'status' => 'published',
+        'passing_score' => $passingScore,
+        'max_attempts' => 3,
+    ]);
+
+    $first = null;
+
+    foreach (range(1, $essays) as $index) {
+        $essay = bankQuestion($workspace, $exam, [
+            'type' => 'essay',
+            'points' => $essayPoints,
+            'content' => "اشرح قانون نيوتن رقم {$index}.",
+        ]);
+
+        $first ??= $essay;
+    }
+
+    $essayQuestions = $exam->items()->pluck('question_id')->all();
+
+    $mcq = practiceQuestion($workspace, 'واحدٌ زائد واحد يساوي اثنين؟');
+    ExamItem::create([
+        'workspace_id' => $workspace->getKey(),
+        'exam_id' => $exam->getKey(),
+        'question_id' => $mcq->getKey(),
+        'order' => 2,
+    ]);
+
+    $attempt = app(StartAttempt::class)->handle($exam, $student);
+
+    $correct = (int) $mcq->options->firstWhere('is_correct', true)->getKey();
+
+    $payload = [['question_id' => (int) $mcq->getKey(), 'selected_option_ids' => [$correct]]];
+
+    foreach ($essayQuestions as $questionId) {
+        $payload[] = ['question_id' => (int) $questionId, 'answer_text' => 'القوة تساوي الكتلة في العجلة.'];
+    }
+
+    app(GradeAttempt::class)->handle($attempt, $payload);
+
+    return [$exam, $attempt->refresh(), $first];
 }

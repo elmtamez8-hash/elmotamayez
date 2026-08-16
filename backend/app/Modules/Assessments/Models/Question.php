@@ -128,6 +128,20 @@ class Question extends BaseModel
     }
 
     /**
+     * The mark scheme, if the teacher wrote one (FR-028).
+     *
+     * Optional by design: an essay with no criteria is graded as one number,
+     * which is how most of them are graded today. What is not optional is that
+     * the criteria, once written, add up to no more than the question is worth.
+     *
+     * @return HasMany<RubricCriterion, $this>
+     */
+    public function rubricCriteria(): HasMany
+    {
+        return $this->hasMany(RubricCriterion::class)->orderBy('order')->orderBy('id');
+    }
+
+    /**
      * Questions a teacher may still put into a new exam.
      *
      * Disabled ones stay readable for ever — every past attempt renders through

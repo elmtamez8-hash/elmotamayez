@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CheckIcon } from "@/components/icons";
 import { userMessage } from "@/lib/errors";
+import { TONE_CLASSES } from "@/lib/labels";
 import { practice, type PracticePaper, type PracticeResult } from "@/lib/practice";
 
 /**
@@ -85,9 +86,13 @@ export function PracticeRunner({
             <div className="mb-3 flex items-start gap-3">
               <span
                 className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-medium ${
-                  review.is_correct
-                    ? "bg-success-soft text-success-ink"
-                    : "bg-danger-soft text-danger-ink"
+                  /* ⚠️ `bg-success-soft` AND `bg-danger-soft` ARE NOT TOKENS,
+                     and Tailwind emits no rule for a token that does not exist —
+                     so the class was present, correct-looking, and painted
+                     nothing. Right and wrong were told apart by a number in an
+                     unfilled circle. The tones come from TONE_CLASSES, where the
+                     rest of the product's statuses already live. */
+                  review.is_correct ? TONE_CLASSES.success : TONE_CLASSES.danger
                 }`}
               >
                 <bdi>{index + 1}</bdi>

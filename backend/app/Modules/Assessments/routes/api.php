@@ -8,6 +8,7 @@ use App\Modules\Assessments\Http\Controllers\BankController;
 use App\Modules\Assessments\Http\Controllers\ConceptController;
 use App\Modules\Assessments\Http\Controllers\ExamController;
 use App\Modules\Assessments\Http\Controllers\ExamItemsController;
+use App\Modules\Assessments\Http\Controllers\GradingController;
 use App\Modules\Assessments\Http\Controllers\ImportController;
 use App\Modules\Assessments\Http\Controllers\MistakeController;
 use App\Modules\Assessments\Http\Controllers\PracticeController;
@@ -120,6 +121,33 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/practice/exams', [PracticeController::class, 'store'])
         ->middleware('throttle:practice');
     Route::get('/practice/attempts/{attempt}/result', [PracticeController::class, 'result']);
+
+    /*
+     | The grading board (spec 008 · US5).
+     |
+     | The two GETs carry no limiter — they are reads behind `grading.perform`
+     | with a declared eager-load budget. The writes carry `throttle:authoring`,
+     | the same limiter the bank uses: each one appends to an append-only table
+     | and may close an attempt out, notify a student and re-issue a result.
+     |
+     | ⚠️ The rubric hangs off the QUESTION, not off the exam. A mark scheme
+     | belongs to the question wherever it is used, which is the whole point of
+     | the bank — putting it on the exam would mean writing it again for every
+     | paper the question appears in, and the second copy is the one that drifts.
+     */
+    Route::prefix('manage/grading')->group(function (): void {
+        Route::get('/queue', [GradingController::class, 'queue']);
+        Route::get('/attempts/{attempt}', [GradingController::class, 'show']);
+
+        Route::middleware('throttle:authoring')->group(function (): void {
+            Route::post('/answers/{answer}', [GradingController::class, 'grade']);
+            Route::patch('/answers/{answer}', [GradingController::class, 'revise']);
+            Route::patch('/settings', [GradingController::class, 'updateSettings']);
+        });
+    });
+
+    Route::put('/manage/bank/questions/{question}/rubric', [GradingController::class, 'saveRubric'])
+        ->middleware('throttle:authoring');
 
     // Attempts (student-facing).
     Route::post('/exams/{exam}/attempts', [AttemptController::class, 'start']);

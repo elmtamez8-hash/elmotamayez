@@ -72,6 +72,7 @@ import {
   IconWallet,
   IconX,
   type Icon as TablerIcon,
+  IconWriting,
 } from "@tabler/icons-react";
 
 export type IconProps = {
@@ -145,6 +146,10 @@ export const ItemAnalysisIcon = wrap(IconChartHistogram, "h-5 w-5");
 // is where a mistake gets corrected, and a hazard sign in a sidebar reads as
 // something wrong with the product.
 export const MistakesIcon = wrap(IconEraser, "h-5 w-5");
+// The grading board. A pen rather than a third clipboard: ExamIcon and
+// ApplicationIcon already own that shape, and this entry is the one act in the
+// sidebar where the teacher WRITES on somebody else's paper.
+export const GradingIcon = wrap(IconWriting, "h-5 w-5");
 // Self-training. Not a second clipboard: ExamIcon is already one, and a student
 // scanning the sidebar for "the exam" must not have to read two labels to find
 // out which clipboard is the teacher's paper and which is their own.

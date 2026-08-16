@@ -36,7 +36,10 @@ class FinalizeAttempt extends Action
             $items = $attempt->items()->get();
 
             $totalPoints = (int) $items->sum('points');
-            $earnedPoints = (int) $answers->sum('points');
+            // ⚠️ FLOAT, NOT INT. A rubric awards halves, and an `(int)` here
+            // rounds the whole paper down once per essay — after the mark scheme
+            // has already been validated as adding up.
+            $earnedPoints = (float) $answers->sum('points');
 
             $maxScore = max($totalPoints, 1);
             $scorePct = round(($earnedPoints / $maxScore) * 100, 2);

@@ -79,6 +79,18 @@ enum NotificationType: string
     */
     case QuestionImportFailed = 'question_import_failed';
 
+    /*
+    | ⚠️ AND ITS OWN TYPE FOR "HANDED IN BUT NOT FINISHED", separate from
+    | ExamResult. An attempt waiting on an essay carries the machine-marked total
+    | and nothing else, so the student who answered every essay perfectly reads
+    | the mark for the multiple choice alone and concludes they failed. Sending
+    | ExamResult there would be a true sentence about a number that is not their
+    | result — and it reaches guardians, who would then be told the same.
+    |
+    | Optional and student-only: nothing about it changes what the account can do.
+    */
+    case ExamPendingGrading = 'exam_pending_grading';
+
     public function label(): string
     {
         return match ($this) {
@@ -113,6 +125,7 @@ enum NotificationType: string
             self::AccessRestored => 'استئناف الوصول',
             self::QuestionImportReady => 'تقرير استيراد الأسئلة',
             self::QuestionImportFailed => 'تعذّر استيراد الأسئلة',
+            self::ExamPendingGrading => 'ورقتك بانتظار التصحيح',
         };
     }
 

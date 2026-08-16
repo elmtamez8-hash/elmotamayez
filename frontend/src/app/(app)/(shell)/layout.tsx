@@ -8,6 +8,8 @@ import { PLATFORM_NAME } from "@/lib/platform";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { P, can } from "@/lib/permissions";
+import { TONE_CLASSES } from "@/lib/labels";
+import { grading } from "@/lib/grading";
 import {
   BellIcon,
   CertificateIcon,
@@ -15,6 +17,7 @@ import {
   CoursesIcon,
   CreditsIcon,
   FamilyIcon,
+  GradingIcon,
   HomeIcon,
   ExamIcon,
   LearningIcon,
@@ -49,6 +52,8 @@ type NavItem = {
   label: string;
   Icon: ComponentType<IconProps>;
   permission?: string;
+  /** Renders the waiting count beside the label — see `pendingGrading` below. */
+  badge?: "grading";
 };
 
 const mainNav: NavItem[] = [
@@ -86,6 +91,12 @@ const mainNav: NavItem[] = [
   // "what do I have" — and a screen reachable only from another screen is a
   // screen nobody opens.
   { href: "/manage/analytics/questions", label: "تحليل الأسئلة", Icon: ItemAnalysisIcon, permission: P.analyticsView },
+  // ⚠️ WITH ITS COUNT, and the count is the whole reason the entry earns a
+  // place. A paper waiting to be marked is a student waiting for a result they
+  // were told was coming — and unlike every other screen here, nothing else in
+  // the product tells the teacher it is there. A link with no number is one they
+  // remember to open on the days they were already going to.
+  { href: "/manage/grading", label: "لوحة التصحيح", Icon: GradingIcon, permission: P.gradingPerform, badge: "grading" },
   { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },
   { href: "/orders", label: "الطلبات", Icon: OrdersIcon },
   // The student's credits, counted in sessions and never in money. Separate
@@ -151,6 +162,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
   // panel is not merely cramped on a phone — the nav intercepts every click
   // meant for the content behind it.
   const [navOpen, setNavOpen] = useState(false);
+  const [pendingGrading, setPendingGrading] = useState(0);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -161,6 +173,25 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
   // Closed on every navigation. The drawer sits above the page on a phone, so
   // one left open covers the screen the link just went to.
   useEffect(() => setNavOpen(false), [pathname]);
+
+  /*
+   * How many papers are waiting on this teacher.
+   *
+   * ⚠️ RE-READ ON EVERY NAVIGATION, NOT POLLED. The bell polls because an
+   * eviction has to reach a page nobody is touching; a grading count does not —
+   * the teacher who just marked a paper is the one whose number changed, and
+   * they navigate immediately afterwards. A second interval on every panel page
+   * would be a request a minute, for ever, for a number that moves twice a day.
+   */
+  useEffect(() => {
+    if (!can(user, P.gradingPerform)) return;
+
+    grading
+      .queue(1, 1)
+      .then((response) => setPendingGrading(response.meta?.total ?? 0))
+      // Silent: a failed count must never take the sidebar down with it.
+      .catch(() => setPendingGrading(0));
+  }, [user, pathname]);
 
   if (loading) {
     return (
@@ -174,7 +205,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
 
   const allowed = (items: NavItem[]) => items.filter((item) => can(user, item.permission));
 
-  const renderItem = ({ href, label, Icon }: NavItem) => {
+  const renderItem = ({ href, label, Icon, badge }: NavItem) => {
     const active = pathname === href || pathname.startsWith(href + "/");
     return (
       <Link
@@ -188,7 +219,16 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
         }`}
       >
         <Icon className="h-5 w-5" />
-        {label}
+        <span className="flex-1">{label}</span>
+        {badge === "grading" && pendingGrading > 0 && (
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+              active ? "bg-white/20 text-white" : TONE_CLASSES.warning
+            }`}
+          >
+            <bdi>{pendingGrading}</bdi>
+          </span>
+        )}
       </Link>
     );
   };

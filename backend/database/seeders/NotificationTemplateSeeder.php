@@ -152,6 +152,17 @@ class NotificationTemplateSeeder extends Seeder
                 ['filename', 'reason'],
             ],
             /*
+            | ⚠️ NO SCORE IN THIS ONE, DELIBERATELY. The attempt already holds the
+            | machine-marked total, and quoting it here would tell a student who
+            | wrote perfect essays that they scored 40 — a true number that is not
+            | their result. The whole message is "not yet".
+            */
+            NotificationType::ExamPendingGrading->value => [
+                'تسلّمنا ورقتك في «{{ exam_title }}»',
+                'تسلّمنا ورقة {{ student_name }} في «{{ exam_title }}». فيها أسئلة مقالية ينتظر تصحيحُها المدرّس، وتصلك النتيجة كاملةً بعده.',
+                ['student_name', 'exam_title'],
+            ],
+            /*
             | The payment path (007).
             |
             | ⚠️ NO AMOUNT IN ANY OF THEM, and that is not an omission. A credit's

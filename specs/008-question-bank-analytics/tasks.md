@@ -260,26 +260,26 @@
 
 **Independent Test**: اختبارٌ فيه مقاليّ ⇒ محاولةٌ ⇒ تصحيح ⇒ التحقّق من المجموع.
 
-- [ ] T120 [US5] هجرة ‎٨‎: `rubric_criteria` و`grading_records` في `..._000800_create_grading_tables.php` — ⚠️ **[‏مر‏]** **بلا قيدٍ فريد على `grading_records`**: `unique(answer_id, rubric_criterion_id, revision_of)` وعمودان منه قابلان للإفراغ، و**NULL لا يصطدم بـNULL**، فلا يعضّ في الحالة الأساسية بالضبط
-- [ ] T121 [US5] في نفس الهجرة: `rubric_criteria.max_points` و`grading_records.points` من نوع `decimal(5,2)`، و`submissions.score` **بإشارة** — ⚠️ **[‏مر‏]** عمودٌ صحيح يقصّ ‎٢٫٥‎ **بعد** أن يمرّ فحصُ `SUM ≤ points`، وعديمُ الإشارة يرمي `ERROR 1690` على MySQL وحدها
-- [ ] T122 [P] [US5] نموذجا `RubricCriterion` و`GradingRecord` ومصنعاهما
-- [ ] T123 [US5] `SaveRubric` في `.../Actions/SaveRubric.php` — **مجموع `max_points` ≤ درجة السؤال، يُفرَض في الـAction** (`FR-028` · `SC-010`)
-- [ ] T124 [US5] `GradeEssayAnswer` في `.../Actions/GradeEssayAnswer.php` — ⚠️ **[‏مر‏]** الكشف بمطالبةٍ ذرّية على **`exam_answers`**: `UPDATE … WHERE graded_at IS NULL`، والصفر المُعاد هو التعارض؛ ثم تُدرَج صفوف `grading_records` في المعاملة نفسها. **و`lockForUpdate()` ممنوع** — بلا أثرٍ على SQLite فيمرّ الاختبار محلياً ولا يثبت شيئاً
-- [ ] T125 [US5] `ReviseGrade` في `.../Actions/ReviseGrade.php` — قيدٌ جديد بـ`revision_of` و**سببٍ إلزامي**، بمطالبة `WHERE grading_version = ?` (`FR-032`)
-- [ ] T126 [US5] `FinalizeAttempt` في `.../Actions/FinalizeAttempt.php` — المجموع، `finalized_at`، الإشعار، **ثم** `ExamPassed`/`ExamFailed`
-- [ ] T127 [US5] في `GradeAttempt`: الاختبار ذو المقاليّ يقف عند `pending_grading` — ⚠️ **ولا يُطلَق `ExamPassed` ولا `ExamFailed`**: عقد الشهادات مشحون، وإطلاقه على درجةٍ ناقصة يصدر شهادةً على نصف اختبار — والمستمع idempotent فلا يُصدرها مرّتين، **لكنه لا يسحب واحدةً صدرت**
-- [ ] T128 [P] [US5] `AttemptPendingGrading` و`AttemptFinalized` في `.../Events/` ومستمعاهما في مركز الإشعارات
-- [ ] T129 [P] [US5] قوالب الإشعارين في `NotificationTemplateSeeder.php`
-- [ ] T130 [P] [US5] `GradingPolicy` على `GRADING_PERFORM` و`GRADING_REVISE`
-- [ ] T131 [US5] `GradingController` — طابور المنتظر مُرشَّحاً ومرتَّباً (`FR-027`)، ⚠️ **بتحميلٍ مسبق مُعلَن**: ‎٥٠٠‎ محاولة × ثلاثة استعلاماتٍ للصفّ = ‎١٥٠٠‎، والسقف ‎١٥‎
-- [ ] T132 [US5] إخفاء الهوية: إعدادُ مساحةٍ يُطبَّق **في الـResource** (`FR-033`) — ⚠️ صفحةٌ تخفي الاسم بينما الحمولة تحمله إخفاءٌ يكشفه فتحُ أدوات المطوّر؛ **وإطفاؤه فعلٌ يُسجَّل في `activity_log`**
-- [ ] T133 [US5] ⚠️ **[‏مر‏]** وسّع `.../Policies/AttemptPolicy.php`: القراءة تشترط **تسجيلاً نشطاً أو محاولةً وقعت داخل تسجيلٍ سابق في هذه المساحة** — الحارس اليوم `ATTEMPTS_VIEW_ALL` وحدها، فيقرأ المساعدُ نصّ إجابة طالبٍ انتهى تسجيله قبل عام؛ والفرع الثاني يمنع محاولةً منتظرةً من أن تعلق بلا مصحّح
-- [ ] T134 [P] [US5] `frontend/src/lib/grading.ts` و`frontend/src/app/(app)/(shell)/manage/grading/page.tsx` و`.../[uuid]/page.tsx`
-- [ ] T135 [US5] ⚠️ **رابطٌ وارد** للوحة التصحيح، **بعدّاد المنتظر** في قائمة المدرّس
-- [ ] T136 [P] [US5] `backend/tests/Feature/Assessments/EssayGradingTest.php` — المجموع يُحتسب، الطالب يُبلَّغ، **والشهادة تُقيَّم الآن لا قبل** (`SC-011`)
-- [ ] T137 [P] [US5] `backend/tests/Feature/Assessments/CertificateDeferralTest.php` — ⚠️ **يجب أن يفشل قبل الإصلاح**: محاولةٌ فيها مقاليّ تُسلَّم ⇒ **لا شهادة صدرت**
-- [ ] T138 [P] [US5] ⚠️ **[‏مر‏]** `backend/tests/Feature/Assessments/GradingConflictTest.php` — مصحّحان على إجابةٍ **بلا معايير** (‏الحالة التي كان القيد يخرج فيها من الخدمة) ⇒ الثاني يُكشَف. **يُدرِج مرّتين فعلاً** (`SC-021`)
-- [ ] T139 [P] [US5] `backend/tests/Feature/Assessments/RubricBoundsTest.php` — صفر مجموع معايير يتجاوز درجة سؤاله (`SC-010`)
+- [x] T120 [US5] هجرة ‎٨‎: `rubric_criteria` و`grading_records` في `..._000800_create_grading_tables.php` — ⚠️ **[‏مر‏]** **بلا قيدٍ فريد على `grading_records`**: `unique(answer_id, rubric_criterion_id, revision_of)` وعمودان منه قابلان للإفراغ، و**NULL لا يصطدم بـNULL**، فلا يعضّ في الحالة الأساسية بالضبط
+- [x] T121 [US5] في نفس الهجرة: `rubric_criteria.max_points` و`grading_records.points` من نوع `decimal(5,2)`، و`submissions.score` **بإشارة** — ⚠️ **[‏مر‏]** عمودٌ صحيح يقصّ ‎٢٫٥‎ **بعد** أن يمرّ فحصُ `SUM ≤ points`، وعديمُ الإشارة يرمي `ERROR 1690` على MySQL وحدها
+- [x] T122 [P] [US5] نموذجا `RubricCriterion` و`GradingRecord` ومصنعاهما
+- [x] T123 [US5] `SaveRubric` في `.../Actions/SaveRubric.php` — **مجموع `max_points` ≤ درجة السؤال، يُفرَض في الـAction** (`FR-028` · `SC-010`)
+- [x] T124 [US5] `GradeEssayAnswer` في `.../Actions/GradeEssayAnswer.php` — ⚠️ **[‏مر‏]** الكشف بمطالبةٍ ذرّية على **`exam_answers`**: `UPDATE … WHERE graded_at IS NULL`، والصفر المُعاد هو التعارض؛ ثم تُدرَج صفوف `grading_records` في المعاملة نفسها. **و`lockForUpdate()` ممنوع** — بلا أثرٍ على SQLite فيمرّ الاختبار محلياً ولا يثبت شيئاً
+- [x] T125 [US5] `ReviseGrade` في `.../Actions/ReviseGrade.php` — قيدٌ جديد بـ`revision_of` و**سببٍ إلزامي**، بمطالبة `WHERE grading_version = ?` (`FR-032`)
+- [x] T126 [US5] `FinalizeAttempt` في `.../Actions/FinalizeAttempt.php` — المجموع، `finalized_at`، الإشعار، **ثم** `ExamPassed`/`ExamFailed`
+- [x] T127 [US5] في `GradeAttempt`: الاختبار ذو المقاليّ يقف عند `pending_grading` — ⚠️ **ولا يُطلَق `ExamPassed` ولا `ExamFailed`**: عقد الشهادات مشحون، وإطلاقه على درجةٍ ناقصة يصدر شهادةً على نصف اختبار — والمستمع idempotent فلا يُصدرها مرّتين، **لكنه لا يسحب واحدةً صدرت**
+- [x] T128 [P] [US5] `AttemptPendingGrading` و`AttemptFinalized` في `.../Events/` ومستمعاهما في مركز الإشعارات
+- [x] T129 [P] [US5] قوالب الإشعارين في `NotificationTemplateSeeder.php`
+- [x] T130 [P] [US5] `GradingPolicy` على `GRADING_PERFORM` و`GRADING_REVISE`
+- [x] T131 [US5] `GradingController` — طابور المنتظر مُرشَّحاً ومرتَّباً (`FR-027`)، ⚠️ **بتحميلٍ مسبق مُعلَن**: ‎٥٠٠‎ محاولة × ثلاثة استعلاماتٍ للصفّ = ‎١٥٠٠‎، والسقف ‎١٥‎
+- [x] T132 [US5] إخفاء الهوية: إعدادُ مساحةٍ يُطبَّق **في الـResource** (`FR-033`) — ⚠️ صفحةٌ تخفي الاسم بينما الحمولة تحمله إخفاءٌ يكشفه فتحُ أدوات المطوّر؛ **وإطفاؤه فعلٌ يُسجَّل في `activity_log`**
+- [x] T133 [US5] ⚠️ **[‏مر‏]** وسّع `.../Policies/AttemptPolicy.php`: القراءة تشترط **تسجيلاً نشطاً أو محاولةً وقعت داخل تسجيلٍ سابق في هذه المساحة** — الحارس اليوم `ATTEMPTS_VIEW_ALL` وحدها، فيقرأ المساعدُ نصّ إجابة طالبٍ انتهى تسجيله قبل عام؛ والفرع الثاني يمنع محاولةً منتظرةً من أن تعلق بلا مصحّح
+- [x] T134 [P] [US5] `frontend/src/lib/grading.ts` و`frontend/src/app/(app)/(shell)/manage/grading/page.tsx` و`.../[uuid]/page.tsx`
+- [x] T135 [US5] ⚠️ **رابطٌ وارد** للوحة التصحيح، **بعدّاد المنتظر** في قائمة المدرّس
+- [x] T136 [P] [US5] `backend/tests/Feature/Assessments/EssayGradingTest.php` — المجموع يُحتسب، الطالب يُبلَّغ، **والشهادة تُقيَّم الآن لا قبل** (`SC-011`)
+- [x] T137 [P] [US5] `backend/tests/Feature/Assessments/CertificateDeferralTest.php` — ⚠️ **يجب أن يفشل قبل الإصلاح**: محاولةٌ فيها مقاليّ تُسلَّم ⇒ **لا شهادة صدرت**
+- [x] T138 [P] [US5] ⚠️ **[‏مر‏]** `backend/tests/Feature/Assessments/GradingConflictTest.php` — مصحّحان على إجابةٍ **بلا معايير** (‏الحالة التي كان القيد يخرج فيها من الخدمة) ⇒ الثاني يُكشَف. **يُدرِج مرّتين فعلاً** (`SC-021`)
+- [x] T139 [P] [US5] `backend/tests/Feature/Assessments/RubricBoundsTest.php` — صفر مجموع معايير يتجاوز درجة سؤاله (`SC-010`)
 
 ---
 

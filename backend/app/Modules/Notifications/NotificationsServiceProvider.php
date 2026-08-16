@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Notifications;
 
+use App\Modules\Assessments\Events\AttemptFinalized;
+use App\Modules\Assessments\Events\AttemptPendingGrading;
 use App\Modules\Assessments\Events\QuestionImported;
 use App\Modules\Certificates\Events\CertificateIssued;
 use App\Modules\Certificates\Events\CertificateRegenerated;
@@ -17,6 +19,8 @@ use App\Modules\Notifications\Listeners\NotifyImportReady;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateIssued;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateRegenerated;
 use App\Modules\Notifications\Listeners\NotifyStudentEnrolled;
+use App\Modules\Notifications\Listeners\NotifyStudentExamResult;
+use App\Modules\Notifications\Listeners\NotifyStudentGradingPending;
 use App\Modules\Notifications\Listeners\NotifyTeacherApproved;
 use App\Modules\Notifications\Listeners\NotifyTeacherChangesRequested;
 use App\Modules\Notifications\Listeners\NotifyTeacherRejected;
@@ -64,5 +68,15 @@ class NotificationsServiceProvider extends Module
         // the tab. This notification is the only route back to the report naming
         // the rows that failed.
         Event::listen(QuestionImported::class, NotifyImportReady::class);
+
+        /*
+        | Spec 008 — the two halves of one sitting. `AttemptPendingGrading` says
+        | the paper is in and unfinished, `AttemptFinalized` says the score is
+        | final. Two events rather than one carrying a flag, because the listener
+        | that must never treat the difference as optional is the certificate one
+        | behind `ExamPassed`.
+        */
+        Event::listen(AttemptPendingGrading::class, NotifyStudentGradingPending::class);
+        Event::listen(AttemptFinalized::class, NotifyStudentExamResult::class);
     }
 }

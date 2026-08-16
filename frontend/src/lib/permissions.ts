@@ -20,6 +20,7 @@ export const P = {
   settlementStatement: "settlement.statement.view",
   bankView: "bank.view",
   analyticsView: "analytics.view",
+  gradingPerform: "grading.perform",
   billingSettings: "billing.settings.manage",
   billingBalanceView: "billing.balance.view",
   billingExamMode: "billing.exam_mode.manage",

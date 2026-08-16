@@ -10,6 +10,7 @@ use App\Modules\Assessments\Support\MistakeNotebook;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * One student's answer to one question in one attempt.
@@ -62,7 +63,11 @@ class Answer extends BaseModel
         return [
             'selected_option_ids' => 'array',
             'is_correct' => 'boolean',
-            'points' => 'integer',
+            // ⚠️ DECIMAL SINCE THE RUBRIC LANDED. A criterion worth 2.5 passes
+            // its `SUM ≤ question points` check and then loses the half here,
+            // after every validation, silently. The cast returns a STRING (the
+            // `decimal:2` gotcha), so arithmetic on it is explicitly (float).
+            'points' => 'decimal:2',
             'requires_grading' => 'boolean',
             'graded_at' => 'datetime',
             'grading_version' => 'integer',
@@ -91,6 +96,27 @@ class Answer extends BaseModel
     public function grader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'graded_by');
+    }
+
+    /** @return HasMany<GradingRecord, $this> */
+    public function gradingRecords(): HasMany
+    {
+        return $this->hasMany(GradingRecord::class, 'answer_id')->orderBy('id');
+    }
+
+    /**
+     * The marks that count right now.
+     *
+     * The table is append-only, so a revised answer holds both the old records
+     * and the new ones; the answer's own `grading_version` is what says which
+     * generation is current. Filtering on `revision_of IS NULL` instead would
+     * keep the FIRST grade for ever.
+     *
+     * @return HasMany<GradingRecord, $this>
+     */
+    public function currentGradingRecords(): HasMany
+    {
+        return $this->gradingRecords()->where('grading_version', $this->grading_version);
     }
 
     /**
