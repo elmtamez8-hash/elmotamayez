@@ -353,11 +353,11 @@
   - ⚠️ **آخرُ كاتبٍ للعمود كان خارج الجرد**: `DemoDataSeeder`. `SeedCommand` يشغّل كلّ بذرةٍ داخل `Model::unguarded()`، فإسقاط `exam_id` من `$fillable` حمى التطبيق وترك البذرة تكتبه. و`migrate --seed` كان **مكسوراً** أصلاً لسببين متراكمين: العمودُ `concept_id` صار `NOT NULL` في 008، وأرضيّةُ الرصيد في 006 ترفض الحجز الأخير.
 - [x] T184 [P] `backend/tests/Feature/Assessments/QueryBudgetTest.php` — البنك ولوحة التصحيح ودفتر الأخطاء، **بطلب إحماءٍ واحد قبل القياس** لأن ذاكرة صلاحيات spatie تُملأ في أول طلبٍ مُصادَق
 - [x] T185 [P] `backend/tests/Feature/Assessments/AssessmentExposureTest.php` — كل حمولةٍ مُعدَّدة ضدّ `AssessmentFieldAllowlist`، **و«طالب ب يطلب موارد طالب أ» على كل مسارٍ يقبل uuid**
-- [ ] T186 [P] حدّث `backend/database/seeders/ScenarioSeeder.php` ببنكٍ وواجباتٍ وتسهيلٍ وشرطِ فتحٍ للعرض المحلّي
-- [ ] T187 [P] حدّث `docs/README.md` (‏جداول الوحدات والمسارات والصلاحيات) و`docs/erd.md` بالجداول الأحد عشر الجديدة
-- [ ] T188 [P] أضف إلى `CLAUDE.md` و`AGENTS.md` الدروس التي لا يُمسكها اختبار: القيدُ الفريد على عمودٍ قابل للإفراغ · اللقطة والمقام · بِركةُ التدريب · `insertOrIgnore` في المكنسة
-- [ ] T189 [P] `frontend/e2e/assessments.spec.ts` — البنك والتصحيح والدفتر والواجب، ⚠️ بـ`PHP_CLI_SERVER_WORKERS=8 php artisan serve`
-- [ ] T190 شغّل البوابات الأربع: `php vendor/bin/pest` · `./vendor/bin/pint --test` · `./vendor/bin/phpstan analyse` · `npx tsc --noEmit` (`SC-019`)
+- [x] T186 [P] حدّث `backend/database/seeders/ScenarioSeeder.php` ببنكٍ وواجباتٍ وتسهيلٍ وشرطِ فتحٍ للعرض المحلّي
+- [x] T187 [P] حدّث `docs/README.md` (‏جداول الوحدات والمسارات والصلاحيات) و`docs/erd.md` بالجداول الأحد عشر الجديدة
+- [x] T188 [P] أضف إلى `CLAUDE.md` و`AGENTS.md` الدروس التي لا يُمسكها اختبار: القيدُ الفريد على عمودٍ قابل للإفراغ · اللقطة والمقام · بِركةُ التدريب · `insertOrIgnore` في المكنسة
+- [x] T189 [P] `frontend/e2e/assessments.spec.ts` — البنك والتصحيح والدفتر والواجب، ⚠️ بـ`PHP_CLI_SERVER_WORKERS=8 php artisan serve`
+- [x] T190 شغّل البوابات الأربع: `php vendor/bin/pest` · `./vendor/bin/pint --test` · `./vendor/bin/phpstan analyse` · `npx tsc --noEmit` (`SC-019`)
 
 ---
 

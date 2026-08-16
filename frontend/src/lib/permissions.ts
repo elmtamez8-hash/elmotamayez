@@ -22,7 +22,13 @@ export const P = {
   analyticsView: "analytics.view",
   gradingPerform: "grading.perform",
   assignmentsManage: "assignments.manage",
-  unlockRulesManage: "unlock.rules.manage",
+  // ⚠️ UNDERSCORE, NOT A DOT. `Permissions::UNLOCK_RULES_MANAGE` is
+  // `unlock_rules.manage`; this string said `unlock.rules.manage` from the day
+  // US7 shipped, so the sidebar entry matched nobody and the screen was
+  // reachable only by typing its address. Nothing failed — a permission name
+  // that matches no permission is indistinguishable from a reader who lacks it,
+  // which is why `e2e/assessments.spec.ts` clicks the link instead of `goto`.
+  unlockRulesManage: "unlock_rules.manage",
   billingSettings: "billing.settings.manage",
   billingBalanceView: "billing.balance.view",
   billingExamMode: "billing.exam_mode.manage",
