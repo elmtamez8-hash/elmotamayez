@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Assessments\Jobs\MarkMissedSubmissionsJob;
 use App\Modules\Assessments\Jobs\RollUpQuestionStatsJob;
 use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
 use App\Modules\Media\Jobs\PruneExpiredGrantsJob;
@@ -146,4 +147,21 @@ Schedule::job(new ReconcilePaymentsJob, 'maintenance')
 // does not change between breakfast and lunch.
 Schedule::job(new RollUpQuestionStatsJob, 'maintenance')
     ->dailyAt('05:15')
+    ->withoutOverlapping();
+
+/*
+| The deadline that has passed, written down (FR-051).
+|
+| 04:55, clear of the credit reconciliation at 04:45 and of the item-analysis
+| rollup at 05:15 — this one walks every workspace's published assignments and
+| has no business sharing a minute with a job that holds a transaction per
+| teacher. Its own queue for the same reason every billing sweep has one.
+|
+| Daily, and never more often: the state it writes is "the deadline is gone",
+| which becomes true once per assignment and never becomes false again. What it
+| feeds is US7's unlock gate, which should find the night's verdicts already in
+| place when the first student opens the app in the morning.
+*/
+Schedule::job(new MarkMissedSubmissionsJob, 'maintenance')
+    ->dailyAt('04:55')
     ->withoutOverlapping();

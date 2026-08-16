@@ -157,6 +157,24 @@ class NotificationTemplateSeeder extends Seeder
             | wrote perfect essays that they scored 40 — a true number that is not
             | their result. The whole message is "not yet".
             */
+            /*
+            | Homework. The graded one names the penalty, and `penalty_note` is
+            | never empty: TemplateRenderer counts present-but-empty as missing
+            | and refuses to render, so an "omit it when there is nothing to say"
+            | clause would drop the whole message for every student who handed in
+            | on time. A mark lower than expected with no stated cause is the
+            | message a student replies to; a message that never arrives is worse.
+            */
+            NotificationType::AssignmentSubmitted->value => [
+                'تسليم جديد في «{{ assignment_title }}»',
+                'سلّم {{ student_name }} واجب «{{ assignment_title }}». افتح اللوحة لتصحيحه.',
+                ['student_name', 'assignment_title'],
+            ],
+            NotificationType::AssignmentGraded->value => [
+                'صُحّح واجب «{{ assignment_title }}»',
+                'درجة {{ student_name }} في واجب «{{ assignment_title }}»: {{ score }} من {{ points }}. {{ penalty_note }}',
+                ['student_name', 'assignment_title', 'score', 'points', 'penalty_note'],
+            ],
             NotificationType::ExamPendingGrading->value => [
                 'تسلّمنا ورقتك في «{{ exam_title }}»',
                 'تسلّمنا ورقة {{ student_name }} في «{{ exam_title }}». فيها أسئلة مقالية ينتظر تصحيحُها المدرّس، وتصلك النتيجة كاملةً بعده.',

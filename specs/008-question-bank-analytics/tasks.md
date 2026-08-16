@@ -289,31 +289,31 @@
 
 **Independent Test**: نشرُ واجبٍ بموعد، تسليمه قبله وبعده، وتصحيحه.
 
-- [ ] T140 [US6] هجرة ‎٩‎: `assignments` (‏`late_penalty_pct_per_day` · `late_penalty_cap_pct`) و`submissions` (‏`late_penalty_applied_pct` · `extension_until`) و`accommodations` (‏`extra_time_pct` · `extended_days`) في `..._000900_create_assignment_tables.php`
-- [ ] T141 [P] [US6] نماذج `Assignment` و`Submission` و`Accommodation` ومصانعها
-- [ ] T142 [P] [US6] `SaveAssignment` في `.../Actions/SaveAssignment.php` — العنوان والدرجة والموعد ونوع التسليم وسياسة التأخير
-- [ ] T143 [US6] `LatePenalty` في `.../Support/LatePenalty.php` — **نسبةٌ لكل يوم بسقف، واليوم المبدوء كاملاً** (`Q6`)
-- [ ] T144 [US6] ⚠️ **[‏مر‏]** في `LatePenalty`: **قاعُ الصفر والسقف يُفرَضان في الـAction** (`FR-046أ`) — بلا سقف، تأخيرُ عشرة أيام بخصم ‎٢٠٪‎ يُنتج **‎−١٠٠٪‎**
-- [ ] T145 [US6] `SubmitAssignment` في `.../Actions/SubmitAssignment.php` — الوسم `on_time`/`late` **وقت وقوعه**، و`late_by_minutes`
-- [ ] T146 [US6] `GradeSubmission` في `.../Actions/GradeSubmission.php` — ⚠️ **`late_penalty_applied_pct` يُثبَّت وقت الاعتماد ولا يُشتقّ بعدها**: السياسة عمودٌ قابل للتعديل، ومدرّسٌ يخفّفها آخر الفصل يعيد تسعير كل ما صُحِّح
-- [ ] T147 [US6] `GrantAccommodation` و`GrantExtension` في `.../Actions/` — ⚠️ **[‏مر‏]** كلاهما يسأل `EnrollmentDirectory` **قبل أن يكتب**: بارامترُ uuid عارٍ **مسبارُ هوية** يعود جوابه حاملاً اسمَ صاحبه (`NFR-001أ`)، **والجواب واحدٌ في الحالتين (404)** — ردٌّ يميّز «غير موجود» عن «ليس لك» هو المسبار نفسه بصيغةٍ أدقّ
-- [ ] T148 [US6] `ApplyAccommodation` في `.../Support/` — **نسبةُ وقتٍ للاختبار وأيامُ مهلةٍ للواجب**، آلياً على كل تقييمٍ تالٍ (`FR-054` · `Q8`)
-- [ ] T149 [US6] رفع الملف على **القرص الخاص** بمكتبة الوسائط، كسابقة الإيصالات — ⚠️ بلا مفتاحٍ إلى `media_assets`
-- [ ] T150 [US6] ⚠️ **[‏مر‏]** مسار الملف: `signed` **و`auth:sanctum`** معاً، **خمس دقائق**، **موقَّعٌ للقارئ لا للمسار**، **وتُعاد سياسته عند الفتح** (`FR-048أ`) — توقيعٌ على المسار يُلصق في مجموعةٍ فيفتحه كل من فيها، وقارئٌ سُحبت صلاحيته يظلّ يقرأ حتى انتهاء المدّة
-- [ ] T151 [US6] `MarkMissedSubmissionsJob` في `.../Jobs/MarkMissedSubmissionsJob.php` — ⚠️ `forWorkspace()` لا `set()`، وهي **الوظيفة الوحيدة العابرة للمساحات** فأخطرهنّ
-- [ ] T152 [US6] ⚠️ **[‏مر‏]** في المكنسة: **مرّر `uuid` و`created_at` صراحةً** في مصفوفة `insertOrIgnore` واقرأ الصفوف بعدها — `insertOrIgnore` لا يُقلع النموذج فلا يعمل `HasUuid`، فيُخزَّن `''` على MySQL و**كل تسليمٍ لاحق على المنصّة يُقرأ «مسجَّل سلفاً» ويُتخطّى بصمت**
-- [ ] T153 [US6] ⚠️ **[‏مر‏]** في المكنسة: التحديث `WHERE submitted_at IS NULL` لا كتابةٌ عمياء، **وتستشير `accommodations`** — طالبٌ مُنح يومين يُوسَم `missed` في الليلة الأولى فيحجبه شرطُ الفتح، وهو أوّل من بُني له التسهيل
-- [ ] T154 [US6] جدولة المكنسة ليلياً في `routes/console.php`
-- [ ] T155 [P] [US6] `AssignmentSubmitted` و`SubmissionGraded` في `.../Events/` ومستمعاهما وقالباهما
-- [ ] T156 [P] [US6] `AssignmentPolicy` · `SubmissionPolicy` · `AccommodationPolicy`
-- [ ] T157 [US6] المتحكّمات والطلبات والموارد للواجبات والتسليمات والتسهيلات، بمحدِّداتها المسمّاة
-- [ ] T158 [US6] ⚠️ **[‏مر‏]** في `SubmissionResource`: `state` و`submitted_at` و`extension_until` **خاصّةٌ بصاحب الصفّ** — تسليمٌ بعد الموعد حالته «في الموعد» يقول لكل قارئٍ إنّ لصاحبه تأجيلاً (`FR-056`)
-- [ ] T159 [P] [US6] `frontend/src/lib/assignments.ts` وشاشات `manage/assignments/` و`assignments/`
-- [ ] T160 [US6] ⚠️ **رابطان واردان**: الواجبات في قائمة المدرّس، والمستحقّة في قائمة الطالب
-- [ ] T161 [P] [US6] `backend/tests/Feature/Assessments/SubmissionStateTest.php` — الحالات الثلاث والتأجيل، **وصفر درجةٍ سالبة عند الحدّين** (`SC-016`)
-- [ ] T162 [P] [US6] `backend/tests/Feature/Assessments/SubmissionAccessTest.php` — صفر وصولٍ إلى تسليم غيره، **ورابطٌ لا يعمل لغير من وُقِّع له ولا بعد سحب صلاحيته ولا بعد مدّته** (`SC-017` · `SC-022`)
-- [ ] T163 [P] [US6] `backend/tests/Feature/Assessments/AccommodationTest.php` — التسهيل يُطبَّق آلياً **على اختبارٍ وواجبٍ معاً**، و**زميلٌ لا يستنتج وجوده من الحمولة** (`SC-018`)
-- [ ] T164 [P] [US6] ⚠️ **[‏مر‏]** `backend/tests/Feature/Assessments/MissedSweepTest.php` — المكنسة تكتب صفوفاً بـ`uuid` صحيح، ولا تكتب فوق تسليمٍ وقع، ولا تَسِم من له تأجيل
+- [x] T140 [US6] هجرة ‎٩‎: `assignments` (‏`late_penalty_pct_per_day` · `late_penalty_cap_pct`) و`submissions` (‏`late_penalty_applied_pct` · `extension_until`) و`accommodations` (‏`extra_time_pct` · `extended_days`) في `..._000900_create_assignment_tables.php`
+- [x] T141 [P] [US6] نماذج `Assignment` و`Submission` و`Accommodation` ومصانعها
+- [x] T142 [P] [US6] `SaveAssignment` في `.../Actions/SaveAssignment.php` — العنوان والدرجة والموعد ونوع التسليم وسياسة التأخير
+- [x] T143 [US6] `LatePenalty` في `.../Support/LatePenalty.php` — **نسبةٌ لكل يوم بسقف، واليوم المبدوء كاملاً** (`Q6`)
+- [x] T144 [US6] ⚠️ **[‏مر‏]** في `LatePenalty`: **قاعُ الصفر والسقف يُفرَضان في الـAction** (`FR-046أ`) — بلا سقف، تأخيرُ عشرة أيام بخصم ‎٢٠٪‎ يُنتج **‎−١٠٠٪‎**
+- [x] T145 [US6] `SubmitAssignment` في `.../Actions/SubmitAssignment.php` — الوسم `on_time`/`late` **وقت وقوعه**، و`late_by_minutes`
+- [x] T146 [US6] `GradeSubmission` في `.../Actions/GradeSubmission.php` — ⚠️ **`late_penalty_applied_pct` يُثبَّت وقت الاعتماد ولا يُشتقّ بعدها**: السياسة عمودٌ قابل للتعديل، ومدرّسٌ يخفّفها آخر الفصل يعيد تسعير كل ما صُحِّح
+- [x] T147 [US6] `GrantAccommodation` و`GrantExtension` في `.../Actions/` — ⚠️ **[‏مر‏]** كلاهما يسأل `EnrollmentDirectory` **قبل أن يكتب**: بارامترُ uuid عارٍ **مسبارُ هوية** يعود جوابه حاملاً اسمَ صاحبه (`NFR-001أ`)، **والجواب واحدٌ في الحالتين (404)** — ردٌّ يميّز «غير موجود» عن «ليس لك» هو المسبار نفسه بصيغةٍ أدقّ
+- [x] T148 [US6] `ApplyAccommodation` في `.../Support/` — **نسبةُ وقتٍ للاختبار وأيامُ مهلةٍ للواجب**، آلياً على كل تقييمٍ تالٍ (`FR-054` · `Q8`)
+- [x] T149 [US6] رفع الملف على **القرص الخاص** بمكتبة الوسائط، كسابقة الإيصالات — ⚠️ بلا مفتاحٍ إلى `media_assets`
+- [x] T150 [US6] ⚠️ **[‏مر‏]** مسار الملف: `signed` **و`auth:sanctum`** معاً، **خمس دقائق**، **موقَّعٌ للقارئ لا للمسار**، **وتُعاد سياسته عند الفتح** (`FR-048أ`) — توقيعٌ على المسار يُلصق في مجموعةٍ فيفتحه كل من فيها، وقارئٌ سُحبت صلاحيته يظلّ يقرأ حتى انتهاء المدّة
+- [x] T151 [US6] `MarkMissedSubmissionsJob` في `.../Jobs/MarkMissedSubmissionsJob.php` — ⚠️ `forWorkspace()` لا `set()`، وهي **الوظيفة الوحيدة العابرة للمساحات** فأخطرهنّ
+- [x] T152 [US6] ⚠️ **[‏مر‏]** في المكنسة: **مرّر `uuid` و`created_at` صراحةً** في مصفوفة `insertOrIgnore` واقرأ الصفوف بعدها — `insertOrIgnore` لا يُقلع النموذج فلا يعمل `HasUuid`، فيُخزَّن `''` على MySQL و**كل تسليمٍ لاحق على المنصّة يُقرأ «مسجَّل سلفاً» ويُتخطّى بصمت**
+- [x] T153 [US6] ⚠️ **[‏مر‏]** في المكنسة: التحديث `WHERE submitted_at IS NULL` لا كتابةٌ عمياء، **وتستشير `accommodations`** — طالبٌ مُنح يومين يُوسَم `missed` في الليلة الأولى فيحجبه شرطُ الفتح، وهو أوّل من بُني له التسهيل
+- [x] T154 [US6] جدولة المكنسة ليلياً في `routes/console.php`
+- [x] T155 [P] [US6] `AssignmentSubmitted` و`SubmissionGraded` في `.../Events/` ومستمعاهما وقالباهما
+- [x] T156 [P] [US6] `AssignmentPolicy` · `SubmissionPolicy` · `AccommodationPolicy`
+- [x] T157 [US6] المتحكّمات والطلبات والموارد للواجبات والتسليمات والتسهيلات، بمحدِّداتها المسمّاة
+- [x] T158 [US6] ⚠️ **[‏مر‏]** في `SubmissionResource`: `state` و`submitted_at` و`extension_until` **خاصّةٌ بصاحب الصفّ** — تسليمٌ بعد الموعد حالته «في الموعد» يقول لكل قارئٍ إنّ لصاحبه تأجيلاً (`FR-056`)
+- [x] T159 [P] [US6] `frontend/src/lib/assignments.ts` وشاشات `manage/assignments/` و`assignments/`
+- [x] T160 [US6] ⚠️ **رابطان واردان**: الواجبات في قائمة المدرّس، والمستحقّة في قائمة الطالب
+- [x] T161 [P] [US6] `backend/tests/Feature/Assessments/SubmissionStateTest.php` — الحالات الثلاث والتأجيل، **وصفر درجةٍ سالبة عند الحدّين** (`SC-016`)
+- [x] T162 [P] [US6] `backend/tests/Feature/Assessments/SubmissionAccessTest.php` — صفر وصولٍ إلى تسليم غيره، **ورابطٌ لا يعمل لغير من وُقِّع له ولا بعد سحب صلاحيته ولا بعد مدّته** (`SC-017` · `SC-022`)
+- [x] T163 [P] [US6] `backend/tests/Feature/Assessments/AccommodationTest.php` — التسهيل يُطبَّق آلياً **على اختبارٍ وواجبٍ معاً**، و**زميلٌ لا يستنتج وجوده من الحمولة** (`SC-018`)
+- [x] T164 [P] [US6] ⚠️ **[‏مر‏]** `backend/tests/Feature/Assessments/MissedSweepTest.php` — المكنسة تكتب صفوفاً بـ`uuid` صحيح، ولا تكتب فوق تسليمٍ وقع، ولا تَسِم من له تأجيل
 
 ---
 

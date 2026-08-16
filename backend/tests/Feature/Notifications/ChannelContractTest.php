@@ -77,6 +77,18 @@ function dispatchOf(User $user, NotificationType $type): void
             'imported' => '990',
             'skipped' => '0',
             'failed' => '10',
+            // And these three, added with spec 008's homework (US6). A FOURTH
+            // time the same mechanism: without them the two assignment types
+            // render nothing, are logged and dropped, and the count below came
+            // back 32 against 34. `points` is the assignment's total and
+            // ⚠️ `penalty_note` IS NOT AN EMPTY STRING, and that is not a
+            // fixture detail: `missingVariables()` counts present-but-empty as
+            // MISSING, so a listener that sent '' when nothing was deducted
+            // would have its whole notification dropped — for exactly the
+            // students who handed in on time. This line is why that was found.
+            'assignment_title' => 'واجب الجبر',
+            'points' => '10',
+            'penalty_note' => 'لم يُخصم شيء للتأخير.',
         ],
     ));
 }

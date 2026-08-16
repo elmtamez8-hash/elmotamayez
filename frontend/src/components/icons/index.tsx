@@ -38,6 +38,7 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconChevronUp,
+  IconChecklist,
   IconClipboardList,
   IconClipboardText,
   IconDatabase,
@@ -150,6 +151,10 @@ export const MistakesIcon = wrap(IconEraser, "h-5 w-5");
 // ApplicationIcon already own that shape, and this entry is the one act in the
 // sidebar where the teacher WRITES on somebody else's paper.
 export const GradingIcon = wrap(IconWriting, "h-5 w-5");
+// Homework. A checklist rather than a fourth clipboard or a second document:
+// ExamIcon, ApplicationIcon and DocumentIcon already own those shapes, and an
+// assignment is the one thing in the sidebar with a box you tick.
+export const AssignmentIcon = wrap(IconChecklist, "h-5 w-5");
 // Self-training. Not a second clipboard: ExamIcon is already one, and a student
 // scanning the sidebar for "the exam" must not have to read two labels to find
 // out which clipboard is the teacher's paper and which is their own.

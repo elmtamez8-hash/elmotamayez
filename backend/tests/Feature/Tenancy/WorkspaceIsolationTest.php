@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Assessments\Enums\DuplicatePolicy;
+use App\Modules\Assessments\Models\Accommodation;
+use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\AttemptItem;
 use App\Modules\Assessments\Models\Concept;
 use App\Modules\Assessments\Models\ConceptStat;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\ExamItem;
+use App\Modules\Assessments\Models\GradingRecord;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionImport;
 use App\Modules\Assessments\Models\QuestionStat;
+use App\Modules\Assessments\Models\RubricCriterion;
+use App\Modules\Assessments\Models\Submission;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
@@ -519,6 +524,14 @@ describe('question bank models are workspace-scoped', function (): void {
             // so the trait's auto-fill never runs — which means the READ side is
             // the only place the tenant key is enforced at all.
             QuestionStat::class, ConceptStat::class,
+            // US5 and US6. `accommodations` is the one that was argued about and
+            // it belongs here: extra time applies to ONE teacher's assessments,
+            // and granting it is that teacher's act recorded in their name. The
+            // mirror-image bug — making it platform-owned like the notification
+            // preferences — would hand every teacher on the platform the fact
+            // that a student has an arrangement (FR-056).
+            RubricCriterion::class, GradingRecord::class,
+            Assignment::class, Submission::class, Accommodation::class,
         ];
 
         foreach ($models as $model) {

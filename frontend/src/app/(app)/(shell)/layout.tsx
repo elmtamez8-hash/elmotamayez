@@ -11,6 +11,7 @@ import { P, can } from "@/lib/permissions";
 import { TONE_CLASSES } from "@/lib/labels";
 import { grading } from "@/lib/grading";
 import {
+  AssignmentIcon,
   BellIcon,
   CertificateIcon,
   CloseIcon,
@@ -97,6 +98,12 @@ const mainNav: NavItem[] = [
   // the product tells the teacher it is there. A link with no number is one they
   // remember to open on the days they were already going to.
   { href: "/manage/grading", label: "لوحة التصحيح", Icon: GradingIcon, permission: P.gradingPerform, badge: "grading" },
+  // ⚠️ TWO ENTRIES FOR HOMEWORK, NOT ONE (T160). "واجباتي" is what a student
+  // owes; "الواجبات" is what a teacher set and has to mark. One shared link
+  // whose meaning flipped with the reader's permission is the shape that made a
+  // student's sidebar offer them the exam builder.
+  { href: "/assignments", label: "واجباتي", Icon: AssignmentIcon },
+  { href: "/manage/assignments", label: "الواجبات", Icon: AssignmentIcon, permission: P.assignmentsManage },
   { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },
   { href: "/orders", label: "الطلبات", Icon: OrdersIcon },
   // The student's credits, counted in sessions and never in money. Separate

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\Notifications;
 
+use App\Modules\Assessments\Events\AssignmentSubmitted;
 use App\Modules\Assessments\Events\AttemptFinalized;
 use App\Modules\Assessments\Events\AttemptPendingGrading;
 use App\Modules\Assessments\Events\QuestionImported;
+use App\Modules\Assessments\Events\SubmissionGraded;
 use App\Modules\Certificates\Events\CertificateIssued;
 use App\Modules\Certificates\Events\CertificateRegenerated;
 use App\Modules\Learning\Events\EnrollmentCreated;
@@ -21,7 +23,9 @@ use App\Modules\Notifications\Listeners\NotifyStudentCertificateRegenerated;
 use App\Modules\Notifications\Listeners\NotifyStudentEnrolled;
 use App\Modules\Notifications\Listeners\NotifyStudentExamResult;
 use App\Modules\Notifications\Listeners\NotifyStudentGradingPending;
+use App\Modules\Notifications\Listeners\NotifyStudentSubmissionGraded;
 use App\Modules\Notifications\Listeners\NotifyTeacherApproved;
+use App\Modules\Notifications\Listeners\NotifyTeacherAssignmentSubmitted;
 use App\Modules\Notifications\Listeners\NotifyTeacherChangesRequested;
 use App\Modules\Notifications\Listeners\NotifyTeacherRejected;
 use App\Shared\Modules\Module;
@@ -78,5 +82,13 @@ class NotificationsServiceProvider extends Module
         */
         Event::listen(AttemptPendingGrading::class, NotifyStudentGradingPending::class);
         Event::listen(AttemptFinalized::class, NotifyStudentExamResult::class);
+
+        /*
+        | Homework (008 · US6). Two events, two recipients: the author hears that
+        | work arrived, the student hears what it scored. One event with a flag
+        | would let a student's preference silence the teacher's queue.
+        */
+        Event::listen(AssignmentSubmitted::class, NotifyTeacherAssignmentSubmitted::class);
+        Event::listen(SubmissionGraded::class, NotifyStudentSubmissionGraded::class);
     }
 }

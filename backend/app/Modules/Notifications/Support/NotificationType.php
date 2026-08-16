@@ -91,6 +91,18 @@ enum NotificationType: string
     */
     case ExamPendingGrading = 'exam_pending_grading';
 
+    /*
+    | Homework (US6). Two types, and the recipients differ: the teacher hears
+    | that work arrived, the student hears that it was marked. Folding them into
+    | one would make a student's preference able to silence a teacher's queue.
+    |
+    | The graded one reaches guardians — it is a result, on the same footing as
+    | ExamResult, and the guardian who asks how their child is doing is asking
+    | precisely this. The submitted one does not: it is a teacher's own inbox.
+    */
+    case AssignmentSubmitted = 'assignment_submitted';
+    case AssignmentGraded = 'assignment_graded';
+
     public function label(): string
     {
         return match ($this) {
@@ -126,6 +138,8 @@ enum NotificationType: string
             self::QuestionImportReady => 'تقرير استيراد الأسئلة',
             self::QuestionImportFailed => 'تعذّر استيراد الأسئلة',
             self::ExamPendingGrading => 'ورقتك بانتظار التصحيح',
+            self::AssignmentSubmitted => 'تسليم واجب',
+            self::AssignmentGraded => 'درجة واجب',
         };
     }
 
@@ -200,6 +214,10 @@ enum NotificationType: string
             self::AcademicWarning,
             self::SessionReport,
             self::SessionCancelled,
+            // A mark is a result, and the guardian asking how their child is
+            // doing is asking exactly this. Gated on the same permission as
+            // ExamResult below, because it is the same kind of fact.
+            self::AssignmentGraded,
             // The second tier and the block reach the guardian; the first does
             // not. FR-030's ladder is the whole point — a quiet word to the
             // student first, and only then the person who pays.
@@ -231,6 +249,9 @@ enum NotificationType: string
             self::PaymentReminder => GuardianPermission::Payments,
             self::AppointmentReminder => GuardianPermission::Schedule,
             self::ExamResult => GuardianPermission::Results,
+            // The same consent as an exam result, because it is the same fact
+            // about the same child in a different shape.
+            self::AssignmentGraded => GuardianPermission::Results,
             self::AcademicWarning => GuardianPermission::AcademicWarnings,
             // The post-session report is attendance news before it is
             // anything else, so it rides the guardian's attendance consent.

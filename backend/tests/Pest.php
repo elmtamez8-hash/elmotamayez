@@ -7,6 +7,7 @@ use App\Modules\Assessments\Actions\GradeAttempt;
 use App\Modules\Assessments\Actions\StartAttempt;
 use App\Modules\Assessments\Enums\DuplicatePolicy;
 use App\Modules\Assessments\Models\Answer;
+use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\Concept;
 use App\Modules\Assessments\Models\Exam;
@@ -794,4 +795,36 @@ function sitEssayExam(Workspace $workspace, User $student, int $essayPoints = 10
     app(GradeAttempt::class)->handle($attempt, $payload);
 
     return [$exam, $attempt->refresh(), $first];
+}
+
+/*
+|--------------------------------------------------------------------------
+| Homework fixtures (spec 008 · US6)
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * A published assignment on a course this student is actively enrolled in.
+ *
+ * ⚠️ ENROLMENT, NOT MEMBERSHIP. The nightly sweep asks the enrolments of the
+ * assignment's course who was supposed to hand in; a fixture that only added a
+ * workspace member would make every sweep test assert against an empty list and
+ * pass for the wrong reason.
+ *
+ * @param  array<string, mixed>  $attributes
+ * @return array{0: Assignment, 1: Course}
+ */
+function courseAssignment(Workspace $workspace, User $author, User $student, array $attributes = []): array
+{
+    $course = Course::factory()->create(['workspace_id' => $workspace->getKey()]);
+    test()->createEnrollment($workspace, $course, $student);
+
+    $assignment = Assignment::factory()->published()->create([
+        'workspace_id' => $workspace->getKey(),
+        'course_id' => $course->getKey(),
+        'created_by' => $author->getKey(),
+        ...$attributes,
+    ]);
+
+    return [$assignment, $course];
 }

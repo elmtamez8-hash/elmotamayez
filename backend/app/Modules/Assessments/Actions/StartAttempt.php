@@ -10,6 +10,7 @@ use App\Modules\Assessments\Models\AttemptItem;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionOption;
+use App\Modules\Assessments\Support\ApplyAccommodation;
 use App\Modules\Assessments\Support\QuestionSnapshot;
 use App\Modules\Learning\Models\Enrollment;
 use App\Shared\Actions\Action;
@@ -47,6 +48,14 @@ class StartAttempt extends Action
                 'student_user_id' => $student->getKey(),
                 'status' => 'in_progress',
                 'is_practice' => $isPractice,
+                // FR-054 — the accommodation applies by itself or it is not an
+                // accommodation. Frozen here rather than derived on read: a
+                // withdrawal must not re-time a paper already sat.
+                'duration_minutes' => app(ApplyAccommodation::class)->effectiveDuration(
+                    (int) $exam->workspace_id,
+                    (int) $student->getKey(),
+                    $exam->duration_minutes,
+                ),
                 'random_seed' => $seed,
                 'started_at' => now(),
             ]);

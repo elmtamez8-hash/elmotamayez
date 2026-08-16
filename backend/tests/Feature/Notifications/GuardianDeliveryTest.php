@@ -216,7 +216,15 @@ it('tells every guardian-facing type apart', function (): void {
     // is usually the person whose account it is. They ride the same
     // GuardianPermission::Payments as the rest, so a guardian with no right to
     // the financial record still receives none of them.
-    expect($guardianTypes)->toHaveCount(16);
+    //
+    // And the seventeenth, with spec 008's homework: a marked assignment is a
+    // RESULT, on exactly the same footing as an exam result, and the guardian
+    // asking how their child is doing is asking this. It rides
+    // GuardianPermission::Results for that reason rather than getting a consent
+    // of its own — a second permission over the same fact is a second switch a
+    // family has to find. Its sibling, AssignmentSubmitted, deliberately reaches
+    // no guardian at all: it is the teacher's own inbox saying work arrived.
+    expect($guardianTypes)->toHaveCount(17);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();

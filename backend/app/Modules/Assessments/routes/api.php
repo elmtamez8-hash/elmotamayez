@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Modules\Assessments\Http\Controllers\AccommodationController;
 use App\Modules\Assessments\Http\Controllers\AnalyticsController;
+use App\Modules\Assessments\Http\Controllers\AssignmentController;
 use App\Modules\Assessments\Http\Controllers\AttemptController;
 use App\Modules\Assessments\Http\Controllers\BankController;
 use App\Modules\Assessments\Http\Controllers\ConceptController;
@@ -12,6 +14,7 @@ use App\Modules\Assessments\Http\Controllers\GradingController;
 use App\Modules\Assessments\Http\Controllers\ImportController;
 use App\Modules\Assessments\Http\Controllers\MistakeController;
 use App\Modules\Assessments\Http\Controllers\PracticeController;
+use App\Modules\Assessments\Http\Controllers\SubmissionFileController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -148,6 +151,51 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::put('/manage/bank/questions/{question}/rubric', [GradingController::class, 'saveRubric'])
         ->middleware('throttle:authoring');
+
+    /*
+     | Homework (spec 008 · US6).
+     |
+     | One list endpoint with two branches rather than two routes: the teacher's
+     | view legitimately includes drafts, and a second route over the same table
+     | is a second place to forget that filter.
+     |
+     | The hand-in carries `throttle:upload` because it may carry a file; the
+     | writes a teacher makes carry `throttle:authoring`, the same limiter the
+     | bank and the grading board use. Reads carry none — they are indexed
+     | queries behind `auth:sanctum` with their counts in the query.
+     */
+    Route::get('/assignments', [AssignmentController::class, 'index']);
+    Route::get('/assignments/{assignment}', [AssignmentController::class, 'show']);
+    Route::post('/assignments/{assignment}/submissions', [AssignmentController::class, 'submit'])
+        ->middleware('throttle:upload');
+
+    Route::middleware('throttle:authoring')->group(function (): void {
+        Route::post('/manage/assignments', [AssignmentController::class, 'store']);
+        Route::patch('/manage/assignments/{assignment}', [AssignmentController::class, 'update']);
+        Route::post('/manage/assignments/{assignment}/publish', [AssignmentController::class, 'publish']);
+        Route::post('/manage/assignments/{assignment}/extensions', [AssignmentController::class, 'extend']);
+        Route::post('/manage/submissions/{submission}/grade', [AssignmentController::class, 'grade']);
+
+        Route::post('/manage/accommodations', [AccommodationController::class, 'store']);
+        Route::delete('/manage/accommodations/{accommodation}', [AccommodationController::class, 'destroy']);
+    });
+
+    Route::get('/manage/assignments/{assignment}/submissions', [AssignmentController::class, 'submissions']);
+    Route::get('/manage/accommodations', [AccommodationController::class, 'index']);
+
+    /*
+     | ⚠️ `signed` AND `auth:sanctum` TOGETHER, and neither is redundant. The
+     | signature alone has no reader to compare its `reader` parameter against;
+     | the session alone makes the url guessable from a uuid. The policy runs
+     | again inside the controller, which is the half a signature cannot express:
+     | it proves who asked for the link, never whether they may still read
+     | (FR-048أ). Five minutes, declared in the controller.
+     |
+     | Inside the auth group, so it inherits `auth:sanctum` from it.
+     */
+    Route::get('/submissions/{submission}/file', SubmissionFileController::class)
+        ->middleware('signed')
+        ->name('submissions.file');
 
     // Attempts (student-facing).
     Route::post('/exams/{exam}/attempts', [AttemptController::class, 'start']);

@@ -21,6 +21,7 @@ export const P = {
   bankView: "bank.view",
   analyticsView: "analytics.view",
   gradingPerform: "grading.perform",
+  assignmentsManage: "assignments.manage",
   billingSettings: "billing.settings.manage",
   billingBalanceView: "billing.balance.view",
   billingExamMode: "billing.exam_mode.manage",
