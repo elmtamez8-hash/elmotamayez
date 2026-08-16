@@ -99,7 +99,9 @@
 - [x] T031 وسّع `.../Actions/GradeAttempt.php`: المقام من `attempt_items` لا من أسئلة الاختبار الحيّة، والتصحيح يقرأ **اللقطة**
 - [x] T032 ⚠️ **[‏مر‏]** في `GradeAttempt`: اكتب صفّ إجابةٍ **لكل `attempt_item`** لا للمُجاب عنه وحده — السؤال المتروك بلا صفٍّ يغيب عن دفتر الأخطاء، وهو **أقوى دليلٍ على فجوةٍ معرفية** فيه
 - [x] T033 ⚠️ **[‏مر‏]** في `backend/app/Modules/Assessments/Http/Controllers/AttemptController.php`: استبدل فحص `isGraded()` بمطالبةٍ ذرّية `UPDATE … WHERE status = 'in_progress'` قبل أي كتابة — القراءةُ ثم الكتابة تعريف السباق، ونقرتان تكتبان مجموعة الإجابات مرّتين
-- [x] T034 [P] `AssessmentFieldAllowlist` في `.../Support/AssessmentFieldAllowlist.php` — ⚠️ **[‏مر‏]** ويكتب في ترويسته أن الحظورات الصفّية (‏إجابةُ غيرك · تسليمُ غيرك · وجودُ تسهيل) **ليست من اختصاصه**، لأن حارساً موصوفاً بلا حدودٍ يُقرأ كتغطية
+- [x] T034 [P] `AssessmentFieldAllowlist` في `.../Support/AssessmentFieldAllowlist.php`  
+  ⚠️ **كانت مؤشَّرةً منجزةً والملفّ غير موجود.** كُتبت فعلاً مع `T185`، وهي الوحيدة التي كشفها سؤالُ «أين الملف؟» لا سؤالُ «هل العلامة موضوعة؟»  
+  الأصل: — ⚠️ **[‏مر‏]** ويكتب في ترويسته أن الحظورات الصفّية (‏إجابةُ غيرك · تسليمُ غيرك · وجودُ تسهيل) **ليست من اختصاصه**، لأن حارساً موصوفاً بلا حدودٍ يُقرأ كتغطية
 
 ### د — حرّاس الطبقات
 
@@ -345,12 +347,12 @@
 
 - [ ] T180 ⚠️ **[‏مر‏]** **هجرة ‎٦‎ في نشرةٍ تالية منفصلة**: احذف `questions.exam_id` في `..._000600_drop_exam_id_from_questions.php` — عاملُ طابورٍ قديم لم يُعَد تشغيله ينفّذ `$attempt->load('exam.questions.options')` فيسقط **كل** تصحيحٍ وكل صفحة اختبار حتى تكتمل النشرة
 - [ ] T181 في `T180`: **اكتب حدود التراجع الثلاث في الهجرة** — سؤالٌ في اختبارين لا يتراجع · سؤالُ بنكٍ في صفر اختبارات لا قيمة له · والعمود **لا يعود `NOT NULL`**، فالمخطّط بعد `rollback` ليس الذي سبق
-- [ ] T182 هجرة ‎١٢‎: فهارس الأداء وحدها في `..._001200_add_performance_indexes.php` — ⚠️ **[‏مر‏]** **لا تُعاد القيود المولودة مع جداولها** (`unique(uuid)` · `unique(exam_id, question_id)` · `unique(assignment_id, student_user_id)`) وإلّا ردّ MySQL `Duplicate key name`
+- [x] T182 هجرة ‎١٢‎: فهارس الأداء وحدها في `..._001200_add_performance_indexes.php` — ⚠️ **[‏مر‏]** **لا تُعاد القيود المولودة مع جداولها** (`unique(uuid)` · `unique(exam_id, question_id)` · `unique(assignment_id, student_user_id)`) وإلّا ردّ MySQL `Duplicate key name`
 - [x] T183 [P] احذف `Exam::questions()` وكل قارئٍ لـ`exam_id` من `backend/app/Modules/Assessments/` — الجرد الكامل: النموذج · `SaveQuestion` · `GradeAttempt` · `StartAttempt::questionsForAttempt` · `ExamResource`
   - `Exam::questions()` **أُعيدت صياغتها ولم تُحذف**: صارت `belongsToMany` عبر `exam_items`. النيّة مُستوفاة والحرفُ لا — والحذف كان سيُفقد الاسمَ الذي يعبّر عن الميزة نفسها (سؤالٌ واحد في ثلاثة اختبارات).
   - ⚠️ **آخرُ كاتبٍ للعمود كان خارج الجرد**: `DemoDataSeeder`. `SeedCommand` يشغّل كلّ بذرةٍ داخل `Model::unguarded()`، فإسقاط `exam_id` من `$fillable` حمى التطبيق وترك البذرة تكتبه. و`migrate --seed` كان **مكسوراً** أصلاً لسببين متراكمين: العمودُ `concept_id` صار `NOT NULL` في 008، وأرضيّةُ الرصيد في 006 ترفض الحجز الأخير.
-- [ ] T184 [P] `backend/tests/Feature/Assessments/QueryBudgetTest.php` — البنك ولوحة التصحيح ودفتر الأخطاء، **بطلب إحماءٍ واحد قبل القياس** لأن ذاكرة صلاحيات spatie تُملأ في أول طلبٍ مُصادَق
-- [ ] T185 [P] `backend/tests/Feature/Assessments/AssessmentExposureTest.php` — كل حمولةٍ مُعدَّدة ضدّ `AssessmentFieldAllowlist`، **و«طالب ب يطلب موارد طالب أ» على كل مسارٍ يقبل uuid**
+- [x] T184 [P] `backend/tests/Feature/Assessments/QueryBudgetTest.php` — البنك ولوحة التصحيح ودفتر الأخطاء، **بطلب إحماءٍ واحد قبل القياس** لأن ذاكرة صلاحيات spatie تُملأ في أول طلبٍ مُصادَق
+- [x] T185 [P] `backend/tests/Feature/Assessments/AssessmentExposureTest.php` — كل حمولةٍ مُعدَّدة ضدّ `AssessmentFieldAllowlist`، **و«طالب ب يطلب موارد طالب أ» على كل مسارٍ يقبل uuid**
 - [ ] T186 [P] حدّث `backend/database/seeders/ScenarioSeeder.php` ببنكٍ وواجباتٍ وتسهيلٍ وشرطِ فتحٍ للعرض المحلّي
 - [ ] T187 [P] حدّث `docs/README.md` (‏جداول الوحدات والمسارات والصلاحيات) و`docs/erd.md` بالجداول الأحد عشر الجديدة
 - [ ] T188 [P] أضف إلى `CLAUDE.md` و`AGENTS.md` الدروس التي لا يُمسكها اختبار: القيدُ الفريد على عمودٍ قابل للإفراغ · اللقطة والمقام · بِركةُ التدريب · `insertOrIgnore` في المكنسة

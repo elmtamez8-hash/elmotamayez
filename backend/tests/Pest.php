@@ -882,3 +882,39 @@ function attendanceRow(Workspace $workspace, ClassSession $session, User $studen
         'source' => 'automatic',
     ]);
 }
+
+/*
+|--------------------------------------------------------------------------
+| Query budgets
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * Run a closure and report how many queries it cost.
+ *
+ * ⚠️ IT LIVES HERE BECAUSE IT HAS TWO CALLERS IN TWO MODULES. It was declared
+ * inside `LiveSessions/QueryBudgetTest.php`, which makes it a global that exists
+ * only when that file happens to be loaded first — so the second file passes in
+ * a full run and dies with "undefined function" the moment somebody runs it
+ * alone to debug it. The same reason the import fixtures are up there.
+ *
+ * @return array{0: int, 1: mixed}
+ */
+function countingQueries(callable $work): array
+{
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+
+    $result = $work();
+
+    if (getenv('DUMP_QUERIES') !== false) {
+        foreach (DB::getQueryLog() as $q) {
+            fwrite(STDERR, $q['query']."\n");
+        }
+    }
+
+    $count = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    return [$count, $result];
+}

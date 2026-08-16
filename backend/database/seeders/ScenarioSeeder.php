@@ -6,12 +6,17 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use App\Modules\Assessments\Actions\GradeAttempt;
+use App\Modules\Assessments\Actions\GradeSubmission;
+use App\Modules\Assessments\Actions\GrantAccommodation;
 use App\Modules\Assessments\Actions\StartAttempt;
+use App\Modules\Assessments\Actions\SubmitAssignment;
+use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\Concept;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\ExamItem;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionOption;
+use App\Modules\Assessments\Models\UnlockRule;
 use App\Modules\Certificates\Models\CertificateTemplate;
 use App\Modules\CMS\Models\Article;
 use App\Modules\CMS\Models\Category;
@@ -311,7 +316,131 @@ final class ScenarioSeeder extends Seeder
         // the purchase screen renders an empty list (FR-021ز).
         $this->billing($workspace, $paid, [$buyer, $halfway, $graduate]);
 
+        $this->homework($workspace, $teacher, $paid, [$buyer, $halfway, $graduate]);
+
         $this->cms($workspace, $owner);
+    }
+
+    /**
+     * Homework, an accommodation and the unlock condition (spec 008 · US6/US7).
+     *
+     * ⚠️ THREE SUBMISSION STATES, BECAUSE EACH ONE RENDERS DIFFERENTLY. On time,
+     * late with a penalty applied, and one nobody handed in — a demo with a
+     * single submitted row leaves the late badge, the penalty line and the empty
+     * state unproven, and an e2e spec walking that screen asserts nothing while
+     * reporting green. The same reason the credit seed stages four balances.
+     *
+     * ⚠️ AND THE SUBMISSIONS GO THROUGH `SubmitAssignment`/`GradeSubmission`, not
+     * through `Submission::create()`. `state`, `late_by_minutes` and the frozen
+     * penalty are computed by those Actions against the accommodation and the
+     * deadline; a hand-written row is a second implementation of FR-045 that
+     * nothing tests and that drifts the first time the policy changes.
+     *
+     * @param  list<User>  $students
+     */
+    private function homework(Workspace $workspace, User $teacher, Course $course, array $students): void
+    {
+        [$onTime, $late, $missing] = $students;
+
+        /*
+        | ⚠️ THE ACCOMMODATION IS GRANTED FIRST, and the order is the point. It is
+        | read when a submission is recorded, so granting it afterwards produces a
+        | demo where the student HAS an extension and every row was stamped as
+        | though they did not — which is precisely the bug FR-053 exists to
+        | prevent, seeded in as fixture data.
+        */
+        app(GrantAccommodation::class)->handle(
+            workspaceId: (int) $workspace->id,
+            actor: $teacher,
+            student: $late,
+            extraTimePct: 25,
+            extendedDays: 1,
+            reason: 'ترتيبٌ دائم موثَّق من إدارة المدرسة.',
+        );
+
+        /*
+        | ⚠️ TWO ASSIGNMENTS, BECAUSE THE DEADLINE IS WHAT DECIDES THE STATE.
+        | `SubmitAssignment` stamps `submitted_at` as now and derives `state` from
+        | it, so one assignment with a past deadline makes EVERY submission late —
+        | including the one seeded to demonstrate the on-time row. The first
+        | attempt at this seed did exactly that and produced two identical late
+        | badges on a screen whose subject is the difference between them.
+        */
+        $open = Assignment::create([
+            'workspace_id' => $workspace->id,
+            'course_id' => $course->id,
+            'title' => 'واجب العلاقات في Eloquent',
+            'description' => 'اكتب ثلاث علاقات وبيّن استعلام كلٍّ منها.',
+            'points' => 20,
+            'due_at' => now()->addWeek(),
+            'submission_type' => 'text',
+            'status' => 'published',
+            'published_at' => now()->subDays(2),
+            'created_by' => $teacher->id,
+        ]);
+
+        $first = app(SubmitAssignment::class)->handle($open, $onTime, 'علاقة hasMany وbelongsTo وbelongsToMany، مع مثالٍ لكلٍّ.');
+        app(GradeSubmission::class)->handle($first, $teacher, 18.0, 'إجابةٌ دقيقة. راجع صياغة الأخيرة.');
+
+        $overdue = Assignment::create([
+            'workspace_id' => $workspace->id,
+            'course_id' => $course->id,
+            'title' => 'واجب الترحيلات — سلّم متأخّراً',
+            'description' => 'اكتب هجرةً وتراجعاً عنها.',
+            'points' => 20,
+            'due_at' => now()->subDays(3),
+            'submission_type' => 'text',
+            'late_policy' => 'penalty',
+            'late_penalty_pct_per_day' => 10,
+            'late_penalty_cap_pct' => 50,
+            'status' => 'published',
+            'published_at' => now()->subWeek(),
+            'created_by' => $teacher->id,
+        ]);
+
+        $second = app(SubmitAssignment::class)->handle($overdue, $late, 'أجبتُ متأخّراً بعد انقطاع الإنترنت.');
+        app(GradeSubmission::class)->handle($second, $teacher, 16.0, 'جيد، والخصم لأجل التأخير.');
+
+        // $missing hands in nothing on either. The nightly sweep is what labels
+        // that row, and seeding one here by hand would pre-empt the job whose
+        // output the screen exists to show.
+        unset($missing);
+
+        Assignment::create([
+            'workspace_id' => $workspace->id,
+            'course_id' => $course->id,
+            'title' => 'واجب الطوابير (مسوّدة)',
+            'description' => 'لم يُنشر بعد — يظهر للمدرّس وحده.',
+            'points' => 10,
+            'due_at' => now()->addWeek(),
+            'submission_type' => 'text',
+            'status' => 'draft',
+            'created_by' => $teacher->id,
+        ]);
+
+        /*
+        | The unlock condition: a workspace default plus one course override, so
+        | the manage screen has both tiers to show. One rule alone would render a
+        | screen whose whole subject — that the specific REPLACES the general —
+        | has nothing on it to demonstrate.
+        */
+        UnlockRule::create([
+            'workspace_id' => $workspace->id,
+            'course_id' => UnlockRule::DEFAULT_SCOPE,
+            'requires_attendance' => true,
+            'requires_assignment' => true,
+            'min_score_pct' => 0,
+            'is_active' => true,
+        ]);
+
+        UnlockRule::create([
+            'workspace_id' => $workspace->id,
+            'course_id' => $course->id,
+            'requires_attendance' => false,
+            'requires_assignment' => true,
+            'min_score_pct' => 60,
+            'is_active' => true,
+        ]);
     }
 
     /**

@@ -14,7 +14,6 @@ use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 
@@ -40,26 +39,8 @@ beforeEach(function (): void {
     ]);
 });
 
-/** @return array{0: int, 1: mixed} */
-function countingQueries(callable $work): array
-{
-    DB::enableQueryLog();
-    DB::flushQueryLog();
-
-    $result = $work();
-
-    if (getenv('DUMP_QUERIES') !== false) {
-        foreach (DB::getQueryLog() as $q) {
-            fwrite(STDERR, $q['query'].'
-');
-        }
-    }
-
-    $count = count(DB::getQueryLog());
-    DB::disableQueryLog();
-
-    return [$count, $result];
-}
+// `countingQueries()` moved to tests/Pest.php when spec 008 needed it too — a
+// helper declared in a spec file only exists when that file loads first.
 
 function sessionsFor(int $count, string $recordingStatus = 'published'): void
 {

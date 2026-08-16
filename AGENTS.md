@@ -389,3 +389,23 @@ permissions — returning **null, never false**, because false short-circuits ev
 policy behind it — and only for names in `Permissions::all()`. Shield generates
 nothing: both generators off, and `format_custom_permission_keys` false or our
 dotted names get pascal-cased into strings no policy knows.
+
+**A unique index over a nullable column never bites.** `concept_stats.lesson_id`
+and `unlock_rules.course_id` are `NOT NULL` with **0** as the "no narrower scope"
+sentinel — NULL never equals NULL, so `upsert()` would INSERT a new row every
+night and the screen would show whichever came back first, silently. The price is
+`(int) null === 0`: a failed uuid resolve addresses the default row, so
+`UnlockRuleController` guards it with `abort_if`.
+
+**`attempt_items` is the denominator, written at attempt START.** Grading reads
+the snapshot and never the live question. A backfill had to build those rows for
+every pre-existing attempt, or each one's denominator is zero and a test that
+measures `score` alone passes blind.
+
+**Seeders run inside `Model::unguarded()`.** `$fillable` does not protect them, so
+"nothing writes this column any more" must be verified against
+`database/seeders/` separately.
+
+**`getContent()` escapes non-ASCII.** A `not->toContain('عربي')` assertion against
+a raw response body is vacuously true. Re-encode with `JSON_UNESCAPED_UNICODE`, or
+use an ASCII sentinel.

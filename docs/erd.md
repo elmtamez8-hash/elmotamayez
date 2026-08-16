@@ -524,3 +524,74 @@ about each other. `ContextIsolationTest` derives its table lists from each side'
   boundary at `order_id` where two meet. Corrected here rather than deleted, because the
   sentence describes a real decision that was later reversed, and a reader who remembers the
   old rule needs to see it retired
+
+## Question Bank, Grading, Homework and the Unlock Gate (spec 008)
+
+```
+concepts            (workspace) the tag a question is filed under. unique(workspace_id, name).
+                                «غير مصنّف» is seeded per workspace, so a question always has one
+exam_items          (workspace) THE JOIN THAT REPLACED `questions.exam_id`. An exam INCLUDES a
+                                bank question at an order, with an optional points_override.
+                                unique(exam_id, question_id)
+attempt_items       (workspace) the paper as it was SAT: one row per question with a json
+                                snapshot, its points and its order. unique(attempt_id, question_id)
+rubric_criteria     (workspace) the mark scheme, hung off the QUESTION and never off the exam
+grading_records     (workspace) APPEND-ONLY, no updated_at. One row per criterion per version;
+                                a revision is a new version, never an edit
+assignments         (workspace) homework. course_id, lesson_id, class_session_id all nullable;
+                                the last is what US7's gate reads
+submissions         (workspace) unique(assignment_id, student_user_id) — the contention point.
+                                state/late_by_minutes/late_penalty_applied_pct are STAMPED
+accommodations      (workspace) unique(workspace_id, student_user_id). extra_time_pct for exams,
+                                extended_days for deadlines. Revoked, never deleted
+question_imports    (workspace) one upload, its report and its duplicate policy
+question_stats      (workspace) the nightly rollup, one row per question. unique(question_id)
+concept_stats       (workspace) unique(workspace_id, concept_id, lesson_id) — lesson_id is
+                                NOT NULL and ZERO means "the concept overall"
+unlock_rules        (workspace) unique(workspace_id, course_id) — course_id is NOT NULL and
+                                ZERO is the workspace default
+unlock_exemptions   (workspace) unique(class_session_id, student_user_id)
+```
+
+Columns added to tables that already existed: `questions` grew `uuid`, `concept_id`,
+`lesson_id`, `bloom_level`, `content_hash`, `is_active`; `exam_answers` grew `uuid`,
+`student_user_id`, `answer_text`, `requires_grading`, `graded_at`, `graded_by`,
+`grading_version`; `exam_attempts` grew `finalized_at`, `is_practice`, `duration_minutes`, a
+`pending_grading` status and a **nullable** `exam_id`.
+
+### Two zero sentinels, and they exist for the same reason
+
+`concept_stats.lesson_id` and `unlock_rules.course_id` are both `NOT NULL` with **0** meaning
+"no narrower scope". The obvious design — a nullable column inside the unique index — does
+not work, because **NULL never equals NULL**: `upsert()` matches nothing on the one row every
+workspace reads, INSERTs a new one every night, and after a month the screen shows whichever
+row came back first. A number thirty days old sitting beside the correct one, with not one
+error logged. `RollupIdempotencyTest` runs the job twice for exactly that reason.
+
+The cost is that `(int) null === 0` in PHP, so a failed uuid resolve silently addresses the
+default row. `UnlockRuleController` guards it with `abort_if` before writing.
+
+### `questions.exam_id` is still there, and that is deliberate
+
+The expand/contract is spread over two releases. `_000550` relaxed the column to nullable —
+the code in this release stopped writing it, and a NOT NULL column nobody writes rejects
+every insert. Dropping it is `T180`, a **separate later deploy**, because `Exam::questions()`
+was a `hasMany` on it and an un-restarted worker running `load('exam.questions.options')`
+would hit "Unknown column" on every grading for the length of the rollout.
+
+- **A question is INCLUDED by an exam, not owned by one.** That is the whole spec in one
+  line, and it is why `Exam::questions()` is now a `belongsToMany` through `exam_items`
+- **`attempt_items` is the denominator.** Grading reads the snapshot, never the live
+  question — an exam edited after a student sat it must not change what they were marked on.
+  A backfill built these rows for every pre-existing attempt, without which each one's
+  denominator would be zero and its score a silent lie
+- **`grading_records` is append-only and `submissions` is not.** The grade of an essay is a
+  judgement with a history; a submission is a document with a state
+- **An accommodation is exposed by its EFFECT, not its name** (FR-056). `state`,
+  `submitted_at`, `extension_until` and an attempt's expiry are owner-private fields
+- **The rollup excludes two invisible families**: `is_practice` attempts (the flag is on
+  `exam_attempts` while the answers are on `exam_answers`, so the join exists only for it),
+  and essays with `requires_grading` and no `graded_at` — those carry `is_correct = false`
+  because no machine can judge them, and counting them reports every essay as 100% wrong
+- **A sample below `min_sample_size` stores `wrong_pct = NULL`, never zero.** "Nobody got
+  this wrong" is what makes a teacher delete a good question two students happened to sit

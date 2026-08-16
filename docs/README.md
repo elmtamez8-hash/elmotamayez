@@ -22,7 +22,7 @@
 | Tenancy | `app/Modules/Tenancy/` | Workspace, WorkspaceMember, Invitation | Workspaces (CRUD, switch, members, invitations) |
 | Courses | `app/Modules/Courses/` | Course, Section, Chapter, Lesson | Courses + the authoring tree: nodes, ordering, publish batches, impact preview |
 | Learning | `app/Modules/Learning/` | Enrollment, LessonProgress, ProgressHistory | Enrollments (enroll, lesson access, complete) |
-| Assessments | `app/Modules/Assessments/` | Exam, Question, QuestionOption, Attempt, Answer | Exams CRUD + questions CRUD + attempts |
+| Assessments | `app/Modules/Assessments/` | Exam, Question, QuestionOption, Attempt, Answer, Concept, ExamItem, AttemptItem, RubricCriterion, GradingRecord, Assignment, Submission, Accommodation, QuestionImport, UnlockRule, UnlockExemption | Exams + the question bank, imports, item analysis, the mistake notebook, self-generated papers, the essay grading board, homework and the unlock condition |
 | Certificates | `app/Modules/Certificates/` | Certificate, CertificateTemplate | Certificates (list, verify, regenerate) + templates CRUD |
 | Payments | `app/Modules/Payments/` | Order, Product, PaymentTransaction | Orders (create, receipt, approve, reject) |
 | Media | `app/Modules/Media/` | MediaAsset, MediaCaption, PlaybackGrant | Upload tickets + playback grants (issue/stream/renew) + captions |
@@ -859,6 +859,90 @@ payments outage nobody hears about in production. A queue with no entry in `wait
 watched at a default — it is not watched.
 
 ---
+
+## Question Bank, Grading, Homework and the Unlock Gate (spec 008)
+
+A question used to belong to one exam. It now belongs to the **bank**, and an exam merely
+**includes** it — which is the whole spec, and the reason `exam_items` exists.
+
+### Endpoints
+
+| Method | Path | Permission | Notes |
+|---|---|---|---|
+| GET | `/manage/bank/questions` | `bank.view` | Five filters and a text box; free text goes through Scout, which is outside every global scope and is given `workspace_id` by hand |
+| GET | `/manage/bank/questions/{uuid}` | `bank.view` | |
+| POST · PATCH · DELETE | `/manage/bank/questions[/{uuid}]` | `questions.manage` | `throttle:authoring`. DELETE **disables**; a question with recorded attempts is never removed (FR-005) |
+| GET · POST · PATCH | `/manage/bank/concepts[/{uuid}]` | `bank.view` / `questions.manage` | |
+| GET · POST | `/manage/bank/imports[/{uuid}]` | `questions.manage` | `throttle:upload`. Answers 202 and hands back an id; the report is polled |
+| GET · PUT | `/manage/exams/{uuid}/items` | `questions.manage` | The COMPLETE list every time — see `SyncExamItems` |
+| GET | `/manage/analytics/questions` · `/concepts` | `analytics.view` | `?scope=platform` needs `analytics.cross_teacher.view`, which no tenant role holds |
+| GET | `/mistakes` | authenticated | The student's own notebook |
+| POST | `/practice/from-mistakes` · `/practice/exams` | authenticated | `throttle:practice`, keyed by **user**: students sit in classrooms behind one address |
+| GET | `/practice/attempts/{uuid}/result` | authenticated | |
+| GET | `/manage/grading/queue` · `/attempts/{uuid}` | `grading.perform` | |
+| POST · PATCH | `/manage/grading/answers/{uuid}` | `grading.perform` / `grading.revise` | `throttle:authoring` |
+| PUT | `/manage/bank/questions/{uuid}/rubric` | `questions.manage` | The rubric hangs off the QUESTION |
+| GET | `/assignments[/{uuid}]` | authenticated | One list endpoint with two branches; a second route is a second place to forget the draft filter |
+| POST | `/assignments/{uuid}/submissions` | authenticated | `throttle:upload` |
+| POST · PATCH | `/manage/assignments[...]` | `assignments.manage` | `throttle:authoring` |
+| POST | `/manage/submissions/{uuid}/grade` | `submissions.grade` | |
+| GET · POST · DELETE | `/manage/accommodations[/{uuid}]` | `accommodations.manage` | |
+| GET | `/submissions/{uuid}/file` | owner or `submissions.grade` | `signed` **and** `auth:sanctum`, five-minute TTL, policy re-run at open |
+| GET · POST | `/manage/unlock-rules` | `unlock_rules.manage` | |
+| POST | `/manage/class-sessions/{uuid}/unlock-exemptions` | `unlock_rules.manage` | |
+
+The **student's** side of the unlock gate is not here: it is
+`/class-sessions/{uuid}/eligibility`, owned by LiveSessions because that module binds the
+session. Both answers come from one resolver.
+
+### Permissions (nine)
+
+`bank.view` · `questions.manage` · `grading.perform` · `grading.revise` ·
+`assignments.manage` · `submissions.grade` · `accommodations.manage` ·
+`unlock_rules.manage` · `analytics.view`, plus the platform-only
+`analytics.cross_teacher.view`.
+
+⚠️ **`questions.manage` was REVOKED from the assistant-teacher role** by migration
+`..._002000`. Under the old nested routes it meant "edit this exam's questions"; against the
+bank it means the whole shared bank of the workspace. Leaving it is not "no change" — it is
+one teacher's assistant silently holding every teacher's questions. Restoring it is one tick
+box in `/admin`; the leak has no equivalent single step.
+
+### The snapshot is the denominator
+
+`attempt_items` is written when an attempt STARTS, one row per question with a json snapshot
+of it. Grading reads that snapshot and never the live question, so an exam edited after a
+student sat it cannot change what they were marked on — and the migration chain backfilled
+these rows for every pre-existing attempt, without which each one's denominator would be
+zero and `SC-015` would have passed while measuring `score` alone.
+
+### Two things the analytics rollup must not count
+
+- **Practice attempts.** `is_practice` is on `exam_attempts` while the answers are on
+  `exam_answers`, so that join exists for this reason alone
+- **Ungraded essays.** `GradeAttempt` writes `is_correct = false` for every essay because no
+  machine can judge one; counting those reports every essay in the bank as 100% wrong,
+  permanently
+
+And a sample below `assessments.min_sample_size` stores `wrong_pct = NULL`, never zero: "nobody
+got this wrong" is what makes a teacher delete a good question two students happened to sit.
+
+### The unlock gate guards two doors and not the third
+
+`BookingEligibility::openingRefusal()` is asked when a seat is booked and when a join ticket
+is issued. The nightly `ReleaseIneligibleBookings` sweep still calls the older
+`refusalReason()`, and the split is deliberate: the sweep **cancels** seats, so folding the
+unlock condition into it would repossess a paid seat over unfinished homework.
+
+Excused counts as attended — only `absent` fails, because an excusal is the teacher's
+decision that the absence is not held against the student. "Previous" is the latest countable
+earlier session, skipping cancelled and suspended ones. And a submitted-but-unmarked homework
+satisfies a score threshold: the late party there is the teacher.
+
+### Rate limiters
+
+`throttle:authoring` (teacher writes) · `throttle:upload` (imports and hand-ins) ·
+`throttle:practice` (paper generation, keyed by **user** rather than ip).
 
 ## Roles, permissions, and who may grant them
 
