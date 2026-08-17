@@ -48,12 +48,10 @@ const ROTATE_SECONDS = 20;
 export function Watermark({
   grant,
   videoRef,
-  onRenewed,
   onStopped,
 }: {
   grant: PlaybackGrant;
   videoRef: React.RefObject<HTMLVideoElement | null>;
-  onRenewed: (manifestUrl: string) => void;
   onStopped: (message: string) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -75,12 +73,13 @@ export function Watermark({
     const timer = window.setInterval(() => {
       void media
         .renew(grant.grant, videoRef.current?.currentTime ?? 0)
-        .then((renewed) => onRenewed(renewed.manifest_url))
+        // Nothing to report on success: the grant row is what was extended, and
+        // where to play from is the player's own business.
         .catch((err: unknown) => stop(userMessage(err)));
     }, grant.renew_after_seconds * 1000);
 
     return () => window.clearInterval(timer);
-  }, [grant.grant, grant.renew_after_seconds, videoRef, onRenewed, stop]);
+  }, [grant.grant, grant.renew_after_seconds, videoRef, stop]);
 
   // FR-017 — a fixed corner is one a phone camera can be framed to exclude, and
   // one a sticky note covers.

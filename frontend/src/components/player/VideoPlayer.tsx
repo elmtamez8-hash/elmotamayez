@@ -30,15 +30,35 @@ import { Select } from "@/components/ui/Field";
  * browser with neither still says so in words rather than showing a black
  * rectangle.
  *
- * What does NOT change is where the manifest comes from. The player still asks our
- * own `/playback/{grant}/stream`, which answers 302 — so every playlist fetch is a
- * fresh trip through the grant, exactly as every byte-range request was.
+ * What does NOT change is where the manifest comes from: the player asks our own
+ * `/playback/{grant}/stream`.
+ *
+ * ⚠️ BUT FOR A REDIRECT PROVIDER THAT TRIP HAPPENS ONCE, NOT PER BYTE — WHICH IS WHY
+ * `reload_after_seconds` EXISTS. A provider that serves the bytes itself is
+ * re-authorised on every range request, so the grant lapsing cuts playback where it
+ * stands. A provider that answers a 302 hands the browser a URL signed for the
+ * grant's expiry as it stood at that moment, and everything after that is
+ * browser↔CDN. Renewal extends the grant ROW and cannot reach that URL — so without
+ * coming back through our route the lesson stops at the first token expiry and no
+ * amount of renewing helps. The reload below is what keeps the server the decision
+ * point; the cost is a re-buffer on each one, and the server sets the cadence.
  */
 export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState("");
   const [source, setSource] = useState(grant.manifest_url);
   const [speed, setSpeed] = useState(1);
+
+  /*
+    Where to land after a reload of the source, or null before the first one.
+
+    State rather than a ref: the position is read at the moment the reload is
+    decided, and reading a ref during render to compute a start position would be
+    impure — a double render would have to agree with itself for the resume to be
+    right. No counter beside it either; the busted `source` string is what re-runs
+    the effects, so a second value would be one nothing reads.
+  */
+  const [restartAt, setRestartAt] = useState<number | null>(null);
 
   // Three ways a browser can play what we are about to hand it, and only the
   // third needs a library.
@@ -50,23 +70,80 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
   // same lesson would repeat it.
   const transcript = grant.captions.find((caption) => caption.is_default) ?? grant.captions[0];
 
-  // Renewal belongs to the watermark, not here — see Watermark.tsx. This
-  // component only reacts to what that loop reports.
-  const onRenewed = useCallback((manifestUrl: string) => setSource(manifestUrl), []);
+  /*
+    Renewal belongs to the watermark, not here — see Watermark.tsx.
+
+    ⚠️ AND IT NO LONGER REPORTS A URL. It used to hand back `manifest_url` and this
+    component assigned it to the source; harmless while that string was constant, and
+    actively wrong now — it would overwrite the reloaded source every renewal and
+    restart playback from the top with no saved position. Renewal keeps the grant
+    alive; the reload effect owns where the player reads from. Two writers to one
+    source is how a renewal silently moves a viewer.
+  */
   const onStopped = useCallback((message: string) => setError(message), []);
 
-  // Pick up where they left off (FR-036).
+  // Where playback should land: what the server remembers on first load, and
+  // wherever the viewer actually was on every reload after that.
+  const startAt = restartAt ?? grant.resume_at_seconds;
+  const startFrom = Number.isFinite(startAt) && startAt > 0 ? startAt : 0;
+
+  /*
+    Pick up where they left off (FR-036).
+
+    ⚠️ THE NATIVE PATH ONLY, BECAUSE THIS ASSIGNMENT DOES NOTHING WHEN hls.js DRIVES
+    THE ELEMENT. With no `src` yet, setting `currentTime` sets the element's DEFAULT
+    playback start position — and `attachMedia` then points `src` at a MediaSource
+    blob, which re-runs resource selection and resets it to zero. The library path
+    passes the position to hls.js as `startPosition` instead, which is the only hook
+    that survives that swap.
+  */
   useEffect(() => {
     const video = videoRef.current;
-    const resume = grant.resume_at_seconds;
 
     // Finite check, not just > 0: a missing field arrives as undefined, and
     // assigning that to currentTime throws — which took the whole page down with
     // a client-side exception rather than merely starting from zero.
-    if (video === null || !Number.isFinite(resume) || resume <= 0) return;
+    if (usesLibrary || video === null || startFrom === 0) return;
 
-    video.currentTime = resume;
-  }, [grant.resume_at_seconds]);
+    // On a reload the element is fetching a new `src`, so the seek has to wait for
+    // it to know how long the video is.
+    if (video.readyState === 0) {
+      const seek = () => {
+        video.currentTime = startFrom;
+      };
+
+      video.addEventListener("loadedmetadata", seek, { once: true });
+
+      return () => video.removeEventListener("loadedmetadata", seek);
+    }
+
+    video.currentTime = startFrom;
+  }, [usesLibrary, startFrom, source]);
+
+  /*
+    Come back through our own route before the signed URL the player is holding
+    lapses — see the note on the component.
+
+    Null means the provider serves its own bytes through `stream()`, so every
+    request is already re-authorised and a reload would be a re-buffer that buys
+    nothing.
+  */
+  useEffect(() => {
+    const cadence = grant.reload_after_seconds;
+
+    if (cadence === null || cadence <= 0) return;
+
+    const timer = window.setInterval(() => {
+      const at = videoRef.current?.currentTime ?? 0;
+
+      // A changed string is what makes the browser re-request on the native path;
+      // the library path is rebuilt by the effect's dependency either way.
+      setSource(`${grant.manifest_url}?r=${Date.now()}`);
+      setRestartAt(at);
+    }, cadence * 1000);
+
+    return () => window.clearInterval(timer);
+  }, [grant.reload_after_seconds, grant.manifest_url]);
 
   /*
     Attach hls.js, and only when this browser actually needs it.
@@ -93,7 +170,10 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
         return;
       }
 
-      const hls = new Hls();
+      // startPosition, not a currentTime assignment: hls.js owns the element's
+      // source, so this is the only place a resume survives attachMedia. -1 is the
+      // library's own "from the beginning".
+      const hls = new Hls({ startPosition: startFrom > 0 ? startFrom : -1 });
       instance = hls;
 
       // Only the errors the library itself calls fatal. It recovers from the rest
@@ -111,7 +191,7 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
       cancelled = true;
       instance?.destroy();
     };
-  }, [usesLibrary, source]);
+  }, [usesLibrary, source, startFrom]);
 
   if (!canPlay) {
     return (
@@ -157,7 +237,6 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
         <Watermark
           grant={grant}
           videoRef={videoRef}
-          onRenewed={onRenewed}
           onStopped={onStopped}
         />
       </div>

@@ -64,6 +64,16 @@ export type PlaybackGrant = {
   format: PlaybackFormat;
   watermark: { name: string; phone_masked: string | null };
   renew_after_seconds: number;
+  /**
+   * How often the player must go back through `manifest_url`, or null if never.
+   *
+   * Renewal extends the grant ROW; it cannot extend a signed CDN URL the browser
+   * is already holding. So for a provider that answers a redirect, coming back
+   * through our route is the only thing that hands the player a fresh token — and
+   * the server decides the cadence, because it is the one that knows the TTL the
+   * token was signed for.
+   */
+  reload_after_seconds: number | null;
   duration_seconds: number | null;
   resume_at_seconds: number;
   renditions: Array<{ label: string; height: number }>;

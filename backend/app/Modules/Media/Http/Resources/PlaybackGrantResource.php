@@ -53,6 +53,35 @@ class PlaybackGrantResource extends JsonResource
             // and hiding it in CSS would put it one network-tab click away.
             'watermark' => WatermarkPayload::for($this->user),
             'renew_after_seconds' => (int) config('media.grant_renew_interval_seconds'),
+            /*
+             * ⚠️ HOW OFTEN THE PLAYER MUST COME BACK THROUGH `stream()`, AND NULL
+             * WHEN IT NEVER HAS TO.
+             *
+             * A provider that serves bytes itself is re-authorised on every range
+             * request, so the grant expiring cuts playback where it stands. A
+             * provider that answers a REDIRECT is not: the browser fetches the
+             * manifest once, then talks to the CDN directly with a URL signed for
+             * the grant's expiry AS IT STOOD at that moment. Renewal extends the
+             * row, not the URL the player is already holding — so without a reload
+             * the lesson dies at the first token expiry, and no amount of renewing
+             * reaches it.
+             *
+             * Which makes the grant TTL ONE number with TWO consequences now: it is
+             * the revocation latency (how long a revoked viewer keeps watching) and
+             * the reload cadence (how often the player re-buffers). Shortening it
+             * tightens the first and worsens the second. The alternative — a long
+             * token — was rejected deliberately: it would make PlaybackGuard a
+             * once-per-viewing check, and every claim about ending a session from
+             * another device, the device limit, and the watermark being the renewal
+             * loop would quietly stop being true.
+             *
+             * Two thirds of the TTL, so a reload that fails still has a live token
+             * to retry under. `isRedirect` rather than the format, because the
+             * question is who serves the bytes, not how they are segmented.
+             */
+            'reload_after_seconds' => $manifest->isRedirect
+                ? max(30, intdiv((int) config('media.grant_ttl_seconds') * 2, 3))
+                : null,
             'duration_seconds' => $this->asset->duration_seconds,
             'renditions' => $manifest->renditions,
             'captions' => $this->asset->captions->map(fn ($caption): array => [

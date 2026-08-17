@@ -39,6 +39,16 @@ it('lets an enrolled student play, by byte range', function (): void {
         ->assertOk()
         ->assertHeader('Accept-Ranges', 'bytes');
 
+    /*
+     * ⚠️ AND NO RELOAD CADENCE, WHICH IS THE HALF THAT MAKES THE FIELD MEAN
+     * SOMETHING. A provider that serves its own bytes is re-authorised on the line
+     * above, on every chunk — so telling this player to come back through the route
+     * on a timer would be a re-buffer bought for nothing. The field answers "who
+     * serves the bytes", not "is it segmented", and a value here would be the field
+     * degenerating into a constant.
+     */
+    expect($response->json('reload_after_seconds'))->toBeNull();
+
     expect(PlaybackGrant::query()->where('uuid', $grant)->value('auth_session_id'))
         ->toBe($session->getKey());
 });

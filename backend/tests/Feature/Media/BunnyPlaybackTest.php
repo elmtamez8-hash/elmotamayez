@@ -156,6 +156,32 @@ it('expires the signature with the grant and not after it', function (): void {
 });
 
 /*
+| ⚠️ THE RELOAD CADENCE, WHICH IS WHAT MAKES A SHORT GRANT MEAN ANYTHING HERE.
+|
+| A redirect provider is authorised ONCE: the browser fetches the manifest, then talks
+| to the CDN directly with a URL signed for the grant's expiry as it stood at that
+| moment. `RenewPlaybackGrant` extends the ROW and cannot reach that URL — it returns a
+| byte-identical `manifest_url`, so a client that merely renews watches the lesson die
+| at the first token expiry and every renewal after that is decoration. Coming back
+| through `stream()` is the only thing that mints a fresh token, so the server states
+| the cadence rather than leaving the player to guess a TTL it was never told.
+|
+| The null case is not a detail — it is what makes the field mean something. A provider
+| that serves its own bytes is re-authorised on every range request, and reloading
+| there would be a re-buffer bought for nothing.
+*/
+it('tells a redirect player how often to come back for a fresh signature', function (): void {
+    $payload = issueGrant($this->lesson);
+
+    // Two thirds of the TTL: a reload that fails still has a live token to retry
+    // under. Derived, never a literal — the TTL is an operator's row.
+    expect($payload['reload_after_seconds'])
+        ->toBe(intdiv((int) config('media.grant_ttl_seconds') * 2, 3))
+        // And it must land inside the token's life, or it is not a renewal at all.
+        ->toBeLessThan((int) config('media.grant_ttl_seconds'));
+});
+
+/*
 | SC-002 — what is asked for AFTER expiry is the thing that fetches bytes.
 |
 | A player re-requests segments continuously, so the door that matters is the one
