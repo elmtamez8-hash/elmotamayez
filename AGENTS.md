@@ -436,9 +436,17 @@ answer for a host is "nothing is refusing you" — not «لست مسجّلاً �
 binding — not instead of it.** An upload ticket has no row to read. `SC-011`
 needs two assets for two providers in one database; one asset cannot see the bug.
 
-**The video title is a join key.** `videos/fetch` returns no id. Changing
-`BUNNY_TITLE_PREFIX` orphans every asset not yet recovered, and every call to
-`fetch` creates another paid video — so never deliver twice for one session.
+**`videos/fetch` DOES return the video's id** — verified live 2026-08-17;
+the OpenAPI `StatusModel` is wrong and the narrative docs page was right. Read
+it and save it inside `ingestFromUrl`. **The title stays the RECOVERY key** for a
+response that never came back, so changing `BUNNY_TITLE_PREFIX` still orphans
+every asset not yet recovered. Every call to `fetch` creates another paid video —
+so never deliver twice for one session.
+
+**Bunny MIRRORS the origin's status.** `403 {"success":false,"message":"Origin
+returned HTTP 403…"}` is the SOURCE refusing Bunny — retryable, and the retry
+signs a fresh url. Only 401 (PascalCase `Message`) and a 400 carrying `errors`
+are permanent; classifying an origin mirror as permanent loses the recording.
 
 **`token_path` or the segments are public — and it is SIGNED as well as sent.** Sign
 the video's DIRECTORY with the advanced scheme: `HS256-` + Base64URL(HMAC-SHA256(key,

@@ -36,5 +36,29 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="SCOUT_DRIVER" value="null"/>
+        <!--
+            The two provider switches are PINNED, and the day they were not cost five
+            green tests their meaning.
+
+            Neither was listed here, so the suite inherited whichever provider the
+            developer happened to have configured in `.env`. On 2026-08-17 real
+            credentials went in for the first time and five tests that had passed for
+            weeks turned red — not because anything regressed, but because they had
+            only ever exercised the local provider and nobody knew that was a
+            coincidence. A suite whose outcome depends on a file that is not in the
+            repository is a suite that agrees with whoever ran it last.
+
+            Pinned to the two providers that need no account and no network: the tests
+            that exercise a commercial one set their own config explicitly, which is
+            the only way a provider test can be honest anyway.
+        -->
+        <env name="MEDIA_PROVIDER" value="local"/>
+        <env name="BROADCAST_PROVIDER" value="null"/>
+        <!--
+            And the source disk with them: `BunnyMediaProvider::fetchableUrl()` presigns
+            through this disk, so a developer with R2 credentials would have the suite
+            reaching for a real bucket while one without would not.
+        -->
+        <env name="BUNNY_SOURCE_DISK" value=""/>
     </php>
 </phpunit>

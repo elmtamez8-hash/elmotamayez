@@ -185,6 +185,33 @@ final class BunnyMediaProvider implements MediaProviderInterface
         $response = $this->request()->post($this->libraryUrl('/videos/fetch'), $payload);
 
         $this->assertDelivered($response);
+
+        /*
+         * ⚠️ THE RESPONSE DOES CARRY AN ID, AND THIS FILE SAID OTHERWISE UNTIL IT WAS
+         * RUN AGAINST A REAL ACCOUNT (2026-08-17). The OpenAPI schema types this 200 as
+         * `StatusModel` — `{success, message, statusCode}` — and research §R3 built the
+         * whole title-as-join-key design on it. The narrative documentation page showed
+         * an id and was dismissed as the outlier. The live answer is:
+         *
+         *     {"id":"42d1c5e3-…","success":true,"message":"OK","statusCode":200}
+         *
+         * and `GET /videos/{id}` returns that exact value as its `guid`. So the id is
+         * authoritative when it arrives.
+         *
+         * ⚠️ WRITTEN HERE, NOT RETURNED TO THE CALLER, because this is the only window
+         * in which it can be lost: a crash between learning the id and saving it leaves
+         * a video nothing addresses, which is the same hole the title recovery exists
+         * to climb out of. Saved BEFORE anything else can fail.
+         *
+         * And the title stays load-bearing — the id is the happy path, the title is the
+         * recovery path for a response that never arrived (a timeout AFTER Bunny
+         * accepted the fetch). Neither replaces the other.
+         */
+        $id = $response->json('id') ?? $response->json('Id');
+
+        if (is_string($id) && $id !== '') {
+            $asset->forceFill(['provider_asset_id' => $id])->save();
+        }
     }
 
     /**
@@ -408,26 +435,61 @@ final class BunnyMediaProvider implements MediaProviderInterface
     /** @throws PermanentIngestFailure|RuntimeException */
     private function assertDelivered(Response $response): void
     {
-        if ($response->successful()) {
+        $body = (array) $response->json();
+
+        // Both casings occur, and reading one misses the other: a success answers
+        // lowercase `success`, an authentication refusal answers PascalCase `Success`.
+        $message = (string) ($body['message'] ?? $body['Message'] ?? '');
+        $declared = $body['success'] ?? $body['Success'] ?? null;
+
+        if ($response->successful() && $declared !== false) {
             return;
         }
 
-        throw match ($response->status()) {
-            // Documented as a limit with no number attached to it, so the retry
-            // ceiling stays the one inherited from 017 rather than an invented one.
-            429 => new RuntimeException('تجاوزنا حدَّ الطلبات عند مزوّد الوسائط.'),
-            // The provider could not fetch the source — an expired signed URL, most
-            // likely. Retryable, and the retry signs a NEW url rather than reusing
-            // the one that just failed, which is why signing lives in this class
-            // and not at the call site.
-            422 => new RuntimeException('تعذّر على المزوّد جلبُ الملف من المصدر.'),
-            // A wrong or missing key. Retrying it five times over an hour tells the
-            // teacher nothing they could not have been told at once.
-            401, 403 => new PermanentIngestFailure('تهيئةُ مزوّد الوسائط غير صحيحة.'),
-            // Malformed request. A second identical attempt is malformed too.
-            400 => new PermanentIngestFailure('طلبُ التسليم مرفوضٌ من مزوّد الوسائط.'),
-            default => new RuntimeException('تعذّر تسليم الملف إلى مزوّد الوسائط.'),
-        };
+        /*
+         * ⚠️ THE ORIGIN IS ASKED ABOUT FIRST, AND CLASSIFYING BY STATUS ALONE COSTS A
+         * RECORDING. Bunny MIRRORS the source's status code into its own reply, so a
+         * source that refuses the fetch produces
+         *
+         *     403 {"success":false,"message":"Origin returned HTTP 403 (Forbidden).", …}
+         *
+         * — indistinguishable, by status, from Bunny refusing US. Observed live on
+         * 2026-08-17. That mattered because 403 sat in the permanent arm: the very
+         * first failure a presigned source URL will ever produce is an expiry, and it
+         * would have spent the entire attempt budget at once, marked the recording
+         * `failed`, and released the teacher's held fee for a file still sitting intact
+         * in the bucket. The retry is what fixes it — the next pass signs a NEW url
+         * rather than reusing the one that just lapsed, which is why signing lives in
+         * this class and not at the call site.
+         *
+         * The 422 this used to key on was a reasonable guess and the wrong one; the
+         * reasoning it carried is preserved above, the status is not.
+         */
+        if (str_contains($message, 'Origin returned')) {
+            throw new RuntimeException("تعذّر على المزوّد جلبُ الملف من المصدر ({$response->status()}).");
+        }
+
+        // Bunny's own refusal of us: a wrong key, or a library that is not ours.
+        // Retrying it five times over an hour tells the teacher nothing they could not
+        // have been told at once.
+        if ($response->status() === 401) {
+            throw new PermanentIngestFailure('تهيئةُ مزوّد الوسائط غير صحيحة.');
+        }
+
+        // A schema rejection, which carries RFC 9110 problem+json rather than the
+        // `success/message` shape. A second identical attempt is malformed too.
+        if ($response->status() === 400 && isset($body['errors'])) {
+            throw new PermanentIngestFailure('طلبُ التسليم مرفوضٌ من مزوّد الوسائط.');
+        }
+
+        /*
+         * Everything else retries, deliberately — including 429, whose limit is
+         * documented without a number, and including a 200 that declares
+         * `success: false`. The budget is the ceiling on optimism here; declaring a
+         * failure permanent is the decision that cannot be walked back, so it is made
+         * only for the two answers that state their own permanence.
+         */
+        throw new RuntimeException('تعذّر تسليم الملف إلى مزوّد الوسائط.');
     }
 
     private function reportFrom(Response $response): AssetStatusReport

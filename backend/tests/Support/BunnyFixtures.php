@@ -70,9 +70,65 @@ final class BunnyFixtures
      *
      * @return array<string, mixed>
      */
-    public static function fetchAccepted(): array
+    /**
+     * ⚠️ THIS FIXTURE WAS WRONG, AND IT WAS WRONG IN THE SAME DIRECTION AS THE CODE.
+     *
+     * It returned no `id`, matching the OpenAPI `StatusModel` and research §R3 — and
+     * the implementation read no `id` either, so every test agreed with every other
+     * test and none of them agreed with Bunny. Verified live on 2026-08-17: the real
+     * 200 is `{"id":"…","success":true,"message":"OK","statusCode":200}`, and that id
+     * is the video's `guid`.
+     *
+     * This is the shape a test cannot catch by itself — a fixture is only ever as true
+     * as the day someone checked it against the vendor.
+     */
+    public static function fetchAccepted(string $id = 'delivered-guid'): array
     {
-        return ['success' => true, 'message' => 'Video fetched', 'statusCode' => 200];
+        return ['id' => $id, 'success' => true, 'message' => 'OK', 'statusCode' => 200];
+    }
+
+    /**
+     * The same acceptance with the id missing — the response that timed out on the way
+     * back, or a provider that stops sending it. This is what the title recovery is
+     * FOR, now that it is no longer the happy path.
+     *
+     * @return array<string, mixed>
+     */
+    public static function fetchAcceptedWithoutId(): array
+    {
+        return ['success' => true, 'message' => 'OK', 'statusCode' => 200];
+    }
+
+    /**
+     * The source refused Bunny — the answer an expired presigned url produces.
+     *
+     * ⚠️ THE STATUS IS THE ORIGIN'S, MIRRORED. That is the whole difficulty: by status
+     * alone this is indistinguishable from Bunny refusing us, and only the message
+     * separates them. Observed live.
+     *
+     * @return array<string, mixed>
+     */
+    public static function originRefused(int $status = 403): array
+    {
+        return [
+            'success' => false,
+            'message' => "Origin returned HTTP {$status} (Forbidden).",
+            'statusCode' => $status,
+        ];
+    }
+
+    /**
+     * Bunny's own authentication refusal — PascalCase, unlike every other answer.
+     *
+     * @return array<string, mixed>
+     */
+    public static function authDenied(): array
+    {
+        return [
+            'Success' => false,
+            'Message' => 'Authentication has been denied for this request.',
+            'StatusCode' => 401,
+        ];
     }
 
     /**

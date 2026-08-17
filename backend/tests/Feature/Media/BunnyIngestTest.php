@@ -23,17 +23,23 @@ use Tests\Support\BunnyFixtures;
 use Tests\Support\FakeBroadcastProvider;
 
 /*
-| SC-014 — THE MIDDLE STATE, WHICH IS THE ONE THAT DID NOT EXIST BEFORE.
+| SC-014 — THE MIDDLE STATE, WHICH IS NARROWER THAN THIS FILE ONCE CLAIMED.
 |
-| ⚠️ THE DEFECT HERE IS A PARTIAL SUCCESS, NOT A VISIBLE FAILURE. `videos/fetch`
-| answers `{success, message, statusCode}` and does NOT return the new video's id
-| (research §R3, from the OpenAPI schema — the narrative docs page disagrees and is
-| the outlier). So a delivery can be accepted while the asset still has no
-| `provider_asset_id`, and an implementation that reads a `guid` from that response
-| gets null, writes it, and marks the asset ready: a published lesson pointing at
-| nothing, with no error anywhere.
+| ⚠️ CORRECTED 2026-08-17 AGAINST A REAL ACCOUNT. This file used to assert that
+| `videos/fetch` answers `{success, message, statusCode}` and returns NO id — from the
+| OpenAPI schema via research §R3, with the narrative docs page dismissed as the
+| outlier. The narrative page was right:
 |
-| Every test below is about the gap between "accepted" and "found".
+|     {"id":"42d1c5e3-…","success":true,"message":"OK","statusCode":200}
+|
+| and `GET /videos/{id}` returns that value as its `guid`. So the id is authoritative
+| on the happy path, and the id-less middle state is the RECOVERY path — a response
+| that never came back — not the ordinary one.
+|
+| The tests below are about three gaps, and only the first is routine:
+|   · accepted and encoding      → id known, not yet playable
+|   · accepted and response lost → no id, found again by title
+|   · refused, and BY WHOM       → the origin (retry) vs the provider (give up)
 */
 
 /*
@@ -57,15 +63,43 @@ beforeEach(function (): void {
     $this->fetchStatus = 200;
     // How `GET /videos/{guid}` answers. 200 means "read the video back".
     $this->videoStatus = 200;
+    // The body a 200 acceptance carries. A test swaps this for the id-less variant to
+    // exercise the recovery path.
+    $this->fetchBody = null;
+    // What a refusal answers with. Set together with a non-200 $this->fetchStatus,
+    // because the STATUS alone does not say who refused (see the origin tests).
+    $this->refusalBody = ['message' => 'refused'];
+    $this->deliveredGuid = 'delivered-guid';
 
     Http::fake(function (Request $request) {
         $path = (string) parse_url($request->url(), PHP_URL_PATH);
 
         if (str_ends_with($path, '/videos/fetch')) {
-            return Http::response(
-                $this->fetchStatus === 200 ? BunnyFixtures::fetchAccepted() : ['message' => 'refused'],
-                $this->fetchStatus,
-            );
+            if ($this->fetchStatus !== 200) {
+                return Http::response($this->refusalBody, $this->fetchStatus);
+            }
+
+            $body = $this->fetchBody ?? BunnyFixtures::fetchAccepted($this->deliveredGuid);
+
+            /*
+             * ⚠️ THE FAKE CREATES THE VIDEO, BECAUSE BUNNY DOES.
+             *
+             * Verified live on 2026-08-17: the fetch answers with an id and
+             * `GET /videos/{id}` returns that video at status 2 immediately after. A
+             * fake that accepted the delivery and then answered 404 for the id it had
+             * just issued would put every test one step away from reality — and it is
+             * exactly the step where an implementation reading the id would look
+             * broken while the one ignoring it looked fine.
+             */
+            if (isset($body['id'])) {
+                $this->videos[] = BunnyFixtures::video(
+                    (string) $body['id'],
+                    (string) ($request->data()['title'] ?? ''),
+                    status: 2,
+                );
+            }
+
+            return Http::response($body, 200);
         }
 
         // The search: `GET /videos` with a query string.
@@ -131,20 +165,27 @@ function ingestAsset(ClassSession $session): ?MediaAsset
 }
 
 /*
-| The state this whole file is named for: the provider took the file and the video
-| has not appeared under its title yet.
+| ⚠️ THE ID ARRIVES WITH THE ACCEPTANCE, AND THIS FILE ASSERTED THE OPPOSITE UNTIL A
+| REAL ACCOUNT ANSWERED (2026-08-17).
+|
+| The OpenAPI schema types the 200 as `StatusModel` and research §R3 built the whole
+| title-as-join-key design on it; the narrative docs page showed an id and was
+| dismissed as the outlier. The live answer is
+| `{"id":"…","success":true,"message":"OK","statusCode":200}`, and that value IS the
+| video's guid. So the happy path never passes through the id-less middle state at all.
+|
+| The title stays load-bearing all the same — see the recovery test below.
 */
-it('leaves an accepted delivery incomplete until its id is recovered', function (): void {
-    // Nothing found yet — the encode has not produced a row we can see.
+it('records the video id the moment the provider accepts the delivery', function (): void {
     runIngest($this->session);
 
     $asset = ingestAsset($this->session);
 
     expect($asset)->not->toBeNull()
-        // NOT Ready. Ready here is the whole defect: a lesson published over a
-        // file nothing can address.
-        ->and($asset->status)->toBe(MediaAssetStatus::Processing)
-        ->and($asset->provider_asset_id)->toBeNull();
+        ->and($asset->provider_asset_id)->toBe('delivered-guid')
+        // NOT Ready — the video exists and is still encoding. Ready here would be a
+        // lesson published over a file that cannot play yet.
+        ->and($asset->status)->toBe(MediaAssetStatus::Processing);
 
     // And nothing was published, which is the consequence that reaches a student.
     expect(Lesson::query()->withoutWorkspaceScope()->where('class_session_id', $this->session->getKey())->exists())
@@ -156,34 +197,60 @@ it('leaves an accepted delivery incomplete until its id is recovered', function 
     expect($this->session->refresh()->recording_status)->toBe('pending');
 });
 
-it('recovers the id by title and only then goes ready', function (): void {
-    // First pass: delivered, not found.
+it('publishes once the encode finishes', function (): void {
     runIngest($this->session);
 
     $asset = ingestAsset($this->session);
-    expect($asset->provider_asset_id)->toBeNull();
+    expect($asset->status)->toBe(MediaAssetStatus::Processing);
 
-    // Second pass: the video now exists under the title we chose.
+    // The same video, finished. status 4 = Finished.
+    $this->videos = [BunnyFixtures::video('delivered-guid', BunnyFixtures::titleFor((string) $asset->uuid))];
+
+    runIngest($this->session);
+
+    // ⚠️ THE ORDER IS THE REQUIREMENT (FR-006ب). An asset that reached Ready
+    // without this column would be playable in name only — nothing could build
+    // its URL and nothing could delete it.
+    expect(ingestAsset($this->session)->provider_asset_id)->toBe('delivered-guid')
+        ->and(ingestAsset($this->session)->status)->toBe(MediaAssetStatus::Ready)
+        ->and($this->session->refresh()->recording_status)->toBe('published');
+});
+
+/*
+| ⚠️ AND THIS IS WHY THE TITLE IS STILL A JOIN KEY, NOT A LABEL.
+|
+| It is no longer the happy path; it is the RECOVERY path. A delivery whose response
+| never came back — a timeout after Bunny accepted, a worker killed between the POST
+| and the save — leaves an asset with no id and a video that exists. Without the title
+| there is nothing on either side that names the other, and the file is paid for
+| monthly and referenced by nothing. So `BUNNY_TITLE_PREFIX` stays a join key, and
+| changing it still orphans every asset not yet recovered.
+*/
+it('recovers the id by title when the acceptance carried none', function (): void {
+    $this->fetchBody = BunnyFixtures::fetchAcceptedWithoutId();
+
+    runIngest($this->session);
+
+    $asset = ingestAsset($this->session);
+    expect($asset->provider_asset_id)->toBeNull()
+        ->and($asset->status)->toBe(MediaAssetStatus::Processing);
+
+    // The video is there under the title we chose, and only the title finds it.
     $this->videos = [
         BunnyFixtures::video('recovered-guid', BunnyFixtures::titleFor((string) $asset->uuid)),
     ];
 
     runIngest($this->session);
 
-    $asset = ingestAsset($this->session);
-
-    // ⚠️ THE ORDER IS THE REQUIREMENT (FR-006ب). An asset that reached Ready
-    // without this column would be playable in name only — nothing could build
-    // its URL and nothing could delete it.
-    expect($asset->provider_asset_id)->toBe('recovered-guid')
-        ->and($asset->status)->toBe(MediaAssetStatus::Ready);
-
-    expect($this->session->refresh()->recording_status)->toBe('published');
+    expect(ingestAsset($this->session)->provider_asset_id)->toBe('recovered-guid')
+        ->and($this->session->refresh()->recording_status)->toBe('published');
 });
 
 // The column is written the moment it is learned, even while the encode is still
 // running — because that is the only window in which it can be lost.
-it('writes the recovered id even while the video is still transcoding', function (): void {
+it('writes a recovered id even while the video is still transcoding', function (): void {
+    $this->fetchBody = BunnyFixtures::fetchAcceptedWithoutId();
+
     runIngest($this->session);
 
     $asset = ingestAsset($this->session);
@@ -199,6 +266,41 @@ it('writes the recovered id even while the video is still transcoding', function
 
     expect($asset->provider_asset_id)->toBe('mid-guid')
         ->and($asset->status)->toBe(MediaAssetStatus::Processing);
+});
+
+/*
+| ⚠️ THE SOURCE REFUSING BUNNY IS NOT BUNNY REFUSING US, AND THE STATUS CANNOT TELL
+| THEM APART — WHICH IS WHY THIS TEST EXISTS.
+|
+| Bunny MIRRORS the origin's status into its own reply, observed live as
+| `403 {"success":false,"message":"Origin returned HTTP 403 (Forbidden)."}`. That 403
+| used to land in the permanent arm, and the very first failure a presigned source url
+| will ever produce is an expiry: the whole attempt budget spent at once, the recording
+| marked failed, and the teacher's held fee released for a file still intact in the
+| bucket. The retry is the fix, because the next pass signs a NEW url.
+*/
+it('retries when the source refused the provider, rather than giving up', function (): void {
+    $this->fetchStatus = 403;
+    $this->refusalBody = BunnyFixtures::originRefused();
+
+    runIngest($this->session);
+
+    expect($this->session->refresh()->recording_status)->toBe('pending')
+        ->and((int) $this->session->recording_attempts)->toBe(1);
+});
+
+// The mirror image, so the test above is not asserting "nothing is ever permanent".
+// A key that is wrong is wrong on the fifth attempt too — and Bunny answers its own
+// refusals in PascalCase, which a reader of `json('success')` alone would miss.
+it('gives up at once when the provider itself denies us', function (): void {
+    $this->fetchStatus = 401;
+    $this->refusalBody = BunnyFixtures::authDenied();
+
+    runIngest($this->session);
+
+    expect($this->session->refresh()->recording_status)->toBe('failed')
+        ->and((int) $this->session->recording_attempts)
+        ->toBe(app(SessionSettings::class)->recordingMaxAttempts());
 });
 
 /*
@@ -239,8 +341,18 @@ it('does not deliver a second time for a session already handed over', function 
     expect($fetches)->toHaveCount(1);
 });
 
+/*
+| ⚠️ REACHED ONLY THROUGH THE RECOVERY PATH, AND THAT IS THE POINT.
+|
+| A title search happens when the acceptance carried no id — so a duplicate title is a
+| hazard of the RECOVERY path, not of the happy one. The id arriving with the
+| acceptance is what removed the everyday exposure to this; it did not remove the case,
+| because a lost response still lands here.
+*/
 it('reports a duplicate rather than quietly picking one', function (): void {
     Exceptions::fake();
+
+    $this->fetchBody = BunnyFixtures::fetchAcceptedWithoutId();
 
     runIngest($this->session);
 
@@ -281,17 +393,18 @@ it('keeps a transiently unreachable provider in processing, never failed', funct
 
     $asset = ingestAsset($this->session);
 
-    // The id is recoverable, so the poll gets past the search and asks directly.
-    $this->videos = [
-        BunnyFixtures::video('known-guid', BunnyFixtures::titleFor((string) $asset->uuid)),
-    ];
+    // The id came back with the acceptance, so the poll asks about it directly —
+    // which is the stronger version of this case: the id is not in doubt, only the
+    // provider's availability is.
+    expect($asset->provider_asset_id)->toBe('delivered-guid');
+
     $this->videoStatus = 500;
 
     runIngest($this->session);
 
     $asset = ingestAsset($this->session);
 
-    expect($asset->provider_asset_id)->toBe('known-guid')
+    expect($asset->provider_asset_id)->toBe('delivered-guid')
         ->and($asset->status)->toBe(MediaAssetStatus::Processing)
         // Still pending, so both sweeps come back for it.
         ->and($this->session->refresh()->recording_status)->toBe('pending');

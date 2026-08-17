@@ -324,9 +324,13 @@ Four things here are not obvious and each one is a defect that would ship green:
   `ZeroVideoBandwidthTest` as a **negation over the whole request list** — asserting that
   `videos/fetch` was called passes on an implementation that downloads, uploads, then calls
   it.
-- **The title is a join key.** `videos/fetch` does not return the new video's id, so the
-  id is recovered afterwards by searching for a title we chose: `{prefix}:{asset_uuid}`.
-  Changing `BUNNY_TITLE_PREFIX` orphans every asset not yet recovered. It also means
+- **`videos/fetch` returns the video's id, and the title is the recovery key.** ⚠️ Verified
+  against a live account on 2026-08-17: the 200 carries `id`, and `GET /videos/{id}` returns
+  it as the `guid`. The OpenAPI schema types the response as `StatusModel` and research §R3
+  built the design on that; the narrative page showed an id and was right. The id is saved
+  inside `ingestFromUrl`, before anything else can fail. The title `{prefix}:{asset_uuid}`
+  remains the way an asset and a video find each other when the response never came back,
+  so changing `BUNNY_TITLE_PREFIX` still orphans every asset not yet recovered. It also means
   `fetch` creates a new video on *every* call, so the job refuses to deliver twice for one
   session — a retry would be a second video, billed monthly, referenced by nothing.
 - **`token_path` is the whole of the playback protection.** The manifest is HLS, so a token
