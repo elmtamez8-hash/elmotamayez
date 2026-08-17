@@ -448,6 +448,13 @@ returned HTTP 403…"}` is the SOURCE refusing Bunny — retryable, and the retr
 signs a fresh url. Only 401 (PascalCase `Message`) and a 400 carrying `errors`
 are permanent; classifying an origin mirror as permanent loses the recording.
 
+**A provider declares its `kinds`; the resolver routes by them.** `forKind()` for a
+new file (no row yet), `for()` for an existing one. Our own disk is the fallback and
+declares no kinds, so it takes everything. Stamp `provider` from whoever TOOK the
+file — the config would be a lie for every routed asset. And the local upload route
+checks `$asset->provider === $provider->identifier()`: without it, a video host's
+asset could be handed bytes here.
+
 **`token_path` or the segments are public — and it is SIGNED as well as sent.** Sign
 the video's DIRECTORY with the advanced scheme: `HS256-` + Base64URL(HMAC-SHA256(key,
 `signature_path` + `expires` + `token_path=`+`signature_path`)). Only `token` and

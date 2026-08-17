@@ -119,6 +119,27 @@ class MediaAssetController extends Controller
 
         abort_if($asset === null, 404);
 
+        /*
+         * ⚠️ THIS ROUTE IS THE LOCAL PROVIDER'S, AND IT USED TO ACCEPT ANY ASSET'S
+         * BYTES.
+         *
+         * The ticket token is the asset's own uuid and this endpoint is
+         * unauthenticated by design — the unguessable token is the credential. What
+         * was missing is that it never asked whose asset it was: with a commercial
+         * provider configured, an asset belonging to THAT provider could be handed
+         * bytes here, which wrote a local disk path into `provider_asset_id`.
+         * `CompleteMediaUpload` then resolved the commercial provider from the column
+         * and asked it about a file that was never created there — so the upload
+         * failed with a message naming the wrong cause, and a stray file was left on
+         * our disk.
+         *
+         * Compared against the injected provider's own identifier rather than a
+         * literal, and against the COLUMN rather than the config — which is what
+         * keeps a pre-flip local asset still in `Pending` uploadable after a switch,
+         * the very case the resolver exists for.
+         */
+        abort_unless($asset->provider === $provider->identifier(), 404);
+
         // Only an asset still awaiting its bytes accepts them. Without this, the
         // ticket for a finished asset would stay a live write endpoint.
         abort_unless(

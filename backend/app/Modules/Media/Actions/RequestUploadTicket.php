@@ -8,13 +8,13 @@ use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Exceptions\ContentLockedException;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\LessonTypeRegistry;
-use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Data\UploadTicket;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Enums\MediaKind;
 use App\Modules\Media\Enums\MediaRole;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Support\MediaLimits;
+use App\Modules\Media\Support\MediaProviderResolver;
 use App\Shared\Actions\Action;
 use DomainException;
 
@@ -41,7 +41,20 @@ use DomainException;
 class RequestUploadTicket extends Action
 {
     public function __construct(
-        private readonly MediaProviderInterface $provider,
+        /*
+         * ⚠️ THE RESOLVER, NOT THE BOUND PROVIDER — AND THE REASON IS A PDF.
+         *
+         * This used to inject `MediaProviderInterface` and hand every kind to
+         * whichever provider `media.provider` named. Flipping that switch to a
+         * commercial video host therefore had a *video object* created for every
+         * worksheet a teacher uploaded, under video-sized ceilings, in a library
+         * that stores nothing else — failing while naming the wrong cause.
+         *
+         * `forKind()` asks the provider what it accepts and sends the rest to our
+         * own disk. The Action still names nobody: which provider takes what is a
+         * declaration on the provider, read by the resolver.
+         */
+        private readonly MediaProviderResolver $providers,
     ) {}
 
     /** @return array{asset: MediaAsset, ticket: UploadTicket} */
@@ -88,11 +101,17 @@ class RequestUploadTicket extends Action
             );
         }
 
+        $provider = $this->providers->forKind($kind);
+
         $asset = new MediaAsset([
             'workspace_id' => $lesson->workspace_id,
             'owner_type' => Lesson::class,
             'owner_id' => $lesson->getKey(),
-            'provider' => $this->provider->identifier(),
+            // Stamped from whoever actually took it, which is what lets
+            // `MediaProviderResolver::for()` find it again later. A column that
+            // recorded the CONFIGURED provider instead would be a lie the day a
+            // kind was routed elsewhere.
+            'provider' => $provider->identifier(),
             'kind' => $kind,
             'role' => $role,
             // Stated for the same reason as the two above, and it was the one
@@ -110,7 +129,7 @@ class RequestUploadTicket extends Action
 
         return [
             'asset' => $asset,
-            'ticket' => $this->provider->createUploadTicket($asset),
+            'ticket' => $provider->createUploadTicket($asset),
         ];
     }
 

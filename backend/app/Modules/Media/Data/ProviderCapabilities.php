@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Media\Data;
 
+use App\Modules\Media\Enums\MediaKind;
 use App\Shared\Data\DataTransferObject;
 
 /**
@@ -36,5 +37,30 @@ final class ProviderCapabilities extends DataTransferObject
          * not this flag's (019 contracts §1).
          */
         public readonly bool $remoteFetch = false,
+        /**
+         * Which kinds this provider accepts, or null for every kind.
+         *
+         * ⚠️ THIS EXISTS BECAUSE A PDF WAS BEING SENT TO A VIDEO LIBRARY. Every
+         * upload went through whichever provider `media.provider` named, with no
+         * branch on kind — so the day production flipped to a commercial video
+         * host, a teacher's worksheet had a *video object* created for it, under
+         * video-sized ceilings, in a library that stores nothing else. It failed,
+         * and it failed while naming the wrong cause.
+         *
+         * Declared rather than inferred, for the same reason as every flag above:
+         * the alternative is a caller that knows which provider is which, and that
+         * is the knowledge this whole interface exists to remove. `null` is "all",
+         * so a provider that genuinely takes anything — our own disk — says nothing
+         * and keeps saying nothing when a kind is added.
+         *
+         * @var list<MediaKind>|null
+         */
+        public readonly ?array $kinds = null,
     ) {}
+
+    /** Whether this provider will take a file of this kind at all. */
+    public function accepts(MediaKind $kind): bool
+    {
+        return $this->kinds === null || in_array($kind, $this->kinds, true);
+    }
 }

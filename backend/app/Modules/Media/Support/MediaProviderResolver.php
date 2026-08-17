@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Media\Support;
 
 use App\Modules\Media\Contracts\MediaProviderInterface;
+use App\Modules\Media\Enums\MediaKind;
 use App\Modules\Media\Models\MediaAsset;
 use Illuminate\Contracts\Container\Container;
 use RuntimeException;
@@ -37,11 +38,50 @@ use RuntimeException;
  */
 final class MediaProviderResolver
 {
-    /** @param array<string, class-string<MediaProviderInterface>> $map */
+    /**
+     * @param  array<string, class-string<MediaProviderInterface>>  $map
+     * @param  string  $fallback  The map key for the provider that takes anything —
+     *                            our own disk. Injected rather than assumed, so this
+     *                            file still names nobody.
+     */
     public function __construct(
         private readonly Container $container,
         private readonly array $map,
+        private readonly string $fallback,
     ) {}
+
+    /**
+     * Which provider should take a NEW file of this kind.
+     *
+     * ⚠️ A DIFFERENT QUESTION FROM `for()`, AND THE ONLY ONE ASKABLE BEFORE A ROW
+     * EXISTS. `for()` reads a column; this reads a declaration. Both are needed
+     * because an upload ticket is issued before there is anything to read.
+     *
+     * The configured provider gets first refusal and the fallback takes what it
+     * declines — so a video host receives video and a worksheet stays on our disk.
+     * Until this existed, every kind went to whatever `media.provider` named, and
+     * flipping that switch had a video object created for every PDF a teacher
+     * uploaded: wrong ceilings, wrong library, and a failure message about the wrong
+     * thing. Observed on a real account on 2026-08-17.
+     */
+    public function forKind(MediaKind $kind): MediaProviderInterface
+    {
+        $configured = $this->container->make(MediaProviderInterface::class);
+
+        if ($configured->capabilities()->accepts($kind)) {
+            return $configured;
+        }
+
+        $class = $this->map[$this->fallback] ?? null;
+
+        if ($class === null) {
+            throw new RuntimeException(
+                "مزوّد الوسائط الاحتياطيّ «{$this->fallback}» غير مُهيَّأ في هذا النظام."
+            );
+        }
+
+        return $this->container->make($class);
+    }
 
     /**
      * @throws RuntimeException when the asset names a provider this deployment

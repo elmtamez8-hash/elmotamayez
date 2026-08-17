@@ -47,6 +47,10 @@ class MediaServiceProvider extends Module
         $this->app->singleton(MediaProviderResolver::class, fn (): MediaProviderResolver => new MediaProviderResolver(
             $this->app,
             self::PROVIDERS,
+            // The provider that takes any kind: our own disk. Named here with the
+            // rest of them, so a kind the configured provider declines has somewhere
+            // to go without the resolver knowing whose disk it is.
+            fallback: self::FALLBACK_PROVIDER,
         ));
     }
 
@@ -59,6 +63,15 @@ class MediaServiceProvider extends Module
         'local' => LocalMediaProvider::class,
         'bunny' => BunnyMediaProvider::class,
     ];
+
+    /**
+     * Where a kind the configured provider declines goes instead.
+     *
+     * ⚠️ NOT A SILENT FALL BACK FOR AN UNKNOWN NAME — that still throws, see below.
+     * This is the answer to "who stores a worksheet when the video host will not",
+     * and it is our own disk because that is the one place with no kind it refuses.
+     */
+    private const FALLBACK_PROVIDER = 'local';
 
     /**
      * @return class-string<MediaProviderInterface>

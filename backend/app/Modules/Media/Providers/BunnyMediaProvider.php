@@ -99,11 +99,18 @@ final class BunnyMediaProvider implements MediaProviderInterface
              * From `platform_settings` through MediaLimits, never from a literal:
              * these are the account's own ceilings and an operator raises them
              * without a deploy. Video, because that is what the ladder above
-             * describes — a document never reaches this provider.
+             * describes — and the `kinds` declaration below is what makes "a
+             * document never reaches this provider" true rather than merely hoped
+             * for. It was hoped for until 2026-08-17, when the switch was flipped
+             * and every PDF upload started having a video object created for it.
              */
             maxSizeBytes: MediaLimits::maxSizeBytes(MediaKind::Video),
             maxDurationSeconds: MediaLimits::maxDurationSeconds(MediaKind::Video) ?? 0,
             remoteFetch: true,
+            // A video library stores video. A worksheet or an audio file has no
+            // business here, and the ceilings above would be the wrong ones for it
+            // even if it did.
+            kinds: [MediaKind::Video],
         );
     }
 
