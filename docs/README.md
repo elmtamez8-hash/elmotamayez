@@ -765,8 +765,11 @@ only sender was `SessionCompleted`, which fires once. So the first "not finished
 also the last attempt. It stayed invisible because `NullBroadcastProvider` declares
 `recording: false`, so the job returned before reaching that branch; 017 is what switches
 it on. The cost was never a stuck badge: `Settlement\Support\PackageCompletion` reads the
-same column and withholds a teacher's fee for any session whose recording is neither
-published nor failed.
+same column and withholds a teacher's fee for any session whose recording is not one of
+`published`, `failed`, `no_course` — `no_course` releases it too, since a session with no
+course has no lesson to publish into. ⚠️ And `null` and `ingesting` are both in the
+**withholding** set while the sweep re-sends for `'pending'` alone, so a session whose
+ingest job died before writing anything holds a wage with nothing left to move it.
 
 **All of them land on the `maintenance` queue with `withoutOverlapping()`, and both halves
 matter.** (The queue is the second argument to `Schedule::job()`, not a `->onQueue()` call —
