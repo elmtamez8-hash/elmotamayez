@@ -14,6 +14,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Throwable;
 
 /**
  * Asks the provider about assets still in flight.
@@ -55,14 +56,36 @@ class ReconcileAssetStatus implements ShouldQueue
                         continue;
                     }
 
-                    // forWorkspace, never set(): WorkspaceContext is an
-                    // application-wide singleton that caches its answer, so a
-                    // direct set here would leak this workspace into whatever
-                    // the same worker picks up next.
-                    app(WorkspaceContext::class)->forWorkspace(
-                        $workspace,
-                        fn () => $complete->handle($asset),
-                    );
+                    /*
+                     * ⚠️ ONE ROW MAY NOT TAKE THE PLATFORM'S RECONCILIATION WITH IT.
+                     *
+                     * The walk is ordered by id and the supervisor runs `tries: 1`,
+                     * so an uncaught throw here fails the job and the schedule walks
+                     * straight back into the same lowest-id row five minutes later —
+                     * for ever. Every `Processing` asset BEHIND it is then never
+                     * reconciled again, platform-wide, and this job is the only
+                     * rescue for a recording whose ingest budget ran out. Three real
+                     * throw sources reach this line: an asset whose `provider` column
+                     * names a provider this deployment does not have, a `delete()`
+                     * that answers neither 2xx nor 404 when a Ready asset is rejected
+                     * on mime/size/duration, and PublishRecordingAsLesson, which is a
+                     * SYNCHRONOUS listener and so throws back into this loop.
+                     *
+                     * Reported, never swallowed: the row is skipped this pass and
+                     * picked up on the next, and the exception is what says which row.
+                     */
+                    try {
+                        // forWorkspace, never set(): WorkspaceContext is an
+                        // application-wide singleton that caches its answer, so a
+                        // direct set here would leak this workspace into whatever
+                        // the same worker picks up next.
+                        app(WorkspaceContext::class)->forWorkspace(
+                            $workspace,
+                            fn () => $complete->handle($asset),
+                        );
+                    } catch (Throwable $e) {
+                        report($e);
+                    }
                 }
             });
     }

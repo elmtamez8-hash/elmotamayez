@@ -55,6 +55,8 @@ beforeEach(function (): void {
     // A test mutates these instead of re-faking.
     $this->videos = [];
     $this->fetchStatus = 200;
+    // How `GET /videos/{guid}` answers. 200 means "read the video back".
+    $this->videoStatus = 200;
 
     Http::fake(function (Request $request) {
         $path = (string) parse_url($request->url(), PHP_URL_PATH);
@@ -75,7 +77,9 @@ beforeEach(function (): void {
         // which is also what a second delete sees.
         foreach ($this->videos as $video) {
             if (str_ends_with($path, '/'.$video['guid'])) {
-                return Http::response($video);
+                return $this->videoStatus === 200
+                    ? Http::response($video)
+                    : Http::response(['message' => 'upstream'], $this->videoStatus);
             }
         }
 
@@ -257,6 +261,58 @@ it('reports a duplicate rather than quietly picking one', function (): void {
     expect(ingestAsset($this->session)->provider_asset_id)->toBe('first-guid');
 
     Exceptions::assertReported(fn (RuntimeException $e): bool => str_contains($e->getMessage(), 'أكثرُ من ملف'));
+});
+
+/*
+| ⚠️ A BAD FIVE MINUTES MUST NOT END A RECORDING THAT IS FINE.
+|
+| `Failed` is terminal for an asset: `ReconcileAssetStatus` selects `Processing` only,
+| so nothing ever re-asks a failed one — and that job is the ONLY rescue for a
+| recording whose ingest budget ran out while the provider was still transcoding. So a
+| 500 or a 429 answered to a status poll used to kill a healthy video permanently and
+| release the teacher's held fee against it.
+|
+| The tell that it was a bug rather than the contract: the same outage produced two
+| different verdicts depending only on whether the id happened to be known yet — a
+| failed title SEARCH already returned `Processing`.
+*/
+it('keeps a transiently unreachable provider in processing, never failed', function (): void {
+    runIngest($this->session);
+
+    $asset = ingestAsset($this->session);
+
+    // The id is recoverable, so the poll gets past the search and asks directly.
+    $this->videos = [
+        BunnyFixtures::video('known-guid', BunnyFixtures::titleFor((string) $asset->uuid)),
+    ];
+    $this->videoStatus = 500;
+
+    runIngest($this->session);
+
+    $asset = ingestAsset($this->session);
+
+    expect($asset->provider_asset_id)->toBe('known-guid')
+        ->and($asset->status)->toBe(MediaAssetStatus::Processing)
+        // Still pending, so both sweeps come back for it.
+        ->and($this->session->refresh()->recording_status)->toBe('pending');
+});
+
+// The mirror image, so the test above is not asserting "nothing is ever failed".
+// A 404 is the provider saying the file is not there, which is an answer, not an
+// outage — and it is the one non-terminal-looking case that must be terminal.
+it('still fails an asset the provider says it does not have', function (): void {
+    runIngest($this->session);
+
+    $asset = ingestAsset($this->session);
+
+    $this->videos = [
+        BunnyFixtures::video('known-guid', BunnyFixtures::titleFor((string) $asset->uuid)),
+    ];
+    $this->videoStatus = 404;
+
+    runIngest($this->session);
+
+    expect(ingestAsset($this->session)->status)->toBe(MediaAssetStatus::Failed);
 });
 
 /*

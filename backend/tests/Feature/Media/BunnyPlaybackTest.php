@@ -63,21 +63,61 @@ function signedUrl(string $grant): string
         ->headers->get('Location');
 }
 
+/**
+ * The token parameters, read out of the PATH — which is where they live for HLS.
+ *
+ * The first path segment is `bcdn_token=…&token_path=…&expires=…`; the real object
+ * path follows the next `/`, and `token_path` cannot be confused with it because it
+ * travels rawurlencoded (`%2F`).
+ *
+ * @return array<string, string>
+ */
+function tokenParams(string $url): array
+{
+    $path = ltrim((string) parse_url($url, PHP_URL_PATH), '/');
+
+    parse_str((string) strstr($path, '/', true), $params);
+
+    /** @var array<string, string> $params */
+    return $params;
+}
+
 it('signs the whole video directory, not the playlist file alone', function (): void {
-    $url = signedUrl(issueGrant($this->lesson)['grant']);
+    $params = tokenParams(signedUrl(issueGrant($this->lesson)['grant']));
 
-    parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
-
-    expect($query)->toHaveKeys(['token', 'expires', 'token_path']);
+    expect($params)->toHaveKeys(['bcdn_token', 'expires', 'token_path']);
 
     // ⚠️ THE DIRECTORY, WITH ITS TRAILING SLASH. `/{guid}/playlist.m3u8` here would
     // be a token that covers the index and nothing under it — every segment served
     // to anyone who asks.
-    expect($query['token_path'])->toBe('/'.BUNNY_GUID.'/');
+    expect($params['token_path'])->toBe('/'.BUNNY_GUID.'/');
 
     // The advanced scheme, which is the only one with a path allowance at all. The
     // basic scheme is an MD5 with no `token_path`, so it cannot protect HLS.
-    expect($query['token'])->toStartWith('HS256-');
+    expect($params['bcdn_token'])->toStartWith('HS256-');
+});
+
+/*
+| ⚠️ THE PLACEMENT IS HALF OF THE PROTECTION, AND IT HAD NO GUARD.
+|
+| `?token=…` and `/bcdn_token=…` are two documented forms, not two spellings of one.
+| Per RFC 3986 a relative reference inherits the base query only when its own path is
+| EMPTY — and Bunny's `playlist.m3u8` is a master playlist referencing
+| `720p/video.m3u8`, a non-empty path. So in the query form the index loads signed and
+| every rendition playlist and every `.ts` under it leaves UNSIGNED, which is exactly
+| the state the expiry test below asserts is refused: the guard passed while no
+| student could watch anything.
+|
+| The signature itself is identical in both forms, so nothing but this assertion
+| distinguishes them — and the arithmetic is pinned separately in BunnyTokenVectorTest.
+*/
+it('carries the token in the path, so relative segment requests inherit it', function (): void {
+    $url = signedUrl(issueGrant($this->lesson)['grant']);
+
+    expect((string) parse_url($url, PHP_URL_QUERY))->toBe('')
+        ->and($url)->toContain('/bcdn_token=HS256-')
+        // And the object path still comes last, after the parameters.
+        ->and($url)->toEndWith('/'.BUNNY_GUID.'/playlist.m3u8');
 });
 
 it('points at the provider network and declares the format the player must handle', function (): void {
@@ -102,11 +142,11 @@ it('points at the provider network and declares the format the player must handl
 it('expires the signature with the grant and not after it', function (): void {
     $payload = issueGrant($this->lesson);
 
-    parse_str((string) parse_url(signedUrl($payload['grant']), PHP_URL_QUERY), $query);
+    $params = tokenParams(signedUrl($payload['grant']));
 
     $grantExpiry = CarbonImmutable::parse($payload['expires_at']);
 
-    expect((int) $query['expires'])->toBe($grantExpiry->getTimestamp());
+    expect((int) $params['expires'])->toBe($grantExpiry->getTimestamp());
 
     // And the lifetime is the configured TTL, not a literal: the TTL is a
     // platform_settings row an operator tunes, and a hard-coded ceiling fails the

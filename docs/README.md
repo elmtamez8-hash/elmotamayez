@@ -282,17 +282,21 @@ and two things called Session in one product is a line every reader misreads onc
 frontend follows — `lib/class-sessions.ts` next to `lib/sessions.ts`.
 
 Broadcast providers sit behind `LiveSessions\Contracts\BroadcastProviderInterface` with an
-explicit `BroadcastCapabilities` declaration, the same shape as `VideoProviderInterface`
-(004) and `PaymentProviderInterface`. There are two: `NullBroadcastProvider`, which needs
+explicit `BroadcastCapabilities` declaration, the same shape as `MediaProviderInterface`
+(004 — it was `VideoProviderInterface` until commit `5df9ffb`; the old name resolves to
+nothing) and `PaymentProviderInterface`. There are two: `NullBroadcastProvider`, which needs
 no account and no network and is what the test suite runs on, and `LiveKitBroadcastProvider`
 (017), selected with `BROADCAST_PROVIDER=livekit`. `BroadcastProviderContractTest` holds
 each one to exactly what it claims — which is what let the commercial choice be deferred
 safely rather than merely conveniently.
 
-`LiveKitBroadcastProvider` is the **only** file that names the provider or imports
-`Agence104\LiveKit\*`; `config/sessions.php`, `.env`, the `match` arm in
-`LiveSessionsServiceProvider`, the contract test's dataset and the frontend's
-`BroadcastStage.tsx` are the declared exceptions (017 FR-002). Recording is attached to
+`LiveKitBroadcastProvider` is the only file **under `app/`** that names the provider or
+imports `Agence104\LiveKit\*` — which is exactly the scope `ProviderNameContainmentTest`
+enforces, and the honest statement of the rule. Outside `app/` the name appears in
+`config/sessions.php`, **`config/filesystems.php`** (the `r2` disk reuses the
+`LIVEKIT_EGRESS_*` credentials), `.env`, `LiveSessionsServiceProvider` (allowlisted in
+full, not merely its `match` arm), `LiveKitAdapterTest` and the contract test's dataset,
+and the frontend's `BroadcastStage.tsx` plus two `package.json` dependencies. Recording is attached to
 the room itself — `RoomEgress` on `createRoom`, stopped by `deleteRoom` — so there is no
 `egress_id` column, no manual start/stop, and no webhook. It writes to an S3-compatible
 bucket **we** own, and the file enters 004's asset pipeline from there.
@@ -307,7 +311,7 @@ application server — a gigabyte per session through one worker.
 Two implementations behind `MediaProviderInterface`: `LocalMediaProvider`, which needs no
 account and is what the whole test suite runs on, and `BunnyMediaProvider`, selected with
 `MEDIA_PROVIDER=bunny`. `ProviderContractTest` walks both by what each one *declares*, and
-`Media\ProviderNameContainmentTest` allows the vendor's name in the adapter and at the
+`tests/Feature/Media/ProviderNameContainmentTest.php` allows the vendor's name in the adapter and at the
 binding and nowhere else in `app/`.
 
 Four things here are not obvious and each one is a defect that would ship green:
@@ -328,7 +332,15 @@ Four things here are not obvious and each one is a defect that would ship green:
 - **`token_path` is the whole of the playback protection.** The manifest is HLS, so a token
   on the playlist alone leaves every segment open — whoever holds one URL holds the video.
   The signature is the advanced scheme (`HS256-` + Base64URL(HMAC-SHA256)) over the video's
-  **directory**. The viewer's IP is deliberately not in it: a phone moving from wifi to
+  **directory**, and `token_path` is part of the hashed message as well as of the URL —
+  `signature_path` + `expires` + `token_path=`+`signature_path`, since only `token` and
+  `expires` are excluded from `signing_data`. The token travels in the **path**
+  (`/bcdn_token=…`), not the query string: a relative segment URI inherits the base query
+  only when its own path is empty, which an HLS master playlist's references never are.
+  Both halves are pinned to the vendor's published test vector in
+  `tests/Feature/Media/BunnyTokenVectorTest.php`, because a signature has one correct value
+  and no observable structure — a shape assertion is a test of the code against itself.
+  The viewer's IP is deliberately not in it: a phone moving from wifi to
   mobile data would cut out mid-lesson, and the device limit answers the same question with
   a fingerprint that survives a network change.
 - **An asset is resolved from its own `provider` column, not from the config.**
@@ -339,7 +351,7 @@ Four things here are not obvious and each one is a defect that would ship green:
   one database**; one asset cannot see the bug, because a test's config always agrees with
   its own fixture.
 
-The four secrets live in the environment and never in `platform_settings` — that table is
+The credentials live in the environment and never in `platform_settings` — that table is
 readable by anyone who can open the admin panel, and the signing key mints valid playback
 tokens. The size and duration ceilings do come from `platform_settings`, through
 `MediaLimits`, which is also where the adapter's `capabilities()` reads them, so the
@@ -744,6 +756,7 @@ screens are invisible until that line exists.
 | 04:45 daily | `ReconcileCreditBalancesJob` | after every sweep that moves a balance |
 | Sunday 05:00 | `NotifyDormantBalancesJob` | the boundary is months; nightly would be nagging |
 | every 15 min | `RetryPendingRecordingsJob` (017) | **nothing re-sent the ingest at all** — see below |
+| every 5 min | `ReconcileAssetStatus` (004, scheduled in 019) | a provider transcodes on its own clock; it had never run |
 
 ⚠️ **`RetryPendingRecordingsJob` closes a hole that was silent since 005.**
 `IngestSessionRecordingJob::giveUpOrRetry()` increments the counter, writes
@@ -755,7 +768,12 @@ it on. The cost was never a stuck badge: `Settlement\Support\PackageCompletion` 
 same column and withholds a teacher's fee for any session whose recording is neither
 published nor failed.
 
-**All five run `->onQueue('maintenance')->withoutOverlapping()`, and both halves matter.**
+**All of them land on the `maintenance` queue with `withoutOverlapping()`, and both halves
+matter.** (The queue is the second argument to `Schedule::job()`, not a `->onQueue()` call —
+`->onQueue()` on a scheduled job object is a different thing and is not what is written.)
+⚠️ **And `withoutOverlapping()` on `Schedule::job()` locks the DISPATCH, not the queued
+run** — so it does not stop two dispatches of the same work from being processed
+concurrently, which is why `IngestSessionRecordingJob`'s own guard cannot rely on it.
 `ChargeUnbilledDeliveriesJob` runs every fifteen minutes: one run overrunning its own window
 starts a second over the same rows, and while the charge itself is safe (the unique index
 refuses the duplicate), the SCAN doubles — so the lateness that caused the overlap feeds

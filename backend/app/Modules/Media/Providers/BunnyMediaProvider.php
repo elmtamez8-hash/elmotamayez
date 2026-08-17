@@ -161,12 +161,28 @@ final class BunnyMediaProvider implements MediaProviderInterface
      */
     public function ingestFromUrl(MediaAsset $asset, string $sourceUrl, array $sourceHeaders = []): void
     {
-        $response = $this->request()->post($this->libraryUrl('/videos/fetch'), [
+        $payload = [
             'url' => $this->fetchableUrl($sourceUrl),
-            'headers' => $sourceHeaders,
             // The join key. Never a decorative label — see the class docblock.
             'title' => $this->titleFor($asset),
-        ]);
+        ];
+
+        /*
+         * ⚠️ OMITTED WHEN EMPTY, BECAUSE `[]` IS A JSON ARRAY AND THE SCHEMA WANTS AN
+         * OBJECT. `headers` is `{type: object, additionalProperties: {type: string}}`
+         * inside a request marked `additionalProperties: false`, and PHP encodes an
+         * empty array as `[]`, not `{}`. The production caller passes no headers at
+         * all, so this was EVERY delivery — answered 400, which `assertDelivered`
+         * classifies as permanent, so the recording failed on its first attempt with
+         * no retry and the held fee was released against a lost file. A message
+         * about the URL is what the provider would have said, which is why this
+         * would have been debugged in the wrong place.
+         */
+        if ($sourceHeaders !== []) {
+            $payload['headers'] = $sourceHeaders;
+        }
+
+        $response = $this->request()->post($this->libraryUrl('/videos/fetch'), $payload);
 
         $this->assertDelivered($response);
     }
@@ -198,12 +214,44 @@ final class BunnyMediaProvider implements MediaProviderInterface
             }
 
             if (! $response->successful()) {
-                return AssetStatusReport::failed('تعذّر الوصول إلى مزوّد الوسائط.');
+                /*
+                 * ⚠️ NOT `failed`, AND THE DIFFERENCE IS A RECORDING.
+                 *
+                 * `Failed` is terminal here: ReconcileAssetStatus selects
+                 * `Processing` only, so one bad five-minute poll — a 500, a 429, a
+                 * connect timeout — would declare a healthy video that is still
+                 * transcoding dead FOR EVER, and release the teacher's held fee
+                 * against a recording nobody can watch. The self-heal this class
+                 * promises is unreachable from `Failed`.
+                 *
+                 * The tell that the old form was a bug and not the contract: the
+                 * same outage produced two different verdicts depending only on
+                 * whether the id happened to be known yet — a failed title search
+                 * returns `Processing` twenty lines above, while a 500 on the direct
+                 * GET returned `Failed`. `Failed` is now reserved for the two
+                 * answers that mean it: a 404, and a status the provider itself
+                 * declares an error.
+                 */
+                report(new RuntimeException(
+                    "مزوّد الوسائط أجاب {$response->status()} عن الأصل {$asset->uuid}."
+                ));
+
+                return new AssetStatusReport(status: MediaAssetStatus::Processing);
             }
 
             return $this->reportFrom($response);
         } catch (Throwable $e) {
-            return AssetStatusReport::failed('تعذّر الوصول إلى مزوّد الوسائط: '.$e->getMessage());
+            /*
+             * Reported rather than swallowed, and reported WITHOUT reaching the
+             * asset: `failure_reason` is rendered to the teacher, and a Guzzle
+             * message carries the full request URL — the vendor host, the library id
+             * and the video id, all three of which FR-019 forbids in a payload. The
+             * containment test scans source files, so a runtime-assembled string
+             * would walk straight past it.
+             */
+            report($e);
+
+            return new AssetStatusReport(status: MediaAssetStatus::Processing);
         }
     }
 
@@ -215,6 +263,15 @@ final class BunnyMediaProvider implements MediaProviderInterface
      * documentation is explicit that path tokens are required for HLS. Without it
      * the index is protected, the segments are wide open, and the test that asks
      * for the index passes (research §R5 · SC-002).
+     *
+     * ⚠️ AND THE TOKEN GOES IN THE PATH (`/bcdn_token=…`), NOT THE QUERY STRING.
+     * Those are two documented forms, not two spellings: a query token is inherited
+     * by a relative reference only when that reference has an EMPTY path (RFC 3986),
+     * and Bunny's `playlist.m3u8` is a master playlist pointing at `720p/video.m3u8`.
+     * So with `?token=…` the index loads signed and every rendition playlist and
+     * every `.ts` beneath it leaves unsigned — which is exactly the state SC-002
+     * asserts is refused, meaning that guard passed while no student could watch
+     * anything. The signature is identical in both forms; only placement differs.
      *
      * ⚠️ AND NO NETWORK CALL. This runs on every playback request, so a call here
      * would turn a provider slowdown into zero viewing rather than degraded
@@ -236,13 +293,15 @@ final class BunnyMediaProvider implements MediaProviderInterface
         $directory = "/{$videoId}/";
         $expires = $expiresAt->getTimestamp();
 
+        // The path form, parameter order as the vendor's reference emits it:
+        // bcdn_token, then the signed parameters, then expires, then the real path.
         $url = sprintf(
-            'https://%s.b-cdn.net%splaylist.m3u8?token=%s&expires=%d&token_path=%s',
+            'https://%s.b-cdn.net/bcdn_token=%s&token_path=%s&expires=%d%splaylist.m3u8',
             $this->config('pull_zone'),
-            $directory,
             $this->token($directory, $expires),
-            $expires,
             rawurlencode($directory),
+            $expires,
+            $directory,
         );
 
         return new PlaybackManifest(
@@ -474,16 +533,32 @@ final class BunnyMediaProvider implements MediaProviderInterface
     }
 
     /**
-     * `HS256-` + Base64URL(HMAC-SHA256(key, signature_path + expires)).
+     * `HS256-` + Base64URL(HMAC-SHA256(key, signature_path + expires + signing_data)).
      *
      * The advanced scheme, not the basic one: basic is an MD5 of a concatenation
-     * and has no path allowance, so it cannot cover HLS segments at all. There is
-     * no signing data because we add no query parameters, and no viewer IP by
-     * decision (see manifest()).
+     * and has no path allowance, so it cannot cover HLS segments at all. No viewer
+     * IP by decision (see manifest()), which is also why there is no `1-` flag
+     * after the prefix.
+     *
+     * ⚠️ `token_path` IS PART OF THE HASHED MESSAGE, AND OMITTING IT 403s EVERY
+     * VIDEO. It reads like a transport detail and is not: the documentation says
+     * every query parameter is signed by default, and the exclusion list is `token`
+     * and `expires` alone. This method previously hashed `path + expires` on the
+     * reasoning that "we add no query parameters of our own" — but `token_path` is
+     * one, so the signature was invalid for every asset, and the suite was green
+     * because it asserted the token's SHAPE. The regression guard is now the
+     * vendor's own published vector (`BunnyTokenVectorTest`), never another shape
+     * assertion: a shape is what a wrong signature also has.
+     *
+     * `signing_data` is the alphabetically-sorted `key=value` pairs joined by `&`
+     * with the RAW (un-encoded) values. We add exactly one parameter, so sorting is
+     * a single element — a parameter map here would be an abstraction over one key.
      */
     private function token(string $signaturePath, int $expires): string
     {
-        $raw = hash_hmac('sha256', $signaturePath.$expires, $this->config('security_key'), true);
+        $signingData = 'token_path='.$signaturePath;
+
+        $raw = hash_hmac('sha256', $signaturePath.$expires.$signingData, $this->config('security_key'), true);
 
         return 'HS256-'.rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
     }

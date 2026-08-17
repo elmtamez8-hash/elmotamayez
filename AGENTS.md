@@ -416,11 +416,14 @@ counter froze at 1 and the session stayed pending for ever. It was invisible
 while `NullBroadcastProvider` declared `recording: false`; 017 switches it on, so
 `RetryPendingRecordingsJob` sweeps every fifteen minutes. The cost is not a badge:
 `Settlement\Support\PackageCompletion` withholds a teacher's fee for any session
-whose recording is neither `published` nor `failed`.
+whose recording is not one of `published`, `failed`, `no_course` — and `null` and
+`ingesting` are both in the withholding set, so a session that never reached the
+ingest job at all holds a wage indefinitely.
 
-**`AccessToken` defaults to a six-hour ttl, and `$future->diffInHours(now())` is
-NEGATIVE.** The contract test's `< 24` therefore passed for any ttl at all.
-Measure `now()->diffInMinutes($expiresAt)` against the setting, not a literal.
+**`AccessToken` defaults to a FOUR-hour ttl; the SDK's own docblock says six and is
+wrong.** Read the assignment, not the comment above it. Separately,
+`$future->diffInHours(now())` is NEGATIVE, so the contract test's `< 24` passed for
+any ttl at all. Measure `now()->diffInMinutes($expiresAt)` against the setting.
 
 **The provider's API key is in every ticket by protocol; only the secret is a
 credential.** The key is the JWT `iss` claim. A test banning both cannot pass.
@@ -437,9 +440,15 @@ needs two assets for two providers in one database; one asset cannot see the bug
 `BUNNY_TITLE_PREFIX` orphans every asset not yet recovered, and every call to
 `fetch` creates another paid video — so never deliver twice for one session.
 
-**`token_path` or the segments are public.** Sign the video's DIRECTORY with the
-advanced scheme (`HS256-` + Base64URL(HMAC-SHA256)). A test that asks for the
-playlist and stops passes over the defect.
+**`token_path` or the segments are public — and it is SIGNED as well as sent.** Sign
+the video's DIRECTORY with the advanced scheme: `HS256-` + Base64URL(HMAC-SHA256(key,
+`signature_path` + `expires` + `token_path=`+`signature_path`)). Only `token` and
+`expires` are excluded from `signing_data`. Put the token in the PATH
+(`/bcdn_token=…`), never the query: a relative segment URI inherits the base query
+only when its own path is empty, and an HLS master playlist's references are not.
+A test that asks for the playlist and stops passes over both defects; so does one
+that asserts the token's shape. Pin it to the vendor's published vector
+(`BunnyTokenVectorTest`).
 
 **Send our own route as `manifest_url`.** A redirect provider's manifest url
 carries `provider_asset_id`, which FR-011 forbids in a payload.
@@ -451,7 +460,10 @@ requirement is that nothing is called.
 **Provider secrets in the environment, ceilings in `platform_settings`.** A row
 in that table is readable by anyone who can open the admin panel.
 
-**Two npm advisories are accepted, not fixed** — Next 15 pins its own
-`postcss` and `sharp`, and only Next 16 moves them. Unreachable here: no
-`remotePatterns`, so `next/image` never processes a user-supplied image.
-**Adding `remotePatterns` makes the sharp advisory live.**
+**The npm advisories are accepted, not fixed** — they only move with Next 16.
+Unreachable here **by call-site discipline, not by config**: `next/image` optimises
+relative and same-origin paths with no `images` config at all, so the guard is that
+all three call sites pass literal `/public` paths and no user upload ever reaches it.
+⚠️ **Passing any user-supplied or remote image to `next/image` makes the sharp
+advisory live** — that is the trigger, and `remotePatterns` is only one way to do it.
+Re-count the advisories before quoting a number; the list has grown once already.
