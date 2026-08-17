@@ -60,6 +60,31 @@ return [
             'report' => false,
         ],
 
+        /*
+        | The transient bridge between the broadcast provider and the media
+        | provider (spec 019).
+        |
+        | ⚠️ THE SAME ENV VARS AS `sessions.livekit.egress`, DELIBERATELY. It is
+        | one bucket: LiveKit Egress writes the recording into it, and the media
+        | provider hands a signed URL to that same object to whoever fetches it.
+        | A second set of variables for the same bucket is two answers to "where
+        | is the recording" that agree until the day somebody updates one.
+        |
+        | Path style because R2 addresses buckets by path, not by subdomain — the
+        | same reason `setForcePathStyle(true)` appears on the egress side.
+        */
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('LIVEKIT_EGRESS_KEY'),
+            'secret' => env('LIVEKIT_EGRESS_SECRET'),
+            'region' => env('LIVEKIT_EGRESS_REGION', 'auto'),
+            'bucket' => env('LIVEKIT_EGRESS_BUCKET'),
+            'endpoint' => env('LIVEKIT_EGRESS_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'throw' => false,
+            'report' => false,
+        ],
+
     ],
 
     /*

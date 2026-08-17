@@ -71,6 +71,34 @@ class SessionSettings
         return (int) config('sessions.recording_max_attempts', 5);
     }
 
+    /** How many failed recordings in one window before the platform hears (019 FR-009ب). */
+    public function recordingFailureAlertThreshold(): int
+    {
+        return (int) PlatformSettings::get('sessions.recording_failure_alert_threshold', 3);
+    }
+
+    public function recordingFailureAlertWindowHours(): int
+    {
+        return (int) PlatformSettings::get('sessions.recording_failure_alert_window_hours', 6);
+    }
+
+    /**
+     * How long a join ticket is good for (017 FR-007).
+     *
+     * Short on purpose, and a setting rather than a constant: the ticket is the
+     * whole door, and the library's own default is six hours.
+     */
+    public function ticketTtlMinutes(): int
+    {
+        return (int) PlatformSettings::get('sessions.ticket_ttl_minutes', 10);
+    }
+
+    /** The room's ceiling, passed to the provider — never hard-coded (017 FR-003). */
+    public function maxParticipants(): int
+    {
+        return (int) PlatformSettings::get('sessions.max_participants', 50);
+    }
+
     /** How long after the start a seat with no ping becomes Absent (FR-021أ). */
     public function absenceThresholdSeconds(ClassSession $session): int
     {

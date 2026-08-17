@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\Media\Actions;
 
-use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Enums\MediaKind;
 use App\Modules\Media\Events\MediaAssetReady;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Support\MediaLimits;
+use App\Modules\Media\Support\MediaProviderResolver;
 use App\Shared\Actions\Action;
 
 /**
@@ -25,12 +25,17 @@ use App\Shared\Actions\Action;
 class CompleteMediaUpload extends Action
 {
     public function __construct(
-        private readonly MediaProviderInterface $provider,
+        // Resolved from the asset, not from the config: this Action settles assets
+        // created long before the current provider was chosen, and asking the
+        // configured provider about someone else's file gets "does not exist".
+        private readonly MediaProviderResolver $providers,
     ) {}
 
     public function handle(MediaAsset $asset): MediaAsset
     {
-        $report = $this->provider->status($asset);
+        $provider = $this->providers->for($asset);
+
+        $report = $provider->status($asset);
 
         $status = $report->status;
         $failureReason = $report->failureReason;
@@ -42,7 +47,7 @@ class CompleteMediaUpload extends Action
                 $status = MediaAssetStatus::Failed;
                 $failureReason = $rejection;
                 // Nothing usable arrived; do not leave the bytes on disk.
-                $this->provider->delete($asset);
+                $provider->delete($asset);
             }
         }
 

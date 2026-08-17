@@ -266,6 +266,39 @@ it('answers the eligibility endpoint with what is missing and which rule decided
         ->and($payload['unlock']['reason'])->toContain('حضور');
 });
 
+/*
+| The teacher is not a student, and the endpoint must stop answering as if they
+| were.
+|
+| Every condition it reports is a condition on a STUDENT — an enrolment, a
+| balance, a piece of homework. No teacher holds an enrolment in their own
+| workspace, so `refusalReason()` answered «لست مسجّلاً عند هذا المدرّس» for the
+| host of the session, and the room page printed it under a refusal banner on
+| their own lesson. The refusal it sat beneath was usually about the CLOCK.
+*/
+it('does not answer a student eligibility question for the host', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $this->setCurrentWorkspace($workspace, $owner);
+
+    $student = $this->addWorkspaceMember($workspace);
+    [$first, $second] = gatedPair($workspace, $student);
+
+    unlockDefault((int) $workspace->getKey(), attendance: true, assignment: false);
+    attendanceRow($workspace, $first, $student, AttendanceStatus::Absent);
+
+    // The same session that refuses the student above.
+    Sanctum::actingAs($owner);
+
+    $payload = $this->getJson("/api/v1/class-sessions/{$second->uuid}/eligibility")
+        ->assertOk()
+        ->json('data');
+
+    expect($payload['open'])->toBeTrue()
+        ->and($payload['booking_refusal'])->toBeNull()
+        ->and($payload['unlock']['reason'])->toBeNull()
+        ->and($payload['unlock']['missing'])->toBe([]);
+});
+
 it('refuses the booking itself, not merely the screen', function (): void {
     [$workspace, $owner] = $this->createWorkspaceWithOwner();
     $this->setCurrentWorkspace($workspace, $owner);

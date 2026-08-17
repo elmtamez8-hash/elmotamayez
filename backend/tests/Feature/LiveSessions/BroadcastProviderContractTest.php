@@ -2,13 +2,19 @@
 
 declare(strict_types=1);
 
+use Agence104\LiveKit\EgressServiceClient;
+use Agence104\LiveKit\RoomServiceClient;
 use App\Models\User;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Enums\HostAction;
 use App\Modules\LiveSessions\Enums\ParticipantRole;
 use App\Modules\LiveSessions\Exceptions\UnsupportedCapability;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Providers\LiveKitBroadcastProvider;
 use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
+use App\Modules\LiveSessions\Support\SessionSettings;
+use Livekit\DeleteRoomResponse;
+use Livekit\ListEgressResponse;
 use Tests\Support\FakeBroadcastProvider;
 
 /*
@@ -25,7 +31,39 @@ use Tests\Support\FakeBroadcastProvider;
 dataset('broadcastProviders', [
     'null' => fn () => new NullBroadcastProvider,
     'fake' => fn () => new FakeBroadcastProvider,
+    // The commercial adapter, held to the same set as the other two — with its
+    // service clients injected, so the suite still needs no account and no
+    // network (SC-006). Ticket minting is local arithmetic and is NOT stubbed:
+    // the real AccessToken signs a real JWT here.
+    'livekit' => function (): LiveKitBroadcastProvider {
+        config()->set('sessions.livekit.url', 'wss://contract.test');
+        config()->set('sessions.livekit.key', 'contract-key');
+        // 32 bytes minimum: HS256 refuses a shorter key outright, which is also
+        // why a half-filled .env fails loudly rather than signing something weak.
+        config()->set('sessions.livekit.secret', 'contract-secret-not-a-real-one-32');
+
+        $rooms = Mockery::mock(RoomServiceClient::class);
+        $rooms->shouldReceive('deleteRoom')->andReturn(new DeleteRoomResponse);
+
+        $egress = Mockery::mock(EgressServiceClient::class);
+        $egress->shouldReceive('listEgress')->andReturn(new ListEgressResponse);
+
+        return new LiveKitBroadcastProvider(new SessionSettings, $rooms, $egress);
+    },
 ]);
+
+/**
+ * A participant with a uuid — because the uuid IS the identity a provider is
+ * given (FR-006), never the person's name. `makeOne()` skips the model events
+ * that fill it, so a fixture without it tested a null identity.
+ */
+function contractUser(): User
+{
+    return User::factory()->makeOne([
+        'id' => 7,
+        'uuid' => (string) Str::orderedUuid(),
+    ]);
+}
 
 function contractSession(): ClassSession
 {
@@ -59,7 +97,7 @@ it('creates the same room twice without making two', function (BroadcastProvider
 // Scanned for shapes rather than exact keys: a provider that invents its own
 // field name should still fail.
 it('puts no credential in a join ticket', function (BroadcastProviderInterface $provider): void {
-    $user = User::factory()->makeOne(['id' => 7]);
+    $user = contractUser();
     $ticket = $provider->issueTicket(contractSession(), $user, ParticipantRole::Participant);
 
     $serialised = strtolower(json_encode([
@@ -75,11 +113,23 @@ it('puts no credential in a join ticket', function (BroadcastProviderInterface $
 })->with('broadcastProviders');
 
 it('issues a ticket that expires', function (BroadcastProviderInterface $provider): void {
-    $user = User::factory()->makeOne(['id' => 7]);
+    $user = contractUser();
     $ticket = $provider->issueTicket(contractSession(), $user, ParticipantRole::Host);
 
+    // Measured against the SETTING, not a literal: the ttl is a platform_settings
+    // row an operator tunes (FR-007), so a hard-coded ceiling would fail this gate
+    // over a perfectly legitimate configuration change.
+    //
+    // The old assertion was "less than 24 hours" — and the LiveKit library's own
+    // default ttl is SIX. A forgotten setTtl() would have shipped green with a
+    // ticket that opens the room long after the lesson ended (research §R4).
+    $allowed = app(SessionSettings::class)->ticketTtlMinutes() + 1;
+
+    // Direction matters as much as the bound: the old form measured
+    // now − expiresAt on a FUTURE date, so it was comparing a negative number
+    // against 24 and would have passed for any ttl whatsoever.
     expect($ticket->expiresAt->isFuture())->toBeTrue()
-        ->and($ticket->expiresAt->diffInHours(now()))->toBeLessThan(24);
+        ->and(now()->diffInMinutes($ticket->expiresAt))->toBeLessThanOrEqual($allowed);
 })->with('broadcastProviders');
 
 /*

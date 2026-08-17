@@ -15,7 +15,10 @@ use App\Modules\Media\Enums\PlaybackFormat;
 use App\Modules\Media\Models\MediaAsset;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -48,7 +51,47 @@ class LocalMediaProvider implements MediaProviderInterface
             directUpload: false,
             maxSizeBytes: (int) config('media.max_size_bytes'),
             maxDurationSeconds: (int) config('media.max_duration_seconds'),
+            // True, and implemented by downloading — see the flag's own comment.
+            // "Can it" is the question; the bandwidth is SC-001's business.
+            remoteFetch: true,
         );
+    }
+
+    /**
+     * Fetches the file here, because there is no "there" to fetch it to.
+     *
+     * ⚠️ THIS CODE WAS MOVED, NOT WRITTEN. It is what
+     * `IngestSessionRecordingJob` did inline until 019: the job knew how to
+     * download a recording, which meant every media provider inherited the local
+     * provider's transfer strategy whether it needed one or not. Moved here, the
+     * job asks the contract and a provider that can fetch for itself does.
+     *
+     * Streamed to disk, not held in memory: a two-hour lesson is close to a
+     * gigabyte, and `$response->body()` is that gigabyte inside one worker —
+     * which is how a single recording takes the queue down with it.
+     */
+    public function ingestFromUrl(MediaAsset $asset, string $sourceUrl, array $sourceHeaders = []): void
+    {
+        $path = $this->pathFor($asset);
+        $absolute = $this->disk()->path($path);
+
+        File::ensureDirectoryExists(dirname($absolute));
+
+        // Derived from the file's own length, not a constant: the longer the
+        // lesson the bigger the file, so a fixed 120 seconds failed exactly the
+        // recordings that mattered most and counted an attempt each time.
+        $response = Http::withHeaders($sourceHeaders)
+            ->timeout(max(120, (int) $asset->duration_seconds))
+            ->sink($absolute)
+            ->get($sourceUrl);
+
+        if (! $response->successful()) {
+            throw new RuntimeException('تعذّر تنزيل الملف من المصدر.');
+        }
+
+        // Written only on success. A path recorded for a transfer that failed is
+        // an asset that reports Ready and plays nothing.
+        $asset->forceFill(['provider_asset_id' => $path])->save();
     }
 
     public function createUploadTicket(MediaAsset $asset): UploadTicket

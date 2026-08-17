@@ -409,3 +409,44 @@ measures `score` alone passes blind.
 **`getContent()` escapes non-ASCII.** A `not->toContain('عربي')` assertion against
 a raw response body is vacuously true. Re-encode with `JSON_UNESCAPED_UNICODE`, or
 use an ASCII sentinel.
+
+**The recording retry loop did not exist.** `giveUpOrRetry()` writes `pending`
+and returns — no re-dispatch — and the only sender was `SessionCompleted`. The
+counter froze at 1 and the session stayed pending for ever. It was invisible
+while `NullBroadcastProvider` declared `recording: false`; 017 switches it on, so
+`RetryPendingRecordingsJob` sweeps every fifteen minutes. The cost is not a badge:
+`Settlement\Support\PackageCompletion` withholds a teacher's fee for any session
+whose recording is neither `published` nor `failed`.
+
+**`AccessToken` defaults to a six-hour ttl, and `$future->diffInHours(now())` is
+NEGATIVE.** The contract test's `< 24` therefore passed for any ttl at all.
+Measure `now()->diffInMinutes($expiresAt)` against the setting, not a literal.
+
+**The provider's API key is in every ticket by protocol; only the secret is a
+credential.** The key is the JWT `iss` claim. A test banning both cannot pass.
+
+**Ask `Gate::allows('host', $session)` before answering a student-eligibility
+question.** No teacher holds an enrolment in their own workspace, so the honest
+answer for a host is "nothing is refusing you" — not «لست مسجّلاً عند هذا المدرّس».
+
+**Resolve a media asset's provider from its own `provider` column, beside the
+binding — not instead of it.** An upload ticket has no row to read. `SC-011`
+needs two assets for two providers in one database; one asset cannot see the bug.
+
+**The video title is a join key.** `videos/fetch` returns no id. Changing
+`BUNNY_TITLE_PREFIX` orphans every asset not yet recovered, and every call to
+`fetch` creates another paid video — so never deliver twice for one session.
+
+**`token_path` or the segments are public.** Sign the video's DIRECTORY with the
+advanced scheme (`HS256-` + Base64URL(HMAC-SHA256)). A test that asks for the
+playlist and stops passes over the defect.
+
+**Send our own route as `manifest_url`.** A redirect provider's manifest url
+carries `provider_asset_id`, which FR-011 forbids in a payload.
+
+**`Http::fake()` appends and the first match wins.** One closure fake driven by
+state — never re-fake inside a test. `Http::preventStrayRequests()` where the
+requirement is that nothing is called.
+
+**Provider secrets in the environment, ceilings in `platform_settings`.** A row
+in that table is readable by anyone who can open the admin panel.

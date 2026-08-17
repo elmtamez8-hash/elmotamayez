@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Jobs;
 
+use App\Models\User;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
+use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Media\Actions\CompleteMediaUpload;
@@ -12,6 +14,7 @@ use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Enums\MediaKind;
 use App\Modules\Media\Enums\MediaRole;
+use App\Modules\Media\Exceptions\PermanentIngestFailure;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
@@ -22,8 +25,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 /**
@@ -69,6 +70,27 @@ class IngestSessionRecordingJob implements ShouldQueue
         $context->forWorkspace((int) $session->workspace_id, function () use (
             $session, $broadcast, $video, $settings, $complete, $notify
         ): void {
+            /*
+             * ⚠️ ALREADY HANDED OVER ⇒ ASK, NEVER DELIVER AGAIN.
+             *
+             * Since 019 the delivery is a fetch request the provider acts on
+             * later, so this job runs again while the previous hand-off is still
+             * in flight — and `videos/fetch` creates a NEW video on every call
+             * (019 research §R3). A second delivery is therefore a second video
+             * for one lesson: paid for monthly, referenced by nothing, and
+             * invisible without going to look. Re-asking is free; re-delivering
+             * is not.
+             */
+            $existing = $session->media_asset_id === null
+                ? null
+                : MediaAsset::query()->withoutWorkspaceScope()->find($session->media_asset_id);
+
+            if ($existing !== null) {
+                $this->settle($session, $existing, $settings, $complete, $notify);
+
+                return;
+            }
+
             $artifact = $broadcast->recording($session);
 
             if ($artifact === null) {
@@ -78,26 +100,23 @@ class IngestSessionRecordingJob implements ShouldQueue
             }
 
             try {
-                $path = 'media/sessions/'.$session->uuid.'.mp4';
-
-                // Buffered rather than streamed, deliberately for now: the size
-                // ceiling is already enforced by platform settings, and a real
-                // provider will hand us a URL we can stream when one is signed.
-                $response = Http::timeout(120)->get($artifact->downloadUrl);
-
-                if (! $response->successful()) {
-                    throw new \RuntimeException('تعذّر تنزيل التسجيل.');
-                }
-
-                Storage::disk('local')->put($path, $response->body());
-
                 $asset = new MediaAsset([
                     'workspace_id' => $session->workspace_id,
                     // Polymorphic since 004, which anticipated exactly this.
                     'owner_type' => ClassSession::class,
                     'owner_id' => $session->getKey(),
                     'provider' => $video->identifier(),
-                    'provider_asset_id' => $path,
+                    /*
+                     * ⚠️ NULL, AND THAT IS THE POINT OF THIS PHASE.
+                     *
+                     * It used to be the path this job had just downloaded to.
+                     * Where the file lives is the PROVIDER's answer now, and a
+                     * provider that fetches for itself does not know its own id
+                     * for the file yet — `videos/fetch` does not return one. It
+                     * is recovered later, and until then this asset is
+                     * legitimately mid-ingest: neither ready nor failed (SC-014).
+                     */
+                    'provider_asset_id' => null,
                     // Stated, not left to the column default: a model built with
                     // `new` carries no default until it round-trips, and
                     // CompleteMediaUpload reads the kind to pick its mime list.
@@ -114,9 +133,25 @@ class IngestSessionRecordingJob implements ShouldQueue
                     'recording_status' => 'ingesting',
                 ])->save();
 
-                // Settles the asset and, when it lands Ready, fires
-                // MediaAssetReady — which the listener turns into a lesson.
-                $complete->handle($asset);
+                /*
+                | ⚠️ THIS LINE IS THE WHOLE OF SPEC 019 IN THIS FILE.
+                |
+                | It used to be forty lines that streamed the recording onto our own
+                | disk and then handed the path over — a gigabyte per lesson through
+                | this worker, which is the load self-hosting was rejected for. That
+                | code was not deleted: it MOVED to LocalMediaProvider, which still
+                | does exactly it, because for a provider with no remote fetch the
+                | download is the only way. The job stopped choosing.
+                */
+                $video->ingestFromUrl($asset, $artifact->downloadUrl);
+
+                $this->settle($session, $asset, $settings, $complete, $notify);
+            } catch (PermanentIngestFailure $e) {
+                // A malformed request or a wrong key. Five more attempts over an
+                // hour tell the teacher nothing they cannot be told now.
+                report($e);
+
+                $this->giveUpOrRetry($session, $settings, $notify, $e->getMessage(), permanent: true);
             } catch (Throwable $e) {
                 // The reason is carried into the notification, and logged: a
                 // silent retry loop tells nobody why the fifth attempt failed.
@@ -127,37 +162,112 @@ class IngestSessionRecordingJob implements ShouldQueue
         });
     }
 
+    /**
+     * Ask the provider where the asset got to, and act on the answer.
+     *
+     * Three outcomes, and the middle one is the one that did not exist before
+     * 019: ready (the listener publishes the lesson), failed, or **still coming**.
+     *
+     * ⚠️ AN ATTEMPT IS SPENT ON "still encoding", DELIBERATELY. It is the same
+     * answer "not finished yet" has always been, and the budget is what stops an
+     * unbounded wait with a teacher's fee held behind it. If a provider's encode
+     * is genuinely slower than the budget, the fix is NOT a bigger number here:
+     * ReconcileAssetStatus keeps asking after this job has given up, and a late
+     * Ready still fires MediaAssetReady, whose listener publishes the lesson and
+     * overwrites `failed` with `published`. The self-heal is the design, not luck.
+     */
+    private function settle(
+        ClassSession $session,
+        MediaAsset $asset,
+        SessionSettings $settings,
+        CompleteMediaUpload $complete,
+        DispatchNotification $notify,
+    ): void {
+        // Settles the asset and, when it lands Ready, fires MediaAssetReady —
+        // which the listener turns into a lesson and writes recording_status.
+        $complete->handle($asset);
+
+        if ($asset->status === MediaAssetStatus::Ready) {
+            return;
+        }
+
+        // Processing or Failed — either way this session is not done, and the
+        // sweep only comes back for 'pending', which giveUpOrRetry writes.
+        $this->giveUpOrRetry(
+            $session,
+            $settings,
+            $notify,
+            $asset->failure_reason ?? 'التسجيل لم يكتمل عند مزوّد الوسائط بعد.',
+        );
+    }
+
+    /**
+     * @param  bool  $permanent  Skip the remaining attempts: the provider refused in
+     *                           a way a retry cannot change.
+     */
     private function giveUpOrRetry(
         ClassSession $session,
         SessionSettings $settings,
         DispatchNotification $notify,
         string $reason,
+        bool $permanent = false,
     ): void {
-        $attempts = $session->recording_attempts + 1;
+        $limit = $settings->recordingMaxAttempts();
+        $attempts = $permanent ? $limit : $session->recording_attempts + 1;
 
         $session->forceFill([
             'recording_attempts' => $attempts,
-            'recording_status' => $attempts >= $settings->recordingMaxAttempts() ? 'failed' : 'pending',
+            'recording_status' => $attempts >= $limit ? 'failed' : 'pending',
         ])->save();
 
-        if ($attempts < $settings->recordingMaxAttempts()) {
+        if ($attempts < $limit) {
             return;
         }
 
         $teacher = $session->teacherProfile?->user;
 
-        if ($teacher === null) {
-            return;
+        if ($teacher !== null) {
+            // Named by type, never by channel — the channel is the recipient's
+            // choice, and ProviderAgnosticTest fails the build if an Action names one.
+            $notify->handle(new NotificationRequest(
+                recipient: $teacher,
+                type: NotificationType::SessionRecordingFailed,
+                variables: ['title' => $session->title, 'reason' => $reason],
+                actionUrl: '/manage/sessions/'.$session->uuid,
+                workspaceId: (int) $session->workspace_id,
+            ));
         }
 
-        // Named by type, never by channel — the channel is the recipient's
-        // choice, and ProviderAgnosticTest fails the build if an Action names one.
-        $notify->handle(new NotificationRequest(
-            recipient: $teacher,
-            type: NotificationType::SessionRecordingFailed,
-            variables: ['title' => $session->title, 'reason' => $reason],
-            actionUrl: '/manage/sessions/'.$session->uuid,
-            workspaceId: (int) $session->workspace_id,
-        ));
+        $this->notifySeatHolders($session, $notify);
+    }
+
+    /**
+     * The people still waiting once nobody else is (019 FR-009أ).
+     *
+     * ⚠️ THIS IS WHY THE SILENCE WAS POSSIBLE. `failed` is the state that RELEASES
+     * the teacher's held fee — correctly, the lesson was taught — so at the moment
+     * this runs, the last person who had a financial reason to ask about the
+     * recording has been paid and has stopped asking. The seat holder is the only
+     * one left, and their only recourse was to guess (research §R10).
+     */
+    private function notifySeatHolders(ClassSession $session, DispatchNotification $notify): void
+    {
+        $holders = User::query()
+            ->whereIn('id', $session->bookings()
+                ->where('status', BookingStatus::Booked)
+                ->pluck('student_user_id'))
+            ->get();
+
+        foreach ($holders as $holder) {
+            $notify->handle(new NotificationRequest(
+                recipient: $holder,
+                type: NotificationType::SessionRecordingUnavailable,
+                // No provider reason here: it names a system the student has no
+                // access to and cannot act on.
+                variables: ['title' => $session->title],
+                actionUrl: '/sessions/'.$session->uuid,
+                workspaceId: (int) $session->workspace_id,
+            ));
+        }
     }
 }

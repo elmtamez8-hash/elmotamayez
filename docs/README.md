@@ -283,9 +283,74 @@ frontend follows — `lib/class-sessions.ts` next to `lib/sessions.ts`.
 
 Broadcast providers sit behind `LiveSessions\Contracts\BroadcastProviderInterface` with an
 explicit `BroadcastCapabilities` declaration, the same shape as `VideoProviderInterface`
-(004) and `PaymentProviderInterface`. `NullBroadcastProvider` is the only implementation
-today; `BroadcastProviderContractTest` holds each one to exactly what it claims, which is
-what makes deferring the commercial choice safe rather than merely convenient.
+(004) and `PaymentProviderInterface`. There are two: `NullBroadcastProvider`, which needs
+no account and no network and is what the test suite runs on, and `LiveKitBroadcastProvider`
+(017), selected with `BROADCAST_PROVIDER=livekit`. `BroadcastProviderContractTest` holds
+each one to exactly what it claims — which is what let the commercial choice be deferred
+safely rather than merely conveniently.
+
+`LiveKitBroadcastProvider` is the **only** file that names the provider or imports
+`Agence104\LiveKit\*`; `config/sessions.php`, `.env`, the `match` arm in
+`LiveSessionsServiceProvider`, the contract test's dataset and the frontend's
+`BroadcastStage.tsx` are the declared exceptions (017 FR-002). Recording is attached to
+the room itself — `RoomEgress` on `createRoom`, stopped by `deleteRoom` — so there is no
+`egress_id` column, no manual start/stop, and no webhook. It writes to an S3-compatible
+bucket **we** own, and the file enters 004's asset pipeline from there.
+
+⚠️ **`BROADCAST_PROVIDER=livekit` is not set in production before `MEDIA_PROVIDER=bunny`.**
+The launch rule still stands, and spec 019 is what makes it satisfiable: until a media
+provider can fetch a recording for itself, the ingest path downloads it onto the
+application server — a gigabyte per session through one worker.
+
+### Media providers (spec 019)
+
+Two implementations behind `MediaProviderInterface`: `LocalMediaProvider`, which needs no
+account and is what the whole test suite runs on, and `BunnyMediaProvider`, selected with
+`MEDIA_PROVIDER=bunny`. `ProviderContractTest` walks both by what each one *declares*, and
+`Media\ProviderNameContainmentTest` allows the vendor's name in the adapter and at the
+binding and nowhere else in `app/`.
+
+Four things here are not obvious and each one is a defect that would ship green:
+
+- **`ingestFromUrl()` is the only change to 004's contract.** The download did not
+  disappear — it MOVED from `IngestSessionRecordingJob` into `LocalMediaProvider`, which
+  is what a provider with no remote fetch has to do. Both providers declare
+  `remoteFetch: true`, because the flag answers "can you take a file over from a URL", not
+  "did the bytes avoid our network". That second question is `SC-001`'s, measured by
+  `ZeroVideoBandwidthTest` as a **negation over the whole request list** — asserting that
+  `videos/fetch` was called passes on an implementation that downloads, uploads, then calls
+  it.
+- **The title is a join key.** `videos/fetch` does not return the new video's id, so the
+  id is recovered afterwards by searching for a title we chose: `{prefix}:{asset_uuid}`.
+  Changing `BUNNY_TITLE_PREFIX` orphans every asset not yet recovered. It also means
+  `fetch` creates a new video on *every* call, so the job refuses to deliver twice for one
+  session — a retry would be a second video, billed monthly, referenced by nothing.
+- **`token_path` is the whole of the playback protection.** The manifest is HLS, so a token
+  on the playlist alone leaves every segment open — whoever holds one URL holds the video.
+  The signature is the advanced scheme (`HS256-` + Base64URL(HMAC-SHA256)) over the video's
+  **directory**. The viewer's IP is deliberately not in it: a phone moving from wifi to
+  mobile data would cut out mid-lesson, and the device limit answers the same question with
+  a fingerprint that survives a network change.
+- **An asset is resolved from its own `provider` column, not from the config.**
+  `MediaProviderResolver` does that, *beside* the binding rather than replacing it — an
+  upload ticket is asked for before a row exists, so there is nothing to read. Without the
+  resolver, the day production flips every earlier recording is handed to the new provider
+  and answered "file not found". `SC-011` therefore uses **two assets for two providers in
+  one database**; one asset cannot see the bug, because a test's config always agrees with
+  its own fixture.
+
+The four secrets live in the environment and never in `platform_settings` — that table is
+readable by anyone who can open the admin panel, and the signing key mints valid playback
+tokens. The size and duration ceilings do come from `platform_settings`, through
+`MediaLimits`, which is also where the adapter's `capabilities()` reads them, so the
+announced limit and the enforced one cannot drift.
+
+⚠️ **`ReconcileAssetStatus` is scheduled as of 019, and had never run before.** Nothing
+reached `Processing` and stayed there while the only provider settled an asset inside the
+upload request. A provider that transcodes on its own clock makes `Processing` a state
+something has to leave — same family as the retry loop 017 shipped. It now asks about
+`Processing` only, never `Uploading`: bytes still arriving *here* are not a question for a
+provider, and a 2 GiB PUT outlives the sweep's one-minute age check.
 
 **Attendance never passes through the provider.** The register is built from a heartbeat
 hitting our own route, and the server does the arithmetic:
@@ -678,6 +743,17 @@ screens are invisible until that line exists.
 | 04:35 daily | `ExpireCreditLotsJob` | finds nothing until an operator sets a validity (Q-5) |
 | 04:45 daily | `ReconcileCreditBalancesJob` | after every sweep that moves a balance |
 | Sunday 05:00 | `NotifyDormantBalancesJob` | the boundary is months; nightly would be nagging |
+| every 15 min | `RetryPendingRecordingsJob` (017) | **nothing re-sent the ingest at all** — see below |
+
+⚠️ **`RetryPendingRecordingsJob` closes a hole that was silent since 005.**
+`IngestSessionRecordingJob::giveUpOrRetry()` increments the counter, writes
+`recording_status = 'pending'` and returns — no `release()`, no second dispatch — and the
+only sender was `SessionCompleted`, which fires once. So the first "not finished yet" was
+also the last attempt. It stayed invisible because `NullBroadcastProvider` declares
+`recording: false`, so the job returned before reaching that branch; 017 is what switches
+it on. The cost was never a stuck badge: `Settlement\Support\PackageCompletion` reads the
+same column and withholds a teacher's fee for any session whose recording is neither
+published nor failed.
 
 **All five run `->onQueue('maintenance')->withoutOverlapping()`, and both halves matter.**
 `ChargeUnbilledDeliveriesJob` runs every fifteen minutes: one run overrunning its own window

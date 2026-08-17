@@ -21,8 +21,10 @@ use App\Modules\LiveSessions\Policies\AttendancePolicy;
 use App\Modules\LiveSessions\Policies\ClassSessionPolicy;
 use App\Modules\LiveSessions\Policies\FreezePeriodPolicy;
 use App\Modules\LiveSessions\Policies\SessionBookingPolicy;
+use App\Modules\LiveSessions\Providers\LiveKitBroadcastProvider;
 use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
 use App\Modules\LiveSessions\Support\EloquentSessionAttendanceDirectory;
+use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Media\Events\MediaAssetReady;
 use App\Shared\Contracts\SessionAttendanceDirectory;
 use App\Shared\Modules\Module;
@@ -48,6 +50,13 @@ class LiveSessionsServiceProvider extends Module
          * provable before any contract is signed.
          */
         $this->app->bind(BroadcastProviderInterface::class, fn (): BroadcastProviderInterface => match ((string) config('sessions.provider')) {
+            // Constructed by hand rather than resolved: the two service clients
+            // are nullable constructor arguments, and the container would helpfully
+            // build both — which is exactly the laziness the adapter is written to
+            // keep (SC-006).
+            'livekit' => new LiveKitBroadcastProvider($this->app->make(SessionSettings::class)),
+            // Unchanged on purpose. The test environment stays on the provider
+            // that needs no account and no network (FR-017).
             default => $this->app->make(NullBroadcastProvider::class),
         });
 

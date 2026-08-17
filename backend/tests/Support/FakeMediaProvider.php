@@ -48,7 +48,15 @@ class FakeMediaProvider implements MediaProviderInterface
             directUpload: true,
             maxSizeBytes: 1_073_741_824,
             maxDurationSeconds: 7200,
+            remoteFetch: true,
         );
+    }
+
+    public function ingestFromUrl(MediaAsset $asset, string $sourceUrl, array $sourceHeaders = []): void
+    {
+        // A provider that fetches for itself and tells us nothing yet — which is
+        // the shape the contract describes, and the reason the return is void.
+        $asset->forceFill(['provider_asset_id' => 'fake-'.$asset->uuid])->save();
     }
 
     public function createUploadTicket(MediaAsset $asset): UploadTicket

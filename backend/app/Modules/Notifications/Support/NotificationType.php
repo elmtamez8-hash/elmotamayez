@@ -35,6 +35,23 @@ enum NotificationType: string
     case SessionReport = 'session_report';
     case SessionCancelled = 'session_cancelled';
     case SessionRecordingFailed = 'session_recording_failed';
+
+    /*
+    | The seat holder's half of a failed recording (019 FR-009أ).
+    |
+    | A separate type from SessionRecordingFailed above, not the same one sent
+    | twice, for two reasons. The teacher's message names a page they can act on
+    | and a provider reason they can read; a student's names neither and would be
+    | a support ticket with extra steps. And a preference switches a TYPE off — one
+    | type would mean a student who muted this also muted the teacher's copy of it.
+    |
+    | ⚠️ AND IT EXISTS BECAUSE `failed` RELEASES THE HELD FEE. Settlement holds a
+    | teacher's payment while a recording is neither published nor failed, so
+    | marking it failed correctly pays them for the hour they actually taught —
+    | and leaves nobody at all still waiting for the recording except the person
+    | who booked a seat, whose only recourse was to ask (research §R10).
+    */
+    case SessionRecordingUnavailable = 'session_recording_unavailable';
     case SettlementRateApproved = 'settlement_rate_approved';
     case SettlementRateRejected = 'settlement_rate_rejected';
     case SettlementPeriodClosed = 'settlement_period_closed';
@@ -126,6 +143,7 @@ enum NotificationType: string
             self::SessionReport => 'تقرير ما بعد الحصة',
             self::SessionCancelled => 'إلغاء حصة',
             self::SessionRecordingFailed => 'تعذّر نشر تسجيل الحصة',
+            self::SessionRecordingUnavailable => 'تسجيل الحصة غير متاح',
             self::SettlementRateApproved => 'اعتماد سعر التسوية',
             self::SettlementRateRejected => 'رفض طلب سعر التسوية',
             self::SettlementPeriodClosed => 'إغلاق فترة التسوية',

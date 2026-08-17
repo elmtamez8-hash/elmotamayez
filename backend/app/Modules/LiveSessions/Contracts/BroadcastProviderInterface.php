@@ -32,7 +32,15 @@ use App\Modules\LiveSessions\Models\ClassSession;
  */
 interface BroadcastProviderInterface
 {
-    /** 'null', 'livekit', 'daily', ... Never exposed in a payload (FR-019). */
+    /**
+     * The implementation's own short identifier, used for `sessions.provider`
+     * and in log lines. Never exposed in a payload (FR-019).
+     *
+     * ⚠️ No vendor is named here, not even as an example: `ProviderNameContainmentTest`
+     * greps `app/` for one, and the interface is the first place a name spreads
+     * from — a docblock listing candidates is how "the adapter is the only file
+     * that knows" quietly stops being true (017 FR-002).
+     */
     public function identifier(): string;
 
     /**

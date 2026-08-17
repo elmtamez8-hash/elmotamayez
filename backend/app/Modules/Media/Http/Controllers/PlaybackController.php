@@ -10,12 +10,12 @@ use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Learning\Models\LessonProgress;
 use App\Modules\Media\Actions\IssuePlaybackGrant;
 use App\Modules\Media\Actions\RenewPlaybackGrant;
-use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Data\PlaybackContext;
 use App\Modules\Media\Exceptions\AccessWithheldException;
 use App\Modules\Media\Http\Resources\PlaybackGrantResource;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Providers\LocalMediaProvider;
+use App\Modules\Media\Support\MediaProviderResolver;
 use App\Modules\Media\Support\PlaybackGuard;
 use App\Shared\Scopes\WorkspaceScope;
 use DomainException;
@@ -124,7 +124,7 @@ class PlaybackController extends Controller
      * which is what stops playback mid-file when the session is ended elsewhere
      * or the watermark stops renewing.
      */
-    public function stream(Request $request, string $grant, MediaProviderInterface $provider): Response|StreamedResponse
+    public function stream(Request $request, string $grant, MediaProviderResolver $providers): Response|StreamedResponse
     {
         $model = PlaybackGuard::resolve($grant);
 
@@ -133,6 +133,11 @@ class PlaybackController extends Controller
         abort_if($model === null, 403, 'لا تملك صلاحية لهذا الإجراء.');
 
         $model->forceFill(['last_seen_at' => now()])->saveQuietly();
+
+        // The asset's own provider, never the configured one: a recording made
+        // before the switch lives where it was put, and asking today's provider
+        // for it answers 404 on a lesson that is perfectly intact.
+        $provider = $providers->for($model->asset);
 
         $manifest = $provider->manifest(new PlaybackContext(
             asset: $model->asset,

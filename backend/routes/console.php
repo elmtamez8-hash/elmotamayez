@@ -3,7 +3,9 @@
 use App\Modules\Assessments\Jobs\MarkMissedSubmissionsJob;
 use App\Modules\Assessments\Jobs\RollUpQuestionStatsJob;
 use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
+use App\Modules\LiveSessions\Jobs\RetryPendingRecordingsJob;
 use App\Modules\Media\Jobs\PruneExpiredGrantsJob;
+use App\Modules\Media\Jobs\ReconcileAssetStatus;
 use App\Modules\Notifications\Jobs\PruneOldNotificationsJob;
 use App\Modules\Payments\Jobs\ChargeUnbilledDeliveriesJob;
 use App\Modules\Payments\Jobs\EvaluateCreditLimitsJob;
@@ -43,6 +45,37 @@ Schedule::job(new CloseStaleSessionsJob)->hourlyAt(20);
 // an event — nothing fires when a file never arrives, and that branch has to be
 // noticed too.
 Schedule::job(new ReleasePendingUnitsJob)->everyFifteenMinutes();
+
+// Recordings stuck on "pending" get their ingest re-sent. Same fifteen minutes as
+// the sweep directly above, which READS the result: slower here would mean a unit
+// released an hour after its recording landed, and faster buys nothing.
+//
+// ⚠️ It exists because nothing re-sent the job at all. `giveUpOrRetry` wrote
+// 'pending' and returned, and the only dispatcher was SessionCompleted — one
+// event, one attempt. The cost was not a stuck badge: PackageCompletion holds a
+// teacher's fee for any session whose recording is neither published nor failed.
+Schedule::job(new RetryPendingRecordingsJob, 'maintenance')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping();
+
+/*
+| Assets the provider is still working on (019).
+|
+| ⚠️ THIS JOB EXISTED SINCE 004 AND WAS NEVER SCHEDULED, which was invisible while
+| the only provider settled an asset inside the request that uploaded it — nothing
+| ever reached `Processing` and stayed. A provider that transcodes on its own clock
+| makes `Processing` a state something has to leave, and until this line nothing
+| asked: a teacher's own upload would sit «قيد التجهيز» for ever.
+|
+| Every five minutes rather than fifteen, and that is the one number here with a
+| person behind it: this is a teacher watching the video they just uploaded, not a
+| background reconciliation. Its own queue, like every other sweep that walks the
+| platform, so it never sits behind a mass delete's locks. `withoutOverlapping()`
+| because a slow provider is exactly when two copies would walk the same rows.
+*/
+Schedule::job(new ReconcileAssetStatus, 'maintenance')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();
 
 // Windows whose days have run out get closed and their totals frozen. Daily and
 // at :10 past four — clear of both bulk deletes at 03:30/03:45 and of the hourly

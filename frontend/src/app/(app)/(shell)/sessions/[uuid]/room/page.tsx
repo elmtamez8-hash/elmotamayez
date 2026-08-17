@@ -125,7 +125,7 @@ export default function SessionRoomPage({
       {ticket !== null && (
         <>
           <Card padding="sm">
-            <BroadcastStage ticket={ticket} />
+            <BroadcastStage ticket={ticket} sessionUuid={uuid} />
           </Card>
 
           <Card>

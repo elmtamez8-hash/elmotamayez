@@ -17,10 +17,22 @@ import { Select } from "@/components/ui/Field";
  * custom set we would write to replace them, which is most of why the
  * accessibility criterion is reachable at all.
  *
- * What it does not give is HLS outside Safari — and there is no HLS manifest to
- * play yet, because there is no provider producing one. Rather than shipping a
- * player library for a format nothing emits, an unsupported format says so in
- * words instead of showing a black rectangle.
+ * What it does not give is HLS outside Safari, and spec 019 is when that stopped
+ * being hypothetical: a commercial provider emits a segmented manifest, so
+ * `format === "hls"` now arrives for real. Until then this component refused it in
+ * words — correct at the time, and the moment a provider produced one it would
+ * have meant every student not on Safari reading «صيغة غير مدعومة» on a lesson
+ * that was perfectly fine.
+ *
+ * ⚠️ SO hls.js IS LOADED, AND ONLY WHERE IT IS NEEDED. Safari plays HLS natively
+ * and gets no library; a browser with Media Source Extensions gets one, imported
+ * dynamically so it is absent from the bundle of every progressive lesson. A
+ * browser with neither still says so in words rather than showing a black
+ * rectangle.
+ *
+ * What does NOT change is where the manifest comes from. The player still asks our
+ * own `/playback/{grant}/stream`, which answers 302 — so every playlist fetch is a
+ * fresh trip through the grant, exactly as every byte-range request was.
  */
 export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -28,7 +40,11 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
   const [source, setSource] = useState(grant.manifest_url);
   const [speed, setSpeed] = useState(1);
 
-  const canPlay = grant.format === "progressive" || isNativeHlsSupported();
+  // Three ways a browser can play what we are about to hand it, and only the
+  // third needs a library.
+  const usesLibrary = grant.format === "hls" && !isNativeHlsSupported();
+  const canPlay =
+    grant.format === "progressive" || isNativeHlsSupported() || isMseSupported();
 
   // The default track is the one worth reading as prose; a translation of the
   // same lesson would repeat it.
@@ -52,6 +68,51 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
     video.currentTime = resume;
   }, [grant.resume_at_seconds]);
 
+  /*
+    Attach hls.js, and only when this browser actually needs it.
+
+    Imported dynamically so a progressive lesson never downloads a player library
+    it has no use for. Destroyed on cleanup: without that, navigating between two
+    recorded lessons leaves the previous instance fetching segments against a grant
+    the viewer has left behind.
+  */
+  useEffect(() => {
+    if (!usesLibrary) return;
+
+    let cancelled = false;
+    let instance: { destroy: () => void } | null = null;
+
+    void (async () => {
+      const { default: Hls } = await import("hls.js");
+      const video = videoRef.current;
+
+      if (cancelled || video === null) return;
+
+      if (!Hls.isSupported()) {
+        setError("متصفّحك لا يدعم تشغيل هذا الفيديو. جرّب متصفّحاً آخر أو حدّث متصفّحك.");
+        return;
+      }
+
+      const hls = new Hls();
+      instance = hls;
+
+      // Only the errors the library itself calls fatal. It recovers from the rest
+      // on its own, and surfacing those would put a banner over a lesson that is
+      // still playing.
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) setError("تعذّر تشغيل الفيديو. حدّث الصفحة وحاول مجدداً.");
+      });
+
+      hls.loadSource(source);
+      hls.attachMedia(video);
+    })();
+
+    return () => {
+      cancelled = true;
+      instance?.destroy();
+    };
+  }, [usesLibrary, source]);
+
   if (!canPlay) {
     return (
       <Alert tone="warning" title="صيغة غير مدعومة">
@@ -67,7 +128,10 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
       <div className="relative">
         <video
           ref={videoRef}
-          src={source}
+          // Left unset when the library drives it: hls.js owns the element's
+          // source, and setting both makes the browser fetch a manifest it cannot
+          // parse and report an error over a video that plays.
+          src={usesLibrary ? undefined : source}
           controls
           // Removes the download item from the browser's own menu. Not a
           // protection on its own — the grant expiring is — but there is no
@@ -142,4 +206,15 @@ function isNativeHlsSupported(): boolean {
   const probe = document.createElement("video");
 
   return probe.canPlayType("application/vnd.apple.mpegurl") !== "";
+}
+
+/**
+ * Whether hls.js could run here — checked without importing it.
+ *
+ * The same condition the library's own `isSupported()` turns on, asked
+ * synchronously so the «unsupported» message is decided during render rather than
+ * flashing a player that then disappears.
+ */
+function isMseSupported(): boolean {
+  return typeof window !== "undefined" && "MediaSource" in window;
 }

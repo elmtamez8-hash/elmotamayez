@@ -12,7 +12,14 @@ use App\Modules\Media\Data\UploadTicket;
 use App\Modules\Media\Models\MediaAsset;
 
 /**
- * Abstraction over a media provider (local disk, Bunny Stream, Cloudflare, Mux, ...).
+ * Abstraction over a media provider: our own private disk, or a commercial
+ * streaming network.
+ *
+ * ⚠️ NO VENDOR IS NAMED HERE, and the omission is enforced. This docblock used to
+ * list three of them as examples, which read as harmless until 019 made one of them
+ * real: a contract that names its implementations is a contract a reader consults to
+ * find out which provider is in use, and `ProviderNameContainmentTest` now fails the
+ * build over it. The names live in the adapter and at the binding.
  *
  * Named for video until 016, which is when `pdf`, `audio` and `file` gained an
  * upload path. Nothing in the interface was video-specific — a ticket, a status
@@ -33,7 +40,13 @@ use App\Modules\Media\Models\MediaAsset;
  */
 interface MediaProviderInterface
 {
-    /** Identifier: 'local', 'bunny', 'cloudflare', ... Never exposed in a payload. */
+    /**
+     * The short name stored on every asset. Never exposed in a payload.
+     *
+     * This is what `MediaProviderResolver` reads to hand an existing asset back to
+     * the provider that actually holds it — so it is an identifier with consequences,
+     * not a label. Changing one orphans every row carrying the old value.
+     */
     public function identifier(): string;
 
     /**
@@ -47,6 +60,31 @@ interface MediaProviderInterface
 
     /** Where the client uploads to, and how. Must never carry a provider key. */
     public function createUploadTicket(MediaAsset $asset): UploadTicket;
+
+    /**
+     * Take this file over from a URL we already hold.
+     *
+     * The first change to this interface since it was written, and 019 is why:
+     * `createUploadTicket` answers "where should a BROWSER send bytes", which is
+     * the wrong question for a recording that already exists in our own bucket.
+     * Without this method the only way to hand that file over is to download it
+     * into a worker and upload it again — a gigabyte per lesson through the
+     * application server, which is the entire cost this phase exists to remove.
+     * A provider that can fetch for itself is given the chance to.
+     *
+     * ⚠️ ASYNCHRONOUS BY NATURE, so it returns nothing. The provider pulls and
+     * transcodes on its own clock; the asset is left `Processing` and `status()`
+     * is what later says it is `Ready`. A return value here would be a promise
+     * about a job that has not started.
+     *
+     * @param  string  $sourceUrl  Short-lived and signed. Never a public URL: the
+     *                             point is that no lasting link to the file exists.
+     * @param  array<string, string>  $sourceHeaders  Sent by the provider with its
+     *                                                own GET, for a source that
+     *                                                authenticates by header rather
+     *                                                than by signed URL.
+     */
+    public function ingestFromUrl(MediaAsset $asset, string $sourceUrl, array $sourceHeaders = []): void;
 
     /**
      * The provider's current view of the asset.

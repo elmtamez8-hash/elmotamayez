@@ -73,6 +73,21 @@ class NotificationTemplateSeeder extends Seeder
                 'لم يُنشر تسجيل حصة «{{ title }}» بعد عدّة محاولات ({{ reason }}). يمكنك رفعه يدوياً من صفحة الحصة.',
                 ['title', 'reason'],
             ],
+            /*
+             * ⚠️ THE TEMPLATE IS NOT DECORATION — WITHOUT IT THE NOTIFICATION IS
+             * DROPPED IN SILENCE. TemplateRenderer refuses a missing or unapproved
+             * template and DispatchNotification logs rather than fails (003
+             * FR-037), so a test asserting the dispatch was CALLED passes green on
+             * zero notifications delivered. Which is why SC-013 counts rows.
+             *
+             * No provider reason in the student's copy, deliberately: it names a
+             * system they have no access to and cannot act on.
+             */
+            NotificationType::SessionRecordingUnavailable->value => [
+                'تسجيل الحصة غير متاح',
+                'تعذّر نشر تسجيل حصة «{{ title }}». تواصل مع مدرّسك إن كنت بحاجة إليه.',
+                ['title'],
+            ],
             // Settlement (014). The teacher's own contract: a decision on their
             // rate, a period closing, money leaving. None of these names a
             // student, a payment or a sale price — FR-018 forbids all three in

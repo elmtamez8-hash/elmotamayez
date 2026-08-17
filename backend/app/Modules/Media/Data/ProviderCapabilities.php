@@ -24,5 +24,17 @@ final class ProviderCapabilities extends DataTransferObject
         public readonly bool $directUpload,
         public readonly int $maxSizeBytes,
         public readonly int $maxDurationSeconds,
+        /*
+         * Can this provider take a file over from a URL?
+         *
+         * ⚠️ "CAN IT", NOT "DOES IT WITHOUT BANDWIDTH". LocalMediaProvider
+         * declares this true and implements it by downloading, which is what it
+         * has always done. Declaring it false there would be honest about the
+         * bandwidth and wrong about the capability — and it would force every
+         * caller into two branches for one question, which is precisely what the
+         * abstraction exists to prevent. Measuring the bandwidth is SC-001's job,
+         * not this flag's (019 contracts §1).
+         */
+        public readonly bool $remoteFetch = false,
     ) {}
 }

@@ -10,6 +10,7 @@ use App\Modules\LiveSessions\Support\BookingEligibility;
 use App\Shared\Contracts\UnlockDirectory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * May I open this session, and if not, what exactly is missing? (FR-038)
@@ -39,6 +40,40 @@ class EligibilityController extends Controller
         $this->authorize('view', $session);
 
         $student = $this->currentUser($request);
+
+        /*
+        | ⚠️ THE QUESTION DOES NOT APPLY TO THE HOST, AND ANSWERING IT ANYWAY LIES.
+        |
+        | Every condition below is a condition on a STUDENT — an enrolment, a
+        | balance, a piece of homework. A teacher holds none of them in their own
+        | workspace and never will, so the honest answer is "nothing is refusing
+        | you", not "لست مسجّلاً عند هذا المدرّس" — which is what a teacher was
+        | shown under a refusal banner on their own session.
+        |
+        | Decided by the same policy PerformHostAction uses rather than by
+        | re-deriving the condition here: two spellings of "is this the host" is
+        | the drift that puts one answer on the screen and another at the door.
+        */
+        if (Gate::allows('host', $session)) {
+            return response()->json([
+                'data' => [
+                    'session_uuid' => $session->uuid,
+                    'open' => true,
+                    // Shape unchanged, contents neutral: the host's own unlock
+                    // verdict is a question about a student's homework, and
+                    // computing it here would put an answer in the payload that
+                    // means nothing about the person who asked.
+                    'unlock' => [
+                        'open' => true,
+                        'reason' => null,
+                        'missing' => [],
+                        'rule_scope' => 'none',
+                        'exempt' => false,
+                    ],
+                    'booking_refusal' => null,
+                ],
+            ]);
+        }
 
         $verdict = $unlock->explain($student, (int) $session->getKey());
 

@@ -26,6 +26,59 @@ return [
     */
     'disk' => env('MEDIA_DISK', 'local'),
 
+    /*
+    | The commercial provider's account (spec 019).
+    |
+    | ⚠️ EVERY SECRET HERE COMES FROM THE ENVIRONMENT AND NOWHERE ELSE, and that
+    | is a departure from this file's own rule that operational numbers live in
+    | `platform_settings`. The rule is about NUMBERS — the device limit, the upload
+    | ceiling, the grant TTL — which an operator tunes from the panel. A row in
+    | `platform_settings` is readable by everyone who can open that panel, so
+    | putting the signing key there widens who can mint a valid playback token
+    | from "whoever administers the server" to "whoever administers a workspace",
+    | for a key whose leak opens the whole library with no trace in our logs
+    | (019 FR-020أ · research §R9).
+    |
+    | The LIMITS are the other half of that split and they are NOT here: they come
+    | from `platform_settings` through MediaLimits, which already reads them.
+    */
+    'bunny' => [
+        // The video library. Also the AccessKey's scope: the key opens this
+        // library and no other.
+        'library_id' => env('BUNNY_STREAM_LIBRARY_ID'),
+        'access_key' => env('BUNNY_STREAM_ACCESS_KEY'),
+
+        // The CDN hostname the player pulls segments from, and the key that
+        // signs those URLs. Two different credentials with two different jobs:
+        // the access key manages videos, the security key authorises watching one.
+        'pull_zone' => env('BUNNY_PULL_ZONE'),
+        'security_key' => env('BUNNY_PULL_ZONE_SECURITY_KEY'),
+
+        /*
+        | ⚠️ THE JOIN KEY, NOT A LABEL.
+        |
+        | `videos/fetch` answers `{success, message, statusCode}` — it does NOT
+        | return the new video's guid (research §R3, from the OpenAPI schema; the
+        | narrative docs page disagrees and is the outlier). The only field the
+        | request accepts and we control is `title`, so the title is how the video
+        | is found again afterwards. Changing this prefix orphans every asset
+        | whose id has not been recovered yet.
+        */
+        'title_prefix' => env('BUNNY_TITLE_PREFIX', 'mteatch'),
+
+        /*
+        | Where the provider fetches FROM. Empty means "the URL handed to
+        | ingestFromUrl is already fetchable" — which is what a local development
+        | run wants. Set to the bridge disk in production: the object is private,
+        | and Bunny's fetch is its own GET carrying none of our credentials.
+        */
+        'source_disk' => env('BUNNY_SOURCE_DISK', 'r2'),
+
+        // Long enough for a fetch of a two-hour lesson to start and finish, short
+        // enough that a leaked source URL is not a lasting one.
+        'source_url_ttl_minutes' => (int) env('BUNNY_SOURCE_URL_TTL_MINUTES', 120),
+    ],
+
     // Upload limits (FR-003). Enforced in the Action, not only in validation.
     'max_size_bytes' => (int) env('MEDIA_MAX_SIZE_BYTES', 2_147_483_648),   // 2 GiB
     'max_duration_seconds' => (int) env('MEDIA_MAX_DURATION_SECONDS', 14_400), // 4 h
