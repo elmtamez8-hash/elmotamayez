@@ -450,3 +450,8 @@ requirement is that nothing is called.
 
 **Provider secrets in the environment, ceilings in `platform_settings`.** A row
 in that table is readable by anyone who can open the admin panel.
+
+**Two npm advisories are accepted, not fixed** — Next 15 pins its own
+`postcss` and `sharp`, and only Next 16 moves them. Unreachable here: no
+`remotePatterns`, so `next/image` never processes a user-supplied image.
+**Adding `remotePatterns` makes the sharp advisory live.**
