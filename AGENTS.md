@@ -448,6 +448,13 @@ returned HTTP 403…"}` is the SOURCE refusing Bunny — retryable, and the retr
 signs a fresh url. Only 401 (PascalCase `Message`) and a 400 carrying `errors`
 are permanent; classifying an origin mirror as permanent loses the recording.
 
+**A presigned url needs no `headers`, and `headers: []` is a 400.** Verified live
+2026-08-18: an empty array encodes where the schema wants an object, is classified
+permanent, and every recording fails on its first attempt — so OMIT the key rather
+than send it empty. The presigned url carries its own auth in the query string.
+Measured with it: Bunny starts the fetch immediately (2.8 MB `Ready` with five
+renditions **15 s** after delivery), so a 120-minute source TTL is ample.
+
 **A provider declares its `kinds`; the resolver routes by them.** `forKind()` for a
 new file (no row yet), `for()` for an existing one. Our own disk is the fallback and
 declares no kinds, so it takes everything. Stamp `provider` from whoever TOOK the
