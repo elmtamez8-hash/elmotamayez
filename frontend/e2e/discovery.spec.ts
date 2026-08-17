@@ -115,16 +115,29 @@ test.describe("public discovery", () => {
     await expect(page.getByRole("link", { name: "احجز الآن" }).last()).toBeInViewport();
   });
 
-  test("لوحة الحجز ومؤشّر الثقة لا يتراكبان أثناء التمرير", async ({ page }, testInfo) => {
+  test("لوحة الحجز وحدها في عمودها، فتلصق فعلاً ولا يتراكب فوقها شيء", async ({
+    page,
+  }, testInfo) => {
     /*
-     * The bug this replaces: the booking panel was `sticky` and the trust
-     * breakdown was its NEXT SIBLING, so on the way past the breakdown — later in
-     * the DOM, and therefore painted on top — slid straight over the booking CTA.
-     * A z-index would have swapped which one was buried, not stopped the burying.
+     * Two bugs, one column, and each hid the other — which is why this asserts
+     * the arrangement and not just the rectangles.
      *
-     * Measured rather than eyeballed, because "they overlap" is a fact about two
-     * rectangles, and a screenshot review is how a two-pixel version of this ships
-     * unnoticed.
+     * FIRST: the trust breakdown was the sticky panel's NEXT SIBLING, so on the
+     * way past it — later in the DOM, therefore painted on top — slid straight
+     * over the booking CTA. A z-index would have swapped which one was buried,
+     * not stopped the burying. The fix was to stick the PAIR.
+     *
+     * SECOND, caused by that fix and invisible for months: two cards made this
+     * column 823px, TALLER than the tabs beside it. `position: sticky` travels
+     * inside its containing block, so a box that fills its column moves zero
+     * pixels — it read as sticky, scrolled away, and at the bottom of every
+     * desktop profile the only booking CTA was 338px above the fold. FR-054 asks
+     * for a button that STAYS VISIBLE while scrolling.
+     *
+     * So the guard is: the breakdown is not in this column at all, and the panel
+     * is genuinely pinned mid-scroll. With nothing after the card in the column,
+     * the first bug cannot return; with the column shorter than the tabs, nor can
+     * the second.
      */
     test.skip(
       (testInfo.project.use.viewport?.width ?? 1440) < 1024,
@@ -140,23 +153,30 @@ test.describe("public discovery", () => {
     await page.waitForURL(PROFILE_URL);
 
     const panel = page.locator("aside").getByText("الحجز مع").locator("..");
-    const breakdown = page.locator("aside").getByText(/الثقة|درجة/).first();
+    await expect(panel).toBeVisible();
 
-    test.skip((await breakdown.count()) === 0, "this teacher shows no trust breakdown");
+    // Nothing follows the booking card in its column. This is the arrangement,
+    // not a symptom of it: an overlap needs a later sibling to do the covering.
+    await expect(page.locator("aside").getByText(/درجة الثقة/)).toHaveCount(0);
+
+    const before = await panel.boundingBox();
 
     await page.mouse.wheel(0, 900);
     // One frame for the sticky to settle before the rectangles are read.
     await page.waitForTimeout(300);
 
-    const above = await panel.boundingBox();
-    const below = await breakdown.boundingBox();
+    const after = await panel.boundingBox();
 
-    expect(above).not.toBeNull();
-    expect(below).not.toBeNull();
+    expect(before).not.toBeNull();
+    expect(after).not.toBeNull();
 
-    // The breakdown starts at or after the panel ends. One pixel of tolerance for
-    // sub-pixel layout, and not one more: two is an overlap somebody can see.
-    expect(below!.y).toBeGreaterThanOrEqual(above!.y + above!.height - 1);
+    // Pinned, which is not the same as motionless: the panel starts below the
+    // fold, rises with the page until it reaches its `top-24` offset, and stops
+    // there. Measured here: 391 → 96, so 295 of the 900 scrolled. The bug this
+    // rules out is a box with no travel room, which absorbs none of the scroll
+    // and goes the full 900 — to −509, off the top of the screen for good.
+    expect(before!.y - after!.y).toBeLessThan(900);
+    await expect(panel).toBeInViewport();
   });
 
   test("booking carries the teacher context into signup", async ({ page }) => {

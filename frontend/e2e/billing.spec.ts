@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { useTeacherAccount } from "./teacher-account";
+
 /**
  * The routes into the credit screens, walked the way a person walks them.
  *
@@ -88,16 +90,20 @@ test.describe("الوصول إلى الأرصدة", () => {
     );
   });
 
+  // ⚠️ AS THE TEACHER, and that is what makes the money assertion mean anything.
+  // Written against the projects' student storageState this waited thirty seconds
+  // for a sidebar link that does not exist: `(shell)/layout.tsx` filters entries
+  // by permission, and `billing.balance.view` is the teacher's. Worse, had it
+  // reached the page, "no currency on screen" would have been asserted against an
+  // error state with no balances in it — vacuously true, for ever.
   test("الشريط الجانبي ← أرصدة الطلاب، بلا رقم مال", async ({ page }) => {
+    await useTeacherAccount(page);
     await page.goto("/dashboard");
     await openNav(page);
 
     await page.getByRole("link", { name: "أرصدة الطلاب" }).click();
 
     await expect(page).toHaveURL(/\/manage\/billing\/students$/);
-    // "تعذّر" is a real answer here, not a failure: this screen is behind
-    // BILLING_BALANCE_VIEW and the seeded student does not hold it, so what a
-    // student must see is the stated error state — never a raw one.
     await expect(
       page.locator("#main").getByText(/أرصدة الطلاب|لا طلاب|تعذّر/).first(),
     ).toBeVisible();
@@ -109,6 +115,7 @@ test.describe("الوصول إلى الأرصدة", () => {
   });
 
   test("الشريط الجانبي ← وضع الامتحانات، والحالة معروضة لا مخمَّنة", async ({ page }) => {
+    await useTeacherAccount(page);
     await page.goto("/dashboard");
     await openNav(page);
 

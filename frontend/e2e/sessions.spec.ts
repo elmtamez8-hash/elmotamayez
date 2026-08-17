@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { useTeacherAccount } from "./teacher-account";
+
 /**
  * The two routes into the sessions feature, walked the way a person walks them.
  *
@@ -52,7 +54,13 @@ test.describe("الوصول إلى الحصص", () => {
     await expect(page.locator("body")).not.toContainText(/Request failed|Server Error|undefined/);
   });
 
+  // ⚠️ AS THE TEACHER. The sidebar does not hide «حصصي» from a student, it does
+  // not RENDER it: `(shell)/layout.tsx` filters every entry by its permission,
+  // and `sessions.manage` is the teacher's. Written against the projects' student
+  // storageState, this waited thirty seconds for a link that was never going to
+  // exist — a red test about a screen that works.
   test("الشريط الجانبي ← حصصي ← التوليد ظاهر", async ({ page }) => {
+    await useTeacherAccount(page);
     await page.goto("/dashboard");
     await openNav(page);
 
@@ -104,6 +112,7 @@ test.describe("الوصول إلى الحصص", () => {
 
   // And the teacher's half: sidebar → my sessions → a session → the register.
   test("حصصي ← حصة ← كشف الحضور", async ({ page }) => {
+    await useTeacherAccount(page);
     await page.goto("/dashboard");
     await openNav(page);
     await page.getByRole("link", { name: "حصصي" }).click();

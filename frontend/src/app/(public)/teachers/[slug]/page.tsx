@@ -203,26 +203,47 @@ export default async function TeacherProfilePage({
         </div>
       </header>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_320px] lg:items-start">
+      {/* ⚠️ NO `items-start` HERE, AND THAT IS THE WHOLE OF FR-054 ON DESKTOP.
+          `position: sticky` travels inside its containing block and nowhere else,
+          so a grid item shrunk to its own content height gives the panel inside
+          it exactly zero room to move: it reads as sticky, scrolls away with the
+          page, and the desktop profile ends with no booking CTA on screen — the
+          one thing FR-054 forbids, and the reason a fixed bar exists below `lg`.
+          Stretching (the grid default) makes the aside as tall as the tabs beside
+          it, which is the runway the sticky panel needs. Invisible either way:
+          the aside paints nothing of its own. `discovery.spec.ts` measures it,
+          because no unit test can see a computed layout. */}
+      <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
         {/* Sticky booking panel (FR-054): spans both content rows so it stays put
             while the tabs scroll. On mobile it sits between the identity block and
             the tabs, which is where a price belongs on a phone. */}
         <aside className="lg:col-start-2 lg:row-start-1">
-          {/* ⚠️ THE STICKY IS ON THE PANEL, NOT ON THE `aside`. A grid item's
-              containing block is its grid area, and this one is a single-row
-              grid — so the aside was already as tall as the column beside it and
-              a sticky box with no room to travel never moves at all. It read as
-              sticky and scrolled away with the page, taking the only desktop
-              booking CTA off screen at the bottom of the profile (FR-054), where
-              below `lg` a fixed bar exists precisely to prevent that. Playwright
-              caught it; no unit test can see a computed layout. */}
-          {/* ⚠️ ONE STICKY CONTAINER FOR BOTH CARDS, NOT A STICKY CARD WITH A
-              SIBLING UNDER IT. A `sticky` box paints in normal order, so the
-              breakdown — which comes AFTER it in the DOM — slid up and covered
-              the booking CTA on the way past. Raising a z-index would have
-              stopped the overlap and left the breakdown sliding under the panel
-              instead, which is the same problem wearing a lower number. Sticking
-              the PAIR keeps their spacing fixed, so neither can reach the other. */}
+          {/* ⚠️ THE BOOKING CARD IS ALONE IN HERE, AND THAT IS WHAT MAKES THE
+              STICKY WORK. `position: sticky` travels inside its containing block
+              and nowhere else, so the size of this column against the one beside
+              it is the whole mechanism — measured, because no unit test can see a
+              computed layout:
+
+                aside 823px · tabs shorter · page 1730px · viewport 900px
+                → the sticky box FILLED the row it was meant to travel in,
+                  moved zero pixels, and at the bottom of the page the last
+                  384px of the grid held the trust breakdown while the CTA sat
+                  338px above the fold. FR-054 asks for a booking button that
+                  stays visible while scrolling; there was none.
+
+              Two things were wrong and each hid the other. `lg:items-start` on
+              the grid shrank this column to its content, so there was no runway
+              at all; and the breakdown was IN here, which made this column the
+              taller of the two — so stretching alone still gave zero travel.
+              The breakdown now lives under the tabs, and this card is ~250px in
+              an 823px column: it pins at `top-24` and is still on screen when the
+              grid ends.
+
+              It also settles an older bug for free. The breakdown used to sit
+              directly under a sticky card, and a sticky box paints in normal
+              order — so on the way past it slid up and covered the CTA. Sticking
+              the PAIR fixed the overlap and caused the zero-travel above. With
+              nothing after this card in the column, neither can happen. */}
           <div className="lg:sticky lg:top-24">
             <div className="rounded-3xl border border-line bg-surface-raised p-6">
               {/* ⚠️ The price is gone from this panel (spec 006, FR-021و · FR-021هـ).
@@ -263,19 +284,6 @@ export default async function TeacherProfilePage({
               )}
             </div>
 
-            {/* Under the booking panel, not beside the biography.
-              FR-024 and the product's third differentiator make the visible
-              factor breakdown load-bearing, so it stays on the first screen of
-              desktop — but as a 380px column nested inside an already-narrowed
-              content column it squeezed the bio to about 440px and read as the
-              page's subject. It belongs where the decision is made. */}
-            <div className="mt-6">
-              <TrustScoreBreakdown
-                score={teacher.trust_score}
-                band={teacher.trust_score_band}
-                factors={teacher.trust_score_factors}
-              />
-            </div>
           </div>
         </aside>
 
@@ -346,6 +354,28 @@ export default async function TeacherProfilePage({
               <AvailabilityCalendar slots={teacher.availability} />
             )}
           </ProfileTabs>
+
+          {/* ⚠️ UNDER THE TABS, NOT IN THE BOOKING COLUMN — and that placement is
+              load-bearing, not tidying. FR-024 and the product's third
+              differentiator make the visible factor breakdown matter, and it was
+              put beside the booking panel so it would land on the first screen of
+              desktop. The cost was invisible until it was measured: two cards in
+              that column made it 823px, taller than the tabs, which left the
+              sticky booking panel with zero travel and took the only desktop CTA
+              off screen at the bottom of every profile (FR-054).
+
+              It is also not going back into the content column as a nested
+              380px box — that is where it started, and it squeezed the biography
+              to about 440px and read as the page's subject. Full width under the
+              tabs is neither: the decision is still one scroll away, and the
+              booking button that FR-054 is actually about now stays put. */}
+          <div className="mt-12">
+            <TrustScoreBreakdown
+              score={teacher.trust_score}
+              band={teacher.trust_score_band}
+              factors={teacher.trust_score_factors}
+            />
+          </div>
 
           {teacher.faqs.length > 0 && (
             <section className="mt-12">

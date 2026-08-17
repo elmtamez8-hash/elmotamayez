@@ -29,8 +29,43 @@ class PublicTeacherCardResource extends JsonResource
             'name' => $this->user?->name,
             'headline' => $this->headline,
             'photo_url' => $this->photo_path === null ? null : asset('storage/'.$this->photo_path),
-            'subjects' => PublicTaxonomyResource::collection($this->whenLoaded('subjects')),
-            'grade_levels' => PublicTaxonomyResource::collection($this->whenLoaded('gradeLevels')),
+            /*
+            | ⚠️ `->resolve()` ON THE NESTED COLLECTION, AND `whenLoaded` WITH A
+            | CALLBACK — because this card is CACHED and `resolve()` does not
+            | recurse.
+            |
+            | `JsonResource::resolve()` runs `toArray()` and stops. A nested
+            | `AnonymousResourceCollection` left in the returned array is still an
+            | OBJECT, and it renders correctly only because `json_encode` walks
+            | `JsonSerializable` on the way out. Put that array in a cache instead
+            | — which is exactly what `PublicMarketplaceController::teachers()`
+            | and `GetMarketplaceHome` do — and the object is serialized whole. It
+            | comes back from the store as `__PHP_Incomplete_Class`, and the cache
+            | HIT publishes this to anonymous visitors:
+            |
+            |   "subjects": {"__PHP_Incomplete_Class_Name":
+            |       "Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection",
+            |       "collects": "App\\Modules\\Marketplace\\...", ...}
+            |
+            | Internal class paths on a public endpoint, and every subject chip
+            | gone from every card — for the whole TTL, on a MISS/HIT boundary no
+            | reader would think to look at. It is invisible in every test that
+            | asserts against a fresh response, and `discovery.spec.ts` only caught
+            | it by rendering the same url twice and getting two different pages.
+            |
+            | The callback form of `whenLoaded` matters for the same reason: the
+            | bare form returns a `MissingValue` that `::collection()` wraps into a
+            | one-item collection, so an unloaded relation would resolve a resource
+            | over MissingValue instead of omitting the key.
+            */
+            'subjects' => $this->whenLoaded(
+                'subjects',
+                fn () => PublicTaxonomyResource::collection($this->subjects)->resolve(),
+            ),
+            'grade_levels' => $this->whenLoaded(
+                'gradeLevels',
+                fn () => PublicTaxonomyResource::collection($this->gradeLevels)->resolve(),
+            ),
             'years_experience' => $this->years_experience,
             'teaching_languages' => $this->teaching_languages ?? [],
             /*
