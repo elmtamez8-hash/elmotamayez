@@ -101,7 +101,16 @@ it('finds the name at the inversion point', function (): void {
 | under LiveSessions that starts asking about media is what this catches.
 */
 it('leaves the parts of the live-sessions module this phase promised not to touch', function (): void {
-    $sealed = ['Actions', 'Models', 'Policies', 'Http', 'Listeners', 'Support'];
+    /*
+     * ⚠️ `Jobs/` IS IN THE LIST NOW, AND THE EXCEPTION IS ONE FILE.
+     *
+     * The declared exception is "the recording ingest path". The check granted it
+     * by leaving the WHOLE `Jobs/` directory out of the sealed set — so any job
+     * added later could reach for the media provider and this rule would never
+     * notice. An exception the size of a folder is not an exception.
+     */
+    $sealed = ['Actions', 'Models', 'Policies', 'Http', 'Listeners', 'Support', 'Jobs'];
+    $exempt = ['IngestSessionRecordingJob.php'];
     $offenders = [];
 
     foreach ($sealed as $directory) {
@@ -115,6 +124,10 @@ it('leaves the parts of the live-sessions module this phase promised not to touc
 
         foreach ($files as $file) {
             if (! $file->isFile() || ! str_ends_with($file->getFilename(), '.php')) {
+                continue;
+            }
+
+            if (in_array($file->getFilename(), $exempt, true)) {
                 continue;
             }
 
@@ -160,4 +173,16 @@ it('touches neither billing nor settlement', function (): void {
     }
 
     expect($offenders)->toBe([]);
+});
+
+/*
+| ⚠️ AND THE EXEMPTION ITSELF IS MEASURED, for the same reason the adapter's own
+| name is: an exemption for a file that has stopped needing it is an exemption
+| nobody notices has become a hole. If the ingest job ever stops naming the
+| capability, the exemption must go with it.
+*/
+it('finds the declared exception still using what it was granted', function (): void {
+    $job = base_path('app/Modules/LiveSessions/Jobs/IngestSessionRecordingJob.php');
+
+    expect(strtolower((string) file_get_contents($job)))->toContain('ingestfromurl');
 });

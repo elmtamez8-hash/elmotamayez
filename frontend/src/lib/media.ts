@@ -54,7 +54,11 @@ export type UploadTicket = {
   expires_at: string;
 };
 
-/** Only ever `progressive` today; `hls` arrives with a provider that produces it. */
+/**
+ * Both are live since 019: our own disk serves `progressive`, and the commercial
+ * provider serves `hls`. The comment here said `hls` was still waiting for a
+ * provider that produced it — and that provider is what 019 added.
+ */
 export type PlaybackFormat = "progressive" | "hls";
 
 export type PlaybackGrant = {

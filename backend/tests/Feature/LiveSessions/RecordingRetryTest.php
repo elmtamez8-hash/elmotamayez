@@ -14,6 +14,7 @@ use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Log;
 use Tests\Support\FakeBroadcastProvider;
 
 /*
@@ -330,4 +331,56 @@ it('loses the claim without delivering when another runner wins mid-flight', fun
         ->where('owner_type', ClassSession::class)
         ->where('owner_id', $this->session->getKey())
         ->count())->toBe(1);
+});
+
+/*
+| FR-009ب — ⚠️ THE ONLY SIGNAL THAT SAYS «LOOK AT THE PROVIDER, NOT AT THE
+| SESSIONS», AND NOTHING IN THE REPOSITORY TESTED IT.
+|
+| There was not one `Log::spy` or `assertLogged` anywhere in `tests/`. So the half
+| of the requirement the spec says «one does not stand in for the other» about was
+| literally a line that shipped green and alerted nobody — the same defect one
+| layer up from the one this whole file exists for.
+|
+| It is deliberately NOT a notification: forty failures send forty teachers a
+| message about their own lesson, and not one of those shows anybody there is a
+| single cause. The outage is then found by whoever adds them up, which is nobody,
+| at night, when the provider's keys were rotated.
+*/
+it('alerts the platform once enough recordings fail at the same time', function (): void {
+    $limit = app(SessionSettings::class)->recordingMaxAttempts();
+    $threshold = app(SessionSettings::class)->recordingFailureAlertThreshold();
+
+    for ($i = 0; $i < $threshold; $i++) {
+        $failed = ClassSession::factory()->create([
+            'teacher_profile_id' => $this->session->teacher_profile_id,
+        ]);
+
+        $failed->forceFill([
+            'status' => ClassSessionStatus::Completed,
+            'room_closed_at' => CarbonImmutable::now()->subHour(),
+            'recording_status' => 'failed',
+            'recording_attempts' => $limit,
+        ])->save();
+    }
+
+    Log::shouldReceive('alert')->once()->withArgs(
+        fn (string $message, array $context): bool => ($context['failed_recordings'] ?? 0) >= $threshold,
+    );
+
+    sweep();
+});
+
+// The mirror image, or the rule above reads as "it alerts whenever it runs" — and
+// an alert that fires on one ordinary failure is an alert an operator learns to
+// scroll past, which is the same as no alert at all.
+it('stays silent below the threshold', function (): void {
+    $this->session->forceFill([
+        'recording_status' => 'failed',
+        'recording_attempts' => app(SessionSettings::class)->recordingMaxAttempts(),
+    ])->save();
+
+    Log::shouldReceive('alert')->never();
+
+    sweep();
 });

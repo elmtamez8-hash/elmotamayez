@@ -7,6 +7,7 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Media\Enums\PlaybackFormat;
 use App\Modules\Media\Models\MediaAsset;
+use App\Modules\Media\Models\MediaCaption;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
@@ -246,10 +247,34 @@ it('keeps the provider network and the asset id out of the payload', function ()
 // the bytes. The captions still come through the grant, because a <track> sends no
 // Authorization header and a permanent caption URL is the lesson's whole script.
 it('still serves captions through the grant, not from the provider', function (): void {
+    /*
+     * ⚠️ THE CAPTION HAD TO BE CREATED, AND WITHOUT IT THIS LOOP RAN ZERO TIMES.
+     *
+     * `MediaFixtures` never makes a `MediaCaption`, so `$payload['captions']` was
+     * an empty array and the body below never executed. The ONLY test of FR-015
+     * stayed green over a Resource free to emit the provider's own caption URL —
+     * a permanent public link to the lesson's entire script, which is exactly what
+     * serving captions through the grant exists to prevent.
+     */
+    $asset = MediaAsset::query()->withoutWorkspaceScope()
+        ->where('owner_id', $this->lesson->getKey())
+        ->where('owner_type', Lesson::class)
+        ->firstOrFail();
+
+    MediaCaption::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'media_asset_id' => $asset->getKey(),
+    ]);
+
     $payload = issueGrant($this->lesson);
 
+    // The loop is only a guard if it runs.
+    expect($payload['captions'])->not->toBeEmpty();
+
     foreach ($payload['captions'] as $caption) {
-        expect($caption['url'])->toContain("/api/v1/playback/{$payload['grant']}/captions/");
+        expect($caption['url'])->toContain("/api/v1/playback/{$payload['grant']}/captions/")
+            // And never the provider's own: the value, not just the shape.
+            ->and($caption['url'])->not->toContain('b-cdn.net');
     }
 
     // And the watermark is still built on the server for this viewer.

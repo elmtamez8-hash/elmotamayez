@@ -176,11 +176,46 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
       const hls = new Hls({ startPosition: startFrom > 0 ? startFrom : -1 });
       instance = hls;
 
-      // Only the errors the library itself calls fatal. It recovers from the rest
-      // on its own, and surfacing those would put a banner over a lesson that is
-      // still playing.
+      /*
+       * Only the errors the library itself calls fatal. It recovers from the rest
+       * on its own, and surfacing those would put a banner over a lesson that is
+       * still playing.
+       *
+       * ⚠️ AND «FATAL» IS NOT «OVER» — THIS USED TO END THE LESSON ON A HICCUP.
+       *
+       * hls.js raises a fatal network error for a segment that timed out and a
+       * fatal media error for a decoder that stalled, and BOTH have a documented
+       * recovery: `startLoad()` and `recoverMediaError()`. Neither was called. A
+       * student on Android Chrome — where a stalled decode is common — lost the
+       * rest of the lesson to a banner until they reloaded the page, over a
+       * transient the library was built to absorb.
+       *
+       * One attempt per kind, then the banner: a recovery loop that never gives up
+       * is a page that pins the CPU on a video that is genuinely broken. And the
+       * error is CLEARED on the way in, so a banner cannot outlive the recovery
+       * that fixed it.
+       */
+      let recoveredNetwork = false;
+      let recoveredMedia = false;
+
       hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) setError("تعذّر تشغيل الفيديو. حدّث الصفحة وحاول مجدداً.");
+        if (!data.fatal) return;
+
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && !recoveredNetwork) {
+          recoveredNetwork = true;
+          setError("");
+          hls.startLoad();
+          return;
+        }
+
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR && !recoveredMedia) {
+          recoveredMedia = true;
+          setError("");
+          hls.recoverMediaError();
+          return;
+        }
+
+        setError("تعذّر تشغيل الفيديو. حدّث الصفحة وحاول مجدداً.");
       });
 
       hls.loadSource(source);
