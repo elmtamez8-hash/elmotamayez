@@ -9,6 +9,7 @@ import { ExamPicker } from "./editors/ExamPicker";
 import { LinkEditor } from "./editors/LinkEditor";
 import { LiveSessionPicker } from "./editors/LiveSessionPicker";
 import { NoteEditor } from "./editors/NoteEditor";
+import { VideoEditor } from "./editors/VideoEditor";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -50,8 +51,14 @@ import { courses, type LessonDetail, type LessonTypeValue } from "@/lib/courses"
  * message left standing over a working editor is the same bug wearing the
  * opposite face.
  */
+/*
+  ⚠️ VIDEO WAS HERE, POINTING AT A PAGE OF ITS OWN, AND THAT IS WHERE THE BUG CAME
+  FROM. Sending one type somewhere else meant a second screen that knew nothing
+  about types — the course list linked EVERY item to it, so opening an article
+  offered to upload a video for it, and the server refused a request the screen
+  should never have made. Video renders here now, like every other uploaded kind.
+*/
 const PENDING: Partial<Record<LessonTypeValue, string>> = {
-  video: "الفيديو له صفحته الخاصة — الرفع والترجمات والمشاهدة المحميّة.",
   assignment: "الواجبات تصل مع بنك الأسئلة.",
 };
 
@@ -245,6 +252,10 @@ export function LessonEditor({
           <LinkEditor lesson={lesson} url={url} disabled={busy} onChange={setUrl} />
         )}
 
+        {lesson.asset_kind === "video" && (
+          <VideoEditor lessonUuid={lesson.uuid} asset={lesson.asset} onChanged={load} />
+        )}
+
         {lesson.asset_kind === "document" && (
           <DocumentEditor lessonUuid={lesson.uuid} asset={lesson.asset} onChanged={load} />
         )}
@@ -282,16 +293,7 @@ export function LessonEditor({
         )}
 
         {pending !== undefined && (
-          <Alert tone="info" title="محرّر هذا النوع لم يصل بعد">
-            {pending}
-            {lesson.type === "video" && (
-              <span className="mt-2 block">
-                <Button href={`/manage/courses/${courseUuid}/lessons/${lesson.uuid}`} size="sm">
-                  صفحة الفيديو
-                </Button>
-              </span>
-            )}
-          </Alert>
+          <Alert tone="info" title="محرّر هذا النوع لم يصل بعد">{pending}</Alert>
         )}
 
         {/*

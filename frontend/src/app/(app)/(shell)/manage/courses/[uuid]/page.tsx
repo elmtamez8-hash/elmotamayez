@@ -151,12 +151,23 @@ export default function CourseDetailPage({
                             ({lessonTypeLabel(lesson.type)})
                           </span>
                           {lesson.is_preview && <Badge tone="info">معاينة مجانية</Badge>}
-                          {/* A page with no link to it is a page nobody reaches. */}
+                          {/*
+                            ⚠️ IT SAID «الفيديو» AND POINTED AT A VIDEO-ONLY PAGE
+                            — FOR EVERY ITEM, WHATEVER ITS TYPE. Opening an
+                            article from this list therefore offered to upload a
+                            video for it, and the server refused with «هذا النوع
+                            من العناصر لا يحمل ملفاً خاصاً به»: a correct answer
+                            to a request the screen invented.
+
+                            The authoring surface renders by the item's own type,
+                            so it is the only correct destination for a link that
+                            does not know which type it is looking at.
+                          */}
                           <Link
-                            href={`/manage/courses/${course.uuid}/lessons/${lesson.uuid}`}
+                            href={`/manage/courses/${course.uuid}/content?lesson=${lesson.uuid}`}
                             className="text-xs text-primary-ink underline"
                           >
-                            الفيديو
+                            تحرير
                           </Link>
                         </li>
                       ))}

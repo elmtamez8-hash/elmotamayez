@@ -16,7 +16,7 @@ import { test, expect, type Page } from "@playwright/test";
  * The seed gives that student a lesson of type `video`, but no **encoded
  * asset** behind it — there is no sample video in the repo. So these skip
  * loudly rather than pass vacuously; upload one from
- * /manage/courses/{uuid}/lessons/{lessonUuid} and re-run. The reachability test
+ * /manage/courses/{uuid}/content and re-run. The reachability test
  * below runs either way: it is about the route, not the file.
  */
 
@@ -126,7 +126,7 @@ test.describe("مشغّل الدرس والعلامة المائية", () => {
 
     test.skip(
       player === null,
-      "الدرس بلا فيديو جاهز — ارفع فيديو من /manage/courses/{uuid}/lessons/{lessonUuid} ثم أعد التشغيل.",
+      "الدرس بلا فيديو جاهز — ارفع فيديو من /manage/courses/{uuid}/content ثم أعد التشغيل.",
     );
   });
 

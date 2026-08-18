@@ -64,6 +64,7 @@ function isTreeConflict(body: unknown): body is { message: string; tree: CourseT
 export default function CourseContentPage({ params }: { params: Promise<{ uuid: string }> }) {
   const { uuid } = use(params);
 
+
   const [tree, setTree] = useState<CourseTree | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -71,6 +72,26 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingPublish | null>(null);
+
+  /*
+    `?lesson=` opens that item straight away.
+
+    The course overview links each item here by uuid, so the link has to say WHICH
+    one — otherwise "edit this lesson" lands on a tree and asks the teacher to find
+    again the row they just clicked.
+
+    ⚠️ READ FROM `location` IN AN EFFECT, NOT WITH `useSearchParams`. That hook
+    opts the page out of static prerendering unless it sits inside a `<Suspense>`
+    boundary, and the build FAILS on it rather than warning — a page split in two
+    to carry one optional query parameter. Once on mount, because this decides
+    where to start rather than staying in charge: re-selecting on every URL change
+    would reopen the editor a teacher had just closed.
+  */
+  useEffect(() => {
+    const lesson = new URLSearchParams(window.location.search).get("lesson");
+
+    if (lesson !== null && lesson !== "") setEditing(lesson);
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
