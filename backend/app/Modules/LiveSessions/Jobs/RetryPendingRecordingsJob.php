@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Jobs;
 
+use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
+use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -46,14 +49,50 @@ class RetryPendingRecordingsJob implements ShouldQueue
     /** How far back to look. Older than this and a manual upload is the answer. */
     private const WINDOW_HOURS = 48;
 
-    public function handle(SessionSettings $settings): void
+    public function handle(SessionSettings $settings, BroadcastProviderInterface $broadcast): void
     {
+        // Asked once, and it decides two of the three states below. A provider
+        // that cannot record leaves nothing stranded worth re-dispatching.
+        $records = $broadcast->capabilities()->recording;
+
         ClassSession::query()
             // Platform-wide by design: a recording is stuck in whichever
             // workspace it belongs to, and no workspace is current in a
             // scheduled job. Every dispatched job re-enters its own.
             ->withoutWorkspaceScope()
-            ->where('recording_status', 'pending')
+            ->where(fn (Builder $q): Builder => $q
+                ->where('recording_status', 'pending')
+                ->when($records, fn (Builder $inner): Builder => $inner
+                    // The hand-off had begun. Re-dispatching is safe because the
+                    // asset id is written in the SAME statement, so the second job
+                    // finds it and takes the settle path: it asks the provider
+                    // again, it never delivers again.
+                    ->orWhere('recording_status', 'ingesting')
+                    ->orWhereNull('recording_status')))
+            /*
+             * ⚠️ A SESSION THE INGEST JOB NEVER TOUCHED IS THE WIDER DOOR, AND IT
+             * WAS NOT SWEPT AT ALL.
+             *
+             * `recording_status` is nullable with no default and no initial writer
+             * outside these jobs. So a job that died before its first write — one
+             * refused connection at `tries: 1` — left NULL, which this sweep did
+             * not select. `'ingesting'` is the same shape from the other side: it
+             * is written BEFORE the hand-off and corrected on the same pass, so
+             * only a hard kill (the 60-second job timeout across four provider
+             * calls, or an OOM) can strand it, and `catch (Throwable)` covers a
+             * throw but never a kill.
+             *
+             * Both are swept only while the current provider actually records —
+             * otherwise every completed session on a recording-less provider would
+             * be re-dispatched every fifteen minutes to a job that returns
+             * immediately, for two days, for ever.
+             *
+             * `status` completed, not merely a closed room: a teacher who ends the
+             * broadcast early leaves `room_closed_at` set while `CloseClassSession`
+             * is still minutes away, and sweeping then spends an attempt on «not
+             * finished yet» before the session has even finished.
+             */
+            ->where('status', ClassSessionStatus::Completed)
             // The limit still decides when to stop. This sweep resends; it never
             // grants an extra attempt.
             ->where('recording_attempts', '<', $settings->recordingMaxAttempts())

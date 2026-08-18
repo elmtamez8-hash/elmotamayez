@@ -85,21 +85,39 @@ class IngestSessionRecordingJob implements ShouldQueue
                 ? null
                 : MediaAsset::query()->withoutWorkspaceScope()->find($session->media_asset_id);
 
-            if ($existing !== null) {
-                $this->settle($session, $existing, $settings, $complete, $notify);
-
-                return;
-            }
-
-            $artifact = $broadcast->recording($session);
-
-            if ($artifact === null) {
-                $this->giveUpOrRetry($session, $settings, $notify, 'التسجيل لم يكتمل بعد.');
-
-                return;
-            }
-
+            /*
+             * ⚠️ EVERY PROVIDER CALL IS INSIDE THIS `try`, AND TWO OF THEM USED TO
+             * SIT OUTSIDE IT — WHICH TURNED AN OUTAGE INTO A PERMANENT LOSS.
+             *
+             * `recording()` is a live HTTP call (`listEgress`) and throws on any
+             * network fault; `settle()` reaches the media provider through
+             * `CompleteMediaUpload`. Both stood above the `try`, and Horizon runs
+             * this queue at `tries: 1` — so one refused connection killed the job
+             * BEFORE a single column was written. `recording_status` stayed NULL,
+             * and nothing sweeps NULL: the column is nullable with no default and
+             * has no initial writer outside these jobs, so the session sat there
+             * for ever while `PackageCompletion` held the teacher's fee for a
+             * lesson that was actually taught. The only trace was a row in
+             * `failed_jobs`.
+             *
+             * Inside the `try`, the same outage writes `pending` and spends an
+             * attempt — a state the sweep comes back for.
+             */
             try {
+                if ($existing !== null) {
+                    $this->settle($session, $existing, $settings, $complete, $notify);
+
+                    return;
+                }
+
+                $artifact = $broadcast->recording($session);
+
+                if ($artifact === null) {
+                    $this->giveUpOrRetry($session, $settings, $notify, 'التسجيل لم يكتمل بعد.');
+
+                    return;
+                }
+
                 $asset = new MediaAsset([
                     'workspace_id' => $session->workspace_id,
                     // Polymorphic since 004, which anticipated exactly this.
@@ -110,11 +128,13 @@ class IngestSessionRecordingJob implements ShouldQueue
                      * ⚠️ NULL, AND THAT IS THE POINT OF THIS PHASE.
                      *
                      * It used to be the path this job had just downloaded to.
-                     * Where the file lives is the PROVIDER's answer now, and a
-                     * provider that fetches for itself does not know its own id
-                     * for the file yet — `videos/fetch` does not return one. It
-                     * is recovered later, and until then this asset is
-                     * legitimately mid-ingest: neither ready nor failed (SC-014).
+                     * Where the file lives is the PROVIDER's answer now, and it
+                     * has not been asked yet at this line — `ingestFromUrl`
+                     * writes the id the fetch returns, and a delivery whose
+                     * response never came back leaves this null on purpose: the
+                     * id is then recovered from the title, and until either
+                     * happens the asset is legitimately mid-ingest, neither
+                     * ready nor failed (SC-014).
                      */
                     'provider_asset_id' => null,
                     // Stated, not left to the column default: a model built with

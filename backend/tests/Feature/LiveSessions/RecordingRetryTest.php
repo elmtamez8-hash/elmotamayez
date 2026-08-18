@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
+use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
 use App\Modules\LiveSessions\Jobs\RetryPendingRecordingsJob;
 use App\Modules\LiveSessions\Models\ClassSession;
@@ -54,6 +55,12 @@ beforeEach(function (): void {
     ]);
 
     $this->session->forceFill([
+        // Completed, because that is what a session with a closed room and an
+        // hour-old end time actually is. The factory defaults to `scheduled` and
+        // the fixture had left it there — harmless while the sweep looked only at
+        // `recording_status`, and wrong the moment it had to tell a finished
+        // session from one whose teacher merely ended the broadcast early.
+        'status' => ClassSessionStatus::Completed,
         'room_closed_at' => CarbonImmutable::now()->subHour(),
         'recording_status' => 'pending',
         'recording_attempts' => 0,
@@ -62,7 +69,10 @@ beforeEach(function (): void {
 
 function sweep(): void
 {
-    app(RetryPendingRecordingsJob::class)->handle(app(SessionSettings::class));
+    // Resolved through the container so the sweep's dependencies stay its own
+    // business — it grew a second one the day it had to ask whether the current
+    // provider records at all.
+    app()->call([app(RetryPendingRecordingsJob::class), 'handle']);
 }
 
 it('re-sends the ingest for a recording still pending', function (): void {
@@ -128,4 +138,100 @@ it('ignores a session whose room closed outside the window', function (): void {
 // same job SessionCompleted sends. Two ingest paths would be two behaviours.
 it('sends the same ingest job the completion event sends', function (): void {
     expect(class_exists(IngestSessionRecordingJob::class))->toBeTrue();
+});
+
+/*
+| ⚠️ NULL IS THE WIDER DOOR, AND NOTHING SWEPT IT.
+|
+| `recording_status` is nullable with no default and no initial writer outside
+| the ingest job, so a session whose job died before its first write sits at NULL
+| — and the sweep selected `'pending'` alone. Horizon runs this queue at
+| `tries: 1`, and `recording()` is a live HTTP call, so ONE refused connection
+| was enough. `PackageCompletion` then held the teacher's fee for a lesson that
+| was actually taught, for ever, with a row in `failed_jobs` as the only trace.
+*/
+it('sweeps a session the ingest job never wrote to', function (): void {
+    $this->session->forceFill(['recording_status' => null, 'recording_attempts' => 0])->save();
+
+    sweep();
+
+    expect($this->session->refresh()->recording_status)->toBe('pending')
+        ->and((int) $this->session->recording_attempts)->toBe(1);
+});
+
+/*
+| The same hole from the other side: `'ingesting'` is written BEFORE the hand-off
+| and corrected on the same pass, so only a hard kill — the 60-second job timeout
+| across four provider calls, or an OOM — can leave it standing. `catch
+| (Throwable)` covers a throw and never a kill.
+*/
+it('sweeps a session stranded mid-handover', function (): void {
+    $this->session->forceFill(['recording_status' => 'ingesting', 'recording_attempts' => 0])->save();
+
+    sweep();
+
+    expect((int) $this->session->refresh()->recording_attempts)->toBe(1);
+});
+
+/*
+| ⚠️ AND NEITHER OF THOSE MAY BE SWEPT WHEN THE PROVIDER CANNOT RECORD.
+|
+| Every completed session on such a provider sits at NULL for ever — legitimately,
+| there is nothing to fetch. Selecting them would re-dispatch every one of them
+| every fifteen minutes, for the whole 48-hour window, to a job that returns
+| immediately: work that produces nothing and hides real rows in the log.
+*/
+it('leaves an unwritten session alone when the provider does not record', function (): void {
+    $provider = new FakeBroadcastProvider;
+    $provider->records = false;
+    $this->app->instance(BroadcastProviderInterface::class, $provider);
+
+    $this->session->forceFill(['recording_status' => null, 'recording_attempts' => 0])->save();
+
+    sweep();
+
+    expect($this->session->refresh()->recording_status)->toBeNull()
+        ->and((int) $this->session->recording_attempts)->toBe(0);
+});
+
+/*
+| A teacher who ends the broadcast early leaves `room_closed_at` set while
+| `CloseClassSession` is still up to a join window away. Sweeping then spends an
+| attempt on «not finished yet» about a session that has not finished.
+*/
+it('waits for the session to be completed before sweeping an unwritten one', function (): void {
+    $this->session->forceFill([
+        'status' => ClassSessionStatus::Live,
+        'recording_status' => null,
+        'recording_attempts' => 0,
+    ])->save();
+
+    sweep();
+
+    expect($this->session->refresh()->recording_status)->toBeNull();
+});
+
+/*
+| ⚠️ AN OUTAGE USED TO KILL THE JOB BEFORE IT WROTE ANYTHING.
+|
+| `recording()` is a live HTTP call and it stood ABOVE the `try` — so with Horizon
+| at `tries: 1`, one refused connection ended the job with `recording_status`
+| still NULL, which nothing swept. The teacher's fee stayed held for a lesson that
+| was taught, permanently, and the only evidence was a `failed_jobs` row.
+|
+| The assertion is the column, not the absence of an exception: a job that
+| swallowed the error and still wrote nothing would pass a "did not throw" test
+| and leave the same grave.
+*/
+it('survives a provider outage by leaving the session retryable', function (): void {
+    $provider = new FakeBroadcastProvider;
+    $provider->recordingError = new RuntimeException('cURL error 7: connection refused');
+    $this->app->instance(BroadcastProviderInterface::class, $provider);
+
+    $this->session->forceFill(['recording_status' => null, 'recording_attempts' => 0])->save();
+
+    app()->call([new IngestSessionRecordingJob((int) $this->session->getKey()), 'handle']);
+
+    expect($this->session->refresh()->recording_status)->toBe('pending')
+        ->and((int) $this->session->recording_attempts)->toBe(1);
 });

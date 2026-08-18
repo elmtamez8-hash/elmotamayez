@@ -14,6 +14,7 @@ use App\Modules\LiveSessions\Enums\HostAction;
 use App\Modules\LiveSessions\Enums\ParticipantRole;
 use App\Modules\LiveSessions\Models\ClassSession;
 use Carbon\CarbonImmutable;
+use Throwable;
 
 /**
  * A provider that claims everything and does it in memory.
@@ -38,6 +39,24 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
     /** Set by a test that wants the recording to be ready. */
     public ?RecordingArtifact $pendingRecording = null;
 
+    /**
+     * Whether this provider records at all.
+     *
+     * A real one declares it once and for ever; a fake needs to be BOTH, because
+     * the sweep now asks the question before deciding whether a session that was
+     * never written to is worth re-dispatching.
+     */
+    public bool $records = true;
+
+    /**
+     * An outage to raise from `recording()`.
+     *
+     * The real one reaches the network there, so "the provider is unreachable" is
+     * a state the ingest job has to survive — and it did not, because the call
+     * stood outside the `try`.
+     */
+    public ?Throwable $recordingError = null;
+
     public function identifier(): string
     {
         return 'fake';
@@ -48,7 +67,7 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
         return new BroadcastCapabilities(
             liveMedia: true,
             screenShare: true,
-            recording: true,
+            recording: $this->records,
             hostControls: true,
             maxParticipants: 50,
         );
@@ -87,6 +106,10 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
 
     public function recording(ClassSession $session): ?RecordingArtifact
     {
+        if ($this->recordingError !== null) {
+            throw $this->recordingError;
+        }
+
         return $this->pendingRecording;
     }
 }

@@ -455,6 +455,12 @@ than send it empty. The presigned url carries its own auth in the query string.
 Measured with it: Bunny starts the fetch immediately (2.8 MB `Ready` with five
 renditions **15 s** after delivery), so a 120-minute source TTL is ample.
 
+**`recording_status` gets stuck at THREE values.** `pending` is the one anybody
+thinks of; NULL is a job that died before its first write (`recording()` is a live
+call at `tries: 1`), and `'ingesting'` is a worker killed mid-hand-off. All three
+are swept — the last two only while the provider declares `recording`, and only
+for a session whose `status` is completed, not merely one with a closed room.
+
 **`LIVEKIT_URL` is `wss://` for the BROWSER; the server clients need HTTP.**
 Twirp refuses any other scheme outright, so no room ever opened against a real
 LiveKit and the page said «تعذّر الدخول». Derive the API form, never add a second
