@@ -23,6 +23,7 @@ use App\Modules\LiveSessions\Policies\FreezePeriodPolicy;
 use App\Modules\LiveSessions\Policies\SessionBookingPolicy;
 use App\Modules\LiveSessions\Providers\LiveKitBroadcastProvider;
 use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
+use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
 use App\Modules\LiveSessions\Support\EloquentSessionAttendanceDirectory;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Media\Events\MediaAssetReady;
@@ -49,21 +50,55 @@ class LiveSessionsServiceProvider extends Module
          * (research §R3), which is why the whole of user story 3 is buildable and
          * provable before any contract is signed.
          */
-        $this->app->bind(BroadcastProviderInterface::class, fn (): BroadcastProviderInterface => match ((string) config('sessions.provider')) {
-            // Constructed by hand rather than resolved: the two service clients
-            // are nullable constructor arguments, and the container would helpfully
-            // build both — which is exactly the laziness the adapter is written to
-            // keep (SC-006).
-            'livekit' => new LiveKitBroadcastProvider($this->app->make(SessionSettings::class)),
-            // Unchanged on purpose. The test environment stays on the provider
-            // that needs no account and no network (FR-017).
-            default => $this->app->make(NullBroadcastProvider::class),
-        });
+        $this->app->bind(
+            BroadcastProviderInterface::class,
+            fn (): BroadcastProviderInterface => ($this->providerFactories()[(string) config('sessions.provider')]
+                // Unchanged on purpose. The test environment stays on the provider
+                // that needs no account and no network (FR-017).
+                ?? $this->providerFactories()['null'])(),
+        );
+
+        /*
+         * The provider a session's room actually belongs to, beside the binding
+         * rather than instead of it.
+         *
+         * `class_sessions.broadcast_provider` was written since 017 and read by
+         * nothing — the same shape of defect 019 found in `media_assets.provider`,
+         * one module over. The map is given to the resolver rather than held by it,
+         * so this file stays the only one in LiveSessions that names a provider.
+         */
+        $this->app->singleton(
+            BroadcastProviderResolver::class,
+            fn (): BroadcastProviderResolver => new BroadcastProviderResolver(
+                $this->app,
+                $this->providerFactories(),
+            ),
+        );
 
         // LiveSessions owns the booking; Media asks through the interface rather
         // than reaching into these models. Same binding shape as Learning's
         // EnrollmentDirectory.
         $this->app->bind(SessionAttendanceDirectory::class, EloquentSessionAttendanceDirectory::class);
+    }
+
+    /**
+     * Every broadcast provider this deployment can speak to.
+     *
+     * Closures rather than class names: LiveKit's adapter is constructed BY HAND
+     * because its two service clients are nullable constructor arguments and the
+     * container would helpfully build both — which is exactly the laziness the
+     * adapter is written to keep (SC-006).
+     *
+     * @return array<string, callable(): BroadcastProviderInterface>
+     */
+    private function providerFactories(): array
+    {
+        return [
+            'livekit' => fn (): BroadcastProviderInterface => new LiveKitBroadcastProvider(
+                $this->app->make(SessionSettings::class),
+            ),
+            'null' => fn (): BroadcastProviderInterface => $this->app->make(NullBroadcastProvider::class),
+        ];
     }
 
     public function boot(): void

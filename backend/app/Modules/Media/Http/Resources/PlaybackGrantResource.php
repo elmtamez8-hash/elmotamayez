@@ -43,11 +43,38 @@ class PlaybackGrantResource extends JsonResource
              *
              * The signed URL exists only as the Location of the 302 from
              * `stream()`; a segmented player follows that redirect and resolves
-             * its segments against the final URL, so nothing is lost. It also
-             * matches what `renew()` already returns — two answers to "where do I
-             * play from" is how a renewal silently moves a viewer.
+             * its segments against the final URL. It also matches what `renew()`
+             * already returns — two answers to "where do I play from" is how a
+             * renewal silently moves a viewer.
+             *
+             * ⚠️ AND «EVERY PLAYLIST FETCH IS A FRESH TRIP THROUGH THE GRANT» IS
+             * FALSE FOR A REDIRECT PROVIDER — this comment used to say it. A VOD
+             * playlist is fetched ONCE and never refreshed, so after that single
+             * redirect the segments come from the provider's own host and this
+             * server is not consulted again for the rest of the lesson. That is
+             * why `reload_after_seconds` exists: the player is told to come BACK
+             * through here, because nothing else would bring it. Removing the
+             * watermark stops the renewal, the reload then fails, and the signed
+             * token expires — which is the enforcement. It is not instant the way
+             * a range request is against our own disk, and pretending otherwise
+             * would hide the one place a viewer keeps watching after entitlement
+             * ends.
              */
-            'manifest_url' => url("/api/v1/playback/{$this->uuid}/stream"),
+            /*
+             * ⚠️ RELATIVE, NOT `url()`. An absolute address built from `APP_URL`
+             * points at the API's own origin, which is not the page's: in
+             * development that is :8000 against a page on :3000, and in production
+             * it is whatever the API is deployed under rather than the host the
+             * student is looking at. A relative path resolves against the page and
+             * travels through the same rewrite every other call uses.
+             *
+             * It matters most for the CAPTION below, which a `<track>` fetches
+             * under the cross-origin text-track rules: a mismatched origin makes it
+             * a silent network error, no caption and no message — and the
+             * transcript panel beside it keeps working, because it uses `fetch()`,
+             * so the feature looks alive while the subtitles never load.
+             */
+            'manifest_url' => "/api/v1/playback/{$this->uuid}/stream",
             'format' => $manifest->format->value,
             // Built on the server, masked on the server: sending the full number
             // and hiding it in CSS would put it one network-tab click away.
@@ -91,7 +118,7 @@ class PlaybackGrantResource extends JsonResource
                 'is_default' => $caption->is_default,
                 // Through the grant, like the video: the track expires with it
                 // rather than being a permanent link to the lesson's script.
-                'url' => url("/api/v1/playback/{$this->uuid}/captions/{$caption->uuid}"),
+                'url' => "/api/v1/playback/{$this->uuid}/captions/{$caption->uuid}",
             ])->all(),
         ];
     }

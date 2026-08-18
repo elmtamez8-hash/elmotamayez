@@ -10,16 +10,12 @@ use App\Modules\LiveSessions\Data\RecordingArtifact;
 use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
-use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Media\Actions\CompleteMediaUpload;
-use App\Modules\Media\Contracts\MediaProviderInterface;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\MediaAsset;
-use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Tenancy\Support\Roles;
-use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -84,15 +80,13 @@ beforeEach(function (): void {
 
 function ingest(): void
 {
-    app(IngestSessionRecordingJob::class, ['classSessionId' => (int) test()->session->getKey()])
-        ->handle(
-            app(WorkspaceContext::class),
-            app(BroadcastProviderInterface::class),
-            app(MediaProviderInterface::class),
-            app(SessionSettings::class),
-            app(CompleteMediaUpload::class),
-            app(DispatchNotification::class),
-        );
+    // Resolved through the container rather than listed by hand: the job's
+    // dependencies are its own business, and it grew one the day the broadcast
+    // provider had to be read from the SESSION rather than from the config.
+    app()->call([
+        new IngestSessionRecordingJob((int) test()->session->getKey()),
+        'handle',
+    ]);
 }
 
 it('publishes a ready recording as a lesson tied to the session', function (): void {

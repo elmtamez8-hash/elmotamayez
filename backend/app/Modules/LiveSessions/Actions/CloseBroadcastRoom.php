@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Actions;
 
-use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
 use App\Shared\Actions\Action;
 
 /**
@@ -22,7 +22,7 @@ use App\Shared\Actions\Action;
 class CloseBroadcastRoom extends Action
 {
     public function __construct(
-        private readonly BroadcastProviderInterface $provider,
+        private readonly BroadcastProviderResolver $providers,
     ) {}
 
     public function handle(ClassSession $session): ClassSession
@@ -31,7 +31,7 @@ class CloseBroadcastRoom extends Action
             return $session;
         }
 
-        $this->provider->closeRoom($session);
+        $this->providers->for($session)->closeRoom($session);
 
         $session->forceFill(['room_closed_at' => now()])->save();
 

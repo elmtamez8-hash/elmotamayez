@@ -24,6 +24,15 @@ use DomainException;
 class OpenBroadcastRoom extends Action
 {
     public function __construct(
+        /*
+         * ⚠️ THE CONFIGURED ONE, AND THIS IS THE ONE PLACE THAT IS CORRECT.
+         *
+         * Every other consumer resolves the provider from the session's own
+         * `broadcast_provider` column — but this Action runs BEFORE any room
+         * exists, so there is no column to read yet, and it is this method that
+         * writes it. The media module carries the same split for the same reason:
+         * a question asked before a row exists is a different question.
+         */
         private readonly BroadcastProviderInterface $provider,
         private readonly SessionSettings $settings,
     ) {}

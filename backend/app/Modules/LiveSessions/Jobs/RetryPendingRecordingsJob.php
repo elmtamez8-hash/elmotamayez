@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Jobs;
 
-use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -49,11 +49,24 @@ class RetryPendingRecordingsJob implements ShouldQueue
     /** How far back to look. Older than this and a manual upload is the answer. */
     private const WINDOW_HOURS = 48;
 
-    public function handle(SessionSettings $settings, BroadcastProviderInterface $broadcast): void
+    public function handle(SessionSettings $settings, BroadcastProviderResolver $providers): void
     {
-        // Asked once, and it decides two of the three states below. A provider
-        // that cannot record leaves nothing stranded worth re-dispatching.
-        $records = $broadcast->capabilities()->recording;
+        /*
+         * Which provider NAMES record, asked once for the whole pass.
+         *
+         * A session's provider is the one stamped on it when its room opened, not
+         * whatever the config names today — so the filter is a column comparison
+         * rather than one provider lookup per row inside a query. A session whose
+         * room never opened carries null and is covered by the configured
+         * provider's own answer, below.
+         */
+        $recording = $providers->recordingProviderNames();
+
+        // A session whose room was never opened carries no provider name — legacy
+        // rows, and anything that ended before it began. The configured provider is
+        // then the only answer available, which is exactly what the resolver says
+        // for a null column.
+        $configuredRecords = $providers->configured()->capabilities()->recording;
 
         ClassSession::query()
             // Platform-wide by design: a recording is stuck in whichever
@@ -61,14 +74,23 @@ class RetryPendingRecordingsJob implements ShouldQueue
             // scheduled job. Every dispatched job re-enters its own.
             ->withoutWorkspaceScope()
             ->where(fn (Builder $q): Builder => $q
+                // Written by a job that already decided this recording is worth
+                // asking about again, so it needs no provider test of its own.
                 ->where('recording_status', 'pending')
-                ->when($records, fn (Builder $inner): Builder => $inner
-                    // The hand-off had begun. Re-dispatching is safe because the
-                    // asset id is written in the SAME statement, so the second job
-                    // finds it and takes the settle path: it asks the provider
-                    // again, it never delivers again.
-                    ->orWhere('recording_status', 'ingesting')
-                    ->orWhereNull('recording_status')))
+                // The two states a crash leaves behind, and both are only worth
+                // re-dispatching when THIS session's own provider records.
+                // `'ingesting'` means the hand-off had begun — re-dispatching is
+                // safe because the asset id is written in the SAME statement, so
+                // the second job finds it and takes the settle path: it asks the
+                // provider again, it never delivers again.
+                ->orWhere(fn (Builder $stranded): Builder => $stranded
+                    ->where(fn (Builder $owner): Builder => $owner
+                        ->whereIn('broadcast_provider', $recording)
+                        ->when($configuredRecords, fn (Builder $legacy): Builder => $legacy
+                            ->orWhereNull('broadcast_provider')))
+                    ->where(fn (Builder $state): Builder => $state
+                        ->where('recording_status', 'ingesting')
+                        ->orWhereNull('recording_status'))))
             /*
              * ⚠️ A SESSION THE INGEST JOB NEVER TOUCHED IS THE WIDER DOOR, AND IT
              * WAS NOT SWEPT AT ALL.

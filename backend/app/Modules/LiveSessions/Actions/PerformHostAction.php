@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Actions;
 
 use App\Models\User;
-use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Enums\HostAction;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
 use App\Shared\Actions\Action;
 use DomainException;
 
@@ -33,7 +33,7 @@ use DomainException;
 class PerformHostAction extends Action
 {
     public function __construct(
-        private readonly BroadcastProviderInterface $provider,
+        private readonly BroadcastProviderResolver $providers,
         private readonly CloseBroadcastRoom $closeRoom,
     ) {}
 
@@ -49,6 +49,6 @@ class PerformHostAction extends Action
             return;
         }
 
-        $this->provider->hostAction($session, $action, $target);
+        $this->providers->for($session)->hostAction($session, $action, $target);
     }
 }

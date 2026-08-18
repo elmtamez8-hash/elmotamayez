@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Actions;
 
 use App\Models\User;
-use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Data\JoinTicket;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ParticipantRole;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\BookingEligibility;
+use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
 use RuntimeException;
@@ -34,7 +34,7 @@ use RuntimeException;
 class IssueJoinTicket extends Action
 {
     public function __construct(
-        private readonly BroadcastProviderInterface $provider,
+        private readonly BroadcastProviderResolver $providers,
         private readonly BookingEligibility $eligibility,
         private readonly OpenBroadcastRoom $openRoom,
     ) {}
@@ -56,7 +56,7 @@ class IssueJoinTicket extends Action
             throw new RuntimeException('لا يمكنك دخول هذه الحصة الآن.');
         }
 
-        return $this->provider->issueTicket($session, $user, $role);
+        return $this->providers->for($session)->issueTicket($session, $user, $role);
     }
 
     /**

@@ -11,12 +11,7 @@ use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Data\RecordingArtifact;
 use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
 use App\Modules\LiveSessions\Models\ClassSession;
-use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Marketplace\Models\TeacherProfile;
-use App\Modules\Media\Actions\CompleteMediaUpload;
-use App\Modules\Media\Contracts\MediaProviderInterface;
-use App\Modules\Notifications\Actions\DispatchNotification;
-use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -107,15 +102,13 @@ function placeSessionItem(int $order = 2, ?int $referenceId = null): Lesson
 
 function ingestRecording(): void
 {
-    app(IngestSessionRecordingJob::class, ['classSessionId' => (int) test()->session->getKey()])
-        ->handle(
-            app(WorkspaceContext::class),
-            app(BroadcastProviderInterface::class),
-            app(MediaProviderInterface::class),
-            app(SessionSettings::class),
-            app(CompleteMediaUpload::class),
-            app(DispatchNotification::class),
-        );
+    // Resolved through the container rather than listed by hand: the job's
+    // dependencies are its own business, and it grew one the day the broadcast
+    // provider had to be read from the SESSION rather than from the config.
+    app()->call([
+        new IngestSessionRecordingJob((int) test()->session->getKey()),
+        'handle',
+    ]);
 }
 
 it('converts the placed item in place instead of appending a second row', function (): void {

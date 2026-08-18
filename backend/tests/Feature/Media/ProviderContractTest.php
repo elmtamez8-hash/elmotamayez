@@ -123,7 +123,26 @@ it('names itself', function (MediaProviderInterface $provider): void {
 // public. Scanned for shapes rather than exact keys: a provider that invents its
 // own header name should still fail.
 it('puts no credential in an upload ticket', function (MediaProviderInterface $provider): void {
-    $ticket = $provider->createUploadTicket(contractAsset());
+    /*
+     * ⚠️ AN HONEST REFUSAL IS AN ACCEPTABLE ANSWER, AND KEYING THIS ON
+     * `directUpload` WOULD BE WRONG. That flag means "the browser uploads straight
+     * to the provider's own host" — our LOCAL provider answers false and still
+     * issues a perfectly good ticket pointing back at us. What this rule is about
+     * is a ticket that EXISTS carrying something secret, so a provider with no
+     * ticket to give has nothing to leak. Demanding a shape from one that cannot
+     * issue it is how a decorative ticket gets returned instead, which is the
+     * false promise the rule exists to stop.
+     */
+    try {
+        $ticket = $provider->createUploadTicket(contractAsset());
+    } catch (DomainException $e) {
+        // Not a bare `return`: a branch that asserts nothing is a risky test, and
+        // there IS something to hold it to — the refusal reaches the teacher as the
+        // body of a 422, so an empty one renders as a blank red box.
+        expect($e->getMessage())->not->toBe('');
+
+        return;
+    }
 
     $serialised = strtolower(json_encode([
         $ticket->url,
@@ -172,8 +191,19 @@ it('deletes idempotently', function (MediaProviderInterface $provider): void {
 | network is a different question, measured by SC-001 rather than promised here.
 */
 it('takes a file over from a url if it claims it can', function (MediaProviderInterface $provider): void {
+    /*
+     * ⚠️ `expect(true)->toBeTrue()` STOOD HERE, IN BOTH BRANCHES OF THIS FILE.
+     *
+     * An assertion about nothing: with `ingestFromUrl(): void {}` empty in all
+     * three providers it stayed green for ever while checking not one thing. What
+     * a provider that DECLINES the capability owes is a refusal, not silence — so
+     * that is what is asked of it.
+     */
     if (! $provider->capabilities()->remoteFetch) {
-        expect(true)->toBeTrue();
+        expect(fn () => $provider->ingestFromUrl(
+            contractAsset(),
+            'https://'.BunnyFixtures::SOURCE_HOST.'/recordings/x.mp4',
+        ))->toThrow(RuntimeException::class);
 
         return;
     }
@@ -190,15 +220,29 @@ it('takes a file over from a url if it claims it can', function (MediaProviderIn
     // What must hold is that it does not throw on a source it was given.
     $provider->ingestFromUrl($asset, 'https://'.BunnyFixtures::SOURCE_HOST.'/recordings/x.mp4');
 
-    expect(true)->toBeTrue();
+    /*
+     * ⚠️ THE ASSERTION USED TO BE `expect(true)->toBeTrue()`, WHICH AN EMPTY
+     * `ingestFromUrl(): void {}` SATISFIES FOREVER.
+     *
+     * The contract is asynchronous, so there is no return value — but "it took the
+     * hand-off" is still observable: the asset must have left the state it was in,
+     * either by carrying the provider's id or by having its bytes where the
+     * provider says it keeps them. A provider that does nothing at all fails both.
+     */
+    $asset->refresh();
+
+    expect($asset->provider_asset_id)->not->toBeNull();
 })->with('providers');
 
 // The two rules that hold a future provider to its word.
 it('delivers adaptive bitrate if it claims it', function (MediaProviderInterface $provider): void {
     $capabilities = $provider->capabilities();
 
+    // A provider that makes no such claim owes the opposite proof: it must not be
+    // quietly reporting a ladder it never built. Anything is better than the
+    // `expect(true)->toBeTrue()` that stood here.
     if (! $capabilities->adaptiveBitrate) {
-        expect(true)->toBeTrue();
+        expect($provider->status(contractAssetFor($provider))->renditions)->toHaveCount(0);
 
         return;
     }

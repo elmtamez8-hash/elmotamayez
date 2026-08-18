@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Jobs;
 
 use App\Models\User;
-use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Media\Actions\CompleteMediaUpload;
 use App\Modules\Media\Contracts\MediaProviderInterface;
@@ -49,7 +49,7 @@ class IngestSessionRecordingJob implements ShouldQueue
 
     public function handle(
         WorkspaceContext $context,
-        BroadcastProviderInterface $broadcast,
+        BroadcastProviderResolver $providers,
         MediaProviderInterface $video,
         SessionSettings $settings,
         CompleteMediaUpload $complete,
@@ -60,6 +60,20 @@ class IngestSessionRecordingJob implements ShouldQueue
         if ($session === null || $session->recording_status === 'published') {
             return;
         }
+
+        /*
+         * ⚠️ RESOLVED FROM THE SESSION, NOT FROM THE CONFIG — the same defect 019
+         * fixed for `media_assets.provider`, one module over.
+         *
+         * `broadcast_provider` was written when the room opened and read by
+         * nothing. So flipping the platform to a provider that does not record,
+         * while yesterday's recordings are still in flight, made this return here
+         * having written NOTHING: the egress file sits in our own bucket with
+         * nobody left to ask for it, `PackageCompletion` releases the teacher's fee
+         * against it, and the seat holders are never told — the notification lives
+         * below this return.
+         */
+        $broadcast = $providers->for($session);
 
         if (! $broadcast->capabilities()->recording) {
             // Nothing to wait for. Recording every session at a provider that

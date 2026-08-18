@@ -18,6 +18,7 @@ use App\Modules\Media\Exceptions\PermanentIngestFailure;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Support\MediaLimits;
 use Carbon\CarbonImmutable;
+use DomainException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -37,13 +38,15 @@ use Throwable;
  * Three things in here are load-bearing and each is the kind of mistake that
  * ships green:
  *
- * **1 · The title is a join key.** `videos/fetch` does NOT return the new video's
- * id — its 200 is `{success, message, statusCode}` per the OpenAPI schema, and the
- * narrative docs page showing `{id, guid, status}` is the outlier (research §R3).
- * The only field the request accepts and we control is `title`, so the id is
- * recovered by searching for it afterwards. An implementation that reads a `guid`
- * from that response fails SILENTLY: null in `provider_asset_id`, and an asset
- * that reports itself ready and plays nothing.
+ * **1 · The title is the RECOVERY key.** ⚠️ This paragraph used to say `videos/fetch`
+ * returns no id, on the authority of the OpenAPI schema — and a live account proved
+ * it wrong on 2026-08-17: the 200 carries `{"id": "…"}` and `GET /videos/{id}`
+ * answers with that value as its `guid`. The narrative docs page, dismissed here as
+ * the outlier, was right. `ingestFromUrl` reads the id and saves it before anything
+ * else can fail. The title still matters, for the case the id cannot cover: a
+ * delivery whose response never came back leaves an asset with no id and a video
+ * that exists, and `{prefix}:{asset_uuid}` is the only thing naming one from the
+ * other. So changing `BUNNY_TITLE_PREFIX` still orphans every unrecovered asset.
  *
  * **2 · `token_path` is not a detail.** The playback URL is an HLS manifest, so
  * signing the manifest alone leaves every `.ts` segment open — and whoever holds
@@ -73,6 +76,22 @@ final class BunnyMediaProvider implements MediaProviderInterface
 
     private const STATUS_UPLOAD_FAILED = 6;
 
+    /**
+     * ⚠️ THE JIT LIBRARY'S FINISHING LINE, AND WITHOUT IT SUCH A LIBRARY NEVER
+     * PUBLISHES ANYTHING.
+     *
+     * With Just-In-Time encoding on — a per-library switch, part of Premium
+     * Encoding — a video does not settle at 4. It goes `7 JitSegmenting` and then
+     * `8 JitPlaylistsCreated`, and stops there: 8 IS playable. Everything that was
+     * not 4, 5 or 6 was reported `Processing`, so such a library would have left
+     * every recording mid-ingest for ever — no lesson published, and the teacher's
+     * fee held, in perfect silence.
+     *
+     * Verified switched OFF on this account on 2026-08-18, which is why nothing
+     * had gone wrong yet. It is a checkbox, and a checkbox is not a guarantee.
+     */
+    private const STATUS_JIT_READY = 8;
+
     public function identifier(): string
     {
         return 'bunny';
@@ -94,7 +113,10 @@ final class BunnyMediaProvider implements MediaProviderInterface
              * have the contract test demand something we deliberately do not do.
              */
             automaticCaptions: false,
-            directUpload: true,
+            // False since the TUS transport was found to be unimplementable as
+            // written — see createUploadTicket, which refuses in words rather than
+            // handing back a ticket that cannot work and a video that is billed.
+            directUpload: false,
             /*
              * From `platform_settings` through MediaLimits, never from a literal:
              * these are the account's own ceilings and an operator raises them
@@ -115,42 +137,37 @@ final class BunnyMediaProvider implements MediaProviderInterface
     }
 
     /**
-     * A browser-side upload that carries no lasting credential.
+     * ⚠️ REFUSED, AND THAT IS THE HONEST ANSWER UNTIL TUS IS ACTUALLY SPOKEN.
      *
-     * Two calls, in this order: create the video to learn its id — this endpoint
-     * DOES return one, unlike `fetch` — then sign a TUS ticket for it. The
-     * signature is a hash OF the key and not the key, so the browser can prove it
-     * was authorised for this one video, for the next hour, and nothing else.
+     * This used to build a ticket for `POST /tusupload` with four values in
+     * `fields`. Three separate things were wrong with it, and together they made
+     * every teacher's video upload fail while costing money:
+     *
+     *  1. Bunny wants those four as HTTP HEADERS (`AuthorizationSignature`,
+     *     `AuthorizationExpire`, `VideoId`, `LibraryId`) plus `Tus-Resumable`.
+     *  2. `media.uploadTo` on the client sends `ticket.headers` and the file body
+     *     and ignores `fields` entirely — so they never left the browser at all.
+     *  3. TUS is a protocol, not an endpoint: a create request then PATCHes of
+     *     offsets. One POST carrying the whole file is not it, however it is
+     *     addressed.
+     *
+     * And the cost was not just a failed upload. `createVideo` ran FIRST to learn
+     * the id, so every attempt left a video object in the library — billed
+     * monthly, empty, referenced by an asset that never completed. A teacher
+     * retrying five times bought five of them.
+     *
+     * So the capability is declared false and this refuses, in words, before
+     * anything is created. A false promise is worse than an absent feature: the
+     * absent one is visible on the day it is needed, and this one was a silent
+     * charge plus an error naming the wrong cause. Implementing it means a TUS
+     * client in the browser (tus-js-client), the four values moved to `headers`,
+     * and `uploadTo` learning the protocol — none of which the recording path
+     * needs, because that goes through `ingestFromUrl` and never touches this.
      */
     public function createUploadTicket(MediaAsset $asset): UploadTicket
     {
-        $videoId = $this->createVideo($this->titleFor($asset));
-
-        // Written now because a direct upload is the one path where the id is
-        // known before any bytes move. Nothing to recover later.
-        $asset->forceFill(['provider_asset_id' => $videoId])->save();
-
-        $expires = CarbonImmutable::now()->addSeconds((int) config('media.upload_ticket_ttl_seconds'));
-        $library = $this->config('library_id');
-
-        return new UploadTicket(
-            url: self::API.'/tusupload',
-            method: 'POST',
-            headers: [],
-            fields: [
-                // The library id is not a secret — it names which library the
-                // signature belongs to, the same way the broadcast provider's API
-                // key names which key verifies a ticket. What SIGNS is never sent,
-                // and a criterion banning both would be one that cannot pass.
-                'LibraryId' => $library,
-                'VideoId' => $videoId,
-                'AuthorizationExpire' => (string) $expires->getTimestamp(),
-                'AuthorizationSignature' => hash(
-                    'sha256',
-                    $library.$this->config('access_key').$expires->getTimestamp().$videoId,
-                ),
-            ],
-            expiresAt: $expires,
+        throw new DomainException(
+            'رفعُ الفيديو مباشرةً غير متاح مع مزوّد الوسائط الحاليّ. تسجيلاتُ الحصص تُنشر تلقائيّاً.',
         );
     }
 
@@ -273,7 +290,7 @@ final class BunnyMediaProvider implements MediaProviderInterface
                 return new AssetStatusReport(status: MediaAssetStatus::Processing);
             }
 
-            return $this->reportFrom($response);
+            return $this->reportFrom($response, $asset);
         } catch (Throwable $e) {
             /*
              * Reported rather than swallowed, and reported WITHOUT reaching the
@@ -499,7 +516,7 @@ final class BunnyMediaProvider implements MediaProviderInterface
         throw new RuntimeException('تعذّر تسليم الملف إلى مزوّد الوسائط.');
     }
 
-    private function reportFrom(Response $response): AssetStatusReport
+    private function reportFrom(Response $response, MediaAsset $asset): AssetStatusReport
     {
         $status = (int) $response->json('status');
 
@@ -507,7 +524,8 @@ final class BunnyMediaProvider implements MediaProviderInterface
             return AssetStatusReport::failed('فشلت معالجةُ الملف عند مزوّد الوسائط.');
         }
 
-        if ($status !== self::STATUS_FINISHED) {
+        // 7 (JitSegmenting) is genuinely still working and falls through here.
+        if ($status !== self::STATUS_FINISHED && $status !== self::STATUS_JIT_READY) {
             return new AssetStatusReport(status: MediaAssetStatus::Processing);
         }
 
@@ -521,8 +539,45 @@ final class BunnyMediaProvider implements MediaProviderInterface
             // treats a null type as a rejection.
             mimeType: 'video/mp4',
             sizeBytes: (int) $response->json('storageSize') ?: null,
-            renditions: $this->renditions((string) $response->json('availableResolutions')),
+            /*
+             * ⚠️ NULLABLE AT THE PROVIDER, AND A CAST HID IT. `availableResolutions`
+             * is absent on some finished videos; `(string) null` is `''`, which
+             * yields ZERO renditions under a `capabilities()` that claims adaptive
+             * bitrate — the claim made decorative, which is the one thing the
+             * contract mechanism exists to prevent. Every fixture in the suite hands
+             * back three, so no test could ever see it.
+             *
+             * Reported rather than failed: the video plays, the player reads the
+             * ladder out of the master playlist anyway, and refusing a working
+             * lesson over a missing metadata field would be the worse trade. What is
+             * not acceptable is passing it over in silence.
+             */
+            renditions: $this->renditionsFrom($response->json('availableResolutions'), $asset),
         );
+    }
+
+    /**
+     * The ladder, with a missing one said out loud.
+     *
+     * A finished video that reports no resolutions at all is not a reason to
+     * refuse the lesson — it plays, and the player reads its variants from the
+     * master playlist regardless. It IS a reason to leave a trace: it contradicts
+     * `capabilities()`, and the only alternative to reporting it is nobody ever
+     * knowing.
+     *
+     * @return list<Rendition>
+     */
+    private function renditionsFrom(mixed $availableResolutions, MediaAsset $asset): array
+    {
+        $renditions = $this->renditions((string) $availableResolutions);
+
+        if ($renditions === []) {
+            report(new RuntimeException(
+                "لم يُبلّغ مزوّد الوسائط عن أيّ جودةٍ للأصل {$asset->uuid}."
+            ));
+        }
+
+        return $renditions;
     }
 
     /**
@@ -551,21 +606,6 @@ final class BunnyMediaProvider implements MediaProviderInterface
         }
 
         return $renditions;
-    }
-
-    private function createVideo(string $title): string
-    {
-        $response = $this->request()->post($this->libraryUrl('/videos'), ['title' => $title]);
-
-        $this->assertDelivered($response);
-
-        $videoId = (string) ($response->json('guid') ?? '');
-
-        if ($videoId === '') {
-            throw new PermanentIngestFailure('لم يُرجع مزوّد الوسائط معرّفاً للملف.');
-        }
-
-        return $videoId;
     }
 
     /**

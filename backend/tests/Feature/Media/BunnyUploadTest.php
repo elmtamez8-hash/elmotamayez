@@ -5,10 +5,11 @@ declare(strict_types=1);
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Media\Actions\RequestUploadTicket;
-use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Enums\MediaKind;
+use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Providers\BunnyMediaProvider;
 use App\Modules\Media\Support\MediaLimits;
+use App\Modules\Tenancy\Support\PlatformSettings;
 use DomainException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -63,48 +64,29 @@ function requestTicket(?int $sizeBytes = null, ?int $durationSeconds = null): ar
     );
 }
 
-it('points the upload at the provider and carries no credential', function (): void {
-    ['ticket' => $ticket] = requestTicket();
+/*
+| ⚠️ THE TICKET IS REFUSED NOW, AND THE THREE TESTS THAT STOOD HERE ASSERTED THE
+| SHAPE OF ONE THAT COULD NEVER WORK.
+|
+| They checked the url, that no secret travelled, that four values were present and
+| that the id was written at ticket time — all true of the object, and all beside
+| the point: Bunny wants those four as HTTP HEADERS, `media.uploadTo` sends
+| `headers` and the file body and ignores `fields` entirely, and TUS is a protocol
+| of a create request followed by PATCHes rather than one POST of a whole file. So
+| every teacher upload failed, and because `createVideo` ran FIRST to learn the id,
+| each attempt left an empty video object behind — billed monthly. A teacher
+| retrying five times bought five.
+|
+| ⚠️ THE SECOND ASSERTION IS THE ONE THAT MATTERS. Refusing while still creating
+| the video would keep the charge and change only the wording, so the network is
+| held shut rather than merely faked.
+*/
+it('refuses a direct upload in words, before anything is created', function (): void {
+    Http::preventStrayRequests();
 
-    expect($ticket->url)->toStartWith('https://video.bunnycdn.com/')
-        // Not our own route: the whole point is that the bytes never come here.
-        ->and($ticket->url)->not->toContain('/api/v1/media/upload');
-
-    $serialised = strtolower((string) json_encode(
-        [$ticket->url, $ticket->headers, $ticket->fields],
-        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-    ));
-
-    // The two secrets, by their configured values. Asserting on key NAMES would
-    // miss a provider that invented its own; asserting on the values cannot.
-    expect($serialised)->not->toContain(strtolower((string) config('media.bunny.access_key')))
-        ->and($serialised)->not->toContain(strtolower((string) config('media.bunny.security_key')));
-
-    foreach (['api_key', 'apikey', 'secret', 'access_key', 'password', 'private_key'] as $needle) {
-        expect($serialised)->not->toContain($needle);
-    }
-});
-
-it('proves the upload can be authorised without the key travelling', function (): void {
-    ['ticket' => $ticket] = requestTicket();
-
-    // A hash OF the key, not the key: the browser can prove it was authorised for
-    // this one video for a bounded time, and nothing else.
-    expect($ticket->fields)->toHaveKeys([
-        'LibraryId', 'VideoId', 'AuthorizationExpire', 'AuthorizationSignature',
-    ]);
-
-    expect($ticket->fields['AuthorizationSignature'])->toHaveLength(64)
-        ->and($ticket->expiresAt->isFuture())->toBeTrue();
-});
-
-// The id is known before any bytes move here, which is the difference from the
-// recording path — so there is nothing to recover afterwards.
-it('records the provider id at ticket time for a direct upload', function (): void {
-    ['asset' => $asset] = requestTicket();
-
-    expect($asset->provider_asset_id)->toBe('created-guid')
-        ->and($asset->status)->toBe(MediaAssetStatus::Pending);
+    expect(fn () => app(BunnyMediaProvider::class)->createUploadTicket(
+        MediaAsset::factory()->create(['provider' => 'bunny']),
+    ))->toThrow(DomainException::class);
 });
 
 /*
@@ -138,4 +120,30 @@ it('names the ceiling in the refusal', function (): void {
     }
 
     expect($message)->toContain(MediaLimits::humanBytes(MediaLimits::maxSizeBytes(MediaKind::Video)));
+});
+
+/*
+| ⚠️ FR-020ب SAYS THE CEILING COMES FROM `platform_settings`, AND NOTHING TESTED
+| THAT.
+|
+| The case above compares `capabilities()->maxSizeBytes` with
+| `MediaLimits::maxSizeBytes()` — an implementation against an implementation,
+| where both sides read the same call. A provider that hard-coded 2 GiB would
+| satisfy it on any deployment whose setting happens to be 2 GiB, which is every
+| deployment until an operator changes one.
+|
+| So the setting is MOVED, and the announcement has to move with it. That is the
+| whole requirement: a limit that only changes by shipping code is a limit nobody
+| ever tunes.
+*/
+it('announces the ceiling an operator set, not a number in the code', function (): void {
+    $raised = MediaLimits::maxSizeBytes(MediaKind::Video) + 12_345;
+
+    PlatformSettings::set('media.max_size_bytes', $raised);
+
+    expect(app(BunnyMediaProvider::class)->capabilities()->maxSizeBytes)->toBe($raised);
+
+    // And the enforcement moved with it: the size that was refused a moment ago
+    // is now accepted, which is what "one number, two readers" means.
+    expect(MediaLimits::maxSizeBytes(MediaKind::Video))->toBe($raised);
 });
