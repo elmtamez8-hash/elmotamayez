@@ -32,6 +32,15 @@ class FakeMediaProvider implements MediaProviderInterface
     public function __construct(
         public bool $breakPromise = false,
         public bool $unreachable = false,
+        /*
+         * A provider that has taken the file and is still encoding it.
+         *
+         * The one answer no other knob here could give, and the one the commercial
+         * provider gives for minutes on end: `Ready` and `failed` are both verdicts,
+         * and the phase between them is where the ingest job's attempt budget used
+         * to be spent by mistake.
+         */
+        public bool $stillProcessing = false,
     ) {}
 
     public function identifier(): string
@@ -74,6 +83,10 @@ class FakeMediaProvider implements MediaProviderInterface
     {
         if ($this->unreachable) {
             return AssetStatusReport::failed('تعذّر الوصول إلى مزوّد الفيديو.');
+        }
+
+        if ($this->stillProcessing) {
+            return new AssetStatusReport(status: MediaAssetStatus::Processing);
         }
 
         return new AssetStatusReport(

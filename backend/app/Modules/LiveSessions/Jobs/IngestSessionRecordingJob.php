@@ -251,19 +251,25 @@ class IngestSessionRecordingJob implements ShouldQueue
      * Three outcomes, and the middle one is the one that did not exist before
      * 019: ready (the listener publishes the lesson), failed, or **still coming**.
      *
-     * ⚠️ AN ATTEMPT IS SPENT ON "still encoding", DELIBERATELY. It is the same
-     * answer "not finished yet" has always been, and the budget is what stops an
-     * unbounded wait with a teacher's fee held behind it. If a provider's encode
-     * is genuinely slower than the budget, the fix is NOT a bigger number here:
-     * ReconcileAssetStatus keeps asking after this job has given up, and a late
-     * Ready still fires MediaAssetReady, whose listener publishes the lesson and
-     * overwrites `failed` with `published`. The self-heal is the design, not luck.
+     * ⚠️ AND «still encoding» SPENDS NO ATTEMPT — IT USED TO SPEND ONE, AND THAT WAS
+     * TWO PHASES SHARING ONE BUDGET.
      *
-     * ⚠️ AND IT IS BOUNDED, which this said nothing about until the poll was given
-     * a ceiling: `media.reconcile_ceiling_hours` (48 by default). Past it the asset
-     * is written failed with a reason and nothing asks again — an unbounded poll
-     * was two provider calls per stuck asset every five minutes, for ever. So the
-     * self-heal covers a slow encode, not an abandoned one.
+     * Before the hand-off the question is "has the broadcast provider finished
+     * assembling the file", and the budget belongs there: nothing else is watching,
+     * and an unbounded wait holds a teacher's fee. AFTER the hand-off the file is
+     * delivered, its id is saved, and the question is a different one — "has the
+     * media provider finished transcoding" — which `ReconcileAssetStatus` already
+     * owns, on its own five-minute cadence, under its own 48-hour ceiling
+     * (`media.reconcile_ceiling_hours`). Charging that phase to this counter meant a
+     * transcode slower than five sweeps wrote the session `failed` and told the
+     * student «التسجيل غير متاح» about a video that published twenty minutes later —
+     * a false sentence, permanently in their feed, which no later success removes.
+     *
+     * So Processing writes `pending` and returns: the sweep keeps the session in
+     * view, the reconciler keeps asking the provider, and a verdict is written only
+     * when one of them HAS one. `Failed` is that verdict and is treated as
+     * permanent — the asset the provider refused is the asset a retry would present
+     * again, and the ceiling is what makes it eventually arrive.
      */
     private function settle(
         ClassSession $session,
@@ -280,14 +286,30 @@ class IngestSessionRecordingJob implements ShouldQueue
             return;
         }
 
-        // Processing or Failed — either way this session is not done, and the
-        // sweep only comes back for 'pending', which giveUpOrRetry writes.
-        $this->giveUpOrRetry(
-            $session,
-            $settings,
-            $notify,
-            $asset->failure_reason ?? 'التسجيل لم يكتمل عند مزوّد الوسائط بعد.',
-        );
+        if ($asset->status === MediaAssetStatus::Failed) {
+            // A verdict, not a wait. Presenting the same refused asset again five
+            // more times tells the teacher nothing they cannot be told now.
+            $this->giveUpOrRetry(
+                $session,
+                $settings,
+                $notify,
+                $asset->failure_reason ?? 'تعذّر تجهيز التسجيل عند مزوّد الوسائط.',
+                permanent: true,
+            );
+
+            return;
+        }
+
+        /*
+         * Delivered and encoding — see the note on this method. `pending` keeps the
+         * session in the sweep's view without touching the budget; written by query
+         * because `giveUpOrRetry` is no longer the only writer of this column and a
+         * model save here would carry whatever else the instance is holding.
+         */
+        ClassSession::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($session->getKey())
+            ->update(['recording_status' => 'pending']);
     }
 
     /**
@@ -314,9 +336,17 @@ class IngestSessionRecordingJob implements ShouldQueue
 
         // A permanent refusal spends the whole budget at once: five more attempts
         // over an hour tell the teacher nothing they cannot be told now.
+        /*
+         * ⚠️ AND THE ATTEMPT IS STAMPED, BECAUSE THE BUDGET HAD NO CLOCK. Five
+         * attempts read as «an hour and a quarter» only because the sweep runs every
+         * fifteen minutes — nothing enforced the gap. A queue backlog drains every
+         * queued pass at once, and on 2026-08-18 seventy-two of them spent the whole
+         * budget inside one second. `RetryPendingRecordingsJob` reads this column and
+         * refuses to re-send before the interval has actually passed.
+         */
         $permanent
-            ? $query->update(['recording_attempts' => $limit])
-            : $query->increment('recording_attempts');
+            ? $query->update(['recording_attempts' => $limit, 'recording_attempted_at' => now()])
+            : $query->increment('recording_attempts', 1, ['recording_attempted_at' => now()]);
 
         $session->refresh();
         $attempts = (int) $session->recording_attempts;

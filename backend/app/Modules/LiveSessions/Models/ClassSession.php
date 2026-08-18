@@ -37,6 +37,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CarbonInterface|null $seats_frozen_at
  * @property CarbonInterface|null $room_opened_at
  * @property CarbonInterface|null $room_closed_at
+ * @property CarbonInterface|null $recording_attempted_at
  */
 class ClassSession extends BaseModel
 {
@@ -70,6 +71,7 @@ class ClassSession extends BaseModel
         'room_closed_at',
         'recording_status',
         'recording_attempts',
+        'recording_attempted_at',
         'media_asset_id',
         'delivered_at',
         'interruption_note',
@@ -94,6 +96,7 @@ class ClassSession extends BaseModel
             'room_opened_at' => 'datetime',
             'room_closed_at' => 'datetime',
             'recording_attempts' => 'integer',
+            'recording_attempted_at' => 'datetime',
             'delivered_at' => 'datetime',
             'cancelled_at' => 'datetime',
             // Set when the seats were charged (006). Null on a delivered session

@@ -49,6 +49,15 @@ class RetryPendingRecordingsJob implements ShouldQueue
     /** How far back to look. Older than this and a manual upload is the answer. */
     private const WINDOW_HOURS = 48;
 
+    /**
+     * The minimum real time between two attempts on one session.
+     *
+     * Fourteen and not fifteen: the schedule fires every fifteen minutes and a
+     * scheduler is never punctual to the second, so an exact match would skip every
+     * other pass and quietly halve the patience this is here to protect.
+     */
+    private const MIN_ATTEMPT_GAP_MINUTES = 14;
+
     public function handle(SessionSettings $settings, BroadcastProviderResolver $providers): void
     {
         /*
@@ -119,6 +128,24 @@ class RetryPendingRecordingsJob implements ShouldQueue
             // grants an extra attempt.
             ->where('recording_attempts', '<', $settings->recordingMaxAttempts())
             ->where('room_closed_at', '>=', now()->subHours(self::WINDOW_HOURS))
+            /*
+             * ⚠️ THE GAP THE BUDGET ASSUMED, ENFORCED RATHER THAN HOPED FOR.
+             *
+             * Five attempts read as «an hour and a quarter» because this job runs
+             * every fifteen minutes — and nothing made that true. Measured
+             * 2026-08-18: a queue worker restarted after a code fix left seventy-two
+             * of these passes queued, they drained in one second, and five attempts
+             * were spent inside it. The session was written `failed` and its seat
+             * holders told the recording was unavailable, about a file sitting intact
+             * in our bucket mid-transcode. A paused Horizon supervisor, a deploy or
+             * any queue outage produces the same pile in production.
+             *
+             * `null` passes: a session nobody has asked about yet must be swept on
+             * the first pass, which is the case every recording starts in.
+             */
+            ->where(fn (Builder $clock): Builder => $clock
+                ->whereNull('recording_attempted_at')
+                ->orWhere('recording_attempted_at', '<=', now()->subMinutes(self::MIN_ATTEMPT_GAP_MINUTES)))
             // chunkById, not chunk: the predicate shrinks under an OFFSET walk as
             // rows leave 'pending', so every page after the first would skip as
             // many sessions as the previous page fixed — and report success.

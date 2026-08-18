@@ -518,6 +518,20 @@ corroboration: the vendor publishes a reference implementation and no vectors, s
 value came from reading that implementation. The corroboration is a live 200 on the
 master playlist, the rendition and the first `.ts` (2026-08-18).
 
+**The attempt budget needed a clock, and two phases were sharing it.**
+`recording_attempts` reads as «five attempts over 75 minutes» only because the sweep
+is scheduled every fifteen; a queue backlog replayed 72 passes in one second and spent
+all five (measured 2026-08-18). `recording_attempted_at` is stamped with the increment
+and the sweep refuses to re-send inside 14 minutes. And «still encoding» spends no
+attempt at all: after the hand-off the phase belongs to `ReconcileAssetStatus` and its
+48-hour ceiling, so charging it here marked slow transcodes `failed` and told students
+a recording was unavailable minutes before it published.
+
+**A `queue:work` runs the code it booted with.** A fixed bug kept reporting itself from
+a stale worker; check `failed_jobs` timestamps against `git log` before reading the
+tree. And a `--queue` list missing `maintenance` enqueues every scheduled job and
+drains none.
+
 **A correctly signed URL 403s with no `Referer` header.** Bunny Stream's «block
 direct URL file access»; any referrer passes, so it protects nothing and must not be
 counted — but a curl probe or a smoke test that omits it reads a valid signature as a

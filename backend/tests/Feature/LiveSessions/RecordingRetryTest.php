@@ -10,12 +10,15 @@ use App\Modules\LiveSessions\Jobs\RetryPendingRecordingsJob;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\MediaAsset;
+use App\Modules\Media\Providers\LocalMediaProvider;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Tests\Support\FakeBroadcastProvider;
+use Tests\Support\FakeMediaProvider;
 
 /*
 | SC-004 — every recorded session ends with a file or a NAMED failure. Zero
@@ -85,10 +88,21 @@ it('re-sends the ingest for a recording still pending', function (): void {
         ->and($this->session->recording_status)->toBe('pending');
 });
 
-// T039 — the counter has to MOVE. It never did: one sender, one attempt.
+/*
+| T039 — the counter has to MOVE. It never did: one sender, one attempt.
+|
+| ⚠️ AND IT MOVES ACROSS TIME NOW, WHICH IS WHY THE CLOCK IS TRAVELLED HERE. Three
+| back-to-back sweeps used to spend three attempts, and that was the defect measured
+| on 2026-08-18 rather than a stylistic detail: the sweep is scheduled every fifteen
+| minutes, so five attempts read as «an hour and a quarter» — and a queue backlog
+| replaying seventy-two queued passes spent the whole budget inside one second. This
+| test now asserts what the requirement actually says.
+*/
 it('advances the attempt counter past one', function (): void {
     sweep();
+    $this->travel(15)->minutes();
     sweep();
+    $this->travel(15)->minutes();
     sweep();
 
     expect((int) $this->session->refresh()->recording_attempts)->toBeGreaterThan(1);
@@ -99,6 +113,7 @@ it('settles on failed at the limit and tells the teacher', function (): void {
 
     for ($i = 0; $i < $limit; $i++) {
         sweep();
+        $this->travel(15)->minutes();
     }
 
     expect((int) $this->session->refresh()->recording_attempts)->toBe($limit)
@@ -383,4 +398,113 @@ it('stays silent below the threshold', function (): void {
     Log::shouldReceive('alert')->never();
 
     sweep();
+});
+
+/*
+| ⚠️ THE BUDGET HAS A CLOCK NOW, AND WITHOUT ONE A BACKLOG SPENT IT IN ONE SECOND.
+|
+| Measured on 2026-08-18 against the real pipeline: a queue worker started before a
+| code fix and restarted after it left seventy-two queued sweep passes behind. They
+| drained together, five attempts were spent inside a single second, and the session
+| was written `failed` — with the teacher told the recording was lost and every seat
+| holder told the same, about a file sitting intact in our own bucket, mid-transcode,
+| which appeared minutes later. A paused Horizon supervisor, a deploy, or any queue
+| outage produces the identical pile in production.
+|
+| The two assertions are the two halves of the requirement: repeats inside the window
+| cost nothing, and the very next pass after it does resume. A test of only the first
+| half passes over a sweep that has stopped working altogether.
+*/
+it('spends one attempt however many times a backlog replays the sweep', function (): void {
+    foreach (range(1, 20) as $ignored) {
+        sweep();
+    }
+
+    expect((int) $this->session->refresh()->recording_attempts)->toBe(1)
+        ->and($this->session->recording_status)->toBe('pending');
+
+    $this->travel(15)->minutes();
+    sweep();
+
+    expect((int) $this->session->refresh()->recording_attempts)->toBe(2);
+});
+
+/*
+| ⚠️ «STILL ENCODING» IS NOT THIS BUDGET'S BUSINESS — IT USED TO SPEND AN ATTEMPT.
+|
+| Before the hand-off the question is whether the BROADCAST provider has finished
+| assembling the file, and nothing else is watching, so the budget belongs there.
+| Once the file is delivered and its id is saved, the question is whether the MEDIA
+| provider has finished transcoding — which `ReconcileAssetStatus` already owns, every
+| five minutes, under its own 48-hour ceiling. Charging that phase here meant an
+| encode slower than five sweeps wrote the session `failed` and told the student
+| «التسجيل غير متاح» about a video that published twenty minutes later: a false
+| sentence that stays in their feed, which no later success removes.
+|
+| The asset is left `Processing` — the state a provider that transcodes on its own
+| clock actually returns — and the session must come out of the pass unspent and
+| still swept.
+*/
+it('spends no attempt while the media provider is still transcoding', function (): void {
+    /*
+     * The provider that has the file and is not finished with it — the answer the
+     * real one gives for minutes, and the only one that is neither `Ready` nor
+     * `failed`.
+     *
+     * Bound by CLASS, not by the interface: `MediaProviderResolver::for()` reads the
+     * asset's own `provider` column and resolves that class, so an interface binding
+     * is invisible to it — which is the whole point of resolving per asset rather
+     * than per config.
+     */
+    $this->app->instance(LocalMediaProvider::class, new FakeMediaProvider(stillProcessing: true));
+
+    $asset = MediaAsset::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'owner_type' => ClassSession::class,
+        'owner_id' => $this->session->getKey(),
+        'status' => MediaAssetStatus::Processing,
+        'provider_asset_id' => 'a-delivered-video',
+    ]);
+
+    $this->session->forceFill([
+        'media_asset_id' => $asset->getKey(),
+        'recording_status' => 'ingesting',
+        'recording_attempts' => 0,
+    ])->save();
+
+    app()->call([new IngestSessionRecordingJob((int) $this->session->getKey()), 'handle']);
+
+    expect((int) $this->session->refresh()->recording_attempts)->toBe(0)
+        // `pending`, not `ingesting`: the sweep must keep it in view, and the state
+        // that means "the hand-off had begun" is not the state that means "come back".
+        ->and($this->session->recording_status)->toBe('pending');
+});
+
+/*
+| The other side of the same branch: a provider that has actually REFUSED gets a
+| verdict, not four more presentations of the asset it just refused. Without this the
+| change above would turn every real failure into an eternal `pending` — which is the
+| state that withholds the teacher's fee for a lesson that was taught.
+*/
+it('gives up at once when the media provider reports a failure', function (): void {
+    $asset = MediaAsset::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'owner_type' => ClassSession::class,
+        'owner_id' => $this->session->getKey(),
+        'status' => MediaAssetStatus::Failed,
+        'failure_reason' => 'الملف تالف.',
+        'provider_asset_id' => 'a-refused-video',
+    ]);
+
+    $this->session->forceFill([
+        'media_asset_id' => $asset->getKey(),
+        'recording_status' => 'pending',
+        'recording_attempts' => 0,
+    ])->save();
+
+    app()->call([new IngestSessionRecordingJob((int) $this->session->getKey()), 'handle']);
+
+    expect($this->session->refresh()->recording_status)->toBe('failed')
+        ->and((int) $this->session->recording_attempts)
+        ->toBe(app(SessionSettings::class)->recordingMaxAttempts());
 });
