@@ -14,6 +14,7 @@ use App\Modules\LiveSessions\Enums\HostAction;
 use App\Modules\LiveSessions\Enums\ParticipantRole;
 use App\Modules\LiveSessions\Models\ClassSession;
 use Carbon\CarbonImmutable;
+use Closure;
 use Throwable;
 
 /**
@@ -56,6 +57,15 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
      * stood outside the `try`.
      */
     public ?Throwable $recordingError = null;
+
+    /**
+     * Run at the moment `recording()` is asked.
+     *
+     * The one seam a single-threaded test has for the interleaving that matters:
+     * the ingest job reads `media_asset_id` BEFORE this call and claims it AFTER,
+     * so a callback here is another runner winning inside that window.
+     */
+    public ?Closure $onRecording = null;
 
     public function identifier(): string
     {
@@ -106,6 +116,10 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
 
     public function recording(ClassSession $session): ?RecordingArtifact
     {
+        if ($this->onRecording !== null) {
+            ($this->onRecording)($session);
+        }
+
         if ($this->recordingError !== null) {
             throw $this->recordingError;
         }

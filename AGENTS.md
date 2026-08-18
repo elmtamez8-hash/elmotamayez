@@ -455,6 +455,13 @@ than send it empty. The presigned url carries its own auth in the query string.
 Measured with it: Bunny starts the fetch immediately (2.8 MB `Ready` with five
 renditions **15 s** after delivery), so a 120-minute source TTL is ample.
 
+**Claim the session before delivering a recording.** `UPDATE … WHERE
+media_asset_id IS NULL` — the seat idiom. Read-then-write let two runners (the
+completion event and a sweep pass) both call `videos/fetch`, and every call
+creates a paid video. The counter moves by `increment()` for the same reason. A
+sequential second-pass test does not cover it; the race window is inside
+`recording()`, between the read and the claim.
+
 **The reconcile poll has a ceiling and a verdict.** Two provider calls per stuck
 asset every five minutes, for ever, was the old cost. Past
 `media.reconcile_ceiling_hours` the asset is written failed WITH a reason — a

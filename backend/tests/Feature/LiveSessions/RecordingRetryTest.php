@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
+use App\Modules\LiveSessions\Data\RecordingArtifact;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
 use App\Modules\LiveSessions\Jobs\RetryPendingRecordingsJob;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
 use Carbon\CarbonImmutable;
@@ -234,4 +236,98 @@ it('survives a provider outage by leaving the session retryable', function (): v
 
     expect($this->session->refresh()->recording_status)->toBe('pending')
         ->and((int) $this->session->recording_attempts)->toBe(1);
+});
+
+/*
+| A SECOND PASS OVER A SESSION ALREADY HANDED OVER MUST ASK, NEVER DELIVER AGAIN.
+|
+| Every `videos/fetch` creates a video, so a re-delivery is a second one billed
+| monthly and referenced by nothing. This is the ORDINARY path — the sweep runs
+| every fifteen minutes over sessions that are still pending — and it is guarded
+| by the read at the top of the job.
+|
+| ⚠️ IT IS NOT THE RACE. Both calls here are sequential, so the second reads a
+| session that already carries an asset and never reaches the claim at all. The
+| interleaving that needs a conditional UPDATE is the test below this one.
+*/
+it('asks instead of delivering on a second pass', function (): void {
+    $provider = new FakeBroadcastProvider;
+    $provider->pendingRecording = new RecordingArtifact(
+        downloadUrl: 'https://storage.test/session.mp4',
+        sizeBytes: 2048,
+        durationSeconds: 120,
+        mimeType: 'video/mp4',
+    );
+    $this->app->instance(BroadcastProviderInterface::class, $provider);
+
+    $this->session->forceFill(['recording_status' => null, 'recording_attempts' => 0])->save();
+
+    $ingest = fn () => app()->call([new IngestSessionRecordingJob((int) $this->session->getKey()), 'handle']);
+
+    $ingest();
+    $firstAsset = $this->session->refresh()->media_asset_id;
+
+    $ingest();
+
+    expect($this->session->refresh()->media_asset_id)->toBe($firstAsset);
+
+    // One asset for this session, not two — the row a losing runner creates before
+    // the claim must not survive it.
+    expect(MediaAsset::query()
+        ->withoutWorkspaceScope()
+        ->where('owner_type', ClassSession::class)
+        ->where('owner_id', $this->session->getKey())
+        ->count())->toBe(1);
+});
+
+/*
+| ⚠️ AND THIS IS THE RACE ITSELF, IN THE ONE WINDOW THAT MATTERS.
+|
+| The job reads `media_asset_id` at the top and wrote it near the bottom — the
+| textbook read-then-write, with two senders by design: `SessionCompleted` fires
+| once and the sweep re-dispatches every fifteen minutes. Both runners read null,
+| both call `videos/fetch`, and every call to it CREATES a video: a second one,
+| paid for monthly, pointed at by nothing.
+|
+| A single-threaded test still reaches it, because `recording()` is asked BETWEEN
+| the read and the claim. The callback below is the other runner winning inside
+| exactly that window — no threads, no sleep, no mock of the thing under test.
+|
+| The assertions are the two costs: the winner's asset is not displaced, and the
+| loser leaves no orphan row behind.
+*/
+it('loses the claim without delivering when another runner wins mid-flight', function (): void {
+    $winner = MediaAsset::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'owner_type' => ClassSession::class,
+        'owner_id' => $this->session->getKey(),
+    ]);
+
+    $provider = new FakeBroadcastProvider;
+    $provider->pendingRecording = new RecordingArtifact(
+        downloadUrl: 'https://storage.test/session.mp4',
+        sizeBytes: 2048,
+        durationSeconds: 120,
+        mimeType: 'video/mp4',
+    );
+
+    // The other runner, arriving after this job read null and before it claims.
+    $provider->onRecording = function (ClassSession $session) use ($winner): void {
+        ClassSession::query()->withoutWorkspaceScope()->whereKey($session->getKey())
+            ->update(['media_asset_id' => $winner->getKey(), 'recording_status' => 'ingesting']);
+    };
+
+    $this->app->instance(BroadcastProviderInterface::class, $provider);
+
+    $this->session->forceFill(['media_asset_id' => null, 'recording_status' => null])->save();
+
+    app()->call([new IngestSessionRecordingJob((int) $this->session->getKey()), 'handle']);
+
+    expect((int) $this->session->refresh()->media_asset_id)->toBe((int) $winner->getKey());
+
+    expect(MediaAsset::query()
+        ->withoutWorkspaceScope()
+        ->where('owner_type', ClassSession::class)
+        ->where('owner_id', $this->session->getKey())
+        ->count())->toBe(1);
 });

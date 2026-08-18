@@ -148,10 +148,59 @@ class IngestSessionRecordingJob implements ShouldQueue
                 ]);
                 $asset->save();
 
-                $session->forceFill([
-                    'media_asset_id' => $asset->getKey(),
-                    'recording_status' => 'ingesting',
-                ])->save();
+                /*
+                 * ⚠️ THE GUARD AGAINST A SECOND DELIVERY IS THIS UPDATE, AND IT USED
+                 * TO BE A READ FOLLOWED BY A WRITE.
+                 *
+                 * `media_asset_id` was checked at the top of this closure and
+                 * written here — the textbook race, and this session has two
+                 * senders: `SessionCompleted` fires once and the sweep re-dispatches
+                 * every fifteen minutes, so two runners overlapping is ordinary, not
+                 * exotic. Both would read null, both would call `videos/fetch`, and
+                 * every call to it CREATES A VIDEO: a second one, paid for monthly,
+                 * referenced by nothing and invisible without going to look.
+                 *
+                 * One conditional UPDATE is both the check and the claim, which is
+                 * the idiom this repository already uses for seats, for
+                 * `captured_order_id` and in `StructureVersion::claim()`. Never
+                 * `lockForUpdate()`: it is a no-op on SQLite, so the test would pass
+                 * locally and prove nothing about the MySQL this ships to.
+                 *
+                 * The asset row is created BEFORE the claim because the claim needs
+                 * its id — and that is safe precisely because nothing has been
+                 * delivered yet. A loser deletes its own row, having spent one local
+                 * INSERT and not one provider call.
+                 */
+                $claimed = ClassSession::query()
+                    ->withoutWorkspaceScope()
+                    ->whereKey($session->getKey())
+                    ->whereNull('media_asset_id')
+                    ->update([
+                        'media_asset_id' => $asset->getKey(),
+                        'recording_status' => 'ingesting',
+                    ]);
+
+                if ($claimed === 0) {
+                    $asset->delete();
+                    $session->refresh();
+
+                    $winner = $session->media_asset_id === null
+                        ? null
+                        : MediaAsset::query()->withoutWorkspaceScope()->find($session->media_asset_id);
+
+                    // Ask about the winner's asset rather than returning blind: this
+                    // pass is still a pass, and the other runner may already have
+                    // delivered.
+                    if ($winner !== null) {
+                        $this->settle($session, $winner, $settings, $complete, $notify);
+                    }
+
+                    return;
+                }
+
+                // The claim was made by a query, so the in-memory model still
+                // carries the old columns — and `settle()` writes through it.
+                $session->refresh();
 
                 /*
                 | ⚠️ THIS LINE IS THE WHOLE OF SPEC 019 IN THIS FILE.
@@ -239,10 +288,26 @@ class IngestSessionRecordingJob implements ShouldQueue
         bool $permanent = false,
     ): void {
         $limit = $settings->recordingMaxAttempts();
-        $attempts = $permanent ? $limit : $session->recording_attempts + 1;
+
+        /*
+         * ⚠️ INCREMENTED IN THE DATABASE, NOT IN PHP. `$session->recording_attempts + 1`
+         * is a read followed by a write, and two runners for one session — the
+         * completion event and a sweep pass overlapping — both read the same number
+         * and both write the same number. The budget then never advances while both
+         * keep failing, which is an unbounded retry loop wearing a counter.
+         */
+        $query = ClassSession::query()->withoutWorkspaceScope()->whereKey($session->getKey());
+
+        // A permanent refusal spends the whole budget at once: five more attempts
+        // over an hour tell the teacher nothing they cannot be told now.
+        $permanent
+            ? $query->update(['recording_attempts' => $limit])
+            : $query->increment('recording_attempts');
+
+        $session->refresh();
+        $attempts = (int) $session->recording_attempts;
 
         $session->forceFill([
-            'recording_attempts' => $attempts,
             'recording_status' => $attempts >= $limit ? 'failed' : 'pending',
         ])->save();
 
