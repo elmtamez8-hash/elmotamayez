@@ -455,6 +455,12 @@ than send it empty. The presigned url carries its own auth in the query string.
 Measured with it: Bunny starts the fetch immediately (2.8 MB `Ready` with five
 renditions **15 s** after delivery), so a 120-minute source TTL is ample.
 
+**The reconcile poll has a ceiling and a verdict.** Two provider calls per stuck
+asset every five minutes, for ever, was the old cost. Past
+`media.reconcile_ceiling_hours` the asset is written failed WITH a reason — a
+ceiling alone would leave it «قيد التجهيز» permanently. Age from `created_at`,
+never `updated_at`, which the sweep itself touches.
+
 **`recording_status` gets stuck at THREE values.** `pending` is the one anybody
 thinks of; NULL is a job that died before its first write (`recording()` is a live
 call at `tries: 1`), and `'ingesting'` is a worker killed mid-hand-off. All three

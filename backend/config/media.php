@@ -136,6 +136,22 @@ return [
     'grant_renew_interval_seconds' => (int) env('MEDIA_GRANT_RENEW_INTERVAL', 60),
     'max_renewals' => (int) env('MEDIA_MAX_RENEWALS', 480),  // ~8 h of viewing
 
+    /*
+    | How long ReconcileAssetStatus keeps asking about one asset.
+    |
+    | ⚠️ A CEILING AND A VERDICT, NOT JUST A CEILING. The sweep runs every five
+    | minutes and spends up to two provider calls per `Processing` asset, for ever
+    | — an asset whose delivery never landed is interrogated hundreds of times a
+    | day until the end of the deployment. But stopping the questions alone would
+    | leave that asset «قيد التجهيز» permanently, which is the exact state this
+    | job was scheduled to abolish. Past the ceiling it is written failed WITH a
+    | reason, and a manual upload is the way out (FR-031).
+    |
+    | Two days, matching the recording sweep's own window: no transcode takes
+    | that long, and the ingest budget has given up many hours earlier.
+    */
+    'reconcile_ceiling_hours' => (int) env('MEDIA_RECONCILE_CEILING_HOURS', 48),
+
     // How long an upload ticket stays valid.
     'upload_ticket_ttl_seconds' => (int) env('MEDIA_UPLOAD_TICKET_TTL', 3600),
 

@@ -195,6 +195,12 @@ class IngestSessionRecordingJob implements ShouldQueue
      * ReconcileAssetStatus keeps asking after this job has given up, and a late
      * Ready still fires MediaAssetReady, whose listener publishes the lesson and
      * overwrites `failed` with `published`. The self-heal is the design, not luck.
+     *
+     * ⚠️ AND IT IS BOUNDED, which this said nothing about until the poll was given
+     * a ceiling: `media.reconcile_ceiling_hours` (48 by default). Past it the asset
+     * is written failed with a reason and nothing asks again — an unbounded poll
+     * was two provider calls per stuck asset every five minutes, for ever. So the
+     * self-heal covers a slow encode, not an abandoned one.
      */
     private function settle(
         ClassSession $session,

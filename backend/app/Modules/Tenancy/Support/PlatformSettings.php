@@ -41,6 +41,7 @@ final class PlatformSettings
         'media.max_audio_duration_seconds' => 'media.max_audio_duration_seconds',
         'media.grant_ttl_seconds' => 'media.grant_ttl_seconds',
         'media.max_renewals' => 'media.max_renewals',
+        'media.reconcile_ceiling_hours' => 'media.reconcile_ceiling_hours',
         'sessions.timezone' => 'sessions.timezone',
         'sessions.grace_minutes' => 'sessions.grace_minutes',
         'sessions.absence_threshold_ratio' => 'sessions.absence_threshold_ratio',

@@ -8,7 +8,9 @@ use App\Modules\Media\Actions\CompleteMediaUpload;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Support\WorkspaceContext;
+use Carbon\CarbonInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -43,10 +45,28 @@ class ReconcileAssetStatus implements ShouldQueue
 
     public function handle(CompleteMediaUpload $complete): void
     {
+        $ceiling = now()->subHours((int) PlatformSettings::get('media.reconcile_ceiling_hours'));
+
+        $this->giveUpOnAbandoned($ceiling);
+
         MediaAsset::query()
             ->withoutWorkspaceScope()
             ->where('status', MediaAssetStatus::Processing->value)
             ->where('updated_at', '<', now()->subMinute())
+            /*
+             * ⚠️ WITHOUT THIS THE SWEEP ASKS ABOUT ONE ASSET FOR EVER.
+             *
+             * It runs every five minutes and spends up to two provider calls per
+             * row — a title search plus a GET. An asset whose delivery never
+             * landed is therefore interrogated 288 times a day, every day, and the
+             * bill grows with every one that ever got stuck: the poll had no age
+             * ceiling and no attempt budget of any kind.
+             *
+             * Measured from `created_at`, never `updated_at`: the sweep touches
+             * the row on a pass that changes nothing, and an age measured from the
+             * last touch is an age that resets itself.
+             */
+            ->where('created_at', '>=', $ceiling)
             ->orderBy('id')
             ->chunkById(50, function ($assets) use ($complete): void {
                 foreach ($assets as $asset) {
@@ -86,6 +106,36 @@ class ReconcileAssetStatus implements ShouldQueue
                     } catch (Throwable $e) {
                         report($e);
                     }
+                }
+            });
+    }
+
+    /**
+     * The verdict that has to come with the ceiling.
+     *
+     * ⚠️ STOPPING THE QUESTIONS IS ONLY HALF A FIX. An asset dropped from the poll
+     * and left `Processing` shows its teacher «قيد التجهيز» for ever — the exact
+     * state this job was scheduled to abolish, reached by a different road. So the
+     * ones past the ceiling are answered: failed, with a reason a person can act
+     * on, which is what makes manual upload the way out rather than a guess.
+     *
+     * Row by row rather than a bulk `update()`: the reason belongs on each row and
+     * `MediaAsset` is a model with behaviour on save. The set is tiny by
+     * construction — anything reached here is at least two days old and leaves
+     * `Processing` on the same pass, so it is never selected twice.
+     */
+    private function giveUpOnAbandoned(CarbonInterface $ceiling): void
+    {
+        MediaAsset::query()
+            ->withoutWorkspaceScope()
+            ->where('status', MediaAssetStatus::Processing->value)
+            ->where('created_at', '<', $ceiling)
+            ->chunkById(50, function ($assets): void {
+                foreach ($assets as $asset) {
+                    $asset->forceFill([
+                        'status' => MediaAssetStatus::Failed,
+                        'failure_reason' => 'لم يكتمل تجهيز الملف عند مزوّد الوسائط خلال المهلة. أعِد رفعه يدويّاً.',
+                    ])->save();
                 }
             });
     }
