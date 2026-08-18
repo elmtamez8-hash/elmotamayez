@@ -70,6 +70,7 @@ npm install
 npm run dev                            # App at :3000 (proxies /api to :8000)
 npm run build                          # Production build
 npx tsc --noEmit                       # Type check
+npm test                               # vitest + jsdom unit tests (~2s, no build, no servers)
 npm run test:e2e                       # Playwright — needs the backend up and seeded
 ```
 
