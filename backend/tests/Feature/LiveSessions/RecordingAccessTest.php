@@ -7,6 +7,8 @@ use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
+use App\Modules\Learning\Models\Enrollment;
+use App\Modules\Learning\Support\LessonAccess;
 use App\Modules\LiveSessions\Actions\BookSeat;
 use App\Modules\LiveSessions\Actions\CancelBooking;
 use App\Modules\LiveSessions\Models\ClassSession;
@@ -155,4 +157,50 @@ it('reads the seat through the shared contract, not the model', function (): voi
     // (Constitution III). If the binding disappears, this is what says so.
     expect(app(SessionAttendanceDirectory::class)->hasBookingForLesson($student, (int) $this->recording->getKey()))
         ->toBeTrue();
+});
+
+/*
+| ⚠️ AND THE LESSON PAGE MUST AGREE WITH THE GRANT.
+|
+| Everything above measures `mayWatch`, the door the FILE is served through. The
+| student reaches a recording through `/learn/lessons/{uuid}`, whose door is
+| `Enrollment::accessTo()` — and that one knew only about enrolment and the
+| course's sequence. So on 2026-08-18 a student who had booked and paid for a
+| live session opened the lesson it produced and read «أكمِل … أولاً» about
+| unrelated coursework, while the grant endpoint would happily have played it.
+|
+| The prerequisite query had long refused to let a recording STAND in front of
+| anything; this is the mirror image, and it was missing. Both directions are
+| asserted, because allowing every recording through would hand the hour to the
+| whole cohort — which is the defect FR-030 exists to prevent.
+*/
+it('opens the lesson page for a seat holder even in a sequential course', function (): void {
+    $this->course->update(['is_sequential' => true]);
+
+    // Something unfinished in front of it, so the sequence would refuse.
+    Lesson::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $this->course->getKey(),
+        'section_id' => $this->recording->section_id,
+        'chapter_id' => $this->recording->chapter_id,
+        'order' => $this->recording->order - 1,
+        'type' => 'video',
+        'status' => 'published',
+    ]);
+
+    $seated = learner(withSeat: true);
+    $unseated = learner(withSeat: false);
+
+    $enrollmentOf = fn (User $student) => Enrollment::query()
+        ->where('course_id', $this->course->getKey())
+        ->where('student_user_id', $student->getKey())
+        ->firstOrFail();
+
+    expect($enrollmentOf($seated)->accessTo($this->recording)->allowed)->toBeTrue();
+
+    $refusal = $enrollmentOf($unseated)->accessTo($this->recording);
+
+    // Refused for the RIGHT reason: there is nothing to go and finish.
+    expect($refusal->allowed)->toBeFalse()
+        ->and($refusal->code)->toBe(LessonAccess::NO_SEAT);
 });

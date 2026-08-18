@@ -43,18 +43,18 @@ class SendSessionReportsJob implements ShouldQueue
 
         $context->forWorkspace((int) $session->workspace_id, function () use ($session, $send): void {
             $rows = $session->attendances()
+                // The teacher is a row in their own register (that is how
+                // delivery is judged), and nobody reports a teacher's attendance
+                // to their guardian. This was a `continue` inside the loop until
+                // the register was found showing the same row as a student — one
+                // rule in two places, which is how the second place gets it
+                // wrong.
+                ->excludingHost($session)
                 ->whereNull('report_sent_at')
                 ->with('student')
                 ->get();
 
             foreach ($rows as $attendance) {
-                // The teacher is a row in their own register (that is how
-                // delivery is judged), and nobody reports a teacher's attendance
-                // to their guardian.
-                if ((int) $attendance->student_user_id === (int) $session->teacherProfile?->user_id) {
-                    continue;
-                }
-
                 $send->handle($attendance);
             }
         });

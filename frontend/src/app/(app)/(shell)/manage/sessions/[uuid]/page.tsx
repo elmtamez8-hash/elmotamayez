@@ -115,8 +115,21 @@ export default function ManageSessionPage({
 
       <Card>
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <Badge tone={session.status === "cancelled" ? "danger" : "info"}>
-            {session.status_label}
+          {/* A closed room outranks a `live` status: the close job only runs at
+              the scheduled end, so a lesson the teacher ended stays `live` for a
+              while and was badged «جارية» after everyone had left. */}
+          <Badge
+            tone={
+              session.status === "cancelled"
+                ? "danger"
+                : session.status === "live" && session.room_closed
+                  ? "neutral"
+                  : "info"
+            }
+          >
+            {session.status === "live" && session.room_closed
+              ? "انتهى البثّ"
+              : session.status_label}
           </Badge>
           <Badge tone="neutral">{session.type_label}</Badge>
           <SeatBadge seats={session.seats} />
@@ -133,8 +146,11 @@ export default function ManageSessionPage({
         <div className="flex flex-wrap gap-3">
           {/* The room is reachable from here and from the student's card — there
               is no nav entry for it, because a room without a session is not a
-              place. */}
-          <Button href={`/sessions/${session.uuid}/room`}>دخول الغرفة</Button>
+              place. And a closed room is not one either: the door was still
+              offered after the broadcast ended, and answered «تعذّر الدخول». */}
+          {!session.room_closed && (
+            <Button href={`/sessions/${session.uuid}/room`}>دخول الغرفة</Button>
+          )}
 
           {session.status === "scheduled" && (
             <Button onClick={cancel} loading={cancelling} variant="danger">

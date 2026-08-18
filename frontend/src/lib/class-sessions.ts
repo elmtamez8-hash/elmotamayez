@@ -35,6 +35,12 @@ export interface ClassSession {
   type_label: string;
   status: ClassSessionStatus;
   status_label: string;
+  /**
+   * The broadcast is over even if the status has not caught up yet — the close
+   * job runs at the scheduled end, so a lesson ended early stays `live` in the
+   * meantime. Badge and room button both read this, not the status alone.
+   */
+  room_closed: boolean;
   starts_at: string;
   ends_at: string;
   duration_minutes: number;

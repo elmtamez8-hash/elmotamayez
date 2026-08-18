@@ -39,6 +39,15 @@ final class LessonAccess
 
     public const INACTIVE = 'inactive';
 
+    /**
+     * A session recording, opened by someone who held no seat in that session.
+     *
+     * The third entitlement route (FR-030): enrolment in the course is not
+     * enough, because the hour was sold by the seat. Distinct from SEQUENCE
+     * because there is nothing to go and finish — the answer is not "later".
+     */
+    public const NO_SEAT = 'no_seat';
+
     private function __construct(
         public readonly bool $allowed,
         public readonly ?string $code = null,

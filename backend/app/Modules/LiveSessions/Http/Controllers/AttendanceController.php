@@ -43,6 +43,9 @@ class AttendanceController extends Controller
         $viewer = $this->currentUser($request);
 
         $attendances = $session->attendances()
+            // The teacher has a row — it is what proves the session was
+            // delivered — but it is not a line in their own class roll.
+            ->excludingHost($session)
             ->with('student')
             ->unless(
                 $viewer->can(Permissions::ATTENDANCE_VIEW),

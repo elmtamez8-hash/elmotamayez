@@ -15,6 +15,7 @@ use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\ReferenceIntegrity;
 use App\Modules\Learning\Support\ExamGateSatisfaction;
 use App\Modules\Learning\Support\LessonAccess;
+use App\Shared\Contracts\SessionAttendanceDirectory;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Learning\EnrollmentFactory;
@@ -168,6 +169,34 @@ class Enrollment extends BaseModel
                 LessonAccess::INACTIVE,
                 'تسجيلك في هذا الكورس غير نشط حالياً.',
             );
+        }
+
+        /*
+         * ⚠️ A RECORDING IS ENTITLED BY THE SEAT, AND THE SEQUENCE MUST NOT ASK
+         * A SECOND QUESTION IN FRONT OF IT.
+         *
+         * The prerequisite query below already refuses to let a recording STAND
+         * in front of anything — the forever-bug that would lock a whole course
+         * behind an hour the student was never in. This is the mirror image, and
+         * it was missing: the recording ITSELF was gated on finishing unrelated
+         * coursework, so on 2026-08-18 a student who had booked and paid for a
+         * live session was told «أكمِل … أولاً» about the lesson that session had
+         * just produced. Its only entrance is this endpoint, so the recording was
+         * unreachable — while `IssuePlaybackGrant::mayWatch()`, the door the file
+         * is actually served through, said yes.
+         *
+         * Two doors disagreeing is the defect; the seat is which one is right.
+         * Asked through the shared directory rather than LiveSessions' models,
+         * so the rule has one implementation and Constitution III holds.
+         */
+        if ($lesson->class_session_id !== null) {
+            return app(SessionAttendanceDirectory::class)
+                ->hasBookingForLesson($this->student, (int) $lesson->getKey())
+                ? LessonAccess::allow()
+                : LessonAccess::deny(
+                    LessonAccess::NO_SEAT,
+                    'هذا تسجيل حصة لم تحجز فيها مقعداً.',
+                );
         }
 
         if (! $this->course->is_sequential) {

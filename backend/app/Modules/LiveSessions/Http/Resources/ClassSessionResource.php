@@ -48,6 +48,21 @@ class ClassSessionResource extends JsonResource
             'type_label' => $this->type->label(),
             'status' => $this->status->value,
             'status_label' => $this->status->label(),
+            /*
+             | ⚠️ `live` OUTLIVES THE ROOM BY UP TO THE JOIN WINDOW, AND THE SCREEN
+             | HAS NO OTHER WAY TO KNOW.
+             |
+             | `CloseClassSessionJob` runs at `ends_at` + the join window so a
+             | teacher who just shuts their laptop does not leave a session live
+             | for ever. A teacher who ends the broadcast DELIBERATELY is in that
+             | same gap: the room is deleted and unopenable, while the status is
+             | still `live` — so the page badged a finished lesson «جارية» and
+             | kept offering «دخول الغرفة», which answers «تعذّر الدخول».
+             |
+             | A boolean, not the timestamp: the client needs "is the door shut",
+             | and the closing time is nobody's business on a card.
+             */
+            'room_closed' => $this->room_closed_at !== null,
             'starts_at' => $this->starts_at->toIso8601String(),
             'ends_at' => $this->ends_at->toIso8601String(),
             'duration_minutes' => $this->duration_minutes,

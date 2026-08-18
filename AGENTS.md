@@ -455,6 +455,31 @@ than send it empty. The presigned url carries its own auth in the query string.
 Measured with it: Bunny starts the fetch immediately (2.8 MB `Ready` with five
 renditions **15 s** after delivery), so a 120-minute source TTL is ample.
 
+**`LIVEKIT_URL` is `wss://` for the BROWSER; the server clients need HTTP.**
+Twirp refuses any other scheme outright, so no room ever opened against a real
+LiveKit and the page said «تعذّر الدخول». Derive the API form, never add a second
+env var. Every adapter test injects the clients — none reach the line.
+
+**Read `file_results` AND the deprecated `file`.** LiveKit Cloud put a complete
+egress result under the singular field. Empty `file_results` on a COMPLETE egress
+reads as "still encoding", so the sweep gives up, marks the session failed, and
+releases the teacher's fee against a file that is sitting in our bucket.
+
+**Set the egress `layout`.** Unset means `grid`, which self-switches to `speaker`
+on a screen share and reserves an empty sidebar — most of the frame spent on
+black. `single-speaker` fills it, and keeps students' cameras out of a recording
+published to the whole session.
+
+**The host's attendance row proves DELIVERY; keep it, hide it.** Deleting it stops
+billing; showing it puts the teacher in their own class roll with a manual-
+attendance control. `Attendance::scopeExcludingHost()` is the one rule.
+
+**A recording is entitled by the seat in BOTH directions.** It may not stand in
+front of another item, AND the course sequence may not stand in front of IT —
+refuse with `NO_SEAT`, never `SEQUENCE`, because nothing can be completed to open
+it. `/learn/lessons/{lesson}` is the only player in the product, so it carries the
+author's branch too: workspace membership, which no student ever has.
+
 **A provider declares its `kinds`; the resolver routes by them.** `forKind()` for a
 new file (no row yet), `for()` for an existing one. Our own disk is the fallback and
 declares no kinds, so it takes everything. Stamp `provider` from whoever TOOK the

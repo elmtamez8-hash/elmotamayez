@@ -79,7 +79,17 @@ export default function LearnLessonPage({
         setDetail(result.lesson);
         setBlocked(result.can_access ? null : result);
       })
-      .catch(() => undefined);
+      // ⚠️ `.catch(() => undefined)` stood here, and it rendered NOTHING at all:
+      // a 404 on a uuid that is not this viewer's — a teacher opening a student
+      // route, a stale link — left the page permanently blank with the reason
+      // sitting unread in the response. A swallowed error is worse than a raw
+      // one; `userMessage` is what turns it into a sentence.
+      .catch((err: unknown) => {
+        if (!cancelled) setError(userMessage(err));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
     return () => {
       cancelled = true;

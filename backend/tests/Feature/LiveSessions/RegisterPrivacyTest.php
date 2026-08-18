@@ -168,3 +168,60 @@ it('reports zero notified when a freeze suspends nothing', function (): void {
     expect($result['suspended'])->toBe([])
         ->and($result['notified'])->toBe(0);
 });
+
+/*
+| ⚠️ THE HOST IS IN THE TABLE AND MUST NOT BE IN THE ROLL.
+|
+| The heartbeat records the teacher like any participant, and that row is the
+| ONLY evidence `CloseClassSession` has that the session was delivered — the
+| thing the teacher is paid on. So it cannot be removed.
+|
+| What it must not do is appear as a student. On 2026-08-18 the first real
+| session showed «Demo Teacher» inside the teacher's own register, marked absent
+| after two minutes in the room, beside a manual-attendance control and a note
+| field labelled «تصل وليّ الأمر مع تقرير الحصة».
+|
+| Both halves are asserted here: gone from the roll, still in the table. A fix
+| that deleted the row would pass the first assertion and stop every session from
+| being billable.
+*/
+it('keeps the host out of the roll while keeping the row that proves delivery', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $this->setCurrentWorkspace($workspace, $owner);
+
+    $teacherProfile = TeacherProfile::factory()->create([
+        'workspace_id' => $workspace->getKey(),
+        'user_id' => $owner->getKey(),
+    ]);
+
+    $session = ClassSession::factory()->create([
+        'workspace_id' => $workspace->getKey(),
+        'teacher_profile_id' => $teacherProfile->getKey(),
+    ]);
+
+    $student = $this->addWorkspaceMember($workspace, Roles::STUDENT);
+
+    foreach ([$owner, $student] as $participant) {
+        Attendance::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'class_session_id' => $session->getKey(),
+            'student_user_id' => $participant->getKey(),
+        ]);
+    }
+
+    Sanctum::actingAs($owner);
+
+    $body = $this->getJson("/api/v1/class-sessions/{$session->uuid}/attendance")
+        ->assertOk()
+        ->json('data');
+
+    expect(collect($body)->pluck('student.uuid'))
+        ->toContain($student->uuid)
+        ->not->toContain($owner->uuid);
+
+    // Still there for the one reader that needs it.
+    expect(Attendance::query()
+        ->where('class_session_id', $session->getKey())
+        ->where('student_user_id', $owner->getKey())
+        ->exists())->toBeTrue();
+});

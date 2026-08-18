@@ -321,3 +321,111 @@ it('creates no room for a session that already has one', function (): void {
 
     expect(adapter()->createRoom($session)->providerRoomId)->toBe('session-existing');
 });
+
+/*
+| ⚠️ ONE CONFIGURED URL, TWO PROTOCOLS — AND THE SERVER HALF WAS NEVER CONVERTED.
+|
+| `LIVEKIT_URL` is `wss://…` because the BROWSER dials it, and the ticket carries
+| it on untouched. The server clients speak Twirp over HTTP and refuse anything
+| else at the transport: `TwirpError: failed to send request: The scheme 'wss' is
+| not supported`. So the first room ever opened against a real LiveKit failed,
+| and the student read «تعذّر الدخول» over a message naming no URL at all.
+|
+| Every other test in this file injects both clients, which is exactly why none
+| of them reached the line that builds one. This asserts the conversion itself,
+| on both sides: the ticket must KEEP the socket scheme while the API gets HTTP —
+| a fix that changed the ticket instead would point the browser at a URL LiveKit
+| does not accept, and the suite would still be green.
+*/
+it('speaks HTTP to the server API while the ticket keeps the socket scheme', function (): void {
+    $apiUrl = (new ReflectionMethod(LiveKitBroadcastProvider::class, 'apiUrl'))
+        ->getClosure(adapter());
+
+    config()->set('sessions.livekit.url', 'wss://x.livekit.cloud');
+    expect($apiUrl())->toBe('https://x.livekit.cloud');
+
+    config()->set('sessions.livekit.url', 'ws://localhost:7880');
+    expect($apiUrl())->toBe('http://localhost:7880');
+
+    // A deployment already configured with the HTTP form must pass through, or
+    // the conversion becomes a second way to break a working install.
+    config()->set('sessions.livekit.url', 'https://x.livekit.cloud');
+    expect($apiUrl())->toBe('https://x.livekit.cloud');
+
+    config()->set('sessions.livekit.url', 'wss://x.livekit.cloud');
+    expect(adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Host)->roomUrl)
+        ->toBe('wss://x.livekit.cloud');
+});
+
+/*
+| ⚠️ AND THE SERVER MAY PUT IT IN THE DEPRECATED FIELD INSTEAD.
+|
+| The test above hands back `file_results`, which is what our own request asks
+| for. LiveKit Cloud answered a real COMPLETE egress on 2026-08-18 with that field
+| ABSENT and the whole result under the singular `file` — 15.5 MB of a lesson that
+| had just been taught.
+|
+| An empty `file_results` on a COMPLETE egress is indistinguishable from "still
+| encoding", so the sweep would have retried to the attempt limit, marked the
+| session failed and released the teacher's held fee — against a file sitting
+| intact in our own bucket, with nothing logged. This is the fixture the live
+| server actually sent.
+*/
+it('reads a recording the server reported under the deprecated field', function (): void {
+    $egress = Mockery::mock(EgressServiceClient::class);
+    $egress->shouldReceive('listEgress')->andReturn(
+        new ListEgressResponse(['items' => [new EgressInfo([
+            'status' => EgressStatus::EGRESS_COMPLETE,
+            // No `file_results` at all — exactly as it came back.
+            'file' => new FileInfo([
+                'location' => 'https://r2.example.test/mteatch-recordings/session-x.mp4',
+                'size' => 15_564_521,
+                'duration' => 133_000_384_487,
+            ]),
+        ])]])
+    );
+
+    $artifact = (new LiveKitBroadcastProvider(
+        new SessionSettings,
+        Mockery::mock(RoomServiceClient::class),
+        $egress,
+    ))->recording(adapterSession());
+
+    expect($artifact)->not->toBeNull()
+        ->and($artifact->sizeBytes)->toBe(15_564_521)
+        ->and($artifact->durationSeconds)->toBe(133);
+});
+
+/*
+| ⚠️ THE RECORDING'S LAYOUT IS A DECISION, AND LEAVING IT UNSET MAKES IT SOMEBODY
+| ELSE'S.
+|
+| The default template reserves a participant sidebar as soon as a screen is
+| shared. With the camera off that sidebar is empty, so the first real recording
+| (2026-08-18) spent most of a 1280×720 frame on black beside a letterboxed
+| screen share — on a lesson whose value is readable text.
+|
+| `single-speaker` renders the dominant track alone, edge to edge. It is also
+| what keeps other participants' cameras out of a file published to everyone who
+| booked the session.
+*/
+it('records the dominant track alone, filling the frame', function (): void {
+    $rooms = Mockery::mock(RoomServiceClient::class);
+
+    $captured = null;
+    $rooms->shouldReceive('createRoom')->once()->with(Mockery::capture($captured));
+
+    (new LiveKitBroadcastProvider(
+        new SessionSettings,
+        $rooms,
+        Mockery::mock(EgressServiceClient::class),
+    ))->createRoom(adapterSession());
+
+    expect($captured)->not->toBeNull();
+
+    $composite = $captured->getEgress()->getRoom();
+
+    expect($composite->getLayout())->toBe('single-speaker')
+        // And the file output is still the one we asked for, in our own bucket.
+        ->and(count($composite->getFileOutputs()))->toBe(1);
+});

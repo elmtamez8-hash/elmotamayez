@@ -214,7 +214,29 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
             return null;
         }
 
-        $file = $completed->getFileResults()[0] ?? null;
+        /*
+         * ⚠️ THE SERVER FILLS THE DEPRECATED SINGULAR FIELD, AND READING ONLY THE
+         * PLURAL ONE LOSES EVERY RECORDING SILENTLY.
+         *
+         * We request `file_outputs`, so `file_results` is the field that should
+         * come back — and against LiveKit Cloud on 2026-08-18 it came back ABSENT,
+         * with the whole result under the deprecated `file` instead:
+         *
+         *     "status":"EGRESS_COMPLETE","file":{"size":"15564521",
+         *      "location":"https://….r2.cloudflarestorage.com/…/session-….mp4"}
+         *
+         * An empty `file_results` on a COMPLETE egress reads exactly like "not
+         * finished yet", so the sweep would have re-asked until the attempt limit,
+         * marked the session failed, and released the teacher's held fee against a
+         * file sitting intact in our own bucket. Nothing would have been logged.
+         *
+         * Both are read, plural first: `file` is deprecated and will disappear,
+         * `file_results` is what a newer server sends. The library announces the
+         * deprecation on every call already — it fires while PARSING the response,
+         * before we touch any accessor — so reaching for it adds noise we cannot
+         * avoid and no risk we do not already carry.
+         */
+        $file = $completed->getFileResults()[0] ?? $completed->getFile();
 
         if ($file === null) {
             return null;
@@ -289,6 +311,26 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
         return (new RoomEgress)->setRoom(
             (new RoomCompositeEgressRequest)
                 ->setRoomName($roomName)
+                /*
+                 * ⚠️ LEFT UNSET, THE RECORDING WASTES MOST OF ITS OWN FRAME.
+                 *
+                 * The default template starts on `grid` and switches itself to
+                 * `speaker` the moment anyone shares a screen — which reserves a
+                 * participant sidebar beside the shared content. With the camera
+                 * off, that sidebar is empty: the first real recording (2026-08-18)
+                 * put a shared screen in the left two-thirds of a 1280×720 frame,
+                 * letterboxed, with black filling the rest. On a lesson whose whole
+                 * value is readable text, that is most of the resolution spent on
+                 * nothing.
+                 *
+                 * `single-speaker` renders the dominant track alone, full frame —
+                 * which for a shared screen is the screen, edge to edge. It also
+                 * keeps every OTHER participant's camera out of a file that is then
+                 * published to everyone who booked the session: a grid would put a
+                 * student's bedroom into a permanent lesson recording, which is a
+                 * privacy decision nobody made on purpose.
+                 */
+                ->setLayout('single-speaker')
                 ->setFileOutputs($outputs)
         );
     }
@@ -305,12 +347,40 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
         return ($session->duration_minutes + (2 * $this->settings->joinWindowMinutes())) * 60;
     }
 
+    /**
+     * The same host, over the scheme the SERVER API speaks.
+     *
+     * ⚠️ ONE CONFIGURED URL SERVES TWO PROTOCOLS, AND HANDING THE RAW VALUE TO
+     * THE SERVER CLIENTS BREAKS EVERY ROOM.
+     *
+     * `LIVEKIT_URL` is `wss://…` because that is what the BROWSER dials, and
+     * `issueTicket` sends it on untouched. But `RoomServiceClient` and
+     * `EgressServiceClient` speak Twirp over HTTP, and the transport refuses
+     * anything else outright: `TwirpError: failed to send request: The scheme
+     * 'wss' is not supported`. That surfaced as «تعذّر الدخول» on the room page,
+     * with nothing in it naming a URL — the first real room ever opened against
+     * a live LiveKit failed, and no test saw it because every test injects a
+     * client and never reaches this line.
+     *
+     * Deriving it rather than adding a second env var: two URLs for one host is
+     * two things to keep in step, and the day they disagree the tickets point
+     * somewhere the server never provisioned.
+     */
+    private function apiUrl(): string
+    {
+        $url = (string) config('sessions.livekit.url');
+
+        return str_starts_with($url, 'ws')
+            ? 'http'.substr($url, 2)
+            : $url;
+    }
+
     private function rooms(): RoomServiceClient
     {
         // Built lazily so constructing the adapter — which the contract test and
         // the container both do — never reaches for a credential or a socket.
         return $this->rooms ??= new RoomServiceClient(
-            (string) config('sessions.livekit.url'),
+            $this->apiUrl(),
             (string) config('sessions.livekit.key'),
             (string) config('sessions.livekit.secret'),
         );
@@ -319,7 +389,7 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
     private function egress(): EgressServiceClient
     {
         return $this->egress ??= new EgressServiceClient(
-            (string) config('sessions.livekit.url'),
+            $this->apiUrl(),
             (string) config('sessions.livekit.key'),
             (string) config('sessions.livekit.secret'),
         );

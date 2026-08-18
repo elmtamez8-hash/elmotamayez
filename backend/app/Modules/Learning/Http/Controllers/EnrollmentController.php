@@ -58,7 +58,7 @@ class EnrollmentController extends Controller
             return response()->json(['message' => 'This lesson does not belong to the enrolled course.'], 404);
         }
 
-        return response()->json($this->lessonPayload($enrollment, $lesson));
+        return response()->json($this->lessonPayload($lesson, $enrollment->accessTo($lesson), $enrollment));
     }
 
     /**
@@ -75,18 +75,42 @@ class EnrollmentController extends Controller
      */
     public function showLessonForViewer(Request $request, Lesson $lesson): JsonResponse
     {
+        $viewer = $this->currentUser($request);
+
         $enrollment = Enrollment::query()
             ->where('course_id', $lesson->course_id)
-            ->where('student_user_id', $this->currentUser($request)->getKey())
+            ->where('student_user_id', $viewer->getKey())
             ->first();
 
-        if ($enrollment === null) {
-            return response()->json(['message' => 'لا تملك تسجيلاً في هذا الكورس.'], 404);
+        if ($enrollment !== null) {
+            $this->authorize('view', $enrollment);
+
+            return response()->json($this->lessonPayload($lesson, $enrollment->accessTo($lesson), $enrollment));
         }
 
-        $this->authorize('view', $enrollment);
+        /*
+         * ⚠️ THE AUTHOR'S SIDE, AND WITHOUT IT THE TEACHER HAS NO PLAYER AT ALL.
+         *
+         * This is the only surface in the product that plays a lesson, and it
+         * required an enrolment — which no teacher holds in their own workspace.
+         * So the recording button on the teacher's own session page, the single
+         * link to a published recording, answered «العنصر المطلوب غير موجود أو
+         * حُذف» about a video they had just taught. `IssuePlaybackGrant::mayWatch`
+         * had allowed them all along; the entitlement existed and the door did
+         * not.
+         *
+         * Membership of the lesson's workspace is the same predicate that Action
+         * uses for the author's branch, spelled here rather than called across
+         * the module boundary (Constitution III). It is not a widening of the
+         * student route: a student is not a workspace member — the only writers
+         * of that pivot are `AcceptInvitation` and `CreateWorkspace`, so
+         * enrolling never grants it.
+         */
+        if ($viewer->workspaces()->where('workspaces.id', $lesson->workspace_id)->exists()) {
+            return response()->json($this->lessonPayload($lesson, LessonAccess::allow()));
+        }
 
-        return response()->json($this->lessonPayload($enrollment, $lesson));
+        return response()->json(['message' => 'لا تملك تسجيلاً في هذا الكورس.'], 404);
     }
 
     /**
@@ -97,10 +121,9 @@ class EnrollmentController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function lessonPayload(Enrollment $enrollment, Lesson $lesson): array
+    private function lessonPayload(Lesson $lesson, LessonAccess $access, ?Enrollment $enrollment = null): array
     {
         $lesson->load(['section', 'chapter', 'attachments']);
-        $access = $enrollment->accessTo($lesson);
 
         // A draft or archived item answers 404, not a payload with a reason.
         //
@@ -159,7 +182,9 @@ class EnrollmentController extends Controller
             'blocked_reason' => $access->code,
             'blocked_message' => $access->message,
             'blocked_by_title' => $access->blockedByTitle,
-            'enrollment_uuid' => $enrollment->uuid,
+            // Null for the author's view: there is no enrolment behind it, and
+            // the field is what a student's screen uses to mark an item complete.
+            'enrollment_uuid' => $enrollment?->uuid,
         ];
     }
 

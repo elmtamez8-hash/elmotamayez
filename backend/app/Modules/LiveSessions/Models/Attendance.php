@@ -12,6 +12,7 @@ use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Carbon\CarbonInterface;
 use Database\Factories\Modules\LiveSessions\AttendanceFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -91,5 +92,35 @@ class Attendance extends BaseModel
     public function wasOverridden(): bool
     {
         return $this->overridden_at !== null;
+    }
+
+    /**
+     * The register, without the person teaching it.
+     *
+     * ⚠️ THE HOST HAS A ROW HERE ON PURPOSE, AND IT IS NOT A STUDENT ROW.
+     *
+     * `CloseClassSession` judges delivery — the teacher's pay — from the host's
+     * own attendance row, so the heartbeat records them like anyone else and
+     * removing that row would stop every session from being billable. What must
+     * not happen is showing it as a line in the class roll: on 2026-08-18 the
+     * first real session put «Demo Teacher» in the teacher's own register,
+     * marked absent, beside a manual-attendance control and a note field
+     * labelled «تصل وليّ الأمر مع تقرير الحصة».
+     *
+     * `SendSessionReportsJob` already knew this and skipped the row in a loop.
+     * One rule in two places is how the third caller gets it wrong, so it lives
+     * here now and both read it.
+     *
+     * @param  Builder<Attendance>  $query
+     */
+    public function scopeExcludingHost(Builder $query, ClassSession $session): void
+    {
+        $hostUserId = $session->teacherProfile?->user_id;
+
+        // A session with no teacher profile has no host to exclude — filtering
+        // on null would empty the register instead of leaving it whole.
+        if ($hostUserId !== null) {
+            $query->where('student_user_id', '!=', $hostUserId);
+        }
     }
 }
