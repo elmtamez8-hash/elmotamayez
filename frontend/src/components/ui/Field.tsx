@@ -275,6 +275,47 @@ export function SelectField(
   );
 }
 
+/**
+ * One choice out of a group — a real `<input type="radio">`, deliberately.
+ *
+ * ⚠️ A CHECKBOX WITH AN EXCLUSIVE onChange WOULD HAVE BEEN THE SMALLER DIFF AND IT
+ * LIES TO EVERY SCREEN READER: it announces "checkbox", which means "these toggle
+ * independently", and the one thing this control has to convey is that they do not.
+ * A shared `name` also buys arrow-key navigation and single-tab-stop grouping from
+ * the browser, which no amount of our own JavaScript would reproduce for free.
+ */
+export function RadioField({
+  id,
+  name,
+  label,
+  checked,
+  onChange,
+  disabled,
+}: {
+  id: string;
+  /** Same value for every option in one group — this is what makes it exclusive. */
+  name: string;
+  label: ReactNode;
+  checked: boolean;
+  onChange: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <label htmlFor={id} className="flex cursor-pointer items-start gap-2 text-sm text-ink">
+      <input
+        id={id}
+        name={name}
+        type="radio"
+        checked={checked}
+        onChange={() => onChange()}
+        disabled={disabled}
+        className="mt-0.5 h-4 w-4 shrink-0 border-line accent-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      />
+      <span>{label}</span>
+    </label>
+  );
+}
+
 export function CheckboxField({
   id,
   label,

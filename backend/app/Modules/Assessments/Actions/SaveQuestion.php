@@ -152,6 +152,42 @@ class SaveQuestion extends Action
     }
 
     /**
+     * One right answer, no more and no fewer — for every caller, not only the form.
+     *
+     * ⚠️ HERE AND NOT ONLY IN THE FORM REQUEST, BECAUSE THREE CALLERS HAVE NO FORM
+     * BEHIND THEM: the importer, the seeder and Filament all reach `syncOptions`
+     * through `create`/`update`. This is the one funnel every option list passes
+     * through, which is why the rule sits on it rather than on each entrance.
+     *
+     * Both failures produce the identical, permanent symptom. No correct option and
+     * the grader scores every attempt zero. TWO correct options and
+     * `GradeAttempt::matchesSnapshot()` — which compares the SETS — requires the
+     * student to select both, while every answering surface in this product is
+     * single-select: one tap can never satisfy it. Either way every student is wrong
+     * for ever and the item reads as the hardest in the bank, which is the reading a
+     * teacher acts on by deleting a question that was fine.
+     *
+     * An empty list is not this rule's business: an essay legitimately has none, and
+     * a non-essay with none is refused by the request before it arrives.
+     *
+     * @param  array<int, array{content: string, is_correct?: bool, order?: int}>  $options
+     *
+     * @throws DomainException
+     */
+    private function guardExactlyOneCorrect(array $options): void
+    {
+        if ($options === []) {
+            return;
+        }
+
+        $correct = array_filter($options, static fn (array $option): bool => (bool) ($option['is_correct'] ?? false));
+
+        if (count($correct) !== 1) {
+            throw new DomainException('حدِّد إجابةً صحيحةً واحدةً بالضبط.');
+        }
+    }
+
+    /**
      * Reconcile the question's options with the given payload, reusing existing rows
      * positionally so surviving options keep their ids.
      *
@@ -159,6 +195,8 @@ class SaveQuestion extends Action
      */
     private function syncOptions(Question $question, array $options): void
     {
+        $this->guardExactlyOneCorrect($options);
+
         $existing = $question->options()->orderBy('id')->get()->values();
 
         foreach (array_values($options) as $index => $option) {

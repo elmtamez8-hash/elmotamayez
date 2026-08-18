@@ -32,16 +32,28 @@ export function PracticeRunner({
   const [error, setError] = useState("");
   const [result, setResult] = useState<PracticeResult | null>(null);
 
+  /*
+    One answer per question — selecting replaces, it never accumulates.
+
+    ⚠️ IT USED TO ADD, AND THAT MADE EVERY MULTI-TAP AN AUTOMATIC ZERO. Grading
+    compares the SETS (`GradeAttempt::matchesSnapshot`), and a question carries
+    exactly one correct option, so a second tap turned a right answer into a wrong
+    one with nothing on screen to say a second tap was not allowed. The three
+    question types are `mcq`, `true_false` and `essay`; not one of them means
+    "choose all that apply".
+
+    Tapping the chosen option again clears it, so "unanswered" stays reachable —
+    an empty selection scores zero, which is what an unanswered question is.
+
+    // ponytail: `aria-pressed` toggle-button semantics kept; a full
+    // role="radiogroup" would owe arrow-key navigation to be honest about the
+    // pattern, and each option is already its own tab stop.
+  */
   const toggle = (questionId: number, optionId: number) =>
-    setAnswers((previous) => {
-      const current = previous[questionId] ?? [];
-      return {
-        ...previous,
-        [questionId]: current.includes(optionId)
-          ? current.filter((id) => id !== optionId)
-          : [...current, optionId],
-      };
-    });
+    setAnswers((previous) => ({
+      ...previous,
+      [questionId]: (previous[questionId] ?? []).includes(optionId) ? [] : [optionId],
+    }));
 
   const submit = async () => {
     setSubmitting(true);

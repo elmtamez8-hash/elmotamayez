@@ -132,3 +132,67 @@ it('refuses a multiple-choice question with no correct option', function (): voi
         ],
     ])->assertStatus(422)->assertJsonValidationErrors(['options']);
 });
+
+/*
+| ⚠️ THE MIRROR OF THE CASE ABOVE, AND IT WAS ALLOWED UNTIL A TEACHER ASKED WHY.
+|
+| The rule was «at least one correct option», which reads as generous and is not:
+| `GradeAttempt::matchesSnapshot()` compares the correct SET against the selected
+| SET, so a question with two correct options can only be scored by selecting both —
+| while every answering surface in this product takes ONE answer. So it is the same
+| defect as no correct option at all, reached from the opposite side: nobody can ever
+| be right, the mistake notebook records it against every student who sat it, and a
+| wrong_pct of 100% reads as the hardest item in the bank.
+|
+| None of the three offered types means "choose all that apply". One that did would
+| need its own type, its own student screen and its own partial-credit rule.
+*/
+it('refuses a question with more than one correct option', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $this->setCurrentWorkspace($workspace, $owner);
+
+    Sanctum::actingAs($owner);
+
+    $concept = bankQuestion($workspace)->concept;
+
+    $this->postJson('/api/v1/manage/bank/questions', [
+        'concept_id' => $concept->uuid,
+        'type' => 'mcq',
+        'difficulty' => 'easy',
+        'bloom_level' => 'remember',
+        'content' => 'سؤالٌ بإجابتَين صحيحتَين؟',
+        'points' => 1,
+        'options' => [
+            ['content' => 'أ', 'is_correct' => true],
+            ['content' => 'ب', 'is_correct' => true],
+        ],
+    ])->assertStatus(422)->assertJsonValidationErrors(['options']);
+
+    expect(Question::where('content', 'سؤالٌ بإجابتَين صحيحتَين؟')->exists())->toBeFalse();
+});
+
+/*
+| ⚠️ AND THE SAME RULE ON THE ACTION, BECAUSE THREE CALLERS HAVE NO FORM BEHIND THEM.
+|
+| The importer, the seeder and Filament all reach `syncOptions` through
+| `create`/`update`. A rule enforced only in validation is a rule those three walk
+| around — which is the same reason the four mandatory tags are guarded twice.
+*/
+it('refuses two correct options on the path the importer takes', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $this->setCurrentWorkspace($workspace, $owner);
+
+    $concept = bankQuestion($workspace)->concept;
+
+    expect(fn () => app(SaveQuestion::class)->createInBank((int) $workspace->getKey(), [
+        'concept_id' => $concept->getKey(),
+        'type' => 'mcq',
+        'difficulty' => 'easy',
+        'bloom_level' => 'remember',
+        'content' => 'سؤالٌ يصل بلا نموذج؟',
+        'points' => 1,
+    ], [
+        ['content' => 'أ', 'is_correct' => true],
+        ['content' => 'ب', 'is_correct' => true],
+    ]))->toThrow(DomainException::class);
+});

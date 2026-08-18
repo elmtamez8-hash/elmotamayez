@@ -58,16 +58,23 @@ export default function TakeExamPage({
       .finally(() => setLoading(false));
   }, [uuid]);
 
+  /*
+    One answer per question — selecting replaces, it never accumulates.
+
+    ⚠️ IT USED TO ADD, WHICH TURNED A SECOND TAP INTO A GUARANTEED ZERO ON A GRADED
+    PAPER. `GradeAttempt::matchesSnapshot()` compares the answer SETS and a question
+    carries exactly one correct option, so tapping a second choice made a right
+    answer wrong — with nothing on the screen saying a second tap was not allowed,
+    and no way back once the attempt was submitted.
+
+    Tapping the chosen option again clears it, so a student can still leave a
+    question unanswered on purpose.
+  */
   const toggleOption = (questionId: number, optionId: number) => {
-    setAnswers((prev) => {
-      const current = prev[questionId] ?? [];
-      return {
-        ...prev,
-        [questionId]: current.includes(optionId)
-          ? current.filter((id) => id !== optionId)
-          : [...current, optionId],
-      };
-    });
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: (prev[questionId] ?? []).includes(optionId) ? [] : [optionId],
+    }));
   };
 
   const submit = async () => {

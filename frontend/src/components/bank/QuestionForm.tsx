@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { CheckboxField, NumberField, SelectField, TextField, TextareaField } from "@/components/ui/Field";
+import { CheckboxField, NumberField, RadioField, SelectField, TextField, TextareaField } from "@/components/ui/Field";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import {
@@ -226,11 +226,19 @@ export function QuestionForm({ question }: { question?: BankQuestion }) {
                   />
                 </div>
                 <div className="pb-3">
-                  <CheckboxField
+                  {/* Exclusive by construction: marking one option correct unmarks
+                      the rest, because the answer set the grader compares against
+                      holds exactly one id. */}
+                  <RadioField
                     id={`correct-${index}`}
+                    name="correct-option"
                     label="صحيح"
                     checked={option.is_correct}
-                    onChange={(checked) => setOption(index, { is_correct: checked })}
+                    onChange={() =>
+                      setOptions((current) =>
+                        current.map((o, i) => ({ ...o, is_correct: i === index })),
+                      )
+                    }
                   />
                 </div>
                 {options.length > 2 && (
@@ -245,13 +253,14 @@ export function QuestionForm({ question }: { question?: BankQuestion }) {
               </div>
             ))}
 
-            {/* A question nobody can get right is not a hard question — every
-                student gets it wrong, and its 100% error rate then reads as the
-                hardest item in the bank. Said here as well as refused by the
-                server, so the teacher learns it before they press save. */}
+            {/* Both ends of the rule fail the same way and the screen says so
+                before the server has to. No correct option and every student is
+                marked wrong; TWO and the grader — which compares the answer SET —
+                demands both taps from a screen that takes one, so again nobody can
+                ever be right, and again it reads as the hardest item in the bank. */}
             <p className="text-sm text-ink-muted">
-              حدِّد إجابةً صحيحةً واحدةً على الأقل. سؤالٌ بلا إجابةٍ صحيحة يخطئ فيه كلّ طالب،
-              فيظهر في التحليل كأصعب أسئلة بنكك.
+              حدِّد إجابةً صحيحةً واحدةً بالضبط. سؤالٌ بلا إجابةٍ صحيحة — أو بإجابتَين — يخطئ
+              فيه كلّ طالب، فيظهر في التحليل كأصعب أسئلة بنكك.
             </p>
           </div>
         </Card>

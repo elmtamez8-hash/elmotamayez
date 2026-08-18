@@ -125,6 +125,41 @@ it('refuses a row with no concept and one with no correct option', function (): 
         ->and($import->report[1]['reason'])->toContain('correct');
 });
 
+/*
+| ⚠️ A `correct` COLUMN NAMING TWO POSITIONS IS A ROW FAILURE, NOT AN IMPORT.
+|
+| It used to be accepted, and the resulting question could never be answered: the
+| grader compares the correct SET against the selected SET, and every answering
+| screen in this product takes one answer. So the file imported cleanly, the teacher
+| saw «تمّ» beside the row, and the question was wrong for every student for ever.
+|
+| Refused with the COLUMN named rather than by letting `SaveQuestion` refuse it a
+| moment later: this reason is read beside a row number in a file of two hundred, and
+| «حدِّد إجابةً واحدةً» there says nothing about which cell to edit. The rest of the
+| file still imports, which is the whole contract of a per-row failure.
+*/
+it('refuses a row whose correct column names two options, and imports the rest', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $this->setCurrentWorkspace($workspace, $owner);
+
+    $body = '"بإجابتَين؟",الجبر,easy,remember,mcq,1,,أ|ب|ج,1|2
+'
+        .'"بإجابةٍ واحدة؟",الجبر,easy,remember,mcq,1,,أ|ب|ج,2
+';
+
+    $import = startImport((int) $workspace->id, (int) $owner->id, importFile($body));
+
+    app(ImportQuestions::class)->handle($import);
+
+    $import->refresh();
+
+    expect($import->failed_count)->toBe(1)
+        ->and($import->imported_count)->toBe(1)
+        ->and($import->report[0]['reason'])->toContain('correct')
+        ->and(Question::where('content', 'بإجابتَين؟')->exists())->toBeFalse()
+        ->and(Question::where('content', 'بإجابةٍ واحدة؟')->exists())->toBeTrue();
+});
+
 it('marks the correct option by its position, not by repeating its text', function (): void {
     [$workspace, $owner] = $this->createWorkspaceWithOwner();
     $this->setCurrentWorkspace($workspace, $owner);

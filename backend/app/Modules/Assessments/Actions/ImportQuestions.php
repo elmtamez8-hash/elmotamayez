@@ -365,11 +365,26 @@ class ImportQuestions extends Action
             ];
         }
 
-        if ($options !== [] && ! in_array(true, array_column($options, 'is_correct'), true)) {
+        $correct = count(array_filter(array_column($options, 'is_correct')));
+
+        if ($options !== [] && $correct === 0) {
             // The same rule the form enforces: a question nobody can get right
             // is not a hard question, it is a broken one, and its 100% wrong rate
             // reads as the hardest item in the teacher's bank.
             throw new DomainException('لم يُحدَّد أيّ خيارٍ صحيح في عمود «correct».');
+        }
+
+        /*
+         * ⚠️ AND «correct» NAMING TWO OPTIONS IS REFUSED HERE, WITH THE COLUMN NAMED.
+         *
+         * `SaveQuestion` would refuse it a moment later, but its message speaks about
+         * a question rather than about a spreadsheet cell — and this is a per-row
+         * failure a teacher reads beside a row number in a file of two hundred. The
+         * grader compares the correct SET, so two would demand both taps from a
+         * single-select screen: unanswerable, for ever, by every student.
+         */
+        if ($correct > 1) {
+            throw new DomainException('عمود «correct» يحدّد أكثر من خيارٍ صحيح — المطلوب خيارٌ واحد.');
         }
 
         return $options;
