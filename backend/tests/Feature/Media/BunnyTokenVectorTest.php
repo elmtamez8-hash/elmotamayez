@@ -5,7 +5,21 @@ declare(strict_types=1);
 use App\Modules\Media\Providers\BunnyMediaProvider;
 
 /*
-| SC-002 — THE SIGNATURE IS MEASURED AGAINST THE VENDOR'S OWN PUBLISHED VECTOR.
+| SC-002 — THE SIGNATURE IS PINNED TO A DIGEST, AND THE DIGEST IS CONFIRMED LIVE.
+|
+| ⚠️ AND «THE VENDOR'S OWN PUBLISHED VECTOR» IS WHAT THIS FILE USED TO CLAIM, WHICH
+| IS FALSE — `BunnyWay/BunnyCDN.TokenAuthentication` publishes a reference
+| implementation and NO test vectors. The constant below was computed from that
+| implementation's algorithm, which makes it a pin against drift and NOT independent
+| corroboration: had the algorithm been read wrong, this file would have pinned the
+| wrong answer and said so confidently.
+|
+| What corroborates it is an account: on 2026-08-18 a URL built by `manifest()` was
+| fetched from a real pull zone and answered **200**, and so did the rendition
+| playlist and the first `.ts` beneath it — inherited under the same path token, with
+| no second signature anywhere. That is the claim `token_path` exists to make, and it
+| is now measured rather than reasoned. This file keeps that answer from moving
+| without an account, a network, or a bill.
 |
 | ⚠️ AND A SHAPE ASSERTION IS WHY THIS FILE EXISTS. `BunnyPlaybackTest` checked that
 | the token starts with `HS256-` and that `token_path` is present with a trailing

@@ -324,6 +324,16 @@ final class BunnyMediaProvider implements MediaProviderInterface
      * asserts is refused, meaning that guard passed while no student could watch
      * anything. The signature is identical in both forms; only placement differs.
      *
+     * ⚠️ AND A CORRECT SIGNATURE STILL 403s WITH NO `Referer` HEADER — measured
+     * against a real zone on 2026-08-18. The provider's «block direct URL file
+     * access» refuses a request that carries no referrer and accepts one carrying
+     * ANY value, so it protects nothing and must not be counted as a control. What
+     * it does do is make a debugging session lie: a `curl` that omits the header
+     * reads a perfect token as a broken one, and the security key becomes the
+     * obvious suspect. A browser playing from our own page always sends it — which
+     * is why a `Referrer-Policy: no-referrer` anywhere in the frontend would refuse
+     * every video for every student, with the refusal visible only at the CDN.
+     *
      * ⚠️ AND NO NETWORK CALL. This runs on every playback request, so a call here
      * would turn a provider slowdown into zero viewing rather than degraded
      * viewing (FR-013). The URL is derived and signed locally; that is the entire

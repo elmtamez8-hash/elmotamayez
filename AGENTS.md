@@ -513,8 +513,17 @@ the video's DIRECTORY with the advanced scheme: `HS256-` + Base64URL(HMAC-SHA256
 (`/bcdn_token=…`), never the query: a relative segment URI inherits the base query
 only when its own path is empty, and an HLS master playlist's references are not.
 A test that asks for the playlist and stops passes over both defects; so does one
-that asserts the token's shape. Pin it to the vendor's published vector
-(`BunnyTokenVectorTest`).
+that asserts the token's shape. `BunnyTokenVectorTest` pins the digest — a pin, NOT
+corroboration: the vendor publishes a reference implementation and no vectors, so the
+value came from reading that implementation. The corroboration is a live 200 on the
+master playlist, the rendition and the first `.ts` (2026-08-18).
+
+**A correctly signed URL 403s with no `Referer` header.** Bunny Stream's «block
+direct URL file access»; any referrer passes, so it protects nothing and must not be
+counted — but a curl probe or a smoke test that omits it reads a valid signature as a
+broken one, and a `Referrer-Policy: no-referrer` on the frontend would 403 every
+video for every student. The zone sends `Access-Control-Allow-Origin: *` on the
+segments as well as the index, which is what lets hls.js read the manifest by XHR.
 
 **Send our own route as `manifest_url`.** A redirect provider's manifest url
 carries `provider_asset_id`, which FR-011 forbids in a payload.

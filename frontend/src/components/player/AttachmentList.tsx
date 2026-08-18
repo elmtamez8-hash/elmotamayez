@@ -46,7 +46,22 @@ export function AttachmentList({
 
     try {
       const grant = await media.requestAssetPlayback(lessonUuid, attachment.uuid);
-      window.open(grant.manifest_url, "_blank", "noopener,noreferrer");
+
+      /*
+        `noopener` alone, and dropping `noreferrer` is the point.
+
+        ⚠️ THIS URL IS A REDIRECT FOR ANY COMMERCIAL PROVIDER, AND THAT PROVIDER
+        REFUSES A REQUEST WITH NO `Referer` — measured against a real zone on
+        2026-08-18: a correctly signed URL answers 403 without the header and 200
+        with any value at all. `noreferrer` suppresses it for the navigation and for
+        the redirect that follows, so an attachment stored at the CDN would open a
+        vendor error page instead of the file, with nothing in our logs.
+
+        Nothing is lost: `noopener` is the half that matters — it keeps the new tab
+        from reaching back through `window.opener` — and the referrer we are
+        withholding here is our own origin, from a link we built ourselves.
+      */
+      window.open(grant.manifest_url, "_blank", "noopener");
     } catch (err: unknown) {
       setError(userMessage(err));
     } finally {
