@@ -14,7 +14,7 @@ use App\Modules\Notifications\Support\NotificationType;
 | it. The count below is what notices.
 */
 
-it('defaults to whatsapp for exactly the seventeen types a guardian receives', function (): void {
+it('defaults to whatsapp for exactly the seventeen guardian types plus the security alert', function (): void {
     $onWhatsApp = array_values(array_filter(
         NotificationType::cases(),
         fn (NotificationType $type): bool => in_array(
@@ -28,25 +28,33 @@ it('defaults to whatsapp for exactly the seventeen types a guardian receives', f
     // guardian set by accident is exactly how a message nobody chose starts
     // costing money on a parent's phone — and the opposite slip is how the one
     // message this phase was built for stops arriving.
-    expect($onWhatsApp)->toHaveCount(17);
+    expect($onWhatsApp)->toHaveCount(18);
 });
 
-it('derives the set from targetsGuardians rather than from a second list', function (): void {
+it('derives the set from targetsGuardians, with the security alert as the only named exception', function (): void {
     // Two hand-written lists answering one question diverge at the first type
     // anybody adds, and the divergence is silent: the new type simply never
-    // leaves the platform.
+    // leaves the platform. So the rule stays derived, and the ONE exception is
+    // asserted by name — a second unlisted divergence fails here.
     foreach (NotificationType::cases() as $type) {
         expect(in_array(NotificationChannel::WhatsApp, $type->defaultChannels(), true))
-            ->toBe($type->targetsGuardians(), $type->value);
+            ->toBe($type->targetsGuardians() || $type === NotificationType::SecurityAlert, $type->value);
     }
 });
 
-it('leaves the security alert on the bell alone, which is a decision and not an oversight', function (): void {
-    // Mandatory, and the student's own — so targetsGuardians() is false. Named
-    // here so that changing it is a deliberate act with a failing test attached,
-    // rather than something discovered later in a diff.
+it('sends the security alert to a phone without sending it to a guardian', function (): void {
+    // The alert says somebody else signed in as you, and the bell reaches its
+    // owner only on their next visit — which, if the eviction worked, is the
+    // person who no longer can. So it leaves the platform.
     expect(NotificationType::SecurityAlert->defaultChannels())
-        ->toBe([NotificationChannel::InApp]);
+        ->toBe([NotificationChannel::InApp, NotificationChannel::WhatsApp]);
+
+    // ⚠️ AND THE OTHER HALF, which is why this is not one word in
+    // targetsGuardians(): the sign-in it reports may BE the guardian's, and a
+    // student's own security alert copied to their parent is a different feature
+    // nobody asked for. No fan-out, and no guardian permission to gate it by.
+    expect(NotificationType::SecurityAlert->targetsGuardians())->toBeFalse();
+    expect(NotificationType::SecurityAlert->requiredGuardianPermission())->toBeNull();
 });
 
 it('always keeps the in-app channel, so nothing is reachable only off-platform', function (): void {

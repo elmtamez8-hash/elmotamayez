@@ -180,12 +180,23 @@ enum NotificationType: string
         // first type anybody adds, and the divergence is silent: the new type
         // simply never leaves the platform.
         //
-        // What is deliberately NOT here: security_alert. It is mandatory and it
-        // is the student's own, so targetsGuardians() is false for it — and a
-        // sign-in from a new device reaching only the bell is arguably the same
-        // gap this whole phase exists to close. Left out because that is the
-        // decision that was taken, and adding it is one word in that method.
-        return $this->targetsGuardians()
+        // ⚠️ AND security_alert IS THE ONE NAMED EXCEPTION, added deliberately.
+        //
+        // It is the message that says somebody else signed in as you, and the
+        // bell alone reaches it only when the account holder next opens the site
+        // — which, if the eviction worked, is the person who no longer can. That
+        // is the one notification whose value is entirely in arriving BEFORE the
+        // next visit, so it is the one type that leaves the platform without
+        // targeting a guardian.
+        //
+        // ⚠️ AND IT IS WRITTEN HERE RATHER THAN IN targetsGuardians(), where an
+        // earlier version of this comment wrongly said one word would do it.
+        // That method does two other things: it fans the message out to every
+        // authorised guardian, and it demands a GuardianPermission to gate it by.
+        // A student's own security alert copied to their parent is a different
+        // feature nobody asked for — and the sign-in it reports may well BE the
+        // parent's. One word there would have shipped that silently.
+        return $this->targetsGuardians() || $this === self::SecurityAlert
             ? [NotificationChannel::InApp, NotificationChannel::WhatsApp]
             : [NotificationChannel::InApp];
     }

@@ -105,7 +105,13 @@ it('still delivers a mandatory type when a stored preference tries to empty it',
 
     send($user, NotificationType::SecurityAlert);
 
-    expect(NotificationDelivery::query()->count())->toBe(1)
+    // Asserted per CHANNEL rather than as a total. Spec 020's Q6 added WhatsApp
+    // to this type's defaults, so a bare count of 1 was measuring the size of
+    // the default set and calling it "was it delivered" — the two questions
+    // agreed only while there was one channel.
+    expect(NotificationDelivery::query()
+        ->where('channel', NotificationChannel::InApp->value)
+        ->count())->toBe(1)
         ->and(Notification::query()->count())->toBe(1);
 });
 

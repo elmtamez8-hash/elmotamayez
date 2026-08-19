@@ -156,7 +156,7 @@ intended behaviour of an unconfigured deployment, not a fault.
       env values (`WHATSAPP_BASE_URL`, `WHATSAPP_AUTH_HEADER`) and no code.
 - [ ] **A dedicated phone number** attached to the WhatsApp Business account. It cannot be a
       number already in use on the consumer WhatsApp app.
-- [ ] **Eighteen Arabic message templates submitted and approved.** Every message the
+- [ ] **Nineteen Arabic message templates submitted and approved.** Every message the
       platform starts must be an approved template: free-form text is permitted only inside
       the 24-hour window a user opens **by replying**, and we receive nothing, so that window
       never opens. Submit each with the name in `message_templates.type` and the body
@@ -165,7 +165,7 @@ intended behaviour of an unconfigured deployment, not a fault.
       parameter is which.
 - [ ] ⚠️ **Approve `contact_verification` FIRST.** It carries the one-time code, so until it
       is approved no number on the platform can be verified — and the channel refuses to
-      reach an unverified number, so approving the other seventeen first buys nothing at all.
+      reach an unverified number, so approving the other eighteen first buys nothing at all.
 - [ ] **Flip `provider_approval_status` to `approved`** on each row as its approval lands
       (`/admin` ▸ Message Templates). The seeder ships every WhatsApp row `pending` on
       purpose: claiming an approval that has not happened turns the first send into a

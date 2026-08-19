@@ -56,7 +56,7 @@ class NotificationTemplateSeeder extends Seeder
          * ⚠️ AND THE ONE THAT MUST BE APPROVED FIRST. It carries the one-time
          * code, so until the provider approves it no number on the platform can
          * be verified — and canReach() is false for everybody, so not one of the
-         * seventeen above ever leaves the building. Approving the others first
+         * eighteen above ever leaves the building. Approving the others first
          * buys nothing at all.
          */
         $this->whatsAppTemplate(

@@ -128,7 +128,7 @@ WHATSAPP_DEFAULT_COUNTRY_CODE=974
 
 ### ق٦ — الافتراضيات: `targetsGuardians()` هو المُسنَد، لا قائمةٌ ثانية
 
-`defaultChannels()` يقرأ `targetsGuardians()` **الموجودَ** بدل أن يعدّد ١٧ حالةً ثانيةً.
+`defaultChannels()` يقرأ `targetsGuardians()` **الموجودَ** بدل أن يعدّد حالاتٍ ثانيةً، باستثناءٍ مُسمّى واحدٍ هو `security_alert`.
 قائمتان لنفس السؤال تفترقان عند أوّل نوعٍ يُضاف. و`SC-006` يقيس **العدد** فيسقط على إضافةٍ سهواً.
 
 ### ق٧ — ما لا يُبنى
@@ -156,7 +156,7 @@ backend/
 │   └── NotificationsServiceProvider.php                  ← مُعدَّل: سطرُ وسمٍ واحد
 ├── config/notifications.php                              ← مُعدَّل: كتلةُ whatsapp
 ├── config/horizon.php                                    ← مُعدَّل: waits
-├── database/seeders/NotificationTemplateSeeder.php       ← مُعدَّل: ١٨ صفَّ واتساب
+├── database/seeders/NotificationTemplateSeeder.php       ← مُعدَّل: ١٩ صفَّ واتساب
 └── tests/Feature/Notifications/…                         ← ٥ ملفّات
 
 frontend/src/
@@ -165,7 +165,7 @@ frontend/src/
 └── components/settings/WhatsAppVerification.tsx          ← جديد
 ```
 
-**١٨ صفَّ قالبٍ لا ١٧**: سبعةَ عشرَ نوعاً + `contact_verification`.
+**١٩ صفَّ قالبٍ**: سبعةَ عشرَ نوعاً لوليّ الأمر + `security_alert` + `contact_verification`.
 
 ---
 
