@@ -12,6 +12,29 @@
 
 ---
 
+> ## ✅ الحالة: **كلُّ ما دون «المردود» مُدمَجٌ في التصميم — ولا بندَ مؤجَّل**
+>
+> بطلبٍ صريح: «نفّذ الثلاثة كلها ولا تؤجل شيئا». والثلاثةُ التي كانت مفتوحة:
+>
+> | # | القرار | حيث نُفِّذ |
+> |---|---|---|
+> | ١ | **عمودُ الأصناف على `terms_consents`** — ومعه `decision` والمفتاحُ الفريد، بهجرةٍ في `Payments` | [`data-model.md §1`](./data-model.md) · [`contracts/consent-directory.md`](./contracts/consent-directory.md) |
+> | ٢ | **حالةُ التفعيل في `Identity`** — `FR-009د`/`هـ` جديدان، والـAction والبوّابةُ وشاشتا التسجيل | [`data-model.md §10`](./data-model.md) · [`research.md §R10`](./research.md) |
+> | ٣ | **`FR-040` يُبنى** — `breach_reports` ونقطةٌ عامّةٌ ولوحةُ موظّف | [`data-model.md §7`](./data-model.md) · [`research.md §R11`](./research.md) |
+>
+> **وما وراءها**: ٦ متطلَّباتٍ فرعيةٍ جديدة (`FR-002` صار مفروضاً آلياً · `FR-009د` · `FR-009هـ`)
+> و**٥ معايير نجاحٍ جديدة** (`SC-018`…`SC-022`) و**٩ ملفّاتِ اختبارٍ** لم تكن موجودةً في الجدول ·
+> `expire()` دالّةً خامسة · `retention_sweep_runs` · `open_key` · `RetryStalledDataRequestsJob` ·
+> `DataSubject` · `TransferDataOwnershipJob` (‏مُعادُ التسمية) · `PruneExpiredExportsJob` ·
+> `GuardianPermission::DataRights` · `SettlementClearance` مُسمًّى بملفّه ·
+> `PersonalDataOwner`+`ErasureMode` إلى `Shared` · ١٣ منفّذاً · قطعُ `retention_rules` وقطعُ
+> `RecordProcessingConsent` و`/privacy/consents` · وكلُّ الفهارس والأرقام المُصحَّحة.
+>
+> **وقُطع ثلاثةٌ لأن المشحونَ يخدمها**: `RecordProcessingConsent` · `POST/GET /privacy/consents` ·
+> صفُّ `consents.versions.data_processing`.
+
+---
+
 ## ١ — ما رُدّ على الوكلاء
 
 | الادّعاء | الحقيقة |

@@ -59,8 +59,12 @@ Horizon + Redis للطوابير · `ZipArchive` من PHP نفسِه لملفّ 
 `platform_settings` · الوحدةُ الجديدة تُدرَج في `phpstan.neon` · الهجراتُ في
 `Database/Migrations` بحرفٍ كبير.
 
-**Scale/Scope**: وحدةٌ واحدةٌ جديدة · ~٧ جداول · عقدٌ ينفّذه ١١ وحدةً تملك بياناً شخصياً ·
-٤٣ متطلَّباً · ١٧ معيارَ نجاح · ٦ قصص.
+**Scale/Scope**: وحدةٌ واحدةٌ جديدة · **٦ جداولَ جديدةٍ + ٣ تعديلاتٍ على جداولَ قائمة** · عقدٌ
+ينفّذه **١٣** وحدةً باستثناءٍ واحد · **٥٠ متطلَّباً** (`FR-001`…`FR-043` ومعها التسعُ الفرعية) ·
+**٢٢ معيارَ نجاح** · ٦ قصص.
+
+> الأرقامُ صُحِّحت في المراجعة: كانت «٤٣ متطلَّباً · ١٧ معياراً · ١١ منفّذاً · ٧ جداول» — والفارقُ
+> في المتطلَّبات هو **بالضبط** ما أضافته جلسةُ التوضيح، أي الرقمُ الذي سيستعمله فحصُ النطاق.
 
 **لا `NEEDS CLARIFICATION` واحدة**: الخمسةُ أُغلقت في جلسة `/speckit-clarify` بتاريخ 2026-08-19،
 والمؤجَّلان (‏قاعدةُ الحسم بين أوصياءَ مختلفين · صيغةُ ملفّ التصدير) حُسما في
@@ -132,10 +136,14 @@ Horizon + Redis للطوابير · `ZipArchive` من PHP نفسِه لملفّ 
 في `CLAUDE.md` عن التقارير المنصّية. و`SC-005` (‏صفر بياناتِ شخصٍ آخرَ في ملفّ) هو الوجهُ
 الآخرُ للاختبار نفسِه.
 
-**الحكم**: ✅ يمرّ. صفر نموذجٍ مملوكٍ لمساحة عملٍ يُضاف، فلا حالةَ عزلٍ جديدةً في
-`WorkspaceIsolationTest` — بل **حالتان جديدتان** بحسب القاعدتين: اختبارُ الصنف (أ) لـ`DataRequest`
-(‏مدرّسٌ لا يراه · والطالبُ يرى طلبَه الواحدَ عبر كلّ مدرّسيه)، واختبارُ الصنف (ب) للثلاثة
-المرجعية (‏أعلى دورِ مستأجرٍ يُردّ بـ403).
+**الحكم**: ✅ يمرّ. ⚠️ **وثلاثُ حالاتٍ لا حالتان** — والنسخةُ الأولى قالت «صفر نموذجٍ مملوكٍ لمساحة
+عملٍ يُضاف فلا حالةَ عزلٍ جديدة»، وهو خطأٌ ناتجٌ عن **عدم إعلان** تصنيفِ `teacher_offboardings`:
+
+1. الصنف (أ) لـ`DataRequest` — مدرّسٌ لا يراه · والطالبُ يرى طلبَه **الواحدَ** عبر كلّ مدرّسيه.
+2. الصنف (ب) للمرجعية (‏`data_categories` · `data_processors` · `retention_sweep_runs` ·
+   `breach_reports`) — أعلى دورِ مستأجرٍ يُردّ بـ403.
+3. **`teacher_offboardings` يستخدم `BelongsToWorkspace`** كالجسرَين المشحونَين (`Enrollment` و
+   `SessionBooking`)، **فتُضاف حالةٌ في `WorkspaceIsolationTest`**.
 
 ### المبدأ II — المنطق في الـ Actions
 
@@ -149,18 +157,34 @@ Horizon + Redis للطوابير · `ZipArchive` من PHP نفسِه لملفّ 
 هذا هو المبدأ الذي تشتبك معه المرحلةُ فعلاً، ومن جهتين:
 
 **١ — الموافقةُ في `Payments` والامتثالُ يحتاجها.** الحلُّ عقدٌ في `App\Shared\Contracts\` —
-`ConsentDirectory` — يُربَط بـ`Payments\Support\ConsentRegistry` القائم، تماماً كما
-`App\Shared\Contracts\EnrollmentDirectory` يخدم القرّاءَ عبر الحدود اليوم. **صفر نقلِ ملفٍّ
-وصفر هجرة**: نقلُ `TermsConsent` إلى الوحدة الجديدة يقلب المخالفةَ ولا يزيلها، ويعيد كتابة
-`WithholdingReader` بلا مقابل.
+`ConsentDirectory` — يُربَط بـ**`Payments\Support\EloquentConsentDirectory`** يفوّض القراءةَ إلى
+`ConsentRegistry` والكتابةَ إلى الـAction `RecordTermsConsent`، مطابقاً `EloquentEnrollmentDirectory`
+و`EloquentGuardianDirectory` المشحونَين. **صفر نقلِ ملفّ**: نقلُ `TermsConsent` إلى الوحدة الجديدة
+يقلب المخالفةَ ولا يزيلها ويعيد كتابةَ `WithholdingReader` بلا مقابل.
 
-**٢ — عقدُ التصدير والمحو يجب أن تنفّذه كلُّ وحدة.** وهو **ليس** خرقاً للمبدأ بل تطبيقُه:
-`Compliance` لا تعرف جداولَ أحد؛ تنادي واجهةً تنفّذها كلُّ وحدةٍ وتُسجَّل بوسمٍ واحد — نفسُ
-نمطِ `->tag('notification.channels')` القائم من 003. ولا حدثَ هنا لأن التصديرَ **يحتاج جواباً**،
-والأحداثُ لا تُرجع قيماً.
+⚠️ **لكن صفر تعديلٍ في Payments غيرُ صحيح، وقولُه كان خطأً.** `ConsentRegistry` **بلا `record()`**،
+والجدولُ **بلا عمودِ أصناف** — فتُضاف هجرةُ عمودَي `categories` و`decision` والمفتاحُ الفريد،
+و`consentedCategories()`، و`EloquentConsentDirectory`، ووسيطان على الـAction. أربعةُ تعديلاتٍ
+مُعلَنةٌ في [`contracts/consent-directory.md`](./contracts/consent-directory.md).
+
+**٢ — عقدُ التصدير والمحو والانقضاء تنفّذه كلُّ وحدة.** وهو **ليس** خرقاً للمبدأ بل تطبيقُه:
+`Compliance` لا تعرف جداولَ أحد؛ تنادي واجهةً تُسجَّل بوسمٍ واحد — نفسُ نمطِ
+`->tag('notification.channels')` من 003. ولا حدثَ، لأن التصديرَ **يحتاج جواباً** والأحداثُ لا تُرجع
+قيماً.
+
+⚠️ **والواجهةُ في `App\Shared\Contracts\` لا في `Compliance\Contracts\`.** الخطةُ كانت تُطبّق
+القاعدةَ الصحيحةَ على `ConsentDirectory` وتُخالفها في عقدها الأكبر. سبعُ واجهاتٍ عابرةٍ للوحدات
+تعيش في `Shared/Contracts/`، وواجهاتُ `{Module}/Contracts/` تُنفَّذ داخل وحدتها — إلا اثنَين، وهما
+مُستهلِكان يبلغان واجهةَ **مُهايئِ مزوّد**. **و`ErasureMode` معها** إلى `Shared\Support\`، بسابقةِ
+`GuardianPermission` وتعليقِها: «مفرداتٌ مشتركةٌ بين وحدتَين».
+
+**٣ — خروجُ المدرّس أحداثٌ لا Action يعرف خمسةَ سياقات.** `TeacherOffboardingRequested` و
+`Completed` تشترك فيهما Marketplace وTenancy وIdentity وMedia وCourses وNotifications، وجسرُ الحسم
+عقدٌ **مُسمًّى** — [`contracts/settlement-clearance.md`](./contracts/settlement-clearance.md).
 
 ✅ يمرّ. `Compliance` تُضاف إلى `phpstan.neon`، ومجلدُ هجراتها `Database/Migrations`، ومزوّدُها
-يُكتشَف تلقائياً.
+يُكتشَف تلقائياً. ⚠️ **و`ContextIsolationTest` يُوسَّع مسحُه لتشملها** — يمسح `Settlement/` و
+`Payments/` وحدهما اليوم، فالحارسُ المُستشهَدُ به لا يحرس هذه المرحلة قبل التوسيع.
 
 ### المبدأ IV — البوابات الأربع خضراء
 
@@ -214,58 +238,102 @@ specs/013-data-protection-minors/
 ### Source Code (repository root)
 
 ```text
-backend/app/Modules/Compliance/            # الوحدة الوحيدة الجديدة
-├── ComplianceServiceProvider.php           # يُكتشَف تلقائياً · Event::listen · وسمُ العقد
+backend/app/Shared/                          # ⚠️ المفرداتُ المشتركة — لا مساحةُ Compliance
+├── Contracts/PersonalDataOwner.php           # تنفّذه ١٣ وحدة
+├── Contracts/ConsentDirectory.php            # نحو الموافقة القائمة في Payments
+├── Contracts/SettlementClearance.php         # نحو دفتر 014 — مُسمًّى الآن
+├── Support/ErasureMode.php                   # وسيطُ عقدٍ عابرٍ، بسابقة GuardianPermission
+├── Support/GuardianPermission.php            # + حالةٌ سادسة: DataRights
+└── Data/DataSubject.php                      # user · workspaceIds · enrollmentIds · grantedScope
+
+backend/app/Modules/Compliance/              # الوحدة الوحيدة الجديدة
+├── ComplianceServiceProvider.php
 ├── Actions/
-│   ├── RecordProcessingConsent.php         # يمرّ بـ ConsentDirectory لا بجدول
-│   ├── ActivateStudentAccount.php           # بوّابة FR-003 · FR-009ب · FR-009ج
-│   ├── TransferDataOwnership.php            # FR-009 — يُنادى من الكنسة عند البلوغ
-│   ├── CreateDataRequest.php                # اطّلاع · تصدير · حذف
-│   ├── ExecuteDataExport.php                # يستدعي كل منفّذي العقد
-│   ├── ExecuteDataErasure.php               # محوٌ وإخفاءُ هويةٍ لا يُعكَس
+│   ├── CreateDataRequest.php                 # يسأل GuardianDirectory لا سياسةَ صفّ
+│   ├── ExecuteDataExport.php                 # يمرّ على منفّذي العقد، مولِّداً مولِّداً
+│   ├── ExecuteDataErasure.php                # محدودٌ · مستأنِفٌ · يُعيد قراءةَ التعليق كلَّ دفعة
 │   ├── PlaceLegalHold.php · ReleaseLegalHold.php
-│   ├── SaveRetentionRule.php · SaveDataCategory.php · SaveDataProcessor.php
+│   ├── SaveDataCategory.php · SaveDataProcessor.php
+│   ├── ReportBreach.php · AdvanceBreachReport.php          # FR-040
 │   └── RequestTeacherOffboarding.php · ExecuteTeacherOffboarding.php
-├── Contracts/PersonalDataOwner.php          # ما تنفّذه كل وحدة
 ├── Support/
-│   ├── PersonalDataRegistry.php             # يجمع منفّذي الوسم
-│   ├── ExportFieldAllowlist.php             # قائمةٌ مغلقة
-│   ├── ComplianceSettings.php               # كل مهلةٍ ومدّةٍ من platform_settings
-│   ├── Anonymiser.php                       # لا يُعكَس ولا يُستنتَج
-│   └── ComplianceAuditSubjects.php          # مرشّحُ activity_log الخاصّ بها
+│   ├── PersonalDataRegistry.php · ExportFieldAllowlist.php
+│   ├── ComplianceSettings.php · Anonymiser.php · ComplianceAuditSubjects.php
 ├── Jobs/
-│   ├── RunRetentionSweepJob.php             # الوظيفةُ الليليةُ الواحدة
-│   ├── FulfilDataRequestJob.php
-│   └── ExpireDataOwnershipJob.php           # انتقالُ الملكية عند البلوغ
-├── Models/  Enums/  Policies/  Http/{Controllers,Requests,Resources}/
-├── Database/Migrations/                     # ⚠️ M كبيرة
-└── routes/api.php                           # يُحمَّل تلقائياً على /api/v1
+│   ├── RunRetentionSweepJob.php                            # الليليةُ الواحدة · ساعةٌ خاصّة
+│   ├── FulfilDataRequestJob.php                            # طابور compliance · مهلةٌ صريحة
+│   ├── RetryStalledDataRequestsJob.php                     # يكنس processing العالق
+│   ├── TransferDataOwnershipJob.php                        # كان ExpireDataOwnershipJob
+│   └── PruneExpiredExportsJob.php                          # ملفّاتُ التصدير المنتهية
+├── Models/ Enums/ Policies/ Http/ Database/Migrations/     # ⚠️ M كبيرة
+└── routes/api.php
 
-backend/app/Shared/Contracts/ConsentDirectory.php   # عقدٌ نحو ConsentRegistry القائم
+# وحداتٌ قائمة — والتغييرُ ليس «تنفيذَ العقد وحده»
+backend/app/Modules/Identity/
+├── Support/IdentityPersonalData.php
+├── Support/UserStatus.php                    # ⚠️ حالةُ التفعيل تُنشأ هنا
+├── Actions/{RegisterStudent,ActivateStudentAccount,StartAuthSession}.php   # تتغيّر
+└── Database/Migrations/                      # DOB · dob_is_estimated · ownership_transferred_at
 
-# ما يُمَسّ في وحداتٍ قائمة — تنفيذُ العقد وحده، صفر تغييرٍ في منطقها
-backend/app/Modules/{Identity,Learning,Assessments,Certificates,Payments,
-  LiveSessions,Media,Notifications,Marketplace,Settlement,CMS}/Support/*PersonalData.php
+backend/app/Modules/Payments/
+├── Support/{PaymentsPersonalData,ConsentRegistry,EloquentConsentDirectory}.php
+├── Actions/RecordTermsConsent.php             # + categories + decision
+└── Database/Migrations/                       # عمودان ومفتاحٌ فريدٌ على terms_consents
 
-backend/app/Modules/Identity/Database/Migrations/  # تاريخُ الميلاد على student_profiles
-backend/app/Modules/Payments/                      # ربطُ ConsentDirectory · صفر منطقٍ يتغيّر
-backend/routes/console.php                         # سطرُ جدولةٍ واحدٌ للكنسة
-backend/phpstan.neon                               # Compliance في قائمة الهجرات
+backend/app/Modules/{Learning,Assessments,Certificates,LiveSessions,Media,
+  Notifications,Marketplace,Settlement,CMS,Courses,Tenancy}/
+├── Support/*PersonalData.php                  # ⚠️ Courses وTenancy مُضافتان في المراجعة
+└── Database/Migrations/                       # فهرسُ (created_at) لما تكنسه expire()
+
+backend/app/Modules/Notifications/Support/NotificationType.php   # ٦ حالاتٍ جديدة
+backend/database/seeders/NotificationTemplateSeeder.php          # ٦ قوالبَ مُعتمَدة
+backend/app/Modules/Certificates/                                # اسمُ عرضٍ مُجمَّد · throttle:public
+backend/config/{horizon.php,scout.php,compliance.php}            # waits · SCOUT_QUEUE · احتياطيّات
+backend/routes/console.php                                       # ٤ أسطرِ جدولةٍ · حذفُ ٠٣:٣٠
+backend/phpstan.neon · backend/composer.json                     # Compliance · ext-zip
 
 frontend/src/
-├── app/(app)/(shell)/privacy/                # طلباتي · موافقاتي
+├── app/(public)/privacy/page.tsx             # ⚠️ قائمةٌ فعلاً بـPolicyPlaceholder — تُستبدَل
+├── app/(public)/signup/**                    # حقلُ تاريخِ الميلاد + اتّصالُ الوليّ
+├── app/(app)/(shell)/family/                 # شاشةُ موافقةِ الوليّ — قائمةٌ فعلاً
+├── app/(app)/(shell)/privacy/                # طلباتي · أصنافي · سحبُ صنف
+├── app/(app)/(shell)/teaching/offboarding/   # US6 — طلبُ المدرّس
 ├── app/(app)/(shell)/manage/compliance/      # لوحةُ موظّف المنصة
-├── components/compliance/                    # شاشةُ الموافقة · جدولُ الطلبات
-└── lib/compliance.ts · lib/labels.ts         # نصوصٌ عربيةٌ من مصدرٍ واحد
-
-backend/tests/Feature/Compliance/             # ~١٤ ملفّ اختبار
+├── components/compliance/*.test.tsx           # vitest لـSC-003 (نصُّ الشاشة)
+└── lib/compliance.ts · lib/labels.ts
 ```
+
+⚠️ **والواجهةُ ليست أربعةَ أسطر**: `(public)/privacy` **قائمةٌ اليوم** بـ`PolicyPlaceholder`
+ومربوطةٌ من كلّ تذييل — فوضعُ السياسة الحقيقية خلف مصادقةٍ يترك الزائرَ يقرأ «لم يُكتب النصُّ
+بعد»، **ويُصادِم مسارَين باسم `privacy`**. والسياسةُ تبقى عامّةً حيث هي، و`(app)/privacy` لطلباتي
+وأصنافي. و`(app)/(shell)/family` قائمةٌ وهي موضعُ شاشةِ موافقةِ الوليّ. **وقاعدةُ التصميم تسري
+كاملةً**: ألوانٌ من `@theme` وحده · خصائصُ منطقية (`ms-*`/`start-*`) · `components/ui/` بلا
+`className` حرّ · نصوصٌ من `labels.ts` · أخطاءٌ عبر `userMessage()`/`fieldErrors()` · وكلُّ حقلٍ
+جديدٍ له مُدخلٌ في `backend/lang/ar/`.
 
 **Structure Decision**: **وحدةٌ واحدةٌ جديدة** (`Compliance`) لا توزيعٌ على القائمة. السبب من
 `Q1` في السبيك نفسِها: المتطلَّبُ عابرٌ لكلّ الوحدات، وتوزيعُه يُنتج تطبيقاً جزئياً — **وحقُّ
 الحذف الجزئيّ ليس حقَّ حذف**. والوحدةُ لا تعرف جداولَ أحد: تنادي عقداً، فيبقى المبدأ III قائماً
 والامتثالُ كاملاً في مكانٍ واحد. واسمُ الوحدة `Compliance` لا `DataProtection` لأنها تحمل خروجَ
 المدرّس أيضاً، وهو ليس حقَّ بياناتٍ بالمعنى الضيّق.
+
+⚠️ **وحدٌّ صريحٌ على ما تملكه**: `Compliance` تملك الكتالوجَ والطلباتَ والتعليقاتَ والكنسةَ
+والبلاغات. **ولا تملك دورةَ حياةِ الحساب.** `ActivateStudentAccount` تعيش في **`Identity`** — و
+Action في Compliance يكتب `users.status` هو بعينه خرقُ المبدأ III الذي وُجد العقدُ لتجنّبه.
+Compliance تسأل `ConsentDirectory` وتُطلق حدثاً، وIdentity تكتب.
+
+⚠️ **ولا مفهومَ «تفعيلٍ» في المنتج ليُبنى عليه**: `users.status` قيمتُه الافتراضيةُ `'active'`،
+**ولا شيءَ في Identity يكتبه ولا شيءَ يحرسه**، و`RegisterStudent` يُنشئ حساباً صالحاً في حفظةٍ
+واحدةٍ بلا عمرٍ ولا وليّ. فـ`FR-003` و`FR-009ب` و`SC-017` كانت تفترض انتقالاً لا وجودَ له، **و٠١٣
+تُنشئ الحالةَ نفسَها** (`FR-009د`) — هجرةٌ في Identity وتغييرٌ في مسار المصادقة.
+
+**فادّعاءُ «صفر تغييرٍ في منطق الوحدات» يسقط صراحةً**: يتغيّر `RegisterStudent` و
+`RegisterStudentData` وطلبُه و`StartAuthSession` و`backend/lang/ar/` وشاشتا التسجيل.
+
+**ودعوةُ الوليّ صفُّ العلاقة نفسُه** (`FR-009هـ`)، لا آليةُ رموزٍ جديدة: التسجيلُ الذاتيُّ يُنشئ
+`ParentStudentRelation` بحالة `Pending` ويُشعِر الوليَّ. و`Pending` **لا يمنح شيئاً اليوم**
+(`EloquentGuardianDirectory` يسأل `->active()` في مواضعه الثلاثة)، فالصفُّ دعوةٌ بلا صلاحيةٍ **بحكم
+البناء** لا بحكم فحصٍ يُنسى.
 
 ---
 
@@ -290,8 +358,11 @@ backend/tests/Feature/Compliance/             # ~١٤ ملفّ اختبار
 
 > يُملأ فقط إن كان في فحص الدستور مخالفاتٌ تحتاج تبريراً.
 
-**لا مخالفة.** وأُسجّل هنا ثلاثةَ قراراتٍ رفضتُ فيها الحلَّ الأكبر، لأن «الحلُّ الأبسط الذي
-يعمل هو الحلُّ الصحيح» بندٌ في الدستور يُراجَع، لا شعار:
+**لا مخالفة. ولا بندَ مؤجَّلٌ في هذه المرحلة** — الثلاثةُ التي كانت مفتوحةً بعد المراجعة (‏عمودُ
+الأصناف · حالةُ التفعيل · `FR-040`) **نُفِّذت كلُّها في التصميم**، وليس في الخطة دلوُ تأجيل.
+
+وأُسجّل هنا ثلاثةَ قراراتٍ رفضتُ فيها الحلَّ الأكبر، لأن «الحلُّ الأبسط الذي يعمل هو الحلُّ
+الصحيح» بندٌ في الدستور يُراجَع، لا شعار:
 
 | ما لم يُبنَ | لماذا رُفض | ما بُني بدلاً منه |
 |---|---|---|
@@ -299,8 +370,19 @@ backend/tests/Feature/Compliance/             # ~١٤ ملفّ اختبار
 | محرّكُ سياساتِ احتفاظٍ (‏قواعدُ قابلةٌ للتركيب، شروطٌ، استثناءات) | لا حاجةَ قائمةً له: كلُّ صنفٍ يحتاج رقماً واحداً وسلوكاً واحداً من ثلاثة | جدولٌ بعمودَين + وظيفةٌ ليليةٌ واحدة |
 | شاشةُ إدارةٍ لتحرير نصوص السياسة ونسخِها | فقرةُ الافتراضات: الطرفُ القانونيُّ يوفّر النصوص والنظامُ ينفّذها ولا يجتهد فيها. ومحرّرُ نصوصٍ قانونيةٍ لا يستعمله إلا شخصٌ واحدٌ مرّتين في السنة | صفٌّ في `platform_settings` للنسخة، والنصُّ ملفُّ Markdown يمرّ بـ`MarkdownRenderer` القائم |
 
-**وقرارٌ واحدٌ عكسيّ** أُسجّله لأنه يزيد العمل عن قصد: `ExportFieldAllowlist`. قائمةُ حقولٍ
-مغلقةٌ أثقلُ من `->toArray()`، وهي واجبةٌ لأن `SC-005` يقول صفر بياناتِ شخصٍ آخر، وثلاثُ قوائمَ
-من نفس العائلة تحرس البناءَ اليوم (`PublicFieldAllowlist` · `TeacherFieldAllowlist` ·
-`StudentBalanceAllowlist`). حقلٌ يُضاف لنموذجٍ بعد سنةٍ يدخل التصديرَ وحده ما لم تكن القائمةُ
-هي البوّابة.
+**وجدولٌ رابعٌ قُطع في المراجعة**: `retention_rules`. فريدٌ ١:١ مع `data_categories` — أي عمودان
+يلبسان جدولاً — **وعمودُ مدّةٍ بجانب صفِّ `platform_settings` جوابان لسؤالٍ واحد**، وهو ما يمنعه
+`data-model.md` نفسُه عن `is_active` بعد أسطر. العمودان ينتقلان إلى `data_categories`، **وبقطعِه
+يسقط استعلامٌ لكلّ صنفٍ في `GET /privacy/categories`** — أي أن التبسيطَ أصلح N+1 مجّاناً.
+
+**وقراراتٌ عكسيّةٌ تزيد العمل عن قصد**:
+
+| ما زِيد | لماذا |
+|---|---|
+| `ExportFieldAllowlist` | `SC-005` يقول صفر بياناتِ شخصٍ آخر، و`->toArray()` يُصدِّر كلَّ عمودٍ يُضاف بعد سنةٍ بلا مراجعة. **وستُّ قوائمَ من العائلة تحرس البناءَ اليوم** (‏لا ثلاثٌ كما قالت النسخةُ الأولى)، **أربعٌ منها تملكها الوحدات** — فالمركزيةُ تحمل ما لا تملكه وحدةٌ وحده، و`export()` يُركّب قائمةَ وحدته |
+| `expire()` دالّةً خامسة | بلا ها **لا كنسةَ إطلاقاً**: مُسنَدُ النسخة الأولى عمودٌ لا وجودَ له، و`erase()` يستقبل شخصاً لا حدَّ عمرٍ. والمكسبُ الثاني أهمّ: **الوحدةُ تملك المُسنَدَ فتكتب فهرسَه** |
+| `retention_sweep_runs` | `FR-031` يطلب سجلَّ كلّ تنفيذٍ، ولم يكن له جدولٌ — والخطةُ تحذّر من عرضِ عمودٍ لا وجودَ له |
+| `breach_reports` + نقطةٌ عامّة | `FR-040` كان **بلا موضعٍ في أيّ ملفّ** والخطةُ تشحن مهلتَه. **ونُفِّذ ولم يُؤجَّل** بطلبٍ صريح |
+| `open_key` عموداً فريداً | «طلبٌ مفتوحٌ واحد» قراءةٌ ثمّ إدراج، **ولا فهارسَ جزئيةً في MySQL** — فالشكلُ هو `captured_order_id` |
+| `RetryStalledDataRequestsJob` | الطلبُ يُرسَل مرّةً بـ`tries: 1` ولا شيءَ يكنس `processing`؛ عائلةُ `recording_status = 'ingesting'` بعينها |
+| `DataSubject` DTO | `erase(User)` يجعل ثلاثَ عشرةَ وحدةً تُشغّل استعلامَ مساحاتِ العمل بنفسها، **وعلى كلٍّ منها أن تُصيب `forWorkspace()` وحدها** — ثلاثةَ عشرةَ موضعاً لخطأٍ واحد |

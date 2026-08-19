@@ -1,11 +1,11 @@
 # Contract: نقاطُ النهاية
 
-كلُّ مسارٍ تحت `/api/v1` بمصادقةِ Sanctum، ويكشف `uuid` وحده. وكلُّ استجابةٍ عبر Resource.
+كلُّ مسارٍ تحت `/api/v1`، ويكشف `uuid` وحده، وكلُّ استجابةٍ عبر Resource.
 
 المُحدِّدُ **مُسمًّى** — `throttle:data-rights`، **يُعرَّف في
 `AppServiceProvider::registerRateLimiters()` كجزءٍ من هذه المرحلة** (‏لا وجودَ له اليوم) — لأن
 `throttle:N,M` مضمَّناً ممنوعٌ: الضيوفُ يُفتَرسون على `domain|ip` بلا مسارٍ في التجزئة، فيتشارك
-كلُّ حدٍّ مضمَّنٍ عدّاداً واحداً ويفوز الأشدُّ (‏تصفّحُ السوق كان يُقفل الزائرَ خارج تسجيل الدخول).
+كلُّ حدٍّ مضمَّنٍ عدّاداً واحداً ويفوز الأشدّ.
 
 ⚠️ **ويُفتَرس على المستخدم لا على `ip`** — أسرةٌ خلف موجّهٍ واحدٍ تشترك عنواناً، فحدٌّ على العنوان
 يمنع الأخَ الثاني من طلبِ بياناته لأن أخاه طلب. والنمطُ القائم `playback` و`contact-verification`
@@ -17,18 +17,38 @@
 
 | الفعل | المسار | ملاحظة |
 |---|---|---|
-| `GET` | `/privacy/categories` | كتالوجُ الأصناف — اللازمُ مُميَّزٌ عن الاختياريّ (`FR-004`) |
-| `GET` | `/privacy/policy` | النسخةُ السارية ونصُّها المُصيَّر من Markdown |
-| `GET` | `/privacy/consents` | ما وقّعه هذا الشخص وبأيّ نسخة |
-| `POST` | `/privacy/consents` | `RecordProcessingConsent` · `throttle:data-rights` |
+| `GET` | `/privacy/categories` | الكتالوجُ ومدّةُ كلّ صنف — اللازمُ مُميَّزٌ عن الاختياريّ (`FR-004`). **`->with('…')`** أو استعلامٌ لكلّ صنف |
+| `GET` | `/privacy/policy` | النسخةُ الساريةُ ونصُّها المُصيَّر من Markdown |
+| ~~`GET`/`POST`~~ | ~~`/privacy/consents`~~ | **مقطوعان** — `TermsConsentController::index/store` القائمان يخدمان الوثيقتَين معاً بما فيها `data_processing` |
+| **`PUT`** | **`/privacy/consents/categories`** | **`FR-007`** — المجموعةُ **الكاملة** + النسخةُ المقروءة. يكتب صفَّ موافقةٍ جديداً؛ لا يُعدَّل صفٌّ قديمٌ أبداً |
 | `GET` | `/privacy/requests` | طلباتُه |
-| `POST` | `/privacy/requests` | `access` · `export` · `erasure`. `429` عند تجاوز حدٍّ معلَن (`FR-025`) |
-| `GET` | `/privacy/requests/{request}/download` | يُعيد **`302`** إلى رابطٍ موقّعٍ قصيرِ المدة (`FR-018`) · **`throttle:data-rights` هنا أيضاً** |
+| `POST` | `/privacy/requests` | `access` · `export` · `erasure`. `429` عند تجاوزٍ معلَن (`FR-025`) |
+| `GET` | `/privacy/requests/{request}/download` | **`302`** إلى رابطٍ موقّعٍ قصيرِ المدة (`FR-018`) · **`throttle:data-rights` هنا أيضاً** |
 | `GET` | `/privacy/processors` | من يصله بيانٌ وحدُّ ما يمكن حذفُه لديه (`FR-024`) |
+| **`POST`** | **`/privacy/breach-reports`** | **`FR-040`** — ⚠️ **عامٌّ بلا مصادقة**، `throttle:public` |
 
-⚠️ **`/download` لا يُرجع مساراً في الحمولة إطلاقاً** — نفسُ قاعدةِ `PlaybackGrantResource` في 019
-التي تُرسل مسارَنا لا عنوانَ المزوّد. مسارٌ في JSON هو رابطٌ يُنسَخ ويُلصَق ويبقى، وهذا الملفُّ
-كلُّ ما تعرفه المنصةُ عن قاصرٍ في مكانٍ واحد.
+⚠️ **`/download` لا يُرجع مساراً في الحمولة إطلاقاً** — نفسُ قاعدةِ `PlaybackGrantResource` التي
+تُرسل مسارَنا لا عنوانَ المزوّد. مسارٌ في JSON رابطٌ يُنسَخ ويبقى، وهذا الملفُّ كلُّ ما تعرفه
+المنصةُ عن قاصرٍ في مكانٍ واحد.
+
+⚠️ **ولماذا الإبلاغُ عامّ**: «مسارٌ **معلَن** للإبلاغ» يعني أن باحثاً أمنيّاً من الخارج يستطيع
+استعمالَه — وأشهرُ التسريباتِ يُبلِّغ عنها من ليس مستخدماً. وثلاثةُ قيودٍ تجعلها آمنة:
+`throttle:public`، و**لا تُرجع شيئاً** غير تأكيدِ الاستلام (‏فلا تصير عرّافاً عن وجودِ حسابٍ أو
+جدول)، والحقولُ التي يملؤها الموظّفُ (‏الأصنافُ المتأثّرةُ والعدد) **ليست في الطلب العامّ**.
+
+---
+
+## المدرّس
+
+| الفعل | المسار | ملاحظة |
+|---|---|---|
+| **`POST`** | **`/teaching/offboarding`** | **`US6 §1`** — «مدرّسٌ يطلب الخروج» |
+| **`GET`** | **`/teaching/offboarding`** | حالتُه: ما بقي من الحسم والمهلة |
+| **`GET`** | **`/teaching/offboarding/content`** | **`FR-034`** — نسخةُ محتواه، بـ`302` كالتصدير |
+
+⚠️ **والنسخةُ الأولى من الخطة قالت «لا نقطةَ نهايةٍ في هذه المرحلة تُقرأ بعينِ مدرّس» — خطأٌ يشمل
+`US6` كلَّها**، وقد حُذف. والتنفيذُ يبقى منصّياً (`compliance.offboarding.execute`): المدرّسُ
+**يطلب** ولا يُتِمّ، لأن الإتمامَ يقتضي حسمَ مستحقاتٍ ليست قرارَه.
 
 ---
 
@@ -37,21 +57,59 @@
 | الفعل | المسار | الصلاحية **المنصّية** |
 |---|---|---|
 | `GET` | `/compliance/requests` | `compliance.requests.execute` |
-| `POST` | `/compliance/requests/{request}/execute` | `compliance.requests.execute` |
+| `POST` | `/compliance/requests/{request}/execute` | نفسُها — **تحديثٌ شرطيٌّ واحد** |
 | `POST` | `/compliance/requests/{request}/refuse` | نفسُها · بسببٍ إلزاميّ |
 | `POST` · `DELETE` | `/compliance/holds` · `/compliance/holds/{hold}` | `compliance.holds.manage` |
-| `PUT` | `/compliance/categories/{category}` · `/compliance/retention/{rule}` · `/compliance/processors/{processor}` | `compliance.registry.manage` |
-| `POST` | `/compliance/offboardings` · `/compliance/offboardings/{offboarding}/execute` | `compliance.offboarding.execute` |
+| `PUT` | `/compliance/categories/{category}` · `/compliance/processors/{processor}` | `compliance.registry.manage` |
+| `GET` · `PATCH` | `/compliance/breach-reports` · `/compliance/breach-reports/{report}` | `compliance.breaches.manage` |
+| `POST` | `/compliance/offboardings/{offboarding}/execute` | `compliance.offboarding.execute` |
 
-**الأربعُ منصّيّةٌ لا مستأجرة، والحارسُ على النموذج لا على الشاشة**: `Tenancy\Models\Role` يرفض
+**الخمسُ منصّيّةٌ لا مستأجرة، والحارسُ على النموذج لا على الشاشة**: `Tenancy\Models\Role` يرفض
 `givePermissionTo()` لصلاحيةٍ منصّيةٍ على دورٍ يحمل `team_id`، والمجموعةُ المنصّيةُ **مُشتقّة** —
-الكلُّ ناقصَ ما تحمله أدوارُ المستأجر. فالأربعُ محميّةٌ **بمجرّد تعريفها**، ولا شيءَ يُضاف لحمايتها.
+الكلُّ ناقصَ ما تحمله أدوارُ المستأجر.
 
-**وكلُّ قراءةٍ منصّيةٍ هنا تُعلن `withoutWorkspaceScope()`** — و`WorkspaceContext::id()` يرتدّ إلى
+⚠️ **لكنّ الحمايةَ تبدأ من `Permissions::all()` لا من الثابت**: القائمةُ **مكتوبةٌ بيد**، ولا
+اختبارَ يمسك ثابتاً غائباً عنها — فاسمٌ ناقصٌ لا يُزرَع أبداً وكلُّ فحصٍ يفشل **حتى لمدير المنصة**.
+فتُضاف الخمسةُ إلى `all()` واختبارٌ يقارن الثوابتَ بها.
+
+⚠️ **وبابٌ ثانٍ لا يمرّ بالنموذج**: نمطُ الهجرات المشحونُ يكتب
+`DB::table('role_has_permissions')->insertOrIgnore()` مباشرةً. آمنٌ هناك لأنه يقرأ المصفوفة — **ولا
+اختبارَ يؤكّد الثابتَ عند المحور**. يُضاف: صفر صفٍّ في `role_has_permissions` يصل صلاحيةً منصّيةً
+بدورٍ ذي `team_id` غيرِ معدوم.
+
+⚠️ **ولا أحدَ يحملها**: الوقوفُ المنصّيُّ صفٌّ في `platform_staff` بدورٍ بلا فريق. بلا صفٍّ تصل
+`is_super_admin` **وحده**، فيصير «من نفّذه» في `FR-026` شخصاً واحداً على المنصّة كلِّها. **ويُزرَع
+دورُ `compliance-officer`.**
+
+⚠️ **و`PermissionLabels` بلا اسمٍ لها**: `SUBJECTS` بلا `compliance` و`ACTIONS` بلا هذه الأفعال،
+فتُصيَّر **نصّاً منقّطاً** على لوحةٍ عربيةٍ فقط. تُضاف تسمياتُها.
+
+**وكلُّ قراءةٍ منصّيةٍ تُعلن `withoutWorkspaceScope()`** — و`WorkspaceContext::id()` يرتدّ إلى
 `users.last_workspace_id` **لكلّ مستخدمٍ بمن فيهم مديرُ المنصة**، فقراءةٌ متروكةٌ في النطاق تُظهر
-طلباتِ مساحةِ عملٍ واحدةٍ على أنها طلباتُ المنصة — **وتنجح في اختبارِها على تجربةٍ بمساحةِ عملٍ
-واحدة**. والتجاوزُ **لكلّ نموذجٍ على حِدة**: `->with('subject')` يشغّل النطاقَ العامَّ داخل
-استعلام العلاقة. أيُّ اختبارٍ لقراءةٍ منصّيةٍ يحتاج **مساحتَي عملٍ** أو لا يُثبت شيئاً.
+طلباتِ مساحةٍ واحدةٍ كأنها طلباتُ المنصة — **وتنجح في اختبارها على تجربةٍ بمساحةٍ واحدة**. أيُّ
+اختبارٍ لقراءةٍ منصّيةٍ يحتاج **مساحتَي عملٍ** أو لا يُثبت شيئاً.
+
+⚠️ **والتجاوزُ لكلّ نموذجٍ على حِدة، والتحذيرُ كان موجَّهاً للعلاقة الخاطئة**: `User` **بلا**
+`BelongsToWorkspace`، فـ`subject` و`requestedBy` و`executedBy` غيرُ مُنطَّقةٍ والتحذيرُ عليها
+فارغ. **والحالاتُ الحقيقيةُ داخل التصدير**: `orders`/`payment_transactions` في Payments ·
+`enrollments` في Learning · `class_sessions` في LiveSessions · `lessons` في Media.
+
+---
+
+## ميزانيةُ الاستعلامات — اختبارٌ لا وعد
+
+الشجرةُ تفرض القاعدةَ **إحدى عشرةَ مرّة** (`QueryBudgetTest` في خمس وحدات)، وكلٌّ مكتوبٌ **بضِعفِ
+حجمِ التثبيتة** حتى «لا يختبئ N+1 داخل السماح». و`Compliance/QueryBudgetTest` يغطّي:
+
+| النقطة | الاستعلامُ لكلّ صفٍّ | الشكلُ الجَمْعيّ |
+|---|---|---|
+| `GET /compliance/requests` | **الأسوأ**: «هل على هذا الشخص تعليقٌ سارٍ» — ٥٠ صفّاً = ٥٠ استعلاماً | استعلامٌ واحدٌ `whereIn` يُوسَم على المجموعة — سابقتُه `WithholdingReader::stamp()`، وتعليقُها يحمل القياس |
+| `GET /privacy/categories` | مدّةُ الاحتفاظ لكلّ صنف (~٤٠) | صارت عمودَين على نفس الجدول بعد قطعِ `retention_rules` — **فسقط الاستعلامُ أصلاً** |
+| `GET /privacy/processors` | تسمياتُ الأصناف من `json` لكلّ معالِج | `whereIn` واحدٌ على `data_categories` |
+| سجلُّ التدقيق | — | نسخةٌ حرفيةٌ من `SettlementAuditController::index()`: `whereIn('subject_type', …)->with(['subject','causer'])->latest('id')->paginate(50)` |
+
+⚠️ **و`activity_log` فهرسُه `(subject_type, subject_id)` بلا `(subject_type, id)`**، فترتيبُ
+`latest('id')` مسحٌ. موروثٌ، و٠١٣ **قارئُه الرابع** — يُذكر لا يُصلَح هنا.
 
 ---
 
@@ -60,10 +118,15 @@
 | الحالة | الرمز | المتطلَّب |
 |---|---|---|
 | حسابُ قاصرٍ بلا موافقةِ وليّ | `422` `code: consent_required` | `FR-003` |
-| طلبٌ باسم طالبٍ ليس ابنَه | `403` | `FR-017` · `NFR-001أ` |
+| دخولٌ على حسابٍ ينتظر موافقةَ وليّ | `403` `code: pending_guardian_consent` — **ولا رمزَ يُسَكّ** | `FR-009ب` |
+| طلبٌ باسم طالبٍ ليس ابنَه | **رفضٌ واحدٌ لا يميّز** «لا يوجد» عن «ليس لك» | `NFR-001أ` |
 | حذفٌ على شخصٍ عليه تعليق | `409` `code: legal_hold` | `FR-030` |
 | خروجُ مدرّسٍ قبل حسمِ مستحقاته | `409` `code: settlement_pending` | `FR-032` |
 | تجاوزُ حدّ الطلبات | `429` | `FR-025` |
+
+⚠️ **والرفضُ الموحَّدُ ليس تفصيلاً**: `LinkGuardian` يوحّد «not found» و«not a student» عن قصدٍ
+اليوم — ولذلك أُسقطت قاعدةُ `exists` من طلبه — و`403` مميَّزٌ يجعل النقطةَ **عرّافاً** يؤكّد أن
+معرّفاً مُقدَّماً لحسابٍ حقيقيّ.
 
 **ولا خطأٍ خامٍ يصل المستخدم**: `422` عبر `fieldErrors()` تحت حقله، وما سواه عبر `userMessage()`.
 وكلُّ حقلٍ في كلّ `FormRequest` جديدٍ يحتاج مُدخلاً في `attributes` داخل `backend/lang/ar/` أو
