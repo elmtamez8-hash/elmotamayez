@@ -133,6 +133,31 @@ final class RolePermissionMatrix
             Permissions::SUBMISSIONS_GRADE,
             Permissions::ACCOMMODATIONS_MANAGE,
             Permissions::UNLOCK_RULES_MANAGE,
+            /*
+            | Spec 009 — the teacher's half of gamification, and only that half.
+            |
+            | Their shop, their fulfilment queue, and reading the progress of a
+            | student enrolled with them. On $teacher rather than
+            | $assistantTeacher for the same reason grading is: the owner can tick
+            | any of them onto a custom assistant role, and seeding them by
+            | default would read "the assistant may fulfil if granted" as "the
+            | assistant fulfils".
+            |
+            | ⚠️ AND LISTING THEM HERE IS LOAD-BEARING, NOT COSMETIC.
+            | platformPermissions() is derived by SUBTRACTION, so a constant left
+            | out of every array below is platform-level BY DERIVATION — and then
+            | {@see Role} throws the moment the seeder grants it to a role with a
+            | team_id. The failure is not a review comment, it is
+            | `php artisan db:seed` dying.
+            |
+            | ⚠️ GAMIFICATION_CATALOG_MANAGE AND TAXONOMY_MANAGE ARE DELIBERATELY
+            | ABSENT, HERE AND EVERYWHERE ELSE IN THIS FILE. Adding either one
+            | hands a teacher the ability to set what every action on the platform
+            | is worth, or to rewrite the subject list for every other teacher.
+            */
+            Permissions::REWARDS_MANAGE,
+            Permissions::REDEMPTIONS_FULFILL,
+            Permissions::PROGRESS_VIEW_STUDENT,
             //
             // ⚠️ ANALYTICS_CROSS_TEACHER_VIEW IS DELIBERATELY ABSENT, HERE AND IN
             // EVERY OTHER ARRAY IN THIS FILE. platformPermissions() is derived by

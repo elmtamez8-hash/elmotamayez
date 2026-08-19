@@ -224,6 +224,29 @@ class AppServiceProvider extends ServiceProvider
          */
         RateLimiter::for('practice', fn (Request $request) => Limit::perMinute(10)
             ->by('user:'.(string) $request->user()?->getKey()));
+
+        /*
+         * Gamification writes (spec 009, NFR-014): redeeming a reward, starting
+         * and ending a focus session. Keyed by user for the same reason as
+         * `practice` — the callers are students, and students sit in classrooms
+         * behind one address.
+         */
+        RateLimiter::for('gamification-write', fn (Request $request) => Limit::perMinute(20)
+            ->by('user:'.(string) $request->user()?->getKey()));
+
+        /*
+         * Reading a leaderboard.
+         *
+         * ⚠️ A READ WITH A LIMIT ON IT, WHICH NFR-014 DID NOT ASK FOR. It is the
+         * one endpoint in this phase that is worth enumerating: the scope key
+         * names a lesson, a course, a teacher, a subject or a grade, so an
+         * unthrottled board is a walk of the whole space collecting who is active
+         * where. Everything else here is either a write or already scoped to the
+         * caller's own row. Generous — a student refreshing their board is the
+         * behaviour the feature exists for.
+         */
+        RateLimiter::for('gamification-board', fn (Request $request) => Limit::perMinute(60)
+            ->by('user:'.(string) $request->user()?->getKey()));
     }
 
     /**

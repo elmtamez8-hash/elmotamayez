@@ -139,6 +139,18 @@ return [
         */
         'redis:notifications' => 60,
         'redis:notifications-high' => 30,
+
+        /*
+        | Spec 009 — the maintenance queue, named in `defaults` and `environments`
+        | since 005 and absent from here ever since, which under the rule above
+        | means it has never been watched at all. The leaderboard rollup lives on
+        | it, and a rollup that stops running shows every student a stale board
+        | with nothing anywhere reporting a problem.
+        |
+        | Loose, because everything on it is scheduled housekeeping nobody is
+        | waiting on: five minutes late is late, not broken.
+        */
+        'redis:maintenance' => 300,
     ],
 
     /*

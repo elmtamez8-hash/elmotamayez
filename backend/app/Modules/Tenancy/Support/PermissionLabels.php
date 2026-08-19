@@ -53,6 +53,8 @@ final class PermissionLabels
         'submissions' => 'تسليمات الواجبات',
         'accommodations' => 'تسهيلات التقييم',
         'unlock_rules' => 'شرط فتح الحصة',
+        'rewards' => 'متجر المكافآت',
+        'redemptions' => 'طلبات الاستبدال',
     ];
 
     /** @var array<string, string> */
@@ -104,6 +106,7 @@ final class PermissionLabels
         'perform' => 'تنفيذ',
         'revise' => 'تعديل بسببٍ مسجَّل',
         'grade' => 'اعتماد الدرجة',
+        'fulfill' => 'تنفيذ الطلب',
     ];
 
     /** The handful whose Arabic is not a noun and a verb. @var array<string, string> */
@@ -114,6 +117,10 @@ final class PermissionLabels
         'settlement.audit.view' => 'عرض تدقيق أجور المدرّسين',
         'billing.audit.view' => 'عرض سجلّ التدقيق المالي',
         'analytics.cross_teacher.view' => 'عرض التحليل عابراً للمدرّسين',
+        // "عرض بيانات الطالب — التقدّم" would read as a general licence, and this
+        // permission is never sufficient alone: the route also demands an active
+        // enrollment in the reader's own workspace. The label says both halves.
+        'progress.view.student' => 'عرض تقدّم طالبٍ مسجَّلٍ عنده',
     ];
 
     public static function for(string $permission): string

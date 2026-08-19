@@ -327,6 +327,55 @@ final class Permissions
      */
     public const ROLES_MANAGE = 'roles.manage';
 
+    /*
+    | Gamification (spec 009) — five constants, and the split between them is the
+    | whole security model of the phase.
+    |
+    | Read the layer column in plan.md § "المبدأ الخامس" before adding a grant.
+    */
+
+    /**
+     * Edit the action catalogue: what an action is worth, its daily cap, whether
+     * it is enabled. Also the levels and the badges.
+     *
+     * ⚠️ PLATFORM-LEVEL AND HELD BY NO TENANT ROLE. The value of an action is
+     * what orders the whole platform: a teacher who could raise "attended a
+     * session" from 10 to 500 would put their own students at the top of the
+     * subject, the grade and the platform boards, and every other teacher's
+     * students below them. Same reason BILLING_LIMIT_MANAGE is platform-level —
+     * it is not their number to move. Deliberately absent from every array in
+     * RolePermissionMatrix; the absence IS the mechanism.
+     */
+    public const GAMIFICATION_CATALOG_MANAGE = 'gamification.catalog.manage';
+
+    /**
+     * Edit the platform taxonomy — subjects and grade levels.
+     *
+     * ⚠️ PLATFORM-LEVEL FOR THE SAME REASON, one step further out. Since spec 009
+     * these rows carry no workspace_id (constitution v1.2.0 §I, reference data):
+     * there is one "رياضيات" for the product, so a teacher editing it edits it
+     * for everyone.
+     */
+    public const TAXONOMY_MANAGE = 'taxonomy.manage';
+
+    /** Define and price the rewards in one's own shop. The teacher's own store. */
+    public const REWARDS_MANAGE = 'rewards.manage';
+
+    /** Fulfil or reject a redemption request. Teacher today; assistants in 010. */
+    public const REDEMPTIONS_FULFILL = 'redemptions.fulfill';
+
+    /**
+     * Read a student's XP, level, streak and badges.
+     *
+     * Deliberately not sufficient on its own: the route also requires an active
+     * enrollment in the reader's own workspace (NFR-001أ). The progress row is
+     * PLATFORM-owned and carries no workspace_id, so — exactly like
+     * RELATIONS_VIEW_STUDENT — no global scope stands between a teacher and
+     * every student on the platform. The permission answers "may this role ever
+     * look?", the enrollment check answers "at this student?".
+     */
+    public const PROGRESS_VIEW_STUDENT = 'progress.view.student';
+
     /** @return list<string> */
     public static function all(): array
     {
@@ -417,6 +466,15 @@ final class Permissions
             self::ACCOMMODATIONS_MANAGE,
             self::UNLOCK_RULES_MANAGE,
             self::ANALYTICS_CROSS_TEACHER_VIEW,
+            // Spec 009. The first two reach super-admin through `all()` alone and
+            // appear in no role array; the last three sit on $teacher in
+            // RolePermissionMatrix. All five must be here or nothing holds them
+            // and every check fails — for the super admin too.
+            self::GAMIFICATION_CATALOG_MANAGE,
+            self::TAXONOMY_MANAGE,
+            self::REWARDS_MANAGE,
+            self::REDEMPTIONS_FULFILL,
+            self::PROGRESS_VIEW_STUDENT,
         ];
     }
 }

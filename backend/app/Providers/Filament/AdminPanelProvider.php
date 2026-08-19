@@ -136,6 +136,10 @@ class AdminPanelProvider extends PanelProvider
                 in: app_path('Modules/Tenancy/Filament/Resources'),
                 for: 'App\Modules\Tenancy\Filament\Resources',
             )
+            ->discoverResources(
+                in: app_path('Modules/Gamification/Filament/Resources'),
+                for: 'App\Modules\Gamification\Filament\Resources',
+            )
             /*
             | The role screen (Shield), configured in `config/filament-shield.php`
             | to GENERATE NOTHING: the permission names are this product's own
