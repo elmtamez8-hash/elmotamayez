@@ -39,9 +39,13 @@ it('lists only implemented channels', function (): void {
 
     $channels = array_column($response->json('channels'), 'key');
 
-    // WhatsApp is a known value with no class behind it. It must not appear at
-    // all — a greyed-out toggle promises a date nobody has committed to.
-    expect($channels)->toBe([NotificationChannel::InApp->value])
+    // Spec 020 shipped WhatsApp, so it appears — and Telegram, SMS and push are
+    // still known values with no class behind them and must not. A greyed-out
+    // toggle promises a date nobody has committed to.
+    expect($channels)->toBe([
+        NotificationChannel::InApp->value,
+        NotificationChannel::WhatsApp->value,
+    ])
         ->and($response->json('types'))->toHaveCount(count(NotificationType::cases()));
 });
 
@@ -129,10 +133,14 @@ it('refuses a channel that does not exist yet', function (): void {
     $user = User::factory()->create();
     Sanctum::actingAs($user);
 
+    // Telegram, not WhatsApp: spec 020 gave WhatsApp a class, so it is now a
+    // channel that DOES exist. The case is about the ones that still do not —
+    // and it had to move rather than be deleted, because "a stored preference
+    // may only name an implemented channel" is the rule, not the example.
     $this->putJson('/api/v1/notifications/preferences', [
         'preferences' => [[
             'type' => NotificationType::ExamResult->value,
-            'channels' => [NotificationChannel::WhatsApp->value],
+            'channels' => [NotificationChannel::Telegram->value],
         ]],
     ])->assertStatus(422);
 });

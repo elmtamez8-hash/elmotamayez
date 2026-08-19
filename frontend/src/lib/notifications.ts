@@ -96,6 +96,26 @@ export const notifications = {
   }) => api.put<typeof data>("/notifications/quiet-hours", data),
 };
 
+/**
+ * Proving a contact detail belongs to this account (spec 020).
+ *
+ * The code is never in either response: it travels over the channel being
+ * verified, which is the entire point — a channel that echoes it back over HTTP
+ * has verified nothing.
+ */
+export const contactVerification = {
+  request: (channel: string, contactValue: string) =>
+    api.post<{ uuid: string; expires_at: string | null }>("/contact-verifications", {
+      channel,
+      contact_value: contactValue,
+    }),
+  confirm: (uuid: string, code: string) =>
+    api.post<{ uuid: string; channel: string; verified_at: string | null }>(
+      `/contact-verifications/${uuid}/confirm`,
+      { code },
+    ),
+};
+
 export const family = {
   list: () => api.get<{ data: GuardianRelation[] }>("/family/relations"),
   add: (data: {

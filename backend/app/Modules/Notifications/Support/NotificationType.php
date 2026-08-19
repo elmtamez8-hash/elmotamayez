@@ -168,10 +168,26 @@ enum NotificationType: string
      */
     public function defaultChannels(): array
     {
-        // In-app for everything, because it is the only implemented channel. When
-        // a second one lands, the types that should reach further get it here —
-        // and every user who never touched their settings follows along.
-        return [NotificationChannel::InApp];
+        // Spec 020 — the second channel landed, and this is the "here" the old
+        // comment pointed at. Every user who never touched their settings follows
+        // along, which is the whole point of a default.
+        //
+        // ⚠️ DERIVED FROM targetsGuardians(), NEVER A SECOND LIST OF SEVENTEEN
+        // NAMES. The question "should this reach a phone?" and the question "does
+        // a guardian receive this?" have the same answer for the same reason —
+        // these are the messages addressed to the person who is not sitting on
+        // our site. Two hand-written lists answering one question diverge at the
+        // first type anybody adds, and the divergence is silent: the new type
+        // simply never leaves the platform.
+        //
+        // What is deliberately NOT here: security_alert. It is mandatory and it
+        // is the student's own, so targetsGuardians() is false for it — and a
+        // sign-in from a new device reaching only the bell is arguably the same
+        // gap this whole phase exists to close. Left out because that is the
+        // decision that was taken, and adding it is one word in that method.
+        return $this->targetsGuardians()
+            ? [NotificationChannel::InApp, NotificationChannel::WhatsApp]
+            : [NotificationChannel::InApp];
     }
 
     /*

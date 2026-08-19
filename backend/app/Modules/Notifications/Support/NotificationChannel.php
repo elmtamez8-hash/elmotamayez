@@ -45,6 +45,19 @@ enum NotificationChannel: string
     }
 
     /**
+     * Whether this channel's contact detail is a phone number (spec 020).
+     *
+     * Here rather than in the Action that normalises one, and that placement is
+     * the point: ProviderAgnosticTest forbids Actions/ from naming a channel at
+     * all, so "is this a phone?" has to be a property of the vocabulary rather
+     * than a branch in business logic. The same reason isExternal() lives here.
+     */
+    public function isPhoneNumber(): bool
+    {
+        return $this === self::WhatsApp || $this === self::Sms;
+    }
+
+    /**
      * Asked of the registry rather than hardcoded, so "implemented" means exactly
      * one thing: a class for it is tagged in the container. A constant here would
      * drift the first time someone writes the class and forgets to flip it.

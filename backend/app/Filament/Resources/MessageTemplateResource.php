@@ -10,6 +10,7 @@ use App\Modules\Notifications\Support\NotificationChannel;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Tenancy\Support\Permissions;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -51,6 +52,29 @@ class MessageTemplateResource extends Resource
                 ->required()
                 ->rows(4)
                 ->helperText('المتغيّرات بالشكل {{ name }}. متغيّر مطلوب وغير مُمرَّر يمنع الإرسال.'),
+            /*
+            | Spec 020 — the outcome of a process that happens outside this system.
+            |
+            | ⚠️ IT WAS A TABLE COLUMN AND NOT A FORM FIELD, so the state was
+            | visible and unreachable: WhatsApp rows ship `pending`, the renderer
+            | refuses a template that is not approved, and there was no way in the
+            | product to record an approval once the provider granted it. The
+            | deployment checklist described a control that did not exist.
+            |
+            | Editable rather than derived because nothing here can observe it —
+            | approval is a human decision at the provider, and this field is how
+            | the system is told.
+            */
+            Select::make('provider_approval_status')
+                ->label('اعتماد المزوّد')
+                ->options([
+                    MessageTemplate::APPROVAL_NOT_REQUIRED => 'لا يحتاج اعتماداً',
+                    MessageTemplate::APPROVAL_PENDING => 'بانتظار الاعتماد',
+                    MessageTemplate::APPROVAL_APPROVED => 'معتمَد',
+                    MessageTemplate::APPROVAL_REJECTED => 'مرفوض',
+                ])
+                ->required()
+                ->helperText('قنوات مثل واتساب ترفض قالباً غير معتمَد. اقلبه إلى «معتمَد» بعد موافقة المزوّد وليس قبلها.'),
             Toggle::make('is_active')->label('مفعَّل'),
         ]);
     }

@@ -17,6 +17,7 @@ use App\Modules\Marketplace\Events\TeacherChangesRequested;
 use App\Modules\Marketplace\Events\TeacherRejected;
 use App\Modules\Notifications\Channels\ChannelRegistry;
 use App\Modules\Notifications\Channels\InAppChannel;
+use App\Modules\Notifications\Channels\WhatsAppChannel;
 use App\Modules\Notifications\Listeners\NotifyImportReady;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateIssued;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateRegenerated;
@@ -45,7 +46,9 @@ class NotificationsServiceProvider extends Module
         // Listeners/ changes; ChannelContractTest proves that with a fake channel
         // and ProviderAgnosticTest fails the build if anything starts naming a
         // provider (SC-001 · SC-002).
-        $this->app->tag([InAppChannel::class], 'notification.channels');
+        // Spec 020 took that claim and cashed it. WhatsApp is this line plus one
+        // class: not a listener, not an action, not a notification type moved.
+        $this->app->tag([InAppChannel::class, WhatsAppChannel::class], 'notification.channels');
 
         $this->app->singleton(
             ChannelRegistry::class,

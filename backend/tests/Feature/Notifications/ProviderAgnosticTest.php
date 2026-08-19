@@ -25,6 +25,10 @@ function actionFiles(): Finder
 it('never names a channel or provider inside business logic', function (): void {
     $forbidden = [
         'whatsapp', 'telegram', 'twilio', 'vonage', 'firebase',
+        // Spec 020 — the first real provider this module ever had. A guard that
+        // does not know the new name does not guard it, and the vendor whose
+        // name is actually in the tree is the one worth naming.
+        '360dialog', 'd360',
         'InAppChannel', 'MailMessage', '->notify(', 'Notification::route',
     ];
 

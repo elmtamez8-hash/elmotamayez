@@ -121,6 +121,24 @@ return [
         | the payment result screen while this drains.
         */
         'redis:payments' => 30,
+
+        /*
+        | Spec 020 — the notification queues, watched for the first time.
+        |
+        | They existed since 003 and were absent from this list, which under the
+        | rule above means they were not watched at all. That was survivable
+        | while the only channel wrote nothing: a delayed in-app notification is
+        | a delayed row in a feed the user is already looking at. It stops being
+        | survivable the moment a channel leaves the platform — what backs up
+        | here now is a parent's session report and a paywall warning, and the
+        | person waiting for it is not on our site to notice.
+        |
+        | The mandatory queue gets the tighter bound: what travels on it is a
+        | security alert or a payment result, and both are read late or not at
+        | all.
+        */
+        'redis:notifications' => 60,
+        'redis:notifications-high' => 30,
     ],
 
     /*

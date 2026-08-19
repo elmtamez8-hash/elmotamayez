@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Modules\Notifications\Channels\WhatsAppChannel;
 use App\Modules\Notifications\Models\MessageTemplate;
 use App\Modules\Notifications\Support\NotificationChannel;
 use App\Modules\Notifications\Support\NotificationType;
@@ -39,7 +40,66 @@ class NotificationTemplateSeeder extends Seeder
                     'is_active' => true,
                 ],
             );
+
+            // Spec 020. A WhatsApp row for every type that defaults to it, and
+            // the set is DERIVED from the same predicate the default is derived
+            // from — so a type added tomorrow gets its row on the next seed
+            // instead of being dropped in silence by TemplateRenderer.
+            if (in_array(NotificationChannel::WhatsApp, $notificationType->defaultChannels(), true)) {
+                $this->whatsAppTemplate($notificationType->value, $title, $body, $variables);
+            }
         }
+
+        /*
+         * The one WhatsApp template that is not a NotificationType.
+         *
+         * ⚠️ AND THE ONE THAT MUST BE APPROVED FIRST. It carries the one-time
+         * code, so until the provider approves it no number on the platform can
+         * be verified — and canReach() is false for everybody, so not one of the
+         * seventeen above ever leaves the building. Approving the others first
+         * buys nothing at all.
+         */
+        $this->whatsAppTemplate(
+            WhatsAppChannel::VERIFICATION_TEMPLATE_TYPE,
+            'رمز تأكيد رقم واتساب',
+            'رمز تأكيد رقمك في منصّة مدارك هو {{ code }}. ينتهي خلال عشر دقائق.',
+            ['code'],
+        );
+    }
+
+    /**
+     * ⚠️ THE TEXT HERE IS DOCUMENTATION, NOT THE MESSAGE.
+     *
+     * What a phone displays is the wording registered and approved at the
+     * provider; this row exists for the two things a send cannot happen without —
+     * the ORDER of `variables`, which is what every numbered placeholder in the
+     * approved template means, and `provider_approval_status`, which is how the
+     * system learns the outcome of a human process that happens outside it.
+     * Editing `body_ar` from the admin panel changes the notification bell and
+     * changes nothing on WhatsApp.
+     *
+     * Seeded PENDING, never APPROVED. Claiming an approval that has not happened
+     * turns the first send into a provider error code nobody can map back to a
+     * row, instead of a refusal that names the template key in Arabic.
+     *
+     * @param  list<string>  $variables
+     */
+    private function whatsAppTemplate(string $type, string $title, string $body, array $variables): void
+    {
+        MessageTemplate::query()->updateOrCreate(
+            [
+                'type' => $type,
+                'channel' => NotificationChannel::WhatsApp->value,
+            ],
+            [
+                'key' => $type.'.'.NotificationChannel::WhatsApp->value,
+                'title_ar' => $title,
+                'body_ar' => $body,
+                'variables' => $variables,
+                'provider_approval_status' => MessageTemplate::APPROVAL_PENDING,
+                'is_active' => true,
+            ],
+        );
     }
 
     /**

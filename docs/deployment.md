@@ -142,6 +142,50 @@ segments — measured 2026-08-18 — which is what `hls.js` needs, since it read
 with `XMLHttpRequest`. Without it Safari's native HLS would be the only browser that plays
 anything, and nothing would name the cause.
 
+### The WhatsApp channel — three human processes before one message is sent
+
+Spec 020 ships the code. None of it can deliver anything until a person completes the
+following, and **none of these steps is something the application can do or check for
+itself**. Until they are done the channel answers `isEnabled()` false, every delivery is
+recorded `skipped`, and the product behaves exactly as it did before — which is the
+intended behaviour of an unconfigured deployment, not a fault.
+
+- [ ] **A BSP account and a verified Meta business.** Verification is Meta's process and is
+      measured in days. The account provider we build against fronts Meta's Cloud API with a
+      request body identical byte for byte, which is why moving to Meta direct later is two
+      env values (`WHATSAPP_BASE_URL`, `WHATSAPP_AUTH_HEADER`) and no code.
+- [ ] **A dedicated phone number** attached to the WhatsApp Business account. It cannot be a
+      number already in use on the consumer WhatsApp app.
+- [ ] **Eighteen Arabic message templates submitted and approved.** Every message the
+      platform starts must be an approved template: free-form text is permitted only inside
+      the 24-hour window a user opens **by replying**, and we receive nothing, so that window
+      never opens. Submit each with the name in `message_templates.type` and the body
+      matching `body_ar` — the numbered placeholders in the approved template must line up
+      with `variables` **in order**, because that order is the only thing that says which
+      parameter is which.
+- [ ] ⚠️ **Approve `contact_verification` FIRST.** It carries the one-time code, so until it
+      is approved no number on the platform can be verified — and the channel refuses to
+      reach an unverified number, so approving the other seventeen first buys nothing at all.
+- [ ] **Flip `provider_approval_status` to `approved`** on each row as its approval lands
+      (`/admin` ▸ Message Templates). The seeder ships every WhatsApp row `pending` on
+      purpose: claiming an approval that has not happened turns the first send into a
+      provider error code nobody can map back to a row, instead of a refusal that names the
+      template key in Arabic.
+- [ ] **Set the env block** (`WHATSAPP_ENABLED`, `WHATSAPP_BASE_URL`, `WHATSAPP_AUTH_HEADER`,
+      `WHATSAPP_API_KEY`) — see `.env.example`. The key is env and **never** a
+      `platform_settings` row: that table is readable by anyone who can open the admin panel,
+      so a sending key there widens who can message a parent from "whoever runs the server"
+      to "whoever runs a workspace".
+- [ ] **Send one real message to one real phone.** A green suite proves the code agrees with
+      our own fake of the provider; spec 017's first live run found five defects that no test
+      had seen.
+
+**The provider is a data processor.** It receives a student's name, their attendance, their
+guardian's phone number, and in some templates a balance — that is, a minor's personal data
+leaving the platform to a third party. It belongs in the processor registry that spec 013
+builds; until that phase lands, this line is the register. Postponing the phase does not
+postpone knowing who holds the data.
+
 ## Scaling Considerations
 
 - **Database:** Read replicas for course catalog queries

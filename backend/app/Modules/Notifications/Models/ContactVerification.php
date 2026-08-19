@@ -77,6 +77,27 @@ class ContactVerification extends BaseModel
         return $this->attempts < (int) config('notifications.verification.max_attempts');
     }
 
+    /**
+     * The one contact detail this account has PROVEN on this channel, or null.
+     *
+     * ⚠️ THIS AND NEVER `users.phone` (spec 020, FR-003). That column is a free
+     * string anyone can type, nobody confirmed, and a typo in it is a message
+     * about a child sent to a stranger. This table exists precisely so an
+     * external channel has a different question to ask.
+     *
+     * At most one row survives per (user, channel): RequestContactVerification
+     * deletes everything prior before issuing, so moving your number cannot
+     * leave the old one verified and still receiving.
+     */
+    public static function verifiedValueFor(User $user, NotificationChannel $channel): ?string
+    {
+        return self::query()
+            ->where('user_id', $user->getKey())
+            ->where('channel', $channel->value)
+            ->whereNotNull('verified_at')
+            ->value('contact_value');
+    }
+
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { WhatsAppVerification } from "@/components/settings/WhatsAppVerification";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -17,10 +18,16 @@ import {
 /**
  * A type × channel grid.
  *
- * Only implemented channels appear — WhatsApp is a known value with no code
- * behind it, and a greyed-out toggle would promise a date nobody has committed
- * to. Mandatory types render locked with the reason visible rather than absent,
- * because a user looking for the switch should find out why there isn't one.
+ * Only implemented channels appear — Telegram, SMS and push are known values
+ * with no code behind them, and a greyed-out toggle would promise a date nobody
+ * has committed to. Mandatory types render locked with the reason visible rather
+ * than absent, because a user looking for the switch should find out why there
+ * isn't one.
+ *
+ * Spec 020 added WhatsApp, and with it the verification card below: a tick box
+ * on this grid does nothing at all until the number under it has been proven,
+ * because the channel refuses to reach an unverified one. The two belong on one
+ * screen for exactly that reason.
  */
 export default function NotificationSettingsPage() {
   const [channels, setChannels] = useState<NotificationChannel[]>([]);
@@ -177,6 +184,18 @@ export default function NotificationSettingsPage() {
           </table>
         </div>
       </Card>
+
+      {channels.some((channel) => channel.key === "whatsapp") && (
+        <Card as="section">
+          <h3 className="mb-1 font-semibold text-ink">رقم واتساب</h3>
+          <p className="mb-4 text-sm text-ink-muted">
+            أكّد رقمك ليصلك ما اخترته أعلاه على واتساب. لا تُرسَل أي رسالة إلى رقم غير
+            مؤكَّد.
+          </p>
+
+          <WhatsAppVerification />
+        </Card>
+      )}
 
       <Card as="section">
         <h3 className="mb-1 font-semibold text-ink">فترة الهدوء</h3>

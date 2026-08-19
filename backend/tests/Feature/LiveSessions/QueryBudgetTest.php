@@ -214,7 +214,16 @@ it('reports a full register without a query storm', function (): void {
     });
 
     // Four students, each: a feedback lookup, a template render, a notification,
-    // a delivery row, a preference read. Linear in the register and nothing
-    // worse — a nested walk would be well past this.
-    expect($count)->toBeLessThan(40);
+    // a delivery row PER CHANNEL, and a preference read. Linear in the register
+    // and nothing worse — a nested walk would be well past this.
+    //
+    // Raised from 40 by spec 020, and the arithmetic is the reason it was raised
+    // rather than the budget being in the way: a session report now goes to the
+    // bell AND to WhatsApp, so it is exactly ONE more INSERT per student — four
+    // students, four queries, 44. That is the cost of the second delivery row and
+    // there is no version of two channels that does not pay it. What this case
+    // exists to catch is the other shape: a per-student lookup added inside the
+    // loop, which would have moved the number by a multiple of the register
+    // rather than by one row each.
+    expect($count)->toBeLessThan(48);
 });

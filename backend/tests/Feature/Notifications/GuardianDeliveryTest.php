@@ -13,6 +13,7 @@ use App\Modules\Notifications\Jobs\DeliverNotificationJob;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Models\NotificationDelivery;
 use App\Modules\Notifications\Support\DeliveryStatus;
+use App\Modules\Notifications\Support\NotificationChannel;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Shared\Contracts\GuardianDirectory;
 use App\Shared\Support\GuardianPermission;
@@ -135,8 +136,12 @@ it('stops a delivery already in the queue when the relation is revoked', functio
 
     notifyAbout($student, NotificationType::AttendanceAlert);
 
+    // Pinned to the in-app row since spec 020: an attendance alert now fans out
+    // to WhatsApp too, and this case is about the guardian gate rather than
+    // about which channels carry it.
     $delivery = NotificationDelivery::query()
         ->whereHas('notification', fn ($q) => $q->where('recipient_user_id', $guardian->getKey()))
+        ->where('channel', NotificationChannel::InApp->value)
         ->sole();
 
     // Revoked after the job was queued, before the worker picked it up.
@@ -157,7 +162,9 @@ it('leaves the student own delivery alone when a guardian is revoked', function 
 
     notifyAbout($student, NotificationType::AttendanceAlert);
 
-    $delivery = NotificationDelivery::query()->sole();
+    $delivery = NotificationDelivery::query()
+        ->where('channel', NotificationChannel::InApp->value)
+        ->sole();
 
     (new DeliverNotificationJob($delivery->getKey()))->handle(
         app(ChannelRegistry::class),

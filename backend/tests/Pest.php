@@ -27,6 +27,11 @@ use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Notifications\Data\NotificationEnvelope;
+use App\Modules\Notifications\Models\ContactVerification;
+use App\Modules\Notifications\Models\MessageTemplate;
+use App\Modules\Notifications\Support\NotificationChannel;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Enums\OrderKind;
@@ -917,4 +922,75 @@ function countingQueries(callable $work): array
     DB::disableQueryLog();
 
     return [$count, $result];
+}
+
+/*
+|--------------------------------------------------------------------------
+| WhatsApp channel (spec 020)
+|--------------------------------------------------------------------------
+|
+| ⚠️ HERE AND NOT IN A TEST FILE, for the reason written above countingQueries():
+| a function declared inside one test file is a global that exists only when that
+| file happens to be loaded first, so the second file passes in a full run and
+| dies with "undefined function" the moment somebody runs it alone to debug it.
+| Four files use these.
+*/
+
+function configureWhatsApp(bool $enabled = true): void
+{
+    config()->set('notifications.whatsapp.enabled', $enabled);
+    config()->set('notifications.whatsapp.api_key', $enabled ? 'test-key' : null);
+    config()->set('notifications.whatsapp.base_url', 'https://provider.test');
+    config()->set('notifications.whatsapp.auth_header', 'X-Test-Key');
+}
+
+/**
+ * Flip one template to approved.
+ *
+ * The seeder ships every WhatsApp row `pending`, which is the truth about a
+ * process that happens at the provider and takes days — so a test of the happy
+ * path has to state that the approval happened, exactly as an operator will.
+ */
+function approveWhatsAppTemplate(string $type): void
+{
+    MessageTemplate::query()
+        ->where('type', $type)
+        ->where('channel', NotificationChannel::WhatsApp->value)
+        ->update(['provider_approval_status' => MessageTemplate::APPROVAL_APPROVED]);
+}
+
+function withVerifiedWhatsApp(string $number = '+97433123456'): User
+{
+    $user = User::factory()->create();
+
+    ContactVerification::query()->create([
+        'user_id' => $user->getKey(),
+        'channel' => NotificationChannel::WhatsApp->value,
+        'contact_value' => $number,
+        'code_hash' => 'x',
+        'attempts' => 0,
+        'expires_at' => now()->addMinutes(10),
+        'verified_at' => now(),
+    ]);
+
+    return $user;
+}
+
+function envelopeFor(User $user, NotificationType $type = NotificationType::SessionReport): NotificationEnvelope
+{
+    return new NotificationEnvelope(
+        recipient: $user,
+        type: $type,
+        titleAr: 'عنوان',
+        bodyAr: 'نصّ',
+        actionUrl: null,
+        payload: [
+            'title' => 'حصّة الجبر',
+            'student_name' => 'سلمى',
+            'status' => 'حاضرة',
+            'minutes' => '45',
+            'note' => 'أداء جيّد',
+        ],
+        notificationUuid: 'n-1',
+    );
 }

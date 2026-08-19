@@ -141,6 +141,26 @@ one is a class plus a `->tag('notification.channels')` line — no listener, act
 or type changes. `ProviderAgnosticTest` fails the build if any `Actions/` file
 names a channel or provider.
 
+Two are implemented: `InAppChannel` and, since spec 020, `WhatsAppChannel`. Email,
+Telegram, SMS and push remain known values with no class — they are what a
+preference row, a template and a delivery log may legally hold, so the shape of
+the data does not change when one lands.
+
+**Seventeen types default to WhatsApp**, derived from `NotificationType::targetsGuardians()`
+rather than from a second list: these are the messages addressed to the person who
+is not sitting on our site. `security_alert` is deliberately not among them — it is
+mandatory and the student's own. Users add or remove the channel per type from
+`/settings/notifications`, where they also prove their number; nothing reaches a
+phone that has not been verified, so the tick box and the verification card are on
+one screen on purpose.
+
+**A WhatsApp message is a provider-approved template, never text we compose.** The
+row in `message_templates` supplies the template NAME (`type`), the ORDER of its
+parameters (`variables`) and the approval state; `body_ar` documents what was
+approved and is not what the phone displays. Rows ship `pending` — see
+`docs/deployment.md` for the approval checklist, and for why `contact_verification`
+must be approved before any of the others.
+
 ### Platform roles (orthogonal to workspace roles)
 
 `users.platform_role` (`student` · `teacher` · `parent`, nullable) marks accounts
