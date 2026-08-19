@@ -45,6 +45,20 @@ class RequestContactVerification extends Action
 
         // Everything prior for this channel goes, verified or not. A user who
         // moves their number must not stay reachable at the old one.
+        //
+        // ⚠️ AND SINCE SPEC 020 THAT HAS A COST WORTH KNOWING ABOUT. Until then
+        // nothing sent the code, so "request again" could not fail. Now it can:
+        // a verified user asks to change their number, the provider is down, the
+        // request 422s — and the row proving the OLD number is already gone, so
+        // every delivery to them is silently `skipped` until they try again.
+        //
+        // Kept, because the alternative is worse in the case that matters: a
+        // number is usually changed BECAUSE it stopped being theirs, and keeping
+        // the old one verified until a new one is proven means messaging a
+        // stranger about someone's child. The mitigation is honesty rather than
+        // retention — the failure the caller shows says the old number is no
+        // longer confirmed, instead of leaving the user to discover it from
+        // silence.
         ContactVerification::query()
             ->where('user_id', $user->getKey())
             ->where('channel', $channel->value)

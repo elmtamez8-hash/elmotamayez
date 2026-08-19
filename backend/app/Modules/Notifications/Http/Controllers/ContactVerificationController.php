@@ -109,8 +109,12 @@ class ContactVerificationController extends Controller
                 'reason' => $e->getMessage(),
             ]);
 
+            // The second sentence is not padding. Requesting a code retires the
+            // previously verified number before this line runs, so a failure here
+            // leaves the account unreachable — and an unreachable account that
+            // was never told is the silent kind of broken.
             throw ValidationException::withMessages([
-                'contact_value' => 'تعذّر إرسال رمز التأكيد إلى هذا الرقم الآن. حاول بعد قليل.',
+                'contact_value' => 'تعذّر إرسال رمز التأكيد إلى هذا الرقم الآن. رقمك السابق لم يعد مؤكَّداً، فأعِد المحاولة.',
             ]);
         }
     }

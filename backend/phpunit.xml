@@ -55,6 +55,23 @@
         <env name="MEDIA_PROVIDER" value="local"/>
         <env name="BROADCAST_PROVIDER" value="null"/>
         <!--
+            The third switch, added by spec 020 and the same lesson a third time.
+
+            The notification channel is not injected: it reads `notifications.whatsapp.*`
+            from config at send time, so without this line the suite inherits whatever
+            the developer has in `.env`. And the moment real credentials go in — which is
+            exactly what the T041 smoke test asks somebody to do — every feature test that
+            fires a guardian-type notification runs DeliverNotificationJob inline on the
+            `sync` queue, `isEnabled()` answers true, and pest starts making REAL provider
+            calls to fixture phone numbers. Not a red test: a bill, a rate budget, and
+            messages to numbers nobody owns.
+
+            The tests that exercise the channel set this config explicitly themselves
+            (`configureWhatsApp()` in Pest.php), which is the only honest way to test a
+            provider anyway.
+        -->
+        <env name="WHATSAPP_ENABLED" value="false"/>
+        <!--
             And the source disk with them: `BunnyMediaProvider::fetchableUrl()` presigns
             through this disk, so a developer with R2 credentials would have the suite
             reaching for a real bucket while one without would not.
