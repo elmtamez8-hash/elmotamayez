@@ -116,6 +116,32 @@ stdout_logfile=/path/to/backend/storage/logs/horizon.log
 - [ ] Log rotation configured (`storage/logs/laravel.log`)
 - [ ] `storage/` and `bootstrap/cache/` writable by web server
 
+### The two CDN settings that can only be set once a production domain exists
+
+Both live in the Bunny Stream library (Stream ▸ mteatch ▸ Security ▸ General). Neither can
+be set from `.env`, and neither shows a failure anywhere in our logs — a wrong value 403s at
+the CDN and the player reports a generic error.
+
+- [ ] **`Allowed domains`** — deliberately **empty** until launch, because an empty list means
+      "any referrer passes" and a list containing the wrong host refuses every video for every
+      student. When you fill it, add the production host **and** `localhost:3000` /
+      `127.0.0.1:3000` in the same edit, or local development and the Playwright suite die at
+      the CDN with the refusal visible only there. Note what it buys: the referrer header is
+      forged with one `curl` flag, so this is hotlink/bandwidth protection, **not** access
+      control — access control is the HMAC playback token, which is already on.
+- [ ] **`Referrer-Policy`** — leave Next's default (`strict-origin-when-cross-origin`). Bunny's
+      "block direct URL file access" is ON, which refuses any request carrying **no** `Referer`
+      at all. Setting `Referrer-Policy: no-referrer` anywhere in the frontend therefore refuses
+      every video for every student. Measured 2026-08-18: a correctly signed URL is `403` from
+      `curl` with no referrer and `200` with any referrer whatsoever.
+
+There is **no CORS setting to configure**. A Stream library exposes none, and its pull zone
+(`vz-…`) is managed internally and does not appear under CDN. It answers
+`Access-Control-Allow-Origin: *` on the master playlist, the rendition playlist and the `.ts`
+segments — measured 2026-08-18 — which is what `hls.js` needs, since it reads the manifest
+with `XMLHttpRequest`. Without it Safari's native HLS would be the only browser that plays
+anything, and nothing would name the cause.
+
 ## Scaling Considerations
 
 - **Database:** Read replicas for course catalog queries
