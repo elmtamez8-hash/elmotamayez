@@ -2,6 +2,10 @@
 
 use App\Modules\Assessments\Jobs\MarkMissedSubmissionsJob;
 use App\Modules\Assessments\Jobs\RollUpQuestionStatsJob;
+use App\Modules\Gamification\Jobs\CloseLeaderboardWeekJob;
+use App\Modules\Gamification\Jobs\PruneOldLeaderboardsJob;
+use App\Modules\Gamification\Jobs\ReconcileGamificationJob;
+use App\Modules\Gamification\Jobs\RollUpLeaderboardsJob;
 use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
 use App\Modules\LiveSessions\Jobs\RetryPendingRecordingsJob;
 use App\Modules\Media\Jobs\PruneExpiredGrantsJob;
@@ -197,4 +201,50 @@ Schedule::job(new RollUpQuestionStatsJob, 'maintenance')
 */
 Schedule::job(new MarkMissedSubmissionsJob, 'maintenance')
     ->dailyAt('04:55')
+    ->withoutOverlapping();
+
+/*
+|--------------------------------------------------------------------------
+| Gamification (spec 009)
+|--------------------------------------------------------------------------
+|
+| ⚠️ THREE OF THESE FOUR CARRY `->timezone('Asia/Qatar')` EXPLICITLY, and it is
+| not decoration. The scheduler runs on `config/app.timezone`, which is UTC and
+| stays UTC — stored timestamps are not being moved. What these three answer is a
+| question about a QATARI CALENDAR EDGE: "Sunday dawn" and "the day is over".
+| Without the timezone, the week seals three hours after the student's own week
+| has already rolled over, and the daily boundary the cap is computed on and the
+| boundary the board is built on drift apart.
+|
+| ReconcileGamificationJob deliberately does NOT carry one: it is bounded by
+| `created_at >= :since`, so what hour it runs at means nothing.
+*/
+
+// The current week's boards, rebuilt from the ledger. Hourly at :35, clear of
+// the payments reconciliation at :50 and the session sweep at :20 — it is a
+// grouped scan over the fastest-growing table in the module.
+Schedule::job(new RollUpLeaderboardsJob, 'maintenance')
+    ->hourlyAt(35)
+    ->timezone('Asia/Qatar')
+    ->withoutOverlapping();
+
+// The week that ended, sealed. 00:10 Sunday Doha: ten minutes past the boundary,
+// so every award of the closing week has certainly landed.
+Schedule::job(new CloseLeaderboardWeekJob, 'maintenance')
+    ->weeklyOn(0, '00:10')
+    ->timezone('Asia/Qatar')
+    ->withoutOverlapping();
+
+// Retention on the derived table (FR-026). 03:15, ahead of the notification
+// prune at 03:30 and far from every rollup — two bulk deletes on one minute is
+// a lock contention nobody planned for.
+Schedule::job(new PruneOldLeaderboardsJob, 'maintenance')
+    ->dailyAt('03:15')
+    ->timezone('Asia/Qatar')
+    ->withoutOverlapping();
+
+// Does the aggregate still equal the sum of its entries? Bounded by movement,
+// never a full sweep. 04:20, between the billing reconciliations.
+Schedule::job(new ReconcileGamificationJob, 'maintenance')
+    ->dailyAt('04:20')
     ->withoutOverlapping();

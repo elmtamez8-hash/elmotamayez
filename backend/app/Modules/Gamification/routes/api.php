@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Gamification\Http\Controllers\LeaderboardController;
 use App\Modules\Gamification\Http\Controllers\ProgressController;
 use Illuminate\Support\Facades\Route;
 
@@ -33,4 +34,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
      | the permission and the active-enrollment check.
      */
     Route::get('/gamification/students/{user}', [ProgressController::class, 'show']);
+
+    /*
+     | The leaderboard.
+     |
+     | ⚠️ THE ONE READ IN THIS PHASE THAT CARRIES A LIMITER, and NFR-014 did not
+     | ask for it — it names writes only. This is the endpoint worth enumerating:
+     | the scope key names a lesson, a course, a teacher, a subject or a grade, so
+     | an unthrottled board is a walk of the whole space collecting who is active
+     | where. Generous, because a student refreshing their rank is the feature.
+     */
+    Route::get('/gamification/leaderboard', [LeaderboardController::class, 'index'])
+        ->middleware('throttle:gamification-board');
 });
