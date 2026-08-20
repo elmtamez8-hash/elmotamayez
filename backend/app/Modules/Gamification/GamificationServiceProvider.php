@@ -4,10 +4,21 @@ declare(strict_types=1);
 
 namespace App\Modules\Gamification;
 
+use App\Modules\Assessments\Events\AttemptFinalized;
+use App\Modules\Assessments\Events\MistakeResolved;
+use App\Modules\Assessments\Events\SubmissionGraded;
+use App\Modules\Gamification\Listeners\AwardOnAttemptFinalized;
+use App\Modules\Gamification\Listeners\AwardOnAttendanceConfirmed;
+use App\Modules\Gamification\Listeners\AwardOnMistakeResolved;
+use App\Modules\Gamification\Listeners\AwardOnSubmissionGraded;
+use App\Modules\Gamification\Listeners\ReverseOnAttendanceOverridden;
 use App\Modules\Gamification\Support\EloquentFocusState;
+use App\Modules\LiveSessions\Events\AttendanceConfirmed;
+use App\Modules\LiveSessions\Events\AttendanceOverridden;
 use App\Shared\Contracts\FocusState;
 use App\Shared\Modules\Module;
 use App\Shared\Modules\ModulesServiceProvider;
+use Illuminate\Support\Facades\Event;
 
 /**
  * Spec 009 — the gamification module.
@@ -33,5 +44,39 @@ class GamificationServiceProvider extends Module
         // Gamification owns the table and binds the implementation — the same
         // shape as LiveSessions' SessionAttendanceDirectory.
         $this->app->bind(FocusState::class, EloquentFocusState::class);
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        /*
+        | ⚠️ FIVE EVENTS CONSUMED, AND NOT ONE OF THEM IS NEW. Every one already
+        | shipped with 005 or 008 — `MistakeResolved` was even raised with no
+        | listener on purpose, its docblock naming this phase.
+        |
+        | Wired here, in the SUBSCRIBING module, because there is no
+        | EventServiceProvider in this product (Constitution III).
+        |
+        | ⚠️ TWO EVENTS ARE DELIBERATELY NOT WIRED, and their absence is a
+        | decision rather than an omission:
+        |
+        | - `SessionCancelled` was the design's named trigger for reversal and is
+        |   IMPOSSIBLE: attendance is confirmed at completion, and cancelling
+        |   throws on a session in a final state. A session that has awarded
+        |   anything can never be cancelled afterwards, so FR-010 had one route to
+        |   it and that route could not be reached. `AttendanceOverridden` is the
+        |   real moment an attendance award becomes false.
+        |
+        | - `AccessWithheld` also fires when a teacher OPENS AN EXAM WINDOW, and it
+        |   fires per COURSE. Wiring it would dock a student experience because
+        |   their teacher opened a window — three times over, for a student in
+        |   three courses.
+        */
+        Event::listen(AttendanceConfirmed::class, AwardOnAttendanceConfirmed::class);
+        Event::listen(AttendanceOverridden::class, ReverseOnAttendanceOverridden::class);
+        Event::listen(AttemptFinalized::class, AwardOnAttemptFinalized::class);
+        Event::listen(MistakeResolved::class, AwardOnMistakeResolved::class);
+        Event::listen(SubmissionGraded::class, AwardOnSubmissionGraded::class);
     }
 }

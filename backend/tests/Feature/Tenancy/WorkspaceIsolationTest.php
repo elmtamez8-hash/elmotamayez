@@ -22,6 +22,8 @@ use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
+use App\Modules\Gamification\Models\CoinBalance;
+use App\Modules\Gamification\Support\ProgressWriter;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Models\Device;
 use App\Modules\Identity\Models\StudentProfile;
@@ -173,6 +175,40 @@ describe('marketplace models are workspace-scoped', function (): void {
         'grade levels' => [GradeLevel::class],
         'subjects' => [Subject::class],
     ]);
+});
+
+describe('gamification models are workspace-scoped', function (): void {
+    /*
+    | Required in the same PR that adds the model (Constitution I).
+    |
+    | ⚠️ ONLY THE PURSE IS SCOPED, and the asymmetry is spec 009's central decision
+    | rather than an oversight. `student_progress` and `badge_awards` are PLATFORM-
+    | owned — one person, one level, one streak, whatever their teachers — and are
+    | covered by Gamification\PlatformOwnershipTest instead. `award_entries` carries
+    | a workspace_id for CONTEXT and belongs to a student who is a member of no
+    | workspace at all, so a scope on it would hide a student's own history from
+    | them. What IS tenant-owned is the shop and the coins spent in it.
+    */
+    it('scopes a coin balance to the teacher it was earned with', function (): void {
+        [$workspaceA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+        [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+        $student = User::factory()->create();
+        $writer = app(ProgressWriter::class);
+
+        $writer->coinBalanceFor((int) $student->getKey(), (int) $workspaceA->getKey());
+        $writer->coinBalanceFor((int) $student->getKey(), (int) $workspaceB->getKey());
+
+        $context = app(WorkspaceContext::class);
+
+        expect($context->forWorkspace($workspaceA, fn () => CoinBalance::query()->count()))->toBe(1)
+            ->and($context->forWorkspace($workspaceB, fn () => CoinBalance::query()->count()))->toBe(1)
+            // And the student, who belongs to neither, reads both — which is why
+            // every student-facing read filters by user_id EXPLICITLY rather than
+            // trusting a scope that is inert for them.
+            ->and(CoinBalance::query()->withoutWorkspaceScope()->where('user_id', $student->getKey())->count())
+            ->toBe(2);
+    });
 });
 
 describe('media models are workspace-scoped', function (): void {
