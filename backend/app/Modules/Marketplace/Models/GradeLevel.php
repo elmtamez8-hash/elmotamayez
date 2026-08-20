@@ -5,23 +5,24 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace\Models;
 
 use App\Models\BaseModel;
-use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Marketplace\GradeLevelFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
+ * PLATFORM reference data since spec 009 — see {@see Subject} for why the
+ * workspace column had to go, and why it must not come back.
+ *
  * @property string $slug
  * @property string $name_ar
  */
 class GradeLevel extends BaseModel
 {
     /** @use HasFactory<GradeLevelFactory> */
-    use BelongsToWorkspace, HasFactory, HasUuid;
+    use HasFactory, HasUuid;
 
     protected $fillable = [
-        'workspace_id',
         'name_ar',
         'slug',
         'icon',

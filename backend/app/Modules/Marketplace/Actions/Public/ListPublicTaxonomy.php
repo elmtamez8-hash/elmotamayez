@@ -13,9 +13,12 @@ use Illuminate\Support\Facades\Cache;
 /**
  * Subjects or grade levels that have at least one publicly listed teacher.
  *
- * Rows are tenant-owned but the slug is a platform vocabulary, so results are
- * folded by slug: three workspaces teaching maths produce one "الرياضيات" entry
- * with the teacher counts summed.
+ * Since spec 009 the rows are PLATFORM reference data, so there is one row per
+ * slug and the count is simply the count. This used to call
+ * `withoutWorkspaceScope()` and then fold results on slug by hand, because three
+ * workspaces teaching maths held three "الرياضيات" rows — that fold was the
+ * tenant-owned taxonomy's defect wearing a workaround, and Q8 removed the cause
+ * rather than keeping the compensation.
  *
  * Entries with no teachers are dropped — a filter option that can only ever
  * return an empty page is a dead end dressed up as a starting point.
@@ -61,7 +64,6 @@ class ListPublicTaxonomy extends Action
             MarketplaceCache::ttl(),
             function () use ($model, $gradeLevel): array {
                 $rows = $model::query()
-                    ->withoutWorkspaceScope()
                     ->where('is_active', true)
                     ->withCount([
                         'teacherProfiles as teachers_count' => fn ($query) => $query
@@ -77,8 +79,8 @@ class ListPublicTaxonomy extends Action
                     ->orderBy('sort_order')
                     ->get();
 
-                /** @var array<string, array{slug: string, name_ar: string, icon: string|null, teachers_count: int}> $folded */
-                $folded = [];
+                /** @var list<array{slug: string, name_ar: string, icon: string|null, teachers_count: int}> $entries */
+                $entries = [];
 
                 foreach ($rows as $row) {
                     $count = (int) $row->getAttribute('teachers_count');
@@ -87,25 +89,17 @@ class ListPublicTaxonomy extends Action
                         continue;
                     }
 
-                    $slug = $row->slug;
-
-                    if (isset($folded[$slug])) {
-                        $folded[$slug]['teachers_count'] += $count;
-
-                        continue;
-                    }
-
                     $icon = $row->getAttribute('icon');
 
-                    $folded[$slug] = [
-                        'slug' => $slug,
+                    $entries[] = [
+                        'slug' => $row->slug,
                         'name_ar' => $row->name_ar,
                         'icon' => is_string($icon) ? $icon : null,
                         'teachers_count' => $count,
                     ];
                 }
 
-                return array_values($folded);
+                return $entries;
             },
         );
     }

@@ -35,10 +35,7 @@ beforeEach(function (): void {
 
     app(WorkspaceContext::class)->forWorkspace(
         $workspace,
-        fn () => GradeLevel::factory()->create([
-            'slug' => 'secondary',
-            'workspace_id' => $workspace->getKey(),
-        ]),
+        fn () => GradeLevel::factory()->create(['slug' => 'secondary']),
     );
 
     $this->asGuest();
@@ -107,10 +104,7 @@ it('accepts a grade level slug from any participating workspace', function (): v
 
     app(WorkspaceContext::class)->forWorkspace(
         $other,
-        fn () => GradeLevel::factory()->create([
-            'slug' => 'primary',
-            'workspace_id' => $other->getKey(),
-        ]),
+        fn () => GradeLevel::factory()->create(['slug' => 'primary']),
     );
 
     $this->asGuest();

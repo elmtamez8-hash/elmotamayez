@@ -14,31 +14,27 @@ beforeEach(function () {
     $this->workspace = marketplaceWorkspace('Academy');
 });
 
-/** Attach a taxonomy row (created in the workspace) to a teacher. */
+/*
+| Attach a taxonomy row to a teacher.
+|
+| ⚠️ firstOrCreate ON THE SLUG ALONE, because since spec 009 the taxonomy is
+| PLATFORM reference data: there is one "math" row for the whole product and two
+| teachers in two workspaces attach to the SAME one. These helpers used to create
+| a fresh row per workspace, which is what "sharing a subject slug" below had to
+| mean back when the slug was the only thing genuinely shared.
+*/
 function attachSubject(TeacherProfile $teacher, string $slug, string $name): void
 {
-    app(WorkspaceContext::class)->forWorkspace($teacher->workspace_id, function () use ($teacher, $slug, $name): void {
-        $subject = Subject::query()->create([
-            'workspace_id' => $teacher->workspace_id,
-            'slug' => $slug,
-            'name_ar' => $name,
-        ]);
+    $subject = Subject::query()->firstOrCreate(['slug' => $slug], ['name_ar' => $name]);
 
-        $teacher->subjects()->attach($subject->getKey());
-    });
+    $teacher->subjects()->syncWithoutDetaching([$subject->getKey()]);
 }
 
-/** Attach a grade level (created in the workspace) to a teacher. */
 function attachGradeLevel(TeacherProfile $teacher, string $slug, string $name): void
 {
-    app(WorkspaceContext::class)->forWorkspace($teacher->workspace_id, function () use ($teacher, $slug, $name): void {
-        $level = GradeLevel::query()->firstOrCreate(
-            ['workspace_id' => $teacher->workspace_id, 'slug' => $slug],
-            ['name_ar' => $name],
-        );
+    $level = GradeLevel::query()->firstOrCreate(['slug' => $slug], ['name_ar' => $name]);
 
-        $teacher->gradeLevels()->syncWithoutDetaching([$level->getKey()]);
-    });
+    $teacher->gradeLevels()->syncWithoutDetaching([$level->getKey()]);
 }
 
 it('filters by subject slug rather than id', function () {
@@ -203,7 +199,6 @@ it('filters by grade level slug', function () {
 
     app(WorkspaceContext::class)->forWorkspace($this->workspace, function () use ($teacher): void {
         $level = GradeLevel::query()->create([
-            'workspace_id' => $this->workspace->getKey(),
             'slug' => 'secondary',
             'name_ar' => 'الثانوية',
         ]);

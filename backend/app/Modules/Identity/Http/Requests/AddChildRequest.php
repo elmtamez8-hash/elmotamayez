@@ -49,7 +49,6 @@ class AddChildRequest extends FormRequest
     {
         /** @var list<string> */
         return GradeLevel::query()
-            ->withoutWorkspaceScope()
             ->where('is_active', true)
             ->distinct()
             ->pluck('slug')

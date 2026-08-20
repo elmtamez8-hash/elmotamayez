@@ -61,7 +61,6 @@ function cachedPayloadSubject(TeacherProfile $teacher, string $slug, string $nam
 {
     app(WorkspaceContext::class)->forWorkspace($teacher->workspace_id, function () use ($teacher, $slug, $name): void {
         $subject = Subject::query()->create([
-            'workspace_id' => $teacher->workspace_id,
             'slug' => $slug,
             'name_ar' => $name,
         ]);

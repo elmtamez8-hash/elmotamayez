@@ -82,14 +82,10 @@ it('lists only subjects that have a publicly listed teacher', function () {
     $workspace = marketplaceWorkspace();
     $teacher = marketplaceTeacher($workspace);
 
-    app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace, $teacher): void {
-        $taught = Subject::query()->create([
-            'workspace_id' => $workspace->getKey(), 'slug' => 'math', 'name_ar' => 'الرياضيات',
-        ]);
+    app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($teacher): void {
+        $taught = Subject::query()->create(['slug' => 'math', 'name_ar' => 'الرياضيات']);
 
-        Subject::query()->create([
-            'workspace_id' => $workspace->getKey(), 'slug' => 'astronomy', 'name_ar' => 'الفلك',
-        ]);
+        Subject::query()->create(['slug' => 'astronomy', 'name_ar' => 'الفلك']);
 
         $teacher->subjects()->attach($taught->getKey());
     });

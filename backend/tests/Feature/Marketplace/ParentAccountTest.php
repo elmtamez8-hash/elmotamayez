@@ -23,10 +23,9 @@ use Laravel\Sanctum\Sanctum;
 beforeEach(function (): void {
     $workspace = PlatformWorkspace::resolve();
 
-    app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace): void {
+    app(WorkspaceContext::class)->forWorkspace($workspace, function (): void {
         GradeLevel::factory()->create([
             'slug' => 'secondary',
-            'workspace_id' => $workspace->getKey(),
             'is_active' => true,
         ]);
     });

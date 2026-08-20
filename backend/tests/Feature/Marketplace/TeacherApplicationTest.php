@@ -73,9 +73,9 @@ function seedPlatformTaxonomy(): Workspace
 {
     $workspace = PlatformWorkspace::resolve();
 
-    app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace): void {
-        Subject::factory()->create(['slug' => 'math', 'workspace_id' => $workspace->getKey()]);
-        GradeLevel::factory()->create(['slug' => 'secondary', 'workspace_id' => $workspace->getKey()]);
+    app(WorkspaceContext::class)->forWorkspace($workspace, function (): void {
+        Subject::factory()->create(['slug' => 'math']);
+        GradeLevel::factory()->create(['slug' => 'secondary']);
     });
 
     return $workspace;

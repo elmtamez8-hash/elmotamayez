@@ -97,8 +97,16 @@ class MarketplaceLoadSeeder extends Seeder
     /** @param list<int> $workspaces */
     private function seedTeachers(array $workspaces): void
     {
-        $subjects = Subject::query()->withoutWorkspaceScope()->pluck('id', 'workspace_id')->all();
-        $levels = GradeLevel::query()->withoutWorkspaceScope()->pluck('id', 'workspace_id')->all();
+        /*
+        | Since spec 009 the taxonomy is platform-wide — one row per slug — so
+        | these are flat lists and teachers are spread across them round-robin.
+        | They used to be keyed by workspace_id, one row each, which meant every
+        | teacher in a workspace shared one subject: a filtered query would then
+        | either match everything or nothing, and the load measurement it exists
+        | for would be meaningless.
+        */
+        $subjects = array_values(Subject::query()->orderBy('id')->pluck('id')->map(intval(...))->all());
+        $levels = array_values(GradeLevel::query()->orderBy('id')->pluck('id')->map(intval(...))->all());
 
         $userId = (int) DB::table('users')->max('id');
         $now = now();
@@ -170,8 +178,8 @@ class MarketplaceLoadSeeder extends Seeder
 
     /**
      * @param  list<array<string, mixed>>  $profiles
-     * @param  array<int, int>  $subjects
-     * @param  array<int, int>  $levels
+     * @param  list<int>  $subjects
+     * @param  list<int>  $levels
      */
     private function attachTaxonomy(array $profiles, array $subjects, array $levels): void
     {
@@ -182,9 +190,8 @@ class MarketplaceLoadSeeder extends Seeder
         $subjectRows = [];
         $levelRows = [];
 
-        foreach ($profiles as $profile) {
+        foreach ($profiles as $n => $profile) {
             $id = $ids[$profile['uuid']] ?? null;
-            $workspaceId = $profile['workspace_id'];
 
             if ($id === null) {
                 continue;
@@ -192,12 +199,12 @@ class MarketplaceLoadSeeder extends Seeder
 
             // Filters run through these pivots, so an unpopulated pivot would make
             // every filtered query trivially fast and the measurement meaningless.
-            if (isset($subjects[$workspaceId])) {
-                $subjectRows[] = ['teacher_profile_id' => $id, 'subject_id' => $subjects[$workspaceId]];
+            if ($subjects !== []) {
+                $subjectRows[] = ['teacher_profile_id' => $id, 'subject_id' => $subjects[$n % count($subjects)]];
             }
 
-            if (isset($levels[$workspaceId])) {
-                $levelRows[] = ['teacher_profile_id' => $id, 'grade_level_id' => $levels[$workspaceId]];
+            if ($levels !== []) {
+                $levelRows[] = ['teacher_profile_id' => $id, 'grade_level_id' => $levels[$n % count($levels)]];
             }
         }
 

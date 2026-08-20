@@ -101,10 +101,7 @@ it('rejects an unknown course type', function (): void {
 it('filters by the teaching subject of the course author', function (): void {
     $subject = app(WorkspaceContext::class)->forWorkspace(
         $this->workspace,
-        fn () => Subject::factory()->create([
-            'slug' => 'math',
-            'workspace_id' => $this->workspace->getKey(),
-        ]),
+        fn () => Subject::factory()->create(['slug' => 'math']),
     );
 
     $this->teacher->subjects()->attach($subject);

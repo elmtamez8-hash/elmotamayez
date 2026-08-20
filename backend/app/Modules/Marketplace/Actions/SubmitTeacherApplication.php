@@ -64,8 +64,8 @@ class SubmitTeacherApplication extends Action
                 ],
             );
 
-            $profile->subjects()->sync($this->taxonomyIds(Subject::class, $two->subjects, $application->workspace_id));
-            $profile->gradeLevels()->sync($this->taxonomyIds(GradeLevel::class, $two->gradeLevels, $application->workspace_id));
+            $profile->subjects()->sync($this->taxonomyIds(Subject::class, $two->subjects));
+            $profile->gradeLevels()->sync($this->taxonomyIds(GradeLevel::class, $two->gradeLevels));
 
             $this->availability->handle($profile, $four->availability);
 
@@ -83,27 +83,25 @@ class SubmitTeacherApplication extends Action
     }
 
     /**
-     * Resolve taxonomy slugs to this workspace's rows.
+     * Resolve taxonomy slugs to their rows.
      *
-     * Slugs are platform vocabulary but the rows are tenant-owned, so a teacher in
-     * workspace A must be linked to A's "math", not another workspace's. Unknown
-     * slugs are dropped rather than failing the submission — validation already
-     * rejected them, and a taxonomy retired between draft and submit should not
-     * strand an otherwise complete application.
+     * Since spec 009 the taxonomy is platform reference data — one row per slug
+     * for the whole product — so this no longer resolves "this workspace's math".
+     * Unknown slugs are dropped rather than failing the submission: validation
+     * already rejected them, and a taxonomy retired between draft and submit
+     * should not strand an otherwise complete application.
      *
      * @param  class-string<Subject|GradeLevel>  $model
      * @param  list<string>  $slugs
      * @return array<int, int>
      */
-    private function taxonomyIds(string $model, array $slugs, int $workspaceId): array
+    private function taxonomyIds(string $model, array $slugs): array
     {
         if ($slugs === []) {
             return [];
         }
 
         return $model::query()
-            ->withoutWorkspaceScope()
-            ->where('workspace_id', $workspaceId)
             ->whereIn('slug', $slugs)
             ->pluck('id')
             ->map(intval(...))

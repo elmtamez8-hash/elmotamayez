@@ -20,11 +20,13 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * Seeds the shared taxonomy into every workspace.
+ * Seeds the platform taxonomy — ONCE, not once per workspace.
  *
- * Subjects and grade levels are tenant-owned rows, but the *slugs* are a platform
- * vocabulary: public filtering matches on slug so a "math" filter finds teachers
- * across every participating workspace.
+ * ⚠️ IT USED TO WRITE NINE SUBJECTS AND FOUR GRADE LEVELS INTO EVERY WORKSPACE,
+ * which is what made "الرياضيات" a different row with a different id for every
+ * teacher. Spec 009 (Q8) promoted both tables to platform reference data, so
+ * there is now one row per slug for the whole product. Restoring the per-
+ * workspace loop would violate the new `unique(slug)` on the second workspace.
  */
 class MarketplaceSeeder extends Seeder
 {
@@ -57,25 +59,19 @@ class MarketplaceSeeder extends Seeder
 
     public function run(): void
     {
-        Workspace::query()->each(function (Workspace $workspace): void {
-            // forWorkspace(), not set(): a seeder runs outside an HTTP request and
-            // set() would leave the context pointing at the last workspace seeded.
-            app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace): void {
-                foreach (self::SUBJECTS as $i => $subject) {
-                    Subject::query()->updateOrCreate(
-                        ['workspace_id' => $workspace->getKey(), 'slug' => $subject['slug']],
-                        [...$subject, 'sort_order' => $i, 'is_active' => true],
-                    );
-                }
+        foreach (self::SUBJECTS as $i => $subject) {
+            Subject::query()->updateOrCreate(
+                ['slug' => $subject['slug']],
+                [...$subject, 'sort_order' => $i, 'is_active' => true],
+            );
+        }
 
-                foreach (self::GRADE_LEVELS as $i => $level) {
-                    GradeLevel::query()->updateOrCreate(
-                        ['workspace_id' => $workspace->getKey(), 'slug' => $level['slug']],
-                        [...$level, 'sort_order' => $i, 'is_active' => true],
-                    );
-                }
-            });
-        });
+        foreach (self::GRADE_LEVELS as $i => $level) {
+            GradeLevel::query()->updateOrCreate(
+                ['slug' => $level['slug']],
+                [...$level, 'sort_order' => $i, 'is_active' => true],
+            );
+        }
 
         if (! app()->environment('production')) {
             $this->seedDemoMarketplace();
