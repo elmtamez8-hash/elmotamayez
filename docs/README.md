@@ -58,6 +58,7 @@ them, because no sum is correct: the shop refuses coins earned elsewhere.
 | GET | `/gamification/me` | The caller's own profile. Five queries whatever the number of badges and purses |
 | GET | `/gamification/students/{user}` | `progress.view.student` **and** an active enrolment in the reader's workspace. A missing account answers 403, identically to one that is not theirs |
 | GET | `/gamification/leaderboard?scope=&period=` | `throttle:gamification-board`. Scopes: `platform`, `grade:{slug}`, `subject:{uuid}`, `teacher:{uuid}`, `course:{uuid}`, `lesson:{uuid}` |
+| GET | `/gamification/leaderboard/scopes` | Which boards the caller may open. No limiter — no parameter to enumerate, and it answers only about the caller's own active enrolments. A non-student gets `[]` |
 | GET | `/gamification/shop?workspace={uuid}` | An active enrolment in that workspace |
 | POST | `/gamification/rewards/{reward}/redeem` | `throttle:gamification-write`. The uuid is resolved INSIDE the Action, after the enrolment check |
 | GET | `/gamification/redemptions` | The caller's own, filtered by `user_id` explicitly |
@@ -73,6 +74,18 @@ opening them would hand every teacher a weekly roster of their competitors' stud
 the taxonomy.** `subjects` and `grade_levels` carried a `workspace_id` until then, so
 "الرياضيات" was a different row per teacher and the "cross-workspace" subject board was
 one board per teacher wearing a platform board's name.
+
+⚠️ **The picker is DERIVED FROM THE AUTHORISER'S OWN PREDICATE, not assembled beside it.**
+The nearest data the profile screen already holds is the student's coin purses, and they
+answer a different question: a teacher board is authorised on an **active enrolment**, while
+a purse outlives the enrolment (a departed teacher's coins still show, deliberately) and
+lags it (a fresh enrolment has earned nothing yet). Built on purses, the picker offers
+boards the API answers 403 and hides boards it allows. `LeaderboardScopesTest` walks every
+returned option through the real endpoint, which is what fails if the two spellings drift
+apart again. The grade comes from `courses.grade_level` — the column the rollup groups on —
+and not from `student_profiles.grade_level_slug`, which is what the student would call their
+year and can differ. `lesson:` is deliberately not listed: it is opened from beside its
+lesson, and a global picker naming every lesson of every course is a list nobody reads.
 
 ### Marketplace endpoints
 
@@ -807,9 +820,31 @@ fresh install every booking is refused with the remedy unreachable. Two things c
   `CreditPackagePolicy::delete()` still renders a working button. Retirement is
   `is_active = false` (FR-019); purchases and credits still being consumed point at the row.
 
+**`taxonomy.manage` was declared in 009 and checked in no file for the whole phase.** The
+promotion migration named it, `CatalogPermissionTest` proved it was classified
+platform-level, and both stayed green while `subjects` and `grade_levels` had no policy and
+no screen — because `RolePermissionMatrix::platformPermissions()` derives the platform set
+by **absence**, which is a property that can be perfectly true of a permission nobody calls.
+`Marketplace/Policies/TaxonomyPolicy` and the two `Marketplace/Filament/Resources` screens
+close it, and `TaxonomyPermissionTest` asserts **both directions** — a workspace owner fails
+every write, a super admin passes — because a deny-only test passes just as well against a
+`Gate::policy()` line that was never added. It has to be registered explicitly: one policy
+serves two models, so Laravel's guesser looks for `SubjectPolicy`/`GradeLevelPolicy`, finds
+neither, and fails **open** into "no policy applies".
+
+⚠️ **And the slug is immutable on the form.** It is a denormalised join key in three places
+and nothing in the database defends any of them: `courses.grade_level`,
+`student_profiles.grade_level_slug`, and every stored `grade:{slug}` leaderboard key.
+Editing it splits one board into two and files a course under a stage the marketplace can no
+longer name — silently. Saving flushes `MarketplaceCache`, on the **model** rather than in
+the Filament page, so a seeder or a later endpoint gets it too; without it a subject retired
+because it is wrong keeps being offered for up to a minute and a corrected name reads as a
+save that did not take.
+
 A module's Filament resources need their own `discoverResources()` line in
 `AdminPanelProvider` — there is no scan across `app/Modules/*/Filament`, so a new module's
-screens are invisible until that line exists.
+screens are invisible until that line exists. Discovery **skips abstract classes**, which is
+what lets `TaxonomyResource` hold the form and the table for the two concrete screens.
 
 ### Scheduled sweeps
 

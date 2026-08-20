@@ -51,6 +51,21 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:gamification-board');
 
     /*
+     | Which boards this reader may open.
+     |
+     | ⚠️ DECLARED BEFORE THE `{scope}`-SHAPED READ ABOVE WOULD MATTER, and it does
+     | not: the board takes its scope in the QUERY STRING, so `scopes` collides with
+     | nothing. Said out loud because the obvious refactor — moving the scope into
+     | the path — would make this route unreachable and the board would answer 403
+     | about a scope named `scopes`.
+     |
+     | No limiter, unlike the board itself. There is nothing to enumerate: it takes
+     | no parameter and answers only about the caller's own active enrolments, which
+     | is the same reason `/gamification/me` carries none.
+     */
+    Route::get('/gamification/leaderboard/scopes', [LeaderboardController::class, 'scopes']);
+
+    /*
      | The shop, student side.
      |
      | ⚠️ `{reward}` IS A STRING, NOT A BOUND MODEL, and that is the single most

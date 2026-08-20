@@ -4,11 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { SelectField } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { userMessage } from "@/lib/errors";
-import { gamification, type Leaderboard } from "@/lib/gamification";
+import {
+  gamification,
+  type Leaderboard,
+  type LeaderboardScopeOption,
+} from "@/lib/gamification";
 
 /**
  * Where the student stands, among people at their own level (FR-023).
@@ -21,18 +26,77 @@ import { gamification, type Leaderboard } from "@/lib/gamification";
  * ⚠️ AND AN EMPTY BOARD SAYS SOMETHING. Every student's first week starts empty,
  * and a bare table with no rows reads as a screen that failed to load.
  */
-const SCOPES = [
-  { key: "platform", label: "المنصّة" },
-] as const;
+/**
+ * What to call each family of board in the one flat list a `<select>` can hold.
+ *
+ * ⚠️ THE PREFIX IS THE WHOLE DISAMBIGUATION. A teacher and a course can share a
+ * name, and «الرياضيات» is a plausible label for a subject board AND for a course;
+ * two identical-looking options where one crosses workspaces and the other does
+ * not is a picker that cannot be used on purpose. `<optgroup>` would say it more
+ * cleanly and `SelectField` takes a flat list — worth a prefix, not worth a new
+ * variant of a shared control.
+ */
+const KIND_PREFIX: Record<LeaderboardScopeOption["kind"], string> = {
+  platform: "",
+  grade: "الصف: ",
+  subject: "المادة: ",
+  teacher: "المدرّس: ",
+  course: "الكورس: ",
+  // Never sent by /scopes — a per-lesson board is opened from beside its lesson.
+  // Mapped anyway so a future caller passing one is labelled, not left bare.
+  lesson: "الدرس: ",
+};
 
 export default function LeaderboardPage() {
   const [board, setBoard] = useState<Leaderboard | null>(null);
+  // null while the picker is still loading, so "not asked yet" and "asked and
+  // there are none" stay distinguishable — they lead to opposite screens.
+  const [scopes, setScopes] = useState<LeaderboardScopeOption[] | null>(null);
   const [scope, setScope] = useState<string>("platform");
   const [period, setPeriod] = useState<"week" | "term">("week");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  /*
+   * The picker loads once and the board reloads on every change.
+   *
+   * ⚠️ A FAILURE HERE MUST NOT BLANK THE SCREEN. `platform` is open to every
+   * student without any of this, so an empty picker degrades to the board that
+   * always exists rather than to an error over a page that would have worked.
+   */
+  useEffect(() => {
+    gamification
+      .leaderboardScopes()
+      .then((response) => setScopes(response.data))
+      // Degrades to the platform board rather than to nothing: `platform` is open
+      // to every student without any of this.
+      .catch(() => setScopes([{ scope: "platform", label: "المنصّة", kind: "platform" }]));
+  }, []);
+
+  /*
+   * ⚠️ AN EMPTY LIST IS A TEACHER, AND FETCHING THE BOARD ANYWAY IS A 403.
+   *
+   * Every scope is closed to them — the cross-workspace three by role, the other
+   * three for want of an enrolment they cannot hold in their own workspace. The
+   * nav entry is not permission-gated (neither are «تقدّمي» and the shop), so a
+   * teacher does reach this page, and before this it answered them with a refusal
+   * about a screen that is simply not theirs.
+   */
+  const forStudentsOnly = scopes !== null && scopes.length === 0;
+
   const load = useCallback(() => {
+    // The picker has to land first. Fired before it, the board request is a 403
+    // for every teacher — and the answer to a teacher is a screen, not a refusal.
+    if (scopes === null) {
+      return;
+    }
+
+    if (scopes.length === 0) {
+      setLoading(false);
+
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -41,7 +105,7 @@ export default function LeaderboardPage() {
       .then(setBoard)
       .catch((cause) => setError(userMessage(cause)))
       .finally(() => setLoading(false));
-  }, [scope, period]);
+  }, [scope, period, scopes]);
 
   useEffect(load, [load]);
 
@@ -54,16 +118,21 @@ export default function LeaderboardPage() {
             ترتيبك بين طلابٍ في مستواك. تبدأ من جديد كلَّ أسبوع.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {SCOPES.map((option) => (
-            <Button
-              key={option.key}
-              variant={scope === option.key ? "primary" : "ghost"}
-              onClick={() => setScope(option.key)}
-            >
-              {option.label}
-            </Button>
-          ))}
+        <div className="flex flex-wrap items-end gap-2">
+          {/* Hidden while there is only the platform board to pick: a select with
+              one option is a control that answers nothing. */}
+          {(scopes?.length ?? 0) > 1 && (
+            <SelectField
+              id="scope"
+              label="اللوحة"
+              value={scope}
+              onChange={setScope}
+              options={(scopes ?? []).map((option) => ({
+                value: option.scope,
+                label: KIND_PREFIX[option.kind] + option.label,
+              }))}
+            />
+          )}
           <Button
             variant={period === "week" ? "primary" : "ghost"}
             onClick={() => setPeriod("week")}
@@ -83,9 +152,19 @@ export default function LeaderboardPage() {
       </header>
 
       {loading && <RowsSkeleton />}
-      {!loading && error !== null && <ErrorState description={error} onRetry={load} />}
 
-      {!loading && error === null && board !== null && (
+      {!loading && forStudentsOnly && (
+        <EmptyState
+          title="اللوحات للطلاب"
+          description="ترتيبُ طلابك يظهر بجوار أسمائهم في صفحاتهم، لا في لوحةٍ واحدةٍ عندك."
+        />
+      )}
+
+      {!loading && !forStudentsOnly && error !== null && (
+        <ErrorState description={error} onRetry={load} />
+      )}
+
+      {!loading && !forStudentsOnly && error === null && board !== null && (
         <>
           {board.my_rank !== null && (
             <Card>

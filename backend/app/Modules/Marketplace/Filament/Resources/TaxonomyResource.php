@@ -49,7 +49,8 @@ abstract class TaxonomyResource extends Resource
             | text, and every stored `grade:{slug}` leaderboard key is text.
             | Editing it splits one board into two and files a course under a stage
             | the marketplace can no longer name — silently, with nothing failing.
-            | Same family as BUNNY_TITLE_PREFIX.
+            | Same family as the media provider's title prefix, which orphans every
+            | asset not yet recovered the moment it changes.
             */
             TextInput::make('slug')
                 ->label('المُعرِّف')

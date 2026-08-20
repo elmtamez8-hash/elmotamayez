@@ -38,12 +38,29 @@ it('refuses the workspace owner, the highest tenant role there is', function ():
 });
 
 /*
- * The allow direction, which is the half that catches a policy wired to nothing.
+ * ⚠️ THE REGISTRATION ITSELF, ASSERTED DIRECTLY — AND NOTHING ELSE IN THIS FILE
+ * WOULD CATCH ITS ABSENCE.
  *
- * ⚠️ WITHOUT IT THIS FILE WOULD PASS AGAINST A MISSING `Gate::policy()` LINE.
- * Laravel's guesser looks for SubjectPolicy and GradeLevelPolicy and finds
- * neither, so an unregistered TaxonomyPolicy leaves "no policy applies" — and
- * every deny assertion above stays green while the screen is open to anyone.
+ * One policy serves two models, so Laravel's guesser looks for `SubjectPolicy` and
+ * `GradeLevelPolicy`, finds neither, and fails OPEN into "no policy applies".
+ * Every other test here stays green in that state: the deny assertions pass
+ * because no policy means no ability, and the super-admin assertions pass because
+ * `Gate::before` answers true before policy resolution is ever reached — the same
+ * mechanism that stops the delete-deny biting two tests below.
+ *
+ * So the guard is `getPolicyFor()`. An earlier version of this file claimed the
+ * allow direction covered it, which was simply false.
+ */
+it('registers one policy for both models', function (): void {
+    expect(Gate::getPolicyFor(Subject::class))->toBeInstanceOf(TaxonomyPolicy::class)
+        ->and(Gate::getPolicyFor(GradeLevel::class))->toBeInstanceOf(TaxonomyPolicy::class);
+});
+
+/*
+ * The allow direction: the panel admits the operator it is built for.
+ *
+ * Not a test of the wiring — see above — but of the outcome a deny-only file
+ * cannot distinguish from a screen nobody can open.
  */
 it('admits a super admin to both models', function (): void {
     $admin = User::factory()->create(['is_super_admin' => true]);

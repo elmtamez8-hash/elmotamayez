@@ -75,6 +75,19 @@ export interface Redemption {
   student_name?: string;
 }
 
+/**
+ * One board the reader may open, named as the server names it.
+ *
+ * `kind` exists so this file does not have to parse the key — a second copy of
+ * the scope vocabulary in TypeScript drifts the day a scope is added, and
+ * `lesson` is already a live scope with no entry in this list by design.
+ */
+export interface LeaderboardScopeOption {
+  scope: string;
+  label: string;
+  kind: "platform" | "grade" | "subject" | "teacher" | "course" | "lesson";
+}
+
 export interface FocusSession {
   uuid: string;
   planned_minutes: number;
@@ -98,6 +111,19 @@ export const gamification = {
     api.get<Leaderboard>(
       `/gamification/leaderboard?scope=${encodeURIComponent(scope)}&period=${period}`,
     ),
+
+  /**
+   * Which boards this reader may open.
+   *
+   * ⚠️ THE LIST COMES FROM THE SERVER AND IS NOT ASSEMBLED HERE. The teacher and
+   * course boards are authorised on an ACTIVE ENROLMENT, and the nearest data this
+   * screen already holds — the coin purses on `/gamification/me` — answers a
+   * different question: a purse outlives the enrolment and lags it. Building the
+   * picker from purses would offer boards the API refuses and hide boards it
+   * allows.
+   */
+  leaderboardScopes: () =>
+    api.get<{ data: LeaderboardScopeOption[] }>("/gamification/leaderboard/scopes"),
 
   shop: (workspaceUuid: string) =>
     api.get<{ data: Reward[] }>(`/gamification/shop?workspace=${encodeURIComponent(workspaceUuid)}`),

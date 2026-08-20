@@ -113,7 +113,9 @@ description: "Task list — نظام التلعيب (٠٠٩)"
 - [X] T036 [P] أنشئ عقدَ `backend/app/Shared/Contracts/FocusState.php` (`isFocusing(User): bool`) بتنفيذٍ واحدٍ في `Gamification` يقرأ `focus_sessions.status = 'running'` — ⚠️ **ولا مفتاحَ ذاكرةٍ بجواره**: النسخةُ الثانيةُ تصنع خطرَ `close()` الذي حذّرت منه الوثائقُ ثلاثَ مرّات، والخطرُ موجودٌ **فقط لأن هناك نسختَين**
 - [X] T037 [P] أنشئ عقدَ `backend/app/Shared/Contracts/FreezeDirectory.php` بتنفيذٍ في `LiveSessions` يجيب عن التجميد **بـ`withoutWorkspaceScope()`** — السلسلةُ منصّيةٌ و`FreezePeriod` مقيَّدٌ بمساحةِ عمل، فسؤالٌ مقيَّدٌ يُجيب عن مدرّسٍ واحدٍ عن حالةٍ تخصّ الطالبَ كلَّه
 - [X] T038 أضِف دالّةَ «حاضرو هذه الحصّة» إلى `backend/app/Shared/Contracts/SessionAttendanceDirectory.php` وتنفيذِها — ⚠️ **مستثنيةً المضيفَ** بـ`Attendance::scopeExcludingHost()` القائم: بدونها يُمنح المدرّسُ خبرةَ حضورٍ في كلّ درسٍ يلقيه فيظهر في صدارة طلابه
-- [X] T039 [P] أنشئ `Data/` — DTOs ترث `App\Shared\Data\DataTransferObject`: `AwardRequest` · `RedeemRequest` · `LeaderboardQuery` · `FocusRequest` (`NFR-005`)
+- [X] T039 [P] أنشئ `Data/` — DTOs ترث `App\Shared\Data\DataTransferObject`: **`AwardRequest` و`RewardData`** (`NFR-005`)
+  - ⚠️ **سُلّم باثنين لا بأربعة، وهذا تصحيحُ نصِّ المهمّة لا اختصارُها.** `LeaderboardQuery` و`FocusRequest` و`RedeemRequest` لم تُكتب لأنّ الطلبَ في كلٍّ منها **مُعامِلٌ واحد**: نطاقٌ نصّيّ، وعددٌ صحيح، ومُعرِّف. وDTO حول قيمةٍ مفردةٍ ليس عقداً بل طبقةٌ تُقرأ مرّتين ولا تمنع خطأً واحداً. و`RewardData` — التي لم تُسمَّ هنا أصلاً — هي التي احتاجت واحداً فعلاً: تسعةُ حقولٍ يتقاسمها الإنشاءُ والتعديل
+  - النصُّ الأصليُّ ظلَّ مؤشَّراً في المرحلة السابقة بينما يخالفه التنفيذُ في ثلاثةِ أسماء؛ والقاعدةُ أنّ الوثيقةَ تُصحَّح لا أن يُضاف كودٌ ميّتٌ ليُصدِّقها
 - [X] T040 [P] أنشئ المصانعَ في `backend/database/factories/Modules/Gamification/` — 🔴 **مركزيةٌ في هذا المستودع** لا داخل الوحدة (`AppServiceProvider::guessFactoryName()`)
 - [X] T041 أنشئ `backend/database/seeders/GamificationCatalogSeeder.php` بالقيم الابتدائية من جدول الوثيقة (‏أفعالٌ · مستوياتٌ · شارات) — ⚠️ **بياناتٌ مرجعيةٌ لا تجهيزات**، على نمط `NotificationTemplateSeeder`
 - [X] T042 ابذر `GamificationCatalogSeeder` في `backend/tests/Pest.php` قبل كلّ اختبارِ ميزة — ⚠️ **وبدونه يمرّ كلُّ تأكيدٍ على المنح فارغاً ضدّ صفر**، وهو أخطرُ أشكال الاختبار الأخضر
@@ -309,6 +311,23 @@ Task: "هجرةُ student_progress بلا workspace_id"                  # T014
 Task: "هجرةُ coin_balances بـunique(user_id, workspace_id)"      # T015
 Task: "هجرةُ badge_awards بـunique(user_id, badge_key)"          # T016
 ```
+
+---
+
+## Phase 9 — البنود المفتوحة بعد التسليم
+
+ثلاثةُ بنودٍ سُمِّيت صراحةً في تقرير المرحلة بدل أن تُدّعى مكتملة، ثمّ نُفِّذت.
+
+- [X] T136 نفّذ `Marketplace/Policies/TaxonomyPolicy` وسجّلها بـ`Gate::policy` لنموذجَي `Subject` و`GradeLevel`
+  - ⚠️ **`taxonomy.manage` كانت مُعلَنةً ولا يقرؤها ملفٌّ واحد** طوالَ المرحلة. الهجرةُ سمّتها، و`CatalogPermissionTest` أثبت تصنيفَها منصّيّاً، وكلاهما أخضر — لأنّ `platformPermissions()` تشتقّ المجموعةَ **بالغياب**، وهي خاصّيّةٌ تصحّ تماماً عن صلاحيةٍ لا يستدعيها شيء
+  - التسجيلُ صريحٌ لأنّ سياسةً واحدةً تخدم نموذجين: مُخمِّنُ لارافيل يبحث عن `SubjectPolicy` و`GradeLevelPolicy` فلا يجد أيّهما، **ويفشل مفتوحاً**
+- [X] T137 [P] أنشئ `SubjectResource` و`GradeLevelResource` فوق `TaxonomyResource` المجرَّدة — **المُعرِّفُ غيرُ قابلٍ للتعديل** بعد كتابته، ولا حذفَ على المورد لا على السياسة وحدَها، والحفظُ يُبطل `MarketplaceCache` على النموذج
+- [X] T138 [P] `TaxonomyPermissionTest.php`: مالكُ مساحةِ العمل يسقط **والمشرفُ الأعلى ينجح** — الاتّجاهُ الثاني هو ما يكشف سياسةً لم تُسجَّل، إذ يمرّ اختبارُ الرفضِ وحدَه عليها
+- [X] T139 نفّذ `Actions/ListLeaderboardScopes.php` و`GET /gamification/leaderboard/scopes`
+  - ⚠️ **خمسةٌ من النطاقات الستّة شُحنت لا يبلغها إلا من يكتب عنوانَها بيده.** تعمل، ومُختبَرة، ومُعلَنةٌ مُسلَّمةً في `docs/README.md` — والشاشةُ تعرض `platform` وحدَه
+  - **مشتقٌّ من مسند التفويض نفسِه**، لا مبنيٌّ بجانبه: أقربُ بياناتٍ تحملها الشاشةُ هي محافظُ العملات، وهي تجيب سؤالاً آخر — لوحةُ المدرّس مُفوَّضةٌ على **تسجيلٍ نشِط**، والمحفظةُ تعمّر بعده وتتأخّر عنه
+- [X] T140 [P] `LeaderboardScopesTest.php` — **يمشي بكلّ خيارٍ مُعادٍ عبر نقطةِ اللوحة الحقيقيّة**؛ هو ما يسقط إن افترقت الصياغتان ثانيةً
+- [X] T141 [P] مُنتقي اللوحات في `leaderboard/page.tsx` + `page.test.tsx` — والمدرّسُ يُخبَر أنّ الشاشةَ للطلاب بدل أن يُطلَب له لوحٌ يُردّ ٤٠٣
 
 ---
 

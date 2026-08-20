@@ -143,6 +143,8 @@ Tests use in-memory SQLite (`DB_DATABASE=:memory:` in `phpunit.xml`).
 40. The shop's claim is atomic and its release is two statements — `tests/Feature/Gamification/ShopTest.php`
 41. The catalogue is the platform's, not the teacher's — `tests/Feature/Gamification/CatalogPermissionTest.php`
 42. The focus mute never hides a mandatory notification — `tests/Feature/Gamification/FocusSessionTest.php`
+43. The board picker offers nothing the board itself refuses — `tests/Feature/Gamification/LeaderboardScopesTest.php`
+44. The taxonomy is the platform's, and the permission that says so is actually asked — `tests/Feature/Marketplace/TaxonomyPermissionTest.php`
 
 ### Read before touching sessions
 
