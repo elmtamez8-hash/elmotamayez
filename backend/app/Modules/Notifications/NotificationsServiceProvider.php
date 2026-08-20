@@ -13,6 +13,7 @@ use App\Modules\Certificates\Events\CertificateIssued;
 use App\Modules\Certificates\Events\CertificateRegenerated;
 use App\Modules\Gamification\Events\BadgeAwarded;
 use App\Modules\Gamification\Events\LevelReachedUp;
+use App\Modules\Gamification\Events\RewardRedeemed;
 use App\Modules\Learning\Events\EnrollmentCreated;
 use App\Modules\Marketplace\Events\TeacherApproved;
 use App\Modules\Marketplace\Events\TeacherChangesRequested;
@@ -21,6 +22,7 @@ use App\Modules\Notifications\Channels\ChannelRegistry;
 use App\Modules\Notifications\Channels\InAppChannel;
 use App\Modules\Notifications\Channels\WhatsAppChannel;
 use App\Modules\Notifications\Listeners\NotifyImportReady;
+use App\Modules\Notifications\Listeners\NotifyOnRewardRedeemed;
 use App\Modules\Notifications\Listeners\NotifyStudentBadgeAwarded;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateIssued;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateRegenerated;
@@ -106,5 +108,9 @@ class NotificationsServiceProvider extends Module
         */
         Event::listen(LevelReachedUp::class, NotifyStudentLevelUp::class);
         Event::listen(BadgeAwarded::class, NotifyStudentBadgeAwarded::class);
+
+        // …and the one that does reach the guardian: a redeemed reward can be a
+        // discount on a session, which changes what the family pays.
+        Event::listen(RewardRedeemed::class, NotifyOnRewardRedeemed::class);
     }
 }

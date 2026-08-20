@@ -95,6 +95,8 @@ function dispatchOf(User $user, NotificationType $type): void
             // channel never sees it.
             'level_name' => 'متمكّن',
             'badge_name' => 'مواظب',
+            'reward_title' => 'خصم على حصة',
+            'teacher_name' => 'أ. خالد',
         ],
     ));
 }

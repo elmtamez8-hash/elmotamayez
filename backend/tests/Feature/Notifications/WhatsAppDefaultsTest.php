@@ -14,7 +14,7 @@ use App\Modules\Notifications\Support\NotificationType;
 | it. The count below is what notices.
 */
 
-it('defaults to whatsapp for exactly the seventeen guardian types plus the security alert', function (): void {
+it('defaults to whatsapp for exactly the eighteen guardian types plus the security alert', function (): void {
     $onWhatsApp = array_values(array_filter(
         NotificationType::cases(),
         fn (NotificationType $type): bool => in_array(
@@ -28,7 +28,7 @@ it('defaults to whatsapp for exactly the seventeen guardian types plus the secur
     // guardian set by accident is exactly how a message nobody chose starts
     // costing money on a parent's phone — and the opposite slip is how the one
     // message this phase was built for stops arriving.
-    expect($onWhatsApp)->toHaveCount(18);
+    expect($onWhatsApp)->toHaveCount(19);
 });
 
 it('derives the set from targetsGuardians, with the security alert as the only named exception', function (): void {

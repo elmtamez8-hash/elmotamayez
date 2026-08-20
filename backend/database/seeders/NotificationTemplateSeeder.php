@@ -56,7 +56,7 @@ class NotificationTemplateSeeder extends Seeder
          * ⚠️ AND THE ONE THAT MUST BE APPROVED FIRST. It carries the one-time
          * code, so until the provider approves it no number on the platform can
          * be verified — and canReach() is false for everybody, so not one of the
-         * eighteen above ever leaves the building. Approving the others first
+         * nineteen above ever leaves the building. Approving the others first
          * buys nothing at all.
          */
         $this->whatsAppTemplate(
@@ -269,6 +269,19 @@ class NotificationTemplateSeeder extends Seeder
                 'شارة جديدة: {{ badge_name }}',
                 'حصل {{ student_name }} على شارة «{{ badge_name }}».',
                 ['student_name', 'badge_name'],
+            ],
+            /*
+            | The one gamification type that reaches a guardian, and therefore the
+            | one with a WhatsApp row — template nineteen.
+            |
+            | ⚠️ NO PRICE AND NO COIN COUNT. What the reward cost the teacher is
+            | their business, and a coin figure is ambiguous the moment the student
+            | studies with a second teacher.
+            */
+            NotificationType::RewardRedeemed->value => [
+                'استُبدلت مكافأة: {{ reward_title }}',
+                'استبدل {{ student_name }} مكافأة «{{ reward_title }}» من متجر {{ teacher_name }}، وهي بانتظار التنفيذ.',
+                ['student_name', 'reward_title', 'teacher_name'],
             ],
             NotificationType::ExamPendingGrading->value => [
                 'تسلّمنا ورقتك في «{{ exam_title }}»',

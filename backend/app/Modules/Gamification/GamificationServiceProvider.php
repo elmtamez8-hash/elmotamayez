@@ -15,7 +15,11 @@ use App\Modules\Gamification\Listeners\ReverseOnAttendanceOverridden;
 use App\Modules\Gamification\Models\Badge;
 use App\Modules\Gamification\Models\GamificationAction;
 use App\Modules\Gamification\Models\Level;
+use App\Modules\Gamification\Models\Redemption;
+use App\Modules\Gamification\Models\Reward;
 use App\Modules\Gamification\Policies\CataloguePolicy;
+use App\Modules\Gamification\Policies\RedemptionPolicy;
+use App\Modules\Gamification\Policies\RewardPolicy;
 use App\Modules\Gamification\Support\EloquentFocusState;
 use App\Modules\LiveSessions\Events\AttendanceConfirmed;
 use App\Modules\LiveSessions\Events\AttendanceOverridden;
@@ -61,6 +65,11 @@ class GamificationServiceProvider extends Module
         Gate::policy(GamificationAction::class, CataloguePolicy::class);
         Gate::policy(Level::class, CataloguePolicy::class);
         Gate::policy(Badge::class, CataloguePolicy::class);
+
+        // The teacher's shop and its queue. Workspace-owned, so these are the
+        // row-level half of a guard whose other half is the scope.
+        Gate::policy(Reward::class, RewardPolicy::class);
+        Gate::policy(Redemption::class, RedemptionPolicy::class);
 
         /*
         | ⚠️ FIVE EVENTS CONSUMED, AND NOT ONE OF THEM IS NEW. Every one already

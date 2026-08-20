@@ -136,6 +136,20 @@ enum NotificationType: string
     case LevelUp = 'level_up';
     case BadgeAwarded = 'badge_awarded';
 
+    /*
+    | ⚠️ AND THE THIRD ONE DOES REACH THE GUARDIAN, unlike the two above.
+    |
+    | A redemption is not a congratulation: the reward may be a DISCOUNT ON A
+    | SESSION, which is a change to what the family will be asked to pay. It is
+    | also rare — once or twice a term — so it does not carry the "muted within a
+    | week" risk that keeps levels and badges on the bell.
+    |
+    | Gated on the PAYMENTS consent for the same reason the balance messages are:
+    | a guardian with no right to see the financial record has no business being
+    | told a discount was claimed against it.
+    */
+    case RewardRedeemed = 'reward_redeemed';
+
     public function label(): string
     {
         return match ($this) {
@@ -176,6 +190,7 @@ enum NotificationType: string
             self::AssignmentGraded => 'درجة واجب',
             self::LevelUp => 'ارتفاع المستوى',
             self::BadgeAwarded => 'شارة جديدة',
+            self::RewardRedeemed => 'استبدال مكافأة',
         };
     }
 
@@ -296,7 +311,13 @@ enum NotificationType: string
             self::PaymentFailed,
             self::ReceiptApproved,
             self::ReceiptRejected,
-            self::PaymentReversed => true,
+            self::PaymentReversed,
+            // Spec 009. A redeemed reward can be a discount on a session, which
+            // changes what the family pays — so the person who pays hears about
+            // it. Levels and badges deliberately do NOT: several a week on a
+            // guardian's phone is how the number gets muted, taking the
+            // attendance alert with it.
+            self::RewardRedeemed => true,
             default => false,
         };
     }
@@ -332,7 +353,16 @@ enum NotificationType: string
             self::PaymentFailed,
             self::ReceiptApproved,
             self::ReceiptRejected,
-            self::PaymentReversed => GuardianPermission::Payments,
+            self::PaymentReversed,
+            /*
+            | ⚠️ WITHOUT THIS LINE, `targetsGuardians()` WOULD BE A LIE THAT COSTS
+            | MONEY. RecipientResolver merges guardians only when the type targets
+            | them AND names a permission — so a type in the list above with no
+            | mapping here reaches NO guardian at all, while still picking up the
+            | WhatsApp channel from defaultChannels(). The message would leave the
+            | platform, be billed, and arrive nowhere it was added for.
+            */
+            self::RewardRedeemed => GuardianPermission::Payments,
             default => null,
         };
     }

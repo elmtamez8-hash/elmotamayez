@@ -231,7 +231,14 @@ it('tells every guardian-facing type apart', function (): void {
     // of its own — a second permission over the same fact is a second switch a
     // family has to find. Its sibling, AssignmentSubmitted, deliberately reaches
     // no guardian at all: it is the teacher's own inbox saying work arrived.
-    expect($guardianTypes)->toHaveCount(17);
+    //
+    // And the eighteenth, with spec 009's shop: a redeemed reward can be a
+    // DISCOUNT ON A SESSION, which changes what the family will be asked to pay,
+    // so it rides GuardianPermission::Payments with the rest of the money. Its two
+    // siblings — a level up and a new badge — deliberately reach no guardian at
+    // all: several a week on a parent's phone is how the number gets muted, and
+    // the attendance alert goes silent with it.
+    expect($guardianTypes)->toHaveCount(18);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();
