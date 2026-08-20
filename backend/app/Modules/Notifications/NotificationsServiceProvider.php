@@ -11,6 +11,8 @@ use App\Modules\Assessments\Events\QuestionImported;
 use App\Modules\Assessments\Events\SubmissionGraded;
 use App\Modules\Certificates\Events\CertificateIssued;
 use App\Modules\Certificates\Events\CertificateRegenerated;
+use App\Modules\Gamification\Events\BadgeAwarded;
+use App\Modules\Gamification\Events\LevelReachedUp;
 use App\Modules\Learning\Events\EnrollmentCreated;
 use App\Modules\Marketplace\Events\TeacherApproved;
 use App\Modules\Marketplace\Events\TeacherChangesRequested;
@@ -19,11 +21,13 @@ use App\Modules\Notifications\Channels\ChannelRegistry;
 use App\Modules\Notifications\Channels\InAppChannel;
 use App\Modules\Notifications\Channels\WhatsAppChannel;
 use App\Modules\Notifications\Listeners\NotifyImportReady;
+use App\Modules\Notifications\Listeners\NotifyStudentBadgeAwarded;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateIssued;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateRegenerated;
 use App\Modules\Notifications\Listeners\NotifyStudentEnrolled;
 use App\Modules\Notifications\Listeners\NotifyStudentExamResult;
 use App\Modules\Notifications\Listeners\NotifyStudentGradingPending;
+use App\Modules\Notifications\Listeners\NotifyStudentLevelUp;
 use App\Modules\Notifications\Listeners\NotifyStudentSubmissionGraded;
 use App\Modules\Notifications\Listeners\NotifyTeacherApproved;
 use App\Modules\Notifications\Listeners\NotifyTeacherAssignmentSubmitted;
@@ -93,5 +97,14 @@ class NotificationsServiceProvider extends Module
         */
         Event::listen(AssignmentSubmitted::class, NotifyTeacherAssignmentSubmitted::class);
         Event::listen(SubmissionGraded::class, NotifyStudentSubmissionGraded::class);
+
+        /*
+        | Spec 009 — the two pieces of good news. Both stay on the bell: several a
+        | week for an engaged student is a daily congratulation on a guardian's
+        | phone, and the predictable result is the guardian muting the number and
+        | losing the attendance alert with it.
+        */
+        Event::listen(LevelReachedUp::class, NotifyStudentLevelUp::class);
+        Event::listen(BadgeAwarded::class, NotifyStudentBadgeAwarded::class);
     }
 }

@@ -171,19 +171,19 @@ description: "Task list — نظام التلعيب (٠٠٩)"
 
 **Independent Test**: تجاوز عتبةَ مستوى · انشط يومَين متتاليَين ثمّ انقطع · استوفِ شرطَ شارة.
 
-- [ ] T070 [US2] نفّذ `Actions/RecalculateStreak.php` — **كلُّ كتابةٍ شرطيّةٌ ورتيبةٌ في اتجاهٍ واحد**: `SET current_streak = current_streak + 1, last_active_day = :d WHERE last_active_day <> :d` (‏صفرُ صفوفٍ = «حُسِب اليومَ سلفاً»، فمنحان في يومٍ لا يزيدانها مرّتين) · `SET best_streak = :n WHERE best_streak < :n` (§R9)
-- [ ] T071 [US2] نفّذ استهلاكَ الدرع في `RecalculateStreak`: `SET shield_count = shield_count - 1 WHERE shield_count > 0` **ويُختَم `streak_evaluated_day` في نفس الجملة** — ⚠️ **سابقةُ `notified_dormant_at`**: تقييمٌ يجري مرّتين يحرق درعَين لانقطاعٍ واحد، و`CLAUDE.md` يسجّل ٧٢ تمريرةً متراكمةً بعد إعادة تشغيل عامل (`FR-016`)
-- [ ] T072 [US2] استشِر `FreezeDirectory` (`T037`) في `RecalculateStreak`: أيامُ التجميد **لا تكسر السلسلة ولا تُحتسب نشاطاً** (`FR-015`)
-- [ ] T073 [US2] نفّذ رفعَ المستوى في `AwardPoints`: `SET level = :n WHERE level < :n` و`notified_level` مثلُه — ⚠️ **بدونه يهبط المستوى بين طلبَين فيشتعل `LevelReachedUp` مرّتين** وتصل تهنئةٌ مكرَّرة
-- [ ] T074 [US2] نفّذ `Actions/EvaluateBadges.php` و`Jobs/EvaluateBadgesJob.php` على `default` — يُستدعى من الوظيفة لا من المسار (`FR-018` · `SC-016`)، والكتابةُ `insertOrIgnore` على `badge_awards` **بـuuid وطوابعَ صريحة** والفهرسُ الفريدُ هو حارسُ «مرّةً واحدة»
-- [ ] T075 [US2] [P] نفّذ مُقيِّمَ كلّ صنفٍ من `BadgeRuleType` — يقرأ `index(student_user_id, action_key, created_at)` القائم لأسئلةِ «حلّ ١٠٠ سؤالاً إجمالاً»
-- [ ] T076 [US2] [P] أضِف `level_up` و`badge_awarded` إلى `NotificationType` وقوالبَهما في `NotificationTemplateSeeder` — **بقناة الجرس وحدَها**: تهنئةٌ يوميةٌ على هاتف الأب تُطفَأ بعد أسبوعٍ ومعها ما يهمّه
-- [ ] T077 [US2] أطلِق `LevelReachedUp` و`BadgeAwarded` **بعد الإيداع** (`afterCommit`) واستمع لهما في `Notifications` — ⚠️ حدثٌ داخل المعاملة يعلن صفّاً قد يُلغى، وعلى Horizon قد تبدأ الوظيفةُ **قبل** الإيداع فلا تقرأ شيئاً
-- [ ] T078 [US2] [P] أنشئ `Filament/Resources/LevelResource` و`BadgeResource` خلف `GAMIFICATION_CATALOG_MANAGE` (`FR-012` · `FR-017`)
-- [ ] T079 [US2] [P] `StreakTest.php`: النموُّ بالمتتالي · التصفيرُ بالانقطاع · **لا كسرَ بالتجميد** — الحالاتُ الثلاث (`SC-006`)
-- [ ] T080 [US2] [P] `ShieldTest.php`: انقطاعُ يومٍ واحدٍ بدرعٍ ⇒ السلسلةُ محفوظةٌ والدرعُ مستهلَك · **وتقييمٌ يجري مرّتين يستهلك درعاً واحداً** (‏حارسُ `T071`)
-- [ ] T081 [US2] [P] `BadgeTest.php`: صفرُ شارةٍ ممنوحةٍ مرّتين · وشارةٌ **لا تُسحَب** بعد تغيّر قاعدتها (`SC-007`)
-- [ ] T082 [US2] [P] `LevelUpTest.php`: العتبةُ تُرفع المستوى وتُبلِّغ **مرّةً واحدة** ولو أُعيد تشغيل التقييم
+- [X] T070 [US2] نفّذ `Actions/RecalculateStreak.php` — **كلُّ كتابةٍ شرطيّةٌ ورتيبةٌ في اتجاهٍ واحد**: `SET current_streak = current_streak + 1, last_active_day = :d WHERE last_active_day <> :d` (‏صفرُ صفوفٍ = «حُسِب اليومَ سلفاً»، فمنحان في يومٍ لا يزيدانها مرّتين) · `SET best_streak = :n WHERE best_streak < :n` (§R9)
+- [X] T071 [US2] نفّذ استهلاكَ الدرع في `RecalculateStreak`: `SET shield_count = shield_count - 1 WHERE shield_count > 0` **ويُختَم `streak_evaluated_day` في نفس الجملة** — ⚠️ **سابقةُ `notified_dormant_at`**: تقييمٌ يجري مرّتين يحرق درعَين لانقطاعٍ واحد، و`CLAUDE.md` يسجّل ٧٢ تمريرةً متراكمةً بعد إعادة تشغيل عامل (`FR-016`)
+- [X] T072 [US2] استشِر `FreezeDirectory` (`T037`) في `RecalculateStreak`: أيامُ التجميد **لا تكسر السلسلة ولا تُحتسب نشاطاً** (`FR-015`)
+- [X] T073 [US2] نفّذ رفعَ المستوى في `AwardPoints`: `SET level = :n WHERE level < :n` و`notified_level` مثلُه — ⚠️ **بدونه يهبط المستوى بين طلبَين فيشتعل `LevelReachedUp` مرّتين** وتصل تهنئةٌ مكرَّرة
+- [X] T074 [US2] نفّذ `Actions/EvaluateBadges.php` و`Jobs/EvaluateBadgesJob.php` على `default` — يُستدعى من الوظيفة لا من المسار (`FR-018` · `SC-016`)، والكتابةُ `insertOrIgnore` على `badge_awards` **بـuuid وطوابعَ صريحة** والفهرسُ الفريدُ هو حارسُ «مرّةً واحدة»
+- [X] T075 [US2] [P] نفّذ مُقيِّمَ كلّ صنفٍ من `BadgeRuleType` — يقرأ `index(student_user_id, action_key, created_at)` القائم لأسئلةِ «حلّ ١٠٠ سؤالاً إجمالاً»
+- [X] T076 [US2] [P] أضِف `level_up` و`badge_awarded` إلى `NotificationType` وقوالبَهما في `NotificationTemplateSeeder` — **بقناة الجرس وحدَها**: تهنئةٌ يوميةٌ على هاتف الأب تُطفَأ بعد أسبوعٍ ومعها ما يهمّه
+- [X] T077 [US2] أطلِق `LevelReachedUp` و`BadgeAwarded` **بعد الإيداع** (`afterCommit`) واستمع لهما في `Notifications` — ⚠️ حدثٌ داخل المعاملة يعلن صفّاً قد يُلغى، وعلى Horizon قد تبدأ الوظيفةُ **قبل** الإيداع فلا تقرأ شيئاً
+- [X] T078 [US2] [P] أنشئ `Filament/Resources/LevelResource` و`BadgeResource` خلف `GAMIFICATION_CATALOG_MANAGE` (`FR-012` · `FR-017`)
+- [X] T079 [US2] [P] `StreakTest.php`: النموُّ بالمتتالي · التصفيرُ بالانقطاع · **لا كسرَ بالتجميد** — الحالاتُ الثلاث (`SC-006`)
+- [X] T080 [US2] [P] `ShieldTest.php`: انقطاعُ يومٍ واحدٍ بدرعٍ ⇒ السلسلةُ محفوظةٌ والدرعُ مستهلَك · **وتقييمٌ يجري مرّتين يستهلك درعاً واحداً** (‏حارسُ `T071`)
+- [X] T081 [US2] [P] `BadgeTest.php`: صفرُ شارةٍ ممنوحةٍ مرّتين · وشارةٌ **لا تُسحَب** بعد تغيّر قاعدتها (`SC-007`)
+- [X] T082 [US2] [P] `LevelUpTest.php`: العتبةُ تُرفع المستوى وتُبلِّغ **مرّةً واحدة** ولو أُعيد تشغيل التقييم
 - [ ] T083 [US2] [P] أضِف بطاقاتِ المستوى والسلسلة والشارات إلى `frontend/src/app/(app)/progress/page.tsx` (`FR-041`)
 
 **Checkpoint**: `US1` + `US2` تعملان مستقلّتَين — والعودةُ اليومية لها محرّك.

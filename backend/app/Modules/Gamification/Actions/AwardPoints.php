@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace App\Modules\Gamification\Actions;
 
 use App\Modules\Gamification\Data\AwardRequest;
+use App\Modules\Gamification\Events\LevelReachedUp;
+use App\Modules\Gamification\Jobs\EvaluateBadgesJob;
 use App\Modules\Gamification\Models\AwardEntry;
 use App\Modules\Gamification\Models\GamificationAction;
+use App\Modules\Gamification\Models\Level;
+use App\Modules\Gamification\Models\StudentProgress;
 use App\Modules\Gamification\Support\GamificationCalendar;
 use App\Modules\Gamification\Support\LevelBand;
+use App\Modules\Gamification\Support\LevelLadder;
 use App\Modules\Gamification\Support\ProgressWriter;
 use App\Shared\Actions\Action;
 use Illuminate\Support\Facades\DB;
@@ -45,6 +50,8 @@ class AwardPoints extends Action
         private readonly GamificationCalendar $calendar,
         private readonly LevelBand $bands,
         private readonly ProgressWriter $progress,
+        private readonly RecalculateStreak $streaks,
+        private readonly LevelLadder $levels,
     ) {}
 
     public function handle(AwardRequest $request): ?AwardEntry
@@ -94,8 +101,51 @@ class AwardPoints extends Action
 
             $this->applyAggregates($request, $xp, $coins);
 
+            $this->streaks->handle($progress->refresh());
+            $this->settleLevel($progress->refresh());
+
+            /*
+            | ⚠️ QUEUED, AND AFTER COMMIT. Badge rules count rows in the ledger, so
+            | evaluating them inline would put a second set of queries on the path
+            | of every award — the thing SC-016 measures. And dispatching before
+            | the commit lands means the job can read a ledger that does not yet
+            | contain the entry that triggered it.
+            */
+            DB::afterCommit(fn () => EvaluateBadgesJob::dispatch((int) $request->studentUserId));
+
             return $entry;
         });
+    }
+
+    /**
+     * Raise the level, and congratulate at most once per level.
+     *
+     * ⚠️ TWO CONDITIONAL STATEMENTS, NOT ONE. Experience can go DOWN — a penalty
+     * is an ordinary catalogue row — so a level written unconditionally would drop
+     * a student and "promote" them again on their next award, firing the event and
+     * a congratulation each time. The ratchet is `WHERE level < :n`; the
+     * announcement is a separate claim on `notified_level`, because the award path
+     * can run twice for one event and the second congratulation is the one the
+     * student notices.
+     */
+    private function settleLevel(StudentProgress $progress): void
+    {
+        $level = $this->levels->levelFor($progress->xp);
+
+        $this->levels->raise((int) $progress->user_id, $level);
+
+        if (! $this->levels->claimCongratulation((int) $progress->user_id, $level)) {
+            return;
+        }
+
+        $name = Level::query()->where('level', $level)->value('name_ar');
+        $student = $progress->user;
+
+        if ($student === null) {
+            return;
+        }
+
+        DB::afterCommit(fn () => event(new LevelReachedUp($student, $level, (string) $name)));
     }
 
     /**

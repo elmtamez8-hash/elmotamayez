@@ -89,6 +89,12 @@ function dispatchOf(User $user, NotificationType $type): void
             'assignment_title' => 'واجب الجبر',
             'points' => '10',
             'penalty_note' => 'لم يُخصم شيء للتأخير.',
+            // A FIFTH time, with spec 009's two gamification types. The count
+            // below came back 35 against 37 until these landed: a template whose
+            // variables are absent renders nothing, is logged and dropped, and the
+            // channel never sees it.
+            'level_name' => 'متمكّن',
+            'badge_name' => 'مواظب',
         ],
     ));
 }

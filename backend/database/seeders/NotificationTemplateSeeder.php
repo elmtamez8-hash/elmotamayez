@@ -250,6 +250,26 @@ class NotificationTemplateSeeder extends Seeder
                 'درجة {{ student_name }} في واجب «{{ assignment_title }}»: {{ score }} من {{ points }}. {{ penalty_note }}',
                 ['student_name', 'assignment_title', 'score', 'points', 'penalty_note'],
             ],
+            /*
+            | Gamification (009). Bell only, and student only.
+            |
+            | ⚠️ NO NUMBER OF COINS IN EITHER OF THEM. Coins are not money, but the
+            | rule that keeps prices off a student's screen is the same rule that
+            | keeps a running total off it: a purse belongs to one teacher, so any
+            | figure a message quotes is ambiguous the moment the student studies
+            | with a second one. The profile screen shows the split; a message says
+            | what happened.
+            */
+            NotificationType::LevelUp->value => [
+                'وصلت إلى مستوى {{ level_name }}',
+                'مبروك {{ student_name }}! خبرتك أوصلتك إلى مستوى «{{ level_name }}». واصِل.',
+                ['student_name', 'level_name'],
+            ],
+            NotificationType::BadgeAwarded->value => [
+                'شارة جديدة: {{ badge_name }}',
+                'حصل {{ student_name }} على شارة «{{ badge_name }}».',
+                ['student_name', 'badge_name'],
+            ],
             NotificationType::ExamPendingGrading->value => [
                 'تسلّمنا ورقتك في «{{ exam_title }}»',
                 'تسلّمنا ورقة {{ student_name }} في «{{ exam_title }}». فيها أسئلة مقالية ينتظر تصحيحُها المدرّس، وتصلك النتيجة كاملةً بعده.',

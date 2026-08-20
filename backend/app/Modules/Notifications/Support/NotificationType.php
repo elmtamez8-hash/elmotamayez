@@ -120,6 +120,22 @@ enum NotificationType: string
     case AssignmentSubmitted = 'assignment_submitted';
     case AssignmentGraded = 'assignment_graded';
 
+    /*
+    | Gamification (009). Both are STUDENT-ONLY and both stay on the bell.
+    |
+    | ⚠️ AND THAT IS A DECISION, NOT AN OVERSIGHT. Levelling up and earning a badge
+    | are the two most frequent good-news events on the platform — several a week
+    | for an engaged student. On a guardian's phone that is a daily congratulation
+    | they did not ask for, and the predictable result is the guardian muting the
+    | number, taking the attendance alert and the payment reminder with it. The
+    | quiet channel is the right one for news that is pleasant and not urgent.
+    |
+    | They are optional for the same reason: nothing about either changes what the
+    | account can do.
+    */
+    case LevelUp = 'level_up';
+    case BadgeAwarded = 'badge_awarded';
+
     public function label(): string
     {
         return match ($this) {
@@ -158,6 +174,8 @@ enum NotificationType: string
             self::ExamPendingGrading => 'ورقتك بانتظار التصحيح',
             self::AssignmentSubmitted => 'تسليم واجب',
             self::AssignmentGraded => 'درجة واجب',
+            self::LevelUp => 'ارتفاع المستوى',
+            self::BadgeAwarded => 'شارة جديدة',
         };
     }
 
