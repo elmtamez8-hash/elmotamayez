@@ -26,6 +26,16 @@ function studentPayload(array $overrides = []): array
         'grade_level_slug' => 'secondary',
         'registered_by_parent' => false,
         'terms_accepted' => true,
+        /*
+        | Spec 013. An ADULT by default, so every case that was about something
+        | else keeps testing that thing: a minor now lands in
+        | `pending_guardian_consent` and cannot sign in, which would make a dozen
+        | unrelated assertions fail for a reason none of them is about.
+        |
+        | The minor path has its own cases, where the date is overridden
+        | deliberately.
+        */
+        'date_of_birth' => '1998-04-12',
         ...$overrides,
     ];
 }
