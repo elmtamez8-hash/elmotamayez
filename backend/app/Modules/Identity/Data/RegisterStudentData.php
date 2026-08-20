@@ -17,6 +17,14 @@ class RegisterStudentData extends DataTransferObject
         public readonly string $country,
         public readonly string $gradeLevelSlug,
         public readonly bool $registeredByParent,
+        /*
+        | Spec 013. Nullable on the DTO and REQUIRED by the form request, so a
+        | seeder or a test can still build an account without one — the guard that
+        | matters is the one on the way in, and `FR-009ج` says an unknown date is a
+        | real state the product must handle rather than refuse.
+        */
+        public readonly ?string $dateOfBirth = null,
+        public readonly ?string $guardianContact = null,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -31,6 +39,8 @@ class RegisterStudentData extends DataTransferObject
             country: strtoupper((string) $data['country']),
             gradeLevelSlug: (string) $data['grade_level_slug'],
             registeredByParent: (bool) ($data['registered_by_parent'] ?? false),
+            dateOfBirth: isset($data['date_of_birth']) ? (string) $data['date_of_birth'] : null,
+            guardianContact: isset($data['guardian_contact']) ? (string) $data['guardian_contact'] : null,
         );
     }
 }

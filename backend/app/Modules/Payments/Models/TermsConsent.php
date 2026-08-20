@@ -45,6 +45,10 @@ class TermsConsent extends BaseModel
         'ip_address',
         'user_agent',
         'consented_at',
+        // Spec 013. The categories this decision covers, and whether it grants or
+        // refuses — see the migration for why both had to exist.
+        'categories',
+        'decision',
     ];
 
     /** @return array<string, mixed> */
@@ -52,6 +56,11 @@ class TermsConsent extends BaseModel
     {
         return [
             'consented_at' => 'datetime',
+            // ⚠️ NO DEFAULT CAST TO `[]`. `null` means "this document has no
+            // categories" (every deferred-payment row) and `[]` means "consented
+            // to none of it" — two different facts, and coercing the first into
+            // the second would rewrite the meaning of every historic row.
+            'categories' => 'array',
         ];
     }
 

@@ -40,7 +40,9 @@ use App\Modules\Payments\Policies\TermsConsentPolicy;
 use App\Modules\Payments\Providers\ManualTransferProvider;
 use App\Modules\Payments\Providers\PaymentProviderRegistry;
 use App\Modules\Payments\Support\EloquentAccountStanding;
+use App\Modules\Payments\Support\EloquentConsentDirectory;
 use App\Shared\Contracts\AccountStanding;
+use App\Shared\Contracts\ConsentDirectory;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -77,6 +79,16 @@ class PaymentsServiceProvider extends Module
         // per call, and a memo held across a queued job would keep answering
         // about a window that closed while the worker was alive.
         $this->app->bind(AccountStanding::class, EloquentAccountStanding::class);
+
+        /*
+        | Spec 013 — the consent record, reached from outside this module.
+        |
+        | ⚠️ BOUND TO THE ADAPTER, NEVER TO `ConsentRegistry`. The registry is a
+        | reader with no `record()`; the only writer is the Action. Binding the
+        | contract straight to it would satisfy four methods and leave the fifth
+        | with nothing behind it.
+        */
+        $this->app->bind(ConsentDirectory::class, EloquentConsentDirectory::class);
     }
 
     public function boot(): void

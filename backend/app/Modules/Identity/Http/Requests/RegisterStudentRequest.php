@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Http\Requests;
 
 use App\Modules\Marketplace\Models\GradeLevel;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -29,6 +30,31 @@ class RegisterStudentRequest extends FormRequest
             'country' => ['required', 'string', 'size:2', 'alpha'],
             'grade_level_slug' => ['required', 'string', Rule::in($this->publicGradeLevelSlugs())],
             'registered_by_parent' => ['boolean'],
+            /*
+            | Spec 013 — the age question, asked once at the door.
+            |
+            | ⚠️ REQUIRED HERE AND NULLABLE IN THE COLUMN, and the asymmetry is
+            | deliberate: no source can fill the date for the accounts that already
+            | exist, but every account created from now on can be asked. `FR-009ج`
+            | keeps NULL meaningful for the old rows.
+            |
+            | `before:today` rather than a minimum age: refusing an under-age
+            | registration outright is not what the spec asks for — it asks for a
+            | guardian's consent, which is a different and gentler answer.
+            */
+            'date_of_birth' => ['required', 'date', 'before:today'],
+            /*
+            | ⚠️ REQUIRED ONLY FOR A MINOR, and that is enforceable here because the
+            | date is in the same payload. An adult signing up for themselves has no
+            | guardian to name, and demanding one would be a wall in front of every
+            | grown student on the platform.
+            */
+            'guardian_contact' => [
+                Rule::requiredIf(fn (): bool => $this->isMinor()),
+                'nullable',
+                'string',
+                'regex:/^\+[1-9]\d{6,14}$/',
+            ],
             // FR-065: ships unchecked, so an absent value must fail rather than
             // quietly default to consent.
             'terms_accepted' => ['accepted'],
@@ -48,7 +74,33 @@ class RegisterStudentRequest extends FormRequest
             'country.size' => 'اختر الدولة.',
             'grade_level_slug.in' => 'اختر مرحلة دراسية من القائمة.',
             'terms_accepted.accepted' => 'يجب الموافقة على الشروط والأحكام.',
+            'date_of_birth.before' => 'أدخل تاريخ ميلادٍ صحيحاً.',
+            'guardian_contact.required' => 'لأنّك دون الثامنة عشرة، أدخل رقم جوّال وليّ أمرك ليوافق على تفعيل حسابك.',
+            'guardian_contact.regex' => 'أدخل رقم جوّال وليّ الأمر مع رمز الدولة، مثل ‎+97455512345.',
         ];
+    }
+
+    /**
+     * Whether the date in THIS payload puts the applicant under eighteen.
+     *
+     * ⚠️ READ FROM THE REQUEST, NOT FROM A STORED ROW — there is no stored row
+     * yet. And a malformed date answers `false` rather than throwing: the `date`
+     * rule above reports that problem in its own field, and a validator that dies
+     * while deciding whether another rule applies renders no message at all.
+     */
+    private function isMinor(): bool
+    {
+        $raw = $this->input('date_of_birth');
+
+        if (! is_string($raw) || $raw === '') {
+            return false;
+        }
+
+        try {
+            return CarbonImmutable::parse($raw)->diffInYears(CarbonImmutable::now()) < 18;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**

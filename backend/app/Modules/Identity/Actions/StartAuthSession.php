@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Actions;
 
 use App\Models\User;
+use App\Modules\Identity\Exceptions\PendingGuardianConsentException;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Models\Device;
 use App\Modules\Identity\Support\DeviceFingerprint;
 use App\Modules\Identity\Support\SessionEndReason;
+use App\Modules\Identity\Support\UserStatus;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
@@ -41,6 +43,23 @@ class StartAuthSession extends Action
 
     public function handle(User $user, Request $request, string $tokenName = 'auth-token'): AuthSessionResult
     {
+        /*
+        | ⚠️ SPEC 013 — REFUSED BEFORE A TOKEN IS MINTED, NEVER AFTER.
+        |
+        | A minor whose guardian has not consented gets no token at all. Minting
+        | one and then restricting what it can reach means any flaw in the
+        | restriction is a COMPLETE sign-in — the same reasoning `/auth/login`
+        | already applies to a correct password on a two-factor account, and the
+        | reason that path answers with a challenge instead of a limited token.
+        |
+        | Here rather than in the controller because this Action is the single
+        | entrance every sign-in path shares: password, two-factor exchange, and
+        | whatever is added next.
+        */
+        if ($user->status === UserStatus::PendingGuardianConsent->value) {
+            throw new PendingGuardianConsentException;
+        }
+
         $device = $this->resolveDevice($user, $request);
 
         $token = $user->createToken($tokenName);

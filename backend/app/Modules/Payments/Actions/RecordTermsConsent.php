@@ -6,6 +6,7 @@ namespace App\Modules\Payments\Actions;
 
 use App\Models\User;
 use App\Modules\Payments\Enums\ConsentDocument;
+use App\Modules\Payments\Events\ProcessingConsentGranted;
 use App\Modules\Payments\Models\TermsConsent;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Payments\Support\ConsentRegistry;
@@ -50,14 +51,23 @@ class RecordTermsConsent extends Action
         private readonly SetCreditLimit $limits,
     ) {}
 
+    /**
+     * @param  list<string>|null  $categories  the COMPLETE set, never a diff — a
+     *                                         diff applied to state read a second
+     *                                         ago is the lost update, and this
+     *                                         table decides whether a child's data
+     *                                         may be processed at all
+     */
     public function handle(
         User $signer,
         User $student,
         ConsentDocument $document,
         ?string $ipAddress = null,
         ?string $userAgent = null,
+        ?array $categories = null,
+        bool $granted = true,
     ): TermsConsent {
-        if (! $this->maySignFor($signer, $student)) {
+        if (! $this->maySignFor($signer, $student, $document)) {
             // RuntimeException, which the controller answers as 403 — the same
             // answer it gives for a student uuid that matches nobody. Two
             // different refusals with one response, so the endpoint cannot be
@@ -80,9 +90,28 @@ class RecordTermsConsent extends Action
             'ip_address' => $ipAddress,
             'user_agent' => $userAgent === null ? null : mb_substr($userAgent, 0, 255),
             'consented_at' => now(),
+            'categories' => $categories,
+            'decision' => $granted ? 'granted' : 'refused',
         ]);
 
-        if ($isFirst && $document === ConsentDocument::DeferredPaymentTerms) {
+        // ⚠️ A REFUSAL GRANTS NOTHING. It is recorded — the table is a log of
+        // decisions and a refusal is one — but it must not be mistaken for a first
+        // acceptance and open a credit ceiling.
+        /*
+        | ⚠️ ANNOUNCED FOR A GRANT ONLY. A refusal is a legitimate row in the same
+        | table written by this same call, and announcing it here would make every
+        | listener responsible for checking which kind it was — the first one to
+        | forget activates an account whose guardian said no.
+        |
+        | `afterCommit` for the reason the ceiling grant below uses it: a caller
+        | who wraps this in a transaction must announce nothing that could still
+        | roll back.
+        */
+        if ($granted && $document === ConsentDocument::DataProcessing) {
+            DB::afterCommit(fn () => ProcessingConsentGranted::dispatch($student, $signer, $consent));
+        }
+
+        if ($granted && $isFirst && $document === ConsentDocument::DeferredPaymentTerms) {
             // `afterCommit` so that a caller who wraps this in a transaction
             // announces nothing that could still roll back. With no transaction
             // open — which is the HTTP path — Laravel runs the callback inline,
@@ -101,13 +130,26 @@ class RecordTermsConsent extends Action
      * (Constitution III), and the relation is platform-owned with no workspace
      * scope to fall back on if it did.
      */
-    private function maySignFor(User $signer, User $student): bool
+    private function maySignFor(User $signer, User $student, ConsentDocument $document): bool
     {
         if ($signer->getKey() === $student->getKey()) {
             return true;
         }
 
-        return $this->guardians->isAuthorised($signer, $student, GuardianPermission::Payments);
+        /*
+        | ⚠️ THE PERMISSION DEPENDS ON THE DOCUMENT, and until spec 013 it could
+        | not: `GuardianPermission` had five values and not one of them was about
+        | data. So a guardian could only consent to the PROCESSING OF THEIR OWN
+        | CHILD'S DATA if they had also been granted authority over the money — a
+        | coupling with no meaning, and it made R6's rule ("an authorised guardian
+        | grants, an unauthorised one does not") impossible to express, because
+        | there was nothing to be authorised FOR.
+        */
+        $permission = $document === ConsentDocument::DataProcessing
+            ? GuardianPermission::DataRights
+            : GuardianPermission::Payments;
+
+        return $this->guardians->isAuthorised($signer, $student, $permission);
     }
 
     /**
