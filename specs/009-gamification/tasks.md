@@ -113,7 +113,7 @@ description: "Task list — نظام التلعيب (٠٠٩)"
 - [X] T036 [P] أنشئ عقدَ `backend/app/Shared/Contracts/FocusState.php` (`isFocusing(User): bool`) بتنفيذٍ واحدٍ في `Gamification` يقرأ `focus_sessions.status = 'running'` — ⚠️ **ولا مفتاحَ ذاكرةٍ بجواره**: النسخةُ الثانيةُ تصنع خطرَ `close()` الذي حذّرت منه الوثائقُ ثلاثَ مرّات، والخطرُ موجودٌ **فقط لأن هناك نسختَين**
 - [X] T037 [P] أنشئ عقدَ `backend/app/Shared/Contracts/FreezeDirectory.php` بتنفيذٍ في `LiveSessions` يجيب عن التجميد **بـ`withoutWorkspaceScope()`** — السلسلةُ منصّيةٌ و`FreezePeriod` مقيَّدٌ بمساحةِ عمل، فسؤالٌ مقيَّدٌ يُجيب عن مدرّسٍ واحدٍ عن حالةٍ تخصّ الطالبَ كلَّه
 - [X] T038 أضِف دالّةَ «حاضرو هذه الحصّة» إلى `backend/app/Shared/Contracts/SessionAttendanceDirectory.php` وتنفيذِها — ⚠️ **مستثنيةً المضيفَ** بـ`Attendance::scopeExcludingHost()` القائم: بدونها يُمنح المدرّسُ خبرةَ حضورٍ في كلّ درسٍ يلقيه فيظهر في صدارة طلابه
-- [ ] T039 [P] أنشئ `Data/` — DTOs ترث `App\Shared\Data\DataTransferObject`: `AwardRequest` · `RedeemRequest` · `LeaderboardQuery` · `FocusRequest` (`NFR-005`)
+- [X] T039 [P] أنشئ `Data/` — DTOs ترث `App\Shared\Data\DataTransferObject`: `AwardRequest` · `RedeemRequest` · `LeaderboardQuery` · `FocusRequest` (`NFR-005`)
 - [X] T040 [P] أنشئ المصانعَ في `backend/database/factories/Modules/Gamification/` — 🔴 **مركزيةٌ في هذا المستودع** لا داخل الوحدة (`AppServiceProvider::guessFactoryName()`)
 - [X] T041 أنشئ `backend/database/seeders/GamificationCatalogSeeder.php` بالقيم الابتدائية من جدول الوثيقة (‏أفعالٌ · مستوياتٌ · شارات) — ⚠️ **بياناتٌ مرجعيةٌ لا تجهيزات**، على نمط `NotificationTemplateSeeder`
 - [X] T042 ابذر `GamificationCatalogSeeder` في `backend/tests/Pest.php` قبل كلّ اختبارِ ميزة — ⚠️ **وبدونه يمرّ كلُّ تأكيدٍ على المنح فارغاً ضدّ صفر**، وهو أخطرُ أشكال الاختبار الأخضر
@@ -254,15 +254,15 @@ description: "Task list — نظام التلعيب (٠٠٩)"
 
 **Independent Test**: ابدأ جلسةً وأنهِها وتحقّق من الخبرة وسقفِها؛ وأطلِق تنبيهاً أمنياً داخلها.
 
-- [ ] T120 [US5] نفّذ `Actions/StartFocusSession.php` و`EndFocusSession.php` — 🔴 **والاكتمالُ يقرّره الخادم** من `now() - started_at`، لا العميل: وإلا فجلسةُ «١٢٠ دقيقة» في خمس ثوانٍ (`FR-040`)
-- [ ] T121 [US5] حُدَّ `minutes` **في `FormRequest` وفي الـAction** بحدٍّ من `GamificationSettings` — ⚠️ **بلا حدٍّ كان `100000` يكتم كلَّ إشعارٍ اختياريٍّ إلى الأبد**
-- [ ] T122 [US5] نفّذ `FocusState` (`T036`) وأضِف **شرطاً جديداً في `DispatchNotification`** يتخطّى غيرَ الإلزاميّ لطالبٍ في جلسةٍ جارية — 🔴 **لا في `QuietHours`**: تلك تخرج فوراً لغير القنوات الخارجية، **والجرسُ هو السطحُ الوحيدُ الذي يراه طالبٌ يذاكر**، فالوصلُ بها يشحن ميزةً لا تفعل شيئاً. و`isMandatory()` تبقى الصمّامَ (`FR-039`)
-- [ ] T123 [US5] امنح خبرةَ الجلسة المكتملة عبر `AwardPoints` بفعلٍ ذي سقفٍ يوميّ — والمقطوعةُ **لا تمنح كاملاً** (`FR-040`)
-- [ ] T124 [US5] أضِف `POST /gamification/focus` و`POST /gamification/focus/{session}/end` خلف `throttle:gamification-write`
+- [X] T120 [US5] نفّذ `Actions/StartFocusSession.php` و`EndFocusSession.php` — 🔴 **والاكتمالُ يقرّره الخادم** من `now() - started_at`، لا العميل: وإلا فجلسةُ «١٢٠ دقيقة» في خمس ثوانٍ (`FR-040`)
+- [X] T121 [US5] حُدَّ `minutes` **في `FormRequest` وفي الـAction** بحدٍّ من `GamificationSettings` — ⚠️ **بلا حدٍّ كان `100000` يكتم كلَّ إشعارٍ اختياريٍّ إلى الأبد**
+- [X] T122 [US5] نفّذ `FocusState` (`T036`) وأضِف **شرطاً جديداً في `DispatchNotification`** يتخطّى غيرَ الإلزاميّ لطالبٍ في جلسةٍ جارية — 🔴 **لا في `QuietHours`**: تلك تخرج فوراً لغير القنوات الخارجية، **والجرسُ هو السطحُ الوحيدُ الذي يراه طالبٌ يذاكر**، فالوصلُ بها يشحن ميزةً لا تفعل شيئاً. و`isMandatory()` تبقى الصمّامَ (`FR-039`)
+- [X] T123 [US5] امنح خبرةَ الجلسة المكتملة عبر `AwardPoints` بفعلٍ ذي سقفٍ يوميّ — والمقطوعةُ **لا تمنح كاملاً** (`FR-040`)
+- [X] T124 [US5] أضِف `POST /gamification/focus` و`POST /gamification/focus/{session}/end` خلف `throttle:gamification-write`
 - [ ] T125 [US5] [P] أنشئ `frontend/src/components/gamification/FocusTimer.tsx` وادمجه في صفحة التقدّم
 - [ ] T126 [US5] [P] اكتب `FocusTimer.test.tsx` (‏vitest): بدءٌ · قطعٌ · اكتمال — **منطقُ حالةٍ في المتصفّح لا يُرى من الخلفية**
-- [ ] T127 [US5] [P] `FocusMuteTest.php`: تنبيهٌ أمنيٌّ داخل جلسةٍ جارية ⇒ **يصل** (`SC-022`) · وإشعارٌ اختياريٌّ ⇒ يُتخطّى — ⚠️ **والاختبارُ يمرّ بالجرس لا بقناةٍ خارجية**، وإلا اختبر `QuietHours` وأثبت صفراً عن `FR-039`
-- [ ] T128 [US5] [P] `FocusDurationTest.php`: إنهاءٌ بعد خمس ثوانٍ على جلسةِ ١٢٠ دقيقة ⇒ **لا خبرةً كاملة** (‏حارسُ `T120`) · و`minutes` فوق الحدّ ⇒ ٤٢٢
+- [X] T127 [US5] [P] `FocusMuteTest.php`: تنبيهٌ أمنيٌّ داخل جلسةٍ جارية ⇒ **يصل** (`SC-022`) · وإشعارٌ اختياريٌّ ⇒ يُتخطّى — ⚠️ **والاختبارُ يمرّ بالجرس لا بقناةٍ خارجية**، وإلا اختبر `QuietHours` وأثبت صفراً عن `FR-039`
+- [X] T128 [US5] [P] `FocusDurationTest.php`: إنهاءٌ بعد خمس ثوانٍ على جلسةِ ١٢٠ دقيقة ⇒ **لا خبرةً كاملة** (‏حارسُ `T120`) · و`minutes` فوق الحدّ ⇒ ٤٢٢
 
 **Checkpoint**: القصصُ الخمسُ كاملة.
 

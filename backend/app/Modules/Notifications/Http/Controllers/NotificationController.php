@@ -12,6 +12,8 @@ use App\Modules\Notifications\Http\Resources\NotificationResource;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Shared\Contracts\FocusState;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -26,6 +28,8 @@ class NotificationController extends Controller
             ->forRecipient($user)
             ->with(['subject', 'workspace'])
             ->latest('id');
+
+        $this->muteDuringFocus($query, $user);
 
         if ($request->boolean('unread')) {
             $query->unread();
@@ -85,6 +89,46 @@ class NotificationController extends Controller
 
     private function unreadCountFor(User $user): int
     {
-        return Notification::query()->forRecipient($user)->unread()->count();
+        $query = Notification::query()->forRecipient($user)->unread();
+
+        $this->muteDuringFocus($query, $user);
+
+        return $query->count();
+    }
+
+    /**
+     * Hide the optional traffic while a student is in a focus session (009 FR-039).
+     *
+     * ⚠️ IT IS APPLIED HERE, ON THE READ, AND NOT IN `DispatchNotification` WHERE
+     * spec 009's contract placed it. Implementing it there does not work, and the
+     * reason is worth writing down rather than rediscovering:
+     *
+     *  - `QuietHours::deferUntil()` returns null immediately for anything that is
+     *    not an EXTERNAL channel, so the bell has never passed through it. That
+     *    part of the contract was right, and is why this exists at all.
+     *  - But the notification RECORD is written before any channel is consulted
+     *    (FR-007: one record however many channels carry it), and the bell reads
+     *    that record — not a delivery row. So a check inside the dispatcher could
+     *    only DROP the message, losing it, or defer a delivery the bell never
+     *    looks at. Either way the badge still lights.
+     *
+     * Filtering the read mutes for exactly the length of the session, loses
+     * nothing, and needs no column: when the session ends, everything the student
+     * missed is simply there.
+     *
+     * ⚠️ AND `isMandatory()` IS THE VALVE, unchanged from quiet hours. A security
+     * alert or a payment failure passes through — those change what the account
+     * can do, and a student who cannot be told is a student locked out with no way
+     * to learn why.
+     *
+     * @param  Builder<Notification>  $query
+     */
+    private function muteDuringFocus($query, User $user): void
+    {
+        if (! app(FocusState::class)->isFocusing($user)) {
+            return;
+        }
+
+        $query->whereIn('type', NotificationType::mandatoryValues());
     }
 }

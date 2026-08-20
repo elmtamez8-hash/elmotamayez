@@ -279,6 +279,23 @@ enum NotificationType: string
     }
 
     /**
+     * The types no preference and no mute may suppress.
+     *
+     * Used by spec 009's focus timer, which hides the optional traffic while a
+     * student is studying — these pass through, because each of them changes what
+     * the account can do right now.
+     *
+     * @return list<string>
+     */
+    public static function mandatoryValues(): array
+    {
+        return array_values(array_map(
+            static fn (self $type): string => $type->value,
+            array_filter(self::cases(), static fn (self $type): bool => $type->isMandatory()),
+        ));
+    }
+
+    /**
      * Whether authorised guardians receive this alongside the student (FR-021).
      * These are the five the addendum names.
      */

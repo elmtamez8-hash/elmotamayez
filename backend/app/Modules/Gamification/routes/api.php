@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Gamification\Http\Controllers\FocusController;
 use App\Modules\Gamification\Http\Controllers\LeaderboardController;
 use App\Modules\Gamification\Http\Controllers\ProgressController;
 use App\Modules\Gamification\Http\Controllers\RewardController;
@@ -77,5 +78,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/manage/gamification/redemptions/{redemption}/fulfill', [RewardController::class, 'fulfill'])
         ->middleware('throttle:gamification-write');
     Route::post('/manage/gamification/redemptions/{redemption}/reject', [RewardController::class, 'reject'])
+        ->middleware('throttle:gamification-write');
+
+    /*
+     | The focus timer. `{session}` is a string for the same reason `{reward}` is:
+     | `focus_sessions` is platform-owned and carries no workspace_id, so nothing
+     | but the owner filter stands between one student's row and another's.
+     */
+    Route::post('/gamification/focus', [FocusController::class, 'store'])
+        ->middleware('throttle:gamification-write');
+    Route::post('/gamification/focus/{session}/end', [FocusController::class, 'end'])
         ->middleware('throttle:gamification-write');
 });
