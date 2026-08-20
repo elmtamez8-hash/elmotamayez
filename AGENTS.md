@@ -133,6 +133,16 @@ Tests use in-memory SQLite (`DB_DATABASE=:memory:` in `phpunit.xml`).
 30. A period closes once and pays once — `tests/Feature/Settlement/PeriodCloseTest.php`
 31. Nothing outside the allowlist reaches a teacher — `tests/Feature/Settlement/StatementPayloadTest.php`
 32. A refund never touches the ledger — `tests/Feature/Settlement/RefundDoesNotTouchLedgerTest.php`
+33. The award ledger equals its aggregate — `tests/Feature/Gamification/LedgerEqualityTest.php`
+34. A reversal actually returns the points — `tests/Feature/Gamification/AwardReversalTest.php`
+35. The daily cap holds under interleaving — `tests/Feature/Gamification/AwardConcurrencyTest.php`
+36. The award listeners are wired and not swallowed by a bare `Queue::fake()` — `tests/Feature/Gamification/AwardListenerWiringTest.php`
+37. One progress file per person, one purse per teacher — `tests/Feature/Gamification/PlatformOwnershipTest.php`
+38. Leaderboards rebuild identically and the taxonomy scopes really cross workspaces — `tests/Feature/Gamification/LeaderboardTest.php`
+39. Nothing outside the allowlist reaches a board, and no full surname — `tests/Feature/Gamification/LeaderboardExposureTest.php`
+40. The shop's claim is atomic and its release is two statements — `tests/Feature/Gamification/ShopTest.php`
+41. The catalogue is the platform's, not the teacher's — `tests/Feature/Gamification/CatalogPermissionTest.php`
+42. The focus mute never hides a mandatory notification — `tests/Feature/Gamification/FocusSessionTest.php`
 
 ### Read before touching sessions
 

@@ -32,6 +32,47 @@
 | Marketplace | `app/Modules/Marketplace/` | TeacherProfile, TeacherApplication, Subject, GradeLevel, AvailabilitySlot, Review, Complaint | Public listings (no auth) + teacher application + academic review + reviews/complaints |
 | LiveSessions | `app/Modules/LiveSessions/` | ClassSession, SessionBooking, Attendance, ClassSessionFeedback, FreezePeriod | Calendar + booking + broadcast room + register + freeze periods |
 | Settlement | `app/Modules/Settlement/` | SettlementRate, RateChangeRequest, TeachingUnit, SettlementPeriod, LedgerEntry, TeacherPayout | Teacher statement + export + units + rate requests + period close/payout + financial audit |
+| Gamification | `app/Modules/Gamification/` | AwardEntry, AwardDailyCounter, StudentProgress, CoinBalance, GamificationAction, Level, Badge, BadgeAward, Reward, Redemption, FocusSession, LeaderboardEntry | The student's profile + leaderboards + the reward shop + the focus timer |
+
+### Gamification (spec 009)
+
+`award_entries` is the truth and everything else is derived from it: `student_progress`
+is a running aggregate kept so no request has to sum the ledger, and
+`leaderboard_entries` is an indexed table one command rebuilds. There is no number in
+this module that cannot be proved by reading the ledger line by line.
+
+**Three ownership layers in one module**, and the split is the phase's central decision:
+
+| Layer | Tables | Guard |
+|---|---|---|
+| Platform (أ) — the student | `student_progress`, `badge_awards`, `focus_sessions` | Row ownership + an active enrolment for a teacher to read one (NFR-001أ) |
+| Platform (ب) — reference data | `gamification_actions`, `levels`, `badges`, `leaderboard_entries`, and **`subjects`/`grade_levels` since 009** | The platform permissions `gamification.catalog.manage` / `taxonomy.manage`, held by no tenant role |
+| Bridge / workspace | `award_entries`, `award_daily_counters`, `coin_balances`, `rewards`, `redemptions` | `workspace_id` for context; `BelongsToWorkspace` on the last three |
+
+⚠️ **Experience is one file per person; coins are one purse per teacher.** A student with
+three teachers has ONE level, streak and badge set and THREE purses — and no payload sums
+them, because no sum is correct: the shop refuses coins earned elsewhere.
+
+| Method | Path | Guard |
+|---|---|---|
+| GET | `/gamification/me` | The caller's own profile. Five queries whatever the number of badges and purses |
+| GET | `/gamification/students/{user}` | `progress.view.student` **and** an active enrolment in the reader's workspace. A missing account answers 403, identically to one that is not theirs |
+| GET | `/gamification/leaderboard?scope=&period=` | `throttle:gamification-board`. Scopes: `platform`, `grade:{slug}`, `subject:{uuid}`, `teacher:{uuid}`, `course:{uuid}`, `lesson:{uuid}` |
+| GET | `/gamification/shop?workspace={uuid}` | An active enrolment in that workspace |
+| POST | `/gamification/rewards/{reward}/redeem` | `throttle:gamification-write`. The uuid is resolved INSIDE the Action, after the enrolment check |
+| GET | `/gamification/redemptions` | The caller's own, filtered by `user_id` explicitly |
+| POST | `/gamification/focus` · `/gamification/focus/{session}/end` | `throttle:gamification-write`. Own session only |
+| GET/POST/PUT | `/manage/gamification/rewards…` | `rewards.manage` |
+| GET/POST | `/manage/gamification/redemptions…/fulfill` · `/reject` | `redemptions.fulfill` |
+
+⚠️ **The first three cross-workspace scopes are for STUDENTS ONLY; a teacher gets 403.** A
+teacher holds no level band, so there is no natural bound on what they would see — and
+opening them would hand every teacher a weekly roster of their competitors' students.
+
+⚠️ **Two of the six scopes only mean the same thing for every teacher because 009 promoted
+the taxonomy.** `subjects` and `grade_levels` carried a `workspace_id` until then, so
+"الرياضيات" was a different row per teacher and the "cross-workspace" subject board was
+one board per teacher wearing a platform board's name.
 
 ### Marketplace endpoints
 
