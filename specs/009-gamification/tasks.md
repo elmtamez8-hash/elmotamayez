@@ -276,7 +276,7 @@ description: "Task list — نظام التلعيب (٠٠٩)"
 - [X] T132 [P] أضِف مسارات هذه المرحلة الحرجةَ إلى قائمة `AGENTS.md` — عزلُ مساحات العمل · ملكيةُ المنصّة · فرضُ الصلاحيات المنصّية
 - [X] T133 [P] أضِف إلى `CLAUDE.md` الأربعةَ التي يمرّ خطؤها أخضر: `reversal_of_id` في مفتاح الإدماج · `WorkspaceScope` عديمُ الأثر للطالب · التقويمُ في موضعٍ واحدٍ بلا `whereDate`/`CONVERT_TZ` · بذرُ الفهرس في `tests/Pest.php`
 - [X] T134 نفّذ العشرةَ تحقّقاتٍ في [quickstart.md](./quickstart.md) يدوياً على الخادم المحلّيّ
-- [ ] T135 شغّل البوّاباتِ الأربع: `php vendor/bin/pest` · `./vendor/bin/pint --test` · `./vendor/bin/phpstan analyse` (‏**بلا baseline جديد ولا `@phpstan-ignore`**) · `npx tsc --noEmit` — و`npm test` خامساً (`SC-020`)
+- [X] T135 شغّل البوّاباتِ الأربع: `php vendor/bin/pest` · `./vendor/bin/pint --test` · `./vendor/bin/phpstan analyse` (‏**بلا baseline جديد ولا `@phpstan-ignore`**) · `npx tsc --noEmit` — و`npm test` خامساً (`SC-020`)
 
 ---
 
