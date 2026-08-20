@@ -10,10 +10,14 @@ use App\Modules\Marketplace\Events\ComplaintConfirmed;
 use App\Modules\Marketplace\Events\ReviewModerated;
 use App\Modules\Marketplace\Events\ReviewSubmitted;
 use App\Modules\Marketplace\Listeners\QueueTrustScoreRecalculation;
+use App\Modules\Marketplace\Models\GradeLevel;
+use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Marketplace\Policies\TaxonomyPolicy;
 use App\Modules\Marketplace\Support\MarketplaceCache;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 
 class MarketplaceServiceProvider extends Module
 {
@@ -28,6 +32,29 @@ class MarketplaceServiceProvider extends Module
         foreach ([ReviewSubmitted::class, ReviewModerated::class, ComplaintConfirmed::class] as $event) {
             Event::listen($event, QueueTrustScoreRecalculation::class);
         }
+
+        /*
+        | Registered explicitly because ONE policy serves TWO models — Laravel's
+        | guesser would look for SubjectPolicy and GradeLevelPolicy and find
+        | neither, which fails OPEN into "no policy applies" rather than into an
+        | error anyone would notice.
+        */
+        Gate::policy(Subject::class, TaxonomyPolicy::class);
+        Gate::policy(GradeLevel::class, TaxonomyPolicy::class);
+
+        /*
+        | The same seam the renamed teacher uses below, for the same reason.
+        |
+        | ⚠️ THE PUBLIC TAXONOMY IS CACHED, so an edit made in /admin would not
+        | reach a visitor until the TTL lapsed — a subject retired because it is
+        | wrong would keep being offered for up to a minute, and a corrected name
+        | would look like a save that did not take. On the model rather than in the
+        | Filament page: the panel is one writer and a seeder or a later endpoint
+        | is another, and a stale marketplace is not a failure anybody would trace
+        | back to a missing call.
+        */
+        Subject::saved(fn () => MarketplaceCache::flush());
+        GradeLevel::saved(fn () => MarketplaceCache::flush());
 
         // Laravel only auto-discovers commands under app/Console/Commands, and a
         // module keeps its own; registering here is the module's job.
