@@ -29,6 +29,10 @@ class DatabaseSeeder extends Seeder
             // empty screen — it is a student who cannot buy and therefore cannot
             // book, on every fresh install.
             CreditPackageSeeder::class,
+            // Reference data on the same footing: AwardPoints returns silently for
+            // an action with no row, so an empty catalogue is a gamification
+            // system that is switched on, reports success, and awards nothing.
+            GamificationCatalogSeeder::class,
         ]);
 
         // Only seed the super-admin in non-production environments.
@@ -62,8 +66,9 @@ class DatabaseSeeder extends Seeder
             $this->call(DemoDataSeeder::class);
             $this->call(ScenarioSeeder::class);
 
-            // Runs last: it seeds the shared taxonomy into every workspace, so the
-            // workspaces have to exist first.
+            // Runs last: the demo marketplace it seeds needs the workspaces and
+            // their teachers to exist first. (The taxonomy itself is platform-wide
+            // since spec 009 and no longer depends on any workspace.)
             $this->call(MarketplaceSeeder::class);
         }
     }

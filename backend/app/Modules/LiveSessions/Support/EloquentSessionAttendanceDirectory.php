@@ -50,6 +50,46 @@ class EloquentSessionAttendanceDirectory implements SessionAttendanceDirectory
     }
 
     /**
+     * ⚠️ THE HOST IS EXCLUDED, and without that the teacher earns attendance
+     * points for every lesson they teach and tops their own students' board for
+     * ever. The host's attendance row exists on purpose — CloseClassSession
+     * judges delivery from it — so the exclusion has to happen at the read.
+     *
+     * `Attendance::scopeExcludingHost()` rather than a fourth hand-written
+     * `where('student_user_id', '!=', ...)`: the class register and the session
+     * report already read the same rule, and one rule written in three places is
+     * how the third place gets it wrong.
+     *
+     * @return list<int>
+     */
+    public function attendeeUserIds(int $classSessionId): array
+    {
+        $session = ClassSession::query()
+            ->withoutWorkspaceScope()
+            ->with('teacherProfile:id,user_id')
+            ->find($classSessionId);
+
+        if ($session === null) {
+            return [];
+        }
+
+        $rows = Attendance::query()
+            ->withoutWorkspaceScope()
+            ->where('class_session_id', $classSessionId)
+            ->where('status', '!=', AttendanceStatus::Absent->value)
+            ->excludingHost($session)
+            ->pluck('student_user_id');
+
+        $ids = [];
+
+        foreach ($rows as $id) {
+            $ids[] = (int) $id;
+        }
+
+        return $ids;
+    }
+
+    /**
      * ⚠️ THE ATTENDANCE TABLE, NOT THE BOOKINGS ONE — see the contract. Only
      * `absent` fails: present, late and excused all count, the last because an
      * excusal is the teacher's decision that the absence is not held against

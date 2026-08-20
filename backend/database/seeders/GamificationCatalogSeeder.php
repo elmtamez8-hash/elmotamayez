@@ -1,0 +1,93 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Database\Seeders;
+
+use App\Modules\Gamification\Enums\BadgeRuleType;
+use App\Modules\Gamification\Models\Badge;
+use App\Modules\Gamification\Models\GamificationAction;
+use App\Modules\Gamification\Models\Level;
+use Illuminate\Database\Seeder;
+
+/**
+ * ⚠️ REFERENCE DATA, NOT FIXTURES — the same status as NotificationTemplateSeeder.
+ *
+ * `AwardPoints` looks an action up by key and returns silently when there is no
+ * row: an award for an action nobody defined is not an error, it is a catalogue
+ * that has not been filled in. So without these rows NOTHING is ever awarded, and
+ * every assertion in the suite about points, levels, streaks and boards would
+ * pass by asserting zero against zero — which is why `tests/Pest.php` seeds it
+ * before every Feature test.
+ *
+ * Deliberately SMALL for the same reason: every one of the ~1,500 feature tests
+ * pays for these rows.
+ *
+ * The values are provisional by design (Q4) and are tuned from /admin after a
+ * month of real behaviour, which is why they are rows rather than constants.
+ */
+class GamificationCatalogSeeder extends Seeder
+{
+    /** @var list<array{key: string, name_ar: string, xp: int, coins: int, daily_cap: int|null}> */
+    private const ACTIONS = [
+        ['key' => 'session_attended', 'name_ar' => 'حضور حصة', 'xp' => 10, 'coins' => 5, 'daily_cap' => 4],
+        ['key' => 'homework_submitted', 'name_ar' => 'تسليم واجب', 'xp' => 15, 'coins' => 5, 'daily_cap' => 3],
+        ['key' => 'exam_passed', 'name_ar' => 'اجتياز اختبار', 'xp' => 50, 'coins' => 20, 'daily_cap' => 2],
+        ['key' => 'mistake_resolved', 'name_ar' => 'إصلاح خطأ سابق', 'xp' => 8, 'coins' => 2, 'daily_cap' => 10],
+
+        /*
+        | ⚠️ ZERO COINS, AND THAT IS NOT AN OVERSIGHT. A focus session belongs to
+        | no teacher, so there is no workspace to hold the coins — and a coin
+        | balance is per teacher by design (FR-028ج). AwardPoints refuses a
+        | coin-bearing action with no workspace for exactly this reason: there is
+        | no correct purse to put them in.
+        */
+        ['key' => 'focus_session', 'name_ar' => 'جلسة تركيز مكتملة', 'xp' => 5, 'coins' => 0, 'daily_cap' => 6],
+
+        /*
+        | The negative action. It lives in the catalogue as a ROW with a signed
+        | value, not as a branch in the awarding code — which is what keeps the
+        | penalty visible to the operator editing the values.
+        */
+        ['key' => 'payment_overdue', 'name_ar' => 'تأخّر في الدفع', 'xp' => -30, 'coins' => 0, 'daily_cap' => 1],
+    ];
+
+    /** @var list<array{level: int, name_ar: string, xp_threshold: int}> */
+    private const LEVELS = [
+        ['level' => 1, 'name_ar' => 'مبتدئ', 'xp_threshold' => 0],
+        ['level' => 2, 'name_ar' => 'مجتهد', 'xp_threshold' => 100],
+        ['level' => 3, 'name_ar' => 'متقدّم', 'xp_threshold' => 300],
+        ['level' => 4, 'name_ar' => 'متمكّن', 'xp_threshold' => 700],
+        ['level' => 5, 'name_ar' => 'متميّز', 'xp_threshold' => 1500],
+        ['level' => 6, 'name_ar' => 'خبير', 'xp_threshold' => 3000],
+    ];
+
+    /** @var list<array{key: string, name_ar: string, icon: string, rule_type: BadgeRuleType, rule_value: int, rule_action_key: string|null}> */
+    private const BADGES = [
+        ['key' => 'first_steps', 'name_ar' => 'الخطوة الأولى', 'icon' => 'sparkles', 'rule_type' => BadgeRuleType::TotalXp, 'rule_value' => 50, 'rule_action_key' => null],
+        ['key' => 'committed', 'name_ar' => 'مواظب', 'icon' => 'fire', 'rule_type' => BadgeRuleType::StreakDays, 'rule_value' => 7, 'rule_action_key' => null],
+        ['key' => 'regular_attender', 'name_ar' => 'حاضر دائم', 'icon' => 'calendar', 'rule_type' => BadgeRuleType::ActionCount, 'rule_value' => 20, 'rule_action_key' => 'session_attended'],
+        ['key' => 'climber', 'name_ar' => 'صاعد', 'icon' => 'trophy', 'rule_type' => BadgeRuleType::LevelReached, 'rule_value' => 3, 'rule_action_key' => null],
+    ];
+
+    public function run(): void
+    {
+        foreach (self::ACTIONS as $action) {
+            GamificationAction::query()->updateOrCreate(
+                ['key' => $action['key']],
+                [...$action, 'is_active' => true],
+            );
+        }
+
+        foreach (self::LEVELS as $level) {
+            Level::query()->updateOrCreate(['level' => $level['level']], $level);
+        }
+
+        foreach (self::BADGES as $badge) {
+            Badge::query()->updateOrCreate(
+                ['key' => $badge['key']],
+                [...$badge, 'is_active' => true],
+            );
+        }
+    }
+}

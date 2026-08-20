@@ -140,10 +140,38 @@ describe('marketplace models are workspace-scoped', function (): void {
         expect($context->forWorkspace($workspaceA, fn () => $model::query()->count()))->toBe(2);
         expect($context->forWorkspace($workspaceB, fn () => $model::query()->count()))->toBe(3);
     })->with([
-        AvailabilitySlot::class,
-        GradeLevel::class,
-        Subject::class,
-        TeacherProfile::class,
+        'availability slots' => [AvailabilitySlot::class],
+        'teacher profiles' => [TeacherProfile::class],
+    ]);
+
+    /*
+    | ⚠️ `Subject` AND `GradeLevel` USED TO BE IN THE LIST ABOVE, and spec 009 (Q8)
+    | took them out. This case is their inverse rather than their absence: a test
+    | that merely disappears leaves nothing saying the behaviour changed on
+    | purpose, and the next reader restores BelongsToWorkspace as a missing guard.
+    |
+    | They are PLATFORM reference data now (constitution v1.2.0 §I, layer ب): one
+    | "الرياضيات" for the whole product. With a workspace_id, the subject and grade
+    | leaderboard scopes that are supposed to cross workspaces collapsed into
+    | scopes INSIDE one — and SC-018 would have passed green against a fixture with
+    | a single workspace. The guard is now the platform permission `taxonomy.manage`
+    | on the write, not a scope on the read.
+    */
+    it('does NOT scope the taxonomy, because it belongs to the platform', function (string $model): void {
+        [$workspaceA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+        [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+        $context = app(WorkspaceContext::class);
+
+        $context->forWorkspace($workspaceA, fn () => $model::factory()->count(2)->create());
+        $context->forWorkspace($workspaceB, fn () => $model::factory()->count(3)->create());
+
+        // Both workspaces see all five: one vocabulary, shared by everybody.
+        expect($context->forWorkspace($workspaceA, fn () => $model::query()->count()))->toBe(5)
+            ->and($context->forWorkspace($workspaceB, fn () => $model::query()->count()))->toBe(5);
+    })->with([
+        'grade levels' => [GradeLevel::class],
+        'subjects' => [Subject::class],
     ]);
 });
 

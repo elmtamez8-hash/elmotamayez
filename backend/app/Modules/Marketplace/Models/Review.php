@@ -6,6 +6,7 @@ namespace App\Modules\Marketplace\Models;
 
 use App\Models\BaseModel;
 use App\Models\User;
+use App\Shared\Support\DisplayName;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Marketplace\ReviewFactory;
@@ -56,26 +57,13 @@ class Review extends BaseModel
     /**
      * "أحمد م." — enough to show a real person left this, not enough to identify
      * them to the teacher they just rated (FR-021).
+     *
+     * The rule itself moved to {@see DisplayName} in spec 009, because the
+     * leaderboard needs the same abbreviation and this is an instance method on a
+     * Marketplace model. Two implementations of one rule diverge at the first fix.
      */
     public function studentDisplayName(): string
     {
-        $student = $this->student;
-
-        if ($student === null) {
-            return 'طالب';
-        }
-
-        $surname = (string) $student->last_name;
-
-        // Skip the definite article first. A large share of Arab family names
-        // start with "ال", so taking character zero abbreviates الكواري, العطية
-        // and الهاجري all to "ا." — an initial that distinguishes nobody.
-        if (mb_strlen($surname) > 2 && mb_substr($surname, 0, 2) === 'ال') {
-            $surname = mb_substr($surname, 2);
-        }
-
-        $initial = mb_substr($surname, 0, 1);
-
-        return $initial === '' ? $student->first_name : $student->first_name.' '.$initial.'.';
+        return DisplayName::forStudent($this->student);
     }
 }

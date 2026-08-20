@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Gamification;
 
+use App\Modules\Gamification\Support\EloquentFocusState;
+use App\Shared\Contracts\FocusState;
 use App\Shared\Modules\Module;
 use App\Shared\Modules\ModulesServiceProvider;
 
@@ -22,4 +24,14 @@ use App\Shared\Modules\ModulesServiceProvider;
 class GamificationServiceProvider extends Module
 {
     protected string $name = 'Gamification';
+
+    public function register(): void
+    {
+        parent::register();
+
+        // Notifications asks "is this student focusing?" through the contract.
+        // Gamification owns the table and binds the implementation — the same
+        // shape as LiveSessions' SessionAttendanceDirectory.
+        $this->app->bind(FocusState::class, EloquentFocusState::class);
+    }
 }

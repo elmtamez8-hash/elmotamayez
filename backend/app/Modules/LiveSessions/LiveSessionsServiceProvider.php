@@ -24,9 +24,11 @@ use App\Modules\LiveSessions\Policies\SessionBookingPolicy;
 use App\Modules\LiveSessions\Providers\LiveKitBroadcastProvider;
 use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
 use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
+use App\Modules\LiveSessions\Support\EloquentFreezeDirectory;
 use App\Modules\LiveSessions\Support\EloquentSessionAttendanceDirectory;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Media\Events\MediaAssetReady;
+use App\Shared\Contracts\FreezeDirectory;
 use App\Shared\Contracts\SessionAttendanceDirectory;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
@@ -79,6 +81,10 @@ class LiveSessionsServiceProvider extends Module
         // than reaching into these models. Same binding shape as Learning's
         // EnrollmentDirectory.
         $this->app->bind(SessionAttendanceDirectory::class, EloquentSessionAttendanceDirectory::class);
+
+        // Spec 009 — a streak must not break over a holiday this module declared.
+        // Gamification asks through the contract; the freeze period stays here.
+        $this->app->bind(FreezeDirectory::class, EloquentFreezeDirectory::class);
     }
 
     /**

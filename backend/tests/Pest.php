@@ -46,6 +46,7 @@ use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\PlatformStaffDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
+use Database\Seeders\GamificationCatalogSeeder;
 use Database\Seeders\NotificationTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -69,8 +70,19 @@ uses(WithWorkspace::class)->in('Feature');
  * rather than per-test for the same reason roles are: it is a precondition of
  * the app running at all, not of any one scenario.
  */
+/*
+ * And the gamification catalogue, for exactly the same reason (spec 009).
+ *
+ * ⚠️ `AwardPoints` looks an action up by key and returns silently when there is
+ * no row — an award for an undefined action is an unfilled catalogue, not an
+ * error. So with no rows here NOTHING is ever awarded, and every assertion in the
+ * suite about points, levels, streaks and leaderboards would pass by comparing
+ * zero against zero. It is deliberately a handful of rows, because all ~1,500
+ * feature tests pay for it.
+ */
 uses()->beforeEach(function (): void {
     $this->seed(NotificationTemplateSeeder::class);
+    $this->seed(GamificationCatalogSeeder::class);
 })->in('Feature');
 
 /*
