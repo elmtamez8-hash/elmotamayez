@@ -147,7 +147,7 @@ description: "Task list — نظام التلعيب (٠٠٩)"
 - [X] T057 [US1] أزِل ثلاثةَ استعلاماتٍ لكلّ صفٍّ من `ProgressResource`: حمِّل فهرسَ `badges` **مرّةً** بـ`keyBy('key')` (‏`badge_key` نصٌّ لا FK فلا ينفع `with()`)، واسمَ المدرّس بـ`with('workspace.owner:id,first_name,last_name')`، والمستوى مرّةً — ⚠️ **Resource يعمل مرّةً لكلّ صفّ، فاستعلامٌ داخله N+1 بالبناء**
 - [X] T058 [US1] أضِف `GET /gamification/students/{user}` خلف `PROGRESS_VIEW_STUDENT` **و**`EnrollmentDirectory::hasActiveEnrollmentInWorkspace()` — ⚠️ **صلاحيةٌ بلا نقطةِ فرضٍ اسمٌ سيربطه أحدُهم بمسارٍ لاحقاً بلا فحص التسجيل** (`NFR-001أ`)
 - [X] T059 [US1] أنشئ `Filament/Resources/GamificationActionResource` خلف `GAMIFICATION_CATALOG_MANAGE` — **يمرّ بالـAction ولا يكتب مباشرةً**، والـAction تسجّل في `activity_log` **بنداءٍ صريح** (‏`spatie/activitylog` لا يغطّي شيئاً تلقائياً في هذا المستودع)، وترفض فعلاً ذا عملاتٍ بلا مساحةِ عمل (`T050`)
-- [ ] T060 [US1] [P] أنشئ `frontend/src/app/(app)/progress/page.tsx` و`frontend/src/lib/gamification.ts` — مكوّناتٌ من `components/ui/` بلا `className` حرّ، وألوانٌ من `@theme`، وخصائصُ منطقيّة (`ms-*` · `start-*`)
+- [X] T060 [US1] [P] أنشئ `frontend/src/app/(app)/progress/page.tsx` و`frontend/src/lib/gamification.ts` — مكوّناتٌ من `components/ui/` بلا `className` حرّ، وألوانٌ من `@theme`، وخصائصُ منطقيّة (`ms-*` · `start-*`)
 
 ### الاختبارات
 
@@ -184,7 +184,7 @@ description: "Task list — نظام التلعيب (٠٠٩)"
 - [X] T080 [US2] [P] `ShieldTest.php`: انقطاعُ يومٍ واحدٍ بدرعٍ ⇒ السلسلةُ محفوظةٌ والدرعُ مستهلَك · **وتقييمٌ يجري مرّتين يستهلك درعاً واحداً** (‏حارسُ `T071`)
 - [X] T081 [US2] [P] `BadgeTest.php`: صفرُ شارةٍ ممنوحةٍ مرّتين · وشارةٌ **لا تُسحَب** بعد تغيّر قاعدتها (`SC-007`)
 - [X] T082 [US2] [P] `LevelUpTest.php`: العتبةُ تُرفع المستوى وتُبلِّغ **مرّةً واحدة** ولو أُعيد تشغيل التقييم
-- [ ] T083 [US2] [P] أضِف بطاقاتِ المستوى والسلسلة والشارات إلى `frontend/src/app/(app)/progress/page.tsx` (`FR-041`)
+- [X] T083 [US2] [P] أضِف بطاقاتِ المستوى والسلسلة والشارات إلى `frontend/src/app/(app)/progress/page.tsx` (`FR-041`)
 
 **Checkpoint**: `US1` + `US2` تعملان مستقلّتَين — والعودةُ اليومية لها محرّك.
 
@@ -207,7 +207,7 @@ description: "Task list — نظام التلعيب (٠٠٩)"
 - [X] T092 [US3] نفّذ الحرّاسَ الثلاثةَ على المسار: مدرّسٌ يطلب نطاقاً عابراً ⇒ **403** (`FR-020د`) · طالبٌ يطلب نطاقاً مقيَّداً لا ينتمي إليه ⇒ **403** · 🔴 **ومُعرِّفٌ غيرُ موجودٍ يُجيب بالجواب نفسِه**، وإلا صار الفرقُ بين ٤٠٣ و٤٠٤ عرّافاً يخبر بما هو موجود
 - [X] T093 [US3] طبّق `throttle:gamification-board` على مسار الصدارة — ⚠️ **وهو المسارُ الوحيدُ القابلُ للإحصاء وكان بلا محدِّدٍ إطلاقاً** لأن `NFR-014` يذكر الكتابةَ وحدَها
 - [X] T094 [US3] نفّذ `FR-042`: دالّةٌ **جماعيّةٌ** تأخذ قائمةَ مستخدمين وتُرجع رتبةَ كلٍّ منهم ومستواه في نطاقٍ وفترة — 🔴 **كانت بلا أثرٍ في أيّ ملفّ**؛ لا استعلامٌ لكلّ صفّ، وحقولُها داخل قائمة السماح (‏تستهلكها ٠١٠)
-- [ ] T095 [US3] [P] أنشئ `frontend/src/app/(app)/leaderboard/page.tsx` — **واللوحةُ الفارغةُ تقول شيئاً مفهوماً** لا جدولاً بلا صفوف: أوّلُ أسبوعٍ لكلّ طالبٍ جديدٍ يبدأ فارغاً
+- [X] T095 [US3] [P] أنشئ `frontend/src/app/(app)/leaderboard/page.tsx` — **واللوحةُ الفارغةُ تقول شيئاً مفهوماً** لا جدولاً بلا صفوف: أوّلُ أسبوعٍ لكلّ طالبٍ جديدٍ يبدأ فارغاً
 - [X] T096 [US3] [P] `LeaderboardScopeTest.php`: **الستّةُ كلُّها** تُنتج ترتيباً صحيحاً من نفس القيود (`SC-018`) — ⚠️ **وبمساحتَي عملٍ على الأقلّ** في كلّ اختبارِ نطاقٍ منصّيّ؛ بواحدةٍ لا يثبت شيئاً (`SC-025`)
 - [X] T097 [US3] [P] `LeaderboardBandTest.php`: طالبُ المستوى ٢ بنقاطٍ عاليةٍ **لا يظهر** في لوحةٍ مع عشرين طالباً بالمستوى ٤٠ (`SC-009`) — ⚠️ تشريحٌ بالرتبة وحدَها يجتاز «خمسون كحدٍّ أقصى» حرفياً ويرسب هنا
 - [X] T098 [US3] [P] `LeaderboardRebuildTest.php`: احذف كلَّ الصفوف المُشتقّة وأعِد البناء ⇒ **الترتيبُ مطابق** (`SC-011`) · **وشغّل التجميعَ مرّتين ⇒ نفسُ الأرقام** (`SC-026`) — ⚠️ تشغيلةٌ واحدةٌ خضراءُ إلى الأبد وتثبت العكس (‏سابقةُ `RollupIdempotencyTest`)
@@ -236,13 +236,13 @@ description: "Task list — نظام التلعيب (٠٠٩)"
 - [X] T110 [US4] أضِف مسارات المتجر إلى `routes/api.php` خلف `throttle:gamification-write`: `GET /shop?workspace={uuid}` (‏🔴 **التسجيلُ النشطُ مفحوصٌ صراحةً** بـ`EnrollmentDirectory`) · `POST /rewards/{reward}/redeem` · `GET /redemptions` (‏🔴 **فرعُ الطالب يصفّي بـ`user_id` صراحةً** — بدونه يُرجع طلباتِ المنصّةِ كلَّها) · `POST …/fulfill` · `POST …/reject`
 - [X] T111 [US4] أضِف نوعَ `reward_redeemed` إلى `NotificationType` **مستهدِفاً وليَّ الأمر** (‏قد يكون خصماً على حصّة) وقالبَه إلى `NotificationTemplateSeeder`، وأطلِق `RewardRedeemed` بـ`afterCommit`
 - [X] T112 [US4] حدِّث عدَّ `backend/tests/Feature/Notifications/WhatsAppDefaultsTest.php` من **١٨ إلى ١٩** وتعليقَ `NotificationTemplateSeeder` — ⚠️ **وهو الاختبارُ الذي وُجد ليمنع انزلاقَ نوعٍ إلى المجموعة سهواً**، فتحديثُه جزءٌ من المهمّة لا التفافٌ عليه
-- [ ] T113 [US4] [P] أنشئ `frontend/src/app/(app)/shop/page.tsx` و`frontend/src/app/(app)/manage/rewards/page.tsx` — **ولا رقمَ نقديٌّ في أيّ حمولة**: العملاتُ ليست مالاً وقاعدةُ ٠٠٦ سارية
-- [ ] T114 [US4] [P] اكتب `frontend/src/components/gamification/RedeemButton.test.tsx` (‏vitest): نقرتان **لا تُرسلان مرّتين** — نفسُ عائلةِ العيبِ الذي حوّل إجابةً صحيحةً إلى صفرٍ في ٠٠٨
+- [X] T113 [US4] [P] أنشئ `frontend/src/app/(app)/shop/page.tsx` و`frontend/src/app/(app)/manage/rewards/page.tsx` — **ولا رقمَ نقديٌّ في أيّ حمولة**: العملاتُ ليست مالاً وقاعدةُ ٠٠٦ سارية
+- [X] T114 [US4] [P] اكتب `frontend/src/components/gamification/RedeemButton.test.tsx` (‏vitest): نقرتان **لا تُرسلان مرّتين** — نفسُ عائلةِ العيبِ الذي حوّل إجابةً صحيحةً إلى صفرٍ في ٠٠٨
 - [X] T115 [US4] [P] `RedemptionConcurrencyTest.php`: طلبان متزامنان على **آخر وحدةِ مخزون** ⇒ ينجح واحدٌ فقط، والمخزونُ صفرٌ لا سالب، والرصيدُ لا يقلّ عن صفر (`SC-004`) — ⚠️ **ولا `lockForUpdate()` في المسار**
 - [X] T116 [US4] [P] `MonthlyCapTest.php`: مكافأةٌ **بلا سقف** تُستبدَل مرّتين في شهرٍ واحدٍ بنجاح (‏حارسُ `T103`) · ومكافأةٌ بسقف ٢ تُرفَض في الثالثة
 - [X] T117 [US4] [P] `RedemptionReleaseTest.php`: استبدل مكافأةً سقفُها ٢ ثمّ **ارفض** الطلبَين ⇒ العملاتُ عادت كاملةً **والمكافأةُ ما زالت قابلةً للاستبدال** (`SC-013`) · **ورفضٌ بعد انقلاب الشهر يعيد وحدةَ المخزون** (‏حارسُ `T108`)
 - [X] T118 [US4] [P] `RedemptionDoubleDecideTest.php`: نداءان لـ`reject` على نفس الطلب ⇒ العملاتُ تعود **مرّةً واحدة** (‏حارسُ `T107`)
-- [ ] T119 [US4] [P] أضِف حالاتِ `rewards` و`redemptions` إلى `WorkspaceIsolationTest.php`، وحالةَ «طالبٌ يفتح متجرَ مدرّسٍ لا يدرس عنده ⇒ 403» (`SC-019`)
+- [X] T119 [US4] [P] أضِف حالاتِ `rewards` و`redemptions` إلى `WorkspaceIsolationTest.php`، وحالةَ «طالبٌ يفتح متجرَ مدرّسٍ لا يدرس عنده ⇒ 403» (`SC-019`)
 
 **Checkpoint**: النقاطُ صار لها وجهُ إنفاق — **والقصصُ الأربع الأولى تُسلَّم معاً أو لا تُسلَّم** (‏تحذيرُ الوثيقة).
 
@@ -259,8 +259,8 @@ description: "Task list — نظام التلعيب (٠٠٩)"
 - [X] T122 [US5] نفّذ `FocusState` (`T036`) وأضِف **شرطاً جديداً في `DispatchNotification`** يتخطّى غيرَ الإلزاميّ لطالبٍ في جلسةٍ جارية — 🔴 **لا في `QuietHours`**: تلك تخرج فوراً لغير القنوات الخارجية، **والجرسُ هو السطحُ الوحيدُ الذي يراه طالبٌ يذاكر**، فالوصلُ بها يشحن ميزةً لا تفعل شيئاً. و`isMandatory()` تبقى الصمّامَ (`FR-039`)
 - [X] T123 [US5] امنح خبرةَ الجلسة المكتملة عبر `AwardPoints` بفعلٍ ذي سقفٍ يوميّ — والمقطوعةُ **لا تمنح كاملاً** (`FR-040`)
 - [X] T124 [US5] أضِف `POST /gamification/focus` و`POST /gamification/focus/{session}/end` خلف `throttle:gamification-write`
-- [ ] T125 [US5] [P] أنشئ `frontend/src/components/gamification/FocusTimer.tsx` وادمجه في صفحة التقدّم
-- [ ] T126 [US5] [P] اكتب `FocusTimer.test.tsx` (‏vitest): بدءٌ · قطعٌ · اكتمال — **منطقُ حالةٍ في المتصفّح لا يُرى من الخلفية**
+- [X] T125 [US5] [P] أنشئ `frontend/src/components/gamification/FocusTimer.tsx` وادمجه في صفحة التقدّم
+- [X] T126 [US5] [P] اكتب `FocusTimer.test.tsx` (‏vitest): بدءٌ · قطعٌ · اكتمال — **منطقُ حالةٍ في المتصفّح لا يُرى من الخلفية**
 - [X] T127 [US5] [P] `FocusMuteTest.php`: تنبيهٌ أمنيٌّ داخل جلسةٍ جارية ⇒ **يصل** (`SC-022`) · وإشعارٌ اختياريٌّ ⇒ يُتخطّى — ⚠️ **والاختبارُ يمرّ بالجرس لا بقناةٍ خارجية**، وإلا اختبر `QuietHours` وأثبت صفراً عن `FR-039`
 - [X] T128 [US5] [P] `FocusDurationTest.php`: إنهاءٌ بعد خمس ثوانٍ على جلسةِ ١٢٠ دقيقة ⇒ **لا خبرةً كاملة** (‏حارسُ `T120`) · و`minutes` فوق الحدّ ⇒ ٤٢٢
 

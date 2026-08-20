@@ -30,7 +30,10 @@ import {
   OrdersIcon,
   PracticeIcon,
   ItemAnalysisIcon,
+  LeaderboardIcon,
+  ProgressIcon,
   QuestionBankIcon,
+  ShopIcon,
   ScheduleIcon,
   SessionsIcon,
   SettingsIcon,
@@ -109,6 +112,23 @@ const mainNav: NavItem[] = [
   // question about the WHOLE course — what earns the next class — and a screen
   // reachable only from one session reads as a setting on that session.
   { href: "/manage/unlock-rules", label: "شرط فتح الحصة", Icon: LockIcon, permission: P.unlockRulesManage },
+  /*
+   * Spec 009. Three entries for the student, and none of them folded into
+   * another screen.
+   *
+   * ⚠️ «تقدّمي» IS NOT A TAB ON THE DASHBOARD. It is where the focus timer lives,
+   * and a timer a student has to go looking for is a timer nobody starts.
+   * «الصدارة» is a different question from «تقدّمي» — one is about me, the other
+   * about where I stand — and the shop is where the points stop being decoration:
+   * the source document is explicit that points with nowhere to spend them lose
+   * their meaning within two weeks, and a shop reachable only by typing its
+   * address is a shop with nowhere to spend them.
+   */
+  { href: "/progress", label: "تقدّمي", Icon: ProgressIcon },
+  { href: "/leaderboard", label: "لوحة الصدارة", Icon: LeaderboardIcon },
+  { href: "/shop", label: "متجر المكافآت", Icon: ShopIcon },
+  // The teacher's side of that shop, and the queue of what has been claimed.
+  { href: "/manage/rewards", label: "متجر مكافآتي", Icon: ShopIcon, permission: P.rewardsManage },
   { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },
   { href: "/orders", label: "الطلبات", Icon: OrdersIcon },
   // The student's credits, counted in sessions and never in money. Separate

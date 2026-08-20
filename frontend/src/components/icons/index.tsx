@@ -34,6 +34,10 @@ import {
   IconBarbell,
   IconChartLine,
   IconCheck,
+  IconFlame,
+  IconGift,
+  IconHourglass,
+  IconTrophy,
   IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
@@ -240,3 +244,16 @@ export const ApplicationIcon = wrap(IconClipboardList, "h-5 w-5");
 export const HumanReviewIcon = wrap(IconUserSearch, "h-5 w-5");
 export const SecureChannelIcon = wrap(IconShieldLock, "h-5 w-5");
 export const OngoingReviewIcon = wrap(IconChartLine, "h-5 w-5");
+
+/*
+ * Gamification (spec 009).
+ *
+ * Named for what they mean on the screen, not for the shape: `StreakIcon` is a
+ * run of consecutive days, and swapping the flame for something else later is one
+ * edit here rather than a grep across four pages.
+ */
+export const ProgressIcon = wrap(IconTrophy, "h-5 w-5");
+export const LeaderboardIcon = wrap(IconTrophy, "h-5 w-5");
+export const StreakIcon = wrap(IconFlame, "h-5 w-5");
+export const ShopIcon = wrap(IconGift, "h-5 w-5");
+export const FocusIcon = wrap(IconHourglass, "h-5 w-5");

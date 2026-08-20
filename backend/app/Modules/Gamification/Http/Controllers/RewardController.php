@@ -15,9 +15,11 @@ use App\Modules\Gamification\Http\Resources\RewardResource;
 use App\Modules\Gamification\Models\Redemption;
 use App\Modules\Gamification\Models\Reward;
 use App\Shared\Support\WorkspaceContext;
+use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\ValidationException;
 
 /**
  * The teacher's side: their own shop and their fulfilment queue.
@@ -47,7 +49,9 @@ class RewardController extends Controller
         $workspaceId = app(WorkspaceContext::class)->id();
         abort_if($workspaceId === null, 403);
 
-        $reward = $this->save->handle(RewardData::fromArray($request->validated()), $workspaceId);
+        $reward = $this->saving(
+            fn (): Reward => $this->save->handle(RewardData::fromArray($request->validated()), $workspaceId),
+        );
 
         return RewardResource::make($reward)->response()->setStatusCode(201);
     }
@@ -56,9 +60,38 @@ class RewardController extends Controller
     {
         $this->authorize('update', $reward);
 
-        return RewardResource::make(
-            $this->save->handle(RewardData::fromArray($request->validated()), (int) $reward->workspace_id, $reward),
-        );
+        return RewardResource::make($this->saving(
+            fn (): Reward => $this->save->handle(
+                RewardData::fromArray($request->validated()),
+                (int) $reward->workspace_id,
+                $reward,
+            ),
+        ));
+    }
+
+    /**
+     * Turn the Action's own refusals into a 422 the form can render.
+     *
+     * ⚠️ WITHOUT THIS THE TEACHER GETS A 500 WITH A RAW EXCEPTION MESSAGE ON IT.
+     * `SaveReward` enforces the mandatory monthly cap and the platform ceiling —
+     * deliberately, because the seeder and the panel reach it with no form behind
+     * them — and the FormRequest lets `monthly_cap: null` through, since whether
+     * it is required depends on the type. So the rule fires exactly where a
+     * careless teacher will hit it, and the repository's rule is that no raw error
+     * ever reaches a screen.
+     *
+     * Shaped for `fieldErrors()`, so the sentence lands under the field it is
+     * about rather than in a banner.
+     *
+     * @param  callable(): Reward  $save
+     */
+    private function saving(callable $save): Reward
+    {
+        try {
+            return $save();
+        } catch (DomainException $refusal) {
+            throw ValidationException::withMessages(['monthly_cap' => $refusal->getMessage()]);
+        }
     }
 
     /** The teacher's queue: what has been claimed and is waiting on them. */

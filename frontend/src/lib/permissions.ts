@@ -35,6 +35,10 @@ export const P = {
   membersView: "members.view",
   billingCollection: "billing.collection.view",
   billingAudit: "billing.audit.view",
+  // Spec 009 — the teacher's own shop and its fulfilment queue. The catalogue
+  // permission is deliberately absent: it is platform-level and no tenant role
+  // holds it, so offering a link to it would show every teacher a 403.
+  rewardsManage: "rewards.manage",
   // The reconciliation screen reads the same rows as the collection report and
   // is gated on the same name — there is no separate `payments.reconcile`.
 } as const;
