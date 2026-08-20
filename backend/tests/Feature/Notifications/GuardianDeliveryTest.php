@@ -238,7 +238,19 @@ it('tells every guardian-facing type apart', function (): void {
     // siblings — a level up and a new badge — deliberately reach no guardian at
     // all: several a week on a parent's phone is how the number gets muted, and
     // the attendance alert goes silent with it.
-    expect($guardianTypes)->toHaveCount(18);
+    //
+    // And the nineteenth and twentieth, with spec 013: the guardian is a PARTY to
+    // both rather than an observer. The ownership transfer is the moment they stop
+    // being able to ask for the record — telling only the student would leave the
+    // person losing the access as the one person not told. And a departing teacher
+    // ends an arrangement the guardian made and pays for.
+    //
+    // ⚠️ `guardian_consent_required` IS NOT AMONG THEM, and the distinction is the
+    // one this method turns on: it is ADDRESSED to a guardian, not copied to one.
+    // Listing it here would fan it out to every authorised guardian and demand a
+    // permission to gate it by — and the permission it would need is the very
+    // consent the message exists to ask for.
+    expect($guardianTypes)->toHaveCount(20);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();

@@ -59,18 +59,18 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 
 ## Phase 1: Setup — البنيةُ والأسماءُ والإعدادات
 
-- [ ] T001 أنشئ `backend/app/Modules/Compliance/ComplianceServiceProvider.php` يرث `App\Shared\Modules\Module` — يُكتشَف تلقائياً، **ويُمنع** تسجيلُه في `bootstrap/providers.php`
-- [ ] T002 أنشئ شجرةَ الوحدة: `backend/app/Modules/Compliance/{Actions,Support,Jobs,Models,Enums,Policies,Http/{Controllers,Requests,Resources},Database/Migrations,routes}` — ⚠️ `Database/Migrations` بحرف **M** كبير، وخطأُ الحالة يُحمّل **صفر** هجراتٍ على Linux بصمت
-- [ ] T003 أضف `app/Modules/Compliance/Database/Migrations` إلى قائمة `scanDirectories` في `backend/phpstan.neon` — بلا ذلك يعود كلُّ نموذجٍ «undefined property» على المستوى ٨
-- [ ] T004 [P] أضف `"ext-zip": "*"` إلى `require` في `backend/composer.json` — الامتدادُ من PHP نفسِه فـ«صفر تبعيةٍ جديدة» يبقى صحيحاً، لكن خادماً بلا الامتدادِ يفشل على أوّل تصديرٍ برسالةٍ لا تدلّ على السبب
-- [ ] T005 [P] أضف خمسَ صلاحياتٍ **منصّيةٍ** إلى `Tenancy\Support\Permissions`: `compliance.requests.execute` · `compliance.registry.manage` · `compliance.holds.manage` · `compliance.offboarding.execute` · `compliance.breaches.manage` — **وأضفها إلى `Permissions::all()`**، فالقائمةُ مكتوبةٌ بيدٍ والحمايةُ تبدأ منها لا من الثابت
-- [ ] T006 [P] أضف `compliance` إلى `PermissionLabels::SUBJECTS` والأفعالَ الخمسةَ إلى `ACTIONS` في `backend/app/Modules/Tenancy/Support/PermissionLabels.php` — بلا تسميةٍ عربيةٍ تُصيَّر نصّاً منقّطاً على لوحةٍ عربيةٍ فقط
-- [ ] T007 [P] أضف دورَ `compliance-officer` إلى `backend/app/Modules/Tenancy/Support/Roles.php` وإلى `backend/app/Modules/Tenancy/Support/RolePermissionMatrix.php` **بوصفه دوراً بلا فريق** — بلا صفٍّ في `platform_staff` تصل الصلاحياتُ `is_super_admin` وحده، فيصير «من نفّذه» في `FR-026` شخصاً واحداً على المنصّة كلِّها
-- [ ] T008 [P] عرِّف مُحدِّدَ المعدّل **المُسمّى** `data-rights` في `AppServiceProvider::registerRateLimiters()` **مُفتَرَساً على المستخدم لا على `ip`** — أسرةٌ خلف موجّهٍ واحدٍ تشترك عنواناً، فحدٌّ على العنوان يمنع الأخَ الثاني لأنّ أخاه طلب. و`throttle:N,M` مضمَّناً ممنوع
-- [ ] T009 [P] أنشئ `backend/config/compliance.php` باحتياطيّات المهل والمدد، وأضف كلَّ مفتاحٍ جديدٍ إلى `PlatformSettings::KEYS` في `backend/app/Modules/Tenancy/Support/PlatformSettings.php` — القائمةُ **allowlist صريحة**، ومفتاحٌ خارجها لا يُحرَّر من اللوحة ولا يرتدّ إلى `config`
-- [ ] T010 [P] أضف مُشرِفَ طابور `compliance` إلى `defaults` **و**`environments` في `backend/config/horizon.php` بمهلةٍ مُقاسةٍ لـ`SC-014`، **وأضف `redis:compliance` و`redis:maintenance` إلى `waits`** — التعليقُ هناك يقول بنصّه إنّ زوجاً غائباً **لا يُراقَب بحدٍّ افتراضيٍّ بل لا يُراقَب**، وما يتأخّر هنا مهلةٌ قانونية
-- [ ] T011 [P] انشر `backend/config/scout.php` بـ`'queue' => env('SCOUT_QUEUE', true)` — لا وجودَ للملفّ اليوم فالافتراضُ `false`، ونداءُ `unsearchable()` صفّاً صفّاً يصير نداءَ شبكةٍ حاجزاً لكلّ صفّ
-- [ ] T012 [P] أضف `Compliance` إلى مسحِ `tests/Feature/Settlement/ContextIsolationTest.php` — يمسح `Modules/Settlement/` و`Modules/Payments/` وحدهما اليوم، **فالحارسُ المُستشهَدُ به لا يحرس هذه المرحلة** قبل التوسيع
+- [X] T001 أنشئ `backend/app/Modules/Compliance/ComplianceServiceProvider.php` يرث `App\Shared\Modules\Module` — يُكتشَف تلقائياً، **ويُمنع** تسجيلُه في `bootstrap/providers.php`
+- [X] T002 أنشئ شجرةَ الوحدة: `backend/app/Modules/Compliance/{Actions,Support,Jobs,Models,Enums,Policies,Http/{Controllers,Requests,Resources},Database/Migrations,routes}` — ⚠️ `Database/Migrations` بحرف **M** كبير، وخطأُ الحالة يُحمّل **صفر** هجراتٍ على Linux بصمت
+- [X] T003 أضف `app/Modules/Compliance/Database/Migrations` إلى قائمة `scanDirectories` في `backend/phpstan.neon` — بلا ذلك يعود كلُّ نموذجٍ «undefined property» على المستوى ٨
+- [X] T004 [P] أضف `"ext-zip": "*"` إلى `require` في `backend/composer.json` — الامتدادُ من PHP نفسِه فـ«صفر تبعيةٍ جديدة» يبقى صحيحاً، لكن خادماً بلا الامتدادِ يفشل على أوّل تصديرٍ برسالةٍ لا تدلّ على السبب
+- [X] T005 [P] أضف خمسَ صلاحياتٍ **منصّيةٍ** إلى `Tenancy\Support\Permissions`: `compliance.requests.execute` · `compliance.registry.manage` · `compliance.holds.manage` · `compliance.offboarding.execute` · `compliance.breaches.manage` — **وأضفها إلى `Permissions::all()`**، فالقائمةُ مكتوبةٌ بيدٍ والحمايةُ تبدأ منها لا من الثابت
+- [X] T006 [P] أضف `compliance` إلى `PermissionLabels::SUBJECTS` والأفعالَ الخمسةَ إلى `ACTIONS` في `backend/app/Modules/Tenancy/Support/PermissionLabels.php` — بلا تسميةٍ عربيةٍ تُصيَّر نصّاً منقّطاً على لوحةٍ عربيةٍ فقط
+- [X] T007 [P] أضف دورَ `compliance-officer` إلى `backend/app/Modules/Tenancy/Support/Roles.php` وإلى `backend/app/Modules/Tenancy/Support/RolePermissionMatrix.php` **بوصفه دوراً بلا فريق** — بلا صفٍّ في `platform_staff` تصل الصلاحياتُ `is_super_admin` وحده، فيصير «من نفّذه» في `FR-026` شخصاً واحداً على المنصّة كلِّها
+- [X] T008 [P] عرِّف مُحدِّدَ المعدّل **المُسمّى** `data-rights` في `AppServiceProvider::registerRateLimiters()` **مُفتَرَساً على المستخدم لا على `ip`** — أسرةٌ خلف موجّهٍ واحدٍ تشترك عنواناً، فحدٌّ على العنوان يمنع الأخَ الثاني لأنّ أخاه طلب. و`throttle:N,M` مضمَّناً ممنوع
+- [X] T009 [P] أنشئ `backend/config/compliance.php` باحتياطيّات المهل والمدد، وأضف كلَّ مفتاحٍ جديدٍ إلى `PlatformSettings::KEYS` في `backend/app/Modules/Tenancy/Support/PlatformSettings.php` — القائمةُ **allowlist صريحة**، ومفتاحٌ خارجها لا يُحرَّر من اللوحة ولا يرتدّ إلى `config`
+- [X] T010 [P] أضف مُشرِفَ طابور `compliance` إلى `defaults` **و**`environments` في `backend/config/horizon.php` بمهلةٍ مُقاسةٍ لـ`SC-014`، **وأضف `redis:compliance` و`redis:maintenance` إلى `waits`** — التعليقُ هناك يقول بنصّه إنّ زوجاً غائباً **لا يُراقَب بحدٍّ افتراضيٍّ بل لا يُراقَب**، وما يتأخّر هنا مهلةٌ قانونية
+- [X] T011 [P] انشر `backend/config/scout.php` بـ`'queue' => env('SCOUT_QUEUE', true)` — لا وجودَ للملفّ اليوم فالافتراضُ `false`، ونداءُ `unsearchable()` صفّاً صفّاً يصير نداءَ شبكةٍ حاجزاً لكلّ صفّ
+- [X] T012 [P] أضف `Compliance` إلى مسحِ `tests/Feature/Settlement/ContextIsolationTest.php` — يمسح `Modules/Settlement/` و`Modules/Payments/` وحدهما اليوم، **فالحارسُ المُستشهَدُ به لا يحرس هذه المرحلة** قبل التوسيع
 
 ---
 
@@ -78,32 +78,32 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 
 ### المفرداتُ المشتركة — في `Shared` لا في `Compliance`
 
-- [ ] T013 أنشئ `backend/app/Shared/Support/ErasureMode.php` — enum `delete` · `anonymise` · `retain`. ⚠️ في `Shared` لا في `Compliance`: وسيطُ عقدٍ تنفّذه **١٣** وحدةً، ولا يجوز أن تستورد ثلاثَ عشرةَ وحدةً enum من وحدةٍ واحدة. سابقتُه `Shared\Support\GuardianPermission` بتعليقها «مفرداتٌ مشتركةٌ بين وحدتَين»
-- [ ] T014 [P] أنشئ `backend/app/Shared/Support/ExpiryBehaviour.php` — enum `delete` · `anonymise` · `archive`
-- [ ] T015 أنشئ `backend/app/Shared/Data/DataSubject.php` يرث `DataTransferObject`: `user` · `workspaceIds` · `enrollmentIds` · `grantedScope`. ⚠️ **يُحلّ مرّةً ويُمرَّر**: `erase(User)` يجعل ١٣ وحدةً تُشغّل استعلامَ مساحاتِ العمل بنفسها، وعلى كلٍّ منها أن تُصيب `forWorkspace()` وحدها — ثلاثةَ عشرةَ موضعاً لخطأٍ واحد
-- [ ] T016 أنشئ `backend/app/Shared/Contracts/PersonalDataOwner.php` بـ**خمسِ** دوالّ: `moduleKey()` · `describe()` · `export(DataSubject): iterable` · `erase(DataSubject, ErasureMode, int): int` · `expire(string, CarbonImmutable, ExpiryBehaviour, int): int` — راجع [`contracts/personal-data-owner.md`](./contracts/personal-data-owner.md)
-- [ ] T017 [P] أضف الحالةَ **السادسة** `DataRights` إلى `backend/app/Shared/Support/GuardianPermission.php` بتسميتها العربية — الخمسُ القائمةُ لا واحدةَ منها عن حقوق البيانات، **فاليومَ لا يوقّع وليٌّ موافقةَ معالجةِ بياناتِ ابنه إلا إن كان مُخوَّلاً بالمدفوعات**
-- [ ] T018 [P] أنشئ `backend/app/Shared/Contracts/ConsentDirectory.php` بخمسِ دوالّ (‏ومنها `consentedCategories` و`record`) — راجع [`contracts/consent-directory.md`](./contracts/consent-directory.md). **والوثيقةُ سلسلةٌ نصّيةٌ لا enum**، ولا قيمةَ افتراضيةَ للوسيط
-- [ ] T019 [P] أنشئ `backend/app/Shared/Contracts/SettlementClearance.php` بـ`outstandingFor()` و`isCleared()` — راجع [`contracts/settlement-clearance.md`](./contracts/settlement-clearance.md). كان «عقداً في Shared» **بلا اسمٍ ولا ملفّ**
+- [X] T013 أنشئ `backend/app/Shared/Support/ErasureMode.php` — enum `delete` · `anonymise` · `retain`. ⚠️ في `Shared` لا في `Compliance`: وسيطُ عقدٍ تنفّذه **١٣** وحدةً، ولا يجوز أن تستورد ثلاثَ عشرةَ وحدةً enum من وحدةٍ واحدة. سابقتُه `Shared\Support\GuardianPermission` بتعليقها «مفرداتٌ مشتركةٌ بين وحدتَين»
+- [X] T014 [P] أنشئ `backend/app/Shared/Support/ExpiryBehaviour.php` — enum `delete` · `anonymise` · `archive`
+- [X] T015 أنشئ `backend/app/Shared/Data/DataSubject.php` يرث `DataTransferObject`: `user` · `workspaceIds` · `enrollmentIds` · `grantedScope`. ⚠️ **يُحلّ مرّةً ويُمرَّر**: `erase(User)` يجعل ١٣ وحدةً تُشغّل استعلامَ مساحاتِ العمل بنفسها، وعلى كلٍّ منها أن تُصيب `forWorkspace()` وحدها — ثلاثةَ عشرةَ موضعاً لخطأٍ واحد
+- [X] T016 أنشئ `backend/app/Shared/Contracts/PersonalDataOwner.php` بـ**خمسِ** دوالّ: `moduleKey()` · `describe()` · `export(DataSubject): iterable` · `erase(DataSubject, ErasureMode, int): int` · `expire(string, CarbonImmutable, ExpiryBehaviour, int): int` — راجع [`contracts/personal-data-owner.md`](./contracts/personal-data-owner.md)
+- [X] T017 [P] أضف الحالةَ **السادسة** `DataRights` إلى `backend/app/Shared/Support/GuardianPermission.php` بتسميتها العربية — الخمسُ القائمةُ لا واحدةَ منها عن حقوق البيانات، **فاليومَ لا يوقّع وليٌّ موافقةَ معالجةِ بياناتِ ابنه إلا إن كان مُخوَّلاً بالمدفوعات**
+- [X] T018 [P] أنشئ `backend/app/Shared/Contracts/ConsentDirectory.php` بخمسِ دوالّ (‏ومنها `consentedCategories` و`record`) — راجع [`contracts/consent-directory.md`](./contracts/consent-directory.md). **والوثيقةُ سلسلةٌ نصّيةٌ لا enum**، ولا قيمةَ افتراضيةَ للوسيط
+- [X] T019 [P] أنشئ `backend/app/Shared/Contracts/SettlementClearance.php` بـ`outstandingFor()` و`isCleared()` — راجع [`contracts/settlement-clearance.md`](./contracts/settlement-clearance.md). كان «عقداً في Shared» **بلا اسمٍ ولا ملفّ**
 
 ### الكتالوجُ وسجلُّ المعالِجين
 
-- [ ] T020 أنشئ هجرةَ `data_categories` في `Compliance/Database/Migrations/` — و`table_name`/`column_name` **غيرُ قابلَين للعدم** (كانا `*_hint` قابلَين، فآليةُ `SC-002` نفسُها كانت اختياريّة)، و`retain_days` **`unsignedSmallInteger`** nullable
-- [ ] T021 في هجرةِ `T020` داخل `backend/app/Modules/Compliance/Database/Migrations/`: اكتب في تعليقها سببَ `unsignedSmallInteger` — `created_at + INTERVAL n DAY` بعد سنة ٩٩٩٩ يرفع **ERROR 1441** على MySQL **فيقتل الكنسةَ كلَّها**، وSQLite يُرجع `NULL` فلا ينقضي الصفُّ أبداً: **لا خطأَ في أيٍّ من الاتجاهَين محلّياً**
-- [ ] T022 [P] أنشئ هجرةَ `data_processors` في `Compliance/Database/Migrations/` بـ`erasure_capability` enum
-- [ ] T023 [P] أنشئ `Compliance/Models/{DataCategory,DataProcessor}.php` بـ`HasUuid` و`declare(strict_types=1)` — **وبلا `BelongsToWorkspace`**: الطبقةُ منصّةٌ (ب)، ولا مالكَ فرداً لها
-- [ ] T024 أنشئ `Compliance/Actions/{SaveDataCategory,SaveDataProcessor}.php` — **والحدُّ الأدنى والأقصى لـ`retain_days` مفروضان هنا** لا في التحقّق فقط: `SeedCommand` يشغّل كلَّ الـSeeders داخل `Model::unguarded()`، و`retain_days = 0` ليس «فوراً» بل محوُ بياناتِ المنصّةِ في ليلة
-- [ ] T025 [P] أنشئ `database/seeders/DataCategorySeeder.php` — ويُزرَع `class_recording` بـ`is_required = true`، وهو **التمثيلُ الوحيدُ** لقرار `Q4`
-- [ ] T026 [P] أنشئ `database/seeders/DataProcessorSeeder.php` بستّة صفوفٍ منها **`livekit`** و**`bunny`** — لم يكونا موجودَين يوم كُتبت السبيك (‏كان مزوّدُ البثّ `NullBroadcastProvider` والوسائطُ قرصَنا)، وكلٌّ منهما يحمل صوتَ قاصرٍ وصورتَه
-- [ ] T027 أنشئ `Compliance/Support/PersonalDataRegistry.php` يجمع وسمَ `compliance.personal_data` **ويرتّب بـ`moduleKey()`** — أرشيفٌ يختلف ترتيبُ ملفاته بين تشغيلَين يجعل أيَّ مقارنةٍ آليةٍ ضجيجاً
-- [ ] T028 [P] أنشئ `Compliance/Support/ComplianceSettings.php` تقرأ كلَّ مهلةٍ ومدّةٍ من `platform_settings` ثمّ `config/compliance.php` — **ولا ثابتَ في الكود**: مهلةٌ لا تتغيّر إلا بنشرِ كودٍ تُصبح خاطئةً يومَ يُحدِّث المنظِّمُ إرشادَه ولا ينتبه أحد
+- [X] T020 أنشئ هجرةَ `data_categories` في `Compliance/Database/Migrations/` — و`table_name`/`column_name` **غيرُ قابلَين للعدم** (كانا `*_hint` قابلَين، فآليةُ `SC-002` نفسُها كانت اختياريّة)، و`retain_days` **`unsignedSmallInteger`** nullable
+- [X] T021 في هجرةِ `T020` داخل `backend/app/Modules/Compliance/Database/Migrations/`: اكتب في تعليقها سببَ `unsignedSmallInteger` — `created_at + INTERVAL n DAY` بعد سنة ٩٩٩٩ يرفع **ERROR 1441** على MySQL **فيقتل الكنسةَ كلَّها**، وSQLite يُرجع `NULL` فلا ينقضي الصفُّ أبداً: **لا خطأَ في أيٍّ من الاتجاهَين محلّياً**
+- [X] T022 [P] أنشئ هجرةَ `data_processors` في `Compliance/Database/Migrations/` بـ`erasure_capability` enum
+- [X] T023 [P] أنشئ `Compliance/Models/{DataCategory,DataProcessor}.php` بـ`HasUuid` و`declare(strict_types=1)` — **وبلا `BelongsToWorkspace`**: الطبقةُ منصّةٌ (ب)، ولا مالكَ فرداً لها
+- [X] T024 أنشئ `Compliance/Actions/{SaveDataCategory,SaveDataProcessor}.php` — **والحدُّ الأدنى والأقصى لـ`retain_days` مفروضان هنا** لا في التحقّق فقط: `SeedCommand` يشغّل كلَّ الـSeeders داخل `Model::unguarded()`، و`retain_days = 0` ليس «فوراً» بل محوُ بياناتِ المنصّةِ في ليلة
+- [X] T025 [P] أنشئ `database/seeders/DataCategorySeeder.php` — ويُزرَع `class_recording` بـ`is_required = true`، وهو **التمثيلُ الوحيدُ** لقرار `Q4`
+- [X] T026 [P] أنشئ `database/seeders/DataProcessorSeeder.php` بستّة صفوفٍ منها **`livekit`** و**`bunny`** — لم يكونا موجودَين يوم كُتبت السبيك (‏كان مزوّدُ البثّ `NullBroadcastProvider` والوسائطُ قرصَنا)، وكلٌّ منهما يحمل صوتَ قاصرٍ وصورتَه
+- [X] T027 أنشئ `Compliance/Support/PersonalDataRegistry.php` يجمع وسمَ `compliance.personal_data` **ويرتّب بـ`moduleKey()`** — أرشيفٌ يختلف ترتيبُ ملفاته بين تشغيلَين يجعل أيَّ مقارنةٍ آليةٍ ضجيجاً
+- [X] T028 [P] أنشئ `Compliance/Support/ComplianceSettings.php` تقرأ كلَّ مهلةٍ ومدّةٍ من `platform_settings` ثمّ `config/compliance.php` — **ولا ثابتَ في الكود**: مهلةٌ لا تتغيّر إلا بنشرِ كودٍ تُصبح خاطئةً يومَ يُحدِّث المنظِّمُ إرشادَه ولا ينتبه أحد
 
 ### الإشعاراتُ — قبل أيّ مُطلِقٍ لها
 
-- [ ] T029 أضف ستَّ حالاتٍ إلى `backend/app/Modules/Notifications/Support/NotificationType.php`: `guardian_consent_required` · `data_ownership_transferred` · `data_request_created` · `data_request_completed` · `guardian_consent_conflict` · `teacher_offboarding_notice`
-- [ ] T030 أضف ستَّةَ قوالبَ **مُعتمَدةً** إلى `database/seeders/NotificationTemplateSeeder.php` — ⚠️ `TemplateRenderer` يرفض قالباً مفقوداً أو غيرَ مُعتمَدٍ و`DispatchNotification` **يُسجّل ولا يُفشل**، فبلا هذه الصفوفِ تُسقَط الستُّ بصمتٍ **وكلُّ تأكيدٍ عليها ينجح فراغاً**
-- [ ] T031 أنشئ `backend/tests/Feature/Compliance/NotificationTemplateCoverageTest.php` — **`SC-018`**: يقارن أنواعَ الإشعارات التي تُطلقها هذه المرحلةُ بصفوف الـSeeder ويفشل على نوعٍ بلا قالب
-- [ ] T032 [P] أنشئ `Compliance/Support/ComplianceAuditSubjects.php` — مرشّحُ `activity_log` الخاصّ بها، عضوٌ ثالثٌ في عائلة `BillingAuditSubjects`/`SettlementAuditSubjects`. **و`activity_log` جدولٌ واحدٌ تكتب فيه سبعُ وحداتٍ**، فقارئٌ يجلبه ثمّ يُسقط صفوفَ غيرِه فرعٌ منسيٌّ واحدٌ بعيدٌ عن كشفِ ما لا يخصّه
+- [X] T029 أضف ستَّ حالاتٍ إلى `backend/app/Modules/Notifications/Support/NotificationType.php`: `guardian_consent_required` · `data_ownership_transferred` · `data_request_created` · `data_request_completed` · `guardian_consent_conflict` · `teacher_offboarding_notice`
+- [X] T030 أضف ستَّةَ قوالبَ **مُعتمَدةً** إلى `database/seeders/NotificationTemplateSeeder.php` — ⚠️ `TemplateRenderer` يرفض قالباً مفقوداً أو غيرَ مُعتمَدٍ و`DispatchNotification` **يُسجّل ولا يُفشل**، فبلا هذه الصفوفِ تُسقَط الستُّ بصمتٍ **وكلُّ تأكيدٍ عليها ينجح فراغاً**
+- [X] T031 أنشئ `backend/tests/Feature/Compliance/NotificationTemplateCoverageTest.php` — **`SC-018`**: يقارن أنواعَ الإشعارات التي تُطلقها هذه المرحلةُ بصفوف الـSeeder ويفشل على نوعٍ بلا قالب
+- [X] T032 [P] أنشئ `Compliance/Support/ComplianceAuditSubjects.php` — مرشّحُ `activity_log` الخاصّ بها، عضوٌ ثالثٌ في عائلة `BillingAuditSubjects`/`SettlementAuditSubjects`. **و`activity_log` جدولٌ واحدٌ تكتب فيه سبعُ وحداتٍ**، فقارئٌ يجلبه ثمّ يُسقط صفوفَ غيرِه فرعٌ منسيٌّ واحدٌ بعيدٌ عن كشفِ ما لا يخصّه
 
 **Checkpoint**: الكتالوجُ والمفرداتُ والإشعاراتُ قائمة. تبدأ القصصُ.
 
@@ -192,9 +192,9 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 
 ### الطلب
 
-- [ ] T074 [US3] أنشئ هجرةَ `data_requests` في `backend/app/Modules/Compliance/Database/Migrations/` بالفهارس الأربعة: `(subject_user_id, type, status)` · `(status, due_at)` · `(status, last_attempt_at)` · `(export_expires_at)` — ⚠️ **`due_at` هو مهلةُ `FR-043` القانونيةُ ولم يكن لها فهرسٌ تُسأل به**
-- [ ] T075 [US3] في هجرةِ `T074` داخل `backend/app/Modules/Compliance/Database/Migrations/`: أضف `open_key` **nullable unique** — «طلبٌ مفتوحٌ واحدٌ لكلّ (شخص · نوع)» قراءةٌ ثمّ إدراجٌ بفهرسٍ عاديّ، وتبويبان في ثانيةٍ يمرّان معاً. **ولا فهارسَ جزئيةً في MySQL** فالشكلُ هو `captured_order_id`، **وغيرُ `$fillable`**: قابلاً للإسناد الجَمْعيّ يصير باباً ثانياً لانتزاع القفل
-- [ ] T076 [US3] أنشئ `Compliance/Models/DataRequest.php` + `Enums/{DataRequestType,DataRequestStatus}.php` — **بلا `BelongsToWorkspace`**: طلبٌ واحدٌ يشمل بياناتِ الطالب عند كلّ مدرّسيه، **والتصديرُ الجزئيُّ ليس حقاً مُنفَّذاً**
+- [X] T074 [US3] أنشئ هجرةَ `data_requests` في `backend/app/Modules/Compliance/Database/Migrations/` بالفهارس الأربعة: `(subject_user_id, type, status)` · `(status, due_at)` · `(status, last_attempt_at)` · `(export_expires_at)` — ⚠️ **`due_at` هو مهلةُ `FR-043` القانونيةُ ولم يكن لها فهرسٌ تُسأل به**
+- [X] T075 [US3] في هجرةِ `T074` داخل `backend/app/Modules/Compliance/Database/Migrations/`: أضف `open_key` **nullable unique** — «طلبٌ مفتوحٌ واحدٌ لكلّ (شخص · نوع)» قراءةٌ ثمّ إدراجٌ بفهرسٍ عاديّ، وتبويبان في ثانيةٍ يمرّان معاً. **ولا فهارسَ جزئيةً في MySQL** فالشكلُ هو `captured_order_id`، **وغيرُ `$fillable`**: قابلاً للإسناد الجَمْعيّ يصير باباً ثانياً لانتزاع القفل
+- [X] T076 [US3] أنشئ `Compliance/Models/DataRequest.php` + `Enums/{DataRequestType,DataRequestStatus}.php` — **بلا `BelongsToWorkspace`**: طلبٌ واحدٌ يشمل بياناتِ الطالب عند كلّ مدرّسيه، **والتصديرُ الجزئيُّ ليس حقاً مُنفَّذاً**
 - [ ] T077 [US3] أنشئ `Compliance/Policies/DataRequestPolicy.php` يسأل **`GuardianDirectory::isAuthorised($caller, $subject, GuardianPermission::DataRights)`** — ⚠️ **ويُمنع `ParentStudentRelationPolicy`**: يستقبل صفَّ علاقةٍ لا (وليّاً · طالباً) فسؤالُه دائريّ · **ولا يفحص `status`** فيمرّ `Pending` الذي يُنشئه أيُّ مستخدمٍ لأيّ معرّفِ طالبٍ ويمرّ `Revoked` لوليٍّ نزعته الأسرة · **وفرعُه الثالثُ مبنيٌّ للمدرّسين** بصلاحيةٍ يحملها كلُّ مدرّسٍ ومساعد
 - [ ] T078 [US3] أنشئ `Compliance/Actions/CreateDataRequest.php` — ويُشتقّ `due_at` من `ComplianceSettings`، ويُكتب `granted_scope` من `permissions` الوليّ حين لا يكون الطالبُ نفسَه هو الطالب
 - [ ] T079 [US3] في `backend/app/Modules/Compliance/Actions/CreateDataRequest.php`: **رفضٌ واحدٌ لا يميّز** «لا يوجد» عن «ليس لك» — `LinkGuardian` يوحّدهما عن قصدٍ اليوم (‏ولذلك أُسقطت قاعدةُ `exists` من طلبه)، ورمزان مختلفان يجعلان النقطةَ **عرّافاً** يؤكّد أن معرّفاً مُقدَّماً لحسابٍ حقيقيّ
@@ -248,7 +248,7 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 
 **اختبارٌ مستقلّ**: اطلب حذفاً لطالبٍ له تاريخٌ ماليّ وتحقّق من إخفاء هويته وسلامة السجلّ.
 
-- [ ] T110 [US4] أنشئ هجرةَ `legal_holds` بفهرسَي `(subject_user_id, released_at)` و`(released_at)` — الثاني لأن الكنسةَ تسأل «كلُّ التعليقات السارية» **مرّةً لكلّ تشغيل** لا صفّاً صفّاً. و`whereNull('released_at')` **لا عمودٌ منطقيٌّ ثانٍ**: `is_active` بجانبه جوابان لسؤالٍ واحدٍ يتباعدان
+- [X] T110 [US4] أنشئ هجرةَ `legal_holds` بفهرسَي `(subject_user_id, released_at)` و`(released_at)` — الثاني لأن الكنسةَ تسأل «كلُّ التعليقات السارية» **مرّةً لكلّ تشغيل** لا صفّاً صفّاً. و`whereNull('released_at')` **لا عمودٌ منطقيٌّ ثانٍ**: `is_active` بجانبه جوابان لسؤالٍ واحدٍ يتباعدان
 - [ ] T111 [US4] [P] أنشئ `Compliance/Models/LegalHold.php` و`Actions/{PlaceLegalHold,ReleaseLegalHold}.php` — و`PlaceLegalHold` **يُطالِب الطلبَ بتحديثٍ شرطيّ** (`WHERE status IN ('pending','processing')` ← `on_hold`) فتتسلسل الكتابتان على صفٍّ واحدٍ بدل أن تتسابقا
 - [ ] T112 [US4] أنشئ `Compliance/Support/Anonymiser.php` — **قيمٌ محايدةٌ ثابتةٌ ومعرّفٌ يُقطَع، ولا تجزئةَ لاسمٍ ولا لهاتف**: مجالُ رقمِ هاتفٍ قطريٍّ صغيرٌ بما يُعكَس بالقوة الغاشمة في دقائق
 - [ ] T113 [US4] أنشئ `Compliance/Actions/ExecuteDataErasure.php` تنادي `erase()` في حلقةٍ حتى `< $limit` — **ومعاملةٌ لكلّ دفعةٍ على الأكثر، ولكلّ شخصٍ في الإخفاء+قطعِ المؤشّر**: نصفُ إخفاءٍ ثغرةُ إعادةِ تعريف
@@ -276,7 +276,7 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 
 **اختبارٌ مستقلّ**: قدِّمْ ساعةَ النظام تجاوزاً لمدّةِ صنفٍ وتحقّق من معالجته آلياً.
 
-- [ ] T127 [US5] أنشئ هجرةَ `retention_sweep_runs` في `backend/app/Modules/Compliance/Database/Migrations/` على شكل `credit_reconciliation_runs`: `ran_at` مفهرسٌ · أعدادٌ `unsignedInteger default(0)` · `findings` json **محدودُ الحجم** بجانب `findings_count` صادق — ⚠️ `FR-031` يطلب سجلَّ كلّ تنفيذٍ **ولم يكن له جدول**، بينما كانت الخطةُ تحذّر من عرضِ عمودٍ لا وجودَ له. والفصلُ سببُه: **حتى يُفرَّق تشغيلٌ لم يجد شيئاً من تشغيلٍ لم ينظر**
+- [X] T127 [US5] أنشئ هجرةَ `retention_sweep_runs` في `backend/app/Modules/Compliance/Database/Migrations/` على شكل `credit_reconciliation_runs`: `ran_at` مفهرسٌ · أعدادٌ `unsignedInteger default(0)` · `findings` json **محدودُ الحجم** بجانب `findings_count` صادق — ⚠️ `FR-031` يطلب سجلَّ كلّ تنفيذٍ **ولم يكن له جدول**، بينما كانت الخطةُ تحذّر من عرضِ عمودٍ لا وجودَ له. والفصلُ سببُه: **حتى يُفرَّق تشغيلٌ لم يجد شيئاً من تشغيلٍ لم ينظر**
 - [ ] T128 [US5] أضف `expire()` إلى الثلاثةَ عشرَ ملفَّ `backend/app/Modules/*/Support/*PersonalData.php` — ⚠️ **الدالّةُ التي لولاها لا كنسةَ إطلاقاً**: مُسنَدُ نسخةٍ أولى كان عموداً لا وجودَ له و`erase()` يستقبل شخصاً لا حدَّ عمرٍ. **والحدُّ يُحسَب تاريخاً في PHP ويُقارَن نصّاً** لا بـ`whereDate()` الذي يُهدر الفهرس
 - [ ] T129 [US5] أضف فهرسَ `(created_at)` في `backend/app/Modules/*/Database/Migrations/` لـ**كلّ وحدةٍ** لما تكنسه `expire()`: `attendances` · `exam_answers` · `exam_attempts` · `attempt_items` · `enrollments` · `lesson_progress` · `lesson_progress_history` — ⚠️ فهرسُ `attendances` عمودُه القائدُ `student_user_id` **فلا يُستعمل** لمُسنَدِ `created_at`، والأربعةُ الوسطى **بلا فهرسِ `created_at` إطلاقاً**. **وكلُّ فهرسٍ في هجرةِ وحدتِه** — وهو ما تُتيحه `expire()`
 - [ ] T130 [US5] أنشئ `Compliance/Jobs/RunRetentionSweepJob.php` تقرأ مددَ `data_categories` وتنادي `expire()` في حلقة، وتكتب صفَّ `retention_sweep_runs`
@@ -302,9 +302,9 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 
 **اختبارٌ مستقلّ**: أخرِجْ مدرّساً له طلابٌ ومستحقاتٌ ومحتوًى وتحقّق من حسم الثلاثة.
 
-- [ ] T142 [US6] أنشئ هجرةَ `teacher_offboardings` في `backend/app/Modules/Compliance/Database/Migrations/` بفهرسَي `(workspace_id)` و`(status, created_at)`
-- [ ] T143 [US6] أنشئ `Compliance/Models/TeacherOffboarding.php` **مع `BelongsToWorkspace`** — ⚠️ **الإعلانُ مطلوبٌ لا مُستنتَج**: الجسران المشحونان (`Enrollment` و`SessionBooking`) يستخدمانه، ونسخةٌ أولى قالت «صفر نموذجٍ مملوكٍ لمساحة عملٍ فلا حالةَ عزلٍ جديدة» — خطأٌ ناتجٌ عن عدم الإعلان
-- [ ] T144 [US6] أضف حالةً لـ`teacher_offboardings` إلى `backend/tests/Feature/Tenancy/WorkspaceIsolationTest.php` — **في نفس الـPR** بحكم الدستور
+- [X] T142 [US6] أنشئ هجرةَ `teacher_offboardings` في `backend/app/Modules/Compliance/Database/Migrations/` بفهرسَي `(workspace_id)` و`(status, created_at)`
+- [X] T143 [US6] أنشئ `Compliance/Models/TeacherOffboarding.php` **مع `BelongsToWorkspace`** — ⚠️ **الإعلانُ مطلوبٌ لا مُستنتَج**: الجسران المشحونان (`Enrollment` و`SessionBooking`) يستخدمانه، ونسخةٌ أولى قالت «صفر نموذجٍ مملوكٍ لمساحة عملٍ فلا حالةَ عزلٍ جديدة» — خطأٌ ناتجٌ عن عدم الإعلان
+- [X] T144 [US6] أضف حالةً لـ`teacher_offboardings` إلى `backend/tests/Feature/Tenancy/WorkspaceIsolationTest.php` — **في نفس الـPR** بحكم الدستور
 - [ ] T145 [US6] أنشئ `Settlement/Support/EloquentSettlementClearance.php` واربطه في مزوّدها — **والمالُ عددٌ صحيحٌ بالوحدة الصغرى**: صبُّ `decimal:2` يُرجع **نصّاً** فيمرّ كلُّ جمعٍ بعائم، مقبولٌ لمجموع طلبٍ لا على ما يقرّر راتباً
 - [ ] T146 [US6] أنشئ `Compliance/Actions/RequestTeacherOffboarding.php` و`ExecuteTeacherOffboarding.php` — **والإتمامُ تحديثٌ شرطيٌّ واحد** `WHERE status = 'notice_period' AND settlement_cleared_at IS NOT NULL`، فمشغّلان يمرّان معاً بلا ذلك وآثارُ `FR-037` **لا تُعكَس**
 - [ ] T147 [US6] أطلِقْ `TeacherOffboardingRequested` و`TeacherOffboardingCompleted` من `backend/app/Modules/Compliance/Actions/RequestTeacherOffboarding.php` و`ExecuteTeacherOffboarding.php` — ⚠️ **بدل Action واحدٍ يعرف خمسةَ سياقات**، وهو ما يمنعه المبدأ III
@@ -327,7 +327,7 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 
 > `FR-040` **بلا قصّةِ مستخدم** — فهو مسارٌ للمنصّة لا لشخصٍ في السبيك. **ويُبنى ولا يُؤجَّل.**
 
-- [ ] T158 [P] أنشئ هجرةَ `breach_reports` في `backend/app/Modules/Compliance/Database/Migrations/` بفهرسِ `(status, created_at)` و`reported_by_user_id` **قابلاً للعدم**
+- [X] T158 [P] أنشئ هجرةَ `breach_reports` في `backend/app/Modules/Compliance/Database/Migrations/` بفهرسِ `(status, created_at)` و`reported_by_user_id` **قابلاً للعدم**
 - [ ] T159 [P] أنشئ `Compliance/Models/BreachReport.php` و`Enums/BreachStatus.php` و`Actions/{ReportBreach,AdvanceBreachReport}.php`
 - [ ] T160 أنشئ `POST /privacy/breach-reports` **عامّاً بلا مصادقة** بـ`throttle:public` — ⚠️ «مسارٌ **معلَن**» يعني أن باحثاً أمنيّاً من الخارج يستعمله، وأشهرُ التسريباتِ يُبلِّغ عنها **من ليس مستخدماً**. وثلاثةُ قيودٍ تجعلها آمنة: الحدُّ · **لا تُرجع شيئاً** غيرَ تأكيدِ الاستلام فلا تصير عرّافاً · وحقولُ نطاقِ الحادث (‏الأصنافُ والعدد) **ليست في الطلب العامّ**
 - [ ] T161 [P] أنشئ `GET`/`PATCH /compliance/breach-reports` بـ`compliance.breaches.manage`

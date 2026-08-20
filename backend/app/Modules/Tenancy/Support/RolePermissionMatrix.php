@@ -216,6 +216,28 @@ final class RolePermissionMatrix
                 // button with no receipt behind it.
                 Permissions::ORDERS_VIEW_ALL,
             ],
+            /*
+            | The data-protection officer (spec 013) — listed literally, for the
+            | reason above and one of its own.
+            |
+            | ⚠️ IT COMPOSES FROM NOTHING AND NOTHING COMPOSES FROM IT. Adding the
+            | finance permissions would let one person read a child's whole file
+            | AND approve the payment behind it; adding these to the finance role
+            | would hand a payments clerk every minor's export. Two jobs, two
+            | rows, no overlap.
+            |
+            | ⚠️ AND IT EXISTS SO `FR-026` RECORDS SOMETHING. Without a second
+            | holder, the five permissions reach `super-admin` alone through
+            | `Permissions::all()` — one account on the platform, named as the
+            | executor of every request ever made.
+            */
+            Roles::COMPLIANCE_OFFICER => [
+                Permissions::COMPLIANCE_REQUESTS_EXECUTE,
+                Permissions::COMPLIANCE_REGISTRY_MANAGE,
+                Permissions::COMPLIANCE_HOLDS_MANAGE,
+                Permissions::COMPLIANCE_OFFBOARDING_EXECUTE,
+                Permissions::COMPLIANCE_BREACHES_MANAGE,
+            ],
         ];
     }
 

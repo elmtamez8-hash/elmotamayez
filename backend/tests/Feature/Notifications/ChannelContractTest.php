@@ -97,6 +97,15 @@ function dispatchOf(User $user, NotificationType $type): void
             'badge_name' => 'مواظب',
             'reward_title' => 'خصم على حصة',
             'teacher_name' => 'أ. خالد',
+            // A SIXTH time, with spec 013's six data-protection types. The count
+            // below came back 41 against 44 until these landed. The mechanism has
+            // not changed once: a template whose variables are absent renders
+            // nothing, `DispatchNotification` logs and does not fail, and the
+            // channel never sees the message — so every assertion about it passes
+            // by finding nothing.
+            'request_type' => 'تصدير نسخة من البيانات',
+            'due_date' => '٣٠ سبتمبر',
+            'notice_end_date' => '٣٠ سبتمبر',
         ],
     ));
 }

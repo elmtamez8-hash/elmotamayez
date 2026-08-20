@@ -17,6 +17,7 @@ use App\Modules\Assessments\Models\QuestionImport;
 use App\Modules\Assessments\Models\QuestionStat;
 use App\Modules\Assessments\Models\RubricCriterion;
 use App\Modules\Assessments\Models\Submission;
+use App\Modules\Compliance\Models\TeacherOffboarding;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
@@ -603,4 +604,45 @@ describe('question bank models are workspace-scoped', function (): void {
                 ->toBeTrue("{$model} must use BelongsToWorkspace");
         }
     });
+});
+
+/*
+| Spec 013 — the ONE workspace-owned model the compliance module adds.
+|
+| ⚠️ REQUIRED IN THE SAME COMMIT AS THE MODEL (Constitution I), and its own
+| migration says so in writing. Everything else in that module is
+| platform-owned — the catalogue, the requests, the holds, the sweep log — and an
+| earlier draft of the plan concluded from that "no workspace-owned model is
+| added, so no isolation case is needed". That was wrong, and it was wrong
+| because nobody had DECLARED this one: the thing being wound down IS a
+| workspace, so the request is about one.
+|
+| Without the trait, one teacher's exit request appears on every other teacher's
+| screen — including the amount they are waiting on and the date their students
+| lose access.
+*/
+it('scopes a teacher offboarding to its own workspace', function (): void {
+    [$workspaceA, $ownerA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+    [$workspaceB, $ownerB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+    $context = app(WorkspaceContext::class);
+
+    $context->forWorkspace($workspaceA, function () use ($ownerA): void {
+        TeacherOffboarding::query()->create(['teacher_user_id' => $ownerA->getKey()]);
+    });
+
+    $context->forWorkspace($workspaceB, function () use ($ownerB): void {
+        TeacherOffboarding::query()->create(['teacher_user_id' => $ownerB->getKey()]);
+    });
+
+    expect($context->forWorkspace($workspaceA, fn () => TeacherOffboarding::query()->count()))->toBe(1)
+        ->and($context->forWorkspace($workspaceB, fn () => TeacherOffboarding::query()->count()))->toBe(1)
+        // ⚠️ AND THE AUTO-FILL IS ASSERTED, not just the read filter. The trait
+        // does two things, and a model that scoped reads while writing a null
+        // tenant key would pass a count assertion and be invisible to everyone
+        // including its owner.
+        ->and($context->forWorkspace($workspaceA, fn () => (int) TeacherOffboarding::query()->value('workspace_id')))
+        ->toBe($workspaceA->getKey())
+        ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(TeacherOffboarding::class), true))
+        ->toBeTrue();
 });

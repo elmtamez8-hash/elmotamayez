@@ -150,6 +150,26 @@ enum NotificationType: string
     */
     case RewardRedeemed = 'reward_redeemed';
 
+    /*
+    | Spec 013 — data protection. Six points, and not one of them existed before
+    | this phase: nothing in the product had ever needed to tell a guardian that
+    | a child's account was waiting on them, or a student that their own record
+    | had just become theirs.
+    |
+    | ⚠️ A TYPE WITH NO APPROVED TEMPLATE IS DROPPED IN SILENCE. `TemplateRenderer`
+    | refuses a missing or unapproved row and `DispatchNotification` logs rather
+    | than failing the operation that triggered it — and `tests/Pest.php` seeds the
+    | templates before every Feature test, so an assertion about a notification
+    | with no template passes by finding nothing. All six get a seeded row in the
+    | same commit; `NotificationTemplateCoverageTest` is what keeps it true.
+    */
+    case GuardianConsentRequired = 'guardian_consent_required';
+    case DataOwnershipTransferred = 'data_ownership_transferred';
+    case DataRequestCreated = 'data_request_created';
+    case DataRequestCompleted = 'data_request_completed';
+    case GuardianConsentConflict = 'guardian_consent_conflict';
+    case TeacherOffboardingNotice = 'teacher_offboarding_notice';
+
     public function label(): string
     {
         return match ($this) {
@@ -191,6 +211,15 @@ enum NotificationType: string
             self::LevelUp => 'ارتفاع المستوى',
             self::BadgeAwarded => 'شارة جديدة',
             self::RewardRedeemed => 'استبدال مكافأة',
+            // Spec 013. These are the names a person sees on their own
+            // preferences screen, so they say what the message is ABOUT rather
+            // than naming the mechanism behind it.
+            self::GuardianConsentRequired => 'طلب موافقة وليّ الأمر',
+            self::DataOwnershipTransferred => 'انتقال ملكية البيانات',
+            self::DataRequestCreated => 'تسلّم طلب بيانات',
+            self::DataRequestCompleted => 'اكتمال طلب بيانات',
+            self::GuardianConsentConflict => 'تعارض في موافقة الأولياء',
+            self::TeacherOffboardingNotice => 'إخطار بمغادرة مدرّس',
         };
     }
 
@@ -229,7 +258,17 @@ enum NotificationType: string
         // A student's own security alert copied to their parent is a different
         // feature nobody asked for — and the sign-in it reports may well BE the
         // parent's. One word there would have shipped that silently.
-        return $this->targetsGuardians() || $this === self::SecurityAlert
+        // ⚠️ AND SPEC 013 ADDS THE SECOND NAMED EXCEPTION, on the same grounds
+        // and no wider. `guardian_consent_required` is addressed TO a guardian —
+        // so it does not target guardians, it has one as its recipient — and
+        // until they act, a child's account cannot be used at all. The bell
+        // reaches them on their next visit, and a guardian whose only contact
+        // with the platform is this message has no next visit. Everything else in
+        // 013 is read by someone who is already on the site: they just made the
+        // request, or they are the student whose own screen changed.
+        return $this->targetsGuardians()
+            || $this === self::SecurityAlert
+            || $this === self::GuardianConsentRequired
             ? [NotificationChannel::InApp, NotificationChannel::WhatsApp]
             : [NotificationChannel::InApp];
     }
@@ -274,6 +313,20 @@ enum NotificationType: string
             self::ReceiptApproved,
             self::ReceiptRejected,
             self::PaymentReversed => true,
+            /*
+            | Spec 013. Two, on the existing test: does it change what the account
+            | can DO right now.
+            |
+            | Until a guardian consents, the child cannot sign in at all — a
+            | preference that could hide that request would leave a blocked account
+            | with nobody able to learn why. And a departing teacher ends access
+            | the student paid for, on a deadline.
+            |
+            | The other four stay optional: a request receipt, a finished export
+            | and a consent conflict are all read by someone who is already here.
+            */
+            self::GuardianConsentRequired,
+            self::TeacherOffboardingNotice => true,
             default => false,
         };
     }
@@ -334,7 +387,25 @@ enum NotificationType: string
             // it. Levels and badges deliberately do NOT: several a week on a
             // guardian's phone is how the number gets muted, taking the
             // attendance alert with it.
-            self::RewardRedeemed => true,
+            self::RewardRedeemed,
+            /*
+            | Spec 013. Two, and the reasoning for each is that the guardian is a
+            | PARTY to the fact rather than an observer of it.
+            |
+            | The ownership transfer is the moment the guardian STOPS being able to
+            | ask for the record — telling only the student would leave the person
+            | losing the access as the one person not told they had lost it.
+            |
+            | The offboarding notice is the student's teacher leaving, which ends a
+            | paid arrangement the guardian made and usually pays for.
+            |
+            | ⚠️ AND BOTH HAVE A `requiredGuardianPermission()` BELOW. One without
+            | the other reaches no guardian at all while still picking up the
+            | WhatsApp channel — a message that leaves the platform, is billed, and
+            | arrives nowhere.
+            */
+            self::DataOwnershipTransferred,
+            self::TeacherOffboardingNotice => true,
             default => false,
         };
     }
@@ -380,6 +451,11 @@ enum NotificationType: string
             | platform, be billed, and arrive nowhere it was added for.
             */
             self::RewardRedeemed => GuardianPermission::Payments,
+            // Spec 013. The transfer is a data-rights fact and rides the data-rights
+            // consent; the offboarding notice is the schedule ending, which is what
+            // `Schedule` already gates for a cancelled session.
+            self::DataOwnershipTransferred => GuardianPermission::DataRights,
+            self::TeacherOffboardingNotice => GuardianPermission::Schedule,
             default => null,
         };
     }

@@ -83,6 +83,21 @@ final class PlatformSettings
         // rate is withheld rather than stated (FR-013) — editable, because a
         // threshold that only moves with a release never moves.
         'assessments.min_sample_size' => 'assessments.min_sample_size',
+        // Compliance (spec 013). Every deadline and duration the phase enforces
+        // is a row here — a legal deadline that only moves with a release is a
+        // deadline that is wrong the day the regulator updates its guidance.
+        // ⚠️ A KEY ABSENT FROM THIS LIST IS NOT EDITABLE AND NOT READABLE: the
+        // map is an explicit allowlist, so a missing entry falls back to config
+        // for ever and the panel row does nothing.
+        'compliance.request_due_days' => 'compliance.request_due_days',
+        'compliance.export_ttl_hours' => 'compliance.export_ttl_hours',
+        'compliance.stalled_after_minutes' => 'compliance.stalled_after_minutes',
+        'compliance.sweep_lock_minutes' => 'compliance.sweep_lock_minutes',
+        'compliance.offboarding_notice_days' => 'compliance.offboarding_notice_days',
+        'compliance.breach.authority_notice_hours' => 'compliance.breach.authority_notice_hours',
+        'compliance.breach.subject_notice_hours' => 'compliance.breach.subject_notice_hours',
+        'compliance.retain_days.min' => 'compliance.retain_days.min',
+        'compliance.retain_days.max' => 'compliance.retain_days.max',
     ];
 
     public static function get(string $key, mixed $default = null): mixed

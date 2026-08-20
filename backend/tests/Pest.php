@@ -46,6 +46,7 @@ use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\PlatformStaffDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
+use Database\Seeders\DataCategorySeeder;
 use Database\Seeders\GamificationCatalogSeeder;
 use Database\Seeders\NotificationTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -80,9 +81,20 @@ uses(WithWorkspace::class)->in('Feature');
  * zero against zero. It is deliberately a handful of rows, because all ~1,500
  * feature tests pay for it.
  */
+/*
+ * And the data-protection catalogue, a third time for the third instance of one
+ * mechanism (spec 013).
+ *
+ * ⚠️ AN EMPTY CATALOGUE MAKES THIS WHOLE PHASE ASSERT NOTHING. The consent screen
+ * lists categories, the nightly sweep iterates categories, and the schema-coverage
+ * test compares against categories — over zero rows all three are green and none
+ * of them looked at anything. Same shape as the two above, same handful of rows,
+ * same reason.
+ */
 uses()->beforeEach(function (): void {
     $this->seed(NotificationTemplateSeeder::class);
     $this->seed(GamificationCatalogSeeder::class);
+    $this->seed(DataCategorySeeder::class);
 })->in('Feature');
 
 /*

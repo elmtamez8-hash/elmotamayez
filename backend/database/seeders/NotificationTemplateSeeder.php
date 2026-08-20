@@ -283,6 +283,53 @@ class NotificationTemplateSeeder extends Seeder
                 'استبدل {{ student_name }} مكافأة «{{ reward_title }}» من متجر {{ teacher_name }}، وهي بانتظار التنفيذ.',
                 ['student_name', 'reward_title', 'teacher_name'],
             ],
+
+            /*
+            | Spec 013 — data protection. Six rows, seeded APPROVED for the in-app
+            | channel like every other type here.
+            |
+            | ⚠️ WITHOUT THEM THE SIX DISPATCH POINTS ARE DROPPED IN SILENCE and
+            | every assertion about them passes by finding nothing —
+            | `TemplateRenderer` refuses an unknown template and
+            | `DispatchNotification` logs rather than failing the operation behind
+            | it. `NotificationTemplateCoverageTest` is what keeps this list from
+            | falling behind the enum.
+            |
+            | ⚠️ AND NOT ONE OF THEM NAMES WHO REFUSED. The conflict message goes
+            | to BOTH guardians, who may be in a custody dispute — «رفضت والدتك»
+            | in an automated message is personal data about a third party, sent by
+            | us, in writing.
+            */
+            NotificationType::GuardianConsentRequired->value => [
+                'حساب {{ student_name }} بانتظار موافقتك',
+                'سجّل {{ student_name }} حساباً على المنصّة، ولأنّه دون الثامنة عشرة لا يُفعَّل الحساب قبل موافقتك على معالجة بياناته. افتح صفحة «المرتبطون» لقراءة ما يُجمَع ولماذا.',
+                ['student_name'],
+            ],
+            NotificationType::DataOwnershipTransferred->value => [
+                'صارت بياناتك ملكَك',
+                'بلغ {{ student_name }} الثامنةَ عشرة، فانتقلت إليه ملكيةُ بياناته: هو وحده من يوافق على معالجتها ويطلب نسخةً منها أو حذفَها. لم ينقطع شيءٌ من الخدمة.',
+                ['student_name'],
+            ],
+            NotificationType::DataRequestCreated->value => [
+                'تسلّمنا طلبك: {{ request_type }}',
+                'تسلّمنا طلبَ {{ request_type }} الخاصَّ بـ{{ student_name }}. سنردّ عليه قبل {{ due_date }}، وسنُعلمك حين يكتمل.',
+                ['student_name', 'request_type', 'due_date'],
+            ],
+            NotificationType::DataRequestCompleted->value => [
+                'اكتمل طلبك: {{ request_type }}',
+                'اكتمل طلبُ {{ request_type }} الخاصُّ بـ{{ student_name }}. افتح صفحة «خصوصيّتي» لتنزيل الملفّ — الرابطُ صالحٌ لمدّةٍ قصيرة، ثمّ يُحذَف الملفّ.',
+                ['student_name', 'request_type'],
+            ],
+            NotificationType::GuardianConsentConflict->value => [
+                'تعارضٌ في الموافقة على بيانات {{ student_name }}',
+                'تلقّينا قرارَين مختلفَين بشأن معالجة بيانات {{ student_name }} من وليَّي أمرٍ مُخوَّلَين. نأخذ بالرفض إلى أن يتّفق الطرفان، فالموافقةُ يمكن منحُها لاحقاً وما نُشر لا يمكن سحبُه.',
+                ['student_name'],
+            ],
+            NotificationType::TeacherOffboardingNotice->value => [
+                'المدرّس {{ teacher_name }} يغادر المنصّة',
+                'أبلغَنا {{ teacher_name }} برغبته في إنهاء نشاطه على المنصّة. يبقى ما دفعتَ له متاحاً حتى {{ notice_end_date }}، ولن تُجدوَل حصصٌ جديدة.',
+                ['teacher_name', 'notice_end_date'],
+            ],
             NotificationType::ExamPendingGrading->value => [
                 'تسلّمنا ورقتك في «{{ exam_title }}»',
                 'تسلّمنا ورقة {{ student_name }} في «{{ exam_title }}». فيها أسئلة مقالية ينتظر تصحيحُها المدرّس، وتصلك النتيجة كاملةً بعده.',

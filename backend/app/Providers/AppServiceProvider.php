@@ -125,6 +125,25 @@ class AppServiceProvider extends ServiceProvider
             Limit::perHour(10)->by('user:'.(string) $request->user()?->getKey()),
         ]);
 
+        /*
+        | Data-rights requests (spec 013).
+        |
+        | ⚠️ KEYED ON THE ACCOUNT, NEVER ON THE ADDRESS. A family behind one home
+        | router shares an address, and a guardian may hold several children — so
+        | an IP limit here refuses the second child because the first one's request
+        | was already made. That is the population this whole phase exists to
+        | protect, refused by its own guard.
+        |
+        | Deliberately narrow all the same: each accepted request queues a job that
+        | assembles everything the platform knows about one person, and the
+        | download route carries this limiter too — the file is the widest single
+        | object in the product.
+        */
+        RateLimiter::for('data-rights', fn (Request $request) => [
+            Limit::perMinute(6)->by('user:'.(string) $request->user()?->getKey()),
+            Limit::perDay(30)->by('user:'.(string) $request->user()?->getKey()),
+        ]);
+
         // Playback grants. Keyed by user, not IP: a classroom behind one NAT is
         // many legitimate viewers, and the grant is already scoped to one account.
         // Generous because a viewer opening a course renews once a minute.

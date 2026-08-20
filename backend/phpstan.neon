@@ -16,6 +16,7 @@ parameters:
         - app/Modules/Assessments/Database/Migrations
         - app/Modules/CMS/Database/Migrations
         - app/Modules/Certificates/Database/Migrations
+        - app/Modules/Compliance/Database/Migrations
         - app/Modules/Courses/Database/Migrations
         - app/Modules/Gamification/Database/Migrations
         - app/Modules/Identity/Database/Migrations

@@ -55,6 +55,11 @@ final class PermissionLabels
         'unlock_rules' => 'شرط فتح الحصة',
         'rewards' => 'متجر المكافآت',
         'redemptions' => 'طلبات الاستبدال',
+        // Spec 013. Platform-level, so it never reaches the role screen — but a
+        // name is rendered wherever a permission is shown, and an Arabic-only
+        // panel showing `compliance.holds.manage` is the defect this file exists
+        // to prevent.
+        'compliance' => 'الامتثال وحماية البيانات',
     ];
 
     /** @var array<string, string> */
@@ -107,6 +112,12 @@ final class PermissionLabels
         'revise' => 'تعديل بسببٍ مسجَّل',
         'grade' => 'اعتماد الدرجة',
         'fulfill' => 'تنفيذ الطلب',
+        // Spec 013.
+        'requests.execute' => 'تنفيذ طلبات الحقوق',
+        'registry.manage' => 'إدارة الأصناف والمعالِجين',
+        'holds.manage' => 'إدارة التعليق القانونيّ',
+        'offboarding.execute' => 'تنفيذ خروج المدرّس',
+        'breaches.manage' => 'إدارة بلاغات التسريب',
     ];
 
     /** The handful whose Arabic is not a noun and a verb. @var array<string, string> */

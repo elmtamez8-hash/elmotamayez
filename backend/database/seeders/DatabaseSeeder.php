@@ -33,6 +33,15 @@ class DatabaseSeeder extends Seeder
             // an action with no row, so an empty catalogue is a gamification
             // system that is switched on, reports success, and awards nothing.
             GamificationCatalogSeeder::class,
+            // Spec 013, on the same footing again: the consent screen, the nightly
+            // retention sweep and the schema-coverage guard all read this table,
+            // and all three do nothing at all against an empty one — quietly.
+            DataCategorySeeder::class,
+            // Who receives data outside our own servers (FR-024). Two of the six
+            // rows are the video and broadcast providers, which carry a child's
+            // voice and face — the register is the answer to the question a parent
+            // asks first.
+            DataProcessorSeeder::class,
         ]);
 
         // Only seed the super-admin in non-production environments.

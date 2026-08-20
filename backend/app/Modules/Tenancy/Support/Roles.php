@@ -33,6 +33,28 @@ final class Roles
      */
     public const FINANCE_ADMIN = 'finance-admin';
 
+    /**
+     * The data-protection officer (spec 013).
+     *
+     * ⚠️ GLOBAL FOR THE SAME REASON AS THE FINANCE OFFICER, AND MORE SO. A rights
+     * request returns everything the platform knows about one person, across every
+     * teacher they study with — so an officer scoped to a team could only ever
+     * fulfil a fraction of one, and "the partial export" is not a right that has
+     * been implemented.
+     *
+     * ⚠️ AND WITHOUT IT `FR-026`'s "who executed this" IS ONE PERSON. The five
+     * compliance permissions reach `super-admin` through `Permissions::all()`
+     * alone; with no second role there is exactly one account on the platform that
+     * can execute an erasure, and the audit column records that account for every
+     * request ever made. A record that always names the same person records
+     * nothing.
+     *
+     * It holds the five compliance permissions and nothing else. Not the finance
+     * ones — reading a child's whole file and approving a payment are different
+     * jobs — and composing either role from the other would hand each the other's.
+     */
+    public const COMPLIANCE_OFFICER = 'compliance-officer';
+
     public const TENANT_OWNER = 'tenant-owner';
 
     public const TEACHER = 'teacher';
@@ -47,6 +69,7 @@ final class Roles
         return [
             self::SUPER_ADMIN,
             self::FINANCE_ADMIN,
+            self::COMPLIANCE_OFFICER,
             self::TENANT_OWNER,
             self::TEACHER,
             self::ASSISTANT_TEACHER,
@@ -60,6 +83,7 @@ final class Roles
         return [
             self::SUPER_ADMIN,
             self::FINANCE_ADMIN,
+            self::COMPLIANCE_OFFICER,
         ];
     }
 

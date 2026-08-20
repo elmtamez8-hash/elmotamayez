@@ -123,6 +123,21 @@ return [
         'redis:payments' => 30,
 
         /*
+        | Spec 013 — the compliance queue.
+        |
+        | Half an hour, longer than any other pair here, because the work is
+        | genuinely long: one job assembles everything the platform knows about
+        | one person, across every module. What must not happen is SILENCE —
+        | `due_at` is a legal deadline, and a queue that stalls without telling
+        | anyone is exactly how one passes.
+        |
+        | (`redis:maintenance` is already watched further down, at 300s since 009
+        | — the nightly retention sweep lands on it and needs no entry of its
+        | own.)
+        */
+        'redis:compliance' => 1800,
+
+        /*
         | Spec 020 — the notification queues, watched for the first time.
         |
         | They existed since 003 and were absent from this list, which under the
@@ -304,6 +319,44 @@ return [
         ],
 
         /*
+        | Data-rights work, on its own workers (spec 013).
+        |
+        | ⚠️ NEITHER EXISTING QUEUE COULD CARRY IT, AND FOR OPPOSITE REASONS.
+        | `supervisor-1` runs `default` at a SIXTY-SECOND timeout with `tries: 1`,
+        | so the export `SC-014` measures — fifty thousand rows — is killed
+        | mid-archive with nothing to resume from. And `maintenance` runs at
+        | `maxProcesses: 1`, so one long export would block the retention sweep and
+        | every billing sweep queued behind it, all night.
+        |
+        | The timeout is measured against that export and nothing else. `memory` is
+        | above maintenance's because the archive is written a category at a time
+        | through a generator — the ceiling guards a pathological row, not the
+        | normal walk.
+        |
+        | ⚠️ AND IT IS LISTED IN `environments` BELOW, NOT ONLY HERE. `defaults`
+        | supplies shared VALUES; `environments` decides which supervisors actually
+        | start. A supervisor defined only in defaults is a queue whose jobs
+        | enqueue and are never drained — silently.
+        */
+        'supervisor-compliance' => [
+            'connection' => 'redis',
+            'queue' => ['compliance'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 384,
+            // One attempt, like every other sweep here: a half-written archive is
+            // not resumed by retrying the job, it is resumed by
+            // RetryStalledDataRequestsJob, which is the only thing that knows the
+            // request is still `processing`.
+            'tries' => 1,
+            'timeout' => 1800,
+            'nice' => 10,
+        ],
+
+        /*
         | Provider callbacks and payment side effects, on their own workers
         | (spec 007).
         |
@@ -353,6 +406,13 @@ return [
                 'maxProcesses' => 1,
             ],
 
+            // One process on purpose: two exports of one request would produce two
+            // archives of everything the platform knows about a minor, and the
+            // conditional claim exists so the second finds nothing to do.
+            'supervisor-compliance' => [
+                'maxProcesses' => 1,
+            ],
+
             // Scales with traffic, unlike the sweeps: these arrive when students
             // pay, not on a schedule.
             'supervisor-payments' => [
@@ -368,6 +428,10 @@ return [
             ],
 
             'supervisor-maintenance' => [
+                'maxProcesses' => 1,
+            ],
+
+            'supervisor-compliance' => [
                 'maxProcesses' => 1,
             ],
 

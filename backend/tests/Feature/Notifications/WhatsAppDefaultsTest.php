@@ -28,17 +28,28 @@ it('defaults to whatsapp for exactly the eighteen guardian types plus the securi
     // guardian set by accident is exactly how a message nobody chose starts
     // costing money on a parent's phone — and the opposite slip is how the one
     // message this phase was built for stops arriving.
-    expect($onWhatsApp)->toHaveCount(19);
+    // 19 → 22 with spec 013: the two new guardian-targeting types
+    // (`data_ownership_transferred`, `teacher_offboarding_notice`) follow the
+    // derivation, and `guardian_consent_required` is the SECOND named exception —
+    // addressed to a guardian rather than copied to one, about a child's account
+    // that cannot be used until they act.
+    expect($onWhatsApp)->toHaveCount(22);
 });
 
-it('derives the set from targetsGuardians, with the security alert as the only named exception', function (): void {
+it('derives the set from targetsGuardians, with two named exceptions and no others', function (): void {
     // Two hand-written lists answering one question diverge at the first type
     // anybody adds, and the divergence is silent: the new type simply never
-    // leaves the platform. So the rule stays derived, and the ONE exception is
-    // asserted by name — a second unlisted divergence fails here.
+    // leaves the platform. So the rule stays derived, and every exception is
+    // asserted BY NAME — a third unlisted divergence fails here.
+    //
+    // The second exception arrived with 013 and is the same shape as the first:
+    // a message whose whole value is arriving before the recipient's next visit,
+    // to someone who may not have one.
+    $exceptions = [NotificationType::SecurityAlert, NotificationType::GuardianConsentRequired];
+
     foreach (NotificationType::cases() as $type) {
         expect(in_array(NotificationChannel::WhatsApp, $type->defaultChannels(), true))
-            ->toBe($type->targetsGuardians() || $type === NotificationType::SecurityAlert, $type->value);
+            ->toBe($type->targetsGuardians() || in_array($type, $exceptions, true), $type->value);
     }
 });
 

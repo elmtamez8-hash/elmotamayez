@@ -161,6 +161,11 @@ class PlatformStaffResource extends Resource
             $count = count($matrix[$role] ?? []);
             $options[$role] = match ($role) {
                 Roles::FINANCE_ADMIN => 'مسؤول مالي',
+                // Spec 013. Without this arm the role renders as its raw slug on
+                // an Arabic-only panel — and a role nobody can identify is a role
+                // nobody grants, which leaves the super admin as the only account
+                // able to execute a rights request.
+                Roles::COMPLIANCE_OFFICER => 'مسؤول حماية البيانات',
                 default => $role,
             }." ({$count} صلاحية)";
         }

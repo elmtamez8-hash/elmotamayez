@@ -204,6 +204,73 @@ it('never names the settlement module anywhere in the billing module', function 
     expect($offenders)->toBe([]);
 });
 
+/*
+ * ⚠️ AND THE SWEEP DID NOT COVER `Compliance`, WHICH 013's OWN CONTRACT CITED IT
+ * TO GUARD.
+ *
+ * The two scans above name their modules by hand, so a module written in 2027 is
+ * invisible to both — and `contracts/settlement-clearance.md` claimed this test
+ * already stopped `Compliance` from querying `teaching_units` or `ledger_entries`.
+ * It did not. It does now.
+ *
+ * The needle is a QUOTED TABLE NAME belonging to another module, and that is the
+ * whole rule rather than a ban on imports. Compliance necessarily names other
+ * modules' classes — `Permissions`, `User`, an event it emits — exactly as every
+ * module here does. What it must never name is another module's TABLE, because
+ * the one implementation this entire phase was designed to avoid is
+ * `DB::table($category->table_name)`: a central Action that knows thirteen
+ * schemas, on columns with no guaranteed index. The five-function contract is
+ * what replaced it, and this is what keeps it replaced.
+ */
+it('never names another module\'s table anywhere in the compliance module', function (): void {
+    $ownTables = tablesCreatedBy('Compliance');
+
+    // Sanity, in the shape this file already uses: a derivation that returned
+    // nothing would make every scan below pass by finding nothing to forbid.
+    expect($ownTables)->toContain('data_categories', 'data_requests', 'legal_holds');
+
+    $foreignTables = [];
+
+    foreach (glob(app_path('Modules/*'), GLOB_ONLYDIR) ?: [] as $directory) {
+        $module = basename($directory);
+
+        if ($module === 'Compliance') {
+            continue;
+        }
+
+        $foreignTables = array_merge($foreignTables, tablesCreatedBy($module));
+    }
+
+    /*
+    | ⚠️ `users` AND `workspaces` ARE EXCLUDED, AND THE EXCLUSION IS FORCED BY THE
+    | CONSTITUTION RATHER THAN CHOSEN FOR CONVENIENCE. Every module constrains
+    | against both — `BelongsToWorkspace` REQUIRES a `workspace_id` foreign key,
+    | and a data-rights request is about a user by definition. Forbidding them
+    | here would forbid the one classification the constitution demands this
+    | module declare.
+    |
+    | Nothing is lost: what the guard exists for is a query against ANOTHER
+    | MODULE'S DOMAIN table — `attendances`, `exam_answers`, `teaching_units` —
+    | which is the `DB::table($category->table_name)` implementation the whole
+    | five-function contract was built to replace. Those still fail here.
+    */
+    $foreignTables = array_values(array_diff(array_unique($foreignTables), ['users', 'workspaces']));
+
+    $offenders = [];
+
+    foreach (moduleFiles('Compliance') as $file) {
+        $contents = codeWithoutComments($file->getContents());
+
+        foreach ($foreignTables as $table) {
+            if (str_contains($contents, "'{$table}'")) {
+                $offenders[] = $file->getRelativePathname().' → '.$table;
+            }
+        }
+    }
+
+    expect($offenders)->toBe([]);
+});
+
 // And the permitted route, named — the mirror of the SessionDelivered case
 // below. Asserting only the absence of the wrong coupling says nothing about
 // whether the right one still exists: delete the binding and the scan above

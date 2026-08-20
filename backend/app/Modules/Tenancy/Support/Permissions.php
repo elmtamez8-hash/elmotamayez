@@ -376,6 +376,38 @@ final class Permissions
      */
     public const PROGRESS_VIEW_STUDENT = 'progress.view.student';
 
+    /*
+    |--------------------------------------------------------------------------
+    | Spec 013 — data protection
+    |--------------------------------------------------------------------------
+    |
+    | ⚠️ ALL FIVE ARE PLATFORM-LEVEL, AND THEY ARE PROTECTED THE MOMENT THEY ARE
+    | DEFINED — no guard line is written. `RolePermissionMatrix::platformPermissions()`
+    | is `all()` minus everything any workspace role holds, so a constant absent
+    | from every role array is platform-level by construction, and
+    | `Tenancy\Models\Role` throws when one reaches a role carrying a team_id.
+    |
+    | The reason they must be: a data-rights request returns EVERYTHING the
+    | platform knows about a minor, across every teacher they study with. A
+    | permission a teacher could hold would be a cross-workspace export with one
+    | tick box in front of it.
+    */
+
+    /** Execute an access, export or erasure request. */
+    public const COMPLIANCE_REQUESTS_EXECUTE = 'compliance.requests.execute';
+
+    /** Edit the data-category catalogue and the processor register. */
+    public const COMPLIANCE_REGISTRY_MANAGE = 'compliance.registry.manage';
+
+    /** Place and release a legal hold, which stops an erasure mid-walk. */
+    public const COMPLIANCE_HOLDS_MANAGE = 'compliance.holds.manage';
+
+    /** Complete a teacher's offboarding once settlement is cleared. */
+    public const COMPLIANCE_OFFBOARDING_EXECUTE = 'compliance.offboarding.execute';
+
+    /** Triage and advance a reported breach. */
+    public const COMPLIANCE_BREACHES_MANAGE = 'compliance.breaches.manage';
+
     /** @return list<string> */
     public static function all(): array
     {
@@ -475,6 +507,15 @@ final class Permissions
             self::REWARDS_MANAGE,
             self::REDEMPTIONS_FULFILL,
             self::PROGRESS_VIEW_STUDENT,
+            // Spec 013. All five reach super-admin and `compliance-officer`
+            // through this list alone and appear in no workspace role array.
+            // ⚠️ A name missing HERE is never seeded, so every check against it
+            // fails — for the platform administrator too, silently.
+            self::COMPLIANCE_REQUESTS_EXECUTE,
+            self::COMPLIANCE_REGISTRY_MANAGE,
+            self::COMPLIANCE_HOLDS_MANAGE,
+            self::COMPLIANCE_OFFBOARDING_EXECUTE,
+            self::COMPLIANCE_BREACHES_MANAGE,
         ];
     }
 }
