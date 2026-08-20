@@ -12,6 +12,10 @@ use App\Modules\Gamification\Listeners\AwardOnAttendanceConfirmed;
 use App\Modules\Gamification\Listeners\AwardOnMistakeResolved;
 use App\Modules\Gamification\Listeners\AwardOnSubmissionGraded;
 use App\Modules\Gamification\Listeners\ReverseOnAttendanceOverridden;
+use App\Modules\Gamification\Models\Badge;
+use App\Modules\Gamification\Models\GamificationAction;
+use App\Modules\Gamification\Models\Level;
+use App\Modules\Gamification\Policies\CataloguePolicy;
 use App\Modules\Gamification\Support\EloquentFocusState;
 use App\Modules\LiveSessions\Events\AttendanceConfirmed;
 use App\Modules\LiveSessions\Events\AttendanceOverridden;
@@ -19,6 +23,7 @@ use App\Shared\Contracts\FocusState;
 use App\Shared\Modules\Module;
 use App\Shared\Modules\ModulesServiceProvider;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Spec 009 — the gamification module.
@@ -49,6 +54,13 @@ class GamificationServiceProvider extends Module
     public function boot(): void
     {
         parent::boot();
+
+        // One policy for the three catalogue models: same question, same
+        // permission, and three near-identical files is three places to change
+        // two of.
+        Gate::policy(GamificationAction::class, CataloguePolicy::class);
+        Gate::policy(Level::class, CataloguePolicy::class);
+        Gate::policy(Badge::class, CataloguePolicy::class);
 
         /*
         | ⚠️ FIVE EVENTS CONSUMED, AND NOT ONE OF THEM IS NEW. Every one already
