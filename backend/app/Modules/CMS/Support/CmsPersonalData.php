@@ -106,10 +106,22 @@ class CmsPersonalData implements PersonalDataOwner
      * ⚠️ THE FUNCTION WITHOUT WHICH THERE IS NO SWEEP. `erase()` takes a PERSON;
      * retention takes an AGE and no person. The module owns the predicate, so the
      * module owns its `(created_at)` index.
+     *
+     * @param  list<int>  $exemptUserIds  subjects under a live hold — their rows stay.
      */
-    public function expire(string $category, CarbonImmutable $before, ExpiryBehaviour $mode, int $limit): int
-    {
-        // TODO(013-US5): process rows of $category older than $before.
+    public function expire(
+        string $category,
+        CarbonImmutable $before,
+        ExpiryBehaviour $mode,
+        int $limit,
+        array $exemptUserIds = [],
+    ): int {
+        /*
+        | ⚠️ A PUBLISHED ARTICLE IS NOT A RECORD ABOUT ITS AUTHOR. Same shape as
+        | `authored_content` in Courses: the personal part is the byline, which
+        | `erase()` severs on request; the article itself has no age and its
+        | catalogue row carries a null retention.
+        */
         return 0;
     }
 }

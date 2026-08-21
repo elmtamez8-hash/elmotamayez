@@ -6,17 +6,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Retention
+    | Retention — MOVED, and deliberately not replaced by a value here
     |--------------------------------------------------------------------------
     |
-    | How long a read notification survives before PruneOldNotificationsJob
-    | removes it (FR-017). Unread notifications are never pruned: an unread row
-    | is something the user has not seen yet, and deleting it turns a delivered
-    | message into one that silently never arrived.
+    | ⚠️ `retention_days` LIVED HERE AND WAS A SECOND OWNER OF A DURATION THE
+    | CATALOGUE ALREADY HELD (spec 013 · FR-031أ). Two owners of one number means
+    | what an operator shortens from the panel is not what actually deletes — and
+    | they had already diverged: this file said 90 days while
+    | `data_categories.notification_record` says 180, so the sweep an operator was
+    | reading about ran at twice the speed they were told.
+    |
+    | It is now `data_categories.retain_days` for the `notification_record` row,
+    | swept by `RunRetentionSweepJob` through
+    | `NotificationsPersonalData::expire()`, which carries the `read_at` condition
+    | that used to live in `PruneOldNotificationsJob` — an unread row is a message
+    | its recipient never saw, and deleting it turns a delivered notification into
+    | one that silently never arrived.
     |
     */
-
-    'retention_days' => (int) env('NOTIFICATIONS_RETENTION_DAYS', 90),
 
     /*
     |--------------------------------------------------------------------------

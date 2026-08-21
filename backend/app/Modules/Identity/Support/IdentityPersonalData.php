@@ -163,8 +163,14 @@ class IdentityPersonalData implements PersonalDataOwner
         });
     }
 
-    public function expire(string $category, CarbonImmutable $before, ExpiryBehaviour $mode, int $limit): int
-    {
+    /** @param list<int> $exemptUserIds */
+    public function expire(
+        string $category,
+        CarbonImmutable $before,
+        ExpiryBehaviour $mode,
+        int $limit,
+        array $exemptUserIds = [],
+    ): int {
         /*
         | ⚠️ NOTHING IN THIS MODULE EXPIRES ON A CLOCK, and saying so is the answer
         | rather than an omission. A name, a phone number and a date of birth are

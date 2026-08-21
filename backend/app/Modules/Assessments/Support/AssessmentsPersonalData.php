@@ -193,10 +193,96 @@ class AssessmentsPersonalData implements PersonalDataOwner
      * ⚠️ THE FUNCTION WITHOUT WHICH THERE IS NO SWEEP. `erase()` takes a PERSON;
      * retention takes an AGE and no person. The module owns the predicate, so the
      * module owns its `(created_at)` index.
+     *
+     * @param  list<int>  $exemptUserIds  subjects under a live hold — their rows stay.
      */
-    public function expire(string $category, CarbonImmutable $before, ExpiryBehaviour $mode, int $limit): int
-    {
-        // TODO(013-US5): process rows of $category older than $before.
-        return 0;
+    public function expire(
+        string $category,
+        CarbonImmutable $before,
+        ExpiryBehaviour $mode,
+        int $limit,
+        array $exemptUserIds = [],
+    ): int {
+        if ($mode !== ExpiryBehaviour::Delete) {
+            return 0;
+        }
+
+        /*
+        | ⚠️ THE BOUND IS A DATE COMPUTED IN PHP AND COMPARED AS A STRING —
+        | `whereDate()` wraps the column and throws away the index the migration
+        | beside this file exists to provide, and `created_at + INTERVAL n DAY`
+        | evaluated in SQL raises ERROR 1441 past year 9999 on MySQL while SQLite
+        | silently returns NULL and expires nothing.
+        */
+        $cutoff = $before->toDateTimeString();
+
+        if ($category === 'exam_answer') {
+            $answers = Answer::query()
+                ->withoutWorkspaceScope()
+                ->where('created_at', '<', $cutoff);
+
+            if ($exemptUserIds !== []) {
+                $answers->whereNotIn('student_user_id', $exemptUserIds);
+            }
+
+            return $answers->limit($limit)->delete();
+        }
+
+        if ($category !== 'exam_attempt') {
+            return 0;
+        }
+
+        /*
+        | ⚠️ `attempt_items` FIRST, AND IT IS THE TABLE THAT HIDES. It carries no
+        | user column at all — one snapshot row per item per attempt, reachable
+        | only through `attempt_id` — so deleting the attempts first strands every
+        | snapshot of what a named person was asked behind an id nothing resolves.
+        | The same ordering `erase()` uses, for the same reason.
+        */
+        $attemptIds = Attempt::query()
+            ->withoutWorkspaceScope()
+            ->where('created_at', '<', $cutoff)
+            ->when($exemptUserIds !== [], fn ($query) => $query->whereNotIn('student_user_id', $exemptUserIds))
+            ->limit($limit)
+            ->pluck('id')
+            ->all();
+
+        if ($attemptIds === []) {
+            return 0;
+        }
+
+        /*
+        | ⚠️ THE ANSWERS ARE CLEARED HERE TOO, AND NOT BECAUSE THEY ARE STILL THERE
+        | IN THE SHIPPED CATALOGUE. They expire at 1095 days against this table's
+        | 1825, so in the seeded configuration this deletes nothing — but the two
+        | durations are operator-editable rows, and an operator who clears
+        | `exam_answer`'s retention leaves rows whose foreign key would refuse the
+        | DELETE below and kill the whole sweep on its first night.
+        */
+        $children = Answer::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('attempt_id', $attemptIds)
+            ->limit($limit)
+            ->delete();
+
+        if ($children >= $limit) {
+            return $children;
+        }
+
+        $items = $children + AttemptItem::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('attempt_id', $attemptIds)
+            ->limit($limit - $children)
+            ->delete();
+
+        if ($items >= $limit) {
+            return $items;
+        }
+
+        // The attempts go last, and only for the ids whose items are now gone.
+        return $items + Attempt::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('id', $attemptIds)
+            ->delete();
     }
 }

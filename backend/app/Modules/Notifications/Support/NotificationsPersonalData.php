@@ -198,10 +198,56 @@ class NotificationsPersonalData implements PersonalDataOwner
      * ⚠️ THE FUNCTION WITHOUT WHICH THERE IS NO SWEEP. `erase()` takes a PERSON;
      * retention takes an AGE and no person. The module owns the predicate, so the
      * module owns its `(created_at)` index.
+     *
+     * @param  list<int>  $exemptUserIds  subjects under a live hold — their rows stay.
      */
-    public function expire(string $category, CarbonImmutable $before, ExpiryBehaviour $mode, int $limit): int
-    {
-        // TODO(013-US5): process rows of $category older than $before.
-        return 0;
+    public function expire(
+        string $category,
+        CarbonImmutable $before,
+        ExpiryBehaviour $mode,
+        int $limit,
+        array $exemptUserIds = [],
+    ): int {
+        if ($category !== 'notification_record' || $mode !== ExpiryBehaviour::Delete) {
+            return 0;
+        }
+
+        /*
+        | ⚠️ `whereNotNull('read_at')` — READ ROWS ONLY, AND DROPPING IT TURNS A
+        | RETENTION SWEEP INTO A JOB THAT DELETES MESSAGES NOBODY EVER SAW. An
+        | unread row is a message its recipient has not opened yet; deleting it
+        | makes a delivered notification into one that silently never arrived,
+        | which is worse than an old feed. This condition came here with the body of
+        | `PruneOldNotificationsJob`, which is deleted: `config('notifications.
+        | retention_days')` was a SECOND OWNER of a duration the catalogue already
+        | holds (FR-031أ), so what an operator shortened from the panel was not what
+        | actually deleted.
+        |
+        | ⚠️ AND THE DELIVERIES GO FIRST. A delivery row reaches its person only
+        | through `notification_id`; delete the parent and every attempt, failure
+        | reason and channel record is stranded behind an id nothing resolves.
+        */
+        $ids = Notification::query()
+            ->whereNotNull('read_at')
+            ->where('created_at', '<', $before->toDateTimeString())
+            ->when($exemptUserIds !== [], fn ($query) => $query->whereNotIn('recipient_user_id', $exemptUserIds))
+            ->limit($limit)
+            ->pluck('id')
+            ->all();
+
+        if ($ids === []) {
+            return 0;
+        }
+
+        $deleted = NotificationDelivery::query()
+            ->whereIn('notification_id', $ids)
+            ->limit($limit)
+            ->delete();
+
+        if ($deleted >= $limit) {
+            return $deleted;
+        }
+
+        return $deleted + Notification::query()->whereIn('id', $ids)->delete();
     }
 }

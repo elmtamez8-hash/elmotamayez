@@ -4,15 +4,16 @@ use App\Modules\Assessments\Jobs\MarkMissedSubmissionsJob;
 use App\Modules\Assessments\Jobs\RollUpQuestionStatsJob;
 use App\Modules\Compliance\Jobs\PruneExpiredExportsJob;
 use App\Modules\Compliance\Jobs\RetryStalledDataRequestsJob;
+use App\Modules\Compliance\Jobs\RunRetentionSweepJob;
 use App\Modules\Gamification\Jobs\CloseLeaderboardWeekJob;
 use App\Modules\Gamification\Jobs\PruneOldLeaderboardsJob;
 use App\Modules\Gamification\Jobs\ReconcileGamificationJob;
 use App\Modules\Gamification\Jobs\RollUpLeaderboardsJob;
+use App\Modules\Identity\Jobs\TransferDataOwnershipJob;
 use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
 use App\Modules\LiveSessions\Jobs\RetryPendingRecordingsJob;
 use App\Modules\Media\Jobs\PruneExpiredGrantsJob;
 use App\Modules\Media\Jobs\ReconcileAssetStatus;
-use App\Modules\Notifications\Jobs\PruneOldNotificationsJob;
 use App\Modules\Payments\Jobs\ChargeUnbilledDeliveriesJob;
 use App\Modules\Payments\Jobs\EvaluateCreditLimitsJob;
 use App\Modules\Payments\Jobs\ExpireCreditLotsJob;
@@ -29,12 +30,9 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Retention housekeeping (FR-017). Nightly and off-peak: it is a bulk delete, and
-// nothing depends on it having run by any particular hour.
-Schedule::job(new PruneOldNotificationsJob)->dailyAt('03:30');
-
 // Playback grants outlive their usefulness by a week so a support question about
-// last Tuesday can still be answered. Staggered off the notification prune: two
+// last Tuesday can still be answered. Staggered off the retention sweep at 03:30
+// — which is what now holds the slot the notification prune used to — because two
 // bulk deletes on the same minute is one lock contention nobody planned for.
 Schedule::job(new PruneExpiredGrantsJob)->dailyAt('03:45');
 
@@ -281,3 +279,42 @@ Schedule::job(new PruneExpiredExportsJob, 'maintenance')
     ->dailyAt('05:35')
     ->timezone('Asia/Qatar')
     ->withoutOverlapping();
+
+/*
+| Everything whose declared retention has run out (FR-028 … FR-031).
+|
+| 03:30 — the slot `PruneOldNotificationsJob` used to hold, and this job is what
+| replaced it: that one read `config('notifications.retention_days')`, a SECOND
+| owner of a duration `data_categories` already held, so what an operator
+| shortened from the panel was not what deleted. Nightly and off-peak because it
+| is a bulk delete across seven tables and nothing depends on it having finished
+| by any particular hour.
+|
+| ⚠️ NO `->withoutOverlapping()` HERE, AND THAT IS THE ONE DEPARTURE FROM EVERY
+| OTHER LINE IN THIS FILE. The scheduler's lock wraps `dispatchToQueue()` — for a
+| queued job, a few milliseconds around the push, released long before the worker
+| starts — so a sweep still walking at midnight would happily run beside tonight's.
+| The guard is job middleware with an explicit `expireAfter()`, and the reason for
+| each half is written on the job.
+*/
+Schedule::job(new RunRetentionSweepJob, 'compliance')->dailyAt('03:30');
+
+/*
+| A student who turned eighteen owns their own data (FR-009).
+|
+| ⚠️ `->timezone('Asia/Qatar')` BECAUSE A BIRTHDAY IS A CALENDAR QUESTION, not a
+| moment. On UTC the sweep runs at 09:05 Doha, so somebody whose eighteenth
+| birthday is today is told about it after most of that day has gone — and the
+| boundary the job compares against and the boundary the student lives in are two
+| different days for three hours out of every twenty-four.
+|
+| 06:25 Doha, which the crontab renders as 03:25 UTC — BEFORE the retention sweep
+| at 03:30 and before every 04:xx close, and stated that way round because a
+| comment claiming "after everything above" would be read against a line that says
+| the opposite. It does not need to be after any of them: it walks one indexed
+| predicate over `student_profiles` and touches no table any of those write. It is
+| kept off :05/:20/:35/:50 UTC, where the quarter-hourly billing sweeps sit.
+*/
+Schedule::job(new TransferDataOwnershipJob, 'compliance')
+    ->dailyAt('06:25')
+    ->timezone('Asia/Qatar');

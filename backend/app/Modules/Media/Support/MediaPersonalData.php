@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Media\Support;
 
+use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\Media\Enums\MediaAssetStatus;
+use App\Modules\Media\Events\MediaAssetsExpired;
+use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Models\PlaybackGrant;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
@@ -12,6 +16,7 @@ use App\Shared\Support\ExpiryBehaviour;
 use App\Shared\Support\ExportWalk;
 use App\Shared\Support\GuardianPermission;
 use Carbon\CarbonImmutable;
+use Throwable;
 
 /**
  * Media's half of the data-rights contract (spec 013).
@@ -24,6 +29,8 @@ use Carbon\CarbonImmutable;
  */
 class MediaPersonalData implements PersonalDataOwner
 {
+    public function __construct(private readonly MediaProviderResolver $providers) {}
+
     public function moduleKey(): string
     {
         return 'media';
@@ -128,10 +135,107 @@ class MediaPersonalData implements PersonalDataOwner
      * ⚠️ THE FUNCTION WITHOUT WHICH THERE IS NO SWEEP. `erase()` takes a PERSON;
      * retention takes an AGE and no person. The module owns the predicate, so the
      * module owns its `(created_at)` index.
+     *
+     * @param  list<int>  $exemptUserIds  subjects under a live hold — their rows stay.
      */
-    public function expire(string $category, CarbonImmutable $before, ExpiryBehaviour $mode, int $limit): int
-    {
-        // TODO(013-US5): process rows of $category older than $before.
-        return 0;
+    public function expire(
+        string $category,
+        CarbonImmutable $before,
+        ExpiryBehaviour $mode,
+        int $limit,
+        array $exemptUserIds = [],
+    ): int {
+        if ($category !== 'class_recording' || $mode !== ExpiryBehaviour::Archive) {
+            return 0;
+        }
+
+        /*
+        | ⚠️ `owner_type` IS THE ONLY THING SEPARATING A CLASS RECORDING FROM A
+        | TEACHER'S OWN LESSON VIDEO, and getting it wrong deletes the product. A
+        | video a teacher uploaded belongs to `authored_content`, whose catalogue
+        | row carries a NULL retention on purpose — sweep `media_assets` broadly and
+        | every course video on the platform is destroyed on its second birthday.
+        |
+        | The class name is imported for a morph-type comparison and nothing else:
+        | the string is already stored in THIS module's own column, and the two
+        | alternatives are worse — another module's table name in a join (the
+        | coupling `ContextIsolationTest` fails the build over) or a match on the
+        | filename prefix, which is a convention no constraint enforces.
+        |
+        | ⚠️ AND `$exemptUserIds` IS DELIBERATELY NOT APPLIED HERE. A hold is about
+        | ONE PERSON; a recording is a room full of them. Preserving every class a
+        | held student ever sat would freeze dozens of other people's data on one
+        | person's order, and there is no column here that names anybody — the link
+        | runs through `attendances`, which belongs to another module. What FR-030
+        | protects is the held person's own rows, and those are held by the six
+        | categories that do carry a user column.
+        */
+        $assets = MediaAsset::query()
+            ->withoutWorkspaceScope()
+            ->whereNull('archived_at')
+            ->where('owner_type', ClassSession::class)
+            ->where('created_at', '<', $before->toDateTimeString())
+            ->limit($limit)
+            ->get();
+
+        if ($assets->isEmpty()) {
+            return 0;
+        }
+
+        $expired = [];
+
+        foreach ($assets as $asset) {
+            /*
+            | ⚠️ THE PROVIDER FIRST, THEN THE ROW. The other order orphans a video
+            | that is billed monthly with nothing left in our database naming it —
+            | and a `404` from the provider is FREE on purpose, so a sweep that
+            | crashed after deleting the file costs nothing on its next pass.
+            */
+            try {
+                $this->providers->for($asset)->delete($asset);
+            } catch (Throwable $e) {
+                /*
+                | One asset's provider refusing must not end the night's sweep for
+                | every other category. The row keeps its null `archived_at`, so the
+                | next pass tries again — and the run log carries the finding.
+                */
+                report($e);
+
+                continue;
+            }
+
+            $asset->forceFill([
+                'archived_at' => now(),
+                // The id named a file that no longer exists.
+                'provider_asset_id' => null,
+                /*
+                | ⚠️ `Failed` RATHER THAN A NEW CHECK IN EVERY PLAYBACK GUARD. The
+                | bytes are gone, so a grant issued over this row would answer 404
+                | to a student with no explanation anywhere; `Failed` is the state
+                | those guards already refuse, and `ReconcileAssetStatus` sweeps
+                | `Processing` alone so nothing resurrects it.
+                */
+                'status' => MediaAssetStatus::Failed,
+                'failure_reason' => 'انقضت مدّة الاحتفاظ بالتسجيل.',
+            ])->save();
+
+            $expired[] = [
+                'id' => (int) $asset->getKey(),
+                'owner_type' => (string) $asset->owner_type,
+                'owner_id' => (int) $asset->owner_id,
+            ];
+        }
+
+        if ($expired !== []) {
+            /*
+            | ⚠️ ONE EVENT FOR THE WHOLE BATCH — FR-031ب's resync happens once per
+            | COURSE, not once per recording. Fifty recordings of one course would
+            | otherwise run fifty full progress resyncs over the same enrolments,
+            | which is what actually threatens this job's timeout.
+            */
+            MediaAssetsExpired::dispatch($expired);
+        }
+
+        return count($expired);
     }
 }

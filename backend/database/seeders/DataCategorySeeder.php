@@ -143,7 +143,22 @@ class DataCategorySeeder extends Seeder
                 'table_name' => 'exam_attempts',
                 'column_name' => 'student_user_id',
                 'retain_days' => 1825,
-                'expiry_behaviour' => ExpiryBehaviour::Anonymise->value,
+                /*
+                | ⚠️ `Delete`, AND IT SHIPPED AS `Anonymise` UNTIL THE SWEEP WAS
+                | WRITTEN AGAINST THE ACTUAL SCHEMA. `exam_attempts.student_user_id`
+                | is NOT NULL, so anonymising a row here means either a `->change()`
+                | on a table carrying eight indexes — which re-declares the column
+                | and REBUILDS THE TABLE on SQLite, the trade this repository has
+                | already refused twice in writing — or a sentinel account, which is
+                | a second answer to "who is this row about".
+                |
+                | And it buys nothing. `exam_answers` are deleted at 1095 days, so at
+                | five years an attempt is a bare score with its detail already gone,
+                | and the item analysis it might have fed is a nightly rollup that
+                | was materialised into `concept_stats` the day it was taken. What
+                | is left is a row naming a person for no reader.
+                */
+                'expiry_behaviour' => ExpiryBehaviour::Delete->value,
                 'erasure_mode' => ErasureMode::Delete,
             ],
             [
@@ -227,7 +242,20 @@ class DataCategorySeeder extends Seeder
                 'table_name' => 'media_assets',
                 'column_name' => 'owner_id',
                 'retain_days' => 730,
-                'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                /*
+                | ⚠️ `Archive`, NOT `Delete`, AND THE DIFFERENCE IS A LESSON IN A
+                | COURSE TREE. A recording IS a lesson (spec 017), so deleting the
+                | asset row leaves that lesson pointing at an id nothing resolves —
+                | with no record anywhere that a retention rule rather than a bug is
+                | why the video is gone. Archived, the row keeps the duration, the
+                | filename and the date; the FILE is deleted at the provider, which
+                | is the part that costs money and holds a student's face.
+                |
+                | It is also the one category that exercises `ExpiryBehaviour::Archive`
+                | at all, and a behaviour with no shipped category is a code path
+                | nothing runs — every assertion about it green, vacuously.
+                */
+                'expiry_behaviour' => ExpiryBehaviour::Archive->value,
                 'erasure_mode' => ErasureMode::Delete,
             ],
 

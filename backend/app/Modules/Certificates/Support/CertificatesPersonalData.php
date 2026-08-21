@@ -104,10 +104,24 @@ class CertificatesPersonalData implements PersonalDataOwner
      * ⚠️ THE FUNCTION WITHOUT WHICH THERE IS NO SWEEP. `erase()` takes a PERSON;
      * retention takes an AGE and no person. The module owns the predicate, so the
      * module owns its `(created_at)` index.
+     *
+     * @param  list<int>  $exemptUserIds  subjects under a live hold — their rows stay.
      */
-    public function expire(string $category, CarbonImmutable $before, ExpiryBehaviour $mode, int $limit): int
-    {
-        // TODO(013-US5): process rows of $category older than $before.
+    public function expire(
+        string $category,
+        CarbonImmutable $before,
+        ExpiryBehaviour $mode,
+        int $limit,
+        array $exemptUserIds = [],
+    ): int {
+        /*
+        | ⚠️ A CERTIFICATE HAS NO AGE, AND SAYING SO IS THE ANSWER RATHER THAN AN
+        | OMISSION. It is a CREDENTIAL — the thing a person shows years later — and
+        | its public verification page is the whole point of issuing it. Its
+        | catalogue row therefore carries a null retention, so the sweep never
+        | reaches here; a duration on this table would be a job that revokes
+        | qualifications on a schedule.
+        */
         return 0;
     }
 }

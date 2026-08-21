@@ -135,10 +135,22 @@ class SettlementPersonalData implements PersonalDataOwner
      * ⚠️ THE FUNCTION WITHOUT WHICH THERE IS NO SWEEP. `erase()` takes a PERSON;
      * retention takes an AGE and no person. The module owns the predicate, so the
      * module owns its `(created_at)` index.
+     *
+     * @param  list<int>  $exemptUserIds  subjects under a live hold — their rows stay.
      */
-    public function expire(string $category, CarbonImmutable $before, ExpiryBehaviour $mode, int $limit): int
-    {
-        // TODO(013-US5): process rows of $category older than $before.
+    public function expire(
+        string $category,
+        CarbonImmutable $before,
+        ExpiryBehaviour $mode,
+        int $limit,
+        array $exemptUserIds = [],
+    ): int {
+        /*
+        | ⚠️ THE LEDGER IS APPEND-ONLY, ENFORCED ON THE MODEL — `LedgerEntry::booted()`
+        | throws on `updating` and `deleting`. A retention sweep here would not
+        | merely be wrong about a teacher's pay history; it would throw every night
+        | on the first row it touched. The catalogue row carries a null retention.
+        */
         return 0;
     }
 }

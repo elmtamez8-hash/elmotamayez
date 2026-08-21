@@ -133,10 +133,23 @@ class CoursesPersonalData implements PersonalDataOwner
      * ⚠️ THE FUNCTION WITHOUT WHICH THERE IS NO SWEEP. `erase()` takes a PERSON;
      * retention takes an AGE and no person. The module owns the predicate, so the
      * module owns its `(created_at)` index.
+     *
+     * @param  list<int>  $exemptUserIds  subjects under a live hold — their rows stay.
      */
-    public function expire(string $category, CarbonImmutable $before, ExpiryBehaviour $mode, int $limit): int
-    {
-        // TODO(013-US5): process rows of $category older than $before.
+    public function expire(
+        string $category,
+        CarbonImmutable $before,
+        ExpiryBehaviour $mode,
+        int $limit,
+        array $exemptUserIds = [],
+    ): int {
+        /*
+        | ⚠️ AUTHORED CONTENT IS THE TEACHER'S WORK, NOT A RECORD ABOUT THEM. A
+        | course does not become less true after three years, and a sweep that
+        | aged one out would delete the product every teacher is selling. Its
+        | catalogue row carries a null retention; what this module holds about a
+        | person is an AUTHORSHIP LINK, and that is answered by `erase()`.
+        */
         return 0;
     }
 }

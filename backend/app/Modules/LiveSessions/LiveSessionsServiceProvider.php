@@ -9,6 +9,7 @@ use App\Modules\LiveSessions\Events\AttendanceOverridden;
 use App\Modules\LiveSessions\Events\SessionCancelled;
 use App\Modules\LiveSessions\Events\SessionCompleted;
 use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
+use App\Modules\LiveSessions\Listeners\ArchiveExpiredRecordingLessons;
 use App\Modules\LiveSessions\Listeners\NotifySeatHolders;
 use App\Modules\LiveSessions\Listeners\PublishRecordingAsLesson;
 use App\Modules\LiveSessions\Listeners\SendAttendanceCorrection;
@@ -29,6 +30,7 @@ use App\Modules\LiveSessions\Support\EloquentSessionAttendanceDirectory;
 use App\Modules\LiveSessions\Support\LiveSessionsPersonalData;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Media\Events\MediaAssetReady;
+use App\Modules\Media\Events\MediaAssetsExpired;
 use App\Shared\Contracts\FreezeDirectory;
 use App\Shared\Contracts\SessionAttendanceDirectory;
 use App\Shared\Modules\Module;
@@ -136,6 +138,12 @@ class LiveSessionsServiceProvider extends Module
         // a session recording and publishes it. Media knows nothing about
         // sessions, which is what Constitution III asks for.
         Event::listen(MediaAssetReady::class, PublishRecordingAsLesson::class);
+
+        // The mirror image, and the one FR-031ب insists on: a recording whose
+        // retention ran out has to LEAVE the course tree, or the lesson it became
+        // stays in every enrolled student's denominator with no video behind it —
+        // 100% unreachable, no certificate, permanently (spec 013).
+        Event::listen(MediaAssetsExpired::class, ArchiveExpiredRecordingLessons::class);
 
         // A seat that will not be honoured is explained to the person who took
         // it — whether the teacher called the session off or a freeze suspended

@@ -90,7 +90,22 @@ interface PersonalDataOwner
      * writes its index — which is why `(created_at)` indexes land in each
      * module's own migration rather than in one central file that knows everyone.
      *
+     * ⚠️ `$exemptUserIds` IS `FR-030`, AND WITHOUT IT THE SWEEP DESTROYS HELD DATA.
+     * A legal hold suspends an ERASURE REQUEST — `PlaceLegalHold` writes that on
+     * `data_requests` — but retention needs nobody to ask, so a hold that only
+     * stopped requests would let the nightly job delete the very rows a court
+     * ordered kept, on a schedule, with the hold sitting green beside it. The ids
+     * are resolved once per run by the caller and passed down: `Compliance` names
+     * no table here, and no module imports `LegalHold`.
+     *
+     * @param  list<int>  $exemptUserIds  subjects under a live hold — their rows stay.
      * @return int rows processed. Below `$limit` means there is nothing left.
      */
-    public function expire(string $category, CarbonImmutable $before, ExpiryBehaviour $mode, int $limit): int;
+    public function expire(
+        string $category,
+        CarbonImmutable $before,
+        ExpiryBehaviour $mode,
+        int $limit,
+        array $exemptUserIds = [],
+    ): int;
 }

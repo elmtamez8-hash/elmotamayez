@@ -190,10 +190,22 @@ class PaymentsPersonalData implements PersonalDataOwner
      * ⚠️ THE FUNCTION WITHOUT WHICH THERE IS NO SWEEP. `erase()` takes a PERSON;
      * retention takes an AGE and no person. The module owns the predicate, so the
      * module owns its `(created_at)` index.
+     *
+     * @param  list<int>  $exemptUserIds  subjects under a live hold — their rows stay.
      */
-    public function expire(string $category, CarbonImmutable $before, ExpiryBehaviour $mode, int $limit): int
-    {
-        // TODO(013-US5): process rows of $category older than $before.
+    public function expire(
+        string $category,
+        CarbonImmutable $before,
+        ExpiryBehaviour $mode,
+        int $limit,
+        array $exemptUserIds = [],
+    ): int {
+        /*
+        | ⚠️ A PAYMENT RECORD IS A LEGAL OBLIGATION, AND A DURATION ON IT WOULD BE A
+        | JOB THAT DESTROYS THE BOOKS ON A SCHEDULE. It is also why `erase()`
+        | receives `Retain` for this category rather than deciding for itself. The
+        | catalogue row carries a null retention and must keep carrying one.
+        */
         return 0;
     }
 }

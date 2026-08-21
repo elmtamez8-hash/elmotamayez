@@ -174,10 +174,60 @@ class LiveSessionsPersonalData implements PersonalDataOwner
      * ⚠️ THE FUNCTION WITHOUT WHICH THERE IS NO SWEEP. `erase()` takes a PERSON;
      * retention takes an AGE and no person. The module owns the predicate, so the
      * module owns its `(created_at)` index.
+     *
+     * @param  list<int>  $exemptUserIds  subjects under a live hold — their rows stay.
      */
-    public function expire(string $category, CarbonImmutable $before, ExpiryBehaviour $mode, int $limit): int
-    {
-        // TODO(013-US5): process rows of $category older than $before.
-        return 0;
+    public function expire(
+        string $category,
+        CarbonImmutable $before,
+        ExpiryBehaviour $mode,
+        int $limit,
+        array $exemptUserIds = [],
+    ): int {
+        if ($category !== 'attendance_record' || $mode !== ExpiryBehaviour::Anonymise) {
+            return 0;
+        }
+
+        /*
+        | ⚠️ THE ROW STAYS AND THE FREE TEXT GOES — THE SAME DEFINITION `erase()`
+        | USES HERE, AND FOR THE SAME REASON. A seat is what
+        | `ReconcileCreditBalancesJob` counts against consumption entries; delete
+        | three-year-old attendance and every session behind that line reports a
+        | drift, every night, with no cause anybody can find. And nulling
+        | `student_user_id` is not available either: the column is NOT NULL, and
+        | `->change()` on it re-declares the column and REBUILDS the table on
+        | SQLite — a table carrying seven indexes, none of them asserted anywhere.
+        |
+        | What genuinely has an age is the WRITING: a teacher's note explaining why
+        | they changed a mark, and a student's own words about why they cancelled.
+        | Neither is needed by any count, and both are statements about a named
+        | person that nobody will read again after three years.
+        |
+        | ⚠️ AND THE `whereNotNull` IS THE CONVERGENCE GUARD, not an optimisation.
+        | Without it every old row matches again tomorrow, is counted again in
+        | `retention_sweep_runs`, and `SC-010`'s "two runs, same state" holds for
+        | the data while the log says two different numbers.
+        */
+        $cutoff = $before->toDateTimeString();
+
+        $cleared = Attendance::query()
+            ->withoutWorkspaceScope()
+            ->where('created_at', '<', $cutoff)
+            ->whereNotNull('override_reason')
+            ->when($exemptUserIds !== [], fn ($query) => $query->whereNotIn('student_user_id', $exemptUserIds))
+            ->limit($limit)
+            ->update(['override_reason' => null]);
+
+        if ($cleared >= $limit) {
+            return $cleared;
+        }
+
+        return $cleared + SessionBooking::query()
+            ->withoutWorkspaceScope()
+            ->where('created_at', '<', $cutoff)
+            ->whereNotNull('cancellation_reason')
+            ->when($exemptUserIds !== [], fn ($query) => $query->whereNotIn('student_user_id', $exemptUserIds))
+            ->limit($limit - $cleared)
+            ->update(['cancellation_reason' => null]);
     }
 }

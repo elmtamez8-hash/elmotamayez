@@ -32,6 +32,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property bool $is_downloadable
  * @property array<int, array<string, mixed>>|null $renditions
  * @property CarbonInterface|null $ready_at
+ * @property CarbonInterface|null $archived_at retention took the file; the row is the receipt
  */
 class MediaAsset extends BaseModel
 {
@@ -69,6 +70,7 @@ class MediaAsset extends BaseModel
             'size_bytes' => 'integer',
             'duration_seconds' => 'integer',
             'ready_at' => 'datetime',
+            'archived_at' => 'datetime',
         ];
     }
 

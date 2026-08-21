@@ -163,10 +163,49 @@ class LearningPersonalData implements PersonalDataOwner
      * ⚠️ THE FUNCTION WITHOUT WHICH THERE IS NO SWEEP. `erase()` takes a PERSON;
      * retention takes an AGE and no person. The module owns the predicate, so the
      * module owns its `(created_at)` index.
+     *
+     * @param  list<int>  $exemptUserIds  subjects under a live hold — their rows stay.
      */
-    public function expire(string $category, CarbonImmutable $before, ExpiryBehaviour $mode, int $limit): int
-    {
-        // TODO(013-US5): process rows of $category older than $before.
-        return 0;
+    public function expire(
+        string $category,
+        CarbonImmutable $before,
+        ExpiryBehaviour $mode,
+        int $limit,
+        array $exemptUserIds = [],
+    ): int {
+        if ($category !== 'lesson_progress' || $mode !== ExpiryBehaviour::Delete) {
+            return 0;
+        }
+
+        /*
+        | ⚠️ THE BOUND IS A DATE COMPUTED IN PHP AND COMPARED AS A STRING. Two other
+        | shapes were available and both are defects this repository has already
+        | paid for: `whereDate('created_at', '<', ...)` wraps the column in a
+        | function and throws away the index the migration beside this file exists
+        | to provide (`FreezePeriod::covering()`), and
+        | `created_at + INTERVAL n DAY` computed in SQL raises ERROR 1441 on MySQL
+        | past year 9999 — killing the whole sweep — while SQLite returns NULL and
+        | expires nothing at all, with no error in either direction.
+        */
+        $query = LessonProgress::query()
+            ->withoutWorkspaceScope()
+            ->where('created_at', '<', $before->toDateTimeString());
+
+        /*
+        | ⚠️ FR-030 REACHED THROUGH `enrollment_id`, BECAUSE THIS TABLE NAMES NOBODY.
+        | A progress row reaches its student only through its enrolment, so a held
+        | subject cannot be excluded by a column here — and a sweep that could not
+        | exclude them would delete, on a schedule, the exact rows a court ordered
+        | kept. The held list is a handful of people by nature, so the subquery is
+        | small and lands on `enrollments.student_user_id`, which is indexed.
+        */
+        if ($exemptUserIds !== []) {
+            $query->whereNotIn('enrollment_id', Enrollment::query()
+                ->withoutWorkspaceScope()
+                ->whereIn('student_user_id', $exemptUserIds)
+                ->select('id'));
+        }
+
+        return $query->limit($limit)->delete();
     }
 }

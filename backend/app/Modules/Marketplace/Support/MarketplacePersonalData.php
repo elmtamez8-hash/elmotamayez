@@ -223,10 +223,23 @@ class MarketplacePersonalData implements PersonalDataOwner
      * ⚠️ THE FUNCTION WITHOUT WHICH THERE IS NO SWEEP. `erase()` takes a PERSON;
      * retention takes an AGE and no person. The module owns the predicate, so the
      * module owns its `(created_at)` index.
+     *
+     * @param  list<int>  $exemptUserIds  subjects under a live hold — their rows stay.
      */
-    public function expire(string $category, CarbonImmutable $before, ExpiryBehaviour $mode, int $limit): int
-    {
-        // TODO(013-US5): process rows of $category older than $before.
+    public function expire(
+        string $category,
+        CarbonImmutable $before,
+        ExpiryBehaviour $mode,
+        int $limit,
+        array $exemptUserIds = [],
+    ): int {
+        /*
+        | ⚠️ A REVIEW OUTLIVES ITS WRITER'S ENROLMENT ON PURPOSE. The public
+        | rating a teacher carries is built from every review ever left, and a
+        | retention that quietly deleted the old ones would move a teacher's trust
+        | score every night without a single rating changing. Its catalogue row
+        | carries a null retention; the author link is severed by `erase()`.
+        */
         return 0;
     }
 }

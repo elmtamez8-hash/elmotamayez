@@ -28,7 +28,16 @@ it('declares appearing in a recording as a required category with a stated reten
         // that makes a right to erasure unmeasurable — and the sweep needs both
         // halves or it does nothing at all.
         ->and($category->retain_days)->not->toBeNull()
-        ->and($category->expiry_behaviour)->toBe(ExpiryBehaviour::Delete)
+        /*
+         * ⚠️ `Archive`, AND IT WAS `Delete` UNTIL THE SWEEP WAS WRITTEN. A
+         * recording IS a lesson in a course tree, so deleting the asset row leaves
+         * that lesson pointing at an id nothing resolves — with nothing anywhere
+         * saying a retention rule rather than a bug is why the video is gone.
+         * Archived, the row keeps the duration, the filename and the date while
+         * the FILE is deleted at the provider, which is the half that costs money
+         * and holds a student's face.
+         */
+        ->and($category->expiry_behaviour)->toBe(ExpiryBehaviour::Archive)
         ->and($category->expires())->toBeTrue();
 });
 

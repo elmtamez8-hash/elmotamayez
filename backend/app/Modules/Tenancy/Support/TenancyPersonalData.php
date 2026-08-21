@@ -144,10 +144,47 @@ class TenancyPersonalData implements PersonalDataOwner
      * ⚠️ THE FUNCTION WITHOUT WHICH THERE IS NO SWEEP. `erase()` takes a PERSON;
      * retention takes an AGE and no person. The module owns the predicate, so the
      * module owns its `(created_at)` index.
+     *
+     * @param  list<int>  $exemptUserIds  subjects under a live hold — their rows stay.
      */
-    public function expire(string $category, CarbonImmutable $before, ExpiryBehaviour $mode, int $limit): int
-    {
-        // TODO(013-US5): process rows of $category older than $before.
-        return 0;
+    public function expire(
+        string $category,
+        CarbonImmutable $before,
+        ExpiryBehaviour $mode,
+        int $limit,
+        array $exemptUserIds = [],
+    ): int {
+        if ($category !== 'workspace_invitation' || $mode !== ExpiryBehaviour::Delete) {
+            return 0;
+        }
+
+        /*
+        | ⚠️ THIS IS THE ONLY CATEGORY IN THE CATALOGUE WHOSE ROWS NAME SOMEBODY WHO
+        | MAY HAVE NO ACCOUNT AT ALL. An invitation holds a bare email address, so
+        | no cascade and no erasure elsewhere ever reaches it — ninety days is what
+        | keeps an address somebody never accepted from sitting here for ever.
+        |
+        | ⚠️ AND `accepted_by` IS EXEMPTED, NOT `email`. A held subject is a user id;
+        | matching the held person's address as well would mean reading
+        | `users.email` from inside this module for a handful of rows a court
+        | order touches. An invitation that was ACCEPTED is the one that names a
+        | real account, and that is the row a hold is about.
+        */
+        return Invitation::query()
+            ->withoutWorkspaceScope()
+            ->where('created_at', '<', $before->toDateTimeString())
+            /*
+            | ⚠️ GROUPED, AND UNGROUPED IT DELETES THE WHOLE TABLE. A bare
+            | `orWhereNull()` beside the exemption ORs at the TOP level, which
+            | discards the `created_at` bound above it — every pending invitation
+            | on the platform, gone on the first night a hold exists. The
+            | `orWhereNull` itself is required: `NULL NOT IN (…)` evaluates to
+            | NULL, so a plain `whereNotIn` silently spares every unaccepted row.
+            */
+            ->when($exemptUserIds !== [], fn ($query) => $query->where(
+                fn ($inner) => $inner->whereNull('accepted_by')->orWhereNotIn('accepted_by', $exemptUserIds),
+            ))
+            ->limit($limit)
+            ->delete();
     }
 }
