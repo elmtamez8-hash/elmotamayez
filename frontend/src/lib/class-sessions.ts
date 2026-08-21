@@ -189,7 +189,22 @@ export interface SessionEligibility {
   booking_refusal: string | null;
 }
 
+/** One teacher of the CURRENT workspace, for a picker. */
+export interface WorkspaceTeacher {
+  uuid: string;
+  name: string;
+}
+
 export const classSessions = {
+  /**
+   * The teachers of the reader's own workspace.
+   *
+   * ⚠️ NOT the public `/teachers` listing, which spans every workspace and shows
+   * only publicly-listed profiles — it would offer another academy's teachers and
+   * hide the operator's own colleagues who are not listed yet.
+   */
+  workspaceTeachers: () => api.get<{ data: WorkspaceTeacher[] }>("/manage/teachers"),
+
   list: (params: { from?: string; to?: string; status?: string } = {}) => {
     const entries = Object.entries(params).filter(
       (entry): entry is [string, string] => entry[1] !== undefined,
@@ -203,9 +218,19 @@ export const classSessions = {
 
   show: (uuid: string) => api.get<ClassSession>(`/class-sessions/${uuid}`),
 
-  /** One session, off the weekly pattern (FR-002). */
+  /**
+   * One session, off the weekly pattern (FR-002).
+   *
+   * ⚠️ UUIDS, AND `course_uuid` IS REQUIRED. Both used to be raw autoincrement
+   * ids — and `course_id` was absent from this type entirely while the server has
+   * required it since spec 006 (the session price is a property of the course, so
+   * a session with no course has no price and can never consume a credit). The
+   * payload was therefore STRUCTURALLY INCAPABLE of succeeding: every call came
+   * back 422 naming a field the screen did not offer.
+   */
   create: (body: {
-    teacher_profile_id: string;
+    teacher_profile_uuid: string;
+    course_uuid: string;
     title: string;
     type: "individual" | "group";
     starts_at: string;
@@ -223,7 +248,8 @@ export const classSessions = {
   ) => api.put<ClassSession>(`/class-sessions/${uuid}`, body),
 
   generate: (body: {
-    teacher_profile_id: string;
+    teacher_profile_uuid: string;
+    course_uuid: string;
     from: string;
     to: string;
     seats_total?: number;

@@ -138,4 +138,17 @@ export const GUARDIAN_PERMISSIONS: { key: string; label: string }[] = [
   { key: "schedule", label: "المواعيد والحصص" },
   { key: "results", label: "النتائج والدرجات" },
   { key: "academic_warnings", label: "الإنذارات الأكاديمية" },
+  /*
+   * ⚠️ THE SIXTH, ADDED BY SPEC 013 — and without it a guardian could not consent
+   * to the processing of their own child's data unless they had also been granted
+   * authority over the MONEY. `RecordTermsConsent` asked for `payments` because it
+   * was the closest value that existed, which made 013's own rule ("an authorised
+   * guardian grants, an unauthorised one does not") impossible to state: there was
+   * nothing to be authorised FOR.
+   *
+   * It is also what a data-rights request is checked against — deliberately NOT
+   * `relations.view.student`, which every teacher and assistant holds and which
+   * would be a cross-workspace export of a child's entire record.
+   */
+  { key: "data_rights", label: "الموافقة على معالجة البيانات وطلب حقوقها" },
 ];

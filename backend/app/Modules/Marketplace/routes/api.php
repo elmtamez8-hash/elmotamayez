@@ -7,6 +7,7 @@ use App\Modules\Marketplace\Http\Controllers\ReviewController;
 use App\Modules\Marketplace\Http\Controllers\TeacherApplicationController;
 use App\Modules\Marketplace\Http\Controllers\TeacherProfileController;
 use App\Modules\Marketplace\Http\Controllers\TeacherReviewController;
+use App\Modules\Marketplace\Http\Controllers\WorkspaceTeacherController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -52,6 +53,16 @@ Route::post('/auth/register/teacher/step-1', [TeacherApplicationController::clas
     ->middleware(['throttle:registration', 'idempotent']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
+    /*
+     | The teachers of the CURRENT workspace, for a picker.
+     |
+     | ⚠️ DISTINCT FROM `/teachers` ABOVE, which is the PUBLIC cross-workspace
+     | listing of publicly-listed profiles. Using that one on a scheduling screen
+     | would offer another academy's teachers and hide the operator's own
+     | colleagues who are not listed yet.
+     */
+    Route::get('/manage/teachers', [WorkspaceTeacherController::class, 'index']);
+
     Route::get('/teacher/application', [TeacherApplicationController::class, 'show']);
     Route::put('/teacher/application/step-2', [TeacherApplicationController::class, 'stepTwo']);
     Route::put('/teacher/application/step-3', [TeacherApplicationController::class, 'stepThree']);

@@ -18,6 +18,7 @@ import {
   CoursesIcon,
   CreditsIcon,
   FamilyIcon,
+  ShieldIcon,
   GradingIcon,
   HomeIcon,
   ExamIcon,
@@ -137,6 +138,19 @@ const mainNav: NavItem[] = [
   { href: "/billing", label: "رصيدي", Icon: CreditsIcon },
   { href: "/notifications", label: "الإشعارات", Icon: BellIcon },
   { href: "/family", label: "المرتبطون", Icon: FamilyIcon },
+  /*
+   * Spec 013. ⚠️ ITS OWN ENTRY, and NOT a tab inside settings.
+   *
+   * A right nobody can find is a right nobody exercises — and the whole phase
+   * rests on a person being able to see what is collected about their child and
+   * withdraw the optional part of it. It sits beside «المرتبطون» because that is
+   * where a guardian already goes to manage what concerns their children.
+   *
+   * ⚠️ AND `/privacy` HERE IS NOT `(public)/privacy`. That one is the policy text
+   * a visitor reads before signing up; this one is the person's own data. Same
+   * word, different question — the nested layouts keep them apart.
+   */
+  { href: "/privacy", label: "خصوصيّتي", Icon: ShieldIcon },
 ];
 
 const adminNav: NavItem[] = [

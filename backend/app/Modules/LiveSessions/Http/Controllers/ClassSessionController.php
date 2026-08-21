@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Actions\CancelClassSession;
 use App\Modules\LiveSessions\Actions\GenerateSessionsFromAvailability;
 use App\Modules\LiveSessions\Actions\ScheduleClassSession;
@@ -17,7 +16,6 @@ use App\Modules\LiveSessions\Http\Requests\StoreClassSessionRequest;
 use App\Modules\LiveSessions\Http\Requests\UpdateClassSessionRequest;
 use App\Modules\LiveSessions\Http\Resources\ClassSessionResource;
 use App\Modules\LiveSessions\Models\ClassSession;
-use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Contracts\UnlockDirectory;
 use Carbon\CarbonImmutable;
 use DomainException;
@@ -61,7 +59,9 @@ class ClassSessionController extends Controller
 
         try {
             $session = $action->handle(
-                ScheduleSessionData::fromArray($request->validated()),
+                // `payload()`, not `validated()` — the request resolves each uuid
+                // to its id so the DTO stays a dumb carrier of integers.
+                ScheduleSessionData::fromArray($request->payload()),
                 $this->currentUser($request),
             );
         } catch (DomainException $e) {
@@ -75,17 +75,9 @@ class ClassSessionController extends Controller
     {
         $this->authorize('create', ClassSession::class);
 
-        $teacher = TeacherProfile::query()
-            ->where('id', $request->validated('teacher_profile_id'))
-            ->firstOrFail();
-
-        $course = Course::query()
-            ->where('id', $request->validated('course_id'))
-            ->firstOrFail();
-
         $result = $action->handle(
-            $teacher,
-            $course,
+            $request->teacherProfile(),
+            $request->course(),
             CarbonImmutable::parse((string) $request->validated('from')),
             CarbonImmutable::parse((string) $request->validated('to')),
             $this->currentUser($request),

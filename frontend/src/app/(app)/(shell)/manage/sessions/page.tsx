@@ -6,12 +6,18 @@ import { SessionCard } from "@/components/sessions/SessionCard";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { NumberField, TextField } from "@/components/ui/Field";
+import { NumberField, SelectField, TextField } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
-import { classSessions, type ClassSession, type GenerateResult } from "@/lib/class-sessions";
-import { fieldErrors } from "@/lib/api";
+import {
+  classSessions,
+  type ClassSession,
+  type GenerateResult,
+  type WorkspaceTeacher,
+} from "@/lib/class-sessions";
+import { api, fieldErrors } from "@/lib/api";
+import type { Course } from "@/lib/types";
 import { userMessage } from "@/lib/errors";
 
 /**
@@ -28,7 +34,23 @@ export default function ManageSessionsPage() {
 
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [teacherProfileId, setTeacherProfileId] = useState("");
+  /*
+   * ⚠️ PICKED, NOT TYPED — and this is the whole of the bug this screen carried.
+   * Both fields used to be free text asking for a raw autoincrement database id
+   * (`teacher_profile_id`), and BOTH buttons were disabled until one was filled.
+   * Nobody can know that number, so the create button was dead for everyone.
+   */
+  const [teacherUuid, setTeacherUuid] = useState("");
+  const [teachers, setTeachers] = useState<WorkspaceTeacher[]>([]);
+  /*
+   * ⚠️ AND THE COURSE WAS NEVER ASKED FOR AT ALL. The server has required it since
+   * spec 006 — the session price is a property of the course, so a session with no
+   * course has no price and can never consume a credit — while this screen neither
+   * offered the field nor sent it. Every submission was 422 on a field the operator
+   * could not see.
+   */
+  const [courseUuid, setCourseUuid] = useState("");
+  const [courseList, setCourseList] = useState<Course[]>([]);
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<GenerateResult | null>(null);
   const [error, setError] = useState("");
@@ -41,6 +63,20 @@ export default function ManageSessionsPage() {
   const [creating, setCreating] = useState(false);
   const [oneOffError, setOneOffError] = useState("");
   const [oneOffErrors, setOneOffErrors] = useState<Record<string, string>>({});
+
+  // Loaded once. A failure here leaves the pickers empty and the buttons
+  // disabled, which is the honest state — it must not blank the calendar below.
+  useEffect(() => {
+    classSessions
+      .workspaceTeachers()
+      .then((response) => setTeachers(response.data))
+      .catch(() => setTeachers([]));
+
+    api
+      .get<{ data: Course[] }>("/courses")
+      .then((response) => setCourseList(response.data))
+      .catch(() => setCourseList([]));
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -63,7 +99,12 @@ export default function ManageSessionsPage() {
 
     try {
       setResult(
-        await classSessions.generate({ teacher_profile_id: teacherProfileId, from, to }),
+        await classSessions.generate({
+          teacher_profile_uuid: teacherUuid,
+          course_uuid: courseUuid,
+          from,
+          to,
+        }),
       );
       load();
     } catch (err: unknown) {
@@ -83,7 +124,8 @@ export default function ManageSessionsPage() {
 
     try {
       await classSessions.create({
-        teacher_profile_id: teacherProfileId,
+        teacher_profile_uuid: teacherUuid,
+        course_uuid: courseUuid,
         title: oneOff.title,
         // Declared, never inferred from the seat count (FR-001أ) — but one seat
         // has exactly one meaning, and making the teacher say it twice invites
@@ -111,13 +153,24 @@ export default function ManageSessionsPage() {
       <Card>
         <h3 className="mb-4 font-semibold text-ink">توليد حصص من جدول التوفّر</h3>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <TextField
-            id="teacher_profile_id"
-            label="مُعرّف ملف المدرّس"
-            value={teacherProfileId}
-            onChange={setTeacherProfileId}
-            error={errors.teacher_profile_id}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <SelectField
+            id="teacher_profile_uuid"
+            label="المدرّس"
+            value={teacherUuid}
+            onChange={setTeacherUuid}
+            placeholder="اختر المدرّس"
+            options={teachers.map((teacher) => ({ value: teacher.uuid, label: teacher.name }))}
+            error={errors.teacher_profile_uuid}
+          />
+          <SelectField
+            id="course_uuid"
+            label="الكورس"
+            value={courseUuid}
+            onChange={setCourseUuid}
+            placeholder="اختر الكورس"
+            options={courseList.map((course) => ({ value: course.uuid, label: course.title }))}
+            error={errors.course_uuid}
           />
           <TextField
             id="from"
@@ -141,7 +194,7 @@ export default function ManageSessionsPage() {
           <Button
             onClick={generate}
             loading={generating}
-            disabled={from === "" || to === "" || teacherProfileId === ""}
+            disabled={from === "" || to === "" || teacherUuid === "" || courseUuid === ""}
           >
             توليد
           </Button>
@@ -227,7 +280,10 @@ export default function ManageSessionsPage() {
             onClick={createOne}
             loading={creating}
             disabled={
-              teacherProfileId === "" || oneOff.title === "" || oneOff.startsAt === ""
+              teacherUuid === "" ||
+              courseUuid === "" ||
+              oneOff.title === "" ||
+              oneOff.startsAt === ""
             }
           >
             إنشاء الحصة

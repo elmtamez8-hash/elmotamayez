@@ -17,7 +17,21 @@ return [
          * `Spatie\Permission\Contracts\Permission` contract.
          */
 
-        'permission' => Permission::class,
+        /*
+        | ⚠️ OUR OWN SUBCLASS, AND IT OVERRIDES EXACTLY ONE RELATION.
+        |
+        | spatie builds its GLOBAL permission cache with
+        | `Permission::select()->with('roles')->get()`, and since spec 007 that
+        | relation resolves through `Tenancy\Models\Role`, which is scoped to the
+        | CURRENT team. The cache therefore held only the roles of whichever
+        | workspace made the first request after a flush — and every other
+        | workspace lost every permission it had, silently, until the next flush
+        | picked a different winner.
+        |
+        | See `Tenancy\Models\Permission` for the measurement and for why this is
+        | configuration rather than a container binding.
+        */
+        'permission' => App\Modules\Tenancy\Models\Permission::class,
 
         /*
          * When using the "HasRoles" trait from this package, we need to know which

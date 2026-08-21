@@ -27,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(WorkspaceContext::class);
         $this->app->singleton(WorkspaceScope::class);
+
     }
 
     /**
