@@ -11,6 +11,7 @@ use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
 use App\Shared\Support\ExpiryBehaviour;
+use App\Shared\Support\ExportWalk;
 use App\Shared\Support\GuardianPermission;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -88,16 +89,23 @@ class IdentityPersonalData implements PersonalDataOwner
         | a custody dispute is exactly the situation a rights request is made in.
         */
         if ($subject->mayReceive(GuardianPermission::DataRights)) {
-            yield 'guardians' => ParentStudentRelation::query()
-                ->where('student_user_id', $user->getKey())
-                ->get()
-                ->map(fn (ParentStudentRelation $relation): array => [
+            /*
+            | ⚠️ FILED UNDER `student_name`, NOT UNDER A CATEGORY OF ITS OWN. Every
+            | key yielded here becomes a file in the archive, and a key that no
+            | `data_categories` row declares is a file with no retention rule and no
+            | owner — invisible to `PersonalDataContractCoverageTest`, and to the
+            | nightly sweep that reads the same catalogue.
+            */
+            yield from ExportWalk::keyed(
+                'student_name',
+                ParentStudentRelation::query()->where('student_user_id', $user->getKey()),
+                fn (ParentStudentRelation $relation): array => [
                     'relation_type' => $relation->relation_type,
                     'status' => $relation->status,
                     'permissions' => $relation->permissions,
-                    'created_at' => $relation->created_at?->toIso8601String(),
-                ])
-                ->all();
+                    'created_at' => ExportWalk::at($relation->created_at),
+                ],
+            );
         }
     }
 

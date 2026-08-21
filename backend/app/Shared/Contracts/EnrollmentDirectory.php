@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Shared\Contracts;
 
 use App\Models\User;
+use App\Shared\Data\DataSubject;
 
 /**
  * Whether a student is entitled to a course right now.
@@ -59,4 +60,24 @@ interface EnrollmentDirectory
      * @return list<int>
      */
     public function activeCourseIdsFor(User $user): array;
+
+    /**
+     * Every enrolment id this user holds, whatever its status (spec 013).
+     *
+     * ⚠️ DELIBERATELY NOT FILTERED BY STATUS, unlike every other method here. The
+     * three above answer "is this person entitled RIGHT NOW"; this one answers
+     * "which rows are about this person", and a lapsed enrolment is still their
+     * record — a data-rights export that silently dropped last year's course would
+     * be an incomplete answer to a legal request, which is the one failure mode
+     * FR-016 names.
+     *
+     * It exists because `lesson_progress` carries NO user column at all: it reaches
+     * its student only through `enrollment_id`. `Compliance` may not query
+     * `enrollments` to find that out — Constitution III — and thirteen modules each
+     * resolving it for themselves is the coupling {@see DataSubject}
+     * was created to prevent. One question, one owner, one answer.
+     *
+     * @return list<int>
+     */
+    public function enrollmentIdsFor(User $user): array;
 }

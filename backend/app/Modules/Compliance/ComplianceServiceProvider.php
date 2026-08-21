@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\Compliance;
 
+use App\Modules\Compliance\Models\DataRequest;
+use App\Modules\Compliance\Policies\DataRequestPolicy;
 use App\Modules\Compliance\Support\PersonalDataRegistry;
 use App\Shared\Modules\Module;
 use App\Shared\Modules\ModulesServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Spec 013 — the compliance module.
@@ -40,5 +43,20 @@ class ComplianceServiceProvider extends Module
         | for it repeatedly inside one process.
         */
         $this->app->singleton(PersonalDataRegistry::class);
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        /*
+        | ⚠️ REGISTERED EXPLICITLY, NEVER LEFT TO THE GUESSER. Laravel's policy
+        | guesser fails OPEN — no policy found means "no policy applies" — and it
+        | fails open exactly when a directory layout does not match its assumption.
+        | A deny-only test passes just as happily against a missing registration as
+        | against a working one, which is how `taxonomy.manage` shipped guarding
+        | nothing.
+        */
+        Gate::policy(DataRequest::class, DataRequestPolicy::class);
     }
 }

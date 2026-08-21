@@ -52,4 +52,21 @@ class EloquentEnrollmentDirectory implements EnrollmentDirectory
 
         return array_values($ids);
     }
+
+    /** @return list<int> */
+    public function enrollmentIdsFor(User $user): array
+    {
+        // No status filter — see the interface. A finished or cancelled enrolment
+        // is still a row about this person, and an export that dropped it would be
+        // an incomplete answer to a legal request.
+        $ids = Enrollment::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $user->getKey())
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
+
+        return array_values($ids);
+    }
 }

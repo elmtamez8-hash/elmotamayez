@@ -195,9 +195,9 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 - [X] T074 [US3] أنشئ هجرةَ `data_requests` في `backend/app/Modules/Compliance/Database/Migrations/` بالفهارس الأربعة: `(subject_user_id, type, status)` · `(status, due_at)` · `(status, last_attempt_at)` · `(export_expires_at)` — ⚠️ **`due_at` هو مهلةُ `FR-043` القانونيةُ ولم يكن لها فهرسٌ تُسأل به**
 - [X] T075 [US3] في هجرةِ `T074` داخل `backend/app/Modules/Compliance/Database/Migrations/`: أضف `open_key` **nullable unique** — «طلبٌ مفتوحٌ واحدٌ لكلّ (شخص · نوع)» قراءةٌ ثمّ إدراجٌ بفهرسٍ عاديّ، وتبويبان في ثانيةٍ يمرّان معاً. **ولا فهارسَ جزئيةً في MySQL** فالشكلُ هو `captured_order_id`، **وغيرُ `$fillable`**: قابلاً للإسناد الجَمْعيّ يصير باباً ثانياً لانتزاع القفل
 - [X] T076 [US3] أنشئ `Compliance/Models/DataRequest.php` + `Enums/{DataRequestType,DataRequestStatus}.php` — **بلا `BelongsToWorkspace`**: طلبٌ واحدٌ يشمل بياناتِ الطالب عند كلّ مدرّسيه، **والتصديرُ الجزئيُّ ليس حقاً مُنفَّذاً**
-- [ ] T077 [US3] أنشئ `Compliance/Policies/DataRequestPolicy.php` يسأل **`GuardianDirectory::isAuthorised($caller, $subject, GuardianPermission::DataRights)`** — ⚠️ **ويُمنع `ParentStudentRelationPolicy`**: يستقبل صفَّ علاقةٍ لا (وليّاً · طالباً) فسؤالُه دائريّ · **ولا يفحص `status`** فيمرّ `Pending` الذي يُنشئه أيُّ مستخدمٍ لأيّ معرّفِ طالبٍ ويمرّ `Revoked` لوليٍّ نزعته الأسرة · **وفرعُه الثالثُ مبنيٌّ للمدرّسين** بصلاحيةٍ يحملها كلُّ مدرّسٍ ومساعد
-- [ ] T078 [US3] أنشئ `Compliance/Actions/CreateDataRequest.php` — ويُشتقّ `due_at` من `ComplianceSettings`، ويُكتب `granted_scope` من `permissions` الوليّ حين لا يكون الطالبُ نفسَه هو الطالب
-- [ ] T079 [US3] في `backend/app/Modules/Compliance/Actions/CreateDataRequest.php`: **رفضٌ واحدٌ لا يميّز** «لا يوجد» عن «ليس لك» — `LinkGuardian` يوحّدهما عن قصدٍ اليوم (‏ولذلك أُسقطت قاعدةُ `exists` من طلبه)، ورمزان مختلفان يجعلان النقطةَ **عرّافاً** يؤكّد أن معرّفاً مُقدَّماً لحسابٍ حقيقيّ
+- [X] T077 [US3] أنشئ `Compliance/Policies/DataRequestPolicy.php` يسأل **`GuardianDirectory::isAuthorised($caller, $subject, GuardianPermission::DataRights)`** — ⚠️ **ويُمنع `ParentStudentRelationPolicy`**: يستقبل صفَّ علاقةٍ لا (وليّاً · طالباً) فسؤالُه دائريّ · **ولا يفحص `status`** فيمرّ `Pending` الذي يُنشئه أيُّ مستخدمٍ لأيّ معرّفِ طالبٍ ويمرّ `Revoked` لوليٍّ نزعته الأسرة · **وفرعُه الثالثُ مبنيٌّ للمدرّسين** بصلاحيةٍ يحملها كلُّ مدرّسٍ ومساعد
+- [X] T078 [US3] أنشئ `Compliance/Actions/CreateDataRequest.php` — ويُشتقّ `due_at` من `ComplianceSettings`، ويُكتب `granted_scope` من `permissions` الوليّ حين لا يكون الطالبُ نفسَه هو الطالب
+- [X] T079 [US3] في `backend/app/Modules/Compliance/Actions/CreateDataRequest.php`: **رفضٌ واحدٌ لا يميّز** «لا يوجد» عن «ليس لك» — `LinkGuardian` يوحّدهما عن قصدٍ اليوم (‏ولذلك أُسقطت قاعدةُ `exists` من طلبه)، ورمزان مختلفان يجعلان النقطةَ **عرّافاً** يؤكّد أن معرّفاً مُقدَّماً لحسابٍ حقيقيّ
 
 ### تنفيذُ العقدِ في ١٣ وحدة — `describe()` و`export()`
 
@@ -217,26 +217,26 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 
 ### التصديرُ والتسليم
 
-- [ ] T093 [US3] أنشئ `Compliance/Support/ExportFieldAllowlist.php` — تحمل **ما لا تملكه وحدةٌ فقط**. ⚠️ **وفي الشجرة ستُّ قوائمَ لا ثلاث** (`AssessmentFieldAllowlist` · `MediaFieldAllowlist` · `PaymentFieldAllowlist` · `PublicFieldAllowlist` · `StudentBalanceAllowlist` · `TeacherFieldAllowlist`)، **أربعٌ منها تملكها الوحدات** — فقائمةٌ مركزيةٌ سابعةٌ جوابٌ ثانٍ يتباعد
-- [ ] T094 [US3] أنشئ `Compliance/Actions/ExecuteDataExport.php` تمشي على `PersonalDataRegistry` **وتكتب في الـzip أثناء التوليد** — ⚠️ `array` يمنع البثَّ: ثلاثَ عشرةَ مصفوفةً كاملةً ثمّ `addFromString` على تشفيرِ كلٍّ منها = ذروةٌ ضعفُ الحجم المُسَلسَل، والسقفُ `memory => 256` بـ`tries: 1`
-- [ ] T095 [US3] في `backend/app/Modules/Compliance/Actions/ExecuteDataExport.php`: أضف `README.md` عربياً داخل الـzip يشرح ما في كلّ ملفّ — `FR-016` يطلب «قابلةً للقراءة الآلية **والبشرية**»
-- [ ] T096 [US3] أنشئ `Compliance/Jobs/FulfilDataRequestJob.php` تستقبل **معرّفَ الطلب وحده** بـ`$queue = 'compliance'` و`$timeout` صريح — ⚠️ **لا تُمرَّر الحمولة**: Laravel يُسَلسِل وسائطَ المُنشئ والطابورُ Redis، فمصفوفةُ تصديرٍ **تحلّ في Redis** وعند الفشل في **`failed_jobs.payload`**، جدولٌ لا يمحوه شيء
-- [ ] T097 [US3] في `backend/app/Modules/Compliance/Jobs/FulfilDataRequestJob.php`: طالِبِ الطلبَ بتحديثٍ شرطيٍّ واحد `WHERE id = ? AND status = 'pending'` يوسم `last_attempt_at` — صفرُ صفوفٍ يعني «طُولِب سلفاً». **ومشغّلان ينفّذان طلباً واحداً** بلا هذا يُنتجان ملفَّي تصديرٍ وموقَّعَين لكلّ ما تعرفه المنصةُ عن قاصر. وأبداً `lockForUpdate()` — عديمُ الأثر على SQLite فاختبارٌ عليه لا يُثبت شيئاً عن MySQL
-- [ ] T098 [US3] أنشئ `Compliance/Jobs/RetryStalledDataRequestsJob.php` تكنس `status = processing` الأقدمَ من مهلةٍ بـ`last_attempt_at` — ⚠️ الطلبُ يُرسَل **مرّةً** بـ`tries: 1` **ولا شيءَ يكنس `processing`**، فيبقى للأبد ويمرّ `due_at` بلا أن يُخبَر أحد: عائلةُ `recording_status = 'ingesting'` بعينها
-- [ ] T099 [US3] [P] أنشئ `Compliance/Jobs/PruneExpiredExportsJob.php` — بلا ها يتراكم الأرشيفُ على القرص إلى الأبد، وهو «كلُّ ما تعرفه المنصةُ عن قاصرٍ في مكانٍ واحد»
+- [X] T093 [US3] أنشئ `Compliance/Support/ExportFieldAllowlist.php` — تحمل **ما لا تملكه وحدةٌ فقط**. ⚠️ **وفي الشجرة ستُّ قوائمَ لا ثلاث** (`AssessmentFieldAllowlist` · `MediaFieldAllowlist` · `PaymentFieldAllowlist` · `PublicFieldAllowlist` · `StudentBalanceAllowlist` · `TeacherFieldAllowlist`)، **أربعٌ منها تملكها الوحدات** — فقائمةٌ مركزيةٌ سابعةٌ جوابٌ ثانٍ يتباعد
+- [X] T094 [US3] أنشئ `Compliance/Actions/ExecuteDataExport.php` تمشي على `PersonalDataRegistry` **وتكتب في الـzip أثناء التوليد** — ⚠️ `array` يمنع البثَّ: ثلاثَ عشرةَ مصفوفةً كاملةً ثمّ `addFromString` على تشفيرِ كلٍّ منها = ذروةٌ ضعفُ الحجم المُسَلسَل، والسقفُ `memory => 256` بـ`tries: 1`
+- [X] T095 [US3] في `backend/app/Modules/Compliance/Actions/ExecuteDataExport.php`: أضف `README.md` عربياً داخل الـzip يشرح ما في كلّ ملفّ — `FR-016` يطلب «قابلةً للقراءة الآلية **والبشرية**»
+- [X] T096 [US3] أنشئ `Compliance/Jobs/FulfilDataRequestJob.php` تستقبل **معرّفَ الطلب وحده** بـ`$queue = 'compliance'` و`$timeout` صريح — ⚠️ **لا تُمرَّر الحمولة**: Laravel يُسَلسِل وسائطَ المُنشئ والطابورُ Redis، فمصفوفةُ تصديرٍ **تحلّ في Redis** وعند الفشل في **`failed_jobs.payload`**، جدولٌ لا يمحوه شيء
+- [X] T097 [US3] في `backend/app/Modules/Compliance/Jobs/FulfilDataRequestJob.php`: طالِبِ الطلبَ بتحديثٍ شرطيٍّ واحد `WHERE id = ? AND status = 'pending'` يوسم `last_attempt_at` — صفرُ صفوفٍ يعني «طُولِب سلفاً». **ومشغّلان ينفّذان طلباً واحداً** بلا هذا يُنتجان ملفَّي تصديرٍ وموقَّعَين لكلّ ما تعرفه المنصةُ عن قاصر. وأبداً `lockForUpdate()` — عديمُ الأثر على SQLite فاختبارٌ عليه لا يُثبت شيئاً عن MySQL
+- [X] T098 [US3] أنشئ `Compliance/Jobs/RetryStalledDataRequestsJob.php` تكنس `status = processing` الأقدمَ من مهلةٍ بـ`last_attempt_at` — ⚠️ الطلبُ يُرسَل **مرّةً** بـ`tries: 1` **ولا شيءَ يكنس `processing`**، فيبقى للأبد ويمرّ `due_at` بلا أن يُخبَر أحد: عائلةُ `recording_status = 'ingesting'` بعينها
+- [X] T099 [US3] [P] أنشئ `Compliance/Jobs/PruneExpiredExportsJob.php` — بلا ها يتراكم الأرشيفُ على القرص إلى الأبد، وهو «كلُّ ما تعرفه المنصةُ عن قاصرٍ في مكانٍ واحد»
 - [ ] T100 [US3] أضف أسطرَ الجدولة الأربعةَ إلى `backend/routes/console.php` في **ساعاتٍ حرّة** — ⚠️ ٠٣:٣٠ · ٠٣:٤٥ · ٠٤:١٠ · ٠٤:٢٥ · ٠٤:٣٥ · ٠٤:٤٥ · ٠٤:٥٥ · ٠٥:١٥ مشغولةٌ كلُّها بأسبابٍ مكتوبةٍ عن الابتعاد عن المحوِ الجَمْعيّ
-- [ ] T101 [US3] أنشئ `Compliance/Http/Controllers/DataRequestController.php` بـ`GET`/`POST /privacy/requests` و`GET /privacy/requests/{request}/download` يُرجع **`302`** — ⚠️ **ولا مسارَ في الحمولة إطلاقاً**: نفسُ قاعدةِ `PlaybackGrantResource`، ومسارٌ في JSON رابطٌ يُنسَخ ويبقى. **و`throttle:data-rights` على `/download` أيضاً**
-- [ ] T102 [US3] [P] أنشئ شاشةَ «طلباتي وأصنافي» في `frontend/src/app/(app)/(shell)/privacy/`
+- [X] T101 [US3] أنشئ `Compliance/Http/Controllers/DataRequestController.php` بـ`GET`/`POST /privacy/requests` و`GET /privacy/requests/{request}/download` يُرجع **`302`** — ⚠️ **ولا مسارَ في الحمولة إطلاقاً**: نفسُ قاعدةِ `PlaybackGrantResource`، ومسارٌ في JSON رابطٌ يُنسَخ ويبقى. **و`throttle:data-rights` على `/download` أيضاً**
+- [X] T102 [US3] [P] أنشئ شاشةَ «طلباتي وأصنافي» في `frontend/src/app/(app)/(shell)/privacy/`
 
 ### حرّاسُ US3
 
 - [X] T103 [US3] [P] أنشئ `backend/tests/Feature/Compliance/PersonalDataContractCoverageTest.php` — **`SC-004`**: القائمتان مُشتقّتان من الهجرات **ويشمل جذرَ `database/migrations/`** حيث يعيش **`users`** نفسُه وكان خارجَ الاشتقاق، **ويُثبت تصديرَ الجداول لا تسجيلَ الوحدة** (‏جدولٌ يُضاف داخل وحدةٍ مسجَّلةٍ سلفاً غيرُ مرئيٍّ لفحصِ التسجيل — وهو الانحرافُ الذي يدّعي المعيارُ مسكَه)
-- [ ] T104 [US3] [P] أنشئ `backend/tests/Feature/Compliance/ExportCompletenessTest.php` — **`SC-005`** بـ**مساحتَي عملٍ** ومَحرمٍ ASCII
-- [ ] T105 [US3] [P] أنشئ `backend/tests/Feature/Compliance/ExportScaleTest.php` — **`SC-014`**: ٥٠٬٠٠٠ صفٍّ بلا قفلِ جدولٍ حيّ **وبلا تجاوزِ الذاكرة**. والذاكرةُ هي ما يفشل لا عددُ الاستعلامات
-- [ ] T106 [US3] [P] أنشئ `backend/tests/Feature/Compliance/StalledRequestSweepTest.php` — **`SC-021`**: قتلُ عاملٍ في المنتصف، والكنسةُ تُعيد الإرسال
-- [ ] T107 [US3] [P] أنشئ `backend/tests/Feature/Compliance/GuardianScopeTest.php` — وليٌّ مُنِح «الحضورَ» وحده **لا يستقبل** النتائجَ ولا المدفوعاتَ ولا التسجيلات؛ وصاحبُ البيان يستقبل الكلّ
-- [ ] T108 [US3] [P] أنشئ `backend/tests/Feature/Compliance/TeacherExportRefusalTest.php` — **مدرّسٌ له طالبٌ مسجَّلٌ نشطاً يُردّ بـ403** على تصدير ذلك الطالب. `RELATIONS_VIEW_STUDENT` **لا يفتح طلبَ حقوقٍ إطلاقاً**
-- [ ] T109 [US3] [P] أنشئ `backend/tests/Feature/Compliance/OpenRequestRaceTest.php` — طلبان في ثانيةٍ واحدةٍ يُنتجان صفّاً واحداً، وتنفيذان متزامنان ينتجان ملفاً واحداً
+- [X] T104 [US3] [P] أنشئ `backend/tests/Feature/Compliance/ExportCompletenessTest.php` — **`SC-005`** بـ**مساحتَي عملٍ** ومَحرمٍ ASCII
+- [X] T105 [US3] [P] أنشئ `backend/tests/Feature/Compliance/ExportScaleTest.php` — **`SC-014`**: ٥٠٬٠٠٠ صفٍّ بلا قفلِ جدولٍ حيّ **وبلا تجاوزِ الذاكرة**. والذاكرةُ هي ما يفشل لا عددُ الاستعلامات
+- [X] T106 [US3] [P] أنشئ `backend/tests/Feature/Compliance/StalledRequestSweepTest.php` — **`SC-021`**: قتلُ عاملٍ في المنتصف، والكنسةُ تُعيد الإرسال
+- [X] T107 [US3] [P] أنشئ `backend/tests/Feature/Compliance/GuardianScopeTest.php` — وليٌّ مُنِح «الحضورَ» وحده **لا يستقبل** النتائجَ ولا المدفوعاتَ ولا التسجيلات؛ وصاحبُ البيان يستقبل الكلّ
+- [X] T108 [US3] [P] أنشئ `backend/tests/Feature/Compliance/TeacherExportRefusalTest.php` — **مدرّسٌ له طالبٌ مسجَّلٌ نشطاً يُردّ بـ403** على تصدير ذلك الطالب. `RELATIONS_VIEW_STUDENT` **لا يفتح طلبَ حقوقٍ إطلاقاً**
+- [X] T109 [US3] [P] أنشئ `backend/tests/Feature/Compliance/OpenRequestRaceTest.php` — طلبان في ثانيةٍ واحدةٍ يُنتجان صفّاً واحداً، وتنفيذان متزامنان ينتجان ملفاً واحداً
 
 **Checkpoint**: `US1`–`US3` قابلةٌ للتسليم.
 

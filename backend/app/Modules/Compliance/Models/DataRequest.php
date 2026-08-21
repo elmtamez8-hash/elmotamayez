@@ -30,6 +30,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable|null $last_attempt_at
  * @property string|null $export_path
  * @property CarbonImmutable|null $export_expires_at
+ * @property CarbonImmutable|null $completed_at
+ * @property string|null $refusal_reason
  * @property list<string>|null $granted_scope
  */
 class DataRequest extends BaseModel

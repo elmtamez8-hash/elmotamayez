@@ -55,4 +55,26 @@ interface GuardianDirectory
      * @return Collection<int, User>
      */
     public function childrenOf(User $guardian, GuardianPermission $permission): Collection;
+
+    /**
+     * Everything this guardian is authorised for, on this student (spec 013).
+     *
+     * ⚠️ NOT DERIVABLE BY ASKING {@see self::isAuthorised()} SIX TIMES. That is six
+     * round trips for one row, and it grows silently every time a permission is
+     * added — the caller's loop is over an enum it does not own.
+     *
+     * A data-rights request needs the whole list at once because the export is
+     * limited by CONTENT, not merely at the door: a guardian granted attendance
+     * alone opens the request legitimately and must still receive no marks and no
+     * payments. That list is frozen onto the request when it is made, so a
+     * permission revoked afterwards cannot widen an archive already generated —
+     * and one granted afterwards does not widen it either, which is the safe
+     * direction to be wrong in.
+     *
+     * Empty means not authorised at all, and is never null: a caller cannot forget
+     * to handle "nobody".
+     *
+     * @return list<GuardianPermission>
+     */
+    public function permissionsFor(User $guardian, User $student): array;
 }

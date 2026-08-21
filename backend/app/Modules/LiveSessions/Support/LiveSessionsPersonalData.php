@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Support;
 
+use App\Modules\LiveSessions\Models\Attendance;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
 use App\Shared\Support\ExpiryBehaviour;
+use App\Shared\Support\ExportWalk;
+use App\Shared\Support\GuardianPermission;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * LiveSessions's half of the data-rights contract (spec 013).
@@ -41,9 +46,77 @@ class LiveSessionsPersonalData implements PersonalDataOwner
      */
     public function export(DataSubject $subject): iterable
     {
-        // TODO(013-US3): yield this module's rows, composing its existing field
-        // allowlist rather than calling ->toArray().
-        yield from [];
+        if (! $subject->mayReceive(GuardianPermission::Attendance)) {
+            return;
+        }
+
+        $userId = $subject->user->getKey();
+
+        /*
+        | ⚠️ THE HOST'S OWN ROW IS EXCLUDED, and it exists on purpose so it has to
+        | be excluded on purpose. `CloseClassSession` judges delivery — the
+        | teacher's pay — from an attendance row belonging to the teacher, so it
+        | cannot be removed; what must not happen is its being read as a student's
+        | register entry. `Attendance::scopeExcludingHost()` says this for ONE
+        | session; a person-shaped walk cannot use it, so the same rule is spelled
+        | here against the session's own host. One rule in two places is how the
+        | second place gets it wrong, which is why the reason travels with it.
+        */
+        yield from ExportWalk::keyed(
+            'attendance_record',
+            Attendance::query()
+                ->withoutWorkspaceScope()
+                ->leftJoin('class_sessions', 'class_sessions.id', '=', 'attendances.class_session_id')
+                ->leftJoin('teacher_profiles', 'teacher_profiles.id', '=', 'class_sessions.teacher_profile_id')
+                ->where('attendances.student_user_id', $userId)
+                ->where(function (Builder $query) use ($userId): void {
+                    $query->whereNull('teacher_profiles.user_id')
+                        ->orWhere('teacher_profiles.user_id', '!=', $userId);
+                })
+                ->select([
+                    'attendances.*',
+                    'class_sessions.title as session_title',
+                    'class_sessions.starts_at as session_starts_at',
+                ]),
+            fn (Attendance $attendance): array => [
+                'uuid' => $attendance->uuid,
+                'session_title' => $attendance->getAttribute('session_title'),
+                'session_starts_at' => ExportWalk::at($attendance->getAttribute('session_starts_at')),
+                'status' => $attendance->status,
+                'source' => $attendance->source,
+                'stay_seconds' => $attendance->stay_seconds,
+                'first_joined_at' => ExportWalk::at($attendance->first_joined_at),
+                // Why a teacher changed the mark. It is a statement about this
+                // person, written about them, and FR-016 does not let us keep the
+                // part of the record that is least flattering.
+                'override_reason' => $attendance->override_reason,
+                'overridden_at' => ExportWalk::at($attendance->overridden_at),
+            ],
+            column: 'attendances.id',
+        );
+
+        yield from ExportWalk::keyed(
+            'attendance_record',
+            SessionBooking::query()
+                ->withoutWorkspaceScope()
+                ->leftJoin('class_sessions', 'class_sessions.id', '=', 'session_bookings.class_session_id')
+                ->where('session_bookings.student_user_id', $userId)
+                ->select([
+                    'session_bookings.*',
+                    'class_sessions.title as session_title',
+                    'class_sessions.starts_at as session_starts_at',
+                ]),
+            fn (SessionBooking $booking): array => [
+                'uuid' => $booking->uuid,
+                'session_title' => $booking->getAttribute('session_title'),
+                'session_starts_at' => ExportWalk::at($booking->getAttribute('session_starts_at')),
+                'status' => $booking->status,
+                'booked_at' => ExportWalk::at($booking->booked_at),
+                'cancelled_at' => ExportWalk::at($booking->cancelled_at),
+                'cancellation_reason' => $booking->cancellation_reason,
+            ],
+            column: 'session_bookings.id',
+        );
     }
 
     /**

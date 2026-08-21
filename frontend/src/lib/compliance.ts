@@ -73,3 +73,40 @@ export const compliance = {
   updateCategories: (body: { categories: string[]; version: string; student_uuid?: string }) =>
     api.put<{ version: string; categories: string[] }>("/privacy/consents/categories", body),
 };
+
+/**
+ * One data-rights request, as its owner sees it (FR-015 · FR-018).
+ *
+ * ⚠️ THERE IS NO PATH AND NO SIGNED URL IN THIS SHAPE, and there must not be. The
+ * server sends neither: a link in a payload is a link that gets copied into a
+ * ticket and kept, and this one addresses everything the platform knows about one
+ * person. The download is a ROUTE the client calls, which mints a signature at
+ * that moment and answers `302`.
+ */
+export interface DataRequestRecord {
+  uuid: string;
+  type: "access" | "export" | "erasure";
+  status: "pending" | "processing" | "completed" | "refused" | "on_hold";
+  due_at: string | null;
+  completed_at: string | null;
+  /** Computed server-side from the file AND its expiry — never derived here. */
+  is_downloadable: boolean;
+  export_expires_at: string | null;
+  refusal_reason: string | null;
+}
+
+export const dataRights = {
+  list: () => api.get<{ data: DataRequestRecord[] }>("/privacy/requests"),
+
+  create: (body: { type: DataRequestRecord["type"]; student_uuid?: string }) =>
+    api.post<{ data: DataRequestRecord }>("/privacy/requests", body),
+
+  /**
+   * ⚠️ `api.download`, NEVER AN `<a href>`. The token lives in localStorage and
+   * travels as an `Authorization` header, which an anchor does not send — the
+   * link would 401. The helper fetches, follows the `302` and hands the blob to
+   * the browser's downloader.
+   */
+  download: (uuid: string) =>
+    api.download(`/privacy/requests/${uuid}/download`, `my-data-${uuid}.zip`),
+};

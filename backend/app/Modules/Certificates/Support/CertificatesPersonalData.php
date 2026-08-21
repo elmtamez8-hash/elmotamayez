@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Certificates\Support;
 
+use App\Modules\Certificates\Models\Certificate;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
 use App\Shared\Support\ExpiryBehaviour;
+use App\Shared\Support\ExportWalk;
+use App\Shared\Support\GuardianPermission;
 use Carbon\CarbonImmutable;
 
 /**
@@ -41,9 +44,33 @@ class CertificatesPersonalData implements PersonalDataOwner
      */
     public function export(DataSubject $subject): iterable
     {
-        // TODO(013-US3): yield this module's rows, composing its existing field
-        // allowlist rather than calling ->toArray().
-        yield from [];
+        // A certificate is an academic result, so it answers to the same gate the
+        // marks do: a guardian granted "attendance" alone is not told what their
+        // child passed.
+        if (! $subject->mayReceive(GuardianPermission::Results)) {
+            return;
+        }
+
+        yield from ExportWalk::keyed(
+            'certificate',
+            Certificate::query()
+                ->withoutWorkspaceScope()
+                ->leftJoin('courses', 'courses.id', '=', 'certificates.course_id')
+                ->where('certificates.student_user_id', $subject->user->getKey())
+                ->select(['certificates.*', 'courses.title as course_title']),
+            fn (Certificate $certificate): array => [
+                'uuid' => $certificate->uuid,
+                'certificate_number' => $certificate->certificate_number,
+                // Their own handle on their own credential. It is printed on the
+                // document they already hold, so withholding it here would leave
+                // the export less complete than the certificate itself.
+                'verification_code' => $certificate->verification_code,
+                'course_title' => $certificate->getAttribute('course_title'),
+                'issue_reason' => $certificate->issue_reason,
+                'issued_at' => ExportWalk::at($certificate->issued_at),
+            ],
+            column: 'certificates.id',
+        );
     }
 
     /**

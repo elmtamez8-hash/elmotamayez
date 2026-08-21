@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Courses\Support;
 
+use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Models\Lesson;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
 use App\Shared\Support\ExpiryBehaviour;
+use App\Shared\Support\ExportWalk;
 use Carbon\CarbonImmutable;
 
 /**
@@ -41,9 +44,66 @@ class CoursesPersonalData implements PersonalDataOwner
      */
     public function export(DataSubject $subject): iterable
     {
-        // TODO(013-US3): yield this module's rows, composing its existing field
-        // allowlist rather than calling ->toArray().
-        yield from [];
+        /*
+        | ⚠️ THE PREDICATE IS THE WORKSPACE, NOT `created_by`. FR-034 promises a
+        | departing teacher a copy of THEIR content, and a course built by an
+        | assistant inside the teacher's own workspace is the teacher's course — the
+        | `created_by` column records which pair of hands typed it, which is a
+        | different question. This is the one implementor that needs
+        | {@see DataSubject::$workspaceIds}, and the reason that field exists rather
+        | than thirteen modules each resolving membership for themselves.
+        |
+        | A student is a member of no workspace at all, so the list is empty for
+        | them and this module contributes nothing — which is correct, and is why
+        | there is no guardian gate here to get wrong.
+        */
+        if ($subject->workspaceIds === []) {
+            return;
+        }
+
+        yield from ExportWalk::keyed(
+            'authored_content',
+            Course::query()->withoutWorkspaceScope()->whereIn('workspace_id', $subject->workspaceIds),
+            fn (Course $course): array => [
+                'uuid' => $course->uuid,
+                'title' => $course->title,
+                'slug' => $course->slug,
+                'description' => $course->description,
+                'status' => $course->status,
+                'visibility' => $course->visibility,
+                'course_type' => $course->course_type,
+                'language' => $course->language,
+                'grade_level' => $course->grade_level,
+                'created_at' => ExportWalk::at($course->created_at),
+            ],
+            size: 200,
+        );
+
+        /*
+        | The lessons carry the actual teaching — `content` is the authored Markdown
+        | (never stored HTML), and it is what makes this an export of content rather
+        | than a table of contents. Sections and chapters are represented by the
+        | lesson's own position rather than as two more files: they hold no text a
+        | person wrote, only an ordering, and a reader opening this archive wants
+        | the material, not the tree.
+        */
+        yield from ExportWalk::keyed(
+            'authored_content',
+            Lesson::query()->withoutWorkspaceScope()->whereIn('workspace_id', $subject->workspaceIds),
+            fn (Lesson $lesson): array => [
+                'uuid' => $lesson->uuid,
+                'title' => $lesson->title,
+                'type' => $lesson->type,
+                'content' => $lesson->content,
+                'order' => $lesson->order,
+                'status' => $lesson->status,
+                'duration_seconds' => $lesson->duration_seconds,
+                'created_at' => ExportWalk::at($lesson->created_at),
+            ],
+            // Kilobytes of Markdown per row, so the page bounds the peak — the same
+            // reason `cms_authorship` uses 200 rather than the default.
+            size: 200,
+        );
     }
 
     /**

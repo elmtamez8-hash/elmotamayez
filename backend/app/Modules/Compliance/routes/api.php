@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Compliance\Http\Controllers\DataRequestController;
 use App\Modules\Compliance\Http\Controllers\PrivacyCategoryController;
 use App\Modules\Compliance\Http\Controllers\PrivacyConsentController;
 use Illuminate\Support\Facades\Route;
@@ -48,4 +49,39 @@ Route::middleware('auth:sanctum')->group(function (): void {
      */
     Route::put('/privacy/consents/categories', [PrivacyConsentController::class, 'update'])
         ->middleware('throttle:data-rights');
+
+    /*
+    | Data-rights requests (FR-015 · FR-019).
+    |
+    | ⚠️ `throttle:data-rights` ON `/download` AS WELL AS ON `POST`. The expensive
+    | half is not only the creation: a download is a signed link minted per press,
+    | and an unthrottled one is a mint. The limiter keys on the ACCOUNT, never the
+    | address — a family behind one router shares an address, and a guardian may
+    | hold several children.
+    |
+    | ⚠️ AND `{dataRequest}` BINDS BY UUID with a policy behind it, never a scope:
+    | `data_requests` is platform-owned and carries no `workspace_id`, and a student
+    | is a member of no workspace — so no global scope touches this table on any
+    | route a student can reach. `DataRequestPolicy` is the entire guard.
+    */
+    Route::middleware('throttle:data-rights')->group(function (): void {
+        Route::post('/privacy/requests', [DataRequestController::class, 'store']);
+        Route::get('/privacy/requests/{dataRequest}/download', [DataRequestController::class, 'download']);
+    });
+
+    Route::get('/privacy/requests', [DataRequestController::class, 'index']);
 });
+
+/*
+| The archive itself.
+|
+| ⚠️ SIGNED, AND WITHOUT `auth:sanctum` — the same shape as `/playback/{grant}`,
+| and for the same reason: a browser following a redirect to another origin does
+| not forward an `Authorization` header, so a token-guarded stream behind a `302`
+| simply does not work. The five-minute signature IS the credential FR-018
+| describes, and the controller re-reads `export_expires_at` before writing a byte,
+| so a signature that outlives the archive opens nothing.
+*/
+Route::middleware(['signed', 'throttle:data-rights'])
+    ->get('/privacy/exports/{dataRequest}', [DataRequestController::class, 'stream'])
+    ->name('compliance.exports.stream');

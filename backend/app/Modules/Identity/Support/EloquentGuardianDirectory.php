@@ -48,6 +48,28 @@ class EloquentGuardianDirectory implements GuardianDirectory
         return $relation !== null && $relation->allows($permission);
     }
 
+    /** @return list<GuardianPermission> */
+    public function permissionsFor(User $guardian, User $student): array
+    {
+        $relation = ParentStudentRelation::query()
+            ->forStudent($student)
+            ->active()
+            ->where('guardian_user_id', $guardian->getKey())
+            ->first();
+
+        if ($relation === null) {
+            return [];
+        }
+
+        // Asked through `allows()` rather than by reading the column, because that
+        // method is where a wildcard or a future default would live — reading the
+        // json directly is a second answer to the question it exists to answer.
+        return array_values(array_filter(
+            GuardianPermission::cases(),
+            fn (GuardianPermission $permission): bool => $relation->allows($permission),
+        ));
+    }
+
     /** @return Collection<int, User> */
     public function childrenOf(User $guardian, GuardianPermission $permission): Collection
     {

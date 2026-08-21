@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Modules\Notifications\Support;
 
+use App\Modules\Notifications\Models\ContactVerification;
+use App\Modules\Notifications\Models\Notification;
+use App\Modules\Notifications\Models\NotificationPreference;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
 use App\Shared\Support\ExpiryBehaviour;
+use App\Shared\Support\ExportWalk;
 use Carbon\CarbonImmutable;
 
 /**
@@ -41,9 +45,84 @@ class NotificationsPersonalData implements PersonalDataOwner
      */
     public function export(DataSubject $subject): iterable
     {
-        // TODO(013-US3): yield this module's rows, composing its existing field
-        // allowlist rather than calling ->toArray().
-        yield from [];
+        $userId = $subject->user->getKey();
+
+        /*
+        | ⚠️ THE FEED IS FILTERED BY THE TYPE'S OWN PERMISSION, not by a second list
+        | written here. `NotificationType::requiredGuardianPermission()` already
+        | answers "which guardian may hear about this", and a message body carries
+        | the very thing the gate exists for — a mark, an amount, a warning. A
+        | guardian granted presence alone would otherwise be handed every payment
+        | reminder their child ever received, in full sentences, having been refused
+        | the payment records two files earlier in the same archive.
+        |
+        | A type with no required permission is one that is nobody's secret; it
+        | travels.
+        */
+        /*
+        | ⚠️ THE ALLOWED TYPES ARE DERIVED FROM THE ENUM AND THEN ASKED IN SQL, which
+        | is neither a filter in PHP over every row nor a second copy of the rule
+        | written in strings. `requiredGuardianPermission()` stays the only place
+        | that decides, and a type added tomorrow is covered without touching this
+        | file — the list is built from `cases()`, not from a literal.
+        */
+        $allowedTypes = array_values(array_map(
+            fn (NotificationType $type): string => $type->value,
+            array_filter(NotificationType::cases(), function (NotificationType $type) use ($subject): bool {
+                $required = $type->requiredGuardianPermission();
+
+                return $required === null || $subject->mayReceive($required);
+            }),
+        ));
+
+        yield from ExportWalk::keyed(
+            'notification_record',
+            Notification::query()
+                ->where('recipient_user_id', $userId)
+                ->whereIn('type', $allowedTypes),
+            fn (Notification $notification): array => [
+                'uuid' => $notification->uuid,
+                // A plain string column: `Notification` casts `payload` and `read_at` and
+                // nothing else, so there is no enum here to unwrap.
+                'type' => $notification->type,
+                'title' => $notification->title_ar,
+                'body' => $notification->body_ar,
+                'read_at' => ExportWalk::at($notification->read_at),
+                'created_at' => ExportWalk::at($notification->created_at),
+            ],
+        );
+
+        yield from ExportWalk::keyed(
+            'notification_record',
+            NotificationPreference::query()->where('user_id', $userId),
+            fn (NotificationPreference $preference): array => [
+                'uuid' => $preference->uuid,
+                'type' => $preference->type,
+                'channels' => $preference->channels,
+                'digest_window_minutes' => $preference->digest_window_minutes,
+            ],
+        );
+
+        /*
+        | ⚠️ THE VERIFIED CONTACT DETAIL, AND NEVER `code_hash`. The number is the
+        | person's own and is the one the platform actually messages — 020 reads it
+        | from here rather than from `users.phone`, so a person checking what we
+        | hold about them must be able to see the value that is really in use. The
+        | hash beside it is a credential;
+        | {@see \App\Modules\Compliance\Support\ExportFieldAllowlist} fails the build
+        | over any key containing it.
+        */
+        yield from ExportWalk::keyed(
+            'notification_record',
+            ContactVerification::query()->where('user_id', $userId),
+            fn (ContactVerification $verification): array => [
+                'uuid' => $verification->uuid,
+                'channel' => $verification->channel,
+                'contact_value' => $verification->contact_value,
+                'verified_at' => ExportWalk::at($verification->verified_at),
+                'created_at' => ExportWalk::at($verification->created_at),
+            ],
+        );
     }
 
     /**

@@ -2,6 +2,8 @@
 
 use App\Modules\Assessments\Jobs\MarkMissedSubmissionsJob;
 use App\Modules\Assessments\Jobs\RollUpQuestionStatsJob;
+use App\Modules\Compliance\Jobs\PruneExpiredExportsJob;
+use App\Modules\Compliance\Jobs\RetryStalledDataRequestsJob;
 use App\Modules\Gamification\Jobs\CloseLeaderboardWeekJob;
 use App\Modules\Gamification\Jobs\PruneOldLeaderboardsJob;
 use App\Modules\Gamification\Jobs\ReconcileGamificationJob;
@@ -247,4 +249,35 @@ Schedule::job(new PruneOldLeaderboardsJob, 'maintenance')
 // never a full sweep. 04:20, between the billing reconciliations.
 Schedule::job(new ReconcileGamificationJob, 'maintenance')
     ->dailyAt('04:20')
+    ->withoutOverlapping();
+
+/*
+| Spec 013 — the data-rights sweeps.
+|
+| ⚠️ THE STALLED SWEEP IS THE ONLY RETRY `FulfilDataRequestJob` HAS. That job runs
+| with `tries: 1` because a retried job would re-enter a request already marked
+| `processing` and be refused by its own claim — so a worker killed mid-export (a
+| deploy, an OOM, a restart) leaves the request `processing` for ever, `due_at`
+| passes, the legal deadline is missed and nothing is broken enough to log. The
+| `recording_status = 'ingesting'` family exactly.
+|
+| Every ten minutes, which is a cadence nothing else in this file uses: the
+| five-, fifteen- and hourly slots are taken, and a sweep sharing a minute with a
+| bulk delete waits behind its locks for the one thing that is measured in days.
+*/
+Schedule::job(new RetryStalledDataRequestsJob, 'maintenance')
+    ->everyTenMinutes()
+    ->withoutOverlapping();
+
+/*
+| The archives whose links have expired (FR-018).
+|
+| 05:35 — clear of the 03:30/03:45 bulk deletes, of the 04:xx billing closes and
+| of the 05:15 rollup. This one touches the DISK rather than a hot table, so it is
+| kept away from the window where a slow filesystem would hold a worker that
+| something else is queued behind.
+*/
+Schedule::job(new PruneExpiredExportsJob, 'maintenance')
+    ->dailyAt('05:35')
+    ->timezone('Asia/Qatar')
     ->withoutOverlapping();

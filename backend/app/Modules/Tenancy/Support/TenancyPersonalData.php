@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Modules\Tenancy\Support;
 
+use App\Modules\Tenancy\Models\Invitation;
+use App\Modules\Tenancy\Models\WorkspaceMember;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
 use App\Shared\Support\ExpiryBehaviour;
+use App\Shared\Support\ExportWalk;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Tenancy's half of the data-rights contract (spec 013).
@@ -41,9 +45,58 @@ class TenancyPersonalData implements PersonalDataOwner
      */
     public function export(DataSubject $subject): iterable
     {
-        // TODO(013-US3): yield this module's rows, composing its existing field
-        // allowlist rather than calling ->toArray().
-        yield from [];
+        /*
+        | ⚠️ `invitations.email` IS A BARE CONTACT DETAIL WITH NO ACCOUNT BEHIND IT,
+        | which is what makes this module an owner at all. The row holds an address
+        | for somebody who may never have signed up, so no `user_id` names them and
+        | no cascade reaches them: an erasure elsewhere leaves the address sitting
+        | here for ever, which is FR-020 and FR-023 broken by a table nobody
+        | remembered. The exception once written for this module gave a reason that
+        | was not true, and a wrong exception is worse than none.
+        |
+        | Matched by EMAIL as well as by `accepted_by`: before acceptance the email
+        | is the only thing that names the person.
+        */
+        $email = $subject->user->email;
+
+        // `token` is absent, and `ExportFieldAllowlist` fails the build over it at
+        // any depth: it is a live credential that grants membership of a workspace.
+        yield from ExportWalk::keyed(
+            'workspace_invitation',
+            Invitation::query()
+                ->withoutWorkspaceScope()
+                ->where(function (Builder $query) use ($subject, $email): void {
+                    $query->where('accepted_by', $subject->user->getKey());
+
+                    if ($email !== '') {
+                        $query->orWhere('email', $email);
+                    }
+                }),
+            fn (Invitation $invitation): array => [
+                'email' => $invitation->email,
+                'role' => $invitation->role,
+                'expires_at' => ExportWalk::at($invitation->expires_at),
+                'accepted_at' => ExportWalk::at($invitation->accepted_at),
+                'invited_at' => ExportWalk::at($invitation->created_at),
+            ],
+        );
+
+        // Where this person is a member, and since when. The workspace's NAME, not
+        // its autoincrement id: an internal key means nothing to the person reading
+        // this, and the repository exposes uuids and names in payloads, never ids.
+        yield from ExportWalk::keyed(
+            'workspace_invitation',
+            WorkspaceMember::query()
+                ->leftJoin('workspaces', 'workspaces.id', '=', 'workspace_members.workspace_id')
+                ->where('workspace_members.user_id', $subject->user->getKey())
+                ->select(['workspace_members.*', 'workspaces.name as workspace_name']),
+            fn (WorkspaceMember $member): array => [
+                'workspace_name' => $member->getAttribute('workspace_name'),
+                'role' => $member->role,
+                'joined_at' => ExportWalk::at($member->joined_at),
+            ],
+            column: 'workspace_members.id',
+        );
     }
 
     /**

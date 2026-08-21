@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\CMS\Support;
 
+use App\Modules\CMS\Models\Article;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
 use App\Shared\Support\ExpiryBehaviour;
+use App\Shared\Support\ExportWalk;
 use Carbon\CarbonImmutable;
 
 /**
@@ -41,9 +43,34 @@ class CmsPersonalData implements PersonalDataOwner
      */
     public function export(DataSubject $subject): iterable
     {
-        // TODO(013-US3): yield this module's rows, composing its existing field
-        // allowlist rather than calling ->toArray().
-        yield from [];
+        /*
+        | ⚠️ NO `withTrashed()`, AND THAT IS A FACT ABOUT THE MODEL RATHER THAN A
+        | CHOICE. `cms_articles` HAS a `deleted_at` column and `Article` does NOT use
+        | `SoftDeletes` — so nothing ever writes it, no row is ever hidden, and a
+        | `withTrashed()` here would be a call to a method that does not exist. The
+        | column is vestigial; the day the trait is added, this walk has to be
+        | revisited or a deleted article silently leaves the archive.
+        |
+        | ⚠️ AND THE PAGE IS 200, NOT 500. Every row carries the full body of an
+        | article — kilobytes each, where most personal rows are bytes — and the page
+        | size is what bounds the peak, not the number of rows.
+        */
+        yield from ExportWalk::keyed(
+            'cms_authorship',
+            Article::query()->withoutWorkspaceScope()->where('author_id', $subject->user->getKey()),
+            fn (Article $article): array => [
+                'uuid' => $article->uuid,
+                'title' => $article->title,
+                'slug' => $article->slug,
+                'excerpt' => $article->excerpt,
+                // Their own words. An export of authorship that omitted what was
+                // authored would be a list of titles, not a copy of the content.
+                'body' => $article->body,
+                'status' => $article->status,
+                'published_at' => ExportWalk::at($article->published_at),
+            ],
+            size: 200,
+        );
     }
 
     /**
