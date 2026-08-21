@@ -110,3 +110,38 @@ export const dataRights = {
   download: (uuid: string) =>
     api.download(`/privacy/requests/${uuid}/download`, `my-data-${uuid}.zip`),
 };
+
+/**
+ * One request as the data-protection officer sees it (FR-026 · FR-043).
+ *
+ * ⚠️ THE SUBJECT'S NAME TRAVELS AND THE ARCHIVE DOES NOT. An officer has to know
+ * whose request is late — that is the whole use of the screen — but
+ * `compliance.requests.execute` is the authority to RUN a request and to see that
+ * it ran, never a standing entitlement to read the contents of any child's record.
+ * `DataRequestPolicy::download()` refuses the officer deliberately, so no download
+ * field appears here.
+ */
+export interface OfficerDataRequest extends DataRequestRecord {
+  subject?: { uuid: string; first_name: string; last_name: string } | null;
+}
+
+export const complianceQueue = {
+  list: () => api.get<{ data: OfficerDataRequest[] }>("/manage/compliance/requests"),
+
+  /**
+   * Run it. This is what writes `executed_by_user_id` — an erasure nobody
+   * performed is an audit line nobody can answer for.
+   *
+   * ⚠️ A SECOND PRESS ANSWERS 409 RATHER THAN RUNNING IT TWICE. The server claims
+   * the row with a conditional UPDATE, so two officers pressing together execute
+   * once; the screen turns that into a sentence rather than a silent no-op.
+   */
+  execute: (uuid: string) =>
+    api.post<{ data: OfficerDataRequest }>(`/manage/compliance/requests/${uuid}/execute`),
+
+  refuse: (uuid: string, reason: string) =>
+    api.post<{ data: OfficerDataRequest }>(`/manage/compliance/requests/${uuid}/refuse`, { reason }),
+
+  hold: (body: { student_uuid: string; reason: string }) =>
+    api.post<{ uuid: string; reason: string; placed_at: string }>("/manage/compliance/holds", body),
+};

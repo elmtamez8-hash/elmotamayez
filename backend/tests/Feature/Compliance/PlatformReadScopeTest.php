@@ -58,6 +58,32 @@ it('shows the officer every workspace s requests, not their own', function (): v
     expect($uuids)->toHaveCount(2);
 });
 
+/*
+ * ⚠️ THE QUEUE NAMES THE SUBJECT, AND THE SUBJECT'S OWN LIST DOES NOT.
+ *
+ * An officer reading a queue of late requests has to know WHOSE is late — that is
+ * the entire use of the screen, and a list of uuids and dates is unusable. The
+ * relation is eager-loaded on this route alone and the resource sends it under
+ * `whenLoaded`, so the key is simply absent everywhere else. Both halves are
+ * asserted: an eager load quietly dropped would leave a screen of "حساب غير معروف",
+ * and one added to the personal route would start sending names through a payload
+ * that has no reason to carry them.
+ */
+it('names the subject in the officer queue and nowhere else', function (): void {
+    Sanctum::actingAs($this->officer);
+
+    $queue = $this->getJson('/api/v1/manage/compliance/requests')->assertOk()->json();
+
+    expect($queue[0])->toHaveKey('subject')
+        ->and($queue[0]['subject']['first_name'])->not->toBeNull();
+
+    Sanctum::actingAs($this->firstStudent);
+
+    $mine = $this->getJson('/api/v1/privacy/requests')->assertOk()->json();
+
+    expect($mine[0])->not->toHaveKey('subject');
+});
+
 it('refuses the queue to a teacher who holds no platform permission', function (): void {
     [$workspace, $teacher] = $this->createWorkspaceWithOwner();
 

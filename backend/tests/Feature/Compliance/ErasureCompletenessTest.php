@@ -180,6 +180,42 @@ it('is idempotent, which is what proves every predicate shrinks', function (): v
 });
 
 /*
+ * ⚠️ FR-023 AND THE SEARCH INDEX — WHY THERE IS NO `unsearchable()` CALL ANYWHERE.
+ *
+ * A deleted account must appear in no search result, and Scout keeps its own copy
+ * of a row OUTSIDE the database: delete the row without telling the engine and the
+ * document survives in the index, findable, for ever. So the absence of an index
+ * write in this phase needs to be a MEASURED fact rather than an assumption.
+ *
+ * It is measured here: exactly two models in the product are `Searchable`, both are
+ * teacher-authored CONTENT — a course and a bank question — and neither carries a
+ * student column of any kind. Both belong to categories declared `Retain`, so no
+ * erasure deletes either, and there is nothing for `unsearchable()` to be called
+ * on.
+ *
+ * ⚠️ AND THIS TEST FAILS THE DAY THAT STOPS BEING TRUE. `SCOUT_DRIVER=null` in the
+ * suite means no test can see the index itself, so a `Searchable` model added with
+ * a `user_id` would otherwise ship with its documents outliving every erasure and
+ * nothing anywhere to notice. The list is asserted, not the behaviour, because the
+ * list is what the reasoning rests on.
+ */
+it('has no searchable model that an erasure could strand in the index', function (): void {
+    $searchable = [];
+
+    foreach (glob(app_path('Modules/*/Models/*.php')) ?: [] as $file) {
+        if (str_contains((string) file_get_contents($file), 'Searchable')) {
+            $searchable[] = basename($file, '.php');
+        }
+    }
+
+    sort($searchable);
+
+    expect($searchable)->toBe(['Course', 'Question'])
+        // Both are `Retain`, so no erasure removes the row the document mirrors.
+        ->and(DataCategory::query()->where('key', 'authored_content')->sole()->erasure_mode)->toBe(ErasureMode::Retain);
+});
+
+/*
  * ⚠️ EVERY CATEGORY DECLARES A GRADE, AND A MISSING ONE IS AN ERASURE THAT DOES
  * NOTHING WHILE LOOKING CONFIGURED.
  *

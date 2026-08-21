@@ -41,6 +41,19 @@ export const P = {
   rewardsManage: "rewards.manage",
   // The reconciliation screen reads the same rows as the collection report and
   // is gated on the same name — there is no separate `payments.reconcile`.
+  //
+  // Spec 013 — the data-protection officer's queue. Both are PLATFORM
+  // permissions held by no tenant role: a teacher who could execute an erasure
+  // could destroy a student's record across every OTHER teacher they study with,
+  // and a teacher who could place a hold could freeze an erasure inside their own
+  // workspace and keep the data indefinitely.
+  //
+  // ⚠️ COPIED FROM `Tenancy\Support\Permissions` CHARACTER BY CHARACTER. A name
+  // that matches no permission is indistinguishable from a reader who lacks one —
+  // the sidebar entry simply never appears, nothing fails, and the screen is
+  // reachable only by typing its address. That is what `unlockRulesManage` cost.
+  complianceRequestsExecute: "compliance.requests.execute",
+  complianceHoldsManage: "compliance.holds.manage",
 } as const;
 
 /** Does this user hold it? A user with no list holds nothing. */

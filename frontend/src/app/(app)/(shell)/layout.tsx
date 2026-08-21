@@ -200,6 +200,18 @@ const platformNav: NavItem[] = [
   // workspace, and a teacher holding every tenant permission there is cannot
   // open it.
   { href: "/manage/payments/collection", label: "سجلّ التحصيل", Icon: CreditsIcon, permission: P.billingCollection },
+  /*
+   * Spec 013 — the data-protection officer's queue. PLATFORM, not admin: an
+   * erasure destroys a student's record across every teacher they study with, so
+   * no tenant role holds the permission and a teacher holding all of them cannot
+   * open this.
+   *
+   * ⚠️ AND WITHOUT THIS ENTRY THE ENDPOINTS ARE UNREACHABLE. `store` deliberately
+   * does not dispatch an erasure — FR-019's announced execution period is a person
+   * pressing a button here — so a queue with no way in is every erasure request
+   * ever made sitting `pending` for ever, with nothing failing to say so.
+   */
+  { href: "/manage/compliance", label: "طلبات حقوق البيانات", Icon: ShieldIcon, permission: P.complianceRequestsExecute },
 ];
 
 const allNav = [...mainNav, ...adminNav, ...platformNav];

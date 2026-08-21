@@ -43,6 +43,24 @@ class DataRequestResource extends JsonResource
             'is_downloadable' => $this->isDownloadable(),
             'export_expires_at' => $this->export_expires_at?->toIso8601String(),
             'refusal_reason' => $this->refusal_reason,
+
+            /*
+            | ⚠️ ONLY WHEN THE CALLER EAGER-LOADED IT, WHICH IS THE OFFICER'S QUEUE
+            | AND NOTHING ELSE. `whenLoaded` is the guard rather than a permission
+            | check: the person's own list does not load the relation, so the key is
+            | simply absent there — and an officer reading a queue of requests has to
+            | know whose is late, which is the entire use of the screen.
+            |
+            | The NAME and the uuid, never the email or the phone.
+            | `compliance.requests.execute` is the authority to run a request and to
+            | see that it ran; it is not a standing entitlement to read contact
+            | details for every subject on the platform.
+            */
+            'subject' => $this->whenLoaded('subject', fn (): array => [
+                'uuid' => $this->subject?->uuid,
+                'first_name' => $this->subject?->first_name,
+                'last_name' => $this->subject?->last_name,
+            ]),
         ];
     }
 }
