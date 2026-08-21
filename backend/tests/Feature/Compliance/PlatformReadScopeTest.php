@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use App\Modules\Compliance\Actions\CreateDataRequest;
+use App\Modules\Compliance\Actions\PlaceLegalHold;
+use App\Modules\Compliance\Actions\ReleaseLegalHold;
+use App\Modules\Compliance\Enums\DataRequestStatus;
 use App\Modules\Compliance\Enums\DataRequestType;
 use App\Modules\Compliance\Models\DataRequest;
 use App\Modules\Compliance\Models\LegalHold;
@@ -132,6 +135,47 @@ it('lets one officer execute a request, not two', function (): void {
 
     $this->postJson("/api/v1/manage/compliance/requests/{$request->uuid}/execute")->assertOk();
     $this->postJson("/api/v1/manage/compliance/requests/{$request->uuid}/execute")->assertStatus(409);
+});
+
+/*
+ * ⚠️ AN ERASURE INTERRUPTED BY A HOLD CAN BE RUN AGAIN AFTERWARDS — AND IT COULD
+ * NOT, WHICH IS THE DEAD END THIS CASE EXISTS FOR.
+ *
+ * Trace: the officer executes, `executed_by_user_id` is written, the walk starts, a
+ * hold arrives and parks the request `on_hold`. The hold is later released and the
+ * request returns to `pending`. Pressing execute again matched
+ * `WHERE status = pending AND executed_by_user_id IS NULL` — already set — so it
+ * answered 409 for ever, while `store` never dispatches an erasure and the sweep
+ * never reads `pending`. Dead in three directions at once.
+ *
+ * ⚠️ AND IT WAS MASKED BY A TEST THAT BYPASSED THE ENDPOINT. `LegalHoldTest`'s
+ * release case calls `dispatchSync` directly, which never meets the claim that
+ * refuses. This one goes through the real route, twice, which is the only shape
+ * that fails.
+ */
+it('lets the officer run an erasure that a hold interrupted', function (): void {
+    $request = DataRequest::query()->where('subject_user_id', $this->firstStudent->getKey())->sole();
+
+    Sanctum::actingAs($this->officer);
+    $this->postJson("/api/v1/manage/compliance/requests/{$request->uuid}/execute")->assertOk();
+
+    // The shape the job leaves when a hold arrives mid-walk.
+    $hold = app(PlaceLegalHold::class)->handle($this->firstStudent, $this->officer, 'أمر وصل أثناء المحو');
+    DataRequest::query()->whereKey($request->getKey())->update([
+        'status' => DataRequestStatus::OnHold->value,
+        'refusal_reason' => 'موقوف',
+    ]);
+
+    app(ReleaseLegalHold::class)->handle($hold, $this->officer);
+
+    expect($request->refresh()->status)->toBe(DataRequestStatus::Pending)
+        // The spent authorisation is cleared with the reset — each RUN is answered
+        // for by whoever ordered it, and a walk a court stopped was not that run.
+        ->and($request->executed_by_user_id)->toBeNull();
+
+    $this->postJson("/api/v1/manage/compliance/requests/{$request->uuid}/execute")->assertOk();
+
+    expect($request->refresh()->status)->toBe(DataRequestStatus::Completed);
 });
 
 it('refuses a refusal with no reason', function (): void {

@@ -6,6 +6,7 @@ namespace App\Modules\Compliance\Actions;
 
 use App\Models\User;
 use App\Modules\Compliance\Enums\DataRequestStatus;
+use App\Modules\Compliance\Enums\DataRequestType;
 use App\Modules\Compliance\Models\DataRequest;
 use App\Modules\Compliance\Models\LegalHold;
 use App\Shared\Actions\Action;
@@ -45,8 +46,20 @@ class PlaceLegalHold extends Action
         | hold behind it — a state nothing releases, because releasing reads this
         | table. A hold with no suspended request is merely early.
         */
+        /*
+        | ⚠️ ERASURES ONLY, AND WITHOUT THIS FILTER A HOLD STRANDS THE SUBJECT'S
+        | EXPORT FOR EVER. It is wrong on the merits first — a hold says the data
+        | must STAY, which stops a destruction and has nothing to say about a
+        | person's right to read what is held about them — and the mechanism makes
+        | it permanent: suspending an export moves it out of `pending`, `store`'s
+        | one dispatch has already fired, `RetryStalledDataRequestsJob` sweeps
+        | `processing` alone, and the officer's execute endpoint is for erasures. It
+        | would sit past `due_at` with nothing anywhere left to move it — the
+        | `recording_status = 'ingesting'` family, reached through a new door.
+        */
         DataRequest::query()
             ->where('subject_user_id', $subject->getKey())
+            ->where('type', DataRequestType::Erasure->value)
             ->whereIn('status', [
                 DataRequestStatus::Pending->value,
                 DataRequestStatus::Processing->value,

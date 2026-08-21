@@ -143,6 +143,37 @@ it('lets the request proceed once the hold is released', function (): void {
 });
 
 /*
+ * ⚠️ A HOLD STOPS A DESTRUCTION AND NOTHING ELSE — THE SUBJECT'S EXPORT RUNS ON.
+ *
+ * Wrong on the merits first: a hold says the data must STAY, which has nothing to
+ * say about a person's right to read what is held about them. And the mechanism
+ * made it permanent — suspending an export moves it out of `pending`, `store`'s one
+ * dispatch has already fired, the stalled sweep reads `processing` alone, and the
+ * officer's execute endpoint is for erasures. It sat past `due_at` with nothing left
+ * anywhere to move it.
+ *
+ * ⚠️ IT WAS INVISIBLE BECAUSE EVERY OTHER REQUEST IN THIS FILE IS AN ERASURE. A
+ * suite whose fixtures are all one type cannot see a predicate that forgot to name
+ * a type.
+ */
+it('leaves the subject s export alone when a hold is placed', function (): void {
+    $export = app(CreateDataRequest::class)->handle(
+        $this->subject,
+        (string) $this->subject->uuid,
+        DataRequestType::Export,
+    );
+
+    app(PlaceLegalHold::class)->handle($this->subject, $this->officer, 'أمر قضائي');
+
+    expect($export->refresh()->status)->toBe(DataRequestStatus::Pending);
+
+    FulfilDataRequestJob::dispatchSync((int) $export->getKey());
+
+    expect($export->refresh()->status)->toBe(DataRequestStatus::Completed)
+        ->and($export->export_path)->not->toBeNull();
+});
+
+/*
  * ⚠️ TWO HOLDS, ONE RELEASE — AND THE REQUEST STAYS SUSPENDED.
  *
  * Two courts, two orders, one lifted. Resuming on the first release proceeds

@@ -63,6 +63,23 @@ class ReleaseLegalHold extends Action
             ->where('status', DataRequestStatus::OnHold->value)
             ->update([
                 'status' => DataRequestStatus::Pending->value,
+                /*
+                | ⚠️ THE INTERRUPTED AUTHORISATION IS SPENT, AND LEAVING IT SET IS A
+                | REQUEST NOBODY CAN EVER RUN AGAIN. The officer's execute claims
+                | with `WHERE status = pending AND executed_by_user_id IS NULL`, so
+                | a request that was executed, met a hold mid-walk and came back
+                | here would answer 409 to every later press — while `store` never
+                | dispatches an erasure and the sweep never reads `pending`. Dead in
+                | three directions at once.
+                |
+                | Clearing it is also what FR-026 means: each RUN is answered for by
+                | the person who ordered it, and a walk stopped by a court order was
+                | not the run that finished. Nothing is lost on the concurrency side
+                | — two officers pressing together are already serialised by the
+                | job's own `pending → processing` claim, not by this column.
+                */
+                'executed_by_user_id' => null,
+                'refusal_reason' => null,
                 'updated_at' => now(),
             ]);
 
