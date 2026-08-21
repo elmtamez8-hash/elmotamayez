@@ -126,6 +126,47 @@ it('reaches every workspace the subject studies in', function (): void {
         ->and($titles)->not->toContain('دورة الزميل');
 });
 
+/*
+ * ⚠️ A MEMBERSHIP ROW IS NOT AUTHORSHIP, AND THE FIRST REAL RUN PROVED IT.
+ *
+ * `CoursesPersonalData` walks `DataSubject::$workspaceIds`, which resolved from
+ * `$user->workspaces()` on the stated ground — this repository's own note — that a
+ * student belongs to no workspace. False: `workspace_members.role` has `student` in
+ * it, the demo seeder writes one, and `addWorkspaceMember()` writes one in every
+ * test that needs a student. Run against the seeded database, `student@example.com`
+ * received a 54 KB `authored_content.json` carrying 144 of the TEACHER's courses
+ * and lessons, drafts included.
+ *
+ * ⚠️ AND NO FIXTURE IN THIS SUITE COULD SEE IT, which is why the membership is
+ * written explicitly here. Every other test builds its student with
+ * `User::factory()` and no pivot row, so the walk found no workspaces and the
+ * assertion passed on an empty set — the shape of a guard that agrees with itself.
+ */
+it('gives a student who is a workspace member none of the teacher s content', function (): void {
+    $this->first->members()->attach($this->student->getKey(), [
+        'role' => 'student',
+        'joined_at' => now(),
+    ]);
+
+    $request = completedExportFor($this->student);
+
+    expect(ExportArchive::rows($request, 'authored_content'))->toBe([]);
+});
+
+it('does give a workspace OWNER their own authored content', function (): void {
+    $owner = $this->first->owner_user_id === null
+        ? null
+        : User::query()->find($this->first->owner_user_id);
+
+    expect($owner)->not->toBeNull();
+
+    $request = completedExportFor($owner);
+
+    // The control: without it, a resolver that returned an empty list for
+    // EVERYBODY would pass the test above and break FR-034 in silence.
+    expect(ExportArchive::rows($request, 'authored_content'))->not->toBe([]);
+});
+
 it('carries no other person anywhere in the archive', function (): void {
     $request = completedExportFor($this->student);
 

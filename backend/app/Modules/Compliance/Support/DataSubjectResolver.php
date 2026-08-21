@@ -6,6 +6,7 @@ namespace App\Modules\Compliance\Support;
 
 use App\Models\User;
 use App\Modules\Compliance\Models\DataRequest;
+use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
@@ -45,15 +46,27 @@ final class DataSubjectResolver
     public function forUser(User $user, ?array $grantedScope = null): DataSubject
     {
         /*
-        | ⚠️ WORKSPACE MEMBERSHIP, NOT ENROLMENT. Only `AcceptInvitation` and
-        | `CreateWorkspace` write this pivot, so a student is a member of nothing
-        | and the list is empty for them — which is correct: their rows are found by
-        | their own user id, and the one implementor that needs this list
-        | (`CoursesPersonalData`) is answering FR-034's promise to a departing
-        | TEACHER.
+        | ⚠️ WORKSPACES THIS PERSON OWNS — NOT ONES THEY BELONG TO, AND THE
+        | DIFFERENCE WAS A LEAK MEASURED AGAINST THE SEEDED DATABASE.
+        |
+        | The first version read `$user->workspaces()`, on the stated ground that a
+        | student is a member of no workspace at all. That is what this repository's
+        | own notes say, and it is FALSE in practice: `workspace_members` carries a
+        | `role` column with `student` in it, the demo seeder writes one, and
+        | `addWorkspaceMember()` writes one in every test that needs a student. So
+        | the very first real export run — `student@example.com`, one membership row,
+        | role `student` — produced a 54 KB `authored_content.json` holding 144 of
+        | the TEACHER's courses and lessons, drafts included, inside the student's
+        | own data archive. Nothing in the suite saw it, because every fixture built
+        | its student with `User::factory()` and no membership.
+        |
+        | Ownership is the predicate FR-034 actually names: a departing TEACHER
+        | receives a copy of their content, and the teacher is the workspace's owner.
+        | A membership row is a statement about access, not about authorship.
         */
-        $workspaceIds = $user->workspaces()
-            ->pluck('workspaces.id')
+        $workspaceIds = Workspace::query()
+            ->where('owner_user_id', $user->getKey())
+            ->pluck('id')
             ->map(fn (mixed $id): int => (int) $id)
             ->all();
 

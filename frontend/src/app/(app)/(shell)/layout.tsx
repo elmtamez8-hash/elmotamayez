@@ -146,11 +146,17 @@ const mainNav: NavItem[] = [
    * withdraw the optional part of it. It sits beside «المرتبطون» because that is
    * where a guardian already goes to manage what concerns their children.
    *
-   * ⚠️ AND `/privacy` HERE IS NOT `(public)/privacy`. That one is the policy text
-   * a visitor reads before signing up; this one is the person's own data. Same
-   * word, different question — the nested layouts keep them apart.
+   * ⚠️ AND IT IS `/settings/privacy`, NOT `/privacy` — WHICH IS NOT A PREFERENCE.
+   * `(public)/privacy` already owns that path: it is the policy text a visitor
+   * reads before signing up, linked from every footer and from both signup forms.
+   * Route groups produce NO URL segment, so two pages under different groups
+   * resolving to one path is not two screens kept apart by their layouts — it is
+   * `You cannot have two parallel pages that resolve to the same path`, and Next
+   * refuses to serve the WHOLE APP: every route answers 500, not just these two.
+   * It shipped that way for a session, and neither `tsc --noEmit` nor vitest can
+   * see it, because neither builds routes.
    */
-  { href: "/privacy", label: "خصوصيّتي", Icon: ShieldIcon },
+  { href: "/settings/privacy", label: "خصوصيّتي", Icon: ShieldIcon },
 ];
 
 const adminNav: NavItem[] = [
