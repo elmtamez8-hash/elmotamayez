@@ -12,6 +12,7 @@ use App\Modules\Learning\Listeners\CompleteExamLessonsAlreadyAnswered;
 use App\Modules\Learning\Listeners\ResyncCourseProgress;
 use App\Modules\Learning\Support\EloquentEnrollmentDirectory;
 use App\Modules\Learning\Support\EloquentProgressImpact;
+use App\Modules\Learning\Support\LearningPersonalData;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\ProgressImpact;
 use App\Shared\Modules\Module;
@@ -24,6 +25,16 @@ class LearningServiceProvider extends Module
     public function register(): void
     {
         parent::register();
+
+        /*
+        | Spec 013 — this module's half of the data-rights contract.
+        |
+        | ⚠️ ONE TAGGED LINE, and `Compliance` names no table of ours. It resolves
+        | the tag and walks whatever registered itself — the same shape as 003's
+        | `notification.channels`, and the reason a requirement crossing thirteen
+        | schemas does not violate Constitution III.
+        */
+        $this->app->tag([LearningPersonalData::class], 'compliance.personal_data');
 
         // Learning owns the enrolment; Media asks through the interface rather
         // than reaching into these models, which Constitution III forbids. Same

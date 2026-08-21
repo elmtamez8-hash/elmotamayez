@@ -146,19 +146,19 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 - [X] T053 [US1] [P] أنشئ `GET /privacy/policy` في نفس المتحكّم — يُصيَّر نصُّ Markdown بـ`MarkdownRenderer` القائم، **يُجرِّد HTML الخام** فقائمةُ المسموح هي مجموعةُ ميزات Markdown ولا مُنظِّفَ يُضبَط خطأً
 - [X] T054 [US1] أنشئ `PUT /privacy/consents/categories` في `Compliance/Http/Controllers/PrivacyConsentController.php` — **بالمجموعةِ الكاملةِ والنسخةِ المقروءة**، ويكتب صفَّ موافقةٍ جديداً. ⚠️ **ولا يُعدَّل صفٌّ قديمٌ أبداً**: الصفُّ سجلُّ توقيعٍ في لحظةٍ ومحوُه يمحو الدليلَ على ما وُقِّع. وفرقٌ مُطبَّقٌ على حالةٍ قُرئت قبل ثانيةٍ هو التحديثُ المفقود — نفسُ صيغةِ إعادةِ الترتيب في 016
 - [X] T055 [US1] ⚠️ **لا تُنشئ `POST/GET /privacy/consents` ولا `RecordProcessingConsent`** — `Payments\Http\Controllers\TermsConsentController::index/store` يخدمهما اليوم لكلّ `ConsentDocument` بما فيها `data_processing`، بـip وuser-agent ونسخةٍ من السجلّ وتفويضِ وليّ. اربِط الواجهةَ بالنقطةِ القائمة
-- [ ] T056 [US1] [P] استبدِل `PolicyPlaceholder` بنصّ السياسةِ الحقيقيّ في `frontend/src/app/(public)/privacy/page.tsx` — ⚠️ الصفحةُ **قائمةٌ اليوم** ومربوطةٌ من كلّ تذييل، فوضعُ السياسة خلف مصادقةٍ يترك الزائرَ يقرأ «لم يُكتب النصُّ بعد» **ويُصادِم مسارَين باسم `privacy`**
-- [ ] T057 [US1] [P] أنشئ `frontend/src/components/compliance/ConsentScreen.tsx` — الأصنافُ وأغراضُها ومددُها، واللازمُ مُميَّزٌ عن الاختياريّ. ألوانٌ من `@theme` وحده · خصائصُ منطقية · نصوصٌ من `labels.ts`
-- [ ] T058 [US1] [P] أضف حقلَ تاريخِ الميلاد واتّصالِ الوليّ إلى `frontend/src/app/(public)/signup/**` — الأخطاءُ عبر `fieldErrors()` تحت حقلها
-- [ ] T059 [US1] [P] أضف شاشةَ موافقةِ الوليّ إلى `frontend/src/app/(app)/(shell)/family/` — الشاشةُ **قائمةٌ** وهي موضعُها الطبيعيّ
-- [ ] T060 [US1] [P] أنشئ `frontend/src/lib/compliance.ts` والتسمياتِ العربيةَ في `frontend/src/lib/labels.ts`
+- [X] T056 [US1] [P] استبدِل `PolicyPlaceholder` بنصّ السياسةِ الحقيقيّ في `frontend/src/app/(public)/privacy/page.tsx` — ⚠️ الصفحةُ **قائمةٌ اليوم** ومربوطةٌ من كلّ تذييل، فوضعُ السياسة خلف مصادقةٍ يترك الزائرَ يقرأ «لم يُكتب النصُّ بعد» **ويُصادِم مسارَين باسم `privacy`**
+- [X] T057 [US1] [P] أنشئ `frontend/src/components/compliance/ConsentScreen.tsx` — الأصنافُ وأغراضُها ومددُها، واللازمُ مُميَّزٌ عن الاختياريّ. ألوانٌ من `@theme` وحده · خصائصُ منطقية · نصوصٌ من `labels.ts`
+- [X] T058 [US1] [P] أضف حقلَ تاريخِ الميلاد واتّصالِ الوليّ إلى `frontend/src/app/(public)/signup/**` — الأخطاءُ عبر `fieldErrors()` تحت حقلها
+- [X] T059 [US1] [P] أضف شاشةَ موافقةِ الوليّ إلى `frontend/src/app/(app)/(shell)/family/` — الشاشةُ **قائمةٌ** وهي موضعُها الطبيعيّ
+- [X] T060 [US1] [P] أنشئ `frontend/src/lib/compliance.ts` والتسمياتِ العربيةَ في `frontend/src/lib/labels.ts`
 
 ### حرّاسُ US1
 
 - [X] T061 [US1] [P] أنشئ `backend/tests/Feature/Compliance/MinorConsentGateTest.php` — **`SC-001`**: صفر حسابِ قاصرٍ مفعَّلٍ بلا موافقةٍ مسجَّلةٍ بنسختها ووقتها وعنوانها
-- [ ] T062 [US1] [P] أنشئ `backend/tests/Feature/Compliance/MinorActivationGateTest.php` — **`SC-017`** على **مسار التسجيل الذاتيّ** تحديداً (‏المسارُ الذي لا وليَّ أمرٍ فيه اليوم إطلاقاً)، **ومقيسٌ من `users`** لا من `student_profiles`
+- [X] T062 [US1] [P] أنشئ `backend/tests/Feature/Compliance/MinorActivationGateTest.php` — **`SC-017`** على **مسار التسجيل الذاتيّ** تحديداً (‏المسارُ الذي لا وليَّ أمرٍ فيه اليوم إطلاقاً)، **ومقيسٌ من `users`** لا من `student_profiles`
 - [X] T063 [US1] [P] أنشئ `backend/tests/Feature/Compliance/CategoryWithdrawalTest.php` — **`SC-019`**: سحبٌ ثمّ محاولةُ معالجةٍ تُردّ. و`FR-007` كان **بلا جدولٍ ولا Action ولا نقطةٍ ولا اختبار**
 - [X] T064 [US1] [P] أنشئ `backend/tests/Feature/Compliance/ConsentConflictTest.php` — وصيّان مختلفان: **الرفضُ يغلب**، ويُبلَّغ الطرفان **بلا كشفِ من رفض** (‏قد يكونان في خلافِ حضانةٍ ورسالةٌ تقول «أمُّك رفضت» بيانٌ شخصيٌّ عن ثالثٍ في إشعارٍ آليّ)
-- [ ] T065 [US1] [P] أنشئ `frontend/src/components/compliance/ConsentScreen.test.tsx` — **`SC-003`**: تأكيدٌ على **نصّ الشاشة** أنّ «الظهورُ في تسجيلات الحصص (‏صوتاً وصورةً)» بين **اللازم**
+- [X] T065 [US1] [P] أنشئ `frontend/src/components/compliance/ConsentScreen.test.tsx` — **`SC-003`**: تأكيدٌ على **نصّ الشاشة** أنّ «الظهورُ في تسجيلات الحصص (‏صوتاً وصورةً)» بين **اللازم**
 - [X] T066 [US1] [P] أنشئ `backend/tests/Feature/Compliance/CategoryRegistryCoverageTest.php` — **`SC-002`**: يقارن `data_categories` بالمخطّط الفعليّ ويفشل على عمودٍ شخصيٍّ غيرِ مُعلَن
 - [X] T067 [US1] [P] أنشئ `backend/tests/Feature/Compliance/PlatformRegistryPermissionTest.php` — قاعدةُ الصنف (ب): حاملُ **أعلى** دورِ مستأجرٍ يُردّ بـ403 على الكتالوج والمعالِجين
 - [ ] T068 [US1] [P] أنشئ `backend/tests/Feature/Tenancy/PlatformPermissionPivotTest.php` — ⚠️ **بابٌ ثانٍ لا يمرّ بالنموذج**: نمطُ الهجرات المشحونُ يكتب `DB::table('role_has_permissions')->insertOrIgnore()` مباشرةً. يؤكّد صفر صفٍّ يصل صلاحيةً منصّيةً بدورٍ ذي `team_id` غيرِ معدوم
@@ -175,10 +175,10 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 **اختبارٌ مستقلّ**: اقرأ شاشةَ الموافقة وتحقّق أنّ الظهورَ مُسمًّى بين اللازم؛ وافتح غرفةً مسجَّلةً
 وتحقّق من الإعلان قبل بدء التسجيل.
 
-- [ ] T070 [US2] [P] أضف مكوّنَ إعلانِ التسجيل إلى صفحة الغرفة في `frontend/src/app/(app)/(shell)/**` وسطحَه في `LiveSessions` — **`FR-013`**، وهو أحدُ سطرَين نجَوا من `Q4` وكان **بلا موضعٍ** في نسخةٍ أولى
-- [ ] T071 [US2] [P] أنشئ `backend/tests/Feature/Compliance/RecordingAnnouncementTest.php` — الإعلانُ **قبل** بدء التسجيل لا بعده
-- [ ] T072 [US2] [P] أنشئ `backend/tests/Feature/Compliance/RecordingAccessTest.php` — `FR-012`: صفر حرمانٍ من مشاهدة تسجيلِ حصةٍ حضرها، وصفر وصولٍ لمن لم يحضر. ⚠️ **والمَحرمُ ASCII أو `JSON_UNESCAPED_UNICODE`**: `getContent()` يُهرِّب غيرَ ASCII فتأكيدٌ بعبارةٍ عربيةٍ **صادقٌ فراغاً** أيّاً كانت الحمولة
-- [ ] T073 [US2] [P] أضف حالةً إلى `CategoryRegistryCoverageTest` تؤكّد `class_recording.is_required = true` **وصفر كيانِ موافقةٍ ثانٍ في المخطّط** — `SC-003`
+- [X] T070 [US2] [P] أضف مكوّنَ إعلانِ التسجيل إلى صفحة الغرفة في `frontend/src/app/(app)/(shell)/**` وسطحَه في `LiveSessions` — **`FR-013`**، وهو أحدُ سطرَين نجَوا من `Q4` وكان **بلا موضعٍ** في نسخةٍ أولى
+- [X] T071 [US2] [P] أنشئ `backend/tests/Feature/Compliance/RecordingAnnouncementTest.php` — الإعلانُ **قبل** بدء التسجيل لا بعده
+- [X] T072 [US2] [P] أنشئ `backend/tests/Feature/Compliance/RecordingAccessTest.php` — `FR-012`: صفر حرمانٍ من مشاهدة تسجيلِ حصةٍ حضرها، وصفر وصولٍ لمن لم يحضر. ⚠️ **والمَحرمُ ASCII أو `JSON_UNESCAPED_UNICODE`**: `getContent()` يُهرِّب غيرَ ASCII فتأكيدٌ بعبارةٍ عربيةٍ **صادقٌ فراغاً** أيّاً كانت الحمولة
+- [X] T073 [US2] [P] أضف حالةً إلى `CategoryRegistryCoverageTest` تؤكّد `class_recording.is_required = true` **وصفر كيانِ موافقةٍ ثانٍ في المخطّط** — `SC-003`
 
 **Checkpoint**: `US1` + `US2` قابلتان للتسليم.
 
@@ -201,19 +201,19 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 
 ### تنفيذُ العقدِ في ١٣ وحدة — `describe()` و`export()`
 
-- [ ] T080 [P] [US3] [P] أنشئ `Identity/Support/IdentityPersonalData.php` ووسِمْه في مزوّدها بـ`compliance.personal_data`
-- [ ] T081 [P] [US3] [P] أنشئ `Learning/Support/LearningPersonalData.php` — ⚠️ `lesson_progress` **بلا عمودِ مستخدم**، يُبلَغ عبر `enrollment_id`؛ **تُقطَّع قائمةُ المعرّفات عند ٥٠٠** فالضخمُ هو القائمةُ الأبوَّةُ لا المشي
-- [ ] T082 [P] [US3] [P] أنشئ `Assessments/Support/AssessmentsPersonalData.php` مُركِّباً `AssessmentFieldAllowlist` القائمة — ⚠️ **أثقلُ وحدة**: `attempt_items` صفٌّ لكلّ عنصرٍ من كلّ محاولةٍ **وكلٌّ يحمل لقطةَ JSON**، فهو الجدولُ الشخصيُّ الوحيدُ الذي صفوفُه كيلوبايتاتٌ لا بايتات
-- [ ] T083 [P] [US3] [P] أنشئ `Certificates/Support/CertificatesPersonalData.php`
-- [ ] T084 [P] [US3] [P] أنشئ `Payments/Support/PaymentsPersonalData.php` مُركِّباً `PaymentFieldAllowlist` — ⚠️ **ويذكر وجودَ الإيصال وتاريخَه ولا يُضمّن `receipt_url` ولا صورتَه**: صورةُ حوالةٍ يرفعها إنسانٌ قد تحمل اسمَ صاحبِ حسابٍ **ثالثٍ** ورقمَه، وهو ما يمنعه `SC-005`. تضمينُ صورةٍ لم نقرأها في أرشيفٍ يُسلَّم نشرُ ما لا نعرف محتواه
-- [ ] T085 [P] [US3] [P] أنشئ `LiveSessions/Support/LiveSessionsPersonalData.php` — ويُستثنى صفُّ المضيف بـ`Attendance::scopeExcludingHost()`
-- [ ] T086 [P] [US3] [P] أنشئ `Media/Support/MediaPersonalData.php` مُركِّباً `MediaFieldAllowlist`
-- [ ] T087 [P] [US3] [P] أنشئ `Notifications/Support/NotificationsPersonalData.php`
-- [ ] T088 [P] [US3] [P] أنشئ `Marketplace/Support/MarketplacePersonalData.php` مُركِّباً `PublicFieldAllowlist`
-- [ ] T089 [P] [US3] [P] أنشئ `Settlement/Support/SettlementPersonalData.php` مُركِّباً `TeacherFieldAllowlist`
-- [ ] T090 [P] [US3] [P] أنشئ `CMS/Support/CmsPersonalData.php`
-- [ ] T091 [P] [US3] [P] أنشئ `Courses/Support/CoursesPersonalData.php` — ⚠️ **مُضافةٌ في المراجعة**: كانت مستثناةً بحُجّة «تملك ما ينتجه المدرّس»، **و`FR-034` يطلب أن يستقبل المدرّسُ الخارجُ نسخةً من محتواه** وهو `courses`/`course_sections`/`course_chapters`/`lessons` ولا يُنشئها غيرُها — فـ`content_export_path` كان **بلا ما يناديه**
-- [ ] T092 [P] [US3] [P] أنشئ `Tenancy/Support/TenancyPersonalData.php` — ⚠️ **مُضافةٌ في المراجعة**: `invitations` تحمل `email` مجرَّداً و`accepted_by → users`، فبريدُ شخصٍ محويٍّ يبقى فيها وهو خرقُ `FR-020` و`FR-023`. والاستثناءُ الذي كان مكتوباً لها **سببُه غيرُ صحيح**، وهو أسوأُ من لا استثناء
+- [X] T080 [P] [US3] [P] أنشئ `Identity/Support/IdentityPersonalData.php` ووسِمْه في مزوّدها بـ`compliance.personal_data`
+- [X] T081 [P] [US3] [P] أنشئ `Learning/Support/LearningPersonalData.php` — ⚠️ `lesson_progress` **بلا عمودِ مستخدم**، يُبلَغ عبر `enrollment_id`؛ **تُقطَّع قائمةُ المعرّفات عند ٥٠٠** فالضخمُ هو القائمةُ الأبوَّةُ لا المشي
+- [X] T082 [P] [US3] [P] أنشئ `Assessments/Support/AssessmentsPersonalData.php` مُركِّباً `AssessmentFieldAllowlist` القائمة — ⚠️ **أثقلُ وحدة**: `attempt_items` صفٌّ لكلّ عنصرٍ من كلّ محاولةٍ **وكلٌّ يحمل لقطةَ JSON**، فهو الجدولُ الشخصيُّ الوحيدُ الذي صفوفُه كيلوبايتاتٌ لا بايتات
+- [X] T083 [P] [US3] [P] أنشئ `Certificates/Support/CertificatesPersonalData.php`
+- [X] T084 [P] [US3] [P] أنشئ `Payments/Support/PaymentsPersonalData.php` مُركِّباً `PaymentFieldAllowlist` — ⚠️ **ويذكر وجودَ الإيصال وتاريخَه ولا يُضمّن `receipt_url` ولا صورتَه**: صورةُ حوالةٍ يرفعها إنسانٌ قد تحمل اسمَ صاحبِ حسابٍ **ثالثٍ** ورقمَه، وهو ما يمنعه `SC-005`. تضمينُ صورةٍ لم نقرأها في أرشيفٍ يُسلَّم نشرُ ما لا نعرف محتواه
+- [X] T085 [P] [US3] [P] أنشئ `LiveSessions/Support/LiveSessionsPersonalData.php` — ويُستثنى صفُّ المضيف بـ`Attendance::scopeExcludingHost()`
+- [X] T086 [P] [US3] [P] أنشئ `Media/Support/MediaPersonalData.php` مُركِّباً `MediaFieldAllowlist`
+- [X] T087 [P] [US3] [P] أنشئ `Notifications/Support/NotificationsPersonalData.php`
+- [X] T088 [P] [US3] [P] أنشئ `Marketplace/Support/MarketplacePersonalData.php` مُركِّباً `PublicFieldAllowlist`
+- [X] T089 [P] [US3] [P] أنشئ `Settlement/Support/SettlementPersonalData.php` مُركِّباً `TeacherFieldAllowlist`
+- [X] T090 [P] [US3] [P] أنشئ `CMS/Support/CmsPersonalData.php`
+- [X] T091 [P] [US3] [P] أنشئ `Courses/Support/CoursesPersonalData.php` — ⚠️ **مُضافةٌ في المراجعة**: كانت مستثناةً بحُجّة «تملك ما ينتجه المدرّس»، **و`FR-034` يطلب أن يستقبل المدرّسُ الخارجُ نسخةً من محتواه** وهو `courses`/`course_sections`/`course_chapters`/`lessons` ولا يُنشئها غيرُها — فـ`content_export_path` كان **بلا ما يناديه**
+- [X] T092 [P] [US3] [P] أنشئ `Tenancy/Support/TenancyPersonalData.php` — ⚠️ **مُضافةٌ في المراجعة**: `invitations` تحمل `email` مجرَّداً و`accepted_by → users`، فبريدُ شخصٍ محويٍّ يبقى فيها وهو خرقُ `FR-020` و`FR-023`. والاستثناءُ الذي كان مكتوباً لها **سببُه غيرُ صحيح**، وهو أسوأُ من لا استثناء
 
 ### التصديرُ والتسليم
 
@@ -230,7 +230,7 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 
 ### حرّاسُ US3
 
-- [ ] T103 [US3] [P] أنشئ `backend/tests/Feature/Compliance/PersonalDataContractCoverageTest.php` — **`SC-004`**: القائمتان مُشتقّتان من الهجرات **ويشمل جذرَ `database/migrations/`** حيث يعيش **`users`** نفسُه وكان خارجَ الاشتقاق، **ويُثبت تصديرَ الجداول لا تسجيلَ الوحدة** (‏جدولٌ يُضاف داخل وحدةٍ مسجَّلةٍ سلفاً غيرُ مرئيٍّ لفحصِ التسجيل — وهو الانحرافُ الذي يدّعي المعيارُ مسكَه)
+- [X] T103 [US3] [P] أنشئ `backend/tests/Feature/Compliance/PersonalDataContractCoverageTest.php` — **`SC-004`**: القائمتان مُشتقّتان من الهجرات **ويشمل جذرَ `database/migrations/`** حيث يعيش **`users`** نفسُه وكان خارجَ الاشتقاق، **ويُثبت تصديرَ الجداول لا تسجيلَ الوحدة** (‏جدولٌ يُضاف داخل وحدةٍ مسجَّلةٍ سلفاً غيرُ مرئيٍّ لفحصِ التسجيل — وهو الانحرافُ الذي يدّعي المعيارُ مسكَه)
 - [ ] T104 [US3] [P] أنشئ `backend/tests/Feature/Compliance/ExportCompletenessTest.php` — **`SC-005`** بـ**مساحتَي عملٍ** ومَحرمٍ ASCII
 - [ ] T105 [US3] [P] أنشئ `backend/tests/Feature/Compliance/ExportScaleTest.php` — **`SC-014`**: ٥٠٬٠٠٠ صفٍّ بلا قفلِ جدولٍ حيّ **وبلا تجاوزِ الذاكرة**. والذاكرةُ هي ما يفشل لا عددُ الاستعلامات
 - [ ] T106 [US3] [P] أنشئ `backend/tests/Feature/Compliance/StalledRequestSweepTest.php` — **`SC-021`**: قتلُ عاملٍ في المنتصف، والكنسةُ تُعيد الإرسال
@@ -250,7 +250,7 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 
 - [X] T110 [US4] أنشئ هجرةَ `legal_holds` بفهرسَي `(subject_user_id, released_at)` و`(released_at)` — الثاني لأن الكنسةَ تسأل «كلُّ التعليقات السارية» **مرّةً لكلّ تشغيل** لا صفّاً صفّاً. و`whereNull('released_at')` **لا عمودٌ منطقيٌّ ثانٍ**: `is_active` بجانبه جوابان لسؤالٍ واحدٍ يتباعدان
 - [X] T111 [US4] [P] أنشئ `Compliance/Models/LegalHold.php` و`Actions/{PlaceLegalHold,ReleaseLegalHold}.php` — و`PlaceLegalHold` **يُطالِب الطلبَ بتحديثٍ شرطيّ** (`WHERE status IN ('pending','processing')` ← `on_hold`) فتتسلسل الكتابتان على صفٍّ واحدٍ بدل أن تتسابقا
-- [ ] T112 [US4] أنشئ `Compliance/Support/Anonymiser.php` — **قيمٌ محايدةٌ ثابتةٌ ومعرّفٌ يُقطَع، ولا تجزئةَ لاسمٍ ولا لهاتف**: مجالُ رقمِ هاتفٍ قطريٍّ صغيرٌ بما يُعكَس بالقوة الغاشمة في دقائق
+- [X] T112 [US4] أنشئ `Compliance/Support/Anonymiser.php` — **قيمٌ محايدةٌ ثابتةٌ ومعرّفٌ يُقطَع، ولا تجزئةَ لاسمٍ ولا لهاتف**: مجالُ رقمِ هاتفٍ قطريٍّ صغيرٌ بما يُعكَس بالقوة الغاشمة في دقائق
 - [ ] T113 [US4] أنشئ `Compliance/Actions/ExecuteDataErasure.php` تنادي `erase()` في حلقةٍ حتى `< $limit` — **ومعاملةٌ لكلّ دفعةٍ على الأكثر، ولكلّ شخصٍ في الإخفاء+قطعِ المؤشّر**: نصفُ إخفاءٍ ثغرةُ إعادةِ تعريف
 - [ ] T114 [US4] في `backend/app/Modules/Compliance/Actions/ExecuteDataErasure.php`: أعِدْ قراءةَ `legal_holds` **في رأس كلّ دفعة** — ⚠️ **للتعليق بابٌ ثالث**: وضعُه **أثناء** محوٍ جارٍ. `erase()` يمشي دقائق، فقراءةٌ عند بدء الوظيفة **قديمةٌ لبقيّة المشي** — والمحوُ لا يُعكَس
 - [ ] T115 [US4] أضف `erase()` إلى الثلاثةَ عشرَ ملفَّ `backend/app/Modules/*/Support/*PersonalData.php` — **`chunkById` للإخفاء** (‏الصفُّ يبقى فيلزم مؤشّر) **وحلقةُ `->limit(1000)->delete()` للحذف** (‏بيانٌ واحدٌ لكلّ دفعة، وهو ما يفعله `PruneOldNotificationsJob`). و`chunk` ممنوعٌ في الحالتَين

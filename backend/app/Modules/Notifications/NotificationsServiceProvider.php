@@ -35,6 +35,7 @@ use App\Modules\Notifications\Listeners\NotifyTeacherApproved;
 use App\Modules\Notifications\Listeners\NotifyTeacherAssignmentSubmitted;
 use App\Modules\Notifications\Listeners\NotifyTeacherChangesRequested;
 use App\Modules\Notifications\Listeners\NotifyTeacherRejected;
+use App\Modules\Notifications\Support\NotificationsPersonalData;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
 
@@ -45,6 +46,16 @@ class NotificationsServiceProvider extends Module
     public function register(): void
     {
         parent::register();
+
+        /*
+        | Spec 013 — this module's half of the data-rights contract.
+        |
+        | ⚠️ ONE TAGGED LINE, and `Compliance` names no table of ours. It resolves
+        | the tag and walks whatever registered itself — the same shape as 003's
+        | `notification.channels`, and the reason a requirement crossing thirteen
+        | schemas does not violate Constitution III.
+        */
+        $this->app->tag([NotificationsPersonalData::class], 'compliance.personal_data');
 
         // ── The one line a new channel adds ──────────────────────────────────
         // Add the class here, ship its templates, and every notification type in

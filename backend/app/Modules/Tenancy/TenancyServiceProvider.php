@@ -13,6 +13,7 @@ use App\Modules\Tenancy\Policies\PlatformStaffPolicy;
 use App\Modules\Tenancy\Policies\RolePolicy;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\PlatformStaffDirectory;
+use App\Modules\Tenancy\Support\TenancyPersonalData;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -24,6 +25,16 @@ class TenancyServiceProvider extends Module
     public function boot(): void
     {
         parent::boot();
+
+        /*
+        | Spec 013 — this module's half of the data-rights contract.
+        |
+        | ⚠️ ONE TAGGED LINE, and `Compliance` names no table of ours. It resolves
+        | the tag and walks whatever registered itself — the same shape as 003's
+        | `notification.channels`, and the reason a requirement crossing thirteen
+        | schemas does not violate Constitution III.
+        */
+        $this->app->tag([TenancyPersonalData::class], 'compliance.personal_data');
 
         Event::listen(
             WorkspaceCreated::class,

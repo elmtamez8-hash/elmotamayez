@@ -26,6 +26,7 @@ use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
 use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
 use App\Modules\LiveSessions\Support\EloquentFreezeDirectory;
 use App\Modules\LiveSessions\Support\EloquentSessionAttendanceDirectory;
+use App\Modules\LiveSessions\Support\LiveSessionsPersonalData;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Media\Events\MediaAssetReady;
 use App\Shared\Contracts\FreezeDirectory;
@@ -41,6 +42,16 @@ class LiveSessionsServiceProvider extends Module
     public function register(): void
     {
         parent::register();
+
+        /*
+        | Spec 013 — this module's half of the data-rights contract.
+        |
+        | ⚠️ ONE TAGGED LINE, and `Compliance` names no table of ours. It resolves
+        | the tag and walks whatever registered itself — the same shape as 003's
+        | `notification.channels`, and the reason a requirement crossing thirteen
+        | schemas does not violate Constitution III.
+        */
+        $this->app->tag([LiveSessionsPersonalData::class], 'compliance.personal_data');
 
         /*
          * The inversion point. Adding a commercial broadcast provider is a file

@@ -16,6 +16,7 @@ use App\Modules\Assessments\Policies\ConceptPolicy;
 use App\Modules\Assessments\Policies\GradingPolicy;
 use App\Modules\Assessments\Policies\QuestionPolicy;
 use App\Modules\Assessments\Policies\SubmissionPolicy;
+use App\Modules\Assessments\Support\AssessmentsPersonalData;
 use App\Modules\Assessments\Support\EloquentUnlockDirectory;
 use App\Shared\Contracts\UnlockDirectory;
 use App\Shared\Modules\Module;
@@ -28,6 +29,16 @@ class AssessmentsServiceProvider extends Module
     public function register(): void
     {
         parent::register();
+
+        /*
+        | Spec 013 — this module's half of the data-rights contract.
+        |
+        | ⚠️ ONE TAGGED LINE, and `Compliance` names no table of ours. It resolves
+        | the tag and walks whatever registered itself — the same shape as 003's
+        | `notification.channels`, and the reason a requirement crossing thirteen
+        | schemas does not violate Constitution III.
+        */
+        $this->app->tag([AssessmentsPersonalData::class], 'compliance.personal_data');
 
         /*
         | Spec 008 · US7. LiveSessions asks whether a student has earned the next

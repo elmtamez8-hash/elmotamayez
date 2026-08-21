@@ -41,6 +41,7 @@ use App\Modules\Payments\Providers\ManualTransferProvider;
 use App\Modules\Payments\Providers\PaymentProviderRegistry;
 use App\Modules\Payments\Support\EloquentAccountStanding;
 use App\Modules\Payments\Support\EloquentConsentDirectory;
+use App\Modules\Payments\Support\PaymentsPersonalData;
 use App\Shared\Contracts\AccountStanding;
 use App\Shared\Contracts\ConsentDirectory;
 use App\Shared\Modules\Module;
@@ -54,6 +55,16 @@ class PaymentsServiceProvider extends Module
     public function register(): void
     {
         parent::register();
+
+        /*
+        | Spec 013 — this module's half of the data-rights contract.
+        |
+        | ⚠️ ONE TAGGED LINE, and `Compliance` names no table of ours. It resolves
+        | the tag and walks whatever registered itself — the same shape as 003's
+        | `notification.channels`, and the reason a requirement crossing thirteen
+        | schemas does not violate Constitution III.
+        */
+        $this->app->tag([PaymentsPersonalData::class], 'compliance.personal_data');
 
         // Bind the manual provider as the default implementation.
         $this->app->bind(PaymentProviderInterface::class, ManualTransferProvider::class);

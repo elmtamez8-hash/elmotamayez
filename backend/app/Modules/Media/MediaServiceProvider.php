@@ -9,6 +9,7 @@ use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Policies\MediaAssetPolicy;
 use App\Modules\Media\Providers\BunnyMediaProvider;
 use App\Modules\Media\Providers\LocalMediaProvider;
+use App\Modules\Media\Support\MediaPersonalData;
 use App\Modules\Media\Support\MediaProviderResolver;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Gate;
@@ -21,6 +22,16 @@ class MediaServiceProvider extends Module
     public function register(): void
     {
         parent::register();
+
+        /*
+        | Spec 013 — this module's half of the data-rights contract.
+        |
+        | ⚠️ ONE TAGGED LINE, and `Compliance` names no table of ours. It resolves
+        | the tag and walks whatever registered itself — the same shape as 003's
+        | `notification.channels`, and the reason a requirement crossing thirteen
+        | schemas does not violate Constitution III.
+        */
+        $this->app->tag([MediaPersonalData::class], 'compliance.personal_data');
 
         /*
          * The inversion point. Adding a commercial provider is a file in

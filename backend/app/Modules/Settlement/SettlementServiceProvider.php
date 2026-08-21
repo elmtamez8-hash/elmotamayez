@@ -21,6 +21,7 @@ use App\Modules\Settlement\Policies\RateChangeRequestPolicy;
 use App\Modules\Settlement\Policies\SettlementPeriodPolicy;
 use App\Modules\Settlement\Policies\TeachingUnitPolicy;
 use App\Modules\Settlement\Support\EloquentApprovedRateDirectory;
+use App\Modules\Settlement\Support\SettlementPersonalData;
 use App\Shared\Contracts\ApprovedRateDirectory;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
@@ -47,6 +48,16 @@ class SettlementServiceProvider extends Module
     public function register(): void
     {
         parent::register();
+
+        /*
+        | Spec 013 — this module's half of the data-rights contract.
+        |
+        | ⚠️ ONE TAGGED LINE, and `Compliance` names no table of ours. It resolves
+        | the tag and walks whatever registered itself — the same shape as 003's
+        | `notification.channels`, and the reason a requirement crossing thirteen
+        | schemas does not violate Constitution III.
+        */
+        $this->app->tag([SettlementPersonalData::class], 'compliance.personal_data');
 
         // Settlement owns the approved rate; Payments asks through the interface
         // and never learns that `settlement_rates` exists. Same binding shape as

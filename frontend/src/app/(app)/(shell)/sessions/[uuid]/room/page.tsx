@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { BroadcastStage } from "@/components/sessions/BroadcastStage";
 import { PresenceLoop } from "@/components/sessions/PresenceLoop";
+import { RecordingNotice } from "@/components/compliance/RecordingNotice";
 import { Alert } from "@/components/ui/Alert";
 import { UnlockNotice } from "@/components/sessions/UnlockNotice";
 import { Button } from "@/components/ui/Button";
@@ -124,6 +125,15 @@ export default function SessionRoomPage({
 
       {ticket !== null && (
         <>
+          {/*
+            ⚠️ ABOVE THE STAGE, AND BEFORE ANY RECORDING STARTS (FR-013). A notice
+            that appears when recording BEGINS is not a notice — the participant is
+            already in the file by the time they read it. It is drawn as soon as
+            the room opens, because "this room is recorded" is a property of the
+            session, not of the current second.
+          */}
+          <RecordingNotice />
+
           <Card padding="sm">
             <BroadcastStage ticket={ticket} sessionUuid={uuid} />
           </Card>

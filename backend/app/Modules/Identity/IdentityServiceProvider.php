@@ -8,6 +8,7 @@ use App\Modules\Identity\Listeners\ActivateOnProcessingConsent;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Policies\AuthSessionPolicy;
 use App\Modules\Identity\Support\EloquentGuardianDirectory;
+use App\Modules\Identity\Support\IdentityPersonalData;
 use App\Modules\Payments\Events\ProcessingConsentGranted;
 use App\Shared\Contracts\GuardianDirectory;
 use App\Shared\Modules\Module;
@@ -21,6 +22,16 @@ class IdentityServiceProvider extends Module
     public function register(): void
     {
         parent::register();
+
+        /*
+        | Spec 013 — this module's half of the data-rights contract.
+        |
+        | ⚠️ ONE TAGGED LINE, and `Compliance` names no table of ours. It resolves
+        | the tag and walks whatever registered itself — the same shape as 003's
+        | `notification.channels`, and the reason a requirement crossing thirteen
+        | schemas does not violate Constitution III.
+        */
+        $this->app->tag([IdentityPersonalData::class], 'compliance.personal_data');
 
         // Identity owns the relation; Notifications asks through the interface.
         // Reaching into another module's models directly is what Constitution III
