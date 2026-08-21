@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Compliance;
 
 use App\Modules\Compliance\Models\DataRequest;
+use App\Modules\Compliance\Models\LegalHold;
 use App\Modules\Compliance\Policies\DataRequestPolicy;
+use App\Modules\Compliance\Policies\LegalHoldPolicy;
 use App\Modules\Compliance\Support\PersonalDataRegistry;
 use App\Shared\Modules\Module;
 use App\Shared\Modules\ModulesServiceProvider;
@@ -58,5 +60,6 @@ class ComplianceServiceProvider extends Module
         | nothing.
         */
         Gate::policy(DataRequest::class, DataRequestPolicy::class);
+        Gate::policy(LegalHold::class, LegalHoldPolicy::class);
     }
 }

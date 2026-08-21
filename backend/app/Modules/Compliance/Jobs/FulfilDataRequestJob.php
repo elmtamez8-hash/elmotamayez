@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\Compliance\Jobs;
 
+use App\Modules\Compliance\Actions\ExecuteDataErasure;
 use App\Modules\Compliance\Actions\ExecuteDataExport;
 use App\Modules\Compliance\Enums\DataRequestStatus;
 use App\Modules\Compliance\Enums\DataRequestType;
+use App\Modules\Compliance\Exceptions\LegalHoldInForce;
 use App\Modules\Compliance\Models\DataRequest;
 use App\Modules\Compliance\Support\ComplianceSettings;
 use Illuminate\Bus\Queueable;
@@ -71,28 +73,13 @@ class FulfilDataRequestJob implements ShouldQueue
         $this->onQueue('compliance');
     }
 
-    public function handle(ExecuteDataExport $export): void
+    public function handle(ExecuteDataExport $export, ExecuteDataErasure $erasure): void
     {
         $now = now();
 
         $request = DataRequest::query()->find($this->dataRequestId);
 
         if ($request === null) {
-            return;
-        }
-
-        /*
-        | ⚠️ THE TYPE IS CHECKED BEFORE THE CLAIM, AND THE OTHER ORDER IS AN
-        | INFINITE LOOP. Erasure is a different Action with a different
-        | reversibility and it lands with US4 — but claiming a request and then
-        | returning takes a lock nothing releases: the sweep finds it stale, resets
-        | it to pending, re-dispatches, it claims and returns again, every thirty
-        | minutes for ever, logging a stall each time while the person's request
-        | never moves and is never refused. `StoreDataRequestRequest` refuses the
-        | type at the door as well; this is the second half, because the Action is
-        | reachable from a seeder and from the panel with no form in front of it.
-        */
-        if ($request->type === DataRequestType::Erasure) {
             return;
         }
 
@@ -118,6 +105,29 @@ class FulfilDataRequestJob implements ShouldQueue
         $request->refresh();
 
         try {
+            /*
+            | ⚠️ A ROUTER, AND ERASURE GETS ITS OWN BRANCH RATHER THAN A FLAG.
+            | Folding "delete everything about this person" into the export path
+            | behind a boolean would put an irreversible operation one truthy value
+            | away from a walk that is otherwise read-only. Two Actions, two names,
+            | and the claim above is shared because the concurrency question is the
+            | same for both: two workers must not run one request twice.
+            */
+            if ($request->type === DataRequestType::Erasure) {
+                $erasure->handle($request);
+
+                $request->forceFill([
+                    'status' => DataRequestStatus::Completed->value,
+                    'completed_at' => $now,
+                    // No archive, and therefore no `export_expires_at`: an erasure
+                    // produces nothing to download. A file here would be a copy of
+                    // exactly what was just destroyed.
+                    'open_key' => null,
+                ])->save();
+
+                return;
+            }
+
             $result = $export->handle($request);
 
             $request->forceFill([
@@ -128,6 +138,18 @@ class FulfilDataRequestJob implements ShouldQueue
                 // The lock is released the moment the request closes: the person
                 // may open a new one, and NULL never collides with NULL.
                 'open_key' => null,
+            ])->save();
+        } catch (LegalHoldInForce $hold) {
+            /*
+            | ⚠️ A HOLD IS NOT A FAILURE, AND IT MUST NOT LOOK LIKE ONE. Left in
+            | `processing` it would be revived by the stalled sweep every thirty
+            | minutes and meet the same hold for as long as the hold stands — an
+            | unbounded loop over a court order. `on_hold` is a state the sweep does
+            | not read and `ReleaseLegalHold` does.
+            */
+            $request->forceFill([
+                'status' => DataRequestStatus::OnHold->value,
+                'refusal_reason' => $hold->getMessage(),
             ])->save();
         } catch (Throwable $exception) {
             /*

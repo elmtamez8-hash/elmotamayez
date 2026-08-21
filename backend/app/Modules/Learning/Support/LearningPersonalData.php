@@ -122,8 +122,41 @@ class LearningPersonalData implements PersonalDataOwner
      */
     public function erase(DataSubject $subject, ErasureMode $mode, int $limit): int
     {
-        // TODO(013-US4): erase or anonymise this module's rows for the subject.
-        return 0;
+        if ($mode !== ErasureMode::Delete) {
+            return 0;
+        }
+
+        /*
+        | ⚠️ CHILDREN FIRST, AND `lesson_progress` REACHES ITS STUDENT ONLY THROUGH
+        | `enrollment_id`. Deleting the enrolments first would orphan every progress
+        | row behind an id nothing can resolve — rows about a person that no walk
+        | can ever find again, which is FR-020 broken by an ordering rather than by
+        | an omission.
+        |
+        | The id list comes from the subject rather than from a query here: it is
+        | resolved once at the top of the walk, and it is still true after this
+        | batch because the enrolments are deleted only when the progress is gone.
+        */
+        $deleted = 0;
+
+        foreach (array_chunk($subject->enrollmentIds, 500) as $enrollmentIds) {
+            $deleted += LessonProgress::query()
+                ->withoutWorkspaceScope()
+                ->whereIn('enrollment_id', $enrollmentIds)
+                ->limit($limit)
+                ->delete();
+
+            if ($deleted >= $limit) {
+                return $deleted;
+            }
+        }
+
+        // Only once no progress row is left: the predicate above depends on these.
+        return $deleted + Enrollment::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $subject->user->getKey())
+            ->limit($limit - $deleted)
+            ->delete();
     }
 
     /**

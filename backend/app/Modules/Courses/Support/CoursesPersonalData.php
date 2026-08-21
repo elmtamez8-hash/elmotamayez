@@ -117,7 +117,15 @@ class CoursesPersonalData implements PersonalDataOwner
      */
     public function erase(DataSubject $subject, ErasureMode $mode, int $limit): int
     {
-        // TODO(013-US4): erase or anonymise this module's rows for the subject.
+        /*
+        | ⚠️ NOTHING HAPPENS HERE, AND AN ERASURE MUST NOT TAKE A COURSE DOWN.
+        | `authored_content` declares `ErasureMode::Retain` because the rows are the
+        | workspace's TEACHING MATERIAL: students are enrolled in it, have paid for
+        | it, and are part-way through it. A departing teacher's right to their own
+        | data is answered by the EXPORT — FR-034 hands them a copy — and what
+        | happens to the material afterwards is spec 013's offboarding decision
+        | (US6), taken by a person with a notice period, not by a background job.
+        */
         return 0;
     }
 

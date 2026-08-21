@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Compliance\Http\Controllers\DataRequestController;
+use App\Modules\Compliance\Http\Controllers\Manage\ComplianceRequestController;
 use App\Modules\Compliance\Http\Controllers\PrivacyCategoryController;
 use App\Modules\Compliance\Http\Controllers\PrivacyConsentController;
 use Illuminate\Support\Facades\Route;
@@ -70,6 +71,29 @@ Route::middleware('auth:sanctum')->group(function (): void {
     });
 
     Route::get('/privacy/requests', [DataRequestController::class, 'index']);
+
+    /*
+    | The data-protection officer's queue (FR-026 · FR-043).
+    |
+    | ⚠️ NO `can:` MIDDLEWARE — the authorisation is `$this->authorize()` INSIDE each
+    | method, which is the shape every other controller in this repository uses.
+    | `can:` appears nowhere else here, and a route-level gate cannot see the row it
+    | is deciding about.
+    |
+    | ⚠️ AND EXECUTION IS SEPARATE FROM CREATION ON PURPOSE. An erasure opened by a
+    | family waits here until a person runs it: that is FR-019's announced execution
+    | period, and it is what writes `executed_by_user_id`.
+    */
+    Route::prefix('manage/compliance')->group(function (): void {
+        Route::get('/requests', [ComplianceRequestController::class, 'index']);
+        Route::post('/requests/{dataRequest}/execute', [ComplianceRequestController::class, 'execute']);
+        Route::post('/requests/{dataRequest}/refuse', [ComplianceRequestController::class, 'refuse']);
+
+        Route::post('/holds', [ComplianceRequestController::class, 'hold']);
+        // A release, not a destruction — the row is the record that an erasure was
+        // suspended. See `LegalHoldPolicy::delete()`.
+        Route::delete('/holds/{legalHold}', [ComplianceRequestController::class, 'release']);
+    });
 });
 
 /*

@@ -13,6 +13,7 @@ use App\Shared\Support\ErasureMode;
 use App\Shared\Support\ExpiryBehaviour;
 use App\Shared\Support\ExportWalk;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Marketplace's half of the data-rights contract (spec 013).
@@ -140,8 +141,82 @@ class MarketplacePersonalData implements PersonalDataOwner
      */
     public function erase(DataSubject $subject, ErasureMode $mode, int $limit): int
     {
-        // TODO(013-US4): erase or anonymise this module's rows for the subject.
-        return 0;
+        if ($mode !== ErasureMode::Anonymise) {
+            return 0;
+        }
+
+        /*
+        | ⚠️ THE REVIEW STAYS AND LOSES ITS AUTHOR, RATHER THAN GOING. A rating is
+        | already counted into `teacher_profiles.average_rating` and
+        | `reviews_count`; deleting the row silently rewrites a teacher's public
+        | standing every time a student leaves the platform, which is a
+        | re-pricing nobody decided. The COMMENT is the part that is the person's
+        | own words about a named individual, and that is what is cleared.
+        |
+        | `is_visible` is left alone deliberately: a moderator's decision about a
+        | review is not undone by its author's erasure.
+        */
+        $userId = $subject->user->getKey();
+
+        $cleared = Review::query()
+            ->withoutWorkspaceScope()
+            ->where('student_id', $userId)
+            ->whereNotNull('comment')
+            ->limit($limit)
+            ->update(['comment' => null]);
+
+        if ($cleared >= $limit) {
+            return $cleared;
+        }
+
+        /*
+        | ⚠️ AND THE PUBLIC TEACHER PAGE COMES DOWN, WHICH NOTHING ELSE IN THE WALK
+        | DOES. FR-023 says an erased account must appear in no interface and no
+        | search result — and a `teacher_profiles` row survives every other module's
+        | erasure untouched: `is_publicly_listed` stays true, so `publiclyListed()`
+        | keeps returning it, and the page renders the person's own bio and
+        | qualifications under the anonymised name. The URL is worse: `slug` is
+        | frozen at creation ON PURPOSE (a renamed teacher must not break every link
+        | ever shared), so it still spells out the real name of somebody who asked to
+        | be forgotten.
+        |
+        | Unlisting is what makes the slug harmless — it addresses nothing public any
+        | more — and it uses the same assignment `SuspendTeacher` does. The row
+        | itself stays: it is what every course, session and settlement line points
+        | at, and the identity behind it is already severed at `users`.
+        */
+        $unlisted = TeacherProfile::query()
+            ->withoutWorkspaceScope()
+            ->where('user_id', $userId)
+            ->where(function (Builder $query): void {
+                // ⚠️ THE PREDICATE SHRINKS, which is what lets the caller's loop
+                // terminate: after this update neither branch matches again.
+                $query->where('is_publicly_listed', true)->orWhereNotNull('bio');
+            })
+            ->limit($limit - $cleared)
+            ->update([
+                'is_publicly_listed' => false,
+                'bio' => null,
+                'headline' => null,
+                'qualifications' => null,
+                'photo_path' => null,
+            ]);
+
+        $cleared += $unlisted;
+
+        if ($cleared >= $limit) {
+            return $cleared;
+        }
+
+        // A complaint is this person's account of somebody else's conduct, written
+        // in their own words. The row survives so the moderation record does; the
+        // narrative does not.
+        return $cleared + Complaint::query()
+            ->withoutWorkspaceScope()
+            ->where('reported_by', $userId)
+            ->where('reason', '!=', '')
+            ->limit($limit - $cleared)
+            ->update(['reason' => '']);
     }
 
     /**

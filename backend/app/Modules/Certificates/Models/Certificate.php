@@ -28,6 +28,7 @@ class Certificate extends BaseModel implements HasMedia
         'enrollment_id',
         'course_id',
         'student_user_id',
+        'student_display_name',
         'exam_attempt_id',
         'issue_reason',
         'issued_at',

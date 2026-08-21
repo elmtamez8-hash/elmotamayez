@@ -6,6 +6,7 @@ namespace App\Modules\Assessments\Support;
 
 use App\Modules\Assessments\Models\Answer;
 use App\Modules\Assessments\Models\Attempt;
+use App\Modules\Assessments\Models\AttemptItem;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
@@ -134,8 +135,58 @@ class AssessmentsPersonalData implements PersonalDataOwner
      */
     public function erase(DataSubject $subject, ErasureMode $mode, int $limit): int
     {
-        // TODO(013-US4): erase or anonymise this module's rows for the subject.
-        return 0;
+        if ($mode !== ErasureMode::Delete) {
+            return 0;
+        }
+
+        $userId = $subject->user->getKey();
+
+        /*
+        | ⚠️ THREE TABLES IN DEPENDENCY ORDER, AND `attempt_items` IS THE ONE THAT
+        | HIDES. It carries no user column at all — one row per item per attempt,
+        | reachable only through `attempt_id` — so a walk that deleted the attempts
+        | first would leave every snapshot behind, each holding the question a named
+        | person was asked, addressed by an id nothing resolves.
+        |
+        | `exam_answers` DOES carry `student_user_id` (added in 008), which is why
+        | it is deleted by the person and the items by their attempts.
+        */
+        $answers = Answer::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $userId)
+            ->limit($limit)
+            ->delete();
+
+        if ($answers >= $limit) {
+            return $answers;
+        }
+
+        $attemptIds = Attempt::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $userId)
+            ->limit($limit)
+            ->pluck('id')
+            ->all();
+
+        if ($attemptIds === []) {
+            return $answers;
+        }
+
+        $items = AttemptItem::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('attempt_id', $attemptIds)
+            ->limit($limit)
+            ->delete();
+
+        if ($items >= $limit) {
+            return $answers + $items;
+        }
+
+        // The attempts go last, and only for the ids whose items are now gone.
+        return $answers + $items + Attempt::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('id', $attemptIds)
+            ->delete();
     }
 
     /**

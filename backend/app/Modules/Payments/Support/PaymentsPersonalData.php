@@ -150,8 +150,40 @@ class PaymentsPersonalData implements PersonalDataOwner
      */
     public function erase(DataSubject $subject, ErasureMode $mode, int $limit): int
     {
-        // TODO(013-US4): erase or anonymise this module's rows for the subject.
-        return 0;
+        if ($mode !== ErasureMode::Anonymise) {
+            return 0;
+        }
+
+        /*
+        | ⚠️ THE MONEY ROW IS NOT TOUCHED, AND THAT IS WHAT MAKES SC-007 TRUE BY
+        | CONSTRUCTION. `orders.user_id` stays exactly where it is: the account it
+        | points at is anonymised at the source, so the row already names nobody,
+        | and severing it would additionally break every total that joins through
+        | it. FR-021 keeps the financial record; FR-022 forbids the erasure changing
+        | its arithmetic — leaving the pointer satisfies both, and nulling it
+        | satisfies neither.
+        |
+        | What DOES go is the evidence of a device and a place:
+        | `terms_consents.ip_address` and `user_agent` say where a person was
+        | sitting when they signed, which outlives any purpose once the account is
+        | gone. The consent itself — the document, the version, the decision, the
+        | timestamp — stays, because it is the legal basis the retained money rows
+        | rest on.
+        |
+        | ⚠️ AND THE PREDICATE SHRINKS. `whereNotNull('ip_address')` stops matching
+        | the rows this pass just cleared, which is what lets the caller's loop
+        | terminate; without it the batch returns `$limit` for ever and the job is
+        | killed by its own timeout, revived by the sweep, and run again.
+        */
+        $userId = $subject->user->getKey();
+
+        return TermsConsent::query()
+            ->where(function (Builder $query) use ($userId): void {
+                $query->where('user_id', $userId)->orWhere('student_user_id', $userId);
+            })
+            ->whereNotNull('ip_address')
+            ->limit($limit)
+            ->update(['ip_address' => null, 'user_agent' => null]);
     }
 
     /**

@@ -65,7 +65,7 @@ describe("DataRequestsPanel", () => {
     render(<DataRequestsPanel />);
 
     // The row still renders — the record that it was answered is the point.
-    expect(await screen.findByText("جاهز")).toBeTruthy();
+    expect(await screen.findByText("تمّ")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "نزِّل الملفّ" })).toBeNull();
   });
 
@@ -81,9 +81,46 @@ describe("DataRequestsPanel", () => {
 
     render(<DataRequestsPanel />);
 
-    const button = await screen.findByRole("button", { name: "لديك طلبٌ قيد التنفيذ" });
+    const button = await screen.findByRole("button", { name: "طلبُ النسخة قيد التنفيذ" });
 
     expect((button as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  /*
+   * ⚠️ THE TWO BUTTONS LOCK SEPARATELY, BECAUSE THE SERVER LOCKS PER TYPE.
+   *
+   * `open_key` is `{subject}:{type}`, so an export in flight does not stop somebody
+   * asking to be erased. One shared flag here would make the second right
+   * unreachable for as long as the first request took — a screen quietly narrower
+   * than the API behind it.
+   */
+  it("leaves the erasure button open while an export is running", async () => {
+    requests.list.mockResolvedValue({
+      data: [record({ type: "export", status: "processing", is_downloadable: false })],
+    });
+
+    render(<DataRequestsPanel />);
+
+    const erase = await screen.findByRole("button", { name: "اطلب حذف بياناتي" });
+
+    expect((erase as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  /*
+   * ⚠️ AND AN ERASURE IN THE QUEUE SAYS «قيد المراجعة», NOT «قيد التنفيذ».
+   *
+   * Asking does not start one: it waits for a person in the compliance queue. A
+   * screen implying the deletion had begun would describe something that has not
+   * happened, and the person would stop waiting for the answer that is still coming.
+   */
+  it("says an erasure is under review rather than under way", async () => {
+    requests.list.mockResolvedValue({
+      data: [record({ type: "erasure", status: "pending", is_downloadable: false })],
+    });
+
+    render(<DataRequestsPanel />);
+
+    expect(await screen.findByRole("button", { name: "طلبُ الحذف قيد المراجعة" })).toBeTruthy();
   });
 
   /*

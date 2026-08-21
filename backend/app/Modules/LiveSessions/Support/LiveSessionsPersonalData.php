@@ -130,8 +130,44 @@ class LiveSessionsPersonalData implements PersonalDataOwner
      */
     public function erase(DataSubject $subject, ErasureMode $mode, int $limit): int
     {
-        // TODO(013-US4): erase or anonymise this module's rows for the subject.
-        return 0;
+        if ($mode !== ErasureMode::Anonymise) {
+            return 0;
+        }
+
+        /*
+        | ⚠️ THE BOOKINGS AND THE ATTENDANCE ROWS SURVIVE, AND DELETING THEM WOULD
+        | BREAK A NIGHTLY INVARIANT FOR EVER. A seat is what
+        | `ReconcileCreditBalancesJob` counts against consumption entries — "one
+        | consumption entry per seat of a charged session" is one of the two checks
+        | that can see a session which was never charged, precisely because it comes
+        | from OUTSIDE the path that writes both sides. Remove an erased student's
+        | seats and every session they sat reports a drift, every night, with no
+        | cause anybody can find.
+        |
+        | The identity is severed at the `users` row instead. What is cleared here
+        | is the FREE TEXT: a teacher's note about why a mark was changed, and a
+        | student's own words about why they cancelled. Neither is needed by any
+        | count, and both are statements about a named person.
+        */
+        $userId = $subject->user->getKey();
+
+        $cleared = Attendance::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $userId)
+            ->whereNotNull('override_reason')
+            ->limit($limit)
+            ->update(['override_reason' => null]);
+
+        if ($cleared >= $limit) {
+            return $cleared;
+        }
+
+        return $cleared + SessionBooking::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $userId)
+            ->whereNotNull('cancellation_reason')
+            ->limit($limit - $cleared)
+            ->update(['cancellation_reason' => null]);
     }
 
     /**

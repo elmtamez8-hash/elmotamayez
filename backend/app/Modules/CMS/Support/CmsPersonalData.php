@@ -82,7 +82,23 @@ class CmsPersonalData implements PersonalDataOwner
      */
     public function erase(DataSubject $subject, ErasureMode $mode, int $limit): int
     {
-        // TODO(013-US4): erase or anonymise this module's rows for the subject.
+        if ($mode !== ErasureMode::Anonymise) {
+            return 0;
+        }
+
+        /*
+        | ⚠️ THE BYLINE IS SEVERED AT THE SOURCE, NOT HERE, AND `cms_articles.author_id`
+        | IS DELIBERATELY LEFT ALONE. It is NOT NULL, so "severing" it would mean a
+        | schema change and an article that belongs to nobody — while the account it
+        | points at is already anonymised, which is exactly the outcome
+        | `ErasureMode::Anonymise` describes. A published article keeps its place in
+        | the site and stops naming a person, in one write, at the one row that
+        | every module's foreign keys already reach.
+        |
+        | Returning zero is therefore the correct answer and not an unimplemented
+        | one — which is why it is written out. A later reader finding an empty
+        | method would add a delete here, and a delete would take the article down.
+        */
         return 0;
     }
 

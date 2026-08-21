@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Modules\Compliance\Models\DataCategory;
+use App\Shared\Support\ErasureMode;
 use App\Shared\Support\ExpiryBehaviour;
 use Illuminate\Database\Seeder;
 
@@ -33,7 +34,7 @@ class DataCategorySeeder extends Seeder
 {
     public function run(): void
     {
-        foreach ($this->categories() as $category) {
+        foreach (self::categories() as $category) {
             /*
             | `firstOrCreate` on the KEY alone. These rows are reference data at
             | birth and operator data ever after — an operator who shortened a
@@ -44,8 +45,19 @@ class DataCategorySeeder extends Seeder
         }
     }
 
-    /** @return list<array<string, mixed>> */
-    private function categories(): array
+    /**
+     * The shipped catalogue.
+     *
+     * ⚠️ PUBLIC AND STATIC BECAUSE THE `erasure_mode` MIGRATION READS IT, and the
+     * alternative was a second copy of seventeen keys inside `Compliance`. Two
+     * lists answering one question diverge at the first category anybody adds —
+     * and the copy would additionally name `lesson_progress`, `exam_answer` and
+     * every other module's table from inside `Compliance`, which is precisely
+     * what `ContextIsolationTest` fails the build over.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function categories(): array
     {
         return [
             // ── Identity ────────────────────────────────────────────────────
@@ -60,6 +72,7 @@ class DataCategorySeeder extends Seeder
                 'column_name' => 'first_name',
                 'retain_days' => null,
                 'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Anonymise,
             ],
             [
                 'key' => 'contact_phone',
@@ -72,6 +85,7 @@ class DataCategorySeeder extends Seeder
                 'column_name' => 'phone',
                 'retain_days' => null,
                 'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Anonymise,
             ],
             [
                 'key' => 'date_of_birth',
@@ -84,6 +98,7 @@ class DataCategorySeeder extends Seeder
                 'column_name' => 'date_of_birth',
                 'retain_days' => null,
                 'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Anonymise,
             ],
 
             // ── Learning ────────────────────────────────────────────────────
@@ -98,6 +113,7 @@ class DataCategorySeeder extends Seeder
                 'column_name' => 'student_user_id',
                 'retain_days' => null,
                 'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Delete,
             ],
             [
                 'key' => 'lesson_progress',
@@ -113,6 +129,7 @@ class DataCategorySeeder extends Seeder
                 // click-by-click behaviour is not kept for ever.
                 'retain_days' => 1095,
                 'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
             ],
 
             // ── Assessments ─────────────────────────────────────────────────
@@ -127,6 +144,7 @@ class DataCategorySeeder extends Seeder
                 'column_name' => 'student_user_id',
                 'retain_days' => 1825,
                 'expiry_behaviour' => ExpiryBehaviour::Anonymise->value,
+                'erasure_mode' => ErasureMode::Delete,
             ],
             [
                 'key' => 'exam_answer',
@@ -139,6 +157,7 @@ class DataCategorySeeder extends Seeder
                 'column_name' => 'student_user_id',
                 'retain_days' => 1095,
                 'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
             ],
 
             // ── Certificates ────────────────────────────────────────────────
@@ -157,6 +176,7 @@ class DataCategorySeeder extends Seeder
                 // certificate that verifies as belonging to nobody.
                 'retain_days' => null,
                 'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Retain,
             ],
 
             // ── Payments ────────────────────────────────────────────────────
@@ -174,6 +194,7 @@ class DataCategorySeeder extends Seeder
                 // asserted at all.
                 'retain_days' => null,
                 'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Anonymise,
             ],
 
             // ── LiveSessions ────────────────────────────────────────────────
@@ -188,6 +209,7 @@ class DataCategorySeeder extends Seeder
                 'column_name' => 'student_user_id',
                 'retain_days' => 1095,
                 'expiry_behaviour' => ExpiryBehaviour::Anonymise->value,
+                'erasure_mode' => ErasureMode::Anonymise,
             ],
 
             // ── Media ───────────────────────────────────────────────────────
@@ -206,6 +228,7 @@ class DataCategorySeeder extends Seeder
                 'column_name' => 'owner_id',
                 'retain_days' => 730,
                 'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
             ],
 
             // ── Notifications ───────────────────────────────────────────────
@@ -220,6 +243,7 @@ class DataCategorySeeder extends Seeder
                 'column_name' => 'recipient_user_id',
                 'retain_days' => 180,
                 'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
             ],
 
             // ── Marketplace ─────────────────────────────────────────────────
@@ -234,6 +258,7 @@ class DataCategorySeeder extends Seeder
                 'column_name' => 'student_id',
                 'retain_days' => null,
                 'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Anonymise,
             ],
 
             // ── Settlement ──────────────────────────────────────────────────
@@ -248,6 +273,7 @@ class DataCategorySeeder extends Seeder
                 'column_name' => 'teacher_profile_id',
                 'retain_days' => null,
                 'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Retain,
             ],
 
             // ── Courses ─────────────────────────────────────────────────────
@@ -262,6 +288,7 @@ class DataCategorySeeder extends Seeder
                 'column_name' => 'created_by',
                 'retain_days' => null,
                 'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Retain,
             ],
 
             // ── Tenancy ─────────────────────────────────────────────────────
@@ -278,6 +305,7 @@ class DataCategorySeeder extends Seeder
                 // well past any invitation's own expiry.
                 'retain_days' => 90,
                 'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
             ],
 
             // ── CMS ─────────────────────────────────────────────────────────
@@ -292,6 +320,7 @@ class DataCategorySeeder extends Seeder
                 'column_name' => 'author_id',
                 'retain_days' => null,
                 'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Anonymise,
             ],
         ];
     }

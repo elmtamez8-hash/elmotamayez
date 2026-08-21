@@ -45,6 +45,36 @@ class DataRequestPolicy
         return true;
     }
 
+    /**
+     * The officer's queue.
+     *
+     * ⚠️ A SEPARATE ABILITY FROM `view`, because they answer different questions:
+     * `view` asks whether this person may read THIS row, and the queue asks whether
+     * they may read the platform's. A `viewAny` that fell back to row ownership
+     * would hand every student a list endpoint filtered by a query they do not
+     * control — the shape `WorkspaceScope` already fails to guard here, since
+     * `data_requests` carries no tenant column and a student belongs to no
+     * workspace.
+     */
+    public function viewAny(User $user): bool
+    {
+        return $user->can(Permissions::COMPLIANCE_REQUESTS_EXECUTE);
+    }
+
+    /**
+     * Running it — the act that writes `executed_by_user_id` (FR-026).
+     *
+     * ⚠️ THE SUBJECT MAY NOT EXECUTE THEIR OWN ERASURE, WHICH IS NOT A SLIGHT. The
+     * announced execution period in FR-019 exists so that a destruction nobody can
+     * undo is looked at by a person who can weigh a legal hold against it. A
+     * self-service button would make the officer endpoints decorations and the
+     * notice period a number in a document.
+     */
+    public function execute(User $user, DataRequest $request): bool
+    {
+        return $user->can(Permissions::COMPLIANCE_REQUESTS_EXECUTE);
+    }
+
     public function view(User $user, DataRequest $request): bool
     {
         return $this->owns($user, $request) || $user->can(Permissions::COMPLIANCE_REQUESTS_EXECUTE);

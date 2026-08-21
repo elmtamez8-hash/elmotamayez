@@ -33,20 +33,7 @@ class StoreDataRequestRequest extends FormRequest
             */
             'student_uuid' => ['nullable', 'string', 'uuid'],
 
-            /*
-            | ⚠️ ERASURE IS NOT OFFERED YET, AND A 422 IS THE HONEST ANSWER.
-            | `ExecuteDataErasure` lands with US4; accepting the type now would
-            | open a request nothing executes — a row a person believes is deleting
-            | their data while it sits `pending` for ever. The screen says
-            | «متاح قريباً» and this is the same sentence at the door.
-            |
-            | Named as a list rather than as `cases()` minus one, so adding a fourth
-            | type does not silently open it.
-            */
-            'type' => ['required', 'string', Rule::in([
-                DataRequestType::Access->value,
-                DataRequestType::Export->value,
-            ])],
+            'type' => ['required', 'string', Rule::in(array_column(DataRequestType::cases(), 'value'))],
         ];
     }
 

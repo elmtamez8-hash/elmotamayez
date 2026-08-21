@@ -108,8 +108,36 @@ class TenancyPersonalData implements PersonalDataOwner
      */
     public function erase(DataSubject $subject, ErasureMode $mode, int $limit): int
     {
-        // TODO(013-US4): erase or anonymise this module's rows for the subject.
-        return 0;
+        if ($mode !== ErasureMode::Delete) {
+            return 0;
+        }
+
+        /*
+        | ⚠️ MATCHED BY EMAIL AS WELL AS BY `accepted_by`, AND THE EMAIL HALF IS THE
+        | WHOLE REASON THIS MODULE IS AN OWNER. An invitation holds a bare address
+        | for somebody who may never have signed up: no `user_id` names them, so no
+        | cascade reaches them, and an erasure elsewhere leaves the address sitting
+        | here for ever — FR-020 and FR-023 broken by a table nobody remembered.
+        |
+        | ⚠️ AND THIS RUNS BEFORE `Identity` ANONYMISES THE ACCOUNT, which is not an
+        | accident of ordering but a requirement of it: once `users.email` becomes
+        | `anonymised+…`, the address these rows hold is unreachable by any query.
+        | `ExecuteDataErasure` partitions the walk to guarantee it, and the reason
+        | is written there too.
+        */
+        $email = $subject->user->email;
+
+        return Invitation::query()
+            ->withoutWorkspaceScope()
+            ->where(function (Builder $query) use ($subject, $email): void {
+                $query->where('accepted_by', $subject->user->getKey());
+
+                if ($email !== '') {
+                    $query->orWhere('email', $email);
+                }
+            })
+            ->limit($limit)
+            ->delete();
     }
 
     /**

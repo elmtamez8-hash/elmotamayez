@@ -116,7 +116,18 @@ class SettlementPersonalData implements PersonalDataOwner
      */
     public function erase(DataSubject $subject, ErasureMode $mode, int $limit): int
     {
-        // TODO(013-US4): erase or anonymise this module's rows for the subject.
+        /*
+        | ⚠️ NOTHING HAPPENS HERE, BY CONSTRUCTION AND NOT BY CHOICE.
+        | `teacher_earnings` declares `ErasureMode::Retain`, and the ledger enforces
+        | it a second time on its own: `LedgerEntry::booted()` throws on `updating`
+        | and `deleting`, so an erasure CANNOT touch a money row even if this method
+        | tried. That is what makes SC-007 — zero drift in the totals after an
+        | erasure — true by construction rather than by care.
+        |
+        | The identity is severed at the `users` row, which every foreign key here
+        | keeps pointing at. A settlement line that once named a person now names an
+        | anonymised account, and the arithmetic is untouched.
+        */
         return 0;
     }
 

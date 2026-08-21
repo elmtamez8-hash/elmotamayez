@@ -84,7 +84,19 @@ class CertificatesPersonalData implements PersonalDataOwner
      */
     public function erase(DataSubject $subject, ErasureMode $mode, int $limit): int
     {
-        // TODO(013-US4): erase or anonymise this module's rows for the subject.
+        /*
+        | ⚠️ NOTHING HAPPENS HERE, AND SAYING SO IS THE ANSWER RATHER THAN AN
+        | OMISSION. `certificate` declares `ErasureMode::Retain`, and it is the
+        | category that forced a third grade to exist at all: the verification code
+        | is PUBLIC, so severing the student leaves a certificate that verifies as
+        | belonging to nobody, deleting the row destroys a credential the student
+        | actually earned, and rewriting the name silently changes a public
+        | statement of fact an employer may already have checked.
+        |
+        | What makes retention safe is `certificates.student_display_name` — frozen
+        | at issue and read by the public verify endpoint, so the account behind it
+        | can be anonymised without the certificate changing what it says.
+        */
         return 0;
     }
 

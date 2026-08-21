@@ -21,15 +21,16 @@ import { formatDate, type StatusTone } from "@/lib/labels";
  * last night's cleaner removed, and the button would answer 404 with no
  * explanation.
  *
- * ⚠️ AND ERASURE IS DELIBERATELY NOT OFFERED YET. The Action behind it lands with
- * `US4`; a button that opened a request nothing executes would leave a person
- * believing their data was being deleted while the row sat `pending` for ever.
- * Offering only what runs is the honest half of a rights screen.
+ * ⚠️ AND AN ERASURE SAYS «طُلِب» RATHER THAN «جارٍ». Asking does not start one:
+ * FR-019 gives the right to ASK with an announced execution period, and the request
+ * waits for a person in the compliance queue to run it. A screen that implied the
+ * deletion had begun would be describing something that has not happened — and the
+ * person would stop looking for the answer that is still coming.
  */
 const STATUS_LABELS: Record<DataRequestRecord["status"], string> = {
   pending: "في الانتظار",
   processing: "قيد التنفيذ",
-  completed: "جاهز",
+  completed: "تمّ",
   refused: "مرفوض",
   on_hold: "موقوف",
 };
@@ -70,11 +71,11 @@ export function DataRequestsPanel() {
     void load();
   }, [load]);
 
-  async function request() {
+  async function request(type: DataRequestRecord["type"]) {
     setBusy(true);
 
     try {
-      await dataRights.create({ type: "export" });
+      await dataRights.create({ type });
       await load();
       setError(null);
     } catch (cause) {
@@ -92,17 +93,25 @@ export function DataRequestsPanel() {
     }
   }
 
-  const open = (requests ?? []).some(
-    (request) => request.status === "pending" || request.status === "processing",
-  );
+  const isOpen = (type: DataRequestRecord["type"]) =>
+    (requests ?? []).some(
+      (request) =>
+        request.type === type &&
+        (request.status === "pending" || request.status === "processing" || request.status === "on_hold"),
+    );
+
+  const openExport = isOpen("export");
+  const openErasure = isOpen("erasure");
 
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-ink">طلب نسخة من بياناتي</h2>
+          <h2 className="text-base font-semibold text-ink">بياناتي: نسخةٌ أو حذف</h2>
           <p className="text-sm text-ink-muted">
             نُجهّز ملفاً يضمّ كلّ ما نحتفظ به عنك، ويبقى رابطُ تنزيله متاحاً مدّةً قصيرة.
+            وطلبُ الحذف يُراجَع قبل تنفيذه، وبعضُ السجلّات — كالشهادات والقيود الماليّة —
+            يبقى بحكم القانون بعد فصلِه عن هويّتك.
           </p>
         </div>
 
@@ -112,9 +121,22 @@ export function DataRequestsPanel() {
           request. This is the explanation, not the guard — a client-side check
           alone is not one.
         */}
-        <Button onClick={request} disabled={busy || open}>
-          {open ? "لديك طلبٌ قيد التنفيذ" : "اطلب نسخة"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={() => request("export")} disabled={busy || openExport}>
+            {openExport ? "طلبُ النسخة قيد التنفيذ" : "اطلب نسخة"}
+          </Button>
+
+          {/*
+            ⚠️ A SEPARATE OPEN-STATE PER TYPE, because the server locks per type:
+            `open_key` is `{subject}:{type}`, so an export in flight does not stop
+            somebody asking to be erased. One shared flag here would disable the
+            erasure button for as long as an unrelated export took — the second
+            right unreachable while the first was pending.
+          */}
+          <Button variant="danger" onClick={() => request("erasure")} disabled={busy || openErasure}>
+            {openErasure ? "طلبُ الحذف قيد المراجعة" : "اطلب حذف بياناتي"}
+          </Button>
+        </div>
       </div>
 
       {error !== null && (

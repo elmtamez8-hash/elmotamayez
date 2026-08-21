@@ -45,6 +45,15 @@ class IssueCertificate extends Action
                 'enrollment_id' => $enrollment->getKey(),
                 'course_id' => $enrollment->course_id,
                 'student_user_id' => $enrollment->student_user_id,
+                /*
+                | ⚠️ FROZEN AT ISSUE, AND THE PUBLIC VERIFY READS THIS AND NOT
+                | `users`. A live join makes an erasure unanswerable: null the
+                | student and the certificate verifies as nobody, delete the row and
+                | a credential the student earned is destroyed, anonymise the joined
+                | name and a public statement of fact is silently rewritten. The
+                | certificate keeps saying what it said on the day it was earned.
+                */
+                'student_display_name' => $enrollment->student->name,
                 'exam_attempt_id' => $examAttemptId,
                 'issue_reason' => $reason,
                 'issued_at' => now(),

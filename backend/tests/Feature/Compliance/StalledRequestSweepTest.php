@@ -143,38 +143,46 @@ it('leaves a failed export where the sweep can find it', function (): void {
 });
 
 /*
- * ⚠️ AN ERASURE REQUEST IS NEVER CLAIMED, AND CLAIMING ONE WAS AN INFINITE LOOP.
+ * ⚠️ ASKING FOR AN ERASURE DOES NOT START ONE, AND THIS PAIR REPLACES TWO
+ * ASSERTIONS THAT WERE TRUE ONLY WHILE US4 WAS MISSING.
  *
- * `ExecuteDataErasure` lands with US4. Until it does, a job that claimed the
- * request to `processing` and then returned took a lock nothing releases: the sweep
- * found it stale, reset it, re-dispatched, and it claimed and returned again —
- * every thirty minutes for ever, logging a stall each time, while the person's
- * request never moved and was never refused.
+ * While `ExecuteDataErasure` did not exist, the endpoint answered 422 and the job
+ * refused to claim the request — an honest stopgap, and both are now wrong: FR-019
+ * gives the person the right to ASK. What replaces them is the requirement itself,
+ * which is stronger: the request is ACCEPTED and NOTHING IS DISPATCHED. An erasure
+ * is irreversible, so it waits in the officer's queue for the announced execution
+ * period, and running it is what writes `executed_by_user_id` (FR-026). Dispatching
+ * on creation would make those endpoints decorations and the notice a number in a
+ * document.
  */
-it('does not claim a request it cannot run', function (): void {
-    $request = app(CreateDataRequest::class)->handle($this->subject, (string) $this->subject->uuid, DataRequestType::Erasure);
-
-    FulfilDataRequestJob::dispatchSync((int) $request->getKey());
-
-    expect($request->refresh()->status)->toBe(DataRequestStatus::Pending)
-        ->and($request->last_attempt_at)->toBeNull();
-});
-
-/*
- * ⚠️ AND IT IS REFUSED AT THE DOOR AS WELL, WHICH IS THE HONEST HALF.
- *
- * The job not claiming it stops the loop; it does not tell the person anything. A
- * request accepted with a 201 and then never executed is a row somebody believes is
- * deleting their data. A 422 says so, and matches what the screen already says.
- */
-it('refuses an erasure request over the endpoint until US4 lands', function (): void {
+it('accepts an erasure request and starts nothing', function (): void {
+    Queue::fake();
     Sanctum::actingAs($this->subject);
 
     $this->postJson('/api/v1/privacy/requests', [
         'type' => DataRequestType::Erasure->value,
-    ])->assertStatus(422);
+    ])->assertStatus(201);
 
-    expect(DataRequest::query()->count())->toBe(0);
+    expect(DataRequest::query()->count())->toBe(1)
+        ->and(DataRequest::query()->sole()->status)->toBe(DataRequestStatus::Pending);
+
+    Queue::assertNothingPushed();
+});
+
+it('still dispatches an export on creation', function (): void {
+    Queue::fake();
+    Sanctum::actingAs($this->subject);
+
+    $this->postJson('/api/v1/privacy/requests', [
+        'type' => DataRequestType::Export->value,
+    ])->assertStatus(201);
+
+    /*
+    | The control. Without it, a `store` that dispatched NOTHING at all would pass
+    | the assertion above and quietly break the export half — which is the whole
+    | working feature — while looking like a deliberate US4 decision.
+    */
+    Queue::assertPushed(FulfilDataRequestJob::class);
 });
 
 /*

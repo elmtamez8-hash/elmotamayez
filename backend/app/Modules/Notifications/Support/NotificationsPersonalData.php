@@ -6,6 +6,7 @@ namespace App\Modules\Notifications\Support;
 
 use App\Modules\Notifications\Models\ContactVerification;
 use App\Modules\Notifications\Models\Notification;
+use App\Modules\Notifications\Models\NotificationDelivery;
 use App\Modules\Notifications\Models\NotificationPreference;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
@@ -134,8 +135,63 @@ class NotificationsPersonalData implements PersonalDataOwner
      */
     public function erase(DataSubject $subject, ErasureMode $mode, int $limit): int
     {
-        // TODO(013-US4): erase or anonymise this module's rows for the subject.
-        return 0;
+        if ($mode !== ErasureMode::Delete) {
+            return 0;
+        }
+
+        $userId = $subject->user->getKey();
+
+        /*
+        | ⚠️ THE DELIVERIES GO BEFORE THE NOTIFICATIONS THEY BELONG TO. A delivery
+        | row reaches its person only through `notification_id`; delete the parent
+        | first and every attempt, failure reason and channel record is stranded
+        | behind an id nothing resolves.
+        |
+        | ⚠️ AND `contact_verifications` IS THE ROW THAT MATTERS MOST HERE. It holds
+        | the VERIFIED phone number — the one 020 actually messages, read from here
+        | rather than from `users.phone` precisely because that column is a free
+        | string nobody confirmed. An erasure that cleared the account and left this
+        | table would leave a confirmed way to reach the person after they asked to
+        | be forgotten.
+        */
+        $notificationIds = Notification::query()
+            ->where('recipient_user_id', $userId)
+            ->limit($limit)
+            ->pluck('id')
+            ->all();
+
+        $deleted = 0;
+
+        if ($notificationIds !== []) {
+            $deleted += NotificationDelivery::query()
+                ->whereIn('notification_id', $notificationIds)
+                ->limit($limit)
+                ->delete();
+
+            if ($deleted >= $limit) {
+                return $deleted;
+            }
+
+            $deleted += Notification::query()->whereIn('id', $notificationIds)->delete();
+
+            if ($deleted >= $limit) {
+                return $deleted;
+            }
+        }
+
+        $deleted += NotificationPreference::query()
+            ->where('user_id', $userId)
+            ->limit($limit - $deleted)
+            ->delete();
+
+        if ($deleted >= $limit) {
+            return $deleted;
+        }
+
+        return $deleted + ContactVerification::query()
+            ->where('user_id', $userId)
+            ->limit($limit - $deleted)
+            ->delete();
     }
 
     /**

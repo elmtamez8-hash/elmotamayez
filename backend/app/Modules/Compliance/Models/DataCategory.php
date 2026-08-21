@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Compliance\Models;
 
 use App\Models\BaseModel;
+use App\Shared\Support\ErasureMode;
 use App\Shared\Support\ExpiryBehaviour;
 use App\Shared\Traits\HasUuid;
 
@@ -26,6 +27,7 @@ use App\Shared\Traits\HasUuid;
  * @property string $column_name
  * @property int|null $retain_days
  * @property ExpiryBehaviour|null $expiry_behaviour
+ * @property ErasureMode $erasure_mode
  */
 class DataCategory extends BaseModel
 {
@@ -42,6 +44,7 @@ class DataCategory extends BaseModel
         'column_name',
         'retain_days',
         'expiry_behaviour',
+        'erasure_mode',
     ];
 
     /** @return array<string, mixed> */
@@ -51,6 +54,7 @@ class DataCategory extends BaseModel
             'is_required' => 'boolean',
             'retain_days' => 'integer',
             'expiry_behaviour' => ExpiryBehaviour::class,
+            'erasure_mode' => ErasureMode::class,
         ];
     }
 

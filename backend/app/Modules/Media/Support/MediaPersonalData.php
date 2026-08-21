@@ -107,8 +107,21 @@ class MediaPersonalData implements PersonalDataOwner
      */
     public function erase(DataSubject $subject, ErasureMode $mode, int $limit): int
     {
-        // TODO(013-US4): erase or anonymise this module's rows for the subject.
-        return 0;
+        if ($mode !== ErasureMode::Delete) {
+            return 0;
+        }
+
+        /*
+        | A playback grant is a short-lived PERMISSION, not a record of anything the
+        | platform is obliged to keep — and what it holds is a viewing log: which
+        | recordings this person opened, when, and from which address hash. The
+        | recordings themselves belong to the sessions and to everybody who booked a
+        | seat in them; nothing here touches an asset.
+        */
+        return PlaybackGrant::query()
+            ->where('user_id', $subject->user->getKey())
+            ->limit($limit)
+            ->delete();
     }
 
     /**

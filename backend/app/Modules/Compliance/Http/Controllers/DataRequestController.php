@@ -6,6 +6,7 @@ namespace App\Modules\Compliance\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Compliance\Actions\CreateDataRequest;
+use App\Modules\Compliance\Enums\DataRequestType;
 use App\Modules\Compliance\Http\Requests\StoreDataRequestRequest;
 use App\Modules\Compliance\Http\Resources\DataRequestResource;
 use App\Modules\Compliance\Jobs\FulfilDataRequestJob;
@@ -70,9 +71,24 @@ class DataRequestController extends Controller
             $request->type(),
         );
 
-        // Dispatched by ID. The job takes nothing else — see its docblock: Laravel
-        // serialises constructor arguments into Redis and into `failed_jobs`.
-        FulfilDataRequestJob::dispatch((int) $dataRequest->getKey());
+        /*
+        | ⚠️ AN ERASURE IS **NOT** DISPATCHED HERE, AND THAT IS THE WHOLE SHAPE OF
+        | FR-019. The right is to ASK with an announced execution period — not to
+        | have a minor's entire record destroyed a few seconds after a button press,
+        | irreversibly, with nobody having looked. It waits in the officer's queue
+        | until `POST /manage/compliance/requests/{request}/execute` runs it, which
+        | is also what writes `executed_by_user_id` (FR-026): an erasure nobody
+        | performed is an audit line nobody can answer for.
+        |
+        | An access or an export carries no such weight — it reads and hands back
+        | what the person already owns — so it goes to the queue immediately.
+        |
+        | Dispatched by ID. The job takes nothing else — see its docblock: Laravel
+        | serialises constructor arguments into Redis and into `failed_jobs`.
+        */
+        if ($dataRequest->type !== DataRequestType::Erasure) {
+            FulfilDataRequestJob::dispatch((int) $dataRequest->getKey());
+        }
 
         return DataRequestResource::make($dataRequest)
             ->response()

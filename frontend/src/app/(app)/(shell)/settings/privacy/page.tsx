@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 
 import { ConsentScreen } from "@/components/compliance/ConsentScreen";
 import { DataRequestsPanel } from "@/components/compliance/DataRequestsPanel";
-import { Alert } from "@/components/ui/Alert";
 import { Card } from "@/components/ui/Card";
 import { compliance, type PrivacyPolicy } from "@/lib/compliance";
 
@@ -58,11 +57,6 @@ export default function PrivacyPage() {
       <ConsentScreen />
 
       <DataRequestsPanel />
-
-      <Alert tone="info" title="طلب الحذف">
-        حذف بياناتك متاح قريباً من هذه الصفحة. حتى ذلك الحين راسِلْنا، وسنعالج الطلب خلال
-        المدّة المعلَنة في السياسة.
-      </Alert>
     </div>
   );
 }
