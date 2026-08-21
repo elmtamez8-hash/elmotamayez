@@ -83,4 +83,20 @@ final class MediaLimits
 
         return rtrim(rtrim(number_format($bytes / 1_048_576, 1), '0'), '.').' ميغابايت';
     }
+
+    /**
+     * The floor under a departed teacher's recordings (013 · FR-036).
+     *
+     * ⚠️ A FLOOR, NOT THE ANSWER. The retention is derived from when the last
+     * person who paid for a seat loses their access; this is what applies when
+     * that produces no date — an ordinary workspace where enrolments are
+     * open-ended, which is the default shape here. It matches the catalogue's own
+     * `class_recording` retention so a teacher leaving changes nothing for a
+     * student whose access has no end date, which is the promise every other
+     * student on the platform already has.
+     */
+    public static function departedTeacherFloorDays(): int
+    {
+        return (int) PlatformSettings::get('media.departed_teacher_retain_days', 730);
+    }
 }

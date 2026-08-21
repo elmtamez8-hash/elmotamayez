@@ -145,3 +145,58 @@ export const complianceQueue = {
   hold: (body: { student_uuid: string; reason: string }) =>
     api.post<{ uuid: string; reason: string; placed_at: string }>("/manage/compliance/holds", body),
 };
+
+/**
+ * A teacher winding down their workspace (US6 · FR-032 … FR-037).
+ *
+ * ⚠️ NOT ONE FIGURE OF MONEY CROSSES THIS BOUNDARY. `dues_cleared` is a boolean:
+ * the server answers WHETHER the books are square, never by how much. A teacher's
+ * outstanding balance on a screen is the platform's half of a rate, solvable from
+ * the other side across two package sizes — which is what the allowlists on both
+ * the student's and the teacher's payloads exist to stop.
+ */
+export interface TeacherOffboarding {
+  uuid: string;
+  status: "requested" | "settlement_pending" | "notice_period" | "completed";
+  status_label: string;
+  dues_cleared: boolean;
+  students_notified_at: string | null;
+  notice_ends_at: string | null;
+  completed_at: string | null;
+  content_export_ready: boolean;
+}
+
+export const offboarding = {
+  show: () => api.get<{ data: TeacherOffboarding | null }>("/teaching/offboarding"),
+
+  /**
+   * ⚠️ A SECOND PRESS ANSWERS 200 WITH THE EXIT ALREADY OPEN, NOT A SECOND ROW.
+   * One workspace has one wind-down; two would show the officer one exit as two,
+   * with different deadlines.
+   */
+  request: () => api.post<{ data: TeacherOffboarding }>("/teaching/offboarding"),
+
+  /**
+   * The archive of everything this teacher authored (FR-034).
+   *
+   * It is an ordinary export request — the same walk, the same streaming writer,
+   * the same signed download that dies five minutes after it is minted — so the
+   * screen links to «خصوصيّتي» rather than growing a second download path.
+   */
+  content: () => api.get<{ data: DataRequestRecord | null }>("/teaching/offboarding/content"),
+};
+
+/**
+ * The officer's queue of exits (FR-032 · SC-013).
+ *
+ * ⚠️ EXECUTE REFUSES WITH A 422 AND A SENTENCE, WHICH IS THE POINT OF HAVING IT.
+ * An exit cannot complete while anything is owed in either direction, or before
+ * the announced notice has run out — and both refusals name what is missing, so
+ * the officer knows whether to chase the money or wait for the date.
+ */
+export const offboardingQueue = {
+  list: () => api.get<{ data: TeacherOffboarding[] }>("/manage/compliance/offboardings"),
+
+  execute: (uuid: string) =>
+    api.post<{ data: TeacherOffboarding }>(`/manage/compliance/offboardings/${uuid}/execute`),
+};

@@ -173,6 +173,18 @@ const adminNav: NavItem[] = [
   { href: "/manage/billing/exam-mode", label: "وضع الامتحانات", Icon: CreditsIcon, permission: P.billingExamMode },
   { href: "/workspaces", label: "مساحات العمل", Icon: WorkspaceIcon },
   { href: "/members", label: "الأعضاء", Icon: MembersIcon, permission: P.membersView },
+  /*
+   * Spec 013 · US6 — a teacher asking to wind down. Under admin because it is a
+   * workspace decision, and gated on nothing: the SERVER answers to
+   * `workspaces.owner_user_id`, and a permission name here would be a second,
+   * weaker copy of that rule. An assistant who opens it reads a 403 rather than
+   * a screen that offers to end somebody else's business.
+   *
+   * ⚠️ AND WITHOUT THIS ENTRY THE ENDPOINTS ARE UNREACHABLE. The whole flow shipped
+   * behind a platform permission while the user story reads "a teacher asks to
+   * leave" — a page nothing links to is that same defect wearing a URL.
+   */
+  { href: "/teaching/offboarding", label: "إنهاء النشاط", Icon: ShieldIcon },
   { href: "/settings", label: "الإعدادات", Icon: SettingsIcon },
 ];
 
@@ -212,6 +224,10 @@ const platformNav: NavItem[] = [
    * ever made sitting `pending` for ever, with nothing failing to say so.
    */
   { href: "/manage/compliance", label: "طلبات حقوق البيانات", Icon: ShieldIcon, permission: P.complianceRequestsExecute },
+  // The exits waiting on money or on a date. Its own permission, held by no
+  // tenant role: completing one revokes a teacher's access and fixes their
+  // recordings' retention across every student who studied with them.
+  { href: "/manage/compliance/offboardings", label: "خروج المدرّسين", Icon: ShieldIcon, permission: P.complianceOffboardingExecute },
 ];
 
 const allNav = [...mainNav, ...adminNav, ...platformNav];

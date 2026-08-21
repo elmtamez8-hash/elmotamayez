@@ -170,6 +170,43 @@ it('never names a billing model, table or event anywhere in the settlement modul
 });
 
 /*
+ * ⚠️ AND THE SCAN COVERS `Compliance` NOW, WHICH IT DID NOT WHEN THAT MODULE WAS
+ * DESIGNED AGAINST IT.
+ *
+ * Spec 013's own contract document cites this file as the reason a departing
+ * teacher's settlement is asked through `SettlementClearance` rather than queried
+ * — and then records, correctly, that the sweep above reads `Modules/Settlement/`
+ * and `Modules/Payments/` alone, so the third module was invisible to the guard it
+ * was being justified by. A cited guard that does not run is worse than none: it
+ * ends the argument without settling it.
+ *
+ * `Compliance` is a THIRD context and both directions are forbidden to it. Its own
+ * tables are not scanned against, because it legitimately owns none that either
+ * side must avoid.
+ */
+it('never names a settlement or billing table from inside the compliance module', function (): void {
+    $forbidden = array_merge(
+        ['use App\Modules\Settlement', 'use App\Modules\Payments'],
+        array_map(fn (string $table): string => "'{$table}'", tablesCreatedBy('Settlement')),
+        array_map(fn (string $table): string => "'{$table}'", tablesCreatedBy('Payments')),
+    );
+
+    $offenders = [];
+
+    foreach (moduleFiles('Compliance') as $file) {
+        $contents = $file->getContents();
+
+        foreach ($forbidden as $needle) {
+            if (str_contains($contents, $needle)) {
+                $offenders[] = $file->getRelativePathname().' → '.$needle;
+            }
+        }
+    }
+
+    expect($offenders)->toBe([]);
+});
+
+/*
  * ⚠️ The scan above is ONE-DIRECTIONAL, and spec 006 is what makes that matter.
  *
  * `moduleFiles('Settlement')` is the whole sweep: nothing has ever read the

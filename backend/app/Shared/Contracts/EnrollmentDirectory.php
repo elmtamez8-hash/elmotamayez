@@ -6,6 +6,7 @@ namespace App\Shared\Contracts;
 
 use App\Models\User;
 use App\Shared\Data\DataSubject;
+use Carbon\CarbonImmutable;
 
 /**
  * Whether a student is entitled to a course right now.
@@ -80,4 +81,24 @@ interface EnrollmentDirectory
      * @return list<int>
      */
     public function enrollmentIdsFor(User $user): array;
+
+    /**
+     * How far into the future a workspace's paid access still runs (013 · FR-036).
+     *
+     * ⚠️ TWO VALUES, AND THE BOOLEAN IS THE LOAD-BEARING ONE. `expires_at` is
+     * nullable and null means access that does NOT expire, which is the default
+     * shape of an enrolment here — so a single "latest date" would be null for an
+     * ordinary workspace and a caller reading it as "nothing left to protect"
+     * would delete every recording the day its teacher left. The flag says
+     * "somebody's access has no end", which no date can express.
+     *
+     * Asked of the WORKSPACE rather than of a person: the question is when the
+     * last of a departing teacher's students loses what they paid for, and that is
+     * a property of the room, not of any one seat.
+     *
+     * @return array{0: CarbonImmutable|null, 1: bool} the latest expiry, and
+     *                                                 whether any open-ended
+     *                                                 access exists
+     */
+    public function accessHorizonFor(int $workspaceId): array;
 }

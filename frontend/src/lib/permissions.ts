@@ -54,6 +54,7 @@ export const P = {
   // reachable only by typing its address. That is what `unlockRulesManage` cost.
   complianceRequestsExecute: "compliance.requests.execute",
   complianceHoldsManage: "compliance.holds.manage",
+  complianceOffboardingExecute: "compliance.offboarding.execute",
 } as const;
 
 /** Does this user hold it? A user with no list holds nothing. */

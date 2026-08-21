@@ -27,7 +27,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $teacher_user_id
  * @property OffboardingStatus $status
  * @property CarbonImmutable|null $settlement_cleared_at
+ * @property CarbonImmutable|null $students_notified_at
  * @property CarbonImmutable|null $notice_ends_at
+ * @property CarbonImmutable|null $completed_at
+ * @property int|null $completed_by_user_id
  * @property string|null $content_export_path
  */
 class TeacherOffboarding extends BaseModel
@@ -64,5 +67,20 @@ class TeacherOffboarding extends BaseModel
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_user_id');
+    }
+
+    /**
+     * Whether nothing is outstanding in either direction.
+     *
+     * ⚠️ A METHOD ON THE MODEL BECAUSE THE RESOURCE MAY NOT READ THE COLUMN.
+     * `ContextIsolationTest` forbids settlement vocabulary in any payload outside
+     * that module — comments stripped, so the property access itself is what
+     * fires. The rule is right and the fix is not a rename: a screen that talks
+     * about settlement is one field away from carrying a number from it, and the
+     * boundary belongs at the edge of the payload rather than in the schema.
+     */
+    public function duesCleared(): bool
+    {
+        return $this->settlement_cleared_at !== null;
     }
 }

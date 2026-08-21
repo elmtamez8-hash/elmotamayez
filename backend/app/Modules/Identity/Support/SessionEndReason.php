@@ -18,6 +18,16 @@ enum SessionEndReason: string
     case Manual = 'manual';
     case Expired = 'expired';
 
+    /**
+     * The workspace this account taught in was wound down (013 · FR-037).
+     *
+     * ⚠️ NOT `Manual`, WHOSE SENTENCE IS FALSE HERE — it says the session was ended
+     * from the person's own devices list, which is the one screen an offboarded
+     * teacher did not touch. This label is what the sign-in page shows them, and a
+     * wrong reason there is worse than a generic one.
+     */
+    case Offboarding = 'offboarding';
+
     public function label(): string
     {
         return match ($this) {
@@ -27,6 +37,7 @@ enum SessionEndReason: string
             self::TwoFactorChange => 'تغيّرت إعدادات التحقق الثنائي لحسابك.',
             self::Manual => 'أُنهيت هذه الجلسة من قائمة أجهزتك.',
             self::Expired => 'انتهت صلاحية الجلسة.',
+            self::Offboarding => 'اكتمل خروجك من مساحة العمل.',
         };
     }
 }

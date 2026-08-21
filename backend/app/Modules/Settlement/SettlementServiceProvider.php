@@ -21,8 +21,10 @@ use App\Modules\Settlement\Policies\RateChangeRequestPolicy;
 use App\Modules\Settlement\Policies\SettlementPeriodPolicy;
 use App\Modules\Settlement\Policies\TeachingUnitPolicy;
 use App\Modules\Settlement\Support\EloquentApprovedRateDirectory;
+use App\Modules\Settlement\Support\EloquentSettlementClearance;
 use App\Modules\Settlement\Support\SettlementPersonalData;
 use App\Shared\Contracts\ApprovedRateDirectory;
+use App\Shared\Contracts\SettlementClearance;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -67,6 +69,12 @@ class SettlementServiceProvider extends Module
         // singleton's memo would outlive a Horizon job and keep quoting a rate
         // that was superseded while the worker was alive.
         $this->app->bind(ApprovedRateDirectory::class, EloquentApprovedRateDirectory::class);
+
+        // Settlement owns the money; Compliance asks whether a departing teacher is
+        // square and never learns that `ledger_entries` exists (013 · FR-032). The
+        // same shape, and the same reason: `ContextIsolationTest` fails the build
+        // on a query that joins these schemas from outside.
+        $this->app->bind(SettlementClearance::class, EloquentSettlementClearance::class);
     }
 
     public function boot(): void

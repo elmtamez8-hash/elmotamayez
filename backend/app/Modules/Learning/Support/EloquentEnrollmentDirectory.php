@@ -7,6 +7,7 @@ namespace App\Modules\Learning\Support;
 use App\Models\User;
 use App\Modules\Learning\Models\Enrollment;
 use App\Shared\Contracts\EnrollmentDirectory;
+use Carbon\CarbonImmutable;
 
 /**
  * Learning's answer to "is this person entitled?".
@@ -68,5 +69,35 @@ class EloquentEnrollmentDirectory implements EnrollmentDirectory
             ->all();
 
         return array_values($ids);
+    }
+
+    /**
+     * ⚠️ ACTIVE ENROLMENTS ONLY, AND ONE QUERY THAT ANSWERS BOTH HALVES. A
+     * cancelled enrolment is not a right anybody still holds, so keeping a
+     * recording for it would be keeping it for nobody — and asking twice, once for
+     * the maximum and once for "does a null exist", is two scans of the largest
+     * table in the workspace for one answer.
+     *
+     * `SUM(CASE …)` rather than a second `whereNull` query, and `MAX()` rather
+     * than an ordered `first()`: both engines answer this from the same scan.
+     *
+     * @return array{0: CarbonImmutable|null, 1: bool}
+     */
+    public function accessHorizonFor(int $workspaceId): array
+    {
+        $row = Enrollment::query()
+            ->withoutWorkspaceScope()
+            ->where('workspace_id', $workspaceId)
+            ->where('status', 'active')
+            ->selectRaw('MAX(expires_at) as latest_expiry')
+            ->selectRaw('SUM(CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END) as open_ended')
+            ->first();
+
+        $latest = $row?->getAttribute('latest_expiry');
+
+        return [
+            $latest === null ? null : CarbonImmutable::parse((string) $latest),
+            ((int) ($row?->getAttribute('open_ended') ?? 0)) > 0,
+        ];
     }
 }

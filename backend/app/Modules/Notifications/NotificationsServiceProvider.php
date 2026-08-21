@@ -11,6 +11,7 @@ use App\Modules\Assessments\Events\QuestionImported;
 use App\Modules\Assessments\Events\SubmissionGraded;
 use App\Modules\Certificates\Events\CertificateIssued;
 use App\Modules\Certificates\Events\CertificateRegenerated;
+use App\Modules\Compliance\Events\TeacherOffboardingRequested;
 use App\Modules\Gamification\Events\BadgeAwarded;
 use App\Modules\Gamification\Events\LevelReachedUp;
 use App\Modules\Gamification\Events\RewardRedeemed;
@@ -22,6 +23,7 @@ use App\Modules\Notifications\Channels\ChannelRegistry;
 use App\Modules\Notifications\Channels\InAppChannel;
 use App\Modules\Notifications\Channels\WhatsAppChannel;
 use App\Modules\Notifications\Listeners\NotifyImportReady;
+use App\Modules\Notifications\Listeners\NotifyOffboardingStudents;
 use App\Modules\Notifications\Listeners\NotifyOnRewardRedeemed;
 use App\Modules\Notifications\Listeners\NotifyStudentBadgeAwarded;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateIssued;
@@ -78,6 +80,13 @@ class NotificationsServiceProvider extends Module
         parent::boot();
 
         Event::listen(EnrollmentCreated::class, NotifyStudentEnrolled::class);
+
+        /*
+        | Spec 013 · FR-033 — the students of a departing teacher, and their
+        | guardians, are told with the date. At REQUEST: a notice sent when the exit
+        | completes is not a notice.
+        */
+        Event::listen(TeacherOffboardingRequested::class, NotifyOffboardingStudents::class);
         Event::listen(CertificateIssued::class, NotifyStudentCertificateIssued::class);
         Event::listen(CertificateRegenerated::class, NotifyStudentCertificateRegenerated::class);
 

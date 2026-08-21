@@ -33,6 +33,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property array<int, array<string, mixed>>|null $renditions
  * @property CarbonInterface|null $ready_at
  * @property CarbonInterface|null $archived_at retention took the file; the row is the receipt
+ * @property CarbonInterface|null $retain_until FR-036 — a per-asset date that overrides the category
  */
 class MediaAsset extends BaseModel
 {
@@ -71,6 +72,7 @@ class MediaAsset extends BaseModel
             'duration_seconds' => 'integer',
             'ready_at' => 'datetime',
             'archived_at' => 'datetime',
+            'retain_until' => 'datetime',
         ];
     }
 

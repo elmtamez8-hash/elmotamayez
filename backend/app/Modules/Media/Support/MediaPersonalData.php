@@ -16,6 +16,7 @@ use App\Shared\Support\ExpiryBehaviour;
 use App\Shared\Support\ExportWalk;
 use App\Shared\Support\GuardianPermission;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Throwable;
 
 /**
@@ -170,11 +171,28 @@ class MediaPersonalData implements PersonalDataOwner
         | protects is the held person's own rows, and those are held by the six
         | categories that do carry a user column.
         */
+        /*
+        | ⚠️ `retain_until` OVERRIDES THE CATEGORY'S AGE RULE, AND IT IS AN OR RATHER
+        | THAN AN EXTRA CONDITION (FR-036). A departed teacher's recordings are kept
+        | until the last person who PAID for a seat loses their access — which can
+        | be later than 730 days (a term still running) or earlier (nobody left to
+        | watch). Written as an additional `AND` it could only ever shorten, so a
+        | student two months into a paid year would lose the lesson on its second
+        | birthday, which is the requirement inverted.
+        */
         $assets = MediaAsset::query()
             ->withoutWorkspaceScope()
             ->whereNull('archived_at')
             ->where('owner_type', ClassSession::class)
-            ->where('created_at', '<', $before->toDateTimeString())
+            ->where(function (Builder $query) use ($before): void {
+                $query
+                    ->where(fn (Builder $plain): Builder => $plain
+                        ->whereNull('retain_until')
+                        ->where('created_at', '<', $before->toDateTimeString()))
+                    ->orWhere(fn (Builder $dated): Builder => $dated
+                        ->whereNotNull('retain_until')
+                        ->where('retain_until', '<', now()));
+            })
             ->limit($limit)
             ->get();
 

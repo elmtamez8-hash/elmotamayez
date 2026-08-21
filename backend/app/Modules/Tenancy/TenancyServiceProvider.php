@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Tenancy;
 
 use App\Models\User;
+use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
 use App\Modules\Tenancy\Events\WorkspaceCreated;
+use App\Modules\Tenancy\Listeners\RevokeWorkspaceAccess;
 use App\Modules\Tenancy\Listeners\SeedDefaultRoles;
 use App\Modules\Tenancy\Models\PlatformStaff;
 use App\Modules\Tenancy\Models\Role;
@@ -40,6 +42,15 @@ class TenancyServiceProvider extends Module
             WorkspaceCreated::class,
             SeedDefaultRoles::class,
         );
+
+        /*
+        | Spec 013 · FR-037 — a completed exit ends every membership and every role
+        | in THAT workspace, and touches no other. An assistant working for two
+        | teachers keeps the job with the one who is staying: spatie runs in team
+        | mode here, so the roles are already per-workspace — but a delete with no
+        | team id removes all of them, which is the whole difficulty.
+        */
+        Event::listen(TeacherOffboardingCompleted::class, RevokeWorkspaceAccess::class);
 
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(PlatformStaff::class, PlatformStaffPolicy::class);

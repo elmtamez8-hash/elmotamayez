@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Identity;
 
+use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
 use App\Modules\Identity\Listeners\ActivateOnProcessingConsent;
+use App\Modules\Identity\Listeners\RevokeTeacherSessions;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Policies\AuthSessionPolicy;
 use App\Modules\Identity\Support\EloquentGuardianDirectory;
@@ -54,5 +56,13 @@ class IdentityServiceProvider extends Module
         | another module's aggregate from inside a third one's transaction.
         */
         Event::listen(ProcessingConsentGranted::class, ActivateOnProcessingConsent::class);
+
+        /*
+        | Spec 013 · FR-037 — a departed teacher is signed out everywhere. At
+        | COMPLETION only: the notice period exists so they can finish the lessons
+        | their students were promised, and revoking their tokens the moment they
+        | ask to leave locks them out of exactly that.
+        */
+        Event::listen(TeacherOffboardingCompleted::class, RevokeTeacherSessions::class);
     }
 }

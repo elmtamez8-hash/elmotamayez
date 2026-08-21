@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace;
 
 use App\Models\User;
+use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
+use App\Modules\Compliance\Events\TeacherOffboardingRequested;
 use App\Modules\Marketplace\Console\BenchmarkMarketplace;
 use App\Modules\Marketplace\Events\ComplaintConfirmed;
 use App\Modules\Marketplace\Events\ReviewModerated;
 use App\Modules\Marketplace\Events\ReviewSubmitted;
 use App\Modules\Marketplace\Listeners\QueueTrustScoreRecalculation;
+use App\Modules\Marketplace\Listeners\UnlistDepartedTeacher;
 use App\Modules\Marketplace\Models\GradeLevel;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
@@ -42,6 +45,17 @@ class MarketplaceServiceProvider extends Module
         // EventServiceProvider in this codebase (Constitution III).
         foreach ([ReviewSubmitted::class, ReviewModerated::class, ComplaintConfirmed::class] as $event) {
             Event::listen($event, QueueTrustScoreRecalculation::class);
+        }
+
+        /*
+        | Spec 013 · FR-035 — a departing teacher stops being advertised. BOTH
+        | events: at REQUEST so the marketplace stops enrolling new students with
+        | somebody who is leaving, and again at COMPLETION because that is where the
+        | contract puts it. Unlisting twice is one idempotent UPDATE; listing again
+        | is what nobody wants.
+        */
+        foreach ([TeacherOffboardingRequested::class, TeacherOffboardingCompleted::class] as $event) {
+            Event::listen($event, UnlistDepartedTeacher::class);
         }
 
         /*

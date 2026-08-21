@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 use App\Modules\Compliance\Http\Controllers\DataRequestController;
 use App\Modules\Compliance\Http\Controllers\Manage\ComplianceRequestController;
+use App\Modules\Compliance\Http\Controllers\Manage\OffboardingController;
 use App\Modules\Compliance\Http\Controllers\PrivacyCategoryController;
 use App\Modules\Compliance\Http\Controllers\PrivacyConsentController;
+use App\Modules\Compliance\Http\Controllers\TeachingOffboardingController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -73,6 +75,24 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/privacy/requests', [DataRequestController::class, 'index']);
 
     /*
+    | A teacher asking to leave (US6 · FR-033 · FR-034).
+    |
+    | ⚠️ THIS HALF DID NOT EXIST. The whole flow sat behind a platform permission
+    | while the user story reads "a teacher asks to leave", so the person the story
+    | is about had no way in. The controller answers to `owner_user_id` — an
+    | assistant with a broad role must not be able to wind down somebody else's
+    | business — and it carries no `execute`.
+    |
+    | `throttle:data-rights` on the write: the request fans out a notification to
+    | every student in the workspace and opens an export, which is the most
+    | expensive button a teacher has.
+    */
+    Route::get('/teaching/offboarding', [TeachingOffboardingController::class, 'show']);
+    Route::get('/teaching/offboarding/content', [TeachingOffboardingController::class, 'content']);
+    Route::post('/teaching/offboarding', [TeachingOffboardingController::class, 'store'])
+        ->middleware('throttle:data-rights');
+
+    /*
     | The data-protection officer's queue (FR-026 · FR-043).
     |
     | ⚠️ NO `can:` MIDDLEWARE — the authorisation is `$this->authorize()` INSIDE each
@@ -88,6 +108,18 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/requests', [ComplianceRequestController::class, 'index']);
         Route::post('/requests/{dataRequest}/execute', [ComplianceRequestController::class, 'execute']);
         Route::post('/requests/{dataRequest}/refuse', [ComplianceRequestController::class, 'refuse']);
+
+        /*
+        | A teacher's exit, finalised (FR-032 · SC-013).
+        |
+        | ⚠️ THE OFFICER COMPLETES AND THE TEACHER NEVER DOES. Completion revokes
+        | access, ends every membership in the workspace and fixes the recordings'
+        | retention, none of it reversible — and FR-032 makes it conditional on
+        | money being settled in BOTH directions. A teacher pressing their own
+        | complete button would be signing off on their own settlement.
+        */
+        Route::get('/offboardings', [OffboardingController::class, 'index']);
+        Route::post('/offboardings/{teacherOffboarding}/execute', [OffboardingController::class, 'execute']);
 
         Route::post('/holds', [ComplianceRequestController::class, 'hold']);
         // A release, not a destruction — the row is the record that an erasure was

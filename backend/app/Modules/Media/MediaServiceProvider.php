@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Media;
 
+use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
 use App\Modules\Media\Contracts\MediaProviderInterface;
+use App\Modules\Media\Listeners\SetDepartedTeacherRetention;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Policies\MediaAssetPolicy;
 use App\Modules\Media\Providers\BunnyMediaProvider;
@@ -12,6 +14,7 @@ use App\Modules\Media\Providers\LocalMediaProvider;
 use App\Modules\Media\Support\MediaPersonalData;
 use App\Modules\Media\Support\MediaProviderResolver;
 use App\Shared\Modules\Module;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use RuntimeException;
 
@@ -104,5 +107,13 @@ class MediaServiceProvider extends Module
         parent::boot();
 
         Gate::policy(MediaAsset::class, MediaAssetPolicy::class);
+
+        /*
+        | Spec 013 · FR-036 — how long a departed teacher's recordings live. It sets
+        | a DATE and deletes nothing: the retention sweep is the only deletion path
+        | in this module, and it is what archives the lesson and resyncs the course.
+        | The date comes from the students' rights, not from the teacher's exit.
+        */
+        Event::listen(TeacherOffboardingCompleted::class, SetDepartedTeacherRetention::class);
     }
 }
