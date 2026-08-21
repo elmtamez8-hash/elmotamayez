@@ -58,6 +58,8 @@ class CoursesPersonalData implements PersonalDataOwner
         | there is no guardian gate here to get wrong.
         */
         if ($subject->workspaceIds === []) {
+            yield from ExportWalk::none(...$this->describe());
+
             return;
         }
 

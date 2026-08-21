@@ -59,6 +59,8 @@ class MediaPersonalData implements PersonalDataOwner
         | written here rather than left to be re-derived.
         */
         if (! $subject->mayReceive(GuardianPermission::Results)) {
+            yield from ExportWalk::none(...$this->describe());
+
             return;
         }
 

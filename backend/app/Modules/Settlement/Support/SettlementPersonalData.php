@@ -64,6 +64,8 @@ class SettlementPersonalData implements PersonalDataOwner
             ->all();
 
         if ($profileIds === []) {
+            yield from ExportWalk::none(...$this->describe());
+
             return;
         }
 

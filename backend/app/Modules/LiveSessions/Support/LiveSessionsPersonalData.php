@@ -47,6 +47,8 @@ class LiveSessionsPersonalData implements PersonalDataOwner
     public function export(DataSubject $subject): iterable
     {
         if (! $subject->mayReceive(GuardianPermission::Attendance)) {
+            yield from ExportWalk::none(...$this->describe());
+
             return;
         }
 

@@ -14,7 +14,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -76,6 +75,27 @@ class FulfilDataRequestJob implements ShouldQueue
     {
         $now = now();
 
+        $request = DataRequest::query()->find($this->dataRequestId);
+
+        if ($request === null) {
+            return;
+        }
+
+        /*
+        | ⚠️ THE TYPE IS CHECKED BEFORE THE CLAIM, AND THE OTHER ORDER IS AN
+        | INFINITE LOOP. Erasure is a different Action with a different
+        | reversibility and it lands with US4 — but claiming a request and then
+        | returning takes a lock nothing releases: the sweep finds it stale, resets
+        | it to pending, re-dispatches, it claims and returns again, every thirty
+        | minutes for ever, logging a stall each time while the person's request
+        | never moves and is never refused. `StoreDataRequestRequest` refuses the
+        | type at the door as well; this is the second half, because the Action is
+        | reachable from a seeder and from the panel with no form in front of it.
+        */
+        if ($request->type === DataRequestType::Erasure) {
+            return;
+        }
+
         /*
         | The claim. `last_attempt_at` is stamped inside the SAME statement, because
         | a second write is a second round trip in which a competing worker claims
@@ -95,21 +115,7 @@ class FulfilDataRequestJob implements ShouldQueue
             return;
         }
 
-        $request = DataRequest::query()->find($this->dataRequestId);
-
-        if ($request === null) {
-            return;
-        }
-
-        /*
-        | ⚠️ ERASURE IS NOT RUN HERE. It is a different Action with a different
-        | reversibility, and folding it in behind an `if` would put "delete
-        | everything about this person" one enum value away from a path that is
-        | otherwise read-only. It arrives with US4 and gets its own branch, named.
-        */
-        if ($request->type === DataRequestType::Erasure) {
-            return;
-        }
+        $request->refresh();
 
         try {
             $result = $export->handle($request);
@@ -125,16 +131,18 @@ class FulfilDataRequestJob implements ShouldQueue
             ])->save();
         } catch (Throwable $exception) {
             /*
-            | ⚠️ RETURNED TO `pending`, NOT LEFT IN `processing` AND NOT REFUSED. A
-            | failure here is ours, not the requester's, and `refused` is a legal
-            | answer with a reason attached — writing it over a broken query would
-            | tell a family their request was declined. Back to `pending` puts it in
-            | front of the sweep, which is the one thing that can try again.
+            | ⚠️ IT IS LEFT IN `processing`, AND RESETTING IT TO `pending` HERE WAS A
+            | DEAD END. `RetryStalledDataRequestsJob` sweeps `processing` and nothing
+            | else — the state a killed worker leaves — so a request helpfully
+            | returned to `pending` is dispatched by NOTHING, ever: the initial
+            | dispatch already fired and `tries: 1` means the queue will not retry.
+            | It would sit there while `due_at` passed, silently. The
+            | `recording_status = 'ingesting'` family, reached by trying to be tidy.
+            |
+            | And not `refused` either: that is a legal answer with a reason
+            | attached, and writing it over a broken query tells a family their
+            | request was declined when in fact ours failed.
             */
-            DB::table('data_requests')
-                ->where('id', $this->dataRequestId)
-                ->update(['status' => DataRequestStatus::Pending->value, 'updated_at' => now()]);
-
             Log::error('compliance.request.failed', [
                 'request_id' => $this->dataRequestId,
                 'message' => $exception->getMessage(),

@@ -48,6 +48,8 @@ class PaymentsPersonalData implements PersonalDataOwner
     public function export(DataSubject $subject): iterable
     {
         if (! $subject->mayReceive(GuardianPermission::Payments)) {
+            yield from ExportWalk::none(...$this->describe());
+
             return;
         }
 

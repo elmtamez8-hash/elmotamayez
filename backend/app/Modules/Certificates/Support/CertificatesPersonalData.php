@@ -48,6 +48,8 @@ class CertificatesPersonalData implements PersonalDataOwner
         // marks do: a guardian granted "attendance" alone is not told what their
         // child passed.
         if (! $subject->mayReceive(GuardianPermission::Results)) {
+            yield from ExportWalk::none(...$this->describe());
+
             return;
         }
 

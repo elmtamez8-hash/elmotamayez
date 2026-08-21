@@ -82,6 +82,17 @@ class LearningPersonalData implements PersonalDataOwner
         | walk: a `whereIn` with thousands of bound parameters is what breaks first,
         | and the rows themselves are already paged underneath it.
         */
+        /*
+        | ⚠️ THE KEY IS YIELDED EVEN WHEN THE ID LIST IS EMPTY. `array_chunk([])`
+        | iterates zero times, so a person with no enrolments produced no
+        | `lesson_progress.json` at all — silence where "we hold no progress for you"
+        | is the answer. The same shape as the six early returns
+        | `ExportWalk::none()` covers.
+        */
+        if ($subject->enrollmentIds === []) {
+            yield from ExportWalk::none('lesson_progress');
+        }
+
         foreach (array_chunk($subject->enrollmentIds, 500) as $enrollmentIds) {
             yield from ExportWalk::keyed(
                 'lesson_progress',

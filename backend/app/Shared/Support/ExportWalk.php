@@ -83,6 +83,29 @@ final class ExportWalk
     }
 
     /**
+     * Empty pages for categories this walk has nothing to say about.
+     *
+     * ⚠️ AN EARLY `return` IS NOT THE SAME AS YIELDING NOTHING, and the difference
+     * is a file that does not exist. A module that bails out — no teacher profile,
+     * no workspace, a guardian not entitled to this category — produces no key at
+     * all, so `ExecuteDataExport` never opens the file, and the archive is silently
+     * missing a section. "We hold nothing of this kind about you" is an ANSWER a
+     * person asking is entitled to; silence is not.
+     *
+     * ⚠️ AND IT MAKES "NOTHING" AND "NOT YOURS" LOOK IDENTICAL, which is the right
+     * way round: an empty `exam_attempt.json` tells an attendance-only guardian
+     * nothing about whether their child sat any exams.
+     *
+     * @return iterable<string, list<array<string, mixed>>>
+     */
+    public static function none(string ...$categories): iterable
+    {
+        foreach ($categories as $category) {
+            yield $category => [];
+        }
+    }
+
+    /**
      * A timestamp as ISO 8601, whatever shape it arrived in.
      *
      * ⚠️ IT TAKES `mixed` ON PURPOSE. Some of these columns are cast to a date on

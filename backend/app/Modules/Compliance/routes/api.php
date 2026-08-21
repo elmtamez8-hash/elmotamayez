@@ -82,6 +82,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
 | describes, and the controller re-reads `export_expires_at` before writing a byte,
 | so a signature that outlives the archive opens nothing.
 */
-Route::middleware(['signed', 'throttle:data-rights'])
+/*
+| ⚠️ `throttle:public`, NOT `throttle:data-rights`, AND THE DIFFERENCE IS A GLOBAL
+| BUCKET. The data-rights limiter keys on `'user:'.$request->user()?->getKey()` —
+| and this route deliberately carries no `auth:sanctum`, so `user()` is null and
+| every anonymous hit shares the key `'user:'`. Six a minute for the WHOLE
+| PLATFORM: the second person to download their archive in the same minute is
+| refused their own file. That is the inline-throttle shared-counter defect wearing
+| a named limiter, which is precisely what naming them was meant to prevent.
+| `throttle:public` is guest-keyed by address, which is the only key there is here.
+*/
+Route::middleware(['signed', 'throttle:public'])
     ->get('/privacy/exports/{dataRequest}', [DataRequestController::class, 'stream'])
     ->name('compliance.exports.stream');

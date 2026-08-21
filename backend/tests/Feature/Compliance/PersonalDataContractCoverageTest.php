@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use App\Modules\Compliance\Models\DataCategory;
 use App\Modules\Compliance\Support\PersonalDataRegistry;
 use App\Shared\Contracts\PersonalDataOwner;
+use App\Shared\Data\DataSubject;
 
 /**
  * Every module that stores personal data implements the contract (SC-004).
@@ -147,6 +149,43 @@ it('resolves every catalogue category to exactly one owner', function (): void {
         ->all();
 
     expect($orphans)->toBe([]);
+});
+
+/*
+ * ⚠️ AND WHAT IS DECLARED IS WHAT IS YIELDED — `describe()` and `export()` agree.
+ *
+ * A category named in `describe()` and never yielded is a file that never appears
+ * in the archive: the catalogue advertises it, the retention sweep looks for its
+ * owner and finds one, and the person's copy is silently missing a section nobody
+ * counts. This is run against a subject with NO data at all, deliberately — the
+ * walk still has to say "nothing of this kind", because an empty file is an answer
+ * and a missing file is silence.
+ *
+ * ⚠️ THIS IS ALSO WHERE THIS FILE'S LIMIT IS WRITTEN DOWN, and it is worth being
+ * exact about, because a guard described as more than it is reads as coverage.
+ * WHAT IT PROVES: every module holding a personal column is registered; every
+ * catalogue row resolves to exactly one owner; every declared category is really
+ * produced. WHAT IT DOES NOT PROVE: that a TABLE added inside an already-registered
+ * module reached the walk. The obvious check — grepping each implementor's source
+ * for the table names in its own migrations — was written and thrown away: these
+ * files name MODELS, not tables, so it reported `parent_student_relations`,
+ * `contact_verifications` and `notification_preferences` missing when all three are
+ * exported. A guard that has to be silenced with three false exemptions is a guard
+ * that will be silenced with a fourth, real one.
+ */
+it('yields every category it declares, even with nothing to say', function (): void {
+    $subject = new DataSubject(user: User::factory()->create());
+
+    foreach (app(PersonalDataRegistry::class)->all() as $owner) {
+        $yielded = [];
+
+        foreach ($owner->export($subject) as $category => $rows) {
+            $yielded[] = $category;
+        }
+
+        expect(array_values(array_unique($yielded)))
+            ->toEqualCanonicalizing($owner->describe(), $owner->moduleKey());
+    }
 });
 
 /*

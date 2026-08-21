@@ -66,6 +66,17 @@ class IdentityPersonalData implements PersonalDataOwner
 
         $profile = $user->studentProfile()->first();
 
+        /*
+        | ⚠️ THE KEY IS YIELDED EVEN WHEN THERE IS NO PROFILE. A teacher has none, so
+        | the `if` alone produced no `date_of_birth.json` at all — and a file that
+        | does not exist is silence, where "we hold no date of birth for you" is the
+        | answer a person asking is entitled to. `ExportWalk::none()` carries the
+        | same reason for the six modules that bail out for their own reasons.
+        */
+        if ($profile === null) {
+            yield 'date_of_birth' => [];
+        }
+
         if ($profile !== null) {
             yield 'date_of_birth' => [[
                 'date_of_birth' => $profile->date_of_birth,

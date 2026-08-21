@@ -54,6 +54,8 @@ class AssessmentsPersonalData implements PersonalDataOwner
         | got, which is the exact case `GuardianScopeTest` measures.
         */
         if (! $subject->mayReceive(GuardianPermission::Results)) {
+            yield from ExportWalk::none(...$this->describe());
+
             return;
         }
 
