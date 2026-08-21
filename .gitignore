@@ -12,3 +12,6 @@ Thumbs.db
 # Playwright MCP scratch output — snapshots, console logs and ad-hoc screenshots.
 # Written into the repo root by the browser tooling; none of it is a deliverable.
 .playwright-mcp/
+
+# سكربتُ تهيئةِ حصةٍ مؤقّتٌ للتجربة اليدوية — لا يُلتزم به.
+backend/make_session_tmp.php
