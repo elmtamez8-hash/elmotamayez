@@ -32,6 +32,7 @@
 | Marketplace | `app/Modules/Marketplace/` | TeacherProfile, TeacherApplication, Subject, GradeLevel, AvailabilitySlot, Review, Complaint | Public listings (no auth) + teacher application + academic review + reviews/complaints |
 | LiveSessions | `app/Modules/LiveSessions/` | ClassSession, SessionBooking, Attendance, ClassSessionFeedback, FreezePeriod | Calendar + booking + broadcast room + register + freeze periods |
 | Settlement | `app/Modules/Settlement/` | SettlementRate, RateChangeRequest, TeachingUnit, SettlementPeriod, LedgerEntry, TeacherPayout | Teacher statement + export + units + rate requests + period close/payout + financial audit |
+| Compliance | `app/Modules/Compliance/` | DataCategory, DataProcessor, DataRequest, LegalHold, RetentionSweepRun, BreachReport, TeacherOffboarding | The privacy catalogue and policy (public) + data-rights requests + the officer's queue + legal holds + breach reports + a teacher's exit |
 | Gamification | `app/Modules/Gamification/` | AwardEntry, AwardDailyCounter, StudentProgress, CoinBalance, GamificationAction, Level, Badge, BadgeAward, Reward, Redemption, FocusSession, LeaderboardEntry | The student's profile + leaderboards + the reward shop + the focus timer |
 
 ### Gamification (spec 009)
@@ -1140,6 +1141,198 @@ satisfies a score threshold: the late party there is the teacher.
 
 `throttle:authoring` (teacher writes) · `throttle:upload` (imports and hand-ins) ·
 `throttle:practice` (paper generation, keyed by **user** rather than ip).
+
+## Data Protection and Minors (spec 013)
+
+One module, `Compliance`, plus a contract every other module implements. Six new
+tables, three altered, five permissions — **all five platform-level**, held by
+super-admin and the seeded `compliance-officer` and by no workspace role. A
+teacher deciding who may read a child's record would be the tenant deciding the
+platform's obligations.
+
+### The contract, and why it is a contract
+
+`App\Shared\Contracts\PersonalDataOwner` has five functions and thirteen
+implementors, each registered with one `->tag('compliance.personal_data')` line in
+its own module's service provider. `Compliance` therefore names **no other
+module's table**: it asks each owner to describe its categories, export them,
+erase them, and expire them.
+
+`PersonalDataContractCoverageTest` fails the build when a module holding personal
+data has no implementor, and `CategoryRegistryCoverageTest` when a category is
+described by nobody. A registry checked against itself would be green for ever.
+
+### Endpoints
+
+| Method | Path | Who |
+|---|---|---|
+| `GET` | `/privacy/categories` | public — the policy in structured form |
+| `GET` | `/privacy/policy` | public |
+| `POST` | `/privacy/breach-reports` | **public, unauthenticated** (FR-040) |
+| `PUT` | `/privacy/consents/categories` | the subject or their guardian |
+| `POST` · `GET` | `/privacy/requests` | the subject or their guardian |
+| `GET` | `/privacy/requests/{request}/download` | the subject — a `302` to a signature |
+| `GET` | `/privacy/exports/{request}` | `signed`, no bearer token |
+| `GET` · `POST` | `/teaching/offboarding` | the workspace **owner**, never a member |
+| `GET` | `/teaching/offboarding/content` | the workspace owner |
+| `GET` | `/manage/compliance/requests` | `compliance.requests.execute` |
+| `POST` | `/manage/compliance/requests/{request}/execute` · `/refuse` | ⤴ |
+| `POST` · `DELETE` | `/manage/compliance/holds` · `/holds/{hold}` | `compliance.holds.manage` |
+| `GET` · `PATCH` | `/manage/compliance/breach-reports` | `compliance.breaches.manage` |
+| `GET` | `/manage/compliance/offboardings` | `compliance.offboarding.execute` |
+| `POST` | `/manage/compliance/offboardings/{exit}/execute` | ⤴ |
+
+### Permissions (five, every one PLATFORM)
+
+| Permission | What it authorises |
+|---|---|
+| `compliance.requests.execute` | run an export or an erasure somebody asked for, and read the queue |
+| `compliance.registry.manage` | edit the category catalogue and the processor register |
+| `compliance.holds.manage` | suspend an erasure, and release the suspension |
+| `compliance.offboarding.execute` | finalise a teacher's exit once the books are square |
+| `compliance.breaches.manage` | read and triage reported breaches |
+
+`RolePermissionMatrix::platformPermissions()` derives the platform set as `all()`
+minus everything any tenant role holds, so a permission added tomorrow is
+platform-level until somebody deliberately puts it in a tenant role.
+
+### The breach route is published, and that is the requirement
+
+`POST /privacy/breach-reports` carries **no** `auth:sanctum`. The best-known leaks
+are reported by outside researchers who hold no account, so a login requirement
+restricts the report to the population least likely to be making it. Three things
+make it safe to publish, and none of them is authentication:
+
+- `throttle:public`, the named guest limiter keyed by address.
+- **The response is a constant.** No uuid, no id, no count, no echo — an
+  unauthenticated endpoint that varied its answer by what it found would tell an
+  attacker whether an address holds an account, or whether a report already
+  exists. The same uniform-`202` rule the payment webhook is built on.
+- **The scope fields are not in the request.** Which categories and how many
+  people are triage's answer; accepted from the reporter, anyone could assert the
+  size of an incident into our own record of it.
+
+`AdvanceBreachReport` moves a report forward only, and refuses `notified` until
+**both** `authority_notified_at` and `subjects_notified_at` exist — the authority
+and the people whose data leaked are two obligations on two clocks, which is why
+the table carries two columns rather than a flag. A notification timestamp is
+never re-stamped: it is the record of when an obligation was discharged, measured
+against a deadline, and a later edit would move it inside the window. Both
+deadlines are **derived** in `BreachReportResource` from `created_at` plus
+`ComplianceSettings`, never stored.
+
+### Retention runs itself, and three behaviours are not interchangeable
+
+`RunRetentionSweepJob` (nightly, 03:30, queue `compliance`) walks every category
+with a retention and calls `expire()` on the owner. `ExpiryBehaviour` is `Delete`,
+`Anonymise` or `Archive`:
+
+- **`Anonymise` is unavailable wherever the identifying column is `NOT NULL`.**
+  `exam_attempts.student_user_id` and `attendances.student_user_id` both are, and
+  `->change()` on either rebuilds the table on SQLite. So `exam_attempt` expires as
+  `Delete` (its answers are already gone at 1095 days; at five years the row is a
+  bare score naming a person for no reader), while attendance anonymises by
+  clearing the free text and keeping the row — deleting a seat would break
+  `ReconcileCreditBalancesJob`'s "one consumption entry per seat" invariant for
+  ever, with no cause anybody could find.
+- **`Archive` needs a mark or it never converges.** "Older than N days" is true
+  again tomorrow, so `media_assets.archived_at` is what stops the same recording
+  being re-archived — and the same file re-deleted at the provider, billed each
+  time — every night. `Delete` cannot show that defect in a test, because a
+  deleted row does not come back; the idempotency fixture must include an archive
+  category.
+- **A class recording is a write to the COURSE TREE.** A recording IS a lesson, so
+  expiring the asset without archiving the lesson leaves an item pointing at an id
+  nothing resolves. `MediaAssetsExpired` announces a BATCH and
+  `ArchiveExpiredRecordingLessons` fires `CourseStructureChanged` **once per
+  course** — fifty recordings ageing out together would otherwise run fifty full
+  resyncs over one identical set of enrolments.
+
+**A legal hold has a fourth door.** Retention needs nobody to ask, so a hold that
+only touched `data_requests` would let the nightly sweep delete the exact rows a
+court ordered kept — on a schedule, with the hold row green beside it.
+`RunRetentionSweepJob` resolves the held subject ids once and threads them through
+`PersonalDataOwner::expire()`.
+
+`withoutOverlapping()` on `Schedule::job()` guards the DISPATCH, not the run — for
+a queued job that is milliseconds around the push. The sweep uses
+`WithoutOverlapping` as **job middleware** instead, and `expireAfter()` is the
+load-bearing half: without it a killed worker holds the lock for ever and
+retention silently never runs again.
+
+### Coming of age
+
+`TransferDataOwnershipJob` (daily, 06:25 Doha) hands a student their own data at
+eighteen. The predicate is `date_of_birth < (threshold + 1 day)`, never
+`<= threshold`: the column is a `date`, the model writes `00:00:00`, and the `<=`
+form string-compares FALSE for the person born exactly that day — telling them
+tomorrow, on a date the law attaches meaning to. On MySQL the `<=` form works, so
+no local test would ever have disagreed with production.
+
+### A teacher's exit
+
+`RequestTeacherOffboarding` opens a notice period, notifies every student, and
+pulls the public listing **at request** rather than at completion — a month-long
+notice with a live marketplace page enrols new students with a departing teacher.
+`ExecuteTeacherOffboarding` completes it with a conditional UPDATE carrying all
+three conditions (`status`, `settlement_cleared_at`, `notice_ends_at`), never a
+read followed by a write.
+
+- **The books are asked, never queried.** `App\Shared\Contracts\SettlementClearance`
+  answers two integers in minor units and a boolean; `ContextIsolationTest` fails
+  the build on a `Compliance` query against the settlement or billing schema, and
+  on settlement *vocabulary* in any payload outside that module — which is why the
+  Resource sends `dues_cleared` and the model carries `duesCleared()`.
+- `SUM(ledger_entries.amount_minor)` **is** the balance, payouts included: a payout
+  is written as a negative entry, so subtracting `teacher_payouts` on top would
+  report a fully-paid teacher as owing the platform their salary. What the sum
+  misses is a `PendingPackage` unit, which has no ledger entry at all — a lesson
+  taught whose recording has not landed.
+- **FR-037 ends the teacher's access and their assistants', never their
+  students'.** The obvious implementation deletes every `workspace_members` row,
+  which takes away the course the student bought one requirement after the platform
+  promised it stays.
+- **Never `WorkspaceContext::forget()` inside a listener.** It is an
+  application-wide singleton that caches its resolution; dropping it leaves the
+  next request resolving from scratch, and a student — a member of no workspace —
+  then has a null team id and therefore **no roles at all**. `forWorkspace()` sets
+  both and puts both back.
+- **`media_assets.retain_until` is an OR against the age rule, never an extra
+  AND.** Written as a further condition it could only ever shorten, so a student
+  two months into a paid year would lose the lesson on its second birthday. A null
+  `expires_at` means access that does not expire — the default shape of an
+  enrolment here — so `EnrollmentDirectory::accessHorizonFor()` answers a date
+  **and a boolean**, and the boolean is the load-bearing half.
+
+### Logs and processors
+
+`FR-041` forbids personal data in application logs. Every job in this phase takes
+an **id** and re-reads, which is what keeps `failed_jobs.payload` clean — that
+table outlives the erasure it failed to perform, and nothing sweeps it.
+
+`FulfilDataRequestJob` logs the exception **class**, never `getMessage()`: Laravel
+interpolates query BINDINGS into a `QueryException` message, so any failing
+statement in the walk would carry whatever it was searching for into a line that
+ships to a monitoring vendor. The full trace still reaches
+`failed_jobs.exception`, in our own database.
+
+`data_processors` names everyone who receives personal data outside our servers,
+with an honest `erasure_capability` per row — `partial` for a CDN whose edge copies
+lapse on their own schedule, `none` for a message already delivered to a phone.
+`ProcessorAllowlistTest` checks the register **against the code**: every external
+channel the container carries must have an active row, and an outbound delivery is
+measured with `Http::preventStrayRequests()` so a second endpoint nobody declared
+shows up.
+
+### Rate limiters
+
+`throttle:data-rights` keys on the **account**, never the address — a family behind
+one router shares an address and a guardian may hold several children. It is
+deliberately **not** used on `/privacy/exports/{request}`, which carries no
+`auth:sanctum`: `user()` is null there, every anonymous hit would share the key
+`'user:'`, and the second person to download their own archive in the same minute
+would be refused. That route uses `throttle:public`, which is guest-keyed by
+address.
 
 ## Roles, permissions, and who may grant them
 

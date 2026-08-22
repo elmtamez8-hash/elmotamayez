@@ -165,9 +165,22 @@ class FulfilDataRequestJob implements ShouldQueue
             | attached, and writing it over a broken query tells a family their
             | request was declined when in fact ours failed.
             */
+            /*
+            | ⚠️ THE CLASS, NEVER `getMessage()` — AND A `QueryException` IS WHY.
+            | Laravel interpolates the BINDINGS into a query exception's message, so
+            | any failing statement in the export or erasure walk carries whatever it
+            | was searching for — an address, a phone number, a name — into a line
+            | that ships straight to a monitoring vendor. FR-041 forbids exactly
+            | that, and the message is the one field here nobody chose the contents
+            | of.
+            |
+            | Nothing is lost to an operator: the exception is rethrown, so the full
+            | message and trace land in `failed_jobs.exception` beside the request
+            | id, in our own database rather than somebody else's dashboard.
+            */
             Log::error('compliance.request.failed', [
                 'request_id' => $this->dataRequestId,
-                'message' => $exception->getMessage(),
+                'exception' => $exception::class,
             ]);
 
             throw $exception;

@@ -136,7 +136,7 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 - [X] T046 [US1] عدِّل `Identity/Actions/RegisterStudent.php` ليكتب `date_of_birth` و`dob_is_estimated = false`، ويضع `status = pending_guardian_consent` لمن هو دون الثامنةَ عشرة **أو مجهولِ التاريخ** (`FR-009ج`)
 - [X] T047 [US1] عدِّل `backend/app/Modules/Identity/Actions/RegisterStudent.php` ليُنشئ `ParentStudentRelation` بحالة **`Pending`** من اتّصالِ الوليّ ويُشعِره بـ`guardian_consent_required` — ⚠️ **العلاقةُ هي الدعوة** ولا آليةَ رموزٍ ثانية: `Pending` **لا يمنح شيئاً اليوم** لأن `EloquentGuardianDirectory` يسأل `->active()` في مواضعه الثلاثة، فهي دعوةٌ بلا صلاحيةٍ **بحكم البناء** لا بحكم فحصٍ يُنسى
 - [X] T048 [US1] عدِّل `Identity/Http/Requests/RegisterStudentRequest.php` و`Identity/Data/RegisterStudentData.php` بحقلَي تاريخِ الميلاد واتّصالِ الوليّ
-- [ ] T049 [US1] أضف مُدخلاتِ الحقولِ الجديدةِ إلى `attributes` في `backend/lang/ar/validation.php` — بلا مُدخلٍ يُصيَّر `date_of_birth` نصّاً إنجليزياً على شاشةٍ عربيةٍ فقط
+- [X] T049 [US1] أضف مُدخلاتِ الحقولِ الجديدةِ إلى `attributes` في `backend/lang/ar/validation.php` — بلا مُدخلٍ يُصيَّر `date_of_birth` نصّاً إنجليزياً على شاشةٍ عربيةٍ فقط
 - [X] T050 [US1] عدِّل `Identity/Actions/StartAuthSession.php` ليرفض `pending_guardian_consent` بـ`403 code: pending_guardian_consent` **ولا يَسُكّ رمزاً إطلاقاً** — سَكُّ رمزٍ ثمّ تقييدُه يجعل أيَّ خللٍ في التقييد دخولاً كاملاً، بنفس منطقِ التحقّق الثنائيّ
 - [X] T051 [US1] أطلِق `ProcessingConsentGranted` من `backend/app/Modules/Payments/Actions/RecordTermsConsent.php` عند الوثيقة `data_processing`، واستمع له في `backend/app/Modules/Identity/IdentityServiceProvider.php` بـ`Event::listen()` ليُنادي `ActivateStudentAccount`
 
@@ -161,7 +161,7 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 - [X] T065 [US1] [P] أنشئ `frontend/src/components/compliance/ConsentScreen.test.tsx` — **`SC-003`**: تأكيدٌ على **نصّ الشاشة** أنّ «الظهورُ في تسجيلات الحصص (‏صوتاً وصورةً)» بين **اللازم**
 - [X] T066 [US1] [P] أنشئ `backend/tests/Feature/Compliance/CategoryRegistryCoverageTest.php` — **`SC-002`**: يقارن `data_categories` بالمخطّط الفعليّ ويفشل على عمودٍ شخصيٍّ غيرِ مُعلَن
 - [X] T067 [US1] [P] أنشئ `backend/tests/Feature/Compliance/PlatformRegistryPermissionTest.php` — قاعدةُ الصنف (ب): حاملُ **أعلى** دورِ مستأجرٍ يُردّ بـ403 على الكتالوج والمعالِجين
-- [ ] T068 [US1] [P] أنشئ `backend/tests/Feature/Tenancy/PlatformPermissionPivotTest.php` — ⚠️ **بابٌ ثانٍ لا يمرّ بالنموذج**: نمطُ الهجرات المشحونُ يكتب `DB::table('role_has_permissions')->insertOrIgnore()` مباشرةً. يؤكّد صفر صفٍّ يصل صلاحيةً منصّيةً بدورٍ ذي `team_id` غيرِ معدوم
+- [X] T068 [US1] [P] أنشئ `backend/tests/Feature/Tenancy/PlatformPermissionPivotTest.php` — ⚠️ **بابٌ ثانٍ لا يمرّ بالنموذج**: نمطُ الهجرات المشحونُ يكتب `DB::table('role_has_permissions')->insertOrIgnore()` مباشرةً. يؤكّد صفر صفٍّ يصل صلاحيةً منصّيةً بدورٍ ذي `team_id` غيرِ معدوم
 - [X] T069 [US1] [P] أنشئ `backend/tests/Feature/Tenancy/PermissionConstantCoverageTest.php` — يقارن ثوابتَ `Permissions` بـ`all()`. القائمةُ مكتوبةٌ بيدٍ، واسمٌ ناقصٌ لا يُزرَع أبداً **وكلُّ فحصٍ يفشل حتى لمدير المنصة**
 
 **Checkpoint**: `US1` قابلةٌ للتسليم وحدها — **هذا هو الـMVP**.
@@ -329,19 +329,19 @@ description: "Task list — حماية بيانات القُصّر وحقوق ا
 
 - [X] T158 [P] أنشئ هجرةَ `breach_reports` في `backend/app/Modules/Compliance/Database/Migrations/` بفهرسِ `(status, created_at)` و`reported_by_user_id` **قابلاً للعدم**
 - [X] T159 [P] أنشئ `Compliance/Models/BreachReport.php` و`Enums/BreachStatus.php` و`Actions/{ReportBreach,AdvanceBreachReport}.php`
-- [ ] T160 أنشئ `POST /privacy/breach-reports` **عامّاً بلا مصادقة** بـ`throttle:public` — ⚠️ «مسارٌ **معلَن**» يعني أن باحثاً أمنيّاً من الخارج يستعمله، وأشهرُ التسريباتِ يُبلِّغ عنها **من ليس مستخدماً**. وثلاثةُ قيودٍ تجعلها آمنة: الحدُّ · **لا تُرجع شيئاً** غيرَ تأكيدِ الاستلام فلا تصير عرّافاً · وحقولُ نطاقِ الحادث (‏الأصنافُ والعدد) **ليست في الطلب العامّ**
-- [ ] T161 [P] أنشئ `GET`/`PATCH /compliance/breach-reports` بـ`compliance.breaches.manage`
-- [ ] T162 [P] أنشئ `backend/tests/Feature/Compliance/BreachReportTest.php` — **`SC-020`**: بلاغٌ من **غير مستخدَم** يُقبَل ولا يُرجع ما يدلّ على وجودِ حسابٍ أو جدول
-- [ ] T163 [P] أنشئ `backend/tests/Feature/Compliance/QueryBudgetTest.php` — **`SC-022`** **بضِعفِ حجمِ التثبيتة** حتى «لا يختبئ N+1 داخل السماح»، ويغطّي `GET /compliance/requests` (‏فحصُ التعليقِ صفّاً صفّاً هو الأسوأ: ٥٠ صفّاً = ٥٠ استعلاماً؛ والشكلُ الجَمْعيُّ `whereIn` واحدٌ يُوسَم على المجموعة كما `WithholdingReader::stamp()`)
-- [ ] T164 [P] أنشئ `backend/tests/Feature/Compliance/LogHygieneTest.php` — **`SC-012`**: صفر بياناتٍ شخصيةٍ في السجلّات ورسائل الأخطاء، **ويشمل `failed_jobs.payload`**
-- [ ] T165 [P] أنشئ `backend/tests/Feature/Compliance/ProcessorAllowlistTest.php` — **`SC-011`**: اختبارُ عقدٍ لكلّ مزوّد، صفر إرسالٍ لمعالِجٍ غيرِ مُدرَج
-- [ ] T166 [P] حدِّثْ `docs/README.md` بجدولِ الوحدةِ ونقاطِ النهايةِ والصلاحياتِ الخمس — الدستورُ يُلزم به لكلّ تعديلٍ يمسّ الوحداتَ أو النقاطَ أو الأذونات، **وهجرةُ `terms_consents` نفسُها تسمّيه موضعَ قائمةِ استثناءات المحو**
-- [ ] T167 [P] حدِّثْ `docs/erd.md` بالجداول الستّةِ الجديدةِ والتعديلاتِ الثلاثة
-- [ ] T168 [P] حدِّثْ `CLAUDE.md` **و**`AGENTS.md` معاً بالقواعد التشغيليةِ الجديدة — الدستورُ يُلزم بالاثنين معاً، وقاعدةٌ في أحدهما وحده هي القاعدةُ التي يخالفها القارئُ الآخر
-- [ ] T169 [P] أضف بنديَ نشرٍ إلى `docs/deployment.md`: **`TrustProxies`** (‏بلا ضبطٍ يُرجع `$request->ip()` عنوانَ موازِن الحمل — **العنوانَ نفسَه للجميع** — في الصفّ الذي يوجد ليُعتمَد عليه في نزاع، فيصير السجلُّ **مُضلِّلاً** لا ناقصاً) و**`SCOUT_QUEUE=true`**
-- [ ] T170 حدِّثْ `docs/roadmap.md`: علّمْ ٠١٣ مُنفَّذةً، **واحذِفْ سطرَ «مدخلُها `/speckit-clarify`»** الذي صار قديماً
-- [ ] T171 شغِّلِ البوّاباتِ الأربع: `php vendor/bin/pest` · `./vendor/bin/pint --test` · `./vendor/bin/phpstan analyse` · `npx tsc --noEmit` **و`npm test`** — بلا `@phpstan-ignore` وبلا baseline جديد
-- [ ] T172 نفِّذِ الخطواتَ اليدويةَ في [`quickstart.md`](./quickstart.md) §ب وسجِّلِ الخمسةَ في §ج في جدول Deferred Verification
+- [X] T160 أنشئ `POST /privacy/breach-reports` **عامّاً بلا مصادقة** بـ`throttle:public` — ⚠️ «مسارٌ **معلَن**» يعني أن باحثاً أمنيّاً من الخارج يستعمله، وأشهرُ التسريباتِ يُبلِّغ عنها **من ليس مستخدماً**. وثلاثةُ قيودٍ تجعلها آمنة: الحدُّ · **لا تُرجع شيئاً** غيرَ تأكيدِ الاستلام فلا تصير عرّافاً · وحقولُ نطاقِ الحادث (‏الأصنافُ والعدد) **ليست في الطلب العامّ**
+- [X] T161 [P] أنشئ `GET`/`PATCH /compliance/breach-reports` بـ`compliance.breaches.manage`
+- [X] T162 [P] أنشئ `backend/tests/Feature/Compliance/BreachReportTest.php` — **`SC-020`**: بلاغٌ من **غير مستخدَم** يُقبَل ولا يُرجع ما يدلّ على وجودِ حسابٍ أو جدول
+- [X] T163 [P] أنشئ `backend/tests/Feature/Compliance/QueryBudgetTest.php` — **`SC-022`** **بضِعفِ حجمِ التثبيتة** حتى «لا يختبئ N+1 داخل السماح»، ويغطّي `GET /compliance/requests` (‏فحصُ التعليقِ صفّاً صفّاً هو الأسوأ: ٥٠ صفّاً = ٥٠ استعلاماً؛ والشكلُ الجَمْعيُّ `whereIn` واحدٌ يُوسَم على المجموعة كما `WithholdingReader::stamp()`)
+- [X] T164 [P] أنشئ `backend/tests/Feature/Compliance/LogHygieneTest.php` — **`SC-012`**: صفر بياناتٍ شخصيةٍ في السجلّات ورسائل الأخطاء، **ويشمل `failed_jobs.payload`**
+- [X] T165 [P] أنشئ `backend/tests/Feature/Compliance/ProcessorAllowlistTest.php` — **`SC-011`**: اختبارُ عقدٍ لكلّ مزوّد، صفر إرسالٍ لمعالِجٍ غيرِ مُدرَج
+- [X] T166 [P] حدِّثْ `docs/README.md` بجدولِ الوحدةِ ونقاطِ النهايةِ والصلاحياتِ الخمس — الدستورُ يُلزم به لكلّ تعديلٍ يمسّ الوحداتَ أو النقاطَ أو الأذونات، **وهجرةُ `terms_consents` نفسُها تسمّيه موضعَ قائمةِ استثناءات المحو**
+- [X] T167 [P] حدِّثْ `docs/erd.md` بالجداول الستّةِ الجديدةِ والتعديلاتِ الثلاثة
+- [X] T168 [P] حدِّثْ `CLAUDE.md` **و**`AGENTS.md` معاً بالقواعد التشغيليةِ الجديدة — الدستورُ يُلزم بالاثنين معاً، وقاعدةٌ في أحدهما وحده هي القاعدةُ التي يخالفها القارئُ الآخر
+- [X] T169 [P] أضف بنديَ نشرٍ إلى `docs/deployment.md`: **`TrustProxies`** (‏بلا ضبطٍ يُرجع `$request->ip()` عنوانَ موازِن الحمل — **العنوانَ نفسَه للجميع** — في الصفّ الذي يوجد ليُعتمَد عليه في نزاع، فيصير السجلُّ **مُضلِّلاً** لا ناقصاً) و**`SCOUT_QUEUE=true`**
+- [X] T170 حدِّثْ `docs/roadmap.md`: علّمْ ٠١٣ مُنفَّذةً، **واحذِفْ سطرَ «مدخلُها `/speckit-clarify`»** الذي صار قديماً
+- [X] T171 شغِّلِ البوّاباتِ الأربع: `php vendor/bin/pest` · `./vendor/bin/pint --test` · `./vendor/bin/phpstan analyse` · `npx tsc --noEmit` **و`npm test`** — بلا `@phpstan-ignore` وبلا baseline جديد
+- [X] T172 نفِّذِ الخطواتَ اليدويةَ في [`quickstart.md`](./quickstart.md) §ب وسجِّلِ الخمسةَ في §ج في جدول Deferred Verification
 
 ---
 

@@ -182,9 +182,38 @@ intended behaviour of an unconfigured deployment, not a fault.
 
 **The provider is a data processor.** It receives a student's name, their attendance, their
 guardian's phone number, and in some templates a balance — that is, a minor's personal data
-leaving the platform to a third party. It belongs in the processor registry that spec 013
-builds; until that phase lands, this line is the register. Postponing the phase does not
-postpone knowing who holds the data.
+leaving the platform to a third party. It is row `whatsapp` in `data_processors` since spec
+013, declared `erasure_capability = none`: a message already delivered to a phone cannot be
+unsent, and the provider keeps its own delivery log under its own policy. Saying anything
+else there would put a sentence in an erasure report that is not true.
+
+### Two settings spec 013 depends on, and both fail silently
+
+- [ ] **Set `TRUSTED_PROXIES`** to the load balancer's addresses (comma-separated;
+      `*` only where the balancer is the sole ingress and strips the header itself).
+      `AppServiceProvider::trustConfiguredProxies()` reads it — deliberately there
+      rather than in `bootstrap/app.php`, whose closure runs before the config
+      repository is bound, and where `env()` is not a way round it because a cached
+      config never loads `.env` at all.
+
+      ⚠️ **Unset, the failure is not a missing record — it is a MISLEADING one.**
+      `$request->ip()` returns the balancer's address, so every consent, every
+      offboarding request and every data-rights request is stamped with the **same**
+      address for every person on the platform. Those rows exist to be relied on in
+      a dispute, and a column that is uniformly wrong reads exactly like a column
+      that is right. The default is to trust nothing, never `'*'`: a wildcard makes
+      `X-Forwarded-For` client-supplied, and a forgeable address is worse than an
+      honest wrong one because it looks correct.
+
+- [ ] **Set `SCOUT_QUEUE=true`** (it is the default in `config/scout.php`, which is
+      itself a file that did not exist until 013 — so Scout's own default of `false`
+      was in force). With it false, every index write runs INSIDE the request, and
+      an erasure walking thousands of rows calls the search engine synchronously per
+      model: the request times out half-way through an irreversible operation.
+      `FR-023` is the other half — the index is the derived copy everyone forgets,
+      `Model::search()` queries the engine outside every global scope, so a row
+      deleted from MySQL still comes back in a search result until `unsearchable()`
+      runs. `SCOUT_DRIVER=null` in tests means no local run ever sees either.
 
 ## Scaling Considerations
 

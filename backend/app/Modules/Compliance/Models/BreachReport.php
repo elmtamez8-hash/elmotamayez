@@ -7,6 +7,7 @@ namespace App\Modules\Compliance\Models;
 use App\Models\BaseModel;
 use App\Modules\Compliance\Enums\BreachStatus;
 use App\Shared\Traits\HasUuid;
+use Carbon\CarbonImmutable;
 
 /**
  * A reported breach — PLATFORM reference data (layer ب).
@@ -20,6 +21,11 @@ use App\Shared\Traits\HasUuid;
  * @property string|null $reporter_contact
  * @property string $description
  * @property BreachStatus $status
+ * @property list<string>|null $affected_categories
+ * @property int|null $affected_subject_count
+ * @property CarbonImmutable|null $authority_notified_at
+ * @property CarbonImmutable|null $subjects_notified_at
+ * @property CarbonImmutable|null $closed_at
  */
 class BreachReport extends BaseModel
 {

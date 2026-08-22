@@ -405,5 +405,20 @@ return [
         'gateway_fee_bps' => 'نسبة رسوم البوابة',
         'gateway_fixed_fee_minor' => 'الرسم الثابت للبوابة',
         'is_high_value' => 'أصل عالي القيمة',
+
+        // حماية البيانات (013). أربعةٌ منها شُحنت في ح-١ بلا سطرٍ هنا، فكانت رسالةُ
+        // رفضِ تاريخِ الميلاد تُقرأ «date_of_birth» على شاشةِ طفلٍ يسجّل بنفسه.
+        'date_of_birth' => 'تاريخ الميلاد',
+        'guardian_contact' => 'رقم جوّال وليّ الأمر',
+        'registered_by_parent' => 'التسجيل بواسطة وليّ الأمر',
+        'terms_accepted' => 'الموافقة على الشروط',
+        'categories' => 'أصناف البيانات',
+        'categories.*' => 'صنف البيانات',
+        'reporter_contact' => 'وسيلة التواصل مع المُبلِّغ',
+        'affected_categories' => 'الأصناف المتأثّرة',
+        'affected_categories.*' => 'الصنف المتأثّر',
+        'affected_subject_count' => 'عدد المتأثّرين',
+        'authority_notified' => 'إخطار الجهة المختصّة',
+        'subjects_notified' => 'إخطار المعنيّين',
     ],
 ];

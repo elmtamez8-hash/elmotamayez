@@ -239,6 +239,7 @@ verification only.
 | CMS | `app/Modules/CMS/` | Article, Category, Tag |
 | LiveSessions | `app/Modules/LiveSessions/` | ClassSession, SessionBooking, Attendance, ClassSessionFeedback, FreezePeriod |
 | Settlement | `app/Modules/Settlement/` | SettlementRate, RateChangeRequest, TeachingUnit, SettlementPeriod, LedgerEntry, TeacherPayout |
+| Compliance | `app/Modules/Compliance/` | DataCategory, DataProcessor, DataRequest, LegalHold, RetentionSweepRun, BreachReport, TeacherOffboarding |
 
 ### Read before touching settlement
 
@@ -569,3 +570,65 @@ all three call sites pass literal `/public` paths and no user upload ever reache
 ⚠️ **Passing any user-supplied or remote image to `next/image` makes the sharp
 advisory live** — that is the trigger, and `remotePatterns` is only one way to do it.
 Re-count the advisories before quoting a number; the list has grown once already.
+
+### Read before touching data protection (spec 013)
+
+`Compliance` names no other module's table. Every module implements
+`App\Shared\Contracts\PersonalDataOwner` (five functions) and registers it with one
+`->tag('compliance.personal_data')` line. Two tests fail the build on a gap:
+`PersonalDataContractCoverageTest` (a module holding personal data with no
+implementor) and `CategoryRegistryCoverageTest` (a category nobody describes).
+
+**All six models but one are platform-owned — no `workspace_id`, and adding one
+duplicates a person per teacher.** `teacher_offboardings` is the exception: an exit
+is one workspace winding down.
+
+**A column added by a migration and not to `$fillable` is never written, silently.**
+Spec 013 shipped three that way (`date_of_birth`, `dob_is_estimated`,
+`guardian_contact`) and every US1 assertion was correct and blind — they were made
+against the response body, which echoes what was submitted. Found by one `tinker`
+round-trip. `ownership_transferred_at` is deliberately not fillable: it is claimed
+by a conditional UPDATE.
+
+**Every new FormRequest field needs a line in `backend/lang/ar/validation.php`
+under `attributes`, or the message reads `date_of_birth` to the person filling the
+form.** Four of 013's shipped without one.
+
+**A `date` column compared against a bare date string is off by one day.** The model
+writes `00:00:00`, so `<= threshold` string-compares FALSE for the person born that
+day. Use `< (threshold + 1 day)`. On MySQL the `<=` form works, so no local test
+disagrees with production.
+
+**`withoutOverlapping()` on `Schedule::job()` guards the dispatch, not the run.**
+For the retention sweep use `WithoutOverlapping` as job middleware — and
+`expireAfter()` is the load-bearing half, or a killed worker holds the lock for ever
+and retention silently never runs again.
+
+**A legal hold has a fourth door: retention needs nobody to ask.** Held subject ids
+are resolved once per sweep and threaded through `expire()`.
+
+**`Archive` needs a mark or it never converges.** "Older than N days" is true again
+tomorrow. `Delete` cannot show that defect in a test, so an idempotency fixture must
+include an archive category.
+
+**Never `WorkspaceContext::forget()` in a listener.** It caches its resolution, and
+a student — a member of no workspace — is then left with a null team id and no roles
+at all. Use `forWorkspace()`.
+
+**Never log `$exception->getMessage()`.** Laravel interpolates query bindings into a
+`QueryException` message, so a failing statement ships a name or an address to the
+monitoring vendor. Log the class; the trace still reaches `failed_jobs.exception`.
+Every job in this phase takes an **id** and re-reads, which is what keeps
+`failed_jobs.payload` clean — that table outlives the erasure it failed to perform.
+
+**The breach route is public on purpose and its response is a CONSTANT.** No uuid,
+no id, no count, no echo — a route that varied its answer would tell an attacker
+whether an address holds an account. The incident's scope is not in the request
+either. `notified` is refused until both notification timestamps exist, and a
+timestamp already set is never re-stamped.
+
+**A test can be green because of the wrong condition.** Completion of an exit has
+two bars (books settled, notice run out); deleting the settlement check entirely
+left all nine cases passing, because every fixture had a live notice. When a check
+has more than one condition, a test of one must neutralise the others in its
+fixture. The only thing that finds this is deleting the guard and re-running.

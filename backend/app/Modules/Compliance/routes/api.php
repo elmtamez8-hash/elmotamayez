@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Modules\Compliance\Http\Controllers\BreachReportController;
 use App\Modules\Compliance\Http\Controllers\DataRequestController;
+use App\Modules\Compliance\Http\Controllers\Manage\BreachController;
 use App\Modules\Compliance\Http\Controllers\Manage\ComplianceRequestController;
 use App\Modules\Compliance\Http\Controllers\Manage\OffboardingController;
 use App\Modules\Compliance\Http\Controllers\PrivacyCategoryController;
@@ -33,6 +35,22 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('throttle:public')->group(function (): void {
     Route::get('/privacy/categories', [PrivacyCategoryController::class, 'index']);
     Route::get('/privacy/policy', [PrivacyCategoryController::class, 'policy']);
+
+    /*
+    | Reporting a leak — UNAUTHENTICATED, and FR-040's word «معلَن» is why.
+    |
+    | ⚠️ A REPORTING PATH BEHIND A LOGIN IS A PATH THE PEOPLE MOST LIKELY TO USE IT
+    | CANNOT REACH. The best-known leaks are reported by outside security
+    | researchers who hold no account, and requiring one restricts the report to
+    | the population least likely to be making it.
+    |
+    | Three constraints are what make it safe to publish, and all three are
+    | elsewhere: the named limiter here, a response that is a CONSTANT so the route
+    | never becomes an oracle ({@see BreachReportController}), and the scope fields
+    | being absent from the request so nobody can assert the size of an incident
+    | into our own record of it ({@see ReportBreachRequest}).
+    */
+    Route::post('/privacy/breach-reports', [BreachReportController::class, 'store']);
 });
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -120,6 +138,17 @@ Route::middleware('auth:sanctum')->group(function (): void {
         */
         Route::get('/offboardings', [OffboardingController::class, 'index']);
         Route::post('/offboardings/{teacherOffboarding}/execute', [OffboardingController::class, 'execute']);
+
+        /*
+        | The breach queue (FR-040 · SC-020).
+        |
+        | ⚠️ `PATCH` AND NOT `POST /{report}/advance`. Triage is mostly editing the
+        | scope of an incident as it becomes known — a verb-shaped route for that
+        | invites a second one for every field, and the status is one of the things
+        | being edited rather than a separate ceremony.
+        */
+        Route::get('/breach-reports', [BreachController::class, 'index']);
+        Route::patch('/breach-reports/{breachReport}', [BreachController::class, 'update']);
 
         Route::post('/holds', [ComplianceRequestController::class, 'hold']);
         // A release, not a destruction — the row is the record that an erasure was

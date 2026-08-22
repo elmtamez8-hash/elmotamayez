@@ -595,3 +595,79 @@ would hit "Unknown column" on every grading for the length of the rollout.
   because no machine can judge them, and counting them reports every essay as 100% wrong
 - **A sample below `min_sample_size` stores `wrong_pct = NULL`, never zero.** "Nobody got
   this wrong" is what makes a teacher delete a good question two students happened to sit
+
+## Data Protection and Minors (spec 013)
+
+Seven new tables, and **six of them are platform-owned (layer ب)** with no
+`workspace_id` at all. That is the design rather than an omission: one person has
+one date of birth, one set of consents, one erasure request and one answer to it,
+however many teachers they study with. `BelongsToWorkspace` on any of them would
+silently duplicate one person per teacher, the mirror-image bug
+`PlatformOwnershipTest` catches in both directions.
+
+`teacher_offboardings` is the exception and the only model in the module that uses
+the trait: an exit is one workspace winding down, so the tenant column is the
+subject of the row rather than a partition of somebody's personal data.
+
+```
+data_categories     (platform)  the catalogue: key, purpose_ar, lawful basis, retain_days,
+                                erasure_mode, is_optional. Reference data, edited from /admin
+data_processors     (platform)  who receives data outside our servers. categories[] and an
+                                honest erasure_capability per row (full · partial · none)
+data_requests       (platform)  one right exercised. type, status, due_at, requested_by_user_id,
+                                executed_by_user_id, export_path, export_expires_at,
+                                granted_scope, refusal_reason.
+                                unique(open_key) — NULL never collides, so one OPEN request
+                                per subject and any number of closed ones
+legal_holds         (platform)  subject_user_id, reason, placed_by, placed_at, released_at.
+                                Released, never deleted: the row IS the record that an
+                                erasure was suspended
+retention_sweep_runs (platform) one row per NIGHT, including nights that find nothing —
+                                an absent row is the only evidence the sweep did not run
+breach_reports      (platform)  reported_by_user_id NULLABLE (an outside researcher holds no
+                                account), reporter_contact, description, affected_categories,
+                                affected_subject_count, authority_notified_at,
+                                subjects_notified_at, closed_at. index(status, created_at)
+teacher_offboardings (workspace) the module's one scoped model. status
+                                (requested · settlement_pending · notice_period · completed),
+                                settlement_cleared_at, students_notified_at, notice_ends_at,
+                                content_export_path, completed_by_user_id, completed_at.
+                                index(status, created_at)
+```
+
+Columns added to tables that already existed:
+
+- `student_profiles` grew `date_of_birth`, `dob_is_estimated`, `guardian_contact` and
+  `ownership_transferred_at`.
+- `terms_consents` grew `categories` and `decision`, so one signature records which
+  optional categories were accepted rather than a single yes.
+- `media_assets` grew `archived_at` (the mark that makes `Archive` converge) and
+  `retain_until` (the departed teacher's floor, an **OR** against the age rule).
+- `certificates` grew `student_display_name`, frozen at issue — a certificate must
+  still name its holder after the account behind it is anonymised.
+- Six retention indexes on `created_at`, because the sweep's predicate is an age:
+  `attendances`, `exam_attempts`, `exam_answers`, `attempt_items`, `lesson_progress`
+  and `invitations`. `attendances` already had `(student_user_id, created_at)` and it
+  is **unusable** for an age predicate — a composite index is only usable from its
+  leading column. `attempt_items` holds no personal column of its own, only a
+  snapshot of what a named person was asked, so it hides from a search for one.
+
+### The absence is the design, a third time
+
+- **No `access_holds`, no `is_withheld`, no breach-deadline column.** Every deadline
+  in this phase is derived: the request's `due_at` is the one stored date, because
+  it is the promise made to the person when they asked. A breach's two notice
+  deadlines are `created_at` plus a `platform_settings` row, computed in the
+  Resource — a column would stop agreeing with the setting the first time a
+  regulator shortens it, which is exactly the number an operator changes.
+- **`ownership_transferred_at` is deliberately NOT `$fillable`.** It is claimed by a
+  conditional UPDATE, the `captured_order_id` rule. Its three neighbours ARE
+  fillable — and were not when they shipped, so every self-registered student's date
+  of birth was discarded in silence, the guardian-consent gate never fired, and the
+  coming-of-age sweep walked an empty set. Mass assignment drops a non-fillable key
+  with no exception and a `201`, and every US1 assertion was made against the
+  response body, which echoes what was submitted rather than what was stored.
+- **`data_requests.open_key` is a nullable unique column, not a partial index.**
+  MySQL has no partial indexes; `WHERE status = 'pending'` on an index is a Postgres
+  feature. The column is written at creation and NULLed the moment the request
+  closes, so NULL-never-equals-NULL is the whole guard.
