@@ -166,6 +166,20 @@ return [
         | waiting on: five minutes late is late, not broken.
         */
         'redis:maintenance' => 300,
+
+        /*
+        | Spec 010 — the community queue.
+        |
+        | Two very different jobs share it, and the tighter one sets the number.
+        | An announcement fan-out is what a teacher is standing there watching:
+        | they publish "the lesson moved to seven", and every minute this queue
+        | spends backed up is a minute three hundred families do not know. The
+        | report-card render behind it is nightly housekeeping nobody waits on.
+        |
+        | ⚠️ AND A PAIR ABSENT FROM THIS LIST IS NOT WATCHED AT A DEFAULT, IT IS
+        | NOT WATCHED — see the note at the top of this array.
+        */
+        'redis:community' => 60,
     ],
 
     /*
@@ -392,6 +406,45 @@ return [
             'timeout' => 30,
             'nice' => 0,
         ],
+
+        /*
+        | Announcement fan-out and report-card rendering, on their own workers
+        | (spec 010).
+        |
+        | ⚠️ THE TIMEOUT IS SET BY THE PDF, NOT BY THE FAN-OUT. The fan-out is
+        | chunked precisely so it never needs more than `supervisor-1` gives —
+        | but mPDF assembling a term's grades with an embedded Arabic font is a
+        | single unsplittable call, and sixty seconds is where that gets killed
+        | mid-document with nothing to resume from. Five minutes is measured
+        | against that and nothing else.
+        |
+        | `memory` is above supervisor-1's for the same reason: the font and the
+        | document live in memory together for the length of one render.
+        |
+        | `tries: 1` like every other supervisor here. A half-written card is not
+        | fixed by rendering it again — the card row already exists and the
+        | scheduled build is what notices it has no file.
+        |
+        | ⚠️ AND IT IS LISTED IN `environments` BELOW, NOT ONLY HERE. `defaults`
+        | supplies shared VALUES; `environments` decides which supervisors
+        | actually start. A supervisor defined only in defaults is a queue whose
+        | jobs enqueue and are never drained — silently. One hundred and
+        | ninety-four scheduled jobs piled up in this very tree on 2026-08-18 from
+        | the same mistake made one level lower, in a hand-typed `--queue` list.
+        */
+        'supervisor-community' => [
+            'connection' => 'redis',
+            'queue' => ['community'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => 300,
+            'nice' => 5,
+        ],
     ],
 
     'environments' => [
@@ -420,6 +473,14 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],
+
+            // Scales, unlike the sweeps: a fan-out arrives when a teacher
+            // publishes, and several teachers publish at the start of a week.
+            'supervisor-community' => [
+                'maxProcesses' => 3,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+            ],
         ],
 
         'local' => [
@@ -436,6 +497,10 @@ return [
             ],
 
             'supervisor-payments' => [
+                'maxProcesses' => 1,
+            ],
+
+            'supervisor-community' => [
                 'maxProcesses' => 1,
             ],
         ],

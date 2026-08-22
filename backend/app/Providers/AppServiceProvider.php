@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\User;
+use App\Modules\Community\Support\CommunitySettings;
 use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -267,6 +268,72 @@ class AppServiceProvider extends ServiceProvider
          */
         RateLimiter::for('gamification-board', fn (Request $request) => Limit::perMinute(60)
             ->by('user:'.(string) $request->user()?->getKey()));
+
+        /*
+         * Chat writes (spec 010): opening a conversation, posting a message.
+         *
+         * ⚠️ THE CEILING IS A SETTING AND NOT A LITERAL — the only limiter in this
+         * file that reads one. It is the number a spam wave moves, and
+         * `PlatformSettings` answers from `rememberForever`, so the cost is a
+         * cache hit rather than a query on every write.
+         *
+         * Keyed by user, not ip, for the reason `practice` is: the callers are
+         * students, and students sit in classrooms behind one address.
+         */
+        RateLimiter::for('chat-write', fn (Request $request) => Limit::perMinute(
+            CommunitySettings::maxMessagesPerMinute()
+        )->by('user:'.(string) $request->user()?->getKey()));
+
+        /*
+         * Reporting abusive content (spec 010, FR-024).
+         *
+         * ⚠️ A SEPARATE BUCKET FROM `chat-write`, AND THAT SEPARATION IS THE WHOLE
+         * POINT OF NAMING IT. Somebody throttled for writing must still be able to
+         * report what is being written at them — share one counter and the loudest
+         * participant in a room silences the complaint about themselves. Tight in
+         * its own right: a report opens a moderation row, and a loop over it is a
+         * way to bury the queue the teacher reads.
+         */
+        RateLimiter::for('chat-report', fn (Request $request) => Limit::perMinute(10)
+            ->by('user:'.(string) $request->user()?->getKey()));
+
+        /*
+         * Moderation writes (spec 010, FR-021): hiding a message, banning and
+         * lifting a ban. Tight because none of them is repeated work, and every
+         * one appends a row to an audit log that is never deleted from.
+         */
+        RateLimiter::for('moderation-write', fn (Request $request) => Limit::perMinute(20)
+            ->by('user:'.(string) $request->user()?->getKey()));
+
+        /*
+         * Publishing an announcement (spec 010, FR-048).
+         *
+         * ⚠️ THE TIGHTEST LIMIT IN THIS FILE, AND IT GUARDS OUR REPUTATION RATHER
+         * THAN OUR CPU. One publish fans out to every student in scope through the
+         * notification centre — for an urgent one, past quiet hours and past
+         * digesting. A teacher who can publish sixty times a minute is a teacher
+         * who can make three hundred families mute the channel that also carries
+         * the attendance alert.
+         */
+        RateLimiter::for('announcement-publish', fn (Request $request) => Limit::perMinute(6)
+            ->by('user:'.(string) $request->user()?->getKey()));
+
+        /*
+         * Report-card rendering and download (spec 010, FR-039).
+         *
+         * ⚠️ BY THE MINUTE AND BY THE DAY, the shape `data-rights` uses, because
+         * this is the other endpoint in the product that queues a document
+         * assembling everything about one student. A per-minute limit alone lets a
+         * patient loop spend the whole day's render budget.
+         *
+         * Keyed on the account, never the address: a guardian may hold several
+         * children and a family shares one router, so an ip limit refuses the
+         * second child because the first one's card was fetched.
+         */
+        RateLimiter::for('report-card-render', fn (Request $request) => [
+            Limit::perMinute(6)->by('user:'.(string) $request->user()?->getKey()),
+            Limit::perDay(60)->by('user:'.(string) $request->user()?->getKey()),
+        ]);
     }
 
     /**
