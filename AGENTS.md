@@ -632,3 +632,19 @@ two bars (books settled, notice run out); deleting the settlement check entirely
 left all nine cases passing, because every fixture had a live notice. When a check
 has more than one condition, a test of one must neutralise the others in its
 fixture. The only thing that finds this is deleting the guard and re-running.
+
+### Read before adding or touching a Filament Resource
+
+**A Filament LIST never calls the row policy.** `OrderResource` had no `canViewAny()`,
+so it fell back to `OrderPolicy::viewAny()` — an unconditional `allow()` that the API
+never calls, because `OrderController::index()` filters by hand and asks no policy. With
+`EnsureFilamentAccess` admitting `assistant-teacher` to `/admin` by role name, an
+assistant read every student's email beside the amount they paid.
+
+- A policy method **no HTTP route exercises** has never been tested; its default is
+  whatever the first person wrote. Check `viewAny()` on every Resource.
+- **A table needs its own cut on `getEloquentQuery()`.** The row-level ability is not
+  consulted for a list, so repeating the controller's filter there is not duplication —
+  it is the only place that question gets asked on that screen.
+- `EditAction` is safe only because `BasePolicy` defines no `update()` and Laravel denies
+  a missing policy method. Adding one silently opens the edit door too.

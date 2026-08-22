@@ -44,9 +44,29 @@ class OrderPolicy extends BasePolicy
             : Response::deny();
     }
 
+    /**
+     * ⚠️ THE API NEVER CALLS THIS AND FILAMENT ALWAYS DOES — which is how an
+     * unconditional `allow()` sat here reading as harmless.
+     *
+     * `OrderController::index()` filters by hand (`ORDERS_VIEW_ALL`, then the
+     * credit-purchase cut) and asks no policy, so nothing in the HTTP surface ever
+     * exercised this method. `OrderResource` declares no `canViewAny()`, so
+     * Filament falls back here — and `EnsureFilamentAccess` admits
+     * `assistant-teacher` to the panel BY NAME. The result was that an assistant
+     * opened `/admin/orders` and read every student's email beside the amount they
+     * paid, with zero configuration, while `view()` above guards the same fact uuid
+     * by uuid on the API. **A Filament list never calls `view()`** — the row-level
+     * ability is not consulted for a table, so the careful cut one method up was
+     * bypassed by a screen.
+     *
+     * Found by the spec 010 review (2026-08-22), which exists to enforce exactly
+     * this rule — `FR-003`: an assistant reaches no financial data at all.
+     */
     public function viewAny(User $user): Response
     {
-        return Response::allow();
+        return $user->can(Permissions::ORDERS_VIEW_ALL)
+            ? Response::allow()
+            : Response::deny();
     }
 
     public function create(User $user): Response
