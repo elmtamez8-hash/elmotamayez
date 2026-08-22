@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use App\Modules\Compliance\Enums\BreachStatus;
 use App\Modules\Compliance\Models\BreachReport;
+use App\Modules\Compliance\Support\ComplianceSettings;
 use App\Modules\Tenancy\Support\Roles;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Laravel\Sanctum\Sanctum;
@@ -144,8 +145,15 @@ it('shows the officer a deadline derived from the hour the report arrived', func
 
     $row = $this->getJson('/api/v1/manage/compliance/breach-reports')->assertOk()->json('0');
 
+    /*
+    | ⚠️ MEASURED AGAINST THE ACCESSOR, NEVER AGAINST `72`. The notice window is a
+    | `platform_settings` row an operator tunes — the number a regulator shortens is
+    | exactly the number that changes — and a literal here fails the gate over a
+    | legitimate config change while proving nothing extra. Same lesson the LiveKit
+    | ticket ttl already cost this repository once.
+    */
     expect($row['authority_notice_due_at'])->toBe(
-        $report->fresh()?->created_at?->addHours(72)->toIso8601String(),
+        $report->fresh()?->created_at?->addHours(ComplianceSettings::authorityNoticeHours())->toIso8601String(),
     );
 });
 
