@@ -60,6 +60,10 @@ final class PermissionLabels
         // panel showing `compliance.holds.manage` is the defect this file exists
         // to prevent.
         'compliance' => 'الامتثال وحماية البيانات',
+        // Spec 010. "محادثات الطلاب" and not "المحادثات": the tick box grants
+        // replying in SOMEBODY ELSE'S conversation, and a label that reads as
+        // "the chat" is one an owner grants without noticing whose.
+        'chat' => 'محادثات الطلاب',
     ];
 
     /** @var array<string, string> */
@@ -118,6 +122,8 @@ final class PermissionLabels
         'holds.manage' => 'إدارة التعليق القانونيّ',
         'offboarding.execute' => 'تنفيذ خروج المدرّس',
         'breaches.manage' => 'إدارة بلاغات التسريب',
+        // Spec 010.
+        'reply' => 'الردّ',
     ];
 
     /** The handful whose Arabic is not a noun and a verb. @var array<string, string> */

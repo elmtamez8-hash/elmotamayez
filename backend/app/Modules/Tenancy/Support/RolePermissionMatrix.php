@@ -66,15 +66,24 @@ final class RolePermissionMatrix
             // assistants properly is spec 010 — until then the narrow grant is
             // the safe default, not the generous one.
             Permissions::ATTENDANCE_VIEW,
-            // Whether a student is blocked and how many credits they hold, in
-            // credits and never in money (FR-052). Operational — the assistant
-            // who schedules a session needs to know who can book — and it is the
-            // opposite of SETTLEMENT_STATEMENT_VIEW below: this is a fact about
-            // the student's standing, not about the teacher's contract. Reaching
-            // any given student is gated a second time by an active enrollment
-            // in this workspace (FR-055), the same double gate as
-            // RELATIONS_VIEW_STUDENT.
-            Permissions::BILLING_BALANCE_VIEW,
+            //
+            // ⚠️ BILLING_BALANCE_VIEW USED TO BE HERE, AND SPEC 010 MOVED IT DOWN
+            // TO $teacher — MOVED, never deleted. 010's FR-003 refuses an
+            // assistant every financial surface there is, and this was the one
+            // financial permission an assistant held by default. The 006
+            // argument for it — "operational; the assistant who schedules needs
+            // to know who can book" — is still true, which is exactly why it
+            // moves rather than disappearing: the owner can tick it back onto a
+            // custom assistant role from the roles screen, deliberately, for a
+            // named person.
+            //
+            // ⚠️ AND DELETING IT OUTRIGHT WOULD HAVE BROKEN THE SEEDER, not just
+            // this role. These arrays compose upward, so a name removed here is
+            // removed from $teacher and $tenantOwner too — and a permission no
+            // tenant role holds becomes PLATFORM-level by derivation in
+            // platformPermissions(), after which {@see Role} throws the moment
+            // SeedDefaultRoles grants it. The failure is `php artisan db:seed`
+            // dying, not a review comment.
         ]);
 
         $teacher = array_merge($assistantTeacher, [
@@ -158,6 +167,21 @@ final class RolePermissionMatrix
             Permissions::REWARDS_MANAGE,
             Permissions::REDEMPTIONS_FULFILL,
             Permissions::PROGRESS_VIEW_STUDENT,
+            /*
+            | Spec 010 — the teacher's team.
+            |
+            | BILLING_BALANCE_VIEW arrives here from $assistantTeacher (see the
+            | note there): whether a student is blocked and how many credits they
+            | hold, in credits and never in money. It is the teacher's to read and
+            | the owner's to delegate, one assistant at a time.
+            |
+            | CHAT_REPLY is new, and it is here for the same reason grading is —
+            | the placement IS the delivery channel for FR-002. An assistant who
+            | should answer students gets a custom role with this box ticked; one
+            | who should not, does not.
+            */
+            Permissions::BILLING_BALANCE_VIEW,
+            Permissions::CHAT_REPLY,
             //
             // ⚠️ ANALYTICS_CROSS_TEACHER_VIEW IS DELIBERATELY ABSENT, HERE AND IN
             // EVERY OTHER ARRAY IN THIS FILE. platformPermissions() is derived by

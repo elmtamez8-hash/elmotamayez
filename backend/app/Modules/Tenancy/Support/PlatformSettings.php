@@ -98,6 +98,14 @@ final class PlatformSettings
         'compliance.breach.subject_notice_hours' => 'compliance.breach.subject_notice_hours',
         'compliance.retain_days.min' => 'compliance.retain_days.min',
         'compliance.retain_days.max' => 'compliance.retain_days.max',
+        // Community (spec 010). Three rows and no more: the rating gate, the
+        // rating period, and the chat send ceiling. The page size and the fan-out
+        // chunk beside them in `config/community.php` are engineering constants —
+        // moving either changes the shape of a query or a job's timeout budget,
+        // not a policy anyone operating the platform has an opinion about.
+        'community.review.min_sessions' => 'community.review.min_sessions',
+        'community.review.period_days' => 'community.review.period_days',
+        'community.chat.max_messages_per_minute' => 'community.chat.max_messages_per_minute',
     ];
 
     public static function get(string $key, mixed $default = null): mixed

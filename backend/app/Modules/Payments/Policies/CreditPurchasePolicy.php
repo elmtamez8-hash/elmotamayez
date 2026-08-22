@@ -38,7 +38,17 @@ class CreditPurchasePolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $user->can(Permissions::BILLING_BALANCE_VIEW)
+        /*
+        | ⚠️ ORDERS_VIEW_ALL, NOT BILLING_BALANCE_VIEW — moved by spec 010.
+        |
+        | A purchase IS a payment: FR-003 names "دفعة" and "إيصال" among the
+        | surfaces an assistant may never reach, and the row this guards is the
+        | receipt for one. `billing.balance.view` says what its name says — a
+        | count of credits and a withheld flag — and riding a receipt on it made
+        | the two questions one. Reading who paid what belongs with every other
+        | order in the product.
+        */
+        return $user->can(Permissions::ORDERS_VIEW_ALL)
             ? Response::allow()
             : Response::deny();
     }

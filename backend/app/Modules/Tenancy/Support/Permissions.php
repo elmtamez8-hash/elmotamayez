@@ -408,6 +408,31 @@ final class Permissions
     /** Triage and advance a reported breach. */
     public const COMPLIANCE_BREACHES_MANAGE = 'compliance.breaches.manage';
 
+    /*
+    |--------------------------------------------------------------------------
+    | Spec 010 — the teacher's team
+    |--------------------------------------------------------------------------
+    |
+    | ⚠️ ONE CONSTANT, AND THE OTHER FOUR ITEMS OF `FR-002` ARE ALREADY HERE.
+    | The requirement asks that an assistant be granted item by item — grading,
+    | replying, marking attendance, uploading content — and four of those five
+    | are GRADING_PERFORM/SUBMISSIONS_GRADE, ATTENDANCE_OVERRIDE and
+    | LESSONS_MANAGE/CMS_CREATE, shipped since 005 and 008. A second permission
+    | system beside spatie — a JSON column of "abilities" on the assignment row —
+    | would answer "no" while every `$this->authorize()` in Assessments, Courses
+    | and LiveSessions kept answering "yes" from the role. Two spellings of one
+    | question, which is the defect this repository has now recorded three times.
+    |
+    | It sits on `$teacher` and NOT on `$assistantTeacher`, and that placement IS
+    | the delivery channel — the matrix seeds a default and the roles screen lets
+    | the owner tick it onto a custom assistant role. Seeding it onto every
+    | assistant would read "the assistant may reply if granted" as "the assistant
+    | replies", which is the opposite requirement.
+    */
+
+    /** Reply inside a student's conversation on the teacher's behalf. */
+    public const CHAT_REPLY = 'chat.reply';
+
     /** @return list<string> */
     public static function all(): array
     {
@@ -516,6 +541,10 @@ final class Permissions
             self::COMPLIANCE_HOLDS_MANAGE,
             self::COMPLIANCE_OFFBOARDING_EXECUTE,
             self::COMPLIANCE_BREACHES_MANAGE,
+            // Spec 010. Absent from HERE it is never seeded, so the tick box on
+            // the roles screen would write a row against a permission that does
+            // not exist and every check against it would fail — silently.
+            self::CHAT_REPLY,
         ];
     }
 }

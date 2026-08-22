@@ -42,7 +42,14 @@ class CreditTransactionPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $user->can(Permissions::BILLING_BALANCE_VIEW)
+        /*
+        | ⚠️ ORDERS_VIEW_ALL, NOT BILLING_BALANCE_VIEW — moved by spec 010, and
+        | for the same reason as CreditPurchasePolicy beside it. A ledger entry
+        | names the purchase that funded it, so the history is the receipts in a
+        | list. `billing.balance.view` answers "how many credits, and are they
+        | blocked"; it was never meant to answer "what did this family pay".
+        */
+        return $user->can(Permissions::ORDERS_VIEW_ALL)
             ? Response::allow()
             : Response::deny();
     }
