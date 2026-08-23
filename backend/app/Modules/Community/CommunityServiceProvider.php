@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Community;
 
+use App\Modules\Community\Models\AssistantAssignment;
+use App\Modules\Community\Policies\AssistantAssignmentPolicy;
+use App\Modules\Community\Support\EloquentAssistantScopeDirectory;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Modules\Module;
 use App\Shared\Modules\ModulesServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Spec 010 — assistants, conversations, moderation, periodic reviews, report
@@ -29,4 +34,44 @@ use App\Shared\Modules\ModulesServiceProvider;
 class CommunityServiceProvider extends Module
 {
     protected string $name = 'Community';
+
+    public function register(): void
+    {
+        parent::register();
+
+        /*
+        | ⚠️ `scoped()`, NOT `bind()` AND NOT `singleton()` — and the two
+        | departures are for opposite reasons.
+        |
+        | Not `bind()`: `isAssistantIn()` is the key of the financial wall's
+        | `Gate::before`, so it is asked on every permission check — dozens of
+        | times on one Filament page. A fresh instance per resolution throws the
+        | memo away each time and turns the wall into a query per check.
+        |
+        | ⚠️ AND NOT `singleton()`, WHICH WOULD MAKE REVOCATION STOP BEING INSTANT
+        | IN A QUEUE WORKER. A singleton lives as long as the container, and a
+        | worker's container outlives the job — so an assistant revoked at noon
+        | would keep passing a cached `true` until the worker restarted. `scoped()`
+        | is flushed between jobs and between Octane requests, which is what "per
+        | request" actually means here. `SC-003` is measured over HTTP and would
+        | never have seen it.
+        |
+        | `PlatformStaffDirectory` is registered the same way, for the same reason.
+        */
+        $this->app->scoped(AssistantScopeDirectory::class, EloquentAssistantScopeDirectory::class);
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        /*
+        | ⚠️ REGISTERED EXPLICITLY, NEVER LEFT TO THE GUESSER. Laravel's policy
+        | guesser fails OPEN — no policy found means "no policy applies" — and a
+        | deny-only test passes just as happily against a missing registration as
+        | against a working one. That is how `taxonomy.manage` shipped in 009
+        | guarding nothing at all.
+        */
+        Gate::policy(AssistantAssignment::class, AssistantAssignmentPolicy::class);
+    }
 }

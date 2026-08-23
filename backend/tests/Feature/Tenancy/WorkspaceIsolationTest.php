@@ -17,6 +17,8 @@ use App\Modules\Assessments\Models\QuestionImport;
 use App\Modules\Assessments\Models\QuestionStat;
 use App\Modules\Assessments\Models\RubricCriterion;
 use App\Modules\Assessments\Models\Submission;
+use App\Modules\Community\Models\AssistantAssignment;
+use App\Modules\Community\Models\AssistantScope;
 use App\Modules\Compliance\Models\TeacherOffboarding;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
@@ -54,6 +56,7 @@ use App\Modules\Settlement\Models\SettlementRate;
 use App\Modules\Settlement\Models\TeacherPayout;
 use App\Modules\Settlement\Models\TeachingUnit;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use App\Shared\Traits\BelongsToWorkspace;
 use Laravel\Sanctum\Sanctum;
@@ -645,4 +648,83 @@ it('scopes a teacher offboarding to its own workspace', function (): void {
         ->toBe($workspaceA->getKey())
         ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(TeacherOffboarding::class), true))
         ->toBeTrue();
+});
+
+/*
+| Spec 010 — the assistant assignment, and the scope row that deliberately is not
+| workspace-scoped.
+|
+| ⚠️ REQUIRED IN THE SAME COMMIT AS THE MODEL (Constitution I). Without the trait
+| one teacher's team appears on every other teacher's screen, with a «إزالة»
+| button beside each name — and nothing else in the suite would say so.
+*/
+it('scopes an assistant assignment to its own workspace', function (): void {
+    [$workspaceA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+    [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+    $context = app(WorkspaceContext::class);
+
+    $context->forWorkspace($workspaceA, fn () => AssistantAssignment::factory()->count(2)->create());
+    $context->forWorkspace($workspaceB, fn () => AssistantAssignment::factory()->count(3)->create());
+
+    expect($context->forWorkspace($workspaceA, fn () => AssistantAssignment::query()->count()))->toBe(2)
+        ->and($context->forWorkspace($workspaceB, fn () => AssistantAssignment::query()->count()))->toBe(3)
+        // ⚠️ AND THE AUTO-FILL IS ASSERTED, not only the read filter. The trait
+        // does two things, and a model that scoped reads while writing a null
+        // tenant key would pass a count assertion and be invisible to everyone
+        // including its owner.
+        ->and($context->forWorkspace($workspaceA, fn () => (int) AssistantAssignment::query()->value('workspace_id')))
+        ->toBe($workspaceA->getKey())
+        ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(AssistantAssignment::class), true))
+        ->toBeTrue();
+});
+
+/*
+| ⚠️ THE MIRROR-IMAGE CASE, AND IT ASSERTS AN ABSENCE ON PURPOSE.
+|
+| `assistant_scopes` carries no `workspace_id` and no global scope by design: the
+| row is reachable only through its assignment, which carries both. That makes the
+| JOIN the guard, and it makes a bare `AssistantScope::query()` as exposed as any
+| platform-owned table — which is exactly what this asserts, so that nobody
+| "fixes" it later by adding the trait and silently duplicating one confinement
+| per workspace. The guard being tested is that the DIRECTORY starts from an
+| assignment, not that the model filters.
+*/
+it('leaves assistant scopes unscoped and guards them through the assignment', function (): void {
+    [$workspaceA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+    [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+    $context = app(WorkspaceContext::class);
+
+    $assistantA = $context->forWorkspace($workspaceA, function () use ($workspaceA) {
+        $assignment = AssistantAssignment::factory()->create(['workspace_id' => $workspaceA->getKey()]);
+        AssistantScope::factory()->create([
+            'assistant_assignment_id' => $assignment->getKey(),
+            'course_id' => Course::factory()->create(['workspace_id' => $workspaceA->getKey()])->getKey(),
+        ]);
+
+        return $assignment->assistant;
+    });
+
+    $context->forWorkspace($workspaceB, function () use ($workspaceB): void {
+        $assignment = AssistantAssignment::factory()->create(['workspace_id' => $workspaceB->getKey()]);
+        AssistantScope::factory()->create([
+            'assistant_assignment_id' => $assignment->getKey(),
+            'course_id' => Course::factory()->create(['workspace_id' => $workspaceB->getKey()])->getKey(),
+        ]);
+    });
+
+    // The model is deliberately NOT scoped — both rows are visible to a raw query.
+    expect(in_array(BelongsToWorkspace::class, class_uses_recursive(AssistantScope::class), true))
+        ->toBeFalse('assistant_scopes carries no tenant key; adding the trait would duplicate one confinement per workspace')
+        ->and(AssistantScope::query()->count())->toBe(2);
+
+    // The directory is what confines it: A's assistant is confined in A, and is
+    // not an assistant in B at all — so B places no confinement on them, which is
+    // "not restricted here", never "restricted to nothing".
+    $directory = app(AssistantScopeDirectory::class);
+
+    expect($directory->scopedCourseIdsFor($assistantA, $workspaceA->getKey()))->toHaveCount(1)
+        ->and($directory->isAssistantIn($assistantA, $workspaceB->getKey()))->toBeFalse()
+        ->and($directory->scopedCourseIdsFor($assistantA, $workspaceB->getKey()))->toBeNull();
 });
