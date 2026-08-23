@@ -3,6 +3,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { publicApi, NotFoundError, type TeacherDetail } from "@/lib/public-api";
+import {
+  AvailableNowChip,
+  AvailableNowDot,
+} from "@/components/marketplace/AvailableNow";
 import { StarRating } from "@/components/marketplace/StarRating";
 import { TrustScoreBadge } from "@/components/marketplace/TrustScoreBadge";
 import { TrustScoreBreakdown } from "@/components/marketplace/TrustScoreBreakdown";
@@ -124,20 +128,27 @@ export default async function TeacherProfilePage({
       */}
       <header className="mb-8 flex flex-col gap-8 rounded-3xl border border-line bg-surface-raised p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-col gap-6 sm:flex-row">
-          {teacher.photo_url ? (
-            <img
-              src={teacher.photo_url}
-              alt=""
-              className="h-32 w-32 shrink-0 rounded-2xl object-cover"
-            />
-          ) : (
-            <span
-              className="flex h-32 w-32 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-4xl font-bold text-primary-ink"
-              aria-hidden="true"
-            >
-              {teacher.name.charAt(0)}
-            </span>
-          )}
+          {/* ⚠️ `relative` AND `shrink-0` ON THE WRAPPER, not on the photo: the
+              dot is positioned against this box, and the box is what has to hold
+              its width in the flex row. */}
+          <div className="relative shrink-0 self-start">
+            {teacher.photo_url ? (
+              <img
+                src={teacher.photo_url}
+                alt=""
+                className="h-32 w-32 rounded-2xl object-cover"
+              />
+            ) : (
+              <span
+                className="flex h-32 w-32 items-center justify-center rounded-2xl bg-primary-soft text-4xl font-bold text-primary-ink"
+                aria-hidden="true"
+              >
+                {teacher.name.charAt(0)}
+              </span>
+            )}
+
+            {teacher.available_now && <AvailableNowDot />}
+          </div>
 
           <div>
             <h1 className="mb-2 flex flex-wrap items-center gap-2 text-2xl font-extrabold text-ink sm:text-3xl">
@@ -148,6 +159,10 @@ export default async function TeacherProfilePage({
                   موثّق
                 </span>
               )}
+              {/* Beside the name, where a status about a person belongs — it used
+                  to sit at the bottom of the booking panel, below two buttons and
+                  off the first screen on a phone. */}
+              {teacher.available_now && <AvailableNowChip />}
             </h1>
 
             <p className="mb-3 text-lg text-ink-muted">{teacher.headline}</p>
@@ -272,16 +287,6 @@ export default async function TeacherProfilePage({
               >
                 حجز حصة تجريبية
               </Link>
-
-              {teacher.available_now && (
-                <p className="mt-4 flex items-center justify-center gap-2 text-sm font-medium text-secondary-ink">
-                  <span
-                    className="h-2 w-2 rounded-full bg-secondary"
-                    aria-hidden="true"
-                  />
-                  متاح الآن
-                </p>
-              )}
             </div>
 
           </div>

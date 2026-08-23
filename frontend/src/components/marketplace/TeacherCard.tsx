@@ -1,6 +1,7 @@
 import { CheckIcon } from "@/components/icons";
 import Link from "next/link";
 import type { TeacherCard as Teacher } from "@/lib/public-api";
+import { AvailableNowChip, AvailableNowDot } from "./AvailableNow";
 import { StarRating } from "./StarRating";
 import { TrustScoreBadge } from "./TrustScoreBadge";
 
@@ -13,7 +14,7 @@ function Initials({ name }: { name: string }) {
 
   return (
     <span
-      className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary-soft text-lg font-bold text-primary-ink"
+      className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-lg font-bold text-primary-ink"
       aria-hidden="true"
     >
       {initials}
@@ -29,27 +30,38 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
   return (
     <article className="group flex flex-col rounded-3xl border border-line bg-surface-raised p-5 transition duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg active:translate-y-0 active:duration-100">
       <div className="mb-4 flex items-start gap-4">
-        {teacher.photo_url ? (
-          // A broken image must not collapse the card, so the fallback is the same
-          // size as the photo it replaces.
-          <img
-            src={teacher.photo_url}
-            alt=""
-            className="h-16 w-16 shrink-0 rounded-full object-cover transition duration-300 ease-out group-hover:scale-105"
-            loading="lazy"
-          />
-        ) : (
-          <Initials name={teacher.name} />
-        )}
+        {/* ⚠️ `relative` AND `shrink-0` ON THE WRAPPER, not on the image. The dot
+            is absolutely positioned against this box, and the box is what must
+            keep its size in a flex row — moving `shrink-0` down to the photo
+            would let the wrapper collapse and take the dot with it. */}
+        <div className="relative shrink-0">
+          {teacher.photo_url ? (
+            // A broken image must not collapse the card, so the fallback is the same
+            // size as the photo it replaces.
+            <img
+              src={teacher.photo_url}
+              alt=""
+              className="h-16 w-16 rounded-full object-cover transition duration-300 ease-out group-hover:scale-105"
+              loading="lazy"
+            />
+          ) : (
+            <Initials name={teacher.name} />
+          )}
+
+          {teacher.available_now && <AvailableNowDot />}
+        </div>
 
         <div className="min-w-0 flex-1">
-          <h3 className="flex items-center gap-1.5 text-base font-bold text-ink">
+          {/* `flex-wrap`: the name is a link that truncates, and the chip beside
+              it must not be what forces the truncation on a narrow card. */}
+          <h3 className="flex flex-wrap items-center gap-1.5 text-base font-bold text-ink">
             <Link href={profileHref} className="truncate hover:text-primary-ink">
               {teacher.name}
             </Link>
             {teacher.is_verified && (
               <CheckIcon className="h-4 w-4 shrink-0 text-secondary-ink" />
             )}
+            {teacher.available_now && <AvailableNowChip />}
           </h3>
           {/* Two lines, not `truncate`. The headline is the teacher's own pitch
               and the only line that tells two maths teachers apart — cutting it
@@ -74,12 +86,6 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
           score={teacher.trust_score}
           band={teacher.trust_score_band}
         />
-        {teacher.available_now && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/15 px-2.5 py-1 text-xs font-semibold text-secondary-ink">
-            <span className="h-1.5 w-1.5 rounded-full bg-secondary" aria-hidden="true" />
-            متاح الآن
-          </span>
-        )}
       </div>
 
       {teacher.subjects.length > 0 && (
