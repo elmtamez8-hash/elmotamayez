@@ -106,6 +106,10 @@ function dispatchOf(User $user, NotificationType $type): void
             'request_type' => 'تصدير نسخة من البيانات',
             'due_date' => '٣٠ سبتمبر',
             'notice_end_date' => '٣٠ سبتمبر',
+            // A SEVENTH time, with spec 010's `chat_message`. The count came back
+            // 44 against 45 the moment the type landed — same mechanism, seventh
+            // reading of it.
+            'sender_name' => 'أ. خالد',
         ],
     ));
 }

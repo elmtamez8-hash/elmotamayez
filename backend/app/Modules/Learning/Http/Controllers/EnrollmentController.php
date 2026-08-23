@@ -26,7 +26,11 @@ class EnrollmentController extends Controller
     {
         $enrollments = Enrollment::query()
             ->where('student_user_id', $this->currentUser($request)->getKey())
-            ->with('course')
+            // The workspace comes with it: `EnrollmentResource` names the teacher
+            // so a student can open the one private conversation with them, and a
+            // Resource runs once per row — a query inside it is an N+1 by
+            // construction.
+            ->with(['course', 'workspace'])
             ->orderByDesc('enrolled_at')
             ->paginate(15);
 

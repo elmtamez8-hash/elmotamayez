@@ -49,7 +49,9 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\DataCategorySeeder;
 use Database\Seeders\GamificationCatalogSeeder;
 use Database\Seeders\NotificationTemplateSeeder;
+use Illuminate\Broadcasting\BroadcastManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -1017,4 +1019,56 @@ function envelopeFor(User $user, NotificationType $type = NotificationType::Sess
         ],
         notificationUuid: 'n-1',
     );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Broadcast channel authorisation (spec 010)
+|--------------------------------------------------------------------------
+|
+| ⚠️ THE TEST BROADCASTER AUTHORISES NOTHING, AND AN ASSERTION WRITTEN AGAINST
+| IT IS VACUOUSLY GREEN. `phpunit.xml` sets `BROADCAST_CONNECTION=null`, and
+| `NullBroadcaster::auth()` is an empty method body — no channel callback is ever
+| consulted, so `/api/broadcasting/auth` answers 200 for every channel name and
+| every user, including a stranger asking for someone else's private conversation.
+| `SC-005` says «zero successful subscriptions to a channel that was not
+| authorised»; measured on the default connection, that criterion cannot fail.
+|
+| So the helper switches to the pusher driver, whose `auth()` runs
+| `verifyUserCanAccessChannel()` — the callbacks in `routes/channels.php` — before
+| signing anything. The credentials are fabricated because none of this touches a
+| network: `authorizeChannel()` is an HMAC over the socket id, computed locally.
+| `pusher/pusher-php-server` ships with reverb, so nothing new is installed for it.
+|
+| Here rather than inside a test file for the reason written above
+| `countingQueries()`: a function declared in one test file is a global that
+| exists only when that file happens to load first.
+*/
+function subscribeToChannel(string $channel, string $socketId = '1234.5678'): TestResponse
+{
+    config([
+        'broadcasting.default' => 'pusher',
+        'broadcasting.connections.pusher.key' => 'test-key',
+        'broadcasting.connections.pusher.secret' => 'test-secret',
+        'broadcasting.connections.pusher.app_id' => 'test-app',
+    ]);
+
+    app()->forgetInstance(BroadcastManager::class);
+    Broadcast::clearResolvedInstances();
+
+    /*
+    | ⚠️ AND THE CHANNELS HAVE TO BE REGISTERED AGAIN ON THE NEW DRIVER.
+    | `Broadcast::channel()` is a `__call` proxy to `$this->driver()->channel()` —
+    | the callbacks live on the BROADCASTER INSTANCE, not on the manager. So a
+    | freshly resolved driver knows no channel names at all, and every private
+    | subscription is refused with a 403 that looks exactly like a failed
+    | authorisation. Re-requiring the shipped file is what keeps this helper
+    | measuring `routes/channels.php` rather than a copy of it.
+    */
+    require base_path('routes/channels.php');
+
+    return test()->postJson('/api/broadcasting/auth', [
+        'channel_name' => $channel,
+        'socket_id' => $socketId,
+    ]);
 }

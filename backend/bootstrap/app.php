@@ -15,8 +15,29 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
-        channels: __DIR__.'/../routes/channels.php',
         health: '/up',
+    )
+    /*
+    | Spec 010 — the broadcast authorisation endpoint.
+    |
+    | ⚠️ REGISTERED HERE RATHER THAN THROUGH `withRouting(channels:)`, WHICH TAKES
+    | NO ATTRIBUTES. That form calls `Broadcast::routes(null)`, which defaults to
+    | `['middleware' => ['web']]` — session auth, no rate limit, and no `/api`
+    | prefix. Three consequences, each of which shows up as a silent 403 in a
+    | browser and nowhere in a log:
+    |
+    |  - the frontend holds a Sanctum BEARER token in `localStorage`, so `web`
+    |    alone identifies nobody and every private subscription is refused;
+    |  - `NFR-014` wants a named limiter on this route, and it is authenticated
+    |    and exposed — an inline `throttle:N,M` would share one bucket with every
+    |    other inline limit on the platform;
+    |  - the Next dev server rewrites `/api/*` to the API and nothing else, so
+    |    without the prefix Echo's auth request leaves the origin and is a CORS
+    |    failure rather than an authorisation one.
+    */
+    ->withBroadcasting(
+        __DIR__.'/../routes/channels.php',
+        ['prefix' => 'api', 'middleware' => ['auth:sanctum', 'throttle:broadcast-auth']],
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Trusted proxies are configured in AppServiceProvider::boot(), not here.

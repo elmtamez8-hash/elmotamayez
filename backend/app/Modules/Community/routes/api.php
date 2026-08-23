@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Modules\Community\Http\Controllers\AssistantController;
+use App\Modules\Community\Http\Controllers\ConversationController;
 use App\Modules\Community\Http\Controllers\Manage\AssistantController as ManageAssistantController;
+use App\Modules\Community\Http\Controllers\MessageController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -45,4 +47,26 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // The assistant's own view of where they work. No permission: the filter is
     // their own id, which is ownership and not authorisation.
     Route::get('/assistants/me', [AssistantController::class, 'me']);
+
+    /*
+    | The private chat (US2).
+    |
+    | ⚠️ `{conversation}` AND `{message}` ARE STRINGS, NOT MODELS. Every one of
+    | these is reachable by a student, and a student is a member of no workspace —
+    | so `WorkspaceScope` adds no condition for them and an implicit binding would
+    | resolve ANOTHER teacher's row before a policy ran. Resolved inside the
+    | Actions, after the check.
+    |
+    | Writes carry `throttle:chat-write`, whose ceiling is a `platform_settings`
+    | row. Reads are unthrottled: they are scoped to the caller's own threads, and
+    | a limit on reading a chat is a limit on scrolling one.
+    */
+    Route::get('/conversations', [ConversationController::class, 'index']);
+    Route::get('/conversations/{conversation}/messages', [MessageController::class, 'index']);
+
+    Route::middleware('throttle:chat-write')->group(function (): void {
+        Route::post('/conversations', [ConversationController::class, 'store']);
+        Route::post('/conversations/{conversation}/messages', [MessageController::class, 'store']);
+        Route::delete('/messages/{message}', [MessageController::class, 'destroy']);
+    });
 });

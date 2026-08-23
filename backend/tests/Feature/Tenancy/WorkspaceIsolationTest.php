@@ -19,6 +19,9 @@ use App\Modules\Assessments\Models\RubricCriterion;
 use App\Modules\Assessments\Models\Submission;
 use App\Modules\Community\Models\AssistantAssignment;
 use App\Modules\Community\Models\AssistantScope;
+use App\Modules\Community\Models\Conversation;
+use App\Modules\Community\Models\ConversationParticipant;
+use App\Modules\Community\Models\Message;
 use App\Modules\Compliance\Models\TeacherOffboarding;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
@@ -727,4 +730,64 @@ it('leaves assistant scopes unscoped and guards them through the assignment', fu
     expect($directory->scopedCourseIdsFor($assistantA, $workspaceA->getKey()))->toHaveCount(1)
         ->and($directory->isAssistantIn($assistantA, $workspaceB->getKey()))->toBeFalse()
         ->and($directory->scopedCourseIdsFor($assistantA, $workspaceB->getKey()))->toBeNull();
+});
+
+/*
+| Spec 010 US2 — conversations and messages.
+|
+| ⚠️ TWO WORKSPACES AND A STUDENT IN EACH, because a single-workspace fixture
+| cannot fail. `WorkspaceScope` is inert when the context is null, and the context
+| is null for every student on the platform — they are members of nothing. So the
+| trait's read filter is asserted from a MEMBER's context here, and the student's
+| own exposure is measured over HTTP in `ConversationAccessTest`, which is the
+| only place it can be.
+|
+| ⚠️ AND `messages.workspace_id` IS ASSERTED AGAINST THE CONVERSATION'S, not
+| merely against non-null. The sender is usually a student, so the auto-fill has
+| nothing to write; a teacher signed into a second workspace would have it write
+| the WRONG one from `users.last_workspace_id`. `PostMessage` copies it from the
+| conversation, and this is what fails if anybody removes that line and leans on
+| the trait.
+*/
+it('scopes conversations and messages to the workspace that owns them', function (): void {
+    [$workspaceA, $ownerA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+    [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+    $context = app(WorkspaceContext::class);
+
+    $conversationA = $context->forWorkspace($workspaceA, function () use ($ownerA) {
+        $conversation = Conversation::factory()->create();
+
+        Message::query()->create([
+            'workspace_id' => $conversation->workspace_id,
+            'conversation_id' => $conversation->getKey(),
+            'sender_user_id' => $ownerA->getKey(),
+            'body' => 'داخل أ',
+        ]);
+
+        return $conversation;
+    });
+
+    $context->forWorkspace($workspaceB, function (): void {
+        Conversation::factory()->count(2)->create();
+    });
+
+    expect($context->forWorkspace($workspaceA, fn () => Conversation::query()->count()))->toBe(1)
+        ->and($context->forWorkspace($workspaceB, fn () => Conversation::query()->count()))->toBe(2)
+        ->and($context->forWorkspace($workspaceA, fn () => Message::query()->count()))->toBe(1)
+        ->and($context->forWorkspace($workspaceB, fn () => Message::query()->count()))->toBe(0)
+        // The message carries its CONVERSATION's workspace, whoever wrote it.
+        ->and((int) Message::query()->withoutWorkspaceScope()->value('workspace_id'))
+        ->toBe((int) $conversationA->workspace_id)
+        ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(Conversation::class), true))->toBeTrue()
+        ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(Message::class), true))->toBeTrue()
+        /*
+        | The mirror image: `conversation_participants` carries no tenant key and
+        | must not grow one. It is reachable only through a conversation that has
+        | one, and adding the trait would file one person's read pointer per
+        | workspace — the duplication `PlatformOwnershipTest` guards in both
+        | directions.
+        */
+        ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(ConversationParticipant::class), true))
+        ->toBeFalse('conversation_participants is reached through its conversation, which carries the tenant key');
 });

@@ -4,9 +4,15 @@ declare(strict_types=1);
 
 namespace App\Modules\Community;
 
+use App\Modules\Community\Events\MessagePosted;
 use App\Modules\Community\Listeners\CreateAssistantAssignment;
+use App\Modules\Community\Listeners\NotifyOfflineRecipient;
 use App\Modules\Community\Models\AssistantAssignment;
+use App\Modules\Community\Models\Conversation;
+use App\Modules\Community\Models\Message;
 use App\Modules\Community\Policies\AssistantAssignmentPolicy;
+use App\Modules\Community\Policies\ConversationPolicy;
+use App\Modules\Community\Policies\MessagePolicy;
 use App\Modules\Community\Support\EloquentAssistantScopeDirectory;
 use App\Modules\Tenancy\Events\WorkspaceMemberAdded;
 use App\Shared\Contracts\AssistantScopeDirectory;
@@ -76,7 +82,10 @@ class CommunityServiceProvider extends Module
         | guarding nothing at all.
         */
         Gate::policy(AssistantAssignment::class, AssistantAssignmentPolicy::class);
+        Gate::policy(Conversation::class, ConversationPolicy::class);
+        Gate::policy(Message::class, MessagePolicy::class);
 
         Event::listen(WorkspaceMemberAdded::class, CreateAssistantAssignment::class);
+        Event::listen(MessagePosted::class, NotifyOfflineRecipient::class);
     }
 }

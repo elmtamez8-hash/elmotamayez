@@ -170,6 +170,21 @@ enum NotificationType: string
     case GuardianConsentConflict = 'guardian_consent_conflict';
     case TeacherOffboardingNotice = 'teacher_offboarding_notice';
 
+    /*
+    | Spec 010 — somebody wrote to you and you were not looking (FR-012).
+    |
+    | ⚠️ IT DOES NOT TARGET GUARDIANS, AND THAT IS A DECISION RATHER THAN AN
+    | OMISSION. `defaultChannels()` is derived from `targetsGuardians()`, so
+    | naming it there would put every private message between a student and their
+    | teacher onto a parent's phone — a different feature, and one that would end
+    | the conversation the requirement exists to enable. It also keeps
+    | `WhatsAppDefaultsTest`'s exact count where it is.
+    |
+    | So it reaches the bell alone: the person is signed in somewhere or they are
+    | not, and the message itself is waiting for them either way.
+    */
+    case ChatMessage = 'chat_message';
+
     public function label(): string
     {
         return match ($this) {
@@ -220,6 +235,7 @@ enum NotificationType: string
             self::DataRequestCompleted => 'اكتمال طلب بيانات',
             self::GuardianConsentConflict => 'تعارض في موافقة الأولياء',
             self::TeacherOffboardingNotice => 'إخطار بمغادرة مدرّس',
+            self::ChatMessage => 'رسالة جديدة',
         };
     }
 

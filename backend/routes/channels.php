@@ -29,3 +29,38 @@ declare(strict_types=1);
 | Filament panel does not enable broadcast notifications, and a channel nobody
 | publishes to is a subscription surface with no owner.
 */
+
+use App\Models\User;
+use App\Modules\Community\Models\Conversation;
+use Illuminate\Support\Facades\Broadcast;
+use Illuminate\Support\Facades\Gate;
+
+/*
+| The open thread.
+|
+| ⚠️ THE NAME HERE CARRIES NO `private-` PREFIX. The client sends
+| `private-conversation.{uuid}`; Laravel strips the prefix before matching, so a
+| definition written with it matches nothing and every subscription is refused
+| with nothing anywhere naming why.
+|
+| ⚠️ AND THE CONVERSATION IS RESOLVED WITHOUT THE WORKSPACE SCOPE. Channel
+| authorisation runs in a request like any other, and for a student
+| `WorkspaceContext::id()` is null — the scope adds no condition, so relying on it
+| here would be relying on nothing. The uuid is looked up explicitly and the
+| POLICY decides, which is the same method `ReadMessages` asks.
+*/
+Broadcast::channel('conversation.{uuid}', function (User $user, string $uuid): bool {
+    $conversation = Conversation::query()->withoutWorkspaceScope()->where('uuid', $uuid)->first();
+
+    return $conversation instanceof Conversation
+        && Gate::forUser($user)->allows('view', $conversation);
+});
+
+/*
+| One person's own channel — how a list screen learns that a thread it is not
+| looking at has moved.
+|
+| The guard is identity, not permission: the only thing published here is
+| «something of yours changed», addressed to you by your own uuid.
+*/
+Broadcast::channel('user.{uuid}', fn (User $user, string $uuid): bool => (string) $user->uuid === $uuid);

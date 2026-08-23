@@ -298,6 +298,21 @@ class AppServiceProvider extends ServiceProvider
             ->by('user:'.(string) $request->user()?->getKey()));
 
         /*
+         * Broadcast channel authorisation (spec 010, NFR-014).
+         *
+         * ⚠️ A READ, LIMITED, BECAUSE IT IS AN AUTHENTICATED ORACLE. Every
+         * subscription attempt names a channel, and the difference between 200
+         * and 403 is an answer about a conversation the caller does not hold —
+         * cheap to loop, and the one endpoint on the platform whose whole job is
+         * to say yes or no about somebody else's row.
+         *
+         * Generous all the same: one browser tab resubscribes on every reconnect,
+         * and a phone moving between networks reconnects often.
+         */
+        RateLimiter::for('broadcast-auth', fn (Request $request) => Limit::perMinute(60)
+            ->by('user:'.(string) $request->user()?->getKey()));
+
+        /*
          * Moderation writes (spec 010, FR-021): hiding a message, banning and
          * lifting a ban. Tight because none of them is repeated work, and every
          * one appends a row to an audit log that is never deleted from.

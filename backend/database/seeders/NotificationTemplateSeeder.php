@@ -330,6 +330,20 @@ class NotificationTemplateSeeder extends Seeder
                 'أبلغَنا {{ teacher_name }} برغبته في إنهاء نشاطه على المنصّة. يبقى ما دفعتَ له متاحاً حتى {{ notice_end_date }}، ولن تُجدوَل حصصٌ جديدة.',
                 ['teacher_name', 'notice_end_date'],
             ],
+            /*
+            | Spec 010 — a message arrived while you were not looking.
+            |
+            | ⚠️ THE BODY CARRIES NO PART OF THE MESSAGE, and that is not
+            | squeamishness: a notification row is read by the bell, is exported in
+            | a data request, and is the one copy of these words that outlives a
+            | hide. The sender's name and the way back in are what the recipient
+            | needs; the words themselves live in the thread, behind the policy.
+            */
+            NotificationType::ChatMessage->value => [
+                'رسالة جديدة من {{ sender_name }}',
+                'وصلتك رسالة جديدة من {{ sender_name }}. افتح المحادثة لقراءتها والردّ عليها.',
+                ['sender_name'],
+            ],
             NotificationType::ExamPendingGrading->value => [
                 'تسلّمنا ورقتك في «{{ exam_title }}»',
                 'تسلّمنا ورقة {{ student_name }} في «{{ exam_title }}». فيها أسئلة مقالية ينتظر تصحيحُها المدرّس، وتصلك النتيجة كاملةً بعده.',
