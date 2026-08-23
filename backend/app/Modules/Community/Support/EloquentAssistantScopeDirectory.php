@@ -48,11 +48,19 @@ final class EloquentAssistantScopeDirectory implements AssistantScopeDirectory
         return $this->assignmentId($user, $workspaceId) !== null;
     }
 
-    public function mayActOnCourse(User $user, int $workspaceId, int $courseId): bool
+    public function mayActOnCourse(User $user, int $workspaceId, ?int $courseId): bool
     {
         $scoped = $this->scopedCourseIdsFor($user, $workspaceId);
 
-        return $scoped === null || in_array($courseId, $scoped, true);
+        if ($scoped === null) {
+            return true;
+        }
+
+        // ⚠️ A CONFINED ASSISTANT IS REFUSED WORK THAT HANGS OFF NO COURSE. An
+        // exam set for the workspace at large has no course to compare against,
+        // and reading that as "no restriction applies" is a hole shaped exactly
+        // like the confinement — reachable by leaving the course field empty.
+        return $courseId !== null && in_array($courseId, $scoped, true);
     }
 
     public function mayActOnStudent(User $user, int $workspaceId, int $studentUserId): bool

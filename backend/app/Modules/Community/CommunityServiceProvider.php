@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Modules\Community;
 
+use App\Modules\Community\Listeners\CreateAssistantAssignment;
 use App\Modules\Community\Models\AssistantAssignment;
 use App\Modules\Community\Policies\AssistantAssignmentPolicy;
 use App\Modules\Community\Support\EloquentAssistantScopeDirectory;
+use App\Modules\Tenancy\Events\WorkspaceMemberAdded;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Modules\Module;
 use App\Shared\Modules\ModulesServiceProvider;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -73,5 +76,7 @@ class CommunityServiceProvider extends Module
         | guarding nothing at all.
         */
         Gate::policy(AssistantAssignment::class, AssistantAssignmentPolicy::class);
+
+        Event::listen(WorkspaceMemberAdded::class, CreateAssistantAssignment::class);
     }
 }

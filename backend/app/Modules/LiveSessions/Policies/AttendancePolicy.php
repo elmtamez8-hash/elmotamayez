@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -49,8 +50,34 @@ class AttendancePolicy extends BasePolicy
             return $workspaceCheck;
         }
 
+        if (($scopeCheck = $this->withinAssistantScope($user, $attendance))->denied()) {
+            return $scopeCheck;
+        }
+
         return $user->can(Permissions::ATTENDANCE_OVERRIDE)
             ? Response::allow()
             : Response::deny();
+    }
+
+    /**
+     * Spec 010 · FR-005 — a confined assistant marks the register of their courses.
+     *
+     * On `override` and not on `view`: reading the register is `ATTENDANCE_VIEW`,
+     * which an assistant holds by default and which the teacher grants for the
+     * workspace; changing a mark is the act, and an act outside the assistant's
+     * ground is what FR-005 refuses. A session with no course is refused for a
+     * confined assistant, in the directory, once for all three surfaces.
+     */
+    private function withinAssistantScope(User $user, Attendance $attendance): Response
+    {
+        $courseId = $attendance->classSession?->course_id;
+
+        return app(AssistantScopeDirectory::class)->mayActOnCourse(
+            $user,
+            (int) $attendance->workspace_id,
+            $courseId === null ? null : (int) $courseId,
+        )
+            ? Response::allow()
+            : Response::deny('هذه الحصّة خارج نطاق عملك.');
     }
 }

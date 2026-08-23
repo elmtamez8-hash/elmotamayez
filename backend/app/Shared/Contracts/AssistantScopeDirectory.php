@@ -51,8 +51,17 @@ interface AssistantScopeDirectory
      *
      * True for anyone who is not an assistant here, and for an assistant whose
      * scope is empty — no rows means EVERY course, never none.
+     *
+     * ⚠️ `$courseId` IS NULLABLE, AND THE NULL BRANCH IS THE ONE WORTH READING.
+     * Not everything an assistant touches hangs off a course: an exam can be set
+     * for the workspace at large, and a paper sat against one has no course to
+     * compare a confinement with. A CONFINED assistant is refused there — the
+     * alternative is a hole shaped exactly like the confinement, reachable by
+     * setting the exam without a course. It lives here rather than in each of the
+     * three policies that ask, because one rule in three places is how the third
+     * one gets it wrong.
      */
-    public function mayActOnCourse(User $user, int $workspaceId, int $courseId): bool;
+    public function mayActOnCourse(User $user, int $workspaceId, ?int $courseId): bool;
 
     /**
      * Whether this user may act on this student in this workspace.

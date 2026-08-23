@@ -13,6 +13,9 @@ use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Shared\Contracts\AssistantScopeDirectory;
+use App\Shared\Support\AssistantForbiddenPermissions;
+use App\Shared\Support\WorkspaceContext;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\UserFactory;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
@@ -26,6 +29,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use SensitiveParameter;
+use Spatie\Permission\Contracts\Permission;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
@@ -39,7 +43,12 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements HasAppAuthentication, HasAppAuthenticationRecovery, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, HasRoles, HasUuid, Notifiable;
+    use HasApiTokens, HasFactory, HasRoles, HasUuid, Notifiable {
+        // Spec 010 — the financial wall overrides this method; the alias is how
+        // the overriding version calls the one it is wrapping. See the note on
+        // hasPermissionTo() below for why the guard could not be a `Gate::before`.
+        HasRoles::hasPermissionTo as private spatieHasPermissionTo;
+    }
 
     protected $fillable = [
         'first_name',
@@ -177,6 +186,60 @@ class User extends Authenticatable implements HasAppAuthentication, HasAppAuthen
     public function isSuperAdmin(): bool
     {
         return (bool) $this->is_super_admin;
+    }
+
+    /**
+     * Spec 010 · FR-003 · SC-001 — an assistant holds no financial permission,
+     * whatever role granted it.
+     *
+     * ⚠️ HERE, AND NOT IN A `Gate::before`, AND THE DESIGN SAID OTHERWISE UNTIL A
+     * TEST MEASURED IT. spatie registers a before-callback of its own
+     * (`PermissionRegistrar::registerPermissions()`) that answers `true` for any
+     * permission the user holds — and `Gate::callBeforeCallbacks()` returns the
+     * FIRST non-null answer. spatie's is registered while the Gate is being
+     * resolved, which is before any module provider has booted, so a wall written
+     * as a `Gate::before` is consulted only for permissions the user does not have
+     * and refuses nothing at all. `Gate::after` cannot rescue it either: the merge
+     * is `$result ??= $afterResult`, so an after-callback can fill in a null and
+     * can never overturn a `true`. The five routes went on answering 200 and every
+     * assertion about the payload was still correct.
+     *
+     * ⚠️ AND NOT A GUARD ON `Role` EITHER, which is the other obvious placement.
+     * `Tenancy\Models\Role::refusePlatformPermissions()` keys on `team_id === null`
+     * and every permission in this set is tenant-side, held legitimately by the
+     * teacher's own role — so the owner invents a role under any other name, ticks
+     * `payments.approve` onto it from the roles screen they already have, and the
+     * grant is a perfectly ordinary write. The refusal has to sit where the
+     * permission is READ.
+     *
+     * ⚠️ KEYED ON THE ASSIGNMENT ROW, NEVER ON A ROLE NAME. The row is what says
+     * «this person is on the teacher's team here»; a role name is what the owner
+     * controls, so keying on `assistant-teacher` is walled off by renaming.
+     *
+     * ⚠️ AND IT IS ASKED ONLY FOR NAMES IN THE FINANCIAL SET, which is an `isset`
+     * on a memoised map of about twenty keys. This method is called on every
+     * permission check in the product — once per row of a Filament table — so
+     * anything that touched the database before that test would be a query per
+     * check.
+     *
+     * @param  string|int|Permission  $permission
+     */
+    public function hasPermissionTo($permission, ?string $guardName = null): bool
+    {
+        if (is_string($permission)
+            && ! $this->isSuperAdmin()
+            && AssistantForbiddenPermissions::refuses($permission)
+        ) {
+            $workspaceId = app(WorkspaceContext::class)->id();
+
+            if ($workspaceId !== null
+                && app(AssistantScopeDirectory::class)->isAssistantIn($this, $workspaceId)
+            ) {
+                return false;
+            }
+        }
+
+        return $this->spatieHasPermissionTo($permission, $guardName);
     }
 
     public function hasTwoFactorEnabled(): bool

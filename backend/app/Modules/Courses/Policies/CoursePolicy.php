@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use Illuminate\Auth\Access\Response;
 
 class CoursePolicy extends BasePolicy
@@ -47,6 +48,10 @@ class CoursePolicy extends BasePolicy
             return $workspaceCheck;
         }
 
+        if (($scopeCheck = $this->withinAssistantScope($user, $course))->denied()) {
+            return $scopeCheck;
+        }
+
         return $user->can(Permissions::COURSES_UPDATE)
             ? Response::allow()
             : Response::deny();
@@ -80,8 +85,32 @@ class CoursePolicy extends BasePolicy
             return $workspaceCheck;
         }
 
+        if (($scopeCheck = $this->withinAssistantScope($user, $course))->denied()) {
+            return $scopeCheck;
+        }
+
         return $user->can(Permissions::LESSONS_MANAGE)
             ? Response::allow()
             : Response::deny();
+    }
+
+    /**
+     * Spec 010 · FR-005 — an assistant confined to a set of courses works on those.
+     *
+     * ⚠️ A SECOND QUESTION, ASKED BESIDE THE PERMISSION AND NEVER INSTEAD OF IT.
+     * The permission answers «may this role ever edit content»; this answers «on
+     * this course». It returns allow for everybody who is not an assistant here —
+     * a teacher, an owner, a super admin — because none of them is confined by an
+     * assignment, so the whole of it is a no-op on every workspace with no team.
+     */
+    private function withinAssistantScope(User $user, Course $course): Response
+    {
+        return app(AssistantScopeDirectory::class)->mayActOnCourse(
+            $user,
+            (int) $course->workspace_id,
+            (int) $course->getKey(),
+        )
+            ? Response::allow()
+            : Response::deny('هذا الكورس خارج نطاق عملك.');
     }
 }

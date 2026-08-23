@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Assessments\Models\Answer;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -34,6 +35,10 @@ class GradingPolicy extends BasePolicy
             return Response::deny('You cannot grade your own answer.');
         }
 
+        if (($scopeCheck = $this->withinAssistantScope($user, $answer))->denied()) {
+            return $scopeCheck;
+        }
+
         return $user->can(Permissions::GRADING_PERFORM)
             ? Response::allow()
             : Response::deny();
@@ -49,8 +54,36 @@ class GradingPolicy extends BasePolicy
             return Response::deny('You cannot grade your own answer.');
         }
 
+        if (($scopeCheck = $this->withinAssistantScope($user, $answer))->denied()) {
+            return $scopeCheck;
+        }
+
         return $user->can(Permissions::GRADING_REVISE)
             ? Response::allow()
             : Response::deny();
+    }
+
+    /**
+     * Spec 010 · FR-005 — a confined assistant marks the papers of their courses.
+     *
+     * ⚠️ THE COURSE COMES FROM THE EXAM, WHICH MAY NOT HAVE ONE. An exam set for
+     * the workspace at large carries no `course_id`, and the null branch belongs
+     * to the directory rather than here: a confined assistant is refused it there,
+     * once, for all three surfaces that ask.
+     *
+     * A no-op for a teacher, an owner and a super admin, none of whom is confined
+     * by an assignment.
+     */
+    private function withinAssistantScope(User $user, Answer $answer): Response
+    {
+        $courseId = $answer->attempt?->exam?->course_id;
+
+        return app(AssistantScopeDirectory::class)->mayActOnCourse(
+            $user,
+            (int) $answer->workspace_id,
+            $courseId === null ? null : (int) $courseId,
+        )
+            ? Response::allow()
+            : Response::deny('هذه الورقة خارج نطاق عملك.');
     }
 }

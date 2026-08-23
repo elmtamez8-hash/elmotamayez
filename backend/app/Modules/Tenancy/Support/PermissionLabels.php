@@ -138,6 +138,27 @@ final class PermissionLabels
         // permission is never sufficient alone: the route also demands an active
         // enrollment in the reader's own workspace. The label says both halves.
         'progress.view.student' => 'عرض تقدّم طالبٍ مسجَّلٍ عنده',
+        /*
+        | Spec 010 · FR-002 · T053 — the five boxes an owner ticks onto an
+        | assistant's role, reworded because THIS SCREEN IS THE DELIVERY CHANNEL.
+        | 010 grants nothing by default: what an assistant may do is whatever the
+        | owner ticks here, so a label that is merely accurate is not enough — a
+        | box that is misread is granted, and FR-002 fails in BEHAVIOUR while
+        | being perfectly implemented in code.
+        |
+        | The composed forms these replace were «تنفيذ — التصحيح» (a verb with no
+        | object: it does not say whose papers), «الردّ — محادثات الطلاب» (which
+        | reads as though students chat to each other, a thing FR-016 forbids
+        | outright), «إدارة — الدروس» (which does not say it includes uploading
+        | the video) and «عرض الرصيد — الأرصدة والفوترة» — the last being the one
+        | that matters most, because it is the SINGLE financial-looking permission
+        | an owner is allowed to delegate (ت-١) and its label has to say, on the
+        | box, that no money travels with it.
+        */
+        'grading.perform' => 'تصحيح أوراق الطلاب ووضع الدرجات',
+        'chat.reply' => 'الردّ على رسائل الطلاب الخاصّة',
+        'lessons.manage' => 'إضافة الدروس ورفع محتواها',
+        'billing.balance.view' => 'عرض أرصدة الطلاب بالحصص — بلا أيّ مبالغ',
     ];
 
     public static function for(string $permission): string
