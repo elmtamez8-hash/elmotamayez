@@ -15,34 +15,30 @@ use App\Modules\Community\Models\ModerationAction;
  * after they were forgiven, and asking «does an unban row exist» would free
  * somebody banned a second time.
  *
- * ⚠️ AND THE EXPIRY IS A GROUPED PREDICATE. `NULL > now()` is NULL, so a
+ * ⚠️ AND THE EXPIRY IS A GROUPED CONDITION. `NULL > now()` is NULL, so a
  * permanent ban — `expires_at IS NULL` by definition — reads as expired the
- * instant it is made unless the pair is parenthesised. The same family as 013's
- * legal-hold `whereNotIn` on a nullable column, where the `orWhereNull` that fixed
- * it had to be grouped or it discarded the age bound with it.
+ * instant it is made unless the pair is taken together. It is evaluated in PHP
+ * here for exactly that reason: two comparisons, one of which is not a
+ * comparison. The same family as 013's legal-hold `whereNotIn` on a nullable
+ * column, where the `orWhereNull` that fixed it had to be grouped or it discarded
+ * the age bound with it.
  *
- * ⚠️ AND IT IS ASKED FROM TWO PLACES. The ban is workspace-wide by declaration, so
- * `PostMessage` and `StartConversation` both consult it — one guard on sending
- * alone leaves the banned person opening a fresh thread with the teacher, which
- * is the conversation the ban was about.
+ * ⚠️ AND IT IS ASKED FROM ONE PLACE — `ConversationPolicy::post()` — WHICH IS WHY
+ * THERE IS NO MEMO. The ban is workspace-wide by declaration, and putting the
+ * check in the policy rather than in `PostMessage` is what makes
+ * `StartConversation` inherit it: a banned person opening a fresh thread with the
+ * teacher is the conversation the ban was about, and a guard on sending alone
+ * would leave that door open.
  *
- * Memoised per request: a page of fifty messages must not be fifty queries, and
- * the reader is `scoped()` so a queue worker does not carry one job's answer into
- * the next.
+ * A per-request cache was written here first and taken out: reads never ask this
+ * question, so the memo saved nothing on a page of fifty and bought a staleness
+ * problem — a moderator lifting a ban inside the same process as the check would
+ * be answered from a copy. One query per WRITE is the right cost.
  */
 final class BanReader
 {
-    /** @var array<string, bool> */
-    private array $memo = [];
-
     public function isBanned(int $userId, int $workspaceId): bool
     {
-        $key = $userId.':'.$workspaceId;
-
-        if (array_key_exists($key, $this->memo)) {
-            return $this->memo[$key];
-        }
-
         $latest = ModerationAction::query()
             // The reader is asked on a student's write, and a student is a member
             // of no workspace — the global scope adds no condition for them, so
@@ -56,18 +52,9 @@ final class BanReader
             ->first(['verdict', 'expires_at']);
 
         if ($latest === null || $latest->verdict !== ModerationVerdict::Banned) {
-            return $this->memo[$key] = false;
+            return false;
         }
 
-        // ⚠️ Grouped, and in PHP rather than in SQL for the same reason — a null
-        // `expires_at` is permanent, and comparing it to a time yields neither
-        // true nor false.
-        return $this->memo[$key] = $latest->expires_at === null || $latest->expires_at->isFuture();
-    }
-
-    /** Forget one answer — the moderator just changed it. */
-    public function forget(int $userId, int $workspaceId): void
-    {
-        unset($this->memo[$userId.':'.$workspaceId]);
+        return $latest->expires_at === null || $latest->expires_at->isFuture();
     }
 }

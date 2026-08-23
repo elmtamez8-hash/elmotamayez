@@ -92,6 +92,16 @@ class PostMessage extends Action
             | Delivered, and a human is told (`TermPolicy::Review`). The row is
             | raised AFTER the message exists, because it points at it — and the
             | actor is null: nobody decided anything yet, the filter noticed.
+            |
+            | ⚠️ THE `reason` NAMES THE MATCHED TERM, AND IT IS MODERATOR-EYES-ONLY
+            | BY THE ABSENCE OF ANY OTHER READER. `TermFilter` refuses to echo a
+            | term back to a sender on purpose — a list somebody can enumerate is a
+            | list they can spell around — and this row is created by the sender's
+            | own request. It is safe today because nothing sender-facing reads
+            | `moderation_actions`: the report endpoint answers a constant 202 and
+            | there is no listing outside the moderator's own. Build a «my reports»
+            | screen and this line is the leak; drop the term from the reason
+            | first.
             */
             ModerationAction::query()->create([
                 'workspace_id' => $conversation->workspace_id,

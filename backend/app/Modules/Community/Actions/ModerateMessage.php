@@ -9,7 +9,6 @@ use App\Modules\Community\Data\ModerationActionData;
 use App\Modules\Community\Enums\ModerationVerdict;
 use App\Modules\Community\Models\Message;
 use App\Modules\Community\Models\ModerationAction;
-use App\Modules\Community\Support\BanReader;
 use App\Shared\Actions\Action;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
@@ -29,8 +28,6 @@ use Illuminate\Support\Facades\Gate;
  */
 class ModerateMessage extends Action
 {
-    public function __construct(private readonly BanReader $bans) {}
-
     public function handle(User $actor, ModerationActionData $data): ModerationAction
     {
         [$workspaceId, $subjectId] = $this->resolveSubject($data);
@@ -60,12 +57,6 @@ class ModerateMessage extends Action
                 ->whereKey($subjectId)
                 ->whereNull('hidden_at')
                 ->update(['hidden_at' => now()]);
-        }
-
-        if ($data->verdict === ModerationVerdict::Banned || $data->verdict === ModerationVerdict::Unbanned) {
-            // The reader memoises per request, and the moderator's own next read
-            // is inside this one.
-            $this->bans->forget($subjectId, $workspaceId);
         }
 
         return $action;
