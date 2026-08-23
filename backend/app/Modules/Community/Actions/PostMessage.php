@@ -12,6 +12,7 @@ use App\Modules\Community\Models\ConversationParticipant;
 use App\Modules\Community\Models\Message;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -31,6 +32,8 @@ use Throwable;
  */
 class PostMessage extends Action
 {
+    public function __construct(private readonly AssistantScopeDirectory $assistants) {}
+
     public function handle(User $sender, PostMessageData $data): Message
     {
         $conversation = Conversation::query()
@@ -136,9 +139,27 @@ class PostMessage extends Action
         $workspace = Workspace::query()->find($conversation->workspace_id);
 
         if ($workspace instanceof Workspace) {
-            // The teacher's side has no participant rows — see `StartConversation`
-            // — so the members are asked for directly.
-            $uuids = array_merge($uuids, $workspace->members()->pluck('users.uuid')->all());
+            /*
+            | The teacher's side has no participant rows — see `StartConversation`
+            | — so the members are asked for directly.
+            |
+            | ⚠️ AND NARROWED BY THE DOOR'S OWN PREDICATE. An unfiltered member
+            | list tells EVERY assistant in the workspace, by name, every time
+            | this student writes — including one confined to courses the student
+            | is not in, who cannot open the thread at all. The confinement would
+            | still hold at the door and be defeated at lower resolution: the
+            | notification carries the sender's name and a link, which is most of
+            | what `mayActOnStudent()` exists to withhold. Free for a teacher or
+            | an owner, who are not confined and answer from a memo.
+            */
+            $workspaceId = (int) $conversation->workspace_id;
+            $studentId = (int) $conversation->student_user_id;
+
+            foreach ($workspace->members()->get() as $member) {
+                if ($this->assistants->mayActOnStudent($member, $workspaceId, $studentId)) {
+                    $uuids[] = (string) $member->uuid;
+                }
+            }
         }
 
         $senderUuid = (string) $sender->uuid;

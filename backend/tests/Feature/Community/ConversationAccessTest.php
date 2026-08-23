@@ -2,9 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Modules\Community\Models\AssistantAssignment;
+use App\Modules\Community\Models\AssistantScope;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Notifications\Models\Notification;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Tenancy\Support\Roles;
 use Laravel\Sanctum\Sanctum;
+use Spatie\Permission\PermissionRegistrar;
 
 /*
 | SC-005 · FR-013 — zero reads and zero writes for someone who is not a party,
@@ -119,4 +124,65 @@ it('admits a person to their own user channel and refuses another person theirs'
 
     subscribeToChannel('private-user.'.$this->studentA->uuid)->assertOk();
     subscribeToChannel('private-user.'.$this->studentB->uuid)->assertForbidden();
+});
+
+it('tells a confined assistant nothing about a student outside their courses', function (): void {
+    /*
+    | ⚠️ THE CONFINEMENT MUST HOLD AT THE NOTIFICATION TOO, NOT ONLY AT THE DOOR.
+    | The obvious recipient list is «everyone in the workspace», and it defeats
+    | `mayActOnStudent()` at a lower resolution: an assistant restricted to
+    | courses this student is not in still cannot OPEN the thread — the policy
+    | refuses — but is told by name, with a link, every single time that student
+    | writes. Most of what the confinement exists to withhold, delivered by the
+    | bell.
+    |
+    | Both directions, because a zero on its own is also what a broken dispatch
+    | produces: the in-scope assistant IS notified in the same run.
+    */
+    $this->setCurrentWorkspace($this->workspaceA, $this->ownerA);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->workspaceA->getKey());
+
+    $far = Course::factory()->create(['workspace_id' => $this->workspaceA->getKey()]);
+
+    $confined = $this->addWorkspaceMember($this->workspaceA, Roles::ASSISTANT_TEACHER);
+    $unconfined = $this->addWorkspaceMember($this->workspaceA, Roles::ASSISTANT_TEACHER);
+
+    $assignment = AssistantAssignment::factory()->create([
+        'assistant_user_id' => $confined->getKey(),
+        'invited_by_user_id' => $this->ownerA->getKey(),
+    ]);
+
+    // Confined to a course studentA is NOT enrolled in.
+    AssistantScope::factory()->create([
+        'assistant_assignment_id' => $assignment->getKey(),
+        'course_id' => $far->getKey(),
+    ]);
+
+    AssistantAssignment::factory()->create([
+        'assistant_user_id' => $unconfined->getKey(),
+        'invited_by_user_id' => $this->ownerA->getKey(),
+    ]);
+
+    app()->forgetScopedInstances();
+
+    Sanctum::actingAs($this->studentA);
+
+    $this->postJson("/api/v1/conversations/{$this->conversationUuid}/messages", [
+        'body' => 'سؤال عن الواجب',
+    ])->assertCreated();
+
+    $rowsFor = fn (int $userId): int => Notification::query()
+        // ⚠️ `recipient_user_id`, NOT `user_id` — a wrong column name here returns
+        // zero for everybody, and the refusal assertion above passes vacuously.
+        ->where('recipient_user_id', $userId)
+        ->where('type', NotificationType::ChatMessage->value)
+        ->count();
+
+    expect($rowsFor((int) $confined->getKey()))->toBe(0)
+        // The control: the unconfined assistant IS told, so the zero above is the
+        // confinement rather than a dispatch that never ran.
+        ->and($rowsFor((int) $unconfined->getKey()))->toBeGreaterThan(0)
+        ->and($rowsFor((int) $this->ownerA->getKey()))->toBeGreaterThan(0)
+        // And the sender never hears about their own message.
+        ->and($rowsFor((int) $this->studentA->getKey()))->toBe(0);
 });

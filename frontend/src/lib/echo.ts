@@ -113,9 +113,17 @@ export async function listen(
 
   if (!connection) return () => {};
 
+  /*
+   * ⚠️ THE LEADING DOT IS LOAD-BEARING. Without it Echo prepends the application
+   * namespace and listens for `App\Modules\Community\Events\MessagePosted`, while
+   * the server sends what `broadcastAs()` returns — `message.posted`. The
+   * subscription succeeds, the frames arrive, and the handler never fires.
+   */
   connection.private(channel).listen(`.${event}`, handler);
 
+  // `leave()` takes the BARE name and drops the private and presence variants
+  // with it; `leaveChannel()` is the one that wants the prefix.
   return () => {
-    connection.leave(`private-${channel}`);
+    connection.leave(channel);
   };
 }

@@ -13,6 +13,7 @@ use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Actions\Action;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -68,7 +69,29 @@ class StartConversation extends Action
         Gate::forUser($actor)->authorize('post', $candidate);
 
         try {
-            $candidate->save();
+            /*
+            | ⚠️ THE THREAD AND ITS PARTICIPANT ROW ARE ONE WRITE. A crash between
+            | them leaves a conversation the student can OPEN — the policy reads
+            | `student_user_id` off the row — and can never SEE, because their list
+            | filters on `conversation_participants`. Invisible, permanent, and
+            | nothing anywhere reports it; the unique index then refuses to make a
+            | second one.
+            */
+            DB::transaction(function () use ($candidate, $student): void {
+                $candidate->save();
+
+                /*
+                | ⚠️ THE STUDENT GETS A PARTICIPANT ROW AND THE TEACHER DOES NOT,
+                | and the asymmetry is the design. A student issues no
+                | `workspace_id` condition, so their list has to be a filter on
+                | this table; the teacher's side is derived from membership so it
+                | stays true as assistants come and go.
+                */
+                ConversationParticipant::query()->create([
+                    'conversation_id' => $candidate->getKey(),
+                    'user_id' => $student->getKey(),
+                ]);
+            });
         } catch (QueryException $e) {
             // The loser. The row exists because somebody else just wrote it, so
             // re-read rather than deciding from a driver-specific error code —
@@ -81,17 +104,6 @@ class StartConversation extends Action
 
             return $winner;
         }
-
-        /*
-        | ⚠️ THE STUDENT GETS A PARTICIPANT ROW AND THE TEACHER DOES NOT, and the
-        | asymmetry is the design. A student issues no `workspace_id` condition, so
-        | their list has to be a filter on this table; the teacher's side is
-        | derived from membership so it stays true as assistants come and go.
-        */
-        ConversationParticipant::query()->create([
-            'conversation_id' => $candidate->getKey(),
-            'user_id' => $student->getKey(),
-        ]);
 
         return $candidate;
     }
