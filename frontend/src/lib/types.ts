@@ -107,6 +107,9 @@ export interface Enrollment {
   uuid: string;
   course_uuid: string;
   course_title: string;
+  /** Whose workspace the course belongs to — the private chat is opened by it. */
+  workspace_uuid: string | null;
+  teacher_name: string | null;
   source: string;
   status: string;
   progress_pct: number;

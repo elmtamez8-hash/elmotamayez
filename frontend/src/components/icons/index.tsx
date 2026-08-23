@@ -55,6 +55,7 @@ import {
   IconInfoCircle,
   IconLogout,
   IconMenu2,
+  IconMessageCircle,
   IconMoodEmpty,
   IconMoon,
   IconReceipt2,
@@ -176,6 +177,8 @@ export const LogoutIcon = wrap(IconLogout, "h-4 w-4");
 export const TrashIcon = wrap(IconTrash, "h-4 w-4");
 export const BellIcon = wrap(IconBell, "h-5 w-5");
 export const FamilyIcon = wrap(IconUsersGroup, "h-5 w-5");
+/** Spec 010 — the private chat between a student and their teacher's side. */
+export const MessagesIcon = wrap(IconMessageCircle, "h-5 w-5");
 /** The student's own timetable across every teacher. */
 export const ScheduleIcon = wrap(IconCalendarTime, "h-5 w-5");
 /** The teacher's calendar of taught sessions. */

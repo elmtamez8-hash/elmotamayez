@@ -2,17 +2,24 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import type { Enrollment } from "@/lib/types";
 import { formatDate, statusLabel, statusTone, TONE_CLASSES } from "@/lib/labels";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
+import { Alert } from "@/components/ui/Alert";
+import { conversations } from "@/lib/conversations";
+import { userMessage } from "@/lib/errors";
 
 export default function EnrollmentsPage() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [opening, setOpening] = useState<string | null>(null);
+  const [chatProblem, setChatProblem] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -27,9 +34,32 @@ export default function EnrollmentsPage() {
 
   useEffect(load, [load]);
 
+  /*
+   * One conversation per teacher: the endpoint returns the open one when there
+   * is one, so this button is safe to press twice — and safe to press from two
+   * devices at once, which is the race `StartConversation` declares.
+   */
+  const openChat = (workspaceUuid: string) => {
+    setOpening(workspaceUuid);
+    setChatProblem(null);
+
+    conversations
+      .start(workspaceUuid)
+      .then((conversation) => router.push(`/messages/${conversation.uuid}`))
+      // Never a raw error — and never a swallowed one either.
+      .catch((error: unknown) => setChatProblem(userMessage(error)))
+      .finally(() => setOpening(null));
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-ink">تعلّمي</h2>
+
+      {chatProblem !== null && (
+        <Alert tone="danger" title="تعذّر فتح المحادثة">
+          {chatProblem}
+        </Alert>
+      )}
 
       {loading ? (
         <RowsSkeleton />
@@ -103,6 +133,23 @@ export default function EnrollmentsPage() {
               <p className="text-xs text-ink-muted">
                 سُجِّل في {formatDate(enr.enrolled_at)}
               </p>
+
+              {/* Spec 010 · US2 — the ONLY door into the private chat.
+                  ⚠️ It is here and not on a directory of teachers, because a
+                  student's enrolments are the list of people they may write to;
+                  a second list would answer that question in a different voice
+                  from the endpoint. One conversation per teacher, so opening it
+                  twice returns the same one. */}
+              {enr.workspace_uuid !== null && enr.workspace_uuid !== undefined && (
+                <button
+                  type="button"
+                  onClick={() => openChat(enr.workspace_uuid as string)}
+                  disabled={opening === enr.workspace_uuid}
+                  className="mt-3 rounded-xl border border-line px-3 py-1.5 text-xs font-medium text-primary-ink transition hover:bg-primary-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+                >
+                  {`راسل ${enr.teacher_name ?? "المدرّس"}`}
+                </button>
+              )}
             </article>
           ))}
         </div>

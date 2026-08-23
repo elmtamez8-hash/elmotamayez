@@ -26,6 +26,7 @@ import {
   LockIcon,
   LogoutIcon,
   MembersIcon,
+  MessagesIcon,
   MenuIcon,
   MistakesIcon,
   OrdersIcon,
@@ -136,6 +137,13 @@ const mainNav: NavItem[] = [
   // from /orders, which is one payment at a time: this is the standing balance
   // those payments produce, per course.
   { href: "/billing", label: "رصيدي", Icon: CreditsIcon },
+  /*
+   * Spec 010 · US2. No permission: everyone signed in has a side of a private
+   * conversation — the student writes to their teacher, the teacher and whoever
+   * they authorised answer. `ListConversations` returns an empty list to anyone
+   * with neither, which is a screen that says so rather than a link that 403s.
+   */
+  { href: "/messages", label: "الرسائل", Icon: MessagesIcon },
   { href: "/notifications", label: "الإشعارات", Icon: BellIcon },
   { href: "/family", label: "المرتبطون", Icon: FamilyIcon },
   /*

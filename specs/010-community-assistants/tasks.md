@@ -163,41 +163,41 @@ description: "Task list — المجتمع والمساعدون والتقييم
 
 ### Tests for User Story 2
 
-- [ ] T055 [P] [US2] `backend/tests/Feature/Community/ConversationAccessTest.php` — `SC-005`: صفرُ قراءةٍ لمن ليس طرفاً، وصفرُ اشتراكٍ ناجحٍ في قناةٍ غيرِ مصرَّحٍ بها. ⚠️ **بمساحتَي عملٍ وبطالبٍ من كلٍّ منهما**
-- [ ] T056 [P] [US2] `backend/tests/Feature/Community/MessageOrderingTest.php` — `SC-007`. ⚠️ **التثبيتةُ تكتب `created_at` متطابقاً**؛ بغيرِه يمرُّ على ترتيبٍ زمنيٍّ ولا يرى شيئاً
-- [ ] T057 [P] [US2] `backend/tests/Feature/Community/ChatQueryBudgetTest.php` — `SC-009`/`NFR-010` **بحجمَين**، وللرسائلِ **ولقائمةِ المحادثاتِ معاً**، **بإحماءٍ أوّلاً**، **ويؤكّد حضورَ الحقول** لا ثباتَ العددِ وحدَه
-- [ ] T058 [P] [US2] `backend/tests/Feature/Community/BroadcastOutageTest.php` — `SC-015`: يُعطّل الخدمةَ فعلاً (‏سائقٌ يرمي) ولا يكتفي بعدمِ تشغيلِها
-- [ ] T059 [P] [US2] `backend/tests/Feature/Community/ArchiveAfterEnrollmentEndsTest.php` — `FR-014`: الإرسالُ يُمنع والأرشيفُ يُقرأ؛ **تفويضُ القراءةِ وتفويضُ الكتابةِ سؤالان**
+- [X] T055 [P] [US2] `backend/tests/Feature/Community/ConversationAccessTest.php` — `SC-005`: صفرُ قراءةٍ لمن ليس طرفاً، وصفرُ اشتراكٍ ناجحٍ في قناةٍ غيرِ مصرَّحٍ بها. ⚠️ **بمساحتَي عملٍ وبطالبٍ من كلٍّ منهما**
+- [X] T056 [P] [US2] `backend/tests/Feature/Community/MessageOrderingTest.php` — `SC-007`. ⚠️ **التثبيتةُ تكتب `created_at` متطابقاً**؛ بغيرِه يمرُّ على ترتيبٍ زمنيٍّ ولا يرى شيئاً
+- [X] T057 [P] [US2] `backend/tests/Feature/Community/ChatQueryBudgetTest.php` — `SC-009`/`NFR-010` **بحجمَين**، وللرسائلِ **ولقائمةِ المحادثاتِ معاً**، **بإحماءٍ أوّلاً**، **ويؤكّد حضورَ الحقول** لا ثباتَ العددِ وحدَه
+- [X] T058 [P] [US2] `backend/tests/Feature/Community/BroadcastOutageTest.php` — `SC-015`: يُعطّل الخدمةَ فعلاً (‏سائقٌ يرمي) ولا يكتفي بعدمِ تشغيلِها
+- [X] T059 [P] [US2] `backend/tests/Feature/Community/ArchiveAfterEnrollmentEndsTest.php` — `FR-014`: الإرسالُ يُمنع والأرشيفُ يُقرأ؛ **تفويضُ القراءةِ وتفويضُ الكتابةِ سؤالان**
 
 ### Implementation for User Story 2
 
-- [ ] T060 [US2] هجرة `2026_08_22_000300_create_conversations_table.php`: `workspace_id` · `kind` · `student_user_id` (nullable) · `class_session_id`/`lesson_id` (nullable) · `last_message_id` (nullable) · `unique(workspace_id, student_user_id)` · `index(workspace_id, last_message_id)` — ⚠️ **عمودان عاديّان بلا عمودٍ محسوب**: `NULL` لا يصطدم بـ`NULL` فالعامّةُ تتعايش والخاصّةُ واحدةٌ لكلِّ طالب
-- [ ] T061 [US2] هجرة `2026_08_22_000310_create_messages_table.php`: `workspace_id` · `conversation_id` · `sender_user_id` · `body` · **`hidden_at`** · `is_helpful` · `index(workspace_id, conversation_id, id)` — ⚠️ **`hidden_at` لا `deleted_at`**: الاسمُ الثاني يجتذب `SoftDeletes` ونطاقُه يمحو الأرشيفَ الذي يعد به `FR-015` **ويقصّر كلَّ صفحةِ خمسين** بصمت
-- [ ] T062 [US2] هجرة `2026_08_22_000320_create_conversation_participants_table.php`: `conversation_id` · `user_id` · `last_read_message_id` · `unique(conversation_id, user_id)` · **`index(user_id, conversation_id)`** — ⚠️ الفهرسُ الثاني هو الذي يجيب «في أيِّ محادثاتٍ أنا؟»؛ الفريدُ عمودُه القائدُ `conversation_id` فلا يخدمه
-- [ ] T063 [P] [US2] أنشئ `Models/{Conversation,Message,ConversationParticipant}.php` — ⚠️ **`messages.workspace_id` يُنسَخ من المحادثةِ صراحةً**: الطالبُ عضوٌ في لا مساحةَ عمل، فتعبئةُ `BelongsToWorkspace` التلقائيّةُ تكتب `null` أو — أسوأُ — `last_workspace_id`
-- [ ] T064 [P] [US2] أنشئ مصانعَ المحادثةِ والرسالةِ والمشارِك في `backend/database/factories/Modules/Community/`
-- [ ] T065 [US2] أنشئ `Actions/StartConversation.php` — ⚠️ **سباقٌ مُعلَن**: جهازان يفتحان معاً، كلاهما لا يجد شيئاً، كلاهما يُدرج. يُلتقَط خرقُ الفريدِ ويُرجَع الفائز — نمطُ `BookSeat`
-- [ ] T066 [US2] أنشئ `Actions/PostMessage.php` — يكتب الصفَّ **ويُرجع الرسالةَ في الاستجابة**؛ البثُّ حدثٌ `ShouldBroadcast` **مطبورٌ و`afterCommit`**. بغيرِ ذلك يصير توقُّفُ `reverb` **فشلَ إرسالِ رسالة** و`SC-015` غيرَ قابلٍ للتنفيذ
-- [ ] T067 [US2] في `PostMessage`: اكتب `conversations.last_message_id` بتحديثٍ شرطيّ `WHERE last_message_id IS NULL OR last_message_id < ?` — رسالتان في اللحظةِ نفسِها قد تكتب الأخيرةُ المعرّفَ **الأصغر** فتُرتَّب المحادثةُ برسالةٍ ليست آخرَها **إلى الأبد**
-- [ ] T068 [US2] أنشئ `Actions/ReadMessages.php` — `ORDER BY id` وصفحاتٌ بمفتاح، **والمؤشِّرُ `?before={uuid}`** يُحلُّ داخلَ الفعلِ **بعد التحقّقِ أنه لهذه المحادثة** وإلّا صار عرّافَ ترقيم. ⚠️ **ولا `paginate()`**: عدُّه الكاملُ استعلامٌ واحدٌ عند كلِّ حجم، فلا يراه اختبارُ الميزانيّةِ ويُسقط نصفَ `SC-009` الزمنيَّ وحدَه
-- [ ] T069 [US2] أنشئ `Actions/ListConversations.php` — ⚠️ **يُصفّي بـ`conversation_participants` صراحةً**: `WorkspaceScope` عديمُ الأثرِ للطالب، فبلا الشرطِ تُرجع محادثاتِ كلِّ مساحةٍ على المنصّة
-- [ ] T070 [US2] أنشئ `Actions/HideMessage.php` — `hidden_at` من صاحبِها، والأثرُ يبقى للإشراف (`FR-015`)
-- [ ] T071 [US2] أنشئ `Events/MessagePosted.php` بـ`ShouldBroadcast` — الحمولةُ **`{message_uuid, conversation_uuid}` ولا شيءَ غيرها** (`NFR-008`). ⚠️ **وهذا حِملٌ مزدوج**: القناةُ تُفوَّض مرّةً عند الاشتراكِ ولا يملك البروتوكولُ إلغاء، فمساعدٌ مسحوبةٌ صلاحيّتُه وما زال متّصلاً يستمرّ في تلقّي الأحداث — **بمعرّفٍ فقط يمرُّ جلبُه اللاحقُ بالمسارِ المُصادَقِ عليه فيُرفَض**. اكتب السببَ الثاني بجانبِ القاعدةِ وإلّا «بسّطها» قارئٌ لاحق
-- [ ] T072 [US2] عرّف قناتَي `private-conversation.{uuid}` و`private-user.{uuid}` في `backend/routes/channels.php` — ⚠️ **التفويضُ يستدعي حارسَ الفعلِ نفسَه** لا شرطاً ثانياً بجانبِه، وهذا **الموضعُ الوحيدُ** الذي تُعدَّد فيه أسماءُ القنوات
-- [ ] T073 [US2] أضف محدِّداً مُسمّىً على `/broadcasting/auth` — مسارٌ مُصادَقٌ عليه ومكشوف
-- [ ] T074 [US2] أنشئ `Listeners/NotifyOfflineRecipient.php` على `MessagePosted` → `DispatchNotification` — `FR-012`، والقناةُ يقرّرها نوعُ الإشعارِ لا المستمع
-- [ ] T075 [P] [US2] أضف نوعَ `chat_message` إلى `NotificationType` **وصفَّه في `NotificationTemplateSeeder`** — ⚠️ نوعٌ بلا قالبٍ يُسقَط بصمتٍ وكلُّ توكيدٍ عنه يمرُّ على مجموعةٍ فارغة
-- [ ] T076 [US2] أنشئ `Policies/ConversationPolicy.php` + `MessagePolicy.php` — و**القراءةُ والكتابةُ قدرتان منفصلتان** (`FR-014`)
-- [ ] T077 [US2] أنشئ `Http/Controllers/ConversationController.php` و`MessageController.php` وسجّل المسارات بـ`throttle:chat-write` على الكتابة — ⚠️ **كلُّ معرّفٍ يُحلُّ داخلَ الفعلِ بعد فحصِ العضويّة، لا بارتباطٍ ضمنيّ**: نمطُ `RedeemReward` من ٠٠٩ حرفياً
-- [ ] T078 [P] [US2] أنشئ `Http/Resources/{ConversationResource,MessageResource}.php`
-- [ ] T079 [P] [US2] أنشئ `Data/{StartConversationData,PostMessageData}.php`
-- [ ] T080 [US2] أضف مفاتيحَ حقولِ `FormRequest` الجديدةَ إلى `backend/lang/ar/validation.php` تحت `attributes` — بلا صفٍّ يُصيَّر `body` نصّاً إنجليزياً على شاشةٍ عربيّة
-- [ ] T081 [P] [US2] أضف حالاتِ `conversations` و`messages` إلى `WorkspaceIsolationTest` — **بمساحتَين وبطالبٍ من كلٍّ منهما**
-- [ ] T082 [P] [US2] أنشئ `frontend/src/lib/echo.ts` — يقرأ المفتاحَ والمضيفَ من `NEXT_PUBLIC_*`، **ويُهيَّأ كسولاً** فلا يمنع فشلُ الاتّصالِ تصييرَ الصفحة
-- [ ] T083 [US2] أنشئ `frontend/src/app/(app)/(shell)/messages/page.tsx` + `[uuid]/page.tsx` — الأحدثُ أوّلاً، والأقدمُ عند الطلب، **والالتقاطُ بعد الانقطاعِ يعيد جلبَ أحدثِ صفحةٍ** ولا يأخذ مؤشّرَ `after=` (‏ترتيبُ الالتزامِ ليس ترتيبَ الترقيمِ على MySQL)
-- [ ] T084 [P] [US2] `frontend/src/components/community/MessageList.test.tsx` بـvitest — الإدراجُ اللحظيُّ لا يُكرّر رسالةً وصلت بالاستجابةِ ثمّ بالمقبس
-- [ ] T085 [US2] أضف رابطَ «الرسائل» إلى قائمةِ الطالبِ والمدرّس — **بلا رابطٍ لا تسليم**
-- [ ] T086 [US2] عالج فشلَ المقبسِ في الواجهةِ عبرَ `userMessage()` — ⚠️ **ولا `.catch(() => undefined)`**: صفحةٌ بيضاءُ دائمةٌ والسببُ في الاستجابةِ غيرُ مقروء
+- [X] T060 [US2] هجرة `2026_08_22_000300_create_conversations_table.php`: `workspace_id` · `kind` · `student_user_id` (nullable) · `class_session_id`/`lesson_id` (nullable) · `last_message_id` (nullable) · `unique(workspace_id, student_user_id)` · `index(workspace_id, last_message_id)` — ⚠️ **عمودان عاديّان بلا عمودٍ محسوب**: `NULL` لا يصطدم بـ`NULL` فالعامّةُ تتعايش والخاصّةُ واحدةٌ لكلِّ طالب
+- [X] T061 [US2] هجرة `2026_08_22_000310_create_messages_table.php`: `workspace_id` · `conversation_id` · `sender_user_id` · `body` · **`hidden_at`** · `is_helpful` · `index(workspace_id, conversation_id, id)` — ⚠️ **`hidden_at` لا `deleted_at`**: الاسمُ الثاني يجتذب `SoftDeletes` ونطاقُه يمحو الأرشيفَ الذي يعد به `FR-015` **ويقصّر كلَّ صفحةِ خمسين** بصمت
+- [X] T062 [US2] هجرة `2026_08_22_000320_create_conversation_participants_table.php`: `conversation_id` · `user_id` · `last_read_message_id` · `unique(conversation_id, user_id)` · **`index(user_id, conversation_id)`** — ⚠️ الفهرسُ الثاني هو الذي يجيب «في أيِّ محادثاتٍ أنا؟»؛ الفريدُ عمودُه القائدُ `conversation_id` فلا يخدمه
+- [X] T063 [P] [US2] أنشئ `Models/{Conversation,Message,ConversationParticipant}.php` — ⚠️ **`messages.workspace_id` يُنسَخ من المحادثةِ صراحةً**: الطالبُ عضوٌ في لا مساحةَ عمل، فتعبئةُ `BelongsToWorkspace` التلقائيّةُ تكتب `null` أو — أسوأُ — `last_workspace_id`
+- [X] T064 [P] [US2] أنشئ مصانعَ المحادثةِ والرسالةِ والمشارِك في `backend/database/factories/Modules/Community/`
+- [X] T065 [US2] أنشئ `Actions/StartConversation.php` — ⚠️ **سباقٌ مُعلَن**: جهازان يفتحان معاً، كلاهما لا يجد شيئاً، كلاهما يُدرج. يُلتقَط خرقُ الفريدِ ويُرجَع الفائز — نمطُ `BookSeat`
+- [X] T066 [US2] أنشئ `Actions/PostMessage.php` — يكتب الصفَّ **ويُرجع الرسالةَ في الاستجابة**؛ البثُّ حدثٌ `ShouldBroadcast` **مطبورٌ و`afterCommit`**. بغيرِ ذلك يصير توقُّفُ `reverb` **فشلَ إرسالِ رسالة** و`SC-015` غيرَ قابلٍ للتنفيذ
+- [X] T067 [US2] في `PostMessage`: اكتب `conversations.last_message_id` بتحديثٍ شرطيّ `WHERE last_message_id IS NULL OR last_message_id < ?` — رسالتان في اللحظةِ نفسِها قد تكتب الأخيرةُ المعرّفَ **الأصغر** فتُرتَّب المحادثةُ برسالةٍ ليست آخرَها **إلى الأبد**
+- [X] T068 [US2] أنشئ `Actions/ReadMessages.php` — `ORDER BY id` وصفحاتٌ بمفتاح، **والمؤشِّرُ `?before={uuid}`** يُحلُّ داخلَ الفعلِ **بعد التحقّقِ أنه لهذه المحادثة** وإلّا صار عرّافَ ترقيم. ⚠️ **ولا `paginate()`**: عدُّه الكاملُ استعلامٌ واحدٌ عند كلِّ حجم، فلا يراه اختبارُ الميزانيّةِ ويُسقط نصفَ `SC-009` الزمنيَّ وحدَه
+- [X] T069 [US2] أنشئ `Actions/ListConversations.php` — ⚠️ **يُصفّي بـ`conversation_participants` صراحةً**: `WorkspaceScope` عديمُ الأثرِ للطالب، فبلا الشرطِ تُرجع محادثاتِ كلِّ مساحةٍ على المنصّة
+- [X] T070 [US2] أنشئ `Actions/HideMessage.php` — `hidden_at` من صاحبِها، والأثرُ يبقى للإشراف (`FR-015`)
+- [X] T071 [US2] أنشئ `Events/MessagePosted.php` بـ`ShouldBroadcast` — الحمولةُ **`{message_uuid, conversation_uuid}` ولا شيءَ غيرها** (`NFR-008`). ⚠️ **وهذا حِملٌ مزدوج**: القناةُ تُفوَّض مرّةً عند الاشتراكِ ولا يملك البروتوكولُ إلغاء، فمساعدٌ مسحوبةٌ صلاحيّتُه وما زال متّصلاً يستمرّ في تلقّي الأحداث — **بمعرّفٍ فقط يمرُّ جلبُه اللاحقُ بالمسارِ المُصادَقِ عليه فيُرفَض**. اكتب السببَ الثاني بجانبِ القاعدةِ وإلّا «بسّطها» قارئٌ لاحق
+- [X] T072 [US2] عرّف قناتَي `private-conversation.{uuid}` و`private-user.{uuid}` في `backend/routes/channels.php` — ⚠️ **مُسجَّلتان بلا بادئة `private-`**: العميل يرسلها ولارافيل ينزعها قبل المطابقة، فتعريفٌ يحملها لا يطابق شيئاً وكلُّ اشتراكٍ يُرفض بلا سببٍ مكتوب — ⚠️ **التفويضُ يستدعي حارسَ الفعلِ نفسَه** لا شرطاً ثانياً بجانبِه، وهذا **الموضعُ الوحيدُ** الذي تُعدَّد فيه أسماءُ القنوات
+- [X] T073 [US2] أضف محدِّداً مُسمّىً `broadcast-auth` على `/broadcasting/auth` — ⚠️ **وهذا استلزم نقلَ التسجيل من `withRouting(channels:)` إلى `withBroadcasting()`**: الصيغةُ الأولى لا تقبل خصائصَ فتُسجّل المسارَ بـ`web` وحدَها — بلا `auth:sanctum` (والواجهةُ تحمل رمزاً في `localStorage`)، وبلا محدِّد، وبلا بادئةِ `api` التي يعبر بها إعادةُ توجيهِ Next. ثلاثةُ أعطالٍ تظهر كـ403 صامتة
+- [X] T074 [US2] أنشئ `Listeners/NotifyOfflineRecipient.php` على `MessagePosted` → `DispatchNotification` — `FR-012`، والقناةُ يقرّرها نوعُ الإشعارِ لا المستمع
+- [X] T075 [P] [US2] أضف نوعَ `chat_message` إلى `NotificationType` **وصفَّه في `NotificationTemplateSeeder`** — ⚠️ نوعٌ بلا قالبٍ يُسقَط بصمتٍ وكلُّ توكيدٍ عنه يمرُّ على مجموعةٍ فارغة
+- [X] T076 [US2] أنشئ `Policies/ConversationPolicy.php` + `MessagePolicy.php` — و**القراءةُ والكتابةُ قدرتان منفصلتان** (`FR-014`)
+- [X] T077 [US2] أنشئ `Http/Controllers/ConversationController.php` و`MessageController.php` وسجّل المسارات بـ`throttle:chat-write` على الكتابة — ⚠️ **كلُّ معرّفٍ يُحلُّ داخلَ الفعلِ بعد فحصِ العضويّة، لا بارتباطٍ ضمنيّ**: نمطُ `RedeemReward` من ٠٠٩ حرفياً
+- [X] T078 [P] [US2] أنشئ `Http/Resources/{ConversationResource,MessageResource}.php`
+- [X] T079 [P] [US2] أنشئ `Data/{StartConversationData,PostMessageData}.php`
+- [X] T080 [US2] **لا عمل**: `workspace` و`student` و`body` موجودةٌ أصلاً في `attributes` بـ`backend/lang/ar/validation.php` (المدرّس · الطالب · النصّ). فُحص ولم يُضَف صفّ
+- [X] T081 [P] [US2] أضف حالاتِ `conversations` و`messages` إلى `WorkspaceIsolationTest` — **بمساحتَين وبطالبٍ من كلٍّ منهما**
+- [X] T082 [P] [US2] أنشئ `frontend/src/lib/echo.ts` — يقرأ المفتاحَ والمضيفَ من `NEXT_PUBLIC_*`، **ويُهيَّأ كسولاً** فلا يمنع فشلُ الاتّصالِ تصييرَ الصفحة
+- [X] T083 [US2] أنشئ `frontend/src/app/(app)/(shell)/messages/page.tsx` + `[uuid]/page.tsx` — الأحدثُ أوّلاً، والأقدمُ عند الطلب، **والالتقاطُ بعد الانقطاعِ يعيد جلبَ أحدثِ صفحةٍ** ولا يأخذ مؤشّرَ `after=` (‏ترتيبُ الالتزامِ ليس ترتيبَ الترقيمِ على MySQL)
+- [X] T084 [P] [US2] `frontend/src/components/community/MessageList.test.tsx` بـvitest — الإدراجُ اللحظيُّ لا يُكرّر رسالةً وصلت بالاستجابةِ ثمّ بالمقبس
+- [X] T085 [US2] أضف رابطَ «الرسائل» إلى القائمة — ⚠️ **ورابطُ الفتح كان ناقصاً**: القائمةُ تعرض المحادثاتِ ولا تفتح واحدة، فأُضيف زرُّ «راسل المدرّس» في `/enrollments` — وهو استلزم حقلَي `workspace_uuid` و`teacher_name` في `EnrollmentResource` مع تحميلٍ مسبقٍ للعلاقة. تسجيلاتُ الطالبِ هي قائمةُ من يجوز مراسلتُهم، وقائمةٌ ثانيةٌ تُجيب السؤالَ بصوتٍ آخر
+- [X] T086 [US2] عالج فشلَ المقبسِ في الواجهةِ عبرَ `userMessage()` — ⚠️ **ولا `.catch(() => undefined)`**: صفحةٌ بيضاءُ دائمةٌ والسببُ في الاستجابةِ غيرُ مقروء
 
 **Checkpoint**: `US1` و`US2` تعملان مستقلّتَين.
 
