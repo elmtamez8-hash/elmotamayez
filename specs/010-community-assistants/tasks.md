@@ -117,37 +117,37 @@ description: "Task list — المجتمع والمساعدون والتقييم
 
 ### Tests for User Story 1
 
-- [ ] T027 [P] [US1] `backend/tests/Feature/Community/AssistantFinancialWallTest.php` — `SC-001` عبرَ **HTTP** بحسابِ مساعدٍ حقيقيٍّ على **كلِّ** مسارٍ ماليٍّ قائم (‏كشفُ التسوية · سعرُ التسوية · إيصالُ دفعة · `/manage/billing/students` · شراءُ أرصدة). ⚠️ **التثبيتةُ تُحيّد كلَّ سببِ رفضٍ آخر**: المساعدُ داخلَ نطاقِه، مسجَّلٌ، في المساحةِ الصحيحة — وإلّا مرَّ الاختبارُ ولو حُذف الحائطُ كلُّه. ⚠️ **وحالةٌ تصنع دوراً باسمٍ آخرَ فيه `payments.approve` وتُسنده**: قياسٌ على المصفوفةِ لا يُثبت شيئاً
-- [ ] T028 [P] [US1] `backend/tests/Feature/Community/PanelFinancialWallTest.php` — المساعدُ يدخل `/admin` (‏`EnsureFilamentAccess` يُدخله بالاسم) ويُرفَض على كلِّ موردٍ يعرض مالاً. **بالاتّجاهَين**: المالكُ ما زال يرى القائمة — سابقةُ `981ca23`، حيث كان الرفضُ الوحيدُ المفقود
-- [ ] T029 [P] [US1] `backend/tests/Feature/Community/AssistantScopeTest.php` — `SC-002`: مقيَّدٌ بكورسٍ يُردُّ خارجَه، **وعلى المحادثةِ الخاصّةِ أيضاً** (‏تقاطعُ التسجيل)
-- [ ] T030 [P] [US1] `backend/tests/Feature/Community/AssistantRevocationTest.php` — `SC-003`: السحبُ أثناءَ جلسةٍ فعّالة، فالطلبُ التالي **`403` بلا إعادةِ دخول**. ⚠️ والتثبيتةُ لا تُخالف النطاقَ أيضاً وإلّا أثبتت الحارسَ الآخر
-- [ ] T031 [P] [US1] `backend/tests/Feature/Community/AssistantAttributionTest.php` — `SC-004`/`FR-006`/`FR-009`: تصحيحٌ نفّذه مساعدٌ يبقى منسوباً إليه **بعد سحبِه**، ويراه المدرّسُ باسمِه
+- [X] T027 [P] [US1] `backend/tests/Feature/Community/AssistantFinancialWallTest.php` — `SC-001` عبرَ **HTTP** بحسابِ مساعدٍ حقيقيٍّ على **كلِّ** مسارٍ ماليٍّ قائم (‏كشفُ التسوية · سعرُ التسوية · إيصالُ دفعة · `/manage/billing/students` · شراءُ أرصدة). ⚠️ **التثبيتةُ تُحيّد كلَّ سببِ رفضٍ آخر**: المساعدُ داخلَ نطاقِه، مسجَّلٌ، في المساحةِ الصحيحة — وإلّا مرَّ الاختبارُ ولو حُذف الحائطُ كلُّه. ⚠️ **وحالةٌ تصنع دوراً باسمٍ آخرَ فيه `payments.approve` وتُسنده**: قياسٌ على المصفوفةِ لا يُثبت شيئاً
+- [X] T028 [P] [US1] `backend/tests/Feature/Community/PanelFinancialWallTest.php` — المساعدُ يدخل `/admin` (‏`EnsureFilamentAccess` يُدخله بالاسم) ويُرفَض على كلِّ موردٍ يعرض مالاً. **بالاتّجاهَين**: المالكُ ما زال يرى القائمة — سابقةُ `981ca23`، حيث كان الرفضُ الوحيدُ المفقود
+- [X] T029 [P] [US1] `backend/tests/Feature/Community/AssistantScopeTest.php` — `SC-002`: مقيَّدٌ بكورسٍ يُردُّ خارجَه، **وعلى المحادثةِ الخاصّةِ أيضاً** (‏تقاطعُ التسجيل)
+- [X] T030 [P] [US1] `backend/tests/Feature/Community/AssistantRevocationTest.php` — `SC-003`: السحبُ أثناءَ جلسةٍ فعّالة، فالطلبُ التالي **`403` بلا إعادةِ دخول**. ⚠️ والتثبيتةُ لا تُخالف النطاقَ أيضاً وإلّا أثبتت الحارسَ الآخر
+- [X] T031 [P] [US1] `backend/tests/Feature/Community/AssistantAttributionTest.php` — `SC-004`/`FR-006`/`FR-009`: تصحيحٌ نفّذه مساعدٌ يبقى منسوباً إليه **بعد سحبِه**، ويراه المدرّسُ باسمِه
 
 ### Implementation for User Story 1
 
-- [ ] T032 [US1] أنشئ `Listeners/CreateAssistantAssignment.php` وسجّله على حدثِ قبولِ الدعوةِ في `CommunityServiceProvider::boot()` — ⚠️ **لا `POST /manage/assistants`**: `workspace_members` لا يكتبه إلّا `AcceptInvitation` و`CreateWorkspace`، والدعوةُ والقبولُ والأعضاءُ مشحونةٌ كلُّها في `Tenancy` بشاشاتِها
-- [ ] T033 [US1] أنشئ `Support/AssistantDirectory.php` — يجيب «هل المستخدمُ مساعدٌ حيٌّ في المساحةِ الحاليّة؟» **بحفظٍ مؤقّتٍ لكلِّ طلب**، نمطُ `PlatformStaffDirectory`: فحصُ الصلاحيّةِ يجري عشراتِ المرّاتِ في الطلبِ الواحد
-- [ ] T034 [US1] أنشئ `Support/AssistantForbiddenPermissions.php` — المجموعةُ **مُشتقّةٌ** من البادئاتِ `settlement.` · `billing.` · `payments.` · `orders.` **ناقصَ `billing.balance.view`** (ت-١). ⚠️ **قائمةٌ مكتوبةٌ بيدٍ خاصّيّتُها معكوسة**: صلاحيّةُ تسويةٍ تُضاف غداً **ليست** ماليّةً حتى يتذكّرها أحد — الاشتقاقُ نفسُه الذي يجعل `platformPermissions()` صحيحةً بالبناء
-- [ ] T035 [US1] أضف `Gate::before` في `backend/app/Providers/AppServiceProvider.php` بجانبِ هوكِ `PlatformStaffDirectory`: يرفض المجموعةَ الماليّةَ لمن له صفُّ تعيينٍ حيٌّ في المساحةِ الحاليّة، **عبرَ كلِّ دورٍ يحمله**. ⚠️ **يُرجع `null` لا `false`** — `false` يقصر كلَّ سياسةٍ خلفه، والهوكُ يُسأل عن `view`/`update` باستمرارٍ من Filament
-- [ ] T036 [US1] أنشئ `Actions/SetAssistantScope.php` + `Http/Requests/SetAssistantScopeRequest.php` — الكورساتُ تُتحقَّق بـ`WorkspaceRules::exists('courses')` لا `exists:courses,id`
-- [ ] T037 [US1] أنشئ `Actions/RevokeAssistant.php` — **تحديثٌ شرطيٌّ** `WHERE revoked_at IS NULL` فلا يُنفَّذ أثرُ الإزالةِ مرّتَين (`FR-009`)، ولا حذفَ للصفّ
-- [ ] T038 [US1] أنشئ `Actions/ListAssistants.php` + `ReadAssistantAssignment.php` (`/assistants/me`) — الثاني يقرأ التعييناتِ الحيّةَ للمستخدمِ نفسِه عبرَ مساحاتِه
-- [ ] T039 [US1] أنشئ `Data/AssistantScopeData.php` يرث `DataTransferObject` — كان `Data/` ناقصاً من الإصدارِ الأوّلِ رغمَ `NFR-005`
-- [ ] T040 [US1] أنشئ `Http/Controllers/Manage/AssistantController.php` (`GET /manage/assistants` · `PUT .../{assignment}/scope` · `DELETE .../{assignment}`) و`Http/Controllers/AssistantController.php` (`GET /assistants/me`) وسجّلها في `routes/api.php` بـ`throttle:authoring` على الكتابة
-- [ ] T041 [P] [US1] أنشئ `Http/Resources/AssistantAssignmentResource.php` — `uuid` وحدَه، ولا حقلَ مالٍ (‏الحمولةُ لا تحمل مالاً أصلاً؛ **السؤالُ الحقيقيُّ رفضُ المسار**، ولهذا لا `AssistantPayloadAllowlist`)
-- [ ] T042 [US1] احذف `revoked_at` من مسارِ القراءةِ في `EloquentAssistantScopeDirectory` بشرطٍ صريح `whereNull('revoked_at')` — السحبُ فوريٌّ **بالبناء** لأن الصلاحيّةَ تُقرأ لكلِّ طلب، فلا `RevokeAssistantSessions` ولا حذفَ رمز (‏حذفُ الرمزِ يُخرج المساعدَ من مدرّسِه الآخر ويُنتج `401` بينما `quickstart` يطلب `403`)
-- [ ] T043 [US1] أضف `AssistantScopeDirectory` إلى حرّاسِ التصحيحِ في `Assessments` (‏تصحيحُ ورقةٍ من كورسٍ خارجَ النطاقِ يُرفَض) — `FR-005`
-- [ ] T044 [US1] أضف الحارسَ نفسَه إلى رفعِ المحتوى في `Courses`/`CMS` — `FR-005`، والحالةُ ٣ من سيناريوهاتِ `US1`
-- [ ] T045 [US1] أضف الحارسَ نفسَه إلى تسجيلِ الحضورِ في `LiveSessions` — `FR-005`
-- [ ] T046 [US1] تحقّق أن كلَّ فعلٍ ينفّذه مساعدٌ يكتب `actor` باسمِه في `activity_log` القائم — `FR-006`/`SC-004`؛ لا عمودَ جديد
-- [ ] T047 [US1] أضف `canViewAny()` **وقَطعاً على `getEloquentQuery()`** لكلِّ موردِ Filament يعرض مالاً (‏التسوية · الأرصدة · الطلبات) على غرارِ `OrderResource` بعد `981ca23` — ⚠️ **القائمةُ لا تستدعي سياسةَ الصفِّ أبداً**، فسياسةُ `view()` الدقيقةُ لا تحرس شاشةً
-- [ ] T048 [P] [US1] أضف حالةَ `assistant_assignments` و`assistant_scopes` إلى `WorkspaceIsolationTest` — `SC-014`/`FR-008`
-- [ ] T049 [P] [US1] أنشئ `frontend/src/lib/assistants.ts` — عميلُ النقاطِ الأربع، بـ`uuid` حصراً
-- [ ] T050 [US1] أنشئ `frontend/src/app/(app)/(shell)/manage/assistants/page.tsx` — القائمةُ والنطاقُ والسحب، **وتربط إلى شاشةِ الأدوارِ القائمةِ للبنود** لا إلى نموذجٍ ثانٍ
-- [ ] T051 [US1] أضف رابطاً إلى `/manage/assistants` من قائمةِ إدارةِ المدرّس — **شاشةٌ بلا رابطٍ داخلٍ ليست مُسلَّمة**
-- [ ] T052 [P] [US1] `frontend/src/components/community/AssistantScopeForm.test.tsx` بـvitest — اختيارُ الكورساتِ، وحالةُ «بلا تقييد = الكلّ» مكتوبةً بالعربيّةِ لا مستنتَجةً من قائمةٍ فارغة
-- [ ] T053 [US1] راجع نصَّ شاشةِ الأدوارِ لبندِ `chat.reply` وللبنودِ الأربعةِ الأخرى — ⚠️ شاشةٌ يُساء فهمُها تُمنح كاملةً بضغطة، فيسقط `FR-002` **سلوكاً وهو قائمٌ كوداً** (‏بندٌ يدويٌّ في `quickstart` §ج-٥)
-- [ ] T054 [US1] **احذف `Gate::before` وأعد تشغيلَ `T027`** — إن بقي أخضرَ فالتثبيتةُ تقيس سبباً آخر. أعِده. هذه المهمّةُ ليست اختياريّة
+- [X] T032 [US1] أنشئ `Listeners/CreateAssistantAssignment.php` وسجّله على حدثِ قبولِ الدعوةِ في `CommunityServiceProvider::boot()` — ⚠️ **لا `POST /manage/assistants`**: `workspace_members` لا يكتبه إلّا `AcceptInvitation` و`CreateWorkspace`، والدعوةُ والقبولُ والأعضاءُ مشحونةٌ كلُّها في `Tenancy` بشاشاتِها
+- [X] T033 [US1] ~~أنشئ `Support/AssistantDirectory.php`~~ — **أُسقطت**: `EloquentAssistantScopeDirectory::isAssistantIn()` من المرحلةِ الثانيةِ يجيب السؤالَ نفسَه بالحفظِ المؤقّتِ نفسِه. صفٌّ ثانٍ لسؤالٍ واحدٍ هو عينُ العيبِ الذي يرفضه هذا التصميم
+- [X] T034 [US1] أنشئ `Support/AssistantForbiddenPermissions.php` — المجموعةُ **مُشتقّةٌ** من البادئاتِ `settlement.` · `billing.` · `payments.` · `orders.` **ناقصَ `billing.balance.view`** (ت-١). ⚠️ **قائمةٌ مكتوبةٌ بيدٍ خاصّيّتُها معكوسة**: صلاحيّةُ تسويةٍ تُضاف غداً **ليست** ماليّةً حتى يتذكّرها أحد — الاشتقاقُ نفسُه الذي يجعل `platformPermissions()` صحيحةً بالبناء
+- [X] T035 [US1] ~~أضف `Gate::before`~~ → **الحارسُ في `User::hasPermissionTo()`، و`Gate::before` لا يعمل — قِيست، لا استُنتجت.** spatie تسجّل هوكَ `before` خاصّاً بها يُرجع `true` لكلِّ صلاحيّةٍ يحملها المستخدم، و`callBeforeCallbacks` تُرجع **أوّلَ** جوابٍ غيرِ `null`؛ وهوكُها يُسجَّل أثناءَ حلِّ `Gate` أي قبلَ إقلاعِ أيِّ وحدة. فالحائطُ المكتوبُ هوكاً لا يُسأل إلا عن صلاحيّةٍ **لا** يحملها صاحبُها، ولا يرفض شيئاً — والمساراتُ الخمسةُ أجابت `200` وكلُّ توكيدٍ عن الحمولةِ بقي صحيحاً. و`Gate::after` لا تُنقذه: الدمجُ `$result ??= $afterResult` يملأ `null` ولا يقلب `true` أبداً. والمجموعةُ انتقلت إلى `app/Shared/Support/` لأن السائلَ صار `App\Models\User`
+- [X] T036 [US1] أنشئ `Actions/SetAssistantScope.php` + `Http/Requests/SetAssistantScopeRequest.php` — الكورساتُ تُتحقَّق بـ`WorkspaceRules::exists('courses')` لا `exists:courses,id`
+- [X] T037 [US1] أنشئ `Actions/RevokeAssistant.php` — **تحديثٌ شرطيٌّ** `WHERE revoked_at IS NULL` فلا يُنفَّذ أثرُ الإزالةِ مرّتَين (`FR-009`)، ولا حذفَ للصفّ
+- [X] T038 [US1] أنشئ `Actions/ListAssistants.php` + `ListOwnAssignments.php` (`/assistants/me`) — الثاني يقرأ التعييناتِ الحيّةَ للمستخدمِ نفسِه عبرَ مساحاتِه. (‏سُمّي `ListOwnAssignments` لا `ReadAssistantAssignment`: القراءةُ جمعٌ لا مفرد)
+- [X] T039 [US1] أنشئ `Data/AssistantScopeData.php` يرث `DataTransferObject` — كان `Data/` ناقصاً من الإصدارِ الأوّلِ رغمَ `NFR-005`
+- [X] T040 [US1] أنشئ `Http/Controllers/Manage/AssistantController.php` (`GET /manage/assistants` · `PUT .../{assignment}/scope` · `DELETE .../{assignment}`) و`Http/Controllers/AssistantController.php` (`GET /assistants/me`) وسجّلها في `routes/api.php` بـ`throttle:authoring` على الكتابة
+- [X] T041 [P] [US1] أنشئ `Http/Resources/AssistantAssignmentResource.php` — `uuid` وحدَه، ولا حقلَ مالٍ (‏الحمولةُ لا تحمل مالاً أصلاً؛ **السؤالُ الحقيقيُّ رفضُ المسار**، ولهذا لا `AssistantPayloadAllowlist`)
+- [X] T042 [US1] احذف `revoked_at` من مسارِ القراءةِ في `EloquentAssistantScopeDirectory` بشرطٍ صريح `whereNull('revoked_at')` — السحبُ فوريٌّ **بالبناء** لأن الصلاحيّةَ تُقرأ لكلِّ طلب، فلا `RevokeAssistantSessions` ولا حذفَ رمز (‏حذفُ الرمزِ يُخرج المساعدَ من مدرّسِه الآخر ويُنتج `401` بينما `quickstart` يطلب `403`)
+- [X] T043 [US1] أضف `AssistantScopeDirectory` إلى حرّاسِ التصحيحِ في `Assessments` (‏تصحيحُ ورقةٍ من كورسٍ خارجَ النطاقِ يُرفَض) — `FR-005`
+- [X] T044 [US1] أضف الحارسَ نفسَه إلى رفعِ المحتوى في `Courses`/`CMS` — `FR-005`، والحالةُ ٣ من سيناريوهاتِ `US1`
+- [X] T045 [US1] أضف الحارسَ نفسَه إلى تسجيلِ الحضورِ في `LiveSessions` — `FR-005`
+- [X] T046 [US1] **تُحُقِّق، والنتيجةُ عكسُ ما افترضته المهمّة.** التصحيحُ **لا يكتب سطراً في `activity_log` أصلاً** (‏`LogsActivity` في `GradingController` تُستدعى لتبديلِ إخفاءِ الهويّةِ وحدَه). والنسبةُ **عمودٌ**: `exam_answers.graded_by` و`grading_records.graded_by`، وهي **أقوى** من سطرِ سجلّ — سطرٌ نسخةٌ ثانيةٌ من الحقيقةِ نفسِها، تنحرف أوّلَ مرّةٍ يُرشَّح أحدُهما. `AssistantAttributionTest` يقرأ الوصلةَ لا الرقم، فمفتاحٌ لا يُحلُّ إلى شخصٍ يُرضي التوكيدَ ويُسقط `FR-006`. **لا عمودَ جديد ولا سطرَ سجلٍّ جديد**
+- [X] T047 [US1] **لا كودَ جديد — تحقُّقٌ وتثبيت.** الموردُ الوحيدُ الذي يعرض مالاً هو `OrderResource` (‏لا موردَ Filament للتسويةِ ولا للأرصدة)، و`OrderPolicy::viewAny()` تسأل `ORDERS_VIEW_ALL` فيسقط عليها الحائط، وقَطعُ `getEloquentQuery()` لشراءِ الأرصدةِ قائمٌ منذ `981ca23`. المُسلَّمُ هو توكيداتُ `T028` بالاتّجاهَين وهذا السطر
+- [X] T048 [P] [US1] أُنجزت في `T026`: الحالتان في `WorkspaceIsolationTest` منذ المرحلةِ الثانية، وإحداهما تُثبت **غياب** `BelongsToWorkspace` عن `assistant_scopes` — `SC-014`/`FR-008`
+- [X] T049 [P] [US1] أنشئ `frontend/src/lib/assistants.ts` — عميلُ النقاطِ الأربع، بـ`uuid` حصراً
+- [X] T050 [US1] أنشئ `frontend/src/app/(app)/(shell)/manage/assistants/page.tsx` — القائمةُ والنطاقُ والسحب، **وتربط إلى شاشةِ الأدوارِ القائمةِ للبنود** لا إلى نموذجٍ ثانٍ
+- [X] T051 [US1] أضف رابطاً إلى `/manage/assistants` من قائمةِ إدارةِ المدرّس — **شاشةٌ بلا رابطٍ داخلٍ ليست مُسلَّمة**
+- [X] T052 [P] [US1] `frontend/src/components/community/AssistantScopeForm.test.tsx` بـvitest — اختيارُ الكورساتِ، وحالةُ «بلا تقييد = الكلّ» مكتوبةً بالعربيّةِ لا مستنتَجةً من قائمةٍ فارغة
+- [X] T053 [US1] راجع نصَّ شاشةِ الأدوارِ لبندِ `chat.reply` وللبنودِ الأربعةِ الأخرى — ⚠️ شاشةٌ يُساء فهمُها تُمنح كاملةً بضغطة، فيسقط `FR-002` **سلوكاً وهو قائمٌ كوداً** (‏بندٌ يدويٌّ في `quickstart` §ج-٥)
+- [X] T054 [US1] **نُفِّذت.** عُطِّل الحارسُ في `User::hasPermissionTo()` وأُعيد تشغيلُ `T027`+`T028`: **ستُّ حالاتٍ حمراء** (‏كشفُ التسوية `403→404` · سعرُ التسوية `403→404` · اعتمادُ الدفعة `403→200` · قائمةُ الطلبات `0→1` · طلبٌ بمعرّفه `403→200` · شاشةُ الطلباتِ في `/admin` `403→200`) و**ثلاثٌ خضراءُ عمداً** (‏حالتا ت-١ وضابطُ المالك). أُعيد الحارس
 
 **Checkpoint**: `US1` قابلةٌ للتسليمِ وحدَها — مساعدٌ يعمل، ولا يرى مالاً من أيِّ باب.
 

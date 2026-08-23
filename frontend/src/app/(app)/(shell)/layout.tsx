@@ -174,6 +174,15 @@ const adminNav: NavItem[] = [
   { href: "/workspaces", label: "مساحات العمل", Icon: WorkspaceIcon },
   { href: "/members", label: "الأعضاء", Icon: MembersIcon, permission: P.membersView },
   /*
+   * Spec 010 · US1 — the teacher's team, beside the member list it rides on.
+   *
+   * ⚠️ A SEPARATE ENTRY FROM «الأعضاء», not a tab inside it. That screen answers
+   * «who is in this workspace»; this one answers «what ground does each assistant
+   * work on», which is a different question with a different reader — and folding
+   * it in is how the confinement becomes a setting nobody finds.
+   */
+  { href: "/manage/assistants", label: "فريق المساعدين", Icon: MembersIcon, permission: P.rolesManage },
+  /*
    * Spec 013 · US6 — a teacher asking to wind down. Under admin because it is a
    * workspace decision, and gated on nothing: the SERVER answers to
    * `workspaces.owner_user_id`, and a permission name here would be a second,

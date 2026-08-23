@@ -33,6 +33,12 @@ export const P = {
   billingBalanceView: "billing.balance.view",
   billingExamMode: "billing.exam_mode.manage",
   membersView: "members.view",
+  // Spec 010 — the assistants screen. Gated on `roles.manage` and not on a new
+  // name: the matrix puts that permission on the OWNER alone, which is exactly
+  // who `AssistantAssignmentPolicy` lets in, and whoever arranges the roles is
+  // whoever arranges the team. A second constant would be a second answer to one
+  // question, and the two drift the first time either moves.
+  rolesManage: "roles.manage",
   billingCollection: "billing.collection.view",
   billingAudit: "billing.audit.view",
   // Spec 009 — the teacher's own shop and its fulfilment queue. The catalogue
