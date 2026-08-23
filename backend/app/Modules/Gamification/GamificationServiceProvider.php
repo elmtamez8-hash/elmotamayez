@@ -7,8 +7,10 @@ namespace App\Modules\Gamification;
 use App\Modules\Assessments\Events\AttemptFinalized;
 use App\Modules\Assessments\Events\MistakeResolved;
 use App\Modules\Assessments\Events\SubmissionGraded;
+use App\Modules\Community\Events\HelpfulAnswerMarked;
 use App\Modules\Gamification\Listeners\AwardOnAttemptFinalized;
 use App\Modules\Gamification\Listeners\AwardOnAttendanceConfirmed;
+use App\Modules\Gamification\Listeners\AwardOnHelpfulAnswer;
 use App\Modules\Gamification\Listeners\AwardOnMistakeResolved;
 use App\Modules\Gamification\Listeners\AwardOnSubmissionGraded;
 use App\Modules\Gamification\Listeners\ReverseOnAttendanceOverridden;
@@ -99,5 +101,11 @@ class GamificationServiceProvider extends Module
         Event::listen(AttemptFinalized::class, AwardOnAttemptFinalized::class);
         Event::listen(MistakeResolved::class, AwardOnMistakeResolved::class);
         Event::listen(SubmissionGraded::class, AwardOnSubmissionGraded::class);
+        /*
+        | Spec 010 — a teacher endorsed a student's answer in a public room.
+        | Community fires it once, from the winner of its own conditional update;
+        | the award key `(student, action, message)` is the layer beneath that.
+        */
+        Event::listen(HelpfulAnswerMarked::class, AwardOnHelpfulAnswer::class);
     }
 }

@@ -7,6 +7,7 @@ namespace App\Modules\Community\Actions;
 use App\Models\User;
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\Message;
+use App\Modules\Community\Support\ChatRankStamper;
 use App\Modules\Community\Support\CommunitySettings;
 use App\Shared\Actions\Action;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -31,6 +32,8 @@ use Illuminate\Support\Facades\Gate;
  */
 class ReadMessages extends Action
 {
+    public function __construct(private readonly ChatRankStamper $ranks) {}
+
     /**
      * @return array{0: Conversation, 1: Collection<int, Message>}
      */
@@ -76,6 +79,19 @@ class ReadMessages extends Action
             // Read newest-first for the LIMIT, rendered oldest-first for the eye.
             ->reverse()
             ->values();
+
+        /*
+        | The rank and the level beside the name (`FR-019`) — public rooms only.
+        |
+        | ⚠️ ONE CALL FOR THE WHOLE PAGE, not one per row, and not in the Resource:
+        | a Resource runs once per message, so a lookup inside it is an N+1 by
+        | construction. And NOT in a private conversation: a badge in front of the
+        | class is social pride, while the same badge in a one-to-one thread with
+        | the teacher is a score attached to a private question.
+        */
+        if ($conversation->kind->isPublic()) {
+            $this->ranks->stamp($page, (int) $conversation->workspace_id);
+        }
 
         return [$conversation, $page];
     }

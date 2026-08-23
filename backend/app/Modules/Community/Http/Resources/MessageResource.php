@@ -31,6 +31,17 @@ class MessageResource extends JsonResource
             */
             'sender_name' => $this->whenLoaded('sender', fn () => $this->sender?->name),
             'is_helpful' => (bool) $this->is_helpful,
+            /*
+            | ⚠️ NULL IS THE ANSWER FOR MOST SENDERS, AND IT IS AN ANSWER. A
+            | teacher and an assistant are on no leaderboard at all; a student
+            | who joined this morning has no row either, because the boards roll
+            | up nightly. A zero here reads as «المركز ٠» beside the teacher's own
+            | name in front of the class. Filled by `ChatRankStamper` for public
+            | rooms and left null everywhere else — a badge in a one-to-one thread
+            | is a score attached to a private question.
+            */
+            'sender_rank' => $this->senderRank,
+            'sender_level' => $this->senderLevel,
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

@@ -182,6 +182,14 @@ final class RolePermissionMatrix
             */
             Permissions::BILLING_BALANCE_VIEW,
             Permissions::CHAT_REPLY,
+            /*
+            | CHAT_MODERATE is separate from CHAT_REPLY on purpose: answering a
+            | student and silencing one are different powers over the same
+            | people, and a single constant would make every assistant who may
+            | reply a moderator too. Both here, neither on $assistantTeacher —
+            | the owner delegates each for a named person.
+            */
+            Permissions::CHAT_MODERATE,
             //
             // ⚠️ ANALYTICS_CROSS_TEACHER_VIEW IS DELIBERATELY ABSENT, HERE AND IN
             // EVERY OTHER ARRAY IN THIS FILE. platformPermissions() is derived by

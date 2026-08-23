@@ -49,6 +49,31 @@ class EloquentSessionAttendanceDirectory implements SessionAttendanceDirectory
             ->exists();
     }
 
+    public function hasSeatInSession(User $user, int $classSessionId): bool
+    {
+        /*
+        | ⚠️ `occupiesSeat()` ONLY, WHICH IS NARROWER THAN `ENTITLING` ABOVE. A
+        | late cancellation still entitles the RECORDING — the seat was charged
+        | for — but it does not put the person in the room of a session they
+        | pulled out of. Two questions, two predicates; sharing one constant is
+        | how the second answer quietly becomes the first.
+        */
+        $statuses = [];
+
+        foreach (BookingStatus::cases() as $status) {
+            if ($status->occupiesSeat()) {
+                $statuses[] = $status;
+            }
+        }
+
+        return SessionBooking::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $user->getKey())
+            ->where('class_session_id', $classSessionId)
+            ->whereIn('status', $statuses)
+            ->exists();
+    }
+
     /**
      * ⚠️ THE HOST IS EXCLUDED, and without that the teacher earns attendance
      * points for every lesson they teach and tops their own students' board for

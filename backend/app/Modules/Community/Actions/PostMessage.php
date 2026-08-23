@@ -6,13 +6,17 @@ namespace App\Modules\Community\Actions;
 
 use App\Models\User;
 use App\Modules\Community\Data\PostMessageData;
+use App\Modules\Community\Enums\ModerationVerdict;
 use App\Modules\Community\Events\MessagePosted;
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\ConversationParticipant;
 use App\Modules\Community\Models\Message;
+use App\Modules\Community\Models\ModerationAction;
+use App\Modules\Community\Support\TermFilter;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AssistantScopeDirectory;
+use DomainException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -32,7 +36,10 @@ use Throwable;
  */
 class PostMessage extends Action
 {
-    public function __construct(private readonly AssistantScopeDirectory $assistants) {}
+    public function __construct(
+        private readonly AssistantScopeDirectory $assistants,
+        private readonly TermFilter $terms,
+    ) {}
 
     public function handle(User $sender, PostMessageData $data): Message
     {
@@ -46,6 +53,22 @@ class PostMessage extends Action
         }
 
         Gate::forUser($sender)->authorize('post', $conversation);
+
+        /*
+        | The term list (`FR-020`), applied AFTER the policy and before the write.
+        |
+        | ⚠️ A REFUSAL IS A 422 AND NOT A 403, because it is about the words and
+        | not about the person: `DomainException` is the repository's signal for a
+        | broken business rule, and rendering it as a permission failure would tell
+        | a student they may not write here when they may.
+        */
+        $filtered = $this->terms->apply((int) $conversation->workspace_id, $data->body);
+
+        if ($filtered['refused'] !== null) {
+            throw new DomainException($filtered['refused']);
+        }
+
+        $data = new PostMessageData($data->conversationUuid, $filtered['body']);
 
         $message = DB::transaction(function () use ($conversation, $sender, $data): Message {
             $message = Message::query()->create([
@@ -63,6 +86,22 @@ class PostMessage extends Action
 
             return $message;
         });
+
+        foreach ($filtered['review'] as $term) {
+            /*
+            | Delivered, and a human is told (`TermPolicy::Review`). The row is
+            | raised AFTER the message exists, because it points at it — and the
+            | actor is null: nobody decided anything yet, the filter noticed.
+            */
+            ModerationAction::query()->create([
+                'workspace_id' => $conversation->workspace_id,
+                'actor_user_id' => null,
+                'subject_type' => ModerationAction::SUBJECT_MESSAGE,
+                'subject_id' => $message->getKey(),
+                'verdict' => ModerationVerdict::Reported,
+                'reason' => 'كلمة تحت المراجعة: '.$term,
+            ]);
+        }
 
         $this->announce($conversation, $message, $sender);
 
@@ -104,7 +143,18 @@ class PostMessage extends Action
      */
     private function announce(Conversation $conversation, Message $message, User $sender): void
     {
-        $recipients = $this->recipientUuids($conversation, $sender);
+        /*
+        | ⚠️ A PUBLIC ROOM TELLS NOBODY, AND THE SILENCE IS DELIBERATE. Fanning a
+        | class chat out the way a private conversation is fanned out would write
+        | one bell row per member per message and publish to one `user.{uuid}`
+        | channel per participant — thirty channels for one «تمام» in a full room,
+        | and a notification feed nobody can read by the end of a lesson. The
+        | conversation channel is the whole delivery; anyone not in the room finds
+        | the messages when they open it. Nothing in US3 asks for more.
+        */
+        $recipients = $conversation->kind->isPublic()
+            ? []
+            : $this->recipientUuids($conversation, $sender);
 
         try {
             event(new MessagePosted($message, (string) $conversation->uuid, $recipients));

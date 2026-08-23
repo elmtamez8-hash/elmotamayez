@@ -19,9 +19,11 @@ use App\Modules\Assessments\Models\RubricCriterion;
 use App\Modules\Assessments\Models\Submission;
 use App\Modules\Community\Models\AssistantAssignment;
 use App\Modules\Community\Models\AssistantScope;
+use App\Modules\Community\Models\BlockedTerm;
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\ConversationParticipant;
 use App\Modules\Community\Models\Message;
+use App\Modules\Community\Models\ModerationAction;
 use App\Modules\Compliance\Models\TeacherOffboarding;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
@@ -790,4 +792,64 @@ it('scopes conversations and messages to the workspace that owns them', function
         */
         ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(ConversationParticipant::class), true))
         ->toBeFalse('conversation_participants is reached through its conversation, which carries the tenant key');
+});
+
+/*
+| Spec 010 US3 — the moderation record and the term list.
+|
+| ⚠️ THE TERM LIST ESPECIALLY. A filter that reads another teacher's list either
+| refuses words this teacher allows or — the direction that matters — permits
+| words they banned, and both failures are silent: nothing errors, and the first
+| anyone knows is a screenshot. Two workspaces, because a single-workspace fixture
+| returns the same rows with the condition and without it.
+*/
+it('scopes moderation actions and blocked terms to the workspace that owns them', function (): void {
+    [$workspaceA, $ownerA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+    [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+    $context = app(WorkspaceContext::class);
+
+    // ⚠️ Every workspace is BORN with a term list (`SeedDefaultBlockedTerms`), so
+    // the baseline is counted rather than assumed to be zero — an assertion of
+    // «one row» would be wrong for a reason that has nothing to do with scoping.
+    $seeded = $context->forWorkspace($workspaceA, fn () => BlockedTerm::query()->count());
+
+    expect($seeded)->toBeGreaterThan(0);
+
+    $context->forWorkspace($workspaceA, function () use ($ownerA): void {
+        BlockedTerm::factory()->create(['term' => 'مصطلحُ أ']);
+
+        ModerationAction::factory()->create([
+            'actor_user_id' => $ownerA->getKey(),
+            'subject_id' => $ownerA->getKey(),
+        ]);
+    });
+
+    $context->forWorkspace($workspaceB, function (): void {
+        BlockedTerm::factory()->count(2)->create();
+    });
+
+    expect($context->forWorkspace($workspaceA, fn () => BlockedTerm::query()->count()))->toBe($seeded + 1)
+        ->and($context->forWorkspace($workspaceB, fn () => BlockedTerm::query()->count()))->toBe($seeded + 2)
+        ->and($context->forWorkspace($workspaceA, fn () => ModerationAction::query()->count()))->toBe(1)
+        ->and($context->forWorkspace($workspaceB, fn () => ModerationAction::query()->count()))->toBe(0)
+        ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(BlockedTerm::class), true))->toBeTrue()
+        ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(ModerationAction::class), true))->toBeTrue();
+});
+
+/*
+| ⚠️ AND THE RECORD REFUSES TO BE REWRITTEN, ON THE MODEL. `moderation_actions` IS
+| the record `FR-021` asks for — who acted, on whom, why — and an Action is one
+| caller while a model is every caller. `LedgerEntry` guards itself the same way.
+*/
+it('refuses an edit or a deletion of a moderation record', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+
+    $action = app(WorkspaceContext::class)->forWorkspace($workspace, fn () => ModerationAction::factory()->create([
+        'actor_user_id' => $owner->getKey(),
+        'subject_id' => $owner->getKey(),
+    ]));
+
+    expect(fn () => $action->update(['reason' => 'سبب آخر']))->toThrow(RuntimeException::class)
+        ->and(fn () => $action->delete())->toThrow(RuntimeException::class);
 });

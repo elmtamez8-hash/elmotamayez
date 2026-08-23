@@ -6,6 +6,8 @@ use App\Modules\Community\Http\Controllers\AssistantController;
 use App\Modules\Community\Http\Controllers\ConversationController;
 use App\Modules\Community\Http\Controllers\Manage\AssistantController as ManageAssistantController;
 use App\Modules\Community\Http\Controllers\MessageController;
+use App\Modules\Community\Http\Controllers\ModerationController;
+use App\Modules\Community\Http\Controllers\SessionChatController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -68,5 +70,29 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/conversations', [ConversationController::class, 'store']);
         Route::post('/conversations/{conversation}/messages', [MessageController::class, 'store']);
         Route::delete('/messages/{message}', [MessageController::class, 'destroy']);
+        Route::post('/messages/{message}/helpful', [SessionChatController::class, 'helpful']);
     });
+
+    /*
+    | The public rooms (US3).
+    |
+    | ⚠️ RESOLVING IS A `GET` THAT MAY WRITE THE ROOM, and it is idempotent by a
+    | unique index rather than by a second endpoint nobody remembers to call. See
+    | `ResolveSessionConversation`.
+    */
+    Route::get('/class-sessions/{session}/chat', [SessionChatController::class, 'session']);
+    Route::get('/lessons/{lesson}/chat', [SessionChatController::class, 'lesson']);
+
+    /*
+    | ⚠️ REPORTING HAS ITS OWN BUCKET. Somebody throttled for writing must still be
+    | able to report what is being written at them — share one counter with
+    | `chat-write` and the loudest participant in a room silences the complaint
+    | about themselves.
+    */
+    Route::post('/messages/{message}/report', [ModerationController::class, 'report'])
+        ->middleware('throttle:chat-report');
+
+    // Hiding, banning, lifting — all rows, and there is no DELETE.
+    Route::post('/moderation/actions', [ModerationController::class, 'store'])
+        ->middleware('throttle:moderation-write');
 });

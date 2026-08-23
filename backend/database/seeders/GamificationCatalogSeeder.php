@@ -36,6 +36,20 @@ class GamificationCatalogSeeder extends Seeder
         ['key' => 'mistake_resolved', 'name_ar' => 'إصلاح خطأ سابق', 'xp' => 8, 'coins' => 2, 'daily_cap' => 10],
 
         /*
+        | Spec 010 — the teacher endorsed an answer in a public room (FR-023).
+        |
+        | ⚠️ THE ROW IS THE FEATURE. `AwardPoints` looks an action up by key and
+        | returns SILENTLY when there is none, so shipping the event, the listener
+        | and the button without this line awards nothing at all — and every
+        | assertion about it passes by comparing zero with zero.
+        |
+        | Capped low: the point is to reward a good explanation, and an
+        | uncapped one is a teacher able to mint a term's worth of XP for one
+        | student in an afternoon.
+        */
+        ['key' => 'helpful_answer', 'name_ar' => 'إجابة اعتمدها المدرّس', 'xp' => 20, 'coins' => 10, 'daily_cap' => 3],
+
+        /*
         | ⚠️ ZERO COINS, AND THAT IS NOT AN OVERSIGHT. A focus session belongs to
         | no teacher, so there is no workspace to hold the coins — and a coin
         | balance is per teacher by design (FR-028ج). AwardPoints refuses a

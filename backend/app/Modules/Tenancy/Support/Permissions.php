@@ -433,6 +433,19 @@ final class Permissions
     /** Reply inside a student's conversation on the teacher's behalf. */
     public const CHAT_REPLY = 'chat.reply';
 
+    /*
+    | Hide a message and ban a participant (010 · FR-021).
+    |
+    | ⚠️ A SECOND PERMISSION, NOT A SECOND USE OF `chat.reply`. FR-021 delegates
+    | moderation to «من فُوِّض» and research §R5 counted only one new name — but
+    | answering students and silencing them are different powers over the same
+    | people, and one constant for both means every assistant who may reply may
+    | also ban. It sits on `$teacher` for the reason `CHAT_REPLY` does: the
+    | placement IS the delivery channel, and the owner ticks it onto a named
+    | assistant deliberately.
+    */
+    public const CHAT_MODERATE = 'chat.moderate';
+
     /** @return list<string> */
     public static function all(): array
     {
@@ -545,6 +558,7 @@ final class Permissions
             // the roles screen would write a row against a permission that does
             // not exist and every check against it would fail — silently.
             self::CHAT_REPLY,
+            self::CHAT_MODERATE,
         ];
     }
 }

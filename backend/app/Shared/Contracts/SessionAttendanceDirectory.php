@@ -31,6 +31,21 @@ interface SessionAttendanceDirectory
     public function hasBookingForLesson(User $user, int $lessonId): bool;
 
     /**
+     * Whether this user holds a seat in this session RIGHT NOW (010 · FR-018).
+     *
+     * ⚠️ A DIFFERENT QUESTION FROM THE ONE ABOVE, AND FROM ATTENDANCE. The lesson
+     * form asks about a recording that already exists; this one is asked about a
+     * session that has not happened yet, which is what the room under it is for.
+     * And it is not `attendedSessionIds()`: a student who booked but has not
+     * arrived belongs in the room before the lesson starts — that is where they
+     * ask what to bring.
+     *
+     * Seat-occupying statuses only, so a cancelled booking closes the room with
+     * the seat rather than leaving a reader nobody expects.
+     */
+    public function hasSeatInSession(User $user, int $classSessionId): bool;
+
+    /**
      * Which of these sessions this student actually ATTENDED.
      *
      * ⚠️ ATTENDANCE, NOT A BOOKING, and the difference is the whole of FR-036.

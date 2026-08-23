@@ -157,6 +157,7 @@ final class PermissionLabels
         */
         'grading.perform' => 'تصحيح أوراق الطلاب ووضع الدرجات',
         'chat.reply' => 'الردّ على رسائل الطلاب الخاصّة',
+        'chat.moderate' => 'حذف رسالةٍ وحظر مشارِكٍ في الشات',
         'lessons.manage' => 'إضافة الدروس ورفع محتواها',
         'billing.balance.view' => 'عرض أرصدة الطلاب بالحصص — بلا أيّ مبالغ',
     ];

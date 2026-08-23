@@ -42,6 +42,20 @@ class Message extends BaseModel
         'body',
     ];
 
+    /*
+    | ⚠️ DECLARED PROPERTIES, NOT ATTRIBUTES. `ChatRankStamper` fills these for a
+    | whole page in one read; assigned as dynamic attributes they would enter
+    | `$attributes`, be offered to a later `save()`, and fail on columns that do
+    | not exist. Declared, they are ordinary PHP properties that Eloquent's
+    | `__set` never sees. `WithholdingReader::stamp()` does the same.
+    */
+
+    /** The sender's place on this teacher's board, or null for anyone not on one. */
+    public ?int $senderRank = null;
+
+    /** The sender's cumulative level, or null for a teacher, an assistant, or a first day. */
+    public ?int $senderLevel = null;
+
     // `hidden_at` and `is_helpful` are claimed by their own Actions, each with a
     // conditional update behind it; neither is mass-assignable.
 
