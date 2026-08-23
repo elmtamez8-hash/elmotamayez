@@ -6,6 +6,7 @@ import Link from "next/link";
 import { BroadcastStage } from "@/components/sessions/BroadcastStage";
 import { PresenceLoop } from "@/components/sessions/PresenceLoop";
 import { RecordingNotice } from "@/components/compliance/RecordingNotice";
+import { SessionChat } from "@/components/community/SessionChat";
 import { Alert } from "@/components/ui/Alert";
 import { UnlockNotice } from "@/components/sessions/UnlockNotice";
 import { Button } from "@/components/ui/Button";
@@ -161,6 +162,17 @@ export default function SessionRoomPage({
           </Card>
         </>
       )}
+
+      {/*
+        Spec 010 · US3 — the room's own chat, under the stage.
+
+        ⚠️ RENDERED OUTSIDE THE `ticket` BRANCH ON PURPOSE. A student whose ticket
+        was refused for a reason that has nothing to do with entitlement — the
+        clock, a provider hiccup — can still read and ask; and `SessionChat`
+        renders NOTHING for anyone the server refuses, so there is no branch to
+        keep in step here.
+      */}
+      <SessionChat kind="session" uuid={uuid} />
     </div>
   );
 }

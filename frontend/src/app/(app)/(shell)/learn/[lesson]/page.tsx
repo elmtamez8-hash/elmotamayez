@@ -5,6 +5,7 @@ import { use, useEffect, useState } from "react";
 import { AttachmentList, type StudentAttachment } from "@/components/player/AttachmentList";
 import { DocumentViewer } from "@/components/player/DocumentViewer";
 import { VideoPlayer } from "@/components/player/VideoPlayer";
+import { SessionChat } from "@/components/community/SessionChat";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -247,6 +248,17 @@ export default function LearnLessonPage({
       {open && detail !== null && (
         <AttachmentList lessonUuid={lesson} attachments={detail.attachments} />
       )}
+
+      {/*
+        Spec 010 · US3 — the room under the lesson.
+
+        ⚠️ NOT GATED ON `open` HERE. The room is entitled by ENROLMENT in the
+        course, which is a coarser question than whether this particular item is
+        unlocked — a student stuck behind an exam gate is exactly the person with
+        a question to ask about it. `SessionChat` renders nothing for anyone the
+        server refuses, so there is no second condition to keep in step.
+      */}
+      <SessionChat kind="lesson" uuid={lesson} title="نقاش الدرس" />
     </div>
   );
 }

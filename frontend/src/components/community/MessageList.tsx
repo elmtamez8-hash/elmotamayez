@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge } from "@/components/ui/Badge";
 import { formatDateTime } from "@/lib/labels";
 import type { ChatMessage } from "@/lib/conversations";
 
@@ -16,10 +17,21 @@ export function MessageList({
   messages,
   currentUserUuid,
   onHide,
+  showBadges = false,
 }: {
   messages: ChatMessage[];
   currentUserUuid: string | null;
   onHide?: (uuid: string) => void;
+  /**
+   * The rank and level beside the name — public rooms only (FR-019).
+   *
+   * ⚠️ OFF BY DEFAULT, AND THE DEFAULT IS THE DECISION. A badge in front of the
+   * class is social pride; the same badge in a one-to-one thread with the teacher
+   * is a score attached to a private question. The server sends null there
+   * anyway, so this flag is the second half of one rule rather than a duplicate
+   * of it.
+   */
+  showBadges?: boolean;
 }) {
   if (messages.length === 0) {
     return (
@@ -51,8 +63,27 @@ export function MessageList({
               <p className="whitespace-pre-wrap break-words text-sm">{message.body}</p>
             </div>
 
-            <div className="mt-1 flex items-center gap-2 text-xs text-ink-muted">
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
               <span>{message.sender_name ?? "—"}</span>
+
+              {/* ⚠️ RENDERED ONLY WHEN THERE IS SOMETHING TO RENDER. `null` is the
+                  answer for every teacher, every assistant and every student on
+                  their first day — an empty badge, a dash, or a zero would each
+                  put «المركز ٠» beside the teacher's own name. */}
+              {showBadges && message.sender_level !== null && (
+                <Badge tone="info">
+                  <bdi>{`المستوى ${message.sender_level}`}</bdi>
+                </Badge>
+              )}
+
+              {showBadges && message.sender_rank !== null && (
+                <Badge tone="success">
+                  <bdi>{`المركز ${message.sender_rank}`}</bdi>
+                </Badge>
+              )}
+
+              {message.is_helpful && <Badge tone="success">إجابة معتمَدة</Badge>}
+
               <span aria-hidden="true">·</span>
               <span>{formatDateTime(message.created_at)}</span>
 

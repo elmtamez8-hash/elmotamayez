@@ -15,6 +15,15 @@ export interface ChatMessage {
   sender_uuid: string | null;
   sender_name: string | null;
   is_helpful: boolean;
+  /**
+   * ⚠️ NULL FOR MOST SENDERS, AND NULL IS AN ANSWER. A teacher and an assistant
+   * are on no leaderboard at all; a student who joined this morning has no row
+   * either, because the boards roll up nightly. Rendered as nothing — a zero
+   * would read as «المركز ٠» beside the teacher's own name in front of the class.
+   * Present only in a public room.
+   */
+  sender_rank: number | null;
+  sender_level: number | null;
   created_at: string | null;
 }
 
@@ -87,3 +96,26 @@ export function mergeMessages(existing: ChatMessage[], incoming: ChatMessage[]):
     return left === right ? 0 : left < right ? -1 : 1;
   });
 }
+
+/**
+ * The public room under a session or a lesson (US3).
+ *
+ * ⚠️ A `GET` THAT MAY CREATE THE ROOM, and that is the server's design: the first
+ * person in opens it, idempotently, behind a unique index. A 403 here means the
+ * viewer is not entitled to be in the room — the component renders nothing rather
+ * than advertising a conversation it must then refuse.
+ */
+export const rooms = {
+  open: (kind: "session" | "lesson", uuid: string) =>
+    api.get<Conversation>(
+      kind === "session" ? `/class-sessions/${uuid}/chat` : `/lessons/${uuid}/chat`,
+    ),
+
+  /** The teacher's endorsement. One press or ten, the points are awarded once. */
+  markHelpful: (messageUuid: string) =>
+    api.post<ChatMessage>(`/messages/${messageUuid}/helpful`),
+
+  /** The human path for what the term list did not catch. */
+  report: (messageUuid: string, reason?: string) =>
+    api.post<{ message: string }>(`/messages/${messageUuid}/report`, reason ? { reason } : {}),
+};

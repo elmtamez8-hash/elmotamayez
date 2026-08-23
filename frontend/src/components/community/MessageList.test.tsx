@@ -18,13 +18,22 @@ import { mergeMessages, type ChatMessage } from "@/lib/conversations";
 | it rather than carrying a second copy of the rule of its own.
 */
 
-function message(uuid: string, body: string, at: string): ChatMessage {
+function message(
+  uuid: string,
+  body: string,
+  at: string,
+  badges: { rank?: number | null; level?: number | null } = {},
+): ChatMessage {
   return {
     uuid,
     body,
     sender_uuid: "me",
     sender_name: "سلمى",
     is_helpful: false,
+    // ⚠️ NULL BY DEFAULT, because that is what most senders carry: a teacher, an
+    // assistant, and any student the nightly roll-up has not seen yet.
+    sender_rank: badges.rank ?? null,
+    sender_level: badges.level ?? null,
     created_at: at,
   };
 }
@@ -83,5 +92,55 @@ describe("MessageList", () => {
 
     expect(screen.queryAllByTestId("chat-message")).toHaveLength(0);
     expect(screen.getByText(/لا رسائل بعد/)).toBeDefined();
+  });
+});
+
+describe("MessageList badges", () => {
+  it("renders a sender with no rank and no level without breaking the line", () => {
+    /*
+    | ⚠️ THE ORDINARY CASE, NOT THE EDGE ONE. A teacher and an assistant are on no
+    | board at all, and a student who signed up this morning has no row either —
+    | so «no badge» is what most rows in a real room look like. A zero here reads
+    | as «المركز ٠» beside the teacher's own name in front of the class.
+    */
+    render(
+      <MessageList
+        messages={[message("m-1", "سؤال", "2026-08-23T10:00:00+00:00")]}
+        currentUserUuid="someone-else"
+        showBadges
+      />,
+    );
+
+    expect(screen.getByText("سؤال")).toBeDefined();
+    expect(screen.getByText("سلمى")).toBeDefined();
+    expect(screen.queryByText(/المركز/)).toBeNull();
+    expect(screen.queryByText(/المستوى/)).toBeNull();
+  });
+
+  it("shows the level alone for a student the weekly board has not seen", () => {
+    render(
+      <MessageList
+        messages={[message("m-1", "سؤال", "2026-08-23T10:00:00+00:00", { level: 4 })]}
+        currentUserUuid="someone-else"
+        showBadges
+      />,
+    );
+
+    expect(screen.getByText("المستوى 4")).toBeDefined();
+    expect(screen.queryByText(/المركز/)).toBeNull();
+  });
+
+  it("keeps the badges out of a private thread even when the data carries them", () => {
+    // The server sends null in a private conversation; the flag is the second
+    // half of that rule, so a payload that ever carried one still shows nothing.
+    render(
+      <MessageList
+        messages={[message("m-1", "سؤال", "2026-08-23T10:00:00+00:00", { rank: 3, level: 4 })]}
+        currentUserUuid="someone-else"
+      />,
+    );
+
+    expect(screen.queryByText(/المركز/)).toBeNull();
+    expect(screen.queryByText(/المستوى/)).toBeNull();
   });
 });

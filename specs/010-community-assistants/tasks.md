@@ -213,35 +213,35 @@ description: "Task list — المجتمع والمساعدون والتقييم
 
 ### Tests for User Story 3
 
-- [ ] T087 [P] [US3] `backend/tests/Feature/Community/SessionChatAccessTest.php` — `FR-018`: من لا يحقُّ له حضورُ الحصّةِ يُمنع قراءةً وكتابة
-- [ ] T088 [P] [US3] `backend/tests/Feature/Community/RankFallbackTest.php` — `FR-019` بمُرسِلٍ **بلا صفِّ لوحة**: طالبٌ جديدٌ · مدرّسٌ · مساعد
-- [ ] T089 [P] [US3] `backend/tests/Feature/Community/ModerationTest.php` — `FR-021`/`FR-022`: الحظرُ يمنع الكتابةَ في **كلِّ** المساحة، والرفعُ **صفٌّ جديدٌ لا حذف**، وحظرٌ دائمٌ (`expires_at IS NULL`) لا ينتهي فوراً
-- [ ] T090 [P] [US3] `backend/tests/Feature/Community/BlockedTermTest.php` — `FR-020`: الترشيحُ على **حدودِ الكلمات** لا بالاحتواء، والسياساتُ الثلاثُ كلٌّ بأثرِها
-- [ ] T091 [P] [US3] `backend/tests/Feature/Community/HelpfulAwardTest.php` — `FR-023`: ضغطتان ⇒ **منحٌ واحد**
+- [X] T087 [P] [US3] `backend/tests/Feature/Community/SessionChatAccessTest.php` — `FR-018`: من لا يحقُّ له حضورُ الحصّةِ يُمنع قراءةً وكتابة
+- [X] T088 [P] [US3] `backend/tests/Feature/Community/RankFallbackTest.php` — `FR-019` بمُرسِلٍ **بلا صفِّ لوحة**: طالبٌ جديدٌ · مدرّسٌ · مساعد
+- [X] T089 [P] [US3] `backend/tests/Feature/Community/ModerationTest.php` — `FR-021`/`FR-022`: الحظرُ يمنع الكتابةَ في **كلِّ** المساحة، والرفعُ **صفٌّ جديدٌ لا حذف**، وحظرٌ دائمٌ (`expires_at IS NULL`) لا ينتهي فوراً
+- [X] T090 [P] [US3] `backend/tests/Feature/Community/BlockedTermTest.php` — `FR-020`: الترشيحُ على **حدودِ الكلمات** لا بالاحتواء، والسياساتُ الثلاثُ كلٌّ بأثرِها
+- [X] T091 [P] [US3] `backend/tests/Feature/Community/HelpfulAwardTest.php` — `FR-023`: ضغطتان ⇒ **منحٌ واحد**
 
 ### Implementation for User Story 3
 
-- [ ] T092 [US3] هجرة `2026_08_22_000400_create_moderation_actions_table.php`: `workspace_id` · `actor_user_id` · `subject_type`+`subject_id` · `verdict` · `reason` · `expires_at` · `index(workspace_id, subject_type, subject_id, verdict)` — ⚠️ **ليس `(workspace_id, created_at)`**: الشرطُ لا يذكر `created_at` فيُستعمَل عمودٌ قائدٌ واحدٌ ويُمسَح تاريخُ الإشرافِ كلُّه عند **كلِّ إرسالِ رسالة**
-- [ ] T093 [US3] هجرة `2026_08_22_000410_create_blocked_terms_table.php`: `workspace_id` · `term` · `policy` · `unique(workspace_id, term)`
-- [ ] T094 [US3] هجرة تعبئةٍ `2026_08_22_000420_backfill_blocked_terms.php` بـ**`chunkById`** لكلِّ مساحةٍ قائمة — المستمعُ يعمل عند الإنشاءِ وحدَه، **ومرشِّحٌ يسمح بكلِّ شيءٍ بصمتٍ هو أسوأُ أشكالِ الغياب**
-- [ ] T095 [P] [US3] أنشئ `Models/{ModerationAction,BlockedTerm}.php` — و`ModerationAction` **مُضافٌ فقط**: لا `update` ولا `delete`، الجدولُ **هو** سجلُّ `FR-021`
-- [ ] T096 [US3] أنشئ `Listeners/SeedDefaultBlockedTerms.php` على `WorkspaceCreated` وسجّله في **`CommunityServiceProvider`** — لا داخلَ `SeedDefaultRoles`: ذاك مستمعُ `Tenancy` وكتابتُه في جدولِ `Community` خرقُ المبدأ الثالث
-- [ ] T097 [US3] أنشئ `Support/TermFilter.php` — حدودُ كلماتٍ، وثلاثُ سياسات؛ **الحجبُ الزائدُ يعلّم المستخدمَ الالتفاف**
-- [ ] T098 [US3] أنشئ `Support/BanReader.php` — «هل هو محظورٌ الآن؟» أحدثُ صفٍّ يفوز، **والشرطُ مُجمَّع** `(expires_at IS NULL OR expires_at > now())`: بلا تجميعٍ `NULL > now()` هو `NULL` فحظرٌ دائمٌ ينتهي فوراً. يُسأل من `PostMessage` **و**`StartConversation` معاً
-- [ ] T099 [US3] أنشئ `Support/ChatRankStamper.php` يستدعي `Gamification\Actions\ReadRanksFor` **نداءً واحداً للصفحة** — ⚠️ **والغيابُ حالةٌ لا خطأ**: تُعرَض الرتبةُ لمن له صفٌّ في `leaderboard_entries`، ويُعرَض المستوى من `student_progress` **التراكميِّ** لكلِّ طالب، **ولا شيءَ لمدرّسٍ أو مساعد** — فليس في لوحةٍ أصلاً. ومفتاحُ النطاقِ `LeaderboardScope::keyFor()`، وشاتُ الحصّةِ والدرسِ في المساحةِ نفسِها فالمفتاحُ واحد
-- [ ] T100 [US3] أنشئ `Actions/ResolveSessionConversation.php` — يحلُّ محادثةَ الحصّةِ أو يُنشئها، وحقُّ الحضورِ هو الشرط (`FR-017`/`FR-018`)
-- [ ] T101 [US3] أنشئ `Actions/MarkHelpful.php` + `Events/HelpfulAnswerMarked.php` — الحمولةُ `student_user_id` · `workspace_id` · **`source_type`+`source_id`**، وتحديثٌ شرطيٌّ `WHERE is_helpful = 0`. ⚠️ **ومعها صفٌّ في `GamificationCatalogSeeder`**: `AwardPoints` يعود صامتاً لفعلٍ بلا صفّ، ومفتاحُ التعامدِ مبنيٌّ على العمودَين فبدونهما تُمنَح النقاطُ مرّتَين على ضغطتَين
-- [ ] T102 [US3] أنشئ `Actions/ModerateMessage.php` — الحذفُ والحظرُ والرفعُ **كلُّها صفوفٌ** في `moderation_actions`، ولا `DELETE /moderation/bans/{ban}`
-- [ ] T103 [US3] أنشئ `Actions/ReportMessage.php` — `FR-024`: مسارُ بلاغٍ بشريٍّ لما لا تلتقطه القائمة
-- [ ] T104 [US3] أنشئ `Http/Controllers/{SessionChatController,ModerationController}.php` وسجّل `POST /messages/{message}/helpful` · `POST /messages/{message}/report` بـ`throttle:chat-report` · `POST /moderation/actions` بـ`throttle:moderation-write`
-- [ ] T105 [P] [US3] أنشئ `Policies/ModerationActionPolicy.php` — المدرّسُ **ومن فُوِّض** (‏صلاحيّةٌ من شاشةِ الأدوار)، لا المدرّسُ وحدَه
-- [ ] T106 [P] [US3] أنشئ `Data/{ModerationActionData,ReportMessageData}.php`
-- [ ] T107 [US3] أنشئ `frontend/src/components/community/SessionChat.tsx` — الرتبةُ والمستوى بجوارِ الاسمِ **وغيابُهما لا يكسر السطر**
-- [ ] T108 [US3] أدرِج `SessionChat` أسفلَ صفحةِ الحصّةِ والدرس — الرابطُ الداخل
-- [ ] T109 [P] [US3] `frontend/src/components/community/SessionChat.test.tsx` بـvitest — مُرسِلٌ بلا رتبةٍ يُصيَّر سليماً، والاعتمادُ لا يُرسَل مرّتَين بضغطتَين
-- [ ] T110 [P] [US3] أضف حالاتِ `moderation_actions` و`blocked_terms` إلى `WorkspaceIsolationTest`
-- [ ] T111 [P] [US3] أضف نوعَي إشعارِ الإشرافِ إن لزما إلى `NotificationType` **وقوالبَهما** — أو أعلِن صراحةً في `research` أن الإشرافَ بلا إشعار
-- [ ] T112 [US3] أضف مفاتيحَ الحقولِ الجديدةَ إلى `backend/lang/ar/validation.php`
+- [X] T092 [US3] هجرة `2026_08_22_000400_create_moderation_actions_table.php`: `workspace_id` · `actor_user_id` · `subject_type`+`subject_id` · `verdict` · `reason` · `expires_at` · `index(workspace_id, subject_type, subject_id, verdict)` — ⚠️ **ليس `(workspace_id, created_at)`**: الشرطُ لا يذكر `created_at` فيُستعمَل عمودٌ قائدٌ واحدٌ ويُمسَح تاريخُ الإشرافِ كلُّه عند **كلِّ إرسالِ رسالة**
+- [X] T093 [US3] هجرة `2026_08_22_000410_create_blocked_terms_table.php`: `workspace_id` · `term` · `policy` · `unique(workspace_id, term)`
+- [X] T094 [US3] هجرة تعبئةٍ `2026_08_22_000420_backfill_blocked_terms.php` بـ**`chunkById`** لكلِّ مساحةٍ قائمة — المستمعُ يعمل عند الإنشاءِ وحدَه، **ومرشِّحٌ يسمح بكلِّ شيءٍ بصمتٍ هو أسوأُ أشكالِ الغياب**
+- [X] T095 [P] [US3] أنشئ `Models/{ModerationAction,BlockedTerm}.php` — و`ModerationAction` **مُضافٌ فقط**: لا `update` ولا `delete`، الجدولُ **هو** سجلُّ `FR-021`
+- [X] T096 [US3] أنشئ `Listeners/SeedDefaultBlockedTerms.php` على `WorkspaceCreated` وسجّله في **`CommunityServiceProvider`** — لا داخلَ `SeedDefaultRoles`: ذاك مستمعُ `Tenancy` وكتابتُه في جدولِ `Community` خرقُ المبدأ الثالث
+- [X] T097 [US3] أنشئ `Support/TermFilter.php` — حدودُ كلماتٍ، وثلاثُ سياسات؛ **الحجبُ الزائدُ يعلّم المستخدمَ الالتفاف**
+- [X] T098 [US3] أنشئ `Support/BanReader.php` — «هل هو محظورٌ الآن؟» أحدثُ صفٍّ يفوز، **والشرطُ مُجمَّع** `(expires_at IS NULL OR expires_at > now())`: بلا تجميعٍ `NULL > now()` هو `NULL` فحظرٌ دائمٌ ينتهي فوراً. يُسأل من `PostMessage` **و**`StartConversation` معاً
+- [X] T099 [US3] أنشئ `Support/ChatRankStamper.php` يستدعي `Gamification\Actions\ReadRanksFor` **نداءً واحداً للصفحة** — ⚠️ **ووُسِّع `ReadRanksFor` نفسُه ليملأ المستوى من `student_progress`**: القراءةُ من Community مباشرةً تجاوزُ حدودٍ لا يحرسه اختبار، فالسؤالُ الواحدُ صار له مالكٌ واحد — ⚠️ **والغيابُ حالةٌ لا خطأ**: تُعرَض الرتبةُ لمن له صفٌّ في `leaderboard_entries`، ويُعرَض المستوى من `student_progress` **التراكميِّ** لكلِّ طالب، **ولا شيءَ لمدرّسٍ أو مساعد** — فليس في لوحةٍ أصلاً. ومفتاحُ النطاقِ `LeaderboardScope::keyFor()`، وشاتُ الحصّةِ والدرسِ في المساحةِ نفسِها فالمفتاحُ واحد
+- [X] T100 [US3] أنشئ `Actions/ResolveSessionConversation.php` — يحلُّ محادثةَ الحصّةِ أو يُنشئها، وحقُّ الحضورِ هو الشرط (`FR-017`/`FR-018`)
+- [X] T101 [US3] أنشئ `Actions/MarkHelpful.php` + `Events/HelpfulAnswerMarked.php` — الحمولةُ `student_user_id` · `workspace_id` · **`source_type`+`source_id`**، وتحديثٌ شرطيٌّ `WHERE is_helpful = 0`. ⚠️ **ومعها صفٌّ في `GamificationCatalogSeeder`**: `AwardPoints` يعود صامتاً لفعلٍ بلا صفّ، ومفتاحُ التعامدِ مبنيٌّ على العمودَين فبدونهما تُمنَح النقاطُ مرّتَين على ضغطتَين
+- [X] T102 [US3] أنشئ `Actions/ModerateMessage.php` — الحذفُ والحظرُ والرفعُ **كلُّها صفوفٌ** في `moderation_actions`، ولا `DELETE /moderation/bans/{ban}`
+- [X] T103 [US3] أنشئ `Actions/ReportMessage.php` — `FR-024`: مسارُ بلاغٍ بشريٍّ لما لا تلتقطه القائمة
+- [X] T104 [US3] أنشئ `Http/Controllers/{SessionChatController,ModerationController}.php` وسجّل `POST /messages/{message}/helpful` · `POST /messages/{message}/report` بـ`throttle:chat-report` · `POST /moderation/actions` بـ`throttle:moderation-write`
+- [X] T105 [P] [US3] أنشئ `Policies/ModerationActionPolicy.php` — ⚠️ **وهذا استلزم صلاحيّةً ثانيةً جديدة: `chat.moderate`**، خلافاً لـresearch §R5 («الجديدُ `CHAT_REPLY` وحدَه»، وكان مقصوراً على بنودِ المساعدِ في `US1`). الردُّ على الطلابِ وإسكاتُهم سلطتان مختلفتان على النّاسِ أنفسِهم، وثابتٌ واحدٌ لهما يجعل كلَّ مساعدٍ يردّ حاظراً كذلك. ومعها هجرةُ منحٍ للأدوارِ القائمة على نمطِ `chat.reply`
+- [X] T106 [P] [US3] أنشئ `Data/{ModerationActionData,ReportMessageData}.php`
+- [X] T107 [US3] أنشئ `frontend/src/components/community/SessionChat.tsx` — الرتبةُ والمستوى بجوارِ الاسمِ **وغيابُهما لا يكسر السطر**
+- [X] T108 [US3] أدرِج `SessionChat` أسفلَ صفحةِ الحصّةِ والدرس — الرابطُ الداخل
+- [X] T109 [P] [US3] `frontend/src/components/community/SessionChat.test.tsx` بـvitest — مُرسِلٌ بلا رتبةٍ يُصيَّر سليماً، والاعتمادُ لا يُرسَل مرّتَين بضغطتَين
+- [X] T110 [P] [US3] أضف حالاتِ `moderation_actions` و`blocked_terms` إلى `WorkspaceIsolationTest`
+- [X] T111 [P] [US3] **أُعلن صراحةً**: الإشرافُ بلا إشعار — `research.md` §R13. المحظورُ يعرف عند البابِ بجملةِ الرفضِ نفسِها، وصاحبُ الرسالةِ المحذوفةِ لا يُخطَر عمداً (‏الإخطارُ يجعل الحذفَ حواراً)، والمُبلِّغُ يُجاب `202` ثابتاً
+- [X] T112 [US3] أضف مفاتيحَ الحقولِ الجديدةَ إلى `backend/lang/ar/validation.php` — ⚠️ **و`subject` أُعيدت تسميتُه `subject_uuid`**: الاسمُ الأوّلُ مأخوذٌ في الملفِّ لمادةٍ دراسيّة («المادة»)، ورسالةُ خطأٍ واحدةٌ لا يمكن أن تعني «المادة» و«الشخصَ المعنيَّ» معاً
 
 **Checkpoint**: القصصُ الثلاثُ الأولى تعمل مستقلّة.
 
