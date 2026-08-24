@@ -350,6 +350,62 @@ class DataCategorySeeder extends Seeder
                 'expiry_behaviour' => null,
                 'erasure_mode' => ErasureMode::Anonymise,
             ],
+
+            // ── Community ───────────────────────────────────────────────────
+            //
+            // ⚠️ ALL THREE ARE `Delete`, AND THE REASON IS THE SCHEMA RATHER THAN
+            // A PREFERENCE. `messages.sender_user_id`, `periodic_reviews`'
+            // student and teacher columns and `report_card_segments`'
+            // `student_user_id` are every one of them `NOT NULL` — anonymising
+            // means a `->change()`, which rebuilds the table on SQLite, a trade
+            // this repository has refused twice in writing (`exam_attempts` is
+            // the precedent, and it shipped as `Anonymise` until the sweep was
+            // written against the actual schema).
+            [
+                'key' => 'chat_message',
+                'label_ar' => 'رسائلك في المحادثات',
+                'purpose_ar' => 'لتسأل مدرّسك ويجيبك، ولتُراجَع أيّ إساءة عند البلاغ.',
+                'audience' => 'الطرف الآخر في المحادثة · المشرف عند البلاغ',
+                'is_required' => false,
+                'owning_module' => 'community',
+                'table_name' => 'messages',
+                'column_name' => 'sender_user_id',
+                // Two years: long enough that «ما الذي اتّفقنا عليه؟» has an
+                // answer across a school year and the one after it, short enough
+                // that a childhood of conversations is not kept indefinitely.
+                'retain_days' => 730,
+                'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
+            ],
+            [
+                'key' => 'periodic_review',
+                'label_ar' => 'تقييمات مدرّسك الدورية عنك',
+                'purpose_ar' => 'ليعرف الطالب ووليّ أمره موضعَه ويتابعا تحسّنه.',
+                'audience' => 'الطالب · وليّ أمره المخوَّل بالنتائج · المدرّس الكاتب',
+                'is_required' => false,
+                'owning_module' => 'community',
+                'table_name' => 'periodic_reviews',
+                'column_name' => 'student_user_id',
+                'retain_days' => 1825,
+                'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
+            ],
+            [
+                'key' => 'report_card',
+                'label_ar' => 'كشوف تقديراتك',
+                'purpose_ar' => 'سجلُّ تقديرك في كلّ فترة عبرَ مدرّسيك جميعاً.',
+                'audience' => 'الطالب · وليّ أمره المخوَّل بالنتائج',
+                'is_required' => false,
+                'owning_module' => 'community',
+                'table_name' => 'report_cards',
+                'column_name' => 'student_user_id',
+                // Five years, matching `exam_attempt`: the card is the summary of
+                // the same term those attempts belong to, and two different
+                // durations would leave a card citing marks that no longer exist.
+                'retain_days' => 1825,
+                'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
+            ],
         ];
     }
 }

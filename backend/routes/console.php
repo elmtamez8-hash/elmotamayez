@@ -2,6 +2,7 @@
 
 use App\Modules\Assessments\Jobs\MarkMissedSubmissionsJob;
 use App\Modules\Assessments\Jobs\RollUpQuestionStatsJob;
+use App\Modules\Community\Jobs\BuildReportCardsJob;
 use App\Modules\Compliance\Jobs\PruneExpiredExportsJob;
 use App\Modules\Compliance\Jobs\RetryStalledDataRequestsJob;
 use App\Modules\Compliance\Jobs\RunRetentionSweepJob;
@@ -318,3 +319,34 @@ Schedule::job(new RunRetentionSweepJob, 'compliance')->dailyAt('03:30');
 Schedule::job(new TransferDataOwnershipJob, 'compliance')
     ->dailyAt('06:25')
     ->timezone('Asia/Qatar');
+
+/*
+| The cumulative report card for the month that has just ended (010 · FR-036).
+|
+| ⚠️ MONTHLY AND FOR LAST MONTH, and the period is passed in rather than derived
+| inside the job. A job that computed "the current month" would be unrunnable for
+| any other period — no backfill, no re-run of a month whose queue was down, and
+| no way to test a term boundary except by moving the clock. The dates are the
+| job's only two arguments for that reason.
+|
+| ⚠️ AND IT RUNS ON THE 2nd, NOT THE 1st. A session taught on the last evening of
+| the month is marked, and its attendance confirmed, by jobs that run in the
+| hours after it — so a build at midnight reads a month that is not finished
+| settling and publishes a card missing its last day. Nothing recomputes a
+| published card, so that omission would be permanent.
+|
+| 05:40 Doha: after the 03:30 retention sweep and clear of the quarter-hourly
+| billing sweeps on :05/:20/:35/:50 UTC.
+*/
+Schedule::call(function (): void {
+    $lastMonth = now('Asia/Qatar')->subMonthNoOverflow();
+
+    BuildReportCardsJob::dispatch(
+        $lastMonth->copy()->startOfMonth()->toDateString(),
+        $lastMonth->copy()->endOfMonth()->toDateString(),
+    );
+})
+    ->monthlyOn(2, '05:40')
+    ->timezone('Asia/Qatar')
+    ->name('build-report-cards')
+    ->withoutOverlapping();

@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Community\Models\ReportCard;
+use App\Modules\Community\Models\ReportCardSegment;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Models\ParentStudentRelation;
 use App\Modules\Learning\Models\Enrollment;
@@ -207,4 +209,81 @@ it('keeps none of the new tables workspace-scoped', function (): void {
             true,
         ))->toBeFalse("{$model} must not be workspace-scoped");
     }
+});
+
+/*
+| Spec 010 · US5 — the cumulative report card, `NFR-001ب` IN BOTH DIRECTIONS.
+|
+| The card is one document per student per period across every teacher they study
+| with. Both failure modes are silent: give it a `workspace_id` and one person
+| becomes several, one per teacher, each card showing a third of their term as
+| though it were the whole of it; leave the SEGMENT unscoped and a teacher's list
+| carries their colleagues' grades.
+*/
+it('gives a student one card across every teacher', function (): void {
+    [$a, $teacherA] = $this->createWorkspaceWithOwner(['name' => 'أ']);
+    [$b, $teacherB] = $this->createWorkspaceWithOwner(['name' => 'ب']);
+
+    $student = User::factory()->create();
+
+    $card = ReportCard::factory()->published()->create(['student_user_id' => $student->getKey()]);
+
+    foreach ([[$a, $teacherA], [$b, $teacherB]] as [$workspace, $teacher]) {
+        ReportCardSegment::factory()->create([
+            'report_card_id' => $card->getKey(),
+            'workspace_id' => $workspace->getKey(),
+            'teacher_user_id' => $teacher->getKey(),
+            'student_user_id' => $student->getKey(),
+        ]);
+    }
+
+    Sanctum::actingAs($student);
+
+    $this->getJson('/api/v1/report-cards')->assertOk()->assertJsonCount(1);
+
+    // One card, two segments. Not two cards, and not one card showing whichever
+    // workspace the reader happened to resolve to.
+    $this->getJson("/api/v1/report-cards/{$card->uuid}")
+        ->assertOk()
+        ->assertJsonCount(2, 'segments');
+});
+
+it('refuses a teacher the card of somebody who is not their student', function (): void {
+    [$a, $teacherA] = $this->createWorkspaceWithOwner(['name' => 'أ']);
+    [$b, $teacherB] = $this->createWorkspaceWithOwner(['name' => 'ب']);
+
+    $student = User::factory()->create();
+    $card = ReportCard::factory()->published()->create(['student_user_id' => $student->getKey()]);
+
+    ReportCardSegment::factory()->create([
+        'report_card_id' => $card->getKey(),
+        'workspace_id' => $b->getKey(),
+        'teacher_user_id' => $teacherB->getKey(),
+        'student_user_id' => $student->getKey(),
+    ]);
+
+    $this->setCurrentWorkspace($a, $teacherA);
+    Sanctum::actingAs($teacherA);
+
+    // ⚠️ A TEACHER IS REFUSED THE CARD ITSELF, not shown a filtered version of it.
+    // `ReportCardPolicy` has no teacher branch at all: the card is the union of
+    // several teachers' judgements, and a filter inside a Resource is one
+    // forgotten line away from handing over a colleague's grades.
+    $this->getJson("/api/v1/report-cards/{$card->uuid}")->assertForbidden();
+
+    // And their own segment list is empty — the other teacher's row is not theirs
+    // to see even in summary.
+    $this->getJson('/api/v1/manage/report-card-segments')->assertOk()->assertJsonCount(0);
+});
+
+it('keeps the card platform-owned and the segment workspace-scoped', function (): void {
+    // ⚠️ THE TWO ASSERTIONS ARE OPPOSITE AND BOTH ARE REQUIRED. The card must NOT
+    // carry the trait — with it, one student becomes one card per teacher. The
+    // segment MUST carry it — without it, `/manage/report-card-segments` would
+    // depend entirely on a hand-written filter with nothing behind it.
+    expect(in_array(BelongsToWorkspace::class, class_uses_recursive(ReportCard::class), true))
+        ->toBeFalse('ReportCard must not be workspace-scoped');
+
+    expect(in_array(BelongsToWorkspace::class, class_uses_recursive(ReportCardSegment::class), true))
+        ->toBeTrue('ReportCardSegment is a bridge and must be workspace-scoped');
 });

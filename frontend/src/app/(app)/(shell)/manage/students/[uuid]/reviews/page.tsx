@@ -14,7 +14,15 @@ import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { userMessage } from "@/lib/errors";
 import { arabicDecimal, arabicNumber } from "@/lib/numerals";
-import { PERIODIC_AXES, periodLabel, reviews, type PeriodicReview } from "@/lib/reviews";
+import {
+  GRADE_COMPONENTS,
+  PERIODIC_AXES,
+  periodLabel,
+  reportCards,
+  reviews,
+  type PeriodicReview,
+  type ReportCardSegment,
+} from "@/lib/reviews";
 
 /** The month we are in, which is the period a teacher means by default. */
 function thisMonth(): { start: string; end: string } {
@@ -50,6 +58,7 @@ export default function StudentReviewsPage() {
   const period = thisMonth();
 
   const [rows, setRows] = useState<PeriodicReview[]>([]);
+  const [segments, setSegments] = useState<ReportCardSegment[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -61,6 +70,16 @@ export default function StudentReviewsPage() {
     improvement: 3,
   });
   const [note, setNote] = useState("");
+
+  useEffect(() => {
+    reportCards
+      .segments(studentUuid)
+      // A failure here leaves the section empty rather than taking the whole
+      // page down: the assessment above is what the teacher came to write, and
+      // last month's grade is context beside it.
+      .then((response) => setSegments(response.data ?? []))
+      .catch(() => setSegments([]));
+  }, [studentUuid]);
 
   const load = useCallback(() => {
     setState("loading");
@@ -207,6 +226,66 @@ export default function StudentReviewsPage() {
                   {review.note !== null && (
                     <p className="mt-3 text-sm text-ink-muted">{review.note}</p>
                   )}
+                </Card>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/*
+        ⚠️ THE TEACHER'S OWN SEGMENT, AND THIS IS THE ONLY DOOR TO IT. An endpoint
+        with no screen is the defect this spec already shipped once — the guardian
+        half of FR-029 worked, was tested, and had nothing in the interface able
+        to reach it. The card itself is deliberately NOT here: it spans every
+        teacher the student studies with, and reading a colleague's grades is
+        NFR-001أ.
+      */}
+      <section aria-labelledby="segments-heading">
+        <h2 id="segments-heading" className="mb-3 text-lg font-bold text-ink">
+          مساهمتك في كشف التقديرات
+        </h2>
+
+        {segments.length === 0 ? (
+          <EmptyState
+            title="لا توجد مساهمة بعد"
+            description="يصدر الكشف في مطلع كلّ شهر عن الشهر الذي سبقه، ويحسب درجتك بأوزانك."
+          />
+        ) : (
+          <ul className="space-y-3">
+            {segments.map((segment) => (
+              <li key={segment.uuid}>
+                <Card as="article">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="font-semibold text-ink">
+                      {segment.period === undefined
+                        ? "الفترة"
+                        : periodLabel({
+                            period_start: segment.period.start,
+                            period_end: segment.period.end,
+                          })}
+                    </p>
+                    <p className="text-lg font-bold text-ink">
+                      {/* «—», never «٠٪»: no component with data is a different
+                          statement from a grade of nothing. */}
+                      {segment.segment_pct === null
+                        ? "—"
+                        : `${arabicDecimal(segment.segment_pct)}٪`}
+                    </p>
+                  </div>
+
+                  <dl className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                    {GRADE_COMPONENTS.filter(
+                      (component) => segment.components[component.key] !== undefined,
+                    ).map((component) => (
+                      <div key={component.key}>
+                        <dt className="text-ink-muted">{component.label}</dt>
+                        <dd className="font-semibold text-ink">
+                          {arabicDecimal(segment.components[component.key].pct)}٪
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
                 </Card>
               </li>
             ))}

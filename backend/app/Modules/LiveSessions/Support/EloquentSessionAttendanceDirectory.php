@@ -13,6 +13,7 @@ use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Shared\Contracts\SessionAttendanceDirectory;
+use Carbon\CarbonImmutable;
 
 /**
  * LiveSessions' answer to "did this person hold a seat?".
@@ -245,5 +246,43 @@ class EloquentSessionAttendanceDirectory implements SessionAttendanceDirectory
             ->all();
 
         return array_values($ids);
+    }
+
+    public function attendanceShareInPeriod(
+        User $student,
+        int $workspaceId,
+        CarbonImmutable $from,
+        CarbonImmutable $to,
+    ): ?float {
+        /*
+        | ⚠️ THE UPPER BOUND IS THE START OF THE NEXT DAY. `starts_at` is a
+        | timestamp and the period bounds are DATES, so `<= period_end` binds
+        | midnight and drops every class held on the last day of the term — the
+        | boundary that already cost `FreezePeriod::covering()` its own fix.
+        */
+        $sessionIds = ClassSession::query()
+            ->withoutWorkspaceScope()
+            ->where('workspace_id', $workspaceId)
+            ->where('status', ClassSessionStatus::Completed)
+            ->where('starts_at', '>=', $from->startOfDay())
+            ->where('starts_at', '<', $to->startOfDay()->addDay())
+            ->pluck('id');
+
+        // No class was held. Null rather than zero: a term with no sessions is
+        // not a term the student missed, and the caller drops the component and
+        // re-weights the rest instead of grading them on a class nobody taught.
+        if ($sessionIds->isEmpty()) {
+            return null;
+        }
+
+        $attended = Attendance::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('class_session_id', $sessionIds)
+            ->where('student_user_id', $student->getKey())
+            ->where('status', '!=', AttendanceStatus::Absent->value)
+            ->distinct()
+            ->count('class_session_id');
+
+        return round($attended / $sessionIds->count() * 100, 2);
     }
 }

@@ -17,7 +17,9 @@ use App\Modules\Assessments\Policies\GradingPolicy;
 use App\Modules\Assessments\Policies\QuestionPolicy;
 use App\Modules\Assessments\Policies\SubmissionPolicy;
 use App\Modules\Assessments\Support\AssessmentsPersonalData;
+use App\Modules\Assessments\Support\EloquentStudentGradeDirectory;
 use App\Modules\Assessments\Support\EloquentUnlockDirectory;
+use App\Shared\Contracts\StudentGradeDirectory;
 use App\Shared\Contracts\UnlockDirectory;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Gate;
@@ -48,6 +50,15 @@ class AssessmentsServiceProvider extends Module
         | caller needs the answer before its next line runs.
         */
         $this->app->bind(UnlockDirectory::class, EloquentUnlockDirectory::class);
+
+        /*
+        | Spec 010 · US5. Community builds the report card and Assessments owns
+        | what an official grade IS — which attempts count, which submissions are
+        | marked, and that a practice run is not a grade at all (FR-038). The
+        | second arrow of the same shape, and the reason `Community` imports no
+        | model of ours.
+        */
+        $this->app->bind(StudentGradeDirectory::class, EloquentStudentGradeDirectory::class);
     }
 
     public function boot(): void

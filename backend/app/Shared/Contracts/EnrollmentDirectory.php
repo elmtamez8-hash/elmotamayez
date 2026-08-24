@@ -101,4 +101,25 @@ interface EnrollmentDirectory
      *                                                 access exists
      */
     public function accessHorizonFor(int $workspaceId): array;
+
+    /**
+     * Every (student, workspace) pair whose enrolment overlapped a period
+     * (010 · FR-036).
+     *
+     * The report card is built by a platform job that knows a period and nothing
+     * else, and this is what tells it whose card to build and which teachers owe
+     * it a segment. Enrolment is the right discovery key because every source
+     * the card reads presupposes one — an exam attempt carries `enrollment_id`,
+     * a submission and a booking and a periodic review all gate on it — so a
+     * pair absent from this list can have no data to report.
+     *
+     * ⚠️ DELIBERATELY NOT FILTERED BY STATUS, like `enrollmentIdsFor()` above and
+     * unlike the three entitlement questions. The card is a record of a term that
+     * has ended: a student who left in week six still sat the exams of weeks one
+     * to five, and dropping them would silently publish an incomplete document
+     * about exactly the person most likely to dispute it.
+     *
+     * @return list<array{student_user_id: int, workspace_id: int}>
+     */
+    public function enrolledPairsInPeriod(CarbonImmutable $from, CarbonImmutable $to): array;
 }

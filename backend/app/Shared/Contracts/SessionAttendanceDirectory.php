@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Shared\Contracts;
 
 use App\Models\User;
+use Carbon\CarbonImmutable;
 
 /**
  * Whether someone held a seat in the session a lesson was recorded from.
@@ -137,4 +138,31 @@ interface SessionAttendanceDirectory
      * @return list<int>
      */
     public function bookedLessonIdsFor(User $user): array;
+
+    /**
+     * What share of one teacher's sessions this student attended in a period
+     * (010 · FR-036).
+     *
+     * ⚠️ `float|null`, AND NULL IS NOT ZERO. Null means the teacher held no
+     * countable session at all in the period — a term with no classes is not a
+     * term the student missed — and the caller drops attendance from the grade
+     * and re-weights the rest (FR-053). Zero means sessions were held and the
+     * student was at none of them, which is a real and different statement.
+     *
+     * ⚠️ AND EXCUSED COUNTS AS ATTENDED, as everywhere else in this interface.
+     * Only `absent` fails.
+     *
+     * Distinct from {@see attendedSessionCountInWorkspace()}, which counts
+     * attendances alone and has no denominator: a count answers "have they
+     * studied here enough to rate their teacher", and a share answers "how much
+     * of the term did they turn up for". The first would report a student who
+     * attended four of forty sessions as more present than one who attended
+     * three of three.
+     */
+    public function attendanceShareInPeriod(
+        User $student,
+        int $workspaceId,
+        CarbonImmutable $from,
+        CarbonImmutable $to,
+    ): ?float;
 }

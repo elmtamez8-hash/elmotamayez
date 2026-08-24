@@ -100,4 +100,41 @@ class EloquentEnrollmentDirectory implements EnrollmentDirectory
             ((int) ($row?->getAttribute('open_ended') ?? 0)) > 0,
         ];
     }
+
+    /** @return list<array{student_user_id: int, workspace_id: int}> */
+    public function enrolledPairsInPeriod(CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        /*
+        | Overlap, not containment: an enrolment that began before the term and
+        | runs past it covers the term completely, and one written the same way
+        | as "starts inside" would miss every continuing student — which is most
+        | of them.
+        |
+        | The upper bound is the start of the day after the period ends, because
+        | `enrolled_at` is a timestamp and the bounds are dates.
+        */
+        $rows = Enrollment::query()
+            ->withoutWorkspaceScope()
+            ->where('enrolled_at', '<', $to->startOfDay()->addDay())
+            ->where(function ($query) use ($from): void {
+                // ⚠️ GROUPED. Left at the top level the `orWhereNull` would
+                // discard the date bound and return every enrolment ever made.
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>=', $from->startOfDay());
+            })
+            ->distinct()
+            ->get(['student_user_id', 'workspace_id']);
+
+        /** @var list<array{student_user_id: int, workspace_id: int}> $pairs */
+        $pairs = $rows
+            ->map(fn (Enrollment $row): array => [
+                'student_user_id' => (int) $row->student_user_id,
+                'workspace_id' => (int) $row->workspace_id,
+            ])
+            ->unique(fn (array $pair): string => $pair['student_user_id'].':'.$pair['workspace_id'])
+            ->values()
+            ->all();
+
+        return $pairs;
+    }
 }

@@ -12,14 +12,19 @@ use App\Modules\Community\Listeners\NotifyPeriodicReviewPublished;
 use App\Modules\Community\Listeners\SeedDefaultBlockedTerms;
 use App\Modules\Community\Models\AssistantAssignment;
 use App\Modules\Community\Models\Conversation;
+use App\Modules\Community\Models\GradingScheme;
 use App\Modules\Community\Models\Message;
 use App\Modules\Community\Models\ModerationAction;
 use App\Modules\Community\Models\PeriodicReview;
+use App\Modules\Community\Models\ReportCard;
 use App\Modules\Community\Policies\AssistantAssignmentPolicy;
 use App\Modules\Community\Policies\ConversationPolicy;
+use App\Modules\Community\Policies\GradingSchemePolicy;
 use App\Modules\Community\Policies\MessagePolicy;
 use App\Modules\Community\Policies\ModerationActionPolicy;
 use App\Modules\Community\Policies\PeriodicReviewPolicy;
+use App\Modules\Community\Policies\ReportCardPolicy;
+use App\Modules\Community\Support\CommunityPersonalData;
 use App\Modules\Community\Support\EloquentAssistantScopeDirectory;
 use App\Modules\Tenancy\Events\WorkspaceCreated;
 use App\Modules\Tenancy\Events\WorkspaceMemberAdded;
@@ -76,6 +81,20 @@ class CommunityServiceProvider extends Module
         | `PlatformStaffDirectory` is registered the same way, for the same reason.
         */
         $this->app->scoped(AssistantScopeDirectory::class, EloquentAssistantScopeDirectory::class);
+
+        /*
+        | ⚠️ ONE TAGGED LINE, and `Compliance` names no table of ours — the shape
+        | that keeps a requirement crossing thirteen schemas inside Constitution
+        | III.
+        |
+        | ⚠️ AND ITS ABSENCE WAS INVISIBLE FROM PHASE 1 TO PHASE 7. The coverage
+        | guard detects a personal column by looking for `constrained('users')`,
+        | and every Community migration before the report card writes
+        | `unsignedBigInteger('sender_user_id')` — the other way this repository
+        | spells the same foreign key. So an erasure request completed GREEN while
+        | leaving every private message with a minor exactly where it was.
+        */
+        $this->app->tag([CommunityPersonalData::class], 'compliance.personal_data');
     }
 
     public function boot(): void
@@ -93,7 +112,9 @@ class CommunityServiceProvider extends Module
         Gate::policy(Conversation::class, ConversationPolicy::class);
         Gate::policy(Message::class, MessagePolicy::class);
         Gate::policy(ModerationAction::class, ModerationActionPolicy::class);
+        Gate::policy(GradingScheme::class, GradingSchemePolicy::class);
         Gate::policy(PeriodicReview::class, PeriodicReviewPolicy::class);
+        Gate::policy(ReportCard::class, ReportCardPolicy::class);
 
         Event::listen(WorkspaceMemberAdded::class, CreateAssistantAssignment::class);
         Event::listen(MessagePosted::class, NotifyOfflineRecipient::class);

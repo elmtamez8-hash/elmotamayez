@@ -45,6 +45,11 @@ export const P = {
   // permission is deliberately absent: it is platform-level and no tenant role
   // holds it, so offering a link to it would show every teacher a 403.
   rewardsManage: "rewards.manage",
+  // Spec 010 — writing the periodic assessment AND weighting the grade
+  // components. One name for both on purpose: the weights decide the single
+  // number on the same document that reaches the same guardian, and a second
+  // constant would need a fifth backfill migration for roles that already exist.
+  reviewsPeriodicManage: "reviews.periodic.manage",
   // The reconciliation screen reads the same rows as the collection report and
   // is gated on the same name — there is no separate `payments.reconcile`.
   //

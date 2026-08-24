@@ -85,9 +85,12 @@ it('has a declared category for every module that stores a personal column', fun
         foreach (glob($directory.'/Database/Migrations/*.php') ?: [] as $file) {
             $contents = (string) file_get_contents($file);
 
-            // The two shapes a personal column takes in this tree: a foreign key
-            // to `users`, or a bare contact detail with no account behind it.
-            if (preg_match('/constrained\(\'users\'\)|->string\(\'email\'|->string\(\'phone\'/', $contents) === 1) {
+            // The three shapes a personal column takes in this tree: a foreign
+            // key to `users` declared EITHER WAY, or a bare contact detail with
+            // no account behind it. See the note in
+            // `PersonalDataContractCoverageTest` — the `unsignedBigInteger` half
+            // was missing and hid the whole Community module for six phases.
+            if (preg_match('/constrained\(\'users\'\)|unsignedBigInteger\(\'[a-z_]*user_id\'\)|->string\(\'email\'|->string\(\'phone\'/', $contents) === 1) {
                 $holdsPersonalRows = true;
 
                 break;

@@ -295,32 +295,32 @@ description: "Task list — المجتمع والمساعدون والتقييم
 
 ### Tests for User Story 5
 
-- [ ] T132 [P] [US5] `backend/tests/Feature/Community/ReportCardFidelityTest.php` — `SC-012`/`SC-018` بفارقِ صفر. ⚠️ **بمساحتَي عملٍ ومدرّسَين**: كشفٌ بمقطعٍ واحدٍ يبدو صحيحاً تماماً على تثبيتةٍ بمساحةٍ واحدة. ويشمل **مكوّناً بلا بيانات** (`FR-053`) و**محاولةً تدريبيّة** (`FR-038`)
-- [ ] T133 [P] [US5] `backend/tests/Feature/Community/GradingSchemeTest.php` — `SC-017`: صفرُ تركيبةٍ محفوظةٍ لا يبلغ مجموعُها ١٠٠، والفرضُ **في الفعلِ** لا في التحقّقِ وحدَه
-- [ ] T134 [P] [US5] `backend/tests/Feature/Community/ReportCardSnapshotTest.php` — `FR-052`: تغييرُ الأوزانِ **لا يعيد حسابَ** كشفٍ نُشر
-- [ ] T135 [P] [US5] وسّع `backend/tests/Feature/Notifications/PlatformOwnershipTest.php` بحالتَي `report_cards` — `NFR-001ب` **بالاتّجاهَين**: الكشفُ واحدٌ عبرَ كلِّ المدرّسين، ومدرّسٌ لا يرى كشفَ غيرِ المسجَّلِ عنده
+- [X] T132 [P] [US5] `backend/tests/Feature/Community/ReportCardFidelityTest.php` — `SC-012`/`SC-018` بفارقِ صفر. ⚠️ **بمساحتَي عملٍ ومدرّسَين**: كشفٌ بمقطعٍ واحدٍ يبدو صحيحاً تماماً على تثبيتةٍ بمساحةٍ واحدة. ويشمل **مكوّناً بلا بيانات** (`FR-053`) و**محاولةً تدريبيّة** (`FR-038`)
+- [X] T133 [P] [US5] `backend/tests/Feature/Community/GradingSchemeTest.php` — `SC-017`: صفرُ تركيبةٍ محفوظةٍ لا يبلغ مجموعُها ١٠٠، والفرضُ **في الفعلِ** لا في التحقّقِ وحدَه
+- [X] T134 [P] [US5] `backend/tests/Feature/Community/ReportCardSnapshotTest.php` — `FR-052`: تغييرُ الأوزانِ **لا يعيد حسابَ** كشفٍ نُشر
+- [X] T135 [P] [US5] وسّع `backend/tests/Feature/Notifications/PlatformOwnershipTest.php` بحالتَي `report_cards` — `NFR-001ب` **بالاتّجاهَين**: الكشفُ واحدٌ عبرَ كلِّ المدرّسين، ومدرّسٌ لا يرى كشفَ غيرِ المسجَّلِ عنده
 
 ### Implementation for User Story 5
 
-- [ ] T136 [US5] هجرة `2026_08_22_000600_create_grading_schemes_table.php`: `workspace_id` · `course_id` (nullable) · `period_start`/`period_end` · `weights` (json) · فريدٌ رباعيّ — ⚠️ **الفترةُ تاريخان لا نصّ**: الإصدارُ الأوّلُ كتب `period_label` بينما الكشفُ يحمل تاريخَين، فلم يكن للبناءِ طريقٌ مُعرَّفٌ لاختيارِ التركيبة
-- [ ] T137 [US5] هجرة `2026_08_22_000610_create_report_cards_table.php`: `student_user_id` · `period_start`/`period_end` · `generated_at` · `overall_pct` · `improvement_index` · `published_at` · `unique(student_user_id, period_start, period_end)` — ⚠️ **لا `workspace_id`**: منصّيٌّ (أ) بنصِّ الدستور. **ولا عمودَ `file_path`**: الملفُّ عبرَ medialibrary، فعمودٌ خامٌّ يتجاوز كنسَ الاحتفاظِ وأرضيّةَ `FR-036` من ٠١٣ — ملفُّ PDF بدرجاتِ قاصرٍ لا يحذفه شيءٌ أبداً
-- [ ] T138 [US5] هجرة `2026_08_22_000620_create_report_card_segments_table.php`: `report_card_id` · `workspace_id` · `teacher_user_id` · **`student_user_id`** · `components` (json) · `attendance_pct` · `segment_pct` · `index(report_card_id)` — ⚠️ التكرارُ عمداً: الجسرُ «يحمل `workspace_id` للسياقِ **ويشير إلى المستخدمِ العامّ**»، وبدونه ليس جسراً بل جدولَ تفصيلٍ منصّيٍّ بلا مالك
-- [ ] T139 [P] [US5] أنشئ `Models/{GradingScheme,ReportCard,ReportCardSegment}.php` — و`ReportCard` يُنفّذ `HasMedia`
-- [ ] T140 [US5] أنشئ `Actions/SaveGradingScheme.php` — **المجموعُ ١٠٠ يُفرَض في الفعل** لا في `FormRequest` وحدَه: الفعلُ هو المدخلُ الذي تشترك فيه البذورُ واللوحةُ والـAPI
-- [ ] T141 [US5] أنشئ `Support/GradeWeighting.php` — ⚠️ **`FR-053`**: مكوّنٌ بلا بياناتٍ **يُستبعَد وتُعاد الموازنة**، لا يُحتسَب صفراً. طالبٌ لم يُسند إليه واجبٌ ليس طالباً درجتُه صفر — قرارُ `wrong_pct = NULL` نفسُه
-- [ ] T142 [US5] أنشئ `Jobs/BuildReportCardsJob.php` **منصّيّاً مجدولاً** لفترةٍ واحدة — يعمل خارجَ كلِّ مساحةٍ ويدخل كلَّ واحدةٍ بـ**`forWorkspace()`** لمقطعِها. ⚠️ **`WorkspaceContext::set()` ممنوعٌ هنا** (`NFR-012`)، ولا `POST /manage/report-cards`: مدرّسٌ يضغط «أنشئ» إمّا يقرأ درجاتِ زميلِه أو يُنتج مقطعاً واحداً يُعرَض كسجلِّ الطالب
-- [ ] T143 [US5] في `BuildReportCardsJob`: الإدراجُ `insertOrIgnore` بـ`uuid` و`created_at` **صراحةً** ثمّ **قراءةٌ راجعةٌ ترمي عند الصفر** — نمطُ `CreditLedger::writeEntry()`: النموذجُ لا يُقلَع فلا يعمل `HasUuid`، وMySQL تخفّض الخرقَ إلى تحذيرٍ وتخزّن `''` فيصطدم كلُّ كشفٍ لاحقٍ على `unique(uuid)` ويُقرأ «مسجَّلٌ سلفاً»
-- [ ] T144 [US5] احسب المجاميعَ **داخلَ مطالبةِ النشرِ وحدَها** لا عند كتابةِ كلِّ مقطع — حسابٌ متداخلٌ بين مقطعَين يُنتج مجموعاً لا يطابق أيَّ مجموعةِ مقاطع، ونهائياً
-- [ ] T145 [US5] صفِّ محاولاتِ `is_practice` من الدرجاتِ الرسميّة — `FR-038`، العمودُ نفسُه الذي استثناه رولَبُ ٠٠٨
-- [ ] T146 [US5] أنشئ `Jobs/RenderReportCardJob.php` بـmPDF على طابور `community` — `SetDirectionality('rtl')` · `autoScriptToLang` + `autoArabic` + `autoLangToFont` · الخطُّ بـ`fontDir` + `fontdata` (**المفتاحُ بأحرفٍ صغيرةٍ حصراً**)
-- [ ] T147 [US5] اشحن خطَّ **Cairo** (`.ttf`، OFL) تحت `backend/resources/fonts/` — الواجهةُ تحمّله من Google Fonts وهذا **لا ينفع خادماً بلا متصفّح**
-- [ ] T148 [US5] خزّن الملفَّ عبرَ medialibrary على `ReportCard` — لا عمودَ مسار
-- [ ] T149 [US5] أنشئ `Http/Controllers/ReportCardController.php`: `GET /report-cards` · `/{card}` · **`/{card}/download` → `302` إلى توقيعٍ قصيرِ العمرِ مربوطٍ بالطالب** بـ`throttle:report-card-render`؛ و`GET /manage/report-cards` **يُرجع مقطعَ المدرّسِ وحدَه**
-- [ ] T150 [US5] أنشئ `Policies/ReportCardPolicy.php` — الطالبُ ووليُّ أمرِه **المرتبطُ** (`FR-040`)، والمعرّفُ يُحلُّ داخلَ الفعلِ لا بارتباطٍ ضمنيّ
-- [ ] T151 [P] [US5] أنشئ `Http/Resources/{ReportCardResource,ReportCardSegmentResource}.php` و`Data/GradingSchemeData.php`
-- [ ] T152 [P] [US5] أنشئ `frontend/src/app/(app)/(shell)/report-cards/page.tsx` + `[uuid]/page.tsx` و`manage/grading-schemes/page.tsx` **مع روابطِها**
-- [ ] T153 [P] [US5] `frontend/src/components/community/GradingSchemeForm.test.tsx` بـvitest — المجموعُ ١٠٠ يُمنع حفظُه دونَه، و**حالةُ الفراغِ المفهومةُ** لطالبٍ بلا درجاتٍ بعد
-- [ ] T154 [US5] أضف بندَ **«افتح الملفَّ بعينِك»** إلى `quickstart.md` §ج-١ إن لم يكن — ⚠️ `SC-013` **لا يُقاس باستخراجِ النصّ**: الاستخراجُ يقيس التضمينَ والترميزَ ويمرُّ على مستندٍ حروفُه منفصلةٌ معكوسة
+- [X] T136 [US5] هجرة `2026_08_22_000600_create_grading_schemes_table.php`: `workspace_id` · `course_id` (nullable) · `period_start`/`period_end` · `weights` (json) · فريدٌ رباعيّ — ⚠️ **الفترةُ تاريخان لا نصّ**: الإصدارُ الأوّلُ كتب `period_label` بينما الكشفُ يحمل تاريخَين، فلم يكن للبناءِ طريقٌ مُعرَّفٌ لاختيارِ التركيبة
+- [X] T137 [US5] هجرة `2026_08_22_000610_create_report_cards_table.php`: `student_user_id` · `period_start`/`period_end` · `generated_at` · `overall_pct` · `improvement_index` · `published_at` · `unique(student_user_id, period_start, period_end)` — ⚠️ **لا `workspace_id`**: منصّيٌّ (أ) بنصِّ الدستور. **ولا عمودَ `file_path`**: الملفُّ عبرَ medialibrary، فعمودٌ خامٌّ يتجاوز كنسَ الاحتفاظِ وأرضيّةَ `FR-036` من ٠١٣ — ملفُّ PDF بدرجاتِ قاصرٍ لا يحذفه شيءٌ أبداً
+- [X] T138 [US5] هجرة `2026_08_22_000620_create_report_card_segments_table.php`: `report_card_id` · `workspace_id` · `teacher_user_id` · **`student_user_id`** · `components` (json) · `attendance_pct` · `segment_pct` · `index(report_card_id)` — ⚠️ التكرارُ عمداً: الجسرُ «يحمل `workspace_id` للسياقِ **ويشير إلى المستخدمِ العامّ**»، وبدونه ليس جسراً بل جدولَ تفصيلٍ منصّيٍّ بلا مالك
+- [X] T139 [P] [US5] أنشئ `Models/{GradingScheme,ReportCard,ReportCardSegment}.php` — و`ReportCard` يُنفّذ `HasMedia`
+- [X] T140 [US5] أنشئ `Actions/SaveGradingScheme.php` — **المجموعُ ١٠٠ يُفرَض في الفعل** لا في `FormRequest` وحدَه: الفعلُ هو المدخلُ الذي تشترك فيه البذورُ واللوحةُ والـAPI
+- [X] T141 [US5] أنشئ `Support/GradeWeighting.php` — ⚠️ **`FR-053`**: مكوّنٌ بلا بياناتٍ **يُستبعَد وتُعاد الموازنة**، لا يُحتسَب صفراً. طالبٌ لم يُسند إليه واجبٌ ليس طالباً درجتُه صفر — قرارُ `wrong_pct = NULL` نفسُه
+- [X] T142 [US5] أنشئ `Jobs/BuildReportCardsJob.php` **منصّيّاً مجدولاً** لفترةٍ واحدة — يعمل خارجَ كلِّ مساحةٍ ويدخل كلَّ واحدةٍ بـ**`forWorkspace()`** لمقطعِها. ⚠️ **`WorkspaceContext::set()` ممنوعٌ هنا** (`NFR-012`)، ولا `POST /manage/report-cards`: مدرّسٌ يضغط «أنشئ» إمّا يقرأ درجاتِ زميلِه أو يُنتج مقطعاً واحداً يُعرَض كسجلِّ الطالب
+- [X] T143 [US5] في `BuildReportCardsJob`: الإدراجُ `insertOrIgnore` بـ`uuid` و`created_at` **صراحةً** ثمّ **قراءةٌ راجعةٌ ترمي عند الصفر** — نمطُ `CreditLedger::writeEntry()`: النموذجُ لا يُقلَع فلا يعمل `HasUuid`، وMySQL تخفّض الخرقَ إلى تحذيرٍ وتخزّن `''` فيصطدم كلُّ كشفٍ لاحقٍ على `unique(uuid)` ويُقرأ «مسجَّلٌ سلفاً»
+- [X] T144 [US5] احسب المجاميعَ **داخلَ مطالبةِ النشرِ وحدَها** لا عند كتابةِ كلِّ مقطع — حسابٌ متداخلٌ بين مقطعَين يُنتج مجموعاً لا يطابق أيَّ مجموعةِ مقاطع، ونهائياً
+- [X] T145 [US5] صفِّ محاولاتِ `is_practice` من الدرجاتِ الرسميّة — `FR-038`، العمودُ نفسُه الذي استثناه رولَبُ ٠٠٨
+- [X] T146 [US5] أنشئ `Jobs/RenderReportCardJob.php` بـmPDF على طابور `community` — `SetDirectionality('rtl')` · `autoScriptToLang` + `autoArabic` + `autoLangToFont` · الخطُّ بـ`fontDir` + `fontdata` (**المفتاحُ بأحرفٍ صغيرةٍ حصراً**)
+- [X] T147 [US5] اشحن خطَّ **Cairo** (`.ttf`، OFL) تحت `backend/resources/fonts/` — الواجهةُ تحمّله من Google Fonts وهذا **لا ينفع خادماً بلا متصفّح**
+- [X] T148 [US5] خزّن الملفَّ عبرَ medialibrary على `ReportCard` — لا عمودَ مسار
+- [X] T149 [US5] أنشئ `Http/Controllers/ReportCardController.php`: `GET /report-cards` · `/{card}` · **`/{card}/download` → `302` إلى توقيعٍ قصيرِ العمرِ مربوطٍ بالطالب** بـ`throttle:report-card-render`؛ و`GET /manage/report-cards` **يُرجع مقطعَ المدرّسِ وحدَه**
+- [X] T150 [US5] أنشئ `Policies/ReportCardPolicy.php` — الطالبُ ووليُّ أمرِه **المرتبطُ** (`FR-040`)، والمعرّفُ يُحلُّ داخلَ الفعلِ لا بارتباطٍ ضمنيّ
+- [X] T151 [P] [US5] أنشئ `Http/Resources/{ReportCardResource,ReportCardSegmentResource}.php` و`Data/GradingSchemeData.php`
+- [X] T152 [P] [US5] أنشئ `frontend/src/app/(app)/(shell)/report-cards/page.tsx` + `[uuid]/page.tsx` و`manage/grading-schemes/page.tsx` **مع روابطِها**
+- [X] T153 [P] [US5] `frontend/src/components/community/GradingSchemeForm.test.tsx` بـvitest — المجموعُ ١٠٠ يُمنع حفظُه دونَه، و**حالةُ الفراغِ المفهومةُ** لطالبٍ بلا درجاتٍ بعد
+- [X] T154 [US5] أضف بندَ **«افتح الملفَّ بعينِك»** إلى `quickstart.md` §ج-١ إن لم يكن — ⚠️ `SC-013` **لا يُقاس باستخراجِ النصّ**: الاستخراجُ يقيس التضمينَ والترميزَ ويمرُّ على مستندٍ حروفُه منفصلةٌ معكوسة
 
 **Checkpoint**: خمسُ قصصٍ تعمل.
 
@@ -364,11 +364,11 @@ description: "Task list — المجتمع والمساعدون والتقييم
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T173 أنشئ `backend/app/Modules/Community/Support/CommunityPersonalData.php` يُنفّذ `App\Shared\Contracts\PersonalDataOwner` وسِمْه بـ`compliance.personal_data` — ⚠️ **بلا تنفيذٍ موسومٍ يُرجع السجلُّ `null` ويمضي الكنس**: طلبُ محوٍ يكتمل **أخضرَ** تاركاً كلَّ رسالةٍ عن قاصرٍ في مكانها
-- [ ] T174 أضف صفوفَ الفئاتِ إلى `backend/database/seeders/DataCategorySeeder.php` — ⚠️ **الصنفُ `Delete` مُعلَناً** لـ`messages` و`periodic_reviews`: `sender_user_id` و`student_user_id` كلاهما `NOT NULL`، و`Anonymise` تحتاج `->change()` يُعيد بناءَ الجدولِ على SQLite (‏سابقةُ `exam_attempts`)
+- [X] T173 أنشئ `backend/app/Modules/Community/Support/CommunityPersonalData.php` يُنفّذ `App\Shared\Contracts\PersonalDataOwner` وسِمْه بـ`compliance.personal_data` — ⚠️ **بلا تنفيذٍ موسومٍ يُرجع السجلُّ `null` ويمضي الكنس**: طلبُ محوٍ يكتمل **أخضرَ** تاركاً كلَّ رسالةٍ عن قاصرٍ في مكانها
+- [X] T174 أضف صفوفَ الفئاتِ إلى `backend/database/seeders/DataCategorySeeder.php` — ⚠️ **الصنفُ `Delete` مُعلَناً** لـ`messages` و`periodic_reviews`: `sender_user_id` و`student_user_id` كلاهما `NOT NULL`، و`Anonymise` تحتاج `->change()` يُعيد بناءَ الجدولِ على SQLite (‏سابقةُ `exam_attempts`)
 - [ ] T175 أضف علامةَ أرشفةٍ لملفِّ الكشفِ تحت الصنفِ `Archive` — ⚠️ بلا علامةٍ تُعاد أرشفتُه كلَّ ليلةٍ ويُحذَف الملفُّ عند المزوّدِ مرّةً بعد مرّة (‏سابقةُ `media_assets.archived_at`)
 - [ ] T176 أضف المحادثاتِ الخاصّةَ إلى مشيةِ خروجِ المدرّسِ (`FR-037` من ٠١٣) — ⚠️ **لا تعرفها المشيةُ اليوم**: مدرّسٌ يغادر ورسائلُه الخاصّةُ مع قاصرين في لا مسار
-- [ ] T177 `backend/tests/Feature/Community/CommunityRetentionTest.php` — رسائلُ ومحادثاتٌ وتقييماتٌ وملفُّ كشفٍ تُصدَّر وتُمحى وتنتهي مدّتُها؛ **والتثبيتةُ تشمل صنفَ `Archive`** لأن `Delete` لا تُظهر عطلَ التعامدِ إطلاقاً (‏الصفُّ المحذوفُ لا يعود)
+- [X] T177 `backend/tests/Feature/Community/CommunityRetentionTest.php` — رسائلُ ومحادثاتٌ وتقييماتٌ وملفُّ كشفٍ تُصدَّر وتُمحى وتنتهي مدّتُها؛ **والتثبيتةُ تشمل صنفَ `Archive`** لأن `Delete` لا تُظهر عطلَ التعامدِ إطلاقاً (‏الصفُّ المحذوفُ لا يعود)
 - [ ] T178 [P] أنشئ `Support/CommunityAuditSubjects.php` إن كُتب شيءٌ إلى `activity_log` من هذه الوحدة — الجدولُ مشترَك، والمرشِّحُ **قائمةُ أصنافٍ** لا حذفُ صفوفٍ بعد الجلب
 - [ ] T179 [P] وسّع `backend/tests/Feature/Settlement/ContextIsolationTest.php` بمسحِ `Modules/Community/` — الحائطُ الماليُّ يجب أن يُحرَس مفرداتياً كما يُحرَس سلوكياً
 - [ ] T180 [P] حدّث `docs/README.md`: صفُّ وحدةِ `Community` · النقاطُ · الصلاحيّاتُ الجديدة · معنى «بنودُ المساعدِ صلاحيّاتٌ من شاشةِ الأدوار»

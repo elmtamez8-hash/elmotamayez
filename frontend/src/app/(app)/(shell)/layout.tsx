@@ -135,6 +135,19 @@ const mainNav: NavItem[] = [
    * teacher already knows whose row they clicked.
    */
   { href: "/reviews", label: "تقييماتي الدورية", Icon: ProgressIcon },
+  /*
+   * Spec 010 · US5. The same reasoning as the line above — a student reads their
+   * own cards, a guardian reads a child's through the same screen, and a teacher
+   * sees an empty list because the card is not theirs to hold. Their side is the
+   * weightings below, and their own segment on the student's page.
+   */
+  { href: "/report-cards", label: "كشف التقديرات", Icon: ProgressIcon },
+  {
+    href: "/manage/grading-schemes",
+    label: "أوزان التقدير",
+    Icon: ProgressIcon,
+    permission: P.reviewsPeriodicManage,
+  },
   { href: "/leaderboard", label: "لوحة الصدارة", Icon: LeaderboardIcon },
   { href: "/shop", label: "متجر المكافآت", Icon: ShopIcon },
   // The teacher's side of that shop, and the queue of what has been claimed.

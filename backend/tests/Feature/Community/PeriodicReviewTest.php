@@ -6,10 +6,7 @@ use App\Models\User;
 use App\Modules\Community\Actions\PublishPeriodicReview;
 use App\Modules\Community\Models\PeriodicReview;
 use App\Modules\Courses\Models\Course;
-use App\Modules\Identity\Models\ParentStudentRelation;
 use App\Modules\Identity\Support\PlatformRole;
-use App\Modules\Identity\Support\RelationStatus;
-use App\Modules\Identity\Support\RelationType;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Tenancy\Support\Roles;
@@ -223,23 +220,3 @@ it('refuses to rewrite a published assessment', function (): void {
 
     expect($review->fresh()?->commitment)->toBe(5);
 });
-
-/** A guardian of this student, authorised for exactly these permissions. */
-function guardianOf(User $student, array $permissions): User
-{
-    $guardian = User::factory()->create(['platform_role' => PlatformRole::Parent]);
-
-    ParentStudentRelation::query()->create([
-        'guardian_user_id' => $guardian->getKey(),
-        'student_user_id' => $student->getKey(),
-        'student_name' => $student->name,
-        'relation_type' => RelationType::Parent->value,
-        'permissions' => array_map(
-            fn (GuardianPermission $permission): string => $permission->value,
-            $permissions,
-        ),
-        'status' => RelationStatus::Active->value,
-    ]);
-
-    return $guardian;
-}

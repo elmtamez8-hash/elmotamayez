@@ -18,7 +18,10 @@ use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Community\Support\CommunitySettings;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Identity\Models\ParentStudentRelation;
 use App\Modules\Identity\Support\PlatformRole;
+use App\Modules\Identity\Support\RelationStatus;
+use App\Modules\Identity\Support\RelationType;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Actions\CloseClassSession;
 use App\Modules\LiveSessions\Actions\OpenBroadcastRoom;
@@ -45,6 +48,7 @@ use App\Modules\Settlement\Models\SettlementRate;
 use App\Modules\Tenancy\Models\PlatformStaff;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\PlatformStaffDirectory;
+use App\Shared\Support\GuardianPermission;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Database\Seeders\DataCategorySeeder;
@@ -1107,4 +1111,80 @@ function subscribeToChannel(string $channel, string $socketId = '1234.5678'): Te
         'channel_name' => $channel,
         'socket_id' => $socketId,
     ]);
+}
+
+/*
+|--------------------------------------------------------------------------
+| Report-card fixtures (spec 010 · US5)
+|--------------------------------------------------------------------------
+|
+| ⚠️ HERE AND NOT IN A SPEC FILE. A function declared inside a test file exists
+| only for the files Pest happens to load AFTER it, so the same helper passes
+| when the suite runs whole and dies with "undefined function" the moment one
+| file is run alone to debug it. The same rule already moved `countingQueries()`
+| and the import fixtures up here.
+|
+*/
+
+/** A completed session inside the period, with the student's register row. */
+function periodSession(Workspace $workspace, Course $course, User $student, AttendanceStatus $status): ClassSession
+{
+    $session = ClassSession::factory()->create([
+        'workspace_id' => $workspace->getKey(),
+        'course_id' => $course->getKey(),
+        'status' => ClassSessionStatus::Completed,
+        'starts_at' => '2026-08-10 09:00:00',
+        'ends_at' => '2026-08-10 10:00:00',
+    ]);
+
+    attendanceRow($workspace, $session, $student, $status);
+
+    return $session;
+}
+
+/** One graded, non-practice attempt inside the period. */
+function periodAttempt(Workspace $workspace, User $student, float $score, float $max, bool $practice = false): Attempt
+{
+    $exam = Exam::factory()->create(['workspace_id' => $workspace->getKey()]);
+
+    return Attempt::create([
+        'workspace_id' => $workspace->getKey(),
+        'exam_id' => $exam->getKey(),
+        'student_user_id' => $student->getKey(),
+        'status' => Attempt::STATUS_GRADED,
+        'is_practice' => $practice,
+        'score' => $score,
+        'max_score' => $max,
+        'passed' => true,
+        'random_seed' => 1,
+        'started_at' => '2026-08-12 09:00:00',
+        'submitted_at' => '2026-08-12 10:00:00',
+    ]);
+}
+
+/**
+ * A guardian of this student, authorised for exactly these permissions.
+ *
+ * Moved out of `PeriodicReviewTest.php` when the report card needed it too — a
+ * helper declared in a test file exists only for the files loaded after it.
+ *
+ * @param  list<GuardianPermission>  $permissions
+ */
+function guardianOf(User $student, array $permissions): User
+{
+    $guardian = User::factory()->create(['platform_role' => PlatformRole::Parent]);
+
+    ParentStudentRelation::query()->create([
+        'guardian_user_id' => $guardian->getKey(),
+        'student_user_id' => $student->getKey(),
+        'student_name' => $student->name,
+        'relation_type' => RelationType::Parent->value,
+        'permissions' => array_map(
+            fn (GuardianPermission $permission): string => $permission->value,
+            $permissions,
+        ),
+        'status' => RelationStatus::Active->value,
+    ]);
+
+    return $guardian;
 }

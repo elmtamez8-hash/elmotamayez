@@ -48,12 +48,20 @@ function holdsPersonalColumns(string $directory): bool
         $contents = (string) file_get_contents($file);
 
         /*
-        | The two shapes a personal column takes in this tree: a foreign key to
-        | `users`, or a bare contact detail with no account behind it. The second
-        | is the one that gets forgotten — `invitations.email` holds an address for
-        | someone who may never sign up, and no `constrained('users')` names it.
+        | The three shapes a personal column takes in this tree: a foreign key to
+        | `users` DECLARED EITHER WAY, or a bare contact detail with no account
+        | behind it.
+        |
+        | ⚠️ THE `unsignedBigInteger` HALF WAS MISSING UNTIL SPEC 010's PHASE 7,
+        | AND IT HID A WHOLE MODULE. Community declares every user foreign key as
+        | `unsignedBigInteger('sender_user_id')` rather than
+        | `constrained('users')` — both are ordinary in this repository — so from
+        | Phase 1 to Phase 7 this guard reported green over private messages with
+        | minors, moderation notes about them and assessments of them, none of
+        | which any erasure or retention path could reach. Widening it lit up
+        | nothing else: every other module was already registered.
         */
-        if (preg_match("/constrained\('users'\)|->string\('email'|->string\('phone'/", $contents) === 1) {
+        if (preg_match("/constrained\('users'\)|unsignedBigInteger\('[a-z_]*user_id'\)|->string\('email'|->string\('phone'/", $contents) === 1) {
             return true;
         }
     }

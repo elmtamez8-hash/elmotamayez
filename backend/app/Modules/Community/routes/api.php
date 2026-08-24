@@ -6,9 +6,12 @@ use App\Modules\Community\Http\Controllers\AssistantController;
 use App\Modules\Community\Http\Controllers\ChatAttachmentController;
 use App\Modules\Community\Http\Controllers\ConversationController;
 use App\Modules\Community\Http\Controllers\Manage\AssistantController as ManageAssistantController;
+use App\Modules\Community\Http\Controllers\Manage\GradingSchemeController;
 use App\Modules\Community\Http\Controllers\Manage\PeriodicReviewController as ManagePeriodicReviewController;
+use App\Modules\Community\Http\Controllers\Manage\ReportCardSegmentController;
 use App\Modules\Community\Http\Controllers\MessageController;
 use App\Modules\Community\Http\Controllers\ModerationController;
+use App\Modules\Community\Http\Controllers\ReportCardController;
 use App\Modules\Community\Http\Controllers\SessionChatController;
 use App\Modules\Community\Http\Controllers\StudentReviewController;
 use Illuminate\Support\Facades\Route;
@@ -137,6 +140,38 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::get('/students/me/reviews', [StudentReviewController::class, 'index']);
 
+    /*
+    | The cumulative report card (US5).
+    |
+    | ⚠️ NO `POST /manage/report-cards` ANYWHERE. A card spans every teacher the
+    | student studies with, so a teacher who could generate one either reads a
+    | colleague's grades or produces a single-segment card that is then shown as
+    | the student's whole record — and `SC-012` passes green on any installation
+    | with one workspace. It is built by a scheduled platform job; the teacher
+    | reads their own SEGMENT, which is a different query against a different
+    | table and therefore cannot carry anybody else's row.
+    |
+    | ⚠️ AND THE STUDENT'S ROUTES TAKE A BARE UUID, never an implicit binding.
+    | `report_cards` carries no `workspace_id` by design and a student is a member
+    | of no workspace, so `WorkspaceScope` adds no condition here at all — an
+    | implicit `{card}` would resolve any child's card on the platform.
+    */
+    Route::get('/manage/report-card-segments', [ReportCardSegmentController::class, 'index']);
+
+    Route::get('/manage/grading-schemes', [GradingSchemeController::class, 'index']);
+    Route::post('/manage/grading-schemes', [GradingSchemeController::class, 'store'])
+        ->middleware('throttle:authoring');
+
+    Route::get('/report-cards', [ReportCardController::class, 'index']);
+    Route::get('/report-cards/{uuid}', [ReportCardController::class, 'show']);
+
+    // `report-card-render` is per-minute AND per-day, the `data-rights` shape:
+    // this is the other endpoint that hands over a document assembling
+    // everything the platform knows about one person, and a per-minute limit
+    // alone lets a patient loop spend the whole day's budget.
+    Route::get('/report-cards/{uuid}/download', [ReportCardController::class, 'download'])
+        ->middleware('throttle:report-card-render');
+
     // Hiding, banning, lifting — all rows, and there is no DELETE.
     Route::post('/moderation/actions', [ModerationController::class, 'store'])
         ->middleware('throttle:moderation-write');
@@ -160,3 +195,22 @@ Route::middleware('auth:sanctum')->group(function (): void {
 Route::get('/chat-media/{message}', [ChatAttachmentController::class, 'show'])
     ->middleware(['signed', 'throttle:public'])
     ->name('chat.attachment');
+
+/*
+| The report card PDF itself.
+|
+| Outside the bearer-token group for the same reason as the line above: a browser
+| following a `302` into a new tab, or a print dialog fetching the file, carries
+| no `Authorization` header. The signature is minted inside `download()`, which
+| only runs for a reader `ReportCardPolicy::view()` has already admitted, and it
+| lasts five minutes — a permanent URL to a named minor's grades is exactly what
+| the redirect exists to avoid.
+|
+| ⚠️ `throttle:public`, NOT `throttle:report-card-render`. That limiter keys on
+| `$request->user()`, which is null here — every caller would share one bucket
+| named `user:`, so one family fetching their card would rate-limit the platform.
+| The per-account budget is spent on `download()`, where there IS an account.
+*/
+Route::get('/report-card-files/{uuid}', [ReportCardController::class, 'file'])
+    ->middleware(['signed', 'throttle:public'])
+    ->name('report-cards.file');
