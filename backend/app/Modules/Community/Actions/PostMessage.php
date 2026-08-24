@@ -176,10 +176,22 @@ class PostMessage extends Action
             | rethrown: the message is already committed, and failing the request
             | now would ask the student to send it again and write it twice.
             */
-            // ⚠️ THE KEY SAYS «announce», NOT «broadcast». Laravel dispatches the
-            // broadcast BEFORE the listeners, so this one catch covers both the
-            // publish and `NotifyOfflineRecipient` behind it — a key naming only
-            // the socket would send the next reader looking in the wrong place.
+            // ⚠️ THE KEY SAYS «announce», NOT «broadcast», AND THIS CATCH DOES NOT
+            // SEE A REVERB OUTAGE — measured on 2026-08-23 with the server killed
+            // mid-session. `MessagePosted` is `ShouldBroadcast`, not
+            // `ShouldBroadcastNow`, and `NotifyOfflineRecipient` is queued too, so
+            // `event()` only ENQUEUES here and returns; the publish happens on the
+            // worker, where this block is long gone. What it actually guards is a
+            // synchronous failure while the event is being built or serialised —
+            // rare, and still worth not failing a committed message over.
+            //
+            // The outage itself lands in `failed_jobs` with the queue's own
+            // retries, which is the correct place for it: `SC-015` is about the
+            // ROW surviving and the reader being one refresh behind, and both hold
+            // — the send succeeded with the socket down and the API returned the
+            // message. Do not "fix" this by swallowing the job's failure; an
+            // undelivered broadcast that nothing records is the week-long silent
+            // breakage this catch was written against in the first place.
             Log::warning('community.message_announce_failed', [
                 'exception' => $e::class,
                 'conversation_uuid' => (string) $conversation->uuid,

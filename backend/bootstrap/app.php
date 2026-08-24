@@ -34,10 +34,25 @@ return Application::configure(basePath: dirname(__DIR__))
     |  - the Next dev server rewrites `/api/*` to the API and nothing else, so
     |    without the prefix Echo's auth request leaves the origin and is a CORS
     |    failure rather than an authorisation one.
+    |
+    | ⚠️ AND `EnsureCurrentWorkspace` IS THE FOURTH, FOUND ONLY BY A LIVE SOCKET.
+    | This list is NOT the `api` group — naming `auth:sanctum` here replaces the
+    | group, it does not extend it — so the middleware that pushes the workspace
+    | into spatie's `PermissionRegistrar` team id never ran. spatie is in team
+    | mode, so with no team id a teacher holds NO ROLES: `hasPermissionTo(
+    | 'chat.reply')` is false, `ConversationPolicy::view()` denies, and every
+    | private subscription is answered `403` — while the same teacher reads the
+    | very same thread over HTTP without trouble, because THAT route is in the
+    | group. Measured against a running Reverb on 2026-08-23; no test could see
+    | it, since the suite's `subscribeToChannel()` helper posts to this route with
+    | the team id already set by `Sanctum::actingAs()` in the test's own process.
     */
     ->withBroadcasting(
         __DIR__.'/../routes/channels.php',
-        ['prefix' => 'api', 'middleware' => ['auth:sanctum', 'throttle:broadcast-auth']],
+        [
+            'prefix' => 'api',
+            'middleware' => ['auth:sanctum', EnsureCurrentWorkspace::class, 'throttle:broadcast-auth'],
+        ],
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Trusted proxies are configured in AppServiceProvider::boot(), not here.

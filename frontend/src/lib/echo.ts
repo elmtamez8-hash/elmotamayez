@@ -90,9 +90,11 @@ export async function echo(): Promise<EchoClient | null> {
     }) as EchoClient;
 
     return client;
-  } catch {
+  } catch (reason) {
     // A missing library, a blocked port, a refused upgrade — all of them mean the
     // same thing to a caller, and all of them leave the page working.
+    console.error("[echo] socket unavailable", reason);
+
     return null;
   }
 }
