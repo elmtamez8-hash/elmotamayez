@@ -85,7 +85,9 @@ export default function WorkspacesPage() {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {ws.is_current && <Badge tone="success">الحالية</Badge>}
-                  {ws.pivot_role && <Badge tone="info">{roleLabel(ws.pivot_role)}</Badge>}
+                  {ws.pivot_role && (
+                    <Badge tone="info">{roleLabel(ws.pivot_role, ws.pivot_role_label)}</Badge>
+                  )}
                 </div>
               </div>
 

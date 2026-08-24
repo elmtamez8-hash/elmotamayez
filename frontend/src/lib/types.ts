@@ -177,6 +177,8 @@ export interface Workspace {
   is_owner: boolean;
   /** Present only when the workspace came from the membership list. */
   pivot_role?: string;
+  /** Arabic for `pivot_role`, from the server — see `roleLabel()`. */
+  pivot_role_label?: string | null;
   is_current: boolean;
   created_at: string;
 }

@@ -18,6 +18,7 @@ interface Member {
   name: string;
   email: string;
   role: string;
+  role_label: string | null;
 }
 
 const ROLE_OPTIONS = [
@@ -109,7 +110,11 @@ export default function MembersPage() {
         </span>
       ),
     },
-    { key: "role", header: "الدور", render: (m) => <Badge tone="info">{roleLabel(m.role)}</Badge> },
+    {
+      key: "role",
+      header: "الدور",
+      render: (m) => <Badge tone="info">{roleLabel(m.role, m.role_label)}</Badge>,
+    },
   ];
 
   return (

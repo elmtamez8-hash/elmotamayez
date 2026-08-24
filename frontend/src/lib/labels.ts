@@ -164,18 +164,30 @@ export function sessionEndedLabel(reason: string | null): string | null {
   return SESSION_ENDED_LABELS[reason] ?? "انتهت جلستك. سجّل الدخول من جديد.";
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  owner: "مالك",
-  admin: "مدير",
-  teacher: "مدرّس",
-  assistant: "مساعد",
-  student: "طالب",
-  parent: "وليّ أمر",
-  member: "عضو",
-};
-
-export function roleLabel(role: string): string {
-  return ROLE_LABELS[role] ?? role;
+/**
+ * Arabic for a role, from the SERVER.
+ *
+ * ⚠️ THE MAP THAT USED TO LIVE HERE HAD DRIFTED, AND THAT IS THE WHOLE STORY. It
+ * was keyed `owner`, `admin`, `assistant` — words that are not role names in this
+ * product. The real ones come from `Tenancy\Support\Roles`: `tenant-owner`,
+ * `assistant-teacher`, `super-admin`, `finance-admin`, `compliance-officer`. So
+ * FIVE of the seven missed the map entirely and rendered through its `?? role`
+ * fallback as English slugs on an Arabic-only screen — `tenant-owner` sat in a
+ * badge on `/members` and nobody could have translated it here without first
+ * noticing the keys were fiction.
+ *
+ * The wording now travels with the payload (`role_label`, `pivot_role_label`),
+ * beside the names themselves, exactly as notification type labels do — a second
+ * copy in the browser is stale the day the first one changes, and this one was
+ * stale before anybody read it.
+ *
+ * ⚠️ AND THE FALLBACK IS THE NAME ITSELF, ON PURPOSE. Roles are editable from
+ * `/admin`, so an owner can create one and name it — in Arabic, for their own
+ * workspace. Showing that name unchanged is right; a blank would be an empty
+ * badge and a guess would be worse.
+ */
+export function roleLabel(role: string, label?: string | null): string {
+  return label ?? role;
 }
 
 /** Dates are shown in Arabic with Western digits — Arabic-Indic digits inside a

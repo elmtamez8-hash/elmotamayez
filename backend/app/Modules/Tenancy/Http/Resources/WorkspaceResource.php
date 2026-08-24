@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Tenancy\Http\Resources;
 
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\RoleLabels;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -28,6 +29,12 @@ class WorkspaceResource extends JsonResource
             'pivot_role' => $this->whenPivotLoaded(
                 'workspace_members',
                 fn () => $this->resource->getRelationValue('pivot')?->getAttribute('role'),
+            ),
+            // Arabic for it, from beside the role names themselves — never from a
+            // second map in the browser, which had already drifted out of step.
+            'pivot_role_label' => $this->whenPivotLoaded(
+                'workspace_members',
+                fn () => RoleLabels::for($this->resource->getRelationValue('pivot')?->getAttribute('role')),
             ),
             'created_at' => $this->created_at,
         ];

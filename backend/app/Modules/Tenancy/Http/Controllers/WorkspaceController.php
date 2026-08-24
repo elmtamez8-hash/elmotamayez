@@ -19,6 +19,7 @@ use App\Modules\Tenancy\Http\Requests\UpdateWorkspaceRequest;
 use App\Modules\Tenancy\Http\Resources\WorkspaceResource;
 use App\Modules\Tenancy\Models\Invitation;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\RoleLabels;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -57,6 +58,10 @@ class WorkspaceController extends Controller
                 'name' => $member->name,
                 'email' => $member->email,
                 'role' => $member->getRelationValue('pivot')?->getAttribute('role'),
+                // The Arabic comes from the server, where the role names live.
+                // A map in the browser had already drifted from `Roles.php` and
+                // was printing five of the seven as English slugs.
+                'role_label' => RoleLabels::for($member->getRelationValue('pivot')?->getAttribute('role')),
             ]),
         ]);
     }
@@ -100,6 +105,7 @@ class WorkspaceController extends Controller
             'workspace_name' => $invitation->workspace->name,
             'email' => $invitation->email,
             'role' => $invitation->role,
+            'role_label' => RoleLabels::for($invitation->role),
             'expires_at' => $invitation->expires_at,
             'is_expired' => $invitation->isExpired(),
             'is_accepted' => $invitation->isAccepted(),

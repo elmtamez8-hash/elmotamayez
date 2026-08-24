@@ -14,6 +14,7 @@ interface InvitationDetails {
   workspace_name: string;
   email: string;
   role: string;
+  role_label: string | null;
   expires_at: string;
   is_expired: boolean;
   is_accepted: boolean;
@@ -70,7 +71,7 @@ export default function InvitationPage({
     );
   }
 
-  const role = roleLabel(invitation.role);
+  const role = roleLabel(invitation.role, invitation.role_label);
 
   if (invitation.is_accepted) {
     return (
