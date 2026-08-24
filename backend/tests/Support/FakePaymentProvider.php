@@ -61,6 +61,13 @@ class FakePaymentProvider implements PaymentProviderInterface
     /** Every charge this provider was asked to start, in order. */
     public int $chargeCount = 0;
 
+    /**
+     * The return URL handed to each charge, in order.
+     *
+     * @var list<string>
+     */
+    public array $returnUrls = [];
+
     /** What transactionsInWindow() reports — reconciliation's other side. */
     public array $windowTransactions = [];
 
@@ -71,9 +78,15 @@ class FakePaymentProvider implements PaymentProviderInterface
         return $this->identifier;
     }
 
-    public function createCharge(Order $order): ChargeIntent
+    public function createCharge(Order $order, string $returnUrl): ChargeIntent
     {
         $this->chargeCount++;
+
+        // ⚠️ CAPTURED, NOT IGNORED. This is the only place a test can see what
+        // the platform actually hands a gateway — and the return URL was the
+        // one field spec 007 never built, so a fake that swallowed it would let
+        // that gap reappear silently.
+        $this->returnUrls[] = $returnUrl;
 
         return new ChargeIntent(
             reference: 'FAKE-'.$order->getKey().'-'.$this->chargeCount,

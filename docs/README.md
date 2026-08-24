@@ -247,6 +247,34 @@ npm run dev                # App at :3000 (proxies /api to :8000)
 - **Teacher:** teacher@example.com / password
 - **Student:** student@example.com / password
 
+### Deploying a release that adds a `NotificationType`
+
+**Nothing extra to run — but only because a migration does it.** `plain migrate`
+is the whole deployment step; `2026_08_25_000100_backfill_missing_notification_templates`
+calls `NotificationTemplateSeeder::seedMissing()`, which writes the rows a live
+database is missing with `firstOrCreate` and touches nothing that exists.
+
+⚠️ **Never put `db:seed --class=NotificationTemplateSeeder` in a deployment.**
+`run()` writes with `updateOrCreate`, which is correct for `migrate:fresh --seed`
+and would replace every wording an admin has edited from the panel with the
+shipped default, on every release, silently.
+
+⚠️ **And a type added after that migration needs its own backfill migration** —
+one line, copying that file. Without it the notification is dropped in *silence*:
+`TemplateRenderer` refuses a missing template and `DispatchNotification` logs
+rather than failing the operation that triggered it. Measured, not assumed —
+spec 010's first live announcement reached **zero** of three students on a
+database whose migrations were fully up to date, with nothing reporting a fault.
+The suite cannot see it either: `tests/Pest.php` seeds the templates before every
+Feature test. `tests/Feature/Notifications/TemplateBackfillTest.php` is the guard.
+
+### `FRONTEND_URL` is load-bearing for payments
+
+`payments.return_url_base` defaults to it, and `PaymentReturnUrl` builds the
+address a gateway returns the payer to. In development one host serves both
+through Next's rewrite; deployed, the API and the app are two origins and a
+return URL built from `APP_URL` lands the payer on a JSON endpoint.
+
 ## Testing
 ```bash
 cd backend
@@ -954,6 +982,30 @@ the registry, because resolving a provider by string is the coupling the interfa
 **Refunds are credits, always.** `supportsRefund()` returns `false` and no money leaves
 through code: a refund posts a negative ledger entry with `enforceFloor: true`, and the
 transfer out of the system is a human decision taken elsewhere.
+
+**`createCharge()` takes a `$returnUrl`, and the parameter is required on purpose.** It is
+where the gateway sends the payer BACK — the opposite direction from
+`ChargeIntent::redirectUrl`, which sends them to the gateway. ⚠️ **The return screen
+`/billing/pay/return` shipped with 007 and nothing built its URL, on either side**: no
+field on the interface, no config key, no builder, and no link in the frontend. It reads
+`?transaction=`, polls for the settled answer and renders three real states — a finished
+page with no inbound path, which the day a gateway is integrated would have been reached
+by a URL somebody invented. `PaymentReturnUrl` builds it from `payments.return_url_base`
+(← `FRONTEND_URL`), and `InitiatePayment` mints the transaction's uuid one line BEFORE the
+provider call so the URL can name the attempt. A parameter with a default would have been
+the polite change and would have kept exactly that silence.
+
+**The screen displays; it never decides.** A return URL is a redirect in the payer's own
+browser, so anyone can type it with any query string. What settled the payment is the
+signed callback the server verified — a page that read `?status=success` would be granting
+credits on the strength of a URL.
+
+⚠️ **`InitiatePayment`'s docblock used to claim the transaction row is written before the
+provider is called; it never was.** The claim was corrected rather than the order: a
+callback is matched on the PROVIDER'S reference, which does not exist until `createCharge()`
+returns, so writing our row first produces a row the arriving callback still cannot find.
+The residual race — a gateway calling back faster than we commit — is open and belongs
+here, not to a guess in that file.
 
 ### Endpoints
 

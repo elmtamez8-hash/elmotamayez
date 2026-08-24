@@ -199,7 +199,9 @@ describe('provider abstraction (OCP)', function (): void {
 
         $order = app(CreateOrder::class)->handle($course, $student);
 
-        $charge = app(PaymentProviderInterface::class)->createCharge($order);
+        // The return URL is required and ignored here — a bank transfer has no
+        // payment page, so there is nowhere to come back from.
+        $charge = app(PaymentProviderInterface::class)->createCharge($order, 'https://app.test/x');
 
         // A typed ChargeIntent since 007, not an array: an array contract is a
         // contract nothing checks, and the first gateway adapter would have had

@@ -9,21 +9,32 @@ use App\Modules\Payments\Data\ChargeIntent;
 use App\Modules\Payments\Enums\PaymentStatus;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
+use App\Modules\Payments\Support\PaymentReturnUrl;
 use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Starts a payment: records the attempt, then asks the provider for an intent.
  *
- * ⚠️ THE ROW IS WRITTEN BEFORE THE PROVIDER IS CALLED, never after. A callback
- * can arrive faster than our own commit — a declared edge case — and a
- * transaction written afterwards means the notification for a payment we
- * ourselves started finds nothing to attach to. Written first, the worst case is
- * an initiated row for a charge the provider refused to create, which the
- * timeout sweep closes.
+ * ⚠️ THIS DOCBLOCK USED TO CLAIM «THE ROW IS WRITTEN BEFORE THE PROVIDER IS
+ * CALLED, NEVER AFTER», AND THE CODE BELOW HAS ALWAYS DONE THE OPPOSITE. The
+ * claim is corrected rather than the order, because on inspection the invariant
+ * it states cannot be reached from here: a callback is matched on the PROVIDER'S
+ * reference (`unique(provider, reference)`), and that reference does not exist
+ * until `createCharge()` returns. Writing our row first would produce a row the
+ * arriving callback still cannot find — the race unchanged, and a false sentence
+ * standing over it. The residual question of a gateway that calls back faster
+ * than we commit belongs to spec 007 and is filed there, not guessed at here.
+ *
+ * What IS ordered on purpose: the transaction's uuid is minted BEFORE the
+ * provider call, because the return URL carries it and the gateway needs that
+ * URL at the moment it is asked for a charge. `HasUuid` only generates when the
+ * attribute is null, so the value handed out and the value persisted are the
+ * same one — which is what the contract test measures.
  *
  * ⚠️ AND A SECOND ATTEMPT IS A SECOND ROW. Retry is the normal case — a student
  * abandons a bank page and comes back — so an order carries as many transactions
@@ -35,6 +46,8 @@ class InitiatePayment extends Action
 {
     use LogsActivity;
 
+    public function __construct(private readonly PaymentReturnUrl $returnUrls) {}
+
     public function handle(Order $order, PaymentProviderInterface $provider): ChargeIntent
     {
         if ($order->status === 'approved') {
@@ -42,29 +55,36 @@ class InitiatePayment extends Action
         }
 
         /*
-        | ⚠️ ONE ORDER AT A TIME, IN A STATED ORDER — the guardian case (FR-004
-        | edge). A parent paying for three children has three orders, and which
-        | one a payment settles must not be "whichever the query returned first":
-        | an index change would silently re-point the money, and the child whose
-        | access was restored would change with it.
+        | ⚠️ MINTED HERE, NOT LEFT TO THE MODEL. The gateway is told where to send
+        | the payer back to at the moment it is asked for a charge, and that URL
+        | names this attempt — so the uuid has to exist one line before the
+        | provider call rather than one line after it.
         |
-        | The order is declared in config/payments.php and enforced here, so the
-        | answer is in one readable place rather than in a query plan. This
-        | Action settles the order it was HANDED; the allocation rule is what
-        | decides which order that is when a caller has several.
+        | `uuid` is deliberately not `$fillable`, so it is set on the instance:
+        | mass-assignable, it would be a second way to choose a row's identity
+        | from outside.
         */
-        $intent = $provider->createCharge($order);
+        $uuid = (string) Str::orderedUuid();
 
-        $transaction = DB::transaction(fn (): PaymentTransaction => PaymentTransaction::create([
-            'workspace_id' => $order->workspace_id,
-            'order_id' => $order->getKey(),
-            'provider' => $provider->identifier(),
-            'amount_minor' => $intent->amountMinor,
-            'currency' => $intent->currency,
-            'status' => PaymentStatus::Pending,
-            'method' => $intent->method,
-            'reference' => $intent->reference,
-        ]));
+        $intent = $provider->createCharge($order, $this->returnUrls->for($uuid));
+
+        $transaction = DB::transaction(function () use ($order, $provider, $intent, $uuid): PaymentTransaction {
+            $transaction = new PaymentTransaction([
+                'workspace_id' => $order->workspace_id,
+                'order_id' => $order->getKey(),
+                'provider' => $provider->identifier(),
+                'amount_minor' => $intent->amountMinor,
+                'currency' => $intent->currency,
+                'status' => PaymentStatus::Pending,
+                'method' => $intent->method,
+                'reference' => $intent->reference,
+            ]);
+
+            $transaction->uuid = $uuid;
+            $transaction->save();
+
+            return $transaction;
+        });
 
         // No payload: an intent may carry a redirect URL, and a URL a provider
         // built is not evidence worth storing per attempt.
@@ -79,8 +99,16 @@ class InitiatePayment extends Action
     /**
      * Which order a payer with several open ones settles first.
      *
+     * ⚠️ ONE ORDER AT A TIME, IN A STATED ORDER — the guardian case (FR-004
+     * edge). A parent paying for three children has three orders, and which one
+     * a payment settles must not be "whichever the query returned first": an
+     * index change would silently re-point the money, and the child whose access
+     * was restored would change with it.
+     *
      * ⚠️ Declared, not discovered. `config('payments.allocation_order')` names
-     * the rule; this is the only implementation of it.
+     * the rule; this is the only implementation of it — and `handle()` above
+     * settles the order it was HANDED, so this is what decides which order that
+     * is when a caller has several.
      *
      * @param  Collection<int, Order>  $orders
      */

@@ -18,35 +18,72 @@ use Illuminate\Database\Seeder;
  * silently overwrite an admin's edits with the shipped default. It does overwrite
  * here, which is correct for `migrate:fresh --seed` and wrong for production —
  * which is why the seeder is not part of any deployment path.
+ *
+ * ⚠️ AND THAT LEFT A HOLE THE SIZE OF EVERY NEW TYPE, closed by `seedMissing()`
+ * below rather than by putting this in a deployment. See its docblock: a type
+ * added on a live database has no template, and a notification with no template
+ * is dropped in silence.
  */
 class NotificationTemplateSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->write(overwrite: true);
+    }
+
+    /**
+     * Write only the rows that are MISSING, and touch nothing that exists.
+     *
+     * ⚠️ THIS EXISTS BECAUSE `run()` MAY NOT BE PART OF A DEPLOYMENT AND A NEW
+     * TYPE MUST STILL LAND. The docblock above says why: `updateOrCreate` is
+     * correct for `migrate:fresh --seed` and would silently replace an admin's
+     * edited wording on every production deploy. So a new `NotificationType`
+     * arrives on a live database with no template — and `TemplateRenderer`
+     * refuses a missing one while `DispatchNotification` logs and does not fail,
+     * so the notification is dropped in **silence**.
+     *
+     * Measured, not reasoned about: spec 010's first live announcement reached
+     * ZERO of three students on a database whose migrations were up to date, and
+     * nothing anywhere reported a fault. A backfill migration calls this.
+     *
+     * `firstOrCreate` rather than `updateOrCreate` is the whole difference, and
+     * it is what makes running this twice — or on a database an admin has been
+     * editing for a year — harmless.
+     */
+    public function seedMissing(): void
+    {
+        $this->write(overwrite: false);
+    }
+
+    private function write(bool $overwrite): void
+    {
         foreach ($this->templates() as $type => [$title, $body, $variables]) {
             $notificationType = NotificationType::from($type);
 
-            MessageTemplate::query()->updateOrCreate(
-                [
-                    'type' => $notificationType->value,
-                    'channel' => NotificationChannel::InApp->value,
-                ],
-                [
-                    'key' => MessageTemplate::keyFor($notificationType, NotificationChannel::InApp),
-                    'title_ar' => $title,
-                    'body_ar' => $body,
-                    'variables' => $variables,
-                    'provider_approval_status' => MessageTemplate::APPROVAL_NOT_REQUIRED,
-                    'is_active' => true,
-                ],
-            );
+            $match = [
+                'type' => $notificationType->value,
+                'channel' => NotificationChannel::InApp->value,
+            ];
+
+            $values = [
+                'key' => MessageTemplate::keyFor($notificationType, NotificationChannel::InApp),
+                'title_ar' => $title,
+                'body_ar' => $body,
+                'variables' => $variables,
+                'provider_approval_status' => MessageTemplate::APPROVAL_NOT_REQUIRED,
+                'is_active' => true,
+            ];
+
+            $overwrite
+                ? MessageTemplate::query()->updateOrCreate($match, $values)
+                : MessageTemplate::query()->firstOrCreate($match, $values);
 
             // Spec 020. A WhatsApp row for every type that defaults to it, and
             // the set is DERIVED from the same predicate the default is derived
             // from — so a type added tomorrow gets its row on the next seed
             // instead of being dropped in silence by TemplateRenderer.
             if (in_array(NotificationChannel::WhatsApp, $notificationType->defaultChannels(), true)) {
-                $this->whatsAppTemplate($notificationType->value, $title, $body, $variables);
+                $this->whatsAppTemplate($notificationType->value, $title, $body, $variables, $overwrite);
             }
         }
 
@@ -64,6 +101,7 @@ class NotificationTemplateSeeder extends Seeder
             'رمز تأكيد رقم واتساب',
             'رمز تأكيد رقمك في منصّة مدارك هو {{ code }}. ينتهي خلال عشر دقائق.',
             ['code'],
+            $overwrite,
         );
     }
 
@@ -84,9 +122,11 @@ class NotificationTemplateSeeder extends Seeder
      *
      * @param  list<string>  $variables
      */
-    private function whatsAppTemplate(string $type, string $title, string $body, array $variables): void
+    private function whatsAppTemplate(string $type, string $title, string $body, array $variables, bool $overwrite = true): void
     {
-        MessageTemplate::query()->updateOrCreate(
+        $writer = $overwrite ? 'updateOrCreate' : 'firstOrCreate';
+
+        MessageTemplate::query()->{$writer}(
             [
                 'type' => $type,
                 'channel' => NotificationChannel::WhatsApp->value,

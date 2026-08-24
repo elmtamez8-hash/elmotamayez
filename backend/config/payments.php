@@ -129,4 +129,28 @@ return [
         explode(',', (string) env('PAYMENTS_WEBHOOK_ALLOWED_IPS', '')),
     ))),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Where a gateway returns the payer
+    |--------------------------------------------------------------------------
+    |
+    | The origin of the STUDENT-FACING APP, which is not the API's own origin in
+    | production. `PaymentReturnUrl` appends `/billing/pay/return?transaction=…`
+    | to it and `InitiatePayment` hands the result to the provider.
+    |
+    | ⚠️ IT DEFAULTS TO `app.url` AND MUST BE SET SEPARATELY WHEN THEY DIFFER. In
+    | development the browser reaches the API through Next's rewrite, so one host
+    | serves both and the default is correct. Deployed, the API and the app are
+    | two origins — and a return URL built from `app.url` lands the payer, holding
+    | a gateway's redirect, on a JSON endpoint.
+    |
+    | ⚠️ AND IT IS AN ENV VAR RATHER THAN A `platform_settings` ROW. That rule is
+    | about numbers an operator tunes from the panel; this is a deployment
+    | address, and a row anybody with panel access could edit is a row that can
+    | point a payer mid-payment at a host we do not control.
+    |
+    */
+
+    'return_url_base' => env('FRONTEND_URL', env('APP_URL', 'http://localhost')),
+
 ];

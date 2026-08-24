@@ -27,7 +27,14 @@ final class ManualTransferProvider implements PaymentProviderInterface
         return 'manual';
     }
 
-    public function createCharge(Order $order): ChargeIntent
+    /**
+     * ⚠️ `$returnUrl` IS IGNORED HERE, AND THE PARAMETER STAYS. A bank transfer
+     * has no payment page, so there is nowhere to return FROM — the payer never
+     * left. Dropping it from the signature would make this class stop
+     * implementing the interface; taking it and saying nothing would leave the
+     * next reader wondering which of the two it is.
+     */
+    public function createCharge(Order $order, string $returnUrl): ChargeIntent
     {
         return new ChargeIntent(
             // ⚠️ A FRESH REFERENCE PER ATTEMPT, never the order's uuid. The

@@ -32,8 +32,22 @@ interface PaymentProviderInterface
 
     /**
      * Start a charge for the given order.
+     *
+     * ⚠️ `$returnUrl` IS REQUIRED AND HAS NO DEFAULT, DELIBERATELY. It is where
+     * the gateway sends the payer back to when it is done with them — the other
+     * direction from `ChargeIntent::redirectUrl`, which sends them TO the
+     * gateway. Spec 007 shipped the return SCREEN and no way to reach it: no
+     * field here, no config, no builder, so a gateway author would have found a
+     * finished page with no inbound path and invented a URL nobody registered.
+     *
+     * A parameter with a default would have been the polite change and would
+     * have kept exactly that silence. Without one, every implementor — including
+     * tomorrow's — has to look at it once.
+     *
+     * A provider with no payment page ignores it, and `ManualTransferProvider`
+     * says so where it does.
      */
-    public function createCharge(Order $order): ChargeIntent;
+    public function createCharge(Order $order, string $returnUrl): ChargeIntent;
 
     /**
      * Verify a charge status with the provider (for gateway/webhook flows).
