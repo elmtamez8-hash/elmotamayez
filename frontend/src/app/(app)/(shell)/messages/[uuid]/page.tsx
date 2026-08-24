@@ -19,7 +19,7 @@ import {
   type ChatMessage,
   type Conversation,
 } from "@/lib/conversations";
-import { listen } from "@/lib/echo";
+import { join, listen } from "@/lib/echo";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 
@@ -58,10 +58,31 @@ export default function ConversationPage() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [banned, setBanned] = useState(false);
+  /** How many OTHER people have this thread open right now. Never stored. */
+  const [present, setPresent] = useState(0);
+  const [typing, setTyping] = useState<string | null>(null);
+  const [whisper, setWhisper] = useState<(() => void) | null>(null);
   const [moderating, setModerating] = useState(false);
   const [olderExhausted, setOlderExhausted] = useState(false);
 
   const bottom = useRef<HTMLDivElement | null>(null);
+  const lastWhisper = useRef(0);
+
+  /*
+   * ⚠️ AT MOST ONE WHISPER EVERY TWO SECONDS. One per keystroke is one FRAME per
+   * keystroke — Reverb's own rate limiter would begin dropping them mid-sentence,
+   * and the indicator on the other side would flicker rather than hold. Two
+   * seconds is comfortably inside the three-second expiry on the receiving end, so
+   * a continuous typist never appears to stop.
+   */
+  const announceTyping = () => {
+    const now = Date.now();
+
+    if (whisper === null || now - lastWhisper.current < 2000) return;
+
+    lastWhisper.current = now;
+    whisper();
+  };
 
   const refresh = useCallback(
     (mode: "initial" | "catch-up") => {
@@ -146,6 +167,62 @@ export default function ConversationPage() {
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" });
   }, [messages]);
+
+  /*
+   * Who else is here, and who is typing (`FR-058` · `FR-059`).
+   *
+   * ⚠️ THE OTHER SIDE IS «ANYONE WHO IS NOT ME», NOT A NAMED PERSON. A private
+   * thread has two ends, but the teacher's end may be answered by an assistant —
+   * so a presence check written against the counterpart's uuid would show
+   * «غير متصل» while the person actually replying is right there.
+   *
+   * ⚠️ AND THE TYPING FLAG EXPIRES ON A TIMER, because a whisper has no «stopped»
+   * event and no delivery guarantee. Somebody who types one letter and closes the
+   * tab would otherwise be typing for ever on the other person's screen.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    let release: (() => void) | null = null;
+    let typingTimer: number | undefined;
+
+    const dropTyping = () => {
+      window.clearTimeout(typingTimer);
+      typingTimer = window.setTimeout(() => setTyping(null), 3000);
+    };
+
+    join(`chat-presence.${uuid}`, {
+      here: (members) => setPresent(members.filter((m) => m.uuid !== user?.uuid).length),
+      joining: (member) => {
+        if (member.uuid !== user?.uuid) setPresent((n) => n + 1);
+      },
+      leaving: (member) => {
+        if (member.uuid !== user?.uuid) setPresent((n) => Math.max(0, n - 1));
+      },
+      typing: (member) => {
+        if (member.uuid === user?.uuid) return;
+
+        setTyping(member.name);
+        dropTyping();
+      },
+    })
+      .then((room) => {
+        if (cancelled) {
+          room.release();
+
+          return;
+        }
+
+        release = room.release;
+        setWhisper(() => room.whisper);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(typingTimer);
+      release?.();
+    };
+  }, [uuid, user?.uuid]);
 
   const send = () => {
     const body = draft.trim();
@@ -244,6 +321,9 @@ export default function ConversationPage() {
     <div className="flex h-full min-w-0 flex-1 flex-col">
       <ChatHeader
         title={thread?.counterparty_name ?? "المحادثة"}
+        // ⚠️ «يكتب…» OUTRANKS «متصل الآن», because it implies it and says more.
+        // Showing both stacks two lines of status under a two-word name.
+        subtitle={typing !== null ? "يكتب…" : present > 0 ? "متصل الآن" : null}
         canModerate={thread?.can_moderate ?? false}
         banned={banned}
         onBanToggle={toggleBan}
@@ -292,7 +372,10 @@ export default function ConversationPage() {
 
       <Composer
         value={draft}
-        onChange={setDraft}
+        onChange={(next) => {
+          setDraft(next);
+          announceTyping();
+        }}
         onSend={send}
         disabled={sending}
         error={bodyError}

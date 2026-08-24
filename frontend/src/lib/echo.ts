@@ -191,3 +191,92 @@ export async function listen(
     connection.leave(channel);
   };
 }
+
+/** Somebody else in the room. Name and uuid only — see `routes/channels.php`. */
+export type ChatMember = { uuid: string; name: string };
+
+/**
+ * Join the presence channel for one thread (`FR-058` · `FR-059`).
+ *
+ * ⚠️ PRESENCE, NOT A SECOND PRIVATE CHANNEL, AND THE PROTOCOL DECIDED THAT. Reverb
+ * accepts client events only `from: members`, so a whisper — which is what a
+ * typing indicator has to be if it is not to write a row per keystroke — is
+ * refused on a private channel and accepted here. The same subscription answers
+ * «who is watching this thread», so one channel carries both features.
+ *
+ * ⚠️ AND NOTHING IS PERSISTED, DELIBERATELY. `FR-058` forbids a «last seen»
+ * column: what is never written cannot be exported under a data request, cannot
+ * be retained past its purpose, and cannot become a record of when a child was
+ * awake. The member list lives in the connection and dies with it.
+ *
+ * Returns an unsubscribe and a `whisper` — null when there is no socket, which is
+ * the same branch an outage takes and the reason every caller must handle it.
+ */
+export async function join(
+  channel: string,
+  handlers: {
+    here: (members: ChatMember[]) => void;
+    joining: (member: ChatMember) => void;
+    leaving: (member: ChatMember) => void;
+    typing: (member: ChatMember) => void;
+  },
+): Promise<{ release: () => void; whisper: (() => void) | null }> {
+  const connection = await echo();
+
+  if (!connection) return { release: () => {}, whisper: null };
+
+  const room = connection.join(channel);
+
+  room
+    .here(handlers.here)
+    .joining(handlers.joining)
+    .leaving(handlers.leaving)
+    // The name is ours and travels only between clients — the server neither
+    // stores it nor rebroadcasts it, which is what a whisper IS.
+    .listenForWhisper("typing", handlers.typing);
+
+  holders.set(channel, (holders.get(channel) ?? 0) + 1);
+
+  let released = false;
+
+  return {
+    release: () => {
+      if (released) return;
+
+      released = true;
+
+      const left = (holders.get(channel) ?? 1) - 1;
+
+      if (left > 0) {
+        holders.set(channel, left);
+
+        return;
+      }
+
+      holders.delete(channel);
+      connection.leave(channel);
+    },
+    /*
+     * `whisper` on the channel object, not on Echo: it is addressed to the other
+     * members of THIS room.
+     *
+     * ⚠️ AND IT CARRIES THE SENDER'S OWN MEMBER INFO, because a whisper does NOT.
+     * The first version sent `{}` — the frame arrived, the handler ran, and the
+     * receiver had no uuid to compare against its own and no name to show, so
+     * every whisper both bypassed the «is this me» filter and rendered a nameless
+     * indicator. The server never sees a whisper at all, so there is nothing to
+     * stamp it: the identity has to be in the payload, taken from the membership
+     * the channel already authorised.
+     */
+    whisper: () => {
+      // `members` is pusher-js's own bookkeeping and is absent from Echo's
+      // published type; the cast reaches it without widening the channel to any.
+      const me = (room as unknown as { members?: { me?: { info?: ChatMember } } })
+        .members?.me?.info;
+
+      if (me === undefined) return;
+
+      room.whisper("typing", me);
+    },
+  };
+}

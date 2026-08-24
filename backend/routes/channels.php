@@ -64,3 +64,39 @@ Broadcast::channel('conversation.{uuid}', function (User $user, string $uuid): b
 | «something of yours changed», addressed to you by your own uuid.
 */
 Broadcast::channel('user.{uuid}', fn (User $user, string $uuid): bool => (string) $user->uuid === $uuid);
+
+/*
+| Who is in this thread right now, and who is typing (`FR-058` · `FR-059`).
+|
+| ⚠️ A PRESENCE CHANNEL WITH ITS OWN NAME, NOT THE PRIVATE ONE. Laravel strips
+| `private-` AND `presence-` before matching, so reusing `conversation.{uuid}`
+| would give one definition two meanings — and the private subscription would
+| start receiving the member array simply because a truthy return authorises it.
+| A separate name keeps «may this person read the thread» and «who is watching it»
+| two questions with two answers.
+|
+| ⚠️ AND THE CHANNEL IS WHAT MAKES «يكتب الآن» POSSIBLE AT ALL. Reverb's
+| `accept_client_events_from` is `members`, so a whisper is refused on a private
+| channel and accepted on a presence one — the typing indicator is not a design
+| preference here, it is the only shape the protocol allows without a route, a
+| table and a write per keystroke.
+|
+| ⚠️ AND NOTHING IS STORED. `FR-058` forbids a «last seen» column outright: what
+| is not written cannot be exported, retained, or turned into a record of when a
+| child was awake. The array below is assembled per connection and dies with it.
+|
+| The guard is the SAME method the door uses — `ConversationPolicy::view()` —
+| never a second condition written beside it.
+*/
+Broadcast::channel('chat-presence.{uuid}', function (User $user, string $uuid): array|bool {
+    $conversation = Conversation::query()->withoutWorkspaceScope()->where('uuid', $uuid)->first();
+
+    if (! $conversation instanceof Conversation || ! Gate::forUser($user)->allows('view', $conversation)) {
+        return false;
+    }
+
+    // A name and a uuid. No email, no phone, no role: this payload is handed to
+    // everyone else in the room, and a presence member list is the easiest place
+    // in a chat product to leak a contact detail without noticing.
+    return ['uuid' => (string) $user->uuid, 'name' => $user->name];
+});
