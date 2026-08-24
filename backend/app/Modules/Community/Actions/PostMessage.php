@@ -13,6 +13,8 @@ use App\Modules\Community\Models\ConversationParticipant;
 use App\Modules\Community\Models\Message;
 use App\Modules\Community\Models\ModerationAction;
 use App\Modules\Community\Support\TermFilter;
+use App\Modules\Media\Enums\MediaAssetStatus;
+use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AssistantScopeDirectory;
@@ -68,9 +70,23 @@ class PostMessage extends Action
             throw new DomainException($filtered['refused']);
         }
 
-        $data = new PostMessageData($data->conversationUuid, $filtered['body']);
+        $data = new PostMessageData($data->conversationUuid, $filtered['body'], $data->attachmentUuid);
 
-        $message = DB::transaction(function () use ($conversation, $sender, $data): Message {
+        $attachment = $this->resolveAttachment($conversation, $data->attachmentUuid);
+
+        /*
+        | ⚠️ «TEXT OR ATTACHMENT, NEVER NEITHER» IS ENFORCED HERE, because `body`
+        | is nullable in the schema now. A voice note has no words, so a NOT NULL
+        | column would have forced `''` and made «empty message» and «recording»
+        | the same row. The rule that replaces the constraint belongs in the
+        | Action — the single entry point the seeders, the panel and the API all
+        | share — exactly as every other business rule on this model does.
+        */
+        if ($data->body === '' && $attachment === null) {
+            throw new DomainException('اكتب رسالة أو أرفق ملفاً.');
+        }
+
+        $message = DB::transaction(function () use ($conversation, $sender, $data, $attachment): Message {
             $message = Message::query()->create([
                 // ⚠️ FROM THE CONVERSATION, NEVER FROM THE CONTEXT. The sender is
                 // usually a student, who is a member of no workspace at all — so
@@ -79,7 +95,10 @@ class PostMessage extends Action
                 'workspace_id' => $conversation->workspace_id,
                 'conversation_id' => $conversation->getKey(),
                 'sender_user_id' => $sender->getKey(),
-                'body' => $data->body,
+                // Null rather than '' when there is only an attachment: the
+                // column is nullable precisely so the two cases stay distinct.
+                'body' => $data->body === '' ? null : $data->body,
+                'media_asset_id' => $attachment?->getKey(),
             ]);
 
             $this->claimLastMessage($conversation, (int) $message->getKey());
@@ -197,6 +216,61 @@ class PostMessage extends Action
                 'conversation_uuid' => (string) $conversation->uuid,
             ]);
         }
+    }
+
+    /**
+     * The asset this message is about to carry, or null.
+     *
+     * ⚠️ THREE CONDITIONS, AND EACH ONE IS A REAL ATTACK RATHER THAN A FORMALITY.
+     * The uuid arrives in a request body, so without them a sender could name
+     * ANY asset on the platform and have it rendered inside their own thread:
+     *
+     *  - it must be owned by THIS conversation — an asset uuid is otherwise a
+     *    read primitive for every lesson video and every other thread's pictures;
+     *  - it must be `Ready` — a `Pending` row is an upload that never arrived, and
+     *    attaching it puts a permanently broken image in a thread nobody can edit;
+     *  - it must not already be on a message — one ticket, one message. Without
+     *    this, a second send re-uses the first upload and the moderation archive
+     *    describes two messages by one file, so hiding one leaves the other.
+     *
+     * A failure is a `DomainException` and not a 403: the sender chose a file, and
+     * telling them «you may not write here» about a picture they just uploaded is
+     * the wrong sentence.
+     */
+    private function resolveAttachment(Conversation $conversation, ?string $uuid): ?MediaAsset
+    {
+        if ($uuid === null) {
+            return null;
+        }
+
+        $asset = MediaAsset::query()
+            // A student is a member of no workspace, so the global scope adds no
+            // condition for them — the ownership check below is the real guard
+            // and is written out rather than relied upon.
+            ->withoutWorkspaceScope()
+            ->where('uuid', $uuid)
+            ->where('owner_type', Conversation::class)
+            ->where('owner_id', $conversation->getKey())
+            ->first();
+
+        if (! $asset instanceof MediaAsset) {
+            throw new DomainException('لم نجد المرفق. أعد رفعه.');
+        }
+
+        if ($asset->status !== MediaAssetStatus::Ready) {
+            throw new DomainException('لم يكتمل رفع المرفق بعد.');
+        }
+
+        $claimed = Message::query()
+            ->withoutWorkspaceScope()
+            ->where('media_asset_id', $asset->getKey())
+            ->exists();
+
+        if ($claimed) {
+            throw new DomainException('هذا المرفق مُرسَل بالفعل.');
+        }
+
+        return $asset;
     }
 
     /** @return list<string> */

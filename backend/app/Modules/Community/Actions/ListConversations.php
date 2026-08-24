@@ -67,7 +67,7 @@ class ListConversations extends Action
             // read per row: a `whenLoaded` key that is simply absent makes the
             // page one query cheaper and the list nameless, which a budget test
             // reads as an improvement.
-            ->with(['lastMessage.sender', 'student', 'workspace'])
+            ->with(['lastMessage.sender', 'lastMessage.mediaAsset', 'student', 'workspace'])
             ->where(function (Builder $query) use ($participantIds, $teacherSide, $workspaceId): void {
                 $query->whereIn('id', $participantIds);
 

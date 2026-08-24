@@ -24,6 +24,20 @@ export interface ChatMessage {
    */
   sender_rank: number | null;
   sender_level: number | null;
+  /**
+   * The picture or the voice note (`FR-060` · `FR-061`).
+   *
+   * ⚠️ `url` IS A SHORT-LIVED SIGNATURE, NOT A PERMANENT PATH. It is minted inside
+   * a response the reader was already authorised for and lasts fifteen minutes —
+   * an `<img>` sends no `Authorization` header, so this is the only shape that
+   * works without loading every picture into memory as a blob first. Re-fetch the
+   * page to renew it; do not cache it anywhere.
+   */
+  attachment: {
+    kind: "image" | "voice";
+    url: string;
+    duration_seconds: number | null;
+  } | null;
   created_at: string | null;
 }
 
@@ -60,6 +74,33 @@ export interface Conversation {
   updated_at: string | null;
 }
 
+/**
+ * Send OUR upload URLs through the Next rewrite; leave a provider's alone.
+ *
+ * ⚠️ THE LOCAL PROVIDER'S TICKET IS AN ABSOLUTE `http://localhost:8000/...`, and
+ * fetching it from the browser answers **419**. The whole frontend reaches the
+ * API through the same-origin rewrite; an absolute URL steps outside it, the
+ * request stops matching what `statefulApi()` expects, and CSRF refuses it. It
+ * cost a «حدث خطأ غير متوقّع» on a picture that had uploaded fine by `curl` —
+ * because `curl` sends no cookies and no `Origin`, so the one client that proved
+ * the endpoint was the one client that could not reproduce the fault.
+ *
+ * ⚠️ AND IT IS CONDITIONAL, NOT A BLANKET STRIP. A commercial provider signs a
+ * genuinely remote URL — that is the entire point of `SC-001`, zero video
+ * bandwidth through our own server — and rewriting it to a local path would send
+ * the bytes to a route that does not exist. Only a URL whose path is already
+ * ours is folded back onto this origin.
+ */
+function sameOriginIfOurs(url: string): string {
+  try {
+    const parsed = new URL(url, window.location.origin);
+
+    return parsed.pathname.startsWith("/api/") ? parsed.pathname + parsed.search : url;
+  } catch {
+    return url;
+  }
+}
+
 export const conversations = {
   list: () => api.get<{ data: Conversation[] }>("/conversations"),
 
@@ -84,8 +125,58 @@ export const conversations = {
       `/conversations/${conversationUuid}/messages${before ? `?before=${before}` : ""}`,
     ),
 
-  send: (conversationUuid: string, body: string) =>
-    api.post<ChatMessage>(`/conversations/${conversationUuid}/messages`, { body }),
+  send: (conversationUuid: string, body: string, attachment?: string) =>
+    api.post<ChatMessage>(`/conversations/${conversationUuid}/messages`, {
+      body,
+      ...(attachment ? { attachment } : {}),
+    }),
+
+  /**
+   * Put a picture or a voice note somewhere, then hand back its uuid (`FR-060`).
+   *
+   * ⚠️ THE BYTES NEVER TOUCH THE MESSAGE ENDPOINT. The ticket names a URL owned
+   * by whichever provider took the file, the browser PUTs straight to it, and the
+   * message that follows carries a uuid and nothing else — so a slow upload keeps
+   * the composer responsive and one picture is not sent through PHP twice.
+   *
+   * ⚠️ AND THE THREE STEPS ARE ONE FUNCTION ON PURPOSE. Ticket, upload, complete:
+   * a caller that stopped after the second would leave a `Pending` asset that
+   * `PostMessage` refuses, and the sender would see «لم يكتمل رفع المرفق بعد»
+   * about a file they watched finish.
+   */
+  upload: async (
+    conversationUuid: string,
+    file: Blob,
+    kind: "image" | "voice",
+    filename: string,
+    durationSeconds?: number,
+  ): Promise<string> => {
+    const ticket = await api.post<{
+      asset: { uuid: string };
+      upload: { url: string; method: string; headers: Record<string, string> };
+    }>(`/conversations/${conversationUuid}/attachments`, {
+      kind,
+      filename,
+      size_bytes: file.size,
+      ...(durationSeconds ? { duration_seconds: Math.round(durationSeconds) } : {}),
+    });
+
+    const response = await fetch(sameOriginIfOurs(ticket.upload.url), {
+      method: ticket.upload.method,
+      // The provider's own headers, whatever they are — never a list written
+      // here, which would be a second copy of the provider's contract. The
+      // file's real type wins over the ticket's default, because the server
+      // records what actually arrived.
+      headers: { ...ticket.upload.headers, "Content-Type": file.type || "application/octet-stream" },
+      body: file,
+    });
+
+    if (!response.ok) throw new Error("upload-failed");
+
+    await api.post(`/media/assets/${ticket.asset.uuid}/complete`);
+
+    return ticket.asset.uuid;
+  },
 
   /** Takes the words back and leaves the row for moderation. */
   hide: (messageUuid: string) => api.delete<ChatMessage>(`/messages/${messageUuid}`),

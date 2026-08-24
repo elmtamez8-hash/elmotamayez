@@ -56,7 +56,12 @@ class ReadMessages extends Action
             ->visible()
             // The sender's name, eager — a Resource runs once per row, so a query
             // inside it is an N+1 by construction.
-            ->with('sender');
+            // ⚠️ `mediaAsset` TOO, OR `MessageResource::attachment()` IS ONE QUERY
+            // PER MESSAGE on a page of fifty. And dropping it produces no N+1 at
+            // all — `whenLoaded` makes the key vanish and the page get cheaper,
+            // which a budget test measuring queries alone reads as an improvement
+            // while every picture in the thread stops rendering.
+            ->with(['sender', 'mediaAsset']);
 
         if ($before !== null && $before !== '') {
             $cursor = Message::query()

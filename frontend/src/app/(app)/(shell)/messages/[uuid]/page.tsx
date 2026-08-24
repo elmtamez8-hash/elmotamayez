@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChatHeader } from "@/components/community/ChatHeader";
-import { Composer } from "@/components/community/Composer";
+import { Composer, type PendingAttachment } from "@/components/community/Composer";
 import { MessageList } from "@/components/community/MessageList";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -62,6 +62,7 @@ export default function ConversationPage() {
   const [present, setPresent] = useState(0);
   const [typing, setTyping] = useState<string | null>(null);
   const [whisper, setWhisper] = useState<(() => void) | null>(null);
+  const [pending, setPending] = useState<PendingAttachment | null>(null);
   const [moderating, setModerating] = useState(false);
   const [olderExhausted, setOlderExhausted] = useState(false);
 
@@ -226,20 +227,42 @@ export default function ConversationPage() {
 
   const send = () => {
     const body = draft.trim();
+    const attachment = pending;
 
-    if (body === "") return;
+    // ⚠️ EITHER IS ENOUGH NOW. A voice note has no words, and refusing to send
+    // one because the box is empty was the shape of the first `422` the server
+    // answered about a file that had already finished uploading.
+    if (body === "" && attachment === null) return;
 
     setSending(true);
     setProblem(null);
     setBodyError(undefined);
 
-    conversations
-      .send(uuid, body)
+    /*
+     * ⚠️ THE UPLOAD RUNS FIRST AND ITS FAILURE IS THE SEND'S FAILURE. Posting the
+     * message first would put an empty bubble in the thread while the bytes were
+     * still moving, and nothing could remove it if they never arrived.
+     */
+    const uploaded = attachment === null
+      ? Promise.resolve(undefined)
+      : conversations.upload(
+          uuid,
+          attachment.file,
+          attachment.kind,
+          attachment.kind === "voice" ? "voice-note" : "photo",
+          attachment.kind === "voice" ? attachment.seconds : undefined,
+        );
+
+    uploaded
+      .then((assetUuid) => conversations.send(uuid, body, assetUuid))
       .then((message) => {
         // Merged rather than appended: the same message arrives again through
         // the socket a moment later.
         setMessages((current) => mergeMessages(current, [message]));
         setDraft("");
+        // Frees the blob URL the preview was holding.
+        if (attachment !== null) URL.revokeObjectURL(attachment.preview);
+        setPending(null);
 
         // ⚠️ THE SENDER IS NOT A RECIPIENT OF THEIR OWN MESSAGE, so no frame
         // reaches `user.{uuid}` here and the sidebar preview would stay on the
@@ -379,6 +402,8 @@ export default function ConversationPage() {
         onSend={send}
         disabled={sending}
         error={bodyError}
+        pending={pending}
+        onAttachmentChange={setPending}
       />
     </div>
   );

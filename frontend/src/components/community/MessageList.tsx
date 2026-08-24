@@ -108,7 +108,16 @@ export function MessageList({
                     : "rounded-2xl rounded-es-sm bg-surface-raised px-3 py-2 text-ink"
                 }
               >
-                <p className="whitespace-pre-wrap break-words text-sm">{message.body}</p>
+                {message.attachment !== null && (
+                  <Attachment attachment={message.attachment} mine={mine} />
+                )}
+
+                {/* ⚠️ `body` IS NULL ON AN ATTACHMENT-ONLY MESSAGE. Rendering it
+                    unconditionally puts an empty paragraph under every picture,
+                    which on a bubble reads as a stray blank line. */}
+                {message.body !== null && message.body !== "" && (
+                  <p className="whitespace-pre-wrap break-words text-sm">{message.body}</p>
+                )}
 
                 <div className="mt-1 flex items-center justify-end gap-1">
                   {message.is_helpful && (
@@ -174,4 +183,54 @@ function showsSender(previous: ChatMessage | null, message: ChatMessage): boolea
   if (previous === null) return true;
 
   return previous.sender_uuid !== message.sender_uuid || startsNewDay(previous, message);
+}
+
+/**
+ * The picture or the voice note inside a bubble (`FR-060` · `FR-061`).
+ *
+ * ⚠️ A PLAIN `<img>`, NOT `next/image`. This URL is signed and short-lived, so it
+ * is by definition user-supplied and remote — and passing one to `next/image`
+ * routes it through `sharp`, whose advisories this repository accepts precisely
+ * BECAUSE all three existing call sites pass literal `/public` paths. This would
+ * be the call site that makes that note false.
+ *
+ * ⚠️ AND `<audio controls>` RATHER THAN A PLAYER. A voice note is seconds long
+ * and needs play, pause and a scrub bar — every browser ships all three, in the
+ * reader's own language, keyboard-accessible. The lesson player exists for HLS,
+ * watermarks and grant renewal; none of that applies here.
+ */
+function Attachment({
+  attachment,
+  mine,
+}: {
+  attachment: NonNullable<ChatMessage["attachment"]>;
+  mine: boolean;
+}) {
+  if (attachment.kind === "voice") {
+    return (
+      <div className="mb-1">
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+        <audio controls preload="metadata" src={attachment.url} className="w-56 max-w-full" />
+        {attachment.duration_seconds !== null && (
+          <span className={mine ? "text-[10px] text-white/70" : "text-[10px] text-ink-muted"}>
+            <bdi>{`${attachment.duration_seconds} ثانية`}</bdi>
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <a href={attachment.url} target="_blank" rel="noreferrer" className="mb-1 block">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={attachment.url}
+        alt="صورة مرفقة"
+        // A ceiling on both axes: a portrait photograph from a phone is taller
+        // than the viewport, and one message would otherwise fill the thread.
+        className="max-h-72 w-auto max-w-full rounded-xl object-contain"
+        loading="lazy"
+      />
+    </a>
+  );
 }

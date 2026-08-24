@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Community\Http\Controllers\AssistantController;
+use App\Modules\Community\Http\Controllers\ChatAttachmentController;
 use App\Modules\Community\Http\Controllers\ConversationController;
 use App\Modules\Community\Http\Controllers\Manage\AssistantController as ManageAssistantController;
 use App\Modules\Community\Http\Controllers\MessageController;
@@ -71,6 +72,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/conversations/{conversation}/messages', [MessageController::class, 'store']);
         Route::delete('/messages/{message}', [MessageController::class, 'destroy']);
         Route::post('/messages/{message}/helpful', [SessionChatController::class, 'helpful']);
+
+        /*
+        | Somewhere to put a picture or a voice note (`FR-060`).
+        |
+        | ⚠️ ON THE WRITE BUCKET, because it IS a write: it creates a `media_assets`
+        | row and reserves storage at the provider. Left on the read side, a script
+        | could mint upload tickets faster than any ceiling could refuse the files.
+        */
+        Route::post('/conversations/{conversation}/attachments', [ChatAttachmentController::class, 'store']);
     });
 
     /*
@@ -96,3 +106,22 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/moderation/actions', [ModerationController::class, 'store'])
         ->middleware('throttle:moderation-write');
 });
+
+/*
+| The bytes themselves (`FR-061`).
+|
+| ⚠️ OUTSIDE THE `auth:sanctum` GROUP AND GUARDED BY `signed`, BECAUSE AN `<img>`
+| CARRIES NO BEARER TOKEN. The same fact put captions behind a grant URL in 019.
+| The signature is minted inside `MessageResource`, which only renders for a
+| reader `ConversationPolicy::view()` has already admitted, and it lasts fifteen
+| minutes — a short-lived capability, named as one rather than dressed up as an
+| authorisation check.
+|
+| ⚠️ AND IT IS NOT A PUBLIC ROUTE IN THE `publiclyListed()` SENSE. Nothing here is
+| reachable without a signature, so `PublicExposureTest`'s allowlist does not
+| apply — but the route is unauthenticated, so it carries a named limiter like
+| every other unauthenticated write-adjacent surface on the platform.
+*/
+Route::get('/chat-media/{message}', [ChatAttachmentController::class, 'show'])
+    ->middleware(['signed', 'throttle:public'])
+    ->name('chat.attachment');

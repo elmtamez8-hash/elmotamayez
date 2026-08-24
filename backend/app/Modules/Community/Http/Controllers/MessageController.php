@@ -45,6 +45,12 @@ class MessageController extends Controller
             PostMessageData::fromArray([
                 'conversation' => $conversation,
                 'body' => $request->validated('body'),
+                // ⚠️ A KEY VALIDATED AND NOT PASSED IS A KEY SILENTLY DISCARDED —
+                // the first end-to-end run answered «اكتب رسالة أو أرفق ملفاً»
+                // about a picture that had just finished uploading, because the
+                // DTO was built from a hand-written list this line was missing
+                // from. Same shape as spec 013's three non-fillable columns.
+                'attachment' => $request->validated('attachment'),
             ]),
         );
 
@@ -54,7 +60,7 @@ class MessageController extends Controller
         | renders what it just sent — the broadcast is an accelerator for the OTHER
         | party's screen, never the sender's confirmation.
         */
-        return MessageResource::make($message->loadMissing('sender'))
+        return MessageResource::make($message->loadMissing(['sender', 'mediaAsset']))
             ->response()
             ->setStatusCode(201);
     }

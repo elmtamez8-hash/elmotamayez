@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Community\Http\Resources;
 
 use App\Modules\Community\Models\Conversation;
+use App\Modules\Community\Models\Message;
+use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Support\Permissions;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -74,7 +76,18 @@ class ConversationResource extends JsonResource
                     ? null
                     : [
                         'uuid' => $this->lastMessage->uuid,
-                        'body' => $this->lastMessage->body,
+                        /*
+                        | ⚠️ A PREVIEW, NOT THE BODY — because `body` is nullable
+                        | now. A thread whose newest message is a photograph or a
+                        | voice note would otherwise preview as an empty line, and
+                        | the row would look like a conversation nobody has written
+                        | in since the last text message.
+                        |
+                        | The words are built here rather than in the browser for
+                        | the same reason role labels are: the client would need a
+                        | second copy of them, and it would drift.
+                        */
+                        'body' => $this->messagePreview($this->lastMessage),
                         'sender_name' => $this->lastMessage->relationLoaded('sender')
                             ? $this->lastMessage->sender?->name
                             : null,
@@ -83,6 +96,49 @@ class ConversationResource extends JsonResource
             ),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * One line describing the newest message, whatever it is made of.
+     *
+     * Text wins when there is text: a picture sent WITH a caption is best
+     * previewed by the caption, which is what the sender chose to say about it.
+     */
+    private function messagePreview(Message $message): string
+    {
+        $body = (string) ($message->body ?? '');
+
+        if ($body !== '') {
+            return $body;
+        }
+
+        if ($message->media_asset_id === null) {
+            // Nothing was ever attached, and the body is empty — which the Action
+            // refuses to write. A thread whose newest row is like that is a row
+            // from before the rule existed, not a state the product can produce.
+            return '…';
+        }
+
+        /*
+         * ⚠️ THE LOCAL AND THE `instanceof` ARE BOTH LOAD-BEARING. Larastan types
+         * this relation as non-nullable from its `BelongsTo<MediaAsset, $this>`
+         * signature, so `?->` is reported as redundant — but at RUNTIME it really
+         * can be null: 013's retention sweep archives and deletes assets while
+         * `media_asset_id` stays on the message, and the relation then resolves to
+         * nothing. Trusting the analyser here would be a fatal on the list screen
+         * the first time an attachment aged out.
+         */
+        $asset = $message->mediaAsset;
+        $mime = $asset instanceof MediaAsset ? (string) ($asset->mime_type ?? '') : '';
+
+        if ($mime === '') {
+            // The asset row is gone — archived by the retention sweep, or
+            // deleted — or the relation was not eager-loaded. The thread is still
+            // real and still opens.
+            return 'مرفق';
+        }
+
+        return str_starts_with($mime, 'audio/') ? '🎤 رسالة صوتية' : '📷 صورة';
     }
 
     /**

@@ -34,6 +34,29 @@ final class MediaLimits
         };
     }
 
+    /**
+     * A chat attachment is smaller than a lesson file, and deliberately so.
+     *
+     * ⚠️ SEPARATE NUMBERS RATHER THAN THE KIND'S OWN. A voice note travels under
+     * `MediaKind::Audio`, whose ceiling is 200 MiB and an hour — sized for a
+     * recorded lecture. Applying it to a chat would let one message hold a
+     * feature film's worth of audio, and the refusal a student eventually saw
+     * would name the lecture limit. A picture likewise arrives as
+     * `MediaKind::Document`, whose 50 MiB ceiling is sized for a slide deck.
+     *
+     * Read from `platform_settings` first, exactly like every other ceiling here:
+     * a limit that can only change by shipping code is a limit nobody ever tunes.
+     */
+    public static function maxChatAttachmentBytes(): int
+    {
+        return (int) PlatformSettings::get('media.max_chat_attachment_bytes', 10_485_760);
+    }
+
+    public static function maxVoiceNoteSeconds(): int
+    {
+        return (int) PlatformSettings::get('media.max_voice_note_seconds', 300);
+    }
+
     /** Null where the kind carries no duration. */
     public static function maxDurationSeconds(MediaKind $kind): ?int
     {

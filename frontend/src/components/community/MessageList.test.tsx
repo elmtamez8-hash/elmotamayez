@@ -34,6 +34,8 @@ function message(
     // assistant, and any student the nightly roll-up has not seen yet.
     sender_rank: badges.rank ?? null,
     sender_level: badges.level ?? null,
+    // Most messages are words and nothing else — null is the ordinary case.
+    attachment: null,
     created_at: at,
   };
 }

@@ -6,6 +6,7 @@ namespace App\Modules\Community\Models;
 
 use App\Models\BaseModel;
 use App\Models\User;
+use App\Modules\Media\Models\MediaAsset;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Carbon\CarbonImmutable;
@@ -26,9 +27,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $workspace_id
  * @property int $conversation_id
  * @property int $sender_user_id
- * @property string $body
+ * @property string|null $body Null when the message is only an attachment (`FR-060`).
+ * @property int|null $media_asset_id
  * @property CarbonImmutable|null $hidden_at
  * @property bool $is_helpful
+ * @property-read MediaAsset|null $mediaAsset
  */
 class Message extends BaseModel
 {
@@ -40,6 +43,19 @@ class Message extends BaseModel
         'conversation_id',
         'sender_user_id',
         'body',
+        /*
+        | ⚠️ FILLABLE BECAUSE IT IS WRITTEN ONCE, AT INSERT, AND NEVER AGAIN. A
+        | message's attachment is chosen when it is sent; there is no «replace the
+        | picture» operation and there must not be one, because the moderation
+        | archive would then describe a file that is no longer there. Contrast
+        | `hidden_at` and `is_helpful` below, which are claimed by conditional
+        | updates and are deliberately NOT mass-assignable.
+        |
+        | And a column added by a migration but not added HERE is a column that is
+        | silently never written — spec 013 shipped three of those on one table,
+        | with a `201` and three nulls behind it.
+        */
+        'media_asset_id',
     ];
 
     /*
@@ -88,5 +104,21 @@ class Message extends BaseModel
     public function sender(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sender_user_id');
+    }
+
+    /**
+     * The picture or the voice note, if there is one (`FR-060`).
+     *
+     * ⚠️ A REFERENCE INTO `Media`, WHICH IS WHAT MAKES RETENTION WORK. The asset
+     * carries `archived_at` and `retain_until`, so a chat attachment ages out
+     * under 013's nightly sweep like every other file on the platform. A path
+     * column here would have been a second store that nothing sweeps, holding a
+     * minor's photograph for ever.
+     *
+     * @return BelongsTo<MediaAsset, $this>
+     */
+    public function mediaAsset(): BelongsTo
+    {
+        return $this->belongsTo(MediaAsset::class, 'media_asset_id');
     }
 }
