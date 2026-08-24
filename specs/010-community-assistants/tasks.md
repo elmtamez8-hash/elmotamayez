@@ -336,27 +336,27 @@ description: "Task list — المجتمع والمساعدون والتقييم
 
 ### Tests for User Story 6
 
-- [ ] T155 [P] [US6] `backend/tests/Feature/Community/AnnouncementScopeTest.php` — `SC-016` **على كورسَين**، ⚠️ **وبلا `Queue::fake()` عارٍ**: التفريعُ مطبورٌ فالفَركُ العاري يبتلعه ويصير التوكيدُ جملةً واثقةً عن جدولٍ فارغ. تُفاك وظائفُ الخطِّ الزمنيِّ بالاسمِ وحدَها
-- [ ] T156 [P] [US6] `backend/tests/Feature/Community/AnnouncementIdempotencyTest.php` — ضغطتان = تفريعٌ واحد، **وعاملٌ قُتل في المنتصفِ لا يُبلّغ أحداً مرّتَين**
-- [ ] T157 [P] [US6] `backend/tests/Feature/Community/AnnouncementStatsTest.php` — `FR-046`: العدّادان يُقرآن بالعمودِ المفهرَس، **وحذفُ إشعارٍ قديمٍ يخفض «من أُبلغوا» ولا يكذب**
+- [X] T155 [P] [US6] `backend/tests/Feature/Community/AnnouncementScopeTest.php` — `SC-016` **على كورسَين**، ⚠️ **وبلا `Queue::fake()` عارٍ**: التفريعُ مطبورٌ فالفَركُ العاري يبتلعه ويصير التوكيدُ جملةً واثقةً عن جدولٍ فارغ. تُفاك وظائفُ الخطِّ الزمنيِّ بالاسمِ وحدَها
+- [X] T156 [P] [US6] `backend/tests/Feature/Community/AnnouncementIdempotencyTest.php` — ضغطتان = تفريعٌ واحد، **وعاملٌ قُتل في المنتصفِ لا يُبلّغ أحداً مرّتَين**
+- [X] T157 [P] [US6] `backend/tests/Feature/Community/AnnouncementStatsTest.php` — `FR-046`: العدّادان يُقرآن بالعمودِ المفهرَس، **وحذفُ إشعارٍ قديمٍ يخفض «من أُبلغوا» ولا يكذب**
 
 ### Implementation for User Story 6
 
-- [ ] T158 [US6] هجرة `2026_08_22_000700_create_announcements_table.php`: `workspace_id` · `author_user_id` · `scope` (`all`·`course`·`session`) · `scope_id` · `body` · `is_urgent` · `published_at` · `hidden_at` · `index(workspace_id, published_at)` — **«المجموعات» خارجَ النطاقِ مُعلَناً** (ق-٥/ت-٣)، **ولا مرفقات** (ت-٤): تمرّ بـ`RequestUploadTicket` القائمِ متى طُلبت
-- [ ] T159 [US6] هجرة `backend/app/Modules/Notifications/Database/Migrations/2026_08_22_000710_add_source_key_to_notifications.php`: `source_type` (string 64) · `source_id` · `index(source_type, source_id, read_at)` — ⚠️ **`FR-046` يمنع تخزينَ العدد، لا مفتاحاً قابلاً للفهرسة**: بدونه يصير العدُّ `JSON_EXTRACT(payload, …)` — دالّةٌ تلتهم أيَّ فهرس، على **أسرعِ جداولِ المنصّةِ نموّاً**، **في قائمة** فمسحٌ كاملٌ لكلِّ إعلان
-- [ ] T160 [P] [US6] أضف نوعَي `announcement` و`announcement_urgent` إلى `NotificationType` والثاني `isMandatory()` **وصفَّيهما في `NotificationTemplateSeeder`** — ⚠️ **ولا يدخلان `targetsGuardians()`**: تفريعُهما إلى الأوصياء رسالةُ واتسابٍ مدفوعةٌ لكلِّ وليِّ أمرٍ عن كلِّ تغييرِ موعد، وهو الطريقُ الذي يُكتَم به الإشعارُ كلُّه **فيسقط معه تنبيهُ الحضور**
-- [ ] T161 [P] [US6] أنشئ `Models/Announcement.php` ومصنعَه
-- [ ] T162 [US6] أنشئ `Actions/PublishAnnouncement.php` + `Events/AnnouncementPublished.php` — **مطالبةٌ شرطيّةٌ على `published_at`** والحدثُ **للمطالِبِ وحدَه**: ضغطتان تُفرّعان الإعلانَ مرّتَين على ثلاثِمئةِ طالب
-- [ ] T163 [US6] أنشئ `Jobs/FanOutAnnouncementJob.php` **مُقطَّعاً بالكورسِ ومُعامَداً لكلِّ مستلِم** — ⚠️ `DispatchNotification` يُصدر ~٦–٨ استعلاماتٍ لكلِّ مستلِمٍ (`TemplateRenderer` بلا حفظٍ مؤقّت)، فثلاثُمئةِ طالبٍ ≈ ٢٤٠٠ استعلامٍ في وظيفةٍ مهلتُها ٦٠ ثانيةً و`tries: 1`؛ وعاملٌ قُتل في المنتصفِ إمّا يُبلّغ الجميعَ مرّتَين أو يترك تسليماً جزئياً صامتاً — و`SC-016` يفشل في الاتّجاهَين
-- [ ] T164 [US6] أنشئ `Actions/ReadAnnouncementStats.php` — العدُّ بالعمودِ المفهرَس، **ولا تخزينَ للعدد**
-- [ ] T165 [US6] أنشئ `Actions/{UpdateAnnouncement,HideAnnouncement}.php` — `FR-047`: ينعكس على المستلمين ويُسجَّل
-- [ ] T166 [US6] أنشئ `Http/Controllers/Manage/AnnouncementController.php` وسجّل المساراتِ بـ`throttle:announcement-publish` — **ولا مسارَ ردٍّ جماعيّ** (`FR-045`): الردودُ تذهب إلى المحادثةِ الخاصّة
-- [ ] T167 [P] [US6] أنشئ `Http/Resources/AnnouncementResource.php` · `Data/AnnouncementData.php` · `Policies/AnnouncementPolicy.php` (‏المدرّسُ **ومن فُوِّض**)
-- [ ] T168 [P] [US6] أنشئ `frontend/src/app/(app)/(shell)/manage/announcements/page.tsx` **مع رابطِه** ومع عرضِ العدّادَين
-- [ ] T169 [P] [US6] `frontend/src/components/community/AnnouncementForm.test.tsx` بـvitest — النطاقُ الثلاثيُّ، وحالةُ «عاجل» مُعلَنةُ الأثر
-- [ ] T170 [P] [US6] أضف حالةَ `announcements` إلى `WorkspaceIsolationTest`
-- [ ] T171 [P] [US6] أضف مفاتيحَ حقولِ الإعلانِ إلى `backend/lang/ar/validation.php`
-- [ ] T172 [US6] تحقّق أن الإعلانَ العاجلَ يتجاوز التجميعَ ونافذةَ الهدوءِ عبرَ `isMandatory()` القائمةِ — `FR-044`، بلا مسارٍ ثانٍ
+- [X] T158 [US6] هجرة `2026_08_22_000700_create_announcements_table.php`: `workspace_id` · `author_user_id` · `scope` (`all`·`course`·`session`) · `scope_id` · `body` · `is_urgent` · `published_at` · `hidden_at` · `index(workspace_id, published_at)` — **«المجموعات» خارجَ النطاقِ مُعلَناً** (ق-٥/ت-٣)، **ولا مرفقات** (ت-٤): تمرّ بـ`RequestUploadTicket` القائمِ متى طُلبت
+- [X] T159 [US6] هجرة `backend/app/Modules/Notifications/Database/Migrations/2026_08_22_000710_add_source_key_to_notifications.php`: `source_type` (string 64) · `source_id` · `index(source_type, source_id, read_at)` — ⚠️ **`FR-046` يمنع تخزينَ العدد، لا مفتاحاً قابلاً للفهرسة**: بدونه يصير العدُّ `JSON_EXTRACT(payload, …)` — دالّةٌ تلتهم أيَّ فهرس، على **أسرعِ جداولِ المنصّةِ نموّاً**، **في قائمة** فمسحٌ كاملٌ لكلِّ إعلان
+- [X] T160 [P] [US6] أضف نوعَي `announcement` و`announcement_urgent` إلى `NotificationType` والثاني `isMandatory()` **وصفَّيهما في `NotificationTemplateSeeder`** — ⚠️ **ولا يدخلان `targetsGuardians()`**: تفريعُهما إلى الأوصياء رسالةُ واتسابٍ مدفوعةٌ لكلِّ وليِّ أمرٍ عن كلِّ تغييرِ موعد، وهو الطريقُ الذي يُكتَم به الإشعارُ كلُّه **فيسقط معه تنبيهُ الحضور**
+- [X] T161 [P] [US6] أنشئ `Models/Announcement.php` ومصنعَه
+- [X] T162 [US6] أنشئ `Actions/PublishAnnouncement.php` + `Events/AnnouncementPublished.php` — **مطالبةٌ شرطيّةٌ على `published_at`** والحدثُ **للمطالِبِ وحدَه**: ضغطتان تُفرّعان الإعلانَ مرّتَين على ثلاثِمئةِ طالب
+- [X] T163 [US6] أنشئ `Jobs/FanOutAnnouncementJob.php` **مُقطَّعاً بالكورسِ ومُعامَداً لكلِّ مستلِم** — ⚠️ `DispatchNotification` يُصدر ~٦–٨ استعلاماتٍ لكلِّ مستلِمٍ (`TemplateRenderer` بلا حفظٍ مؤقّت)، فثلاثُمئةِ طالبٍ ≈ ٢٤٠٠ استعلامٍ في وظيفةٍ مهلتُها ٦٠ ثانيةً و`tries: 1`؛ وعاملٌ قُتل في المنتصفِ إمّا يُبلّغ الجميعَ مرّتَين أو يترك تسليماً جزئياً صامتاً — و`SC-016` يفشل في الاتّجاهَين
+- [X] T164 [US6] أنشئ `Actions/ReadAnnouncementStats.php` — العدُّ بالعمودِ المفهرَس، **ولا تخزينَ للعدد**
+- [X] T165 [US6] أنشئ `Actions/{UpdateAnnouncement,HideAnnouncement}.php` — `FR-047`: ينعكس على المستلمين ويُسجَّل
+- [X] T166 [US6] أنشئ `Http/Controllers/Manage/AnnouncementController.php` وسجّل المساراتِ بـ`throttle:announcement-publish` — **ولا مسارَ ردٍّ جماعيّ** (`FR-045`): الردودُ تذهب إلى المحادثةِ الخاصّة
+- [X] T167 [P] [US6] أنشئ `Http/Resources/AnnouncementResource.php` · `Data/AnnouncementData.php` · `Policies/AnnouncementPolicy.php` (‏المدرّسُ **ومن فُوِّض**)
+- [X] T168 [P] [US6] أنشئ `frontend/src/app/(app)/(shell)/manage/announcements/page.tsx` **مع رابطِه** ومع عرضِ العدّادَين
+- [X] T169 [P] [US6] `frontend/src/components/community/AnnouncementForm.test.tsx` بـvitest — النطاقُ الثلاثيُّ، وحالةُ «عاجل» مُعلَنةُ الأثر
+- [X] T170 [P] [US6] أضف حالةَ `announcements` إلى `WorkspaceIsolationTest`
+- [X] T171 [P] [US6] أضف مفاتيحَ حقولِ الإعلانِ إلى `backend/lang/ar/validation.php`
+- [X] T172 [US6] تحقّق أن الإعلانَ العاجلَ يتجاوز التجميعَ ونافذةَ الهدوءِ عبرَ `isMandatory()` القائمةِ — `FR-044`، بلا مسارٍ ثانٍ
 
 **Checkpoint**: القصصُ الستُّ كلُّها تعمل.
 
@@ -366,10 +366,10 @@ description: "Task list — المجتمع والمساعدون والتقييم
 
 - [X] T173 أنشئ `backend/app/Modules/Community/Support/CommunityPersonalData.php` يُنفّذ `App\Shared\Contracts\PersonalDataOwner` وسِمْه بـ`compliance.personal_data` — ⚠️ **بلا تنفيذٍ موسومٍ يُرجع السجلُّ `null` ويمضي الكنس**: طلبُ محوٍ يكتمل **أخضرَ** تاركاً كلَّ رسالةٍ عن قاصرٍ في مكانها
 - [X] T174 أضف صفوفَ الفئاتِ إلى `backend/database/seeders/DataCategorySeeder.php` — ⚠️ **الصنفُ `Delete` مُعلَناً** لـ`messages` و`periodic_reviews`: `sender_user_id` و`student_user_id` كلاهما `NOT NULL`، و`Anonymise` تحتاج `->change()` يُعيد بناءَ الجدولِ على SQLite (‏سابقةُ `exam_attempts`)
-- [ ] T175 أضف علامةَ أرشفةٍ لملفِّ الكشفِ تحت الصنفِ `Archive` — ⚠️ بلا علامةٍ تُعاد أرشفتُه كلَّ ليلةٍ ويُحذَف الملفُّ عند المزوّدِ مرّةً بعد مرّة (‏سابقةُ `media_assets.archived_at`)
-- [ ] T176 أضف المحادثاتِ الخاصّةَ إلى مشيةِ خروجِ المدرّسِ (`FR-037` من ٠١٣) — ⚠️ **لا تعرفها المشيةُ اليوم**: مدرّسٌ يغادر ورسائلُه الخاصّةُ مع قاصرين في لا مسار
+- [ ] T175 ⚠️ **راجعْ جدواها أوّلاً**: المرحلةُ ٧ صنّفت `report_card` صنفَ `Delete` والحذفُ يمرُّ بالنموذجِ فتتعاقب medialibrary على الملفّ — فقد لا يبقى صنفُ `Archive` في هذه الوحدةِ أصلاً. وإن بقي: أضف علامةَ أرشفةٍ لملفِّ الكشفِ تحت الصنفِ `Archive` — ⚠️ بلا علامةٍ تُعاد أرشفتُه كلَّ ليلةٍ ويُحذَف الملفُّ عند المزوّدِ مرّةً بعد مرّة (‏سابقةُ `media_assets.archived_at`)
+- [ ] T176 ⚠️ **و`announcements` معها**: المرحلةُ ٨ أضافت جدولاً يحمل `author_user_id` بلا صنفِ بياناتٍ ولا مسارِ تصديرٍ أو انتهاءِ مدّة. أضف المحادثاتِ الخاصّةَ إلى مشيةِ خروجِ المدرّسِ (`FR-037` من ٠١٣) — ⚠️ **لا تعرفها المشيةُ اليوم**: مدرّسٌ يغادر ورسائلُه الخاصّةُ مع قاصرين في لا مسار
 - [X] T177 `backend/tests/Feature/Community/CommunityRetentionTest.php` — رسائلُ ومحادثاتٌ وتقييماتٌ وملفُّ كشفٍ تُصدَّر وتُمحى وتنتهي مدّتُها؛ **والتثبيتةُ تشمل صنفَ `Archive`** لأن `Delete` لا تُظهر عطلَ التعامدِ إطلاقاً (‏الصفُّ المحذوفُ لا يعود)
-- [ ] T178 [P] أنشئ `Support/CommunityAuditSubjects.php` إن كُتب شيءٌ إلى `activity_log` من هذه الوحدة — الجدولُ مشترَك، والمرشِّحُ **قائمةُ أصنافٍ** لا حذفُ صفوفٍ بعد الجلب
+- [ ] T178 [P] ✅ **الشرطُ تحقّق في المرحلةِ ٨**: `UpdateAnnouncement` و`HideAnnouncement` يكتبان إلى `activity_log` عبر `LogsActivity` (‏`announcement.updated` · `announcement.hidden`)، فلم تعد المهمّةُ شرطيّة. أنشئ `Support/CommunityAuditSubjects.php` — الجدولُ مشترَك، والمرشِّحُ **قائمةُ أصنافٍ** لا حذفُ صفوفٍ بعد الجلب
 - [ ] T179 [P] وسّع `backend/tests/Feature/Settlement/ContextIsolationTest.php` بمسحِ `Modules/Community/` — الحائطُ الماليُّ يجب أن يُحرَس مفرداتياً كما يُحرَس سلوكياً
 - [ ] T180 [P] حدّث `docs/README.md`: صفُّ وحدةِ `Community` · النقاطُ · الصلاحيّاتُ الجديدة · معنى «بنودُ المساعدِ صلاحيّاتٌ من شاشةِ الأدوار»
 - [ ] T181 [P] حدّث `docs/erd.md` بالكياناتِ العشرةِ والتوسيعاتِ الثلاثة **مع طبقةِ كلٍّ منها**

@@ -461,6 +461,22 @@ final class Permissions
      */
     public const REVIEWS_PERIODIC_MANAGE = 'reviews.periodic.manage';
 
+    /**
+     * Publish a notice to every student in a defined slice (010 · FR-042).
+     *
+     * ⚠️ NOT `CHAT_REPLY` REUSED, ON THAT CONSTANT'S OWN ARGUMENT. Replying inside
+     * one student's thread and broadcasting to three hundred families are
+     * different powers over the same people: the first is answerable and private,
+     * the second is a message the platform sends in the teacher's name that
+     * nobody can reply to at all (FR-045). An assistant trusted to answer
+     * questions is not thereby trusted to announce a change of fees.
+     *
+     * It sits on `$teacher` for the reason the two chat names do — the placement
+     * IS the delivery channel, and the owner ticks it onto a named assistant
+     * deliberately from the roles screen.
+     */
+    public const ANNOUNCEMENTS_MANAGE = 'announcements.manage';
+
     /** @return list<string> */
     public static function all(): array
     {
@@ -575,6 +591,7 @@ final class Permissions
             self::CHAT_REPLY,
             self::CHAT_MODERATE,
             self::REVIEWS_PERIODIC_MANAGE,
+            self::ANNOUNCEMENTS_MANAGE,
         ];
     }
 }

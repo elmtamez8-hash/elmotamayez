@@ -360,6 +360,32 @@ class NotificationTemplateSeeder extends Seeder
                 'نشر {{ teacher_name }} تقييماً دورياً لـ{{ student_name }} عن الفترة من {{ period_start }} إلى {{ period_end }}. افتح التقييم لقراءته.',
                 ['student_name', 'teacher_name', 'period_start', 'period_end'],
             ],
+            /*
+            | The teacher's announcement (010 · FR-042 … FR-044).
+            |
+            | ⚠️ AND THIS IS THE ONE TEMPLATE WHOSE BODY IS THE WHOLE MESSAGE,
+            | which is the opposite of the chat rule six lines above. Nothing else
+            | delivers an announcement — there is no student announcements screen
+            | and FR-044 says the notification centre IS the delivery — so a body
+            | naming the teacher and linking elsewhere would be a notice that
+            | announces nothing. The chat template withholds its words because the
+            | thread is behind a policy and the row outlives a hide; an
+            | announcement has no thread to go back to.
+            |
+            | Safe to inline because these two are the bell alone. A template that
+            | left the platform would be an approved WhatsApp sentence with a
+            | teacher's free text substituted into it, which no provider approves.
+            */
+            NotificationType::Announcement->value => [
+                'إعلان من {{ teacher_name }}',
+                '{{ body }}',
+                ['teacher_name', 'body'],
+            ],
+            NotificationType::AnnouncementUrgent->value => [
+                'إعلان عاجل من {{ teacher_name }}',
+                '{{ body }}',
+                ['teacher_name', 'body'],
+            ],
             NotificationType::ExamPendingGrading->value => [
                 'تسلّمنا ورقتك في «{{ exam_title }}»',
                 'تسلّمنا ورقة {{ student_name }} في «{{ exam_title }}». فيها أسئلة مقالية ينتظر تصحيحُها المدرّس، وتصلك النتيجة كاملةً بعده.',

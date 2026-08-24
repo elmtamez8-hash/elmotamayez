@@ -285,4 +285,51 @@ class EloquentSessionAttendanceDirectory implements SessionAttendanceDirectory
 
         return round($attended / $sessionIds->count() * 100, 2);
     }
+
+    /** @return list<int> */
+    public function seatHolderUserIds(int $classSessionId, int $workspaceId): array
+    {
+        // `occupiesSeat()` rather than `ENTITLING`, the same narrower predicate
+        // `hasSeatInSession()` uses: a late cancellation still entitles the
+        // recording it was charged for, but the person is not coming and a
+        // notice about the room is not addressed to them.
+        $statuses = [];
+
+        foreach (BookingStatus::cases() as $status) {
+            if ($status->occupiesSeat()) {
+                $statuses[] = $status;
+            }
+        }
+
+        // The second lock on the same door, asked first and asked plainly. The
+        // caller resolved this session from a uuid inside their own workspace;
+        // this refuses to answer about anybody else's even if that resolution is
+        // ever loosened. An empty list rather than an exception: the question
+        // «who holds a seat in a session that is not yours» has an answer, and
+        // it is nobody.
+        $belongs = ClassSession::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($classSessionId)
+            ->where('workspace_id', $workspaceId)
+            ->exists();
+
+        if (! $belongs) {
+            return [];
+        }
+
+        /** @var list<int> $ids */
+        $ids = SessionBooking::query()
+            ->withoutWorkspaceScope()
+            ->where('class_session_id', $classSessionId)
+            ->whereIn('status', $statuses)
+            ->distinct()
+            ->orderBy('student_user_id')
+            ->pluck('student_user_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        return $ids;
+    }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Community\Http\Controllers\AssistantController;
 use App\Modules\Community\Http\Controllers\ChatAttachmentController;
 use App\Modules\Community\Http\Controllers\ConversationController;
+use App\Modules\Community\Http\Controllers\Manage\AnnouncementController;
 use App\Modules\Community\Http\Controllers\Manage\AssistantController as ManageAssistantController;
 use App\Modules\Community\Http\Controllers\Manage\GradingSchemeController;
 use App\Modules\Community\Http\Controllers\Manage\PeriodicReviewController as ManagePeriodicReviewController;
@@ -171,6 +172,37 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // alone lets a patient loop spend the whole day's budget.
     Route::get('/report-cards/{uuid}/download', [ReportCardController::class, 'download'])
         ->middleware('throttle:report-card-render');
+
+    /*
+    | Announcements (US6).
+    |
+    | ⚠️ NO REPLY ROUTE, AND THE ABSENCE IS `FR-045` ITSELF. A reply endpoint on a
+    | message sent to three hundred people is a three-hundred-way thread with no
+    | moderation surface; the answer goes to the private conversation, which is
+    | one tap away and already moderated.
+    |
+    | ⚠️ AND NO STUDENT ROUTE EITHER. `FR-044` makes the notification centre the
+    | delivery, so the recipient's whole surface is the bell — which is also why
+    | the notification body carries the announcement verbatim rather than a link
+    | to a screen that does not exist.
+    |
+    | `{announcement}` is an implicit binding on the `{assignment}`/`{review}`
+    | exemption: every reader here is a workspace MEMBER, so another teacher's
+    | uuid 404s before the policy runs.
+    |
+    | ⚠️ `throttle:announcement-publish` IS THE TIGHTEST LIMITER IN THE PRODUCT and
+    | it guards our reputation rather than our CPU (FR-048): one publish reaches
+    | every student in scope, and a teacher who can do that sixty times a minute
+    | is a teacher who can make three hundred families mute the bell.
+    */
+    Route::get('/manage/announcements', [AnnouncementController::class, 'index']);
+
+    Route::middleware('throttle:announcement-publish')->group(function (): void {
+        Route::post('/manage/announcements', [AnnouncementController::class, 'store']);
+        Route::post('/manage/announcements/{announcement}/publish', [AnnouncementController::class, 'publish']);
+        Route::patch('/manage/announcements/{announcement}', [AnnouncementController::class, 'update']);
+        Route::delete('/manage/announcements/{announcement}', [AnnouncementController::class, 'destroy']);
+    });
 
     // Hiding, banning, lifting — all rows, and there is no DELETE.
     Route::post('/moderation/actions', [ModerationController::class, 'store'])

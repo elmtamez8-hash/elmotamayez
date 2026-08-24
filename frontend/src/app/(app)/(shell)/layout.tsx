@@ -148,6 +148,17 @@ const mainNav: NavItem[] = [
     Icon: ProgressIcon,
     permission: P.reviewsPeriodicManage,
   },
+  /*
+   * Spec 010 · US6. The publisher's side and the only side: a recipient reads an
+   * announcement in the notification centre, so there is no student screen to
+   * link to here.
+   */
+  {
+    href: "/manage/announcements",
+    label: "الإعلانات",
+    Icon: BellIcon,
+    permission: P.announcementsManage,
+  },
   { href: "/leaderboard", label: "لوحة الصدارة", Icon: LeaderboardIcon },
   { href: "/shop", label: "متجر المكافآت", Icon: ShopIcon },
   // The teacher's side of that shop, and the queue of what has been claimed.

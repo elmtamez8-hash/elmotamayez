@@ -200,6 +200,14 @@ final class RolePermissionMatrix
             | lines up.
             */
             Permissions::REVIEWS_PERIODIC_MANAGE,
+            /*
+            | ANNOUNCEMENTS_MANAGE is the fourth, and it is not CHAT_REPLY reused
+            | either. Answering one student in a thread they opened, and sending
+            | three hundred families a message nobody can reply to (FR-045), are
+            | different powers — an assistant trusted with the first is not
+            | thereby trusted to announce a change of fees in the teacher's name.
+            */
+            Permissions::ANNOUNCEMENTS_MANAGE,
             //
             // ⚠️ ANALYTICS_CROSS_TEACHER_VIEW IS DELIBERATELY ABSENT, HERE AND IN
             // EVERY OTHER ARRAY IN THIS FILE. platformPermissions() is derived by

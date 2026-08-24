@@ -17,6 +17,7 @@ use App\Modules\Assessments\Models\QuestionImport;
 use App\Modules\Assessments\Models\QuestionStat;
 use App\Modules\Assessments\Models\RubricCriterion;
 use App\Modules\Assessments\Models\Submission;
+use App\Modules\Community\Models\Announcement;
 use App\Modules\Community\Models\AssistantAssignment;
 use App\Modules\Community\Models\AssistantScope;
 use App\Modules\Community\Models\BlockedTerm;
@@ -873,6 +874,36 @@ it('scopes periodic reviews to the workspace that wrote them', function (): void
         ->and($context->forWorkspace($workspaceB, fn () => PeriodicReview::query()->count()))->toBe(1)
         ->and(PeriodicReview::query()->withoutGlobalScopes()->count())->toBe(2)
         ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(PeriodicReview::class), true))->toBeTrue();
+});
+
+/*
+| ⚠️ AND AN ANNOUNCEMENT IS THE ONE ROW HERE WHOSE LEAK IS A BROADCAST.
+|
+| Everything else in this file leaks a row to a reader. `announcements` carries a
+| `scope_id` pointing at a course, and a scope that resolved outside its own
+| workspace would not show one teacher another teacher's notice — it would SEND
+| that teacher's class a message in the wrong name. The tenant scope is the first
+| of the two locks; `AnnouncementScopeTest` measures the second, inside the Action
+| that resolves the uuid.
+*/
+it('scopes announcements to the workspace that published them', function (): void {
+    [$workspaceA, $ownerA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+    [$workspaceB, $ownerB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+    $context = app(WorkspaceContext::class);
+
+    $context->forWorkspace($workspaceA, fn () => Announcement::factory()->create([
+        'author_user_id' => $ownerA->getKey(),
+    ]));
+
+    $context->forWorkspace($workspaceB, fn () => Announcement::factory()->create([
+        'author_user_id' => $ownerB->getKey(),
+    ]));
+
+    expect($context->forWorkspace($workspaceA, fn () => Announcement::query()->count()))->toBe(1)
+        ->and($context->forWorkspace($workspaceB, fn () => Announcement::query()->count()))->toBe(1)
+        ->and(Announcement::query()->withoutGlobalScopes()->count())->toBe(2)
+        ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(Announcement::class), true))->toBeTrue();
 });
 
 /*

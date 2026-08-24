@@ -34,9 +34,7 @@ import {
   IconBarbell,
   IconChartLine,
   IconCheck,
-  IconFlame,
   IconGift,
-  IconHourglass,
   IconTrophy,
   IconChevronDown,
   IconChevronLeft,
@@ -56,14 +54,12 @@ import {
   IconLogout,
   IconMenu2,
   IconMessageCircle,
-  IconMoodEmpty,
   IconMoon,
   IconReceipt2,
   IconReceiptOff,
   IconReceiptRefund,
   IconRepeatOff,
   IconSchool,
-  IconSearch,
   IconSettings,
   IconShieldCheck,
   IconShieldLock,
@@ -208,7 +204,6 @@ export const ChevronDownIcon = wrap(IconChevronDown, "h-5 w-5");
 export const ChevronUpIcon = wrap(IconChevronUp, "h-5 w-5");
 export const ChevronStartIcon = wrap(IconChevronRight, "h-4 w-4");
 export const ChevronEndIcon = wrap(IconChevronLeft, "h-4 w-4");
-export const SearchIcon = wrap(IconSearch, "h-6 w-6");
 export const MenuIcon = wrap(IconMenu2, "h-6 w-6");
 // IconX is the close cross. IconBrandX is the Twitter/X logo — one letter
 // apart in Tabler's naming, and the wrong one turns a menu button into an ad.
@@ -216,7 +211,6 @@ export const CloseIcon = wrap(IconX, "h-6 w-6");
 export const MoonIcon = wrap(IconMoon, "h-5 w-5");
 export const SunIcon = wrap(IconSun, "h-5 w-5");
 export const AlertIcon = wrap(IconAlertTriangle, "h-6 w-6");
-export const EmptyIcon = wrap(IconMoodEmpty, "h-6 w-6");
 export const TrustShieldIcon = wrap(IconShieldCheck, "h-3.5 w-3.5");
 
 /**
@@ -251,12 +245,15 @@ export const OngoingReviewIcon = wrap(IconChartLine, "h-5 w-5");
 /*
  * Gamification (spec 009).
  *
- * Named for what they mean on the screen, not for the shape: `StreakIcon` is a
- * run of consecutive days, and swapping the flame for something else later is one
- * edit here rather than a grep across four pages.
+ * Named for what they mean on the screen, not for the shape: `ShopIcon` is the
+ * reward store, and swapping the gift for something else later is one edit here
+ * rather than a grep across four pages.
+ *
+ * ⚠️ `StreakIcon` AND `FocusIcon` STOOD HERE AND WERE NEVER RENDERED. Both were
+ * wired for nav entries that ended up choosing a different icon — intended and
+ * then superseded, rather than debris — and a comment naming a symbol nobody
+ * imports is how the next reader concludes the streak screen exists.
  */
 export const ProgressIcon = wrap(IconTrophy, "h-5 w-5");
 export const LeaderboardIcon = wrap(IconTrophy, "h-5 w-5");
-export const StreakIcon = wrap(IconFlame, "h-5 w-5");
 export const ShopIcon = wrap(IconGift, "h-5 w-5");
-export const FocusIcon = wrap(IconHourglass, "h-5 w-5");

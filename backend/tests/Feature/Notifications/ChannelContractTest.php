@@ -118,6 +118,13 @@ function dispatchOf(User $user, NotificationType $type): void
             // 44 against 45 the moment the type landed — same mechanism, seventh
             // reading of it.
             'sender_name' => 'أ. خالد',
+            // AN EIGHTH time, with spec 010's two announcement types. The count
+            // came back 46 against 48 the moment they landed — the same mechanism
+            // every time, and the reason this list is maintained by hand rather
+            // than derived: a derivation would supply whatever the template asks
+            // for and could never fail, which is precisely the failure it exists
+            // to catch.
+            'body' => 'حصة الغد الساعة الخامسة.',
         ],
     ));
 }

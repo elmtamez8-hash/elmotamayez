@@ -105,6 +105,8 @@ class DispatchNotification extends Action
             'workspace_id' => $request->workspaceId,
             'type' => $request->type->value,
             'subject_user_id' => $request->subject?->getKey(),
+            'source_type' => $request->sourceType,
+            'source_id' => $request->sourceId,
             'payload' => $request->variables,
             'title_ar' => $rendered->titleAr,
             'body_ar' => $rendered->bodyAr,

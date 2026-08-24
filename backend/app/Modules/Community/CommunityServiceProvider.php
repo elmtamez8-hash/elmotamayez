@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Modules\Community;
 
+use App\Modules\Community\Events\AnnouncementPublished;
 use App\Modules\Community\Events\MessagePosted;
 use App\Modules\Community\Events\PeriodicReviewPublished;
 use App\Modules\Community\Listeners\CreateAssistantAssignment;
+use App\Modules\Community\Listeners\FanOutAnnouncement;
 use App\Modules\Community\Listeners\NotifyOfflineRecipient;
 use App\Modules\Community\Listeners\NotifyPeriodicReviewPublished;
 use App\Modules\Community\Listeners\SeedDefaultBlockedTerms;
+use App\Modules\Community\Models\Announcement;
 use App\Modules\Community\Models\AssistantAssignment;
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\GradingScheme;
@@ -17,6 +20,7 @@ use App\Modules\Community\Models\Message;
 use App\Modules\Community\Models\ModerationAction;
 use App\Modules\Community\Models\PeriodicReview;
 use App\Modules\Community\Models\ReportCard;
+use App\Modules\Community\Policies\AnnouncementPolicy;
 use App\Modules\Community\Policies\AssistantAssignmentPolicy;
 use App\Modules\Community\Policies\ConversationPolicy;
 use App\Modules\Community\Policies\GradingSchemePolicy;
@@ -115,10 +119,20 @@ class CommunityServiceProvider extends Module
         Gate::policy(GradingScheme::class, GradingSchemePolicy::class);
         Gate::policy(PeriodicReview::class, PeriodicReviewPolicy::class);
         Gate::policy(ReportCard::class, ReportCardPolicy::class);
+        Gate::policy(Announcement::class, AnnouncementPolicy::class);
 
         Event::listen(WorkspaceMemberAdded::class, CreateAssistantAssignment::class);
         Event::listen(MessagePosted::class, NotifyOfflineRecipient::class);
         Event::listen(PeriodicReviewPublished::class, NotifyPeriodicReviewPublished::class);
+
+        /*
+        | ⚠️ THE FAN-OUT IS A JOB REACHED THROUGH A LISTENER, NOT A CALL INSIDE
+        | `PublishAnnouncement`. Three hundred recipients at six to eight queries
+        | each is roughly two thousand four hundred queries; run inline, the
+        | teacher's publish request would time out long before the class heard
+        | anything — and a retry would then be a second fan-out.
+        */
+        Event::listen(AnnouncementPublished::class, FanOutAnnouncement::class);
 
         /*
         | ⚠️ A SECOND LISTENER ON `WorkspaceCreated`, AND NOT A LINE INSIDE

@@ -137,4 +137,35 @@ class EloquentEnrollmentDirectory implements EnrollmentDirectory
 
         return $pairs;
     }
+
+    /** @return list<int> */
+    public function activeStudentIdsFor(int $workspaceId, ?int $courseId = null): array
+    {
+        $query = Enrollment::query()
+            ->withoutWorkspaceScope()
+            ->where('workspace_id', $workspaceId)
+            ->where('status', 'active');
+
+        // ⚠️ THE WORKSPACE BOUND STAYS WHEN A COURSE IS NAMED. A course id
+        // arrives from a request, and narrowing to it ALONE would answer about
+        // another teacher's course for anyone who guessed one — the announcement
+        // then lands on students the publisher has never taught, which is
+        // precisely what FR-043 forbids. Belt and braces, deliberately: the
+        // Action resolves the uuid inside the workspace too.
+        if ($courseId !== null) {
+            $query->where('course_id', $courseId);
+        }
+
+        /** @var list<int> $ids */
+        $ids = $query
+            ->distinct()
+            ->orderBy('student_user_id')
+            ->pluck('student_user_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        return $ids;
+    }
 }

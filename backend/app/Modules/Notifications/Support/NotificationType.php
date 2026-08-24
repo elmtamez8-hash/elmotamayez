@@ -197,6 +197,27 @@ enum NotificationType: string
     */
     case PeriodicReviewPublished = 'periodic_review_published';
 
+    /*
+    | Spec 010 — a notice from the teacher to a slice of their students (FR-042).
+    |
+    | ⚠️ NEITHER OF THEM TARGETS GUARDIANS, AND THAT IS THE DECISION THE WHOLE
+    | FEATURE TURNS ON. `defaultChannels()` is derived from `targetsGuardians()`,
+    | so naming them there would send a paid WhatsApp message to every parent on
+    | the platform for every change of a lesson time — several a week, from every
+    | teacher their child studies with. The predictable end of that is a muted
+    | number, and the attendance alert and the payment reminder go silent with it.
+    | An announcement is read where the student already is.
+    |
+    | ⚠️ AND «URGENT» IS A SECOND TYPE RATHER THAN A FLAG ON THE FIRST. The flag
+    | that matters is `isMandatory()`, which is a property of the TYPE — a
+    | preference switches a type off, and one type for both would mean a student
+    | who muted routine notices also muted the one the teacher marked urgent.
+    | Two types is also what lets the two carry different wording.
+    */
+    case Announcement = 'announcement';
+
+    case AnnouncementUrgent = 'announcement_urgent';
+
     public function label(): string
     {
         return match ($this) {
@@ -249,6 +270,8 @@ enum NotificationType: string
             self::TeacherOffboardingNotice => 'إخطار بمغادرة مدرّس',
             self::ChatMessage => 'رسالة جديدة',
             self::PeriodicReviewPublished => 'تقييم دوري جديد',
+            self::Announcement => 'إعلان من المدرّس',
+            self::AnnouncementUrgent => 'إعلان عاجل',
         };
     }
 
@@ -356,6 +379,22 @@ enum NotificationType: string
             */
             self::GuardianConsentRequired,
             self::TeacherOffboardingNotice => true,
+            /*
+            | Spec 010 · FR-044. The urgent announcement, and only the urgent one.
+            |
+            | ⚠️ AND MANDATORY BUYS IT EXACTLY ONE THING HERE, WHICH IS NOT WHAT
+            | THE REQUIREMENT'S WORDING SUGGESTS. Quiet hours and digesting apply
+            | to EXTERNAL channels alone (`QuietHours::deferUntil()` returns null
+            | for anything else), and an announcement reaches the bell and nothing
+            | else — so «past quiet hours» is already true of both types and says
+            | nothing about either. What this flag actually does is put the type
+            | into `mandatoryValues()`, which is the list spec 009's focus timer
+            | reads: an urgent notice reaches a student mid-study session, and a
+            | routine one waits for them to finish. It also stops a preference
+            | switching it off. Those two are the whole difference, and they are
+            | the right two.
+            */
+            self::AnnouncementUrgent => true,
             default => false,
         };
     }

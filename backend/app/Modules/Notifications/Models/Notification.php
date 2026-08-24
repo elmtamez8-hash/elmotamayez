@@ -50,6 +50,11 @@ class Notification extends BaseModel
         'workspace_id',
         'type',
         'subject_user_id',
+        // What produced this row (010 · FR-046). Fillable because it is written
+        // once at creation by the only Action that writes notifications at all —
+        // unlike `published_at` on an announcement, nothing later claims it.
+        'source_type',
+        'source_id',
         'payload',
         'title_ar',
         'body_ar',

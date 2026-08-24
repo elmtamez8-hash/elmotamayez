@@ -122,4 +122,29 @@ interface EnrollmentDirectory
      * @return list<array{student_user_id: int, workspace_id: int}>
      */
     public function enrolledPairsInPeriod(CarbonImmutable $from, CarbonImmutable $to): array;
+
+    /**
+     * Every student actively enrolled with this teacher — in one course, or in
+     * all of them (010 · FR-043).
+     *
+     * ⚠️ ONE METHOD FOR BOTH SCOPES, because they are one question with a
+     * narrower `WHERE`. Two methods is two places for the enrolment predicate to
+     * be spelled, and the day they disagree an announcement reaches somebody
+     * outside its scope — which is the one thing `FR-043` forbids and the one
+     * thing `SC-016` measures.
+     *
+     * ⚠️ AND ACTIVE ONLY, unlike `enrolledPairsInPeriod()` above. That one builds
+     * a record of a term that has ended, where a student who left in week six
+     * still sat the first five weeks of exams. This one addresses people about
+     * something happening next: a student whose enrolment lapsed is no longer in
+     * the teacher's scope, and telling them the lesson has moved is a message
+     * from a teacher they no longer study with.
+     *
+     * Returned sorted by id and in full rather than paged: the caller walks it
+     * with a keyset so a worker killed halfway resumes without re-notifying,
+     * and a list of ints for one teacher's students is nothing to hold.
+     *
+     * @return list<int> user ids, ascending
+     */
+    public function activeStudentIdsFor(int $workspaceId, ?int $courseId = null): array;
 }

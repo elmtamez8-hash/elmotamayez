@@ -50,6 +50,11 @@ export const P = {
   // number on the same document that reaches the same guardian, and a second
   // constant would need a fifth backfill migration for roles that already exist.
   reviewsPeriodicManage: "reviews.periodic.manage",
+  // ⚠️ AND THIS ONE IS ITS OWN NAME RATHER THAN `chat.reply` REUSED, which is the
+  // opposite call from the line above and for a stated reason: answering a
+  // question in a thread a student opened, and sending three hundred families a
+  // message nobody can reply to, are different powers over the same people.
+  announcementsManage: "announcements.manage",
   // The reconciliation screen reads the same rows as the collection report and
   // is gated on the same name — there is no separate `payments.reconcile`.
   //

@@ -29,5 +29,20 @@ final class NotificationRequest extends DataTransferObject
          * which child a message is about. */
         public readonly ?User $subject = null,
         public readonly ?int $workspaceId = null,
+        /*
+        | What produced this, when something did (010 · FR-046).
+        |
+        | ⚠️ A KEY, NEVER A COUNT. «How many were told, and how many read it» has
+        | to be true at the moment it is read: a stored counter drifts the first
+        | time a notification is deleted and then reports more readers than there
+        | were recipients, permanently. This pair is what makes counting live
+        | cheap — without it the count is `JSON_EXTRACT(payload, …)`, a function
+        | around a column on the fastest-growing table in the product, in a list.
+        |
+        | Null for the overwhelming majority: a source is what a fan-out has and
+        | a single addressed message does not.
+        */
+        public readonly ?string $sourceType = null,
+        public readonly ?int $sourceId = null,
     ) {}
 }

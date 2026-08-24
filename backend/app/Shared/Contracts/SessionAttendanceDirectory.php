@@ -130,6 +130,29 @@ interface SessionAttendanceDirectory
     public function attendeeUserIds(int $classSessionId): array;
 
     /**
+     * Who is holding a seat in one session (010 · FR-043).
+     *
+     * ⚠️ NOT `attendeeUserIds()` ABOVE, AND THE DIFFERENCE IS THE TENSE. That one
+     * answers who turned up, which is a fact about a session that has happened.
+     * An announcement scoped to a session is almost always about one that has
+     * NOT — the time moved, bring the textbook, it is cancelled — so asking who
+     * attended would address an empty list every time and quietly reach nobody,
+     * with the fan-out reporting success.
+     *
+     * ⚠️ AND `occupiesSeat()` RATHER THAN `ENTITLING`, the same narrower predicate
+     * `hasSeatInSession()` documents: a late cancellation still entitles the
+     * recording, because the seat was charged for, but the person is not coming
+     * and a notice about the room is not addressed to them.
+     *
+     * The workspace is passed in and checked rather than trusted from the
+     * session id: the id is resolved from a uuid in the caller's own workspace,
+     * and this is the second lock on the same door.
+     *
+     * @return list<int> user ids, ascending
+     */
+    public function seatHolderUserIds(int $classSessionId, int $workspaceId): array;
+
+    /**
      * Every lesson this user may watch by virtue of a seat.
      *
      * The reason issuing grants for a list does not scale with its length: read
