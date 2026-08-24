@@ -165,3 +165,38 @@ it('refuses to end somebody else’s session', function (): void {
 
     expect($session->refresh()->status)->toBe(FocusSessionStatus::Running);
 });
+
+/*
+| ⚠️ THE SESSION NOBODY ENDED, WHICH IS THE ORDINARY ONE. A person closes the tab
+| on a running timer and `EndFocusSession` never fires — so the row stays
+| `running` for ever, and `muteDuringFocus()` filters the unread COUNT and the
+| feed together. Found on a real database on 2026-08-24: a forty-five-minute
+| session started on the 21st, and an account whose notifications had silently
+| stopped three days earlier with no badge, no error and nothing naming a cause.
+|
+| ⚠️ AND THE CLOCK IS MOVED RATHER THAN THE ROW BACKDATED. `started_at` is written
+| by the Action, and a test that writes an old value by hand would be asserting
+| about a row the product cannot produce; travelling forward exercises the same
+| statement a real timer runs into.
+*/
+it('stops muting once the planned minutes have run out, even if nobody ended it', function (): void {
+    app(StartFocusSession::class)->handle($this->student, 25);
+
+    app(DispatchNotification::class)->handle(new NotificationRequest(
+        recipient: $this->student,
+        type: NotificationType::BadgeAwarded,
+        variables: ['student_name' => 'سلمى', 'badge_name' => 'مواظب'],
+    ));
+
+    Sanctum::actingAs($this->student);
+    $this->asGuest();
+
+    expect($this->getJson('/api/v1/notifications/unread-count')->json('unread_count'))->toBe(0);
+
+    // Past the planned window, and the row is still `running` — nobody closed it.
+    $this->travel(26)->minutes();
+
+    expect(FocusSession::query()->where('user_id', $this->student->getKey())->value('status'))
+        ->toBe(FocusSessionStatus::Running)
+        ->and($this->getJson('/api/v1/notifications/unread-count')->json('unread_count'))->toBe(1);
+});

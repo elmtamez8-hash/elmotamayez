@@ -20,8 +20,30 @@ const TOKEN_KEY = "auth_token";
 
 type EchoClient = Echo<"reverb">;
 
-let client: EchoClient | null = null;
-let attempted = false;
+/*
+| ⚠️ THE PROMISE IS MEMOISED, NOT A BOOLEAN «attempted» FLAG. That flag shipped
+| and was wrong the moment a SECOND screen asked for the socket at the same time:
+| the first caller set it, started the async import, and every caller that
+| arrived before the import finished was answered `null` — permanently, because
+| the flag never cleared. It was invisible while one page used the socket, and
+| broke the day the notification bell and the conversation list both wanted it,
+| which is every page at once. Measured 2026-08-24: connection `connected`,
+| channels `[]`.
+|
+| A memoised promise makes every caller await the SAME construction, whenever
+| they arrive.
+*/
+let clientPromise: Promise<EchoClient | null> | null = null;
+
+/*
+| ⚠️ AND THE SUBSCRIPTIONS ARE COUNTED, BECAUSE `leave()` IS PER CHANNEL AND NOT
+| PER LISTENER. The bell and the sidebar both listen on `user.{uuid}` — the same
+| channel by design — so the first of them to unmount used to tear the channel
+| out from under the other, silently. React's development double-invoke does the
+| same thing on a single mount, which is how this reaches a page with only one
+| listener on it.
+*/
+const holders = new Map<string, number>();
 
 function config(): { key: string; host: string; port: number; scheme: string } | null {
   const key = process.env.NEXT_PUBLIC_REVERB_APP_KEY;
@@ -45,13 +67,15 @@ function config(): { key: string; host: string; port: number; scheme: string } |
  * path an outage takes, so the branch is exercised in development every time
  * somebody forgets to start `reverb:start`.
  */
-export async function echo(): Promise<EchoClient | null> {
-  if (client) return client;
-  if (attempted) return null;
-  if (typeof window === "undefined") return null;
+export function echo(): Promise<EchoClient | null> {
+  if (typeof window === "undefined") return Promise.resolve(null);
 
-  attempted = true;
+  clientPromise ??= create();
 
+  return clientPromise;
+}
+
+async function create(): Promise<EchoClient | null> {
   const settings = config();
 
   if (!settings) return null;
@@ -66,7 +90,7 @@ export async function echo(): Promise<EchoClient | null> {
     // connector finds pusher-js without importing it itself.
     (window as unknown as { Pusher: unknown }).Pusher = Pusher;
 
-    client = new EchoConstructor({
+    return new EchoConstructor({
       broadcaster: "reverb",
       key: settings.key,
       wsHost: settings.host,
@@ -88,8 +112,6 @@ export async function echo(): Promise<EchoClient | null> {
         },
       },
     }) as EchoClient;
-
-    return client;
   } catch (reason) {
     // A missing library, a blocked port, a refused upgrade — all of them mean the
     // same thing to a caller, and all of them leave the page working.
@@ -121,11 +143,51 @@ export async function listen(
    * the server sends what `broadcastAs()` returns — `message.posted`. The
    * subscription succeeds, the frames arrive, and the handler never fires.
    */
-  connection.private(channel).listen(`.${event}`, handler);
+  /*
+   * ⚠️ WRAPPED SO EVERY SUBSCRIPTION HAS ITS OWN IDENTITY. pusher-js unbinds BY
+   * FUNCTION REFERENCE and removes every entry matching it — so two `listen()`
+   * calls that pass the same function (a `useCallback` with empty deps is exactly
+   * that, and React's development double-invoke produces two of them from one
+   * mount) bind twice and are BOTH removed by the first cleanup. Measured on
+   * 2026-08-24: the frame arrived on the wire, the channel was subscribed, and
+   * one of the two listeners on it had already been unbound — so the sidebar sat
+   * still while the notification bell beside it updated from the same frame.
+   */
+  const bound = (payload: { message_uuid: string; conversation_uuid: string }) => handler(payload);
 
-  // `leave()` takes the BARE name and drops the private and presence variants
-  // with it; `leaveChannel()` is the one that wants the prefix.
+  connection.private(channel).listen(`.${event}`, bound);
+  holders.set(channel, (holders.get(channel) ?? 0) + 1);
+
+  let released = false;
+
   return () => {
+    // Idempotent: React can run a cleanup more than once, and a second release
+    // decrementing the count again would leave the channel while a live listener
+    // still holds it.
+    if (released) return;
+
+    released = true;
+
+    /*
+     * ⚠️ `stopListening` FIRST AND `leave` ONLY AT ZERO. `leave()` drops the whole
+     * channel — every handler on it, not just this one — and the bell and the
+     * sidebar deliberately share `user.{uuid}`. Whichever unmounted first used to
+     * silence the other with nothing said anywhere.
+     */
+    connection.private(channel).stopListening(`.${event}`, bound);
+
+    const left = (holders.get(channel) ?? 1) - 1;
+
+    if (left > 0) {
+      holders.set(channel, left);
+
+      return;
+    }
+
+    holders.delete(channel);
+
+    // `leave()` takes the BARE name and drops the private and presence variants
+    // with it; `leaveChannel()` is the one that wants the prefix.
     connection.leave(channel);
   };
 }

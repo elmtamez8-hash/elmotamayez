@@ -31,6 +31,26 @@ export interface Conversation {
   uuid: string;
   kind: "private" | "session" | "lesson";
   student_name: string | null;
+  student_uuid: string | null;
+  /**
+   * ⚠️ THE TITLE OF THE ROW, AND `student_name` IS NOT IT. That field is the
+   * counterpart for the TEACHER and the reader's own name for the student — so a
+   * list built on it titled every row on a student's screen with their own name.
+   * Null in a public room, which is a class rather than a person.
+   */
+  counterparty_name: string | null;
+  /** Whether THIS reader may hide a message or ban the sender in this thread. */
+  can_moderate: boolean;
+  /**
+   * Whether the student is banned from writing right now.
+   *
+   * ⚠️ FOR THE LABEL ON THE CONTROL, NOT FOR THE DOOR. Whether a message is
+   * accepted is decided by `BanReader` inside the policy, on the request that
+   * writes it; this is as old as the page. Without it the moderator saw «احظر»
+   * beside somebody they had banned a minute earlier, because the button tracked
+   * only what they had done since the last reload.
+   */
+  student_banned: boolean;
   last_message: {
     uuid: string;
     body: string;
@@ -118,4 +138,39 @@ export const rooms = {
   /** The human path for what the term list did not catch. */
   report: (messageUuid: string, reason?: string) =>
     api.post<{ message: string }>(`/messages/${messageUuid}/report`, reason ? { reason } : {}),
+};
+
+/**
+ * Hiding, banning, lifting (spec 010 · `FR-064`).
+ *
+ * ⚠️ NONE OF THIS IS NEW WORK ON THE SERVER, AND THAT IS THE POINT. The endpoint,
+ * the Action, the append-only table and its tests all shipped with the moderation
+ * phase — and a `grep` for a caller across `src/` returned nothing at all, so the
+ * whole surface was reachable only by typing a request by hand. A permission
+ * classified by absence passes every test it has while guarding nothing; a
+ * FEATURE classified by absence is one nobody can use.
+ *
+ * ⚠️ AND LIFTING A BAN IS A NEW ROW, NEVER A DELETE. `ModerationAction` throws on
+ * `updating` and `deleting`, and `BanReader` takes the most recent row: asking
+ * «does a ban row exist» would keep somebody banned for ever after they were
+ * forgiven, and «does an unban row exist» would free somebody banned a second
+ * time.
+ */
+export const moderation = {
+  ban: (studentUuid: string, reason?: string, expiresAt?: string) =>
+    api.post<{ uuid: string }>("/moderation/actions", {
+      verdict: "banned",
+      subject_type: "user",
+      subject_uuid: studentUuid,
+      ...(reason ? { reason } : {}),
+      ...(expiresAt ? { expires_at: expiresAt } : {}),
+    }),
+
+  unban: (studentUuid: string, reason?: string) =>
+    api.post<{ uuid: string }>("/moderation/actions", {
+      verdict: "unbanned",
+      subject_type: "user",
+      subject_uuid: studentUuid,
+      ...(reason ? { reason } : {}),
+    }),
 };

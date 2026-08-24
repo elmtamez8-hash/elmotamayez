@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { PLATFORM_NAME } from "@/lib/platform";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { NotificationBell } from "@/components/app/NotificationBell";
 import { panelPathFor, useAuth } from "@/lib/auth-context";
 
 const NAV = [
@@ -72,12 +73,25 @@ export function SiteHeader() {
               </Link>
             </>
           ) : (
-            <Link
-              href={panelPathFor(user)}
-              className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              {user.first_name}
-            </Link>
+            <>
+              {/*
+                ⚠️ THE SAME COMPONENT AS THE PANEL'S, NOT A SECOND ONE. It was
+                mounted only inside `(app)/(shell)`, so a signed-in person
+                browsing the marketplace — the teacher list, a profile, the
+                pricing page — had no bell at all and learned about a message
+                only by navigating back into the panel. It is also the request
+                that discovers an ended session, so its absence here left those
+                pages showing an evicted account a screen it was no longer
+                entitled to for as long as the visitor stayed on them.
+              */}
+              <NotificationBell />
+              <Link
+                href={panelPathFor(user)}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                {user.first_name}
+              </Link>
+            </>
           )}
 
           <button

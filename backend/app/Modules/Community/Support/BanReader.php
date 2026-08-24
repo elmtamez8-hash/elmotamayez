@@ -57,4 +57,54 @@ final class BanReader
 
         return $latest->expires_at === null || $latest->expires_at->isFuture();
     }
+
+    /**
+     * The same question for a whole screen, in ONE query.
+     *
+     * ⚠️ THE LIST NEEDS THIS AND THE POLICY MUST NOT USE IT. A moderator refreshing
+     * the page saw «احظر» beside somebody they had banned a minute earlier — the
+     * control tracked what this reader had just done and nothing else, so after
+     * any reload it offered the action already taken and hid the one they wanted.
+     * Asking `isBanned()` per row instead would be an N+1 by construction on a
+     * list capped at two hundred threads.
+     *
+     * ⚠️ AND THE «MOST RECENT WINS» RULE IS APPLIED IN PHP, not by a `GROUP BY`.
+     * The winner is the row with the highest id per subject, and `MAX(id)` in a
+     * grouped query gives the id without the verdict beside it — a second query
+     * to fetch them back, or a window function SQLite will not run. Ordered
+     * descending and taken first-seen: one pass, one query, both engines.
+     *
+     * @param  list<int>  $userIds
+     * @return array<int, bool> keyed by user id; absent means not banned
+     */
+    public function bannedAmong(array $userIds, int $workspaceId): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        $rows = ModerationAction::query()
+            ->withoutWorkspaceScope()
+            ->where('workspace_id', $workspaceId)
+            ->where('subject_type', ModerationAction::SUBJECT_USER)
+            ->whereIn('subject_id', $userIds)
+            ->whereIn('verdict', [ModerationVerdict::Banned->value, ModerationVerdict::Unbanned->value])
+            ->orderByDesc('id')
+            ->get(['subject_id', 'verdict', 'expires_at']);
+
+        $seen = [];
+
+        foreach ($rows as $row) {
+            $subject = (int) $row->subject_id;
+
+            if (array_key_exists($subject, $seen)) {
+                continue;
+            }
+
+            $seen[$subject] = $row->verdict === ModerationVerdict::Banned
+                && ($row->expires_at === null || $row->expires_at->isFuture());
+        }
+
+        return $seen;
+    }
 }

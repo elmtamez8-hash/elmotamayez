@@ -3,28 +3,35 @@
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { ChatHeader } from "@/components/community/ChatHeader";
+import { Composer } from "@/components/community/Composer";
 import { MessageList } from "@/components/community/MessageList";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { TextareaField } from "@/components/ui/Field";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { useAuth } from "@/lib/auth-context";
-import { conversations, mergeMessages, type ChatMessage } from "@/lib/conversations";
+import {
+  conversations,
+  mergeMessages,
+  moderation,
+  rooms,
+  type ChatMessage,
+  type Conversation,
+} from "@/lib/conversations";
 import { listen } from "@/lib/echo";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 
 /**
- * One thread (spec 010 · US2).
+ * One thread (spec 010 · US2 · `FR-054`).
  *
  * ⚠️ EVERYTHING WORKS WITH THE SOCKET SWITCHED OFF. The page fetches on mount,
  * the send returns the saved message, and `listen()` resolves to a no-op
  * unsubscribe when there is no connection to be had — so a reader with no
  * websocket sees a chat that is one reload behind rather than a blank screen.
- * That is `SC-015`, and it is why nothing here awaits a connection before
- * rendering.
+ * That is `SC-015`, measured for real on 2026-08-23 by killing `reverb` mid
+ * session, and it is why nothing here awaits a connection before rendering.
  *
  * ⚠️ AND THE SOCKET DELIVERS AN IDENTIFIER, NEVER A BODY. The handler re-fetches
  * the newest page through the authenticated route: the payload carries no words,
@@ -42,12 +49,16 @@ export default function ConversationPage() {
 
   const { user } = useAuth();
 
+  const [thread, setThread] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [problem, setProblem] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [bodyError, setBodyError] = useState<string | undefined>(undefined);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [banned, setBanned] = useState(false);
+  const [moderating, setModerating] = useState(false);
   const [olderExhausted, setOlderExhausted] = useState(false);
 
   const bottom = useRef<HTMLDivElement | null>(null);
@@ -76,6 +87,36 @@ export default function ConversationPage() {
   );
 
   useEffect(() => refresh("initial"), [refresh]);
+
+  /*
+   * The thread's own row, for the title and the moderation control.
+   *
+   * ⚠️ TAKEN FROM THE LIST RATHER THAN FROM A SECOND ENDPOINT. `GET /conversations`
+   * already answers who the counterpart is and whether this reader may moderate,
+   * and the layout above has just fetched it — a `GET /conversations/{uuid}` built
+   * for this heading would be a second place for «who am I talking to» to be
+   * answered, and the two would disagree the first time one of them changed.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    conversations
+      .list()
+      .then((response) => {
+        if (cancelled) return;
+
+        setThread((response.data ?? []).find((row) => row.uuid === uuid) ?? null);
+      })
+      .catch(() => {
+        // The heading falls back to a neutral word; the thread itself is already
+        // readable and a refusal banner over a working chat helps nobody.
+        if (!cancelled) setThread(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [uuid]);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,6 +163,11 @@ export default function ConversationPage() {
         // the socket a moment later.
         setMessages((current) => mergeMessages(current, [message]));
         setDraft("");
+
+        // ⚠️ THE SENDER IS NOT A RECIPIENT OF THEIR OWN MESSAGE, so no frame
+        // reaches `user.{uuid}` here and the sidebar preview would stay on the
+        // previous sentence until a reload. See the layout's own note.
+        window.dispatchEvent(new CustomEvent("conversations:changed"));
       })
       .catch((error: unknown) => {
         const fields = fieldErrors(error);
@@ -151,22 +197,78 @@ export default function ConversationPage() {
       .catch((error: unknown) => setProblem(userMessage(error)));
   };
 
+  /*
+   * ⚠️ THE BUTTON TRACKS LOCAL STATE, AND `banned` IS NOT READ BACK FROM THE
+   * SERVER. There is no endpoint that answers «is this person banned» — the ban
+   * is consulted inside `ConversationPolicy::post()` and nowhere else — so this
+   * flag reflects what THIS reader has just done, which is what the label needs
+   * to say next. Building a status endpoint for it would be a second answer to a
+   * question the door already answers; a moderator who wants the history has the
+   * append-only record.
+   */
+  const toggleBan = () => {
+    const studentUuid = thread?.student_uuid;
+
+    if (studentUuid === null || studentUuid === undefined) return;
+
+    setModerating(true);
+    setProblem(null);
+    setNotice(null);
+
+    const call = banned ? moderation.unban(studentUuid) : moderation.ban(studentUuid);
+
+    call
+      .then(() => {
+        setBanned((was) => !was);
+        setNotice(banned ? "رُفع الحظر، وعاد بإمكانه الكتابة." : "حُظرت الكتابة عن حسابه في مساحتك.");
+      })
+      .catch((error: unknown) => setProblem(userMessage(error)))
+      .finally(() => setModerating(false));
+  };
+
+  const report = (messageUuid: string) => {
+    setProblem(null);
+
+    rooms
+      .report(messageUuid)
+      .then((response) => setNotice(response.message))
+      .catch((error: unknown) => setProblem(userMessage(error)));
+  };
+
   if (state === "loading") return <RowsSkeleton count={5} />;
-  if (state === "error") return <ErrorState onRetry={() => refresh("initial")} description={problem ?? undefined} />;
+  if (state === "error") {
+    return <ErrorState onRetry={() => refresh("initial")} description={problem ?? undefined} />;
+  }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4">
-      <h1 className="text-xl font-semibold text-ink">المحادثة</h1>
+    <div className="flex h-full min-w-0 flex-1 flex-col">
+      <ChatHeader
+        title={thread?.counterparty_name ?? "المحادثة"}
+        canModerate={thread?.can_moderate ?? false}
+        banned={banned}
+        onBanToggle={toggleBan}
+        busy={moderating}
+      />
 
       {problem !== null && (
-        <Alert tone="danger" title="تعذّر إتمام الطلب">
-          {problem}
-        </Alert>
+        <div className="p-3">
+          <Alert tone="danger" title="تعذّر إتمام الطلب">
+            {problem}
+          </Alert>
+        </div>
       )}
 
-      <Card>
+      {notice !== null && (
+        <div className="p-3">
+          <Alert tone="info" title="تمّ">
+            {notice}
+          </Alert>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto">
         {messages.length > 0 && !olderExhausted && (
-          <div className="mb-3 text-center">
+          <div className="p-3 text-center">
             <Button variant="secondary" onClick={loadOlder}>
               الرسائل الأقدم
             </Button>
@@ -176,6 +278,7 @@ export default function ConversationPage() {
         <MessageList
           messages={messages}
           currentUserUuid={user?.uuid ?? null}
+          onReport={report}
           onHide={(messageUuid) => {
             conversations
               .hide(messageUuid)
@@ -185,26 +288,15 @@ export default function ConversationPage() {
         />
 
         <div ref={bottom} />
-      </Card>
+      </div>
 
-      <Card>
-        <TextareaField
-          id="body"
-          label="رسالتك"
-          value={draft}
-          onChange={setDraft}
-          rows={3}
-          error={bodyError}
-          disabled={sending}
-          placeholder="اكتب رسالتك هنا…"
-        />
-
-        <div className="mt-3 flex justify-end">
-          <Button onClick={send} disabled={sending || draft.trim() === ""}>
-            إرسال
-          </Button>
-        </div>
-      </Card>
+      <Composer
+        value={draft}
+        onChange={setDraft}
+        onSend={send}
+        disabled={sending}
+        error={bodyError}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { TeacherCard as Teacher } from "@/lib/public-api";
 import { AvailableNowChip, AvailableNowDot } from "./AvailableNow";
 import { StarRating } from "./StarRating";
+import { TrialCta } from "./TrialCta";
 import { TrustScoreBadge } from "./TrustScoreBadge";
 
 function Initials({ name }: { name: string }) {
@@ -106,12 +107,8 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
           what this page is for, and the profile is already reachable from the
           name above. Pills, matching every other control in the world. */}
       <div className="mt-auto flex gap-2 pt-4">
-        <Link
-          href={`/signup/student?teacher=${teacher.uuid}`}
-          className="flex-[1.4] rounded-full bg-accent px-3 py-2.5 text-center text-sm font-semibold text-accent-foreground transition duration-200 ease-out hover:brightness-105 active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-        >
-          حصة تجريبية
-        </Link>
+        {/* Role-aware: a signed-in visitor is never sent to a signup form. */}
+        <TrialCta teacherUuid={teacher.uuid} />
         <Link
           href={profileHref}
           className="flex-1 rounded-full border border-line px-3 py-2.5 text-center text-sm font-semibold text-ink transition duration-200 ease-out hover:border-primary hover:text-primary-ink active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"

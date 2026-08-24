@@ -7,6 +7,7 @@ namespace App\Modules\Community\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Community\Enums\ConversationKind;
+use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Community\ConversationFactory;
@@ -45,6 +46,21 @@ class Conversation extends BaseModel
     | reason `AssistantAssignment` keeps `revoked_at` out.
     */
 
+    /*
+    | ⚠️ A DECLARED PROPERTY, NOT AN ATTRIBUTE — the `Message::$senderRank` rule.
+    | `ListConversations::stampBans()` fills it for a whole screen in one read;
+    | assigned dynamically it would enter `$attributes`, be offered to a later
+    | `save()`, and fail on a column that does not exist.
+    |
+    | And it answers about the CONTROL, never about the door: whether the student
+    | may write is decided by `BanReader` inside `ConversationPolicy::post()`, on
+    | the request that writes. A stamped boolean is a second copy of that answer
+    | and is as old as the page it was rendered on.
+    */
+
+    /** Whether this thread's student is banned in this workspace right now. */
+    public bool $studentBanned = false;
+
     /** @return array<string, mixed> */
     protected function casts(): array
     {
@@ -57,6 +73,23 @@ class Conversation extends BaseModel
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_user_id');
+    }
+
+    /**
+     * The workspace, which for a STUDENT is the name of the person they are
+     * talking to.
+     *
+     * ⚠️ THE THREAD HAS NO «TEACHER» COLUMN, AND THAT IS WHY THIS IS HERE. A
+     * private conversation names its student and its workspace, and the teacher's
+     * side is derived from membership — so «who am I talking to» has two different
+     * answers depending on who is asking, and only one of them is a user row.
+     * `ConversationResource` reads this for the student's half; without it the
+     * list titled every row with the reader's OWN name.
+     */
+    /** @return BelongsTo<Workspace, $this> */
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class);
     }
 
     /** @return BelongsTo<Message, $this> */

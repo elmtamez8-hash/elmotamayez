@@ -209,6 +209,22 @@ export function formatDateTime(value: string | null): string {
   });
 }
 
+/**
+ * The clock alone, for a row whose date is already written above it.
+ *
+ * A chat bubble sits under a day separator, so repeating «٢٣ أغسطس ٢٠٢٦» on every
+ * message is the date said twice — and on a phone it is wider than most of the
+ * sentences it is stamping.
+ */
+export function formatTime(value: string | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleTimeString("ar", {
+    hour: "2-digit",
+    minute: "2-digit",
+    numberingSystem: "latn",
+  });
+}
+
 export function formatMoney(amount: number, currency: string): string {
   return new Intl.NumberFormat("ar", {
     style: "currency",

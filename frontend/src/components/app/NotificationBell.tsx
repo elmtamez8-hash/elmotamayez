@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { BellIcon } from "@/components/icons";
+import { useAuth } from "@/lib/auth-context";
+import { listen } from "@/lib/echo";
 import { notifications } from "@/lib/notifications";
 
 /**
@@ -23,13 +25,25 @@ import { notifications } from "@/lib/notifications";
  * does the rest. Without it, a signed-out account keeps showing its owner a
  * screen they are no longer entitled to until they next click something.
  *
- * ponytail: polling, not push. Reverb (spec 010) replaces this with a socket;
- * one request a minute per open tab is not worth a WebSocket before then.
+ * ⚠️ THE SOCKET ACCELERATES THE COUNT AND DOES NOT REPLACE THE POLL. This file
+ * used to say spec 010 «replaces this with a socket», and doing so would have
+ * removed the session heartbeat described above with it: a websocket that drops
+ * is a client that learns nothing, which is the exact state an evicted account is
+ * already in. So the interval stays at sixty seconds and is still the thing that
+ * discovers an ended session; `user.{uuid}` only means the badge moves in a
+ * second instead of within a minute.
+ *
+ * ⚠️ AND IT COUNTS BY ASKING THE SERVER, NEVER BY INCREMENTING ON A FRAME. The
+ * payload carries an identifier and no notification, the reader may have the feed
+ * open in another tab, and a locally-incremented badge drifts from the truth on
+ * the first message read somewhere else — the database is the source here for the
+ * same reason it is in the chat.
  */
 const POLL_SECONDS = 60;
 
 export function NotificationBell() {
   const [count, setCount] = useState(0);
+  const { user } = useAuth();
 
   useEffect(() => {
     let cancelled = false;
@@ -48,11 +62,29 @@ export function NotificationBell() {
     poll();
     const timer = window.setInterval(poll, POLL_SECONDS * 1000);
 
+    let unsubscribe: (() => void) | null = null;
+    const uuid = user?.uuid;
+
+    if (uuid !== undefined && uuid !== null) {
+      listen(`user.${uuid}`, "message.posted", poll)
+        .then((off) => {
+          if (cancelled) {
+            off();
+
+            return;
+          }
+
+          unsubscribe = off;
+        })
+        .catch(() => undefined);
+    }
+
     return () => {
       cancelled = true;
       window.clearInterval(timer);
+      unsubscribe?.();
     };
-  }, []);
+  }, [user?.uuid]);
 
   const label = count > 0 ? `الإشعارات، ${count} غير مقروء` : "الإشعارات";
 

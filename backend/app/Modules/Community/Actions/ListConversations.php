@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Community\Enums\ConversationKind;
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\ConversationParticipant;
+use App\Modules\Community\Support\BanReader;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AssistantScopeDirectory;
@@ -36,7 +37,10 @@ class ListConversations extends Action
     /** How many threads one screen shows. Beyond this, search is the answer. */
     private const LIMIT = 200;
 
-    public function __construct(private readonly AssistantScopeDirectory $assistants) {}
+    public function __construct(
+        private readonly AssistantScopeDirectory $assistants,
+        private readonly BanReader $bans,
+    ) {}
 
     /** @return Collection<int, Conversation> */
     public function handle(User $user): Collection
@@ -58,7 +62,12 @@ class ListConversations extends Action
 
         $rows = Conversation::query()
             ->withoutWorkspaceScope()
-            ->with(['lastMessage.sender', 'student'])
+            // `workspace` is what titles the row for the STUDENT — see
+            // `ConversationResource::counterpartyName()`. Eager-loaded rather than
+            // read per row: a `whenLoaded` key that is simply absent makes the
+            // page one query cheaper and the list nameless, which a budget test
+            // reads as an improvement.
+            ->with(['lastMessage.sender', 'student', 'workspace'])
             ->where(function (Builder $query) use ($participantIds, $teacherSide, $workspaceId): void {
                 $query->whereIn('id', $participantIds);
 
@@ -87,7 +96,7 @@ class ListConversations extends Action
         | upgrade is a directory method returning the student ids inside a scope,
         | not a second predicate written here.
         */
-        return $rows->filter(function (Conversation $conversation) use ($user, $participantIds): bool {
+        $mine = $rows->filter(function (Conversation $conversation) use ($user, $participantIds): bool {
             if (in_array($conversation->getKey(), $participantIds, true)) {
                 return true;
             }
@@ -98,5 +107,37 @@ class ListConversations extends Action
                 (int) $conversation->student_user_id,
             );
         })->values();
+
+        return $this->stampBans($mine, $workspaceId);
+    }
+
+    /**
+     * Whether each thread's student is banned right now — for the CONTROL, never
+     * for the door.
+     *
+     * ⚠️ ONE QUERY FOR THE WHOLE SCREEN, AND ONLY ON THE TEACHER'S SIDE. A student
+     * has no use for it and reading it for them would be telling one person about
+     * another's standing. The property is public on the model rather than an
+     * attribute, exactly as `ChatRankStamper` sets the sender's rank: a cast or an
+     * accessor would invite a per-row read from inside the Resource, which is the
+     * N+1 this method exists to avoid.
+     *
+     * @param  Collection<int, Conversation>  $rows
+     * @return Collection<int, Conversation>
+     */
+    private function stampBans(Collection $rows, int $workspaceId): Collection
+    {
+        /** @var list<int> $studentIds */
+        $studentIds = array_values(array_unique(
+            $rows->pluck('student_user_id')->filter()->map(fn ($id): int => (int) $id)->all(),
+        ));
+
+        $banned = $this->bans->bannedAmong($studentIds, $workspaceId);
+
+        foreach ($rows as $conversation) {
+            $conversation->studentBanned = $banned[(int) $conversation->student_user_id] ?? false;
+        }
+
+        return $rows;
     }
 }

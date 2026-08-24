@@ -48,6 +48,7 @@ export function SessionChat({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "closed">("loading");
   const [problem, setProblem] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [bodyError, setBodyError] = useState<string | undefined>(undefined);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -117,6 +118,28 @@ export function SessionChat({
 
   if (state === "loading" || state === "closed" || room === null) return null;
 
+  /** The teacher's endorsement. One press or ten, the points are awarded once. */
+  const markHelpful = (messageUuid: string) => {
+    setProblem(null);
+
+    rooms
+      .markHelpful(messageUuid)
+      .then((updated) => setMessages((current) => mergeMessages(current, [updated])))
+      .catch((error: unknown) => setProblem(userMessage(error)));
+  };
+
+  const report = (messageUuid: string) => {
+    setProblem(null);
+
+    rooms
+      .report(messageUuid)
+      // The answer is a constant sentence carrying no uuid and no count — a
+      // reporter learning whether theirs was the first is an oracle over
+      // somebody else's record.
+      .then((response) => setNotice(response.message))
+      .catch((error: unknown) => setProblem(userMessage(error)));
+  };
+
   const send = () => {
     const body = draft.trim();
 
@@ -162,7 +185,30 @@ export function SessionChat({
         </Alert>
       )}
 
-      <MessageList messages={messages} currentUserUuid={user?.uuid ?? null} showBadges />
+      {notice !== null && (
+        <Alert tone="info" title="تمّ">
+          {notice}
+        </Alert>
+      )}
+
+      {/*
+        ⚠️ THE TWO HANDLERS ARE THE WHOLE OF `FR-064` HERE, AND BOTH ENDPOINTS
+        SHIPPED WITH THE MODERATION PHASE WITH NO CALLER AT ALL. `markHelpful`
+        awards the twenty points and ten coins spec 009 defined for an endorsed
+        answer, and a `grep` for it across `src/` returned nothing — so the whole
+        gamification loop it feeds was unreachable, and every test of it passed
+        against a path no person could take.
+
+        `canEndorse` is `can_moderate` and not a second condition: endorsing is a
+        teacher-side act in a room, and the server answers that question once.
+      */}
+      <MessageList
+        messages={messages}
+        currentUserUuid={user?.uuid ?? null}
+        showBadges
+        onReport={report}
+        onMarkHelpful={room.can_moderate ? markHelpful : undefined}
+      />
 
       <div className="mt-4">
         <TextareaField

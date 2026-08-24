@@ -8,6 +8,7 @@ import {
   AvailableNowDot,
 } from "@/components/marketplace/AvailableNow";
 import { StarRating } from "@/components/marketplace/StarRating";
+import { TrialCta } from "@/components/marketplace/TrialCta";
 import { TrustScoreBadge } from "@/components/marketplace/TrustScoreBadge";
 import { TrustScoreBreakdown } from "@/components/marketplace/TrustScoreBreakdown";
 import { AvailabilityCalendar } from "@/components/marketplace/AvailabilityCalendar";
@@ -275,18 +276,15 @@ export default async function TeacherProfilePage({
                 {teacher.name}
               </p>
 
-              <Link
-                href={`/signup/student?teacher=${teacher.uuid}`}
-                className="mb-3 block rounded-full bg-accent px-5 py-3 text-center text-base font-semibold text-accent-foreground transition duration-200 ease-out hover:brightness-105 active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-              >
-                احجز الآن
-              </Link>
-              <Link
-                href={`/signup/student?teacher=${teacher.uuid}&trial=1`}
-                className="block rounded-full border border-primary px-5 py-3 text-center text-base font-semibold text-primary-ink transition duration-200 ease-out hover:bg-primary-soft active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              >
-                حجز حصة تجريبية
-              </Link>
+              {/*
+                ⚠️ ONE CONTROL NOW, NOT TWO — and the pair was the defect. Both
+                pointed at `/signup/student`, so a signed-in visitor of ANY role
+                was offered a student registration form twice on the same panel.
+                `TrialCta` renders them for a guest and replaces them with the
+                way into the reader's own panel otherwise; there is no
+                trial-booking flow for an existing account to send them to yet.
+              */}
+              <TrialCta teacherUuid={teacher.uuid} variant="profile" />
             </div>
 
           </div>
@@ -404,12 +402,11 @@ export default async function TeacherProfilePage({
             </span>
             {teacher.subjects[0]?.name_ar ?? "حصص خاصة"}
           </p>
-          <Link
-            href={`/signup/student?teacher=${teacher.uuid}`}
-            className="flex-1 rounded-full bg-accent px-5 py-3 text-center text-base font-semibold text-accent-foreground transition duration-200 ease-out hover:brightness-105 active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            احجز الآن
-          </Link>
+          {/* ⚠️ THE THIRD CALL SITE, AND THE ONE THAT ONLY APPEARS ON A PHONE.
+              Two of them were fixed and this one sat under `lg:hidden`, so the
+              defect survived on exactly the screen the redesign is aimed at.
+              Grep for the route, never for the button's label. */}
+          <TrialCta teacherUuid={teacher.uuid} variant="bar" />
         </div>
       </div>
     </div>
