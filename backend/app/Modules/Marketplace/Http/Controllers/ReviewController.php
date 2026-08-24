@@ -9,6 +9,7 @@ use App\Modules\Marketplace\Actions\ConfirmComplaint;
 use App\Modules\Marketplace\Actions\DismissComplaint;
 use App\Modules\Marketplace\Actions\ModerateReview;
 use App\Modules\Marketplace\Actions\Public\ShowPublicTeacher;
+use App\Modules\Marketplace\Actions\ReadReviewEligibility;
 use App\Modules\Marketplace\Actions\SubmitReview;
 use App\Modules\Marketplace\Http\Requests\SubmitReviewRequest;
 use App\Modules\Marketplace\Models\Complaint;
@@ -38,17 +39,40 @@ class ReviewController extends Controller
         $review = $action->handle(
             $teacher,
             $student,
-            (int) $validated['rating'],
+            [
+                'punctuality' => (int) $validated['punctuality'],
+                'clarity' => (int) $validated['clarity'],
+                'engagement' => (int) $validated['engagement'],
+            ],
             $validated['comment'] ?? null,
         );
 
         return response()->json([
             'uuid' => $review->uuid,
+            // The derived star, echoed so the client shows the same number the
+            // public profile will — never re-derived in TypeScript.
             'rating' => $review->rating,
             // 201 on the first review, 200 on a revision (FR-019) — the client shows
             // "شكراً لتقييمك" either way, but an API that lies about creation is one
             // more thing to un-learn later.
         ], $review->wasRecentlyCreated ? 201 : 200);
+    }
+
+    /**
+     * What the form should show before it is filled in (FR-030 · `SC-010`).
+     *
+     * Resolved through the same public Action as `store()`: an unlisted profile is
+     * no more askable-about than it is viewable.
+     */
+    public function eligibility(
+        Request $request,
+        string $uuid,
+        ShowPublicTeacher $teachers,
+        ReadReviewEligibility $action,
+    ): JsonResponse {
+        return response()->json(
+            $action->handle($teachers->handle($uuid), $this->currentUser($request)),
+        );
     }
 
     public function moderate(Request $request, string $uuid, ModerateReview $action): JsonResponse

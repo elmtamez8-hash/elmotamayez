@@ -190,6 +190,16 @@ final class RolePermissionMatrix
             | the owner delegates each for a named person.
             */
             Permissions::CHAT_MODERATE,
+            /*
+            | REVIEWS_PERIODIC_MANAGE is the third of 010's names, and it is NOT
+            | PROGRESS_VIEW_STUDENT reused. That one's own docblock says «may this
+            | role ever LOOK» — riding it for a write would hand every assistant
+            | granted progress-reading the authoring of an assessment that reaches
+            | the student's guardian. The same two-questions-one-permission defect
+            | as SESSIONS_VIEW/ATTENDANCE_VIEW and as CHAT_REPLY/CHAT_MODERATE two
+            | lines up.
+            */
+            Permissions::REVIEWS_PERIODIC_MANAGE,
             //
             // ⚠️ ANALYTICS_CROSS_TEACHER_VIEW IS DELIBERATELY ABSENT, HERE AND IN
             // EVERY OTHER ARRAY IN THIS FILE. platformPermissions() is derived by

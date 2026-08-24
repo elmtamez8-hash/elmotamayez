@@ -258,28 +258,28 @@ description: "Task list — المجتمع والمساعدون والتقييم
 
 ### Tests for User Story 4
 
-- [ ] T113 [P] [US4] `backend/tests/Feature/Community/PeriodicReviewTest.php` — `FR-028`/`FR-029`/`FR-035`: الطالبُ ووليُّ أمرِه يريان، وطالبٌ آخرُ **لا**
-- [ ] T114 [P] [US4] `backend/tests/Feature/Marketplace/ReviewEligibilityTest.php` — `SC-010`: صفرُ تقييمٍ دونَ الحدّ، وصفرُ تكرارٍ في الفترة، **والأهليّةُ المعروضةُ تطابق ما يقبله الخادم**
-- [ ] T115 [P] [US4] `backend/tests/Feature/Marketplace/TrustScoreUnchangedTest.php` — `SC-011`: مطابقةُ درجةِ الثقةِ قبلَ وبعد، **وصفٌّ قديمٌ بمحاورَ معدومةٍ لا يهبط متوسّطُه إلى صفر**
+- [X] T113 [P] [US4] `backend/tests/Feature/Community/PeriodicReviewTest.php` — `FR-028`/`FR-029`/`FR-035`: الطالبُ ووليُّ أمرِه يريان، وطالبٌ آخرُ **لا**
+- [X] T114 [P] [US4] `backend/tests/Feature/Marketplace/ReviewEligibilityTest.php` — `SC-010`: صفرُ تقييمٍ دونَ الحدّ، وصفرُ تكرارٍ في الفترة، **والأهليّةُ المعروضةُ تطابق ما يقبله الخادم**
+- [X] T115 [P] [US4] `backend/tests/Feature/Marketplace/TrustScoreUnchangedTest.php` — `SC-011`: مطابقةُ درجةِ الثقةِ قبلَ وبعد، **وصفٌّ قديمٌ بمحاورَ معدومةٍ لا يهبط متوسّطُه إلى صفر**
 
 ### Implementation for User Story 4
 
-- [ ] T116 [US4] هجرة `2026_08_22_000500_create_periodic_reviews_table.php`: `workspace_id` · `student_user_id` · `teacher_user_id` · `period_start`/`period_end` · `commitment`/`participation`/`homework`/`improvement` (١–٥) · `note` · `published_at` · `unique(workspace_id, student_user_id, period_start, period_end)`
-- [ ] T117 [US4] هجرة `backend/app/Modules/Marketplace/Database/Migrations/2026_08_22_000510_extend_reviews_axes.php`: `punctuality` · `clarity` · `engagement` **قابلةً للعدم** + `period_start` — ⚠️ **`NOT NULL` بلا افتراضٍ يرفضه SQLite على جدولٍ عامرٍ ويقبله MySQL فيملأ صفراً** خارجَ المدى ١–٥، فيصير متوسّطُ كلِّ تقييمٍ سابقٍ صفراً ويتدفّق إلى درجةِ الثقة — وهو بالضبط ما يقيسه `SC-011`
-- [ ] T118 [US4] هجرة `2026_08_22_000520_repoint_reviews_unique.php`: **تعبئةُ `period_start` أوّلاً ثمّ** استبدالُ `unique(teacher_profile_id, student_id)` بـ`unique(teacher_profile_id, student_id, period_start)` — ⚠️ ترتيبُ ٠١٦ نفسُه (‏التكثيفُ قبلَ الفهرس، وإلّا فشل النشرُ على بياناتٍ حيّة). والفريدُ القديمُ يعني صفّاً واحداً للأبد، فـ`FR-032` مُرضىً **مجّاناً** ولا يمكن إدخالُ فترةٍ ثانيةٍ إطلاقاً
-- [ ] T119 [P] [US4] أنشئ `Models/PeriodicReview.php` ومصنعَه
-- [ ] T120 [US4] أنشئ `Actions/SubmitPeriodicReview.php` — ⚠️ **يسأل `EnrollmentDirectory` أوّلاً**: معرّفٌ عارٍ **مسبارُ هويّة** (`NFR-001أ`)، فمعرّفُ أيِّ مستخدمٍ يعيد اسمَه
-- [ ] T121 [US4] أنشئ `Actions/PublishPeriodicReview.php` + `Events/PeriodicReviewPublished.php` — **تحديثٌ شرطيٌّ على `published_at`** فيصل الإشعارُ مرّةً
-- [ ] T122 [US4] عدّل `Marketplace\Actions\SubmitReview`: **استبدل `hasCompletedSessionWith()` في مكانِه** بعدَّادِ الحصصِ **المحتسَبةِ حضوراً** من `CommunitySettings` — ⚠️ البوّابةُ المشحونةُ تطلب **تسجيلاً مكتملاً**: طالبٌ حضر أربعَ حصصٍ على تسجيلٍ نشطٍ يُرفَض اليوم، وطالبٌ بتسجيلٍ مكتملٍ وصفرِ حصصٍ يُقبَل. **ولا نقطةَ ثانية**
-- [ ] T123 [US4] أنشئ `Marketplace\Actions\ReadReviewEligibility.php` + `GET /teachers/{teacher}/reviews/eligibility` — ⚠️ **تُشتقُّ من مسندِ التفويضِ نفسِه**: درسُ `ListLeaderboardScopes` — قائمةٌ مبنيّةٌ بجانبِ الحارسِ تعرض ما يرفضه الخادمُ وتُخفي ما يسمح به
-- [ ] T124 [US4] أضف نوعَ `periodic_review_published` إلى `NotificationType` **و`targetsGuardians()` و`requiredGuardianPermission()` في السطرِ نفسِه** — ⚠️ نوعٌ في `targetsGuardians()` بلا صلاحيّةِ وصايةٍ يُلتقَط للواتساب، **يُحاسَب عليه، ولا يصل أحداً**
-- [ ] T125 [US4] أضف صفَّه إلى `NotificationTemplateSeeder` **وحدّث العددَ في `WhatsAppDefaultsTest` إلى `23`** — ⚠️ **اقرأ التوكيدَ لا الوثيقةَ عنه**: الإصدارُ الأوّلُ كتب `19` لأنه نُقل عن `CLAUDE.md` وكان ٠١٣ قد حرّكه إلى `22`
-- [ ] T126 [P] [US4] أنشئ `Http/Controllers/Manage/PeriodicReviewController.php` و`StudentReviewController.php` (`GET /students/me/reviews`)
-- [ ] T127 [P] [US4] أنشئ `Http/Resources/PeriodicReviewResource.php` و`Data/PeriodicReviewData.php` و`Policies/PeriodicReviewPolicy.php`
-- [ ] T128 [US4] وسّع نقطةَ `POST /teachers/{teacher}/reviews` المشحونةَ بالمحاورِ الثلاثةِ — ⚠️ **لا نقطةَ ثانية ولا `TeacherRated`**: `ReviewSubmitted` مشحونٌ ومربوطٌ بـ`QueueTrustScoreRecalculation`
-- [ ] T129 [US4] أضف مسارَ البلاغِ عن تقييمٍ إلى مسارِ الإشرافِ القائم — `FR-034`
-- [ ] T130 [P] [US4] أنشئ شاشتَي `frontend/src/app/(app)/(shell)/manage/students/[uuid]/reviews/page.tsx` و`report`-side للطالب، **مع روابطِها الداخلة**
-- [ ] T131 [P] [US4] أضف حالةَ `periodic_reviews` إلى `WorkspaceIsolationTest` ومفاتيحَ الحقولِ إلى `backend/lang/ar/validation.php`
+- [X] T116 [US4] هجرة `2026_08_22_000500_create_periodic_reviews_table.php`: `workspace_id` · `student_user_id` · `teacher_user_id` · `period_start`/`period_end` · `commitment`/`participation`/`homework`/`improvement` (١–٥) · `note` · `published_at` · `unique(workspace_id, student_user_id, period_start, period_end)`
+- [X] T117 [US4] هجرة `backend/app/Modules/Marketplace/Database/Migrations/2026_08_22_000510_extend_reviews_axes.php`: `punctuality` · `clarity` · `engagement` **قابلةً للعدم** + `period_start` — ⚠️ **`NOT NULL` بلا افتراضٍ يرفضه SQLite على جدولٍ عامرٍ ويقبله MySQL فيملأ صفراً** خارجَ المدى ١–٥، فيصير متوسّطُ كلِّ تقييمٍ سابقٍ صفراً ويتدفّق إلى درجةِ الثقة — وهو بالضبط ما يقيسه `SC-011`
+- [X] T118 [US4] هجرة `2026_08_22_000520_repoint_reviews_unique.php`: **تعبئةُ `period_start` أوّلاً ثمّ** استبدالُ `unique(teacher_profile_id, student_id)` بـ`unique(teacher_profile_id, student_id, period_start)` — ⚠️ ترتيبُ ٠١٦ نفسُه (‏التكثيفُ قبلَ الفهرس، وإلّا فشل النشرُ على بياناتٍ حيّة). والفريدُ القديمُ يعني صفّاً واحداً للأبد، فـ`FR-032` مُرضىً **مجّاناً** ولا يمكن إدخالُ فترةٍ ثانيةٍ إطلاقاً
+- [X] T119 [P] [US4] أنشئ `Models/PeriodicReview.php` ومصنعَه
+- [X] T120 [US4] أنشئ `Actions/SubmitPeriodicReview.php` — ⚠️ **يسأل `EnrollmentDirectory` أوّلاً**: معرّفٌ عارٍ **مسبارُ هويّة** (`NFR-001أ`)، فمعرّفُ أيِّ مستخدمٍ يعيد اسمَه
+- [X] T121 [US4] أنشئ `Actions/PublishPeriodicReview.php` + `Events/PeriodicReviewPublished.php` — **تحديثٌ شرطيٌّ على `published_at`** فيصل الإشعارُ مرّةً
+- [X] T122 [US4] عدّل `Marketplace\Actions\SubmitReview`: **استبدل `hasCompletedSessionWith()` في مكانِه** بعدَّادِ الحصصِ **المحتسَبةِ حضوراً** من `CommunitySettings` — ⚠️ البوّابةُ المشحونةُ تطلب **تسجيلاً مكتملاً**: طالبٌ حضر أربعَ حصصٍ على تسجيلٍ نشطٍ يُرفَض اليوم، وطالبٌ بتسجيلٍ مكتملٍ وصفرِ حصصٍ يُقبَل. **ولا نقطةَ ثانية**
+- [X] T123 [US4] أنشئ `Marketplace\Actions\ReadReviewEligibility.php` + `GET /teachers/{teacher}/reviews/eligibility` — ⚠️ **تُشتقُّ من مسندِ التفويضِ نفسِه**: درسُ `ListLeaderboardScopes` — قائمةٌ مبنيّةٌ بجانبِ الحارسِ تعرض ما يرفضه الخادمُ وتُخفي ما يسمح به
+- [X] T124 [US4] أضف نوعَ `periodic_review_published` إلى `NotificationType` **و`targetsGuardians()` و`requiredGuardianPermission()` في السطرِ نفسِه** — ⚠️ نوعٌ في `targetsGuardians()` بلا صلاحيّةِ وصايةٍ يُلتقَط للواتساب، **يُحاسَب عليه، ولا يصل أحداً**
+- [X] T125 [US4] أضف صفَّه إلى `NotificationTemplateSeeder` **وحدّث العددَ في `WhatsAppDefaultsTest` إلى `23`** — ⚠️ **اقرأ التوكيدَ لا الوثيقةَ عنه**: الإصدارُ الأوّلُ كتب `19` لأنه نُقل عن `CLAUDE.md` وكان ٠١٣ قد حرّكه إلى `22`
+- [X] T126 [P] [US4] أنشئ `Http/Controllers/Manage/PeriodicReviewController.php` و`StudentReviewController.php` (`GET /students/me/reviews`)
+- [X] T127 [P] [US4] أنشئ `Http/Resources/PeriodicReviewResource.php` و`Data/PeriodicReviewData.php` و`Policies/PeriodicReviewPolicy.php`
+- [X] T128 [US4] وسّع نقطةَ `POST /teachers/{teacher}/reviews` المشحونةَ بالمحاورِ الثلاثةِ — ⚠️ **لا نقطةَ ثانية ولا `TeacherRated`**: `ReviewSubmitted` مشحونٌ ومربوطٌ بـ`QueueTrustScoreRecalculation`
+- [X] T129 [US4] أضف مسارَ البلاغِ عن تقييمٍ إلى مسارِ الإشرافِ القائم — `FR-034`
+- [X] T130 [P] [US4] أنشئ شاشتَي `frontend/src/app/(app)/(shell)/manage/students/[uuid]/reviews/page.tsx` و`report`-side للطالب، **مع روابطِها الداخلة**
+- [X] T131 [P] [US4] أضف حالةَ `periodic_reviews` إلى `WorkspaceIsolationTest` ومفاتيحَ الحقولِ إلى `backend/lang/ar/validation.php`
 
 **Checkpoint**: `US4` قابلةٌ للتسليم؛ درجةُ الثقةِ **تُغذّى ولا تُعاد**.
 

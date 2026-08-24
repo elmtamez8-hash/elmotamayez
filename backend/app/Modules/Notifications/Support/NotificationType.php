@@ -185,6 +185,18 @@ enum NotificationType: string
     */
     case ChatMessage = 'chat_message';
 
+    /*
+    | Spec 010 — the teacher published this student's periodic assessment (FR-029).
+    |
+    | ⚠️ IT TARGETS GUARDIANS, AND THE LINE IN `requiredGuardianPermission()` IS
+    | PART OF THE SAME DECISION. A type named in `targetsGuardians()` with no
+    | permission beneath it picks up the WhatsApp channel from `defaultChannels()`,
+    | is billed for, and reaches NO guardian at all — `RecipientResolver` merges
+    | them only when both are present. It rides `Results`, because an assessment of
+    | how a child is doing is the same fact as an exam result in a different shape.
+    */
+    case PeriodicReviewPublished = 'periodic_review_published';
+
     public function label(): string
     {
         return match ($this) {
@@ -236,6 +248,7 @@ enum NotificationType: string
             self::GuardianConsentConflict => 'تعارض في موافقة الأولياء',
             self::TeacherOffboardingNotice => 'إخطار بمغادرة مدرّس',
             self::ChatMessage => 'رسالة جديدة',
+            self::PeriodicReviewPublished => 'تقييم دوري جديد',
         };
     }
 
@@ -421,7 +434,11 @@ enum NotificationType: string
             | arrives nowhere.
             */
             self::DataOwnershipTransferred,
-            self::TeacherOffboardingNotice => true,
+            self::TeacherOffboardingNotice,
+            // Spec 010. The guardian is the audience as much as the student is —
+            // FR-029 names them both, and an assessment nobody at home reads is
+            // the report card left in the school bag.
+            self::PeriodicReviewPublished => true,
             default => false,
         };
     }
@@ -472,6 +489,9 @@ enum NotificationType: string
             // `Schedule` already gates for a cancelled session.
             self::DataOwnershipTransferred => GuardianPermission::DataRights,
             self::TeacherOffboardingNotice => GuardianPermission::Schedule,
+            // Spec 010. The same consent as an exam result and a graded
+            // assignment, because it is the same kind of fact about the same child.
+            self::PeriodicReviewPublished => GuardianPermission::Results,
             default => null,
         };
     }

@@ -5,17 +5,21 @@ declare(strict_types=1);
 namespace App\Modules\Community;
 
 use App\Modules\Community\Events\MessagePosted;
+use App\Modules\Community\Events\PeriodicReviewPublished;
 use App\Modules\Community\Listeners\CreateAssistantAssignment;
 use App\Modules\Community\Listeners\NotifyOfflineRecipient;
+use App\Modules\Community\Listeners\NotifyPeriodicReviewPublished;
 use App\Modules\Community\Listeners\SeedDefaultBlockedTerms;
 use App\Modules\Community\Models\AssistantAssignment;
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\Message;
 use App\Modules\Community\Models\ModerationAction;
+use App\Modules\Community\Models\PeriodicReview;
 use App\Modules\Community\Policies\AssistantAssignmentPolicy;
 use App\Modules\Community\Policies\ConversationPolicy;
 use App\Modules\Community\Policies\MessagePolicy;
 use App\Modules\Community\Policies\ModerationActionPolicy;
+use App\Modules\Community\Policies\PeriodicReviewPolicy;
 use App\Modules\Community\Support\EloquentAssistantScopeDirectory;
 use App\Modules\Tenancy\Events\WorkspaceCreated;
 use App\Modules\Tenancy\Events\WorkspaceMemberAdded;
@@ -89,9 +93,11 @@ class CommunityServiceProvider extends Module
         Gate::policy(Conversation::class, ConversationPolicy::class);
         Gate::policy(Message::class, MessagePolicy::class);
         Gate::policy(ModerationAction::class, ModerationActionPolicy::class);
+        Gate::policy(PeriodicReview::class, PeriodicReviewPolicy::class);
 
         Event::listen(WorkspaceMemberAdded::class, CreateAssistantAssignment::class);
         Event::listen(MessagePosted::class, NotifyOfflineRecipient::class);
+        Event::listen(PeriodicReviewPublished::class, NotifyPeriodicReviewPublished::class);
 
         /*
         | ⚠️ A SECOND LISTENER ON `WorkspaceCreated`, AND NOT A LINE INSIDE

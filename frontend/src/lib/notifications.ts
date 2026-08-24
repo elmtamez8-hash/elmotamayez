@@ -60,6 +60,12 @@ export type GuardianRelation = {
   student_age: number | null;
   student_grade_level_slug: string | null;
   student_has_account: boolean;
+  /**
+   * Present ONLY on a row the reader is the guardian of — a teacher reading a
+   * student's guardians, or a student reading their own, never sees it. It is
+   * what every child-scoped screen sends as `?student=`.
+   */
+  student_uuid?: string;
   guardian?: { uuid: string; name: string };
   permissions: { key: string; label: string }[];
   revoked_at: string | null;

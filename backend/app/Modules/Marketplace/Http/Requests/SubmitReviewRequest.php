@@ -10,16 +10,26 @@ class SubmitReviewRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // The real gates are the ReviewPolicy check and the completed-session rule
-        // in SubmitReview; both need the teacher, which the controller resolves.
+        // The real gates are the ReviewPolicy check and the attendance rule in
+        // ReviewEligibility; both need the teacher, which the controller resolves.
         return true;
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * ⚠️ THERE IS NO `rating` FIELD ANY MORE (FR-031). The overall star is the
+     * average of the three axes, computed in `SubmitReview` — accepted here as
+     * well, it would be a second answer to a question the axes already answer, and
+     * the public star would drift from the bars beneath it at the first submission
+     * where the two disagreed.
+     *
+     * @return array<string, mixed>
+     */
     public function rules(): array
     {
         return [
-            'rating' => ['required', 'integer', 'between:1,5'],
+            'punctuality' => ['required', 'integer', 'between:1,5'],
+            'clarity' => ['required', 'integer', 'between:1,5'],
+            'engagement' => ['required', 'integer', 'between:1,5'],
             'comment' => ['nullable', 'string', 'max:2000'],
         ];
     }
@@ -28,8 +38,12 @@ class SubmitReviewRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'rating.required' => 'التقييم مطلوب.',
-            'rating.between' => 'التقييم يجب أن يكون بين نجمة وخمس نجوم.',
+            'punctuality.required' => 'قيّم الالتزام بالمواعيد.',
+            'clarity.required' => 'قيّم جودة الشرح.',
+            'engagement.required' => 'قيّم التفاعل.',
+            'punctuality.between' => 'التقييم يجب أن يكون بين نجمة وخمس نجوم.',
+            'clarity.between' => 'التقييم يجب أن يكون بين نجمة وخمس نجوم.',
+            'engagement.between' => 'التقييم يجب أن يكون بين نجمة وخمس نجوم.',
             'comment.max' => 'التعليق طويل جداً.',
         ];
     }

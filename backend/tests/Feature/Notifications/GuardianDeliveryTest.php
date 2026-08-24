@@ -250,7 +250,10 @@ it('tells every guardian-facing type apart', function (): void {
     // Listing it here would fan it out to every authorised guardian and demand a
     // permission to gate it by — and the permission it would need is the very
     // consent the message exists to ask for.
-    expect($guardianTypes)->toHaveCount(20);
+    // And the twenty-first, with spec 010: an assessment of how a child is doing
+    // is the same fact as an exam result in a different shape, so it rides the
+    // same `Results` consent.
+    expect($guardianTypes)->toHaveCount(21);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();

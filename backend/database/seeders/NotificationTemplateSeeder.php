@@ -344,6 +344,22 @@ class NotificationTemplateSeeder extends Seeder
                 'وصلتك رسالة جديدة من {{ sender_name }}. افتح المحادثة لقراءتها والردّ عليها.',
                 ['sender_name'],
             ],
+            /*
+            | The periodic assessment (010 · FR-029).
+            |
+            | ⚠️ NO AXIS AND NO NUMBER IN THE BODY, and the reason is the guardian:
+            | this template travels to WhatsApp, where it is one approved sentence
+            | for every family on the platform. A message carrying «٢ من ٥ في
+            | الواجبات» is a mark delivered to a phone with no context beside it
+            | and no way for the student to answer it. The message says an
+            | assessment exists and where to read it; the four axes and the
+            | teacher's note live on the screen behind the link.
+            */
+            NotificationType::PeriodicReviewPublished->value => [
+                'تقييم {{ student_name }} الدوري',
+                'نشر {{ teacher_name }} تقييماً دورياً لـ{{ student_name }} عن الفترة من {{ period_start }} إلى {{ period_end }}. افتح التقييم لقراءته.',
+                ['student_name', 'teacher_name', 'period_start', 'period_end'],
+            ],
             NotificationType::ExamPendingGrading->value => [
                 'تسلّمنا ورقتك في «{{ exam_title }}»',
                 'تسلّمنا ورقة {{ student_name }} في «{{ exam_title }}». فيها أسئلة مقالية ينتظر تصحيحُها المدرّس، وتصلك النتيجة كاملةً بعده.',

@@ -24,6 +24,7 @@ use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\ConversationParticipant;
 use App\Modules\Community\Models\Message;
 use App\Modules\Community\Models\ModerationAction;
+use App\Modules\Community\Models\PeriodicReview;
 use App\Modules\Compliance\Models\TeacherOffboarding;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
@@ -835,6 +836,43 @@ it('scopes moderation actions and blocked terms to the workspace that owns them'
         ->and($context->forWorkspace($workspaceB, fn () => ModerationAction::query()->count()))->toBe(0)
         ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(BlockedTerm::class), true))->toBeTrue()
         ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(ModerationAction::class), true))->toBeTrue();
+});
+
+/*
+| Spec 010 · US4 — the periodic assessment.
+|
+| ⚠️ AND THE TENANT SCOPE IS THE WEAKER HALF OF ITS GUARD, WHICH IS WHY IT NEEDS
+| SAYING HERE. It bites for the TEACHER's screen, where the reader is a member;
+| on the student's own route `WorkspaceContext::id()` is null — a student belongs
+| to no workspace — so the scope adds no condition at all and the explicit
+| `student_user_id` filter is the whole protection. Both halves are measured:
+| this case for the teacher, `PeriodicReviewTest` for the student.
+*/
+it('scopes periodic reviews to the workspace that wrote them', function (): void {
+    [$workspaceA, $ownerA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+    [$workspaceB, $ownerB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+    $context = app(WorkspaceContext::class);
+
+    // One student studying with BOTH teachers — the shape that makes the scope
+    // load-bearing. A fixture with one student per workspace passes whether or not
+    // the scope exists.
+    $student = User::factory()->create();
+
+    $context->forWorkspace($workspaceA, fn () => PeriodicReview::factory()->create([
+        'student_user_id' => $student->getKey(),
+        'teacher_user_id' => $ownerA->getKey(),
+    ]));
+
+    $context->forWorkspace($workspaceB, fn () => PeriodicReview::factory()->create([
+        'student_user_id' => $student->getKey(),
+        'teacher_user_id' => $ownerB->getKey(),
+    ]));
+
+    expect($context->forWorkspace($workspaceA, fn () => PeriodicReview::query()->count()))->toBe(1)
+        ->and($context->forWorkspace($workspaceB, fn () => PeriodicReview::query()->count()))->toBe(1)
+        ->and(PeriodicReview::query()->withoutGlobalScopes()->count())->toBe(2)
+        ->and(in_array(BelongsToWorkspace::class, class_uses_recursive(PeriodicReview::class), true))->toBeTrue();
 });
 
 /*

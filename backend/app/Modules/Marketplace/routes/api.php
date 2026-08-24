@@ -94,6 +94,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // controller resolves it through the same public Action, so an unlisted
     // profile is no more reviewable than it is viewable.
     Route::post('/teachers/{uuid}/reviews', [ReviewController::class, 'store']);
+    // What the form should offer, read from the SAME predicate `store()` refuses
+    // with — see `ReadReviewEligibility`. A read of the caller's own standing, so
+    // no permission and no extra limiter beyond the group's.
+    Route::get('/teachers/{uuid}/reviews/eligibility', [ReviewController::class, 'eligibility']);
     Route::delete('/admin/reviews/{uuid}', [ReviewController::class, 'moderate']);
     Route::post('/admin/complaints/{uuid}/confirm', [ReviewController::class, 'confirmComplaint']);
     Route::post('/admin/complaints/{uuid}/dismiss', [ReviewController::class, 'dismissComplaint']);

@@ -39,7 +39,10 @@ class FamilyController extends Controller
                 $query->where('guardian_user_id', $user->getKey())
                     ->orWhere('student_user_id', $user->getKey());
             })
-            ->with('guardian')
+            // `student` as well as `guardian`: the resource sends the child's uuid
+            // to their own guardian, and a per-row lazy load here is an N+1 by
+            // construction — a Resource runs once per row.
+            ->with(['guardian', 'student:id,uuid'])
             ->orderBy('id')
             ->get();
 
@@ -64,7 +67,7 @@ class FamilyController extends Controller
         // Hiding that would be indistinguishable from a typo in the uuid.
         abort_unless($this->currentUser($request)->can('view', $relation), 403);
 
-        return ParentStudentRelationResource::make($relation->load('guardian'));
+        return ParentStudentRelationResource::make($relation->load(['guardian', 'student:id,uuid']));
     }
 
     public function update(

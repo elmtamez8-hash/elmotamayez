@@ -33,7 +33,11 @@ it('defaults to whatsapp for exactly the eighteen guardian types plus the securi
     // derivation, and `guardian_consent_required` is the SECOND named exception —
     // addressed to a guardian rather than copied to one, about a child's account
     // that cannot be used until they act.
-    expect($onWhatsApp)->toHaveCount(22);
+    // 22 → 23 with spec 010: `periodic_review_published` is the one type US4 adds
+    // to the guardian set, and it carries `requiredGuardianPermission()` in the
+    // same edit — without which it would ride WhatsApp, be billed, and reach no
+    // guardian at all.
+    expect($onWhatsApp)->toHaveCount(23);
 });
 
 it('derives the set from targetsGuardians, with two named exceptions and no others', function (): void {

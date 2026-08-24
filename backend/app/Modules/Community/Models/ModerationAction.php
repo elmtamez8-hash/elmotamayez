@@ -40,6 +40,16 @@ class ModerationAction extends BaseModel
 
     public const SUBJECT_MESSAGE = 'message';
 
+    /**
+     * A student's public review of their teacher (010 · FR-034).
+     *
+     * ⚠️ THE SAME TABLE ON PURPOSE. A report against a review is the same act as a
+     * report against a message — someone read something and says it should not
+     * stand — and a second table would need a second queue and a second screen
+     * that nobody remembers to open.
+     */
+    public const SUBJECT_REVIEW = 'review';
+
     protected $fillable = [
         'workspace_id',
         'actor_user_id',

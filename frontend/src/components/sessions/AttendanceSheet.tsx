@@ -160,6 +160,23 @@ export function AttendanceSheet({
                 <Badge tone="neutral">آلياً: {row.auto_status_label}</Badge>
               )}
 
+              {/* The way in to this student's periodic assessment (010 · FR-028).
+                  Here because this is the one screen a teacher already has a
+                  named student in front of them on — and because the assessment
+                  payload deliberately carries no student name, so the link is
+                  what supplies it to the heading. `canOverride` gates it: the
+                  same reader who may correct the register is the one who
+                  assesses the term. */}
+              {canOverride && row.student != null && (
+                <Button
+                  href={`/manage/students/${row.student.uuid}/reviews?name=${encodeURIComponent(row.student.name)}`}
+                  size="sm"
+                  variant="ghost"
+                >
+                  التقييم الدوري
+                </Button>
+              )}
+
               {canOverride && row.status !== "present" && (
                 <Button
                   size="sm"

@@ -72,6 +72,25 @@ interface SessionAttendanceDirectory
     public function attendedSessionIds(User $user, array $classSessionIds): array;
 
     /**
+     * How many of this teacher's sessions the student actually attended (010 · FR-030).
+     *
+     * ⚠️ A COUNT, NOT A LIST, BECAUSE THE CALLER ONLY EVER COMPARES IT TO A
+     * THRESHOLD. `Marketplace` asks it to decide whether a student has studied
+     * enough to rate their teacher, and both the gate that refuses and the screen
+     * that offers read this one method — two spellings of one question is the
+     * defect `ListLeaderboardScopes` was written to close.
+     *
+     * ⚠️ AND EXCUSED COUNTS AS ATTENDED, as everywhere else in this interface.
+     * Only `absent` fails. The host's own row cannot appear: a teacher holds no
+     * enrolment in their own workspace and never reaches this question.
+     *
+     * Scoped by workspace rather than by teacher id because that IS the teacher
+     * here — a workspace is one teacher's room (constitution) — and because the
+     * attendance row carries `workspace_id` and no teacher column at all.
+     */
+    public function attendedSessionCountInWorkspace(User $user, int $workspaceId): int;
+
+    /**
      * The countable sessions of one course that ended before this one started.
      *
      * ⚠️ "PREVIOUS" IS NOT id − 1. A cancelled session, or one suspended by a

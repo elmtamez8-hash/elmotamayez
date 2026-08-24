@@ -7,6 +7,8 @@ use App\Modules\Community\Models\ModerationAction;
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\SessionBooking;
+use App\Modules\Marketplace\Actions\ModerateReview;
+use App\Modules\Marketplace\Models\Review;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use Laravel\Sanctum\Sanctum;
@@ -218,4 +220,52 @@ it('hides a message on a moderator verdict and refuses a member who was not dele
 
     // The words are gone from the room and the row is not.
     $this->assertDatabaseHas('messages', ['uuid' => $messageUuid]);
+});
+
+/*
+| FR-034 — a public review goes through the SAME moderation path.
+|
+| ⚠️ A REVIEW THAT WAS ALREADY HIDDEN ANSWERS EXACTLY AS ONE THAT NEVER EXISTED,
+| and that is the pairing that matters. The uuids of VISIBLE reviews are public by
+| construction — they are on the teacher's profile — so a 404 for an unknown one
+| reveals nothing. What must not be distinguishable is «taken down» from «not
+| real», and the `is_visible` condition inside the Action is what collapses them.
+| `ReportMessage` answers 404 the same way for the same shape of miss.
+*/
+it('files a report against a review into the moderation record', function (): void {
+    $workspace = marketplaceWorkspace();
+    $teacher = marketplaceTeacher($workspace);
+    $student = studentWhoAttendedWith($teacher);
+
+    $reviewUuid = (string) postReview($student, $teacher->uuid, 1, 'تعليق مسيء')
+        ->assertStatus(201)->json('uuid');
+
+    // Anybody signed in who can read the profile may report what is on it.
+    Sanctum::actingAs($this->student);
+    $this->asGuest();
+
+    $this->postJson("/api/v1/reviews/{$reviewUuid}/report", ['reason' => 'إساءة'])
+        ->assertStatus(202);
+
+    $this->assertDatabaseHas('moderation_actions', [
+        'subject_type' => ModerationAction::SUBJECT_REVIEW,
+        'verdict' => ModerationVerdict::Reported->value,
+    ]);
+
+    // ⚠️ AND THE REVIEW IS STILL ON THE PROFILE. A report that hid content on
+    // submission is a mute button handed to whoever complains first — and here it
+    // would be aimed at a teacher's living.
+    $review = Review::query()
+        ->withoutWorkspaceScope()->where('uuid', $reviewUuid)->firstOrFail();
+
+    expect($review->is_visible)->toBeTrue();
+
+    // Hidden and never-existed are one answer.
+    app(ModerateReview::class)->handle($review);
+
+    $this->postJson("/api/v1/reviews/{$reviewUuid}/report", ['reason' => 'إساءة'])
+        ->assertStatus(404);
+
+    $this->postJson('/api/v1/reviews/'.fake()->uuid().'/report', ['reason' => 'إساءة'])
+        ->assertStatus(404);
 });

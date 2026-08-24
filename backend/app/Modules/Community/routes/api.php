@@ -6,9 +6,11 @@ use App\Modules\Community\Http\Controllers\AssistantController;
 use App\Modules\Community\Http\Controllers\ChatAttachmentController;
 use App\Modules\Community\Http\Controllers\ConversationController;
 use App\Modules\Community\Http\Controllers\Manage\AssistantController as ManageAssistantController;
+use App\Modules\Community\Http\Controllers\Manage\PeriodicReviewController as ManagePeriodicReviewController;
 use App\Modules\Community\Http\Controllers\MessageController;
 use App\Modules\Community\Http\Controllers\ModerationController;
 use App\Modules\Community\Http\Controllers\SessionChatController;
+use App\Modules\Community\Http\Controllers\StudentReviewController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -18,19 +20,25 @@ use Illuminate\Support\Facades\Route;
 | `/api/v1` and applies the `api` middleware group (and with it
 | `EnsureCurrentWorkspace`). Never repeat either here.
 |
-| ⚠️ NO ROUTE IN THIS FILE BINDS A MODEL IMPLICITLY. A student is a member of no
-| workspace at all, so `WorkspaceContext::id()` is null for them and
+| ⚠️ NO ROUTE A STUDENT CAN REACH BINDS A MODEL IMPLICITLY. A student is a member
+| of no workspace at all, so `WorkspaceContext::id()` is null for them and
 | `WorkspaceScope` adds no condition — an implicit `{conversation}` or
 | `{message}` binding resolves ANY workspace's row before a single policy runs.
-| Every identifier is a bare `uuid` resolved INSIDE the Action, after the
-| membership check. The `RedeemReward` pattern from 009, literally.
+| Every identifier on those routes is a bare `uuid` resolved INSIDE the Action,
+| after the membership check. The `RedeemReward` pattern from 009, literally.
+|
+| The `/manage/*` routes are the exception, and the exemption is the READER rather
+| than the route: everybody who reaches one is a workspace member, so the scope
+| resolves and another workspace's uuid 404s before the policy runs. Two of them
+| take that exemption — `{assignment}` and `{review}` — and each says so where it
+| is defined.
 */
 
 Route::middleware('auth:sanctum')->group(function (): void {
     /*
     | The team screen (US1).
     |
-    | ⚠️ `{assignment}` IS THE ONE IMPLICIT BINDING IN THIS FILE, and the exemption
+    | ⚠️ `{assignment}` IS AN IMPLICIT BINDING, and the exemption
     | is the reader rather than the route: `assistant_assignments` is
     | workspace-scoped and everybody who can reach these three is a MEMBER, so the
     | scope resolves and another workspace's uuid 404s before the policy runs.
@@ -101,6 +109,33 @@ Route::middleware('auth:sanctum')->group(function (): void {
     */
     Route::post('/messages/{message}/report', [ModerationController::class, 'report'])
         ->middleware('throttle:chat-report');
+
+    // A public review, through the SAME moderation path and the same bucket
+    // (FR-034). `{review}` is a bare uuid resolved inside the Action: this one is
+    // reachable by a student, so it takes no implicit binding.
+    Route::post('/reviews/{review}/report', [ModerationController::class, 'reportReview'])
+        ->middleware('throttle:chat-report');
+
+    /*
+    | The periodic assessment (US4).
+    |
+    | ⚠️ THE TWO SIDES ARE TWO ROUTES WITH TWO DIFFERENT BINDING RULES, on purpose.
+    | `{review}` on the manage side is an implicit binding, safe because every
+    | reader there is a workspace MEMBER — the `{assignment}` exemption above.
+    | `/students/me/reviews` is reachable by a student, who is a member of nothing,
+    | so it takes no identifier at all and filters on the caller's own id.
+    |
+    | Writes carry `throttle:authoring`, the named limiter the bank and the grading
+    | board already use.
+    */
+    Route::get('/manage/students/{student}/reviews', [ManagePeriodicReviewController::class, 'index']);
+
+    Route::middleware('throttle:authoring')->group(function (): void {
+        Route::post('/manage/periodic-reviews', [ManagePeriodicReviewController::class, 'store']);
+        Route::post('/manage/periodic-reviews/{review}/publish', [ManagePeriodicReviewController::class, 'publish']);
+    });
+
+    Route::get('/students/me/reviews', [StudentReviewController::class, 'index']);
 
     // Hiding, banning, lifting — all rows, and there is no DELETE.
     Route::post('/moderation/actions', [ModerationController::class, 'store'])

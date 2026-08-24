@@ -7,6 +7,7 @@ namespace App\Modules\Community\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Community\Actions\ModerateMessage;
 use App\Modules\Community\Actions\ReportMessage;
+use App\Modules\Community\Actions\ReportReview;
 use App\Modules\Community\Data\ModerationActionData;
 use App\Modules\Community\Http\Requests\ModerationActionRequest;
 use App\Modules\Community\Http\Requests\ReportMessageRequest;
@@ -47,5 +48,26 @@ class ModerationController extends Controller
         | payment webhook and the breach report both follow.
         */
         return response()->json(['message' => 'وصلنا بلاغك، وسيطّلع عليه المدرّس.'], 202);
+    }
+
+    /**
+     * The same door for a public review (FR-034).
+     *
+     * ⚠️ THE SAME `202` HOWEVER MANY TIMES IT IS FILED. A reporter learning that
+     * theirs was not the first is an oracle over another person's record. A review
+     * that is not there answers 404, exactly as `ReportMessage` does — and a review
+     * a moderator has ALREADY HIDDEN answers 404 too, which is the pairing that
+     * matters: «taken down» and «never existed» must not be distinguishable, while
+     * the uuid of a visible review is public by construction.
+     */
+    public function reportReview(ReportMessageRequest $request, string $review, ReportReview $action): JsonResponse
+    {
+        $action->handle(
+            $this->currentUser($request),
+            $review,
+            $request->validated('reason'),
+        );
+
+        return response()->json(['message' => 'وصلنا بلاغك، وسيطّلع عليه فريق المنصّة.'], 202);
     }
 }

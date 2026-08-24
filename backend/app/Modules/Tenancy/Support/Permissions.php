@@ -446,6 +446,21 @@ final class Permissions
     */
     public const CHAT_MODERATE = 'chat.moderate';
 
+    /**
+     * Write and publish a periodic assessment of a named student (010 · FR-028).
+     *
+     * ⚠️ NOT `PROGRESS_VIEW_STUDENT`, WHICH ANSWERS A DIFFERENT QUESTION. That
+     * one is a READ — «may this role ever look at a student's progress» — and a
+     * write that reaches the student's guardian is a different power over the same
+     * people. Reusing it would give every assistant granted progress-reading the
+     * authoring of the assessment their parents receive.
+     *
+     * Like every permission on a named student, it is not sufficient on its own:
+     * `SubmitPeriodicReview` asks `EnrollmentDirectory` first, because a bare uuid
+     * in a request body is an identity probe (NFR-001أ).
+     */
+    public const REVIEWS_PERIODIC_MANAGE = 'reviews.periodic.manage';
+
     /** @return list<string> */
     public static function all(): array
     {
@@ -559,6 +574,7 @@ final class Permissions
             // not exist and every check against it would fail — silently.
             self::CHAT_REPLY,
             self::CHAT_MODERATE,
+            self::REVIEWS_PERIODIC_MANAGE,
         ];
     }
 }

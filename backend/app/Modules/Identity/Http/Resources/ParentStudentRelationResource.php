@@ -28,6 +28,27 @@ class ParentStudentRelationResource extends JsonResource
             'student_grade_level_slug' => $this->student_grade_level_slug,
             // Whether the student has an account, without saying whose it is.
             'student_has_account' => $this->student_user_id !== null,
+            /*
+            | ⚠️ THE UUID ONLY FOR THE GUARDIAN ON THIS VERY ROW, which is why the
+            | line above stays as it is rather than being replaced.
+            |
+            | A teacher may also read this resource — an active enrolment in their
+            | own workspace is the gate — and a student may read their own
+            | guardians. Neither has any business being handed an identifier for
+            | somebody else's child, and `student_has_account` deliberately says
+            | «there is an account» without saying whose.
+            |
+            | The guardian needs it because every child-scoped read on the platform
+            | takes `?student={uuid}` (010's periodic assessments, 006's balances),
+            | and without it a guardian has no route to their own child's screens
+            | at all — the exact gap `GuardianDirectory::childrenOf()` was added to
+            | close on the server, left open on the client.
+            */
+            'student_uuid' => $this->when(
+                $this->student_user_id !== null
+                    && $request->user()?->getKey() === $this->guardian_user_id,
+                fn () => $this->student?->uuid,
+            ),
             'guardian' => $this->whenLoaded('guardian', fn () => [
                 'uuid' => $this->guardian->uuid,
                 'name' => $this->guardian->name,

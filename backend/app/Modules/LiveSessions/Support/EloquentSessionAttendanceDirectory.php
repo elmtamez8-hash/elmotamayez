@@ -146,6 +146,26 @@ class EloquentSessionAttendanceDirectory implements SessionAttendanceDirectory
     }
 
     /**
+     * ⚠️ `DISTINCT` ON THE SESSION, NOT A ROW COUNT. The unique index on
+     * `attendances` makes one row per student per session today, so the two
+     * numbers agree — and a count that relies on an index it does not name is one
+     * schema change away from letting a student rate a teacher they met once.
+     *
+     * Excused counts, only `absent` fails — the rule written three times in the
+     * contract this implements.
+     */
+    public function attendedSessionCountInWorkspace(User $user, int $workspaceId): int
+    {
+        return Attendance::query()
+            ->withoutWorkspaceScope()
+            ->where('workspace_id', $workspaceId)
+            ->where('student_user_id', $user->getKey())
+            ->where('status', '!=', AttendanceStatus::Absent->value)
+            ->distinct()
+            ->count('class_session_id');
+    }
+
+    /**
      * ⚠️ CANCELLED AND SUSPENDED SESSIONS ARE SKIPPED, NOT TREATED AS THE
      * PREVIOUS ONE. Nobody could attend a class that did not happen, so gating
      * on it would shut the rest of the course behind it — and a freeze, which

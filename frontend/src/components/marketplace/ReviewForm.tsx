@@ -5,22 +5,32 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, errorMessage, hasAuthToken } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
-
-const RATINGS = [5, 4, 3, 2, 1] as const;
+import { AxisScale } from "@/components/ui/AxisScale";
+import { reviews, TEACHER_AXES, type ReviewEligibility } from "@/lib/reviews";
 
 /**
- * The review form, shown to a signed-in student.
+ * The review form, shown to a signed-in student (spec 010 · FR-030 · FR-031).
  *
- * Eligibility — "did you actually finish a session with this teacher" — is not
- * something the browser can know, so this does not try to guess it. It submits
- * and shows what the API says; the server holds the rule (FR-018). A guessed
- * "you are not eligible" would be wrong for anyone whose enrollment the client
- * has not loaded.
+ * ⚠️ ELIGIBILITY IS ASKED, NOT GUESSED — and the endpoint it asks is derived from
+ * the same object the submit endpoint refuses with. The rule is «enough sessions
+ * counted as attended, inside a period», which the browser cannot know: a guess
+ * would be wrong for anyone whose attendance it has not loaded, and a rule
+ * reimplemented here would offer a form the server rejects or hide one it accepts.
+ * That is the `ListLeaderboardScopes` defect, and `SC-010` measures it.
+ *
+ * ⚠️ AND THERE IS NO OVERALL STAR TO PICK. The public rating is the AVERAGE of the
+ * three axes, computed on the server — a fourth control here would be a second,
+ * disagreeing answer, and the star on the profile would stop matching the bars
+ * under it.
  */
 export function ReviewForm({ teacherUuid }: { teacherUuid: string }) {
   const router = useRouter();
 
-  const [rating, setRating] = useState<number>(5);
+  const [axes, setAxes] = useState<Record<string, number>>({
+    punctuality: 5,
+    clarity: 5,
+    engagement: 5,
+  });
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -28,8 +38,21 @@ export function ReviewForm({ teacherUuid }: { teacherUuid: string }) {
   // null until mounted: localStorage does not exist during the server render, and
   // deciding on the server would ship the wrong branch in the crawlable HTML.
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [standing, setStanding] = useState<ReviewEligibility | null>(null);
 
   useEffect(() => setSignedIn(hasAuthToken()), []);
+
+  useEffect(() => {
+    if (signedIn !== true) return;
+
+    reviews
+      .eligibility(teacherUuid)
+      // A failure here leaves `standing` null and the form open: the server is
+      // still the gate, so the worst case is a refusal the student reads after
+      // submitting rather than before.
+      .then(setStanding)
+      .catch(() => undefined);
+  }, [signedIn, teacherUuid]);
 
   if (signedIn === null) return null;
 
@@ -39,7 +62,7 @@ export function ReviewForm({ teacherUuid }: { teacherUuid: string }) {
         <Link href="/login" className="font-semibold text-primary-ink hover:underline">
           سجّل الدخول
         </Link>{" "}
-        لتترك تقييماً بعد إتمام حصة مع هذا المدرّس.
+        لتترك تقييماً بعد حضور عددٍ من الحصص مع هذا المدرّس.
       </p>
     );
   }
@@ -55,6 +78,17 @@ export function ReviewForm({ teacherUuid }: { teacherUuid: string }) {
     );
   }
 
+  // ⚠️ THE SERVER'S OWN SENTENCE, NOT ONE COMPOSED HERE. It names how many
+  // sessions are needed and how many the student has — «you may not» leaves
+  // someone two lessons away with nothing to act on.
+  if (standing !== null && !standing.eligible) {
+    return (
+      <p className="rounded-xl border border-line bg-primary-soft/60 p-4 text-sm text-ink-muted">
+        {standing.reason ?? "لا يمكن التقييم بعد."}
+      </p>
+    );
+  }
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
@@ -62,7 +96,7 @@ export function ReviewForm({ teacherUuid }: { teacherUuid: string }) {
 
     try {
       await api.post(`/teachers/${teacherUuid}/reviews`, {
-        rating,
+        ...axes,
         comment: comment.trim() === "" ? null : comment.trim(),
       });
       setDone(true);
@@ -82,34 +116,23 @@ export function ReviewForm({ teacherUuid }: { teacherUuid: string }) {
         قيّم هذا المدرّس
       </h2>
 
+      {standing?.is_revision === true && (
+        <p className="mb-4 text-sm text-ink-muted">
+          لك تقييمٌ في هذه الفترة — الإرسال يحدّثه ولا يضيف تقييماً ثانياً.
+        </p>
+      )}
+
       <form onSubmit={submit} className="space-y-4" noValidate>
-        {/* A radio group, not five buttons: keyboard users get arrow-key selection
-            and a screen reader announces "3 of 5" without extra ARIA. */}
-        <fieldset>
-          <legend className="mb-2 text-sm font-medium text-ink">التقييم</legend>
-          <div className="flex flex-wrap gap-2">
-            {RATINGS.map((value) => (
-              <label
-                key={value}
-                className={`cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold transition has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-primary ${
-                  rating === value
-                    ? "border-primary bg-primary-soft text-primary-ink"
-                    : "border-line text-ink-muted hover:border-primary/50"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="rating"
-                  value={value}
-                  checked={rating === value}
-                  onChange={() => setRating(value)}
-                  className="sr-only"
-                />
-                {value} ★
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        {TEACHER_AXES.map((axis) => (
+          <AxisScale
+            key={axis.key}
+            name={axis.key}
+            label={axis.label}
+            value={axes[axis.key]}
+            onChange={(value) => setAxes((current) => ({ ...current, [axis.key]: value }))}
+            disabled={submitting}
+          />
+        ))}
 
         <div>
           <label htmlFor="review-comment" className="mb-1 block text-sm font-medium text-ink">
@@ -132,7 +155,9 @@ export function ReviewForm({ teacherUuid }: { teacherUuid: string }) {
           </p>
         )}
 
-        <Button type="submit" variant="accent" size="lg" fullWidth loading={submitting}>إرسال التقييم</Button>
+        <Button type="submit" variant="accent" size="lg" fullWidth loading={submitting}>
+          إرسال التقييم
+        </Button>
       </form>
     </section>
   );

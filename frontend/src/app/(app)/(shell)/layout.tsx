@@ -127,6 +127,14 @@ const mainNav: NavItem[] = [
    * address is a shop with nowhere to spend them.
    */
   { href: "/progress", label: "تقدّمي", Icon: ProgressIcon },
+  /*
+   * Spec 010 · US4. No permission: every signed-in person has a side of this —
+   * a student reads their own, a guardian reads a child's through the same
+   * screen, and a teacher simply sees an empty list. `manage/students/{uuid}/reviews`
+   * is the writing side and is reached from the class register, where the
+   * teacher already knows whose row they clicked.
+   */
+  { href: "/reviews", label: "تقييماتي الدورية", Icon: ProgressIcon },
   { href: "/leaderboard", label: "لوحة الصدارة", Icon: LeaderboardIcon },
   { href: "/shop", label: "متجر المكافآت", Icon: ShopIcon },
   // The teacher's side of that shop, and the queue of what has been claimed.

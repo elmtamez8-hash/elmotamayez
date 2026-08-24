@@ -67,6 +67,14 @@ function dispatchOf(User $user, NotificationType $type): void
             // dropped, and the count below comes back one short — which is this
             // test doing its job, not a channel that failed.
             'months' => '12',
+            // And these three, added with spec 010's periodic assessment. The
+            // same mechanism yet again: without them the template refuses to
+            // render, the notification is logged and dropped, and the count comes
+            // back 45 against 46 — this test doing its job.
+            // (`student_name` is already above.)
+            'teacher_name' => 'أستاذ خالد',
+            'period_start' => '2026-08-01',
+            'period_end' => '2026-08-31',
             // And these four, added with spec 008's import report. Same mechanism
             // a third time: the template refuses to render without them, the
             // notification is logged and dropped, and the count comes back 29

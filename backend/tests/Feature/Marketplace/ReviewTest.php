@@ -44,12 +44,15 @@ it('refuses a review from a student with no completed session', function (): voi
 it('refuses at the Action, not only at the request boundary', function (): void {
     $stranger = User::factory()->create(['platform_role' => PlatformRole::Student]);
 
-    expect(fn () => app(SubmitReview::class)->handle($this->teacher, $stranger, 5))
-        ->toThrow(DomainException::class);
+    expect(fn () => app(SubmitReview::class)->handle($this->teacher, $stranger, [
+        'punctuality' => 5,
+        'clarity' => 5,
+        'engagement' => 5,
+    ]))->toThrow(DomainException::class);
 });
 
 it('accepts a review from a student who finished one of the teacher courses', function (): void {
-    $student = studentWhoCompletedWith($this->teacher);
+    $student = studentWhoAttendedWith($this->teacher);
 
     postReview($student, $this->teacher->uuid, 4, 'شرح واضح')
         ->assertStatus(201)
@@ -61,7 +64,7 @@ it('accepts a review from a student who finished one of the teacher courses', fu
 });
 
 it('updates the existing row when the same student reviews again', function (): void {
-    $student = studentWhoCompletedWith($this->teacher);
+    $student = studentWhoAttendedWith($this->teacher);
 
     postReview($student, $this->teacher->uuid, 5)->assertStatus(201);
     postReview($student, $this->teacher->uuid, 2, 'غيّرت رأيي')->assertStatus(200);
@@ -75,8 +78,8 @@ it('updates the existing row when the same student reviews again', function (): 
 // The reason the unique pair exists: two rows from one student would drag the
 // public average with them.
 it('does not inflate the average when a student re-reviews', function (): void {
-    $generous = studentWhoCompletedWith($this->teacher);
-    $harsh = studentWhoCompletedWith($this->teacher);
+    $generous = studentWhoAttendedWith($this->teacher);
+    $harsh = studentWhoAttendedWith($this->teacher);
 
     postReview($generous, $this->teacher->uuid, 5);
     postReview($generous, $this->teacher->uuid, 5);
@@ -89,7 +92,7 @@ it('does not inflate the average when a student re-reviews', function (): void {
 // begin with "ال", and taking character zero would abbreviate all of them to the
 // same "ا." — an initial that distinguishes nobody.
 it('abbreviates a surname past the definite article', function (string $surname, string $expected): void {
-    $student = studentWhoCompletedWith($this->teacher);
+    $student = studentWhoAttendedWith($this->teacher);
     $student->forceFill(['first_name' => 'أحمد', 'last_name' => $surname])->save();
 
     postReview($student, $this->teacher->uuid, 5);
@@ -108,7 +111,7 @@ it('abbreviates a surname past the definite article', function (string $surname,
 ]);
 
 it('shows reviews on the public profile under a shortened student name', function (): void {
-    $student = studentWhoCompletedWith($this->teacher);
+    $student = studentWhoAttendedWith($this->teacher);
     $student->forceFill(['first_name' => 'أحمد', 'last_name' => 'مبارك'])->save();
 
     postReview($student, $this->teacher->uuid, 5, 'أفضل مدرّس');
@@ -126,8 +129,8 @@ it('shows reviews on the public profile under a shortened student name', functio
 });
 
 it('drops a hidden review from the public payload and the average', function (): void {
-    $kept = studentWhoCompletedWith($this->teacher);
-    $hidden = studentWhoCompletedWith($this->teacher);
+    $kept = studentWhoAttendedWith($this->teacher);
+    $hidden = studentWhoAttendedWith($this->teacher);
 
     postReview($kept, $this->teacher->uuid, 4);
     postReview($hidden, $this->teacher->uuid, 1, 'إساءة');
@@ -147,7 +150,7 @@ it('drops a hidden review from the public payload and the average', function ():
 });
 
 it('refuses moderation without the permission', function (): void {
-    $student = studentWhoCompletedWith($this->teacher);
+    $student = studentWhoAttendedWith($this->teacher);
     postReview($student, $this->teacher->uuid, 3);
 
     $review = Review::query()->withoutWorkspaceScope()->firstOrFail();
@@ -160,7 +163,7 @@ it('refuses moderation without the permission', function (): void {
 });
 
 it('hides a review over the API for a moderator', function (): void {
-    $student = studentWhoCompletedWith($this->teacher);
+    $student = studentWhoAttendedWith($this->teacher);
     postReview($student, $this->teacher->uuid, 3);
 
     $review = Review::query()->withoutWorkspaceScope()->firstOrFail();
@@ -178,7 +181,7 @@ it('hides a review over the API for a moderator', function (): void {
 it('queues a recalculation for every event that can move the score', function (): void {
     Queue::fake();
 
-    $student = studentWhoCompletedWith($this->teacher);
+    $student = studentWhoAttendedWith($this->teacher);
     postReview($student, $this->teacher->uuid, 5);
 
     Queue::assertPushed(RecalculateTrustScoreJob::class, 1);

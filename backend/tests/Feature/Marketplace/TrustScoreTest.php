@@ -160,7 +160,7 @@ it('reflects a new review in the public listing through the queue', function ():
         'trust_score' => null,
     ]);
 
-    $students = collect(range(1, 3))->map(fn () => studentWhoCompletedWith($teacher));
+    $students = collect(range(1, 3))->map(fn () => studentWhoAttendedWith($teacher));
 
     foreach ($students as $student) {
         postReview($student, $teacher->uuid, 5);

@@ -15,6 +15,7 @@ use App\Modules\Assessments\Models\ExamItem;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionImport;
 use App\Modules\Assessments\Models\QuestionOption;
+use App\Modules\Community\Support\CommunitySettings;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Identity\Support\PlatformRole;
@@ -144,35 +145,70 @@ function postReview(User $student, string $teacherUuid, int $rating = 5, ?string
     Sanctum::actingAs($student);
     test()->asGuest();
 
+    /*
+    | ⚠️ THERE IS NO `rating` FIELD ANY MORE (010 · FR-031). The overall star is the
+    | AVERAGE of the three axes, derived in `SubmitReview` — so the argument named
+    | `$rating` here is what every caller means by it, spelled as the three axes the
+    | form actually sends. Written the other way, the helper would be posting a
+    | number no client can send and every assertion below it would be about an
+    | endpoint that does not exist.
+    */
     return test()->postJson("/api/v1/teachers/{$teacherUuid}/reviews", array_filter([
-        'rating' => $rating,
+        'punctuality' => $rating,
+        'clarity' => $rating,
+        'engagement' => $rating,
         'comment' => $comment,
     ], fn ($value) => $value !== null));
 }
 
 /**
- * A marketplace student who has finished a course this teacher created — the
- * evidence SubmitReview demands (FR-018). The student belongs to no workspace,
- * which is exactly the shape of a real marketplace signup.
+ * A marketplace student who has actually SAT this teacher's lessons — the evidence
+ * `ReviewEligibility` demands since spec 010 (FR-030). The student belongs to no
+ * workspace, which is exactly the shape of a real marketplace signup.
+ *
+ * ⚠️ IT USED TO BE `studentWhoCompletedWith()`, AND THE RENAME IS THE POINT. The
+ * old gate was a COMPLETED ENROLMENT, which refuses a student four live lessons
+ * into an active enrolment and admits one who finished a self-paced course without
+ * ever meeting the teacher. A helper still called «completed» while creating
+ * attendance would leave every reader of these suites believing the old rule.
  */
-function studentWhoCompletedWith(TeacherProfile $teacher): User
+function studentWhoAttendedWith(TeacherProfile $teacher, ?int $sessions = null): User
 {
     $student = User::factory()->create(['platform_role' => PlatformRole::Student]);
 
     /** @var Workspace $workspace */
     $workspace = $teacher->workspace;
 
-    app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($teacher, $student, $workspace): void {
+    $count = $sessions ?? CommunitySettings::reviewMinSessions();
+
+    app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($teacher, $student, $workspace, $count): void {
         $course = Course::factory()->published()->create([
             'workspace_id' => $workspace->getKey(),
             'created_by' => $teacher->user_id,
         ]);
 
+        // The enrolment is still created: it is what `ConversationPolicy` and the
+        // periodic review read, and a marketplace student with attendance and no
+        // enrolment is a shape production never produces.
         Enrollment::factory()->completed()->create([
             'workspace_id' => $workspace->getKey(),
             'course_id' => $course->getKey(),
             'student_user_id' => $student->getKey(),
         ]);
+
+        for ($i = 0; $i < $count; $i++) {
+            $session = ClassSession::factory()->past()->create([
+                'workspace_id' => $workspace->getKey(),
+                'teacher_profile_id' => $teacher->getKey(),
+                'course_id' => $course->getKey(),
+            ]);
+
+            Attendance::factory()->present()->create([
+                'workspace_id' => $workspace->getKey(),
+                'class_session_id' => $session->getKey(),
+                'student_user_id' => $student->getKey(),
+            ]);
+        }
     });
 
     return $student;
