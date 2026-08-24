@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { BellIcon } from "@/components/icons";
 import { useAuth } from "@/lib/auth-context";
 import { listen } from "@/lib/echo";
-import { notifications } from "@/lib/notifications";
+import { NOTIFICATIONS_CHANGED, notifications } from "@/lib/notifications";
 
 /**
  * The unread badge in the panel header.
@@ -79,10 +79,16 @@ export function NotificationBell() {
         .catch(() => undefined);
     }
 
+    // Marking one — or all — as read anywhere in the app. The badge used to keep
+    // the old number until the next poll, so a reader who had just cleared their
+    // feed still saw «٧ غير مقروء» above it.
+    window.addEventListener(NOTIFICATIONS_CHANGED, poll);
+
     return () => {
       cancelled = true;
       window.clearInterval(timer);
       unsubscribe?.();
+      window.removeEventListener(NOTIFICATIONS_CHANGED, poll);
     };
   }, [user?.uuid]);
 

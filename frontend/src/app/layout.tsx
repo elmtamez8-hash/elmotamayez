@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth-context";
 import { PLATFORM_NAME } from "@/lib/platform";
 
@@ -70,6 +71,38 @@ export default function RootLayout({
           they had just been admitted to.
         */}
         <AuthProvider>{children}</AuthProvider>
+
+        {/*
+          ⚠️ THE ROOT LAYOUT, SO ONE TOASTER SERVES BOTH SHELLS. `(public)` and
+          `(app)` are nested layouts over this one — a Toaster in each would put
+          two of them on any transition between the marketplace and the panel,
+          and the second would silently swallow the first's queue.
+
+          `dir` is inherited from `<html dir="rtl">`, and `theme="system"` lets it
+          follow the pre-paint theme script rather than carrying a colour of its
+          own — the palette rule in this repo is that colours come from `@theme`,
+          and a library that hard-codes white would be the one exception on the
+          page.
+        */}
+        <Toaster
+          position="top-center"
+          closeButton
+          /*
+           * ⚠️ NO `richColors` AND NO `theme` PROP — the palette is OURS. Sonner's
+           * own colours are hard-coded hexes that know nothing about
+           * `prefers-color-scheme` here, and this repo's rule is that every colour
+           * comes from `@theme` in `globals.css`. Pointing its three variables at
+           * our tokens makes the toast follow the pre-paint theme script for free,
+           * in both directions, with no second definition to keep in step.
+           */
+          toastOptions={{
+            style: {
+              background: "var(--color-surface-raised)",
+              color: "var(--color-ink)",
+              border: "1px solid var(--color-line)",
+            },
+          }}
+        />
       </body>
     </html>
   );

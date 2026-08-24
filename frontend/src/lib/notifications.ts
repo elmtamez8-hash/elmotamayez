@@ -66,6 +66,17 @@ export type GuardianRelation = {
   created_at: string | null;
 };
 
+/** The event every unread-count reader listens for. */
+export const NOTIFICATIONS_CHANGED = "notifications:changed";
+
+function announceRead<T>(result: T): T {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(NOTIFICATIONS_CHANGED));
+  }
+
+  return result;
+}
+
 export const notifications = {
   list: (params: { page?: number; unread?: boolean; workspace?: string } = {}) => {
     const query = new URLSearchParams();
@@ -77,8 +88,24 @@ export const notifications = {
     return api.get<NotificationPage>(`/notifications${suffix ? `?${suffix}` : ""}`);
   },
   unreadCount: () => api.get<{ unread_count: number }>("/notifications/unread-count"),
-  markRead: (uuid: string) => api.post<{ unread_count: number }>(`/notifications/${uuid}/read`),
-  markAllRead: () => api.post<{ unread_count: number }>("/notifications/read-all"),
+
+  /*
+   * ⚠️ THE ANNOUNCEMENT LIVES HERE, NOT IN THE SCREEN THAT PRESSED THE BUTTON.
+   * The notifications page kept its own `unread` and the header bell kept its
+   * own `count`, and neither told the other — so marking everything read left the
+   * badge showing the old number until the sixty-second poll came round or the
+   * reader pressed refresh. Announcing it from the request layer means every
+   * caller is covered, including the ones written after this line.
+   *
+   * ⚠️ AND IT ANNOUNCES «GO AND ASK» RATHER THAN CARRYING THE NUMBER. The
+   * response holds a fresh count, but a listener that trusted it would drift the
+   * moment two tabs are open — the server is the source, exactly as it is for the
+   * chat, and the socket and this event are both only ways of learning to look.
+   */
+  markRead: (uuid: string) =>
+    api.post<{ unread_count: number }>(`/notifications/${uuid}/read`).then(announceRead),
+  markAllRead: () =>
+    api.post<{ unread_count: number }>("/notifications/read-all").then(announceRead),
 
   types: () =>
     api.get<{ channels: NotificationChannel[]; types: NotificationTypeMeta[] }>(

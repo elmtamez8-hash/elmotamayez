@@ -10,6 +10,12 @@ import { FaqAccordion } from "@/components/marketplace/FaqAccordion";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import {
+  AcademicCapIcon,
+  SessionsIcon,
+  StarIcon,
+  UsersIcon,
+} from "@/components/icons";
 
 // Server-rendered: a crawler that runs no JavaScript must still read the teachers
 // and copy (SC-016), and client-side fetching would put first paint out of reach
@@ -35,23 +41,49 @@ const STEPS = [
   },
 ];
 
+/**
+ * The platform's headline numbers.
+ *
+ * ⚠️ EVERY ONE OF THEM IS A SUM OVER REAL ROWS, not a marketing figure.
+ * `GetMarketplaceStats` aggregates `teacher_profiles` narrowed by
+ * `publiclyListed()` — so a teacher who has not been approved, or whose workspace
+ * withdrew, is absent from the count as well as from the list. Verified against
+ * the database on 2026-08-24: the endpoint and a hand-written aggregate returned
+ * the same four values.
+ *
+ * ⚠️ AND THE ICON IS `aria-hidden`, WITH THE LABEL CARRYING THE MEANING. It is
+ * decoration beside a number that already says what it is; announced, a screen
+ * reader would read «مجموعة أشخاص، ٤٤٢، طالب».
+ */
 function StatBar({ stats }: { stats: HomePayload["stats"] }) {
   const items = [
-    { label: "طالب", value: stats.students },
-    { label: "مدرّس", value: stats.teachers },
-    { label: "حصة مكتملة", value: stats.sessions },
-    { label: "معدّل الرضا", value: stats.satisfaction_rate, suffix: "٪" },
+    { label: "طالب", value: stats.students, Icon: UsersIcon },
+    { label: "مدرّس", value: stats.teachers, Icon: AcademicCapIcon },
+    { label: "حصة مكتملة", value: stats.sessions, Icon: SessionsIcon },
+    { label: "معدّل الرضا", value: stats.satisfaction_rate, suffix: "٪", Icon: StarIcon },
   ];
 
   return (
     <section aria-label="أرقام المنصة" className="border-y border-line bg-surface-raised">
-      <dl className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-10 sm:px-6 lg:grid-cols-4">
-        {items.map((item) => (
-          <div key={item.label} className="flex flex-col text-center">
-            <dt className="order-2 text-sm text-ink-muted">{item.label}</dt>
-            <dd className="order-1 text-3xl font-extrabold text-primary-ink sm:text-4xl">
-              <AnimatedNumber value={item.value} suffix={item.suffix} />
-            </dd>
+      <dl className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+        {items.map(({ label, value, suffix, Icon }) => (
+          // Icon on one side, the number and its label on the other. `text-start`
+          // and not `text-left`: the row mirrors with the page and needs no
+          // second rule to do it.
+          <div key={label} className="flex items-center gap-4 text-start">
+            <span
+              aria-hidden="true"
+              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary-soft text-primary-ink"
+            >
+              <Icon className="h-6 w-6" />
+            </span>
+
+            <div className="min-w-0">
+              <dd className="text-3xl font-extrabold leading-tight text-primary-ink sm:text-4xl">
+                <AnimatedNumber value={value} suffix={suffix} />
+              </dd>
+              <dt className="text-sm text-ink-muted">{label}</dt>
+            </div>
           </div>
         ))}
       </dl>
