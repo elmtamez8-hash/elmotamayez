@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Community\Models\Announcement;
 use App\Modules\Community\Models\Message;
 use App\Modules\Community\Models\PeriodicReview;
 use App\Modules\Community\Models\ReportCard;
@@ -166,6 +167,74 @@ it('leaves a row younger than the window alone', function (): void {
     );
 
     expect(ReportCard::query()->count())->toBe(1);
+});
+
+/*
+| ⚠️ `announcements` ARRIVED IN PHASE 8 WITH NO CATEGORY AT ALL, AND THE SUITE
+| STAYED GREEN OVER IT. `PersonalDataContractCoverageTest` is a per-MODULE guard —
+| its own docblock says so out loud — so a NEW TABLE inside a module that was
+| already registered is invisible to it. The table-level version was measured
+| before this was written: it lights up forty-two tables across every module, the
+| guard-silenced-by-exemptions shape that file already rejected once, so the limit
+| is recorded rather than half-closed. These four assertions are what stands in for
+| it here.
+*/
+it('walks the announcements a teacher wrote, in all three directions', function (): void {
+    Announcement::factory()->published()->create([
+        'author_user_id' => $this->teacher->getKey(),
+        'body' => 'TEACHER_ANNOUNCEMENT_SENTINEL',
+    ]);
+
+    // An ASCII sentinel on purpose: `getContent()` escapes non-ASCII, so an
+    // Arabic needle is vacuously absent from any payload whatsoever.
+    $owner = app(CommunityPersonalData::class);
+    $yielded = [];
+
+    foreach ($owner->export(new DataSubject($this->teacher)) as $category => $rows) {
+        $yielded[$category] = array_merge($yielded[$category] ?? [], $rows);
+    }
+
+    expect($yielded['announcement'])->toHaveCount(1)
+        ->and($yielded['announcement'][0]['body'])->toBe('TEACHER_ANNOUNCEMENT_SENTINEL');
+
+    // ⚠️ AND NOT THE STUDENT'S. It is the AUTHOR's row; the reader's copy is a
+    // `notifications` entry Notifications already owns, and exporting it here
+    // would put one message in two people's archives under one category.
+    $studentYield = [];
+
+    foreach ($owner->export(new DataSubject($this->student)) as $category => $rows) {
+        $studentYield[$category] = array_merge($studentYield[$category] ?? [], $rows);
+    }
+
+    expect($studentYield['announcement'])->toBe([]);
+
+    ageCommunityRows('announcements', '2020-01-01 00:00:00');
+
+    // Spared under a hold — retention needs nobody to ask, so this is the door a
+    // court order has to reach.
+    $owner->expire(
+        'announcement',
+        CarbonImmutable::parse('2021-01-01'),
+        ExpiryBehaviour::Delete,
+        100,
+        [(int) $this->teacher->getKey()],
+    );
+
+    expect(Announcement::withoutGlobalScopes()->count())->toBe(1);
+
+    $owner->expire('announcement', CarbonImmutable::parse('2021-01-01'), ExpiryBehaviour::Delete, 100);
+
+    expect(Announcement::withoutGlobalScopes()->count())->toBe(0);
+
+    // And erasure reaches it too — a different obligation on the same rows, so a
+    // fresh one is written rather than reusing the one the sweep just took.
+    Announcement::factory()->create(['author_user_id' => $this->teacher->getKey()]);
+
+    do {
+        $done = $owner->erase(new DataSubject($this->teacher), ErasureMode::Delete, 100);
+    } while ($done >= 100);
+
+    expect(Announcement::withoutGlobalScopes()->count())->toBe(0);
 });
 
 it('sends a message nobody else wrote', function (): void {

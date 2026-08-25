@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Community\Support;
 
+use App\Modules\Community\Models\Announcement;
 use App\Modules\Community\Models\Message;
 use App\Modules\Community\Models\PeriodicReview;
 use App\Modules\Community\Models\ReportCard;
@@ -47,13 +48,43 @@ class CommunityPersonalData implements PersonalDataOwner
     /** @return list<string> */
     public function describe(): array
     {
-        return ['chat_message', 'periodic_review', 'report_card'];
+        return ['chat_message', 'periodic_review', 'report_card', 'announcement'];
     }
 
     /** @return iterable<string, array<int, array<string, mixed>>> */
     public function export(DataSubject $subject): iterable
     {
         $userId = $subject->user->getKey();
+
+        /*
+        | ⚠️ YIELDED BEFORE THE `Results` BRANCH, AND THE PLACEMENT IS THE POINT.
+        | That branch returns early for a guardian who was granted attendance and
+        | not results — so an announcement walk written after it would never be
+        | yielded for such a subject at all, and a DECLARED category that is never
+        | yielded is a section silently missing from a person's archive. There is
+        | no guardian gate on it either way: an announcement is the TEACHER's own
+        | outbound record, and a student authored none.
+        |
+        | The body only, never the audience. Who received it is a list of other
+        | people's ids, and the fan-out that produced them belongs to each of
+        | those readers' own `notifications` rows.
+        */
+        yield from ExportWalk::keyed(
+            'announcement',
+            Announcement::query()
+                ->withoutGlobalScopes()
+                ->where('author_user_id', $userId)
+                ->select(['announcements.*']),
+            fn (Announcement $announcement): array => [
+                'uuid' => $announcement->uuid,
+                'scope' => $announcement->scope,
+                'body' => $announcement->body,
+                'is_urgent' => $announcement->is_urgent,
+                'published_at' => ExportWalk::at($announcement->published_at),
+                'hidden_at' => ExportWalk::at($announcement->hidden_at),
+            ],
+            column: 'announcements.id',
+        );
 
         /*
         | ⚠️ MESSAGES THIS PERSON SENT, NEVER THE THREADS THEY SAT IN. A private
@@ -190,10 +221,26 @@ class CommunityPersonalData implements PersonalDataOwner
             return $done;
         }
 
-        return $done + $this->deleteCards(
+        $done += $this->deleteCards(
             ReportCard::query()->where('student_user_id', $userId),
             $limit - $done,
         );
+
+        if ($done >= $limit) {
+            return $done;
+        }
+
+        /*
+        | Last in the chain because it is the cheapest and the least likely to be
+        | large: a teacher publishes announcements in tens, not in thousands, so
+        | putting it first would spend the budget's head on the smallest table and
+        | leave the walk resuming through the expensive ones for another pass.
+        */
+        return $done + Announcement::query()
+            ->withoutGlobalScopes()
+            ->where('author_user_id', $userId)
+            ->limit($limit - $done)
+            ->delete();
     }
 
     /**
@@ -230,6 +277,15 @@ class CommunityPersonalData implements PersonalDataOwner
                 ->withoutGlobalScopes()
                 ->where('created_at', '<', $cutoff)
                 ->when($exemptUserIds !== [], fn ($query) => $query->whereNotIn('student_user_id', $exemptUserIds))
+                ->limit($limit)
+                ->delete();
+        }
+
+        if ($category === 'announcement') {
+            return Announcement::query()
+                ->withoutGlobalScopes()
+                ->where('created_at', '<', $cutoff)
+                ->when($exemptUserIds !== [], fn ($query) => $query->whereNotIn('author_user_id', $exemptUserIds))
                 ->limit($limit)
                 ->delete();
         }

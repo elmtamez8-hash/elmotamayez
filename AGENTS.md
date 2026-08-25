@@ -240,6 +240,7 @@ verification only.
 | LiveSessions | `app/Modules/LiveSessions/` | ClassSession, SessionBooking, Attendance, ClassSessionFeedback, FreezePeriod |
 | Settlement | `app/Modules/Settlement/` | SettlementRate, RateChangeRequest, TeachingUnit, SettlementPeriod, LedgerEntry, TeacherPayout |
 | Compliance | `app/Modules/Compliance/` | DataCategory, DataProcessor, DataRequest, LegalHold, RetentionSweepRun, BreachReport, TeacherOffboarding |
+| Community | `app/Modules/Community/` | Conversation, ConversationParticipant, Message, ModerationAction, BlockedTerm, AssistantAssignment, AssistantScope, PeriodicReview, GradingScheme, ReportCard, ReportCardSegment, Announcement |
 
 ### Read before touching settlement
 
@@ -632,6 +633,36 @@ two bars (books settled, notice run out); deleting the settlement check entirely
 left all nine cases passing, because every fixture had a live notice. When a check
 has more than one condition, a test of one must neutralise the others in its
 fixture. The only thing that finds this is deleting the guard and re-running.
+
+### Read before touching chat, assistants or announcements (spec 010)
+
+**The wall is at the CHECK, never on the role name.** `Gate::before` asks
+`AssistantScopeDirectory::isAssistantIn()` and refuses the financial permissions
+there — a rule written against `assistant-teacher` is one custom role away from
+nothing. `billing.balance.view` is the ONE financial item a teacher may delegate:
+a count of remaining sessions, no amount anywhere near it.
+
+- **`scoped()`, never `bind()` and never `singleton()`** for that directory and for
+  `TeacherOffboardingDirectory`. `bind()` turns the wall into a query per permission
+  check; `singleton()` makes revocation wait for a worker restart.
+- **`hidden_at`, never `deleted_at`**, on `messages` and `announcements` both. A soft
+  delete hides the row from the moderation screen that just acted on it.
+- **The broadcast payload is two identifiers**, and the reason that gets simplified
+  away is revocation: a channel is authorised once at subscribe and cannot be
+  revoked, so the body must not be on the wire or a withdrawal takes effect when the
+  tab closes.
+- **The database is the source, the socket is an accelerator.** Reverb down = one
+  refresh late, never a failed send (`SC-015`).
+- **`ReadRanksFor` is bulk and reads one week's board.** Rank comes from
+  `leaderboard_entries`, level from `student_progress`; an absent key is a state, and
+  a zero prints «المركز ٠» beside the teacher's own name.
+- **A departed teacher's chat closes for writing in `ConversationPolicy::post()`**,
+  not with a `closed_at` column — `StartConversation` authorises an UNSAVED
+  `Conversation` against the same ability, so a stamp cannot answer for it.
+- **Adding a table with a personal column to an existing module?** Add its
+  `data_categories` row and its export/erase/expire walks in the same change.
+  `PersonalDataContractCoverageTest` is per-MODULE and will not tell you —
+  `announcements` shipped without them and 1916 tests stayed green.
 
 ### Read before adding or touching a Filament Resource
 

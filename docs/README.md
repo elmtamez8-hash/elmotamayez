@@ -33,6 +33,7 @@
 | LiveSessions | `app/Modules/LiveSessions/` | ClassSession, SessionBooking, Attendance, ClassSessionFeedback, FreezePeriod | Calendar + booking + broadcast room + register + freeze periods |
 | Settlement | `app/Modules/Settlement/` | SettlementRate, RateChangeRequest, TeachingUnit, SettlementPeriod, LedgerEntry, TeacherPayout | Teacher statement + export + units + rate requests + period close/payout + financial audit |
 | Compliance | `app/Modules/Compliance/` | DataCategory, DataProcessor, DataRequest, LegalHold, RetentionSweepRun, BreachReport, TeacherOffboarding | The privacy catalogue and policy (public) + data-rights requests + the officer's queue + legal holds + breach reports + a teacher's exit |
+| Community | `app/Modules/Community/` | Conversation, ConversationParticipant, Message, ModerationAction, BlockedTerm, AssistantAssignment, AssistantScope, PeriodicReview, GradingScheme, ReportCard, ReportCardSegment, Announcement | Private and public chat + moderation + assistants and their scopes + periodic reviews + the weighted report card + announcements |
 | Gamification | `app/Modules/Gamification/` | AwardEntry, AwardDailyCounter, StudentProgress, CoinBalance, GamificationAction, Level, Badge, BadgeAward, Reward, Redemption, FocusSession, LeaderboardEntry | The student's profile + leaderboards + the reward shop + the focus timer |
 
 ### Gamification (spec 009)
@@ -1385,6 +1386,103 @@ deliberately **not** used on `/privacy/exports/{request}`, which carries no
 `'user:'`, and the second person to download their own archive in the same minute
 would be refused. That route uses `throttle:public`, which is guest-keyed by
 address.
+
+## Chat, Assistants, Reviews and Announcements (spec 010)
+
+Twelve tables: eleven workspace-owned (layer 2) and **one platform-owned**.
+`report_cards` carries no `workspace_id` at all — a student has ONE cumulative
+record across every teacher they study with, and scoping it would silently
+duplicate one person per teacher. Its segments DO carry one, because a segment is
+precisely «this teacher's contribution»; the guard is therefore the Action and the
+policy, not a global scope.
+
+### The socket is an accelerator, and the database is the source
+
+A message is written to `messages` and read from `messages`. `MessagePosted` is a
+queued `ShouldBroadcast` carrying an IDENTIFIER and no payload; Reverb going down
+turns live delivery into "one refresh behind", never into a failed send — which is
+what `SC-015` says out loud and `BroadcastOutageTest` measures with the server
+killed mid-session. Broadcasting gets NO abstraction of ours, unlike Bunny or
+LiveKit: Laravel already owns a driver layer for it, and `reverb` is a driver in
+it, so moving to a managed provider is a line of configuration.
+
+### Endpoints
+
+| Method | Path | Who |
+|---|---|---|
+| `GET` | `/api/v1/conversations` | either party |
+| `POST` | `/api/v1/conversations` | the student — opens or returns the one private thread |
+| `GET` | `/api/v1/conversations/{conversation}/messages` | either party |
+| `POST` | `/api/v1/conversations/{conversation}/messages` | either party, while the relationship lasts |
+| `POST` | `/api/v1/conversations/{conversation}/attachments` | either party |
+| `DELETE` | `/api/v1/messages/{message}` | the author, or `chat.moderate` |
+| `POST` | `/api/v1/messages/{message}/helpful` | the teacher's side, in a room |
+| `POST` | `/api/v1/messages/{message}/report` | anyone who can read it |
+| `POST` | `/api/v1/reviews/{review}/report` | anyone — the SAME moderation path |
+| `GET` | `/api/v1/class-sessions/{session}/chat` · `/lessons/{lesson}/chat` | seat holders / enrolled |
+| `POST` | `/api/v1/moderation/actions` | `chat.moderate` |
+| `GET` | `/api/v1/manage/assistants` · `PUT .../{assignment}/scope` · `DELETE .../{assignment}` | the owner |
+| `GET` | `/api/v1/assistants/me` | the assistant |
+| `GET` | `/api/v1/manage/students/{student}/reviews` · `POST /manage/periodic-reviews` · `POST .../{review}/publish` | `reviews.periodic.manage` |
+| `GET` | `/api/v1/students/me/reviews` | the student — PUBLISHED only |
+| `GET` | `/api/v1/manage/report-card-segments` · `/manage/grading-schemes` · `POST /manage/grading-schemes` | the teacher |
+| `GET` | `/api/v1/report-cards` · `/report-cards/{uuid}` · `/report-cards/{uuid}/download` | the student, their guardian |
+| `GET` | `/api/v1/manage/announcements` · `POST` · `POST .../{announcement}/publish` · `PATCH` · `DELETE` | `announcements.manage` |
+| `GET` | `/api/v1/chat-media/{message}` · `/report-card-files/{uuid}` | signed, short-lived |
+
+### Permissions (four, every one a TENANT permission)
+
+| Name | What it really grants |
+|---|---|
+| `chat.reply` | answering as the teacher's side — this, not membership, is what separates the two sides of a room |
+| `chat.moderate` | hiding a message, banning a writer, deciding a report |
+| `reviews.periodic.manage` | writing and publishing a periodic review of a named student |
+| `announcements.manage` | publishing to every one of the teacher's students, **in the teacher's name** |
+
+An assistant holds what the owner ticks on the roles screen and nothing by
+default. **`billing.balance.view` is the one financial item that may be delegated**
+— a count of remaining sessions with no amount anywhere near it — and everything
+else financial is refused on the API, on the panel, and now vocabularly:
+`ContextIsolationTest` fails the build over a `use App\Modules\Payments` written
+under `Modules/Community/`.
+
+### The wall is at the CHECK, never on the role name
+
+`Gate::before` asks `AssistantScopeDirectory::isAssistantIn()` and refuses the
+financial permissions there — bound `scoped()`, never `singleton()`, so a
+revocation is instant inside a queue worker as well as over HTTP. A rule written
+against the role NAME would be one custom role away from nothing.
+
+### `hidden_at`, never `deleted_at`
+
+A moderated message stays readable to the moderator and to the audit; a soft
+delete would put it behind Laravel's global scope where the moderation screen
+cannot see the thing it just acted on. The same column, and the same reason, on
+`announcements`.
+
+### A departed teacher's chat closes for writing and stays open for reading
+
+`ConversationPolicy::post()` asks `TeacherOffboardingDirectory::hasDeparted()`
+(spec 013 · FR-037). The enrolment cannot say it — FR-035 keeps the course a
+student PAID for until their term ends — so without this the student writes into
+a workspace with nobody left to answer, for ever. It is asked in the POLICY and
+not stamped on the row because `StartConversation` authorises an UNSAVED
+`Conversation` against the same ability: one question, one place.
+
+### Rate limiters
+
+`chat-write` · `chat-report` · `moderation-write` · `announcement-publish` ·
+`report-card-render`, all named in `AppServiceProvider::registerRateLimiters()`.
+`chat-report` is a SEPARATE bucket from `chat-write` on purpose: sharing one means
+a burst of messages spends the budget a person needs to report abuse.
+
+### Announcements
+
+One row, one fan-out job, `notifications` rows per recipient keyed by
+`(source_type, source_id)` — which is what makes «كم قرأه» a single grouped query
+rather than a column that drifts. `published_at` is claimed by a conditional
+UPDATE (the seat idiom), so a re-published draft fans out exactly once. Groups and
+attachments are OUT of scope and recorded as such.
 
 ## Roles, permissions, and who may grant them
 

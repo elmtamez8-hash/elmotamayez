@@ -406,6 +406,39 @@ class DataCategorySeeder extends Seeder
                 'expiry_behaviour' => ExpiryBehaviour::Delete->value,
                 'erasure_mode' => ErasureMode::Delete,
             ],
+            /*
+            | ⚠️ THE TEACHER'S ROW, NOT THE STUDENT'S — `author_user_id`, and the
+            | student's copy of the same words is a `notifications` row that
+            | Notifications already owns. Two categories over one message on
+            | purpose: the announcement is the teacher's outbound record and it
+            | outlives the feed entries it produced.
+            |
+            | ⚠️ AND IT ARRIVED SILENTLY. Phase 8 added this table inside a module
+            | that was already registered, and `PersonalDataContractCoverageTest`
+            | is a per-MODULE guard — its own docblock says so — so the suite
+            | stayed green over an author column with no export path and no
+            | expiry. The table-level version of that check was measured before
+            | this line was written: it lights up forty-two tables across every
+            | module, which is the guard-silenced-by-exemptions shape the file
+            | already rejected once. Recorded rather than half-built.
+            */
+            [
+                'key' => 'announcement',
+                'label_ar' => 'الإعلانات التي نشرتَها',
+                'purpose_ar' => 'لتبلّغ طلابك أمراً يخصّ الصفَّ أو الحصّة.',
+                'audience' => 'طلاب المدرّس المعنيّون بنطاق الإعلان',
+                'is_required' => false,
+                'owning_module' => 'community',
+                'table_name' => 'announcements',
+                'column_name' => 'author_user_id',
+                // Two years, matching `chat_message`: an announcement is the same
+                // conversation addressed to a class instead of to one person, and
+                // two durations over one exchange leave a reply citing a notice
+                // that no longer exists.
+                'retain_days' => 730,
+                'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
+            ],
         ];
     }
 }

@@ -42,9 +42,9 @@ php artisan queue:work --queue=default,media,notifications,notifications-high,ce
 cd ../frontend && npm run dev
 ```
 
-⚠️ **و`community` ليس في `config/horizon.php` بعد.** أمرٌ مكتوبٌ بيدٍ لا يكفي: المشرفُ يحتاج
+✅ **و`community` صار في `config/horizon.php`** (‏`supervisor-community` في `defaults` و`environments`، و`redis:community` في `waits`). القاعدةُ تبقى مكتوبةً لأنها ليست عن هذا الطابور: المشرفُ يحتاج
 مُدخلَه في **`defaults` و`environments` معاً**، وزوجَ `redis:community` في **`waits`** — وإلا
-فالطابورُ **لا يُراقَب بحدٍّ افتراضيّ، بل لا يُراقَب**. (‏١٩٤ وظيفةً تراكمت هكذا في هذه الشجرةِ
+فالطابورُ **لا يُراقَب بحدٍّ افتراضيّ، بل لا يُراقَب**. والأمرُ المكتوبُ بيدٍ أعلاه يُبقي القائمةَ كاملةً لمن يشغّل بلا Horizon. (‏١٩٤ وظيفةً تراكمت هكذا في هذه الشجرةِ
 يومَ ٢٠٢٦-٠٨-١٨.) وظيفتا التفريعِ والتصييرِ كلتاهما عليه.
 
 1. ادعُ مساعداً بالدعوةِ القائمة ← يقبل ← يظهر في `/manage/assistants`.

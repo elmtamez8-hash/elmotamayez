@@ -95,6 +95,12 @@ export default function MessagesLayout({ children }: { children: React.ReactNode
 
           unsubscribe = off;
         })
+        // ⚠️ THE ONE SANCTIONED SWALLOW, AND ONLY BECAUSE OF WHAT FAILED. A socket
+        // that will not open changes nothing this list can do — the conversations
+        // are read from the API and `conversations:changed` still refreshes them,
+        // one beat later. Everything else on this screen goes through
+        // `userMessage()`; swallowing a FETCH here would render an empty list to
+        // somebody who has ten threads.
         .catch(() => undefined);
     }
 

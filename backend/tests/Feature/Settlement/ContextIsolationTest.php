@@ -207,6 +207,50 @@ it('never names a settlement or billing table from inside the compliance module'
 });
 
 /*
+ * ⚠️ AND `Community` IS THE FOURTH CONTEXT, ADDED BY SPEC 010's OWN PHASE 9.
+ *
+ * The financial wall there is enforced BEHAVIOURALLY — `AssistantFinancialWallTest`
+ * and `PanelFinancialWallTest` walk an assistant into every money screen and read
+ * the 403 — and a behavioural guard answers about the doors somebody remembered to
+ * try. This answers about the vocabulary, which is the half that catches the door
+ * nobody thought of: a delegated permission is a tick box on the roles screen, so
+ * the first `use App\Modules\Payments` written under `Modules/Community/` is one
+ * afternoon away from an assistant reading what a student paid.
+ *
+ * ⚠️ ONE FIELD IS DELIBERATELY ALLOWED AND IT IS NOT AN EXEMPTION HERE. «عرض
+ * الرصيد» is the single financial item a teacher may delegate (ت-١) — a COUNT of
+ * remaining sessions with no amount anywhere near it — and it is served by
+ * `Payments`' own resource under `StudentBalanceAllowlist`. Community neither
+ * queries nor names it, which is why nothing needs excusing below.
+ */
+it('never names a settlement or billing table from inside the community module', function (): void {
+    $forbidden = array_merge(
+        ['use App\Modules\Settlement', 'use App\Modules\Payments'],
+        array_map(fn (string $table): string => "'{$table}'", tablesCreatedBy('Settlement')),
+        array_map(fn (string $table): string => "'{$table}'", tablesCreatedBy('Payments')),
+    );
+
+    // Sanity, the shape this file uses everywhere: a Finder that matched nothing
+    // would pass by finding nothing to forbid — and this scan is the only reader
+    // of that directory here, so nothing else would notice.
+    expect(iterator_count(moduleFiles('Community')))->toBeGreaterThan(50);
+
+    $offenders = [];
+
+    foreach (moduleFiles('Community') as $file) {
+        $contents = $file->getContents();
+
+        foreach ($forbidden as $needle) {
+            if (str_contains($contents, $needle)) {
+                $offenders[] = $file->getRelativePathname().' → '.$needle;
+            }
+        }
+    }
+
+    expect($offenders)->toBe([]);
+});
+
+/*
  * ⚠️ The scan above is ONE-DIRECTIONAL, and spec 006 is what makes that matter.
  *
  * `moduleFiles('Settlement')` is the whole sweep: nothing has ever read the

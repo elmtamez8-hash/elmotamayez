@@ -671,3 +671,72 @@ Columns added to tables that already existed:
   MySQL has no partial indexes; `WHERE status = 'pending'` on an index is a Postgres
   feature. The column is written at creation and NULLed the moment the request
   closes, so NULL-never-equals-NULL is the whole guard.
+
+## Chat, Assistants, Reviews and Announcements (spec 010)
+
+Twelve tables, **eleven of them layer 2 (workspace-owned) and exactly one layer 3**
+— a conversation belongs to one teacher's practice, and so does a ban, a review and
+an announcement. `report_cards` is the exception and carries **no `workspace_id` at
+all**: a student has ONE cumulative record across every teacher they study with, and
+scoping it would duplicate one person per teacher — the mirror-image bug
+`PlatformOwnershipTest` exists to catch in both directions. Its `report_card_segments`
+DO carry one, because a segment is exactly «this teacher's contribution».
+
+```
+workspaces ─┬─< conversations ──< messages ──< (moderation_actions)
+            │        │  kind: private | session | lesson
+            │        └─< conversation_participants
+            ├─< blocked_terms
+            ├─< assistant_assignments ──< assistant_scopes   (course_id)
+            ├─< periodic_reviews          (student_user_id · teacher_user_id)
+            ├─< grading_schemes           (the weights a report card is built from)
+            ├─< announcements             (scope: all | course | session)
+            └─< report_card_segments      (this teacher's contribution)
+                        │
+                        ˅  belongs to
+users ──────────────< report_cards        ⚠️ LAYER 3 — no workspace_id at all
+                                             one cumulative record per person
+```
+
+### Three extensions to tables this phase did not create
+
+| Table | Column(s) | Why here and not in a new table |
+|---|---|---|
+| `marketplace reviews` | the axes, plus a repointed unique | 001 already owned "a student's opinion of a teacher"; a second review table would be two answers to one question, and the trust score reads the first one |
+| `notifications` | `source_type` · `source_id` · `index(source_type, source_id, read_at)` | an announcement's «كم قرأه» is a grouped COUNT over the rows the fan-out already wrote — a `read_count` column on `announcements` is a second copy that drifts |
+| `messages` | the attachment columns | an attachment IS a message here; a separate table would make ordering and moderation two joins for one thread |
+
+### The two claimed columns, and one that is deliberately not
+
+- **`announcements.published_at` is claimed by a conditional UPDATE** and is NOT
+  `$fillable`. `UPDATE … WHERE published_at IS NULL AND hidden_at IS NULL` is both
+  the check and the claim, so two runners publishing one draft fan out exactly
+  once. The seat idiom, shared with `captured_order_id` and `StructureVersion`.
+- **`conversations.last_message_id` is claimed the same way** and for the same
+  reason — mass-assignable it becomes a second way to move the pointer from
+  outside the statement that owns the comparison.
+- **`assistant_assignments.revoked_at` is not fillable either**, and revocation is
+  instant because `AssistantScopeDirectory` is bound `scoped()`: a `singleton()`
+  would keep answering `true` inside a worker until it restarted.
+
+### `hidden_at`, never `deleted_at`
+
+On `messages` and on `announcements` both. A soft delete puts the row behind
+Laravel's global scope, where the moderation screen and the audit cannot see the
+thing they just acted on — and a moderator who cannot read what they hid cannot
+undo a mistake.
+
+### The absence is the design, a fourth time
+
+- **No `closed_at` on `conversations`.** When a teacher's exit completes, writing
+  stops because `ConversationPolicy::post()` asks
+  `TeacherOffboardingDirectory::hasDeparted()` — and it has to be a question rather
+  than a stamp, because `StartConversation` authorises an UNSAVED `Conversation`
+  against that same ability. A column could not answer for a row that does not
+  exist yet, and a second guard beside the other door is the two-spellings defect.
+- **No `read_count`, no `notified_count` on `announcements`.** Both are grouped
+  counts over `notifications`, which is the table the fan-out actually wrote.
+- **No teacher column on `conversations`.** A private thread names its student and
+  its workspace; the teacher's side is DERIVED from membership, so it stays true
+  as assistants come and go — and «who am I talking to» has two right answers
+  depending on who is asking, only one of which is a user row.

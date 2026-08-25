@@ -13,6 +13,7 @@ use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\SessionAttendanceDirectory;
+use App\Shared\Contracts\TeacherOffboardingDirectory;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -37,6 +38,7 @@ class ConversationPolicy
         private readonly EnrollmentDirectory $enrollments,
         private readonly SessionAttendanceDirectory $seats,
         private readonly BanReader $bans,
+        private readonly TeacherOffboardingDirectory $departures,
     ) {}
 
     /** May this person read the thread at all? */
@@ -76,6 +78,25 @@ class ConversationPolicy
         */
         if ($this->bans->isBanned((int) $user->getKey(), (int) $conversation->workspace_id)) {
             return Response::deny('تم إيقاف الكتابة عن حسابك في هذه المساحة. يمكنك القراءة.');
+        }
+
+        /*
+        | ⚠️ ASKED ON EVERY KIND, AND ASKED HERE RATHER THAN ON THE ROW. When the
+        | teacher's exit completes (013 · FR-037) every non-student membership in
+        | this workspace is gone — so nobody is left holding `chat.reply` and every
+        | thread in it, private or room, is a place a student can still write into
+        | and never be answered. Their enrolment cannot express it: FR-035 keeps
+        | the course they paid for until their term ends, which is exactly the
+        | condition the private branch below reads.
+        |
+        | ⚠️ AND `StartConversation` AUTHORISES AN UNSAVED `Conversation` AGAINST
+        | THIS SAME ABILITY, which is why the answer is not a `closed_at` column: a
+        | row that does not exist yet carries no stamp, and a second guard written
+        | beside the other door is the two-spellings defect `BookingEligibility`
+        | already paid for. One question, one place.
+        */
+        if ($this->departures->hasDeparted((int) $conversation->workspace_id)) {
+            return Response::deny('أنهى هذا المدرّس عمله على المنصّة، والمحادثة صارت للقراءة فقط.');
         }
 
         if ($conversation->kind->isPublic()) {

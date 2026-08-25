@@ -30,6 +30,20 @@ use App\Shared\Contracts\SettlementClearance;
  * both write, and both fan out `TeacherOffboardingCompleted` — memberships ended
  * twice, tokens revoked twice, recordings re-dated twice. None of it reverses.
  * Never `lockForUpdate()`, a no-op on SQLite.
+ *
+ * ⚠️ AND ALL THREE WRITES DECLARE `withoutWorkspaceScope()`, WITHOUT WHICH NO
+ * EXIT COULD EVER BE COMPLETED. This runs inside the OFFICER's request, and
+ * `WorkspaceContext::id()` falls back to `users.last_workspace_id` for every user
+ * including platform staff — so for an officer who has ever opened a workspace of
+ * their own, every one of these statements ANDed the wrong `workspace_id`, matched
+ * zero rows, and the Action then answered «لم تنتهِ مهلةُ الإخطار بعد» about a
+ * notice that ran out a week ago. Permanently, with nothing logged.
+ *
+ * ⚠️ IT SHIPPED GREEN BECAUSE EVERY OFFBOARDING FIXTURE HAD ONE WORKSPACE, which
+ * makes the ambient context and the row's own workspace the same number. The same
+ * defect the audit chain shipped and this module's own `OffboardingController`
+ * docblock warns about one file away. Found from spec 010's side, by a Community
+ * test that needed a second teacher for an unrelated reason.
  */
 class ExecuteTeacherOffboarding extends Action
 {
@@ -53,6 +67,7 @@ class ExecuteTeacherOffboarding extends Action
             | a status instead of a column. The clearing path below puts it back.
             */
             TeacherOffboarding::query()
+                ->withoutWorkspaceScope()
                 ->whereKey($offboarding->getKey())
                 ->where('status', '!=', OffboardingStatus::Completed->value)
                 ->update([
@@ -71,6 +86,7 @@ class ExecuteTeacherOffboarding extends Action
         | nothing left to claim.
         */
         TeacherOffboarding::query()
+            ->withoutWorkspaceScope()
             ->whereKey($offboarding->getKey())
             ->where('status', '!=', OffboardingStatus::Completed->value)
             ->update([
@@ -87,6 +103,7 @@ class ExecuteTeacherOffboarding extends Action
         | it. `<=` on a timestamp bound, so the deadline itself passes.
         */
         $claimed = TeacherOffboarding::query()
+            ->withoutWorkspaceScope()
             ->whereKey($offboarding->getKey())
             ->where('status', OffboardingStatus::NoticePeriod->value)
             ->whereNotNull('settlement_cleared_at')

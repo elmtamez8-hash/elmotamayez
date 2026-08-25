@@ -102,12 +102,70 @@ redirect_stderr=true
 stdout_logfile=/path/to/backend/storage/logs/horizon.log
 ```
 
+### Reverb is a THIRD long-running process, and forgetting it degrades rather than breaks
+
+`php artisan reverb:start` alongside the web server and Horizon. It needs its own
+Supervisor program — Horizon does not start it and nothing else will.
+
+```ini
+[program:reverb]
+process_name=%(program_name)s
+command=php /path/to/backend/artisan reverb:start --host=0.0.0.0 --port=8080
+autostart=true
+autorestart=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/path/to/backend/storage/logs/reverb.log
+```
+
+⚠️ **Nothing fails when it is missing, which is why it needs a checklist line.**
+The database is the source and the socket is an accelerator: with Reverb down a
+message is still written, still read and still delivered — one refresh late.
+There is no error, no failed job that names it, and no screen that says so. The
+symptom is a support ticket about chat "feeling slow", weeks later.
+
+Environment, and the split is deliberate: `REVERB_APP_SECRET` signs and never
+leaves the server; `REVERB_APP_KEY`, `REVERB_HOST`, `REVERB_PORT` and
+`REVERB_SCHEME` are what the BROWSER is handed, so a requirement forbidding every
+key in a payload cannot be satisfied and was never written.
+
+```
+BROADCAST_CONNECTION=reverb     # `log` in development — live delivery is OFF
+REVERB_APP_ID=          REVERB_APP_KEY=        REVERB_APP_SECRET=
+REVERB_HOST=            REVERB_PORT=443        REVERB_SCHEME=https
+```
+
+The reverse proxy must upgrade the WebSocket (`Upgrade`/`Connection` headers) on
+whatever path `REVERB_HOST`/`REVERB_PORT` name, and TLS terminates there.
+
+### `/api/broadcasting/auth` is inside the `api` group, and that is load-bearing
+
+A middleware list handed to `withBroadcasting()` REPLACES the group rather than
+adding to it — and what it drops is `EnsureCurrentWorkspace`, which pushes
+spatie's team id. In team mode **no team id means no roles at all**, so every
+private-channel subscription was answered `403` for teachers who read the same
+thread over HTTP without trouble. No test could see it: `subscribeToChannel()`
+posts from a process where `Sanctum::actingAs()` has already set the team id.
+
+### The `community` queue needs a supervisor, and a queue with no worker says nothing
+
+`config/horizon.php` names it in **both** `defaults` and `environments` — a queue
+present only in `defaults` is one whose jobs enqueue and are never drained,
+silently, with the dashboard showing nothing wrong. `FanOutAnnouncementJob` and
+the offline-recipient notifications ride it; a hand-written `queue:work` whose
+`--queue` list omits it produces the same silence (the `maintenance` lesson from
+spec 019, reached from a second direction).
+
 ## Post-Deployment Checklist
 
 - [ ] `.env` configured with production values (no debug, proper DB/Redis/Meilisearch)
 - [ ] Migrations run (`php artisan migrate --force`)
 - [ ] Super-admin created (check console output for password)
 - [ ] Horizon running (check `/horizon`)
+- [ ] Reverb running (`reverb:start` under Supervisor) — **nothing errors if it is not; chat just goes one refresh late**
+- [ ] `BROADCAST_CONNECTION=reverb` and the four `REVERB_*` values set
+- [ ] `supervisor-community` present in Horizon's `environments`, not only in `defaults`
 - [ ] Meilisearch running and indexed (`php artisan scout:sync-index-settings`)
 - [ ] API docs generated (`/docs`)
 - [ ] SSL/TLS configured (Let's Encrypt or similar)

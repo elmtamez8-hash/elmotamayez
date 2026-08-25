@@ -8,7 +8,9 @@ use App\Modules\Compliance\Models\DataRequest;
 use App\Modules\Compliance\Models\LegalHold;
 use App\Modules\Compliance\Policies\DataRequestPolicy;
 use App\Modules\Compliance\Policies\LegalHoldPolicy;
+use App\Modules\Compliance\Support\EloquentTeacherOffboardingDirectory;
 use App\Modules\Compliance\Support\PersonalDataRegistry;
+use App\Shared\Contracts\TeacherOffboardingDirectory;
 use App\Shared\Modules\Module;
 use App\Shared\Modules\ModulesServiceProvider;
 use Illuminate\Support\Facades\Gate;
@@ -45,6 +47,15 @@ class ComplianceServiceProvider extends Module
         | for it repeatedly inside one process.
         */
         $this->app->singleton(PersonalDataRegistry::class);
+
+        /*
+        | ⚠️ `scoped()`, for the two opposite reasons `AssistantScopeDirectory`
+        | writes down: not `bind()`, because `ConversationPolicy::post()` asks it
+        | on every message and once per row of a conversation list; and not
+        | `singleton()`, because a worker's container outlives the job, so an exit
+        | completed at noon would keep answering `false` until the worker restarted.
+        */
+        $this->app->scoped(TeacherOffboardingDirectory::class, EloquentTeacherOffboardingDirectory::class);
     }
 
     public function boot(): void
