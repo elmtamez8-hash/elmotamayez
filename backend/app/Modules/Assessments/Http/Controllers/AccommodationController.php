@@ -29,7 +29,7 @@ class AccommodationController extends Controller
 
         $rows = Accommodation::query()
             ->active()
-            ->with('student:id,uuid,name')
+            ->with('student:id,uuid,first_name,last_name')
             ->orderByDesc('id')
             ->get();
 

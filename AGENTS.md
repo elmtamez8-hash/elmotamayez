@@ -664,6 +664,22 @@ a count of remaining sessions, no amount anywhere near it.
   `PersonalDataContractCoverageTest` is per-MODULE and will not tell you —
   `announcements` shipped without them and 1916 tests stayed green.
 
+### Read before writing a constrained eager load or adding a catalogue row
+
+**`->with('student:id,uuid,name')` renders a blank name.** `users` has no `name`
+column — it is an accessor over `first_name`/`last_name`. Six call sites shipped
+this way, including `/manage/billing/students`. Name the columns the **accessor**
+reads, not the attribute the Resource prints.
+
+**A catalogue row added by a release never reaches an existing database.**
+`NotificationTemplateSeeder`, `DataCategorySeeder` and `GamificationCatalogSeeder`
+are read at runtime and silent when a row is missing — a notification with no
+template is dropped, a category with no row is never swept, and `AwardPoints`
+returns without a word. Each has `run()` (overwrites, development) and
+`seedMissing()` (`firstOrCreate`, deploy). **Add the backfill migration in the
+same change**, and never call `run()` from one: every row is editable from
+`/admin`.
+
 ### Read before adding or touching a Filament Resource
 
 **A Filament LIST never calls the row policy.** `OrderResource` had no `canViewAny()`,

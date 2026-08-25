@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Modules\Gamification\Enums\BadgeRuleType;
+use App\Modules\Gamification\Filament\Resources\GamificationActionResource;
 use App\Modules\Gamification\Models\Badge;
 use App\Modules\Gamification\Models\GamificationAction;
 use App\Modules\Gamification\Models\Level;
@@ -86,22 +87,51 @@ class GamificationCatalogSeeder extends Seeder
 
     public function run(): void
     {
+        $this->write(overwrite: true);
+    }
+
+    /**
+     * Only the rows that are missing — the shape a DEPLOY needs.
+     *
+     * ⚠️ `run()` OVERWRITES, AND THAT IS RIGHT FOR DEVELOPMENT AND WRONG FOR A
+     * RELEASE. Every row here is editable from `/admin`
+     * ({@see GamificationActionResource}),
+     * so an `updateOrCreate` in the deploy path resets every xp value, coin value
+     * and daily cap an operator ever tuned — on every release, silently.
+     *
+     * ⚠️ AND THE OPPOSITE IS WORSE, WHICH IS WHY THIS EXISTS AT ALL. `AwardPoints`
+     * looks an action up by key and returns in SILENCE when there is no row — an
+     * award for an undefined action is an unfilled catalogue, not an error. So a
+     * release that adds an action and seeds nothing ships a feature that is dead
+     * on arrival: `helpful_answer` was in this file and absent from a real
+     * database, and a teacher endorsing a student's answer awarded nothing, with
+     * no error anywhere. Found by walking the product, not by a test — the suite
+     * seeds this table before every case, so every assertion about it was made
+     * against a catalogue production did not have.
+     */
+    public function seedMissing(): void
+    {
+        $this->write(overwrite: false);
+    }
+
+    private function write(bool $overwrite): void
+    {
         foreach (self::ACTIONS as $action) {
-            GamificationAction::query()->updateOrCreate(
-                ['key' => $action['key']],
-                [...$action, 'is_active' => true],
-            );
+            $overwrite
+                ? GamificationAction::query()->updateOrCreate(['key' => $action['key']], [...$action, 'is_active' => true])
+                : GamificationAction::query()->firstOrCreate(['key' => $action['key']], [...$action, 'is_active' => true]);
         }
 
         foreach (self::LEVELS as $level) {
-            Level::query()->updateOrCreate(['level' => $level['level']], $level);
+            $overwrite
+                ? Level::query()->updateOrCreate(['level' => $level['level']], $level)
+                : Level::query()->firstOrCreate(['level' => $level['level']], $level);
         }
 
         foreach (self::BADGES as $badge) {
-            Badge::query()->updateOrCreate(
-                ['key' => $badge['key']],
-                [...$badge, 'is_active' => true],
-            );
+            $overwrite
+                ? Badge::query()->updateOrCreate(['key' => $badge['key']], [...$badge, 'is_active' => true])
+                : Badge::query()->firstOrCreate(['key' => $badge['key']], [...$badge, 'is_active' => true]);
         }
     }
 }

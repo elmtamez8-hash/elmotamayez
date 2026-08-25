@@ -57,7 +57,7 @@ class AssistantController extends Controller
         $updated = $action->handle($assignment, AssistantScopeData::fromArray($request->validated()));
 
         return response()->json(
-            AssistantAssignmentResource::make($updated->load('assistant:id,uuid,name', 'scopes.course:id,uuid,title'))
+            AssistantAssignmentResource::make($updated->load('assistant:id,uuid,first_name,last_name', 'scopes.course:id,uuid,title'))
         );
     }
 

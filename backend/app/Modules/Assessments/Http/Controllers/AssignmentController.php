@@ -145,7 +145,7 @@ class AssignmentController extends Controller
         $this->authorize('manage', $assignment);
 
         $submissions = $assignment->submissions()
-            ->with(['student:id,uuid,name', 'assignment:id,uuid,title,points', 'media'])
+            ->with(['student:id,uuid,first_name,last_name', 'assignment:id,uuid,title,points', 'media'])
             /*
              | ⚠️ NULLS LAST, EXPLICITLY. A row the sweep wrote has no
              | `submitted_at`, and NULL sorts BEFORE every value on SQLite and

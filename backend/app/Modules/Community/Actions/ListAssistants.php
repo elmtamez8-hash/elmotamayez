@@ -27,7 +27,7 @@ class ListAssistants extends Action
         return AssistantAssignment::query()
             ->withoutWorkspaceScope()
             ->where('workspace_id', $workspaceId)
-            ->with(['assistant:id,uuid,name', 'scopes.course:id,uuid,title'])
+            ->with(['assistant:id,uuid,first_name,last_name', 'scopes.course:id,uuid,title'])
             ->orderBy('id')
             ->get();
     }

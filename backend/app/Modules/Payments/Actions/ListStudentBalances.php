@@ -46,7 +46,7 @@ class ListStudentBalances extends Action
         $enrollments = Enrollment::query()
             ->where('workspace_id', $workspace->getKey())
             ->where('status', 'active')
-            ->with(['student:id,uuid,name', 'course:id,uuid,title'])
+            ->with(['student:id,uuid,first_name,last_name', 'course:id,uuid,title'])
             ->get();
 
         if ($enrollments->isEmpty()) {

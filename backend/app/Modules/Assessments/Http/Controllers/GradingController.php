@@ -67,7 +67,7 @@ class GradingController extends Controller
         // Not loaded at all when anonymity is on — a relation fetched and then
         // dropped in the Resource is a name that travelled anyway.
         if (! $anonymous) {
-            $query->with('student:id,uuid,name');
+            $query->with('student:id,uuid,first_name,last_name');
         }
 
         $examUuid = $request->string('exam')->toString();
