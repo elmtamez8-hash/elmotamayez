@@ -571,13 +571,20 @@ error logged. `RollupIdempotencyTest` runs the job twice for exactly that reason
 The cost is that `(int) null === 0` in PHP, so a failed uuid resolve silently addresses the
 default row. `UnlockRuleController` guards it with `abort_if` before writing.
 
-### `questions.exam_id` is still there, and that is deliberate
+### `questions.exam_id` is gone, and it took two releases to get there
 
-The expand/contract is spread over two releases. `_000550` relaxed the column to nullable —
-the code in this release stopped writing it, and a NOT NULL column nobody writes rejects
-every insert. Dropping it is `T180`, a **separate later deploy**, because `Exam::questions()`
+The expand/contract was spread over two deploys on purpose. `_000550` relaxed the column to
+nullable — the code in 008 stopped writing it, and a NOT NULL column nobody writes rejects
+every insert. `_000600` (2026-08-26) dropped it, nine specs later, because `Exam::questions()`
 was a `hasMany` on it and an un-restarted worker running `load('exam.questions.options')`
-would hit "Unknown column" on every grading for the length of the rollout.
+would have hit "Unknown column" on every grading for the length of the rollout.
+
+⚠️ **The index is dropped first, in its own statement.** MySQL discards a single-column index
+with its column; SQLite's native `ALTER TABLE … DROP COLUMN` **refuses an indexed column**, and
+the whole suite runs on in-memory SQLite. The `rollback` is empty and cannot be otherwise: a
+question now in two exams does not fold back into one column, a bank question in zero exams has
+nothing to restore, and the column would not return `NOT NULL` — so the schema after a rollback
+is not the one that preceded it, and the migration says so where somebody will read it.
 
 - **A question is INCLUDED by an exam, not owned by one.** That is the whole spec in one
   line, and it is why `Exam::questions()` is now a `belongsToMany` through `exam_items`

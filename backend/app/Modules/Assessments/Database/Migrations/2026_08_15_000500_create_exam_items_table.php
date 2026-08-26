@@ -19,8 +19,9 @@ use Illuminate\Support\Str;
 | survive, and this gives it by NOT TOUCHING A SINGLE ANSWER ROW — not because
 | the migration is careful, but because it does not happen.
 |
-| Dropping `questions.exam_id` is step 6, and it ships in a LATER DEPLOY. See
-| that file for why.
+| Dropping `questions.exam_id` is step 6, and it ships in a LATER DEPLOY —
+| `2026_08_26_000600_drop_exam_id_from_questions.php`, nine specs after this one.
+| See that file for why the gap is the point rather than an oversight.
 */
 return new class extends Migration
 {
