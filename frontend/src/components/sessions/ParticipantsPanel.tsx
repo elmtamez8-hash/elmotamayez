@@ -14,6 +14,9 @@ import { Button } from "@/components/ui/Button";
 import { classSessions, type RoomParticipant } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
 
+/** How long a burst of arrivals is allowed to collapse into one roster fetch. */
+const COALESCE_MS = 2000;
+
 /**
  * The class roll during the lesson: a face, a name, the badges earned, and the
  * two buttons a teacher needs.
@@ -85,6 +88,9 @@ export function ParticipantsPanel({
     });
   }, []);
 
+  /** Whether the roster has been asked for at least once (see the effect below). */
+  const loaded = useRef(false);
+
   /*
    * Re-fetched when the count changes, never on every render and never per row:
    * somebody arriving is the only event that can add a name we do not have, and
@@ -95,6 +101,11 @@ export function ParticipantsPanel({
       classSessions
         .participants(sessionUuid)
         .then((response) => {
+          // ⚠️ MARKED WHEN A LOAD LANDS, NOT WHEN THE EFFECT RUNS. React invokes
+          // an effect twice on mount in development, so a flag set on entry made
+          // the SECOND pass — the one that survives — take the coalescing delay,
+          // and the panel showed nothing for two seconds on every entry.
+          loaded.current = true;
           setRoster(new Map((response.data ?? []).map((person) => [person.uuid, person])));
         })
         // A roster that will not load changes nothing about what the room can do:
@@ -104,8 +115,25 @@ export function ParticipantsPanel({
     [sessionUuid],
   );
 
+  /*
+   * ⚠️ COALESCED, BECAUSE A ROOM FILLING UP IS N² FETCHES AND NOT N.
+   *
+   * The effect fires on every change of the count, and every client watches every
+   * arrival — so client `i` of a thirty-seat room sees `31 − i` changes as the
+   * rest arrive. Summed over the class that is 465 requests to an unthrottled
+   * endpoint in about two minutes, each one a roster join plus a badge read, and
+   * every room on the hour does it at once. The comment above was true of the
+   * server («the whole room is one query») and quietly false of the client.
+   *
+   * The FIRST load is immediate and only the changes after it are coalesced: a
+   * flat delay would leave the panel showing nothing for two seconds on entry,
+   * which trades a server problem for the student's problem. Two seconds is short
+   * enough that a late joiner is still «somebody» rather than a uuid.
+   */
   useEffect(() => {
-    void reload();
+    const timer = setTimeout(() => void reload(), loaded.current ? COALESCE_MS : 0);
+
+    return () => clearTimeout(timer);
   }, [reload, participants.length]);
 
   const act = async (action: "mute" | "remove", identity: string) => {
@@ -348,7 +376,9 @@ function ParticipantRow({
                 asking «مين اللي بيتكلّم؟» out loud over the person speaking. */}
             {isSpeaking && (
               <span
-                className="size-2 shrink-0 rounded-full bg-success"
+                // ⚠️ `secondary`: there is no `success` token, so `bg-success`
+                // painted an 8px transparent circle. See BroadcastStage's ring.
+                className="size-2 shrink-0 rounded-full bg-secondary"
                 role="img"
                 aria-label={`${name} يتحدّث الآن`}
               />

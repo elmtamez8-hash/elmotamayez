@@ -315,6 +315,21 @@ export default function ManageSessionsPage() {
               key={session.uuid}
               session={session}
               href={`/manage/sessions/${session.uuid}`}
+              /*
+                ⚠️ THE SLOT WAS ALREADY THERE AND NOTHING WAS PUT IN IT. Starting a
+                lesson meant: drawer → «حصصي» → scroll past two full forms →
+                find today among an unfiltered list → open the detail page → «دخول
+                الغرفة». Five taps and a hunt, for something that begins in a
+                minute. The same `room_closed` condition the detail page uses, so
+                there is one answer to "is this room still open" and not two.
+              */
+              action={
+                session.room_closed ? undefined : (
+                  <Button href={`/sessions/${session.uuid}/room`} size="sm">
+                    دخول الغرفة
+                  </Button>
+                )
+              }
             />
           ))}
         </div>

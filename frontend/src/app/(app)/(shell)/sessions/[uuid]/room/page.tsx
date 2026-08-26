@@ -11,8 +11,14 @@ import { Alert } from "@/components/ui/Alert";
 import { UnlockNotice } from "@/components/sessions/UnlockNotice";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { classSessions, type JoinTicket, type PresenceState } from "@/lib/class-sessions";
+import {
+  classSessions,
+  type ClassSession,
+  type JoinTicket,
+  type PresenceState,
+} from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
+import { formatSessionTime } from "@/lib/session-format";
 
 /**
  * The room.
@@ -32,6 +38,19 @@ export default function SessionRoomPage({
   const { uuid } = use(params);
 
   const [ticket, setTicket] = useState<JoinTicket | null>(null);
+  /*
+    ⚠️ FETCHED ON THE HAPPY PATH TOO, AND IT USED TO BE ASKED FOR ONLY AFTER A
+    REFUSAL. So the one screen a student and a teacher stare at for an hour said
+    «غرفة الحصة» and nothing else: not the title, not the course, not the time,
+    not whose lesson it is. A student with three teachers arriving from a
+    notification had nothing on screen telling them they were in the right room —
+    and the shell's own header prints «لوحة التحكم» above it, because no nav item
+    is a prefix of this path.
+
+    It costs one request and needs no new endpoint or field: `view` on the policy
+    already admits every seat holder.
+  */
+  const [session, setSession] = useState<ClassSession | null>(null);
   const [presence, setPresence] = useState<PresenceState | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -46,6 +65,16 @@ export default function SessionRoomPage({
 
   useEffect(() => {
     let cancelled = false;
+
+    // Alongside the join, not inside its failure branch: the room needs a name
+    // whether or not the door opens, and a refused student reading WHICH lesson
+    // they were refused from is the difference between a rule and an outage.
+    classSessions
+      .show(uuid)
+      .then((result) => {
+        if (!cancelled) setSession(result);
+      })
+      .catch(() => undefined);
 
     classSessions
       .join(uuid)
@@ -71,8 +100,8 @@ export default function SessionRoomPage({
         */
         classSessions
           .show(uuid)
-          .then((session) => {
-            if (!cancelled && session.room_closed) setClosed(true);
+          .then((result) => {
+            if (!cancelled && result.room_closed) setClosed(true);
           })
           .catch(() => undefined);
       })
@@ -107,7 +136,17 @@ export default function SessionRoomPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <h2 className="text-xl font-bold text-ink">غرفة الحصة</h2>
+      <div>
+        <h2 className="text-xl font-bold text-ink">{session?.title ?? "غرفة الحصة"}</h2>
+
+        {session !== null && (
+          <p className="mt-1 text-sm text-ink-muted">
+            {formatSessionTime(session.starts_at, session.timezone)} ·{" "}
+            <bdi>{session.duration_minutes}</bdi> دقيقة
+            {session.course !== undefined && <> · {session.course.title}</>}
+          </p>
+        )}
+      </div>
 
       {loading && <p className="text-sm text-ink-muted">جارٍ التحضير…</p>}
 

@@ -75,6 +75,21 @@ class EloquentSessionAttendanceDirectory implements SessionAttendanceDirectory
             ->exists();
     }
 
+    public function wasRemovedFromSession(User $user, int $classSessionId): bool
+    {
+        // `withoutWorkspaceScope()` for the reason every reader on this path
+        // needs it, and this one is asked from BOTH sides: a student is a member
+        // of no workspace so the context is null, and the teacher's own request
+        // would AND the wrong workspace and find nothing. Same spelling as
+        // `IssueJoinTicket::wasRemoved()`, which is the door this mirrors.
+        return Attendance::query()
+            ->withoutWorkspaceScope()
+            ->where('class_session_id', $classSessionId)
+            ->where('student_user_id', $user->getKey())
+            ->whereNotNull('removed_at')
+            ->exists();
+    }
+
     /**
      * ⚠️ THE HOST IS EXCLUDED, and without that the teacher earns attendance
      * points for every lesson they teach and tops their own students' board for

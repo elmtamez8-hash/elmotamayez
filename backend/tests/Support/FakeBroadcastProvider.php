@@ -78,6 +78,27 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
      */
     public ?Closure $onRecording = null;
 
+    /**
+     * An outage to raise from `hostAction()`.
+     *
+     * The real adapter translates the vendor's error INSIDE itself, so what the
+     * controller must survive is our own `BroadcastProviderUnavailable` — the
+     * type a test can raise without importing the vendor's, which is the point of
+     * the translation existing at all.
+     */
+    public ?Throwable $failWith = null;
+
+    /**
+     * Run at the moment `createRoom()` is asked.
+     *
+     * The same seam `onRecording` opens, for the same reason: `OpenBroadcastRoom`
+     * reads `broadcast_room_id` as null, calls the provider, and claims the row
+     * AFTER — so a callback here IS the other runner winning inside exactly that
+     * window. Without it a sequential test can never reach the claim, because the
+     * early return one line above catches every second call.
+     */
+    public ?Closure $onCreateRoom = null;
+
     public function identifier(): string
     {
         return 'fake';
@@ -96,6 +117,10 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
 
     public function createRoom(ClassSession $session): RoomHandle
     {
+        if ($this->onCreateRoom !== null) {
+            ($this->onCreateRoom)($session);
+        }
+
         return new RoomHandle(
             providerRoomId: $session->broadcast_room_id ?? 'fake-room-'.$session->getKey(),
             joinBaseUrl: 'https://fake.test/rooms',
@@ -115,6 +140,10 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
     /** @return list<string> */
     public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): array
     {
+        if ($this->failWith !== null) {
+            throw $this->failWith;
+        }
+
         $this->hostActions[] = [
             'action' => $action->value,
             'target' => $target?->getKey() === null ? null : (int) $target->getKey(),

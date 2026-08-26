@@ -51,11 +51,20 @@ Route::middleware('auth:sanctum')->group(function (): void {
      | A read, held by every seat holder and by the host — and deliberately NOT
      | the register, which needs `ATTENDANCE_VIEW` and carries marks and notes.
      |
-     | No limiter: it is fetched once when the room opens and refreshed only when
-     | somebody new appears, and throttling it would leave a class staring at a
-     | list of uuids.
+     | ⚠️ THROTTLED NOW, AND THE COMMENT HERE USED TO SAY IT NEED NOT BE —
+     | «fetched once when the room opens and refreshed only when somebody new
+     | appears». True of one client and false of a class: every client watches
+     | every arrival, so a thirty-seat room filling up produced 465 requests in
+     | about two minutes, each one a roster join plus a badge read. The client
+     | coalesces a burst now; the limiter is the half that does not depend on
+     | which build the browser is running.
+     |
+     | On `throttle:presence` deliberately rather than a fourth bucket: both are
+     | per-user room chatter with the same shape, and its 240/min leaves the
+     | coalesced client (a handful a minute) more headroom than it can use.
      */
-    Route::get('/class-sessions/{session}/participants', [BroadcastController::class, 'participants']);
+    Route::get('/class-sessions/{session}/participants', [BroadcastController::class, 'participants'])
+        ->middleware('throttle:presence');
 
     Route::middleware('throttle:sessions')->group(function (): void {
         Route::post('/class-sessions', [ClassSessionController::class, 'store']);

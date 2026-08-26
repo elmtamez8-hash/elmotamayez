@@ -35,6 +35,7 @@ use Livekit\RoomEgress;
 use Livekit\S3Upload;
 use Livekit\TrackInfo;
 use Livekit\TrackType;
+use Throwable;
 use Twirp\Error as TwirpError;
 use Twirp\ErrorCode;
 
@@ -261,11 +262,7 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
                 default => null,
             };
         } catch (TwirpError $e) {
-            if ($e->getErrorCode() !== ErrorCode::NotFound) {
-                throw $e;
-            }
-
-            throw new DomainException('هذا المشارك لم يعد في الغرفة.');
+            throw $this->translate($e, 'هذا المشارك لم يعد في الغرفة.');
         }
 
         return [$identity];
@@ -295,7 +292,19 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
     {
         $touched = [];
 
-        foreach ($this->rooms()->listParticipants($room)->getParticipants() as $participant) {
+        try {
+            // ⚠️ INSIDE THE `try`, AND IT STOOD OUTSIDE ONE ENTIRELY. This is a
+            // live HTTP call: a LiveKit blip while the teacher pressed «اكتم
+            // الجميع» threw a raw TwirpError past a controller that catches
+            // neither it nor anything it extends — a 500 carrying the vendor's
+            // transport vocabulary, which is the exact defect `createRoom()` was
+            // fixed for one method above.
+            $participants = $this->rooms()->listParticipants($room)->getParticipants();
+        } catch (TwirpError $e) {
+            throw $this->translate($e);
+        }
+
+        foreach ($participants as $participant) {
             if (! $participant instanceof ParticipantInfo || $participant->getKind() !== Kind::STANDARD) {
                 continue;
             }
@@ -316,7 +325,7 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
                 $touched[] = $identity;
             } catch (TwirpError $e) {
                 if ($e->getErrorCode() !== ErrorCode::NotFound) {
-                    throw $e;
+                    throw $this->translate($e);
                 }
             }
         }
@@ -383,9 +392,37 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
             // free. Swallowing everything would turn a provider outage into a
             // session that looks cleanly closed and never was.
             if ($e->getErrorCode() !== ErrorCode::NotFound) {
-                throw $e;
+                throw $this->translate($e);
             }
         }
+    }
+
+    /**
+     * The vendor's answer, in our own vocabulary.
+     *
+     * ⚠️ THE TRANSLATION LIVES HERE BECAUSE THIS IS THE ONE FILE ALLOWED TO KNOW
+     * THE VENDOR'S NAME (`FR-002`). A `TwirpError` caught in a controller would
+     * put the provider's transport wording in front of a teacher — and it did:
+     * three of the five methods rethrew raw, so every code except `NotFound`
+     * arrived as a 500 with a stack trace behind it.
+     *
+     * Two answers, and they are different questions. `NotFound` is an ordinary
+     * event in a live lesson — somebody closed their laptop a second before the
+     * button was pressed — so it is a `DomainException` and a sentence, when the
+     * caller has one to give. Everything else is the service failing, which is
+     * `BroadcastProviderUnavailable` ⇒ 503: naming an outage leaks nothing,
+     * because unlike entitlement it does not vary with who is asking.
+     */
+    private function translate(TwirpError $e, ?string $notFoundMessage = null): Throwable
+    {
+        if ($e->getErrorCode() === ErrorCode::NotFound && $notFoundMessage !== null) {
+            return new DomainException($notFoundMessage);
+        }
+
+        return new BroadcastProviderUnavailable(
+            'خدمةُ البثِّ لا تستجيب الآن. لم يتغيّر شيءٌ في الحصّة، وأعِد المحاولةَ بعد قليل.',
+            previous: $e,
+        );
     }
 
     public function recording(ClassSession $session): ?RecordingArtifact

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Actions\BookSeat;
+use App\Modules\LiveSessions\Actions\OpenBroadcastRoom;
 use App\Modules\LiveSessions\Actions\RecordPresencePing;
 use App\Modules\LiveSessions\Actions\SendSessionReport;
 use App\Modules\LiveSessions\Jobs\SendSessionReportsJob;
@@ -153,8 +154,16 @@ it('serves the register at a fixed cost', function (): void {
 /*
 | The heartbeat is the highest-frequency call in the product: one per
 | participant per interval, for the whole length of every session running at
-| that moment. Thirty students in a room is a hundred and twenty queries a
-| minute at four each — so the count is asserted, not assumed.
+| that moment.
+|
+| ⚠️ AND THIS FILE USED TO MEASURE THE ACTION, WHICH IS THE CHEAP THIRD OF IT.
+| `BroadcastController::presence()` re-runs the WHOLE of `IssueJoinTicket` — the
+| enrolment, the freeze, the withholding, the unlock rule — then the ping, then a
+| `refresh()`. The budget below was six and the endpoint was spending roughly
+| twenty-one, so the guard was green over a number four times its own. The Action
+| is still measured, because it is where an accidental relation walk shows up;
+| the endpoint is measured beside it, because that is what thirty students run
+| twice a minute.
 */
 it('keeps the heartbeat cheap', function (): void {
     sessionsFor(1, 'pending');
@@ -178,6 +187,52 @@ it('keeps the heartbeat cheap', function (): void {
     // Transaction + the row + the update, plus the settings lookup. Anything
     // that walks a relation from here shows up immediately.
     expect($count)->toBeLessThanOrEqual(6);
+});
+
+it('keeps the heartbeat ENDPOINT cheap, which is three times the Action', function (): void {
+    // Its own session, starting in five minutes: `sessionsFor()` builds them a
+    // day out, which is outside the join window — the door would refuse before a
+    // single query of the thing being measured was spent.
+    $session = ClassSession::factory()->create([
+        'teacher_profile_id' => $this->teacher->getKey(),
+        'course_id' => $this->course->getKey(),
+        'starts_at' => CarbonImmutable::now()->addMinutes(5),
+        'ends_at' => CarbonImmutable::now()->addMinutes(65),
+        'duration_minutes' => 60,
+        'seats_total' => 5,
+    ]);
+
+    $student = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->course, $student);
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+    fundBooking($this->workspace, $student, $this->course);
+    app(BookSeat::class)->handle($session, $student);
+
+    // A student cannot enter a room the teacher has not opened.
+    app(OpenBroadcastRoom::class)->handle($session);
+
+    Sanctum::actingAs($student);
+    $url = "/api/v1/class-sessions/{$session->uuid}/presence";
+
+    // Spatie loads its permission set once per process, so the FIRST request of
+    // any test pays a warm-up that has nothing to do with row count.
+    $this->postJson($url)->assertOk();
+
+    [$count] = countingQueries(fn () => $this->postJson($url)->assertOk());
+
+    /*
+     | Auth and binding, the eligibility chain, the ping's transaction, and the
+     | refresh: fourteen as this is written.
+     |
+     | ⚠️ DELIBERATELY TIGHT — one spare, where the budgets above carry twice the
+     | fixture. Those measure LISTS, whose cost must not grow with rows; this
+     | endpoint has no rows, so its cost is a fixed shape and any increase is a
+     | new read rather than a bigger one. The specific regression it exists to
+     | catch is worth two: the balances were fetched twice per beat, once by the
+     | withholding check and once by the prepaid fall-through beneath it, and a
+     | roomier ceiling would have let that back in unnoticed.
+     */
+    expect($count)->toBeLessThanOrEqual(15);
 });
 
 /*

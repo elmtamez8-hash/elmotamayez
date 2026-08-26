@@ -59,14 +59,44 @@ class OpenBroadcastRoom extends Action
 
         $room = $this->provider->createRoom($session);
 
-        $session->forceFill([
-            // Stored, never sent: naming the provider in a payload is naming it
-            // in the frontend bundle (FR-019).
-            'broadcast_provider' => $this->provider->identifier(),
-            'broadcast_room_id' => $room->providerRoomId,
-            'room_opened_at' => now(),
-            'status' => ClassSessionStatus::Live,
-        ])->save();
+        /*
+         * ⚠️ A CONDITIONAL UPDATE, AND IT WAS A READ FOLLOWED BY A WRITE — the
+         * idiom this repository already uses for a seat, for `captured_order_id`
+         * and for the recording claim, missing from the one place a DOUBLE TAP
+         * reaches it.
+         *
+         * Two host tabs, or one impatient press of «دخول الغرفة», put two
+         * PHP-FPM workers here at once. Both read null, both create the room
+         * (the adapter's create is idempotent by room name, so that half is
+         * harmless), both write — and both dispatch a
+         * `CloseClassSessionJob`. The two fire at the
+         * same instant at the end of the join window, both read `status = live`,
+         * and both close: `SendSessionReport` stamps `report_sent_at` AFTER it
+         * dispatches, so a parent gets two reports for one hour.
+         *
+         * The claim is both the check and the write. Never `lockForUpdate()`,
+         * which is a no-op on SQLite and would make a test pass here while
+         * proving nothing about the MySQL this ships to.
+         */
+        $claimed = ClassSession::query()
+            ->whereKey($session->getKey())
+            ->whereNull('broadcast_room_id')
+            ->update([
+                // Stored, never sent: naming the provider in a payload is naming
+                // it in the frontend bundle (FR-019).
+                'broadcast_provider' => $this->provider->identifier(),
+                'broadcast_room_id' => $room->providerRoomId,
+                'room_opened_at' => now(),
+                'status' => ClassSessionStatus::Live->value,
+            ]);
+
+        $session->refresh();
+
+        // The loser returns the room the winner opened — the same answer, and no
+        // second timeline. Only the runner that actually claimed it schedules.
+        if ($claimed === 0) {
+            return $session;
+        }
 
         // Both timing rules of the phase, dispatched once, at the only moment
         // that knows the session actually started.

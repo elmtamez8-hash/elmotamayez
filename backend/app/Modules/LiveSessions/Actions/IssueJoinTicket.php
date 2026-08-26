@@ -14,6 +14,7 @@ use App\Modules\LiveSessions\Support\BookingEligibility;
 use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
+use DomainException;
 use RuntimeException;
 
 /**
@@ -40,12 +41,41 @@ class IssueJoinTicket extends Action
         private readonly OpenBroadcastRoom $openRoom,
     ) {}
 
-    /** @throws RuntimeException when this person may not enter, for any reason */
+    /**
+     * ⚠️ TWO EXCEPTION HIERARCHIES LEAVE HERE, AND THE ANNOTATION USED TO NAME
+     * ONE. `OpenBroadcastRoom` refuses a terminal, suspended or already-closed
+     * session with a `DomainException`, which extends `LogicException` and NOT
+     * `RuntimeException` — so a caller that caught the documented type alone let
+     * it through to a 500. Both controllers catch both now; this says why there
+     * are two.
+     *
+     * @throws RuntimeException when this person may not enter, for any reason
+     * @throws DomainException when the room itself cannot be opened
+     */
     public function handle(ClassSession $session, User $user): JoinTicket
     {
+        /*
+         * ⚠️ THE CLOCK FIRST, AND IT USED TO BE LAST.
+         *
+         * `roleFor()` runs the whole eligibility chain — the enrolment, the
+         * freeze, the withholding, the unlock rule — around a dozen queries. The
+         * join window is one comparison against two columns already loaded. So a
+         * ping that was going to be refused for the cheapest possible reason paid
+         * the most expensive possible price first, and this is asked on EVERY
+         * heartbeat by every participant: a tab left open after the lesson kept
+         * buying the full chain twice a minute to be told the room had closed.
+         *
+         * The ANSWER is unchanged, which is what makes the reorder safe: every
+         * refusal here is the same refusal whatever its reason (FR-015), so
+         * asking in a different order cannot leak an order to anybody.
+         */
+        if (! $session->joinWindowCovers(now())) {
+            throw new RuntimeException('لا يمكنك دخول هذه الحصة الآن.');
+        }
+
         $role = $this->roleFor($session, $user);
 
-        if ($role === null || ! $session->joinWindowCovers(now())) {
+        if ($role === null) {
             throw new RuntimeException('لا يمكنك دخول هذه الحصة الآن.');
         }
 

@@ -47,7 +47,20 @@ class BroadcastController extends Controller
                 'message' => $e->getMessage(),
                 'code' => 'broadcast_unavailable',
             ], 503);
-        } catch (RuntimeException $e) {
+        } catch (DomainException|RuntimeException $e) {
+            /*
+             * ⚠️ `DomainException` EXTENDS `LogicException`, NOT `RuntimeException`
+             * — SO IT USED TO FALL STRAIGHT THROUGH TO A 500.
+             *
+             * `OpenBroadcastRoom` throws it for a terminal or suspended session,
+             * and `CancelClassSession` does not stamp `room_closed_at`, so
+             * `joinWindowCovers()` still says yes: a teacher who cancelled a
+             * lesson and tapped «دخول الغرفة» a minute later got a raw error page
+             * where the module's whole design is one uniform sentence.
+             *
+             * Answered as the same 403 as every other refusal, deliberately. The
+             * reason differs; the answer must not (FR-015).
+             */
             return response()->json([
                 'message' => $e->getMessage(),
                 'code' => 'session_not_joinable',
@@ -70,7 +83,10 @@ class BroadcastController extends Controller
 
         try {
             $tickets->handle($session, $user);
-        } catch (RuntimeException) {
+        } catch (DomainException|RuntimeException) {
+            // Both, for the reason spelled out in join(): a `DomainException` here
+            // was an uncaught 500 arriving every thirty seconds into a loop
+            // written to expect a 403.
             return response()->json([
                 'message' => 'انتهت صلاحية وجودك في الغرفة.',
                 'code' => 'session_not_joinable',
@@ -129,6 +145,15 @@ class BroadcastController extends Controller
 
         try {
             $performer->handle($session, $hostAction, $target, $this->currentUser($request));
+        } catch (BroadcastProviderUnavailable $e) {
+            // ⚠️ ABOVE THE `DomainException` ARM AND ABOVE EVERYTHING ELSE, the
+            // same ordering `join()` needed: this is the service failing, not the
+            // teacher asking for something impossible. It had no arm at all, so
+            // a provider blip during «اكتم الجميع» was a 500.
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => 'broadcast_unavailable',
+            ], 503);
         } catch (UnsupportedCapability $e) {
             // 501, not 500: the request was fine and the platform is fine — this
             // provider simply cannot do it, and saying so is the honest answer.

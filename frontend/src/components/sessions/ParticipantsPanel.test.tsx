@@ -218,7 +218,12 @@ describe("ParticipantsPanel", () => {
     render(<ParticipantsPanel sessionUuid="s-1" isHost={true} />);
 
     expect(await screen.findByText(/لم يفهموا/)).toBeTruthy();
-    expect(screen.getByRole("img", { name: /سلمى محمود لم يفهم/ })).toBeTruthy();
+
+    // ⚠️ `findBy`, NOT `getBy`. The COUNT comes from the participant attributes
+    // and is on screen at once; the NAME inside this label comes from the roster
+    // fetch, so a synchronous assertion here is a race that lost about one run in
+    // six — and reads as a flaky feature rather than a flaky test.
+    expect(await screen.findByRole("img", { name: /سلمى محمود لم يفهم/ })).toBeTruthy();
 
     delete attributesByIdentity["u-student"];
   });

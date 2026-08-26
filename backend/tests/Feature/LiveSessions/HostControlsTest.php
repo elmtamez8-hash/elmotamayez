@@ -5,7 +5,10 @@ declare(strict_types=1);
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Actions\BookSeat;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
+use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Exceptions\BroadcastProviderUnavailable;
 use App\Modules\LiveSessions\Jobs\CloseClassSessionJob;
+use App\Modules\LiveSessions\Jobs\MarkAbsenteesJob;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
 use App\Modules\Marketplace\Models\TeacherProfile;
@@ -290,4 +293,121 @@ it('records the removal for everyone a bulk clear actually reached', function ()
 
     Sanctum::actingAs($student);
     $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertForbidden();
+});
+
+/*
+| ٧ · A cancelled session answered a 500, because `DomainException` is not a
+| `RuntimeException`.
+|
+| `CancelClassSession` never stamps `room_closed_at`, so `joinWindowCovers()`
+| still says yes and `OpenBroadcastRoom` is reached — where it refuses with a
+| `DomainException`, which extends `LogicException`. Both controller methods
+| caught `RuntimeException` alone, so a teacher who cancelled a lesson and tapped
+| «دخول الغرفة» a minute later got a raw error page, and the heartbeat asked for
+| one every thirty seconds.
+*/
+it('refuses a cancelled session as a refusal, not as a crash', function (): void {
+    Queue::fake([CloseClassSessionJob::class]);
+
+    $this->session->forceFill(['status' => ClassSessionStatus::Cancelled])->save();
+
+    Sanctum::actingAs($this->owner);
+
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")
+        ->assertForbidden()
+        ->assertJsonPath('code', 'session_not_joinable');
+
+    // The heartbeat is the loop that asked for it twice a minute.
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/presence")->assertForbidden();
+});
+
+/*
+| ٩ · A provider outage is a 503 with a sentence, not a 500 with the vendor's
+| transport vocabulary.
+|
+| `applyToWholeRoom()`'s participant list stood outside any `try` at all, and the
+| single-target arm rethrew every code except `NotFound` raw — so one LiveKit
+| blip while the teacher pressed «اكتم الجميع» was an uncaught error, which is
+| the exact defect `createRoom()` was fixed for one method above it.
+*/
+it('answers a provider outage during a bulk action with 503 and no vendor words', function (): void {
+    Queue::fake([CloseClassSessionJob::class]);
+
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertOk();
+
+    $this->provider->failWith = new BroadcastProviderUnavailable('خدمةُ البثِّ لا تستجيب الآن.');
+
+    $response = $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/mute-all")
+        ->assertStatus(503)
+        ->assertJsonPath('code', 'broadcast_unavailable');
+
+    // ⚠️ RE-ENCODED. `getContent()` escapes non-ASCII, so an Arabic needle is
+    // vacuously absent from the raw body whatever it holds — the trap this
+    // repository already records for every exposure test it has.
+    $body = (string) json_encode($response->json(), JSON_UNESCAPED_UNICODE);
+
+    expect($body)->toContain('خدمةُ البثِّ')
+        ->and($body)->not->toContain('Twirp')
+        ->and($body)->not->toContain('livekit');
+});
+
+/*
+| ٨ · Opening the room twice must produce ONE timeline.
+|
+| Two host tabs, or one impatient double tap, put two workers in
+| `OpenBroadcastRoom` at once. Both used to read `broadcast_room_id` as null and
+| both wrote — dispatching two `CloseClassSessionJob`s, which both close, and
+| `SendSessionReport` stamps `report_sent_at` AFTER it dispatches: a parent gets
+| two reports for one hour. The claim is a conditional UPDATE, the same idiom the
+| seat and the recording already use.
+*/
+it('schedules one close when another runner claims the room mid-flight', function (): void {
+    Queue::fake([CloseClassSessionJob::class, MarkAbsenteesJob::class]);
+
+    /*
+     | ⚠️ THE OTHER RUNNER WINS INSIDE THE WINDOW, AND A SEQUENTIAL «OPEN IT
+     | TWICE» CANNOT REACH THIS.
+     |
+     | The second call returns at the `broadcast_room_id !== null` line one step
+     | earlier, so a test written the obvious way passes against a build with no
+     | claim in it at all — which is exactly what happened when this was checked
+     | by deleting the `whereNull` and re-running. `createRoom()` is asked BETWEEN
+     | the read and the write, so a callback there is the second worker
+     | committing first: no threads, no sleeps, the real interleaving.
+     */
+    $this->provider->onCreateRoom = function (ClassSession $session): void {
+        ClassSession::query()->whereKey($session->getKey())->update([
+            'broadcast_provider' => 'fake',
+            'broadcast_room_id' => 'won-by-the-other-tab',
+            'room_opened_at' => now(),
+            'status' => ClassSessionStatus::Live->value,
+        ]);
+    };
+
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertOk();
+
+    // The loser schedules NOTHING. Two closes both fire at the end of the join
+    // window, both read `status = live`, and both close — and `SendSessionReport`
+    // stamps `report_sent_at` after it dispatches, so a parent gets two reports
+    // for one hour.
+    Queue::assertNotPushed(CloseClassSessionJob::class);
+    Queue::assertNotPushed(MarkAbsenteesJob::class);
+
+    // And the room the winner opened is the one that stands.
+    expect($this->session->refresh()->broadcast_room_id)->toBe('won-by-the-other-tab');
+});
+
+it('still schedules the timeline once when it is the runner that wins', function (): void {
+    Queue::fake([CloseClassSessionJob::class, MarkAbsenteesJob::class]);
+
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertOk();
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertOk();
+
+    // The positive half: a claim that never succeeds would make the test above
+    // pass by scheduling nothing, ever.
+    Queue::assertPushed(CloseClassSessionJob::class, 1);
+    Queue::assertPushed(MarkAbsenteesJob::class, 1);
 });

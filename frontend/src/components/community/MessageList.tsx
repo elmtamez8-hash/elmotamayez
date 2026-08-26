@@ -63,7 +63,7 @@ export function MessageList({
           <li key={message.uuid}>
             {newDay && (
               <div className="my-4 flex justify-center">
-                <span className="rounded-full bg-surface-raised px-3 py-1 text-[11px] text-ink-muted">
+                <span className="rounded-full bg-surface px-3 py-1 text-[11px] text-ink-muted">
                   {formatDate(message.created_at)}
                 </span>
               </div>
@@ -105,7 +105,14 @@ export function MessageList({
                 className={
                   mine
                     ? "rounded-2xl rounded-ee-sm bg-primary px-3 py-2 text-white"
-                    : "rounded-2xl rounded-es-sm bg-surface-raised px-3 py-2 text-ink"
+                    /*
+                      ⚠️ `surface`, NOT `surface-raised` — WHICH IS THE CARD THIS
+                      SITS ON. Both resolved to the same colour in both themes, so
+                      everybody ELSE's messages were unstyled text floating on the
+                      card while mine were clearly bubbled. In a live lesson the
+                      teacher's answers are the ones that disappear.
+                    */
+                    : "rounded-2xl rounded-es-sm bg-surface px-3 py-2 text-ink"
                 }
               >
                 {message.attachment !== null && (
@@ -121,7 +128,7 @@ export function MessageList({
 
                 <div className="mt-1 flex items-center justify-end gap-1">
                   {message.is_helpful && (
-                    <span className={mine ? "text-[11px] text-white/80" : "text-[11px] text-success-ink"}>
+                    <span className={mine ? "text-[11px] text-white/80" : "text-[11px] text-secondary-ink"}>
                       إجابة معتمَدة
                     </span>
                   )}
@@ -150,7 +157,7 @@ export function MessageList({
                 )}
 
                 {!mine && onMarkHelpful && !message.is_helpful && (
-                  <button type="button" onClick={() => onMarkHelpful(message.uuid)} className="text-success-ink underline">
+                  <button type="button" onClick={() => onMarkHelpful(message.uuid)} className="text-secondary-ink underline">
                     اعتمِد الإجابة
                   </button>
                 )}

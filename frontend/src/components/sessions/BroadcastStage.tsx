@@ -154,7 +154,11 @@ function StageTile({ trackRef }: { trackRef: TrackReferenceOrPlaceholder }) {
   return (
     <div
       className={`aspect-video overflow-hidden rounded-2xl border-2 bg-surface ${
-        isSpeaking ? "border-success" : "border-line"
+        // ⚠️ `secondary`, because THERE IS NO `success` TOKEN. `border-success`
+        // named nothing in `@theme`, so Tailwind emitted no rule and the border
+        // fell back to `currentColor` — an ink ring that says nothing about who
+        // is talking. Its test passed on the aria-label, over an invisible mark.
+        isSpeaking ? "border-secondary" : "border-line"
       }`}
     >
       {/*

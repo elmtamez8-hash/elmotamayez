@@ -119,6 +119,26 @@ class ConversationPolicy
             }
 
             /*
+            | ⚠️ AND THE PERSON THE HOST PUT OUT OF THE LESSON, who could carry on
+            | typing here after being removed from the video.
+            |
+            | The seat is deliberately untouched by a removal — cancelling it
+            | would repossess a session the student PAID for over a moment's
+            | behaviour — so the seat check above cannot see this, and neither can
+            | the lock, which silences the whole class to reach one person. The
+            | only instrument left was a workspace-wide ban: recorded, appealable,
+            | and covering every thread with that teacher for ever.
+            |
+            | Read for the room it happened in and no other, and the moderator is
+            | exempt for exactly the reason the lock exempts them.
+            */
+            if ($conversation->class_session_id !== null
+                && ! $user->hasPermissionTo(Permissions::CHAT_MODERATE)
+                && $this->seats->wasRemovedFromSession($user, (int) $conversation->class_session_id)) {
+                return Response::deny('أخرجك المدرّس من هذه الحصة، فلا يمكنك الكتابة في نقاشها.');
+            }
+
+            /*
             | A room has no enrolment to end: entitlement to be in it IS the seat
             | or the membership, and `view()` has just asked. The FR-014 rule
             | below is about a RELATIONSHIP with one teacher, which a room does

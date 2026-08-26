@@ -56,13 +56,32 @@ class EloquentAccountStanding implements AccountStanding
         private readonly BillingSettings $settings,
     ) {}
 
+    /**
+     * ⚠️ ONE READ OF THE BALANCES, AND IT USED TO BE TWO — ON THE HOTTEST PATH IN
+     * THE PRODUCT.
+     *
+     * `withheldCourseIdsFor()` reads them and stamps them; when the answer came
+     * back "not withheld" the fall-through asked `prepaidWithNoBalance()`, which
+     * read the very same balances again. Six queries where four will do, and this
+     * is asked by `IssueJoinTicket` on EVERY presence heartbeat — thirty students
+     * twice a minute, per room.
+     *
+     * It also stamps ONE balance rather than the whole set: a student with eight
+     * teachers was paying for eight teachers' workspaces and exam windows to
+     * answer a question about one course. The bulk form is still there and still
+     * correct — it is what the panel wants, and it is not what this wants.
+     */
     public function isWithheld(User $student, int $courseId): bool
     {
-        if (in_array($courseId, $this->withheldCourseIdsFor($student), true)) {
-            return true;
+        $own = $this->accounts->balancesFor($student)->firstWhere('course_id', $courseId);
+
+        if ($own === null) {
+            return $this->prepaidWithNoBalance($courseId);
         }
 
-        return $this->prepaidWithNoBalance($student, $courseId);
+        return (bool) $this->withholding->stamp(new Collection([$own]))
+            ->first()
+            ?->getAttribute('is_withheld');
     }
 
     /**
@@ -101,12 +120,11 @@ class EloquentAccountStanding implements AccountStanding
      * is no mode to ask, and inventing one would refuse a booking over a fact
      * nobody recorded.
      */
-    private function prepaidWithNoBalance(User $student, int $courseId): bool
+    private function prepaidWithNoBalance(int $courseId): bool
     {
-        if ($this->accounts->balancesFor($student)->firstWhere('course_id', $courseId) !== null) {
-            return false;
-        }
-
+        // The caller has already established there is no balance row, so the
+        // student is no longer a parameter: re-reading the balances to prove it
+        // again was half the cost of every heartbeat.
         $workspace = Course::query()->withoutWorkspaceScope()->find($courseId)?->workspace;
 
         return $workspace !== null && ! $this->settings->mode($workspace)->allowsDeferral();
@@ -120,7 +138,7 @@ class EloquentAccountStanding implements AccountStanding
             // One session's worth, when the missing row is itself the refusal.
             // Zero here would print "تحتاج 0 حصة على الأقل" on the one screen a
             // newcomer sees first — a refusal that asks for nothing.
-            return $this->prepaidWithNoBalance($student, $courseId) ? 1 : 0;
+            return $this->prepaidWithNoBalance($courseId) ? 1 : 0;
         }
 
         // READ off the stamp, never recomputed beside it. The reader knows the

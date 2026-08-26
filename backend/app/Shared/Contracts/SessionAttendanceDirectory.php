@@ -47,6 +47,24 @@ interface SessionAttendanceDirectory
     public function hasSeatInSession(User $user, int $classSessionId): bool;
 
     /**
+     * Whether the host put this person out of this session (017 · «إخراج»).
+     *
+     * ⚠️ A SEPARATE QUESTION FROM THE SEAT, AND THE ROOM'S CHAT NEEDED IT. The
+     * removal is recorded on the attendance row and read at the broadcast door,
+     * so a removed student is out of the video — and used to carry straight on
+     * typing the same thing into the room chat, which every seat holder reads.
+     * The teacher's only remaining instrument was a workspace-wide BAN: recorded,
+     * appealable, and covering every thread with that teacher for ever, which is
+     * the wrong weight for one hour of one lesson. Locking the room silences the
+     * whole class instead of the one person.
+     *
+     * The seat is deliberately untouched by a removal — cancelling it would
+     * repossess a session the student PAID for over a moment's behaviour — so no
+     * seat predicate can answer this.
+     */
+    public function wasRemovedFromSession(User $user, int $classSessionId): bool;
+
+    /**
      * Which of these sessions this student actually ATTENDED.
      *
      * ⚠️ ATTENDANCE, NOT A BOOKING, and the difference is the whole of FR-036.

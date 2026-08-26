@@ -96,7 +96,16 @@ export function statusTone(status: string): StatusTone {
 export const TONE_CLASSES: Record<StatusTone, string> = {
   neutral: "bg-line text-ink",
   success: "bg-secondary/15 text-secondary-ink",
-  warning: "bg-accent/20 text-accent-foreground",
+  /*
+    ⚠️ `text-ink`, NOT `text-accent-foreground` — WHICH IS WHITE, AND EARNED THAT
+    WAY AGAINST THE SOLID BRASS FILL.
+
+    On a 20% tint over a card it is roughly 1.3:1. It carries the confused count
+    in a live lesson («🤔 ٤ لم يفهموا»), the seat warning at two seats left, and
+    the grading count in the shell — three numbers whose whole job is to be read
+    at a glance. The token is right where `bg-accent` is solid; this is not that.
+  */
+  warning: "bg-accent/20 text-ink",
   danger: "bg-danger/15 text-danger-ink",
   info: "bg-primary-soft text-primary-ink",
 };
