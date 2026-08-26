@@ -96,4 +96,25 @@ describe("OffboardingPage", () => {
       expect(screen.getByText("تعذّر تنفيذ الإجراء")).toBeTruthy();
     });
   });
+
+  /*
+   * ⚠️ THE ASSERTION ABOVE PASSED AGAINST THE BUG, WHICH IS WHY THIS ONE EXISTS.
+   * A refusal leaves `record` null — the same state as a teacher who has simply
+   * not asked to leave yet — so the banner rendered ON TOP OF the five
+   * consequences and a live «اطلبِ الخروج». The entry was in every STUDENT's
+   * sidebar at the time, so the reader was somebody being told what happens to
+   * «طلابك» who has none, and offered a button that answers 403 on every press.
+   * Reported from a real signed-in student on 2026-08-27.
+   */
+  it("offers nothing to a reader the server refused", async () => {
+    client.show.mockRejectedValue(new Error("403"));
+
+    render(<OffboardingPage />);
+
+    await screen.findByText("تعذّر تنفيذ الإجراء");
+
+    expect(screen.queryByRole("button", { name: "اطلبِ الخروج" })).toBeNull();
+    expect(screen.queryByText(/يُخطَر طلابك/)).toBeNull();
+    expect(screen.queryByText(/ما يحدث لطلابك/)).toBeNull();
+  });
 });

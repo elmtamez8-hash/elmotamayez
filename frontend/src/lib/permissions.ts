@@ -79,3 +79,42 @@ export function can(user: { permissions?: string[] } | null, permission?: string
 
   return user?.permissions?.includes(permission) ?? false;
 }
+
+/**
+ * Whether this reader may open this path at all, judged by the sidebar's own map.
+ *
+ * ⚠️ THE SIDEBAR HID THE LINKS AND THE ADDRESS BAR DID NOT. Every `/manage/*`
+ * screen rendered in full for a signed-in STUDENT who typed its URL — the
+ * teacher's session calendar with «دخول الغرفة», the grading board, the
+ * assistants team. Nothing leaked, because the server refuses each read; what
+ * the student got instead was «تعذّر تحميل البيانات — تحقّق من اتصالك», a 403
+ * dressed as a network fault, under a heading about their students' balances.
+ * Found by walking the product as a student on 2026-08-27, from the same report
+ * as the teacher's profile-URL card on /settings.
+ *
+ * ⚠️ THE NAV IS PASSED IN, NEVER COPIED. The permission that hides a link and
+ * the permission that closes the screen behind it must be one answer; a
+ * `MANAGE_PERMISSIONS` list beside this would age at the first entry anybody
+ * adds, and it would age silently in the open direction. The shell layout hands
+ * it its own array — the same one it filters the sidebar with.
+ *
+ * Longest match wins, so `/manage/billing/students` is judged by its own entry
+ * rather than by `/manage/billing/settings`; a path no entry covers stays open,
+ * which is every student screen plus the deep links (`/sessions/{uuid}/room`)
+ * that are nobody's menu item.
+ *
+ * It is not a security boundary and does not pretend to be one: the server is.
+ * This is the difference between «not yours» and «check your connection».
+ */
+export function refusedBy(
+  nav: readonly { href: string; permission?: string }[],
+  pathname: string,
+  user: { permissions?: string[] } | null,
+): boolean {
+  const gate = nav
+    .filter(({ permission, href }) =>
+      permission !== undefined && (pathname === href || pathname.startsWith(href + "/")))
+    .sort((a, b) => b.href.length - a.href.length)[0];
+
+  return gate !== undefined && !can(user, gate.permission);
+}

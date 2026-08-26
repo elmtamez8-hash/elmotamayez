@@ -28,14 +28,30 @@ class TeacherProfileController extends Controller
      * into nothing. Deliberately NOT part of `/auth/me`: a slug is true of a
      * teacher and of nobody else, and `users` payloads carry what every account
      * has.
+     *
+     * ⚠️ AND «NO ROW» IS A REFUSAL, NOT A NULL SLUG. The two are one enum apart
+     * on the wire and worlds apart on the screen: a pending teacher HAS a row
+     * (`SubmitTeacherApplication` creates it, slug null, pending) and is told
+     * «لم يُنشر ملفك بعد»; a student has no row at all, and answering them with
+     * the same body printed «رابط ملفك العام» on a student's settings page,
+     * under a heading about the address parents reach *their* page at.
+     *
+     * `PublicProfileUrlCard` was written against this refusal and says so in as
+     * many words — «a student opening /settings gets a 403 here» — and the
+     * `.catch` it swallows the 403 with never ran, because the 403 did not
+     * exist. A documented guard that is not implemented is worse than an absent
+     * one: it ends the review that would have found it. Same spelling as
+     * `updateSlug()` one method below, which had it from the start.
      */
     public function show(Request $request): JsonResponse
     {
         $profile = $this->currentUser($request)->teacherProfile;
 
+        abort_if($profile === null, 403, 'لا يوجد ملف مدرّس لهذا الحساب.');
+
         return response()->json([
-            'slug' => $profile?->slug,
-            'is_publicly_listed' => (bool) $profile?->is_publicly_listed,
+            'slug' => $profile->slug,
+            'is_publicly_listed' => (bool) $profile->is_publicly_listed,
         ]);
     }
 

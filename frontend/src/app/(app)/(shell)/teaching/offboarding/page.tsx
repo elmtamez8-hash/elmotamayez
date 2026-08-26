@@ -29,6 +29,15 @@ export default function OffboardingPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  /*
+   * ⚠️ «THE LOAD FAILED» IS NOT «NO REQUEST YET», AND ONE null MEANT BOTH.
+   * A refusal leaves `record` null, which is the same state as a teacher who has
+   * simply not asked to leave — so a reader the server had just answered 403 was
+   * shown the refusal banner AND the five consequences AND a live «اطلبِ الخروج»
+   * beneath it. Reported by a signed-in STUDENT, who has no students of their
+   * own for the copy to be about.
+   */
+  const [refused, setRefused] = useState(false);
 
   const load = useCallback(() => {
     offboarding
@@ -36,6 +45,7 @@ export default function OffboardingPage() {
       .then((response) => {
         setRecord(response.data);
         setError(null);
+        setRefused(false);
       })
       /*
        * ⚠️ THE REASON IS SHOWN, NOT SWALLOWED. `.catch(() => undefined)` on a
@@ -43,7 +53,10 @@ export default function OffboardingPage() {
        * in the response — the rule against raw errors is not a rule for showing
        * nothing, and `userMessage()` is what turns one into a sentence.
        */
-      .catch((cause: unknown) => setError(userMessage(cause)))
+      .catch((cause: unknown) => {
+        setError(userMessage(cause));
+        setRefused(true);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -68,9 +81,14 @@ export default function OffboardingPage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-xl font-semibold text-ink">إنهاء النشاط على المنصّة</h1>
-        <p className="text-sm text-ink-muted">
-          ما يحدث لطلابك ولمحتواك ولمستحقّاتك حين تقرّر المغادرة.
-        </p>
+        {!refused && (
+          // Addressed to somebody with students. A reader who was just refused
+          // has none, and telling them what happens to «طلابك» is the same
+          // mistake as the button below, in a smaller font.
+          <p className="text-sm text-ink-muted">
+            ما يحدث لطلابك ولمحتواك ولمستحقّاتك حين تقرّر المغادرة.
+          </p>
+        )}
       </header>
 
       {error !== null && (
@@ -83,6 +101,12 @@ export default function OffboardingPage() {
         <Card>
           <p className="text-sm text-ink-muted">جارٍ التحميل…</p>
         </Card>
+      ) : refused ? (
+        // The banner above already carries the reason. Nothing else belongs
+        // here: the consequences are addressed to a teacher's students, and a
+        // button that answers 403 on every press is an invitation to keep
+        // pressing it.
+        null
       ) : record === null ? (
         <Card>
           {/*

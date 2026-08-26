@@ -5,9 +5,10 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode, type ComponentType } from "react";
 import Link from "next/link";
 import { PLATFORM_NAME } from "@/lib/platform";
+import { Alert } from "@/components/ui/Alert";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationBell } from "@/components/app/NotificationBell";
-import { P, can } from "@/lib/permissions";
+import { P, can, refusedBy } from "@/lib/permissions";
 import { TONE_CLASSES } from "@/lib/labels";
 import { grading } from "@/lib/grading";
 import {
@@ -223,17 +224,27 @@ const adminNav: NavItem[] = [
    */
   { href: "/manage/assistants", label: "فريق المساعدين", Icon: MembersIcon, permission: P.rolesManage },
   /*
-   * Spec 013 · US6 — a teacher asking to wind down. Under admin because it is a
-   * workspace decision, and gated on nothing: the SERVER answers to
-   * `workspaces.owner_user_id`, and a permission name here would be a second,
-   * weaker copy of that rule. An assistant who opens it reads a 403 rather than
-   * a screen that offers to end somebody else's business.
+   * Spec 013 · US6 — a teacher asking to wind down.
    *
    * ⚠️ AND WITHOUT THIS ENTRY THE ENDPOINTS ARE UNREACHABLE. The whole flow shipped
    * behind a platform permission while the user story reads "a teacher asks to
    * leave" — a page nothing links to is that same defect wearing a URL.
+   *
+   * ⚠️ IT WAS GATED ON NOTHING UNTIL 2026-08-27, on the reasoning that the SERVER
+   * answers to `workspaces.owner_user_id` and a permission here would be a
+   * second, weaker copy of it. True of the ASSISTANT it was written about, and
+   * false of everybody else: an ungated entry is in every STUDENT's sidebar, and
+   * the page it opens says «ما يحدث لطلابك ولمحتواك ولمستحقّاتك» to somebody who
+   * has no students — under a 403 banner, beside a live «اطلبِ الخروج». This
+   * file's own rule two entries below settles it: a menu item nobody may open is
+   * worse than a missing one.
+   *
+   * `settlement.statement.view` is the nearest predicate the client already
+   * holds — it is on `$teacher` and deliberately NOT on `$assistantTeacher`, so
+   * it hides the entry from exactly the two readers who cannot use it while
+   * staying strictly wider than the ownership rule the server enforces.
    */
-  { href: "/teaching/offboarding", label: "إنهاء النشاط", Icon: ShieldIcon },
+  { href: "/teaching/offboarding", label: "إنهاء النشاط", Icon: ShieldIcon, permission: P.settlementStatement },
   { href: "/settings", label: "الإعدادات", Icon: SettingsIcon },
 ];
 
@@ -280,6 +291,7 @@ const platformNav: NavItem[] = [
 ];
 
 const allNav = [...mainNav, ...adminNav, ...platformNav];
+
 
 export default function ShellLayout({ children }: { children: ReactNode }) {
   const { user, loading, logout } = useAuth();
@@ -333,6 +345,8 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
   if (!user) return null;
 
   const allowed = (items: NavItem[]) => items.filter((item) => can(user, item.permission));
+
+  const refused = refusedBy(allNav, pathname, user);
 
   const renderItem = ({ href, label, Icon, badge }: NavItem) => {
     const active = pathname === href || pathname.startsWith(href + "/");
@@ -468,7 +482,15 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
         <main id="main" className="p-6">
-          {children}
+          {refused ? (
+            // No heading of the screen's own above it: «أرصدة الطلاب» over a
+            // refusal still tells the reader whose money this page is about.
+            <Alert tone="warning" title="هذه الصفحة ليست لك">
+              حسابك لا يملك صلاحية فتح هذه الصفحة.
+            </Alert>
+          ) : (
+            children
+          )}
         </main>
       </div>
     </div>

@@ -129,15 +129,51 @@ it('reports the current slug to the settings card', function () {
         ->assertJsonPath('is_publicly_listed', true);
 });
 
-it('reports a null slug for an account with no profile', function () {
-    // The card renders an explanation instead of a field, so this has to be a
-    // 200 with a null — not a 403 the client would have to guess the meaning of.
+it('reports a null slug to a teacher whose application is still in review', function () {
+    /*
+     | ⚠️ THIS IS THE CASE THE NULL WAS WRITTEN FOR — and the only one.
+     | `SubmitTeacherApplication` creates the row at submit with `pending` and no
+     | slug, so a teacher waiting on review HAS a profile with nothing to rename,
+     | and the card answers «لم يُنشر ملفك بعد» rather than offering a field that
+     | saves into nothing.
+     */
+    /*
+     | ⚠️ NULLED AT THE DATABASE, because the model will not hold it. A `saving`
+     | hook backfills any null slug from `search_name`, which it syncs in the
+     | same closure — so `->save()` would put a slug straight back and the test
+     | would be asserting the opposite of its own name. It is also why this state
+     | is rare in production rather than the ordinary pending case the card's
+     | text implies; the branch is kept because a profile whose `search_name` is
+     | null still reaches it, and a card offering a field that saves into nothing
+     | is worse than a sentence.
+     */
+    $teacher = marketplaceTeacher($this->workspace);
+    DB::table('teacher_profiles')->where('id', $teacher->getKey())
+        ->update(['slug' => null, 'is_publicly_listed' => false]);
+
+    Sanctum::actingAs($teacher->user);
+
+    $this->getJson('/api/v1/teacher/profile')
+        ->assertOk()
+        ->assertJsonPath('slug', null)
+        ->assertJsonPath('is_publicly_listed', false);
+});
+
+it('refuses an account with no teacher profile at all', function () {
+    /*
+     | ⚠️ AND THIS ONE ASSERTED THE 200 UNTIL 2026-08-27, WITH A COMMENT
+     | EXPLAINING WHY — the comment was about the case above, and the fixture was
+     | this one. Two callers reach that null: a pending teacher, who has a row,
+     | and a student, who has none. Answering both with one body printed
+     | «رابط ملفك العام — هذا هو العنوان الذي يصل منه الطلاب وأولياء الأمور إلى
+     | صفحتك» on a STUDENT's settings page, and `PublicProfileUrlCard` says in
+     | its own docblock that it renders nothing here — its `.catch` was waiting
+     | for a 403 that was never sent. Reported from a real signed-in student.
+     */
     $student = User::factory()->create(['platform_role' => 'student']);
 
     Sanctum::actingAs($student);
     $this->asGuest();
 
-    $this->getJson('/api/v1/teacher/profile')
-        ->assertOk()
-        ->assertJsonPath('slug', null);
+    $this->getJson('/api/v1/teacher/profile')->assertForbidden();
 });
