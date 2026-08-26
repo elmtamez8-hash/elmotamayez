@@ -46,6 +46,17 @@ Route::middleware('auth:sanctum')->group(function (): void {
      */
     Route::get('/class-sessions/{session}/eligibility', EligibilityController::class);
 
+    /*
+     | Names, faces and badges for the uuids the provider echoes into the room.
+     | A read, held by every seat holder and by the host — and deliberately NOT
+     | the register, which needs `ATTENDANCE_VIEW` and carries marks and notes.
+     |
+     | No limiter: it is fetched once when the room opens and refreshed only when
+     | somebody new appears, and throttling it would leave a class staring at a
+     | list of uuids.
+     */
+    Route::get('/class-sessions/{session}/participants', [BroadcastController::class, 'participants']);
+
     Route::middleware('throttle:sessions')->group(function (): void {
         Route::post('/class-sessions', [ClassSessionController::class, 'store']);
         Route::post('/class-sessions/generate', [ClassSessionController::class, 'generate']);

@@ -38,8 +38,16 @@ vi.mock("@livekit/components-react", () => ({
     isCameraEnabled: false,
     isScreenShareEnabled: false,
   }),
+  useParticipantAttributes: () => ({ attributes: {} }),
+  // Empty: the participants panel has its own test, and a room with nobody in
+  // it is what keeps this file about the three controls it is named after.
+  useParticipants: () => [],
   useRemoteParticipants: () => [],
   useTracks: () => [],
+}));
+
+vi.mock("@/lib/class-sessions", () => ({
+  classSessions: { participants: () => Promise.resolve({ data: [] }) },
 }));
 
 vi.mock("livekit-client", () => ({

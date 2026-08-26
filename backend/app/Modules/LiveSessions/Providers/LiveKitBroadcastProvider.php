@@ -153,6 +153,21 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
             // A student raises her hand and speaks — US1, not a host privilege.
             ->setCanPublish(true)
             ->setCanSubscribe(true)
+            /*
+             * A raised hand, and nothing else, is what this permits.
+             *
+             * Attributes are synced by the provider to everyone in the room and
+             * REPLAYED to whoever joins later, which a data message is not — so a
+             * hand raised before the teacher opened their laptop is still up when
+             * they arrive. That is the whole reason it is an attribute.
+             *
+             * ⚠️ AND IT IS CLIENT-WRITTEN BY DEFINITION, so nothing may render it
+             * as text. The screen reads one key as a boolean and draws an icon; a
+             * participant who writes a sentence into their own attributes has
+             * written it to a value nobody prints. The role is NOT here — it
+             * lives in the signed grant above, where its holder cannot reach it.
+             */
+            ->setCanUpdateOwnMetadata(true)
             // FR-010: the role lives INSIDE the ticket, so its holder cannot
             // promote themselves by editing anything they can reach.
             ->setRoomAdmin($role === ParticipantRole::Host);

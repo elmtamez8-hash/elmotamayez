@@ -6,14 +6,15 @@ import {
   ParticipantTile,
   RoomAudioRenderer,
   useLocalParticipant,
-  useRemoteParticipants,
+  useParticipantAttributes,
   useTracks,
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
 
+import { ParticipantsPanel } from "@/components/sessions/ParticipantsPanel";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { classSessions, type JoinTicket } from "@/lib/class-sessions";
+import { type JoinTicket } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
 
 /**
@@ -66,9 +67,11 @@ export function BroadcastStage({
         {/*
           ⚠️ The role comes from the SIGNED TICKET, never from a piece of browser
           state. It is also not the guard: the server checks `host` on the policy
-          for every one of these calls. This only decides what is worth drawing.
+          for every one of the host calls inside. This only decides what is worth
+          drawing — the list itself belongs to everyone in the room, the way the
+          room's chat does.
         */}
-        {ticket.role === "host" && <HostControls sessionUuid={sessionUuid} />}
+        <ParticipantsPanel sessionUuid={sessionUuid} isHost={ticket.role === "host"} />
       </LiveKitRoom>
     </div>
   );
@@ -119,79 +122,14 @@ function Stage() {
   );
 }
 
-/**
- * The class roll, with the two buttons a teacher needs during a lesson.
- *
- * The identity of every participant IS the student's uuid — the adapter puts it
- * there and never the name (FR-006) — which is why this can name a target
- * without the browser ever learning anything else about them.
- *
- * ⚠️ 501 is a real answer here, not a bug. A provider that does not claim
- * hostControls refuses loudly, and the teacher must be told in words: a mute
- * button that silently does nothing is worse than no button at all.
- */
-function HostControls({ sessionUuid }: { sessionUuid: string }) {
-  const participants = useRemoteParticipants();
-  const [busy, setBusy] = useState("");
-  const [error, setError] = useState("");
-
-  const act = async (action: "mute" | "remove", identity: string) => {
-    setBusy(`${action}:${identity}`);
-    setError("");
-
-    try {
-      await classSessions.host(sessionUuid, action, identity);
-    } catch (err: unknown) {
-      setError(userMessage(err));
-    } finally {
-      setBusy("");
-    }
-  };
-
-  if (participants.length === 0) return null;
-
-  return (
-    <div className="mt-6 space-y-3">
-      <h3 className="text-sm font-bold text-ink">المشاركون</h3>
-
-      {error !== "" && <Alert tone="danger" title={error} />}
-
-      <ul className="space-y-2">
-        {participants.map((participant) => (
-          <li
-            key={participant.identity}
-            className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2"
-          >
-            <span className="text-sm text-ink">{participant.name || participant.identity}</span>
-
-            <span className="flex gap-2">
-              <Button
-                variant="ghost"
-                loading={busy === `mute:${participant.identity}`}
-                onClick={() => void act("mute", participant.identity)}
-              >
-                كتم
-              </Button>
-              <Button
-                variant="danger"
-                loading={busy === `remove:${participant.identity}`}
-                onClick={() => void act("remove", participant.identity)}
-              >
-                إخراج
-              </Button>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 /** My microphone, my camera, my screen — nobody else's. */
 function SelfControls() {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } =
     useLocalParticipant();
+  const { attributes } = useParticipantAttributes({ participant: localParticipant });
   const [error, setError] = useState("");
+
+  const handRaised = attributes?.hand === "1";
 
   /**
    * ⚠️ `void promise` was the whole error handling here, and a rejected promise
@@ -228,6 +166,31 @@ function SelfControls() {
       {error !== "" && <Alert tone="warning" title={error} />}
 
       <div className="flex flex-wrap gap-2">
+        {/*
+          ⚠️ AN ATTRIBUTE, NOT A MESSAGE, AND NOT A ROW IN OUR DATABASE. The
+          provider replays attributes to whoever joins later, so a hand raised
+          before the teacher opened their laptop is still up when they arrive —
+          a data message would have been delivered to an empty room and lost.
+          And it needs no endpoint of ours: a raised hand is worth nothing once
+          the lesson ends, so storing it would be a table that only ever grows.
+
+          It does NOT go through `run()`: nothing here touches a camera or a
+          microphone, so the secure-context guard would refuse the one control
+          that still works for a student who cannot publish anything — which is
+          exactly the student who most needs to ask.
+        */}
+        <Button
+          variant={handRaised ? "secondary" : "ghost"}
+          onClick={() => {
+            setError("");
+            localParticipant
+              .setAttributes({ ...attributes, hand: handRaised ? "0" : "1" })
+              .catch((e: unknown) => setError(userMessage(e)));
+          }}
+        >
+          {handRaised ? "أنزل يدي" : "ارفع يدك ✋"}
+        </Button>
+
         <Button
           variant={isMicrophoneEnabled ? "secondary" : "ghost"}
           onClick={() => run(() => localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled))}

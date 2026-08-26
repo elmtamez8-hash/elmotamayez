@@ -40,6 +40,9 @@ export default function SessionRoomPage({
   // it needs a state of its own: without it a successful end is indentical to a
   // failed load — nothing on screen.
   const [ended, setEnded] = useState(false);
+  // Not the same thing as `ended`: that one is «you just closed it», this one is
+  // «it was already closed before you got here», and it survives a refresh.
+  const [closed, setClosed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,7 +53,28 @@ export default function SessionRoomPage({
         if (!cancelled) setTicket(result);
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(userMessage(err));
+        if (cancelled) return;
+
+        setError(userMessage(err));
+
+        /*
+          ⚠️ THE HOST WHO RELOADS AFTER ENDING THEIR OWN LESSON READS «تأكّد من
+          حجز مقعدك». The join refusal is deliberately identical for every reason
+          (FR-015), and the `ended` banner below only survives while the page
+          does — so a refresh, a closed laptop, or coming back an hour later all
+          answer a teacher with a sentence written for a student.
+
+          Asking the session itself is what separates them, and it leaks nothing:
+          `room_closed` is not an entitlement fact, and this endpoint is refused
+          to anyone who could not read the session anyway — a stranger's fetch
+          fails and they keep the uniform sentence, which is the requirement.
+        */
+        classSessions
+          .show(uuid)
+          .then((session) => {
+            if (!cancelled && session.room_closed) setClosed(true);
+          })
+          .catch(() => undefined);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -87,7 +111,21 @@ export default function SessionRoomPage({
 
       {loading && <p className="text-sm text-ink-muted">جارٍ التحضير…</p>}
 
-      {error !== "" && (
+      {error !== "" && closed && (
+        <Alert tone="info" title="انتهت هذه الحصة">
+          أُغلقت غرفة البثّ، فلا دخول إليها. إن كان لها تسجيل فسيظهر درساً في الكورس.
+          <div className="mt-3">
+            <Link
+              href={`/manage/sessions/${uuid}`}
+              className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              تفاصيل الحصة
+            </Link>
+          </div>
+        </Alert>
+      )}
+
+      {error !== "" && !closed && (
         <>
           <Alert tone="danger" title="تعذّر الدخول">
             {error}

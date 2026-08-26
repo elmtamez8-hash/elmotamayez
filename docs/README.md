@@ -498,6 +498,7 @@ provable before any broadcast contract existed.
 | POST | `/class-sessions/{uuid}/leave` | Ticket holder |
 | POST | `/class-sessions/{uuid}/presence` | Ticket holder, `throttle:presence` — its own limiter, since one participant sends two a minute |
 | POST | `/class-sessions/{uuid}/host/{action}` | `sessions.host`. `501` when the provider cannot do it — the honest answer, not a 500 |
+| GET | `/class-sessions/{uuid}/participants` | Seat or `sessions.host`. Names, faces and badges for the uuids the provider echoes into the room — the ticket carries a uuid and never a name (`FR-006`). **Not the register**: no status, no stay, no note, because every seat holder holds this while `attendance.view` guards those |
 | GET | `/class-sessions/{uuid}/attendance` | `sessions.view`, workspace-scoped |
 | POST | `/attendances/{uuid}/override` | `attendance.override`; past the edit window it takes `settings.update` |
 | POST | `/class-sessions/{uuid}/feedback` | `sessions.manage` — writing on a student's record is not something a reader gains by being able to read |

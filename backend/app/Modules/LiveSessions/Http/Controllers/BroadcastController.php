@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\LiveSessions\Actions\IssueJoinTicket;
 use App\Modules\LiveSessions\Actions\PerformHostAction;
+use App\Modules\LiveSessions\Actions\ReadSessionRoster;
 use App\Modules\LiveSessions\Actions\RecordPresencePing;
 use App\Modules\LiveSessions\Enums\HostAction;
 use App\Modules\LiveSessions\Exceptions\BroadcastProviderUnavailable;
@@ -17,6 +18,7 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use RuntimeException;
 
 class BroadcastController extends Controller
@@ -82,6 +84,32 @@ class BroadcastController extends Controller
             'status' => $attendance->status->value,
             'session_status' => $session->refresh()->status->value,
         ]);
+    }
+
+    /**
+     * The names, faces and badges behind the uuids in the room.
+     *
+     * ⚠️ THE TWO SPELLINGS ARE THE EXISTING ONES, and inventing a third is the
+     * defect `BookingEligibility` and `ListLeaderboardScopes` have each already
+     * paid for: one answer on the screen and another at the door. `host` is the
+     * same policy ability the host routes are gated on, and `holdsSeat()` is the
+     * same method the lesson player asks — deliberately wider than the door,
+     * because a student whose seat was released still belongs to the list of
+     * people whose face the room may show.
+     *
+     * The refusal is a plain 403 rather than the door's uniform sentence: this is
+     * not a claim to enter, and by the time it is asked the caller already knows
+     * the session exists — they are looking at it.
+     */
+    public function participants(Request $request, ClassSession $session, ReadSessionRoster $action): JsonResponse
+    {
+        $user = $this->currentUser($request);
+
+        if (! $session->holdsSeat($user) && ! Gate::allows('host', $session)) {
+            return response()->json(['message' => 'لست من المشاركين في هذه الحصة.'], 403);
+        }
+
+        return response()->json(['data' => $action->handle($session)]);
     }
 
     public function host(Request $request, ClassSession $session, string $action, PerformHostAction $performer): JsonResponse

@@ -91,6 +91,24 @@ export interface JoinTicket {
   presence_interval_seconds: number;
 }
 
+/**
+ * One person in the room, resolved from the uuid the ticket carries.
+ *
+ * ⚠️ IT IS NOT AN ATTENDANCE ROW, and the absence of a status here is the design.
+ * Every seat holder can read this; who was marked absent, for how long they
+ * stayed and why a teacher changed a mark all need `ATTENDANCE_VIEW` and stay on
+ * the register.
+ */
+export interface RoomParticipant {
+  uuid: string;
+  name: string;
+  /** `staff` is an assistant: they hold no seat, and calling them a student in
+   *  front of the class is a lie the screen would repeat every week. */
+  role: "host" | "student" | "staff";
+  avatar_url: string | null;
+  badges: { key: string; name_ar: string; icon: string | null }[];
+}
+
 export interface PresenceState {
   stay_seconds: number;
   status: string;
@@ -282,6 +300,16 @@ export const classSessions = {
    * exists and when to come back.
    */
   join: (uuid: string) => api.post<JoinTicket>(`/class-sessions/${uuid}/join`, {}),
+
+  /**
+   * The people behind the uuids the provider echoes into the room.
+   *
+   * ⚠️ FETCHED ONCE PER ROOM, NOT PER PARTICIPANT. It answers for everyone who
+   * could be in the session, so a person arriving later is already in the map —
+   * a lookup per new participant would be an N+1 driven by whoever joins.
+   */
+  participants: (uuid: string) =>
+    api.get<{ data: RoomParticipant[] }>(`/class-sessions/${uuid}/participants`),
 
   /** One heartbeat. The reply is what the SERVER believes, not what we sent. */
   presence: (uuid: string) =>

@@ -52,11 +52,29 @@ function config(): { key: string; host: string; port: number; scheme: string } |
   // pages fall back to fetching, which is what they do during an outage anyway.
   if (!key) return null;
 
+  /*
+  | ⚠️ BOTH FALLBACKS FOLLOW THE PAGE, AND THE SCHEME ONE USED TO BE THE LITERAL
+  | «http». That is unreachable from an https page at all: a browser refuses a
+  | `ws://` socket opened by a secure page as mixed content, silently, with the
+  | chat still reading and sending one reload behind — which is exactly the
+  | shape of «‏النقاش لا يظهر لحظيّاً» and names nothing.
+  |
+  | The host fallback was already right and was being overridden by a literal
+  | `localhost` in `.env` — measured on a phone (2026-08-26): the page loaded
+  | from `192.168.1.13:3000` and the socket dialled the PHONE's own localhost.
+  | A host written down once is a host that is wrong for every other address the
+  | same build is opened from.
+  |
+  | The env vars stay for production, where the socket sits behind a proxy on a
+  | different host and port from the page.
+  */
   return {
     key,
     host: process.env.NEXT_PUBLIC_REVERB_HOST ?? window.location.hostname,
     port: Number(process.env.NEXT_PUBLIC_REVERB_PORT ?? 8080),
-    scheme: process.env.NEXT_PUBLIC_REVERB_SCHEME ?? "http",
+    scheme:
+      process.env.NEXT_PUBLIC_REVERB_SCHEME ??
+      (window.location.protocol === "https:" ? "https" : "http"),
   };
 }
 
