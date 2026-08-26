@@ -9,7 +9,7 @@ import { RecordingNotice } from "@/components/compliance/RecordingNotice";
 import { SessionChat } from "@/components/community/SessionChat";
 import { Alert } from "@/components/ui/Alert";
 import { UnlockNotice } from "@/components/sessions/UnlockNotice";
-import { Button } from "@/components/ui/Button";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { Card } from "@/components/ui/Card";
 import {
   classSessions,
@@ -231,9 +231,15 @@ export default function SessionRoomPage({
 
             {ticket.role === "host" && (
               <div className="mt-4">
-                <Button onClick={end} loading={ending} variant="danger">
+                {/* One tap ended the broadcast for everyone, with nothing to
+                    take it back — and the room cannot be reopened afterwards. */}
+                <ConfirmButton
+                  onConfirm={() => void end()}
+                  loading={ending}
+                  confirmLabel="أكّد إنهاء الحصة"
+                >
                   إنهاء الحصة
-                </Button>
+                </ConfirmButton>
               </div>
             )}
           </Card>

@@ -1,8 +1,13 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import { Badge } from "@/components/ui/Badge";
 import { formatDate, formatTime } from "@/lib/labels";
 import type { ChatMessage } from "@/lib/conversations";
+
+/** How close to the bottom still counts as "following the conversation". */
+const NEAR_BOTTOM_PX = 80;
 
 /**
  * One thread, oldest at the top.
@@ -44,6 +49,26 @@ export function MessageList({
    */
   showBadges?: boolean;
 }) {
+  const scroller = useRef<HTMLUListElement>(null);
+
+  /*
+   * Newest into view whenever one arrives.
+   *
+   * ⚠️ AND ONLY WHEN THE READER IS ALREADY AT THE BOTTOM. Yanking somebody back
+   * down while they are reading what the teacher said five minutes ago is worse
+   * than making them scroll — so a reader who has moved up is left where they
+   * are, and the next message they scroll down to is waiting.
+   */
+  useEffect(() => {
+    const box = scroller.current;
+
+    if (box === null) return;
+
+    const distanceFromBottom = box.scrollHeight - box.scrollTop - box.clientHeight;
+
+    if (distanceFromBottom < NEAR_BOTTOM_PX) box.scrollTop = box.scrollHeight;
+  }, [messages.length]);
+
   if (messages.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-ink-muted">
@@ -53,7 +78,22 @@ export function MessageList({
   }
 
   return (
-    <ul className="space-y-1 px-3 py-4">
+    /*
+      ⚠️ ITS OWN SCROLL BOX, AND IT HAD NONE.
+    
+      The room's chat sits at the very bottom of the page — under the stage, the
+      controls, the participants and the presence card — so forty messages in a
+      group lesson pushed the composer an entire screen further down, and every
+      message arriving over the socket had to be hunted for by hand. A box that
+      scrolls itself also stops the page growing during the lesson.
+    
+      `overscroll-contain` so reaching the top of the thread does not start
+      scrolling the whole room behind it.
+    */
+    <ul
+      ref={scroller}
+      className="max-h-80 space-y-1 overflow-y-auto overscroll-contain px-3 py-4"
+    >
       {messages.map((message, index) => {
         const mine = currentUserUuid !== null && message.sender_uuid === currentUserUuid;
         const previous = index === 0 ? null : messages[index - 1];

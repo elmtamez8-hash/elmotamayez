@@ -11,6 +11,7 @@ import type { Participant } from "livekit-client";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { classSessions, type RoomParticipant } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
 
@@ -48,7 +49,14 @@ export function ParticipantsPanel({
   const participants = useParticipants();
   const [roster, setRoster] = useState<Map<string, RoomParticipant>>(new Map());
   const [busy, setBusy] = useState("");
-  const [error, setError] = useState("");
+  /*
+   * ⚠️ THE ERROR CARRIES THE KEY OF THE CONTROL THAT RAISED IT, and it used to be
+   * a bare string rendered above the list. A failed «كتم» on row twelve then put
+   * its reason several hundred pixels off the top of the screen, so the teacher
+   * saw nothing happen and pressed again. Same key as `busy`, so the reason
+   * appears where the finger already is.
+   */
+  const [error, setError] = useState<{ key: string; message: string } | null>(null);
   const [signals, setSignals] = useState<Map<string, { hand: number | null; confused: boolean }>>(
     new Map(),
   );
@@ -138,7 +146,7 @@ export function ParticipantsPanel({
 
   const act = async (action: "mute" | "remove", identity: string) => {
     setBusy(`${action}:${identity}`);
-    setError("");
+    setError(null);
 
     try {
       await classSessions.host(sessionUuid, action, identity);
@@ -147,7 +155,7 @@ export function ParticipantsPanel({
       // who is out is the only place they can be let back in.
       await reload();
     } catch (err: unknown) {
-      setError(userMessage(err));
+      setError({ key: `${action}:${identity}`, message: userMessage(err) });
     } finally {
       setBusy("");
     }
@@ -155,13 +163,14 @@ export function ParticipantsPanel({
 
   const actOnRoom = async (action: "mute-all" | "remove-all" | "lower-hands") => {
     setBusy(action);
-    setError("");
+    setError(null);
 
     try {
       await classSessions.host(sessionUuid, action);
       await reload();
     } catch (err: unknown) {
-      setError(userMessage(err));
+      // A room action is pressed from the header, which is where this renders.
+      setError({ key: action, message: userMessage(err) });
     } finally {
       setBusy("");
     }
@@ -177,13 +186,13 @@ export function ParticipantsPanel({
    */
   const readmit = async (uuid: string) => {
     setBusy(`readmit:${uuid}`);
-    setError("");
+    setError(null);
 
     try {
       await classSessions.host(sessionUuid, "readmit", uuid);
       await reload();
     } catch (err: unknown) {
-      setError(userMessage(err));
+      setError({ key: `readmit:${uuid}`, message: userMessage(err) });
     } finally {
       setBusy("");
     }
@@ -253,18 +262,27 @@ export function ParticipantsPanel({
             >
               اكتم الجميع
             </Button>
-            <Button
-              variant="danger"
+            {/* ⚠️ ARMED, BECAUSE IT SITS EIGHT PIXELS FROM «اكتم الجميع» in a
+                wrapping row on a teacher's phone. One of the two is recoverable
+                in a tap and the other empties the lesson. */}
+            <ConfirmButton
+              confirmLabel="أكّد إخراج الجميع"
               loading={busy === "remove-all"}
-              onClick={() => void actOnRoom("remove-all")}
+              onConfirm={() => void actOnRoom("remove-all")}
             >
               أخرِج الجميع
-            </Button>
+            </ConfirmButton>
           </span>
         )}
       </div>
 
-      {error !== "" && <Alert tone="danger" title={error} />}
+      {/* Only the ROOM-wide failures belong up here; a row's reason is drawn in
+          its own row, beside the button that produced it. */}
+      {error !== null && !error.key.includes(":") && (
+        <Alert tone="danger" title="تعذّر تنفيذ الإجراء">
+          {error.message}
+        </Alert>
+      )}
 
       <ul className="space-y-2">
         {participants.map((participant) => (
@@ -274,6 +292,11 @@ export function ParticipantsPanel({
             person={roster.get(participant.identity)}
             isHost={isHost}
             busy={busy}
+            error={
+              error !== null && error.key.endsWith(`:${participant.identity}`)
+                ? error.message
+                : null
+            }
             onAct={act}
             queuePosition={queue.get(participant.identity) ?? null}
             onSignals={onSignals}
@@ -329,6 +352,7 @@ function ParticipantRow({
   person,
   isHost,
   busy,
+  error,
   onAct,
   queuePosition,
   onSignals,
@@ -337,6 +361,8 @@ function ParticipantRow({
   person: RoomParticipant | undefined;
   isHost: boolean;
   busy: string;
+  /** The reason THIS row's last action failed, if it did. */
+  error: string | null;
   onAct: (action: "mute" | "remove", identity: string) => Promise<void>;
   queuePosition: number | null;
   onSignals: (identity: string, hand: boolean, confused: boolean) => void;
@@ -443,13 +469,23 @@ function ParticipantRow({
           >
             كتم
           </Button>
-          <Button
-            variant="danger"
+          {/* Same eight pixels, same pair: «كتم» is undone in a tap and this
+              puts a paying student out of the hour they booked. */}
+          <ConfirmButton
+            confirmLabel="أكّد الإخراج"
             loading={busy === `remove:${participant.identity}`}
-            onClick={() => void onAct("remove", participant.identity)}
+            onConfirm={() => void onAct("remove", participant.identity)}
           >
             إخراج
-          </Button>
+          </ConfirmButton>
+        </span>
+      )}
+
+      {/* Beside the button that failed, not at the top of a list the teacher is
+          at the bottom of. `role="status"` so it is announced rather than found. */}
+      {error !== null && (
+        <span role="status" className="basis-full text-xs text-danger-ink">
+          {error}
         </span>
       )}
     </li>

@@ -1,11 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import type { SessionBooking } from "@/lib/class-sessions";
 import { formatSessionTime } from "@/lib/session-format";
+
+/**
+ * How early the room link is worth offering.
+ *
+ * A ceiling of ours, not the server's rule — `sessions.join_window_minutes` is a
+ * `platform_settings` row and the door reads it. Fifteen minutes matches its
+ * default; being a few minutes out here shows a link that refuses politely,
+ * where being three DAYS out was the defect.
+ */
+const OPENS_WITHIN_SECONDS = 15 * 60;
 
 /**
  * The next session and how long is left (FR-053).
@@ -63,20 +73,45 @@ export function NextSessionCountdown({
         {formatSessionTime(session.starts_at, session.timezone)}
       </p>
 
-      <p className="mb-4 text-sm text-ink" aria-live="polite">
-        يبدأ بعد{" "}
-        <bdi className="font-semibold">
-          {days > 0 && `${days} يوم و`}
-          {hours} ساعة و{minutes} دقيقة و{seconds} ثانية
-        </bdi>
+      {/*
+        ⚠️ NO `aria-live`, AND IT HAD ONE ON A PARAGRAPH THAT CHANGES EVERY
+        SECOND. A screen reader re-read the whole sentence once a second, for as
+        long as the page was open — a countdown is glanceable by nature and there
+        is nothing here to announce. `role="timer"` is what the value IS, and the
+        static `aria-label` is what a reader hears instead of the tick.
+      */}
+      <p
+        className="mb-4 text-sm text-ink"
+        role="timer"
+        aria-label={`موعد الحصة ${formatSessionTime(session.starts_at, session.timezone)}`}
+      >
+        {remaining === 0 ? (
+          // The counter floors at zero and had no branch for it, so a lesson that
+          // had already begun read «يبدأ بعد ٠ ساعة و٠ دقيقة و٠ ثانية» — for ever.
+          <span className="font-semibold">بدأت الآن</span>
+        ) : (
+          <>
+            يبدأ بعد{" "}
+            <bdi className="font-semibold">
+              {days > 0 && `${days} يوم و`}
+              {hours} ساعة و{minutes} دقيقة و{seconds} ثانية
+            </bdi>
+          </>
+        )}
       </p>
 
-      <Link
-        href={`/sessions/${session.uuid}/room`}
-        className="inline-flex rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      >
-        دخول الغرفة
-      </Link>
+      {/*
+        ⚠️ THE BUTTON APPEARS WHEN THE DOOR CAN ACTUALLY OPEN. It used to be
+        drawn for a lesson three days away, and tapping it hit the uniform
+        refusal — «تأكّد من حجز مقعدك», about a seat the student holds, on a
+        session they are watching a countdown for. The server owns the real
+        window; any honest ceiling beats a button that always refuses.
+      */}
+      {remaining > OPENS_WITHIN_SECONDS ? (
+        <p className="text-sm text-ink-muted">يُفتح الدخول قبل الموعد بربع ساعة.</p>
+      ) : (
+        <Button href={`/sessions/${session.uuid}/room`}>دخول الغرفة</Button>
+      )}
     </Card>
   );
 }

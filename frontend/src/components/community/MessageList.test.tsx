@@ -146,3 +146,64 @@ describe("MessageList badges", () => {
     expect(screen.queryByText(/المستوى/)).toBeNull();
   });
 });
+
+/*
+| صندوقُ التمرير، والنزولُ إلى الأحدث.
+|
+| كانت القائمةُ `<ul>` عاريةً في آخرِ الصفحة — تحتَ المسرحِ وأدواتِ المشاركِ وقائمةِ
+| المشاركين — فأربعون رسالةً في حصّةٍ جماعيّةٍ تدفعُ حقلَ الكتابةِ شاشةً كاملةً إلى
+| أسفل، وكلُّ رسالةٍ تصلُ عبرَ المقبسِ يبحثُ عنها القارئُ بيدِه.
+|
+| ⚠️ والنزولُ مشروط: سحبُ قارئٍ يقرأُ ما قاله المدرّسُ قبلَ خمسِ دقائقَ إلى الأسفلِ
+| أسوأُ من تركِه يُمرِّر. jsdom لا يُخطِّطُ شيئاً — كلُّ الأبعادِ صفر — فالشرطُ
+| يُقاسُ بضبطِ المقاساتِ بأنفسِنا، وهذا هو المكانُ الوحيدُ الذي يُقاسُ منه.
+*/
+describe("MessageList — following the conversation", () => {
+  function boxOf(): HTMLElement {
+    return screen.getAllByRole("list")[0];
+  }
+
+  function size(box: HTMLElement, scrollHeight: number, clientHeight: number): void {
+    Object.defineProperty(box, "scrollHeight", { value: scrollHeight, configurable: true });
+    Object.defineProperty(box, "clientHeight", { value: clientHeight, configurable: true });
+  }
+
+  it("scrolls a reader who is already at the bottom down to the newest message", () => {
+    const first = [message("m-1", "أهلاً", "2026-08-23T10:00:00+00:00")];
+
+    const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
+
+    const box = boxOf();
+    size(box, 400, 300);
+    box.scrollTop = 100; // Exactly at the bottom of a 400px thread in a 300px box.
+
+    rerender(
+      <MessageList
+        messages={[...first, message("m-2", "سؤال", "2026-08-23T10:01:00+00:00")]}
+        currentUserUuid="me"
+      />,
+    );
+
+    expect(box.scrollTop).toBe(box.scrollHeight);
+  });
+
+  it("leaves a reader who has scrolled up exactly where they were", () => {
+    const first = [message("m-1", "أهلاً", "2026-08-23T10:00:00+00:00")];
+
+    const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
+
+    const box = boxOf();
+    size(box, 400, 300);
+    // Far from the bottom: they are reading something older on purpose.
+    box.scrollTop = 0;
+
+    rerender(
+      <MessageList
+        messages={[...first, message("m-2", "سؤال", "2026-08-23T10:01:00+00:00")]}
+        currentUserUuid="me"
+      />,
+    );
+
+    expect(box.scrollTop).toBe(0);
+  });
+});
