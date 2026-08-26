@@ -184,7 +184,7 @@ class AccrueTeachingUnits extends Action
             return [];
         }
 
-        $unit = TeachingUnit::query()->create([
+        $attributes = [
             'workspace_id' => (int) $session->workspace_id,
             // No seat means no student. The column is nullable in intent but not
             // in schema, so the teacher's own user id stands in as the subject of
@@ -203,7 +203,32 @@ class AccrueTeachingUnits extends Action
             'delivered_at' => $session->delivered_at ?? now(),
             'accrued_at' => now(),
             'reversal_of_id' => TeachingUnit::NOT_A_REVERSAL,
-        ]);
+        ];
+
+        /*
+         * ⚠️ THE SAME GUARD ITS SIBLING HAS, AND ITS ABSENCE HERE WAS LOAD-BEARING.
+         *
+         * `accrueOne()` wraps its `create()` because the unique index on
+         * (session, student, reversal_of_id) is what makes accrual idempotent —
+         * and this row lands on that same index, with the TEACHER standing in as
+         * the student. So a redelivered event, a retried job or an operator
+         * running the sweep twice threw a `QueryException` out of the listener
+         * rather than returning quietly.
+         *
+         * That mattered far past this method: until this listener was queued, the
+         * throw propagated into `CloseClassSession` and took the guardian report,
+         * the counters and the recording ingest with it. Both halves are fixed;
+         * either alone would have left the other's failure mode intact.
+         */
+        try {
+            $unit = TeachingUnit::query()->create($attributes);
+        } catch (QueryException $e) {
+            if ($this->isDuplicate($e)) {
+                return [];
+            }
+
+            throw $e;
+        }
 
         return [$unit];
     }

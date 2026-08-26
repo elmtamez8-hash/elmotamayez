@@ -26,10 +26,26 @@ const setMicrophoneEnabled = vi.fn<(on: boolean) => Promise<void>>();
 const setCameraEnabled = vi.fn<(on: boolean) => Promise<void>>();
 const setScreenShareEnabled = vi.fn<(on: boolean) => Promise<void>>();
 
+/** What the component asked the library to do on connect. */
+const roomProps = vi.fn<(props: { audio?: boolean; video?: boolean }) => void>();
+
 vi.mock("@livekit/components-react", () => ({
   // The room is the library's business; what is under test is our reaction to
-  // its verdict, so it renders its children and connects to nothing.
-  LiveKitRoom: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  // its verdict, so it renders its children and connects to nothing. Its props
+  // are recorded, because `audio`/`video` are a decision of ours and not the
+  // library's — see the publish-on-connect tests below.
+  LiveKitRoom: ({
+    children,
+    ...props
+  }: {
+    children: React.ReactNode;
+    audio?: boolean;
+    video?: boolean;
+  }) => {
+    roomProps(props);
+
+    return <div>{children}</div>;
+  },
   ParticipantTile: () => <div />,
   RoomAudioRenderer: () => <div />,
   useLocalParticipant: () => ({
@@ -79,6 +95,34 @@ afterEach(() => {
   } else {
     setMediaDevices(undefined);
   }
+});
+
+describe("BroadcastStage — who publishes on connect", () => {
+  /*
+  | ⚠️ الطالبةُ تدخلُ والكاميرا مطفأة، وكانت `audio video` عاريتَين.
+  |
+  | المكتبةُ تقرأ الاثنتين على أنّهما «انشُر فوراً بعد الاتصال»، فبنتُ الرابعةَ عشرةَ
+  | تفتحُ الدرسَ من هاتفها فتظهرُ غرفتُها على المسرح — وتدخلُ ملفَّ التسجيل — قبل أن
+  | تلمسَ شيئاً. و`RecordingNotice` مرسومٌ فوقَ هذا مباشرةً يقول «إن لم ترغب في
+  | الظهور، أغلِقِ الكاميرا»: إنذارٌ بعد وقوعِ الفعل، وهو بالضبط ما يرفضه توثيقُ ذلك
+  | المكوّنِ نفسِه.
+  |
+  | والمدرّسُ استثناءٌ مقصود: زرّان قبل أن يسمعَه الفصلُ هما أوّلُ ثلاثين ثانيةٍ من كلِّ
+  | حصّةٍ تضيعُ في السباكة. والدورُ من التذكرةِ المُوقَّعة، فلا يُقلَبُ من المتصفّح.
+  */
+  it("leaves a student's camera and microphone off until they ask", () => {
+    render(<BroadcastStage ticket={TICKET} sessionUuid="s-1" />);
+
+    expect(roomProps).toHaveBeenCalledWith(
+      expect.objectContaining({ audio: false, video: false }),
+    );
+  });
+
+  it("lets the teacher arrive already publishing", () => {
+    render(<BroadcastStage ticket={{ ...TICKET, role: "host" }} sessionUuid="s-1" />);
+
+    expect(roomProps).toHaveBeenCalledWith(expect.objectContaining({ audio: true, video: true }));
+  });
 });
 
 describe("BroadcastStage — self controls", () => {

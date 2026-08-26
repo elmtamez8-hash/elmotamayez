@@ -36,7 +36,7 @@ use Tests\Support\FakeBroadcastProvider;
 */
 
 beforeEach(function (): void {
-    Queue::fake();
+    fakeSessionTimeline();
     $this->app->instance(BroadcastProviderInterface::class, new FakeBroadcastProvider);
 
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();

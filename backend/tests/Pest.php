@@ -28,6 +28,11 @@ use App\Modules\LiveSessions\Actions\OpenBroadcastRoom;
 use App\Modules\LiveSessions\Actions\RecordPresencePing;
 use App\Modules\LiveSessions\Enums\AttendanceStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Jobs\CloseClassSessionJob;
+use App\Modules\LiveSessions\Jobs\FreezeBillableSeatsJob;
+use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
+use App\Modules\LiveSessions\Jobs\MarkAbsenteesJob;
+use App\Modules\LiveSessions\Jobs\SendSessionReportsJob;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
@@ -58,6 +63,7 @@ use Illuminate\Broadcasting\BroadcastManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
@@ -389,6 +395,37 @@ function settlementPayloadKeys(mixed $value): array
 | run down — not a failing test.
 |
 */
+
+/**
+ * Fakes the session TIMELINE and nothing else.
+ *
+ * ⚠️ `Queue::fake()` WITH NO ARGUMENTS IS THE TRAP THIS EXISTS TO CLOSE, and it
+ * has now caught two modules. A `->delay()` runs IMMEDIATELY on the `sync`
+ * connection, so without a fake `CloseClassSessionJob` fires inside
+ * `OpenBroadcastRoom` and closes the session before the teacher joins — every
+ * timeline collapses into one instant. But a BARE fake swallows the queued
+ * listeners as well: `ChargeSeatsOnDelivery` and now `AccrueUnitsOnDelivery`,
+ * which turns "ten frozen seats ⇒ ten teaching units" into a confident assertion
+ * about an empty table.
+ *
+ * So the list is exactly the jobs a delay would misfire, plus the ingest — which
+ * is dispatched from `SessionCompleted` and would otherwise interrogate a
+ * provider in the middle of a test about money. Every listener runs on `sync`,
+ * which is what makes the wiring part of what these tests measure.
+ *
+ * Named for the timeline rather than for a file: the one thing that must not
+ * happen is somebody adding a class here to make their own assertion pass.
+ */
+function fakeSessionTimeline(): void
+{
+    Queue::fake([
+        CloseClassSessionJob::class,
+        MarkAbsenteesJob::class,
+        FreezeBillableSeatsJob::class,
+        SendSessionReportsJob::class,
+        IngestSessionRecordingJob::class,
+    ]);
+}
 
 /**
  * A session on a course, with a teacher whose profile belongs to the workspace.

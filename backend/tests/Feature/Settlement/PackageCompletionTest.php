@@ -18,7 +18,6 @@ use App\Modules\Settlement\Models\SettlementRate;
 use App\Modules\Settlement\Models\TeachingUnit;
 use App\Modules\Tenancy\Support\Roles;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeBroadcastProvider;
 
 /*
@@ -32,7 +31,7 @@ use Tests\Support\FakeBroadcastProvider;
 */
 
 beforeEach(function (): void {
-    Queue::fake();
+    fakeSessionTimeline();
     $this->app->instance(BroadcastProviderInterface::class, new FakeBroadcastProvider);
 
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();

@@ -9,12 +9,12 @@ use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Settlement\Actions\AccrueTeachingUnits;
 use App\Modules\Settlement\Enums\SettlementBasis;
 use App\Modules\Settlement\Models\SettlementRate;
 use App\Modules\Settlement\Models\TeachingUnit;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeBroadcastProvider;
 
 /*
@@ -31,7 +31,7 @@ use Tests\Support\FakeBroadcastProvider;
 */
 
 beforeEach(function (): void {
-    Queue::fake();
+    fakeSessionTimeline();
     $this->app->instance(BroadcastProviderInterface::class, new FakeBroadcastProvider);
 
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
@@ -92,6 +92,33 @@ it('pays the configured compensation when an operator turns it on', function ():
         // Flagged even though it was paid: the payment decision does not answer
         // the question of why the room was empty (FR-008ح).
         ->and($unit->needs_review)->toBeTrue();
+});
+
+it('takes a replayed delivery quietly instead of throwing the whole close away', function (): void {
+    PlatformSettings::set('settlement.zero_attendance_compensation_enabled', true);
+    PlatformSettings::set('settlement.zero_attendance_compensation_percent', 40);
+
+    taughtToNobody();
+
+    /*
+     * ⚠️ THE SECOND ARRIVAL, AND ITS `create()` WAS THE ONE UNGUARDED WRITE ON
+     * THIS PATH.
+     *
+     * Its sibling `accrueOne()` catches the duplicate because the unique index on
+     * (session, student, reversal_of_id) IS the idempotency guard — and this row
+     * lands on that same index, with the teacher standing in for the student. So
+     * a redelivered event or a retried job threw a QueryException out of the
+     * listener rather than returning quietly.
+     *
+     * That mattered far past this table. Until the listener was queued, the throw
+     * propagated back into `CloseClassSession` and killed the three lines below
+     * it — the counters, the recording ingest, and the guardian report — for a
+     * session whose status had already been committed as closed, so nothing could
+     * ever re-run them.
+     */
+    app(AccrueTeachingUnits::class)->handle($this->session->refresh(), 0);
+
+    expect(TeachingUnit::query()->count())->toBe(1);
 });
 
 it('pays nothing for an empty session the teacher never delivered', function (): void {

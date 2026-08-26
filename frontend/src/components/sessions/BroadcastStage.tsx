@@ -57,11 +57,32 @@ export function BroadcastStage({
         serverUrl={ticket.room_url}
         token={ticket.token}
         connect
-        audio
-        video
+        /*
+          ⚠️ THE STUDENT ARRIVES WITH BOTH OFF, AND THESE WERE BARE `audio video`
+          — WHICH THE LIBRARY READS AS «PUBLISH IMMEDIATELY ON CONNECT».
+
+          So a fourteen-year-old opening the lesson on her phone had her room on
+          the class stage, and in the egress file, before she had touched
+          anything. `RecordingNotice` is drawn directly above this and says «إن
+          لم ترغب في الظهور، أغلِقِ الكاميرا والميكروفون» — an opt-out offered a
+          moment after the choice was taken, which its own docblock argues is not
+          a notice at all.
+
+          The host is the exception, and deliberately: a teacher who has to press
+          two buttons before the class can hear them is the first thirty seconds
+          of every lesson spent on plumbing. The role comes from the SIGNED
+          ticket, so this cannot be flipped from the browser.
+        */
+        audio={ticket.role === "host"}
+        video={ticket.role === "host"}
         // The room is left when the component unmounts, which is what makes
         // closing the tab a departure rather than a ghost participant.
-        onError={(err: Error) => setError(err.message)}
+        //
+        // ⚠️ `userMessage`, not `err.message`: this is the library's own error and
+        // it is English. The likeliest one — a failed ICE negotiation on mobile
+        // data — used to land in the Alert title verbatim, in English, under an
+        // Arabic heading, on a student's phone.
+        onError={(err: Error) => setError(userMessage(err))}
       >
         <Stage />
         {/* Plays everyone else's audio. Without it the room is silent film. */}
