@@ -191,32 +191,67 @@ function HostControls({ sessionUuid }: { sessionUuid: string }) {
 function SelfControls() {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } =
     useLocalParticipant();
+  const [error, setError] = useState("");
+
+  /**
+   * ⚠️ `void promise` was the whole error handling here, and a rejected promise
+   * is an unhandled rejection: in development the overlay paints a raw
+   * `TypeError` over the lesson, and in **production the button simply does
+   * nothing at all** — no message, no reason, on the one control a student
+   * needs to be seen. Measured on a real phone (2026-08-26): tapping the
+   * microphone answered «Cannot read properties of undefined (reading
+   * 'getUserMedia')», which is neither Arabic nor true of anything the reader
+   * can act on.
+   *
+   * The missing-`mediaDevices` case is named SEPARATELY because no generic
+   * sentence can describe it: outside a secure context the browser does not
+   * expose the API at all, so nothing was refused and no permission dialog will
+   * ever appear — the fault is the address the page was opened from. Telling a
+   * student «تعذّر الوصول للكاميرا» there sends them to hunt a permission
+   * setting that is not the problem.
+   */
+  const run = (action: () => Promise<unknown>): void => {
+    if (typeof navigator === "undefined" || navigator.mediaDevices === undefined) {
+      setError(
+        "المتصفّح لا يمنح الكاميرا والميكروفون إلا لصفحةٍ فُتحت على عنوانٍ آمن (https). تابع الحصة بالكتابة، أو افتحها من العنوان الآمن.",
+      );
+
+      return;
+    }
+
+    setError("");
+    action().catch((e: unknown) => setError(userMessage(e)));
+  };
 
   return (
-    <div className="mt-4 flex flex-wrap gap-2">
-      <Button
-        variant={isMicrophoneEnabled ? "secondary" : "ghost"}
-        onClick={() => void localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled)}
-      >
-        {isMicrophoneEnabled ? "كتم ميكروفوني" : "تشغيل ميكروفوني"}
-      </Button>
+    <div className="mt-4 space-y-3">
+      {error !== "" && <Alert tone="warning" title={error} />}
 
-      <Button
-        variant={isCameraEnabled ? "secondary" : "ghost"}
-        onClick={() => void localParticipant.setCameraEnabled(!isCameraEnabled)}
-      >
-        {isCameraEnabled ? "إيقاف الكاميرا" : "تشغيل الكاميرا"}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={isMicrophoneEnabled ? "secondary" : "ghost"}
+          onClick={() => run(() => localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled))}
+        >
+          {isMicrophoneEnabled ? "كتم ميكروفوني" : "تشغيل ميكروفوني"}
+        </Button>
 
-      {/* The library asks the browser for the screen. We never call
-          getDisplayMedia ourselves — permissions, track lifecycle and the stop
-          button the browser draws are all its problem, correctly. */}
-      <Button
-        variant={isScreenShareEnabled ? "secondary" : "ghost"}
-        onClick={() => void localParticipant.setScreenShareEnabled(!isScreenShareEnabled)}
-      >
-        {isScreenShareEnabled ? "إيقاف مشاركة الشاشة" : "مشاركة الشاشة"}
-      </Button>
+        <Button
+          variant={isCameraEnabled ? "secondary" : "ghost"}
+          onClick={() => run(() => localParticipant.setCameraEnabled(!isCameraEnabled))}
+        >
+          {isCameraEnabled ? "إيقاف الكاميرا" : "تشغيل الكاميرا"}
+        </Button>
+
+        {/* The library asks the browser for the screen. We never call
+            getDisplayMedia ourselves — permissions, track lifecycle and the stop
+            button the browser draws are all its problem, correctly. */}
+        <Button
+          variant={isScreenShareEnabled ? "secondary" : "ghost"}
+          onClick={() => run(() => localParticipant.setScreenShareEnabled(!isScreenShareEnabled))}
+        >
+          {isScreenShareEnabled ? "إيقاف مشاركة الشاشة" : "مشاركة الشاشة"}
+        </Button>
+      </div>
     </div>
   );
 }
