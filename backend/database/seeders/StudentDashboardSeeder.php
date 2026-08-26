@@ -31,7 +31,10 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Payments\Data\CreditMovement;
+use App\Modules\Payments\Enums\ConsentDocument;
 use App\Modules\Payments\Enums\CreditTransactionType;
+use App\Modules\Payments\Models\TermsConsent;
+use App\Modules\Payments\Support\ConsentRegistry;
 use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Tenancy\Models\Workspace;
@@ -106,6 +109,7 @@ class StudentDashboardSeeder extends Seeder
 
             $teacher = User::query()->findOrFail($profile->user_id);
 
+            $this->consents($student);
             $this->credits($student, $course);
             $this->sessions($workspace, $profile, $course, $student);
             $this->homework($workspace, $teacher, $course, $student);
@@ -114,6 +118,36 @@ class StudentDashboardSeeder extends Seeder
         });
 
         $this->command->info('بيانات لوحة الطالب: جدول وحصص · نقاط وشارات وصدارة · رصيد · واجبات · تقارير.');
+    }
+
+    /**
+     * الموافقتان اللتان تسبقان الرصيدَ على الشاشة.
+     *
+     * ⚠️ بدونهما تفتحُ «رصيدي» على «موافقات مطلوبة» فوقَ الأرصدة — وهي شاشةٌ
+     * صحيحةٌ تماماً، لكنّها ليست ما زُرِعَتِ البياناتُ لعرضِه. والنسخةُ تُقرأُ من
+     * `ConsentRegistry` ولا تُكتَبُ رقماً هنا: نسخةٌ منشورةٌ جديدةٌ تُبطِلُ التأجيلَ
+     * لمن لم يوقّعْها، فرقمٌ ثابتٌ في سيدرٍ يصيرُ موافقةً لوثيقةٍ لا وجودَ لها.
+     */
+    private function consents(User $student): void
+    {
+        $registry = app(ConsentRegistry::class);
+
+        foreach ([ConsentDocument::DeferredPaymentTerms, ConsentDocument::DataProcessing] as $document) {
+            TermsConsent::query()->firstOrCreate(
+                [
+                    'user_id' => $student->getKey(),
+                    'student_user_id' => $student->getKey(),
+                    'document' => $document->value,
+                    'version' => $registry->currentVersion($document),
+                ],
+                [
+                    'uuid' => (string) Str::uuid(),
+                    'ip_address' => '127.0.0.1',
+                    'user_agent' => 'StudentDashboardSeeder',
+                    'consented_at' => now()->subMonth(),
+                ],
+            );
+        }
     }
 
     /**
