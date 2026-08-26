@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Models;
 
 use App\Models\BaseModel;
+use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
@@ -151,6 +152,28 @@ class ClassSession extends BaseModel
     public function recordingLesson(): HasOne
     {
         return $this->hasOne(Lesson::class, 'class_session_id')->withoutWorkspaceScope();
+    }
+
+    /**
+     * Does this person hold a seat here — of ANY status?
+     *
+     * ⚠️ DELIBERATELY WIDER THAN THE DOOR. `IssueJoinTicket::roleFor()` asks for a
+     * `Booked` seat, because entering a room is a live entitlement. This answers
+     * "is this session any of your business", which a cancelled seat also settles:
+     * the student whose enrolment lapsed and whose seat `ReleaseIneligibleBookings`
+     * then cancelled is precisely the person `FR-038` exists for, and a
+     * booked-only read would refuse them the sentence explaining why.
+     *
+     * The workspace scope is dropped for the same reason `recordingLesson()` drops
+     * it: the reader is a student, whose own context is not this teacher's
+     * workspace and is usually no workspace at all.
+     */
+    public function holdsSeat(User $user): bool
+    {
+        return $this->bookings()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $user->getKey())
+            ->exists();
     }
 
     public function seatsAvailable(): int

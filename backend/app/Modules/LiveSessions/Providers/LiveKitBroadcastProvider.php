@@ -21,6 +21,7 @@ use App\Modules\LiveSessions\Enums\ParticipantRole;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use Carbon\CarbonImmutable;
+use DomainException;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Livekit\EgressInfo;
@@ -167,10 +168,36 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
         $room = $this->roomName($session);
         $identity = $target->uuid;
 
-        match ($action) {
-            HostAction::Mute => $this->muteEveryAudioTrack($room, $identity),
-            HostAction::Remove => $this->rooms()->removeParticipant($room, $identity),
-        };
+        /*
+         * ⚠️ «THEY ARE NOT IN THE ROOM» IS AN ANSWER, NOT A CRASH — AND IT WAS A 500.
+         *
+         * A teacher presses mute on the participant list; the student closed
+         * their laptop a second earlier. LiveKit answers `TwirpError: participant
+         * does not exist`, which nothing caught: `BroadcastController::host()`
+         * handles `UnsupportedCapability` and `DomainException` and neither is
+         * this, so the teacher read «حدث خطأ» — with `APP_DEBUG` on, a stack
+         * trace — over the most ordinary event in a live lesson. Measured against
+         * a real LiveKit project on 2026-08-26 (`T051` step ٧); no test could see
+         * it, because a fake provider has no participants to be missing.
+         *
+         * It is translated HERE and not in the controller: this is the one file
+         * that may know the provider's name (FR-002), and a `TwirpError` caught
+         * upstairs would put the vendor's vocabulary in a controller. NotFound
+         * alone becomes a sentence — every other code is still a real failure and
+         * must keep travelling, exactly as `closeRoom()` decided for itself.
+         */
+        try {
+            match ($action) {
+                HostAction::Mute => $this->muteEveryAudioTrack($room, $identity),
+                HostAction::Remove => $this->rooms()->removeParticipant($room, $identity),
+            };
+        } catch (TwirpError $e) {
+            if ($e->getErrorCode() !== ErrorCode::NotFound) {
+                throw $e;
+            }
+
+            throw new DomainException('هذا المشارك لم يعد في الغرفة.');
+        }
     }
 
     /**
