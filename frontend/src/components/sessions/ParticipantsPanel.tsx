@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  useIsSpeaking,
   useParticipantAttributes,
   useParticipants,
 } from "@livekit/components-react";
@@ -45,6 +46,44 @@ export function ParticipantsPanel({
   const [roster, setRoster] = useState<Map<string, RoomParticipant>>(new Map());
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [signals, setSignals] = useState<Map<string, { hand: number | null; confused: boolean }>>(
+    new Map(),
+  );
+  // A counter, not a clock: the ORDER is the answer and nothing renders a time.
+  const raiseCounter = useRef(0);
+
+  /*
+   * ⚠️ THE ORDER IS WHEN THIS SCREEN SAW THE HAND, NOT A NUMBER THE STUDENT SENT.
+   *
+   * A timestamp written into the attribute would be the obvious answer and is
+   * the wrong one: attributes are written by the client that owns them, so the
+   * student who wants to be first would simply say they were — and being asked
+   * in turn is the entire point of the feature. What a browser cannot forge is
+   * the moment THIS browser was told, and the teacher's screen is the only one
+   * that needs a queue.
+   *
+   * The price is written down rather than hidden: after the teacher reloads, a
+   * roomful of already-raised hands is seen at once and numbered arbitrarily.
+   * Hands raised from then on queue correctly behind them.
+   */
+  const onSignals = useCallback((identity: string, hand: boolean, confused: boolean) => {
+    setSignals((current) => {
+      const previous = current.get(identity);
+      const wasRaised = previous?.hand ?? null;
+
+      if ((wasRaised !== null) === hand && (previous?.confused ?? false) === confused) {
+        return current;
+      }
+
+      const next = new Map(current);
+      next.set(identity, {
+        hand: hand ? (wasRaised ?? ++raiseCounter.current) : null,
+        confused,
+      });
+
+      return next;
+    });
+  }, []);
 
   /*
    * Re-fetched when the count changes, never on every render and never per row:
@@ -126,13 +165,37 @@ export function ParticipantsPanel({
   // put out is only reachable from this panel.
   const removed = [...roster.values()].filter((person) => person.is_removed === true);
 
+  /*
+   * The raise counter only ever grows, so the numbers it hands out are not
+   * «الأوّل، الثاني» — they are «الرابع، السابع» after a few rounds. Ranked here,
+   * once for the whole panel, so the queue reads 1..n whatever the counter is at.
+   */
+  const queue = new Map(
+    [...signals.entries()]
+      .filter(([, signal]) => signal.hand !== null)
+      .sort((a, b) => (a[1].hand ?? 0) - (b[1].hand ?? 0))
+      .map(([identity], index): [string, number] => [identity, index + 1]),
+  );
+
+  const confusedCount = [...signals.values()].filter((signal) => signal.confused).length;
+
   if (participants.length === 0 && removed.length === 0) return null;
 
   return (
     <div className="mt-6 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-bold text-ink">
-          المشاركون (<bdi>{participants.length}</bdi>)
+        <h3 className="flex items-center gap-2 text-sm font-bold text-ink">
+          <span>
+            المشاركون (<bdi>{participants.length}</bdi>)
+          </span>
+
+          {/* The count, not the names: a teacher mid-explanation needs to know
+              THAT four people are lost, and the names are one glance down. */}
+          {confusedCount > 0 && (
+            <Badge tone="warning">
+              🤔 <bdi>{confusedCount}</bdi> لم يفهموا
+            </Badge>
+          )}
         </h3>
 
         {/*
@@ -153,7 +216,7 @@ export function ParticipantsPanel({
               loading={busy === "lower-hands"}
               onClick={() => void actOnRoom("lower-hands")}
             >
-              أنزِل الأيدي
+              امسح الإشارات
             </Button>
             <Button
               variant="ghost"
@@ -184,6 +247,8 @@ export function ParticipantsPanel({
             isHost={isHost}
             busy={busy}
             onAct={act}
+            queuePosition={queue.get(participant.identity) ?? null}
+            onSignals={onSignals}
           />
         ))}
       </ul>
@@ -237,22 +302,39 @@ function ParticipantRow({
   isHost,
   busy,
   onAct,
+  queuePosition,
+  onSignals,
 }: {
   participant: Participant;
   person: RoomParticipant | undefined;
   isHost: boolean;
   busy: string;
   onAct: (action: "mute" | "remove", identity: string) => Promise<void>;
+  queuePosition: number | null;
+  onSignals: (identity: string, hand: boolean, confused: boolean) => void;
 }) {
   const { attributes } = useParticipantAttributes({ participant });
+  const isSpeaking = useIsSpeaking(participant);
   /*
-   * ⚠️ READ AS A BOOLEAN, NEVER PRINTED. Attributes are written by the client
+   * ⚠️ READ AS BOOLEANS, NEVER PRINTED. Attributes are written by the client
    * that owns them — that is what makes a hand raise instantly without a round
-   * trip — so a participant can put any sentence in there. One key, compared to
-   * one value, rendered as an icon.
+   * trip — so a participant can put any sentence in there. Two keys, each
+   * compared to one value, each rendered as an icon.
    */
   const handRaised = attributes?.hand === "1";
+  const confused = attributes?.confused === "1";
   const name = person?.name ?? "مشارك";
+  const identity = participant.identity;
+
+  /*
+   * The panel above keeps the queue, and this is where it learns. Reported on
+   * every change rather than derived up there, because the attributes hook
+   * subscribes per participant and only this component sees the moment a hand
+   * goes up.
+   */
+  useEffect(() => {
+    onSignals(identity, handRaised, confused);
+  }, [onSignals, identity, handRaised, confused]);
 
   return (
     <li className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2">
@@ -261,16 +343,45 @@ function ParticipantRow({
 
         <span className="flex min-w-0 flex-col gap-1">
           <span className="flex items-center gap-2">
+            {/* Who is talking, without reading a single name. The library
+                already tracks it; drawing it is what stops a class of twelve
+                asking «مين اللي بيتكلّم؟» out loud over the person speaking. */}
+            {isSpeaking && (
+              <span
+                className="size-2 shrink-0 rounded-full bg-success"
+                role="img"
+                aria-label={`${name} يتحدّث الآن`}
+              />
+            )}
+
             <span className="truncate text-sm text-ink">{name}</span>
 
             {handRaised && (
               <span
                 className="text-base"
                 role="img"
-                aria-label={`${name} يرفع يده`}
+                aria-label={
+                  queuePosition === null
+                    ? `${name} يرفع يده`
+                    : `${name} يرفع يده — الدور ${queuePosition}`
+                }
                 title="يرفع يده"
               >
                 ✋
+                {queuePosition !== null && (
+                  <bdi className="ms-1 text-xs font-bold text-ink-muted">{queuePosition}</bdi>
+                )}
+              </span>
+            )}
+
+            {confused && (
+              <span
+                className="text-base"
+                role="img"
+                aria-label={`${name} لم يفهم`}
+                title="لم يفهم"
+              >
+                🤔
               </span>
             )}
 

@@ -55,15 +55,18 @@ use Twirp\ErrorCode;
 final class LiveKitBroadcastProvider implements BroadcastProviderInterface
 {
     /**
-     * The one participant attribute this product writes.
+     * The only participant attributes this product writes: «ارفع يدك» and
+     * «لم أفهم».
      *
-     * ⚠️ THE SAME KEY IS READ IN THE BROWSER (`BroadcastStage` · `ParticipantsPanel`)
-     * and there is no way to share a constant across that boundary — so it is
-     * named here once, and a rename is a change in two files that no compiler
-     * will pair up. It is also the only key: attributes are written by the client
-     * that owns them, so anything else in there is somebody's keyboard.
+     * ⚠️ THE SAME KEYS ARE READ IN THE BROWSER (`BroadcastStage` ·
+     * `ParticipantsPanel`) and there is no way to share a constant across that
+     * boundary — so they are named here once, and a rename is a change in three
+     * files that no compiler will pair up. Anything ELSE that turns up in a
+     * participant's attributes is somebody's keyboard: they are written by the
+     * client that owns them, which is what makes a hand go up with no round trip
+     * and exactly why nothing may be rendered from them as text.
      */
-    private const HAND_ATTRIBUTE = 'hand';
+    private const SIGNAL_ATTRIBUTES = ['hand', 'confused'];
 
     public function __construct(
         private readonly SessionSettings $settings,
@@ -307,7 +310,7 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
                 match ($action) {
                     HostAction::MuteAll => $this->muteEveryAudioTrack($room, $identity),
                     HostAction::RemoveAll => $this->rooms()->removeParticipant($room, $identity),
-                    HostAction::LowerHands => $this->lowerHand($room, $participant),
+                    HostAction::LowerHands => $this->clearSignals($room, $participant),
                     default => null,
                 };
                 $touched[] = $identity;
@@ -322,25 +325,34 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
     }
 
     /**
-     * Clear one raised hand, and only if it is up.
+     * Clear one person's raised hand and «لم أفهم», if either is set.
+     *
+     * ⚠️ ONE BUTTON FOR BOTH, WHICH IS WHY IT READS «امسح الإشارات». A teacher
+     * who has just re-explained the point wants the room quiet again; clearing
+     * the hands and leaving four «لم أفهم» behind would make the count on their
+     * screen a number about a moment that has passed.
      *
      * An empty value DELETES the attribute rather than storing `""` — the SDK
-     * says so — which keeps `attributes` empty for a room where nobody has asked
-     * to speak, instead of a row of dead keys the screen has to reason about.
-     * Skipped when the key is absent, so «إنزال الأيدي» in a room with two hands
-     * up costs two calls and not twenty.
+     * says so, and the student's own control writes the same empty string, so
+     * «lowered» has one spelling. Skipped when neither key is set, so clearing a
+     * room with two hands up costs two calls and not twenty.
      */
-    private function lowerHand(string $room, ParticipantInfo $participant): void
+    private function clearSignals(string $room, ParticipantInfo $participant): void
     {
-        if (($participant->getAttributes()[self::HAND_ATTRIBUTE] ?? '') === '') {
+        $attributes = $participant->getAttributes();
+        $clear = [];
+
+        foreach (self::SIGNAL_ATTRIBUTES as $key) {
+            if (($attributes[$key] ?? '') !== '') {
+                $clear[$key] = '';
+            }
+        }
+
+        if ($clear === []) {
             return;
         }
 
-        $this->rooms()->updateParticipant(
-            $room,
-            $participant->getIdentity(),
-            attributes: [self::HAND_ATTRIBUTE => ''],
-        );
+        $this->rooms()->updateParticipant($room, $participant->getIdentity(), attributes: $clear);
     }
 
     /**

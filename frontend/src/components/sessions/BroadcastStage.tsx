@@ -5,12 +5,14 @@ import {
   LiveKitRoom,
   ParticipantTile,
   RoomAudioRenderer,
+  useIsSpeaking,
   useLocalParticipant,
   useParticipantAttributes,
   useTracks,
   VideoTrack,
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
+import type { TrackReferenceOrPlaceholder } from "@livekit/components-core";
 
 import { ParticipantsPanel } from "@/components/sessions/ParticipantsPanel";
 import { Alert } from "@/components/ui/Alert";
@@ -112,34 +114,50 @@ function Stage() {
       aria-label="مسرح البثّ"
     >
       {tracks.map((trackRef) => (
-        <div
-          key={`${trackRef.participant.identity}-${trackRef.source}`}
-          className="aspect-video overflow-hidden rounded-2xl border border-line bg-surface"
-        >
-          {/*
-            ⚠️ CHILDREN, BECAUSE THE LIBRARY'S DEFAULT TILE PRINTS THE IDENTITY —
-            AND OUR IDENTITY IS A UUID. `ParticipantTile` renders
-            `participant.name || participant.identity`, and the ticket never sets
-            a name (`FR-006`): the identity is echoed by the provider to everyone
-            in the room, so a name inside it is a name we no longer control. The
-            result was `a270bec9-2a00-…` written across the video of a lesson.
-
-            The names live in the participants list under the stage, where they
-            come from our own authenticated route. Repeating them here would mean
-            carrying the roster into this component for a caption nobody reads
-            while looking at a face.
-          */}
-          <ParticipantTile trackRef={trackRef}>
-            {trackRef.publication === undefined ? (
-              <div className="flex h-full items-center justify-center text-sm text-ink-muted">
-                الكاميرا مغلقة
-              </div>
-            ) : (
-              <VideoTrack trackRef={trackRef} />
-            )}
-          </ParticipantTile>
-        </div>
+        <StageTile key={`${trackRef.participant.identity}-${trackRef.source}`} trackRef={trackRef} />
       ))}
+    </div>
+  );
+}
+
+/**
+ * One tile, and the ring that says who is talking.
+ *
+ * Its own component so `useIsSpeaking` subscribes PER PARTICIPANT — a single
+ * hook at the top of the grid could only watch one of them, and the whole point
+ * is that the ring moves.
+ */
+function StageTile({ trackRef }: { trackRef: TrackReferenceOrPlaceholder }) {
+  const isSpeaking = useIsSpeaking(trackRef.participant);
+
+  return (
+    <div
+      className={`aspect-video overflow-hidden rounded-2xl border-2 bg-surface ${
+        isSpeaking ? "border-success" : "border-line"
+      }`}
+    >
+      {/*
+        ⚠️ CHILDREN, BECAUSE THE LIBRARY'S DEFAULT TILE PRINTS THE IDENTITY —
+        AND OUR IDENTITY IS A UUID. `ParticipantTile` renders
+        `participant.name || participant.identity`, and the ticket never sets a
+        name (`FR-006`): the identity is echoed by the provider to everyone in
+        the room, so a name inside it is a name we no longer control. The result
+        was `a270bec9-2a00-…` written across the video of a lesson.
+
+        The names live in the participants list under the stage, where they come
+        from our own authenticated route. Repeating them here would mean carrying
+        the roster into this component for a caption nobody reads while looking
+        at a face.
+      */}
+      <ParticipantTile trackRef={trackRef}>
+        {trackRef.publication === undefined ? (
+          <div className="flex h-full items-center justify-center text-sm text-ink-muted">
+            الكاميرا مغلقة
+          </div>
+        ) : (
+          <VideoTrack trackRef={trackRef} />
+        )}
+      </ParticipantTile>
     </div>
   );
 }
@@ -152,6 +170,28 @@ function SelfControls() {
   const [error, setError] = useState("");
 
   const handRaised = attributes?.hand === "1";
+  const confused = attributes?.confused === "1";
+
+  /**
+   * One signal, on or off.
+   *
+   * ⚠️ AN EMPTY STRING TURNS IT OFF, never `"0"`. The provider DELETES an
+   * attribute whose value is empty, which is also what the teacher's «امسح
+   * الإشارات» does server-side — two spellings of "lowered" would leave the room
+   * carrying dead keys that only one of the two paths knows to ignore.
+   *
+   * It deliberately does NOT go through `run()`: nothing here touches a camera
+   * or a microphone, so the secure-context guard would refuse the two controls
+   * that still work for a student who cannot publish anything — which is exactly
+   * the student who most needs to ask.
+   */
+  const signal = (key: "hand" | "confused", on: boolean): Promise<void> => {
+    setError("");
+
+    return localParticipant
+      .setAttributes({ ...attributes, [key]: on ? "1" : "" })
+      .catch((e: unknown) => setError(userMessage(e)));
+  };
 
   /**
    * ⚠️ `void promise` was the whole error handling here, and a rejected promise
@@ -189,28 +229,33 @@ function SelfControls() {
 
       <div className="flex flex-wrap gap-2">
         {/*
-          ⚠️ AN ATTRIBUTE, NOT A MESSAGE, AND NOT A ROW IN OUR DATABASE. The
-          provider replays attributes to whoever joins later, so a hand raised
-          before the teacher opened their laptop is still up when they arrive —
-          a data message would have been delivered to an empty room and lost.
-          And it needs no endpoint of ours: a raised hand is worth nothing once
-          the lesson ends, so storing it would be a table that only ever grows.
-
-          It does NOT go through `run()`: nothing here touches a camera or a
-          microphone, so the secure-context guard would refuse the one control
-          that still works for a student who cannot publish anything — which is
-          exactly the student who most needs to ask.
+          ⚠️ ATTRIBUTES, NOT MESSAGES, AND NOT ROWS IN OUR DATABASE. The provider
+          replays attributes to whoever joins later, so a hand raised before the
+          teacher opened their laptop is still up when they arrive — a data
+          message would have been delivered to an empty room and lost. And they
+          need no endpoint of ours: a raised hand is worth nothing once the
+          lesson ends, so storing it would be a table that only ever grows.
         */}
         <Button
           variant={handRaised ? "secondary" : "ghost"}
-          onClick={() => {
-            setError("");
-            localParticipant
-              .setAttributes({ ...attributes, hand: handRaised ? "" : "1" })
-              .catch((e: unknown) => setError(userMessage(e)));
-          }}
+          onClick={() => void signal("hand", !handRaised)}
         >
           {handRaised ? "أنزل يدي" : "ارفع يدك ✋"}
+        </Button>
+
+        {/*
+          ⚠️ THE QUIET STUDENT'S BUTTON, and it is not a second hand. Raising a
+          hand is a request to SPEAK in front of the class, which is exactly what
+          the student who is lost will not do — so «لم أفهم» is one tap that
+          interrupts nobody, and what the teacher reads is a COUNT rather than a
+          list of names. It carries no text on purpose: a free-form «ما فهمت
+          إيه؟» is a second chat, unmoderated, in the middle of a lesson.
+        */}
+        <Button
+          variant={confused ? "secondary" : "ghost"}
+          onClick={() => void signal("confused", !confused)}
+        >
+          {confused ? "فهمت الآن" : "لم أفهم 🤔"}
         </Button>
 
         <Button

@@ -21,11 +21,14 @@ type FakeParticipant = { identity: string; isLocal: boolean };
 const attributesByIdentity: Record<string, Record<string, string>> = {};
 let roomParticipants: FakeParticipant[] = [];
 
+let speaking = "";
+
 vi.mock("@livekit/components-react", () => ({
   useParticipants: () => roomParticipants,
   useParticipantAttributes: ({ participant }: { participant: FakeParticipant }) => ({
     attributes: attributesByIdentity[participant.identity] ?? {},
   }),
+  useIsSpeaking: (participant: FakeParticipant) => participant.identity === speaking,
 }));
 
 const participants = vi.fn();
@@ -162,5 +165,77 @@ describe("ParticipantsPanel", () => {
 
     expect(container.textContent).not.toContain("أُخرجوا");
     expect(screen.queryByRole("button", { name: "اسمح بالعودة" })).toBeNull();
+  });
+
+  it("numbers raised hands in the order this screen saw them", async () => {
+    /*
+     * ⚠️ THE ORDER IS OBSERVED, NOT SENT. A timestamp inside the attribute is
+     * the obvious design and the wrong one: attributes are written by the client
+     * that owns them, so the student who wants to be first would simply say they
+     * were — and being asked in turn is the whole point.
+     *
+     * ⚠️ AND THE SEQUENCE BELOW IS WHAT MAKES THIS TEST MEAN ANYTHING. The
+     * student raises FIRST, then lowers and raises again — so whoever sorts by
+     * anything stable about the row (the order the rows render, the roster, the
+     * identity) puts them back at the front, which is precisely the queue-jump
+     * this feature exists to prevent. Written the obvious way — two people, two
+     * raises — it passed against a build with no ordering in it at all.
+     */
+    roster();
+    roomParticipants = [
+      { identity: "u-teacher", isLocal: true },
+      { identity: "u-student", isLocal: false },
+    ];
+    attributesByIdentity["u-student"] = { hand: "1" };
+
+    const { rerender } = render(<ParticipantsPanel sessionUuid="s-1" isHost={true} />);
+    expect(await screen.findByRole("img", { name: /سلمى محمود يرفع يده — الدور 1/ })).toBeTruthy();
+
+    attributesByIdentity["u-teacher"] = { hand: "1" };
+    rerender(<ParticipantsPanel sessionUuid="s-1" isHost={true} />);
+    expect(await screen.findByRole("img", { name: /أستاذ خالد يرفع يده — الدور 2/ })).toBeTruthy();
+
+    // Down, then up again: the student goes to the back of the queue.
+    delete attributesByIdentity["u-student"];
+    rerender(<ParticipantsPanel sessionUuid="s-1" isHost={true} />);
+    attributesByIdentity["u-student"] = { hand: "1" };
+    rerender(<ParticipantsPanel sessionUuid="s-1" isHost={true} />);
+
+    expect(await screen.findByRole("img", { name: /أستاذ خالد يرفع يده — الدور 1/ })).toBeTruthy();
+    expect(screen.getByRole("img", { name: /سلمى محمود يرفع يده — الدور 2/ })).toBeTruthy();
+
+    delete attributesByIdentity["u-student"];
+    delete attributesByIdentity["u-teacher"];
+  });
+
+  it("counts «لم أفهم» without naming anybody in the header", async () => {
+    // A count is what a teacher mid-explanation can act on; the names are one
+    // glance down the list, where the icon sits beside the row.
+    roster();
+    roomParticipants = [{ identity: "u-student", isLocal: false }];
+    attributesByIdentity["u-student"] = { confused: "1" };
+
+    render(<ParticipantsPanel sessionUuid="s-1" isHost={true} />);
+
+    expect(await screen.findByText(/لم يفهموا/)).toBeTruthy();
+    expect(screen.getByRole("img", { name: /سلمى محمود لم يفهم/ })).toBeTruthy();
+
+    delete attributesByIdentity["u-student"];
+  });
+
+  it("marks who is speaking, and only them", async () => {
+    roster();
+    roomParticipants = [
+      { identity: "u-teacher", isLocal: true },
+      { identity: "u-student", isLocal: false },
+    ];
+    speaking = "u-student";
+
+    render(<ParticipantsPanel sessionUuid="s-1" isHost={false} />);
+
+    expect(await screen.findByRole("img", { name: "سلمى محمود يتحدّث الآن" })).toBeTruthy();
+    expect(screen.queryByRole("img", { name: "أستاذ خالد يتحدّث الآن" })).toBeNull();
+
+    speaking = "";
   });
 });
