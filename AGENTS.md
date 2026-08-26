@@ -146,6 +146,26 @@ Tests use in-memory SQLite (`DB_DATABASE=:memory:` in `phpunit.xml`).
 43. The board picker offers nothing the board itself refuses — `tests/Feature/Gamification/LeaderboardScopesTest.php`
 44. The taxonomy is the platform's, and the permission that says so is actually asked — `tests/Feature/Marketplace/TaxonomyPermissionTest.php`
 
+### Read before touching anything a STUDENT can reach
+
+A real student belongs to no workspace, so `WorkspaceContext::id()` is null for them —
+`users.last_workspace_id` is written only by `CreateWorkspace` and by
+`WorkspaceContext::set()` (from `AcceptInvitation` and `SwitchWorkspace`, both about
+members), plus the two seeders. Enrolling writes nothing; signing in writes nothing.
+
+`BasePolicy::belongsToCurrentWorkspace()` therefore raises **no objection** when the
+context is null, exactly as `WorkspaceScope::apply()` adds no condition. Until
+2026-08-26 it denied instead, and five endpoints were dead for every student who was
+not stamped by a seeder — booking a seat, opening a session, reading their own
+attendance row, being told why a join was refused, and **playing any lesson at all**.
+It cannot open anything: null also means no spatie team id, so every `can()` is false
+and only an explicit ownership branch can allow.
+
+⚠️ A test of anything student-facing must leave `last_workspace_id` NULL and reset the
+context singleton. `Sanctum::actingAs()` + `setCurrentWorkspace()` and
+`addWorkspaceMember()` both hand the test a person production never creates. See
+`tests/Feature/Learning/LessonPlayerWithoutWorkspaceTest.php`.
+
 ### Read before touching sessions
 
 Attendance never passes through the broadcast provider. The register is built from a

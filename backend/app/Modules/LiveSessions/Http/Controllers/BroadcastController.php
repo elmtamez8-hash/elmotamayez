@@ -10,6 +10,7 @@ use App\Modules\LiveSessions\Actions\IssueJoinTicket;
 use App\Modules\LiveSessions\Actions\PerformHostAction;
 use App\Modules\LiveSessions\Actions\RecordPresencePing;
 use App\Modules\LiveSessions\Enums\HostAction;
+use App\Modules\LiveSessions\Exceptions\BroadcastProviderUnavailable;
 use App\Modules\LiveSessions\Exceptions\UnsupportedCapability;
 use App\Modules\LiveSessions\Http\Resources\JoinTicketResource;
 use App\Modules\LiveSessions\Models\ClassSession;
@@ -32,6 +33,18 @@ class BroadcastController extends Controller
     {
         try {
             $ticket = $action->handle($session, $this->currentUser($request));
+        } catch (BroadcastProviderUnavailable $e) {
+            /*
+             * ⚠️ CAUGHT ABOVE THE UNIFORM REFUSAL, AND THE ORDER IS THE WHOLE FIX.
+             * It extends RuntimeException, so the arm below would swallow it and
+             * tell a teacher whose provider is down to go and check their booking.
+             * 503 with the real sentence: an outage does not vary with who is
+             * asking, so naming it leaks nothing — FR-015 is about entitlement.
+             */
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => 'broadcast_unavailable',
+            ], 503);
         } catch (RuntimeException $e) {
             return response()->json([
                 'message' => $e->getMessage(),

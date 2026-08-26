@@ -13,6 +13,7 @@ use App\Modules\Media\Data\UploadTicket;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Enums\PlaybackFormat;
 use App\Modules\Media\Models\MediaAsset;
+use App\Modules\Media\Support\FetchableSourceUrl;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\File;
@@ -80,12 +81,26 @@ class LocalMediaProvider implements MediaProviderInterface
         // Derived from the file's own length, not a constant: the longer the
         // lesson the bigger the file, so a fixed 120 seconds failed exactly the
         // recordings that mattered most and counted an attempt each time.
+        // ⚠️ SIGNED FIRST, AND FOR A WHILE IT WAS NOT. The only caller hands over
+        // the egress's plain object URL, and our own bucket is private: R2 answers
+        // `400 InvalidArgument: Authorization` and `sink()` writes that 113-byte
+        // XML to the asset's final path. The configured provider had been signing
+        // inside its own adapter, so the contract this URL was supposed to arrive
+        // already satisfying went unmet and unnoticed — see FetchableSourceUrl.
         $response = Http::withHeaders($sourceHeaders)
             ->timeout(max(120, (int) $asset->duration_seconds))
             ->sink($absolute)
-            ->get($sourceUrl);
+            ->get(FetchableSourceUrl::for($sourceUrl));
 
         if (! $response->successful()) {
+            // ⚠️ THE SINK WROTE THE ERROR BODY TO THE ASSET'S FINAL PATH. `sink()`
+            // streams whatever comes back, so a refusal leaves a small XML or HTML
+            // file sitting exactly where the video belongs. `provider_asset_id`
+            // stays null so nothing serves it today — but a file that looks like
+            // an arrived asset and is not one is a trap for the next reader, and
+            // it cost an hour of reading a 113-byte «video».
+            File::delete($absolute);
+
             throw new RuntimeException('تعذّر تنزيل الملف من المصدر.');
         }
 
@@ -209,8 +224,10 @@ class LocalMediaProvider implements MediaProviderInterface
             return null;
         }
 
+        // No finfo_close(): deprecated in PHP 8.5 — which is the version this
+        // platform runs — because the object is freed when it falls out of scope.
+        // It printed a DEPRECATED warning into the output of every local ingest.
         $mime = finfo_buffer($finfo, $head);
-        finfo_close($finfo);
 
         return $mime === false || $mime === '' ? null : $mime;
     }

@@ -39,8 +39,8 @@ final class BunnyFixtures
             'media.bunny.pull_zone' => self::PULL_ZONE,
             'media.bunny.security_key' => 'test-security-key',
             'media.bunny.title_prefix' => self::TITLE_PREFIX,
-            'media.bunny.source_disk' => 'r2',
-            'media.bunny.source_url_ttl_minutes' => 120,
+            'media.source_disk' => 'r2',
+            'media.source_url_ttl_minutes' => 120,
             'filesystems.disks.r2' => [
                 'driver' => 's3',
                 'key' => 'test-r2-key',

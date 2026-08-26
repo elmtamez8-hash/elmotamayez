@@ -18,6 +18,7 @@ use App\Modules\LiveSessions\Data\RecordingArtifact;
 use App\Modules\LiveSessions\Data\RoomHandle;
 use App\Modules\LiveSessions\Enums\HostAction;
 use App\Modules\LiveSessions\Enums\ParticipantRole;
+use App\Modules\LiveSessions\Exceptions\BroadcastProviderUnavailable;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use Carbon\CarbonImmutable;
@@ -87,19 +88,42 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
         if ($session->broadcast_room_id === null) {
             $lifetime = $this->roomLifetimeSeconds($session);
 
-            $this->rooms()->createRoom(
-                (new RoomCreateOptions)
-                    ->setName($name)
+            /*
+             * ⚠️ THE PROVIDER BEING DOWN IS AN ANSWER, AND IT USED TO BE A 500.
+             *
+             * `TwirpError` escaped this call uncaught — a transport failure as
+             * much as a protocol one — so the teacher's screen carried
+             * «cURL error 6: Could not resolve host …» naming our internal host,
+             * and in production, with `APP_DEBUG` off, carried nothing at all.
+             * The quickstart calls this step the most important and the least
+             * noticed, for the reason it is: a provider outage is the one failure
+             * nobody is accountable for, so nobody checks that it is SAID.
+             *
+             * Translated here because this is the one file allowed to know the
+             * vendor's name (`FR-002`), and into a type of its own rather than
+             * the module's uniform refusal — see BroadcastProviderUnavailable for
+             * why an outage may be named while an entitlement may not.
+             */
+            try {
+                $this->rooms()->createRoom(
+                    (new RoomCreateOptions)
+                        ->setName($name)
                     // FR-003: the ceiling is PASSED to the provider, not merely
                     // declared to our own callers.
-                    ->setMaxParticipants($this->settings->maxParticipants())
+                        ->setMaxParticipants($this->settings->maxParticipants())
                     // Both timeouts are derived from this session's length. A
                     // constant would close a three-hour lesson's room in the
                     // middle of it (research §R5).
-                    ->setEmptyTimeout($lifetime)
-                    ->setDepartureTimeout($lifetime)
-                    ->setEgress($this->automaticEgress($name))
-            );
+                        ->setEmptyTimeout($lifetime)
+                        ->setDepartureTimeout($lifetime)
+                        ->setEgress($this->automaticEgress($name))
+                );
+            } catch (TwirpError $e) {
+                throw new BroadcastProviderUnavailable(
+                    'تعذّر فتحُ غرفةِ البثّ الآن — خدمةُ البثِّ لا تستجيب. لم يُحتسَب على أحدٍ شيء، وأعِد المحاولةَ بعد قليل.',
+                    previous: $e,
+                );
+            }
         }
 
         return new RoomHandle(

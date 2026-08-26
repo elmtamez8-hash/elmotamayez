@@ -7,6 +7,7 @@ use Agence104\LiveKit\RoomServiceClient;
 use App\Models\User;
 use App\Modules\LiveSessions\Enums\HostAction;
 use App\Modules\LiveSessions\Enums\ParticipantRole;
+use App\Modules\LiveSessions\Exceptions\BroadcastProviderUnavailable;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Providers\LiveKitBroadcastProvider;
 use App\Modules\LiveSessions\Support\SessionSettings;
@@ -20,6 +21,8 @@ use Livekit\ParticipantInfo;
 use Livekit\RemoveParticipantResponse;
 use Livekit\TrackInfo;
 use Livekit\TrackType;
+use Livekit\TwirpError;
+use Twirp\ErrorCode;
 
 /*
 | The adapter, opened up.
@@ -428,4 +431,57 @@ it('records the dominant track alone, filling the frame', function (): void {
     expect($composite->getLayout())->toBe('single-speaker')
         // And the file output is still the one we asked for, in our own bucket.
         ->and(count($composite->getFileOutputs()))->toBe(1);
+});
+
+/*
+| The provider being down, and the provider saying "they left" — two answers that
+| were both a 500 until the first live run (`T051`, 2026-08-26).
+|
+| Neither is reachable from a fake provider: one needs a transport failure and the
+| other needs a participant who is not there, and a stub has neither. Both are
+| translated inside the adapter because it is the one file allowed to know the
+| vendor's name (FR-002) — a `TwirpError` caught in a controller would carry that
+| vocabulary upstairs.
+*/
+it('turns an unreachable provider into a named outage, not a crash', function (): void {
+    $session = adapterSession();
+
+    $rooms = Mockery::mock(RoomServiceClient::class);
+    $rooms->shouldReceive('createRoom')
+        ->once()
+        ->andThrow(TwirpError::newError(ErrorCode::Unavailable, 'failed to send request'));
+
+    $provider = new LiveKitBroadcastProvider(
+        new SessionSettings,
+        $rooms,
+        Mockery::mock(EgressServiceClient::class),
+    );
+
+    // The type matters as much as the message: BroadcastController answers it 503
+    // ABOVE the uniform RuntimeException arm, which would otherwise tell a teacher
+    // whose provider is down to go and check their booking.
+    expect(fn () => $provider->createRoom($session))
+        ->toThrow(BroadcastProviderUnavailable::class);
+});
+
+it('turns "that participant is gone" into a sentence, not a crash', function (): void {
+    $session = adapterSession();
+    $user = adapterUser();
+
+    $rooms = Mockery::mock(RoomServiceClient::class);
+    $rooms->shouldReceive('getParticipant')
+        ->once()
+        ->andThrow(TwirpError::newError(ErrorCode::NotFound, 'participant does not exist'));
+
+    $provider = new LiveKitBroadcastProvider(
+        new SessionSettings,
+        $rooms,
+        Mockery::mock(EgressServiceClient::class),
+    );
+
+    // A teacher pressing mute on somebody who closed their laptop a second
+    // earlier: the most ordinary event in a live lesson, and it read «حدث خطأ».
+    // DomainException is what the controller already maps to 422.
+    expect(fn () => $provider->hostAction($session, HostAction::Mute, $user))
+        ->toThrow(DomainException::class);
 });

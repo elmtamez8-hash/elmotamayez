@@ -16,13 +16,13 @@ use App\Modules\Media\Enums\MediaKind;
 use App\Modules\Media\Enums\PlaybackFormat;
 use App\Modules\Media\Exceptions\PermanentIngestFailure;
 use App\Modules\Media\Models\MediaAsset;
+use App\Modules\Media\Support\FetchableSourceUrl;
 use App\Modules\Media\Support\MediaLimits;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
 
@@ -621,34 +621,15 @@ final class BunnyMediaProvider implements MediaProviderInterface
     /**
      * A URL the provider can actually GET.
      *
-     * The fetch is the provider's own request and carries none of our credentials,
-     * so a private object needs a signed URL. The object key is the last segment
-     * of the path because the egress writes flat at the bucket root — the same
-     * bucket, by construction: the disk reads the very env vars the egress
-     * destination is configured from.
-     *
-     * An empty `source_disk` means "already fetchable" and the URL passes through,
-     * which is what a local run wants.
+     * The fetch is the provider's own request and carries none of our
+     * credentials, so a private object needs a signed URL. The signing itself
+     * moved to {@see FetchableSourceUrl} the day a second provider needed the
+     * identical thing and R2 answered `400 InvalidArgument` to the raw location
+     * — a private compensation here is a contract nobody else can keep.
      */
     private function fetchableUrl(string $sourceUrl): string
     {
-        $disk = (string) config('media.bunny.source_disk', '');
-
-        if ($disk === '') {
-            return $sourceUrl;
-        }
-
-        $path = parse_url($sourceUrl, PHP_URL_PATH);
-        $key = is_string($path) ? basename($path) : '';
-
-        if ($key === '') {
-            throw new PermanentIngestFailure('تعذّر استخراجُ مسار الملف من رابط المصدر.');
-        }
-
-        return Storage::disk($disk)->temporaryUrl(
-            $key,
-            CarbonImmutable::now()->addMinutes((int) config('media.bunny.source_url_ttl_minutes')),
-        );
+        return FetchableSourceUrl::for($sourceUrl);
     }
 
     /**

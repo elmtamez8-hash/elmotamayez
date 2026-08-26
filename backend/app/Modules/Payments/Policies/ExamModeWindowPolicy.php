@@ -26,9 +26,26 @@ class ExamModeWindowPolicy extends BasePolicy
         return Response::allow();
     }
 
+    /**
+     * ⚠️ THE WORKSPACE CHECK IS NOT AN ANSWER ON ITS OWN, and this was the one
+     * method in the tree that returned it directly. `belongsToCurrentWorkspace()`
+     * raises no objection when there is no current workspace — it never could,
+     * see `BasePolicy` — so a bare return read as "allow" for any caller
+     * operating outside one. Nothing in the HTTP surface exercises this ability
+     * (`ExamModeController` filters by workspace by hand), which is exactly why
+     * the shape survived: a policy method no route calls is a method nobody has
+     * ever tested, the same discovery `OrderPolicy::viewAny()` already wrote down.
+     * It asks for the permission now, like its siblings.
+     */
     public function view(User $user, ExamModeWindow $window): Response
     {
-        return $this->belongsToCurrentWorkspace($window);
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($window))->denied()) {
+            return $workspaceCheck;
+        }
+
+        return $user->can(Permissions::BILLING_EXAM_MODE_MANAGE)
+            ? Response::allow()
+            : Response::deny();
     }
 
     public function create(User $user): Response

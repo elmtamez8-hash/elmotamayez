@@ -67,17 +67,35 @@ return [
         'title_prefix' => env('BUNNY_TITLE_PREFIX', 'mteatch'),
 
         /*
-        | Where the provider fetches FROM. Empty means "the URL handed to
-        | ingestFromUrl is already fetchable" — which is what a local development
-        | run wants. Set to the bridge disk in production: the object is private,
-        | and Bunny's fetch is its own GET carrying none of our credentials.
+        | (Nothing here any more — see `source_disk` below, which moved out.)
         */
-        'source_disk' => env('BUNNY_SOURCE_DISK', 'r2'),
-
-        // Long enough for a fetch of a two-hour lesson to start and finish, short
-        // enough that a leaked source URL is not a lasting one.
-        'source_url_ttl_minutes' => (int) env('BUNNY_SOURCE_URL_TTL_MINUTES', 120),
     ],
+
+    /*
+    | Where a fetched source object lives, and how long its signed URL lasts.
+    |
+    | ⚠️ TOP LEVEL, NOT UNDER `bunny`, AND A TEST IS WHY. These two answer a
+    | question about OUR bucket, not about any vendor: `FetchableSourceUrl` signs
+    | the URL for whichever provider is ingesting, and `ProviderNameContainmentTest`
+    | fails the build over a file outside the adapter that names one. Reading
+    | `media.bunny.source_disk` from a shared class put the vendor's name in two
+    | files that have nothing to do with it — the same shape that keeps
+    | `default_country_code` at the top of `config/notifications.php` instead of
+    | inside its `whatsapp` block.
+    |
+    | Empty means "the URL handed to ingestFromUrl is already fetchable", which is
+    | what a local run against a public fixture wants. In production it is the
+    | bridge disk: the object is private, and the fetch — ours or a provider's —
+    | carries none of our credentials.
+    |
+    | The old `BUNNY_*` names are still read as a fallback so a deployed `.env`
+    | keeps working across this release.
+    */
+    'source_disk' => env('MEDIA_SOURCE_DISK', env('BUNNY_SOURCE_DISK', 'r2')),
+
+    // Long enough for a fetch of a two-hour lesson to start and finish, short
+    // enough that a leaked source URL is not a lasting one.
+    'source_url_ttl_minutes' => (int) env('MEDIA_SOURCE_URL_TTL_MINUTES', env('BUNNY_SOURCE_URL_TTL_MINUTES', 120)),
 
     // Upload limits (FR-003). Enforced in the Action, not only in validation.
     'max_size_bytes' => (int) env('MEDIA_MAX_SIZE_BYTES', 2_147_483_648),   // 2 GiB
