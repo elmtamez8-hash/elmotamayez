@@ -231,7 +231,32 @@ export const classSessions = {
    */
   workspaceTeachers: () => api.get<{ data: WorkspaceTeacher[] }>("/manage/teachers"),
 
-  list: (params: { from?: string; to?: string; status?: string } = {}) => {
+  /**
+   * ⚠️ `from`/`to` ARE PLAIN DATES, AND THE SERVER TREATS `to` AS INCLUSIVE.
+   *
+   * `starts_at` is a timestamp, so `<= '2026-08-26'` would bind midnight and drop
+   * the whole day being asked for. The controller compares `< to + 1 day` for a
+   * bare date, which is why a date is what belongs here.
+   *
+   * `order: "desc"` is for looking BACKWARDS — ascending over a past range is the
+   * «oldest fifty» defect this exists to end, wearing the other face.
+   */
+  list: (
+    params: {
+      from?: string;
+      to?: string;
+      status?: string;
+      /** A teacher profile uuid — a workspace may have several. */
+      teacher?: string;
+      /**
+       * A course uuid, which is what «المجموعة» means here: no group entity
+       * exists in this product, and enrolment in the course is the durable set
+       * of students a session is taught to.
+       */
+      course?: string;
+      order?: "asc" | "desc";
+    } = {},
+  ) => {
     const entries = Object.entries(params).filter(
       (entry): entry is [string, string] => entry[1] !== undefined,
     );

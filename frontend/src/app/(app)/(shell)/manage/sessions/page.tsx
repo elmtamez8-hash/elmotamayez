@@ -20,6 +20,128 @@ import { api, fieldErrors } from "@/lib/api";
 import type { Course } from "@/lib/types";
 import { userMessage } from "@/lib/errors";
 
+/** The local date, as `YYYY-MM-DD`. */
+function today(): string {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/**
+ * The filter «حصصي» opens with, and the shortcuts that write into it.
+ *
+ * ⚠️ THE DEFAULT USED TO BE «EVERYTHING, OLDEST FIRST», WHICH IS THE ONE ANSWER
+ * NOBODY WANTS. The list was fetched with no parameters at all and paginates at
+ * fifty, so a workspace with a year of history opened on the teacher's first
+ * ever week — under a heading that says «حصصي», on the screen they reach for to
+ * start a lesson that begins in a minute.
+ *
+ * ⚠️ AND «المجموعة» IS THE COURSE. No group entity exists anywhere in this
+ * product — `AnnouncementAudience` and `ConversationKind` both say so in as many
+ * words — and every schedulable session has carried a course since 006, so
+ * enrolment in it IS the durable set of students. Offering a «مجموعة» picker
+ * backed by anything else would be a second answer to a question the course
+ * already answers. `subject` is deliberately absent for the opposite reason: the
+ * column exists and NOTHING in the product writes it, so a filter on it would
+ * return nothing, always.
+ *
+ * The dates are the BROWSER's. A teacher in another timezone sees the boundary
+ * hour of the wrong day, which is a wrong row on a list rather than a wrong
+ * answer to anything — the server owns every decision that matters.
+ */
+type Filters = {
+  from: string;
+  to: string;
+  teacher: string;
+  course: string;
+  status: string;
+  order: "asc" | "desc";
+};
+
+const TODAY: Filters = {
+  from: "",
+  to: "",
+  teacher: "",
+  course: "",
+  status: "",
+  order: "asc",
+};
+
+/**
+ * The three answers a teacher wants without touching a date field.
+ *
+ * They write into the same state the fields do rather than living beside it: two
+ * places holding «which dates» is two answers that disagree the moment somebody
+ * edits one of them. Looking BACKWARDS also flips the order — ascending over a
+ * past range is the «oldest fifty» defect wearing the other face.
+ */
+const SHORTCUTS: Record<string, { label: string; apply: (current: Filters) => Filters }> = {
+  today: {
+    label: "اليوم",
+    apply: (current) => ({ ...current, from: today(), to: today(), order: "asc" }),
+  },
+  upcoming: {
+    label: "القادمة",
+    apply: (current) => ({ ...current, from: today(), to: "", order: "asc" }),
+  },
+  past: {
+    label: "السابقة",
+    apply: (current) => ({ ...current, from: "", to: today(), order: "desc" }),
+  },
+};
+
+const STATUS_OPTIONS = [
+  { value: "scheduled", label: "مجدولة" },
+  { value: "live", label: "جارية" },
+  { value: "completed", label: "منتهية" },
+  { value: "cancelled", label: "ملغاة" },
+  { value: "interrupted", label: "انقطعت" },
+  { value: "suspended", label: "معلّقة" },
+];
+
+/**
+ * Whether a shortcut is the range currently showing.
+ *
+ * Compared on the three fields a shortcut writes and nothing else: a teacher who
+ * picked «اليوم» and then narrowed to one course is still looking at today, and
+ * un-highlighting the button there would say the shortcut had been left.
+ */
+function sameRangeAs(current: Filters, candidate: Filters): boolean {
+  return current.from === candidate.from
+    && current.to === candidate.to
+    && current.order === candidate.order;
+}
+
+/**
+ * Why the list is empty, in terms of what was actually asked for.
+ *
+ * ⚠️ THE GENERATOR SENTENCE IS THE WRONG ANSWER FOR EVERY NARROWED VIEW. «ولّد
+ * حصصاً من جدول توفّرك» under a course filter tells a teacher with a full week
+ * that their calendar is empty, and sends them to create sessions they already
+ * have.
+ */
+function emptyReason(filters: Filters): string {
+  if (filters.course !== "" || filters.teacher !== "" || filters.status !== "") {
+    return "لا حصص تطابق هذه الفلاتر. جرّب «امسح الفلاتر».";
+  }
+
+  if (filters.to !== "" && filters.from === "") return "لا حصص سابقة بعد.";
+
+  if (filters.from !== "" && filters.to === filters.from) {
+    return "لا حصص لك اليوم. اختر «القادمة» لترى ما بعدها.";
+  }
+
+  return "لا حصص قادمة. ولّد حصصاً من جدول توفّرك الأسبوعي لتظهر هنا.";
+}
+
+/** Only what was actually chosen — an empty string is not a filter. */
+function queryFrom(filters: Filters): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(filters).filter(([, value]) => value !== ""),
+  ) as Record<string, string>;
+}
+
 /**
  * The teacher's calendar, and the generator that fills it.
  *
@@ -29,6 +151,8 @@ import { userMessage } from "@/lib/errors";
  */
 export default function ManageSessionsPage() {
   const [sessions, setSessions] = useState<ClassSession[]>([]);
+  // Opens on today, which is what the shortcut of the same name writes.
+  const [filters, setFilters] = useState<Filters>(() => SHORTCUTS.today.apply(TODAY));
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -83,11 +207,11 @@ export default function ManageSessionsPage() {
     setFailed(false);
 
     classSessions
-      .list()
+      .list(queryFrom(filters))
       .then((response) => setSessions(response.data ?? []))
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
-  }, []);
+  }, [filters]);
 
   useEffect(load, [load]);
 
@@ -299,15 +423,111 @@ export default function ManageSessionsPage() {
         )}
       </Card>
 
+      {/*
+        The filters sit ABOVE the list and below the two forms, which is where the
+        teacher's eye lands after scrolling past them.
+
+        The shortcuts are BUTTONS and the rest are fields: three mutually
+        exclusive ranges switched several times an hour are a segmented control,
+        and a dropdown makes each switch two taps. They write into the same state
+        the fields below do, so the dates always show what is actually being
+        asked for.
+      */}
+      <Card>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="مدى سريع">
+          {Object.entries(SHORTCUTS).map(([key, shortcut]) => (
+            <Button
+              key={key}
+              size="sm"
+              variant={sameRangeAs(filters, shortcut.apply(filters)) ? "primary" : "ghost"}
+              onClick={() => setFilters(shortcut.apply(filters))}
+            >
+              {shortcut.label}
+            </Button>
+          ))}
+
+          {/* An escape from every narrowing at once. A teacher who has filtered
+              themselves down to nothing should not have to undo four fields to
+              find out that is what happened. */}
+          <Button size="sm" variant="ghost" onClick={() => setFilters(TODAY)}>
+            امسح الفلاتر
+          </Button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <TextField
+            id="filter_from"
+            label="من تاريخ"
+            type="date"
+            value={filters.from}
+            onChange={(value) => setFilters({ ...filters, from: value })}
+          />
+          <TextField
+            id="filter_to"
+            label="إلى تاريخ"
+            type="date"
+            value={filters.to}
+            onChange={(value) => setFilters({ ...filters, to: value })}
+          />
+          <SelectField
+            id="filter_order"
+            label="الترتيب"
+            value={filters.order}
+            onChange={(value) => setFilters({ ...filters, order: value === "desc" ? "desc" : "asc" })}
+            options={[
+              { value: "asc", label: "الأقدم أولاً" },
+              { value: "desc", label: "الأحدث أولاً" },
+            ]}
+          />
+
+          {/* ⚠️ ONLY WHEN THERE IS MORE THAN ONE. A workspace with a single
+              teacher is the common case, and a picker with one option is a
+              control that can only ever mean «yes». */}
+          {teachers.length > 1 && (
+            <SelectField
+              id="filter_teacher"
+              label="المدرّس"
+              value={filters.teacher}
+              onChange={(value) => setFilters({ ...filters, teacher: value })}
+              placeholder="كل المدرّسين"
+              options={teachers.map((teacher) => ({ value: teacher.uuid, label: teacher.name }))}
+            />
+          )}
+
+          {/* «المجموعة» — the course is the durable set of students, and this
+              product has no other. */}
+          <SelectField
+            id="filter_course"
+            label="المجموعة (الكورس)"
+            value={filters.course}
+            onChange={(value) => setFilters({ ...filters, course: value })}
+            placeholder="كل المجموعات"
+            options={courseList.map((course) => ({ value: course.uuid, label: course.title }))}
+          />
+
+          <SelectField
+            id="filter_status"
+            label="الحالة"
+            value={filters.status}
+            onChange={(value) => setFilters({ ...filters, status: value })}
+            placeholder="كل الحالات"
+            options={STATUS_OPTIONS}
+          />
+        </div>
+      </Card>
+
       {loading ? (
         <RowsSkeleton />
       ) : failed ? (
         <ErrorState onRetry={load} />
       ) : sessions.length === 0 ? (
-        <EmptyState
-          title="لا حصص بعد"
-          description="ولّد حصصاً من جدول توفّرك الأسبوعي لتظهر هنا."
-        />
+        /*
+          ⚠️ THE EMPTY STATE ANSWERS THE FILTER THAT IS SHOWING. «ولّد حصصاً من
+          جدول توفّرك» under a course filter tells a teacher with a full week that
+          their calendar is empty, which is a different and false statement — and
+          sends them to generate sessions they already have.
+        */
+        <EmptyState title="لا حصص هنا" description={emptyReason(filters)} />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {sessions.map((session) => (

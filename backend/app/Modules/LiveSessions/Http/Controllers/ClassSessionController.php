@@ -28,16 +28,66 @@ class ClassSessionController extends Controller
     {
         $this->authorize('viewAny', ClassSession::class);
 
+        /*
+         | ⚠️ `< to + 1 DAY`, NEVER `<= to`, AND THE DAY IT LOSES IS THE ONE BEING
+         | ASKED FOR.
+         |
+         | `starts_at` is a TIMESTAMP and `to` arrives as a DATE, so `<= '2026-08-26'`
+         | binds midnight and silently drops every session that day — which, on a
+         | screen filtered to «اليوم», is the whole answer. The same boundary has
+         | already cost `FreezePeriod::covering()` and a settlement close their own
+         | fixes; this is the third.
+         |
+         | A caller that sends a full instant is left alone: it means what it says.
+         */
+        $to = $request->query('to');
+        $toIsBareDate = is_string($to) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $to) === 1;
+
+        // Newest first for a look BACKWARDS. Ascending over a past range is the
+        // «oldest fifty» defect this filter exists to end, reached from the other
+        // side: page one would be the teacher's first ever week.
+        $descending = $request->query('order') === 'desc';
+
         $sessions = ClassSession::query()
             ->when($request->query('from'), fn ($query, $from) => $query->where('starts_at', '>=', $from))
-            ->when($request->query('to'), fn ($query, $to) => $query->where('starts_at', '<=', $to))
+            ->when($to, fn ($query) => $toIsBareDate
+                ? $query->where('starts_at', '<', CarbonImmutable::parse($to)->addDay()->toDateString())
+                : $query->where('starts_at', '<=', $to))
             ->when($request->query('status'), fn ($query, $status) => $query->where('status', $status))
+            /*
+             | ⚠️ MATCHED THROUGH THE RELATION, SO AN UNKNOWN UUID MATCHES NOTHING.
+             |
+             | Two things fall out of that and both are deliberate. There is no
+             | `exists:` rule on either — Laravel's is a raw query with no tenant
+             | condition, so a validation rule here would answer «this uuid is
+             | real» to anybody who guessed one, before a policy runs. And a
+             | filter whose value it cannot resolve returns an EMPTY list rather
+             | than the unfiltered one: silently ignoring a filter shows a teacher
+             | somebody else's calendar under their own name.
+             |
+             | The relation carries its own workspace scope, which is the guard —
+             | a uuid from another workspace is simply not there.
+             |
+             | ⚠️ «المجموعة» IS THE COURSE. No group entity exists anywhere in this
+             | product (`AnnouncementAudience` and `ConversationKind` both say so
+             | in as many words); every schedulable session has carried a course
+             | since 006, and enrolment in it is the durable set of students. A
+             | second answer to «which students» would be two answers.
+             */
+            ->when(
+                $request->query('teacher'),
+                fn ($query, $uuid) => $query->whereHas('teacherProfile', fn ($teacher) => $teacher->where('uuid', $uuid)),
+            )
+            ->when(
+                $request->query('course'),
+                fn ($query, $uuid) => $query->whereHas('course', fn ($course) => $course->where('uuid', $uuid)),
+            )
             // Eager-loaded so a month of sessions is a fixed number of queries
             // rather than one per row (SC-011). `recordingLesson` belongs in the
             // list for the same reason the other two do: the Resource asks every
             // published session where its recording went.
             ->with(['course', 'bookings', 'recordingLesson'])
-            ->orderBy('starts_at')
+            ->orderBy('starts_at', $descending ? 'desc' : 'asc')
             ->paginate(50);
 
         /*
