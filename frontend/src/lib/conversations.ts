@@ -56,6 +56,15 @@ export interface Conversation {
   /** Whether THIS reader may hide a message or ban the sender in this thread. */
   can_moderate: boolean;
   /**
+   * Whether the discussion is closed right now (`FR-018`).
+   *
+   * ⚠️ FOR THE COMPOSER AND THE LABEL, NOT FOR THE DOOR. `ConversationPolicy`
+   * refuses the write on the request that carries it; this is what stops the
+   * student typing a paragraph into a field that will refuse it — the same
+   * division `student_banned` already draws.
+   */
+  is_locked: boolean;
+  /**
    * Whether the student is banned from writing right now.
    *
    * ⚠️ FOR THE LABEL ON THE CONTROL, NOT FOR THE DOOR. Whether a message is
@@ -225,6 +234,15 @@ export const rooms = {
   /** The teacher's endorsement. One press or ten, the points are awarded once. */
   markHelpful: (messageUuid: string) =>
     api.post<ChatMessage>(`/messages/${messageUuid}/helpful`),
+
+  /**
+   * Close the discussion, or open it again.
+   *
+   * Idempotent on the server: pressing «أغلق» twice does not move the timestamp,
+   * because a second press is not a second decision.
+   */
+  setLock: (conversationUuid: string, locked: boolean) =>
+    api.post<Conversation>(`/conversations/${conversationUuid}/lock`, { locked }),
 
   /** The human path for what the term list did not catch. */
   report: (messageUuid: string, reason?: string) =>

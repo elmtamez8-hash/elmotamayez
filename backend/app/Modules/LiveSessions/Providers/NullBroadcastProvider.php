@@ -87,7 +87,7 @@ class NullBroadcastProvider implements BroadcastProviderInterface
         );
     }
 
-    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null): void
+    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): void
     {
         throw UnsupportedCapability::for($this->identifier(), 'hostControls');
     }

@@ -29,6 +29,15 @@ class ConversationResource extends JsonResource
         return [
             'uuid' => $this->uuid,
             'kind' => $this->kind->value,
+
+            /*
+            | ⚠️ A BOOLEAN, NOT THE TIMESTAMP. The moment a teacher closed the
+            | discussion is a moderation record and belongs in the panel; on the
+            | screen it answers one question — may I write — and a time beside a
+            | shut composer is an invitation to work out how long they have been
+            | ignoring the room.
+            */
+            'is_locked' => $this->locked_at !== null,
             'student_name' => $this->whenLoaded('student', fn () => $this->student?->name),
             // The subject a ban is written against (`FR-064`). A uuid and no
             // contact detail: this payload reaches the student too, and the rule

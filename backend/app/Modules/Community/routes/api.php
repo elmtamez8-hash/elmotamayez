@@ -86,6 +86,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/messages/{message}/helpful', [SessionChatController::class, 'helpful']);
 
         /*
+        | Close the room's discussion, or open it again — `chat.moderate`.
+        |
+        | On the write bucket with the rest: it is a write, and a teacher toggling
+        | it during a lesson presses it a handful of times, not a hundred.
+        */
+        Route::post('/conversations/{conversation}/lock', [SessionChatController::class, 'lock']);
+
+        /*
         | Somewhere to put a picture or a voice note (`FR-060`).
         |
         | ⚠️ ON THE WRITE BUCKET, because it IS a write: it creates a `media_assets`

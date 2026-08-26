@@ -28,6 +28,8 @@ use Google\Protobuf\Internal\RepeatedField;
 use Livekit\EgressInfo;
 use Livekit\EgressStatus;
 use Livekit\EncodedFileOutput;
+use Livekit\ParticipantInfo;
+use Livekit\ParticipantInfo\Kind;
 use Livekit\RoomCompositeEgressRequest;
 use Livekit\RoomEgress;
 use Livekit\S3Upload;
@@ -52,6 +54,17 @@ use Twirp\ErrorCode;
  */
 final class LiveKitBroadcastProvider implements BroadcastProviderInterface
 {
+    /**
+     * The one participant attribute this product writes.
+     *
+     * ⚠️ THE SAME KEY IS READ IN THE BROWSER (`BroadcastStage` · `ParticipantsPanel`)
+     * and there is no way to share a constant across that boundary — so it is
+     * named here once, and a rename is a change in two files that no compiler
+     * will pair up. It is also the only key: attributes are written by the client
+     * that owns them, so anything else in there is somebody's keyboard.
+     */
+    private const HAND_ATTRIBUTE = 'hand';
+
     public function __construct(
         private readonly SessionSettings $settings,
         private ?RoomServiceClient $rooms = null,
@@ -192,7 +205,7 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
         );
     }
 
-    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null): void
+    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): void
     {
         // ⚠️ ENDING IS OURS, AND THERE IS DELIBERATELY NO BRANCH FOR IT.
         //
@@ -200,11 +213,22 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
         // reaches this interface, because `room_closed_at` is what refuses
         // re-entry — not the provider. A branch here would be a second way to
         // close one room, and the two would drift the first time either changed.
-        if ($action === HostAction::End || $target === null) {
+        if ($action === HostAction::End) {
             return;
         }
 
         $room = $this->roomName($session);
+
+        if ($action->isBulk()) {
+            $this->applyToWholeRoom($room, $action, $actor?->uuid);
+
+            return;
+        }
+
+        if ($target === null) {
+            return;
+        }
+
         $identity = $target->uuid;
 
         /*
@@ -229,6 +253,10 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
             match ($action) {
                 HostAction::Mute => $this->muteEveryAudioTrack($room, $identity),
                 HostAction::Remove => $this->rooms()->removeParticipant($room, $identity),
+                // Unreachable: `End` and every bulk form returned above. The arm
+                // exists so a seventh action added tomorrow is a no-op here
+                // rather than an UnhandledMatchError in the middle of a lesson.
+                default => null,
             };
         } catch (TwirpError $e) {
             if ($e->getErrorCode() !== ErrorCode::NotFound) {
@@ -237,6 +265,73 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
 
             throw new DomainException('هذا المشارك لم يعد في الغرفة.');
         }
+    }
+
+    /**
+     * One press, the whole room.
+     *
+     * ⚠️ THE RECORDER IS A PARTICIPANT, AND «إخراج الجميع» WOULD HAVE EVICTED IT.
+     * The egress joins the room as a participant of its own — `EG_…`, seen in the
+     * live participant list on 2026-08-26 — so a loop over everyone removes the
+     * recording mid-lesson and mutes a track that belongs to a robot. Only
+     * `STANDARD` participants are people; anything else is infrastructure and is
+     * skipped. Nothing in a fake provider could have shown this.
+     *
+     * ⚠️ AND SOMEBODY LEAVING MID-LOOP MUST NOT ABORT THE REST. The list is a
+     * snapshot; by the time the fourth student is reached the second may have
+     * closed their laptop, and `NotFound` there means the action already
+     * happened. It is skipped per participant rather than raised, because the
+     * teacher asked about the ROOM, not about that person — the single-target
+     * form still answers «هذا المشارك لم يعد في الغرفة», where it is the answer.
+     */
+    private function applyToWholeRoom(string $room, HostAction $action, ?string $exceptIdentity): void
+    {
+        foreach ($this->rooms()->listParticipants($room)->getParticipants() as $participant) {
+            if (! $participant instanceof ParticipantInfo || $participant->getKind() !== Kind::STANDARD) {
+                continue;
+            }
+
+            $identity = $participant->getIdentity();
+
+            if ($identity === $exceptIdentity) {
+                continue;
+            }
+
+            try {
+                match ($action) {
+                    HostAction::MuteAll => $this->muteEveryAudioTrack($room, $identity),
+                    HostAction::RemoveAll => $this->rooms()->removeParticipant($room, $identity),
+                    HostAction::LowerHands => $this->lowerHand($room, $participant),
+                    default => null,
+                };
+            } catch (TwirpError $e) {
+                if ($e->getErrorCode() !== ErrorCode::NotFound) {
+                    throw $e;
+                }
+            }
+        }
+    }
+
+    /**
+     * Clear one raised hand, and only if it is up.
+     *
+     * An empty value DELETES the attribute rather than storing `""` — the SDK
+     * says so — which keeps `attributes` empty for a room where nobody has asked
+     * to speak, instead of a row of dead keys the screen has to reason about.
+     * Skipped when the key is absent, so «إنزال الأيدي» in a room with two hands
+     * up costs two calls and not twenty.
+     */
+    private function lowerHand(string $room, ParticipantInfo $participant): void
+    {
+        if (($participant->getAttributes()[self::HAND_ATTRIBUTE] ?? '') === '') {
+            return;
+        }
+
+        $this->rooms()->updateParticipant(
+            $room,
+            $participant->getIdentity(),
+            attributes: [self::HAND_ATTRIBUTE => ''],
+        );
     }
 
     /**

@@ -8,6 +8,7 @@ import {
   useLocalParticipant,
   useParticipantAttributes,
   useTracks,
+  VideoTrack,
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
 
@@ -115,7 +116,28 @@ function Stage() {
           key={`${trackRef.participant.identity}-${trackRef.source}`}
           className="aspect-video overflow-hidden rounded-2xl border border-line bg-surface"
         >
-          <ParticipantTile trackRef={trackRef} />
+          {/*
+            ⚠️ CHILDREN, BECAUSE THE LIBRARY'S DEFAULT TILE PRINTS THE IDENTITY —
+            AND OUR IDENTITY IS A UUID. `ParticipantTile` renders
+            `participant.name || participant.identity`, and the ticket never sets
+            a name (`FR-006`): the identity is echoed by the provider to everyone
+            in the room, so a name inside it is a name we no longer control. The
+            result was `a270bec9-2a00-…` written across the video of a lesson.
+
+            The names live in the participants list under the stage, where they
+            come from our own authenticated route. Repeating them here would mean
+            carrying the roster into this component for a caption nobody reads
+            while looking at a face.
+          */}
+          <ParticipantTile trackRef={trackRef}>
+            {trackRef.publication === undefined ? (
+              <div className="flex h-full items-center justify-center text-sm text-ink-muted">
+                الكاميرا مغلقة
+              </div>
+            ) : (
+              <VideoTrack trackRef={trackRef} />
+            )}
+          </ParticipantTile>
         </div>
       ))}
     </div>
@@ -184,7 +206,7 @@ function SelfControls() {
           onClick={() => {
             setError("");
             localParticipant
-              .setAttributes({ ...attributes, hand: handRaised ? "0" : "1" })
+              .setAttributes({ ...attributes, hand: handRaised ? "" : "1" })
               .catch((e: unknown) => setError(userMessage(e)));
           }}
         >

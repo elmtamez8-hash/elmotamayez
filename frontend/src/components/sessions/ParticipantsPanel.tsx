@@ -84,13 +84,65 @@ export function ParticipantsPanel({
     }
   };
 
+  const actOnRoom = async (action: "mute-all" | "remove-all" | "lower-hands") => {
+    setBusy(action);
+    setError("");
+
+    try {
+      await classSessions.host(sessionUuid, action);
+    } catch (err: unknown) {
+      setError(userMessage(err));
+    } finally {
+      setBusy("");
+    }
+  };
+
   if (participants.length === 0) return null;
 
   return (
     <div className="mt-6 space-y-3">
-      <h3 className="text-sm font-bold text-ink">
-        المشاركون (<bdi>{participants.length}</bdi>)
-      </h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-bold text-ink">
+          المشاركون (<bdi>{participants.length}</bdi>)
+        </h3>
+
+        {/*
+          ⚠️ ONE REQUEST EACH, NOT A LOOP OVER THE ROWS. Twenty presses is twenty
+          chances for one to fail in the middle and leave the room half muted
+          with nothing saying which half — and the browser cannot tell a student
+          from the recorder, which is a participant of its own.
+
+          «إخراج الجميع» clears the room WITHOUT ending the lesson: the teacher
+          keeps the room, the recording and the register, and the class can come
+          back in. Ending is the button below the stage, and it is a different
+          decision.
+        */}
+        {isHost && (
+          <span className="flex flex-wrap gap-2">
+            <Button
+              variant="ghost"
+              loading={busy === "lower-hands"}
+              onClick={() => void actOnRoom("lower-hands")}
+            >
+              أنزِل الأيدي
+            </Button>
+            <Button
+              variant="ghost"
+              loading={busy === "mute-all"}
+              onClick={() => void actOnRoom("mute-all")}
+            >
+              اكتم الجميع
+            </Button>
+            <Button
+              variant="danger"
+              loading={busy === "remove-all"}
+              onClick={() => void actOnRoom("remove-all")}
+            >
+              أخرِج الجميع
+            </Button>
+          </span>
+        )}
+      </div>
 
       {error !== "" && <Alert tone="danger" title={error} />}
 

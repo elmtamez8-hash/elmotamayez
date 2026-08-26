@@ -65,11 +65,16 @@ interface BroadcastProviderInterface
     public function issueTicket(ClassSession $session, User $user, ParticipantRole $role): JoinTicket;
 
     /**
-     * Mute, remove or end.
+     * Mute, remove or end — one person, or the whole room.
+     *
+     * `$target` is the person a single action names. `$actor` is the host who
+     * pressed the button, and it exists for the BULK forms: «الجميع» means
+     * everyone being taught and never the teacher, and the provider is the only
+     * place that sees the participant list a bulk action walks.
      *
      * @throws UnsupportedCapability when the provider does not claim hostControls
      */
-    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null): void;
+    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): void;
 
     /** Closes the room. Afterwards no earlier ticket opens it (FR-015). Idempotent. */
     public function closeRoom(ClassSession $session): void;

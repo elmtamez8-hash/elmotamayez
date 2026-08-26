@@ -124,3 +124,53 @@ it('lets the host end the session even when the provider claims no host controls
 
     expect($this->session->refresh()->room_closed_at)->not->toBeNull();
 });
+
+/*
+| The bulk forms (2026-08-26).
+|
+| ⚠️ THEY ARE ONE REQUEST AND NOT A LOOP AT THE CALLER, and the actor travels with
+| them for one reason: «الجميع» means everyone being taught and never the teacher.
+| A host who mutes themselves with a room control has a puzzle; a host who removes
+| themselves has left the room open, the recording running, and nobody inside who
+| can close it.
+*/
+it('sends the whole-room actions through with the host named, so they can be excluded', function (): void {
+    Sanctum::actingAs($this->owner);
+
+    foreach (['mute-all', 'remove-all', 'lower-hands'] as $action) {
+        $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/{$action}")->assertOk();
+    }
+
+    expect($this->provider->hostActions)->toHaveCount(3)
+        ->and(array_column($this->provider->hostActions, 'action'))
+        ->toBe(['mute-all', 'remove-all', 'lower-hands'])
+        // No target: the action is about the room. The actor is what the
+        // provider excludes, and without it every bulk press evicts the teacher.
+        ->and(array_column($this->provider->hostActions, 'target'))->toBe([null, null, null])
+        ->and(array_column($this->provider->hostActions, 'actor'))
+        ->toBe(array_fill(0, 3, (int) $this->owner->getKey()));
+});
+
+it('does not ask a bulk action to name a participant', function (): void {
+    // The single forms answer 422 without a target. A room action that demanded
+    // one would be a button that can never be pressed.
+    Sanctum::actingAs($this->owner);
+
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/mute-all")->assertOk();
+});
+
+it('refuses the whole-room actions to a student', function (): void {
+    // The control, in the direction that matters. Without it the case above
+    // would also pass on a build where any seat holder can clear the room.
+    $student = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->course, $student);
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+
+    app(BookSeat::class)->handle($this->session, $student);
+
+    Sanctum::actingAs($student);
+
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/remove-all")->assertForbidden();
+
+    expect($this->provider->hostActions)->toHaveCount(0);
+});

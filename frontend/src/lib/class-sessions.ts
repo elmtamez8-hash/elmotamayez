@@ -315,7 +315,18 @@ export const classSessions = {
   presence: (uuid: string) =>
     api.post<PresenceState>(`/class-sessions/${uuid}/presence`, {}),
 
-  host: (uuid: string, action: "mute" | "remove" | "end", targetUuid?: string) =>
+  /**
+   * ⚠️ THE BULK FORMS ARE ONE REQUEST, NEVER A LOOP HERE. Twenty presses of
+   * «كتم» is twenty requests and twenty chances for one to fail in the middle,
+   * leaving the room half muted with nothing saying which half. The server walks
+   * its own participant list — and it is the only side that can tell a student
+   * from the recorder, which is a participant too.
+   */
+  host: (
+    uuid: string,
+    action: "mute" | "remove" | "end" | "mute-all" | "remove-all" | "lower-hands",
+    targetUuid?: string,
+  ) =>
     api.post<{ done: boolean }>(`/class-sessions/${uuid}/host/${action}`, {
       target_uuid: targetUuid,
     }),

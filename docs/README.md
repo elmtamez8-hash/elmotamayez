@@ -497,7 +497,7 @@ provable before any broadcast contract existed.
 | POST | `/class-sessions/{uuid}/join` | Seat or `sessions.host`. One 403 for every refusal — a refusal that distinguishes them tells the caller the session exists and when to come back |
 | POST | `/class-sessions/{uuid}/leave` | Ticket holder |
 | POST | `/class-sessions/{uuid}/presence` | Ticket holder, `throttle:presence` — its own limiter, since one participant sends two a minute |
-| POST | `/class-sessions/{uuid}/host/{action}` | `sessions.host`. `501` when the provider cannot do it — the honest answer, not a 500 |
+| POST | `/class-sessions/{uuid}/host/{action}` | `sessions.host`. `mute` · `remove` · `end` name a participant or the session; `mute-all` · `remove-all` · `lower-hands` act on the room and name nobody. **The host is always excluded** — removing yourself leaves the room open, the recording running and nobody inside who can close it — and so is the recorder, which is a participant of its own (`kind = EGRESS`). `501` when the provider cannot do it — the honest answer, not a 500 |
 | GET | `/class-sessions/{uuid}/participants` | Seat or `sessions.host`. Names, faces and badges for the uuids the provider echoes into the room — the ticket carries a uuid and never a name (`FR-006`). **Not the register**: no status, no stay, no note, because every seat holder holds this while `attendance.view` guards those |
 | GET | `/class-sessions/{uuid}/attendance` | `sessions.view`, workspace-scoped |
 | POST | `/attendances/{uuid}/override` | `attendance.override`; past the edit window it takes `settings.update` |
@@ -1418,6 +1418,7 @@ it, so moving to a managed provider is a line of configuration.
 | `POST` | `/api/v1/conversations/{conversation}/attachments` | either party |
 | `DELETE` | `/api/v1/messages/{message}` | the author, or `chat.moderate` |
 | `POST` | `/api/v1/messages/{message}/helpful` | the teacher's side, in a room |
+| `POST` | `/api/v1/conversations/{conversation}/lock` | `chat.moderate`. Closes a ROOM's discussion and opens it again; whoever holds the permission keeps writing, or the teacher cannot answer the last question on screen. Refused on a private thread — silencing one person there is a **ban**, which is declared, recorded and appealable |
 | `POST` | `/api/v1/messages/{message}/report` | anyone who can read it |
 | `POST` | `/api/v1/reviews/{review}/report` | anyone — the SAME moderation path |
 | `GET` | `/api/v1/class-sessions/{session}/chat` · `/lessons/{lesson}/chat` | seat holders / enrolled |

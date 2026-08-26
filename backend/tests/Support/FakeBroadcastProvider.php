@@ -101,11 +101,15 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
         );
     }
 
-    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null): void
+    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): void
     {
         $this->hostActions[] = [
             'action' => $action->value,
             'target' => $target?->getKey() === null ? null : (int) $target->getKey(),
+            // Recorded because it is the whole of what a bulk action must get
+            // right: «الجميع» excludes the host, and the actor is how it knows
+            // which participant that is.
+            'actor' => $actor?->getKey() === null ? null : (int) $actor->getKey(),
         ];
     }
 

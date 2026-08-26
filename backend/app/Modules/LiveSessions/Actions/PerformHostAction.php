@@ -37,7 +37,14 @@ class PerformHostAction extends Action
         private readonly CloseBroadcastRoom $closeRoom,
     ) {}
 
-    public function handle(ClassSession $session, HostAction $action, ?User $target = null): void
+    /**
+     * `$actor` is the host who pressed the button, and it is not authorisation:
+     * `BroadcastController` asks the policy, exactly as it did before the bulk
+     * actions existed. It is here so «الجميع» can exclude the one person it must
+     * never include — a teacher who removes themselves leaves the room open, the
+     * recording running, and nobody inside who can close it.
+     */
+    public function handle(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): void
     {
         if ($action->requiresTarget() && $target === null) {
             throw new DomainException('حدّد المشارك المقصود.');
@@ -49,6 +56,6 @@ class PerformHostAction extends Action
             return;
         }
 
-        $this->providers->for($session)->hostAction($session, $action, $target);
+        $this->providers->for($session)->hostAction($session, $action, $target, $actor);
     }
 }

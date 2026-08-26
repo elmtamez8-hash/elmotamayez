@@ -101,6 +101,24 @@ class ConversationPolicy
 
         if ($conversation->kind->isPublic()) {
             /*
+            | ⚠️ THE LOCK IS READ FOR THE ROOM AND FOR NOBODY ELSE, and the person
+            | who set it is exempt. A teacher closes the discussion during an
+            | explanation and reopens it for questions; locking themselves out of
+            | it means they cannot answer the last question left on screen, and
+            | cannot say why they closed it. `chat.moderate` is the exemption
+            | rather than «the host», because an assistant with moderation is
+            | exactly who is watching the room while the teacher talks.
+            |
+            | It is a COLUMN here and not a derived condition, unlike the teacher's
+            | departure above: a lock is a decision somebody made about one room at
+            | one moment, and there is nothing else to derive it from.
+            */
+            if ($conversation->locked_at !== null
+                && ! $user->hasPermissionTo(Permissions::CHAT_MODERATE)) {
+                return Response::deny('أغلق المدرّس النقاش مؤقّتاً. يمكنك القراءة.');
+            }
+
+            /*
             | A room has no enrolment to end: entitlement to be in it IS the seat
             | or the membership, and `view()` has just asked. The FR-014 rule
             | below is about a RELATIONSHIP with one teacher, which a room does
@@ -125,6 +143,33 @@ class ConversationPolicy
         return $this->enrollments->hasActiveEnrollmentInWorkspace($student, (int) $conversation->workspace_id)
             ? Response::allow()
             : Response::deny('انتهت علاقتك التعليميّة هنا، والمحادثة صارت للقراءة فقط.');
+    }
+
+    /**
+     * Closing a room's discussion and opening it again (`FR-018`).
+     *
+     * ⚠️ MEMBERSHIP AS WELL AS THE PERMISSION, the `markHelpful` pair. A student
+     * is a member of no workspace in production, so `hasPermissionTo` alone looks
+     * like enough and is not — in a fixture the permission can be granted to
+     * anybody, and the pair is what actually separates the two sides of a room.
+     *
+     * `chat.moderate` and not `chat.reply`: a lock is an act on what the room may
+     * say, ticked separately from being able to answer in it. Handing it to
+     * everyone who can reply gives every assistant who answers a question the
+     * power to stop the rest of the class asking one.
+     */
+    public function moderate(User $user, Conversation $conversation): Response
+    {
+        $isMember = $user->workspaces()
+            ->withoutGlobalScopes()
+            ->whereKey($conversation->workspace_id)
+            ->exists();
+
+        if (! $isMember || ! $user->hasPermissionTo(Permissions::CHAT_MODERATE)) {
+            return Response::deny('إدارة النقاش من صلاحيّة المدرّس ومن فوّضه.');
+        }
+
+        return Response::allow();
     }
 
     /**

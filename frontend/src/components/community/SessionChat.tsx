@@ -52,6 +52,7 @@ export function SessionChat({
   const [bodyError, setBodyError] = useState<string | undefined>(undefined);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [locking, setLocking] = useState(false);
 
   // Guards the double tap: a second press while the first is in flight would
   // post the same sentence twice, and no server-side claim can tell them apart.
@@ -128,6 +129,22 @@ export function SessionChat({
       .catch((error: unknown) => setProblem(userMessage(error)));
   };
 
+  /**
+   * The room comes back from the server rather than being flipped locally: the
+   * lock is idempotent there, so a second press must render what the server
+   * believes and not what this tab guessed.
+   */
+  const toggleLock = () => {
+    setProblem(null);
+    setLocking(true);
+
+    rooms
+      .setLock(room.uuid, !room.is_locked)
+      .then((updated) => setRoom(updated))
+      .catch((error: unknown) => setProblem(userMessage(error)))
+      .finally(() => setLocking(false));
+  };
+
   const report = (messageUuid: string) => {
     setProblem(null);
 
@@ -177,7 +194,18 @@ export function SessionChat({
 
   return (
     <Card>
-      <h2 className="mb-3 font-medium text-ink">{title}</h2>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-medium text-ink">{title}</h2>
+
+        {/* The teacher's valve. Offered only where there is a class to quiet —
+            a private thread has no «الجميع», and silencing one person there is
+            a BAN: declared, recorded and appealable. The server refuses it. */}
+        {room.can_moderate && room.kind !== "private" && (
+          <Button variant="ghost" loading={locking} onClick={toggleLock}>
+            {room.is_locked ? "افتح النقاش" : "أغلق النقاش"}
+          </Button>
+        )}
+      </div>
 
       {problem !== null && (
         <Alert tone="danger" title="تعذّر إتمام الطلب">
@@ -210,24 +238,37 @@ export function SessionChat({
         onMarkHelpful={room.can_moderate ? markHelpful : undefined}
       />
 
-      <div className="mt-4">
-        <TextareaField
-          id="room-body"
-          label="شارك في النقاش"
-          value={draft}
-          onChange={setDraft}
-          rows={2}
-          error={bodyError}
-          disabled={sending}
-          placeholder="اكتب سؤالك أو إجابتك…"
-        />
+      {/*
+        ⚠️ THE COMPOSER IS SHUT FOR EVERYONE EXCEPT WHOEVER MAY REOPEN IT. A
+        teacher who closes the discussion and finds their own field disabled
+        cannot answer the last question on screen, and cannot say why they closed
+        it — so the person holding the key keeps writing. The server draws the
+        same line: `chat.moderate` is the exemption inside the policy.
+      */}
+      {room.is_locked && !room.can_moderate ? (
+        <Alert tone="info" title="النقاش مغلق مؤقّتاً">
+          أغلق المدرّس المشاركة الآن. يمكنك متابعة القراءة، وستُفتح مرّةً أخرى.
+        </Alert>
+      ) : (
+        <div className="mt-4">
+          <TextareaField
+            id="room-body"
+            label="شارك في النقاش"
+            value={draft}
+            onChange={setDraft}
+            rows={2}
+            error={bodyError}
+            disabled={sending}
+            placeholder="اكتب سؤالك أو إجابتك…"
+          />
 
-        <div className="mt-3 flex justify-end">
-          <Button onClick={send} disabled={sending || draft.trim() === ""}>
-            إرسال
-          </Button>
+          <div className="mt-3 flex justify-end">
+            <Button onClick={send} disabled={sending || draft.trim() === ""}>
+              إرسال
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </Card>
   );
 }

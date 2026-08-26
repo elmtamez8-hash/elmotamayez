@@ -10,6 +10,7 @@ use App\Modules\Community\Enums\ConversationKind;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
+use Carbon\CarbonInterface;
 use Database\Factories\Modules\Community\ConversationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $class_session_id
  * @property int|null $lesson_id
  * @property int|null $last_message_id
+ * @property CarbonInterface|null $locked_at
  */
 class Conversation extends BaseModel
 {
@@ -66,6 +68,7 @@ class Conversation extends BaseModel
     {
         return [
             'kind' => ConversationKind::class,
+            'locked_at' => 'datetime',
         ];
     }
 

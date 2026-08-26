@@ -127,7 +127,7 @@ class BroadcastController extends Controller
             : User::query()->where('uuid', $request->input('target_uuid'))->first();
 
         try {
-            $performer->handle($session, $hostAction, $target);
+            $performer->handle($session, $hostAction, $target, $this->currentUser($request));
         } catch (UnsupportedCapability $e) {
             // 501, not 500: the request was fine and the platform is fine — this
             // provider simply cannot do it, and saying so is the honest answer.

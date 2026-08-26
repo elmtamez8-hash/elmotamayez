@@ -7,9 +7,11 @@ namespace App\Modules\Community\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Community\Actions\MarkHelpful;
 use App\Modules\Community\Actions\ResolveSessionConversation;
+use App\Modules\Community\Actions\SetConversationLock;
 use App\Modules\Community\Http\Resources\ConversationResource;
 use App\Modules\Community\Http\Resources\MessageResource;
 use App\Modules\Community\Models\Conversation;
+use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -47,6 +49,27 @@ class SessionChatController extends Controller
         return ConversationResource::make($conversation->loadMissing(['student', 'lastMessage.sender']))
             ->response()
             ->setStatusCode(200);
+    }
+
+    /**
+     * Close the discussion, or open it again.
+     *
+     * Authorised on `moderate`, the ability that already means «you may act on
+     * what is said in this room» — a lock is moderation, not a reply, and giving
+     * it to `chat.reply` would hand every assistant who can answer a question the
+     * power to stop everyone else asking one.
+     */
+    public function lock(Request $request, Conversation $conversation, SetConversationLock $action): JsonResponse
+    {
+        $this->authorize('moderate', $conversation);
+
+        try {
+            $action->handle($conversation, $this->currentUser($request), $request->boolean('locked'));
+        } catch (DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return ConversationResource::make($conversation->loadMissing(['student', 'lastMessage.sender']))->response();
     }
 
     public function helpful(Request $request, string $message, MarkHelpful $action): JsonResponse
