@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Gamification\Models\Badge;
 use App\Modules\Gamification\Models\BadgeAward;
+use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\TeacherProfile;
@@ -116,7 +117,41 @@ it('carries nothing from the register, which needs a permission this reader lack
     expect(array_keys($row))->toEqualCanonicalizing(['uuid', 'name', 'role', 'avatar_url', 'badges'])
         ->and($row)->not->toHaveKeys([
             'status', 'stay_seconds', 'attendance_status', 'note', 'email', 'phone',
+            /*
+             * ⚠️ AND `is_removed` IS ABSENT RATHER THAN FALSE. Whether the teacher
+             * put somebody out of the lesson is a moderation fact about that
+             * person; the host needs it to offer them back, and a key that is
+             * always there tells every classmate the question was asked. The list
+             * above is a canonical comparison, so this line is belt and braces —
+             * kept because the failure it names is the one worth reading.
+             */
+            'is_removed',
         ]);
+});
+
+it('tells the host who was put out, so they can be let back in', function (): void {
+    // The allow direction. A deny-only assertion passes just as well against a
+    // build where nobody is ever told — including the one person who must be.
+    $student = rosterSeatHolder();
+
+    Attendance::create([
+        'workspace_id' => $this->workspace->getKey(),
+        'class_session_id' => $this->session->getKey(),
+        'student_user_id' => $student->getKey(),
+        'status' => 'absent',
+        'removed_at' => now(),
+    ]);
+
+    Sanctum::actingAs($this->owner);
+
+    $roster = collect(
+        $this->getJson('/api/v1/class-sessions/'.$this->session->uuid.'/participants')
+            ->assertOk()
+            ->json('data')
+    )->keyBy('uuid');
+
+    expect($roster[$student->uuid]['is_removed'])->toBeTrue()
+        ->and($roster[$this->owner->uuid]['is_removed'])->toBeFalse();
 });
 
 it('refuses somebody with no seat and no host permission', function (): void {
@@ -163,6 +198,16 @@ it('costs the same number of queries for two participants as for eight', functio
 
         return $queries;
     };
+
+    /*
+     * ⚠️ PRIMED FIRST. The route asks the policy whether the reader is the host
+     * before it builds the payload, and spatie's permission set is loaded once
+     * per process — so the FIRST request of any test pays for a cache warm-up
+     * that has nothing to do with the number of participants. Measured cold, the
+     * small case cost more than the large one and the assertion failed on a read
+     * that is perfectly flat.
+     */
+    $count($url);
 
     $small = $count($url);
 

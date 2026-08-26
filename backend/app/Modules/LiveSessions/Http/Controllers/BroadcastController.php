@@ -104,12 +104,13 @@ class BroadcastController extends Controller
     public function participants(Request $request, ClassSession $session, ReadSessionRoster $action): JsonResponse
     {
         $user = $this->currentUser($request);
+        $isHost = Gate::allows('host', $session);
 
-        if (! $session->holdsSeat($user) && ! Gate::allows('host', $session)) {
+        if (! $session->holdsSeat($user) && ! $isHost) {
             return response()->json(['message' => 'لست من المشاركين في هذه الحصة.'], 403);
         }
 
-        return response()->json(['data' => $action->handle($session)]);
+        return response()->json(['data' => $action->handle($session, $isHost)]);
     }
 
     public function host(Request $request, ClassSession $session, string $action, PerformHostAction $performer): JsonResponse

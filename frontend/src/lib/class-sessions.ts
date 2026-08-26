@@ -107,6 +107,14 @@ export interface RoomParticipant {
   role: "host" | "student" | "staff";
   avatar_url: string | null;
   badges: { key: string; name_ar: string; icon: string | null }[];
+  /**
+   * Whether the host put this person out of THIS session.
+   *
+   * ⚠️ ABSENT ENTIRELY unless the reader is the host — not `false`. Whether a
+   * teacher removed somebody is a moderation fact about that person, and a key
+   * that is always there tells every classmate the question was asked.
+   */
+  is_removed?: boolean;
 }
 
 export interface PresenceState {
@@ -324,7 +332,7 @@ export const classSessions = {
    */
   host: (
     uuid: string,
-    action: "mute" | "remove" | "end" | "mute-all" | "remove-all" | "lower-hands",
+    action: "mute" | "remove" | "end" | "mute-all" | "remove-all" | "lower-hands" | "readmit",
     targetUuid?: string,
   ) =>
     api.post<{ done: boolean }>(`/class-sessions/${uuid}/host/${action}`, {

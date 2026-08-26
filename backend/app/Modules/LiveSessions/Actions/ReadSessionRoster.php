@@ -36,15 +36,22 @@ class ReadSessionRoster extends Action
     public function __construct(private readonly ReadBadgesFor $badges) {}
 
     /**
+     * `$forHost` adds one key and one key only. Whether the teacher put somebody
+     * out of the lesson is a MODERATION fact about that person: the host needs it
+     * to offer them back, and printing «فلان أُخرج» on every classmate's screen
+     * is a punishment nobody chose. Absent — not false — for everyone else, so
+     * the exposure test asserts a missing key rather than a value.
+     *
      * @return list<array{
      *     uuid: string,
      *     name: string,
      *     role: string,
      *     avatar_url: string|null,
-     *     badges: list<array{key: string, name_ar: string, icon: string|null}>
+     *     badges: list<array{key: string, name_ar: string, icon: string|null}>,
+     *     is_removed?: bool
      * }>
      */
-    public function handle(ClassSession $session): array
+    public function handle(ClassSession $session, bool $forHost = false): array
     {
         // A null relation casts to 0, which the filter below drops — the session
         // whose teacher profile was removed has no host to name, not a host with
@@ -98,14 +105,32 @@ class ReadSessionRoster extends Action
         $badges = $this->badges->handle($userIds);
         $booked = $bookedIds->flip();
 
+        // One read for the whole room, never one per row — the `ChatRankStamper`
+        // rule. Empty unless the reader may act on it.
+        $removed = $forHost
+            ? $session->attendances()->withoutWorkspaceScope()
+                ->whereNotNull('removed_at')->pluck('student_user_id')
+                ->map(fn ($id): int => (int) $id)->flip()
+            : collect();
+
         return array_values($users
-            ->map(fn (User $user): array => [
-                'uuid' => (string) $user->uuid,
-                'name' => $user->name,
-                'role' => $this->roleFor($user, $hostUserId, $booked),
-                'avatar_url' => $this->avatarUrl($user),
-                'badges' => $badges[(int) $user->getKey()] ?? [],
-            ])
+            ->map(function (User $user) use ($badges, $booked, $forHost, $hostUserId, $removed): array {
+                $row = [
+                    'uuid' => (string) $user->uuid,
+                    'name' => $user->name,
+                    'role' => $this->roleFor($user, $hostUserId, $booked),
+                    'avatar_url' => $this->avatarUrl($user),
+                    'badges' => $badges[(int) $user->getKey()] ?? [],
+                ];
+
+                // Added, never defaulted to false: a key that is always there
+                // tells every classmate the question was asked.
+                if ($forHost) {
+                    $row['is_removed'] = $removed->has((int) $user->getKey());
+                }
+
+                return $row;
+            })
             ->all());
     }
 

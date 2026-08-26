@@ -32,8 +32,19 @@ use Throwable;
  */
 class FakeBroadcastProvider implements BroadcastProviderInterface
 {
-    /** @var list<array{action: string, target: int|null}> */
+    /** @var list<array{action: string, target: int|null, actor: int|null}> */
     public array $hostActions = [];
+
+    /**
+     * Who this fake believes is in the room.
+     *
+     * Only a test that needs a BULK action to name somebody sets it — the single
+     * forms name their own target, and everywhere else the room is empty because
+     * nothing in the suite ever connects to a provider.
+     *
+     * @var list<string>
+     */
+    public array $roomIdentities = [];
 
     public bool $roomClosed = false;
 
@@ -101,7 +112,8 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
         );
     }
 
-    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): void
+    /** @return list<string> */
+    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): array
     {
         $this->hostActions[] = [
             'action' => $action->value,
@@ -111,6 +123,21 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
             // which participant that is.
             'actor' => $actor?->getKey() === null ? null : (int) $actor->getKey(),
         ];
+
+        /*
+         * The real adapter answers with whoever it found in the room. Here the
+         * room is a list nobody joined, so a single action names its target and
+         * a bulk one names whatever the test put in `roomIdentities` — set by a
+         * test that needs a removal to be RECORDED, and empty everywhere else.
+         */
+        if ($action->isBulk()) {
+            return array_values(array_filter(
+                $this->roomIdentities,
+                fn (string $identity): bool => $identity !== $actor?->uuid,
+            ));
+        }
+
+        return $action === HostAction::Remove && $target !== null ? [(string) $target->uuid] : [];
     }
 
     public function closeRoom(ClassSession $session): void

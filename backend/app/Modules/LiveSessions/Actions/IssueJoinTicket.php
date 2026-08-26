@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\LiveSessions\Data\JoinTicket;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ParticipantRole;
+use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\BookingEligibility;
 use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
@@ -48,6 +49,30 @@ class IssueJoinTicket extends Action
             throw new RuntimeException('لا يمكنك دخول هذه الحصة الآن.');
         }
 
+        /*
+         * ⚠️ WITHOUT THIS, «إخراج» LASTED ONE REFRESH.
+         *
+         * Removing somebody used to be a provider call and nothing else: the
+         * participant was disconnected, the room stayed open, the seat stayed
+         * booked, and this method minted them a fresh ticket a second later. The
+         * teacher's one control over a disruptive student cost them an F5.
+         * Reported from a real lesson on 2026-08-26.
+         *
+         * ⚠️ THE HOST IS NEVER READ AGAINST IT. A teacher has an attendance row
+         * of their own — deliberately, since `CloseClassSession` judges delivery
+         * from it — so a check above this branch would let one host lock another
+         * out of their own lesson with the button meant for a student.
+         *
+         * The refusal is the module's uniform sentence (FR-015) and the cost is
+         * accepted rather than hidden: the removed student reads «تأكّد من حجز
+         * مقعدك» about a seat that is fine. A distinguishable refusal here would
+         * be an enumeration oracle everywhere else, and the same sentence is what
+         * every other reason answers.
+         */
+        if ($role !== ParticipantRole::Host && $this->wasRemoved($session, $user)) {
+            throw new RuntimeException('لا يمكنك دخول هذه الحصة الآن.');
+        }
+
         // The host opening the door is what puts the session live. A student
         // arriving first does not open a room the teacher has not started.
         if ($role === ParticipantRole::Host) {
@@ -57,6 +82,24 @@ class IssueJoinTicket extends Action
         }
 
         return $this->providers->for($session)->issueTicket($session, $user, $role);
+    }
+
+    /**
+     * Did the host put this person out of this session?
+     *
+     * `withoutWorkspaceScope()` for the reason every student-facing read needs
+     * it: a student is a member of no workspace, so the context is null and the
+     * scope adds no condition anyway — but the register is also read from the
+     * teacher's request, where it would AND the wrong workspace and find nothing.
+     */
+    private function wasRemoved(ClassSession $session, User $user): bool
+    {
+        return Attendance::query()
+            ->withoutWorkspaceScope()
+            ->where('class_session_id', $session->getKey())
+            ->where('student_user_id', $user->getKey())
+            ->whereNotNull('removed_at')
+            ->exists();
     }
 
     /**

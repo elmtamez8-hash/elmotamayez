@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   useParticipantAttributes,
   useParticipants,
@@ -51,25 +51,23 @@ export function ParticipantsPanel({
    * somebody arriving is the only event that can add a name we do not have, and
    * the whole room is one query on the server.
    */
+  const reload = useCallback(
+    () =>
+      classSessions
+        .participants(sessionUuid)
+        .then((response) => {
+          setRoster(new Map((response.data ?? []).map((person) => [person.uuid, person])));
+        })
+        // A roster that will not load changes nothing about what the room can do:
+        // the lesson plays, the rows fall back to «مشارك», and the host buttons
+        // still work — they target the identity, which comes from the provider.
+        .catch(() => undefined),
+    [sessionUuid],
+  );
+
   useEffect(() => {
-    let cancelled = false;
-
-    classSessions
-      .participants(sessionUuid)
-      .then((response) => {
-        if (cancelled) return;
-
-        setRoster(new Map((response.data ?? []).map((person) => [person.uuid, person])));
-      })
-      // A roster that will not load changes nothing about what the room can do:
-      // the lesson plays, the rows fall back to «مشارك», and the host buttons
-      // still work — they target the identity, which comes from the provider.
-      .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionUuid, participants.length]);
+    void reload();
+  }, [reload, participants.length]);
 
   const act = async (action: "mute" | "remove", identity: string) => {
     setBusy(`${action}:${identity}`);
@@ -77,6 +75,10 @@ export function ParticipantsPanel({
 
     try {
       await classSessions.host(sessionUuid, action, identity);
+      // Removing somebody drops them out of `participants`, which reloads the
+      // roster anyway — but not before the teacher has looked, and the list of
+      // who is out is the only place they can be let back in.
+      await reload();
     } catch (err: unknown) {
       setError(userMessage(err));
     } finally {
@@ -90,6 +92,7 @@ export function ParticipantsPanel({
 
     try {
       await classSessions.host(sessionUuid, action);
+      await reload();
     } catch (err: unknown) {
       setError(userMessage(err));
     } finally {
@@ -97,7 +100,33 @@ export function ParticipantsPanel({
     }
   };
 
-  if (participants.length === 0) return null;
+  /**
+   * Let somebody back in.
+   *
+   * ⚠️ REMOVAL OUTLIVES THE DISCONNECT NOW, so it needs an undo. Before it did
+   * not, and «إخراج» was worth exactly one refresh to the student; with the
+   * refusal recorded, a press in error would otherwise keep a paying student out
+   * of the lesson for the rest of the hour with nothing the teacher could do.
+   */
+  const readmit = async (uuid: string) => {
+    setBusy(`readmit:${uuid}`);
+    setError("");
+
+    try {
+      await classSessions.host(sessionUuid, "readmit", uuid);
+      await reload();
+    } catch (err: unknown) {
+      setError(userMessage(err));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  // Nobody connected still means something to draw for the host: whoever they
+  // put out is only reachable from this panel.
+  const removed = [...roster.values()].filter((person) => person.is_removed === true);
+
+  if (participants.length === 0 && removed.length === 0) return null;
 
   return (
     <div className="mt-6 space-y-3">
@@ -158,6 +187,39 @@ export function ParticipantsPanel({
           />
         ))}
       </ul>
+
+      {/*
+        ⚠️ THE ONE PLACE THIS PANEL DRAWS SOMEBODY WHO IS NOT CONNECTED, and it
+        is deliberate: a removed student is by definition out of the room, so
+        without this list the teacher has nobody to press «اسمح بالعودة» on. It
+        is the host's alone — the server does not even send the key to anyone
+        else, because «فلان أُخرج» on every classmate's screen is a punishment
+        nobody chose.
+      */}
+      {isHost && removed.length > 0 && (
+        <div className="space-y-2 rounded-xl border border-line p-3">
+          <p className="text-sm font-bold text-ink">أُخرجوا من هذه الحصة</p>
+
+          <ul className="space-y-2">
+            {removed.map((person) => (
+              <li key={person.uuid} className="flex items-center justify-between gap-3">
+                <span className="flex min-w-0 items-center gap-3">
+                  <Avatar url={person.avatar_url} name={person.name} />
+                  <span className="truncate text-sm text-ink-muted">{person.name}</span>
+                </span>
+
+                <Button
+                  variant="ghost"
+                  loading={busy === `readmit:${person.uuid}`}
+                  onClick={() => void readmit(person.uuid)}
+                >
+                  اسمح بالعودة
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

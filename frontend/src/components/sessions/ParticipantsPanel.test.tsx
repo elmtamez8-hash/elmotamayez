@@ -117,4 +117,50 @@ describe("ParticipantsPanel", () => {
     expect(await screen.findAllByText("سلمى محمود")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "إخراج" })).toBeNull();
   });
+
+  it("offers the host a way back for whoever they put out", async () => {
+    /*
+     * ⚠️ THE ONE PLACE THIS PANEL DRAWS SOMEBODY WHO IS NOT CONNECTED. A removed
+     * student is by definition out of the room, so without this list the teacher
+     * has nobody to press «اسمح بالعودة» on — and since the removal now outlives
+     * the disconnect, a press in error would keep a paying student out of the
+     * lesson for the rest of the hour.
+     */
+    participants.mockResolvedValue({
+      data: [
+        {
+          uuid: "u-out",
+          name: "طارق سعيد",
+          role: "student",
+          avatar_url: null,
+          badges: [],
+          is_removed: true,
+        },
+      ],
+    });
+    roomParticipants = [];
+
+    render(<ParticipantsPanel sessionUuid="s-1" isHost={true} />);
+
+    expect(await screen.findByText("طارق سعيد")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "اسمح بالعودة" })).toBeTruthy();
+  });
+
+  it("shows a classmate nothing about who was put out", async () => {
+    // The server does not send the key to anyone but the host; this asserts the
+    // screen would not draw it even if it arrived.
+    participants.mockResolvedValue({
+      data: [
+        { uuid: "u-out", name: "طارق سعيد", role: "student", avatar_url: null, badges: [] },
+      ],
+    });
+    roomParticipants = [];
+
+    const { container } = render(<ParticipantsPanel sessionUuid="s-1" isHost={false} />);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(container.textContent).not.toContain("أُخرجوا");
+    expect(screen.queryByRole("button", { name: "اسمح بالعودة" })).toBeNull();
+  });
 });

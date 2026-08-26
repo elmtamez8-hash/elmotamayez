@@ -56,6 +56,7 @@ class Attendance extends BaseModel
         'overridden_at',
         'override_reason',
         'confirmed_at',
+        'removed_at',
         'report_sent_at',
         'recording_watched_at',
     ];
@@ -72,6 +73,7 @@ class Attendance extends BaseModel
             'stay_seconds' => 'integer',
             'overridden_at' => 'datetime',
             'confirmed_at' => 'datetime',
+            'removed_at' => 'datetime',
             'report_sent_at' => 'datetime',
             'recording_watched_at' => 'datetime',
         ];

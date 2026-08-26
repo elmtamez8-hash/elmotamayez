@@ -72,9 +72,19 @@ interface BroadcastProviderInterface
      * everyone being taught and never the teacher, and the provider is the only
      * place that sees the participant list a bulk action walks.
      *
+     * ⚠️ IT RETURNS THE IDENTITIES IT ACTUALLY ACTED ON, and that is what makes
+     * a removal outlive the disconnect. Being removed has to be RECORDED or the
+     * student is back a refresh later — and the caller cannot work out who was in
+     * the room without asking the provider, while re-deriving "who is present"
+     * from `last_ping_at` beside `RecordPresencePing`'s own arithmetic is the
+     * two-spellings defect this repository has paid for four times. Empty for
+     * `End`, which is ours and never reaches an implementation.
+     *
+     * @return list<string> the participant identities affected — our user uuids
+     *
      * @throws UnsupportedCapability when the provider does not claim hostControls
      */
-    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): void;
+    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): array;
 
     /** Closes the room. Afterwards no earlier ticket opens it (FR-015). Idempotent. */
     public function closeRoom(ClassSession $session): void;

@@ -5,11 +5,13 @@ declare(strict_types=1);
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Actions\BookSeat;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
+use App\Modules\LiveSessions\Jobs\CloseClassSessionJob;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Support\Roles;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Tests\Support\FakeBroadcastProvider;
 
@@ -173,4 +175,119 @@ it('refuses the whole-room actions to a student', function (): void {
     $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/remove-all")->assertForbidden();
 
     expect($this->provider->hostActions)->toHaveCount(0);
+});
+
+/*
+| «أخرجه المدرّس» — والريفريشُ كان يُعيده (2026-08-26).
+|
+| ⚠️ الإخراجُ كان نداءَ مزوّدٍ ولا شيءَ غيره: المشاركُ يُفصَل، والغرفةُ تبقى مفتوحة،
+| والمقعدُ محجوزاً، فيمنحه `IssueJoinTicket` تذكرةً جديدةً بعد ثانية. سيطرةُ المدرّسِ
+| الوحيدةُ على طالبٍ مشاغبٍ كانت تُكلّفه ضغطةَ F5. أُبلغ عنه من حصّةٍ حقيقيّة.
+|
+| والحارسُ يُقرأُ على غيرِ المضيف وحدَه: للمدرّسِ صفُّ حضورٍ خاصٌّ به عمداً — منه
+| يحكمُ `CloseClassSession` على التسليم — فحارسٌ فوقَ ذلك الفرعِ يجعلُ مضيفاً يقفلُ
+| على مضيفٍ آخرَ بابَ حصّتِه بزرٍّ مُعَدٍّ لطالب.
+*/
+it('keeps a removed student out until the host lets them back in', function (): void {
+    /*
+     | ⚠️ `->delay()` RUNS IMMEDIATELY ON THE `sync` CONNECTION. Opening the room
+     | dispatches `CloseClassSessionJob` for the end of the join window; with no
+     | queue behind `sync` it runs inside the join itself, stamps
+     | `room_closed_at`, and every later door in this test answers 403 for a
+     | reason that has nothing to do with what it is measuring. Only the timeline
+     | job is faked, so everything else still runs.
+     */
+    Queue::fake([CloseClassSessionJob::class]);
+
+    $student = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->course, $student);
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+
+    app(BookSeat::class)->handle($this->session, $student);
+
+    // The host opens the room: a student arriving first does not open one the
+    // teacher has not started, and that refusal is not the one under test.
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertOk();
+
+    // ⚠️ ASSERTED BEFORE THE REMOVAL AS WELL AS AFTER IT. A 403 measured only
+    // after would be green against a build where this student could never join
+    // at all — the seat guard firing, not the removal.
+    Sanctum::actingAs($student);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertOk();
+
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/remove", [
+        'target_uuid' => $student->uuid,
+    ])->assertOk();
+
+    // The reported bug, exactly: the student refreshes.
+    Sanctum::actingAs($student);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertForbidden();
+
+    // And the heartbeat is what tells a page already open — enforcement is
+    // instant on the server, and a client finds out when it next speaks.
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/presence")->assertForbidden();
+
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/readmit", [
+        'target_uuid' => $student->uuid,
+    ])->assertOk();
+
+    Sanctum::actingAs($student);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertOk();
+});
+
+it('never locks the host out with the button meant for a student', function (): void {
+    /*
+     | ⚠️ `->delay()` RUNS IMMEDIATELY ON THE `sync` CONNECTION. Opening the room
+     | dispatches `CloseClassSessionJob` for the end of the join window; with no
+     | queue behind `sync` it runs inside the join itself, stamps
+     | `room_closed_at`, and every later door in this test answers 403 for a
+     | reason that has nothing to do with what it is measuring. Only the timeline
+     | job is faked, so everything else still runs.
+     */
+    Queue::fake([CloseClassSessionJob::class]);
+
+    // A teacher has an attendance row of their own — `CloseClassSession` judges
+    // delivery from it — so a guard read above the role branch would let
+    // «أخرِج الجميع» shut the teacher out of their own lesson.
+    $this->provider->roomIdentities = [$this->owner->uuid];
+
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertOk();
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/remove-all")->assertOk();
+
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertOk();
+});
+
+it('records the removal for everyone a bulk clear actually reached', function (): void {
+    /*
+     | ⚠️ `->delay()` RUNS IMMEDIATELY ON THE `sync` CONNECTION. Opening the room
+     | dispatches `CloseClassSessionJob` for the end of the join window; with no
+     | queue behind `sync` it runs inside the join itself, stamps
+     | `room_closed_at`, and every later door in this test answers 403 for a
+     | reason that has nothing to do with what it is measuring. Only the timeline
+     | job is faked, so everything else still runs.
+     */
+    Queue::fake([CloseClassSessionJob::class]);
+
+    $student = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->course, $student);
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+
+    app(BookSeat::class)->handle($this->session, $student);
+
+    // ⚠️ STAMPED FROM WHAT THE PROVIDER CONFIRMS, never from a list rebuilt on
+    // our side: only the provider sees who was in the room, and deriving it from
+    // `last_ping_at` beside `RecordPresencePing`'s arithmetic would be a second
+    // spelling whose failure direction is this very bug surviving.
+    $this->provider->roomIdentities = [$student->uuid, $this->owner->uuid];
+
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertOk();
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/remove-all")->assertOk();
+
+    Sanctum::actingAs($student);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertForbidden();
 });

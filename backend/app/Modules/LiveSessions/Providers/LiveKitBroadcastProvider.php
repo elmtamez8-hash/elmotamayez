@@ -205,7 +205,8 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
         );
     }
 
-    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): void
+    /** @return list<string> */
+    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): array
     {
         // ⚠️ ENDING IS OURS, AND THERE IS DELIBERATELY NO BRANCH FOR IT.
         //
@@ -214,19 +215,17 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
         // re-entry — not the provider. A branch here would be a second way to
         // close one room, and the two would drift the first time either changed.
         if ($action === HostAction::End) {
-            return;
+            return [];
         }
 
         $room = $this->roomName($session);
 
         if ($action->isBulk()) {
-            $this->applyToWholeRoom($room, $action, $actor?->uuid);
-
-            return;
+            return $this->applyToWholeRoom($room, $action, $actor?->uuid);
         }
 
         if ($target === null) {
-            return;
+            return [];
         }
 
         $identity = $target->uuid;
@@ -265,6 +264,8 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
 
             throw new DomainException('هذا المشارك لم يعد في الغرفة.');
         }
+
+        return [$identity];
     }
 
     /**
@@ -283,15 +284,20 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
      * happened. It is skipped per participant rather than raised, because the
      * teacher asked about the ROOM, not about that person — the single-target
      * form still answers «هذا المشارك لم يعد في الغرفة», where it is the answer.
+     *
+     * @return list<string> the identities actually acted on — what the caller
+     *                      stamps, so a removal outlives the disconnect
      */
-    private function applyToWholeRoom(string $room, HostAction $action, ?string $exceptIdentity): void
+    private function applyToWholeRoom(string $room, HostAction $action, ?string $exceptIdentity): array
     {
+        $touched = [];
+
         foreach ($this->rooms()->listParticipants($room)->getParticipants() as $participant) {
             if (! $participant instanceof ParticipantInfo || $participant->getKind() !== Kind::STANDARD) {
                 continue;
             }
 
-            $identity = $participant->getIdentity();
+            $identity = (string) $participant->getIdentity();
 
             if ($identity === $exceptIdentity) {
                 continue;
@@ -304,12 +310,15 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
                     HostAction::LowerHands => $this->lowerHand($room, $participant),
                     default => null,
                 };
+                $touched[] = $identity;
             } catch (TwirpError $e) {
                 if ($e->getErrorCode() !== ErrorCode::NotFound) {
                     throw $e;
                 }
             }
         }
+
+        return $touched;
     }
 
     /**

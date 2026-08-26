@@ -21,6 +21,7 @@ enum HostAction: string
     case MuteAll = 'mute-all';
     case RemoveAll = 'remove-all';
     case LowerHands = 'lower-hands';
+    case Readmit = 'readmit';
 
     public function label(): string
     {
@@ -31,13 +32,14 @@ enum HostAction: string
             self::MuteAll => 'كتم الجميع',
             self::RemoveAll => 'إخراج الجميع',
             self::LowerHands => 'إنزال الأيدي',
+            self::Readmit => 'السماح بالعودة',
         };
     }
 
     /** Whether this action names someone in particular. */
     public function requiresTarget(): bool
     {
-        return $this === self::Mute || $this === self::Remove;
+        return $this === self::Mute || $this === self::Remove || $this === self::Readmit;
     }
 
     /**
