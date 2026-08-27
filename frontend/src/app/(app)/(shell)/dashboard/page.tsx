@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import type { Course, Enrollment, Certificate } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 
@@ -92,18 +93,12 @@ export default function DashboardPage() {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <div
-                      className="h-2 w-24 overflow-hidden rounded-full bg-line"
-                      role="progressbar"
-                      aria-valuenow={enr.progress_pct}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-label="نسبة الإنجاز"
-                    >
-                      <div
-                        className="h-full bg-primary"
-                        style={{ width: `${enr.progress_pct}%` }}
-                      />
+                    {/* The shared bar: the four ARIA attributes were repeated
+                        here and on /enrollments, which is one copy away from a
+                        screen reader announcing «٤٠» with nothing to compare it
+                        to. */}
+                    <div className="w-24">
+                      <ProgressBar value={enr.progress_pct} label="نسبة الإنجاز" size="sm" />
                     </div>
                     <span className="text-xs font-medium text-ink-muted">
                       <bdi>{enr.progress_pct}%</bdi>
