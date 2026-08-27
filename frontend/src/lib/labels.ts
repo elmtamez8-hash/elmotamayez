@@ -218,6 +218,36 @@ export function formatDate(value: string | null): string {
  * useless for a sweep that runs every hour — it answers a question nobody asked
  * while looking like it answered theirs.
  */
+/**
+ * «اليوم» · «أمس» · a written date — for grouping a list that looks BACKWARDS.
+ *
+ * ⚠️ NOT `formatSessionDay()`. That one belongs to the schedule and knows
+ * «غداً», which is the right word in front of a timetable and a wrong one over a
+ * feed of things that have already happened. Two readings of «yesterday» and
+ * «tomorrow» in one helper would be one function answering two questions.
+ */
+export function relativeDayLabel(value: string | null): string {
+  if (value === null) return "";
+
+  const at = new Date(value);
+
+  if (Number.isNaN(at.getTime())) return "";
+
+  const key = (d: Date) => d.toLocaleDateString("en-CA");
+  const today = new Date();
+  const yesterday = new Date(today.getTime() - 86_400_000);
+
+  if (key(at) === key(today)) return "اليوم";
+  if (key(at) === key(yesterday)) return "أمس";
+
+  return at.toLocaleDateString("ar", {
+    day: "numeric",
+    month: "long",
+    year: at.getFullYear() === today.getFullYear() ? undefined : "numeric",
+    numberingSystem: "latn",
+  });
+}
+
 export function formatDateTime(value: string | null): string {
   if (!value) return "—";
   return new Date(value).toLocaleString("ar", {

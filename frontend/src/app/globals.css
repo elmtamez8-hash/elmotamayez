@@ -299,3 +299,26 @@ html {
   overflow-y: scroll;
   scrollbar-gutter: stable;
 }
+
+/*
+| ⚠️ A BUTTON SHOWS A HAND, AND TAILWIND v4 STOPPED SAYING SO.
+|
+| v3's preflight carried `button { cursor: pointer }`; v4 dropped it to match the
+| browser default, which is an arrow. Nothing in this tree put it back — `Button`
+| declares `disabled:cursor-not-allowed` and never the enabled case — so EVERY
+| button in the product has been showing the same cursor as the paragraph next to
+| it. Reported on «تعليم كمقروء» in the notification centre, and true of the tab
+| strips, the segmented pairs and every `ConfirmButton`.
+|
+| Here rather than in `Button`, because half of these are raw `<button>` elements
+| that never go through it — the tab strip is the clearest case, and a fix that
+| only reached the shared component would leave the affordance inconsistent in
+| exactly the places a reader compares side by side.
+|
+| `:not(:disabled)` keeps `disabled:cursor-not-allowed` meaning what it says; the
+| `[role="button"]` arm covers anything given the role without being one.
+*/
+button:not(:disabled):not([aria-disabled="true"]),
+[role="button"]:not(:disabled):not([aria-disabled="true"]) {
+  cursor: pointer;
+}

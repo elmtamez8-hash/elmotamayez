@@ -47,7 +47,8 @@ class NotifyTeacherAssignmentSubmitted implements ShouldQueue
                 'student_name' => $student->name,
                 'assignment_title' => $assignment->title,
             ],
-            actionUrl: '/manage/assignments/'.$assignment->uuid,
+            // ⚠️ THE LIST — `/manage/assignments/{uuid}` is not a route.
+            actionUrl: '/manage/assignments',
             workspaceId: (int) $submission->workspace_id,
         ));
     }

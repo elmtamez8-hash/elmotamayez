@@ -58,7 +58,11 @@ class NotifyStudentSubmissionGraded implements ShouldQueue
                     // `accept` policy, which is why it is not «سُلّم في الموعد».
                     : 'لم يُخصم شيء للتأخير.',
             ],
-            actionUrl: '/assignments/'.$assignment->uuid,
+            // ⚠️ THE LIST, BECAUSE THERE IS NO DETAIL ROUTE. Handing in and
+            // reading a mark both happen on `/assignments`; a per-assignment
+            // href is a 404. The ceiling is that the reader lands on the whole
+            // list rather than on this row.
+            actionUrl: '/assignments',
             workspaceId: (int) $submission->workspace_id,
         ));
     }

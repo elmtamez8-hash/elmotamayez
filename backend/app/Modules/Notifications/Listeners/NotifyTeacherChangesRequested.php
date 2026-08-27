@@ -32,7 +32,9 @@ class NotifyTeacherChangesRequested implements ShouldQueue
                 'name' => $user->name,
                 'reason' => $event->reason,
             ],
-            actionUrl: '/teacher/application',
+            // ⚠️ `/signup/teacher/submitted` — «طلبك قيد المراجعة». There is no
+            // `/teacher/application` route and never was.
+            actionUrl: '/signup/teacher/submitted',
             workspaceId: $application->workspace_id,
         ));
     }

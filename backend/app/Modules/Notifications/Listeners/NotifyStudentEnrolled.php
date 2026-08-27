@@ -34,7 +34,10 @@ class NotifyStudentEnrolled implements ShouldQueue
                 'name' => $enrollment->student->name,
                 'course_title' => $course->title,
             ],
-            actionUrl: '/courses/'.$course->uuid,
+            // ⚠️ `/enrollments/{course}`, NOT `/courses/{uuid}`. The public
+            // catalogue is `/courses` with no detail route at all; the screen a
+            // newly enrolled student wants is their own curriculum page.
+            actionUrl: '/enrollments/'.$course->uuid,
             subject: $enrollment->student,
             workspaceId: $enrollment->workspace_id,
         ));

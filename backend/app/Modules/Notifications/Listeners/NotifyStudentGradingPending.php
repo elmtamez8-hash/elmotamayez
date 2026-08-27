@@ -48,7 +48,9 @@ class NotifyStudentGradingPending implements ShouldQueue
                 'student_name' => $student->name,
                 'exam_title' => $attempt->exam === null ? 'اختبار' : $attempt->exam->title,
             ],
-            actionUrl: '/exams/attempts/'.$attempt->uuid,
+            // ⚠️ `/exams/{attempt}/result` — see NotifyStudentExamResult. No
+            // `/exams/attempts/…` route exists.
+            actionUrl: '/exams/'.$attempt->uuid.'/result',
             workspaceId: (int) $attempt->workspace_id,
         ));
     }

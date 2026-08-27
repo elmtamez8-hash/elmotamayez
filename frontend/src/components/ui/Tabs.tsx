@@ -31,6 +31,15 @@ export interface TabDefinition {
   label: string;
   /** A count beside the label: unread announcements, sessions today. */
   badge?: number;
+  /**
+   * A glyph BEFORE the label, never instead of it.
+   *
+   * ⚠️ IT IS `aria-hidden` AND THE LABEL STAYS. An icon alone is a guess for
+   * anyone who does not already know the product, and it is nothing at all to a
+   * screen reader — the same rule the status badges follow, where the word is
+   * the carrier and the shape is emphasis on top of it.
+   */
+  icon?: React.ReactNode;
 }
 
 /**
@@ -137,7 +146,14 @@ export function Tabs({
       role="tablist"
       aria-label={label}
       onKeyDown={onKeyDown}
-      className="flex gap-1 overflow-x-auto border-b border-line"
+      /*
+        ⚠️ IT WRAPS, IT DOES NOT SCROLL — AND A HIDDEN TAB IS A TAB NOBODY FINDS.
+        Measured on the notification centre: six subjects came to 857px of tabs
+        inside a 753px strip, so `overflow-x-auto` put «الحساب والخصوصيّة» off the
+        edge behind a scrollbar most readers never think to drag. On a phone that
+        is most of the strip. Wrapping costs a second row and shows all of them.
+      */
+      className="flex flex-wrap gap-1 border-b border-line"
     >
       {tabs.map((tab) => {
         const selected = tab.key === active;
@@ -160,6 +176,12 @@ export function Tabs({
                 : "border-transparent text-ink-muted hover:text-ink"
             }`}
           >
+            {/* Emphasis on top of the word, never in place of it. */}
+            {tab.icon !== undefined && (
+              <span aria-hidden="true" className="me-1.5 inline-flex align-[-2px]">
+                {tab.icon}
+              </span>
+            )}
             {tab.label}
             {tab.badge !== undefined && tab.badge > 0 && (
               <span className="ms-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs text-primary-ink">

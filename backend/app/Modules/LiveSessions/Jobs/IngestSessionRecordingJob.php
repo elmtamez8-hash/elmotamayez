@@ -400,7 +400,13 @@ class IngestSessionRecordingJob implements ShouldQueue
                 // No provider reason here: it names a system the student has no
                 // access to and cannot act on.
                 variables: ['title' => $session->title],
-                actionUrl: '/sessions/'.$session->uuid,
+                // ⚠️ `/schedule`, NOT `/sessions/{uuid}` — A ROUTE THAT HAS NEVER
+                // EXISTED. The frontend has `/sessions/[uuid]/room` and nothing
+                // else under that segment, so this link answered 404 for every
+                // seat holder it was sent to. A student has no session page of
+                // their own; their own timetable is the screen that lists the
+                // lesson this is about.
+                actionUrl: '/schedule',
                 workspaceId: (int) $session->workspace_id,
             ));
         }

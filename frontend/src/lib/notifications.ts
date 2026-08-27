@@ -25,6 +25,16 @@ export type NotificationItem = {
   uuid: string;
   type: string;
   type_label: string;
+  /**
+   * The SUBJECT this row belongs to, named by the server.
+   *
+   * ⚠️ NOT DERIVED HERE. The map from forty-eight types to seven subjects lives
+   * on the server; a copy in the browser goes stale the day a type is re-filed,
+   * silently, because a row with the wrong icon still renders. Null for a type
+   * nobody has classified — it still arrives and still reads, it just belongs to
+   * no tab.
+   */
+  category: { key: string; label: string } | null;
   title: string;
   body: string;
   action_url: string | null;
@@ -34,6 +44,23 @@ export type NotificationItem = {
   created_at: string | null;
 };
 
+/**
+ * One tab of the notification centre.
+ *
+ * ⚠️ THE SERVER DECIDES WHICH SUBJECTS EXIST FOR THIS READER. A student receives
+ * no settlement notice and a teacher no guardian-consent request, so a fixed row
+ * of seven tabs would show each of them a control that empties the page. And the
+ * COUNT is the point rather than the hiding: without it the tabs are seven
+ * guesses, with it the page says where the unread sixty-four actually are before
+ * the reader presses anything.
+ */
+export type NotificationCategory = {
+  key: string;
+  label: string;
+  unread: number;
+  total: number;
+};
+
 export type NotificationPage = {
   data: NotificationItem[];
   meta: {
@@ -41,6 +68,8 @@ export type NotificationPage = {
     last_page: number;
     total: number;
     unread_count: number;
+    /** Describes the WHOLE feed, not the tab being read. */
+    categories: NotificationCategory[];
   };
 };
 
@@ -84,11 +113,17 @@ function announceRead<T>(result: T): T {
 }
 
 export const notifications = {
-  list: (params: { page?: number; unread?: boolean; workspace?: string } = {}) => {
+  list: (
+    params: { page?: number; unread?: boolean; workspace?: string; category?: string } = {},
+  ) => {
     const query = new URLSearchParams();
     if (params.page) query.set("page", String(params.page));
     if (params.unread) query.set("unread", "1");
     if (params.workspace) query.set("workspace", params.workspace);
+    // A SUBJECT, not a type. Forty-eight types is a second list to read; the
+    // reader wants «which of these is about my money and which about my
+    // lessons». An unknown value empties the feed rather than widening it.
+    if (params.category) query.set("category", params.category);
 
     const suffix = query.toString();
     return api.get<NotificationPage>(`/notifications${suffix ? `?${suffix}` : ""}`);

@@ -10,6 +10,7 @@ use App\Modules\Notifications\Actions\MarkAllNotificationsRead;
 use App\Modules\Notifications\Actions\MarkNotificationRead;
 use App\Modules\Notifications\Http\Resources\NotificationResource;
 use App\Modules\Notifications\Models\Notification;
+use App\Modules\Notifications\Support\NotificationCategory;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Contracts\FocusState;
@@ -51,10 +52,31 @@ class NotificationController extends Controller
             $query->where('type', $request->query('type'));
         }
 
+        /*
+        | ⚠️ A SUBJECT, NOT A TYPE — and it narrows through the type list rather
+        | than through a column. There is no `category` on the row and there must
+        | not be: it would be a second copy of a classification the code already
+        | holds, written at insert time, and wrong for every notification already
+        | stored the day somebody re-files a type.
+        |
+        | An unknown value narrows to NOTHING rather than falling back to
+        | everything — the same direction the `workspace` filter above fails in.
+        | A tab headed «الحصص والمواعيد» that silently dropped its filter would
+        | show the reader their whole feed under one word.
+        */
+        if (is_string($request->query('category'))) {
+            $category = NotificationCategory::tryFrom((string) $request->query('category'));
+
+            $query->whereIn('type', $category?->typeValues() ?? []);
+        }
+
         $perPage = min(max((int) $request->integer('per_page', 20), 1), 50);
 
         return NotificationResource::collection($query->paginate($perPage))
-            ->additional(['meta' => ['unread_count' => $this->unreadCountFor($user)]]);
+            ->additional(['meta' => [
+                'unread_count' => $this->unreadCountFor($user),
+                'categories' => $this->categoriesFor($user),
+            ]]);
     }
 
     /**
@@ -85,6 +107,79 @@ class NotificationController extends Controller
         $action->handle($user);
 
         return response()->json(['unread_count' => 0]);
+    }
+
+    /**
+     * The subjects this reader actually has, with what is unread in each.
+     *
+     * ⚠️ DERIVED FROM THE FEED, SO A TAB THAT ANSWERS NOTHING IS NEVER OFFERED.
+     * A student never receives a settlement notice and a teacher never receives
+     * a guardian-consent request, so a fixed row of seven tabs would show each of
+     * them at least one control that empties the page — a tap that teaches the
+     * reader not to trust the strip. Same rule the mistake notebook's filter bar
+     * follows, and the rule spec 009's leaderboard picker was fixed under.
+     *
+     * ⚠️ AND THE COUNT IS THE POINT, NOT THE HIDING. Without it the tabs are
+     * seven guesses; with it the page says «سبعة في الحصص وخمسة في الدراسة»
+     * before the reader presses anything — which is the whole answer to a feed
+     * of sixty-four.
+     *
+     * ONE `GROUP BY type` over this reader's own rows, folded into subjects in
+     * PHP. Seven counting queries would be seven times the work for an answer
+     * one pass already holds, and a `category` column to group on would be a
+     * stored copy of a classification the code owns.
+     *
+     * ⚠️ IT IS NOT NARROWED BY THE REQUEST'S OWN FILTERS. The strip describes the
+     * whole feed; recomputed under the category being read, every tab but the
+     * open one would report zero and the reader would have no way back.
+     *
+     * @return list<array{key: string, label: string, unread: int, total: int}>
+     */
+    private function categoriesFor(User $user): array
+    {
+        $query = Notification::query()->forRecipient($user);
+
+        $this->muteDuringFocus($query, $user);
+
+        $rows = $query
+            ->selectRaw('type, COUNT(*) as total, SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END) as unread')
+            ->groupBy('type')
+            ->get();
+
+        $byType = NotificationCategory::byType();
+        $tally = [];
+
+        foreach ($rows as $row) {
+            // A type nobody classified belongs to no tab — and is still in «الكل».
+            $category = $byType[(string) $row->getAttribute('type')] ?? null;
+
+            if ($category === null) {
+                continue;
+            }
+
+            $key = $category->value;
+            $tally[$key]['total'] = ($tally[$key]['total'] ?? 0) + (int) $row->getAttribute('total');
+            $tally[$key]['unread'] = ($tally[$key]['unread'] ?? 0) + (int) $row->getAttribute('unread');
+        }
+
+        $categories = [];
+
+        // Walked in the enum's own order, so the strip does not reshuffle itself
+        // between page loads as counts move.
+        foreach (NotificationCategory::cases() as $category) {
+            if (! isset($tally[$category->value])) {
+                continue;
+            }
+
+            $categories[] = [
+                'key' => $category->value,
+                'label' => $category->label(),
+                'unread' => $tally[$category->value]['unread'],
+                'total' => $tally[$category->value]['total'],
+            ];
+        }
+
+        return $categories;
     }
 
     private function unreadCountFor(User $user): int

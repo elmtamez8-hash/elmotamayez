@@ -46,7 +46,11 @@ class NotifyStudentExamResult implements ShouldQueue
                 'exam_title' => $attempt->exam === null ? 'اختبار' : $attempt->exam->title,
                 'score' => rtrim(rtrim(number_format((float) $attempt->score, 2, '.', ''), '0'), '.').'٪',
             ],
-            actionUrl: '/exams/attempts/'.$attempt->uuid,
+            // ⚠️ `/exams/{attempt}/result`. There is no `/exams/attempts/…`
+            // route — the result screen takes the ATTEMPT uuid in the segment
+            // its folder calls `[uuid]`, which is what made the wrong guess look
+            // plausible.
+            actionUrl: '/exams/'.$attempt->uuid.'/result',
             workspaceId: (int) $attempt->workspace_id,
         ));
     }
