@@ -3,151 +3,122 @@
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
-import { api } from "@/lib/api";
-import type { Course } from "@/lib/types";
-import { Card } from "@/components/ui/Card";
+import { CourseBanner } from "@/components/courses/CourseBanner";
+import { CurriculumTree } from "@/components/courses/CurriculumTree";
+import { Button } from "@/components/ui/Button";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
-import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
+import { Tabs, TabPanel, useTabParam, type TabDefinition } from "@/components/ui/Tabs";
+import { curriculum, type Curriculum } from "@/lib/curriculum";
+import { userMessage } from "@/lib/errors";
 
 /**
- * The lessons of a course the viewer is enrolled in.
+ * One course, as a curriculum.
  *
- * The segment is the *course* uuid, not the enrollment's: everything shown here
- * comes from `GET /courses/{uuid}`, which already nests sections → chapters →
- * lessons, and a second lookup to turn one uuid into the other would buy
- * nothing.
+ * The segment is the COURSE uuid, not the enrolment's — it is what the page
+ * linking here holds, and the server finds the enrolment from the viewer.
  *
- * This screen exists because `/learn/{lesson}` had nothing pointing at it — the
- * player shipped with no route into it from anywhere in the product.
+ * ⚠️ THE WHOLE POINT IS THAT THE ANSWER ARRIVES BEFORE THE TAP. This screen used
+ * to list every lesson as a link, whatever its state: a student discovered a lock
+ * by pressing a row, waiting for a page, and reading a refusal on something they
+ * could not use. The gate has always known why — `LessonAccess` has carried a
+ * reason since 016 — and nothing had ever put it beside the item.
+ *
+ * ⚠️ AND THE TAB STRIP IS ONE TAB DEEP ON PURPOSE. The other five arrive with
+ * US2; the strip is here now so the curriculum is not re-parented later, which is
+ * how a page ends up with two layouts and a scroll position that jumps.
  */
 
-interface Lesson {
-  uuid: string;
-  title: string;
-  type: string;
-  order: number;
-  duration_seconds: number;
-}
+const TABS: TabDefinition[] = [{ key: "curriculum", label: "المنهج" }];
 
-/**
- * Mirrors `CourseSectionResource`, which 016 rewrote.
- *
- * This shape said `id` and `is_published`, and the API stopped sending either:
- * nodes are addressed by uuid now, and `is_published` became `status`, because a
- * node also has to be able to be ARCHIVED — a lesson any student has progress on
- * may never be hard-deleted, so "gone from the course" has to be a state the row
- * can hold. The filter below then matched `undefined` on every section and this
- * page told every enrolled student their course had no lessons in it.
- */
-interface CourseWithLessons extends Course {
-  sections?: Array<{
-    uuid: string;
-    title: string;
-    status: string;
-    chapters?: Array<{ uuid: string; title: string; status: string; lessons?: Lesson[] }>;
-  }>;
-}
-
-function minutes(seconds: number): string {
-  return seconds > 0 ? `${Math.max(1, Math.round(seconds / 60))} دقيقة` : "";
-}
-
-export default function CourseLessonsPage({
+export default function CourseCurriculumPage({
   params,
 }: {
   params: Promise<{ course: string }>;
 }) {
   const { course: courseUuid } = use(params);
 
-  const [course, setCourse] = useState<CourseWithLessons | null>(null);
+  const [data, setData] = useState<Curriculum | null>(null);
   const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [active, selectTab] = useTabParam(TABS);
 
   const load = useCallback(() => {
     setLoading(true);
-    setFailed(false);
+    setError(null);
 
-    api
-      .get<CourseWithLessons>(`/courses/${courseUuid}`)
-      .then(setCourse)
-      .catch(() => setFailed(true))
+    curriculum(courseUuid)
+      .then(setData)
+      // ⚠️ NOT `.catch(() => undefined)`. Swallowing this renders a permanently
+      // blank page with the reason sitting unread in the response — and the rule
+      // against showing a raw error is not a rule for showing nothing.
+      .catch((err: unknown) => setError(userMessage(err)))
       .finally(() => setLoading(false));
   }, [courseUuid]);
 
   useEffect(load, [load]);
 
   if (loading) return <RowsSkeleton />;
-  if (failed || course === null) return <ErrorState onRetry={load} />;
+  if (error !== null || data === null) {
+    // `userMessage()` already turned the failure into a sentence — a raw one
+    // must never reach the screen, and a blank page is not the alternative.
+    return <ErrorState description={error ?? undefined} onRetry={load} />;
+  }
 
-  // Published, not "not draft": an archived section is one the teacher has
-  // retired, and showing it would put back exactly what archiving removed.
-  const sections = (course.sections ?? []).filter((s) => s.status === "published");
-  const lessonCount = sections.reduce(
-    (total, s) =>
-      total +
-    (s.chapters ?? [])
-      .filter((c) => c.status === "published")
-      .reduce((n, c) => n + (c.lessons?.length ?? 0), 0),
-    0,
-  );
+  const { course } = data;
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link
-          href="/enrollments"
-          className="rounded text-sm text-ink-muted hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        >
-          ← تعلّمي
-        </Link>
-        <h2 className="mt-1 text-2xl font-bold text-ink">{course.title}</h2>
-      </div>
+      <Link
+        href="/enrollments"
+        className="inline-block rounded text-sm text-ink-muted hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        ← تعلّمي
+      </Link>
 
-      {lessonCount === 0 ? (
-        <EmptyState
-          title="لا دروس منشورة بعد"
-          description="سيظهر محتوى الكورس هنا فور نشر المدرّس أول درس."
-        />
-      ) : (
-        sections.map((section) => (
-          <Card key={section.uuid}>
-            <h3 className="mb-3 font-semibold text-ink">{section.title}</h3>
+      <CourseBanner
+        title={course.title}
+        teacherName={course.teacher_name}
+        coverUrl={course.cover_url}
+      >
+        <div className="max-w-md space-y-2">
+          <ProgressBar value={course.progress_pct} label={`تقدّمك في ${course.title}`} />
 
-            {(section.chapters ?? [])
-              .filter((chapter) => chapter.status === "published")
-              .map((chapter) => (
-              <div key={chapter.uuid} className="mb-4 last:mb-0">
-                <p className="mb-2 text-sm text-ink-muted">{chapter.title}</p>
+          <p className="text-sm text-white/85">
+            {/* `bdi` so the digits do not drag the surrounding Arabic around. */}
+            أتممتَ <bdi>{course.completed_count}</bdi> من <bdi>{course.countable_count}</bdi>{" "}
+            — <bdi>{course.progress_pct}%</bdi>
+          </p>
 
-                <ul className="space-y-2">
-                  {(chapter.lessons ?? []).map((lesson) => (
-                    <li key={lesson.uuid}>
-                      {/*
-                        Every type links now. It used to be video alone, and the
-                        comment said a dead link was a worse promise than a plain
-                        row — which was true while `/learn/{lesson}` played video
-                        and nothing else. It no longer does, so the row that was
-                        a promise not to disappoint is now a lesson nobody can
-                        open.
-                      */}
-                      <Link
-                        href={`/learn/${lesson.uuid}`}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-line p-3 text-sm text-ink transition hover:border-primary hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                      >
-                        <span className="truncate">{lesson.title}</span>
-                        <span className="shrink-0 text-xs text-ink-muted">
-                          <bdi>{minutes(lesson.duration_seconds)}</bdi>
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </Card>
-        ))
-      )}
+          {/*
+            «تابعْ من هنا» (FR-010). Absent rather than disabled when there is
+            nothing to resume: a finished course and a course whose first item is
+            shut are both real, and a button that answers 403 is worse than none.
+          */}
+          {course.resume_lesson_uuid !== null && (
+            // `Button`, not a hand-rolled `bg-white` pill: colour comes from
+            // the closed variant set, and `bg-white` is banned outright — the
+            // theme has a `surface-raised` token that is correct in both themes,
+            // where a literal white is a light-mode assumption baked into a
+            // component that renders in both.
+            <Button href={`/learn/${course.resume_lesson_uuid}`} variant="secondary">
+              تابعْ من هنا
+            </Button>
+          )}
+        </div>
+      </CourseBanner>
+
+      <Tabs
+        tabs={TABS}
+        active={active}
+        onChange={selectTab}
+        label={`أقسام ${course.title}`}
+      />
+
+      <TabPanel tabKey="curriculum" active={active}>
+        <CurriculumTree sections={data.sections} />
+      </TabPanel>
     </div>
   );
 }

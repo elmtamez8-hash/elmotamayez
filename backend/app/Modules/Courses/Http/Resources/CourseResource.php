@@ -17,6 +17,17 @@ class CourseResource extends JsonResource
         return [
             'uuid' => $this->uuid,
             'title' => $this->title,
+            /*
+            | ⚠️ THE SPELLING OF `PublicCourseCardResource:31`, CHARACTER FOR
+            | CHARACTER, AND THE COVER WAS MISSING ONLY FROM THE AUTHENTICATED
+            | SIDE. A visitor browsing the marketplace saw the course's cover on
+            | its card; the student who bought it saw a page with no image on it
+            | at all, because this resource never carried the field.
+            |
+            | Two spellings of one URL diverge at the first change to the storage
+            | disk — and the half nobody opened is the half that breaks.
+            */
+            'cover_url' => $this->cover_path === null ? null : asset('storage/'.$this->cover_path),
             'slug' => $this->slug,
             'description' => $this->description,
             'price_minor' => $this->price_minor,

@@ -13,6 +13,8 @@ use App\Modules\Courses\Support\MarkdownRenderer;
 use App\Modules\Courses\Support\ReferenceSummary;
 use App\Modules\Learning\Actions\EnrollStudent;
 use App\Modules\Learning\Actions\MarkLessonComplete;
+use App\Modules\Learning\Actions\ReadCurriculum;
+use App\Modules\Learning\Http\Resources\CurriculumResource;
 use App\Modules\Learning\Http\Resources\EnrollmentResource;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Support\LessonAccess;
@@ -48,6 +50,41 @@ class EnrollmentController extends Controller
         $enrollment = $action->handle($course, $this->currentUser($request));
 
         return response()->json(EnrollmentResource::make($enrollment), 201);
+    }
+
+    /**
+     * The whole course as a curriculum: every item with its state, and a reason
+     * on every closed one (`US1` · FR-008 · FR-009).
+     *
+     * ⚠️ THE ENROLMENT LOOKUP IS THE ENTIRE GUARD, and it has to be explicit.
+     * `{course}` is resolved by implicit binding, and `WorkspaceScope` adds no
+     * condition at all when the context is null — which it always is for a
+     * student, who is a member of no workspace and whose `last_workspace_id` is
+     * never written by anything on their path. So the binding resolves ANY
+     * teacher's course by uuid, and only owning a row in `enrollments` for it
+     * stands between a stranger and this payload.
+     *
+     * `403`, not `404`: the reader is authenticated and the course is one they
+     * could buy — pretending it does not exist would break the buy button beside
+     * the message.
+     */
+    public function curriculum(Request $request, Course $course, ReadCurriculum $action): JsonResponse
+    {
+        $enrollment = Enrollment::query()
+            ->where('course_id', $course->getKey())
+            ->where('student_user_id', $this->currentUser($request)->getKey())
+            ->first();
+
+        if ($enrollment === null) {
+            return response()->json([
+                'message' => 'لا تملك تسجيلاً في هذا الكورس.',
+                'code' => LessonAccess::NOT_ENROLLED,
+            ], 403);
+        }
+
+        $this->authorize('view', $enrollment);
+
+        return response()->json(CurriculumResource::make($action->handle($enrollment)));
     }
 
     public function showLesson(Request $request, Enrollment $enrollment, Lesson $lesson): JsonResponse

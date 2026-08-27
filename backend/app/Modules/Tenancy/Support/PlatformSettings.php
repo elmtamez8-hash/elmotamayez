@@ -106,6 +106,13 @@ final class PlatformSettings
         'community.review.min_sessions' => 'community.review.min_sessions',
         'community.review.period_days' => 'community.review.period_days',
         'community.chat.max_messages_per_minute' => 'community.chat.max_messages_per_minute',
+        // Cohorts (spec 021). Two rows: how many students a new group holds by
+        // default, and how long «منع مؤقّت من الكتابة» lasts when the teacher does
+        // not say. Both are judgements about one teacher's classroom that the
+        // first month of real use is what settles — which is exactly the shape a
+        // release-only constant gets wrong for ever.
+        'cohorts.default_capacity' => 'cohorts.default_capacity',
+        'cohorts.default_chat_ban_minutes' => 'cohorts.default_chat_ban_minutes',
     ];
 
     public static function get(string $key, mixed $default = null): mixed

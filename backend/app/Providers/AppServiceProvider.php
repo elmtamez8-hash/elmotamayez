@@ -189,6 +189,23 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('sessions', fn (Request $request) => Limit::perMinute(60)
             ->by('user:'.(string) $request->user()?->getKey()));
 
+        /*
+        | Cohort writes: joining, asking to transfer, approving, assigning
+        | sessions (spec 021).
+        |
+        | ⚠️ REGISTERED AHEAD OF ITS ROUTES, WHICH ARRIVE WITH US3. A named
+        | limiter costs nothing until something carries its name, and the
+        | alternative is what the file's own docblock is about: an inline
+        | `throttle:20,1` written in a hurry on the first cohort route shares one
+        | bucket with every other inline limit on the platform, and the strictest
+        | one wins.
+        |
+        | By account, like `sessions` above and for the same reason: a class
+        | choosing their group from one school address is many legitimate people.
+        */
+        RateLimiter::for('cohort-write', fn (Request $request) => Limit::perMinute(20)
+            ->by('user:'.(string) $request->user()?->getKey()));
+
         // The presence heartbeat. One participant sends two a minute; the ceiling
         // leaves room for several rooms and reconnection storms without leaving
         // the endpoint open. It is a write on every call, so it is not unlimited.
