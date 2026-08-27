@@ -22,7 +22,7 @@ describe("SilenceControl", () => {
     const onSilence = vi.fn();
 
     render(
-      <SilenceControl name="سامي" onSilence={onSilence} onCancel={() => undefined} />,
+      <SilenceControl name="سامي" onSilence={onSilence} onLift={() => undefined} onCancel={() => undefined} />,
     );
 
     /*
@@ -41,7 +41,7 @@ describe("SilenceControl", () => {
     const onSilence = vi.fn();
 
     render(
-      <SilenceControl name="سامي" onSilence={onSilence} onCancel={() => undefined} />,
+      <SilenceControl name="سامي" onSilence={onSilence} onLift={() => undefined} onCancel={() => undefined} />,
     );
 
     fireEvent.change(screen.getByLabelText("السبب (يقرؤه الطالب)"), {
@@ -69,7 +69,7 @@ describe("SilenceControl", () => {
     const onSilence = vi.fn();
 
     render(
-      <SilenceControl name="سامي" onSilence={onSilence} onCancel={() => undefined} />,
+      <SilenceControl name="سامي" onSilence={onSilence} onLift={() => undefined} onCancel={() => undefined} />,
     );
 
     fireEvent.change(screen.getByLabelText("السبب (يقرؤه الطالب)"), {
@@ -91,29 +91,82 @@ describe("SilenceControl", () => {
   });
 
   /*
-    ⚠️ THE OPEN-ENDED OPTION IS DELIBERATELY ABSENT. The server accepts a ban with
-    no expiry, but nothing in the product lifts one — so offering it here would
-    ship a control whose only exit is a request typed by hand. Asserted, because
-    an absence nobody measures is an absence somebody restores next week.
+    ⚠️ THIS ASSERTION USED TO RUN THE OTHER WAY, and inverting it was the whole
+    of closing the gap. The open-ended option was withheld while `writeBans.lift`
+    had no screen — a ban whose only exit is a request typed by hand — and the
+    guard measured the ABSENCE, because an absence nobody measures is one
+    somebody restores next week. Now the exit exists, so what needs guarding is
+    the PAIR: an open-ended ban offered without «رفع الإيقاف» beside it is the
+    original defect, reached from the opposite direction.
   */
-  it("offers no ban that cannot end on its own", () => {
+  it("offers an open-ended ban only alongside the button that ends one", () => {
     render(
-      <SilenceControl name="سامي" onSilence={() => undefined} onCancel={() => undefined} />,
+      <SilenceControl name="سامي" onSilence={() => undefined} onLift={() => undefined} onCancel={() => undefined} />,
     );
 
     const options = Array.from(
       (screen.getByLabelText("المدّة") as HTMLSelectElement).options,
     ).map((option) => option.value);
 
-    expect(options).not.toContain("");
-    expect(options.every((value) => Number(value) > 0)).toBe(true);
+    expect(options).toContain("");
+    expect(screen.getByRole("button", { name: "رفع الإيقاف" })).toBeTruthy();
   });
 
   it("names the person, so the wrong row is visible before the second press", () => {
     render(
-      <SilenceControl name="سامي" onSilence={() => undefined} onCancel={() => undefined} />,
+      <SilenceControl name="سامي" onSilence={() => undefined} onLift={() => undefined} onCancel={() => undefined} />,
     );
 
     expect(screen.getByText("سامي")).toBeTruthy();
+  });
+});
+
+/*
+| ⚠️ الخياران وُلِدا معاً. «حتى أرفعه بنفسي» كان محجوباً عمداً ما دام الرفعُ بلا
+| شاشة — منعٌ لا مخرجَ له إلّا طلبٌ يُكتَبُ باليد. فحذفُ زرِّ الرفعِ يجبُ أن
+| يُسقِطَ هذا الاختبارَ قبلَ أن يشحنَ الضابطَ الأعور.
+*/
+describe("SilenceControl · the open-ended ban and its exit", () => {
+  it("sends null minutes for «حتى أرفعه بنفسي»", () => {
+    const onSilence = vi.fn();
+
+    render(
+      <SilenceControl
+        name="سامي"
+        onSilence={onSilence}
+        onLift={() => undefined}
+        onCancel={() => undefined}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("السبب (يقرؤه الطالب)"), {
+      target: { value: "تكرار المقاطعة" },
+    });
+    fireEvent.change(screen.getByLabelText("المدّة"), { target: { value: "" } });
+
+    // ⚠️ `fireEvent`, never `userEvent`: the latter awaits real timers between
+    // its steps, so under the arm/disarm clock it hangs and TIMES OUT rather
+    // than failing.
+    fireEvent.click(screen.getByRole("button", { name: "أوقف الكتابة" }));
+    fireEvent.click(screen.getByRole("button", { name: "تأكيد الإيقاف" }));
+
+    expect(onSilence).toHaveBeenCalledWith("تكرار المقاطعة", null);
+  });
+
+  it("lifts in one press, with no reason and no arming", () => {
+    const onLift = vi.fn();
+
+    render(
+      <SilenceControl
+        name="سامي"
+        onSilence={() => undefined}
+        onLift={onLift}
+        onCancel={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "رفع الإيقاف" }));
+
+    expect(onLift).toHaveBeenCalledTimes(1);
   });
 });

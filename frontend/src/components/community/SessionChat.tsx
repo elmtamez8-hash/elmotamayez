@@ -169,6 +169,29 @@ export function SessionChat({
       .finally(() => setLocking(false));
   };
 
+  /*
+    The exit for an open-ended ban (021 · FR-047). It is idempotent on the
+    server — lifting where there is no active ban returns without writing — so
+    the panel offers it beside the ban rather than behind a list of who is
+    currently silenced, which would be a second read of a fact the moderator is
+    already looking at a message from.
+  */
+  const lift = () => {
+    if (silencing === null) return;
+
+    setProblem(null);
+    setLocking(true);
+
+    writeBans
+      .lift(room.uuid, silencing.uuid)
+      .then((response) => {
+        setNotice(response.message);
+        setSilencing(null);
+      })
+      .catch((error: unknown) => setProblem(userMessage(error)))
+      .finally(() => setLocking(false));
+  };
+
   const report = (messageUuid: string) => {
     setProblem(null);
 
@@ -273,6 +296,7 @@ export function SessionChat({
             name={silencing.name}
             busy={locking}
             onSilence={silence}
+            onLift={lift}
             onCancel={() => setSilencing(null)}
           />
         </div>

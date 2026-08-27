@@ -21,7 +21,7 @@
 | Identity | `app/Modules/Identity/` | User, StudentProfile, UserSecuritySettings, Device, AuthSession, ParentStudentRelation | Auth (register/login/me/change-password), sessions & devices, two-factor |
 | Tenancy | `app/Modules/Tenancy/` | Workspace, WorkspaceMember, Invitation | Workspaces (CRUD, switch, members, invitations) |
 | Courses | `app/Modules/Courses/` | Course, Section, Chapter, Lesson | Courses + the authoring tree: nodes, ordering, publish batches, impact preview |
-| Learning | `app/Modules/Learning/` | Enrollment, LessonProgress, ProgressHistory | Enrollments (enroll, lesson access, complete) |
+| Learning | `app/Modules/Learning/` | Enrollment, LessonProgress, ProgressHistory, Cohort, CohortMembership, CohortMembershipEvent, CohortTransferRequest | Enrollments (enroll, lesson access, complete) + the curriculum tree with a reason on every row + groups (pick, join, transfer, roster) and the teacher's half (create, archive, members, decide) |
 | Assessments | `app/Modules/Assessments/` | Exam, Question, QuestionOption, Attempt, Answer, Concept, ExamItem, AttemptItem, RubricCriterion, GradingRecord, Assignment, Submission, Accommodation, QuestionImport, UnlockRule, UnlockExemption | Exams + the question bank, imports, item analysis, the mistake notebook, self-generated papers, the essay grading board, homework and the unlock condition |
 | Certificates | `app/Modules/Certificates/` | Certificate, CertificateTemplate | Certificates (list, verify, regenerate) + templates CRUD |
 | Payments | `app/Modules/Payments/` | Order, Product, PaymentTransaction | Orders (create, receipt, approve, reject) |
@@ -33,7 +33,7 @@
 | LiveSessions | `app/Modules/LiveSessions/` | ClassSession, SessionBooking, Attendance, ClassSessionFeedback, FreezePeriod | Calendar + booking + broadcast room + register + freeze periods |
 | Settlement | `app/Modules/Settlement/` | SettlementRate, RateChangeRequest, TeachingUnit, SettlementPeriod, LedgerEntry, TeacherPayout | Teacher statement + export + units + rate requests + period close/payout + financial audit |
 | Compliance | `app/Modules/Compliance/` | DataCategory, DataProcessor, DataRequest, LegalHold, RetentionSweepRun, BreachReport, TeacherOffboarding | The privacy catalogue and policy (public) + data-rights requests + the officer's queue + legal holds + breach reports + a teacher's exit |
-| Community | `app/Modules/Community/` | Conversation, ConversationParticipant, Message, ModerationAction, BlockedTerm, AssistantAssignment, AssistantScope, PeriodicReview, GradingScheme, ReportCard, ReportCardSegment, Announcement | Private and public chat + moderation + assistants and their scopes + periodic reviews + the weighted report card + announcements |
+| Community | `app/Modules/Community/` | Conversation, ConversationParticipant, Message, ModerationAction, BlockedTerm, AssistantAssignment, AssistantScope, PeriodicReview, GradingScheme, ReportCard, ReportCardSegment, Announcement, ConversationWriteBan | Private and public chat (private · session · lesson · **cohort**) + moderation, the per-thread write ban + assistants and their scopes + periodic reviews + the weighted report card + announcements |
 | Gamification | `app/Modules/Gamification/` | AwardEntry, AwardDailyCounter, StudentProgress, CoinBalance, GamificationAction, Level, Badge, BadgeAward, Reward, Redemption, FocusSession, LeaderboardEntry | The student's profile + leaderboards + the reward shop + the focus timer |
 
 ### Gamification (spec 009)
@@ -1560,3 +1560,98 @@ SQLite — the failing environment being the one nobody runs the suite in).
 - The screen (`PlatformStaffResource`) grants a ROLE, never a permission, and is
   super-admin only. A finance officer who could appoint a finance officer can
   grant themselves a colleague.
+
+---
+
+## Course Groups and the Course Page (spec 021)
+
+A course that runs in **cohorts** — the Saturday four o'clock and the Sunday six —
+and one page that carries the whole of it: the curriculum with a state and a reason
+on every row, the sessions, the papers, the homework, the announcements, the
+certificate, the group's thread and the classmates.
+
+### The two rules everything else follows from
+
+- **A student belongs to exactly one group of a course at a time, and the guard is
+  a UNIQUE INDEX.** `unique(student_user_id, course_id, closed_slot)` with
+  `closed_slot = 0` while open and the row's own id afterwards — never a partial
+  index, which MySQL does not have, and never `count()` then `insert()`, which is
+  the definition of the race. `closed_slot` is deliberately **not** `$fillable`:
+  it is written inside the statement that owns the closing.
+- **Membership can be REQUIRED to reach the content, and the requirement has a
+  safety valve.** `LessonGate` refuses the tree while the course has a joinable
+  group and the reader is in none — and opens it **completely** the moment every
+  group is full, closed or archived (`joinableCohortsExist()` is false). Without
+  that valve a student who paid for a course is held behind a condition no action
+  of theirs can satisfy, which is the family of the worst defect this repository
+  records.
+
+### Endpoints
+
+| Method · path | Who | Note |
+|---|---|---|
+| `GET /courses/{course}/cohorts` | the enrolled student | the picker: schedule preview, seats left, the reader's own membership, their pending request, **and the groups they have left** |
+| `POST /cohorts/{cohort}/join` | the enrolled student | first join is free (FR-028د) · `throttle:cohort-write` |
+| `POST /cohorts/{cohort}/transfer-requests` | the enrolled student | `{ reason? }` · `throttle:cohort-write` |
+| `DELETE /transfer-requests/{request}` | the requester | withdraw · `throttle:cohort-write` |
+| `GET /cohorts/{cohort}/roster` | a CURRENT member | name, face, level, rank, badges — and nothing else |
+| `GET /cohorts/{cohort}/chat` | whoever was **ever** a member | resolve-or-open the group's thread |
+| `GET · POST /manage/courses/{course}/cohorts` | `courses.update` | creating is for `group` courses only (FR-037) |
+| `PATCH /manage/cohorts/{cohort}` · `POST /manage/cohorts/{cohort}/archive` | `courses.update` | ⚠️ **there is no `DELETE`** — see below |
+| `GET · POST /manage/cohorts/{cohort}/members` · `DELETE …/members/{user}` | `courses.update` | direct add and remove, no request and no approval |
+| `GET /manage/cohorts/{cohort}/history` · `GET /manage/courses/{course}/students/{student}/cohort-history` | `courses.update` | the audit trail |
+| `POST /manage/transfer-requests/{request}/approve` · `/reject` | `courses.update` | ⚠️ `reason` is **required** on a rejection — the student reads it |
+| `POST /manage/courses/{course}/assign-sessions` | `courses.update` | ONE request for the whole batch, never a loop at the caller |
+| `POST · DELETE /conversations/{conversation}/write-bans` | `chat.moderate` | one person, one thread, with an end |
+
+### Permissions: none new
+
+Groups run on **`courses.update`** — a group is a run of a course, and whoever may
+edit the course may schedule its runs. Moderation of the group's thread is
+`chat.moderate`, and `attendance.view` is untouched. A new permission would mean a
+seeder row **and** a backfill migration for every workspace that already exists
+(`SeedDefaultRoles` runs once at creation and never comes back) in exchange for no
+delegation anybody asked for.
+
+### The two doors of a group's thread are different questions
+
+Reading is `wasEverMember`; writing is `isCurrentMember`. FR-046 keeps the old
+group's conversation readable **for ever** after a transfer — reading the answers
+you were given is the point — while answering back into a group you are no longer
+in is not. `chat.moderate` is exempt from the write door for the reason the lock
+exempts it: the teacher holds no membership in their own cohort.
+
+⚠️ **And the roster's door is the narrow one.** `GET /cohorts/{cohort}/roster`
+asks `isCurrentMember`, deliberately unlike the thread beside it: the archive is a
+record of what was said while you were there, and no requirement gives somebody
+who left continuing sight of **who is in the group today**.
+
+### The roster carries five fields and no sixth
+
+`uuid`, `name`, `avatar_url`, `badges`, and — **as absent keys, never zeros** —
+`level` and `rank`. Boards roll up nightly, so a student who joined this morning is
+on none of them; «المركز ٠» printed beside a name in front of their class is the
+reading of a zero. `CohortRosterExposureTest` walks every key in the payload
+against an allowlist, because a deny-list only ever sees the field somebody
+thought to name.
+
+⚠️ **Zero attendance, stay, mark or teacher's note** (FR-052). Those are
+`attendance.view`'s questions and this route opens to every member; one of them
+here hands each student their classmates' record. And the rank scope is the
+**teacher's**, keyed by the workspace — the same key `ChatRankStamper` uses,
+because the thread is one tab away and two scopes would show one student rank ٧
+beside their message and rank ٣ beside their name.
+
+### Archiving, never deleting
+
+There is no `DELETE /manage/cohorts/{cohort}` and its absence **is** the
+requirement (FR-035). Archiving keeps every closed membership pointing at something
+that resolves and keeps the history readable; a delete turns each of them into a
+row naming a group that no longer exists.
+
+### Rate limiters
+
+`throttle:cohort-write` (20/minute, keyed on the user) on every group write.
+Inline `throttle:N,M` is banned: `ThrottleRequests` keys guests on `domain|ip` with
+no route in the hash, so every inline limit shares one counter and the strictest in
+the application wins.

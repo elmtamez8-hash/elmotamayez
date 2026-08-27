@@ -13,6 +13,7 @@ import { AssignmentsTab } from "@/components/courses/tabs/AssignmentsTab";
 import { CertificateTab } from "@/components/courses/tabs/CertificateTab";
 import { ChatTab } from "@/components/courses/tabs/ChatTab";
 import { ExamsTab } from "@/components/courses/tabs/ExamsTab";
+import { RosterTab } from "@/components/courses/tabs/RosterTab";
 import { SessionsTab } from "@/components/courses/tabs/SessionsTab";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -196,7 +197,15 @@ export default function CourseCurriculumPage({
       and empty: a tab that answers 403 advertises a room and refuses it in one
       breath.
     */
-    if (cohortUuid !== null) list.push({ key: "chat", label: "نقاش المجموعة" });
+    if (cohortUuid !== null) {
+      list.push({ key: "chat", label: "نقاش المجموعة" });
+      // The same condition, and for the same reason: a course with no groups has
+      // no classmates to name, and a tab that answers 403 advertises a list and
+      // refuses it in one breath. The door is narrower than the thread's — an
+      // OPEN membership — so a student who transferred sees their new group here
+      // while the old thread stays readable (FR-046 · FR-050).
+      list.push({ key: "roster", label: "الزملاء" });
+    }
 
     return list;
   }, [hasSessions, exams.length, assignments.length, announcements.length, cohortUuid]);
@@ -340,7 +349,11 @@ export default function CourseCurriculumPage({
       </TabPanel>
 
       <TabPanel tabKey="chat" active={active}>
-        <ChatTab cohortUuid={cohortUuid} />
+        <ChatTab cohortUuid={cohortUuid} pastCohorts={cohortState?.past_cohorts ?? []} />
+      </TabPanel>
+
+      <TabPanel tabKey="roster" active={active}>
+        <RosterTab cohortUuid={cohortUuid} />
       </TabPanel>
 
       <TabPanel tabKey="certificate" active={active}>

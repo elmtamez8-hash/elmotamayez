@@ -25,31 +25,38 @@ import { SelectField, TextField } from "@/components/ui/Field";
  */
 
 /**
- * The four the teacher actually reaches for.
+ * The five the teacher actually reaches for.
  *
- * ⚠️ NO «حتى أرفعه بنفسي» HERE, THOUGH THE SERVER ACCEPTS ONE. An open-ended ban
- * needs a lift button to end it, and there is none — offering the option would
- * ship a control whose only exit is a request typed by hand, which is the
- * «feature classified by absence» this file's own sibling docblock records. Every
- * ban offered here lapses on its own; silence that must last is the workspace
- * ban, which is recorded, appealable, and has a screen.
+ * ⚠️ «حتى أرفعه بنفسي» IS HERE ONLY BECAUSE «رفع الإيقاف» IS. It was deliberately
+ * withheld while `writeBans.lift` had no screen: an open-ended ban whose only
+ * exit is a request typed by hand is a control with no way out, which is the
+ * «classified by absence» shape this tree records. The two ship together or
+ * neither does — remove the lift button and this option has to go with it.
+ *
+ * The empty string is the wire value for «open», because that is what
+ * `writeBans.set` turns into an omitted `minutes` — a `0` there would be a
+ * duration the server reads as a validation error.
  */
 const DURATIONS: Array<{ value: string; label: string }> = [
   { value: "10", label: "١٠ دقائق" },
   { value: "30", label: "٣٠ دقيقة" },
   { value: "60", label: "ساعة" },
   { value: "1440", label: "يوم" },
+  { value: "", label: "حتى أرفعه بنفسي" },
 ];
 
 export function SilenceControl({
   name,
   busy = false,
   onSilence,
+  onLift,
   onCancel,
 }: {
   name: string;
   busy?: boolean;
-  onSilence: (reason: string, minutes: number) => void;
+  onSilence: (reason: string, minutes: number | null) => void;
+  /** Ends whatever ban this person is under — idempotent on the server. */
+  onLift: () => void;
   onCancel: () => void;
 }) {
   const [reason, setReason] = useState("");
@@ -100,11 +107,22 @@ export function SilenceControl({
             size="sm"
             loading={busy}
             confirmLabel="تأكيد الإيقاف"
-            onConfirm={() => onSilence(trimmed, Number(duration))}
+            onConfirm={() => onSilence(trimmed, duration === "" ? null : Number(duration))}
           >
             أوقف الكتابة
           </ConfirmButton>
         )}
+
+        {/*
+          ⚠️ THE EXIT, AND IT NEEDS NO REASON AND NO ARMING. A lift restores
+          something, so a two-press confirmation here would be ceremony over the
+          one action in this panel that undoes harm rather than doing it — and it
+          is idempotent on the server, so pressing it for somebody under no ban
+          costs a request and changes nothing.
+        */}
+        <Button variant="secondary" size="sm" loading={busy} onClick={onLift}>
+          رفع الإيقاف
+        </Button>
 
         <Button variant="ghost" size="sm" onClick={onCancel}>
           إلغاء

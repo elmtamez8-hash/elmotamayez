@@ -175,3 +175,98 @@ it('costs the same number of queries whatever the number of senders', function (
     expect($large)->toBe($small)
         ->and($response->json())->toHaveCount(20);
 });
+
+/*
+| ⚠️ الشارةُ كانت تقرأُ `level_band` لا `level`، فطُبِعَ «المستوى ٠» جنبَ اسمِ
+| طالبٍ حقيقيٍّ في نقاشٍ حيٍّ — قِيسَ على قاعدةِ التطوير، لا بقراءةِ الكود.
+|
+| `level_band` جوابُ «في أيِّ فئةٍ نافسَ هذه الفترة»، مشتقٌّ من
+| `MAX(award_entries.level_band)`، وصفٌّ بلا فئةٍ يحملُ صفراً مشروعاً. ومستوياتُ
+| الفهرسِ من ١ إلى ٦، فالصفرُ ليس واحداً منها — وكان الحقلُ يعني شيئَين حسبَ ما
+| إذا كانت التجميعةُ الليليّةُ قد رأتِ الشخصَ أم لا، وهو فرقٌ لا يراه قارئُ الشاشة.
+|
+| التجهيزُ الأصليُّ أعلاه لا يستطيعُ رؤيةَ هذا: `level_band` و`level` فيه ٢ و٢.
+*/
+it('prints the student level and never the band, when the two disagree', function (): void {
+    $bandless = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->course, $bandless);
+
+    SessionBooking::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'class_session_id' => $this->session->getKey(),
+        'student_user_id' => $bandless->getKey(),
+        'status' => BookingStatus::Booked,
+    ]);
+
+    // On the board — and the band its awards produced is zero.
+    LeaderboardEntry::query()->create([
+        'scope_key' => LeaderboardScope::Teacher->keyFor((string) $this->workspace->getKey()),
+        'period_key' => app(GamificationCalendar::class)->weekKey(),
+        'user_id' => $bandless->getKey(),
+        'rank' => 9,
+        'points' => 40,
+        'level_band' => 0,
+    ]);
+
+    StudentProgress::query()->create([
+        'user_id' => $bandless->getKey(),
+        'xp' => 500,
+        'level' => 5,
+    ]);
+
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+    Sanctum::actingAs($this->owner);
+
+    $uuid = (string) $this->getJson("/api/v1/class-sessions/{$this->session->uuid}/chat")
+        ->assertOk()->json('uuid');
+
+    Sanctum::actingAs($bandless);
+    $this->postJson("/api/v1/conversations/{$uuid}/messages", ['body' => 'رسالة'])->assertCreated();
+
+    $row = collect($this->getJson("/api/v1/conversations/{$uuid}/messages")->assertOk()->json())
+        ->firstWhere('sender_uuid', (string) $bandless->uuid);
+
+    expect($row['sender_rank'])->toBe(9)
+        // The student's own level, never the band — and NEVER a zero, which is
+        // what «المستوى ٠» is made of.
+        ->and($row['sender_level'])->toBe(5);
+});
+
+/*
+| ومن لا مستوى له إطلاقاً يبقى `null` — الغيابُ حالةٌ، والشاشةُ لا ترسمُ شيئاً.
+*/
+it('leaves the level null for a board row whose owner has earned nothing', function (): void {
+    $onlyBand = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->course, $onlyBand);
+
+    SessionBooking::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'class_session_id' => $this->session->getKey(),
+        'student_user_id' => $onlyBand->getKey(),
+        'status' => BookingStatus::Booked,
+    ]);
+
+    LeaderboardEntry::query()->create([
+        'scope_key' => LeaderboardScope::Teacher->keyFor((string) $this->workspace->getKey()),
+        'period_key' => app(GamificationCalendar::class)->weekKey(),
+        'user_id' => $onlyBand->getKey(),
+        'rank' => 11,
+        'points' => 10,
+        'level_band' => 0,
+    ]);
+
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+    Sanctum::actingAs($this->owner);
+
+    $uuid = (string) $this->getJson("/api/v1/class-sessions/{$this->session->uuid}/chat")
+        ->assertOk()->json('uuid');
+
+    Sanctum::actingAs($onlyBand);
+    $this->postJson("/api/v1/conversations/{$uuid}/messages", ['body' => 'رسالة'])->assertCreated();
+
+    $row = collect($this->getJson("/api/v1/conversations/{$uuid}/messages")->assertOk()->json())
+        ->firstWhere('sender_uuid', (string) $onlyBand->uuid);
+
+    expect($row['sender_rank'])->toBe(11)
+        ->and($row['sender_level'])->toBeNull();
+});

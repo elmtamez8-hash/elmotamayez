@@ -41,7 +41,7 @@ function sourceFiles(dir: string): string[] {
   is how a guard gets deleted. These four names are the ones somebody reaches for
   because they SOUND like our tokens.
 */
-const TEMPTING = /\b(?:bg|text|border|ring|fill|from|to)-(success|error|info|muted)(?:-[a-z]+)?\b/g;
+const TEMPTING = /\b(?:bg|text|border|ring|fill|from|to)-(surface-muted|success|error|info|muted)(?:-[a-z]+)?\b/g;
 
 /**
  * Comments out, because a comment naming a dead class is the FIX being written

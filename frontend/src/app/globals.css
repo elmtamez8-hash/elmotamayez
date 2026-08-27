@@ -276,6 +276,16 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+    /*
+    | ⚠️ THE DELAY TOO, AND WITHOUT IT THE BLANKET RULE MAKES THINGS WORSE. Every
+    | staggered list in this product (`banner-rise`, `animate-float-in`) carries
+    | `animation-fill-mode: both`, so the element holds its START state — opacity
+    | zero — for the whole delay. Zero the duration and leave the delay and a
+    | reader who asked for less motion gets an invisible card for 320ms instead of
+    | a moving one: not reduced, just late.
+    */
+    animation-delay: 0ms !important;
+    transition-delay: 0ms !important;
   }
 }
 

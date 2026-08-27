@@ -747,3 +747,52 @@ undo a mistake.
   its workspace; the teacher's side is DERIVED from membership, so it stays true
   as assistants come and go — and «who am I talking to» has two right answers
   depending on who is asking, only one of which is a user row.
+
+---
+
+## Course Groups (spec 021)
+
+Five tables, **every one layer 2 (workspace-owned)** — a group is a run of one
+teacher's course, and so is a membership, its history and a transfer request. The
+fifth lives in Community because a write ban is a fact about a thread.
+
+```
+workspaces ─┬─< cohorts                       (course_id · capacity · members_count · status)
+            │       │  status: open | closed | archived   ⚠️ no delete (FR-035)
+            │       ├─< cohort_memberships    (student_user_id · course_id · joined_at · closed_at)
+            │       └─< class_sessions.cohort_id          ⚠️ nullable — see below
+            ├─< cohort_membership_events      (joined | transferred | left | removed | requested …)
+            ├─< cohort_transfer_requests      (to_cohort_id · from_cohort_id · status · decision_reason)
+            └─< conversations.cohort_id ──< conversation_write_bans
+                        ⚠️ unique(cohort_id), nullable          (user_id · expires_at · lifted_at)
+```
+
+### Four claimed columns, and every one of them is a unique index
+
+| Table | Column | What it guards |
+|---|---|---|
+| `cohort_memberships` | `closed_slot` — `0` while open, the row's own id afterwards | `unique(student_user_id, course_id, closed_slot)` — ONE open membership per course, enforced by the database. MySQL has no partial index, so «unique WHERE closed_at IS NULL» does not exist on the engine this ships to |
+| `cohort_transfer_requests` | `pending_slot`, the same idiom | one pending request per course. A second one is `request_pending`, not a queue |
+| `cohorts` | `members_count` | claimed by the atomic conditional UPDATE that takes the seat — never `count()` then `insert()`, and never `lockForUpdate()`, a no-op on SQLite |
+| `conversations` | `cohort_id`, **nullable** with `unique()` | one thread per group. NULL never equals NULL, so every private, session and lesson row coexists freely — the `captured_order_id` idiom |
+
+Neither slot column is `$fillable`: each is written inside the statement that owns
+its transition, and mass-assignable it becomes a second door to the thing the
+claim is the only correct writer of.
+
+### `class_sessions.cohort_id` is nullable, and that is not laziness
+
+Every session in this database predates the group and carries `null`. A bare
+`whereNotNull` in the student's discovery list would empty the timetable of every
+course that has no groups (FR-036) — so `CohortSessionVisibility` reads
+«my groups' sessions, **plus** the unassigned ones, **plus** anything I already
+hold a seat in». That last clause is the one that matters: hiding an unassigned
+session from discovery must never swallow a seat the student has paid for.
+
+### `cohort_membership_events` is append-only history, not a state
+
+Rejoining a group writes a NEW `cohort_memberships` row rather than reopening the
+old one — «left on the 3rd» and «joined on the 9th» are two facts, and one row
+edited twice is neither of them. The events table is what the teacher's history
+screen reads, and it is why the roster filters on `closed_at IS NULL` rather than
+deleting anything.

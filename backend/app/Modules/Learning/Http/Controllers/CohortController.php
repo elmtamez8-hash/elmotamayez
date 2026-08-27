@@ -7,6 +7,7 @@ namespace App\Modules\Learning\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Actions\JoinCohort;
+use App\Modules\Learning\Actions\ReadCohortRoster;
 use App\Modules\Learning\Actions\RequestTransfer;
 use App\Modules\Learning\Actions\WithdrawTransferRequest;
 use App\Modules\Learning\Http\Resources\CohortResource;
@@ -15,6 +16,7 @@ use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\Learning\Models\CohortTransferRequest;
 use App\Modules\Learning\Support\CohortRefusal;
+use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\CohortScheduleDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use DomainException;
@@ -35,6 +37,7 @@ class CohortController extends Controller
     public function __construct(
         private readonly EnrollmentDirectory $enrollments,
         private readonly CohortScheduleDirectory $schedule,
+        private readonly CohortDirectory $cohorts,
     ) {}
 
     /** The picker: what this course offers, and where the reader already stands. */
@@ -74,6 +77,33 @@ class CohortController extends Controller
             ->with('cohort')
             ->first();
 
+        /*
+        | ⚠️ THE GROUPS THIS READER HAS LEFT (FR-046). The API has granted
+        | permanent READ of an old group's thread since US4, and nothing in the
+        | product linked to it — so a student who transferred lost every answer
+        | they had been given, with the entitlement sitting unreachable behind a
+        | uuid nobody showed them.
+        |
+        | Keyed by cohort rather than by row: rejoining writes a NEW membership
+        | (the history is not rewritten), so a student who left and came back has
+        | two closed rows for one thread. And the group they are in NOW is
+        | excluded — it is `membership` above, and listing it twice would offer
+        | the current thread as an archive of itself.
+        */
+        $currentCohortId = $membership?->cohort_id;
+
+        $past = CohortMembership::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $user->getKey())
+            ->where('course_id', $courseId)
+            ->whereNotNull('closed_at')
+            ->when($currentCohortId !== null, fn ($query) => $query->where('cohort_id', '!=', $currentCohortId))
+            ->with('cohort')
+            ->orderByDesc('closed_at')
+            ->get()
+            ->unique('cohort_id')
+            ->values();
+
         $pending = CohortTransferRequest::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $user->getKey())
@@ -88,6 +118,13 @@ class CohortController extends Controller
                 'cohort_name' => $membership->cohort->name,
                 'joined_at' => $membership->joined_at,
             ],
+            'past_cohorts' => $past
+                ->map(fn (CohortMembership $row): array => [
+                    'uuid' => $row->cohort->uuid,
+                    'name' => $row->cohort->name,
+                    'left_at' => $row->closed_at,
+                ])
+                ->all(),
             'pending_request' => $pending === null ? null : TransferRequestResource::make($pending)->toArray($request),
             'cohorts' => $cohorts
                 ->map(fn (Cohort $cohort): array => CohortResource::make(
@@ -96,6 +133,31 @@ class CohortController extends Controller
                 )->toArray($request))
                 ->all(),
         ]);
+    }
+
+    /**
+     * The classmates (FR-050) — a name, a face, a level, a rank and badges.
+     *
+     * ⚠️ THE DOOR IS `isCurrentMember`, AND IT DELIBERATELY DIFFERS FROM THE
+     * THREAD'S. The group's chat admits whoever was EVER a member, because
+     * FR-046 grants that archive for ever — it is a record of what was said while
+     * they were there. This is a LIVE list of who is in the group today, and no
+     * requirement gives somebody who left continuing sight of it. Unifying the
+     * two doors "for consistency" would widen this one silently.
+     *
+     * ⚠️ AND THERE IS NO TEACHER BRANCH HERE. `/manage/cohorts/{cohort}/members`
+     * is the teacher's list and carries what a teacher may see; a second entrance
+     * to a second answer is the two-spellings defect this module has already
+     * fixed twice.
+     */
+    public function roster(Request $request, Cohort $cohort, ReadCohortRoster $action): JsonResponse
+    {
+        if (! $this->cohorts->isCurrentMember($this->currentUser($request), (int) $cohort->getKey())) {
+            abort(403, 'هذه القائمة لأعضاء المجموعة.');
+        }
+
+        // `members`, not `data` — the payload is a roll, and the contract names it.
+        return response()->json(['members' => $action->handle($cohort)]);
     }
 
     public function join(Request $request, Cohort $cohort, JoinCohort $action): JsonResponse

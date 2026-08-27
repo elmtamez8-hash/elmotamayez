@@ -88,6 +88,13 @@ export interface CohortOption {
 
 export interface CohortsForCourse {
   membership: CohortMembership | null;
+  /**
+   * ⚠️ THE GROUPS THIS READER HAS LEFT, AND THE ONLY WAY BACK TO THEIR THREADS
+   * (FR-046). Permanent read of an old group's conversation was granted by the
+   * API and reachable from nowhere — an entitlement behind a uuid nobody was
+   * ever shown. The current group is NOT in this list; it is `membership`.
+   */
+  past_cohorts: Array<{ uuid: string; name: string; left_at: string | null }>;
   pending_request: CohortTransferRequest | null;
   cohorts: CohortOption[];
 }
@@ -104,14 +111,17 @@ export interface CohortMember {
   uuid: string;
   name: string;
   avatar_url: string | null;
-  level: number;
   /**
-   * ⚠️ ABSENT, NEVER ZERO, for a student who has no board row yet. Boards are
-   * rolled up nightly, so a newcomer's rank does not exist — and «المركز ٠»
-   * printed beside their name in front of the class is the reading of a zero.
+   * ⚠️ BOTH OF THESE ARE ABSENT KEYS, NEVER ZEROS (FR-051). Boards roll up
+   * nightly, so a student who joined this morning has no rank — and one who has
+   * earned nothing ever has no level either. «المركز ٠» beside a name in front
+   * of the class is the reading of a zero, and an optional field typed
+   * `number` makes the screen choose between printing one and printing a dash.
    */
+  level?: number;
   rank?: number;
-  badges: Array<{ key: string; name_ar: string; icon: string }>;
+  /** `icon` is nullable: a badge in the catalogue may carry no glyph. */
+  badges: Array<{ key: string; name_ar: string; icon: string | null }>;
 }
 
 /** The refusal codes §ج answers a join or a transfer request with. */

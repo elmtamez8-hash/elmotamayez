@@ -63,6 +63,12 @@ class ReadRanksFor extends Action
             ? $this->calendar->weekKey()
             : $this->calendar->termKey();
 
+        // One bulk read, never one per user: the caller renders a page of messages
+        // or a roster and a lookup per row is an N+1 by construction.
+        $levels = StudentProgress::query()
+            ->whereIn('user_id', $userIds)
+            ->pluck('level', 'user_id');
+
         $ranked = LeaderboardEntry::query()
             ->where('scope_key', $scopeKey)
             ->where('period_key', $periodKey)
@@ -72,16 +78,23 @@ class ReadRanksFor extends Action
                 (int) $entry->user_id => [
                     'rank' => (int) $entry->rank,
                     'points' => (int) $entry->points,
-                    'level' => (int) $entry->level_band,
+                    /*
+                     | ⚠️ THE LEVEL IS THE STUDENT'S, NEVER THE BAND — and reading
+                     | the band here printed «المستوى ٠» beside a real student's
+                     | name in a live chat. `level_band` is «which band did they
+                     | compete in this period», a leaderboard concept derived from
+                     | `MAX(award_entries.level_band)`, and an entry whose awards
+                     | carry no band is a legitimate 0. Levels in the catalogue run
+                     | 1–6, so 0 is not one, and the field meant two different
+                     | things depending on whether the nightly roll-up had seen the
+                     | person — which is exactly the inconsistency a reader of the
+                     | screen cannot see.
+                     */
+                    'level' => self::realLevel($levels[(int) $entry->user_id] ?? null)
+                        ?? self::realLevel($entry->level_band),
                 ],
             ])
             ->all();
-
-        // One more bulk read, never one per user: the caller renders a page of
-        // messages and a lookup per row is an N+1 by construction.
-        $levels = StudentProgress::query()
-            ->whereIn('user_id', $userIds)
-            ->pluck('level', 'user_id');
 
         foreach ($levels as $userId => $level) {
             $userId = (int) $userId;
@@ -90,9 +103,21 @@ class ReadRanksFor extends Action
                 continue;
             }
 
-            $ranked[$userId] = ['rank' => null, 'points' => null, 'level' => (int) $level];
+            $ranked[$userId] = ['rank' => null, 'points' => null, 'level' => self::realLevel($level)];
         }
 
         return $ranked;
+    }
+
+    /**
+     * A level the catalogue actually has, or null.
+     *
+     * ⚠️ NULL RATHER THAN ZERO, THE SAME DECISION THE RANK MAKES. Absence is a
+     * state and every caller already draws nothing for it; «المستوى ٠» is a
+     * number printed beside a student's name in front of their class.
+     */
+    private static function realLevel(mixed $level): ?int
+    {
+        return $level === null || (int) $level < 1 ? null : (int) $level;
     }
 }

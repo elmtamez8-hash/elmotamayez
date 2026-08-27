@@ -84,6 +84,9 @@
 // GET /courses/{course}/cohorts
 {
   "membership": { "cohort_uuid": "…", "cohort_name": "السبت ٤م", "joined_at": "…" },
+  // ⚠️ ما غادرَه — وهو البابُ الوحيدُ إلى خيوطِها (FR-046). القراءةُ الدائمةُ كانت
+  // ممنوحةً من الـAPI وغيرَ موصولةٍ من أيِّ شاشة. المجموعةُ الحاليّةُ ليست هنا.
+  "past_cohorts": [{ "uuid": "…", "name": "الأحد ٦م", "left_at": "…" }],
   "pending_request": { "uuid": "…", "to_cohort_name": "الأحد ٦م", "created_at": "…" },
   "cohorts": [{
     "uuid": "…", "name": "الأحد ٦م", "description": "…",

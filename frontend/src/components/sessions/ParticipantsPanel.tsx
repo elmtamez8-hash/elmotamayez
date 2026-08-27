@@ -8,6 +8,7 @@ import {
 } from "@livekit/components-react";
 import type { Participant } from "livekit-client";
 
+import { Avatar } from "@/components/ui/Avatar";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -492,33 +493,3 @@ function ParticipantRow({
   );
 }
 
-/**
- * The photo, or the initial.
- *
- * A plain `<img>` rather than `next/image`: the path comes from the API, and the
- * repository's own note says the three `next/image` call sites all pass literal
- * `/public` paths — passing a server-supplied one through the optimiser is what
- * makes the outstanding `sharp` advisory live.
- */
-function Avatar({ url, name }: { url: string | null; name: string }) {
-  if (url === null) {
-    return (
-      <span
-        aria-hidden="true"
-        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-muted text-sm font-bold text-ink-muted"
-      >
-        {name.trim().charAt(0)}
-      </span>
-    );
-  }
-
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={url}
-      alt=""
-      className="size-9 shrink-0 rounded-full object-cover"
-      loading="lazy"
-    />
-  );
-}

@@ -39,6 +39,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     */
     Route::get('/courses/{course}/cohorts', [CohortController::class, 'index']);
 
+    // Who is in it (FR-050). Read-only, so outside the write limiter — and
+    // guarded on an OPEN membership, unlike the group's thread one tab away,
+    // which FR-046 keeps readable for whoever was ever in it.
+    Route::get('/cohorts/{cohort}/roster', [CohortController::class, 'roster']);
+
     Route::middleware('throttle:cohort-write')->group(function (): void {
         Route::post('/cohorts/{cohort}/join', [CohortController::class, 'join']);
         Route::post('/cohorts/{cohort}/transfer-requests', [CohortController::class, 'requestTransfer']);
