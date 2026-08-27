@@ -58,6 +58,22 @@ class MistakeResource extends JsonResource
             // Derived by MistakeNotebook and set on the model there — a later
             // correct answer from the same student on the same question. Not a
             // column, deliberately: a stored status drifts at the first regrade.
+            /*
+            | ⚠️ THE TEACHER IS ON THE ROW, AND IT IS WHAT KEEPS FR-016أ TRUE.
+            |
+            | The notebook spans every teacher the reader studies with now — it
+            | had to, or it stayed a `422` for every real student — and the
+            | requirement's own words are that they must not be shown half their
+            | mistakes called all of them, nor one teacher's question inside
+            | another's context. A list that spans teachers and says whose each
+            | row is satisfies both; one that spans them silently satisfies
+            | neither. Stamped in bulk by `MistakeNotebook`, never a relation
+            | read per row.
+            */
+            'teacher' => $this->getAttribute('teacher_uuid') === null ? null : [
+                'uuid' => (string) $this->getAttribute('teacher_uuid'),
+                'name' => (string) $this->getAttribute('teacher_name'),
+            ],
             'is_resolved' => (bool) $this->getAttribute('is_resolved'),
             'times_wrong' => (int) $this->getAttribute('times_wrong'),
             'answered_at' => $this->created_at,

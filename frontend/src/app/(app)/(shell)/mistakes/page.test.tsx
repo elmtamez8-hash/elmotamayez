@@ -11,9 +11,16 @@ import MistakesPage from "./page";
 */
 
 const list = vi.fn();
+const filters = vi.fn();
 
 vi.mock("@/lib/mistakes", () => ({
-  mistakes: { list: (filters: Record<string, unknown>) => list(filters) },
+  mistakes: {
+    list: (given: Record<string, unknown>) => list(given),
+    // ⚠️ THE BAR'S OPTIONS COME FROM THE SERVER, so the page asks for them on
+    // mount. A mock missing this is not a missing stub — it is the page
+    // throwing inside its own effect, which reads as seven unrelated failures.
+    filters: (includeResolved?: boolean) => filters(includeResolved),
+  },
 }));
 
 function mistake(overrides: Record<string, unknown> = {}) {
@@ -29,6 +36,7 @@ function mistake(overrides: Record<string, unknown> = {}) {
     },
     your_answer: ["٢٤"],
     correct_answer: ["٢١"],
+    teacher: { uuid: "w-1", name: "أ. سامي" },
     is_resolved: false,
     times_wrong: 1,
     answered_at: "2026-08-20T09:00:00+00:00",
@@ -39,6 +47,15 @@ function mistake(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   list.mockResolvedValue({ data: [mistake()], meta: { total: 1, current_page: 1, last_page: 1 } });
+  // Every facet empty, which is the shape that draws no bar at all — the
+  // assertions below are about the list, not about the filtering.
+  filters.mockResolvedValue({
+    teachers: [],
+    courses: [],
+    exams: [],
+    concepts: [],
+    has_standing: false,
+  });
 });
 
 describe("MistakesPage", () => {
@@ -102,6 +119,15 @@ describe("MistakesPage", () => {
     expect(await screen.findByText("أخطأت فيه مرّتين")).toBeTruthy();
   });
 
+  /*
+   | ⚠️ «IS THERE ANYTHING TO PRACTISE» IS THE PICKER'S ANSWER, NOT A COUNT OF
+   | THE ROWS ON SCREEN. Counting unresolved rows counts the current page of the
+   | current filter — so «الكل» plus a teacher, on a page of fixed questions,
+   | would hide the button while other teachers still hold standing mistakes.
+   | The facets are derived from the standing set, so an empty teacher list means
+   | there is genuinely nothing to build a paper from, and building from nothing
+   | is a 422 the student cannot act on.
+  */
   it("offers the practice paper only while something is still standing", async () => {
     list.mockResolvedValue({ data: [mistake({ is_resolved: true })], meta: { total: 1 } });
 
@@ -109,7 +135,158 @@ describe("MistakesPage", () => {
 
     await screen.findByText("أصلحته");
 
-    // Building a paper from nothing is a 422 the student cannot act on.
+    expect(screen.queryByRole("link", { name: /اختبرني/ })).toBeNull();
+  });
+
+  it("still offers it when the page shown is filtered down to fixed questions", async () => {
+    // The row on screen is resolved; the notebook still holds standing mistakes,
+    // which is exactly what the facets report.
+    list.mockResolvedValue({ data: [mistake({ is_resolved: true })], meta: { total: 1 } });
+    filters.mockResolvedValue({
+      teachers: [{ uuid: "w-1", label: "أ. سامي" }],
+      courses: [],
+      exams: [],
+      concepts: [],
+      has_standing: true,
+    });
+
+    render(<MistakesPage />);
+
+    expect(await screen.findByRole("link", { name: /اختبرني/ })).toBeTruthy();
+  });
+
+  /*
+   | ⚠️ THE NOTEBOOK SPANS TEACHERS NOW, SO EVERY ROW HAS TO SAY WHOSE IT IS.
+   | It refused to answer a real student at all before — «اختر مساحة عمل», for a
+   | person who is a member of none — and the requirement it was enforcing that
+   | way is kept by the row rather than by the query: nobody is shown half their
+   | mistakes called all of them, and no question is read inside another
+   | teacher's context.
+  */
+  it("names the teacher on every row", async () => {
+    render(<MistakesPage />);
+
+    expect(await screen.findByText("أ. سامي")).toBeTruthy();
+  });
+
+  it("draws the bar from what the server offers, and asks again with the choice", async () => {
+    filters.mockResolvedValue({
+      teachers: [
+        { uuid: "w-1", label: "أ. سامي" },
+        { uuid: "w-2", label: "أ. هدى" },
+      ],
+      courses: [],
+      exams: [],
+      concepts: [],
+      has_standing: true,
+    });
+
+    render(<MistakesPage />);
+
+    const teacher = await screen.findByRole("combobox", { name: /المدرّس/ });
+
+    fireEvent.change(teacher, { target: { value: "w-2" } });
+
+    await waitFor(() =>
+      expect(list).toHaveBeenLastCalledWith({ teacher: "w-2", include_resolved: false }),
+    );
+  });
+
+  /*
+   | ⚠️ THE PRACTICE LINK CARRIES THE FILTER, AND WITHOUT IT THE BUTTON IS AN
+   | ERROR PAGE. A revision paper belongs to ONE teacher — one bank, one
+   | withholding rule — so with several to choose from and none named the server
+   | refuses rather than guessing. The reader looking at a narrowed notebook has
+   | already answered that question.
+  */
+  it("passes the chosen teacher on to the revision paper", async () => {
+    filters.mockResolvedValue({
+      teachers: [
+        { uuid: "w-1", label: "أ. سامي" },
+        { uuid: "w-2", label: "أ. هدى" },
+      ],
+      courses: [],
+      exams: [],
+      concepts: [],
+      has_standing: true,
+    });
+
+    render(<MistakesPage />);
+
+    fireEvent.change(await screen.findByRole("combobox", { name: /المدرّس/ }), {
+      target: { value: "w-2" },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: /اختبرني/ }).getAttribute("href")).toBe(
+        "/mistakes/practice?teacher=w-2",
+      ),
+    );
+  });
+
+  /*
+   | ⚠️ «لا أخطاء» IS FALSE UNDER A FILTER, and saying it contradicts the list the
+   | reader just saw while hiding the one action that helps.
+  */
+  it("says the filter found nothing rather than claiming the notebook is empty", async () => {
+    filters.mockResolvedValue({
+      teachers: [
+        { uuid: "w-1", label: "أ. سامي" },
+        { uuid: "w-2", label: "أ. هدى" },
+      ],
+      courses: [],
+      exams: [],
+      concepts: [],
+      has_standing: true,
+    });
+
+    render(<MistakesPage />);
+
+    list.mockResolvedValue({ data: [], meta: { total: 0 } });
+
+    fireEvent.change(await screen.findByRole("combobox", { name: /المدرّس/ }), {
+      target: { value: "w-2" },
+    });
+
+    expect(await screen.findByText("لا نتائج بهذه التصفية")).toBeTruthy();
+  });
+
+  /*
+   | ⚠️ THE BAR FOLLOWS «القائم» ⇄ «الكل», AND A REAL DATABASE IS WHAT FOUND IT.
+   |
+   | Derived from the standing set alone it vanished for anybody who had fixed
+   | everything — «القائم» is empty and rightly bare, but «الكل» then listed the
+   | whole notebook with nothing to filter it by. That is the shape of the demo
+   | data, so the screen offered no filters in either view on the only account
+   | anybody was looking at.
+  */
+  it("asks for the bar again when the view switches to «الكل»", async () => {
+    render(<MistakesPage />);
+
+    await waitFor(() => expect(filters).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "الكل" }));
+
+    await waitFor(() => expect(filters).toHaveBeenCalledTimes(2));
+  });
+
+  /*
+   | ⚠️ AND THE PRACTICE BUTTON DOES NOT FOLLOW IT. `has_standing` answers «is
+   | there anything to practise», which the view does not change — a paper built
+   | from nothing is a 422 the student cannot act on.
+  */
+  it("keeps the practice button hidden under «الكل» when nothing is standing", async () => {
+    filters.mockResolvedValue({
+      teachers: [{ uuid: "w-1", label: "أ. سامي" }],
+      courses: [],
+      exams: [],
+      concepts: [],
+      has_standing: false,
+    });
+
+    render(<MistakesPage />);
+
+    expect(await screen.findByRole("combobox", { name: /المدرّس/ })).toBeTruthy();
     expect(screen.queryByRole("link", { name: /اختبرني/ })).toBeNull();
   });
 });

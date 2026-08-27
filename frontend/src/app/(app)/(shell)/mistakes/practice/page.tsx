@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { PracticeRunner } from "@/components/practice/PracticeRunner";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { userMessage } from "@/lib/errors";
-import { mistakes } from "@/lib/mistakes";
+import { mistakes, type MistakeFilters } from "@/lib/mistakes";
 import type { PracticePaper } from "@/lib/practice";
 
 /**
@@ -17,6 +17,16 @@ import type { PracticePaper } from "@/lib/practice";
  * attempt is not something anybody returns to: reloading builds a fresh one from
  * whatever is still standing, which is the right answer to "what should I revise
  * now" rather than a replay of an hour-old list.
+ *
+ * ⚠️ IT READS THE NOTEBOOK'S FILTER OUT OF THE URL, AND THE TEACHER IS THE HALF
+ * IT CANNOT DO WITHOUT. A paper belongs to one teacher — one bank, one
+ * withholding rule — while the notebook now spans every teacher the reader
+ * studies with, so the server refuses to guess when several are possible. The
+ * notebook's own button passes what the reader was looking at.
+ *
+ * ⚠️ READ FROM `location` IN AN EFFECT, NOT WITH `useSearchParams`. That hook
+ * opts the page out of static prerendering unless it sits inside a `<Suspense>`
+ * boundary — the same reason the course page's tab parameter is read this way.
  *
  * Sitting it is {@link PracticeRunner}'s job — the same component the
  * self-generated paper uses, because they are the same paper from two doors.
@@ -31,8 +41,17 @@ export default function MistakePracticePage() {
     setLoading(true);
     setError("");
 
+    const params = new URLSearchParams(window.location.search);
+    const filters: MistakeFilters = {};
+
+    for (const key of ["teacher", "course", "exam", "concept", "lesson"] as const) {
+      const value = params.get(key);
+
+      if (value !== null && value !== "") filters[key] = value;
+    }
+
     mistakes
-      .practice()
+      .practice(filters)
       .then((response) => setPaper(response.data))
       .catch((cause: unknown) => setError(userMessage(cause)))
       .finally(() => setLoading(false));

@@ -132,3 +132,53 @@ it('serves the mistake notebook at a fixed cost', function (): void {
     expect($large)->toBeLessThanOrEqual($small)
         ->and($response->json('meta.total'))->toBe(20);
 });
+
+/*
+| ⚠️ THE FILTER BAR IS FOUR GROUPED QUERIES OVER THE NOTEBOOK'S BASE, AND THE
+| BASE GROWS WITH THE STUDENT'S WHOLE HISTORY.
+|
+| So the number that must not move is the query COUNT, not the row count — the
+| shape that breaks it is resolving each facet's labels row by row, which reads
+| as the obvious way to write it and is invisible on a three-mistake fixture.
+|
+| ⚠️ AND IT ASSERTS THE FACETS ARE POPULATED AS WELL AS FLAT. Dropping a join
+| makes this endpoint CHEAPER and empty — the regression would read as an
+| improvement to a test that counted queries alone, and the bar would quietly
+| stop offering anything. Same pair of assertions the curriculum budget carries.
+*/
+it('builds the mistake filter bar at a fixed cost', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $this->setCurrentWorkspace($workspace, $owner);
+
+    $student = $this->addWorkspaceMember($workspace, Roles::STUDENT);
+    $workspaceId = (int) $workspace->getKey();
+
+    $wrong = function (int $from, int $to) use ($workspace, $workspaceId, $student, $owner): void {
+        $this->setCurrentWorkspace($workspace, $owner);
+
+        foreach (range($from, $to) as $index) {
+            $question = bankQuestion($workspace, null, ['content' => "أخطأتُ في {$index}؟"]);
+            answerRow($workspaceId, $student, (int) $question->getKey(), false);
+        }
+
+        Sanctum::actingAs($student);
+    };
+
+    $wrong(1, 3);
+
+    // Warmed: spatie's permission cache fills on the first authenticated
+    // request, and an unwarmed measurement makes the bigger page look cheaper.
+    $this->getJson('/api/v1/mistakes/filters')->assertOk();
+
+    [$small] = countingQueries(fn () => $this->getJson('/api/v1/mistakes/filters')->assertOk());
+
+    $wrong(4, 30);
+
+    [$large, $response] = countingQueries(fn () => $this->getJson('/api/v1/mistakes/filters')->assertOk());
+
+    expect($large)->toBeLessThanOrEqual($small)
+        // The control: ten times the mistakes, and the bar is still built — an
+        // empty answer would satisfy the count assertion above on its own.
+        ->and($response->json('teachers'))->not->toBeEmpty()
+        ->and($response->json('concepts'))->not->toBeEmpty();
+});

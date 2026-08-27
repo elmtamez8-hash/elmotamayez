@@ -10,6 +10,7 @@ import {
   PracticeIcon,
   ScheduleIcon,
   TagIcon,
+  UsersIcon,
 } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -18,7 +19,13 @@ import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { userMessage } from "@/lib/errors";
 import { formatDate } from "@/lib/labels";
-import { mistakes, type Mistake } from "@/lib/mistakes";
+import {
+  mistakes,
+  type Mistake,
+  type MistakeFilterOptions,
+  type MistakeFilters,
+} from "@/lib/mistakes";
+import { MistakeFilterBar } from "@/components/mistakes/MistakeFilterBar";
 
 /**
  * Everything this student got wrong with this teacher, and the right answer.
@@ -35,6 +42,16 @@ import { mistakes, type Mistake } from "@/lib/mistakes";
  * cannot separate the two tints would be looking at two identical blocks with
  * nothing saying which is which — so each carries its own label AND its own
  * mark. Same rule `SeatBadge` follows for a full session.
+ *
+ * ⚠️ AND IT USED TO SHOW EVERY REAL STUDENT AN ERROR. The endpoint answered for
+ * «the workspace you are currently in» and refused with a `422` when there was
+ * none — which is every student, being a member of no workspace. It spans the
+ * teachers they study with now, each row names its own, and the bar narrows to
+ * one.
+ *
+ * ⚠️ THE BAR'S OPTIONS ARE FETCHED, NEVER DERIVED HERE. The server builds them
+ * from the notebook's own query, so an offered option always answers a row —
+ * the rule spec 009's leaderboard picker was fixed under.
  */
 export default function MistakesPage() {
   const [rows, setRows] = useState<Mistake[]>([]);
@@ -42,24 +59,62 @@ export default function MistakesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [includeResolved, setIncludeResolved] = useState(false);
+  const [filters, setFilters] = useState<MistakeFilters>({});
+  const [options, setOptions] = useState<MistakeFilterOptions | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
 
     mistakes
-      .list({ include_resolved: includeResolved })
+      .list({ ...filters, include_resolved: includeResolved })
       .then((response) => {
         setRows(response.data ?? []);
         setTotal(response.meta?.total ?? (response.data?.length ?? 0));
       })
       .catch((cause) => setError(userMessage(cause)))
       .finally(() => setLoading(false));
-  }, [includeResolved]);
+  }, [filters, includeResolved]);
 
   useEffect(load, [load]);
 
-  const standing = rows.filter((row) => !row.is_resolved).length;
+  /*
+    ⚠️ NOT RE-FETCHED AS THE READER NARROWS, BUT RE-FETCHED WHEN THE VIEW SWITCHES.
+    The two are different things. A narrowing must not recompute the options —
+    each choice would then remove the others, so picking a teacher would empty
+    the subject list and leave no way back without a reload. But «القائم» ⇄ «الكل»
+    changes WHICH LIST IS ON SCREEN: derived from the standing set alone the bar
+    vanished for anybody who had fixed everything, and «الكل» then listed their
+    whole notebook with nothing to filter it by.
+  */
+  useEffect(() => {
+    mistakes
+      .filters(includeResolved)
+      .then(setOptions)
+      // Its own failure is not the page's: the list below still loads, and a bar
+      // that cannot be built is simply not drawn.
+      .catch(() => setOptions(null));
+  }, [includeResolved]);
+
+  /*
+    ⚠️ «IS THERE ANYTHING TO PRACTISE» IS THE SERVER'S ANSWER, NOT A COUNT OF THE
+    ROWS ON SCREEN. Counting unresolved rows here counts the CURRENT page of the
+    CURRENT filter: with «الكل» pressed and a teacher chosen, a page of fixed
+    questions would hide the button while other teachers still hold standing
+    mistakes. And it cannot be read off the facets either — those follow the view
+    now, so under «الكل» they are populated for a student who has fixed
+    everything. `has_standing` is asked of the standing set whatever the view.
+  */
+  const hasStanding = options?.has_standing === true;
+  const narrowed = Object.values(filters).some((entry) => entry !== undefined && entry !== "");
+
+  const practiceParams = new URLSearchParams();
+
+  for (const [key, entry] of Object.entries(filters)) {
+    if (entry !== undefined && entry !== "") practiceParams.set(key, String(entry));
+  }
+
+  const practiceQuery = practiceParams.toString() === "" ? "" : `?${practiceParams}`;
 
   return (
     <div className="space-y-6">
@@ -71,15 +126,28 @@ export default function MistakesPage() {
             دفتر أخطائي
           </h1>
           <p className="text-sm text-ink-muted">
-            كلّ ما أخطأت فيه مع هذا المدرّس، ومعه الصواب وشرحه.
+            كلّ ما أخطأت فيه، ومعه الصواب وشرحه.
           </p>
         </div>
 
-        {standing > 0 && (
-          // A link, not a handler: the paper is built by the page it opens, on
-          // mount. Building here would mean an attempt written for somebody who
-          // closed the tab before the navigation landed.
-          <Button href="/mistakes/practice" iconStart={<PracticeIcon className="h-4 w-4" />}>
+        {hasStanding && (
+          /*
+            A link, not a handler: the paper is built by the page it opens, on
+            mount. Building here would mean an attempt written for somebody who
+            closed the tab before the navigation landed.
+
+            ⚠️ AND IT CARRIES THE FILTER, WHICH IS NOT A CONVENIENCE. A revision
+            paper belongs to ONE teacher — one bank, one withholding rule — so
+            with several to choose from and none named the server refuses. The
+            reader looking at a narrowed notebook has already named one; passing
+            it on is what turns «اختبرني في أخطائي» from an error page into the
+            paper they were expecting. And a paper narrowed to the subject they
+            are reading is the paper they asked for.
+          */
+          <Button
+            href={`/mistakes/practice${practiceQuery}`}
+            iconStart={<PracticeIcon className="h-4 w-4" />}
+          >
             اختبرني في أخطائي
           </Button>
         )}
@@ -92,6 +160,8 @@ export default function MistakesPage() {
         two they were currently looking at. A segmented pair states the choice and
         marks the answer, which is also what `aria-pressed` needs to be true of.
       */}
+      <MistakeFilterBar options={options} value={filters} onChange={setFilters} />
+
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex gap-1 rounded-full border border-line bg-surface-raised p-1">
           {[
@@ -121,12 +191,20 @@ export default function MistakesPage() {
       ) : error !== null ? (
         <ErrorState description={error} onRetry={load} />
       ) : rows.length === 0 ? (
+        /*
+          ⚠️ THREE SENTENCES, BECAUSE «لا أخطاء» IS FALSE UNDER A FILTER. Telling a
+          student they have made no mistakes when they have narrowed to one
+          teacher is a page contradicting the list they just saw, and it hides
+          the one action that helps: widening.
+        */
         <EmptyState
-          title={includeResolved ? "لا أخطاء بعد" : "لا أخطاء قائمة"}
+          title={narrowed ? "لا نتائج بهذه التصفية" : includeResolved ? "لا أخطاء بعد" : "لا أخطاء قائمة"}
           description={
-            includeResolved
-              ? "لم تخطئ في شيء بعد — يظهر هنا كلّ سؤال أخطأت فيه، ومعه الصواب."
-              : "أصلحت كلّ ما أخطأت فيه. اضغط «الكل» لمراجعتها."
+            narrowed
+              ? "وسّع التصفية أو امسحها لترى بقيّة دفترك."
+              : includeResolved
+                ? "لم تخطئ في شيء بعد — يظهر هنا كلّ سؤال أخطأت فيه، ومعه الصواب."
+                : "أصلحت كلّ ما أخطأت فيه. اضغط «الكل» لمراجعتها."
           }
         />
       ) : (
@@ -200,6 +278,20 @@ export default function MistakesPage() {
                 )}
 
                 <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
+                  {/*
+                    ⚠️ WHOSE QUESTION THIS IS, AND IT IS NOT DECORATION. The
+                    notebook spans every teacher the reader studies with — it had
+                    to, or it stayed an error page for all of them — and the rule
+                    it must not break is that no question be read inside another
+                    teacher's context. A list that spans teachers and says whose
+                    each row is keeps that; one that spans them silently does not.
+                  */}
+                  {row.teacher !== null && (
+                    <span className="flex items-center gap-1.5">
+                      <UsersIcon className="h-4 w-4 shrink-0" />
+                      {row.teacher.name}
+                    </span>
+                  )}
                   <span className="flex items-center gap-1.5">
                     <TagIcon className="h-4 w-4 shrink-0" />
                     {row.question?.concept?.name ?? "بلا فكرة"}

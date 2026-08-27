@@ -111,6 +111,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
      | bored pupil in the back row lock their whole class out of revising.
      */
     Route::get('/mistakes', [MistakeController::class, 'index']);
+
+    /*
+     | What the filter bar may offer — derived from the notebook's own query, so
+     | it can never offer an option the notebook answers empty. Four grouped
+     | reads over the reader's own rows, loaded once per visit; no limiter, for
+     | the same reason the notebook itself carries none.
+     */
+    Route::get('/mistakes/filters', [MistakeController::class, 'options']);
+
     Route::post('/practice/from-mistakes', [MistakeController::class, 'practice'])
         ->middleware('throttle:practice');
 

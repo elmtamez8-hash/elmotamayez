@@ -271,3 +271,31 @@
     scroll-behavior: auto !important;
   }
 }
+
+/*
+| ⚠️ THE SCROLLBAR'S TRACK IS ALWAYS THERE, OR EVERY FILTER IS A SIDEWAYS JUMP.
+|
+| The app shell is `min-h-screen` and the page scrolls at the document level, so
+| any change in content height that crosses the viewport boundary adds or removes
+| the browser's vertical scrollbar — and with it 15px of width. Filtering a list
+| is exactly that change: eight rows overflow, one row does not, and the whole
+| page shifts sideways under the reader's cursor as the bar comes and goes.
+| Reported from the mistake notebook's new filters, and true of every list in the
+| product that can shrink.
+|
+| ⚠️ `scrollbar-gutter: stable` IS NOT ENOUGH ON ITS OWN, AND SHIPPING IT ALONE
+| WAS A FIX THAT CHANGED NOTHING. Measured in the browser that reported the bug:
+| with the property computing to `stable`, `innerWidth - clientWidth` was still
+| **0** on a short page and **15** on a tall one — the jump, intact. Adding
+| `overflow-y: scroll` holds it at 15 in both states, which is the whole
+| requirement. Read the measurement, not the property name.
+|
+| Both are kept. `overflow-y: scroll` is what actually reserves the track here;
+| `scrollbar-gutter` is the property that says WHY, and on a platform with
+| overlay scrollbars (macOS, most phones) neither reserves anything and neither
+| needs to — the bar floats over the content and nothing moves.
+*/
+html {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+}

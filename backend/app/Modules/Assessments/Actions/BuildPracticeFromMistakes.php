@@ -7,6 +7,7 @@ namespace App\Modules\Assessments\Actions;
 use App\Models\User;
 use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\Question;
+use App\Modules\Assessments\Support\MistakeFilters;
 use App\Modules\Assessments\Support\MistakeNotebook;
 use App\Modules\Assessments\Support\PracticePaper;
 use App\Modules\Assessments\Support\PracticePool;
@@ -22,6 +23,8 @@ use DomainException;
  * The definition of "standing" is asked of {@see MistakeNotebook} rather than
  * rewritten here: two definitions of one rule are two answers the day either
  * moves.
+ *
+ * @phpstan-import-type MistakeFilters from MistakeNotebook
  *
  * ⚠️ AND THE ATTEMPT BELONGS TO NO EXAM. `exam_id` is null and `is_practice` is
  * true, which together mean it spends no official attempt (FR-026أ), enters no
@@ -41,7 +44,14 @@ class BuildPracticeFromMistakes extends Action
     ) {}
 
     /**
-     * @param  array{concept?: string, lesson?: string, from?: string, to?: string}  $filters
+     * ⚠️ ONE WORKSPACE, UNLIKE THE NOTEBOOK IT READS. The notebook spans every
+     * teacher the student studies with; a PAPER cannot — its attempt carries one
+     * `workspace_id`, its questions come from one bank, and the withholding it
+     * is checked against is that teacher's. The asymmetry is the design, and a
+     * later pass that widens this signature «for consistency» would be building
+     * one paper out of two teachers' banks.
+     *
+     * @param  MistakeFilters  $filters
      *
      * @throws DomainException when nothing is left to practise
      */
