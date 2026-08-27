@@ -180,12 +180,23 @@ describe('marketplace models are workspace-scoped', function (): void {
 
         $context = app(WorkspaceContext::class);
 
+        /*
+        | ⚠️ RELATIVE TO WHAT WAS ALREADY THERE, NEVER AN ABSOLUTE FIVE. This
+        | table is PLATFORM reference data, so anything is entitled to seed a row
+        | into it — and one did: a backfill migration adding a placeholder subject
+        | turned «five» into «six» and failed a test about workspace scoping for a
+        | reason that had nothing to do with scoping. The question here is whether
+        | BOTH workspaces see the SAME vocabulary, and a baseline is how that is
+        | asked without pinning a number the platform is allowed to change.
+        */
+        $baseline = $model::query()->count();
+
         $context->forWorkspace($workspaceA, fn () => $model::factory()->count(2)->create());
         $context->forWorkspace($workspaceB, fn () => $model::factory()->count(3)->create());
 
         // Both workspaces see all five: one vocabulary, shared by everybody.
-        expect($context->forWorkspace($workspaceA, fn () => $model::query()->count()))->toBe(5)
-            ->and($context->forWorkspace($workspaceB, fn () => $model::query()->count()))->toBe(5);
+        expect($context->forWorkspace($workspaceA, fn () => $model::query()->count()))->toBe($baseline + 5)
+            ->and($context->forWorkspace($workspaceB, fn () => $model::query()->count()))->toBe($baseline + 5);
     })->with([
         'grade levels' => [GradeLevel::class],
         'subjects' => [Subject::class],

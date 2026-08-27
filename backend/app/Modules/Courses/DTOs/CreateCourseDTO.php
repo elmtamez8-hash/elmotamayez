@@ -18,6 +18,8 @@ class CreateCourseDTO extends DataTransferObject
         public readonly string $status = 'draft',
         public readonly string $visibility = 'private',
         public readonly bool $isSequential = true,
+        /** The platform-wide subject uuid; resolved to an id in the Action. */
+        public readonly ?string $subjectUuid = null,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -32,6 +34,7 @@ class CreateCourseDTO extends DataTransferObject
             status: $data['status'] ?? 'draft',
             visibility: $data['visibility'] ?? 'private',
             isSequential: $data['is_sequential'] ?? true,
+            subjectUuid: isset($data['subject']) && is_string($data['subject']) ? $data['subject'] : null,
         );
     }
 }

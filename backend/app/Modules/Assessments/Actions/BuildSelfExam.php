@@ -51,20 +51,18 @@ class BuildSelfExam extends Action
     {
         $requested = max(1, min($criteria->count, self::MAX_QUESTIONS));
 
-        $lessonIds = $this->entitledLessonIds($workspaceId, $student);
-
-        if ($lessonIds === []) {
+        if ($this->enrollments->activeCourseIdsFor($student) === []) {
             throw new DomainException('لا دروس مسجَّلاً فيها الآن، فلا أسئلة تُسحب.');
         }
 
-        $query = Question::query()
-            ->withoutWorkspaceScope()
-            ->where('workspace_id', $workspaceId)
-            ->whereIn('lesson_id', $lessonIds)
-            ->where('is_active', true)
-            // Marked the moment it is handed in (FR-024), which an essay cannot be.
-            ->where('type', '!=', 'essay')
-            ->whereNotIn('id', $this->pool->withheldQuestionIds($workspaceId, (int) $student->getKey()));
+        /*
+        | ⚠️ THE POOL LIVES IN `PracticePool` SO THE PICKER CAN READ THE SAME ONE.
+        | `PracticeFilterOptions` builds the teacher, course and concept lists off
+        | this exact query — a second predicate assembled beside it is spec 009's
+        | leaderboard picker again: options the endpoint refuses, and options it
+        | would have allowed missing from the screen.
+        */
+        $query = $this->pool->questionsFor($workspaceId, $student, $criteria->courseUuid, $criteria->subjectUuid);
 
         if ($criteria->conceptUuid !== null) {
             $query->where('concept_id', $this->conceptId($workspaceId, $criteria->conceptUuid));
@@ -80,7 +78,7 @@ class BuildSelfExam extends Action
         | the same criteria — which turns "generate me a test" into "show me the
         | oldest ten questions again".
         */
-        $questions = $query->with('options')->inRandomOrder()->limit($requested)->get();
+        $questions = $query->with('options')->inRandomOrder()->limit($requested)->get()->collect();
 
         if ($questions->isEmpty()) {
             throw new DomainException('لا أسئلة تطابق ما اخترت. جرّب فكرةً أخرى أو صعوبةً أخرى.');
@@ -97,35 +95,6 @@ class BuildSelfExam extends Action
             'requested' => $requested,
             'delivered' => $questions->count(),
         ];
-    }
-
-    /**
-     * The lessons of the courses this student is actively enrolled in, here.
-     *
-     * @return list<int>
-     */
-    private function entitledLessonIds(int $workspaceId, User $student): array
-    {
-        $courseIds = $this->enrollments->activeCourseIdsFor($student);
-
-        if ($courseIds === []) {
-            return [];
-        }
-
-        $ids = [];
-
-        // The workspace filter is repeated on the lessons: `activeCourseIdsFor`
-        // answers across every teacher the student studies with, and this paper
-        // is drawn from one teacher's bank.
-        foreach (Lesson::query()
-            ->withoutWorkspaceScope()
-            ->where('workspace_id', $workspaceId)
-            ->whereIn('course_id', $courseIds)
-            ->pluck('id') as $id) {
-            $ids[] = (int) $id;
-        }
-
-        return $ids;
     }
 
     /**

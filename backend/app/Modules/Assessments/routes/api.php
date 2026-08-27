@@ -131,6 +131,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
      | user-keyed limiter as the mistake paper: each call writes an attempt plus
      | a row per question.
      */
+    /*
+    | The pickers, before there is a paper to pick for.
+    |
+    | No limiter: it is a read scoped to the caller's own enrolments, and the
+    | screen asks for it once per visit.
+    */
+    Route::get('/practice/filters', [PracticeController::class, 'options']);
+
     Route::post('/practice/exams', [PracticeController::class, 'store'])
         ->middleware('throttle:practice');
     Route::get('/practice/attempts/{attempt}/result', [PracticeController::class, 'result']);
@@ -174,6 +182,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
      | bank and the grading board use. Reads carry none — they are indexed
      | queries behind `auth:sanctum` with their counts in the query.
      */
+    // The pickers for the list above, from the list's own predicate.
+    Route::get('/assignments/filters', [AssignmentController::class, 'filters']);
+
     Route::get('/assignments', [AssignmentController::class, 'index']);
     Route::get('/assignments/{assignment}', [AssignmentController::class, 'show']);
     Route::post('/assignments/{assignment}/submissions', [AssignmentController::class, 'submit'])

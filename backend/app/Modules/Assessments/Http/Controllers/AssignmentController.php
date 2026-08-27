@@ -18,7 +18,9 @@ use App\Modules\Assessments\Http\Resources\AssignmentResource;
 use App\Modules\Assessments\Http\Resources\SubmissionResource;
 use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\Submission;
+use App\Modules\Assessments\Support\AssignmentFilterOptions;
 use App\Modules\Assessments\Support\StudentScope;
+use App\Modules\Learning\Models\Cohort;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Support\WorkspaceContext;
@@ -59,6 +61,39 @@ class AssignmentController extends Controller
                 $request->query('course'),
                 fn (Builder $q, $uuid): Builder => $q->whereHas('course', fn (Builder $course): Builder => $course->where('uuid', $uuid)),
             )
+            /*
+            | The teacher, matched through the workspace relation for the reason
+            | the course filter is: an unresolvable uuid must empty the list, never
+            | silently return the unfiltered one.
+            */
+            ->when(
+                $request->query('teacher'),
+                fn (Builder $q, $uuid): Builder => $q->whereHas('workspace', fn (Builder $w): Builder => $w->where('uuid', $uuid)),
+            )
+            /*
+            | The subject — a different axis from the course, matched through the
+            | course's own relation. «الرياضيات» is one subject taught by three
+            | teachers as three courses, and this is the filter that gathers them.
+            */
+            ->when(
+                $request->query('subject'),
+                fn (Builder $q, $uuid): Builder => $q->whereHas('course.subject', fn (Builder $s): Builder => $s->where('uuid', $uuid)),
+            )
+            /*
+            | ⚠️ THE GROUP RESOLVES TO ITS COURSE, and that is the honest shape of
+            | it: a student holds at most one open membership per course, so this
+            | selects exactly what the course filter would. It exists because a
+            | student refers to their own timetable by the group's name, not the
+            | course's — and an unresolvable uuid empties the list, the idiom every
+            | other filter here follows.
+            */
+            ->when(
+                $request->query('cohort'),
+                fn (Builder $q, $uuid): Builder => $q->whereHas('course', fn (Builder $c): Builder => $c->whereIn(
+                    'id',
+                    Cohort::query()->withoutWorkspaceScope()->where('uuid', $uuid)->select('course_id'),
+                )),
+            )
             ->orderByRaw('CASE WHEN due_at IS NULL THEN 1 ELSE 0 END')
             ->orderByDesc('due_at');
 
@@ -85,7 +120,19 @@ class AssignmentController extends Controller
             // asks every row whether it carries a file, and `getFirstMedia()`
             // lazy-loads once per card — the ClassSessionResource defect in new
             // clothes. Pinned by the query budget in SubmissionStateTest.
+            /*
+            | ⚠️ `course:id,uuid,title` AND `workspace:id,uuid,name` ARE EAGER
+            | LOADED, NOT REACHED PER ROW. The Resource asks both for every card,
+            | and a relation resolved inside a Resource is an N+1 by construction —
+            | the `ClassSessionResource` defect through a new door. The constrained
+            | column lists name the columns the RESOURCE prints, which is the T186
+            | lesson: `users` has no `name` column, so a list that omits the two
+            | the accessor reads renders a blank in six places across four modules.
+            | `workspaces.name` is a real column and is safe to name.
+            */
             $query->published()->with([
+                'course:id,uuid,title',
+                'workspace:id,uuid,name',
                 'submissions' => fn ($q) => $q->where('student_user_id', $user->getKey())->with('media'),
             ]);
         }
@@ -100,6 +147,19 @@ class AssignmentController extends Controller
                 'last_page' => $page->lastPage(),
             ],
         ]);
+    }
+
+    /**
+     * What this student's homework list may be narrowed by.
+     *
+     * Students only by construction rather than by a check: a teacher's list is
+     * already one workspace, so the facets would be one name and one course —
+     * and `StudentScope::applyIfUnscoped` leaves a reader with a context exactly
+     * as it found them, so the answer is honest for both.
+     */
+    public function filters(Request $request, AssignmentFilterOptions $options): JsonResponse
+    {
+        return response()->json(['data' => $options->for($this->currentUser($request))]);
     }
 
     public function show(Request $request, Assignment $assignment): JsonResponse

@@ -15,6 +15,8 @@ import {
   AssignmentIcon,
   BellIcon,
   CertificateIcon,
+  ChevronEndIcon,
+  ChevronStartIcon,
   CloseIcon,
   CoursesIcon,
   CreditsIcon,
@@ -313,6 +315,9 @@ const platformNav: NavItem[] = [
 
 const allNav = [...mainNav, ...adminNav, ...platformNav];
 
+/** Whether the reader last chose the narrow rail. Per browser, per person. */
+const NAV_COLLAPSED_KEY = "nav:collapsed";
+
 
 export default function ShellLayout({ children }: { children: ReactNode }) {
   const { user, loading, logout } = useAuth();
@@ -325,6 +330,43 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
   // meant for the content behind it.
   const [navOpen, setNavOpen] = useState(false);
   const [pendingGrading, setPendingGrading] = useState(0);
+
+  /*
+    ⚠️ THE RAIL IS A SECOND STATE, NOT THE DRAWER AT ANOTHER WIDTH. On a phone the
+    nav sits OVER the page and the question is «is it open»; from `md` up it sits
+    BESIDE the page and the question is «how much room does it take». One flag for
+    both would mean closing the drawer on a phone also collapsed the desktop rail
+    the next time the reader opened a laptop — two answers to two different
+    questions, stored in one box.
+
+    Read from `localStorage` after mount, never during render: the server has no
+    such thing, and reading it in the initial state is a hydration mismatch that
+    React resolves by silently keeping the server's answer.
+  */
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      setCollapsed(window.localStorage.getItem(NAV_COLLAPSED_KEY) === "1");
+    } catch {
+      // A private window, or site data blocked. The default is the expanded nav,
+      // which is the state that hides nothing.
+    }
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((current) => {
+      const next = !current;
+
+      try {
+        window.localStorage.setItem(NAV_COLLAPSED_KEY, next ? "1" : "0");
+      } catch {
+        // Not being able to remember the choice must not stop them making it.
+      }
+
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -371,28 +413,71 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
 
   const renderItem = ({ href, label, Icon, badge }: NavItem) => {
     const active = pathname === href || pathname.startsWith(href + "/");
+    const showBadge = badge === "grading" && pendingGrading > 0;
+
     return (
       <Link
         key={href}
         href={href}
         aria-current={active ? "page" : undefined}
-        className={`mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+        /*
+          ⚠️ `title` ONLY WHEN THE LABEL IS HIDDEN. A tooltip repeating text that
+          is already on screen is a second copy for a screen reader to announce;
+          on the rail it is the only way to learn what the icon means with a
+          mouse. The accessible name comes from the `sr-only` span below either
+          way, so the link is never an unlabelled glyph.
+        */
+        title={collapsed ? label : undefined}
+        /*
+          ⚠️ EVERY COLLAPSED STYLE IS AN `md:` VARIANT, WITHOUT EXCEPTION. The rail
+          is a desktop state and the drawer is not — but `collapsed` is remembered
+          per BROWSER, so an un-gated class means the reader who narrowed the nav
+          on their laptop opens the drawer on their phone and finds a full-width
+          panel of unlabelled icons. That is the report this whole change answers,
+          re-manufactured one breakpoint lower.
+        */
+        className={`mb-1 flex items-center gap-3 rounded-lg py-2.5 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary px-3 ${
+          collapsed ? "md:justify-center md:px-2" : ""
+        } ${
           active
             ? "bg-primary font-semibold text-white"
             : "text-ink hover:bg-primary-soft hover:text-primary-ink"
         }`}
       >
-        <Icon className="h-5 w-5" />
-        <span className="flex-1">{label}</span>
-        {badge === "grading" && pendingGrading > 0 && (
+        <span className="relative shrink-0">
+          <Icon className="h-5 w-5" />
+
+          {/*
+            ⚠️ ON THE RAIL THE COUNT BECOMES A DOT ON THE ICON, and it must not
+            disappear. The number is the whole reason «لوحة التصحيح» earns a place
+            in this list — a paper waiting to be marked is a student waiting for a
+            result — so collapsing the nav may take the digits and may not take
+            the fact that something is waiting.
+          */}
+          {showBadge && collapsed && (
+            <span
+              aria-hidden
+              className="absolute -end-0.5 -top-0.5 hidden h-2 w-2 rounded-full bg-accent ring-2 ring-surface-raised md:block"
+            />
+          )}
+        </span>
+
+        <span className={`flex-1 ${collapsed ? "md:sr-only" : ""}`}>{label}</span>
+
+        {showBadge && (
           <span
-            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${collapsed ? "md:hidden" : ""} ${
               active ? "bg-white/20 text-white" : TONE_CLASSES.warning
             }`}
           >
             <bdi>{pendingGrading}</bdi>
           </span>
         )}
+
+        {/* On the rail the visible count is gone; this keeps it in the accessible
+            name rather than leaving «لوحة التصحيح» with a silent dot. Harmless at
+            full width, where the badge above already says it visibly. */}
+        {showBadge && collapsed && <span className="sr-only">{`${pendingGrading} بانتظار التصحيح`}</span>}
       </Link>
     );
   };
@@ -410,26 +495,54 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
            THEIR CLICKS: the admin links were visible, focusable and unreachable
            on a phone, which is a link that does not exist wearing the costume of
            one. Found by e2e on the 360×780 project. */
-        className={`fixed inset-y-0 start-0 z-20 flex w-64 flex-col border-e border-line bg-surface-raised md:flex ${navOpen ? "flex" : "hidden"}`}
+        /*
+          ⚠️ THE DRAWER IS ALWAYS FULL WIDTH; ONLY THE DESKTOP RAIL NARROWS. A
+          16rem panel is wider than half a phone and sits OVER the page there, so
+          a «space-saving» 4rem version of it would save space nobody was using
+          and hide the labels on the one screen with room for them under a finger.
+          The rail is a `md:` question, and the drawer is not.
+
+          ⚠️ AND `transition-[width]`, NOT `transition-all`. The panel is
+          `fixed inset-y-0` with a scrolling child; animating every property makes
+          the browser re-layout that child on each frame of the collapse.
+        */
+        className={`fixed inset-y-0 start-0 z-20 ${navOpen ? "flex" : "hidden"} w-64 flex-col border-e border-line bg-surface-raised transition-[width] duration-200 md:flex ${collapsed ? "md:w-16" : "md:w-64"}`}
       >
-        <div className="flex h-16 shrink-0 items-center px-6">
+        <div className={`flex h-16 shrink-0 items-center px-6 ${collapsed ? "md:justify-center md:px-0" : ""}`}>
           <Link
             href="/dashboard"
-            className="rounded text-xl font-extrabold text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            title={collapsed ? PLATFORM_NAME : undefined}
+            /* The rail shows one letter; the accessible name stays the word, so
+               the link is never announced as «م». Set at every width when
+               collapsed — the breakpoint is a CSS fact and this is not. */
+            aria-label={collapsed ? PLATFORM_NAME : undefined}
+            className="truncate rounded text-xl font-extrabold text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            {PLATFORM_NAME}
+            {/*
+              ⚠️ THE FIRST LETTER ON THE RAIL, NEVER THE NAME CLIPPED. «مدارك»
+              cut to its first two glyphs by `overflow-hidden` is a word that
+              looks broken; one letter is a mark. The full name stays in the
+              accessible name so the link is not announced as a single letter.
+            */}
+            <span className={collapsed ? "md:hidden" : ""}>{PLATFORM_NAME}</span>
+            <span aria-hidden className={collapsed ? "hidden md:inline" : "hidden"}>
+              {PLATFORM_NAME.charAt(0)}
+            </span>
           </Link>
         </div>
         {/* The one thing that scrolls. Everything else keeps its height, so a
             long nav never pushes the account panel off the screen. */}
-        <nav aria-label="التنقّل الرئيسي" className="flex-1 overflow-y-auto px-3 py-4">
+        <nav aria-label="التنقّل الرئيسي" className={`flex-1 overflow-y-auto py-4 px-3 ${collapsed ? "md:px-2" : ""}`}>
           {allowed(mainNav).map(renderItem)}
           {/* ⚠️ The heading is hidden with its list, not left standing over an
               empty box. A section title with nothing under it reads as content
               that failed to load. */}
           {allowed(adminNav).length > 0 && (
             <div className="mb-1 mt-4 border-t border-line pt-4">
-              <p className="mb-2 px-3 text-xs font-semibold tracking-wide text-ink-muted">
+              {/* ⚠️ Hidden on the rail rather than truncated. «الإدارة» clipped to
+                  two letters over a column of icons is noise where the border
+                  above it already says «a new group starts here». */}
+              <p className={`mb-2 px-3 text-xs font-semibold tracking-wide text-ink-muted ${collapsed ? "md:sr-only" : ""}`}>
                 الإدارة
               </p>
               {allowed(adminNav).map(renderItem)}
@@ -441,22 +554,28 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
               link, because they are not a super admin. */}
           {allowed(platformNav).length > 0 && (
             <div className="mb-1 mt-4 border-t border-line pt-4">
-              <p className="mb-2 px-3 text-xs font-semibold tracking-wide text-ink-muted">
+              <p className={`mb-2 px-3 text-xs font-semibold tracking-wide text-ink-muted ${collapsed ? "md:sr-only" : ""}`}>
                 المنصّة
               </p>
               {allowed(platformNav).map(renderItem)}
             </div>
           )}
         </nav>
-        <div className="shrink-0 border-t border-line bg-surface-raised p-4">
-          <div className="mb-3 flex items-center gap-3">
+        <div className={`shrink-0 border-t border-line bg-surface-raised p-4 ${collapsed ? "md:p-2" : ""}`}>
+          <div className={`mb-3 flex items-center gap-3 ${collapsed ? "md:justify-center" : ""}`}>
             <div
               aria-hidden="true"
+              title={collapsed ? user.name : undefined}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-medium text-white"
             >
               {user.first_name.charAt(0)}
             </div>
-            <div className="min-w-0 flex-1">
+
+            {/* ⚠️ REMOVED FROM THE RAIL RATHER THAN TRUNCATED. An address cut to
+                «ahm…» in a 4rem column is not a shorter address, it is an
+                unreadable one — and the initial above already says whose account
+                this is. */}
+            <div className={`min-w-0 flex-1 ${collapsed ? "md:hidden" : ""}`}>
               <p className="truncate text-sm font-medium text-ink">{user.name}</p>
               <p className="truncate text-xs text-ink-muted">
                 {/* Latin inside Arabic: <bdi> keeps the address from being
@@ -471,26 +590,81 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
               logout();
               router.push("/login");
             }}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-line py-2 text-sm text-ink transition hover:bg-primary-soft hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            title={collapsed ? "تسجيل الخروج" : undefined}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-line py-2 text-sm text-ink transition-colors hover:bg-primary-soft hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <LogoutIcon />
-            تسجيل الخروج
+            <span className={collapsed ? "md:sr-only" : ""}>تسجيل الخروج</span>
           </button>
         </div>
       </aside>
 
-      <div className="flex-1 md:ms-64">
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b border-line bg-surface-raised px-6">
+      {/* The offset tracks the panel's width, and animates with it — a content
+          column that jumps to its new margin while the nav is still sliding is
+          two elements disagreeing about where the edge is. */}
+      <div className={`flex-1 transition-[margin] duration-200 ${collapsed ? "md:ms-16" : "md:ms-64"}`}>
+        {/*
+          ⚠️ THE BAR IS FULL-BLEED AND ITS CONTENTS ARE NOT. The rule under it has
+          to reach both edges — a border that stops short reads as a card — while
+          the title has to start where the content below it starts. Capped only on
+          the inner row, with the same `max-w-7xl` the main region uses, or the
+          heading sits at the viewport edge on a wide monitor while the page it
+          names floats centred underneath.
+        */}
+        <header className="sticky top-0 z-10 border-b border-line bg-surface-raised">
+          <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
+            {/*
+              ⚠️ TWO BUTTONS, ONE POSITION, AND THAT IS THE FIX. There was a
+              single `md:hidden` hamburger, so from `md` up the nav had NO control
+              at all: sixteen rems of the window were spent on it on every screen,
+              on every page, with no way to give them back. The two answer
+              different questions — below `md` the panel is a drawer OVER the page
+              («is it open»), from `md` up it is a column BESIDE the page («how
+              wide»). One button doing both would need its icon, its label and its
+              `aria-expanded` to mean two things at two widths.
+
+              The desktop one is not `aria-expanded`: the nav is never hidden
+              there, only narrowed, and announcing «collapsed» as «closed» tells a
+              screen-reader user the links are gone when every one of them is
+              still in the tree.
+            */}
             <button
               type="button"
               onClick={() => setNavOpen((open) => !open)}
               aria-expanded={navOpen}
               aria-controls="panel-nav"
               aria-label={navOpen ? "إغلاق التنقّل" : "فتح التنقّل"}
-              className="rounded-lg p-1 text-ink hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:hidden"
+              /* ⚠️ `p-2.5` MAKES IT 44px, AND IT WAS 32. A 24px icon under `p-1`
+                 is a 32×32 target — measured on a 390px viewport — which is under
+                 every published minimum for a finger and is the only way into the
+                 navigation on a phone. The desktop twin below keeps the same
+                 padding for alignment; a pointer needs far less, but two buttons
+                 of different heights in one row is a wobble. */
+              className="-m-1 rounded-lg p-2.5 text-ink transition-colors hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:hidden"
             >
               {navOpen ? <CloseIcon /> : <MenuIcon />}
+            </button>
+
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              aria-controls="panel-nav"
+              aria-label={collapsed ? "توسيع قائمة التنقّل" : "تصغير قائمة التنقّل"}
+              title={collapsed ? "توسيع القائمة" : "تصغير القائمة"}
+              className="-m-1 hidden rounded-lg p-2.5 text-ink transition-colors hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:block"
+            >
+              {/*
+                ⚠️ DIRECTION LIVES IN THE ICON'S NAME, NEVER IN A CSS FLIP. In RTL
+                the panel is on the RIGHT, so «collapse» points at the start edge
+                and «expand» away from it — `ChevronStart`/`ChevronEnd` already
+                carry that and a `scale-x-[-1]` on a chevron would point the wrong
+                way in exactly one of the two directions the product supports.
+              */}
+              {/* Expanded: the press shrinks the panel toward the start edge it sits
+                  on, so the arrow points there (right, in RTL). Collapsed: the
+                  press grows it toward the end, so the arrow points away. */}
+              {collapsed ? <ChevronEndIcon /> : <ChevronStartIcon />}
             </button>
 
             <h1 className="truncate text-lg font-semibold text-ink">
@@ -501,8 +675,25 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
             <NotificationBell />
             <ThemeToggle />
           </div>
+          </div>
         </header>
-        <main id="main" className="p-6">
+        {/*
+          ⚠️ THE READING WIDTH IS CAPPED HERE, IN ONE PLACE, AND IT WAS CAPPED
+          NOWHERE. `<main>` carried padding and no maximum, so every unbounded
+          page — the dashboard, the timetable, the lists added since — stretched
+          to whatever the monitor was: a four-column stat grid across 2560px, and
+          table rows whose eye has to travel a metre from the label to the value.
+          Twenty-nine pages had each set their own `max-w-2xl`/`3xl` to escape it,
+          which is the same fix written twenty-nine times and missing from the
+          thirtieth.
+          |
+          | One container solves all of them and composes with those: a page that
+          | wants a narrower column keeps its own `mx-auto max-w-2xl` and simply
+          | centres inside this one. `w-full` so the cap never becomes a floor on a
+          | phone, and the padding steps down on small screens — 24px of gutter on
+          | a 360px viewport is 13% of it spent on nothing.
+        */}
+        <main id="main" className="mx-auto w-full max-w-7xl p-4 sm:p-6">
           {refused ? (
             // No heading of the screen's own above it: «أرصدة الطلاب» over a
             // refusal still tells the reader whose money this page is about.

@@ -27,6 +27,10 @@ final class SelfExamCriteria extends DataTransferObject
         public readonly int $durationMinutes,
         public readonly ?string $conceptUuid = null,
         public readonly ?string $difficulty = null,
+        /** One course out of the several a student may study with one teacher. */
+        public readonly ?string $courseUuid = null,
+        /** One subject, which may span several of this teacher's courses. */
+        public readonly ?string $subjectUuid = null,
     ) {}
 
     /**
@@ -36,12 +40,16 @@ final class SelfExamCriteria extends DataTransferObject
     {
         $concept = $data['concept_id'] ?? null;
         $difficulty = $data['difficulty'] ?? null;
+        $course = $data['course'] ?? null;
+        $subject = $data['subject'] ?? null;
 
         return new self(
             count: (int) ($data['count'] ?? 10),
             durationMinutes: (int) ($data['duration_minutes'] ?? 15),
             conceptUuid: is_string($concept) && $concept !== '' ? $concept : null,
             difficulty: is_string($difficulty) && $difficulty !== '' ? $difficulty : null,
+            courseUuid: is_string($course) && $course !== '' ? $course : null,
+            subjectUuid: is_string($subject) && $subject !== '' ? $subject : null,
         );
     }
 }

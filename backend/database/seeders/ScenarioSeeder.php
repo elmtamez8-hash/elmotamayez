@@ -37,6 +37,7 @@ use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
+use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Enums\MediaKind;
@@ -919,6 +920,19 @@ final class ScenarioSeeder extends Seeder
             'currency' => 'USD',
             'language' => 'en',
             'created_by' => $author->getKey(),
+            /*
+            | ⚠️ SET HERE TOO, BECAUSE `SeedCommand` RUNS SEEDERS UNGUARDED. The
+            | subject is required by `CreateCourseRequest` and by
+            | `SubjectResolver`, and neither is on this path — a seeder reaches
+            | `Course::create()` with no request behind it, which is exactly how
+            | the column stayed NULL on every row for a year. Any claim that
+            | «nothing writes a null subject any more» has to be checked against
+            | `database/seeders/` separately.
+            */
+            'subject_id' => Subject::query()->firstOrCreate(
+                ['slug' => 'general'],
+                ['name_ar' => 'عامّ'],
+            )->getKey(),
         ], $attributes));
     }
 

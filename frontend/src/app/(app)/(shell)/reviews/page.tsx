@@ -1,7 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ComponentType } from "react";
 
+import {
+  ArrowUpIcon,
+  AssignmentIcon,
+  CheckIcon,
+  MessagesIcon,
+  ProgressIcon,
+  type IconProps,
+} from "@/components/icons";
+import { AxisScore } from "@/components/reviews/AxisScore";
 import { Card } from "@/components/ui/Card";
 import { SelectField } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
@@ -9,8 +18,26 @@ import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { useAuth } from "@/lib/auth-context";
 import { family, type GuardianRelation } from "@/lib/notifications";
-import { arabicDecimal, arabicNumber } from "@/lib/numerals";
+import { arabicDecimal } from "@/lib/numerals";
 import { PERIODIC_AXES, periodLabel, reviews, type PeriodicReview } from "@/lib/reviews";
+
+/**
+ * An icon per axis, and only where one is honest.
+ *
+ * ⚠️ FROM THE EXISTING SET, NEVER A NEW GLYPH INVENTED FOR THE OCCASION. Four
+ * near-misses would be worse than four numbers: a reader who has to decode the
+ * picture reads the label anyway, and has been slowed down for nothing.
+ * «المشاركة» is speaking up in the room, «الواجبات» is what was handed in, and
+ * «التحسّن» is the direction of travel — each of the three has an exact icon
+ * already in the product, and «الالتزام» takes the tick that means «did what was
+ * asked».
+ */
+const AXIS_ICONS: Record<string, ComponentType<IconProps>> = {
+  commitment: CheckIcon,
+  participation: MessagesIcon,
+  homework: AssignmentIcon,
+  improvement: ArrowUpIcon,
+};
 
 /**
  * The student's own periodic assessments — and a guardian's view of a child's
@@ -90,9 +117,10 @@ export default function MyReviewsPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-ink">
+        <h2 className="flex items-center gap-2 text-2xl font-bold text-ink">
+          <ProgressIcon className="h-6 w-6 text-primary-ink" />
           {isGuardian ? "التقييمات الدورية" : "تقييماتي الدورية"}
-        </h1>
+        </h2>
         <p className="mt-1 text-sm text-ink-muted">
           {isGuardian
             ? "ما كتبه المدرّسون عن التزام ابنك ومشاركته وواجباته وتحسّنه."
@@ -126,28 +154,60 @@ export default function MyReviewsPage() {
           description="يظهر هنا تقييم مدرّسك الدوري فور نشره."
         />
       ) : (
-        <ul className="space-y-3">
-          {rows.map((review) => (
-            <li key={review.uuid}>
+        <ul className="space-y-4">
+          {rows.map((review, index) => (
+            /*
+              ⚠️ THE STAGGER IS CAPPED AND THE FILL MODE IS `both` — the timetable's
+              rule, and for its reason: `banner-rise` covers the delay as well as
+              the animation, so a card is not painted, hidden when its turn comes
+              and repainted. The cap stops a long history making the last card
+              arrive a second and a half after the first, and the reduced-motion
+              block in `globals.css` zeroes all of it.
+            */
+            <li
+              key={review.uuid}
+              className="banner-rise"
+              style={{ animationDelay: `${Math.min(index, 6) * 60}ms` }}
+            >
               <Card as="article">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="font-semibold text-ink">{periodLabel(review)}</p>
-                  <p className="text-sm text-ink-muted">
-                    {review.teacher_name ?? "مدرّسك"} · المتوسّط {arabicDecimal(review.average)} من ٥
-                  </p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-ink">{periodLabel(review)}</p>
+                    <p className="mt-0.5 text-xs text-ink-muted">
+                      {review.teacher_name ?? "مدرّسك"}
+                    </p>
+                  </div>
+
+                  {/*
+                    ⚠️ THE AVERAGE IS THE ONE NUMBER THAT DESERVES SIZE. It was a
+                    clause at the end of a muted sentence, in the same weight as
+                    the teacher's name — so the figure the whole card exists to
+                    deliver was the least visible thing on it.
+                  */}
+                  <div className="shrink-0 rounded-2xl bg-primary-soft px-3 py-1.5 text-center">
+                    <p className="text-lg font-bold leading-none text-primary-ink">
+                      <bdi>{arabicDecimal(review.average)}</bdi>
+                    </p>
+                    <p className="mt-1 text-[11px] text-ink-muted">من ٥</p>
+                  </div>
                 </div>
 
-                <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                  {PERIODIC_AXES.map((axis) => (
-                    <div key={axis.key}>
-                      <dt className="text-ink-muted">{axis.label}</dt>
-                      <dd className="text-lg font-bold text-ink">{arabicNumber(review[axis.key])}</dd>
-                    </div>
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {PERIODIC_AXES.map((axis, axisIndex) => (
+                    <AxisScore
+                      key={axis.key}
+                      label={axis.label}
+                      value={review[axis.key]}
+                      Icon={AXIS_ICONS[axis.key] ?? ProgressIcon}
+                      // Each card's dots follow its own card in, rather than every
+                      // card animating against the clock of the first.
+                      delayMs={Math.min(index, 6) * 60 + axisIndex * 30}
+                    />
                   ))}
-                </dl>
+                </div>
 
                 {review.note !== null && (
-                  <p className="mt-4 rounded-2xl bg-primary-soft/60 p-3 text-sm text-ink">
+                  <p className="animate-float-in mt-4 rounded-2xl bg-primary-soft/60 p-3 text-sm text-ink">
                     {review.note}
                   </p>
                 )}

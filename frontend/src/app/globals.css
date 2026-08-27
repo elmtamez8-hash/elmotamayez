@@ -236,8 +236,15 @@
   }
 }
 
+/* ⚠️ `both`, AND IT WAS MISSING THE DAY A DELAY WAS FIRST PUT ON IT. Without a
+   fill mode a delayed element is painted, hidden the instant its animation
+   starts, and faded back in — a flicker that appears only on staggered elements
+   and is invisible on every call site that uses no delay. `banner-rise` below
+   carries the same word for the same reason, written down when the notification
+   banner hit it; this class was never staggered until the periodic-assessment
+   scores were. Harmless at zero delay, which is every older call site. */
 .animate-float-in {
-  animation: float-in 0.22s ease-out;
+  animation: float-in 0.22s ease-out both;
 }
 
 /* The banner's content arriving.

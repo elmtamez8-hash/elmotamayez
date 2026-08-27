@@ -7,6 +7,7 @@ namespace App\Modules\Courses\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
@@ -125,6 +126,20 @@ class Course extends BaseModel
     public function lessons(): HasMany
     {
         return $this->hasMany(Lesson::class)->orderBy('order');
+    }
+
+    /**
+     * The platform-wide subject this course teaches.
+     *
+     * ⚠️ REFERENCE DATA, NOT A TENANT ROW. `subjects` is deliberately
+     * platform-level — one «الرياضيات» for every teacher — so this relation
+     * carries no workspace condition and needs none.
+     *
+     * @return BelongsTo<Subject, $this>
+     */
+    public function subject(): BelongsTo
+    {
+        return $this->belongsTo(Subject::class);
     }
 
     /** @return BelongsTo<User, $this> */

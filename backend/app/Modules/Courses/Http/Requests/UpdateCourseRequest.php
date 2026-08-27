@@ -19,6 +19,13 @@ class UpdateCourseRequest extends FormRequest
     {
         return [
             'title' => ['sometimes', 'string', 'max:255'],
+            /*
+            | `sometimes` rather than `required`: a PATCH that changes only the
+            | price must not be refused for omitting a field it is not touching.
+            | It may not be sent EMPTY, though — clearing it would put a course
+            | back into the state this rule exists to end.
+            */
+            'subject' => ['sometimes', 'uuid'],
             'description' => ['nullable', 'string'],
             'slug' => ['nullable', 'string', 'max:255'],
             'price_minor' => ['nullable', 'integer', 'min:0'],

@@ -6,6 +6,7 @@ namespace Database\Factories\Modules\Courses;
 
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Marketplace\Models\Subject;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -40,6 +41,23 @@ class CourseFactory extends Factory
             'structure_version' => 1,
             'created_by' => User::factory(),
             'course_type' => Course::TYPE_RECORDED,
+            /*
+            | ⚠️ EVERY COURSE CARRIES A SUBJECT, INCLUDING EVERY FIXTURE. It is
+            | required at the door since it was found NULL on 77 of 77 real rows —
+            | the column arrived with 007's pricing migration and no writer ever
+            | set it — and a factory that left it null would build the exact state
+            | the rule exists to end, so every subject-shaped assertion would be
+            | measuring an empty column.
+            |
+            | `firstOrCreate` on the slug, not a new row per course: `subjects` is
+            | PLATFORM reference data deduped by slug (the constitution names that
+            | failure), so a factory minting one each time would rebuild the
+            | duplication spec 010's migration removed.
+            */
+            'subject_id' => Subject::query()->firstOrCreate(
+                ['slug' => 'general'],
+                ['name_ar' => 'عامّ'],
+            )->getKey(),
         ];
     }
 

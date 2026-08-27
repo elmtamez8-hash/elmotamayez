@@ -19,6 +19,12 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::middleware('auth:sanctum')->group(function (): void {
+    /*
+    | The subject picker, before there is a course to file. Above `/courses` so
+    | no `{course}` binding can ever swallow the word.
+    */
+    Route::get('/course-subjects', [CourseController::class, 'subjects']);
+
     Route::get('/courses', [CourseController::class, 'index']);
     Route::post('/courses', [CourseController::class, 'store']);
     Route::get('/courses/{course}', [CourseController::class, 'show']);

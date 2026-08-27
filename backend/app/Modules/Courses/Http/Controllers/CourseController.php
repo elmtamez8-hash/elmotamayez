@@ -12,6 +12,8 @@ use App\Modules\Courses\Http\Requests\CreateCourseRequest;
 use App\Modules\Courses\Http\Requests\UpdateCourseRequest;
 use App\Modules\Courses\Http\Resources\CourseResource;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Support\SubjectResolver;
+use App\Modules\Marketplace\Models\Subject;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -61,10 +63,37 @@ class CourseController extends Controller
         $this->authorize('view', $course);
 
         return response()->json(CourseResource::make($course->load([
+            'subject',
             'sections' => fn ($query) => $query->published()->orderBy('order'),
             'sections.chapters' => fn ($query) => $query->published()->orderBy('order'),
             'sections.chapters.lessons' => fn ($query) => $query->visibleToStudents()->orderBy('order'),
         ])));
+    }
+
+    /**
+     * The subjects a course may be filed under.
+     *
+     * ⚠️ AN AUTHENTICATED ROUTE RATHER THAN THE PUBLIC ONE. `/marketplace/subjects`
+     * exists but answers `slug`, `name_ar`, `icon` and a teacher count — a
+     * visitor's payload, guarded by `PublicFieldAllowlist`, with no uuid in it.
+     * Adding one there to save a route would widen a public payload for the
+     * convenience of an authoring form.
+     *
+     * No permission beyond being signed in: it is platform reference data that
+     * every teacher needs before they can create anything, and it names nobody.
+     */
+    public function subjects(): JsonResponse
+    {
+        return response()->json([
+            'data' => Subject::query()
+                ->orderBy('name_ar')
+                ->get(['uuid', 'name_ar'])
+                ->map(fn (Subject $subject): array => [
+                    'uuid' => (string) $subject->uuid,
+                    'label' => (string) $subject->name_ar,
+                ])
+                ->all(),
+        ]);
     }
 
     public function store(CreateCourseRequest $request, CreateCourse $action): JsonResponse
@@ -78,7 +107,22 @@ class CourseController extends Controller
     {
         $this->authorize('update', $course);
 
-        $course->update($request->validated());
+        $data = $request->validated();
+
+        /*
+        | ⚠️ THE UUID BECOMES AN ID BEFORE THE UPDATE, and `subject` never reaches
+        | `update()`. It is not a column — a mass assignment carrying it would be
+        | discarded in silence, which is precisely how `subject_id` came to be
+        | NULL on every course on the platform: fillable since 007 and written by
+        | nobody.
+        */
+        if (array_key_exists('subject', $data)) {
+            $data['subject_id'] = SubjectResolver::id($data['subject']);
+        }
+
+        unset($data['subject']);
+
+        $course->update($data);
 
         return response()->json(CourseResource::make($course->fresh()));
     }

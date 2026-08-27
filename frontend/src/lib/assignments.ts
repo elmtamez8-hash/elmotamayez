@@ -36,6 +36,14 @@ export interface Submission {
 export interface Assignment {
   uuid: string;
   title: string;
+  /*
+    ⚠️ WHICH SUBJECT AND WITH WHOM — absent from this payload until now, on a
+    list that spans every teacher the student studies with. Two teachers setting
+    «واجب الفصل الثالث» produced two identical rows with nothing between them.
+    Optional because the teacher's own list does not eager-load them.
+  */
+  course?: { uuid: string; title: string } | null;
+  teacher?: { uuid: string; name: string } | null;
   description: string | null;
   points: number;
   due_at: string | null;
@@ -52,8 +60,52 @@ export interface Assignment {
 
 type Meta = { total: number; current_page: number; last_page: number };
 
+export interface AssignmentFilterOptions {
+  teachers: { uuid: string; label: string }[];
+  courses: { uuid: string; label: string }[];
+  /** «الرياضيات» across every teacher who sets homework in it. */
+  subjects: { uuid: string; label: string }[];
+  /**
+   * ⚠️ EACH ONE CARRIES ITS COURSE, and the card needs that more than the filter
+   * does. A student holds one open membership per course, so narrowing by a group
+   * selects what narrowing by its course would — but the group's NAME is how they
+   * refer to their own timetable, and `course_uuid` is what lets a card print it
+   * without a lookup per row.
+   */
+  cohorts: { uuid: string; label: string; course_uuid: string }[];
+}
+
 export const assignments = {
-  list: (page = 1) => api.get<{ data: Assignment[]; meta: Meta }>(`/assignments?page=${page}`),
+  /**
+   * ⚠️ `per_page` IS SENT, AND THE PAGE READS `meta`. The list rendered page one
+   * and nothing else — twenty rows, silently, with no control to reach the rest:
+   * a student with a full term of homework simply could not see the older half.
+   */
+  list: (
+    params: {
+      page?: number;
+      perPage?: number;
+      teacher?: string;
+      course?: string;
+      subject?: string;
+      cohort?: string;
+    } = {},
+  ) => {
+    const query = new URLSearchParams({
+      page: String(params.page ?? 1),
+      per_page: String(params.perPage ?? 30),
+    });
+
+    if (params.teacher !== undefined && params.teacher !== "") query.set("teacher", params.teacher);
+    if (params.course !== undefined && params.course !== "") query.set("course", params.course);
+    if (params.subject !== undefined && params.subject !== "") query.set("subject", params.subject);
+    if (params.cohort !== undefined && params.cohort !== "") query.set("cohort", params.cohort);
+
+    return api.get<{ data: Assignment[]; meta: Meta }>(`/assignments?${query.toString()}`);
+  },
+
+  /** The pickers, derived on the server from this same list's predicate. */
+  filters: () => api.get<{ data: AssignmentFilterOptions }>("/assignments/filters"),
 
   show: (uuid: string) => api.get<{ data: Assignment }>(`/assignments/${uuid}`),
 

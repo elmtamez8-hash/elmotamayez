@@ -86,6 +86,13 @@ export interface User {
 export interface Course {
   uuid: string;
   title: string;
+  /**
+   * ⚠️ REQUIRED ON EVERY WRITE SINCE IT WAS FOUND NULL ON 77 OF 77 ROWS. The
+   * column arrived with 007's pricing migration and nothing ever wrote it, so
+   * every screen that groups by subject was grouping nothing. Optional in the
+   * type because lists do not eager-load the relation.
+   */
+  subject?: { uuid: string; label: string } | null;
   slug: string;
   description: string;
   /** Minor units — 4999 is 49.99. Format with formatMinorMoney, never directly. */

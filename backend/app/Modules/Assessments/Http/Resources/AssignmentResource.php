@@ -29,6 +29,26 @@ class AssignmentResource extends JsonResource
             'description' => $this->description,
             'points' => $this->points,
             'due_at' => $this->due_at,
+            /*
+            | ⚠️ WHICH SUBJECT, AND WITH WHOM. The list is one page across every
+            | teacher a student studies with — `StudentScope` widened it there in
+            | 008 — and until now every row said only its own title, so «واجب
+            | الفصل الثالث» from one teacher sat above the identically-named one
+            | from another with nothing between them. It is also what the filter
+            | bar narrows by, and a control that filters on a field the card does
+            | not show is a control whose effect cannot be read.
+            |
+            | `whenLoaded`, so the teacher's own list — which does not eager-load
+            | it — pays nothing and sends nothing rather than an N+1 per row.
+            */
+            'course' => $this->whenLoaded('course', fn (): ?array => $this->course === null ? null : [
+                'uuid' => (string) $this->course->uuid,
+                'title' => (string) $this->course->title,
+            ]),
+            'teacher' => $this->whenLoaded('workspace', fn (): ?array => $this->workspace === null ? null : [
+                'uuid' => (string) $this->workspace->uuid,
+                'name' => (string) $this->workspace->name,
+            ]),
             'submission_type' => $this->submission_type,
             'late_policy' => $this->late_policy,
             'late_penalty_pct_per_day' => (float) $this->late_penalty_pct_per_day,

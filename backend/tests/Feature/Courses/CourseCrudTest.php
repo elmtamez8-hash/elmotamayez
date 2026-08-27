@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Modules\Courses\Models\Course;
+use App\Modules\Marketplace\Models\Subject;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 
 describe('course CRUD', function (): void {
@@ -31,6 +33,8 @@ describe('course CRUD', function (): void {
     it('creates a course', function (): void {
         [$workspace, $owner] = $this->createWorkspaceWithOwner();
 
+        $subject = Subject::factory()->create(['name_ar' => 'الرياضيات']);
+
         Sanctum::actingAs($owner);
 
         $this->postJson('/api/v1/courses', [
@@ -39,11 +43,64 @@ describe('course CRUD', function (): void {
             'price_minor' => 4999,
             'currency' => 'USD',
             'is_sequential' => true,
+            'subject' => (string) $subject->uuid,
         ])->assertCreated()
             ->assertJsonPath('title', 'New Course')
             ->assertJsonPath('status', 'draft');
 
-        expect(Course::where('title', 'New Course')->exists())->toBeTrue();
+        $created = Course::where('title', 'New Course')->sole();
+
+        // ⚠️ THE COLUMN, NOT THE RESPONSE. `subject_id` was fillable and unwritten
+        // for a year — the payload echoing back what was submitted is exactly the
+        // assertion that missed it on `student_profiles` in spec 013.
+        expect((int) $created->subject_id)->toBe((int) $subject->getKey());
+    });
+
+    /*
+    | ⚠️ AND A COURSE MAY NOT BE CREATED WITHOUT ONE. The requirement is the whole
+    | point: every subject-shaped screen in the product — the marketplace facet,
+    | the homework filter, the practice filter — reads a column that was NULL on
+    | every row because nothing ever demanded it.
+    */
+    it('refuses a course with no subject', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+
+        Sanctum::actingAs($owner);
+
+        $this->postJson('/api/v1/courses', [
+            'title' => 'بلا مادّة',
+            'price_minor' => 0,
+            'currency' => 'QAR',
+        ])->assertStatus(422)->assertJsonValidationErrors('subject');
+
+        expect(Course::where('title', 'بلا مادّة')->exists())->toBeFalse();
+    });
+
+    it('refuses a subject uuid that names nothing', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+
+        Sanctum::actingAs($owner);
+
+        $this->postJson('/api/v1/courses', [
+            'title' => 'مادّة مجهولة',
+            'price_minor' => 0,
+            'currency' => 'QAR',
+            'subject' => (string) Str::uuid(),
+        ])->assertStatus(422)->assertJsonValidationErrors('subject');
+    });
+
+    it('moves a course to another subject', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+        $course = Course::factory()->create(['workspace_id' => $workspace->id]);
+        $physics = Subject::factory()->create(['name_ar' => 'الفيزياء']);
+
+        Sanctum::actingAs($owner);
+
+        $this->putJson('/api/v1/courses/'.$course->uuid, [
+            'subject' => (string) $physics->uuid,
+        ])->assertOk();
+
+        expect((int) $course->fresh()->subject_id)->toBe((int) $physics->getKey());
     });
 
     it('updates a course', function (): void {

@@ -42,7 +42,16 @@ export default function EditCoursePage({
     price: "0",
     currency: "QAR",
     is_sequential: true,
+    subject: "",
   });
+  /*
+    ⚠️ THE EDIT SCREEN CARRIES IT OR THE BACKFILL IS UNCORRECTABLE. Every course
+    that existed before the subject was required was stamped «عامّ» — a visible
+    placeholder rather than a guessed subject — and this is the only screen where
+    a teacher can put the right one in. Without the field the placeholder would be
+    permanent, which is a worse state than the null it replaced.
+  */
+  const [subjects, setSubjects] = useState<{ uuid: string; label: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -64,6 +73,7 @@ export default function EditCoursePage({
           price: fromMinorMoney(c.price_minor ?? 0),
           currency: c.currency,
           is_sequential: c.is_sequential,
+          subject: c.subject?.uuid ?? "",
         });
       })
       .catch(() => setFailed(true))
@@ -71,6 +81,13 @@ export default function EditCoursePage({
   }, [uuid]);
 
   useEffect(load, [load]);
+
+  useEffect(() => {
+    api
+      .get<{ data: { uuid: string; label: string }[] }>("/course-subjects")
+      .then((response) => setSubjects(response.data ?? []))
+      .catch(() => setSubjects([]));
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,6 +157,20 @@ export default function EditCoursePage({
             value={form.description}
             onChange={(v) => setForm({ ...form, description: v })}
             error={fields.description}
+          />
+
+          {/* Above the price, because it decides where the course is found:
+              the marketplace groups by it, and a student's homework and practice
+              filters narrow by it. */}
+          <SelectField
+            id="subject"
+            label="المادّة"
+            value={form.subject}
+            onChange={(v) => setForm({ ...form, subject: v })}
+            placeholder="اختر المادّة"
+            options={subjects.map((subject) => ({ value: subject.uuid, label: subject.label }))}
+            error={fields.subject}
+            required
           />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

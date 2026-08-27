@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { toMinorMoney } from "@/lib/labels";
@@ -28,6 +28,14 @@ const CURRENCIES = [
 
 export default function CreateCoursePage() {
   const router = useRouter();
+
+  /*
+    ⚠️ REQUIRED SINCE THE DAY `subject_id` WAS FOUND NULL ON EVERY COURSE ON THE
+    PLATFORM. The column arrived with 007's pricing migration and was fillable
+    from that day, so it read as finished — and no request, Action, seeder or
+    screen ever wrote it. Everything that groups by subject was grouping nothing.
+  */
+  const [subjects, setSubjects] = useState<{ uuid: string; label: string }[]>([]);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -36,10 +44,18 @@ export default function CreateCoursePage() {
     price: "0",
     currency: CURRENCY,
     is_sequential: true,
+    subject: "",
   });
   const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<{ data: { uuid: string; label: string }[] }>("/course-subjects")
+      .then((response) => setSubjects(response.data ?? []))
+      .catch(() => setSubjects([]));
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,6 +110,23 @@ export default function CreateCoursePage() {
             onChange={(v) => setForm({ ...form, description: v })}
             error={fields.description}
             hint="اشرح في سطرين ماذا سيتعلّم الطالب."
+          />
+
+          {/*
+            ⚠️ ABOVE THE PRICE, BECAUSE IT DECIDES WHERE THE COURSE IS FOUND. The
+            subject is what the marketplace groups by and what a student's
+            homework and practice filters narrow by — a course filed under
+            nothing is a course that appears in none of them.
+          */}
+          <SelectField
+            id="subject"
+            label="المادّة"
+            value={form.subject}
+            onChange={(v) => setForm({ ...form, subject: v })}
+            placeholder="اختر المادّة"
+            options={subjects.map((subject) => ({ value: subject.uuid, label: subject.label }))}
+            error={fields.subject}
+            required
           />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
