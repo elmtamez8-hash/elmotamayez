@@ -7,7 +7,12 @@ namespace Database\Seeders;
 use App\Models\User;
 use App\Modules\Assessments\Actions\GradeSubmission;
 use App\Modules\Assessments\Actions\SubmitAssignment;
+use App\Modules\Assessments\Models\Answer;
 use App\Modules\Assessments\Models\Assignment;
+use App\Modules\Assessments\Models\Attempt;
+use App\Modules\Assessments\Models\Concept;
+use App\Modules\Assessments\Models\Question;
+use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Assessments\Models\Submission;
 use App\Modules\Community\Actions\PublishPeriodicReview;
 use App\Modules\Community\Actions\SubmitPeriodicReview;
@@ -65,6 +70,14 @@ class StudentDashboardSeeder extends Seeder
     /** الحسابُ الذي تُعلَّقُ عليه البيانات — نفسُ حسابِ العرضِ في {@see DemoDataSeeder}. */
     private const STUDENT_EMAIL = 'student@example.com';
 
+    /**
+     * مفتاحُ محاولةِ الدفتر.
+     *
+     * `random_seed` عمودٌ قائمٌ يُميّزُ هذه المحاولةَ عن أيِّ محاولةٍ حقيقيّةٍ للطالب،
+     * فالتشغيلةُ الثانيةُ تجدُها ولا تُنشئُ ثانية. عمودٌ جديدٌ لأجلِ سيدرٍ ثمنٌ أغلى.
+     */
+    private const MISTAKE_SEED = 'student-dashboard-seed';
+
     public function run(): void
     {
         $student = User::query()->where('email', self::STUDENT_EMAIL)->first();
@@ -113,11 +126,12 @@ class StudentDashboardSeeder extends Seeder
             $this->credits($student, $course);
             $this->sessions($workspace, $profile, $course, $student);
             $this->homework($workspace, $teacher, $course, $student);
+            $this->mistakes($workspace, $course, $student);
             $this->gamification($workspace, $student, $course);
             $this->reports($workspace, $teacher, $student);
         });
 
-        $this->command->info('بيانات لوحة الطالب: جدول وحصص · نقاط وشارات وصدارة · رصيد · واجبات · تقارير.');
+        $this->command->info('بيانات لوحة الطالب: جدول وحصص · نقاط وشارات وصدارة · رصيد · واجبات · دفتر أخطاء · تقارير.');
     }
 
     /**
@@ -350,6 +364,135 @@ class StudentDashboardSeeder extends Seeder
                 'created_by' => $teacher->getKey(),
             ],
         );
+    }
+
+    /**
+     * دفترُ الأخطاء: خمسةُ أسئلةٍ بثلاثِ حالاتٍ مختلفة.
+     *
+     * ⚠️ لا جدولَ `mistake_entries`، و«أصلحته» سؤالٌ لا عمود: `MistakeNotebook`
+     * يشتقُّه بمقارنةِ آخرِ إجابةٍ صحيحةٍ بآخرِ خاطئة. فالمعرّفاتُ مرتَّبةٌ بالإدراج،
+     * ولهذا تُكتَبُ الخاطئةُ **قبلَ** الصحيحةِ سطراً بسطر — عكسُ الترتيبِ يزرعُ
+     * «مُصلَحاً» في صفٍّ لم يُصلَحْ وبالعكس، بلا خطأٍ واحد.
+     *
+     * ⚠️ وثلاثُ حالاتٍ لا واحدة، لأنّ كلَّ واحدةٍ تُرسَمُ على نحوٍ مختلف: قائمٌ،
+     * ومتروكٌ بلا إجابة (وهو أقوى دليلٍ على فجوةٍ وكان سيغيبُ عن الصفحةِ تماماً)،
+     * ومُصلَح — والأخيرُ هو ما يجعلُ لزرِّ «أظهر ما أصلحته» شيئاً يُظهِرُه.
+     * و`requires_grading = false` على الجميع: إجابةٌ مقاليّةٌ لم تُصحَّحْ ليست خطأً
+     * معروفاً، والدفترُ يستثنيها عمداً.
+     */
+    private function mistakes(Workspace $workspace, Course $course, User $student): void
+    {
+        $concept = Concept::query()->firstOrCreate(
+            ['workspace_id' => $workspace->getKey(), 'name' => 'أساسيّات المعادلات'],
+            ['uuid' => (string) Str::uuid()],
+        );
+
+        // [النصّ، الخيارات (الصحيحُ أوّلاً)، الشرح، مسارُ الإجابات]
+        // `wrong` خاطئة · `blank` بلا إجابة · `right` صحيحة. الترتيبُ هو الزمن.
+        $bank = [
+            ['كم يساوي ٣ × ٧ ؟', ['٢١', '٢٤', '١٨'], 'حاصلُ ضربِ ٣ في ٧ هو ٢١.', ['wrong', 'wrong']],
+            ['ما ناتجُ ١٢ ÷ ٤ ؟', ['٣', '٤', '٦'], 'القسمةُ هي عددُ مرّاتِ احتواءِ ١٢ على ٤.', ['blank']],
+            ['ما قيمةُ س في: س + ٥ = ١٢ ؟', ['٧', '٥', '١٧'], 'اطرحْ ٥ من الطرفَين.', ['wrong']],
+            ['ما مساحةُ مستطيلٍ طولُه ٦ وعرضُه ٤ ؟', ['٢٤', '٢٠', '١٠'], 'المساحةُ = الطولُ × العرض.', ['wrong', 'right']],
+            ['ما محيطُ مربَّعٍ ضلعُه ٥ ؟', ['٢٠', '٢٥', '١٠'], 'المحيطُ = ٤ × الضلع.', ['wrong', 'wrong', 'right']],
+            ['ما ناتجُ ٢ أُسّ ٥ ؟', ['٣٢', '١٠', '٢٥'], '٢ مضروبةٌ في نفسِها خمسَ مرّات.', ['wrong']],
+            ['ما الوسطُ الحسابيُّ للأعداد ٤ و٦ و٨ ؟', ['٦', '٧', '٥'], 'اجمعْها ثمّ اقسمْ على عددِها.', ['wrong', 'wrong']],
+            ['كم دقيقةً في ثلاثِ ساعاتٍ ورُبع ؟', ['١٩٥', '١٨٠', '٢٠٥'], 'كلُّ ساعةٍ ٦٠ دقيقة، والرُّبعُ ١٥.', ['blank']],
+        ];
+
+        /*
+         | ⚠️ محاولةٌ لكلِّ خطوةٍ في المسار، لا محاولةٌ واحدةٌ للجميع: على
+         | `exam_answers` فهرسٌ فريدٌ على `(attempt_id, question_id)` — سؤالٌ
+         | يُجاب مرّةً واحدةً في الورقةِ الواحدة. وهو الواقعُ نفسُه: الإجابةُ الثانيةُ
+         | عن سؤالٍ هي جلسةٌ أخرى، لا سطرٌ ثانٍ في الورقةِ الأولى.
+         */
+        $attempts = [];
+
+        foreach ([0, 1, 2] as $round) {
+            $attempts[] = Attempt::query()->firstOrCreate(
+                [
+                    'workspace_id' => $workspace->getKey(),
+                    'student_user_id' => $student->getKey(),
+                    'random_seed' => self::MISTAKE_SEED.'-'.$round,
+                ],
+                [
+                    'uuid' => (string) Str::uuid(),
+                    'status' => 'submitted',
+                    'is_practice' => false,
+                    'started_at' => now()->subDays(9 - $round),
+                    'submitted_at' => now()->subDays(9 - $round),
+                    'finalized_at' => now()->subDays(9 - $round),
+                ],
+            );
+        }
+
+        foreach ($bank as [$content, $options, $explanation, $path]) {
+            $question = Question::query()->firstOrCreate(
+                ['workspace_id' => $workspace->getKey(), 'content_hash' => Question::hashOf($content)],
+                [
+                    'uuid' => (string) Str::uuid(),
+                    'concept_id' => $concept->getKey(),
+                    'type' => 'mcq',
+                    'difficulty' => 'medium',
+                    'bloom_level' => 'apply',
+                    'content' => $content,
+                    'points' => 1,
+                    'explanation' => $explanation,
+                    'is_active' => true,
+                ],
+            );
+
+            if ($question->options()->count() === 0) {
+                foreach ($options as $index => $text) {
+                    QuestionOption::query()->create([
+                        'workspace_id' => $workspace->getKey(),
+                        'question_id' => $question->getKey(),
+                        // لا عمودَ `uuid` على `question_options` — الخيارُ لا
+                        // يُعرَضُ في مسارٍ ولا يُشار إليه من خارجِ سؤالِه.
+                        'content' => $text,
+                        // خيارٌ صحيحٌ واحدٌ بالضبط: اثنانِ سؤالٌ لا تُرضيه نقرةٌ
+                        // واحدةٌ أبداً، وصفرٌ نفسُ العيبِ من الجهةِ الأخرى.
+                        'is_correct' => $index === 0,
+                        'order' => $index + 1,
+                    ]);
+                }
+            }
+
+            // التشغيلةُ الثانيةُ لا تُعيدُ كتابةَ المسار: صفوفٌ جديدةٌ بمعرّفاتٍ أحدثَ
+            // تقلبُ «مُصلَح» إلى «قائم» في كلِّ مرّة.
+            $written = Answer::query()
+                ->withoutWorkspaceScope()
+                ->where('question_id', $question->getKey())
+                ->where('student_user_id', $student->getKey())
+                ->exists();
+
+            if ($written) {
+                continue;
+            }
+
+            $correctId = (int) $question->options()->where('is_correct', true)->value('id');
+            $wrongId = (int) $question->options()->where('is_correct', false)->value('id');
+
+            foreach ($path as $round => $step) {
+                Answer::query()->create([
+                    'workspace_id' => $workspace->getKey(),
+                    'attempt_id' => $attempts[$round]->getKey(),
+                    'question_id' => $question->getKey(),
+                    'student_user_id' => $student->getKey(),
+                    'uuid' => (string) Str::uuid(),
+                    'selected_option_ids' => match ($step) {
+                        'right' => [$correctId],
+                        'wrong' => [$wrongId],
+                        default => [],
+                    },
+                    'is_correct' => $step === 'right',
+                    'points' => $step === 'right' ? 1 : 0,
+                    'requires_grading' => false,
+                ]);
+            }
+        }
+
+        unset($course);
     }
 
     /**
