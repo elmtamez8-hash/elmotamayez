@@ -29,6 +29,7 @@ import {
   IconCalendarEvent,
   IconCalendarTime,
   IconCertificate,
+  IconClock,
   IconChartHistogram,
   IconEraser,
   IconBarbell,
@@ -177,6 +178,8 @@ export const FamilyIcon = wrap(IconUsersGroup, "h-5 w-5");
 export const MessagesIcon = wrap(IconMessageCircle, "h-5 w-5");
 /** The student's own timetable across every teacher. */
 export const ScheduleIcon = wrap(IconCalendarTime, "h-5 w-5");
+/** A time of day, beside a row whose day is already stated by its heading. */
+export const ClockIcon = wrap(IconClock, "h-4 w-4");
 /** The teacher's calendar of taught sessions. */
 export const SessionsIcon = wrap(IconCalendarEvent, "h-5 w-5");
 /** The teacher's own statement — their contract, never a student's payment. */

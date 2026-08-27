@@ -107,13 +107,15 @@ export function can(user: { permissions?: string[] } | null, permission?: string
  * This is the difference between «not yours» and «check your connection».
  */
 export function refusedBy(
-  nav: readonly { href: string; permission?: string }[],
+  nav: readonly { href: string; permission?: string; linkOnly?: boolean }[],
   pathname: string,
   user: { permissions?: string[] } | null,
 ): boolean {
   const gate = nav
-    .filter(({ permission, href }) =>
-      permission !== undefined && (pathname === href || pathname.startsWith(href + "/")))
+    .filter(({ permission, href, linkOnly }) =>
+      permission !== undefined
+      && linkOnly !== true
+      && (pathname === href || pathname.startsWith(href + "/")))
     .sort((a, b) => b.href.length - a.href.length)[0];
 
   return gate !== undefined && !can(user, gate.permission);

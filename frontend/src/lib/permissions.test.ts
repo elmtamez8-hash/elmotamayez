@@ -22,6 +22,7 @@ const NAV = [
   { href: "/manage/billing/students", permission: "billing.balance.view" },
   { href: "/manage/billing/exam-mode", permission: "billing.exam-mode.manage" },
   { href: "/teaching/offboarding", permission: "settlement.statement.view" },
+  { href: "/workspaces", permission: "members.view", linkOnly: true },
 ];
 
 const student = { permissions: ["sessions.view", "orders.view.own"] };
@@ -72,5 +73,17 @@ describe("refusedBy", () => {
 
   it("refuses a signed-out reader rather than throwing", () => {
     expect(refusedBy(NAV, "/manage/sessions", null)).toBe(true);
+  });
+
+  it("leaves a linkOnly route open to the reader its link is hidden from", () => {
+    /*
+     | ⚠️ `/workspaces/new` IS HOW A PERSON WITH NO WORKSPACE MAKES THEIR FIRST,
+     | and holding no workspace means holding no workspace permission. Gating the
+     | route the way every other entry is gated would lock out precisely the
+     | reader it exists for — which is why `POST /workspaces` is ungated on the
+     | server too. The permission hides the menu item and nothing else.
+     */
+    expect(refusedBy(NAV, "/workspaces", student)).toBe(false);
+    expect(refusedBy(NAV, "/workspaces/new", student)).toBe(false);
   });
 });

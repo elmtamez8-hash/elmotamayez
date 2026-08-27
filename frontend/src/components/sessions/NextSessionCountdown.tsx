@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { ClockIcon } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import type { SessionBooking } from "@/lib/class-sessions";
@@ -63,13 +64,32 @@ export function NextSessionCountdown({
   const hours = Math.floor((remaining % 86400) / 3600);
   const minutes = Math.floor((remaining % 3600) / 60);
   const seconds = remaining % 60;
+  const open = remaining <= OPENS_WITHIN_SECONDS;
 
   return (
     <Card>
-      <p className="mb-1 text-sm text-ink-muted">حصتك القادمة</p>
+      <p className="mb-1 flex items-center gap-2 text-sm text-ink-muted">
+        {/*
+          ⚠️ THE DOT PULSES ONLY WHILE THE DOOR IS ACTUALLY OPEN, and it is a
+          decoration on a sentence that already says so — never the only carrier
+          of the fact. A live indicator on a lesson three days away is the same
+          lie the button below was telling before it grew a window. `bg-secondary`
+          because there is no `success` COLOUR token in `@theme`: the tone name
+          exists in `TONE_CLASSES` alone, and `bg-success` paints nothing at all.
+        */}
+        {open && (
+          <span aria-hidden className="relative flex h-2 w-2 shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-secondary opacity-60" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-secondary" />
+          </span>
+        )}
+        حصتك القادمة
+      </p>
       <h3 className="mb-2 text-lg font-bold text-ink">{session.title}</h3>
 
-      <p className="mb-3 text-sm text-ink-muted">
+      <p className="mb-3 flex items-center gap-1.5 text-sm text-ink-muted">
+        {/* `className` REPLACES the icon's default size, so h-4 w-4 is repeated. */}
+        <ClockIcon className="h-4 w-4 shrink-0" />
         {formatSessionTime(session.starts_at, session.timezone)}
       </p>
 
@@ -80,7 +100,7 @@ export function NextSessionCountdown({
         is nothing here to announce. `role="timer"` is what the value IS, and the
         static `aria-label` is what a reader hears instead of the tick.
       */}
-      <p
+      <div
         className="mb-4 text-sm text-ink"
         role="timer"
         aria-label={`موعد الحصة ${formatSessionTime(session.starts_at, session.timezone)}`}
@@ -91,14 +111,38 @@ export function NextSessionCountdown({
           <span className="font-semibold">بدأت الآن</span>
         ) : (
           <>
-            يبدأ بعد{" "}
-            <bdi className="font-semibold">
-              {days > 0 && `${days} يوم و`}
-              {hours} ساعة و{minutes} دقيقة و{seconds} ثانية
-            </bdi>
+            <p className="mb-2">يبدأ بعد</p>
+            {/*
+              ⚠️ SEGMENTED, AND THE UNITS ARE WRITTEN OUT UNDER EACH NUMBER. Four
+              bare numerals separated by colons is a convention nobody agreed to
+              in Arabic, and it reverses badly: `dir="ltr"` on the row is what
+              keeps «days hours minutes seconds» in that order, while each cell
+              stays a plain number that needs no bidi handling of its own.
+            */}
+            <div dir="ltr" className="flex gap-2">
+              {[
+                ...(days > 0 ? [[days, "يوم"] as const] : []),
+                [hours, "ساعة"] as const,
+                [minutes, "دقيقة"] as const,
+                [seconds, "ثانية"] as const,
+              ].map(([value, unit]) => (
+                <span
+                  key={unit}
+                  className="flex min-w-14 flex-col items-center rounded-xl border border-line bg-surface px-2 py-1.5"
+                >
+                  {/* `tabular-nums` and NOT `font-mono`: the digits must stop
+                      the row twitching once a second, and a second typeface on
+                      one card is a second design system. */}
+                  <span className="text-xl font-bold leading-none tabular-nums text-ink">
+                    {String(value).padStart(2, "0")}
+                  </span>
+                  <span className="mt-1 text-xs text-ink-muted">{unit}</span>
+                </span>
+              ))}
+            </div>
           </>
         )}
-      </p>
+      </div>
 
       {/*
         ⚠️ THE BUTTON APPEARS WHEN THE DOOR CAN ACTUALLY OPEN. It used to be
@@ -107,10 +151,10 @@ export function NextSessionCountdown({
         session they are watching a countdown for. The server owns the real
         window; any honest ceiling beats a button that always refuses.
       */}
-      {remaining > OPENS_WITHIN_SECONDS ? (
-        <p className="text-sm text-ink-muted">يُفتح الدخول قبل الموعد بربع ساعة.</p>
-      ) : (
+      {open ? (
         <Button href={`/sessions/${session.uuid}/room`}>دخول الغرفة</Button>
+      ) : (
+        <p className="text-sm text-ink-muted">يُفتح الدخول قبل الموعد بربع ساعة.</p>
       )}
     </Card>
   );

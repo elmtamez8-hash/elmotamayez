@@ -60,6 +60,16 @@ type NavItem = {
   label: string;
   Icon: ComponentType<IconProps>;
   permission?: string;
+  /**
+   * Hide the link, leave the route open.
+   *
+   * ⚠️ ONE ENTRY USES THIS AND IT IS NOT A LOOPHOLE. `/workspaces/new` is how a
+   * person with no workspace makes their first one, and holding no workspace
+   * means holding no workspace permission — so gating the ROUTE the way every
+   * other entry is gated would lock out precisely the reader it exists for.
+   * `POST /workspaces` is ungated on the server for the same reason.
+   */
+  linkOnly?: boolean;
   /** Renders the waiting count beside the label — see `pendingGrading` below. */
   badge?: "grading";
 };
@@ -212,7 +222,18 @@ const adminNav: NavItem[] = [
   // the settings screen: it is a period on a calendar with a start and an end,
   // not a preference, and it expires by itself.
   { href: "/manage/billing/exam-mode", label: "وضع الامتحانات", Icon: CreditsIcon, permission: P.billingExamMode },
-  { href: "/workspaces", label: "مساحات العمل", Icon: WorkspaceIcon },
+  /*
+   * ⚠️ HIDDEN FROM A STUDENT, WHO IS A MEMBER OF NOTHING. Only `AcceptInvitation`
+   * and `CreateWorkspace` write the membership pivot, so this screen is a
+   * permanently empty list for every student on the platform — under a heading
+   * about workspaces and beside a «مساحة عمل جديدة» button offering them one.
+   * `members.view` is the nearest predicate the client already holds: it is the
+   * first permission on `$assistantTeacher` and appears on no student role, so
+   * it means «you are staff somewhere» without inventing a second answer.
+   *
+   * `linkOnly` because the route has to stay reachable — see the type above.
+   */
+  { href: "/workspaces", label: "مساحات العمل", Icon: WorkspaceIcon, permission: P.membersView, linkOnly: true },
   { href: "/members", label: "الأعضاء", Icon: MembersIcon, permission: P.membersView },
   /*
    * Spec 010 · US1 — the teacher's team, beside the member list it rides on.
