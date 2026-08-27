@@ -94,6 +94,22 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/conversations/{conversation}/lock', [SessionChatController::class, 'lock']);
 
         /*
+        | Stop one person writing in one thread, and lift it (021 · FR-047).
+        |
+        | ⚠️ ON `chat-write` AND NOT ON `moderation-write`. That bucket guards the
+        | workspace-wide ban and the hiding of messages, which are heavy and rare;
+        | a teacher quieting two students during one lesson presses this a handful
+        | of times in the same minutes they are answering questions, and sharing
+        | the rarer bucket would refuse the second one.
+        |
+        | `{conversation}` is an implicit binding on the `{assignment}` exemption:
+        | both routes need `chat.moderate`, so every reader is a workspace MEMBER
+        | and another workspace's uuid 404s before the policy runs.
+        */
+        Route::post('/conversations/{conversation}/write-bans', [SessionChatController::class, 'ban']);
+        Route::delete('/conversations/{conversation}/write-bans', [SessionChatController::class, 'liftBan']);
+
+        /*
         | Somewhere to put a picture or a voice note (`FR-060`).
         |
         | ⚠️ ON THE WRITE BUCKET, because it IS a write: it creates a `media_assets`
@@ -112,6 +128,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
     */
     Route::get('/class-sessions/{session}/chat', [SessionChatController::class, 'session']);
     Route::get('/lessons/{lesson}/chat', [SessionChatController::class, 'lesson']);
+
+    /*
+    | The group's thread (021 · US4). A bare uuid, like everything else a student
+    | can reach — resolved inside the Action, after the membership check.
+    */
+    Route::get('/cohorts/{cohort}/chat', [SessionChatController::class, 'cohort']);
 
     /*
     | ⚠️ REPORTING HAS ITS OWN BUCKET. Somebody throttled for writing must still be

@@ -25,6 +25,7 @@ class SaveAnnouncementRequest extends FormRequest
                 Announcement::SCOPE_ALL,
                 Announcement::SCOPE_COURSE,
                 Announcement::SCOPE_SESSION,
+                Announcement::SCOPE_COHORT,
             ])],
             /*
             | ⚠️ A UUID AND NOT AN `exists` RULE. `exists:courses,uuid` is a raw

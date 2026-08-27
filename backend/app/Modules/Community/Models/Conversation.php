@@ -38,6 +38,7 @@ class Conversation extends BaseModel
         'student_user_id',
         'class_session_id',
         'lesson_id',
+        'cohort_id',
     ];
 
     /*

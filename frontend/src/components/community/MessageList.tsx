@@ -29,6 +29,7 @@ export function MessageList({
   onHide,
   onReport,
   onMarkHelpful,
+  onSilence,
   showBadges = false,
 }: {
   messages: ChatMessage[];
@@ -38,6 +39,15 @@ export function MessageList({
   onReport?: (uuid: string) => void;
   /** The teacher's endorsement — public rooms only. */
   onMarkHelpful?: (uuid: string) => void;
+  /**
+   * Stop this sender writing in this thread (021 · FR-047).
+   *
+   * ⚠️ IT TAKES THE SENDER, NOT THE MESSAGE. Hiding is about one sentence and
+   * silencing is about one person — passing a message uuid here would make the
+   * caller resolve it back to a sender, which is a lookup for something this row
+   * already knows.
+   */
+  onSilence?: (senderUuid: string, senderName: string) => void;
   /**
    * The rank and level beside the name — public rooms only (FR-019).
    *
@@ -193,6 +203,16 @@ export function MessageList({
                 {mine && onHide && (
                   <button type="button" onClick={() => onHide(message.uuid)} className="text-danger-ink underline">
                     حذف
+                  </button>
+                )}
+
+                {!mine && onSilence && message.sender_uuid !== null && (
+                  <button
+                    type="button"
+                    onClick={() => onSilence(message.sender_uuid as string, message.sender_name ?? "هذا الطالب")}
+                    className="text-danger-ink underline"
+                  >
+                    أوقف كتابته
                   </button>
                 )}
 

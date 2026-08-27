@@ -66,6 +66,16 @@ class EloquentCohortDirectory implements CohortDirectory
             ->exists();
     }
 
+    public function isCurrentMember(User $user, int $cohortId): bool
+    {
+        return CohortMembership::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $user->getKey())
+            ->where('cohort_id', $cohortId)
+            ->whereNull('closed_at')
+            ->exists();
+    }
+
     /** @return list<int> */
     public function activeMemberIdsFor(int $cohortId): array
     {

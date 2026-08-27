@@ -11,6 +11,7 @@ import { NextSessionHeader } from "@/components/courses/NextSessionHeader";
 import { AnnouncementsTab } from "@/components/courses/tabs/AnnouncementsTab";
 import { AssignmentsTab } from "@/components/courses/tabs/AssignmentsTab";
 import { CertificateTab } from "@/components/courses/tabs/CertificateTab";
+import { ChatTab } from "@/components/courses/tabs/ChatTab";
 import { ExamsTab } from "@/components/courses/tabs/ExamsTab";
 import { SessionsTab } from "@/components/courses/tabs/SessionsTab";
 import { Alert } from "@/components/ui/Alert";
@@ -164,6 +165,13 @@ export default function CourseCurriculumPage({
     `useTabParam` re-runs its effect whenever this array's identity changes, and
     a new array on every render would fight the `?tab=` the reader typed.
   */
+  /*
+    The group this reader belongs to in THIS course, or null. Read from the same
+    payload the picker and the switcher use — a second fetch would be a second
+    answer to a question already on the page.
+  */
+  const cohortUuid = cohortState?.membership?.cohort_uuid ?? null;
+
   const tabs = useMemo<TabDefinition[]>(() => {
     const list: TabDefinition[] = [{ key: "curriculum", label: "المنهج" }];
 
@@ -181,8 +189,17 @@ export default function CourseCurriculumPage({
     // because the answer is «none yet» removes the answer they came for.
     list.push({ key: "certificate", label: "الشهادة" });
 
+    /*
+      ⚠️ THE GROUP'S THREAD, AND ONLY FOR SOMEBODY WHO IS IN A GROUP (FR-046).
+      A course with no groups has no thread — FR-036 — and a student with no
+      membership has nothing to open, so the tab is absent rather than present
+      and empty: a tab that answers 403 advertises a room and refuses it in one
+      breath.
+    */
+    if (cohortUuid !== null) list.push({ key: "chat", label: "نقاش المجموعة" });
+
     return list;
-  }, [hasSessions, exams.length, assignments.length, announcements.length]);
+  }, [hasSessions, exams.length, assignments.length, announcements.length, cohortUuid]);
 
   const [active, selectTab] = useTabParam(tabs);
 
@@ -320,6 +337,10 @@ export default function CourseCurriculumPage({
 
       <TabPanel tabKey="announcements" active={active}>
         <AnnouncementsTab announcements={announcements} />
+      </TabPanel>
+
+      <TabPanel tabKey="chat" active={active}>
+        <ChatTab cohortUuid={cohortUuid} />
       </TabPanel>
 
       <TabPanel tabKey="certificate" active={active}>

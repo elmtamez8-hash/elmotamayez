@@ -30,12 +30,22 @@ class Announcement extends BaseModel
     /** @use HasFactory<AnnouncementFactory> */
     use BelongsToWorkspace, HasFactory, HasUuid;
 
-    /** The whole scope vocabulary. «Groups» are out of scope, declared (ت-٣). */
+    /**
+     * The whole scope vocabulary.
+     *
+     * ⚠️ `cohort` ARRIVED IN 021 ON 010's OWN CONDITION. That spec refused it and
+     * wrote down why — «a membership model, a screen and a permission smuggled in
+     * as an enum value» — and all three now exist. The value is backed by
+     * something rather than promising it.
+     */
     public const SCOPE_ALL = 'all';
 
     public const SCOPE_COURSE = 'course';
 
     public const SCOPE_SESSION = 'session';
+
+    /** One run of one course (021 · FR-042). */
+    public const SCOPE_COHORT = 'cohort';
 
     /**
      * What `notifications.source_type` carries for a row this produced.

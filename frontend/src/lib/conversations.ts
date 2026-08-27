@@ -225,11 +225,22 @@ export function mergeMessages(existing: ChatMessage[], incoming: ChatMessage[]):
  * viewer is not entitled to be in the room — the component renders nothing rather
  * than advertising a conversation it must then refuse.
  */
+/** The three things a public room can hang off (021 adds the third). */
+export type RoomKind = "session" | "lesson" | "cohort";
+
+/*
+  A map rather than a chain of ternaries: a fourth kind added to the type above
+  is then a compile error here instead of silently falling through to whichever
+  branch happens to be last.
+*/
+const ROOM_PATHS: Record<RoomKind, string> = {
+  session: "/class-sessions",
+  lesson: "/lessons",
+  cohort: "/cohorts",
+};
+
 export const rooms = {
-  open: (kind: "session" | "lesson", uuid: string) =>
-    api.get<Conversation>(
-      kind === "session" ? `/class-sessions/${uuid}/chat` : `/lessons/${uuid}/chat`,
-    ),
+  open: (kind: RoomKind, uuid: string) => api.get<Conversation>(`${ROOM_PATHS[kind]}/${uuid}/chat`),
 
   /** The teacher's endorsement. One press or ten, the points are awarded once. */
   markHelpful: (messageUuid: string) =>
@@ -281,5 +292,31 @@ export const moderation = {
       subject_type: "user",
       subject_uuid: studentUuid,
       ...(reason ? { reason } : {}),
+    }),
+};
+
+/**
+ * Stop one person writing in ONE thread, for a stated time (021 · FR-047).
+ *
+ * ⚠️ A THIRD INSTRUMENT, BETWEEN THE TWO THAT ALREADY EXIST. `rooms.setLock`
+ * silences a whole class to reach one person; `moderation.ban` covers every
+ * thread with that teacher for ever and is recorded as a disciplinary act. This
+ * is one thread, one person, with an end — and it is why neither of the other two
+ * had to be stretched into a shape it was not built for.
+ *
+ * `minutes: null` means open, lifted by hand. The reason is mandatory on the
+ * server: a silent refusal is read as a fault and retried until the ban lapses.
+ */
+export const writeBans = {
+  set: (conversationUuid: string, userUuid: string, reason: string, minutes: number | null) =>
+    api.post<{ message: string }>(`/conversations/${conversationUuid}/write-bans`, {
+      user_uuid: userUuid,
+      reason,
+      ...(minutes === null ? {} : { minutes }),
+    }),
+
+  lift: (conversationUuid: string, userUuid: string) =>
+    api.delete<{ message: string }>(`/conversations/${conversationUuid}/write-bans`, {
+      user_uuid: userUuid,
     }),
 };

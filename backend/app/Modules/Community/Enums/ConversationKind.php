@@ -7,11 +7,13 @@ namespace App\Modules\Community\Enums;
 /**
  * What a conversation is attached to.
  *
- * ⚠️ THERE IS NO `group` MEMBER, AND ITS ABSENCE IS DECLARED RATHER THAN
- * OVERLOOKED. `FR-004` and `FR-042` mention "groups"; no such entity exists
- * anywhere in this repository, and building one reaches into 005, 006 and 008.
- * The scope of this phase is the course, the session and all students (ق-٥/ت-٣);
- * study groups wait for 012.
+ * ⚠️ `Cohort` ARRIVED IN 021 ON THE EXACT CONDITION 010 SET FOR IT. That spec
+ * refused to add it and said why: «no such entity exists anywhere in this
+ * repository, and building one reaches into 005, 006 and 008» — an enum value
+ * with no model behind it would have been a membership model, a screen and a
+ * permission smuggled in as a string. All three now exist (`cohorts`,
+ * `cohort_memberships`, the teacher's groups screen), so the value is backed by
+ * something rather than promising it.
  */
 enum ConversationKind: string
 {
@@ -23,6 +25,17 @@ enum ConversationKind: string
 
     /** The public room under one recorded lesson. */
     case Lesson = 'lesson';
+
+    /**
+     * The thread of one cohort of one course (021 · FR-046).
+     *
+     * ⚠️ ITS TWO DOORS ARE DIFFERENT, WHICH NO OTHER KIND'S ARE. Reading is for
+     * whoever was ever a member — a student who moved keeps the answers they were
+     * given — while writing needs a membership that is open NOW. Every other
+     * public kind answers one question for both doors; this one cannot, and
+     * `ConversationPolicy` spells the pair out.
+     */
+    case Cohort = 'cohort';
 
     /**
      * Whether everyone entitled to the parent may read and write.

@@ -8,9 +8,11 @@ use App\Models\User;
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\ConversationParticipant;
 use App\Modules\Community\Support\BanReader;
+use App\Modules\Community\Support\WriteBanReader;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\AssistantScopeDirectory;
+use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\SessionAttendanceDirectory;
 use App\Shared\Contracts\TeacherOffboardingDirectory;
@@ -39,6 +41,8 @@ class ConversationPolicy
         private readonly SessionAttendanceDirectory $seats,
         private readonly BanReader $bans,
         private readonly TeacherOffboardingDirectory $departures,
+        private readonly CohortDirectory $cohorts,
+        private readonly WriteBanReader $writeBans,
     ) {}
 
     /** May this person read the thread at all? */
@@ -136,6 +140,44 @@ class ConversationPolicy
                 && ! $user->hasPermissionTo(Permissions::CHAT_MODERATE)
                 && $this->seats->wasRemovedFromSession($user, (int) $conversation->class_session_id)) {
                 return Response::deny('أخرجك المدرّس من هذه الحصة، فلا يمكنك الكتابة في نقاشها.');
+            }
+
+            /*
+            | ⚠️ AND THE COHORT ROOM'S SECOND DOOR. `view()` admitted whoever was
+            | EVER a member; writing needs a membership that is open now
+            | (FR-046). Without this the student who left the group carries on
+            | posting into it for ever — reading their old answers is the point,
+            | and answering back in a group they are no longer in is not.
+            |
+            | `chat.moderate` is exempt for the reason the lock exempts it: the
+            | teacher holds no membership in their own cohort and would otherwise
+            | be locked out of every group thread they run.
+            */
+            if ($conversation->cohort_id !== null
+                && ! $user->hasPermissionTo(Permissions::CHAT_MODERATE)
+                && ! $this->cohorts->isCurrentMember($user, (int) $conversation->cohort_id)) {
+                return Response::deny('انتقلت إلى مجموعة أخرى، وهذا النقاش صار للقراءة فقط.');
+            }
+
+            /*
+            | ⚠️ THE PER-THREAD BAN, AND IT IS THE LAST OF THE FOUR REFUSALS ON
+            | PURPOSE (FR-047). Above it stand the workspace-wide ban and the
+            | teacher's departure, both asked on every kind — so a person banned
+            | from the workspace, or writing to a teacher who has left, is
+            | refused for the wider reason and told the wider truth. Reaching this
+            | line means the only thing wrong is this thread and this hour.
+            |
+            | The sentence carries the reason AND the time, because a refusal with
+            | neither is read as a fault and retried until the ban lapses.
+            */
+            if (! $user->hasPermissionTo(Permissions::CHAT_MODERATE)) {
+                $ban = $this->writeBans->activeBan((int) $user->getKey(), (int) $conversation->getKey());
+
+                if ($ban !== null) {
+                    return Response::deny($ban->expires_at === null
+                        ? 'أوقف المدرّس كتابتك في هذا النقاش. السبب: '.$ban->reason
+                        : 'أوقف المدرّس كتابتك في هذا النقاش حتى '.$ban->expires_at->format('H:i').'. السبب: '.$ban->reason);
+                }
             }
 
             /*
@@ -239,6 +281,23 @@ class ConversationPolicy
             return $courseId !== null && $this->enrollments->hasActiveEnrollment($user, (int) $courseId)
                 ? Response::allow()
                 : Response::deny('هذه الغرفة لطلاب هذا الكورس.');
+        }
+
+        /*
+        | ⚠️ THE COHORT ROOM READS ON «WAS EVER A MEMBER», AND WRITES ON «IS ONE
+        | NOW» — the only kind in this product whose two doors ask different
+        | questions (FR-046). A student who moved to another group keeps the
+        | answers they were given in the old one: the thread is where their
+        | teacher explained something, and taking the archive away on the day
+        | they change their Saturday is the FR-014 defect in a second shape.
+        |
+        | The write side is refused in `post()` and NOT here, because a denial
+        | here is a denial of reading — `post()` calls `view()` first.
+        */
+        if ($conversation->cohort_id !== null) {
+            return $this->cohorts->wasEverMember($user, (int) $conversation->cohort_id)
+                ? Response::allow()
+                : Response::deny('هذا النقاش لأعضاء هذه المجموعة.');
         }
 
         // A public conversation attached to nothing has no entitlement to check,

@@ -223,28 +223,33 @@ description: "Task list — 021 صفحةُ المادّةِ منهجاً ومج�
 
 **Independent Test**: مدرّسٌ يمنعُ طالباً عشرَ دقائق — يقرأُ ولا يكتب، ويكتبُ في خيطِه الخاصّ، ويعودُ بعدَ المدّةِ بلا تدخّل.
 
-- [ ] T086 [US4] أضِفْ `Cohort = 'cohort'` إلى `backend/app/Modules/Community/Enums/ConversationKind.php` — و`isPublic()` تظلُّ «ليس `Private`» فتشملُه بلا تعديل.
-- [ ] T087 [US4] هجرةُ `conversations`: `+ cohort_id` قابلٌ للعدمِ و`unique(cohort_id)` — ⚠️ الحلُّ الكسولُ يجعلُ السباقَ ممكناً، فالفهرسُ هو الحارسُ لا الفعل.
-- [ ] T088 [US4] فرعُ المجموعةِ في `publicRoom()` بـ`backend/app/Modules/Community/Policies/ConversationPolicy.php` (بعدَ فرعَي الحصّةِ `:227` والدرسِ `:233`). ⚠️ **القراءةُ لمن كان عضواً يوماً (`wasEverMember`) والكتابةُ لمن عضويّتُه مفتوحةٌ الآن** — سؤالان مختلفان في `view()` و`post()`، وهو المعنى الوحيدُ الذي لا يُشتَقُّ من صفٍّ واحد (FR-046).
-- [ ] T089 [US4] ⚠️ **لا صفوفَ `conversation_participants` تُنشَرُ عندَ الانضمام**: الاستحقاقُ مُشتَقٌّ من العضويّة، والجدولُ لتتبّعِ القراءةِ وحدَه — كما في غرفِ الحصص. أضِفِ الحلَّ الكسولَ في `backend/app/Modules/Community/Actions/ResolveCohortConversation.php` على نمطِ `ResolveSessionConversation`.
-- [ ] T090 [US4] وسِّعْ `SetConversationLock` في `backend/app/Modules/Community/Actions/SetConversationLock.php` للنوعِ الجديدِ — ⚠️ **توسيعٌ لا إعادةُ كتابة**، وإعفاءُ `CHAT_MODERATE` من القفلِ يبقى (FR-041): مدرّسٌ مقفولٌ خارجَ نقاشٍ أغلقَه للتوِّ لا يستطيعُ أن يقولَ لماذا أغلقَه.
-- [ ] T091 [US4] هجرةُ `conversation_write_bans` (data-model §٥) في `backend/app/Modules/Community/Database/Migrations/`.
-- [ ] T092 [P] [US4] نموذجُ `backend/app/Modules/Community/Models/ConversationWriteBan.php` ومصنعُه.
-- [ ] T093 [US4] ⚠️ `backend/app/Modules/Community/Support/WriteBanReader.php` — الانتهاءُ يُحكَمُ **في PHP** (`expires_at === null || isFuture()`) وأحدثُ صفٍّ يفوز، وقراءةٌ **جماعيّةٌ** لشاشةِ القائمة. المقارنةُ العكسيّةُ (`expires_at > now()` وحدَها) تقرأُ **المنعَ الدائمَ منتهياً** — وهو المنعُ الوحيدُ الذي لا يجوزُ أن ينتهيَ وحدَه. و`DATE_ADD` مقابلَ `datetime()` لهجتان لسؤالٍ واحد.
-- [ ] T094 [US4] فرعُ المنعِ في `ConversationPolicy::post()` بجملتَي «حتى {وقت}» و«{السبب}» — ⚠️ **بعدَ** فرعِ الحظرِ على مستوى المساحةِ وفرعِ انتهاءِ نشاطِ المدرّس، فكلاهما يعملُ بلا سطرٍ واحدٍ ويُحقِّقُ FR-047 مجّاناً.
-- [ ] T095 [US4] مسارا `POST`/`DELETE` لمنعِ الكتابةِ في `backend/app/Modules/Community/routes/api.php` خلفَ `throttle:chat-write`، وفعلاهما في `…/Actions/`.
-- [ ] T096 [US4] أضِفْ `SCOPE_COHORT` إلى `backend/app/Modules/Community/Models/Announcement.php` وذراعاً رابعةً في `backend/app/Modules/Community/Support/AnnouncementAudience.php` تسألُ `CohortDirectory->activeMemberIdsFor()`. ⚠️ **احذفْ تعليقَ ت-٣** («Groups are out of scope») فقد بطل — بشرطِه نفسِه: نموذجُ عضويّةٍ وشاشةٌ وصلاحيّة، لا قيمةُ تعدادٍ مُهرَّبة. والذراعُ `default => []` تبقى: نطاقٌ غيرُ مفهومٍ يبلغُ لا أحدَ لا الجميع.
-- [ ] T097 [US4] أضِفِ الخيارَ إلى `backend/app/Modules/Community/Http/Requests/SaveAnnouncementRequest.php` وإلى شاشةِ نشرِ التنبيه.
-- [ ] T098 [US4] بثُّ الرسالةِ على قناةِ الخيطِ الجديد — ⚠️ **الحمولةُ معرّفانِ لا جسمُ الرسالة**: القناةُ تُصرَّحُ مرّةً عندَ الاشتراكِ ولا يملكُ البروتوكولُ سحبَ التصريح، فوضعُ الجسمِ في الإطارِ يجعلُ سحبَ العضويّةِ ساريَ المفعولِ عندَ إغلاقِ التبويبةِ لا قبل. ⚠️ **ولا يُلمَسُ `/api/broadcasting/auth`**: قائمةُ وسائطَ تُمرَّرُ لـ`withBroadcasting()` تستبدلُ مجموعةَ `api` فتُسقِطُ `EnsureCurrentWorkspace`، وبلا مُعرِّفِ فريقٍ لا أدوارَ إطلاقاً.
-- [ ] T099 [P] [US4] `frontend/src/components/courses/tabs/ChatTab.tsx` — يُعادُ استعمالُ مكوّناتِ الرسائلِ القائمةِ في `components/community/`.
-- [ ] T100 [P] [US4] أدواتُ الإشرافِ في `frontend/src/components/community/` — ⚠️ الكتمُ والمنعُ خلفَ `ConfirmButton` (تسليحٌ بضغطتين ومؤقّتُ نزعٍ)، فهما ضابطان يجاوران بعضَهما على هاتفٍ عندَ هدفِ ٤٠ بكسل.
-- [ ] T101 [P] [US4] ⚠️ `backend/tests/Feature/Community/CohortChatBanTest.php` (SC-010): يقرأُ · لا يكتبُ · يرى السببَ والوقتَ · **يكتبُ في خيطِه الخاصّ** · يفتحُ دروسَه وحصّتَه المحجوزة · ثمّ يكتبُ بعدَ المدّةِ بلا تدخّل. والمنعُ **لا يُلاحِقُه** إلى مجموعتِه الجديدةِ بعدَ الانتقال.
-- [ ] T102 [P] [US4] ⚠️ `backend/tests/Feature/Community/CohortChatIsolationTest.php` (SC-011): طالبُ مجموعةٍ أخرى مرفوضٌ في القائمةِ **وفي الطلبِ المباشرِ بالمعرّف**. ⚠️ ونصُّ التسريبِ يُقرَأُ بـ`JSON_UNESCAPED_UNICODE` أو بشواهدِ ASCII: `getContent()` يهربُ ما ليس ASCII، فإبرةٌ عربيّةٌ صادقةٌ فراغاً مهما حملت الحمولة.
-- [ ] T103 [P] [US4] `backend/tests/Feature/Community/CohortAnnouncementScopeTest.php`: تنبيهُ المادّةِ يبلغُ كلَّ المجموعات؛ تنبيهُ المجموعةِ يبلغُ أعضاءَها وحدَهم؛ ومَن انتقلَ لا تبلغُه بعدَ انتقالِه ويبقى ما بلغَه مقروءاً.
-- [ ] T104 [P] [US4] `backend/tests/Feature/Community/CohortChatPersistenceTest.php` (SC-015): مع تعطيلِ البثِّ بالكاملِ **تُقرَأُ الرسالةُ عندَ أوّلِ تحديث** — الحفظُ هو المرجع.
-- [ ] T105 [P] [US4] اختبارُ `frontend/src/components/community/…test.tsx` لأدواتِ الإشراف. ⚠️ يستعملُ `fireEvent` لا `userEvent`: الأخيرُ ينتظرُ مؤقّتاتٍ حقيقيّةً بين خطواتِه، فتحتَ `useFakeTimers` يتعلّقُ على ساعةٍ لا يُحرِّكُها شيءٌ **وينتهي بمهلةٍ بدلَ أن يفشل**.
+- [X] T086 [US4] أضِفْ `Cohort = 'cohort'` إلى `backend/app/Modules/Community/Enums/ConversationKind.php` — و`isPublic()` تظلُّ «ليس `Private`» فتشملُه بلا تعديل.
+- [X] T087 [US4] هجرةُ `conversations`: `+ cohort_id` قابلٌ للعدمِ و`unique(cohort_id)` — ⚠️ الحلُّ الكسولُ يجعلُ السباقَ ممكناً، فالفهرسُ هو الحارسُ لا الفعل.
+- [X] T088 [US4] فرعُ المجموعةِ في `publicRoom()` بـ`backend/app/Modules/Community/Policies/ConversationPolicy.php` (بعدَ فرعَي الحصّةِ `:227` والدرسِ `:233`). ⚠️ **القراءةُ لمن كان عضواً يوماً (`wasEverMember`) والكتابةُ لمن عضويّتُه مفتوحةٌ الآن** — سؤالان مختلفان في `view()` و`post()`، وهو المعنى الوحيدُ الذي لا يُشتَقُّ من صفٍّ واحد (FR-046).
+- [X] T089 [US4] ⚠️ **لا صفوفَ `conversation_participants` تُنشَرُ عندَ الانضمام**: الاستحقاقُ مُشتَقٌّ من العضويّة، والجدولُ لتتبّعِ القراءةِ وحدَه — كما في غرفِ الحصص. أضِفِ الحلَّ الكسولَ في `backend/app/Modules/Community/Actions/ResolveCohortConversation.php` على نمطِ `ResolveSessionConversation`.
+- [X] T090 [US4] وسِّعْ `SetConversationLock` في `backend/app/Modules/Community/Actions/SetConversationLock.php` للنوعِ الجديدِ — ⚠️ **توسيعٌ لا إعادةُ كتابة**، وإعفاءُ `CHAT_MODERATE` من القفلِ يبقى (FR-041): مدرّسٌ مقفولٌ خارجَ نقاشٍ أغلقَه للتوِّ لا يستطيعُ أن يقولَ لماذا أغلقَه. ✅ **بلا سطرِ كود**: `SetConversationLock` يحكمُ بـ`kind->isPublic()` والنوعُ الجديدُ عامّ. مُقاسٌ بحالةٍ في `CohortChatBanTest` بدلَ أن يُدَّعى.
+- [X] T091 [US4] هجرةُ `conversation_write_bans` (data-model §٥) في `backend/app/Modules/Community/Database/Migrations/`.
+- [X] T092 [P] [US4] نموذجُ `backend/app/Modules/Community/Models/ConversationWriteBan.php` ومصنعُه.
+- [X] T093 [US4] ⚠️ `backend/app/Modules/Community/Support/WriteBanReader.php` — الانتهاءُ يُحكَمُ **في PHP** (`expires_at === null || isFuture()`) وأحدثُ صفٍّ يفوز، وقراءةٌ **جماعيّةٌ** لشاشةِ القائمة. المقارنةُ العكسيّةُ (`expires_at > now()` وحدَها) تقرأُ **المنعَ الدائمَ منتهياً** — وهو المنعُ الوحيدُ الذي لا يجوزُ أن ينتهيَ وحدَه. و`DATE_ADD` مقابلَ `datetime()` لهجتان لسؤالٍ واحد.
+- [X] T094 [US4] فرعُ المنعِ في `ConversationPolicy::post()` بجملتَي «حتى {وقت}» و«{السبب}» — ⚠️ **بعدَ** فرعِ الحظرِ على مستوى المساحةِ وفرعِ انتهاءِ نشاطِ المدرّس، فكلاهما يعملُ بلا سطرٍ واحدٍ ويُحقِّقُ FR-047 مجّاناً.
+- [X] T095 [US4] مسارا `POST`/`DELETE` لمنعِ الكتابةِ في `backend/app/Modules/Community/routes/api.php` خلفَ `throttle:chat-write`، وفعلاهما في `…/Actions/`.
+- [X] T096 [US4] أضِفْ `SCOPE_COHORT` إلى `backend/app/Modules/Community/Models/Announcement.php` وذراعاً رابعةً في `backend/app/Modules/Community/Support/AnnouncementAudience.php` تسألُ `CohortDirectory->activeMemberIdsFor()`. ⚠️ **احذفْ تعليقَ ت-٣** («Groups are out of scope») فقد بطل — بشرطِه نفسِه: نموذجُ عضويّةٍ وشاشةٌ وصلاحيّة، لا قيمةُ تعدادٍ مُهرَّبة. والذراعُ `default => []` تبقى: نطاقٌ غيرُ مفهومٍ يبلغُ لا أحدَ لا الجميع.
+- [X] T097 [US4] أضِفِ الخيارَ إلى `backend/app/Modules/Community/Http/Requests/SaveAnnouncementRequest.php` وإلى شاشةِ نشرِ التنبيه.
+- [X] T098 [US4] بثُّ الرسالةِ على قناةِ الخيطِ الجديد — ⚠️ **الحمولةُ معرّفانِ لا جسمُ الرسالة**: القناةُ تُصرَّحُ مرّةً عندَ الاشتراكِ ولا يملكُ البروتوكولُ سحبَ التصريح، فوضعُ الجسمِ في الإطارِ يجعلُ سحبَ العضويّةِ ساريَ المفعولِ عندَ إغلاقِ التبويبةِ لا قبل. ⚠️ **ولا يُلمَسُ `/api/broadcasting/auth`**: قائمةُ وسائطَ تُمرَّرُ لـ`withBroadcasting()` تستبدلُ مجموعةَ `api` فتُسقِطُ `EnsureCurrentWorkspace`، وبلا مُعرِّفِ فريقٍ لا أدوارَ إطلاقاً. ✅ **بلا سطرِ كود**: `routes/channels.php` يُصرِّحُ عبرَ `ConversationPolicy::view()` — ففرعُ المجموعةِ الجديدُ **هو** التصريحُ نفسُه — و`broadcastWith()` معرّفانِ أصلاً. لم يُلمَسْ `withBroadcasting()`.
+- [X] T099 [P] [US4] `frontend/src/components/courses/tabs/ChatTab.tsx` — يُعادُ استعمالُ مكوّناتِ الرسائلِ القائمةِ في `components/community/`.
+- [X] T100 [P] [US4] أدواتُ الإشرافِ في `frontend/src/components/community/` — ⚠️ الكتمُ والمنعُ خلفَ `ConfirmButton` (تسليحٌ بضغطتين ومؤقّتُ نزعٍ)، فهما ضابطان يجاوران بعضَهما على هاتفٍ عندَ هدفِ ٤٠ بكسل.
+- [X] T101 [P] [US4] ⚠️ `backend/tests/Feature/Community/CohortChatBanTest.php` (SC-010): يقرأُ · لا يكتبُ · يرى السببَ والوقتَ · **يكتبُ في خيطِه الخاصّ** · يفتحُ دروسَه وحصّتَه المحجوزة · ثمّ يكتبُ بعدَ المدّةِ بلا تدخّل. والمنعُ **لا يُلاحِقُه** إلى مجموعتِه الجديدةِ بعدَ الانتقال.
+- [X] T102 [P] [US4] ⚠️ `backend/tests/Feature/Community/CohortChatIsolationTest.php` (SC-011): طالبُ مجموعةٍ أخرى مرفوضٌ في القائمةِ **وفي الطلبِ المباشرِ بالمعرّف**. ⚠️ ونصُّ التسريبِ يُقرَأُ بـ`JSON_UNESCAPED_UNICODE` أو بشواهدِ ASCII: `getContent()` يهربُ ما ليس ASCII، فإبرةٌ عربيّةٌ صادقةٌ فراغاً مهما حملت الحمولة.
+- [X] T103 [P] [US4] `backend/tests/Feature/Community/CohortAnnouncementScopeTest.php`: تنبيهُ المادّةِ يبلغُ كلَّ المجموعات؛ تنبيهُ المجموعةِ يبلغُ أعضاءَها وحدَهم؛ ومَن انتقلَ لا تبلغُه بعدَ انتقالِه ويبقى ما بلغَه مقروءاً.
+- [X] T104 [P] [US4] `backend/tests/Feature/Community/CohortChatPersistenceTest.php` (SC-015): مع تعطيلِ البثِّ بالكاملِ **تُقرَأُ الرسالةُ عندَ أوّلِ تحديث** — الحفظُ هو المرجع.
+- [X] T105 [P] [US4] اختبارُ `frontend/src/components/community/…test.tsx` لأدواتِ الإشراف. ⚠️ يستعملُ `fireEvent` لا `userEvent`: الأخيرُ ينتظرُ مؤقّتاتٍ حقيقيّةً بين خطواتِه، فتحتَ `useFakeTimers` يتعلّقُ على ساعةٍ لا يُحرِّكُها شيءٌ **وينتهي بمهلةٍ بدلَ أن يفشل**.
 
 **Checkpoint**: الشاتُ يعملُ بأدواتِه الثلاث.
+
+⚠️ **نقصٌ مسجَّلٌ يُغلَقُ في المرحلةِ ٨**: FR-046 يمنحُ قراءةَ خيطِ المجموعةِ
+السابقةِ إلى الأبد، والـAPI يمنحُها — ولا رابطَ في الواجهةِ يصلُ إليه بعدَ
+الانتقال، فـ`ChatTab` يعرضُ المجموعةَ الحاليّةَ وحدَها. و«حتى أرفعه بنفسي» غيرُ
+معروضٍ في `SilenceControl` لأنّ `writeBans.lift` بلا شاشةٍ تُناديه بعد.
 
 ---
 

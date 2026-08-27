@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { MessageList } from "@/components/community/MessageList";
+import { SilenceControl } from "@/components/community/SilenceControl";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -13,8 +14,10 @@ import {
   conversations,
   mergeMessages,
   rooms,
+  writeBans,
   type ChatMessage,
   type Conversation,
+  type RoomKind,
 } from "@/lib/conversations";
 import { listen } from "@/lib/echo";
 import { userMessage } from "@/lib/errors";
@@ -38,7 +41,7 @@ export function SessionChat({
   uuid,
   title = "نقاش الحصّة",
 }: {
-  kind: "session" | "lesson";
+  kind: RoomKind;
   uuid: string;
   title?: string;
 }) {
@@ -53,6 +56,11 @@ export function SessionChat({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [locking, setLocking] = useState(false);
+
+  // Who the moderator is about to silence, if anyone. A panel rather than a
+  // control per row: the reason and the duration are two fields, and thirty
+  // copies of them in a thread is a form repeated thirty times.
+  const [silencing, setSilencing] = useState<{ uuid: string; name: string } | null>(null);
 
   // Guards the double tap: a second press while the first is in flight would
   // post the same sentence twice, and no server-side claim can tell them apart.
@@ -141,6 +149,22 @@ export function SessionChat({
     rooms
       .setLock(room.uuid, !room.is_locked)
       .then((updated) => setRoom(updated))
+      .catch((error: unknown) => setProblem(userMessage(error)))
+      .finally(() => setLocking(false));
+  };
+
+  const silence = (reason: string, minutes: number | null) => {
+    if (silencing === null) return;
+
+    setProblem(null);
+    setLocking(true);
+
+    writeBans
+      .set(room.uuid, silencing.uuid, reason, minutes)
+      .then((response) => {
+        setNotice(response.message);
+        setSilencing(null);
+      })
       .catch((error: unknown) => setProblem(userMessage(error)))
       .finally(() => setLocking(false));
   };
@@ -236,7 +260,23 @@ export function SessionChat({
         showBadges
         onReport={report}
         onMarkHelpful={room.can_moderate ? markHelpful : undefined}
+        onSilence={
+          room.can_moderate && room.kind !== "private"
+            ? (senderUuid, senderName) => setSilencing({ uuid: senderUuid, name: senderName })
+            : undefined
+        }
       />
+
+      {silencing !== null && (
+        <div className="mt-3">
+          <SilenceControl
+            name={silencing.name}
+            busy={locking}
+            onSilence={silence}
+            onCancel={() => setSilencing(null)}
+          />
+        </div>
+      )}
 
       {/*
         ⚠️ THE COMPOSER IS SHUT FOR EVERYONE EXCEPT WHOEVER MAY REOPEN IT. A

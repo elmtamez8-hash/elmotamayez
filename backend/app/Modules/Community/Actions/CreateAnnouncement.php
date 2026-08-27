@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Community\Data\AnnouncementData;
 use App\Modules\Community\Models\Announcement;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Learning\Models\Cohort;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Shared\Actions\Action;
 use App\Shared\Support\WorkspaceContext;
@@ -46,6 +47,19 @@ class CreateAnnouncement extends Action
                     ->where('workspace_id', $workspaceId)
                     ->where('uuid', $data->scopeUuid ?? ''),
                 'لا توجد حصة بهذا المعرّف.',
+            ),
+            /*
+            | Scoped to the publisher's own workspace exactly as the two above
+            | are: a bare `exists` rule answers a different question, and would
+            | pass for another teacher's group — whose students would then be
+            | addressed by somebody they do not study with.
+            */
+            Announcement::SCOPE_COHORT => $this->resolve(
+                Cohort::query()
+                    ->withoutWorkspaceScope()
+                    ->where('workspace_id', $workspaceId)
+                    ->where('uuid', $data->scopeUuid ?? ''),
+                'لا توجد مجموعة بهذا المعرّف.',
             ),
             default => throw ValidationException::withMessages([
                 'scope' => 'نطاق غير معروف.',

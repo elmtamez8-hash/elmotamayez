@@ -65,6 +65,17 @@ interface CohortDirectory
     public function wasEverMember(User $user, int $cohortId): bool;
 
     /**
+     * Whether this person's membership of this group is open RIGHT NOW.
+     *
+     * ⚠️ THE SECOND OF THE PAIR THE DOCBLOCK ABOVE PROMISES, and it is asked of
+     * the COHORT rather than of the course. `openMembershipCohortId()` answers
+     * the same fact but needs a course id, and the thread's row does not carry
+     * one — deriving it would be a join to fetch back something the cohort id
+     * already settles.
+     */
+    public function isCurrentMember(User $user, int $cohortId): bool;
+
+    /**
      * Everyone whose membership of this group is open — the roster and the
      * announcement fan-out.
      *
