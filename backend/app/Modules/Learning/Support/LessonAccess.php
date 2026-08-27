@@ -48,6 +48,21 @@ final class LessonAccess
      */
     public const NO_SEAT = 'no_seat';
 
+    /**
+     * The course runs in groups and the student is in none of them (FR-028أ).
+     *
+     * ⚠️ IT IS ONLY EVER RAISED WHILE THERE IS A GROUP THEY COULD JOIN. The
+     * moment the last joinable one fills, closes or is archived, this reason
+     * disappears and the whole curriculum opens — see `CohortGate`. A condition
+     * no action of the student's can satisfy is a permanent lock on content they
+     * have already paid for.
+     *
+     * Distinct from SEQUENCE because what has to happen is not finishing
+     * anything, and distinct from NO_SEAT because there IS something they can
+     * do: NO_SEAT means "not yours", this means "pick a group first".
+     */
+    public const NO_COHORT = 'no_cohort';
+
     private function __construct(
         public readonly bool $allowed,
         public readonly ?string $code = null,

@@ -22,6 +22,7 @@ use App\Modules\Identity\Models\ParentStudentRelation;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\RelationStatus;
 use App\Modules\Identity\Support\RelationType;
+use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Actions\CloseClassSession;
 use App\Modules\LiveSessions\Actions\OpenBroadcastRoom;
@@ -416,6 +417,63 @@ function settlementPayloadKeys(mixed $value): array
  * Named for the timeline rather than for a file: the one thing that must not
  * happen is somebody adding a class here to make their own assertion pass.
  */
+/**
+ * A course that runs in two groups, and a student enrolled in it.
+ *
+ * ⚠️ THE STUDENT LEAVES `users.last_workspace_id` NULL AND THE CONTEXT IS RESET.
+ * `Sanctum::actingAs()` plus `setCurrentWorkspace()` gives a student a workspace
+ * context the product NEVER gives them — nothing on a student's path writes that
+ * column — and `addWorkspaceMember()` stamps it as well. A fixture that uses
+ * either is measuring a person who does not exist, which is exactly how five
+ * student-facing endpoints shipped dead in 017. Here the guard under test IS the
+ * explicit enrolment, so a fixture with a context would prove nothing about it.
+ *
+ * @return array{workspace: Workspace, owner: User, student: User, course: Course, a: Cohort, b: Cohort}
+ */
+function cohortFixture(?int $capacityA = null, ?int $capacityB = null): array
+{
+    /** @var TestCase $test */
+    $test = test();
+
+    [$workspace, $owner] = $test->createWorkspaceWithOwner();
+    $student = User::factory()->create();
+
+    $built = app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace, $owner, $student, $capacityA, $capacityB): array {
+        $course = Course::factory()->published()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $owner->getKey(),
+            'course_type' => Course::TYPE_GROUP,
+            'title' => 'الرياضيات',
+        ]);
+
+        Enrollment::create([
+            'workspace_id' => $workspace->getKey(),
+            'course_id' => $course->getKey(),
+            'student_user_id' => $student->getKey(),
+            'source' => 'manual',
+            'status' => 'active',
+            'progress_pct' => 0,
+            'enrolled_at' => now(),
+        ]);
+
+        $make = fn (string $name, ?int $capacity): Cohort => Cohort::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'course_id' => $course->getKey(),
+            'created_by' => $owner->getKey(),
+            'name' => $name,
+            'capacity' => $capacity,
+        ]);
+
+        return [
+            'course' => $course,
+            'a' => $make('السبت ٤م', $capacityA),
+            'b' => $make('الأحد ٦م', $capacityB),
+        ];
+    });
+
+    return ['workspace' => $workspace, 'owner' => $owner, 'student' => $student, ...$built];
+}
+
 function fakeSessionTimeline(): void
 {
     Queue::fake([

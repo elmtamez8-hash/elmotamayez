@@ -85,7 +85,15 @@ export function userMessage(err: unknown): string {
   return UNKNOWN;
 }
 
-function errorCode(body: unknown): string | null {
+/**
+ * The machine code a coded refusal carries beside its sentence.
+ *
+ * ⚠️ EXPORTED SO A SCREEN CAN SWITCH ON IT WITHOUT READING ARABIC PROSE. The
+ * group picker greys one card for `cohort_full` and sends the reader to the
+ * transfer form for `already_member`; a client that matched on the message text
+ * would break the first time somebody improved the wording.
+ */
+export function errorCode(body: unknown): string | null {
   if (typeof body === "object" && body !== null && "code" in body) {
     const code = (body as { code: unknown }).code;
     if (typeof code === "string") return code;

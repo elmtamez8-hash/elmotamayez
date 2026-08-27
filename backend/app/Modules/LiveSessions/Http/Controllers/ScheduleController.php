@@ -11,6 +11,7 @@ use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Http\Resources\ClassSessionResource;
 use App\Modules\LiveSessions\Http\Resources\SessionBookingResource;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Support\CohortSessionVisibility;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Shared\Contracts\EnrollmentDirectory;
 use Illuminate\Database\Eloquent\Builder;
@@ -86,6 +87,9 @@ class ScheduleController extends Controller
 
         $session = ClassSession::query()
             ->where('course_id', $course->getKey())
+            // Q3 — the header counts down to a lesson this student is actually
+            // invited to. One spelling for every door (FR-025ج).
+            ->tap(fn ($query) => CohortSessionVisibility::apply($query, $user))
             ->whereIn('status', [ClassSessionStatus::Scheduled, ClassSessionStatus::Live])
             ->where('ends_at', '>=', now()->subMinutes($window))
             ->orderBy('starts_at')
@@ -146,6 +150,13 @@ class ScheduleController extends Controller
 
         $base = fn (): Builder => ClassSession::query()
             ->where('course_id', $course->getKey())
+            /*
+             | ⚠️ Q3 IS ENFORCED HERE, BECAUSE THIS IS THE STUDENT'S REAL
+             | DISCOVERY DOOR. `/class-sessions` answers a real student `403`, so
+             | filtering there alone would have been a guard on an endpoint no
+             | student can reach — correct-looking, tested, and never executed.
+             */
+            ->tap(fn ($query) => CohortSessionVisibility::apply($query, $user))
             // The Resource asks every published session where its recording went,
             // and reads the viewer's own booking off the loaded relation.
             ->with(['course', 'bookings', 'recordingLesson']);

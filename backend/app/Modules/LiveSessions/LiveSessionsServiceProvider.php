@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions;
 
+use App\Modules\Learning\Events\CohortMembershipOpened;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Events\AttendanceOverridden;
 use App\Modules\LiveSessions\Events\SessionCancelled;
@@ -12,6 +13,7 @@ use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
 use App\Modules\LiveSessions\Listeners\ArchiveExpiredRecordingLessons;
 use App\Modules\LiveSessions\Listeners\NotifySeatHolders;
 use App\Modules\LiveSessions\Listeners\PublishRecordingAsLesson;
+use App\Modules\LiveSessions\Listeners\ReleaseSeatsOnTransfer;
 use App\Modules\LiveSessions\Listeners\SendAttendanceCorrection;
 use App\Modules\LiveSessions\Listeners\UpdateTeacherCounters;
 use App\Modules\LiveSessions\Models\Attendance;
@@ -25,12 +27,14 @@ use App\Modules\LiveSessions\Policies\SessionBookingPolicy;
 use App\Modules\LiveSessions\Providers\LiveKitBroadcastProvider;
 use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
 use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
+use App\Modules\LiveSessions\Support\EloquentCohortScheduleDirectory;
 use App\Modules\LiveSessions\Support\EloquentFreezeDirectory;
 use App\Modules\LiveSessions\Support\EloquentSessionAttendanceDirectory;
 use App\Modules\LiveSessions\Support\LiveSessionsPersonalData;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Media\Events\MediaAssetReady;
 use App\Modules\Media\Events\MediaAssetsExpired;
+use App\Shared\Contracts\CohortScheduleDirectory;
 use App\Shared\Contracts\FreezeDirectory;
 use App\Shared\Contracts\SessionAttendanceDirectory;
 use App\Shared\Modules\Module;
@@ -95,6 +99,10 @@ class LiveSessionsServiceProvider extends Module
         // EnrollmentDirectory.
         $this->app->bind(SessionAttendanceDirectory::class, EloquentSessionAttendanceDirectory::class);
 
+        // The other direction of the same wall: Learning's group picker has to
+        // say when each group meets, and the session is ours.
+        $this->app->bind(CohortScheduleDirectory::class, EloquentCohortScheduleDirectory::class);
+
         // Spec 009 — a streak must not break over a holiday this module declared.
         // Gamification asks through the contract; the freeze period stays here.
         $this->app->bind(FreezeDirectory::class, EloquentFreezeDirectory::class);
@@ -149,6 +157,14 @@ class LiveSessionsServiceProvider extends Module
         // it — whether the teacher called the session off or a freeze suspended
         // it (FR-006 · FR-040).
         Event::listen(SessionCancelled::class, NotifySeatHolders::class);
+
+        /*
+        | A student who moved to another group of the same course gives up the
+        | seats they held in the one they left (FR-030 · R16). Learning announces
+        | the move and knows nothing about a seat; releasing one is
+        | `CancelBooking`'s job, on this side of the wall.
+        */
+        Event::listen(CohortMembershipOpened::class, ReleaseSeatsOnTransfer::class);
 
         // A report already in a guardian's hands is corrected rather than left
         // standing (FR-037).

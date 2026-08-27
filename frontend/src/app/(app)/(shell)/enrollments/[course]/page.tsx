@@ -3,6 +3,8 @@
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
+import { CohortPicker } from "@/components/courses/CohortPicker";
+import { CohortSwitcher } from "@/components/courses/CohortSwitcher";
 import { CourseBanner } from "@/components/courses/CourseBanner";
 import { CurriculumTree } from "@/components/courses/CurriculumTree";
 import { NextSessionHeader } from "@/components/courses/NextSessionHeader";
@@ -11,12 +13,14 @@ import { AssignmentsTab } from "@/components/courses/tabs/AssignmentsTab";
 import { CertificateTab } from "@/components/courses/tabs/CertificateTab";
 import { ExamsTab } from "@/components/courses/tabs/ExamsTab";
 import { SessionsTab } from "@/components/courses/tabs/SessionsTab";
+import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { Tabs, TabPanel, useTabParam, type TabDefinition } from "@/components/ui/Tabs";
 import { classSessions, type ClassSession } from "@/lib/class-sessions";
+import { cohorts as cohortsApi, type CohortsForCourse } from "@/lib/cohorts";
 import { courseHub, type CourseAnnouncement, type CourseExam } from "@/lib/course-hub";
 import { curriculum, type Curriculum } from "@/lib/curriculum";
 import { userMessage } from "@/lib/errors";
@@ -67,6 +71,7 @@ export default function CourseCurriculumPage({
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [announcements, setAnnouncements] = useState<CourseAnnouncement[]>([]);
   const [certificate, setCertificate] = useState<Certificate | null>(null);
+  const [cohortState, setCohortState] = useState<CohortsForCourse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,7 +105,21 @@ export default function CourseCurriculumPage({
       .catch(() => setCertificate(null));
   }, [courseUuid]);
 
+  /*
+    The groups, loaded beside the curriculum rather than inside it. The gate's
+    VERDICT is on the curriculum payload (`cohort_gate`) because the server is
+    the only place it may be decided; this read is the list the picker draws, and
+    a failure of it must not blank a page whose gate said «open».
+  */
+  const loadCohorts = useCallback(() => {
+    cohortsApi
+      .forCourse(courseUuid)
+      .then(setCohortState)
+      .catch(() => setCohortState(null));
+  }, [courseUuid]);
+
   useEffect(load, [load]);
+  useEffect(loadCohorts, [loadCohorts]);
 
   const courseType = data?.course.course_type ?? null;
   // ⚠️ A `recorded` COURSE IS NEVER ASKED ABOUT SESSIONS. Not «asked and given
@@ -175,6 +194,41 @@ export default function CourseCurriculumPage({
   }
 
   const { course } = data;
+  const gate = data.cohort_gate;
+
+  /*
+    ⚠️ THE PICKER STANDS IN FRONT OF THE CONTENT ONLY WHILE THERE IS SOMETHING TO
+    PICK (FR-028أ · FR-028ب). `joinable_exists: false` means every group is full,
+    closed or archived — the server has already opened every lesson, and putting
+    a blocking screen over an open course would be a lock the student cannot
+    clear by any action of theirs, on content they have paid for.
+
+    The verdict is READ, never re-derived: `LessonGate` and this line have to
+    agree, and two spellings of one question is the defect that made a paid-for
+    recording unreachable in 018.
+  */
+  const mustChoose = gate.required && !gate.satisfied && gate.joinable_exists;
+
+  if (mustChoose && cohortState !== null && Array.isArray(cohortState.cohorts)) {
+    return (
+      <div className="space-y-6">
+        <CourseBanner
+          title={course.title}
+          teacherName={course.teacher_name}
+          coverUrl={course.cover_url}
+        />
+
+        <CohortPicker
+          options={cohortState.cohorts}
+          message={gate.message}
+          onJoined={() => {
+            load();
+            loadCohorts();
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -223,6 +277,26 @@ export default function CourseCurriculumPage({
           session={nextSession}
           secondsUntilStart={secondsUntilStart}
           secondsUntilJoinOpen={secondsUntilJoinOpen}
+        />
+      )}
+
+      {/*
+        ⚠️ AND THE SENTENCE SURVIVES THE VALVE. A course whose groups are all
+        full opens completely — so without this line the reader sees an open
+        course, no picker and no explanation, which reads as the groups feature
+        being broken rather than as an answer.
+      */}
+      {gate.required && !gate.satisfied && !gate.joinable_exists && gate.message !== null && (
+        <Alert tone="info" title="مجموعات هذه المادّة">{gate.message}</Alert>
+      )}
+
+      {cohortState?.membership != null && (
+        <CohortSwitcher
+          state={cohortState}
+          onChanged={() => {
+            load();
+            loadCohorts();
+          }}
         />
       )}
 

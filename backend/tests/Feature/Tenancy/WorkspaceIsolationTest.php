@@ -37,6 +37,10 @@ use App\Modules\Gamification\Support\ProgressWriter;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Models\Device;
 use App\Modules\Identity\Models\StudentProfile;
+use App\Modules\Learning\Models\Cohort;
+use App\Modules\Learning\Models\CohortMembership;
+use App\Modules\Learning\Models\CohortMembershipEvent;
+use App\Modules\Learning\Models\CohortTransferRequest;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
@@ -921,4 +925,66 @@ it('refuses an edit or a deletion of a moderation record', function (): void {
 
     expect(fn () => $action->update(['reason' => 'سبب آخر']))->toThrow(RuntimeException::class)
         ->and(fn () => $action->delete())->toThrow(RuntimeException::class);
+});
+
+/*
+| Spec 021 — the four new tenant-owned tables (Constitution I, non-negotiable).
+|
+| ⚠️ A TENANT-SCOPED MODEL WITHOUT `BelongsToWorkspace` LEAKS ACROSS WORKSPACES
+| AND NO OTHER TEST IN THIS REPOSITORY WILL SAY SO. The trait check beside the
+| count is not decoration: a count of one can also be produced by a fixture that
+| happened to create one row, so both halves are asserted for every table.
+*/
+it('scopes the four cohort tables to the workspace that owns them', function (): void {
+    [$workspaceA, $ownerA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+    [$workspaceB, $ownerB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+    $context = app(WorkspaceContext::class);
+
+    $seed = fn ($workspace, $owner) => $context->forWorkspace($workspace, function () use ($workspace, $owner): void {
+        $course = Course::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $owner->getKey(),
+        ]);
+
+        $cohort = Cohort::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'course_id' => $course->getKey(),
+            'created_by' => $owner->getKey(),
+        ]);
+
+        $student = User::factory()->create();
+
+        CohortMembership::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'cohort_id' => $cohort->getKey(),
+            'course_id' => $course->getKey(),
+            'student_user_id' => $student->getKey(),
+        ]);
+
+        CohortMembershipEvent::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'course_id' => $course->getKey(),
+            'cohort_id' => $cohort->getKey(),
+            'student_user_id' => $student->getKey(),
+            'actor_user_id' => $owner->getKey(),
+        ]);
+
+        CohortTransferRequest::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'course_id' => $course->getKey(),
+            'to_cohort_id' => $cohort->getKey(),
+            'student_user_id' => $student->getKey(),
+        ]);
+    });
+
+    $seed($workspaceA, $ownerA);
+    $seed($workspaceB, $ownerB);
+
+    foreach ([Cohort::class, CohortMembership::class, CohortMembershipEvent::class, CohortTransferRequest::class] as $model) {
+        expect($context->forWorkspace($workspaceA, fn () => $model::query()->count()))->toBe(1)
+            ->and($context->forWorkspace($workspaceB, fn () => $model::query()->count()))->toBe(1)
+            ->and($model::query()->withoutGlobalScopes()->count())->toBe(2)
+            ->and(in_array(BelongsToWorkspace::class, class_uses_recursive($model), true))->toBeTrue();
+    }
 });

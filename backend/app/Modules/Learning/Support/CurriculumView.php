@@ -35,5 +35,6 @@ final class CurriculumView
         public readonly array $completedIds,
         public readonly int $completedCount,
         public readonly int $countableCount,
+        public readonly CohortGate $cohortGate,
     ) {}
 }

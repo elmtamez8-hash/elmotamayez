@@ -101,6 +101,16 @@ export default function CourseDetailPage({
         <Button href="/exams" variant="secondary">
           اختبارات الكورس
         </Button>
+
+        {/*
+          ⚠️ THE ONLY WAY IN. A surface nothing links to is a surface that was not
+          delivered — and this one carries the list of sessions Q3 is hiding from
+          every student of the course, which is a consequence the teacher did not
+          choose and can see nowhere else.
+        */}
+        <Button href={`/manage/courses/${uuid}/cohorts`} variant="secondary">
+          مجموعات الكورس
+        </Button>
       </div>
 
       {/*

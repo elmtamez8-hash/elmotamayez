@@ -125,6 +125,17 @@ function dispatchOf(User $user, NotificationType $type): void
             // for and could never fail, which is precisely the failure it exists
             // to catch.
             'body' => 'حصة الغد الساعة الخامسة.',
+            // A NINTH time, with spec 021's three cohort-transfer types. 48
+            // against 51 the moment they landed — and the mechanism is worth
+            // restating once more because it is the whole value of this list:
+            // a missing variable makes the template render NOTHING,
+            // DispatchNotification logs instead of failing, and the channel never
+            // sees the message. Derive this map and it would supply whatever each
+            // template asked for and could never fail again.
+            'course_title' => 'الرياضيات',
+            'from_cohort' => 'السبت ٤م',
+            'to_cohort' => 'الأحد ٦م',
+            'decision_reason' => 'المجموعة تكاد تكتمل',
         ],
     ));
 }

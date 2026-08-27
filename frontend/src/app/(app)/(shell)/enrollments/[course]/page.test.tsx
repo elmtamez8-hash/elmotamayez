@@ -122,6 +122,11 @@ function mockRoutes(bodies: {
       return Promise.resolve(bodies.nextSession ?? { data: null });
     }
     if (path.includes("/sessions")) return Promise.resolve({ data: bodies.sessions ?? [] });
+    // The group read is a side read like the others: it may fail without taking
+    // the page down, and a course with no groups answers an empty list.
+    if (path.includes("/cohorts")) {
+      return Promise.resolve({ membership: null, pending_request: null, cohorts: [] });
+    }
 
     return Promise.reject(new Error(`unstubbed: ${path}`));
   });

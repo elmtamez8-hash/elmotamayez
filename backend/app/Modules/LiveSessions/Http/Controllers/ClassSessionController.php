@@ -5,17 +5,22 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Courses\Models\Course;
+use App\Modules\LiveSessions\Actions\AssignSessionsToCohort;
 use App\Modules\LiveSessions\Actions\CancelClassSession;
 use App\Modules\LiveSessions\Actions\GenerateSessionsFromAvailability;
 use App\Modules\LiveSessions\Actions\ScheduleClassSession;
 use App\Modules\LiveSessions\Actions\UpdateClassSession;
 use App\Modules\LiveSessions\Data\ScheduleSessionData;
+use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Http\Requests\GenerateSessionsRequest;
 use App\Modules\LiveSessions\Http\Requests\StoreClassSessionRequest;
 use App\Modules\LiveSessions\Http\Requests\UpdateClassSessionRequest;
 use App\Modules\LiveSessions\Http\Resources\ClassSessionResource;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Support\CohortSessionVisibility;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\UnlockDirectory;
 use Carbon\CarbonImmutable;
 use DomainException;
@@ -68,11 +73,6 @@ class ClassSessionController extends Controller
              | The relation carries its own workspace scope, which is the guard —
              | a uuid from another workspace is simply not there.
              |
-             | ⚠️ «المجموعة» IS THE COURSE. No group entity exists anywhere in this
-             | product (`AnnouncementAudience` and `ConversationKind` both say so
-             | in as many words); every schedulable session has carried a course
-             | since 006, and enrolment in it is the durable set of students. A
-             | second answer to «which students» would be two answers.
              */
             ->when(
                 $request->query('teacher'),
@@ -81,6 +81,32 @@ class ClassSessionController extends Controller
             ->when(
                 $request->query('course'),
                 fn ($query, $uuid) => $query->whereHas('course', fn ($course) => $course->where('uuid', $uuid)),
+            )
+            /*
+             | ⚠️ Q3 · FR-025ج — DISCOVERY IS FILTERED BY THE READER'S GROUP, AND
+             | AN UNASSIGNED SESSION IS HIDDEN ONLY IN A COURSE THAT HAS GROUPS.
+             |
+             | Every session in this database predates the group and carries
+             | `cohort_id = null`; a bare `whereNotNull` here would empty the
+             | timetable of every course in the product overnight. So the second
+             | arm keeps an unassigned session visible exactly while its course
+             | runs without groups — which is FR-036, and which is why a course
+             | with none passes US1 and US2 without a row changing.
+             |
+             | ⚠️ AND THIS IS THE DISCOVERY DOOR, NOT «حصصي». `GetStudentSchedule`
+             | is built from the student's own BOOKINGS and is deliberately left
+             | alone (FR-025د): a seat they hold, an attendance already recorded
+             | and a recording earned by that seat are things that HAPPENED, and a
+             | timetable decision may not reach back and take one away. This is a
+             | judgement about what is on offer.
+             |
+             | The reader's own groups fail toward EMPTY: `whereIn(…, [])` matches
+             | nothing, so a student in no group sees the ungrouped courses only —
+             | never, by a silently ignored filter, everybody's calendar.
+             */
+            ->when(
+                ! $this->currentUser($request)->can(Permissions::SESSIONS_MANAGE),
+                fn ($query) => CohortSessionVisibility::apply($query, $this->currentUser($request)),
             )
             // Eager-loaded so a month of sessions is a fixed number of queries
             // rather than one per row (SC-011). `recordingLesson` belongs in the
@@ -187,6 +213,66 @@ class ClassSessionController extends Controller
      * the input that caused it — `fieldErrors()` on the frontend reads exactly
      * this shape, and anything else lands as a banner with no context.
      */
+    /**
+     * What Q3 is hiding from every student of this course, and how many
+     * (FR-025هـ).
+     *
+     * ⚠️ A HIDING THE OWNER OF THE TIMETABLE DOES NOT KNOW ABOUT IS A SILENT
+     * LOSS. Creating the first group of a course removes every existing session
+     * from discovery at a stroke; without this list the teacher's students
+     * simply stop seeing classes and nothing anywhere says why.
+     *
+     * ⚠️ AND THE PAST ONES ARE COUNTED SEPARATELY RATHER THAN OFFERED. FR-025و
+     * refuses to assign a session that has started or ended, so listing one
+     * beside an «إسناد» button is a button that answers with a refusal. The
+     * count is still reported, because "eleven hidden, three of them already
+     * taught" is the honest answer and "eight" is not.
+     */
+    public function unassignedSessions(Request $request, Course $course): JsonResponse
+    {
+        $this->authorize('create', ClassSession::class);
+
+        $sessions = ClassSession::query()
+            ->where('course_id', $course->getKey())
+            ->whereNull('cohort_id')
+            ->orderBy('starts_at')
+            ->get();
+
+        $assignable = $sessions->filter(
+            fn (ClassSession $session): bool => ! $session->starts_at->isPast()
+                && $session->status === ClassSessionStatus::Scheduled,
+        );
+
+        return response()->json([
+            'data' => ClassSessionResource::collection($assignable->values())->toArray($request),
+            'meta' => [
+                'total_hidden' => $sessions->count(),
+                'assignable' => $assignable->count(),
+                'already_held' => $sessions->count() - $assignable->count(),
+            ],
+        ]);
+    }
+
+    /** One request for the whole batch — never a loop at the client. */
+    public function assignSessions(Request $request, Course $course, AssignSessionsToCohort $action): JsonResponse
+    {
+        $this->authorize('create', ClassSession::class);
+
+        $validated = $request->validate([
+            'cohort_uuid' => ['required', 'string'],
+            'session_uuids' => ['required', 'array', 'min:1', 'max:200'],
+            'session_uuids.*' => ['string'],
+        ]);
+
+        try {
+            $assigned = $action->handle($course, $validated['cohort_uuid'], array_values($validated['session_uuids']));
+        } catch (DomainException $e) {
+            return $this->refusal($e, 'session_uuids');
+        }
+
+        return response()->json(['assigned' => $assigned]);
+    }
+
     private function refusal(DomainException $e, string $field): JsonResponse
     {
         return response()->json([

@@ -24,6 +24,20 @@ use Illuminate\Support\Collection;
  * by a teacher. A teacher seeing this list would see their student's sessions
  * with a competitor, which is the exact leak the ownership layers exist to
  * prevent (PlatformOwnershipTest asserts both directions).
+ *
+ * ⚠️ SPEC 021 DELIBERATELY LEAVES THIS FILE UNTOUCHED, AND THAT IS WHAT MAKES
+ * FR-025د TRUE BY CONSTRUCTION.
+ *
+ * Q3 hides an unassigned session — one belonging to no group in a course that
+ * runs in groups — from DISCOVERY, which is `ClassSessionController@index`. It
+ * must not hide it from the person who already holds a seat in it: they booked
+ * it, they paid for it, they may have attended it and the recording it produced
+ * is theirs by that seat. «حصصي» is built from `session_bookings` and asks no
+ * question about a group at all, so a seat stays visible to its owner whether
+ * the session was ever assigned or not.
+ *
+ * A cohort filter added here would be exactly the reach-back FR-025د forbids:
+ * a judgement about what is ON OFFER, applied to a right already acquired.
  */
 class GetStudentSchedule extends Action
 {

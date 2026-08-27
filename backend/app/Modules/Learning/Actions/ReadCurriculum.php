@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Learning\Actions;
 
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\Learning\Support\CohortGate;
 use App\Modules\Learning\Support\CourseProgress;
 use App\Modules\Learning\Support\CurriculumView;
 use App\Modules\Learning\Support\LessonGate;
@@ -56,6 +57,11 @@ class ReadCurriculum extends Action
             // `SC-018` is the promise that there is exactly one denominator.
             completedCount: CourseProgress::completed($enrollment),
             countableCount: CourseProgress::total($enrollment),
+            // ⚠️ ASKED HERE AND NOT IN THE RESOURCE. A Resource that issues a
+            // query is a Resource that issues it once per row the day somebody
+            // moves the block down into `row()` — and the gate's own hot-path
+            // predicate is already answered once inside `LessonGate::forTree()`.
+            cohortGate: CohortGate::describe($enrollment->student, (int) $enrollment->course_id),
         );
     }
 }

@@ -137,72 +137,81 @@ description: "Task list — 021 صفحةُ المادّةِ منهجاً ومج�
 
 ### الهجراتُ والنماذج
 
-- [ ] T041 [US3] هجرةُ `cohorts` في `backend/app/Modules/Learning/Database/Migrations/` بأعمدةِ data-model §١ و`unique(course_id, name)`. ⚠️ **`Migrations` بحرفٍ كبير** — التطابقُ حرفيٌّ في `Module::registerMigrations()`، والخطأُ يُحمِّلُ **صفرَ** هجراتٍ على Linux ويعملُ على Windows.
-- [ ] T042 [US3] هجرةُ `cohort_memberships` بـ`closed_slot` **`NOT NULL DEFAULT 0`** و`unique(student_user_id, course_id, closed_slot)`. ⚠️ `unique` على `closed_at IS NULL` **لا يعضّ** — NULL لا يساوي NULL على أيٍّ من المحرّكين، والفهرسُ الجزئيُّ ميزةُ Postgres لا وجودَ لها في MySQL. السوابقُ: `concept_stats.lesson_id` · `unlock_rules.course_id` · `award_entries.reversal_of_id`.
-- [ ] T043 [US3] هجرةُ `cohort_membership_events` بـ`UPDATED_AT = null` والفهرسين.
-- [ ] T044 [US3] هجرةُ `cohort_transfer_requests` بـ`pending_slot` **`NOT NULL DEFAULT 0`** و`unique(student_user_id, course_id, pending_slot)`.
-- [ ] T045 [US3] هجرةُ `class_sessions`: `+ cohort_id` قابلٌ للعدم، **وفهرسٌ `(workspace_id, course_id, cohort_id, starts_at)`**. ⚠️ يُضافُ الفهرسُ **قبلَ** أن يقرأَ استعلامٌ العمودَ الجديد؛ وإسقاطُ عمودٍ مُفهرَسٍ يحتاجُ `dropIndex()` في جملةٍ مستقلّةٍ أوّلاً — MySQL يتساهلُ وSQLite **يرفض**، وكلُّ اختبارٍ هنا على SQLite. وإغلاقتا `Schema::table` منفصلتان.
-- [ ] T046 [P] [US3] نموذجُ `backend/app/Modules/Learning/Models/Cohort.php` — `BelongsToWorkspace` + `HasUuid`، و`members_count` و`status` **خارجَ `$fillable`**.
-- [ ] T047 [P] [US3] نموذجُ `backend/app/Modules/Learning/Models/CohortMembership.php` — ⚠️ `closed_slot` **خارجَ `$fillable`**: تُكتَبُ داخلَ الجملةِ التي تملكُ الإغلاق، ومُسنَدةً جماعيّاً تصيرُ باباً ثانياً لعضويّةٍ ثانية.
-- [ ] T048 [P] [US3] نموذجُ `backend/app/Modules/Learning/Models/CohortMembershipEvent.php` مع `booted()` يرمي على `updating` و`deleting` — سابقةُ `LedgerEntry`. ⚠️ و**لا كتابةَ جماعيّةً على هذا الجدولِ إطلاقاً**: `update()` الجماعيُّ لا يجلبُ نماذجَ فيتخطّى الحارس.
-- [ ] T049 [P] [US3] نموذجُ `backend/app/Modules/Learning/Models/CohortTransferRequest.php` — `pending_slot` و`status` خارجَ `$fillable`.
-- [ ] T050 [P] [US3] مصانعُ الأربعةِ في `backend/database/factories/Modules/Learning/`.
+- [X] T041 [US3] هجرةُ `cohorts` في `backend/app/Modules/Learning/Database/Migrations/` بأعمدةِ data-model §١ و`unique(course_id, name)`. ⚠️ **`Migrations` بحرفٍ كبير** — التطابقُ حرفيٌّ في `Module::registerMigrations()`، والخطأُ يُحمِّلُ **صفرَ** هجراتٍ على Linux ويعملُ على Windows.
+- [X] T042 [US3] هجرةُ `cohort_memberships` بـ`closed_slot` **`NOT NULL DEFAULT 0`** و`unique(student_user_id, course_id, closed_slot)`. ⚠️ `unique` على `closed_at IS NULL` **لا يعضّ** — NULL لا يساوي NULL على أيٍّ من المحرّكين، والفهرسُ الجزئيُّ ميزةُ Postgres لا وجودَ لها في MySQL. السوابقُ: `concept_stats.lesson_id` · `unlock_rules.course_id` · `award_entries.reversal_of_id`.
+- [X] T043 [US3] هجرةُ `cohort_membership_events` بـ`UPDATED_AT = null` والفهرسين.
+- [X] T044 [US3] هجرةُ `cohort_transfer_requests` بـ`pending_slot` **`NOT NULL DEFAULT 0`** و`unique(student_user_id, course_id, pending_slot)`.
+- [X] T045 [US3] هجرةُ `class_sessions`: `+ cohort_id` قابلٌ للعدم، **وفهرسٌ `(workspace_id, course_id, cohort_id, starts_at)`**. ⚠️ يُضافُ الفهرسُ **قبلَ** أن يقرأَ استعلامٌ العمودَ الجديد؛ وإسقاطُ عمودٍ مُفهرَسٍ يحتاجُ `dropIndex()` في جملةٍ مستقلّةٍ أوّلاً — MySQL يتساهلُ وSQLite **يرفض**، وكلُّ اختبارٍ هنا على SQLite. وإغلاقتا `Schema::table` منفصلتان.
+- [X] T046 [P] [US3] نموذجُ `backend/app/Modules/Learning/Models/Cohort.php` — `BelongsToWorkspace` + `HasUuid`، و`members_count` و`status` **خارجَ `$fillable`**.
+- [X] T047 [P] [US3] نموذجُ `backend/app/Modules/Learning/Models/CohortMembership.php` — ⚠️ `closed_slot` **خارجَ `$fillable`**: تُكتَبُ داخلَ الجملةِ التي تملكُ الإغلاق، ومُسنَدةً جماعيّاً تصيرُ باباً ثانياً لعضويّةٍ ثانية.
+- [X] T048 [P] [US3] نموذجُ `backend/app/Modules/Learning/Models/CohortMembershipEvent.php` مع `booted()` يرمي على `updating` و`deleting` — سابقةُ `LedgerEntry`. ⚠️ و**لا كتابةَ جماعيّةً على هذا الجدولِ إطلاقاً**: `update()` الجماعيُّ لا يجلبُ نماذجَ فيتخطّى الحارس.
+- [X] T049 [P] [US3] نموذجُ `backend/app/Modules/Learning/Models/CohortTransferRequest.php` — `pending_slot` و`status` خارجَ `$fillable`.
+- [X] T050 [P] [US3] مصانعُ الأربعةِ في `backend/database/factories/Modules/Learning/`.
 
 ### العقدُ والأفعال
 
-- [ ] T051 [US3] عقدُ `backend/app/Shared/Contracts/CohortDirectory.php` بالتوقيعاتِ السّتِّ في data-model §ثالثاً. ⚠️ **كلُّ توقيعٍ يُسألُ عن قائمةٍ جماعيٌّ**؛ وموردُ العرضِ يعملُ مرّةً لكلِّ صفٍّ فقراءةٌ مفردةٌ داخلَه N+1 بالبناء.
-- [ ] T052 [US3] تنفيذُ `backend/app/Modules/Learning/Support/EloquentCohortDirectory.php` وربطُه في `LearningServiceProvider`.
-- [ ] T053 [US3] `JoinCohort` في `backend/app/Modules/Learning/Actions/JoinCohort.php` — ⚠️ اقتناصُ المقعدِ بـ**UPDATE شرطيّةٍ ذرّيّةٍ واحدة** (`WHERE capacity IS NULL OR members_count < capacity`)، صفرُ صفوفٍ = مكتملة. **لا `count()` ثمّ `insert()`** ولا `lockForUpdate()` (بلا أثرٍ على SQLite، فاختبارٌ محلّيٌّ يمرُّ ولا يُثبِتُ شيئاً عن MySQL).
-- [ ] T054 [US3] `RequestTransfer` في `…/Actions/RequestTransfer.php` — ⚠️ **لا يمسُّ العضويّةَ القائمةَ بشيء** (FR-028و)، ويرفضُ `same_cohort` عندَ التقديمِ لا عندَ الموافقة.
-- [ ] T055 [US3] `DecideTransferRequest` في `…/Actions/DecideTransferRequest.php` — ⚠️ **الاقتناصُ يقعُ هنا**، فالسعةُ مقيسةٌ لحظةَ الموافقة (FR-028ز)؛ والرفضُ يشترطُ `reason` ولا يمسُّ العضويّةَ القائمة.
-- [ ] T056 [P] [US3] `MoveMember` و`RemoveMember` في `…/Actions/` — مباشرتان بلا طلبٍ (FR-028ط)، وتُسقِطان أيَّ طلبٍ معلَّقٍ بسببٍ مكتوب.
-- [ ] T057 [P] [US3] `CreateCohort` و`ArchiveCohort` و`UpdateCohort` في `…/Actions/` — ⚠️ الإنشاءُ لنوعِ `group` وحدَه (FR-037)، و**لا حذفَ**: الأرشفةُ هي البديلُ ولا `SoftDeletes` (الحذفُ الناعمُ يضعُ الصفَّ خلفَ نطاقٍ عامّ، وهو بالضبط حيثُ لا تراهُ شاشةُ المدرّسِ ولا التدقيق — سابقةُ `hidden_at`).
-- [ ] T058 [US3] `ReleaseSeatsOnTransfer` — الإفراجُ يمرُّ بدلالةِ `CancelBooking` **لا بحذفٍ خام**، وعلى الحصصِ التي **لم تبدأْ** فقط. ⚠️ حذفُ صفِّ حجزٍ يكسرُ ثابتَ `ReconcileCreditBalancesJob` («صفُّ استهلاكٍ لكلِّ مقعدٍ في حصّةٍ مشحونة») بلا سببٍ يجدُه أحد. و`billable_seats` تُكتَبُ مرّةً ولا تُعادُ حسابُها — فانتقالٌ بعدَ موعدِ الإلغاءِ لا يحرّكُ ريالاً **ويجبُ ألّا يحاول**.
+- [X] T051 [US3] عقدُ `backend/app/Shared/Contracts/CohortDirectory.php` بالتوقيعاتِ السّتِّ في data-model §ثالثاً. ⚠️ **كلُّ توقيعٍ يُسألُ عن قائمةٍ جماعيٌّ**؛ وموردُ العرضِ يعملُ مرّةً لكلِّ صفٍّ فقراءةٌ مفردةٌ داخلَه N+1 بالبناء.
+- [X] T052 [US3] تنفيذُ `backend/app/Modules/Learning/Support/EloquentCohortDirectory.php` وربطُه في `LearningServiceProvider`.
+- [X] T053 [US3] `JoinCohort` في `backend/app/Modules/Learning/Actions/JoinCohort.php` — ⚠️ اقتناصُ المقعدِ بـ**UPDATE شرطيّةٍ ذرّيّةٍ واحدة** (`WHERE capacity IS NULL OR members_count < capacity`)، صفرُ صفوفٍ = مكتملة. **لا `count()` ثمّ `insert()`** ولا `lockForUpdate()` (بلا أثرٍ على SQLite، فاختبارٌ محلّيٌّ يمرُّ ولا يُثبِتُ شيئاً عن MySQL).
+- [X] T054 [US3] `RequestTransfer` في `…/Actions/RequestTransfer.php` — ⚠️ **لا يمسُّ العضويّةَ القائمةَ بشيء** (FR-028و)، ويرفضُ `same_cohort` عندَ التقديمِ لا عندَ الموافقة.
+- [X] T055 [US3] `DecideTransferRequest` في `…/Actions/DecideTransferRequest.php` — ⚠️ **الاقتناصُ يقعُ هنا**، فالسعةُ مقيسةٌ لحظةَ الموافقة (FR-028ز)؛ والرفضُ يشترطُ `reason` ولا يمسُّ العضويّةَ القائمة.
+- [X] T056 [P] [US3] `MoveMember` و`RemoveMember` في `…/Actions/` — مباشرتان بلا طلبٍ (FR-028ط)، وتُسقِطان أيَّ طلبٍ معلَّقٍ بسببٍ مكتوب.
+- [X] T057 [P] [US3] `CreateCohort` و`ArchiveCohort` و`UpdateCohort` في `…/Actions/` — ⚠️ الإنشاءُ لنوعِ `group` وحدَه (FR-037)، و**لا حذفَ**: الأرشفةُ هي البديلُ ولا `SoftDeletes` (الحذفُ الناعمُ يضعُ الصفَّ خلفَ نطاقٍ عامّ، وهو بالضبط حيثُ لا تراهُ شاشةُ المدرّسِ ولا التدقيق — سابقةُ `hidden_at`).
+- [X] T058 [US3] `ReleaseSeatsOnTransfer` — الإفراجُ يمرُّ بدلالةِ `CancelBooking` **لا بحذفٍ خام**، وعلى الحصصِ التي **لم تبدأْ** فقط. ⚠️ حذفُ صفِّ حجزٍ يكسرُ ثابتَ `ReconcileCreditBalancesJob` («صفُّ استهلاكٍ لكلِّ مقعدٍ في حصّةٍ مشحونة») بلا سببٍ يجدُه أحد. و`billable_seats` تُكتَبُ مرّةً ولا تُعادُ حسابُها — فانتقالٌ بعدَ موعدِ الإلغاءِ لا يحرّكُ ريالاً **ويجبُ ألّا يحاول**.
 
 ### السياساتُ والمسارات
 
-- [ ] T059 [P] [US3] `CohortPolicy` و`CohortTransferRequestPolicy` في `backend/app/Modules/Learning/Policies/` على `COURSES_UPDATE`. ⚠️ سجِّلْهما في `Gate::policy()` صراحةً: مُخمِّنُ Laravel يفشلُ **مفتوحاً** حين تخدمُ سياسةٌ واحدةٌ نموذجين، وهو الشكلُ الذي يقعُ فيه هذا المستودعُ باستمرار.
-- [ ] T060 [US3] مساراتُ الطالبِ (`contracts §ب/§ج`) في `backend/app/Modules/Learning/routes/api.php` خلفَ `throttle:cohort-write` للكتابات.
-- [ ] T061 [US3] مساراتُ المدرّسِ (`contracts §د`) — ⚠️ **بلا `DELETE` للمجموعة**.
-- [ ] T062 [US3] `CohortResource` و`CohortMembershipEventResource` و`TransferRequestResource` في `backend/app/Modules/Learning/Http/Resources/`. ⚠️ `seats_left` **`null`** بلا سعةٍ معلَنة، لا صفر.
+- [X] T059 [P] [US3] `CohortPolicy` و`CohortTransferRequestPolicy` في `backend/app/Modules/Learning/Policies/` على `COURSES_UPDATE`. ⚠️ سجِّلْهما في `Gate::policy()` صراحةً: مُخمِّنُ Laravel يفشلُ **مفتوحاً** حين تخدمُ سياسةٌ واحدةٌ نموذجين، وهو الشكلُ الذي يقعُ فيه هذا المستودعُ باستمرار.
+- [X] T060 [US3] مساراتُ الطالبِ (`contracts §ب/§ج`) في `backend/app/Modules/Learning/routes/api.php` خلفَ `throttle:cohort-write` للكتابات.
+- [X] T061 [US3] مساراتُ المدرّسِ (`contracts §د`) — ⚠️ **بلا `DELETE` للمجموعة**.
+- [X] T062 [US3] `CohortResource` و`CohortMembershipEventResource` و`TransferRequestResource` في `backend/app/Modules/Learning/Http/Resources/`. ⚠️ `seats_left` **`null`** بلا سعةٍ معلَنة، لا صفر.
 
 ### بوّابةُ العضويّةِ وصمّامُها
 
-- [ ] T063 [US3] أضِفْ سببَ `no_cohort` إلى `backend/app/Modules/Learning/Support/LessonAccess.php` وفرعَه في `LessonGate` — **يُسألُ بعدَ `isActive()` وقبلَ فرعِ التسجيل**.
-- [ ] T064 [US3] ⚠️ **الصمّام**: الفرعُ يسألُ `joinableCohortsExist()`، وحين تكونُ الإجابةُ `false` **لا يقفلُ شيئاً**. شرطٌ لا يوجدُ فعلٌ من أفعالِ الطالبِ يُحقِّقُه هو قفلٌ دائمٌ على محتوًى مدفوع — وهي عائلةُ أسوأِ عيبٍ يسجّلُه هذا المستودع.
-- [ ] T065 [US3] أضِفْ كتلةَ `cohort_gate` إلى `CurriculumResource` بحقولِ `required` · `satisfied` · `joinable_exists` · `message`.
+- [X] T063 [US3] أضِفْ سببَ `no_cohort` إلى `backend/app/Modules/Learning/Support/LessonAccess.php` وفرعَه في `LessonGate` — **يُسألُ بعدَ `isActive()` وقبلَ فرعِ التسجيل**.
+- [X] T064 [US3] ⚠️ **الصمّام**: الفرعُ يسألُ `joinableCohortsExist()`، وحين تكونُ الإجابةُ `false` **لا يقفلُ شيئاً**. شرطٌ لا يوجدُ فعلٌ من أفعالِ الطالبِ يُحقِّقُه هو قفلٌ دائمٌ على محتوًى مدفوع — وهي عائلةُ أسوأِ عيبٍ يسجّلُه هذا المستودع.
+- [X] T065 [US3] أضِفْ كتلةَ `cohort_gate` إلى `CurriculumResource` بحقولِ `required` · `satisfied` · `joinable_exists` · `message`.
 
 ### حجبُ Q3 والإسنادُ الجماعيّ
 
-- [ ] T066 [US3] احجبِ الحصّةَ غيرَ المُسنَدةِ من الاكتشافِ ورشِّحْ بالمجموعةِ في `backend/app/Modules/LiveSessions/Http/Controllers/ClassSessionController.php` (`index`) — واحذفِ التعليقَ القائمَ «**«المجموعة» IS THE COURSE**» فقد بطل.
-- [ ] T067 [US3] ⚠️ **اترُكْ `backend/app/Modules/LiveSessions/Actions/GetStudentSchedule.php` بلا لمسةٍ واحدة**، وأضِفْ فوقَه تعليقاً يقولُ لماذا: «حصصي» مبنيّةٌ على حجوزاتِ الطالب، وهي ما يجعلُ FR-025د متحقّقةً بالبناءِ — مقعدٌ محجوزٌ يبقى ظاهراً لصاحبِه سواءٌ أُسنِدَتِ الحصّةُ أم لا.
-- [ ] T068 [US3] مسارا `GET /manage/courses/{course}/unassigned-sessions` و`POST …/assign-sessions` — ⚠️ **إجراءٌ واحدٌ لا حلقةٌ عندَ العميل**: أربعون طلباً هي أربعون فرصةً لأن يفشلَ واحدٌ في المنتصفِ فيبقى نصفُ الجدولِ محجوباً بلا ما يقولُ أيُّ نصف (قاعدةُ ٠١٨ لإجراءِ المضيفِ الجماعيّ).
-- [ ] T069 [US3] امنعْ إسنادَ حصّةٍ **بدأت أو انتهت** بحيثُ يفقدُ أحدٌ حضوراً أو مقعداً (FR-025و) داخلَ `backend/app/Modules/Learning/Actions/AssignSessionsToCohort.php` — الإسنادُ بعدَ الوقوعِ يُصنِّفُ الحصّةَ ولا يُعيدُ توزيعَ حقوقِها.
+- [X] T066 [US3] احجبِ الحصّةَ غيرَ المُسنَدةِ من الاكتشافِ ورشِّحْ بالمجموعةِ في `backend/app/Modules/LiveSessions/Http/Controllers/ClassSessionController.php` (`index`) — واحذفِ التعليقَ القائمَ «**«المجموعة» IS THE COURSE**» فقد بطل.
+- [X] T067 [US3] ⚠️ **اترُكْ `backend/app/Modules/LiveSessions/Actions/GetStudentSchedule.php` بلا لمسةٍ واحدة**، وأضِفْ فوقَه تعليقاً يقولُ لماذا: «حصصي» مبنيّةٌ على حجوزاتِ الطالب، وهي ما يجعلُ FR-025د متحقّقةً بالبناءِ — مقعدٌ محجوزٌ يبقى ظاهراً لصاحبِه سواءٌ أُسنِدَتِ الحصّةُ أم لا.
+- [X] T068 [US3] مسارا `GET /manage/courses/{course}/unassigned-sessions` و`POST …/assign-sessions` — ⚠️ **إجراءٌ واحدٌ لا حلقةٌ عندَ العميل**: أربعون طلباً هي أربعون فرصةً لأن يفشلَ واحدٌ في المنتصفِ فيبقى نصفُ الجدولِ محجوباً بلا ما يقولُ أيُّ نصف (قاعدةُ ٠١٨ لإجراءِ المضيفِ الجماعيّ).
+- [X] T069 [US3] امنعْ إسنادَ حصّةٍ **بدأت أو انتهت** بحيثُ يفقدُ أحدٌ حضوراً أو مقعداً (FR-025و) داخلَ `backend/app/Modules/Learning/Actions/AssignSessionsToCohort.php` — الإسنادُ بعدَ الوقوعِ يُصنِّفُ الحصّةَ ولا يُعيدُ توزيعَ حقوقِها.
 
 ### إصلاحُ «الحصّةِ السابقة» — Q2
 
-- [ ] T070 [US3] ⚠️ أضِفْ `cohort_id` إلى الجلبِ والمطابقةِ في `backend/app/Modules/LiveSessions/Support/EloquentSessionAttendanceDirectory.php` عندَ `previousCountableSessionIds()` (`:193–240`، والمطابقةُ عند `:236–238`). الحصّةُ بلا مجموعةٍ تُطابِقُ الحصّةَ بلا مجموعةٍ فقط. ⚠️ **لا شيءَ فوقَه يتغيّر**: `UnlockResolver` تسألُ العقدَ ولا تحسبُ جدولاً، و`EloquentUnlockDirectory` «تُنسّقُ حكمَ المُحلِّلِ ولا تحسبُ شيئاً من عندِها» — فالإصلاحُ هنا يصلحُ الشاشةَ والبابَ معاً.
+- [X] T070 [US3] ⚠️ أضِفْ `cohort_id` إلى الجلبِ والمطابقةِ في `backend/app/Modules/LiveSessions/Support/EloquentSessionAttendanceDirectory.php` عندَ `previousCountableSessionIds()` (`:193–240`، والمطابقةُ عند `:236–238`). الحصّةُ بلا مجموعةٍ تُطابِقُ الحصّةَ بلا مجموعةٍ فقط. ⚠️ **لا شيءَ فوقَه يتغيّر**: `UnlockResolver` تسألُ العقدَ ولا تحسبُ جدولاً، و`EloquentUnlockDirectory` «تُنسّقُ حكمَ المُحلِّلِ ولا تحسبُ شيئاً من عندِها» — فالإصلاحُ هنا يصلحُ الشاشةَ والبابَ معاً.
 
 ### اختباراتُ US3
 
-- [ ] T071 [P] [US3] ⚠️ `backend/tests/Feature/Learning/CohortConcurrencyTest.php`: انضمامان متزامنان ⇒ **عضويّةٌ مفتوحةٌ واحدة** (SC-008)، وطلبان معلَّقان على **مقعدٍ واحد** ⇒ يدخلُ واحدٌ ويُرفَضُ الآخَرُ بـ`cohort_full` (SC-008أ). ⚠️ **اختبارٌ متسلسلٌ يمرُّ على بناءٍ خالٍ من الاقتناصِ تماماً** — الاستدعاءُ الثاني يعودُ من فرعٍ أعلى؛ التدخّلُ يقعُ **بين** القراءةِ والاقتناصِ بنداءٍ راجعٍ داخلَ تلك النافذة، بلا خيوطٍ ولا `sleep` (نمطُ `OpenBroadcastRoom`).
-- [ ] T072 [P] [US3] `backend/tests/Feature/Learning/CohortTransferPreservesEverythingTest.php` (SC-006): `progress_pct` والمكتملُ والدرجاتُ والشهاداتُ ودفترُ الأخطاءِ والرصيدُ — **متطابقةٌ قبلَ وبعد**.
-- [ ] T073 [P] [US3] `backend/tests/Feature/Learning/CohortPendingRequestTest.php` (SC-008ب): أثناءَ التعليق، جدولُ الطالبِ وحجزُه كما هما بلا فرقٍ واحد.
-- [ ] T074 [P] [US3] ⚠️ `backend/tests/Feature/Learning/CohortGateSafetyValveTest.php` (SC-009أ): كلُّ المجموعاتِ مغلقةٌ أو مكتملة ⇒ **كلُّ الدروسِ المتاحةِ تُفتَح**، وصفرُ أقفالِ `no_cohort`. **احذفِ الصمّامَ وتأكَّدْ أنّ الاختبارَ يسقط**، وإلّا فهو يقيسُ شرطاً آخَر.
-- [ ] T075 [P] [US3] `backend/tests/Feature/Learning/CohortEventLogTest.php` (SC-007): صفٌّ واحدٌ لكلِّ تغييرٍ ومعه الوقتُ والمنفِّذُ والسبب، و**الرفضُ مُقيَّدٌ كالقَبول**، ومحاولةُ تعديلِ صفٍّ أو حذفِه **تُرفَض**.
-- [ ] T076 [P] [US3] ⚠️ `backend/tests/Feature/LiveSessions/CohortPreviousSessionTest.php` (SC-011أ): مجموعتان بمواعيدَ متباعدة — طالبُ الأحدِ يحجزُ ولا يُرفَضُ بسببِ حصّةِ السبت. ⚠️ ويُزيَّفُ **الخطُّ الزمنيُّ وحدَه** عبرَ `fakeSessionTimeline()`؛ `Queue::fake()` عارياً يبتلعُ مستمعَ الشحنِ فتصيرُ نصفُ التأكيداتِ ادّعاءً عن جدولٍ فارغ.
-- [ ] T077 [P] [US3] ⚠️ `backend/tests/Feature/LiveSessions/UnassignedSessionVisibilityTest.php` (SC-011ب): الحصّةُ غيرُ المُسنَدةِ تختفي من الاكتشاف، **ويبقى صاحبُ المقعدِ يراها في «حصصي» ويفتحُ تسجيلَها**؛ والمدرّسُ يرى العددَ الصحيحَ ويُسنِدُ في إجراءٍ واحد.
-- [ ] T078 [P] [US3] `backend/tests/Feature/Tenancy/WorkspaceIsolationTest.php` — أضِفْ حالةً للكياناتِ الأربعةِ الجديدة (المبدأُ الأوّل، غيرُ قابلٍ للتفاوض).
-- [ ] T079 [P] [US3] ⚠️ `backend/tests/Feature/Learning/CohortPlatformReadTest.php`: أيُّ قراءةٍ أو كتابةٍ بصلاحيّةٍ عابرةٍ تُختبَرُ **بمساحتَي عملٍ لا واحدة** — `WorkspaceContext::id()` يرتدُّ إلى `last_workspace_id` لكلِّ مستخدم، فتجهيزٌ بمساحةٍ واحدةٍ يمرُّ ولا يُثبِتُ شيئاً (درسُ `ExecuteTeacherOffboarding`).
+- [X] T071 [P] [US3] ⚠️ `backend/tests/Feature/Learning/CohortConcurrencyTest.php`: انضمامان متزامنان ⇒ **عضويّةٌ مفتوحةٌ واحدة** (SC-008)، وطلبان معلَّقان على **مقعدٍ واحد** ⇒ يدخلُ واحدٌ ويُرفَضُ الآخَرُ بـ`cohort_full` (SC-008أ). ⚠️ **اختبارٌ متسلسلٌ يمرُّ على بناءٍ خالٍ من الاقتناصِ تماماً** — الاستدعاءُ الثاني يعودُ من فرعٍ أعلى؛ التدخّلُ يقعُ **بين** القراءةِ والاقتناصِ بنداءٍ راجعٍ داخلَ تلك النافذة، بلا خيوطٍ ولا `sleep` (نمطُ `OpenBroadcastRoom`).
+- [X] T072 [P] [US3] `backend/tests/Feature/Learning/CohortTransferPreservesEverythingTest.php` (SC-006): `progress_pct` والمكتملُ والدرجاتُ والشهاداتُ ودفترُ الأخطاءِ والرصيدُ — **متطابقةٌ قبلَ وبعد**.
+- [X] T073 [P] [US3] `backend/tests/Feature/Learning/CohortPendingRequestTest.php` (SC-008ب): أثناءَ التعليق، جدولُ الطالبِ وحجزُه كما هما بلا فرقٍ واحد.
+- [X] T074 [P] [US3] ⚠️ `backend/tests/Feature/Learning/CohortGateSafetyValveTest.php` (SC-009أ): كلُّ المجموعاتِ مغلقةٌ أو مكتملة ⇒ **كلُّ الدروسِ المتاحةِ تُفتَح**، وصفرُ أقفالِ `no_cohort`. **احذفِ الصمّامَ وتأكَّدْ أنّ الاختبارَ يسقط**، وإلّا فهو يقيسُ شرطاً آخَر.
+- [X] T075 [P] [US3] `backend/tests/Feature/Learning/CohortEventLogTest.php` (SC-007): صفٌّ واحدٌ لكلِّ تغييرٍ ومعه الوقتُ والمنفِّذُ والسبب، و**الرفضُ مُقيَّدٌ كالقَبول**، ومحاولةُ تعديلِ صفٍّ أو حذفِه **تُرفَض**.
+- [X] T076 [P] [US3] ⚠️ `backend/tests/Feature/LiveSessions/CohortPreviousSessionTest.php` (SC-011أ): مجموعتان بمواعيدَ متباعدة — طالبُ الأحدِ يحجزُ ولا يُرفَضُ بسببِ حصّةِ السبت. ⚠️ ويُزيَّفُ **الخطُّ الزمنيُّ وحدَه** عبرَ `fakeSessionTimeline()`؛ `Queue::fake()` عارياً يبتلعُ مستمعَ الشحنِ فتصيرُ نصفُ التأكيداتِ ادّعاءً عن جدولٍ فارغ.
+- [X] T077 [P] [US3] ⚠️ `backend/tests/Feature/LiveSessions/UnassignedSessionVisibilityTest.php` (SC-011ب): الحصّةُ غيرُ المُسنَدةِ تختفي من الاكتشاف، **ويبقى صاحبُ المقعدِ يراها في «حصصي» ويفتحُ تسجيلَها**؛ والمدرّسُ يرى العددَ الصحيحَ ويُسنِدُ في إجراءٍ واحد.
+- [X] T078 [P] [US3] `backend/tests/Feature/Tenancy/WorkspaceIsolationTest.php` — أضِفْ حالةً للكياناتِ الأربعةِ الجديدة (المبدأُ الأوّل، غيرُ قابلٍ للتفاوض).
+- [X] T079 [P] [US3] ⚠️ `backend/tests/Feature/Learning/CohortPlatformReadTest.php`: أيُّ قراءةٍ أو كتابةٍ بصلاحيّةٍ عابرةٍ تُختبَرُ **بمساحتَي عملٍ لا واحدة** — `WorkspaceContext::id()` يرتدُّ إلى `last_workspace_id` لكلِّ مستخدم، فتجهيزٌ بمساحةٍ واحدةٍ يمرُّ ولا يُثبِتُ شيئاً (درسُ `ExecuteTeacherOffboarding`).
 
 ### واجهةُ US3
 
-- [ ] T080 [P] [US3] `frontend/src/components/courses/CohortPicker.tsx` — ⚠️ يعرضُ لكلِّ مجموعةٍ **مواعيدَها ومقاعدَها المتبقّية**: الاختيارُ بين أسماءٍ مجرّدةٍ ليس اختياراً (FR-028أ).
-- [ ] T081 [P] [US3] `frontend/src/components/courses/CohortSwitcher.tsx` — طلبُ الانتقالِ وحالةُ التعليقِ وسببُ الرفضِ المقروء.
-- [ ] T082 [US3] اربطِ البوّابةَ في `frontend/src/app/(app)/(shell)/enrollments/[course]/page.tsx`: `cohort_gate.required && !satisfied && joinable_exists` ⇒ شاشةُ اختيارٍ قبلَ أيِّ محتوى؛ وإن كانت `joinable_exists` **`false`** ⇒ المنهجُ كاملاً وجملةٌ تقولُ لماذا.
-- [ ] T083 [P] [US3] اختبارُ `frontend/src/components/courses/CohortPicker.test.tsx`: المجموعةُ المكتملةُ غيرُ قابلةٍ للاختيار · «اكتملت» تُعرَضُ بعدَ رفضٍ متزامنٍ ويُعادُ عرضُ الباقي.
-- [ ] T084 [P] [US3] شاشةُ المدرّسِ `frontend/src/app/(app)/(shell)/manage/courses/[course]/cohorts/page.tsx`: المجموعاتُ والأعضاءُ والطابورُ والسجلُّ وقائمةُ الحصصِ المحجوبةِ بعددِها وزرِّ إسنادٍ واحد.
-- [ ] T085 [US3] ⚠️ اربطْ شاشةَ المدرّسِ من صفحةِ إدارةِ الكورس. **سطحٌ لا يصلُه رابطٌ سطحٌ غيرُ مُسلَّم** — ولا يراهُ `tsc` ولا `npm test`.
+- [X] T080 [P] [US3] `frontend/src/components/courses/CohortPicker.tsx` — ⚠️ يعرضُ لكلِّ مجموعةٍ **مواعيدَها ومقاعدَها المتبقّية**: الاختيارُ بين أسماءٍ مجرّدةٍ ليس اختياراً (FR-028أ).
+- [X] T081 [P] [US3] `frontend/src/components/courses/CohortSwitcher.tsx` — طلبُ الانتقالِ وحالةُ التعليقِ وسببُ الرفضِ المقروء.
+- [X] T082 [US3] اربطِ البوّابةَ في `frontend/src/app/(app)/(shell)/enrollments/[course]/page.tsx`: `cohort_gate.required && !satisfied && joinable_exists` ⇒ شاشةُ اختيارٍ قبلَ أيِّ محتوى؛ وإن كانت `joinable_exists` **`false`** ⇒ المنهجُ كاملاً وجملةٌ تقولُ لماذا.
+- [X] T083 [P] [US3] اختبارُ `frontend/src/components/courses/CohortPicker.test.tsx`: المجموعةُ المكتملةُ غيرُ قابلةٍ للاختيار · «اكتملت» تُعرَضُ بعدَ رفضٍ متزامنٍ ويُعادُ عرضُ الباقي.
+- [X] T084 [P] [US3] شاشةُ المدرّسِ `frontend/src/app/(app)/(shell)/manage/courses/[course]/cohorts/page.tsx`: المجموعاتُ والأعضاءُ والطابورُ والسجلُّ وقائمةُ الحصصِ المحجوبةِ بعددِها وزرِّ إسنادٍ واحد.
+- [X] T085 [US3] ⚠️ اربطْ شاشةَ المدرّسِ من صفحةِ إدارةِ الكورس. **سطحٌ لا يصلُه رابطٌ سطحٌ غيرُ مُسلَّم** — ولا يراهُ `tsc` ولا `npm test`.
+
+### إشعاراتُ US3 — FR-028ح
+
+- [X] T085أ [US3] ثلاثةُ أنواعٍ في `backend/app/Modules/Notifications/Support/NotificationType.php`: `cohort_transfer_requested` · `cohort_transfer_approved` · `cohort_transfer_rejected`. ⚠️ **القبولُ والرفضُ نوعان لا نوعٌ واحدٌ بعَلَم**: الرفضُ يحملُ `decision_reason` والقبولُ لا يحملُه، و`TemplateRenderer` يعدُّ المتغيّرَ الموجودَ الفارغَ **مفقوداً** ويرفضُ العرض — فنوعٌ واحدٌ يعني إسقاطَ كلِّ قبولٍ على المنصّةِ في صمت (درسُ `penalty_note`). ولا يستهدفُ أيُّها وليَّ أمرٍ: `defaultChannels()` مشتقٌّ من `targetsGuardians()`، وتسميتُها هناك رسالةٌ مدفوعةٌ على هاتفِ كلِّ وليٍّ لتفضيلِ موعد.
+- [X] T085ب [US3] صفوفُها الثلاثةُ في `backend/database/seeders/NotificationTemplateSeeder.php`، وتصنيفُها تحتَ `Sessions` في `NotificationCategory` — ⚠️ **نوعٌ غيرُ مصنَّفٍ يُسقِطُه `NotificationCategoryTest`**، والخريطةُ فئةٌ ← أنواعٌ في اتّجاهٍ واحدٍ حتى لا يُصبِحَ النسيانُ `UnhandledMatchError` في وجهِ المستقبِل.
+- [X] T085ج [US3] ⚠️ هجرةُ ردمٍ `…/Learning/Database/Migrations/2026_08_27_000600_backfill_cohort_notification_templates.php` تستدعي `seedMissing()` لا `run()`. **إشعارٌ بلا قالبٍ يسقطُ في صمت**، والهجرةُ العامّةُ في ٢٥ أغسطس قد جرَتْ فلن تجريَ ثانيةً — نوعٌ يُضافُ بعدَها يحتاجُ ملفَّه. (أوّلُ إعلانٍ حيٍّ في سبيك ٠١٠ بلغَ صفراً من ثلاثةِ طلابٍ بهذه الطريقةِ نفسِها، والاختباراتُ كلُّها خضراء.)
+- [X] T085د [US3] حدثان في `…/Learning/Events/`: `CohortTransferRequested` و`CohortTransferDecided($request, approved)` — الاقترانُ بين الوحداتِ بحدثٍ لا بنداءٍ مباشر.
+- [X] T085هـ [US3] مستمعان في `…/Notifications/Listeners/` مربوطان في `NotificationsServiceProvider`. ⚠️ **`ShouldHandleEventsAfterCommit` مع `ShouldQueue`**: الحدثُ يُطلَقُ داخلَ المعاملةِ التي تكتبُ الصفَّ، فبدونَه يلتقطُ العاملُ المهمّةَ قبلَ الالتزامِ ولا يجدُ صفّاً — بصمتٍ، وعلى اتّصالِ `redis` وحدَه لا على `sync` الذي تجري عليه كلُّ الاختبارات.
+- [X] T085و [US3] `backend/tests/Feature/Learning/CohortTransferNotificationTest.php` (٤) — ⚠️ **كلُّ حالةٍ تؤكِّدُ على `body_ar` المعروضِ لا على عددِ صفوف**: القالبُ المفقودُ يُسقِطُ الرسالةَ بلا خطأ، وعدُّ الصفوفِ يفشلُ لسببٍ لا يُسمّي شيئاً. وحالةُ الرفضِ تؤكِّدُ أنّ **كلماتِ المدرّسِ نفسَها** داخلَ الرسالة.
 
 **Checkpoint**: المجموعاتُ تعمل. **كورسٌ بلا مجموعاتٍ يجتازُ US1 وUS2 كاملتين بلا تعديلِ صفٍّ واحد** (SC-009).
 

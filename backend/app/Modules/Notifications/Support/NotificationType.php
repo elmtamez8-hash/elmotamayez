@@ -218,6 +218,29 @@ enum NotificationType: string
 
     case AnnouncementUrgent = 'announcement_urgent';
 
+    /*
+    | Spec 021 · FR-028ح — the group transfer, and it is THREE types.
+    |
+    | ⚠️ APPROVED AND REJECTED ARE SEPARATE, AND THE REASON IS THE RENDERER
+    | RATHER THAN TASTE. A rejection must carry the written reason the student
+    | reads — that is the whole of FR-028ح — while an approval has none, and
+    | `TemplateRenderer` counts a present-but-empty variable as MISSING and
+    | refuses to render. One type would therefore mean one template holding
+    | `{{ decision_reason }}`, and every approval on the platform would be dropped
+    | in silence. It is the `penalty_note` lesson reached from the other side.
+    |
+    | ⚠️ AND NONE OF THEM TARGETS A GUARDIAN. A parent does not choose which
+    | Saturday their child studies on, and `defaultChannels()` is derived from
+    | `targetsGuardians()` — naming them there would put a paid WhatsApp message on
+    | every parent's phone for a timetable preference, which is how the number
+    | gets muted and the attendance alert goes with it.
+    */
+    case CohortTransferRequested = 'cohort_transfer_requested';
+
+    case CohortTransferApproved = 'cohort_transfer_approved';
+
+    case CohortTransferRejected = 'cohort_transfer_rejected';
+
     public function label(): string
     {
         return match ($this) {
@@ -272,6 +295,9 @@ enum NotificationType: string
             self::PeriodicReviewPublished => 'تقييم دوري جديد',
             self::Announcement => 'إعلان من المدرّس',
             self::AnnouncementUrgent => 'إعلان عاجل',
+            self::CohortTransferRequested => 'طلب انتقال بين المجموعات',
+            self::CohortTransferApproved => 'قبول طلب الانتقال',
+            self::CohortTransferRejected => 'رفض طلب الانتقال',
         };
     }
 

@@ -280,6 +280,34 @@ class NotificationTemplateSeeder extends Seeder
             | on time. A mark lower than expected with no stated cause is the
             | message a student replies to; a message that never arrives is worse.
             */
+            /*
+            | 021 · FR-028ح. Three rows, and the rejection is the one the
+            | requirement is actually about: «الرفضُ يحملُ سبباً مكتوباً يقرأُه
+            | الطالب». `decision_reason` is mandatory in the Action, so it can
+            | never arrive empty here — which is what lets it sit in the body at
+            | all, since a present-but-empty variable makes TemplateRenderer
+            | refuse the whole message.
+            |
+            | ⚠️ AND THE APPROVAL SAYS THE SEATS WERE GIVEN UP. Moving group
+            | cancels the student's future bookings in the one they left (FR-030);
+            | a congratulation that does not mention it leaves them expecting a
+            | lesson that is no longer theirs.
+            */
+            NotificationType::CohortTransferRequested->value => [
+                'طلب انتقال في «{{ course_title }}»',
+                'يطلب {{ student_name }} الانتقال من «{{ from_cohort }}» إلى «{{ to_cohort }}». افتح مجموعات الكورس للبتّ في الطلب.',
+                ['student_name', 'course_title', 'from_cohort', 'to_cohort'],
+            ],
+            NotificationType::CohortTransferApproved->value => [
+                'قُبل انتقالك إلى «{{ to_cohort }}»',
+                'وافق مدرّسك على انتقالك إلى مجموعة «{{ to_cohort }}» في «{{ course_title }}». مواعيدك الجديدة في جدولك، وحجوزاتك القادمة في مجموعتك السابقة أُلغيت.',
+                ['to_cohort', 'course_title'],
+            ],
+            NotificationType::CohortTransferRejected->value => [
+                'لم يُقبل انتقالك إلى «{{ to_cohort }}»',
+                'لم يوافق مدرّسك على انتقالك إلى «{{ to_cohort }}» في «{{ course_title }}». السبب: {{ decision_reason }} — وما زلت في مجموعتك الحالية بكامل حقوقك.',
+                ['to_cohort', 'course_title', 'decision_reason'],
+            ],
             NotificationType::AssignmentSubmitted->value => [
                 'تسليم جديد في «{{ assignment_title }}»',
                 'سلّم {{ student_name }} واجب «{{ assignment_title }}». افتح اللوحة لتصحيحه.',

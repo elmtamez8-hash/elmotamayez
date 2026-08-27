@@ -86,6 +86,12 @@ enum NotificationCategory: string
                 NotificationType::SessionCancelled,
                 NotificationType::SessionRecordingFailed,
                 NotificationType::SessionRecordingUnavailable,
+                // 021. A group IS a timetable — the picker shows nothing but
+                // session times — so a transfer belongs beside the sessions it
+                // moves, not under «الدراسة».
+                NotificationType::CohortTransferRequested,
+                NotificationType::CohortTransferApproved,
+                NotificationType::CohortTransferRejected,
             ],
             self::Achievements => [
                 NotificationType::CertificateIssued,

@@ -199,7 +199,7 @@ class EloquentSessionAttendanceDirectory implements SessionAttendanceDirectory
         $targets = ClassSession::query()
             ->withoutWorkspaceScope()
             ->whereIn('id', $classSessionIds)
-            ->get(['id', 'workspace_id', 'course_id', 'starts_at']);
+            ->get(['id', 'workspace_id', 'course_id', 'cohort_id', 'starts_at']);
 
         $out = [];
 
@@ -214,9 +214,16 @@ class EloquentSessionAttendanceDirectory implements SessionAttendanceDirectory
         /*
          | One query for the whole candidate pool rather than one per target:
          | the timetable asks about twenty sessions at once, and the index
-         | `(workspace_id, course_id, starts_at)` added in step 11b is what makes
-         | this cheap. Candidates are every countable session of the courses
-         | involved that started before the latest target.
+         | `(workspace_id, course_id, cohort_id, starts_at)` is what makes this
+         | cheap. Candidates are every countable session of the courses involved
+         | that started before the latest target.
+         |
+         | ⚠️ AND «THE PREVIOUS SESSION» IS THE PREVIOUS ONE IN THE STUDENT'S OWN
+         | GROUP (FR-025أ). Two groups meeting on different days meant the
+         | Sunday student's «previous» could be Saturday's class — a booking
+         | refused over a session they were never in, whose reason CANNOT EVEN BE
+         | SHOWN to them, because that session is hidden from their timetable by
+         | FR-025. A refusal with no action behind it and no readable cause.
          */
         $candidates = ClassSession::query()
             ->withoutWorkspaceScope()
@@ -225,7 +232,7 @@ class EloquentSessionAttendanceDirectory implements SessionAttendanceDirectory
             ->whereIn('status', [ClassSessionStatus::Completed->value, ClassSessionStatus::Live->value, ClassSessionStatus::Interrupted->value])
             ->where('starts_at', '<', $targets->max('starts_at'))
             ->orderByDesc('starts_at')
-            ->get(['id', 'workspace_id', 'course_id', 'starts_at']);
+            ->get(['id', 'workspace_id', 'course_id', 'cohort_id', 'starts_at']);
 
         foreach ($targets as $target) {
             if ($target->course_id === null) {
@@ -233,8 +240,18 @@ class EloquentSessionAttendanceDirectory implements SessionAttendanceDirectory
             }
 
             $previous = $candidates->first(
+                /*
+                 | ⚠️ THE COHORT IS COMPARED WITH NULLS INTACT, never through a
+                 | cast. `(int) null === 0`, so casting both sides makes every
+                 | unassigned session match every other unassigned session AND
+                 | any group whose id happened to be zero — and, worse, it makes
+                 | an assigned session in a course with no groups indistinguishable
+                 | from one that has them. A session with no group matches a
+                 | session with no group, and nothing else.
+                 */
                 fn (ClassSession $candidate): bool => (int) $candidate->workspace_id === (int) $target->workspace_id
                     && (int) $candidate->course_id === (int) $target->course_id
+                    && self::sameCohort($candidate->cohort_id, $target->cohort_id)
                     && $candidate->starts_at < $target->starts_at,
             );
 
@@ -346,5 +363,15 @@ class EloquentSessionAttendanceDirectory implements SessionAttendanceDirectory
             ->all();
 
         return $ids;
+    }
+
+    /** Null matches null; anything else matches by value. */
+    private static function sameCohort(mixed $left, mixed $right): bool
+    {
+        if ($left === null || $right === null) {
+            return $left === null && $right === null;
+        }
+
+        return (int) $left === (int) $right;
     }
 }

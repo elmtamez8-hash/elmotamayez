@@ -83,7 +83,17 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/class-sessions/{session}/participants', [BroadcastController::class, 'participants'])
         ->middleware('throttle:presence');
 
+    /*
+    | Q3 · FR-025هـ — what creating the first group of a course has hidden, and
+    | the one request that files it. ⚠️ `throttle:sessions`, the existing named
+    | limiter for schedule writes: an inline `throttle:N,M` shares one counter
+    | with every other inline limit in the application.
+    */
+    Route::get('/manage/courses/{course}/unassigned-sessions', [ClassSessionController::class, 'unassignedSessions']);
+
     Route::middleware('throttle:sessions')->group(function (): void {
+        Route::post('/manage/courses/{course}/assign-sessions', [ClassSessionController::class, 'assignSessions']);
+
         Route::post('/class-sessions', [ClassSessionController::class, 'store']);
         Route::post('/class-sessions/generate', [ClassSessionController::class, 'generate']);
         Route::put('/class-sessions/{session}', [ClassSessionController::class, 'update']);

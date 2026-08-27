@@ -62,26 +62,19 @@ class CurriculumResource extends JsonResource
                 'resume_lesson_uuid' => $this->resumeUuid($view),
             ],
             /*
-            | ⚠️ A PLACEHOLDER, AND DELIBERATELY NOT A STUB DIRECTORY (US3 · T063).
+            | ⚠️ THE VALVE IS THE HALF THAT MATTERS (FR-028ب). `required` with
+            | `satisfied: false` and `joinable_exists: false` means the page
+            | shows the WHOLE curriculum and a sentence saying why there is no
+            | group to pick — not a locked tree. A condition no action of the
+            | student's can satisfy is a permanent lock on content they have
+            | already paid for, and `LessonGate` agrees with this block by
+            | construction: both read `CohortGate`.
             |
-            | Groups do not exist yet — there is no table, no membership and no
-            | migration in this phase. Sending `required: false` is therefore the
-            | TRUE answer for every course today, not a lie waiting to be fixed:
-            | no course requires a group, so no student is missing one.
-            |
-            | It is present rather than absent so the client is written against
-            | the shape once. When T063 lands it fills these four fields from
-            | `CohortDirectory` — and `joinable_exists` is the safety valve
-            | (FR-028ب): a course that requires a group while none is joinable
-            | must open completely, because a condition no action can satisfy is a
-            | permanent lock on content somebody paid for.
+            | ⚠️ AND IT IS COMPUTED IN THE ACTION. A Resource runs once per row;
+            | the day this block moves down into `row()` it becomes three queries
+            | per lesson on a 200-item course.
             */
-            'cohort_gate' => [
-                'required' => false,
-                'satisfied' => true,
-                'joinable_exists' => false,
-                'message' => null,
-            ],
+            'cohort_gate' => $view->cohortGate->toArray(),
             'sections' => $sections,
         ];
     }
