@@ -61,6 +61,22 @@ class Exam extends BaseModel
     }
 
     /**
+     * Every sitting of this paper, by anybody.
+     *
+     * ⚠️ NOT NARROWED HERE. A relation that filtered to the current user would be
+     * a second answer to «whose attempt is this», in a place no caller can see —
+     * and grading and the item analysis both need the whole set. The caller
+     * constrains it; `ExamController@index` does so with the reader's own id and
+     * `is_practice = false`, because a practice run is not a result.
+     *
+     * @return HasMany<Attempt, $this>
+     */
+    public function attempts(): HasMany
+    {
+        return $this->hasMany(Attempt::class);
+    }
+
+    /**
      * The bank questions this exam includes, in their exam order.
      *
      * ⚠️ THIS USED TO BE `hasMany(Question::class)` ON `questions.exam_id`, and

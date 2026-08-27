@@ -13,7 +13,9 @@ use App\Modules\Courses\Support\MarkdownRenderer;
 use App\Modules\Courses\Support\ReferenceSummary;
 use App\Modules\Learning\Actions\EnrollStudent;
 use App\Modules\Learning\Actions\MarkLessonComplete;
+use App\Modules\Learning\Actions\ReadCourseAnnouncements;
 use App\Modules\Learning\Actions\ReadCurriculum;
+use App\Modules\Learning\Http\Resources\CourseAnnouncementResource;
 use App\Modules\Learning\Http\Resources\CurriculumResource;
 use App\Modules\Learning\Http\Resources\EnrollmentResource;
 use App\Modules\Learning\Models\Enrollment;
@@ -70,21 +72,67 @@ class EnrollmentController extends Controller
      */
     public function curriculum(Request $request, Course $course, ReadCurriculum $action): JsonResponse
     {
-        $enrollment = Enrollment::query()
-            ->where('course_id', $course->getKey())
-            ->where('student_user_id', $this->currentUser($request)->getKey())
-            ->first();
+        $enrollment = $this->enrolmentIn($request, $course);
 
         if ($enrollment === null) {
-            return response()->json([
-                'message' => 'لا تملك تسجيلاً في هذا الكورس.',
-                'code' => LessonAccess::NOT_ENROLLED,
-            ], 403);
+            return $this->notEnrolled();
         }
 
         $this->authorize('view', $enrollment);
 
         return response()->json(CurriculumResource::make($action->handle($enrollment)));
+    }
+
+    /**
+     * What was said about this course, for the student it was said to (US2 ·
+     * FR-019).
+     *
+     * The same enrolment guard as {@see curriculum()} and for the same reason: a
+     * student has no workspace context, so the implicit `{course}` binding
+     * resolves any teacher's course by uuid and nothing but a row in
+     * `enrollments` stands in front of this payload.
+     */
+    public function announcements(Request $request, Course $course, ReadCourseAnnouncements $action): JsonResponse
+    {
+        $enrollment = $this->enrolmentIn($request, $course);
+
+        if ($enrollment === null) {
+            return $this->notEnrolled();
+        }
+
+        $this->authorize('view', $enrollment);
+
+        return response()->json([
+            'data' => CourseAnnouncementResource::collection($action->handle($course)),
+        ]);
+    }
+
+    /**
+     * The reader's own enrolment in this course, or null.
+     *
+     * ⚠️ ONE SPELLING FOR EVERY DOOR ONTO THE COURSE PAGE. Two endpoints asking
+     * «is this course theirs» in two ways is the defect this repository keeps
+     * paying for — one answer on the screen and another behind the button.
+     */
+    private function enrolmentIn(Request $request, Course $course): ?Enrollment
+    {
+        return Enrollment::query()
+            ->where('course_id', $course->getKey())
+            ->where('student_user_id', $this->currentUser($request)->getKey())
+            ->first();
+    }
+
+    /**
+     * `403`, not `404`: the reader is authenticated and the course is one they
+     * could buy — pretending it does not exist would break the buy button beside
+     * the message.
+     */
+    private function notEnrolled(): JsonResponse
+    {
+        return response()->json([
+            'message' => 'لا تملك تسجيلاً في هذا الكورس.',
+            'code' => LessonAccess::NOT_ENROLLED,
+        ], 403);
     }
 
     public function showLesson(Request $request, Enrollment $enrollment, Lesson $lesson): JsonResponse

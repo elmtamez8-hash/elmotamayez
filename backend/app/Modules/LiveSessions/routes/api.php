@@ -27,6 +27,23 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/schedule', [ScheduleController::class, 'index']);
     Route::get('/schedule/next', [ScheduleController::class, 'next']);
 
+    // The next session of ONE course, for the header of its page (FR-015).
+    // Deliberately not `/schedule/next?course=`: that one reads the student's
+    // own bookings across every teacher, and this header must name the next
+    // lesson whether or not a seat has been taken yet.
+    Route::get('/courses/{course}/next-session', [ScheduleController::class, 'nextForCourse']);
+
+    /*
+     | Every session of one course, for its page's tab (FR-016).
+     |
+     | ⚠️ NOT `/class-sessions?course=`, WHICH ANSWERS A REAL STUDENT `403`.
+     | `ClassSessionPolicy::viewAny()` asks for `SESSIONS_VIEW`, and a student
+     | holds no spatie team id — they are a member of no workspace, so the
+     | context is null and every `can()` below it is false. The route a student
+     | can use is one whose guard is the ENROLMENT.
+     */
+    Route::get('/courses/{course}/sessions', [ScheduleController::class, 'forCourse']);
+
     Route::get('/freeze-periods', [FreezePeriodController::class, 'index']);
 
     Route::get('/class-sessions', [ClassSessionController::class, 'index']);

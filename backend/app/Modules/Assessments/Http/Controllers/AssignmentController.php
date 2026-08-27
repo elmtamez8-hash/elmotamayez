@@ -18,7 +18,9 @@ use App\Modules\Assessments\Http\Resources\AssignmentResource;
 use App\Modules\Assessments\Http\Resources\SubmissionResource;
 use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\Submission;
+use App\Modules\Assessments\Support\StudentScope;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use DomainException;
@@ -37,7 +39,7 @@ use Illuminate\Http\UploadedFile;
  */
 class AssignmentController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, EnrollmentDirectory $enrollments): JsonResponse
     {
         $user = $this->currentUser($request);
         $manages = $user->can(Permissions::ASSIGNMENTS_MANAGE);
@@ -46,6 +48,17 @@ class AssignmentController extends Controller
         // with no deadline is a real row, and it must not lead or trail by
         // accident of database.
         $query = Assignment::query()
+            /*
+             | ⚠️ MATCHED THROUGH THE RELATION, SO AN UNKNOWN UUID MATCHES NOTHING
+             | — the `ClassSessionController@index` idiom and its reasons. No
+             | `exists:` rule (Laravel's is a raw query with no tenant condition),
+             | and a filter whose value cannot be resolved empties the list rather
+             | than silently returning the unfiltered one.
+             */
+            ->when(
+                $request->query('course'),
+                fn (Builder $q, $uuid): Builder => $q->whereHas('course', fn (Builder $course): Builder => $course->where('uuid', $uuid)),
+            )
             ->orderByRaw('CASE WHEN due_at IS NULL THEN 1 ELSE 0 END')
             ->orderByDesc('due_at');
 
@@ -55,6 +68,17 @@ class AssignmentController extends Controller
                 'submissions as pending_count' => fn (Builder $q): Builder => $q->whereNotNull('submitted_at')->whereNull('graded_at'),
             ]);
         } else {
+            /*
+             | ⚠️ THE READER'S OWN SLICE, WITHOUT WHICH THERE IS NO TENANT
+             | CONDITION AT ALL. `WorkspaceScope` adds nothing when the context is
+             | null, which it always is for a student — so this branch answered
+             | any signed-in student with every published deadline on the
+             | PLATFORM: other teachers' titles, due dates and point values. See
+             | {@see StudentScope}, which carries the measurement and the reason
+             | a course-less assignment needs a second predicate.
+             */
+            StudentScope::applyIfUnscoped($query, $user, $enrollments);
+
             // Published only, and the reader's own row attached — one eager load
             // rather than a submission lookup per card.
             // ⚠️ `submissions.media` AND NOT JUST `submissions`. The Resource

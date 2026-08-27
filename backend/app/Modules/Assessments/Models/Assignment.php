@@ -6,6 +6,7 @@ namespace App\Modules\Assessments\Models;
 
 use App\Models\BaseModel;
 use App\Models\User;
+use App\Modules\Courses\Models\Course;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Builder;
@@ -96,6 +97,20 @@ class Assignment extends BaseModel
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * The course this homework belongs to, if it belongs to one.
+     *
+     * `course_id` has been fillable since 008 and carried by every real row; the
+     * relation was simply never written, so «this course's homework» could only
+     * be asked by joining on an internal id from outside the model.
+     *
+     * @return BelongsTo<Course, $this>
+     */
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
     }
 
     public function isPublished(): bool

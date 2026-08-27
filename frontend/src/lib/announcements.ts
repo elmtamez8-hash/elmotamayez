@@ -3,12 +3,17 @@ import { api } from "./api";
 /**
  * The teacher's announcements (spec 010 · US6).
  *
- * ⚠️ THERE IS NO STUDENT CLIENT HERE, AND THE ABSENCE IS THE DESIGN. `FR-044`
- * makes the notification centre the delivery, so the recipient's whole surface is
- * the bell — which is also why the notification body carries the announcement
- * verbatim rather than a link to a screen that does not exist. Nor is there a
- * reply call: `FR-045` sends answers to the private conversation, which is one
- * tap away and already moderated.
+ * ⚠️ STILL THE TEACHER'S CLIENT, AND STILL THE ONLY ONE HERE. 010's `FR-044`
+ * made the notification centre the delivery, so the recipient's whole surface
+ * was the bell — which is why the notification body carries the announcement
+ * verbatim rather than a link to a screen that did not exist. Spec 021 added the
+ * screen: `courseHub.announcements()` in `lib/course-hub.ts` reads one course's
+ * notices for the student they were addressed to, from a different route and
+ * with a different payload. It is NOT this type with fields removed — the
+ * counters below are the publisher's question and a headcount of the class.
+ *
+ * There is still no reply call: `FR-045` sends answers to the private
+ * conversation, which is one tap away and already moderated.
  *
  * ⚠️ AND THE RESPONSE SHAPE FOLLOWS THE RULE WRITTEN IN `lib/reviews.ts`:
  * `JsonResource::withoutWrapping()` is on, so a collection serialises as a bare

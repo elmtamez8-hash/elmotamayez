@@ -41,6 +41,18 @@ export interface ClassSession {
    * meantime. Badge and room button both read this, not the status alone.
    */
   room_closed: boolean;
+  /**
+   * Whether the door is open right now — ANSWERED BY THE SERVER.
+   *
+   * The join window is a `platform_settings` row an operator tunes and the
+   * room's own closure sits inside it, so a client computing this from
+   * `starts_at` and a constant offers a button the server answers «تعذّر
+   * الدخول» — and goes on offering it on a machine whose clock is wrong.
+   *
+   * It says nothing about entitlement: a seat, a balance and a piece of
+   * homework are all still asked at the door.
+   */
+  join_open: boolean;
   starts_at: string;
   ends_at: string;
   duration_minutes: number;
@@ -268,6 +280,56 @@ export const classSessions = {
   },
 
   show: (uuid: string) => api.get<ClassSession>(`/class-sessions/${uuid}`),
+
+  /**
+   * Every session of ONE course, for its page's tab (021 · FR-016).
+   *
+   * ⚠️ NOT `list({ course })`, WHICH ANSWERS A REAL STUDENT `403`. That route is
+   * the teacher's calendar: `ClassSessionPolicy::viewAny()` asks for
+   * `SESSIONS_VIEW`, and a student holds no spatie team id — a member of no
+   * workspace has a null context, so every permission check below it is false.
+   * Built on it, the tab caught the refusal into an empty list and told a
+   * student with a lesson every week «لا حصص في هذه المادّة بعد». The route a
+   * student can use is the one whose guard is their ENROLMENT.
+   *
+   * ⚠️ AND IT IS BOUNDED FROM BOTH ENDS ON THE SERVER — «the oldest fifty».
+   * `/class-sessions` paginates at fifty ascending, so an unbounded read of a
+   * course in its second term returns its first fifty lessons and no upcoming
+   * one at all, including the session the header above is counting down to.
+   */
+  forCourse: (courseUuid: string) =>
+    api.get<{ data: ClassSession[] }>(`/courses/${courseUuid}/sessions`),
+
+  /**
+   * The next session of ONE course, for the header of its page (021 · FR-015).
+   *
+   * ⚠️ NOT `/schedule/next`, WHICH IS A DIFFERENT QUESTION. That one reads the
+   * reader's own BOOKINGS across every teacher they study with — the right
+   * answer for a timetable and the wrong shape for a course header, which must
+   * name the next lesson of this course whether or not a seat has been taken.
+   * A student who has not booked is exactly the student the header exists for.
+   *
+   * `data: null` is the answer for «no next session», not an error and not an
+   * empty countdown.
+   */
+  nextForCourse: (courseUuid: string) =>
+    api.get<{
+      data: ClassSession | null;
+      seconds_until_start?: number;
+      /**
+       * How long until the door opens — `0` for open now, `null` for never
+       * again (a closed room, or a window already past).
+       *
+       * ⚠️ WITHOUT TICKING THIS DOWN THE BUTTON NEVER APPEARS ON A PAGE LEFT
+       * OPEN. `join_open` is answered once, at fetch, so a student who opens the
+       * course twenty minutes early watches the countdown reach «بدأت الآن»
+       * while the footer still says the door is shut — until they reload.
+       * Seeded by the server for the same reason the other countdown is: the
+       * browser may tick a number down, never derive it from a clock that may
+       * be an hour out (SC-016).
+       */
+      seconds_until_join_open?: number | null;
+    }>(`/courses/${courseUuid}/next-session`),
 
   /**
    * One session, off the weekly pattern (FR-002).

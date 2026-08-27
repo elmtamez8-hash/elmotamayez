@@ -35,7 +35,18 @@ class CertificateController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = Certificate::query()->with(['course', 'student']);
+        $query = Certificate::query()
+            ->with(['course', 'student'])
+            /*
+             | ⚠️ MATCHED THROUGH THE RELATION, SO AN UNKNOWN UUID MATCHES NOTHING
+             | — the `ClassSessionController@index` idiom. FR-020's tab asks for
+             | one course's certificate; a filter silently dropped would hand the
+             | reader every certificate they hold under one course's heading.
+             */
+            ->when(
+                $request->query('course'),
+                fn ($q, $uuid) => $q->whereHas('course', fn ($course) => $course->where('uuid', $uuid)),
+            );
 
         if (! $this->currentUser($request)->can(Permissions::CERTIFICATES_VIEW_ALL)) {
             $query->where('student_user_id', $this->currentUser($request)->getKey());

@@ -63,6 +63,24 @@ interface EnrollmentDirectory
     public function activeCourseIdsFor(User $user): array;
 
     /**
+     * Every workspace this user is actively studying in.
+     *
+     * ⚠️ IT IS NOT `activeCourseIdsFor()` MAPPED TO WORKSPACES, AND THE
+     * DIFFERENCE IS WHAT IT EXISTS FOR. Both `exams.course_id` and
+     * `assignments.course_id` are NULLABLE by design — a teacher may set one
+     * paper for all their students — so a list narrowed by course alone hides
+     * every course-less item from the very people it was written for.
+     *
+     * A student is a member of no workspace at all (only `AcceptInvitation` and
+     * `CreateWorkspace` write that pivot), so «which teachers do I study with»
+     * cannot be answered from `workspace_members` and has no other home: the
+     * enrolment is the only row that says so.
+     *
+     * @return list<int>
+     */
+    public function activeWorkspaceIdsFor(User $user): array;
+
+    /**
      * Every enrolment id this user holds, whatever its status (spec 013).
      *
      * ⚠️ DELIBERATELY NOT FILTERED BY STATUS, unlike every other method here. The

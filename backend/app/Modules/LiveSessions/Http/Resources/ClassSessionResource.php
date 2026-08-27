@@ -63,6 +63,21 @@ class ClassSessionResource extends JsonResource
              | and the closing time is nobody's business on a card.
              */
             'room_closed' => $this->room_closed_at !== null,
+            /*
+             | ⚠️ ANSWERED HERE, NEVER BY THE BROWSER'S CLOCK (FR-015 · SC-016).
+             |
+             | The join window is a `platform_settings` row an operator tunes, and
+             | the room's own closure sits inside it — so a client that computed
+             | «is the door open» from `starts_at` and a constant would offer a
+             | student a button the server answers «تعذّر الدخول», and would go on
+             | offering it on a machine whose clock is wrong. It is the same
+             | predicate `IssueJoinTicket` refuses on, asked one step earlier.
+             |
+             | It says nothing about ENTITLEMENT — a seat, a balance, a piece of
+             | homework are all still asked at the door. It is the clock and the
+             | door, and those two alone.
+             */
+            'join_open' => $this->joinWindowCovers(now()),
             'starts_at' => $this->starts_at->toIso8601String(),
             'ends_at' => $this->ends_at->toIso8601String(),
             'duration_minutes' => $this->duration_minutes,

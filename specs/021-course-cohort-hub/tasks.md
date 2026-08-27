@@ -103,27 +103,27 @@ description: "Task list — 021 صفحةُ المادّةِ منهجاً ومج�
 
 ### اختباراتُ US2
 
-- [ ] T026 [P] [US2] اختبارُ مرشِّحاتِ الكورسِ في `backend/tests/Feature/Learning/CourseTabFiltersTest.php`: `?course=` على الاختباراتِ والواجباتِ والشهادات — ⚠️ ومعرّفٌ مجهولٌ يُطابِقُ **لا شيء**، لا كلَّ شيء.
-- [ ] T027 [P] [US2] اختبارُ `backend/tests/Feature/Learning/CourseAnnouncementsTest.php`: الطالبُ يقرأُ تنبيهاتِ مادّتِه المنشورةَ غيرَ المخفيّة، ولا يقرأُ تنبيهاتِ مادّةٍ أخرى.
+- [X] T026 [P] [US2] اختبارُ مرشِّحاتِ الكورسِ في `backend/tests/Feature/Learning/CourseTabFiltersTest.php`: `?course=` على الاختباراتِ والواجباتِ والشهادات — ⚠️ ومعرّفٌ مجهولٌ يُطابِقُ **لا شيء**، لا كلَّ شيء.
+- [X] T027 [P] [US2] اختبارُ `backend/tests/Feature/Learning/CourseAnnouncementsTest.php`: الطالبُ يقرأُ تنبيهاتِ مادّتِه المنشورةَ غيرَ المخفيّة، ولا يقرأُ تنبيهاتِ مادّةٍ أخرى.
 
 ### الخلفيّة
 
-- [ ] T028 [P] [US2] أضِفْ مرشِّحَ `?course={uuid}` (مُطابَقاً **عبرَ العلاقةِ بالـuuid**) في `backend/app/Modules/Assessments/Http/Controllers/ExamController.php` — `index` بلا مرشِّحٍ اليوم و`exams.course_id` موجود.
-- [ ] T029 [P] [US2] أضِفْ نفسَ المرشِّحِ في `backend/app/Modules/Assessments/Http/Controllers/AssignmentController.php`.
-- [ ] T030 [P] [US2] أضِفْ نفسَ المرشِّحِ في `backend/app/Modules/Certificates/Http/Controllers/CertificateController.php`.
-- [ ] T031 [US2] أضِفْ `ReadCourseAnnouncements` في `backend/app/Modules/Learning/Actions/ReadCourseAnnouncements.php` والمسارَ `GET /courses/{course}/announcements`. ⚠️ **قراءةٌ جديدةٌ بالكامل**: لا مسارَ تنبيهاتٍ للطالبِ في المنتَجِ اليوم — `/manage/announcements` للمدرّسِ وحدَه، والتنبيهُ يبلغُ الطالبَ عبرَ صفوفِ `notifications` لا غير.
-- [ ] T032 [US2] أضِفْ `GET /courses/{course}/next-session` في `backend/app/Modules/LiveSessions/…`. ⚠️ `join_open` يُحسَبُ **على الخادم** من نافذةِ الدخولِ وحالةِ الغرفة، لا من ساعةِ المتصفّح؛ و`room_closed` يفوقُ الحالةَ على الشارةِ والزرِّ معاً (درسُ ٠١٨: حصّةٌ تبقى `live` بعدَ إغلاقِ غرفتِها).
+- [X] T028 [P] [US2] أضِفْ مرشِّحَ `?course={uuid}` (مُطابَقاً **عبرَ العلاقةِ بالـuuid**) في `backend/app/Modules/Assessments/Http/Controllers/ExamController.php` — `index` بلا مرشِّحٍ اليوم و`exams.course_id` موجود.
+- [X] T029 [P] [US2] أضِفْ نفسَ المرشِّحِ في `backend/app/Modules/Assessments/Http/Controllers/AssignmentController.php`.
+- [X] T030 [P] [US2] أضِفْ نفسَ المرشِّحِ في `backend/app/Modules/Certificates/Http/Controllers/CertificateController.php`.
+- [X] T031 [US2] أضِفْ `ReadCourseAnnouncements` في `backend/app/Modules/Learning/Actions/ReadCourseAnnouncements.php` والمسارَ `GET /courses/{course}/announcements`. ⚠️ **قراءةٌ جديدةٌ بالكامل**: لا مسارَ تنبيهاتٍ للطالبِ في المنتَجِ اليوم — `/manage/announcements` للمدرّسِ وحدَه، والتنبيهُ يبلغُ الطالبَ عبرَ صفوفِ `notifications` لا غير.
+- [X] T032 [US2] أضِفْ `GET /courses/{course}/next-session` في `backend/app/Modules/LiveSessions/…`. ⚠️ `join_open` يُحسَبُ **على الخادم** من نافذةِ الدخولِ وحالةِ الغرفة، لا من ساعةِ المتصفّح؛ و`room_closed` يفوقُ الحالةَ على الشارةِ والزرِّ معاً (درسُ ٠١٨: حصّةٌ تبقى `live` بعدَ إغلاقِ غرفتِها).
 
 ### الواجهة
 
-- [ ] T033 [P] [US2] `frontend/src/components/courses/NextSessionHeader.tsx` — العدّادُ وزرُّ الدخولِ وجملةُ «لا حصّةَ قادمة».
-- [ ] T034 [P] [US2] `frontend/src/components/courses/tabs/SessionsTab.tsx` — ماضيةٌ وقادمةٌ ومدخلُ التسجيلِ لمن له مقعد.
-- [ ] T035 [P] [US2] `frontend/src/components/courses/tabs/ExamsTab.tsx`
-- [ ] T036 [P] [US2] `frontend/src/components/courses/tabs/AssignmentsTab.tsx` — الحالةُ والاستحقاقُ وأثرُ التأخير.
-- [ ] T037 [P] [US2] `frontend/src/components/courses/tabs/AnnouncementsTab.tsx`
-- [ ] T038 [P] [US2] `frontend/src/components/courses/tabs/CertificateTab.tsx` — الشهادةُ أو **شرطُ إصدارِها نصّاً** حين لا توجد (FR-020).
-- [ ] T039 [US2] اربطِ التبويباتِ الستَّ ورأسَ الحصّةِ في `frontend/src/app/(app)/(shell)/enrollments/[course]/page.tsx`. ⚠️ **تبويبةٌ لا مضمونَ لها في هذا الكورسِ لا تُعرَض** (FR-014): كورسُ `recorded` بلا تبويبةِ حصصٍ وبلا رأسٍ أصلاً.
-- [ ] T040 [P] [US2] اختبارٌ في `frontend/src/app/(app)/(shell)/enrollments/[course]/page.test.tsx`: كورسُ `recorded` لا يعرضُ تبويبةَ الحصص · «لا حصّةَ قادمة» جملةٌ لا عدّادٌ فارغ · `?tab=exams` يفتحُ على تبويبتِها.
+- [X] T033 [P] [US2] `frontend/src/components/courses/NextSessionHeader.tsx` — العدّادُ وزرُّ الدخولِ وجملةُ «لا حصّةَ قادمة».
+- [X] T034 [P] [US2] `frontend/src/components/courses/tabs/SessionsTab.tsx` — ماضيةٌ وقادمةٌ ومدخلُ التسجيلِ لمن له مقعد.
+- [X] T035 [P] [US2] `frontend/src/components/courses/tabs/ExamsTab.tsx`
+- [X] T036 [P] [US2] `frontend/src/components/courses/tabs/AssignmentsTab.tsx` — الحالةُ والاستحقاقُ وأثرُ التأخير.
+- [X] T037 [P] [US2] `frontend/src/components/courses/tabs/AnnouncementsTab.tsx`
+- [X] T038 [P] [US2] `frontend/src/components/courses/tabs/CertificateTab.tsx` — الشهادةُ أو **شرطُ إصدارِها نصّاً** حين لا توجد (FR-020).
+- [X] T039 [US2] اربطِ التبويباتِ الستَّ ورأسَ الحصّةِ في `frontend/src/app/(app)/(shell)/enrollments/[course]/page.tsx`. ⚠️ **تبويبةٌ لا مضمونَ لها في هذا الكورسِ لا تُعرَض** (FR-014): كورسُ `recorded` بلا تبويبةِ حصصٍ وبلا رأسٍ أصلاً.
+- [X] T040 [P] [US2] اختبارٌ في `frontend/src/app/(app)/(shell)/enrollments/[course]/page.test.tsx`: كورسُ `recorded` لا يعرضُ تبويبةَ الحصص · «لا حصّةَ قادمة» جملةٌ لا عدّادٌ فارغ · `?tab=exams` يفتحُ على تبويبتِها.
 
 **Checkpoint**: US1 + US2 تعملان معاً. **ما زالت صفرُ هجرات.**
 

@@ -89,6 +89,44 @@ function payload(overrides: Partial<Curriculum> = {}): Curriculum {
   };
 }
 
+/**
+ * The page fires SIX reads, and the tabs are built from what comes back — so a
+ * test about the strip has to answer each path with its own body.
+ *
+ * ⚠️ THE EXISTING CASES DELIBERATELY DO NOT USE THIS. `get.mockResolvedValue()`
+ * answers every path with the curriculum, whose `data` key is absent — so each
+ * side read resolves to an empty list and the tabs it would add are correctly
+ * not drawn. That is the shape those tests want, and it is also the proof that
+ * a side read returning nothing cannot blank the lessons.
+ */
+function mockRoutes(bodies: {
+  curriculum?: Curriculum;
+  exams?: unknown[];
+  assignments?: unknown[];
+  announcements?: unknown[];
+  certificates?: unknown[];
+  sessions?: unknown[];
+  nextSession?: { data: unknown; seconds_until_start?: number };
+}) {
+  get.mockImplementation((path: string) => {
+    if (path.includes("/curriculum")) return Promise.resolve(bodies.curriculum ?? payload());
+    if (path.startsWith("/exams")) return Promise.resolve({ data: bodies.exams ?? [] });
+    if (path.startsWith("/assignments")) return Promise.resolve({ data: bodies.assignments ?? [] });
+    if (path.includes("/announcements")) {
+      return Promise.resolve({ data: bodies.announcements ?? [] });
+    }
+    if (path.startsWith("/certificates")) {
+      return Promise.resolve({ data: bodies.certificates ?? [] });
+    }
+    if (path.includes("/next-session")) {
+      return Promise.resolve(bodies.nextSession ?? { data: null });
+    }
+    if (path.includes("/sessions")) return Promise.resolve({ data: bodies.sessions ?? [] });
+
+    return Promise.reject(new Error(`unstubbed: ${path}`));
+  });
+}
+
 /*
  | ⚠️ THE `<Suspense>` IS NOT CEREMONY. Next passes `params` as a PROMISE and the
  | page reads it with `use()`, which suspends on the first render — without a
@@ -192,5 +230,153 @@ describe("CourseCurriculumPage", () => {
 
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
     expect(screen.getByRole("button", { name: "إعادة المحاولة" })).toBeTruthy();
+  });
+
+  /*
+   | US2 — التبويبات (FR-013 · FR-014 · FR-015 · FR-021).
+  */
+
+  /*
+   | ⚠️ A `recorded` COURSE HAS NO SESSIONS TAB AND NO HEADER AT ALL (FR-014).
+   | Not an empty tab and not «لا حصّة قادمة»: a recorded course can never have a
+   | session, so both are answers to a question this course does not raise — and
+   | a tab with nothing behind it is a promise the course cannot keep.
+  */
+  it("draws no sessions tab and no next-session header on a recorded course", async () => {
+    const recorded = payload();
+    recorded.course.course_type = "recorded";
+    mockRoutes({ curriculum: recorded });
+
+    await renderPage();
+
+    expect(await screen.findByRole("tab", { name: "المنهج" })).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: "الحصص" })).toBeNull();
+    expect(screen.queryByText(/لا حصّة قادمة/)).toBeNull();
+
+    // The control: the sessions endpoints were never asked, so this is «not
+    // requested» rather than «requested and empty».
+    const asked = get.mock.calls.map((call) => String(call[0]));
+    expect(asked.some((path) => path.includes("next-session"))).toBe(false);
+    expect(asked).not.toContain("/courses/c-1/sessions");
+  });
+
+  /*
+   | ⚠️ «لا حصّةَ قادمة» IS A SENTENCE, NOT FOUR ZEROES. A countdown showing
+   | 00:00:00 under «يبدأ بعد» reads as a page that failed to load, which is the
+   | opposite of the answer FR-015 asks for.
+  */
+  it("says there is no next session rather than counting down to nothing", async () => {
+    mockRoutes({});
+
+    await renderPage();
+
+    expect(await screen.findByText(/لا حصّة قادمة/)).toBeTruthy();
+    expect(screen.queryByRole("timer")).toBeNull();
+    expect(screen.queryByText("يبدأ بعد")).toBeNull();
+  });
+
+  /*
+   | ⚠️ THE TAB IN THE ADDRESS BAR IS THE TAB THAT OPENS (FR-021). `useTabParam`
+   | reads `location.search` in an EFFECT — not with `useSearchParams`, which
+   | opts the page out of prerendering without a boundary — so the URL has to be
+   | in place before the render, exactly as it is when a shared link is opened.
+  */
+  it("opens on the tab named in ?tab=", async () => {
+    window.history.replaceState(null, "", "/enrollments/c-1?tab=exams");
+
+    mockRoutes({
+      exams: [
+        {
+          uuid: "e-1",
+          course_id: 1,
+          title: "اختبار الوحدة الأولى",
+          description: "",
+          duration_minutes: 30,
+          passing_score: 60,
+          max_attempts: 3,
+          status: "published",
+          is_published: true,
+          my_attempts: { count: 1, best_score: 82, passed: true, last_uuid: "a-1" },
+        },
+      ],
+    });
+
+    await renderPage();
+
+    const tab = await screen.findByRole("tab", { name: "الاختبارات" });
+    expect(tab.getAttribute("aria-selected")).toBe("true");
+
+    // And its panel is the one rendered — the curriculum's is unmounted, not
+    // merely hidden behind it.
+    expect(screen.getByText("اختبار الوحدة الأولى")).toBeTruthy();
+    expect(screen.queryByText("المتباينات")).toBeNull();
+
+    // The reader's own record, beside the paper rather than a screen away.
+    expect(screen.getByText("ناجح")).toBeTruthy();
+    expect(screen.getByText(/أفضل نتيجة/)).toBeTruthy();
+  });
+
+  /*
+   | ⚠️ THE CERTIFICATE TAB IS DRAWN EVEN WITH NO CERTIFICATE, ALONE AMONG THEM
+   | (FR-020). «ما الذي بقي؟» is exactly the question a student without one is
+   | asking, so hiding the tab because the answer is «none yet» removes the
+   | answer they came for.
+  */
+  it("keeps the certificate tab and states the condition when none has been issued", async () => {
+    window.history.replaceState(null, "", "/enrollments/c-1?tab=certificate");
+    mockRoutes({});
+
+    await renderPage();
+
+    expect(await screen.findByRole("tab", { name: "الشهادة" })).toBeTruthy();
+    expect(screen.getByText(/تصدر الشهادة تلقائياً/)).toBeTruthy();
+    // The number comes from the same counts the progress bar is drawn from —
+    // ten countable, four done.
+    expect(screen.getByText(/بقي لك/)).toBeTruthy();
+  });
+
+  /*
+   | ⚠️ THE SESSIONS TAB MUST NOT READ `/class-sessions` — THAT ROUTE ANSWERS A
+   | REAL STUDENT `403`.
+   |
+   | `ClassSessionPolicy::viewAny()` asks for `SESSIONS_VIEW`, and a student
+   | holds no spatie team id: they are a member of no workspace, so the context
+   | is null and every permission check below it is false. Built on it, this tab
+   | swallowed the refusal into an empty list and told a student with a lesson
+   | every week «لا حصص في هذه المادّة بعد» — the shape of the five dead
+   | endpoints this product already shipped once. A mocked test cannot see the
+   | 403 itself, so what it guards is the ROUTE: the student's course sessions
+   | come from the enrolment-guarded one, which also bounds both ends on the
+   | server («the oldest fifty»).
+  */
+  it("reads the enrolment-guarded course route, never the teacher's calendar", async () => {
+    mockRoutes({});
+
+    await renderPage();
+
+    await screen.findByRole("tab", { name: "الحصص" });
+
+    const asked = get.mock.calls.map((call) => String(call[0]));
+
+    expect(asked).toContain("/courses/c-1/sessions");
+    expect(asked.some((path) => path.startsWith("/class-sessions"))).toBe(false);
+  });
+
+  /*
+   | ⚠️ A SIDE READ THAT FAILS MUST NOT BLANK THE LESSONS. The curriculum is the
+   | page; a certificates list that 500s is a tab that cannot be filled, and the
+   | truthful thing to show there is its own empty state.
+  */
+  it("still renders the curriculum when a tab's own read fails", async () => {
+    get.mockImplementation((path: string) =>
+      path.includes("/curriculum")
+        ? Promise.resolve(payload())
+        : Promise.reject(new Error("boom")),
+    );
+
+    await renderPage();
+
+    expect(await screen.findByText("المتباينات")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

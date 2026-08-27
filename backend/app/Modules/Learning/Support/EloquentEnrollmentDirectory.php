@@ -55,6 +55,21 @@ class EloquentEnrollmentDirectory implements EnrollmentDirectory
     }
 
     /** @return list<int> */
+    public function activeWorkspaceIdsFor(User $user): array
+    {
+        $ids = Enrollment::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $user->getKey())
+            ->where('status', 'active')
+            ->pluck('workspace_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->all();
+
+        return array_values($ids);
+    }
+
+    /** @return list<int> */
     public function enrollmentIdsFor(User $user): array
     {
         // No status filter — see the interface. A finished or cancelled enrolment
