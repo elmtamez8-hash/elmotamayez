@@ -141,8 +141,17 @@ class RoleResource extends Resource
                     | في سبيك ٠١٠ لهذه الشاشةِ بالذات ولم يقرأْها أحد، فبقيَتِ
                     | الصلاحيّاتُ تُعرَضُ `billing.collection.view` خامّةً.
                     */
+                    /*
+                    | ⚠️ `hiddenLabel()` لا `label('')`. النصُّ الفارغُ ليس «بلا
+                    | تسمية»: Filament يعودُ إلى الاسمِ المشتقِّ من الحقل، فظهرَتْ
+                    | كلمةُ «Permissions» بالإنجليزيّةِ فوقَ قائمةٍ عربيّةٍ
+                    | بالكامل. والقسمُ فوقَها معنوَنٌ «الصلاحيات» أصلاً.
+                    |
+                    | ولا يراه `PanelIsArabicTest`: النصُّ المعروضُ مُولَّدٌ وقتَ
+                    | التشغيلِ من اسمِ الحقل، والفحصُ يقرأُ ما هو مكتوبٌ في الملفّ.
+                    */
                     CheckboxList::make('permissions')
-                        ->label('')
+                        ->hiddenLabel()
                         ->options(PermissionLabels::tenantMap())
                         ->columns(3)
                         ->bulkToggleable()
