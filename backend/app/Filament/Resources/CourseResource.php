@@ -92,16 +92,30 @@ class CourseResource extends Resource
                             ->label('الظهور')
                             ->options(CourseVisibility::options())
                             ->required(),
+                        /*
+                        | ⚠️ أعضاءُ مساحةِ **المقرَّرِ**، لا مساحةِ من يقرأُ الشاشة.
+                        | كانت القائمةُ تُبنى من `WorkspaceContext::current()`، وهو
+                        | `null` لمديرِ المنصّةِ (يرجعُ إلى `users.last_workspace_id`
+                        | ولا شيءَ يكتبُه له) — فتخرجُ فارغةً، ويعرضُ الحقلُ القيمةَ
+                        | الخامَّ: رقمُ المستخدِمِ `37` مكانَ بريدِه، على شاشةِ تعديلٍ
+                        | حيّة. والقراءةُ من `$record` تُصلِحُ الأمرَينِ معاً: تملأُ
+                        | القائمةَ لأيِّ قارئ، وتمنعُ إسنادَ المقرَّرِ إلى شخصٍ من
+                        | مساحةٍ أخرى.
+                        */
                         Select::make('created_by')
                             ->label('أنشأه')
-                            ->options(function (): array {
-                                $workspace = app(WorkspaceContext::class)->current();
+                            ->options(function (?Course $record): array {
+                                $workspace = $record instanceof Course
+                                    ? $record->workspace
+                                    : app(WorkspaceContext::class)->current();
 
                                 if ($workspace === null) {
                                     return [];
                                 }
 
-                                return $workspace->members()->pluck('users.email', 'users.id')->toArray();
+                                return $workspace->members()
+                                    ->pluck('users.email', 'users.id')
+                                    ->all();
                             })
                             ->searchable(),
                     ]),

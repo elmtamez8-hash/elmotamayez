@@ -272,7 +272,7 @@ class TeacherProfileResource extends Resource
                 ]),
 
             Section::make('حالة الاعتماد')
-                ->description('كلُّ ما في هذا القسمِ تكتبُه الـ Actions وحدَها؛ الشاشةُ تقرأُ ولا تكتب.')
+                ->description('كلُّ ما في هذا القسمِ يُكتَبُ من إجراءاتِ المراجعة؛ الشاشةُ تقرأُ ولا تكتب.')
                 ->columns(2)
                 ->schema([
                     TextEntry::make('approval_status')

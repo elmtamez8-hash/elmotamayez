@@ -30,6 +30,15 @@ class ComplaintsRelationManager extends RelationManager
 {
     protected static string $relationship = 'complaints';
 
+    /*
+    | ⚠️ `$title` يُسمّي التبويب، وما دونَه يقرأُ `$modelLabel` — وافتراضُه
+    | **اسمُ العلاقةِ نفسُه**، فكانت حالةُ الفراغِ تقولُ «لا يوجد complaints» تحتَ
+    | تبويبٍ عربيّ.
+    */
+    protected static ?string $modelLabel = 'شكوى';
+
+    protected static ?string $pluralModelLabel = 'الشكاوى';
+
     protected static ?string $title = 'الشكاوى';
 
     /*

@@ -33,6 +33,15 @@ class ReviewsRelationManager extends RelationManager
 {
     protected static string $relationship = 'reviews';
 
+    /*
+    | ⚠️ `$title` يُسمّي التبويب، وما دونَه يقرأُ `$modelLabel` — وافتراضُه
+    | **اسمُ العلاقةِ نفسُه**، فكانت حالةُ الفراغِ تقولُ «لا يوجد reviews» تحتَ
+    | تبويبٍ عربيّ.
+    */
+    protected static ?string $modelLabel = 'تقييم';
+
+    protected static ?string $pluralModelLabel = 'التقييمات';
+
     protected static ?string $title = 'التقييمات';
 
     /**

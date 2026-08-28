@@ -26,6 +26,15 @@ class QuestionsRelationManager extends RelationManager
 {
     protected static string $relationship = 'questions';
 
+    /*
+    | ⚠️ `$title` يُسمّي التبويب، وما دونَه يقرأُ `$modelLabel` — وافتراضُه
+    | **اسمُ العلاقةِ نفسُه**، فكانت حالةُ الفراغِ تقولُ «لا يوجد questions» تحتَ
+    | تبويبٍ عربيّ.
+    */
+    protected static ?string $modelLabel = 'سؤال';
+
+    protected static ?string $pluralModelLabel = 'الأسئلة';
+
     protected static ?string $title = 'الأسئلة';
 
     protected static string|BackedEnum|null $icon = Heroicon::OutlinedQuestionMarkCircle;

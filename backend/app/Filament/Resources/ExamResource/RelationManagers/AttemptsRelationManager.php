@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\ExamResource\RelationManagers;
 
+use App\Modules\Assessments\Enums\AttemptStatus;
 use App\Modules\Assessments\Models\Attempt;
 use BackedEnum;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -24,18 +25,18 @@ class AttemptsRelationManager extends RelationManager
 {
     protected static string $relationship = 'attempts';
 
+    /*
+    | ⚠️ `$title` يُسمّي التبويب، وما دونَه يقرأُ `$modelLabel` — وافتراضُه
+    | **اسمُ العلاقةِ نفسُه**، فكانت حالةُ الفراغِ تقولُ «لا يوجد attempts» تحتَ
+    | تبويبٍ عربيّ.
+    */
+    protected static ?string $modelLabel = 'محاولة';
+
+    protected static ?string $pluralModelLabel = 'المحاولات';
+
     protected static ?string $title = 'المحاولات';
 
     protected static string|BackedEnum|null $icon = Heroicon::OutlinedPencilSquare;
-
-    private const STATUSES = [
-        'in_progress' => 'جارية',
-        'submitted' => 'مُسلَّمة',
-        'grading' => 'قيد التصحيح',
-        'graded' => 'مصحَّحة',
-        'expired' => 'منتهية',
-        'abandoned' => 'متروكة',
-    ];
 
     public function table(Table $table): Table
     {
@@ -44,11 +45,13 @@ class AttemptsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('student.email')->label('الطالب')->searchable()->copyable(),
                 TextColumn::make('status')->label('الحالة')->badge()
-                    ->formatStateUsing(fn (string $state): string => self::STATUSES[$state] ?? $state)
-                    ->color(fn (string $state): string => match ($state) {
-                        'graded' => 'success',
-                        'in_progress' => 'info',
-                        'submitted', 'grading' => 'warning',
+                    ->formatStateUsing(fn (string $state): string => AttemptStatus::labelFor($state))
+                    ->color(fn (string $state): string => match (AttemptStatus::tryFrom($state)) {
+                        AttemptStatus::Graded => 'success',
+                        AttemptStatus::InProgress => 'info',
+                        AttemptStatus::Submitted,
+                        AttemptStatus::PendingGrading,
+                        AttemptStatus::Grading => 'warning',
                         default => 'gray',
                     }),
                 TextColumn::make('score')

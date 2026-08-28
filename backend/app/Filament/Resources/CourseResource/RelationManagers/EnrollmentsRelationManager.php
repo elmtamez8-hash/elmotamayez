@@ -23,6 +23,15 @@ class EnrollmentsRelationManager extends RelationManager
 {
     protected static string $relationship = 'enrollments';
 
+    /*
+    | ⚠️ `$title` يُسمّي التبويب، وما دونَه يقرأُ `$modelLabel` — وافتراضُه
+    | **اسمُ العلاقةِ نفسُه**، فكانت حالةُ الفراغِ تقولُ «لا يوجد enrollments» تحتَ
+    | تبويبٍ عربيّ.
+    */
+    protected static ?string $modelLabel = 'تسجيل';
+
+    protected static ?string $pluralModelLabel = 'التسجيلات';
+
     protected static ?string $title = 'المسجَّلون';
 
     protected static string|BackedEnum|null $icon = Heroicon::OutlinedUserGroup;

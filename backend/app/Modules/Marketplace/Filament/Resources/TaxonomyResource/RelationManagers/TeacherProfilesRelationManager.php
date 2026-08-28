@@ -34,6 +34,15 @@ class TeacherProfilesRelationManager extends RelationManager
 {
     protected static string $relationship = 'teacherProfiles';
 
+    /*
+    | ⚠️ `$title` يُسمّي التبويب، وما دونَه يقرأُ `$modelLabel` — وافتراضُه
+    | **اسمُ العلاقةِ نفسُه**، فكانت حالةُ الفراغِ تقولُ «لا يوجد teacherProfiles» تحتَ
+    | تبويبٍ عربيّ.
+    */
+    protected static ?string $modelLabel = 'مدرّس';
+
+    protected static ?string $pluralModelLabel = 'المدرّسون';
+
     protected static ?string $title = 'المدرّسون';
 
     public function table(Table $table): Table

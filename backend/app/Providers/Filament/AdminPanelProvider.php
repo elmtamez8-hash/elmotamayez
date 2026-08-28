@@ -15,6 +15,7 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\Tables\Columns\IconColumn;
 use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -27,6 +28,26 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
 {
+    /*
+    | ⚠️ «لا» ليست خطأً، والافتراضُ كان يقولُ إنّها كذلك.
+    |
+    | `IconColumn::boolean()` يرسمُ ✗ **حمراءَ** للقيمةِ الكاذبة، وأكثرُ أعمدةِ
+    | هذه اللوحةِ منطقيّةٌ لا تشخيصيّة: «مدير منصّة: لا» هي حالُ كلِّ حسابٍ تقريباً،
+    | و«موثَّق: لا» مدرّسٌ لم تُراجَعْ أوراقُه بعد، و«مفعَّل: لا» صفٌّ أُوقفَ عن قصد.
+    | فكانت شاشةُ الحساباتِ صفّاً بعدَ صفٍّ من علاماتِ الخطرِ الحمراءِ على وضعٍ
+    | سليمٍ تماماً — وهو الوجهُ المقلوبُ للعيبِ الذي يسجّلُه `CLAUDE.md` تحتَ
+    | «الأخضرُ للشرطِ الخطأ».
+    |
+    | الرماديُّ هو المعنى الصحيح: «هذه الخانةُ ليست مُعلَّمة». وعمودٌ يريدُ الحمرةَ
+    | حقّاً يكتبُ `->falseColor('danger')` عندَه فيغلبُ هذا الافتراض.
+    */
+    public function boot(): void
+    {
+        IconColumn::configureUsing(
+            fn (IconColumn $column): IconColumn => $column->falseColor('gray'),
+        );
+    }
+
     public function panel(Panel $panel): Panel
     {
         return $panel

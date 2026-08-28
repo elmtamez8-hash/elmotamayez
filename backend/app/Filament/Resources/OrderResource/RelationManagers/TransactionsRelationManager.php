@@ -23,6 +23,15 @@ class TransactionsRelationManager extends RelationManager
 {
     protected static string $relationship = 'transactions';
 
+    /*
+    | ⚠️ `$title` يُسمّي التبويب، وما دونَه يقرأُ `$modelLabel` — وافتراضُه
+    | **اسمُ العلاقةِ نفسُه**، فكانت حالةُ الفراغِ تقولُ «لا يوجد transactions» تحتَ
+    | تبويبٍ عربيّ.
+    */
+    protected static ?string $modelLabel = 'حركة دفع';
+
+    protected static ?string $pluralModelLabel = 'حركات الدفع';
+
     protected static ?string $title = 'حركات الدفع';
 
     protected static string|BackedEnum|null $icon = Heroicon::OutlinedBanknotes;

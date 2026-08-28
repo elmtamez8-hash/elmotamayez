@@ -30,6 +30,15 @@ class RedemptionsRelationManager extends RelationManager
 {
     protected static string $relationship = 'redemptions';
 
+    /*
+    | ⚠️ `$title` يُسمّي التبويب، وما دونَه يقرأُ `$modelLabel` — وافتراضُه
+    | **اسمُ العلاقةِ نفسُه**، فكانت حالةُ الفراغِ تقولُ «لا يوجد redemptions» تحتَ
+    | تبويبٍ عربيّ.
+    */
+    protected static ?string $modelLabel = 'طلب استبدال';
+
+    protected static ?string $pluralModelLabel = 'طلبات الاستبدال';
+
     protected static ?string $title = 'طلبات الاستبدال';
 
     public function isReadOnly(): bool
