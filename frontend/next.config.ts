@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /*
+    ⚠️ REQUIRED BY `docker/frontend.Dockerfile`, WHICH HAS ALWAYS COPIED
+    `.next/standalone` — a directory Next does not emit without this line. The
+    image build failed at the COPY with no hint that a config key was the cause,
+    so the whole frontend was undeployable and nothing said so until somebody
+    tried. Standalone is also what makes the runner image small: it traces the
+    modules actually imported instead of shipping `node_modules`.
+  */
+  output: "standalone",
+
   // The Next.js dev badge defaults to bottom-left. On an RTL page that is the
   // inline-end corner, which is exactly where the WhatsApp and back-to-top
   // buttons sit — so it overlapped them and read as part of the product.
@@ -29,18 +39,29 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  /*
+    ⚠️ THE TARGET IS AN ENV VAR WITH THE DEV VALUE AS ITS DEFAULT, and the reason
+    is server-side rendering. In production nginx answers `/api` before the
+    request ever reaches Next, so the browser never uses these — but Next itself
+    does: `signup/teacher` and `signup/parent/children` are prerendered by
+    FETCHING the API, from inside the container, where `localhost:8000` is the
+    frontend's own port and nothing is listening. The build then fails with
+    `TypeError: fetch failed … ECONNREFUSED` and names no cause.
+  */
   async rewrites() {
+    const origin = process.env.API_ORIGIN ?? "http://localhost:8000";
+
     return [
       {
         source: "/api/:path*",
-        destination: "http://localhost:8000/api/:path*",
+        destination: `${origin}/api/:path*`,
       },
       {
         // Uploaded media (payment receipts) is served from the backend's public
         // disk as a relative /storage URL; behind nginx in production both live
         // on one host, so only dev needs the proxy.
         source: "/storage/:path*",
-        destination: "http://localhost:8000/storage/:path*",
+        destination: `${origin}/storage/:path*`,
       },
     ];
   },

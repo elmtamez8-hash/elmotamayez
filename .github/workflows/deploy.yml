@@ -1,0 +1,67 @@
+# النشرُ إلى الخادم — بعدَ خُضرةِ CI وحدَها.
+#
+# ⚠️ `workflow_run` لا `push`، وهذا هو الفرقُ بين CD وبين «انسخْ ما كتبتَه للتوّ
+# إلى الإنتاج». عاملان يستمعان إلى `push` يعملان **معاً**: تصلُ النشرةُ قبلَ أن
+# تفشلَ الاختباراتُ، فيقرأُ المستخدمون الشيفرةَ التي رفضتْها البوّابة.
+#
+# ⚠️ ولا شيءَ في هذا الملفِّ يحملُ سرّاً. المفتاحُ والعنوانُ والمستخدمُ كلُّها
+# `secrets` في إعداداتِ المستودع — ويُطبَعُ منها شيءٌ في السجلِّ **أبداً**: سجلُّ
+# Actions يُقرأُ لاحقاً من كلِّ من له صلاحيّةُ قراءة.
+
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  # ⚠️ اليدويُّ يبقى مفتوحاً عمداً: نشرةٌ تُعادُ بعدَ عطلٍ في الشبكةِ لا يجوزُ أن
+  # تحتاجَ commit فارغاً لتُطلَق.
+  workflow_dispatch:
+
+# ⚠️ نشرتان متوازيتان على خادمٍ واحدٍ تتزاحمان على نفسِ `git pull` ونفسِ
+# `docker compose up` — و**لا إلغاءَ في المنتصف**: نشرةٌ تُقتَلُ بينَ الهجرةِ
+# وإعادةِ التشغيلِ تتركُ قاعدةً مُهاجَرةً وحاوياتٍ قديمةً تقرؤها.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: VPS — pull · build · migrate
+    runs-on: ubuntu-latest
+    # ⚠️ `workflow_run` يُطلَقُ على الفشلِ كما على النجاح. بدونِ هذا السطرِ تُنشَرُ
+    # كلُّ دفعةٍ سقطت اختباراتُها — وهو عكسُ الغرضِ من ربطِ الاثنَين.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    # بيئةٌ مُسمّاةٌ ليُمكِنَ لاحقاً اشتراطُ موافقةٍ يدويّةٍ قبلَ الإنتاج، ولتظهرَ
+    # النشراتُ في تبويبِ Environments بتاريخها.
+    environment: production
+
+    steps:
+      - name: تجهيز مفتاح SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # ⚠️ بصمةُ المضيفِ من `secrets` لا من `ssh-keyscan`. المسحُ عندَ كلِّ
+          # نشرةٍ يثقُ بأيِّ خادمٍ يُجيبُ على ذلك العنوانِ لحظتَها، أي أنّه يقبلُ
+          # اعتراضَ الاتّصالِ بدلاً من أن يمنعَه — وهو الشيءُ الوحيدُ الذي
+          # `known_hosts` موجودٌ لأجلِه.
+          printf '%s\n' "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: النشر
+        env:
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+          APP_PATH: ${{ secrets.VPS_APP_PATH }}
+        run: |
+          ssh -o BatchMode=yes -i ~/.ssh/id_ed25519 "$USER@$HOST" \
+            "cd '$APP_PATH' && ./scripts/deploy.sh"
+
+      - name: تنظيف المفتاح
+        # ⚠️ `always()`: عاملُ GitHub يُتلَفُ بعدَ الوظيفةِ على أيِّ حال، لكنّ خطوةً
+        # تُضافُ بعدَ هذه غداً سترى المفتاحَ على القرصِ لو تُرِكَ.
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519

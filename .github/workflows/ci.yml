@@ -1,0 +1,110 @@
+# البوّاباتُ الخضراءُ الخمس — نفسُها التي تُشغَّلُ محلّيّاً قبلَ كلِّ commit.
+#
+# ⚠️ ولا حاويةَ خدمةٍ واحدة، وذلك مقصود. الاختباراتُ تعملُ على SQLite في الذاكرة
+# و`SCOUT_DRIVER=null`، وكلاهما مكتوبٌ في `backend/phpunit.xml` منذ ٠٠١ — فإضافةُ
+# MySQL أو Meilisearch هنا تُبطئُ كلَّ تشغيلةٍ وتُثبِتُ **بيئةً لا يستعملُها أحد**.
+#
+# ⚠️ و Playwright خارجَ هذا الملفِّ عمداً. تهيئتُه تبني للإنتاجِ وتحتاجُ خادمَين،
+# وهو أربعُ دقائقَ مقابلَ ثانيتَين لـ`npm test` — وسؤالُه مختلفٌ أصلاً: «هل يعملُ
+# المنتَجُ من طرفٍ إلى طرف» لا «هل يفعلُ هذا المكوّنُ ما يقول».
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # فتحُ التشغيلِ اليدويِّ من تبويبِ Actions — يُختصَرُ به وقتُ تشخيصِ فشلٍ عابر.
+  workflow_dispatch:
+
+# دفعةٌ جديدةٌ على الفرعِ نفسِه تُلغي السابقة: مراجعةُ نتيجةٍ عن كودٍ تجاوزَه
+# صاحبُه بدقيقتَين هي دقائقُ حوسبةٍ لا يقرؤها أحد.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend — pest · pint · phpstan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP 8.5
+        uses: shivammathur/setup-php@v2
+        with:
+          # ⚠️ يطابقُ `docker/backend.Dockerfile` (php:8.5-fpm-alpine) لا الحدَّ
+          # الأدنى في composer.json (^8.3). بيئةُ اختبارٍ أقدمُ من بيئةِ التشغيلِ
+          # هي بوّابةٌ خضراءُ عن نسخةٍ لا تعملُ في الإنتاج.
+          php-version: '8.5'
+          extensions: pdo, pdo_sqlite, mbstring, xml, bcmath, ctype, json, openssl, tokenizer, fileinfo, zip, gd, pcntl
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install
+        working-directory: backend
+        # `--no-dev` ممنوعٌ هنا: Pest وPHPStan وPint كلُّها في require-dev.
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Style (pint --test)
+        working-directory: backend
+        run: ./vendor/bin/pint --test
+
+      - name: Static analysis (Larastan L8)
+        working-directory: backend
+        # ⚠️ بلا خطِّ أساسٍ جديدٍ وبلا @phpstan-ignore — الشجرةُ نظيفةٌ ويجبُ أن تبقى.
+        run: ./vendor/bin/phpstan analyse --no-progress
+
+      - name: Tests (pest)
+        working-directory: backend
+        run: php vendor/bin/pest
+
+  frontend:
+    name: Frontend — tsc · vitest
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      - name: Types
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Tests (vitest + jsdom)
+        working-directory: frontend
+        # ⚠️ `include` مقصورٌ على `src/**/*.test.{ts,tsx}` في التهيئة، فلا يبتلعُ
+        # `e2e/*.spec.ts` ويموتُ داخلَ مُشغِّلِ Playwright.
+        run: npm test
+
+      - name: Production build
+        working-directory: frontend
+        # ⚠️ البناءُ بوّابةٌ بنفسِه ولا يُغني عنه `tsc`. مساران يتحلّلان إلى عنوانٍ
+        # واحدٍ يجعلانِ **كلَّ صفحةٍ** ترُدُّ ٥٠٠ — ولا `tsc` ولا `npm test` يبنيان
+        # المسارات، فقد شُحِنَ ذلك مرّةً وجلسَ جلسةً كاملة.
+        #
+        # ⚠️ ويبني **بلا API**، وذلك سؤالٌ مقصودٌ لا إهمال. صفحاتُ المتجرِ الأربعُ
+        # تُهيَّأُ مسبقاً بجلبِ الـAPI، وكلٌّ منها يلتقطُ فشلَه ويرسمُ حالةَ خطأ —
+        # فالبناءُ يجبُ أن ينجحَ على عامِلٍ لا خادمَ فيه. يومَ يفشلُ هنا بـ
+        # `ECONNREFUSED` فذلك صفحةٌ جديدةٌ تجلبُ بلا `try`، وهي في الإنتاجِ صفحةٌ
+        # تُسقِطُ نشرةً كاملةً لأنّ الـAPI تأخّرَ ثانيتَين عن الواجهة.
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'

@@ -1,0 +1,199 @@
+# الحزمةُ الإنتاجيّة — نطاقٌ واحدٌ خلفَ nginx، وكلُّ سرٍّ من ملفِّ `.env`
+# بجانبِ هذا الملفِّ على الخادم، **ولا شيءَ منه في المستودع**.
+#
+# ⚠️ ملفٌّ منفصلٌ عن `docker-compose.yml` وليس امتداداً له، والفرقُ ليس ذوقاً:
+# ملفُّ التطويرِ يربطُ الشيفرةَ من القرصِ (`../backend:/var/www/html`) فتُظلِّلُ
+# الحاويةَ ويُلغى `composer install` الذي بُنِيَت به، ويحملُ كلماتِ مرورٍ ثابتةً
+# (`secret`, `root`) صالحةً على جهازٍ لا يصلُ إليه أحد. تشغيلُ أيٍّ من الاثنَين
+# على خادمٍ عامٍّ هو تسليمُ قاعدةِ البياناتِ لأوّلِ من يمسح المنفذ.
+#
+#   docker compose -f docker/docker-compose.prod.yml --env-file docker/.env up -d --build
+#
+# ⚠️ ولا `ports:` على mysql ولا redis ولا meilisearch. الشبكةُ الداخليّةُ تكفي
+# الحاوياتِ، ونشرُ ٣٣٠٦ على IP عامٍّ هو ما تبحثُ عنه ماسحاتُ الإنترنت بالدقيقة.
+
+name: mteatch
+
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/backend.Dockerfile
+    image: mteatch-backend:latest
+    restart: unless-stopped
+    working_dir: /var/www/html
+    # ⚠️ لا ربطَ للشيفرة. الصورةُ هي النشرة؛ مجلَّدان فقط يعيشان أطولَ منها:
+    # المرفوعاتُ (إيصالاتُ الدفعِ والوسائط) وسجلُّ التخزين.
+    volumes:
+      - storage:/var/www/html/storage/app
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      REDIS_HOST: redis
+      SCOUT_MEILISEARCH_HOST: http://meilisearch:7700
+    networks: [mteatch]
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  # ⚠️ العاملُ خدمةٌ قائمةٌ بذاتِها ولا يُنسى. طابورٌ بلا عاملٍ **لا يُخطئ**:
+  # المهامُّ تدخلُه ولا تُصرَف — فالإشعاراتُ لا تصل، والتسجيلاتُ لا تُبتلَع،
+  # وأجرُ المدرّسِ يبقى محجوزاً، ولوحةُ التحكّمِ لا تقولُ شيئاً.
+  horizon:
+    image: mteatch-backend:latest
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php artisan horizon
+    volumes:
+      - storage:/var/www/html/storage/app
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      REDIS_HOST: redis
+      SCOUT_MEILISEARCH_HOST: http://meilisearch:7700
+    networks: [mteatch]
+    depends_on:
+      backend: { condition: service_started }
+
+  # ⚠️ والمُجدوِلُ خدمةٌ ثالثة، وغيابُه أهدأُ من غيابِ العامل. عليه تعتمدُ كنسةُ
+  # الاحتفاظِ وإعادةُ محاولةِ التسجيلاتِ ومزامنةُ عدّاداتِ المدرّسِ وتذكيرُ الخمول —
+  # كلُّها تصمتُ بلا صفٍّ في `failed_jobs` يشيرُ إليها.
+  scheduler:
+    image: mteatch-backend:latest
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php artisan schedule:work
+    volumes:
+      - storage:/var/www/html/storage/app
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      REDIS_HOST: redis
+    networks: [mteatch]
+    depends_on:
+      backend: { condition: service_started }
+
+  # ⚠️ Reverb هو السوكِت، وبدونه النقاشُ **يعملُ متأخّراً** لا ينكسر: الحفظُ هو
+  # المرجعُ (FR-048) والرسالةُ تُقرأُ عندَ أوّلِ تحديث. فغيابُه عطلٌ صامتٌ يُشتكى
+  # منه بجملةِ «النقاش لا يظهر لحظيّاً» ولا يظهرُ في أيِّ سجلّ.
+  reverb:
+    image: mteatch-backend:latest
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      REDIS_HOST: redis
+    networks: [mteatch]
+    depends_on:
+      backend: { condition: service_started }
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/frontend.Dockerfile
+      args:
+        # ⚠️ قيمُ `NEXT_PUBLIC_*` تُدمَجُ في الحزمةِ وقتَ **البناء**، لا وقتَ
+        # التشغيل. تمريرُها في `environment:` وحدَه يشحنُ صفحةً تحملُ القيمةَ
+        # الفارغةَ التي بُنِيَت بها، بلا خطأٍ في أيِّ مكان.
+        NEXT_PUBLIC_APP_URL: ${APP_URL}
+        NEXT_PUBLIC_REVERB_APP_KEY: ${REVERB_APP_KEY}
+        NEXT_PUBLIC_REVERB_HOST: ${REVERB_PUBLIC_HOST}
+        NEXT_PUBLIC_REVERB_PORT: ${REVERB_PUBLIC_PORT}
+        NEXT_PUBLIC_REVERB_SCHEME: ${REVERB_PUBLIC_SCHEME}
+    image: mteatch-frontend:latest
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      # ⚠️ لِما يجلبُه Next من **داخلِ** الحاوية أثناءَ التهيئةِ المسبقة.
+      # `localhost:8000` هناك هو منفذُ الواجهةِ نفسِها ولا شيءَ يستمع.
+      API_ORIGIN: http://nginx
+    networks: [mteatch]
+    depends_on:
+      backend: { condition: service_started }
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/templates/default.conf.template:ro
+      # ⚠️ المرفوعاتُ وحدَها، ولا نسخةَ من شيفرةِ PHP هنا. nginx يُمرِّرُ كلَّ طلبٍ
+      # ديناميٍّ إلى FPM بمُتحكِّمٍ أماميٍّ واحد، وFPM يقرأُ الملفَّ من صورتِه هو —
+      # فمُجلَّدٌ مشترَكٌ للشيفرةِ يعني نسختَين تتباعدان عندَ أوّلِ نشرةٍ لا تُحدِّثُه.
+      - storage:/var/www/html/storage/app:ro
+      - certbot-www:/var/www/certbot:ro
+      - certbot-conf:/etc/letsencrypt:ro
+    environment:
+      # قالبٌ لا ملفٌّ ثابت: `envsubst` يملأُ اسمَ النطاقِ عندَ الإقلاع، فالنطاقُ
+      # يعيشُ في `.env` مع بقيّةِ الإعداداتِ بدلاً من نسخةٍ معدَّلةٍ باليد.
+      DOMAIN: ${DOMAIN}
+    networks: [mteatch]
+    depends_on:
+      backend: { condition: service_started }
+      frontend: { condition: service_started }
+
+  # ⚠️ التجديدُ حلقةٌ لا مهمّةٌ لمرّةٍ واحدة. شهادةُ Let's Encrypt تسعون يوماً،
+  # والنشرةُ التي تُصدِرُها يدويّاً تنتهي بعدَ ثلاثةِ أشهرٍ في يومٍ لا أحدَ يتوقّعُه.
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    volumes:
+      - certbot-www:/var/www/certbot
+      - certbot-conf:/etc/letsencrypt
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'
+
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks: [mteatch]
+    # ⚠️ الفحصُ الصحّيُّ ليس زينة: MySQL يقبلُ اتّصالاتٍ قبلَ أن يُنهيَ تهيئتَه،
+    # فـ`depends_on` بلا شرطٍ يُشغِّلُ الهجراتِ على خادمٍ يرُدُّ «connection refused»
+    # ثمّ تُقرَأُ النشرةُ الفاشلةُ على أنّها خطأٌ في الكود.
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # الاستمرارُ على القرص: الطابورُ يعيشُ هنا، وإعادةُ تشغيلٍ بلا AOF تفقدُ كلَّ
+    # مهمّةٍ لم تُصرَفْ بعد — إشعاراتٍ وتسجيلاتٍ وتقاريرَ لا سبيلَ إلى إعادتِها.
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks: [mteatch]
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.6
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILISEARCH_KEY}
+      MEILI_ENV: production
+    volumes:
+      - meili-data:/meili_data
+    networks: [mteatch]
+
+networks:
+  mteatch:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:
+  meili-data:
+  storage:
+  certbot-www:
+  certbot-conf:
