@@ -11,6 +11,7 @@ use App\Modules\Tenancy\Support\Roles;
 use BackedEnum;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Arr;
 use Spatie\Permission\Contracts\Permission;
 use Spatie\Permission\Models\Role as SpatieRole;
@@ -63,6 +64,21 @@ class Role extends SpatieRole
                 );
             }
         });
+    }
+
+    /**
+     * مساحةُ العملِ التي يخصُّها الدور.
+     *
+     * ⚠️ `team_id` هو مفتاحُها الأجنبيُّ فعلاً، لكنّ spatie لا يُعلِنُ العلاقة —
+     * فشاشةُ الأدوارِ كانت تعرضُ «مالك مساحة العمل» ثلاثَ مرّاتٍ بلا عمودٍ يقولُ
+     * لأيِّ مدرّسٍ كلُّ صفّ، وتعديلُ الصفِّ الخطأ يُغيِّرُ أدوارَ مدرّسٍ آخَر.
+     * (السياقُ الفارغُ لمديرِ المنصّةِ يُبطِلُ `TeamRoleScope` عن قصد، فيرى الكلّ.)
+     *
+     * @return BelongsTo<Workspace, $this>
+     */
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class, 'team_id');
     }
 
     /**

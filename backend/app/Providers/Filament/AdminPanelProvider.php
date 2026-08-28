@@ -6,7 +6,6 @@ use App\Modules\Analytics\Filament\Widgets\EnrollmentStatsWidget;
 use App\Modules\Analytics\Filament\Widgets\ExamStatsWidget;
 use App\Shared\Middleware\EnsureCurrentWorkspace;
 use App\Shared\Middleware\EnsureFilamentAccess;
-use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -169,8 +168,6 @@ class AdminPanelProvider extends PanelProvider
                 'الإشعارات',
                 'التلعيب',
                 'الامتثال',
-                // اسمُ مجموعةِ Shield نفسُه (`filament-shield::…nav.group`)، فتقعُ
-                // «تفويضات المنصّة» بجانبِ «الأدوار» بدلَ مجموعةٍ ثانيةٍ تحتَها.
                 'إدارة الوصول',
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
@@ -203,19 +200,6 @@ class AdminPanelProvider extends PanelProvider
                 in: app_path('Modules/Compliance/Filament/Resources'),
                 for: 'App\Modules\Compliance\Filament\Resources',
             )
-            /*
-            | The role screen (Shield), configured in `config/filament-shield.php`
-            | to GENERATE NOTHING: the permission names are this product's own
-            | constants and the policies are hand-written. What the plugin
-            | contributes is the part that was missing — a place to tick a
-            | permission onto a role without a migration.
-            |
-            | ⚠️ Its resource is scoped to the current workspace by
-            | `Tenancy\Filament\ScopeRolesToWorkspace`, registered below. Roles
-            | are rows with a `team_id` and no global scope of their own, so an
-            | unscoped list hands one teacher every other teacher's roles.
-            */
-            ->plugin(FilamentShieldPlugin::make())
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->discoverPages(
                 in: app_path('Modules/Tenancy/Filament/Pages'),

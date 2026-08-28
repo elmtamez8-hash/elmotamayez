@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Tenancy\Filament\Resources\PlatformStaffResource;
+use App\Modules\Tenancy\Filament\Resources\RoleResource;
 use App\Modules\Tenancy\Models\PlatformStaff;
 use App\Modules\Tenancy\Support\PermissionLabels;
 use App\Modules\Tenancy\Support\RolePermissionMatrix;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
-use BezhanSalleh\FilamentShield\Resources\Roles\RoleResource;
+use Filament\Facades\Filament;
 
 /*
 | The two screens, and who each of them opens for.
@@ -90,7 +91,7 @@ it('actually renders, which no boolean above can tell you', function (): void {
      * longer rearrange their own roles from `/admin`. Assistants are still
      * managed from `/manage/assistants` in the product's own surface.
      */
-    $this->get('/admin/shield/roles')->assertForbidden();
+    $this->get('/admin/roles')->assertForbidden();
 
     // ⚠️ AND THE PLATFORM ADMIN ON THE ROLE SCREEN TOO. The first version of
     // this test only opened it as the owner, so a super admin — whose authority
@@ -98,13 +99,19 @@ it('actually renders, which no boolean above can tell you', function (): void {
     // bounced to the login page by a screen every other assertion called open.
     $this->actingAs($this->platform);
 
-    $this->get('/admin/shield/roles')->assertOk();
+    $this->get('/admin/roles')->assertOk();
     $this->get('/admin/platform-staff')->assertOk();
     $this->get('/admin/platform-staff/create')->assertOk();
 });
 
 it('never offers a platform permission on the role screen', function (): void {
-    $offered = array_keys(config('filament-shield.custom_permissions', []));
+    /*
+    | ⚠️ المصدرُ صارَ `PermissionLabels::tenantMap()` لا
+    | `config('filament-shield.custom_permissions')`: شاشةُ الأدوارِ مورِدٌ من
+    | عندِنا الآن. والفحصُ يسألُ ما تقرؤه الشاشةُ فعلاً — إعدادٌ لم يعدْ أحدٌ
+    | يقرؤه يبقى مطابقاً إلى الأبدِ ويحرسُ العدم.
+    */
+    $offered = array_keys(PermissionLabels::tenantMap());
 
     // The picker's whole vocabulary, and the six that decide how much the
     // platform may be owed are not in it. The model refuses the write in any
@@ -115,7 +122,7 @@ it('never offers a platform permission on the role screen', function (): void {
 
 it('names every offered permission in Arabic, since the panel has no other language', function (): void {
     /** @var array<string, string> $labels */
-    $labels = config('filament-shield.custom_permissions', []);
+    $labels = PermissionLabels::tenantMap();
 
     $untranslated = [];
 
@@ -131,15 +138,27 @@ it('names every offered permission in Arabic, since the panel has no other langu
     expect($untranslated)->toBe([]);
 });
 
-it('keeps the generators off, which is the whole shape of this integration', function (): void {
-    // Shield's usual job is to INVENT permission names from Filament resources.
-    // With either of these true it would write names no policy has heard of, and
-    // the seventy-two constants would quietly stop being the whole vocabulary.
-    expect(config('filament-shield.permissions.generate'))->toBeFalse()
-        ->and(config('filament-shield.policies.generate'))->toBeFalse()
-        // And the formatter, which would pascal-case `billing.audit.view` into a
-        // string that matches nothing at all.
-        ->and(config('filament-shield.permissions.format_custom_permission_keys'))->toBeFalse();
+it('serves the role screen from this codebase, not from the package', function (): void {
+    /*
+    | ⚠️ كان هذا الفحصُ يتأكّدُ أنّ مولِّداتِ Shield مُطفأة — وهو سؤالٌ لم يعدْ له
+    | معنى: الحزمةُ لم تعدْ مُسجَّلةً في اللوحةِ أصلاً، فإعدادُها يحرسُ العدم.
+    |
+    | ما يستحقُّ الحراسةَ الآن هو الثابتُ الذي حلَّ محلَّه: شاشةُ الأدوارِ مورِدُنا،
+    | ومسارُها `/admin/roles`. وعودةُ مورِدِ الحزمةِ تُعيدُ معها ثلاثةَ عيوبٍ في
+    | ضربةٍ واحدة — أسماءُ أدوارٍ إنجليزيّة، وصلاحيّاتٌ تُعرَضُ بمفاتيحِها الخامّة،
+    | وقائمةٌ بلا عمودِ مساحةِ عملٍ يُظهِرُ «مالك مساحة العمل» ثلاثَ مرّاتٍ
+    | متطابقة.
+    */
+    $resources = Filament::getPanel('admin')->getResources();
+
+    expect($resources)->toContain(RoleResource::class);
+
+    $fromPackage = array_values(array_filter(
+        $resources,
+        static fn (string $resource): bool => str_contains($resource, 'FilamentShield'),
+    ));
+
+    expect($fromPackage)->toBe([]);
 });
 
 it('records who granted a standing, and refuses to let it be edited afterwards', function (): void {

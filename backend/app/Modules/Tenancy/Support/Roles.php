@@ -87,6 +87,30 @@ final class Roles
         ];
     }
 
+    /**
+     * العربيّةُ المعروضةُ لاسمِ دور — **عرضٌ فقط**، والقيمةُ المخزَّنةُ لا تتغيّر.
+     *
+     * ⚠️ الاسمُ نفسُه مفتاحُ سلطة: `hasRole('teacher')` مكتوبٌ في الشجرةِ وفي
+     * `SeedDefaultRoles`، فترجمتُه في قاعدةِ البيانات تكسرُ كلَّ قارئ. وهذه
+     * خريطةُ قراءةٍ لا كتابة.
+     *
+     * ⚠️ ودورٌ يكتبُه مشغِّلٌ بيدِه يُعرَضُ باسمِه كما كتبَه: بديلُ ذلك أن يختفيَ
+     * وراءَ فراغٍ لأنّ خريطةً لا تعرفُه.
+     */
+    public static function label(string $name): string
+    {
+        return match ($name) {
+            self::SUPER_ADMIN => 'مدير المنصّة',
+            self::FINANCE_ADMIN => 'مسؤول ماليّ',
+            self::COMPLIANCE_OFFICER => 'مسؤول امتثال',
+            self::TENANT_OWNER => 'مالك مساحة العمل',
+            self::TEACHER => 'مدرّس',
+            self::ASSISTANT_TEACHER => 'مدرّس مساعد',
+            self::STUDENT => 'طالب',
+            default => $name,
+        };
+    }
+
     /** @return list<string> Workspace-scoped roles (excludes super-admin). */
     public static function workspaceRoles(): array
     {
