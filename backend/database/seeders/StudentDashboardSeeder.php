@@ -75,8 +75,18 @@ class StudentDashboardSeeder extends Seeder
      *
      * `random_seed` عمودٌ قائمٌ يُميّزُ هذه المحاولةَ عن أيِّ محاولةٍ حقيقيّةٍ للطالب،
      * فالتشغيلةُ الثانيةُ تجدُها ولا تُنشئُ ثانية. عمودٌ جديدٌ لأجلِ سيدرٍ ثمنٌ أغلى.
+     *
+     * ⚠️ **عددٌ لا نصّ، والعمودُ `unsignedInteger`.** كانت القيمةُ
+     * `'student-dashboard-seed-0'` — و**SQLite يقبلُ أيَّ قيمةٍ في أيِّ عمود**
+     * (تقاربُ الأنواع)، فمرَّت خضراءَ في كلِّ تشغيلةِ اختبارٍ منذُ كُتِبَت
+     * وسقطت في أوّلِ MySQL: `1366 Incorrect integer value`. نفسُ عائلةِ
+     * «SQLite يُخفي أخطاءَ عرضِ الأعمدة» المسجَّلةِ في `CLAUDE.md`، من بابِ
+     * النوعِ لا العرض.
+     *
+     * والقيمةُ عاليةٌ عمداً: بذرةٌ حقيقيّةٌ يُولِّدُها `random_int` لا تبلغُها
+     * عمليّاً، فتبقى «هذا صفٌّ مزروع» مقروءةً بالعين. السقفُ ٤٢٩٤٩٦٧٢٩٥.
      */
-    private const MISTAKE_SEED = 'student-dashboard-seed';
+    private const MISTAKE_SEED = 4_200_000_000;
 
     public function run(): void
     {
@@ -413,7 +423,7 @@ class StudentDashboardSeeder extends Seeder
                 [
                     'workspace_id' => $workspace->getKey(),
                     'student_user_id' => $student->getKey(),
-                    'random_seed' => self::MISTAKE_SEED.'-'.$round,
+                    'random_seed' => self::MISTAKE_SEED + $round,
                 ],
                 [
                     'uuid' => (string) Str::uuid(),

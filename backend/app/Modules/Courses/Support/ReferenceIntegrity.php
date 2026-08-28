@@ -82,7 +82,23 @@ final class ReferenceIntegrity
                 $outer->orWhere(function (Builder|QueryBuilder $branch) use ($type, $table): void {
                     $branch->where('lessons.type', $type)
                         ->whereExists(function (QueryBuilder $exists) use ($table): void {
-                            $exists->select(1)
+                            /*
+                            | ⚠️ `DB::raw` لا `select(1)`. لارافيل يعاملُ وسيطَ
+                            | `select()` كاسمِ عمودٍ ويلفُّه بعلاماتٍ خلفيّة، فيخرجُ
+                            | `select `1`` — و**MySQL يرُدُّ
+                            | `1054 Unknown column '1' in 'field list'`**، بينما
+                            | SQLite يقبلُ معرِّفاً مقتبَساً لا يطابقُ عموداً
+                            | ويعاملُه كنصّ. فكلُّ اختبارٍ في هذا المستودعِ أخضرُ
+                            | (كلُّها SQLite) وكلُّ قراءةٍ في الإنتاجِ تسقط.
+                            |
+                            | والثمنُ ليس استعلاماً واحداً: هذه الدالّةُ في
+                            | `progressEligible`، أي في **مقامِ التقدُّم** وفي
+                            | قراءاتِ الطالبِ الثلاث. فأيُّ مادّةٍ فيها امتحانٌ أو
+                            | حصّةٌ ترُدُّ ٥٠٠، و`CourseCompleted` لا يُطلَقُ أبداً،
+                            | ولا تصدرُ شهادةٌ لأحد — عائلةُ العطلِ الأسوأِ في
+                            | `CLAUDE.md`، من بابٍ سابعٍ جديد.
+                            */
+                            $exists->select(DB::raw('1'))
                                 ->from($table)
                                 ->whereColumn($table.'.id', 'lessons.reference_id');
 

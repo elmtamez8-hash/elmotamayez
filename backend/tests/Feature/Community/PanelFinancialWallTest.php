@@ -74,24 +74,40 @@ beforeEach(function (): void {
     ]);
 });
 
-it('lets the assistant through the panel door and refuses them the orders screen', function (): void {
+/*
+| ⚠️ البابُ صارَ مغلقاً أمامَ المساعدِ **قبلَ** شاشةِ الطلبات، وهذا أقوى لا أضعف:
+| `canAccessPanel()` صارَ «مديرُ المنصّةِ وحدَه»، فلا يصلُ المساعدُ إلى أيِّ
+| مورِدٍ في اللوحة. كان هذا الملفُّ يقيسُ بابَاً مفتوحاً وشاشةً مرفوضة.
+|
+| ⚠️ ويبقى `OrderResource::canViewAny()` مقيساً **مباشرةً** لا عبرَ HTTP: هو
+| الخطُّ الثاني إن أُعيدَ فتحُ اللوحةِ لطاقمِ المساحةِ يوماً، وقياسُه بطلبٍ
+| يرتدُّ ٤٠٣ عندَ الباب يجعلُ الحارسَ الثانيَ غيرَ مقيسٍ إطلاقاً — وهو بالضبط
+| العيبُ الذي كتبَه هذا المستودعُ عن «صلاحيّةٍ مصنَّفةٍ بالغياب».
+*/
+it('shuts the panel door on the assistant before any resource', function (): void {
     $this->setCurrentWorkspace($this->workspace, $this->assistant);
     $this->actingAs($this->assistant);
 
-    // The door is open — which is what makes the next line a statement about the
-    // orders screen rather than about `EnsureFilamentAccess`.
-    $this->get('/admin/courses')->assertOk();
+    expect($this->assistant->mayAccessAdminPanel())->toBeFalse();
 
+    $this->get('/admin/courses')->assertForbidden();
     $this->get('/admin/orders')->assertForbidden();
 
     expect(OrderResource::canViewAny())->toBeFalse();
 });
 
-it('still shows the owner the orders screen', function (): void {
+/*
+| والمالكُ كذلك — اللوحةُ لمديرِ المنصّة. لكنّ `canViewAny()` يبقى **صادقاً**
+| له: الصلاحيّةُ التي يحملُها لم تتغيّرْ، والذي تغيّرَ هو البابُ فوقَها. فصلُ
+| الاثنَين هو ما يجعلُ هذا الملفَّ يقيسُ الجدارَ الماليَّ لا سياسةَ الدخول.
+*/
+it('shuts the panel door on the owner too, without touching their permission', function (): void {
     $this->setCurrentWorkspace($this->workspace, $this->owner);
     $this->actingAs($this->owner);
 
-    $this->get('/admin/orders')->assertOk();
+    expect($this->owner->mayAccessAdminPanel())->toBeFalse();
+
+    $this->get('/admin/orders')->assertForbidden();
 
     expect(OrderResource::canViewAny())->toBeTrue();
 });

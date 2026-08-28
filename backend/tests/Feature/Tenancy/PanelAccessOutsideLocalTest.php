@@ -33,11 +33,28 @@ it('يقبلُ مديرَ المنصّةِ على اللوحةِ خارجَ بي
     $this->actingAs($admin)->get('/admin')->assertSuccessful();
 });
 
-it('يقبلُ مالكَ مساحةِ العملِ خارجَ بيئةِ التطوير', function (): void {
+/*
+| ⚠️ والمالكُ **يُرفَض** — وهذا تغييرٌ مقصودٌ لا تراجُع. كانت اللوحةُ تقبلُ
+| `tenant-owner` و`teacher` و`assistant-teacher`، وللمدرّسِ سطحُه الكاملُ في
+| `/manage/*` فلا حاجةَ له بها. وكلُّ بابٍ زائدٍ يُدفَعُ ثمنُه: `OrderResource`
+| سلّمَ مساعِداً بريدَ كلِّ طالبٍ والمبلغَ الذي دفعَه، لأنّ قائمةَ Filament لا
+| تستدعي سياسةَ الصفّ — عيبٌ لا يوجدُ إن لم يدخلِ المساعدُ اللوحةَ أصلاً.
+*/
+it('يرفضُ مالكَ مساحةِ العملِ — اللوحةُ لمديرِ المنصّةِ وحدَه', function (): void {
     [$workspace, $owner] = $this->createWorkspaceWithOwner();
     $this->setCurrentWorkspace($workspace, $owner);
 
-    $this->actingAs($owner)->get('/admin')->assertSuccessful();
+    $this->actingAs($owner)->get('/admin')->assertForbidden();
+    expect($owner->mayAccessAdminPanel())->toBeFalse();
+});
+
+it('يرفضُ المدرّسَ والمساعدَ كذلك', function (): void {
+    [$workspace] = $this->createWorkspaceWithOwner();
+
+    foreach ([Roles::TEACHER, Roles::ASSISTANT_TEACHER] as $role) {
+        $member = $this->addWorkspaceMember($workspace, $role);
+        expect($member->mayAccessAdminPanel())->toBeFalse();
+    }
 });
 
 /*
@@ -60,6 +77,6 @@ it('النموذجُ يُنفِّذُ عقدَ FilamentUser', function (): void 
     // والحكمُ مكتوبٌ مرّةً واحدة: الوسيطُ يسألُ النموذجَ ولا يحملُ نسخةً ثانية.
     $middleware = file_get_contents(base_path('app/Shared/Middleware/EnsureFilamentAccess.php'));
 
-    expect($middleware)->toContain('canAccessPanel')
+    expect($middleware)->toContain('mayAccessAdminPanel')
         ->and($middleware)->not->toContain(Roles::TENANT_OWNER);
 });

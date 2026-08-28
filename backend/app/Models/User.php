@@ -13,7 +13,7 @@ use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Tenancy\Models\Workspace;
-use App\Modules\Tenancy\Support\Roles;
+use App\Modules\Tenancy\Support\PlatformStaffDirectory;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\AssistantForbiddenPermissions;
 use App\Shared\Support\WorkspaceContext;
@@ -217,13 +217,32 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
 
     public function mayAccessAdminPanel(): bool
     {
+        /*
+        | ⚠️ مديرُ المنصّةِ وحدَه. كانت تقبلُ `tenant-owner` و`teacher` و
+        | `assistant-teacher` أيضاً — ولا حاجةَ لهم بها: للمدرّسِ سطحُه الكاملُ في
+        | `/manage/*` (المواد، التصحيح، المحاسبة، المساعدون، التجميد…)، و`/admin`
+        | لوحةُ المنصّةِ لا لوحةُ المدرّس.
+        |
+        | وكلُّ بابٍ زائدٍ على اللوحةِ يُدفَعُ ثمنُه مرّتَين: `OrderResource` سبقَ
+        | أن سلّمَ مساعِداً بريدَ كلِّ طالبٍ والمبلغَ الذي دفعَه، لأنّ قائمةَ
+        | Filament لا تستدعي سياسةَ الصفِّ أصلاً — عيبٌ لا يوجدُ إن لم يكنِ
+        | المساعدُ يدخلُ اللوحةَ من الأساس.
+        */
         if ($this->isSuperAdmin()) {
             return true;
         }
 
-        return $this->roles()
-            ->whereIn('name', [Roles::TENANT_OWNER, Roles::TEACHER, Roles::ASSISTANT_TEACHER])
-            ->exists();
+        /*
+        | ⚠️ وموظّفو المنصّةِ كذلك — وهذا ليس توسيعاً للقاعدةِ بل تطبيقُها.
+        | `platform_staff` جدولٌ موجودٌ لأنّ spatie لا يستطيعُ التعبيرَ عن دورٍ
+        | بلا `team_id`، وحاملُه — مسؤولُ المالية مثلاً — **شاشاتُه الوحيدةُ في
+        | هذه اللوحة** (تدقيقُ التسويات، أرصدةُ المنصّة). حصرُ الدخولِ في
+        | `is_super_admin` وحدَه يُغلِقُ اللوحةَ في وجهِ من بُنِيَت له.
+        |
+        | وليس دوراً في مساحةِ عمل: `rolesFor()` تقرأُ الجدولَ الذي لا
+        | `team_id` فيه، فمالكُ المساحةِ والمدرّسُ والمساعدُ لا يمرّون من هنا.
+        */
+        return app(PlatformStaffDirectory::class)->rolesFor($this) !== [];
     }
 
     /**

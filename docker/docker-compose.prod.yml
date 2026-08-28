@@ -30,7 +30,12 @@ services:
     environment:
       DB_HOST: mysql
       REDIS_HOST: redis
-      SCOUT_MEILISEARCH_HOST: http://meilisearch:7700
+      # ⚠️ `MEILISEARCH_HOST` هو ما يقرؤه `config/scout.php` حرفيّاً. كان هنا
+      # `SCOUT_MEILISEARCH_HOST` — اسمٌ لا يقرؤه أحد — فيسقطُ إلى الافتراضيِّ
+      # `http://localhost:7700`، أي داخلَ حاويةِ الواجهةِ الخلفيّةِ حيث لا شيءَ
+      # يستمع. النتيجةُ أنّ كلَّ كتابةٍ لنموذجٍ مفهرَسٍ تفشل: مدرّسٌ يُنشئُ مادّةً
+      # يُرَدُّ بخطأ، والمتجرُ لا يجدُ شيئاً — بلا سطرٍ يُسمّي السبب.
+      MEILISEARCH_HOST: http://meilisearch:7700
     networks: [elmotamayez]
     depends_on:
       mysql: { condition: service_healthy }
@@ -50,7 +55,12 @@ services:
     environment:
       DB_HOST: mysql
       REDIS_HOST: redis
-      SCOUT_MEILISEARCH_HOST: http://meilisearch:7700
+      # ⚠️ `MEILISEARCH_HOST` هو ما يقرؤه `config/scout.php` حرفيّاً. كان هنا
+      # `SCOUT_MEILISEARCH_HOST` — اسمٌ لا يقرؤه أحد — فيسقطُ إلى الافتراضيِّ
+      # `http://localhost:7700`، أي داخلَ حاويةِ الواجهةِ الخلفيّةِ حيث لا شيءَ
+      # يستمع. النتيجةُ أنّ كلَّ كتابةٍ لنموذجٍ مفهرَسٍ تفشل: مدرّسٌ يُنشئُ مادّةً
+      # يُرَدُّ بخطأ، والمتجرُ لا يجدُ شيئاً — بلا سطرٍ يُسمّي السبب.
+      MEILISEARCH_HOST: http://meilisearch:7700
     networks: [elmotamayez]
     depends_on:
       backend: { condition: service_started }
@@ -69,6 +79,7 @@ services:
     environment:
       DB_HOST: mysql
       REDIS_HOST: redis
+      MEILISEARCH_HOST: http://meilisearch:7700
     networks: [elmotamayez]
     depends_on:
       backend: { condition: service_started }

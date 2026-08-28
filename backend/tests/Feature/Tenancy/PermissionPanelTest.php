@@ -78,7 +78,19 @@ it('actually renders, which no boolean above can tell you', function (): void {
     $this->setCurrentWorkspace($this->workspace, $this->owner);
     $this->actingAs($this->owner);
 
-    $this->get('/admin/shield/roles')->assertOk();
+    /*
+     * ⚠️ THE OWNER IS NOW REFUSED AT THE DOOR, AND THAT IS THE PRICE OF THE
+     * CHANGE RATHER THAN A BUG. `canAccessPanel()` is «platform people only»
+     * since the panel was narrowed — super admin, or a `platform_staff` holder.
+     * `RoleResource::canViewAny()` above still answers TRUE for the owner: the
+     * permission they hold did not change, the door above it did. Keeping the
+     * two apart is what stops this file drifting into a test of the door.
+     *
+     * The cost is real and belongs written down: a workspace owner can no
+     * longer rearrange their own roles from `/admin`. Assistants are still
+     * managed from `/manage/assistants` in the product's own surface.
+     */
+    $this->get('/admin/shield/roles')->assertForbidden();
 
     // ⚠️ AND THE PLATFORM ADMIN ON THE ROLE SCREEN TOO. The first version of
     // this test only opened it as the owner, so a super admin — whose authority
