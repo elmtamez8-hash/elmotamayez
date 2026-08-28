@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { publicApi } from "@/lib/public-api";
 import { AddChildForm } from "@/components/marketplace/AddChildForm";
+import { ErrorState } from "@/components/ui/states/ErrorState";
 import { PLATFORM_NAME } from "@/lib/platform";
 
 export const metadata: Metadata = {
@@ -10,10 +11,34 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
+/*
+  ⚠️ RENDERED PER REQUEST, NEVER PRERENDERED — AND IT TOOK DOWN A WHOLE DEPLOY.
+  This page fetches the API while rendering, so Next tried to fetch it at BUILD
+  time, where no API exists: `TypeError: fetch failed … ECONNREFUSED`, and the
+  build exits. The page is only reachable with a session and carries
+  `robots: index: false`, so a prerendered copy was never worth anything — and a
+  build-time snapshot of the grade list goes stale the first time somebody edits
+  the taxonomy.
+*/
+export const dynamic = "force-dynamic";
+
 export default async function AddChildrenPage() {
   // Server-fetched so the grade list is in the HTML: the form is useless without
   // it, and a client fetch leaves an empty select on a slow connection.
-  const gradeLevels = await publicApi.gradeLevels();
+  //
+  // ⚠️ AND THE FAILURE IS CAUGHT. Uncaught, an API blip becomes a 500 page — a
+  // raw error shown to a parent mid-signup, which this product forbids outright.
+  let gradeLevels;
+
+  try {
+    gradeLevels = await publicApi.gradeLevels();
+  } catch {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-20 sm:px-6">
+        <ErrorState />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-xl px-4 py-12 sm:px-6">

@@ -54,6 +54,17 @@ jobs:
         # `--no-dev` ممنوعٌ هنا: Pest وPHPStan وPint كلُّها في require-dev.
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      # ⚠️ لا `.env` على عامِلٍ نظيف، و`phpunit.xml` لا يضبطُ `APP_KEY` — فينفجرُ
+      # `MissingAppKeyException` في أوّلِ اختبارٍ يلمسُ التشفيرَ أو الجلسة. سقطَ ١٨
+      # اختباراً دفعةً واحدةً بهذا السبب، وكلُّ رسائلِها تتحدّثُ عن ٤٠٣ ومفاتيحَ
+      # مفقودةٍ لا عن السبب. محلّيّاً غيرُ مرئيٍّ إطلاقاً: `backend/.env` موجودٌ منذ
+      # أوّلِ يوم.
+      - name: Environment
+        working-directory: backend
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
       - name: Style (pint --test)
         working-directory: backend
         run: ./vendor/bin/pint --test
