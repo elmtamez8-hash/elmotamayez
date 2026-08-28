@@ -58,7 +58,7 @@ jobs:
           APP_PATH: ${{ secrets.VPS_APP_PATH }}
         run: |
           ssh -o BatchMode=yes -i ~/.ssh/id_ed25519 "$USER@$HOST" \
-            "cd '$APP_PATH' && ./scripts/deploy.sh"
+            "cd '$APP_PATH' && bash ./scripts/deploy.sh"
 
       - name: تنظيف المفتاح
         # ⚠️ `always()`: عاملُ GitHub يُتلَفُ بعدَ الوظيفةِ على أيِّ حال، لكنّ خطوةً

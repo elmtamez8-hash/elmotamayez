@@ -1,8 +1,14 @@
 FROM php:8.5-fpm-alpine
 
+# ⚠️ `intl` و`exif` مطلوبان ولا يذكرُهما `composer.json`: يأتيان من تبعيّاتٍ
+# غيرِ مباشرة، فيسقطُ `composer install` داخلَ الصورةِ برسالةٍ تُسمّي الامتدادَ
+# ولا تُسمّي من يطلبُه. لا يظهرُ محلّيّاً إطلاقاً — PHP على جهازِ التطويرِ يأتي
+# بهما مثبَّتَين، فالبناءُ الأوّلُ للصورةِ هو أوّلُ مكانٍ يُسألُ فيه السؤال.
+# و`icu-dev` هو ما يُصرِّفُ `intl`، ويبقى مثبَّتاً لأنّ الصورةَ مرحلةٌ واحدة.
 RUN apk add --no-cache \
     git \
     curl \
+    icu-dev \
     libpng-dev \
     libzip-dev \
     oniguruma-dev \
@@ -14,6 +20,8 @@ RUN apk add --no-cache \
     pdo_pgsql \
     gd \
     zip \
+    intl \
+    exif \
     mbstring \
     xml \
     bcmath \

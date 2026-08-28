@@ -162,11 +162,20 @@ docker compose -f docker/docker-compose.prod.yml --env-file docker/.env \
 غيرِ موجود:
 
 ```bash
-docker compose -f docker/docker-compose.prod.yml --env-file docker/.env \
-  run --rm --service-ports -v certbot-www:/var/www/certbot certbot \
-  certonly --standalone -d example.com -d www.example.com \
-  --agree-tos -m you@example.com --non-interactive
+docker run --rm -p 80:80 \
+  -v mteatch_certbot-conf:/etc/letsencrypt \
+  -v mteatch_certbot-www:/var/www/certbot \
+  certbot/certbot certonly --standalone \
+  -d elmotamayez.tech -d www.elmotamayez.tech \
+  --agree-tos -m you@example.com --non-interactive --no-eff-email
 ```
+
+⚠️ **`docker run`، لا `docker compose run` — وأوّلُ محاولةٍ عُلِّقَتْ تسعَ دقائقَ
+بسببِ ذلك.** خدمةُ `certbot` في ملفِّ الحزمةِ تستبدلُ `entrypoint` بحلقةِ تجديدٍ
+لا نهائيّة، فوسائطُ `certonly` تمرُّ إليها **وسائطَ لِـ`sh -c` تتجاهلُها**:
+الحاويةُ تُقلِعُ، والمنفذُ ٨٠ يبقى فارغاً، **ولا خطأَ في أيِّ سجلّ** — تجلسُ في
+حلقةِ التجديدِ إلى الأبد. أمّا الصورةُ نفسُها فـ`entrypoint`ها `certbot`،
+فتشغيلُها مباشرةً هو الصيغةُ الوحيدةُ التي تُصدِر.
 
 بعدَها تتولّى خدمةُ `certbot` في الحزمةِ التجديدَ كلَّ اثنتَي عشرةَ ساعة.
 
