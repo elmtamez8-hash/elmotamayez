@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace\Filament\Resources;
 
 use App\Modules\Marketplace\Filament\Resources\GradeLevelResource\Pages;
+use App\Modules\Marketplace\Filament\Resources\TaxonomyResource\RelationManagers\TeacherProfilesRelationManager;
 use App\Modules\Marketplace\Models\GradeLevel;
+use BackedEnum;
 use Filament\Resources\Pages\PageRegistration;
+use Filament\Support\Icons\Heroicon;
+use UnitEnum;
 
 /**
  * The platform's grade levels — see {@see SubjectResource}; everything shared
@@ -22,6 +26,12 @@ class GradeLevelResource extends TaxonomyResource
 {
     protected static ?string $model = GradeLevel::class;
 
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+
+    protected static string|UnitEnum|null $navigationGroup = 'السوق والتصنيف';
+
+    protected static ?int $navigationSort = 30;
+
     public static function getNavigationLabel(): string
     {
         return 'المراحل الدراسية';
@@ -35,6 +45,19 @@ class GradeLevelResource extends TaxonomyResource
     public static function getPluralModelLabel(): string
     {
         return 'المراحل الدراسية';
+    }
+
+    /**
+     * مَن يدرّسُ هذه المرحلةَ فعلاً — نفسُ مديرِ العلاقاتِ الذي تستعملُه
+     * {@see SubjectResource}، لأنّ اسمَ العلاقةِ واحدٌ على النموذجَين.
+     *
+     * @return array<int, class-string>
+     */
+    public static function getRelations(): array
+    {
+        return [
+            TeacherProfilesRelationManager::class,
+        ];
     }
 
     /** @return array<string, PageRegistration> */

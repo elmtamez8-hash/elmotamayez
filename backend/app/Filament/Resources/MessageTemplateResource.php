@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\MessageTemplateResource\Pages;
+use App\Modules\Notifications\Enums\TemplateApprovalStatus;
 use App\Modules\Notifications\Models\MessageTemplate;
 use App\Modules\Notifications\Support\NotificationChannel;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Tenancy\Support\Permissions;
+use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -16,10 +18,12 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use UnitEnum;
 
 /**
  * Message wording, editable without a deploy (FR-036).
@@ -31,6 +35,12 @@ use Filament\Tables\Table;
 class MessageTemplateResource extends Resource
 {
     protected static ?string $model = MessageTemplate::class;
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleLeftRight;
+
+    protected static string|UnitEnum|null $navigationGroup = 'الإشعارات';
+
+    protected static ?int $navigationSort = 10;
 
     protected static ?string $modelLabel = 'قالب رسالة';
 
@@ -67,12 +77,7 @@ class MessageTemplateResource extends Resource
             */
             Select::make('provider_approval_status')
                 ->label('اعتماد المزوّد')
-                ->options([
-                    MessageTemplate::APPROVAL_NOT_REQUIRED => 'لا يحتاج اعتماداً',
-                    MessageTemplate::APPROVAL_PENDING => 'بانتظار الاعتماد',
-                    MessageTemplate::APPROVAL_APPROVED => 'معتمَد',
-                    MessageTemplate::APPROVAL_REJECTED => 'مرفوض',
-                ])
+                ->options(TemplateApprovalStatus::options())
                 ->required()
                 ->helperText('قنوات مثل واتساب ترفض قالباً غير معتمَد. اقلبه إلى «معتمَد» بعد موافقة المزوّد وليس قبلها.'),
             Toggle::make('is_active')->label('مفعَّل'),
@@ -92,6 +97,7 @@ class MessageTemplateResource extends Resource
                     ->formatStateUsing(fn (string $state): string => NotificationChannel::from($state)->label()),
                 TextColumn::make('title_ar')->label('العنوان')->searchable()->limit(40),
                 TextColumn::make('provider_approval_status')->label('اعتماد المزوّد')->badge()
+                    ->formatStateUsing(fn (string $state): string => TemplateApprovalStatus::labelFor($state))
                     ->color(fn (string $state): string => match ($state) {
                         MessageTemplate::APPROVAL_APPROVED, MessageTemplate::APPROVAL_NOT_REQUIRED => 'success',
                         MessageTemplate::APPROVAL_PENDING => 'warning',

@@ -7,74 +7,137 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\OrderResource\Pages;
 use App\Models\User;
 use App\Modules\Payments\Enums\OrderKind;
+use App\Modules\Payments\Enums\OrderStatus;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Support\Permissions;
+use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use UnitEnum;
 
 class OrderResource extends Resource
 {
     protected static ?string $model = Order::class;
 
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingCart;
+
+    protected static string|UnitEnum|null $navigationGroup = 'المال والاشتراكات';
+
+    protected static ?int $navigationSort = 10;
+
+    public static function getNavigationLabel(): string
+    {
+        return 'الطلبات';
+    }
+
+    public static function getModelLabel(): string
+    {
+        return 'طلب';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'الطلبات';
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                Select::make('status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'under_review' => 'Under Review',
-                        'approved' => 'Approved',
-                        'rejected' => 'Rejected',
-                    ])
-                    ->required(),
-                TextInput::make('amount_minor')
-                    ->integer()
-                    ->disabled(),
-                TextInput::make('currency')
-                    ->disabled(),
-                Select::make('user_id')
-                    ->relationship('user', 'email')
-                    ->disabled(),
-                Select::make('course_id')
-                    ->relationship('course', 'title')
-                    ->disabled(),
+                Section::make('الطلب')
+                    ->description('المبلغُ والمشتري والمقرّرُ ثابتة — تُكتَبُ عندَ إنشاءِ الطلبِ ولا تُعدَّلُ بعدَه.')
+                    ->columns(2)
+                    ->schema([
+                        Select::make('user_id')
+                            ->label('المشتري')
+                            ->relationship('user', 'email')
+                            ->disabled(),
+                        Select::make('course_id')
+                            ->label('المقرّر')
+                            ->relationship('course', 'title')
+                            ->disabled(),
+                        TextInput::make('amount_minor')
+                            ->label('المبلغ (بالوحدات الصغرى)')
+                            ->integer()
+                            ->disabled(),
+                        TextInput::make('currency')
+                            ->label('العملة')
+                            ->disabled(),
+                    ]),
+
+                Section::make('القرار')
+                    ->description('اعتمادُ الطلبِ هو ما يُنشئُ التسجيل — لا تُغيَّرُ الحالةُ إلّا بعدَ التحقّقِ من الإيصال.')
+                    ->schema([
+                        Select::make('status')
+                            ->label('الحالة')
+                            ->options(OrderStatus::options())
+                            ->required(),
+                    ]),
             ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('course.title')->searchable()->sortable(),
-                TextColumn::make('user.email')->searchable(),
-                TextColumn::make('amount_minor')->money(fn (Order $record): string => $record->currency, divideBy: 100)->sortable(),
-                TextColumn::make('status')->badge()
+                TextColumn::make('course.title')
+                    ->label('المقرّر')
+                    ->placeholder('—')
+                    ->searchable()
+                    ->sortable()
+                    ->wrap(),
+                // ⚠️ بلا بحثٍ ولا ترتيب: `name` سِمةٌ محسوبةٌ لا عمود. {@see CourseResource}
+                TextColumn::make('user.name')
+                    ->label('اسم المشتري')
+                    ->placeholder('—'),
+                TextColumn::make('user.email')
+                    ->label('بريد المشتري')
+                    ->searchable()
+                    ->copyable()
+                    ->copyMessage('نُسخ البريد'),
+                TextColumn::make('kind')
+                    ->label('النوع')
+                    ->badge()
+                    ->formatStateUsing(fn (mixed $state): string => (
+                        $state instanceof OrderKind ? $state : OrderKind::tryFrom(is_scalar($state) ? (string) $state : '')
+                    )?->label() ?? (is_scalar($state) ? (string) $state : '—')),
+                TextColumn::make('amount_minor')
+                    ->label('المبلغ')
+                    ->money(fn (Order $record): string => $record->currency, divideBy: 100)
+                    ->sortable(),
+                TextColumn::make('status')->label('الحالة')->badge()
+                    ->formatStateUsing(fn (string $state): string => OrderStatus::labelFor($state))
                     ->color(fn (string $state): string => match ($state) {
                         'approved' => 'success',
                         'pending' => 'warning',
                         'under_review' => 'info',
-                        'rejected' => 'danger',
+                        'rejected', 'cancelled' => 'danger',
                         default => 'gray',
                     }),
-                TextColumn::make('created_at')->dateTime()->sortable(),
+                TextColumn::make('approver.email')
+                    ->label('اعتمده')
+                    ->placeholder('—')
+                    ->toggleable(),
+                TextColumn::make('created_at')
+                    ->label('تاريخ الطلب')
+                    ->dateTime('Y-m-d H:i')
+                    ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'under_review' => 'Under Review',
-                        'approved' => 'Approved',
-                        'rejected' => 'Rejected',
-                    ]),
+                    ->label('الحالة')
+                    ->options(OrderStatus::options()),
             ])
             ->actions([
                 EditAction::make(),
@@ -106,7 +169,14 @@ class OrderResource extends Resource
             $query->where('kind', '!=', OrderKind::Credits->value);
         }
 
-        return $query;
+        return $query->with(['course', 'user', 'approver']);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            OrderResource\RelationManagers\TransactionsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

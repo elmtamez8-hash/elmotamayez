@@ -12,6 +12,25 @@ use Illuminate\Auth\Access\Response;
 
 class EnrollmentPolicy extends BasePolicy
 {
+    /*
+    | ⚠️ قراءةُ **قائمةِ** التسجيلات، وغيابُها كان بابَ لوحةٍ مفتوحاً على مصراعَيه.
+    |
+    | `Filament\Resources\Resource::canViewAny()` تُفوِّضُ إلى سياسةِ النموذج —
+    | فإن لم تكنْ فيها دالّةٌ بهذا الاسمِ سقطَ الطلبُ إلى `Response::allow()` في
+    | `get_authorization_response()`، أي **سمحَ للجميع**. و`view()` أدناه لا تُستدعى
+    | لصفوفِ جدولٍ أبداً: قائمةُ Filament تسألُ عن الفعلِ الجمعيِّ وحدَه. فكانت شاشةُ
+    | التسجيلاتِ تعرضُ اسمَ كلِّ طالبٍ وبريدَه وتقدُّمَه لكلِّ من يفتحُ اللوحة.
+    |
+    | وليس فرعُ المِلكيّةِ هنا: قائمةٌ ليست صفّاً، والطالبُ يقرأُ تسجيلَه من
+    | `/api/v1/enrollments` بفلترةٍ صريحةٍ على مُعرِّفِه لا من هذا الفعل.
+    */
+    public function viewAny(User $user): Response
+    {
+        return $user->can(Permissions::ENROLLMENTS_VIEW_ALL)
+            ? Response::allow()
+            : Response::deny('You are not authorized to list enrollments.');
+    }
+
     public function view(User $user, Enrollment $enrollment): Response
     {
         if (($workspaceCheck = $this->belongsToCurrentWorkspace($enrollment))->denied()) {

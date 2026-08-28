@@ -6,6 +6,7 @@ namespace App\Modules\Tenancy\Filament\Pages;
 
 use App\Models\User;
 use App\Modules\Tenancy\Support\PlatformSettings;
+use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -14,7 +15,9 @@ use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
+use UnitEnum;
 
 /**
  * The operational dials, editable without a deploy.
@@ -31,6 +34,12 @@ class ManagePlatformSettings extends Page
 
     protected static ?string $slug = 'platform-settings';
 
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
+
+    protected static string|UnitEnum|null $navigationGroup = 'المنصّة';
+
+    protected static ?int $navigationSort = 10;
+
     /** @var array<string, mixed>|null */
     public ?array $data = [];
 
@@ -44,12 +53,12 @@ class ManagePlatformSettings extends Page
 
     public static function getNavigationLabel(): string
     {
-        return 'إعدادات المنصة';
+        return 'إعدادات المنصّة';
     }
 
     public function getTitle(): string
     {
-        return 'إعدادات المنصة';
+        return 'إعدادات المنصّة';
     }
 
     public function mount(): void
@@ -84,6 +93,7 @@ class ManagePlatformSettings extends Page
                                 ->numeric()->minValue(0)->maxValue(365)->required(),
                         ]),
                     Section::make('الفيديو')
+                        ->description('هذه هي الحدودُ المعلَنةُ للمزوّد والمفروضةُ عند الرفع معاً؛ رقمان مختلفان يعني وعداً يخالف ما يُقبَل.')
                         ->schema([
                             TextInput::make('max_size_bytes')
                                 ->label('الحد الأقصى لحجم الملف (بايت)')

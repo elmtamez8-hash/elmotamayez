@@ -7,17 +7,22 @@ namespace App\Modules\Payments\Filament\Resources;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Filament\Resources\CreditPackageResource\Pages;
 use App\Modules\Payments\Models\CreditPackage;
+use BackedEnum;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\PageRegistration;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use UnitEnum;
 
 /**
  * The credit catalogue, administered where the platform's own data already is.
@@ -46,6 +51,12 @@ class CreditPackageResource extends Resource
 {
     protected static ?string $model = CreditPackage::class;
 
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTicket;
+
+    protected static string|UnitEnum|null $navigationGroup = 'المال والاشتراكات';
+
+    protected static ?int $navigationSort = 20;
+
     protected static ?string $recordTitleAttribute = 'name';
 
     public static function getNavigationLabel(): string
@@ -66,47 +77,64 @@ class CreditPackageResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            TextInput::make('name')
-                ->label('الاسم')
-                ->required()
-                ->maxLength(255)
-                // Unique because it is the seeder's identity key: a second row
-                // called "أربع حصص فردية" makes the next reference-data run
-                // ambiguous, and makes the student's list read as a duplicate.
-                ->unique(ignoreRecord: true),
+            Section::make('ما يشتريه الطالب')
+                ->description('لا حقلَ سعرٍ هنا ولا يمكنُ أن يكون: الحزمةُ حجمٌ، والسعرُ يُحسَبُ لكلِّ كورسٍ '
+                    .'من سعرِ مدرّسِه المعتمَد. رقمٌ يُكتَبُ هنا يصيرُ سعراً واحداً لكلِّ مدرّسي المنصّة.')
+                ->columns(2)
+                ->schema([
+                    TextInput::make('name')
+                        ->label('الاسم')
+                        ->required()
+                        ->maxLength(255)
+                        // Unique because it is the seeder's identity key: a second row
+                        // called "أربع حصص فردية" makes the next reference-data run
+                        // ambiguous, and makes the student's list read as a duplicate.
+                        ->unique(ignoreRecord: true),
 
-            TextInput::make('credits')
-                ->label('عدد الحصص')
-                ->numeric()
-                ->required()
-                ->minValue(1)
-                ->helperText('رصيد واحد = حصة واحدة عند مدرّس واحد.'),
+                    TextInput::make('credits')
+                        ->label('عدد الحصص')
+                        ->numeric()
+                        ->required()
+                        ->minValue(1)
+                        ->helperText('رصيد واحد = حصة واحدة عند مدرّس واحد.'),
 
-            Select::make('session_type')
-                ->label('نوع الحصة')
-                ->required()
-                ->options(fn (): array => collect(ClassSessionType::cases())
-                    ->mapWithKeys(fn (ClassSessionType $type): array => [$type->value => $type->label()])
-                    ->all())
-                ->helperText('يحدّد أي سعرٍ معتمَد يُقرأ للمدرّس؛ الحزمة لا تظهر لمن لا سعر معتمَد له في هذا النوع.'),
+                    Select::make('session_type')
+                        ->label('نوع الحصة')
+                        ->required()
+                        ->options(fn (): array => collect(ClassSessionType::cases())
+                            ->mapWithKeys(fn (ClassSessionType $type): array => [$type->value => $type->label()])
+                            ->all())
+                        ->helperText('يحدّد أي سعرٍ معتمَد يُقرأ للمدرّس؛ الحزمة لا تظهر لمن لا سعر معتمَد له في هذا النوع.'),
+                ]),
 
-            TextInput::make('sort_order')
-                ->label('الترتيب')
-                ->numeric()
-                ->default(0)
-                ->required(),
+            Section::make('صلاحية الأرصدة')
+                ->description('قسمٌ من حقلٍ واحدٍ عمداً: هذا الحقلُ يشغّلُ سياسةً تسحبُ أرصدةً مدفوعة، '
+                    .'ولا يجوزُ أن يُملأَ بالمرورِ عليه في صفٍّ من الحقول.')
+                ->columns(1)
+                ->schema([
+                    TextInput::make('validity_days')
+                        ->label('صلاحية الأرصدة بالأيام')
+                        ->numeric()
+                        ->minValue(1)
+                        ->helperText('اتركه فارغاً فلا تنتهي الصلاحية. وضعُ رقمٍ هنا يشغّل انتهاء الصلاحية فعليّاً: '
+                            .'المكنسة الليلية ستسحب أرصدةً من طلاب اشتروها قبل أن تُعلَن هذه السياسة.'),
+                ]),
 
-            TextInput::make('validity_days')
-                ->label('صلاحية الأرصدة بالأيام')
-                ->numeric()
-                ->minValue(1)
-                ->helperText('اتركه فارغاً فلا تنتهي الصلاحية. وضعُ رقمٍ هنا يشغّل انتهاء الصلاحية فعليّاً: '
-                    .'المكنسة الليلية ستسحب أرصدةً من طلاب اشتروها قبل أن تُعلَن هذه السياسة.'),
+            Section::make('العرض في شاشة الشراء')
+                ->columns(2)
+                ->schema([
+                    TextInput::make('sort_order')
+                        ->label('الترتيب')
+                        ->numeric()
+                        ->default(0)
+                        ->required()
+                        ->helperText('ترتيبُ الحزمة في قائمة الشراء، من الأصغر إلى الأكبر.'),
 
-            Toggle::make('is_active')
-                ->label('معروضة للبيع')
-                ->default(true)
-                ->helperText('إيقافها يخفيها عن شاشة الشراء ولا يمسّ رصيداً اشتُري منها.'),
+                    Toggle::make('is_active')
+                        ->label('معروضة للبيع')
+                        ->default(true)
+                        ->helperText('إيقافها يخفيها عن شاشة الشراء ولا يمسّ رصيداً اشتُري منها.'),
+                ]),
         ]);
     }
 
@@ -116,18 +144,30 @@ class CreditPackageResource extends Resource
             ->defaultSort('sort_order')
             ->columns([
                 TextColumn::make('name')->label('الاسم')->searchable()->sortable(),
-                TextColumn::make('credits')->label('الحصص')->sortable(),
+                TextColumn::make('credits')->label('الحصص')->sortable()
+                    ->formatStateUsing(fn (int $state): string => $state.' حصة'),
                 TextColumn::make('session_type')->label('النوع')->badge()
-                    ->formatStateUsing(fn (ClassSessionType $state): string => $state->label()),
+                    ->formatStateUsing(fn (ClassSessionType $state): string => $state->label())
+                    ->color(fn (ClassSessionType $state): string => $state === ClassSessionType::Individual
+                        ? 'info'
+                        : 'gray'),
                 TextColumn::make('validity_days')->label('الصلاحية')
                     ->formatStateUsing(fn (?int $state): string => $state === null
                         ? 'بلا انتهاء'
                         : $state.' يوماً'),
                 IconColumn::make('is_active')->label('معروضة')->boolean(),
                 TextColumn::make('sort_order')->label('الترتيب')->sortable(),
+                TextColumn::make('updated_at')->label('آخر تعديل')->dateTime('Y-m-d H:i')->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 TernaryFilter::make('is_active')->label('معروضة للبيع'),
+
+                SelectFilter::make('session_type')
+                    ->label('نوع الحصة')
+                    ->options(fn (): array => collect(ClassSessionType::cases())
+                        ->mapWithKeys(fn (ClassSessionType $type): array => [$type->value => $type->label()])
+                        ->all()),
             ]);
     }
 

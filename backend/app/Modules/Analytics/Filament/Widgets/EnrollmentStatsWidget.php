@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Analytics\Filament\Widgets;
 
 use App\Modules\Learning\Models\Enrollment;
+use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -25,14 +26,17 @@ class EnrollmentStatsWidget extends BaseWidget
         $completed = (int) ($counts['completed'] ?? 0);
 
         return [
-            Stat::make('Total Enrollments', (string) $total)
-                ->description('All-time enrollments')
+            Stat::make('إجمالي التسجيلات', (string) $total)
+                ->description('كلّ التسجيلات منذ البداية')
+                ->descriptionIcon(Heroicon::OutlinedUserGroup)
                 ->color('primary'),
-            Stat::make('Active Enrollments', (string) $active)
-                ->description('Currently learning')
+            Stat::make('التسجيلات النشِطة', (string) $active)
+                ->description('طلابٌ يدرسون الآن')
+                ->descriptionIcon(Heroicon::OutlinedAcademicCap)
                 ->color('success'),
-            Stat::make('Completed Courses', (string) $completed)
-                ->description('Course completions')
+            Stat::make('المقرّرات المكتملة', (string) $completed)
+                ->description('تسجيلاتٌ بلغَت ١٠٠٪')
+                ->descriptionIcon(Heroicon::OutlinedCheckBadge)
                 ->color('info'),
         ];
     }

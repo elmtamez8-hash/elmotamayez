@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Identity\Support;
 
+use App\Shared\Enums\BuildsOptions;
+use App\Shared\Enums\HasArabicLabel;
+
 /**
  * Platform-level role, orthogonal to workspace roles.
  *
@@ -13,9 +16,20 @@ namespace App\Modules\Identity\Support;
  *
  * `null` means the account came through the academy-signup path (FR-011).
  */
-enum PlatformRole: string
+enum PlatformRole: string implements HasArabicLabel
 {
+    use BuildsOptions;
+
     case Student = 'student';
     case Teacher = 'teacher';
     case Parent = 'parent';
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::Student => 'طالب',
+            self::Teacher => 'مدرّس',
+            self::Parent => 'وليّ أمر',
+        };
+    }
 }

@@ -10,10 +10,13 @@ use App\Modules\Notifications\Support\DeliveryStatus;
 use App\Modules\Notifications\Support\NotificationChannel;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Tenancy\Support\Permissions;
+use BackedEnum;
 use Filament\Resources\Resource;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use UnitEnum;
 
 /**
  * What was sent, on which channel, and why anything failed (FR-038).
@@ -26,6 +29,12 @@ use Filament\Tables\Table;
 class NotificationDeliveryResource extends Resource
 {
     protected static ?string $model = NotificationDelivery::class;
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPaperAirplane;
+
+    protected static string|UnitEnum|null $navigationGroup = 'الإشعارات';
+
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $modelLabel = 'محاولة تسليم';
 

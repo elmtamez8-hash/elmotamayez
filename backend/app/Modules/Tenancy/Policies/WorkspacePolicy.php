@@ -12,6 +12,22 @@ use Illuminate\Auth\Access\Response;
 
 class WorkspacePolicy extends BasePolicy
 {
+    /*
+    | ⚠️ قائمةُ مساحاتِ العملِ سؤالٌ عن المنصّةِ كلِّها لا عن مساحةٍ بعينها، فلا
+    | فرعَ عضويّةٍ يُجيبُ عنه: `view()` أدناه تسألُ «هل أنتَ عضوٌ في هذه؟» وهو
+    | سؤالٌ لا معنى له قبلَ أن يُختارَ صفّ.
+    |
+    | وغيابُها ليس حياداً: `Resource::canViewAny()` تُفوِّضُ إلى السياسة، وسياسةٌ
+    | بلا دالّةٍ بهذا الاسمِ تسقطُ إلى `Response::allow()` — أي تُسلِّمُ كلَّ من يفتحُ
+    | اللوحةِ قائمةَ كلِّ مدرّسٍ على المنصّةِ ومالكَه وعددَ أعضائِه.
+    */
+    public function viewAny(User $user): Response
+    {
+        return $user->isSuperAdmin()
+            ? Response::allow()
+            : Response::deny('Only a platform administrator may list workspaces.');
+    }
+
     public function view(User $user, Workspace $workspace): Response
     {
         return $workspace->members()->where('user_id', $user->getKey())->exists()

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Identity\Support;
 
+use App\Shared\Enums\BuildsOptions;
+use App\Shared\Enums\HasArabicLabel;
+
 /**
  * Whether an account may be used (spec 013 · FR-003 · FR-009ب · SC-017).
  *
@@ -24,8 +27,10 @@ namespace App\Modules\Identity\Support;
  * `PersonalDataOwner` contract was built to avoid. Compliance asks
  * `ConsentDirectory` and fires an event; Identity writes.
  */
-enum UserStatus: string
+enum UserStatus: string implements HasArabicLabel
 {
+    use BuildsOptions;
+
     case Active = 'active';
 
     /**

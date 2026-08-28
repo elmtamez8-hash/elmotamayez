@@ -132,6 +132,26 @@ class AdminPanelProvider extends PanelProvider
                     950 => '#300714',
                 ],
             ])
+            /*
+            | ⚠️ ترتيبُ المجموعاتِ يُعلَنُ هنا مرّةً واحدة، والأسماءُ **حرفٌ بحرف**
+            | كما هي في خاصّيّةِ `$navigationGroup` في كلِّ مورِد — بما فيها
+            | التشكيل. اختلافُ محرفٍ واحدٍ لا يُخطئُ: Filament يُنشئُ مجموعةً
+            | ثانيةً بنفسِ الاسمِ تقريباً ويضعُ فيها المورِدَ وحدَه، بلا أيِّ خطأ.
+            |
+            | وكانت القائمةُ قبلَ هذا سبعةَ عشرَ بنداً مسطَّحاً بلا أيقونةٍ واحدة.
+            */
+            ->navigationGroups([
+                'المنصّة',
+                'المحتوى والتعلّم',
+                'المال والاشتراكات',
+                'السوق والتصنيف',
+                'الإشعارات',
+                'التلعيب',
+                'الامتثال',
+                // اسمُ مجموعةِ Shield نفسُه (`filament-shield::…nav.group`)، فتقعُ
+                // «تفويضات المنصّة» بجانبِ «الأدوار» بدلَ مجموعةٍ ثانيةٍ تحتَها.
+                'إدارة الوصول',
+            ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             // Modules keep their own admin screens next to the code they administer.
             // Add a line per module; generalise to a scan when there are enough of
@@ -151,6 +171,16 @@ class AdminPanelProvider extends PanelProvider
             ->discoverResources(
                 in: app_path('Modules/Gamification/Filament/Resources'),
                 for: 'App\Modules\Gamification\Filament\Resources',
+            )
+            /*
+            | ⚠️ سبعةُ نماذجَ في وحدةِ الامتثالِ ولم تكنْ لها شاشةٌ واحدة، وصلاحيتان
+            | (`compliance.requests.execute` و`compliance.registry.manage`) تحرسان
+            | لا شيء. صلاحيةٌ لا يقرؤها ملفٌّ واحدٌ تمرُّ في كلِّ اختبارٍ لها وهي
+            | تحرسُ العدم — وهذا المستودعُ سجَّلَ العيبَ نفسَه في `taxonomy.manage`.
+            */
+            ->discoverResources(
+                in: app_path('Modules/Compliance/Filament/Resources'),
+                for: 'App\Modules\Compliance\Filament\Resources',
             )
             /*
             | The role screen (Shield), configured in `config/filament-shield.php`

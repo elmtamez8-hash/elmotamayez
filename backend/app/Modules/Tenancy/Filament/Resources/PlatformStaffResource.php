@@ -7,18 +7,25 @@ namespace App\Modules\Tenancy\Filament\Resources;
 use App\Models\User;
 use App\Modules\Tenancy\Filament\Resources\PlatformStaffResource\Pages;
 use App\Modules\Tenancy\Models\PlatformStaff;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\PlatformStaffDirectory;
 use App\Modules\Tenancy\Support\RolePermissionMatrix;
 use App\Modules\Tenancy\Support\Roles;
+use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Resources\Pages\PageRegistration;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use UnitEnum;
 
 /**
  * Naming the people who may act for the PLATFORM.
@@ -44,9 +51,15 @@ class PlatformStaffResource extends Resource
 {
     protected static ?string $model = PlatformStaff::class;
 
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedKey;
+
+    protected static string|UnitEnum|null $navigationGroup = 'إدارة الوصول';
+
+    protected static ?int $navigationSort = 20;
+
     public static function getNavigationLabel(): string
     {
-        return 'صلاحيات المنصّة';
+        return 'تفويضات المنصّة';
     }
 
     public static function getModelLabel(): string
@@ -62,42 +75,69 @@ class PlatformStaffResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Select::make('user_id')
-                ->label('الشخص')
-                /*
-                | ⚠️ `email`, NOT `name` — `users` HAS NO `name` COLUMN. It is an
-                | accessor over `first_name` and `last_name`, so a relationship
-                | title of `name` compiles to `select users.name` and the page is
-                | a 500. The render test caught it on its first run; every
-                | `canViewAny()` assertion in this file had passed while the
-                | screen could not open at all.
-                |
-                | The email is also the better handle here: two people share a
-                | name, and the person appointing a finance officer is choosing an
-                | account, not a person with a nice name.
-                */
-                ->relationship('user', 'email')
-                ->getOptionLabelFromRecordUsing(fn (User $record): string => $record->name.' — '.$record->email)
-                ->searchable(['first_name', 'last_name', 'email'])
-                ->preload()
-                ->required()
-                ->helperText('يبحث بالاسم. التفويض يسري في كل مساحات العمل، لا في واحدة.'),
+            Section::make('التفويض')
+                ->description('صفٌّ يُقرأ في مراجعةٍ لاحقة: مَن فُوِّض، بأيِّ دور، ولماذا. يسري في كل مساحات العمل.')
+                ->columns(2)
+                ->schema([
+                    Select::make('user_id')
+                        ->label('الشخص')
+                        /*
+                        | ⚠️ `email`, NOT `name` — `users` HAS NO `name` COLUMN. It is an
+                        | accessor over `first_name` and `last_name`, so a relationship
+                        | title of `name` compiles to `select users.name` and the page is
+                        | a 500. The render test caught it on its first run; every
+                        | `canViewAny()` assertion in this file had passed while the
+                        | screen could not open at all.
+                        |
+                        | The email is also the better handle here: two people share a
+                        | name, and the person appointing a finance officer is choosing an
+                        | account, not a person with a nice name.
+                        */
+                        ->relationship('user', 'email')
+                        ->getOptionLabelFromRecordUsing(fn (User $record): string => $record->name.' — '.$record->email)
+                        ->searchable(['first_name', 'last_name', 'email'])
+                        ->preload()
+                        ->required()
+                        ->helperText('يبحث بالاسم. التفويض يسري في كل مساحات العمل، لا في واحدة.'),
 
-            Select::make('role')
-                ->label('الدور')
-                ->required()
-                ->options(self::assignableRoles())
-                // super-admin is absent: it is the `users.is_super_admin` column,
-                // not a standing — and a screen that could grant it would be a
-                // screen that hands over the platform in one click.
-                ->helperText('الصلاحيات خلف كل دور مكتوبة في الكود، ولا تُعدَّل من هنا.'),
+                    Select::make('role')
+                        ->label('الدور')
+                        ->required()
+                        ->options(self::assignableRoles())
+                        // super-admin is absent: it is the `users.is_super_admin` column,
+                        // not a standing — and a screen that could grant it would be a
+                        // screen that hands over the platform in one click.
+                        ->helperText('الصلاحيات خلف كل دور مكتوبة في الكود، ولا تُعدَّل من هنا.'),
 
-            Textarea::make('reason')
-                ->label('السبب')
-                ->required()
-                ->maxLength(500)
-                ->helperText('يُقرأ لاحقاً في مراجعة: لماذا مُنح هذا الشخص هذه السلطة، ومتى.'),
+                    Textarea::make('reason')
+                        ->label('السبب')
+                        ->required()
+                        ->maxLength(500)
+                        ->columnSpanFull()
+                        ->helperText('يُقرأ لاحقاً في مراجعة: لماذا مُنح هذا الشخص هذه السلطة، ومتى.'),
+                ]),
         ]);
+    }
+
+    /**
+     * الشخصُ ومَن فوّضه، محمَّلَين مع الصفوف لا صفّاً صفّاً.
+     *
+     * العمودان يقرآن الاسمَ عبر مُلحَقٍ (`name`) داخل إغلاقٍ يُنفَّذ لكلِّ صفّ، وذلك
+     * استعلامان لكلِّ تفويضٍ في القائمة بلا هذا السطر.
+     *
+     * ⚠️ وبلا تقييدِ أعمدة: `users` لا تحمل عمودَ `name` — هو مُلحَقٌ فوق
+     * `first_name` و`last_name` — فتحميلٌ مقيَّدٌ يُسقطهما ويُفرِّغ كلَّ اسمٍ في
+     * الصفحة بلا خطأٍ واحد.
+     *
+     * ⚠️ `Builder<Model>` لا `Builder<PlatformStaff>`. `Resource` عامٌّ على `TModel`
+     * وافتراضُه `Model`، و`parent::getEloquentQuery()` تُرجِعُ ذلك النوعَ نفسَه —
+     * فوسمٌ بالنموذجِ الملموسِ هنا يَعِدُ بما لا يُرجِعُه الجسدُ فعلاً.
+     *
+     * @return Builder<Model>
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['user', 'assigner']);
     }
 
     public static function table(Table $table): Table
@@ -119,7 +159,10 @@ class PlatformStaffResource extends Resource
                 TextColumn::make('assigner.first_name')->label('فوّضه')->placeholder('—')
                     ->formatStateUsing(fn (PlatformStaff $record): string => $record->assigner->name),
                 TextColumn::make('reason')->label('السبب')->wrap()->limit(80),
-                TextColumn::make('created_at')->label('التاريخ')->dateTime('Y-m-d H:i'),
+                TextColumn::make('created_at')->label('التاريخ')->dateTime('Y-m-d H:i')->sortable(),
+            ])
+            ->filters([
+                SelectFilter::make('role')->label('الدور')->options(self::assignableRoles()),
             ])
             /*
             | ⚠️ THE REVOKE, WITHOUT WHICH THIS SCREEN ONLY EVER ADDS. Filament
