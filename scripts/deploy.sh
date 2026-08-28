@@ -77,4 +77,23 @@ $COMPOSE restart horizon scheduler reverb
 echo "▸ تنظيفُ الصورِ القديمة"
 docker image prune -f >/dev/null
 
+echo "▸ فحصٌ دخانيّ"
+# ⚠️ **صفحةُ Blade واحدةٌ على الأقلّ، وهذا هو بيتُ القصيد.** كانت قائمةُ الفحصِ
+# كلُّها خضراءَ بينما `/admin/login` ترُدُّ ٥٠٠: `/` تخدمُها Next، و`/admin`
+# تُحوِّلُ ٣٠٢ **قبلَ** تصييرِ أيِّ قالب، و`/api` تُعيدُ JSON بلا Blade. فلا نقطةَ
+# واحدةً في القائمةِ كانت تُصرِّفُ قالباً — والشاشةُ الوحيدةُ التي يفتحُها إنسانٌ
+# ليدخلَ هي بالضبط الشاشةُ التي لم يفحصْها شيء.
+DOMAIN_NAME=$(sed -n 's/^DOMAIN=//p' docker/.env | head -1)
+FAILED=0
+for path in "/" "/api/v1/marketplace/home" "/admin/login"; do
+    code=$(curl -s -o /dev/null -w "%{http_code}" -m 30 "https://${DOMAIN_NAME}${path}" || echo 000)
+    case "$code" in
+        2*|3*) printf '  ✓ %-28s %s
+' "$path" "$code" ;;
+        *)     printf '  ✗ %-28s %s
+' "$path" "$code"; FAILED=1 ;;
+    esac
+done
+[ "$FAILED" -eq 0 ] || { echo "✗ النشرةُ تمّت والموقعُ لا يردّ — راجعْ فوراً." >&2; exit 1; }
+
 echo "✓ تمّت النشرة: $(git rev-parse --short HEAD)"

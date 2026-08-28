@@ -221,10 +221,18 @@ docker compose -f docker/docker-compose.prod.yml --env-file docker/.env \
 | `curl -I https://example.com` | `200` وشهادةٌ صالحة |
 | `curl -I http://example.com` | `301` إلى https |
 | `curl https://example.com/api/v1/health` أو أيُّ نقطة | ردٌّ من Laravel لا صفحةُ Next |
-| `https://example.com/admin` | لوحةُ Filament |
+| `https://example.com/admin` | `302` إلى شاشةِ الدخول |
+| `https://example.com/admin/login` | **`200` وشاشةُ دخولٍ فعليّة** |
 | `https://example.com/horizon` | العاملُ **يعملُ**، لا لوحةٌ فارغة |
 | فتحُ نقاشٍ في تبويبَين | الرسالةُ تصلُ لحظيّاً (سوكِت) |
 | `docker compose ... ps` | ثمانِ خدماتٍ `Up` |
+
+⚠️ **و`/admin/login` هو الفحصُ الذي لم يكن موجوداً.** كلُّ نقطةٍ أخرى في هذا
+الجدولِ لا تُصرِّفُ قالبَ Blade: `/` تخدمُها Next، و`/admin` تُحوِّلُ ٣٠٢ **قبلَ**
+التصيير، و`/api` تُعيدُ JSON. فحين صارَ كلُّ قالبٍ مُصرَّفٍ مملوكاً لـroot
+(انظر العطل ١٦) بقيَ الجدولُ أخضرَ كلَّه بينما الشاشةُ الوحيدةُ التي يفتحُها
+إنسانٌ ليدخلَ ترُدُّ ٥٠٠. الفحصُ صارَ داخلَ `scripts/deploy.sh` نفسِه، لأنّ
+جدولاً في وثيقةٍ لا يُشغَّلُ من تلقاءِ نفسِه.
 
 ⚠️ **و`/horizon` هو الفحصُ الذي يُنسى.** طابورٌ بلا عاملٍ لا يُخطئ: المهامُّ
 تدخلُه ولا تُصرَف، فالإشعاراتُ لا تصلُ والتسجيلاتُ لا تُبتلَعُ وأجرُ المدرّسِ يبقى
@@ -249,7 +257,7 @@ ssh root@<IP> 'cd /srv/elmotamayez && ./scripts/deploy.sh'
 
 ## ١٠ · ما وجدَه هذا التجهيزُ من أعطالٍ في الشيفرة
 
-🤖 **خمسةَ عشرَ**، ولا واحدَ منها كان ليظهرَ في بوّابةٍ محلّيّة: جهازُ التطويرِ
+🤖 **ستّةَ عشرَ**، ولا واحدَ منها كان ليظهرَ في بوّابةٍ محلّيّة: جهازُ التطويرِ
 يُوفِّرُ ما لا توفّرُه الصورةُ ولا العاملُ النظيف. الثلاثةُ الأولى أوقفتِ النشرةَ
 الأولى، والباقي ظهرَ بعدَ أن كُتِبَت هذه الوثيقة.
 
@@ -321,6 +329,13 @@ ssh root@<IP> 'cd /srv/elmotamayez && ./scripts/deploy.sh'
 15. ⚠️ **نصٌّ في عمودٍ عدديّ** (`StudentDashboardSeeder::MISTAKE_SEED` في
     `random_seed` من نوع `unsignedInteger`): `1366 Incorrect integer value`.
     SQLite يقبلُ أيَّ قيمةٍ في أيِّ عمود.
+
+16. ⚠️ **`view:cache` بصلاحيّةِ root يجعلُ كلَّ صفحةِ Blade ترُدُّ ٥٠٠.**
+    `docker compose exec` يعملُ بـroot، وحوضُ PHP-FPM بـ`www-data`؛ وBlade
+    يستدعي `touch()` ليُطابِقَ زمنَ الملفِّ المُصرَّفِ بالمصدر، و`utime()` لا
+    يُسمَحُ بها إلّا لمالكِ الملفّ ⇒
+    `touch(): Utime failed: Operation not permitted`. العلاجُ `-u www-data`
+    على أوامرِ artisan، و`chown` بعدَها شبكةَ أمانٍ لأيِّ `tinker` يدويّ.
 
 ---
 
