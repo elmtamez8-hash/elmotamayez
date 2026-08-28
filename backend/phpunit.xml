@@ -53,6 +53,13 @@
             the only way a provider test can be honest anyway.
         -->
         <env name="MEDIA_PROVIDER" value="local"/>
+        <!--
+            ⚠️ يُثبَّتُ هنا لأنّ `.env` على جهازِ المطوّرِ لا يضبطُه بينما
+            `.env.example` يضبطُه `r2` — فسبعُ حالاتٍ في التسجيلاتِ والدفعاتِ كانت
+            خضراءَ محلّيّاً وحمراءَ على أوّلِ عامِلٍ نظيف. بيئةُ الاختبارِ يحكمُها
+            هذا الملفُّ وحدَه؛ ما لا يُثبَّتُ فيه يقرأُ من `.env` الذي يصادفُ وجودَه.
+        -->
+        <env name="MEDIA_SOURCE_DISK" value="local"/>
         <env name="BROADCAST_PROVIDER" value="null"/>
         <!--
             The third switch, added by spec 020 and the same lesson a third time.

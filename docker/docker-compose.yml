@@ -3,14 +3,14 @@ services:
     build:
       context: ../backend
       dockerfile: ../docker/backend.Dockerfile
-    container_name: mteatch-backend
+    container_name: elmotamayez-backend
     restart: unless-stopped
     working_dir: /var/www/html
     volumes:
       - ../backend:/var/www/html
       - backend-vendor:/var/www/html/vendor
     networks:
-      - mteatch
+      - elmotamayez
     depends_on:
       - mysql
       - redis
@@ -18,8 +18,8 @@ services:
     environment:
       - DB_CONNECTION=mysql
       - DB_HOST=mysql
-      - DB_DATABASE=mteatch
-      - DB_USERNAME=mteatch
+      - DB_DATABASE=elmotamayez
+      - DB_USERNAME=elmotamayez
       - DB_PASSWORD=secret
       - CACHE_STORE=redis
       - QUEUE_CONNECTION=redis
@@ -32,7 +32,7 @@ services:
     build:
       context: ../backend
       dockerfile: ../docker/backend.Dockerfile
-    container_name: mteatch-horizon
+    container_name: elmotamayez-horizon
     restart: unless-stopped
     working_dir: /var/www/html
     command: php artisan horizon
@@ -40,7 +40,7 @@ services:
       - ../backend:/var/www/html
       - backend-vendor:/var/www/html/vendor
     networks:
-      - mteatch
+      - elmotamayez
     depends_on:
       - backend
       - redis
@@ -49,12 +49,12 @@ services:
     build:
       context: ../frontend
       dockerfile: ../docker/frontend.Dockerfile
-    container_name: mteatch-frontend
+    container_name: elmotamayez-frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
     networks:
-      - mteatch
+      - elmotamayez
     depends_on:
       - backend
     environment:
@@ -62,7 +62,7 @@ services:
 
   nginx:
     image: nginx:alpine
-    container_name: mteatch-nginx
+    container_name: elmotamayez-nginx
     restart: unless-stopped
     ports:
       - "80:80"
@@ -70,47 +70,47 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
       - ../backend/public:/var/www/html/public
     networks:
-      - mteatch
+      - elmotamayez
     depends_on:
       - backend
       - frontend
 
   mysql:
     image: mysql:8.0
-    container_name: mteatch-mysql
+    container_name: elmotamayez-mysql
     restart: unless-stopped
     environment:
-      - MYSQL_DATABASE=mteatch
-      - MYSQL_USER=mteatch
+      - MYSQL_DATABASE=elmotamayez
+      - MYSQL_USER=elmotamayez
       - MYSQL_PASSWORD=secret
       - MYSQL_ROOT_PASSWORD=root
     volumes:
       - mysql-data:/var/lib/mysql
     networks:
-      - mteatch
+      - elmotamayez
 
   redis:
     image: redis:7-alpine
-    container_name: mteatch-redis
+    container_name: elmotamayez-redis
     restart: unless-stopped
     volumes:
       - redis-data:/data
     networks:
-      - mteatch
+      - elmotamayez
 
   meilisearch:
     image: getmeili/meilisearch:v1.6
-    container_name: mteatch-meilisearch
+    container_name: elmotamayez-meilisearch
     restart: unless-stopped
     environment:
       - MEILI_MASTER_KEY=meili-master-key-change-me
     volumes:
       - meili-data:/meili_data
     networks:
-      - mteatch
+      - elmotamayez
 
 networks:
-  mteatch:
+  elmotamayez:
     driver: bridge
 
 volumes:

@@ -53,7 +53,12 @@ return new class extends Migration
             | date-tailed index degrades to one leading column and scans the whole
             | moderation history on EVERY message sent.
             */
-            $table->index(['workspace_id', 'subject_type', 'subject_id', 'verdict']);
+            /*
+            | ⚠️ اسمٌ صريحٌ لأنّ المُولَّدَ يتجاوزُ ٦٤ حرفاً — سقفَ MySQL للمعرِّفات
+            | (خطأ 1059). و**SQLite بلا سقفٍ إطلاقاً**، فهذا أخضرُ في كلِّ تشغيلةِ
+            | اختبارٍ ويسقطُ في أوّلِ هجرةٍ على الإنتاج.
+            */
+            $table->index(['workspace_id', 'subject_type', 'subject_id', 'verdict'], 'moderation_subject_verdict_index');
         });
     }
 

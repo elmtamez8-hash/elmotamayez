@@ -43,7 +43,12 @@ return new class extends Migration
             $table->unsignedBigInteger('pending_slot')->default(0);
             $table->timestamps();
 
-            $table->unique(['student_user_id', 'course_id', 'pending_slot']);
+            /*
+            | ⚠️ اسمٌ صريحٌ لأنّ المُولَّدَ يتجاوزُ ٦٤ حرفاً — سقفَ MySQL للمعرِّفات
+            | (خطأ 1059). و**SQLite بلا سقفٍ إطلاقاً**، فهذا أخضرُ في كلِّ تشغيلةِ
+            | اختبارٍ ويسقطُ في أوّلِ هجرةٍ على الإنتاج.
+            */
+            $table->unique(['student_user_id', 'course_id', 'pending_slot'], 'cohort_transfer_pending_unique');
             $table->index(['to_cohort_id', 'status']);
         });
     }

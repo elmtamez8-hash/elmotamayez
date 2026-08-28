@@ -76,7 +76,7 @@ git push -u origin main
 |---|---|---|
 | `VPS_HOST` | عنوانُ الخادم | لوحةُ Hostinger |
 | `VPS_USER` | `root` أو مستخدمُ النشر | — |
-| `VPS_APP_PATH` | `/srv/mteatch` | ما ستستنسخُ فيه في §٥ |
+| `VPS_APP_PATH` | `/srv/elmotamayez` | ما ستستنسخُ فيه في §٥ |
 | `VPS_SSH_KEY` | **المفتاحُ الخاصُّ كاملاً** | `cat ~/.ssh/id_ed25519` |
 | `VPS_KNOWN_HOSTS` | بصمةُ الخادم | `ssh-keyscan -H <IP>` |
 
@@ -86,7 +86,7 @@ git push -u origin main
 موجودٌ لأجلِه.
 
 ⚠️ **ومفتاحُ نشرٍ مستقلٌّ أفضلُ من مفتاحِك الشخصيّ**: `ssh-keygen -t ed25519 -f
-~/.ssh/mteatch_deploy -C "github-actions"` ثمّ ضعِ العامَّ في `authorized_keys`
+~/.ssh/elmotamayez_deploy -C "github-actions"` ثمّ ضعِ العامَّ في `authorized_keys`
 على الخادمِ والخاصَّ في السرّ. تسريبُ سرِّ مستودعٍ عندَها يُفقِدُك خادماً واحداً
 لا كلَّ ما تصلُ إليه بمفتاحِك.
 
@@ -124,8 +124,8 @@ fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /
 echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
 mkdir -p /srv && cd /srv
-git clone https://github.com/elmtamez8-hash/elmotamayez.git mteatch
-cd mteatch
+git clone https://github.com/elmtamez8-hash/elmotamayez.git elmotamayez
+cd elmotamayez
 ```
 
 ⚠️ **الاستنساخُ من مستودعٍ خاصٍّ يحتاجُ هُويّة**: إمّا `deploy key` (مفتاحٌ عامٌّ
@@ -163,8 +163,8 @@ docker compose -f docker/docker-compose.prod.yml --env-file docker/.env \
 
 ```bash
 docker run --rm -p 80:80 \
-  -v mteatch_certbot-conf:/etc/letsencrypt \
-  -v mteatch_certbot-www:/var/www/certbot \
+  -v elmotamayez_certbot-conf:/etc/letsencrypt \
+  -v elmotamayez_certbot-www:/var/www/certbot \
   certbot/certbot certonly --standalone \
   -d elmotamayez.tech -d www.elmotamayez.tech \
   --agree-tos -m you@example.com --non-interactive --no-eff-email
@@ -184,7 +184,7 @@ docker run --rm -p 80:80 \
 ## ٧ · أوّلُ إقلاع
 
 ```bash
-cd /srv/mteatch
+cd /srv/elmotamayez
 docker compose -f docker/docker-compose.prod.yml --env-file docker/.env up -d --build
 
 # الهجرات
@@ -242,7 +242,7 @@ CI يُشغِّلُ البوّاباتِ الخمس؛ إن خضرَّتْ يتّ
 `scripts/deploy.sh`. وللنشرِ يدويّاً عندَ عطلٍ في الشبكة:
 
 ```bash
-ssh root@<IP> 'cd /srv/mteatch && ./scripts/deploy.sh'
+ssh root@<IP> 'cd /srv/elmotamayez && ./scripts/deploy.sh'
 ```
 
 ---

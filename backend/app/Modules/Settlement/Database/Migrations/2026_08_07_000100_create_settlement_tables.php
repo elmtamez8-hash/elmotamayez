@@ -92,7 +92,12 @@ return new class extends Migration
             $table->text('decision_reason')->nullable();
             $table->timestamps();
 
-            $table->index(['workspace_id', 'teacher_profile_id', 'status']);
+            /*
+            | ⚠️ اسمٌ صريحٌ لأنّ المُولَّدَ يتجاوزُ ٦٤ حرفاً — سقفَ MySQL للمعرِّفات
+            | (خطأ 1059). و**SQLite بلا سقفٍ إطلاقاً**، فهذا أخضرُ في كلِّ تشغيلةِ
+            | اختبارٍ ويسقطُ في أوّلِ هجرةٍ على الإنتاج.
+            */
+            $table->index(['workspace_id', 'teacher_profile_id', 'status'], 'rate_requests_teacher_status_index');
         });
 
         Schema::create('teaching_units', function (Blueprint $table) {
@@ -225,7 +230,12 @@ return new class extends Migration
             $table->unsignedBigInteger('created_by')->nullable();
             $table->timestamps();
 
-            $table->index(['workspace_id', 'teacher_profile_id', 'settlement_period_id']);
+            /*
+            | ⚠️ اسمٌ صريحٌ لأنّ المُولَّدَ يتجاوزُ ٦٤ حرفاً — سقفَ MySQL للمعرِّفات
+            | (خطأ 1059). و**SQLite بلا سقفٍ إطلاقاً**، فهذا أخضرُ في كلِّ تشغيلةِ
+            | اختبارٍ ويسقطُ في أوّلِ هجرةٍ على الإنتاج.
+            */
+            $table->index(['workspace_id', 'teacher_profile_id', 'settlement_period_id'], 'ledger_entries_teacher_period_index');
         });
 
         Schema::create('teacher_payouts', function (Blueprint $table) {

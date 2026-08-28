@@ -61,8 +61,13 @@ jobs:
       # أوّلِ يوم.
       - name: Environment
         working-directory: backend
+        # ⚠️ ملفٌّ بمفتاحٍ واحدٍ فقط، **ولا نسخةَ من `.env.example`**. ذلك المثالُ
+        # يحملُ قيماً إنتاجيّةً (`MEDIA_SOURCE_DISK=r2`) ومفاتيحَ معلَنةً فارغةً
+        # يقرؤها `env()` سلسلةً فارغةً لا `null` — فنسخُه أسقطَ سبعَ حالاتٍ خضراءَ
+        # محلّيّاً. بيئةُ الاختبارِ يحكمُها `phpunit.xml` وحدَه، و`APP_KEY` هو
+        # الشيءُ الوحيدُ الذي لا يجوزُ أن يعيشَ في المستودع.
         run: |
-          cp .env.example .env
+          printf 'APP_KEY=\n' > .env
           php artisan key:generate
 
       - name: Style (pint --test)

@@ -52,7 +52,12 @@ return new class extends Migration
             $table->softDeletes();
 
             // Composite indexes for the three public list orderings (SC-008).
-            $table->index(['is_publicly_listed', 'approval_status', 'trust_score']);
+            /*
+            | ⚠️ اسمٌ صريحٌ لأنّ المُولَّدَ يتجاوزُ ٦٤ حرفاً — سقفَ MySQL للمعرِّفات
+            | (خطأ 1059). و**SQLite بلا سقفٍ إطلاقاً**، فهذا أخضرُ في كلِّ تشغيلةِ
+            | اختبارٍ ويسقطُ في أوّلِ هجرةٍ على الإنتاج.
+            */
+            $table->index(['is_publicly_listed', 'approval_status', 'trust_score'], 'teacher_profiles_listing_index');
             $table->index(['is_publicly_listed', 'hourly_rate']);
             $table->index(['is_publicly_listed', 'average_rating']);
         });

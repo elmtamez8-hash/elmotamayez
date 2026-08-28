@@ -34,7 +34,12 @@ return new class extends Migration
             $table->string('reason', 500)->nullable();
             $table->timestamp('created_at');
 
-            $table->index(['course_id', 'student_user_id', 'created_at']);
+            /*
+            | ⚠️ اسمٌ صريحٌ لأنّ المُولَّدَ يتجاوزُ ٦٤ حرفاً — سقفَ MySQL للمعرِّفات
+            | (خطأ 1059). و**SQLite بلا سقفٍ إطلاقاً**، فهذا أخضرُ في كلِّ تشغيلةِ
+            | اختبارٍ ويسقطُ في أوّلِ هجرةٍ على الإنتاج.
+            */
+            $table->index(['course_id', 'student_user_id', 'created_at'], 'cohort_events_student_timeline_index');
             $table->index(['cohort_id', 'created_at']);
         });
     }

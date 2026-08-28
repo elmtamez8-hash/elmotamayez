@@ -12,14 +12,14 @@
 # ⚠️ ولا `ports:` على mysql ولا redis ولا meilisearch. الشبكةُ الداخليّةُ تكفي
 # الحاوياتِ، ونشرُ ٣٣٠٦ على IP عامٍّ هو ما تبحثُ عنه ماسحاتُ الإنترنت بالدقيقة.
 
-name: mteatch
+name: elmotamayez
 
 services:
   backend:
     build:
       context: ../backend
       dockerfile: ../docker/backend.Dockerfile
-    image: mteatch-backend:latest
+    image: elmotamayez-backend:latest
     restart: unless-stopped
     working_dir: /var/www/html
     # ⚠️ لا ربطَ للشيفرة. الصورةُ هي النشرة؛ مجلَّدان فقط يعيشان أطولَ منها:
@@ -31,7 +31,7 @@ services:
       DB_HOST: mysql
       REDIS_HOST: redis
       SCOUT_MEILISEARCH_HOST: http://meilisearch:7700
-    networks: [mteatch]
+    networks: [elmotamayez]
     depends_on:
       mysql: { condition: service_healthy }
       redis: { condition: service_started }
@@ -40,7 +40,7 @@ services:
   # المهامُّ تدخلُه ولا تُصرَف — فالإشعاراتُ لا تصل، والتسجيلاتُ لا تُبتلَع،
   # وأجرُ المدرّسِ يبقى محجوزاً، ولوحةُ التحكّمِ لا تقولُ شيئاً.
   horizon:
-    image: mteatch-backend:latest
+    image: elmotamayez-backend:latest
     restart: unless-stopped
     working_dir: /var/www/html
     command: php artisan horizon
@@ -51,7 +51,7 @@ services:
       DB_HOST: mysql
       REDIS_HOST: redis
       SCOUT_MEILISEARCH_HOST: http://meilisearch:7700
-    networks: [mteatch]
+    networks: [elmotamayez]
     depends_on:
       backend: { condition: service_started }
 
@@ -59,7 +59,7 @@ services:
   # الاحتفاظِ وإعادةُ محاولةِ التسجيلاتِ ومزامنةُ عدّاداتِ المدرّسِ وتذكيرُ الخمول —
   # كلُّها تصمتُ بلا صفٍّ في `failed_jobs` يشيرُ إليها.
   scheduler:
-    image: mteatch-backend:latest
+    image: elmotamayez-backend:latest
     restart: unless-stopped
     working_dir: /var/www/html
     command: php artisan schedule:work
@@ -69,7 +69,7 @@ services:
     environment:
       DB_HOST: mysql
       REDIS_HOST: redis
-    networks: [mteatch]
+    networks: [elmotamayez]
     depends_on:
       backend: { condition: service_started }
 
@@ -77,7 +77,7 @@ services:
   # المرجعُ (FR-048) والرسالةُ تُقرأُ عندَ أوّلِ تحديث. فغيابُه عطلٌ صامتٌ يُشتكى
   # منه بجملةِ «النقاش لا يظهر لحظيّاً» ولا يظهرُ في أيِّ سجلّ.
   reverb:
-    image: mteatch-backend:latest
+    image: elmotamayez-backend:latest
     restart: unless-stopped
     working_dir: /var/www/html
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
@@ -85,7 +85,7 @@ services:
     environment:
       DB_HOST: mysql
       REDIS_HOST: redis
-    networks: [mteatch]
+    networks: [elmotamayez]
     depends_on:
       backend: { condition: service_started }
 
@@ -102,14 +102,14 @@ services:
         NEXT_PUBLIC_REVERB_HOST: ${REVERB_PUBLIC_HOST}
         NEXT_PUBLIC_REVERB_PORT: ${REVERB_PUBLIC_PORT}
         NEXT_PUBLIC_REVERB_SCHEME: ${REVERB_PUBLIC_SCHEME}
-    image: mteatch-frontend:latest
+    image: elmotamayez-frontend:latest
     restart: unless-stopped
     environment:
       NODE_ENV: production
       # ⚠️ لِما يجلبُه Next من **داخلِ** الحاوية أثناءَ التهيئةِ المسبقة.
       # `localhost:8000` هناك هو منفذُ الواجهةِ نفسِها ولا شيءَ يستمع.
       API_ORIGIN: http://nginx
-    networks: [mteatch]
+    networks: [elmotamayez]
     depends_on:
       backend: { condition: service_started }
 
@@ -131,7 +131,7 @@ services:
       # قالبٌ لا ملفٌّ ثابت: `envsubst` يملأُ اسمَ النطاقِ عندَ الإقلاع، فالنطاقُ
       # يعيشُ في `.env` مع بقيّةِ الإعداداتِ بدلاً من نسخةٍ معدَّلةٍ باليد.
       DOMAIN: ${DOMAIN}
-    networks: [mteatch]
+    networks: [elmotamayez]
     depends_on:
       backend: { condition: service_started }
       frontend: { condition: service_started }
@@ -156,7 +156,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
     volumes:
       - mysql-data:/var/lib/mysql
-    networks: [mteatch]
+    networks: [elmotamayez]
     # ⚠️ الفحصُ الصحّيُّ ليس زينة: MySQL يقبلُ اتّصالاتٍ قبلَ أن يُنهيَ تهيئتَه،
     # فـ`depends_on` بلا شرطٍ يُشغِّلُ الهجراتِ على خادمٍ يرُدُّ «connection refused»
     # ثمّ تُقرَأُ النشرةُ الفاشلةُ على أنّها خطأٌ في الكود.
@@ -174,7 +174,7 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - redis-data:/data
-    networks: [mteatch]
+    networks: [elmotamayez]
 
   meilisearch:
     image: getmeili/meilisearch:v1.6
@@ -184,10 +184,10 @@ services:
       MEILI_ENV: production
     volumes:
       - meili-data:/meili_data
-    networks: [mteatch]
+    networks: [elmotamayez]
 
 networks:
-  mteatch:
+  elmotamayez:
     driver: bridge
 
 volumes:
