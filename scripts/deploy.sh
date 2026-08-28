@@ -35,16 +35,29 @@ echo "▸ الهجرات"
 # ⚠️ `--force` لأنّ الأمرَ يسألُ تأكيداً في بيئةِ الإنتاجِ ولا أحدَ هنا ليُجيب،
 # فيتعلّقُ إلى أن تنتهيَ مهلةُ الوظيفة. و**لا `migrate:fresh` أبداً**: تلك تُسقِطُ
 # كلَّ جدولٍ — كلَّ طالبٍ وكلَّ دفعةٍ وكلَّ تسجيل.
-$COMPOSE exec -T backend php artisan migrate --force
+$COMPOSE exec -T -u www-data backend php artisan migrate --force
 
 echo "▸ إعادةُ بناءِ ذاكرةِ الإعدادات"
 # ⚠️ بهذا الترتيب: `config:clear` قبلَ `config:cache`. ملفُّ ذاكرةٍ قديمٌ يحملُ
 # قيمَ `.env` السابقةَ ويتجاهلُ الجديدةَ بصمت — فتُقرأُ نشرةٌ صحيحةٌ على أنّها
 # إعدادٌ خاطئ.
-$COMPOSE exec -T backend php artisan config:clear
-$COMPOSE exec -T backend php artisan config:cache
-$COMPOSE exec -T backend php artisan route:cache
-$COMPOSE exec -T backend php artisan view:cache
+# ⚠️ `-u www-data`، وهو ما كان ناقصاً. `docker compose exec` يعملُ بصلاحيّةِ
+# **root**، و`view:cache` يكتبُ كلَّ قالبٍ مُصرَّفٍ مملوكاً لـroot — بينما حوضُ
+# PHP-FPM يعملُ بـ`www-data`. وBlade يستدعي `touch()` ليُطابِقَ زمنَ الملفِّ
+# المُصرَّفِ بالمصدر، و`utime()` لا يُسمَحُ بها إلّا لمالكِ الملفّ:
+#
+#     touch(): Utime failed: Operation not permitted   (BladeCompiler.php:215)
+#
+# فتردُّ **٥٠٠ كلُّ صفحةِ Blade** — `/admin/login` أوّلُها. ولا يظهرُ في فحصٍ
+# دخانيّ: `/` تخدمُها Next، و`/admin` تُحوِّلُ ٣٠٢ قبلَ تصييرِ أيِّ قالب.
+$COMPOSE exec -T -u www-data backend php artisan config:clear
+$COMPOSE exec -T -u www-data backend php artisan config:cache
+$COMPOSE exec -T -u www-data backend php artisan route:cache
+$COMPOSE exec -T -u www-data backend php artisan view:cache
+
+# وشبكةُ أمانٍ فوقَها: أيُّ `artisan` يُشغَّلُ يدويّاً بعدَ نشرةٍ (بذرٌ، `tinker`،
+# تشخيص) يعملُ بـroot ويُعيدُ التلويثَ نفسَه. سطرٌ واحدٌ يُنظِّفُ الصنفَ كلَّه.
+$COMPOSE exec -T backend chown -R www-data:www-data storage bootstrap/cache
 
 # ⚠️ ولا بذرةَ هنا، ولا حتى «للاحتياط». الفهارسُ التي تُقرَأُ وقتَ التشغيلِ
 # (قوالبُ الإشعاراتِ · فئاتُ البيانات · فهرسُ التلعيب) تُردَمُ بهجرةٍ تُشحَنُ مع
@@ -58,7 +71,7 @@ echo "▸ إعادةُ تشغيلِ العامل"
 # ⚠️ `queue:restart` لا إعادةَ تشغيلِ الحاوية. العاملُ يُمسِكُ الشيفرةَ التي أقلعَ
 # بها، فيظلُّ يفشلُ بخطأٍ أزالَه الـcommit — ساعتان ضاعتا مرّةً على أثرِ استدعاءٍ
 # لم يعدْ موجوداً في أيِّ ملفّ.
-$COMPOSE exec -T backend php artisan queue:restart
+$COMPOSE exec -T -u www-data backend php artisan queue:restart
 $COMPOSE restart horizon scheduler reverb
 
 echo "▸ تنظيفُ الصورِ القديمة"
