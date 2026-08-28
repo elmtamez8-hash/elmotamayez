@@ -14,7 +14,7 @@
 ## Requirement Completeness
 
 - [x] No [NEEDS CLARIFICATION] markers remain
-- [x] Requirements are testable and unambiguous
+- [x] Requirements are testable and unambiguous — ⚠️ *بعد جلسة 2026-08-29: كانت FR-001 و FR-025 متناقضتين، وFR-014 و FR-020 ناقصتين. عُدِّلت الأربع.*
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
 - [x] All acceptance scenarios are defined
@@ -31,7 +31,7 @@
 
 ## Constitution Alignment
 
-> `.specify/memory/constitution.md` v1.1.0 — يُفحص عند `/speckit-plan` ويُعاد فحصه بعد التصميم.
+> `.specify/memory/constitution.md` **v1.2.0** — فُحص عند `/speckit-plan` وأُعيد فحصه بعد التصميم ومراجعة الوكلاء.
 
 - [x] المبدأ الأول (عزل المستأجرين) مُعالَج صراحةً في قسم Non-Functional Requirements
 - [x] المبدأ الثاني (المنطق في Actions) مذكور كقيد لا كتفصيل تنفيذ
