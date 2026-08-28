@@ -54,8 +54,28 @@ class MessageTemplateResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            TextInput::make('type')->label('نوع الإشعار')->disabled(),
-            TextInput::make('channel')->label('القناة')->disabled(),
+            /*
+            | ⚠️ هُويّةُ القالبِ تُقرأُ ولا تُكتَب — ومع ذلك تُعرَضُ بالعربيّة.
+            | كانت تُطبَعُ خاماً (`session_report` · `in_app`) في النموذج، بينما
+            | الجدولُ في **الشاشةِ نفسِها** يعرضُها من `label()` — إجابتان لسؤالٍ
+            | واحدٍ في مورِدٍ واحد، وهي عائلةُ العيبِ الذي وُحِّدَتْ من أجلِه
+            | مجموعاتُ القيمِ كلُّها.
+            |
+            | و`formatStateUsing` لا يعملُ على حقلِ نموذج، فالتحويلُ عندَ التعبئة:
+            | `disabled()` يمنعُ الكتابةَ فلا يعودُ النصُّ المعروضُ إلى الجدول.
+            */
+            TextInput::make('type')
+                ->label('نوع الإشعار')
+                ->disabled()
+                ->formatStateUsing(fn (?string $state): string => $state === null
+                    ? '—'
+                    : (NotificationType::tryFrom($state)?->label() ?? $state)),
+            TextInput::make('channel')
+                ->label('القناة')
+                ->disabled()
+                ->formatStateUsing(fn (?string $state): string => $state === null
+                    ? '—'
+                    : (NotificationChannel::tryFrom($state)?->label() ?? $state)),
             TextInput::make('title_ar')->label('العنوان')->required()->maxLength(200),
             Textarea::make('body_ar')
                 ->label('النصّ')
