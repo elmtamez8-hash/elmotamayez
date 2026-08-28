@@ -63,6 +63,18 @@ class AdminPanelProvider extends PanelProvider
             */
             ->brandLogo(new HtmlString('<span class="mt-wordmark" role="img" aria-label="'.e((string) config('app.name')).'"></span>'))
             ->brandLogoHeight('2.75rem')
+            /*
+            | ⚠️ أيقونةُ التبويب. بدونها يطلبُ المتصفّحُ `/favicon.ico` افتراضيّاً،
+            | وذلك المسارُ يذهبُ إلى Next.js التي لا تملكُ ملفّاً بذلك الاسم ⇒ ٤٠٤
+            | في كلِّ فتحةٍ للوحة. و`public/favicon.ico` عندنا **صفرُ بايت**، فحتّى
+            | توجيهُه إلى الواجهةِ الخلفيّةِ كان سيُرجِعُ ملفّاً فارغاً — إجابةٌ
+            | تبدو إجابةً ولا تحملُ شيئاً.
+            |
+            | و`/icon.svg` هو مصدرُ الحقيقةِ الوحيدُ لعلامةِ المنتَج: تخدمُه Next
+            | من `src/app/icon.svg` وتُعلِنُه صفحاتُها العامّةُ بالفعل. نسخةٌ ثانيةٌ
+            | في `backend/public` هي صورةٌ تتباعدُ عن الأولى عندَ أوّلِ تعديل.
+            */
+            ->favicon('/icon.svg')
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): HtmlString => new HtmlString(
