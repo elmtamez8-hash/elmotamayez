@@ -39,7 +39,7 @@ function RegisterForm() {
     setLoading(true);
 
     try {
-      await register(form);
+      await register({ ...form, invitation: invitation ?? undefined });
 
       if (invitation) {
         // Sign the new account in and drop it back on the invitation to accept.
@@ -131,6 +131,32 @@ function RegisterForm() {
           <Button type="submit" fullWidth loading={loading} loadingLabel="جارٍ الإنشاء…">
             أنشئ الحساب
           </Button>
+
+          {!invitation && (
+            /*
+             * ⚠️ This door creates a role-less account: it is the academy
+             * founder's path (register, then create a workspace), and it asks
+             * for none of what a student's account needs — a date of birth
+             * above all, which `RegisterStudent` turns into the guardian gate.
+             * Sending the other three roles to their own signup is what keeps
+             * that gate on one implementation.
+             */
+            <p className="text-center text-sm text-ink-muted">
+              تسجّل بصفة{" "}
+              <Link href="/signup/student" className="rounded text-primary-ink underline underline-offset-4">
+                طالب
+              </Link>{" "}
+              أو{" "}
+              <Link href="/signup/parent" className="rounded text-primary-ink underline underline-offset-4">
+                وليّ أمر
+              </Link>{" "}
+              أو{" "}
+              <Link href="/signup/teacher" className="rounded text-primary-ink underline underline-offset-4">
+                مدرّس
+              </Link>
+              ؟ لكلٍّ صفحته.
+            </p>
+          )}
 
           <p className="text-center text-sm text-ink-muted">
             لديك حساب بالفعل؟{" "}

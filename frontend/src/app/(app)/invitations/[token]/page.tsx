@@ -128,7 +128,19 @@ export default function InvitationPage({
         <div className="mt-6 space-y-2">
           {/* No account yet? Register first — both routes come back here. */}
           <Button
-            href={`/register?invitation=${token}&email=${encodeURIComponent(invitation.email)}`}
+            /*
+             * ⚠️ A STUDENT INVITATION GOES TO THE PUBLIC SIGNUP, NOT HERE.
+             * `/register` is the staff door and does not ask for a date of
+             * birth, so it cannot compute the guardian gate a minor needs —
+             * and the endpoint refuses a student invitation for that reason.
+             * `/signup/student` collects it; the invitation is accepted
+             * afterwards, signed in.
+             */
+            href={
+              invitation.role === "student"
+                ? "/signup/student"
+                : `/register?invitation=${token}&email=${encodeURIComponent(invitation.email)}`
+            }
             fullWidth
           >
             أنشئ حساباً

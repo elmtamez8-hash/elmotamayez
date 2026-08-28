@@ -185,6 +185,7 @@ return [
     */
 
     'attributes' => [
+        'invitation' => 'الدعوة',
         // الهوية والحساب
         'first_name' => 'الاسم الأول',
         'last_name' => 'اسم العائلة',

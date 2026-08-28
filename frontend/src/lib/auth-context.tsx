@@ -21,7 +21,7 @@ interface AuthContextValue {
     challenge: string,
     credential: { code?: string; recovery_code?: string },
   ) => Promise<User>;
-  register: (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string }) => Promise<void>;
+  register: (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string; invitation?: string }) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     credential: { code?: string; recovery_code?: string },
   ) => finishSignIn(await twoFactor.challenge(challenge, credential));
 
-  const register = async (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string }) => {
+  const register = async (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string; invitation?: string }) => {
     await auth.register(data);
   };
 

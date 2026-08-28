@@ -6,10 +6,12 @@ namespace App\Modules\Identity\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Modules\Identity\Actions\RegisterAccount;
 use App\Modules\Identity\Actions\RegisterStudent;
 use App\Modules\Identity\Actions\StartAuthSession;
 use App\Modules\Identity\Actions\TerminateAuthSession;
 use App\Modules\Identity\Actions\TerminateOtherSessions;
+use App\Modules\Identity\Data\RegisterAccountData;
 use App\Modules\Identity\Data\RegisterStudentData;
 use App\Modules\Identity\Http\Requests\ChangePasswordRequest;
 use App\Modules\Identity\Http\Requests\ForgotPasswordRequest;
@@ -23,7 +25,6 @@ use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Support\SessionEndReason;
 use App\Modules\Identity\Support\TwoFactorChallenges;
 use Illuminate\Auth\Events\PasswordReset;
-use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -33,16 +34,9 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function register(RegisterRequest $request): JsonResponse
+    public function register(RegisterRequest $request, RegisterAccount $action): JsonResponse
     {
-        $user = User::create([
-            'first_name' => $request->validated('first_name'),
-            'last_name' => $request->validated('last_name', ''),
-            'email' => $request->validated('email'),
-            'password' => $request->validated('password'),
-        ]);
-
-        event(new Registered($user));
+        $user = $action->handle(RegisterAccountData::fromArray($request->validated()));
 
         return response()->json(UserResource::make($user), 201);
     }

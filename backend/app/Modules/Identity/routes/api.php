@@ -9,7 +9,13 @@ use App\Modules\Identity\Http\Controllers\SessionController;
 use App\Modules\Identity\Http\Controllers\TwoFactorController;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/auth/register', [AuthController::class, 'register']);
+/*
+| ⚠️ The invitation-only door. It carried NO middleware at all until 2026-08-29 —
+| the one unthrottled account-minting endpoint on the platform, and the one that
+| skipped `RegisterStudent` and therefore the guardian gate for minors.
+*/
+Route::post('/auth/register', [AuthController::class, 'register'])
+    ->middleware(['throttle:registration', 'idempotent']);
 Route::post('/auth/register/student', [AuthController::class, 'registerStudent'])
     ->middleware(['throttle:registration', 'idempotent']);
 Route::post('/auth/register/parent', [ParentController::class, 'register'])
