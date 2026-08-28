@@ -27,6 +27,20 @@ RUN apk add --no-cache \
     bcmath \
     pcntl
 
+# ⚠️ `phpredis` امتدادٌ من PECL لا يُصرِّفُه `docker-php-ext-install`، وغيابُه
+# **لا يظهرُ إلّا وقتَ التشغيل**: `config/database.php` يفترضُ `phpredis` عميلاً
+# افتراضيّاً، فتُقلِعُ الحاوياتُ كلُّها بنجاحٍ ثمّ تسقطُ أوّلُ هجرةٍ تمسُّ الذاكرةَ
+# بـ`Class "Redis" not found` — رسالةٌ تُسمّي صنفاً غيرَ موجودٍ ولا تُسمّي امتداداً
+# ناقصاً. والذاكرةُ والطوابيرُ والجلساتُ الثلاثُ على redis في الإنتاج، فبلا هذا
+# السطرِ لا شيءَ يعملُ أصلاً.
+#
+# `$PHPIZE_DEPS` أدواتُ بناءٍ مؤقّتةٌ تُحذَفُ بعدَ التصريفِ في الأمرِ نفسِه: تركُها
+# يضيفُ نحوَ ١٠٠ ميغابايت إلى كلِّ نشرةٍ مقابلَ لا شيء.
+RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del .build-deps
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
