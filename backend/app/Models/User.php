@@ -13,6 +13,7 @@ use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\AssistantForbiddenPermissions;
 use App\Shared\Support\WorkspaceContext;
@@ -20,6 +21,8 @@ use App\Shared\Traits\HasUuid;
 use Database\Factories\UserFactory;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthenticationRecovery;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -40,7 +43,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string|null $phone
  * @property string|null $country
  */
-class User extends Authenticatable implements HasAppAuthentication, HasAppAuthenticationRecovery, MustVerifyEmail
+class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, HasRoles, HasUuid, Notifiable {
@@ -186,6 +189,41 @@ class User extends Authenticatable implements HasAppAuthentication, HasAppAuthen
     public function isSuperAdmin(): bool
     {
         return (bool) $this->is_super_admin;
+    }
+
+    /*
+    | ⚠️ بابُ لوحةِ `/admin` — وغيابُ هذه الواجهةِ كان يرفضُ **كلَّ** تسجيلِ دخولٍ
+    | في الإنتاج. `Filament\Http\Middleware\Authenticate` يكتب:
+    |
+    |     abort_if($user instanceof FilamentUser
+    |         ? (! $user->canAccessPanel($panel))
+    |         : (config('app.env') !== 'local'), 403);
+    |
+    | فبلا الواجهةِ يصيرُ الشرطُ «البيئةُ ليست local» — صحيحاً دائماً على الخادم.
+    | والفحصُ الدخانيُّ لا يراه: `/admin` يرُدُّ ٣٠٢ إلى شاشةِ الدخولِ **قبلَ** أيِّ
+    | مصادقة، فالرفضُ لا يظهرُ إلّا لمن يملكُ كلمةَ مرورٍ صحيحةً ويُطرَدُ بها.
+    | والتطويرُ المحلّيُّ عمياءُ عنه بالتعريف: `APP_ENV=local` هو الاستثناءُ نفسُه.
+    |
+    | ⚠️ والحكمُ مكتوبٌ **هنا وحدَه**: `EnsureFilamentAccess` كان يحملُ نسخةً ثانيةً
+    | منه، وهجاءان لسؤالٍ واحدٍ يضعان جواباً على الشاشةِ وآخرَ عندَ الباب — العيبُ
+    | الذي دفعَ ثمنَه `BookingEligibility` و`ListLeaderboardScopes` كلٌّ مرّةً.
+    */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        // لوحةٌ واحدةٌ في هذا المنتَج، فالحكمُ لا يتفرّعُ على `$panel`. لوحةٌ
+        // ثانيةٌ يوماً ما تتفرّعُ هنا على `$panel->getId()` ولا شيءَ غيرِه.
+        return $this->mayAccessAdminPanel();
+    }
+
+    public function mayAccessAdminPanel(): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        return $this->roles()
+            ->whereIn('name', [Roles::TENANT_OWNER, Roles::TEACHER, Roles::ASSISTANT_TEACHER])
+            ->exists();
     }
 
     /**
