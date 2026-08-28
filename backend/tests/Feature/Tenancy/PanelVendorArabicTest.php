@@ -95,6 +95,8 @@ it('لا يترك نصّاً من Filament بلا عربيّة', function (): vo
         'filament-panels::layout.direction',
         // وحدةُ الزاوية.
         'filament-forms::components.file_upload.editor.fields.rotation.unit',
+        // اسمُ عَلَمٍ لا يُترجَم — وفي أداةٍ لا تظهرُ في لوحتِنا أصلاً.
+        'filament-panels::widgets/filament-info-widget.actions.open_github.label',
         // أنماطُ أسماءِ ملفّاتٍ تُنزَّل، لا جُمَلٌ تُقرأ.
         'filament-actions::export.file_name',
         'filament-actions::import.example_csv.file_name',
@@ -111,8 +113,23 @@ it('لا يترك نصّاً من Filament بلا عربيّة', function (): vo
             continue;
         }
 
-        foreach (Finder::create()->files()->in($enDir)->name('*.php')->depth(0) as $file) {
-            $group = $file->getFilenameWithoutExtension();
+        /*
+        | ⚠️ **بلا `depth(0)`** — وهو ما كان يُفرِغُ الحارسَ من نصفِ معناه.
+        |
+        | `filament/support` يضعُ ترجماتِه كلَّها في `lang/en/components/`، ومنها
+        | `loading-section` — أكثرُ نصٍّ ظهوراً في اللوحة، إذ يعرضُه كلُّ مديرِ
+        | علاقاتٍ مؤجَّلٍ قبلَ تحميلِه. فحصٌ يقرأُ المستوى الأعلى وحدَه يمرُّ فوقَ
+        | المجلَّدِ كلِّه ويَخضَرُّ، بينما «Loading...» على الشاشة.
+        |
+        | واسمُ المجموعةِ حينَها هو المسارُ النسبيُّ بفاصلةِ `/` كما يكتبُه
+        | Laravel: `components/loading-section`.
+        */
+        foreach (Finder::create()->files()->in($enDir)->name('*.php') as $file) {
+            $group = str_replace(
+                [DIRECTORY_SEPARATOR, '.php'],
+                ['/', ''],
+                $file->getRelativePathname(),
+            );
 
             foreach (vendorLangKeys($file->getRealPath()) as $key) {
                 $full = $namespace.'::'.$group.'.'.$key;
