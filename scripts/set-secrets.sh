@@ -17,7 +17,11 @@ COMPOSE="docker compose -f docker/docker-compose.prod.yml --env-file docker/.env
 
 [ -f "$ENV_FILE" ] || { echo "لا يوجد $ENV_FILE"; exit 1; }
 
+# ⚠️ `umask` قبلَ النسخة: هذه النسخةُ ستحملُ أسرارَ المزوّدين بعدَ أوّلِ تشغيل،
+# وملفٌّ احتياطيٌّ مقروءٌ للجميعِ هو المفاتيحُ نفسُها بلا حماية.
+umask 077
 cp "$ENV_FILE" "$ENV_FILE.bak.$(date +%s)"
+chmod 600 "$ENV_FILE.bak."* 2>/dev/null || true
 
 # يكتبُ مفتاحاً أو يُضيفُه؛ awk موجودٌ على كلِّ صورة.
 upsert() {
@@ -41,7 +45,12 @@ ask() {                       # ask KEY "الوصف" [plain]
   [ -n "$cur" ] && { [ "$mode" = plain ] && shown="$cur" || shown="********"; }
   printf '%s [%s]: ' "$label" "$shown" >&2
   if [ "$mode" = plain ]; then read -r val; else read -rs val; echo >&2; fi
-  [ -n "$val" ] && upsert "$key" "$val"
+
+  # ⚠️ `if` لا `[ -n "$val" ] && upsert …`. تحتَ `set -e` تلك القائمةُ تخرجُ
+  # بـ١ عندَ أوّلِ Enter (أي «أبقِ القيمةَ») فتموتُ الصدفةُ في منتصفِ الملفّ:
+  # بعضُ المفاتيحِ مكتوبٌ، والمزوّدُ لم يُبدَّلْ، والخدماتُ لم تُعَدْ تشغيلاً.
+  # وهي عائلةُ العطلِ نفسِها التي أضاعت كلمةَ مرورِ المديرِ في هذه الجلسة.
+  if [ -n "$val" ]; then upsert "$key" "$val"; fi
 }
 
 echo "══ البثُّ المباشر (LiveKit) ══"
