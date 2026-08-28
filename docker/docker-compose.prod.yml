@@ -106,9 +106,11 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      # ⚠️ لِما يجلبُه Next من **داخلِ** الحاوية أثناءَ التهيئةِ المسبقة.
-      # `localhost:8000` هناك هو منفذُ الواجهةِ نفسِها ولا شيءَ يستمع.
-      API_ORIGIN: http://nginx
+      # ⚠️ لِما يجلبُه Next من **داخلِ** الحاوية أثناءَ التصييرِ على الخادم.
+      # `localhost:8000` هناك هو منفذُ الواجهةِ نفسِها ولا شيءَ يستمع — و
+      # `http://nginx` (المنفذُ ٨٠) يرتدُّ `301` إلى `https://nginx/…`، مضيفٍ بلا
+      # شهادةٍ ولا DNS. المنفذُ ٨٠٨١ كتلةٌ داخليّةٌ بلا تحويل، غيرُ منشورةٍ للمضيف.
+      API_ORIGIN: http://nginx:8081
     networks: [elmotamayez]
     depends_on:
       backend: { condition: service_started }
