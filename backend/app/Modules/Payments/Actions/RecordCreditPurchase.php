@@ -121,8 +121,22 @@ class RecordCreditPurchase extends Action
      * Q-4 removed the cash balance a remainder could have lived in — rounding
      * down would leave a few riyals with nowhere to go, which is the "يُمنع أن
      * يضيع" the requirement is written against. The platform absorbs less than one
-     * credit; the payer loses nothing. In practice it is exact: the amount is
-     * provider-verified equal to the order, so it converts to whole credits.
+     * credit; the payer loses nothing.
+     *
+     * ⚠️ IT USED TO SAY «in practice it is exact, the amount is provider-verified
+     * equal to the order» — AND SPEC 011 MADE THAT FALSE. A coupon or a family
+     * discount moves `orders.amount_minor` and deliberately leaves the snapshot
+     * whole, so the paid amount is now routinely LESS than `total_minor` and the
+     * division no longer lands on a whole credit.
+     *
+     * The arithmetic is nonetheless right, and the alternative is the bug: this
+     * is money with no order left to close, and the coupon was spent on the order
+     * that closed — recorded once in `coupon_redemptions`, against its ceiling.
+     * Converting loose money at the discounted rate would spend that coupon a
+     * second time with no redemption row and no place taken, which is FR-012
+     * broken by a rounding decision. So the surplus buys credits at the LIST
+     * price this purchase was snapshotted at, rounded up; the payer is never out
+     * of pocket and the campaign is not silently extended.
      *
      * ⚠️ AND IT IS A `purchase`, NOT A `refund`. The shipped placeholder posted
      * `+1 refund`, which said the opposite of what happened in the student's own

@@ -26,6 +26,14 @@ use App\Modules\Store\Models\StoreItem;
 | resolver once. A guard written in one place and reached from three is a guard
 | whose coverage is «whichever caller somebody remembered».
 |
+| ⚠️ AND «EVERY» MEANS FOUR, NOT THE THREE BELOW. `PurchaseCredits` is the
+| fourth, and its case lives in `CouponOnCreditsPathTest` because it needs an
+| approved settlement rate and a participating student — a fixture three times
+| the size of this file's. The cross-reference is written here rather than left
+| implied: a header claiming completeness while covering three quarters is worse
+| than no header, because it is read as coverage. If you add a fifth caller, it
+| gets a case in one of these two files or the claim above becomes false again.
+|
 | ⚠️ AND EVERY CASE HAS ITS POSITIVE CONTROL BESIDE IT. Nine cases that are each
 | individually true and all green with the check deleted is what 010's US6
 | shipped; a refusal test with no allow test beside it is satisfied by a branch
