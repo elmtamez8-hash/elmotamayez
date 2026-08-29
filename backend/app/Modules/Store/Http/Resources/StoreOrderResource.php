@@ -35,10 +35,21 @@ class StoreOrderResource extends JsonResource
             'quantity' => $this->quantity,
             'unit_price_minor' => $this->unit_price_minor,
             'discount_minor' => $this->discount_minor,
-            // Per LINE, and reconstructed from what the buyer agreed to rather
-            // than read off the order: `orders.amount_minor` is Payments'
-            // vocabulary and does not cross into this module's payload.
-            'total_minor' => $this->unit_price_minor * $this->quantity - $this->discount_minor,
+            'shipping_minor' => $this->shipping_minor,
+            /*
+             * Per LINE, and reconstructed from what the buyer agreed to rather
+             * than read off the order: `orders.amount_minor` is Payments'
+             * vocabulary and does not cross into this module's payload.
+             *
+             * ⚠️ POSTAGE INCLUDED, AND OMITTING IT WAS A REAL DEFECT. This is
+             * the number somebody transfers: a printed purchase showed 50 while
+             * the order was waiting for 65, so the buyer sent what the screen
+             * told them and the callback answered `mismatch` — no delivery, no
+             * refund, and a reconciliation case over our own arithmetic.
+             */
+            'total_minor' => $this->unit_price_minor * $this->quantity
+                - $this->discount_minor
+                + $this->shipping_minor,
             'currency' => $this->currency,
             'is_fulfilled' => $this->fulfilled_at !== null,
             'opened_at' => $this->first_accessed_at?->toIso8601String(),

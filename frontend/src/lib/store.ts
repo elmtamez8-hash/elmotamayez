@@ -68,6 +68,14 @@ export interface StorePurchase {
   quantity: number;
   unit_price_minor: number;
   discount_minor: number;
+  shipping_minor: number;
+  /**
+   * ⚠️ WHAT THE BUYER MUST TRANSFER, POSTAGE INCLUDED. It omitted the shipping
+   * once: a printed purchase showed 50 while the order was waiting for 65, so the
+   * buyer sent what this screen told them and the payment callback answered
+   * `mismatch` — no delivery, no refund, and a reconciliation case opened over
+   * our own arithmetic.
+   */
   total_minor: number;
   currency: string;
   is_fulfilled: boolean;

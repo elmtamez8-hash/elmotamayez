@@ -106,3 +106,27 @@ it('sends a message with no price in it', function (): void {
 
     expect($body)->not->toContain((string) $this->item->price_minor);
 });
+
+it('tells the buyer once however many times the approval is redelivered', function (): void {
+    /*
+    | ⚠️ `fulfilled_at` IS RELEASED ON THIS PATH, so a redelivered
+    | `PaymentApproved` re-claims it, fails on the shelf again, and reaches the
+    | refund branch again. Without a conditional transition on `orders.status`
+    | the buyer is told their order is unavailable once per queue retry — about
+    | one order, one refund, and nothing that changed.
+    */
+    [, $firstOrder] = purchaseForBuyer($this->first);
+    [, $secondOrder] = purchaseForBuyer($this->second);
+
+    app(FulfilStorePurchase::class)->handle($firstOrder);
+    app(FulfilStorePurchase::class)->handle($secondOrder);
+    app(FulfilStorePurchase::class)->handle($secondOrder);
+    app(FulfilStorePurchase::class)->handle($secondOrder);
+
+    $told = Notification::query()
+        ->where('recipient_user_id', $this->second->getKey())
+        ->where('type', NotificationType::StorePurchaseUnavailable->value)
+        ->count();
+
+    expect($told)->toBe(1);
+});

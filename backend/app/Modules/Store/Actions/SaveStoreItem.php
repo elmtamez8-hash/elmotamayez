@@ -31,7 +31,32 @@ class SaveStoreItem extends Action
 {
     public function handle(StoreItemData $data, int $workspaceId, ?StoreItem $item = null): StoreItem
     {
-        $this->guardTypeRules($data);
+        /*
+        | ⚠️ AN EDIT THAT SENDS NO UUID KEEPS THE FILE IT ALREADY HAS, and the
+        | version without this line could not fix a typo in a title. The Resource
+        | deliberately does not send `media_asset_uuid` — that identifier travels
+        | to a BUYER on the same payload, and a raw asset id in a student's
+        | response is the leak FR-011 forbids — so the form has nothing to
+        | prefill, sends null, and the guard below refused every edit of every
+        | digital product with «المنتج الرقمي يحتاج ملفاً مرفوعاً».
+        |
+        | Same family as the video screen that told a teacher «لا يوجد فيديو
+        | لهذا الدرس بعد» on every visit because it never fetched the lesson.
+        |
+        | The guard therefore runs against the RESULTING state, not against the
+        | payload: an edit that clears the file is still refused, an edit that
+        | says nothing about it is not.
+        */
+        $assetId = $data->mediaAssetUuid === null
+            ? $item?->media_asset_id
+            : $this->resolveAssetId($data, $workspaceId);
+
+        // Same rule for the two printed fields: what the payload does not
+        // mention, the row keeps.
+        $stock = $data->stock ?? $item?->stock;
+        $shipping = $data->shippingFeeMinor ?? $item?->shipping_fee_minor;
+
+        $this->guardTypeRules($data, $assetId, $stock, $shipping);
 
         $item ??= new StoreItem;
 
@@ -44,8 +69,8 @@ class SaveStoreItem extends Action
             'excerpt' => $data->excerpt,
             'price_minor' => $data->priceMinor,
             'currency' => $data->currency,
-            'shipping_fee_minor' => $data->kind->isStocked() ? $data->shippingFeeMinor : null,
-            'media_asset_id' => $this->resolveAssetId($data, $workspaceId),
+            'shipping_fee_minor' => $data->kind->isStocked() ? $shipping : null,
+            'media_asset_id' => $data->kind->isStocked() ? null : $assetId,
             'is_active' => $data->isActive,
         ]);
 
@@ -57,32 +82,39 @@ class SaveStoreItem extends Action
         | one: `stock >= :qty` against NULL is NULL, so a zero here would report
         | «نفد المخزون» about a file that cannot run out.
         */
-        $item->stock = $data->kind->isStocked() ? $data->stock : null;
+        $item->stock = $data->kind->isStocked() ? $stock : null;
 
         $item->save();
 
         return $item;
     }
 
-    private function guardTypeRules(StoreItemData $data): void
+    /**
+     * Judged on what the item WILL hold, never on the payload alone.
+     *
+     * @param  int|null  $assetId  the file it will have, an existing one included
+     * @param  int|null  $stock  the shelf it will have
+     * @param  int|null  $shipping  the postage it will charge
+     */
+    private function guardTypeRules(StoreItemData $data, ?int $assetId, ?int $stock, ?int $shipping): void
     {
         if ($data->priceMinor < 1) {
             throw new DomainException('سعر المنتج يجب أن يكون أكبر من صفر.');
         }
 
         if ($data->kind === StoreItemKind::Digital) {
-            if ($data->mediaAssetUuid === null) {
+            if ($assetId === null) {
                 throw new DomainException('المنتج الرقمي يحتاج ملفاً مرفوعاً.');
             }
 
             return;
         }
 
-        if ($data->stock === null || $data->stock < 0) {
+        if ($stock === null || $stock < 0) {
             throw new DomainException('النسخة المطبوعة تحتاج مخزوناً لا يقلّ عن صفر.');
         }
 
-        if ($data->shippingFeeMinor === null || $data->shippingFeeMinor < 0) {
+        if ($shipping === null || $shipping < 0) {
             throw new DomainException('النسخة المطبوعة تحتاج رسم شحن.');
         }
     }

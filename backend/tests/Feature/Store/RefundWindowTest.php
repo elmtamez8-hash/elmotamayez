@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Identity\Models\AuthSession;
+use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Store\Actions\FulfilStorePurchase;
@@ -138,4 +139,30 @@ it('never restocks a purchase that was never delivered', function (): void {
     app(RefundStorePurchase::class)->handle($purchase->uuid, $this->buyer);
 
     expect((int) $printed->refresh()->stock)->toBe(2);
+});
+
+it('leaves the refund open when the file was not ready to open', function (): void {
+    /*
+    | ⚠️ THE ORDER OF TWO LINES IN `IssueStoreAccess`, AND IT WAS WRONG.
+    |
+    | The stamp used to be written BEFORE the mint, which throws while a file is
+    | still transcoding. So a buyer who tapped «افتح» during an encode read
+    | «قيد التجهيز» — and their refund window had just been closed for ever,
+    | on a file that never opened. Asking for the money back afterwards answered
+    | «فُتِح هذا الملف» about something nobody had read, with nothing to
+    | sweep it back: the window is a clock and it had already run out.
+    */
+    $this->asset->forceFill(['status' => MediaAssetStatus::Processing])->save();
+
+    $purchase = boughtAndPaid();
+
+    expect(fn () => app(IssueStoreAccess::class)->handle($purchase->uuid, $this->buyer, $this->session))
+        ->toThrow(DomainException::class);
+
+    expect($purchase->refresh()->first_accessed_at)->toBeNull();
+
+    // The whole point: the money is still refundable.
+    $refunded = app(RefundStorePurchase::class)->handle($purchase->uuid, $this->buyer);
+
+    expect($refunded->refunded_at)->not->toBeNull();
 });

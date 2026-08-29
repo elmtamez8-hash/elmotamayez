@@ -809,8 +809,45 @@ deleting anything.
 └──────────────────────────────────────────────┘
 ```
 
-`store_items`, `store_orders` and `shipments` land with US1; the plan, coupon,
-referral and region tables with the waves after it.
+```
+┌─────────────────────────────────┐   ┌───────────────────────────────────┐
+│ store_items                   │   │ store_orders                     │
+├─────────────────────────────────┤   ├───────────────────────────────────┤
+│ id · uuid · workspace_id      │   │ id · uuid · workspace_id         │
+│ course_id (nullable)          │───│ order_id (unique → orders)      │
+│ kind · title · excerpt         │   │ store_item_id · buyer_user_id   │
+│ price_minor · currency         │   │ quantity · unit_price_minor     │
+│ stock  ← SIGNED, nullable      │   │ discount_minor · shipping_minor │
+│ shipping_fee_minor            │   │ commission_minor               │
+│ media_asset_id · is_active     │   │ teacher_net_minor  ← never sent │
+└─────────────────────────────────┘   │ fulfilled_at ← the claim        │
+                                      │ first_accessed_at · refunded_at │
+┌─────────────────────────────────┐   └───────────────────────────────────┘
+│ shipments                     │            │
+├─────────────────────────────────┤            │
+│ id · uuid · workspace_id      │────────────┘
+│ store_order_id (unique)       │
+│ recipient_name · phone        │  ← a child's home address:
+│ address_line · notes          │    `shipping_address`, 730 days,
+│ status · tracking_ref         │    anonymised in place
+│ status_changed_at · created_at│
+└─────────────────────────────────┘
+```
+
+The plan, coupon, referral and region tables land with the waves after US1.
+
+### `store_orders.shipping_minor` is frozen, like everything else on the line
+
+`total_minor` is what a buyer transfers, and it omitted the postage until this
+column existed: a printed purchase showed 50 while `orders.amount_minor` — the
+sum the transfer must match — was 65, so the buyer sent what the screen told
+them and `HandleProviderCallback` answered `mismatch`. No delivery, no refund,
+and a reconciliation case opened over our own arithmetic.
+
+It is frozen rather than read back off `store_items` for the reason
+`unit_price_minor` is: the teacher may raise the postage tomorrow, and a Resource
+that derived it from an eager-loaded item would additionally answer a DIFFERENT
+number whenever the relation was not loaded.
 
 ### `feature_flags.workspace_id` is `0`, never `NULL`
 

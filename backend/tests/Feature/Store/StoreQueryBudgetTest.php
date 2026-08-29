@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Payments\Models\Order;
+use App\Modules\Store\Actions\PurchaseStoreItem;
+use App\Modules\Store\Data\PurchaseData;
 use App\Modules\Store\Models\StoreItem;
 use App\Modules\Store\Models\StoreOrder;
 use App\Modules\Tenancy\Support\Permissions;
@@ -92,4 +95,36 @@ it('lists a buyer purchases at a flat cost, with the item title present', functi
     // `'relation:id,uuid,name'` defect that listed six screens' worth of people
     // as «».
     expect($response->json('data.0.item.title'))->not->toBeNull();
+});
+
+it('sends a printed purchase total that matches the transfer the order is waiting for', function (): void {
+    /*
+    | ⚠️ THIS NUMBER IS WHAT SOMEBODY TRANSFERS, and it omitted the postage. A
+    | printed purchase showed 50 while `orders.amount_minor` was 65, so the buyer
+    | sent what the screen told them and `HandleProviderCallback` answered
+    | `mismatch`: no delivery, no credits, the withholding standing, and a
+    | reconciliation case opened over our own arithmetic.
+    */
+    $buyer = User::factory()->create();
+
+    $printed = StoreItem::factory()->physical(3)->create([
+        'workspace_id' => $this->workspace->getKey(),
+    ]);
+
+    $purchase = app(PurchaseStoreItem::class)->handle($buyer, PurchaseData::fromArray([
+        'item_uuid' => $printed->uuid,
+        'quantity' => 2,
+        'recipient_name' => 'نورة',
+        'phone' => '+97455512345',
+        'address_line' => 'الدوحة',
+    ]));
+
+    Sanctum::actingAs($buyer);
+
+    $body = $this->getJson('/api/v1/store/purchases')->assertOk()->json('data.0');
+
+    $orderAmount = (int) Order::query()->whereKey($purchase->order_id)->value('amount_minor');
+
+    expect($body['total_minor'])->toBe($orderAmount)
+        ->and($body['shipping_minor'])->toBe((int) $printed->shipping_fee_minor);
 });

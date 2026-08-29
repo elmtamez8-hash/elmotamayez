@@ -92,10 +92,22 @@ class FulfilStorePurchase extends Action
         | The status lives on `orders`, not on the bridge row: an order's
         | lifecycle belongs to Payments, and two columns answering «where has
         | this order got to» are the two answers that drift apart.
+        |
+        | ⚠️ AND THE TRANSITION IS CONDITIONAL, WHICH IS WHAT MAKES THE MESSAGE
+        | ARRIVE ONCE. `fulfilled_at` was released two lines up, so a redelivered
+        | `PaymentApproved` re-claims it, fails on the shelf again, and reaches
+        | here again — telling the buyer their order is unavailable every time the
+        | queue retries. The `WHERE` is both the check and the claim, exactly as
+        | `AdvanceShipment` guards its own notification.
         */
-        Order::query()
+        $moved = Order::query()
             ->whereKey($order->getKey())
+            ->where('status', '!=', 'refund_due')
             ->update(['status' => 'refund_due']);
+
+        if ($moved === 0) {
+            return;
+        }
 
         $buyer = $purchase->buyer()->first();
 

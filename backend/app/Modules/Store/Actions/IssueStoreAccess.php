@@ -96,18 +96,28 @@ class IssueStoreAccess extends Action
         }
 
         /*
-        | ⚠️ CLAIMED, NOT ASSIGNED. `first_accessed_at` closes the refund window,
-        | and two grants minted at the same instant would both read it as null and
-        | both write — moving the stamp forward and handing the buyer back a
-        | window that had already closed. One conditional UPDATE, the seat idiom;
-        | never `lockForUpdate()`, a no-op on SQLite.
+        | ⚠️ THE MINT RUNS FIRST, AND THE ORDER OF THESE TWO LINES IS THE WHOLE
+        | POINT. `MintPlaybackGrant` throws when the file is not playable yet — a
+        | book still transcoding — and a stamp written before it would close the
+        | refund window on a purchase that NEVER OPENED. The buyer reads
+        | «قيد التجهيز», taps again tomorrow, and is then told
+        | «فُتِح هذا الملف» about a file nobody has read. Nothing sweeps that
+        | back: the window is a clock, and it had already run out.
+        |
+        | ⚠️ AND IT IS STILL CLAIMED, NOT ASSIGNED. Two grants minted at the same
+        | instant would both read the column as null and both write, moving the
+        | stamp forward and handing back a window that had already closed. One
+        | conditional UPDATE, the seat idiom; never `lockForUpdate()`, a no-op on
+        | SQLite.
         */
+        $grant = $this->mint->handle($asset, $buyer, $session, $ipHash);
+
         StoreOrder::query()
             ->withoutWorkspaceScope()
             ->whereKey($purchase->getKey())
             ->whereNull('first_accessed_at')
             ->update(['first_accessed_at' => now()]);
 
-        return $this->mint->handle($asset, $buyer, $session, $ipHash);
+        return $grant;
     }
 }

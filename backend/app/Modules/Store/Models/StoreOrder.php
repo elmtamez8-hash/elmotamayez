@@ -37,6 +37,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property int $quantity
  * @property int $unit_price_minor
  * @property int $discount_minor
+ * @property int $shipping_minor
  * @property int $commission_minor
  * @property int $teacher_net_minor
  * @property CarbonInterface|null $fulfilled_at
@@ -56,6 +57,7 @@ class StoreOrder extends BaseModel
         'quantity',
         'unit_price_minor',
         'discount_minor',
+        'shipping_minor',
         'commission_minor',
         'teacher_net_minor',
         'currency',
@@ -69,6 +71,7 @@ class StoreOrder extends BaseModel
             'quantity' => 'integer',
             'unit_price_minor' => 'integer',
             'discount_minor' => 'integer',
+            'shipping_minor' => 'integer',
             'commission_minor' => 'integer',
             'teacher_net_minor' => 'integer',
             'fulfilled_at' => 'datetime',

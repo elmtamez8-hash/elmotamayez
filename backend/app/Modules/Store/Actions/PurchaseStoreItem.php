@@ -87,6 +87,11 @@ class PurchaseStoreItem extends Action
                 // buyer agreed to.
                 'unit_price_minor' => (int) $item->price_minor,
                 'discount_minor' => 0,
+                // Frozen on the line: the teacher may raise the postage
+                // tomorrow, and recomputing it would rewrite what this buyer
+                // agreed to — and would put a number on their screen that no
+                // longer matches the transfer the order is waiting for.
+                'shipping_minor' => $shipping,
                 // Per LINE, both of them — the split is frozen at the moment of
                 // sale, because a rate read afterwards is a different number.
                 'commission_minor' => $commission,

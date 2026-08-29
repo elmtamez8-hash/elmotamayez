@@ -62,6 +62,7 @@ class StoreOrderFactory extends Factory
             'quantity' => 1,
             'unit_price_minor' => 5_000,
             'discount_minor' => 0,
+            'shipping_minor' => 0,
             'commission_minor' => 500,
             'teacher_net_minor' => 4_500,
             'currency' => 'QAR',

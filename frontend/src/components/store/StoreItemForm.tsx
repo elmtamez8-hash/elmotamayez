@@ -58,7 +58,15 @@ export function StoreItemForm({
   const [shipping, setShipping] = useState(
     item?.shipping_fee_minor === null ? "" : String(item?.shipping_fee_minor ?? ""),
   );
-  const [assetUuid, setAssetUuid] = useState(item?.course?.uuid ? "" : "");
+  /*
+   * ⚠️ ALWAYS EMPTY, AND THE SERVER IS WHAT MAKES THAT SAFE.
+   * `StoreItemResource` deliberately does not send `media_asset_uuid` — the same
+   * payload reaches a buyer, and a raw asset identifier there is the leak FR-011
+   * forbids — so there is nothing to prefill. `SaveStoreItem` keeps the existing
+   * file when the field arrives null, which is what lets a teacher fix a typo in
+   * a title without re-typing a uuid they cannot see.
+   */
+  const [assetUuid, setAssetUuid] = useState("");
   const [isActive, setIsActive] = useState(item?.is_active ?? true);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -195,11 +203,15 @@ export function StoreItemForm({
         <TextField
           id="media_asset_uuid"
           label="الملف المرفق"
-          hint="معرّف ملف رفعتَه في مساحتك. الملفات المرفوعة عند مدرّس آخر لا تُقبل."
+          hint={
+            item
+              ? "اتركه فارغاً للإبقاء على الملف الحالي، أو اكتب معرّف ملف آخر من مساحتك."
+              : "معرّف ملف رفعتَه في مساحتك. الملفات المرفوعة عند مدرّس آخر لا تُقبل."
+          }
           value={assetUuid}
           onChange={setAssetUuid}
           error={errors.media_asset_uuid}
-          required
+          required={!item}
         />
       )}
 
