@@ -2,8 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
+use App\Modules\Gamification\Models\AwardEntry;
 use App\Modules\Gamification\Models\GamificationAction;
+use App\Modules\Identity\Models\Referral;
+use App\Modules\Identity\Support\ReferralStatus;
+use App\Modules\Payments\Enums\OrderKind;
+use App\Modules\Payments\Events\PaymentApproved;
+use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Support\PlatformSettings;
+use Illuminate\Support\Facades\Log;
 
 /*
 | The row without which the whole feature is silent (T087).
@@ -104,4 +112,51 @@ it('is safe to run twice', function (): void {
     runTheBackfill();
 
     expect(GamificationAction::query()->where('key', 'invite_friend')->count())->toBe(1);
+});
+
+it('survives an operator giving the row coins, rather than throwing forever', function (): void {
+    /*
+    | ⚠️ THE REACHABLE VERSION OF THE COINS RULE. Every case above asserts what
+    | the migration SEEDS; this one asserts what happens when somebody edits it —
+    | and that is the state that actually bites, because the row is `/admin`
+    | editable and an operator seeing `session_attended: 5 coins` beside a zero
+    | has every reason to «fix» it.
+    |
+    | `AwardPoints` throws for a coin-bearing action with no workspace, and by
+    | the time the award listener runs the referral has ALREADY been flipped
+    | `completed` — so an unguarded throw leaves it completed-but-unpaid with a
+    | `failed_jobs` row naming the wrong file. The listener refuses and logs
+    | instead.
+    */
+    GamificationAction::query()->where('key', 'invite_friend')->update(['coins' => 5]);
+
+    Log::spy();
+
+    $inviter = User::factory()->create();
+    $invited = User::factory()->create();
+
+    $referral = Referral::create([
+        'referrer_user_id' => $inviter->getKey(),
+        'referred_user_id' => $invited->getKey(),
+    ]);
+
+    [$workspace] = $this->createWorkspaceWithOwner();
+
+    // No exception, and no half-award.
+    PaymentApproved::dispatch(Order::create([
+        'workspace_id' => $workspace->getKey(),
+        'user_id' => $invited->getKey(),
+        'kind' => OrderKind::Subscription,
+        'amount_minor' => 10_000,
+        'currency' => 'QAR',
+        'provider' => 'manual',
+        'status' => 'approved',
+    ]));
+
+    expect(AwardEntry::query()->where('action_key', 'invite_friend')->count())->toBe(0)
+        ->and($referral->refresh()->status)->toBe(ReferralStatus::Completed);
+
+    // And the operator is told which row to fix — a stack trace naming
+    // `AwardPoints` would send whoever reads it to the wrong file.
+    Log::shouldHaveReceived('warning')->once();
 });

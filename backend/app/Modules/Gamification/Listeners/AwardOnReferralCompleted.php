@@ -6,8 +6,10 @@ namespace App\Modules\Gamification\Listeners;
 
 use App\Modules\Gamification\Actions\AwardPoints;
 use App\Modules\Gamification\Data\AwardRequest;
+use App\Modules\Gamification\Models\GamificationAction;
 use App\Modules\Identity\Events\ReferralCompleted;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Log;
 
 /**
  * An invitation turned into a real subscription ⇒ points for BOTH (011 · FR-020 · FR-024).
@@ -36,6 +38,10 @@ class AwardOnReferralCompleted implements ShouldQueue
 
     public function handle(ReferralCompleted $event): void
     {
+        if (! $this->payable()) {
+            return;
+        }
+
         foreach ([$event->referrerUserId, $event->referredUserId] as $userId) {
             $this->award->handle(new AwardRequest(
                 studentUserId: $userId,
@@ -44,5 +50,41 @@ class AwardOnReferralCompleted implements ShouldQueue
                 sourceId: $event->referralId,
             ));
         }
+    }
+
+    /**
+     * ⚠️ THE ROW IS `/admin`-EDITABLE, AND A COIN VALUE TYPED INTO IT WOULD
+     * THROW IN A QUEUED JOB ON A REFERRAL THAT IS ALREADY `completed`.
+     *
+     * `AwardPoints` refuses a coin-bearing action with no workspace rather than
+     * guessing a purse — correctly, since a referral belongs to no teacher. But
+     * an operator looking at `session_attended: 5 coins` beside
+     * `invite_friend: 0 coins` has every reason to «fix» the zero, and the flip
+     * to `completed` has ALREADY happened by the time this listener runs: the
+     * job throws, Horizon retries it, it throws again, and the referral is left
+     * completed-but-unpaid — the exact state the cap-before-flip design and the
+     * absent `daily_cap` both exist to prevent, reached through a text box.
+     *
+     * So the misconfiguration is caught here and REPORTED, not raised. The row
+     * is named in the log because that is the one thing an operator needs to
+     * undo it, and a `failed_jobs` stack trace naming `AwardPoints` would send
+     * whoever reads it to the wrong file.
+     */
+    private function payable(): bool
+    {
+        $action = GamificationAction::query()->where('key', 'invite_friend')->first();
+
+        if ($action === null || (int) $action->coins === 0) {
+            // No row is not an error — an award for an undefined action is an
+            // unfilled catalogue, and `AwardPoints` says so itself by returning.
+            return true;
+        }
+
+        Log::warning('لن تُصرَف نقاط الدعوة: صفّ invite_friend يمنح عملات، والدعوة بلا مساحة عمل تضعها فيها. اضبط العملات على صفر من لوحة الإدارة.', [
+            'action_key' => 'invite_friend',
+            'coins' => (int) $action->coins,
+        ]);
+
+        return false;
     }
 }

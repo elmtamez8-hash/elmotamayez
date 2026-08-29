@@ -7,6 +7,8 @@ namespace App\Modules\Identity\Support;
 use App\Models\User;
 use App\Modules\Compliance\Support\Anonymiser;
 use App\Modules\Identity\Models\ParentStudentRelation;
+use App\Modules\Identity\Models\Referral;
+use App\Modules\Identity\Models\ReferralCode;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
@@ -42,7 +44,7 @@ class IdentityPersonalData implements PersonalDataOwner
     /** @return list<string> */
     public function describe(): array
     {
-        return ['student_name', 'contact_phone', 'date_of_birth'];
+        return ['student_name', 'contact_phone', 'date_of_birth', 'referral_record'];
     }
 
     /**
@@ -118,6 +120,51 @@ class IdentityPersonalData implements PersonalDataOwner
                 ],
             );
         }
+
+        /*
+        | Spec 011 · US3 — invitations, in both directions.
+        |
+        | ⚠️ THE OTHER PARTY IS NEVER NAMED, and that is the same decision
+        | `ReferralResource` makes on the screen: an inviter already knows who
+        | they invited, and an archive that hands somebody a list of names and
+        | email addresses assembled out of other people's signups is personal
+        | data about third parties — the exact reason the guardian list two
+        | blocks up is gated. Nothing here identifies anybody but the subject.
+        |
+        | ⚠️ AND `flagged_reason` IS OMITTED. It is written for a human reviewing
+        | abuse; handing the suspected party the rule they tripped is a tuning
+        | guide for the next attempt.
+        |
+        | The code itself is filed under the same category rather than getting
+        | one of its own: a key yielded with no `data_categories` row behind it
+        | is a file in the archive with no retention rule and no owner.
+        */
+        $code = ReferralCode::query()->where('user_id', $user->getKey())->first();
+
+        // Yielded even when empty — «we hold no invitation code for you» is an
+        // answer, and a missing file is silence.
+        yield 'referral_record' => $code === null ? [] : [[
+            'code' => $code->code,
+            'created_at' => ExportWalk::at($code->created_at),
+        ]];
+
+        yield from ExportWalk::keyed(
+            'referral_record',
+            Referral::query()
+                ->where('referrer_user_id', $user->getKey())
+                ->orWhere('referred_user_id', $user->getKey()),
+            fn (Referral $referral): array => [
+                'uuid' => $referral->uuid,
+                // Which side they were on, without naming who was on the other.
+                'direction' => (int) $referral->referrer_user_id === (int) $user->getKey()
+                    ? 'sent'
+                    : 'received',
+                'status' => $referral->status->value,
+                'invited_at' => ExportWalk::at($referral->created_at),
+                'completed_at' => ExportWalk::at($referral->completed_at),
+                'reversed_at' => ExportWalk::at($referral->reversed_at),
+            ],
+        );
     }
 
     public function erase(DataSubject $subject, ErasureMode $mode, int $limit): int

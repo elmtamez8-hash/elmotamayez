@@ -194,6 +194,38 @@ class DataCategorySeeder extends Seeder
                 'erasure_mode' => ErasureMode::Retain,
             ],
 
+            /*
+            | Spec 011 · US3 — who invited whom.
+            |
+            | ⚠️ THIS ROW SHIPS WITH THE TABLES IT DESCRIBES, because nothing
+            | would have told us otherwise: `PersonalDataContractCoverageTest` is
+            | a per-MODULE guard and `Identity` was already covered, so two new
+            | tables holding two users' identities could land inside it with the
+            | whole suite green. That limit is written down in `docs/README.md`
+            | and this is the first change made after it.
+            |
+            | ⚠️ AND IT IS `Retain` WITH NO EXPIRY, for `payment_record`'s reason.
+            | A completed referral is the audit trail behind points that were
+            | actually awarded; deleting it while the `award_entries` rows stand
+            | leaves a balance nobody can explain — and the referral names TWO
+            | people, so erasing it on one party's request would delete the other
+            | party's record of their own invitation. Identity is severed at the
+            | `users` row instead, which is what makes SC-007 assertable.
+            */
+            [
+                'key' => 'referral_record',
+                'label_ar' => 'دعواتك وكود الدعوة',
+                'purpose_ar' => 'لتتبُّع من دعوتَ ومن دعاك، ولصرف نقاط الدعوة عند اشتراك فعليّ.',
+                'audience' => 'إدارة المنصّة',
+                'is_required' => false,
+                'owning_module' => 'identity',
+                'table_name' => 'referrals',
+                'column_name' => 'referrer_user_id',
+                'retain_days' => null,
+                'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Anonymise,
+            ],
+
             // ── Payments ────────────────────────────────────────────────────
             [
                 'key' => 'payment_record',
