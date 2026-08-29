@@ -152,6 +152,16 @@ it('never names a billing model, table or event anywhere in the settlement modul
             fn (SplFileInfo $file): string => $file->getBasename('.php'),
             iterator_to_array(Finder::create()->files()->in(app_path('Modules/Payments/Events'))->name('*.php'))
         ),
+        /*
+        | ⚠️ AND SPEC 011's STORE TABLES, for the same reason and from a third
+        | direction. A book sale is the student's money as much as an order is:
+        | `store_orders` carries what the buyer paid, what the platform kept and
+        | what the teacher is owed for it — and that last number is deliberately
+        | NOT settled through this context (011 · Q6 pays it outside the platform),
+        | so a settlement file reaching for it would be inventing a bridge the
+        | design refused.
+        */
+        array_map(fn (string $table): string => "'{$table}'", tablesCreatedBy('Store')),
     );
 
     $offenders = [];
@@ -273,6 +283,51 @@ it('never names the settlement module anywhere in the billing module', function 
     $offenders = [];
 
     foreach (moduleFiles('Payments') as $file) {
+        $contents = $file->getContents();
+
+        foreach ($forbidden as $needle) {
+            if (str_contains($contents, $needle)) {
+                $offenders[] = $file->getRelativePathname().' → '.$needle;
+            }
+        }
+    }
+
+    expect($offenders)->toBe([]);
+});
+
+/*
+ * ⚠️ SPEC 011's `Store` IS A FOURTH CONTEXT, AND IT NEEDS ITS OWN BLOCK BECAUSE
+ * THE SWEEPS ABOVE NAME THEIR MODULES LITERALLY.
+ *
+ * This file says it of itself two cases down — "a module written in 2027 is
+ * invisible to both" — and `Compliance` is the module that proved it, designed
+ * against a guard that was not scanning it. `Store` is not going to repeat that.
+ *
+ * ⚠️ AND THE RULE HERE IS ASYMMETRIC ON PURPOSE, WHICH IS WHY IT IS NOT A COPY
+ * OF THE COMPLIANCE CASE. `Store` MAY name `App\Modules\Payments`: a purchase
+ * creates an `Order(kind: store)` and the module's whole fulfilment path hangs
+ * off `PaymentApproved`. That is the sanctioned route, not a leak.
+ *
+ * What it must never name is `Settlement` — the teacher's pay. Spec 011 · Q6
+ * decided a book sale is recorded and paid OUTSIDE the platform in this phase,
+ * so `store_orders.teacher_net_minor` is a snapshot and not a claim on the
+ * ledger. The first developer who "finishes the job" by writing a ledger entry
+ * from here gets a red build instead of a bridge nobody designed.
+ */
+it('never names the settlement module or its tables from inside the store module', function (): void {
+    $forbidden = array_merge(
+        ['use App\Modules\Settlement'],
+        array_map(fn (string $table): string => "'{$table}'", tablesCreatedBy('Settlement')),
+    );
+
+    // Sanity, the shape this file uses everywhere: a Finder that matched nothing
+    // would pass by finding nothing to forbid, and this scan is the only reader
+    // of that directory here.
+    expect(iterator_count(moduleFiles('Store')))->toBeGreaterThan(0);
+
+    $offenders = [];
+
+    foreach (moduleFiles('Store') as $file) {
         $contents = $file->getContents();
 
         foreach ($forbidden as $needle) {

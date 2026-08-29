@@ -132,6 +132,42 @@ final class Permissions
      */
     public const ANALYTICS_CROSS_TEACHER_VIEW = 'analytics.cross_teacher.view';
 
+    /*
+     | Store — the teacher's own goods (spec 011 · US1).
+     |
+     | Tenant-level, and that is the whole difference from the two billing
+     | permissions below: a book is the teacher's product, priced by them, and
+     | the money it moves is their own. Nothing here reaches another teacher's
+     | rows or the platform's margin.
+     */
+    public const STORE_ITEMS_MANAGE = 'store.items.manage';
+
+    public const STORE_SHIPMENTS_MANAGE = 'store.shipments.manage';
+
+    /*
+     | Plans — the teacher writes the duration and the coverage (spec 011 · US4).
+     |
+     | ⚠️ AND NOT THE PRICE. A subscription is access to teaching, so its price is
+     | the platform's to set (011 · Q4) — `SavePlan` refuses `price_minor` from
+     | anyone without the platform permission, and the split is enforced in the
+     | Action rather than by the shape of a form.
+     */
+    public const PLANS_MANAGE = 'plans.manage';
+
+    /*
+     | Platform-level, both of them, and the mechanism is DELIBERATE ABSENCE from
+     | every array in RolePermissionMatrix — `platformPermissions()` derives the
+     | platform set by subtraction, exactly as ANALYTICS_CROSS_TEACHER_VIEW above.
+     |
+     | A coupon a teacher could mint is a discount spent out of the platform's
+     | commission (FR-010 forbids it touching the teacher's own share), and a
+     | feature flag a teacher could flip is a teacher deciding what the platform
+     | ships. Neither is a decision about their own workspace.
+     */
+    public const BILLING_COUPONS_MANAGE = 'billing.coupons.manage';
+
+    public const FLAGS_MANAGE = 'flags.manage';
+
     // Settings
     public const SETTINGS_VIEW = 'settings.view';
 
@@ -521,6 +557,11 @@ final class Permissions
             self::CMS_DELETE,
             self::CMS_PUBLISH,
             self::ANALYTICS_VIEW,
+            self::STORE_ITEMS_MANAGE,
+            self::STORE_SHIPMENTS_MANAGE,
+            self::PLANS_MANAGE,
+            self::BILLING_COUPONS_MANAGE,
+            self::FLAGS_MANAGE,
             self::SETTINGS_VIEW,
             self::SETTINGS_UPDATE,
             self::MARKETPLACE_TEACHERS_REVIEW,

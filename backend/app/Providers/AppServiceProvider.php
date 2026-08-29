@@ -234,6 +234,41 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(60)->by('ip:'.$request->ip()),
         ]);
 
+        /*
+         * Store writes (spec 011 · US1): saving a product, buying one, advancing
+         * a shipment.
+         *
+         * Keyed by USER for the reason the `billing` limiter above spells out —
+         * `auth`'s second bucket is `by('email:'.$request->input('email'))`, and
+         * a purchase carries no `email` field, so its key collapses to the
+         * constant `'email:'`: one five-per-minute bucket for every write on the
+         * platform, drainable by a single account. The IP bucket is the second
+         * line, and it is looser because a school buying from one address is many
+         * students.
+         */
+        RateLimiter::for('store-write', fn (Request $request) => [
+            Limit::perMinute(30)->by('user:'.(string) $request->user()?->getKey()),
+            Limit::perMinute(60)->by('ip:'.$request->ip()),
+        ]);
+
+        /*
+         * Applying a coupon code (spec 011 · FR-016).
+         *
+         * ⚠️ THE TIGHTEST LIMITER IN THIS FILE, because it is the only route
+         * whose whole purpose is to be GUESSED AT: a code is a short string, the
+         * answer says whether it exists, and the reward is somebody else's
+         * discount. Ten a minute is generous for a person typing one code and
+         * useless for a script walking a keyspace.
+         *
+         * Both buckets, and the IP one is the narrower of the two here rather
+         * than the wider: an attacker with one address and a thousand accounts is
+         * the shape this endpoint attracts.
+         */
+        RateLimiter::for('coupon', fn (Request $request) => [
+            Limit::perMinute(10)->by('user:'.(string) $request->user()?->getKey()),
+            Limit::perMinute(20)->by('ip:'.$request->ip()),
+        ]);
+
         // Course authoring: creating, renaming, reordering, publishing, deleting.
         // Looser than the settlement writes because this is the opposite kind of
         // work — a teacher building a unit saves dozens of times in an hour, and

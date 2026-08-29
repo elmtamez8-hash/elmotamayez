@@ -33,34 +33,34 @@ description: "Task list — 011 التجارة والنمو"
 
 > ⚠️ **`Store` أوّلُ وحدةٍ جديدةٍ منذُ ٠١٣**، والثلاثةُ المعروفةُ ليست كلَّ ما تحتاجُه. الثلاثةُ الأخرى كُشِفَتْ في مراجعةِ الوكلاء.
 
-- [ ] T001 أنشئْ هيكلَ `backend/app/Modules/Store/` (`StoreServiceProvider.php` يرثُ `App\Shared\Modules\Module`، و`routes/api.php` فارغاً، و`Database/Migrations/`). ⚠️ **`M` كبيرةٌ في `Migrations`**: `Module::registerMigrations()` يطابقُ الاسمَ حرفيّاً — يعملُ على ويندوز ويُحمِّلُ **صفرَ** هجرةٍ على لينكس. **ولا تُسجِّلْ مزوِّدَ الوحدةِ في `bootstrap/providers.php`** — الاكتشافُ آليّ.
-- [ ] T002 أضِفْ صفَّ `app/Modules/Store/Database/Migrations` إلى `backend/phpstan.neon`. ⚠️ بدونِه تُقرَأُ خصائصُ نماذجِ المتجرِ كـ`mixed` ويسقطُ L8.
-- [ ] T003 أضِفْ `'Store'` إلى قوائمِ الجداولِ في `backend/tests/Feature/Settlement/ContextIsolationTest.php`، **وكتلةَ `it()` خاصّةً بها**: مسوحُ الاستيرادِ الأربعةُ تسمّي وحداتِها **حرفيّاً**، والملفُّ يقولُ عن نفسِه إنّ «وحدةً تُكتَبُ في ٢٠٢٧ غيرُ مرئيّةٍ لكلَيهما».
-- [ ] T004 [P] أنشئْ `backend/app/Modules/Store/Support/StorePersonalData.php` مُنفِّذاً `PersonalDataOwner` (تصدير · حذف · انتهاء) — `shipments` تحملُ عنوانَ منزلِ طفلٍ ورقمَ هاتفِه. ⚠️ `PersonalDataContractCoverageTest` يشتقُّ الوحداتِ من مجلّداتِ الهجراتِ ومُعفاهُ ثلاثٌ ليس منها `Store` ⇒ **بناءٌ أحمرُ حتى تُكتَب**.
-- [ ] T005 حدِّثْ `docs/README.md` (جداولُ الوحداتِ والنقاطِ والصلاحيات) و`docs/erd.md` (١٣ جدولاً) — بوّابتانِ في «سير العمل» بالدستور.
+- [X] T001 أنشئْ هيكلَ `backend/app/Modules/Store/` (`StoreServiceProvider.php` يرثُ `App\Shared\Modules\Module`، و`routes/api.php` فارغاً، و`Database/Migrations/`). ⚠️ **`M` كبيرةٌ في `Migrations`**: `Module::registerMigrations()` يطابقُ الاسمَ حرفيّاً — يعملُ على ويندوز ويُحمِّلُ **صفرَ** هجرةٍ على لينكس. **ولا تُسجِّلْ مزوِّدَ الوحدةِ في `bootstrap/providers.php`** — الاكتشافُ آليّ.
+- [X] T002 أضِفْ صفَّ `app/Modules/Store/Database/Migrations` إلى `backend/phpstan.neon`. ⚠️ بدونِه تُقرَأُ خصائصُ نماذجِ المتجرِ كـ`mixed` ويسقطُ L8.
+- [X] T003 أضِفْ `'Store'` إلى قوائمِ الجداولِ في `backend/tests/Feature/Settlement/ContextIsolationTest.php`، **وكتلةَ `it()` خاصّةً بها**: مسوحُ الاستيرادِ الأربعةُ تسمّي وحداتِها **حرفيّاً**، والملفُّ يقولُ عن نفسِه إنّ «وحدةً تُكتَبُ في ٢٠٢٧ غيرُ مرئيّةٍ لكلَيهما».
+- [X] T004 ⚠️ **مُصحَّحٌ عندَ التنفيذ — عقدُ حمايةِ البياناتِ لا يسبقُ النماذج.** كان هنا «أنشئْ `StorePersonalData`»، و`export`/`erase`/`expire` كلُّها تمشي `StoreOrder` و`Shipment` — وهما في T029–T032. فكتابتُها الآنَ تعني `PersonalDataOwner` تُرجِعُ ثلاثةَ أصفار: **الوسمُ حاضرٌ والاختبارُ أخضرُ وطلبُ المحوِ يكتملُ تاركاً العنوانَ مكانَه** — شكلُ الحارسِ الذي سجَّلَه هذا المستودعُ مرّتَين. ⇒ الوحدةُ تشحنُ بلا عمودٍ شخصيٍّ **وبلا وسم** (متّسقةٌ لا نصفَ محروسة)، والقرارُ مكتوبٌ في دفترِ تعليقِ `StoreServiceProvider`، **والتنفيذُ انتقلَ إلى T032**.
+- [X] T005 صفُّ وحدةِ `Store` في جدولِ وحداتِ `docs/README.md`. ⚠️ **و`docs/erd.md` والنقاطُ والصلاحياتُ تُوثَّقُ مع موجتِها لا هنا**: الجداولُ الثلاثةَ عشرَ تصلُ عبرَ ستِّ موجات، وتوثيقُ جدولٍ قبلَ هجرتِه توثيقُ نيّةٍ لا بناء. **كلُّ موجةٍ توثِّقُ جداولَها في دفعتِها**، وهو ما تعنيه بوّابةُ «سير العمل» بالدستور.
 
 ### ب. الصلاحيات — المكانُ هو التصنيف
 
 > ⚠️ `platformPermissions()` = `all()` ناقصَ ما تحملُه أدوارُ المستأجِر. **الغيابُ عن كلِّ مصفوفةِ دورٍ هو الإعلانُ**، وثابتٌ خارجَ `all()` **لا يحملُه أحدٌ ولو كان مشرفاً عامّاً**.
 
-- [ ] T006 أضِفْ خمسةَ ثوابتَ إلى `backend/app/Modules/Tenancy/Support/Permissions.php` **وإلى `all()`**: `store.items.manage` · `store.shipments.manage` · `plans.manage` · `billing.coupons.manage` · `flags.manage`.
-- [ ] T007 أضِفِ الثلاثةَ الأولى إلى `$teacher` في `backend/app/Modules/Tenancy/Support/RolePermissionMatrix.php`، و**اترُكِ الأخيرتَين خارجَ كلِّ مصفوفة**. ⚠️ ولا تلمسْ `billing.settings.manage` — نزعَتْها ٠١٤ من دورِ المالكِ عمداً و`Tenancy\Models\Role` يرمي إن عادت.
-- [ ] T008 [P] أضِفْ تسمياتٍ عربيّةً للخمسةِ في `backend/app/Modules/Tenancy/Support/PermissionLabels.php`.
-- [ ] T009 [P] اختبارُ `backend/tests/Feature/Tenancy/CommercePermissionNamesTest.php` **يُثبِّتُ الأسماءَ الخمسةَ حرفيّاً** في جانبَيها (منصّة/مستأجِر). ⚠️ `PermissionPanelTest` يقارنُ `tenantMap()` بـ`tenantPermissions()` و**الأولى مبنيّةٌ من الثانية** — اشتقاقٌ يُقارَنُ بنفسِه، فلا يرى خطأً في التصنيف.
+- [X] T006 أضِفْ خمسةَ ثوابتَ إلى `backend/app/Modules/Tenancy/Support/Permissions.php` **وإلى `all()`**: `store.items.manage` · `store.shipments.manage` · `plans.manage` · `billing.coupons.manage` · `flags.manage`.
+- [X] T007 أضِفِ الثلاثةَ الأولى إلى `$teacher` في `backend/app/Modules/Tenancy/Support/RolePermissionMatrix.php`، و**اترُكِ الأخيرتَين خارجَ كلِّ مصفوفة**. ⚠️ ولا تلمسْ `billing.settings.manage` — نزعَتْها ٠١٤ من دورِ المالكِ عمداً و`Tenancy\Models\Role` يرمي إن عادت.
+- [X] T008 [P] أضِفْ تسمياتٍ عربيّةً للخمسةِ في `backend/app/Modules/Tenancy/Support/PermissionLabels.php`.
+- [X] T009 [P] اختبارُ `backend/tests/Feature/Tenancy/CommercePermissionNamesTest.php` **يُثبِّتُ الأسماءَ الخمسةَ حرفيّاً** في جانبَيها (منصّة/مستأجِر). ⚠️ `PermissionPanelTest` يقارنُ `tenantMap()` بـ`tenantPermissions()` و**الأولى مبنيّةٌ من الثانية** — اشتقاقٌ يُقارَنُ بنفسِه، فلا يرى خطأً في التصنيف.
 
 ### ج. المحدّدات
 
-- [ ] T010 أضِفْ `store-write` (٣٠/دقيقة، مفتاحُه المستخدِم) و`coupon` (١٠/دقيقة، المستخدِم + IP) في `backend/app/Providers/AppServiceProvider.php › registerRateLimiters()`. ⚠️ **`throttle:auth` ممنوعٌ على مسارِ كتابة**: مفتاحُه الثاني `'email:'.$request->input('email')` ومسارٌ بلا `email` يجعلُه ثابتاً ⇒ عدّادٌ واحدٌ لكلِّ كتاباتِ المنصّة. والسطريُّ `throttle:N,M` ممنوعٌ كذلك.
-- [ ] T011 [P] أضِفْ `throttle:authoring` إلى مساراتِ `backend/app/Modules/CMS/routes/api.php` الستّ — تشحنُ اليومَ بـ`auth:sanctum` وحدَها، وأربعةٌ منها كتابة (NFR-014).
+- [X] T010 أضِفْ `store-write` (٣٠/دقيقة، مفتاحُه المستخدِم) و`coupon` (١٠/دقيقة، المستخدِم + IP) في `backend/app/Providers/AppServiceProvider.php › registerRateLimiters()`. ⚠️ **`throttle:auth` ممنوعٌ على مسارِ كتابة**: مفتاحُه الثاني `'email:'.$request->input('email')` ومسارٌ بلا `email` يجعلُه ثابتاً ⇒ عدّادٌ واحدٌ لكلِّ كتاباتِ المنصّة. والسطريُّ `throttle:N,M` ممنوعٌ كذلك.
+- [X] T011 [P] أضِفْ `throttle:authoring` إلى مساراتِ `backend/app/Modules/CMS/routes/api.php` الستّ — تشحنُ اليومَ بـ`auth:sanctum` وحدَها، وأربعةٌ منها كتابة (NFR-014).
 
-### د. كتالوجاتُ وقتِ التشغيل — **أربعُ هجراتٍ في نفسِ الدفعة**
+### د. كتالوجاتُ وقتِ التشغيل — **القاعدة، لا المهامّ**
 
 > ⚠️ كتالوجٌ يُقرَأُ وقتَ التشغيلِ ولا صفَّ له **يسكتُ ولا يُخطئ**، وقد وقعَ ثلاثَ مرّاتٍ في هذا المستودع. و`tests/Pest.php` تبذرُها قبلَ كلِّ حالةٍ ⇒ **كلُّ اختبارٍ أخضرُ على جدولٍ لا تملكُه المنصّةُ الحيّة**.
 
-- [ ] T012 [P] هجرةُ `seedMissing()` لمفتاحِ `invite_friend` في `backend/database/seeders/GamificationCatalogSeeder.php` + هجرةُ تعبئةٍ، على سابقةِ `2026_08_25_000300_backfill_gamification_catalogue.php`.
-- [ ] T013 [P] صفوفُ `data_categories` للمتجرِ والشحنِ والإحالةِ والاشتراك + هجرةُ `seedMissing()` في `backend/database/seeders/DataCategorySeeder.php`.
-- [ ] T014 [P] قوالبُ إشعارٍ جديدةٌ (تغيُّرُ حالةِ شحنة · قربُ انتهاءِ اشتراك · تقريرٌ مجدول) في `backend/database/seeders/NotificationTemplateSeeder.php` + هجرةُ `seedMissing()`. ⚠️ **إشعارٌ بلا قالبٍ يُسقَطُ صامتاً**، وأنواعُها تُضافُ إلى `NotificationType` مع `defaultChannels()`.
-- [ ] T015 [P] بذرةُ `regions` + هجرةُ `seedMissing()` في `backend/database/seeders/RegionSeeder.php`. ⚠️ `region_id` إلزاميٌّ في `FormRequest` ⇒ **جدولٌ فارغٌ في الإنتاجِ يعني ٤٢٢ لكلِّ تسجيلٍ جديدٍ أمامَ قائمةٍ لا شيءَ فيها**.
+- [X] T012 ⚠️ **مُصحَّحٌ عندَ التنفيذ — الصفُّ يُشحَنُ مع الكودِ الذي يقرأُه، لا قبلَه بخمسِ موجات.** كانت هنا أربعُ هجراتِ `seedMissing()` مجموعةً بالموضوعِ (تلعيبٌ · فئاتُ بيانات · قوالبُ إشعارٍ · مناطق) — وثلاثٌ منها تصفُ جداولَ وأنواعاً لم تُخلَقْ بعد، والرابعةُ تمنحُ نقاطاً لحدثٍ لا وجودَ له. **وهذا نقضُ القاعدةِ التي كُتِبَتْ فوقَها**: صفٌّ يسبقُ قارئَه صفٌّ لا يُقاسُ، تماماً كما أنّ صفّاً يتأخّرُ عنه صفٌّ يسكت. ⇒ **كلُّ كتالوجٍ ينتقلُ إلى موجتِه**: `invite_friend` ⇒ **T081** · `data_categories` ⇒ **T032** · قوالبُ الشحنةِ والاشتراك ⇒ **T039** و**T096** · `regions` ⇒ **T118**. والقاعدةُ تبقى هنا لأنّها تسري على الموجاتِ الستِّ كلِّها.
+- [X] T013 ⚠️ مدموجةٌ في T012 أعلاه — انظرْ سببَ النقل.
+- [X] T014 ⚠️ مدموجةٌ في T012 أعلاه.
+- [X] T015 ⚠️ مدموجةٌ في T012 أعلاه.
 
 ---
 
@@ -106,7 +106,7 @@ description: "Task list — 011 التجارة والنمو"
 - [ ] T029 [P] [US1] هجرةُ `store_items` في `backend/app/Modules/Store/Database/Migrations/` — أعمدةُ data-model §١، و`stock` **`integer` مُوقَّعٌ nullable** (⚠️ `unsigned` يُفجِّرُ `ERROR 1690` على MySQL وحدَها)، وفهارسُ `[workspace_id, is_active, id]` (⚠️ `id` في الذيلِ ليخدمَ الترتيبَ) · `[workspace_id, kind]` · `[course_id]`.
 - [ ] T030 [P] [US1] هجرةُ `store_orders` — أعمدةُ §٢ ومنها **`fulfilled_at`** و`first_accessed_at` و`refunded_at`، وفهارسُ `[buyer_user_id, created_at]` · `[workspace_id, created_at]` · ⚠️ **`[store_item_id]`** (بدونِه `withCount` مسحٌ لكلِّ صفّ).
 - [ ] T031 [P] [US1] هجرةُ `shipments` — §٣، **بلا `region_id`** (⚠️ يربطُ م١ بجدولٍ يشحنُ في م٦ فتسقطُ استقلاليّتُها)، وفهرسُ `[workspace_id, status]`.
-- [ ] T032 [P] [US1] نماذجُ `backend/app/Modules/Store/Models/{StoreItem,StoreOrder,Shipment}.php` — `HasUuid` + `BelongsToWorkspace` + `declare(strict_types=1)`.
+- [ ] T032 [US1] ⚠️ **+ صفوفُ `data_categories` وهجرةُ `seedMissing()` (منقولةٌ من T013).** نماذجُ `backend/app/Modules/Store/Models/{StoreItem,StoreOrder,Shipment}.php` — `HasUuid` + `BelongsToWorkspace` + `declare(strict_types=1)`. **وفي نفسِ المهمّة** (منقولةٌ من T004): `backend/app/Modules/Store/Support/StorePersonalData.php` مُنفِّذةً `PersonalDataOwner`، والسطرُ الموسومُ في `StoreServiceProvider::register()`. ⚠️ `export()` **مولِّدٌ** يُركِّبُ قائمةَ حقولِ الوحدةِ لا `->toArray()`، و`erase()`/`expire()` بـ**`chunkById`** لا `chunk`، وكلتاهما تأخذُ حدّاً وتُعيدُ عدّاً ليكونَ المحوُ قابلاً للاستئناف. **والوسمُ والهجرةُ يصلانِ معاً** — `PersonalDataContractCoverageTest` يُحمِّرُ البناءَ لحظةَ تملكُ الوحدةُ عموداً شخصيّاً.
 - [ ] T033 [P] [US1] تعدادا `backend/app/Modules/Store/Enums/{StoreItemKind,ShipmentStatus}.php` بـ`HasArabicLabel` و`BuildsOptions`.
 - [ ] T034 [P] [US1] مصانعُ `backend/database/factories/Modules/Store/{StoreItemFactory,StoreOrderFactory,ShipmentFactory}.php`. ⚠️ `guessFactoryName()` يرمي حين تغيب، وكلُّ اختبارٍ في هذه القصّةِ يعتمدُ عليها.
 
@@ -116,7 +116,7 @@ description: "Task list — 011 التجارة والنمو"
 - [ ] T036 [US1] `backend/app/Modules/Store/Actions/PurchaseStoreItem.php` — ينشئُ `Order(kind=store)` و`store_orders` **بلا خصمِ مخزونٍ ولا تسليم**، ويرفضُ مطبوعاً بلا عنوان (FR-007). ⚠️ `workspace_id` يُسنَدُ **صراحةً** من `StoreItem`: الوصفُ يملأُه `if (!== null)` وسياقُ الطالبِ `null` دائماً ⇒ **فراغٌ صامت**.
 - [ ] T037 [US1] `backend/app/Modules/Store/Listeners/FulfilOnPaymentApproved.php` — `ShouldQueue` + **`ShouldHandleEventsAfterCommit`** (⚠️ `ApproveOrder` يُطلِقُ الحدثَ داخلَ `DB::transaction`؛ مستمِعٌ عاديٌّ هناك نقطةُ فشلٍ مفردةٍ لما بعدَه، ومطبورٌ بلا الواجهةِ الثانيةِ يقرأُ الطلبَ `pending` **وينجح**). **وأوّلُ جملةٍ فيه مطالبةُ `fulfilled_at`**، وكلُّ ما بعدَها مشروطٌ بالفوز.
 - [ ] T038 [US1] `backend/app/Modules/Store/Actions/ClaimStock.php` — `UPDATE … WHERE id = ? AND stock >= :qty`. ⚠️ **الفرعُ على `kind` أوّلاً**: `stock` `null` للرقميّ و`stock >= :qty` عليه `NULL` ⇒ صفرُ صفوفٍ ⇒ «نفدَ» منتَجٌ لا ينفد. **ولا `lockForUpdate()`** — لا أثرَ له على SQLite.
-- [ ] T039 [US1] `backend/app/Modules/Store/Actions/AdvanceShipment.php` — `WHERE status = :expected`، وإشعارٌ عبرَ `DispatchNotification`. ⚠️ قراءةٌ ثمّ كتابةٌ من مشغّلَين تُخبِرُ المشتريَ مرّتَين أو تُرجِعُ الحالةَ للوراء.
+- [ ] T039 [US1] ⚠️ **+ قالبُ إشعارِ تغيُّرِ حالةِ الشحنةِ وهجرةُ `seedMissing()` (منقولٌ من T014) — إشعارٌ بلا قالبٍ يُسقَطُ صامتاً.** `backend/app/Modules/Store/Actions/AdvanceShipment.php` — `WHERE status = :expected`، وإشعارٌ عبرَ `DispatchNotification`. ⚠️ قراءةٌ ثمّ كتابةٌ من مشغّلَين تُخبِرُ المشتريَ مرّتَين أو تُرجِعُ الحالةَ للوراء.
 - [ ] T040 [US1] `backend/app/Modules/Store/Actions/RefundStorePurchase.php` — ≤٤٨ ساعةً **و**`first_accessed_at IS NULL`.
 - [ ] T041 [US1] فرعُ نفادِ المخزونِ بعدَ القبض: الطلبُ ⇒ `orders.status = refund_due` + إشعارُ المشتري + طابورُ المشغّل. ⚠️ **أيّامٌ تفصلُ الشراءَ عن الاعتمادِ في تحويلٍ بنكيٍّ يدويّ**، و«صفرُ صفٍّ = خسِرْتَ ولا شيءَ بعدَها» كلمةٌ أخيرةٌ خاطئةٌ لطلبٍ قُبِضَ ثمنُه.
 
@@ -194,7 +194,7 @@ description: "Task list — 011 التجارة والنمو"
 - [ ] T078 [P] [US3] مفتاحا `referral.reward_points` و`referral.max_completed_per_referrer` في `PlatformSettings::KEYS` (FR-023).
 - [ ] T079 [US3] `backend/app/Modules/Identity/Actions/IssueReferralCode.php`. ⚠️ **يتسابقُ مع نفسِه**: طلبانِ متزامنانِ يجدانِ لا شيءَ ويُدرِجان ⇒ `QueryException` كـ٥٠٠ على مسارِ قراءة. `firstOrCreate` داخلَ `catch` + حلقةُ إعادةٍ لتصادمِ الرمز. **ولا `insertOrIgnore`** — يتجاوزُ `HasUuid`.
 - [ ] T080 [US3] `AttachReferral` داخلَ مسارِ التسجيلِ القائم (`referral_code` اختياريّ) ⇒ صفٌّ `pending`، ورفضُ إحالةِ الذاتِ بحالةِ `flagged` (FR-022).
-- [ ] T081 [US3] `backend/app/Modules/Identity/Listeners/CompleteReferral.php` — `ShouldQueue` + `ShouldHandleEventsAfterCommit`، ⚠️ **بمرشِّحِ `kind ∈ {credits, subscription}`**: بلا مرشِّحٍ يُكمِلُ **أرخصُ منتَجٍ في المتجرِ** إحالةً. يمنحُ نقاطاً عبرَ `AwardPoints` بمفتاحِ `invite_friend`، ويحترمُ السقف.
+- [ ] T081 [US3] ⚠️ **+ مفتاحُ `invite_friend` في الكتالوجِ وهجرةُ `seedMissing()` (منقولٌ من T012) — في نفسِ الدفعةِ أو المكافأةُ صفرٌ صامت.** `backend/app/Modules/Identity/Listeners/CompleteReferral.php` — `ShouldQueue` + `ShouldHandleEventsAfterCommit`، ⚠️ **بمرشِّحِ `kind ∈ {credits, subscription}`**: بلا مرشِّحٍ يُكمِلُ **أرخصُ منتَجٍ في المتجرِ** إحالةً. يمنحُ نقاطاً عبرَ `AwardPoints` بمفتاحِ `invite_friend`، ويحترمُ السقف.
 - [ ] T082 [US3] `backend/app/Modules/Identity/Events/ReferralCompleted.php` — **معرِّفانِ ولا شيءَ غيرُهما**؛ يستهلكُه Gamification (FR-024 · NFR-005).
 - [ ] T083 [US3] `backend/app/Modules/Identity/Listeners/ReverseReferralAward.php` على `PaymentReversed`/`RefundIssued` ⇒ قيدٌ عكسيٌّ في `award_entries` بـ`reversal_of_id`. ⚠️ **العمودُ في مكانِه الأصليِّ المشحون** — مفتاحُ `credit_tx_idempotency` يحملُ `type` سلفاً فلا يحتاجُ خامساً.
 - [ ] T084 [P] [US3] مسارا `/referrals/code` و`/referrals` + موردٌ + `where referrer_user_id` صراحةً.
@@ -218,7 +218,7 @@ description: "Task list — 011 التجارة والنمو"
 - [ ] T093 [US4] `backend/app/Modules/Payments/Support/SubscriptionEligibility.php` — يفتحُ ما تغطّيه الباقةُ طوالَ المدّة، ⚠️ وكورسٌ حُذِفَ أو أُوقِفَ **يسقطُ من التغطيةِ ويبقى الاشتراكُ على الباقي** (حالةُ حافّة).
 - [ ] T094 [US4] فرعُ الاشتراكِ في `backend/app/Modules/Payments/Actions/ChargeSessionSeats.php` — قيدُ `Consume` بـ`credits = 0` و`meta` تسمّي الاشتراك. ⚠️ **قراءةٌ جماعيّةٌ واحدةٌ قبلَ الحلقة** (`whereIn` على حاجزي المقاعد): دفترُ تعليقِ ذلك الفعلِ يحملُ قاعدةً مكتسَبةً بإصلاحٍ سابق — «كلُّ حقيقةٍ مشتركةٍ تُقرَأُ مرّةً للحصّةِ لا مرّةً لكلِّ مقعد». **ولا في `ChargeSeatsOnDelivery`** (غلافٌ من خمسةِ أسطر).
 - [ ] T095 [US4] `backend/app/Modules/Payments/Support/EffectiveSubscriptionEnd.php` + إعادةُ الحسابِ عندَ **ثلاثةِ أحداث**: إنشاءُ فترةِ تجميدٍ · تعديلُها · ⚠️ **حذفُها** (وإلّا بقيَ التمديدُ بلا سبب) · ⚠️ **وإنشاءُ اشتراكٍ داخلَ فترةٍ جارية** (وإلّا وُلِدَ بلا تمديدٍ يستحقُّه).
-- [ ] T096 [US4] `backend/app/Modules/Payments/Jobs/ExpireSubscriptionsJob.php` — يقرأُ `effective_ends_on` بـ`< … + 1 day`، **`chunkById`** (⚠️ الشرطُ يتقلّصُ تحتَ المشي فترقيمُ OFFSET يقفزُ **ويُبلِّغُ نجاحاً**)، و`expiring_notified_at` **يُختَمُ قبلَ الإرسال**، و`withoutOverlapping()` على `Schedule::job()`.
+- [ ] T096 [US4] ⚠️ **+ قالبُ إشعارِ قربِ الانتهاءِ وهجرةُ `seedMissing()` (منقولٌ من T014).** `backend/app/Modules/Payments/Jobs/ExpireSubscriptionsJob.php` — يقرأُ `effective_ends_on` بـ`< … + 1 day`، **`chunkById`** (⚠️ الشرطُ يتقلّصُ تحتَ المشي فترقيمُ OFFSET يقفزُ **ويُبلِّغُ نجاحاً**)، و`expiring_notified_at` **يُختَمُ قبلَ الإرسال**، و`withoutOverlapping()` على `Schedule::job()`.
 - [ ] T097 [P] [US4] مساراتٌ وموارِدُ ‏م٤، ومسارُ `/admin/plans/{plan}/price` ⚠️ **بـ`withoutWorkspaceScope()` صريح**: السياقُ يرتدُّ إلى `users.last_workspace_id` **حتى للمشرفِ العامّ** فيَحُلُّ الربطُ باقاتِ مساحةٍ واحدةٍ و`404` لغيرِها.
 - [ ] T098 [US4] `SubscriptionCoveredSeatTest.php` — ⚠️ `SC-008` **بشاهدٍ موجب**: مشترِكٌ **وغيرُ مشترِكٍ في الحصّةِ نفسِها**. «صفرُ صفوف» وحدَه صادقٌ عن تجهيزةٍ لم يُطلَق فيها الحدثُ أصلاً.
 - [ ] T099 [P] [US4] `SubscriptionReconcileTest.php` (⚠️ `ReconcileCreditBalancesJob` **بلا نتيجة**) · `SubscriptionAccruesTeacherTest.php` · `SubscriptionOrderUniqueTest.php` · `SubscriptionFreezeTest.php` · `SubscriptionPricingTest.php` · `PriorDuesSurviveTest.php`.
@@ -260,7 +260,7 @@ description: "Task list — 011 التجارة والنمو"
 
 **Independent Test**: مقارنةُ أرقامِ اللوحةِ ببياناتٍ معروفة، وتفعيلُ مفتاحٍ لمدرّسٍ واحد.
 
-- [ ] T118 [P] [US6] هجرتا `regions` و`platform_metrics_daily` و`report_subscriptions` — §١٠ و§١٢ و§١٣، بـ**`numerator`/`denominator` مُوقَّعَين** و**فهرسٍ ثانٍ `[metric_key, workspace_id, region_id, date]`** (⚠️ الفريدُ يبدأُ بالتاريخِ واللوحةُ تقرأُ بالمؤشِّرِ أوّلاً).
+- [ ] T118 [US6] ⚠️ **+ بذرةُ `regions` وهجرةُ `seedMissing()` (منقولةٌ من T015) — جدولٌ فارغٌ يعني ٤٢٢ لكلِّ تسجيلٍ جديد.** هجرتا `regions` و`platform_metrics_daily` و`report_subscriptions` — §١٠ و§١٢ و§١٣، بـ**`numerator`/`denominator` مُوقَّعَين** و**فهرسٍ ثانٍ `[metric_key, workspace_id, region_id, date]`** (⚠️ الفريدُ يبدأُ بالتاريخِ واللوحةُ تقرأُ بالمؤشِّرِ أوّلاً).
 - [ ] T119 [US6] هجرةُ `student_profiles.region_id` **`nullable`** + فهرس، ⚠️ **وإضافتُه إلى `$fillable`**: ٠١٣ شحنَتْ ثلاثةَ أعمدةٍ على هذا الجدولِ بالضبطِ ابتلعَها الإسنادُ الجماعيُّ صامتاً — `201` وثلاثةُ فراغات. والإسقاطُ يحتاجُ `dropIndex(['region_id'])` في جملةٍ مستقلّةٍ أوّلاً (SQLite ترفضُ إسقاطَ عمودٍ مُفهرَس).
 - [ ] T120 [US6] `region_id` إلزاميٌّ في `RegisterStudentRequest` وفي نموذجِ التسجيلِ بالواجهة، ومسارُ `/regions` عامٌّ بـ`throttle:public` ومُخزَّنٌ مؤقّتاً. ⚠️ ويُوثَّقُ في ٠٠١ («ولا يُدخَلُ صامتاً»).
 - [ ] T121 [US6] `backend/app/Modules/Analytics/Jobs/RollUpPlatformMetricsJob.php` — **`forWorkspace()` حصراً** (⚠️ `WorkspaceContext::set()` في وظيفةٍ يُسرِّبُ المساحةَ إلى ما يعالجُه العاملُ بعدَها)، `chunkById`، نافذةُ اليومِ `>= $start AND < $start->addDay()` (⚠️ **لا `whereDate()`** ولا `CONVERT_TZ()` — الأخيرُ يعودُ **NULL** على أيِّ MySQL بلا جداولِ المناطقِ الزمنيّةِ وSQLite لا يملكُه ⇒ لا اختبارَ محلّيٌّ يراه)، والمناطقُ **`GROUP BY region_id` واحدٌ لكلِّ مساحة**.

@@ -64,6 +64,8 @@ final class PermissionLabels
         // replying in SOMEBODY ELSE'S conversation, and a label that reads as
         // "the chat" is one an owner grants without noticing whose.
         'chat' => 'محادثات الطلاب',
+        // Spec 011.
+        'plans' => 'باقات الاشتراك',
     ];
 
     /** @var array<string, string> */
@@ -134,6 +136,21 @@ final class PermissionLabels
         'settlement.audit.view' => 'عرض تدقيق أجور المدرّسين',
         'billing.audit.view' => 'عرض سجلّ التدقيق المالي',
         'analytics.cross_teacher.view' => 'عرض التحليل عابراً للمدرّسين',
+        /*
+        | Spec 011. Three-part names, which the composer cannot reach — and each
+        | label says WHOSE thing it is, because two of the four are platform
+        | decisions that must never read as ordinary workspace settings.
+        */
+        'store.items.manage' => 'إدارة منتجات المتجر',
+        'store.shipments.manage' => 'إدارة شحنات المتجر',
+        // "باقات الاشتراك — إدارة" would read as including the price. It does
+        // not: the platform sets that (011 · Q4), and the teacher writes the
+        // duration and what the plan covers.
+        'plans.manage' => 'إدارة الباقات (المدّة والتغطية)',
+        // Platform-level. The label names the payer, because a coupon is spent
+        // out of the platform's commission and never out of the teacher's share.
+        'billing.coupons.manage' => 'إنشاء كوبونات المنصّة',
+        'flags.manage' => 'مفاتيح مزايا المنصّة',
         // "عرض بيانات الطالب — التقدّم" would read as a general licence, and this
         // permission is never sufficient alone: the route also demands an active
         // enrollment in the reader's own workspace. The label says both halves.

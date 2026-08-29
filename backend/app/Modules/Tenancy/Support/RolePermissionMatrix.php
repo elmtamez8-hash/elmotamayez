@@ -129,6 +129,24 @@ final class RolePermissionMatrix
             // split is enforced on `orders.kind` in OrderPolicy::approve, not by
             // taking a working permission away.
             Permissions::BILLING_EXAM_MODE_MANAGE,
+            /*
+            | Spec 011 · the store and the plans. On $teacher and NOT on
+            | $assistantTeacher, the same placement the seven grading permissions
+            | above use and for the same reason: the matrix seeds a default and
+            | the roles screen lets the owner tick any of them onto a custom
+            | assistant role, deliberately, for a named person.
+            |
+            | ⚠️ AND THE TWO PLATFORM ONES ARE ABSENT FROM EVERY ARRAY IN THIS
+            | FILE, WHICH IS HOW THEY BECOME PLATFORM PERMISSIONS.
+            | `platformPermissions()` is `Permissions::all()` minus everything any
+            | tenant role holds — so `billing.coupons.manage` and `flags.manage`
+            | are declared by omission, and adding either here would hand every
+            | teacher on the platform a discount spent out of the platform's own
+            | commission, or the switch that decides what ships.
+            */
+            Permissions::STORE_ITEMS_MANAGE,
+            Permissions::STORE_SHIPMENTS_MANAGE,
+            Permissions::PLANS_MANAGE,
             // Spec 008. All seven sit on $teacher and NOT on $assistantTeacher,
             // and that placement IS the delivery channel for FR-031: the matrix
             // seeds a default, the roles screen lets the owner tick any of them

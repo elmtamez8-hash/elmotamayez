@@ -34,6 +34,7 @@
 | Settlement | `app/Modules/Settlement/` | SettlementRate, RateChangeRequest, TeachingUnit, SettlementPeriod, LedgerEntry, TeacherPayout | Teacher statement + export + units + rate requests + period close/payout + financial audit |
 | Compliance | `app/Modules/Compliance/` | DataCategory, DataProcessor, DataRequest, LegalHold, RetentionSweepRun, BreachReport, TeacherOffboarding | The privacy catalogue and policy (public) + data-rights requests + the officer's queue + legal holds + breach reports + a teacher's exit |
 | Community | `app/Modules/Community/` | Conversation, ConversationParticipant, Message, ModerationAction, BlockedTerm, AssistantAssignment, AssistantScope, PeriodicReview, GradingScheme, ReportCard, ReportCardSegment, Announcement, ConversationWriteBan | Private and public chat (private · session · lesson · **cohort**) + moderation, the per-thread write ban + assistants and their scopes + periodic reviews + the weighted report card + announcements |
+| Store | `app/Modules/Store/` | StoreItem, StoreOrder, Shipment | The teacher's store — books and notes, digital or printed: stock, fulfilment and shipment states (spec 011 · US1) |
 | Gamification | `app/Modules/Gamification/` | AwardEntry, AwardDailyCounter, StudentProgress, CoinBalance, GamificationAction, Level, Badge, BadgeAward, Reward, Redemption, FocusSession, LeaderboardEntry | The student's profile + leaderboards + the reward shop + the focus timer |
 
 ### Gamification (spec 009)
