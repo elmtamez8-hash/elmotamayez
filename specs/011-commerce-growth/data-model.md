@@ -82,6 +82,7 @@
 | `quantity` | `unsignedSmallInteger` | |
 | `unit_price_minor` | `bigInteger` | **للوحدة** |
 | `discount_minor` · `commission_minor` · `teacher_net_minor` | `bigInteger` | ⚠️ **للسطرِ كلِّه** (‏× `quantity`) — مُثبَّتٌ هنا لأنّ المثالَ بكمّيّةِ ١ لا يحسمُه |
+| `shipping_minor` | `bigInteger` default 0 | ⚠️ **أُضيفَ بعدَ الشحن، ومُجمَّدٌ على السطر.** `total_minor` هو ما يُحوّلُه المشتري، وقد أغفلَ الشحنَ: عَرَضَ ٥٠ والطلبُ ينتظرُ ٦٥، فيُرسِلُ المشتري ما قالتْهُ الشاشةُ ⇒ `mismatch` على حسابِنا نحن |
 | `currency` | `char(3)` | |
 | `fulfilled_at` | `timestamp` nullable | ⚠️ **مُصحَّح · جديد** — §خامساً |
 | `first_accessed_at` | `timestamp` nullable | الرقميُّ فقط (C4) |
