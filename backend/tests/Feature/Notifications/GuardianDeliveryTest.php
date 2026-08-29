@@ -253,7 +253,14 @@ it('tells every guardian-facing type apart', function (): void {
     // And the twenty-first, with spec 010: an assessment of how a child is doing
     // is the same fact as an exam result in a different shape, so it rides the
     // same `Results` consent.
-    expect($guardianTypes)->toHaveCount(21);
+    // Twenty-two and twenty-three, with spec 011: a parcel's state and a purchase
+    // that could not be delivered. Both are facts about a PURCHASE before they
+    // are anything else, so both ride the `Payments` consent the payment path
+    // already uses — and both carry `requiredGuardianPermission()`, which the
+    // loop below is what enforces: a type in this set with no mapping reaches NO
+    // guardian at all while still picking up the WhatsApp channel, so the message
+    // leaves the platform, is billed, and arrives nowhere.
+    expect($guardianTypes)->toHaveCount(23);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();

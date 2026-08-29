@@ -136,6 +136,14 @@ function dispatchOf(User $user, NotificationType $type): void
             'from_cohort' => 'السبت ٤م',
             'to_cohort' => 'الأحد ٦م',
             'decision_reason' => 'المجموعة تكاد تكتمل',
+            // A TENTH time, with spec 011's two store types. 51 against 53 the
+            // moment they landed, and the mechanism has not changed once: a
+            // template whose variable is missing renders NOTHING,
+            // `DispatchNotification` logs it rather than failing the sale that
+            // triggered it, and the channel never sees the message. In production
+            // that is a parcel that reaches «في الطريق» with nobody told.
+            'item_title' => 'مذكّرة المراجعة',
+            'status' => 'في الطريق',
         ],
     ));
 }

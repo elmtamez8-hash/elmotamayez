@@ -118,6 +118,21 @@ enum NotificationCategory: string
                 NotificationType::CreditBalanceDormant,
                 NotificationType::AccessWithheld,
                 NotificationType::AccessRestored,
+                /*
+                 * Spec 011 · the store. Filed under the student's MONEY rather
+                 * than under «achievements» or a tab of its own: both are facts
+                 * about a purchase — where the parcel got to, and money that is
+                 * owed back — and the person scanning this tab is the person
+                 * asking what they paid for and what happened to it.
+                 *
+                 * ⚠️ AND NEVER UNDER `Settlement`. That tab is the TEACHER's pay,
+                 * and spec 006 draws the line between the two through the whole
+                 * product; one tab meaning two things depending on who opened it
+                 * is what `it keeps what a student owes apart from what a teacher
+                 * is owed` refuses.
+                 */
+                NotificationType::ShipmentStatusChanged,
+                NotificationType::StorePurchaseUnavailable,
             ],
             self::Settlement => [
                 NotificationType::SettlementRateApproved,
