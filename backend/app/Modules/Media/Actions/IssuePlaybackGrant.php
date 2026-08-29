@@ -12,7 +12,6 @@ use App\Modules\Media\Exceptions\AccessWithheldException;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Models\PlaybackGrant;
 use App\Modules\Tenancy\Support\Permissions;
-use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AccountStanding;
 use App\Shared\Contracts\EnrollmentDirectory;
@@ -37,6 +36,7 @@ class IssuePlaybackGrant extends Action
         private readonly EnrollmentDirectory $enrollments,
         private readonly SessionAttendanceDirectory $bookings,
         private readonly AccountStanding $standing,
+        private readonly MintPlaybackGrant $mint,
     ) {}
 
     /**
@@ -74,13 +74,10 @@ class IssuePlaybackGrant extends Action
 
         $this->assertNotWithheld($lesson, $viewer);
 
-        if (! $asset->isPlayable()) {
-            // Distinct from "not allowed": the viewer is entitled, the video is
-            // simply not ready. The screen says "قيد التجهيز" instead of an error.
-            throw new DomainException($asset->status->value);
-        }
-
-        return $this->mint($asset, $viewer, $session, $ipHash);
+        // The readiness check and the row itself both live in the mint, which is
+        // the ONE place a grant is written — see its docblock for why a second
+        // insert is the thing being prevented rather than a tidiness argument.
+        return $this->mint->handle($asset, $viewer, $session, $ipHash);
     }
 
     /**
@@ -287,26 +284,5 @@ class IssuePlaybackGrant extends Action
         }
 
         return $allowed;
-    }
-
-    private function mint(
-        MediaAsset $asset,
-        User $viewer,
-        AuthSession $session,
-        ?string $ipHash,
-    ): PlaybackGrant {
-        $ttl = (int) PlatformSettings::get('media.grant_ttl_seconds', 300);
-
-        return PlaybackGrant::query()->create([
-            'workspace_id' => $asset->workspace_id,
-            'media_asset_id' => $asset->getKey(),
-            'user_id' => $viewer->getKey(),
-            // The binding that makes a copied link useless: when this session
-            // ends, every grant it minted dies with it.
-            'auth_session_id' => $session->getKey(),
-            'expires_at' => now()->addSeconds($ttl),
-            'issued_ip_hash' => $ipHash,
-            'created_at' => now(),
-        ]);
     }
 }

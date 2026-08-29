@@ -39,9 +39,14 @@ class OrderController extends Controller
             | platform (Q-4), so a teacher holding ORDERS_VIEW_ALL sees every
             | course order in their workspace and none of the platform's sales —
             | except any they made themselves as a buyer.
+            |
+            | ⚠️ AND IT IS AN ALLOWLIST NOW. Written `!= Credits` it was a denylist
+            | over an enum of two, so spec 011's `store` and `subscription` would
+            | have appeared here the day they were added — silently, because
+            | nothing about `!=` says what it meant to keep out.
             */
             $query->where(fn (Builder $rows) => $rows
-                ->where('kind', '!=', OrderKind::Credits->value)
+                ->whereIn('kind', OrderKind::teacherListedValues())
                 ->orWhere('user_id', $user->getKey()));
         }
 

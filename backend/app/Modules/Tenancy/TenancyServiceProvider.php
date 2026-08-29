@@ -13,6 +13,7 @@ use App\Modules\Tenancy\Models\PlatformStaff;
 use App\Modules\Tenancy\Models\Role;
 use App\Modules\Tenancy\Policies\PlatformStaffPolicy;
 use App\Modules\Tenancy\Policies\RolePolicy;
+use App\Modules\Tenancy\Support\Flags;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\PlatformStaffDirectory;
 use App\Modules\Tenancy\Support\TenancyPersonalData;
@@ -87,6 +88,15 @@ class TenancyServiceProvider extends Module
         | application-wide cache leaking into whatever the worker handles next.
         */
         $this->app->scoped(PlatformStaffDirectory::class);
+
+        /*
+        | Spec 011 · T028 — feature flags, bound the same way and for the same
+        | pair of reasons. Its own docblock carries them; the short version is
+        | that `bind()` re-runs the query dozens of times in a page and
+        | `singleton()` keeps a switched-off flag lit inside a queue worker until
+        | it restarts, which is the one thing a flag must never do.
+        */
+        $this->app->scoped(Flags::class);
 
         /** @var array<string, true> $known */
         $known = array_fill_keys(Permissions::all(), true);

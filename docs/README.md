@@ -151,6 +151,55 @@ Constants in `Tenancy\Support\Permissions` — never string literals.
 | `marketplace.complaints.manage` | Confirm or dismiss a complaint |
 | `marketplace.participation.manage` | Toggle the workspace's marketplace participation |
 
+### Commerce permissions (spec 011)
+
+| Permission | Held by | Grants |
+|---|---|---|
+| `store.items.manage` | teacher | Create and price the books and notes in their own store |
+| `store.shipments.manage` | teacher | Advance a printed order through its fulfilment states |
+| `plans.manage` | teacher | Set which of their courses a subscription plan covers, and for how long |
+| `billing.coupons.manage` | **platform only** | Mint a discount code |
+| `flags.manage` | **platform only** | Turn a feature on or off, per workspace or platform-wide |
+
+⚠️ **The last two are platform permissions, and that is declared by ABSENCE.**
+`RolePermissionMatrix::platformPermissions()` is `Permissions::all()` minus
+everything any tenant role holds — so a coupon permission dropped into the
+teacher's array is a teacher minting a discount spent out of the platform's own
+commission, and nothing in the existing panel test would say so
+(`PermissionLabels::tenantMap()` is BUILT by looping `tenantPermissions()`, so it
+is a derivation compared with itself). `CommercePermissionNamesTest` pins all
+five literally, in both directions.
+
+### Order kinds and who signs for the money (spec 011)
+
+`OrderKind` has four cases: `course`, `credits`, `store`, `subscription`.
+
+⚠️ **Only `course` is approved by the teacher.** Approving a manual transfer is
+witnessing that the money arrived, and the seller must not sign for their own
+receipt — `PAYMENTS_APPROVE` sits in the teacher's array and the workspace check
+is a bar the seller clears by definition. So a store sale (the teacher's own
+goods) is approved by the platform for exactly the reason a credit purchase is.
+The condition lives on the enum (`requiresPlatformApproval()`), read by all three
+of `OrderPolicy`'s `view`/`approve`/`reject`.
+
+⚠️ **And the two list cuts are allowlists now.** `OrderController::index()` and
+`OrderResource::getEloquentQuery()` were both `where('kind', '!=', Credits)` —
+true of an enum with two cases and a silent widening at four. They read
+`OrderKind::teacherListedValues()`, which names what belongs on a teacher's order
+table rather than what does not.
+
+### Feature flags (spec 011)
+
+`feature_flags` carries one row per `(key, workspace_id)`, with `workspace_id = 0`
+meaning the platform default. `Tenancy\Support\Flags` reads both scopes in one
+query and is bound `scoped()`.
+
+⚠️ **`0`, never `NULL`** — `NULL != NULL` in a unique index, so a nullable column
+would let two platform defaults for one key coexist and the answer would be
+whichever row came back first. Third time in this tree (`concept_stats.lesson_id`,
+`unlock_rules.course_id`). The price is that `(int) null === 0` addresses the
+default row, so any WRITE guards with `abort_if` before it runs.
+
 ### Notification permissions
 
 | Permission | Grants |

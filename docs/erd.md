@@ -796,3 +796,50 @@ old one — «left on the 3rd» and «joined on the 9th» are two facts, and one
 edited twice is neither of them. The events table is what the teacher's history
 screen reads, and it is why the roster filters on `closed_at IS NULL` rather than
 deleting anything.
+
+## Commerce Tables (spec 011)
+
+```
+┌──────────────────────────────────────────────┐
+│ feature_flags                                │
+├──────────────────────────────────────────────┤
+│ id · uuid · key(64) · enabled · description  │
+│ workspace_id  ← 0 = the platform default     │
+│ unique(key, workspace_id)                    │
+└──────────────────────────────────────────────┘
+```
+
+`store_items`, `store_orders` and `shipments` land with US1; the plan, coupon,
+referral and region tables with the waves after it.
+
+### `feature_flags.workspace_id` is `0`, never `NULL`
+
+`NULL` never equals `NULL`, so a unique index carrying a nullable column does not
+bite on the one row every request reads: two platform defaults for the same key
+coexist, an `updateOrCreate` matches neither and inserts a third, and the answer
+becomes whichever row the engine returns first — with nothing logged. The third
+time this tree has reached for the sentinel (`concept_stats.lesson_id`,
+`unlock_rules.course_id`).
+
+The price is that `(int) null === 0` addresses the DEFAULT row, which for a
+feature switch means one teacher's unresolved uuid turning a feature off for the
+whole platform. Reads are safe (a null context is a guest, and the default is the
+right answer for one); every write guards with `abort_if` first, as
+`UnlockRuleController` does over the same sentinel.
+
+The table deliberately carries **no** `BelongsToWorkspace` — recorded as a
+violation in `specs/011-commerce-growth/plan.md § Complexity Tracking`. The trait
+would fill the column from the current context, and a scope keyed on it would
+hide the platform row from every reader that needs it as a fallback.
+
+### `cms_articles.slug` is unique platform-wide from spec 011
+
+It was `unique(workspace_id, slug)`, which makes the public `/blog/{slug}`
+ambiguous by definition: two teachers may both publish «خطة-المراجعة», and which
+one a reader gets can change between two requests. Every other index on the table
+also starts with `workspace_id`, and a public reader has no workspace — so each
+article opened and each sitemap built was a full table scan.
+
+⚠️ A soft-deleted article now holds its slug against the whole platform: a unique
+index does not know about `deleted_at`. `SaveArticle` must answer «هذا الرابط
+مستخدم» from the trashed set too, or a teacher gets a raw integrity error.

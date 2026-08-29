@@ -56,10 +56,18 @@ class Order extends BaseModel implements HasMedia
         ];
     }
 
-    /** A credit purchase, which only the platform may approve. */
-    public function isCreditPurchase(): bool
+    /**
+     * An order whose approval belongs to the platform, not to the seller.
+     *
+     * ⚠️ REPLACES `isCreditPurchase()`, WHICH WAS THE SAME QUESTION UNDER A
+     * NAME THAT NAMED ONE ANSWER. The three policy methods that called it were
+     * asking "is this the platform's to sign", and with spec 011's store sales
+     * and subscriptions the honest answer stopped being "is it credits" — while
+     * the method name would have kept reading as correct at every call site.
+     */
+    public function requiresPlatformApproval(): bool
     {
-        return $this->kind === OrderKind::Credits;
+        return $this->kind->requiresPlatformApproval();
     }
 
     public function registerMediaCollections(): void

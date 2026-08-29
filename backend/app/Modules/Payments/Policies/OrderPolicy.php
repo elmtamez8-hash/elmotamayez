@@ -33,10 +33,10 @@ class OrderPolicy extends BasePolicy
         | that decision; view and reject are the same decision, and were the two
         | halves left behind.
         */
-        if ($order->isCreditPurchase()) {
+        if ($order->requiresPlatformApproval()) {
             return $user->can(Permissions::BILLING_PURCHASE_APPROVE)
                 ? Response::allow()
-                : Response::deny('شراء الأرصدة بين الطالب والمنصّة.');
+                : Response::deny($order->kind->platformRefusal('view'));
         }
 
         return $user->can(Permissions::ORDERS_VIEW_ALL)
@@ -120,10 +120,19 @@ class OrderPolicy extends BasePolicy
         //
         // Q-4 moved the seller role to the platform; this is that decision
         // finished. PAYMENTS_APPROVE keeps working for course orders.
-        if ($order->isCreditPurchase()) {
+        //
+        // ⚠️ AND SPEC 011 PUTS TWO MORE KINDS BEHIND THE SAME LINE, for a reason
+        // that reads backwards at first: a store sale is the TEACHER's own goods,
+        // so surely the teacher approves it? No — that is exactly the objection.
+        // The seller does not witness that their own price arrived, and here the
+        // seller and the approver would be one person clearing a bar
+        // (`PAYMENTS_APPROVE` plus their own workspace) they hold by definition.
+        // The condition lives on the enum so the three methods below cannot
+        // disagree about which kinds it covers.
+        if ($order->requiresPlatformApproval()) {
             return $user->can(Permissions::BILLING_PURCHASE_APPROVE)
                 ? Response::allow()
-                : Response::deny('اعتماد شراء الأرصدة صلاحية منصّية.');
+                : Response::deny($order->kind->platformRefusal('approve'));
         }
 
         return $user->can(Permissions::PAYMENTS_APPROVE)
@@ -141,10 +150,10 @@ class OrderPolicy extends BasePolicy
         // approving it is: the money is owed to the platform and the teacher is
         // the payee downstream (spec 014). A teacher who may reject it may cancel
         // a payment made to someone else.
-        if ($order->isCreditPurchase()) {
+        if ($order->requiresPlatformApproval()) {
             return $user->can(Permissions::BILLING_PURCHASE_APPROVE)
                 ? Response::allow()
-                : Response::deny('رفض شراء الأرصدة صلاحية منصّية.');
+                : Response::deny($order->kind->platformRefusal('reject'));
         }
 
         return $user->can(Permissions::PAYMENTS_REJECT)

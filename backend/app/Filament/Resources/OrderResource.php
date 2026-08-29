@@ -165,8 +165,14 @@ class OrderResource extends Resource
 
         $user = Auth::user();
 
+        // ⚠️ `whereIn`, NOT `!= Credits`. The denylist this replaces was correct
+        // over an enum of two cases and grew a hole at four: spec 011's store
+        // sales and subscriptions would have landed on this table for anyone
+        // without the platform permission, which on a panel that admits
+        // `assistant-teacher` by role name is the FR-003 breach `viewAny()` was
+        // fixed for. One spelling, in the enum — see `teacherListedValues()`.
         if ($user instanceof User && ! $user->can(Permissions::BILLING_PURCHASE_APPROVE)) {
-            $query->where('kind', '!=', OrderKind::Credits->value);
+            $query->whereIn('kind', OrderKind::teacherListedValues());
         }
 
         return $query->with(['course', 'user', 'approver']);
