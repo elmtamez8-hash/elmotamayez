@@ -490,6 +490,17 @@ class NotificationTemplateSeeder extends Seeder
                 'ينتهي اشتراكك «{{ plan_title }}» مع {{ teacher_name }} بتاريخ {{ ends_on }}. جدّده قبلها لتبقى حصصك ودروسك مفتوحة.',
                 ['plan_title', 'teacher_name', 'ends_on'],
             ],
+            /*
+            | ⚠️ THE NUMBERS ARE IN THE BODY, NOT A LINK TO THEM. A report that
+            | says «تقريرك جاهز» is a notification whose whole content is a second
+            | trip to the panel — and the person reading it on a phone at night is
+            | exactly who wanted the number rather than the screen.
+            */
+            NotificationType::ScheduledReport->value => [
+                'تقرير المنصّة — {{ period }}',
+                'أرقام المنصّة حتى {{ date }}: {{ summary }}',
+                ['period', 'date', 'summary'],
+            ],
             NotificationType::ExamPendingGrading->value => [
                 'تسلّمنا ورقتك في «{{ exam_title }}»',
                 'تسلّمنا ورقة {{ student_name }} في «{{ exam_title }}». فيها أسئلة مقالية ينتظر تصحيحُها المدرّس، وتصلك النتيجة كاملةً بعده.',

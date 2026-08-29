@@ -25,6 +25,13 @@ class RegisterStudentData extends DataTransferObject
         */
         public readonly ?string $dateOfBirth = null,
         public readonly ?string $guardianContact = null,
+        /*
+        | Spec 011 · FR-042. Nullable here and required by the form request, the
+        | same asymmetry the date of birth above carries and for the same reason:
+        | a seeder or a test builds accounts that predate the question, and the
+        | column keeps NULL meaningful for them.
+        */
+        public readonly ?string $regionSlug = null,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -41,6 +48,7 @@ class RegisterStudentData extends DataTransferObject
             registeredByParent: (bool) ($data['registered_by_parent'] ?? false),
             dateOfBirth: isset($data['date_of_birth']) ? (string) $data['date_of_birth'] : null,
             guardianContact: isset($data['guardian_contact']) ? (string) $data['guardian_contact'] : null,
+            regionSlug: isset($data['region_slug']) ? (string) $data['region_slug'] : null,
         );
     }
 }

@@ -80,11 +80,14 @@ it('has a registered owner for every module that stores personal data', function
     | - `Gamification` — platform-owned progress rows whose ownership layers spec
     |   009 declared; they enter the catalogue when a retention decision is taken
     |   for them, which 013 does not take.
-    | - `Analytics` — has no `Schema::create` of its own, so the derivation skips
-    |   it without help. Named anyway, because "it happens to have no migrations"
-    |   is a fact that could change.
+    |
+    | ⚠️ `Analytics` WAS ON THIS LIST AND CAME OFF IN SPEC 011. Its reason was
+    | «has no `Schema::create` of its own», which `report_subscriptions` made
+    | false — and an exemption whose stated reason has expired is worse than no
+    | guard at all, because it reads as a decision somebody checked. The module
+    | registers `AnalyticsPersonalData` now and this list is one entry shorter.
     */
-    $exempt = ['Compliance', 'Gamification', 'Analytics'];
+    $exempt = ['Compliance', 'Gamification'];
 
     /** @var PersonalDataRegistry $registry */
     $registry = app(PersonalDataRegistry::class);

@@ -10,8 +10,20 @@ export interface StudentRegistration {
   phone: string;
   country: string;
   grade_level_slug: string;
+  // Spec 011 · FR-042. Required by the API: an empty string is a 422, which is
+  // why the form defaults it to the first region rather than to a placeholder.
+  region_slug: string;
   registered_by_parent: boolean;
   terms_accepted: boolean;
+  /*
+   * Spec 013 · FR-009. ⚠️ REQUIRED BY THE API AND MISSING FROM THIS INTERFACE
+   * UNTIL SPEC 011 — so every student self-registration was answered 422 with
+   * the message under a field the form did not draw. The guardian's number is
+   * required only for an applicant under eighteen, which the API decides from
+   * the date in the same payload.
+   */
+  date_of_birth: string;
+  guardian_contact?: string;
 }
 
 export interface ParentRegistration {

@@ -42,9 +42,11 @@ function Field({
 
 export function StudentSignupForm({
   gradeLevels,
+  regions,
   teacherUuid,
 }: {
   gradeLevels: Taxonomy[];
+  regions: Taxonomy[];
   teacherUuid?: string;
 }) {
   const router = useRouter();
@@ -57,6 +59,12 @@ export function StudentSignupForm({
     password_confirmation: "",
     country: DEFAULT_COUNTRY.code,
     grade_level_slug: gradeLevels[0]?.slug ?? "",
+    // Spec 011 · FR-042. Defaulted rather than left blank: the API requires it,
+    // and a placeholder option is a 422 waiting for whoever does not notice a
+    // select they were not asked to touch.
+    region_slug: regions[0]?.slug ?? "",
+    date_of_birth: "",
+    guardian_contact: "",
     terms_accepted: false,
   });
   const [dial, setDial] = useState(DEFAULT_COUNTRY.dial);
@@ -75,6 +83,25 @@ export function StudentSignupForm({
 
   const set = (key: keyof typeof form, value: string | boolean) =>
     setForm((current) => ({ ...current, [key]: value }));
+
+  /*
+   * Under eighteen, decided from the date in this form — the same question the
+   * API asks of the same payload. It only decides whether to DRAW the guardian
+   * field: the server is the authority on whether the answer was needed, and a
+   * blank date reads as «not a minor» so the date's own error surfaces first
+   * rather than a second field appearing under it.
+   */
+  const isMinor = useMemo(() => {
+    if (form.date_of_birth === "") return false;
+
+    const born = new Date(form.date_of_birth);
+
+    if (Number.isNaN(born.getTime())) return false;
+
+    const eighteen = new Date(born.getFullYear() + 18, born.getMonth(), born.getDate());
+
+    return eighteen > new Date();
+  }, [form.date_of_birth]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -98,6 +125,9 @@ export function StudentSignupForm({
           ...form,
           phone: toE164(dial, phone),
           registered_by_parent: byParent,
+          // Sent only when there is one: an adult has no guardian to name, and
+          // an empty string would fail the E.164 rule rather than be ignored.
+          guardian_contact: form.guardian_contact === "" ? undefined : form.guardian_contact,
         },
         idempotencyKey,
       );
@@ -207,6 +237,64 @@ export function StudentSignupForm({
           </Select>
         </Field>
       </div>
+
+      <div className="grid gap-5 sm:grid-cols-2">
+        {/* Spec 011 · FR-042 — mandatory at registration, and the only source of
+            the platform's regional picture. */}
+        <Field id="region_slug" label="المنطقة" error={errors.region_slug}>
+          <Select
+            id="region_slug"
+            value={form.region_slug}
+            onChange={(e) => set("region_slug", e.target.value)}
+            required
+            className={FIELD_CLASS}
+          >
+            {regions.map((region) => (
+              <option key={region.slug} value={region.slug}>
+                {region.name_ar}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        {/* Spec 013 · FR-009 — the age question, asked once at the door. */}
+        <Field id="date_of_birth" label="تاريخ الميلاد" error={errors.date_of_birth}>
+          <input
+            id="date_of_birth"
+            type="date"
+            dir="ltr"
+            value={form.date_of_birth}
+            onChange={(e) => set("date_of_birth", e.target.value)}
+            required
+            aria-invalid={errors.date_of_birth ? true : undefined}
+            aria-describedby={errors.date_of_birth ? "date_of_birth-error" : undefined}
+            className={FIELD_CLASS}
+          />
+        </Field>
+      </div>
+
+      {isMinor && (
+        <Field
+          id="guardian_contact"
+          label="رقم جوّال وليّ الأمر"
+          error={errors.guardian_contact}
+        >
+          <input
+            id="guardian_contact"
+            type="tel"
+            dir="ltr"
+            value={form.guardian_contact}
+            onChange={(e) => set("guardian_contact", e.target.value)}
+            placeholder="+97455512345"
+            required
+            aria-describedby="guardian_contact-hint"
+            className={FIELD_CLASS}
+          />
+          <p id="guardian_contact-hint" className="mt-1 text-sm text-ink-muted">
+            لأنّك دون الثامنة عشرة، يُفعَّل حسابك بعد موافقة وليّ أمرك.
+          </p>
+        </Field>
+      )}
 
       <div className="grid gap-5 sm:grid-cols-2">
         <Field id="password" label="كلمة المرور" error={errors.password}>

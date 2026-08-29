@@ -834,7 +834,74 @@ deleting anything.
 └─────────────────────────────────┘
 ```
 
-The plan, coupon, referral and region tables land with the waves after US1.
+```
+┌────────────────────────────────────────────────┐   ┌──────────────────────────────────┐
+│ platform_metrics_daily                         │   │ regions                          │
+├────────────────────────────────────────────────┤   ├──────────────────────────────────┤
+│ id · date · metric_key(48)                     │   │ id · uuid · name_ar              │
+│ workspace_id  ← 0 = the platform total         │   │ slug (unique, platform-wide)     │
+│ region_id     ← 0 = all regions / never asked  │───│ sort_order · is_active           │
+│ numerator · denominator  ← BOTH SIGNED         │   │ ⚠️ no workspace_id at all        │
+│ computed_at                                    │   └──────────────────────────────────┘
+│ unique(date, metric_key, workspace_id, region) │              │
+│ index(metric_key, workspace_id, region, date)  │              │ student_profiles.region_id
+│ ⚠️ no uuid — `upsert()` boots no model         │              │ (nullable + index)
+└────────────────────────────────────────────────┘              ┘
+```
+
+```
+┌──────────────────────────────────────────────┐
+│ report_subscriptions                         │
+├──────────────────────────────────────────────┤
+│ id · uuid · user_id → users                  │
+│ metric_keys (json) · cadence(16)             │
+│ last_sent_on ← stamped BEFORE the send       │
+│ is_active · index(is_active, cadence)        │
+└──────────────────────────────────────────────┘
+```
+
+The plan, coupon and referral tables land with the waves between US1 and US6.
+
+### `platform_metrics_daily` stores a fraction, never a percentage
+
+`SC-012` asks the dashboard to match the source with a difference of ZERO, and a
+rounded percentage cannot produce one. So a ratio is two columns and a count is a
+numerator with `denominator = 0` — read as «not a ratio» rather than divided by.
+
+Both columns are **signed**, which only MySQL will tell you why:
+`dues.overdue_credits` sums balances that are negative by definition, and unsigned
+arithmetic there raises ERROR 1690. SQLite has no unsigned arithmetic to overflow,
+so no local test can reproduce it — the same trap `CreditLedger::applyToBalance()`
+carries a cast for.
+
+There is **no `uuid` column**: the rollup writes with `upsert()`, which never boots
+a model, so `HasUuid` would never fire — and on MySQL the NOT NULL violation is
+downgraded to a warning with `''` stored, after which every later row collides on
+`unique(uuid)`. Nothing addresses one of these rows by identity; the key IS the
+four columns.
+
+And a **second index**, because the unique one starts with the DATE while every
+screen reads by METRIC first («this number, over the last thirty days»): without
+it, a range scan per metric and per region.
+
+### `regions` has no `workspace_id`, and its two neighbours still do
+
+`subjects` and `grade_levels` carry the column from before spec 009 promoted them
+to platform vocabulary; `regions` never did. One person lives in one place whoever
+teaches them — a copy per workspace would make «توزيع الطلاب بالمنطقة» a count of
+teacher-region pairs rather than of students, which is the mirror-image defect
+`PlatformOwnershipTest` exists to catch in both directions.
+
+`student_profiles.region_id` is **nullable** though the form requires it: every
+account created before the question existed has no answer, and a NOT NULL column
+would need a made-up default — a guess that reads as data. NULL means «we never
+asked», and the report says so with its own line rather than filing those students
+under a region nobody chose.
+
+⚠️ And the column went into `$fillable` in the same change as the migration. Spec
+013 shipped THREE columns on this exact table that mass assignment discarded in
+silence — a 201 and three nulls, invisible because the assertions read the response
+echo rather than the stored row.
 
 ### `store_orders.shipping_minor` is frozen, like everything else on the line
 

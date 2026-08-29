@@ -42,6 +42,12 @@ class DatabaseSeeder extends Seeder
             // voice and face — the register is the answer to the question a parent
             // asks first.
             DataProcessorSeeder::class,
+            // Spec 011 · FR-042, and the sharpest of the runtime catalogues: the
+            // registration form REQUIRES a region and validates it against these
+            // rows, so an empty table refuses every new account in front of an
+            // empty picker. The other three fail silently; this one fails loudly
+            // at the front door.
+            RegionSeeder::class,
         ]);
 
         // Only seed the super-admin in non-production environments.

@@ -36,6 +36,10 @@ function studentPayload(array $overrides = []): array
         | deliberately.
         */
         'date_of_birth' => '1998-04-12',
+        // Spec 011 · FR-042 — required since the region field landed. The slug is
+        // one `RegionSeeder` writes, and `tests/Pest.php` seeds that catalogue
+        // before every Feature case for exactly this reason.
+        'region_slug' => 'doha',
         ...$overrides,
     ];
 }

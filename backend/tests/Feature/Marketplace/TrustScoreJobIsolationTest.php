@@ -56,14 +56,32 @@ it('restores a null context after running', function (): void {
 // The behavioural tests above cannot see a set() that happens to be balanced by
 // luck; this one reads the source, which is what the quickstart tells a reviewer
 // to do by hand.
-it('contains no WorkspaceContext::set call anywhere in the Jobs directory', function (): void {
-    $files = glob(app_path('Modules/Marketplace/Jobs/*.php')) ?: [];
+it('contains no WorkspaceContext::set call in any module Jobs directory', function (): void {
+    /*
+    | ⚠️ A PATTERN, NEVER A HAND-WRITTEN LIST OF MODULES. This check guarded
+    | `Modules/Marketplace/Jobs/` alone for four specs while every other module
+    | grew queued jobs of its own — a guard that covers the one place the defect
+    | was already found is a guard that cannot find the next one. Spec 011's
+    | rollup walks every workspace on the platform in a loop, which is the
+    | sharpest possible shape for this leak, and it was outside the old glob.
+    |
+    | The failure message names the FILE, because a bare boolean over forty
+    | directories is a red build with nowhere to look.
+    */
+    $files = glob(app_path('Modules/*/Jobs/*.php')) ?: [];
 
-    expect($files)->not->toBeEmpty();
+    // A pattern that matched nothing would make every assertion below vacuous.
+    expect(count($files))->toBeGreaterThan(10);
+
+    $offences = [];
 
     foreach ($files as $file) {
-        expect((string) file_get_contents($file))
-            ->not->toContain('$context->set(')
-            ->not->toContain('WorkspaceContext::set');
+        $source = (string) file_get_contents($file);
+
+        if (str_contains($source, '$context->set(') || str_contains($source, 'WorkspaceContext::set')) {
+            $offences[] = str_replace(base_path().DIRECTORY_SEPARATOR, '', $file);
+        }
     }
+
+    expect($offences)->toBe([]);
 });

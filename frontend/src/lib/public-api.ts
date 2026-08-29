@@ -220,6 +220,10 @@ export const publicApi = {
 
   gradeLevels: () => get<Taxonomy[]>("/marketplace/grade-levels"),
 
+  // Spec 011 · FR-042 — the registration form needs this before there is an
+  // account, so it is a public read like the two above it.
+  regions: () => get<Taxonomy[]>("/marketplace/regions"),
+
   teachers: (params: Record<string, string | undefined>) =>
     get<Paginated<TeacherCard>>("/marketplace/teachers", params),
 

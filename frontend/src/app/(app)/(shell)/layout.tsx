@@ -330,6 +330,14 @@ const platformNav: NavItem[] = [
   // settle, the other asks what people decided — and an auditor opens the second
   // when the first has already been dealt with.
   { href: "/manage/payments/audit", label: "سجلّ التدقيق المالي", Icon: OrdersIcon, permission: P.billingAudit },
+  // Spec 011 · FR-045. Gated on the PLATFORM analytics permission — the same
+  // door the API checks, so the link and the screen answer the same question.
+  {
+    href: "/reports/subscriptions",
+    label: "تقارير المنصّة",
+    Icon: ProgressIcon,
+    permission: P.analyticsCrossTeacher,
+  },
   // What came in, over a period. Beside the two above rather than under the
   // teacher's billing screens: this is the platform's collection across every
   // workspace, and a teacher holding every tenant permission there is cannot

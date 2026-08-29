@@ -14,6 +14,7 @@ use App\Modules\Marketplace\Events\ReviewSubmitted;
 use App\Modules\Marketplace\Listeners\QueueTrustScoreRecalculation;
 use App\Modules\Marketplace\Listeners\UnlistDepartedTeacher;
 use App\Modules\Marketplace\Models\GradeLevel;
+use App\Modules\Marketplace\Models\Region;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Marketplace\Policies\TaxonomyPolicy;
@@ -66,6 +67,10 @@ class MarketplaceServiceProvider extends Module
         */
         Gate::policy(Subject::class, TaxonomyPolicy::class);
         Gate::policy(GradeLevel::class, TaxonomyPolicy::class);
+        // Spec 011 · FR-042 — a third model for the same decision and the same
+        // permission. See TaxonomyPolicy: one policy, because two files differing
+        // only in a type-hint is two places for the next person to change one.
+        Gate::policy(Region::class, TaxonomyPolicy::class);
 
         /*
         | The same seam the renamed teacher uses below, for the same reason.

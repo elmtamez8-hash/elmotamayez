@@ -226,6 +226,9 @@ return [
         'permissions.*' => 'الصلاحيات',
         'grade_level' => 'المرحلة الدراسية',
         'grade_level_slug' => 'المرحلة الدراسية',
+        'region_slug' => 'المنطقة',
+        'metric_keys' => 'المؤشّرات',
+        'cadence' => 'دورية الإرسال',
         'grade_levels' => 'المراحل الدراسية',
 
         // التلعيب (٠٠٩)

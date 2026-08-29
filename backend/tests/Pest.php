@@ -60,6 +60,7 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\DataCategorySeeder;
 use Database\Seeders\GamificationCatalogSeeder;
 use Database\Seeders\NotificationTemplateSeeder;
+use Database\Seeders\RegionSeeder;
 use Illuminate\Broadcasting\BroadcastManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Broadcast;
@@ -109,6 +110,14 @@ uses()->beforeEach(function (): void {
     $this->seed(NotificationTemplateSeeder::class);
     $this->seed(GamificationCatalogSeeder::class);
     $this->seed(DataCategorySeeder::class);
+    /*
+     * And the regions (spec 011 · FR-042), a fourth time for a fourth instance of
+     * one mechanism — with one difference worth naming: this catalogue does not
+     * fail quietly. `region_slug` is REQUIRED by `RegisterStudentRequest` and
+     * validated against these rows, so an empty table is a 422 on every
+     * registration rather than a silent no-op.
+     */
+    $this->seed(RegionSeeder::class);
 })->in('Feature');
 
 /*

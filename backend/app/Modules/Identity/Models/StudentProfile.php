@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property bool|null $dob_is_estimated
  * @property CarbonInterface|null $ownership_transferred_at
  * @property string|null $guardian_contact
+ * @property int|null $region_id
  */
 class StudentProfile extends Model
 {
@@ -52,6 +53,12 @@ class StudentProfile extends Model
         'date_of_birth',
         'dob_is_estimated',
         'guardian_contact',
+        /*
+        | Spec 011 · FR-042. In this list from its first day, for the reason the
+        | three above it are: a column added to the migration and not to this
+        | array is written by nobody, silently.
+        */
+        'region_id',
     ];
 
     /** @return array<string, mixed> */

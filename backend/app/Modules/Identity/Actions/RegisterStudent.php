@@ -12,6 +12,7 @@ use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\RelationStatus;
 use App\Modules\Identity\Support\RelationType;
 use App\Modules\Identity\Support\UserStatus;
+use App\Modules\Marketplace\Models\Region;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
@@ -73,6 +74,14 @@ class RegisterStudent extends Action
             'dob_is_estimated' => $dateOfBirth === null ? null : false,
             // Kept even when it resolves to nobody — see GuardianContactResolver.
             'guardian_contact' => $data->guardianContact,
+            /*
+            | ⚠️ RESOLVED HERE, AND AN UNKNOWN SLUG BECOMES NULL RATHER THAN AN
+            | ERROR. The form request has already refused anything outside the
+            | catalogue, so the only callers that can reach this with a slug that
+            | resolves to nothing are a seeder and a test — and for them «we never
+            | asked» is the truth the nullable column exists to record.
+            */
+            'region_id' => $this->regionId($data->regionSlug),
         ]);
 
         if ($isMinor) {
@@ -85,6 +94,18 @@ class RegisterStudent extends Action
         event(new Registered($user));
 
         return $user;
+    }
+
+    /** The catalogue row behind a slug, or null when there is nothing to file. */
+    private function regionId(?string $slug): ?int
+    {
+        if ($slug === null || $slug === '') {
+            return null;
+        }
+
+        $id = Region::query()->where('slug', $slug)->value('id');
+
+        return is_int($id) ? (int) $id : null;
     }
 
     /**

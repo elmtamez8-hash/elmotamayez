@@ -7,6 +7,8 @@ use App\Modules\Community\Models\ReportCard;
 use App\Modules\Community\Models\ReportCardSegment;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Models\ParentStudentRelation;
+use App\Modules\Identity\Models\Referral;
+use App\Modules\Identity\Models\ReferralCode;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Notifications\Models\ContactVerification;
 use App\Modules\Notifications\Models\MessageTemplate;
@@ -286,4 +288,73 @@ it('keeps the card platform-owned and the segment workspace-scoped', function ()
 
     expect(in_array(BelongsToWorkspace::class, class_uses_recursive(ReportCardSegment::class), true))
         ->toBeTrue('ReportCardSegment is a bridge and must be workspace-scoped');
+});
+
+/*
+| Spec 011 · US3 — the referral, `NFR-001أ` IN BOTH DIRECTIONS.
+|
+| A referral code belongs to a PERSON, not to a teacher: the student who invites
+| a friend invites them to the platform, and the friend may end up studying with
+| somebody else entirely. Both failure modes are silent, and this repository has
+| now paid for each of them once. Leave the read unfiltered and one student's
+| «من دعوتَهم» lists the whole platform's invitations; add `BelongsToWorkspace`
+| and one person grows a second code per teacher, so the count on their screen
+| resets every time they enrol somewhere new.
+*/
+it('shows a student their own referrals and no other student list', function (): void {
+    [$workspace] = $this->createWorkspaceWithOwner(['name' => 'أ']);
+
+    $mine = User::factory()->create();
+    $stranger = User::factory()->create();
+
+    Sanctum::actingAs($mine);
+    $myCode = $this->getJson('/api/v1/referrals/code')->assertOk()->json('code');
+
+    Sanctum::actingAs($stranger);
+    $theirCode = $this->getJson('/api/v1/referrals/code')->assertOk()->json('code');
+
+    Referral::query()->create([
+        'referrer_user_id' => $stranger->getKey(),
+        'referred_user_id' => User::factory()->create()->getKey(),
+        'referral_code_id' => ReferralCode::query()->where('code', $theirCode)->sole()->getKey(),
+        'status' => 'pending',
+    ]);
+
+    Sanctum::actingAs($mine);
+
+    /*
+    | ⚠️ `referrals` HAS NO WORKSPACE SCOPE AT ALL, so this list is as exposed as
+    | an unauthenticated query — the explicit `where referrer_user_id` in the
+    | controller is the entire guard, and nothing else would fail if it went.
+    */
+    expect($this->getJson('/api/v1/referrals')->assertOk()->json('data'))->toBe([])
+        ->and($myCode)->not->toBe($theirCode);
+});
+
+it('gives a person ONE referral code across every teacher they study with', function (): void {
+    [$a] = $this->createWorkspaceWithOwner(['name' => 'أ']);
+    [$b] = $this->createWorkspaceWithOwner(['name' => 'ب']);
+
+    $student = User::factory()->create();
+
+    Sanctum::actingAs($student);
+
+    // Read from inside one workspace and then the other. A `workspace_id` on the
+    // code would mint a second one here — and the invitation already shared with
+    // a friend would stop being the one the platform recognises.
+    $this->setCurrentWorkspace($a, $student);
+    $first = $this->getJson('/api/v1/referrals/code')->assertOk()->json('code');
+
+    $this->setCurrentWorkspace($b, $student);
+    $second = $this->getJson('/api/v1/referrals/code')->assertOk()->json('code');
+
+    expect($second)->toBe($first)
+        ->and(ReferralCode::query()->where('user_id', $student->getKey())->count())->toBe(1);
+});
+
+it('keeps the referral tables platform-owned', function (): void {
+    foreach ([Referral::class, ReferralCode::class] as $model) {
+        expect(in_array(BelongsToWorkspace::class, class_uses_recursive($model), true))
+            ->toBeFalse("{$model} must not be workspace-scoped");
+    }
 });

@@ -1,5 +1,7 @@
 <?php
 
+use App\Modules\Analytics\Jobs\RollUpPlatformMetricsJob;
+use App\Modules\Analytics\Jobs\SendScheduledReportsJob;
 use App\Modules\Assessments\Jobs\MarkMissedSubmissionsJob;
 use App\Modules\Assessments\Jobs\RollUpQuestionStatsJob;
 use App\Modules\Community\Jobs\BuildReportCardsJob;
@@ -366,4 +368,36 @@ Schedule::call(function (): void {
     ->monthlyOn(2, '05:40')
     ->timezone('Asia/Qatar')
     ->name('build-report-cards')
+    ->withoutOverlapping();
+
+/*
+| The platform's own numbers, rolled up once a night (spec 011 · FR-044).
+|
+| 05:30 Doha: after the item-analysis rollup at 05:15 and clear of the report-card
+| build at 05:40. Late in the sweep order deliberately — it counts what every job
+| before it has finished writing, so a run at midnight would report a day that is
+| still settling.
+|
+| ⚠️ IT ROLLS UP TODAY, NOT YESTERDAY. Every scalar it stores is a STOCK («how
+| many students are active»), not a flow, so the answer belongs to the day it was
+| measured on; the two flow metrics read the day's own window and are simply
+| complete by this hour. Re-running it rewrites the same four key columns, so a
+| manual re-run after a fix costs nothing.
+*/
+Schedule::job(new RollUpPlatformMetricsJob, 'maintenance')
+    ->dailyAt('05:30')
+    ->timezone('Asia/Qatar')
+    ->withoutOverlapping();
+
+/*
+| And the copies that go out to whoever subscribed (FR-045).
+|
+| 06:00, half an hour after the rollup that fills the rows it reads — a report
+| sent before the numbers are written is a report of yesterday, silently. Daily,
+| because the CADENCE lives on each subscription row: a weekly and a monthly
+| subscriber are both served by one pass that asks each row whether it is due.
+*/
+Schedule::job(new SendScheduledReportsJob, 'maintenance')
+    ->dailyAt('06:00')
+    ->timezone('Asia/Qatar')
     ->withoutOverlapping();

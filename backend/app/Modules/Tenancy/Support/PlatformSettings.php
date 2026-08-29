@@ -157,6 +157,15 @@ final class PlatformSettings
         // release-only constant gets wrong for ever.
         'cohorts.default_capacity' => 'cohorts.default_capacity',
         'cohorts.default_chat_ban_minutes' => 'cohorts.default_chat_ban_minutes',
+        /*
+        | Analytics (spec 011 · FR-041). How many reviews a teacher must have
+        | before the «الأعلى تقييماً» board will rank them at all — the whole of
+        | the requirement's «حداً أدنى … يمنع التحيّز», and a number whose right
+        | value is whatever the first months of real reviews say it is. A
+        | release-only constant here would leave the board rewarding whoever is
+        | newest for as long as nobody shipped a change.
+        */
+        'analytics.min_reviews' => 'analytics.min_reviews',
     ];
 
     public static function get(string $key, mixed $default = null): mixed

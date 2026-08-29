@@ -9,8 +9,10 @@ use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
 use App\Modules\Tenancy\Events\WorkspaceCreated;
 use App\Modules\Tenancy\Listeners\RevokeWorkspaceAccess;
 use App\Modules\Tenancy\Listeners\SeedDefaultRoles;
+use App\Modules\Tenancy\Models\FeatureFlag;
 use App\Modules\Tenancy\Models\PlatformStaff;
 use App\Modules\Tenancy\Models\Role;
+use App\Modules\Tenancy\Policies\FeatureFlagPolicy;
 use App\Modules\Tenancy\Policies\PlatformStaffPolicy;
 use App\Modules\Tenancy\Policies\RolePolicy;
 use App\Modules\Tenancy\Support\Flags;
@@ -55,6 +57,10 @@ class TenancyServiceProvider extends Module
 
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(PlatformStaff::class, PlatformStaffPolicy::class);
+        // Spec 011 · FR-047. `flags.manage` is in no tenant matrix, so this is
+        // the door AND the classification: a permission nobody holds guards
+        // nothing until a policy asks for it.
+        Gate::policy(FeatureFlag::class, FeatureFlagPolicy::class);
 
         $this->registerPlatformStanding();
     }

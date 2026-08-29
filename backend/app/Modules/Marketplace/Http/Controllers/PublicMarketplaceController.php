@@ -10,6 +10,7 @@ use App\Modules\Marketplace\Actions\Public\GetMarketplaceStats;
 use App\Modules\Marketplace\Actions\Public\ListPublicCourses;
 use App\Modules\Marketplace\Actions\Public\ListPublicTaxonomy;
 use App\Modules\Marketplace\Actions\Public\ListPublicTeachers;
+use App\Modules\Marketplace\Actions\Public\ListRegions;
 use App\Modules\Marketplace\Actions\Public\ShowPublicTeacher;
 use App\Modules\Marketplace\Http\Requests\ListPublicCoursesRequest;
 use App\Modules\Marketplace\Http\Requests\ListPublicTeachersRequest;
@@ -69,6 +70,17 @@ class PublicMarketplaceController extends Controller
     public function gradeLevels(ListPublicTaxonomy $action): JsonResponse
     {
         return response()->json($action->handle(ListPublicTaxonomy::GRADE_LEVELS));
+    }
+
+    /**
+     * The regions the registration form offers (spec 011 · FR-042).
+     *
+     * Public and unauthenticated by necessity: the field is required to CREATE an
+     * account, so there is no account to authenticate when it is read.
+     */
+    public function regions(ListRegions $action): JsonResponse
+    {
+        return response()->json($action->handle());
     }
 
     public function teachers(ListPublicTeachersRequest $request, ListPublicTeachers $action): JsonResponse

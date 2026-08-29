@@ -27,7 +27,7 @@
 | Payments | `app/Modules/Payments/` | Order, Product, PaymentTransaction | Orders (create, receipt, approve, reject) |
 | Media | `app/Modules/Media/` | MediaAsset, MediaCaption, PlaybackGrant | Upload tickets + playback grants (issue/stream/renew) + captions |
 | Notifications | `app/Modules/Notifications/` | Notification, NotificationDelivery, NotificationPreference, MessageTemplate, ContactVerification | Notification centre + preferences + contact verification |
-| Analytics | `app/Modules/Analytics/` | (Filament widgets) | Admin dashboard |
+| Analytics | `app/Modules/Analytics/` | PlatformMetricDaily, ReportSubscription | The platform dashboard: a nightly rollup, the regional picture, and the scheduled report (spec 011 · US6) |
 | CMS | `app/Modules/CMS/` | Article, Category, Tag | Articles CRUD + publish |
 | Marketplace | `app/Modules/Marketplace/` | TeacherProfile, TeacherApplication, Subject, GradeLevel, AvailabilitySlot, Review, Complaint | Public listings (no auth) + teacher application + academic review + reviews/complaints |
 | LiveSessions | `app/Modules/LiveSessions/` | ClassSession, SessionBooking, Attendance, ClassSessionFeedback, FreezePeriod | Calendar + booking + broadcast room + register + freeze periods |
@@ -662,6 +662,81 @@ of `OrderPolicy`'s `view`/`approve`/`reject`.
 true of an enum with two cases and a silent widening at four. They read
 `OrderKind::teacherListedValues()`, which names what belongs on a teacher's order
 table rather than what does not.
+
+### Platform analytics, regions and flags (spec 011 · US6)
+
+`platform_metrics_daily` is the dashboard's only source (FR-044): one row per
+`(date, metric_key, workspace_id, region_id)`, written by
+`RollUpPlatformMetricsJob` at 05:30 and read by `ReadPlatformAnalytics`. It carries
+**a numerator and a denominator, never a percentage** — SC-012 asks for a
+zero-difference match against the source, and rounding is a difference. A count
+stores `denominator = 0`, which the reader treats as «not a ratio» rather than as
+a division.
+
+| Metric key | Numerator | Denominator |
+|---|---|---|
+| `students.active` | distinct students with a live enrolment | 0 |
+| `teachers.active` | teacher profiles | 0 |
+| `dues.overdue_credits` | credits owed, as a **positive** number | 0 |
+| `collection.rate` | orders approved in the day's window | orders raised in it |
+| `dropout.rate` | enrolments cancelled or expired | all enrolments |
+| `students.by_region` | students in that region | 0 (one row per `region_id`) |
+
+⚠️ **The platform row is COMPUTED, not summed.** `workspace_id = 0` runs the same
+queries with `withoutWorkspaceScope()`; adding up the per-workspace numbers counts
+a student enrolled with two teachers twice. `ReadPlatformAnalytics` declares the
+bypass on every tenant-owned read AND in every eager load — the bypass is per
+model, which is how the audit chain once answered «nothing was bought» with a 200.
+Any test of a platform-wide read needs TWO workspaces or it proves nothing.
+
+⚠️ **Two sentinels, both `0` and both NOT NULL**, for the reason `feature_flags`
+gives below. And a **second index** `[metric_key, workspace_id, region_id, date]`,
+because the unique key starts with the date while every screen reads by metric
+first.
+
+⚠️ **The region report starts from `regions` and joins left.** The rollup writes
+only what it counted, so a region nobody has registered from has no row — and a
+report built from the metric rows alone would DROP it rather than show the zero
+that is the actual answer (FR-042's edge case). Students whose `region_id` is null
+— every account created before the field existed — are counted under the `0`
+sentinel and shown as «غير محدَّدة», never folded into a region.
+
+`regions` is **platform reference data (constitution kind ب)**: read publicly at
+`GET /marketplace/regions`, written with `taxonomy.manage` through
+`RegionResource`, and carrying **no `workspace_id`** — one person lives in one
+place whoever teaches them. It is the fourth runtime catalogue in the tree and the
+only one that fails LOUDLY: `region_slug` is required by `RegisterStudentRequest`,
+so an empty table answers **422 to every new registration** in front of an empty
+picker. `RegionSeeder` therefore ships with a `seedMissing()` backfill migration,
+and `student_profiles.region_id` is in `$fillable` from its first day — spec 013
+shipped three columns on that exact table that mass assignment discarded in
+silence.
+
+`analytics.cross_teacher.view` is the door on the dashboard, the report API and
+the `/admin` page. ⚠️ **Not `analytics.view`**, which is a WORKSPACE permission in
+the assistant's matrix: this screen adds every workspace together, so the narrower
+name would hand one teacher's assistant every competitor's totals. The Filament
+page declares `canAccess()` of its own, because `PanelResourceDoorTest` walks
+`getResources()` alone and a page with no door ships silently.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/marketplace/regions` | anyone — `throttle:public`, read before there is an account |
+| GET | `/reports/platform` | `analytics.cross_teacher.view` |
+| GET | `/reports/subscriptions` | `analytics.cross_teacher.view` — always the caller's own row |
+| PUT | `/reports/subscriptions` | `analytics.cross_teacher.view` |
+
+`/admin/platform-analytics` (Filament page) · `/admin/feature-flags`
+(`flags.manage`) · `/admin/regions` (`taxonomy.manage`) are the panel's half.
+
+`report_subscriptions` (FR-045) holds one row per person: the metrics they chose,
+a cadence, and `last_sent_on` **stamped before the send** — a lost report beats one
+every night for ever. The report IS the rollup's rows; there is no second
+generator, because two computations of one number disagree eventually and nobody
+can tell which is wrong. The table is also why `Analytics` came off
+`PersonalDataContractCoverageTest`'s exemption list: it names a person, so the
+module registers `AnalyticsPersonalData` and owns the `report_subscription`
+category.
 
 ### Feature flags (spec 011)
 

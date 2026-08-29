@@ -20,6 +20,13 @@ export const P = {
   settlementStatement: "settlement.statement.view",
   bankView: "bank.view",
   analyticsView: "analytics.view",
+  /*
+   * ⚠️ A DIFFERENT PERMISSION FROM THE ONE ABOVE, AND THE DISTANCE IS THE WHOLE
+   * PLATFORM. `analytics.view` is a workspace permission an assistant holds —
+   * «your own teacher's numbers»; this one adds every workspace together and is
+   * held by no tenant role at all (spec 011 · FR-046).
+   */
+  analyticsCrossTeacher: "analytics.cross_teacher.view",
   gradingPerform: "grading.perform",
   assignmentsManage: "assignments.manage",
   // ⚠️ UNDERSCORE, NOT A DOT. `Permissions::UNLOCK_RULES_MANAGE` is

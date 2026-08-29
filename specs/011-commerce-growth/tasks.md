@@ -219,7 +219,7 @@ description: "Task list — 011 التجارة والنمو"
 
 **Independent Test**: اشتراكٌ، وصولٌ إلى ما تغطّيه، وانتهاءُ المدّة.
 
-- [ ] T089 [P] [US4] هجرتا `plans` و`subscriptions` — §٧ و§٨، بـ**`unique(order_id)`** (⚠️ الحارسُ الوحيدُ ضدَّ اشتراكَين لدفعةٍ واحدة)، و**`effective_ends_on`**، وفهرسا `[student_user_id, status]` · `[status, effective_ends_on]`.
+- [X] T089 [P] [US4] هجرتا `plans` و`subscriptions` — §٧ و§٨، بـ**`unique(order_id)`** (⚠️ الحارسُ الوحيدُ ضدَّ اشتراكَين لدفعةٍ واحدة)، و**`effective_ends_on`**، وفهرسا `[student_user_id, status]` · `[status, effective_ends_on]`.
 - [X] T090 [P] [US4] نموذجانِ ومصنعانِ وسياسةٌ في `backend/app/Modules/Payments/`.
 - [X] T091 [US4] `backend/app/Modules/Payments/Actions/SavePlan.php` — المدرّسُ يملأُ المدّةَ والتغطية، و`price_minor` **تُرفَضُ من طالبٍ لا يحملُ صلاحيةَ المنصّة**.
 - [X] T092 [US4] `backend/app/Modules/Payments/Listeners/ActivateSubscription.php` — `ShouldQueue` + `ShouldHandleEventsAfterCommit`، والحارسُ `unique(order_id)`.
@@ -268,34 +268,34 @@ description: "Task list — 011 التجارة والنمو"
 
 **Independent Test**: مقارنةُ أرقامِ اللوحةِ ببياناتٍ معروفة، وتفعيلُ مفتاحٍ لمدرّسٍ واحد.
 
-- [ ] T118 [US6] ⚠️ **+ بذرةُ `regions` وهجرةُ `seedMissing()` (منقولةٌ من T015) — جدولٌ فارغٌ يعني ٤٢٢ لكلِّ تسجيلٍ جديد.** هجرتا `regions` و`platform_metrics_daily` و`report_subscriptions` — §١٠ و§١٢ و§١٣، بـ**`numerator`/`denominator` مُوقَّعَين** و**فهرسٍ ثانٍ `[metric_key, workspace_id, region_id, date]`** (⚠️ الفريدُ يبدأُ بالتاريخِ واللوحةُ تقرأُ بالمؤشِّرِ أوّلاً).
-- [ ] T119 [US6] هجرةُ `student_profiles.region_id` **`nullable`** + فهرس، ⚠️ **وإضافتُه إلى `$fillable`**: ٠١٣ شحنَتْ ثلاثةَ أعمدةٍ على هذا الجدولِ بالضبطِ ابتلعَها الإسنادُ الجماعيُّ صامتاً — `201` وثلاثةُ فراغات. والإسقاطُ يحتاجُ `dropIndex(['region_id'])` في جملةٍ مستقلّةٍ أوّلاً (SQLite ترفضُ إسقاطَ عمودٍ مُفهرَس).
-- [ ] T120 [US6] `region_id` إلزاميٌّ في `RegisterStudentRequest` وفي نموذجِ التسجيلِ بالواجهة، ومسارُ `/regions` عامٌّ بـ`throttle:public` ومُخزَّنٌ مؤقّتاً. ⚠️ ويُوثَّقُ في ٠٠١ («ولا يُدخَلُ صامتاً»).
-- [ ] T121 [US6] `backend/app/Modules/Analytics/Jobs/RollUpPlatformMetricsJob.php` — **`forWorkspace()` حصراً** (⚠️ `WorkspaceContext::set()` في وظيفةٍ يُسرِّبُ المساحةَ إلى ما يعالجُه العاملُ بعدَها)، `chunkById`، نافذةُ اليومِ `>= $start AND < $start->addDay()` (⚠️ **لا `whereDate()`** ولا `CONVERT_TZ()` — الأخيرُ يعودُ **NULL** على أيِّ MySQL بلا جداولِ المناطقِ الزمنيّةِ وSQLite لا يملكُه ⇒ لا اختبارَ محلّيٌّ يراه)، والمناطقُ **`GROUP BY region_id` واحدٌ لكلِّ مساحة**.
-- [ ] T122 [US6] وسِّعْ `backend/tests/Feature/Marketplace/TrustScoreJobIsolationTest.php` ليشملَ `Modules/*/Jobs/` — ⚠️ **بنمطٍ لا بقائمةِ وحداتٍ مكتوبةٍ بيد**.
-- [ ] T123 [US6] `backend/app/Modules/Analytics/Actions/ReadPlatformAnalytics.php` — ⚠️ **`withoutWorkspaceScope()` مُعلَنٌ ومُكرَّرٌ في كلِّ تحميلٍ مُسبَق** (التجاوزُ لكلِّ نموذجٍ على حِدة)، والقراءةُ تبدأُ من `regions` **وتضمُّ يساراً** (منطقةٌ بلا تسجيلٍ تظهرُ صفراً لا تُحذَف).
-- [ ] T124 [US6] ترتيبُ المدرّسين والطلاب (FR-041): ⚠️ **فهرسٌ على `teacher_profiles.reviews_count`** (مرشِّحُ الحدِّ الأدنى مسحٌ و`filesort` بدونِه)، والنصفُ الطلابيُّ من `leaderboard_entries` ⚠️ **بـ`with('user:id,uuid,first_name,last_name')`** — `users` **بلا عمودِ `name`** والتحميلُ المقيَّدُ الذي يسمّيه يرسمُ **اسماً فارغاً** بـ`200`، وقد شُحِنَ ستَّ مرّاتٍ في ٠١٠.
-- [ ] T125 [US6] صفحةُ `backend/app/Modules/Analytics/Filament/Pages/PlatformAnalytics.php` بصلاحيةِ **`analytics.cross_teacher.view`** ⚠️ لا `analytics.view` (صلاحيةُ مساحةِ عملٍ في مصفوفةِ المساعِد)، **وتُعلِنُ `canAccess()`** — `PanelResourceDoorTest` يمشي `getResources()` وحدَها فصفحةٌ بلا بابٍ تشحنُ ولا يسقطُ شيء.
-- [ ] T126 [P] [US6] مورِدُ `FeatureFlagResource` بصلاحيةِ `flags.manage` + مسارا `/admin/feature-flags`.
-- [ ] T127 [US6] `backend/app/Modules/Analytics/Jobs/SendScheduledReportsJob.php` (FR-045) — يمرُّ بـ`DispatchNotification`، و`last_sent_on` **يُختَمُ قبلَ الإرسال**. **ولا مُولِّدَ تقاريرَ جديد**: التقريرُ صفوفُ `platform_metrics_daily` نفسُها.
-- [ ] T128 [P] [US6] مسارا `/reports/subscriptions` وشاشتُها.
-- [ ] T129 [P] [US6] `PlatformAnalyticsTest.php` — ⚠️ `SC-012` **بمساحتَي عملٍ لا واحدة**: قراءةٌ متروكةٌ في النطاقِ تعرضُ أرقامَ مساحةٍ واحدةٍ كمجموعِ المنصّةِ وتمرُّ على تجهيزةٍ بمساحةٍ واحدة.
-- [ ] T130 [P] [US6] `AnalyticsPermissionTest.php` (⚠️ **مساعِدُ مدرّسٍ يُردُّ بـ٤٠٣**) · `RollupIdempotencyTest.php` (⚠️ **يشغّلُ الوظيفةَ مرّتَين**) · `TopTeachersTest.php` (`SC-013`، **بأسماءٍ غيرِ فارغة**).
-- [ ] T131 [P] [US6] `FeatureFlagTest.php` (`SC-014` بحالتَين متقابلتَين) · `FlagAudienceTest.php` (⚠️ **طالبُ ذلك المدرّسِ يرى الميزة** — سياقُه `null` فيقعُ على الصفِّ العامّ) · `ScheduledReportTest.php`.
-- [ ] T132 [US6] `FlagRevocationTest.php` — ⚠️ `FR-048` **بوظيفتَين مطبورتَين وإطفاءٍ بينهما**، لا بطلبَي HTTP: `forgetScopedInstances()` يُنادى من خطّافِ العاملِ وحدَه، فداخلَ عمليّةِ اختبارٍ واحدةٍ لا يُفرَّقُ بينَ `scoped()` و`singleton()` — **والاختبارُ يسقطُ على كودٍ صحيح**.
-- [ ] T133 [P] [US6] `RegistrationStillWorksTest.php` — ⚠️ **بالتأكيدِ على الصفِّ المخزَّنِ لا على صدى الاستجابة**.
-- [ ] T134 [US6] رابطُ لوحةِ التحليلاتِ في تنقّلِ `/admin` عبرَ `backend/app/Providers/Filament/AdminPanelProvider.php › navigationGroups()`، ورابطُ التقاريرِ المجدولةِ في `frontend/src/components/layout/Sidebar.tsx`.
+- [X] T118 [US6] ⚠️ **+ بذرةُ `regions` وهجرةُ `seedMissing()` (منقولةٌ من T015) — جدولٌ فارغٌ يعني ٤٢٢ لكلِّ تسجيلٍ جديد.** هجرتا `regions` و`platform_metrics_daily` و`report_subscriptions` — §١٠ و§١٢ و§١٣، بـ**`numerator`/`denominator` مُوقَّعَين** و**فهرسٍ ثانٍ `[metric_key, workspace_id, region_id, date]`** (⚠️ الفريدُ يبدأُ بالتاريخِ واللوحةُ تقرأُ بالمؤشِّرِ أوّلاً).
+- [X] T119 [US6] هجرةُ `student_profiles.region_id` **`nullable`** + فهرس، ⚠️ **وإضافتُه إلى `$fillable`**: ٠١٣ شحنَتْ ثلاثةَ أعمدةٍ على هذا الجدولِ بالضبطِ ابتلعَها الإسنادُ الجماعيُّ صامتاً — `201` وثلاثةُ فراغات. والإسقاطُ يحتاجُ `dropIndex(['region_id'])` في جملةٍ مستقلّةٍ أوّلاً (SQLite ترفضُ إسقاطَ عمودٍ مُفهرَس).
+- [X] T120 [US6] `region_id` إلزاميٌّ في `RegisterStudentRequest` وفي نموذجِ التسجيلِ بالواجهة، ومسارُ `/regions` عامٌّ بـ`throttle:public` ومُخزَّنٌ مؤقّتاً. ⚠️ ويُوثَّقُ في ٠٠١ («ولا يُدخَلُ صامتاً»).
+- [X] T121 [US6] `backend/app/Modules/Analytics/Jobs/RollUpPlatformMetricsJob.php` — **`forWorkspace()` حصراً** (⚠️ `WorkspaceContext::set()` في وظيفةٍ يُسرِّبُ المساحةَ إلى ما يعالجُه العاملُ بعدَها)، `chunkById`، نافذةُ اليومِ `>= $start AND < $start->addDay()` (⚠️ **لا `whereDate()`** ولا `CONVERT_TZ()` — الأخيرُ يعودُ **NULL** على أيِّ MySQL بلا جداولِ المناطقِ الزمنيّةِ وSQLite لا يملكُه ⇒ لا اختبارَ محلّيٌّ يراه)، والمناطقُ **`GROUP BY region_id` واحدٌ لكلِّ مساحة**.
+- [X] T122 [US6] وسِّعْ `backend/tests/Feature/Marketplace/TrustScoreJobIsolationTest.php` ليشملَ `Modules/*/Jobs/` — ⚠️ **بنمطٍ لا بقائمةِ وحداتٍ مكتوبةٍ بيد**.
+- [X] T123 [US6] `backend/app/Modules/Analytics/Actions/ReadPlatformAnalytics.php` — ⚠️ **`withoutWorkspaceScope()` مُعلَنٌ ومُكرَّرٌ في كلِّ تحميلٍ مُسبَق** (التجاوزُ لكلِّ نموذجٍ على حِدة)، والقراءةُ تبدأُ من `regions` **وتضمُّ يساراً** (منطقةٌ بلا تسجيلٍ تظهرُ صفراً لا تُحذَف).
+- [X] T124 [US6] ترتيبُ المدرّسين والطلاب (FR-041): ⚠️ **فهرسٌ على `teacher_profiles.reviews_count`** (مرشِّحُ الحدِّ الأدنى مسحٌ و`filesort` بدونِه)، والنصفُ الطلابيُّ من `leaderboard_entries` ⚠️ **بـ`with('user:id,uuid,first_name,last_name')`** — `users` **بلا عمودِ `name`** والتحميلُ المقيَّدُ الذي يسمّيه يرسمُ **اسماً فارغاً** بـ`200`، وقد شُحِنَ ستَّ مرّاتٍ في ٠١٠.
+- [X] T125 [US6] صفحةُ `backend/app/Modules/Analytics/Filament/Pages/PlatformAnalytics.php` بصلاحيةِ **`analytics.cross_teacher.view`** ⚠️ لا `analytics.view` (صلاحيةُ مساحةِ عملٍ في مصفوفةِ المساعِد)، **وتُعلِنُ `canAccess()`** — `PanelResourceDoorTest` يمشي `getResources()` وحدَها فصفحةٌ بلا بابٍ تشحنُ ولا يسقطُ شيء.
+- [X] T126 [P] [US6] مورِدُ `FeatureFlagResource` بصلاحيةِ `flags.manage` + مسارا `/admin/feature-flags`.
+- [X] T127 [US6] `backend/app/Modules/Analytics/Jobs/SendScheduledReportsJob.php` (FR-045) — يمرُّ بـ`DispatchNotification`، و`last_sent_on` **يُختَمُ قبلَ الإرسال**. **ولا مُولِّدَ تقاريرَ جديد**: التقريرُ صفوفُ `platform_metrics_daily` نفسُها.
+- [X] T128 [P] [US6] مسارا `/reports/subscriptions` وشاشتُها.
+- [X] T129 [P] [US6] `PlatformAnalyticsTest.php` — ⚠️ `SC-012` **بمساحتَي عملٍ لا واحدة**: قراءةٌ متروكةٌ في النطاقِ تعرضُ أرقامَ مساحةٍ واحدةٍ كمجموعِ المنصّةِ وتمرُّ على تجهيزةٍ بمساحةٍ واحدة.
+- [X] T130 [P] [US6] `AnalyticsPermissionTest.php` (⚠️ **مساعِدُ مدرّسٍ يُردُّ بـ٤٠٣**) · `RollupIdempotencyTest.php` (⚠️ **يشغّلُ الوظيفةَ مرّتَين**) · `TopTeachersTest.php` (`SC-013`، **بأسماءٍ غيرِ فارغة**).
+- [X] T131 [P] [US6] `FeatureFlagTest.php` (`SC-014` بحالتَين متقابلتَين) · `FlagAudienceTest.php` (⚠️ **طالبُ ذلك المدرّسِ يرى الميزة** — سياقُه `null` فيقعُ على الصفِّ العامّ) · `ScheduledReportTest.php`.
+- [X] T132 [US6] `FlagRevocationTest.php` — ⚠️ `FR-048` **بوظيفتَين مطبورتَين وإطفاءٍ بينهما**، لا بطلبَي HTTP: `forgetScopedInstances()` يُنادى من خطّافِ العاملِ وحدَه، فداخلَ عمليّةِ اختبارٍ واحدةٍ لا يُفرَّقُ بينَ `scoped()` و`singleton()` — **والاختبارُ يسقطُ على كودٍ صحيح**.
+- [X] T133 [P] [US6] `RegistrationStillWorksTest.php` — ⚠️ **بالتأكيدِ على الصفِّ المخزَّنِ لا على صدى الاستجابة**.
+- [X] T134 [US6] رابطُ لوحةِ التحليلاتِ في تنقّلِ `/admin` عبرَ `backend/app/Providers/Filament/AdminPanelProvider.php › navigationGroups()`، ورابطُ التقاريرِ المجدولةِ في `frontend/src/components/layout/Sidebar.tsx`.
 
 ---
 
 ## Phase 9: Polish & Cross-Cutting
 
-- [ ] T135 [P] حالاتٌ في `backend/tests/Feature/Notifications/PlatformOwnershipTest.php` لكياناتِ صنفِ (أ): `referral_codes` · `referrals` — **في الاتّجاهَين**.
-- [ ] T136 حالاتُ **صنفِ (ب)** لكلِّ مرجعِ منصّة (`coupons` · `regions` · `feature_flags`): ⚠️ **حاملُ أعلى دورِ مستأجِرٍ يُردُّ بـ٤٠٣** — يشترطُها الدستورُ **v1.2.0**، ولا يخدمُها اختبارُ صنفِ (أ).
-- [ ] T137 [P] راجعْ كلَّ حقلِ `FormRequest` جديدٍ ضدَّ `backend/lang/ar/validation.php › attributes`.
-- [ ] T138 [P] راجعْ كلَّ صنفِ لونٍ جديدٍ ضدَّ `frontend/src/lib/theme-tokens.test.ts` — ⚠️ صنفٌ يُسمّي رمزاً غيرَ معرَّفٍ **لا يرسمُ شيئاً بصمت**، وقد شُحِنَ أربعَ مرّات.
-- [ ] T139 [P] تحقّقْ أنّ كلَّ سطحٍ جديدٍ يصلُه رابطٌ من مكانٍ ما، واترُكْ حارسَ `e2e` حيثُ يلزم.
-- [ ] T140 شغِّلِ البوّاباتِ الأربعَ كاملةً: `pest` · `pint --test` · `phpstan analyse` · `tsc --noEmit && npm test` (`SC-017`).
+- [X] T135 [P] حالاتٌ في `backend/tests/Feature/Notifications/PlatformOwnershipTest.php` لكياناتِ صنفِ (أ): `referral_codes` · `referrals` — **في الاتّجاهَين**.
+- [X] T136 حالاتُ **صنفِ (ب)** لكلِّ مرجعِ منصّة (`coupons` · `regions` · `feature_flags`): ⚠️ **حاملُ أعلى دورِ مستأجِرٍ يُردُّ بـ٤٠٣** — يشترطُها الدستورُ **v1.2.0**، ولا يخدمُها اختبارُ صنفِ (أ).
+- [X] T137 [P] راجعْ كلَّ حقلِ `FormRequest` جديدٍ ضدَّ `backend/lang/ar/validation.php › attributes`.
+- [X] T138 [P] راجعْ كلَّ صنفِ لونٍ جديدٍ ضدَّ `frontend/src/lib/theme-tokens.test.ts` — ⚠️ صنفٌ يُسمّي رمزاً غيرَ معرَّفٍ **لا يرسمُ شيئاً بصمت**، وقد شُحِنَ أربعَ مرّات.
+- [X] T139 [P] تحقّقْ أنّ كلَّ سطحٍ جديدٍ يصلُه رابطٌ من مكانٍ ما، واترُكْ حارسَ `e2e` حيثُ يلزم.
+- [X] T140 شغِّلِ البوّاباتِ الأربعَ كاملةً: `pest` · `pint --test` · `phpstan analyse` · `tsc --noEmit && npm test` (`SC-017`).
 
 ---
 

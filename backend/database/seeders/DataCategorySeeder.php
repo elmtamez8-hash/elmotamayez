@@ -509,6 +509,34 @@ class DataCategorySeeder extends Seeder
                 'expiry_behaviour' => ExpiryBehaviour::Anonymise->value,
                 'erasure_mode' => ErasureMode::Anonymise,
             ],
+
+            // ── Analytics (spec 011 · US6) ────────────────────────────
+            /*
+            | ⚠️ ONE ROW FOR ONE TABLE, AND IT IS WHAT TAKES `Analytics` OFF
+            | `PersonalDataContractCoverageTest`'s EXEMPTION LIST. That list
+            | carried «Analytics — has no `Schema::create` of its own», which
+            | stopped being true the moment `report_subscriptions` landed; an
+            | exemption whose stated reason has expired is a guard passing over a
+            | lie.
+            |
+            | `Delete` on both counts, and unusually easy to justify: the row is a
+            | preference, not a record of anything that happened. Nobody's rights
+            | depend on remembering that somebody once asked for a weekly report,
+            | and no invariant counts it.
+            */
+            [
+                'key' => 'report_subscription',
+                'label_ar' => 'اشتراكك في التقارير المجدولة',
+                'purpose_ar' => 'لإرسالِ أرقامِ المنصّةِ التي طلبتَها في موعدِها.',
+                'audience' => 'إدارة المنصّة',
+                'is_required' => false,
+                'owning_module' => 'analytics',
+                'table_name' => 'report_subscriptions',
+                'column_name' => 'user_id',
+                'retain_days' => 730,
+                'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
+            ],
         ];
     }
 }

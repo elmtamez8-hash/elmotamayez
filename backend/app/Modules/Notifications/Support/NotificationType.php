@@ -269,6 +269,18 @@ enum NotificationType: string
     */
     case SubscriptionExpiring = 'subscription_expiring';
 
+    /*
+    | The scheduled platform report (011 · US6 · FR-045).
+    |
+    | ⚠️ IT TARGETS NO GUARDIAN AND IS NOT MANDATORY, and both follow from who
+    | receives it: the only recipients are the handful of people holding
+    | `analytics.cross_teacher.view` who asked for it. A guardian has no business
+    | in the platform's own figures, and a report somebody subscribed to is a
+    | report they may unsubscribe from — the switch is the subscription row
+    | itself.
+    */
+    case ScheduledReport = 'scheduled_report';
+
     public function label(): string
     {
         return match ($this) {
@@ -329,6 +341,7 @@ enum NotificationType: string
             self::ShipmentStatusChanged => 'تحديث شحنة',
             self::StorePurchaseUnavailable => 'طلب متجر غير متاح',
             self::SubscriptionExpiring => 'قرب انتهاء اشتراك',
+            self::ScheduledReport => 'تقرير مجدول',
         };
     }
 

@@ -212,6 +212,16 @@ class AdminPanelProvider extends PanelProvider
                 for: 'App\Modules\Compliance\Filament\Resources',
             )
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
+            /*
+            | ⚠️ WITHOUT THIS LINE THE PLATFORM DASHBOARD IS A FILE, NOT A SCREEN
+            | — no route, no navigation entry, and `analytics.cross_teacher.view`
+            | back to guarding nothing. Same trap the Payments pages line below
+            | already names.
+            */
+            ->discoverPages(
+                in: app_path('Modules/Analytics/Filament/Pages'),
+                for: 'App\Modules\Analytics\Filament\Pages',
+            )
             ->discoverPages(
                 in: app_path('Modules/Tenancy/Filament/Pages'),
                 for: 'App\Modules\Tenancy\Filament\Pages',

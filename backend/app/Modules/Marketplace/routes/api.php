@@ -29,6 +29,10 @@ Route::middleware('throttle:public')->prefix('marketplace')->name('marketplace.'
     Route::get('/stats', [PublicMarketplaceController::class, 'stats'])->name('stats');
     Route::get('/subjects', [PublicMarketplaceController::class, 'subjects'])->name('subjects');
     Route::get('/grade-levels', [PublicMarketplaceController::class, 'gradeLevels'])->name('grade-levels');
+    // Spec 011 · FR-042 — read by the registration form before there is an
+    // account, so it sits with the other public catalogue reads and under the
+    // same named limiter.
+    Route::get('/regions', [PublicMarketplaceController::class, 'regions'])->name('regions');
     Route::get('/teachers', [PublicMarketplaceController::class, 'teachers'])->name('teachers.index');
     Route::get('/courses', [PublicMarketplaceController::class, 'courses'])->name('courses.index');
 

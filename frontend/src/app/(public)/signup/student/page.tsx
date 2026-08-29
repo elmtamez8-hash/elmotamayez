@@ -21,7 +21,12 @@ export default async function StudentSignupPage({
   // Fetched on the server so the grade-level list is in the HTML: the form is
   // useless without it, and a client fetch would leave a blank select on a slow
   // connection.
-  const gradeLevels = await publicApi.gradeLevels();
+  const [gradeLevels, regions] = await Promise.all([
+    publicApi.gradeLevels(),
+    // Spec 011 · FR-042 — required by the API, so a form rendered without it
+    // could only ever be answered 422.
+    publicApi.regions(),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
@@ -45,7 +50,7 @@ export default async function StudentSignupPage({
         </p>
       )}
 
-      <StudentSignupForm gradeLevels={gradeLevels} teacherUuid={teacher} />
+      <StudentSignupForm gradeLevels={gradeLevels} regions={regions} teacherUuid={teacher} />
     </div>
   );
 }

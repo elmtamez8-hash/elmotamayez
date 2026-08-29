@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Http\Requests;
 
 use App\Modules\Marketplace\Models\GradeLevel;
+use App\Modules\Marketplace\Models\Region;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,6 +30,21 @@ class RegisterStudentRequest extends FormRequest
             'phone' => ['required', 'string', 'regex:/^\+[1-9]\d{6,14}$/'],
             'country' => ['required', 'string', 'size:2', 'alpha'],
             'grade_level_slug' => ['required', 'string', Rule::in($this->publicGradeLevelSlugs())],
+            /*
+            | Spec 011 · FR-042 — «حقل المنطقة يجب أن يكون إلزامياً في التسجيل».
+            |
+            | ⚠️ THE SLUG, NOT THE ROW ID, exactly as `grade_level_slug` beside it:
+            | payloads in this product never carry an autoincrement id, and
+            | `Rule::in` keeps the catalogue a closed set rather than whatever
+            | happens to be in the table. The FK on `student_profiles` is
+            | `region_id`; the resolution happens in the Action.
+            |
+            | ⚠️ AND THE CATALOGUE MUST NOT BE EMPTY. A required field validated
+            | against zero rows refuses EVERY registration, which is why the
+            | catalogue ships with a backfill migration and not with a seeder
+            | alone.
+            */
+            'region_slug' => ['required', 'string', Rule::in($this->activeRegionSlugs())],
             'registered_by_parent' => ['boolean'],
 
             /*
@@ -83,6 +99,7 @@ class RegisterStudentRequest extends FormRequest
             'phone.regex' => 'أدخل رقم الجوال مع رمز الدولة، مثل ‎+97455512345.',
             'country.size' => 'اختر الدولة.',
             'grade_level_slug.in' => 'اختر مرحلة دراسية من القائمة.',
+            'region_slug.in' => 'اختر المنطقة من القائمة.',
             'terms_accepted.accepted' => 'يجب الموافقة على الشروط والأحكام.',
             'date_of_birth.before' => 'أدخل تاريخ ميلادٍ صحيحاً.',
             'guardian_contact.required' => 'لأنّك دون الثامنة عشرة، أدخل رقم جوّال وليّ أمرك ليوافق على تفعيل حسابك.',
@@ -111,6 +128,25 @@ class RegisterStudentRequest extends FormRequest
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /**
+     * The regions a student may pick — active rows only.
+     *
+     * Platform reference data with no workspace column at all, so no scope is
+     * involved and none has to be bypassed. Retired regions are excluded: a row
+     * kept for the students already filed under it is not an option offered to
+     * the next one.
+     *
+     * @return list<string>
+     */
+    private function activeRegionSlugs(): array
+    {
+        /** @var list<string> */
+        return Region::query()
+            ->where('is_active', true)
+            ->pluck('slug')
+            ->all();
     }
 
     /**
