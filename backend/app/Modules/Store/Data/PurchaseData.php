@@ -23,6 +23,9 @@ final class PurchaseData extends DataTransferObject
         public readonly ?string $phone = null,
         public readonly ?string $addressLine = null,
         public readonly ?string $notes = null,
+        // Optional and untrusted: the resolver decides what it is worth, and a
+        // code that does not apply is a refusal rather than a silent zero.
+        public readonly ?string $couponCode = null,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -35,6 +38,7 @@ final class PurchaseData extends DataTransferObject
             phone: isset($data['phone']) ? (string) $data['phone'] : null,
             addressLine: isset($data['address_line']) ? (string) $data['address_line'] : null,
             notes: isset($data['notes']) ? (string) $data['notes'] : null,
+            couponCode: isset($data['coupon_code']) ? (string) $data['coupon_code'] : null,
         );
     }
 

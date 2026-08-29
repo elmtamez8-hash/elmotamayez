@@ -48,6 +48,7 @@ class CreditPurchaseController extends Controller
             $this->currentUser($request),
             $this->courseFor($request->validated('course')),
             $package,
+            $request->validated('coupon_code'),
         );
 
         /*

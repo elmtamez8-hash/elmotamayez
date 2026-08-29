@@ -21,6 +21,7 @@ use App\Modules\Payments\Listeners\NotifyBalanceThreshold;
 use App\Modules\Payments\Listeners\NotifyPaymentOutcome;
 use App\Modules\Payments\Listeners\ReevaluateOnReversal;
 use App\Modules\Payments\Listeners\StampCourseDelivery;
+use App\Modules\Payments\Models\Coupon;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditPackage;
 use App\Modules\Payments\Models\CreditPurchase;
@@ -29,6 +30,7 @@ use App\Modules\Payments\Models\ExamModeWindow;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Models\StudentCreditAccount;
 use App\Modules\Payments\Models\TermsConsent;
+use App\Modules\Payments\Policies\CouponPolicy;
 use App\Modules\Payments\Policies\CreditBalancePolicy;
 use App\Modules\Payments\Policies\CreditPackagePolicy;
 use App\Modules\Payments\Policies\CreditPurchasePolicy;
@@ -181,6 +183,7 @@ class PaymentsServiceProvider extends Module
         Gate::policy(CreditTransaction::class, CreditTransactionPolicy::class);
         Gate::policy(CreditPurchase::class, CreditPurchasePolicy::class);
         Gate::policy(CreditPackage::class, CreditPackagePolicy::class);
+        Gate::policy(Coupon::class, CouponPolicy::class);
         Gate::policy(TermsConsent::class, TermsConsentPolicy::class);
         // ⚠️ Ownership of the order and nothing else — see the policy. Without
         // it a teacher reads the total a named student paid, which FR-033

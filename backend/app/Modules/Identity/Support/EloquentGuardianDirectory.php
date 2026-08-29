@@ -94,4 +94,34 @@ class EloquentGuardianDirectory implements GuardianDirectory
         // through the type without ever being able to produce one here.
         return User::query()->whereIn('id', $studentIds)->get()->values();
     }
+
+    public function hasRegisteredSibling(User $student): bool
+    {
+        $guardianIds = ParentStudentRelation::query()
+            ->forStudent($student)
+            ->active()
+            ->pluck('guardian_user_id');
+
+        if ($guardianIds->isEmpty()) {
+            return false;
+        }
+
+        /*
+        | ⚠️ `!=` IS SAFE HERE ONLY BECAUSE OF THE `whereNotNull` ABOVE IT.
+        | `NULL != x` is NULL, not true, so without the null filter every
+        | name-only sibling would be dropped by the very comparison meant to
+        | exclude the buyer — the same shape that made a bare `whereNotIn` spare
+        | nothing in 013's legal hold.
+        |
+        | `exists()` rather than a count: the question is «is there another one»,
+        | and counting rows to compare against 1 reads a family of nine to answer
+        | it. No permission is consulted, deliberately — see the contract.
+        */
+        return ParentStudentRelation::query()
+            ->whereIn('guardian_user_id', $guardianIds)
+            ->active()
+            ->whereNotNull('student_user_id')
+            ->where('student_user_id', '!=', $student->getKey())
+            ->exists();
+    }
 }

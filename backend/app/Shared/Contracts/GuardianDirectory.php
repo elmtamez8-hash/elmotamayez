@@ -77,4 +77,34 @@ interface GuardianDirectory
      * @return list<GuardianPermission>
      */
     public function permissionsFor(User $guardian, User $student): array;
+
+    /**
+     * Whether this student shares a guardian with another REGISTERED student
+     * (spec 011 · FR-013).
+     *
+     * ⚠️ THE ONLY METHOD HERE THAT TAKES NO {@see GuardianPermission}, AND THAT
+     * IS THE REASON IT EXISTS RATHER THAN BEING COMPOSED FROM THE OTHERS.
+     * «Is this a second child» is not something a guardian is authorised for —
+     * it is a fact about a family — so keying it on a permission would make a
+     * family discount depend on whether a parent happened to tick «attendance»,
+     * and a permission revoked afterwards would silently reprice the next
+     * purchase.
+     *
+     * ⚠️ AND IT IS ASKED ABOUT THE STUDENT, NEVER ABOUT THE GUARDIAN. Payments
+     * needs a boolean about its own buyer; enumerating a buyer's guardians to
+     * count their other children would hand a billing Action a list of named
+     * adults it has no business holding. Nothing about the sibling — not their
+     * name, not their number — leaves this call.
+     *
+     * Children known by name alone are absent, exactly as in
+     * {@see self::childrenOf()}: the relation carries `student_name` with no
+     * `student_user_id` until that child signs up, and a discount for an account
+     * that does not exist is a discount nobody can ever check.
+     *
+     * The discount that follows applies to every sibling once more than one is
+     * registered, not only to whoever signed up second. «The second child
+     * onwards» describes a family, and telling the elder child they missed the
+     * family rate by being born first is not what FR-013 asks for.
+     */
+    public function hasRegisteredSibling(User $student): bool;
 }

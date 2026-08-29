@@ -74,6 +74,23 @@ final class PlatformSettings
         'billing.dormant_notice_months' => 'billing.dormant_notice_months',
         'billing.max_lots_per_draw' => 'billing.max_lots_per_draw',
         'billing.review_sla_hours' => 'billing.review_sla_hours',
+        // The family discount (spec 011 · FR-013 · D16). ONE value for the whole
+        // platform, applying at every teacher, and taken out of the platform's
+        // own commission — «whoever pays is whoever decides», FR-010 to the
+        // letter. That is why there is no per-workspace table and no per-teacher
+        // row: a teacher who could set it would be setting a discount somebody
+        // else funds. A whole percent, 0..100, on the same footing as a coupon's
+        // `percent` kind so the two can be compared without a conversion; the
+        // default is 0, which is «off» until an operator turns it on.
+        'billing.sibling_discount' => 'billing.sibling_discount',
+        // Store (spec 011). ⚠️ ADDED LATE: `StoreSettings` reads both of these
+        // through `PlatformSettings::get()` passing the config fallback
+        // explicitly, so they have always resolved correctly — but a key absent
+        // from this map is absent from `all()` and from `flush()`, which means
+        // invisible to the panel and un-invalidated by a cache clear. The map is
+        // the list of what an operator may change, and these two are on it.
+        'store.commission_bps' => 'store.commission_bps',
+        'store.refund_window_hours' => 'store.refund_window_hours',
         // Publishing new terms is bumping one of these (FR-049). Editable from
         // the panel because that is the whole mechanism: a stored consent names
         // the version it was given for, and the readers ask for the current one.

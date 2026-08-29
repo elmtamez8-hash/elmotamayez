@@ -6,9 +6,11 @@ use App\Models\User;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Enums\PaymentMethod;
 use App\Modules\Payments\Enums\PaymentStatus;
+use App\Modules\Payments\Models\Coupon;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Support\PaymentFieldAllowlist;
+use App\Modules\Store\Models\StoreItem;
 use App\Modules\Tenancy\Support\Roles;
 use Laravel\Sanctum\Sanctum;
 
@@ -84,6 +86,28 @@ it('leaks nothing on any payload this phase serves', function (): void {
     $this->setCurrentWorkspace($this->workspace, $this->student);
 
     $payloads['payment'] = $this->getJson("/api/v1/payments/{$this->payment->uuid}")->assertOk()->json();
+
+    /*
+    | Spec 011 · T069 — the coupon preview joins the enumerated list.
+    |
+    | ⚠️ THE LIST IS HAND-MAINTAINED AND THIS CLASS SAYS SO OF ITSELF: «a payload
+    | added later and not added to that list is unchecked, and this class cannot
+    | tell». So a new payload in this module is added HERE in the same change
+    | that ships it, or the guard silently stops covering the module it names.
+    |
+    | This one matters more than its size suggests: it is answered on the one
+    | route in the product built to be guessed at, and its DTO deliberately drops
+    | the coupon's ceiling, its remaining count and its scope — a preview that
+    | returned them would be a free enumeration tool.
+    */
+    $item = StoreItem::factory()->create(['workspace_id' => $this->workspace->getKey()]);
+    Coupon::factory()->percent(10)->create(['code' => 'EXPOSURE10']);
+
+    $payloads['coupon_preview'] = $this->postJson('/api/v1/billing/coupons/preview', [
+        'kind' => 'store_item',
+        'uuid' => $item->uuid,
+        'code' => 'EXPOSURE10',
+    ])->assertOk()->json();
 
     $leaks = [];
 

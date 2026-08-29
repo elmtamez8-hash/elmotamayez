@@ -6,6 +6,7 @@ namespace App\Modules\Payments\Actions;
 
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Payments\Enums\CouponScope;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditPackage;
@@ -15,6 +16,7 @@ use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Payments\Support\CostPlusPricing;
 use App\Modules\Payments\Support\CourseParticipation;
 use App\Modules\Payments\Support\CreditAccounts;
+use App\Modules\Payments\Support\DiscountResolver;
 use App\Modules\Payments\Support\StopSellingGuard;
 use App\Shared\Actions\Action;
 use DomainException;
@@ -44,10 +46,16 @@ class PurchaseCredits extends Action
         private readonly CourseParticipation $participation,
         private readonly CreditAccounts $accounts,
         private readonly BillingSettings $settings,
+        private readonly DiscountResolver $discounts,
+        private readonly RedeemCoupon $redeem,
     ) {}
 
-    public function handle(User $student, Course $course, CreditPackage $package): CreditPurchase
-    {
+    public function handle(
+        User $student,
+        Course $course,
+        CreditPackage $package,
+        ?string $couponCode = null,
+    ): CreditPurchase {
         if (! $this->participation->isPartyTo($student, $course)) {
             throw new AuthorizationException('لا يمكنك شراء أرصدة على كورس لست طرفاً فيه.');
         }
@@ -109,17 +117,43 @@ class PurchaseCredits extends Action
             throw new DomainException('لا يمكن تسعير هذا الكورس حالياً، فالشراء غير متاح.');
         }
 
-        return DB::transaction(function () use ($student, $course, $package, $balance, $price): CreditPurchase {
+        /*
+        | ⚠️ THE DISCOUNT MOVES `orders.amount_minor` AND LEAVES THE SNAPSHOT
+        | ALONE (T067 · FR-010). `credit_purchases` records what the four parts of
+        | the price WERE at the moment of sale — the teacher's approved rate among
+        | them — and the settlement close reads that snapshot to decide what the
+        | teacher is owed. Discounting it would take a platform campaign out of a
+        | teacher's pay, which is the one thing FR-010 forbids by name.
+        |
+        | So the two numbers are allowed to differ, deliberately: the order is
+        | what the buyer transfers, the snapshot is what the sale was worth. The
+        | difference is the platform's, and it is recorded on the redemption row.
+        */
+        $discount = $this->discounts->resolve(
+            $student,
+            (int) $course->workspace_id,
+            $price->totalMinor,
+            $couponCode,
+            CouponScope::CreditPackage,
+            (string) $package->uuid,
+        );
+
+        return DB::transaction(function () use ($student, $course, $package, $balance, $price, $discount): CreditPurchase {
             $order = Order::create([
                 'workspace_id' => $course->workspace_id,
                 'user_id' => $student->getKey(),
                 'course_id' => $course->getKey(),
                 'kind' => OrderKind::Credits,
-                'amount_minor' => $price->totalMinor,
+                'amount_minor' => $price->totalMinor - $discount->amountMinor,
                 'currency' => $price->currency,
                 'provider' => 'manual',
                 'status' => 'pending',
             ]);
+
+            // Inside the transaction: a ceiling claimed out from under this
+            // purchase throws, and the rollback stops an order existing at a
+            // price the coupon no longer justifies.
+            $this->redeem->handle($order, $discount);
 
             return CreditPurchase::create([
                 'credit_balance_id' => $balance->getKey(),

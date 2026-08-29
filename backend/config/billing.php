@@ -151,4 +151,24 @@ return [
     | platform having no idea.
     */
     'review_sla_hours' => 24,
+
+    /*
+    | The family discount, as a whole percent (spec 011 · FR-013 · D16).
+    |
+    | ZERO IS THE DEFAULT AND ZERO MEANS OFF. A discount that switches itself on
+    | the day the code ships would reprice every purchase on the platform with
+    | nobody having decided anything; the operator turns it on from `/admin`.
+    |
+    | A whole percent rather than basis points, and that is a deliberate
+    | departure from the gateway fee two blocks up. It is compared against a
+    | coupon's `percent` kind by `DiscountResolver` — «the highest one alone
+    | applies» — and two units for one comparison is a conversion somebody gets
+    | backwards, which here would silently apply a 10% family discount as 0.1%.
+    | Integer either way, so no float ever touches the money.
+    |
+    | Discovery is `parent_student_relations` (D12), never the phone number the
+    | spec first assumed: `users.phone` is a free string nobody confirmed, and a
+    | discount built on a typo hands one family another family's money.
+    */
+    'sibling_discount' => 0,
 ];

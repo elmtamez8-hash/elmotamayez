@@ -82,7 +82,15 @@ class OrderController extends Controller
             return response()->json(['message' => 'This course is free; no order needed.'], 422);
         }
 
-        $order = $action->handle($course, $this->currentUser($request));
+        $validated = $request->validate([
+            'coupon_code' => ['nullable', 'string', 'max:32'],
+        ]);
+
+        $order = $action->handle(
+            $course,
+            $this->currentUser($request),
+            $validated['coupon_code'] ?? null,
+        );
 
         return response()->json(OrderResource::make($order), 201);
     }

@@ -11,6 +11,7 @@ use App\Modules\Payments\Http\Controllers\Admin\PaymentReconciliationController;
 use App\Modules\Payments\Http\Controllers\Admin\ReconciliationController;
 use App\Modules\Payments\Http\Controllers\BillingController;
 use App\Modules\Payments\Http\Controllers\BillingSettingsController;
+use App\Modules\Payments\Http\Controllers\CouponController;
 use App\Modules\Payments\Http\Controllers\CreditPurchaseController;
 use App\Modules\Payments\Http\Controllers\Manage\CreditLimitController;
 use App\Modules\Payments\Http\Controllers\Manage\ExamModeController;
@@ -104,6 +105,24 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     Route::get('/billing/packages', [CreditPurchaseController::class, 'index']);
     Route::post('/billing/purchases', [CreditPurchaseController::class, 'store']);
 
+});
+
+/*
+| What a discount code is worth, before anything is paid (spec 011 · FR-011).
+|
+| ⚠️ ITS OWN GROUP FOR ITS OWN LIMITER. `throttle:billing` is a shared bucket
+| sized for a student reading their balance; this is the one route in the product
+| whose entire purpose is to be guessed at, and the two must not draw on one
+| counter — putting a keyspace walk and a balance refresh in the same bucket
+| means the attacker locks the honest reader out, or the honest reader's ceiling
+| is the attacker's budget. `ThrottleRequests` puts no route in the hash, which is
+| exactly why inline limits are banned here.
+*/
+Route::middleware(['auth:sanctum', 'throttle:coupon'])->group(function (): void {
+    Route::post('/billing/coupons/preview', [CouponController::class, 'preview']);
+});
+
+Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void {
     /*
     | The platform's catalogue and the platform's half of the price (FR-016 ·
     | FR-021أ). Both are guarded by PLATFORM permissions that no tenant role

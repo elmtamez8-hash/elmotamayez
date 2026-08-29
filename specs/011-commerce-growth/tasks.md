@@ -160,25 +160,25 @@ description: "Task list — 011 التجارة والنمو"
 
 **Independent Test**: كوبونٌ صالحٌ ومنتهٍ ومستنفَد، وابنٌ ثانٍ لوليِّ أمرٍ له ابنٌ مسجَّل.
 
-- [ ] T060 [P] [US2] هجرةُ `coupons` في `backend/app/Modules/Payments/Database/Migrations/` — §٤، `workspace_id` **`nullable` كنطاقٍ لا كمفتاحِ مستأجِر**، و`starts_at`/`ends_at` **`timestamp` لا `date`** (⚠️ تاريخٌ يُقارَنُ بـ`<=` يقتلُ الكوبونَ في يومِه الأخير)، وفهرسُ `[workspace_id, is_active]`.
-- [ ] T061 [P] [US2] هجرةُ `coupon_redemptions` — `unique(coupon_id, order_id)` وكلاهما `NOT NULL` (⚠️ `NULL != NULL` يُبطِلُ الفهرس)، وفهرسُ `[user_id]`.
-- [ ] T062 [P] [US2] مفتاحُ `billing.sibling_discount` في `PlatformSettings::KEYS` و`config/billing.php`. ⚠️ **لا جدولَ لكلِّ مساحة**: القيمةُ قرارُ منصّةٍ واحدٌ (قرارُ المستخدم)، والخصمُ يخرجُ من عمولتِها.
-- [ ] T063 [P] [US2] نموذجا `backend/app/Modules/Payments/Models/{Coupon,CouponRedemption}.php` — ⚠️ **`Coupon` بلا `BelongsToWorkspace`**، والمخالفةُ مسجَّلةٌ في `plan.md › Complexity Tracking`.
-- [ ] T064 [US2] `backend/app/Modules/Payments/Support/DiscountResolver.php` — يعودُ **بخصمٍ واحدٍ ومصدرِه** (الأعلى وحدَه)، والثابتُ `min(value, line_total)` **داخلَه وحدَه**. ⚠️ الحارسُ في الفعل: `$q->where(fn ($q) => $q->whereNull('workspace_id')->orWhere('workspace_id', $current))` — **والقوسانِ ليسا زينة**، بدونَهما ينفصلُ `OR` فيُقبَلُ الكوبونُ المنتهي.
-- [ ] T065 [US2] `backend/app/Modules/Payments/Support/SiblingDiscount.php` — يقرأُ عبرَ **`Shared\Contracts\GuardianDirectory`** لا باستعلامٍ مباشر. ⚠️ دفترُ تعليقِ ذلك العقدِ يقولُ بالاسمِ إنّ «Payments تستعلمُ `parent_student_relations` بنفسِها» مخالفةٌ للمبدأِ الثالث. **وسِّعِ العقدَ** بدالّةِ «كم طفلاً لهذا الوليّ» — الدالّتانِ القائمتانِ مفتاحُهما `GuardianPermission`، و«هل هذا ابنٌ ثانٍ» ليست إذناً.
-- [ ] T066 [US2] `backend/app/Modules/Payments/Actions/{PreviewDiscount,RedeemCoupon}.php`. ⚠️ **`preview` لا يستهلكُ سقفاً**، و`RedeemCoupon` **تكتبُ صفَّ الاستعمالِ ثمّ تزيدُ العدّاد** (ترتيبُ `CreditLedger`) — معكوساً يبتلعُ حدثٌ مُعادٌ الإدراجَ ويزيدُ العدّادَ فينفدُ الكوبونُ مبكّراً بلا ما ينتبه.
-- [ ] T067 [US2] خطّافُ الخصمِ في **ثلاثةِ مسارات**: `PurchaseStoreItem` · `backend/app/Modules/Payments/Actions/CreateOrder.php` (كورس) · شراءُ الأرصدة. ⚠️ نطاقُ الكوبونِ يشملُ `course` و`credit_package`، وكان مسارُ المتجرِ وحدَه يقبلُ كوداً.
-- [ ] T068 [P] [US2] مورِدُ Filament ‏`backend/app/Modules/Payments/Filament/Resources/CouponResource.php` بصلاحيةِ منصّة، ومسارُ `/admin/sibling-discount`.
-- [ ] T069 [P] [US2] أدرِجْ موارِدَ الكوبونِ في قائمةِ `backend/tests/Feature/Payments/PaymentExposureTest.php`. ⚠️ `PaymentFieldAllowlist` **قائمةُ حمولاتٍ مكتوبةٌ بيد** وتقولُ عن نفسِها إنّ حمولةً تُضافُ لاحقاً **غيرُ مفحوصة**.
+- [X] T060 [P] [US2] هجرةُ `coupons` في `backend/app/Modules/Payments/Database/Migrations/` — §٤، `workspace_id` **`nullable` كنطاقٍ لا كمفتاحِ مستأجِر**، و`starts_at`/`ends_at` **`timestamp` لا `date`** (⚠️ تاريخٌ يُقارَنُ بـ`<=` يقتلُ الكوبونَ في يومِه الأخير)، وفهرسُ `[workspace_id, is_active]`.
+- [X] T061 [P] [US2] هجرةُ `coupon_redemptions` — `unique(coupon_id, order_id)` وكلاهما `NOT NULL` (⚠️ `NULL != NULL` يُبطِلُ الفهرس)، وفهرسُ `[user_id]`.
+- [X] T062 [P] [US2] مفتاحُ `billing.sibling_discount` في `PlatformSettings::KEYS` و`config/billing.php`. ⚠️ **لا جدولَ لكلِّ مساحة**: القيمةُ قرارُ منصّةٍ واحدٌ (قرارُ المستخدم)، والخصمُ يخرجُ من عمولتِها.
+- [X] T063 [P] [US2] نموذجا `backend/app/Modules/Payments/Models/{Coupon,CouponRedemption}.php` — ⚠️ **`Coupon` بلا `BelongsToWorkspace`**، والمخالفةُ مسجَّلةٌ في `plan.md › Complexity Tracking`.
+- [X] T064 [US2] `backend/app/Modules/Payments/Support/DiscountResolver.php` — يعودُ **بخصمٍ واحدٍ ومصدرِه** (الأعلى وحدَه)، والثابتُ `min(value, line_total)` **داخلَه وحدَه**. ⚠️ الحارسُ في الفعل: `$q->where(fn ($q) => $q->whereNull('workspace_id')->orWhere('workspace_id', $current))` — **والقوسانِ ليسا زينة**، بدونَهما ينفصلُ `OR` فيُقبَلُ الكوبونُ المنتهي.
+- [X] T065 [US2] `backend/app/Modules/Payments/Support/SiblingDiscount.php` — يقرأُ عبرَ **`Shared\Contracts\GuardianDirectory`** لا باستعلامٍ مباشر. ⚠️ دفترُ تعليقِ ذلك العقدِ يقولُ بالاسمِ إنّ «Payments تستعلمُ `parent_student_relations` بنفسِها» مخالفةٌ للمبدأِ الثالث. **وسِّعِ العقدَ** بدالّةِ «كم طفلاً لهذا الوليّ» — الدالّتانِ القائمتانِ مفتاحُهما `GuardianPermission`، و«هل هذا ابنٌ ثانٍ» ليست إذناً.
+- [X] T066 [US2] `backend/app/Modules/Payments/Actions/{PreviewDiscount,RedeemCoupon}.php`. ⚠️ **`preview` لا يستهلكُ سقفاً**، و`RedeemCoupon` **تكتبُ صفَّ الاستعمالِ ثمّ تزيدُ العدّاد** (ترتيبُ `CreditLedger`) — معكوساً يبتلعُ حدثٌ مُعادٌ الإدراجَ ويزيدُ العدّادَ فينفدُ الكوبونُ مبكّراً بلا ما ينتبه.
+- [X] T067 [US2] خطّافُ الخصمِ في **ثلاثةِ مسارات**: `PurchaseStoreItem` · `backend/app/Modules/Payments/Actions/CreateOrder.php` (كورس) · شراءُ الأرصدة. ⚠️ نطاقُ الكوبونِ يشملُ `course` و`credit_package`، وكان مسارُ المتجرِ وحدَه يقبلُ كوداً.
+- [X] T068 [P] [US2] مورِدُ Filament ‏`backend/app/Modules/Payments/Filament/Resources/CouponResource.php` بصلاحيةِ منصّة، ومسارُ `/admin/sibling-discount`.
+- [X] T069 [P] [US2] أدرِجْ موارِدَ الكوبونِ في قائمةِ `backend/tests/Feature/Payments/PaymentExposureTest.php`. ⚠️ `PaymentFieldAllowlist` **قائمةُ حمولاتٍ مكتوبةٌ بيد** وتقولُ عن نفسِها إنّ حمولةً تُضافُ لاحقاً **غيرُ مفحوصة**.
 
 ### الاختبارات
 
-- [ ] T070 [P] [US2] `CouponCapConcurrencyTest.php` — `SC-003` بشكلِ الخطّافِ لا بحلقة.
-- [ ] T071 [P] [US2] `CouponScopeTest.php` — كوبونُ منصّةٍ يُقبَلُ في مساحتَين ⇐ يسقطُ لو أُضيفَ `BelongsToWorkspace`.
-- [ ] T072 [US2] `CouponLeakTest.php` — ⚠️ **الاتّجاهُ المُسرِّب**: يمشي **كلَّ فعلٍ يقرأُ كوبوناً** ويُثبِتُ أنّ كوبونَ مساحةٍ لا يُطبَّقُ في أخرى. `WorkspaceIsolationTest` لا يستضيفُه.
-- [ ] T073 [P] [US2] `CouponBracketTest.php` (منتهٍ يُرفَض) · `FixedCouponClampTest.php` (٥٠ على ٣٠ ⇒ **صفرٌ لا سالب**) · `RedemptionBeforeCounterTest.php`.
-- [ ] T074 [P] [US2] `SiblingDiscountTest.php` (`SC-004`) · `DiscountStackingTest.php` · `CouponNeverTouchesTeacherTest.php` (⚠️ `teacher_net_minor` لا يتحرّكُ و`commission_minor` يُسمَحُ له بالسالب) · `CouponOracleTest.php`.
-- [ ] T075 [P] [US2] واجهةُ الخصمِ: `frontend/src/components/store/CouponField.tsx` + السطرُ الصريحُ قبلَ الدفع (FR-011) + اختبارُ مكوّن.
+- [X] T070 [P] [US2] `CouponCapConcurrencyTest.php` — `SC-003` بشكلِ الخطّافِ لا بحلقة.
+- [X] T071 [P] [US2] `CouponScopeTest.php` — كوبونُ منصّةٍ يُقبَلُ في مساحتَين ⇐ يسقطُ لو أُضيفَ `BelongsToWorkspace`.
+- [X] T072 [US2] `CouponLeakTest.php` — ⚠️ **الاتّجاهُ المُسرِّب**: يمشي **كلَّ فعلٍ يقرأُ كوبوناً** ويُثبِتُ أنّ كوبونَ مساحةٍ لا يُطبَّقُ في أخرى. `WorkspaceIsolationTest` لا يستضيفُه.
+- [X] T073 [P] [US2] `CouponBracketTest.php` (منتهٍ يُرفَض) · `FixedCouponClampTest.php` (٥٠ على ٣٠ ⇒ **صفرٌ لا سالب**) · `RedemptionBeforeCounterTest.php`.
+- [X] T074 [P] [US2] `SiblingDiscountTest.php` (`SC-004`) · `DiscountStackingTest.php` · `CouponNeverTouchesTeacherTest.php` (⚠️ `teacher_net_minor` لا يتحرّكُ و`commission_minor` يُسمَحُ له بالسالب) · `CouponOracleTest.php`.
+- [X] T075 [P] [US2] واجهةُ الخصمِ: `frontend/src/components/store/CouponField.tsx` + السطرُ الصريحُ قبلَ الدفع (FR-011) + اختبارُ مكوّن.
 
 ---
 

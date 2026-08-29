@@ -126,6 +126,26 @@ export function teacherNetMinor(priceMinor: number, commissionBps: number): numb
   return priceMinor - Math.floor((priceMinor * commissionBps) / 10_000);
 }
 
+export type CouponSubjectKind = "store_item" | "course" | "credit_package";
+
+/**
+ * ONE discount and where it came from — mirrors `AppliedDiscount::toArray()`.
+ *
+ * ⚠️ SINGULAR, BECAUSE THE POLICY IS «THE HIGHEST ALONE APPLIES». A list here
+ * would invite a component to sum it, which is the stacking rule being
+ * re-decided in TypeScript by somebody who does not know they are deciding it.
+ *
+ * ⚠️ AND THE SERVER SENDS NO COUPON DETAIL — no ceiling, no remaining count, no
+ * scope. A preview that returned them would be a free enumeration tool on the
+ * one endpoint built to be guessed at. `label` is the sentence to show; the
+ * client does not compose one.
+ */
+export interface AppliedDiscount {
+  discount_minor: number;
+  source: "none" | "coupon" | "sibling";
+  label: string | null;
+}
+
 export const store = {
   // ── The teacher ──────────────────────────────────────────────────────────
   items: () => api.get<Paginated<StoreItem>>("/store/items"),
@@ -164,6 +184,7 @@ export const store = {
       phone?: string;
       address_line?: string;
       notes?: string;
+      coupon_code?: string;
     },
     idempotencyKey: string,
   ) =>
@@ -181,6 +202,21 @@ export const store = {
       {},
       idempotencyKey,
     ),
+
+  /**
+   * What a code is worth, before anything is paid (spec 011 · FR-011).
+   *
+   * ⚠️ IT CONSUMES NO CEILING, so it is safe to call as the buyer types — but it
+   * carries the tightest rate limiter in the product (`throttle:coupon`, ten a
+   * minute) because it is the one endpoint whose purpose is to be guessed at.
+   * Call it on SUBMIT, never on keystroke.
+   *
+   * ⚠️ AND `code` MAY BE OMITTED. That is how the family discount reaches a
+   * buyer who never types anything: FR-011 asks for the discount to be shown
+   * before payment, and an automatic one is still a discount.
+   */
+  previewDiscount: (body: { kind: CouponSubjectKind; uuid: string; code?: string }) =>
+    api.post<AppliedDiscount>("/billing/coupons/preview", body),
 
   /** One key per attempt. `crypto.randomUUID` is available in every browser this product supports. */
   newIdempotencyKey: (): string => crypto.randomUUID(),

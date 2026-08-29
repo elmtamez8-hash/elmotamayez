@@ -34,6 +34,11 @@ class PurchaseCreditsRequest extends FormRequest
         return [
             'course' => ['required', 'string', 'uuid'],
             'package' => ['required', 'string', 'uuid'],
+            // Shape only, as above. Whether the code exists, is live, is in
+            // scope and has a place left is `DiscountResolver`'s to answer with
+            // one uniform sentence — an `exists:` rule here would be the oracle
+            // that sentence exists to close.
+            'coupon_code' => ['nullable', 'string', 'max:32'],
         ];
     }
 }

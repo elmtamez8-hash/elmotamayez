@@ -205,6 +205,14 @@ class AdminPanelProvider extends PanelProvider
                 in: app_path('Modules/Tenancy/Filament/Pages'),
                 for: 'App\Modules\Tenancy\Filament\Pages',
             )
+            // ⚠️ A PAGE IN A DIRECTORY NOBODY DISCOVERS IS A SCREEN THAT DOES NOT
+            // EXIST — no route, no navigation entry, and no error anywhere. Its
+            // permission then guards nothing while passing every test written
+            // about it, which is `taxonomy.manage` reached from a new direction.
+            ->discoverPages(
+                in: app_path('Modules/Payments/Filament/Pages'),
+                for: 'App\Modules\Payments\Filament\Pages',
+            )
             ->pages([
                 Dashboard::class,
             ])

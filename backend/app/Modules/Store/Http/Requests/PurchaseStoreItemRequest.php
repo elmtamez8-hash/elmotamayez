@@ -36,6 +36,12 @@ class PurchaseStoreItemRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:32'],
             'address_line' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:255'],
+            // Shape only. Whether the code exists, is live, is in scope and has
+            // a place left is `DiscountResolver`'s to answer with ONE uniform
+            // sentence; an `exists:` rule here would tell a guesser that a code
+            // is real at another teacher's, which is the oracle that sentence
+            // exists to close.
+            'coupon_code' => ['nullable', 'string', 'max:32'],
         ];
     }
 }

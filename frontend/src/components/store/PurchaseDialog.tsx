@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { CouponField } from "./CouponField";
 import { EMPTY_ADDRESS, ShippingAddressFields, type ShippingAddress } from "./ShippingAddressFields";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -9,7 +10,7 @@ import { NumberField } from "@/components/ui/Field";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { formatMinorMoney } from "@/lib/labels";
-import { store, type StoreItem, type StorePurchase } from "@/lib/store";
+import { store, type AppliedDiscount, type StoreItem, type StorePurchase } from "@/lib/store";
 
 /**
  * Confirm a purchase.
@@ -26,6 +27,17 @@ import { store, type StoreItem, type StorePurchase } from "@/lib/store";
  * ⚠️ THE IDEMPOTENCY KEY IS MINTED PER ATTEMPT and sent with the request. Without
  * it `Idempotent` middleware returns early and a double tap on a slow connection
  * writes two orders, each waiting for its own bank transfer.
+ *
+ * ⚠️ AND THE DISCOUNT IS ASKED FOR ONCE ON OPEN, WITH NO CODE (FR-011). That is
+ * the only way a family discount reaches the screen: it is automatic, so a buyer
+ * who types nothing would otherwise be shown a total the server is about to
+ * disagree with — and «the discount appears explicitly before payment» is the
+ * requirement, not «the coupon does».
+ *
+ * ⚠️ THE CODE ITSELF IS SENT TO THE SERVER, NEVER THE AMOUNT. The preview claims
+ * nothing and holds nothing; the purchase re-resolves the discount against the
+ * real line, so a client that posted its own figure would be posting a number
+ * the server has to ignore anyway.
  */
 export function PurchaseDialog({
   item,
@@ -37,6 +49,8 @@ export function PurchaseDialog({
   onCancel: () => void;
 }) {
   const [quantity, setQuantity] = useState("1");
+  const [discount, setDiscount] = useState<AppliedDiscount | null>(null);
+  const [code, setCode] = useState<string | null>(null);
   const [address, setAddress] = useState<ShippingAddress>(EMPTY_ADDRESS);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [problem, setProblem] = useState<string | null>(null);
@@ -46,6 +60,27 @@ export function PurchaseDialog({
   const count = Math.max(1, Number.parseInt(quantity, 10) || 1);
   const goods = item.price_minor * count;
   const shipping = printed ? (item.shipping_fee_minor ?? 0) : 0;
+  // The postage is never discounted: it is money the teacher hands to a courier,
+  // and the server splits it the same way.
+  const off = Math.min(discount?.discount_minor ?? 0, goods);
+
+  useEffect(() => {
+    let live = true;
+
+    store
+      .previewDiscount({ kind: "store_item", uuid: item.uuid })
+      // A preview that fails costs the buyer nothing — the server applies what
+      // is due at purchase either way — so it is swallowed rather than turned
+      // into an error over a line that is merely informative.
+      .then((applied) => {
+        if (live && applied.discount_minor > 0) setDiscount(applied);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      live = false;
+    };
+  }, [item.uuid]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -58,6 +93,7 @@ export function PurchaseDialog({
         {
           item_uuid: item.uuid,
           quantity: count,
+          ...(code !== null ? { coupon_code: code } : {}),
           ...(printed
             ? {
                 recipient_name: address.recipient_name,
@@ -109,7 +145,24 @@ export function PurchaseDialog({
           <ShippingAddressFields value={address} onChange={setAddress} errors={errors} />
         )}
 
-        <Alert tone="info" title={`الإجمالي: ${formatMinorMoney(goods + shipping, item.currency)}`}>
+        <CouponField
+          kind="store_item"
+          uuid={item.uuid}
+          currency={item.currency}
+          onApplied={(applied, appliedCode) => {
+            setDiscount(applied);
+            setCode(appliedCode);
+          }}
+        />
+
+        {off > 0 && (
+          <p className="text-sm text-ink-muted">
+            قبل الخصم: {formatMinorMoney(goods + shipping, item.currency)} · الخصم:{" "}
+            {formatMinorMoney(off, item.currency)}
+          </p>
+        )}
+
+        <Alert tone="info" title={`الإجمالي: ${formatMinorMoney(goods - off + shipping, item.currency)}`}>
           {printed
             ? "يشمل رسم الشحن. يُخصم المخزون ويبدأ التجهيز فور اعتماد دفعتك."
             : "يُفتح الملف فور اعتماد دفعتك. الدفع تحويل بنكي يدوي، فقد يستغرق الاعتماد يوماً أو أكثر."}

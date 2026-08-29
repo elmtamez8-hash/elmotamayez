@@ -232,6 +232,84 @@ the CLIENT sends `Idempotency-Key`. `lib/store.ts` mints one per attempt.
   doors above it. No entitlement condition may move into the mint: one that did
   would start being enforced by the other door with nobody deciding it should.
 
+### Coupons and the family discount (spec 011 · US2)
+
+| Method | Path | Who |
+|---|---|---|
+| `POST` | `/billing/coupons/preview` | any signed-in buyer · `throttle:coupon` |
+| `/admin/coupons…` | Filament (`CouponResource`) | **platform** · `billing.coupons.manage` |
+| `/admin/sibling-discount` | Filament (`ManageSiblingDiscount`) | **platform** · `billing.coupons.manage` |
+
+A code may be spent on all THREE purchase paths, because a coupon's scope covers
+`course` and `credit_package` as well as `store_item`: `POST /store/purchases`,
+`POST /orders/{course}` and `POST /billing/purchases` each take an optional
+`coupon_code`.
+
+- **`coupons` carries no `BelongsToWorkspace`, and the violation is recorded** in
+  `plan.md › Complexity Tracking`. FR-010 moved authorship to the platform, so a
+  platform coupon is `workspace_id IS NULL` — and the global scope would add
+  `= X`, making every one of them vanish from every workspace in existence,
+  silently. The guard is one GROUPED clause in `DiscountResolver`; flatten the
+  parentheses and the `OR` splits the whole predicate, at which point an expired
+  coupon from another teacher is accepted. `CouponLeakTest` walks every Action
+  that reads a coupon, because `WorkspaceIsolationTest` does not host this shape.
+- **The highest discount alone applies — there is no stacking**, decided in
+  `DiscountResolver` and returned as ONE value with its source. A DTO carrying a
+  list would let the policy be re-decided by whoever sums it next.
+- **The fixed coupon is clamped at the line total inside `CouponValueKind`, and
+  nowhere else.** Three purchase paths means three spellings of a clamp, of which
+  one gets forgotten — and 50 off a 30-riyal notebook is zero, never minus
+  twenty. FR-014's declared minimum is ZERO, enforced by cutting rather than by a
+  column.
+- **The discount comes entirely out of the platform's commission, which may go
+  negative.** `teacher_net_minor` is computed from the LIST price and does not
+  move: a teacher never agreed to the campaign and did not set its price. List
+  50 · teacher 45 · coupon −10 ⇒ buyer pays 40, platform's share −5.
+- **The redemption row is written BEFORE the counter moves** (`CreditLedger`'s
+  order). Reversed, a redelivered event has its INSERT swallowed by
+  `unique(coupon_id, order_id)` and increments the counter twice: the coupon runs
+  out early and `redemptions_count` disagrees with `COUNT(*)` for ever.
+- **The ceiling is claimed by a conditional UPDATE carrying its own predicate**,
+  never `count()` then `insert()` and never `lockForUpdate()`. The race cannot be
+  reproduced from one process — measured in Phase 3, where a read-then-write
+  rewrite left every behavioural case green — so `CouponCapConcurrencyTest` pins
+  the MECHANISM: exactly one `update "coupons"` carrying
+  `redemptions_count < max_redemptions`.
+- **A coupon is claimed at PURCHASE, inside the purchase's transaction.** The
+  three routes each take a code and no column carries one between purchase and
+  approval. The price is written down: an order later rejected has consumed a
+  place and nothing releases it — a campaign that undersells by the number of
+  abandoned transfers, rather than one that oversells.
+- **The refusal does not distinguish «unknown» from «not yours».** `code` is
+  unique platform-wide while `workspace_id` narrows who may spend it, so a
+  detailed answer tells a guesser that a code exists at another teacher's — the
+  payment webhook's uniform-`202` rule from a second direction. «Expired» and
+  «used up» ARE stated, to a caller who has already proved they hold a real code
+  in their own scope.
+- **`code` is normalised in PHP at write and at read, never `UPPER()` in SQL.** A
+  function around the column throws away the index on the one path whose rate
+  limit exists *because* it is guessed at — and MySQL matches case-insensitively
+  where SQLite does not, so leaving it to the engine proves the opposite of what
+  a local test claims.
+- **`starts_at`/`ends_at` are TIMESTAMPS, never dates.** A `date` compared with
+  `<=` binds midnight and kills a campaign on the morning of its own last day —
+  the boundary that has already cost `FreezePeriod::covering()`, the settlement
+  close and the coming-of-age sweep a fix each.
+- **The family discount is ONE `platform_settings` row and no table at all**
+  (`billing.sibling_discount`, a whole percent, 0 = off). It comes out of the
+  platform's commission, so the platform decides it; discovery is
+  `parent_student_relations` read through `GuardianDirectory::hasRegisteredSibling()`
+  — never `users.phone`, a free string nobody confirmed — and that method is the
+  only one on the contract that takes no `GuardianPermission`, because «is this a
+  second child» is a fact about a family and not something anybody is authorised
+  for. It applies to every sibling once more than one is registered, not only to
+  whoever signed up second.
+- **`PreviewDiscount` consumes no ceiling, and `credit_package` is deliberately
+  not previewable.** A package has no price column — its price is computed per
+  course from that teacher's approved rate — so «the price of this package» is
+  not a question with one answer. The coupon still works on that path; what is
+  missing is the preview.
+
 ### Order kinds and who signs for the money (spec 011)
 
 `OrderKind` has four cases: `course`, `credits`, `store`, `subscription`.

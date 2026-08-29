@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Store\Actions;
 
 use App\Models\User;
+use App\Modules\Payments\Actions\RedeemCoupon;
+use App\Modules\Payments\Enums\CouponScope;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Models\Order;
+use App\Modules\Payments\Support\DiscountResolver;
 use App\Modules\Store\Data\PurchaseData;
 use App\Modules\Store\Models\Shipment;
 use App\Modules\Store\Models\StoreItem;
@@ -36,6 +39,11 @@ use Illuminate\Support\Facades\DB;
  */
 class PurchaseStoreItem extends Action
 {
+    public function __construct(
+        private readonly DiscountResolver $discounts,
+        private readonly RedeemCoupon $redeem,
+    ) {}
+
     public function handle(User $buyer, PurchaseData $data): StoreOrder
     {
         $item = $this->resolveItem($data->itemUuid);
@@ -63,15 +71,33 @@ class PurchaseStoreItem extends Action
         $shipping = $item->kind->isStocked() ? (int) $item->shipping_fee_minor : 0;
         $commission = StoreSettings::commissionOn($goods);
 
+        /*
+        | ⚠️ THE DISCOUNT COMES OFF THE GOODS AND NOT OFF THE POSTAGE. The
+        | shipping fee is money the teacher hands to a courier; discounting it
+        | would make the platform's campaign pay part of somebody else's invoice.
+        |
+        | ⚠️ AND IT IS RESOLVED AGAINST THE ITEM'S WORKSPACE, never against
+        | `WorkspaceContext::id()` — which is null for every student, so reading
+        | the context here would let only platform coupons ever match.
+        */
+        $discount = $this->discounts->resolve(
+            $buyer,
+            $workspaceId,
+            $goods,
+            $data->couponCode,
+            CouponScope::StoreItem,
+            (string) $item->uuid,
+        );
+
         return DB::transaction(function () use (
-            $buyer, $data, $item, $workspaceId, $goods, $shipping, $commission
+            $buyer, $data, $item, $workspaceId, $goods, $shipping, $commission, $discount
         ): StoreOrder {
             $order = Order::create([
                 'workspace_id' => $workspaceId,
                 'user_id' => $buyer->getKey(),
                 'course_id' => $item->course_id,
                 'kind' => OrderKind::Store,
-                'amount_minor' => $goods + $shipping,
+                'amount_minor' => $goods - $discount->amountMinor + $shipping,
                 'currency' => $item->currency,
                 'provider' => 'manual',
                 'status' => 'pending',
@@ -86,15 +112,26 @@ class PurchaseStoreItem extends Action
                 // Per unit, so a later price change cannot rewrite what this
                 // buyer agreed to.
                 'unit_price_minor' => (int) $item->price_minor,
-                'discount_minor' => 0,
+                'discount_minor' => $discount->amountMinor,
                 // Frozen on the line: the teacher may raise the postage
                 // tomorrow, and recomputing it would rewrite what this buyer
                 // agreed to — and would put a number on their screen that no
                 // longer matches the transfer the order is waiting for.
                 'shipping_minor' => $shipping,
-                // Per LINE, both of them — the split is frozen at the moment of
-                // sale, because a rate read afterwards is a different number.
-                'commission_minor' => $commission,
+                /*
+                | Per LINE, both of them — the split is frozen at the moment of
+                | sale, because a rate read afterwards is a different number.
+                |
+                | ⚠️ THE DISCOUNT COMES ENTIRELY OUT OF THE PLATFORM'S SHARE, AND
+                | THAT SHARE IS ALLOWED TO GO NEGATIVE (FR-010). A coupon must not
+                | touch what the teacher is owed — they never agreed to the
+                | campaign and did not set its price — so `teacher_net_minor` is
+                | computed from the LIST price and does not move. List 50, teacher
+                | 45, coupon −10 ⇒ the buyer pays 40 and the platform's share is
+                | −5: a decision the platform made when it created the coupon,
+                | which is why the column is a signed `bigInteger`.
+                */
+                'commission_minor' => $commission - $discount->amountMinor,
                 'teacher_net_minor' => $goods - $commission + $shipping,
                 'currency' => $item->currency,
             ]);
@@ -115,6 +152,12 @@ class PurchaseStoreItem extends Action
                     'notes' => $data->notes,
                 ]);
             }
+
+            // Inside the transaction on purpose: the claim on the coupon's
+            // ceiling throws when somebody took the last place in between, and
+            // the rollback is what stops the order existing at a price the
+            // coupon no longer justifies.
+            $this->redeem->handle($order, $discount);
 
             return $storeOrder;
         });
