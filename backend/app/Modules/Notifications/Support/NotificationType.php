@@ -241,6 +241,24 @@ enum NotificationType: string
 
     case CohortTransferRejected = 'cohort_transfer_rejected';
 
+    /*
+    | The store (011 · US1). Two, and the second is the one that is easy to
+    | leave out.
+    |
+    | A parcel changing state is news the buyer wants and the payer wants — both
+    | reach a guardian on the payments consent, because ordering a printed book is
+    | a purchase before it is anything else.
+    |
+    | ⚠️ AND `StorePurchaseUnavailable` IS MANDATORY. It is sent when the last copy
+    | went while a manual bank transfer was clearing: the money has been taken and
+    | is owed back. A preference that could hide it would leave somebody paid up,
+    | holding nothing, with no message saying why — which is the same reason every
+    | payment-path type is mandatory.
+    */
+    case ShipmentStatusChanged = 'shipment_status_changed';
+
+    case StorePurchaseUnavailable = 'store_purchase_unavailable';
+
     public function label(): string
     {
         return match ($this) {
@@ -298,6 +316,8 @@ enum NotificationType: string
             self::CohortTransferRequested => 'طلب انتقال بين المجموعات',
             self::CohortTransferApproved => 'قبول طلب الانتقال',
             self::CohortTransferRejected => 'رفض طلب الانتقال',
+            self::ShipmentStatusChanged => 'تحديث شحنة',
+            self::StorePurchaseUnavailable => 'طلب متجر غير متاح',
         };
     }
 
@@ -421,6 +441,11 @@ enum NotificationType: string
             | the right two.
             */
             self::AnnouncementUrgent => true,
+            // Spec 011 · FR-006ب. The money has been taken and is owed back. A
+            // preference that hid it would leave somebody paid up, holding
+            // nothing, with no message saying why. `ShipmentStatusChanged` is
+            // deliberately NOT here — «جُهّز» is news, not a consequence.
+            self::StorePurchaseUnavailable => true,
             default => false,
         };
     }
@@ -503,7 +528,11 @@ enum NotificationType: string
             // Spec 010. The guardian is the audience as much as the student is —
             // FR-029 names them both, and an assessment nobody at home reads is
             // the report card left in the school bag.
-            self::PeriodicReviewPublished => true,
+            self::PeriodicReviewPublished,
+            // Spec 011. A parcel and a refund are both facts about a purchase,
+            // and the guardian is usually the person who made it.
+            self::ShipmentStatusChanged,
+            self::StorePurchaseUnavailable => true,
             default => false,
         };
     }
@@ -557,6 +586,10 @@ enum NotificationType: string
             // Spec 010. The same consent as an exam result and a graded
             // assignment, because it is the same kind of fact about the same child.
             self::PeriodicReviewPublished => GuardianPermission::Results,
+            // Spec 011. Both are purchases before they are anything else, so
+            // they ride the same consent the payment path already uses.
+            self::ShipmentStatusChanged,
+            self::StorePurchaseUnavailable => GuardianPermission::Payments,
             default => null,
         };
     }

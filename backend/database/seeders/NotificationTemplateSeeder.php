@@ -454,6 +454,32 @@ class NotificationTemplateSeeder extends Seeder
                 '{{ body }}',
                 ['teacher_name', 'body'],
             ],
+            /*
+            | The store (011 · US1).
+            |
+            | ⚠️ NO AMOUNT AND NO PRICE IN EITHER, for the reason the payment path
+            | carries none: a store price is the teacher's shelf price minus a
+            | published commission, so a total on a phone is one subtraction away
+            | from the teacher's net. And `{{ status }}` is a LABEL from
+            | `ShipmentStatus`, never free text — a variable a person can type into
+            | is a variable inside an approved template, which is the one thing a
+            | provider does not allow.
+            |
+            | ⚠️ AND THE ORDER OF `variables` IS THE MESSAGE. What travels to the
+            | provider is the template NAME and an ORDERED list; a list built by
+            | walking a payload puts the status where the title belongs, on a
+            | parent's phone, with no error anywhere.
+            */
+            NotificationType::ShipmentStatusChanged->value => [
+                'تحديث شحنة «{{ item_title }}»',
+                'شحنة «{{ item_title }}» أصبحت: {{ status }}. تابع التفاصيل من صفحة مشترياتك.',
+                ['item_title', 'status'],
+            ],
+            NotificationType::StorePurchaseUnavailable->value => [
+                'طلبك «{{ item_title }}» غير متاح',
+                'نفدت النسخ من «{{ item_title }}» قبل اعتماد دفعتك، وطلبك مؤهّل لاسترداد المبلغ. ستصلك رسالة عند إتمامه.',
+                ['item_title'],
+            ],
             NotificationType::ExamPendingGrading->value => [
                 'تسلّمنا ورقتك في «{{ exam_title }}»',
                 'تسلّمنا ورقة {{ student_name }} في «{{ exam_title }}». فيها أسئلة مقالية ينتظر تصحيحُها المدرّس، وتصلك النتيجة كاملةً بعده.',

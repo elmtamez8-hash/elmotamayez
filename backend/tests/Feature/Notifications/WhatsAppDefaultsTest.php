@@ -37,7 +37,11 @@ it('defaults to whatsapp for exactly the eighteen guardian types plus the securi
     // to the guardian set, and it carries `requiredGuardianPermission()` in the
     // same edit — without which it would ride WhatsApp, be billed, and reach no
     // guardian at all.
-    expect($onWhatsApp)->toHaveCount(23);
+    // 23 → 25 with spec 011: `shipment_status_changed` and
+    // `store_purchase_unavailable`. Both are facts about a PURCHASE, so both ride
+    // the payments consent the payment path already uses — and both carry
+    // `requiredGuardianPermission()` in this same edit, for the reason above.
+    expect($onWhatsApp)->toHaveCount(25);
 });
 
 it('derives the set from targetsGuardians, with two named exceptions and no others', function (): void {

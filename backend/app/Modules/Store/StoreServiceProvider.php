@@ -4,8 +4,18 @@ declare(strict_types=1);
 
 namespace App\Modules\Store;
 
+use App\Modules\Payments\Events\PaymentApproved;
+use App\Modules\Payments\Events\PaymentCaptured;
+use App\Modules\Store\Listeners\FulfilOnPaymentApproved;
+use App\Modules\Store\Models\Shipment;
+use App\Modules\Store\Models\StoreItem;
+use App\Modules\Store\Policies\ShipmentPolicy;
+use App\Modules\Store\Policies\StoreItemPolicy;
+use App\Modules\Store\Support\StorePersonalData;
 use App\Shared\Modules\Module;
 use App\Shared\Modules\ModulesServiceProvider;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Spec 011 — the teacher's store: books and notes, digital or printed.
@@ -42,22 +52,47 @@ class StoreServiceProvider extends Module
 {
     protected string $name = 'Store';
 
-    /*
-    | ⚠️ THE COMPLIANCE TAG LANDS WITH THE FIRST MIGRATION, NOT HERE (T032a).
-    |
-    |     $this->app->tag([StorePersonalData::class], 'compliance.personal_data');
-    |
-    | It is one line and it is not optional — `shipments` carries a child's home
-    | address and phone number, and `PersonalDataContractCoverageTest` turns the
-    | build red the moment this module owns a migration holding a personal column.
-    | But `StorePersonalData` walks `StoreOrder` and `Shipment`, so writing it
-    | before those models exist would mean writing a `PersonalDataOwner` whose
-    | three methods return nothing — the shape of guard this repository has
-    | already shipped and recorded twice, where the tag is present, the test is
-    | green, and an erasure request completes while leaving the address exactly
-    | where it was.
-    |
-    | So the module ships its scaffold with NO personal column and NO tag, which
-    | is consistent rather than half-guarded, and the two arrive together.
-    */
+    /**
+     * ⚠️ ONE TAGGED LINE, AND `Compliance` NEVER NAMES A TABLE HERE. That is the
+     * whole reason a requirement crossing fourteen schemas does not violate
+     * Constitution III.
+     *
+     * It landed with the migrations rather than with the scaffold, deliberately:
+     * `StorePersonalData` walks `StoreOrder` and `Shipment`, so written earlier
+     * it would have been three methods returning nothing — the tag present, the
+     * test green, and an erasure request completing while leaving a child's home
+     * address exactly where it was.
+     */
+    public function register(): void
+    {
+        parent::register();
+
+        $this->app->tag([StorePersonalData::class], 'compliance.personal_data');
+    }
+
+    /**
+     * ⚠️ BOTH EVENTS, NOT JUST `PaymentApproved`. A manual transfer approved from
+     * the panel and a gateway capture are the same fact reached two ways, and
+     * Payments has already paid for binding only one of them — `CreateEnrollmentFromOrder`
+     * and `CreditPurchaseOnApproval` are each listed twice in that module's
+     * provider for exactly this reason. Bind one and every card payment on the
+     * platform buys a book that is never delivered, with no error anywhere.
+     */
+    public function boot(): void
+    {
+        parent::boot();
+
+        Event::listen(PaymentApproved::class, FulfilOnPaymentApproved::class);
+        Event::listen(PaymentCaptured::class, FulfilOnPaymentApproved::class);
+
+        /*
+        | ⚠️ BOUND EXPLICITLY, BECAUSE THE GUESSER FAILS **OPEN**. Laravel resolves
+        | a missing policy into "no policy applies" rather than into a refusal, so
+        | a forgotten line here is not a 403 anybody notices — it is every deny in
+        | both files above becoming an allow, silently. `taxonomy.manage` shipped
+        | that way for a whole phase.
+        */
+        Gate::policy(StoreItem::class, StoreItemPolicy::class);
+        Gate::policy(Shipment::class, ShipmentPolicy::class);
+    }
 }

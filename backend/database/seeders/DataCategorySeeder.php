@@ -439,6 +439,44 @@ class DataCategorySeeder extends Seeder
                 'expiry_behaviour' => ExpiryBehaviour::Delete->value,
                 'erasure_mode' => ErasureMode::Delete,
             ],
+
+            // ── Store (spec 011) ──────────────────────────────────────
+            [
+                'key' => 'store_purchase',
+                'label_ar' => 'مشترياتك من المتجر',
+                'purpose_ar' => 'إثباتُ ما اشتريتَه ومتى — ولفتحِ الكتابِ الرقميِّ الذي دفعتَ ثمنَه.',
+                'audience' => 'إدارة المنصّة · المدرّس البائع',
+                'is_required' => true,
+                'owning_module' => 'store',
+                'table_name' => 'store_orders',
+                'column_name' => 'buyer_user_id',
+                // ⚠️ A SALE IS A LEGAL RECORD, so no sweep touches it — the same
+                // reasoning as `payment_record`, and the same consequence: erasure
+                // severs the identity at the `users` row rather than deleting the
+                // purchase. It is ALSO what entitles the buyer to open the file
+                // they paid for, so a duration here would take a book away from
+                // somebody who owns it.
+                'retain_days' => null,
+                'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Anonymise,
+            ],
+            [
+                'key' => 'shipping_address',
+                'label_ar' => 'عنوان الشحن',
+                'purpose_ar' => 'لإيصالِ النسخةِ المطبوعةِ إلى الباب.',
+                'audience' => 'المدرّس البائع · شركة الشحن',
+                'is_required' => false,
+                'owning_module' => 'store',
+                'table_name' => 'shipments',
+                'column_name' => 'recipient_name',
+                // Two years. It is a place where a child lives, no invariant
+                // counts it, and nobody reads it again once the parcel arrives.
+                // The ROW survives — the purchase still shows something was
+                // posted — and only the address inside it is cleared.
+                'retain_days' => 730,
+                'expiry_behaviour' => ExpiryBehaviour::Anonymise->value,
+                'erasure_mode' => ErasureMode::Anonymise,
+            ],
         ];
     }
 }

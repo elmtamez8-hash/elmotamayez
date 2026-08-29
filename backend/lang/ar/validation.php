@@ -186,6 +186,19 @@ return [
 
     'attributes' => [
         'invitation' => 'الدعوة',
+        // المتجر (011)
+        'kind' => 'النوع',
+        'price_minor' => 'السعر',
+        'shipping_fee_minor' => 'رسم الشحن',
+        'stock' => 'المخزون',
+        'excerpt' => 'المقتطف',
+        'media_asset_uuid' => 'الملف المرفق',
+        'item_uuid' => 'المنتَج',
+        'quantity' => 'الكمية',
+        'recipient_name' => 'اسم المستلم',
+        'address_line' => 'العنوان',
+        'tracking_ref' => 'رقم التتبّع',
+        'notes' => 'ملاحظات',
         // الهوية والحساب
         'first_name' => 'الاسم الأول',
         'last_name' => 'اسم العائلة',
