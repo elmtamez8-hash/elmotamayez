@@ -13,10 +13,12 @@ use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Events\CreditConsumed;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditTransaction;
+use App\Modules\Payments\Models\Subscription;
 use App\Modules\Payments\Support\BalanceAnnouncer;
 use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Payments\Support\ExamMode;
+use App\Modules\Payments\Support\SubscriptionEligibility;
 use App\Shared\Actions\Action;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\Log;
@@ -54,6 +56,7 @@ class ChargeSessionSeats extends Action
         private readonly CreditLedger $ledger,
         private readonly BalanceAnnouncer $announcer,
         private readonly ExamMode $examMode,
+        private readonly SubscriptionEligibility $subscriptions,
     ) {}
 
     /** @return list<CreditTransaction> */
@@ -163,10 +166,38 @@ class ChargeSessionSeats extends Action
 
         $wasBlocked = $this->announcer->standingsFor($balances);
 
+        /*
+        | ⚠️ ONE READ FOR THE ROOM, NEVER ONE PER SEAT (011 · US4 · FR-028).
+        |
+        | A subscription is a pricing shape ABOVE the credit engine: the seat is
+        | still recorded as consumed — `ReconcileCreditBalancesJob` counts one
+        | consumption entry per seat of a charged session every night — but the
+        | number consumed is ZERO, so no balance moves and no lot is drawn.
+        | Skipping the entry instead would break that nightly invariant for every
+        | subscribed student in the class, permanently, with the ledger and the
+        | balances still agreeing perfectly.
+        |
+        | The course, the workspace, the room size and the moment are facts about
+        | the SESSION; this file has already had to learn that lesson three times
+        | (the exam window, the billing mode, the workspace row), and a per-seat
+        | lookup here would be the same N+1 wearing a fourth face.
+        */
+        $covered = $this->subscriptions->coveringSessionFor(
+            array_map(static fn (User $student): int => (int) $student->getKey(), $seatHolders),
+            $session,
+        );
+
         $entries = [];
 
         foreach ($balances as $balance) {
-            $entry = $this->chargeOne($session, $balance, $billableSeats, count($seatHolders), $mismatch);
+            $entry = $this->chargeOne(
+                $session,
+                $balance,
+                $billableSeats,
+                count($seatHolders),
+                $mismatch,
+                $covered[(int) $balance->student_user_id] ?? null,
+            );
 
             if ($entry !== null) {
                 $entries[] = $entry;
@@ -221,12 +252,14 @@ class ChargeSessionSeats extends Action
         int $billableSeats,
         int $seatHolders,
         bool $mismatch,
+        ?Subscription $subscription = null,
     ): ?CreditTransaction {
 
         $entry = $this->ledger->post(new CreditMovement(
             balance: $balance,
             type: CreditTransactionType::Consume,
-            credits: -1,
+            // ⚠️ ZERO, NOT «no entry». See the bulk read in handle().
+            credits: $subscription === null ? -1 : 0,
             sourceType: 'class_session',
             // The idempotency key. The unique index on
             // (balance, type, source_type, source_id) is what makes a replayed
@@ -241,6 +274,13 @@ class ChargeSessionSeats extends Action
                 'billable_seats' => $billableSeats,
                 'seat_holders' => $seatHolders,
                 'seat_count_mismatch' => $mismatch,
+                // ⚠️ THE ENTRY SAYS WHY IT COST NOTHING. A zero-credit Consume
+                // with no explanation beside it is indistinguishable from a bug
+                // to whoever reads the ledger next, and this column is written
+                // at INSERT because the ledger is append-only — a reason worked
+                // out later has nowhere to go.
+                'subscription_uuid' => $subscription?->uuid,
+                'plan_uuid' => $subscription?->plan?->uuid,
             ],
             // Explicit, though it is also the DTO's default. The floor guards
             // BOOKING; this is the recording of a debt already incurred.
@@ -265,7 +305,14 @@ class ChargeSessionSeats extends Action
         // The movement's own half only. The withholding flip is announced for the
         // whole room after the loop, because its four inputs are facts about the
         // workspace and the moment rather than about this student.
-        $this->announcer->announceMovement($balance, -1);
+        //
+        // ⚠️ NOT ANNOUNCED FOR A COVERED SEAT. Nothing moved, so a threshold
+        // announcement here would tell a subscriber their balance had crossed a
+        // line it is sitting exactly where it was — and «رصيدك يقترب من النفاد»
+        // is the wrong sentence to send somebody who has paid for a month.
+        if ($subscription === null) {
+            $this->announcer->announceMovement($balance, -1);
+        }
 
         return $entry;
     }

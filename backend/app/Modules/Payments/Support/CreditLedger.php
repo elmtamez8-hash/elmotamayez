@@ -438,7 +438,7 @@ class CreditLedger
         // incrementEach, not update(): every counter moves RELATIVE to the value
         // in the row, so no value read a moment ago is written back over a
         // concurrent one.
-        return $query->incrementEach($deltas, [
+        $applied = $query->incrementEach($deltas, [
             'last_transaction_at' => now(),
             // The dormancy notice is about a balance nobody has touched, so any
             // movement ends the dormancy it was sent about. Cleared here rather
@@ -452,7 +452,27 @@ class CreditLedger
             // about whatever is left, which is the right thing to say.
             'notified_dormant_at' => null,
             'updated_at' => now(),
-        ]) > 0;
+        ]);
+
+        /*
+        | ⚠️ ZERO CREDITS MOVED IS NOT A REFUSAL, AND THE CALLER READS THIS AS ONE.
+        |
+        | A seat covered by a subscription is posted as a `Consume` of ZERO
+        | (011 · FR-028): the entry has to exist, because
+        | `ReconcileCreditBalancesJob` measures «one consumption entry per seat of
+        | a charged session» every night, and the balance must not move, because a
+        | plan is a pricing shape ABOVE the credit engine rather than inside it.
+        |
+        | MySQL's affected-row count for an UPDATE counts rows whose values
+        | actually CHANGED, so a zero movement re-posted inside the same second as
+        | a previous one reports 0 — and `post()` reads a 0 here as «the floor
+        | refused it» and throws `InsufficientCreditsException` about a charge of
+        | nothing. SQLite counts matched rows, so it never happens locally.
+        |
+        | The floor is never consulted for a zero movement anyway: the predicate
+        | above is added only for `credits < 0`.
+        */
+        return $applied > 0 || $movement->credits === 0;
     }
 
     /**

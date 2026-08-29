@@ -480,6 +480,16 @@ class NotificationTemplateSeeder extends Seeder
                 'نفدت النسخ من «{{ item_title }}» قبل اعتماد دفعتك، وطلبك مؤهّل لاسترداد المبلغ. ستصلك رسالة عند إتمامه.',
                 ['item_title'],
             ],
+            // ⚠️ THE DATE IS IN THE BODY, and «قريباً» is not. A reminder a
+            // student cannot act on is a reminder that generates a support
+            // question instead of a renewal — and the date it names is
+            // `effective_ends_on`, which a freeze may have moved, never the date
+            // printed on the plan.
+            NotificationType::SubscriptionExpiring->value => [
+                'اشتراكك مع {{ teacher_name }} ينتهي قريباً',
+                'ينتهي اشتراكك «{{ plan_title }}» مع {{ teacher_name }} بتاريخ {{ ends_on }}. جدّده قبلها لتبقى حصصك ودروسك مفتوحة.',
+                ['plan_title', 'teacher_name', 'ends_on'],
+            ],
             NotificationType::ExamPendingGrading->value => [
                 'تسلّمنا ورقتك في «{{ exam_title }}»',
                 'تسلّمنا ورقة {{ student_name }} في «{{ exam_title }}». فيها أسئلة مقالية ينتظر تصحيحُها المدرّس، وتصلك النتيجة كاملةً بعده.',

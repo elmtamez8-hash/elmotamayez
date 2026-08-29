@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments;
 
+use App\Modules\LiveSessions\Events\FreezePeriodChanged;
 use App\Modules\LiveSessions\Events\SessionDelivered;
 use App\Modules\Payments\Contracts\PaymentProviderInterface;
 use App\Modules\Payments\Events\AccessRestored;
@@ -13,12 +14,14 @@ use App\Modules\Payments\Events\PaymentApproved;
 use App\Modules\Payments\Events\PaymentCaptured;
 use App\Modules\Payments\Events\PaymentFailed;
 use App\Modules\Payments\Events\PaymentReversed;
+use App\Modules\Payments\Listeners\ActivateSubscription;
 use App\Modules\Payments\Listeners\ChargeSeatsOnDelivery;
 use App\Modules\Payments\Listeners\CreateEnrollmentFromOrder;
 use App\Modules\Payments\Listeners\CreditPurchaseOnApproval;
 use App\Modules\Payments\Listeners\NotifyAccessChange;
 use App\Modules\Payments\Listeners\NotifyBalanceThreshold;
 use App\Modules\Payments\Listeners\NotifyPaymentOutcome;
+use App\Modules\Payments\Listeners\RecomputeSubscriptionEnds;
 use App\Modules\Payments\Listeners\ReevaluateOnReversal;
 use App\Modules\Payments\Listeners\StampCourseDelivery;
 use App\Modules\Payments\Models\Coupon;
@@ -28,7 +31,9 @@ use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Models\ExamModeWindow;
 use App\Modules\Payments\Models\PaymentTransaction;
+use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\StudentCreditAccount;
+use App\Modules\Payments\Models\Subscription;
 use App\Modules\Payments\Models\TermsConsent;
 use App\Modules\Payments\Policies\CouponPolicy;
 use App\Modules\Payments\Policies\CreditBalancePolicy;
@@ -37,7 +42,9 @@ use App\Modules\Payments\Policies\CreditPurchasePolicy;
 use App\Modules\Payments\Policies\CreditTransactionPolicy;
 use App\Modules\Payments\Policies\ExamModeWindowPolicy;
 use App\Modules\Payments\Policies\PaymentTransactionPolicy;
+use App\Modules\Payments\Policies\PlanPolicy;
 use App\Modules\Payments\Policies\StudentCreditAccountPolicy;
+use App\Modules\Payments\Policies\SubscriptionPolicy;
 use App\Modules\Payments\Policies\TermsConsentPolicy;
 use App\Modules\Payments\Providers\ManualTransferProvider;
 use App\Modules\Payments\Providers\PaymentProviderRegistry;
@@ -142,6 +149,29 @@ class PaymentsServiceProvider extends Module
         */
         Event::listen(PaymentReversed::class, ReevaluateOnReversal::class);
 
+        /*
+        | Spec 011 · US4 — the subscription starts when the money is witnessed.
+        |
+        | ⚠️ BOTH DOORS, for the same reason the two above are bound twice: a
+        | hand-approved receipt and a gateway capture are one business fact, and
+        | binding one of them leaves every subscription bought through the other
+        | paid for and never activated. `unique(order_id)` is what makes a
+        | redelivery of either harmless.
+        */
+        Event::listen(PaymentApproved::class, ActivateSubscription::class);
+        Event::listen(PaymentCaptured::class, ActivateSubscription::class);
+
+        /*
+        | Spec 011 · US4 · FR-031 — a freeze moves what it covers.
+        |
+        | The event is announced by `FreezePeriod::booted()`, so all three writes
+        | (declare, edit, LIFT) arrive here without LiveSessions naming a
+        | subscription anywhere. The fourth recompute moment — a subscription
+        | activated inside a freeze already running — belongs to
+        | `ActivateSubscription`, because no freeze row changed at that moment.
+        */
+        Event::listen(FreezePeriodChanged::class, RecomputeSubscriptionEnds::class);
+
         // The stop-selling signal (FR-021ط). SessionDelivered is the ONLY bridge
         // billing may use to learn that a course is still being taught — the
         // settlement tables that also know it are across a boundary
@@ -191,5 +221,10 @@ class PaymentsServiceProvider extends Module
         // filter there is.
         Gate::policy(PaymentTransaction::class, PaymentTransactionPolicy::class);
         Gate::policy(ExamModeWindow::class, ExamModeWindowPolicy::class);
+        // Spec 011 · US4. Two permissions on one row — the teacher writes the
+        // duration and the coverage, the platform writes the price — and the
+        // guesser fails OPEN, so an unregistered policy denies nothing.
+        Gate::policy(Plan::class, PlanPolicy::class);
+        Gate::policy(Subscription::class, SubscriptionPolicy::class);
     }
 }

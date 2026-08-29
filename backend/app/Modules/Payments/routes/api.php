@@ -8,6 +8,7 @@ use App\Modules\Payments\Http\Controllers\Admin\CreditPackageAdminController;
 use App\Modules\Payments\Http\Controllers\Admin\OutstandingCreditsController;
 use App\Modules\Payments\Http\Controllers\Admin\PaymentAuditController;
 use App\Modules\Payments\Http\Controllers\Admin\PaymentReconciliationController;
+use App\Modules\Payments\Http\Controllers\Admin\PlanPricingController;
 use App\Modules\Payments\Http\Controllers\Admin\ReconciliationController;
 use App\Modules\Payments\Http\Controllers\BillingController;
 use App\Modules\Payments\Http\Controllers\BillingSettingsController;
@@ -15,9 +16,11 @@ use App\Modules\Payments\Http\Controllers\CouponController;
 use App\Modules\Payments\Http\Controllers\CreditPurchaseController;
 use App\Modules\Payments\Http\Controllers\Manage\CreditLimitController;
 use App\Modules\Payments\Http\Controllers\Manage\ExamModeController;
+use App\Modules\Payments\Http\Controllers\Manage\PlanController;
 use App\Modules\Payments\Http\Controllers\Manage\StudentBalanceController;
 use App\Modules\Payments\Http\Controllers\OrderController;
 use App\Modules\Payments\Http\Controllers\PaymentController;
+use App\Modules\Payments\Http\Controllers\SubscriptionController;
 use App\Modules\Payments\Http\Controllers\TermsConsentController;
 use App\Modules\Payments\Http\Controllers\WebhookController;
 use App\Modules\Payments\Http\Middleware\VerifyWebhookSource;
@@ -105,6 +108,31 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     Route::get('/billing/packages', [CreditPurchaseController::class, 'index']);
     Route::post('/billing/purchases', [CreditPurchaseController::class, 'store']);
 
+    /*
+    | Subscriptions (011 · US4). The third pricing shape, and the only one of the
+    | three that sells TIME — «بالحصّة» and «بعدد من الحصص» are the two credit
+    | routes directly above, priced per course from the teacher's approved rate.
+    |
+    | ⚠️ THE WORKSPACE AND THE PLAN BOTH ARRIVE AS UUIDs IN A QUERY OR A BODY,
+    | never as path parameters. `/{plan}` would resolve the model before any
+    | guard ran — and `BelongsToWorkspace` protects nothing on a student's path,
+    | because a student is a member of no workspace and the scope adds no
+    | condition at all. Both are resolved inside their Actions, filtered.
+    */
+    Route::get('/billing/plans', [SubscriptionController::class, 'plans']);
+    Route::get('/billing/subscriptions', [SubscriptionController::class, 'index']);
+    Route::post('/billing/subscriptions', [SubscriptionController::class, 'store']);
+
+    /*
+    | The teacher's half of a plan: the duration and the coverage, never the
+    | price (FR-025 · Q4). `SavePlan` refuses `price_minor` outright rather than
+    | filtering it out of a form — a teacher who types a number and is told
+    | nothing believes they set a price.
+    */
+    Route::get('/manage/plans', [PlanController::class, 'index']);
+    Route::post('/manage/plans', [PlanController::class, 'store']);
+    Route::patch('/manage/plans/{plan}', [PlanController::class, 'update']);
+
 });
 
 /*
@@ -133,6 +161,20 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     | already bought keep pointing at the row, and deleting it would orphan
     | purchases that have been paid for.
     */
+    /*
+    | The platform's half of a plan, and undoing a subscription (011 · US4).
+    |
+    | ⚠️ `{uuid}` NOT `{plan}`, AND THE CONTROLLER DECLARES
+    | `withoutWorkspaceScope()`. `WorkspaceContext::id()` falls back to
+    | `users.last_workspace_id` for a platform officer exactly as for anybody
+    | else, so an implicit binding resolves plans in one arbitrary workspace of
+    | theirs and 404s for every other teacher — a pricing queue that silently
+    | covers one workspace, which is the defect the audit chain already shipped.
+    */
+    Route::get('/admin/plans', [PlanPricingController::class, 'index']);
+    Route::patch('/admin/plans/{uuid}/price', [PlanPricingController::class, 'price']);
+    Route::post('/admin/subscriptions/{uuid}/cancel', [SubscriptionController::class, 'cancel']);
+
     Route::get('/admin/billing/packages', [CreditPackageAdminController::class, 'index']);
     Route::post('/admin/billing/packages', [CreditPackageAdminController::class, 'store']);
     Route::patch('/admin/billing/packages/{uuid}', [CreditPackageAdminController::class, 'update']);

@@ -49,6 +49,12 @@ export const P = {
   // two jobs, and this is the one a teacher delegates — an assistant who posts
   // the parcels reads a home address and has no business setting a shelf price.
   storeItemsManage: "store.items.manage",
+  /*
+   * Spec 011 · US4. The teacher writes the duration and the coverage; the PRICE
+   * is `plans.price`, which is platform-level and deliberately absent from this
+   * map — no screen in this application may offer it.
+   */
+  plansManage: "plans.manage",
   storeShipmentsManage: "store.shipments.manage",
   // Spec 010 — writing the periodic assessment AND weighting the grade
   // components. One name for both on purpose: the weights decide the single

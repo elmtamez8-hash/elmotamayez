@@ -133,6 +133,13 @@ enum NotificationCategory: string
                  */
                 NotificationType::ShipmentStatusChanged,
                 NotificationType::StorePurchaseUnavailable,
+                /*
+                 * Spec 011 · US4. A subscription running out is a fact about
+                 * what the student is PAYING for and about to stop having, which
+                 * is the question this tab answers — and never under
+                 * `Settlement`, which is the teacher's pay.
+                 */
+                NotificationType::SubscriptionExpiring,
             ],
             self::Settlement => [
                 NotificationType::SettlementRateApproved,

@@ -155,6 +155,20 @@ final class Permissions
     public const PLANS_MANAGE = 'plans.manage';
 
     /*
+     | Platform-level, by DELIBERATE ABSENCE from every array in
+     | RolePermissionMatrix — `platformPermissions()` derives the platform set by
+     | subtraction, so a constant nobody puts in a tenant role is platform-level
+     | from the day it lands.
+     |
+     | ⚠️ A PRICE A TEACHER COULD SET IS THE PLATFORM'S MARGIN A TEACHER SETS.
+     | A subscription is access to TEACHING (011 · Q4), so unlike a store item —
+     | the teacher's own goods, with no settlement rate behind them — the number
+     | on it is the platform's decision. `SavePlan` refuses the field outright and
+     | this is the only permission that writes it.
+     */
+    public const PLANS_PRICE = 'plans.price';
+
+    /*
      | Platform-level, both of them, and the mechanism is DELIBERATE ABSENCE from
      | every array in RolePermissionMatrix — `platformPermissions()` derives the
      | platform set by subtraction, exactly as ANALYTICS_CROSS_TEACHER_VIEW above.
@@ -560,6 +574,7 @@ final class Permissions
             self::STORE_ITEMS_MANAGE,
             self::STORE_SHIPMENTS_MANAGE,
             self::PLANS_MANAGE,
+            self::PLANS_PRICE,
             self::BILLING_COUPONS_MANAGE,
             self::FLAGS_MANAGE,
             self::SETTINGS_VIEW,

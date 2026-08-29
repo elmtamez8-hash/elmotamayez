@@ -283,6 +283,19 @@ final class RolePermissionMatrix
                 // What they are approving. Without it the approval screen is a
                 // button with no receipt behind it.
                 Permissions::ORDERS_VIEW_ALL,
+                /*
+                | Spec 011 · FR-025 (Q4). A teacher writes a plan's duration and
+                | coverage; somebody at the platform has to put a number on it,
+                | and «somebody» being super-admin alone means one account on the
+                | product is the only thing standing between a teacher creating a
+                | plan and any student being able to buy it.
+                |
+                | ⚠️ THIS DOES NOT MAKE `plans.price` TENANT-LEVEL.
+                | `platformPermissions()` subtracts what WORKSPACE roles hold, and
+                | `finance-admin` is not one — it is teamless standing granted
+                | through `platform_staff`. The derivation is unchanged.
+                */
+                Permissions::PLANS_PRICE,
             ],
             /*
             | The data-protection officer (spec 013) — listed literally, for the

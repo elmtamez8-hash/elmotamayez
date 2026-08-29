@@ -197,6 +197,21 @@ const mainNav: NavItem[] = [
   },
 
   /*
+   * Spec 011 · US4 — the THIRD pricing shape, and the only one that sells time.
+   *
+   * Two entries, because they are two different people's jobs. The student's is
+   * ungated: anybody signed in may hold a subscription, and the page lists their
+   * own plus what the teachers they already study with offer.
+   *
+   * ⚠️ «بالحصّة» AND «بعدد من الحصص» ARE NOT HERE, and their absence is correct
+   * rather than an oversight: both are credit packages, priced automatically from
+   * the teacher's approved rate, and they are bought from «رصيدي» below. Three
+   * shapes, two screens, because two of them are one mechanism.
+   */
+  { href: "/plans", label: "اشتراكاتي", Icon: CreditsIcon },
+  { href: "/manage/plans", label: "باقات الاشتراك", Icon: CreditsIcon, permission: P.plansManage },
+
+  /*
    * Spec 011 · US3. Ungated: everybody has a code, and the page mints it on
    * first open — which is exactly why the endpoint is a `GET` that writes.
    */

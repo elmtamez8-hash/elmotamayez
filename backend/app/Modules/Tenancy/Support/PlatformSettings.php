@@ -92,6 +92,13 @@ final class PlatformSettings
         'store.commission_bps' => 'store.commission_bps',
         'store.refund_window_hours' => 'store.refund_window_hours',
         /*
+        | Subscriptions (spec 011 · FR-027 — «مع إبلاغ الطالب قبله بمهلة
+        | معلنة»). The notice period is the «معلنة» half: a number an operator
+        | changes from the panel, not a constant that can only move by shipping
+        | code. Days, and zero switches the notice off entirely.
+        */
+        'subscription.expiring_notice_days' => 'subscription.expiring_notice_days',
+        /*
         | Referrals (spec 011 · FR-023 — «the reward value and its cap must both
         | be adjustable»).
         |

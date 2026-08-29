@@ -147,6 +147,7 @@ final class PermissionLabels
         // not: the platform sets that (011 · Q4), and the teacher writes the
         // duration and what the plan covers.
         'plans.manage' => 'إدارة الباقات (المدّة والتغطية)',
+        'plans.price' => 'تسعير باقات الاشتراك',
         // Platform-level. The label names the payer, because a coupon is spent
         // out of the platform's commission and never out of the teacher's share.
         'billing.coupons.manage' => 'إنشاء كوبونات المنصّة',

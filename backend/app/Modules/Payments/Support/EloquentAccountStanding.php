@@ -54,6 +54,7 @@ class EloquentAccountStanding implements AccountStanding
         // used to hold one so it could compute a floor of its own beside the
         // reader's. One floor per balance, computed where its inputs are known.
         private readonly BillingSettings $settings,
+        private readonly SubscriptionEligibility $subscriptions,
     ) {}
 
     /**
@@ -73,6 +74,23 @@ class EloquentAccountStanding implements AccountStanding
      */
     public function isWithheld(User $student, int $courseId): bool
     {
+        /*
+        | ⚠️ A LIVE SUBSCRIPTION LIFTS WITHHOLDING FOR WHAT IT COVERS (011 ·
+        | FR-026 · FR-028), AND THIS IS THE ONE SEAM THAT REACHES EVERY DOOR.
+        | `BookingEligibility` asks this at booking and again at the room, and
+        | Media asks it before it will play a high-value asset — three doors, one
+        | question. A subscriber's credit balance is legitimately zero and stays
+        | zero (their seats cost nothing), so without this line the very first
+        | booking of a paid month is refused with «رصيدك لا يكفي» and the money
+        | they just handed over buys nothing at all.
+        |
+        | Asked FIRST, before the balance is read: for a subscriber it is also the
+        | cheaper question, and this is the hottest path in the product.
+        */
+        if ($this->subscriptions->coversCourse((int) $student->getKey(), $courseId)) {
+            return false;
+        }
+
         $own = $this->accounts->balancesFor($student)->firstWhere('course_id', $courseId);
 
         if ($own === null) {
@@ -99,7 +117,18 @@ class EloquentAccountStanding implements AccountStanding
         // list, not one per row. The bulk form is the whole reason this method
         // exists: a per-course call inside a loop is the N+1 the contract
         // forbids, and NFR-012 gives the panel a fixed query budget.
+        //
+        // ⚠️ AND THE SUBSCRIPTION LIFT IS BULK TOO. The single-course form above
+        // reads one student's live subscriptions; doing that per row here would
+        // be the same N+1 this method was written to avoid, so the covered set is
+        // resolved once for the whole list.
+        $covered = array_flip($this->subscriptions->coveredCourseIds(
+            (int) $student->getKey(),
+            array_values($balances->map(fn (CreditBalance $balance): int => (int) $balance->course_id)->all()),
+        ));
+
         $withheld = $this->withholding->stamp($balances)
+            ->reject(fn (CreditBalance $balance): bool => isset($covered[(int) $balance->course_id]))
             ->filter(fn (CreditBalance $balance): bool => (bool) $balance->getAttribute('is_withheld'))
             ->map(fn (CreditBalance $balance): int => (int) $balance->course_id);
 

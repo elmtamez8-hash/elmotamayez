@@ -377,6 +377,128 @@ and `POST /auth/register/student`).
   afterwards. `referral.max_completed_per_referrer` is the one read at runtime, and
   **zero means off, never unlimited**.
 
+### Subscription plans (spec 011 · US4)
+
+| method | route | who |
+|---|---|---|
+| `GET` | `/billing/plans?course={uuid}` | any signed-in person |
+| `GET` · `POST` | `/billing/subscriptions` | the student, their own |
+| `GET` · `POST` · `PATCH` | `/manage/plans` | `plans.manage` (teacher) |
+| `GET` | `/admin/plans` | `plans.price` (platform) |
+| `PATCH` | `/admin/plans/{uuid}/price` | `plans.price` (platform) |
+| `POST` | `/admin/subscriptions/{uuid}/cancel` | `billing.purchase.approve` (platform) |
+
+⚠️ **THE PRODUCT SELLS THREE PRICING SHAPES AND THIS TABLE IS ONE OF THEM.** A
+teacher's price changes with the subject, the year and the size of the room, so a
+student is offered:
+
+| shape | what it is | where it lives |
+|---|---|---|
+| بالحصّة | `CreditPackage(credits: 1)` | `credit_packages`, priced per course |
+| بعدد من الحصص | `CreditPackage(credits: N)` | `credit_packages`, priced per course |
+| بالشهر | `Plan` | `plans` — **this section** |
+
+A `session_count` column on `plans` would be a second credit engine beside the
+first: two vocabularies for one fact, and FR-028 forbids a plan session touching
+a balance at all, so the pack would have to reimplement lots, expiry, the floor
+and the reconciliation invariants rather than reuse them. **Sessions are bought
+as credits; time is bought here.**
+
+- **`plans` HAS a price column and `credit_packages` deliberately does not**, and
+  that is the boundary of 006's rule rather than a breach of it. A credit package
+  is priced by a FORMULA (approved rate + the platform's two constants), so a
+  stored number would be one price for every teacher alive. «وصولٌ غير محدود
+  لشهر» has no formula — nothing derives what unlimited access is worth — so a
+  human writes it, and FR-025 (Q4) says which human: the teacher writes the
+  duration and the coverage, the **platform** writes the price. `SavePlan` refuses
+  `price_minor` with a sentence rather than filtering it out of a form (a teacher
+  told nothing believes they set a price), and it is not `$fillable`.
+- **`price_minor` is NULLABLE and null is a STATE.** Two actors write one row at
+  two moments, so between them the plan exists unpriced — and `(int) null === 0`,
+  so a catalogue filtering on `is_active` alone would sell a month for nothing.
+  `Plan::sellable()` is `is_active AND price is not null`; the teacher's own list
+  keeps the unpriced rows, because «تنتظر تسعير المنصّة» is the whole reason
+  nobody can buy them.
+- **`session_type` is a COVERAGE PREDICATE, not a label.** Subject and year come
+  from the course; ROOM SIZE comes from nowhere else. Without it a plan priced for
+  a group of eight covers one-to-one hours at zero credits — the leak the whole
+  cost-plus formula exists to prevent. `SubscriptionEligibility::coveringSession()`
+  matches it; the course-level read deliberately does not, because opening a
+  lesson's CONTENT has no room size to compare against.
+  ⚠️ **Known ceiling, written down**: the withholding lift is therefore
+  course-level, so a group-only subscriber is not stopped at the BOOKING door from
+  taking a one-to-one session — they book it and the charge debits a credit
+  normally. The money is right; the surprise is one session wide.
+- **`subscriptions.order_id` is UNIQUE and it is the only guard
+  `ActivateSubscription` can have.** A redelivered event would otherwise write a
+  second active subscription for one payment: access doubled in length, invisible,
+  with the ledger perfectly balanced beside it. Never `->exists()` then create.
+- **The price is snapshotted from the ORDER, never from the plan** (FR-030). A
+  manual transfer takes days and the plan can legitimately be repriced inside that
+  lag, so the plan's price at activation is a different number from the one the
+  student was shown and paid.
+- **The ENROLMENT is what actually opens anything.** `enrollments.expires_at`
+  gates nothing in this tree — nothing reads it — so access is an `active`
+  enrolment and the expiry sweep moves it to `expired`. Both are found again by
+  `(order_id, source = 'subscription')`, which is exactly what keeps a course the
+  student bought OUTRIGHT out of the sweep: `EnrollStudent` is `firstOrCreate`, so
+  their existing open-ended row comes back carrying neither marker.
+  ⚠️ **Ceiling**: a `workspace` plan enrols in the courses published AT
+  ACTIVATION. A course published later in the month is inside the coverage
+  predicate and has no enrolment row. Closing it needs a `CoursePublished` event,
+  which does not exist yet.
+- **A covered seat writes a `Consume` of ZERO, never no entry at all** (FR-028).
+  `ReconcileCreditBalancesJob` measures «one consumption entry per seat of a
+  charged session» every night, and it is the ONE check that can see a session
+  nobody was debited for — the ledger-vs-balance comparison cannot, because both
+  sides are written by the same path and agree perfectly when neither ran. The
+  entry's `meta` names the subscription, because a zero-credit Consume with no
+  reason beside it is indistinguishable from a bug, and the ledger is append-only.
+  ⚠️ `CreditLedger::applyToBalance()` therefore returns true for a zero movement:
+  MySQL counts CHANGED rows, so `incrementEach` reports 0 for a no-op update and
+  `post()` would read that as «the floor refused it» and throw.
+- **`effective_ends_on` is a MATERIALISED column recomputed at FOUR moments.**
+  Computing the freeze extension on read is a `freeze_periods` query per row on
+  every screen that prints an end date, AND the nightly sweep's predicate cannot
+  be written in SQL — so the read path would consider a subscription alive while
+  the job expired it, exactly one freeze-length early (FR-031 inverted). The four:
+  a freeze created · edited · **DELETED** (or the extension outlives its reason) ·
+  and a subscription **activated inside a running freeze** (or it is born short).
+  The first three are announced by `FreezePeriod::booted()` rather than by each
+  caller, so a fourth write path added later is covered the day it lands; the
+  fourth belongs to `ActivateSubscription`, because no freeze row changed then.
+  The extension is a SET of days, not a sum of lengths — two overlapping periods
+  would otherwise pay a fortnight for one week.
+- ⚠️ **Every date comparison is `< nextDay` or `>= today`, NEVER `<= dateString`,
+  and the broken form is INVISIBLE ON SQLITE.** Measured: rewriting the sweep to
+  `<= today` leaves the whole expiry suite green. Eloquent writes the date-cast
+  attribute through the model's datetime format, so SQLite stores
+  `2026-09-30 00:00:00` and `'2026-09-30 00:00:00' <= '2026-09-30'` is FALSE — on
+  MySQL the column is a real DATE, the comparison is TRUE, and every subscription
+  dies on the morning of the last day its owner paid for. The guard is therefore a
+  **pin on the SQL** in `SubscriptionExpiryTest`, not an outcome. Fifth time this
+  boundary has cost this repository a fix.
+- **`CancelSubscription` is the production caller `PaymentReversed` never had.**
+  `ReversePayment` has fired that event since 006 and no file in the tree called
+  it — so `ReverseReferralAward` and `ReevaluateOnReversal` were wired to a door
+  with nothing behind it, and SC-007 was proved only by tests dispatching the
+  event by hand. Cancelling means UNDOING: nothing auto-renews here, so a student
+  who wants no second month simply stops buying, and what is left for the Action
+  is taking the purchase back — which without returning the money is a forfeiture.
+  No proration (no requirement asks for one, and a day of unlimited access has no
+  approved value). It touches nothing but this order, which is the whole of FR-029.
+- **Cancelling is a PLATFORM permission**, not the teacher's and not the
+  student's: it reverses a captured payment, and money leaving the platform is not
+  a decision either party to the lesson takes alone.
+- **The catalogue is keyed by a COURSE uuid, not a workspace uuid.** No
+  student-facing Resource sends a workspace uuid — the raw tenant key does not
+  travel — and `/billing/packages?course=` already takes the same identifier.
+- **No participation guard on buying, deliberately** — the opposite of
+  `ListCreditPackages`, which 403s a stranger. That guard exists because a credit
+  package's total inverts to the teacher's approved settlement rate; a plan's
+  price derives from nothing. Subscribing is also how a student STARTS with a
+  teacher.
+
 ### Order kinds and who signs for the money (spec 011)
 
 `OrderKind` has four cases: `course`, `credits`, `store`, `subscription`.

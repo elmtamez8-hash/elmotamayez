@@ -259,6 +259,16 @@ enum NotificationType: string
 
     case StorePurchaseUnavailable = 'store_purchase_unavailable';
 
+    /*
+    | Subscriptions (011 · US4 · FR-027). «مع إبلاغ الطالب قبله بمهلة معلنة» — the
+    | requirement names the STUDENT, so this deliberately does not target
+    | guardians and is not mandatory. It is a reminder that a month is running
+    | out, not a consequence: the access it is about has not stopped yet, and a
+    | student who does not want the reminder can switch it off exactly as they can
+    | switch off a shipment update.
+    */
+    case SubscriptionExpiring = 'subscription_expiring';
+
     public function label(): string
     {
         return match ($this) {
@@ -318,6 +328,7 @@ enum NotificationType: string
             self::CohortTransferRejected => 'رفض طلب الانتقال',
             self::ShipmentStatusChanged => 'تحديث شحنة',
             self::StorePurchaseUnavailable => 'طلب متجر غير متاح',
+            self::SubscriptionExpiring => 'قرب انتهاء اشتراك',
         };
     }
 

@@ -156,7 +156,19 @@ it('survives an operator giving the row coins, rather than throwing forever', fu
     expect(AwardEntry::query()->where('action_key', 'invite_friend')->count())->toBe(0)
         ->and($referral->refresh()->status)->toBe(ReferralStatus::Completed);
 
-    // And the operator is told which row to fix — a stack trace naming
-    // `AwardPoints` would send whoever reads it to the wrong file.
-    Log::shouldHaveReceived('warning')->once();
+    /*
+    | And the operator is told which ROW to fix — a stack trace naming
+    | `AwardPoints` would send whoever reads it to the wrong file.
+    |
+    | ⚠️ MATCHED ON THE MESSAGE, NOT COUNTED. It was `->once()`, and spec 011's
+    | US4 then made that assertion false for a reason that has nothing to do with
+    | referrals: the fixture's order is a SUBSCRIPTION (the one kind that
+    | completes a referral without needing a `credit_purchase` row behind it), so
+    | `ActivateSubscription` also runs, finds no `plan_uuid` on a hand-built
+    | order, and logs its own warning. A count is an assertion about every
+    | listener on the event; this file is about one of them.
+    */
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn (string $message): bool => str_contains($message, 'invite_friend'))
+        ->once();
 });

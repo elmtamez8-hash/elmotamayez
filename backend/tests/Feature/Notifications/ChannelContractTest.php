@@ -67,6 +67,11 @@ function dispatchOf(User $user, NotificationType $type): void
             // dropped, and the count below comes back one short — which is this
             // test doing its job, not a channel that failed.
             'months' => '12',
+            // And `plan_title`, added with spec 011's subscription notice. The
+            // same mechanism a fifth time — `teacher_name` and `ends_on` are
+            // already above, so this one key is the whole difference between the
+            // count reading 54 and reading 53.
+            'plan_title' => 'اشتراك شهري',
             // And these three, added with spec 010's periodic assessment. The
             // same mechanism yet again: without them the template refuses to
             // render, the notification is logged and dropped, and the count comes

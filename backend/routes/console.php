@@ -18,6 +18,7 @@ use App\Modules\Media\Jobs\ReconcileAssetStatus;
 use App\Modules\Payments\Jobs\ChargeUnbilledDeliveriesJob;
 use App\Modules\Payments\Jobs\EvaluateCreditLimitsJob;
 use App\Modules\Payments\Jobs\ExpireCreditLotsJob;
+use App\Modules\Payments\Jobs\ExpireSubscriptionsJob;
 use App\Modules\Payments\Jobs\NotifyDormantBalancesJob;
 use App\Modules\Payments\Jobs\ReconcileCreditBalancesJob;
 use App\Modules\Payments\Jobs\ReconcilePaymentsJob;
@@ -136,6 +137,22 @@ Schedule::job(new EvaluateCreditLimitsJob, 'maintenance')
 // nothing until an operator sets one (Q-5).
 Schedule::job(new ExpireCreditLotsJob, 'maintenance')
     ->dailyAt('04:35')
+    ->withoutOverlapping();
+
+/*
+| Subscriptions whose month has run out, and the notice before it (011 · FR-027).
+|
+| 04:40 — after the lot expiry and BEFORE the reconciliation below, for the same
+| reason the lots run there: this job writes zero-credit entries' worth of nothing
+| but it does close enrolments, and a books check that ran first would read a
+| half-swept night.
+|
+| Daily rather than hourly: `effective_ends_on` is a DATE, so nothing this job
+| looks at can change more than once a day, and running it hourly would be
+| twenty-three passes finding the same nothing.
+*/
+Schedule::job(new ExpireSubscriptionsJob, 'maintenance')
+    ->dailyAt('04:40')
     ->withoutOverlapping();
 
 // Does the ledger still add up? Nightly, after every sweep that moves a balance,

@@ -208,29 +208,29 @@ description: "Task list — 011 التجارة والنمو"
 
 ## Phase 6: US4 — باقاتُ الاشتراك (P4)
 
-> ⚠️ **مِن م٣ — `PaymentReversed` بلا مُنادٍ في الشجرة.** `ReversePayment` تُطلِقُه
-> بـ`event()`، ولا ملفَّ واحداً ينادي `ReversePayment`: لا مسارَ ولا شاشةَ ولا فعلاً
-> آخر. فمستمِعُ `ReverseReferralAward` مربوطٌ صحيحاً وبابُه مغلَقٌ من الخارج، و
-> `RefundIssued` (من `AdjustCredits`) هو المدخلُ الحيُّ الوحيد. **فمسارُ إلغاءِ
-> الاشتراكِ هنا يجبُ أن يُطلِقَ `PaymentReversed`** وإلّا بقيَتْ `SC-007` مُثبَتةً
-> باختباراتٍ تُطلِقُ الحدثَ بيدِها بينما لا مسارَ إنتاجٍ يفعل.
+> ✅ **أُغلِقَت (T092 · `CancelSubscription`).** كانت: `ReversePayment` تُطلِقُ
+> `PaymentReversed` ولا ملفَّ واحداً في الشجرةِ ينادي `ReversePayment` — فمستمِعا
+> `ReverseReferralAward` و`ReevaluateOnReversal` مربوطانِ صحيحاً على بابٍ لا شيءَ
+> خلفَه، و`SC-007` مُثبَتةٌ باختباراتٍ تُطلِقُ الحدثَ بيدِها. إلغاءُ الاشتراكِ هو
+> المدخلُ الإنتاجيّ الآن، و`SubscriptionCancelTest` يمشي السلسلةَ كاملةً **بلا حدثٍ
+> واحدٍ مُطلَقٍ يدويّاً**.
 
 **Goal**: نمطُ تسعيرٍ ثالثٌ فوقَ المحرّكِ لا داخلَه — الوصولُ بأهليّةِ الاشتراك، وصفرُ حصّةٍ تستهلكُ رصيداً.
 
 **Independent Test**: اشتراكٌ، وصولٌ إلى ما تغطّيه، وانتهاءُ المدّة.
 
 - [ ] T089 [P] [US4] هجرتا `plans` و`subscriptions` — §٧ و§٨، بـ**`unique(order_id)`** (⚠️ الحارسُ الوحيدُ ضدَّ اشتراكَين لدفعةٍ واحدة)، و**`effective_ends_on`**، وفهرسا `[student_user_id, status]` · `[status, effective_ends_on]`.
-- [ ] T090 [P] [US4] نموذجانِ ومصنعانِ وسياسةٌ في `backend/app/Modules/Payments/`.
-- [ ] T091 [US4] `backend/app/Modules/Payments/Actions/SavePlan.php` — المدرّسُ يملأُ المدّةَ والتغطية، و`price_minor` **تُرفَضُ من طالبٍ لا يحملُ صلاحيةَ المنصّة**.
-- [ ] T092 [US4] `backend/app/Modules/Payments/Listeners/ActivateSubscription.php` — `ShouldQueue` + `ShouldHandleEventsAfterCommit`، والحارسُ `unique(order_id)`.
-- [ ] T093 [US4] `backend/app/Modules/Payments/Support/SubscriptionEligibility.php` — يفتحُ ما تغطّيه الباقةُ طوالَ المدّة، ⚠️ وكورسٌ حُذِفَ أو أُوقِفَ **يسقطُ من التغطيةِ ويبقى الاشتراكُ على الباقي** (حالةُ حافّة).
-- [ ] T094 [US4] فرعُ الاشتراكِ في `backend/app/Modules/Payments/Actions/ChargeSessionSeats.php` — قيدُ `Consume` بـ`credits = 0` و`meta` تسمّي الاشتراك. ⚠️ **قراءةٌ جماعيّةٌ واحدةٌ قبلَ الحلقة** (`whereIn` على حاجزي المقاعد): دفترُ تعليقِ ذلك الفعلِ يحملُ قاعدةً مكتسَبةً بإصلاحٍ سابق — «كلُّ حقيقةٍ مشتركةٍ تُقرَأُ مرّةً للحصّةِ لا مرّةً لكلِّ مقعد». **ولا في `ChargeSeatsOnDelivery`** (غلافٌ من خمسةِ أسطر).
-- [ ] T095 [US4] `backend/app/Modules/Payments/Support/EffectiveSubscriptionEnd.php` + إعادةُ الحسابِ عندَ **ثلاثةِ أحداث**: إنشاءُ فترةِ تجميدٍ · تعديلُها · ⚠️ **حذفُها** (وإلّا بقيَ التمديدُ بلا سبب) · ⚠️ **وإنشاءُ اشتراكٍ داخلَ فترةٍ جارية** (وإلّا وُلِدَ بلا تمديدٍ يستحقُّه).
-- [ ] T096 [US4] ⚠️ **+ قالبُ إشعارِ قربِ الانتهاءِ وهجرةُ `seedMissing()` (منقولٌ من T014).** `backend/app/Modules/Payments/Jobs/ExpireSubscriptionsJob.php` — يقرأُ `effective_ends_on` بـ`< … + 1 day`، **`chunkById`** (⚠️ الشرطُ يتقلّصُ تحتَ المشي فترقيمُ OFFSET يقفزُ **ويُبلِّغُ نجاحاً**)، و`expiring_notified_at` **يُختَمُ قبلَ الإرسال**، و`withoutOverlapping()` على `Schedule::job()`.
-- [ ] T097 [P] [US4] مساراتٌ وموارِدُ ‏م٤، ومسارُ `/admin/plans/{plan}/price` ⚠️ **بـ`withoutWorkspaceScope()` صريح**: السياقُ يرتدُّ إلى `users.last_workspace_id` **حتى للمشرفِ العامّ** فيَحُلُّ الربطُ باقاتِ مساحةٍ واحدةٍ و`404` لغيرِها.
-- [ ] T098 [US4] `SubscriptionCoveredSeatTest.php` — ⚠️ `SC-008` **بشاهدٍ موجب**: مشترِكٌ **وغيرُ مشترِكٍ في الحصّةِ نفسِها**. «صفرُ صفوف» وحدَه صادقٌ عن تجهيزةٍ لم يُطلَق فيها الحدثُ أصلاً.
-- [ ] T099 [P] [US4] `SubscriptionReconcileTest.php` (⚠️ `ReconcileCreditBalancesJob` **بلا نتيجة**) · `SubscriptionAccruesTeacherTest.php` · `SubscriptionOrderUniqueTest.php` · `SubscriptionFreezeTest.php` · `SubscriptionPricingTest.php` · `PriorDuesSurviveTest.php`.
-- [ ] T100 [US4] واجهةُ الباقاتِ `frontend/src/app/(app)/(shell)/{manage/plans,plans}/page.tsx` + `frontend/src/lib/plans.ts` + روابطُها.
+- [X] T090 [P] [US4] نموذجانِ ومصنعانِ وسياسةٌ في `backend/app/Modules/Payments/`.
+- [X] T091 [US4] `backend/app/Modules/Payments/Actions/SavePlan.php` — المدرّسُ يملأُ المدّةَ والتغطية، و`price_minor` **تُرفَضُ من طالبٍ لا يحملُ صلاحيةَ المنصّة**.
+- [X] T092 [US4] `backend/app/Modules/Payments/Listeners/ActivateSubscription.php` — `ShouldQueue` + `ShouldHandleEventsAfterCommit`، والحارسُ `unique(order_id)`.
+- [X] T093 [US4] `backend/app/Modules/Payments/Support/SubscriptionEligibility.php` — يفتحُ ما تغطّيه الباقةُ طوالَ المدّة، ⚠️ وكورسٌ حُذِفَ أو أُوقِفَ **يسقطُ من التغطيةِ ويبقى الاشتراكُ على الباقي** (حالةُ حافّة).
+- [X] T094 [US4] فرعُ الاشتراكِ في `backend/app/Modules/Payments/Actions/ChargeSessionSeats.php` — قيدُ `Consume` بـ`credits = 0` و`meta` تسمّي الاشتراك. ⚠️ **قراءةٌ جماعيّةٌ واحدةٌ قبلَ الحلقة** (`whereIn` على حاجزي المقاعد): دفترُ تعليقِ ذلك الفعلِ يحملُ قاعدةً مكتسَبةً بإصلاحٍ سابق — «كلُّ حقيقةٍ مشتركةٍ تُقرَأُ مرّةً للحصّةِ لا مرّةً لكلِّ مقعد». **ولا في `ChargeSeatsOnDelivery`** (غلافٌ من خمسةِ أسطر).
+- [X] T095 [US4] `backend/app/Modules/Payments/Support/EffectiveSubscriptionEnd.php` + إعادةُ الحسابِ عندَ **ثلاثةِ أحداث**: إنشاءُ فترةِ تجميدٍ · تعديلُها · ⚠️ **حذفُها** (وإلّا بقيَ التمديدُ بلا سبب) · ⚠️ **وإنشاءُ اشتراكٍ داخلَ فترةٍ جارية** (وإلّا وُلِدَ بلا تمديدٍ يستحقُّه).
+- [X] T096 [US4] ⚠️ **+ قالبُ إشعارِ قربِ الانتهاءِ وهجرةُ `seedMissing()` (منقولٌ من T014).** `backend/app/Modules/Payments/Jobs/ExpireSubscriptionsJob.php` — يقرأُ `effective_ends_on` بـ`< … + 1 day`، **`chunkById`** (⚠️ الشرطُ يتقلّصُ تحتَ المشي فترقيمُ OFFSET يقفزُ **ويُبلِّغُ نجاحاً**)، و`expiring_notified_at` **يُختَمُ قبلَ الإرسال**، و`withoutOverlapping()` على `Schedule::job()`.
+- [X] T097 [P] [US4] مساراتٌ وموارِدُ ‏م٤، ومسارُ `/admin/plans/{plan}/price` ⚠️ **بـ`withoutWorkspaceScope()` صريح**: السياقُ يرتدُّ إلى `users.last_workspace_id` **حتى للمشرفِ العامّ** فيَحُلُّ الربطُ باقاتِ مساحةٍ واحدةٍ و`404` لغيرِها.
+- [X] T098 [US4] `SubscriptionCoveredSeatTest.php` — ⚠️ `SC-008` **بشاهدٍ موجب**: مشترِكٌ **وغيرُ مشترِكٍ في الحصّةِ نفسِها**. «صفرُ صفوف» وحدَه صادقٌ عن تجهيزةٍ لم يُطلَق فيها الحدثُ أصلاً.
+- [X] T099 [P] [US4] `SubscriptionReconcileTest.php` (⚠️ `ReconcileCreditBalancesJob` **بلا نتيجة**) · `SubscriptionAccruesTeacherTest.php` · `SubscriptionOrderUniqueTest.php` · `SubscriptionFreezeTest.php` · `SubscriptionPricingTest.php` · `PriorDuesSurviveTest.php`.
+- [X] T100 [US4] واجهةُ الباقاتِ `frontend/src/app/(app)/(shell)/{manage/plans,plans}/page.tsx` + `frontend/src/lib/plans.ts` + روابطُها.
 
 ---
 

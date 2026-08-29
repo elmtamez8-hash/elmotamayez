@@ -6,6 +6,7 @@ namespace App\Modules\LiveSessions\Models;
 
 use App\Models\BaseModel;
 use App\Models\User;
+use App\Modules\LiveSessions\Events\FreezePeriodChanged;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Carbon\CarbonImmutable;
@@ -51,6 +52,32 @@ class FreezePeriod extends BaseModel
             'starts_on' => 'date',
             'ends_on' => 'date',
         ];
+    }
+
+    /**
+     * ⚠️ EVERY WRITE ANNOUNCES ITSELF, INCLUDING THE DELETE.
+     *
+     * Spec 011 derives `subscriptions.effective_ends_on` from these rows, and all
+     * three moments matter: a freeze declared extends a subscription, an edited
+     * one changes the extension, and a LIFTED one must take it back — an
+     * extension that outlives its reason is a month of access nobody paid for.
+     * Announced from the model rather than from each caller, because the write
+     * paths are already three (the Action, the controller's destroy, `/admin`)
+     * and a fourth added later would be silently uncovered.
+     *
+     * The listener lives in Payments and is queued; this side names nothing about
+     * subscriptions, exactly as `SessionDelivered` names nothing about money.
+     */
+    protected static function booted(): void
+    {
+        $announce = static fn (FreezePeriod $period) => FreezePeriodChanged::dispatch(
+            (int) $period->workspace_id,
+            $period->student_user_id === null ? null : (int) $period->student_user_id,
+        );
+
+        static::created($announce);
+        static::updated($announce);
+        static::deleted($announce);
     }
 
     /** @return BelongsTo<User, $this> */
