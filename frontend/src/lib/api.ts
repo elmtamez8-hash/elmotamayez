@@ -257,6 +257,19 @@ export const api = {
     request<T>(path, { method: "POST", body: form }),
   post: <T>(path: string, data?: unknown) =>
     request<T>(path, { method: "POST", body: data ? JSON.stringify(data) : undefined }),
+  /**
+   * A POST the server may safely see twice.
+   *
+   * `Idempotent` middleware returns early when the header is absent, so a route
+   * carrying `idempotent` is only protected by the CALLER sending this — the
+   * middleware alone reads as a guard and is not one.
+   */
+  postIdempotent: <T>(path: string, data: unknown, idempotencyKey: string) =>
+    request<T>(path, {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: { "Idempotency-Key": idempotencyKey },
+    }),
   put: <T>(path: string, data?: unknown) =>
     request<T>(path, { method: "PUT", body: data ? JSON.stringify(data) : undefined }),
   patch: <T>(path: string, data?: unknown) =>

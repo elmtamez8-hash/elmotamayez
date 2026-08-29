@@ -64,6 +64,7 @@ import {
   IconSettings,
   IconShieldCheck,
   IconShieldLock,
+  IconPackage,
   IconShoppingBag,
   IconStarFilled,
   IconSun,
@@ -167,6 +168,15 @@ export const LockIcon = wrap(IconLock, "h-5 w-5");
 export const PracticeIcon = wrap(IconBarbell, "h-5 w-5");
 export const CertificateIcon = wrap(IconCertificate, "h-5 w-5");
 export const OrdersIcon = wrap(IconShoppingBag, "h-5 w-5");
+/*
+ * The book store (011 · US1). A BOOK, not a second shopping bag: `OrdersIcon`
+ * is already one and `ShopIcon` is the rewards gift, so a third trolley would
+ * make a student read three labels to find out which of them sells books.
+ */
+export const StoreIcon = wrap(IconBook2, "h-5 w-5");
+// The parcel itself — the teacher's fulfilment queue, which is a different job
+// from pricing the goods and carries a different permission.
+export const ShipmentIcon = wrap(IconPackage, "h-5 w-5");
 export const WorkspaceIcon = wrap(IconBuilding, "h-5 w-5");
 export const MembersIcon = wrap(IconUsers, "h-5 w-5");
 export const SettingsIcon = wrap(IconSettings, "h-5 w-5");

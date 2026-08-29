@@ -130,25 +130,25 @@ description: "Task list — 011 التجارة والنمو"
 
 ### الاختبارات
 
-- [ ] T046 [US1] `backend/tests/Feature/Store/StockConcurrencyTest.php` — `SC-002`. ⚠️ **المُطالِبُ الثاني يُخلَقُ داخلَ خطّافِ اعتمادِ الدفعِ نفسِه** (شكلُ ٠١٧)، لا باستدعاءَين متتاليَين: المتسلسلُ يعودُ عندَ فحصِ المخزونِ قبلَ الكتابةِ بخطوةٍ فيمرُّ على بناءٍ **بلا مطالبةٍ فيه إطلاقاً**.
-- [ ] T047 [P] [US1] `backend/tests/Feature/Store/FulfilIdempotencyTest.php` — يُعادُ تسليمُ `PaymentApproved` مرّتَين ⇒ **خصمُ مخزونٍ واحد**.
-- [ ] T048 [P] [US1] `backend/tests/Feature/Store/DigitalAccessTest.php` — `SC-001` + `first_accessed_at` **مرّةً واحدةً تحتَ منحتَين متزامنتَين**، بنفسِ شكلِ الخطّاف.
-- [ ] T049 [P] [US1] `backend/tests/Feature/Store/StoreWorkspaceIdTest.php` — المشتري يُبنى **بلا بذرةٍ وبلا `setCurrentWorkspace()`** و`workspace_id` مكتوبٌ صحيحاً.
-- [ ] T050 [P] [US1] `backend/tests/Feature/Store/StoreMediaOwnershipTest.php` — مدرّسٌ لا يُرفِقُ أصلَ مدرّسٍ آخر.
-- [ ] T051 [P] [US1] `backend/tests/Feature/Store/StoreQueryBudgetTest.php` — `SC-016` بألفِ منتَج: عددٌ **ثابت**، **والحقولُ حاضرةٌ كذلك** (⚠️ تحميلٌ مُسبَقٌ محذوفٌ يجعلُ الصفحةَ أرخصَ وفارغةً فيُقرَأُ التراجعُ تحسيناً).
-- [ ] T052 [P] [US1] `backend/tests/Feature/Store/RefundWindowTest.php` · `SoldOutAfterPaymentTest.php` · `WithholdingAppliesToStoreTest.php`.
-- [ ] T053 [P] [US1] حالةٌ في `backend/tests/Feature/Tenancy/WorkspaceIsolationTest.php` لجداولِ المتجرِ الثلاثة (`SC-015`).
+- [X] T046 [US1] `backend/tests/Feature/Store/StockConcurrencyTest.php` — `SC-002`. ⚠️ **المُطالِبُ الثاني يُخلَقُ داخلَ خطّافِ اعتمادِ الدفعِ نفسِه** (شكلُ ٠١٧)، لا باستدعاءَين متتاليَين: المتسلسلُ يعودُ عندَ فحصِ المخزونِ قبلَ الكتابةِ بخطوةٍ فيمرُّ على بناءٍ **بلا مطالبةٍ فيه إطلاقاً**.
+- [X] T047 [P] [US1] `backend/tests/Feature/Store/FulfilIdempotencyTest.php` — يُعادُ تسليمُ `PaymentApproved` مرّتَين ⇒ **خصمُ مخزونٍ واحد**.
+- [X] T048 [P] [US1] `backend/tests/Feature/Store/DigitalAccessTest.php` — `SC-001` + `first_accessed_at` **مرّةً واحدةً تحتَ منحتَين متزامنتَين**، بنفسِ شكلِ الخطّاف.
+- [X] T049 [P] [US1] `backend/tests/Feature/Store/StoreWorkspaceIdTest.php` — المشتري يُبنى **بلا بذرةٍ وبلا `setCurrentWorkspace()`** و`workspace_id` مكتوبٌ صحيحاً.
+- [X] T050 [P] [US1] `backend/tests/Feature/Store/StoreMediaOwnershipTest.php` — مدرّسٌ لا يُرفِقُ أصلَ مدرّسٍ آخر.
+- [X] T051 [P] [US1] `backend/tests/Feature/Store/StoreQueryBudgetTest.php` — `SC-016` بألفِ منتَج: عددٌ **ثابت**، **والحقولُ حاضرةٌ كذلك** (⚠️ تحميلٌ مُسبَقٌ محذوفٌ يجعلُ الصفحةَ أرخصَ وفارغةً فيُقرَأُ التراجعُ تحسيناً).
+- [X] T052 [P] [US1] `backend/tests/Feature/Store/RefundWindowTest.php` · `SoldOutAfterPaymentTest.php` · `WithholdingAppliesToStoreTest.php`.
+- [X] T053 [P] [US1] حالةٌ في `backend/tests/Feature/Tenancy/WorkspaceIsolationTest.php` لجداولِ المتجرِ الثلاثة (`SC-015`).
 
 > ⚠️ **و`Queue::fake()` في هذه المجموعةِ يبتلعُ المستمِعَ الذي تدورُ حولَه القصّةُ كلُّها.** `FulfilOnPaymentApproved` مطبورة ⇒ بارٌّ بلا وسيطٍ يجعلُ «خُصِمَ المخزون» ادّعاءً واثقاً عن جدولٍ لم يكتبْه شيء.
 
 ### الواجهة
 
-- [ ] T054 [P] [US1] `frontend/src/lib/store.ts` — أنواعٌ ونداءاتُ عقودِ م١.
-- [ ] T055 [US1] شاشةُ المدرّس `frontend/src/app/(app)/(shell)/manage/store/page.tsx` + `frontend/src/components/store/StoreItemForm.tsx` — سعرُ البيعِ ونسبةُ العمولةِ ونصيبُ المدرّسِ **محسوباً في المتصفّح**.
-- [ ] T056 [US1] طابورُ الشحنات `frontend/src/app/(app)/(shell)/manage/store/shipments/page.tsx`.
-- [ ] T057 [US1] شاشةُ الطالب `frontend/src/app/(app)/(shell)/store/page.tsx` + `frontend/src/components/store/{StoreItemCard,PurchaseDialog,ShippingAddressFields}.tsx`.
-- [ ] T058 [P] [US1] اختباراتُ `frontend/src/components/store/*.test.tsx` — نموذجُ المنتَجِ يُبدِّلُ حقولَه بالنوع، وزرُّ الفتحِ **يقولُ قبلَ الضغطِ إنّ الاسترداد يسقطُ به**.
-- [ ] T059 [US1] روابطُ دخولٍ إلى شاشتَي المتجرِ في `frontend/src/components/layout/Sidebar.tsx` (المدرّسُ والطالبُ كلٌّ حسبَ دورِه). ⚠️ **سطحٌ لا يبلغُه رابطٌ ليس مُنجَزاً.**
+- [X] T054 [P] [US1] `frontend/src/lib/store.ts` — أنواعٌ ونداءاتُ عقودِ م١.
+- [X] T055 [US1] شاشةُ المدرّس `frontend/src/app/(app)/(shell)/manage/store/page.tsx` + `frontend/src/components/store/StoreItemForm.tsx` — سعرُ البيعِ ونسبةُ العمولةِ ونصيبُ المدرّسِ **محسوباً في المتصفّح**.
+- [X] T056 [US1] طابورُ الشحنات `frontend/src/app/(app)/(shell)/manage/store/shipments/page.tsx`.
+- [X] T057 [US1] شاشةُ الطالب `frontend/src/app/(app)/(shell)/store/page.tsx` + `frontend/src/components/store/{StoreItemCard,PurchaseDialog,ShippingAddressFields}.tsx`.
+- [X] T058 [P] [US1] اختباراتُ `frontend/src/components/store/*.test.tsx` — نموذجُ المنتَجِ يُبدِّلُ حقولَه بالنوع، وزرُّ الفتحِ **يقولُ قبلَ الضغطِ إنّ الاسترداد يسقطُ به**.
+- [X] T059 [US1] روابطُ دخولٍ إلى شاشتَي المتجرِ في `frontend/src/components/layout/Sidebar.tsx` (المدرّسُ والطالبُ كلٌّ حسبَ دورِه). ⚠️ **سطحٌ لا يبلغُه رابطٌ ليس مُنجَزاً.**
 
 **Checkpoint**: م١ تُدمَجُ خضراءَ وحدَها — منتَجٌ قابلٌ للنشرِ بنصِّ قائمةِ التحقّق.
 

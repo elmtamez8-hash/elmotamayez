@@ -66,6 +66,9 @@ use App\Modules\Settlement\Models\SettlementPeriod;
 use App\Modules\Settlement\Models\SettlementRate;
 use App\Modules\Settlement\Models\TeacherPayout;
 use App\Modules\Settlement\Models\TeachingUnit;
+use App\Modules\Store\Models\Shipment;
+use App\Modules\Store\Models\StoreItem;
+use App\Modules\Store\Models\StoreOrder;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
@@ -993,6 +996,48 @@ it('scopes the four cohort tables to the workspace that owns them', function ():
     $seed($workspaceB, $ownerB);
 
     foreach ([Cohort::class, CohortMembership::class, CohortMembershipEvent::class, CohortTransferRequest::class] as $model) {
+        expect($context->forWorkspace($workspaceA, fn () => $model::query()->count()))->toBe(1)
+            ->and($context->forWorkspace($workspaceB, fn () => $model::query()->count()))->toBe(1)
+            ->and($model::query()->withoutGlobalScopes()->count())->toBe(2)
+            ->and(in_array(BelongsToWorkspace::class, class_uses_recursive($model), true))->toBeTrue();
+    }
+});
+
+/*
+| SC-015 · spec 011 — the store's three tables.
+|
+| ⚠️ A TENANT-SCOPED MODEL WITHOUT `BelongsToWorkspace` LEAKS ACROSS WORKSPACES AND
+| NO OTHER TEST WOULD SAY SO. That is why this file exists, and why the trait
+| itself is asserted alongside the counts: a model that happened to be filtered by
+| an explicit `where` in today's only caller would pass the count and fail the day
+| a second caller forgets.
+*/
+it('scopes the three store tables to the workspace that owns them', function (): void {
+    [$workspaceA, $ownerA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+    [$workspaceB, $ownerB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+    $context = app(WorkspaceContext::class);
+
+    $seed = fn ($workspace) => $context->forWorkspace($workspace, function () use ($workspace): void {
+        $item = StoreItem::factory()->physical(4)->create([
+            'workspace_id' => $workspace->getKey(),
+        ]);
+
+        $order = StoreOrder::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'store_item_id' => $item->getKey(),
+        ]);
+
+        Shipment::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'store_order_id' => $order->getKey(),
+        ]);
+    });
+
+    $seed($workspaceA);
+    $seed($workspaceB);
+
+    foreach ([StoreItem::class, StoreOrder::class, Shipment::class] as $model) {
         expect($context->forWorkspace($workspaceA, fn () => $model::query()->count()))->toBe(1)
             ->and($context->forWorkspace($workspaceB, fn () => $model::query()->count()))->toBe(1)
             ->and($model::query()->withoutGlobalScopes()->count())->toBe(2)

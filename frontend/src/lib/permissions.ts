@@ -45,6 +45,11 @@ export const P = {
   // permission is deliberately absent: it is platform-level and no tenant role
   // holds it, so offering a link to it would show every teacher a 403.
   rewardsManage: "rewards.manage",
+  // Spec 011 · US1. Two names, not one: pricing the goods and packing them are
+  // two jobs, and this is the one a teacher delegates — an assistant who posts
+  // the parcels reads a home address and has no business setting a shelf price.
+  storeItemsManage: "store.items.manage",
+  storeShipmentsManage: "store.shipments.manage",
   // Spec 010 — writing the periodic assessment AND weighting the grade
   // components. One name for both on purpose: the weights decide the single
   // number on the same document that reaches the same guardian, and a second

@@ -38,7 +38,9 @@ import {
   LeaderboardIcon,
   ProgressIcon,
   QuestionBankIcon,
+  ShipmentIcon,
   ShopIcon,
+  StoreIcon,
   ScheduleIcon,
   SessionsIcon,
   SettingsIcon,
@@ -176,6 +178,22 @@ const mainNav: NavItem[] = [
   { href: "/shop", label: "متجر المكافآت", Icon: ShopIcon },
   // The teacher's side of that shop, and the queue of what has been claimed.
   { href: "/manage/rewards", label: "متجر مكافآتي", Icon: ShopIcon, permission: P.rewardsManage },
+  /*
+   * Spec 011 · US1. Three entries, because they are three different people's
+   * jobs — and a surface no link reaches is a surface nobody uses.
+   *
+   * The student's is ungated: every signed-in person may have bought a book, and
+   * the page lists their own purchases plus the stores of the teachers they are
+   * actually enrolled with.
+   */
+  { href: "/store", label: "مشترياتي", Icon: StoreIcon },
+  { href: "/manage/store", label: "متجري", Icon: StoreIcon, permission: P.storeItemsManage },
+  {
+    href: "/manage/store/shipments",
+    label: "الشحنات",
+    Icon: ShipmentIcon,
+    permission: P.storeShipmentsManage,
+  },
   { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },
   { href: "/orders", label: "الطلبات", Icon: OrdersIcon },
   // The student's credits, counted in sessions and never in money. Separate

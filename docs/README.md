@@ -170,6 +170,68 @@ commission, and nothing in the existing panel test would say so
 is a derivation compared with itself). `CommercePermissionNamesTest` pins all
 five literally, in both directions.
 
+### Store endpoints (spec 011 · US1)
+
+| Method | Path | Who |
+|---|---|---|
+| `GET` | `/store/items` | teacher · `store.items.manage` |
+| `POST` · `PUT` | `/store/items[/{item}]` | teacher · `store.items.manage` |
+| `GET` | `/store/shipments` | teacher · `store.shipments.manage` |
+| `PATCH` | `/store/shipments/{shipment}` | teacher · `store.shipments.manage` |
+| `GET` | `/store/catalogue?workspace_uuid=` | any signed-in buyer |
+| `GET` | `/store/purchases` | the buyer, their own |
+| `POST` | `/store/purchases` | the buyer |
+| `POST` | `/store/purchases/{purchase}/open` | the buyer |
+| `POST` | `/store/purchases/{purchase}/refund` | the buyer |
+
+⚠️ **The buyer's routes take a uuid as a STRING, never a bound model.** A student
+is a member of no workspace, so `WorkspaceContext::id()` is null and
+`WorkspaceScope::apply()` adds no condition — `BelongsToWorkspace` protects
+exactly nothing on that path, and an implicit `{purchase}` would resolve any
+buyer's order. Ownership is resolved inside each Action by `buyer_user_id`. The
+teacher's routes DO bind, safely, because the reader is a member there.
+
+⚠️ **`Idempotent` middleware returns early when the header is absent**, so
+`throttle:store-write` + `idempotent` on the purchase route is only a guard if
+the CLIENT sends `Idempotency-Key`. `lib/store.ts` mints one per attempt.
+
+### The store's three money rules
+
+- **The teacher sets the shelf price and the commission comes out of it** (Q4/Q5
+  of the second clarification session), never a fee added on top. The API sends
+  `price_minor` and `commission_bps`; the teacher's net is computed in the
+  browser, because sending it would put the platform's margin one subtraction
+  away from anybody who opens the network tab.
+- **The commission is taken off the goods and not off the postage.** A shipping
+  fee is money the teacher hands a courier; a percentage of it would make a
+  teacher who posts further away earn less on the same book.
+- **`intdiv`, never `round`.** Rounding a half up on the platform's side is a
+  decision nobody made, and a floor is the same answer on both engines. The
+  frontend's `teacherNetMinor()` floors identically.
+
+### Store gotchas
+
+- **`store_items.stock` is a SIGNED `integer` and NULLABLE, and both are
+  load-bearing.** Unsigned arithmetic below zero raises MySQL `ERROR 1690` and
+  SQLite cannot reproduce it; `null` means «digital, cannot run out», and
+  `stock >= :qty` against NULL is NULL — so `ClaimStock` branches on `kind`
+  FIRST, or every file on the platform reports «نفد المخزون» for ever.
+- **`fulfilled_at` is the idempotency guard, claimed by a conditional UPDATE.**
+  `PaymentApproved` is redelivered by any queue retry, and a read-then-write
+  takes two copies off the shelf for one sale.
+- **The sold-out-after-capture branch is ordinary, not exotic.** Days separate
+  the purchase from the approval of a manual transfer. The order becomes
+  `refund_due`, the buyer is told, and `fulfilled_at` is RELEASED — left set on
+  an order that delivered nothing it lets `IssueStoreAccess` open a file nobody
+  has a copy of.
+- **The refund is two conditions and either alone is a different product.** 48
+  hours with no «opened» test is a free copy of every book; «not opened» with no
+  window is a refund available for ever.
+- **`MintPlaybackGrant` is the one place a `PlaybackGrant` is written**, and both
+  `IssuePlaybackGrant` (a lesson) and `IssueStoreAccess` (a purchase) are thin
+  doors above it. No entitlement condition may move into the mint: one that did
+  would start being enforced by the other door with nobody deciding it should.
+
 ### Order kinds and who signs for the money (spec 011)
 
 `OrderKind` has four cases: `course`, `credits`, `store`, `subscription`.
