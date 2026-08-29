@@ -339,3 +339,123 @@ button:not(:disabled):not([aria-disabled="true"]),
 [role="button"]:not(:disabled):not([aria-disabled="true"]) {
   cursor: pointer;
 }
+
+/*
+| ⚠️ `prose-policy` HAS BEEN A CLASS NOTHING DEFINES SINCE THE PRIVACY PAGE
+| SHIPPED — and Tailwind emits no rule for a utility it has never heard of, so
+| the whole policy has been rendering under the preflight reset: every heading
+| the same size as the body text, no list markers, no space between paragraphs.
+| Present, correct-looking in the JSX, and invisible in the browser. Fourth time
+| this repository has recorded the shape (three undefined colour tokens before
+| it), and the first time the class is not a colour.
+|
+| One rule for both surfaces rather than two names: a policy and an article are
+| the same thing typographically — a wall of authored Markdown, rendered from
+| HTML we generated, with no classes on any element to hook onto. `prose-policy`
+| is kept as an alias so the fix does not need the privacy page to be edited into
+| agreement with it.
+|
+| Colours are tokens, never literals. `max-width` is deliberately absent: both
+| callers already cap their own measure, and a second cap here would fight them.
+*/
+.prose-article,
+.prose-policy {
+  color: var(--color-ink);
+  line-height: 1.9;
+}
+
+.prose-article > * + *,
+.prose-policy > * + * {
+  margin-block-start: 1rem;
+}
+
+.prose-article h1,
+.prose-article h2,
+.prose-article h3,
+.prose-policy h1,
+.prose-policy h2,
+.prose-policy h3 {
+  font-weight: 700;
+  line-height: 1.4;
+  margin-block-start: 2rem;
+}
+
+.prose-article h1,
+.prose-policy h1 {
+  font-size: 1.5rem;
+}
+
+.prose-article h2,
+.prose-policy h2 {
+  font-size: 1.25rem;
+}
+
+.prose-article h3,
+.prose-policy h3 {
+  font-size: 1.075rem;
+}
+
+.prose-article ul,
+.prose-policy ul {
+  list-style: disc;
+}
+
+.prose-article ol,
+.prose-policy ol {
+  list-style: decimal;
+}
+
+/* `padding-inline-start`, never `padding-left`: the product is RTL and a
+   physical property puts every bullet on the wrong side. */
+.prose-article :is(ul, ol),
+.prose-policy :is(ul, ol) {
+  padding-inline-start: 1.5rem;
+}
+
+.prose-article li + li,
+.prose-policy li + li {
+  margin-block-start: 0.375rem;
+}
+
+.prose-article a,
+.prose-policy a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.prose-article blockquote,
+.prose-policy blockquote {
+  /* The border is on the INLINE start, so it sits at the right in Arabic. */
+  border-inline-start: 3px solid var(--color-line);
+  padding-inline-start: 1rem;
+  color: var(--color-ink-muted);
+}
+
+.prose-article :is(code, pre),
+.prose-policy :is(code, pre) {
+  background-color: var(--color-primary-soft);
+  border-radius: 0.5rem;
+}
+
+.prose-article code,
+.prose-policy code {
+  padding: 0.1rem 0.35rem;
+  font-size: 0.9em;
+}
+
+.prose-article pre,
+.prose-policy pre {
+  padding: 1rem;
+  /* Code is the one block that must not widen the page: it scrolls inside
+     itself, which is the rule every wide element in this product follows. */
+  overflow-x: auto;
+  direction: ltr;
+  text-align: start;
+}
+
+.prose-article img,
+.prose-policy img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 1rem;
+}

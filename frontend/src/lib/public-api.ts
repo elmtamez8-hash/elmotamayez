@@ -150,6 +150,34 @@ export type HomePayload = {
   faqs: { question: string; answer: string }[];
 };
 
+export type ArticleTaxonomy = { slug: string; name: string };
+
+export type ArticleCard = {
+  uuid: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  published_at: string;
+  updated_at: string;
+  category?: ArticleTaxonomy | null;
+  tags?: ArticleTaxonomy[];
+};
+
+export type ArticleDetail = ArticleCard & {
+  /*
+   * Rendered from Markdown per response, never stored. The API strips raw HTML
+   * at the parse rather than escaping it, so the allowlist IS the Markdown
+   * feature set — there is no sanitiser configuration on this side to get wrong,
+   * and no `body` field to accidentally render instead.
+   */
+  body_html: string;
+  seo_title: string | null;
+  seo_description: string | null;
+  canonical_url: string | null;
+  related_teachers: TeacherCard[];
+  related_courses: CourseCard[];
+};
+
 export class NotFoundError extends Error {}
 
 async function get<T>(
@@ -204,4 +232,19 @@ export const publicApi = {
 
   courses: (params: Record<string, string | undefined>) =>
     get<Paginated<CourseCard>>("/marketplace/courses", params),
+
+  /*
+   * The blog. `per_page` is capped server-side at 200 — the sitemap is the only
+   * caller that asks for a big page, and it walks them rather than asking for
+   * everything at once.
+   */
+  articles: (params: Record<string, string | undefined> = {}) =>
+    get<Paginated<ArticleCard>>("/public/articles", params),
+
+  // `encodeURIComponent` because the slugs are Arabic: an unencoded one is not a
+  // legal request target, and the path segment is the whole address here.
+  article: (slug: string) =>
+    get<{ data: ArticleDetail }>(
+      `/public/articles/${encodeURIComponent(slug)}`,
+    ),
 };

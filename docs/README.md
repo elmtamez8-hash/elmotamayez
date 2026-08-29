@@ -499,6 +499,152 @@ as credits; time is bought here.**
   price derives from nothing. Subscribing is also how a student STARTS with a
   teacher.
 
+### The public blog and SEO (spec 011 · US5)
+
+| method | route | who |
+|---|---|---|
+| `GET` | `/public/articles?page=&per_page=&category=&tag=` | anyone, `throttle:public` |
+| `GET` | `/public/articles/{slug}` | anyone, `throttle:public` |
+| `GET` · `POST` · `PUT` · `DELETE` | `/cms/articles…` | `cms.*`, `throttle:authoring` |
+
+Screens: `/blog` and `/blog/{slug}` in Next, `/admin` → «المدوّنة» (`CmsArticleResource`).
+
+- **The public query starts from `publiclyListed()`, and the route takes a plain
+  STRING.** `WorkspaceScope::apply()` adds no condition when the context is null,
+  which it always is for a guest — so a public query without that scope does not
+  return too many rows, it returns **every workspace's drafts**. And
+  `Route::get('/public/articles/{article}')` would bind the model by uuid with the
+  guard nowhere near it: one convenient line undoes the whole of FR-033.
+- **`published_at` must exist AND be past** — stricter than `isPublished()`, which
+  treats a null timestamp as «published now». Correct for a member reading their
+  own workspace, wrong for the index, the sitemap's `lastModified` and the byline.
+  A future date is a SCHEDULED article, which is scheduling implemented by not
+  implementing it.
+- ⚠️ **`SoftDeletes` was missing from `Article` while the table had
+  `softDeletes()` since July**, and two migration docblocks written in this spec's
+  own first phase reasoned from a trait that was not on the model — «a trashed
+  article holds its slug against the whole table» was simply false, `destroy()`
+  hard-deleted the row, and `deleted_at` was a column nothing ever wrote. Adding
+  it makes the schema and the reasoning agree, and gives the public predicate its
+  «not deleted» half for nothing.
+- **The slug is Arabic, and `usingLanguage('')` is the whole decision.**
+  `Str::slug()` transliterates through `Str::ascii($title, $language)` unless the
+  language is falsy: the default turned «خطة المراجعة النهائية» into
+  `kht-almragaa-alnhayy`, on the one piece of an article a search engine shows in
+  full, for an audience that reads Arabic. Harakat drop out for free (they are
+  `\p{M}`, outside `\pL\pN`). The random six-character suffix `store()` used to
+  append is gone — uniqueness is answered by asking the table.
+  spatie/laravel-sluggable does it; its uniqueness query is exactly the one this
+  table needs (`withoutGlobalScopes()` plus `withoutGlobalScope(SoftDeletingScope)`),
+  because the index is platform-wide and a trashed row still holds its slug.
+- **`doNotGenerateSlugsOnUpdate()`** — a published URL that changes is a URL that
+  404s, and every share of it is a dead link. Renaming an article renames the
+  heading and nothing else. `CreateArticleRequest` carries `Rule::unique()` so a
+  slug the teacher TYPED and somebody already holds is a sentence rather than a
+  raw integrity error; that rule is a raw query with no scopes and no `deleted_at`
+  clause, which is the same shape as the index.
+- **Two Resources, never one branching on the reader.** `ArticleResource` is the
+  author's and legitimately carries `status`, the raw Markdown `body`,
+  `category.id` and every `tags[].id`. `PublicArticleResource` is written key by
+  key and walked against `CmsFieldAllowlist` — which OWNS the allow lists and
+  IMPORTS Marketplace's `FORBIDDEN` rather than restating it, and which reuses
+  `TEACHER_CARD`/`COURSE_CARD` for FR-038's related links rather than inventing a
+  second spelling of what a teacher card contains.
+- **No author anywhere in the payload or the JSON-LD** (FR-034). `author_id` names
+  a `users` row and nothing on `users` is public; the byline a reader wants is the
+  teacher, which the related block carries from the marketplace, where it is
+  published by decision.
+- **`RelatedTeachers` lives in Marketplace, not CMS** (FR-038). «يُمنعُ أن تشمل
+  معلَّقاً أو خارجاً عن السوقِ العامّ» IS `publiclyListed()`, and that predicate
+  belongs to the module that owns approval, suspension and participation. A
+  CMS-side join would be a second spelling of «who may be shown», failing towards
+  a card for a suspended teacher on an indexed page. Relatedness is the WORKSPACE,
+  not a subject match — and a withdrawn workspace returns two EMPTY lists rather
+  than borrowing somebody else's teachers.
+- **`body_html` is derived per response and `body` never travels.** Raw HTML is
+  STRIPPED at the parse rather than escaped, so the allowlist is the Markdown
+  feature set itself and there is no sanitiser configuration to get wrong.
+- ⚠️ **`prose-policy` had been a class nothing defines since the privacy page
+  shipped.** Tailwind v4 emits no rule for a utility it has never heard of, so the
+  whole policy rendered under the preflight reset — every heading the same size as
+  the body, no list markers, no paragraph spacing. Present, correct-looking in the
+  JSX, invisible in the browser. Fourth time this repository has recorded that
+  shape and the first time it is not a colour token. One rule in `globals.css`
+  now serves `.prose-article` and `.prose-policy`.
+- **`SITE_URL` is one value read by five things** — the sitemap's `<loc>`, robots'
+  `Sitemap:` line, `<link rel="canonical">`, the `url` in every JSON-LD block, and
+  the URLs the backend submits to IndexNow. Spelled separately they disagree the
+  first time one moves, and a canonical naming a host the sitemap does not is a
+  site telling a search engine two things about one page. Not `NEXT_PUBLIC_*`:
+  every reader is a server component, and a `NEXT_PUBLIC_` value is inlined at
+  compile time (spec 020's socket host).
+- **The sitemap reads `ListPublicArticles`, not a query of its own** (SC-011). The
+  same predicate on both sides is what stops «the blog shows an article the map
+  omits» and «the map advertises a draft». `generateSitemaps()` is FR-036's split;
+  a build that cannot reach the API returns ONE chunk carrying the static pages,
+  never zero — a sitemap index with no children tells a crawler the site has no
+  pages at all.
+- ⚠️ **`dangerouslySetInnerHTML` escapes nothing, and `JSON.stringify` is not the
+  guard people assume.** It leaves `<` untouched, and the HTML parser hunts for
+  the literal `</script` inside a script element without caring that it sits in a
+  JSON string — so an article titled `</script><script>…` closes our tag and opens
+  theirs. `serializeJsonLd()` escapes `<`, `>`, `&`, U+2028 and U+2029 to their
+  `\uXXXX` forms, which every JSON reader decodes back to the same string: the
+  structured data is byte-for-byte the teacher's title. Only a component test can
+  see this (`JsonLd.test.tsx`).
+- **`canonical_url` is re-checked in the page.** It is emitted as
+  `<link rel="canonical">` — the one tag that says which address of a page to keep
+  — the API validates it as an absolute `http(s)` URL only as of this spec, and a
+  bad one is worse than none. `absoluteHttpUrl()` falls back to our own address.
+- **FR-037 is IndexNow, and the obvious implementation would have done nothing.**
+  Google removed `GET /ping?sitemap=` in January 2024 and Bing had already routed
+  its own to IndexNow, so a job posting to either address today logs a warning
+  nobody reads and notifies no search engine at all. `PingSearchEnginesJob` takes
+  site-relative PATHS as strings — a job payload is serialised into Redis and, on
+  failure, into `failed_jobs.payload` — encodes each segment (the slugs are
+  Arabic), omits `keyLocation` rather than sending it empty (`videos/fetch` cost a
+  day over exactly that), and treats 403/422 as configuration rather than weather.
+  ⚠️ **It is a config-gated no-op until an operator serves the key file.** The key
+  proves ownership by being readable at `{site}/{key}.txt`, which is a deploy step
+  and NOT something that may live in the repository; submitting without it earns a
+  403 on every publish. So FR-037 ships implemented-and-off, deliberately, and
+  `data_processors` carries the `indexnow` row with `erasure_capability: none` —
+  there is no «forget this» in the protocol.
+- **The announcement is on the MODEL, not in the controller.** There are two
+  entrances — the API's `publish()` and `CmsArticleResource` in the panel, which
+  writes the row directly — and a rule spelled at one door is a rule the other
+  does not have. It fires only for a row the public can actually read, asked as a
+  query rather than re-derived from `status`: inviting a crawler to a 404 is the
+  one thing that costs a site standing with the engine it just invited.
+  ⚠️ **And that query declares `withoutWorkspaceScope()`.** `WorkspaceContext`
+  CACHES its first resolution, so a query in a model hook is also a RESOLUTION
+  there: a fixture creating a published article before signing anybody in froze
+  the context to null for the rest of the test, and `WorkspaceScope` adds no
+  condition when the id is null — every later cross-workspace assertion then
+  passed through a door that was no longer shut. `CMSTest`'s isolation case turned
+  red within an hour of the hook being written.
+- **`CmsArticleResource` declares `canViewAny()` because `ArticlePolicy` has no
+  `viewAny()`.** `Resource::canViewAny()` delegates to the policy and falls
+  through to `Response::allow()` when the method does not exist — the screen would
+  open for everyone past the panel's own door. One door, never two: the policy
+  must NOT also gain a `viewAny()`. Its query stays workspace-scoped, unlike
+  `PlanResource`'s: every teacher reaches this panel and an article is their own
+  writing.
+- **T117 — public publishing reuses `participates_in_marketplace`, and the price
+  of reusing it is that the settings card has to SAY so.** A workspace that
+  accepted a marketplace listing did not thereby accept having its articles
+  indexed, and withdrawing takes the blog down in the same breath, silently.
+  `GET /teacher/profile` therefore answers `workspace_participates_in_marketplace`
+  BESIDE the derived `is_publicly_listed`: the two are different questions, and an
+  unapproved teacher's ARTICLES are public while their profile is not, because
+  `Article`'s predicate asks only about the workspace.
+- ⚠️ **`PublicExposureTest` does not cover these routes.** Its payload list is a
+  hand-written array of marketplace URLs, so adding a public endpoint anywhere
+  else in the tree changes not one assertion in it. `PublicArticleExposureTest` is
+  the CMS half; a third public surface needs a third file. Its sentinels are
+  **ASCII**, because `getContent()` escapes non-ASCII and a leak assertion with an
+  Arabic needle is vacuously true.
+
 ### Order kinds and who signs for the money (spec 011)
 
 `OrderKind` has four cases: `course`, `credits`, `store`, `subscription`.

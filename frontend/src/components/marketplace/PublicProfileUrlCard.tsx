@@ -8,7 +8,18 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextField } from "@/components/ui/Field";
 
-type Profile = { slug: string | null; is_publicly_listed: boolean };
+type Profile = {
+  slug: string | null;
+  is_publicly_listed: boolean;
+  /*
+   * ⚠️ NOT THE SAME FLAG AS `is_publicly_listed`, AND THE BLOG RIDES ON THIS ONE.
+   * The derived flag needs approval AND participation; an article is public on
+   * the workspace's participation alone. So a teacher still in review can be
+   * publishing articles the whole internet can read while their own profile
+   * answers 404 — which is the one thing this card must not leave them to guess.
+   */
+  workspace_participates_in_marketplace: boolean;
+};
 
 /**
  * The teacher editing the segment their public profile lives at.
@@ -114,6 +125,19 @@ export function PublicProfileUrlCard() {
             <span className="text-ink-muted">/teachers/</span>
             <span className="font-semibold text-ink">{slug || "…"}</span>
           </p>
+
+          {profile.workspace_participates_in_marketplace && (
+            // Spec 011 · T117 — the decision was to reuse the marketplace flag
+            // rather than add a «publish the blog» switch of its own, and the
+            // price of reusing it is that nothing on any screen said so:
+            // withdrawing from the marketplace takes the blog down in the same
+            // breath, silently, and putting an article back up is not something
+            // the teacher can do from the blog screen.
+            <Alert tone="info" title="مقالاتُك منشورةٌ للعموم أيضاً">
+              ما تنشره في المدوّنة يُقرأ بلا تسجيل ويظهر لمحرّكات البحث، ما دامت
+              مساحتُك معروضةً في السوق. خروجُك من السوق يُنزِلُ المدوّنةَ معه.
+            </Alert>
+          )}
 
           {!profile.is_publicly_listed && (
             // A slug on an unlisted profile answers 404 to everyone but its

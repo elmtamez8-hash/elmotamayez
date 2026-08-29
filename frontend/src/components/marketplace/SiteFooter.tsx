@@ -23,6 +23,7 @@ const COLUMNS = [
     links: [
       { href: "/teachers", label: "المدرسون", Icon: UsersIcon },
       { href: "/courses", label: "الكورسات", Icon: BookIcon },
+      { href: "/blog", label: "المدوّنة", Icon: DocumentIcon },
       { href: "/pricing", label: "الأسعار", Icon: TagIcon },
       { href: "/about", label: "عن المنصة", Icon: InfoIcon },
     ],

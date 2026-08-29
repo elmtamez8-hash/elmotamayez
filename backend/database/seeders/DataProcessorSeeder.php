@@ -119,6 +119,31 @@ class DataProcessorSeeder extends Seeder
                 'erasure_capability' => ErasureCapability::Partial->value,
                 'is_active' => true,
             ],
+            [
+                'key' => 'indexnow',
+                'name' => 'IndexNow',
+                'purpose_ar' => 'يُبلَّغُ محرّكات البحث بعناوين المقالات المنشورة لتزورَها وتفهرسَها.',
+                'processing_location' => 'خوادم المزوّد خارج قطر',
+                /*
+                | ⚠️ WHAT TRAVELS IS A URL, AND WHAT THAT URL LEADS TO IS THE
+                | REASON THE ROW EXISTS. The submission itself carries a host, a
+                | key and a list of addresses — no name, no contact, nothing about
+                | a student. But it is an invitation to fetch a page that carries
+                | the teacher's name and photo, and a register that listed only
+                | the bytes we post would describe the mechanism and hide the
+                | consequence.
+                */
+                'categories' => ['authored_content'],
+                /*
+                | ⚠️ `none`, and it is the honest answer. There is no «forget
+                | this» in the protocol; a page that is taken down is dropped when
+                | the crawler next finds a 404, on the engine's own schedule and
+                | under its own policy. Claiming `full` would put a sentence in an
+                | erasure report that we cannot keep.
+                */
+                'erasure_capability' => ErasureCapability::None->value,
+                'is_active' => true,
+            ],
         ];
     }
 }

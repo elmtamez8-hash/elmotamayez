@@ -191,6 +191,17 @@ class AdminPanelProvider extends PanelProvider
                 for: 'App\Modules\Gamification\Filament\Resources',
             )
             /*
+            | ⚠️ SIX ROUTES AND FIVE PERMISSIONS SINCE JULY, AND NO SCREEN. The
+            | blog had an API and nothing that reached it — `cms.publish` guarded a
+            | button nobody could press — which is the shape this file already
+            | names twice below. Spec 011 gives it a public reader, so the day it
+            | ships is the day the absence stops being invisible.
+            */
+            ->discoverResources(
+                in: app_path('Modules/CMS/Filament/Resources'),
+                for: 'App\Modules\CMS\Filament\Resources',
+            )
+            /*
             | ⚠️ سبعةُ نماذجَ في وحدةِ الامتثالِ ولم تكنْ لها شاشةٌ واحدة، وصلاحيتان
             | (`compliance.requests.execute` و`compliance.registry.manage`) تحرسان
             | لا شيء. صلاحيةٌ لا يقرؤها ملفٌّ واحدٌ تمرُّ في كلِّ اختبارٍ لها وهي

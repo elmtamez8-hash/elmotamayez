@@ -12,6 +12,7 @@ const NAV = [
   { href: "/", label: "الرئيسية" },
   { href: "/teachers", label: "المدرسون" },
   { href: "/courses", label: "الكورسات" },
+  { href: "/blog", label: "المدوّنة" },
   { href: "/pricing", label: "الأسعار" },
   { href: "/about", label: "عن المنصة" },
 ];

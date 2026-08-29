@@ -52,6 +52,23 @@ class TeacherProfileController extends Controller
         return response()->json([
             'slug' => $profile->slug,
             'is_publicly_listed' => (bool) $profile->is_publicly_listed,
+            /*
+            | Spec 011 · T117 — the workspace's own flag, BESIDE the derived one
+            | rather than instead of it.
+            |
+            | ⚠️ THE TWO ANSWER DIFFERENT QUESTIONS AND THE BLOG RIDES ON THIS
+            | ONE. `is_publicly_listed` is derived from approval AND
+            | participation, so a teacher still in review reads `false` while
+            | their workspace is perfectly well opted in — and `Article`'s public
+            | predicate asks only about the workspace. So an unapproved teacher's
+            | ARTICLES are public while their profile is not, and the settings
+            | card cannot say that from the derived flag alone.
+            |
+            | It is the teacher's own workspace, so nothing crosses a tenant
+            | boundary; `participates_in_marketplace` is not a public field and
+            | does not appear in any marketplace payload.
+            */
+            'workspace_participates_in_marketplace' => (bool) $profile->workspace?->participates_in_marketplace,
         ]);
     }
 

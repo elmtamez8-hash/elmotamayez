@@ -1,7 +1,9 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { publicApi, type HomePayload } from "@/lib/public-api";
 import { PLATFORM_NAME } from "@/lib/platform";
+import { siteUrl } from "@/lib/site";
 import { TeacherCard } from "@/components/marketplace/TeacherCard";
 import { CourseCard } from "@/components/marketplace/CourseCard";
 import { TestimonialsCarousel } from "@/components/marketplace/TestimonialsCarousel";
@@ -16,6 +18,36 @@ import {
   StarIcon,
   UsersIcon,
 } from "@/components/icons";
+
+/*
+ * ⚠️ THE HOME PAGE HAD NO `metadata` AT ALL until spec 011 — the ONE public page
+ * in the product without one, inheriting the root layout's default title and
+ * description. It is also the first thing a search engine reads about the
+ * platform, and an OG card with no image and no explicit description is what a
+ * link to the front page renders as in every chat app it is pasted into.
+ *
+ * `alternates.canonical` is absolute for the same reason the sitemap's entries
+ * are: the marketplace answers at more than one host in development, and a
+ * relative canonical resolves against whichever one the crawler arrived on.
+ */
+export const metadata: Metadata = {
+  // `default`, not a string: the root layout's template appends «| المنصّة», and
+  // on the home page that would read as the platform name twice.
+  title: { absolute: `${PLATFORM_NAME} — مدرّسون خصوصيون بالعربية، مباشرةً ومسجّلاً` },
+  description:
+    "ابحثْ عن مدرّسٍ خصوصيٍّ لكلِّ مادّةٍ ومرحلة: حصصٌ فرديّةٌ وجماعيّةٌ مباشرة، وكورساتٌ مسجّلة، ودرجةُ ثقةٍ شفّافةٌ لكلِّ مدرّس.",
+  alternates: { canonical: siteUrl("/") },
+  openGraph: {
+    title: `${PLATFORM_NAME} — مدرّسون خصوصيون بالعربية`,
+    description:
+      "حصصٌ خصوصيّةٌ مباشرةٌ ومسجّلة، مع مراجعةٍ أكاديميّةٍ لكلِّ مدرّسٍ ودرجةِ ثقةٍ مبنيّةٍ على أداءٍ فعليّ.",
+    url: siteUrl("/"),
+    siteName: PLATFORM_NAME,
+    type: "website",
+    locale: "ar_QA",
+  },
+  twitter: { card: "summary_large_image" },
+};
 
 // Server-rendered: a crawler that runs no JavaScript must still read the teachers
 // and copy (SC-016), and client-side fetching would put first paint out of reach

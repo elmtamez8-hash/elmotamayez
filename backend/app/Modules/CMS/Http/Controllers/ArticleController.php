@@ -11,7 +11,6 @@ use App\Modules\CMS\Models\Article;
 use App\Modules\Tenancy\Support\Permissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class ArticleController extends Controller
 {
@@ -39,8 +38,25 @@ class ArticleController extends Controller
     public function store(CreateArticleRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $data['slug'] ??= Str::slug($data['title'].'-'.Str::random(6));
         $data['author_id'] = $this->currentUser($request)->getKey();
+
+        /*
+        | ⚠️ NO SLUG IS BUILT HERE ANY MORE. It used to be
+        | `Str::slug($title.'-'.Str::random(6))` — a transliteration that turned
+        | «خطة المراجعة النهائية» into `kht-almragaa-alnhayy`, plus six random
+        | characters bolted onto the one field whose whole job is to be readable.
+        | spatie's `HasSlug` on the model does it now, in Arabic, and answers a
+        | collision by asking the table. See `Article::getSlugOptions()`.
+        |
+        | ⚠️ AND A DIRECT `status: published` NOW STAMPS ITS OWN TIMESTAMP.
+        | `publicListingConstraints()` requires `published_at` to exist and to be
+        | past, so an article created published and never passed through
+        | `publish()` was «published» to its author, invisible to the public blog,
+        | absent from the sitemap, and there was nothing on any screen to say so.
+        */
+        if (($data['status'] ?? 'draft') === 'published') {
+            $data['published_at'] ??= now();
+        }
 
         $article = Article::create($data);
 
@@ -55,10 +71,16 @@ class ArticleController extends Controller
     {
         $this->authorize('update', $article);
 
-        $article->update($request->validated());
+        $data = $request->validated();
 
-        if (isset($request->validated()['tag_ids'])) {
-            $article->tags()->sync($request->validated()['tag_ids']);
+        if (($data['status'] ?? $article->status) === 'published') {
+            $data['published_at'] ??= $article->published_at ?? now();
+        }
+
+        $article->update($data);
+
+        if (isset($data['tag_ids'])) {
+            $article->tags()->sync($data['tag_ids']);
         }
 
         return response()->json(ArticleResource::make($article->fresh()));

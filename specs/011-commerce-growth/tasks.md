@@ -242,23 +242,23 @@ description: "Task list — 011 التجارة والنمو"
 
 > **الجداولُ قائمةٌ منذُ ٢٠ يوليو** — `cms_articles` تحملُ `slug` و`seo_*` و`canonical_url` و`published_at`. الناقصُ **بابانِ وفهرسان**، لا جدول.
 
-- [ ] T101 [US5] أضِفْ `IsPubliclyListed` إلى `backend/app/Modules/CMS/Models/Article.php` مع `publicListingConstraints()` (منشورٌ · غيرُ محذوف).
-- [ ] T102 [US5] `backend/app/Modules/CMS/Support/CmsFieldAllowlist.php` **تملكُها CMS** وتُعيدُ استعمالَ `PublicFieldAllowlist::FORBIDDEN` — شكلُ `AssessmentFieldAllowlist`. ⚠️ **لا تُنمِّ قائمةَ Marketplace**: تستوردُ CMS منها وتملكُ Marketplace حقولاً لا تعرفُها.
-- [ ] T103 [US5] `backend/app/Modules/CMS/Http/Resources/PublicArticleResource.php` — ⚠️ المورِدُ القائمُ يُصدِرُ `category.id` و`tags[].id` و`body` و`status`، و`'id'` في قائمةِ الممنوع.
-- [ ] T104 [US5] `backend/app/Modules/CMS/Actions/{ListPublicArticles,ReadPublicArticle}.php` — تبدأُ من `publiclyListed()`. ⚠️ **لا يُربَطُ نموذجٌ بمسارٍ عامٍّ ضمنيّاً**: `WorkspaceScope` لا يضيفُ شرطاً بلا مستخدِم ⇒ استعلامٌ بلا حارسٍ يُرجِعُ **مسوّداتِ كلِّ مساحاتِ العمل**.
-- [ ] T105 [US5] `backend/app/Modules/Marketplace/Actions/RelatedTeachers.php` — ⚠️ **في Marketplace لا في CMS**، وعبرَ عقدٍ: الشرطُ `publiclyListed()` وهو ما يُنفِّذُ FR-038 («يُمنعُ أن تشمل معلَّقاً أو خارجاً عن السوقِ العامّ»).
-- [ ] T106 [P] [US5] مساراتٌ عامّةٌ `/public/articles` و`/public/articles/{slug}` بـ`throttle:public` في `backend/app/Modules/CMS/routes/api.php`.
-- [ ] T107 [US5] مورِدُ Filament ‏`backend/app/Modules/CMS/Filament/Resources/CmsArticleResource.php` — ⚠️ **بهذا الاسمِ** كي لا يصطدمَ بـ`Http/Resources/ArticleResource.php`، و**يُعلِنُ `canViewAny()`**: `ArticlePolicy` بلا `viewAny()` ⇒ `PanelResourceDoorTest` يسقط.
-- [ ] T108 [P] [US5] `frontend/src/app/sitemap.ts` بـ`generateSitemaps()` للتقسيم (FR-036) — **المنشورُ فقط**.
-- [ ] T109 [P] [US5] `frontend/src/app/robots.ts`.
-- [ ] T110 [US5] `frontend/src/components/seo/JsonLd.tsx` — ⚠️ **يهرِّبُ يدويّاً**: `dangerouslySetInnerHTML` **لا يهرِّبُ شيئاً** والحقولُ من لوحةِ مفاتيحِ المدرّس ⇒ `<` تصيرُ `<` (و`>` و`&`)، و`canonical_url` يُتحقَّقُ أنّه رابطٌ مطلقٌ `http(s)`.
-- [ ] T111 [US5] صفحتا `frontend/src/app/(public)/blog/{page.tsx,[slug]/page.tsx}` بـ`generateMetadata` + OG + JSON-LD.
-- [ ] T112 [P] [US5] أضِفْ `metadata` إلى `frontend/src/app/(public)/page.tsx` — ⚠️ **الصفحةُ الوحيدةُ في المنتَجِ بلا وصفٍ اليوم**، وهي أوّلُ ما يقرأُه محرّكُ البحثِ عن المنصّة.
-- [ ] T113 [US5] `backend/app/Modules/CMS/Jobs/PingSearchEnginesJob.php` على `maintenance` (FR-037) + صفٌّ في `data_processors`. ⚠️ نداءٌ خارجيّ — و`ProcessorAllowlistTest` **لا يمسحُ نداءاتِ HTTP الحرّة** فلن يُمسِكَه؛ يُسجَّلُ للاكتمالِ ويُذكَرُ أنّ الحارسَ لا يفرضُه.
-- [ ] T114 [US5] `PublicArticleExposureTest.php` — `SC-009` · `SC-010`. ⚠️ **بشواهدَ ASCII**: `getContent()` يهربُ غيرَ الـASCII فتأكيدُ تسرُّبٍ بإبرةٍ عربيّةٍ **صادقٌ فراغاً**.
-- [ ] T115 [P] [US5] `ArticleSlugUniquenessTest.php` · `ArticleSlugDedupeMigrationTest.php` · `SitemapTest.php` (`SC-011`) · `RegionsExposureTest.php` (⚠️ `PublicExposureTest` مشيُ روابطَ مكتوبٌ بيد).
-- [ ] T116 [P] [US5] `frontend/src/components/seo/JsonLd.test.tsx` — عنوانٌ يحملُ `</script>` لا يكسرُ الوسم.
-- [ ] T117 [US5] قرارُ «اشتراكِ النشرِ العامّ»: يُعادُ استعمالُ `participates_in_marketplace` **ويُذكَرُ في شاشةِ الإعداد** — ⚠️ مساحةٌ قبلَتْ إدراجَ السوقِ لم تقبلْ بذلك فهرسةَ مقالاتِها، وإطفاءُ المشاركةِ يُنزِلُ المدوّنةَ صامتاً.
+- [X] T101 [US5] أضِفْ `IsPubliclyListed` إلى `backend/app/Modules/CMS/Models/Article.php` مع `publicListingConstraints()` (منشورٌ · غيرُ محذوف).
+- [X] T102 [US5] `backend/app/Modules/CMS/Support/CmsFieldAllowlist.php` **تملكُها CMS** وتُعيدُ استعمالَ `PublicFieldAllowlist::FORBIDDEN` — شكلُ `AssessmentFieldAllowlist`. ⚠️ **لا تُنمِّ قائمةَ Marketplace**: تستوردُ CMS منها وتملكُ Marketplace حقولاً لا تعرفُها.
+- [X] T103 [US5] `backend/app/Modules/CMS/Http/Resources/PublicArticleResource.php` — ⚠️ المورِدُ القائمُ يُصدِرُ `category.id` و`tags[].id` و`body` و`status`، و`'id'` في قائمةِ الممنوع.
+- [X] T104 [US5] `backend/app/Modules/CMS/Actions/{ListPublicArticles,ReadPublicArticle}.php` — تبدأُ من `publiclyListed()`. ⚠️ **لا يُربَطُ نموذجٌ بمسارٍ عامٍّ ضمنيّاً**: `WorkspaceScope` لا يضيفُ شرطاً بلا مستخدِم ⇒ استعلامٌ بلا حارسٍ يُرجِعُ **مسوّداتِ كلِّ مساحاتِ العمل**.
+- [X] T105 [US5] `backend/app/Modules/Marketplace/Actions/RelatedTeachers.php` — ⚠️ **في Marketplace لا في CMS**، وعبرَ عقدٍ: الشرطُ `publiclyListed()` وهو ما يُنفِّذُ FR-038 («يُمنعُ أن تشمل معلَّقاً أو خارجاً عن السوقِ العامّ»).
+- [X] T106 [P] [US5] مساراتٌ عامّةٌ `/public/articles` و`/public/articles/{slug}` بـ`throttle:public` في `backend/app/Modules/CMS/routes/api.php`.
+- [X] T107 [US5] مورِدُ Filament ‏`backend/app/Modules/CMS/Filament/Resources/CmsArticleResource.php` — ⚠️ **بهذا الاسمِ** كي لا يصطدمَ بـ`Http/Resources/ArticleResource.php`، و**يُعلِنُ `canViewAny()`**: `ArticlePolicy` بلا `viewAny()` ⇒ `PanelResourceDoorTest` يسقط.
+- [X] T108 [P] [US5] `frontend/src/app/sitemap.ts` بـ`generateSitemaps()` للتقسيم (FR-036) — **المنشورُ فقط**.
+- [X] T109 [P] [US5] `frontend/src/app/robots.ts`.
+- [X] T110 [US5] `frontend/src/components/seo/JsonLd.tsx` — ⚠️ **يهرِّبُ يدويّاً**: `dangerouslySetInnerHTML` **لا يهرِّبُ شيئاً** والحقولُ من لوحةِ مفاتيحِ المدرّس ⇒ `<` تصيرُ `<` (و`>` و`&`)، و`canonical_url` يُتحقَّقُ أنّه رابطٌ مطلقٌ `http(s)`.
+- [X] T111 [US5] صفحتا `frontend/src/app/(public)/blog/{page.tsx,[slug]/page.tsx}` بـ`generateMetadata` + OG + JSON-LD.
+- [X] T112 [P] [US5] أضِفْ `metadata` إلى `frontend/src/app/(public)/page.tsx` — ⚠️ **الصفحةُ الوحيدةُ في المنتَجِ بلا وصفٍ اليوم**، وهي أوّلُ ما يقرأُه محرّكُ البحثِ عن المنصّة.
+- [X] T113 [US5] `backend/app/Modules/CMS/Jobs/PingSearchEnginesJob.php` على `maintenance` (FR-037) + صفٌّ في `data_processors`. ⚠️ نداءٌ خارجيّ — و`ProcessorAllowlistTest` **لا يمسحُ نداءاتِ HTTP الحرّة** فلن يُمسِكَه؛ يُسجَّلُ للاكتمالِ ويُذكَرُ أنّ الحارسَ لا يفرضُه.
+- [X] T114 [US5] `PublicArticleExposureTest.php` — `SC-009` · `SC-010`. ⚠️ **بشواهدَ ASCII**: `getContent()` يهربُ غيرَ الـASCII فتأكيدُ تسرُّبٍ بإبرةٍ عربيّةٍ **صادقٌ فراغاً**.
+- [X] T115 [P] [US5] `ArticleSlugUniquenessTest.php` · `ArticleSlugDedupeMigrationTest.php` · `SitemapTest.php` (`SC-011`) · ~~`RegionsExposureTest.php`~~ (⚠️ `PublicExposureTest` مشيُ روابطَ مكتوبٌ بيد). ⚠️ **`RegionsExposureTest` مؤجَّلٌ إلى الموجةِ الثامنة**: `/regions` مسارٌ تُنشِئُه م٦ ولم يُولَدْ بعد، واختبارُ تعرُّضٍ لمسارٍ غيرِ موجودٍ يمرُّ فراغاً — وهو بعينِه العيبُ الذي يُحذِّرُ منه بندُه. أمّا الدرسُ نفسُه (مشيُ الروابطِ مكتوبٌ بيد) فمُطبَّقٌ الآن في `PublicArticleExposureTest`.
+- [X] T116 [P] [US5] `frontend/src/components/seo/JsonLd.test.tsx` — عنوانٌ يحملُ `</script>` لا يكسرُ الوسم.
+- [X] T117 [US5] قرارُ «اشتراكِ النشرِ العامّ»: يُعادُ استعمالُ `participates_in_marketplace` **ويُذكَرُ في شاشةِ الإعداد** — ⚠️ مساحةٌ قبلَتْ إدراجَ السوقِ لم تقبلْ بذلك فهرسةَ مقالاتِها، وإطفاءُ المشاركةِ يُنزِلُ المدوّنةَ صامتاً.
 
 ---
 
