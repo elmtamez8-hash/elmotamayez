@@ -177,6 +177,12 @@ export const StoreIcon = wrap(IconBook2, "h-5 w-5");
 // The parcel itself — the teacher's fulfilment queue, which is a different job
 // from pricing the goods and carries a different permission.
 export const ShipmentIcon = wrap(IconPackage, "h-5 w-5");
+/*
+ * Invitations (011 · US3). A person WITH A PLUS — not `MembersIcon`, which is
+ * the workspace's team, and not `ShopIcon`, which is the rewards gift: the whole
+ * of this screen is «bring somebody who is not here yet».
+ */
+export const ReferralIcon = wrap(IconUserPlus, "h-5 w-5");
 export const WorkspaceIcon = wrap(IconBuilding, "h-5 w-5");
 export const MembersIcon = wrap(IconUsers, "h-5 w-5");
 export const SettingsIcon = wrap(IconSettings, "h-5 w-5");

@@ -6,12 +6,18 @@ namespace App\Modules\Identity;
 
 use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
 use App\Modules\Identity\Listeners\ActivateOnProcessingConsent;
+use App\Modules\Identity\Listeners\CompleteReferral;
+use App\Modules\Identity\Listeners\ReverseReferralAward;
 use App\Modules\Identity\Listeners\RevokeTeacherSessions;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Policies\AuthSessionPolicy;
 use App\Modules\Identity\Support\EloquentGuardianDirectory;
 use App\Modules\Identity\Support\IdentityPersonalData;
+use App\Modules\Payments\Events\PaymentApproved;
+use App\Modules\Payments\Events\PaymentCaptured;
+use App\Modules\Payments\Events\PaymentReversed;
 use App\Modules\Payments\Events\ProcessingConsentGranted;
+use App\Modules\Payments\Events\RefundIssued;
 use App\Shared\Contracts\GuardianDirectory;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
@@ -64,5 +70,28 @@ class IdentityServiceProvider extends Module
         | ask to leave locks them out of exactly that.
         */
         Event::listen(TeacherOffboardingCompleted::class, RevokeTeacherSessions::class);
+
+        /*
+        | Spec 011 · US3 — a referral pays only when the invited person actually
+        | subscribes (FR-019 · SC-006).
+        |
+        | ⚠️ BOTH DOORS ON A PAYMENT, exactly as the credits mint is bound. A
+        | manual transfer an operator approves and a gateway capture are two
+        | events for one fact, and binding one leaves every referral completed
+        | through the other silently pending for ever.
+        |
+        | The `kind` filter lives INSIDE the listener rather than in a choice of
+        | bindings: it is a business rule about what «subscription» means, and a
+        | rule expressed by which events you happen to subscribe to is a rule
+        | nobody can find when they go looking for it.
+        */
+        Event::listen(PaymentApproved::class, CompleteReferral::class);
+        Event::listen(PaymentCaptured::class, CompleteReferral::class);
+
+        // And the two ways money goes back (FR-021 · SC-007). The design named
+        // the shape of the reversal without naming a trigger, which would have
+        // made SC-007 a criterion with no entrance.
+        Event::listen(PaymentReversed::class, ReverseReferralAward::class);
+        Event::listen(RefundIssued::class, ReverseReferralAward::class);
     }
 }

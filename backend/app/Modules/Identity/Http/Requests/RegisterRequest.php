@@ -31,6 +31,16 @@ class RegisterRequest extends FormRequest
             | email · a staff role).
             */
             'invitation' => ['nullable', 'string', 'max:255'],
+
+            /*
+            | ⚠️ SHAPE ONLY, AND NO `exists:` RULE. An unknown code must not fail
+            | a registration — a typo off a poster blocking a real person from
+            | creating an account is the most hostile thing this feature could
+            | do — so `AttachReferral` attaches nothing and says nothing. An
+            | `exists:` rule would also be an oracle: a 422 for an unknown code
+            | and a 201 for a real one enumerates who is on the platform.
+            */
+            'referral_code' => ['nullable', 'string', 'max:12'],
         ];
     }
 }

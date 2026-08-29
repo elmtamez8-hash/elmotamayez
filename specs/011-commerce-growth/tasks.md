@@ -190,19 +190,19 @@ description: "Task list — 011 التجارة والنمو"
 
 > ✅ **`POST /auth/register` أُصلِحَ في `b40ec73`** — كان شرطَ هذه الموجةِ: تعليقُ مالٍ على إنشاءِ حسابٍ بلا محدِّدِ معدّلٍ مسارُ سكٍّ مجّانيّ.
 
-- [ ] T076 [P] [US3] هجرتا `referral_codes` و`referrals` في `backend/app/Modules/Identity/Database/Migrations/` — §٩ و§١٠، **بلا `BelongsToWorkspace`** (⚠️ إضافتُه تُكرِّرُ الشخصَ لكلِّ مدرّس)، وحالةُ `flagged`، وفهرسُ `[referrer_user_id, status]`.
-- [ ] T077 [P] [US3] نموذجانِ ومصنعانِ في `backend/app/Modules/Identity/`.
-- [ ] T078 [P] [US3] مفتاحا `referral.reward_points` و`referral.max_completed_per_referrer` في `PlatformSettings::KEYS` (FR-023).
-- [ ] T079 [US3] `backend/app/Modules/Identity/Actions/IssueReferralCode.php`. ⚠️ **يتسابقُ مع نفسِه**: طلبانِ متزامنانِ يجدانِ لا شيءَ ويُدرِجان ⇒ `QueryException` كـ٥٠٠ على مسارِ قراءة. `firstOrCreate` داخلَ `catch` + حلقةُ إعادةٍ لتصادمِ الرمز. **ولا `insertOrIgnore`** — يتجاوزُ `HasUuid`.
-- [ ] T080 [US3] `AttachReferral` داخلَ مسارِ التسجيلِ القائم (`referral_code` اختياريّ) ⇒ صفٌّ `pending`، ورفضُ إحالةِ الذاتِ بحالةِ `flagged` (FR-022).
-- [ ] T081 [US3] ⚠️ **+ مفتاحُ `invite_friend` في الكتالوجِ وهجرةُ `seedMissing()` (منقولٌ من T012) — في نفسِ الدفعةِ أو المكافأةُ صفرٌ صامت.** `backend/app/Modules/Identity/Listeners/CompleteReferral.php` — `ShouldQueue` + `ShouldHandleEventsAfterCommit`، ⚠️ **بمرشِّحِ `kind ∈ {credits, subscription}`**: بلا مرشِّحٍ يُكمِلُ **أرخصُ منتَجٍ في المتجرِ** إحالةً. يمنحُ نقاطاً عبرَ `AwardPoints` بمفتاحِ `invite_friend`، ويحترمُ السقف.
-- [ ] T082 [US3] `backend/app/Modules/Identity/Events/ReferralCompleted.php` — **معرِّفانِ ولا شيءَ غيرُهما**؛ يستهلكُه Gamification (FR-024 · NFR-005).
-- [ ] T083 [US3] `backend/app/Modules/Identity/Listeners/ReverseReferralAward.php` على `PaymentReversed`/`RefundIssued` ⇒ قيدٌ عكسيٌّ في `award_entries` بـ`reversal_of_id`. ⚠️ **العمودُ في مكانِه الأصليِّ المشحون** — مفتاحُ `credit_tx_idempotency` يحملُ `type` سلفاً فلا يحتاجُ خامساً.
-- [ ] T084 [P] [US3] مسارا `/referrals/code` و`/referrals` + موردٌ + `where referrer_user_id` صراحةً.
-- [ ] T085 [P] [US3] `ReferralCompletionTest` · `ReferralKindFilterTest` (⚠️ شراءُ منتَجِ متجرٍ **لا يُكمِلُ** إحالة) · `SelfReferralTest` · `ReferralCapTest`.
-- [ ] T086 [US3] `ReferralReversalTest.php` — ⚠️ `SC-007` بالتأكيدِ على **المجموعِ العائدِ إلى ما قبلَ المنح** لا على عددِ الصفوف: عدُّ صفَّين يمرُّ على تصميمٍ لا يُعيدُ شيئاً.
-- [ ] T087 [P] [US3] `ReferralCatalogueTest.php` — يقرأُ `gamification_actions` **بعدَ الهجرةِ وحدَها بلا بذرة**.
-- [ ] T088 [P] [US3] `ReferralCodeRaceTest.php` + واجهةُ `frontend/src/app/(app)/(shell)/referrals/page.tsx` ورابطُها.
+- [X] T076 [P] [US3] هجرتا `referral_codes` و`referrals` في `backend/app/Modules/Identity/Database/Migrations/` — §٩ و§١٠، **بلا `BelongsToWorkspace`** (⚠️ إضافتُه تُكرِّرُ الشخصَ لكلِّ مدرّس)، وحالةُ `flagged`، وفهرسُ `[referrer_user_id, status]`.
+- [X] T077 [P] [US3] نموذجانِ ومصنعانِ في `backend/app/Modules/Identity/`.
+- [X] T078 [P] [US3] مفتاحا `referral.reward_points` و`referral.max_completed_per_referrer` في `PlatformSettings::KEYS` (FR-023).
+- [X] T079 [US3] `backend/app/Modules/Identity/Actions/IssueReferralCode.php`. ⚠️ **يتسابقُ مع نفسِه**: طلبانِ متزامنانِ يجدانِ لا شيءَ ويُدرِجان ⇒ `QueryException` كـ٥٠٠ على مسارِ قراءة. `firstOrCreate` داخلَ `catch` + حلقةُ إعادةٍ لتصادمِ الرمز. **ولا `insertOrIgnore`** — يتجاوزُ `HasUuid`.
+- [X] T080 [US3] `AttachReferral` داخلَ مسارِ التسجيلِ القائم (`referral_code` اختياريّ) ⇒ صفٌّ `pending`، ورفضُ إحالةِ الذاتِ بحالةِ `flagged` (FR-022).
+- [X] T081 [US3] ⚠️ **+ مفتاحُ `invite_friend` في الكتالوجِ وهجرةُ `seedMissing()` (منقولٌ من T012) — في نفسِ الدفعةِ أو المكافأةُ صفرٌ صامت.** `backend/app/Modules/Identity/Listeners/CompleteReferral.php` — `ShouldQueue` + `ShouldHandleEventsAfterCommit`، ⚠️ **بمرشِّحِ `kind ∈ {credits, subscription}`**: بلا مرشِّحٍ يُكمِلُ **أرخصُ منتَجٍ في المتجرِ** إحالةً. يمنحُ نقاطاً عبرَ `AwardPoints` بمفتاحِ `invite_friend`، ويحترمُ السقف.
+- [X] T082 [US3] `backend/app/Modules/Identity/Events/ReferralCompleted.php` — **معرِّفانِ ولا شيءَ غيرُهما**؛ يستهلكُه Gamification (FR-024 · NFR-005).
+- [X] T083 [US3] `backend/app/Modules/Identity/Listeners/ReverseReferralAward.php` على `PaymentReversed`/`RefundIssued` ⇒ قيدٌ عكسيٌّ في `award_entries` بـ`reversal_of_id`. ⚠️ **العمودُ في مكانِه الأصليِّ المشحون** — مفتاحُ `credit_tx_idempotency` يحملُ `type` سلفاً فلا يحتاجُ خامساً.
+- [X] T084 [P] [US3] مسارا `/referrals/code` و`/referrals` + موردٌ + `where referrer_user_id` صراحةً.
+- [X] T085 [P] [US3] `ReferralCompletionTest` · `ReferralKindFilterTest` (⚠️ شراءُ منتَجِ متجرٍ **لا يُكمِلُ** إحالة) · `SelfReferralTest` · `ReferralCapTest`.
+- [X] T086 [US3] `ReferralReversalTest.php` — ⚠️ `SC-007` بالتأكيدِ على **المجموعِ العائدِ إلى ما قبلَ المنح** لا على عددِ الصفوف: عدُّ صفَّين يمرُّ على تصميمٍ لا يُعيدُ شيئاً.
+- [X] T087 [P] [US3] `ReferralCatalogueTest.php` — يقرأُ `gamification_actions` **بعدَ الهجرةِ وحدَها بلا بذرة**.
+- [X] T088 [P] [US3] `ReferralCodeRaceTest.php` + واجهةُ `frontend/src/app/(app)/(shell)/referrals/page.tsx` ورابطُها.
 
 ---
 

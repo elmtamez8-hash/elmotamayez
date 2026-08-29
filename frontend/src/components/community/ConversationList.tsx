@@ -40,7 +40,7 @@ export function ConversationList({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-border p-3">
+      <div className="border-b border-line p-3">
         <label htmlFor="conversation-search" className="sr-only">
           ابحث في محادثاتك
         </label>
@@ -50,7 +50,7 @@ export function ConversationList({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="ابحث بالاسم…"
-          className="w-full rounded-full border border-border bg-surface px-4 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+          className="w-full rounded-full border border-line bg-surface px-4 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
         />
       </div>
 
@@ -70,8 +70,8 @@ export function ConversationList({
                   aria-current={active ? "page" : undefined}
                   className={
                     active
-                      ? "flex items-start gap-3 border-b border-border bg-primary-soft p-3"
-                      : "flex items-start gap-3 border-b border-border p-3 hover:bg-surface-raised"
+                      ? "flex items-start gap-3 border-b border-line bg-primary-soft p-3"
+                      : "flex items-start gap-3 border-b border-line p-3 hover:bg-surface-raised"
                   }
                 >
                   <Avatar name={row.counterparty_name} />

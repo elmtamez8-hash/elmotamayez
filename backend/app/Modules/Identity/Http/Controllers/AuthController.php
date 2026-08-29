@@ -6,6 +6,7 @@ namespace App\Modules\Identity\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Modules\Identity\Actions\AttachReferral;
 use App\Modules\Identity\Actions\RegisterAccount;
 use App\Modules\Identity\Actions\RegisterStudent;
 use App\Modules\Identity\Actions\StartAuthSession;
@@ -34,9 +35,19 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function register(RegisterRequest $request, RegisterAccount $action): JsonResponse
-    {
+    public function register(
+        RegisterRequest $request,
+        RegisterAccount $action,
+        AttachReferral $referrals,
+    ): JsonResponse {
         $user = $action->handle(RegisterAccountData::fromArray($request->validated()));
+
+        // ⚠️ AFTER the account exists and never blocking it: an unknown or
+        // duplicate code attaches nothing and is not an error. Composed here
+        // rather than threaded through the DTO because BOTH register doors need
+        // it, and one Action reached from two controllers is one rule — a
+        // parameter added to two DTOs and two Actions is two.
+        $referrals->handle($user, $request->validated('referral_code'));
 
         return response()->json(UserResource::make($user), 201);
     }
@@ -45,8 +56,11 @@ class AuthController extends Controller
         RegisterStudentRequest $request,
         RegisterStudent $action,
         StartAuthSession $startSession,
+        AttachReferral $referrals,
     ): JsonResponse {
         $user = $action->handle(RegisterStudentData::fromArray($request->validated()));
+
+        $referrals->handle($user, $request->validated('referral_code'));
 
         // Signed in straight away: the student came from a teacher's booking CTA
         // and sending them back to a login form would drop that intent.

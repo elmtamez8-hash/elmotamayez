@@ -119,7 +119,7 @@ export function Composer({
   };
 
   return (
-    <div className="border-t border-border bg-surface p-3">
+    <div className="border-t border-line bg-surface p-3">
       {picker === "open" && Picker !== null && (
         <div className="mb-2 flex justify-start">
           <Picker onEmojiClick={(emoji) => insert(emoji.emoji)} width={320} height={360} />
@@ -127,7 +127,7 @@ export function Composer({
       )}
 
       {pending !== null && (
-        <div className="mb-2 flex items-center gap-3 rounded-2xl border border-border bg-surface-raised p-2">
+        <div className="mb-2 flex items-center gap-3 rounded-2xl border border-line bg-surface-raised p-2">
           {pending.kind === "image" ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={pending.preview} alt="" className="h-14 w-14 rounded-xl object-cover" />
@@ -189,7 +189,7 @@ export function Composer({
               }
             }}
             aria-invalid={error !== undefined}
-            className="w-full resize-none rounded-2xl border border-border bg-surface-raised px-4 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none disabled:opacity-60"
+            className="w-full resize-none rounded-2xl border border-line bg-surface-raised px-4 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none disabled:opacity-60"
           />
         </div>
 

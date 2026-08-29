@@ -41,7 +41,20 @@ function sourceFiles(dir: string): string[] {
   is how a guard gets deleted. These four names are the ones somebody reaches for
   because they SOUND like our tokens.
 */
-const TEMPTING = /\b(?:bg|text|border|ring|fill|from|to)-(surface-muted|success|error|info|muted)(?:-[a-z]+)?\b/g;
+/*
+  ⚠️ `divide` IS IN THE PREFIX LIST AND WAS NOT, which let one straight through:
+  spec 011's referrals page was written with `divide-border`, and there is no
+  `border` token — the divider is `line`. Tailwind v4 emits no rule for a token
+  it has never seen, so the list simply had no lines between its rows, with no
+  error, no warning and nothing in a snapshot. It was caught by reading
+  `globals.css` by hand, which is not a guard.
+
+  ⚠️ AND `border` IS NOW A NAME FOR THE SAME REASON. `divide-border` and
+  `bg-border` both name a token that does not exist; the plain utilities
+  (`border`, `border-t`, `border-2`) do NOT match, because the pattern needs a
+  prefix AND a name after it.
+*/
+const TEMPTING = /\b(?:bg|text|border|ring|fill|from|to|divide)-(surface-muted|success|error|info|muted|border)(?:-[a-z]+)?\b/g;
 
 /**
  * Comments out, because a comment naming a dead class is the FIX being written

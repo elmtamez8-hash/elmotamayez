@@ -30,6 +30,16 @@ class RegisterStudentRequest extends FormRequest
             'country' => ['required', 'string', 'size:2', 'alpha'],
             'grade_level_slug' => ['required', 'string', Rule::in($this->publicGradeLevelSlugs())],
             'registered_by_parent' => ['boolean'],
+
+            /*
+            | Spec 011 · US3 — who invited them, if anybody.
+            |
+            | ⚠️ SHAPE ONLY, AND NO `exists:` RULE. An unknown code must not fail
+            | a registration; `AttachReferral` attaches nothing and says nothing.
+            | An `exists:` rule would also be an oracle — a 422 for an unknown
+            | code and a 201 for a real one enumerates who is on the platform.
+            */
+            'referral_code' => ['nullable', 'string', 'max:12'],
             /*
             | Spec 013 — the age question, asked once at the door.
             |

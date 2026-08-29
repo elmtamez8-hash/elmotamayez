@@ -49,7 +49,7 @@ export function ChatHeader({
   }, [menu]);
 
   return (
-    <header className="flex items-center gap-2 border-b border-border bg-surface px-3 py-2">
+    <header className="flex items-center gap-2 border-b border-line bg-surface px-3 py-2">
       <Link
         href="/messages"
         aria-label="رجوع إلى المحادثات"
@@ -92,7 +92,7 @@ export function ChatHeader({
           </button>
 
           {menu && (
-            <div className="absolute end-0 top-full z-10 mt-1 w-56 overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
+            <div className="absolute end-0 top-full z-10 mt-1 w-56 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
               <button
                 type="button"
                 disabled={busy}
@@ -105,7 +105,7 @@ export function ChatHeader({
                 {banned ? "فكّ الحظر عن الكتابة" : "احظر الكتابة في هذه المساحة"}
               </button>
 
-              <p className="border-t border-border px-4 py-2 text-xs text-ink-muted">
+              <p className="border-t border-line px-4 py-2 text-xs text-ink-muted">
                 {/* The ban is workspace-wide by declaration (`FR-022`), and a
                     control that read «احظر في هذه المحادثة» would be lying about
                     a scope the server does not have. */}

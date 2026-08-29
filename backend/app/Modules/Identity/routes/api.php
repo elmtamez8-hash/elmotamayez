@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Identity\Http\Controllers\AuthController;
 use App\Modules\Identity\Http\Controllers\FamilyController;
 use App\Modules\Identity\Http\Controllers\ParentController;
+use App\Modules\Identity\Http\Controllers\ReferralController;
 use App\Modules\Identity\Http\Controllers\SessionController;
 use App\Modules\Identity\Http\Controllers\TwoFactorController;
 use Illuminate\Support\Facades\Route;
@@ -68,4 +69,20 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/family/relations/{uuid}', [FamilyController::class, 'show']);
     Route::patch('/family/relations/{uuid}', [FamilyController::class, 'update']);
     Route::delete('/family/relations/{uuid}', [FamilyController::class, 'destroy']);
+
+    /*
+    | Invitations (spec 011 · US3 · FR-018 · FR-019).
+    |
+    | ⚠️ `/code` IS A `GET` THAT WRITES, and that is deliberate: a code is minted
+    | on first read rather than at signup, so the millions of accounts that
+    | predate this feature get one the moment they look. `IssueReferralCode` is
+    | built for it — two concurrent loads of this page both find nothing and both
+    | insert, and the loser would otherwise be a 500 on a read.
+    |
+    | Neither route binds a model and neither takes an id: the reader is always
+    | themselves. `referrals` has no workspace scope behind it, so an implicit
+    | binding would resolve anybody's row.
+    */
+    Route::get('/referrals/code', [ReferralController::class, 'code']);
+    Route::get('/referrals', [ReferralController::class, 'index']);
 });

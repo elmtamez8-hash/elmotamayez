@@ -310,6 +310,73 @@ A code may be spent on all THREE purchase paths, because a coupon's scope covers
   not a question with one answer. The coupon still works on that path; what is
   missing is the preview.
 
+### Referrals (spec 011 · US3)
+
+| Method | Path | Who |
+|---|---|---|
+| `GET` | `/referrals/code` | any signed-in person — MINTS on first call |
+| `GET` | `/referrals` | the inviter, their own |
+
+`referral_code` is an optional field on both register doors (`POST /auth/register`
+and `POST /auth/register/student`).
+
+- **Neither table carries `BelongsToWorkspace`, and adding it would duplicate one
+  person per teacher.** A code belongs to a HUMAN: one person, one code, for
+  life. No global scope stands behind these reads, so every one names its owner
+  explicitly — the `GET /gamification/redemptions` lesson from 009.
+- **The reward is GAMIFICATION POINTS, not a credit entry.** `credit_balances`
+  forces a course and a workspace that a platform-owned referral does not have,
+  and every available answer is wrong: a random course is unspendable, a
+  `course_id = 0` sentinel collides with a loaded index, and nullable breaks that
+  index for every real balance (research §D7).
+- **`kind ∈ {credits, subscription}` is the whole guard.** Without it the
+  cheapest notebook in the store completes a referral — and a teacher approves
+  their own store sales, so that is an open mint. Proved by breaking it:
+  `ReferralKindFilterTest`'s store case turns green→red the moment the filter
+  goes.
+- **Bound to `PaymentApproved` AND `PaymentCaptured`**, exactly as the credits
+  mint is. Two doors on one payment; binding one leaves every referral completed
+  through the other silently pending for ever.
+- **Both parties are paid from ONE source id**, and `referrals` therefore carries
+  no `award_entry_id` — a deliberate departure from `data-model.md §١٠`. That
+  column assumed Identity would call `AwardPoints` itself (Constitution III), and
+  one column holds one entry while the completion pays two people: a reversal
+  driven through it would return the inviter's points and silently leave the
+  invited student's. The reversal finds both by `(action_key, source_type,
+  source_id)`.
+- **The cap is checked BEFORE the flip and leaves the referral `pending`.** A
+  referral flipped `completed` with nothing awarded is invisible and — the flip
+  being one-way — unrepeatable. That is also why the `invite_friend` catalogue row
+  carries **no `daily_cap`**: `AwardPoints` returning null past one produces
+  exactly that state from the other direction. The row also carries **zero
+  coins**, because `AwardPoints` throws on a coin-bearing action with no
+  workspace and a referral belongs to no teacher.
+- **The count-then-flip is not atomic and the docblock says so.** MySQL refuses a
+  subquery on the table being updated (`ERROR 1093`), so two completions in the
+  same second can both pass the count. The exposure is one referral over the cap,
+  once; the flip itself is still atomic, so nothing is ever paid twice.
+- **`flagged` pays nothing and is not deleted** (FR-022). A row silently dropped
+  cannot be reviewed, and the operator looking for abuse finds an empty table.
+  Detection is an identity equality and nothing cleverer — an email or IP
+  heuristic flags real families on one connection, and the actual defence against
+  a hundred throwaway addresses is the cap.
+- **`reversed` is never re-armed to `pending`.** Otherwise one person subscribes,
+  is paid, cancels and subscribes again, minting points on a loop off one invite.
+- **An unknown code never fails a registration.** A typo off a poster blocking a
+  real person from creating an account is the most hostile thing this feature
+  could do; nothing is owed until somebody subscribes, so attaching nothing costs
+  nothing. No `exists:` rule either — it would be the coupon oracle again.
+- **`IssueReferralCode` races with itself on a `GET`.** Two loads of the page both
+  find nothing and both insert; the loser would be a 500 on a read. It is a loop,
+  because two different unique indexes bite and need different answers —
+  `user_id` means the other request won (take their row), `code` means a random
+  collision (generate a different one). Never `insertOrIgnore`, which bypasses
+  `HasUuid`.
+- **`referral.reward_points` is read by the BACKFILL MIGRATION ONLY**, as the
+  value it seeds the catalogue row with; the catalogue is authoritative
+  afterwards. `referral.max_completed_per_referrer` is the one read at runtime, and
+  **zero means off, never unlimited**.
+
 ### Order kinds and who signs for the money (spec 011)
 
 `OrderKind` has four cases: `course`, `credits`, `store`, `subscription`.

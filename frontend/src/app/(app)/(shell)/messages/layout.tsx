@@ -133,7 +133,7 @@ export default function MessagesLayout({ children }: { children: React.ReactNode
           // On a phone the sidebar IS the screen until a thread is open; from
           // `md` up it is a fixed column beside it.
           (openUuid === null ? "flex" : "hidden") +
-          " w-full shrink-0 flex-col border-e border-border md:flex md:w-80"
+          " w-full shrink-0 flex-col border-e border-line md:flex md:w-80"
         }
       >
         {state === "loading" && <RowsSkeleton count={5} />}

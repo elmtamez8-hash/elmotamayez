@@ -65,6 +65,28 @@ class GamificationCatalogSeeder extends Seeder
         | penalty visible to the operator editing the values.
         */
         ['key' => 'payment_overdue', 'name_ar' => 'تأخّر في الدفع', 'xp' => -30, 'coins' => 0, 'daily_cap' => 1],
+
+        /*
+        | Spec 011 — a friend was invited and actually subscribed (FR-020 · FR-024).
+        |
+        | ⚠️ ZERO COINS, FOR `focus_session`'s REASON EXACTLY. A referral belongs
+        | to no teacher, so there is no workspace to hold coins — and `AwardPoints`
+        | THROWS on a coin-bearing action with a null workspace rather than
+        | guessing a purse. Give this row coins and every completed referral on the
+        | platform becomes a 500 inside a queued listener.
+        |
+        | ⚠️ AND `daily_cap` IS NULL, WHICH IS NOT LAZINESS. Past a daily cap
+        | `AwardPoints` returns null — so a capped referral would be flipped
+        | `completed` with nothing awarded: completed-but-unpaid, invisible, and
+        | unrepeatable because the flip is a one-way conditional UPDATE. The
+        | governor for this action is the PLATFORM cap
+        | (`referral.max_completed_per_referrer`), which is checked BEFORE the flip
+        | and refuses the completion rather than the payment.
+        |
+        | The value here is seeded from `referral.reward_points` on a live
+        | database and is authoritative afterwards — see the backfill migration.
+        */
+        ['key' => 'invite_friend', 'name_ar' => 'دعوة صديق اشترك فعلاً', 'xp' => 50, 'coins' => 0, 'daily_cap' => null],
     ];
 
     /** @var list<array{level: int, name_ar: string, xp_threshold: int}> */

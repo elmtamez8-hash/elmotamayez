@@ -91,6 +91,26 @@ final class PlatformSettings
         // the list of what an operator may change, and these two are on it.
         'store.commission_bps' => 'store.commission_bps',
         'store.refund_window_hours' => 'store.refund_window_hours',
+        /*
+        | Referrals (spec 011 · FR-023 — «the reward value and its cap must both
+        | be adjustable»).
+        |
+        | ⚠️ THE TWO KEYS ARE READ BY DIFFERENT THINGS, AND ONLY ONE OF THEM IS
+        | READ AT RUNTIME. `max_completed_per_referrer` is consulted on every
+        | completion — it is the real governor, and lowering it takes effect on
+        | the next referral.
+        |
+        | `reward_points` is read by the BACKFILL MIGRATION ONLY, as the value it
+        | seeds the `invite_friend` catalogue row with. After that the CATALOGUE
+        | is authoritative and is edited from `/admin` like every other action's
+        | xp — because `AwardRequest` deliberately carries no values and
+        | `AwardPoints` reads the row. Wiring this key as a second live source
+        | would be two answers to one question, which is the drift this file
+        | records elsewhere six times over; leaving the number only in a config
+        | file would make FR-023 false. This is the seam between the two.
+        */
+        'referral.reward_points' => 'referral.reward_points',
+        'referral.max_completed_per_referrer' => 'referral.max_completed_per_referrer',
         // Publishing new terms is bumping one of these (FR-049). Editable from
         // the panel because that is the whole mechanism: a stored consent names
         // the version it was given for, and the readers ask for the current one.

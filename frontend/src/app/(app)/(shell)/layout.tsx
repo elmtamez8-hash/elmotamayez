@@ -39,6 +39,7 @@ import {
   ProgressIcon,
   QuestionBankIcon,
   ShipmentIcon,
+  ReferralIcon,
   ShopIcon,
   StoreIcon,
   ScheduleIcon,
@@ -194,6 +195,12 @@ const mainNav: NavItem[] = [
     Icon: ShipmentIcon,
     permission: P.storeShipmentsManage,
   },
+
+  /*
+   * Spec 011 · US3. Ungated: everybody has a code, and the page mints it on
+   * first open — which is exactly why the endpoint is a `GET` that writes.
+   */
+  { href: "/referrals", label: "دعوة صديق", Icon: ReferralIcon },
   { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },
   { href: "/orders", label: "الطلبات", Icon: OrdersIcon },
   // The student's credits, counted in sessions and never in money. Separate

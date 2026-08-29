@@ -12,8 +12,10 @@ use App\Modules\Gamification\Listeners\AwardOnAttemptFinalized;
 use App\Modules\Gamification\Listeners\AwardOnAttendanceConfirmed;
 use App\Modules\Gamification\Listeners\AwardOnHelpfulAnswer;
 use App\Modules\Gamification\Listeners\AwardOnMistakeResolved;
+use App\Modules\Gamification\Listeners\AwardOnReferralCompleted;
 use App\Modules\Gamification\Listeners\AwardOnSubmissionGraded;
 use App\Modules\Gamification\Listeners\ReverseOnAttendanceOverridden;
+use App\Modules\Gamification\Listeners\ReverseOnReferralReversed;
 use App\Modules\Gamification\Models\Badge;
 use App\Modules\Gamification\Models\GamificationAction;
 use App\Modules\Gamification\Models\Level;
@@ -23,6 +25,8 @@ use App\Modules\Gamification\Policies\CataloguePolicy;
 use App\Modules\Gamification\Policies\RedemptionPolicy;
 use App\Modules\Gamification\Policies\RewardPolicy;
 use App\Modules\Gamification\Support\EloquentFocusState;
+use App\Modules\Identity\Events\ReferralCompleted;
+use App\Modules\Identity\Events\ReferralReversed;
 use App\Modules\LiveSessions\Events\AttendanceConfirmed;
 use App\Modules\LiveSessions\Events\AttendanceOverridden;
 use App\Shared\Contracts\FocusState;
@@ -107,5 +111,14 @@ class GamificationServiceProvider extends Module
         | the award key `(student, action, message)` is the layer beneath that.
         */
         Event::listen(HelpfulAnswerMarked::class, AwardOnHelpfulAnswer::class);
+
+        /*
+        | Spec 011 — the referral pair. Identity decides WHETHER an invitation
+        | completed; this module decides what it is worth, which is the shape
+        | every other award here already takes and the reason `referrals` carries
+        | no `award_entry_id`.
+        */
+        Event::listen(ReferralCompleted::class, AwardOnReferralCompleted::class);
+        Event::listen(ReferralReversed::class, ReverseOnReferralReversed::class);
     }
 }
