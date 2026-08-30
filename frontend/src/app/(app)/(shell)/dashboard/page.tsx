@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import type { Course, Enrollment, Certificate } from "@/lib/types";
+import type { Enrollment, Certificate } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -13,7 +13,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [availableCourses, setAvailableCourses] = useState(0);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -24,12 +24,30 @@ export default function DashboardPage() {
     Promise.all([
       api.get<{ data: Enrollment[] }>("/enrollments"),
       api.get<{ data: Certificate[] }>("/certificates"),
-      api.get<{ data: Course[] }>("/courses"),
+      /*
+       * ⚠️ THE MARKETPLACE LISTING, NOT `/courses`. That route is the AUTHORING
+       * index and `CoursePolicy::viewAny()` gates it on `courses.view` — a
+       * tenant permission, and a student is a member of no workspace, so their
+       * context is null, their spatie team id is null, and every `can()` is
+       * false. It answered 403 for every student and every guardian on the
+       * platform, and because the three good reads share one `Promise.all`, the
+       * WHOLE dashboard rendered «تعذّر تحميل البيانات» — the landing page after
+       * sign-in, for the majority of the accounts, since it shipped. `/dashboard`
+       * carries no `permission` in the nav for exactly that reason: it is
+       * everybody's first screen, so every read on it has to be one everybody
+       * holds.
+       *
+       * The count is `meta.total` and not `data.length`: the old call was
+       * paginated fifteen at a time, so even where it was allowed the card read
+       * «١٥» however many courses existed. `per_page=1` because the row itself
+       * is thrown away — only the total is drawn.
+       */
+      api.get<{ meta: { total: number } }>("/marketplace/courses?per_page=1"),
     ])
       .then(([enr, cert, crs]) => {
         setEnrollments(enr.data ?? []);
         setCertificates(cert.data ?? []);
-        setCourses(crs.data ?? []);
+        setAvailableCourses(crs.meta?.total ?? 0);
       })
       // Swallowing the rejection used to render an empty dashboard on a dead
       // backend, which reads as "you have nothing" rather than "we could not
@@ -57,7 +75,7 @@ export default function DashboardPage() {
         <StatCard label="كورسات جارية" value={activeEnrollments.length} />
         <StatCard label="كورسات مكتملة" value={completedCount} />
         <StatCard label="الشهادات" value={certificates.length} />
-        <StatCard label="كورسات متاحة" value={courses.length} />
+        <StatCard label="كورسات متاحة" value={availableCourses} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
