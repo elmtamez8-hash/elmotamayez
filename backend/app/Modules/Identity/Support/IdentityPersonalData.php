@@ -87,7 +87,11 @@ class IdentityPersonalData implements PersonalDataOwner
                 // gave us — and the subject is entitled to know which they are
                 // looking at before they correct it.
                 'is_estimated' => $profile->dob_is_estimated,
-                'grade_level' => $profile->grade_level_slug,
+                // The stage stays, DERIVED (spec 022) — an export is read by the
+                // subject, and a stage they never stated is a fact about them
+                // they cannot check. The year they did state ships beside it.
+                'grade_level' => $profile->stageSlug(),
+                'school_year' => $profile->school_year_slug,
                 // Passed through as stored: the column carries no cast on the model,
                 // so treating it as a Carbon here is a runtime error waiting for the
                 // first erased account with a transfer date.

@@ -23,15 +23,19 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AddChildrenPage() {
-  // Server-fetched so the grade list is in the HTML: the form is useless without
+  // Server-fetched so the year list is in the HTML: the form is useless without
   // it, and a client fetch leaves an empty select on a slow connection.
+  //
+  // ⚠️ THE SIGNUP READ, NOT `publicApi.gradeLevels()` (spec 022 · FR-002) —
+  // that one drops every entry with no publicly listed teacher, so on a young
+  // platform the picker was empty and a parent could name no year at all.
   //
   // ⚠️ AND THE FAILURE IS CAUGHT. Uncaught, an API blip becomes a 500 page — a
   // raw error shown to a parent mid-signup, which this product forbids outright.
-  let gradeLevels;
+  let schoolYears;
 
   try {
-    gradeLevels = await publicApi.gradeLevels();
+    schoolYears = await publicApi.schoolYears();
   } catch {
     return (
       <div className="mx-auto max-w-xl px-4 py-20 sm:px-6">
@@ -52,7 +56,7 @@ export default async function AddChildrenPage() {
         </p>
       </div>
 
-      <AddChildForm gradeLevels={gradeLevels} />
+      <AddChildForm schoolYears={schoolYears} />
     </div>
   );
 }

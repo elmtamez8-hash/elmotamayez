@@ -4824,3 +4824,129 @@ endpoints:
     controller: null
     method: null
     route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/signup/subjects
+    metadata:
+      custom: []
+      groupName: Endpoints
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '[{"slug":"math","name_ar":"\u0627\u0644\u0631\u064a\u0627\u0636\u064a\u0627\u062a"},{"slug":"general","name_ar":"\u0639\u0627\u0645\u0651"},{"slug":"physics","name_ar":"\u0627\u0644\u0641\u064a\u0632\u064a\u0627\u0621"},{"slug":"chemistry","name_ar":"\u0627\u0644\u0643\u064a\u0645\u064a\u0627\u0621"},{"slug":"biology","name_ar":"\u0627\u0644\u0623\u062d\u064a\u0627\u0621"},{"slug":"arabic","name_ar":"\u0627\u0644\u0644\u063a\u0629 \u0627\u0644\u0639\u0631\u0628\u064a\u0629"},{"slug":"english","name_ar":"\u0627\u0644\u0644\u063a\u0629 \u0627\u0644\u0625\u0646\u062c\u0644\u064a\u0632\u064a\u0629"},{"slug":"french","name_ar":"\u0627\u0644\u0644\u063a\u0629 \u0627\u0644\u0641\u0631\u0646\u0633\u064a\u0629"},{"slug":"islamic-studies","name_ar":"\u0627\u0644\u062a\u0631\u0628\u064a\u0629 \u0627\u0644\u0625\u0633\u0644\u0627\u0645\u064a\u0629"},{"slug":"computer-science","name_ar":"\u0627\u0644\u062d\u0627\u0633\u0628 \u0627\u0644\u0622\u0644\u064a"},{"slug":"science","name_ar":"\u0627\u0644\u0639\u0644\u0648\u0645"},{"slug":"social-studies","name_ar":"\u0627\u0644\u0627\u062c\u062a\u0645\u0627\u0639\u064a\u0627\u062a"},{"slug":"history","name_ar":"\u0627\u0644\u062a\u0627\u0631\u064a\u062e"},{"slug":"geography","name_ar":"\u0627\u0644\u062c\u063a\u0631\u0627\u0641\u064a\u0627"}]'
+        headers:
+          cache-control: 'no-cache, private'
+          content-type: application/json
+          x-ratelimit-limit: '60'
+          x-ratelimit-remaining: '59'
+          vary: Origin
+        description: null
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/signup/grade-levels
+    metadata:
+      custom: []
+      groupName: Endpoints
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '[{"slug":"primary","name_ar":"\u0627\u0644\u0645\u0631\u062d\u0644\u0629 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a\u0629"},{"slug":"preparatory","name_ar":"\u0627\u0644\u0645\u0631\u062d\u0644\u0629 \u0627\u0644\u0625\u0639\u062f\u0627\u062f\u064a\u0629"},{"slug":"secondary","name_ar":"\u0627\u0644\u0645\u0631\u062d\u0644\u0629 \u0627\u0644\u062b\u0627\u0646\u0648\u064a\u0629"},{"slug":"university","name_ar":"\u0627\u0644\u0645\u0631\u062d\u0644\u0629 \u0627\u0644\u062c\u0627\u0645\u0639\u064a\u0629"},{"slug":"kindergarten","name_ar":"\u0631\u064a\u0627\u0636 \u0627\u0644\u0623\u0637\u0641\u0627\u0644"}]'
+        headers:
+          cache-control: 'no-cache, private'
+          content-type: application/json
+          x-ratelimit-limit: '60'
+          x-ratelimit-remaining: '59'
+          vary: Origin
+        description: null
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/signup/school-years
+    metadata:
+      custom: []
+      groupName: Endpoints
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '[{"slug":"kindergarten","name_ar":"\u0627\u0644\u0631\u0648\u0636\u0629 \u0648\u0627\u0644\u062a\u0645\u0647\u064a\u062f\u064a","grade_level_slug":"kindergarten"},{"slug":"year-1","name_ar":"\u0627\u0644\u0635\u0641 \u0627\u0644\u0623\u0648\u0644 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a","grade_level_slug":"primary"},{"slug":"year-2","name_ar":"\u0627\u0644\u0635\u0641 \u0627\u0644\u062b\u0627\u0646\u064a \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a","grade_level_slug":"primary"},{"slug":"year-3","name_ar":"\u0627\u0644\u0635\u0641 \u0627\u0644\u062b\u0627\u0644\u062b \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a","grade_level_slug":"primary"},{"slug":"year-4","name_ar":"\u0627\u0644\u0635\u0641 \u0627\u0644\u0631\u0627\u0628\u0639 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a","grade_level_slug":"primary"},{"slug":"year-5","name_ar":"\u0627\u0644\u0635\u0641 \u0627\u0644\u062e\u0627\u0645\u0633 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a","grade_level_slug":"primary"},{"slug":"year-6","name_ar":"\u0627\u0644\u0635\u0641 \u0627\u0644\u0633\u0627\u062f\u0633 \u0627\u0644\u0627\u0628\u062a\u062f\u0627\u0626\u064a","grade_level_slug":"primary"},{"slug":"year-7","name_ar":"\u0627\u0644\u0635\u0641 \u0627\u0644\u0633\u0627\u0628\u0639","grade_level_slug":"preparatory"},{"slug":"year-8","name_ar":"\u0627\u0644\u0635\u0641 \u0627\u0644\u062b\u0627\u0645\u0646","grade_level_slug":"preparatory"},{"slug":"year-9","name_ar":"\u0627\u0644\u0635\u0641 \u0627\u0644\u062a\u0627\u0633\u0639","grade_level_slug":"preparatory"},{"slug":"year-10","name_ar":"\u0627\u0644\u0635\u0641 \u0627\u0644\u0639\u0627\u0634\u0631","grade_level_slug":"secondary"},{"slug":"year-11","name_ar":"\u0627\u0644\u0635\u0641 \u0627\u0644\u062d\u0627\u062f\u064a \u0639\u0634\u0631","grade_level_slug":"secondary"},{"slug":"year-12","name_ar":"\u0627\u0644\u0635\u0641 \u0627\u0644\u062b\u0627\u0646\u064a \u0639\u0634\u0631","grade_level_slug":"secondary"},{"slug":"university","name_ar":"\u0627\u0644\u0645\u0631\u062d\u0644\u0629 \u0627\u0644\u062c\u0627\u0645\u0639\u064a\u0629","grade_level_slug":"university"}]'
+        headers:
+          cache-control: 'no-cache, private'
+          content-type: application/json
+          x-ratelimit-limit: '60'
+          x-ratelimit-remaining: '59'
+          vary: Origin
+        description: null
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null

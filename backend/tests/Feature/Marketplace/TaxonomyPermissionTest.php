@@ -6,6 +6,8 @@ use App\Models\User;
 use App\Modules\Marketplace\Filament\Resources\GradeLevelResource;
 use App\Modules\Marketplace\Filament\Resources\SubjectResource;
 use App\Modules\Marketplace\Models\GradeLevel;
+use App\Modules\Marketplace\Models\Region;
+use App\Modules\Marketplace\Models\SchoolYear;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Policies\TaxonomyPolicy;
 use App\Modules\Marketplace\Support\MarketplaceCache;
@@ -53,7 +55,16 @@ it('refuses the workspace owner, the highest tenant role there is', function ():
  */
 it('registers one policy for both models', function (): void {
     expect(Gate::getPolicyFor(Subject::class))->toBeInstanceOf(TaxonomyPolicy::class)
-        ->and(Gate::getPolicyFor(GradeLevel::class))->toBeInstanceOf(TaxonomyPolicy::class);
+        ->and(Gate::getPolicyFor(GradeLevel::class))->toBeInstanceOf(TaxonomyPolicy::class)
+        /*
+         | ⚠️ REGION AND SCHOOL YEAR TOO — `Region` was missing from this list
+         | since spec 011 and `SchoolYear` arrives with spec 022. One policy
+         | serving several models is exactly the shape where Laravel's guesser
+         | fails OPEN into "no policy applies", so the registration line is the
+         | whole guard and an unasserted model is an unguarded one.
+         */
+        ->and(Gate::getPolicyFor(Region::class))->toBeInstanceOf(TaxonomyPolicy::class)
+        ->and(Gate::getPolicyFor(SchoolYear::class))->toBeInstanceOf(TaxonomyPolicy::class);
 });
 
 /*
@@ -142,4 +153,55 @@ it('invalidates the public taxonomy cache when a row is saved', function (): voi
     $grade->update(['is_active' => false]);
 
     expect(MarketplaceCache::version())->toBeGreaterThan($between);
+
+    /*
+     | ⚠️ AND THE REGION, WHICH HAD NO HOOK AT ALL UNTIL SPEC 022 — the sharpest
+     | of the four: `region_slug` is REQUIRED at registration and validated
+     | against the live rows, so a region an operator retired stayed in the
+     | cached picker for up to a minute while the door already refused it. A 422
+     | about an option the student is looking straight at.
+     */
+    $region = Region::factory()->create();
+    $afterGrade = MarketplaceCache::version();
+
+    $region->update(['is_active' => false]);
+
+    expect(MarketplaceCache::version())->toBeGreaterThan($afterGrade);
+
+    // And the school year, for the same reason: an operator who adds one and
+    // reloads must see it on the NEXT request, not after the TTL.
+    $year = SchoolYear::factory()->create();
+    $afterRegion = MarketplaceCache::version();
+
+    $year->update(['name_ar' => 'الصف السادس']);
+
+    expect(MarketplaceCache::version())->toBeGreaterThan($afterRegion);
+});
+
+/*
+ | SC-004 — a year an operator adds is offered on the NEXT request.
+ |
+ | ⚠️ THE ASSERTION IS THE FOLLOWING REQUEST, NOT A SLEEP. A window satisfied by
+ | the TTL expiring measures nothing about invalidation: it would pass just as
+ | well against a build with no `saved` hook in it at all. The read is warmed
+ | first, deliberately, so a stale answer is the failure mode being excluded.
+ */
+it('offers a newly added year on the very next request', function (): void {
+    $this->asGuest();
+
+    $before = collect($this->getJson('/api/v1/signup/school-years')->assertOk()->json())->pluck('slug');
+
+    expect($before)->not->toContain('year-13');
+
+    SchoolYear::query()->create([
+        'grade_level_id' => GradeLevel::query()->where('slug', 'secondary')->value('id'),
+        'slug' => 'year-13',
+        'name_ar' => 'الصف الثالث عشر',
+        'sort_order' => 900,
+        'is_active' => true,
+    ]);
+
+    $after = collect($this->getJson('/api/v1/signup/school-years')->assertOk()->json())->pluck('slug');
+
+    expect($after)->toContain('year-13');
 });

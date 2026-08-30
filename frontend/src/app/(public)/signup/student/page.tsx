@@ -18,11 +18,17 @@ export default async function StudentSignupPage({
 }) {
   const { teacher, trial } = await searchParams;
 
-  // Fetched on the server so the grade-level list is in the HTML: the form is
-  // useless without it, and a client fetch would leave a blank select on a slow
+  // Fetched on the server so the year list is in the HTML: the form is useless
+  // without it, and a client fetch would leave a blank select on a slow
   // connection.
-  const [gradeLevels, regions] = await Promise.all([
-    publicApi.gradeLevels(),
+  //
+  // ⚠️ `publicApi.schoolYears()`, NOT `gradeLevels()` (spec 022). The old call
+  // went to the marketplace read, which drops every entry with no publicly
+  // listed teacher — so on a platform with nobody approved yet, this required
+  // field rendered a select with NOTHING in it and no student could register at
+  // all. That is the defect this spec exists for.
+  const [schoolYears, regions] = await Promise.all([
+    publicApi.schoolYears(),
     // Spec 011 · FR-042 — required by the API, so a form rendered without it
     // could only ever be answered 422.
     publicApi.regions(),
@@ -50,7 +56,7 @@ export default async function StudentSignupPage({
         </p>
       )}
 
-      <StudentSignupForm gradeLevels={gradeLevels} regions={regions} teacherUuid={teacher} />
+      <StudentSignupForm schoolYears={schoolYears} regions={regions} teacherUuid={teacher} />
     </div>
   );
 }

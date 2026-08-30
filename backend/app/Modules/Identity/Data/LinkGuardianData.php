@@ -14,7 +14,7 @@ class LinkGuardianData extends DataTransferObject
     public function __construct(
         public readonly string $studentName,
         public readonly ?int $studentAge,
-        public readonly ?string $gradeLevelSlug,
+        public readonly ?string $schoolYearSlug,
         /** An existing student account to attach, by uuid. Null is the normal case
          * at signup: the child has no account yet. */
         public readonly ?string $studentUuid,
@@ -31,7 +31,7 @@ class LinkGuardianData extends DataTransferObject
         return new self(
             studentName: (string) ($data['student_name'] ?? $data['name'] ?? ''),
             studentAge: isset($data['age']) ? (int) $data['age'] : null,
-            gradeLevelSlug: isset($data['grade_level_slug']) ? (string) $data['grade_level_slug'] : null,
+            schoolYearSlug: isset($data['school_year_slug']) ? (string) $data['school_year_slug'] : null,
             studentUuid: isset($data['student_uuid']) ? (string) $data['student_uuid'] : null,
             relationType: RelationType::from((string) ($data['relation_type'] ?? RelationType::Parent->value)),
             permissions: array_values(array_filter(array_map(

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Marketplace\Filament\Resources\RegionResource;
+use App\Modules\Marketplace\Filament\Resources\SchoolYearResource;
 use App\Modules\Marketplace\Models\Region;
+use App\Modules\Marketplace\Models\SchoolYear;
 use App\Modules\Payments\Filament\Resources\CouponResource;
 use App\Modules\Payments\Models\Coupon;
 use App\Modules\Tenancy\Filament\Resources\FeatureFlagResource;
@@ -44,6 +46,7 @@ it('refuses the workspace owner every platform-reference screen', function (): v
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
     expect(RegionResource::canViewAny())->toBeFalse('regions')
+        ->and(SchoolYearResource::canViewAny())->toBeFalse('school years')
         ->and(CouponResource::canViewAny())->toBeFalse('coupons')
         ->and(FeatureFlagResource::canViewAny())->toBeFalse('feature flags');
 });
@@ -68,6 +71,7 @@ it('lets the super admin, who holds every platform permission, in', function ():
     // The opposite direction, and it is not decoration: a resource closed to
     // everybody passes the refusal above while being just as broken.
     expect(RegionResource::canViewAny())->toBeTrue('regions')
+        ->and(SchoolYearResource::canViewAny())->toBeTrue('school years')
         ->and(FeatureFlagResource::canViewAny())->toBeTrue('feature flags');
 });
 
@@ -90,14 +94,39 @@ it('refuses the owner a region delete even where a policy would be bypassed', fu
     expect(RegionResource::canDelete($region))->toBeFalse();
 });
 
-it('keeps all three tables free of a workspace scope', function (): void {
+it('refuses even the super admin a school-year delete', function (): void {
+    /*
+    | Spec 022. Two tables name this row as TEXT — `student_profiles` and
+    | `parent_student_relations` — with no foreign key behind either, so a delete
+    | leaves students in a year nothing can name.
+    |
+    | ⚠️ ASSERTED ON THE RESOURCE, NOT THE POLICY. `Gate::before` waves a super
+    | admin past every policy method, so `TaxonomyPolicy::delete()` is no refusal
+    | at all for the one person who will actually see the button.
+    */
+    $year = SchoolYear::query()->first();
+
+    $this->actingAs($this->owner);
+
+    expect(SchoolYearResource::canDelete($year))->toBeFalse()
+        ->and(SchoolYearResource::canDeleteAny())->toBeFalse();
+
+    $this->actingAs(User::factory()->create(['is_super_admin' => true]));
+
+    expect(SchoolYearResource::canDelete($year))->toBeFalse()
+        ->and(SchoolYearResource::canDeleteAny())->toBeFalse();
+});
+
+it('keeps every platform-reference table free of a workspace scope', function (): void {
     /*
     | The mirror-image defect. A `workspace_id` on `regions` would give the
     | platform one «الدوحة» per teacher and make the regional report a count of
-    | teacher-region pairs; on `feature_flags` it would hide the `0` row every
-    | reader falls back to; on `coupons` it would silently split one campaign.
+    | teacher-region pairs; on `school_years` it would make «الصف العاشر» mean a
+    | different row for every teacher a student studies with; on `feature_flags`
+    | it would hide the `0` row every reader falls back to; on `coupons` it would
+    | silently split one campaign.
     */
-    foreach ([Region::class, FeatureFlag::class, Coupon::class] as $model) {
+    foreach ([Region::class, SchoolYear::class, FeatureFlag::class, Coupon::class] as $model) {
         expect(in_array(BelongsToWorkspace::class, class_uses_recursive($model), true))
             ->toBeFalse("{$model} must not be workspace-scoped");
     }

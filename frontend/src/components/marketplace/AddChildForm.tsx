@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, errorMessage, fieldErrors } from "@/lib/api";
 import type { ChildLink } from "@/lib/types";
-import type { Taxonomy } from "@/lib/public-api";
+import type { SchoolYearOption } from "@/lib/public-api";
 import { Button } from "@/components/ui/Button";
 import { NotificationPreferences } from "./NotificationPreferences";
 import { Select } from "@/components/ui/Field";
@@ -19,19 +19,26 @@ const FIELD_CLASS =
  * Skipping is a first-class option: a parent who wants to look around before
  * naming their child should not be blocked, and the same screen is reachable
  * again from the account (FR-074).
+ *
+ * ⚠️ IT CALLED `/parent/children`, A ROUTE SPEC 003 REMOVED — so this screen
+ * was broken in production on BOTH doors: the list 404'd on mount and every
+ * submission 404'd too, with «تعذّر إضافة الطالب» as the only sign of it. The
+ * live endpoint is `GET|POST /family/relations`, which is also why the payload
+ * keys below are `student_*` and carry a relation type and permissions: a
+ * guardian link is not the flat "child" row the old route modelled.
  */
-export function AddChildForm({ gradeLevels }: { gradeLevels: Taxonomy[] }) {
+export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] }) {
   const router = useRouter();
 
   const [children, setChildren] = useState<ChildLink[]>([]);
-  const [form, setForm] = useState({ name: "", age: "", grade_level_slug: "" });
+  const [form, setForm] = useState({ name: "", age: "", school_year_slug: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     api
-      .get<{ data: ChildLink[] }>("/parent/children")
+      .get<{ data: ChildLink[] }>("/family/relations")
       .then((res) => setChildren(res.data))
       .catch(() => setBanner("تعذّر تحميل قائمة الأبناء."));
   }, []);
@@ -46,14 +53,19 @@ export function AddChildForm({ gradeLevels }: { gradeLevels: Taxonomy[] }) {
     setLoading(true);
 
     try {
-      const created = await api.post<ChildLink>("/parent/children", {
-        name: form.name,
+      const created = await api.post<{ data: ChildLink }>("/family/relations", {
+        student_name: form.name,
         age: form.age === "" ? null : Number(form.age),
-        grade_level_slug: form.grade_level_slug === "" ? null : form.grade_level_slug,
+        school_year_slug:
+          form.school_year_slug === "" ? null : form.school_year_slug,
+        relation_type: "parent",
+        // The guardian who adds a child at signup gets the full set; the account
+        // screen is where any of it is taken away again.
+        permissions: ["attendance", "payments", "schedule", "results", "academic_warnings"],
       });
 
-      setChildren((current) => [...current, created]);
-      setForm({ name: "", age: "", grade_level_slug: "" });
+      setChildren((current) => [...current, created.data]);
+      setForm({ name: "", age: "", school_year_slug: "" });
     } catch (err: unknown) {
       const fields = fieldErrors(err);
       setErrors(fields);
@@ -79,9 +91,10 @@ export function AddChildForm({ gradeLevels }: { gradeLevels: Taxonomy[] }) {
                 key={child.uuid}
                 className="flex items-center justify-between gap-3 rounded-xl border border-line px-4 py-3"
               >
-                <span className="font-medium text-ink">{child.name}</span>
+                <span className="font-medium text-ink">{child.student_name}</span>
                 <span className="text-sm text-ink-muted">
-                  {child.age === null ? "—" : `${child.age} سنة`}
+                  {child.student_school_year_name ??
+                    (child.student_age === null ? "—" : `${child.student_age} سنة`)}
                 </span>
               </li>
             ))}
@@ -107,13 +120,13 @@ export function AddChildForm({ gradeLevels }: { gradeLevels: Taxonomy[] }) {
             value={form.name}
             onChange={(e) => set("name", e.target.value)}
             required
-            aria-invalid={errors.name ? true : undefined}
-            aria-describedby={errors.name ? "child-name-error" : undefined}
+            aria-invalid={errors.student_name ? true : undefined}
+            aria-describedby={errors.student_name ? "child-name-error" : undefined}
             className={FIELD_CLASS}
           />
-          {errors.name && (
+          {errors.student_name && (
             <p id="child-name-error" className="mt-1 text-sm text-danger-ink">
-              {errors.name}
+              {errors.student_name}
             </p>
           )}
         </div>
@@ -137,22 +150,26 @@ export function AddChildForm({ gradeLevels }: { gradeLevels: Taxonomy[] }) {
           </div>
 
           <div>
-            <label htmlFor="child-grade" className="mb-1 block text-sm font-medium text-ink">
-              المرحلة الدراسية
+            <label htmlFor="child-year" className="mb-1 block text-sm font-medium text-ink">
+              الصف الدراسي
             </label>
             <Select
-              id="child-grade"
-              value={form.grade_level_slug}
-              onChange={(e) => set("grade_level_slug", e.target.value)}
+              id="child-year"
+              value={form.school_year_slug}
+              onChange={(e) => set("school_year_slug", e.target.value)}
+              aria-invalid={errors.school_year_slug ? true : undefined}
               className={FIELD_CLASS}
             >
-              <option value="">اختر المرحلة</option>
-              {gradeLevels.map((level) => (
-                <option key={level.slug} value={level.slug}>
-                  {level.name_ar}
+              <option value="">اختر الصف</option>
+              {schoolYears.map((year) => (
+                <option key={year.slug} value={year.slug}>
+                  {year.name_ar}
                 </option>
               ))}
             </Select>
+            {errors.school_year_slug && (
+              <p className="mt-1 text-sm text-danger-ink">{errors.school_year_slug}</p>
+            )}
           </div>
         </div>
 

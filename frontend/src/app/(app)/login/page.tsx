@@ -10,7 +10,7 @@ import Link from "next/link";
 import { sessionEndedLabel } from "@/lib/labels";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { TextField } from "@/components/ui/Field";
+import { PasswordField, TextField } from "@/components/ui/Field";
 import type { User } from "@/lib/types";
 
 function LoginForm() {
@@ -92,10 +92,9 @@ function LoginForm() {
             required
           />
 
-          <TextField
+          <PasswordField
             id="password"
             label="كلمة المرور"
-            type="password"
             value={password}
             onChange={setPassword}
             error={fields.password}

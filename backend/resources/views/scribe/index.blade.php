@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta content="IE=edge,chrome=1" http-equiv="X-UA-Compatible">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <title>EduPlatform API Documentation</title>
+    <title>المتميز API Documentation</title>
 
     <link href="https://fonts.googleapis.com/css?family=Open+Sans&display=swap" rel="stylesheet">
 
@@ -287,6 +287,15 @@
                                                                                 <li class="tocify-item level-2" data-unique="endpoints-POSTapi-v1-workspaces-invitations--token--accept">
                                 <a href="#endpoints-POSTapi-v1-workspaces-invitations--token--accept">POST api/v1/workspaces/invitations/{token}/accept</a>
                             </li>
+                                                                                <li class="tocify-item level-2" data-unique="endpoints-GETapi-v1-signup-subjects">
+                                <a href="#endpoints-GETapi-v1-signup-subjects">GET api/v1/signup/subjects</a>
+                            </li>
+                                                                                <li class="tocify-item level-2" data-unique="endpoints-GETapi-v1-signup-grade-levels">
+                                <a href="#endpoints-GETapi-v1-signup-grade-levels">GET api/v1/signup/grade-levels</a>
+                            </li>
+                                                                                <li class="tocify-item level-2" data-unique="endpoints-GETapi-v1-signup-school-years">
+                                <a href="#endpoints-GETapi-v1-signup-school-years">GET api/v1/signup/school-years</a>
+                            </li>
                                                                         </ul>
                             </ul>
             </div>
@@ -298,7 +307,7 @@
     </ul>
 
     <ul class="toc-footer" id="last-updated">
-        <li>Last updated: July 23, 2026</li>
+        <li>Last updated: August 30, 2026</li>
     </ul>
 </div>
 
@@ -10165,7 +10174,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     "http://localhost:8000/api/v1/orders/6ff8f7f6-1eb3-3525-be4a-3932c805afed/receipt" \
     --header "Content-Type: multipart/form-data" \
     --header "Accept: application/json" \
-    --form "receipt=@D:\Temp\phpCAFE.tmp" </code></pre></div>
+    --form "receipt=@D:\Temp\phpA988.tmp" </code></pre></div>
 
 
 <div class="javascript-example">
@@ -10286,7 +10295,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
                value=""
                data-component="body">
     <br>
-<p>Must be a file. Must not be greater than 10240 kilobytes. Example: <code>D:\Temp\phpCAFE.tmp</code></p>
+<p>Must be a file. Must not be greater than 10240 kilobytes. Example: <code>D:\Temp\phpA988.tmp</code></p>
         </div>
         </form>
 
@@ -11715,6 +11724,536 @@ You can check the Dev Tools console for debugging information.</code></pre>
 <p>Example: <code>architecto</code></p>
             </div>
                     </form>
+
+                    <h2 id="endpoints-GETapi-v1-signup-subjects">GET api/v1/signup/subjects</h2>
+
+<p>
+</p>
+
+
+
+<span id="example-requests-GETapi-v1-signup-subjects">
+<blockquote>Example request:</blockquote>
+
+
+<div class="bash-example">
+    <pre><code class="language-bash">curl --request GET \
+    --get "http://localhost:8000/api/v1/signup/subjects" \
+    --header "Content-Type: application/json" \
+    --header "Accept: application/json"</code></pre></div>
+
+
+<div class="javascript-example">
+    <pre><code class="language-javascript">const url = new URL(
+    "http://localhost:8000/api/v1/signup/subjects"
+);
+
+const headers = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+};
+
+
+fetch(url, {
+    method: "GET",
+    headers,
+}).then(response =&gt; response.json());</code></pre></div>
+
+</span>
+
+<span id="example-responses-GETapi-v1-signup-subjects">
+            <blockquote>
+            <p>Example response (200):</p>
+        </blockquote>
+                <details class="annotation">
+            <summary style="cursor: pointer;">
+                <small onclick="textContent = parentElement.parentElement.open ? 'Show headers' : 'Hide headers'">Show headers</small>
+            </summary>
+            <pre><code class="language-http">cache-control: no-cache, private
+content-type: application/json
+x-ratelimit-limit: 60
+x-ratelimit-remaining: 59
+vary: Origin
+ </code></pre></details>         <pre>
+
+<code class="language-json" style="max-height: 300px;">[
+    {
+        &quot;slug&quot;: &quot;math&quot;,
+        &quot;name_ar&quot;: &quot;الرياضيات&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;general&quot;,
+        &quot;name_ar&quot;: &quot;عامّ&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;physics&quot;,
+        &quot;name_ar&quot;: &quot;الفيزياء&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;chemistry&quot;,
+        &quot;name_ar&quot;: &quot;الكيمياء&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;biology&quot;,
+        &quot;name_ar&quot;: &quot;الأحياء&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;arabic&quot;,
+        &quot;name_ar&quot;: &quot;اللغة العربية&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;english&quot;,
+        &quot;name_ar&quot;: &quot;اللغة الإنجليزية&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;french&quot;,
+        &quot;name_ar&quot;: &quot;اللغة الفرنسية&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;islamic-studies&quot;,
+        &quot;name_ar&quot;: &quot;التربية الإسلامية&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;computer-science&quot;,
+        &quot;name_ar&quot;: &quot;الحاسب الآلي&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;science&quot;,
+        &quot;name_ar&quot;: &quot;العلوم&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;social-studies&quot;,
+        &quot;name_ar&quot;: &quot;الاجتماعيات&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;history&quot;,
+        &quot;name_ar&quot;: &quot;التاريخ&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;geography&quot;,
+        &quot;name_ar&quot;: &quot;الجغرافيا&quot;
+    }
+]</code>
+ </pre>
+    </span>
+<span id="execution-results-GETapi-v1-signup-subjects" hidden>
+    <blockquote>Received response<span
+                id="execution-response-status-GETapi-v1-signup-subjects"></span>:
+    </blockquote>
+    <pre class="json"><code id="execution-response-content-GETapi-v1-signup-subjects"
+      data-empty-response-text="<Empty response>" style="max-height: 400px;"></code></pre>
+</span>
+<span id="execution-error-GETapi-v1-signup-subjects" hidden>
+    <blockquote>Request failed with error:</blockquote>
+    <pre><code id="execution-error-message-GETapi-v1-signup-subjects">
+
+Tip: Check that you&#039;re properly connected to the network.
+If you&#039;re a maintainer of ths API, verify that your API is running and you&#039;ve enabled CORS.
+You can check the Dev Tools console for debugging information.</code></pre>
+</span>
+<form id="form-GETapi-v1-signup-subjects" data-method="GET"
+      data-path="api/v1/signup/subjects"
+      data-authed="0"
+      data-hasfiles="0"
+      data-isarraybody="0"
+      autocomplete="off"
+      onsubmit="event.preventDefault(); executeTryOut('GETapi-v1-signup-subjects', this);">
+    <h3>
+        Request&nbsp;&nbsp;&nbsp;
+                    <button type="button"
+                    style="background-color: #8fbcd4; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-tryout-GETapi-v1-signup-subjects"
+                    onclick="tryItOut('GETapi-v1-signup-subjects');">Try it out ⚡
+            </button>
+            <button type="button"
+                    style="background-color: #c97a7e; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-canceltryout-GETapi-v1-signup-subjects"
+                    onclick="cancelTryOut('GETapi-v1-signup-subjects');" hidden>Cancel 🛑
+            </button>&nbsp;&nbsp;
+            <button type="submit"
+                    style="background-color: #6ac174; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-executetryout-GETapi-v1-signup-subjects"
+                    data-initial-text="Send Request 💥"
+                    data-loading-text="⏱ Sending..."
+                    hidden>Send Request 💥
+            </button>
+            </h3>
+            <p>
+            <small class="badge badge-green">GET</small>
+            <b><code>api/v1/signup/subjects</code></b>
+        </p>
+                <h4 class="fancy-heading-panel"><b>Headers</b></h4>
+                                <div style="padding-left: 28px; clear: unset;">
+                <b style="line-height: 2;"><code>Content-Type</code></b>&nbsp;&nbsp;
+&nbsp;
+ &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="Content-Type"                data-endpoint="GETapi-v1-signup-subjects"
+               value="application/json"
+               data-component="header">
+    <br>
+<p>Example: <code>application/json</code></p>
+            </div>
+                                <div style="padding-left: 28px; clear: unset;">
+                <b style="line-height: 2;"><code>Accept</code></b>&nbsp;&nbsp;
+&nbsp;
+ &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="Accept"                data-endpoint="GETapi-v1-signup-subjects"
+               value="application/json"
+               data-component="header">
+    <br>
+<p>Example: <code>application/json</code></p>
+            </div>
+                        </form>
+
+                    <h2 id="endpoints-GETapi-v1-signup-grade-levels">GET api/v1/signup/grade-levels</h2>
+
+<p>
+</p>
+
+
+
+<span id="example-requests-GETapi-v1-signup-grade-levels">
+<blockquote>Example request:</blockquote>
+
+
+<div class="bash-example">
+    <pre><code class="language-bash">curl --request GET \
+    --get "http://localhost:8000/api/v1/signup/grade-levels" \
+    --header "Content-Type: application/json" \
+    --header "Accept: application/json"</code></pre></div>
+
+
+<div class="javascript-example">
+    <pre><code class="language-javascript">const url = new URL(
+    "http://localhost:8000/api/v1/signup/grade-levels"
+);
+
+const headers = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+};
+
+
+fetch(url, {
+    method: "GET",
+    headers,
+}).then(response =&gt; response.json());</code></pre></div>
+
+</span>
+
+<span id="example-responses-GETapi-v1-signup-grade-levels">
+            <blockquote>
+            <p>Example response (200):</p>
+        </blockquote>
+                <details class="annotation">
+            <summary style="cursor: pointer;">
+                <small onclick="textContent = parentElement.parentElement.open ? 'Show headers' : 'Hide headers'">Show headers</small>
+            </summary>
+            <pre><code class="language-http">cache-control: no-cache, private
+content-type: application/json
+x-ratelimit-limit: 60
+x-ratelimit-remaining: 59
+vary: Origin
+ </code></pre></details>         <pre>
+
+<code class="language-json" style="max-height: 300px;">[
+    {
+        &quot;slug&quot;: &quot;primary&quot;,
+        &quot;name_ar&quot;: &quot;المرحلة الابتدائية&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;preparatory&quot;,
+        &quot;name_ar&quot;: &quot;المرحلة الإعدادية&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;secondary&quot;,
+        &quot;name_ar&quot;: &quot;المرحلة الثانوية&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;university&quot;,
+        &quot;name_ar&quot;: &quot;المرحلة الجامعية&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;kindergarten&quot;,
+        &quot;name_ar&quot;: &quot;رياض الأطفال&quot;
+    }
+]</code>
+ </pre>
+    </span>
+<span id="execution-results-GETapi-v1-signup-grade-levels" hidden>
+    <blockquote>Received response<span
+                id="execution-response-status-GETapi-v1-signup-grade-levels"></span>:
+    </blockquote>
+    <pre class="json"><code id="execution-response-content-GETapi-v1-signup-grade-levels"
+      data-empty-response-text="<Empty response>" style="max-height: 400px;"></code></pre>
+</span>
+<span id="execution-error-GETapi-v1-signup-grade-levels" hidden>
+    <blockquote>Request failed with error:</blockquote>
+    <pre><code id="execution-error-message-GETapi-v1-signup-grade-levels">
+
+Tip: Check that you&#039;re properly connected to the network.
+If you&#039;re a maintainer of ths API, verify that your API is running and you&#039;ve enabled CORS.
+You can check the Dev Tools console for debugging information.</code></pre>
+</span>
+<form id="form-GETapi-v1-signup-grade-levels" data-method="GET"
+      data-path="api/v1/signup/grade-levels"
+      data-authed="0"
+      data-hasfiles="0"
+      data-isarraybody="0"
+      autocomplete="off"
+      onsubmit="event.preventDefault(); executeTryOut('GETapi-v1-signup-grade-levels', this);">
+    <h3>
+        Request&nbsp;&nbsp;&nbsp;
+                    <button type="button"
+                    style="background-color: #8fbcd4; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-tryout-GETapi-v1-signup-grade-levels"
+                    onclick="tryItOut('GETapi-v1-signup-grade-levels');">Try it out ⚡
+            </button>
+            <button type="button"
+                    style="background-color: #c97a7e; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-canceltryout-GETapi-v1-signup-grade-levels"
+                    onclick="cancelTryOut('GETapi-v1-signup-grade-levels');" hidden>Cancel 🛑
+            </button>&nbsp;&nbsp;
+            <button type="submit"
+                    style="background-color: #6ac174; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-executetryout-GETapi-v1-signup-grade-levels"
+                    data-initial-text="Send Request 💥"
+                    data-loading-text="⏱ Sending..."
+                    hidden>Send Request 💥
+            </button>
+            </h3>
+            <p>
+            <small class="badge badge-green">GET</small>
+            <b><code>api/v1/signup/grade-levels</code></b>
+        </p>
+                <h4 class="fancy-heading-panel"><b>Headers</b></h4>
+                                <div style="padding-left: 28px; clear: unset;">
+                <b style="line-height: 2;"><code>Content-Type</code></b>&nbsp;&nbsp;
+&nbsp;
+ &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="Content-Type"                data-endpoint="GETapi-v1-signup-grade-levels"
+               value="application/json"
+               data-component="header">
+    <br>
+<p>Example: <code>application/json</code></p>
+            </div>
+                                <div style="padding-left: 28px; clear: unset;">
+                <b style="line-height: 2;"><code>Accept</code></b>&nbsp;&nbsp;
+&nbsp;
+ &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="Accept"                data-endpoint="GETapi-v1-signup-grade-levels"
+               value="application/json"
+               data-component="header">
+    <br>
+<p>Example: <code>application/json</code></p>
+            </div>
+                        </form>
+
+                    <h2 id="endpoints-GETapi-v1-signup-school-years">GET api/v1/signup/school-years</h2>
+
+<p>
+</p>
+
+
+
+<span id="example-requests-GETapi-v1-signup-school-years">
+<blockquote>Example request:</blockquote>
+
+
+<div class="bash-example">
+    <pre><code class="language-bash">curl --request GET \
+    --get "http://localhost:8000/api/v1/signup/school-years" \
+    --header "Content-Type: application/json" \
+    --header "Accept: application/json"</code></pre></div>
+
+
+<div class="javascript-example">
+    <pre><code class="language-javascript">const url = new URL(
+    "http://localhost:8000/api/v1/signup/school-years"
+);
+
+const headers = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+};
+
+
+fetch(url, {
+    method: "GET",
+    headers,
+}).then(response =&gt; response.json());</code></pre></div>
+
+</span>
+
+<span id="example-responses-GETapi-v1-signup-school-years">
+            <blockquote>
+            <p>Example response (200):</p>
+        </blockquote>
+                <details class="annotation">
+            <summary style="cursor: pointer;">
+                <small onclick="textContent = parentElement.parentElement.open ? 'Show headers' : 'Hide headers'">Show headers</small>
+            </summary>
+            <pre><code class="language-http">cache-control: no-cache, private
+content-type: application/json
+x-ratelimit-limit: 60
+x-ratelimit-remaining: 59
+vary: Origin
+ </code></pre></details>         <pre>
+
+<code class="language-json" style="max-height: 300px;">[
+    {
+        &quot;slug&quot;: &quot;kindergarten&quot;,
+        &quot;name_ar&quot;: &quot;الروضة والتمهيدي&quot;,
+        &quot;grade_level_slug&quot;: &quot;kindergarten&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;year-1&quot;,
+        &quot;name_ar&quot;: &quot;الصف الأول الابتدائي&quot;,
+        &quot;grade_level_slug&quot;: &quot;primary&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;year-2&quot;,
+        &quot;name_ar&quot;: &quot;الصف الثاني الابتدائي&quot;,
+        &quot;grade_level_slug&quot;: &quot;primary&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;year-3&quot;,
+        &quot;name_ar&quot;: &quot;الصف الثالث الابتدائي&quot;,
+        &quot;grade_level_slug&quot;: &quot;primary&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;year-4&quot;,
+        &quot;name_ar&quot;: &quot;الصف الرابع الابتدائي&quot;,
+        &quot;grade_level_slug&quot;: &quot;primary&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;year-5&quot;,
+        &quot;name_ar&quot;: &quot;الصف الخامس الابتدائي&quot;,
+        &quot;grade_level_slug&quot;: &quot;primary&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;year-6&quot;,
+        &quot;name_ar&quot;: &quot;الصف السادس الابتدائي&quot;,
+        &quot;grade_level_slug&quot;: &quot;primary&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;year-7&quot;,
+        &quot;name_ar&quot;: &quot;الصف السابع&quot;,
+        &quot;grade_level_slug&quot;: &quot;preparatory&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;year-8&quot;,
+        &quot;name_ar&quot;: &quot;الصف الثامن&quot;,
+        &quot;grade_level_slug&quot;: &quot;preparatory&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;year-9&quot;,
+        &quot;name_ar&quot;: &quot;الصف التاسع&quot;,
+        &quot;grade_level_slug&quot;: &quot;preparatory&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;year-10&quot;,
+        &quot;name_ar&quot;: &quot;الصف العاشر&quot;,
+        &quot;grade_level_slug&quot;: &quot;secondary&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;year-11&quot;,
+        &quot;name_ar&quot;: &quot;الصف الحادي عشر&quot;,
+        &quot;grade_level_slug&quot;: &quot;secondary&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;year-12&quot;,
+        &quot;name_ar&quot;: &quot;الصف الثاني عشر&quot;,
+        &quot;grade_level_slug&quot;: &quot;secondary&quot;
+    },
+    {
+        &quot;slug&quot;: &quot;university&quot;,
+        &quot;name_ar&quot;: &quot;المرحلة الجامعية&quot;,
+        &quot;grade_level_slug&quot;: &quot;university&quot;
+    }
+]</code>
+ </pre>
+    </span>
+<span id="execution-results-GETapi-v1-signup-school-years" hidden>
+    <blockquote>Received response<span
+                id="execution-response-status-GETapi-v1-signup-school-years"></span>:
+    </blockquote>
+    <pre class="json"><code id="execution-response-content-GETapi-v1-signup-school-years"
+      data-empty-response-text="<Empty response>" style="max-height: 400px;"></code></pre>
+</span>
+<span id="execution-error-GETapi-v1-signup-school-years" hidden>
+    <blockquote>Request failed with error:</blockquote>
+    <pre><code id="execution-error-message-GETapi-v1-signup-school-years">
+
+Tip: Check that you&#039;re properly connected to the network.
+If you&#039;re a maintainer of ths API, verify that your API is running and you&#039;ve enabled CORS.
+You can check the Dev Tools console for debugging information.</code></pre>
+</span>
+<form id="form-GETapi-v1-signup-school-years" data-method="GET"
+      data-path="api/v1/signup/school-years"
+      data-authed="0"
+      data-hasfiles="0"
+      data-isarraybody="0"
+      autocomplete="off"
+      onsubmit="event.preventDefault(); executeTryOut('GETapi-v1-signup-school-years', this);">
+    <h3>
+        Request&nbsp;&nbsp;&nbsp;
+                    <button type="button"
+                    style="background-color: #8fbcd4; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-tryout-GETapi-v1-signup-school-years"
+                    onclick="tryItOut('GETapi-v1-signup-school-years');">Try it out ⚡
+            </button>
+            <button type="button"
+                    style="background-color: #c97a7e; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-canceltryout-GETapi-v1-signup-school-years"
+                    onclick="cancelTryOut('GETapi-v1-signup-school-years');" hidden>Cancel 🛑
+            </button>&nbsp;&nbsp;
+            <button type="submit"
+                    style="background-color: #6ac174; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-executetryout-GETapi-v1-signup-school-years"
+                    data-initial-text="Send Request 💥"
+                    data-loading-text="⏱ Sending..."
+                    hidden>Send Request 💥
+            </button>
+            </h3>
+            <p>
+            <small class="badge badge-green">GET</small>
+            <b><code>api/v1/signup/school-years</code></b>
+        </p>
+                <h4 class="fancy-heading-panel"><b>Headers</b></h4>
+                                <div style="padding-left: 28px; clear: unset;">
+                <b style="line-height: 2;"><code>Content-Type</code></b>&nbsp;&nbsp;
+&nbsp;
+ &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="Content-Type"                data-endpoint="GETapi-v1-signup-school-years"
+               value="application/json"
+               data-component="header">
+    <br>
+<p>Example: <code>application/json</code></p>
+            </div>
+                                <div style="padding-left: 28px; clear: unset;">
+                <b style="line-height: 2;"><code>Accept</code></b>&nbsp;&nbsp;
+&nbsp;
+ &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="Accept"                data-endpoint="GETapi-v1-signup-school-years"
+               value="application/json"
+               data-component="header">
+    <br>
+<p>Example: <code>application/json</code></p>
+            </div>
+                        </form>
 
             
 

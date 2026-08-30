@@ -459,3 +459,15 @@ button:not(:disabled):not([aria-disabled="true"]),
   height: auto;
   border-radius: 1rem;
 }
+
+/* Spec 022 · FR-014 — the browser's own password reveal control is hidden.
+   `PasswordField` places one of its own, positioned and labelled in Arabic; two
+   adjacent buttons doing the same job is a confusion, and only ours can be
+   given an accessible name. `::-ms-reveal` is Edge's; the WebKit pair covers
+   the caps-lock and password buttons Safari draws inside the field. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear,
+input[type="password"]::-webkit-credentials-auto-fill-button {
+  display: none;
+  visibility: hidden;
+}

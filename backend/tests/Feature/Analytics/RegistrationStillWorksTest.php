@@ -30,7 +30,9 @@ beforeEach(function (): void {
 
     app(WorkspaceContext::class)->forWorkspace(
         $workspace,
-        fn () => GradeLevel::factory()->create(['slug' => 'secondary']),
+        // firstOrCreate, not create: TaxonomySeeder now runs before every Feature
+        // test and the slug is unique platform-wide (spec 022 · T008).
+        fn () => GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name_ar' => 'المرحلة الثانوية', 'sort_order' => 0, 'is_active' => true]),
     );
 
     $this->asGuest();
@@ -50,7 +52,7 @@ function regionRegistrationPayload(array $overrides = []): array
         'password_confirmation' => 'password123',
         'phone' => '+97455512399',
         'country' => 'QA',
-        'grade_level_slug' => 'secondary',
+        'school_year_slug' => 'year-10',
         'region_slug' => 'doha',
         'date_of_birth' => '1997-02-02',
         'terms_accepted' => true,

@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Identity\Http\Requests;
 
-use App\Modules\Marketplace\Models\GradeLevel;
+use App\Modules\Marketplace\Actions\Public\ListSchoolYears;
 use App\Modules\Marketplace\Models\Region;
+use App\Modules\Marketplace\Models\SchoolYear;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,7 +30,23 @@ class RegisterStudentRequest extends FormRequest
             // hand-parsing separators (FR-063).
             'phone' => ['required', 'string', 'regex:/^\+[1-9]\d{6,14}$/'],
             'country' => ['required', 'string', 'size:2', 'alpha'],
-            'grade_level_slug' => ['required', 'string', Rule::in($this->publicGradeLevelSlugs())],
+            /*
+            | Spec 022 · FR-005 — the individual YEAR, which replaces the broad
+            | stage as the question this form asks.
+            |
+            | ⚠️ `grade_level_slug` IS GONE FROM THIS FORM, not merely optional.
+            | The student's stage is DERIVED from the year they picked
+            | (`SchoolYear::stageFor`), and accepting both would store two answers
+            | to one question that part company at the first edit of the mapping —
+            | which FR-001ج forbids in words.
+            |
+            | ⚠️ AND THE PREDICATE IS `activelyOffered()`, THE SAME SCOPE THE
+            | PUBLIC READ USES. Before this spec the rule here was `is_active`
+            | alone while the screen was fed a participation-filtered list, so the
+            | door accepted what the screen never showed — two answers to one
+            | question, from opposite sides.
+            */
+            'school_year_slug' => ['required', 'string', Rule::in($this->offeredSchoolYearSlugs())],
             /*
             | Spec 011 · FR-042 — «حقل المنطقة يجب أن يكون إلزامياً في التسجيل».
             |
@@ -98,7 +115,7 @@ class RegisterStudentRequest extends FormRequest
             'password.confirmed' => 'تأكيد كلمة المرور غير مطابق.',
             'phone.regex' => 'أدخل رقم الجوال مع رمز الدولة، مثل ‎+97455512345.',
             'country.size' => 'اختر الدولة.',
-            'grade_level_slug.in' => 'اختر مرحلة دراسية من القائمة.',
+            'school_year_slug.in' => 'اختر الصف الدراسي من القائمة.',
             'region_slug.in' => 'اختر المنطقة من القائمة.',
             'terms_accepted.accepted' => 'يجب الموافقة على الشروط والأحكام.',
             'date_of_birth.before' => 'أدخل تاريخ ميلادٍ صحيحاً.',
@@ -150,23 +167,27 @@ class RegisterStudentRequest extends FormRequest
     }
 
     /**
-     * Grade-level slugs offered anywhere on the platform.
+     * The school years actually on offer.
      *
      * Deliberate cross-workspace read (Constitution I): the slug is platform
-     * vocabulary, not tenant data, and a student picking a grade belongs to no
-     * workspace yet. `exists:grade_levels,slug` would reach the same rows but as
-     * a raw query with no scope awareness at all — the trap the constitution
-     * names. Rule::in also keeps the taxonomy a closed set rather than whatever
-     * happens to be in the table.
+     * vocabulary, not tenant data, and a student picking a year belongs to no
+     * workspace yet. `exists:school_years,slug` would reach the same rows as a
+     * raw query with no scope awareness at all — the trap the constitution names
+     * — and, worse here, it could not express "and its stage is active" without
+     * spelling the join a second time.
+     *
+     * ⚠️ `activelyOffered()` IS THE ONE PREDICATE, shared with
+     * {@see ListSchoolYears}. Two
+     * spellings of "which years are on offer" put one answer on the screen and
+     * another at the door.
      *
      * @return list<string>
      */
-    private function publicGradeLevelSlugs(): array
+    private function offeredSchoolYearSlugs(): array
     {
         /** @var list<string> */
-        return GradeLevel::query()
-            ->where('is_active', true)
-            ->distinct()
+        return SchoolYear::query()
+            ->activelyOffered()
             ->pluck('slug')
             ->all();
     }

@@ -8,7 +8,7 @@ import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import type { Taxonomy } from "@/lib/public-api";
 import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
 import { Button } from "@/components/ui/Button";
-import { Select } from "@/components/ui/Field";
+import { PasswordField, Select } from "@/components/ui/Field";
 
 const FIELD =
   "w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
@@ -386,38 +386,29 @@ export function TeacherSignupWizard({
               </Select>
             </div>
 
-            <div>
-              <label htmlFor="t-password" className="mb-1 block text-sm font-medium text-ink">
-                كلمة المرور
-              </label>
-              <input
-                id="t-password"
-                type="password"
-                value={account.password}
-                onChange={(e) => setAccount({ ...account, password: e.target.value })}
-                required
-                minLength={8}
-                className={FIELD}
-              />
-              <FieldError id="t-password" message={errors.password} />
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="t-password2" className="mb-1 block text-sm font-medium text-ink">
-              تأكيد كلمة المرور
-            </label>
-            <input
-              id="t-password2"
-              type="password"
-              value={account.password_confirmation}
-              onChange={(e) =>
-                setAccount({ ...account, password_confirmation: e.target.value })
-              }
+            <PasswordField
+              id="t-password"
+              label="كلمة المرور"
+              error={errors.password}
+              value={account.password}
+              onChange={(value) => setAccount({ ...account, password: value })}
+              autoComplete="new-password"
               required
-              className={FIELD}
+              minLength={8}
             />
           </div>
+
+          <PasswordField
+            id="t-password2"
+            label="تأكيد كلمة المرور"
+            error={errors.password_confirmation}
+            value={account.password_confirmation}
+            onChange={(value) =>
+              setAccount({ ...account, password_confirmation: value })
+            }
+            autoComplete="new-password"
+            required
+          />
 
           <div>
             <label className="flex items-start gap-3 text-sm text-ink">

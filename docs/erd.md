@@ -947,3 +947,71 @@ article opened and each sitemap built was a full table scan.
 ⚠️ A soft-deleted article now holds its slug against the whole platform: a unique
 index does not know about `deleted_at`. `SaveArticle` must answer «هذا الرابط
 مستخدم» from the trashed set too, or a teacher gets a raw integrity error.
+
+---
+
+## Spec 022 — `school_years`, and two columns that carry it
+
+```
+┌──────────────────────────────────────────────┐
+│ school_years                    (PLATFORM ب) │
+│ id · uuid                                    │
+│ grade_level_id  NOT NULL → grade_levels      │──┐ restrictOnDelete
+│ name_ar                                      │  │
+│ slug           unique platform-wide          │  │
+│ sort_order · is_active                       │  │
+└──────────────────────────────────────────────┘  │
+        ▲ (by SLUG, no foreign key)               ▼
+        │                             ┌──────────────────────────┐
+        ├── student_profiles.school_year_slug     │ grade_levels │
+        └── parent_student_relations              └──────────────┘
+              .student_school_year_slug
+```
+
+**No `workspace_id`** — constitution kind (ب), platform reference data: read
+publicly at `GET /signup/school-years`, written with `taxonomy.manage` through
+`SchoolYearResource`. Adding `BelongsToWorkspace` would give the platform one
+«الصف العاشر» per teacher, so a student's year would mean a different row
+depending on who they happen to study with. `PlatformReferenceAccessTest` and
+`WorkspaceIsolationTest` both carry the inverse assertion.
+
+`grade_level_id` is **`NOT NULL`** (FR-011أ): a year with no stage cannot answer
+the one question every existing reader asks, and the three text columns that
+carry a stage — `courses.grade_level`, the `grade:{slug}` leaderboard key and the
+`(subject, grade_level)` settlement-rate key — are all defended by no constraint.
+`restrictOnDelete` because a stage with years under it is a stage nothing may
+delete; the taxonomy policy refuses deletion outright anyway.
+
+### The two new columns are nullable, and the old ones stay
+
+```
+student_profiles            gains  school_year_slug          (nullable, indexed)
+parent_student_relations    gains  student_school_year_slug  (nullable)
+```
+
+⚠️ **`grade_level_slug` and `student_grade_level_slug` are NOT dropped and NOT
+backfilled from.** The old columns carry a BROAD STAGE, and «secondary» does not
+say which year — writing `year-10` for a student who never said it is inventing
+data. So the old column is the fallback for everybody who registered before years
+existed, the new one is what every new registration writes, and the stage is
+DERIVED from whichever is present. Two stored answers to one question is what
+FR-001ج forbids in words.
+
+⚠️ Both new columns are in `$fillable` in the same change as the migration.
+`RegisterStudent` and `LinkGuardian` write through `create()`, and mass
+assignment discards a non-fillable key in SILENCE — a 201 and a null. Three
+columns shipped that way on `student_profiles` in spec 013, and the suite could
+not see it because `SeedCommand` wraps every seeder in `Model::unguarded()`.
+
+⚠️ And `SchoolYear::$fillable` carries **`grade_level_id`**, which its three
+siblings in the taxonomy do not have at all — copying `$fillable` from `Subject`,
+`GradeLevel` or `Region` drops it.
+
+### The index is dropped before the column in `down()`
+
+`student_profiles.school_year_slug` is indexed, and only SQLite will tell you:
+MySQL discards a single-column index along with its column and never complains,
+while SQLite's native `ALTER TABLE … DROP COLUMN` refuses an indexed column — and
+every test in this repository runs on in-memory SQLite. Two separate
+`Schema::table` closures, the pattern `add_region_to_student_profiles` already
+set.

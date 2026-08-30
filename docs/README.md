@@ -2255,3 +2255,176 @@ row naming a group that no longer exists.
 Inline `throttle:N,M` is banned: `ThrottleRequests` keys guests on `domain|ip` with
 no route in the hash, so every inline limit shares one counter and the strictest in
 the application wins.
+
+---
+
+## Spec 022 — مفرداتُ التسجيلِ القَطَريّة (signup vocabulary)
+
+### The signup read is not the marketplace read
+
+`ListPublicTaxonomy` drops every subject and stage with no publicly listed
+teacher, and its own docblock gives the reason: a filter option that can only
+return an empty page is a dead end dressed up as a starting point. **True of a
+filter bar; a CIRCULAR LOCK on a required signup field** — no listed teacher ⇒ no
+subject in the list ⇒ the first teacher on the platform can never apply, for
+ever.
+
+So there is a **second read**, never a flag on the first: `ListSignupTaxonomy`
+and `ListSchoolYears`, modelled on `ListRegions` — the whole active vocabulary,
+no participation condition, a plain array. Two reads make SC-008 ("the
+marketplace filter bar does not widen") true by construction rather than by test;
+an `includeEmpty` flag would restore the lock the first time a caller forgot it.
+
+⚠️ **`MarketplaceCache::key()` IS A FLAT NAMESPACE and `ListPublicTaxonomy` owns
+the bare suffixes `subjects` and `grade_levels` literally.** Every signup key
+therefore carries a `signup:` prefix. Without it the two reads serve each other's
+answers by whichever warmed the key first, alternating, with nothing failing
+anywhere.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/signup/subjects` | anyone — `throttle:public`, no query parameters |
+| GET | `/signup/grade-levels` | anyone — `throttle:public`, no query parameters |
+| GET | `/signup/school-years` | anyone — `throttle:public`, no query parameters |
+
+`/admin/school-years` (`taxonomy.manage`) is the panel's half, beside
+`/admin/subjects`, `/admin/grade-levels` and `/admin/regions`.
+
+### Two vocabularies, one derivation
+
+`grade_levels` are BROAD STAGES a **teacher** picks (`kindergarten` · `primary` ·
+`preparatory` · `secondary` · `university`). `school_years` are the FOURTEEN
+individual years a **student** picks (`kindergarten`, `year-1`…`year-12`,
+`university`), each belonging to one stage.
+
+⚠️ **The four existing stage slugs are never renamed, and that is a money
+decision.** `courses.grade_level` is undefended text carrying them, the
+leaderboard key is `grade:{slug}`, and a teacher's settlement rate is keyed on
+`(subject, grade_level)` — `RequestRateChange` looks a rate up by it and
+`AccrueTeachingUnits` reads it.
+
+⚠️ **`year-`, never `grade-`.** Those three text columns are defended by no
+database constraint, so a slug spelled `grade-10` would sit in one of them
+looking perfectly plausible. The English word in the value says which vocabulary
+it belongs to. (`university` appears in both lists deliberately — two separate
+tables, and a university student has no school year.)
+
+The student's stage is **derived, never stored twice**: `SchoolYear::stageFor()`
+answers "the stage of my year, else the legacy column, else null", and
+`StudentProfile::stageSlug()` / `ParentStudentRelation::stageSlug()` are the only
+callers. Repeating `?? $profile->grade_level_slug` at a call site is the
+two-answers defect wearing the clothes of a fix. It takes **two strings and not a
+model** because `parent_student_relations.student_user_id` is nullable — a
+guardian may add a child with no account at all, so there is no profile to ask.
+
+⚠️ **A LIST reads `SchoolYearDirectory`, not the per-row method.** The column is
+text with no relation behind it, so `->with()` is not even available as a fix,
+and a Resource runs once per row. The directory is bound **`scoped()`** — not
+`bind()`, which would rebuild the map several times per request, and not
+`singleton()`, whose lifetime outlives a queue job and would serve a renamed year
+until the worker restarts.
+
+⚠️ **"Actually on offer" is READ, never written.** A year shows when it is active
+**and** its stage is (`SchoolYear::scopeActivelyOffered`), which is the ONE
+predicate the public route and all four signup `Rule::in` doors share. A
+cascading deactivation would write into rows that nothing puts back when the
+stage is re-enabled — and two spellings of the question put one answer on the
+screen and another at the door, which is exactly what `RegisterStudentRequest`
+did before this spec (it validated against `is_active` alone while the screen was
+fed a participation-filtered list).
+
+### FR-016 audit — every picker on a signup form
+
+| Picker | Kind | Where it lives | Why |
+|---|---|---|---|
+| المناطق | runtime catalogue (ب) | `regions` + `RegionSeeder` + backfill | An operator adds a municipality; a required field |
+| المواد | runtime catalogue (ب) | `subjects` + `TaxonomySeeder` + backfill | A curriculum changes without a release |
+| المراحل العريضة | runtime catalogue (ب) | `grade_levels` + `TaxonomySeeder` + backfill | Same, and it keys the settlement rate |
+| الصفوف الدراسية | runtime catalogue (ب) | `school_years` + `TaxonomySeeder` + backfill | Same, and 14 rows an operator may rename |
+| الدول | fixed list in the product | `frontend/src/lib/countries.ts` | Dial codes and flags are product assets, not data |
+| لغات التدريس | fixed list in the product | `TeacherStepTwoRequest::TEACHING_LANGUAGES` and `LANGUAGES` in `TeacherSignupWizard.tsx` | The languages the product is TRANSLATED for; a fourth is a translation, not a row |
+
+⚠️ **A field whose options come from a catalogue that is not seeded in production
+is a CLOSED DOOR.** Every catalogue in the first four rows therefore ships with a
+`seedMissing()` backfill migration in the same change — the fifth instance of one
+mechanism in this tree, after the notification templates, the data categories,
+the gamification actions and the regions.
+
+⚠️ **`teaching_languages` was `string|max:5` and is published on the public
+teacher card.** Any five characters reached a profile and were rendered to
+visitors while the screen offered three options — the two-answers shape reached
+from the other side of the same form. It is a `Rule::in` now.
+
+### The taxonomy seeder, and why the two backfills are ordered
+
+`TaxonomySeeder` has the two modes every runtime catalogue here has: `run()`
+overwrites (`migrate:fresh --seed`) and `seedMissing()` adds only what is absent
+(the deploy path). **Only `seedMissing()` may be called by a migration** — every
+row is editable from `/admin`, and an `updateOrCreate` in the deploy path resets
+an operator's renaming and reordering on every release.
+
+`sort_order` is written as an **explicit value, never an array index**:
+`firstOrCreate` writes it for new rows only, so an index-derived order would make
+production's ordering differ from development's the moment a row is inserted in
+the middle of a list.
+
+Laravel orders migrations by filename, so there are **two** backfills.
+`2026_08_31_000100_backfill_taxonomy_catalogue` runs first and the seeder skips
+the years while `school_years` does not exist yet (`Schema::hasTable`);
+`2026_09_01_000200_backfill_school_years` calls the same method again once the
+table is there. Without that guard the first backfill would write to a missing
+table and every `RefreshDatabase` test in the suite would throw.
+
+A year whose stage is unknown **throws** rather than being skipped: the backfill
+runs once and `firstOrCreate` never comes back for a row it did not write, so a
+skipped year is missing from the picker for the life of the deployment, silently.
+
+### The panel's fourth taxonomy screen
+
+`SchoolYearResource` **extends `Resource`, not `TaxonomyResource`** — the same
+road `RegionResource` took. That base carries an `icon` field for a column this
+table does not have and a `getEloquentQuery()` that adds
+`withCount('teacherProfiles')` for a relation `SchoolYear` does not define, so
+inheriting it would throw on every open of the index.
+
+The stage field is **required** (FR-011أ) in the form and `NOT NULL` in the
+database, because the seeder and any importer reach the model with no form behind
+them. The slug is not editable after creation.
+
+⚠️ **The delete refusal is repeated on the Resource**, not left to
+`TaxonomyPolicy::delete()`: `Gate::before` waves a super admin past every policy
+method, and they are the only person who will see the button.
+`student_profiles.school_year_slug` and
+`parent_student_relations.student_school_year_slug` name the row as TEXT with no
+foreign key behind either.
+
+### The screen that was broken the whole time
+
+`AddChildForm.tsx` called `GET|POST /parent/children` — **a route spec 003
+removed**. Both doors answered 404: the list on mount and every submission, with
+«تعذّر إضافة الطالب» as the only sign of it. The live endpoint is
+`GET|POST /family/relations`, whose payload is a relation (`student_*` keys, a
+relation type and a permission list), not the flat "child" row the old route
+modelled. `ChildLink` in `lib/types.ts` described that dead payload for three
+specs.
+
+`Region::saved` was likewise **absent from the cache-flush hooks** since 011 — so
+a region an operator retired stayed in the cached picker for up to a minute while
+the door already refused it: a 422 about an option the student is looking
+straight at. All four models flush now.
+
+### The password reveal
+
+`PasswordField` in `components/ui/Field.tsx` is the ONE spelling, and
+**`"password"` was removed from `TextField`'s type union in the same change** —
+otherwise `TextField type="password"` stays a second spelling that renders no
+toggle, and the two drift screen by screen. (Same shape as `"number"`, absent for
+the same reason `NumberField` exists.) Removing it is also what makes `tsc` walk
+every existing call site: fourteen fields across seven files.
+
+Three details are load-bearing: `type="button"` (a bare button inside a form is a
+submit button, so the first press of the eye would send a half-filled
+registration), nothing persisted (a revealed password surviving a reload is a
+password left on an unattended screen), and the `aria-label` following the state
+(the icon says nothing to a screen reader). The browser's own reveal control is
+hidden in `globals.css`.

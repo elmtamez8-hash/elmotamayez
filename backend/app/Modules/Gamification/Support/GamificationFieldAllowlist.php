@@ -57,6 +57,14 @@ class GamificationFieldAllowlist
             'workspace_uuid',
             'workspace_id',
             'grade_level_slug',
+            /*
+            | Spec 022 — the two new spellings of the same fact, FORBIDDEN for the
+            | same reason the line above them is: a leaderboard crosses workspaces
+            | and is read by strangers, and a minor's school year narrows them to
+            | an age band. A year is SHARPER than a stage, not softer.
+            */
+            'school_year_slug',
+            'school_year_name',
         ];
     }
 }

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Models;
 
 use App\Models\User;
+use App\Modules\Marketplace\Models\SchoolYear;
+use App\Modules\Marketplace\Support\SchoolYearDirectory;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property int $user_id
  * @property string|null $grade_level_slug
+ * @property string|null $school_year_slug
  * @property string|null $avatar_path
  * @property bool $registered_by_parent
  * @property CarbonImmutable|null $date_of_birth
@@ -59,6 +62,13 @@ class StudentProfile extends Model
         | array is written by nobody, silently.
         */
         'region_id',
+        /*
+        | Spec 022 · FR-005 — the individual school year. In this list from its
+        | first day, for the reason the block above it exists: `RegisterStudent`
+        | writes through `create()`, and mass assignment discards a non-fillable
+        | key with no exception and no log line.
+        */
+        'school_year_slug',
     ];
 
     /** @return array<string, mixed> */
@@ -79,5 +89,25 @@ class StudentProfile extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The broad stage this student is in.
+     *
+     * ⚠️ EVERY READER CALLS THIS. `school_year_slug` is what a new registration
+     * writes; `grade_level_slug` is what everybody who registered before years
+     * existed has. Repeating `?? $profile->grade_level_slug` at a call site is
+     * the two-answers defect wearing the clothes of a fix — the first place
+     * anybody forgets shows a stage that disagrees with the one beside it, with
+     * no error anywhere.
+     *
+     * ⚠️ AND IT IS PER-ROW. A LIST reads
+     * {@see SchoolYearDirectory} instead, which
+     * takes the whole map in one query: a Resource runs once per row, so a lookup
+     * inside one is an N+1 by construction.
+     */
+    public function stageSlug(): ?string
+    {
+        return SchoolYear::stageFor($this->school_year_slug, $this->grade_level_slug);
     }
 }

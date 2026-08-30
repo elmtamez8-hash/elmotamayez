@@ -8,6 +8,8 @@ use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Identity\Support\RelationStatus;
 use App\Modules\Identity\Support\RelationType;
+use App\Modules\Marketplace\Models\SchoolYear;
+use App\Modules\Marketplace\Support\SchoolYearDirectory;
 use App\Shared\Support\GuardianPermission;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Identity\ParentStudentRelationFactory;
@@ -31,6 +33,8 @@ use Illuminate\Support\Carbon;
  * migration and does not see casts().
  *
  * @property string $relation_type
+ * @property string|null $student_grade_level_slug
+ * @property string|null $student_school_year_slug
  * @property string $status
  * @property array<int, string> $permissions
  * @property Carbon|null $revoked_at
@@ -49,6 +53,16 @@ class ParentStudentRelation extends BaseModel
         'student_name',
         'student_age',
         'student_grade_level_slug',
+        /*
+        | Spec 022 · FR-005 — the child's individual year. `student_user_id` is
+        | NULLABLE, so for a child with no account this row is the only place the
+        | year is recorded at all; the stage column above stays as the fallback
+        | for relations created before years existed.
+        |
+        | Fillable in the same change as the migration: `LinkGuardian` writes
+        | through `create()`, and a non-fillable key is dropped in silence.
+        */
+        'student_school_year_slug',
         'relation_type',
         'permissions',
         'status',
@@ -83,6 +97,24 @@ class ParentStudentRelation extends BaseModel
     public function allows(GuardianPermission $permission): bool
     {
         return in_array($permission->value, $this->permissions, true);
+    }
+
+    /**
+     * The child's broad stage — the same one derivation the student profile uses.
+     *
+     * ⚠️ IT TAKES TWO STRINGS AND NOT A PROFILE, WHICH IS WHY IT CAN LIVE HERE
+     * AT ALL: `student_user_id` is nullable, so a child added by a guardian may
+     * have no `StudentProfile` to ask.
+     *
+     * Per-row. `ParentStudentRelationResource` renders a COLLECTION and reads
+     * {@see SchoolYearDirectory} instead.
+     */
+    public function stageSlug(): ?string
+    {
+        return SchoolYear::stageFor(
+            $this->student_school_year_slug,
+            $this->student_grade_level_slug,
+        );
     }
 
     /**

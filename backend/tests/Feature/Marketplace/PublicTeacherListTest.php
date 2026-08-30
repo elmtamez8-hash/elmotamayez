@@ -198,10 +198,10 @@ it('filters by grade level slug', function () {
     marketplaceTeacher($this->workspace);
 
     app(WorkspaceContext::class)->forWorkspace($this->workspace, function () use ($teacher): void {
-        $level = GradeLevel::query()->create([
-            'slug' => 'secondary',
-            'name_ar' => 'الثانوية',
-        ]);
+        $level = GradeLevel::query()->firstOrCreate(
+            ['slug' => 'secondary'],
+            ['name_ar' => 'الثانوية'],
+        );
 
         $teacher->gradeLevels()->attach($level->getKey());
     });

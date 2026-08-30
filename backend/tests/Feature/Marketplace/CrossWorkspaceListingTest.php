@@ -83,7 +83,7 @@ it('lists only subjects that have a publicly listed teacher', function () {
     $teacher = marketplaceTeacher($workspace);
 
     app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($teacher): void {
-        $taught = Subject::query()->create(['slug' => 'math', 'name_ar' => 'الرياضيات']);
+        $taught = Subject::query()->firstOrCreate(['slug' => 'math'], ['name_ar' => 'الرياضيات']);
 
         Subject::query()->create(['slug' => 'astronomy', 'name_ar' => 'الفلك']);
 

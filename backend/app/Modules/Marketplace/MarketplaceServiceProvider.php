@@ -15,11 +15,13 @@ use App\Modules\Marketplace\Listeners\QueueTrustScoreRecalculation;
 use App\Modules\Marketplace\Listeners\UnlistDepartedTeacher;
 use App\Modules\Marketplace\Models\GradeLevel;
 use App\Modules\Marketplace\Models\Region;
+use App\Modules\Marketplace\Models\SchoolYear;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Marketplace\Policies\TaxonomyPolicy;
 use App\Modules\Marketplace\Support\MarketplaceCache;
 use App\Modules\Marketplace\Support\MarketplacePersonalData;
+use App\Modules\Marketplace\Support\SchoolYearDirectory;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -27,6 +29,21 @@ use Illuminate\Support\Facades\Gate;
 class MarketplaceServiceProvider extends Module
 {
     protected string $name = 'Marketplace';
+
+    public function register(): void
+    {
+        parent::register();
+
+        /*
+        | ⚠️ `scoped()`, THE THIRD LIFETIME — not `bind()` and not `singleton()`.
+        | The directory memoises a `slug ⇒ stage` map for the request, so `bind()`
+        | would rebuild it several times inside one (the cost it exists to remove);
+        | and a queue worker's container OUTLIVES the job, so a singleton would go
+        | on serving a year an operator renamed or retired until the worker
+        | restarts.
+        */
+        $this->app->scoped(SchoolYearDirectory::class);
+    }
 
     public function boot(): void
     {
@@ -71,6 +88,11 @@ class MarketplaceServiceProvider extends Module
         // permission. See TaxonomyPolicy: one policy, because two files differing
         // only in a type-hint is two places for the next person to change one.
         Gate::policy(Region::class, TaxonomyPolicy::class);
+        // Spec 022 · FR-011 — a fourth model, the same decision, the same
+        // platform permission. Explicit for the reason above: `taxonomy.manage`
+        // itself shipped in 009 declared, seeded and read by NO file, and a
+        // guesser that fails open is what makes that invisible.
+        Gate::policy(SchoolYear::class, TaxonomyPolicy::class);
 
         /*
         | The same seam the renamed teacher uses below, for the same reason.
@@ -85,6 +107,16 @@ class MarketplaceServiceProvider extends Module
         */
         Subject::saved(fn () => MarketplaceCache::flush());
         GradeLevel::saved(fn () => MarketplaceCache::flush());
+        // ⚠️ REGION WAS MISSING FROM THIS LIST UNTIL SPEC 022, and the failure is
+        // the sharpest of the four: `region_slug` is REQUIRED at registration and
+        // validated against the live rows, so a region an operator retires stays
+        // in the cached picker for up to a minute while the door already refuses
+        // it — a 422 about an option the student is looking straight at.
+        Region::saved(fn () => MarketplaceCache::flush());
+        // Spec 022 — the fourth. A year added from the panel has to appear on the
+        // NEXT request, not after the TTL: an operator who adds one and reloads
+        // must see it, or the save reads as one that did not take.
+        SchoolYear::saved(fn () => MarketplaceCache::flush());
 
         // Laravel only auto-discovers commands under app/Console/Commands, and a
         // module keeps its own; registering here is the module's job.

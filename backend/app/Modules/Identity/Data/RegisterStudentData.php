@@ -15,7 +15,13 @@ class RegisterStudentData extends DataTransferObject
         public readonly string $password,
         public readonly string $phone,
         public readonly string $country,
-        public readonly string $gradeLevelSlug,
+        /*
+        | Spec 022 · FR-005 — the individual YEAR replaces the broad stage as the
+        | thing a student states. `gradeLevelSlug` is gone rather than kept
+        | beside it: two stored answers to one question part company at the first
+        | edit of the mapping, and the stage is derived (`StudentProfile::stageSlug`).
+        */
+        public readonly string $schoolYearSlug,
         public readonly bool $registeredByParent,
         /*
         | Spec 013. Nullable on the DTO and REQUIRED by the form request, so a
@@ -44,7 +50,7 @@ class RegisterStudentData extends DataTransferObject
             password: (string) $data['password'],
             phone: (string) $data['phone'],
             country: strtoupper((string) $data['country']),
-            gradeLevelSlug: (string) $data['grade_level_slug'],
+            schoolYearSlug: (string) $data['school_year_slug'],
             registeredByParent: (bool) ($data['registered_by_parent'] ?? false),
             dateOfBirth: isset($data['date_of_birth']) ? (string) $data['date_of_birth'] : null,
             guardianContact: isset($data['guardian_contact']) ? (string) $data['guardian_contact'] : null,

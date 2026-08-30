@@ -8,7 +8,7 @@ import type { User } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { TextField } from "@/components/ui/Field";
+import { PasswordField, TextField } from "@/components/ui/Field";
 import { PublicProfileUrlCard } from "@/components/marketplace/PublicProfileUrlCard";
 
 export default function SettingsPage() {
@@ -155,20 +155,18 @@ export default function SettingsPage() {
           {pwError && <Alert tone="danger" title={pwError} />}
           {pwSaved && <Alert tone="success" title="غُيِّرت كلمة المرور." />}
 
-          <TextField
+          <PasswordField
             id="current_password"
             label="كلمة المرور الحالية"
-            type="password"
             value={pw.current_password}
             onChange={(v) => setPw({ ...pw, current_password: v })}
             error={pwFields.current_password}
             autoComplete="current-password"
             required
           />
-          <TextField
+          <PasswordField
             id="password"
             label="كلمة المرور الجديدة"
-            type="password"
             value={pw.password}
             onChange={(v) => setPw({ ...pw, password: v })}
             error={pwFields.password}
@@ -177,10 +175,9 @@ export default function SettingsPage() {
             minLength={8}
             required
           />
-          <TextField
+          <PasswordField
             id="password_confirmation"
             label="تأكيد كلمة المرور الجديدة"
-            type="password"
             value={pw.password_confirmation}
             onChange={(v) => setPw({ ...pw, password_confirmation: v })}
             error={pwFields.password_confirmation}

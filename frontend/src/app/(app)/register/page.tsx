@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { TextField } from "@/components/ui/Field";
+import { PasswordField, TextField } from "@/components/ui/Field";
 
 function RegisterForm() {
   const { register, login } = useAuth();
@@ -104,10 +104,9 @@ function RegisterForm() {
             required
           />
 
-          <TextField
+          <PasswordField
             id="password"
             label="كلمة المرور"
-            type="password"
             value={form.password}
             onChange={set("password")}
             error={fields.password}
@@ -117,10 +116,9 @@ function RegisterForm() {
             required
           />
 
-          <TextField
+          <PasswordField
             id="password_confirmation"
             label="تأكيد كلمة المرور"
-            type="password"
             value={form.password_confirmation}
             onChange={set("password_confirmation")}
             error={fields.password_confirmation}

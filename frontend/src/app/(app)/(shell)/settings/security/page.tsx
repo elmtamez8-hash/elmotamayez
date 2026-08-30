@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
-import { TextField } from "@/components/ui/Field";
+import { PasswordField, TextField } from "@/components/ui/Field";
 import { userMessage } from "@/lib/errors";
 import { formatDate } from "@/lib/labels";
 import { sessions, type AuthSession } from "@/lib/sessions";
@@ -244,10 +244,9 @@ function TwoFactorSection() {
             </span>
           </div>
 
-          <TextField
+          <PasswordField
             id="disable-password"
             label="كلمة المرور الحالية"
-            type="password"
             value={password}
             onChange={setPassword}
             autoComplete="current-password"
@@ -327,10 +326,9 @@ function TwoFactorSection() {
         </div>
       ) : (
         <div className="mt-4 space-y-4">
-          <TextField
+          <PasswordField
             id="setup-password"
             label="كلمة المرور الحالية"
-            type="password"
             value={password}
             onChange={setPassword}
             autoComplete="current-password"

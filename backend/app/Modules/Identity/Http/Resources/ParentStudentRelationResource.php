@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Http\Resources;
 
 use App\Modules\Identity\Models\ParentStudentRelation;
+use App\Modules\Marketplace\Support\SchoolYearDirectory;
 use App\Shared\Support\GuardianPermission;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -25,7 +26,24 @@ class ParentStudentRelationResource extends JsonResource
             'status_label' => $this->status()->label(),
             'student_name' => $this->student_name,
             'student_age' => $this->student_age,
-            'student_grade_level_slug' => $this->student_grade_level_slug,
+            /*
+            | ⚠️ READ THROUGH THE DIRECTORY, NOT ROW BY ROW (spec 022 · FR-005).
+            |
+            | `FamilyController` renders a guardian's children as a COLLECTION and
+            | a Resource runs once per row, so a per-row lookup here is an N+1 by
+            | construction — and the column is TEXT with no relation behind it, so
+            | `->with()` is not even available as a fix. `SchoolYearDirectory` is
+            | one query for the whole map, memoised for the request.
+            |
+            | The stage key keeps its name and becomes derived, exactly as on
+            | `UserResource`: every existing reader asks for a broad stage.
+            */
+            'student_grade_level_slug' => app(SchoolYearDirectory::class)
+                ->stageFor($this->student_school_year_slug)
+                ?? $this->student_grade_level_slug,
+            'student_school_year_slug' => $this->student_school_year_slug,
+            'student_school_year_name' => app(SchoolYearDirectory::class)
+                ->nameFor($this->student_school_year_slug),
             // Whether the student has an account, without saying whose it is.
             'student_has_account' => $this->student_user_id !== null,
             /*

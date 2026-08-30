@@ -32,6 +32,8 @@ import {
   IconClock,
   IconChartHistogram,
   IconEraser,
+  IconEye,
+  IconEyeOff,
   IconBarbell,
   IconChartLine,
   IconCheck,
@@ -227,6 +229,12 @@ export const MenuIcon = wrap(IconMenu2, "h-6 w-6");
 // IconX is the close cross. IconBrandX is the Twitter/X logo — one letter
 // apart in Tabler's naming, and the wrong one turns a menu button into an ad.
 export const CloseIcon = wrap(IconX, "h-6 w-6");
+// Spec 022 · FR-014 — the show/hide toggle on a password field. Two icons for
+// two STATES, never one rotated: an eye with a line through it is the only
+// widely-read way of saying «hidden», and a screen reader is told in words by
+// the button's own aria-label.
+export const EyeIcon = wrap(IconEye, "h-5 w-5");
+export const EyeOffIcon = wrap(IconEyeOff, "h-5 w-5");
 export const MoonIcon = wrap(IconMoon, "h-5 w-5");
 export const SunIcon = wrap(IconSun, "h-5 w-5");
 export const AlertIcon = wrap(IconAlertTriangle, "h-6 w-6");

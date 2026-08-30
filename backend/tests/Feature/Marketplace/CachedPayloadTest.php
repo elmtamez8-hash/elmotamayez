@@ -60,10 +60,10 @@ function objectsInPayload(mixed $value, string $path = 'root'): array
 function cachedPayloadSubject(TeacherProfile $teacher, string $slug, string $name): void
 {
     app(WorkspaceContext::class)->forWorkspace($teacher->workspace_id, function () use ($teacher, $slug, $name): void {
-        $subject = Subject::query()->create([
-            'slug' => $slug,
-            'name_ar' => $name,
-        ]);
+        $subject = Subject::query()->firstOrCreate(
+            ['slug' => $slug],
+            ['name_ar' => $name],
+        );
 
         $teacher->subjects()->attach($subject->getKey());
     });
@@ -72,8 +72,13 @@ function cachedPayloadSubject(TeacherProfile $teacher, string $slug, string $nam
 function cachedPayloadGradeLevel(TeacherProfile $teacher, string $slug, string $name): void
 {
     app(WorkspaceContext::class)->forWorkspace($teacher->workspace_id, function () use ($teacher, $slug, $name): void {
+        // Keyed on the SLUG alone: `grade_levels` lost its `workspace_id` in
+        // spec 009 when the taxonomy became platform reference data, so a
+        // lookup naming that column matched nothing and inserted a duplicate —
+        // harmless while the table was empty, a `unique(slug)` violation now
+        // that the catalogue is seeded before every test (spec 022).
         $level = GradeLevel::query()->firstOrCreate(
-            ['workspace_id' => $teacher->workspace_id, 'slug' => $slug],
+            ['slug' => $slug],
             ['name_ar' => $name],
         );
 
@@ -104,8 +109,10 @@ it('resolves nested taxonomies, so a cached card survives its store', function (
 
     // And the data is still there — a resolve that returned empty arrays would
     // also pass the assertion above.
+    // `icon` comes from the seeded catalogue now — the fixture attaches an
+    // existing row rather than inventing one (spec 022).
     expect($payload[0]['subjects'])->toBe([
-        ['slug' => 'math', 'name_ar' => 'الرياضيات', 'icon' => null],
+        ['slug' => 'math', 'name_ar' => 'الرياضيات', 'icon' => 'calculator'],
     ]);
     expect($payload[0]['grade_levels'])->toBe([
         ['slug' => 'secondary', 'name_ar' => 'المرحلة الثانوية', 'icon' => null],

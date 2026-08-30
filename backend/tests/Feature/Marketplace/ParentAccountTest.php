@@ -24,10 +24,10 @@ beforeEach(function (): void {
     $workspace = PlatformWorkspace::resolve();
 
     app(WorkspaceContext::class)->forWorkspace($workspace, function (): void {
-        GradeLevel::factory()->create([
-            'slug' => 'secondary',
-            'is_active' => true,
-        ]);
+        GradeLevel::query()->firstOrCreate(
+            ['slug' => 'secondary'],
+            ['name_ar' => 'المرحلة الثانوية', 'sort_order' => 0, 'is_active' => true],
+        );
     });
 
     $this->asGuest();
@@ -105,7 +105,7 @@ it('adds a child who has no account yet', function (): void {
 
     $this->postJson('/api/v1/family/relations', relationPayload([
         'age' => 14,
-        'grade_level_slug' => 'secondary',
+        'school_year_slug' => 'year-10',
     ]))->assertStatus(201)
         ->assertJsonPath('student_name', 'سلمى')
         ->assertJsonPath('student_has_account', false)

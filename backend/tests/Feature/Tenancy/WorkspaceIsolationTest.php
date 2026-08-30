@@ -5,9 +5,11 @@ declare(strict_types=1);
 use App\Models\User;
 use App\Modules\Assessments\Enums\DuplicatePolicy;
 use App\Modules\Assessments\Models\Accommodation;
+use App\Modules\Assessments\Models\AdaptiveSession;
 use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\AttemptItem;
 use App\Modules\Assessments\Models\Concept;
+use App\Modules\Assessments\Models\ConceptMastery;
 use App\Modules\Assessments\Models\ConceptStat;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\ExamItem;
@@ -47,6 +49,7 @@ use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\GradeLevel;
+use App\Modules\Marketplace\Models\SchoolYear;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Media\Models\MediaAsset;
@@ -203,6 +206,11 @@ describe('marketplace models are workspace-scoped', function (): void {
     })->with([
         'grade levels' => [GradeLevel::class],
         'subjects' => [Subject::class],
+        // Spec 022 — the third of them, and it was born this way rather than
+        // demoted. A workspace_id on `school_years` would give the platform one
+        // «الصف العاشر» per teacher, and a student's year would then mean a
+        // different row depending on who they happen to study with.
+        'school years' => [SchoolYear::class],
     ]);
 });
 
@@ -625,6 +633,22 @@ describe('question bank models are workspace-scoped', function (): void {
             // that a student has an arrangement (FR-056).
             RubricCriterion::class, GradingRecord::class,
             Assignment::class, Submission::class, Accommodation::class,
+            /*
+            | Spec 012's two, and both are BRIDGES: the concept and its questions
+            | are the teacher's, the student is the platform's, so the row carries
+            | `workspace_id` for context and points at the platform-wide user —
+            | exactly what `enrollments` does.
+            |
+            | ⚠️ AND THIS CASE IS THE WEAKER HALF OF THEIR GUARD, WHICH IS WHY IT
+            | IS NOT THE ONLY ONE. `WorkspaceScope` adds no condition when the
+            | context is null and it is null for EVERY student, so the trait
+            | protects the teacher's side and almost nothing on the path that
+            | actually reaches these tables. The real guard is the explicit
+            | `student_user_id` condition inside each Action, measured in
+            | `AdaptiveClaimTest` with a student built the way the product builds
+            | one — no membership, no `last_workspace_id`, no context.
+            */
+            AdaptiveSession::class, ConceptMastery::class,
         ];
 
         foreach ($models as $model) {

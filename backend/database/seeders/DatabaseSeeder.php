@@ -48,6 +48,14 @@ class DatabaseSeeder extends Seeder
             // empty picker. The other three fail silently; this one fails loudly
             // at the front door.
             RegionSeeder::class,
+            // Spec 022 · FR-001 — the subjects, the broad stages and the school
+            // years. It lived inside `MarketplaceSeeder` until now, and that
+            // seeder is called only outside production (see the bottom of this
+            // method): a production database was therefore born with an empty
+            // taxonomy, so the teacher application offered nothing to pick and
+            // the FIRST teacher on the platform could never apply. Unconditional
+            // here, for the same reason the four catalogues above it are.
+            TaxonomySeeder::class,
         ]);
 
         // Only seed the super-admin in non-production environments.

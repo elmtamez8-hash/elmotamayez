@@ -226,6 +226,11 @@ return [
         'permissions.*' => 'الصلاحيات',
         'grade_level' => 'المرحلة الدراسية',
         'grade_level_slug' => 'المرحلة الدراسية',
+        // Spec 022 — the individual year, a second vocabulary beside the broad
+        // stage above. A field with no entry here renders to the student as
+        // `school_year_slug`.
+        'school_year_slug' => 'الصف الدراسي',
+        'student_school_year_slug' => 'الصف الدراسي',
         'region_slug' => 'المنطقة',
         'metric_keys' => 'المؤشّرات',
         'cadence' => 'دورية الإرسال',
@@ -479,5 +484,18 @@ return [
         'affected_subject_count' => 'عدد المتأثّرين',
         'authority_notified' => 'إخطار الجهة المختصّة',
         'subjects_notified' => 'إخطار المعنيّين',
+
+        // التوسّع والتطبيق (012). ⚠️ الغائبُ هنا يُعرَض بمفتاحِه الخام على شاشةِ
+        // طالب. وأربعةٌ من حقولِ هذه المرحلةِ موجودةٌ سلفاً أعلاه ولم تُكرَّر —
+        // `teacher` و`question_id` و`duration_minutes` — لأنّ مفتاحاً مكرّراً في
+        // مصفوفةٍ يُبقي الأخيرَ وحدَه ويُسقِط الأوّلَ بلا خطأ.
+        'concept' => 'الفكرة',
+        'question_count' => 'عدد الأسئلة',
+        'max_participants' => 'عدد المشاركين',
+        'starts_in_minutes' => 'بدء الغرفة بعد',
+        'option_ids' => 'الإجابة المختارة',
+        'endpoint' => 'عنوان الاشتراك',
+        'keys.p256dh' => 'مفتاح التعمية',
+        'keys.auth' => 'مفتاح المصادقة',
     ],
 ];

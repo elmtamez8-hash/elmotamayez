@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Http\Resources;
 
 use App\Models\User;
+use App\Modules\Marketplace\Support\SchoolYearDirectory;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\Request;
@@ -38,7 +39,19 @@ class UserResource extends JsonResource
             // is one query, and whenLoaded would silently omit the key wherever a
             // caller forgot to eager-load it.
             'student_profile' => $this->studentProfile === null ? null : [
-                'grade_level_slug' => $this->studentProfile->grade_level_slug,
+                /*
+                | ⚠️ `grade_level_slug` KEEPS ITS NAME AND BECOMES DERIVED
+                | (spec 022 · FR-005). Every existing reader asks for a broad
+                | stage and must keep getting one; what changed is where the
+                | answer comes from — the student's YEAR, falling back to the old
+                | column for anyone who registered before years existed. Renaming
+                | the key would break readers for no gain; adding a second stage
+                | key would be two answers to one question.
+                */
+                'grade_level_slug' => $this->studentProfile->stageSlug(),
+                'school_year_slug' => $this->studentProfile->school_year_slug,
+                'school_year_name' => app(SchoolYearDirectory::class)
+                    ->nameFor($this->studentProfile->school_year_slug),
                 'registered_by_parent' => $this->studentProfile->registered_by_parent,
             ],
             /*

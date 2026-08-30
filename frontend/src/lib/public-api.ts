@@ -22,6 +22,19 @@ export type Taxonomy = {
   teachers_count?: number;
 };
 
+/**
+ * One year of school (spec 022 · FR-001ب) — what a STUDENT picks.
+ *
+ * `grade_level_slug` is the broad stage it belongs to, sent so a screen can
+ * group the list without a second request. The student's own stage is DERIVED
+ * from this on the server; nothing here writes it.
+ */
+export type SchoolYearOption = {
+  slug: string;
+  name_ar: string;
+  grade_level_slug: string;
+};
+
 export type TeacherCard = {
   uuid: string;
   // The public URL segment. `uuid` stays because the write endpoints — posting
@@ -223,6 +236,22 @@ export const publicApi = {
   // Spec 011 · FR-042 — the registration form needs this before there is an
   // account, so it is a public read like the two above it.
   regions: () => get<Taxonomy[]>("/marketplace/regions"),
+
+  /*
+   * Spec 022 · FR-002 — the SIGNUP vocabulary, and deliberately not the three
+   * reads above.
+   *
+   * ⚠️ `/marketplace/subjects` DROPS EVERY ENTRY WITH NO PUBLICLY LISTED
+   * TEACHER. Right for a filter bar, and on a required signup field a circular
+   * lock: no listed teacher means no subject in the list means the first teacher
+   * on the platform can never apply. These three answer the whole active
+   * vocabulary and take no parameters.
+   */
+  signupSubjects: () => get<Taxonomy[]>("/signup/subjects"),
+
+  signupGradeLevels: () => get<Taxonomy[]>("/signup/grade-levels"),
+
+  schoolYears: () => get<SchoolYearOption[]>("/signup/school-years"),
 
   teachers: (params: Record<string, string | undefined>) =>
     get<Paginated<TeacherCard>>("/marketplace/teachers", params),

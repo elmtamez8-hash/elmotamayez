@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Marketplace\Http\Controllers\PublicMarketplaceController;
 use App\Modules\Marketplace\Http\Controllers\ReviewController;
+use App\Modules\Marketplace\Http\Controllers\SignupTaxonomyController;
 use App\Modules\Marketplace\Http\Controllers\TeacherApplicationController;
 use App\Modules\Marketplace\Http\Controllers\TeacherProfileController;
 use App\Modules\Marketplace\Http\Controllers\TeacherReviewController;
@@ -40,6 +41,27 @@ Route::middleware('throttle:public')->prefix('marketplace')->name('marketplace.'
     // without the publiclyListed() guard, which would make unpublished profiles
     // reachable by url.
     Route::get('/teachers/{uuid}', [PublicMarketplaceController::class, 'teacher'])->name('teachers.show');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Signup vocabulary (no authentication) — spec 022 · FR-002
+|--------------------------------------------------------------------------
+|
+| ⚠️ DELIBERATELY NOT THE `/marketplace` READS ABOVE. Those drop every entry
+| with no publicly listed teacher, which is right for a filter bar and is a
+| CIRCULAR LOCK on a required signup field: no listed teacher means no subject
+| in the list means the first teacher on the platform can never apply.
+|
+| Same limiter, same absence of authentication — a registration form needs the
+| list before there is an account. None of the three takes a query parameter.
+|
+*/
+
+Route::middleware('throttle:public')->prefix('signup')->name('signup.')->group(function (): void {
+    Route::get('/subjects', [SignupTaxonomyController::class, 'subjects'])->name('subjects');
+    Route::get('/grade-levels', [SignupTaxonomyController::class, 'gradeLevels'])->name('grade-levels');
+    Route::get('/school-years', [SignupTaxonomyController::class, 'schoolYears'])->name('school-years');
 });
 
 /*

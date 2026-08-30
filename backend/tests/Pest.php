@@ -53,6 +53,7 @@ use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Settlement\Models\SettlementRate;
 use App\Modules\Tenancy\Models\PlatformStaff;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\Flags;
 use App\Modules\Tenancy\Support\PlatformStaffDirectory;
 use App\Shared\Support\GuardianPermission;
 use App\Shared\Support\WorkspaceContext;
@@ -61,8 +62,10 @@ use Database\Seeders\DataCategorySeeder;
 use Database\Seeders\GamificationCatalogSeeder;
 use Database\Seeders\NotificationTemplateSeeder;
 use Database\Seeders\RegionSeeder;
+use Database\Seeders\TaxonomySeeder;
 use Illuminate\Broadcasting\BroadcastManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -70,6 +73,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
+use Minishlink\WebPush\WebPush;
+use Tests\Support\FakeWebPush;
 use Tests\Support\WithWorkspace;
 use Tests\TestCase;
 
@@ -118,6 +123,14 @@ uses()->beforeEach(function (): void {
      * registration rather than a silent no-op.
      */
     $this->seed(RegionSeeder::class);
+    /*
+     * And the taxonomy (spec 022) — subjects, broad stages and school years. A
+     * FIFTH runtime catalogue, and the second that refuses rather than shrugs:
+     * `school_year_slug` is required at registration and both signup pickers are
+     * validated against these rows, so an empty table closes the front door for
+     * students AND the application wizard for teachers.
+     */
+    $this->seed(TaxonomySeeder::class);
 })->in('Feature');
 
 /*
@@ -1146,6 +1159,40 @@ function withVerifiedWhatsApp(string $number = '+97433123456'): User
     return $user;
 }
 
+/**
+ * Spec 012 · US2 — the three VAPID values `WebPushChannel::isEnabled()` demands.
+ *
+ * ⚠️ ALL THREE, `subject` INCLUDED. The channel treats a missing one as an
+ * unconfigured deployment and records every delivery `skipped`, so a helper that
+ * set two of them would make a whole file's worth of assertions pass by measuring
+ * a channel that never ran.
+ */
+function configureWebPush(bool $enabled = true): void
+{
+    config()->set('webpush.vapid.public', $enabled ? 'BTestPublicKeyForUnitTestsOnly' : null);
+    config()->set('webpush.vapid.private', $enabled ? 'test-private-key' : null);
+    config()->set('webpush.vapid.subject', $enabled ? 'mailto:ops@mteatch.test' : null);
+}
+
+/**
+ * Substitute the push client and hand the fake back.
+ *
+ * Bound as a SHARED instance rather than a factory: the channel resolves it on
+ * every `send()`, and a factory would hand each call a fresh recorder — after
+ * which `sent` is always the last device only, and «both accounts received»
+ * passes or fails at random.
+ *
+ * @param  array<string, int>  $statuses  endpoint ⇒ status the push service gives
+ */
+function fakeWebPush(array $statuses = [], int $default = 201): FakeWebPush
+{
+    $fake = new FakeWebPush($statuses, $default);
+
+    app()->instance(WebPush::class, $fake);
+
+    return $fake;
+}
+
 function envelopeFor(User $user, NotificationType $type = NotificationType::SessionReport): NotificationEnvelope
 {
     return new NotificationEnvelope(
@@ -1291,4 +1338,146 @@ function guardianOf(User $student, array $permissions): User
     ]);
 
     return $guardian;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Adaptive practice fixtures (spec 012 · US1)
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * A concept with questions at the difficulties named, and a student who may sit
+ * them.
+ *
+ * ⚠️ THE STUDENT LEAVES `users.last_workspace_id` NULL AND HOLDS NO MEMBERSHIP.
+ * `addWorkspaceMember()` stamps that column and `createEnrollment()` sets the
+ * context — either one gives a student a workspace context the product NEVER
+ * gives them, and the guard under test IS the explicit condition that stands in
+ * for the scope when there is none. A fixture built the convenient way measures
+ * a person who does not exist; that is how five student-facing endpoints shipped
+ * dead in 017. `cohortFixture()` is the precedent, for the same reason.
+ *
+ * ⚠️ AND THE FEATURE FLAG IS WRITTEN HERE, because `StartAdaptiveSession` reads
+ * it and the platform default row ships OFF. `Flags` memoises per request, so the
+ * container instance is dropped after the write or every later read in the same
+ * test answers from a map built before the row existed.
+ *
+ * @param  list<string>  $difficulties  one question per entry
+ * @return array{workspace: Workspace, owner: User, student: User, course: Course, lesson: Lesson, concept: Concept, questions: Collection<int, Question>}
+ */
+function adaptiveFixture(array $difficulties = ['easy', 'easy', 'medium', 'medium', 'hard', 'hard'], bool $enabled = true): array
+{
+    /** @var TestCase $test */
+    $test = test();
+
+    [$workspace, $owner] = $test->createWorkspaceWithOwner();
+    $student = User::factory()->create();
+
+    $built = app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace, $owner, $student, $difficulties): array {
+        $course = Course::factory()->published()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $owner->getKey(),
+            'title' => 'الرياضيات',
+        ]);
+
+        Enrollment::create([
+            'workspace_id' => $workspace->getKey(),
+            'course_id' => $course->getKey(),
+            'student_user_id' => $student->getKey(),
+            'source' => 'manual',
+            'status' => 'active',
+            'progress_pct' => 0,
+            'enrolled_at' => now(),
+        ]);
+
+        $lesson = Lesson::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'course_id' => $course->getKey(),
+        ]);
+
+        $questions = collect($difficulties)->map(fn (string $difficulty, int $index): Question => adaptiveQuestion(
+            $workspace,
+            $lesson,
+            $difficulty,
+            "سؤال {$difficulty} رقم ".($index + 1),
+        ));
+
+        return [
+            'course' => $course,
+            'lesson' => $lesson,
+            'concept' => $questions->first()->concept,
+            'questions' => $questions,
+        ];
+    });
+
+    DB::table('feature_flags')->insertOrIgnore([
+        'uuid' => (string) Str::uuid(),
+        'key' => 'adaptive_practice',
+        'workspace_id' => $workspace->getKey(),
+        'enabled' => $enabled,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    app()->forgetInstance(Flags::class);
+
+    return ['workspace' => $workspace, 'owner' => $owner, 'student' => $student, ...$built];
+}
+
+/**
+ * One question in the shared adaptive concept, with two options and one right.
+ *
+ * ⚠️ EXACTLY ONE CORRECT OPTION. `GradeAttempt::matchesSnapshot()` compares the
+ * correct SET against the selected SET and every answering surface is
+ * single-select, so a second correct option is a question one tap can never
+ * satisfy — every student wrong for ever.
+ */
+function adaptiveQuestion(Workspace $workspace, Lesson $lesson, string $difficulty, string $content, string $conceptName = 'المشتقّات'): Question
+{
+    $question = bankQuestion($workspace, null, [
+        'content' => $content,
+        'difficulty' => $difficulty,
+        'lesson_id' => $lesson->getKey(),
+        'concept_name' => $conceptName,
+        'explanation' => 'لأنّ القاعدة كذا.',
+    ]);
+
+    QuestionOption::create([
+        'workspace_id' => $workspace->getKey(),
+        'question_id' => $question->getKey(),
+        'content' => 'صح',
+        'is_correct' => true,
+        'order' => 1,
+    ]);
+
+    QuestionOption::create([
+        'workspace_id' => $workspace->getKey(),
+        'question_id' => $question->getKey(),
+        'content' => 'خطأ',
+        'is_correct' => false,
+        'order' => 2,
+    ]);
+
+    return $question->load('options', 'concept');
+}
+
+/** The right option id of a question the API just served, read from the bank. */
+function adaptiveRightOption(int $questionId): int
+{
+    return (int) QuestionOption::query()
+        ->withoutWorkspaceScope()
+        ->where('question_id', $questionId)
+        ->where('is_correct', true)
+        ->value('id');
+}
+
+/** Any wrong option id of a served question. */
+function adaptiveWrongOption(int $questionId): int
+{
+    return (int) QuestionOption::query()
+        ->withoutWorkspaceScope()
+        ->where('question_id', $questionId)
+        ->where('is_correct', false)
+        ->value('id');
 }

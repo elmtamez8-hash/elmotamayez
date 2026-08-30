@@ -7,7 +7,7 @@ import { auth, setToken, setSessionUuid, errorMessage, fieldErrors } from "@/lib
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
 import { Button } from "@/components/ui/Button";
-import { Select } from "@/components/ui/Field";
+import { PasswordField, Select } from "@/components/ui/Field";
 
 const FIELD_CLASS =
   "w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
@@ -177,32 +177,26 @@ export function ParentSignupForm() {
       </Field>
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="password" label="كلمة المرور" error={errors.password}>
-          <input
-            id="password"
-            type="password"
-            value={form.password}
-            onChange={(e) => set("password", e.target.value)}
-            autoComplete="new-password"
-            required
-            minLength={8}
-            aria-invalid={errors.password ? true : undefined}
-            aria-describedby={errors.password ? "password-error" : undefined}
-            className={FIELD_CLASS}
-          />
-        </Field>
+        <PasswordField
+          id="password"
+          label="كلمة المرور"
+          error={errors.password}
+          value={form.password}
+          onChange={(value) => set("password", value)}
+          autoComplete="new-password"
+          required
+          minLength={8}
+        />
 
-        <Field id="password_confirmation" label="تأكيد كلمة المرور">
-          <input
-            id="password_confirmation"
-            type="password"
-            value={form.password_confirmation}
-            onChange={(e) => set("password_confirmation", e.target.value)}
-            autoComplete="new-password"
-            required
-            className={FIELD_CLASS}
-          />
-        </Field>
+        <PasswordField
+          id="password_confirmation"
+          label="تأكيد كلمة المرور"
+          error={errors.password_confirmation}
+          value={form.password_confirmation}
+          onChange={(value) => set("password_confirmation", value)}
+          autoComplete="new-password"
+          required
+        />
       </div>
 
       <div>

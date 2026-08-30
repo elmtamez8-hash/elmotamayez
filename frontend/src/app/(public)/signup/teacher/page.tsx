@@ -25,8 +25,13 @@ export default async function TeacherSignupPage() {
 
   try {
     [subjects, gradeLevels] = await Promise.all([
-      publicApi.subjects(),
-      publicApi.gradeLevels(),
+      // ⚠️ THE SIGNUP READS, NOT THE MARKETPLACE ONES (spec 022 · FR-002).
+      // `publicApi.subjects()` drops every subject with no publicly listed
+      // teacher — so on a platform whose first teacher is filling in this very
+      // form, step 2 offered an empty list and the application could not be
+      // completed by anybody, ever.
+      publicApi.signupSubjects(),
+      publicApi.signupGradeLevels(),
     ]);
   } catch {
     return (

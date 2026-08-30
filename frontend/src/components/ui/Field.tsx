@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import type { ReactNode, SelectHTMLAttributes } from "react";
-import { ChevronDownIcon } from "@/components/icons";
+import { ChevronDownIcon, EyeIcon, EyeOffIcon } from "@/components/icons";
 
 /**
  * Form controls, wired for accessibility by construction.
@@ -88,7 +89,16 @@ export function TextField(
     onChange: (value: string) => void;
     // `datetime-local` because a session's start is a date AND a time; two
     // fields for one moment is two chances to save half of it.
-    type?: "text" | "email" | "password" | "url" | "date" | "time" | "datetime-local" | "search";
+    /*
+     * ⚠️ `"password"` IS DELIBERATELY ABSENT (spec 022 · FR-014). A password
+     * field is {@link PasswordField}, which adds the show/hide toggle; leaving
+     * the value in this union would keep a second spelling alive that renders a
+     * field with no way to reveal it, and the two would drift screen by screen.
+     * Same shape as `"number"`, which is missing here for the same reason
+     * {@link NumberField} exists. Removing it is also what makes `tsc` walk
+     * every existing call site for you.
+     */
+    type?: "text" | "email" | "url" | "date" | "time" | "datetime-local" | "search";
     placeholder?: string;
     autoComplete?: string;
     minLength?: number;
@@ -114,6 +124,77 @@ export function TextField(
         className={`${CONTROL} ${borderFor(error)}`}
         {...aria(props)}
       />
+    </Field>
+  );
+}
+
+/**
+ * A password field with a show/hide toggle (spec 022 · FR-014).
+ *
+ * Separate from TextField for the reason NumberField is: the control needs a
+ * second element inside it, and `"password"` is gone from that union so the
+ * toggle-less spelling cannot be written at all.
+ *
+ * Three details are load-bearing and each is a bug that has shipped elsewhere:
+ *
+ * 1. `type="button"`. A bare button inside a form defaults to `submit`, so the
+ *    first press of the eye would send a half-filled registration.
+ * 2. The state is per-render and never persisted. A revealed password that
+ *    survives a reload is a password left on the screen of an unattended
+ *    machine.
+ * 3. The label changes with the state and is read by a screen reader, because
+ *    the icon alone says nothing to one.
+ *
+ * The browser's own reveal control is hidden in `globals.css` (`::-ms-reveal`):
+ * two adjacent buttons for one job is a confusion, and only one of them is
+ * ours to place.
+ */
+export function PasswordField(
+  props: Shared & {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    autoComplete?: string;
+    minLength?: number;
+    maxLength?: number;
+  },
+) {
+  const { id, value, onChange, placeholder, autoComplete, minLength, maxLength, required, disabled, error } = props;
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <Field {...props}>
+      <div className="relative">
+        <input
+          id={id}
+          name={id}
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          minLength={minLength}
+          maxLength={maxLength}
+          required={required}
+          disabled={disabled}
+          // `pe-10` reserves the button's lane so a long value never runs under
+          // it. Logical properties throughout — this product is RTL, and `pr-`
+          // would put the reservation on the wrong side of every field.
+          className={`${CONTROL} ${borderFor(error)} pe-10`}
+          {...aria(props)}
+        />
+        <button
+          // ⚠️ EXPLICIT: a bare button inside a form is a submit button.
+          type="button"
+          onClick={() => setVisible((shown) => !shown)}
+          disabled={disabled}
+          aria-label={visible ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+          aria-pressed={visible}
+          className="absolute inset-y-0 end-0 flex items-center px-3 text-ink-muted transition hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {visible ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+        </button>
+      </div>
     </Field>
   );
 }

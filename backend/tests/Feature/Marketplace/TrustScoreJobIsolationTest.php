@@ -76,7 +76,16 @@ it('contains no WorkspaceContext::set call in any module Jobs directory', functi
     $offences = [];
 
     foreach ($files as $file) {
-        $source = (string) file_get_contents($file);
+        /*
+        | ⚠️ COMMENTS STRIPPED FIRST, AND THE GUARD USED TO FAIL ON ITS OWN
+        | WARNINGS. Four jobs across three modules carry a line saying «NEVER
+        | WorkspaceContext::set()» — documenting the very absence this test
+        | exists to prove — and a raw `str_contains` read each of them as an
+        | offence. A guard that goes red when somebody writes down why the rule
+        | matters teaches people to delete the explanation. Same stripper, same
+        | reason, as `ContextIsolationTest`.
+        */
+        $source = stripPhpComments((string) file_get_contents($file));
 
         if (str_contains($source, '$context->set(') || str_contains($source, 'WorkspaceContext::set')) {
             $offences[] = str_replace(base_path().DIRECTORY_SEPARATOR, '', $file);
@@ -85,3 +94,22 @@ it('contains no WorkspaceContext::set call in any module Jobs directory', functi
 
     expect($offences)->toBe([]);
 });
+
+/**
+ * Source with every comment removed, so a rule written down beside the code it
+ * governs is not read as a breach of itself.
+ */
+function stripPhpComments(string $source): string
+{
+    $kept = [];
+
+    foreach (token_get_all($source) as $token) {
+        if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+            continue;
+        }
+
+        $kept[] = is_array($token) ? $token[1] : $token;
+    }
+
+    return implode('', $kept);
+}

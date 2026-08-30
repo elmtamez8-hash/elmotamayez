@@ -44,7 +44,10 @@ class LinkGuardian extends Action
             'student_user_id' => $student?->getKey(),
             'student_name' => $data->studentName,
             'student_age' => $data->studentAge,
-            'student_grade_level_slug' => $data->gradeLevelSlug,
+            // The new column; `student_grade_level_slug` stays NULL and is the
+            // fallback for relations created before years existed. The stage is
+            // derived (`ParentStudentRelation::stageSlug`), never stored twice.
+            'student_school_year_slug' => $data->schoolYearSlug,
             'relation_type' => $data->relationType->value,
             'permissions' => array_map(fn ($permission) => $permission->value, $data->permissions),
             // A guardian added for a child with no account yet is active at once:

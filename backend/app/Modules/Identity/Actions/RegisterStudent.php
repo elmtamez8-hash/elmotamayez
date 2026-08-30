@@ -62,7 +62,13 @@ class RegisterStudent extends Action
         // Student-only facts live in their own table (spec 004): `users` carries
         // what every account has, and nothing more.
         $user->studentProfile()->create([
-            'grade_level_slug' => $data->gradeLevelSlug,
+            /*
+            | ⚠️ THE NEW COLUMN, AND `grade_level_slug` IS LEFT NULL ON PURPOSE.
+            | It is the FALLBACK for accounts that predate school years; writing
+            | both would be two stored answers to one question, and the derived
+            | stage would then have to choose between them.
+            */
+            'school_year_slug' => $data->schoolYearSlug,
             'registered_by_parent' => $data->registeredByParent,
             'date_of_birth' => $dateOfBirth?->toDateString(),
             /*

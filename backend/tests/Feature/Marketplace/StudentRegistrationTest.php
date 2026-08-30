@@ -23,7 +23,9 @@ function studentPayload(array $overrides = []): array
         'password_confirmation' => 'password123',
         'phone' => '+97455512345',
         'country' => 'QA',
-        'grade_level_slug' => 'secondary',
+        // Spec 022 · FR-005 — the individual YEAR replaces the broad stage on
+        // this form; the stage is derived from it and echoed back unchanged.
+        'school_year_slug' => 'year-10',
         'registered_by_parent' => false,
         'terms_accepted' => true,
         /*
@@ -49,7 +51,7 @@ beforeEach(function (): void {
 
     app(WorkspaceContext::class)->forWorkspace(
         $workspace,
-        fn () => GradeLevel::factory()->create(['slug' => 'secondary']),
+        fn () => GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name_ar' => 'المرحلة الثانوية', 'sort_order' => 0, 'is_active' => true]),
     );
 
     $this->asGuest();
@@ -63,12 +65,16 @@ it('registers a student and stamps the platform role', function (): void {
         // Nested, not flat: student-only facts live in student_profiles now, so a
         // teacher's payload does not carry a null grade that reads as missing data.
         ->assertJsonPath('user.student_profile.grade_level_slug', 'secondary')
+        ->assertJsonPath('user.student_profile.school_year_slug', 'year-10')
         ->assertJsonStructure(['user', 'token', 'session_uuid']);
 
     $user = User::where('email', 'sara@example.com')->sole();
 
     expect($user->platform_role)->toBe(PlatformRole::Student)
-        ->and($user->studentProfile->grade_level_slug)->toBe('secondary')
+        // The stored column is the YEAR; the stage in the payload above is
+        // derived from it (spec 022 · FR-005).
+        ->and($user->studentProfile->school_year_slug)->toBe('year-10')
+        ->and($user->studentProfile->stageSlug())->toBe('secondary')
         ->and($user->studentProfile->registered_by_parent)->toBeFalse()
         ->and($user->country)->toBe('QA');
 });
@@ -107,23 +113,21 @@ it('rejects a duplicate email', function (): void {
         ->assertJsonValidationErrors(['email']);
 });
 
-it('rejects an unknown grade level', function (): void {
-    $this->postJson('/api/v1/auth/register/student', studentPayload(['grade_level_slug' => 'hogwarts']))
+it('rejects an unknown school year', function (): void {
+    $this->postJson('/api/v1/auth/register/student', studentPayload(['school_year_slug' => 'hogwarts']))
         ->assertStatus(422)
-        ->assertJsonValidationErrors(['grade_level_slug']);
+        ->assertJsonValidationErrors(['school_year_slug']);
 });
 
-it('accepts a grade level slug from any participating workspace', function (): void {
-    $other = marketplaceWorkspace('Second Academy');
-
-    app(WorkspaceContext::class)->forWorkspace(
-        $other,
-        fn () => GradeLevel::factory()->create(['slug' => 'primary']),
-    );
+it('accepts any year in the platform vocabulary, whoever is listed', function (): void {
+    // The vocabulary is platform reference data since spec 009 — one row per
+    // slug for the whole product — and it is offered whole at signup (spec 022),
+    // so a second academy changes nothing about what a student may pick.
+    marketplaceWorkspace('Second Academy');
 
     $this->asGuest();
 
-    $this->postJson('/api/v1/auth/register/student', studentPayload(['grade_level_slug' => 'primary']))
+    $this->postJson('/api/v1/auth/register/student', studentPayload(['school_year_slug' => 'year-3']))
         ->assertCreated();
 });
 

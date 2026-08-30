@@ -9,7 +9,14 @@ export interface StudentRegistration {
   password_confirmation: string;
   phone: string;
   country: string;
-  grade_level_slug: string;
+  /*
+   * Spec 022 · FR-005. ⚠️ THE YEAR, AND `grade_level_slug` IS GONE — not
+   * optional. The student's broad stage is DERIVED from the year on the server,
+   * and sending both would be two stored answers to one question. The API
+   * refuses an unknown key silently by ignoring it, so a stale field here would
+   * simply never arrive anywhere.
+   */
+  school_year_slug: string;
   // Spec 011 · FR-042. Required by the API: an empty string is a 422, which is
   // why the form defaults it to the first region rather than to a placeholder.
   region_slug: string;
@@ -39,12 +46,25 @@ export interface ParentRegistration {
 
 /** A child on a parent's account. `has_account` says whether the child signed up
  * separately; the child's own uuid is deliberately not exposed here. */
+/**
+ * One guardian-to-student relation, as `/family/relations` sends it.
+ *
+ * ⚠️ THE SHAPE FOLLOWS `ParentStudentRelationResource`, NOT THE OLD
+ * `/parent/children` PAYLOAD. That route was removed by spec 003 and this type
+ * described it for three specs afterwards, while the screen using it answered
+ * 404 on load and on submit.
+ */
 export interface ChildLink {
   uuid: string;
-  name: string;
-  age: number | null;
-  grade_level_slug: string | null;
-  has_account: boolean;
+  student_name: string;
+  student_age: number | null;
+  // The broad stage — derived server-side from the year below (spec 022).
+  student_grade_level_slug: string | null;
+  student_school_year_slug: string | null;
+  student_school_year_name: string | null;
+  student_has_account: boolean;
+  relation_type: string;
+  status: string;
 }
 
 export interface NotificationPreferences {

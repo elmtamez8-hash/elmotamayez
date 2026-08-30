@@ -36,42 +36,16 @@ class MarketplaceSeeder extends Seeder
     /** @var array<string, string|null> published demo asset paths, keyed folder/file */
     private array $publishedAssets = [];
 
-    /** @var list<array{slug: string, name_ar: string, icon: string}> */
-    private const SUBJECTS = [
-        ['slug' => 'math', 'name_ar' => 'الرياضيات', 'icon' => 'calculator'],
-        ['slug' => 'physics', 'name_ar' => 'الفيزياء', 'icon' => 'beaker'],
-        ['slug' => 'chemistry', 'name_ar' => 'الكيمياء', 'icon' => 'beaker'],
-        ['slug' => 'biology', 'name_ar' => 'الأحياء', 'icon' => 'beaker'],
-        ['slug' => 'arabic', 'name_ar' => 'اللغة العربية', 'icon' => 'book-open'],
-        ['slug' => 'english', 'name_ar' => 'اللغة الإنجليزية', 'icon' => 'language'],
-        ['slug' => 'french', 'name_ar' => 'اللغة الفرنسية', 'icon' => 'language'],
-        ['slug' => 'islamic-studies', 'name_ar' => 'التربية الإسلامية', 'icon' => 'book-open'],
-        ['slug' => 'computer-science', 'name_ar' => 'الحاسب الآلي', 'icon' => 'computer-desktop'],
-    ];
-
-    /** @var list<array{slug: string, name_ar: string}> */
-    private const GRADE_LEVELS = [
-        ['slug' => 'primary', 'name_ar' => 'المرحلة الابتدائية'],
-        ['slug' => 'preparatory', 'name_ar' => 'المرحلة الإعدادية'],
-        ['slug' => 'secondary', 'name_ar' => 'المرحلة الثانوية'],
-        ['slug' => 'university', 'name_ar' => 'المرحلة الجامعية'],
-    ];
-
     public function run(): void
     {
-        foreach (self::SUBJECTS as $i => $subject) {
-            Subject::query()->updateOrCreate(
-                ['slug' => $subject['slug']],
-                [...$subject, 'sort_order' => $i, 'is_active' => true],
-            );
-        }
-
-        foreach (self::GRADE_LEVELS as $i => $level) {
-            GradeLevel::query()->updateOrCreate(
-                ['slug' => $level['slug']],
-                [...$level, 'sort_order' => $i, 'is_active' => true],
-            );
-        }
+        // ⚠️ THE TAXONOMY ITSELF MOVED TO `TaxonomySeeder` (spec 022 · R2), which
+        // `DatabaseSeeder` calls UNCONDITIONALLY. It used to live in the constants
+        // of this file — and this file is called only outside production, so a
+        // production database was born with no subject and no stage, and the first
+        // teacher on the platform could never complete an application.
+        //
+        // Still called from here, because everything below depends on the rows.
+        $this->call(TaxonomySeeder::class);
 
         if (! app()->environment('production')) {
             $this->seedDemoMarketplace();
@@ -149,16 +123,22 @@ class MarketplaceSeeder extends Seeder
                     ])->save();
                 }
 
+                // ⚠️ THROWS RATHER THAN SKIPPING, and the old `isset()` guards are
+                // why. A demo teacher whose subject slug is absent from the
+                // taxonomy was seeded with NO subject at all and no warning — a
+                // marketplace whose every filter comes back empty, seeded green.
+                // Both lists are hand-written constants in this file; an unknown
+                // slug is a typo, not a condition.
                 foreach ($demo['subjects'] as $slug) {
-                    if (isset($subjects[$slug])) {
-                        $profile->subjects()->syncWithoutDetaching([$subjects[$slug]]);
-                    }
+                    $profile->subjects()->syncWithoutDetaching([
+                        $subjects[$slug] ?? throw new \RuntimeException("Demo teacher names unknown subject [{$slug}]."),
+                    ]);
                 }
 
                 foreach ($demo['levels'] as $slug) {
-                    if (isset($levels[$slug])) {
-                        $profile->gradeLevels()->syncWithoutDetaching([$levels[$slug]]);
-                    }
+                    $profile->gradeLevels()->syncWithoutDetaching([
+                        $levels[$slug] ?? throw new \RuntimeException("Demo teacher names unknown grade level [{$slug}]."),
+                    ]);
                 }
 
                 // One published course per demo teacher so the courses page and the

@@ -170,6 +170,20 @@ final class PublicFieldAllowlist
     public const TAXONOMY = ['slug', 'name_ar', 'icon', 'teachers_count'];
 
     /*
+    | The signup reads (spec 022 · FR-002) — a SEPARATE constant, not three keys
+    | added to the one above.
+    |
+    | Widening `TAXONOMY` would make `grade_level_slug` publishable on the
+    | MARKETPLACE payload too, where it means nothing and where the subjects
+    | offered at a stage are derived from the teachers rather than stored. And
+    | `teachers_count` has no business on a signup form: the answer there is the
+    | whole vocabulary, so a count of zero is the normal case and printing it
+    | beside an option reads as a warning against picking it.
+    */
+    /** @var list<string> */
+    public const SIGNUP_TAXONOMY = ['slug', 'name_ar', 'grade_level_slug'];
+
+    /*
     | TWO faces are publishable on a review, and they are not the same decision.
     |
     | `teacher_*` — the teacher the review is ABOUT. Their name and photo are
