@@ -149,6 +149,19 @@ function dispatchOf(User $user, NotificationType $type): void
             // that is a parcel that reaches «في الطريق» with nobody told.
             'item_title' => 'مذكّرة المراجعة',
             'status' => 'في الطريق',
+            /*
+            | AN ELEVENTH time, with spec 011's `scheduled_report` — and this one
+            | had been red on `main` since it landed (a588a97), 54 against 55,
+            | found while shipping spec 012's push channel. The mechanism is the
+            | same every time and worth the eleventh restatement precisely because
+            | eleven readings did not stop the twelfth: a template whose variable
+            | is missing renders NOTHING, `DispatchNotification` LOGS it rather
+            | than failing the operation that triggered it, and the channel never
+            | sees the message.
+            */
+            'period' => 'أغسطس ٢٠٢٦',
+            'date' => '٣٠ أغسطس',
+            'summary' => '١٢ حصّة · ٤ طلاب جدد',
         ],
     ));
 }

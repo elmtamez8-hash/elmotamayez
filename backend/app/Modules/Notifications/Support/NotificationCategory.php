@@ -92,6 +92,20 @@ enum NotificationCategory: string
                 NotificationType::CohortTransferRequested,
                 NotificationType::CohortTransferApproved,
                 NotificationType::CohortTransferRejected,
+                /*
+                | ⚠️ ADDED 2026-08-30, AND IT HAD BEEN UNFILED SINCE SPEC 011
+                | SHIPPED IT (a588a97) — `NotificationCategoryTest` red on `main`
+                | for the whole intervening period, doing exactly the job it was
+                | written for while nobody read it. Found while shipping spec 012's
+                | push channel, and classified on the owner's decision.
+                |
+                | Filed here rather than under «الرسائل والإعلانات» because the
+                | report is about teaching that happened — the recipient scanning
+                | this tab is asking about their lessons, and a periodic summary of
+                | them is an answer to that question and not a message somebody
+                | sent.
+                */
+                NotificationType::ScheduledReport,
             ],
             self::Achievements => [
                 NotificationType::CertificateIssued,
