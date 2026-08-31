@@ -7,7 +7,7 @@ import { userMessage } from "@/lib/errors";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Alert } from "@/components/ui/Alert";
-import { BrandMark } from "@/components/ui/BrandMark";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { Button } from "@/components/ui/Button";
 import { PasswordField, TextField } from "@/components/ui/Field";
 
@@ -59,117 +59,108 @@ function RegisterForm() {
   };
 
   return (
-    <main id="main" className="flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          {/* The mark stands where the name was written as text. It carries its own
-              accessible name, so the product is still announced. */}
-          <BrandMark size="xl" centered />
-          <p className="mt-2 text-ink-muted">أنشئ حسابك</p>
+    <AuthShell subtitle="أنشئ حسابك">
+      <form
+        onSubmit={submit}
+        className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"
+      >
+        {error && <Alert tone="danger" title={error} />}
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <TextField
+            id="first_name"
+            label="الاسم الأول"
+            value={form.first_name}
+            onChange={set("first_name")}
+            error={fields.first_name}
+            autoComplete="given-name"
+            required
+          />
+          <TextField
+            id="last_name"
+            label="اسم العائلة"
+            value={form.last_name}
+            onChange={set("last_name")}
+            error={fields.last_name}
+            autoComplete="family-name"
+          />
         </div>
 
-        <form
-          onSubmit={submit}
-          className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"
-        >
-          {error && <Alert tone="danger" title={error} />}
+        <TextField
+          id="email"
+          label="البريد الإلكتروني"
+          type="email"
+          value={form.email}
+          onChange={set("email")}
+          error={fields.email}
+          placeholder="you@example.com"
+          autoComplete="email"
+          required
+        />
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <TextField
-              id="first_name"
-              label="الاسم الأول"
-              value={form.first_name}
-              onChange={set("first_name")}
-              error={fields.first_name}
-              autoComplete="given-name"
-              required
-            />
-            <TextField
-              id="last_name"
-              label="اسم العائلة"
-              value={form.last_name}
-              onChange={set("last_name")}
-              error={fields.last_name}
-              autoComplete="family-name"
-            />
-          </div>
+        <PasswordField
+          id="password"
+          label="كلمة المرور"
+          value={form.password}
+          onChange={set("password")}
+          error={fields.password}
+          hint="ثمانية أحرف على الأقل."
+          autoComplete="new-password"
+          minLength={8}
+          required
+        />
 
-          <TextField
-            id="email"
-            label="البريد الإلكتروني"
-            type="email"
-            value={form.email}
-            onChange={set("email")}
-            error={fields.email}
-            placeholder="you@example.com"
-            autoComplete="email"
-            required
-          />
+        <PasswordField
+          id="password_confirmation"
+          label="تأكيد كلمة المرور"
+          value={form.password_confirmation}
+          onChange={set("password_confirmation")}
+          error={fields.password_confirmation}
+          autoComplete="new-password"
+          required
+        />
 
-          <PasswordField
-            id="password"
-            label="كلمة المرور"
-            value={form.password}
-            onChange={set("password")}
-            error={fields.password}
-            hint="ثمانية أحرف على الأقل."
-            autoComplete="new-password"
-            minLength={8}
-            required
-          />
+        <Button type="submit" fullWidth loading={loading} loadingLabel="جارٍ الإنشاء…">
+          أنشئ الحساب
+        </Button>
 
-          <PasswordField
-            id="password_confirmation"
-            label="تأكيد كلمة المرور"
-            value={form.password_confirmation}
-            onChange={set("password_confirmation")}
-            error={fields.password_confirmation}
-            autoComplete="new-password"
-            required
-          />
-
-          <Button type="submit" fullWidth loading={loading} loadingLabel="جارٍ الإنشاء…">
-            أنشئ الحساب
-          </Button>
-
-          {!invitation && (
-            /*
-             * ⚠️ This door creates a role-less account: it is the academy
-             * founder's path (register, then create a workspace), and it asks
-             * for none of what a student's account needs — a date of birth
-             * above all, which `RegisterStudent` turns into the guardian gate.
-             * Sending the other three roles to their own signup is what keeps
-             * that gate on one implementation.
-             */
-            <p className="text-center text-sm text-ink-muted">
-              تسجّل بصفة{" "}
-              <Link href="/signup/student" className="rounded text-primary-ink underline underline-offset-4">
-                طالب
-              </Link>{" "}
-              أو{" "}
-              <Link href="/signup/parent" className="rounded text-primary-ink underline underline-offset-4">
-                وليّ أمر
-              </Link>{" "}
-              أو{" "}
-              <Link href="/signup/teacher" className="rounded text-primary-ink underline underline-offset-4">
-                مدرّس
-              </Link>
-              ؟ لكلٍّ صفحته.
-            </p>
-          )}
-
+        {!invitation && (
+          /*
+           * ⚠️ This door creates a role-less account: it is the academy
+           * founder's path (register, then create a workspace), and it asks
+           * for none of what a student's account needs — a date of birth
+           * above all, which `RegisterStudent` turns into the guardian gate.
+           * Sending the other three roles to their own signup is what keeps
+           * that gate on one implementation.
+           */
           <p className="text-center text-sm text-ink-muted">
-            لديك حساب بالفعل؟{" "}
-            <Link
-              href={invitation ? `/login?invitation=${invitation}` : "/login"}
-              className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              سجّل الدخول
+            تسجّل بصفة{" "}
+            <Link href="/signup/student" className="rounded text-primary-ink underline underline-offset-4">
+              طالب
+            </Link>{" "}
+            أو{" "}
+            <Link href="/signup/parent" className="rounded text-primary-ink underline underline-offset-4">
+              وليّ أمر
+            </Link>{" "}
+            أو{" "}
+            <Link href="/signup/teacher" className="rounded text-primary-ink underline underline-offset-4">
+              مدرّس
             </Link>
+            ؟ لكلٍّ صفحته.
           </p>
-        </form>
-      </div>
-    </main>
+        )}
+
+        <p className="text-center text-sm text-ink-muted">
+          لديك حساب بالفعل؟{" "}
+          <Link
+            href={invitation ? `/login?invitation=${invitation}` : "/login"}
+            className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            سجّل الدخول
+          </Link>
+        </p>
+      </form>
+    </AuthShell>
   );
 }
 

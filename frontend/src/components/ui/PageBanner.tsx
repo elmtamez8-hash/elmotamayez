@@ -52,10 +52,17 @@ import type { ComponentType, ReactNode } from "react";
  * interpolated name produces no CSS at all — a banner with no scrim, which
  * looks like a design choice rather than a missing file.
  */
-const TONE = "from-primary/55 via-primary/45 via-55% to-transparent to-85%";
+/**
+ * ⚠️ EXPORTED, AND THE EXPORT IS THE POINT. `AuthShell` paints text over the same
+ * kind of photograph and must not invent its own overlay — this component's own
+ * docblock says why: a per-page overlay is a per-page contrast bug, and the first
+ * one written with `/40` puts white on a bright crop at 2:1 with nobody noticing
+ * until an audit. Two callers, one pair of numbers.
+ */
+export const TONE = "from-primary/55 via-primary/45 via-55% to-transparent to-85%";
 
 /** The neutral half. Same shape, so the two fade out together. */
-const SCRIM = "from-black/50 via-black/45 via-55% to-transparent to-85%";
+export const SCRIM = "from-black/50 via-black/45 via-55% to-transparent to-85%";
 
 export function PageBanner({
   title,
