@@ -139,6 +139,33 @@ setup("mint isolated accounts", async ({ request }) => {
   writeFileSync(ISOLATED_FILE, JSON.stringify(accounts, null, 2));
 });
 
+/**
+ * The first slug the platform actually offers, read from the same public endpoint
+ * that feeds the form.
+ *
+ * ⚠️ READ, NEVER HARD-CODED. `school_year_slug` and `region_slug` are `Rule::in`
+ * over live catalogue rows, so a literal here is a 422 the day an operator renames
+ * or retires one — and this setup is the dependency of every authenticated spec,
+ * so that 422 takes the WHOLE suite down with a message about registration.
+ *
+ * Which is what had happened: spec 022 replaced `grade_level_slug` with the year
+ * and made both it and `date_of_birth` required, this payload was not followed,
+ * and `mint isolated accounts` answered 422 on every run.
+ */
+async function firstSlug(request: APIRequestContext, path: string): Promise<string> {
+  const response = await request.get(path);
+
+  expect(response.ok(), `${path} answered ${response.status()}`).toBeTruthy();
+
+  const rows = (await response.json()) as Array<{ slug: string }>;
+
+  // A required field validated against an empty catalogue refuses every
+  // registration — say so here rather than in a 422 three lines down.
+  expect(rows.length, `${path} is empty — is the taxonomy seeded?`).toBeGreaterThan(0);
+
+  return rows[0].slug;
+}
+
 async function registerStudent(request: APIRequestContext, project: string): Promise<string> {
   // Unique per project AND per run: the account is never cleaned up, and a fixed
   // address would collide with the previous run's row on `users.email`.
@@ -154,7 +181,10 @@ async function registerStudent(request: APIRequestContext, project: string): Pro
       password_confirmation: "e2e-password",
       phone: `+9745${Date.now().toString().slice(-7)}`,
       country: "QA",
-      grade_level_slug: "secondary",
+      school_year_slug: await firstSlug(request, "/api/v1/signup/school-years"),
+      region_slug: await firstSlug(request, "/api/v1/marketplace/regions"),
+      // An adult, so `guardian_contact` is not required (spec 013 · FR-009).
+      date_of_birth: "2000-05-14",
       terms_accepted: true,
     },
   });

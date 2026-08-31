@@ -69,17 +69,38 @@ test.describe("إعدادات الإشعارات", () => {
     await expect(page.getByRole("heading", { name: "إعدادات الإشعارات" })).toBeVisible();
   });
 
-  // FR-030 — an unimplemented channel is absent, not greyed out. A disabled
-  // toggle promises a date nobody has committed to.
-  test("القنوات غير المُنفَّذة لا تظهر إطلاقاً", async ({ page }) => {
+  /*
+   * FR-030 — an unimplemented channel is absent, not greyed out. A disabled
+   * toggle promises a date nobody has committed to.
+   *
+   * ⚠️ THE LIST MOVES WHEN A CHANNEL SHIPS, AND IT HAS MOVED TWICE. The columns
+   * come from `ChannelRegistry::implemented()`, i.e. from the one `->tag()` line
+   * in `NotificationsServiceProvider`: spec 020 tagged WhatsApp and spec 012
+   * tagged web push, so both grew a column while this test still asserted they
+   * had none. It went unnoticed because `auth.setup.ts` was answering 422 and
+   * nothing in this file ran at all.
+   *
+   * Both directions are asserted deliberately. The absent list alone passes on a
+   * screen that renders NO columns; the header COUNT is what fails when a fourth
+   * channel appears without anybody deciding it should — the point being that
+   * tagging a class is what puts a column here, so this is the only place that
+   * decision is visible to a reader.
+   */
+  test("تظهر القنوات المُنفَّذة وحدَها", async ({ page }) => {
     await page.goto("/settings/notifications");
 
     const table = page.getByRole("table").first();
-    await expect(table.getByRole("columnheader", { name: "داخل المنصة" })).toBeVisible();
 
-    for (const absent of ["واتساب", "تيليجرام", "رسالة نصّية", "إشعار فوري", "البريد الإلكتروني"]) {
+    for (const shown of ["داخل المنصة", "واتساب", "إشعار فوري"]) {
+      await expect(table.getByRole("columnheader", { name: shown })).toBeVisible();
+    }
+
+    for (const absent of ["تيليجرام", "رسالة نصّية", "البريد الإلكتروني"]) {
       await expect(table.getByRole("columnheader", { name: absent })).toHaveCount(0);
     }
+
+    // «الفئة» plus the three above, and nothing else.
+    await expect(table.getByRole("columnheader")).toHaveCount(4);
   });
 
   // FR-029 / SC-013 — "cannot be switched off" has to be true in the UI too, not
