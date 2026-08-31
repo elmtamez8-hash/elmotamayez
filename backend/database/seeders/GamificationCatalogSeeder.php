@@ -107,6 +107,22 @@ class GamificationCatalogSeeder extends Seeder
         | rather than for the practice.
         */
         ['key' => 'concept_mastered', 'name_ar' => 'إتقان فكرة', 'xp' => 25, 'coins' => 10, 'daily_cap' => 3],
+
+        /*
+        | Spec 012 · US3. Awarded when a participant answers the LAST question of
+        | a room's frozen set — never when the room's clock runs out, because a
+        | derived state raises no event and the key would then have readers and no
+        | writer at all.
+        |
+        | Worth less than mastery and capped lower: a room is fifteen minutes with
+        | friends, and two a day is enough that a third is practice rather than
+        | farming. Coins are real for the same reason mastery's are — a room lives
+        | inside ONE teacher's bank, so there is a workspace to hold them.
+        |
+        | And the backfill migration ships beside this line: an action with no row
+        | awards nothing, in silence.
+        */
+        ['key' => 'study_room_finished', 'name_ar' => 'إنهاء غرفة مذاكرة', 'xp' => 15, 'coins' => 5, 'daily_cap' => 2],
     ];
 
     /** @var list<array{level: int, name_ar: string, xp_threshold: int}> */

@@ -52,7 +52,25 @@ const BY_CODE: Record<string, string> = {
   // permission the student can earn and not a mistake they made, so the sentence
   // names the one person who can change it — without an entry here a 403 falls
   // through to «ليس لديك صلاحية», which reads as an accusation.
-  feature_off: "لم يُفعِّل هذا المدرّس التدريبَ التكيّفي بعد. جرّب مدرّساً آخر أو «درّب نفسك».",
+  /*
+    ⚠️ IT NAMES NO FEATURE, AND THAT IS DELIBERATE SINCE US3 STARTED SENDING THE
+    SAME CODE. One code carries one sentence, so a message naming «التدريب
+    التكيّفي» would have appeared over a refused STUDY ROOM — a screen telling the
+    student about something they were not doing. The fix is a wording true of
+    both, never a second code invented for one message.
+  */
+  feature_off: "لم يُفعِّل هذا المدرّس هذه الميزة بعد. جرّب مدرّساً آخر أو «درّب نفسك».",
+  // Spec 012 · US3. Closure is derived from the clock, so this arrives without a
+  // job having run — and it is final: nothing reopens a room.
+  room_closed: "انتهى وقت هذه الغرفة. اطلب من صاحبها أن يفتح غرفةً جديدة.",
+  room_full: "اكتمل عدد المشاركين في هذه الغرفة. اطلب غرفةً أخرى أو افتح واحدةً بنفسك.",
+  /*
+    ⚠️ VAGUE ON PURPOSE, EXACTLY AS THE SERVER IS. FR-017 refuses whoever cannot
+    reach EVERY question the room froze, and naming the exam or the course would
+    turn the refusal into an oracle over another student's bank — which is the
+    very thing `PracticePool` exists to prevent.
+  */
+  not_eligible: "لا يمكنك الانضمام إلى هذه الغرفة. أسئلتها ليست ضمن ما تدرسه الآن.",
   access_withheld:
     "هذا الملف موقوف حتى سداد رصيد الكورس. حصصك ودروسك العادية لا تتأثّر، ويُفتح فور اعتماد الدفع من صفحة الأرصدة.",
 };

@@ -65,6 +65,59 @@ class AssessmentFieldAllowlist
     }
 
     /**
+     * The complete shape of a study-room question BEFORE it is answered.
+     *
+     * ⚠️ THE EXACT KEY SET, AND THE FAILURE IT GUARDS ADDS A KEY RATHER THAN
+     * REMOVING ONE — serialising the frozen snapshot instead of mapping out of
+     * it, which hands `correct_option_ids` and `explanation` to the browser
+     * inside the payload that opens the room. A test that only checked the
+     * expected keys were present would pass against exactly that.
+     *
+     * The answered form is deliberately WIDER: once a question is marked, the
+     * mark scheme is the point (FR-015's resume shows what you got and how).
+     *
+     * @return list<string>
+     */
+    public static function studyRoomQuestionFields(): array
+    {
+        return ['question_id', 'order', 'content', 'points', 'difficulty', 'options', 'answered'];
+    }
+
+    /**
+     * The complete shape of one row of a study room's live board.
+     *
+     * ⚠️ `uuid` HERE IS `study_room_participants.uuid`, NEVER THE USER'S. This
+     * payload is pushed over a socket to every other person in the room, some of
+     * whom are children; a platform-wide identifier for one of them has no
+     * business travelling to their peers, while this one dies with the room.
+     *
+     * ⚠️ AND NO QUESTION TEXT, NO OPTION AND NO CORRECTNESS. Ever. The board is
+     * where the licence to broadcast data stops — the four conditions in
+     * `plan.md › Complexity Tracking` are all about the board and none of them
+     * about the paper.
+     *
+     * @return list<string>
+     */
+    public static function studyRoomBoardRowFields(): array
+    {
+        return ['uuid', 'name', 'score', 'answered'];
+    }
+
+    /**
+     * The complete envelope of a board, over the socket and over HTTP alike.
+     *
+     * ⚠️ ONE SHAPE FOR BOTH. `GET /board` is the fallback for a client with no
+     * socket (SC-015's rule from 010), so two shapes would mean a component that
+     * renders one and breaks on the other in the one situation nobody tests.
+     *
+     * @return list<string>
+     */
+    public static function studyRoomBoardFields(): array
+    {
+        return ['room_uuid', 'ends_at', 'rows'];
+    }
+
+    /**
      * Never present while a paper is open, whatever the payload.
      *
      * ⚠️ THESE ARE LEGITIMATE AFTER SUBMISSION AND ONLY THEN — `PracticeResult`

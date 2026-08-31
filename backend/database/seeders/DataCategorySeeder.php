@@ -215,6 +215,48 @@ class DataCategorySeeder extends Seeder
                 'expiry_behaviour' => ExpiryBehaviour::Delete->value,
                 'erasure_mode' => ErasureMode::Delete,
             ],
+            /*
+            | Spec 012 · US3. TWO categories, because a room and a participation
+            | are two facts about two different sets of people: the room is the
+            | HOST's (they chose the concept, the difficulty and the hour), and
+            | the participation is each participant's own.
+            |
+            | ⚠️ AND `study_room_questions` HAS NO CATEGORY OF ITS OWN, because it
+            | names nobody. It is the frozen paper — reachable only through its
+            | room id — so it is deleted with the room by `AssessmentsPersonalData`
+            | rather than by a category, exactly as `attempt_items` is deleted with
+            | its attempt. A table with no personal column that got its own
+            | category would be a retention clock nothing could ever justify.
+            */
+            [
+                'key' => 'study_room',
+                'label_ar' => 'غرف المذاكرة التي أنشأتها',
+                'purpose_ar' => 'لتفتح غرفةً تحلّ فيها مع أصدقائك المجموعةَ نفسها في الوقت نفسه.',
+                'audience' => 'من انضمّ إلى الغرفة',
+                'is_required' => true,
+                'owning_module' => 'assessments',
+                'table_name' => 'study_rooms',
+                'column_name' => 'host_user_id',
+                // Three years, matching `exam_answer`: a room is a working
+                // session, not a result, and the answers inside it go at the same
+                // clock.
+                'retain_days' => 1095,
+                'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
+            ],
+            [
+                'key' => 'study_room_participation',
+                'label_ar' => 'مشاركاتك في غرف المذاكرة',
+                'purpose_ar' => 'لتستأنف من حيث توقّفت إن انقطع اتّصالك، ولتظهر درجتك على لوحة الغرفة.',
+                'audience' => 'من في الغرفة نفسها',
+                'is_required' => true,
+                'owning_module' => 'assessments',
+                'table_name' => 'study_room_participants',
+                'column_name' => 'user_id',
+                'retain_days' => 1095,
+                'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
+            ],
 
             // ── Certificates ────────────────────────────────────────────────
             [

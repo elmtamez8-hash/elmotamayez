@@ -15,6 +15,7 @@ use App\Modules\Assessments\Http\Controllers\GradingController;
 use App\Modules\Assessments\Http\Controllers\ImportController;
 use App\Modules\Assessments\Http\Controllers\MistakeController;
 use App\Modules\Assessments\Http\Controllers\PracticeController;
+use App\Modules\Assessments\Http\Controllers\StudyRoomController;
 use App\Modules\Assessments\Http\Controllers\SubmissionFileController;
 use App\Modules\Assessments\Http\Controllers\UnlockRuleController;
 use Illuminate\Support\Facades\Route;
@@ -169,6 +170,36 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::middleware('throttle:adaptive-step')->group(function (): void {
         Route::post('/practice/adaptive/{session}/answer', [AdaptiveController::class, 'answer']);
         Route::post('/practice/adaptive/{session}/end', [AdaptiveController::class, 'end']);
+    });
+
+    /*
+     | Group study rooms (spec 012 · US3).
+     |
+     | ⚠️ `{room}` IS A STRING AND NEVER A BOUND MODEL, for the reason written
+     | above the adaptive routes: `WorkspaceScope` adds no condition when the
+     | context is null and it is null for every student, so an implicit binding
+     | resolves any room on the platform — and no policy behind it could save it,
+     | because a student holds no role in any workspace either. `StudyRoomAccess`
+     | resolves the uuid and answers both questions the module asks of it.
+     |
+     | ⚠️ AND THE TWO LIMITERS ARE DIFFERENT ON PURPOSE. `study-room-write` is ten
+     | a minute because each of those calls costs a broadcast to everybody else in
+     | the room — a cost that is not the caller's alone — while ANSWERING is
+     | twenty or thirty writes inside one room by design and shares
+     | `adaptive-step`'s sixty. Reusing one limiter for both cuts a student off
+     | in the middle of the paper. A named limiter is one bucket per user, which
+     | is exactly why `throttle:5,1` inline is banned across this codebase.
+     */
+    Route::middleware('throttle:study-room-write')->group(function (): void {
+        Route::post('/study-rooms', [StudyRoomController::class, 'store']);
+        Route::get('/study-rooms', [StudyRoomController::class, 'index']);
+        Route::post('/study-rooms/{room}/join', [StudyRoomController::class, 'join']);
+    });
+
+    Route::middleware('throttle:adaptive-step')->group(function (): void {
+        Route::get('/study-rooms/{room}', [StudyRoomController::class, 'show']);
+        Route::post('/study-rooms/{room}/answer', [StudyRoomController::class, 'answer']);
+        Route::get('/study-rooms/{room}/board', [StudyRoomController::class, 'board']);
     });
 
     /*

@@ -196,61 +196,61 @@ description: "Task list — 012 التوسّع والتطبيق"
 
 ### الجداولُ والنماذج
 
-- [ ] T084 [US3] هجرةٌ `…_create_study_rooms_table.php` — و`max_participants`، ولا عمودَ حالةٍ إطلاقاً، وفهرسا `(workspace_id, ends_at)` و`(host_user_id, ends_at)` وفهرسُ `created_at`
-- [ ] T085 [P] [US3] هجرةٌ `…_create_study_room_questions_table.php` بـ`unique(study_room_id, order)` و`unique(study_room_id, question_id)`، **بلا `uuid`**
-- [ ] T086 [US3] هجرةٌ `…_create_study_room_participants_table.php` — ⚠️ ومعها **`index(user_id, joined_at)`**: الطالبُ ليس عضواً في أيِّ مساحةِ عمل فلا فهرسَ على `study_rooms` يخدم «غرفي»، والفهرسُ المركّبُ الآخرُ يُقرأ من عمودِه الأوّلِ فقط ⇒ مسحٌ كاملٌ لكلِّ فتحةِ صفحة
-- [ ] T087 [P] [US3] ثلاثةُ نماذجَ في `Assessments/Models/` وثلاثةُ مصانعَ — و`StudyRoom` يحمل `state()` مشتقّاً من الساعة
-- [ ] T088 [US3] أضِفِ الثلاثةَ إلى `WorkspaceIsolationTest`
+- [X] T084 [US3] هجرةٌ `…_create_study_rooms_table.php` — و`max_participants`، ولا عمودَ حالةٍ إطلاقاً، وفهرسا `(workspace_id, ends_at)` و`(host_user_id, ends_at)` وفهرسُ `created_at`
+- [X] T085 [P] [US3] هجرةٌ `…_create_study_room_questions_table.php` بـ`unique(study_room_id, order)` و`unique(study_room_id, question_id)`، **بلا `uuid`**
+- [X] T086 [US3] هجرةٌ `…_create_study_room_participants_table.php` — ⚠️ ومعها **`index(user_id, joined_at)`**: الطالبُ ليس عضواً في أيِّ مساحةِ عمل فلا فهرسَ على `study_rooms` يخدم «غرفي»، والفهرسُ المركّبُ الآخرُ يُقرأ من عمودِه الأوّلِ فقط ⇒ مسحٌ كاملٌ لكلِّ فتحةِ صفحة
+- [X] T087 [P] [US3] ثلاثةُ نماذجَ في `Assessments/Models/` وثلاثةُ مصانعَ — و`StudyRoom` يحمل `state()` مشتقّاً من الساعة
+- [X] T088 [US3] أضِفِ الثلاثةَ إلى `WorkspaceIsolationTest`
 
 ### المنطق
 
-- [ ] T089 [US3] ⚠️ `Support/StudyRoomAccess.php` — **قراءةٌ فقط**، يناديها الانضمامُ **وحارسُ القناةِ** معاً. `JoinStudyRoom` فعلُ كتابةٍ بـ`handle()` واحدة وكلُّ مدخلٍ في `channels.php` ينادي قدرةً للقراءة؛ وشرطانِ مكتوبانِ متجاورَينِ يضعان جواباً على الشاشةِ وآخرَ عند الباب
-- [ ] T090 [US3] ⚠️ الأهليّةُ فيه: **مجمَّعُ المنضمِّ نفسِه يحتوي كلَّ سؤالٍ مجمَّدٍ في الغرفة** — استعلامٌ واحد. «تسجيلٌ نشِطٌ في المساحة» يفتح عطلَين: `withheldQuestionIds()` **لكلِّ طالبٍ على حدة** (فمضيفٌ قدّم امتحاناً منشوراً يجمّد أسئلتَه، وكلُّ منضمٍّ لم يقدّمْه يقرؤها **مع مفتاحِ الإجابةِ والشرح**)، و`questionsFor()` مقيَّدٌ **بالكورس** لا بالمساحة. وFR-017 يقول «أسئلتها» لا «مساحتها»
-- [ ] T091 [US3] `Actions/CreateStudyRoom.php` — يقرأ المفتاحَ بمساحةِ `teacher`؛ يجمّد المجموعةَ من مجمَّعِ المضيف؛ ⚠️ **النقصُ جوابٌ لا فشل**: يبني بالمتاحِ ويردّ `requested_count`/`delivered_count`، ويرفض **فقط** عند الصفر — FR-023 و`BuildSelfExam.php:86` كلاهما ينصّ على ذلك؛ ويفرض سقفَي `question_count ≤ 30` و`max_participants ≤ 30` و`points ≤ 100`
-- [ ] T092 [US3] ⚠️ الكتابةُ الجُمْليّةُ في `CreateStudyRoom` تمرّر `created_at` و`updated_at` **صراحةً** — `insert()` لا يُشغّل النموذج، وأعمدةُ الطوابعِ تقبل `NULL` بلا خطأٍ على المحرّكَين، **فصفوفٌ لا تنتهي صلاحيّتُها أبداً**. سابقةُ `CreditLedger::writeEntry()`
-- [ ] T093 [US3] ⚠️ `Actions/JoinStudyRoom.php` — **يطالب صفَّ المشاركةِ أوّلاً** ثمّ يُنشئ المحاولةَ وعناصرَها، **والكلُّ في معاملةٍ واحدة**: الترتيبُ المعكوسُ يترك على الخاسرِ محاولةً يتيمةً وN عنصراً بلا مشاركٍ ولا كنس. وينسخ **اللقطةَ المجمَّدةَ** لا السؤالَ الحيّ (**فلا يُعاد استعمالُ `PracticePaper::write()`**: يأخذ المجموعةَ دفعةً ويبني من `QuestionSnapshot::of($question)`)
-- [ ] T094 [US3] `Actions/AnswerStudyRoomQuestion.php` — يعنون بـ`question_id`، ينادي `AnswerMarker`، يحدّث الصفَّ بعد نجاحِ الإدراج، ⚠️ **ويختم `finished_at` ويُطلق `StudyRoomFinished` حين تكون هذه هي الإجابةَ التي أكملت المجموعة**، ويختم المحاولةَ كما في T028
-- [ ] T095 [US3] ⚠️ البثُّ في T094 **مخنوقٌ بثانيةٍ لكلِّ غرفة** — SC-006 يطلب ثانيتَين p95، والبثُّ على كلِّ إجابةٍ من N×M إجابةً إلى N مشتركاً بلا خنقٍ عاصفةٌ
-- [ ] T096 [P] [US3] `Actions/{ReadStudyRoomBoard,ListStudyRooms}.php` — واللوحةُ ⚠️ **تُحمِّل `first_name` و`last_name`، لا `name`**: `users` لا يحمل ذلك العمود (accessor)، وتحميلٌ مقيَّدٌ به يُرجع اسماً فارغاً — شُحن في ستّةِ مواضعَ قبلَ اليوم، **واللوحةُ تُدفَع إلى كلِّ مشترك فلا شاشةَ يلاحظ فيها أحدٌ «» أوّلاً**
-- [ ] T097 [P] [US3] `Events/StudyRoomFinished.php` و`Events/StudyRoomBoardUpdated.php` — الثاني `ShouldBroadcast` على `PrivateChannel`
-- [ ] T098 [P] [US3] `Data/StudyRoomDraftData.php` يرث `DataTransferObject`
+- [X] T089 [US3] ⚠️ `Support/StudyRoomAccess.php` — **قراءةٌ فقط**، يناديها الانضمامُ **وحارسُ القناةِ** معاً. `JoinStudyRoom` فعلُ كتابةٍ بـ`handle()` واحدة وكلُّ مدخلٍ في `channels.php` ينادي قدرةً للقراءة؛ وشرطانِ مكتوبانِ متجاورَينِ يضعان جواباً على الشاشةِ وآخرَ عند الباب
+- [X] T090 [US3] ⚠️ الأهليّةُ فيه: **مجمَّعُ المنضمِّ نفسِه يحتوي كلَّ سؤالٍ مجمَّدٍ في الغرفة** — استعلامٌ واحد. «تسجيلٌ نشِطٌ في المساحة» يفتح عطلَين: `withheldQuestionIds()` **لكلِّ طالبٍ على حدة** (فمضيفٌ قدّم امتحاناً منشوراً يجمّد أسئلتَه، وكلُّ منضمٍّ لم يقدّمْه يقرؤها **مع مفتاحِ الإجابةِ والشرح**)، و`questionsFor()` مقيَّدٌ **بالكورس** لا بالمساحة. وFR-017 يقول «أسئلتها» لا «مساحتها»
+- [X] T091 [US3] `Actions/CreateStudyRoom.php` — يقرأ المفتاحَ بمساحةِ `teacher`؛ يجمّد المجموعةَ من مجمَّعِ المضيف؛ ⚠️ **النقصُ جوابٌ لا فشل**: يبني بالمتاحِ ويردّ `requested_count`/`delivered_count`، ويرفض **فقط** عند الصفر — FR-023 و`BuildSelfExam.php:86` كلاهما ينصّ على ذلك؛ ويفرض سقفَي `question_count ≤ 30` و`max_participants ≤ 30` و`points ≤ 100`
+- [X] T092 [US3] ⚠️ الكتابةُ الجُمْليّةُ في `CreateStudyRoom` تمرّر `created_at` و`updated_at` **صراحةً** — `insert()` لا يُشغّل النموذج، وأعمدةُ الطوابعِ تقبل `NULL` بلا خطأٍ على المحرّكَين، **فصفوفٌ لا تنتهي صلاحيّتُها أبداً**. سابقةُ `CreditLedger::writeEntry()`
+- [X] T093 [US3] ⚠️ `Actions/JoinStudyRoom.php` — **يطالب صفَّ المشاركةِ أوّلاً** ثمّ يُنشئ المحاولةَ وعناصرَها، **والكلُّ في معاملةٍ واحدة**: الترتيبُ المعكوسُ يترك على الخاسرِ محاولةً يتيمةً وN عنصراً بلا مشاركٍ ولا كنس. وينسخ **اللقطةَ المجمَّدةَ** لا السؤالَ الحيّ (**فلا يُعاد استعمالُ `PracticePaper::write()`**: يأخذ المجموعةَ دفعةً ويبني من `QuestionSnapshot::of($question)`)
+- [X] T094 [US3] `Actions/AnswerStudyRoomQuestion.php` — يعنون بـ`question_id`، ينادي `AnswerMarker`، يحدّث الصفَّ بعد نجاحِ الإدراج، ⚠️ **ويختم `finished_at` ويُطلق `StudyRoomFinished` حين تكون هذه هي الإجابةَ التي أكملت المجموعة**، ويختم المحاولةَ كما في T028
+- [X] T095 [US3] ⚠️ البثُّ في T094 **مخنوقٌ بثانيةٍ لكلِّ غرفة** — SC-006 يطلب ثانيتَين p95، والبثُّ على كلِّ إجابةٍ من N×M إجابةً إلى N مشتركاً بلا خنقٍ عاصفةٌ
+- [X] T096 [P] [US3] `Actions/{ReadStudyRoomBoard,ListStudyRooms}.php` — واللوحةُ ⚠️ **تُحمِّل `first_name` و`last_name`، لا `name`**: `users` لا يحمل ذلك العمود (accessor)، وتحميلٌ مقيَّدٌ به يُرجع اسماً فارغاً — شُحن في ستّةِ مواضعَ قبلَ اليوم، **واللوحةُ تُدفَع إلى كلِّ مشترك فلا شاشةَ يلاحظ فيها أحدٌ «» أوّلاً**
+- [X] T097 [P] [US3] `Events/StudyRoomFinished.php` و`Events/StudyRoomBoardUpdated.php` — الثاني `ShouldBroadcast` على `PrivateChannel`
+- [X] T098 [P] [US3] `Data/StudyRoomDraftData.php` يرث `DataTransferObject`
 
 ### الواجهةُ البرمجيّةُ والقناة
 
-- [ ] T099 [US3] `Http/Requests/{CreateStudyRoomRequest,AnswerStudyRoomRequest}.php`
-- [ ] T100 [US3] `Http/Resources/{StudyRoomResource,StudyRoomBoardResource,StudyRoomQuestionResource}.php` — ⚠️ **ولا `correct_option_ids` ولا شرحٌ لسؤالٍ لم يُجَبْ بعد**؛ اللقطةُ المخزَّنةُ تحملهما
-- [ ] T101 [US3] `Http/Controllers/StudyRoomController.php` + ستّةُ مساراتٍ بمُحدِّداتِها
-- [ ] T102 [US3] ⚠️ `Broadcast::channel('study-room-board.{uuid}', …)` في `backend/routes/channels.php` — **قناةٌ خاصّةٌ لا قناةَ حضور**: `config/reverb.php:90` يضبط `accept_client_events_from => 'members'`، فقناةُ الحضورِ تفتح **دردشةً غيرَ مُراقَبةٍ بين قاصرين** داخلَ الغرفة، بلا `hidden_at` ولا `ConversationPolicy` ولا فحصِ حظر. ولا حاجةَ إلى قائمةِ الأعضاءِ: **اللوحةُ هي القائمة**
-- [ ] T103 [US3] ⚠️ حارسُ القناةِ **صفُّ مشاركةٍ لا أهليّة** (عبر `StudyRoomAccess`)، والغرفةُ تُحَلّ بـ`withoutWorkspaceScope()` داخلَ الـcallback (سياقُ الطالبِ `null` فالنطاقُ لا يضيف شرطاً — القاعدةُ مكتوبةٌ لـ`Conversation` في `channels.php:46-51`)
-- [ ] T104 [US3] حمولةُ `board.updated`: `uuid` هو **`study_room_participants.uuid`** لا uuidُ المستخدم (الثاني مُعرِّفٌ منصّيٌّ لقاصرٍ يُسلَّم إلى أقرانه)، و`name` و`score` و`answered` — **ولا نصَّ سؤالٍ ولا خيارَ إجابةٍ أبداً**
-- [ ] T105 [US3] سجِّلِ الحمولاتِ الثلاثَ في `AssessmentFieldAllowlist`
+- [X] T099 [US3] `Http/Requests/{CreateStudyRoomRequest,AnswerStudyRoomRequest}.php`
+- [X] T100 [US3] `Http/Resources/{StudyRoomResource,StudyRoomBoardResource,StudyRoomQuestionResource}.php` — ⚠️ **ولا `correct_option_ids` ولا شرحٌ لسؤالٍ لم يُجَبْ بعد**؛ اللقطةُ المخزَّنةُ تحملهما
+- [X] T101 [US3] `Http/Controllers/StudyRoomController.php` + ستّةُ مساراتٍ بمُحدِّداتِها
+- [X] T102 [US3] ⚠️ `Broadcast::channel('study-room-board.{uuid}', …)` في `backend/routes/channels.php` — **قناةٌ خاصّةٌ لا قناةَ حضور**: `config/reverb.php:90` يضبط `accept_client_events_from => 'members'`، فقناةُ الحضورِ تفتح **دردشةً غيرَ مُراقَبةٍ بين قاصرين** داخلَ الغرفة، بلا `hidden_at` ولا `ConversationPolicy` ولا فحصِ حظر. ولا حاجةَ إلى قائمةِ الأعضاءِ: **اللوحةُ هي القائمة**
+- [X] T103 [US3] ⚠️ حارسُ القناةِ **صفُّ مشاركةٍ لا أهليّة** (عبر `StudyRoomAccess`)، والغرفةُ تُحَلّ بـ`withoutWorkspaceScope()` داخلَ الـcallback (سياقُ الطالبِ `null` فالنطاقُ لا يضيف شرطاً — القاعدةُ مكتوبةٌ لـ`Conversation` في `channels.php:46-51`)
+- [X] T104 [US3] حمولةُ `board.updated`: `uuid` هو **`study_room_participants.uuid`** لا uuidُ المستخدم (الثاني مُعرِّفٌ منصّيٌّ لقاصرٍ يُسلَّم إلى أقرانه)، و`name` و`score` و`answered` — **ولا نصَّ سؤالٍ ولا خيارَ إجابةٍ أبداً**
+- [X] T105 [US3] سجِّلِ الحمولاتِ الثلاثَ في `AssessmentFieldAllowlist`
 
 ### الكتالوجاتُ والحقوق
 
-- [ ] T106 [US3] `study_room_finished` (`xp=15`, `coins=5`, `daily_cap=2`) في `GamificationCatalogSeeder` + هجرةُ ردمٍ بـ`down()` فارغة
-- [ ] T107 [US3] `Listeners/AwardOnStudyRoomFinished.php` + `Event::listen()`
-- [ ] T108 [US3] فئتا `study_room` و`study_room_participation` (1095 · Delete) في `DataCategorySeeder` + هجرة، **والمشياتُ الأربعُ** في `AssessmentsPersonalData`
-- [ ] T109 [US3] ازرعْ مفتاحَ `study_rooms` **مطفأً** عند `workspace_id = 0`
+- [X] T106 [US3] `study_room_finished` (`xp=15`, `coins=5`, `daily_cap=2`) في `GamificationCatalogSeeder` + هجرةُ ردمٍ بـ`down()` فارغة
+- [X] T107 [US3] `Listeners/AwardOnStudyRoomFinished.php` + `Event::listen()`
+- [X] T108 [US3] فئتا `study_room` و`study_room_participation` (1095 · Delete) في `DataCategorySeeder` + هجرة، **والمشياتُ الأربعُ** في `AssessmentsPersonalData`
+- [X] T109 [US3] ازرعْ مفتاحَ `study_rooms` **مطفأً** عند `workspace_id = 0`
 
 ### الواجهة
 
-- [ ] T110 [P] [US3] `frontend/src/lib/study-rooms.ts`
-- [ ] T111 [US3] `frontend/src/components/practice/StudyRoomBoard.tsx` — يشترك عبر `echo()` ⚠️ **بمغلّفٍ لكلِّ نداءٍ لا بـ`useCallback` بمصفوفةٍ فارغة**: pusher-js يفكّ الارتباطَ **بمرجعِ الدالّة** ويحذف كلَّ ما يطابقها، والاستدعاءُ المزدوجُ في التطوير يقتل مشترِكاً واحداً. ويعرض العدّادَ ويقرأ `state` من الحمولةِ **ولا يشتقُّه**
-- [ ] T112 [US3] `frontend/src/app/(app)/(shell)/study-rooms/{page.tsx,[uuid]/page.tsx}` + رابطٌ إليهما من `/practice` — ⚠️ شاشةٌ لا يصل إليها شيءٌ ليست مُسلَّمة
-- [ ] T113 [US3] جملُ `room_closed` و`room_full` و`not_eligible` في `frontend/src/lib/errors.ts`، ⚠️ **وشاراتُ الدرجةِ والحالةِ برموزِ `@theme` قائمةٍ فقط** — أربعةُ رموزٍ غيرِ معرَّفةٍ شُحنت قبلَ اليوم فطُليَ بها لا شيء، وهذه الشاشةُ بالضبط موضعُ التكرار. أضِفِ الرموزَ الجديدةَ إلى `frontend/src/lib/theme-tokens.test.ts`
-- [ ] T114 [P] [US3] `frontend/src/components/practice/StudyRoomBoard.test.tsx` (vitest)
+- [X] T110 [P] [US3] `frontend/src/lib/study-rooms.ts`
+- [X] T111 [US3] `frontend/src/components/practice/StudyRoomBoard.tsx` — يشترك عبر `echo()` ⚠️ **بمغلّفٍ لكلِّ نداءٍ لا بـ`useCallback` بمصفوفةٍ فارغة**: pusher-js يفكّ الارتباطَ **بمرجعِ الدالّة** ويحذف كلَّ ما يطابقها، والاستدعاءُ المزدوجُ في التطوير يقتل مشترِكاً واحداً. ويعرض العدّادَ ويقرأ `state` من الحمولةِ **ولا يشتقُّه**
+- [X] T112 [US3] `frontend/src/app/(app)/(shell)/study-rooms/{page.tsx,[uuid]/page.tsx}` + رابطٌ إليهما من `/practice` — ⚠️ شاشةٌ لا يصل إليها شيءٌ ليست مُسلَّمة
+- [X] T113 [US3] جملُ `room_closed` و`room_full` و`not_eligible` في `frontend/src/lib/errors.ts`، ⚠️ **وشاراتُ الدرجةِ والحالةِ برموزِ `@theme` قائمةٍ فقط** — أربعةُ رموزٍ غيرِ معرَّفةٍ شُحنت قبلَ اليوم فطُليَ بها لا شيء، وهذه الشاشةُ بالضبط موضعُ التكرار. أضِفِ الرموزَ الجديدةَ إلى `frontend/src/lib/theme-tokens.test.ts`
+- [X] T114 [P] [US3] `frontend/src/components/practice/StudyRoomBoard.test.tsx` (vitest)
 
 ### الاختبارات
 
-- [ ] T115 [US3] ⚠️ `tests/Feature/Assessments/StudyRoomEligibilityTest.php` (SC-008) — **ثلاثُ حالاتٍ والثانيةُ والثالثةُ هما اللتان تكشفان**: (١) طالبٌ من مساحةٍ أخرى ⇒ 403؛ (٢) **طالبٌ في كورسٍ آخرَ عند المدرّسِ نفسِه ⇒ 403**؛ (٣) **مضيفٌ قدّم امتحاناً منشوراً ومنضمٌّ لم يقدّمْه ⇒ 403**. اختبارٌ يقتصر على الأولى يمرّ فوقَ العطلَين تماماً
-- [ ] T116 [P] [US3] `tests/Feature/Assessments/StudyRoomResumeTest.php` (SC-007) — انقطاعٌ وعودةٌ بلا فقدِ إجابة
-- [ ] T117 [US3] ⚠️ `tests/Feature/Assessments/StudyRoomFinishTest.php` — (أ) إكمالُ المجموعةِ ⇒ `finished_at` ونقاطٌ مُقيَّدة؛ (ب) توقّفٌ عند ٨ ومرورُ `ends_at` ⇒ النتيجةُ تُعرَض و`finished_at` فارغٌ **ولا نقطة**. ⚠️ **و`Queue::fake()` بالأسماءِ لا عارياً**: العاري يبتلع مستمعَ المنحةِ المطبورَ فيصير التوكيدُ ادّعاءً عن `award_entries` فارغ
-- [ ] T118 [P] [US3] `tests/Feature/Assessments/StudyRoomShortPaperTest.php` — طلبُ ٢٠ من فكرةٍ فيها ٦ ⇒ **٢٠١** بـ`delivered_count: 6`؛ والرفضُ عند الصفرِ وحدَه
-- [ ] T119 [US3] ⚠️ `tests/Feature/Assessments/StudyRoomChannelTest.php` — طالبٌ **مؤهَّلٌ لم ينضمّ** يُرفَض اشتراكُه، **ويُقاس عبرَ `/broadcasting/auth` الحقيقيّ**: `subscribeToChannel()` يعمل من عمليّةٍ ضُبِط فيها مُعرِّفُ الفريقِ سلفاً، فيُثبِت الـcallback ولا يُثبِت الطلبَ — العطلُ الذي تركَ كلَّ اشتراكٍ خاصٍّ مرفوضاً في الإنتاج
-- [ ] T120 [P] [US3] `tests/Feature/Assessments/StudyRoomNoOfficialGradeTest.php` (SC-003) — **بضابطٍ موجب** كما في T052
-- [ ] T121 [P] [US3] `tests/Feature/Assessments/StudyRoomClosureTest.php` — الانضمامُ بعد `ends_at` ⇒ 409 `room_closed`، **والعاملُ متوقّفٌ تماماً**: الإغلاقُ مشتقٌّ من الساعةِ فلا وظيفةَ تنتظره
-- [ ] T122 [P] [US3] `tests/Feature/Assessments/StudyRoomCapacityTest.php` — بلوغُ `max_participants` ⇒ 409 `room_full`؛ وإحدى عشرةَ غرفةً ⇒ 429، ⚠️ **ثمّ بدءُ جلسةٍ تكيّفيّةٍ فوراً ينجح** (مُحدِّدانِ منفصلان)
-- [ ] T123 [US3] `tests/Feature/Assessments/StudyRoomBoardBudgetTest.php` — ⚠️ يقيس **ثباتَ** كلفةِ اللوحةِ بزيادةِ عددِ المشاركين، **ويؤكّد أنّ `name` غيرُ فارغ**: التوكيدانِ يحرسانِ الخطأَينِ المتضادَّين — إسقاطُ التحميلِ المسبقِ، وإسقاطُ الحقلِ الذي يجعله آمناً
+- [X] T115 [US3] ⚠️ `tests/Feature/Assessments/StudyRoomEligibilityTest.php` (SC-008) — **ثلاثُ حالاتٍ والثانيةُ والثالثةُ هما اللتان تكشفان**: (١) طالبٌ من مساحةٍ أخرى ⇒ 403؛ (٢) **طالبٌ في كورسٍ آخرَ عند المدرّسِ نفسِه ⇒ 403**؛ (٣) **مضيفٌ قدّم امتحاناً منشوراً ومنضمٌّ لم يقدّمْه ⇒ 403**. اختبارٌ يقتصر على الأولى يمرّ فوقَ العطلَين تماماً
+- [X] T116 [P] [US3] `tests/Feature/Assessments/StudyRoomResumeTest.php` (SC-007) — انقطاعٌ وعودةٌ بلا فقدِ إجابة
+- [X] T117 [US3] ⚠️ `tests/Feature/Assessments/StudyRoomFinishTest.php` — (أ) إكمالُ المجموعةِ ⇒ `finished_at` ونقاطٌ مُقيَّدة؛ (ب) توقّفٌ عند ٨ ومرورُ `ends_at` ⇒ النتيجةُ تُعرَض و`finished_at` فارغٌ **ولا نقطة**. ⚠️ **و`Queue::fake()` بالأسماءِ لا عارياً**: العاري يبتلع مستمعَ المنحةِ المطبورَ فيصير التوكيدُ ادّعاءً عن `award_entries` فارغ
+- [X] T118 [P] [US3] `tests/Feature/Assessments/StudyRoomShortPaperTest.php` — طلبُ ٢٠ من فكرةٍ فيها ٦ ⇒ **٢٠١** بـ`delivered_count: 6`؛ والرفضُ عند الصفرِ وحدَه
+- [X] T119 [US3] ⚠️ `tests/Feature/Assessments/StudyRoomChannelTest.php` — طالبٌ **مؤهَّلٌ لم ينضمّ** يُرفَض اشتراكُه، **ويُقاس عبرَ `/broadcasting/auth` الحقيقيّ**: `subscribeToChannel()` يعمل من عمليّةٍ ضُبِط فيها مُعرِّفُ الفريقِ سلفاً، فيُثبِت الـcallback ولا يُثبِت الطلبَ — العطلُ الذي تركَ كلَّ اشتراكٍ خاصٍّ مرفوضاً في الإنتاج
+- [X] T120 [P] [US3] `tests/Feature/Assessments/StudyRoomNoOfficialGradeTest.php` (SC-003) — **بضابطٍ موجب** كما في T052
+- [X] T121 [P] [US3] `tests/Feature/Assessments/StudyRoomClosureTest.php` — الانضمامُ بعد `ends_at` ⇒ 409 `room_closed`، **والعاملُ متوقّفٌ تماماً**: الإغلاقُ مشتقٌّ من الساعةِ فلا وظيفةَ تنتظره
+- [X] T122 [P] [US3] `tests/Feature/Assessments/StudyRoomCapacityTest.php` — بلوغُ `max_participants` ⇒ 409 `room_full`؛ وإحدى عشرةَ غرفةً ⇒ 429، ⚠️ **ثمّ بدءُ جلسةٍ تكيّفيّةٍ فوراً ينجح** (مُحدِّدانِ منفصلان)
+- [X] T123 [US3] `tests/Feature/Assessments/StudyRoomBoardBudgetTest.php` — ⚠️ يقيس **ثباتَ** كلفةِ اللوحةِ بزيادةِ عددِ المشاركين، **ويؤكّد أنّ `name` غيرُ فارغ**: التوكيدانِ يحرسانِ الخطأَينِ المتضادَّين — إسقاطُ التحميلِ المسبقِ، وإسقاطُ الحقلِ الذي يجعله آمناً
 
 **Checkpoint**: القصصُ الثلاثُ مُسلَّمة.
 

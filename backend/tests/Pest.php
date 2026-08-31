@@ -1462,6 +1462,91 @@ function adaptiveQuestion(Workspace $workspace, Lesson $lesson, string $difficul
     return $question->load('options', 'concept');
 }
 
+/*
+|--------------------------------------------------------------------------
+| Study room fixtures (spec 012 · US3)
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * A teacher with a bank, a HOST and a PEER both enrolled, and the switch on.
+ *
+ * ⚠️ NEITHER STUDENT HOLDS A MEMBERSHIP AND NEITHER HAS `last_workspace_id`, for
+ * the reason `adaptiveFixture()` writes down: a fixture built the convenient way
+ * gives a student a workspace context the product never gives them, and the guard
+ * under test IS the explicit condition that stands in for the scope when there is
+ * none.
+ *
+ * ⚠️ AND THE FLAG IS WRITTEN HERE, because `CreateStudyRoom` reads it and the
+ * platform default row ships OFF. `Flags` memoises per request, so the container
+ * instance is dropped afterwards or every later read answers from a map built
+ * before the row existed.
+ *
+ * @param  list<string>  $difficulties  one question per entry
+ * @return array{workspace: Workspace, owner: User, student: User, peer: User, course: Course, lesson: Lesson, concept: Concept, questions: Collection<int, Question>}
+ */
+function studyRoomFixture(array $difficulties = ['easy', 'easy', 'medium', 'medium'], bool $enabled = true): array
+{
+    $fixture = adaptiveFixture($difficulties);
+
+    $peer = User::factory()->create();
+    enrolInCourse($fixture['workspace'], $fixture['course'], $peer);
+
+    enableStudyRooms($fixture['workspace'], $enabled);
+
+    return [...$fixture, 'peer' => $peer];
+}
+
+/** Enrol one more student in an existing course, without giving them a context. */
+function enrolInCourse(Workspace $workspace, Course $course, User $student): Enrollment
+{
+    return Enrollment::create([
+        'workspace_id' => $workspace->getKey(),
+        'course_id' => $course->getKey(),
+        'student_user_id' => $student->getKey(),
+        'source' => 'manual',
+        'status' => 'active',
+        'progress_pct' => 0,
+        'enrolled_at' => now(),
+    ]);
+}
+
+/** Switch study rooms on (or off) for one teacher, and drop the memoised map. */
+function enableStudyRooms(Workspace $workspace, bool $enabled = true): void
+{
+    DB::table('feature_flags')->updateOrInsert(
+        ['key' => 'study_rooms', 'workspace_id' => $workspace->getKey()],
+        ['uuid' => (string) Str::uuid(), 'enabled' => $enabled, 'created_at' => now(), 'updated_at' => now()],
+    );
+
+    app()->forgetInstance(Flags::class);
+}
+
+/**
+ * Open a room over the API as this student, and hand back its payload.
+ *
+ * Goes through the endpoint rather than the Action, because half of what US3's
+ * tests measure is the route: the limiter, the refusal codes and the flag are all
+ * on the way in.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function openStudyRoom(User $host, Workspace $workspace, array $overrides = []): array
+{
+    Sanctum::actingAs($host);
+    test()->asGuest();
+
+    return test()->postJson('/api/v1/study-rooms', [
+        'teacher' => $workspace->uuid,
+        'question_count' => 4,
+        'max_participants' => 10,
+        'duration_minutes' => 15,
+        'starts_in_minutes' => 0,
+        ...$overrides,
+    ])->assertCreated()->json('data');
+}
+
 /** The right option id of a question the API just served, read from the bank. */
 function adaptiveRightOption(int $questionId): int
 {

@@ -17,11 +17,9 @@ use App\Modules\Assessments\Models\Concept;
 use App\Modules\Assessments\Support\AdaptiveLadder;
 use App\Modules\Assessments\Support\AdaptiveSettings;
 use App\Modules\Assessments\Support\PracticePaper;
-use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Assessments\Support\PracticeWorkspace;
 use App\Modules\Tenancy\Support\Flags;
 use App\Shared\Actions\Action;
-use App\Shared\Contracts\EnrollmentDirectory;
-use App\Shared\Support\WorkspaceContext;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -40,7 +38,7 @@ class StartAdaptiveSession extends Action
     public const FLAG = 'adaptive_practice';
 
     public function __construct(
-        private readonly EnrollmentDirectory $enrollments,
+        private readonly PracticeWorkspace $workspaces,
         private readonly AdaptiveLadder $ladder,
         private readonly AdaptiveSettings $settings,
         private readonly PracticePaper $paper,
@@ -235,27 +233,14 @@ class StartAdaptiveSession extends Action
     /**
      * The teacher this session belongs to, or null to refuse.
      *
-     * `MistakeController::practiceWorkspace()`'s ladder, spelled the same way:
-     * context first for a reader who has one (a teacher trying their own bank),
-     * active enrolments second for a real student — who has no context at all.
-     * A named uuid that is not one of theirs refuses rather than falling through
-     * to a different teacher's bank.
+     * ⚠️ EXTRACTED TO {@see PracticeWorkspace} rather than copied into
+     * `CreateStudyRoom` beside it: both read a per-workspace feature switch off
+     * the answer, and two spellings of «which teacher» is a second place for a
+     * named uuid to fall through to a bank that is not the student's.
      */
     private function teacherWorkspace(User $student, string $teacherUuid): ?int
     {
-        $context = app(WorkspaceContext::class)->id();
-
-        $readable = $context !== null
-            ? [$context]
-            : $this->enrollments->activeWorkspaceIdsFor($student);
-
-        if ($teacherUuid !== '') {
-            $named = (int) Workspace::query()->withoutGlobalScopes()->where('uuid', $teacherUuid)->value('id');
-
-            return in_array($named, $readable, true) ? $named : null;
-        }
-
-        return count($readable) === 1 ? $readable[0] : null;
+        return $this->workspaces->resolve($student, $teacherUuid);
     }
 
     /** Zero when the uuid names nothing in this bank — never the unfiltered one. */

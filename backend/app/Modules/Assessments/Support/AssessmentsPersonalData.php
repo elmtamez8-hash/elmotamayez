@@ -9,6 +9,9 @@ use App\Modules\Assessments\Models\Answer;
 use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\AttemptItem;
 use App\Modules\Assessments\Models\ConceptMastery;
+use App\Modules\Assessments\Models\StudyRoom;
+use App\Modules\Assessments\Models\StudyRoomParticipant;
+use App\Modules\Assessments\Models\StudyRoomQuestion;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
@@ -44,7 +47,15 @@ class AssessmentsPersonalData implements PersonalDataOwner
         | module is invisible to it. The category row, the export, the erasure and
         | the expiry all have to be added in the same change, by hand.
         */
-        return ['exam_attempt', 'exam_answer', 'adaptive_session', 'concept_mastery'];
+        /*
+        | ⚠️ AND US3'S TWO ARE HERE FOR THE SAME REASON, with `study_room_questions`
+        | deliberately absent: it names nobody, so it has no category and is
+        | deleted with its ROOM — the `attempt_items` shape exactly.
+        */
+        return [
+            'exam_attempt', 'exam_answer', 'adaptive_session', 'concept_mastery',
+            'study_room', 'study_room_participation',
+        ];
     }
 
     /**
@@ -185,6 +196,58 @@ class AssessmentsPersonalData implements PersonalDataOwner
             ],
             column: 'concept_masteries.id',
         );
+
+        /*
+        | Spec 012 · US3. The room this person OPENED — the concept they chose,
+        | the hour they set, how many questions it held. The questions themselves
+        | are not exported here: they are the teacher's bank, and the ones this
+        | person actually answered are already above under `exam_answer`, with the
+        | wording they were shown.
+        */
+        yield from ExportWalk::keyed(
+            'study_room',
+            StudyRoom::query()
+                ->withoutWorkspaceScope()
+                ->leftJoin('concepts', 'concepts.id', '=', 'study_rooms.concept_id')
+                ->where('study_rooms.host_user_id', $userId)
+                ->select(['study_rooms.*', 'concepts.name as concept_name']),
+            fn (StudyRoom $room): array => [
+                'uuid' => $room->uuid,
+                'concept' => $room->getAttribute('concept_name'),
+                'difficulty' => $room->getAttribute('difficulty'),
+                'question_count' => $room->question_count,
+                'max_participants' => $room->max_participants,
+                'duration_minutes' => $room->duration_minutes,
+                'starts_at' => ExportWalk::at($room->starts_at),
+                'ends_at' => ExportWalk::at($room->ends_at),
+            ],
+            column: 'study_rooms.id',
+        );
+
+        /*
+        | ⚠️ AND THE OTHER PARTICIPANTS' NAMES AND SCORES ARE NOT IN IT. A board is
+        | shown inside a room that lasts fifteen minutes; exporting it hands one
+        | person a permanent record of what their classmates scored, which is
+        | somebody else's data reached through a request about themselves.
+        */
+        yield from ExportWalk::keyed(
+            'study_room_participation',
+            StudyRoomParticipant::query()
+                ->withoutWorkspaceScope()
+                ->leftJoin('study_rooms', 'study_rooms.id', '=', 'study_room_participants.study_room_id')
+                ->where('study_room_participants.user_id', $userId)
+                ->select(['study_room_participants.*', 'study_rooms.uuid as room_uuid', 'study_rooms.question_count as room_question_count']),
+            fn (StudyRoomParticipant $participant): array => [
+                'uuid' => $participant->uuid,
+                'room_uuid' => $participant->getAttribute('room_uuid'),
+                'score' => $participant->score,
+                'answered' => $participant->answered_count,
+                'question_count' => $participant->getAttribute('room_question_count'),
+                'joined_at' => ExportWalk::at($participant->joined_at),
+                'finished_at' => ExportWalk::at($participant->finished_at),
+            ],
+            column: 'study_room_participants.id',
+        );
     }
 
     /**
@@ -220,10 +283,74 @@ class AssessmentsPersonalData implements PersonalDataOwner
         | down. `concept_masteries` stands alone and is deleted for tidiness of
         | ordering, not necessity.
         */
-        $adaptive = AdaptiveSession::query()
+        /*
+        | ⚠️ US3'S THREE TABLES GO FIRST, CHILDREN BEFORE PARENTS, AND ONE OF THE
+        | CHILDREN IS NOT THIS PERSON'S. `study_room_questions` names nobody at
+        | all — it is reachable only through its room id — so deleting the rooms
+        | first strands every frozen snapshot behind an id nothing resolves, the
+        | `attempt_items` shape exactly. And erasing a HOST removes rooms that
+        | OTHER people's participation rows point at, so those go too: not because
+        | they are this person's data, but because leaving them is leaving rows
+        | that name a room which no longer exists.
+        |
+        | The participants' own attempts are not touched here — they belong to
+        | their owners and expire under `exam_attempt` on their own clock.
+        */
+        $roomIds = StudyRoom::query()
+            ->withoutWorkspaceScope()
+            ->where('host_user_id', $userId)
+            ->limit($limit)
+            ->pluck('id')
+            ->all();
+
+        $rooms = 0;
+
+        if ($roomIds !== []) {
+            $rooms = StudyRoomQuestion::query()
+                ->withoutWorkspaceScope()
+                ->whereIn('study_room_id', $roomIds)
+                ->limit($limit)
+                ->delete();
+
+            if ($rooms >= $limit) {
+                return $rooms;
+            }
+
+            $rooms += StudyRoomParticipant::query()
+                ->withoutWorkspaceScope()
+                ->whereIn('study_room_id', $roomIds)
+                ->limit($limit - $rooms)
+                ->delete();
+
+            if ($rooms >= $limit) {
+                return $rooms;
+            }
+
+            $rooms += StudyRoom::query()
+                ->withoutWorkspaceScope()
+                ->whereIn('id', $roomIds)
+                ->delete();
+
+            if ($rooms >= $limit) {
+                return $rooms;
+            }
+        }
+
+        // Their participation in OTHER people's rooms, which those rooms outlive.
+        $rooms += StudyRoomParticipant::query()
+            ->withoutWorkspaceScope()
+            ->where('user_id', $userId)
+            ->limit($limit - $rooms)
+            ->delete();
+
+        if ($rooms >= $limit) {
+            return $rooms;
+        }
+
+        $adaptive = $rooms + AdaptiveSession::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $userId)
-            ->limit($limit)
+            ->limit($limit - $rooms)
             ->delete();
 
         if ($adaptive >= $limit) {
@@ -322,6 +449,68 @@ class AssessmentsPersonalData implements PersonalDataOwner
             }
 
             return $sessions->limit($limit)->delete();
+        }
+
+        if ($category === 'study_room') {
+            /*
+            | ⚠️ THE FROZEN PAPER AND THE PARTICIPATIONS GO WITH THE ROOM, AND
+            | THAT IS NOT THIS CATEGORY REACHING INTO ANOTHER'S. Both hang off the
+            | room id and neither can outlive it: `study_room_questions` names
+            | nobody and has no category of its own, and a participation row
+            | pointing at a deleted room is a row that resolves to nothing. The
+            | ANSWERS underneath expire separately under `exam_answer`, on their
+            | own clock, exactly as `exam_attempt`'s walk leaves them to.
+            */
+            $rooms = StudyRoom::query()
+                ->withoutWorkspaceScope()
+                ->where('created_at', '<', $cutoff);
+
+            if ($exemptUserIds !== []) {
+                $rooms->whereNotIn('host_user_id', $exemptUserIds);
+            }
+
+            $roomIds = $rooms->limit($limit)->pluck('id')->all();
+
+            if ($roomIds === []) {
+                return 0;
+            }
+
+            $removed = StudyRoomQuestion::query()
+                ->withoutWorkspaceScope()
+                ->whereIn('study_room_id', $roomIds)
+                ->limit($limit)
+                ->delete();
+
+            if ($removed >= $limit) {
+                return $removed;
+            }
+
+            $removed += StudyRoomParticipant::query()
+                ->withoutWorkspaceScope()
+                ->whereIn('study_room_id', $roomIds)
+                ->limit($limit - $removed)
+                ->delete();
+
+            if ($removed >= $limit) {
+                return $removed;
+            }
+
+            return $removed + StudyRoom::query()
+                ->withoutWorkspaceScope()
+                ->whereIn('id', $roomIds)
+                ->delete();
+        }
+
+        if ($category === 'study_room_participation') {
+            $participants = StudyRoomParticipant::query()
+                ->withoutWorkspaceScope()
+                ->where('created_at', '<', $cutoff);
+
+            if ($exemptUserIds !== []) {
+                $participants->whereNotIn('user_id', $exemptUserIds);
+            }
+
+            return $participants->limit($limit)->delete();
         }
 
         if ($category === 'concept_mastery') {

@@ -31,6 +31,7 @@ declare(strict_types=1);
 */
 
 use App\Models\User;
+use App\Modules\Assessments\Support\StudyRoomAccess;
 use App\Modules\Community\Models\Conversation;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Gate;
@@ -99,4 +100,42 @@ Broadcast::channel('chat-presence.{uuid}', function (User $user, string $uuid): 
     // everyone else in the room, and a presence member list is the easiest place
     // in a chat product to leak a contact detail without noticing.
     return ['uuid' => (string) $user->uuid, 'name' => $user->name];
+});
+
+/*
+| The live scoreboard of one study room (spec 012 · US3 · FR-014).
+|
+| ⚠️ A PRIVATE CHANNEL WITH ITS OWN NAME, AND NOT A PRESENCE ONE. `config/reverb.php`
+| sets `accept_client_events_from => 'members'`, and the block above records the
+| consequence in its own words: a whisper is REFUSED on a private channel and
+| ACCEPTED on a presence one. A presence channel here would open an unmoderated
+| direct chat between children inside a study room — no `hidden_at`, no
+| `ConversationPolicy`, no ban check, no `chat.moderate`, and nothing anywhere
+| that would even record it. And there is nothing a member list would add: the
+| BOARD is the member list.
+|
+| ⚠️ THE GUARD IS A PARTICIPATION ROW, NOT ELIGIBILITY. «May join» and «is inside»
+| are two questions: on the first, any eligible student holding the invite uuid
+| subscribes and reads every name and score in the room without joining it and
+| without appearing to anybody.
+|
+| ⚠️ AND IT ASKS `StudyRoomAccess`, THE SAME CLASS `JoinStudyRoom` ASKS. Two
+| conditions written side by side put one answer on the screen and another at the
+| door — the defect this repository has already paid for with `BookingEligibility`
+| and `ListLeaderboardScopes`.
+|
+| ⚠️ AND THE ROOM IS RESOLVED WITHOUT THE WORKSPACE SCOPE, for the reason written
+| above `Conversation`: a student is a member of no workspace, so the scope adds
+| no condition and leaning on it is leaning on nothing.
+|
+| ⚠️ THE PAYLOAD ON THIS CHANNEL CARRIES DATA — a recorded departure from the
+| «identifier only» rule, justified in `plan.md › Complexity Tracking` by four
+| conditions, and it stops being justified if any of them stops holding. See
+| `StudyRoomBoardUpdated`.
+*/
+Broadcast::channel('study-room-board.{uuid}', function (User $user, string $uuid): bool {
+    $access = app(StudyRoomAccess::class);
+    $room = $access->room($uuid);
+
+    return $room !== null && $access->participant($user, $room) !== null;
 });

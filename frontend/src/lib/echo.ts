@@ -146,10 +146,17 @@ async function create(): Promise<EchoClient | null> {
  * message body on purpose (see `MessagePosted`), so the handler's job is to go
  * and fetch through the authenticated route.
  */
-export async function listen(
+/*
+| ⚠️ THE TYPE PARAMETER HAS A DEFAULT, so no existing caller changes. Spec 012's
+| study-room board is the one channel in the product whose frame carries data
+| rather than an identifier — a recorded departure with four conditions behind it
+| (`StudyRoomBoardUpdated`) — and widening the payload type is all this transport
+| needs to know about it. Everything below is unchanged and stays unchanged.
+*/
+export async function listen<T = { message_uuid: string; conversation_uuid: string }>(
   channel: string,
   event: string,
-  handler: (payload: { message_uuid: string; conversation_uuid: string }) => void,
+  handler: (payload: T) => void,
 ): Promise<() => void> {
   const connection = await echo();
 
@@ -171,7 +178,7 @@ export async function listen(
    * one of the two listeners on it had already been unbound — so the sidebar sat
    * still while the notification bell beside it updated from the same frame.
    */
-  const bound = (payload: { message_uuid: string; conversation_uuid: string }) => handler(payload);
+  const bound = (payload: T) => handler(payload);
 
   connection.private(channel).listen(`.${event}`, bound);
   holders.set(channel, (holders.get(channel) ?? 0) + 1);

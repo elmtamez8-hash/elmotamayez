@@ -32,21 +32,36 @@ class AdaptiveSeal
      */
     public function seal(AdaptiveSession $session): void
     {
+        $this->sealAttempt((int) $session->attempt_id);
+    }
+
+    /**
+     * The same seal, addressed by attempt id — the FOURTH ending.
+     *
+     * Spec 012's study room finishes a paper too, and the docblock's argument
+     * applies to it word for word: a room paper left `in_progress` reads as still
+     * open to `EloquentStudentGradeDirectory` and to the mistake notebook,
+     * depending only on which surface the student happened to finish it from. The
+     * session-shaped signature above is kept because that is what its three
+     * callers hold.
+     */
+    public function sealAttempt(int $attemptId): void
+    {
         $earned = (float) Answer::query()
             ->withoutWorkspaceScope()
-            ->where('attempt_id', $session->attempt_id)
+            ->where('attempt_id', $attemptId)
             ->sum('points');
 
         // The denominator is what was SERVED, not the whole bank: the paper here
         // is exactly as long as the student made it.
         $total = (float) AttemptItem::query()
             ->withoutWorkspaceScope()
-            ->where('attempt_id', $session->attempt_id)
+            ->where('attempt_id', $attemptId)
             ->sum('points');
 
         Attempt::query()
             ->withoutWorkspaceScope()
-            ->whereKey($session->attempt_id)
+            ->whereKey($attemptId)
             ->update([
                 'status' => Attempt::STATUS_GRADED,
                 'score' => round(($earned / max($total, 1.0)) * 100, 2),

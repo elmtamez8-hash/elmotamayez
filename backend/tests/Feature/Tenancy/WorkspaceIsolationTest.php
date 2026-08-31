@@ -18,6 +18,9 @@ use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionImport;
 use App\Modules\Assessments\Models\QuestionStat;
 use App\Modules\Assessments\Models\RubricCriterion;
+use App\Modules\Assessments\Models\StudyRoom;
+use App\Modules\Assessments\Models\StudyRoomParticipant;
+use App\Modules\Assessments\Models\StudyRoomQuestion;
 use App\Modules\Assessments\Models\Submission;
 use App\Modules\Community\Models\Announcement;
 use App\Modules\Community\Models\AssistantAssignment;
@@ -649,6 +652,16 @@ describe('question bank models are workspace-scoped', function (): void {
             | one — no membership, no `last_workspace_id`, no context.
             */
             AdaptiveSession::class, ConceptMastery::class,
+            /*
+            | Spec 012's US3, and all three are BRIDGES for the same reason: the
+            | questions are the teacher's, the students are the platform's.
+            |
+            | ⚠️ AND THE SAME WEAKNESS APPLIES — the trait guards the teacher's
+            | side and nothing on the path a student takes, because the scope adds
+            | no condition for a null context. `StudyRoomAccess` is the real
+            | guard, measured in `StudyRoomEligibilityTest`.
+            */
+            StudyRoom::class, StudyRoomQuestion::class, StudyRoomParticipant::class,
         ];
 
         foreach ($models as $model) {

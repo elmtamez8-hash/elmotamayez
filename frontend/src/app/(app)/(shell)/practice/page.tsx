@@ -295,6 +295,28 @@ export default function PracticePage() {
         </span>
       </Link>
 
+      {/*
+        ⚠️ THE ONLY WAY IN. `/study-rooms` is reachable from no navigation entry —
+        it is a student surface and the shell's nav is short on purpose — so
+        without this link the whole of US3 is a screen nobody can find. Drawn
+        unconditionally for the same reason the one above it is: the target
+        explains itself when no teacher has switched the feature on, which is a
+        sentence rather than a dead end, and asking the API here would cost a
+        request on every visit to say what is one tap away.
+      */}
+      <Link
+        href="/study-rooms"
+        className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-ink transition-colors hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        <PracticeIcon className="h-5 w-5 shrink-0 text-primary-ink" />
+        <span>
+          <span className="font-semibold">أو ذاكِرْ مع أصدقائك.</span>{" "}
+          <span className="text-ink-muted">
+            غرفةٌ بمجموعةِ أسئلةٍ واحدةٍ تحلّونها في وقتٍ واحد، ولوحةُ نتائجَ لحظيّة.
+          </span>
+        </span>
+      </Link>
+
       {hasStanding && (
         <Link
           href="/mistakes"

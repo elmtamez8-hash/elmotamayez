@@ -7,6 +7,7 @@ namespace App\Modules\Gamification;
 use App\Modules\Assessments\Events\AttemptFinalized;
 use App\Modules\Assessments\Events\ConceptMastered;
 use App\Modules\Assessments\Events\MistakeResolved;
+use App\Modules\Assessments\Events\StudyRoomFinished;
 use App\Modules\Assessments\Events\SubmissionGraded;
 use App\Modules\Community\Events\HelpfulAnswerMarked;
 use App\Modules\Gamification\Listeners\AwardOnAttemptFinalized;
@@ -15,6 +16,7 @@ use App\Modules\Gamification\Listeners\AwardOnConceptMastered;
 use App\Modules\Gamification\Listeners\AwardOnHelpfulAnswer;
 use App\Modules\Gamification\Listeners\AwardOnMistakeResolved;
 use App\Modules\Gamification\Listeners\AwardOnReferralCompleted;
+use App\Modules\Gamification\Listeners\AwardOnStudyRoomFinished;
 use App\Modules\Gamification\Listeners\AwardOnSubmissionGraded;
 use App\Modules\Gamification\Listeners\ReverseOnAttendanceOverridden;
 use App\Modules\Gamification\Listeners\ReverseOnReferralReversed;
@@ -132,5 +134,6 @@ class GamificationServiceProvider extends Module
         | two tabs finishing together produce one award and not two.
         */
         Event::listen(ConceptMastered::class, AwardOnConceptMastered::class);
+        Event::listen(StudyRoomFinished::class, AwardOnStudyRoomFinished::class);
     }
 }
