@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-import { PLATFORM_NAME } from "@/lib/platform";
+import { platformName } from "@/lib/platform";
 
 /**
  * The installed application (spec 012 · US2 · FR-011).
@@ -15,16 +15,22 @@ import { PLATFORM_NAME } from "@/lib/platform";
  * ⚠️ AND THIS IS `app/manifest.ts`, NOT `public/manifest.json`. Next injects the
  * `<link rel="manifest">` itself for the file convention, so a hand-written tag
  * plus a static file is a second copy that goes stale the day the brand name
- * moves — and `PLATFORM_NAME` here is the same constant the header spells.
+ * moves — and the name here is read from the same settings row the header spells.
+ *
+ * ⚠️ AND IT IS `async`. The name is a `platform_settings` row now, so a manifest
+ * built from a compile-time constant would keep announcing the old name to the
+ * launcher and the splash screen long after the site itself had changed.
  *
  * `start_url` is `/dashboard` rather than `/`: somebody who installed the app
  * has an account. `/` is the marketplace landing page, which is a sales pitch to
  * a person who has already bought.
  */
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const name = await platformName();
+
   return {
-    name: PLATFORM_NAME,
-    short_name: PLATFORM_NAME,
+    name,
+    short_name: name,
     description: "منصّة تعليمية: دروسك وحصصك واختباراتك في مكان واحد.",
     lang: "ar",
     dir: "rtl",

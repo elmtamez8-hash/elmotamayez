@@ -11,7 +11,7 @@ import {
 } from "@/components/icons";
 import { FaqAccordion } from "@/components/marketplace/FaqAccordion";
 import { PageBanner } from "@/components/ui/PageBanner";
-import { PLATFORM_NAME } from "@/lib/platform";
+import { platformName } from "@/lib/platform";
 
 export const metadata: Metadata = {
   title: "الأسعار",
@@ -117,14 +117,16 @@ const FAQ = [
   },
 ];
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const name = await platformName();
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <PageBanner
         icon={TagIcon}
         image="/marketplace/banner-pricing.webp"
         title="تدفع عن الحصة التي حدثت"
-        description={`لا اشتراك، ولا رسوم تسجيل، ولا عمولة تظهر عند الدفع. على ${PLATFORM_NAME} تشتري رصيد حصص بإجمالٍ واحد معلن، وتستهلكه حصة بحصة.`}
+        description={`لا اشتراك، ولا رسوم تسجيل، ولا عمولة تظهر عند الدفع. على ${name} تشتري رصيد حصص بإجمالٍ واحد معلن، وتستهلكه حصة بحصة.`}
       />
 
       <section aria-labelledby="how" className="mb-16">

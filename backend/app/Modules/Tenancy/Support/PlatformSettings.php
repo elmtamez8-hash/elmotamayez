@@ -32,6 +32,22 @@ final class PlatformSettings
      * @var array<string, string>
      */
     public const KEYS = [
+        /*
+        | The product's own name (spec 022 follow-up).
+        |
+        | ⚠️ IT LIVED IN `NEXT_PUBLIC_PLATFORM_NAME` AND THAT IS WHY IT WAS WRONG
+        | ON THE LIVE SITE FOR MONTHS. A `NEXT_PUBLIC_*` variable is inlined at
+        | BUILD time, so the name could only change by rebuilding — and when it
+        | was set nowhere, every title and header quietly read the placeholder
+        | «منصّتي» with nothing failing. A row here is read at RUN time, edited
+        | from the panel, and falls back to the real name rather than a
+        | placeholder.
+        |
+        | It is the ONE setting in this list a visitor can see, which is why it is
+        | also the one with a public endpoint — an allowlist of a single field, so
+        | the device limits and the billing knobs beside it stay where they are.
+        */
+        'platform.name' => 'platform.name',
         'auth.device_limits' => 'media.device_limits',
         'auth.two_factor_grace_days' => 'media.two_factor_grace_days',
         'media.max_size_bytes' => 'media.max_size_bytes',

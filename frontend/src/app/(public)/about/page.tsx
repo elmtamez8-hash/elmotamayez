@@ -8,17 +8,21 @@ import {
   SecureChannelIcon,
 } from "@/components/icons";
 import { PageBanner } from "@/components/ui/PageBanner";
-import { PLATFORM_NAME } from "@/lib/platform";
+import { platformName } from "@/lib/platform";
 import {
   TrustFactorBars,
   type TrustFactor,
 } from "@/components/marketplace/TrustFactorBars";
 
-export const metadata: Metadata = {
-  title: "عن المنصة",
-  description:
-    `${PLATFORM_NAME} منصة عربية تنطلق من قطر تربط الطلاب وأولياء الأمور بمدرّسين يمرّون بمراجعة أكاديمية، مع درجة ثقة شفّافة لكل مدرّس.`,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await platformName();
+
+  return {
+    title: "عن المنصة",
+    description:
+      `${name} منصة عربية تنطلق من قطر تربط الطلاب وأولياء الأمور بمدرّسين يمرّون بمراجعة أكاديمية، مع درجة ثقة شفّافة لكل مدرّس.`,
+  };
+}
 
 /**
  * Everything on this page describes behaviour the platform actually has: the
@@ -71,7 +75,9 @@ const TRUST_FACTORS: TrustFactor[] = [
   { label: "خصم الشكاوى المؤكدة", weight: -20, note: "حتى" },
 ];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const name = await platformName();
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       {/* Doha's West Bay, not a generic classroom. «منصة عربية تنطلق من قطر» is
@@ -80,7 +86,7 @@ export default function AboutPage() {
       <PageBanner
         icon={InfoIcon}
         image="/marketplace/banner-about.webp"
-        title={`عن ${PLATFORM_NAME}`}
+        title={`عن ${name}`}
         description="منصة عربية تنطلق من قطر وتخدم العالم العربي. نربط الطلاب وأولياء الأمور بمدرّسين لحصص فردية وجماعية، مباشرة ومسجّلة — والفارق الذي نراهن عليه هو أنك تعرف عن المدرّس ما يكفي قبل أن تحجز، لا بعدها."
       />
 

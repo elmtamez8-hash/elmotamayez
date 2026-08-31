@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import { ParentSignupForm } from "@/components/marketplace/ParentSignupForm";
-import { PLATFORM_NAME } from "@/lib/platform";
+import { platformName } from "@/lib/platform";
 
-export const metadata: Metadata = {
-  title: `تسجيل وليّ أمر — ${PLATFORM_NAME}`,
-  description:
-    "أنشئ حساب وليّ أمر لمتابعة حصص أبنائك وتقاريرهم الأسبوعية واختيار المدرّس المناسب لهم.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await platformName();
+
+  return {
+    title: `تسجيل وليّ أمر — ${name}`,
+    description:
+      "أنشئ حساب وليّ أمر لمتابعة حصص أبنائك وتقاريرهم الأسبوعية واختيار المدرّس المناسب لهم.",
+  };
+}
 
 export default function ParentSignupPage() {
   return (

@@ -3,7 +3,8 @@
 import { CloseIcon, MenuIcon } from "@/components/icons";
 import Link from "next/link";
 import { useState } from "react";
-import { PLATFORM_NAME } from "@/lib/platform";
+import { usePlatformName } from "@/lib/platform-context";
+import { BrandMarkDecorative } from "@/components/ui/BrandMark";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { panelPathFor, useAuth } from "@/lib/auth-context";
@@ -30,6 +31,7 @@ export function SiteHeader() {
    | happens once the token in localStorage has been exchanged for a profile.
    */
   const { user } = useAuth();
+  const platform = usePlatformName();
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur">
@@ -37,8 +39,8 @@ export function SiteHeader() {
         {/* The mark carries the name, so the name is not repeated beside it —
             a wordmark plus its own text set twice is the tell of a logo nobody
             trusts to be legible. The accessible name still says it. */}
-        <Link href="/" aria-label={PLATFORM_NAME} className="shrink-0">
-          <span className="wordmark h-10" aria-hidden="true" />
+        <Link href="/" aria-label={platform} className="shrink-0">
+          <BrandMarkDecorative size="lg" />
         </Link>
 
         <nav aria-label="التنقّل الرئيسي" className="hidden flex-1 lg:block">

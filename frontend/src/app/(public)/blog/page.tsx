@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { publicApi, type ArticleCard } from "@/lib/public-api";
 import { SITE_URL, siteUrl } from "@/lib/site";
-import { PLATFORM_NAME } from "@/lib/platform";
+import { platformName } from "@/lib/platform";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -13,19 +13,23 @@ const TITLE = "المدوّنة";
 const DESCRIPTION =
   "مقالات يكتبها مدرّسو المنصّة: خطط مراجعة، شرح مفاهيم، ونصائح للطلاب وأولياء الأمور.";
 
-export const metadata: Metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
-  alternates: { canonical: siteUrl("/blog") },
-  openGraph: {
-    title: `${TITLE} | ${PLATFORM_NAME}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await platformName();
+
+  return {
+    title: TITLE,
     description: DESCRIPTION,
-    url: siteUrl("/blog"),
-    type: "website",
-    locale: "ar_QA",
-  },
-  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
-};
+    alternates: { canonical: siteUrl("/blog") },
+    openGraph: {
+      title: `${TITLE} | ${name}`,
+      description: DESCRIPTION,
+      url: siteUrl("/blog"),
+      type: "website",
+      locale: "ar_QA",
+    },
+    twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
+  };
+}
 
 // Matches the marketplace's own TTL, and the article page's. A blog index that
 // revalidates on a different clock from the sitemap shows a crawler two
@@ -61,7 +65,7 @@ export default async function BlogIndexPage({
         data={{
           "@context": "https://schema.org",
           "@type": "Blog",
-          name: `${TITLE} | ${PLATFORM_NAME}`,
+          name: `${TITLE} | ${await platformName()}`,
           description: DESCRIPTION,
           url: siteUrl("/blog"),
           inLanguage: "ar",

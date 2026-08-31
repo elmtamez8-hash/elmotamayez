@@ -2,14 +2,18 @@ import type { Metadata } from "next";
 import { publicApi } from "@/lib/public-api";
 import { AddChildForm } from "@/components/marketplace/AddChildForm";
 import { ErrorState } from "@/components/ui/states/ErrorState";
-import { PLATFORM_NAME } from "@/lib/platform";
+import { platformName } from "@/lib/platform";
 
-export const metadata: Metadata = {
-  title: `إضافة طفل — ${PLATFORM_NAME}`,
-  // Only reachable with a session, and only meaningful to the parent who just
-  // signed up. Nothing here belongs in a search result.
-  robots: { index: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await platformName();
+
+  return {
+    title: `إضافة طفل — ${name}`,
+    // Only reachable with a session, and only meaningful to the parent who just
+    // signed up. Nothing here belongs in a search result.
+    robots: { index: false },
+  };
+}
 
 /*
   ⚠️ RENDERED PER REQUEST, NEVER PRERENDERED — AND IT TOOK DOWN A WHOLE DEPLOY.

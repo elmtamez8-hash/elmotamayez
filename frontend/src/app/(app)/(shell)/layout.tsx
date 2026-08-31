@@ -4,7 +4,8 @@ import { useAuth } from "@/lib/auth-context";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode, type ComponentType } from "react";
 import Link from "next/link";
-import { PLATFORM_NAME } from "@/lib/platform";
+import { usePlatformName } from "@/lib/platform-context";
+import { BrandMarkDecorative } from "@/components/ui/BrandMark";
 import { Alert } from "@/components/ui/Alert";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationBell } from "@/components/app/NotificationBell";
@@ -371,6 +372,9 @@ const NAV_COLLAPSED_KEY = "nav:collapsed";
 
 export default function ShellLayout({ children }: { children: ReactNode }) {
   const { user, loading, logout } = useAuth();
+  // The product's name, for the mark's accessible label and its tooltip. The
+  // logo itself carries no text, so this is the only thing announced.
+  const platform = usePlatformName();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -565,7 +569,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
         <div className={`flex h-16 shrink-0 items-center px-6 ${collapsed ? "md:justify-center md:px-0" : ""}`}>
           <Link
             href="/dashboard"
-            title={PLATFORM_NAME}
+            title={platform}
             /*
               ⚠️ THE ACCESSIBLE NAME IS SET AT EVERY WIDTH NOW, NOT ONLY ON THE
               RAIL. The mark is a masked background on an empty span, so there is
@@ -573,7 +577,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
               link would be announced as «رابط» and nothing else. It used to be
               conditional because the expanded state carried the word itself.
             */
-            aria-label={PLATFORM_NAME}
+            aria-label={platform}
             className="flex items-center rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             {/*
@@ -585,7 +589,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
               and still fits the 4rem rail: the old first-letter fallback for the
               collapsed state has nothing left to do.
             */}
-            <span className={`wordmark ${collapsed ? "h-8 md:h-9" : "h-9"}`} aria-hidden="true" />
+            <BrandMarkDecorative size={collapsed ? "sm" : "md"} />
           </Link>
         </div>
         {/* The one thing that scrolls. Everything else keeps its height, so a

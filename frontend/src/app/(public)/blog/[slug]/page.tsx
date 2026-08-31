@@ -7,7 +7,7 @@ import {
   type ArticleDetail,
 } from "@/lib/public-api";
 import { SITE_URL, siteUrl } from "@/lib/site";
-import { PLATFORM_NAME } from "@/lib/platform";
+import { platformName } from "@/lib/platform";
 import { JsonLd, absoluteHttpUrl } from "@/components/seo/JsonLd";
 import { Badge } from "@/components/ui/Badge";
 import { CourseCard } from "@/components/marketplace/CourseCard";
@@ -38,6 +38,7 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { slug } = await params;
+  const name = await platformName();
 
   try {
     const article = await loadArticle(slug);
@@ -45,7 +46,7 @@ export async function generateMetadata({
     const description =
       article.seo_description ??
       article.excerpt ??
-      `مقال على مدوّنة ${PLATFORM_NAME}.`;
+      `مقال على مدوّنة ${name}.`;
     const url = `${SITE_URL}/blog/${encodeURIComponent(article.slug)}`;
 
     return {
@@ -66,7 +67,7 @@ export async function generateMetadata({
         url,
         type: "article",
         locale: "ar_QA",
-        siteName: PLATFORM_NAME,
+        siteName: name,
         publishedTime: article.published_at,
         modifiedTime: article.updated_at,
       },
@@ -108,7 +109,7 @@ export default async function ArticlePage({
            * block below carries from the marketplace — where it is published by
            * decision rather than inherited into a structured-data block.
            */
-          publisher: { "@type": "Organization", name: PLATFORM_NAME, url: SITE_URL },
+          publisher: { "@type": "Organization", name: await platformName(), url: SITE_URL },
         }}
       />
 

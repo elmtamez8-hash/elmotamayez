@@ -3,7 +3,8 @@ import { Cairo } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth-context";
-import { PLATFORM_NAME } from "@/lib/platform";
+import { PlatformProvider } from "@/lib/platform-context";
+import { platformName } from "@/lib/platform";
 
 // Self-hosted by next/font — no runtime request to Google, which would otherwise
 // block first paint on the very metric SC-007 measures.
@@ -14,14 +15,27 @@ const cairo = Cairo({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: `${PLATFORM_NAME} — دروس خصوصية مباشرة ومسجّلة`,
-    template: `%s | ${PLATFORM_NAME}`,
-  },
-  description:
-    "منصة عربية تربط الطلاب بأفضل المدرّسين لحصص خصوصية فردية وجماعية، مباشرة ومسجّلة، مع نظام تقييم ودرجة ثقة لكل مدرّس.",
-};
+/*
+ * ⚠️ `generateMetadata` AND NOT A CONSTANT, because the name is a row now. A
+ * `const metadata` is evaluated once when the module is loaded, so it would
+ * freeze whatever the name was at BUILD time — which is the whole defect this
+ * change exists to remove, moved one layer down.
+ *
+ * Next dedupes the fetch with the one in the layout body below, so reading it in
+ * both places costs one request.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await platformName();
+
+  return {
+    title: {
+      default: `${name} — دروس خصوصية مباشرة ومسجّلة`,
+      template: `%s | ${name}`,
+    },
+    description:
+      "منصة عربية تربط الطلاب بأفضل المدرّسين لحصص خصوصية فردية وجماعية، مباشرة ومسجّلة، مع نظام تقييم ودرجة ثقة لكل مدرّس.",
+  };
+}
 
 // Runs before paint so the saved choice wins over the OS preference without a
 // flash of the wrong theme (FR-010). It has to live in the ROOT layout, not in a
@@ -45,11 +59,20 @@ const THEME_SCRIPT = `
  * boundary by logging in. Direction, language, font and theme are declared here
  * once (FR-001, FR-002, FR-021); route groups below add only their own chrome.
  */
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  /*
+    ⚠️ ONE FETCH FOR THE WHOLE TREE. The name is read by the sidebar, the public
+    header, the footer and every wordmark's `aria-label` — all of them client
+    islands — so it is resolved once here and handed down through a context. A
+    fetch inside each of those would be one request per component per page for a
+    string that changes once a year.
+  */
+  const name = await platformName();
+
   return (
     <html lang="ar" dir="rtl" className={cairo.variable} suppressHydrationWarning>
       <head>
@@ -70,7 +93,9 @@ export default function RootLayout({
           header that still said "sign in" and offered no way into the product
           they had just been admitted to.
         */}
-        <AuthProvider>{children}</AuthProvider>
+        <PlatformProvider name={name}>
+          <AuthProvider>{children}</AuthProvider>
+        </PlatformProvider>
 
         {/*
           ⚠️ THE ROOT LAYOUT, SO ONE TOASTER SERVES BOTH SHELLS. `(public)` and

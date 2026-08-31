@@ -4,11 +4,11 @@ import { Suspense, useState } from "react";
 import { homePathFor, useAuth } from "@/lib/auth-context";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { PLATFORM_NAME } from "@/lib/platform";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { sessionEndedLabel } from "@/lib/labels";
 import { Alert } from "@/components/ui/Alert";
+import { BrandMark } from "@/components/ui/BrandMark";
 import { Button } from "@/components/ui/Button";
 import { PasswordField, TextField } from "@/components/ui/Field";
 import type { User } from "@/lib/types";
@@ -64,7 +64,9 @@ function LoginForm() {
     <main id="main" className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-primary-ink">{PLATFORM_NAME}</h1>
+          {/* The mark stands where the name was written as text. It carries its own
+              accessible name, so the product is still announced. */}
+          <BrandMark size="xl" />
           <p className="mt-2 text-ink-muted">سجّل الدخول إلى حسابك</p>
         </div>
 
@@ -165,7 +167,9 @@ function TwoFactorChallenge({
     <main id="main" className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-primary-ink">{PLATFORM_NAME}</h1>
+          {/* The mark stands where the name was written as text. It carries its own
+              accessible name, so the product is still announced. */}
+          <BrandMark size="xl" />
           <p className="mt-2 text-ink-muted">
             {useRecovery
               ? "أدخل أحد رموز الاسترداد التي حفظتها"

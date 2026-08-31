@@ -15,7 +15,8 @@ import {
   XIcon,
   YouTubeIcon,
 } from "@/components/icons";
-import { PLATFORM_NAME, SUPPORT_WHATSAPP } from "@/lib/platform";
+import { platformName, SUPPORT_WHATSAPP } from "@/lib/platform";
+import { BrandMark } from "@/components/ui/BrandMark";
 
 const COLUMNS = [
   {
@@ -58,7 +59,9 @@ const SOCIAL = [
 const SOCIAL_CLASS =
   "flex h-9 w-9 items-center justify-center rounded-full border border-line transition duration-200 motion-reduce:transition-none";
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const name = await platformName();
+
   return (
     // relative + isolate: bg-dots paints on ::before at z-index -1, which needs a
     // stacking context of its own or it slides behind the page background.
@@ -66,9 +69,11 @@ export function SiteFooter() {
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2 lg:col-span-1">
-            <p className="mb-3 text-xl font-extrabold text-primary-ink">
-              {PLATFORM_NAME}
-            </p>
+            {/* The mark, where the name was set as text — the same one the
+                header and the panel paint, from the same file. */}
+            <div className="mb-3">
+              <BrandMark size="lg" />
+            </div>
             <p className="mb-5 max-w-sm text-sm leading-relaxed text-ink-muted">
               نربط الطلاب في العالم العربي بمدرّسين موثوقين، بحصص مباشرة ومسجّلة،
               ودرجة ثقة توضّح التزام كل مدرّس قبل أن تحجز.
@@ -118,7 +123,7 @@ export function SiteFooter() {
 
         <div className="mt-12 flex flex-col gap-6 border-t border-line pt-8 lg:flex-row lg:items-center lg:justify-between">
           <p className="order-3 text-sm text-ink-muted lg:order-1">
-            © {new Date().getFullYear()} {PLATFORM_NAME}. جميع الحقوق محفوظة.
+            © {new Date().getFullYear()} {name}. جميع الحقوق محفوظة.
           </p>
 
           <div className="order-1 flex flex-wrap items-center gap-2 lg:order-2">

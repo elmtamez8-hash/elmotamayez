@@ -224,4 +224,15 @@ final class PublicFieldAllowlist
 
     /** @var list<string> */
     public const STATS = ['students', 'teachers', 'sessions', 'satisfaction_rate'];
+
+    /**
+     * `GET /platform` — the product's own name, and nothing else.
+     *
+     * ⚠️ ONE FIELD, AND THE LIST IS WHAT KEEPS IT ONE. `platform_settings` holds
+     * the device limit, the grant TTL, the operating fee and the gateway's basis
+     * points; an endpoint that answered with the map would put the platform's
+     * half of the price on a public URL, and every key added to that table
+     * afterwards would join it silently.
+     */
+    public const PLATFORM_IDENTITY = ['name'];
 }

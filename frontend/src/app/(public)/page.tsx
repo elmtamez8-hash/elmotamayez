@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { publicApi, type HomePayload } from "@/lib/public-api";
-import { PLATFORM_NAME } from "@/lib/platform";
+import { platformName } from "@/lib/platform";
 import { siteUrl } from "@/lib/site";
 import { TeacherCard } from "@/components/marketplace/TeacherCard";
 import { CourseCard } from "@/components/marketplace/CourseCard";
@@ -30,24 +30,28 @@ import {
  * are: the marketplace answers at more than one host in development, and a
  * relative canonical resolves against whichever one the crawler arrived on.
  */
-export const metadata: Metadata = {
-  // `default`, not a string: the root layout's template appends «| المنصّة», and
-  // on the home page that would read as the platform name twice.
-  title: { absolute: `${PLATFORM_NAME} — مدرّسون خصوصيون بالعربية، مباشرةً ومسجّلاً` },
-  description:
-    "ابحثْ عن مدرّسٍ خصوصيٍّ لكلِّ مادّةٍ ومرحلة: حصصٌ فرديّةٌ وجماعيّةٌ مباشرة، وكورساتٌ مسجّلة، ودرجةُ ثقةٍ شفّافةٌ لكلِّ مدرّس.",
-  alternates: { canonical: siteUrl("/") },
-  openGraph: {
-    title: `${PLATFORM_NAME} — مدرّسون خصوصيون بالعربية`,
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await platformName();
+
+  return {
+    // `default`, not a string: the root layout's template appends «| المنصّة», and
+    // on the home page that would read as the platform name twice.
+    title: { absolute: `${name} — مدرّسون خصوصيون بالعربية، مباشرةً ومسجّلاً` },
     description:
-      "حصصٌ خصوصيّةٌ مباشرةٌ ومسجّلة، مع مراجعةٍ أكاديميّةٍ لكلِّ مدرّسٍ ودرجةِ ثقةٍ مبنيّةٍ على أداءٍ فعليّ.",
-    url: siteUrl("/"),
-    siteName: PLATFORM_NAME,
-    type: "website",
-    locale: "ar_QA",
-  },
-  twitter: { card: "summary_large_image" },
-};
+      "ابحثْ عن مدرّسٍ خصوصيٍّ لكلِّ مادّةٍ ومرحلة: حصصٌ فرديّةٌ وجماعيّةٌ مباشرة، وكورساتٌ مسجّلة، ودرجةُ ثقةٍ شفّافةٌ لكلِّ مدرّس.",
+    alternates: { canonical: siteUrl("/") },
+    openGraph: {
+      title: `${name} — مدرّسون خصوصيون بالعربية`,
+      description:
+        "حصصٌ خصوصيّةٌ مباشرةٌ ومسجّلة، مع مراجعةٍ أكاديميّةٍ لكلِّ مدرّسٍ ودرجةِ ثقةٍ مبنيّةٍ على أداءٍ فعليّ.",
+      url: siteUrl("/"),
+      siteName: name,
+      type: "website",
+      locale: "ar_QA",
+    },
+    twitter: { card: "summary_large_image" },
+  };
+}
 
 // Server-rendered: a crawler that runs no JavaScript must still read the teachers
 // and copy (SC-016), and client-side fetching would put first paint out of reach
@@ -124,6 +128,8 @@ function StatBar({ stats }: { stats: HomePayload["stats"] }) {
 }
 
 export default async function HomePage() {
+  const name = await platformName();
+
   let home: HomePayload;
 
   try {
@@ -363,7 +369,7 @@ export default async function HomePage() {
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
         <div className="rounded-3xl bg-primary px-6 py-12 text-center">
           <h2 className="mb-3 text-2xl font-extrabold text-white sm:text-3xl">
-            ابدأ رحلتك مع {PLATFORM_NAME} اليوم
+            ابدأ رحلتك مع {name} اليوم
           </h2>
           <p className="mx-auto mb-7 max-w-xl text-white/85">
             أنشئ حسابك مجاناً، وتصفّح المدرّسين، واحجز حصتك التجريبية الأولى.

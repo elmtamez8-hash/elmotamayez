@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { roleLabel } from "@/lib/labels";
-import { PLATFORM_NAME } from "@/lib/platform";
 import { useAuth } from "@/lib/auth-context";
 import { Alert } from "@/components/ui/Alert";
+import { BrandMark } from "@/components/ui/BrandMark";
 import { Button } from "@/components/ui/Button";
 
 interface InvitationDetails {
@@ -163,7 +163,9 @@ function Shell({ children }: { children: React.ReactNode }) {
     <main id="main" className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-primary-ink">{PLATFORM_NAME}</h1>
+          {/* The mark stands where the name was written as text. It carries its own
+              accessible name, so the product is still announced. */}
+          <BrandMark size="xl" />
         </div>
         <div className="rounded-2xl border border-line bg-surface-raised p-8">
           {children}

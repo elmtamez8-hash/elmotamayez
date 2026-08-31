@@ -67,6 +67,7 @@ class ManagePlatformSettings extends Page
         $limits = PlatformSettings::get('auth.device_limits', []);
 
         $this->form->fill([
+            'platform_name' => PlatformSettings::get('platform.name'),
             'student_device_limit' => $limits['student'] ?? 1,
             'two_factor_grace_days' => PlatformSettings::get('auth.two_factor_grace_days'),
             'max_size_bytes' => PlatformSettings::get('media.max_size_bytes'),
@@ -81,6 +82,21 @@ class ManagePlatformSettings extends Page
         return $schema
             ->components([
                 Form::make([
+                    /*
+                    | ⚠️ الاسمُ يُقرأُ وقتَ التشغيلِ من هذا الصفّ، لا من متغيّرِ
+                    | بيئةٍ يُدمَجُ وقتَ البناء. الشكلُ الأوّلُ (`NEXT_PUBLIC_PLATFORM_NAME`)
+                    | كانَ غيرَ مضبوطٍ على الخادمِ شهوراً، فقرأَ كلُّ عنوانٍ في
+                    | الموقعِ الاسمَ البديلَ «منصّتي» بلا خطأٍ في أيِّ مكان.
+                    */
+                    Section::make('هويّة المنصّة')
+                        ->description('يظهر في عنوان كل صفحة، وفي رأس اللوحة وتذييل الموقع. التغيير يسري بلا إعادة نشر.')
+                        ->schema([
+                            TextInput::make('platform_name')
+                                ->label('اسم المنصّة')
+                                ->helperText('الشعار يُرسَم من ملف العلامة، وهذا الاسم هو ما يُقرأ نصّاً — في عنوان التبويب ولقارئ الشاشة.')
+                                ->maxLength(60)
+                                ->required(),
+                        ]),
                     Section::make('الأجهزة والحسابات')
                         ->description('عدد الأجهزة لا الجلسات: جلستان على الجهاز نفسه تبقيان معاً.')
                         ->schema([
@@ -124,6 +140,8 @@ class ManagePlatformSettings extends Page
         $userId = Auth::id();
         $userId = is_int($userId) ? $userId : null;
 
+        // ⚠️ `trim`، فاسمٌ بفراغٍ في طرفِه يظهرُ في `<title>` ولا يُرى في الحقل.
+        PlatformSettings::set('platform.name', trim((string) $data['platform_name']), $userId);
         PlatformSettings::set('auth.device_limits', ['student' => (int) $data['student_device_limit']], $userId);
         PlatformSettings::set('auth.two_factor_grace_days', (int) $data['two_factor_grace_days'], $userId);
         PlatformSettings::set('media.max_size_bytes', (int) $data['max_size_bytes'], $userId);

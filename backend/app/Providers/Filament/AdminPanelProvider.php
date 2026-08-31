@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Modules\Analytics\Filament\Widgets\EnrollmentStatsWidget;
 use App\Modules\Analytics\Filament\Widgets\ExamStatsWidget;
+use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Middleware\EnsureCurrentWorkspace;
 use App\Shared\Middleware\EnsureFilamentAccess;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
@@ -70,7 +71,18 @@ class AdminPanelProvider extends PanelProvider
             | quoted a placeholder. `.env` now carries it, and this makes the
             | panel independent of whether a deployment remembers to.
             */
-            ->brandName(config('app.name') === 'Laravel' ? 'المتميز' : (string) config('app.name'))
+            /*
+            | ⚠️ A CLOSURE, AND THE CLOSURE IS THE WHOLE OF IT. `panel()` runs
+            | during application BOOT — for every artisan command, including
+            | `migrate` on a database that has no `platform_settings` table yet —
+            | so a settings read evaluated here would throw in the middle of a
+            | deploy. Filament resolves the closure per request instead.
+            |
+            | And it reads the same row the public site does: two spellings of the
+            | product's name is a panel headed one thing above a site called
+            | another.
+            */
+            ->brandName(fn (): string => (string) PlatformSettings::get('platform.name'))
             /*
             | ⚠️ THE SAME ONE-ASSET TECHNIQUE THE PUBLIC SITE USES, not a second
             | export. `wordmark-mask.png` is a silhouette: the MASK carries the
@@ -82,7 +94,24 @@ class AdminPanelProvider extends PanelProvider
             | Inline rather than a compiled theme, because a Filament theme means
             | a Vite build step in the backend for eleven lines of CSS.
             */
-            ->brandLogo(new HtmlString('<span class="mt-wordmark" role="img" aria-label="'.e((string) config('app.name')).'"></span>'))
+            /*
+            | ⚠️ A CLOSURE, AND IT USED TO READ `config('app.name')` — A SECOND
+            | SPELLING OF THE PRODUCT'S NAME. It matched by coincidence, because
+            | `APP_NAME` happened to hold the same string; the moment an operator
+            | renamed the platform from `/admin/platform-settings` the panel's own
+            | logo would have kept announcing the old name to a screen reader,
+            | with nothing on any screen to see. Found by MEASUREMENT: the row was
+            | changed and this label did not move.
+            |
+            | `HtmlString` is built INSIDE the closure for the `brandName` reason —
+            | eager construction reads the settings table at application boot,
+            | which happens for every artisan command including `migrate`.
+            */
+            ->brandLogo(fn (): HtmlString => new HtmlString(
+                '<span class="mt-wordmark" role="img" aria-label="'
+                .e((string) PlatformSettings::get('platform.name'))
+                .'"></span>'
+            ))
             ->brandLogoHeight('2.75rem')
             /*
             | ⚠️ أيقونةُ التبويب. بدونها يطلبُ المتصفّحُ `/favicon.ico` افتراضيّاً،
