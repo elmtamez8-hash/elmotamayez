@@ -29,6 +29,7 @@ import {
   LearningIcon,
   LockIcon,
   LogoutIcon,
+  SiteIcon,
   MembersIcon,
   MessagesIcon,
   MenuIcon,
@@ -564,23 +565,27 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
         <div className={`flex h-16 shrink-0 items-center px-6 ${collapsed ? "md:justify-center md:px-0" : ""}`}>
           <Link
             href="/dashboard"
-            title={collapsed ? PLATFORM_NAME : undefined}
-            /* The rail shows one letter; the accessible name stays the word, so
-               the link is never announced as «م». Set at every width when
-               collapsed — the breakpoint is a CSS fact and this is not. */
-            aria-label={collapsed ? PLATFORM_NAME : undefined}
-            className="truncate rounded text-xl font-extrabold text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            title={PLATFORM_NAME}
+            /*
+              ⚠️ THE ACCESSIBLE NAME IS SET AT EVERY WIDTH NOW, NOT ONLY ON THE
+              RAIL. The mark is a masked background on an empty span, so there is
+              no text node left for a screen reader to read — without this the
+              link would be announced as «رابط» and nothing else. It used to be
+              conditional because the expanded state carried the word itself.
+            */
+            aria-label={PLATFORM_NAME}
+            className="flex items-center rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             {/*
-              ⚠️ THE FIRST LETTER ON THE RAIL, NEVER THE NAME CLIPPED. «مدارك»
-              cut to its first two glyphs by `overflow-hidden` is a word that
-              looks broken; one letter is a mark. The full name stays in the
-              accessible name so the link is not announced as a single letter.
+              ⚠️ THE SAME MARK THE PUBLIC HEADER AND `/admin` PAINT, from one
+              asset. `.wordmark` is a `mask-image` over `background-color`, so the
+              maroon comes from the token on light and the warm white on dark —
+              one file for both themes, and nothing to keep in step with a second
+              export. Its `aspect-ratio` is 941/789, so at `h-9` it is ~43px wide
+              and still fits the 4rem rail: the old first-letter fallback for the
+              collapsed state has nothing left to do.
             */}
-            <span className={collapsed ? "md:hidden" : ""}>{PLATFORM_NAME}</span>
-            <span aria-hidden className={collapsed ? "hidden md:inline" : "hidden"}>
-              {PLATFORM_NAME.charAt(0)}
-            </span>
+            <span className={`wordmark ${collapsed ? "h-8 md:h-9" : "h-9"}`} aria-hidden="true" />
           </Link>
         </div>
         {/* The one thing that scrolls. Everything else keeps its height, so a
@@ -637,6 +642,27 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
               </p>
             </div>
           </div>
+          {/*
+            ⚠️ THE WAY BACK TO THE PUBLIC SITE, AND THERE WAS NONE. Once signed
+            in, every link in this shell points further INTO the panel — so the
+            marketplace, the teacher pages and the policies the footer links from
+            every public page were reachable only by editing the address bar. The
+            logo above goes to `/dashboard` (a signed-in person's home is their
+            own screen), which is exactly why the home page needs a link of its
+            own rather than borrowing that one.
+
+            Placed in the account block rather than in `mainNav`: everything in
+            that list is a screen of this product, and a permission-filtered list
+            is the wrong place for a link every account holds.
+          */}
+          <Link
+            href="/"
+            title={collapsed ? "الصفحة الرئيسية" : undefined}
+            className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-line py-2 text-sm text-ink transition-colors hover:bg-primary-soft hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <SiteIcon />
+            <span className={collapsed ? "md:sr-only" : ""}>الصفحة الرئيسية</span>
+          </Link>
           <button
             type="button"
             onClick={() => {

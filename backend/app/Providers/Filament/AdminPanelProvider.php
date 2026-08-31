@@ -11,6 +11,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationItem;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -160,6 +161,28 @@ class AdminPanelProvider extends PanelProvider
             |
             | وكانت القائمةُ قبلَ هذا سبعةَ عشرَ بنداً مسطَّحاً بلا أيقونةٍ واحدة.
             */
+            /*
+            | ⚠️ الطريقُ إلى الموقعِ العامّ، ولم يكن له طريقٌ من هنا. كلُّ رابطٍ في
+            | هذه اللوحةِ يقودُ إلى داخلِها والشعارُ في أعلاها يعودُ إلى `/admin`،
+            | فالصفحةُ الرئيسيّةُ للمنصّةِ لم تكن تُبلَغ إلا بتحريرِ شريطِ العنوان.
+            |
+            | ⚠️ وهي `cms.site_url` لا `url('/')`. الواجهةُ الأماميّةُ تطبيقُ Next
+            | على أصلٍ آخرَ في الإنتاج، و`APP_URL` هي الواجهةُ الخلفيّة — فمسارٌ
+            | نسبيٌّ هنا يشيرُ إلى Laravel نفسِها ويردُّ 404. القاعدةُ مكتوبةٌ في
+            | `config/cms.php` بنصِّها للسببِ نفسِه، ومتغيّرٌ ثانٍ لمضيفٍ واحدٍ
+            | قيمتانِ تختلفانِ عندَ أوّلِ نقل.
+            |
+            | و`sort(-1)` تضعُها قبلَ كلِّ مجموعة، لأنّها ليست شاشةً من شاشاتِ
+            | اللوحةِ بل مخرجاً منها؛ و`isActiveWhen` تُرجِعُ `false` دائماً حتى لا
+            | تُضيءَ كأنّها الصفحةُ المعروضة.
+            */
+            ->navigationItems([
+                NavigationItem::make('الصفحة الرئيسية')
+                    ->url((string) config('cms.site_url'), shouldOpenInNewTab: false)
+                    ->icon('heroicon-o-globe-alt')
+                    ->isActiveWhen(fn (): bool => false)
+                    ->sort(-1),
+            ])
             ->navigationGroups([
                 'المنصّة',
                 'المحتوى والتعلّم',

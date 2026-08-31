@@ -52,6 +52,7 @@ import {
   IconDiscountOff,
   IconFileText,
   IconHome,
+  IconWorld,
   IconInfinity,
   IconInfoCircle,
   IconLogout,
@@ -189,6 +190,12 @@ export const WorkspaceIcon = wrap(IconBuilding, "h-5 w-5");
 export const MembersIcon = wrap(IconUsers, "h-5 w-5");
 export const SettingsIcon = wrap(IconSettings, "h-5 w-5");
 export const LogoutIcon = wrap(IconLogout, "h-4 w-4");
+/*
+  ⚠️ NOT `HomeIcon` — that one is `/dashboard`, and it is already in the nav
+  above. A signed-in person's «home» is their own screen, so the PUBLIC site
+  needs a different glyph or the sidebar shows one icon meaning two places.
+*/
+export const SiteIcon = wrap(IconWorld, "h-4 w-4");
 export const TrashIcon = wrap(IconTrash, "h-4 w-4");
 export const BellIcon = wrap(IconBell, "h-5 w-5");
 export const FamilyIcon = wrap(IconUsersGroup, "h-5 w-5");
