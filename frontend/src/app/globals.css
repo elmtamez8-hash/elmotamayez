@@ -221,7 +221,14 @@
 }
 
 .link-underline:hover::after,
-.link-underline:focus-visible::after {
+.link-underline:focus-visible::after,
+/* ⚠️ THE ANCESTOR TOO. The span carries the rule but the LINK is the target: a
+   row is an icon plus a label inside one anchor, so with `:hover` alone the
+   underline appears over the words and not over the icon eight pixels away —
+   one control that lights up in half its own area. `.group` is Tailwind's marker
+   class and both the header and the footer already put it on the anchor. */
+.group:hover .link-underline::after,
+.group:focus-visible .link-underline::after {
   transform: scaleX(1);
 }
 

@@ -1,6 +1,15 @@
 "use client";
 
-import { CloseIcon, MenuIcon } from "@/components/icons";
+import {
+  BookIcon,
+  CloseIcon,
+  DocumentIcon,
+  HomeIcon,
+  InfoIcon,
+  MenuIcon,
+  TagIcon,
+  UsersIcon,
+} from "@/components/icons";
 import Link from "next/link";
 import { useState } from "react";
 import { usePlatformName } from "@/lib/platform-context";
@@ -9,13 +18,21 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { panelPathFor, useAuth } from "@/lib/auth-context";
 
+/**
+ * ⚠️ THE ICONS ARE THE FOOTER'S, ROUTE FOR ROUTE. Five of these six links appear
+ * in `SiteFooter` under «المنصة» carrying `UsersIcon`, `BookIcon`, `DocumentIcon`,
+ * `TagIcon` and `InfoIcon`; picking a fresh one here would give the same
+ * destination two pictures on one page, and a reader who learns a mark in the
+ * footer has to learn it again at the top. `/` is the only route with no footer
+ * row, and `HomeIcon` is what the panel's own sidebar already uses for it.
+ */
 const NAV = [
-  { href: "/", label: "الرئيسية" },
-  { href: "/teachers", label: "المدرسون" },
-  { href: "/courses", label: "الكورسات" },
-  { href: "/blog", label: "المدوّنة" },
-  { href: "/pricing", label: "الأسعار" },
-  { href: "/about", label: "عن المنصة" },
+  { href: "/", label: "الرئيسية", Icon: HomeIcon },
+  { href: "/teachers", label: "المدرسون", Icon: UsersIcon },
+  { href: "/courses", label: "الكورسات", Icon: BookIcon },
+  { href: "/blog", label: "المدوّنة", Icon: DocumentIcon },
+  { href: "/pricing", label: "الأسعار", Icon: TagIcon },
+  { href: "/about", label: "عن المنصة", Icon: InfoIcon },
 ];
 
 export function SiteHeader() {
@@ -45,13 +62,27 @@ export function SiteHeader() {
 
         <nav aria-label="التنقّل الرئيسي" className="hidden flex-1 lg:block">
           <ul className="flex items-center gap-1">
-            {NAV.map((item) => (
-              <li key={item.href}>
+            {NAV.map(({ href, label, Icon }) => (
+              <li key={href}>
+                {/*
+                 * The underline is `link-underline` — the footer's, from
+                 * `globals.css`, not a second `hover:border-b` written here. It
+                 * grows from the inline START, so it runs right-to-left in Arabic
+                 * without a branch, and it replaces the pill background that used
+                 * to fill on hover: a filled pill AND a rule under the words is
+                 * two answers to «you are pointing at this».
+                 *
+                 * The icon nudges toward the label exactly as the footer's does —
+                 * one cue that the icon and the words are one target rather than
+                 * two — and `motion-reduce:` cancels both the shift and the
+                 * transition for a reader who asked for that.
+                 */}
                 <Link
-                  href={item.href}
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-ink transition hover:bg-primary-soft hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  href={href}
+                  className="group inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-ink transition duration-200 hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
                 >
-                  {item.label}
+                  <Icon className="h-4 w-4 shrink-0 transition duration-200 group-hover:-translate-x-0.5 group-hover:text-primary-ink motion-reduce:transition-none motion-reduce:group-hover:translate-x-0 rtl:group-hover:translate-x-0.5" />
+                  <span className="link-underline">{label}</span>
                 </Link>
               </li>
             ))}
@@ -113,14 +144,19 @@ export function SiteHeader() {
       {open && (
         <nav id="mobile-nav" aria-label="التنقّل الرئيسي" className="border-t border-line lg:hidden">
           <ul className="mx-auto max-w-7xl px-4 py-2 sm:px-6">
-            {NAV.map((item) => (
-              <li key={item.href}>
+            {NAV.map(({ href, label, Icon }) => (
+              <li key={href}>
+                {/* The phone menu keeps the filled row and NOT the underline: a
+                    tap has no hover to reveal one, and a 44px row is a target the
+                    background states better than a 1.5px rule does. The icon and
+                    the weight are the same, so it reads as the same navigation. */}
                 <Link
-                  href={item.href}
+                  href={href}
                   onClick={() => setOpen(false)}
-                  className="block rounded-lg px-3 py-3 text-sm font-medium text-ink hover:bg-primary-soft"
+                  className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-bold text-ink hover:bg-primary-soft"
                 >
-                  {item.label}
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {label}
                 </Link>
               </li>
             ))}
