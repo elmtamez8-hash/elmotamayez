@@ -52,7 +52,21 @@ jobs:
       - name: Install
         working-directory: backend
         # `--no-dev` ممنوعٌ هنا: Pest وPHPStan وPint كلُّها في require-dev.
-        run: composer install --no-interaction --prefer-dist --no-progress
+        #
+        # ⚠️ والمحاولةُ الثانيةُ مصدرٌ آخرُ لا إعادةُ محاولةٍ — وهي تحمي ما لا
+        # تحميه الخطوةُ التي فوقها. `Cache Composer` هو ما أنجى هذا الملفَّ يومَ
+        # سقطَ الإنتاجُ ثلاثَ مرّاتٍ (٢٠٢٦-٠٨-٣١): ثلاثُ حزمٍ من ١٧٣ تردُّ
+        # `HTTP 400` على أرشيفِها عندَ GitHub، والذّاكرةُ أعادتِ الحزمَ بلا
+        # تنزيلٍ فمرّت خضراء. **خضرةُ التخزينِ ليست دليلاً على أنَّ الحزمةَ
+        # قابلةٌ للتنزيل**، وأوّلُ ذاكرةٍ باردةٍ — ترقيةُ PHP، تغيّرُ الـlock،
+        # انتهاءُ صلاحيةِ المفتاح — تُوقِفُ كلَّ شيء.
+        #
+        # ⚠️ وحذفُ `--prefer-dist` وحدَهُ لا يُغيّرُ شيئاً: `composer.json` يحملُ
+        # `preferred-install: "dist"`، فالسلوكُ واحدٌ بالعَلَمِ وبدونِه. الذي
+        # يحمي هو المسارُ الثاني، وهو نفسُ ما في `docker/backend.Dockerfile`.
+        run: |
+          composer install --no-interaction --no-progress \
+            || composer install --no-interaction --no-progress --prefer-source
 
       # ⚠️ لا `.env` على عامِلٍ نظيف، و`phpunit.xml` لا يضبطُ `APP_KEY` — فينفجرُ
       # `MissingAppKeyException` في أوّلِ اختبارٍ يلمسُ التشفيرَ أو الجلسة. سقطَ ١٨
