@@ -471,3 +471,28 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   display: none;
   visibility: hidden;
 }
+
+/* Chrome paints an autofilled field with its OWN background and text colour —
+   `#e8f0fe`, decided by the browser and unreachable through `background-color`,
+   which is why the token on the control does not win. In the dark theme that
+   turns a field light blue while everything drawn over it keeps its dark-theme
+   ink: `PasswordField`'s eye is `text-ink-muted` at rest and `text-ink` on hover,
+   and `--color-ink` there is #f5efe9 — white, on a pale blue field, invisible
+   exactly when the pointer is on it.
+
+   `-webkit-box-shadow … inset` is the one way to repaint it: the shadow is drawn
+   above the browser's fill where `background-color` is not. `-webkit-text-fill-color`
+   is the matching half for the value itself, and `caret-color` for the cursor.
+
+   It sits here rather than on `PasswordField` because autofill is not a password
+   feature — an email or a name field is filled the same way and was the same
+   colour clash a hover away. The `:hover`/`:focus`/`:active` variants are listed
+   because Chrome re-applies its own fill on each of them. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 100px var(--color-surface-raised) inset;
+  -webkit-text-fill-color: var(--color-ink);
+  caret-color: var(--color-ink);
+}
