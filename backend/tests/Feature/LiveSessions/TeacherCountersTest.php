@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Jobs\SyncTeacherCountersJob;
 use App\Modules\LiveSessions\Models\Attendance;
@@ -135,4 +136,75 @@ it('matches the session record after a hundred sessions', function (): void {
 
     expect($profile->completed_sessions_count)->toBe(75)
         ->and($profile->attendance_rate)->toBe(75);
+});
+
+/*
+| ⚠️ `students_taught_count` HAD THREE READERS AND NO WRITER, AND PRODUCTION SAID
+| SO: eleven delivered sessions beside zero students taught (2026-08-31).
+|
+| The home page's «طالب», every teacher's public «طلاب درّسهم» and the panel's own
+| column all read it, and nothing outside the factory and the demo seeders had
+| ever written it — so it was zero for every real teacher, permanently, with
+| nothing failing anywhere. It was missing from THIS job's `forceFill`, one line
+| below its siblings.
+|
+| The three assertions below guard the three ways the obvious implementation gets
+| it wrong, and each of them would still leave a green «it counts something».
+*/
+it('counts distinct students who attended a delivered session', function (): void {
+    $delivered = sessionWithOutcome('delivered', 5);
+    $another = sessionWithOutcome('delivered', 4);
+    $missed = sessionWithOutcome('missed', 3);
+
+    $sara = User::factory()->create();
+    $omar = User::factory()->create();
+    $absentee = User::factory()->create();
+
+    $attend = function (ClassSession $session, User $user, string $status): void {
+        Attendance::factory()->create([
+            'class_session_id' => $session->getKey(),
+            'workspace_id' => $this->workspace->getKey(),
+            'student_user_id' => $user->getKey(),
+            'status' => $status,
+        ]);
+    };
+
+    // ⚠️ ONE PERSON IN TWO SESSIONS IS ONE STUDENT. Counting attendance ROWS
+    // instead of distinct people inflates the public figure by however many
+    // lessons each student took — which is the number that grows fastest.
+    $attend($delivered, $sara, 'present');
+    $attend($another, $sara, 'late');
+    $attend($delivered, $omar, 'present');
+
+    // Marked absent: they did not attend, so they are not somebody taught.
+    $attend($delivered, $absentee, 'absent');
+
+    // ⚠️ ON A SESSION THAT WAS NEVER DELIVERED. Counting it would credit a
+    // teacher for a lesson they did not give.
+    $attend($missed, User::factory()->create(), 'present');
+
+    /*
+    | ⚠️ AND THE HOST HAS AN ATTENDANCE ROW ON PURPOSE — `CloseClassSession`
+    | judges delivery, and so the teacher's pay, from it. Left in the count,
+    | every teacher is one of their own students and the public number is off by
+    | one for everybody.
+    */
+    $attend($delivered, $this->owner, 'present');
+
+    (new SyncTeacherCountersJob((int) $this->teacher->getKey()))->handle(app(WorkspaceContext::class));
+
+    expect($this->teacher->refresh()->students_taught_count)->toBe(2);
+});
+
+it('reports no students taught before the first delivered session', function (): void {
+    /*
+    | Zero here is the truth, not a failure — and it is what the live site showed
+    | for a different reason entirely. The case exists so a later reader can tell
+    | «nobody yet» from «the column is dead again».
+    */
+    sessionWithOutcome('missed', 2);
+
+    (new SyncTeacherCountersJob((int) $this->teacher->getKey()))->handle(app(WorkspaceContext::class));
+
+    expect($this->teacher->refresh()->students_taught_count)->toBe(0);
 });
