@@ -7,7 +7,7 @@ import { userMessage } from "@/lib/errors";
 import { roleLabel } from "@/lib/labels";
 import { useAuth } from "@/lib/auth-context";
 import { Alert } from "@/components/ui/Alert";
-import { BrandMark } from "@/components/ui/BrandMark";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { Button } from "@/components/ui/Button";
 
 interface InvitationDetails {
@@ -158,19 +158,23 @@ export default function InvitationPage({
   );
 }
 
+/**
+ * All five states of this screen — loading, invalid, already accepted, expired,
+ * and the invitation itself — wear one frame, which is why the local wrapper
+ * stays rather than each branch calling `AuthShell` directly.
+ *
+ * ⚠️ THE SUBTITLE IS NOT DECORATION HERE. This was the one auth screen that said
+ * NOTHING under the mark: someone arriving from an emailed link saw a logo and a
+ * card, and had to read the body text to learn what the page was. `AuthShell`
+ * makes the line mandatory for exactly that reason — a screen that cannot say
+ * what it is for in five words is a screen nobody wrote a purpose for.
+ */
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main id="main" className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          {/* The mark stands where the name was written as text. It carries its own
-              accessible name, so the product is still announced. */}
-          <BrandMark size="xl" centered />
-        </div>
-        <div className="rounded-2xl border border-line bg-surface-raised p-8">
-          {children}
-        </div>
+    <AuthShell subtitle="دعوة للانضمام">
+      <div className="rounded-2xl border border-line bg-surface-raised p-8">
+        {children}
       </div>
-    </main>
+    </AuthShell>
   );
 }
