@@ -47,7 +47,25 @@ WORKDIR /var/www/html
 
 COPY . .
 
-RUN composer install --no-interaction --optimize-autoloader --no-dev
+# ⚠️ المحاولةُ الثانيةُ ليست إعادةَ محاولةٍ — بل **مصدرٌ آخر**، وهذا ما يُهمَّ.
+#
+# `preferred-install: "dist"` في `composer.json` يُطفئُ الرجوعَ إلى المصدر،
+# فيقولُ البناءُ «Source fallback is disabled» ثمَّ يسقُطُ على أوَّلِ أرشيفٍ
+# يرفُضُهُ GitHub. وقد حدثَ ثلاثَ مرّاتٍ في ساعةٍ (٢٠٢٦-٠٨-٣١): أربعُ
+# حزمٍ من ١٧٣ تردُّ `HTTP 400` على `codeload.…/legacy.zip/<sha>` — وكلُّها
+# أحدثُ إصدارٍ من حزمتِها، وسابقُ كلٍّ منها يُنزَّلُ بنجاح.
+#
+# ⚠️ والتزامةُ نفسُها موجودةٌ وقابلةٌ للاستنساخ — مقيسٌ على
+# `spatie/image-optimizer:1.10.0`، إحدى المكسوراتِ بعينِها: الأرشيفُ يردُّ
+# ٤٠٠ و`git clone` ينجح. فالعطلُ في توليدِ الأرشيفِ وحدَه، و`git` مثبَّتٌ
+# أعلاه منذ أوَّلِ سطرٍ في هذا الملفّ.
+#
+# ولا يُستعمَلُ `--prefer-source` وحدَه: استنساخُ مئتي مستودَعٍ في كلِّ
+# بناءٍ ثمنٌ يُدفَعُ دائماً مقابلَ عطلٍ نادِر. المسارُ الثاني لا يعملُ
+# إلّا حينَ يسقُطُ الأوَّل، ولا يمسُّ `composer.lock` بحرفٍ — بخلافِ خفضِ
+# ثلاثِ حزمٍ إحداها تبعيّةٌ للارافل، وهو تشويشٌ يُتراجَعُ عنه بعدَ أيّام.
+RUN composer install --no-interaction --optimize-autoloader --no-dev \
+    || composer install --no-interaction --optimize-autoloader --no-dev --prefer-source
 
 # public/storage → storage/app/public, so nginx can serve uploaded receipts.
 RUN php artisan storage:link --force
