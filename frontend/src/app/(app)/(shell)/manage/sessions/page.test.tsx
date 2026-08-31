@@ -132,11 +132,22 @@ describe("ManageSessionsPage — the filters", () => {
       ⚠️ BY ID, NOT BY LABEL. The generator form above carries a «المدرّس» picker
       of its own — the two are the same word for two different questions, and a
       label query matches both. The ids are what keep them apart.
-    */
-    const picker = document.getElementById("filter_teacher");
 
-    expect(picker).not.toBeNull();
-    await userEvent.selectOptions(picker as HTMLSelectElement, "t-2");
+      ⚠️ AND AWAITED, BECAUSE IT HANGS OFF A DIFFERENT PROMISE. The picker is
+      gated on `teachers.length > 1`, filled by `workspaceTeachers()` — while the
+      wait above is on `list()`, the sessions fetch. Two independent promises, so
+      which one settles first is the scheduler's business: a synchronous read here
+      passed locally and on two CI runs, then failed on the third with «expected
+      null not to be null» — a flake that blocks a deploy and names nothing.
+    */
+    const picker = await waitFor(() => {
+      const found = document.getElementById("filter_teacher");
+
+      expect(found).not.toBeNull();
+
+      return found as HTMLSelectElement;
+    });
+    await userEvent.selectOptions(picker, "t-2");
 
     await waitFor(() => {
       expect((list.mock.calls.at(-1)?.[0] as { teacher?: string }).teacher).toBe("t-2");
