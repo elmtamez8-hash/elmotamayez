@@ -110,8 +110,16 @@ function LoginForm() {
 
           <p className="text-center text-sm text-ink-muted">
             لا تملك حساباً؟{" "}
+            {/*
+              * `/signup`, not `/register` — the chooser, not the role-less form.
+              * `/register` asks for none of what a student's account needs (a date
+              * of birth above all, which `RegisterStudent` turns into the guardian
+              * gate), so an ordinary visitor sent there registers with no year, no
+              * region and no gate, silently. It stays the destination when an
+              * invitation is in hand: that IS the account it creates.
+              */}
             <Link
-              href={invitation ? `/register?invitation=${invitation}` : "/register"}
+              href={invitation ? `/register?invitation=${invitation}` : "/signup"}
               className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               أنشئ حساباً
