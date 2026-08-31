@@ -165,7 +165,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         <div className="mb-8 text-center">
           {/* The mark stands where the name was written as text. It carries its own
               accessible name, so the product is still announced. */}
-          <BrandMark size="xl" />
+          <BrandMark size="xl" centered />
         </div>
         <div className="rounded-2xl border border-line bg-surface-raised p-8">
           {children}

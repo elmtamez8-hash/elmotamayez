@@ -64,7 +64,7 @@ function RegisterForm() {
         <div className="mb-8 text-center">
           {/* The mark stands where the name was written as text. It carries its own
               accessible name, so the product is still announced. */}
-          <BrandMark size="xl" />
+          <BrandMark size="xl" centered />
           <p className="mt-2 text-ink-muted">أنشئ حسابك</p>
         </div>
 
