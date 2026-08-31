@@ -9,9 +9,32 @@ import Link from "next/link";
 import { sessionEndedLabel } from "@/lib/labels";
 import { Alert } from "@/components/ui/Alert";
 import { AuthShell } from "@/components/auth/AuthShell";
+import type { AuthSlide } from "@/components/auth/AuthSlides";
 import { Button } from "@/components/ui/Button";
 import { PasswordField, TextField } from "@/components/ui/Field";
 import type { User } from "@/lib/types";
+
+/**
+ * Sign-in is read by someone who already belongs here, so the panel does not sell
+ * the product — it says what is waiting on the other side of the password. The
+ * three cards are the three things an account holder came back FOR.
+ */
+const LOGIN_SLIDES: AuthSlide[] = [
+  {
+    title: "حصصك في انتظارك",
+    body: "جدولك، وحصصك المباشرة، وتسجيلاتها — كلّها حيث تركتها.",
+  },
+  {
+    title: "تابع تقدّمك",
+    body: "درجاتك ودفتر أخطائك ولوحة الصدارة، محدَّثة منذ آخر مرّة درست فيها.",
+  },
+  {
+    title: "لم تنضمّ بعد؟",
+    body: "اختر صفتك وابدأ مع مدرّس يمرّ بمراجعة أكاديمية قبل انضمامه.",
+    href: "/signup",
+    linkLabel: "أنشئ حساباً",
+  },
+];
 
 function LoginForm() {
   const { login } = useAuth();
@@ -61,7 +84,11 @@ function LoginForm() {
   }
 
   return (
-    <AuthShell subtitle="سجّل الدخول إلى حسابك">
+    <AuthShell
+      subtitle="سجّل الدخول إلى حسابك"
+      image="/marketplace/auth-login.webp"
+      slides={LOGIN_SLIDES}
+    >
       <form
         onSubmit={submit}
         className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"

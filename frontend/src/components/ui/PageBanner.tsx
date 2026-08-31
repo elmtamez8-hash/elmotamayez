@@ -64,6 +64,29 @@ export const TONE = "from-primary/55 via-primary/45 via-55% to-transparent to-85
 /** The neutral half. Same shape, so the two fade out together. */
 export const SCRIM = "from-black/50 via-black/45 via-55% to-transparent to-85%";
 
+/**
+ * The same two layers, restopped for a FULL-HEIGHT panel.
+ *
+ * ⚠️ THE COLOURS ARE THE DECISION AND THE STOPS ARE THE GEOMETRY, and only the
+ * second one depends on the box. The pair above was measured against a masthead
+ * `min-h-60`, where 55% is just above the heading; poured into `AuthShell`'s
+ * half-viewport column the identical string holds full strength across the bottom
+ * 55% of NINE HUNDRED pixels and clears only in the top 15% — the photograph is
+ * then a maroon slab with a picture behind it, which is the exact «تقيل» the
+ * split above was made to end, arriving by a different road.
+ *
+ * So the stops move and the strength does NOT weaken: at the text band this is
+ * `/60` and `/55` against the banner's `/55` and `/50`, i.e. contrast where the
+ * words are is greater than the measured floor, while everything above 52% is the
+ * photograph at full strength. A second PAIR OF COLOURS would have been the
+ * per-page contrast bug this file exists to refuse; a second pair of stops is the
+ * same decision applied to a box of a different shape.
+ */
+export const TONE_TALL = "from-primary/60 via-primary/45 via-28% to-transparent to-52%";
+
+/** The neutral half of the tall pair. */
+export const SCRIM_TALL = "from-black/55 via-black/45 via-28% to-transparent to-52%";
+
 export function PageBanner({
   title,
   description,

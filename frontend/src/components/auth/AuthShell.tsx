@@ -4,8 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { AuthSlides, type AuthSlide } from "@/components/auth/AuthSlides";
 import { BrandMarkDecorative } from "@/components/ui/BrandMark";
-import { SCRIM, TONE } from "@/components/ui/PageBanner";
+import { SCRIM_TALL, TONE_TALL } from "@/components/ui/PageBanner";
 import { usePlatformName } from "@/lib/platform-context";
 
 /**
@@ -25,7 +26,7 @@ import { usePlatformName } from "@/lib/platform-context";
  * of the same markup puts it on the right with no branch. Direction lives in the
  * document, never in a coordinate (spec 002).
  *
- * ⚠️ AND THE OVERLAY IS IMPORTED, NOT INVENTED. `SCRIM` and `TONE` come from
+ * ⚠️ AND THE OVERLAY IS IMPORTED, NOT INVENTED. `SCRIM_TALL` and `TONE_TALL` come from
  * `PageBanner`, whose docblock records the measurement: white over the text band
  * lands between 6.9:1 and 8.7:1 against a PURE-WHITE photo pixel, the worst case
  * a crop can produce. A second pair of numbers written here would be a second
@@ -37,10 +38,24 @@ import { usePlatformName } from "@/lib/platform-context";
  */
 export function AuthShell({
   subtitle,
+  image = "/marketplace/auth-login.webp",
+  slides = [],
   children,
 }: {
   /** The line under the mark: what this particular screen is for. */
   subtitle: string;
+  /**
+   * Path under `/public`, portrait, 1200×1600. Defaults to the sign-in
+   * photograph so the two-factor screen — the second half of the same sign-in —
+   * inherits it without restating anything.
+   *
+   * ⚠️ A LITERAL, ALWAYS. `next/image` optimises it, and the whole of `CLAUDE.md`'s
+   * accepted `sharp` advisory rests on no user-supplied or remote path ever
+   * reaching this prop.
+   */
+  image?: string;
+  /** Empty renders nothing at all: no dots, no empty band. */
+  slides?: AuthSlide[];
   children: ReactNode;
 }) {
   const name = usePlatformName();
@@ -83,11 +98,15 @@ export function AuthShell({
 
       <div className="relative hidden lg:block lg:w-1/2">
         <Image
-          src="/marketplace/hero-study.webp"
+          src={image}
           // Atmosphere behind a form that already says what it is. Describing the
           // furniture is noise in a screen reader, not access.
           alt=""
           fill
+          // ⚠️ The desktop LCP element, and `fill` lazy-loads by default — the
+          // exact default `(public)/page.tsx` and `PageBanner` each document
+          // losing SC-007 to.
+          priority
           // Half the viewport at `lg` and hidden below it, so one hint covers
           // every breakpoint that renders it.
           sizes="50vw"
@@ -96,22 +115,11 @@ export function AuthShell({
 
         {/* Scrim first, tone over it — the neutral layer carries the contrast and
             the colour only tints what is already dark enough. */}
-        <div className={`absolute inset-0 bg-gradient-to-t ${SCRIM}`} aria-hidden="true" />
-        <div className={`absolute inset-0 bg-gradient-to-t ${TONE}`} aria-hidden="true" />
+        <div className={`absolute inset-0 bg-gradient-to-t ${SCRIM_TALL}`} aria-hidden="true" />
+        <div className={`absolute inset-0 bg-gradient-to-t ${TONE_TALL}`} aria-hidden="true" />
 
         <div className="absolute inset-x-0 bottom-0 p-10">
-          <p className="text-3xl font-extrabold leading-tight text-white">
-            مدرّسك الخصوصي الموثوق،
-            <br />
-            أينما كنت في العالم العربي
-          </p>
-          {/* text-white/85, not a muted token: every `-muted` colour in the theme
-              is tuned against the page surface, and none was checked against a
-              photograph. */}
-          <p className="mt-3 max-w-md leading-relaxed text-white/85">
-            حصص فردية وجماعية، مباشرة ومسجّلة، مع مدرّسين يمرّون بمراجعة أكاديمية قبل
-            انضمامهم.
-          </p>
+          <AuthSlides slides={slides} />
         </div>
       </div>
     </main>
