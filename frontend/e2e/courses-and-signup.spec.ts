@@ -84,3 +84,30 @@ test.describe("student signup", () => {
     await expect(page.getByText("ستعود لصفحة المدرّس لإتمام الحجز")).toBeVisible();
   });
 });
+
+test.describe("the signup chooser", () => {
+  /*
+   * `/login` → «أنشئ حساباً» → the three roles.
+   *
+   * ⚠️ That link used to land on `/register`, which creates a ROLE-LESS account:
+   * it asks for no date of birth, no school year and no region, so a student who
+   * arrived that way was registered with the guardian gate (FR-009) never armed —
+   * answered `201`, with nothing anywhere saying what was skipped. The vitest test
+   * beside `login/page.tsx` pins the href; this walks the door behind it, which is
+   * the half a unit test cannot see.
+   */
+  test("reaches the three roles from the login screen", async ({ page }) => {
+    await page.goto("/login");
+
+    await page.getByRole("link", { name: "أنشئ حساباً" }).click();
+    await expect(page).toHaveURL(/\/signup$/);
+
+    for (const role of ["طالب", "وليّ أمر", "مدرّس"]) {
+      await expect(page.getByRole("link", { name: new RegExp(`^${role}`) })).toBeVisible();
+    }
+
+    await page.getByRole("link", { name: /^طالب/ }).click();
+    await expect(page).toHaveURL(/\/signup\/student$/);
+    await expect(page.getByRole("heading", { level: 1, name: "إنشاء حساب طالب" })).toBeVisible();
+  });
+});
