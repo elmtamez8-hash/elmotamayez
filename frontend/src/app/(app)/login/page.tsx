@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { sessionEndedLabel } from "@/lib/labels";
 import { Alert } from "@/components/ui/Alert";
-import { BrandMark } from "@/components/ui/BrandMark";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { Button } from "@/components/ui/Button";
 import { PasswordField, TextField } from "@/components/ui/Field";
 import type { User } from "@/lib/types";
@@ -61,73 +61,64 @@ function LoginForm() {
   }
 
   return (
-    <main id="main" className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          {/* The mark stands where the name was written as text. It carries its own
-              accessible name, so the product is still announced. */}
-          <BrandMark size="xl" centered />
-          <p className="mt-2 text-ink-muted">سجّل الدخول إلى حسابك</p>
-        </div>
+    <AuthShell subtitle="سجّل الدخول إلى حسابك">
+      <form
+        onSubmit={submit}
+        className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"
+      >
+        {ended !== null && error === "" && (
+          <Alert tone="warning" title="أُنهيت جلستك">
+            {ended}
+          </Alert>
+        )}
 
-        <form
-          onSubmit={submit}
-          className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"
-        >
-          {ended !== null && error === "" && (
-            <Alert tone="warning" title="أُنهيت جلستك">
-              {ended}
-            </Alert>
-          )}
+        {error && <Alert tone="danger" title={error} />}
 
-          {error && <Alert tone="danger" title={error} />}
+        <TextField
+          id="email"
+          label="البريد الإلكتروني"
+          type="email"
+          value={email}
+          onChange={setEmail}
+          error={fields.email}
+          placeholder="you@example.com"
+          autoComplete="email"
+          required
+        />
 
-          <TextField
-            id="email"
-            label="البريد الإلكتروني"
-            type="email"
-            value={email}
-            onChange={setEmail}
-            error={fields.email}
-            placeholder="you@example.com"
-            autoComplete="email"
-            required
-          />
+        <PasswordField
+          id="password"
+          label="كلمة المرور"
+          value={password}
+          onChange={setPassword}
+          error={fields.password}
+          autoComplete="current-password"
+          required
+        />
 
-          <PasswordField
-            id="password"
-            label="كلمة المرور"
-            value={password}
-            onChange={setPassword}
-            error={fields.password}
-            autoComplete="current-password"
-            required
-          />
+        <Button type="submit" fullWidth loading={loading} loadingLabel="جارٍ الدخول…">
+          تسجيل الدخول
+        </Button>
 
-          <Button type="submit" fullWidth loading={loading} loadingLabel="جارٍ الدخول…">
-            تسجيل الدخول
-          </Button>
-
-          <p className="text-center text-sm text-ink-muted">
-            لا تملك حساباً؟{" "}
-            {/*
-              * `/signup`, not `/register` — the chooser, not the role-less form.
-              * `/register` asks for none of what a student's account needs (a date
-              * of birth above all, which `RegisterStudent` turns into the guardian
-              * gate), so an ordinary visitor sent there registers with no year, no
-              * region and no gate, silently. It stays the destination when an
-              * invitation is in hand: that IS the account it creates.
-              */}
-            <Link
-              href={invitation ? `/register?invitation=${invitation}` : "/signup"}
-              className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              أنشئ حساباً
-            </Link>
-          </p>
-        </form>
-      </div>
-    </main>
+        <p className="text-center text-sm text-ink-muted">
+          لا تملك حساباً؟{" "}
+          {/*
+            * `/signup`, not `/register` — the chooser, not the role-less form.
+            * `/register` asks for none of what a student's account needs (a date
+            * of birth above all, which `RegisterStudent` turns into the guardian
+            * gate), so an ordinary visitor sent there registers with no year, no
+            * region and no gate, silently. It stays the destination when an
+            * invitation is in hand: that IS the account it creates.
+            */}
+          <Link
+            href={invitation ? `/register?invitation=${invitation}` : "/signup"}
+            className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            أنشئ حساباً
+          </Link>
+        </p>
+      </form>
+    </AuthShell>
   );
 }
 
@@ -172,53 +163,46 @@ function TwoFactorChallenge({
   };
 
   return (
-    <main id="main" className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          {/* The mark stands where the name was written as text. It carries its own
-              accessible name, so the product is still announced. */}
-          <BrandMark size="xl" centered />
-          <p className="mt-2 text-ink-muted">
-            {useRecovery
-              ? "أدخل أحد رموز الاسترداد التي حفظتها"
-              : "أدخل الرمز من تطبيق المصادقة"}
-          </p>
-        </div>
+    <AuthShell
+    subtitle={
+      useRecovery
+        ? "أدخل أحد رموز الاسترداد التي حفظتها"
+        : "أدخل الرمز من تطبيق المصادقة"
+    }
+  >
+      <form
+        onSubmit={submit}
+        className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"
+      >
+        {error && <Alert tone="danger" title={error} />}
 
-        <form
-          onSubmit={submit}
-          className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"
+        <TextField
+          id="code"
+          label={useRecovery ? "رمز الاسترداد" : "الرمز"}
+          value={code}
+          onChange={setCode}
+          autoComplete="one-time-code"
+          maxLength={useRecovery ? 32 : 6}
+          required
+        />
+
+        <Button type="submit" fullWidth loading={loading} loadingLabel="جارٍ التحقق…">
+          تأكيد
+        </Button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setUseRecovery((current) => !current);
+            setCode("");
+            setError("");
+          }}
+          className="w-full rounded text-center text-sm text-ink-muted underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          {error && <Alert tone="danger" title={error} />}
-
-          <TextField
-            id="code"
-            label={useRecovery ? "رمز الاسترداد" : "الرمز"}
-            value={code}
-            onChange={setCode}
-            autoComplete="one-time-code"
-            maxLength={useRecovery ? 32 : 6}
-            required
-          />
-
-          <Button type="submit" fullWidth loading={loading} loadingLabel="جارٍ التحقق…">
-            تأكيد
-          </Button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setUseRecovery((current) => !current);
-              setCode("");
-              setError("");
-            }}
-            className="w-full rounded text-center text-sm text-ink-muted underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            {useRecovery ? "العودة إلى رمز التطبيق" : "لا يمكنك الوصول إلى تطبيق المصادقة؟"}
-          </button>
-        </form>
-      </div>
-    </main>
+          {useRecovery ? "العودة إلى رمز التطبيق" : "لا يمكنك الوصول إلى تطبيق المصادقة؟"}
+        </button>
+      </form>
+    </AuthShell>
   );
 }
 
