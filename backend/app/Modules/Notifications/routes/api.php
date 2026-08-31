@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Notifications\Http\Controllers\ContactVerificationController;
 use App\Modules\Notifications\Http\Controllers\NotificationController;
 use App\Modules\Notifications\Http\Controllers\NotificationPreferenceController;
+use App\Modules\Notifications\Http\Controllers\PushSubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -22,6 +23,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/notifications/preferences', [NotificationPreferenceController::class, 'index']);
     Route::put('/notifications/preferences', [NotificationPreferenceController::class, 'update']);
     Route::put('/notifications/quiet-hours', [NotificationPreferenceController::class, 'updateQuietHours']);
+
+    /*
+    | Spec 012 · US2 — one device registering itself. Both answer 204 whatever
+    | they found; see the controller for why a distinct status is an oracle.
+    */
+    Route::post('/notifications/push-subscriptions', [PushSubscriptionController::class, 'store'])
+        ->middleware('throttle:gamification-write');
+    Route::delete('/notifications/push-subscriptions', [PushSubscriptionController::class, 'destroy'])
+        ->middleware('throttle:gamification-write');
 
     // Named limiter, never an inline one: ThrottleRequests keys guests on
     // domain|ip with no route in the hash, so every inline limit in the app

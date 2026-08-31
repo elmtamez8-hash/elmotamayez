@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Assessments\Support;
 
 use App\Models\User;
-use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Courses\Models\Lesson;
 use App\Shared\Contracts\EnrollmentDirectory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -76,46 +76,65 @@ class PracticePool
             ->where('is_active', true)
             // Marked the moment it is handed in (FR-024), which an essay cannot be.
             ->where('type', '!=', 'essay')
-            ->whereNotIn('id', $this->withheldQuestionIds($workspaceId, (int) $student->getKey()));
+            /*
+            | ⚠️ A SUBQUERY, NOT AN ARRAY OF IDS. The array form pulls every
+            | question in every published exam of this bank into PHP and sends
+            | them back as bind parameters — a constant number of queries whose
+            | PAYLOAD grows linearly with the bank, on the hottest read the module
+            | has. Spec 012's adaptive path asks this once per question served.
+            */
+            ->whereNotIn('id', $this->withheldQuestionIdsQuery($workspaceId, (int) $student->getKey()));
     }
 
     /**
      * Question ids this student must not be practised on right now.
      *
+     * Kept as an array for `BuildPracticeFromMistakes`, which intersects it in
+     * PHP against a set it already holds. It delegates rather than repeating the
+     * predicate: two spellings of «what must be held back» is one spelling that
+     * will be forgotten.
+     *
      * @return list<int>
      */
     public function withheldQuestionIds(int $workspaceId, int $studentId): array
+    {
+        $ids = [];
+
+        foreach ($this->withheldQuestionIdsQuery($workspaceId, $studentId)->pluck('i.question_id') as $id) {
+            $ids[] = (int) $id;
+        }
+
+        return $ids;
+    }
+
+    /**
+     * The same set, as a query that can be nested inside another.
+     */
+    public function withheldQuestionIdsQuery(int $workspaceId, int $studentId): QueryBuilder
     {
         /*
         | "Not completed" is the absence of a submitted attempt — not the absence
         | of a passing one. A student who sat the paper and failed has already
         | seen every question on it, so withholding them afterwards protects
         | nothing and blocks revision of exactly the paper they need.
+        |
+        | Nested rather than plucked: `exam_id` is filtered NOT NULL here, so the
+        | `NOT IN` below can never meet the NULL that would make it match nothing.
         */
-        $satExamIds = Attempt::query()
-            ->withoutWorkspaceScope()
+        $satExamIds = DB::table('exam_attempts')
+            ->select('exam_id')
             ->where('workspace_id', $workspaceId)
             ->where('student_user_id', $studentId)
             ->where('is_practice', false)
             ->whereNotNull('exam_id')
-            ->whereNotNull('submitted_at')
-            ->pluck('exam_id')
-            ->all();
+            ->whereNotNull('submitted_at');
 
-        $rows = DB::table('exam_items as i')
+        return DB::table('exam_items as i')
             ->join('exams as e', 'e.id', '=', 'i.exam_id')
+            ->select('i.question_id')
             ->where('i.workspace_id', $workspaceId)
             ->where('e.status', 'published')
-            ->when($satExamIds !== [], fn ($query) => $query->whereNotIn('i.exam_id', $satExamIds))
-            ->distinct()
-            ->pluck('i.question_id');
-
-        $ids = [];
-
-        foreach ($rows as $id) {
-            $ids[] = (int) $id;
-        }
-
-        return $ids;
+            ->whereNotIn('i.exam_id', $satExamIds)
+            ->distinct();
     }
 }

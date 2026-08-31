@@ -127,6 +127,23 @@ final class PlatformSettings
         // rate is withheld rather than stated (FR-013) — editable, because a
         // threshold that only moves with a release never moves.
         'assessments.min_sample_size' => 'assessments.min_sample_size',
+        /*
+        | The adaptive path (spec 012 · FR-007 — «the thresholds must be
+        | adjustable without a deploy»). Four rows, and each one is a judgement
+        | about how a real student learns that the first term of real use is what
+        | settles.
+        |
+        | ⚠️ `mastery_correct` IS READ INTO AN `unsignedTinyInt` COLUMN. The
+        | setting is a free JSON value, so an operator typing `300` writes a
+        | number `concept_masteries.threshold_correct` cannot hold — rejected in
+        | strict MySQL, silently truncated in SQLite. `AdaptiveSettings` clamps on
+        | the way OUT for that reason; the clamp belongs at the reader because the
+        | panel is not the only writer.
+        */
+        'assessments.adaptive.promote_after' => 'assessments.adaptive.promote_after',
+        'assessments.adaptive.mastery_correct' => 'assessments.adaptive.mastery_correct',
+        'assessments.adaptive.max_questions' => 'assessments.adaptive.max_questions',
+        'assessments.adaptive.start_difficulty' => 'assessments.adaptive.start_difficulty',
         // Compliance (spec 013). Every deadline and duration the phase enforces
         // is a row here — a legal deadline that only moves with a release is a
         // deadline that is wrong the day the regulator updates its guidance.

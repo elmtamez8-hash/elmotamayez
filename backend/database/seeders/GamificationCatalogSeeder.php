@@ -87,6 +87,26 @@ class GamificationCatalogSeeder extends Seeder
         | database and is authoritative afterwards — see the backfill migration.
         */
         ['key' => 'invite_friend', 'name_ar' => 'دعوة صديق اشترك فعلاً', 'xp' => 50, 'coins' => 0, 'daily_cap' => null],
+
+        /*
+        | Spec 012 — a concept mastered on the adaptive path (FR-003).
+        |
+        | ⚠️ THE ROW IS THE FEATURE, and this tree has now been bitten three times
+        | by forgetting it: `AwardPoints` looks an action up by key and returns
+        | SILENTLY when there is none, so the event, the listener and the mastery
+        | row would all work while nothing was ever awarded — and every assertion
+        | about it would pass by comparing zero with zero. The backfill migration
+        | shipped beside this line is what gets it onto a database that already
+        | exists.
+        |
+        | Coins are real here, unlike `focus_session` and `invite_friend`: mastery
+        | happens INSIDE one teacher's bank, so there is a workspace to hold them.
+        |
+        | Capped at three a day. Mastery is meant to be a few concepts a week, and
+        | an uncapped one is a student walking a thin concept list for coins
+        | rather than for the practice.
+        */
+        ['key' => 'concept_mastered', 'name_ar' => 'إتقان فكرة', 'xp' => 25, 'coins' => 10, 'daily_cap' => 3],
     ];
 
     /** @var list<array{level: int, name_ar: string, xp_threshold: int}> */

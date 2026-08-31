@@ -48,6 +48,11 @@ const BY_CODE: Record<string, string> = {
   // `credits_needed` for a screen that wants to show it, and a count hardcoded
   // in this table would be wrong for every case. `/billing` states it per course
   // and is where the payment happens anyway.
+  // Spec 012. The teacher has not switched the adaptive path on. It is not a
+  // permission the student can earn and not a mistake they made, so the sentence
+  // names the one person who can change it — without an entry here a 403 falls
+  // through to «ليس لديك صلاحية», which reads as an accusation.
+  feature_off: "لم يُفعِّل هذا المدرّس التدريبَ التكيّفي بعد. جرّب مدرّساً آخر أو «درّب نفسك».",
   access_withheld:
     "هذا الملف موقوف حتى سداد رصيد الكورس. حصصك ودروسك العادية لا تتأثّر، ويُفتح فور اعتماد الدفع من صفحة الأرصدة.",
 };

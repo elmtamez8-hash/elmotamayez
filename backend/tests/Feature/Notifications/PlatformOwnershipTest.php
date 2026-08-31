@@ -15,6 +15,7 @@ use App\Modules\Notifications\Models\MessageTemplate;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Models\NotificationDelivery;
 use App\Modules\Notifications\Models\NotificationPreference;
+use App\Modules\Notifications\Models\PushSubscription;
 use App\Modules\Notifications\Support\NotificationChannel;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Tenancy\Models\Workspace;
@@ -202,6 +203,9 @@ it('keeps none of the new tables workspace-scoped', function (): void {
         NotificationDelivery::class,
         MessageTemplate::class,
         ContactVerification::class,
+        // Spec 012 · US2. Scoped, one phone becomes one row per teacher and the
+        // same alert arrives three times for a student who studies with three.
+        PushSubscription::class,
     ];
 
     foreach ($models as $model) {
@@ -211,6 +215,92 @@ it('keeps none of the new tables workspace-scoped', function (): void {
             true,
         ))->toBeFalse("{$model} must not be workspace-scoped");
     }
+});
+
+/*
+| Spec 012 · US2 · T080 — `push_subscriptions`, both directions.
+|
+| ⚠️ THE FIRST DIRECTION HAS NO DOOR, WHICH IS WHY IT IS AN ASSERTION OF ABSENCE.
+| Every other platform-owned table here is tested by pointing a teacher at an
+| endpoint and watching it refuse; there is no endpoint that reads this table at
+| all, and a test written as a bare model query would prove nothing but that
+| Eloquent works. What can be asserted — and what actually fails if somebody adds
+| the missing screen — is that no route, no Resource and no Filament page names
+| the table.
+|
+| The second direction needs two accounts on ONE endpoint, or it passes straight
+| over the defect it exists to catch. That half lives in `PushSharedDeviceTest`
+| beside the delivery assertions; what is here is the ownership half: one person,
+| one device, one row, whoever they study with.
+*/
+it('exposes push subscriptions through no read surface at all', function (): void {
+    $routes = collect(app('router')->getRoutes()->getRoutes())
+        ->map(fn ($route): string => (string) $route->uri());
+
+    // The two write endpoints and nothing else. A `GET` here would be a list of a
+    // person's devices, which nothing in the product has a reason to show and
+    // which a teacher must never be able to ask for.
+    expect($routes->filter(fn (string $uri): bool => str_contains($uri, 'push-subscription'))->values()->all())
+        ->toBe([
+            'api/v1/notifications/push-subscriptions',
+            'api/v1/notifications/push-subscriptions',
+        ]);
+
+    /*
+    | ⚠️ AND NOTHING RENDERS IT. `PushSubscription` in a Resource or a Filament
+    | page is the read surface this file says does not exist — and the endpoint
+    | plus its two keys is a bearer capability to wake somebody's phone.
+    */
+    $surfaces = [];
+
+    foreach ([app_path('Modules'), app_path('Filament')] as $root) {
+        /** @var iterable<SplFileInfo> $files */
+        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root));
+
+        foreach ($files as $file) {
+            $path = $file->getPathname();
+
+            if (str_ends_with($path, '.php')
+                && (str_contains($path, 'Filament') || str_contains($path, 'Resources'))) {
+                $surfaces[] = $path;
+            }
+        }
+    }
+
+    /*
+    | ⚠️ THE POSITIVE CONTROL. `glob('Filament/**')` matches ONE level in PHP, so
+    | the first version of this walk scanned an empty list and passed by finding
+    | nothing — the exact shape of vacuous green this file exists to refuse.
+    */
+    expect(count($surfaces))->toBeGreaterThan(50);
+
+    foreach ($surfaces as $file) {
+        expect(file_get_contents($file))
+            ->not->toContain('PushSubscription', basename($file).' must not render push subscriptions');
+    }
+});
+
+it('gives a student one device row across every teacher', function (): void {
+    [$a] = $this->createWorkspaceWithOwner(['name' => 'أ']);
+    [$b] = $this->createWorkspaceWithOwner(['name' => 'ب']);
+    [$c] = $this->createWorkspaceWithOwner(['name' => 'ج']);
+
+    $student = User::factory()->create();
+
+    foreach ([$a, $b, $c] as $workspace) {
+        enrol($workspace, $student);
+    }
+
+    Sanctum::actingAs($student);
+
+    $this->postJson('/api/v1/notifications/push-subscriptions', [
+        'endpoint' => 'https://fcm.googleapis.com/fcm/send/one-phone',
+        'keys' => ['p256dh' => str_repeat('B', 87), 'auth' => str_repeat('a', 22)],
+    ])->assertNoContent();
+
+    // One phone, one row — not one per teacher, and not one that a teacher owns.
+    expect(PushSubscription::query()->where('user_id', $student->getKey())->count())->toBe(1)
+        ->and(PushSubscription::query()->first()?->getAttributes())->not->toHaveKey('workspace_id');
 });
 
 /*

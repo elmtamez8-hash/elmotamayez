@@ -8,6 +8,7 @@ use App\Modules\Notifications\Models\ContactVerification;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Models\NotificationDelivery;
 use App\Modules\Notifications\Models\NotificationPreference;
+use App\Modules\Notifications\Models\PushSubscription;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
@@ -34,7 +35,7 @@ class NotificationsPersonalData implements PersonalDataOwner
     /** @return list<string> */
     public function describe(): array
     {
-        return ['notification_record'];
+        return ['notification_record', 'push_subscription'];
     }
 
     /**
@@ -124,6 +125,30 @@ class NotificationsPersonalData implements PersonalDataOwner
                 'created_at' => ExportWalk::at($verification->created_at),
             ],
         );
+
+        /*
+        | Spec 012 · US2 — the devices that may be woken.
+        |
+        | ⚠️ THE ENDPOINT IS MASKED, AND THAT IS NOT OVER-CaUTION. A push endpoint
+        | is a bearer capability: whoever holds it, plus the two keys beside it,
+        | can deliver a notification to that device. The archive is a file the
+        | subject downloads and may forward, so the whole value travelling would
+        | put a working handle to their phone in it — and `p256dh`/`auth` are
+        | credentials in the family `ExportFieldAllowlist` fails the build over.
+        | What the person actually asked is «which devices do you hold», and the
+        | user agent and the dates answer that.
+        */
+        yield from ExportWalk::keyed(
+            'push_subscription',
+            PushSubscription::query()->where('user_id', $userId),
+            fn (PushSubscription $subscription): array => [
+                'uuid' => $subscription->uuid,
+                'device' => $subscription->user_agent,
+                'endpoint_host' => parse_url($subscription->endpoint, PHP_URL_HOST),
+                'last_used_at' => ExportWalk::at($subscription->last_used_at),
+                'created_at' => ExportWalk::at($subscription->created_at),
+            ],
+        );
     }
 
     /**
@@ -188,7 +213,22 @@ class NotificationsPersonalData implements PersonalDataOwner
             return $deleted;
         }
 
-        return $deleted + ContactVerification::query()
+        $deleted += ContactVerification::query()
+            ->where('user_id', $userId)
+            ->limit($limit - $deleted)
+            ->delete();
+
+        if ($deleted >= $limit) {
+            return $deleted;
+        }
+
+        /*
+        | Spec 012 · US2. A subscription is a standing permission to reach a
+        | person's phone; leaving it behind an erasure is leaving a live channel
+        | open to somebody who asked to be forgotten — the same reason
+        | `contact_verifications` is here.
+        */
+        return $deleted + PushSubscription::query()
             ->where('user_id', $userId)
             ->limit($limit - $deleted)
             ->delete();
@@ -208,7 +248,15 @@ class NotificationsPersonalData implements PersonalDataOwner
         int $limit,
         array $exemptUserIds = [],
     ): int {
-        if ($category !== 'notification_record' || $mode !== ExpiryBehaviour::Delete) {
+        if ($mode !== ExpiryBehaviour::Delete) {
+            return 0;
+        }
+
+        if ($category === 'push_subscription') {
+            return $this->expirePushSubscriptions($before, $limit, $exemptUserIds);
+        }
+
+        if ($category !== 'notification_record') {
             return 0;
         }
 
@@ -249,5 +297,31 @@ class NotificationsPersonalData implements PersonalDataOwner
         }
 
         return $deleted + Notification::query()->whereIn('id', $ids)->delete();
+    }
+
+    /**
+     * A device nobody has used in two years (spec 012 · US2).
+     *
+     * ⚠️ THE AGE IS `created_at`, NOT `last_used_at`. The second is null for every
+     * subscription that never received anything — which is precisely the dead one
+     * this sweep is for — and `NULL < date` is NULL on both engines, so a
+     * predicate on it would silently spare exactly the rows it was written to
+     * clear while reporting a clean run.
+     *
+     * ⚠️ AND THE HOLD EXEMPTION IS A PLAIN `whereNotIn`, WHICH IS SAFE HERE ONLY
+     * BECAUSE `user_id` IS NOT NULL. On a nullable column that form spares
+     * nothing (`NULL NOT IN (…)` is NULL) and the `orWhereNull` that fixes it ORs
+     * at the top level unless grouped — discarding the age bound and taking the
+     * whole table.
+     *
+     * @param  list<int>  $exemptUserIds
+     */
+    private function expirePushSubscriptions(CarbonImmutable $before, int $limit, array $exemptUserIds): int
+    {
+        return PushSubscription::query()
+            ->where('created_at', '<', $before->toDateTimeString())
+            ->when($exemptUserIds !== [], fn ($query) => $query->whereNotIn('user_id', $exemptUserIds))
+            ->limit($limit)
+            ->delete();
     }
 }

@@ -49,6 +49,22 @@ class AssessmentFieldAllowlist
     }
 
     /**
+     * The complete shape of a question served by the adaptive path (spec 012).
+     *
+     * ⚠️ THE EXACT KEY SET, ASSERTED WITH `toBe()`. The failure this guards ADDS
+     * a key rather than removing one — serialising the frozen snapshot instead of
+     * mapping it out of it, which hands over `correct_option_ids` and
+     * `explanation` inside the response that asks the question. A test that only
+     * checked the expected keys were present would pass against exactly that.
+     *
+     * @return list<string>
+     */
+    public static function adaptiveQuestionFields(): array
+    {
+        return ['question_id', 'order', 'content', 'points', 'difficulty', 'options'];
+    }
+
+    /**
      * Never present while a paper is open, whatever the payload.
      *
      * ⚠️ THESE ARE LEGITIMATE AFTER SUBMISSION AND ONLY THEN — `PracticeResult`

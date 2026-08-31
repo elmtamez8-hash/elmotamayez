@@ -87,6 +87,37 @@ class DataProcessorSeeder extends Seeder
                 'is_active' => true,
             ],
             [
+                /*
+                | Spec 012 · US2. ⚠️ NOT ONE VENDOR BUT THREE, AND THE ROW SAYS SO:
+                | the endpoint the browser hands us decides who receives the
+                | message — Google for Chrome, Mozilla for Firefox, Apple for
+                | Safari — and the account holder's browser makes that choice, not
+                | us. A register naming only Google would describe a third of the
+                | users and hide the rest.
+                |
+                | ⚠️ AND THE ROW IS NOT CEREMONY. `ProcessorAllowlistTest` derives
+                | its list from the `notification.channels` tag and fails the build
+                | for any external channel with no entry — which is what stops a
+                | channel shipping before somebody has written down what it sends
+                | and where. What travels here is a per-user device identifier plus
+                | a short title and a link; the message body deliberately stays on
+                | our side.
+                */
+                'key' => 'push',
+                'name' => 'خدمات الدفع في المتصفّحات (Google · Mozilla · Apple)',
+                'purpose_ar' => 'توقظ هاتفك بإشعار الحصّة أو الرصيد أو الحساب — عنوانٌ قصيرٌ ورابط، لا نصّ الرسالة.',
+                'processing_location' => 'خوادم مزوّد المتصفّح خارج قطر',
+                'categories' => ['notification_record', 'push_subscription'],
+                /*
+                | ⚠️ `partial`, AND THE HONESTY IS THE SAME AS BUNNY'S. Deleting the
+                | subscription here stops every future message and is instant; a
+                | notification already delivered to a device cannot be recalled, and
+                | the push service keeps its own delivery log under its own policy.
+                */
+                'erasure_capability' => ErasureCapability::Partial->value,
+                'is_active' => true,
+            ],
+            [
                 'key' => 'meilisearch',
                 'name' => 'Meilisearch',
                 'purpose_ar' => 'يفهرس الكورسات والأسئلة ليعمل البحث.',

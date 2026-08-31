@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,7 +31,7 @@
 
 ## Constitution Alignment
 
-> `.specify/memory/constitution.md` v1.1.0 — يُفحص عند `/speckit-plan` ويُعاد فحصه بعد التصميم.
+> `.specify/memory/constitution.md` **v1.2.0** — يُفحص عند `/speckit-plan` ويُعاد فحصه بعد التصميم.
 
 - [x] المبدأ الأول (عزل المستأجرين) مُعالَج صراحةً في قسم Non-Functional Requirements
 - [x] المبدأ الثاني (المنطق في Actions) مذكور كقيد لا كتفصيل تنفيذ
@@ -42,13 +42,15 @@
 
 ## Notes
 
-**الحالة: راسبة على بند واحد — 3 أسئلة مفتوحة تمنع الانتقال إلى `/speckit-plan`.**
+**الحالة: ناجحة — حُسِمت الأسئلة الثلاثة في 2026-08-29.**
 
-البند الراسب هو `No [NEEDS CLARIFICATION] markers remain`. الأسئلة مدرَجة صراحةً في قسم
-`Clarifications` تحت عنوان «أسئلة مفتوحة»، وكلها قرارات تجارية أو تعاقدية لا يحسمها الكود.
+البند الذي كان راسباً (`No [NEEDS CLARIFICATION] markers remain`) مرّ بـSession 2026-08-29 في
+`spec.md`: المقاصة الآلية (US4) سقطت لانعدام adapter بوّابة في الشجرة — وهو جواب
+مقروء من `backend/config/payments.php` لا مفترَض — والتطبيق الأصلي (US5) تأجّل بقرار
+المالك، ومعه يسقط سؤالا النطاق والعتبة لأنّهما فرعان عنه.
 
-**الإجراء المطلوب**: تشغيل `/speckit-clarify` على هذه السبيك وحسم الأسئلة قبل `/speckit-plan`.
-الدستور يمنع الانتقال إلى التخطيط مع بقاء علامات `[NEEDS CLARIFICATION]`.
+**نطاق التخطيط: US1 (المسار التكيّفي) + US2 (PWA) + US3 (غرف المذاكرة)**،
+ومعاييرها SC-001…SC-008 وSC-017 وSC-018.
 
-بقية البنود ناجحة: النطاق محدّد، والمتطلبات قابلة للاختبار، ومعايير النجاح قابلة للقياس
-ومحايدة تقنياً، والحالات الحديّة والتبعيات موثّقة.
+بقية البنود ناجحة: النطاق محدّد، والمتطلّبات قابلة للاختبار، ومعايير النجاح قابلة
+للقياس ومحايدة تقنيّاً، والحالات الحدّية والتبعيات موثّقة.

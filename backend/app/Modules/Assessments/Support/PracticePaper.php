@@ -59,4 +59,32 @@ class PracticePaper
             return $attempt;
         });
     }
+
+    /**
+     * Freeze ONE more question into a paper that is already open.
+     *
+     * Spec 012's adaptive path chooses the next question from how the last one
+     * went, so it cannot write the whole paper up front — but what it does with a
+     * question once chosen must be identical to what {@see write()} does, or
+     * `is_practice`, the null exam or the snapshot shape drift between the two
+     * generators the class exists to keep in step.
+     *
+     * ⚠️ `max(order) + 1` IS A READ FOLLOWED BY A WRITE, and it is safe here for
+     * one reason only: a session serves a question and then waits for its answer,
+     * and answering is guarded by `unique(attempt_id, question_id)` — so there is
+     * never a second serve in flight. It is a display order and nothing else;
+     * every answer is addressed by `question_id`, which is the column the
+     * uniqueness is on.
+     */
+    public function append(Attempt $attempt, Question $question): AttemptItem
+    {
+        return AttemptItem::create([
+            'workspace_id' => $attempt->workspace_id,
+            'attempt_id' => $attempt->getKey(),
+            'question_id' => $question->getKey(),
+            'order' => (int) $attempt->items()->max('order') + 1,
+            'points' => (int) $question->points,
+            'snapshot' => QuestionSnapshot::of($question),
+        ]);
+    }
 }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Assessments\Http\Controllers\AccommodationController;
+use App\Modules\Assessments\Http\Controllers\AdaptiveController;
 use App\Modules\Assessments\Http\Controllers\AnalyticsController;
 use App\Modules\Assessments\Http\Controllers\AssignmentController;
 use App\Modules\Assessments\Http\Controllers\AttemptController;
@@ -142,6 +143,33 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/practice/exams', [PracticeController::class, 'store'])
         ->middleware('throttle:practice');
     Route::get('/practice/attempts/{attempt}/result', [PracticeController::class, 'result']);
+
+    /*
+     | The adaptive path (spec 012 · US1).
+     |
+     | ⚠️ `{session}` IS A STRING, NOT A BOUND MODEL, and that is the guard rather
+     | than a style. `WorkspaceScope` adds no condition when the context is null
+     | and it is null for every student — so an implicit binding would resolve any
+     | student's session by uuid, and the policy behind it could not save it
+     | because a student holds no role in any workspace either. Each Action
+     | resolves the uuid itself, with the ownership condition in the same query.
+     |
+     | ⚠️ AND THE TWO LIMITERS ARE DIFFERENT ON PURPOSE. A named limiter is one
+     | bucket per user, so answering — twenty writes in a twenty-question session
+     | by design — cannot share `practice`'s ceiling of ten with STARTING one, or
+     | the student is cut off in the middle of the tenth question. `throttle:5,1`
+     | inline is banned across this codebase for the neighbouring reason.
+     */
+    Route::get('/practice/adaptive/concepts', [AdaptiveController::class, 'concepts'])
+        ->middleware('throttle:practice');
+
+    Route::post('/practice/adaptive', [AdaptiveController::class, 'store'])
+        ->middleware('throttle:practice');
+
+    Route::middleware('throttle:adaptive-step')->group(function (): void {
+        Route::post('/practice/adaptive/{session}/answer', [AdaptiveController::class, 'answer']);
+        Route::post('/practice/adaptive/{session}/end', [AdaptiveController::class, 'end']);
+    });
 
     /*
      | The grading board (spec 008 · US5).

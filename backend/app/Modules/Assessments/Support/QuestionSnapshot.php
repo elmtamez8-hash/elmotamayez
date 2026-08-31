@@ -21,7 +21,7 @@ use App\Modules\Assessments\Models\Question;
 class QuestionSnapshot
 {
     /**
-     * @return array{type: string, content: string, explanation: string|null, options: list<array{id: int, content: string, order: int}>, correct_option_ids: list<int>}
+     * @return array{type: string, difficulty: string, content: string, explanation: string|null, options: list<array{id: int, content: string, order: int}>, correct_option_ids: list<int>}
      */
     public static function of(Question $question): array
     {
@@ -42,6 +42,14 @@ class QuestionSnapshot
 
         return [
             'type' => $question->type,
+            /*
+            | Added by spec 012, and additive on purpose: the adaptive screen tells
+            | the student what level they are being asked at, and that is part of
+            | what they were SHOWN. An older snapshot simply lacks the key, so every
+            | reader falls back rather than breaking — the array is read with `??`
+            | everywhere for exactly this reason.
+            */
+            'difficulty' => $question->difficulty,
             'content' => $question->content,
             'explanation' => $question->explanation,
             'options' => $options,

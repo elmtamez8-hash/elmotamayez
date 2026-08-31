@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Modules\Gamification;
 
 use App\Modules\Assessments\Events\AttemptFinalized;
+use App\Modules\Assessments\Events\ConceptMastered;
 use App\Modules\Assessments\Events\MistakeResolved;
 use App\Modules\Assessments\Events\SubmissionGraded;
 use App\Modules\Community\Events\HelpfulAnswerMarked;
 use App\Modules\Gamification\Listeners\AwardOnAttemptFinalized;
 use App\Modules\Gamification\Listeners\AwardOnAttendanceConfirmed;
+use App\Modules\Gamification\Listeners\AwardOnConceptMastered;
 use App\Modules\Gamification\Listeners\AwardOnHelpfulAnswer;
 use App\Modules\Gamification\Listeners\AwardOnMistakeResolved;
 use App\Modules\Gamification\Listeners\AwardOnReferralCompleted;
@@ -120,5 +122,15 @@ class GamificationServiceProvider extends Module
         */
         Event::listen(ReferralCompleted::class, AwardOnReferralCompleted::class);
         Event::listen(ReferralReversed::class, ReverseOnReferralReversed::class);
+
+        /*
+        | Spec 012 — a concept mastered on the adaptive path. Assessments decides
+        | WHETHER mastery happened (and writes the row that makes it idempotent);
+        | this module decides what it is worth — the shape every award here takes.
+        |
+        | ⚠️ The event fires only from the request that WON the closure claim, so
+        | two tabs finishing together produce one award and not two.
+        */
+        Event::listen(ConceptMastered::class, AwardOnConceptMastered::class);
     }
 }

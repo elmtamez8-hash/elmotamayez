@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { PushPermissionPrompt } from "@/components/app/PushPermissionPrompt";
+import { pushConfigured } from "@/lib/push";
 import { WhatsAppVerification } from "@/components/settings/WhatsAppVerification";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -18,9 +20,10 @@ import {
 /**
  * A type × channel grid.
  *
- * Only implemented channels appear — Telegram, SMS and push are known values
+ * Only implemented channels appear — Telegram, SMS and email are known values
  * with no code behind them, and a greyed-out toggle would promise a date nobody
- * has committed to. Mandatory types render locked with the reason visible rather
+ * has committed to. The columns come from `ChannelRegistry::implemented()`, so
+ * tagging a class is what puts one on this screen; nothing here restates the list. Mandatory types render locked with the reason visible rather
  * than absent, because a user looking for the switch should find out why there
  * isn't one.
  *
@@ -28,6 +31,11 @@ import {
  * on this grid does nothing at all until the number under it has been proven,
  * because the channel refuses to reach an unverified one. The two belong on one
  * screen for exactly that reason.
+ *
+ * Spec 012 added push, and its card is the same shape for the same reason with
+ * one difference: WhatsApp is proven ONCE per person, push is granted PER DEVICE.
+ * A tick in the push column is «send it to my phones»; the card below is «this
+ * phone».
  */
 export default function NotificationSettingsPage() {
   const [channels, setChannels] = useState<NotificationChannel[]>([]);
@@ -184,6 +192,23 @@ export default function NotificationSettingsPage() {
           </table>
         </div>
       </Card>
+
+      {/* ⚠️ THE KEY IS ASKED HERE TOO, not only inside the component. The column
+          appears whenever the channel class is tagged, so on a server with no
+          VAPID pair this Card would otherwise render a heading and a paragraph
+          over nothing at all — a section that promises a control it has no way
+          of showing. */}
+      {channels.some((channel) => channel.key === "push") && pushConfigured() && (
+        <Card as="section">
+          <h3 className="mb-1 font-semibold text-ink">الإشعار الفوريّ على هذا الجهاز</h3>
+          <p className="mb-4 text-sm text-ink-muted">
+            الجدول أعلاه يقرّر أيَّ الفئات تُدفَع؛ هذه البطاقة تقرّر ما إذا كان هذا
+            الجهاز بالذات يستقبلها. كلُّ جهاز يُفعَّل على حدة.
+          </p>
+
+          <PushPermissionPrompt />
+        </Card>
+      )}
 
       {channels.some((channel) => channel.key === "whatsapp") && (
         <Card as="section">

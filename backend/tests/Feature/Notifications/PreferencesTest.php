@@ -39,12 +39,22 @@ it('lists only implemented channels', function (): void {
 
     $channels = array_column($response->json('channels'), 'key');
 
-    // Spec 020 shipped WhatsApp, so it appears — and Telegram, SMS and push are
-    // still known values with no class behind them and must not. A greyed-out
-    // toggle promises a date nobody has committed to.
+    /*
+    | Spec 020 shipped WhatsApp and spec 012 shipped push, so both appear — and
+    | Telegram, Email and SMS are still known values with no class behind them and
+    | must not. A greyed-out toggle promises a date nobody has committed to.
+    |
+    | ⚠️ THE LIST IS EXACT, AND THAT IS WHY THIS BROKE WHEN PUSH LANDED. The
+    | column on `/settings/notifications` is derived from
+    | `ChannelRegistry::implemented()`, so tagging a class is what puts it on the
+    | screen — nothing in TypeScript restates it, and nothing has to. The
+    | assertion moving is the deliberate part of shipping a channel; a
+    | `toContain` here would sit green over a channel that appeared by accident.
+    */
     expect($channels)->toBe([
         NotificationChannel::InApp->value,
         NotificationChannel::WhatsApp->value,
+        NotificationChannel::Push->value,
     ])
         ->and($response->json('types'))->toHaveCount(count(NotificationType::cases()));
 });

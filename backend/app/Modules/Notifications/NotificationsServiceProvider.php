@@ -23,6 +23,7 @@ use App\Modules\Marketplace\Events\TeacherChangesRequested;
 use App\Modules\Marketplace\Events\TeacherRejected;
 use App\Modules\Notifications\Channels\ChannelRegistry;
 use App\Modules\Notifications\Channels\InAppChannel;
+use App\Modules\Notifications\Channels\WebPushChannel;
 use App\Modules\Notifications\Channels\WhatsAppChannel;
 use App\Modules\Notifications\Listeners\NotifyImportReady;
 use App\Modules\Notifications\Listeners\NotifyOffboardingStudents;
@@ -44,6 +45,7 @@ use App\Modules\Notifications\Listeners\NotifyTeacherRejected;
 use App\Modules\Notifications\Support\NotificationsPersonalData;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
+use Minishlink\WebPush\WebPush;
 
 class NotificationsServiceProvider extends Module
 {
@@ -71,7 +73,33 @@ class NotificationsServiceProvider extends Module
         // provider (SC-001 · SC-002).
         // Spec 020 took that claim and cashed it. WhatsApp is this line plus one
         // class: not a listener, not an action, not a notification type moved.
-        $this->app->tag([InAppChannel::class, WhatsAppChannel::class], 'notification.channels');
+        // Spec 012 · US2 cashed it a second time: web push is this line plus one
+        // class. `NotificationType::defaultChannels()` is untouched — see that
+        // class's docblock for why a channel must not switch itself on.
+        $this->app->tag(
+            [InAppChannel::class, WhatsAppChannel::class, WebPushChannel::class],
+            'notification.channels',
+        );
+
+        /*
+        | ⚠️ `bind`, NOT `singleton`, AND RESOLVED INSIDE `send()` RATHER THAN IN A
+        | CONSTRUCTOR. `WebPush::__construct` validates the VAPID pair and
+        | discovers a PSR-18 client, so building it eagerly would throw on every
+        | deployment that has no keys — and `ChannelRegistry` constructs every
+        | tagged channel the first time anything asks for one, which would take
+        | the in-app bell down with it.
+        |
+        | ⚠️ AND THIS IS THE ONLY SEAM A TEST HAS. The library drives its own
+        | PSR-18 client, so `Http::fake()` cannot see it and
+        | `preventStrayRequests()` cannot catch it; a test substitutes the binding.
+        */
+        $this->app->bind(WebPush::class, fn (): WebPush => new WebPush([
+            'VAPID' => [
+                'subject' => (string) config('webpush.vapid.subject'),
+                'publicKey' => (string) config('webpush.vapid.public'),
+                'privateKey' => (string) config('webpush.vapid.private'),
+            ],
+        ]));
 
         $this->app->singleton(
             ChannelRegistry::class,

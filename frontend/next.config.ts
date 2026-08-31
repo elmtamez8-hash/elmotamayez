@@ -29,6 +29,39 @@ const nextConfig: NextConfig = {
     Not permanent: a 308 is cached by the browser and by every proxy in front of
     it, and this route may be wanted again one day for something else.
   */
+  /*
+    ⚠️ ONE HEADER, AND WITHOUT IT THE WHOLE OF US2 IS SILENTLY INERT.
+
+    The service worker is compiled by Next and served from `/_next/static/…`, and
+    a worker may by default only control paths BENEATH its own script. So
+    `register(..., { scope: "/" })` is refused unless the script's response says
+    the wider scope is allowed — and the failure is the quiet kind: with the
+    default scope the registration succeeds, DevTools shows an active worker, no
+    error appears anywhere, and nothing is ever cached while no push notification
+    is ever delivered. Read the registered scope in
+    DevTools › Application › Service Workers rather than trusting it resolved.
+
+    It reaches the browser in production too: `docker/nginx.prod.conf` proxies
+    `/` — `/_next/static` included — straight to Next rather than serving those
+    files itself, so this response header is not stripped on the way out.
+
+    ⚠️ AND NO `Referrer-Policy` IS ADDED HERE, DELIBERATELY. Next's own PWA guide
+    suggests `no-referrer`, and copying it would break EVERY VIDEO FOR EVERY
+    STUDENT: the Bunny pull zone answers 403 to a request that carries no
+    `Referer` header, however correct its signature — measured against a live zone
+    on 2026-08-18, where the same URL was 200 with any referrer at all and 403
+    with none. The framework default, `strict-origin-when-cross-origin`, sends the
+    origin and is what currently keeps playback alive.
+  */
+  async headers() {
+    return [
+      {
+        source: "/_next/static/:path*",
+        headers: [{ key: "Service-Worker-Allowed", value: "/" }],
+      },
+    ];
+  },
+
   async redirects() {
     return [
       {

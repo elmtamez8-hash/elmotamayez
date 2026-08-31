@@ -273,6 +273,28 @@ export default function PracticePage() {
         got wrong. Drawn only when there IS something standing, so it is never a
         link to an empty run.
       */}
+      {/*
+        ⚠️ SPEC 012'S PATH, AND THIS LINK IS WHAT DELIVERS IT. A page nothing
+        reaches is not shipped — the note above about `/practice/from-mistakes`
+        having had no route to it for a whole spec is the same lesson, one
+        feature earlier. Drawn unconditionally: the target explains itself when
+        no teacher has switched the feature on, which is a sentence rather than
+        a dead end, and asking the API here would cost a second request on every
+        visit to tell the student nothing they cannot read one tap away.
+      */}
+      <Link
+        href="/practice/adaptive"
+        className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-ink transition-colors hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        <PracticeIcon className="h-5 w-5 shrink-0 text-primary-ink" />
+        <span>
+          <span className="font-semibold">أو جرّب التدريب التكيّفي.</span>{" "}
+          <span className="text-ink-muted">
+            سؤالٌ واحدٌ في كل مرّة، وصعوبتُه تتغيّر بأدائك حتى تُتقن الفكرة.
+          </span>
+        </span>
+      </Link>
+
       {hasStanding && (
         <Link
           href="/mistakes"

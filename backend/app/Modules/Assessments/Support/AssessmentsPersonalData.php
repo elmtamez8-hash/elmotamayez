@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\Assessments\Support;
 
+use App\Modules\Assessments\Models\AdaptiveSession;
 use App\Modules\Assessments\Models\Answer;
 use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\AttemptItem;
+use App\Modules\Assessments\Models\ConceptMastery;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
@@ -35,7 +37,14 @@ class AssessmentsPersonalData implements PersonalDataOwner
     /** @return list<string> */
     public function describe(): array
     {
-        return ['exam_attempt', 'exam_answer'];
+        /*
+        | ⚠️ SPEC 012'S TWO TABLES ARE HERE, AND NOTHING WOULD HAVE TOLD ME IF
+        | THEY WERE NOT. `PersonalDataContractCoverageTest` is a per-MODULE guard
+        | — its own docblock says so — so a NEW table inside an ALREADY registered
+        | module is invisible to it. The category row, the export, the erasure and
+        | the expiry all have to be added in the same change, by hand.
+        */
+        return ['exam_attempt', 'exam_answer', 'adaptive_session', 'concept_mastery'];
     }
 
     /**
@@ -124,6 +133,58 @@ class AssessmentsPersonalData implements PersonalDataOwner
             },
             column: 'exam_answers.id',
         );
+
+        /*
+        | Spec 012. The session is the FRAME — how far the ladder went and where
+        | it stopped; the answers underneath it are already exported above, under
+        | `exam_answer`, because every adaptive answer is a row in `exam_answers`.
+        | Exporting the questions again here would hand the same person the same
+        | text twice under two headings.
+        */
+        yield from ExportWalk::keyed(
+            'adaptive_session',
+            AdaptiveSession::query()
+                ->withoutWorkspaceScope()
+                ->leftJoin('concepts', 'concepts.id', '=', 'adaptive_sessions.concept_id')
+                ->where('adaptive_sessions.student_user_id', $userId)
+                ->select(['adaptive_sessions.*', 'concepts.name as concept_name']),
+            fn (AdaptiveSession $session): array => [
+                'uuid' => $session->uuid,
+                'concept' => $session->getAttribute('concept_name'),
+                'status' => $session->status->value,
+                'reached_difficulty' => $session->current_difficulty->value,
+                'ceiling_difficulty' => $session->ceiling_difficulty->value,
+                'questions_served' => $session->served_count,
+                'started_at' => ExportWalk::at($session->created_at),
+                'mastered_at' => ExportWalk::at($session->mastered_at),
+                'ended_at' => ExportWalk::at($session->ended_at),
+            ],
+            column: 'adaptive_sessions.id',
+        );
+
+        /*
+        | ⚠️ THE THRESHOLDS TRAVEL WITH THE ROW. «You mastered this» is a claim
+        | about a person, and the only way they can check it is to be told what
+        | the bar actually was on the day — which is exactly why the two columns
+        | are stored rather than read live from a setting somebody has since
+        | changed.
+        */
+        yield from ExportWalk::keyed(
+            'concept_mastery',
+            ConceptMastery::query()
+                ->withoutWorkspaceScope()
+                ->leftJoin('concepts', 'concepts.id', '=', 'concept_masteries.concept_id')
+                ->where('concept_masteries.student_user_id', $userId)
+                ->select(['concept_masteries.*', 'concepts.name as concept_name']),
+            fn (ConceptMastery $mastery): array => [
+                'uuid' => $mastery->uuid,
+                'concept' => $mastery->getAttribute('concept_name'),
+                'mastered_at' => ExportWalk::at($mastery->mastered_at),
+                'threshold_correct' => $mastery->threshold_correct,
+                'threshold_difficulty' => $mastery->threshold_difficulty->value,
+            ],
+            column: 'concept_masteries.id',
+        );
     }
 
     /**
@@ -151,10 +212,38 @@ class AssessmentsPersonalData implements PersonalDataOwner
         | `exam_answers` DOES carry `student_user_id` (added in 008), which is why
         | it is deleted by the person and the items by their attempts.
         */
-        $answers = Answer::query()
+        /*
+        | ⚠️ SPEC 012'S TWO TABLES GO FIRST, AND `adaptive_sessions` IS THE ONE
+        | THAT WOULD HIDE. It names an `attempt_id`, so deleting the attempts
+        | below first leaves every session pointing at an id nothing resolves —
+        | the same shape `attempt_items` has, and the reason that one is written
+        | down. `concept_masteries` stands alone and is deleted for tidiness of
+        | ordering, not necessity.
+        */
+        $adaptive = AdaptiveSession::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $userId)
             ->limit($limit)
+            ->delete();
+
+        if ($adaptive >= $limit) {
+            return $adaptive;
+        }
+
+        $adaptive += ConceptMastery::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $userId)
+            ->limit($limit - $adaptive)
+            ->delete();
+
+        if ($adaptive >= $limit) {
+            return $adaptive;
+        }
+
+        $answers = $adaptive + Answer::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $userId)
+            ->limit($limit - $adaptive)
             ->delete();
 
         if ($answers >= $limit) {
@@ -215,6 +304,37 @@ class AssessmentsPersonalData implements PersonalDataOwner
         | silently returns NULL and expires nothing.
         */
         $cutoff = $before->toDateTimeString();
+
+        if ($category === 'adaptive_session') {
+            /*
+            | ⚠️ THE SESSION ROW ONLY. Its answers and its items hang off the
+            | ATTEMPT and expire under `exam_answer` and `exam_attempt` on their
+            | own clocks — deleting them from here would apply this category's
+            | retention to rows another category governs, which is the one thing
+            | a per-category sweep must never do.
+            */
+            $sessions = AdaptiveSession::query()
+                ->withoutWorkspaceScope()
+                ->where('created_at', '<', $cutoff);
+
+            if ($exemptUserIds !== []) {
+                $sessions->whereNotIn('student_user_id', $exemptUserIds);
+            }
+
+            return $sessions->limit($limit)->delete();
+        }
+
+        if ($category === 'concept_mastery') {
+            $masteries = ConceptMastery::query()
+                ->withoutWorkspaceScope()
+                ->where('created_at', '<', $cutoff);
+
+            if ($exemptUserIds !== []) {
+                $masteries->whereNotIn('student_user_id', $exemptUserIds);
+            }
+
+            return $masteries->limit($limit)->delete();
+        }
 
         if ($category === 'exam_answer') {
             $answers = Answer::query()

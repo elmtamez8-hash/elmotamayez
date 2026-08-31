@@ -26,6 +26,13 @@ const STATUS_LABELS: Record<string, string> = {
   passed: "ناجح",
   failed: "راسب",
 
+  // Adaptive practice (012). `mastered` and `ended` are two OUTCOMES of one
+  // session, not one with a flag — only the first awards anything, and a label
+  // that blurred them would put «أُتقِنت» on a session the student gave up on.
+  running: "جارية",
+  mastered: "أُتقِنت",
+  ended: "انتهت",
+
   // Course · exam
   draft: "مسودّة",
   published: "منشور",
@@ -75,6 +82,13 @@ const STATUS_TONES: Record<string, StatusTone> = {
   rejected: "danger",
   failed: "danger",
   suspended: "danger",
+
+  // Adaptive practice (012). `ended` is neutral and NOT a failure: stopping is
+  // an ordinary way to finish a revision session, and painting it red would
+  // scold a student for closing a page.
+  running: "info",
+  mastered: "success",
+  ended: "neutral",
 
   // Settlement. A reversal is not a failure — it is a correction with an author
   // and a reason — so it reads neutral rather than red.

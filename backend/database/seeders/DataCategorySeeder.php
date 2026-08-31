@@ -174,6 +174,47 @@ class DataCategorySeeder extends Seeder
                 'expiry_behaviour' => ExpiryBehaviour::Delete->value,
                 'erasure_mode' => ErasureMode::Delete,
             ],
+            /*
+            | Spec 012 — the adaptive path's two tables.
+            |
+            | ⚠️ BOTH `Delete`, and `Anonymise` is not available for either:
+            | `student_user_id` is NOT NULL on both, so anonymising means either a
+            | `->change()` that REBUILDS the table on SQLite — a trade this
+            | repository has refused three times in writing — or a sentinel
+            | account, which is a second answer to «who is this row about».
+            */
+            [
+                'key' => 'adaptive_session',
+                'label_ar' => 'جلسات التدريب التكيّفي',
+                'purpose_ar' => 'لتضبط صعوبة السؤال التالي على مستواك، ولتتابع تقدّمك في كل فكرة.',
+                'audience' => 'المدرّس المسجَّل عنده',
+                'is_required' => true,
+                'owning_module' => 'assessments',
+                'table_name' => 'adaptive_sessions',
+                'column_name' => 'student_user_id',
+                // Three years, matching `exam_answer`: the session is the frame
+                // around answers that are themselves deleted at 1095 days, so
+                // keeping it longer would leave a shell naming a person for no
+                // reader.
+                'retain_days' => 1095,
+                'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
+            ],
+            [
+                'key' => 'concept_mastery',
+                'label_ar' => 'الأفكار التي أتقنتها',
+                'purpose_ar' => 'لتعرف أنت ومدرّسك ما أتقنته، ولئلّا يُعاد تدريبك عليه.',
+                'audience' => 'المدرّس المسجَّل عنده',
+                'is_required' => true,
+                'owning_module' => 'assessments',
+                'table_name' => 'concept_masteries',
+                'column_name' => 'student_user_id',
+                // Five years, matching `exam_attempt`: it is a result, and it
+                // outlives the working detail that produced it.
+                'retain_days' => 1825,
+                'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
+            ],
 
             // ── Certificates ────────────────────────────────────────────────
             [
@@ -292,6 +333,33 @@ class DataCategorySeeder extends Seeder
             ],
 
             // ── Notifications ───────────────────────────────────────────────
+            [
+                /*
+                | Spec 012 · US2 · T074. ⚠️ THE PER-MODULE
+                | `PersonalDataContractCoverageTest` CANNOT SEE A MISSING ROW FOR A
+                | NEW TABLE INSIDE AN ALREADY-REGISTERED MODULE — its own docblock
+                | says so, and spec 010 shipped `announcements.author_user_id`
+                | uncovered with 1916 tests green. So this row, its three walks in
+                | `NotificationsPersonalData` and the backfill migration are one
+                | change, because nothing will tell us otherwise.
+                |
+                | 730 days: a subscription nobody has used in two years belongs to a
+                | browser profile that no longer exists. `Delete`, not `Anonymise` —
+                | an endpoint with its user cleared is a device identifier belonging
+                | to nobody, which is worse than no row at all.
+                */
+                'key' => 'push_subscription',
+                'label_ar' => 'الأجهزة المشتركة في الإشعارات الفوريّة',
+                'purpose_ar' => 'ليصلك إشعار الحصّة أو الرصيد على هاتفك دون فتح الموقع.',
+                'audience' => 'أنت',
+                'is_required' => false,
+                'owning_module' => 'notifications',
+                'table_name' => 'push_subscriptions',
+                'column_name' => 'user_id',
+                'retain_days' => 730,
+                'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
+            ],
             [
                 'key' => 'notification_record',
                 'label_ar' => 'الإشعارات المرسَلة إليك',

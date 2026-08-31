@@ -108,6 +108,58 @@ it('hands a sitting student the options and not the mark scheme', function (): v
     }
 });
 
+/*
+| Spec 012. The adaptive path serves ONE question at a time, and the mark scheme
+| travels one request later — so the served question is the payload with the most
+| to give away and the least reason to.
+*/
+it('hands an adaptive session the question and never the mark scheme', function (): void {
+    $fx = adaptiveFixture(['easy', 'easy', 'easy']);
+
+    Sanctum::actingAs($fx['student']);
+    $this->asGuest();
+
+    $payload = $this->postJson('/api/v1/practice/adaptive', [
+        'concept' => $fx['concept']->uuid,
+        'teacher' => $fx['workspace']->uuid,
+    ])->assertCreated()->json('data');
+
+    /*
+    | ⚠️ THE EXACT KEY SET, NOT «CONTAINS WHAT WE EXPECT». The failure this guards
+    | ADDS a key rather than removing one — serialising the frozen snapshot instead
+    | of mapping out of it, which ships `correct_option_ids` and `explanation`
+    | inside the response that asks the question — and an assertion that only
+    | checked the expected keys were present passes against exactly that.
+    */
+    expect(array_keys($payload['question']))
+        ->toBe(AssessmentFieldAllowlist::adaptiveQuestionFields())
+        ->and(array_keys($payload['question']['options'][0]))
+        ->toBe(AssessmentFieldAllowlist::sitOptionFields());
+
+    $keys = keysDeep($payload);
+
+    foreach (AssessmentFieldAllowlist::forbiddenDuringAttempt() as $forbidden) {
+        expect($keys)->not->toContain($forbidden);
+    }
+
+    foreach (AssessmentFieldAllowlist::forbidden() as $forbidden) {
+        expect($keys)->not->toContain($forbidden);
+    }
+
+    // And the answer response is where the mark scheme legitimately appears —
+    // the positive control, without which the negatives above are satisfied by a
+    // build that never sends it at all and teaches the student nothing.
+    $step = $this->postJson("/api/v1/practice/adaptive/{$payload['session']['uuid']}/answer", [
+        'question_id' => $payload['question']['question_id'],
+        'option_ids' => [adaptiveWrongOption($payload['question']['question_id'])],
+    ])->assertOk()->json('data');
+
+    expect($step['result']['correct_option_ids'])->not->toBeEmpty()
+        ->and($step['result']['explanation'])->not->toBeNull()
+        // …and the NEXT question, served in the same response, still carries none.
+        ->and(keysDeep($step['question']))->not->toContain('correct_option_ids');
+});
+
 it('keeps internal keys out of every student-facing payload', function (): void {
     [$workspace, $owner] = $this->createWorkspaceWithOwner();
     $this->setCurrentWorkspace($workspace, $owner);
@@ -130,6 +182,8 @@ it('keeps internal keys out of every student-facing payload', function (): void 
         '/api/v1/mistakes',
         '/api/v1/assignments',
         "/api/v1/assignments/{$assignment->uuid}",
+        // Spec 012. A payload absent from this list is a payload nothing walks.
+        '/api/v1/practice/adaptive/concepts',
     ];
 
     foreach ($payloads as $url) {

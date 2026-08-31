@@ -299,6 +299,35 @@ class AppServiceProvider extends ServiceProvider
             ->by('user:'.(string) $request->user()?->getKey()));
 
         /*
+         * Adaptive practice, one question at a time (spec 012 · US1).
+         *
+         * ⚠️ ITS OWN BUCKET, NOT `practice`. A named limiter is one counter per
+         * user, so reusing `practice` here would make a twenty-question session
+         * — twenty writes by design — spend the whole allowance for STARTING
+         * anything, and cut the student off in the middle of the tenth question.
+         * That is the shared-counter effect inline limits are banned for in this
+         * file, reached again under a name.
+         *
+         * Sixty a minute is one answer a second: far above a person reading a
+         * question, far below a script walking the bank.
+         */
+        RateLimiter::for('adaptive-step', fn (Request $request) => Limit::perMinute(60)
+            ->by('user:'.(string) $request->user()?->getKey()));
+
+        /*
+         * Study-room writes (spec 012 · US3): creating a room, joining one,
+         * answering inside one.
+         *
+         * Ten a minute, an order of magnitude below `adaptive-step`, because
+         * each of these costs a broadcast to everyone else in the room — the
+         * cost is not this caller's alone. Keyed by user for the reason
+         * `practice` is: the callers are students, and students sit in
+         * classrooms behind one address.
+         */
+        RateLimiter::for('study-room-write', fn (Request $request) => Limit::perMinute(10)
+            ->by('user:'.(string) $request->user()?->getKey()));
+
+        /*
          * Gamification writes (spec 009, NFR-014): redeeming a reward, starting
          * and ending a focus session. Keyed by user for the same reason as
          * `practice` — the callers are students, and students sit in classrooms

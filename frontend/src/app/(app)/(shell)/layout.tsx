@@ -8,6 +8,7 @@ import { PLATFORM_NAME } from "@/lib/platform";
 import { Alert } from "@/components/ui/Alert";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationBell } from "@/components/app/NotificationBell";
+import { ServiceWorkerRegistrar } from "@/components/app/ServiceWorkerRegistrar";
 import { P, can, refusedBy } from "@/lib/permissions";
 import { TONE_CLASSES } from "@/lib/labels";
 import { grading } from "@/lib/grading";
@@ -532,6 +533,10 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
+      {/* Renders nothing. Here rather than in the root layout because the worker
+          exists for the signed-in application — a visitor reading the
+          marketplace has nothing to cache and nothing to be pushed. */}
+      <ServiceWorkerRegistrar />
       {/* Logical `start-0` / `ms-64`, not `left-0` / `ml-64`: in RTL the sidebar
           belongs on the right, and physical offsets put it on the wrong edge
           while leaving a 16rem gutter on the other one (FR-015). */}
