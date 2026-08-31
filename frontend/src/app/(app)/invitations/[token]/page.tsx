@@ -8,6 +8,7 @@ import { roleLabel } from "@/lib/labels";
 import { useAuth } from "@/lib/auth-context";
 import { Alert } from "@/components/ui/Alert";
 import { AuthShell } from "@/components/auth/AuthShell";
+import type { AuthSlide } from "@/components/auth/AuthSlides";
 import { Button } from "@/components/ui/Button";
 
 interface InvitationDetails {
@@ -169,9 +170,30 @@ export default function InvitationPage({
  * makes the line mandatory for exactly that reason — a screen that cannot say
  * what it is for in five words is a screen nobody wrote a purpose for.
  */
+/**
+ * An invitation is read by a colleague, not a customer — an assistant teacher
+ * joining somebody else's workspace. So the panel explains the ROLE rather than
+ * selling the platform, and it carries no route: the only action on this screen
+ * is accepting the invitation that brought them here.
+ */
+const INVITATION_SLIDES: AuthSlide[] = [
+  {
+    title: "أنت مدعوّ للانضمام",
+    body: "ستعمل داخل مساحة المدرّس الذي دعاك، بالصلاحيات التي منحها لك وحدها.",
+  },
+  {
+    title: "صلاحياتك محدّدة",
+    body: "ما لم يُمنَح لك لا يظهر أصلاً — لا شاشة ولا زرّ ولا رقم.",
+  },
+];
+
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <AuthShell subtitle="دعوة للانضمام">
+    <AuthShell
+      subtitle="دعوة للانضمام"
+      image="/marketplace/auth-invitation.webp"
+      slides={INVITATION_SLIDES}
+    >
       <div className="rounded-2xl border border-line bg-surface-raised p-8">
         {children}
       </div>

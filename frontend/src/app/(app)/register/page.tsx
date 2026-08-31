@@ -8,8 +8,37 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Alert } from "@/components/ui/Alert";
 import { AuthShell } from "@/components/auth/AuthShell";
+import type { AuthSlide } from "@/components/auth/AuthSlides";
 import { Button } from "@/components/ui/Button";
 import { PasswordField, TextField } from "@/components/ui/Field";
+
+/**
+ * ⚠️ THE THREE SLIDES ARE THE THREE ROLES, AND EACH ONE CARRIES ITS OWN ROUTE.
+ * This screen creates a ROLE-LESS account — the invitation and academy-founder
+ * door — so a visitor who landed here as a student, a parent or a teacher is on
+ * the wrong page, and the panel is where that is said without an error. It is the
+ * same fix as `/signup`, reached from the screen people actually arrive on.
+ */
+const REGISTER_SLIDES: AuthSlide[] = [
+  {
+    title: "طالب؟",
+    body: "احجز حصصك مع مدرّس تختاره بنفسك، فرديّة كانت أو جماعية.",
+    href: "/signup/student",
+    linkLabel: "سجّل كطالب",
+  },
+  {
+    title: "وليّ أمر؟",
+    body: "تابع حضور أبنائك وتقاريرهم ومدفوعاتهم من مكان واحد.",
+    href: "/signup/parent",
+    linkLabel: "سجّل كوليّ أمر",
+  },
+  {
+    title: "مدرّس؟",
+    body: "قدّم طلبك، وابنِ فصولك وموادّك بعد مراجعة أكاديمية.",
+    href: "/signup/teacher",
+    linkLabel: "قدّم طلبك",
+  },
+];
 
 function RegisterForm() {
   const { register, login } = useAuth();
@@ -59,7 +88,11 @@ function RegisterForm() {
   };
 
   return (
-    <AuthShell subtitle="أنشئ حسابك">
+    <AuthShell
+      subtitle="أنشئ حسابك"
+      image="/marketplace/auth-register.webp"
+      slides={REGISTER_SLIDES}
+    >
       <form
         onSubmit={submit}
         className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"
