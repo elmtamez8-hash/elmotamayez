@@ -1,0 +1,111 @@
+# الساعةُ المتقدّمة — بوّابةٌ تسألُ سؤالاً لا تسألُه `ci.yml`:
+# «هل يبقى السويتُ أخضرَ بعدَ أن يمرَّ الزمن؟»
+#
+# العائلةُ التي تُمسِكُها: تجهيزةٌ تجمعُ **نافذةً مثبَّتةً** بحرفيّاتٍ (فترةُ
+# أغسطس ٢٠٢٦ مثلاً) وصفّاً مختوماً بـ`now()`. تمرُّ ما دامَتِ الساعةُ داخلَ
+# النافذة، وتسقطُ بعدَها **للأبد** — وهي أثناءَ خُضرتِها تُثبتُ شيئاً غيرَ الذي
+# تدّعيه. حدثَ ذلك في ٢٠٢٦-٠٩-٠١: ثلاثةَ عشرَ اختباراً في `Community/ReportCard*`
+# احمرَّت معاً لأنّ الشهرَ تغيّر، ورسالتُها كانت «لا توجدُ بطاقةُ تقرير» — تُسمّي
+# الأثرَ لا السبب. لا `tsc` ولا اختبارُ مكوّناتٍ ولا قراءةُ الملفِّ تُظهِرُ
+# تاريخاً لم يَحِنْ بعد؛ الكاشفُ الوحيدُ هو تشغيلُ السويتِ في المستقبل.
+#
+# ⚠️ والتزييفُ على مستوى **العمليّة** (`faketime`) لا داخلَ الإطار، وهذا هو
+# الفرقُ بين إشارةٍ وضجيج. جُرِّبَ `travelTo()` في `Pest.php` أوّلاً فأعطى ١٥
+# سقوطاً كاذباً من ٢٤٩٥ اختباراً، لثلاثةِ أسبابٍ لا علاقةَ لأيٍّ منها بعيبٍ في
+# الشيفرة:
+#   ١. `FetchableSourceUrl` توقّعُ رابطاً مؤقّتاً بساعةِ Carbon المزيّفة بينما
+#      يوقّعُ مُوقِّعُ AWS بساعةِ النظامِ **الحقيقيّة** — فتصيرُ المدّةُ أشهراً
+#      ويرفضُ الـSDK كلَّ ما يتجاوزُ أسبوعاً (١٣ سقوطاً في `Media` و`Compliance`).
+#   ٢. وسائطُ `->with([...])` في Pest تُقيَّمُ وقتَ **تحميلِ الملفّ**، أي قبلَ أيِّ
+#      `beforeEach` — فتُولَدُ بالساعةِ الحقيقيّةِ وتُقرأُ بالمزيّفة.
+#   ٣. `travelTo()` **يُجمّدُ** الساعة، و`$publishedAt->isPast()` على لحظةٍ تساوي
+#      «الآن» تماماً تُجيبُ false.
+# `faketime` يُزيحُ ساعةَ العمليّةِ كلَّها — libc وPHP وCarbon والـSDK معاً — وهي
+# تمشي ولا تتجمّد، فتختفي الثلاثةُ من أصلِها. ولا سطرَ واحدٌ يُضافُ إلى شيفرةِ
+# الاختبارات: بوّابةٌ تحتاجُ تعديلَ ما تقيسُه هي بوّابةٌ تقيسُ نفسَها.
+#
+# ⚠️ ولا تحجبُ الدمج: تشغيلةٌ مجدولةٌ في فرعٍ افتراضيٍّ لا في `pull_request`. عيبٌ
+# يظهرُ هنا موعدُه بعدَ أشهر، فمنعُ زميلٍ من دمجِ عملِ اليومِ بسببِه هو الطريقُ
+# إلى إسكاتِ البوّابة.
+#
+# ⚠️ والباك إند وحدَه. `pint` و`phpstan` لا يقرآنِ ساعة، واختباراتُ الواجهةِ
+# منضبطةٌ في هذا الباب: `formatSessionDay` تأخذُ `now` **وسيطاً** وفوقَها تعليقٌ
+# يقولُ لماذا، و`FocusTimer` يُثبّتُ ساعةَ النظامِ بنفسِه.
+
+name: Time travel
+
+on:
+  schedule:
+    # الاثنينُ ٠٣:٠٠ UTC — أوّلُ يومِ عملٍ، فالنتيجةُ تُقرأُ لا تنتظرُ عطلة.
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      offset:
+        description: 'إزاحةُ الساعة بصيغةِ faketime (مثال: +400d أو +2y)'
+        required: false
+        default: '+400d'
+
+jobs:
+  future:
+    # الاسمُ يقولُ الإزاحةَ، فسطرُ النتيجةِ في القائمةِ يُقرأُ بلا فتحِ السجلّ.
+    name: Backend — pest @ ${{ github.event.inputs.offset || '+400d' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP 8.5
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo, pdo_sqlite, mbstring, xml, bcmath, ctype, json, openssl, tokenizer, fileinfo, zip, gd, pcntl
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install
+        working-directory: backend
+        run: |
+          composer install --no-interaction --no-progress \
+            || composer install --no-interaction --no-progress --prefer-source
+
+      - name: Environment
+        working-directory: backend
+        run: |
+          printf 'APP_KEY=\n' > .env
+          php artisan key:generate
+
+      - name: faketime
+        run: sudo apt-get update && sudo apt-get install -y faketime
+
+      - name: Tests (pest) under a shifted clock
+        working-directory: backend
+        # ⚠️ الإزاحةُ تُطبَعُ قبلَ التشغيل. تشغيلةٌ حمراءُ لا يُعرَفُ من سجلِّها
+        # أيُّ تاريخٍ حاكَتْه هي تشغيلةٌ لا يستطيعُ أحدٌ إعادةَ إنتاجِها محلّيّاً.
+        run: |
+          # ⚠️ `-f` ليست زينة. بلا العَلَمِ تُمرِّرُ faketime النصَّ إلى `date -d`،
+          # و`date -d '+400d'` **غيرُ صالح** — فتقفُ التشغيلةُ عندَ
+          # «Timestamp to fake not recognized» قبلَ أن تلمسَ اختباراً واحداً.
+          # `-f` هي الصيغةُ المتقدّمةُ التي تقرأُ الإزاحةَ نفسَها، وبلا `x0`
+          # تبقى الساعةُ **ماشيةً** — وهي المشيُ ما يُميّزُ هذا عن `travelTo()`.
+          OFFSET='${{ github.event.inputs.offset || '+400d' }}'
+          echo "الآن حقيقةً: $(date -u)"
+          echo "الآن محاكاةً: $(faketime -f "$OFFSET" date -u)"
+          faketime -f "$OFFSET" php vendor/bin/pest
+
+      - name: كيف تُقرأُ الحُمرة
+        if: failure()
+        # سطرُ فرزٍ في السجلِّ نفسِه: بوّابةٌ تُخرِجُ سقوطاً بلا تعليماتِ فرزٍ
+        # تُقرأُ مرّةً ثمّ تُهمَل.
+        run: |
+          echo '::warning::سقوطٌ هنا يعني أنّ اختباراً سيحمرُّ في تاريخٍ آتٍ — لا أنّ شيئاً مكسورٌ اليوم.'
+          echo 'أعِدْ إنتاجَه محلّيّاً بنفسِ الإزاحةِ إن كان عندَك faketime، أو اقرأِ التجهيزةَ مباشرةً:'
+          echo 'ابحثْ عن نافذةٍ مكتوبةٍ بحرفيّاتٍ ثابتة (period_start/period_end) بجوارِ صفٍّ يُختَمُ بـ now().'
+          echo 'الحلُّ هو تأريخُ الصفِّ داخلَ النافذة — وبـ **استعلام** لا بتحديثِ نموذج، لأنّ عموداً'
+          echo 'خارجَ $fillable يُسقَطُ صمتاً ويتركُ القنبلةَ مسلَّحةً تحتَ إصلاحٍ يقرأُ صحيحاً.'
+          echo 'المثالُ الحيُّ: periodEnrollment() في backend/tests/Pest.php.'
