@@ -35,9 +35,6 @@
 name: Time travel
 
 on:
-  # TEMP — للتحقّقِ من هذا الملفِّ نفسِه قبلَ الدمج، يُحذَفُ بعدَها.
-  push:
-    branches: [chore/time-travel-ci]
   schedule:
     # الاثنينُ ٠٣:٠٠ UTC — أوّلُ يومِ عملٍ، فالنتيجةُ تُقرأُ لا تنتظرُ عطلة.
     - cron: '0 3 * * 1'
