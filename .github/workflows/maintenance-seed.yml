@@ -1,0 +1,71 @@
+# بذرٌ يدويٌّ على الخادم — أمرٌ **مُسمّىً** واحدٌ من قائمةٍ مغلقة.
+#
+# ⚠️ مؤقَّتٌ عن قصد. مسارُ النشرِ (`scripts/deploy.sh`) يمنعُ البذرَ منعاً
+# مكتوباً: بذرةٌ في كلِّ نشرةٍ تكتبُ `updateOrCreate` فتدهسُ كلَّ نصٍّ عربيٍّ
+# عدّلَه مشغِّلٌ من `/admin`. هذا الملفُّ بابُ صيانةٍ لمرّةٍ واحدة، ويُحذَفُ بعدَ
+# استعماله — بابٌ يبقى مفتوحاً هو بابٌ يُنسى أنّه مفتوح.
+#
+# ⚠️ ولا نصَّ يكتبُه إنسانٌ يصلُ إلى صدفةِ الخادم. المُدخَلُ `choice`، ويُترجَمُ
+# هنا عبرَ `case` إلى أمرٍ مكتوبٍ في هذا الملفّ — لأنّ `${{ inputs.x }}` مدسوساً
+# في سطرِ `ssh` هو تنفيذُ أوامرَ عن بُعدٍ لكلِّ من يملكُ صلاحيّةَ إطلاقِ workflow.
+
+name: Maintenance — seed
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'البذرةُ المطلوبة'
+        type: choice
+        required: true
+        default: reference
+        options:
+          # الأدوارُ والصلاحيّاتُ وإعداداتُ المنصّةِ وقوالبُ الإشعارِ وفئاتُ
+          # البياناتِ وأفعالُ التحفيز — آمنةٌ ومتكرِّرة.
+          - reference
+          # المواد · المراحل · الصفوف الدراسيّة.
+          - taxonomy
+          # المناطق.
+          - regions
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    name: VPS — db:seed
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: تجهيز مفتاح SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: البذر
+        env:
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+          APP_PATH: ${{ secrets.VPS_APP_PATH }}
+        run: |
+          case '${{ inputs.task }}' in
+            reference) SEED='db:seed --force' ;;
+            taxonomy)  SEED='db:seed --class=TaxonomySeeder --force' ;;
+            regions)   SEED='db:seed --class=RegionSeeder --force' ;;
+            *) echo "::error::مهمّةٌ غيرُ معروفة"; exit 1 ;;
+          esac
+
+          # ⚠️ `-u www-data` لنفسِ سببِ `deploy.sh`: `exec` يعملُ بـroot، وأيُّ
+          # ملفٍّ يكتبُه البذرُ في `storage/` بملكيّةِ root يُعطِّلُ حوضَ PHP-FPM
+          # بعدَه — و«٥٠٠ على كلِّ صفحةِ Blade» لا يظهرُ في أيِّ فحصٍ دخانيّ.
+          ssh -o BatchMode=yes -i ~/.ssh/id_ed25519 "$USER@$HOST" \
+            "cd '$APP_PATH' && docker compose -f docker/docker-compose.prod.yml --env-file docker/.env exec -T -u www-data backend php artisan $SEED"
+
+      - name: تنظيف المفتاح
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519
