@@ -53,11 +53,11 @@ beforeEach(function (): void {
 
     $this->setCurrentWorkspace($this->workspaceA, $this->teacherA);
     $this->courseA = Course::factory()->create(['workspace_id' => $this->workspaceA->getKey()]);
-    $this->createEnrollment($this->workspaceA, $this->courseA, $this->student);
+    periodEnrollment($this->workspaceA, $this->courseA, $this->student);
 
     $this->setCurrentWorkspace($this->workspaceB, $this->teacherB);
     $this->courseB = Course::factory()->create(['workspace_id' => $this->workspaceB->getKey()]);
-    $this->createEnrollment($this->workspaceB, $this->courseB, $this->student);
+    periodEnrollment($this->workspaceB, $this->courseB, $this->student);
 });
 
 function buildCards(): void
@@ -327,7 +327,7 @@ it('shows the student one card carrying both teachers', function (): void {
 
 it('refuses a classmate the card', function (): void {
     $classmate = $this->addWorkspaceMember($this->workspaceA, Roles::STUDENT);
-    $this->createEnrollment($this->workspaceA, $this->courseA, $classmate);
+    periodEnrollment($this->workspaceA, $this->courseA, $classmate);
 
     $this->setCurrentWorkspace($this->workspaceA, $this->teacherA);
     periodAttempt($this->workspaceA, $this->student, 80, 100);
