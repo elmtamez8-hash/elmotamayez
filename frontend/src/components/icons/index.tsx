@@ -15,7 +15,9 @@
  * element takes an accessible name.
  */
 import {
+  IconAbc,
   IconAlertTriangle,
+  IconAtom,
   IconArrowUp,
   IconBell,
   IconBook2,
@@ -48,14 +50,22 @@ import {
   IconLock,
   IconClipboardText,
   IconDatabase,
+  IconDeviceDesktop,
+  IconDna,
   IconCoins,
   IconDiscountOff,
+  IconFeather,
   IconFileText,
+  IconFlask,
   IconHome,
+  IconHourglass,
   IconWorld,
   IconInfinity,
   IconInfoCircle,
+  IconLanguage,
   IconLogout,
+  IconMath,
+  IconMicroscope,
   IconMenu2,
   IconMessageCircle,
   IconMoon,
@@ -63,6 +73,7 @@ import {
   IconReceiptOff,
   IconReceiptRefund,
   IconRepeatOff,
+  IconBuildingMosque,
   IconSchool,
   IconSettings,
   IconShieldCheck,
@@ -77,6 +88,7 @@ import {
   IconUserSearch,
   IconUsers,
   IconUsersGroup,
+  IconVocabulary,
   IconWallet,
   IconX,
   type Icon as TablerIcon,
@@ -291,3 +303,24 @@ export const OngoingReviewIcon = wrap(IconChartLine, "h-5 w-5");
 export const ProgressIcon = wrap(IconTrophy, "h-5 w-5");
 export const LeaderboardIcon = wrap(IconTrophy, "h-5 w-5");
 export const ShopIcon = wrap(IconGift, "h-5 w-5");
+
+/*
+ * The school subjects (spec 022 · `TaxonomySeeder::SUBJECTS`).
+ *
+ * Named for the SUBJECT, not the shape, exactly as everything above: the flask
+ * belongs to chemistry, and a physics tile that later wants a different glyph is
+ * one edit here. `subjectIcon()` in `SubjectsGrid` is what maps a slug onto one.
+ */
+export const MathIcon = wrap(IconMath, "h-6 w-6");
+export const ScienceIcon = wrap(IconMicroscope, "h-6 w-6");
+export const PhysicsIcon = wrap(IconAtom, "h-6 w-6");
+export const ChemistryIcon = wrap(IconFlask, "h-6 w-6");
+export const BiologyIcon = wrap(IconDna, "h-6 w-6");
+export const ArabicIcon = wrap(IconFeather, "h-6 w-6");
+export const LanguageIcon = wrap(IconLanguage, "h-6 w-6");
+export const VocabularyIcon = wrap(IconVocabulary, "h-6 w-6");
+export const MosqueIcon = wrap(IconBuildingMosque, "h-6 w-6");
+export const SocialStudiesIcon = wrap(IconUsersGroup, "h-6 w-6");
+export const HistoryIcon = wrap(IconHourglass, "h-6 w-6");
+export const GeographyIcon = wrap(IconWorld, "h-6 w-6");
+export const ComputerIcon = wrap(IconDeviceDesktop, "h-6 w-6");
