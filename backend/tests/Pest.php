@@ -1277,6 +1277,34 @@ function subscribeToChannel(string $channel, string $socketId = '1234.5678'): Te
 |
 */
 
+/**
+ * The student's enrolment, stamped INSIDE the period rather than at `now()`.
+ *
+ * ⚠️ `enrolledPairsInPeriod()` IS THE WHOLE ENTRY POINT OF
+ * `BuildReportCardsJob`, and its upper bound is `enrolled_at < period_end + 1
+ * day`. These fixtures pin their period to a fixed August 2026 window, so an
+ * enrolment created at `now()` falls inside it only while the WALL CLOCK does:
+ * thirteen tests were green for a month and went red together on 2026-09-01,
+ * reporting a missing report card rather than the date that removed it.
+ *
+ * The backdate is a QUERY. `enrolled_at` is not fillable, so a model `update()`
+ * would discard the key in silence and leave the bomb armed under a fix that
+ * reads as correct.
+ */
+function periodEnrollment(Workspace $workspace, Course $course, User $student): Enrollment
+{
+    /** @var TestCase $test */
+    $test = test();
+
+    $enrollment = $test->createEnrollment($workspace, $course, $student);
+
+    Enrollment::query()
+        ->whereKey($enrollment->getKey())
+        ->update(['enrolled_at' => '2026-08-05 09:00:00']);
+
+    return $enrollment->refresh();
+}
+
 /** A completed session inside the period, with the student's register row. */
 function periodSession(Workspace $workspace, Course $course, User $student, AttendanceStatus $status): ClassSession
 {

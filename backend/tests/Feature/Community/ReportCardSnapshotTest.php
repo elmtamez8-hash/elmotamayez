@@ -35,7 +35,7 @@ beforeEach(function (): void {
 
     $this->student = User::factory()->create();
     $this->course = Course::factory()->create(['workspace_id' => $this->workspace->getKey()]);
-    $this->createEnrollment($this->workspace, $this->course, $this->student);
+    periodEnrollment($this->workspace, $this->course, $this->student);
 
     GradingScheme::factory()->create([
         'period_start' => '2026-08-01',
