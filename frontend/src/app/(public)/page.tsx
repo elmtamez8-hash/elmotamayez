@@ -101,21 +101,44 @@ function StatBar({ stats }: { stats: HomePayload["stats"] }) {
 
   return (
     <section aria-label="أرقام المنصة" className="border-y border-line bg-surface-raised">
-      <dl className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+      {/*
+        | ⚠️ `auto-fit` WITH A FLOOR, NOT A COLUMN COUNT PER BREAKPOINT.
+        |
+        | This was `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`, which stacks all
+        | four numbers on top of each other below 640px — the width most of Qatar
+        | reads this page at. Four full-width rows push the whole «كيف تعمل
+        | المنصة» section below the fold on a phone, to say four things that are
+        | each a word and a number.
+        |
+        | A breakpoint answers «how wide is the SCREEN»; the question here is «how
+        | wide is a TILE», and the two stop agreeing the moment a label or a digit
+        | is added. The floor states it once — measured, not guessed: two across
+        | on a 320px phone, three at 640, four from ~790 up, and never more than
+        | four because there are four items and `auto-fit` collapses the rest.
+        |
+        | ⚠️ THERE ARE TWO FLOORS BECAUSE THE ICON CHANGES SIZE AT `sm`. A single
+        | 7.5rem floor gave four 126px tracks at 640 against a 3rem disc and a
+        | 1.5rem gap — «حصة مكتملة» wrapped to two lines and the row overflowed
+        | its own tile. A floor is a statement about the CONTENT, so it has to
+        | move with the content it holds.
+      */}
+      <dl className="mx-auto grid max-w-7xl grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-x-4 gap-y-6 px-4 py-10 sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] sm:gap-6 sm:px-6">
         {items.map(({ label, value, suffix, Icon }) => (
           // Icon on one side, the number and its label on the other. `text-start`
           // and not `text-left`: the row mirrors with the page and needs no
           // second rule to do it.
-          <div key={label} className="flex items-center gap-4 text-start">
+          <div key={label} className="flex items-center gap-3 text-start sm:gap-4">
             <span
               aria-hidden="true"
-              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary-soft text-primary-ink"
+              // Smaller on a phone: at the 7.5rem floor a 3rem disc plus its
+              // gap leaves «حصة مكتملة» too little to sit on one line.
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary-soft text-primary-ink sm:h-12 sm:w-12"
             >
-              <Icon className="h-6 w-6" />
+              <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
             </span>
 
             <div className="min-w-0">
-              <dd className="text-3xl font-extrabold leading-tight text-primary-ink sm:text-4xl">
+              <dd className="text-2xl font-extrabold leading-tight text-primary-ink sm:text-3xl lg:text-4xl">
                 <AnimatedNumber value={value} suffix={suffix} />
               </dd>
               <dt className="text-sm text-ink-muted">{label}</dt>
@@ -157,7 +180,11 @@ export default async function HomePage() {
             حصص فردية وجماعية، مباشرة ومسجّلة، مع مدرّسين يمرّون بمراجعة أكاديمية
             قبل انضمامهم — وتقييم شفاف يوضّح التزام كل مدرّس قبل أن تحجز.
           </p>
-          <div className="flex flex-wrap gap-3">
+          {/* Centred: the two doors are a CHOICE between equals, and a choice
+              reads as one when neither is first. `justify-center` and not
+              `mx-auto` — the row is a flex container, so centring belongs to
+              how it distributes its children, not to a width it does not set. */}
+          <div className="flex flex-wrap justify-center gap-3">
             <Link
               href="/signup/student"
               className="rounded-xl bg-primary px-6 py-3 text-base font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
