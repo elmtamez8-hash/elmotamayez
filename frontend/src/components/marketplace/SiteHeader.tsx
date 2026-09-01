@@ -11,6 +11,7 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { usePlatformName } from "@/lib/platform-context";
 import { BrandMarkDecorative } from "@/components/ui/BrandMark";
@@ -35,6 +36,24 @@ const NAV = [
   { href: "/about", label: "عن المنصة", Icon: InfoIcon },
 ];
 
+/**
+ * Is `href` the page being read?
+ *
+ * ⚠️ `/` IS EXACT AND EVERY OTHER ROUTE IS A PREFIX, and the two cannot be one
+ * rule. `startsWith("/")` is true of every path in the product, so the naive form
+ * marks «الرئيسية» as current on all six screens — six lit links say the same
+ * thing as none. The prefix half is what keeps «المدرسون» lit on a teacher's own
+ * page (`/teachers/{uuid}`), which is where a reader is most likely to have
+ * forgotten which section they are in.
+ *
+ * The boundary is `href + "/"`, never a bare `startsWith`: without it `/course`
+ * would light `/courses`, and a route added tomorrow whose name merely begins
+ * with an existing one lights the wrong row with nothing failing.
+ */
+export function isCurrentPath(pathname: string, href: string): boolean {
+  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
   /*
@@ -49,6 +68,7 @@ export function SiteHeader() {
    */
   const { user } = useAuth();
   const platform = usePlatformName();
+  const pathname = usePathname();
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur">
@@ -62,7 +82,10 @@ export function SiteHeader() {
 
         <nav aria-label="التنقّل الرئيسي" className="hidden flex-1 lg:block">
           <ul className="flex items-center gap-1">
-            {NAV.map(({ href, label, Icon }) => (
+            {NAV.map(({ href, label, Icon }) => {
+              const current = isCurrentPath(pathname, href);
+
+              return (
               <li key={href}>
                 {/*
                  * The underline is `link-underline` — the footer's, from
@@ -77,15 +100,36 @@ export function SiteHeader() {
                  * two — and `motion-reduce:` cancels both the shift and the
                  * transition for a reader who asked for that.
                  */}
+                {/*
+                 * ⚠️ THE CURRENT PAGE IS MARKED THREE WAYS, AND ONLY ONE OF THEM
+                 * IS A COLOUR. `aria-current="page"` is the fact — it is what a
+                 * screen reader announces and what the persistent underline in
+                 * `globals.css` is keyed on, so the mark and its meaning cannot
+                 * drift apart. `text-primary-ink` is the brand ink and NOT
+                 * `text-primary`: the second is the maroon a white foreground is
+                 * earned against and it never lightens in the dark theme, while
+                 * `primary-ink` is #8a1538 on white and #e9a0b2 on the dark
+                 * ground — the whole reason that token exists apart from it.
+                 * And the weight steps up rather than turning on, because every
+                 * row here was already `font-bold`.
+                 */}
                 <Link
                   href={href}
-                  className="group inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-ink transition duration-200 hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+                  aria-current={current ? "page" : undefined}
+                  className={`group inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition duration-200 hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none ${
+                    current ? "font-extrabold text-primary-ink" : "font-bold text-ink"
+                  }`}
                 >
-                  <Icon className="h-4 w-4 shrink-0 transition duration-200 group-hover:-translate-x-0.5 group-hover:text-primary-ink motion-reduce:transition-none motion-reduce:group-hover:translate-x-0 rtl:group-hover:translate-x-0.5" />
+                  <Icon
+                    className={`h-4 w-4 shrink-0 transition duration-200 group-hover:-translate-x-0.5 group-hover:text-primary-ink motion-reduce:transition-none motion-reduce:group-hover:translate-x-0 rtl:group-hover:translate-x-0.5 ${
+                      current ? "text-primary-ink" : ""
+                    }`}
+                  />
                   <span className="link-underline">{label}</span>
                 </Link>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </nav>
 
@@ -144,22 +188,34 @@ export function SiteHeader() {
       {open && (
         <nav id="mobile-nav" aria-label="التنقّل الرئيسي" className="border-t border-line lg:hidden">
           <ul className="mx-auto max-w-7xl px-4 py-2 sm:px-6">
-            {NAV.map(({ href, label, Icon }) => (
+            {NAV.map(({ href, label, Icon }) => {
+              const current = isCurrentPath(pathname, href);
+
+              return (
               <li key={href}>
                 {/* The phone menu keeps the filled row and NOT the underline: a
                     tap has no hover to reveal one, and a 44px row is a target the
                     background states better than a 1.5px rule does. The icon and
-                    the weight are the same, so it reads as the same navigation. */}
+                    the weight are the same, so it reads as the same navigation.
+
+                    So the current row wears the fill PERMANENTLY rather than
+                    borrowing the hover state — on a touch screen there is no
+                    hover to distinguish it from, which is exactly why the bar
+                    above uses a rule here and a background there. */}
                 <Link
                   href={href}
                   onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-bold text-ink hover:bg-primary-soft"
+                  aria-current={current ? "page" : undefined}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm hover:bg-primary-soft ${
+                    current ? "bg-primary-soft font-extrabold text-primary-ink" : "font-bold text-ink"
+                  }`}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
                   {label}
                 </Link>
               </li>
-            ))}
+              );
+            })}
             <li>
               {/* The phone menu answers the same question as the bar above it.
                   Left saying "sign in", it is the only route a signed-in student

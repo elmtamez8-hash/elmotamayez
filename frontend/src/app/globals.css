@@ -228,7 +228,14 @@
    one control that lights up in half its own area. `.group` is Tailwind's marker
    class and both the header and the footer already put it on the anchor. */
 .group:hover .link-underline::after,
-.group:focus-visible .link-underline::after {
+.group:focus-visible .link-underline::after,
+/* ⚠️ THE CURRENT PAGE KEEPS THE RULE DRAWN, AND IT IS KEYED ON THE ARIA
+   ATTRIBUTE RATHER THAN ON A CLASS OF ITS OWN. `aria-current="page"` is what a
+   screen reader announces, so keying the visible mark to it means the two can
+   never disagree — a class would be a second answer that the next edit forgets
+   to move. It also gives the state a cue that is NOT a colour, which is what
+   makes it readable to anyone who cannot separate the maroon from the ink. */
+[aria-current="page"] .link-underline::after {
   transform: scaleX(1);
 }
 
