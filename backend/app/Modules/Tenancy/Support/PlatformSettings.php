@@ -113,7 +113,15 @@ final class PlatformSettings
         | changes from the panel, not a constant that can only move by shipping
         | code. Days, and zero switches the notice off entirely.
         */
-        'subscription.expiring_notice_days' => 'subscription.expiring_notice_days',
+        // ⚠️ THE VALUE IS THE CONFIG PATH, AND IT READ `subscription.` (singular)
+        // AGAINST A FILE NAMED `config/subscriptions.php`. `config()` answers
+        // NULL for a path with no file behind it, and `platform_settings.value`
+        // is NOT NULL — so `db:seed` DIED HERE on MySQL, third seeder of ten, and
+        // the six reference catalogues below it in `DatabaseSeeder` never ran at
+        // all. Invisible from the reader's side: `ExpireSubscriptionsJob` passes
+        // its own `config('subscriptions.…')` fallback explicitly, so the FEATURE
+        // was correct the whole time and only the seeder could see the typo.
+        'subscription.expiring_notice_days' => 'subscriptions.expiring_notice_days',
         /*
         | Referrals (spec 011 · FR-023 — «the reward value and its cap must both
         | be adjustable»).
