@@ -91,10 +91,15 @@ jobs:
         # ⚠️ الإزاحةُ تُطبَعُ قبلَ التشغيل. تشغيلةٌ حمراءُ لا يُعرَفُ من سجلِّها
         # أيُّ تاريخٍ حاكَتْه هي تشغيلةٌ لا يستطيعُ أحدٌ إعادةَ إنتاجِها محلّيّاً.
         run: |
+          # ⚠️ `-f` ليست زينة. بلا العَلَمِ تُمرِّرُ faketime النصَّ إلى `date -d`،
+          # و`date -d '+400d'` **غيرُ صالح** — فتقفُ التشغيلةُ عندَ
+          # «Timestamp to fake not recognized» قبلَ أن تلمسَ اختباراً واحداً.
+          # `-f` هي الصيغةُ المتقدّمةُ التي تقرأُ الإزاحةَ نفسَها، وبلا `x0`
+          # تبقى الساعةُ **ماشيةً** — وهي المشيُ ما يُميّزُ هذا عن `travelTo()`.
           OFFSET='${{ github.event.inputs.offset || '+400d' }}'
           echo "الآن حقيقةً: $(date -u)"
-          echo "الآن محاكاةً: $(faketime "$OFFSET" date -u)"
-          faketime "$OFFSET" php vendor/bin/pest
+          echo "الآن محاكاةً: $(faketime -f "$OFFSET" date -u)"
+          faketime -f "$OFFSET" php vendor/bin/pest
 
       - name: كيف تُقرأُ الحُمرة
         if: failure()
