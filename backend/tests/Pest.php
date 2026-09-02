@@ -36,6 +36,7 @@ use App\Modules\LiveSessions\Jobs\MarkAbsenteesJob;
 use App\Modules\LiveSessions\Jobs\SendSessionReportsJob;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Data\NotificationEnvelope;
 use App\Modules\Notifications\Models\ContactVerification;
@@ -494,6 +495,80 @@ function cohortFixture(?int $capacityA = null, ?int $capacityB = null): array
     });
 
     return ['workspace' => $workspace, 'owner' => $owner, 'student' => $student, ...$built];
+}
+
+/**
+ * A course that takes private-session requests, and a student who may make one.
+ *
+ * ⚠️ THE STUDENT LEAVES `users.last_workspace_id` NULL, like {@see cohortFixture}.
+ * Nothing on a student's path writes that column — not enrolling, not signing in
+ * — so a fixture that stamps it is measuring a person production never produces,
+ * and every ownership branch in this feature would be tested through a context
+ * the real student does not have.
+ *
+ * The moment is derived from the availability window rather than written beside
+ * it: FR-016ب is about the whole DURATION fitting, and a fixture with a
+ * hand-picked hour drifts out of its own slot the first time the duration moves.
+ *
+ * @return array{workspace: Workspace, owner: User, student: User, course: Course, profile: TeacherProfile, startsAt: CarbonImmutable}
+ */
+function privateSessionFixture(int $minutes = 45, int $credits = 10): array
+{
+    /** @var TestCase $test */
+    $test = test();
+
+    [$workspace, $owner] = $test->createWorkspaceWithOwner();
+    $student = User::factory()->create();
+
+    // A fixed weekday next week: deterministic, always future, and never today —
+    // a slot derived from `now()` would be in the past for half of every run.
+    $startsAt = CarbonImmutable::now()->utc()->addWeek()->startOfWeek()->addDays(2)->setTime(15, 0);
+
+    $built = app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace, $owner, $student, $minutes, $credits, $startsAt): array {
+        $profile = TeacherProfile::factory()->create(['workspace_id' => $workspace->getKey()]);
+
+        $course = Course::factory()->published()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $owner->getKey(),
+            'teacher_profile_id' => $profile->getKey(),
+            'course_type' => Course::TYPE_GROUP,
+            'title' => 'الرياضيات',
+            'private_session_minutes' => $minutes,
+        ]);
+
+        AvailabilitySlot::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'teacher_profile_id' => $profile->getKey(),
+            'day_of_week' => (int) $startsAt->format('w'),
+            'start_time' => '14:00:00',
+            'end_time' => '18:00:00',
+        ]);
+
+        Enrollment::create([
+            'workspace_id' => $workspace->getKey(),
+            'course_id' => $course->getKey(),
+            'student_user_id' => $student->getKey(),
+            'source' => 'manual',
+            'status' => 'active',
+            'progress_pct' => 0,
+            'enrolled_at' => now(),
+        ]);
+
+        // Without this the launch default (prepaid credits) refuses at
+        // submission — correctly, and it would make every fixture below assert
+        // the money guard instead of what it is about.
+        fundBooking($workspace, $student, $course, $credits);
+
+        return ['course' => $course, 'profile' => $profile];
+    });
+
+    return [
+        'workspace' => $workspace,
+        'owner' => $owner,
+        'student' => $student,
+        'startsAt' => $startsAt,
+        ...$built,
+    ];
 }
 
 function fakeSessionTimeline(): void

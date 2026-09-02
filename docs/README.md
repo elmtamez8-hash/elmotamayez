@@ -30,7 +30,7 @@
 | Analytics | `app/Modules/Analytics/` | PlatformMetricDaily, ReportSubscription | The platform dashboard: a nightly rollup, the regional picture, and the scheduled report (spec 011 · US6) |
 | CMS | `app/Modules/CMS/` | Article, Category, Tag | Articles CRUD + publish |
 | Marketplace | `app/Modules/Marketplace/` | TeacherProfile, TeacherApplication, Subject, GradeLevel, AvailabilitySlot, Review, Complaint | Public listings (no auth) + teacher application + academic review + reviews/complaints |
-| LiveSessions | `app/Modules/LiveSessions/` | ClassSession, SessionBooking, Attendance, ClassSessionFeedback, FreezePeriod | Calendar + booking + broadcast room + register + freeze periods |
+| LiveSessions | `app/Modules/LiveSessions/` | ClassSession, SessionBooking, Attendance, ClassSessionFeedback, FreezePeriod, PrivateSessionRequest | Calendar + booking + broadcast room + register + freeze periods |
 | Settlement | `app/Modules/Settlement/` | SettlementRate, RateChangeRequest, TeachingUnit, SettlementPeriod, LedgerEntry, TeacherPayout | Teacher statement + export + units + rate requests + period close/payout + financial audit |
 | Compliance | `app/Modules/Compliance/` | DataCategory, DataProcessor, DataRequest, LegalHold, RetentionSweepRun, BreachReport, TeacherOffboarding | The privacy catalogue and policy (public) + data-rights requests + the officer's queue + legal holds + breach reports + a teacher's exit |
 | Community | `app/Modules/Community/` | Conversation, ConversationParticipant, Message, ModerationAction, BlockedTerm, AssistantAssignment, AssistantScope, PeriodicReview, GradingScheme, ReportCard, ReportCardSegment, Announcement, ConversationWriteBan | Private and public chat (private · session · lesson · **cohort**) + moderation, the per-thread write ban + assistants and their scopes + periodic reviews + the weighted report card + announcements |
@@ -1103,17 +1103,25 @@ provable before any broadcast contract existed.
 | POST | `/attendances/{uuid}/override` | `attendance.override`; past the edit window it takes `settings.update` |
 | POST | `/class-sessions/{uuid}/feedback` | `sessions.manage` — writing on a student's record is not something a reader gains by being able to read |
 | GET/POST/DELETE | `/freeze-periods` | `freeze.manage` |
+| GET | `/private-session-requests` | The student's own asks. Filtered EXPLICITLY by `student_user_id` — a student is a member of no workspace, so `WorkspaceScope` adds no condition for them and the scope guards nothing |
+| POST | `/courses/{uuid}/private-session-requests` | Enrolled student, `throttle:sessions`. **One field**: the duration is the teacher's (`FR-016أ`) and is read, never sent. Nothing is created and no credit moves (`FR-017`) — which is what makes a refusal free for both sides |
+| DELETE | `/private-session-requests/{uuid}` | Owner. `409` once decided — withdrawing an accepted request is not «you may not», it is «the row moved on» |
+| GET | `/manage/private-session-requests` | `sessions.manage`, filtered by the reader's CURRENT workspace and never by a `teacher_profile_id` from the query string |
+| POST | `/manage/private-session-requests/{uuid}/decide` | `sessions.manage`, `throttle:sessions`. Accept ⇒ group + session + seat + settled request in ONE transaction (`FR-020`); reject REQUIRES a written reason, which the student reads |
 
 ### Permissions
 
 `sessions.view` · `sessions.manage` · `sessions.host` · `attendance.view` ·
-`attendance.override` · `freeze.manage`. Students hold `sessions.view`; assistants add
+`attendance.override` · `freeze.manage`. The private-session queue is
+`sessions.manage` — the same permission as the calendar it writes into, because accepting
+one IS scheduling a lesson. Students hold `sessions.view`; assistants add
 `attendance.view`; the other four are the teacher's.
 
 ### Events
 
 `SessionScheduled` · `SessionCancelled` · `SessionCompleted` · `SessionDelivered` ·
-`AttendanceConfirmed` · `AttendanceOverridden`.
+`AttendanceConfirmed` · `AttendanceOverridden` · `PrivateSessionRequested` ·
+`PrivateSessionDecided` · `PrivateSessionExpired`.
 
 **`SessionCompleted` is not `SessionDelivered`.** Two events rather than one with a flag,
 because a flag makes the condition optional for the listener. Completion is "the session

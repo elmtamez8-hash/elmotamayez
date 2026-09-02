@@ -101,6 +101,83 @@ export type CourseCard = {
   is_bestseller: boolean;
 };
 
+/*
+ * Spec 023 — the course's OWN page, which is not the card with more fields.
+ *
+ * ⚠️ IT CARRIES THE PRICE AND THE CARD DOES NOT (006 · FR-021هـ): the price
+ * belongs to the buyable unit, and until 023 the unit had no page. And no item
+ * in `curriculum` carries a uuid or a media path — the title, the kind and the
+ * duration are the whole promise a visitor is deciding on.
+ */
+export type CurriculumItem = {
+  title: string;
+  kind: string;
+  duration_seconds: number | null;
+};
+
+export type CurriculumChapter = {
+  title: string;
+  items: CurriculumItem[];
+};
+
+export type CurriculumSection = {
+  title: string;
+  chapters: CurriculumChapter[];
+};
+
+/*
+ * ⚠️ `seats_left` IS OPTIONAL, NOT NULLABLE, AND THE DIFFERENCE IS THE FEATURE.
+ * A group with no declared ceiling has no number of seats left: the key is
+ * ABSENT (FR-012). Typed `number | null` the component would render «٠ مقاعد»
+ * for «غير محدود» — the opposite of what it means — and TypeScript would not
+ * object.
+ *
+ * `schedule` is a list of short Arabic labels («السبت 16:00»), read from the
+ * same directory the student's own group picker uses. Empty means nothing has
+ * been scheduled yet, which the screen says out loud.
+ */
+export type CohortSummary = {
+  uuid: string;
+  name: string;
+  description: string | null;
+  status: "open" | "full" | "closed";
+  schedule: string[];
+  seats_left?: number;
+};
+
+export type CourseDetail = {
+  uuid: string;
+  slug: string | null;
+  title: string;
+  description: string | null;
+  cover_url: string | null;
+  subject: { slug: string; name_ar: string; icon: string | null } | null;
+  grade_level: string | null;
+  teacher: {
+    uuid: string;
+    slug: string | null;
+    name: string;
+    photo_url: string | null;
+    trust_score: number | null;
+    trust_score_band: TrustBand;
+  } | null;
+  type: "individual" | "group" | "recorded";
+  lessons_count: number;
+  duration_seconds: number;
+  price_minor: number | null;
+  currency: string | null;
+  average_rating: number | null;
+  enrolled_count: number;
+  curriculum: CurriculumSection[];
+  cohorts: CohortSummary[];
+  /**
+   * How long a private hour in this course lasts (023 · FR-016أ). Null means the
+   * platform default — never «no private sessions», which is why the form reads
+   * it with `??` rather than hiding itself when it is absent.
+   */
+  private_session_minutes: number | null;
+};
+
 export type TeacherDetail = TeacherCard & {
   bio: string | null;
   qualifications: string[];
@@ -265,6 +342,18 @@ export const publicApi = {
 
   courses: (params: Record<string, string | undefined>) =>
     get<Paginated<CourseCard>>("/marketplace/courses", params),
+
+  /*
+   * ⚠️ A uuid, NEVER a slug — unlike `teacher()` one line up, which takes
+   * either. `courses.slug` is unique per (workspace_id, slug), i.e. inside one
+   * workspace only, so two teachers naming a course «الرياضيات ٣» produce the
+   * same slug and a public route with no workspace to read cannot tell them
+   * apart. The slug still travels in the payload, for display.
+   */
+  course: (uuid: string) =>
+    get<{ data: CourseDetail }>(
+      `/marketplace/courses/${encodeURIComponent(uuid)}`,
+    ),
 
   /*
    * The blog. `per_page` is capped server-side at 200 — the sitemap is the only

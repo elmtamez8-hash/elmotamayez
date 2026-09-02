@@ -119,6 +119,37 @@ function marketplaceEnvelopeKeys(): array
 | constants. A new field on a public Resource fails here until someone writes it
 | into the list, which is the deliberate decision the class docblock asks for.
 */
+/** A published course with one published lesson, under the teacher's workspace. */
+function exposureCourse(TeacherProfile $teacher): Course
+{
+    return app(WorkspaceContext::class)->forWorkspace($teacher->workspace, function () use ($teacher): Course {
+        $course = Course::factory()->published()->create([
+            'workspace_id' => $teacher->workspace_id,
+            'created_by' => $teacher->user_id,
+        ]);
+
+        $section = Section::create([
+            'workspace_id' => $teacher->workspace_id, 'course_id' => $course->getKey(),
+            'title' => 'قسم', 'status' => ContentStatus::Published, 'order' => 1,
+        ]);
+
+        $chapter = Chapter::create([
+            'workspace_id' => $teacher->workspace_id, 'section_id' => $section->getKey(),
+            'course_id' => $course->getKey(), 'title' => 'فصل',
+            'status' => ContentStatus::Published, 'order' => 1,
+        ]);
+
+        Lesson::create([
+            'workspace_id' => $teacher->workspace_id, 'course_id' => $course->getKey(),
+            'section_id' => $section->getKey(), 'chapter_id' => $chapter->getKey(),
+            'uuid' => Str::uuid(), 'title' => 'درس', 'type' => 'article',
+            'status' => ContentStatus::Published, 'order' => 1, 'duration_seconds' => 300,
+        ]);
+
+        return $course;
+    });
+}
+
 it('publishes only allowlisted fields, in every public payload', function () {
     $teacher = marketplaceTeacher(marketplaceWorkspace('Academy'));
 
@@ -135,6 +166,13 @@ it('publishes only allowlisted fields, in every public payload', function () {
         ...PublicFieldAllowlist::TRUST_FACTORS,
         ...PublicFieldAllowlist::REVIEW_SUMMARY,
         ...PublicFieldAllowlist::FAQ,
+        // Spec 023 — the course's own page and everything nested in it.
+        ...PublicFieldAllowlist::COURSE_DETAIL,
+        ...PublicFieldAllowlist::COURSE_TEACHER,
+        ...PublicFieldAllowlist::CURRICULUM_SECTION,
+        ...PublicFieldAllowlist::CURRICULUM_CHAPTER,
+        ...PublicFieldAllowlist::CURRICULUM_ITEM,
+        ...PublicFieldAllowlist::COHORT,
         ...marketplaceEnvelopeKeys(),
     ];
 
@@ -145,6 +183,12 @@ it('publishes only allowlisted fields, in every public payload', function () {
         'home' => $this->getJson('/api/v1/marketplace/home')->json(),
         'subjects' => $this->getJson('/api/v1/marketplace/subjects')->json(),
         'stats' => $this->getJson('/api/v1/marketplace/stats')->json(),
+        // ⚠️ A REAL COURSE, NOT `marketplaceTeacher`'s empty one. An endpoint
+        // whose payload is `{"data": {...}}` over a course with no tree and no
+        // groups publishes a handful of keys, and every nested shape below it
+        // goes unwalked — which is the shape of an allowlist test that passes
+        // because it found nothing.
+        'course detail' => $this->getJson('/api/v1/marketplace/courses/'.exposureCourse($teacher)->uuid)->json(),
     ];
 
     $unlisted = [];

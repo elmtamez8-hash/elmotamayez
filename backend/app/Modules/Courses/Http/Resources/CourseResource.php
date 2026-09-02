@@ -46,6 +46,7 @@ class CourseResource extends JsonResource
             'is_published' => $this->isPublished(),
             'visibility' => $this->visibility,
             'is_sequential' => $this->is_sequential,
+            'private_session_minutes' => $this->private_session_minutes,
             'is_free' => $this->isFree(),
             'language' => $this->language,
             'duration_seconds' => $this->duration_seconds,

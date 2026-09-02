@@ -29,6 +29,7 @@ use Laravel\Scout\Searchable;
  * @property string|null $cover_path
  * @property int $price_minor
  * @property int|null $price_before_discount_minor
+ * @property int|null $private_session_minutes
  * @property Carbon|null $last_delivered_at
  * @property Carbon|null $created_at
  * @property-read User|null $creator created_by is nullable — a course can outlive its author
@@ -78,6 +79,16 @@ class Course extends BaseModel
         // outlive its author.
         'subject_id',
         'grade_level',
+        /*
+        | How long a private session in this course lasts (023 · FR-016أ). NULL
+        | means the platform default — never «no private sessions».
+        |
+        | ⚠️ FILLABLE IN THE SAME CHANGE AS ITS MIGRATION. A column mass
+        | assignment does not know about is discarded with no exception and no
+        | log, and the response echoes what was SENT — so every test written
+        | against the body passes over a row holding null.
+        */
+        'private_session_minutes',
         'teacher_profile_id',
         'status',
         'visibility',
@@ -102,6 +113,7 @@ class Course extends BaseModel
             'price_before_discount_minor' => 'integer',
             'is_sequential' => 'boolean',
             'duration_seconds' => 'integer',
+            'private_session_minutes' => 'integer',
             'structure_version' => 'integer',
             // Stamped by Payments' StampCourseDelivery, never by course
             // authoring — and deliberately not fillable: the only writer is that

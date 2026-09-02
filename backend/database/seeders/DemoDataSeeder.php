@@ -17,8 +17,10 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Learning\Actions\EnrollStudent;
+use App\Modules\Learning\Models\Cohort;
 use App\Modules\LiveSessions\Actions\BookSeat;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\CreditTransactionType;
@@ -26,6 +28,7 @@ use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Tenancy\Actions\CreateWorkspace;
 use App\Modules\Tenancy\DTOs\CreateWorkspaceDTO;
+use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Database\Seeder;
@@ -230,7 +233,124 @@ class DemoDataSeeder extends Seeder
 
         app(BookSeat::class)->handle($session, $student);
 
+        $this->seedPrivateSessionFixture($workspace, $owner, $profile);
+
         $this->command->info('Demo data seeded: workspace, teacher, student, course with lessons, exam, and a booked session.');
+    }
+
+    /*
+    | Spec 023 · T001 — the fixture `quickstart.md` walks.
+    |
+    | A SECOND course, deliberately, rather than three groups bolted onto the
+    | course above: `LessonGate` refuses the whole curriculum while a course has
+    | a joinable group and the reader is in none (021 · FR-028أ), so adding one
+    | to the demo course would lock the demo student out of the lessons every
+    | other spec opens.
+    |
+    | ⚠️ AND THE STUDENT HERE IS A SECOND ONE, WITH `last_workspace_id` LEFT NULL.
+    | That column is written by `CreateWorkspace` and `WorkspaceContext::set()` —
+    | i.e. by becoming a workspace MEMBER — and by nothing on a student's path:
+    | enrolling writes nothing and signing in writes nothing. So every real
+    | student who bought a course has it null, `WorkspaceContext::id()` answers
+    | null for them, and the spatie team id is null with it. A fixture that
+    | stamps the column (as `addWorkspaceMember()` does, and as the demo student
+    | above deliberately is) measures somebody who does not exist in production —
+    | which is how five student-facing endpoints were dead at once on 2026-08-26
+    | with a green suite.
+    */
+    private function seedPrivateSessionFixture(Workspace $workspace, User $owner, TeacherProfile $profile): void
+    {
+        $course = Course::factory()->published()->create([
+            'workspace_id' => $workspace->getKey(),
+            'title' => 'أساسيّات التفاضل',
+            'slug' => 'calculus-basics',
+            'description' => 'من المشتقّة الأولى إلى تطبيقاتها.',
+            'course_type' => Course::TYPE_GROUP,
+            'is_sequential' => false,
+            'created_by' => $owner->getKey(),
+            'teacher_profile_id' => $profile->getKey(),
+            // 023 · FR-016أ — the teacher declares it and the student reads it.
+            // Without a value here the demo course answers the platform default,
+            // which is correct but says nothing about the field being wired.
+            'private_session_minutes' => 45,
+        ]);
+
+        $section = Section::create([
+            'workspace_id' => $workspace->getKey(), 'course_id' => $course->getKey(),
+            'title' => 'المشتقّة', 'status' => ContentStatus::Published, 'order' => 1,
+        ]);
+
+        $chapter = Chapter::create([
+            'workspace_id' => $workspace->getKey(), 'section_id' => $section->getKey(), 'course_id' => $course->getKey(),
+            'title' => 'التعريف والقواعد', 'status' => ContentStatus::Published, 'order' => 1,
+        ]);
+
+        foreach (['تعريف المشتقّة', 'قاعدة القوّة', 'قاعدة السلسلة'] as $i => $title) {
+            Lesson::create([
+                'workspace_id' => $workspace->getKey(), 'course_id' => $course->getKey(),
+                'section_id' => $section->getKey(), 'chapter_id' => $chapter->getKey(),
+                'uuid' => Str::uuid(), 'title' => $title, 'type' => 'article',
+                'status' => ContentStatus::Published,
+                'content' => "شرح: {$title}", 'order' => $i + 1,
+                'duration_seconds' => 720,
+                'is_preview' => $i === 0,
+            ]);
+        }
+
+        // The three states US2 must tell apart. The full one is full by its
+        // COUNTER reaching its capacity, not by a status — `isFull()` is derived
+        // from two columns and never stored, so a fixture that set a status
+        // would be testing a value the product does not write.
+        Cohort::factory()->create([
+            'workspace_id' => $workspace->getKey(), 'course_id' => $course->getKey(),
+            'name' => 'مجموعة السبت الصباحيّة', 'description' => 'السبت والثلاثاء ٩:٠٠',
+            'capacity' => 8, 'members_count' => 3, 'status' => Cohort::OPEN,
+            'created_by' => $owner->getKey(),
+        ]);
+
+        Cohort::factory()->create([
+            'workspace_id' => $workspace->getKey(), 'course_id' => $course->getKey(),
+            'name' => 'مجموعة الأحد المسائيّة',
+            'capacity' => 4, 'members_count' => 4, 'status' => Cohort::OPEN,
+            'created_by' => $owner->getKey(),
+        ]);
+
+        Cohort::factory()->create([
+            'workspace_id' => $workspace->getKey(), 'course_id' => $course->getKey(),
+            'name' => 'مجموعة الفصل الماضي',
+            'capacity' => 10, 'members_count' => 10, 'status' => Cohort::ARCHIVED,
+            'archived_at' => now()->subMonth(), 'created_by' => $owner->getKey(),
+        ]);
+
+        // Declared availability — what a private-session request must fall
+        // entirely inside, by its DURATION and not its start (FR-016ب).
+        foreach ([[0, '16:00', '19:00'], [2, '16:00', '19:00'], [4, '10:00', '12:00']] as [$day, $from, $to]) {
+            AvailabilitySlot::create([
+                'workspace_id' => $workspace->getKey(),
+                'teacher_profile_id' => $profile->getKey(),
+                'day_of_week' => $day,
+                'start_time' => $from,
+                'end_time' => $to,
+            ]);
+        }
+
+        $buyer = User::factory()->create([
+            'first_name' => 'Private',
+            'last_name' => 'Student',
+            'email' => 'private@example.com',
+            'password' => 'password',
+            'platform_role' => PlatformRole::Student,
+        ]);
+
+        app(EnrollStudent::class)->handle($course, $buyer);
+
+        app(CreditLedger::class)->post(new CreditMovement(
+            balance: app(CreditAccounts::class)->balanceFor($buyer, $course),
+            type: CreditTransactionType::Purchase,
+            credits: 6,
+            sourceType: 'seeded_purchase',
+            sourceId: (int) $course->getKey(),
+        ));
     }
 
     /**

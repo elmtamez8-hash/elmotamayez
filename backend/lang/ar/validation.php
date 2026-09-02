@@ -297,6 +297,8 @@ return [
         'is_preview' => 'معاينة مجانية',
         'is_published' => 'منشور',
         'is_sequential' => 'التسلسل الإجباري',
+        'private_session_minutes' => 'مدة الحصة الخاصة',
+        'decision_reason' => 'سبب الرفض',
 
         // الوسائط (spec 004)
         'file' => 'الملف',

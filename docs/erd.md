@@ -761,6 +761,7 @@ workspaces ─┬─< cohorts                       (course_id · capacity · me
             │       │  status: open | closed | archived   ⚠️ no delete (FR-035)
             │       ├─< cohort_memberships    (student_user_id · course_id · joined_at · closed_at)
             │       └─< class_sessions.cohort_id          ⚠️ nullable — see below
+            │       └── individual_for_user_id            ⚠️ nullable — 023, see below
             ├─< cohort_membership_events      (joined | transferred | left | removed | requested …)
             ├─< cohort_transfer_requests      (to_cohort_id · from_cohort_id · status · decision_reason)
             └─< conversations.cohort_id ──< conversation_write_bans
@@ -773,6 +774,7 @@ workspaces ─┬─< cohorts                       (course_id · capacity · me
 |---|---|---|
 | `cohort_memberships` | `closed_slot` — `0` while open, the row's own id afterwards | `unique(student_user_id, course_id, closed_slot)` — ONE open membership per course, enforced by the database. MySQL has no partial index, so «unique WHERE closed_at IS NULL» does not exist on the engine this ships to |
 | `cohort_transfer_requests` | `pending_slot`, the same idiom | one pending request per course. A second one is `request_pending`, not a queue |
+| `private_session_requests` | `pending_slot`, the same idiom again | `unique(student_user_id, starts_at, pending_slot)` — one LIVE request per (student × starting instant), `FR-022`. ⚠️ The slot MUST move off its zero when the request is decided, or a Tuesday six o'clock a teacher once refused stays booked against that student for ever; the guard is the THIRD case of `PrivateSessionRequestUniquenessTest`, and the first two pass without it |
 | `cohorts` | `members_count` | claimed by the atomic conditional UPDATE that takes the seat — never `count()` then `insert()`, and never `lockForUpdate()`, a no-op on SQLite |
 | `conversations` | `cohort_id`, **nullable** with `unique()` | one thread per group. NULL never equals NULL, so every private, session and lesson row coexists freely — the `captured_order_id` idiom |
 
@@ -785,9 +787,35 @@ claim is the only correct writer of.
 Every session in this database predates the group and carries `null`. A bare
 `whereNotNull` in the student's discovery list would empty the timetable of every
 course that has no groups (FR-036) — so `CohortSessionVisibility` reads
-«my groups' sessions, **plus** the unassigned ones, **plus** anything I already
-hold a seat in». That last clause is the one that matters: hiding an unassigned
-session from discovery must never swallow a seat the student has paid for.
+«my groups' sessions, **plus** the unassigned ones of a course that has no groups».
+
+⚠️ **It has TWO arms, not three, and this file used to claim a third** («plus
+anything I already hold a seat in»). The promise behind that sentence is real and
+is kept somewhere else: `GetStudentSchedule` is built from the student's own
+BOOKINGS and is deliberately untouched by this predicate (FR-025د), so a seat
+already held stays on their timetable whatever discovery decides. Measured against
+the code on 2026-09-02 — a rule that lives only in a document is a rule the next
+reader implements from the document.
+
+### `cohorts.individual_for_user_id` — 023's one column
+
+NULL is an ordinary group; a student's id makes it their private one, capacity `1`,
+status `closed` from birth. `unique(course_id, individual_for_user_id)` — and here
+NULL-never-equals-NULL is what is WANTED: every group cohort of a course coexists
+freely, while no student can hold two private ones in it (`FR-019ج` · `FR-019د`).
+
+⚠️ **The public read filters on the COLUMN, never on the status.** A private group
+is created `closed`, so a status filter hides it today for a reason that has
+nothing to do with whose it is — and the first day one is opened for any reason,
+its owner's name is on the marketplace. The guard test OPENS it deliberately and
+then demands its absence; one that leaves it closed measures the status while
+believing it measured ownership.
+
+⚠️ **And no `cohort_memberships` row is ever opened for it.** That table carries
+`unique(student_user_id, course_id, closed_slot)` — ONE open membership per
+(student, course) — so opening one would CLOSE the student's Saturday group and
+take away the weekly class they paid for, in exchange for a single private hour.
+The private session reaches its student through their own booking.
 
 ### `cohort_membership_events` is append-only history, not a state
 

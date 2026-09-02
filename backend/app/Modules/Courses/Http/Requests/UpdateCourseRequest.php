@@ -31,6 +31,13 @@ class UpdateCourseRequest extends FormRequest
             'price_minor' => ['nullable', 'integer', 'min:0'],
             'currency' => ['nullable', 'string', 'size:3'],
             'is_sequential' => ['nullable', 'boolean'],
+            /*
+            | The private session's length (023 · FR-016أ). Bounded because the
+            | column is an `unsignedSmallInteger`: SQLite stores any integer in
+            | one and MySQL in strict mode rejects it, so a value only the
+            | production database refuses is a value no local test can see.
+            */
+            'private_session_minutes' => ['nullable', 'integer', 'min:15', 'max:480'],
         ];
     }
 }

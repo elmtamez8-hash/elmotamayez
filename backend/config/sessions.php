@@ -70,6 +70,22 @@ return [
     'recording_failure_alert_threshold' => 3,
     'recording_failure_alert_window_hours' => 6,
 
+    /*
+    | The private-session request (023 · FR-022ب · FR-023).
+    |
+    | How long a request waits for an answer before it expires itself, and how
+    | many a student may have outstanding with one teacher at a time. Both are
+    | judgements about one teacher's inbox that the first month of real use is
+    | what settles — which is exactly the shape a release-only constant gets
+    | wrong for ever.
+    |
+    | The ceiling is what makes the request affordable to refuse: it holds no
+    | seat and moves no credit (FR-017), which is also what makes it cheap
+    | enough to flood a teacher's whole week with in a minute.
+    */
+    'private_request_ttl_hours' => 48,
+    'private_request_max_pending' => 3,
+
     // How long a join ticket is good for, in minutes (017 FR-007).
     //
     // The library's own default is SIX HOURS, and the contract test asserted

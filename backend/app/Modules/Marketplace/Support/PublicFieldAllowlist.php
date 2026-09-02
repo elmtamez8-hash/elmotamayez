@@ -110,6 +110,117 @@ final class PublicFieldAllowlist
     ];
 
     /*
+    | Spec 023 · T005 — the course's OWN page, which is a different surface from
+    | the card in a list.
+    |
+    | ⚠️ AND IT CARRIES THE PRICE, WHICH THE CARD DELIBERATELY DOES NOT.
+    | 006 · FR-021هـ took the price off browsing surfaces and left it on «the
+    | buyable unit's own page» — `PublicCourseCardResource` says so beside the
+    | field it dropped. Until 023 that page did not exist, so the rule had only
+    | its negative half implemented. Publishing the price here is what completes
+    | it, not an exception to it: a detail page showing LESS than the card it was
+    | opened from is the same defect read backwards.
+    |
+    | 023 · FR-028 («no amount anywhere») is about the CREDIT path — a credit's
+    | price is the teacher's approved settlement rate plus two platform
+    | constants, so a total shown to either side is solvable for the other's
+    | rate. A one-off course total is tied to no settlement rate by any equation,
+    | which is exactly why `price_minor` is not in FORBIDDEN while `hourly_rate`
+    | is.
+    */
+    /** @var list<string> */
+    public const COURSE_DETAIL = [
+        'uuid',
+        'slug',
+        'title',
+        'description',
+        'cover_url',
+        'subject',
+        'grade_level',
+        'teacher',
+        'type',
+        'lessons_count',
+        'duration_seconds',
+        'price_minor',
+        'currency',
+        'average_rating',
+        'enrolled_count',
+        'curriculum',
+        'cohorts',
+        /*
+        | How long a private hour in this course lasts (023 · FR-016أ). A
+        | DURATION, never a price: the student reads it in the request form and
+        | does not choose it, and a form that had to ask a second endpoint for it
+        | would be one round trip away from showing the wrong number.
+        */
+        'private_session_minutes',
+    ];
+
+    /*
+    | The author, as the course page shows them (FR-004) — name, face, trust and
+    | a way through to their page.
+    |
+    | A SEPARATE constant from the card's byline, and the extra key is why:
+    | `trust_score` is published on the teacher's own card already, so it exposes
+    | nothing new, but adding it to the byline shape would put it on every course
+    | card in every list too — a decision nobody made.
+    */
+    /** @var list<string> */
+    public const COURSE_TEACHER = [
+        'uuid',
+        'slug',
+        'name',
+        'photo_url',
+        'trust_score',
+        'trust_score_band',
+    ];
+
+    /*
+    | The published tree, as a visitor who has not bought it may read it.
+    |
+    | ⚠️ NO `uuid` ON AN ITEM, AND NO MEDIA PATH (FR-005 · SC-004). A lesson uuid
+    | in a public payload is an invitation to try it against the playback
+    | endpoint; the title, the kind and the duration are the whole promise being
+    | made, and they are enough to decide with.
+    */
+    /** @var list<string> */
+    public const CURRICULUM_SECTION = ['title', 'chapters'];
+
+    /*
+    | Three levels, not two. `contracts/public-course.md` sketched sections
+    | holding items directly — FR-005 names «الأقسامَ والفصولَ وعناوينَ الدروسِ»,
+    | and `lessons.chapter_id` is NOT NULL, so every lesson has a chapter and
+    | flattening one away would show the visitor a shape the teacher never built.
+    */
+    /** @var list<string> */
+    public const CURRICULUM_CHAPTER = ['title', 'items'];
+
+    /** @var list<string> */
+    public const CURRICULUM_ITEM = ['title', 'kind', 'duration_seconds'];
+
+    /*
+    | A group as the public sees it (FR-010 · FR-014).
+    |
+    | ⚠️ NOT ONE FIELD ABOUT THE MEMBERS — no names, no photos, no
+    | `members_count`. The raw count is subtracted from the capacity ON THE
+    | SERVER, so the two halves of that subtraction never both reach a browser.
+    | And `seats_left` is ABSENT rather than zero for a group with no declared
+    | ceiling: «unlimited» is not a number, and a zero there reads as «full».
+    */
+    /*
+    | ⚠️ `schedule` IS A LIST OF ARABIC LABELS, NOT A LIST OF OBJECTS.
+    | `contracts/public-course.md` sketched `{day_of_week, start_time,
+    | end_time}` — and `CohortScheduleDirectory` has answered «when does this
+    | group meet» since 021, in exactly the short labels the student's own group
+    | picker renders. A second shape here would be a second derivation of one
+    | fact, and the day a session status is added the marketplace advertises a
+    | time the picker does not show. So there is no COHORT_SLOT constant: the
+    | slots are strings.
+    */
+    /** @var list<string> */
+    public const COHORT = ['uuid', 'name', 'description', 'status', 'schedule', 'seats_left'];
+
+    /*
     | The nested shapes, which had no constants until spec 006 made this class
     | load-bearing.
     |

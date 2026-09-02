@@ -93,6 +93,18 @@ class SessionSettings
         return (int) PlatformSettings::get('sessions.ticket_ttl_minutes', 10);
     }
 
+    /** How long a private-session request waits for an answer (023 · FR-023). */
+    public function privateRequestTtlHours(): int
+    {
+        return (int) PlatformSettings::get('sessions.private_request_ttl_hours', 48);
+    }
+
+    /** How many requests one student may leave outstanding with one teacher (023 · FR-022أ). */
+    public function privateRequestMaxPending(): int
+    {
+        return (int) PlatformSettings::get('sessions.private_request_max_pending', 3);
+    }
+
     /** The room's ceiling, passed to the provider — never hard-coded (017 FR-003). */
     public function maxParticipants(): int
     {

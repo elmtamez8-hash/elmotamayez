@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $status
  * @property int|null $capacity
  * @property int $members_count
+ * @property int|null $individual_for_user_id
  * @property-read Course $course
  */
 class Cohort extends BaseModel
@@ -53,6 +54,7 @@ class Cohort extends BaseModel
         'description',
         'capacity',
         'created_by',
+        'individual_for_user_id',
     ];
 
     /** @return array<string, mixed> */
@@ -61,6 +63,7 @@ class Cohort extends BaseModel
         return [
             'capacity' => 'integer',
             'members_count' => 'integer',
+            'individual_for_user_id' => 'integer',
             'archived_at' => 'datetime',
         ];
     }
@@ -123,5 +126,37 @@ class Cohort extends BaseModel
             ->where(fn (Builder $inner): Builder => $inner
                 ->whereNull('capacity')
                 ->orWhereColumn('members_count', '<', 'capacity'));
+    }
+
+    /** One person's private group — a 1:1 lesson wearing the shape of a group. */
+    public function isIndividual(): bool
+    {
+        return $this->individual_for_user_id !== null;
+    }
+
+    /**
+     * Ordinary groups: the ones a course offers to whoever enrols.
+     *
+     * ⚠️ THE PUBLIC READ FILTERS ON THIS, NEVER ON THE STATUS. A private group
+     * is created `closed` and so is invisible today for a reason that has
+     * nothing to do with whose it is — filter by status and the first day one is
+     * opened for any reason at all, its owner's name is on the marketplace.
+     * `PublicCohortsTest` opens one deliberately and demands it stay absent.
+     *
+     * @param  Builder<Cohort>  $query
+     * @return Builder<Cohort>
+     */
+    public function scopeGroup(Builder $query): Builder
+    {
+        return $query->whereNull('individual_for_user_id');
+    }
+
+    /**
+     * @param  Builder<Cohort>  $query
+     * @return Builder<Cohort>
+     */
+    public function scopeIndividual(Builder $query): Builder
+    {
+        return $query->whereNotNull('individual_for_user_id');
     }
 }

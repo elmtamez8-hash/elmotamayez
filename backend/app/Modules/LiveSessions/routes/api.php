@@ -8,6 +8,7 @@ use App\Modules\LiveSessions\Http\Controllers\BroadcastController;
 use App\Modules\LiveSessions\Http\Controllers\ClassSessionController;
 use App\Modules\LiveSessions\Http\Controllers\EligibilityController;
 use App\Modules\LiveSessions\Http\Controllers\FreezePeriodController;
+use App\Modules\LiveSessions\Http\Controllers\PrivateSessionRequestController;
 use App\Modules\LiveSessions\Http\Controllers\ScheduleController;
 use Illuminate\Support\Facades\Route;
 
@@ -91,6 +92,21 @@ Route::middleware('auth:sanctum')->group(function (): void {
     */
     Route::get('/manage/courses/{course}/unassigned-sessions', [ClassSessionController::class, 'unassignedSessions']);
 
+    /*
+    | The private-session request (023 · US3). Five routes, all inside the `api`
+    | group — which is where `EnsureCurrentWorkspace` runs, and therefore where
+    | spatie's team id is pushed in. A route that merely CARRIES the `/api` prefix
+    | has none: `/api/broadcasting/auth` was declared with its own middleware list
+    | and every teacher was answered 403 on a permission they held, because no
+    | team id meant no roles at all.
+    |
+    | The two reads are unthrottled — they are indexed queries behind
+    | `auth:sanctum`, and rate-limiting a student's own list of asks would leave
+    | them staring at a screen that cannot say what it is waiting for.
+    */
+    Route::get('/private-session-requests', [PrivateSessionRequestController::class, 'index']);
+    Route::get('/manage/private-session-requests', [PrivateSessionRequestController::class, 'queue']);
+
     Route::middleware('throttle:sessions')->group(function (): void {
         Route::post('/manage/courses/{course}/assign-sessions', [ClassSessionController::class, 'assignSessions']);
 
@@ -107,6 +123,20 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
         Route::post('/attendances/{attendance}/override', [AttendanceController::class, 'override']);
         Route::post('/class-sessions/{session}/feedback', [AttendanceController::class, 'feedback']);
+
+        /*
+        | ⚠️ `{uuid}` IS A STRING, NOT A BOUND MODEL — and the segment is NAMED
+        | `uuid` because Laravel fills an untyped controller parameter by matching
+        | its NAME to the route segment: `{request}` beside a `Request $request`
+        | argument silently leaves `$uuid` empty. `WorkspaceScope` adds no
+        | condition when the context is null — which it always is for a student —
+        | so an implicit binding here resolves any uuid on the platform, and the
+        | policy becomes the only thing between one student and another's
+        | calendar. The controller fetches and authorises in adjacent lines.
+        */
+        Route::post('/courses/{course}/private-session-requests', [PrivateSessionRequestController::class, 'store']);
+        Route::delete('/private-session-requests/{uuid}', [PrivateSessionRequestController::class, 'destroy']);
+        Route::post('/manage/private-session-requests/{uuid}/decide', [PrivateSessionRequestController::class, 'decide']);
 
         Route::post('/freeze-periods', [FreezePeriodController::class, 'store']);
         Route::delete('/freeze-periods/{period}', [FreezePeriodController::class, 'destroy']);

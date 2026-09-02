@@ -11,10 +11,12 @@ use App\Modules\Marketplace\Actions\Public\ListPublicCourses;
 use App\Modules\Marketplace\Actions\Public\ListPublicTaxonomy;
 use App\Modules\Marketplace\Actions\Public\ListPublicTeachers;
 use App\Modules\Marketplace\Actions\Public\ListRegions;
+use App\Modules\Marketplace\Actions\Public\ReadPublicCourse;
 use App\Modules\Marketplace\Actions\Public\ShowPublicTeacher;
 use App\Modules\Marketplace\Http\Requests\ListPublicCoursesRequest;
 use App\Modules\Marketplace\Http\Requests\ListPublicTeachersRequest;
 use App\Modules\Marketplace\Http\Resources\PublicCourseCardResource;
+use App\Modules\Marketplace\Http\Resources\PublicCourseDetailResource;
 use App\Modules\Marketplace\Http\Resources\PublicTeacherCardResource;
 use App\Modules\Marketplace\Http\Resources\PublicTeacherDetailResource;
 use App\Modules\Marketplace\Support\MarketplaceCache;
@@ -133,6 +135,37 @@ class PublicMarketplaceController extends Controller
         );
 
         return response()->json($payload);
+    }
+
+    /*
+    | Spec 023 · FR-001 · FR-007 — one course, for whoever has not bought it.
+    |
+    | ⚠️ NOT CACHED, for the reason `teacher()` below is not: this payload
+    | carries `seats_left`, which FR-013 calls a snapshot rather than a promise —
+    | and a cached snapshot is a promise, made in the past, about the one number
+    | a visitor is deciding on.
+    |
+    | ⚠️ AND THE 404 IS THE SAME 404 FOUR TIMES OVER. A draft course, an
+    | unapproved teacher, a workspace that withdrew from the marketplace and a
+    | uuid nobody ever issued all fail `publiclyListed()` identically, so the
+    | Action answers null to all four and there is no branch here that could tell
+    | them apart. One distinguishable reply would make this endpoint an oracle
+    | answering questions about rows it refuses to publish.
+    */
+    public function course(string $uuid, ReadPublicCourse $action): JsonResponse
+    {
+        $course = $action->handle($uuid);
+
+        abort_if($course === null, 404);
+
+        $payload = PublicCourseDetailResource::make($course)->resolve();
+        // Merged here rather than inside the Resource, exactly as `teacher()`
+        // below merges the courses and the reviews: the groups come from
+        // another module's directory, and a Resource that reached across a
+        // module boundary would do it once per row.
+        $payload['cohorts'] = $action->cohortsOf($course);
+
+        return response()->json(['data' => $payload]);
     }
 
     public function teacher(string $key, ShowPublicTeacher $action): JsonResponse

@@ -85,6 +85,11 @@ const DESTINATIONS: Array<{ path: string; from: string }> = [
   { path: "/exams/a1b2c3d4/result", from: "NotifyStudentExamResult · NotifyStudentGradingPending" },
   { path: "/messages/m1n2o3p4", from: "NotifyOfflineRecipient" },
   { path: "/manage/sessions/s1t2u3v4", from: "IngestSessionRecordingJob (teacher)" },
+  // 023 · US3. The teacher's queue has a DEADLINE running on every row, so a
+  // dead link here is a request that expires unanswered — and the student is
+  // told «انتهت المهلة» about a lesson their teacher meant to give them.
+  { path: "/manage/private-sessions", from: "NotifyTeacherPrivateSessionRequested" },
+  { path: "/courses/c1b2a3d4", from: "NotifyStudentPrivateSessionDecided (rejected) · …Expired" },
   { path: "/manage/bank/import/i1j2k3l4", from: "NotifyImportReady" },
   { path: "/certificates/verify/ABC123", from: "NotifyStudentCertificateIssued · …Regenerated" },
 ];
@@ -111,12 +116,51 @@ describe("notification destinations", () => {
   */
   it.each([
     "/sessions/s1t2u3v4",
-    "/courses/c1b2a3d4",
     "/exams/attempts/a1b2c3d4",
     "/assignments/a1b2c3d4",
     "/manage/assignments/a1b2c3d4",
     "/teacher/application",
   ])("%s is still not a route, which is why it was a 404", (path) => {
     expect(known.some((route) => matches(route, path))).toBe(false);
+  });
+
+  /*
+   | ⚠️ `/courses/{uuid}` LEFT THE LIST ABOVE ON 2026-09-02, AND ONLY BECAUSE
+   | SPEC 023 BUILT IT.
+   |
+   | The premise of that list is «this address has never existed, so a link
+   | naming it is a 404». For this one the premise stopped being true: the
+   | course's own public page is now a route, so leaving the entry above would
+   | have made a NEW FEATURE fail a test whose subject is dead links.
+   |
+   | It is not simply deleted, because deleting it loses the fact that a
+   | notification once pointed here and should not: `NotifyStudentEnrolled` sends
+   | an enrolled student to `/enrollments/{uuid}` — their own copy, with their
+   | progress — and the marketplace page is the pre-purchase view of the same
+   | course. Correct address, wrong reader. So the assertion inverts rather than
+   | disappears.
+  */
+  it("has a public course page now, and the enrolment notice still does not use it", () => {
+    expect(known.some((route) => matches(route, "/courses/c1b2a3d4"))).toBe(true);
+
+    /*
+     | ⚠️ NARROWED IN 023, AND THE NARROWING IS THE POINT. The address is
+     | legitimate for some senders now: a REFUSED private-session request sends
+     | the student back to the course page because that is where the teacher's
+     | other declared hours are. What must never point here is the ENROLMENT
+     | notice — a student who has bought the course belongs on their own copy of
+     | it, with their progress, not on the pre-purchase view.
+     |
+     | So the assertion names the sender rather than the path. Left as «no
+     | destination is /courses/{uuid}» it would have failed a correct new feature
+     | over a fact about a different listener entirely.
+     */
+    const enrolment = DESTINATIONS.filter((d) => d.from.includes("NotifyStudentEnrolled"));
+
+    expect(enrolment).not.toHaveLength(0);
+    for (const destination of enrolment) {
+      expect(destination.path).not.toBe("/courses/c1b2a3d4");
+      expect(destination.path).toContain("/enrollments/");
+    }
   });
 });
