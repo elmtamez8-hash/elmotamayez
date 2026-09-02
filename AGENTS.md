@@ -145,6 +145,28 @@ Tests use in-memory SQLite (`DB_DATABASE=:memory:` in `phpunit.xml`).
 42. The focus mute never hides a mandatory notification — `tests/Feature/Gamification/FocusSessionTest.php`
 43. The board picker offers nothing the board itself refuses — `tests/Feature/Gamification/LeaderboardScopesTest.php`
 44. The taxonomy is the platform's, and the permission that says so is actually asked — `tests/Feature/Marketplace/TaxonomyPermissionTest.php`
+45. One live adaptive session per concept, and the claim is the guard — `tests/Feature/Assessments/AdaptiveClaimTest.php`
+46. A stranded attempt cannot be graded twice — `tests/Feature/Assessments/AdaptiveAttemptGuardTest.php`
+47. Adaptive practice never touches the official grade — `tests/Feature/Assessments/AdaptiveNoOfficialGradeTest.php`
+48. A study room's door is the joiner's own pool, not their enrolment — `tests/Feature/Assessments/StudyRoomEligibilityTest.php`
+49. The board channel refuses whoever the room refuses — `tests/Feature/Assessments/StudyRoomChannelTest.php`
+50. A shared phone is two subscriptions, not a stolen row — `tests/Feature/Notifications/PushSharedDeviceTest.php`
+51. `Push` stays out of `defaultChannels()` — `tests/Feature/Notifications/PushDefaultsUnchangedTest.php`
+
+⚠️ **The whole Assessments directory is a critical path in its own right**, and it
+is the one this repository's own rule about targeted runs still asks for whenever
+practice, grading, the bank or the unlock gate is touched:
+
+```bash
+php vendor/bin/pest tests/Feature/Assessments
+```
+
+That directory now carries spec 008's grading and unlock gate together with spec
+012's adaptive ladder and study rooms, and the two specs are not independent:
+`PracticePool` is read by the self-built paper, by the adaptive ladder and by
+`StudyRoomAccess`'s door, and `GradeAttempt`/`AnswerMarker` mark every one of
+them against the same `attempt_items` snapshot. A change to the pool or to the
+marker is measured by all of them at once, or by nothing.
 
 ### Read before touching anything a STUDENT can reach
 

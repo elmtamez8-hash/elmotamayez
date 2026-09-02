@@ -1043,3 +1043,123 @@ while SQLite's native `ALTER TABLE … DROP COLUMN` refuses an indexed column �
 every test in this repository runs on in-memory SQLite. Two separate
 `Schema::table` closures, the pattern `add_region_to_student_profiles` already
 set.
+
+---
+
+## Adaptive Practice, Study Rooms and Web Push (spec 012)
+
+Six tables, and **five of them are layer 2 (workspace-owned) while the sixth has
+no `workspace_id` at all** — the split is the whole design, not an oversight.
+
+```
+workspaces ─┬─< adaptive_sessions      (student_user_id · concept_id · attempt_id
+            │        │                  current_difficulty · ceiling_difficulty
+            │        │                  correct_streak · served_count · status)
+            │        └── running_key   ⚠️ nullable + unique — see below
+            │
+            ├─< concept_masteries      (student_user_id · concept_id · mastered_at
+            │                           threshold_correct · threshold_difficulty
+            │                           source_session_id)
+            │                          unique(student_user_id, concept_id)
+            │
+            └─< study_rooms            (host_user_id · concept_id? · difficulty?
+                     │                  question_count · max_participants
+                     │                  duration_minutes · starts_at · ends_at)
+                     ├─< study_room_questions     (question_id · order · points · snapshot)
+                     │        unique(study_room_id, order) · unique(study_room_id, question_id)
+                     └─< study_room_participants  (user_id · attempt_id · score
+                                                   answered_count · joined_at · finished_at)
+                              unique(study_room_id, user_id)
+
+users ──< push_subscriptions           ⚠️ NO workspace_id — platform-owned, kind أ
+                                        (endpoint · endpoint_hash · p256dh · auth
+                                         user_agent · last_used_at)
+                                        unique(user_id, endpoint_hash)
+```
+
+**No `foreign()` anywhere in the five Assessments tables** — this module's
+migrations carry none, deliberately: a real constraint would block disabling a
+question that has already been served. `push_subscriptions` does constrain
+`user_id`, because deleting the account is exactly when the device must stop
+being woken.
+
+### Why `running_key` is nullable AND unique
+
+`adaptive_sessions.running_key` holds `"{student}:{concept}"` while the session
+runs and `NULL` the moment it ends or masters. It is the **only** guard against
+two live sessions on one concept; the `(student_user_id, concept_id, status)`
+index below it is a fast read and nothing more.
+
+The obvious alternatives both fail:
+
+- **`unique(attempt_id)`** never bites. Two parallel starts each write their own
+  attempt first, so both pass — and both then reach mastery, awarding the student
+  `concept_mastered` twice.
+- **A partial index** (`unique … WHERE status = 'running'`) is a **Postgres
+  feature that does not exist on MySQL**, which is what this ships to. It would
+  be green on nothing and refused on deploy.
+
+Nullable-unique is the `captured_order_id` idiom letter for letter: NULL never
+equals NULL, so every finished session coexists freely while at most one live one
+can exist. It is written by `StartAdaptiveSession`'s own conditional insert and cleared when
+the session ends or masters. ⚠️ **And the insert is read back**: a raw write boots
+no model, so zero rows written means *either* a rival session or a swallowed
+failure — the row is fetched by `attempt_id` with `firstOrFail()` before anything
+is returned, the same read-back `CreditLedger::writeEntry()` performs for the same
+reason. The resume path then reads by `running_key` itself: one spelling for the
+read and for the unique index that enforces it.
+
+### Why `push_subscriptions` is keyed on `(user_id, endpoint_hash)`
+
+Two columns, and each one is answering a different failure.
+
+**Why composite, not `endpoint_hash` alone.** A browser profile holds one
+subscription per origin, and **a guardian and their child share a phone** — the
+family shape spec 013 was built around. Under a global unique, whoever subscribes
+second STEALS the first one's row: the first account silently stops receiving
+everything, `security_alert` included, with no error and no log line. The mirror
+of that is an attacker who is authenticated and holds somebody else's endpoint,
+taking over their row by presenting it. Two columns and both cases disappear.
+
+**Why the hash and not the endpoint.** FCM, Mozilla and Apple endpoints run to
+hundreds of characters, well past MySQL's 3072-byte index limit on `utf8mb4` — an
+index on `text` is either refused outright or silently truncated to a colliding
+prefix. `sha256` is fixed width, is computed server-side by `PushSubscription::
+hashOf()`, and is **never accepted from the request**.
+
+⚠️ And the row is `upsert`ed on those two columns, never `updateOrCreate`d: a
+service worker re-registers on every visit, and the keys rotating is the same
+device speaking again. The upsert deliberately does **not** rewrite `uuid` or
+`created_at` — rewriting the first breaks anything that referenced it, and
+rewriting the second makes a two-year-old subscription permanently invisible to
+the retention sweep.
+
+### Five data categories, not one
+
+Retention (spec 013) owns all six tables through two walks, and each carries its
+own `created_at` index because the module owns the predicate that reads it.
+
+| Table | Category | Age | Behaviour | Walk |
+|---|---|---|---|---|
+| `adaptive_sessions` | `adaptive_session` | 1095 | Delete | `AssessmentsPersonalData` |
+| `concept_masteries` | `concept_mastery` | 1825 | Delete | `AssessmentsPersonalData` |
+| `study_rooms` | `study_room` | 1095 | Delete | `AssessmentsPersonalData` |
+| `study_room_participants` | `study_room_participation` | 1095 | Delete | `AssessmentsPersonalData` |
+| `push_subscriptions` | `push_subscription` | 730 | Delete | `NotificationsPersonalData` |
+
+`study_room_questions` carries no category of its own: it holds a snapshot of a
+question and names nobody. ⚠️ **And it is deleted EXPLICITLY by the `study_room`
+walk, not by a cascade** — the five Assessments tables carry no `foreign()` at
+all, so a room expiring without that line would leave its frozen paper behind for
+ever. The participations go the same way and for the same reason; the ANSWERS
+underneath expire separately under `exam_answer`, on their own clock.
+
+### `study_room_participants.uuid` is the identifier the live board carries
+
+The user's own uuid never is. A user uuid is that person's name on the platform as
+a whole, handed to peers who may be children; this one dies with the room.
+
+`finished_at` is stamped by the answer that COMPLETES the set and by nothing else
+— a derived state fires no event, so hanging the `study_room_finished` award on
+`ends_at` passing would be a key with readers and no writer, which is the defect
+`ClassSessionStatus::Interrupted` already cost this tree once.
