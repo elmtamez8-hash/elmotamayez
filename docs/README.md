@@ -2436,3 +2436,99 @@ registration), nothing persisted (a revealed password surviving a reload is a
 password left on an unattended screen), and the `aria-label` following the state
 (the icon says nothing to a screen reader). The browser's own reveal control is
 hidden in `globals.css`.
+
+---
+
+## Adaptive Practice, Study Rooms and Web Push (spec 012)
+
+Three answers to one question — «the student is alone with the screen» — and each
+one ships **behind a feature flag that is OFF at the platform row**
+(`adaptive_practice`, `study_rooms`). Nothing below is reachable until a workspace
+turns it on.
+
+### The twelve endpoints
+
+| Method · path | Who | Note |
+|---|---|---|
+| `GET /practice/adaptive/concepts` | the enrolled student | the pickable concepts — filtered per workspace by the flag, so a teacher who has not switched it on simply is not listed · `throttle:practice` |
+| `POST /practice/adaptive` | the enrolled student | starts a session; refuses a second live one on the same concept · `throttle:practice` |
+| `POST /practice/adaptive/{session}/answer` | the session's owner | one answer, one difficulty decision · `throttle:adaptive-step` |
+| `POST /practice/adaptive/{session}/end` | the session's owner | ends it and releases `running_key` · `throttle:adaptive-step` |
+| `POST /study-rooms` | the enrolled student | the host builds the paper; what is DELIVERED is stored, never what was asked for · `throttle:study-room-write` |
+| `GET /study-rooms` | the enrolled student | the reader's own rooms, hosted and joined · `throttle:study-room-write` |
+| `POST /study-rooms/{room}/join` | a student `StudyRoomAccess` admits | the uuid is the whole invitation · `throttle:study-room-write` |
+| `GET /study-rooms/{room}` | a participant | the paper, from the snapshot · `throttle:adaptive-step` |
+| `POST /study-rooms/{room}/answer` | a participant | marks, scores, and broadcasts the board · `throttle:adaptive-step` |
+| `GET /study-rooms/{room}/board` | a participant | the same board the socket carries, for a client that missed a frame · `throttle:adaptive-step` |
+| `POST /notifications/push-subscriptions` | any signed-in user | one browser profile's permission to wake one device |
+| `DELETE /notifications/push-subscriptions` | the subscription's owner | by endpoint; the preference row is deliberately left alone |
+
+### Permissions: none new
+
+Every route above is a **student's own** action on their own row, gated by
+ownership and by `StudyRoomAccess` — never by a permission name. A new permission
+would mean a `SeedDefaultRoles` row **and** a backfill migration for every
+workspace that already exists, in exchange for a delegation nobody asked for.
+
+### The two keys
+
+Both are the `captured_order_id` idiom, and both exist because **MySQL has no
+partial index** — `WHERE status = 'running'` on an index is a Postgres feature.
+
+- **`adaptive_sessions.running_key`** — `nullable` and `unique`, holding
+  `"{student}:{concept}"` while the session runs and `NULL` afterwards. Two
+  parallel starts each write their own attempt, so `unique(attempt_id)` never
+  bites; both reach mastery and the student is awarded twice. NULL does not
+  collide with NULL, so every finished session coexists freely.
+- **`push_subscriptions (user_id, endpoint_hash)`** — composite, never
+  `endpoint_hash` alone. A guardian and their child share a phone, and with a
+  global unique whoever subscribes second **steals** the first one's row: the
+  first account silently stops receiving everything, `security_alert` included.
+  The hash is `sha256`, computed server-side, because FCM/Mozilla/Apple endpoints
+  run past MySQL's 3072-byte index limit.
+
+### The two new rate limiters
+
+Named, like every other limiter here — an inline `throttle:5,1` shares one guest
+counter with every other inline limit on the platform.
+
+| Name | Limit | Why that number |
+|---|---|---|
+| `adaptive-step` | 60/min per user | ⚠️ **its own bucket, not `practice`.** A twenty-question session is twenty writes by design, so reusing `practice` (10/min) would spend the whole allowance for STARTING anything and cut the student off mid-session — the shared-counter effect inline limits are banned for, reached again under a name. Sixty is one answer a second: above a person reading a question, below a script walking the bank |
+| `study-room-write` | 10/min per user | an order of magnitude lower, because **each of these costs a broadcast to everyone else in the room** — the cost is not this caller's alone |
+
+Both key on `user:` rather than IP: the callers are students, and students sit in
+classrooms behind one address.
+
+### The broadcast channel is PRIVATE, and that is the whole design
+
+`study-room-board.{uuid}` is a **private** channel, authorised in
+`routes/channels.php` by the same `StudyRoomAccess` class `JoinStudyRoom` asks —
+two spellings of one question is how one answer reaches the screen and another
+reaches the door.
+
+⚠️ **Not a presence channel, deliberately.** `config/reverb.php` sets
+`accept_client_events_from => 'members'`, so a client whisper is **refused on a
+private channel and accepted on a presence one**. A presence channel here would
+open an unmoderated direct chat between children inside a study room — no
+`hidden_at`, no `ConversationPolicy`, no ban check, no `chat.moderate`. (The
+attendance channel *is* presence for exactly the opposite reason: «يكتب الآن» is
+only possible as a whisper, and the alternative is a route, a table and a write
+per keystroke.)
+
+The frame carries the board and nothing else; the REST `board` endpoint answers
+the same question for a client that missed one.
+
+### Two catalogue rows, and they are runtime data
+
+| Key | When | `xp` | `coins` | `daily_cap` |
+|---|---|---|---|---|
+| `concept_mastered` | a session reached mastery at its concept's ceiling | 25 | 10 | 3 |
+| `study_room_finished` | a participant answered **every** question on the paper | 15 | 5 | 2 |
+
+`AwardPoints` returns silently when a key has no row — no error, no log — so a
+release that adds a catalogue row and no backfill awards nothing on a database
+that already exists. Both rows therefore ship with a backfill migration in the
+same change (`Gamification/Database/Migrations/…_backfill_adaptive_gamification_action.php`
+and its study-room sibling), which is the mechanism this tree already runs for
+notification templates, data categories, regions and the taxonomy.
