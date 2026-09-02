@@ -143,7 +143,11 @@
 - [x] T051 [P] `backend/tests/Feature/Learning/ProgressDenominatorTest.php` — نشرُ تسجيلِ حصّةٍ خاصّةٍ **لا يُحرّكُ نسبةَ إنجازِ أحد** (`FR-019ب`). الخاصيّةُ قائمةٌ بالبناءِ (`progressEligible()` تُسقِطُ أيَّ درسٍ يحملُ `class_session_id`) — وتبقى **صدفةً حتّى يُثبِتَها اختبار**
 - [x] T052 [P] جداولُ الوحداتِ والمنافذِ والأذونِ في `docs/README.md` والمخطّطُ في `docs/erd.md`
 - [x] T053 البوّاباتُ الأربع: `php vendor/bin/pest` · `./vendor/bin/pint --test` · `./vendor/bin/phpstan analyse` · `npx tsc --noEmit && npm test`
-- [ ] T054 `cd frontend && npx playwright test` بـ`PHP_CLI_SERVER_WORKERS=8 php artisan serve` — الخيطُ الواحدُ يُسقِطُ **البناءَ** قبلَ اختبارٍ واحد
+- [x] T054 `cd frontend && npx playwright test` بـ`PHP_CLI_SERVER_WORKERS=8 php artisan serve` — الخيطُ الواحدُ يُسقِطُ **البناءَ** قبلَ اختبارٍ واحد.
+
+  ⚠️ **و`PHP_CLI_SERVER_WORKERS` يُتجاهَلُ بلا `--no-reload`** — قِيسَ ٢٠٢٦-٠٩-٠٢، ولارافيل يقولُها في تحذيرٍ يمرُّ فوقَه القارئ: «Unable to respect the `PHP_CLI_SERVER_WORKERS` environment variable without the `--no-reload` flag. Only creating a single server». فالصيغةُ المكتوبةُ في `CLAUDE.md` تُنتِجُ خادمَ خيطٍ واحدٍ صامتاً، وهو عينُ ما تحاولُ تفاديه.
+
+  **النتيجة**: ٥٢٨ ناجحاً · صفرُ سقوطٍ · ٢٨ دقيقة (لا أربعاً — مصفوفةُ ستّةِ مشاريعَ على ويندوز). و`course-detail.spec.ts` أُعيدَ تشغيلُه وحدَه للتأكّد: ٨ من ٨.
 
 ---
 
