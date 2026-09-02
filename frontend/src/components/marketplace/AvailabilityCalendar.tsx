@@ -10,36 +10,10 @@ import {
   NoonIcon,
   WeekIcon,
 } from "@/components/icons";
+import { toLocalSlot } from "@/lib/availability";
 import type { AvailabilityItem } from "@/lib/public-api";
 
 const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-
-/**
- * Weekly availability, converted from the stored UTC values to the visitor's own
- * timezone (FR-029).
- *
- * The conversion runs in an effect rather than during render because the server
- * does not know the visitor's zone; rendering UTC first and correcting on mount
- * keeps the times crawlable while still being right for the reader. The zone is
- * always named — an unlabelled 16:00 is worse than useless to someone in Cairo.
- */
-function toLocal(item: AvailabilityItem): AvailabilityItem {
-  const [hours, minutes] = item.start_time.split(":").map(Number);
-  const [endHours, endMinutes] = item.end_time.split(":").map(Number);
-
-  // Any Sunday works as an anchor; only the weekday offset and clock time matter.
-  const start = new Date(Date.UTC(2024, 0, 7 + item.day_of_week, hours, minutes));
-  const end = new Date(Date.UTC(2024, 0, 7 + item.day_of_week, endHours, endMinutes));
-
-  const format = (date: Date) =>
-    `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-
-  return {
-    day_of_week: start.getDay(),
-    start_time: format(start),
-    end_time: format(end),
-  };
-}
 
 /**
  * Which part of the day a slot belongs to.
@@ -129,7 +103,13 @@ export function AvailabilityCalendar({ slots }: { slots: AvailabilityItem[] }) {
   const [today, setToday] = useState<number | null>(null);
 
   useEffect(() => {
-    setLocalised(slots.map(toLocal));
+    // ⚠️ Converted in the effect, not during render: the server does not know
+    // the visitor's zone, so rendering UTC first and correcting on mount keeps
+    // the times crawlable while still being right for the reader. The zone is
+    // always named beside them — an unlabelled 16:00 is worse than useless to
+    // someone in Cairo. The conversion itself lives in `lib/availability`, with
+    // its inverse, so the calendar and the wizard cannot drift apart.
+    setLocalised(slots.map((slot) => toLocalSlot(slot)));
     setZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
     setToday(new Date().getDay());
   }, [slots]);
