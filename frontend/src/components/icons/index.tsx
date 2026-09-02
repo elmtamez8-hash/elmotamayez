@@ -30,8 +30,10 @@ import {
   IconCalendarCheck,
   IconCalendarEvent,
   IconCalendarTime,
+  IconCalendarWeek,
   IconCertificate,
   IconClock,
+  IconClockHour4,
   IconChartHistogram,
   IconEraser,
   IconEye,
@@ -69,6 +71,7 @@ import {
   IconMenu2,
   IconMessageCircle,
   IconMoon,
+  IconMoonStars,
   IconReceipt2,
   IconReceiptOff,
   IconReceiptRefund,
@@ -82,6 +85,8 @@ import {
   IconShoppingBag,
   IconStarFilled,
   IconSun,
+  IconSunrise,
+  IconSunset2,
   IconTag,
   IconTrash,
   IconUserPlus,
@@ -324,3 +329,17 @@ export const SocialStudiesIcon = wrap(IconUsersGroup, "h-6 w-6");
 export const HistoryIcon = wrap(IconHourglass, "h-6 w-6");
 export const GeographyIcon = wrap(IconWorld, "h-6 w-6");
 export const ComputerIcon = wrap(IconDeviceDesktop, "h-6 w-6");
+
+/*
+ * The weekly timetable (teacher profile).
+ *
+ * Named for the PART OF DAY rather than for the shape, exactly as everything
+ * above: `EveningIcon` is what 18:00 means, and swapping the glyph later is one
+ * edit here. `WeekIcon` and `DurationIcon` label the two summary numbers.
+ */
+export const MorningIcon = wrap(IconSunrise, "h-4 w-4");
+export const NoonIcon = wrap(IconSun, "h-4 w-4");
+export const EveningIcon = wrap(IconSunset2, "h-4 w-4");
+export const NightIcon = wrap(IconMoonStars, "h-4 w-4");
+export const WeekIcon = wrap(IconCalendarWeek, "h-4 w-4");
+export const DurationIcon = wrap(IconClockHour4, "h-4 w-4");

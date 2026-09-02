@@ -41,6 +41,60 @@ interface Slot {
   end_time: string;
 }
 
+/**
+ * The next row of the weekly timetable, derived from the LAST one.
+ *
+ * ⚠️ A HARD-CODED `{day: 1, 16:00–18:00}` WAS THE OLD ANSWER, and it is wrong
+ * for everybody: a teacher who works 09:00–11:00 retyped both times on every
+ * row, and the day landed on Monday however far down the week they had got.
+ * Availability is the same hours repeated across days far more often than it is
+ * seven different ones, so the previous row is the best guess there is.
+ *
+ * `% 7` is the whole of the wrap: the row after Saturday is Sunday, not day 7 —
+ * which the `<select>` has no option for and the API rejects as `between:0,6`.
+ */
+export function nextDaySlot(previous: Slot): Slot {
+  return { ...previous, day_of_week: (previous.day_of_week + 1) % 7 };
+}
+
+/**
+ * A second period on the SAME day — an afternoon after a morning.
+ *
+ * ⚠️ IT STARTS WHERE THE PREVIOUS ONE ENDED, and that is not a nicety.
+ * `SetAvailability` rejects two overlapping slots on one day, so copying the
+ * previous row's times verbatim here would produce a row that can only ever be
+ * refused — an "add" button whose output is invalid on arrival. The comparison
+ * there is strict, so back-to-back (`end === next start`) passes.
+ *
+ * The new period keeps the previous one's LENGTH, and both ends are clamped to
+ * 23:59: a two-hour slot added after 23:00 would otherwise roll past midnight
+ * into a number `date_format:H:i` refuses.
+ */
+export function sameDaySlot(previous: Slot): Slot {
+  const start = toMinutes(previous.end_time);
+  const length = Math.max(toMinutes(previous.end_time) - toMinutes(previous.start_time), 30);
+
+  return {
+    day_of_week: previous.day_of_week,
+    start_time: toTime(start),
+    end_time: toTime(start + length),
+  };
+}
+
+const DAY_END = 23 * 60 + 59;
+
+function toMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+
+  return (hours || 0) * 60 + (minutes || 0);
+}
+
+function toTime(minutes: number): string {
+  const capped = Math.min(Math.max(minutes, 0), DAY_END);
+
+  return `${String(Math.floor(capped / 60)).padStart(2, "0")}:${String(capped % 60).padStart(2, "0")}`;
+}
+
 function ProgressBar({ step }: { step: number }) {
   return (
     <ol className="mb-8 flex gap-2" aria-label={`الخطوة ${step} من ${STEPS.length}`}>
@@ -699,15 +753,27 @@ export function TeacherSignupWizard({
               ))}
             </ul>
 
-            <button
-              type="button"
-              onClick={() =>
-                setSlots([...slots, { day_of_week: 1, start_time: "16:00", end_time: "18:00" }])
-              }
-              className="mt-3 text-sm font-semibold text-primary-ink underline"
-            >
-              إضافة فترة
-            </button>
+            {/* Two buttons, because they answer two different questions: «the
+                same hours on another day» and «another hour on this day». One
+                button doing both would have to guess which, and a guess wrong
+                half the time is two corrections instead of one click. */}
+            <div className="mt-3 flex flex-wrap gap-4">
+              <button
+                type="button"
+                onClick={() => setSlots([...slots, nextDaySlot(slots[slots.length - 1])])}
+                className="text-sm font-semibold text-primary-ink underline"
+              >
+                إضافة يوم
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSlots([...slots, sameDaySlot(slots[slots.length - 1])])}
+                className="text-sm font-semibold text-primary-ink underline"
+              >
+                فترة أخرى في نفس اليوم
+              </button>
+            </div>
 
             <FieldError id="availability" message={errors.availability} />
           </fieldset>
