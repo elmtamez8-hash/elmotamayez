@@ -93,6 +93,23 @@ enum NotificationCategory: string
                 NotificationType::CohortTransferApproved,
                 NotificationType::CohortTransferRejected,
                 /*
+                | ⚠️ 023, AND CI IS WHAT FOUND THEM UNFILED. This map runs
+                | CATEGORY → TYPES, so an unclassified type cannot crash
+                | anything: it is simply absent from every tab and still present
+                | in «الكل». That is the safe direction and also the silent one —
+                | the same silence that left spec 011's own type unfiled from the
+                | day it shipped until somebody happened to read a red build.
+                |
+                | Filed under «الحصص والمواعيد» rather than «الدراسة» because all
+                | four are about ONE HOUR at one time: the ask, the two answers,
+                | and the deadline running out. What the student does with the
+                | hour is study; what these say is when it is.
+                */
+                NotificationType::PrivateSessionRequested,
+                NotificationType::PrivateSessionAccepted,
+                NotificationType::PrivateSessionRejected,
+                NotificationType::PrivateSessionExpired,
+                /*
                 | ⚠️ ADDED 2026-08-30, AND IT HAD BEEN UNFILED SINCE SPEC 011
                 | SHIPPED IT (a588a97) — `NotificationCategoryTest` red on `main`
                 | for the whole intervening period, doing exactly the job it was

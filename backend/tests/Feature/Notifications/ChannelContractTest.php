@@ -108,6 +108,21 @@ function dispatchOf(User $user, NotificationType $type): void
             // channel never sees it.
             'level_name' => 'متمكّن',
             'badge_name' => 'مواظب',
+            /*
+            | And these three, with spec 023's private session. The SAME
+            | mechanism a sixth time, and CI is what found it: the four new types
+            | rendered nothing, were logged and dropped, and the count came back
+            | 55 against 59 — four notifications that would have reached nobody
+            | in production while every scoped local run stayed green.
+            |
+            | (`course_title` and `student_name` are already above, and
+            | `decision_reason` is the rejection's own — deliberately a different
+            | key from `reason`, because a refusal the student READS may not share
+            | a bag with an operational one.)
+            */
+            'session_time' => '2026-09-08 15:00',
+            'duration' => '45',
+            'decision_reason' => 'الموعد محجوز لطالب آخر.',
             'reward_title' => 'خصم على حصة',
             'teacher_name' => 'أ. خالد',
             // A SIXTH time, with spec 013's six data-protection types. The count
