@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, auth, setToken, errorMessage, fieldErrors } from "@/lib/api";
+import { crossesUtcMidnight, toLocalSlot, toUtcSlot } from "@/lib/availability";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import type { Taxonomy } from "@/lib/public-api";
 import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
@@ -233,11 +234,19 @@ export function TeacherSignupWizard({
     const four = state.step_data?.step_4;
     if (four) {
       setRate((four.hourly_rate as string) ?? "");
-      setSlots(((four.availability as Slot[]) ?? []).map((slot) => ({
-        ...slot,
-        start_time: slot.start_time.slice(0, 5),
-        end_time: slot.end_time.slice(0, 5),
-      })));
+      /*
+       | ⚠️ CONVERTED BACK OUT OF UTC. `availability_slots` stores UTC and this
+       | editor shows a `<input type="time">`, which is the teacher's own clock —
+       | read raw, a window they declared at 16:00 comes back as 13:00 and every
+       | reopening of a saved application moves it again.
+       */
+      setSlots(((four.availability as Slot[]) ?? []).map((slot) =>
+        toLocalSlot({
+          day_of_week: slot.day_of_week,
+          start_time: slot.start_time.slice(0, 5),
+          end_time: slot.end_time.slice(0, 5),
+        }),
+      ));
     }
   }
 
@@ -322,8 +331,34 @@ export function TeacherSignupWizard({
   const submitStepFour = async (event: React.FormEvent) => {
     event.preventDefault();
 
+    /*
+     | ⚠️ CONVERTED TO UTC, AND THIS IS THE HALF THAT WAS MISSING. The column is
+     | UTC — five readers say so, including the job that puts real lessons on the
+     | calendar — and this form sent the raw value of a `<input type="time">`. A
+     | teacher in Qatar typing 16:00 stored `16:00`, which every one of them read
+     | as 19:00: the hour they declared and the hour the product offered were
+     | three apart, and their own public page disagreed with this very screen.
+     */
+    const straddling = slots.findIndex((slot) => crossesUtcMidnight(slot));
+
+    if (straddling !== -1) {
+      // One row holds a weekday and two clock times, so a window whose UTC end
+      // falls past midnight cannot be stored at all. Said here in words the
+      // teacher can act on — the server's own refusal names times they never
+      // typed.
+      setErrors({
+        availability: 'قسّم الفترة التي تمتدّ بعد منتصف الليل إلى فترتين: '
+          + 'واحدة تنتهي عند منتصف الليل وأخرى تبدأ منه.',
+      });
+
+      return;
+    }
+
     await send(() =>
-      api.put("/teacher/application/step-4", { hourly_rate: rate, availability: slots }),
+      api.put("/teacher/application/step-4", {
+        hourly_rate: rate,
+        availability: slots.map((slot) => toUtcSlot(slot)),
+      }),
     );
 
     setLoading(true);
