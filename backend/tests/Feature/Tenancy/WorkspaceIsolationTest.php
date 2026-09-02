@@ -49,6 +49,7 @@ use App\Modules\Learning\Models\CohortTransferRequest;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
+use App\Modules\LiveSessions\Models\PrivateSessionRequest;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\GradeLevel;
@@ -1080,4 +1081,89 @@ it('scopes the three store tables to the workspace that owns them', function ():
             ->and($model::query()->withoutGlobalScopes()->count())->toBe(2)
             ->and(in_array(BelongsToWorkspace::class, class_uses_recursive($model), true))->toBeTrue();
     }
+});
+
+/*
+| Spec 023 · T045 — the private-session request, from both sides of the wall.
+|
+| ⚠️ THE STUDENT'S CASE LEAVES `users.last_workspace_id` NULL AND RESETS THE
+| CONTEXT. `Sanctum::actingAs()` plus `setCurrentWorkspace()` gives a student a
+| workspace context production NEVER gives them — nothing on a student's path
+| writes that column — so a test built the other way is measuring a person who
+| does not exist, which is how five student-facing endpoints shipped dead in 017.
+| Here the guard IS the explicit ownership filter, and a fixture with a context
+| would prove nothing about it.
+*/
+it('keeps one teacher out of another workspace private-session queue', function (): void {
+    $a = privateSessionFixture();
+    $b = privateSessionFixture();
+
+    foreach ([$a, $b] as $fx) {
+        Sanctum::actingAs($fx['student']);
+        test()->postJson("/api/v1/courses/{$fx['course']->uuid}/private-session-requests", [
+            'starts_at' => $fx['startsAt']->toIso8601String(),
+        ])->assertCreated();
+    }
+
+    $foreign = PrivateSessionRequest::query()
+        ->withoutWorkspaceScope()
+        ->where('workspace_id', $b['workspace']->getKey())
+        ->firstOrFail();
+
+    $this->setCurrentWorkspace($a['workspace'], $a['owner']);
+    Sanctum::actingAs($a['owner']);
+
+    // The queue shows one row — theirs — and never the other teacher's.
+    $queue = $this->getJson('/api/v1/manage/private-session-requests');
+    $queue->assertOk();
+    expect($queue->json('data'))->toHaveCount(1);
+    expect($queue->json('data.0.uuid'))->not->toBe($foreign->uuid);
+
+    // And the row itself is refused by uuid, not merely hidden from a list: a
+    // filter on a query and a record fetched by id are two different questions.
+    $this->postJson("/api/v1/manage/private-session-requests/{$foreign->uuid}/decide", [
+        'accept' => false,
+        'decision_reason' => 'لا.',
+    ])->assertForbidden();
+
+    expect($foreign->refresh()->status)->toBe(PrivateSessionRequest::PENDING);
+});
+
+it('lets a student read their own request with no workspace context at all', function (): void {
+    $fx = privateSessionFixture();
+
+    Sanctum::actingAs($fx['student']);
+    $this->postJson("/api/v1/courses/{$fx['course']->uuid}/private-session-requests", [
+        'starts_at' => $fx['startsAt']->toIso8601String(),
+    ])->assertCreated();
+
+    // The state a real student is always in: a member of no workspace, so
+    // `WorkspaceContext::id()` is null, the spatie team id is null, and every
+    // `can()` below it is false. Only an explicit ownership branch can allow.
+    expect($fx['student']->refresh()->last_workspace_id)->toBeNull();
+    $this->asGuest();
+    Sanctum::actingAs($fx['student']);
+
+    $mine = $this->getJson('/api/v1/private-session-requests');
+    $mine->assertOk();
+    expect($mine->json('data'))->toHaveCount(1);
+
+    // And another student's row is not theirs to withdraw.
+    $other = privateSessionFixture();
+    Sanctum::actingAs($other['student']);
+    $this->postJson("/api/v1/courses/{$other['course']->uuid}/private-session-requests", [
+        'starts_at' => $other['startsAt']->toIso8601String(),
+    ])->assertCreated();
+
+    $theirs = PrivateSessionRequest::query()
+        ->withoutWorkspaceScope()
+        ->where('student_user_id', $other['student']->getKey())
+        ->firstOrFail();
+
+    $this->asGuest();
+    Sanctum::actingAs($fx['student']);
+
+    $this->deleteJson("/api/v1/private-session-requests/{$theirs->uuid}")->assertForbidden();
+
+    expect($theirs->refresh()->status)->toBe(PrivateSessionRequest::PENDING);
 });

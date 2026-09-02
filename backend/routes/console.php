@@ -14,6 +14,7 @@ use App\Modules\Gamification\Jobs\ReconcileGamificationJob;
 use App\Modules\Gamification\Jobs\RollUpLeaderboardsJob;
 use App\Modules\Identity\Jobs\TransferDataOwnershipJob;
 use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
+use App\Modules\LiveSessions\Jobs\ExpirePrivateSessionRequestsJob;
 use App\Modules\LiveSessions\Jobs\RetryPendingRecordingsJob;
 use App\Modules\Media\Jobs\PruneExpiredGrantsJob;
 use App\Modules\Media\Jobs\ReconcileAssetStatus;
@@ -45,6 +46,21 @@ Schedule::job(new PruneExpiredGrantsJob)->dailyAt('03:45');
 // guardian received — and at :20, off both bulk deletes above, since a sweep
 // that closes sessions has no business waiting behind a mass delete's locks.
 Schedule::job(new CloseStaleSessionsJob)->hourlyAt(20);
+
+/*
+| A private-session request nobody answered stops waiting (023 · FR-023).
+|
+| Every ten minutes rather than nightly because the deadline is a number an
+| operator tunes: set to two hours from the panel, a nightly sweep would let a
+| request sit for twenty more. The cost of asking is one query over
+| `index(status, expires_at)` against a table that holds only live requests.
+|
+| ⚠️ NO `->withoutOverlapping()` HERE. It guards the DISPATCH — released before
+| a worker even starts — so the guard is `WithoutOverlapping` middleware ON the
+| job, with `expireAfter()` beneath it. See the job for why either alone is a
+| defect.
+*/
+Schedule::job(new ExpirePrivateSessionRequestsJob)->everyTenMinutes();
 
 // Waiting units become earnings the moment their recording lands. Every fifteen
 // minutes rather than hourly: this is a teacher watching an hour they taught sit

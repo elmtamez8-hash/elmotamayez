@@ -242,6 +242,40 @@ enum NotificationType: string
     case CohortTransferRejected = 'cohort_transfer_rejected';
 
     /*
+    | The private session (023 · FR-018 · FR-023 · FR-027). Four, and each one is
+    | somebody's whole knowledge of where a request got to.
+    |
+    | The refusal and the expiry are the two that are easy to leave out, and both
+    | are the SAME failure: a request that stops being pending without saying so
+    | is indistinguishable from one still waiting, so the student waits for a week
+    | and then asks again — which is a queue the teacher clears twice. The
+    | acceptance is the one that announces itself anyway (the lesson appears in
+    | the timetable), and it is here because a student should not have to go
+    | looking.
+    |
+    | ⚠️ THE REJECTION IS ITS OWN TYPE RATHER THAN A FLAG ON THE DECISION.
+    | `TemplateRenderer` counts a present-but-empty variable as MISSING and
+    | refuses to render, so one template holding `{{ decision_reason }}` would
+    | drop every acceptance on the platform in silence — the `penalty_note`
+    | lesson, and the same split `CohortTransferApproved`/`Rejected` already
+    | needed.
+    |
+    | ⚠️ AND NOT ONE OF THEM TARGETS A GUARDIAN. `defaultChannels()` is DERIVED
+    | from `targetsGuardians()`, so naming them there would put a paid WhatsApp
+    | message on a parent's phone for every step of a scheduling conversation
+    | between their child and a teacher — which is how the number gets muted, and
+    | the attendance alert goes with it. No `requiredGuardianPermission()` either:
+    | one without the other picks up the channel, is billed, and reaches nobody.
+    */
+    case PrivateSessionRequested = 'private_session_requested';
+
+    case PrivateSessionAccepted = 'private_session_accepted';
+
+    case PrivateSessionRejected = 'private_session_rejected';
+
+    case PrivateSessionExpired = 'private_session_expired';
+
+    /*
     | The store (011 · US1). Two, and the second is the one that is easy to
     | leave out.
     |
@@ -338,6 +372,10 @@ enum NotificationType: string
             self::CohortTransferRequested => 'طلب انتقال بين المجموعات',
             self::CohortTransferApproved => 'قبول طلب الانتقال',
             self::CohortTransferRejected => 'رفض طلب الانتقال',
+            self::PrivateSessionRequested => 'طلب حصة خاصة',
+            self::PrivateSessionAccepted => 'قبول حصة خاصة',
+            self::PrivateSessionRejected => 'رفض حصة خاصة',
+            self::PrivateSessionExpired => 'انتهاء مهلة طلب حصة خاصة',
             self::ShipmentStatusChanged => 'تحديث شحنة',
             self::StorePurchaseUnavailable => 'طلب متجر غير متاح',
             self::SubscriptionExpiring => 'قرب انتهاء اشتراك',

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions;
 
+use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
 use App\Modules\Learning\Events\CohortMembershipOpened;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Events\AttendanceOverridden;
@@ -11,6 +12,7 @@ use App\Modules\LiveSessions\Events\SessionCancelled;
 use App\Modules\LiveSessions\Events\SessionCompleted;
 use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
 use App\Modules\LiveSessions\Listeners\ArchiveExpiredRecordingLessons;
+use App\Modules\LiveSessions\Listeners\ExpireRequestsOnTeacherDeparture;
 use App\Modules\LiveSessions\Listeners\NotifySeatHolders;
 use App\Modules\LiveSessions\Listeners\PublishRecordingAsLesson;
 use App\Modules\LiveSessions\Listeners\ReleaseSeatsOnTransfer;
@@ -19,10 +21,12 @@ use App\Modules\LiveSessions\Listeners\UpdateTeacherCounters;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
+use App\Modules\LiveSessions\Models\PrivateSessionRequest;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\LiveSessions\Policies\AttendancePolicy;
 use App\Modules\LiveSessions\Policies\ClassSessionPolicy;
 use App\Modules\LiveSessions\Policies\FreezePeriodPolicy;
+use App\Modules\LiveSessions\Policies\PrivateSessionRequestPolicy;
 use App\Modules\LiveSessions\Policies\SessionBookingPolicy;
 use App\Modules\LiveSessions\Providers\LiveKitBroadcastProvider;
 use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
@@ -136,6 +140,19 @@ class LiveSessionsServiceProvider extends Module
         Gate::policy(SessionBooking::class, SessionBookingPolicy::class);
         Gate::policy(Attendance::class, AttendancePolicy::class);
         Gate::policy(FreezePeriod::class, FreezePeriodPolicy::class);
+        /*
+        | ⚠️ REGISTERED EXPLICITLY, LIKE EVERY POLICY ABOVE IT. Laravel's guesser
+        | fails OPEN into «no policy applies» when it cannot find one, so an
+        | unregistered policy is not a denied request — it is an allowed one, and
+        | a deny-only test passes just as well against a `Gate::policy()` line
+        | that was never written.
+        */
+        Gate::policy(PrivateSessionRequest::class, PrivateSessionRequestPolicy::class);
+
+        // A departing teacher answers nobody (023 · FR-026). Heard rather than
+        // called: Compliance announces the exit and every module claims the part
+        // of it that is theirs.
+        Event::listen(TeacherOffboardingCompleted::class, ExpireRequestsOnTeacherDeparture::class);
 
         // Cross-module integration is by event, never by calling into another
         // module's actions (Constitution III). Marketplace owns teacher_profiles;

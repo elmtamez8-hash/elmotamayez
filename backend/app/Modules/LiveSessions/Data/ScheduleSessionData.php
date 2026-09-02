@@ -20,6 +20,13 @@ final class ScheduleSessionData extends DataTransferObject
         public readonly int $seatsTotal,
         public readonly ?int $courseId = null,
         public readonly ?int $subjectId = null,
+        /*
+        | The group this session belongs to (021 · FR-019أ). Nullable because
+        | every session predating cohorts carries none, and a private session
+        | names the student's own one-seat group so «فردي» is not an exception
+        | in every query and every screen.
+        */
+        public readonly ?int $cohortId = null,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -34,6 +41,7 @@ final class ScheduleSessionData extends DataTransferObject
             seatsTotal: (int) $data['seats_total'],
             courseId: isset($data['course_id']) ? (int) $data['course_id'] : null,
             subjectId: isset($data['subject_id']) ? (int) $data['subject_id'] : null,
+            cohortId: isset($data['cohort_id']) ? (int) $data['cohort_id'] : null,
         );
     }
 

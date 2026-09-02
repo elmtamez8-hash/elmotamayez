@@ -308,6 +308,38 @@ class NotificationTemplateSeeder extends Seeder
                 'لم يوافق مدرّسك على انتقالك إلى «{{ to_cohort }}» في «{{ course_title }}». السبب: {{ decision_reason }} — وما زلت في مجموعتك الحالية بكامل حقوقك.',
                 ['to_cohort', 'course_title', 'decision_reason'],
             ],
+            /*
+            | The private session (023). Four rows, and the two refusals are the
+            | ones a reader is tempted to fold into one: an expiry is «nobody
+            | answered» and a rejection is «somebody did» — a student who reads
+            | the wrong one waits for a teacher who already said no, or chases a
+            | teacher who never saw the request.
+            |
+            | ⚠️ THE DURATION IS IN THE TEXT, NEVER A PRICE. FR-028: a credit's
+            | price is the teacher's approved settlement rate plus two platform
+            | constants, so any amount shown to either side is solvable for the
+            | other's rate.
+            */
+            NotificationType::PrivateSessionRequested->value => [
+                'طلب حصة خاصة في «{{ course_title }}»',
+                'يطلب {{ student_name }} حصة خاصة يوم {{ session_time }} لمدة {{ duration }} دقيقة في «{{ course_title }}». افتح الطلبات للردّ قبل انتهاء المهلة.',
+                ['student_name', 'course_title', 'session_time', 'duration'],
+            ],
+            NotificationType::PrivateSessionAccepted->value => [
+                'تأكّدت حصتك الخاصة يوم {{ session_time }}',
+                'وافق مدرّسك على حصتك الخاصة في «{{ course_title }}» يوم {{ session_time }} لمدة {{ duration }} دقيقة. تجدها في جدولك.',
+                ['course_title', 'session_time', 'duration'],
+            ],
+            NotificationType::PrivateSessionRejected->value => [
+                'لم تُقبل حصتك الخاصة يوم {{ session_time }}',
+                'لم يوافق مدرّسك على حصة خاصة يوم {{ session_time }} في «{{ course_title }}». السبب: {{ decision_reason }} — ويمكنك طلب موعد آخر من مواعيده المعلَنة.',
+                ['course_title', 'session_time', 'decision_reason'],
+            ],
+            NotificationType::PrivateSessionExpired->value => [
+                'انتهت مهلة طلبك ليوم {{ session_time }}',
+                'لم يصل ردّ على طلب حصتك الخاصة يوم {{ session_time }} في «{{ course_title }}»، فانتهت مهلته. لم يُخصم من رصيدك شيء، ويمكنك الطلب من جديد.',
+                ['course_title', 'session_time'],
+            ],
             NotificationType::AssignmentSubmitted->value => [
                 'تسليم جديد في «{{ assignment_title }}»',
                 'سلّم {{ student_name }} واجب «{{ assignment_title }}». افتح اللوحة لتصحيحه.',

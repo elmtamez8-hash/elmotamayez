@@ -55,6 +55,20 @@ class ScheduleClassSession extends Action
             'created_by' => $actor->getKey(),
         ]);
 
+        if ($data->cohortId !== null) {
+            /*
+            | ⚠️ ASSIGNED DIRECTLY, BECAUSE `cohort_id` IS DELIBERATELY NOT
+            | `$fillable`. Which group a session belongs to decides who is
+            | offered it, so a PATCH body carrying the column would be a write to
+            | access rights wearing the shape of a display field; the only other
+            | writer is `AssignSessionsToCohort`'s bulk UPDATE. `forceFill`
+            | writes it deliberately here without widening mass assignment for
+            | everybody — the same spelling `ensureIndividualCohort` uses for
+            | `status`.
+            */
+            $session->forceFill(['cohort_id' => $data->cohortId])->save();
+        }
+
         // Fired at the cancellation deadline, so the billable seat count is
         // settled at the moment it stops being able to change (FR-059).
         FreezeBillableSeatsJob::dispatch((int) $session->getKey())

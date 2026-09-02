@@ -92,6 +92,11 @@ const mainNav: NavItem[] = [
   // collapsing them into one route would make each show the other half nothing.
   { href: "/schedule", label: "جدولي", Icon: ScheduleIcon },
   { href: "/manage/sessions", label: "حصصي", Icon: SessionsIcon, permission: P.sessionsManage },
+  // ⚠️ ITS OWN ENTRY, BECAUSE A SURFACE NOTHING LINKS TO IS A SURFACE NOBODY HAS.
+  // The queue has a deadline running on every row — a screen reachable only by
+  // typing its address is one whose requests expire unanswered, and the student
+  // is told «انتهت المهلة» about a lesson the teacher meant to give them.
+  { href: "/manage/private-sessions", label: "طلبات الحصص الخاصة", Icon: SessionsIcon, permission: P.sessionsManage },
   // The teacher's own money. /orders is the student's side and is a different
   // question with different permissions — SETTLEMENT_STATEMENT_VIEW reaches only
   // the teacher, never their assistant.

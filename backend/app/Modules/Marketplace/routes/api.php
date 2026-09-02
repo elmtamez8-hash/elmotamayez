@@ -41,6 +41,14 @@ Route::middleware('throttle:public')->prefix('marketplace')->name('marketplace.'
     // without the publiclyListed() guard, which would make unpublished profiles
     // reachable by url.
     Route::get('/teachers/{uuid}', [PublicMarketplaceController::class, 'teacher'])->name('teachers.show');
+
+    // Spec 023 · FR-001. `uuid` and never `slug`: `courses.slug` is unique per
+    // (workspace_id, slug) — inside one workspace only — so two teachers naming
+    // a course «الرياضيات ٣» produce the same slug and a public route has no
+    // workspace to tell them apart. Bound as a plain string for the same reason
+    // the teacher route is: implicit binding resolves by uuid WITHOUT the
+    // publiclyListed() guard, which would serve every draft by url.
+    Route::get('/courses/{uuid}', [PublicMarketplaceController::class, 'course'])->name('courses.show');
 });
 
 /*

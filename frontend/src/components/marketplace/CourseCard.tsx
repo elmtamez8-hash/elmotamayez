@@ -24,7 +24,7 @@ function hours(seconds: number): string {
  */
 export function CourseCard({ course }: { course: Course }) {
   return (
-    <article className="group flex flex-col overflow-hidden rounded-3xl border border-line bg-surface-raised transition duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg active:translate-y-0 active:duration-100">
+    <article className="group relative flex flex-col overflow-hidden rounded-3xl border border-line bg-surface-raised transition duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg active:translate-y-0 active:duration-100">
       <div className="relative aspect-video bg-primary-soft">
         {course.cover_url ? (
           <img
@@ -63,26 +63,26 @@ export function CourseCard({ course }: { course: Course }) {
           </span>
         </div>
 
-        {/* There is no standalone course page yet, so the title leads to the
-            teacher's courses tab — where the course can actually be booked —
-            rather than to a route that would 404. */}
+        {/* ⚠️ THE WHOLE CARD, IN ONE CLICK (spec 023 · SC-001).
+            The title used to lead to the teacher's courses tab, which cost three
+            clicks to reach the course it was already naming — and the card body
+            led nowhere at all, so most of the surface a thumb lands on did
+            nothing. The `after:` overlay stretches this one link across the
+            article; the byline below sits above it on the z-axis so «who teaches
+            this» stays a separate destination rather than being swallowed. */}
         <h3 className="text-base font-bold leading-snug text-ink">
-          {course.teacher ? (
-            <Link
-              href={`/teachers/${course.teacher.slug ?? course.teacher.uuid}?tab=courses`}
-              className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              {course.title}
-            </Link>
-          ) : (
-            course.title
-          )}
+          <Link
+            href={`/courses/${course.uuid}`}
+            className="after:absolute after:inset-0 after:content-[''] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            {course.title}
+          </Link>
         </h3>
 
         {course.teacher && (
           <Link
             href={`/teachers/${course.teacher.slug ?? course.teacher.uuid}`}
-            className="flex items-center gap-2 text-sm text-ink-muted hover:text-primary-ink"
+            className="relative z-10 flex w-fit items-center gap-2 text-sm text-ink-muted hover:text-primary-ink"
           >
             {course.teacher.photo_url ? (
               <img

@@ -118,4 +118,45 @@ interface CohortDirectory
      * uuids are real.
      */
     public function resolveCohortId(string $uuid, int $courseId): ?int;
+
+    /*
+    | Spec 023 · FR-010 — the groups of one course, as the PUBLIC may read them.
+    |
+    | ⚠️ FILTERED ON `individual_for_user_id IS NULL`, NEVER ON THE STATUS.
+    | A private group is created `closed`, so filtering by status hides it today
+    | for a reason that has nothing to do with whose it is — and the first day
+    | one is opened for any reason at all, its owner's name is on the
+    | marketplace. Ownership is the predicate; the status is a separate fact that
+    | is also published.
+    |
+    | ⚠️ AND IT ANSWERS `seats_left`, NEVER `members_count` (FR-014). The
+    | subtraction happens here so the two halves of it never both reach a
+    | browser; `null` means no ceiling was declared, which is not a number and is
+    | not zero.
+    */
+    /**
+     * @return list<array{uuid: string, name: string, description: string|null, status: string, seats_left: int|null, id: int}>
+     */
+    public function publicCohortsFor(int $courseId): array;
+
+    /**
+     * The student's own one-seat group in this course, created on first use
+     * (023 · FR-019ج · FR-019د).
+     *
+     * ⚠️ IDEMPOTENT BY UNIQUE INDEX, never by a read followed by a write. Two
+     * acceptances for one student arriving together both read «no group» and
+     * both create one; `unique(course_id, individual_for_user_id)` is what makes
+     * the loser lose, and the loser is answered with the winner's id rather than
+     * an error — a second group is not something the caller can do anything
+     * about.
+     *
+     * Here rather than in the caller because `Cohort` is Learning's model and
+     * LiveSessions may not reach for it — `CohortSessionVisibility` says so in as
+     * many words, and one module borrowing another's model once is how the
+     * boundary stops being one. Named in prose rather than with `{@see}`: an
+     * `App\Shared` contract that imports a module is the coupling inverted.
+     *
+     * @return int the cohort's primary key
+     */
+    public function ensureIndividualCohort(int $courseId, int $workspaceId, User $student, ?User $creator): int;
 }

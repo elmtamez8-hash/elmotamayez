@@ -68,6 +68,11 @@ final class PlatformSettings
         'sessions.presence_interval_seconds' => 'sessions.presence_interval_seconds',
         'sessions.attendance_edit_window_hours' => 'sessions.attendance_edit_window_hours',
         'sessions.report_delay_minutes' => 'sessions.report_delay_minutes',
+        // The private-session request (spec 023 · FR-022ب). The wait before a
+        // request expires itself, and how many one student may leave
+        // outstanding with one teacher.
+        'sessions.private_request_ttl_hours' => 'sessions.private_request_ttl_hours',
+        'sessions.private_request_max_pending' => 'sessions.private_request_max_pending',
         'settlement.period_days' => 'settlement.period_days',
         'settlement.required_package_components' => 'settlement.required_package_components',
         'settlement.zero_attendance_compensation_enabled' => 'settlement.zero_attendance_compensation_enabled',

@@ -18,6 +18,9 @@ use App\Modules\Gamification\Events\RewardRedeemed;
 use App\Modules\Learning\Events\CohortTransferDecided;
 use App\Modules\Learning\Events\CohortTransferRequested;
 use App\Modules\Learning\Events\EnrollmentCreated;
+use App\Modules\LiveSessions\Events\PrivateSessionDecided;
+use App\Modules\LiveSessions\Events\PrivateSessionExpired;
+use App\Modules\LiveSessions\Events\PrivateSessionRequested;
 use App\Modules\Marketplace\Events\TeacherApproved;
 use App\Modules\Marketplace\Events\TeacherChangesRequested;
 use App\Modules\Marketplace\Events\TeacherRejected;
@@ -36,11 +39,14 @@ use App\Modules\Notifications\Listeners\NotifyStudentEnrolled;
 use App\Modules\Notifications\Listeners\NotifyStudentExamResult;
 use App\Modules\Notifications\Listeners\NotifyStudentGradingPending;
 use App\Modules\Notifications\Listeners\NotifyStudentLevelUp;
+use App\Modules\Notifications\Listeners\NotifyStudentPrivateSessionDecided;
+use App\Modules\Notifications\Listeners\NotifyStudentPrivateSessionExpired;
 use App\Modules\Notifications\Listeners\NotifyStudentSubmissionGraded;
 use App\Modules\Notifications\Listeners\NotifyTeacherApproved;
 use App\Modules\Notifications\Listeners\NotifyTeacherAssignmentSubmitted;
 use App\Modules\Notifications\Listeners\NotifyTeacherChangesRequested;
 use App\Modules\Notifications\Listeners\NotifyTeacherCohortTransferRequested;
+use App\Modules\Notifications\Listeners\NotifyTeacherPrivateSessionRequested;
 use App\Modules\Notifications\Listeners\NotifyTeacherRejected;
 use App\Modules\Notifications\Support\NotificationsPersonalData;
 use App\Shared\Modules\Module;
@@ -155,6 +161,13 @@ class NotificationsServiceProvider extends Module
         // has to answer it; the answer goes back to whoever is waiting.
         Event::listen(CohortTransferRequested::class, NotifyTeacherCohortTransferRequested::class);
         Event::listen(CohortTransferDecided::class, NotifyStudentCohortTransferDecided::class);
+
+        // The private session (023 · FR-018 · FR-023 · FR-027). Three listeners
+        // and four types: the decision carries both of its answers, because they
+        // differ only in which template renders.
+        Event::listen(PrivateSessionRequested::class, NotifyTeacherPrivateSessionRequested::class);
+        Event::listen(PrivateSessionDecided::class, NotifyStudentPrivateSessionDecided::class);
+        Event::listen(PrivateSessionExpired::class, NotifyStudentPrivateSessionExpired::class);
         Event::listen(SubmissionGraded::class, NotifyStudentSubmissionGraded::class);
 
         /*

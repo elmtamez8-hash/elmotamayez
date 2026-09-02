@@ -40,6 +40,41 @@ class BookSeat extends Action
 
     public function handle(ClassSession $session, User $student): SessionBooking
     {
+        $this->assertBookable($session);
+
+        // ⚠️ `openingRefusal`, not `refusalReason`: booking is one of the two
+        // doors FR-041 names, so 008's unlock condition is asked here too.
+        return $this->claim($session, $student, $this->eligibility->openingRefusal($session, $student));
+    }
+
+    /**
+     * The seat behind a private-session request the teacher has just granted
+     * (023 · FR-019 · FR-020).
+     *
+     * ⚠️ A NAMED SECOND ENTRY POINT, NOT A BOOLEAN PARAMETER AND NOT A SECOND
+     * COPY OF THE CLAIM. A flag is read backwards by the first caller written
+     * after it — `handle($session, $student, true)` says nothing at its call
+     * site — and a second atomic UPDATE somewhere else is the two-spellings
+     * defect this repository has paid for six times. The claim below is the one
+     * that runs for both doors.
+     *
+     * ⚠️ AND IT ASKS `refusalReason()`, NOT `openingRefusal()`. The unlock gate
+     * (008 · FR-036) governs the next lesson on a course PATH; a private hour is
+     * what a student asks for precisely because they are behind on it, so asking
+     * it here would refuse exactly the student the feature exists for — and
+     * would refuse them at the teacher's press, after the teacher already
+     * decided. The money and enrolment conditions are asked, because those the
+     * teacher cannot waive.
+     */
+    public function claimGrantedSeat(ClassSession $session, User $student): SessionBooking
+    {
+        $this->assertBookable($session);
+
+        return $this->claim($session, $student, $this->eligibility->refusalReason($session, $student));
+    }
+
+    private function assertBookable(ClassSession $session): void
+    {
         if (! $session->status->acceptsBookings()) {
             throw new DomainException('هذه الحصة لم تعد متاحة للحجز.');
         }
@@ -47,11 +82,10 @@ class BookSeat extends Action
         if ($session->starts_at->isPast()) {
             throw new DomainException('لا يمكن حجز حصة بدأت أو انتهت.');
         }
+    }
 
-        // ⚠️ `openingRefusal`, not `refusalReason`: booking is one of the two
-        // doors FR-041 names, so 008's unlock condition is asked here too.
-        $refusal = $this->eligibility->openingRefusal($session, $student);
-
+    private function claim(ClassSession $session, User $student, ?string $refusal): SessionBooking
+    {
         if ($refusal !== null) {
             throw new DomainException($refusal);
         }
