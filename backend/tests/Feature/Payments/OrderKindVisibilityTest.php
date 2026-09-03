@@ -153,3 +153,45 @@ it('never hides a buyer their own purchase', function (): void {
 
     $this->getJson("/api/v1/orders/{$this->creditOrder->uuid}")->assertOk();
 });
+
+/*
+| Whose money is this? — the question the approval screen could not answer.
+|
+| `OrderResource` carried no payer field at all and `index()` eager-loaded only
+| `course` and `media`, so the officer holding BILLING_PURCHASE_APPROVE saw an
+| amount, a course title and a receipt link with nobody's name against them. Two
+| credit purchases on one course were indistinguishable, and «اعتماد» was pressed
+| over a row that named no human being.
+|
+| ⚠️ BOTH DIRECTIONS, and the second is the one that fails open: a field added
+| unconditionally passes the staff assertion perfectly while publishing the
+| payer's email on every buyer's own list.
+*/
+
+it('names the payer to a reader who may see every order', function (): void {
+    Sanctum::actingAs(orderReader('platform-billing', [
+        Permissions::ORDERS_VIEW_ALL,
+        Permissions::BILLING_PURCHASE_APPROVE,
+    ]));
+
+    $row = collect($this->getJson('/api/v1/orders')->assertOk()->json('data'))
+        ->firstWhere('uuid', $this->creditOrder->uuid);
+
+    expect($row['payer_name'])->toBe($this->student->name)
+        ->and($row['payer_email'])->toBe($this->student->email)
+        ->and($row['kind'])->toBe(OrderKind::Credits->value);
+});
+
+it('sends the buyer no payer field at all — absent, not null', function (): void {
+    Sanctum::actingAs($this->student);
+    $this->setCurrentWorkspace($this->workspace, $this->student);
+
+    $row = collect($this->getJson('/api/v1/orders')->assertOk()->json('data'))
+        ->firstWhere('uuid', $this->creditOrder->uuid);
+
+    // `is_mine` is how their own client tells the two apart; the name is not
+    // theirs to read on a row, and a null would still say a field exists.
+    expect($row)->not->toHaveKey('payer_name')
+        ->and($row)->not->toHaveKey('payer_email')
+        ->and($row['is_mine'])->toBeTrue();
+});

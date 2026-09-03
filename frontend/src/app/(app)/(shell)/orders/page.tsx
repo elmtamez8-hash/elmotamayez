@@ -100,7 +100,32 @@ export default function OrdersPage() {
 
   const canManage = orders.some((o) => OPEN_STATUSES.includes(o.status));
 
+  /*
+    The payer's column exists only for staff, and the SERVER decides that: the
+    key is absent from a buyer's own payload (`orders.view_all` gates it), so
+    testing the data is the same question as testing the permission — with one
+    answer instead of two. Re-deriving "am I staff?" in TypeScript is the
+    two-spellings defect this repository keeps paying for.
+  */
+  const seesPayer = orders.some((o) => o.payer_name != null || o.payer_email != null);
+
   const columns: Column<Order>[] = [
+    ...(seesPayer
+      ? [
+          {
+            key: "payer",
+            header: "الدافع",
+            render: (o: Order) => (
+              <div className="flex flex-col items-start">
+                <span>{o.payer_name ?? "—"}</span>
+                {o.payer_email && (
+                  <span className="text-xs text-ink-muted">{o.payer_email}</span>
+                )}
+              </div>
+            ),
+          } satisfies Column<Order>,
+        ]
+      : []),
     { key: "course", header: "الكورس", render: (o) => o.course_title ?? "—" },
     {
       key: "amount_minor",
