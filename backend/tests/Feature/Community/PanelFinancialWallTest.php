@@ -47,12 +47,21 @@ beforeEach(function (): void {
 
     // Same fixture shape as the API wall: the assistant HOLDS the permission the
     // screen asks for, so a refusal cannot be the ordinary absence of one.
+    //
+    // ⚠️ `ORDERS_VIEW_ALL` ALONE, AND IT IS THE WHOLE FIXTURE. `OrderPolicy::
+    // viewAny()` asks that name and nothing else, so it is what makes a refusal
+    // here the door rather than a missing permission. `PAYMENTS_APPROVE` stood
+    // beside it until the approval moved to the platform — and a PLATFORM
+    // permission on a role with a `team_id` now THROWS in `Tenancy\Models\Role`,
+    // so this fixture died in `beforeEach` and took both cases with it. Removing
+    // a name from a tenant role is the same deploy-order trap as adding one,
+    // running backwards.
     $invented = Role::query()->create([
         'name' => 'مصحّح',
         'guard_name' => 'web',
         'team_id' => $this->workspace->getKey(),
     ]);
-    $invented->syncPermissions([Permissions::ORDERS_VIEW_ALL, Permissions::PAYMENTS_APPROVE]);
+    $invented->syncPermissions([Permissions::ORDERS_VIEW_ALL]);
     $this->assistant->assignRole($invented);
 
     AssistantAssignment::factory()->create([

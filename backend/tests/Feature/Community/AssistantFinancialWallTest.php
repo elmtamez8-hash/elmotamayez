@@ -30,29 +30,56 @@ use Spatie\Permission\PermissionRegistrar;
 | the wall — and the matrix is a SEED that runs once at workspace creation, so an
 | owner who invents «مصحّح» and ticks `payments.approve` onto it from the roles
 | screen is the case the wall exists for. `Tenancy\Models\Role` refuses PLATFORM
-| permissions on a workspace role, which is why the list below holds the eight
+| permissions on a workspace role, which is why the list below holds the six
 | financial names a tenant role may legally carry and not one more.
 |
-| ⚠️ TWO GROUPS, DELIBERATELY SEPARATE. Everything under «الحائط» goes red when
-| the hook is deleted; everything under «ت-١» stays green by design — those
-| measure the ORDINARY absence of `billing.balance.view` and the exception that
-| lets an owner grant it back on purpose. Mixed together, `T054` could not tell
-| the two apart and its «أعِده» would prove nothing.
+| ⚠️ THREE GROUPS, DELIBERATELY SEPARATE, AND ONLY THE FIRST MEASURES THE WALL.
+| Everything under «الحائط» goes red when the hook is deleted. «ت-١» stays green
+| by design — the ORDINARY absence of `billing.balance.view` and the exception
+| that lets an owner grant it back on purpose. And the third group holds what
+| USED to sit in the first: `payments.approve` and `payments.reject` left for the
+| platform with the transfer decision, so refusing them is no longer the hook's
+| doing and a case measuring it must not be counted as the wall standing. Mixed
+| together, `T054`'s «أعِده» could not tell the three apart and would prove
+| nothing.
 */
 
-/** The financial permissions a workspace role may legally hold. */
+/**
+ * The financial permissions a workspace role may legally hold.
+ *
+ * ⚠️ SIX, NOT EIGHT — AND THE TWO THAT LEFT KILLED THIS FIXTURE IN ITS
+ * `beforeEach`. `payments.approve` and `payments.reject` moved to the platform
+ * when the transfer decision did, and `Tenancy\Models\Role` THROWS when a
+ * platform permission is attached to a role carrying a `team_id`. So the list
+ * that exists to prove the wall could no longer be built, and all eight cases
+ * below died at once — not on an assertion, on the fixture. Removing a name
+ * from a tenant role is the same deploy-order trap as adding one, run
+ * backwards, and only CI saw it.
+ */
 function walledTenantPermissions(): array
 {
     return [
         Permissions::ORDERS_VIEW_ALL,
         Permissions::ORDERS_VIEW_OWN,
         Permissions::ORDERS_CREATE,
-        Permissions::PAYMENTS_APPROVE,
-        Permissions::PAYMENTS_REJECT,
         Permissions::SETTLEMENT_RATE_REQUEST,
         Permissions::SETTLEMENT_STATEMENT_VIEW,
         Permissions::BILLING_EXAM_MODE_MANAGE,
     ];
+}
+
+/**
+ * The two the platform took, which no role here can be given.
+ *
+ * They still belong in the ABSENCE assertions — a name an assistant cannot be
+ * granted must also be a name the sidebar never offers them — but they can no
+ * longer appear in anything that reaches `syncPermissions()`.
+ *
+ * @return list<string>
+ */
+function walledPlatformPermissions(): array
+{
+    return [Permissions::PAYMENTS_APPROVE, Permissions::PAYMENTS_REJECT];
 }
 
 beforeEach(function (): void {
@@ -126,15 +153,6 @@ it('refuses the assistant a settlement rate request', function (): void {
     ])->assertForbidden();
 });
 
-it('refuses the assistant the approval and the rejection of a payment', function (): void {
-    Sanctum::actingAs($this->assistant);
-
-    $this->postJson("/api/v1/orders/{$this->order->uuid}/approve")->assertForbidden();
-    $this->postJson("/api/v1/orders/{$this->order->uuid}/reject", [
-        'reason' => 'الإيصال غير واضح',
-    ])->assertForbidden();
-});
-
 it('shows the assistant none of the workspace orders while the owner still sees them all', function (): void {
     /*
     | ⚠️ 200 WITH ZERO ROWS, NOT 403 — and this is the sharpest assertion in the
@@ -182,7 +200,11 @@ it('leaves every walled name out of the permission list the sidebar is built fro
         // satisfy the negative assertion below while proving nothing.
         ->toContain(Permissions::LESSONS_MANAGE);
 
-    foreach (walledTenantPermissions() as $walled) {
+    // Both halves: the six a role could legally have been given and the two the
+    // platform took. The second pair is not redundant — `grantedPermissions()`
+    // walks `Permissions::all()`, so a name nobody can be granted still has to
+    // come back absent rather than, say, defaulting to allowed.
+    foreach ([...walledTenantPermissions(), ...walledPlatformPermissions()] as $walled) {
         expect($granted)->not->toContain($walled);
     }
 });
@@ -226,4 +248,36 @@ it('opens the student balance panel to an assistant the owner granted it deliber
     Sanctum::actingAs($this->assistant);
 
     $this->getJson('/api/v1/manage/billing/students')->assertOk();
+});
+
+/*
+|--------------------------------------------------------------------------
+| ما انتقلَ إلى نموذجِ الصلاحيّاتِ نفسِه — لم يعدْ يقيسُ الحائط
+|--------------------------------------------------------------------------
+*/
+
+it('refuses the assistant the approval and the rejection of a payment', function (): void {
+    /*
+    | ⚠️ THIS CASE SAT UNDER «الحائط» AND NO LONGER BELONGS THERE, WHICH IS THE
+    | POINT OF MOVING IT RATHER THAN LEAVING IT WHERE IT READ CORRECTLY. The
+    | fixture above used to hand the assistant `payments.approve` so that a 403
+    | could only be the hook; the platform took both names, `Tenancy\Models\Role`
+    | refuses them on any workspace role, and the refusal here is now the
+    | ORDINARY absence of a permission nobody in a workspace can hold.
+    |
+    | So it stays green with the hook deleted — exactly what this file's two-group
+    | contract says must not happen inside «الحائط», and what `T054`'s «أعِده»
+    | would otherwise report as the wall still standing.
+    |
+    | ⚠️ AND IT IS KEPT, NOT DELETED. A surface that must refuse is still worth
+    | measuring even when the reason moved a layer down: `platformReads()` and
+    | `OrderPolicy`'s platform branch are one edit away from letting a workspace
+    | reader back in, and this is the case that would go red.
+    */
+    Sanctum::actingAs($this->assistant);
+
+    $this->postJson("/api/v1/orders/{$this->order->uuid}/approve")->assertForbidden();
+    $this->postJson("/api/v1/orders/{$this->order->uuid}/reject", [
+        'reason' => 'الإيصال غير واضح',
+    ])->assertForbidden();
 });
