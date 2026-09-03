@@ -10,6 +10,7 @@ use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Enums\OrderStatus;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
@@ -173,6 +174,28 @@ class OrderResource extends Resource
         // fixed for. One spelling, in the enum — see `teacherListedValues()`.
         if ($user instanceof User && ! $user->can(Permissions::BILLING_PURCHASE_APPROVE)) {
             $query->whereIn('kind', OrderKind::teacherListedValues());
+        } else {
+            /*
+            | ⚠️ 024 — THE FIFTH LAYER OF THE SAME DEFECT, AND THE LIST IS WHERE
+            | IT LOOKS LIKE NOTHING IS WRONG.
+            |
+            | The kind cut above was already right; the workspace was not. This
+            | query runs through `BelongsToWorkspace`, and a platform officer's
+            | context falls back to `users.last_workspace_id` like everybody
+            | else's — so an officer who also owns a workspace saw that
+            | workspace's orders and no others, on the one screen whose whole
+            | purpose is approving sales across every teacher. No error, no empty
+            | state, just a short list that reads as a quiet week.
+            |
+            | Only for the holder of the platform permission, and the row-level
+            | answer is unchanged: `OrderPolicy::view()` still decides what may be
+            | opened.
+            */
+            // `withoutGlobalScope(WorkspaceScope::class)` and not the model's
+            // `withoutWorkspaceScope()` helper: Filament's parent hands back a
+            // `Builder<Model>`, on which the model's local scope is not typed.
+            // The two are the same call — see `BelongsToWorkspace::scopeWithoutWorkspaceScope()`.
+            $query->withoutGlobalScope(WorkspaceScope::class);
         }
 
         return $query->with(['course', 'user', 'approver']);

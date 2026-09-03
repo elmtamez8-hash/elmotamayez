@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Filament\Resources\OrderResource;
 use App\Models\User;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Actions\ListCreditPackages;
 use App\Modules\Payments\Actions\PurchaseCredits;
 use App\Modules\Payments\Actions\RecordCreditPurchase;
+use App\Modules\Payments\Filament\Pages\GrantCreditSubscription;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditLot;
 use App\Modules\Payments\Models\CreditPackage;
@@ -18,6 +20,7 @@ use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Http\UploadedFile;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -295,8 +298,99 @@ it('lets the officer attach the receipt that arrived outside the product', funct
 
     $this->post(
         "/api/v1/orders/{$order->uuid}/receipt",
-        ['receipt' => Illuminate\Http\UploadedFile::fake()->image('receipt.jpg')],
+        ['receipt' => UploadedFile::fake()->image('receipt.jpg')],
     )->assertOk();
 
     expect($order->refresh()->hasMedia('receipt'))->toBeTrue();
+});
+
+// ── T020 · T021 · FR-013 · FR-017 ──────────────────────────────────────────
+
+it('opens the grant screen for the officer and for nobody in a tenant role', function (): void {
+    /*
+    | ⚠️ BOTH DIRECTIONS, AND THE ALLOW IS THE ONE THAT CATCHES A DEAD GUARD.
+    |
+    | A permission classified by absence passes every deny test while guarding
+    | nothing — `taxonomy.manage` shipped that way. And the tenant owner is the
+    | highest role there is, which is exactly why it must fail here: a teacher
+    | who can grant credits on their own course is a teacher minting their own
+    | income, and spec 014 pays them out of those same credits.
+    */
+    $teacher = $this->addWorkspaceMember($this->workspaceA, Roles::TEACHER);
+
+    foreach ([$this->teacherA, $teacher] as $tenant) {
+        $this->actingAs($tenant);
+        app(WorkspaceContext::class)->set($this->workspaceA);
+
+        expect(GrantCreditSubscription::canAccess())->toBeFalse();
+    }
+
+    $this->actingAs($this->officer);
+    app(WorkspaceContext::class)->forget();
+
+    expect(GrantCreditSubscription::canAccess())->toBeTrue();
+});
+
+// ── T024 · T025 · T026 · US2 ───────────────────────────────────────────────
+
+it('names the grantor to the approver and to nobody else', function (): void {
+    $purchase = grant();
+    $order = Order::query()->withoutWorkspaceScope()->findOrFail($purchase->order_id);
+
+    $this->setCurrentWorkspace($this->workspaceB, $this->officer);
+    Sanctum::actingAs($this->officer);
+
+    expect($this->getJson("/api/v1/orders/{$order->uuid}")->assertOk()->json('granted_by_name'))
+        ->toBe($this->officer->name);
+
+    /*
+    | ⚠️ ABSENT, NOT NULL, ON THE STUDENT'S OWN LIST. «A member of staff called X
+    | made this for you» is a colleague's name on a customer's screen, and a null
+    | key still says the field exists.
+    */
+    app(WorkspaceContext::class)->forget();
+    Sanctum::actingAs($this->student);
+
+    expect($this->getJson("/api/v1/orders/{$order->uuid}")->assertOk()->json())
+        ->not->toHaveKey('granted_by_name');
+});
+
+it('lets the officer reject a grant with a reason, and moves no credits', function (): void {
+    $purchase = grant();
+    $order = Order::query()->withoutWorkspaceScope()->findOrFail($purchase->order_id);
+
+    $this->setCurrentWorkspace($this->workspaceB, $this->officer);
+    Sanctum::actingAs($this->officer);
+
+    $this->postJson("/api/v1/orders/{$order->uuid}/reject", ['reason' => 'المبلغ لا يطابق الإيصال.'])
+        ->assertOk();
+
+    expect($order->refresh()->status)->toBe('rejected')
+        ->and($order->rejection_reason)->toBe('المبلغ لا يطابق الإيصال.')
+        ->and(creditsOn($this->student, $this->courseA))->toBe(0);
+});
+
+it('shows the officer credit orders from every workspace on the panel list', function (): void {
+    /*
+    | ⚠️ THE FIFTH LAYER, AND THE ONE THAT LOOKS LIKE NOTHING IS WRONG. The kind
+    | cut was already permission-gated; the workspace was not. An officer with a
+    | workspace of their own saw a short list and no error — a quiet week rather
+    | than a wall.
+    */
+    grant();
+    grant(course: $this->courseB);
+
+    $this->actingAs($this->officer);
+    app(WorkspaceContext::class)->set($this->workspaceB);
+
+    $rows = OrderResource::getEloquentQuery()->get();
+
+    expect($rows)->toHaveCount(2);
+
+    // And the tenant owner still sees neither: a credit purchase is the
+    // platform's sale, whatever workspace they are standing in.
+    $this->actingAs($this->teacherA);
+    app(WorkspaceContext::class)->set($this->workspaceA);
+
+    expect(OrderResource::getEloquentQuery()->get())->toHaveCount(0);
 });

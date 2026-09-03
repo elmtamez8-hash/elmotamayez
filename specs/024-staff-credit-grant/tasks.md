@@ -77,10 +77,10 @@ description: "Task list — منحُ اشتراكِ حصصٍ بيدِ موظّف
 
 ### التنفيذ
 
-- [ ] T018 [US1] أنشئْ صفحةَ `backend/app/Filament/Pages/GrantCreditSubscription.php`: نموذجٌ بأربعةِ حقول (‏طالب · كورس · باقة · ملفُّ إيصال)، يستدعي `ListCreditPackages` للتسعيرِ و`PurchaseCredits` للإنشاءِ و`UploadPaymentReceipt` للإيصالِ — **في معاملةٍ واحدة**. ⛔ **ولا زرَّ اعتمادٍ على هذه الشاشةِ إطلاقاً** (FR-008أ)
-- [ ] T019 [US1] في الصفحةِ نفسِها: اعرضِ **المبلغَ المتوقَّعَ قبلَ الحفظ** من `ListCreditPackages` (FR-006). ⚠️ **لا تحسبْه في الصفحة** — الدستورُ II، ورقمٌ ثانٍ يشيخُ عندَ أوّلِ تغييرِ تسعير
-- [ ] T020 [US1] احرسِ الصفحةَ بـ`BILLING_PURCHASE_APPROVE` في `canAccess()` **وفي ظهورِ عنصرِ التنقّلِ معاً** (FR-017). ⚠️ الحارسانِ لا واحد: `Gate::before` يمرّرُ المديرَ الأعلى فوقَ كلِّ سياسة، وقائمةٌ مُصفّاةٌ تُشكِّلُ طلباً واحداً ولا تُشكِّلُ التالي — سابقةُ `CreditPackageResource`
-- [ ] T021 [US1] في `StaffCreditGrantTest.php`: اختبارُ لوحةٍ بـ`livewire()` على نمطِ `CreditPackagePanelTest` — حاملُ الإذنِ يفتحُ الصفحةَ ويحفظُ بنجاح، ومالكُ مساحةِ العملِ يُردّ. **الاتّجاهان**
+- [X] T018 [US1] أنشئْ صفحةَ `backend/app/Filament/Pages/GrantCreditSubscription.php`: نموذجٌ بأربعةِ حقول (‏طالب · كورس · باقة · ملفُّ إيصال)، يستدعي `ListCreditPackages` للتسعيرِ و`PurchaseCredits` للإنشاءِ و`UploadPaymentReceipt` للإيصالِ — **في معاملةٍ واحدة**. ⛔ **ولا زرَّ اعتمادٍ على هذه الشاشةِ إطلاقاً** (FR-008أ)
+- [X] T019 [US1] في الصفحةِ نفسِها: اعرضِ **المبلغَ المتوقَّعَ قبلَ الحفظ** من `ListCreditPackages` (FR-006). ⚠️ **لا تحسبْه في الصفحة** — الدستورُ II، ورقمٌ ثانٍ يشيخُ عندَ أوّلِ تغييرِ تسعير
+- [X] T020 [US1] احرسِ الصفحةَ بـ`BILLING_PURCHASE_APPROVE` في `canAccess()` **وفي ظهورِ عنصرِ التنقّلِ معاً** (FR-017). ⚠️ الحارسانِ لا واحد: `Gate::before` يمرّرُ المديرَ الأعلى فوقَ كلِّ سياسة، وقائمةٌ مُصفّاةٌ تُشكِّلُ طلباً واحداً ولا تُشكِّلُ التالي — سابقةُ `CreditPackageResource`
+- [X] T021 [US1] في `StaffCreditGrantTest.php`: اختبارُ لوحةٍ بـ`livewire()` على نمطِ `CreditPackagePanelTest` — حاملُ الإذنِ يفتحُ الصفحةَ ويحفظُ بنجاح، ومالكُ مساحةِ العملِ يُردّ. **الاتّجاهان**
 
 **Checkpoint**: US1 تعملُ من طرفِها إلى طرفِها — منتَجٌ صالحٌ ولو توقّفَ العملُ هنا.
 
@@ -94,11 +94,11 @@ description: "Task list — منحُ اشتراكِ حصصٍ بيدِ موظّف
 **Independent Test**: يُفتَحُ صفُّ طلبٍ بحسابٍ يحملُ الإذنَ ويُتحقَّقُ من الحقولِ ومن أنّ الرفضَ
 بسببٍ يُغيّرُ الحالةَ ولا يحرّكُ رصيداً.
 
-- [ ] T022 [P] [US2] في `backend/app/Filament/Resources/OrderResource.php` · `getEloquentQuery()`: وسّعِ التصفيةَ **بالإذنِ لا بحذفِ الشرط** — حاملُ `BILLING_PURCHASE_APPROVE` يرى الصنفَين، وغيرُه يرى `OrderKind::teacherListedValues()` كما اليوم. ⚠️ القطعُ على الاستعلامِ لأنّ قائمةَ Filament **لا تستدعي سياسةَ الصفِّ إطلاقاً**
-- [ ] T023 [P] [US2] في `backend/app/Modules/Payments/Http/Resources/OrderResource.php`: أضِفْ `granted_by_name` محجوباً بنفسِ حجبِ `payer_name` (‏`orders.view_all`)، واقرأْه من علاقةِ `grantor`. وأضِفِ `'grantor'` إلى التحميلِ المسبقِ في `OrderController::index()` و`show()`
-- [ ] T024 [P] [US2] اختبار: حاملُ `BILLING_PURCHASE_APPROVE` يرى طلبَ الرصيدِ في جدولِ اللوحة، ومن لا يحملُه لا يراه. **الاتّجاهان**
-- [ ] T025 [P] [US2] اختبار: رفضُ منحٍ بسببٍ مكتوب ⇒ الحالةُ `rejected`، والسببُ في الحمولة، **و`CreditBalance` صفرٌ**
-- [ ] T026 [P] [US2] اختبار: `granted_by_name` يصلُ حاملَ `orders.view_all` و**لا يصلُ الطالبَ** (‏المفتاحُ غائبٌ لا `null`)
+- [X] T022 [P] [US2] في `backend/app/Filament/Resources/OrderResource.php` · `getEloquentQuery()`: وسّعِ التصفيةَ **بالإذنِ لا بحذفِ الشرط** — حاملُ `BILLING_PURCHASE_APPROVE` يرى الصنفَين، وغيرُه يرى `OrderKind::teacherListedValues()` كما اليوم. ⚠️ القطعُ على الاستعلامِ لأنّ قائمةَ Filament **لا تستدعي سياسةَ الصفِّ إطلاقاً**
+- [X] T023 [P] [US2] في `backend/app/Modules/Payments/Http/Resources/OrderResource.php`: أضِفْ `granted_by_name` محجوباً بنفسِ حجبِ `payer_name` (‏`orders.view_all`)، واقرأْه من علاقةِ `grantor`. وأضِفِ `'grantor'` إلى التحميلِ المسبقِ في `OrderController::index()` و`show()`
+- [X] T024 [P] [US2] اختبار: حاملُ `BILLING_PURCHASE_APPROVE` يرى طلبَ الرصيدِ في جدولِ اللوحة، ومن لا يحملُه لا يراه. **الاتّجاهان**
+- [X] T025 [P] [US2] اختبار: رفضُ منحٍ بسببٍ مكتوب ⇒ الحالةُ `rejected`، والسببُ في الحمولة، **و`CreditBalance` صفرٌ**
+- [X] T026 [P] [US2] اختبار: `granted_by_name` يصلُ حاملَ `orders.view_all` و**لا يصلُ الطالبَ** (‏المفتاحُ غائبٌ لا `null`)
 
 **Checkpoint**: US1 و US2 تعملانِ معاً.
 
@@ -111,18 +111,18 @@ description: "Task list — منحُ اشتراكِ حصصٍ بيدِ موظّف
 **Independent Test**: تُعادُ حزمةُ اختباراتِ الشراءِ القائمةُ ويُتحقَّقُ من خضرتِها **بلا تعديلِ
 ملفِّ اختبارٍ واحد**.
 
-- [ ] T027 [US3] شغّلْ `cd backend && php vendor/bin/pest tests/Feature/Payments` وقارِنِ النتيجةَ بما سُجِّلَ في T001. ⚠️ **أيُّ توكيدٍ قائمٍ احتاجَ تعديلاً يعني أنّ الوسيطَ لم يكنِ افتراضيّاً حقّاً** — أصلِحِ الوسيطَ لا الاختبار
-- [ ] T028 [US3] شغّلْ `cd backend && git diff --stat -- tests/` وتأكّدْ أنّ الملفَّ الوحيدَ المتغيّرَ تحتَ `tests/` هو `StaffCreditGrantTest.php` الجديد (SC-008)
+- [X] T027 [US3] شغّلْ `cd backend && php vendor/bin/pest tests/Feature/Payments` وقارِنِ النتيجةَ بما سُجِّلَ في T001. ⚠️ **أيُّ توكيدٍ قائمٍ احتاجَ تعديلاً يعني أنّ الوسيطَ لم يكنِ افتراضيّاً حقّاً** — أصلِحِ الوسيطَ لا الاختبار
+- [X] T028 [US3] شغّلْ `cd backend && git diff --stat -- tests/` وتأكّدْ أنّ الملفَّ الوحيدَ المتغيّرَ تحتَ `tests/` هو `StaffCreditGrantTest.php` الجديد (SC-008)
 
 ---
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T029 [P] حدِّثْ `docs/README.md`: صفُّ العمودِ الجديدِ في جدولِ Payments، وسطرٌ يذكرُ أنّ `billing.purchase.approve` صارَ يحرسُ **المنحَ والاعتمادَ معاً** ولم يُضَفْ إذنٌ ثانٍ
-- [ ] T030 [P] حدِّثْ `docs/erd.md`: `orders.granted_by` مع سببِ `nullOnDelete` وسببِ بقائِه خارجَ `$fillable`
-- [ ] T031 أضِفْ فقرةً إلى `CLAUDE.md` عن العطلِ الذي أُغلِقَ في T009: «سياقٌ محلولٌ لا يطابقُ يبقى رفضاً — وموظّفُ ماليّةٍ يملكُ مساحةَ عملٍ سياقُه محلول»، مع التنبيهِ أنّ تجهيزةً بمساحةٍ واحدةٍ لا تراه. ⚠️ هذه ليست زينةً: الملفُّ نفسُه يسجّلُ أنّ العطلَ الشبيهَ في سلسلةِ التدقيقِ عادَ من بابٍ آخرَ لأنّه لم يُكتَبْ
-- [ ] T032 راجعْ أنّ **صفرَ سطرٍ** في التغييرِ كلِّه يستدعي `AdjustCredits`: `cd backend && grep -rn "AdjustCredits" app/Filament app/Modules/Payments/Actions/PurchaseCredits.php` ⇒ لا نتيجة (FR-002)
-- [ ] T033 شغّلِ البوّاباتِ **دفعةً واحدة**: `cd backend && php vendor/bin/pest tests/Feature/Payments` ثمّ `./vendor/bin/pint --test && ./vendor/bin/phpstan analyse`. ⚠️ **لا حزمتَي pest معاً**، ولا حزمةَ اختباراتٍ كاملة — CI يشغّلُها. و`npx tsc --noEmit` غيرُ لازم: صفرُ ملفٍّ في `frontend/`
+- [X] T029 [P] حدِّثْ `docs/README.md`: صفُّ العمودِ الجديدِ في جدولِ Payments، وسطرٌ يذكرُ أنّ `billing.purchase.approve` صارَ يحرسُ **المنحَ والاعتمادَ معاً** ولم يُضَفْ إذنٌ ثانٍ
+- [X] T030 [P] حدِّثْ `docs/erd.md`: `orders.granted_by` مع سببِ `nullOnDelete` وسببِ بقائِه خارجَ `$fillable`
+- [X] T031 أضِفْ فقرةً إلى `CLAUDE.md` عن العطلِ الذي أُغلِقَ في T009: «سياقٌ محلولٌ لا يطابقُ يبقى رفضاً — وموظّفُ ماليّةٍ يملكُ مساحةَ عملٍ سياقُه محلول»، مع التنبيهِ أنّ تجهيزةً بمساحةٍ واحدةٍ لا تراه. ⚠️ هذه ليست زينةً: الملفُّ نفسُه يسجّلُ أنّ العطلَ الشبيهَ في سلسلةِ التدقيقِ عادَ من بابٍ آخرَ لأنّه لم يُكتَبْ
+- [X] T032 راجعْ أنّ **صفرَ سطرٍ** في التغييرِ كلِّه يستدعي `AdjustCredits`: `cd backend && grep -rn "AdjustCredits" app/Filament app/Modules/Payments/Actions/PurchaseCredits.php` ⇒ لا نتيجة (FR-002)
+- [X] T033 شغّلِ البوّاباتِ **دفعةً واحدة**: `cd backend && php vendor/bin/pest tests/Feature/Payments` ثمّ `./vendor/bin/pint --test && ./vendor/bin/phpstan analyse`. ⚠️ **لا حزمتَي pest معاً**، ولا حزمةَ اختباراتٍ كاملة — CI يشغّلُها. و`npx tsc --noEmit` غيرُ لازم: صفرُ ملفٍّ في `frontend/`
 - [ ] T034 امشِ [quickstart.md](./quickstart.md) يدويّاً على `/admin` — السيناريوهاتُ ١ و٢ و٣ و٥. ⚠️ **السيناريو ٣ هو الذي لا تراه أيُّ تجهيزةٍ بمساحةٍ واحدة**
 
 ---

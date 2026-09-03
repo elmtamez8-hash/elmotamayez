@@ -39,6 +39,15 @@ class OrderResource extends JsonResource
             */
             'payer_name' => $this->when($this->viewerSeesAll($request), fn () => $this->user->name),
             'payer_email' => $this->when($this->viewerSeesAll($request), fn () => $this->user->email),
+            /*
+            | 024 · FR-008ب — who CREATED this order when its owner did not.
+            | `null` means the buyer started it themselves, which is every
+            | order written before 024. Behind the same gate as the payer:
+            | «a member of staff called X made this for you» is not the
+            | student's business, and it is a colleague's name on a
+            | customer's screen.
+            */
+            'granted_by_name' => $this->when($this->viewerSeesAll($request), fn () => $this->grantor?->name),
             'has_receipt' => $this->hasMedia('receipt'),
             // Lets the buyer's client tell "upload your receipt" apart from a
             // staff member looking at someone else's order.

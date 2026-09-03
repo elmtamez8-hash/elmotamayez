@@ -50,7 +50,7 @@ class OrderController extends Controller
                 ->orWhere('user_id', $user->getKey()));
         }
 
-        $orders = $query->with(['course', 'media', 'user'])->orderByDesc('created_at')->paginate(15);
+        $orders = $query->with(['course', 'media', 'user', 'grantor'])->orderByDesc('created_at')->paginate(15);
 
         /*
         | ⚠️ RETURNED, NOT `response()->json(...)`-ED, AND THE PAGE DEPENDED ON IT.
@@ -69,7 +69,7 @@ class OrderController extends Controller
 
         $this->authorize('view', $order);
 
-        return response()->json(OrderResource::make($order->load(['course', 'media', 'user'])));
+        return response()->json(OrderResource::make($order->load(['course', 'media', 'user', 'grantor'])));
     }
 
     public function store(Request $request, Course $course, CreateOrder $action): JsonResponse
