@@ -77,8 +77,22 @@ export default function BankPage() {
     {
       key: "content",
       header: "السؤال",
+      /*
+       * ⚠️ `text-ink`, NEVER `text-primary` — the maroon is a FILL, not a text
+       * colour, and `globals.css` says so beside the token: «Maroon reaches
+       * 1.7:1 on #191315 — as TEXT it is unreadable in the dark, which is the
+       * whole reason this token exists apart from `--color-primary`». So the
+       * question itself — the column a teacher actually reads — was invisible
+       * on a dark screen while the badges and the concept beside it were fine.
+       * `--color-ink` inverts with the theme (#f5efe9 dark · #2a2224 light), so
+       * one class is legible in both; the underline carries the link, which is
+       * what the colour was doing badly.
+       */
       render: (row) => (
-        <Link href={`/manage/bank/${row.uuid}`} className="text-primary hover:underline">
+        <Link
+          href={`/manage/bank/${row.uuid}`}
+          className="text-ink underline-offset-4 hover:underline"
+        >
           {row.content.length > 90 ? `${row.content.slice(0, 90)}…` : row.content}
         </Link>
       ),
