@@ -78,7 +78,15 @@ it('creates a parent with no workspace and no tenant role', function (): void {
 
     expect($parent->last_workspace_id)->toBeNull()
         ->and($parent->workspaces()->count())->toBe(0)
-        ->and($parent->getRoleNames()->all())->toBe([]);
+        ->and($parent->getRoleNames()->all())->toBe([])
+        /*
+         * ⚠️ THE ROW, NOT ONLY THE RESPONSE ABOVE — and the column stopped being
+         * cosmetic on 2026-09-03. `isLearner()` reads it to decide whether the
+         * sidebar offers «كشف التقديرات» and «تقييماتي الدورية», the two screens
+         * a guardian opens; a null here is a parent whose child's reports are
+         * missing from their menu, with nothing failing anywhere.
+         */
+        ->and($parent->platform_role)->toBe(PlatformRole::Parent);
 });
 
 // Since spec 003, absence of a preference row means "the type's defaults apply"

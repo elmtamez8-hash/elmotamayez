@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use Laravel\Sanctum\Sanctum;
@@ -60,6 +61,17 @@ function firstTeacherApplicant(): User
     test()->postJson('/api/v1/auth/register/teacher/step-1', firstTeacherStepOne())->assertCreated();
 
     $applicant = User::query()->where('email', 'first-teacher@example.com')->firstOrFail();
+
+    /*
+     * ⚠️ STAMPED HERE, AT STEP ONE, AND THIS APPLICANT IS THE HARDEST CASE FOR
+     * IT. `RegisterTeacher` «creates no workspace membership and grants no role
+     * (FR-010)», so at this moment the account holds ZERO permissions — exactly
+     * like a student's. Since 2026-09-03 `isLearner()` decides what the sidebar
+     * offers, and every permission-shaped predicate would read this teacher as a
+     * learner and hand them «دفتر أخطائي» and «متجر المكافآت». `platform_role`
+     * is what tells them apart, so a null written here is that bug.
+     */
+    expect($applicant->platform_role)->toBe(PlatformRole::Teacher);
 
     Sanctum::actingAs($applicant);
 
