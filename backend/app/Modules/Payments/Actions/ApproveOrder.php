@@ -43,7 +43,24 @@ class ApproveOrder extends Action
         ?string $userAgent = null,
     ): Order {
         return DB::transaction(function () use ($order, $approver, $ipAddress, $userAgent): Order {
+            /*
+            | ⚠️ `withoutWorkspaceScope()` — THE THIRD LAYER OF ONE DEFECT.
+            |
+            | This claim is a conditional UPDATE through the model, so the global
+            | scope ANDs the CURRENT workspace onto it. A platform officer's
+            | context falls back to `users.last_workspace_id` like anybody
+            | else's, so an officer who also owns a workspace matched ZERO rows
+            | on every order outside it — and was told «Only pending orders can
+            | be approved» about an order that was pending. The other two layers
+            | were route-model binding (404) and `OrderPolicy` (403); all three
+            | had to move, and each one hid the next.
+            |
+            | Safe because the row is already authorised: `OrderPolicy` ran above
+            | this call and asks the workspace question itself on every
+            | non-platform branch. Measured 2026-09-03 (024).
+            */
             $claimed = Order::query()
+                ->withoutWorkspaceScope()
                 ->whereKey($order->getKey())
                 ->whereIn('status', ['pending', 'under_review'])
                 ->update([

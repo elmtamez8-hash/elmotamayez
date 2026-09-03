@@ -41,10 +41,25 @@ class ListCreditPackages extends Action
     /**
      * @return list<array{package: CreditPackage, price: PackagePrice}>
      */
-    public function handle(User $student, Course $course): array
+    public function handle(User $student, Course $course, ?User $grantedBy = null): array
     {
-        if (! $this->participation->isPartyTo($student, $course)) {
-            throw new AuthorizationException('لا يمكنك شراء أرصدة على كورس لست طرفاً فيه.');
+        /*
+        | The SAME partial skip as `PurchaseCredits` — and it belongs here for a
+        | reason that is easy to miss: this is what the officer's screen prices a
+        | grant with BEFORE saving (024 · FR-006). Left guarded, every brand-new
+        | student — the common case — shows an empty package list, and the officer
+        | reads "nothing to sell" about a course that sells fine.
+        |
+        | The seller refusal still runs on both paths: two totals on two package
+        | sizes solve for the platform's constants, and reading them is exactly
+        | what this Action's own docblock is about.
+        */
+        if ($grantedBy === null) {
+            if (! $this->participation->isPartyTo($student, $course)) {
+                throw new AuthorizationException('لا يمكنك شراء أرصدة على كورس لست طرفاً فيه.');
+            }
+        } elseif ($this->participation->isSeller($student, $course)) {
+            throw new AuthorizationException('لا يمكن منح أرصدة لمن يدرّس هذا الكورس.');
         }
 
         // A course whose teacher stopped delivering sells nothing (FR-021ط), and

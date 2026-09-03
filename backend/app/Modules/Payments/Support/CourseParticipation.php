@@ -50,7 +50,7 @@ class CourseParticipation
 
     public function isPartyTo(User $user, Course $course): bool
     {
-        if ($this->teachesIn($user, $course)) {
+        if ($this->isSeller($user, $course)) {
             return false;
         }
 
@@ -65,8 +65,18 @@ class CourseParticipation
      * Asked as "a member whose role is not STUDENT" rather than by naming the
      * three: a denylist of role names lets the next role added ship with the
      * leak open, and this is the predicate a leak would be invisible in.
+     *
+     * ⚠️ PUBLIC SINCE 024, AND THE REASON IS THE HALF OF `isPartyTo()` IT IS NOT.
+     * That method answers TWO questions in one call: this refusal, and then the
+     * ways in (an enrolment, a membership). Spec 024 lets a platform officer buy
+     * on a student's behalf, and the ways in are exactly what a brand-new student
+     * has none of — so the officer skips them. Skipping the whole method would
+     * take this refusal with it, and a grant to a course's own teacher hands them
+     * two totals on two package sizes, which solve for the platform's constants
+     * and then invert every OTHER teacher's approved settlement rate. So the two
+     * halves are asked separately now, and this one is asked ALWAYS.
      */
-    private function teachesIn(User $user, Course $course): bool
+    public function isSeller(User $user, Course $course): bool
     {
         return $user->workspaces()
             ->whereKey($course->workspace_id)

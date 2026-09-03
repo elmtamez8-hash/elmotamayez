@@ -14,12 +14,19 @@ class OrderPolicy extends BasePolicy
 {
     public function view(User $user, Order $order): Response
     {
-        if (($workspaceCheck = $this->belongsToCurrentWorkspace($order))->denied()) {
-            return $workspaceCheck;
-        }
-
+        // Your own row is yours to read wherever you are standing, so ownership
+        // is asked before any tenant check — see `platformReads()` below for why
+        // the order of these three questions is load-bearing now.
         if ($order->user_id === $user->getKey()) {
             return Response::allow();
+        }
+
+        if (($platform = $this->platformReads($user, $order, 'view')) !== null) {
+            return $platform;
+        }
+
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($order))->denied()) {
+            return $workspaceCheck;
         }
 
         /*
@@ -33,12 +40,6 @@ class OrderPolicy extends BasePolicy
         | that decision; view and reject are the same decision, and were the two
         | halves left behind.
         */
-        if ($order->requiresPlatformApproval()) {
-            return $user->can(Permissions::BILLING_PURCHASE_APPROVE)
-                ? Response::allow()
-                : Response::deny($order->kind->platformRefusal('view'));
-        }
-
         return $user->can(Permissions::ORDERS_VIEW_ALL)
             ? Response::allow()
             : Response::deny();
@@ -76,15 +77,33 @@ class OrderPolicy extends BasePolicy
             : Response::deny();
     }
 
+    /**
+     * The buyer's own receipt — and, since 024, the officer's on their behalf.
+     *
+     * ⚠️ NO WORKSPACE CHECK, AND ITS ABSENCE IS SAFE BY CONSTRUCTION: the only
+     * two ways out of this method are "you own the row" and "you are the platform
+     * approver of a platform sale". Neither is a tenant question, and the one it
+     * used to guard against — a teacher reaching another workspace's order — is
+     * already refused by both branches failing.
+     */
     public function uploadReceipt(User $user, Order $order): Response
     {
-        if (($workspaceCheck = $this->belongsToCurrentWorkspace($order))->denied()) {
-            return $workspaceCheck;
+        if ($order->user_id === $user->getKey()) {
+            return Response::allow();
         }
 
-        return $order->user_id === $user->getKey()
-            ? Response::allow()
-            : Response::deny('You can only upload receipts for your own orders.');
+        /*
+        | 024 · FR-007. The receipt arrived on WhatsApp and the student never
+        | opened the product, so the officer who creates the order is the one
+        | holding the image. Scoped to a PLATFORM sale on purpose: a course
+        | order's receipt is the teacher's business and the platform is not a
+        | party to it.
+        */
+        if ($order->requiresPlatformApproval() && $user->can(Permissions::BILLING_PURCHASE_APPROVE)) {
+            return Response::allow();
+        }
+
+        return Response::deny('You can only upload receipts for your own orders.');
     }
 
     /**
@@ -106,6 +125,10 @@ class OrderPolicy extends BasePolicy
 
     public function approve(User $user, Order $order): Response
     {
+        if (($platform = $this->platformReads($user, $order, 'approve')) !== null) {
+            return $platform;
+        }
+
         if (($workspaceCheck = $this->belongsToCurrentWorkspace($order))->denied()) {
             return $workspaceCheck;
         }
@@ -127,14 +150,9 @@ class OrderPolicy extends BasePolicy
         // The seller does not witness that their own price arrived, and here the
         // seller and the approver would be one person clearing a bar
         // (`PAYMENTS_APPROVE` plus their own workspace) they hold by definition.
-        // The condition lives on the enum so the three methods below cannot
-        // disagree about which kinds it covers.
-        if ($order->requiresPlatformApproval()) {
-            return $user->can(Permissions::BILLING_PURCHASE_APPROVE)
-                ? Response::allow()
-                : Response::deny($order->kind->platformRefusal('approve'));
-        }
-
+        // The condition lives on the enum so the three methods cannot disagree
+        // about which kinds it covers; `platformReads()` above is where it is
+        // now asked.
         return $user->can(Permissions::PAYMENTS_APPROVE)
             ? Response::allow()
             : Response::deny('You are not authorized to approve payments.');
@@ -142,22 +160,58 @@ class OrderPolicy extends BasePolicy
 
     public function reject(User $user, Order $order): Response
     {
-        if (($workspaceCheck = $this->belongsToCurrentWorkspace($order))->denied()) {
-            return $workspaceCheck;
-        }
-
         // Refusing a platform sale is the platform's call, for the reason
         // approving it is: the money is owed to the platform and the teacher is
         // the payee downstream (spec 014). A teacher who may reject it may cancel
         // a payment made to someone else.
-        if ($order->requiresPlatformApproval()) {
-            return $user->can(Permissions::BILLING_PURCHASE_APPROVE)
-                ? Response::allow()
-                : Response::deny($order->kind->platformRefusal('reject'));
+        if (($platform = $this->platformReads($user, $order, 'reject')) !== null) {
+            return $platform;
+        }
+
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($order))->denied()) {
+            return $workspaceCheck;
         }
 
         return $user->can(Permissions::PAYMENTS_REJECT)
             ? Response::allow()
             : Response::deny('You are not authorized to reject payments.');
+    }
+
+    /**
+     * The platform's answer about a platform sale — or `null` when the question
+     * is not the platform's to answer.
+     *
+     * ⚠️ ASKED **ABOVE** `belongsToCurrentWorkspace()`, AND THAT ORDER IS THE
+     * WHOLE POINT OF THIS METHOD EXISTING.
+     *
+     * `BasePolicy` is explicit that a RESOLVED context which does not match is
+     * still a denial, and `WorkspaceContext::id()` falls back to
+     * `users.last_workspace_id` for EVERY user — a platform officer included. So
+     * a finance officer who also owns a workspace, or once accepted an invitation,
+     * had their context resolve to their own workspace and was refused every
+     * order outside it: view, approve and reject alike. It stayed invisible only
+     * because every fixture builds that officer with no workspace at all, where
+     * a null context raises no objection.
+     *
+     * Spec 024 turns that from rare into the ordinary case: granting across
+     * teachers' workspaces IS the work. A course order keeps the check below,
+     * where it is the real cross-tenant guard for somebody who is a member.
+     *
+     * ⚠️ Testing it needs TWO workspaces and an officer WITH `last_workspace_id`.
+     * One workspace, or an officer without one, passes green over the defect.
+     *
+     * @param  'approve'|'reject'|'view'  $ability  the same closed set
+     *                                              `OrderKind::platformRefusal()` accepts — a wider `string` here
+     *                                              would let a typo reach it and be discovered at runtime.
+     */
+    private function platformReads(User $user, Order $order, string $ability): ?Response
+    {
+        if (! $order->requiresPlatformApproval()) {
+            return null;
+        }
+
+        return $user->can(Permissions::BILLING_PURCHASE_APPROVE)
+            ? Response::allow()
+            : Response::deny($order->kind->platformRefusal($ability));
     }
 }

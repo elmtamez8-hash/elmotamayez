@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Payments\Enums\PaymentMethod;
 use App\Modules\Payments\Events\ReceiptUploaded;
 use App\Modules\Payments\Models\Order;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
@@ -47,7 +48,18 @@ class UploadPaymentReceipt extends Action
         ?string $ipAddress = null,
         ?string $userAgent = null,
     ): Order {
-        if ($order->user_id !== $user->getKey()) {
+        /*
+        | 024 · FR-007 — and the rule lives HERE, not only in the policy.
+        |
+        | The receipt often arrives on WhatsApp from a student who never opened
+        | the product, so the officer creating the order is the one holding the
+        | image. Widening `OrderPolicy::uploadReceipt()` alone left this line
+        | refusing them one layer down: 403 became 422, which reads as a broken
+        | upload rather than a refused one. The Action is the entry point Filament
+        | and any console command share, so it is where the rule has to be true.
+        */
+        if ($order->user_id !== $user->getKey()
+            && ! ($order->requiresPlatformApproval() && $user->can(Permissions::BILLING_PURCHASE_APPROVE))) {
             throw new DomainException('You can only upload receipts for your own orders.');
         }
 

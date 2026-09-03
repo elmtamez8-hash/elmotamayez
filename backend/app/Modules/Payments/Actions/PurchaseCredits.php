@@ -55,9 +55,32 @@ class PurchaseCredits extends Action
         Course $course,
         CreditPackage $package,
         ?string $couponCode = null,
+        ?User $grantedBy = null,
     ): CreditPurchase {
-        if (! $this->participation->isPartyTo($student, $course)) {
-            throw new AuthorizationException('لا يمكنك شراء أرصدة على كورس لست طرفاً فيه.');
+        /*
+        | ⚠️ THE SKIP IS PARTIAL, AND SKIPPING THE WHOLE THING IS THE DEFECT.
+        |
+        | `isPartyTo()` answers TWO questions in one call: the seller refusal
+        | first, then the ways in — an active enrolment, or membership as a
+        | STUDENT. Spec 024 lets a platform officer buy on a student's behalf,
+        | and the ways in are exactly what a brand-new student has none of: a
+        | real student is a member of no workspace at all (only `AcceptInvitation`
+        | and `CreateWorkspace` write that pivot), so their first purchase would
+        | be refused for ever. Hence the skip.
+        |
+        | But the REFUSAL must survive it. A grant to the course's own teacher
+        | hands them their own totals for two package sizes, which solve for the
+        | platform's two constants — and every OTHER teacher's approved settlement
+        | rate follows from any other course's total (FR-021ب). So `isSeller()` is
+        | asked on both paths, and the student's path keeps `isPartyTo()` as its
+        | single spelling with its own message unchanged.
+        */
+        if ($grantedBy === null) {
+            if (! $this->participation->isPartyTo($student, $course)) {
+                throw new AuthorizationException('لا يمكنك شراء أرصدة على كورس لست طرفاً فيه.');
+            }
+        } elseif ($this->participation->isSeller($student, $course)) {
+            throw new AuthorizationException('لا يمكن منح أرصدة لمن يدرّس هذا الكورس.');
         }
 
         $refusal = $this->sales->refusalToSell($course);
@@ -138,7 +161,7 @@ class PurchaseCredits extends Action
             (string) $package->uuid,
         );
 
-        return DB::transaction(function () use ($student, $course, $package, $balance, $price, $discount): CreditPurchase {
+        return DB::transaction(function () use ($student, $course, $package, $balance, $price, $discount, $grantedBy): CreditPurchase {
             $order = Order::create([
                 'workspace_id' => $course->workspace_id,
                 'user_id' => $student->getKey(),
@@ -149,6 +172,15 @@ class PurchaseCredits extends Action
                 'provider' => 'manual',
                 'status' => 'pending',
             ]);
+
+            if ($grantedBy !== null) {
+                /*
+                | NOT `$fillable`, on purpose — see the model. It is an audit fact
+                | written HERE, once, and never again: re-stamping it on a later
+                | edit would move a recorded act to whoever last touched the row.
+                */
+                $order->forceFill(['granted_by' => $grantedBy->getKey()])->save();
+            }
 
             // Inside the transaction: a ceiling claimed out from under this
             // purchase throws, and the rollback stops an order existing at a
