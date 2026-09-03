@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/lib/auth-context";
+import { isLearner, useAuth } from "@/lib/auth-context";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode, type ComponentType } from "react";
 import Link from "next/link";
@@ -80,6 +80,24 @@ type NavItem = {
   linkOnly?: boolean;
   /** Renders the waiting count beside the label — see `pendingGrading` below. */
   badge?: "grading";
+  /**
+   * Shown to the learning side only. Absent means everybody who passes the
+   * permission gate above.
+   *
+   * ⚠️ THE SECOND DIRECTION, AND THE ONE THAT COULD NOT BE SPELLED AS A
+   * PERMISSION. Hiding a teacher's tools from a student already works — those
+   * entries carry a `permission` and a student holds none. The reverse has no
+   * such gate: a student is a member of no workspace, so «the student's own
+   * screens» are ungated BY NECESSITY, and every one of them was therefore
+   * offered to the teacher too — a sidebar where «دفتر أخطائي» and «درّب نفسك»
+   * sat between the question bank and the grading board.
+   *
+   * ⚠️ IT IS A TAG ON THE ITEM, NOT A SECOND ARRAY. `allNav` is what
+   * `refusedBy()` walks to decide whether a typed URL is refused politely
+   * instead of as a broken page; a list lifted out of that union loses its
+   * route guard silently, and no test in this repository would notice.
+   */
+  audience?: "learner";
 };
 
 const mainNav: NavItem[] = [
@@ -90,7 +108,7 @@ const mainNav: NavItem[] = [
   // /schedule is the student's own timetable across every teacher;
   // /manage/sessions is the teacher's calendar. Two screens, two audiences —
   // collapsing them into one route would make each show the other half nothing.
-  { href: "/schedule", label: "جدولي", Icon: ScheduleIcon },
+  { href: "/schedule", label: "جدولي", Icon: ScheduleIcon, audience: "learner" },
   { href: "/manage/sessions", label: "حصصي", Icon: SessionsIcon, permission: P.sessionsManage },
   // ⚠️ ITS OWN ENTRY, BECAUSE A SURFACE NOTHING LINKS TO IS A SURFACE NOBODY HAS.
   // The queue has a deadline running on every row — a screen reachable only by
@@ -101,17 +119,17 @@ const mainNav: NavItem[] = [
   // question with different permissions — SETTLEMENT_STATEMENT_VIEW reaches only
   // the teacher, never their assistant.
   { href: "/manage/settlement", label: "كشف التسوية", Icon: SettlementIcon, permission: P.settlementStatement },
-  { href: "/enrollments", label: "تعلّمي", Icon: LearningIcon },
+  { href: "/enrollments", label: "تعلّمي", Icon: LearningIcon, audience: "learner" },
   // ⚠️ The student's own notebook, and it needs its own entry. It is derived
   // from answers rather than authored, so nothing in the product would ever link
   // to it — a screen reachable only by typing its address is a screen nobody
   // opens.
-  { href: "/mistakes", label: "دفتر أخطائي", Icon: MistakesIcon },
+  { href: "/mistakes", label: "دفتر أخطائي", Icon: MistakesIcon, audience: "learner" },
   // Building your own paper is a different act from reading what you got wrong:
   // one starts from the bank and the other from your own history. Two entries,
   // because a student who wants to revise a topic they have never been tested on
   // would never look for it inside a notebook of mistakes.
-  { href: "/practice", label: "درّب نفسك", Icon: PracticeIcon },
+  { href: "/practice", label: "درّب نفسك", Icon: PracticeIcon, audience: "learner" },
   { href: "/exams", label: "الاختبارات", Icon: ExamIcon },
   // The teacher's own question library. Separate from /exams, which is the
   // student's list of what they may sit: one question here serves three exams
@@ -132,7 +150,7 @@ const mainNav: NavItem[] = [
   // owes; "الواجبات" is what a teacher set and has to mark. One shared link
   // whose meaning flipped with the reader's permission is the shape that made a
   // student's sidebar offer them the exam builder.
-  { href: "/assignments", label: "واجباتي", Icon: AssignmentIcon },
+  { href: "/assignments", label: "واجباتي", Icon: AssignmentIcon, audience: "learner" },
   { href: "/manage/assignments", label: "الواجبات", Icon: AssignmentIcon, permission: P.assignmentsManage },
   // ⚠️ ITS OWN ENTRY, not a tab inside the session calendar. It answers a
   // question about the WHOLE course — what earns the next class — and a screen
@@ -150,7 +168,7 @@ const mainNav: NavItem[] = [
    * their meaning within two weeks, and a shop reachable only by typing its
    * address is a shop with nowhere to spend them.
    */
-  { href: "/progress", label: "تقدّمي", Icon: ProgressIcon },
+  { href: "/progress", label: "تقدّمي", Icon: ProgressIcon, audience: "learner" },
   /*
    * Spec 010 · US4. No permission: every signed-in person has a side of this —
    * a student reads their own, a guardian reads a child's through the same
@@ -158,14 +176,14 @@ const mainNav: NavItem[] = [
    * is the writing side and is reached from the class register, where the
    * teacher already knows whose row they clicked.
    */
-  { href: "/reviews", label: "تقييماتي الدورية", Icon: ProgressIcon },
+  { href: "/reviews", label: "تقييماتي الدورية", Icon: ProgressIcon, audience: "learner" },
   /*
    * Spec 010 · US5. The same reasoning as the line above — a student reads their
    * own cards, a guardian reads a child's through the same screen, and a teacher
    * sees an empty list because the card is not theirs to hold. Their side is the
    * weightings below, and their own segment on the student's page.
    */
-  { href: "/report-cards", label: "كشف التقديرات", Icon: ProgressIcon },
+  { href: "/report-cards", label: "كشف التقديرات", Icon: ProgressIcon, audience: "learner" },
   {
     href: "/manage/grading-schemes",
     label: "أوزان التقدير",
@@ -183,8 +201,8 @@ const mainNav: NavItem[] = [
     Icon: BellIcon,
     permission: P.announcementsManage,
   },
-  { href: "/leaderboard", label: "لوحة الصدارة", Icon: LeaderboardIcon },
-  { href: "/shop", label: "متجر المكافآت", Icon: ShopIcon },
+  { href: "/leaderboard", label: "لوحة الصدارة", Icon: LeaderboardIcon, audience: "learner" },
+  { href: "/shop", label: "متجر المكافآت", Icon: ShopIcon, audience: "learner" },
   // The teacher's side of that shop, and the queue of what has been claimed.
   { href: "/manage/rewards", label: "متجر مكافآتي", Icon: ShopIcon, permission: P.rewardsManage },
   /*
@@ -195,7 +213,7 @@ const mainNav: NavItem[] = [
    * the page lists their own purchases plus the stores of the teachers they are
    * actually enrolled with.
    */
-  { href: "/store", label: "مشترياتي", Icon: StoreIcon },
+  { href: "/store", label: "مشترياتي", Icon: StoreIcon, audience: "learner" },
   { href: "/manage/store", label: "متجري", Icon: StoreIcon, permission: P.storeItemsManage },
   {
     href: "/manage/store/shipments",
@@ -216,20 +234,20 @@ const mainNav: NavItem[] = [
    * the teacher's approved rate, and they are bought from «رصيدي» below. Three
    * shapes, two screens, because two of them are one mechanism.
    */
-  { href: "/plans", label: "اشتراكاتي", Icon: CreditsIcon },
+  { href: "/plans", label: "اشتراكاتي", Icon: CreditsIcon, audience: "learner" },
   { href: "/manage/plans", label: "باقات الاشتراك", Icon: CreditsIcon, permission: P.plansManage },
 
   /*
    * Spec 011 · US3. Ungated: everybody has a code, and the page mints it on
    * first open — which is exactly why the endpoint is a `GET` that writes.
    */
-  { href: "/referrals", label: "دعوة صديق", Icon: ReferralIcon },
+  { href: "/referrals", label: "دعوة صديق", Icon: ReferralIcon, audience: "learner" },
   { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },
   { href: "/orders", label: "الطلبات", Icon: OrdersIcon },
   // The student's credits, counted in sessions and never in money. Separate
   // from /orders, which is one payment at a time: this is the standing balance
   // those payments produce, per course.
-  { href: "/billing", label: "رصيدي", Icon: CreditsIcon },
+  { href: "/billing", label: "رصيدي", Icon: CreditsIcon, audience: "learner" },
   /*
    * Spec 010 · US2. No permission: everyone signed in has a side of a private
    * conversation — the student writes to their teacher, the teacher and whoever
@@ -466,7 +484,22 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
 
   if (!user) return null;
 
-  const allowed = (items: NavItem[]) => items.filter((item) => can(user, item.permission));
+  /*
+   * ⚠️ TWO GATES, AND THEY ANSWER DIFFERENT QUESTIONS IN DIFFERENT DIRECTIONS.
+   * `can()` asks «may you», which hides the teacher's tools from the student.
+   * `learns` asks «is this yours», which hides the student's screens from the
+   * teacher — and there is no permission that could have done it, because the
+   * student holds none to check.
+   *
+   * ⚠️ IT IS A FILTER ON WHAT IS OFFERED, NEVER A GUARD. The routes stay open,
+   * exactly as this file's own rule has always had it: the server decides. A
+   * teacher who types `/shop` still gets the page, and it is empty — which is
+   * the honest answer, not a refusal.
+   */
+  const learns = isLearner(user);
+
+  const allowed = (items: NavItem[]) =>
+    items.filter((item) => can(user, item.permission) && (item.audience !== "learner" || learns));
 
   const refused = refusedBy(allNav, pathname, user);
 

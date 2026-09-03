@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
-import { panelPathFor, useAuth } from "@/lib/auth-context";
+import { isLearner, panelPathFor, useAuth } from "@/lib/auth-context";
 
 /**
  * Nobody signs up twice.
@@ -42,9 +42,7 @@ export default function SignupLayout({ children }: { children: React.ReactNode }
 
     toast.info("أنت مسجَّل الدخول بالفعل", {
       description: `لا حاجة لإنشاء حساب جديد — نقلناك إلى ${
-        user.platform_role === "student" || user.platform_role === "parent"
-          ? "صفحة دراستك"
-          : "لوحتك"
+        isLearner(user) ? "صفحة دراستك" : "لوحتك"
       }. سجّل الخروج أوّلاً إن أردت حساباً آخر.`,
     });
 

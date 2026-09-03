@@ -28,6 +28,36 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 /**
+ * Whether this account is on the LEARNING side of the product.
+ *
+ * ⚠️ ONE SPELLING, BECAUSE IT WAS ALREADY THREE. The same ternary sat in
+ * `homePathFor`, in `panelPathFor` and in `signup/layout.tsx` — and the sidebar
+ * needed a fourth. Two spellings of one question is how one answer reaches the
+ * screen and another reaches the door; this repository has paid for that with
+ * `BookingEligibility`'s host check and with `ListLeaderboardScopes`.
+ *
+ * ⚠️ IT IS `platform_role`, NOT A PERMISSION — and the difference is a person.
+ * A permission-shaped predicate (`can(user, P.membersView)`, the nearest thing
+ * already spelled in the sidebar) answers «what may you do in the workspace you
+ * are in», and a teacher who has registered but not yet created a workspace
+ * holds NOTHING: `RegisterTeacher` "creates no workspace membership and grants
+ * no role (FR-010)". So every permission predicate reads that teacher as a
+ * student. `platform_role` answers «what did you sign up as», which survives
+ * having no workspace at all.
+ *
+ * ⚠️ AND IT ASKS «DO YOU LEARN», NEVER «ARE YOU STAFF». A guardian also holds
+ * zero permissions and reads their child's «تقييماتي الدورية» and «كشف
+ * التقديرات» through the student's own screens — so `parent` belongs on this
+ * side, and a negation over staff would have hidden them.
+ *
+ * `null` is a founder or a platform officer (`RegisterAccount`: «NULL IS THE
+ * CORRECT ROLE FOR AN ACADEMY FOUNDER»), and neither of them learns here.
+ */
+export function isLearner(user: User | null): boolean {
+  return user?.platform_role === "student" || user?.platform_role === "parent";
+}
+
+/**
  * Where a user belongs after signing in (FR-012).
  *
  * Students and parents have no workspace, so `/dashboard` — which resolves one —
@@ -36,13 +66,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
  * destination.
  */
 export function homePathFor(user: User): string {
-  switch (user.platform_role) {
-    case "student":
-    case "parent":
-      return "/teachers";
-    default:
-      return "/dashboard";
-  }
+  return isLearner(user) ? "/teachers" : "/dashboard";
 }
 
 /**
@@ -55,13 +79,7 @@ export function homePathFor(user: User): string {
  * resolves a workspace and greets them with an error, so theirs is `/enrollments`.
  */
 export function panelPathFor(user: User): string {
-  switch (user.platform_role) {
-    case "student":
-    case "parent":
-      return "/enrollments";
-    default:
-      return "/dashboard";
-  }
+  return isLearner(user) ? "/enrollments" : "/dashboard";
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
