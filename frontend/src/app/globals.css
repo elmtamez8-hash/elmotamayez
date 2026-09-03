@@ -332,6 +332,36 @@ html {
 }
 
 /*
+| ⚠️ WITHOUT `color-scheme` THE BROWSER PAINTS EVERY NATIVE CONTROL IN LIGHT
+| MODE, AND ONE OF THEM DISAPPEARS COMPLETELY.
+|
+| Our tokens repaint what WE draw; they say nothing about the widgets the
+| browser draws itself. `color-scheme` is the only channel for that, and it was
+| never declared — so in the dark theme the calendar button inside
+| `<input type="datetime-local">` stayed its default near-black glyph on our
+| `#191315` surface: present, focusable, tab-reachable, and invisible. Reported
+| on `/manage/sessions`, where «موعد البدء» is a required field.
+|
+| It is NOT a filter on that one icon. The same absence lights the date-picker
+| POPUP white, the `<select>` dropdown list, the number spinners and the
+| scrollbar track — all of them the browser's, none of them reachable from
+| `@theme`. One declaration per theme fixes the family; an `invert()` on the
+| glyph would fix the symptom and leave the popup it opens.
+|
+| Both halves are explicit rather than `light dark`: the theme script always
+| resolves to a literal `data-theme`, so letting the browser re-derive it from
+| `prefers-color-scheme` would be a SECOND answer to a question already
+| answered — and it disagrees for anyone who chose the theme their OS did not.
+*/
+html {
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/*
 | ⚠️ A BUTTON SHOWS A HAND, AND TAILWIND v4 STOPPED SAYING SO.
 |
 | v3's preflight carried `button { cursor: pointer }`; v4 dropped it to match the
