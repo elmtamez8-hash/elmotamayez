@@ -290,6 +290,41 @@ export function formatTime(value: string | null): string {
   });
 }
 
+/**
+ * The value of an `<input type="datetime-local">` as an absolute instant.
+ *
+ * ⚠️ THAT INPUT CARRIES NO TIMEZONE, AND SENDING IT RAW MOVED A LESSON THREE
+ * HOURS. Its value is a naive wall clock — `2026-09-03T20:31` — and the API runs
+ * on `APP_TIMEZONE=UTC`, so a teacher in Qatar (+03) who typed «now» created a
+ * session starting at 23:31 their time. Reported from production on 2026-09-03:
+ * «تعذّر الدخول» on a lesson the teacher had just scheduled for that minute, with
+ * `joinWindowCovers()` correctly answering false about a room 179 minutes away.
+ *
+ * ⚠️ AND `after:now` CANNOT SEE IT — 20:31 UTC is a perfectly valid future
+ * instant, so the one rule that might have caught it passes. Nothing downstream
+ * can recover the offset either: it was never sent. The browser is the only
+ * party that knows which zone the operator meant, so the conversion belongs here
+ * and nowhere else.
+ *
+ * `new Date(naive)` reads the string in the BROWSER's zone — which is exactly
+ * what the operator meant by it — and `toISOString()` makes that absolute.
+ *
+ * ⛔ Not for `<input type="date">`. A freeze period, an exam window and a
+ * collection report carry DATES, and their columns are dates: pushing one
+ * through here turns it into midnight-in-some-zone and moves it by a day at the
+ * boundary — the same off-by-one this repository has already paid for twice.
+ */
+export function localDateTimeToIso(value: string): string {
+  if (!value) return value;
+
+  const at = new Date(value);
+
+  // An unparseable value is returned untouched rather than replaced: the server's
+  // own `date` rule then refuses it with a field error the operator can read,
+  // which is better than inventing an instant nobody chose.
+  return Number.isNaN(at.getTime()) ? value : at.toISOString();
+}
+
 export function formatMoney(amount: number, currency: string): string {
   return new Intl.NumberFormat("ar", {
     style: "currency",
