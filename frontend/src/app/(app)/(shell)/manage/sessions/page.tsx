@@ -160,12 +160,19 @@ export default function ManageSessionsPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   /*
-   * ⚠️ PICKED, NOT TYPED — and this is the whole of the bug this screen carried.
-   * Both fields used to be free text asking for a raw autoincrement database id
-   * (`teacher_profile_id`), and BOTH buttons were disabled until one was filled.
-   * Nobody can know that number, so the create button was dead for everyone.
+   * ⚠️ THERE IS NO «WHICH TEACHER» FIELD ANY MORE, AND THAT IS THE PRODUCT SHAPE.
+   * This platform is one independent teacher per workspace — not an academy with
+   * staff underneath — so the server derives the profile from the signed-in user
+   * (`StoreClassSessionRequest::resolveTeacherProfile`). A picker here asked a
+   * teacher to identify themselves from a list of one, and it did worse than that:
+   * it lived in the generator card while GATING the create button of the card
+   * below, so the one-off form's four fields could all be filled and the button
+   * stayed grey with nothing saying why.
+   *
+   * `teachers` survives for the FILTER at the bottom, which is a different
+   * question — «whose sessions am I looking at» — and is already hidden when the
+   * workspace has only one.
    */
-  const [teacherUuid, setTeacherUuid] = useState("");
   const [teachers, setTeachers] = useState<WorkspaceTeacher[]>([]);
   /*
    * ⚠️ AND THE COURSE WAS NEVER ASKED FOR AT ALL. The server has required it since
@@ -181,9 +188,8 @@ export default function ManageSessionsPage() {
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // The one-off form. Shares `teacherProfileId` with the generator above: both
-  // schedule for the same person, and asking twice on one screen is a question
-  // with two answers that can disagree.
+  // The one-off form. It shares only the course with the generator above; the
+  // teacher is no longer asked for on either.
   const [oneOff, setOneOff] = useState({ title: "", startsAt: "", duration: "60", seats: "1" });
   const [creating, setCreating] = useState(false);
   const [oneOffError, setOneOffError] = useState("");
@@ -225,7 +231,6 @@ export default function ManageSessionsPage() {
     try {
       setResult(
         await classSessions.generate({
-          teacher_profile_uuid: teacherUuid,
           course_uuid: courseUuid,
           from,
           to,
@@ -249,7 +254,6 @@ export default function ManageSessionsPage() {
 
     try {
       await classSessions.create({
-        teacher_profile_uuid: teacherUuid,
         course_uuid: courseUuid,
         title: oneOff.title,
         // Declared, never inferred from the seat count (FR-001أ) — but one seat
@@ -283,15 +287,6 @@ export default function ManageSessionsPage() {
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <SelectField
-            id="teacher_profile_uuid"
-            label="المدرّس"
-            value={teacherUuid}
-            onChange={setTeacherUuid}
-            placeholder="اختر المدرّس"
-            options={teachers.map((teacher) => ({ value: teacher.uuid, label: teacher.name }))}
-            error={errors.teacher_profile_uuid}
-          />
-          <SelectField
             id="course_uuid"
             label="الكورس"
             value={courseUuid}
@@ -322,7 +317,7 @@ export default function ManageSessionsPage() {
           <Button
             onClick={generate}
             loading={generating}
-            disabled={from === "" || to === "" || teacherUuid === "" || courseUuid === ""}
+            disabled={from === "" || to === "" || courseUuid === ""}
           >
             توليد
           </Button>
@@ -343,9 +338,34 @@ export default function ManageSessionsPage() {
 
         {result !== null && (
           <div className="mt-4 space-y-3">
-            <Alert tone="success" title="تمّ التوليد">
-              أُنشئت <bdi>{result.created.length}</bdi> حصة.
-            </Alert>
+            {/*
+              ⚠️ ZERO IS NOT A SUCCESS, AND SAYING «تمّ التوليد» OVER IT IS THE
+              WHOLE COMPLAINT. Reported from production: the generator answered
+              «تمّ التوليد — أُنشئت 0 حصة» in a green box. The cause was that the
+              teacher had no `availability_slots` at all, and nothing on the screen
+              said so — so the only reading left was that the button is broken.
+
+              `skipped` is empty in that case too: there was no candidate slot to
+              skip. An empty schedule produces an empty everything, which is why
+              the COUNT itself has to carry the message.
+
+              ⛔ AND IT DELIBERATELY LINKS NOWHERE. There is no availability
+              screen in this product and no endpoint behind one — `availability_slots`
+              has readers on the public teacher page and here, and its only writer
+              is a seeder. Pointing at `/manage/availability` would be a dead link
+              added to explain a dead button; the honest sentence names the real
+              way to put a lesson on the calendar, which is the form below.
+            */}
+            {result.created.length === 0 ? (
+              <Alert tone="warning" title="لم تُنشَأ أيّ حصة">
+                لا مواعيد في جدول التوفّر ضمن هذا النطاق، فلم يكن هناك ما يُولَّد
+                منه. استخدم «حصة واحدة» أسفله لتحديد موعد بعينه.
+              </Alert>
+            ) : (
+              <Alert tone="success" title="تمّ التوليد">
+                أُنشئت <bdi>{result.created.length}</bdi> حصة.
+              </Alert>
+            )}
 
             {/* Never swallowed: a teacher who is not told what was skipped
                 believes their week is full when half of it was never created. */}
@@ -407,12 +427,7 @@ export default function ManageSessionsPage() {
           <Button
             onClick={createOne}
             loading={creating}
-            disabled={
-              teacherUuid === "" ||
-              courseUuid === "" ||
-              oneOff.title === "" ||
-              oneOff.startsAt === ""
-            }
+            disabled={courseUuid === "" || oneOff.title === "" || oneOff.startsAt === ""}
           >
             إنشاء الحصة
           </Button>

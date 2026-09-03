@@ -223,12 +223,13 @@ describe("ManageSessionsPage — the one-off form sends an instant, not a wall c
 
     const WALL_CLOCK = "2026-09-03T20:31";
 
-    // The two shared pickers live in the card ABOVE and gate this button.
+    // ⚠️ NO TEACHER PICKER ANY MORE — the server derives the profile from the
+    // signed-in teacher. The course is the one field still shared with the card
+    // above, and it is what gates this button.
     await userEvent.selectOptions(
-      await waitFor(() => document.getElementById("teacher_profile_uuid") as HTMLSelectElement),
-      "t-1",
+      await waitFor(() => document.getElementById("course_uuid") as HTMLSelectElement),
+      "c-1",
     );
-    await userEvent.selectOptions(document.getElementById("course_uuid") as HTMLSelectElement, "c-1");
 
     await userEvent.type(document.getElementById("one_off_title") as HTMLInputElement, "تجربة");
 
@@ -239,7 +240,14 @@ describe("ManageSessionsPage — the one-off form sends an instant, not a wall c
 
     await waitFor(() => expect(create).toHaveBeenCalled());
 
-    const payload = create.mock.calls.at(-1)?.[0] as { starts_at: string };
+    const payload = create.mock.calls.at(-1)?.[0] as {
+      starts_at: string;
+      teacher_profile_uuid?: string;
+    };
+
+    // The field is not merely blank — it is absent. A sent empty string would be
+    // a uuid the server must refuse, instead of a question it never had to ask.
+    expect(payload.teacher_profile_uuid).toBeUndefined();
 
     // The naive string is the defect itself; anything but it is not the assertion.
     expect(payload.starts_at).not.toBe(WALL_CLOCK);

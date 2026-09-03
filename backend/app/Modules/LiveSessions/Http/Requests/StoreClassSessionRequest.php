@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Http\Requests;
 
+use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
+use App\Modules\LiveSessions\Support\SchedulableTeachers;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Support\WorkspaceRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * ⚠️ UUIDS ON THE WIRE, IDS INSIDE — and this request used to take raw
@@ -45,7 +48,16 @@ class StoreClassSessionRequest extends FormRequest
             // WorkspaceRules, not `exists:` — Laravel's rule is a raw query that
             // walks straight past the global scope (Constitution I). The column
             // is now `uuid`; the workspace filter is what it always was.
-            'teacher_profile_uuid' => ['required', 'uuid', WorkspaceRules::exists('teacher_profiles', 'uuid')],
+            /*
+            | ⚠️ OPTIONAL SINCE THE PICKER WAS REMOVED. This product is one
+            | independent teacher per workspace, so the ordinary request omits
+            | it and {@see self::payload()} resolves the caller's own profile.
+            | It is still ACCEPTED — a workspace owner scheduling for someone
+            | else is a real case — and `ScheduleClassSession` is what decides
+            | whether they may, because a rule that lives only here shapes one
+            | HTTP call and not the panel or a seeder (Constitution II).
+            */
+            'teacher_profile_uuid' => ['sometimes', 'uuid', WorkspaceRules::exists('teacher_profiles', 'uuid')],
             // Required since Q-7: the session price is a property of the course,
             // so a session with no course is a session with no price and can
             // never consume a credit. The COLUMN stays nullable for historic
@@ -86,10 +98,7 @@ class StoreClassSessionRequest extends FormRequest
     {
         $data = $this->validated();
 
-        $data['teacher_profile_id'] = TeacherProfile::query()
-            ->where('uuid', $data['teacher_profile_uuid'])
-            ->firstOrFail()
-            ->getKey();
+        $data['teacher_profile_id'] = $this->resolveTeacherProfile($data)->getKey();
 
         $data['course_id'] = Course::query()
             ->where('uuid', $data['course_uuid'])
@@ -104,5 +113,34 @@ class StoreClassSessionRequest extends FormRequest
         }
 
         return $data;
+    }
+
+    /**
+     * The named teacher, or the caller's own when the payload names none.
+     *
+     * A caller with no teacher profile at all gets a 422 on the field rather than
+     * a 500 further down: they are a member of the workspace who does not teach,
+     * and "you have no teacher profile" is the honest sentence for that.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function resolveTeacherProfile(array $data): TeacherProfile
+    {
+        if (($data['teacher_profile_uuid'] ?? null) !== null) {
+            return TeacherProfile::query()
+                ->where('uuid', $data['teacher_profile_uuid'])
+                ->firstOrFail();
+        }
+
+        $user = $this->user();
+        $own = $user instanceof User ? app(SchedulableTeachers::class)->ownProfile($user) : null;
+
+        if (! $own instanceof TeacherProfile) {
+            throw ValidationException::withMessages([
+                'teacher_profile_uuid' => 'لا يوجد ملفّ مدرّس لحسابك.',
+            ]);
+        }
+
+        return $own;
     }
 }

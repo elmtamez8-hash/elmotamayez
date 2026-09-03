@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Http\Requests;
 
+use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
+use App\Modules\LiveSessions\Support\SchedulableTeachers;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Support\WorkspaceRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * ⚠️ UUIDS ON THE WIRE — see {@see StoreClassSessionRequest} for why the raw ids
@@ -26,7 +29,9 @@ class GenerateSessionsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'teacher_profile_uuid' => ['required', 'uuid', WorkspaceRules::exists('teacher_profiles', 'uuid')],
+            // ⚠️ OPTIONAL, like its sibling on the single-session request: the
+            // ordinary caller is the teacher themselves and names nobody.
+            'teacher_profile_uuid' => ['sometimes', 'uuid', WorkspaceRules::exists('teacher_profiles', 'uuid')],
             // Required since Q-7 for the same reason as on a single session: the
             // price is a property of the course.
             'course_uuid' => ['required', 'uuid', WorkspaceRules::exists('courses', 'uuid')],
@@ -50,9 +55,22 @@ class GenerateSessionsRequest extends FormRequest
      */
     public function teacherProfile(): TeacherProfile
     {
-        return TeacherProfile::query()
-            ->where('uuid', $this->validated('teacher_profile_uuid'))
-            ->firstOrFail();
+        $named = $this->validated('teacher_profile_uuid');
+
+        if ($named !== null) {
+            return TeacherProfile::query()->where('uuid', $named)->firstOrFail();
+        }
+
+        $user = $this->user();
+        $own = $user instanceof User ? app(SchedulableTeachers::class)->ownProfile($user) : null;
+
+        if (! $own instanceof TeacherProfile) {
+            throw ValidationException::withMessages([
+                'teacher_profile_uuid' => 'لا يوجد ملفّ مدرّس لحسابك.',
+            ]);
+        }
+
+        return $own;
     }
 
     public function course(): Course

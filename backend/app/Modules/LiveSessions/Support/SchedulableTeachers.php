@@ -41,6 +41,29 @@ use Illuminate\Auth\Access\AuthorizationException;
 class SchedulableTeachers
 {
     /**
+     * The profile a scheduler is writing to unless they say otherwise.
+     *
+     * ⚠️ THE DEFAULT IS THE ANSWER, NOT A CONVENIENCE. This product is one
+     * independent teacher per workspace — not an academy with staff underneath —
+     * so asking a teacher to identify themselves from a list is a question with
+     * one possible answer, and the screen that asked it left its own create
+     * button dead until the operator noticed a picker in a different card.
+     *
+     * `Settlement`'s `ResolvesOwnTeacher` reached the same conclusion from the
+     * read side and takes no `teacher` parameter at all; this is the write side
+     * of it. Matching on `user_id` is what makes the answer the caller's own by
+     * construction — «the teacher in this workspace» would hand back whichever
+     * row came first the day a second one exists.
+     */
+    public function ownProfile(User $actor): ?TeacherProfile
+    {
+        return TeacherProfile::query()
+            ->withoutGlobalScopes()
+            ->where('user_id', $actor->getKey())
+            ->first();
+    }
+
+    /**
      * Your own profile, or anyone's if you own the academy.
      */
     public function mayScheduleFor(User $actor, TeacherProfile $profile): bool

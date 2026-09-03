@@ -342,7 +342,7 @@ export const classSessions = {
    * back 422 naming a field the screen did not offer.
    */
   create: (body: {
-    teacher_profile_uuid: string;
+    teacher_profile_uuid?: string;
     course_uuid: string;
     title: string;
     type: "individual" | "group";
@@ -361,7 +361,7 @@ export const classSessions = {
   ) => api.put<ClassSession>(`/class-sessions/${uuid}`, body),
 
   generate: (body: {
-    teacher_profile_uuid: string;
+    teacher_profile_uuid?: string;
     course_uuid: string;
     from: string;
     to: string;

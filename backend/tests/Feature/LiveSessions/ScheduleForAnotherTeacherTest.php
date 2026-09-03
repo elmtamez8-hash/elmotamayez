@@ -126,3 +126,62 @@ it('refuses over HTTP too, so the guard is not only reachable from a test', func
     $response->assertForbidden();
     expect(ClassSession::query()->withoutGlobalScopes()->count())->toBe(0);
 });
+
+/*
+| ⚠️ AND THE ORDINARY REQUEST NAMES NOBODY AT ALL.
+|
+| This platform is one independent teacher per workspace — not an academy with
+| staff underneath — so «which teacher» is a question with one answer, and the
+| picker that asked it gated the create button of a DIFFERENT card while sitting
+| in its own. The field is optional on the wire now and the server resolves the
+| caller's own profile; a named one is still accepted, and still judged.
+*/
+it('schedules for the signed-in teacher when the payload names nobody', function (): void {
+    Sanctum::actingAs($this->colleagueUser);
+    $this->setCurrentWorkspace($this->workspace, $this->colleagueUser);
+
+    $response = $this->postJson('/api/v1/class-sessions', [
+        // no teacher_profile_uuid
+        'course_uuid' => $this->course->uuid,
+        'title' => 'حصة',
+        'type' => ClassSessionType::Individual->value,
+        'starts_at' => CarbonImmutable::now()->addDay()->setTime(10, 0)->toIso8601String(),
+        'duration_minutes' => 60,
+        'seats_total' => 1,
+    ]);
+
+    $response->assertCreated();
+
+    // The ROW, not the response: the payload echoes what it was given.
+    expect(ClassSession::query()->withoutGlobalScopes()->sole()->teacher_profile_id)
+        ->toBe($this->colleague->getKey());
+});
+
+it('refuses when the caller has no teacher profile of their own', function (): void {
+    /*
+     * ⚠️ A TEACHER ROLE WITH NO PROFILE ROW, not an assistant. An assistant is
+     * refused 403 by `ClassSessionPolicy::create()` before validation is ever
+     * reached — correct, and a different door. The case this guards is the one
+     * that gets PAST the policy: somebody holding `sessions.manage` for whom
+     * `teacher_profiles` has no row, which is what a derived field turns from a
+     * missing parameter into a 500 if nobody names it.
+     */
+    $bystander = $this->addWorkspaceMember($this->workspace, Roles::TEACHER);
+
+    Sanctum::actingAs($bystander);
+    $this->setCurrentWorkspace($this->workspace, $bystander);
+
+    $response = $this->postJson('/api/v1/class-sessions', [
+        'course_uuid' => $this->course->uuid,
+        'title' => 'حصة',
+        'type' => ClassSessionType::Individual->value,
+        'starts_at' => CarbonImmutable::now()->addDay()->setTime(10, 0)->toIso8601String(),
+        'duration_minutes' => 60,
+        'seats_total' => 1,
+    ]);
+
+    // 422 on the field, not a 500 further down: «you have no teacher profile» is
+    // an answerable sentence, and it lands where a form can print it.
+    $response->assertStatus(422)->assertJsonValidationErrors('teacher_profile_uuid');
+    expect(ClassSession::query()->withoutGlobalScopes()->count())->toBe(0);
+});
