@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,6 +15,7 @@ import ManageSessionsPage from "./page";
 */
 
 const list = vi.fn();
+const create = vi.fn();
 
 const TEACHERS = [
   { uuid: "t-1", name: "أ. سامي" },
@@ -26,7 +27,7 @@ vi.mock("@/lib/class-sessions", () => ({
     list: (params: Record<string, string>) => list(params),
     workspaceTeachers: () => Promise.resolve({ data: TEACHERS }),
     generate: () => Promise.resolve({}),
-    create: () => Promise.resolve({}),
+    create: (payload: Record<string, unknown>) => create(payload),
   },
 }));
 
@@ -40,6 +41,7 @@ vi.mock("@/lib/api", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   list.mockResolvedValue({ data: [] });
+  create.mockResolvedValue({});
 });
 
 describe("ManageSessionsPage — which sessions it asks for", () => {
@@ -199,5 +201,50 @@ describe("ManageSessionsPage — the filters", () => {
     await userEvent.selectOptions(await screen.findByLabelText(/المجموعة/), "c-1");
 
     expect(await screen.findByText(/لا حصص تطابق هذه الفلاتر/)).toBeTruthy();
+  });
+});
+
+/*
+| ⚠️ حقلُ `datetime-local` لا يحملُ منطقةً زمنيّة، والخادمُ يعملُ بـUTC.
+|
+| فالنصُّ العاري `2026-09-03T20:31` يُقرَأُ هناك ٢٠:٣١ UTC — أي ٢٣:٣١ عندَ مدرّسٍ
+| في قطر. بلاغٌ من الإنتاجِ في 2026-09-03: «تعذّر الدخول» على حصّةٍ جدولَها
+| المدرّسُ لتلك الدقيقةِ نفسِها، و`joinWindowCovers()` تُجيبُ **بحقٍّ** بالنفي عن
+| غرفةٍ تبعدُ ١٧٩ دقيقة.
+|
+| ⚠️ و`after:now` عاجزةٌ عن رؤيتِه — ٢٠:٣١ UTC مستقبلٌ صحيح. ولا اختبارٌ خلفيٌّ
+| يراه: الخادمُ يخزّنُ بالضبطِ ما وصلَه، والقيمةُ الواصلةُ هي العيب. والمتصفّحُ هو
+| الطرفُ الوحيدُ الذي يعرفُ المنطقةَ التي قصدَها المشغّل، فالحارسُ هنا أو لا مكانَ له.
+*/
+describe("ManageSessionsPage — the one-off form sends an instant, not a wall clock", () => {
+  it("converts «موعد البدء» to an absolute instant before sending it", async () => {
+    render(<ManageSessionsPage />);
+    await waitFor(() => expect(list).toHaveBeenCalled());
+
+    const WALL_CLOCK = "2026-09-03T20:31";
+
+    // The two shared pickers live in the card ABOVE and gate this button.
+    await userEvent.selectOptions(
+      await waitFor(() => document.getElementById("teacher_profile_uuid") as HTMLSelectElement),
+      "t-1",
+    );
+    await userEvent.selectOptions(document.getElementById("course_uuid") as HTMLSelectElement, "c-1");
+
+    await userEvent.type(document.getElementById("one_off_title") as HTMLInputElement, "تجربة");
+
+    const at = document.getElementById("one_off_starts_at") as HTMLInputElement;
+    fireEvent.change(at, { target: { value: WALL_CLOCK } });
+
+    await userEvent.click(screen.getByRole("button", { name: "إنشاء الحصة" }));
+
+    await waitFor(() => expect(create).toHaveBeenCalled());
+
+    const payload = create.mock.calls.at(-1)?.[0] as { starts_at: string };
+
+    // The naive string is the defect itself; anything but it is not the assertion.
+    expect(payload.starts_at).not.toBe(WALL_CLOCK);
+    // And it is the SAME moment the operator meant, read in this browser's zone —
+    // which is what makes the check hold in CI (UTC) and on a Qatari laptop alike.
+    expect(payload.starts_at).toBe(new Date(WALL_CLOCK).toISOString());
   });
 });

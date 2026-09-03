@@ -17,6 +17,7 @@ import {
   type WorkspaceTeacher,
 } from "@/lib/class-sessions";
 import { api, fieldErrors } from "@/lib/api";
+import { localDateTimeToIso } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import { userMessage } from "@/lib/errors";
 
@@ -255,7 +256,10 @@ export default function ManageSessionsPage() {
         // has exactly one meaning, and making the teacher say it twice invites
         // the pair to disagree.
         type: seats === 1 ? "individual" : "group",
-        starts_at: oneOff.startsAt,
+        // ⚠️ CONVERTED, NEVER SENT RAW. The input's value is a naive wall clock
+        // and the API runs on UTC, so the string alone moved a lesson by the
+        // operator's own offset — three hours, on the screen that schedules it.
+        starts_at: localDateTimeToIso(oneOff.startsAt),
         duration_minutes: Number(oneOff.duration),
         seats_total: seats,
       });
