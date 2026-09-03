@@ -6,15 +6,20 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\OrderResource\Pages;
 use App\Models\User;
+use App\Modules\Payments\Actions\ApproveOrder;
+use App\Modules\Payments\Actions\RejectOrder;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Enums\OrderStatus;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -24,6 +29,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use RuntimeException;
 use UnitEnum;
 
 class OrderResource extends Resource
@@ -142,7 +148,88 @@ class OrderResource extends Resource
             ])
             ->actions([
                 EditAction::make(),
+                /*
+                | ⚠️ THE APPROVAL LIVES HERE NOW, AND WITHOUT THESE TWO BUTTONS
+                | THE MOVE IS A REMOVAL. `payments.approve` left the teacher's
+                | role on 2026-09-03 and the teacher's own «الطلبات» screen lost
+                | its buttons with it — so a permission with no surface behind it
+                | is every pending transfer on the platform sitting unanswered,
+                | which is this repository's «إذنٌ لا يصلُه رابط» wearing money.
+                |
+                | ⚠️ `authorize()`, NEVER A RE-DERIVED `can()`. `OrderPolicy` is
+                | where the two questions are answered — a credit purchase asks
+                | `billing.purchase.approve` and a course order asks
+                | `payments.approve` — and a second spelling here would put one
+                | answer on the button and another at the Action.
+                |
+                | ⚠️ AND THE ACTIONS ARE THE ACTIONS. `ApproveOrder` writes the
+                | conditional-UPDATE claim, the enrolment, the audit row and the
+                | notification; a status written from a panel would skip all four
+                | silently. Filament must produce exactly what the endpoint
+                | produces — `TeacherApplicationResource`'s own standard.
+                */
+                Action::make('approve')
+                    ->label('اعتمد')
+                    ->icon(Heroicon::OutlinedCheckCircle)
+                    ->color('success')
+                    ->visible(fn (Order $record): bool => $record->status === OrderStatus::Pending->value)
+                    ->authorize('approve')
+                    // A confirmation, because approving mints an entitlement and
+                    // nothing here takes it back.
+                    ->requiresConfirmation()
+                    ->modalHeading('اعتماد التحويل')
+                    ->modalDescription('يُنشئ هذا التسجيل أو الرصيد فوراً. افتحِ الإيصال وطابقِ المبلغ قبل الاعتماد.')
+                    ->action(function (Order $record): void {
+                        app(ApproveOrder::class)->handle($record, self::actor(), request()->ip(), request()->userAgent());
+
+                        Notification::make()->success()->title('اعتُمد الطلب')->send();
+                    }),
+                Action::make('reject')
+                    ->label('ارفض')
+                    ->icon(Heroicon::OutlinedXCircle)
+                    ->color('danger')
+                    ->visible(fn (Order $record): bool => $record->status === OrderStatus::Pending->value)
+                    ->authorize('reject')
+                    ->requiresConfirmation()
+                    ->modalHeading('رفض التحويل')
+                    ->schema([
+                        // ⚠️ REQUIRED, because `RejectOrder` takes it and the
+                        // buyer reads it: a refusal the student cannot act on is
+                        // a refusal they ask about by message instead.
+                        Textarea::make('reason')
+                            ->label('السبب')
+                            ->required()
+                            ->maxLength(500)
+                            ->helperText('يصل هذا النصّ إلى المشتري، فاكتبْ ما يمكنه التصرّف بناءً عليه.'),
+                    ])
+                    ->action(function (Order $record, array $data): void {
+                        app(RejectOrder::class)->handle(
+                            $record,
+                            self::actor(),
+                            (string) $data['reason'],
+                            request()->ip(),
+                            request()->userAgent(),
+                        );
+
+                        Notification::make()->warning()->title('رُفض الطلب')->send();
+                    }),
             ]);
+    }
+
+    /**
+     * ⚠️ The panel is session-authenticated, so the actor is never null here —
+     * but the Actions type it as `User` and a `??` returning something else would
+     * put the wrong name in the audit row that records who decided.
+     */
+    private static function actor(): User
+    {
+        $user = Auth::user();
+
+        if (! $user instanceof User) {
+            throw new RuntimeException('لا مستخدم في الجلسة.');
+        }
+
+        return $user;
     }
 
     /**

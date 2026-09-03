@@ -129,30 +129,32 @@ class OrderPolicy extends BasePolicy
             return $platform;
         }
 
-        if (($workspaceCheck = $this->belongsToCurrentWorkspace($order))->denied()) {
-            return $workspaceCheck;
-        }
-
-        // Approving a credit purchase is minting money, and it is the teacher who
-        // gets paid out of the credits once the sessions are delivered (spec
-        // 014). PAYMENTS_APPROVE sits in the teacher array and the workspace
-        // check above is one the teacher satisfies by definition — so on its own
-        // it would let the payee approve a transfer that never happened. And
-        // because the two contexts are deliberately isolated, nothing on the
-        // settlement side could ever surface it.
-        //
-        // Q-4 moved the seller role to the platform; this is that decision
-        // finished. PAYMENTS_APPROVE keeps working for course orders.
-        //
-        // ⚠️ AND SPEC 011 PUTS TWO MORE KINDS BEHIND THE SAME LINE, for a reason
-        // that reads backwards at first: a store sale is the TEACHER's own goods,
-        // so surely the teacher approves it? No — that is exactly the objection.
-        // The seller does not witness that their own price arrived, and here the
-        // seller and the approver would be one person clearing a bar
-        // (`PAYMENTS_APPROVE` plus their own workspace) they hold by definition.
-        // The condition lives on the enum so the three methods cannot disagree
-        // about which kinds it covers; `platformReads()` above is where it is
-        // now asked.
+        /*
+        | ⚠️ AND THE COURSE ORDER IS A PLATFORM DECISION TOO NOW — NO WORKSPACE
+        | CHECK, AND ITS REMOVAL IS THE POINT RATHER THAN AN OVERSIGHT.
+        |
+        | This file used to say «PAYMENTS_APPROVE keeps working for course
+        | orders» beside a `belongsToCurrentWorkspace()` the teacher satisfies by
+        | definition. That was the LAST instance of the thing the paragraph three
+        | lines up forbids: approving a course order writes the enrolment, the
+        | enrolment is taught, and spec 014 pays THIS teacher for teaching it. The
+        | party who is paid cannot be the party who witnesses that the money
+        | arrived — the business rule the operator states, and the principle
+        | `Permissions.php:327` was already written to.
+        |
+        | So `PAYMENTS_APPROVE` left the teacher array. And once it did, the
+        | workspace check could only ever DENY: no tenant role holds the
+        | permission any more, while `WorkspaceContext::id()` falls back to
+        | `users.last_workspace_id` for a platform officer like anybody else — so
+        | an officer who also owns a workspace is refused every order outside it.
+        | That is the five-layer defect spec 024 spent three runs on, and leaving
+        | the line in would be re-opening its second layer knowingly.
+        |
+        | The two permissions stay SEPARATE (`platformReads()` above asks
+        | `BILLING_PURCHASE_APPROVE`) for the reason they were split: a credit
+        | purchase mints a balance with no goods behind it, and one permission for
+        | both would make the narrower decision reachable by the wider grant.
+        */
         return $user->can(Permissions::PAYMENTS_APPROVE)
             ? Response::allow()
             : Response::deny('You are not authorized to approve payments.');
@@ -168,10 +170,11 @@ class OrderPolicy extends BasePolicy
             return $platform;
         }
 
-        if (($workspaceCheck = $this->belongsToCurrentWorkspace($order))->denied()) {
-            return $workspaceCheck;
-        }
-
+        // ⚠️ NO WORKSPACE CHECK, for the reason spelled out in `approve()` above:
+        // `PAYMENTS_REJECT` is held by no tenant role now, so the check could
+        // only refuse the platform officer it exists to serve. And rejection
+        // moves with approval or every bad transfer strands as `pending` — a
+        // permission to say yes and none to say no is a queue that only grows.
         return $user->can(Permissions::PAYMENTS_REJECT)
             ? Response::allow()
             : Response::deny('You are not authorized to reject payments.');

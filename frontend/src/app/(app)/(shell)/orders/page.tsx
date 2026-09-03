@@ -12,15 +12,30 @@ import { Table, type Column } from "@/components/ui/Table";
 
 const OPEN_STATUSES = ["pending", "under_review"];
 
+/*
+ * ⚠️ THE BUYER'S SCREEN, AND THE APPROVE/REJECT BUTTONS LEFT IT ON 2026-09-03.
+ *
+ * Approving a course order writes the enrolment, the enrolment is taught, and
+ * spec 014 pays the teacher for teaching it — so the payee was the one
+ * witnessing that their own money had arrived. `payments.approve` moved to the
+ * platform's finance officer, and the decision is made in `/admin` on the orders
+ * screen, where the receipt is opened beside the amount.
+ *
+ * ⚠️ AND THE CONTROL WAS NEVER PERMISSION-GATED HERE AT ALL. It rendered on
+ * `orders.some(o => OPEN_STATUSES.includes(o.status))` — "is any row still open"
+ * — which is true of a STUDENT looking at their own unpaid order. So every
+ * student was offered «اعتماد» on the payment they had just made, and learned
+ * the product did not know who they were when the server refused it. Deriving an
+ * audience in TypeScript is the two-spellings defect the comment about
+ * `payer_name` below already refuses by name.
+ */
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
-  /** uuid of the order whose rejection reason is being typed. */
-  const [rejecting, setRejecting] = useState<string | null>(null);
-  const [reason, setReason] = useState("");
   /** How each payer says they paid, by order uuid. Bank transfer until told. */
   const [methods, setMethods] = useState<Record<string, string>>({});
 
@@ -39,40 +54,6 @@ export default function OrdersPage() {
 
   const replace = (uuid: string, patch: Partial<Order>) =>
     setOrders((prev) => prev.map((o) => (o.uuid === uuid ? { ...o, ...patch } : o)));
-
-  const approve = async (uuid: string) => {
-    setBusy(uuid);
-    setError("");
-    try {
-      await api.post(`/orders/${uuid}/approve`);
-      replace(uuid, { status: "approved" });
-    } catch (err: unknown) {
-      // Swallowing this left the row unchanged with no explanation, so the
-      // approval looked like it had simply not registered.
-      setError(errorMessage(err, "تعذّر اعتماد الطلب. أعد المحاولة."));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const reject = async (uuid: string) => {
-    setBusy(uuid);
-    setError("");
-    try {
-      // ⚠️ `reason`, NOT `rejection_reason`. The API has always validated
-      // `reason` as required, so every rejection from this screen came back 422
-      // and the row simply never changed — the field name was the bug, and the
-      // "(اختياري)" placebo beside it was what made it look like a choice.
-      await api.post(`/orders/${uuid}/reject`, { reason: reason.trim() });
-      replace(uuid, { status: "rejected", rejection_reason: reason.trim() });
-      setRejecting(null);
-      setReason("");
-    } catch (err: unknown) {
-      setError(errorMessage(err, "تعذّر رفض الطلب. أعد المحاولة."));
-    } finally {
-      setBusy(null);
-    }
-  };
 
   const uploadReceipt = async (uuid: string, file: File) => {
     setBusy(uuid);
@@ -97,8 +78,6 @@ export default function OrdersPage() {
       setBusy(null);
     }
   };
-
-  const canManage = orders.some((o) => OPEN_STATUSES.includes(o.status));
 
   /*
     The payer's column exists only for staff, and the SERVER decides that: the
@@ -232,75 +211,6 @@ export default function OrdersPage() {
     { key: "date", header: "التاريخ", render: (o) => formatDate(o.created_at) },
   ];
 
-  if (canManage) {
-    columns.push({
-      key: "actions",
-      header: "إجراءات",
-      render: (o) =>
-        OPEN_STATUSES.includes(o.status) ? (
-          rejecting === o.uuid ? (
-            // Inline, not window.prompt(): a native dialog blocks the page, is
-            // untranslatable, and cannot be styled or tested.
-            <div className="flex min-w-64 flex-col gap-2">
-              <label htmlFor={`reason-${o.uuid}`} className="sr-only">
-                سبب الرفض
-              </label>
-              <input
-                id={`reason-${o.uuid}`}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="سبب الرفض"
-                className="w-full rounded-lg border border-line bg-surface-raised px-3 py-1.5 text-xs text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-              />
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="danger"
-                  loading={busy === o.uuid}
-                  disabled={reason.trim() === ""}
-                  onClick={() => reject(o.uuid)}
-                >
-                  تأكيد الرفض
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setRejecting(null);
-                    setReason("");
-                  }}
-                >
-                  إلغاء
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                loading={busy === o.uuid}
-                onClick={() => approve(o.uuid)}
-              >
-                اعتماد
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={busy === o.uuid}
-                onClick={() => {
-                  setRejecting(o.uuid);
-                  setReason("");
-                }}
-              >
-                رفض
-              </Button>
-            </div>
-          )
-        ) : (
-          <span className="text-xs text-ink-muted">—</span>
-        ),
-    });
-  }
 
   return (
     <div className="space-y-6">

@@ -26,7 +26,7 @@ import ShellLayout from "./layout";
 */
 
 const TEACHER_LABELS = ["حصصي", "بنك الأسئلة", "الواجبات", "لوحة التصحيح"];
-const LEARNER_LABELS = ["دفتر أخطائي", "درّب نفسك", "واجباتي", "رصيدي", "متجر المكافآت", "دعوة صديق"];
+const LEARNER_LABELS = ["دفتر أخطائي", "درّب نفسك", "واجباتي", "رصيدي", "متجر المكافآت", "دعوة صديق", "الطلبات"];
 
 function account(overrides: Partial<User>): User {
   return {

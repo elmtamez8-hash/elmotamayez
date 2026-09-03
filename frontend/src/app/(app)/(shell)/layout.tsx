@@ -243,7 +243,16 @@ const mainNav: NavItem[] = [
    */
   { href: "/referrals", label: "دعوة صديق", Icon: ReferralIcon, audience: "learner" },
   { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },
-  { href: "/orders", label: "الطلبات", Icon: OrdersIcon },
+  /*
+   * ⚠️ A LEARNER SCREEN SINCE 2026-09-03, AND IT WAS THE LAST DUAL-MEANING ONE.
+   * It used to carry the teacher's approvals queue as well as the student's own
+   * receipts, so it could not be tagged without taking the teacher's only door
+   * to approving a transfer. `payments.approve` has moved to the platform's
+   * finance officer and the decision is made in `/admin` — the payee cannot be
+   * the witness that their own money arrived (spec 014) — so this screen is the
+   * buyer's alone now and the tag costs the teacher nothing.
+   */
+  { href: "/orders", label: "الطلبات", Icon: OrdersIcon, audience: "learner" },
   // The student's credits, counted in sessions and never in money. Separate
   // from /orders, which is one payment at a time: this is the standing balance
   // those payments produce, per course.

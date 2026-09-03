@@ -13,6 +13,8 @@ use App\Modules\Payments\Contracts\PaymentProviderInterface;
 use App\Modules\Payments\Enums\PaymentMethod;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Providers\ManualTransferProvider;
+use App\Modules\Tenancy\Support\Roles;
+use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Laravel\Sanctum\Sanctum;
 
@@ -109,8 +111,34 @@ describe('payment approval critical path', function (): void {
             'receipt' => UploadedFile::fake()->createWithContent('receipt.pdf', '%PDF-1.4 test'),
         ])->assertOk();
 
-        // Approver (teacher/owner) approves.
+        /*
+        | ⚠️ THE TEACHER IS REFUSED FIRST, AND THAT IS THE CHANGE OF 2026-09-03.
+        |
+        | This assertion used to be `assertOk()` for `$owner`. Approving a course
+        | order writes the enrolment, the enrolment is taught, and spec 014 pays
+        | THIS teacher for teaching it — so the payee was witnessing that their
+        | own money arrived. `payments.approve` left the teacher role; the file
+        | that grants it says why beside the constant.
+        |
+        | It is asserted here rather than in a test of its own because the refusal
+        | and the approval are one decision: a fixture that only measured the deny
+        | direction would pass just as happily against a build where NOBODY can
+        | approve, which is the same outage wearing a green tick.
+        */
         Sanctum::actingAs($owner);
+        $this->postJson("/api/v1/orders/{$orderUuid}/approve")->assertForbidden();
+
+        // The platform's finance officer — teamless standing through
+        // `platform_staff`, which is how the permission reaches anybody at all
+        // now that no workspace role carries it.
+        // ⚠️ SEEDED HERE, because the PLATFORM roles are not. `SeedDefaultRoles`
+        // runs on workspace creation and writes the workspace roles alone, so a
+        // teamless `finance-admin` exists only where a test asks for it — the
+        // same line every officer test in this repository carries.
+        $this->seed(RolesAndPermissionsSeeder::class);
+
+        $officer = makePlatformStaff(Roles::FINANCE_ADMIN);
+        Sanctum::actingAs($officer);
 
         $this->postJson("/api/v1/orders/{$orderUuid}/approve")
             ->assertOk()
@@ -146,7 +174,16 @@ describe('payment approval critical path', function (): void {
         $orderResp = $this->postJson("/api/v1/courses/{$course->uuid}/orders");
         $orderUuid = $orderResp->json('uuid');
 
+        // ⚠️ REJECT MOVED WITH APPROVE, and both directions are measured for the
+        // reason above: a teacher who may refuse a transfer may cancel a payment
+        // made to somebody else's account.
         Sanctum::actingAs($owner);
+        $this->postJson("/api/v1/orders/{$orderUuid}/reject", [
+            'reason' => 'Receipt is illegible.',
+        ])->assertForbidden();
+
+        $this->seed(RolesAndPermissionsSeeder::class);
+        Sanctum::actingAs(makePlatformStaff(Roles::FINANCE_ADMIN));
 
         $this->postJson("/api/v1/orders/{$orderUuid}/reject", [
             'reason' => 'Receipt is illegible.',

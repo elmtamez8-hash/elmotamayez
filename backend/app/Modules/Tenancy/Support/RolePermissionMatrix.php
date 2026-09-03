@@ -94,9 +94,26 @@ final class RolePermissionMatrix
             Permissions::EXAMS_DELETE,
             Permissions::EXAMS_PUBLISH,
             Permissions::CERTIFICATES_REGENERATE,
+            /*
+            | ⚠️ READING THE ORDER, NEVER JUDGING IT — AND `PAYMENTS_APPROVE`
+            | LEFT THIS ARRAY ON 2026-09-03.
+            |
+            | The teacher still sees who bought their course and what receipt
+            | they attached: that is their business and their student. What they
+            | no longer do is DECIDE that the transfer arrived. Approving a course
+            | order writes the enrolment, the enrolment is taught, and spec 014
+            | pays this same teacher for teaching it — so the comment forty lines
+            | down («the party who is paid cannot be the party who mints») always
+            | covered this case, and the exception it carved out for course orders
+            | was the last live instance of what it forbids.
+            |
+            | Both permissions moved to `finance-admin` below and reach
+            | super-admin through `$all`. They are PLATFORM-level by derivation
+            | now — `platformPermissions()` is `all()` minus what workspace roles
+            | hold — so `Tenancy\Models\Role` will refuse to attach either to
+            | anything carrying a team id, which is the guard that keeps them off.
+            */
             Permissions::ORDERS_VIEW_ALL,
-            Permissions::PAYMENTS_APPROVE,
-            Permissions::PAYMENTS_REJECT,
             Permissions::CMS_DELETE,
             Permissions::CMS_PUBLISH,
             Permissions::SESSIONS_MANAGE,
@@ -280,6 +297,19 @@ final class RolePermissionMatrix
             */
             Roles::FINANCE_ADMIN => [
                 Permissions::BILLING_PURCHASE_APPROVE,
+                /*
+                | ⚠️ THE COURSE ORDER TOO, SINCE 2026-09-03 — and the pair moves
+                | together. This is the officer who opens the receipt and says the
+                | bank transfer arrived, for every kind of sale; it used to be the
+                | teacher for course orders, which made the payee the witness.
+                |
+                | ⚠️ AND REJECT COMES WITH APPROVE, NOT AFTER IT. A permission to
+                | say yes with none to say no leaves every disputed transfer
+                | sitting `pending` for ever, on a screen whose only other button
+                | does the thing you decided not to do.
+                */
+                Permissions::PAYMENTS_APPROVE,
+                Permissions::PAYMENTS_REJECT,
                 // What they are approving. Without it the approval screen is a
                 // button with no receipt behind it.
                 Permissions::ORDERS_VIEW_ALL,
