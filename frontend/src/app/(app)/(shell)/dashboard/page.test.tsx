@@ -25,9 +25,15 @@ vi.mock("@/lib/api", () => ({
   api: { get: (path: string) => get(path) },
 }));
 
-vi.mock("@/lib/auth-context", () => ({
-  useAuth: () => ({ user: { first_name: "سلمى" } }),
-}));
+// `importActual` for everything but `useAuth`: this page branches on
+// `isLearner()` to aim the certificates panel at the learner's screen or the
+// teacher's, and a wholesale mock would replace the predicate under test with
+// nothing.
+vi.mock("@/lib/auth-context", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/auth-context")>("@/lib/auth-context");
+
+  return { ...actual, useAuth: () => ({ user: { first_name: "سلمى", platform_role: "student" } }) };
+});
 
 function answer(path: string) {
   if (path.startsWith("/enrollments")) return Promise.resolve({ data: [] });

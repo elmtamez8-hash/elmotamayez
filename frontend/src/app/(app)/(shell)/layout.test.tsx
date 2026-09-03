@@ -25,8 +25,8 @@ import ShellLayout from "./layout";
 | lesson this repository has already paid for once.
 */
 
-const TEACHER_LABELS = ["حصصي", "بنك الأسئلة", "الواجبات", "لوحة التصحيح"];
-const LEARNER_LABELS = ["دفتر أخطائي", "درّب نفسك", "واجباتي", "رصيدي", "متجر المكافآت", "دعوة صديق", "الطلبات"];
+const TEACHER_LABELS = ["حصصي", "بنك الأسئلة", "الواجبات", "لوحة التصحيح", "إدارة الاختبارات", "شهادات الطلاب"];
+const LEARNER_LABELS = ["دفتر أخطائي", "درّب نفسك", "واجباتي", "رصيدي", "متجر المكافآت", "دعوة صديق", "الطلبات", "الاختبارات", "شهاداتي"];
 
 function account(overrides: Partial<User>): User {
   return {
@@ -89,7 +89,7 @@ describe("الشريط الجانبي يفصل شاشات المدرّس عن ش
     currentUser = account({
       platform_role: "teacher",
       last_workspace_id: 1,
-      permissions: ["sessions.manage", "bank.view", "assignments.manage", "grading.perform"],
+      permissions: ["sessions.manage", "bank.view", "assignments.manage", "grading.perform", "exams.view", "certificates.view.all"],
     });
 
     render(<ShellLayout>محتوى</ShellLayout>);

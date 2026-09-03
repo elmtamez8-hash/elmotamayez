@@ -112,7 +112,7 @@ export default function ManageExamPage({
     setError("");
     try {
       await api.delete(`/exams/${uuid}`);
-      router.push("/exams");
+      router.push("/manage/exams");
     } catch (err: unknown) {
       setError(userMessage(err));
       setConfirmExam(false);

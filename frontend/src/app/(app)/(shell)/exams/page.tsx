@@ -9,11 +9,24 @@ import { Badge } from "@/components/ui/Badge";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
-import { useAuth } from "@/lib/auth-context";
-import { P, can } from "@/lib/permissions";
 
+/**
+ * The papers a student may SIT. The teacher's list is `/manage/exams`.
+ *
+ * ⚠️ ONE READER, AND THE PERMISSION BRANCHES ARE GONE ON PURPOSE. This screen
+ * used to serve both audiences off one `GET /exams`, hiding the author's two
+ * buttons behind `can()` — which left the heading, the empty state and the whole
+ * reading of the page addressed to whichever reader was written first. A
+ * sentence cannot be gated: «لم ينشر مدرّسك اختباراً بعد» is wrong for a teacher
+ * however carefully the «اختبار جديد» button beside it is hidden.
+ *
+ * ⚠️ AND IT STILL SHOWS ONLY PUBLISHED PAPERS BECAUSE THE SERVER SAYS SO, not
+ * because this file filters. `ExamController::index()` narrows to the student's
+ * own enrolled slice for a reader without `exams.view`; a status check written
+ * here as well would be a second spelling of the same question, and the one that
+ * is not the door.
+ */
 export default function ExamsPage() {
-  const { user } = useAuth();
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -31,19 +44,9 @@ export default function ExamsPage() {
 
   useEffect(load, [load]);
 
-  const canCreate = can(user, P.examsCreate);
-  const canManage = can(user, P.examsUpdate);
-
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-bold text-ink">الاختبارات</h2>
-        {/* ⚠️ This page is one screen for two readers. A student opens it to SIT
-            an exam and a teacher to write one, and both buttons used to show to
-            both — so a student was offered "new exam" and "manage" on a paper
-            they were about to take. The server refused; the offer was the bug. */}
-        {canCreate && <Button href="/exams/new">اختبار جديد</Button>}
-      </div>
+      <h2 className="text-2xl font-bold text-ink">الاختبارات</h2>
 
       {loading ? (
         <RowsSkeleton />
@@ -52,21 +55,14 @@ export default function ExamsPage() {
       ) : exams.length === 0 ? (
         <EmptyState
           title="لا اختبارات متاحة الآن"
-          description={
-            canCreate
-              ? "أنشئ اختباراً لتقيس فهم طلابك لما شرحته."
-              : "لم ينشر مدرّسك اختباراً بعد. ستجده هنا حين ينشره."
-          }
-          action={canCreate ? <Button href="/exams/new">اختبار جديد</Button> : undefined}
+          description="لم ينشر مدرّسك اختباراً بعد. ستجده هنا حين ينشره."
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {exams.map((exam) => (
             <Card key={exam.uuid} as="article" padding="sm">
               <h3 className="mb-2 font-semibold text-ink">{exam.title}</h3>
-              <p className="mb-4 line-clamp-2 text-sm text-ink-muted">
-                {exam.description}
-              </p>
+              <p className="mb-4 line-clamp-2 text-sm text-ink-muted">{exam.description}</p>
 
               <div className="mb-4 flex flex-wrap gap-2">
                 <Badge>
@@ -85,27 +81,9 @@ export default function ExamsPage() {
                 )}
               </div>
 
-              {exam.is_published ? (
-                <div className="flex gap-2">
-                  <Button href={`/exams/${exam.uuid}/take`} fullWidth>
-                    ابدأ الاختبار
-                  </Button>
-                  {canManage && (
-                    <Button href={`/exams/${exam.uuid}/manage`} variant="secondary">
-                      إدارة
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                // An unpublished exam is the teacher's draft. A reader who cannot
-                // manage it has no business being offered its editor — and the
-                // list only shows drafts to somebody who can see them anyway.
-                canManage && (
-                  <Button href={`/exams/${exam.uuid}/manage`} variant="secondary" fullWidth>
-                    إدارة الاختبار
-                  </Button>
-                )
-              )}
+              <Button href={`/exams/${exam.uuid}/take`} fullWidth>
+                ابدأ الاختبار
+              </Button>
             </Card>
           ))}
         </div>

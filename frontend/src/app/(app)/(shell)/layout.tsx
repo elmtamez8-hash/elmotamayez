@@ -130,7 +130,22 @@ const mainNav: NavItem[] = [
   // because a student who wants to revise a topic they have never been tested on
   // would never look for it inside a notebook of mistakes.
   { href: "/practice", label: "درّب نفسك", Icon: PracticeIcon, audience: "learner" },
-  { href: "/exams", label: "الاختبارات", Icon: ExamIcon },
+  /*
+   * ⚠️ TWO ENTRIES BECAUSE «الاختبارات» WAS TWO SCREENS WEARING ONE HEADING.
+   * `ExamController::index()` already answered two different questions — the
+   * author's list with its drafts, or the student's own slice — and the page
+   * rendered both the same way, so a teacher's draft sat under «ابدأ الاختبار»
+   * and a student was offered «اختبار جديد» on a paper they were about to sit.
+   * The buttons were hidden by permission; the HEADING, the empty state and the
+   * whole reading of the screen were not, and no permission can fix a sentence
+   * addressed to the wrong person.
+   *
+   * ⚠️ AND THE MANAGE HALF IS GATED ON `exams.view`, NOT `exams.create` — the
+   * same name the controller branches on. Two spellings of one question is how
+   * one answer reaches the screen and another reaches the door.
+   */
+  { href: "/exams", label: "الاختبارات", Icon: ExamIcon, audience: "learner" },
+  { href: "/manage/exams", label: "إدارة الاختبارات", Icon: ExamIcon, permission: P.examsView },
   // The teacher's own question library. Separate from /exams, which is the
   // student's list of what they may sit: one question here serves three exams
   // there, and collapsing them would make the bank look like a fourth exam.
@@ -242,7 +257,26 @@ const mainNav: NavItem[] = [
    * first open — which is exactly why the endpoint is a `GET` that writes.
    */
   { href: "/referrals", label: "دعوة صديق", Icon: ReferralIcon, audience: "learner" },
-  { href: "/certificates", label: "الشهادات", Icon: CertificateIcon },
+  /*
+   * ⚠️ THE SHARPER HALF OF THE SAME SPLIT, AND IT WAS SHOWING THE WRONG PEOPLE'S
+   * NAMES — or rather, none of them. `CertificateController::index()` widens to
+   * every certificate in the workspace for a holder of `certificates.view.all`,
+   * so a teacher opening «الشهادات» read their STUDENTS' certificates under the
+   * heading «شهاداتي», in a card layout that prints no student name at all
+   * (`student_name` was in the payload the whole time, unrendered), over an
+   * empty state offering «أكمل كورساً لتحصل على أولى شهاداتك».
+   *
+   * The label is «شهاداتي» now rather than «الشهادات»: the possessive is what
+   * makes the pair legible in one glance, exactly as «واجباتي» sits beside
+   * «الواجبات».
+   */
+  { href: "/certificates", label: "شهاداتي", Icon: CertificateIcon, audience: "learner" },
+  {
+    href: "/manage/certificates",
+    label: "شهادات الطلاب",
+    Icon: CertificateIcon,
+    permission: P.certificatesViewAll,
+  },
   /*
    * ⚠️ A LEARNER SCREEN SINCE 2026-09-03, AND IT WAS THE LAST DUAL-MEANING ONE.
    * It used to carry the teacher's approvals queue as well as the student's own

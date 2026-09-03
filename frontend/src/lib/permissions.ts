@@ -14,8 +14,25 @@
  */
 export const P = {
   coursesUpdate: "courses.update",
+  /*
+   * ⚠️ THE READ, AND IT IS A DIFFERENT QUESTION FROM THE TWO BELOW.
+   * `ExamController::index()` asks `exams.view` to decide whether the list is
+   * the AUTHOR'S — drafts included, unfiltered by enrolment — or the student's
+   * own slice. So it is what gates «إدارة الاختبارات», while `exams.create`
+   * gates the button inside it: a reader who may see the drafts but not write
+   * one still needs the screen.
+   */
+  examsView: "exams.view",
   examsCreate: "exams.create",
   examsUpdate: "exams.update",
+  /*
+   * ⚠️ `.all`, AND THE DOT SHAPE IS `certificates.view.all` — the students' half.
+   * `CertificateController::index()` narrows to `student_user_id = me` for
+   * anyone without it, which is precisely why one screen could not serve both:
+   * the same request answers «my certificates» or «my students' certificates»
+   * depending on the reader, and the page rendered both as the first.
+   */
+  certificatesViewAll: "certificates.view.all",
   sessionsManage: "sessions.manage",
   settlementStatement: "settlement.statement.view",
   bankView: "bank.view",

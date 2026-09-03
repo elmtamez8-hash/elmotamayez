@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Enrollment, Certificate } from "@/lib/types";
-import { useAuth } from "@/lib/auth-context";
+import { isLearner, useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -11,6 +11,7 @@ import { ErrorState } from "@/components/ui/states/ErrorState";
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const learns = isLearner(user);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [availableCourses, setAvailableCourses] = useState(0);
@@ -128,10 +129,22 @@ export default function DashboardPage() {
           )}
         </Panel>
 
-        <Panel title="أحدث الشهادات" href="/certificates">
+        {/* ⚠️ THE PANEL FOLLOWS THE SPLIT, OR IT UNDOES IT. `/certificates` is the
+            learner's screen now and `/manage/certificates` the teacher's — and
+            this ONE `GET /certificates` already answers differently for each,
+            widening to the whole workspace for a holder of `certificates.view.all`.
+            Left pointing at the student half, the dashboard would keep handing a
+            teacher their students' records under «لم تحصل على شهادة بعد», which
+            is the exact sentence the split exists to stop. */}
+        <Panel
+          title={learns ? "أحدث الشهادات" : "أحدث شهادات الطلاب"}
+          href={learns ? "/certificates" : "/manage/certificates"}
+        >
           {certificates.length === 0 ? (
             <p className="text-sm text-ink-muted">
-              لم تحصل على شهادة بعد. أكمل كورساً لتحصل على أولى شهاداتك.
+              {learns
+                ? "لم تحصل على شهادة بعد. أكمل كورساً لتحصل على أولى شهاداتك."
+                : "لم تصدر شهادة في مساحتك بعد. تصدر تلقائياً حين يُكمل طالبٌ كورساً."}
             </p>
           ) : (
             <div className="space-y-3">

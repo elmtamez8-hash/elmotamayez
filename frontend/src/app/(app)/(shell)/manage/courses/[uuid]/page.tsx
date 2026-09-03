@@ -98,7 +98,7 @@ export default function CourseDetailPage({
           تعديل الكورس
         </Button>
 
-        <Button href="/exams" variant="secondary">
+        <Button href="/manage/exams" variant="secondary">
           اختبارات الكورس
         </Button>
 

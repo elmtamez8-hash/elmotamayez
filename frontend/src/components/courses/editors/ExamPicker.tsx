@@ -60,7 +60,7 @@ export function ExamPicker({
         أنشئ اختباراً وانشره أولاً، ثم ضعه في موضعه من الشجرة. الاختبار المسودّة لا يُفتح
         لطلابك، فوضعه هنا يوقفهم عند باب مغلق.
         <span className="mt-2 block">
-          <Button href="/exams" size="sm" variant="secondary">
+          <Button href="/manage/exams" size="sm" variant="secondary">
             اختباراتي
           </Button>
         </span>
