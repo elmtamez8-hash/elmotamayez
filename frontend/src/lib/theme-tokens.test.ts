@@ -96,6 +96,24 @@ describe("theme tokens", () => {
     */
   }, 30_000);
 
+  it("declares color-scheme for both themes, so the browser's own widgets are not painted light-on-dark", () => {
+    /*
+      ⚠️ هذا ليس عن رمزٍ لونيّ. `@theme` يحكمُ ما نرسمُه نحن، ولا يقولُ شيئاً عن
+      الأدواتِ التي يرسمُها المتصفّحُ بنفسِه: زرُّ التقويمِ في `datetime-local`،
+      ونافذتُه، وقائمةُ `select`، وأسهمُ العددِ، وشريطُ التمرير. `color-scheme`
+      هي القناةُ الوحيدةُ إليها.
+
+      وبغيابِها كانت أيقونةُ التاريخِ سوداءَ على سطحٍ داكن — موجودةً وقابلةً
+      للتركيزِ وغيرَ مرئيّة، وهو الشكلُ نفسُه الذي شحنَ أربعَ مرّاتٍ في هذه
+      الشجرةِ تحتَ اسمِ «رمزٌ غيرُ معرَّفٍ لا يرسمُ شيئاً»: لا خطأ، ولا لقطةٌ
+      تكشفُه، ولا شيءَ في `tsc`.
+    */
+    const css = readFileSync(join(SRC, "app", "globals.css"), "utf8");
+
+    expect(css).toMatch(/html\s*\{[^}]*color-scheme:\s*light/);
+    expect(css).toMatch(/html\[data-theme="dark"\]\s*\{[^}]*color-scheme:\s*dark/);
+  });
+
   it("knows the tokens that DO exist, so the check above cannot pass by finding nothing", () => {
     const tokens = definedTokens();
 
