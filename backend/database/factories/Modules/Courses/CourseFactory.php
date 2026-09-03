@@ -83,4 +83,30 @@ class CourseFactory extends Factory
             'price_minor' => 0,
         ]);
     }
+
+    /**
+     * A course whose promotional video has been reviewed and approved (018).
+     *
+     * ⚠️ The status is set here as well as the id, because `Course::$fillable`
+     * deliberately excludes the status — but `SeedCommand` and factories run
+     * unguarded, so this state writes it directly rather than through the
+     * action. That is exactly why the action is still the only writer in
+     * application code.
+     */
+    public function withApprovedPromoVideo(string $videoId = 'dQw4w9WgXcQ'): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'promo_video_id' => $videoId,
+            'promo_video_status' => Course::PROMO_APPROVED,
+            'promo_video_reviewed_at' => now(),
+        ]);
+    }
+
+    public function withPendingPromoVideo(string $videoId = 'dQw4w9WgXcQ'): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'promo_video_id' => $videoId,
+            'promo_video_status' => Course::PROMO_PENDING,
+        ]);
+    }
 }

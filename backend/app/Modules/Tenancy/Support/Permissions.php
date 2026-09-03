@@ -196,6 +196,23 @@ final class Permissions
 
     public const MARKETPLACE_REVIEWS_MODERATE = 'marketplace.reviews.moderate';
 
+    /*
+    | Approving a course's promotional video (018 · FR-006).
+    |
+    | Separate from MARKETPLACE_TEACHERS_APPROVE on purpose. That one decides
+    | whether a person may teach here; this one decides what plays on a public
+    | page under a name we vouch for. Reusing it would work and the name would
+    | lie — the first reader to grant one thinking they granted the other is the
+    | cost, and it is paid silently.
+    |
+    | ⚠️ PLATFORM-LEVEL, and platform level is DERIVED: `platformPermissions()`
+    | is `all()` minus everything any tenant role holds, so this stays platform
+    | until somebody puts it in a tenant role on purpose. It must never be one —
+    | a workspace owner who could approve their own video makes the review a
+    | name with nothing behind it.
+    */
+    public const MARKETPLACE_PROMO_REVIEW = 'marketplace.promo.review';
+
     public const MARKETPLACE_COMPLAINTS_MANAGE = 'marketplace.complaints.manage';
 
     public const MARKETPLACE_PARTICIPATION_MANAGE = 'marketplace.participation.manage';
@@ -583,6 +600,7 @@ final class Permissions
             self::MARKETPLACE_TEACHERS_APPROVE,
             self::MARKETPLACE_TEACHERS_SUSPEND,
             self::MARKETPLACE_REVIEWS_MODERATE,
+            self::MARKETPLACE_PROMO_REVIEW,
             self::MARKETPLACE_COMPLAINTS_MANAGE,
             self::MARKETPLACE_PARTICIPATION_MANAGE,
             self::SESSIONS_VIEW,

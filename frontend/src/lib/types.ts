@@ -137,6 +137,14 @@ export interface Course {
   language: string;
   duration_seconds: number;
   created_at: string;
+  /**
+   * The promo video as its OWNER sees it (018). The status travels on this
+   * resource and never on the public one: the teacher needs to know why their
+   * button is not showing, and a visitor told something is hidden pending
+   * approval has been told it exists.
+   */
+  promo_video_id?: string | null;
+  promo_video_status?: "none" | "pending" | "approved" | "rejected";
 }
 
 // Mirrors EnrollmentResource exactly. It flattens the course into two fields

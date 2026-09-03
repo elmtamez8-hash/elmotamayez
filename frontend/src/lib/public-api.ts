@@ -176,6 +176,16 @@ export type CourseDetail = {
    * it with `??` rather than hiding itself when it is absent.
    */
   private_session_minutes: number | null;
+  /**
+   * The promo video's ID on the teacher's own channel (018 · FR-006).
+   *
+   * ⚠️ An ID, never a URL and never a ready-made embed address: the embed
+   * address is built from it in `PromoVideoButton`, which is the only place
+   * that knows the host. Null means «no button» — the server sends null both
+   * for «no video» and for «awaiting review», and the difference is none of a
+   * visitor's business.
+   */
+  promo_video_id: string | null;
 };
 
 export type TeacherDetail = TeacherCard & {

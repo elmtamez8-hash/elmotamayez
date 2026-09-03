@@ -7,8 +7,11 @@ namespace App\Modules\Courses\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Courses\Actions\CreateCourse;
 use App\Modules\Courses\Actions\PublishCourse;
+use App\Modules\Courses\Actions\ReviewCoursePromoVideo;
+use App\Modules\Courses\Actions\SetCoursePromoVideo;
 use App\Modules\Courses\DTOs\CreateCourseDTO;
 use App\Modules\Courses\Http\Requests\CreateCourseRequest;
+use App\Modules\Courses\Http\Requests\ReviewPromoVideoRequest;
 use App\Modules\Courses\Http\Requests\UpdateCourseRequest;
 use App\Modules\Courses\Http\Resources\CourseResource;
 use App\Modules\Courses\Models\Course;
@@ -122,9 +125,44 @@ class CourseController extends Controller
 
         unset($data['subject']);
 
+        /*
+        | ⚠️ THE PROMO LINK GOES THROUGH ITS ACTION, NOT THROUGH `update()`
+        | (018 · FR-009). `promo_video_url` is not a column, and writing the id
+        | by mass assignment would skip the marketplace condition AND leave the
+        | previous approval standing over a new video — which is the whole point
+        | of doing it in one statement inside the action.
+        */
+        $promoUrl = $data['promo_video_url'] ?? null;
+        $hasPromoKey = array_key_exists('promo_video_url', $data);
+        unset($data['promo_video_url']);
+
         $course->update($data);
 
+        if ($hasPromoKey) {
+            app(SetCoursePromoVideo::class)->handle($course, is_string($promoUrl) ? $promoUrl : null);
+        }
+
         return response()->json(CourseResource::make($course->fresh()));
+    }
+
+    /**
+     * The platform decides whether a promo video may play publicly (018 · FR-006).
+     *
+     * No `authorize()` here: the permission is PLATFORM-level and the action
+     * asks for it directly. A policy on `Course` would be answered inside the
+     * teacher's workspace, which is the wrong question entirely — and
+     * `Gate::before` waves a super admin past a policy anyway.
+     */
+    public function reviewPromoVideo(ReviewPromoVideoRequest $request, string $courseUuid, ReviewCoursePromoVideo $action): JsonResponse
+    {
+        $reviewed = $action->handle(
+            $this->currentUser($request),
+            $courseUuid,
+            (string) $request->validated('decision'),
+            $request->validated('reason'),
+        );
+
+        return response()->json(CourseResource::make($reviewed));
     }
 
     public function publish(Course $course, PublishCourse $action): JsonResponse

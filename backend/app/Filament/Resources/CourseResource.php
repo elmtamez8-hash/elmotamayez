@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\CourseResource\Pages;
+use App\Models\User;
+use App\Modules\Courses\Actions\ReviewCoursePromoVideo;
 use App\Modules\Courses\Enums\CourseStatus;
 use App\Modules\Courses\Enums\CourseVisibility;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Payments\Enums\Currency;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Support\WorkspaceContext;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -193,6 +197,23 @@ class CourseResource extends Resource
                     ->label('أنشأه')
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
+                /*
+                | حالةُ الفيديو الترويجيّ (٠١٨). لونُ `pending` تحذيرٌ لا رمادٌ:
+                | صفٌّ ينتظرُ قراراً بشريّاً، ورماديُّه يجعلُه يختفي في القائمة.
+                */
+                TextColumn::make('promo_video_status')->label('الفيديو الترويجي')->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        Course::PROMO_PENDING => 'بانتظار المراجعة',
+                        Course::PROMO_APPROVED => 'معتمَد',
+                        Course::PROMO_REJECTED => 'مرفوض',
+                        default => 'لا يوجد',
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        Course::PROMO_PENDING => 'warning',
+                        Course::PROMO_APPROVED => 'success',
+                        Course::PROMO_REJECTED => 'danger',
+                        default => 'gray',
+                    }),
                 TextColumn::make('created_at')->label('أُنشئ في')->dateTime('Y-m-d H:i')->sortable(),
             ])
             ->filters([
@@ -202,9 +223,65 @@ class CourseResource extends Resource
                 SelectFilter::make('visibility')
                     ->label('الظهور')
                     ->options(CourseVisibility::options()),
+                SelectFilter::make('promo_video_status')
+                    ->label('الفيديو الترويجي')
+                    ->options([
+                        Course::PROMO_PENDING => 'بانتظار المراجعة',
+                        Course::PROMO_APPROVED => 'معتمَد',
+                        Course::PROMO_REJECTED => 'مرفوض',
+                        Course::PROMO_NONE => 'لا يوجد',
+                    ]),
             ])
             ->actions([
                 EditAction::make(),
+                /*
+                | مراجعةُ الفيديو الترويجيّ (٠١٨ · FR-006).
+                |
+                | ⚠️ الحارسُ مُكرَّرٌ هنا وفي الإجراءِ معاً، وهذا ليس تكراراً:
+                | `Gate::before` يمرّرُ المديرَ الأعلى فوقَ كلِّ سياسة، وقائمةُ
+                | Filament لا تستشيرُ سياسةَ الصفِّ أصلاً — سابقتا
+                | `CreditPackageResource` و`OrderResource` كلتاهما مكتوبتان.
+                |
+                | ويظهرُ الإجراءُ لصفٍّ فيه ما يُراجَع وحدَه: زرٌّ يُجيبُ «لا يوجدُ
+                | فيديو» زرٌّ يَعِدُ ثمّ يمنع.
+                */
+                Action::make('reviewPromoVideo')
+                    ->label('مراجعة الفيديو')
+                    ->icon(Heroicon::OutlinedPlayCircle)
+                    ->visible(fn (Course $record): bool => $record->promo_video_status !== Course::PROMO_NONE
+                        && auth()->user()?->can(Permissions::MARKETPLACE_PROMO_REVIEW) === true)
+                    ->schema([
+                        Select::make('decision')
+                            ->label('القرار')
+                            ->required()
+                            ->options([
+                                Course::PROMO_APPROVED => 'اعتماد',
+                                Course::PROMO_REJECTED => 'رفض',
+                            ]),
+                        TextInput::make('reason')
+                            ->label('سبب الرفض')
+                            ->helperText('مطلوب مع الرفض — ورفضٌ بلا سببٍ يُجيبه المدرّس بلصقِ الرابطِ نفسِه.')
+                            ->maxLength(1000),
+                    ])
+                    ->action(function (Course $record, array $data): void {
+                        $reviewer = auth()->user();
+
+                        /*
+                        | اللوحةُ محميّةٌ بالجلسة، فهذا لا يقع عمليّاً — لكنّ `null`
+                        | يمرُّ صامتاً إلى الإجراء فيَختِمُ `reviewed_by` بلا أحد،
+                        | وسجلُّ المراجعةِ يفقدُ مَن قرّر.
+                        */
+                        if (! $reviewer instanceof User) {
+                            return;
+                        }
+
+                        app(ReviewCoursePromoVideo::class)->handle(
+                            $reviewer,
+                            (string) $record->uuid,
+                            (string) $data['decision'],
+                            $data['reason'] ?? null,
+                        );
+                    }),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

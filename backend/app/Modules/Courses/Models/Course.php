@@ -30,6 +30,10 @@ use Laravel\Scout\Searchable;
  * @property int $price_minor
  * @property int|null $price_before_discount_minor
  * @property int|null $private_session_minutes
+ * @property string|null $promo_video_id
+ * @property string $promo_video_status
+ * @property Carbon|null $promo_video_reviewed_at
+ * @property int|null $promo_video_reviewed_by
  * @property Carbon|null $last_delivered_at
  * @property Carbon|null $created_at
  * @property-read User|null $creator created_by is nullable — a course can outlive its author
@@ -103,6 +107,25 @@ class Course extends BaseModel
         'course_type',
         'cover_path',
         'price_before_discount_minor',
+        /*
+        | The promotional video's ID on the teacher's own channel (018 · FR-004).
+        |
+        | ⚠️ THE EXTRACTED ID, NEVER THE PASTED URL. `PromoVideoUrl::extract()`
+        | is the one spelling, and storing only the id is what makes FR-008
+        | unrepresentable rather than merely checked.
+        |
+        | ⚠️ AND FILLABLE IN THE SAME CHANGE AS ITS MIGRATION. A column mass
+        | assignment does not know about is discarded with no exception and no
+        | log, and the response echoes what was SENT — so every test written
+        | against the body passes over a row holding null (013's three columns).
+        |
+        | Its three siblings — status, reviewed_at, reviewed_by — are
+        | deliberately NOT here: they are written by ReviewCoursePromoVideo and
+        | SetCoursePromoVideo alone. Mass-assignable, the status becomes a second
+        | door to the approval decision from outside the action that owns it
+        | (the `captured_order_id` rule).
+        */
+        'promo_video_id',
     ];
 
     /** @return array<string, mixed> */
@@ -119,7 +142,34 @@ class Course extends BaseModel
             // authoring — and deliberately not fillable: the only writer is that
             // listener's conditional UPDATE (spec 006, FR-021ط).
             'last_delivered_at' => 'datetime',
+            'promo_video_reviewed_at' => 'datetime',
         ];
+    }
+
+    public const PROMO_NONE = 'none';
+
+    public const PROMO_PENDING = 'pending';
+
+    public const PROMO_APPROVED = 'approved';
+
+    public const PROMO_REJECTED = 'rejected';
+
+    /**
+     * Whether the promotional video may be shown to the public (018 · FR-006).
+     *
+     * ⚠️ THE ONE SPELLING OF THIS QUESTION. The public resource and the
+     * teacher's own screen both read it, and two spellings of one question put
+     * one answer on the screen and another at the door — the defect this
+     * repository has paid for repeatedly.
+     *
+     * Both conditions, never one: the status alone could outlive a cleared id
+     * through some later path, and the id alone is exactly what the review
+     * exists to withhold.
+     */
+    public function hasApprovedPromoVideo(): bool
+    {
+        return $this->promo_video_status === self::PROMO_APPROVED
+            && $this->promo_video_id !== null;
     }
 
     /** @return HasMany<Section, $this> */

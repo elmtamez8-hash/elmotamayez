@@ -47,6 +47,17 @@ class CourseResource extends JsonResource
             'visibility' => $this->visibility,
             'is_sequential' => $this->is_sequential,
             'private_session_minutes' => $this->private_session_minutes,
+            /*
+            | The promo video as its OWNER sees it (018 · US2).
+            |
+            | The status travels here and never on the public payload: the
+            | teacher needs to know why their button is not showing, and a
+            | visitor being told something is hidden pending approval is being
+            | told it exists. Two resources, two audiences — and this one is not
+            | walked by `PublicFieldAllowlist`.
+            */
+            'promo_video_id' => $this->promo_video_id,
+            'promo_video_status' => $this->promo_video_status,
             'is_free' => $this->isFree(),
             'language' => $this->language,
             'duration_seconds' => $this->duration_seconds,
