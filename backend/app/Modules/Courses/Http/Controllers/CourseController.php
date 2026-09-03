@@ -20,6 +20,7 @@ use App\Modules\Marketplace\Models\Subject;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CourseController extends Controller
 {
@@ -136,11 +137,22 @@ class CourseController extends Controller
         $hasPromoKey = array_key_exists('promo_video_url', $data);
         unset($data['promo_video_url']);
 
-        $course->update($data);
+        /*
+        | ⚠️ ONE TRANSACTION, AND THE REASON IS THE REFUSAL BELOW IT.
+        | `SetCoursePromoVideo` throws for a teacher who is not publicly listed
+        | (FR-009) — and that check cannot move above the update, because the
+        | promo write has to happen after it. Left unwrapped, a refused video
+        | answers 422 while the title and price the same request carried are
+        | already committed: the client is told nothing happened, and something
+        | did.
+        */
+        DB::transaction(function () use ($course, $data, $hasPromoKey, $promoUrl): void {
+            $course->update($data);
 
-        if ($hasPromoKey) {
-            app(SetCoursePromoVideo::class)->handle($course, is_string($promoUrl) ? $promoUrl : null);
-        }
+            if ($hasPromoKey) {
+                app(SetCoursePromoVideo::class)->handle($course, is_string($promoUrl) ? $promoUrl : null);
+            }
+        });
 
         return response()->json(CourseResource::make($course->fresh()));
     }

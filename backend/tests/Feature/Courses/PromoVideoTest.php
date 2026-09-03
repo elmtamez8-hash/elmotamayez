@@ -170,3 +170,43 @@ it('clears the video and its review when the link is removed', function (): void
         ->and($course->promo_video_status)->toBe(Course::PROMO_NONE)
         ->and($course->promo_video_reviewed_at)->toBeNull();
 });
+
+/*
+| ⚠️ A REFUSED VIDEO MUST NOT COMMIT THE REST OF THE REQUEST.
+|
+| `SetCoursePromoVideo` throws for a teacher who is not publicly listed, and the
+| check cannot move above `$course->update()` because the promo write has to
+| follow it. Unwrapped, the title in the same request was already saved while the
+| response said 422 — the client is told nothing happened, and something did.
+|
+| Found in review of this branch, not by the tests above: every one of them
+| asserted the promo columns and none looked at the fields beside them.
+*/
+it('rolls the whole update back when the video is refused', function (): void {
+    $workspace = marketplaceWorkspace('Pending Academy');
+    $teacher = marketplaceTeacher($workspace, [
+        'approval_status' => TeacherProfile::STATUS_PENDING,
+        'is_publicly_listed' => false,
+    ]);
+
+    $course = app(WorkspaceContext::class)->forWorkspace($workspace, fn (): Course => Course::factory()
+        ->published()
+        ->create([
+            'workspace_id' => $workspace->getKey(),
+            'title' => 'العنوان الأصلي',
+            'created_by' => $teacher->user_id,
+            'course_type' => Course::TYPE_GROUP,
+        ]));
+
+    $owner = $this->addWorkspaceMember($workspace, Roles::TEACHER);
+    Sanctum::actingAs($owner);
+
+    $this->putJson("/api/v1/courses/{$course->uuid}", [
+        'title' => 'عنوانٌ جديد',
+        'promo_video_url' => 'https://youtu.be/dQw4w9WgXcQ',
+    ])->assertStatus(422);
+
+    // The title travelled in the SAME request and must not have survived it.
+    expect($course->refresh()->title)->toBe('العنوان الأصلي')
+        ->and($course->promo_video_id)->toBeNull();
+});

@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import {
   CheckboxField,
   NumberField,
@@ -69,6 +70,7 @@ export default function EditCoursePage({
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
 
@@ -143,6 +145,26 @@ export default function EditCoursePage({
     }
   };
 
+  /*
+    إزالةُ الفيديو (٠١٨ · FR-012). حقلٌ فارغٌ لا يُرسَلُ في الحفظِ العاديّ — وإلّا
+    مُحيَ فيديو معتمَدٌ في كلِّ مرّةٍ يُعدَّلُ فيها العنوان — فالإزالةُ فعلٌ صريحٌ
+    بمفردِه. وبدونِه يبقى المسارُ موجوداً في الواجهةِ البرمجيّةِ ولا شاشةَ تصلُه،
+    وهو ما يعنيه «كلُّ سطحٍ جديدٍ يحتاجُ رابطاً داخلاً إليه».
+  */
+  const removePromoVideo = async () => {
+    setRemoving(true);
+    setError("");
+    try {
+      await api.put(`/courses/${uuid}`, { promo_video_url: null });
+      setForm((f) => ({ ...f, promo_video_url: "" }));
+      load();
+    } catch (err: unknown) {
+      setError(userMessage(err));
+    } finally {
+      setRemoving(false);
+    }
+  };
+
   const publish = async () => {
     setPublishing(true);
     setError("");
@@ -203,6 +225,18 @@ export default function EditCoursePage({
             error={fields.promo_video_url}
             hint={PROMO_HINT[course?.promo_video_status ?? "none"]}
           />
+
+          {course?.promo_video_id != null && (
+            <ConfirmButton
+              variant="secondary"
+              size="sm"
+              loading={removing}
+              confirmLabel="اضغط ثانيةً لإزالة الفيديو"
+              onConfirm={removePromoVideo}
+            >
+              إزالة الفيديو الترويجي
+            </ConfirmButton>
+          )}
 
           {/* Above the price, because it decides where the course is found:
               the marketplace groups by it, and a student's homework and practice
