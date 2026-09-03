@@ -206,7 +206,15 @@ export interface Order {
   status: string;
   rejection_reason: string | null;
   approved_at: string | null;
+  /** `course` | `credits` | … — what was bought. */
+  kind: string;
   course_title: string | null;
+  /**
+   * Who paid. Present ONLY for a reader holding `orders.view_all`; the buyer's
+   * own list omits both keys, so absent means "not staff", never "unknown".
+   */
+  payer_name?: string | null;
+  payer_email?: string | null;
   has_receipt: boolean;
   is_mine: boolean;
   receipt_url: string | null;

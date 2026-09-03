@@ -140,6 +140,7 @@
        │ │ id · uuid · workspace_id · user_id · product_id · course_id  │
        │ │ amount_minor · currency · provider · provider_ref · status   │
        │ │ kind · rejection_reason · approved_by · approved_at·metadata │
+       │ │ granted_by (nullable → users, nullOnDelete)          (024)   │
        │ └──────────┬──────────────────────────────────────────────────┘
        │            │
        │ ┌──────────▼───────────────────────┐
@@ -536,6 +537,18 @@ about each other. `ContextIsolationTest` derives its table lists from each side'
   boundary at `order_id` where two meet. Corrected here rather than deleted, because the
   sentence describes a real decision that was later reversed, and a reader who remembers the
   old rule needs to see it retired
+
+- **`orders.granted_by` is nullable, `nullOnDelete`, and deliberately NOT `$fillable`
+  (spec 024).** It names the platform officer who created a purchase on a student's
+  behalf, and it is null for every ordinary purchase — which is why it cannot be `NOT
+  NULL` and why no backfill exists: there is no honest value to write for an order
+  nobody granted. `nullOnDelete` rather than `cascade` or `restrict`, because the order
+  is a financial record that must outlive the staff account that typed it; losing the
+  name is a gap in the audit trail, losing the row is a gap in the books. And it stays
+  out of `$fillable` for the `captured_order_id` reason: it is stamped inside
+  `PurchaseCredits`'s own transaction from the authenticated officer, so a mass-assignable
+  spelling would be a second way to claim authorship from outside the one path that knows
+  who is asking. It carries no index — every read of it is by order, never by grantor
 
 ## Question Bank, Grading, Homework and the Unlock Gate (spec 008)
 

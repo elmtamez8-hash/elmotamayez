@@ -246,14 +246,36 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
 | `throttle:N,M` shares one bucket with every other inline limit on the domain.
 */
 Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void {
+    /*
+    | ⚠️ `{orderUuid}` AND NOT `{order}` ON THESE FOUR, AND THE BINDING IS WHY.
+    |
+    | Implicit binding resolves THROUGH `BelongsToWorkspace`'s global scope, so a
+    | row outside the reader's current workspace 404s before any policy runs.
+    | That is the right guard for a member — and it is a wall for a platform
+    | officer, whose context falls back to `users.last_workspace_id` like
+    | everyone else's: an officer who also owns a workspace was answered 404 on
+    | every credit order outside it, while `OrderPolicy` was ready to allow it.
+    | Measured on 2026-09-03 while implementing 024; invisible until then because
+    | every fixture built that officer with no workspace at all.
+    |
+    | So the four routes the platform can act on resolve in the controller
+    | without the scope, and `OrderPolicy` — which already asks the workspace
+    | question itself for every non-platform branch — is the one spelling of the
+    | decision. The visible change is that a teacher probing another workspace's
+    | order now reads 403 instead of 404 here; deliberate, and tested.
+    |
+    | `/orders/{order}/receipt` (the signed download) keeps implicit binding: it
+    | carries no authenticated user, so the context is null and the scope is
+    | inert there anyway.
+    */
     Route::get('/orders', [OrderController::class, 'index']);
-    Route::get('/orders/{order}', [OrderController::class, 'show']);
+    Route::get('/orders/{orderUuid}', [OrderController::class, 'show']);
     Route::post('/courses/{course}/orders', [OrderController::class, 'store']);
-    Route::post('/orders/{order}/receipt', [OrderController::class, 'uploadReceipt']);
+    Route::post('/orders/{orderUuid}/receipt', [OrderController::class, 'uploadReceipt']);
     // Money moves and an enrolment is granted — sensitive by any reading, so
     // the second factor is required here once the account's grace period is up.
-    Route::post('/orders/{order}/approve', [OrderController::class, 'approve'])->middleware('2fa.required');
-    Route::post('/orders/{order}/reject', [OrderController::class, 'reject'])->middleware('2fa.required');
+    Route::post('/orders/{orderUuid}/approve', [OrderController::class, 'approve'])->middleware('2fa.required');
+    Route::post('/orders/{orderUuid}/reject', [OrderController::class, 'reject'])->middleware('2fa.required');
 });
 
 /*

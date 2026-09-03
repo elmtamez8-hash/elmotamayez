@@ -33,7 +33,20 @@ class RejectOrder extends Action
         ?string $ipAddress = null,
         ?string $userAgent = null,
     ): Order {
+        /*
+        | ⚠️ `withoutWorkspaceScope()` — the same third layer as `ApproveOrder`.
+        |
+        | The claim is a conditional UPDATE through the model, so the global scope
+        | ANDs the CURRENT workspace onto it, and a platform officer's context
+        | falls back to `users.last_workspace_id` like anybody else's. An officer
+        | who also owns a workspace matched zero rows on every order outside it
+        | and was told the order was not pending, about an order that was.
+        |
+        | Safe because `OrderPolicy` ran above this call and asks the workspace
+        | question itself on every non-platform branch. Measured 2026-09-03 (024).
+        */
         $claimed = Order::query()
+            ->withoutWorkspaceScope()
             ->whereKey($order->getKey())
             ->whereIn('status', ['pending', 'under_review'])
             ->update([

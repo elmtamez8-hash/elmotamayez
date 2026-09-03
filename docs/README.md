@@ -665,6 +665,34 @@ true of an enum with two cases and a silent widening at four. They read
 `OrderKind::teacherListedValues()`, which names what belongs on a teacher's order
 table rather than what does not.
 
+⚠️ **And that panel cut is WIDENED BY PERMISSION now, not deleted (spec 024).**
+`OrderResource::getEloquentQuery()` reads `teacherListedValues()` for anyone
+without `billing.purchase.approve` — the filter was written the day an assistant
+could reach the panel, and the assistant left while the reason for the caution
+did not. A holder of the permission sees both kinds **and** the workspace scope
+dropped, because a screen whose purpose is approving across every teacher was
+otherwise showing an officer their own workspace's orders alone: no error, no
+empty state, just a short list that reads as a quiet week. A Filament LIST never
+calls the row policy, so the cut belongs on the query and nowhere else.
+
+**`orders.granted_by` is who granted, and the payload calls it `granted_by_name`.**
+A grant made on a student's behalf is otherwise indistinguishable from a purchase
+the student made themselves — the same kind, the same price snapshot, the same
+pending status — and the one question an auditor asks about it is who typed it.
+It is nullable (every ordinary purchase has none), `nullOnDelete` (a departed
+officer must not take the order with them), deliberately **absent from
+`$fillable`** (it is stamped inside `PurchaseCredits`'s own transaction, never
+from a request), and gated on `orders.view_all` exactly as `payer_name` is.
+
+**`billing.purchase.approve` guards GRANTING and APPROVING both, and no second
+permission was added (spec 024).** One officer may create a pending order and
+then approve it. That is deliberate: the receipt is opened and the amount matched
+on a separate screen in a separate step (there is no approve button on the grant
+page), and the seller-refusal that `payments.approve` exists to enforce is
+untouched — a platform officer is never the seller. A second permission here would
+have been a two-human rule nobody staffed, which in practice becomes one human
+holding both.
+
 ### Platform analytics, regions and flags (spec 011 · US6)
 
 `platform_metrics_daily` is the dashboard's only source (FR-044): one row per
@@ -1409,7 +1437,7 @@ separately is three chances to disagree.
 | `billing.balance.view` | the teacher's panel of their own students |
 | `billing.settings.manage` | the workspace's billing mode and thresholds — **platform** |
 | `billing.exam_mode.manage` | opening and closing the exam window |
-| `billing.purchase.approve` | approving a credit purchase — **platform**, not the teacher |
+| `billing.purchase.approve` | **granting** a credit subscription on a student's behalf and **approving** one — **platform**, not the teacher (spec 024: one permission, both acts) |
 | `billing.credits.adjust` | a bonus, a correction, a refund — **platform** |
 | `billing.limit.manage` | moving a credit ceiling by hand — **platform** |
 | `billing.packages.manage` | the credit catalogue — **platform** |

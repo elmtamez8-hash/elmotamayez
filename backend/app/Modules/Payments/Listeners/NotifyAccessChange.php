@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Listeners;
 
 use App\Models\User;
+use App\Modules\Courses\Models\Course;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
@@ -56,7 +57,27 @@ class NotifyAccessChange implements ShouldQueue
             return;
         }
 
-        $variables = ['course' => (string) $balance->course->title];
+        /*
+        | ⚠️ THE COURSE IS READ WITHOUT THE WORKSPACE SCOPE, AND `$balance->course`
+        | WAS A 500 WAITING FOR THE RIGHT APPROVER.
+        |
+        | A relation query runs the RELATED model's global scope, so this resolved
+        | to `null` — and reading `->title` off it is a fatal — whenever the
+        | context in force was not the balance's own workspace. Nothing reached it
+        | while approvals came from inside the workspace; spec 024 makes a platform
+        | officer standing anywhere the ordinary approver, and the throw lands
+        | AFTER the transaction committed: credits minted, an error page returned,
+        | and no notification sent. The workspace is already known here — it is
+        | passed to the notification below — so it is never inferred from ambient
+        | context again.
+        */
+        $course = Course::query()->withoutWorkspaceScope()->find($balance->course_id);
+
+        if ($course === null) {
+            return;
+        }
+
+        $variables = ['course' => (string) $course->title];
 
         // Each template declares exactly the variables its body reads, and a
         // missing one refuses the render rather than printing a gap (FR-037). So

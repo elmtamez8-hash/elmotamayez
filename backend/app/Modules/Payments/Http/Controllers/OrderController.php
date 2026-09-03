@@ -50,7 +50,7 @@ class OrderController extends Controller
                 ->orWhere('user_id', $user->getKey()));
         }
 
-        $orders = $query->with(['course', 'media'])->orderByDesc('created_at')->paginate(15);
+        $orders = $query->with(['course', 'media', 'user', 'grantor'])->orderByDesc('created_at')->paginate(15);
 
         /*
         | ⚠️ RETURNED, NOT `response()->json(...)`-ED, AND THE PAGE DEPENDED ON IT.
@@ -63,11 +63,13 @@ class OrderController extends Controller
         return OrderResource::collection($orders);
     }
 
-    public function show(Request $request, Order $order): JsonResponse
+    public function show(Request $request, string $orderUuid): JsonResponse
     {
+        $order = $this->orderByUuid($orderUuid);
+
         $this->authorize('view', $order);
 
-        return response()->json(OrderResource::make($order->load(['course', 'media'])));
+        return response()->json(OrderResource::make($order->load(['course', 'media', 'user', 'grantor'])));
     }
 
     public function store(Request $request, Course $course, CreateOrder $action): JsonResponse
@@ -95,8 +97,10 @@ class OrderController extends Controller
         return response()->json(OrderResource::make($order), 201);
     }
 
-    public function uploadReceipt(Request $request, Order $order, UploadPaymentReceipt $action): JsonResponse
+    public function uploadReceipt(Request $request, string $orderUuid, UploadPaymentReceipt $action): JsonResponse
     {
+        $order = $this->orderByUuid($orderUuid);
+
         $this->authorize('uploadReceipt', $order);
 
         $validated = $request->validate([
@@ -141,8 +145,10 @@ class OrderController extends Controller
         return $media->toInlineResponse(request());
     }
 
-    public function approve(Request $request, Order $order, ApproveOrder $action): JsonResponse
+    public function approve(Request $request, string $orderUuid, ApproveOrder $action): JsonResponse
     {
+        $order = $this->orderByUuid($orderUuid);
+
         $this->authorize('approve', $order);
 
         try {
@@ -154,8 +160,10 @@ class OrderController extends Controller
         return response()->json(OrderResource::make($order));
     }
 
-    public function reject(Request $request, Order $order, RejectOrder $action): JsonResponse
+    public function reject(Request $request, string $orderUuid, RejectOrder $action): JsonResponse
     {
+        $order = $this->orderByUuid($orderUuid);
+
         $this->authorize('reject', $order);
 
         $request->validate(['reason' => ['required', 'string', 'max:500']]);
@@ -173,5 +181,27 @@ class OrderController extends Controller
         }
 
         return response()->json(OrderResource::make($order));
+    }
+
+    /**
+     * ⚠️ RESOLVED WITHOUT THE WORKSPACE SCOPE — AND `OrderPolicy` IS THE GUARD.
+     *
+     * Implicit binding resolves through `BelongsToWorkspace`, so a row outside
+     * the reader's current workspace 404s before any policy runs. Correct for a
+     * member; a wall for a platform officer, whose context falls back to
+     * `users.last_workspace_id` exactly like everybody else's. An officer who
+     * also owns a workspace was answered 404 on every credit order outside it
+     * while the policy stood ready to allow it — measured 2026-09-03, and
+     * invisible until then because every fixture builds that officer with no
+     * workspace at all, where a null context raises no objection.
+     *
+     * Nothing is widened by this: `OrderPolicy` asks the workspace question
+     * itself on every non-platform branch, so a teacher reaching another
+     * workspace's order is refused there instead of here. The visible change is
+     * 404 → 403 for that probe on these four routes, and it is deliberate.
+     */
+    private function orderByUuid(string $uuid): Order
+    {
+        return Order::query()->withoutWorkspaceScope()->where('uuid', $uuid)->firstOrFail();
     }
 }
