@@ -100,7 +100,7 @@ export default function ManageRewardsPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-xl font-semibold text-ink">متجر مكافآتي</h1>
+        <h1 className="text-xl font-semibold text-ink">مكافآت الطلاب</h1>
         <p className="text-sm text-ink-muted">
           ما يستطيع طلابك استبداله بعملاتهم، وطلبات الاستبدال المنتظرة.
         </p>
@@ -218,7 +218,7 @@ export default function ManageRewardsPage() {
       </Card>
 
       <Card>
-        <h2 className="mb-3 text-base font-semibold text-ink">مكافآتي</h2>
+        <h2 className="mb-3 text-base font-semibold text-ink">المكافآت المتاحة</h2>
         {rewards.length === 0 ? (
           <EmptyState title="لا مكافآت بعد" description="أضِف أوّل مكافأةٍ من النموذج أعلاه." />
         ) : (

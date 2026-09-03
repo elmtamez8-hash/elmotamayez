@@ -86,7 +86,7 @@ export default function ManageStorePage() {
     <div className="space-y-6">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-ink">المتجر</h1>
+          <h1 className="text-2xl font-bold text-ink">متجر الكتب</h1>
           <p className="mt-1 text-sm text-ink-muted">
             كتبك ومذكّراتك — نسخة رقمية تُسلَّم فور اعتماد الدفع، أو نسخة مطبوعة
             تُشحَن إلى الباب.
@@ -117,7 +117,7 @@ export default function ManageStorePage() {
       )}
 
       <Table
-        caption="منتجات المتجر"
+        caption="منتجات متجر الكتب"
         columns={columns}
         rows={items}
         rowKey={(row) => row.uuid}

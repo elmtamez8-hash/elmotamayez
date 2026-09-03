@@ -219,7 +219,18 @@ const mainNav: NavItem[] = [
   { href: "/leaderboard", label: "لوحة الصدارة", Icon: LeaderboardIcon, audience: "learner" },
   { href: "/shop", label: "متجر المكافآت", Icon: ShopIcon, audience: "learner" },
   // The teacher's side of that shop, and the queue of what has been claimed.
-  { href: "/manage/rewards", label: "متجر مكافآتي", Icon: ShopIcon, permission: P.rewardsManage },
+  /*
+   * ⚠️ «مكافآت الطلاب», NOT «متجر مكافآتي» — a possessive on the TEACHER'S entry,
+   * one letter from the learner's «متجر المكافآت» above it. The screen is what a
+   * teacher STOCKS for their students plus the redemption queue they fulfil (its
+   * own subtitle says so), so the possessive named the wrong owner and named it
+   * in the voice this repository reserves for the learner half: «شهاداتي» is the
+   * student's and «شهادات الطلاب» the teacher's, beside «أرصدة الطلاب».
+   * `rewards.manage` and `redemptions.fulfill` are held by the teacher, the
+   * owner and the super admin alone — not the assistant — so the ENTRY was
+   * right and only its name was not.
+   */
+  { href: "/manage/rewards", label: "مكافآت الطلاب", Icon: ShopIcon, permission: P.rewardsManage },
   /*
    * Spec 011 · US1. Three entries, because they are three different people's
    * jobs — and a surface no link reaches is a surface nobody uses.
@@ -229,7 +240,14 @@ const mainNav: NavItem[] = [
    * actually enrolled with.
    */
   { href: "/store", label: "مشترياتي", Icon: StoreIcon, audience: "learner" },
-  { href: "/manage/store", label: "متجري", Icon: StoreIcon, permission: P.storeItemsManage },
+  /*
+   * ⚠️ AND THE SAME SHAPE ONE ROW DOWN, WITH A SECOND FAULT: «متجري» was a
+   * possessive beside the learner's «مشترياتي», AND the page it opened was
+   * headed «المتجر» — a link and its own screen carrying two different names.
+   * «متجر الكتب» is one name in both places, and it says which of the two shops
+   * this is: the other sells nothing and takes coins.
+   */
+  { href: "/manage/store", label: "متجر الكتب", Icon: StoreIcon, permission: P.storeItemsManage },
   {
     href: "/manage/store/shipments",
     label: "الشحنات",
