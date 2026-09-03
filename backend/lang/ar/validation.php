@@ -298,6 +298,7 @@ return [
         'is_published' => 'منشور',
         'is_sequential' => 'التسلسل الإجباري',
         'private_session_minutes' => 'مدة الحصة الخاصة',
+        'promo_video_url' => 'رابط الفيديو الترويجي',
         'decision_reason' => 'سبب الرفض',
 
         // الوسائط (spec 004)

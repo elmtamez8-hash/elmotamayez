@@ -118,6 +118,7 @@ Authenticated:
 | PUT | `/workspace/marketplace-participation` | `marketplace.participation.manage` |
 | POST | `/teachers/{uuid}/reviews` | Student with a completed session; 201 create / 200 update |
 | DELETE | `/admin/reviews/{uuid}` | `marketplace.reviews.moderate` — hides, never deletes |
+| POST | `/courses/{uuid}/promo-video/review` | `marketplace.promo.review` — approve or reject a course's promo video (018). No route-model binding: the uuid is resolved `withoutWorkspaceScope()` inside the action, because a platform reviewer's context falls back to their own workspace |
 | POST | `/admin/complaints/{uuid}/confirm` · `/dismiss` | `marketplace.complaints.manage` |
 | GET/POST | `/parent/children`, `/parent/children/{uuid}` | Own links only (`ParentChildLinkPolicy`, 403 not 404) |
 | GET/PUT | `/parent/notification-preferences` | Own preferences |
@@ -148,6 +149,7 @@ Constants in `Tenancy\Support\Permissions` — never string literals.
 | `marketplace.teachers.approve` | Approve, reject, request changes |
 | `marketplace.teachers.suspend` | Suspend and reinstate a listed teacher |
 | `marketplace.reviews.moderate` | Hide a review (`is_visible = false`) and trigger recalculation |
+| `marketplace.promo.review` | Approve or reject a course's promo video. **Platform-level**, held by `compliance-officer`; a workspace owner approving their own video would make the review a name with nothing behind it |
 | `marketplace.complaints.manage` | Confirm or dismiss a complaint |
 | `marketplace.participation.manage` | Toggle the workspace's marketplace participation |
 

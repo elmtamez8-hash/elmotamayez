@@ -135,6 +135,16 @@ final class PublicFieldAllowlist
         'title',
         'description',
         'cover_url',
+        /*
+        | The promo video's ID on the teacher's own channel (018 · FR-006).
+        |
+        | Published ONLY when the review approved it — the Resource asks
+        | `hasApprovedPromoVideo()`, which is the one spelling of that question.
+        | An ID here is not a secret: the video is public on a public channel,
+        | and it is the teacher's own. What it is not is a URL — see the
+        | Resource for why the embed address stays out of the contract.
+        */
+        'promo_video_id',
         'subject',
         'grade_level',
         'teacher',

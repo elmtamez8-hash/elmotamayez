@@ -318,6 +318,25 @@ final class RolePermissionMatrix
                 Permissions::COMPLIANCE_HOLDS_MANAGE,
                 Permissions::COMPLIANCE_OFFBOARDING_EXECUTE,
                 Permissions::COMPLIANCE_BREACHES_MANAGE,
+                /*
+                | Spec 018 · FR-006 — judging what plays on a public page under a
+                | name the platform vouches for.
+                |
+                | Here rather than on a tenant role, and here rather than
+                | super-admin alone. On a tenant role it would be worthless: a
+                | workspace owner approving their own video makes the review a
+                | name with nothing behind it. On super-admin alone it would make
+                | one account the only thing standing between a teacher and every
+                | visitor's first impression — the same argument that put
+                | `PLANS_PRICE` on the finance role.
+                |
+                | ⚠️ THIS DOES NOT MAKE IT TENANT-LEVEL. `platformPermissions()`
+                | subtracts what WORKSPACE roles hold, and `compliance-officer` is
+                | teamless standing granted through `platform_staff`. The
+                | derivation is unchanged, and `Role` still refuses to attach it
+                | to anything carrying a team id.
+                */
+                Permissions::MARKETPLACE_PROMO_REVIEW,
             ],
         ];
     }

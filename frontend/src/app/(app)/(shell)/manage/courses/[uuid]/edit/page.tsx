@@ -27,6 +27,18 @@ const CURRENCIES = [
   { value: "USD", label: "دولار أمريكي" },
 ];
 
+/*
+  ما يُقال للمدرّس عن حالة فيديوه. «مرفوض» بلا سببٍ يُجيبه بلصقِ الرابطِ نفسِه،
+  والسببُ يصل من المراجعة في سجلّ النشاط لا في هذا الحقل — فالجملةُ هنا تقول
+  ماذا يفعل، لا ماذا حدث.
+*/
+const PROMO_HINT: Record<string, string> = {
+  none: "الصق رابط فيديو من يوتيوب يشرح فيه درساً. يظهر في صفحة الكورس العامّة بعد المراجعة.",
+  pending: "فيديوك بانتظار المراجعة. لن يظهر في الصفحة العامّة قبل اعتماده.",
+  approved: "فيديوك معتمَد ويظهر في صفحة الكورس. لصقُ رابطٍ آخر يعيده إلى المراجعة.",
+  rejected: "لم يُعتمَد الفيديو. الصق رابطاً آخر ليُراجَع من جديد.",
+};
+
 export default function EditCoursePage({
   params,
 }: {
@@ -43,6 +55,7 @@ export default function EditCoursePage({
     currency: "QAR",
     is_sequential: true,
     subject: "",
+    promo_video_url: "",
   });
   /*
     ⚠️ THE EDIT SCREEN CARRIES IT OR THE BACKFILL IS UNCORRECTABLE. Every course
@@ -74,6 +87,14 @@ export default function EditCoursePage({
           currency: c.currency,
           is_sequential: c.is_sequential,
           subject: c.subject?.uuid ?? "",
+          /*
+            ⚠️ SEEDED EMPTY EVEN WHEN A VIDEO EXISTS, and that is deliberate.
+            The server stores the extracted ID and never the pasted link, so
+            there is no URL to put back — and reconstructing one here would be a
+            second place that knows the host. An empty field with the status
+            beside it reads correctly: «there is one, paste again to replace it».
+          */
+          promo_video_url: "",
         });
       })
       .catch(() => setFailed(true))
@@ -98,7 +119,20 @@ export default function EditCoursePage({
     try {
       const { price, ...rest } = form;
 
-      await api.put(`/courses/${uuid}`, { ...rest, price_minor: toMinorMoney(price) });
+      /*
+        `promo_video_url` is sent only when the teacher actually typed something:
+        the key's PRESENCE is what tells the server to touch the video at all, so
+        sending an empty string on every save would clear an approved video every
+        time the title was edited.
+      */
+      const { promo_video_url: pastedUrl, ...withoutPromo } = rest;
+      const payload: Record<string, unknown> = {
+        ...withoutPromo,
+        price_minor: toMinorMoney(price),
+      };
+      if (pastedUrl.trim() !== "") payload.promo_video_url = pastedUrl.trim();
+
+      await api.put(`/courses/${uuid}`, payload);
       router.push(`/manage/courses/${uuid}`);
     } catch (err: unknown) {
       const found = fieldErrors(err);
@@ -157,6 +191,17 @@ export default function EditCoursePage({
             value={form.description}
             onChange={(v) => setForm({ ...form, description: v })}
             error={fields.description}
+          />
+
+          {/* الفيديو الترويجي (٠١٨). الحالة تُقرأ من الخادم لأنّ المدرّس يستحقّ
+              أن يعرف لماذا لا يظهر زرّه في صفحة الكورس العامّة. */}
+          <TextField
+            id="promo_video_url"
+            label="رابط الفيديو الترويجي"
+            value={form.promo_video_url}
+            onChange={(v) => setForm({ ...form, promo_video_url: v })}
+            error={fields.promo_video_url}
+            hint={PROMO_HINT[course?.promo_video_status ?? "none"]}
           />
 
           {/* Above the price, because it decides where the course is found:

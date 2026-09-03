@@ -45,6 +45,19 @@ class PublicCourseDetailResource extends JsonResource
             // first typo fix, with a teacher's keyboard attached to an XSS sink.
             'description' => $this->description,
             'cover_url' => $this->cover_path === null ? null : asset('storage/'.$this->cover_path),
+            /*
+            | The promotional video's ID on the teacher's own channel (018).
+            |
+            | ⚠️ THE ID, NEVER A URL OR A READY-MADE EMBED ADDRESS. The embed
+            | address is a display detail built on each side from the id; put it
+            | in the payload and the host becomes part of a stored, shared public
+            | contract that cannot be changed without a version.
+            |
+            | `null` covers BOTH «no video» and «awaiting review», and does not
+            | distinguish them on purpose: telling a visitor that something is
+            | hidden pending approval is telling them it exists.
+            */
+            'promo_video_id' => $this->hasApprovedPromoVideo() ? $this->promo_video_id : null,
             'subject' => $this->subjectShape(),
             'grade_level' => $this->grade_level,
             'teacher' => $this->teacherShape(),

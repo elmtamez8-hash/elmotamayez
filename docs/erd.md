@@ -428,6 +428,18 @@ lessons gains:          status  → draft · published · archived, replacing no
                         reference_id     items had no lifecycle of their own before
                         exam_gate
 courses gains:          structure_version → the concurrency token
+
+018 — الفيديو الترويجي للكورس
+courses gains:    promo_video_id · promo_video_status · promo_video_reviewed_at
+                  · promo_video_reviewed_by → users (nullOnDelete)
+
+  ⚠️ الـID لا الرابط. المُخزَّن مُعرِّف الفيديو المستخرَج على قناة المدرّس نفسه، ولا
+  يُخزَّن النصّ الملصوق أبداً: نصٌّ خامٌّ في الجدول يقف على مسافة سطرٍ من `iframe src`.
+  ولا جدول: فيديو واحد لكلّ كورس، وعلاقةُ واحدٍ‑إلى‑واحد أعمدةٌ لا كيان.
+
+  ⚠️ والحالة ليست مشتقّة من المُعرِّف: كورسٌ يحمل مُعرِّفاً لم يُراجَع، وكورسٌ مُحي
+  مُعرِّفه بعد رفض، حالتان تشيران إلى القيمة نفسها. و`'none'` الافتراضيّة لا تعني
+  «مرفوض».
 ```
 
 - **`status` is three states, not a boolean.** A lesson any student has progress on may never

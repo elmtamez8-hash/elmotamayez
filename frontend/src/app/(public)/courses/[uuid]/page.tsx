@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CohortList } from "@/components/marketplace/CohortList";
 import { CourseCurriculum } from "@/components/marketplace/CourseCurriculum";
 import { PrivateSessionRequestForm } from "@/components/courses/PrivateSessionRequestForm";
+import { PromoVideoButton } from "@/components/courses/PromoVideoButton";
 import { StarRating } from "@/components/marketplace/StarRating";
 import { TrustScoreBadge } from "@/components/marketplace/TrustScoreBadge";
 import { EmptyState } from "@/components/ui/states/EmptyState";
@@ -212,6 +213,25 @@ export default async function CoursePage({
           )}
         </div>
       </header>
+
+      {/*
+        The promo video (018 · US1). Mounted only when there is an approved one:
+        the button is ABSENT, never disabled — a disabled control promises
+        something and then refuses it, leaving the visitor hunting for what she
+        did wrong. The server already collapses «no video» and «awaiting review»
+        into null, so this page has one condition to read.
+
+        And no booking call to action underneath it: the entrance below has been
+        on this page since 023, and a second one is a duplicate of a live door.
+      */}
+      {course.promo_video_id !== null && (
+        <section className="flex flex-col gap-3">
+          <PromoVideoButton
+            videoId={course.promo_video_id}
+            courseTitle={course.title}
+          />
+        </section>
+      )}
 
       {course.description && (
         <section className="flex flex-col gap-3">

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Courses;
 
+use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
+use App\Modules\Courses\Listeners\ClearPromoVideoOnOffboarding;
 use App\Modules\Courses\Listeners\SyncLessonDurationFromAsset;
 use App\Modules\Courses\Support\CoursesPersonalData;
 use App\Modules\Media\Events\MediaAssetReady;
@@ -31,5 +33,16 @@ class CoursesServiceProvider extends Module
         // Media does not know lessons exist. It announces that bytes finished
         // processing; who cares is the subscriber's business.
         Event::listen(MediaAssetReady::class, SyncLessonDurationFromAsset::class);
+
+        /*
+        | Spec 018 · FR-012 — a departing teacher's promo videos stop showing.
+        |
+        | A second subscriber beside `Marketplace\Listeners\UnlistDepartedTeacher`,
+        | which hides the departing teacher's courses. This one clears the stored
+        | approval so a later relisting cannot bring an unreviewed video back
+        | with it — and it is a listener rather than a write from `Compliance`
+        | because Constitution III asks for an event across a module boundary.
+        */
+        Event::listen(TeacherOffboardingCompleted::class, ClearPromoVideoOnOffboarding::class);
     }
 }

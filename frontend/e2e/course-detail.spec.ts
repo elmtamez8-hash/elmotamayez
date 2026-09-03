@@ -29,6 +29,40 @@ test.describe("course detail", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
   });
 
+  /*
+   * Spec 018 · US1 — the promo video is revealed, never preloaded.
+   *
+   * ⚠️ THE ORDER IS THE TEST. An implementation that mounts the frame hidden
+   * looks identical on screen and loads the third party's scripts and cookies
+   * for every visitor of every course page — which is the whole thing R3
+   * decided against. Asserting only «after the click there is a frame» passes
+   * against exactly that build.
+   *
+   * Skipped when the seeded data carries no approved video: this asserts the
+   * behaviour of the button, not the presence of demo content.
+   */
+  test("the promo video loads nothing until the button is pressed", async ({ page }) => {
+    await page.goto("/courses");
+    const card = page.locator("article").first();
+    const title = (await card.getByRole("heading", { level: 3 }).innerText()).trim();
+    await card.getByRole("link", { name: title }).click();
+
+    const button = page.getByRole("button", { name: /شاهد نموذجاً من الشرح/ });
+
+    if ((await button.count()) === 0) {
+      test.skip(true, "no seeded course carries an approved promo video");
+      return;
+    }
+
+    // Absent, not hidden.
+    await expect(page.locator("iframe")).toHaveCount(0);
+
+    await button.click();
+
+    await expect(page.locator("iframe")).toHaveCount(1);
+    await expect(page.locator("iframe")).toHaveAttribute("src", /youtube-nocookie\.com\/embed\//);
+  });
+
   test("the course page is readable with JavaScript switched off", async ({ browser }) => {
     // SC-008: a crawler runs no JavaScript, and the page is server-rendered for
     // exactly that reader. A context with JS disabled is the only honest way to

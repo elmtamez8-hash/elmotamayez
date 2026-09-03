@@ -32,6 +32,18 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/courses/{course}/publish', [CourseController::class, 'publish']);
     Route::delete('/courses/{course}', [CourseController::class, 'destroy']);
 
+    /*
+    | Reviewing a promotional video (018 · FR-006) — a PLATFORM decision.
+    |
+    | ⚠️ NO ROUTE-MODEL BINDING: the uuid is passed as a string and resolved
+    | inside the action with `withoutWorkspaceScope()`. An implicit `{course}`
+    | binding here would resolve inside the reviewer's own fallback workspace —
+    | `WorkspaceContext::id()` reads `users.last_workspace_id` for platform staff
+    | too — and would answer 404 for every course outside it, while passing its
+    | own test on a single-workspace fixture.
+    */
+    Route::post('/courses/{courseUuid}/promo-video/review', [CourseController::class, 'reviewPromoVideo']);
+
     // The student-facing tree: published nodes only.
     Route::get('/courses/{course}/sections', [SectionController::class, 'index']);
 
