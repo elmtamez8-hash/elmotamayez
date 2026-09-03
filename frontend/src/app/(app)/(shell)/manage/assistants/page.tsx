@@ -88,7 +88,7 @@ export default function AssistantsPage() {
           من يعمل معك، وعلى أيّ كورسات. أمّا <strong>ما</strong> يستطيع كلٌّ منهم فعله فيُضبط
           بنداً بنداً على دوره من شاشة الأدوار في لوحة الإدارة، لا من هنا. ويُدعى المساعد
           ويُزال من{" "}
-          <Link href="/members" className="text-primary underline">
+          <Link href="/members" className="text-primary-ink underline">
             شاشة الأعضاء
           </Link>
           . ولا يرى أيّ مساعدٍ بياناتٍ ماليّة مهما مُنح من بنود.

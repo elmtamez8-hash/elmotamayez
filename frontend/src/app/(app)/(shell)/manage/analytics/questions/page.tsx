@@ -58,7 +58,7 @@ export default function ItemAnalysisPage() {
         row.question === null ? (
           "—"
         ) : (
-          <Link href={`/manage/bank/${row.question.uuid}`} className="text-primary hover:underline">
+          <Link href={`/manage/bank/${row.question.uuid}`} className="text-ink underline-offset-4 hover:underline">
             {row.question.content.length > 90
               ? `${row.question.content.slice(0, 90)}…`
               : row.question.content}

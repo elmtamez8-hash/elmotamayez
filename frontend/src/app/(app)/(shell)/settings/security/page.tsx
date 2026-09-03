@@ -306,7 +306,7 @@ function TwoFactorSection() {
               filled in, which is the path that needs no typing at all. */}
           <a
             href={uri}
-            className="block text-sm font-medium text-primary underline underline-offset-4"
+            className="block text-sm font-medium text-primary-ink underline underline-offset-4"
           >
             فتح تطبيق المصادقة مباشرةً
           </a>

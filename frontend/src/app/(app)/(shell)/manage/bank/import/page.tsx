@@ -71,7 +71,7 @@ export default function ImportPage() {
       key: "filename",
       header: "الملف",
       render: (row) => (
-        <Link href={`/manage/bank/import/${row.uuid}`} className="text-primary hover:underline">
+        <Link href={`/manage/bank/import/${row.uuid}`} className="text-ink underline-offset-4 hover:underline">
           {row.filename}
         </Link>
       ),
@@ -128,7 +128,7 @@ export default function ImportPage() {
               className="block w-full rounded-xl border border-line bg-surface p-2 text-sm text-ink file:me-3 file:rounded-lg file:border-0 file:bg-primary-soft file:px-3 file:py-1.5 file:text-primary-ink"
             />
             {errors.file !== undefined && (
-              <p className="mt-1 text-sm text-danger">{errors.file}</p>
+              <p className="mt-1 text-sm text-danger-ink">{errors.file}</p>
             )}
           </div>
 

@@ -42,7 +42,7 @@ export default function PrivacyPage() {
             One source, rendered once — a policy shown in two places drifts at the
             first correction, and then the version number stops meaning anything.
           */}
-          <a className="text-sm text-primary underline" href="/privacy">
+          <a className="text-sm text-primary-ink underline" href="/privacy">
             اقرأ النصّ الكامل
           </a>
         </Card>

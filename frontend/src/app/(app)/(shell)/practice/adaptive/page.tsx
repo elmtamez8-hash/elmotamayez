@@ -96,7 +96,7 @@ export default function AdaptivePracticePage() {
           اختر فكرةً، وسنغيّر صعوبةَ السؤال التالي بحسب إجاباتك حتى تُتقنها. لا تُحتسب هذه
           الجلسات في درجاتك.
         </p>
-        <Link href="/practice" className="mt-2 inline-block text-sm text-primary underline">
+        <Link href="/practice" className="mt-2 inline-block text-sm text-primary-ink underline">
           أو ابْنِ ورقةَ تدريبٍ كاملة
         </Link>
       </div>

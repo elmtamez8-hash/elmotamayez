@@ -52,7 +52,7 @@ export function RedeemButton({
         {busy ? "جارٍ الاستبدال…" : "استبدل"}
       </Button>
       {error !== null && (
-        <p role="alert" className="text-sm text-danger">
+        <p role="alert" className="text-sm text-danger-ink">
           {error}
         </p>
       )}

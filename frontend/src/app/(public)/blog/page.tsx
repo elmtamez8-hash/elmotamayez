@@ -88,7 +88,7 @@ export default async function BlogIndexPage({
           title="لا توجد مقالات بعد"
           description="سيظهر هنا ما ينشره المدرّسون. تصفَّحِ المدرّسين في هذه الأثناء."
           action={
-            <Link href="/teachers" className="font-semibold text-primary underline">
+            <Link href="/teachers" className="font-semibold text-primary-ink underline">
               تصفَّحِ المدرّسين
             </Link>
           }
@@ -135,7 +135,7 @@ export default async function BlogIndexPage({
         // which is the whole point of a paginated index on an indexed site.
         <nav className="mt-10 flex items-center justify-between" aria-label="صفحات المدوّنة">
           {current > 1 ? (
-            <Link href={`/blog?page=${current - 1}`} className="font-semibold text-primary">
+            <Link href={`/blog?page=${current - 1}`} className="font-semibold text-primary-ink">
               الأحدث
             </Link>
           ) : (
@@ -145,7 +145,7 @@ export default async function BlogIndexPage({
             صفحة {current} من {lastPage}
           </span>
           {current < lastPage ? (
-            <Link href={`/blog?page=${current + 1}`} className="font-semibold text-primary">
+            <Link href={`/blog?page=${current + 1}`} className="font-semibold text-primary-ink">
               الأقدم
             </Link>
           ) : (

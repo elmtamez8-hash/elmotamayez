@@ -63,7 +63,7 @@ export function ChatHeader({
 
       <span
         aria-hidden="true"
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary"
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary-ink"
       >
         {title.trim().charAt(0)}
       </span>

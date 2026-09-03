@@ -244,11 +244,11 @@ export function ExamItemsPanel({ examUuid }: { examUuid: string }) {
 
           {!searching && q.trim() !== "" && results.length === 0 && (
             <p className="text-sm text-ink-muted">
-              لا نتائج. <Link href="/manage/bank/new" className="text-primary hover:underline">
+              لا نتائج. <Link href="/manage/bank/new" className="text-primary-ink hover:underline">
                 أنشئ سؤالاً جديداً
               </Link>{" "}
               أو{" "}
-              <Link href="/manage/bank/import" className="text-primary hover:underline">
+              <Link href="/manage/bank/import" className="text-primary-ink hover:underline">
                 استورد ملفاً
               </Link>
               .

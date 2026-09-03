@@ -187,7 +187,7 @@ export default async function ArticlePage({
       ) : null}
 
       <p className="mt-14">
-        <Link href="/blog" className="font-semibold text-primary underline">
+        <Link href="/blog" className="font-semibold text-primary-ink underline">
           كلّ المقالات
         </Link>
       </p>

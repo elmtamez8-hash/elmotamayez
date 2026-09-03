@@ -330,7 +330,7 @@ function DeleteButton({
       onClick={onDelete}
       disabled={busy}
       aria-label={`حذف «${label}»`}
-      className="rounded p-1 text-ink-muted transition hover:bg-danger/10 hover:text-danger disabled:opacity-40"
+      className="rounded p-1 text-ink-muted transition hover:bg-danger/10 hover:text-danger-ink disabled:opacity-40"
     >
       <TrashIcon className="size-4" />
     </button>

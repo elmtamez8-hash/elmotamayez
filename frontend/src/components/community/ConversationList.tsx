@@ -115,7 +115,7 @@ function Avatar({ name }: { name: string | null | undefined }) {
   return (
     <span
       aria-hidden="true"
-      className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary"
+      className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary-ink"
     >
       {letter}
     </span>

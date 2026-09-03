@@ -205,7 +205,7 @@ export default function ManageRewardsPage() {
                 : "اتركه فارغاً فلا سقف."}
             </span>
             {errors.monthly_cap !== undefined && (
-              <span className="mt-1 block text-sm text-danger">{errors.monthly_cap}</span>
+              <span className="mt-1 block text-sm text-danger-ink">{errors.monthly_cap}</span>
             )}
           </label>
 

@@ -96,7 +96,7 @@ export function FocusTimer({ onFinished }: { onFinished?: () => void }) {
           </p>
         </div>
 
-        {error !== null && <p className="text-sm text-danger">{error}</p>}
+        {error !== null && <p className="text-sm text-danger-ink">{error}</p>}
 
         {session === null ? (
           <div className="flex flex-wrap items-center gap-2">

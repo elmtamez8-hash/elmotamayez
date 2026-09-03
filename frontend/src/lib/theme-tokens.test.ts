@@ -96,6 +96,50 @@ describe("theme tokens", () => {
     */
   }, 30_000);
 
+  it("never paints TEXT with a fill hue whose -ink sibling exists for exactly that", () => {
+    /*
+      ⚠️ رمزٌ **معرَّفٌ** في المكانِ الخطأ — وهو عطلٌ لا يراه الحارسُ فوقَه.
+      `text-primary` صنفٌ صحيحٌ يُنتِجُ قاعدةً حقيقيّة، فيمرُّ من فحصِ «توكنٌ لا
+      وجودَ له» سالماً؛ لكنّ `--color-primary` مارونٌ **لا يفتحُ في السمةِ
+      الداكنة** (وتعليقُه في `globals.css` يقولُ ذلك حرفيّاً: «Maroon reaches
+      1.7:1 on #191315 — as TEXT it is unreadable in the dark»)، فالنصُّ
+      المكتوبُ به غيرُ مقروءٍ عند ١٫٧:١. وقد شحنَ في **عشرينَ** موضعاً — منها
+      نصُّ السؤالِ في بنكِ الأسئلة، ورسائلُ الخطأِ الحمراءُ في ثلاثِ شاشات،
+      وروابطُ التصفّحِ في المدوّنةِ العامّة — واكتشفَه مدرّسٌ ينظرُ إلى شاشتِه،
+      لا اختبار.
+
+      ⚠️ والقاعدةُ **مشتقّةٌ لا مكتوبة**: كلُّ رمزٍ له شقيقٌ `-ink` هو حشوٌ
+      بالتعريف، لأنّ الشقيقَ لم يُخلَقْ إلّا لأنّ الأصلَ يرسبُ نصّاً. فرمزٌ
+      يُضافُ غداً بشقيقِه يدخلُ هذا الحارسَ من تلقائِه — وقائمةٌ مكتوبةٌ هنا
+      كانت لتشيخَ في أوّلِ واحد.
+
+      ⚠️ ولا يشملُ `accent`: شقيقُه `-foreground` لا `-ink`، وهو لونُ ما يُكتَبُ
+      **فوقَ** الحشوِ لا بديلٌ عنه — فلا مقابلَ أعرضُه، والحارسُ الذي يمنعُ بلا
+      بديلٍ يُلتَفُّ عليه.
+    */
+    const fills = [...definedTokens()]
+      .filter((token) => token.endsWith("-ink"))
+      .map((token) => token.slice(0, -"-ink".length));
+
+    // The premise: a broken parse would leave this empty and the scan below
+    // would be green by matching nothing at all.
+    expect(fills).toContain("primary");
+    expect(fills).toContain("danger");
+
+    // `(?!-)` so `text-primary-ink` and `text-primary-soft` are untouched: the
+    // offence is the BARE hue, and a pattern without it bans its own fix.
+    const banned = new RegExp(String.raw`\btext-(${fills.join("|")})\b(?!-)`, "g");
+    const offences: string[] = [];
+
+    for (const file of sourceFiles(SRC)) {
+      for (const match of code(readFileSync(file, "utf8")).matchAll(banned)) {
+        offences.push(`${file.slice(SRC.length + 1)}: ${match[0]} — use ${match[0]}-ink`);
+      }
+    }
+
+    expect(offences).toEqual([]);
+  }, 30_000);
+
   it("declares color-scheme for both themes, so the browser's own widgets are not painted light-on-dark", () => {
     /*
       ⚠️ هذا ليس عن رمزٍ لونيّ. `@theme` يحكمُ ما نرسمُه نحن، ولا يقولُ شيئاً عن

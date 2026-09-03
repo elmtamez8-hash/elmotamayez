@@ -73,7 +73,7 @@ export default function GradingQueuePage() {
       key: "open",
       header: "الإجراء",
       render: (row) => (
-        <Link href={`/manage/grading/${row.uuid}`} className="text-primary hover:underline">
+        <Link href={`/manage/grading/${row.uuid}`} className="text-primary-ink hover:underline">
           صحّح
         </Link>
       ),
