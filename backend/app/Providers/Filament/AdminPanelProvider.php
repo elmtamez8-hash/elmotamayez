@@ -286,6 +286,12 @@ class AdminPanelProvider extends PanelProvider
                 in: app_path('Modules/Payments/Filament/Pages'),
                 for: 'App\Modules\Payments\Filament\Pages',
             )
+            // ⚠️ بلا هذا السطرِ صفحةُ إنشاءِ الحسابِ ملفٌّ لا شاشة — والتحذيرُ
+            // نفسُه مكتوبٌ فوقَ السطرِ السابقِ لأنّه وقعَ من قبل.
+            ->discoverPages(
+                in: app_path('Modules/Identity/Filament/Pages'),
+                for: 'App\Modules\Identity\Filament\Pages',
+            )
             ->pages([
                 Dashboard::class,
             ])

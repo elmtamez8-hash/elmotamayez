@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
+use App\Modules\Identity\Filament\Pages\CreateAccount;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\UserStatus;
 use BackedEnum;
@@ -22,11 +23,18 @@ use UnitEnum;
 /**
  * دفترُ حسابات المنصّة — **قراءةً فقط**، ولمدير المنصّة وحدَه.
  *
- * ⚠️ لا صفحةَ إنشاءٍ ولا تعديلٍ ولا حذف، وليس تكاسُلاً: `users.status` بوّابةُ
+ * ⚠️ ولا تعديلَ ولا حذف، وليس تكاسُلاً: `users.status` بوّابةُ
  * دخولٍ يقرؤها مسارُ تسجيلِ الدخول، و`platform_role` يقرِّرُ أيَّ منتَجٍ يرى صاحبُ
  * الحساب، و`is_super_admin` هو صلاحيةُ المنصّةِ كلِّها. حقلٌ من هذهِ في نموذجٍ
  * عامٍّ هو بابٌ ثانٍ لقرارٍ تملكُه إجراءاتُ `Identity` وحدَها — ومحوُ حسابٍ من هنا
  * يتجاوزُ عقدَ `PersonalDataOwner` بأكملِه، فيتركُ صفوفاً يتيمةً في كلِّ وحدة.
+ *
+ * ⚠️ والإنشاءُ **موجودٌ** الآن، وهو ما يُبقي ما سبقَ صحيحاً بدلَ أن ينقضَه.
+ * {@see CreateAccount} صفحةٌ لا تكتبُ عموداً
+ * واحداً بنفسِها: تنادي `RegisterStudent` أو `RegisterParent` — الإجراءَ ذاتَه
+ * الذي ينادِيه بابُ التسجيلِ العلنيّ — فلا حقلَ فيها لـ`platform_role` ولا
+ * لـ`status` ولا لـ`is_super_admin`، والصفُّ الذي تُخرِجُه هو صفُّ ذلك الباب.
+ * الاعتراضُ أعلاه على **حقولٍ في نموذجٍ عامّ**، لا على الإنشاء.
  *
  * ⚠️ والبابُ مُعلَنٌ صراحةً. `viewAny()` الافتراضيّةُ تسمحُ، وهذا المستودعُ دفعَ
  * ثمنَ ذلك مرّةً في `OrderResource`: قائمةُ Filament لا تستدعي سياسةَ الصفِّ أبداً،
