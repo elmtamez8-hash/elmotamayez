@@ -6,6 +6,7 @@ namespace App\Modules\Payments\Filament\Pages;
 
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Payments\Actions\ListCreditPackages;
 use App\Modules\Payments\Actions\PurchaseCredits;
 use App\Modules\Payments\Actions\UploadPaymentReceipt;
@@ -207,6 +208,20 @@ class GrantCreditSubscription extends Page
             || ! $course instanceof Course || ! $package instanceof CreditPackage
             || ! $receipt instanceof UploadedFile) {
             Notification::make()->danger()->title('بيانات ناقصة، لم يُنشأ شيء.')->send();
+
+            return;
+        }
+
+        /*
+        | ⚠️ THE SECOND FACTOR, ASKED HERE BECAUSE THE PANEL NEVER PASSES THROUGH
+        | `2fa.required`. This page mints a balance out of a bank receipt — the
+        | widest money decision in the product — and `/admin` is
+        | session-authenticated, so the middleware the API's own approval routes
+        | carry never runs for it. The sentence is `TwoFactorMandate`'s, so the
+        | panel and the API refuse the same operation in the same words.
+        */
+        if (($refusal = TwoFactorMandate::refusalFor($officer)) !== null) {
+            Notification::make()->danger()->title('التحقّق بخطوتين مطلوب')->body($refusal)->persistent()->send();
 
             return;
         }

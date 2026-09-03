@@ -10,6 +10,7 @@ use App\Modules\Identity\Actions\RegisterStudent;
 use App\Modules\Identity\Data\RegisterParentData;
 use App\Modules\Identity\Data\RegisterStudentData;
 use App\Modules\Identity\Support\PlatformRole;
+use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Identity\Support\UserStatus;
 use App\Modules\Marketplace\Models\Region;
 use App\Modules\Marketplace\Models\SchoolYear;
@@ -246,6 +247,20 @@ class CreateAccount extends Page
     public function create(): void
     {
         $data = $this->form->getState();
+
+        /*
+        | ⚠️ THE SECOND FACTOR, FOR THE REASON THE ORDERS SCREEN ASKS IT: `/admin`
+        | is session-authenticated and never passes through `2fa.required`, and
+        | minting an account for somebody else is an identity decision. Same
+        | sentence as the API, from `TwoFactorMandate`.
+        */
+        $actor = Auth::user();
+
+        if ($actor instanceof User && ($refusal = TwoFactorMandate::refusalFor($actor)) !== null) {
+            Notification::make()->danger()->title('التحقّق بخطوتين مطلوب')->body($refusal)->persistent()->send();
+
+            return;
+        }
 
         try {
             $user = $data['platform_role'] === PlatformRole::Parent->value

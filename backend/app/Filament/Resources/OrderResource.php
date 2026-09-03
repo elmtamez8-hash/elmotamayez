@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\OrderResource\Pages;
 use App\Models\User;
+use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\RejectOrder;
 use App\Modules\Payments\Enums\OrderKind;
@@ -180,6 +181,10 @@ class OrderResource extends Resource
                     ->modalHeading('اعتماد التحويل')
                     ->modalDescription('يُنشئ هذا التسجيل أو الرصيد فوراً. افتحِ الإيصال وطابقِ المبلغ قبل الاعتماد.')
                     ->action(function (Order $record): void {
+                        if (self::refusedForTwoFactor()) {
+                            return;
+                        }
+
                         app(ApproveOrder::class)->handle($record, self::actor(), request()->ip(), request()->userAgent());
 
                         Notification::make()->success()->title('اعتُمد الطلب')->send();
@@ -203,6 +208,10 @@ class OrderResource extends Resource
                             ->helperText('يصل هذا النصّ إلى المشتري، فاكتبْ ما يمكنه التصرّف بناءً عليه.'),
                     ])
                     ->action(function (Order $record, array $data): void {
+                        if (self::refusedForTwoFactor()) {
+                            return;
+                        }
+
                         app(RejectOrder::class)->handle(
                             $record,
                             self::actor(),
@@ -221,6 +230,38 @@ class OrderResource extends Resource
      * but the Actions type it as `User` and a `??` returning something else would
      * put the wrong name in the audit row that records who decided.
      */
+    /**
+     * ⚠️ THE PANEL NEVER PASSED THROUGH `2fa.required`, AND THAT WAS THE HOLE.
+     *
+     * `/orders/{uuid}/approve` and `/reject` each carry that middleware in their
+     * own route definition — but `/admin` is session-authenticated and reaches
+     * the same Actions without touching it. So moving the approval here would
+     * have moved it out from behind the second factor, on the one decision that
+     * mints an entitlement.
+     *
+     * ⚠️ AND IT IS ASKED HERE RATHER THAN ON `canViewAny()`. This repository's
+     * rule is «route by route, never a group»: refusing the whole panel would
+     * lock every teacher out of screens that were never sensitive, and would grow
+     * an exception list nobody prunes.
+     *
+     * The sentence is `TwoFactorMandate`'s, not one written here — the API
+     * answers with the same words for the same operation.
+     */
+    private static function refusedForTwoFactor(): bool
+    {
+        $refusal = TwoFactorMandate::refusalFor(self::actor());
+
+        if ($refusal === null) {
+            return false;
+        }
+
+        // Told, never hidden: a control that vanishes reads as a broken screen,
+        // and the reader cannot act on what they are not shown.
+        Notification::make()->danger()->title('التحقّق بخطوتين مطلوب')->body($refusal)->persistent()->send();
+
+        return true;
+    }
+
     private static function actor(): User
     {
         $user = Auth::user();

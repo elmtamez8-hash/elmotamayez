@@ -36,6 +36,49 @@ final class TwoFactorMandate
     }
 
     /**
+     * The grace period has run out and the second factor is still off.
+     *
+     * ⚠️ MOVED HERE FROM `RequireTwoFactor`, WHICH NOW CALLS IT — not copied. The
+     * panel needs the identical answer for the identical operation: `/admin` is
+     * session-authenticated, so approving a transfer there never passed through
+     * the `2fa.required` middleware the two API routes carry, and a second
+     * spelling would have put one answer at the button and another at the route.
+     *
+     * ⚠️ NO ROW AND NO DEADLINE MEAN «NOT OVERDUE», NOT «NOT ENROLLED». Overdue
+     * is a PAST deadline on an account that has not enrolled, and nothing else.
+     * The super admin had no `user_security_settings` row at all when this was
+     * written — read this arm backwards and the platform's only approver is
+     * locked out of every approval the moment it deploys, over a grace period
+     * they were never given.
+     */
+    public static function isOverdue(User $user): bool
+    {
+        if ($user->hasTwoFactorEnabled()) {
+            return false;
+        }
+
+        $deadline = $user->securitySettings?->two_factor_required_at;
+
+        return $deadline !== null && $deadline->isPast();
+    }
+
+    /**
+     * The sentence to show, or null when there is nothing to refuse.
+     *
+     * ⚠️ THE SAME WORDS THE API ANSWERS WITH, and it is shown rather than used to
+     * hide the control. A button that silently disappears reads as something
+     * broken; this repository's own rule is that a menu item nobody may open is
+     * worse than a missing one — the fix is to say why, and to name the screen
+     * that fixes it.
+     */
+    public static function refusalFor(User $user): ?string
+    {
+        return self::isOverdue($user)
+            ? 'انتهت مهلة تفعيل التحقق بخطوتين. فعّله من إعدادات الأمان لمتابعة هذه العملية.'
+            : null;
+    }
+
+    /**
      * Idempotent: a teacher who joins a second workspace keeps the first
      * deadline instead of being handed a fresh grace period each time.
      */

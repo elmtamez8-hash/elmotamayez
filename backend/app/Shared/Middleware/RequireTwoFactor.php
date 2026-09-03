@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Shared\Middleware;
 
 use App\Models\User;
+use App\Modules\Identity\Support\TwoFactorMandate;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,18 +28,16 @@ class RequireTwoFactor
     {
         $user = $request->user();
 
-        if (! $user instanceof User || $user->hasTwoFactorEnabled()) {
-            return $next($request);
-        }
-
-        $deadline = $user->securitySettings?->two_factor_required_at;
-
-        if ($deadline === null || $deadline->isFuture()) {
+        // ⚠️ THE PREDICATE MOVED TO `TwoFactorMandate` AND IS CALLED, NOT COPIED.
+        // `/admin` is session-authenticated and never passes through here, so the
+        // panel had to ask the same question — and two spellings of it would put
+        // one answer on a button and another on the route behind it.
+        if (! $user instanceof User || ($refusal = TwoFactorMandate::refusalFor($user)) === null) {
             return $next($request);
         }
 
         return response()->json([
-            'message' => 'انتهت مهلة تفعيل التحقق بخطوتين. فعّله من إعدادات الأمان لمتابعة هذه العملية.',
+            'message' => $refusal,
             'code' => 'two_factor_required',
         ], 403);
     }
