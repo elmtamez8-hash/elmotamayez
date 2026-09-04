@@ -214,20 +214,24 @@ specs/025-implicit-teacher-workspace/
 backend/
 ├── app/Modules/Marketplace/
 │   ├── Actions/RegisterTeacher.php          # تُطلِقُ TeacherRegistered · تكتبُ الطلبَ في مساحةِ صاحبِه
+│   ├── Actions/ApproveTeacherApplication.php# يختمُ participates_in_marketplace هنا لا عندَ الميلاد
+│   ├── Http/Controllers/TeacherReviewController.php # withoutWorkspaceScope() — الطلباتُ تتوزّعُ على N مساحة
 │   ├── Actions/SubmitTeacherApplication.php # ملفُّ المدرّسِ يرثُ مساحةَ الطلب (بلا تغييرِ سطر)
 │   ├── Events/TeacherRegistered.php         # جديد
 │   └── Support/PlatformWorkspace.php        # يُحذَفُ في الحركةِ ٥
 ├── app/Modules/Tenancy/
-│   ├── Actions/CreateWorkspace.php          # يقبلُ participates_in_marketplace
+│   ├── Actions/CreateWorkspace.php          # + LogsActivity · يرفضُ مالكاً غيرَ مدرّس · FR-008
 │   ├── Listeners/CreateImplicitWorkspace.php# جديد — متزامن
 │   ├── Http/Requests/CreateWorkspaceRequest.php # البابُ يُغلَق
 │   ├── Policies/WorkspacePolicy.php         # create() — التهجئةُ الواحدة
 │   ├── Support/Permissions.php              # + workspaces.create
 │   ├── Http/Controllers/WorkspaceController.php # index() يصيرُ «أماكن عملي»
 │   └── Database/Migrations/                 # ثلاثُ هجرات: ردم · نقل · حذف
-├── app/Modules/Identity/Http/Resources/UserResource.php # + workplaces
+├── app/Modules/Identity/Http/Resources/UserResource.php # + workspaces (لا workplaces)
 ├── app/Filament/Resources/WorkspaceResource.php         # FR-009: شاشةُ إنشاءٍ تُبنى — canCreate() = false اليوم
-└── tests/Feature/{Tenancy,Marketplace}/
+│                                                        # السابقة: handleRecordCreation في CreatePlatformStaff
+├── config/marketplace.php                               # كتلةُ platform_workspace تُحذَفُ مع الصنف
+└── tests/Feature/{Tenancy,Marketplace,Identity}/        # + قلبُ ٤ حالاتٍ قائمة · QueryBudgetTest
 
 frontend/
 ├── src/app/(app)/(shell)/layout.tsx         # اللافتةُ تتبعُ العدد (FR-014أ · FR-025)
@@ -237,11 +241,19 @@ frontend/
 ├── src/app/(app)/(shell)/{members,manage/assistants}/page.tsx # لغةُ «فريقك»
 ├── src/app/(app)/invitations/[token]/page.tsx
 ├── src/components/{community/ChatHeader,sessions/UnlockNotice}.tsx
-└── src/lib/workspace-vocabulary.test.ts      # جديد — حارسُ SC-002 المشتقّ
+├── src/lib/auth-context.tsx                  # توثيقُ isLearner يستشهدُ ببندٍ يُلغى
+└── src/lib/workspace-vocabulary.test.ts      # جديد — حارسُ SC-002، إبرتُه الجذرُ «مساح»
+
+# وخمسةُ ملفّاتٍ لم تُجدوَلْ أوّلاً، كلُّها «مساحتك»: StoreItemForm ·
+# manage/certificates · messages/[uuid] · manage/exams · dashboard
+
+docs/
+├── README.md                                 # صلاحيّةٌ جديدةٌ · تفويضُ نقطةِ نهايةٍ تغيّر
+└── erd.md                                    # «default false» يبقى صحيحاً بعدَ عكسِ القرار
 ```
 
 **Structure Decision**: الشجرةُ القائمةُ كما هي — `backend/` وحدَتان تُمَسّان (Tenancy ·
-Marketplace) وثالثةٌ بحقلٍ واحد (Identity)، و`frontend/` تسعةُ ملفّاتٍ نصّيّةٍ وصفحةٌ تُحذَف.
+Marketplace) وثالثةٌ بحقلٍ واحد (Identity)، و`frontend/` **خمسةَ عشرَ** ملفّاً نصّيّاً وصفحةٌ تُحذَف.
 لا وحدةَ جديدةٌ، فلا سطرَ جديدٌ في `phpstan.neon`. **ولا ملفَّ مسارٍ ثانياً يُجيبُ
 `/workspaces`** — ملفّانِ على مسارٍ واحدٍ يُعطِّلانِ التطبيقَ كلَّه بـ500، وهي عطلٌ دفعَ
 ثمنَه هذا المستودعُ مرّةً.
