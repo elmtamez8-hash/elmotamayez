@@ -9,6 +9,7 @@ use App\Modules\Marketplace\Models\TeacherApplication;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Models\Workspace;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Spec 025 · FR-024 — the orphan workspace is emptied, then deleted, and the
@@ -212,4 +213,86 @@ it('stops rather than guess when a row belongs to somebody who owns no workspace
     // move refuses — the migration after this one deletes the workspace for good,
     // and FR-024 makes proving it empty part of the requirement, not a courtesy.
     expect(fn () => runMove())->toThrow(RuntimeException::class, 'owns no workspace');
+});
+
+/*
+| ⚠️ THESE TWO CASES EXIST BECAUSE A REAL DATABASE DISAGREED WITH THE MEASUREMENT.
+|
+| Production's orphan held rows in four tables, so the move migration handled
+| four. A developer's database held six — `blocked_terms` (the six defaults
+| `SeedDefaultBlockedTerms` writes, identical in every workspace) and the
+| «غير مصنّف» fallback `concepts` row. The delete migration THREW and named the
+| table, which is how they were found at all: the reverse-check earning its keep
+| outside a test fixture.
+|
+| They are deleted, not moved, because they are the same category as
+| `platform_metrics_daily` — written by machinery, owned by nobody, reproduced in
+| every workspace. Everything else still stops the migration.
+*/
+it('deletes the seeded rows nobody authored, and moves nothing of them', function (): void {
+    $orphan = orphanWorkspace();
+
+    // ⚠️ `uuid` written explicitly: a raw insert boots no model, so `HasUuid`
+    // never fires — the rule this repository already paid for on the ledger.
+    DB::table('blocked_terms')->insert([
+        ['uuid' => (string) Str::uuid(), 'workspace_id' => $orphan->getKey(), 'term' => 'واتساب', 'policy' => 'flag', 'created_at' => now(), 'updated_at' => now()],
+        ['uuid' => (string) Str::uuid(), 'workspace_id' => $orphan->getKey(), 'term' => 'تلغرام', 'policy' => 'flag', 'created_at' => now(), 'updated_at' => now()],
+    ]);
+
+    runMove();
+
+    expect(DB::table('blocked_terms')->where('workspace_id', $orphan->getKey())->exists())->toBeFalse();
+
+    // And the deletion is now actually possible, which is the whole point.
+    runDelete();
+    expect(Workspace::query()->whereNull('owner_user_id')->exists())->toBeFalse();
+});
+
+it('refuses to delete a fallback concept that something still points at', function (): void {
+    $orphan = orphanWorkspace();
+    [, $teacher] = $this->createWorkspaceWithOwner([], ['platform_role' => PlatformRole::Teacher]);
+
+    $conceptId = DB::table('concepts')->insertGetId([
+        'uuid' => (string) Str::uuid(),
+        'workspace_id' => $orphan->getKey(),
+        'subject_id' => null,
+        'name' => 'غير مصنّف',
+        'created_by' => null,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    /*
+    | ⚠️ THE REFERENCE CHECK IS THE CONDITION THAT MATTERS. «No subject and no
+    | creator» identifies a row as auto-created; it does not make it disposable.
+    | A concept questions point at is somebody's teaching material, and the right
+    | outcome is that the migration stops rather than quietly taking it away.
+    */
+    DB::table('concept_stats')->insert([
+        'workspace_id' => $orphan->getKey(),
+        'concept_id' => $conceptId,
+        // 0, never null: NULL never equals NULL, so a nullable column in a unique
+        // index does not bite — the sentinel is the whole reason this column is
+        // NOT NULL with 0 meaning «the concept overall».
+        'lesson_id' => 0,
+        'attempts_count' => 1,
+        'wrong_count' => 0,
+        'wrong_pct' => null,
+        'computed_at' => now(),
+    ]);
+
+    runMove();
+
+    expect(DB::table('concepts')->where('id', $conceptId)->exists())->toBeTrue();
+
+    /*
+    | ⚠️ THE ASSERTION IS THE REFUSAL, NOT WHICH TABLE IT NAMES. The sweep walks
+    | the schema listing in its own order, so here it reaches `concept_stats`
+    | before `concepts` — both are true, and pinning one makes this test fail the
+    | day somebody adds a table earlier in the alphabet. What must hold is that
+    | the deletion stopped and the concept is still there.
+    */
+    expect(fn () => runDelete())->toThrow(RuntimeException::class, 'Refusing to delete the orphan workspace');
+
+    expect($teacher->fresh())->not->toBeNull();
 });

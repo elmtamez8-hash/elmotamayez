@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Spec 025 · FR-024, first half — empty the orphan workspace into the workspaces
@@ -47,15 +48,72 @@ return new class extends Migration
             $this->moveProfiles((int) $orphan->id);
             $this->moveAvailability((int) $orphan->id);
 
-            /*
-            | ⛔ DERIVED, SO DELETED — NOT MOVED. `platform_metrics_daily` is
-            | recomputed nightly and its `workspace_id = 0` sentinel row is the
-            | platform total. Carrying these rows into a teacher's workspace would
-            | double a number in the platform report with nothing anywhere to say
-            | why.
-            */
-            DB::table('platform_metrics_daily')->where('workspace_id', $orphan->id)->delete();
+            $this->dropMachineWritten((int) $orphan->id);
         });
+    }
+
+    /**
+     * Rows nobody authored: deleted with the workspace, never moved.
+     *
+     * ⚠️ THE CATEGORY IS «WRITTEN BY MACHINERY, OWNED BY NOBODY», and each member
+     * of it is named with its evidence rather than pattern-matched. Everything
+     * outside this method still stops the migration, which is the point: FR-024
+     * makes proving the workspace empty part of the requirement, and a silent
+     * delete of something a person typed would be the opposite of that.
+     *
+     * ⚠️ AND THE LIST GREW WHEN IT MET A REAL DATABASE. Production measured four
+     * tables in the orphan; a developer's database had six. The two extra ones
+     * are below — the throw did its job and named them, which is how they were
+     * found at all.
+     */
+    private function dropMachineWritten(int $orphanId): void
+    {
+        /*
+        | Derived nightly, and the `workspace_id = 0` sentinel row is the platform
+        | total. Carrying these into a teacher's workspace would double a number
+        | in the platform report with nothing anywhere to say why.
+        */
+        DB::table('platform_metrics_daily')->where('workspace_id', $orphanId)->delete();
+
+        /*
+        | The six default terms `SeedDefaultBlockedTerms` writes on
+        | `WorkspaceCreated` — measured identical, with identical timestamps, in
+        | every workspace on the database. They are moderation vocabulary for a
+        | workspace that has zero members and zero roles, so no screen has ever
+        | reached them and nobody typed them. Moving them would give one teacher a
+        | second copy of the list they already have.
+        |
+        | ⚠️ A term somebody ADDED by hand would be indistinguishable here, and
+        | that is a real limit — it is accepted because the orphan is unreachable:
+        | with no members and no roles there is no door to the moderation screen.
+        */
+        DB::table('blocked_terms')->where('workspace_id', $orphanId)->delete();
+
+        /*
+        | The «غير مصنّف» fallback concept every workspace gets automatically.
+        |
+        | ⚠️ THREE CONDITIONS, AND THE THIRD IS THE ONE THAT MATTERS. No subject
+        | and no creator identify it as auto-created rather than authored; the
+        | reference check is what stops this deleting a concept that questions,
+        | masteries or study rooms still point at. Anything failing them stays,
+        | and the delete migration then refuses — which is the correct outcome,
+        | because a concept with dependants is somebody's teaching material.
+        */
+        $fallbacks = DB::table('concepts')
+            ->where('workspace_id', $orphanId)
+            ->whereNull('subject_id')
+            ->whereNull('created_by')
+            ->pluck('id');
+
+        foreach ($fallbacks as $conceptId) {
+            $referenced = collect(['questions', 'concept_stats', 'concept_masteries', 'adaptive_sessions', 'study_rooms'])
+                ->contains(fn (string $table): bool => Schema::hasColumn($table, 'concept_id')
+                    && DB::table($table)->where('concept_id', $conceptId)->exists());
+
+            if (! $referenced) {
+                DB::table('concepts')->where('id', $conceptId)->delete();
+            }
+        }
     }
 
     /**

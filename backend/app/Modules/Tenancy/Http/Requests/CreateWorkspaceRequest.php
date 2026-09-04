@@ -7,7 +7,9 @@ namespace App\Modules\Tenancy\Http\Requests;
 use App\Models\User;
 use App\Modules\Tenancy\Actions\CreateWorkspace;
 use App\Modules\Tenancy\Models\Workspace;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 
 class CreateWorkspaceRequest extends FormRequest
 {
@@ -26,10 +28,25 @@ class CreateWorkspaceRequest extends FormRequest
      * one-workspace-per-owner rule itself — the Action is the entrance the API,
      * the panel and the seeds all share.
      */
-    public function authorize(): bool
+    /*
+    | ⚠️ RETURNS THE GATE'S `Response`, NOT A BOOL — and the difference is a
+    | sentence a person can read. `authorize(): bool` returning false throws a
+    | bare `AuthorizationException`, so the body came back «This action is
+    | unauthorized.» in English while `WorkspacePolicy::create()` carried a
+    | written Arabic reason two files away. Measured over HTTP during the
+    | quickstart walk; every unit test still passed, because they assert the
+    | STATUS and the status was right.
+    |
+    | `Gate::inspect()` keeps the deny message, so the 403 says «مكان العمل يُنشأ
+    | مع الحساب، ولا يُنشأ يدويًا» — which is the whole point of writing one.
+    */
+    public function authorize(): Response
     {
-        return $this->user() instanceof User
-            && $this->user()->can('create', Workspace::class);
+        if (! $this->user() instanceof User) {
+            return Response::deny();
+        }
+
+        return Gate::inspect('create', Workspace::class);
     }
 
     /** @return array<string, mixed> */
