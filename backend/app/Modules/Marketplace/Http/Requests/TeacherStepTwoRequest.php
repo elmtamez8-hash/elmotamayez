@@ -6,6 +6,7 @@ namespace App\Modules\Marketplace\Http\Requests;
 
 use App\Modules\Marketplace\Models\GradeLevel;
 use App\Modules\Marketplace\Models\Subject;
+use App\Modules\Marketplace\Support\TeachingLanguages;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -55,20 +56,11 @@ class TeacherStepTwoRequest extends FormRequest
             | the other way.
             */
             'teaching_languages' => ['required', 'array', 'min:1'],
-            'teaching_languages.*' => ['string', Rule::in(self::TEACHING_LANGUAGES)],
+            'teaching_languages.*' => ['string', Rule::in(TeachingLanguages::all())],
             'headline' => ['required', 'string', 'max:150'],
             'bio' => ['nullable', 'string', 'max:5000'],
         ];
     }
-
-    /**
-     * The languages a teacher may declare — the ones this product is translated
-     * for. Kept in step with `LANGUAGES` in `TeacherSignupWizard.tsx`; a fourth
-     * one is a translation, not a database row.
-     *
-     * @var list<string>
-     */
-    private const TEACHING_LANGUAGES = ['ar', 'en', 'fr'];
 
     /**
      * ⚠️ `is_active` ALONE, with NO participation condition — the same predicate

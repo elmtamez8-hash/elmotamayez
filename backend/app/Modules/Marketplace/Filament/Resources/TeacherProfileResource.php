@@ -18,6 +18,7 @@ use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherApplication;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Marketplace\Policies\TeacherProfilePolicy;
+use App\Modules\Marketplace\Support\TeachingLanguages;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
@@ -42,6 +43,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use UnitEnum;
 
 /**
@@ -240,8 +242,26 @@ class TeacherProfileResource extends Resource
                         ->label('المؤهّلات')
                         ->columnSpanFull(),
 
-                    TagsInput::make('teaching_languages')
+                    /*
+                    | ⚠️ قائمةٌ مغلقةٌ لا حقلٌ حرّ. القيمةُ رمزٌ (`ar`) لا اسمٌ،
+                    | و`ListPublicTeachers` يبحثُ عنها بـ`whereJsonContains`
+                    | حرفاً بحرف — فـ«عربي» مكتوبةً باليدِ صفٌّ صحيحٌ في الجدولِ
+                    | يختفي من المرشِّحِ بلا خطأٍ وبلا سطرٍ في سجلّ، ويرفضُه بابُ
+                    | المعالجِ نفسُه إن أعادَ المدرّسُ الإرسال.
+                    */
+                    Select::make('teaching_languages')
                         ->label('لغات التدريس')
+                        ->multiple()
+                        ->options(TeachingLanguages::options())
+                        /*
+                        | ⚠️ قِيسَ: قائمةٌ متعدّدةٌ في Filament **لا تُضيفُ قاعدةَ
+                        | `in`** من تلقاءِ نفسِها — فالإغلاقُ في الواجهةِ وحدَها،
+                        | وحمولةُ Livewire مصنوعةٌ باليد. والقاعدةُ على العناصرِ
+                        | لا على المصفوفة، وهي القائمةُ نفسُها التي يقرؤها بابُ
+                        | المعالج.
+                        */
+                        ->rule('array')
+                        ->nestedRecursiveRules([Rule::in(TeachingLanguages::all())])
                         ->columnSpanFull(),
                 ]),
 

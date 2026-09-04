@@ -6,9 +6,11 @@ use App\Models\User;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Marketplace\Filament\Resources\TeacherProfileResource\Pages\EditTeacherProfile;
 use App\Modules\Marketplace\Filament\Resources\TeacherProfileResource\Pages\ViewTeacherProfile;
+use App\Modules\Marketplace\Http\Requests\TeacherStepTwoRequest;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherApplication;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Marketplace\Support\TeachingLanguages;
 use App\Modules\Tenancy\Models\Workspace;
 use Livewire\Livewire;
 
@@ -142,4 +144,38 @@ it('offers each decision only in the state it belongs to', function (): void {
     Livewire::test(ViewTeacherProfile::class, ['record' => $this->profile->fresh()?->getRouteKey()])
         ->assertActionHidden('approve')
         ->assertActionVisible('suspend');
+});
+
+it('offers teaching languages as a closed list and refuses anything outside it', function (): void {
+    /*
+    | ⚠️ الاتّجاهانِ معاً. القبولُ وحدَه يمرُّ فوقَ حقلٍ حرٍّ تماماً كما يمرُّ فوقَ
+    | قائمةٍ مغلقة — والقيمةُ الحرّةُ هي العطل: `ListPublicTeachers` يبحثُ بـ
+    | `whereJsonContains` حرفاً بحرف، فمدرّسٌ كُتِبَت لغتُه «عربي» يختفي من
+    | المرشِّحِ بلا خطأٍ في أيِّ مكان.
+    */
+    Livewire::test(EditTeacherProfile::class, ['record' => $this->profile->getRouteKey()])
+        ->fillForm(['teaching_languages' => ['ar', 'en']])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($this->profile->fresh()?->teaching_languages)->toBe(['ar', 'en']);
+
+    Livewire::test(EditTeacherProfile::class, ['record' => $this->profile->getRouteKey()])
+        ->fillForm(['teaching_languages' => ['de']])
+        ->call('save')
+        // ⚠️ `.0` لا اسمُ الحقل: القاعدةُ على العناصرِ (`nestedRecursiveRules`)،
+        // فالمفتاحُ في حقيبةِ الأخطاءِ هو موضعُ العنصرِ المرفوض. توكيدٌ على اسمِ
+        // الحقلِ وحدَه يسقطُ فوقَ حارسٍ يعملُ تماماً.
+        ->assertHasFormErrors(['teaching_languages.0']);
+});
+
+it('reads the same list the application door reads', function (): void {
+    /*
+    | قائمتانِ لسؤالٍ واحدٍ تفترقانِ عندَ أوّلِ لغةٍ يضيفُها أحد: تُقبَلُ في اللوحةِ
+    | ويرفضُها المعالجُ، أو العكس. هذا التوكيدُ هو ما يجعلُ التوحيدَ عقداً.
+    */
+    $request = new ReflectionClass(TeacherStepTwoRequest::class);
+
+    expect(TeachingLanguages::all())->toBe(['ar', 'en', 'fr'])
+        ->and($request->getConstants())->not->toHaveKey('TEACHING_LANGUAGES');
 });
