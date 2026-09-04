@@ -22,6 +22,7 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
 use Laravel\Sanctum\Sanctum;
+use Livewire\Livewire;
 
 /*
 | Spec 024 — منحُ اشتراكِ حصصٍ بيدِ موظّفِ المنصّة.
@@ -393,4 +394,40 @@ it('shows the officer credit orders from every workspace on the panel list', fun
     app(WorkspaceContext::class)->set($this->workspaceA);
 
     expect(OrderResource::getEloquentQuery()->get())->toHaveCount(0);
+});
+
+it('prices the grant on the screen before anything is saved', function (): void {
+    /*
+    | ⚠️ «المبلغ المتوقَّع» يُقرأُ من حالةِ النموذجِ الحيّة، لا من صفٍّ محفوظ.
+    | فإن لم تصلْه الحالةُ بقيَ على جملةِ البداية «اختر الطالب والكورس والباقة»
+    | مهما اختارَ الموظّف — ولا شيءَ في الشاشةِ يقولُ لماذا. وهو الرقمُ الذي
+    | يُطابَقُ بالإيصالِ في اليدِ قبلَ الحفظِ (FR-006).
+    */
+    $this->actingAs($this->officer);
+
+    Livewire::test(GrantCreditSubscription::class)
+        ->fillForm([
+            'student' => $this->student->getKey(),
+            'course' => $this->courseA->getKey(),
+            'package' => $this->package->getKey(),
+        ])
+        ->assertDontSee('اختر الطالب')
+        ->assertSee('QAR');
+});
+
+it('names the field still missing rather than listing all three', function (): void {
+    /*
+    | ⚠️ جملةٌ تعدُّ الثلاثةَ بعدَ اختيارِ اثنَينِ منها تُقرأُ على أنّها عطل: الموظّفُ
+    | يرى ما اختارَه أمامَه ويرى الشاشةَ تطلبُه ثانيةً، فيستنتجُ أنّ الاختيارَ لم
+    | يُسجَّل. والناقصُ واحدٌ معروفٌ للشاشةِ بالضبط — فلتقلْه.
+    */
+    $this->actingAs($this->officer);
+
+    Livewire::test(GrantCreditSubscription::class)
+        ->fillForm([
+            'course' => $this->courseA->getKey(),
+            'package' => $this->package->getKey(),
+        ])
+        ->assertSee('اختر الطالب.')
+        ->assertDontSee('اختر الطالب والكورس والباقة.');
 });

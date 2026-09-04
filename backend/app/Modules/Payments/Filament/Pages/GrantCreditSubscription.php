@@ -266,6 +266,24 @@ class GrantCreditSubscription extends Page
     }
 
     /**
+     * الناقصُ بالاسم، لا عدُّ الثلاثةِ من جديد.
+     *
+     * وهو شرطٌ منفصلٌ عن `previewAmount()` عمداً: إبقاءُ `instanceof` في جملةِ
+     * `if` هناكَ هو ما يُبقي التضييقَ قائماً لما تحتَها — وبناءُ الرسالةِ داخلَها
+     * يُفقِدُه، فيقرأُ PHPStan `Collection|null` في نداءِ التسعير.
+     */
+    private static function missingChoices(mixed $student, mixed $course, mixed $packageId): string
+    {
+        $missing = array_values(array_filter([
+            $student instanceof User ? null : 'الطالب',
+            $course instanceof Course ? null : 'الكورس',
+            $packageId === null ? 'الباقة' : null,
+        ]));
+
+        return 'اختر '.implode(' و', $missing).'.';
+    }
+
+    /**
      * The amount this grant would create, or a sentence saying why there is none.
      */
     private function previewAmount(): string
@@ -277,8 +295,14 @@ class GrantCreditSubscription extends Page
         $course = Course::query()->withoutWorkspaceScope()->find($state['course'] ?? null);
         $packageId = $state['package'] ?? null;
 
+        /*
+        | ⚠️ يُسمّى الناقصُ ولا تُعدُّ الثلاثة. جملةٌ تطلبُ الثلاثةَ بعدَ اختيارِ
+        | اثنَينِ منها تُقرأُ على أنّها عطل: الموظّفُ يرى ما اختارَه أمامَه ويرى
+        | الشاشةَ تطلبُه ثانيةً، فيستنتجُ أنّ اختيارَه لم يُسجَّلْ ويبحثُ عن خللٍ
+        | في مكانٍ سليم. والشاشةُ تعرفُ الناقصَ بالضبط.
+        */
         if (! $student instanceof User || ! $course instanceof Course || $packageId === null) {
-            return 'اختر الطالب والكورس والباقة.';
+            return self::missingChoices($student, $course, $packageId);
         }
 
         $officer = Auth::user();
