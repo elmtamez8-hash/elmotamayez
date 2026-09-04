@@ -17,6 +17,7 @@ use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -30,6 +31,8 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\HtmlString;
 use RuntimeException;
 use UnitEnum;
 
@@ -81,6 +84,55 @@ class OrderResource extends Resource
                         TextInput::make('currency')
                             ->label('العملة')
                             ->disabled(),
+                    ]),
+
+                /*
+                | ⛔ الإيصالُ لم يكن على هذه الشاشةِ إطلاقاً — والشاشةُ هي مكانُ
+                | الاعتماد.
+                |
+                | تعليقُ المسارِ في `routes/api.php` يقولُ «`OrderResource` هو من
+                | يسكُّ التوقيع، ولمن أجازَته سياسةُ `view` وحدَه»، وتعليقُ
+                | {@see GrantCreditSubscription} يقولُ إنّ الاعتمادَ «خطوةٌ ثانيةٌ
+                | يُفتَحُ فيها الإيصالُ ويُطابَقُ المبلغ» — و**لا كلمةَ `receipt`
+                | كانت في هذا الملفِّ كلِّه**. فالموظّفُ يرفعُ الإيصالَ ثمّ لا يجدُه،
+                | ويعتمدُ على بياضٍ: وهو بعينُه ما وُجِدَت خطوةُ الاعتمادِ لتمنعَه.
+                |
+                | ⚠️ ورابطٌ موقَّعٌ مؤقّتٌ لا مسارٌ عامّ: الملفُّ على قرصٍ خاصّ،
+                | والمتصفّحُ يفتحُ الرابطَ كتنقّلٍ أعلى المستوى فلا يحملُ رأسَ
+                | مصادقة. التوقيعُ يُسَكُّ هنا لمن فتحَ الصفحةَ سلفاً، وينتهي —
+                | فهو إذنٌ مُنِحَ لا طريقٌ يمشي إليه أحد.
+                */
+                Section::make('الإيصال')
+                    ->description('صورةُ التحويل كما رفعها الطالب أو الموظّف. افتحْها وطابقِ المبلغَ قبلَ الاعتماد.')
+                    ->schema([
+                        Placeholder::make('receipt')
+                            ->hiddenLabel()
+                            ->content(function (?Order $record): HtmlString|string {
+                                $media = $record?->getFirstMedia('receipt');
+
+                                if ($media === null) {
+                                    return 'لا إيصالَ على هذا الطلب.';
+                                }
+
+                                $url = URL::temporarySignedRoute(
+                                    'orders.receipt',
+                                    now()->addMinutes(15),
+                                    ['order' => $record->uuid],
+                                );
+
+                                $link = '<a href="'.e($url).'" target="_blank" rel="noopener" '
+                                    .'class="fi-link fi-size-sm" style="text-decoration:underline">'
+                                    .e($media->file_name).' — '.number_format($media->size / 1024).' ك.ب</a>';
+
+                                // معاينةٌ داخلَ الصفحةِ للصور: المطابقةُ عينٌ على
+                                // رقمٍ، لا نقرةٌ على تبويبٍ جديد. وPDF لا يُعرَضُ
+                                // في `img`، فيبقى له الرابطُ وحدَه.
+                                $preview = str_starts_with((string) $media->mime_type, 'image/')
+                                    ? '<img src="'.e($url).'" alt="" style="max-width:28rem;margin-top:.5rem;border-radius:.5rem">'
+                                    : '';
+
+                                return new HtmlString($link.$preview);
+                            }),
                     ]),
 
                 Section::make('القرار')
