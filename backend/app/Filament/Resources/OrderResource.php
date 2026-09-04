@@ -135,15 +135,136 @@ class OrderResource extends Resource
                             }),
                     ]),
 
+                /*
+                | ⛔ الحالةُ كانت حقلاً قابلاً للكتابة — وهو بابٌ ثانٍ للقرارِ
+                | يتخطّى الإجراءَ بأكملِه، وقد استُعمِلَ فعلاً.
+                |
+                | حفظُ النموذجِ يكتبُ `status = approved` عبرَ `handleRecordUpdate`،
+                | فلا `PaymentApproved` ولا حركةَ دفعٍ ولا `approved_by` ولا صفَّ
+                | تدقيقٍ ولا إشعار — وستّةُ مستمعينَ معلَّقينَ على ذلك الحدثِ لا
+                | يعملُ منها واحد: التسجيلُ وسكُّ الأرصدةِ وتفعيلُ الاشتراكِ وتسليمُ
+                | المتجرِ وإتمامُ الإحالة.
+                |
+                | قِيسَ على الإنتاج 2026-09-04: الطلبُ ٧ (‏٤٨٠ ر.ق · أربعةُ أرصدة)
+                | حالتُه «معتمَد» و`approved_by` فارغٌ و`approved_at` فارغٌ وبلا
+                | حركةِ دفعٍ واحدة، و`purchased_credits = 0`. الطالبُ دفعَ ولم يأخذْ
+                | شيئاً، والطلبُ يقرأُ «معتمَد» فلا يعودُ إليه أحدٌ أبداً — والتوقيعُ
+                | الثلاثيُّ (حالةٌ معتمَدةٌ بلا معتمِدٍ ولا وقت) هو ما يميّزُ هذا
+                | الكتبَ عن قرارٍ حقيقيّ، لأنّ {@see ApproveOrder} يكتبُ الثلاثةَ في
+                | جملةٍ واحدة.
+                |
+                | ⚠️ `Placeholder` لا `Select::disabled()`: المعطَّلُ يعتمدُ على
+                | ألّا يُرطِّبَ Filament قيمتَه، والنائبُ لا يحملُ مفتاحاً في
+                | الحمولةِ أصلاً. القرارُ بالزرِّ وحدَه.
+                */
                 Section::make('القرار')
-                    ->description('اعتمادُ الطلبِ هو ما يُنشئُ التسجيل — لا تُغيَّرُ الحالةُ إلّا بعدَ التحقّقِ من الإيصال.')
+                    ->description('القرارُ بالزرَّينِ أعلى الصفحة — هما ما يُنشئُ التسجيلَ أو يسكُّ الأرصدة. الحالةُ هنا للقراءةِ فقط.')
                     ->schema([
-                        Select::make('status')
+                        Placeholder::make('status')
                             ->label('الحالة')
-                            ->options(OrderStatus::options())
-                            ->required(),
+                            ->content(fn (?Order $record): string => $record === null
+                                ? '—'
+                                : OrderStatus::labelFor($record->status)),
                     ]),
             ]);
+    }
+
+    /**
+     * القرارُ نفسُه، معروضاً على السطحَين — الجدولِ وصفحةِ الطلب.
+     *
+     * ⚠️ THE APPROVAL LIVES HERE, AND WITHOUT THESE TWO BUTTONS THE MOVE IS A
+     * REMOVAL. `payments.approve` left the teacher's role on 2026-09-03 and the
+     * teacher's own «الطلبات» screen lost its buttons with it — a permission with
+     * no surface behind it is every pending transfer on the platform sitting
+     * unanswered, this repository's «إذنٌ لا يصلُه رابط» wearing money.
+     *
+     * ⚠️ `authorize()`, NEVER A RE-DERIVED `can()`. `OrderPolicy` is where the
+     * two questions are answered — a credit purchase asks
+     * `billing.purchase.approve` and a course order asks `payments.approve` — and
+     * a second spelling here would put one answer on the button and another at
+     * the Action.
+     *
+     * ⚠️ AND THE ACTIONS ARE THE ACTIONS. `ApproveOrder` writes the
+     * conditional-UPDATE claim, the enrolment, the audit row and the
+     * notification; a status written from a panel skips all four silently.
+     * Filament must produce exactly what the endpoint produces —
+     * `TeacherApplicationResource`'s own standard. **قِيسَ على الإنتاج
+     * 2026-09-04**: حقلُ الحالةِ في النموذجِ كان الطريقَ الثاني، وسلَكَه موظّفٌ
+     * فعلاً — فبقيَ الطالبُ بلا أرصدةٍ دفعَ ثمنَها. الحقلُ صارَ نائباً للقراءةِ
+     * لا حقلاً يُحفَظ.
+     *
+     * ⚠️ AND THE PREDICATE IS `isPending()`, THE MODEL'S OWN SPELLING —
+     * `status === 'pending'` was a SECOND one, and it hid both buttons on exactly
+     * the orders that have a receipt: {@see UploadPaymentReceipt} stamps
+     * `under_review`, which `ApproveOrder`'s claim accepts and this test did not.
+     * So the order an officer is most likely to be deciding was the one with no
+     * button on it — which is how the writable status field came to be used at
+     * all.
+     *
+     * ⚠️ ومعروضةٌ على صفحةِ الطلبِ كذلك ({@see EditOrder::getHeaderActions()}):
+     * الإيصالُ هناك، وتعليقُه يقولُ «افتحْها وطابقِ المبلغَ قبلَ الاعتماد» — وشاشةٌ
+     * تطلبُ المطابقةَ ولا تحملُ زرَّ القرارِ تدفعُ القارئَ إلى أيِّ بابٍ آخرَ يجدُه.
+     */
+    public static function approveAction(): Action
+    {
+        return Action::make('approve')
+            ->label('اعتمد')
+            ->icon(Heroicon::OutlinedCheckCircle)
+            ->color('success')
+            ->visible(fn (Order $record): bool => $record->isPending())
+            ->authorize('approve')
+                // A confirmation, because approving mints an entitlement and
+                // nothing here takes it back.
+            ->requiresConfirmation()
+            ->modalHeading('اعتماد التحويل')
+            ->modalDescription('يُنشئ هذا التسجيل أو الرصيد فوراً. افتحِ الإيصال وطابقِ المبلغ قبل الاعتماد.')
+            ->action(function (Order $record): void {
+                if (self::refusedForTwoFactor()) {
+                    return;
+                }
+
+                app(ApproveOrder::class)->handle($record, self::actor(), request()->ip(), request()->userAgent());
+
+                Notification::make()->success()->title('اعتُمد الطلب')->send();
+            });
+    }
+
+    /** The refusal, beside its twin — see {@see approveAction()}. */
+    public static function rejectAction(): Action
+    {
+        return Action::make('reject')
+            ->label('ارفض')
+            ->icon(Heroicon::OutlinedXCircle)
+            ->color('danger')
+            ->visible(fn (Order $record): bool => $record->isPending())
+            ->authorize('reject')
+            ->requiresConfirmation()
+            ->modalHeading('رفض التحويل')
+            ->schema([
+                // ⚠️ REQUIRED, because `RejectOrder` takes it and the
+                // buyer reads it: a refusal the student cannot act on is
+                // a refusal they ask about by message instead.
+                Textarea::make('reason')
+                    ->label('السبب')
+                    ->required()
+                    ->maxLength(500)
+                    ->helperText('يصل هذا النصّ إلى المشتري، فاكتبْ ما يمكنه التصرّف بناءً عليه.'),
+            ])
+            ->action(function (Order $record, array $data): void {
+                if (self::refusedForTwoFactor()) {
+                    return;
+                }
+
+                app(RejectOrder::class)->handle(
+                    $record,
+                    self::actor(),
+                    (string) $data['reason'],
+                    request()->ip(),
+                    request()->userAgent(),
+                );
+
+                Notification::make()->warning()->title('رُفض الطلب')->send();
+            });
     }
 
     public static function table(Table $table): Table
@@ -201,79 +322,8 @@ class OrderResource extends Resource
             ])
             ->actions([
                 EditAction::make(),
-                /*
-                | ⚠️ THE APPROVAL LIVES HERE NOW, AND WITHOUT THESE TWO BUTTONS
-                | THE MOVE IS A REMOVAL. `payments.approve` left the teacher's
-                | role on 2026-09-03 and the teacher's own «الطلبات» screen lost
-                | its buttons with it — so a permission with no surface behind it
-                | is every pending transfer on the platform sitting unanswered,
-                | which is this repository's «إذنٌ لا يصلُه رابط» wearing money.
-                |
-                | ⚠️ `authorize()`, NEVER A RE-DERIVED `can()`. `OrderPolicy` is
-                | where the two questions are answered — a credit purchase asks
-                | `billing.purchase.approve` and a course order asks
-                | `payments.approve` — and a second spelling here would put one
-                | answer on the button and another at the Action.
-                |
-                | ⚠️ AND THE ACTIONS ARE THE ACTIONS. `ApproveOrder` writes the
-                | conditional-UPDATE claim, the enrolment, the audit row and the
-                | notification; a status written from a panel would skip all four
-                | silently. Filament must produce exactly what the endpoint
-                | produces — `TeacherApplicationResource`'s own standard.
-                */
-                Action::make('approve')
-                    ->label('اعتمد')
-                    ->icon(Heroicon::OutlinedCheckCircle)
-                    ->color('success')
-                    ->visible(fn (Order $record): bool => $record->status === OrderStatus::Pending->value)
-                    ->authorize('approve')
-                    // A confirmation, because approving mints an entitlement and
-                    // nothing here takes it back.
-                    ->requiresConfirmation()
-                    ->modalHeading('اعتماد التحويل')
-                    ->modalDescription('يُنشئ هذا التسجيل أو الرصيد فوراً. افتحِ الإيصال وطابقِ المبلغ قبل الاعتماد.')
-                    ->action(function (Order $record): void {
-                        if (self::refusedForTwoFactor()) {
-                            return;
-                        }
-
-                        app(ApproveOrder::class)->handle($record, self::actor(), request()->ip(), request()->userAgent());
-
-                        Notification::make()->success()->title('اعتُمد الطلب')->send();
-                    }),
-                Action::make('reject')
-                    ->label('ارفض')
-                    ->icon(Heroicon::OutlinedXCircle)
-                    ->color('danger')
-                    ->visible(fn (Order $record): bool => $record->status === OrderStatus::Pending->value)
-                    ->authorize('reject')
-                    ->requiresConfirmation()
-                    ->modalHeading('رفض التحويل')
-                    ->schema([
-                        // ⚠️ REQUIRED, because `RejectOrder` takes it and the
-                        // buyer reads it: a refusal the student cannot act on is
-                        // a refusal they ask about by message instead.
-                        Textarea::make('reason')
-                            ->label('السبب')
-                            ->required()
-                            ->maxLength(500)
-                            ->helperText('يصل هذا النصّ إلى المشتري، فاكتبْ ما يمكنه التصرّف بناءً عليه.'),
-                    ])
-                    ->action(function (Order $record, array $data): void {
-                        if (self::refusedForTwoFactor()) {
-                            return;
-                        }
-
-                        app(RejectOrder::class)->handle(
-                            $record,
-                            self::actor(),
-                            (string) $data['reason'],
-                            request()->ip(),
-                            request()->userAgent(),
-                        );
-
-                        Notification::make()->warning()->title('رُفض الطلب')->send();
-                    }),
+                self::approveAction(),
+                self::rejectAction(),
             ]);
     }
 
