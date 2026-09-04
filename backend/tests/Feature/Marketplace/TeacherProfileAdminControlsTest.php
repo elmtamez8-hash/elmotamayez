@@ -24,6 +24,17 @@ use Livewire\Livewire;
 beforeEach(function (): void {
     $this->officer = User::factory()->create(['is_super_admin' => true]);
 
+    /*
+    | ⚠️ مساحةٌ أخرى للمراجِعِ نفسِه، وهي ما يُسلّحُ هذا الملفَّ كلَّه.
+    | `WorkspaceContext::id()` يرتدُّ إلى `last_workspace_id` حتّى للمشرِفِ العامّ.
+    | فبلا هذا السطرِ يبقى السياقُ `null`، و`WorkspaceScope::apply()` لا يضيفُ
+    | شرطاً أصلاً — فيمكنُ حذفُ كلِّ `withoutGlobalScope` من الشاشةِ ومن فرعِ
+    | الزرِّ وتبقى الحالاتُ الخمسُ خضراءَ عن بكرةِ أبيها. وكلُّ مراجِعٍ حقيقيٍّ
+    | يحملُ واحدةً: هو يفتحُ اللوحةَ من مكانٍ ما.
+    */
+    [$decoy] = $this->createWorkspaceWithOwner([], ['platform_role' => PlatformRole::Teacher]);
+    $this->officer->forceFill(['last_workspace_id' => $decoy->getKey()])->save();
+
     [$this->workspace, $this->teacher] = $this->createWorkspaceWithOwner(
         ['participates_in_marketplace' => false],
         ['platform_role' => PlatformRole::Teacher],
