@@ -193,9 +193,16 @@ it('never adds two currencies into one number', function (): void {
     | ⚠️ التوكيدُ على العملتَينِ معاً **وعلى غيابِ المجموع**: ‏٥٢٩٫٩٩ رقمٌ صحيحُ
     | الحساب ولا معنى له، وهو ما كان سيُعرَضُ بثقةٍ على شاشةِ إدارة.
     */
-    expect($rendered)->toContain('480.00 QAR')
-        ->and($rendered)->toContain('49.99 USD')
-        ->and($rendered)->not->toContain('529.99');
+    expect($rendered)->toContain('480.00 ر.ق')
+        ->and($rendered)->toContain('49.99 دولار')
+        ->and($rendered)->not->toContain('529.99')
+        /*
+        | ⚠️ وعدّادانِ منفصلان، لا سطرٌ واحدٌ يضمُّهما. «‏99.98 USD · 480.00 QAR»
+        | شُحِنَ وأُبلِغَ عنه «غيرُ مفهوم»: رقمانِ لعملتَينِ في خانةٍ واحدةٍ يُقرآنِ
+        | مجموعاً، وهو الوهمُ الذي مُنِعَ الجمعُ لأجلِه.
+        */
+        ->and($rendered)->not->toContain('ر.ق ·')
+        ->and($rendered)->toContain('المحصَّل — ريال قطري');
 });
 
 it('says there are no ratings yet instead of printing a zero', function (): void {
