@@ -64,6 +64,7 @@ import {
   IconWorld,
   IconInfinity,
   IconInfoCircle,
+  IconListDetails,
   IconLanguage,
   IconLogout,
   IconMath,
@@ -145,6 +146,8 @@ export const InfoIcon = wrap(IconInfoCircle, "h-4 w-4");
 export const UserPlusIcon = wrap(IconUserPlus, "h-4 w-4");
 export const AcademicCapIcon = wrap(IconSchool, "h-4 w-4");
 export const DocumentIcon = wrap(IconFileText, "h-4 w-4");
+// فهرسُ المقال — الأيقونةُ تسمّي ما تعنيه، لا ما ترسمُه المكتبة.
+export const ListIcon = wrap(IconListDetails, "h-4 w-4");
 export const ShieldIcon = wrap(IconShieldCheck, "h-4 w-4");
 export const RefundIcon = wrap(IconReceiptRefund, "h-4 w-4");
 

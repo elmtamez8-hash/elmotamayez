@@ -11,7 +11,22 @@ import { platformName } from "@/lib/platform";
 import { JsonLd, absoluteHttpUrl } from "@/components/seo/JsonLd";
 import { Badge } from "@/components/ui/Badge";
 import { CourseCard } from "@/components/marketplace/CourseCard";
+import { ArticleToc } from "@/components/blog/ArticleToc";
+import { CtaBand } from "@/components/blog/CtaBand";
 import { formatDate } from "@/lib/labels";
+import {
+  isoMinutes,
+  readingMinutes,
+  withHeadingAnchors,
+  wordCount,
+} from "@/lib/article";
+import {
+  AcademicCapIcon,
+  ChevronEndIcon,
+  ClockIcon,
+  CoursesIcon,
+  TagIcon,
+} from "@/components/icons";
 
 type Params = { slug: string };
 
@@ -70,6 +85,12 @@ export async function generateMetadata({
         siteName: name,
         publishedTime: article.published_at,
         modifiedTime: article.updated_at,
+        // ⚠️ لا غلافَ للمقالِ في الجدول، وبطاقةُ مشاركةٍ بلا صورةٍ شريطٌ رماديّ:
+        // صورةُ القسمِ أصدقُ من لا شيء، وأصدقُ من غلافٍ مخترَع.
+        images: [{ url: `${SITE_URL}/marketplace/banner-about.webp` }],
+        ...(article.tags && article.tags.length > 0
+          ? { tags: article.tags.map((tag) => tag.name) }
+          : {}),
       },
       twitter: { card: "summary_large_image", title, description },
     };
@@ -86,9 +107,18 @@ export default async function ArticlePage({
   const { slug } = await params;
   const article = await loadArticle(slug);
   const url = `${SITE_URL}/blog/${encodeURIComponent(article.slug)}`;
+  const name = await platformName();
+
+  /*
+   * ⚠️ المِرساةُ والفهرسُ من نداءٍ واحد. الدالّةُ تحقنُ `id` في كلِّ عنوانٍ
+   * وتُعيدُ القائمةَ نفسَها التي حقنَتها، فلا يفترقُ الفهرسُ عن النصِّ عندَ أوّلِ
+   * عنوانٍ مكرَّر. {@see import("@/lib/article").withHeadingAnchors}
+   */
+  const { html, headings } = withHeadingAnchors(article.body_html);
+  const minutes = readingMinutes(article.body_html);
 
   return (
-    <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <JsonLd
         data={{
           "@context": "https://schema.org",
@@ -109,46 +139,106 @@ export default async function ArticlePage({
            * block below carries from the marketplace — where it is published by
            * decision rather than inherited into a structured-data block.
            */
-          publisher: { "@type": "Organization", name: await platformName(), url: SITE_URL },
+          publisher: { "@type": "Organization", name, url: SITE_URL },
+          /*
+           * ⚠️ حقولٌ تقرؤها محرّكاتُ الإجابةِ حرفيّاً، وكلُّها **مقيسةٌ من النصِّ
+           * نفسِه** لا مُعلَنةٌ بالتمنّي: `wordCount` و`timeRequired` مشتقّانِ من
+           * `body_html` بالدالّةِ التي يُعرَضُ بها الرقمُ على الشاشة — فما يُقالُ
+           * للآلةِ هو ما يراه القارئُ. رقمانِ من مصدرَينِ يفترقانِ، وحينَها يكونُ
+           * أحدُهما كذباً منظَّماً.
+           */
+          wordCount: wordCount(article.body_html),
+          timeRequired: isoMinutes(minutes),
+          isAccessibleForFree: true,
+          ...(article.category
+            ? { articleSection: article.category.name }
+            : {}),
+          ...(article.tags && article.tags.length > 0
+            ? { keywords: article.tags.map((tag) => tag.name).join("، ") }
+            : {}),
         }}
       />
 
-      <header className="mb-8">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "الرئيسية", item: SITE_URL },
+            { "@type": "ListItem", position: 2, name: "المدوّنة", item: siteUrl("/blog") },
+            { "@type": "ListItem", position: 3, name: article.title, item: url },
+          ],
+        }}
+      />
+
+      <nav aria-label="مسار التصفّح" className="mb-6">
+        <Link
+          href="/blog"
+          className="inline-flex items-center gap-1 text-sm font-semibold text-primary-ink hover:underline"
+        >
+          <ChevronEndIcon className="h-4 w-4" aria-hidden="true" />
+          المدوّنة
+        </Link>
+      </nav>
+
+      <header className="banner-rise mb-8">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
           {article.category ? (
-            <Badge tone="neutral">{article.category.name}</Badge>
+            <Link href={`/blog?category=${article.category.slug}`}>
+              <Badge tone="neutral">{article.category.name}</Badge>
+            </Link>
           ) : null}
+
           <time dateTime={article.published_at} className="text-sm text-ink-muted">
             {formatDate(article.published_at)}
           </time>
+
+          {/*
+            ⚠️ «‏٥ دقائق قراءة» لا «5 min read»: رقمٌ ونصٌّ لاتينيّانِ داخلَ سطرٍ
+            عربيٍّ يُعادُ ترتيبُهما بقواعدِ bidi.
+          */}
+          <span className="flex items-center gap-1 text-sm text-ink-muted">
+            <ClockIcon className="h-4 w-4" aria-hidden="true" />
+            {minutes.toLocaleString("ar-QA")} دقائق قراءة
+          </span>
         </div>
 
-        <h1 className="text-3xl font-extrabold leading-tight text-ink">
+        <h1 className="text-3xl font-extrabold leading-tight text-ink sm:text-4xl">
           {article.title}
         </h1>
 
         {article.excerpt ? (
-          <p className="mt-3 text-lg leading-relaxed text-ink-muted">
+          /*
+            ⚠️ المقتطفُ خلاصةٌ مقروءةٌ لا زخرفة: محرّكُ الإجابةِ يقتبسُ أوّلَ فقرةٍ
+            مكتفيةٍ بنفسِها، فوضعُها أوّلاً وبخطٍّ أكبرَ يخدمُ القارئَ والآلةَ معاً.
+            الحدُّ الجانبيُّ منطقيٌّ (`border-s`) لا `border-l`.
+          */
+          <p className="mt-4 border-s-4 border-primary/30 ps-4 text-lg leading-relaxed text-ink-muted">
             {article.excerpt}
           </p>
         ) : null}
       </header>
+
+      <ArticleToc headings={headings} />
 
       {/* The API renders the Markdown and STRIPS raw HTML at the parse rather
           than escaping it, so the tag allowlist is the Markdown feature set
           itself — there is nothing to configure here and no `body` field to
           render by mistake. `prose-article` is the typography rule in
           globals.css; this component sets no colours of its own. */}
-      <div
-        className="prose-article"
-        dangerouslySetInnerHTML={{ __html: article.body_html }}
-      />
+      <div className="prose-article" dangerouslySetInnerHTML={{ __html: html }} />
 
       {article.tags && article.tags.length > 0 ? (
-        <ul className="mt-10 flex flex-wrap gap-2">
+        <ul className="mt-10 flex flex-wrap items-center gap-2">
+          <li aria-hidden="true">
+            <TagIcon className="h-4 w-4 text-ink-muted" />
+          </li>
           {article.tags.map((tag) => (
             <li key={tag.slug}>
-              <Badge tone="neutral">{tag.name}</Badge>
+              {/* وسمٌ يُنقَرُ: `?tag=` مدعومٌ في الواجهةِ الخلفيّةِ سلفاً. */}
+              <Link href={`/blog?tag=${tag.slug}`}>
+                <Badge tone="neutral">{tag.name}</Badge>
+              </Link>
             </li>
           ))}
         </ul>
@@ -156,17 +246,27 @@ export default async function ArticlePage({
 
       {article.related_teachers.length > 0 ? (
         <section className="mt-14 border-t border-line pt-10">
-          <h2 className="mb-4 text-xl font-bold text-ink">مدرّسون في هذا التخصّص</h2>
-          <ul className="space-y-3">
-            {article.related_teachers.map((teacher) => (
-              <li key={teacher.uuid}>
+          <h2 className="mb-5 flex items-center gap-2 text-xl font-bold text-ink">
+            <AcademicCapIcon className="h-5 w-5 text-primary-ink" aria-hidden="true" />
+            مدرّسون في هذا التخصّص
+          </h2>
+
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {article.related_teachers.map((teacher, index) => (
+              <li
+                key={teacher.uuid}
+                className="animate-float-in"
+                style={{ animationDelay: `${Math.min(index, 5) * 45}ms` }}
+              >
                 <Link
                   href={`/teachers/${teacher.slug ?? teacher.uuid}`}
-                  className="flex flex-col rounded-2xl border border-line p-4 hover:border-primary"
+                  className="flex h-full flex-col rounded-2xl border border-line bg-surface-raised p-4 transition duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                 >
                   <span className="font-semibold text-ink">{teacher.name}</span>
                   {teacher.headline ? (
-                    <span className="text-sm text-ink-muted">{teacher.headline}</span>
+                    <span className="mt-1 text-sm text-ink-muted">
+                      {teacher.headline}
+                    </span>
                   ) : null}
                 </Link>
               </li>
@@ -176,8 +276,11 @@ export default async function ArticlePage({
       ) : null}
 
       {article.related_courses.length > 0 ? (
-        <section className="mt-10">
-          <h2 className="mb-4 text-xl font-bold text-ink">كورسات ذات صلة</h2>
+        <section className="mt-12">
+          <h2 className="mb-5 flex items-center gap-2 text-xl font-bold text-ink">
+            <CoursesIcon className="h-5 w-5 text-primary-ink" aria-hidden="true" />
+            كورسات ذات صلة
+          </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             {article.related_courses.map((course) => (
               <CourseCard key={course.uuid} course={course} />
@@ -186,11 +289,13 @@ export default async function ArticlePage({
         </section>
       ) : null}
 
-      <p className="mt-14">
+      <CtaBand />
+
+      <p className="mt-10">
         <Link href="/blog" className="font-semibold text-primary-ink underline">
           كلّ المقالات
         </Link>
       </p>
-    </article>
+    </div>
   );
 }
