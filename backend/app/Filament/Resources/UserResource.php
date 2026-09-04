@@ -10,7 +10,11 @@ use App\Modules\Identity\Filament\Pages\CreateAccount;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\UserStatus;
 use BackedEnum;
+use Filament\Actions\EditAction;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -21,13 +25,18 @@ use Illuminate\Support\Facades\Auth;
 use UnitEnum;
 
 /**
- * دفترُ حسابات المنصّة — **قراءةً فقط**، ولمدير المنصّة وحدَه.
+ * دفترُ حسابات المنصّة — لمدير المنصّة وحدَه.
  *
- * ⚠️ ولا تعديلَ ولا حذف، وليس تكاسُلاً: `users.status` بوّابةُ
- * دخولٍ يقرؤها مسارُ تسجيلِ الدخول، و`platform_role` يقرِّرُ أيَّ منتَجٍ يرى صاحبُ
- * الحساب، و`is_super_admin` هو صلاحيةُ المنصّةِ كلِّها. حقلٌ من هذهِ في نموذجٍ
- * عامٍّ هو بابٌ ثانٍ لقرارٍ تملكُه إجراءاتُ `Identity` وحدَها — ومحوُ حسابٍ من هنا
- * يتجاوزُ عقدَ `PersonalDataOwner` بأكملِه، فيتركُ صفوفاً يتيمةً في كلِّ وحدة.
+ * ⚠️ ولا حذفَ أبداً: محوُ حسابٍ من هنا يتجاوزُ عقدَ `PersonalDataOwner` بأكملِه،
+ * فيتركُ صفوفاً يتيمةً في كلِّ وحدة. الحذفُ بابُه `Compliance` وحدَه.
+ *
+ * ⚠️ والتعديلُ **بياناتُ الإنسانِ وحدَها**، وهذا ما يُبقي الاعتراضَ القديمَ قائماً
+ * بدلَ أن ينقضَه. الاعتراضُ كان على `status` و`platform_role` و`is_super_admin`
+ * في نموذجٍ عامّ: الأوّلُ بوّابةُ دخولٍ يقرؤها `StartAuthSession`، والثاني يقرِّرُ
+ * أيَّ منتَجٍ يرى صاحبُ الحساب، والثالثُ صلاحيّةُ المنصّةِ كلِّها. ولا حقلَ
+ * لأيٍّ منها في {@see self::form()}، والكتابةُ تمرُّ بقائمةٍ بيضاءَ في
+ * {@see UpdateAccountDetails} لأنّ اثنَينِ منها في `$guarded` — و`forceFill`
+ * يتخطّى `$guarded`.
  *
  * ⚠️ والإنشاءُ **موجودٌ** الآن، وهو ما يُبقي ما سبقَ صحيحاً بدلَ أن ينقضَه.
  * {@see CreateAccount} صفحةٌ لا تكتبُ عموداً
@@ -54,17 +63,17 @@ class UserResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return 'الحسابات';
+        return 'المستخدمون';
     }
 
     public static function getModelLabel(): string
     {
-        return 'حساب';
+        return 'مستخدم';
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'الحسابات';
+        return 'المستخدمون';
     }
 
     public static function canViewAny(): bool
@@ -79,7 +88,51 @@ class UserResource extends Resource
 
     public static function canEdit(mixed $record): bool
     {
-        return false;
+        return Auth::user()?->isSuperAdmin() ?? false;
+    }
+
+    /**
+     * بياناتُ الإنسان، لا قراراتُ المنصّةِ عنه.
+     *
+     * ⚠️ الثلاثةُ الغائبةُ هي بعينِها ما كان يبرِّرُ إغلاقَ الشاشةِ كلِّها، وكلُّ
+     * واحدةٍ قِيسَت: `status` عمودٌ بقيمتَين لا غير وانتقالُه الوحيدُ موافقةُ
+     * وليِّ الأمرِ التي تملكُها {@see ActivateStudentAccount} — فحقلٌ هنا يختلقُ
+     * موافقةً قانونيّةً لم تحدث؛ و`platform_role` يقرّرُ أيَّ منتَجٍ يُرى وتغييرُه
+     * يتركُ صفوفَ الملفِّ تشيرُ إلى صفةٍ زائلة؛ و`is_super_admin` صلاحيّةُ
+     * المنصّةِ كلِّها. {@see UpdateAccountDetails} تحملُ القائمةَ البيضاء.
+     */
+    public static function form(Schema $schema): Schema
+    {
+        return $schema->components([
+            Section::make('بيانات الحساب')
+                ->columns(2)
+                ->schema([
+                    TextInput::make('first_name')->label('الاسم الأوّل')->required()->maxLength(255),
+                    TextInput::make('last_name')->label('اسم العائلة')->required()->maxLength(255),
+
+                    /*
+                    | ⚠️ تغييرُه يُسقِطُ توثيقَه — القرارُ داخلَ الإجراءِ لا هنا،
+                    | والنصُّ المساعدُ يقولُه قبلَ الحفظِ لا بعدَه.
+                    */
+                    TextInput::make('email')
+                        ->label('البريد')
+                        ->email()
+                        ->required()
+                        ->maxLength(255)
+                        ->unique(ignoreRecord: true)
+                        ->helperText('تغييرُ البريدِ يُلغي توثيقَه — العنوانُ الجديدُ لم يُثبِتْ أحدٌ ملكيّتَه.'),
+
+                    // نصٌّ حرٌّ كما يكتبُه إجراءُ التسجيلِ تماماً: الرقمُ المؤكَّدُ
+                    // يعيشُ في `contact_verifications`، وهذا العمودُ ليس هو.
+                    TextInput::make('phone')->label('الهاتف')->tel()->maxLength(255),
+
+                    TextInput::make('country')
+                        ->label('الدولة')
+                        ->maxLength(2)
+                        ->rule('regex:/^[A-Z]{2}$/')
+                        ->helperText('رمزٌ من حرفَين بحروفٍ كبيرة — QA، EG.'),
+                ]),
+        ]);
     }
 
     public static function canDelete(mixed $record): bool
@@ -138,6 +191,9 @@ class UserResource extends Resource
                     ->description(fn (User $record): string => $record->created_at?->diffForHumans() ?? '')
                     ->sortable(),
             ])
+            ->recordActions([
+                EditAction::make()->label('تعديل'),
+            ])
             ->filters([
                 SelectFilter::make('platform_role')
                     ->label('الصفة')
@@ -155,6 +211,7 @@ class UserResource extends Resource
     {
         return [
             'index' => Pages\ListUsers::route('/'),
+            'edit' => Pages\EditUser::route('/{record}/edit'),
         ];
     }
 }
