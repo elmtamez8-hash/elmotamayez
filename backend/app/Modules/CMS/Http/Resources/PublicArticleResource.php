@@ -73,6 +73,31 @@ class PublicArticleResource extends JsonResource
         return $resource;
     }
 
+    /**
+     * أزواجُ السؤالِ والجوابِ المكتملةُ وحدَها.
+     *
+     * ⚠️ التصفيةُ في الخلفيّةِ لا في الواجهة: الحمولةُ نفسُها تُبنى منها البياناتُ
+     * المنظَّمةُ **والقسمُ المرئيّ**، فتصفيةٌ في أحدِهما تتركُ الآخرَ يصفُ سؤالاً
+     * بلا جواب.
+     *
+     * @return list<array{question: string, answer: string}>
+     */
+    private function faqPairs(): array
+    {
+        $pairs = [];
+
+        foreach (is_array($this->faq) ? $this->faq : [] as $entry) {
+            $question = is_array($entry) ? trim((string) ($entry['question'] ?? '')) : '';
+            $answer = is_array($entry) ? trim((string) ($entry['answer'] ?? '')) : '';
+
+            if ($question !== '' && $answer !== '') {
+                $pairs[] = ['question' => $question, 'answer' => $answer];
+            }
+        }
+
+        return $pairs;
+    }
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
@@ -81,6 +106,16 @@ class PublicArticleResource extends JsonResource
             'slug' => $this->slug,
             'title' => $this->title,
             'excerpt' => $this->excerpt,
+            /*
+            | ⚠️ رابطٌ مبنيٌّ من مسارٍ نسبيّ، لا عمودٌ يحملُ رابطاً. هجاءُ
+            | `courses.cover_path` نفسُه في أربعةِ موارِدَ سبقَت — ونسخةٌ خامسةٌ
+            | بصياغةٍ أخرى تفترقُ عنها عندَ أوّلِ تغييرِ قرصٍ أو نطاق.
+            |
+            | ⚠️ وعلى البطاقةِ والتفصيلِ معاً لا على التفصيلِ وحدَه: الفهرسُ هو من
+            | يعرضُ اثنتَي عشرةَ صورةً، وحقلٌ يصلُ صفحةَ المقالِ وحدَها يجعلُ
+            | البطاقاتِ كلَّها بلا غلافٍ بلا خطأٍ في أيِّ مكان.
+            */
+            'cover_url' => $this->cover_path === null ? null : asset('storage/'.$this->cover_path),
             'published_at' => $this->published_at,
             // The sitemap's `lastModified` and the article's «آخر تحديث» line.
             'updated_at' => $this->updated_at,
@@ -110,6 +145,16 @@ class PublicArticleResource extends JsonResource
             'seo_title' => $this->seo_title,
             'seo_description' => $this->seo_description,
             'canonical_url' => $this->canonical_url,
+            /*
+            | ⚠️ الخلاصةُ والأسئلةُ على **التفصيلِ وحدَه**: البطاقةُ تعرضُ المقتطفَ
+            | ولا مكانَ فيها لفقرةٍ ولا لقائمةِ أسئلة، وحمولةٌ تحملُ اثنتَي عشرةَ
+            | خلاصةً في كلِّ فتحةِ فهرسٍ عرضُ نطاقٍ لا يقرؤه أحد.
+            */
+            'summary' => $this->summary,
+            // مُصفّاةٌ هنا لا في الواجهة: زوجٌ ناقصٌ يُنتِجُ عقدةَ `Question` بلا
+            // إجابةٍ في البياناتِ المنظَّمة، وهي أسوأُ من غيابِ القسمِ كلِّه.
+            'faq' => $this->faqPairs(),
+            'is_indexable' => (bool) $this->is_indexable,
             ...($this->related ?? []),
         ];
     }

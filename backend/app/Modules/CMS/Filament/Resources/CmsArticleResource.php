@@ -10,14 +10,18 @@ use App\Modules\Tenancy\Support\Permissions;
 use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\PageRegistration;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -118,6 +122,35 @@ class CmsArticleResource extends Resource
 
                     Textarea::make('excerpt')->label('المقتطف')->rows(2)->maxLength(500)->columnSpanFull(),
 
+                    /*
+                    | غلافُ المقال — ويُخزَّنُ **مساراً نسبيّاً على القرصِ العامّ**
+                    | لا رابطاً كاملاً، وهو ما يقرؤه `PublicArticleResource`
+                    | ببناءِ `asset('storage/'.$path)`.
+                    |
+                    | ⚠️ `->disk('public')` صراحةً: القرصُ الافتراضيُّ في
+                    | `config/filesystems.php` قد يكونُ خاصّاً، والصورةُ المحفوظةُ
+                    | هناك تُرفَعُ بنجاحٍ ثمّ لا تُفتَحُ من أيِّ صفحةٍ عامّة —
+                    | يظهرُ العطلُ عندَ القارئِ لا عندَ من رفع.
+                    |
+                    | ⚠️ و`->image()` لا `acceptedFileTypes` وحدَها: الأولى تُفعِّلُ
+                    | معاينةَ الصورةِ في المحرِّر، وغلافٌ يُختارُ بلا رؤيتِه هو
+                    | غلافٌ خاطئٌ يُكتشَفُ على الصفحةِ الحيّة.
+                    |
+                    | ⚠️ والنسبةُ ‏١٦:٩ مقصوصةٌ هنا لا في CSS: البطاقةُ والمقالُ
+                    | يعرضانِها بنسبتَينِ مختلفتَين، وصورةٌ طويلةٌ تُقَصُّ في
+                    | المتصفّحِ من وسطِها فيضيعُ ما اختارَه الكاتبُ ليُرى.
+                    */
+                    FileUpload::make('cover_path')
+                        ->label('صورة الغلاف')
+                        ->helperText('تظهر في بطاقة المقال وفي أعلى الصفحة وفي بطاقة المشاركة. الأفضل ١٦:٩.')
+                        ->image()
+                        ->imageEditor()
+                        ->imageCropAspectRatio('16:9')
+                        ->disk('public')
+                        ->directory('article-covers')
+                        ->maxSize(4096)
+                        ->columnSpanFull(),
+
                     Textarea::make('body')
                         ->label('النصّ')
                         ->rows(14)
@@ -139,6 +172,50 @@ class CmsArticleResource extends Resource
                         ->url()
                         ->maxLength(500)
                         ->helperText('يُترَكُ فارغاً إلّا إذا نُشِرَ النصُّ نفسُه في مكانٍ آخرَ أصلاً.'),
+                    /*
+                    | ⚠️ **الخلاصةُ ليست المقتطف، ولذلك حقلٌ ثانٍ لا إعادةُ استعمال.**
+                    | المقتطفُ إغراءٌ يُقرَأُ تحتَ العنوان؛ هذه فقرةٌ مكتفيةٌ بنفسِها
+                    | يقتبسُها محرّكُ الإجابةِ حرفيّاً بلا ما حولَها. تُعرَضُ في صندوقِ
+                    | «باختصار» أعلى المقالِ وتُرسَلُ في `abstract` ضمنَ البيانات
+                    | المنظَّمة — أي أنّ ما يُقرَأُ هو ما يُقتَبَس.
+                    */
+                    Textarea::make('summary')
+                        ->label('باختصار (خلاصة يقتبسها محرّك الإجابة)')
+                        ->helperText('فقرة واحدة تُجيب عن سؤال المقال بلا سياق حولها. تظهر أعلى المقال.')
+                        ->rows(3)
+                        ->maxLength(600)
+                        ->columnSpanFull(),
+
+                    /*
+                    | ⚠️ **أسئلةٌ مُهيكَلةٌ لا عناوينُ سؤالٍ في المتن.** ‏`FAQPage`
+                    | يحتاجُ زوجاً صريحاً، واستخراجُه بتخمينِ «ما يشبهُ السؤال» من
+                    | الـMarkdown يُنتِجُ بياناتٍ منظَّمةً تصفُ ما ليس في الصفحة.
+                    | والزوجُ الناقصُ مُصفّىً في المورِدِ لا هنا: سؤالٌ بلا جوابٍ في
+                    | البياناتِ المنظَّمةِ أسوأُ من غيابِ القسم.
+                    */
+                    Repeater::make('faq')
+                        ->label('أسئلة شائعة عن هذا المقال')
+                        ->helperText('تظهر أسفل المقال وتُرسَل كـFAQPage لمحرّكات البحث والإجابة.')
+                        ->schema([
+                            TextInput::make('question')->label('السؤال')->required()->maxLength(255),
+                            Textarea::make('answer')->label('الجواب')->required()->rows(2)->maxLength(1000),
+                        ])
+                        ->addActionLabel('أضف سؤالاً')
+                        ->collapsed()
+                        ->itemLabel(fn (array $state): ?string => $state['question'] ?? null)
+                        ->default([])
+                        ->columnSpanFull(),
+
+                    /*
+                    | ⚠️ مُفعَّلٌ افتراضاً، والمفتاحُ للاستثناء: إيقافُ الفهرسةِ
+                    | قرارٌ نادرٌ (صفحةُ حملةٍ، نسخةٌ مكرّرةٌ عمداً)، وافتراضٌ معكوسٌ
+                    | يُخفي كلَّ مقالٍ سبقَ هذا الحقلَ من نتائجِ البحثِ صامتاً.
+                    */
+                    Toggle::make('is_indexable')
+                        ->label('اسمحْ لمحرّكات البحث بفهرسة المقال')
+                        ->default(true)
+                        ->columnSpanFull(),
+
                     Textarea::make('seo_description')->label('وصف محرّكات البحث')->rows(2)->maxLength(500)
                         ->columnSpanFull(),
                 ]),
@@ -150,6 +227,9 @@ class CmsArticleResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
+                // ⚠️ عمودُ صورةٍ لا نصُّ مسار: الغلافُ يُراجَعُ بالنظرِ إليه،
+                // ومسارٌ مكتوبٌ يُخبِرُ أنّ حقلاً مُلِئَ لا أنّ الصورةَ صحيحة.
+                ImageColumn::make('cover_path')->label('الغلاف')->disk('public')->square(),
                 TextColumn::make('title')->label('العنوان')->searchable()->limit(60),
                 TextColumn::make('slug')->label('الرابط')->searchable()->limit(40)->toggleable(),
                 TextColumn::make('status')

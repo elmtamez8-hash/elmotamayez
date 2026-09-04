@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  publicApi,
-  NotFoundError,
-  type ArticleDetail,
-} from "@/lib/public-api";
+import { publicApi, NotFoundError, type ArticleDetail } from "@/lib/public-api";
 import { SITE_URL, siteUrl } from "@/lib/site";
 import { platformName } from "@/lib/platform";
 import { JsonLd, absoluteHttpUrl } from "@/components/seo/JsonLd";
@@ -22,9 +18,12 @@ import {
 } from "@/lib/article";
 import {
   AcademicCapIcon,
+  ChevronDownIcon,
   ChevronEndIcon,
   ClockIcon,
   CoursesIcon,
+  QuestionIcon,
+  SparkIcon,
   TagIcon,
 } from "@/components/icons";
 
@@ -59,9 +58,7 @@ export async function generateMetadata({
     const article = await loadArticle(slug);
     const title = article.seo_title ?? article.title;
     const description =
-      article.seo_description ??
-      article.excerpt ??
-      `مقال على مدوّنة ${name}.`;
+      article.seo_description ?? article.excerpt ?? `مقال على مدوّنة ${name}.`;
     const url = `${SITE_URL}/blog/${encodeURIComponent(article.slug)}`;
 
     return {
@@ -76,6 +73,15 @@ export async function generateMetadata({
        * own address rather than being emitted as typed.
        */
       alternates: { canonical: absoluteHttpUrl(article.canonical_url) ?? url },
+      /*
+       * ⚠️ الوسمُ يُكتَبُ **حينَ يُمنَعُ فقط**. `robots: { index: true }` يُصيَّرُ
+       * وسماً صريحاً، وصفحةٌ تُصرِّحُ بأنّها مفهرَسةٌ لا تكسبُ شيئاً — بينما
+       * `noindex` مكتوبٌ بالخطأِ يُخفي المقالَ بلا أثرٍ في أيِّ سجلّ. الغيابُ هو
+       * الافتراضُ الصحيح.
+       */
+      ...(article.is_indexable
+        ? {}
+        : { robots: { index: false, follow: true } }),
       openGraph: {
         title,
         description,
@@ -85,9 +91,16 @@ export async function generateMetadata({
         siteName: name,
         publishedTime: article.published_at,
         modifiedTime: article.updated_at,
-        // ⚠️ لا غلافَ للمقالِ في الجدول، وبطاقةُ مشاركةٍ بلا صورةٍ شريطٌ رماديّ:
-        // صورةُ القسمِ أصدقُ من لا شيء، وأصدقُ من غلافٍ مخترَع.
-        images: [{ url: `${SITE_URL}/marketplace/banner-about.webp` }],
+        /*
+         * ⚠️ غلافُ المقالِ إن وُجِد، وصورةُ القسمِ وإلّا. بطاقةُ مشاركةٍ بلا صورةٍ
+         * شريطٌ رماديٌّ على كلِّ منصّةِ تواصل، فالارتدادُ ليس زخرفة.
+         */
+        images: [
+          {
+            url:
+              article.cover_url ?? `${SITE_URL}/marketplace/banner-about.webp`,
+          },
+        ],
         ...(article.tags && article.tags.length > 0
           ? { tags: article.tags.map((tag) => tag.name) }
           : {}),
@@ -150,6 +163,9 @@ export default async function ArticlePage({
           wordCount: wordCount(article.body_html),
           timeRequired: isoMinutes(minutes),
           isAccessibleForFree: true,
+          // نفسُ الحقلِ الذي يُعرَضُ في صندوقِ «باختصار». ما يُقرَأُ هو ما يُقتبَس.
+          ...(article.summary ? { abstract: article.summary } : {}),
+          ...(article.cover_url ? { image: article.cover_url } : {}),
           ...(article.category
             ? { articleSection: article.category.name }
             : {}),
@@ -164,9 +180,24 @@ export default async function ArticlePage({
           "@context": "https://schema.org",
           "@type": "BreadcrumbList",
           itemListElement: [
-            { "@type": "ListItem", position: 1, name: "الرئيسية", item: SITE_URL },
-            { "@type": "ListItem", position: 2, name: "المدوّنة", item: siteUrl("/blog") },
-            { "@type": "ListItem", position: 3, name: article.title, item: url },
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "الرئيسية",
+              item: SITE_URL,
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "المدوّنة",
+              item: siteUrl("/blog"),
+            },
+            {
+              "@type": "ListItem",
+              position: 3,
+              name: article.title,
+              item: url,
+            },
           ],
         }}
       />
@@ -181,6 +212,25 @@ export default async function ArticlePage({
         </Link>
       </nav>
 
+      {article.cover_url ? (
+        <div className="banner-rise mb-8 aspect-video overflow-hidden rounded-3xl border border-line bg-primary-soft">
+          {/*
+            ⚠️ `<img>` لا `next/image`: المسارُ يكتبُه مدرّسٌ من اللوحة، أي مدخلٌ
+            غيرُ حرفيّ — وملاحظةُ هذا المستودعِ عن تحذيراتِ npm تقولُ إنّ ثغرةَ
+            `sharp` تصيرُ حيّةً عندَ أوّلِ مسارٍ كهذا يصلُ `next/image`.
+            و`priority` لا معنى له هنا: هذه أكبرُ عنصرٍ فوقَ الطيّ، فلا تحميلَ
+            كسولاً عليها.
+          */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={article.cover_url}
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-cover"
+          />
+        </div>
+      ) : null}
+
       <header className="banner-rise mb-8">
         <div className="mb-4 flex flex-wrap items-center gap-3">
           {article.category ? (
@@ -189,7 +239,10 @@ export default async function ArticlePage({
             </Link>
           ) : null}
 
-          <time dateTime={article.published_at} className="text-sm text-ink-muted">
+          <time
+            dateTime={article.published_at}
+            className="text-sm text-ink-muted"
+          >
             {formatDate(article.published_at)}
           </time>
 
@@ -219,6 +272,30 @@ export default async function ArticlePage({
         ) : null}
       </header>
 
+      {article.summary ? (
+        /*
+          ⚠️ **صندوقُ «باختصار» هو نصفُ AEO المرئيّ.** محرّكُ الإجابةِ يقتبسُ فقرةً
+          مكتفيةً بنفسِها، وهذه هي — والقارئُ المستعجلُ يأخذُ الجوابَ في سطرَين
+          بدلَ أن يغادر. الحقلُ نفسُه يُرسَلُ في `abstract` أدناه، فما يُقرَأُ هو
+          ما يُقتبَس: نصّانِ مختلفانِ لغرضٍ واحدٍ يفترقانِ عندَ أوّلِ تحرير.
+        */
+        <section
+          aria-labelledby="summary-heading"
+          className="my-8 rounded-3xl border border-primary/20 bg-primary-soft p-5 sm:p-6"
+        >
+          <h2
+            id="summary-heading"
+            className="mb-2 flex items-center gap-2 text-sm font-bold text-primary-ink"
+          >
+            <SparkIcon className="h-4 w-4" aria-hidden="true" />
+            باختصار
+          </h2>
+          <p className="text-base leading-relaxed text-ink">
+            {article.summary}
+          </p>
+        </section>
+      ) : null}
+
       <ArticleToc headings={headings} />
 
       {/* The API renders the Markdown and STRIPS raw HTML at the parse rather
@@ -226,7 +303,10 @@ export default async function ArticlePage({
           itself — there is nothing to configure here and no `body` field to
           render by mistake. `prose-article` is the typography rule in
           globals.css; this component sets no colours of its own. */}
-      <div className="prose-article" dangerouslySetInnerHTML={{ __html: html }} />
+      <div
+        className="prose-article"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
 
       {article.tags && article.tags.length > 0 ? (
         <ul className="mt-10 flex flex-wrap items-center gap-2">
@@ -244,10 +324,76 @@ export default async function ArticlePage({
         </ul>
       ) : null}
 
+      {article.faq.length > 0 ? (
+        <section
+          aria-labelledby="faq-heading"
+          className="mt-14 border-t border-line pt-10"
+        >
+          <h2
+            id="faq-heading"
+            className="mb-5 flex items-center gap-2 text-xl font-bold text-ink"
+          >
+            <QuestionIcon
+              className="h-5 w-5 text-primary-ink"
+              aria-hidden="true"
+            />
+            أسئلة شائعة
+          </h2>
+
+          {/*
+            ⚠️ `<details>` الأصليّ لا مطواةٌ بـJavaScript: يفتحُ ويغلقُ بلا شيفرة،
+            ويحملُ دورَه ووصولَه من المتصفّح، **ونصُّه في DOM حتّى وهو مطويّ** —
+            فيقرؤه الزاحفُ ومحرّكُ الإجابةِ ويجدُه بحثُ الصفحة. مطواةٌ تُصيِّرُ
+            الجوابَ عندَ النقرِ تُخفيه عن الثلاثة.
+          */}
+          <ul className="space-y-3">
+            {article.faq.map((entry) => (
+              <li key={entry.question}>
+                <details className="group rounded-2xl border border-line bg-surface-raised p-4 transition hover:border-primary/40">
+                  <summary className="flex cursor-pointer items-center justify-between gap-3 font-semibold text-ink">
+                    {entry.question}
+                    <ChevronDownIcon
+                      className="h-4 w-4 shrink-0 text-ink-muted transition-transform duration-200 group-open:rotate-180"
+                      aria-hidden="true"
+                    />
+                  </summary>
+                  <p className="mt-3 leading-relaxed text-ink-muted">
+                    {entry.answer}
+                  </p>
+                </details>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {article.faq.length > 0 ? (
+        /*
+          ⚠️ **`FAQPage` يُرسَلُ فقط حينَ يوجدُ القسمُ المرئيّ**، وكلاهما من نفسِ
+          المصفوفة. بياناتٌ منظَّمةٌ تصفُ أسئلةً ليست على الصفحةِ مخالفةٌ صريحةٌ
+          تُعاقِبُ عليها المحرّكاتُ لا تُكافئ — والزوجُ الناقصُ مُصفّىً في الخلفيّةِ
+          قبلَ أن يصلَ أيّاً منهما.
+        */
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: article.faq.map((entry) => ({
+              "@type": "Question",
+              name: entry.question,
+              acceptedAnswer: { "@type": "Answer", text: entry.answer },
+            })),
+          }}
+        />
+      ) : null}
+
       {article.related_teachers.length > 0 ? (
         <section className="mt-14 border-t border-line pt-10">
           <h2 className="mb-5 flex items-center gap-2 text-xl font-bold text-ink">
-            <AcademicCapIcon className="h-5 w-5 text-primary-ink" aria-hidden="true" />
+            <AcademicCapIcon
+              className="h-5 w-5 text-primary-ink"
+              aria-hidden="true"
+            />
             مدرّسون في هذا التخصّص
           </h2>
 
@@ -278,7 +424,10 @@ export default async function ArticlePage({
       {article.related_courses.length > 0 ? (
         <section className="mt-12">
           <h2 className="mb-5 flex items-center gap-2 text-xl font-bold text-ink">
-            <CoursesIcon className="h-5 w-5 text-primary-ink" aria-hidden="true" />
+            <CoursesIcon
+              className="h-5 w-5 text-primary-ink"
+              aria-hidden="true"
+            />
             كورسات ذات صلة
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">

@@ -32,6 +32,15 @@ use Spatie\Sluggable\SlugOptions;
  * «غيرُ محذوف» half for nothing, since the global scope carries it.
  *
  * @property string $status
+ * @property string|null $cover_path
+ * @property string|null $summary
+ *                                ⚠️ `array<int, mixed>` لا شكلاً موصوفاً: العمودُ JSON، وما فيه هو ما كُتِبَ
+ *                                فيه — من مُكرِّرِ اللوحةِ اليومَ، ومن هجرةٍ أو بذرةٍ أو شكلٍ أقدمَ غداً. وصفُ
+ *                                الشكلِ هنا يجعلُ الحارسَ في `PublicArticleResource` يبدو ميّتاً للمُحلِّلِ
+ *                                بينما هو الشيءُ الوحيدُ الذي يمنعُ سؤالاً بلا جوابٍ من دخولِ البياناتِ
+ *                                المنظَّمة.
+ * @property array<int, mixed>|null $faq
+ * @property bool $is_indexable
  */
 class Article extends BaseModel
 {
@@ -46,6 +55,15 @@ class Article extends BaseModel
         'slug',
         'body',
         'excerpt',
+        // ⚠️ في `$fillable` مع الهجرةِ نفسِها. عمودٌ تُضيفُه هجرةٌ ولا يدخلُ هذه
+        // القائمةَ عمودٌ **لا يُكتَبُ أبداً بصمت**: الإسنادُ الجَماعيُّ يُسقِطُ
+        // المفتاحَ بلا استثناءٍ ولا سجلّ، والاستجابةُ تُعيدُ ما أُرسِلَ لا ما
+        // خُزِّن. شُحِنَت ثلاثةُ أعمدةٍ هكذا في `student_profiles` (٠١٣) وبقيَت
+        // بوّابةُ موافقةِ وليِّ الأمرِ معطّلةً لكلِّ من سجّلَ بنفسِه.
+        'cover_path',
+        'summary',
+        'faq',
+        'is_indexable',
         'status',
         'published_at',
         'author_id',
@@ -60,6 +78,11 @@ class Article extends BaseModel
     {
         return [
             'published_at' => 'datetime',
+            // ⚠️ مصبوبٌ إلى مصفوفة: بلا الصبِّ يُقرَأُ العمودُ نصَّ JSON خامّاً،
+            // فتُصيَّرُ البياناتُ المنظَّمةُ سلسلةً واحدةً بدلَ قائمةِ أسئلة —
+            // ولا خطأَ في أيِّ مكان.
+            'faq' => 'array',
+            'is_indexable' => 'boolean',
         ];
     }
 

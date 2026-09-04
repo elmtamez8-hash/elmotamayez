@@ -64,7 +64,9 @@ import {
   IconWorld,
   IconInfinity,
   IconInfoCircle,
+  IconHelpCircle,
   IconListDetails,
+  IconSparkles,
   IconLanguage,
   IconLogout,
   IconMath,
@@ -148,6 +150,10 @@ export const AcademicCapIcon = wrap(IconSchool, "h-4 w-4");
 export const DocumentIcon = wrap(IconFileText, "h-4 w-4");
 // فهرسُ المقال — الأيقونةُ تسمّي ما تعنيه، لا ما ترسمُه المكتبة.
 export const ListIcon = wrap(IconListDetails, "h-4 w-4");
+// قسمُ الأسئلةِ الشائعةِ أسفلَ المقال.
+export const QuestionIcon = wrap(IconHelpCircle, "h-4 w-4");
+// صندوقُ «باختصار» — الخلاصةُ التي يقتبسُها محرّكُ الإجابة.
+export const SparkIcon = wrap(IconSparkles, "h-4 w-4");
 export const ShieldIcon = wrap(IconShieldCheck, "h-4 w-4");
 export const RefundIcon = wrap(IconReceiptRefund, "h-4 w-4");
 

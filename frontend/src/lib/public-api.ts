@@ -257,11 +257,21 @@ export type ArticleCard = {
   slug: string;
   title: string;
   excerpt: string | null;
+  /*
+   * ⚠️ On the CARD as well as the article: the index is what renders twelve
+   * images, and a cover that reached the article page alone would leave every
+   * card bare with nothing failing anywhere. Built from a relative path by the
+   * API — the column itself never travels.
+   */
+  cover_url: string | null;
   published_at: string;
   updated_at: string;
   category?: ArticleTaxonomy | null;
   tags?: ArticleTaxonomy[];
 };
+
+/** سؤالٌ وجوابُه. الزوجُ الناقصُ مُصفّىً في الخلفيّة — never rendered half. */
+export type ArticleFaq = { question: string; answer: string };
 
 export type ArticleDetail = ArticleCard & {
   /*
@@ -274,6 +284,16 @@ export type ArticleDetail = ArticleCard & {
   seo_title: string | null;
   seo_description: string | null;
   canonical_url: string | null;
+  /*
+   * ⚠️ الخلاصةُ ليست `excerpt`. المقتطفُ إغراءٌ يُقرَأُ تحتَ العنوان في القائمة؛
+   * هذه فقرةٌ مكتفيةٌ بنفسِها يقتبسُها محرّكُ الإجابةِ بلا ما حولَها — ولذلك
+   * تُعرَضُ في صندوقٍ أعلى المقالِ وتُرسَلُ في `abstract`: ما يُقرَأُ هو ما
+   * يُقتبَس.
+   */
+  summary: string | null;
+  faq: ArticleFaq[];
+  /** يُبنى منه وسمُ `robots`. القيمةُ الافتراضيّةُ في القاعدةِ `true`. */
+  is_indexable: boolean;
   related_teachers: TeacherCard[];
   related_courses: CourseCard[];
 };
