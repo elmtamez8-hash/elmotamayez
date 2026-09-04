@@ -14,6 +14,7 @@ use App\Modules\Marketplace\Actions\SuspendTeacher;
 use App\Modules\Marketplace\Models\TeacherApplication;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,22 @@ use Illuminate\Validation\ValidationException;
  * Permission names come from the Permissions constants, never string literals
  * (Constitution V). Every decision goes through the same Action the Filament
  * resource calls, so the two cannot drift.
+ *
+ * ⚠️ EVERY READ HERE DECLARES `withoutGlobalScope(WorkspaceScope::class)`, and the
+ * reviewer's own workspace is what makes it necessary. `WorkspaceContext::id()`
+ * falls back to `users.last_workspace_id` for EVERY user including a platform
+ * officer — so a reviewer who also owns a workspace was served an empty queue and
+ * a 404 on approve/reject, about applications that exist. A 200-shaped lie, the
+ * same five-layer defect spec 024 recorded for the finance officer, reached from
+ * a second module. `TeacherApplicationResource::getEloquentQuery()` — the Filament
+ * twin of this screen — has carried the bypass since it was written; one answer at
+ * the panel and another at the API is the two-spellings defect this repository
+ * has now paid for in four modules.
+ *
+ * It was survivable while every application sat in ONE workspace, so the failure
+ * mode was all-or-nothing. Spec 025 moves each application into its own teacher's
+ * workspace permanently, which makes a cross-tenant read the only correct one this
+ * screen can make.
  */
 class TeacherReviewController extends Controller
 {
@@ -33,6 +50,7 @@ class TeacherReviewController extends Controller
         $this->authorizePermission($request, Permissions::MARKETPLACE_TEACHERS_REVIEW);
 
         $applications = TeacherApplication::query()
+            ->withoutGlobalScope(WorkspaceScope::class)
             ->when(
                 is_string($request->query('status')) ? $request->query('status') : null,
                 fn ($query, string $status) => $query->where('status', $status),
@@ -149,11 +167,17 @@ class TeacherReviewController extends Controller
 
     private function application(string $uuid): TeacherApplication
     {
-        return TeacherApplication::query()->where('uuid', $uuid)->firstOrFail();
+        return TeacherApplication::query()
+            ->withoutGlobalScope(WorkspaceScope::class)
+            ->where('uuid', $uuid)
+            ->firstOrFail();
     }
 
     private function teacher(string $uuid): TeacherProfile
     {
-        return TeacherProfile::query()->where('uuid', $uuid)->firstOrFail();
+        return TeacherProfile::query()
+            ->withoutGlobalScope(WorkspaceScope::class)
+            ->where('uuid', $uuid)
+            ->firstOrFail();
     }
 }
