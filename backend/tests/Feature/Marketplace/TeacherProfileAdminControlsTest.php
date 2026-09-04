@@ -179,3 +179,22 @@ it('reads the same list the application door reads', function (): void {
     expect(TeachingLanguages::all())->toBe(['ar', 'en', 'fr'])
         ->and($request->getConstants())->not->toHaveKey('TEACHING_LANGUAGES');
 });
+
+it('keeps a qualification that no suggestion list contains', function (): void {
+    /*
+    | ⚠️ الاتّجاهُ الذي تُتلِفُه القائمةُ المغلقة. المقيسُ على الإنتاجِ «بكالريوس
+    | هندسة البرمجيات وعلوم الحاسب» — قيمةٌ لا يحويها أيُّ منتقٍ، فـ`Select`
+    | يعرضُها فارغةً ويكتبُها فارغةً عندَ أوّلِ حفظ. المقترحاتُ تقترحُ ولا تحبس،
+    | وهذا التوكيدُ هو ما يمنعُ «ترقيتَها» إلى خياراتٍ لاحقاً.
+    */
+    $written = ['بكالريوس هندسة البرمجيات وعلوم الحاسب'];
+
+    $this->profile->forceFill(['qualifications' => $written])->save();
+
+    Livewire::test(EditTeacherProfile::class, ['record' => $this->profile->getRouteKey()])
+        ->fillForm(['headline' => 'سطرٌ جديد'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($this->profile->fresh()?->qualifications)->toBe($written);
+});
