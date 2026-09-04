@@ -27,6 +27,7 @@ use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
+use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Learning\Actions\EnrollStudent;
 use App\Modules\Learning\Actions\MarkLessonComplete;
 use App\Modules\Learning\Models\Enrollment;
@@ -144,7 +145,10 @@ final class ScenarioSeeder extends Seeder
      */
     private function seedAcademy(): void
     {
-        $owner = $this->user('Nour', 'Owner', 'owner@academy.test');
+        // ⚠️ Spec 025 · FR-004 — `CreateWorkspace` refuses a non-teacher owner now.
+        // The MEMBERS below deliberately keep a null role: a student who owns
+        // nothing is the whole point of the isolation this seeder demonstrates.
+        $owner = $this->user('Nour', 'Owner', 'owner@academy.test', PlatformRole::Teacher);
 
         $workspace = app(CreateWorkspace::class)->handle(
             CreateWorkspaceDTO::fromArray([
@@ -808,7 +812,8 @@ final class ScenarioSeeder extends Seeder
      */
     private function seedSoloTeacher(): void
     {
-        $owner = $this->user('Khaled', 'Solo', 'khaled@teacher.test');
+        // ⚠️ Spec 025 · FR-004 — see seedAcademy(); the owner must be a teacher.
+        $owner = $this->user('Khaled', 'Solo', 'khaled@teacher.test', PlatformRole::Teacher);
 
         $workspace = app(CreateWorkspace::class)->handle(
             CreateWorkspaceDTO::fromArray([
@@ -851,13 +856,14 @@ final class ScenarioSeeder extends Seeder
         ]);
     }
 
-    private function user(string $first, string $last, string $email): User
+    private function user(string $first, string $last, string $email, ?PlatformRole $role = null): User
     {
         return User::factory()->create([
             'first_name' => $first,
             'last_name' => $last,
             'email' => $email,
             'password' => 'password',
+            'platform_role' => $role,
         ]);
     }
 

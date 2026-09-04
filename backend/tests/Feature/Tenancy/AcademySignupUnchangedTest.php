@@ -4,20 +4,29 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Tenancy\Models\Workspace;
-use App\Modules\Tenancy\Support\Roles;
 use Laravel\Sanctum\Sanctum;
-use Spatie\Permission\PermissionRegistrar;
 
 /**
- * FR-011 regression net.
+ * ⛔ INVERTED ON PURPOSE — spec 025 · FR-026 repeals 001 · FR-011.
  *
- * Adding platform roles and three marketplace signup paths must leave the
- * original route — register, then create a workspace and own it — intact. It is
- * the only way an academy gets onto the platform, and nothing in this feature
- * touches it deliberately, so a failure here means something touched it by
- * accident.
+ * This file was 001's regression net for «the existing signup path must keep
+ * working as the academy-creation path». That path was: register with no
+ * platform role, then ask for a workspace in a later request — and that later
+ * request is `POST /workspaces`, which FR-007 closes.
+ *
+ * So academy self-signup ENDS with this spec. It is not a side effect anybody
+ * discovered afterwards; it is what «the platform has teachers under it, and no
+ * academy layer above them» means, written down in FR-026 and recorded in the
+ * plan's Complexity Tracking. The one door that remains is a platform
+ * administrator creating a workspace from `/admin` (FR-009).
+ *
+ * The file is kept rather than deleted, and inverted rather than weakened: a
+ * deleted regression net leaves nobody able to tell, two specs from now, whether
+ * the closure was a decision or an accident.
  */
-it('still registers an academy owner with no platform role', function (): void {
+it('still registers an account with no platform role', function (): void {
+    // Unchanged and deliberately so: registration itself is untouched. What used
+    // to follow it is what closed.
     $this->postJson('/api/v1/auth/register', [
         'first_name' => 'Jane',
         'last_name' => 'Doe',
@@ -32,23 +41,28 @@ it('still registers an academy owner with no platform role', function (): void {
         ->and($user->workspaces()->count())->toBe(0);
 });
 
-it('still creates a workspace and makes the registrant its owner', function (): void {
+it('refuses to create a workspace for the registrant, and writes no row', function (): void {
     $owner = User::factory()->create();
 
     Sanctum::actingAs($owner);
 
+    $before = Workspace::query()->count();
+
+    /*
+    | ⚠️ `403`, NOT `422`. The account holds no `workspaces.create` — the
+    | permission lives in no tenant role at all — so `WorkspacePolicy::create()`
+    | refuses before the request is even validated.
+    |
+    | ⚠️ AND THE ROW COUNT IS THE REAL ASSERTION. A refusal that returns 403 and
+    | has already written a workspace is worse than an acceptance, because
+    | nothing downstream would ever look for it.
+    */
     $this->postJson('/api/v1/workspaces', [
         'name' => 'أكاديمية النور',
         'type' => 'academy',
-    ])->assertCreated()->assertJsonPath('is_owner', true);
+    ])->assertForbidden();
 
-    $workspace = Workspace::query()->where('name', 'أكاديمية النور')->sole();
-
-    app(PermissionRegistrar::class)->setPermissionsTeamId($workspace->getKey());
-
-    expect($workspace->members()->where('user_id', $owner->getKey())->exists())->toBeTrue()
-        ->and($owner->hasRole(Roles::TENANT_OWNER))->toBeTrue()
-        // The academy path is not a marketplace path: opting in is a separate,
-        // deliberate decision (FR-002), not a side effect of signing up.
-        ->and($workspace->participates_in_marketplace)->toBeFalse();
+    expect(Workspace::query()->count())->toBe($before)
+        ->and(Workspace::query()->where('name', 'أكاديمية النور')->exists())->toBeFalse()
+        ->and($owner->fresh()?->workspaces()->count())->toBe(0);
 });

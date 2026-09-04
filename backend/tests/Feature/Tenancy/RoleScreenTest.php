@@ -49,7 +49,7 @@ it('يعرض اسمَ الدور بالعربيّة ويُبقي المفتاح�
 
     Livewire::test(ListRoles::class)
         ->assertSuccessful()
-        ->assertSee('مالك مساحة العمل')
+        ->assertSee('صاحب مكان العمل')
         ->assertSee(Roles::TENANT_OWNER);
 });
 

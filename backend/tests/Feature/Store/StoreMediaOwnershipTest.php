@@ -52,7 +52,7 @@ it('refuses a file belonging to another teacher', function (): void {
             'media_asset_uuid' => $this->theirAsset->uuid,
         ]),
         (int) $this->mine->getKey(),
-    ))->toThrow(DomainException::class, 'الملف المختار غير موجود في مساحتك.');
+    ))->toThrow(DomainException::class, 'الملف المختار غير موجود عندك.');
 });
 
 it('answers a missing file and a stolen one identically', function (): void {

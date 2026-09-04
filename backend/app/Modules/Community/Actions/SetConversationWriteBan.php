@@ -46,7 +46,7 @@ class SetConversationWriteBan extends Action
         ?int $minutes = null,
     ): ConversationWriteBan {
         if (! $conversation->kind->isPublic()) {
-            throw new DomainException('لا يمكن إيقاف الكتابة في محادثةٍ خاصّة. لإيقاف شخصٍ في المساحة كلِّها استخدم الحظر.');
+            throw new DomainException('لا يمكن إيقاف الكتابة في محادثةٍ خاصّة. لإيقاف شخصٍ في كلّ محادثاتك استخدم الحظر.');
         }
 
         $target = $this->target($conversation, $userUuid);

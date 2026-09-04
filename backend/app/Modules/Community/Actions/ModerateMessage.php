@@ -100,7 +100,7 @@ class ModerateMessage extends Action
         $workspaceId = app(WorkspaceContext::class)->id();
 
         if ($workspaceId === null) {
-            throw new DomainException('لا توجد مساحة عمل حالية لتنفيذ هذا الإجراء.');
+            throw new DomainException('تعذّر تحديد مكان عملك لتنفيذ هذا الإجراء.');
         }
 
         return [$workspaceId, (int) $subject->getKey()];

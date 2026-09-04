@@ -320,7 +320,7 @@ export default function ConversationPage() {
     call
       .then(() => {
         setBanned((was) => !was);
-        setNotice(banned ? "رُفع الحظر، وعاد بإمكانه الكتابة." : "حُظرت الكتابة عن حسابه في مساحتك.");
+        setNotice(banned ? "رُفع الحظر، وعاد بإمكانه الكتابة." : "حُظرت الكتابة عن حسابه عندك.");
       })
       .catch((error: unknown) => setProblem(userMessage(error)))
       .finally(() => setModerating(false));

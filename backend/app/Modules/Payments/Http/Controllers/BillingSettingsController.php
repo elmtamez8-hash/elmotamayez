@@ -65,7 +65,7 @@ class BillingSettingsController extends Controller
         $workspace = $context->current();
 
         if ($workspace === null) {
-            throw new AuthorizationException('اختر مساحة عمل أولاً لتعديل إعدادات الفوترة.');
+            throw new AuthorizationException('تعذّر تحديد مكان عملك لتعديل إعدادات الفوترة.');
         }
 
         return $workspace;

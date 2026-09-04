@@ -143,7 +143,7 @@ class TeacherReviewController extends Controller
         $workspace = app(WorkspaceContext::class)->current();
 
         if ($workspace === null) {
-            throw ValidationException::withMessages(['participates' => 'لا توجد مساحة عمل حالية.']);
+            throw ValidationException::withMessages(['participates' => 'تعذّر تحديد مكان العمل.']);
         }
 
         $updated = $action->handle($workspace, (bool) $validated['participates']);

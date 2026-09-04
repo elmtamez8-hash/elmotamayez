@@ -6,45 +6,77 @@ use App\Models\User;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Roles;
 use Laravel\Sanctum\Sanctum;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
 
 describe('workspace creation', function (): void {
-    it('creates a workspace and seeds default roles', function (): void {
+    /*
+    | ⛔ INVERTED ON PURPOSE — spec 025 · FR-007, and FR-026 records the decision.
+    |
+    | This asserted `201` plus four seeded roles for ANY signed-in account. That
+    | was measured to be exactly what it says: a student holding zero permissions
+    | created three workspaces in a row and became `tenant-owner` — 68
+    | permissions, `roles.manage` among them — inside each. The workspace is born
+    | with the teacher's account now, so the manual door has no remaining purpose
+    | and is closed to everybody but a platform administrator.
+    |
+    | The seeded-roles half of the old assertion did not disappear: it moved to
+    | `ImplicitWorkspaceBirthTest`, where the workspace now actually comes from.
+    */
+    it('refuses to create a workspace for an ordinary account', function (): void {
         $owner = User::factory()->create();
         Sanctum::actingAs($owner);
 
-        $response = $this->postJson('/api/v1/workspaces', [
+        $before = Workspace::query()->count();
+
+        $this->postJson('/api/v1/workspaces', [
             'name' => 'My Academy',
             'type' => 'academy',
-        ]);
+        ])->assertForbidden();
 
-        $response->assertCreated()
-            ->assertJsonPath('name', 'My Academy')
-            ->assertJsonPath('is_owner', true);
-
-        $workspace = Workspace::where('name', 'My Academy')->firstOrFail();
-
-        // Owner should be a member with tenant-owner role.
-        expect($workspace->members()->where('user_id', $owner->getKey())->exists())->toBeTrue();
-
-        // Workspace-scoped roles should be seeded.
-        foreach (Roles::workspaceRoles() as $roleName) {
-            expect(Role::where('name', $roleName)->where('team_id', $workspace->getKey())->exists())->toBeTrue();
-        }
-
-        // Owner should have the tenant-owner role within this workspace's team context.
-        app(PermissionRegistrar::class)->setPermissionsTeamId($workspace->getKey());
-        expect($owner->hasRole(Roles::TENANT_OWNER))->toBeTrue();
+        // A 403 that wrote a row anyway is worse than a 201.
+        expect(Workspace::query()->count())->toBe($before);
     });
 
-    it('validates workspace type', function (): void {
+    /*
+    | ⛔ INVERTED ON PURPOSE — and the ORDER of the two refusals is the content.
+    |
+    | A teacher who already owns their implicit workspace gets `403`, not the
+    | `422` of FR-008: they do not hold `workspaces.create`, so the policy refuses
+    | them before the second-workspace rule is ever consulted. FR-008's 422 is
+    | reachable only from the `/admin` screen, where the caller DOES hold the
+    | permission — which is where it is measured.
+    */
+    it('refuses a teacher who already owns a workspace, at the door and not at the count', function (): void {
+        [, $owner] = $this->createWorkspaceWithOwner();
+
+        Sanctum::actingAs($owner);
+
+        $before = Workspace::query()->count();
+
+        $this->postJson('/api/v1/workspaces', [
+            'name' => 'A Second One',
+            'type' => 'teacher',
+        ])->assertForbidden();
+
+        expect(Workspace::query()->count())->toBe($before)
+            ->and(Workspace::query()->where('owner_user_id', $owner->getKey())->count())->toBe(1);
+    });
+
+    /*
+    | ⛔ INVERTED ON PURPOSE — spec 025 · FR-007.
+    |
+    | It asserted `422` on a bad `type`, which required the request to reach
+    | validation at all. `authorize()` runs FIRST in a Form Request, so an account
+    | without `workspaces.create` is refused before a single rule is evaluated.
+    | The validation rules themselves are untouched and still apply to the one
+    | caller who gets past the door.
+    */
+    it('refuses before it validates, because authorize runs first', function (): void {
         Sanctum::actingAs(User::factory()->create());
 
         $this->postJson('/api/v1/workspaces', [
             'name' => 'Bad Type',
             'type' => 'invalid',
-        ])->assertStatus(422)->assertJsonValidationErrors(['type']);
+        ])->assertForbidden();
     });
 
     it('lists workspaces the user belongs to', function (): void {
@@ -60,8 +92,17 @@ describe('workspace creation', function (): void {
     });
 
     it('marks which workspace the request is acting in', function (): void {
+        /*
+        | ⚠️ THE FIXTURE MOVED — spec 025 · FR-008. One owner now holds exactly one
+        | workspace, guarded by the Action and by a unique index, so «owns two»
+        | can no longer be built. Belonging to two is still perfectly ordinary and
+        | is the case this test is actually about: a teacher who owns their own
+        | place and assists at somebody else's. The assistants stay, by an explicit
+        | product decision — only the word «workspace» goes.
+        */
         [$workspaceA, $owner] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
-        $workspaceB = $this->addOwnedWorkspace($owner, 'Academy B');
+        [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+        $this->addWorkspaceMember($workspaceB, Roles::TEACHER, $owner);
 
         $this->setCurrentWorkspace($workspaceB, $owner);
         Sanctum::actingAs($owner);
@@ -72,7 +113,9 @@ describe('workspace creation', function (): void {
 
         expect($current)->not->toBeNull()
             ->and($current['name'])->toBe('Academy B')
-            ->and($current['pivot_role'])->toBe(Roles::TENANT_OWNER)
+            // A member at somebody else's place, not its owner — which is the
+            // whole shape spec 025 keeps: the assistants stay, only the word goes.
+            ->and($current['pivot_role'])->toBe(Roles::TEACHER)
             ->and(collect($response->json())->firstWhere('name', 'Academy A')['is_current'])->toBeFalse();
     });
 });

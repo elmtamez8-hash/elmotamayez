@@ -352,17 +352,20 @@ const adminNav: NavItem[] = [
   // not a preference, and it expires by itself.
   { href: "/manage/billing/exam-mode", label: "وضع الامتحانات", Icon: CreditsIcon, permission: P.billingExamMode },
   /*
-   * ⚠️ HIDDEN FROM A STUDENT, WHO IS A MEMBER OF NOTHING. Only `AcceptInvitation`
-   * and `CreateWorkspace` write the membership pivot, so this screen is a
-   * permanently empty list for every student on the platform — under a heading
-   * about workspaces and beside a «مساحة عمل جديدة» button offering them one.
-   * `members.view` is the nearest predicate the client already holds: it is the
-   * first permission on `$assistantTeacher` and appears on no student role, so
-   * it means «you are staff somewhere» without inventing a second answer.
+   * أماكن عملي — وارثةُ «مساحات العمل» (مواصفة ٠٢٥ · FR-014).
    *
-   * `linkOnly` because the route has to stay reachable — see the type above.
+   * ⚠️ لا `permission` بعدَ اليوم، والعددُ هو المسند. كان الحارسُ `members.view`
+   * تقريبًا لسؤال «هل أنت موظّفٌ في مكانٍ ما؟» — تقريبٌ لأنّ الجواب الحقيقيّ صار
+   * محمولًا في الحمولة نفسها: `user.workspaces`. صفرٌ يُسقِط المدخلَ كلَّه (طالبٌ
+   * أو وليُّ أمر)، وواحدٌ يعرض **اسمَ المكان نفسِه** لا صيغةَ مفردٍ من جمع
+   * (FR-014أ · FR-025)، وأكثرُ يعرض «أماكن عملي». انظر `placeLabelled` أدناه.
+   *
+   * ⚠️ ولا زرَّ إنشاءٍ بعدَ اليوم: `/workspaces/new` حُذفت، و`POST /workspaces`
+   * يُجيب `403` لكلّ من لا يحمل `workspaces.create` — والبابُ يُغلَق على الخادم لا
+   * بإخفاء زرّ. `linkOnly` تبقى لأنّ المسار يبقى مفتوحًا، والصفحةُ تقول لمن لا
+   * مكانَ له جملةً واحدةً وتدلّه على «دراستي».
    */
-  { href: "/workspaces", label: "مساحات العمل", Icon: WorkspaceIcon, permission: P.membersView, linkOnly: true },
+  { href: "/workspaces", label: "أماكن عملي", Icon: WorkspaceIcon, linkOnly: true },
   { href: "/members", label: "الأعضاء", Icon: MembersIcon, permission: P.membersView },
   /*
    * Spec 010 · US1 — the teacher's team, beside the member list it rides on.
@@ -562,6 +565,25 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
   const allowed = (items: NavItem[]) =>
     items.filter((item) => can(user, item.permission) && (item.audience !== "learner" || learns));
 
+  /*
+   * أماكن العمل: العدد يقرّر اللافتة (مواصفة ٠٢٥ · FR-014 · FR-014أ · FR-025).
+   *
+   * ⚠️ ثلاثة أجوبة لا اثنان، والوسطُ هو المقصود بالبند. «مكان عملي» صيغةُ مفردٍ
+   * من جمع، وهي تُبقي في ذهن القارئ أنّ ثمّة أماكنَ أخرى — وهو بالضبط ما تُلغيه
+   * هذه المواصفة. فحين يكون واحدًا يُعرَض **اسمُه هو**، المشتقُّ من اسم المدرّس.
+   *
+   * ⚠️ ويُقرأ من `useAuth()` بلا جلبٍ ثانٍ: الحقل يصل مع `me()` أصلًا.
+   */
+  const places = user?.workspaces ?? [];
+
+  const placeLabelled = (items: NavItem[]) =>
+    items.flatMap((item) => {
+      if (item.href !== "/workspaces") return [item];
+      if (places.length === 0) return [];
+
+      return [{ ...item, label: places.length === 1 ? places[0].name : item.label }];
+    });
+
   const refused = refusedBy(allNav, pathname, user);
 
   const renderItem = ({ href, label, Icon, badge }: NavItem) => {
@@ -694,7 +716,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
         {/* The one thing that scrolls. Everything else keeps its height, so a
             long nav never pushes the account panel off the screen. */}
         <nav aria-label="التنقّل الرئيسي" className={`flex-1 overflow-y-auto py-4 px-3 ${collapsed ? "md:px-2" : ""}`}>
-          {allowed(mainNav).map(renderItem)}
+          {placeLabelled(allowed(mainNav)).map(renderItem)}
           {/* ⚠️ The heading is hidden with its list, not left standing over an
               empty box. A section title with nothing under it reads as content
               that failed to load. */}

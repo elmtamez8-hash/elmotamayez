@@ -99,7 +99,7 @@ export default function AssistantsPage() {
 
       {active.length === 0 ? (
         <Alert tone="info" title="لا مساعدين بعد">
-          يُضاف المساعد بدعوته إلى مساحة عملك من شاشة الأعضاء؛ ويظهر هنا فور قبوله الدعوة.
+          يُضاف المساعد بدعوته إلى فريقك من شاشة الفريق؛ ويظهر هنا فور قبوله الدعوة.
         </Alert>
       ) : (
         active.map((row) => (

@@ -103,7 +103,7 @@ final class Roles
             self::SUPER_ADMIN => 'مدير المنصّة',
             self::FINANCE_ADMIN => 'مسؤول ماليّ',
             self::COMPLIANCE_OFFICER => 'مسؤول امتثال',
-            self::TENANT_OWNER => 'مالك مساحة العمل',
+            self::TENANT_OWNER => 'صاحب مكان العمل',
             self::TEACHER => 'مدرّس',
             self::ASSISTANT_TEACHER => 'مدرّس مساعد',
             self::STUDENT => 'طالب',

@@ -121,7 +121,7 @@ class ScheduleClassSession extends Action
         $course = Course::query()->find($data->courseId);
 
         if ($course === null) {
-            throw new DomainException('الكورس غير موجود في مساحة العمل هذه.');
+            throw new DomainException('الكورس غير موجود عندك.');
         }
 
         return $course;

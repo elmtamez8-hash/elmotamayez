@@ -28,6 +28,28 @@ class WorkspacePolicy extends BasePolicy
             : Response::deny('Only a platform administrator may list workspaces.');
     }
 
+    /**
+     * Spec 025 · FR-007 — nobody makes a workspace by hand any more.
+     *
+     * ⚠️ THIS IS THE ONE SPELLING, read by `CreateWorkspaceRequest::authorize()`
+     * and by the Filament resource. Two spellings of «may you create one» put one
+     * answer on the screen and another at the door, which is a defect this
+     * repository has paid for from both sides.
+     *
+     * The permission sits in no tenant role, so a teacher who already owns their
+     * implicit workspace is refused HERE — a 403, not the 422 of FR-008, because
+     * they never reach the second-workspace check at all. Super-admin is waved
+     * past by {@see BasePolicy::before()}, which is what keeps FR-009 possible.
+     */
+    public function create(User $user): Response
+    {
+        return $user->can(Permissions::WORKSPACES_CREATE)
+            ? Response::allow()
+            // ⚠️ «مكان العمل» لا «مساحة العمل». رسالةُ الرفضِ نصٌّ يقرؤه إنسان،
+            // وSC-002 تشمل رسائلَ الاستثناءات ونصوصَ `lang/ar` في الخلفيّة.
+            : Response::deny('مكان العمل يُنشأ مع الحساب، ولا يُنشأ يدويًا.');
+    }
+
     public function view(User $user, Workspace $workspace): Response
     {
         return $workspace->members()->where('user_id', $user->getKey())->exists()

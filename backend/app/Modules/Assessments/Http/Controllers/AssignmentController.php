@@ -180,7 +180,7 @@ class AssignmentController extends Controller
         $workspaceId = app(WorkspaceContext::class)->id();
 
         if ($workspaceId === null) {
-            return response()->json(['message' => 'اختر مساحة عمل أولاً.'], 422);
+            return response()->json(['message' => 'تعذّر تحديد مكان عملك. أعد تحميل الصفحة.'], 422);
         }
 
         try {

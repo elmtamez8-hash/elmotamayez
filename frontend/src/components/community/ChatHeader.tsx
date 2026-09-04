@@ -102,14 +102,14 @@ export function ChatHeader({
                 }}
                 className="block w-full px-4 py-3 text-start text-sm text-danger-ink hover:bg-surface-raised disabled:opacity-50"
               >
-                {banned ? "فكّ الحظر عن الكتابة" : "احظر الكتابة في هذه المساحة"}
+                {banned ? "فكّ الحظر عن الكتابة" : "احظر الكتابة عندك"}
               </button>
 
               <p className="border-t border-line px-4 py-2 text-xs text-ink-muted">
                 {/* The ban is workspace-wide by declaration (`FR-022`), and a
                     control that read «احظر في هذه المحادثة» would be lying about
                     a scope the server does not have. */}
-                الحظر يمنع الكتابة في مساحتك كلّها، والقراءة تبقى.
+                الحظر يمنع الكتابة في كلّ محادثاتك، والقراءة تبقى.
               </p>
             </div>
           )}

@@ -83,3 +83,67 @@ it('costs the same for two children as for eight', function (): void {
         ->and($stages['year-10'])->toBe('secondary')
         ->and($stages['university'])->toBe('university');
 });
+
+/*
+| Spec 025 · FR-014 — the `workspaces` field on `UserResource`, measured the same
+| way and for the same pair of opposite mistakes.
+|
+| ⚠️ THE COST MUST NOT GROW WITH THE NUMBER OF PLACES, **AND THE FIELD MUST BE
+| THERE**. Dropping the read altogether makes `/auth/me` one query cheaper while
+| the key silently disappears — a budget-only test reports that regression as an
+| improvement, and the sidebar loses the entry for every teacher on the platform.
+|
+| ⚠️ AND THE FIELD RIDES ON EIGHT ENDPOINTS, not just this one: `UserResource` is
+| returned by register, registerStudent, login, me, updateProfile, the parent
+| controller and the two-factor controller. Which is exactly why the student and
+| guardian skip below is worth its line — they are most of the accounts on the
+| platform and are members of nothing by design.
+*/
+it('sends the places a teacher works at a flat cost', function (): void {
+    [$own, $teacher] = $this->createWorkspaceWithOwner(['name' => 'خالد عبد الباسط']);
+    [$elsewhere] = $this->createWorkspaceWithOwner(['name' => 'نور عبد الله']);
+
+    Sanctum::actingAs($teacher);
+    $this->getJson('/api/v1/auth/me')->assertOk();
+
+    [$oneCost, $onePlace] = countingQueries(fn () => $this->getJson('/api/v1/auth/me')->assertOk());
+
+    expect($onePlace->json('workspaces'))->toHaveCount(1)
+        ->and($onePlace->json('workspaces.0.name'))->toBe('خالد عبد الباسط')
+        // uuid and never id — Constitution VI.
+        ->and($onePlace->json('workspaces.0'))->toHaveKey('uuid')
+        ->and($onePlace->json('workspaces.0'))->not->toHaveKey('id');
+
+    // Now they also assist at somebody else's place, which is the case FR-014
+    // keeps the switcher for. One more row must not mean one more query.
+    $this->addWorkspaceMember($elsewhere, 'teacher', $teacher);
+
+    $this->asGuest();
+    Sanctum::actingAs($teacher);
+    $this->getJson('/api/v1/auth/me')->assertOk();
+
+    [$twoCost, $twoPlaces] = countingQueries(fn () => $this->getJson('/api/v1/auth/me')->assertOk());
+
+    expect($twoPlaces->json('workspaces'))->toHaveCount(2)
+        ->and($twoCost)->toBeLessThanOrEqual($oneCost);
+
+    expect($own->getKey())->not->toBe($elsewhere->getKey());
+});
+
+it('skips the read entirely for a student, who is a member of nothing', function (): void {
+    $student = User::factory()->create(['platform_role' => PlatformRole::Student]);
+
+    Sanctum::actingAs($student);
+    $this->getJson('/api/v1/auth/me')->assertOk();
+
+    [$cost, $response] = countingQueries(fn () => $this->getJson('/api/v1/auth/me')->assertOk());
+
+    /*
+    | ⚠️ EMPTY IS SENT, NEVER ABSENT. «No places» and «the key is missing» are
+    | different answers, and the sidebar reads the count — a missing key would
+    | make the banner's three-way branch depend on a `?? []` in the client, which
+    | is a second answer to a question the server already answers.
+    */
+    expect($response->json('workspaces'))->toBe([])
+        ->and($cost)->toBeGreaterThan(0);
+});

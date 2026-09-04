@@ -98,7 +98,7 @@ export default function ManageCertificatesPage() {
       <header>
         <h1 className="text-xl font-semibold text-ink">شهادات الطلاب</h1>
         <p className="mt-1 text-sm text-ink-muted">
-          كلّ شهادة صدرت في مساحتك، والاسم عليها هو الاسم يوم استحقّها.
+          كلّ شهادة صدرت عندك، والاسم عليها هو الاسم يوم استحقّها.
         </p>
       </header>
 
@@ -106,7 +106,7 @@ export default function ManageCertificatesPage() {
         columns={columns}
         rows={certificates}
         rowKey={(row) => row.uuid}
-        caption="شهادات طلاب مساحتك بأسمائهم وكورساتهم وتواريخ إصدارها"
+        caption="شهادات طلابك بأسمائهم وكورساتهم وتواريخ إصدارها"
         state={
           loading && certificates.length === 0
             ? "loading"

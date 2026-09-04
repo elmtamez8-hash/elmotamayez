@@ -37,7 +37,7 @@ enum SessionEndReason: string
             self::TwoFactorChange => 'تغيّرت إعدادات التحقق الثنائي لحسابك.',
             self::Manual => 'أُنهيت هذه الجلسة من قائمة أجهزتك.',
             self::Expired => 'انتهت صلاحية الجلسة.',
-            self::Offboarding => 'اكتمل خروجك من مساحة العمل.',
+            self::Offboarding => 'اكتمل خروجك من مكان العمل.',
         };
     }
 }

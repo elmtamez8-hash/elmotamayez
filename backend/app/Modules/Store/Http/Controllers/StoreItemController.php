@@ -75,7 +75,7 @@ class StoreItemController extends Controller
             // resolved no workspace, and writing the row with a null would give
             // the product to nobody — the silent-empty-column defect this module
             // guards against everywhere else.
-            throw new DomainException('لا توجد مساحة عمل حالية.');
+            throw new DomainException('تعذّر تحديد مكان العمل.');
         }
 
         return $id;

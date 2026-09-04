@@ -5,10 +5,16 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\WorkspaceResource\Pages;
+use App\Models\User;
+use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Tenancy\Enums\WorkspaceType;
 use App\Modules\Tenancy\Models\Workspace;
 use BackedEnum;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -17,14 +23,23 @@ use Illuminate\Support\Facades\Auth;
 use UnitEnum;
 
 /**
- * مساحاتُ العمل — كلُّ مساحةٍ مدرّسٌ (أو أكاديميّة). **قراءةً فقط**، لمدير المنصّة.
+ * أماكنُ العمل — كلُّ مكانٍ مدرّس. لمدير المنصّة، بإنشاءٍ **ولا تعديلَ ولا حذف**.
  *
- * ⚠️ لا إنشاءَ من هنا: `WorkspaceCreated` هو ما يُطلِقُ `SeedDefaultRoles`، ومساحةٌ
- * تُكتَبُ بإدراجٍ مباشرٍ تُولَدُ بلا دورٍ واحد — فلا مالكَ لها يستطيعُ فعلَ شيءٍ
- * فيها، ولا شيءَ في الشاشةِ يقولُ لماذا. ولا حذفَ: الصفُّ مشارٌ إليه من كلِّ جدولٍ
- * مقسَّمٍ بـ`workspace_id` في المنتَج.
+ * ⚠️ هذه الشاشةُ هي البابُ الوحيدُ الباقي بعدَ مواصفةِ ٠٢٥ (FR-009). المكانُ يُولَدُ
+ * مع حسابِ المدرّسِ نفسِه، و`POST /workspaces` يُجيبُ `403` لكلِّ من لا يحملُ
+ * `workspaces.create` — وهي صلاحيّةٌ في لا دورِ مستأجرٍ واحد. فإن احتاجَ مدرّسٌ
+ * مكاناً لسببٍ تشغيليّ، هنا وحدَها.
  *
- * ⚠️ والبابُ مُعلَنٌ صراحةً — قائمةُ Filament لا تستدعي سياسةَ الصفِّ أبداً.
+ * ⚠️ و`handleRecordCreation` تنادي `CreateWorkspace`، ولا تدعُ Filament يستدعي
+ * `Workspace::create()`. الفرقُ ليس أسلوباً: `WorkspaceCreated` هو ما يُطلِقُ
+ * `SeedDefaultRoles`، ومساحةٌ تُكتَبُ بإدراجٍ مباشرٍ تُولَدُ بلا دورٍ واحد وتبقى كذلك
+ * للأبد. والدليلُ مقيسٌ لا مفترَض: صفُّ «المنصة» على الإنتاجِ كُتِبَ بـ`forceFill`
+ * ولم يحملْ دوراً واحداً منذُ ذلك اليوم.
+ *
+ * ⚠️ ولا حذفَ: الصفُّ مشارٌ إليه من كلِّ جدولٍ مقسَّمٍ بـ`workspace_id` في المنتَج.
+ *
+ * ⚠️ ولوحةُ `/admin` مستثناةٌ من FR-012 صراحةً: شاشةٌ تُنشئُ مكانَ عملٍ لا تستطيعُ
+ * ألّا تسمّيَ ما تُنشِئُه، وهي أداةُ مديرِ المنصّةِ لا واجهةُ المنتَج.
  */
 class WorkspaceResource extends Resource
 {
@@ -40,17 +55,17 @@ class WorkspaceResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return 'مساحات العمل';
+        return 'أماكن العمل';
     }
 
     public static function getModelLabel(): string
     {
-        return 'مساحة عمل';
+        return 'مكان عمل';
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'مساحات العمل';
+        return 'أماكن العمل';
     }
 
     public static function canViewAny(): bool
@@ -60,7 +75,55 @@ class WorkspaceResource extends Resource
 
     public static function canCreate(): bool
     {
-        return false;
+        return Auth::user()?->can('create', Workspace::class) ?? false;
+    }
+
+    /**
+     * ⚠️ مُنتقي مالكٍ، لأنّ المسارَ الخلفيَّ لا يُشبِعُ FR-009 إطلاقاً:
+     * `WorkspaceController::store()` يجعلُ **المنادِيَ** هو المالك، فمديرُ منصّةٍ
+     * ينشئُ «لمدرّسٍ» عبرَ الـAPI يملكُها هو.
+     */
+    public static function form(Schema $schema): Schema
+    {
+        return $schema->components([
+            Section::make('مكان عمل جديد')
+                ->description('يُنشأ مع حساب المدرّس تلقائيًا. هذه الشاشة للحالات التشغيلية وحدها، ويُسجَّل الفعل باسمك.')
+                ->columns(2)
+                ->schema([
+                    Select::make('owner_user_id')
+                        ->label('المدرّس')
+                        /*
+                        | ⚠️ الخياراتُ تُبنى بـ`name` المُلحَقِ لا بعمودٍ باسمِه — لا
+                        | عمودَ `name` في `users`، بل مُلحَقٌ فوقَ `first_name` و
+                        | `last_name`، وعنوانُ علاقةٍ باسمِه يُترجَمُ إلى
+                        | `select users.name` فتسقطُ الصفحةُ بـ500.
+                        */
+                        ->options(fn (): array => User::query()
+                            ->where('platform_role', PlatformRole::Teacher)
+                            ->whereNotExists(fn ($q) => $q->selectRaw('1')
+                                ->from('workspaces')
+                                ->whereColumn('workspaces.owner_user_id', 'users.id'))
+                            ->orderBy('first_name')
+                            ->get()
+                            ->mapWithKeys(fn (User $u): array => [$u->getKey() => $u->name.' — '.$u->email])
+                            ->all())
+                        ->searchable()
+                        ->required()
+                        /*
+                        | القائمةُ تحملُ من يجوزُ اختيارُه وحدَهم: مدرّسٌ لا يملكُ
+                        | مكاناً. وهذا **ليس** هو الحارس — `CreateWorkspace` يرفضُ
+                        | الاثنَين بنفسِه (FR-004 · FR-008)، لأنّ قائمةً مُرشَّحةً
+                        | تُشكِّلُ طلباً واحداً ولا تُشكِّلُ الذي بعدَه.
+                        */
+                        ->helperText('المدرّسون الذين لا يملكون مكانًا بعد. لا يظهر هنا طالب ولا وليّ أمر.'),
+
+                    TextInput::make('name')
+                        ->label('الاسم')
+                        ->required()
+                        ->maxLength(255)
+                        ->helperText('يُشتق عادةً من اسم المدرّس.'),
+                ]),
+        ]);
     }
 
     public static function canEdit(mixed $record): bool
@@ -112,6 +175,7 @@ class WorkspaceResource extends Resource
     {
         return [
             'index' => Pages\ListWorkspaces::route('/'),
+            'create' => Pages\CreateWorkspace::route('/create'),
         ];
     }
 }

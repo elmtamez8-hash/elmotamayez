@@ -283,6 +283,11 @@ never scopes:
 
 workspaces gains: participates_in_marketplace (bool, default false)
                   owner_user_id is now NULLABLE (the platform workspace has no owner)
+                  ⚠️ spec 025: owner_user_id is UNIQUE now, and the platform
+                  workspace is deleted. The column stays nullable — a unique index
+                  on a nullable column does not bite on NULL, which is this
+                  repository's own idiom (payments.captured_order_id) — but no row
+                  without an owner survives the deletion migration.
 users gains:      platform_role · phone · country
                   quiet_hours_start · quiet_hours_end · timezone  (spec 003)
 users loses:      grade_level_slug · registered_by_parent  → student_profiles  (spec 004)
@@ -303,6 +308,7 @@ courses gains:    course_type · cover_path · price_before_discount
 - **TeacherProfile → Reviews:** One live row per (teacher, student) — re-reviewing updates, so the average cannot be inflated; hidden reviews stay in the table so the pair stays taken
 - **TeacherProfile → Complaints:** Only `status = confirmed` deducts from the trust score (5 each, capped at 20)
 - **TeacherProfile.is_publicly_listed:** Derived from approval status × the workspace's `participates_in_marketplace`, never assigned. Withdrawal hides a whole workspace without changing anyone's `approval_status`
+- **workspaces.participates_in_marketplace keeps its `default false`, and spec 025 did not change that** — it changed who stamps it. A teacher's workspace is born not participating, and `ApproveTeacherApplication` stamps it `true` **on the teacher's own workspace only**. ⚠️ Not tidiness: two of the three readers of that column also require `approval_status = approved`, while the third — `Article::publicListingConstraints()` — requires only `status = published`, so a workspace born participating opens the platform's own blog to any address that finishes step one of the wizard. And stamping somebody else's academy would publicly list every teacher in it on one member's approval, which 001 · FR-001 reserves to the owner
 - **ParentChildLink:** `child_id` is nullable — a parent can name a child who has no account yet. Authorization is ownership of the link row, so two parents can both link the same child
 
 

@@ -67,7 +67,7 @@ export default function EditWorkspacePage({
 
   return (
     <div className="mx-auto max-w-md space-y-6">
-      <h2 className="text-2xl font-bold text-ink">تعديل مساحة العمل</h2>
+      <h2 className="text-2xl font-bold text-ink">إعدادات مكان العمل</h2>
 
       <Card as="section">
         <form onSubmit={submit} className="space-y-4">

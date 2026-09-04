@@ -49,7 +49,7 @@ export function UnlockNotice({ sessionUuid }: { sessionUuid: string }) {
               indistinguishable from each other when somebody asks why. */}
           {eligibility.unlock.rule_scope === "course"
             ? "شرطٌ خاصٌّ بهذا الكورس."
-            : "شرطٌ عامٌّ في هذه المساحة."}
+            : "شرطٌ عامٌّ عند هذا المدرّس."}
         </Alert>
       )}
 

@@ -77,13 +77,21 @@ describe("refusedBy", () => {
 
   it("leaves a linkOnly route open to the reader its link is hidden from", () => {
     /*
-     | ⚠️ `/workspaces/new` IS HOW A PERSON WITH NO WORKSPACE MAKES THEIR FIRST,
-     | and holding no workspace means holding no workspace permission. Gating the
-     | route the way every other entry is gated would lock out precisely the
-     | reader it exists for — which is why `POST /workspaces` is ungated on the
-     | server too. The permission hides the menu item and nothing else.
+     | ⚠️ THE REASON CHANGED AND THE BEHAVIOUR DID NOT — spec 025 · FR-023 asks
+     | for that to be said rather than left as a stale comment.
+     |
+     | It used to be: `/workspaces/new` is how a person with no workspace makes
+     | their first one, so gating the route would lock out the very reader it
+     | exists for. That page is DELETED now — the workspace is born with the
+     | teacher's account and `POST /workspaces` answers 403 to everyone but a
+     | platform administrator.
+     |
+     | `/workspaces` stays `linkOnly` for a different reason: the link is hidden
+     | from anyone who belongs to no place (the count decides, not a permission),
+     | while the route stays open because typing the address should meet a
+     | sentence explaining there is no place here — not a refusal, and not an
+     | empty list under a heading that means nothing to them.
      */
     expect(refusedBy(NAV, "/workspaces", student)).toBe(false);
-    expect(refusedBy(NAV, "/workspaces/new", student)).toBe(false);
   });
 });

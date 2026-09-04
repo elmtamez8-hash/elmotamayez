@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\Tenancy\Actions;
 
 use App\Models\User;
+use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Tenancy\DTOs\CreateWorkspaceDTO;
 use App\Modules\Tenancy\Events\WorkspaceCreated;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Actions\Action;
+use DomainException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -18,8 +20,53 @@ use Spatie\Permission\PermissionRegistrar;
 
 class CreateWorkspace extends Action
 {
+    /**
+     * Spec 025 · FR-008 — a second workspace for one owner is refused here, in
+     * the Action, and not only in the Form Request.
+     *
+     * ⚠️ THE FORM REQUEST GUARDS ONE DOOR OF THREE. Filament and every seeder
+     * reach this class with no request behind them, and spec 010 already wrote
+     * down what that costs: a Filament LIST never calls the row policy at all.
+     * The Action is the entrance the API, the panel and the seeds share.
+     *
+     * The unique index on `workspaces.owner_user_id` is the other half and is not
+     * redundant: a check followed by a write is the race, and the surfaces that
+     * can run it concurrently are real (the panel screen double-clicked; an
+     * administrator creating for a teacher while the backfill creates for the
+     * same teacher). This refusal exists so the ordinary case reads a sentence
+     * rather than a `QueryException`.
+     */
     public function handle(CreateWorkspaceDTO $dto, User $owner): Workspace
     {
+        /*
+        | Spec 025 · FR-004 · SC-005 — the owner must be a teacher.
+        |
+        | ⚠️ THIS ACTION ACCEPTED ANY `User` UNTIL NOW, and the FR-009 owner picker
+        | is what makes that dangerous: it can name anybody on the platform, so
+        | without this line an administrator could install a STUDENT as owner with
+        | `tenant-owner`'s 68 permissions. SC-005 reads «zero, before the change
+        | and after it».
+        |
+        | It also guards the rule half the product stands on — a student belongs to
+        | no workspace, which is why `WorkspaceScope` is inert for them and why
+        | `PlatformOwnershipTest` polices the duplication defect in both
+        | directions.
+        |
+        | ⚠️ AND IT COULD NOT SHIP BEFORE THIS PHASE. It guards a rule — «the owner
+        | is a teacher» — that only becomes true once academy self-signup ends with
+        | FR-026. Every workspace owner in the fixtures and both `ScenarioSeeder`
+        | owners carried `platform_role = NULL`, and `createWorkspaceWithOwner()`
+        | is used in 317 test files. Those two seeders and that helper change in
+        | the same commit as this line, never before it.
+        */
+        if ($owner->platform_role !== PlatformRole::Teacher) {
+            throw new DomainException('لا يُنشأ مكان عمل إلا لحساب مدرّس.');
+        }
+
+        if (Workspace::query()->where('owner_user_id', $owner->getKey())->exists()) {
+            throw new DomainException('هذا الحساب يملك مكان عمل بالفعل.');
+        }
+
         return DB::transaction(function () use ($dto, $owner): Workspace {
             $workspace = Workspace::create([
                 'name' => $dto->name,

@@ -39,11 +39,21 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
  * ⚠️ IT IS `platform_role`, NOT A PERMISSION — and the difference is a person.
  * A permission-shaped predicate (`can(user, P.membersView)`, the nearest thing
  * already spelled in the sidebar) answers «what may you do in the workspace you
- * are in», and a teacher who has registered but not yet created a workspace
- * holds NOTHING: `RegisterTeacher` "creates no workspace membership and grants
- * no role (FR-010)". So every permission predicate reads that teacher as a
- * student. `platform_role` answers «what did you sign up as», which survives
- * having no workspace at all.
+ * are in», while this one answers «what did you sign up as».
+ *
+ * ⚠️ THE ORIGINAL REASON FOR THAT WAS REPEALED, AND THE PREDICATE STANDS ANYWAY —
+ * spec 025 · FR-023 requires saying so rather than leaving a comment that cites a
+ * rule which no longer exists. It used to read: a teacher who had registered and
+ * not yet created a workspace held NOTHING, because 001 · FR-010 said the signup
+ * paths «create no workspace membership and grant no role». Spec 025 · FR-001
+ * repeals that for the teacher path — the workspace is born with the account, so
+ * that teacher holds a full set of permissions from the first second.
+ *
+ * The line does not move, because a SECOND reason was always true and is
+ * untouched (FR-022): a GUARDIAN holds zero permissions exactly as a student
+ * does, and reads their child's screens through the learning side. A
+ * permission-shaped predicate cannot tell a guardian apart from staff, and that
+ * half of the problem did not go anywhere.
  *
  * ⚠️ AND IT ASKS «DO YOU LEARN», NEVER «ARE YOU STAFF». A guardian also holds
  * zero permissions and reads their child's «تقييماتي الدورية» and «كشف

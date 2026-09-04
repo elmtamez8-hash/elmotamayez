@@ -135,7 +135,7 @@ class SaveStoreItem extends Action
             // Deliberately the same sentence whether the asset does not exist or
             // belongs to somebody else: a distinct answer for the second case is
             // an oracle telling a teacher which uuids are real.
-            throw new DomainException('الملف المختار غير موجود في مساحتك.');
+            throw new DomainException('الملف المختار غير موجود عندك.');
         }
 
         return (int) $asset->getKey();
@@ -154,7 +154,7 @@ class SaveStoreItem extends Action
             ->first();
 
         if ($course === null) {
-            throw new DomainException('الكورس المختار غير موجود في مساحتك.');
+            throw new DomainException('الكورس المختار غير موجود عندك.');
         }
 
         return (int) $course->getKey();

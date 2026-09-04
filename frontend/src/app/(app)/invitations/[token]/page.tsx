@@ -179,7 +179,7 @@ export default function InvitationPage({
 const INVITATION_SLIDES: AuthSlide[] = [
   {
     title: "أنت مدعوّ للانضمام",
-    body: "ستعمل داخل مساحة المدرّس الذي دعاك، بالصلاحيات التي منحها لك وحدها.",
+    body: "ستعمل ضمن فريق المدرّس الذي دعاك، بالصلاحيات التي منحها لك وحدها.",
   },
   {
     title: "صلاحياتك محدّدة",

@@ -83,7 +83,7 @@ class BankController extends Controller
         $workspaceId = app(WorkspaceContext::class)->id();
 
         if ($workspaceId === null) {
-            return response()->json(['message' => 'اختر مساحة عمل قبل إضافة سؤال للبنك.'], 422);
+            return response()->json(['message' => 'تعذّر تحديد مكان عملك. أعد تحميل الصفحة.'], 422);
         }
 
         try {

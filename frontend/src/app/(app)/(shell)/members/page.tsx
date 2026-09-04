@@ -119,7 +119,7 @@ export default function MembersPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-ink">أعضاء مساحة العمل</h2>
+      <h2 className="text-2xl font-bold text-ink">فريقك</h2>
 
       <Card as="section" padding="sm">
         <form onSubmit={submitInvite} className="flex flex-wrap items-end gap-3">
@@ -203,10 +203,10 @@ export default function MembersPage() {
         columns={columns}
         rows={members}
         rowKey={(m) => m.uuid}
-        caption="أعضاء مساحة العمل وأدوارهم"
+        caption="فريقك وأدوارهم"
         state={loading ? "loading" : failed ? "error" : "ready"}
         onRetry={load}
-        emptyTitle="لا أعضاء في مساحة العمل غيرك"
+        emptyTitle="لا أحد في فريقك غيرك"
         emptyDescription="ادعُ مدرّساً أو مساعداً أو طالباً من النموذج أعلاه."
       />
     </div>

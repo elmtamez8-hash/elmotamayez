@@ -60,14 +60,24 @@ class RegisterAccount extends Action
         | forceFill, not fill: `platform_role` and `status` are guarded precisely
         | so a request payload can never choose them.
         |
-        | ⚠️ NULL IS THE CORRECT ROLE FOR AN ACADEMY FOUNDER, and is asserted as
-        | such. The platform enum is three-valued — student · teacher · parent —
-        | and somebody who founds a workspace is none of them; owning one is a
-        | WORKSPACE role, granted by `CreateWorkspace` a request later. An invited
-        | staff member does get `Teacher`: an assistant sits on the teacher side
-        | of every question that reads this column (`ReadLeaderboard` and
-        | `ListLeaderboardScopes` both ask «is this a student», never «is this a
-        | teacher»).
+        | ⚠️ NULL USED TO MEAN «ACADEMY FOUNDER», AND THERE ARE NO NEW FOUNDERS.
+        | The platform enum is three-valued — student · teacher · parent — and
+        | somebody who founded a workspace was none of them; owning one was a
+        | WORKSPACE role granted by `CreateWorkspace` a request later. Spec 025 ·
+        | FR-007 closes that later request (`POST /workspaces` now needs a platform
+        | permission), and FR-026 records the closure as a decision: the platform
+        | has teachers under it and no academy layer above them. So this branch
+        | still produces null, correctly — the value is «not one of the three» —
+        | but the account it produces has no path to a workspace except a platform
+        | administrator creating one from `/admin` (FR-009).
+        |
+        | An invited staff member does get `Teacher`: an assistant sits on the
+        | teacher side of every question that reads this column (`ReadLeaderboard`
+        | and `ListLeaderboardScopes` both ask «is this a student», never «is this
+        | a teacher»). ⚠️ AND THAT IS WHY SPEC 025'S BACKFILL NEEDED A THIRD
+        | CONDITION: «teacher who owns no workspace» matches every invited
+        | assistant on the platform, so the migration also requires a row in
+        | `teacher_applications`, which only `RegisterTeacher` writes.
         |
         | `status` is written explicitly although the column already defaults to
         | `active` — a default is what the row gets when nobody decided, and this

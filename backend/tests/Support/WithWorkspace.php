@@ -6,6 +6,7 @@ namespace Tests\Support;
 
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Learning\Actions\EnrollStudent;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Tenancy\Actions\CreateWorkspace;
@@ -26,7 +27,17 @@ trait WithWorkspace
      */
     protected function createWorkspaceWithOwner(array $workspaceAttrs = [], array $ownerAttrs = []): array
     {
-        $owner = User::factory()->create($ownerAttrs);
+        /*
+        | ⚠️ Spec 025 · FR-004 — `CreateWorkspace` refuses an owner who is not a
+        | teacher, and `User::factory()` does not set `platform_role` at all. This
+        | helper is used in 317 test files, so the default belongs here rather
+        | than in each of them; a case that deliberately wants another role passes
+        | it in `$ownerAttrs` and gets the refusal it is asking for.
+        */
+        $owner = User::factory()->create([
+            'platform_role' => PlatformRole::Teacher,
+            ...$ownerAttrs,
+        ]);
 
         $workspace = app(CreateWorkspace::class)->handle(
             CreateWorkspaceDTO::fromArray(array_merge([
@@ -41,10 +52,20 @@ trait WithWorkspace
     }
 
     /**
-     * Create an additional workspace owned by an existing user.
+     * Create a workspace owned by an existing user.
+     *
+     * ⚠️ Spec 025 · FR-008 — «additional» is no longer possible: one owner holds
+     * exactly one workspace, guarded by the Action AND by a unique index. This
+     * helper survives for the case it is still used for, an existing user who
+     * owns nothing yet, and it stamps the teacher role for the same reason
+     * `createWorkspaceWithOwner()` does.
      */
     protected function addOwnedWorkspace(User $owner, string $name): Workspace
     {
+        if ($owner->platform_role !== PlatformRole::Teacher) {
+            $owner->forceFill(['platform_role' => PlatformRole::Teacher])->save();
+        }
+
         return app(CreateWorkspace::class)->handle(
             CreateWorkspaceDTO::fromArray([
                 'name' => $name,

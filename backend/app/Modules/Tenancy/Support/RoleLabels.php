@@ -34,7 +34,7 @@ final class RoleLabels
         Roles::SUPER_ADMIN => 'مدير المنصّة',
         Roles::FINANCE_ADMIN => 'مسؤول مالي',
         Roles::COMPLIANCE_OFFICER => 'مسؤول حماية البيانات',
-        Roles::TENANT_OWNER => 'مالك المساحة',
+        Roles::TENANT_OWNER => 'صاحب المكان',
         Roles::TEACHER => 'مدرّس',
         Roles::ASSISTANT_TEACHER => 'مدرّس مساعد',
         Roles::STUDENT => 'طالب',

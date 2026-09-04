@@ -12,6 +12,27 @@ use App\Modules\Tenancy\Models\Role;
  */
 final class Permissions
 {
+    /*
+    | Spec 025 · FR-007 — the door on `POST /workspaces`.
+    |
+    | ⚠️ PLATFORM-LEVEL BY DERIVATION, and deliberately so.
+    | `RolePermissionMatrix::platformPermissions()` is `all()` minus everything any
+    | tenant role holds, so a name that appears in no role in that matrix is
+    | platform-level automatically — and `Tenancy\Models\Role` throws if anybody
+    | later tries to assign it to a role carrying a `team_id`. Adding it here and
+    | NOWHERE else is the whole classification.
+    |
+    | Until this shipped, the condition for creating a workspace was literally
+    | `$this->user() !== null`: a student account with zero permissions created
+    | three in a row and became `tenant-owner` — 68 permissions including
+    | `roles.manage` and `settlement.statement.view` — inside each one.
+    |
+    | ⚠️ The deploy hazard runs the other way here and is safe: REMOVING a name
+    | from a tenant role is what broke two fixtures in an earlier spec; ADDING one
+    | to the platform list touches no existing role at all.
+    */
+    public const WORKSPACES_CREATE = 'workspaces.create';
+
     // Members
     public const MEMBERS_VIEW = 'members.view';
 
@@ -666,6 +687,11 @@ final class Permissions
             self::CHAT_MODERATE,
             self::REVIEWS_PERIODIC_MANAGE,
             self::ANNOUNCEMENTS_MANAGE,
+            // Spec 025 · FR-007. Same reason as CHAT_REPLY above: absent from
+            // here it is never seeded, and a policy asking for a permission row
+            // that does not exist refuses everybody — including the platform
+            // administrator FR-009 depends on.
+            self::WORKSPACES_CREATE,
         ];
     }
 }

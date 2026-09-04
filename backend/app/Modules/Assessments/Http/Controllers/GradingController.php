@@ -204,7 +204,7 @@ class GradingController extends Controller
         $validated = $request->validate(['anonymous' => ['required', 'boolean']]);
         $workspace = app(WorkspaceContext::class)->current();
 
-        abort_if($workspace === null, 422, 'اختر مساحة عمل أولاً.');
+        abort_if($workspace === null, 422, 'تعذّر تحديد مكان عملك. أعد تحميل الصفحة.');
 
         $was = $settings->isAnonymous($workspace);
         $now = (bool) $validated['anonymous'];

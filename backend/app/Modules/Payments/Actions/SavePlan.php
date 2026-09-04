@@ -100,7 +100,7 @@ class SavePlan extends Action
             ->exists();
 
         if (! $exists) {
-            throw new DomainException('هذا الكورس غير موجود في مساحتك.');
+            throw new DomainException('هذا الكورس غير موجود عندك.');
         }
 
         return $uuid;

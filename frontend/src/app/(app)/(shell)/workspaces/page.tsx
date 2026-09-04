@@ -13,14 +13,23 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 
-const WORKSPACE_TYPES: Record<string, string> = {
-  academy: "أكاديمية",
-  individual: "مدرّس مستقل",
-  school: "مدرسة",
-};
+/*
+ * أماكن العمل — وارثةُ صفحةِ «مساحات العمل» في مكانها (مواصفة ٠٢٥).
+ *
+ * ⚠️ أُعيدَ نصُّها هنا ولم يُنشأْ مسارٌ ثانٍ. ملفّانِ يُجيبانِ مسارًا واحدًا
+ * يُعطِّلانِ التطبيقَ كلَّه بـ500 — لا الصفحتَينِ وحدَهما — وهو ثمنٌ دفعه هذا
+ * المستودعُ مرّةً وسجّله.
+ *
+ * وثلاثُ حالاتٍ لا واحدة (FR-014 · FR-014أ · FR-025):
+ *   صفر  → جملةٌ واحدةٌ وطريقٌ إلى الدراسة. لا قائمةَ فارغةً تحت عنوانٍ لا يعنيه،
+ *          ولا زرَّ إنشاءٍ يعرضُ على طالبةٍ فضوليّةٍ ما لا حقَّ لها فيه.
+ *   واحد → اسمُ المكانِ نفسِه عنوانًا، لا صيغةَ مفردٍ من جمع: «مكان عملي» تُبقي في
+ *          ذهن القارئ أنّ ثمّةَ أماكنَ أخرى، وهو ما تُلغيه هذه المواصفة.
+ *   أكثر → «أماكن عملي»، وهي حالةُ من يملكُ مكانَه ويساعدُ عند غيره.
+ */
 
-export default function WorkspacesPage() {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+export default function WorkplacesPage() {
+  const [places, setPlaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [error, setError] = useState("");
@@ -32,7 +41,7 @@ export default function WorkspacesPage() {
 
     api
       .get<{ data: Workspace[] }>("/workspaces")
-      .then((res) => setWorkspaces(res.data ?? []))
+      .then((res) => setPlaces(res.data ?? []))
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, []);
@@ -44,8 +53,8 @@ export default function WorkspacesPage() {
     setError("");
     try {
       await api.post(`/workspaces/${uuid}/switch`);
-      // A full reload, not a router refresh: the workspace is server-side
-      // session state and every cached list on the client belongs to the old one.
+      // إعادةُ تحميلٍ كاملة، لا تحديثَ موجِّه: المكانُ حالةٌ على الخادم، وكلُّ
+      // قائمةٍ مخزَّنةٍ على العميل تخصُّ المكانَ السابق.
       window.location.reload();
     } catch (err: unknown) {
       setError(userMessage(err));
@@ -53,11 +62,15 @@ export default function WorkspacesPage() {
     }
   };
 
+  const single = places.length === 1 ? places[0] : null;
+  const heading = single ? single.name : "أماكن عملي";
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-bold text-ink">مساحات العمل</h2>
-        <Button href="/workspaces/new">مساحة عمل جديدة</Button>
+        <h2 className="text-2xl font-bold text-ink">
+          {loading || failed ? "أماكن عملي" : heading}
+        </h2>
       </div>
 
       {error && <Alert tone="danger" title={error} />}
@@ -66,25 +79,25 @@ export default function WorkspacesPage() {
         <RowsSkeleton />
       ) : failed ? (
         <ErrorState onRetry={load} />
-      ) : workspaces.length === 0 ? (
+      ) : places.length === 0 ? (
         <EmptyState
-          title="لا مساحات عمل"
-          description="أنشئ مساحة عمل لتبدأ بإضافة كورساتك وطلابك."
-          action={<Button href="/workspaces/new">مساحة عمل جديدة</Button>}
+          title="لا مكان عمل لهذا الحساب"
+          description="أماكن العمل للمدرّسين ومساعديهم. حسابك للدراسة، وكورساتك في صفحة «دراستي»."
+          action={<Button href="/enrollments">إلى دراستي</Button>}
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {workspaces.map((ws) => (
+          {places.map((ws) => (
             <Card key={ws.uuid} as="article" padding="sm">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="truncate font-semibold text-ink">{ws.name}</h3>
-                  <p className="text-sm text-ink-muted">
-                    {WORKSPACE_TYPES[ws.type] ?? ws.type}
-                  </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  {ws.is_current && <Badge tone="success">الحالية</Badge>}
+                  {/* لافتةُ «الحالي» لا معنى لها حين لا ثانيَ له. */}
+                  {ws.is_current && places.length > 1 && (
+                    <Badge tone="success">الحالي</Badge>
+                  )}
                   {ws.pivot_role && (
                     <Badge tone="info">{roleLabel(ws.pivot_role, ws.pivot_role_label)}</Badge>
                   )}
@@ -92,19 +105,25 @@ export default function WorkspacesPage() {
               </div>
 
               <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  fullWidth
-                  disabled={ws.is_current}
-                  loading={switching === ws.uuid}
-                  loadingLabel="جارٍ التبديل…"
-                  onClick={() => switchTo(ws.uuid)}
-                >
-                  {ws.is_current ? "أنت هنا" : "انتقل إليها"}
-                </Button>
+                {places.length > 1 && (
+                  <Button
+                    variant="secondary"
+                    fullWidth
+                    disabled={ws.is_current}
+                    loading={switching === ws.uuid}
+                    loadingLabel="جارٍ التبديل…"
+                    onClick={() => switchTo(ws.uuid)}
+                  >
+                    {ws.is_current ? "أنت هنا" : "انتقل إليه"}
+                  </Button>
+                )}
                 {(ws.is_owner || ws.pivot_role === "tenant-owner") && (
-                  <Button href={`/workspaces/${ws.uuid}/edit`} variant="ghost">
-                    تعديل
+                  <Button
+                    href={`/workspaces/${ws.uuid}/edit`}
+                    variant={places.length > 1 ? "ghost" : "secondary"}
+                    fullWidth={places.length === 1}
+                  >
+                    الإعدادات
                   </Button>
                 )}
               </div>

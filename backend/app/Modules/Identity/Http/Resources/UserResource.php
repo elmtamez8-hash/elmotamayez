@@ -66,8 +66,61 @@ class UserResource extends JsonResource
              | they are.
              */
             'permissions' => $this->grantedPermissions(),
+            /*
+             | ⚠️ `workspaces`, NOT `workplaces` — spec 025 · FR-021 draws the line
+             | itself: what changes is what a PERSON reads, not what a machine
+             | does. Two keys one letter apart in the payload that also carries
+             | `last_workspace_id` is the mistake made once per reading. The
+             | Arabic renaming lives in the interface text, where FR-012 lives.
+             |
+             | Purely additive, so no existing reader breaks. `uuid` and never
+             | `id` (Constitution VI); `last_workspace_id` stays despite being a
+             | serial, because it is a field today's clients read and dropping it
+             | would break a contract for nothing.
+             |
+             | ⚠️ SKIPPED ENTIRELY FOR A STUDENT OR A GUARDIAN, who are the
+             | majority of accounts and are members of nothing by design — the
+             | premise `WorkspaceScope` rests on. Zero rows, always, so the query
+             | is pure cost. The empty list is still SENT: absent and empty are
+             | different answers, and the banner reads the count.
+             */
+            'workspaces' => $this->workplaces(),
             'created_at' => $this->created_at,
         ];
+    }
+
+    /**
+     * The places this person works — owned or assisted at (spec 025 · FR-014).
+     *
+     * ⚠️ THE COUNT IS WHAT THE INTERFACE READS, and all three answers differ:
+     * zero means no banner at all, one means the PLACE'S OWN NAME (never a
+     * singular carved out of a plural, which keeps telling the reader there are
+     * others), and more means «أماكن عملي». So this ships the name, not just a
+     * number, and the banner needs no second fetch inside the shell layout.
+     *
+     * ⚠️ IT RIDES ON EIGHT ENDPOINTS, not just `/auth/me` — `UserResource` is
+     * returned by register, registerStudent, login, me, updateProfile, the parent
+     * controller and the two-factor controller. Hence the student/parent skip:
+     * one query saved on every one of them, for the accounts that are most of the
+     * platform.
+     *
+     * @return list<array{uuid: string, name: string}>
+     */
+    private function workplaces(): array
+    {
+        $role = $this->platform_role?->value;
+
+        if ($role === 'student' || $role === 'parent') {
+            return [];
+        }
+
+        return $this->resource->workspaces()
+            ->get(['workspaces.uuid', 'workspaces.name'])
+            ->map(fn ($workspace): array => [
+                'uuid' => (string) $workspace->uuid,
+                'name' => (string) $workspace->name,
+            ])
+            ->all();
     }
 
     /**

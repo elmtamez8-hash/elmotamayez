@@ -163,6 +163,20 @@ Constants in `Tenancy\Support\Permissions` — never string literals.
 | `billing.coupons.manage` | **platform only** | Mint a discount code |
 | `flags.manage` | **platform only** | Turn a feature on or off, per workspace or platform-wide |
 
+### Workspace creation (spec 025)
+
+| Permission | Held by | Grants |
+|---|---|---|
+| `workspaces.create` | **platform only** | Create a workspace by hand — `POST /workspaces` and the `/admin` screen behind it |
+
+⚠️ **Platform-level by the same absence rule**, and it closed a door that had been
+open to everybody: `CreateWorkspaceRequest::authorize()` was literally
+`return $this->user() !== null;`, and a student account holding zero permissions
+was measured creating three workspaces in a row and becoming `tenant-owner` — 68
+permissions — inside each. A teacher does not hold it either: their workspace is
+born with their account, so there is nothing left for them to create. See «The
+implicit teacher workspace (spec 025)» below.
+
 ⚠️ **The last two are platform permissions, and that is declared by ABSENCE.**
 `RolePermissionMatrix::platformPermissions()` is `Permissions::all()` minus
 everything any tenant role holds — so a coupon permission dropped into the
@@ -2562,3 +2576,141 @@ that already exists. Both rows therefore ship with a backfill migration in the
 same change (`Gamification/Database/Migrations/…_backfill_adaptive_gamification_action.php`
 and its study-room sibling), which is the mechanism this tree already runs for
 notification templates, data categories, regions and the taxonomy.
+
+## The implicit teacher workspace (spec 025)
+
+A teacher does not create a workspace. They register, and the workspace is born
+in the same transaction — so «مساحة عمل» leaves every screen while the
+partitioning underneath is untouched: same table, same `workspace_id`, same
+`BelongsToWorkspace`.
+
+**The chain.** `RegisterTeacher` fires `Marketplace\Events\TeacherRegistered`, and
+`Tenancy\Listeners\CreateImplicitWorkspace` answers it **synchronously, with no
+`ShouldQueue`**. Constitution III forbids Marketplace calling Tenancy's Action
+directly; FR-003 requires the account and the workspace to succeed or fail
+together, which only holds while the listener runs inside the registration
+transaction. Same shape as `WorkspaceCreated → SeedDefaultRoles`, and the same
+hazard: a synchronous listener is a single point of failure for everything after
+it — here deliberately, because a throw must roll the registration back.
+
+⚠️ **A dedicated event, never `Illuminate\Auth\Events\Registered`**, which the
+same Action fires one line earlier. The student and parent paths fire that one
+too, so a shared listener would need a `platform_role` branch — a second spelling
+of «is this a teacher?». Being teacher-only by construction is also what
+satisfies FR-004 for free: no other signup path dispatches this, so there is no
+rule anybody can forget and no branch to test.
+
+⚠️ **`RegisterTeacher` learns its workspace from `$user->refresh()->last_workspace_id`.**
+`CreateWorkspace` stamps that column inside the same transaction and `users` is a
+shared table, so nothing crosses a module boundary. **Not `WorkspaceContext`** —
+registration is a guest request and that singleton froze its resolution at null,
+so `BelongsToWorkspace`'s auto-fill contributes nothing and the application row
+would be written with no workspace at all.
+
+**The door.** `POST /api/v1/workspaces` used to authorize on
+`return $this->user() !== null;`. Measured with a student account holding zero
+permissions: three workspaces created in a row, `201` each time, `tenant-owner`
+with 68 permissions inside every one of them. It now requires `workspaces.create`,
+a permission held by **no tenant role** — `RolePermissionMatrix::platformPermissions()`
+is `all()` minus everything the tenant roles hold, so a name in no role is
+platform-level automatically, and `Tenancy\Models\Role` throws if anybody tries to
+assign it to a role carrying a `team_id`.
+
+The shape of the refusals is worth reading:
+
+| caller | answer | why |
+|---|---|---|
+| student · guardian · founder | `403` | holds no `workspaces.create` |
+| teacher who already owns one | `403`, **not `422`** | also holds none — the policy refuses before FR-008 is ever consulted |
+| platform administrator, owner already has one | `422` | reachable only from `/admin`, where the caller does hold the permission |
+
+⚠️ **The one-workspace rule lives in the Action, not in the Form Request.**
+Filament and every seeder reach `CreateWorkspace` with no request behind them —
+spec 010 already recorded that a Filament LIST never calls the row policy at all.
+The Action refuses a second workspace and refuses a non-teacher owner; a unique
+index on `workspaces.owner_user_id` is the other half, because a check followed by
+a write is the race, and the surfaces that can run it concurrently are real (the
+panel screen double-clicked; an administrator creating for a teacher while the
+backfill creates for the same teacher).
+
+**FR-009 is a screen that had to be built.** `WorkspaceResource::canCreate()`
+returned `false` and the only registered page was `index`, so closing the API
+without it would have left a platform administrator unable to create a workspace
+by any means at all. The new page has an **owner picker** —
+`WorkspaceController::store()` makes the CALLER the owner, so the API can never
+satisfy «create one for a teacher» — and its `handleRecordCreation` calls
+`CreateWorkspace` rather than letting Filament call `Workspace::create()`. That
+difference is not style: `SeedDefaultRoles` fires from `WorkspaceCreated`, so a
+directly written row is born with no roles and stays that way for ever. The
+production row `slug = platform` is that defect, measured — written with
+`forceFill`, carrying zero roles to this day.
+
+**The four migrations are ordered by filename, and the order IS the requirement.**
+`..._000100` backfills every teacher who owns no workspace, `..._000200` moves the
+orphan workspace's rows to their owners, `..._000300` proves it empty and deletes
+it, `..._000400` adds the unique index. FR-011 forbids the reverse: the door is
+code and goes live at `up -d`, the backfill is a migration and runs after it — so
+a teacher who registered before this spec would otherwise have no workspace **and**
+no way to make one.
+
+- **The backfill predicate is three conditions, not two:** `platform_role = teacher`
+  AND owns no workspace AND **has a row in `teacher_applications`**. Without the
+  third, every invited assistant matches — `RegisterAccount` stamps them
+  `platform_role = Teacher` by a documented decision, they own nothing, and before
+  accepting they are a member of nothing. Each would be handed a workspace with
+  `tenant-owner`'s 68 permissions, and `CreateWorkspace` overwrites
+  `last_workspace_id`, evicting them from the teacher they work for.
+- **It walks with `chunkById` and selects `first_name`/`last_name`.** The predicate
+  shrinks under the walk, and `User::name` is an accessor — a constrained select
+  without those two columns names every rescued workspace `''` while the slug still
+  generates, so nothing throws and the banner is blank for exactly the people the
+  migration exists to rescue.
+- **«Owns» is spelled on `workspaces.owner_user_id`, never `users.last_workspace_id`.**
+  The latter is written by `AcceptInvitation` and `SwitchWorkspace` too, so for
+  anyone who assists at another teacher it names THAT teacher's workspace.
+- **The delete migration derives its sweep** from `Schema::getTableListing()` +
+  `Schema::hasColumn()` (95 tables) **plus three columns that do not carry the
+  name**: `users.last_workspace_id` — which has no foreign key at all, so a
+  deletion leaves a dangling reference in silence — `roles.team_id` and
+  `model_has_roles.team_id`. It uses `exists()` rather than `COUNT(*)`, and the
+  message names the table that stopped it. Not `information_schema`: SQLite has no
+  such view and `RefreshDatabase` replays every migration in every Feature test.
+- **The move and the delete both return quietly when there is no orphan** — the
+  ordinary case on any fresh database and in every test — and the delete **throws**
+  when a row remains, which is the case that is actually worth testing. A delete
+  migration that does not throw there has never been tested at all.
+
+**`PlatformWorkspace` is gone**, with its `config/marketplace.php` block and the
+`MARKETPLACE_PLATFORM_WORKSPACE` variable. Leaving the key is what would let
+somebody rebuild the deleted concept.
+
+**Academy self-signup ends, deliberately** (FR-026). A founder used to register
+with no platform role and ask for a workspace afterwards; that later request was
+`POST /workspaces`. Three clauses of spec 001 are repealed by name — FR-010,
+FR-011 and FR-013 — while **001 · FR-001 is preserved** rather than repealed:
+participation stays opt-in with a `false` default, and the marketplace wizard is
+the opt-in. `AcademySignupUnchangedTest` and `WorkspaceManagementTest` are
+**inverted rather than deleted**, so two specs from now the closure still reads as
+a decision instead of an accident.
+
+**The vocabulary is guarded by a derived test.**
+`frontend/src/lib/workspace-vocabulary.test.ts` scans every source file for the
+ROOT «مساح» — not the phrase «مساحة عمل», because the tied taa becomes a plain taa
+before a pronoun, so «مساحتك» does not contain «مساحة». Measured: the narrow
+needle found 13 places in 6 files and the root found 26 in 15, including five the
+plan had never listed. It strips comments before scanning, for the same reason
+`theme-tokens.test.ts` does — every fix in this tree is explained beside the thing
+it fixed, and a guard that reads comments teaches people to delete the
+explanation.
+
+⚠️ **`/admin` is exempt from FR-012 by name.** A screen that creates a workspace
+cannot avoid naming what it creates, and the panel is a platform operator's tool
+rather than the product's surface.
+
+**The sidebar entry reads the count, not a permission.** `UserResource` sends an
+additive `workspaces: [{uuid, name}]` — **`workspaces`, not `workplaces`**, since
+FR-021 draws the line at what a PERSON reads and two keys one letter apart in the
+payload that also carries `last_workspace_id` is a mistake made once per reading.
+Zero places hides the entry (a student or guardian, who are skipped server-side
+because they are members of nothing by design); one place shows **the place's own
+name**, never a singular carved out of a plural; more shows «أماكن عملي».

@@ -125,7 +125,7 @@ export default function ManageExamsPage() {
         columns={columns}
         rows={exams}
         rowKey={(row) => row.uuid}
-        caption="اختبارات مساحتك بحالتها وعدد أسئلتها"
+        caption="اختباراتك بحالتها وعدد أسئلتها"
         state={loading ? "loading" : failed ? "error" : exams.length === 0 ? "empty" : "ready"}
         emptyTitle="لا اختبارات بعد"
         emptyDescription="أنشئ اختباراً لتقيس فهم طلابك لما شرحته."

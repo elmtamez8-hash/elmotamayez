@@ -60,7 +60,7 @@ class Role extends SpatieRole
 
             if (in_array($role->name, Roles::platformRoles(), true)) {
                 throw new DomainException(
-                    'اسم «'.$role->name.'» محجوز لدور منصّة، ولا يُستعمل لدورٍ داخل مساحة عمل.'
+                    'اسم «'.$role->name.'» محجوز لدور منصّة، ولا يُستعمل لدورٍ داخل مكان عمل.'
                 );
             }
         });
@@ -142,7 +142,7 @@ class Role extends SpatieRole
 
         if ($forbidden !== []) {
             throw new DomainException(
-                'صلاحيات المنصّة لا تُمنح لدورٍ داخل مساحة عمل: '.implode('، ', $forbidden)
+                'صلاحيات المنصّة لا تُمنح لدورٍ داخل مكان عمل: '.implode('، ', $forbidden)
             );
         }
     }

@@ -81,7 +81,7 @@ class ConversationPolicy
         | person opening a fresh thread is the conversation the ban was about.
         */
         if ($this->bans->isBanned((int) $user->getKey(), (int) $conversation->workspace_id)) {
-            return Response::deny('تم إيقاف الكتابة عن حسابك في هذه المساحة. يمكنك القراءة.');
+            return Response::deny('تم إيقاف الكتابة عن حسابك عند هذا المدرّس. يمكنك القراءة.');
         }
 
         /*

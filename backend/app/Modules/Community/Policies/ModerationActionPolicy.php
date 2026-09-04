@@ -37,7 +37,7 @@ class ModerationActionPolicy
             ->exists();
 
         if (! $isMember) {
-            return Response::deny('لا تملك صلاحيّة الإشراف على هذه المساحة.');
+            return Response::deny('لا تملك صلاحيّة الإشراف هنا.');
         }
 
         return $user->hasPermissionTo(Permissions::CHAT_MODERATE)
