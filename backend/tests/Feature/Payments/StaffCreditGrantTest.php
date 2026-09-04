@@ -431,3 +431,30 @@ it('names the field still missing rather than listing all three', function (): v
         ->assertSee('اختر الطالب.')
         ->assertDontSee('اختر الطالب والكورس والباقة.');
 });
+
+it('initialises the form state so the browser has something to bind to', function (): void {
+    /*
+    | ⛔ العطلُ الذي وجدَه المتصفّحُ وحدَه، ولا يراه اختبارُ Livewire إلّا هكذا.
+    |
+    | الصفحةُ لم يكن فيها `mount()` إطلاقاً، و`$data` يبدأُ `[]` — فلا مفتاحَ
+    | لأيِّ حقل. وحقولُ Filament المعقّدةُ (المنتقي المبحوثُ ورفعُ الملفّ) تربطُ
+    | نفسَها بـ`$wire.entangle('data.student')`، و**entangle يشترطُ وجودَ
+    | الخاصّيّةِ سلفاً**. فكانت الصفحةُ ترمي في الطرفيّةِ ثلاثةَ أخطاء:
+    |
+    |   Livewire Entangle Error: Livewire property ['data.student'] cannot be
+    |   found on component ...  (وكذلك data.course و data.receipt)
+    |
+    | فالطالبُ والكورسُ يظهرانِ مختارَينِ على الشاشةِ — Choices.js يرسمُهما في
+    | المتصفّح — **ولا تصلُ قيمتُهما الخادمَ أبداً**. قِيسَ على الإنتاج:
+    | `data` كانت `{"package":"2"}` وحدَها بعدَ اختيارِ الثلاثة. فليست الرسالةُ
+    | هي العاطلة: الشاشةُ كلُّها لم تكن تعملُ — والإيصالُ لا يُرفَعُ كذلك.
+    |
+    | ⚠️ و`fillForm()` في اختبارِ Livewire يكتبُ الحالةَ عبرَ المخطَّطِ مباشرةً،
+    | فيتخطّى مسارَ الربطِ في المتصفّحِ كلَّه — ولذلك مرَّ اختبارُ التسعيرِ أعلاه
+    | أخضرَ فوقَ شاشةٍ لا تعملُ إطلاقاً. التوكيدُ هنا على **وجودِ المفاتيح**.
+    */
+    $this->actingAs($this->officer);
+
+    expect(Livewire::test(GrantCreditSubscription::class)->get('data'))
+        ->toHaveKeys(['student', 'course', 'package', 'receipt']);
+});
