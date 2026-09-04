@@ -41,6 +41,8 @@ class TopTeachersWidget extends BaseWidget
 {
     use PlatformWideWidget;
 
+    protected static ?int $sort = 8;
+
     protected static ?string $heading = 'المدرّسون بعدد الطلاب';
 
     protected int|string|array $columnSpan = 'full';

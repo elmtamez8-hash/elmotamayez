@@ -11,6 +11,9 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class ExamStatsWidget extends BaseWidget
 {
+    // بعدَ ويدجتاتِ المنصّة: هذان أرقامُ مساحةِ القارئِ نفسِه.
+    protected static ?int $sort = 21;
+
     protected ?string $pollingInterval = null;
 
     /** @return list<Stat> */

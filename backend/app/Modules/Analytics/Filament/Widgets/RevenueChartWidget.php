@@ -29,6 +29,8 @@ class RevenueChartWidget extends ChartWidget
 {
     use PlatformWideWidget;
 
+    protected static ?int $sort = 4;
+
     protected ?string $pollingInterval = null;
 
     protected ?string $heading = 'المحصَّل يوماً بيوم';

@@ -29,6 +29,8 @@ class ViolationsWidget extends BaseWidget
 {
     use PlatformWideWidget;
 
+    protected static ?int $sort = 9;
+
     protected static ?string $heading = 'المخالفات';
 
     protected int|string|array $columnSpan = 'full';

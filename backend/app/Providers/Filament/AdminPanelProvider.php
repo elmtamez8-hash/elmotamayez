@@ -4,6 +4,16 @@ namespace App\Providers\Filament;
 
 use App\Modules\Analytics\Filament\Widgets\EnrollmentStatsWidget;
 use App\Modules\Analytics\Filament\Widgets\ExamStatsWidget;
+use App\Modules\Analytics\Filament\Widgets\GrowthChartWidget;
+use App\Modules\Analytics\Filament\Widgets\MoneyPulseWidget;
+use App\Modules\Analytics\Filament\Widgets\PlatformPulseWidget;
+use App\Modules\Analytics\Filament\Widgets\RegionSpreadWidget;
+use App\Modules\Analytics\Filament\Widgets\RevenueChartWidget;
+use App\Modules\Analytics\Filament\Widgets\StudentMoneyWidget;
+use App\Modules\Analytics\Filament\Widgets\StudentPerformanceWidget;
+use App\Modules\Analytics\Filament\Widgets\TopTeachersWidget;
+use App\Modules\Analytics\Filament\Widgets\TrustPulseWidget;
+use App\Modules\Analytics\Filament\Widgets\ViolationsWidget;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Middleware\EnsureCurrentWorkspace;
 use App\Shared\Middleware\EnsureFilamentAccess;
@@ -296,8 +306,34 @@ class AdminPanelProvider extends PanelProvider
                 Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
+            /*
+            | ⚠️ **القائمةُ مُرشَّحةٌ بـ`canView()` قبلَ التصيير**، وهذا ما يجعلُ
+            | ويدجتَ إيراداتٍ آمناً على لوحةٍ يصلُها كلُّ مدرّس:
+            | `Page::filterVisibleWidgets()` سطرٌ واحدٌ ينادي `canView()` على كلِّ
+            | صنف. فالبابُ على الويدجتِ هو الحارسُ، لا مكانُ تسجيلِه.
+            |
+            | عشرةُ ويدجتاتِ المنصّةِ تحملُ
+            | {@see \App\Modules\Analytics\Filament\Widgets\Concerns\PlatformWideWidget}
+            | فيراها حاملُ `analytics.cross_teacher.view` وحدَه؛ والاثنانِ فوقَها
+            | بلا بابٍ عمداً — أرقامُ مساحةِ القارئِ نفسِه، وهي ما يبقى للمدرّسِ
+            | على هذه الشاشة.
+            |
+            | ⚠️ والترتيبُ من `$sort` على كلِّ صنفٍ لا من ترتيبِ هذه القائمة:
+            | Filament يفرزُ بالسِمةِ لا بالمصفوفة، فقائمةٌ مرتَّبةٌ بصريّاً هنا
+            | تُصيَّرُ بترتيبٍ آخرَ ويظنُّ القارئُ أنّ شيئاً تعطّل.
+            */
             ->widgets([
                 AccountWidget::class,
+                PlatformPulseWidget::class,
+                MoneyPulseWidget::class,
+                TrustPulseWidget::class,
+                RevenueChartWidget::class,
+                GrowthChartWidget::class,
+                StudentPerformanceWidget::class,
+                StudentMoneyWidget::class,
+                TopTeachersWidget::class,
+                ViolationsWidget::class,
+                RegionSpreadWidget::class,
                 EnrollmentStatsWidget::class,
                 ExamStatsWidget::class,
             ])

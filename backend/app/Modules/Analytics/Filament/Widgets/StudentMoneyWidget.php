@@ -39,6 +39,8 @@ class StudentMoneyWidget extends BaseWidget
 {
     use PlatformWideWidget;
 
+    protected static ?int $sort = 7;
+
     protected static ?string $heading = 'الطلاب والمال';
 
     protected int|string|array $columnSpan = 'full';

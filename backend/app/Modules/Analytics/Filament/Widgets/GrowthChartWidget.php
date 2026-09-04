@@ -28,6 +28,8 @@ class GrowthChartWidget extends ChartWidget
 {
     use PlatformWideWidget;
 
+    protected static ?int $sort = 5;
+
     protected ?string $pollingInterval = null;
 
     protected ?string $heading = 'النموّ (من التجميع الليليّ)';

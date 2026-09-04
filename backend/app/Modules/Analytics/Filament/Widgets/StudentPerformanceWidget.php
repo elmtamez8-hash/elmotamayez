@@ -47,6 +47,8 @@ class StudentPerformanceWidget extends BaseWidget
 {
     use PlatformWideWidget;
 
+    protected static ?int $sort = 6;
+
     protected static ?string $heading = 'ترتيب الطلاب';
 
     protected int|string|array $columnSpan = 'full';

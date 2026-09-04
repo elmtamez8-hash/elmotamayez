@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-use App\Filament\Resources\OrderResource;
 use App\Models\User;
-use App\Modules\Analytics\Filament\Pages\PlatformInsights;
+use App\Modules\Analytics\Filament\Widgets\GrowthChartWidget;
 use App\Modules\Analytics\Filament\Widgets\MoneyPulseWidget;
 use App\Modules\Analytics\Filament\Widgets\PlatformPulseWidget;
+use App\Modules\Analytics\Filament\Widgets\RegionSpreadWidget;
+use App\Modules\Analytics\Filament\Widgets\RevenueChartWidget;
 use App\Modules\Analytics\Filament\Widgets\StudentMoneyWidget;
 use App\Modules\Analytics\Filament\Widgets\StudentPerformanceWidget;
 use App\Modules\Analytics\Filament\Widgets\TopTeachersWidget;
@@ -26,6 +27,7 @@ use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Support\WorkspaceContext;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
+use Filament\Widgets\Widget;
 use Livewire\Livewire;
 
 /*
@@ -102,23 +104,42 @@ function armWorkspaceFallback(): void
     app()->forgetInstance(WorkspaceContext::class);
 }
 
-it('refuses the page and every widget on it to a reader without the platform permission', function (): void {
+/**
+ * ويدجتاتُ المنصّةِ التسعة — قائمةٌ واحدةٌ يقرؤها التوكيدانِ معاً.
+ *
+ * ⚠️ نسختانِ من قائمةٍ واحدةٍ تفترقانِ عندَ أوّلِ ويدجتٍ يُضاف، فيبقى الجديدُ
+ * محروساً في أحدِ الاختبارَينِ ومكشوفاً في الآخر.
+ *
+ * @return list<class-string<Widget>>
+ */
+function platformWidgets(): array
+{
+    return [
+        PlatformPulseWidget::class,
+        MoneyPulseWidget::class,
+        TrustPulseWidget::class,
+        RevenueChartWidget::class,
+        GrowthChartWidget::class,
+        StudentPerformanceWidget::class,
+        StudentMoneyWidget::class,
+        TopTeachersWidget::class,
+        ViolationsWidget::class,
+        RegionSpreadWidget::class,
+    ];
+}
+
+it('shows the teacher none of the platform widgets on the dashboard they share', function (): void {
     $owner = $this->alpha->owner;
     $this->actingAs($owner);
     $this->setCurrentWorkspace($this->alpha, $owner);
 
-    expect(PlatformInsights::canAccess())->toBeFalse();
-
     /*
-    | ⚠️ والبابُ على كلِّ ويدجتٍ على حدة: صنفُ الويدجتِ قابلٌ للتصييرِ مستقلّاً عن
-    | الصفحةِ التي تستضيفُه، فبابٌ على الصفحةِ وحدَها بابٌ واحدٌ لغرفةٍ لها
-    | مدخلان.
+    | ⛔ هذا هو الحارسُ كلُّه. الويدجتاتُ مسجَّلةٌ على لوحةِ `/admin` المشتركةِ التي
+    | يصلُها كلُّ مدرّس، و`Page::filterVisibleWidgets()` ينادي `canView()` على كلٍّ
+    | منها قبلَ التصيير — فحذفُ `PlatformWideWidget` من صنفٍ واحدٍ يُسلِّمُ كلَّ
+    | مدرّسٍ أرقامَ منافسيه، بلا خطأٍ في أيِّ مكان.
     */
-    foreach ([
-        PlatformPulseWidget::class, MoneyPulseWidget::class, TrustPulseWidget::class,
-        StudentPerformanceWidget::class, StudentMoneyWidget::class,
-        TopTeachersWidget::class, ViolationsWidget::class,
-    ] as $widget) {
+    foreach (platformWidgets() as $widget) {
         expect($widget::canView())->toBeFalse();
     }
 });
@@ -348,22 +369,16 @@ it('shows a complaint raised in an academy the reader does not belong to', funct
 });
 
 /**
- * ⛔ الحارسُ الذي لا يراه أحدٌ حتّى يقع: لوحةُ `/admin` الرئيسيّةُ مشتركة، وكلُّ
- * مدرّسٍ يصلُها. ويدجتُ إيراداتٍ مسجَّلٌ هناك يُسلِّمُ كلَّ مدرّسٍ أرقامَ منافسيه —
- * بلا خطأٍ في أيِّ مكان، لأنّ الشاشةَ تعملُ تماماً كما بُنِيَت.
+ * ⚠️ الشاشةُ الرئيسيّةُ هي المكان، ولا صفحةَ ثانيةً تحتَها.
+ *
+ * التسجيلُ في `->widgets([])` هو ما يجعلُ اللوحةَ تعرضُ شيئاً؛ صنفٌ مبنيٌّ ولا
+ * يُسجَّلُه أحدٌ ملفٌّ لا شاشة — وهو ما شُحِنَ أوّلَ مرّةٍ خلفَ صفحةٍ منفصلةٍ لا
+ * يجدُها أحد. هذا التوكيدُ يسقطُ في اللحظةِ التي يُحذَفُ فيها سطرُ التسجيل.
  */
-it('keeps every platform-wide widget off the shared dashboard', function (): void {
+it('registers every platform widget on the dashboard itself', function (): void {
     $shared = Filament::getPanel('admin')->getWidgets();
 
-    foreach ([
-        PlatformPulseWidget::class, MoneyPulseWidget::class, TrustPulseWidget::class,
-        StudentPerformanceWidget::class, StudentMoneyWidget::class,
-        TopTeachersWidget::class, ViolationsWidget::class,
-    ] as $widget) {
-        expect($shared)->not->toContain($widget);
+    foreach (platformWidgets() as $widget) {
+        expect($shared)->toContain($widget);
     }
-
-    // مرساةٌ تُبقي التوكيدَ صادقاً: القائمةُ ليست فارغةً أصلاً.
-    expect($shared)->not->toBeEmpty()
-        ->and(class_exists(OrderResource::class))->toBeTrue();
 });

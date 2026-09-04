@@ -31,6 +31,10 @@ class PlatformPulseWidget extends BaseWidget
 {
     use PlatformWideWidget;
 
+    protected static ?int $sort = 1;
+
+    protected int|string|array $columnSpan = 'full';
+
     protected ?string $pollingInterval = null;
 
     protected ?string $heading = 'نبض المنصّة';

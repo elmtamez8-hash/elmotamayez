@@ -35,6 +35,8 @@ class MoneyPulseWidget extends BaseWidget
 {
     use PlatformWideWidget;
 
+    protected static ?int $sort = 2;
+
     protected ?string $pollingInterval = null;
 
     protected ?string $heading = 'المال';

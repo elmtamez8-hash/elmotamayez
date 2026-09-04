@@ -31,6 +31,8 @@ class TrustPulseWidget extends BaseWidget
 {
     use PlatformWideWidget;
 
+    protected static ?int $sort = 3;
+
     protected ?string $pollingInterval = null;
 
     protected ?string $heading = 'الرضا والمخالفات';
