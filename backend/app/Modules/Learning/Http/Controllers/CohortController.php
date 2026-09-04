@@ -59,6 +59,22 @@ class CohortController extends Controller
         $cohorts = Cohort::query()
             ->withoutWorkspaceScope()
             ->where('course_id', $courseId)
+            /*
+            | ⛔ OWNERSHIP, NOT STATUS — AND THIS LINE WAS MISSING UNTIL 2026-09-05.
+            | `Cohort::scopeGroup()` says why the public read filters on it, and
+            | the reasoning applies here with more force: a private cohort is named
+            | `'حصص خاصة — '.$student->name` and created `closed`, and the comment
+            | directly above deliberately KEEPS `closed` in this picker. So one
+            | accepted private-session request put a card carrying a named
+            | classmate — and, through `schedulePreviewFor()` below, the times of
+            | her private lessons — into every enrolled student's group list.
+            | `CohortResource` emits no `individual_for_user_id`, so no client
+            | could have filtered it out. 200, nothing logged.
+            |
+            | Her own private session reaches her through her BOOKING, which is
+            | where a lesson somebody holds a seat in belongs.
+            */
+            ->group()
             ->where('status', '!=', Cohort::ARCHIVED)
             ->orderBy('name')
             ->get();

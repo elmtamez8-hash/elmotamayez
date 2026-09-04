@@ -186,6 +186,15 @@ export const reportCards = {
    * answered `401` — the same fact that put captions behind a grant URL in 019.
    */
   fileUrl: (uuid: string) =>
+    /*
+     * ⚠️ FETCH THE RETURNED URL, NEVER NAVIGATE TO IT. Since 2026-09-05 the file
+     * route sits behind `auth:sanctum` as well as the signature, and it compares
+     * the `reader` the signature names against the caller — without an account on
+     * the request there was nothing to compare it to, and the link was a bearer
+     * capability over a named minor's grades. `window.location`, `<a href>`, a
+     * new tab and a print dialog all send no `Authorization` header and answer
+     * 401. Use `download()` from `lib/api.ts`, which is here for this shape.
+     */
     api.get<{ url: string; expires_in: number }>(`/report-cards/${uuid}/download`),
 
   /** What the TEACHER sees — their own segment, never the whole card. */

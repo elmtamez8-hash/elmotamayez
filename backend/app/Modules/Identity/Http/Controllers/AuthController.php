@@ -187,15 +187,39 @@ class AuthController extends Controller
         return response()->json(['message' => __($status)]);
     }
 
-    public function resetPassword(ResetPasswordRequest $request): JsonResponse
-    {
+    /**
+     * ⚠️ AND IT SIGNS THE OTHER DEVICES OUT, EXACTLY AS {@see changePassword()}
+     * DOES. Two doors change a password and only one of them revoked anything —
+     * and the door that did not is the one somebody uses AFTER a compromise. An
+     * intruder who phished a reset link and signed in keeps a Sanctum token in
+     * `localStorage`; the victim resets, and that token is untouched for ever.
+     *
+     * ⚠️ `remember_token` IS NOT THAT REVOCATION. It governs Laravel's remember-me
+     * cookie and has no bearing on a bearer token or on an `auth_sessions` row.
+     * Neither is `PasswordReset`: the event reaches no listener in this tree.
+     *
+     * ⚠️ `$keepTokenId` IS NULL HERE, and that is the difference from the sibling.
+     * Somebody changing their password is signed in on the screen they did it
+     * from; somebody resetting one holds no token yet, so there is nothing to
+     * keep and every live session belongs to whoever had the old password.
+     */
+    public function resetPassword(
+        ResetPasswordRequest $request,
+        TerminateOtherSessions $terminateOthers,
+    ): JsonResponse {
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user, string $password): void {
+            function (User $user, string $password) use ($terminateOthers): void {
                 $user->forceFill([
                     'password' => $password,
                     'remember_token' => Str::random(60),
                 ])->save();
+
+                $terminateOthers->handle(
+                    $user,
+                    SessionEndReason::PasswordChange,
+                    'تمت إعادة تعيين كلمة مرور حسابك.',
+                );
 
                 event(new PasswordReset($user));
             },

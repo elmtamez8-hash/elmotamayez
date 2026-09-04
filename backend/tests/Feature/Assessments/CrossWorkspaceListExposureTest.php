@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Assessments\Models\Assignment;
+use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\Exam;
+use App\Modules\Assessments\Models\Submission;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Tenancy\Models\Workspace;
@@ -193,3 +195,81 @@ it('leaves the teacher\'s own list scoped by the workspace as before', function 
         ->toContain('MINE-GENERAL-EXAM')
         ->not->toContain('FOREIGN-EXAM');
 });
+
+/*
+| ⛔ AND THE DOOR, WHICH STAYED OPEN FOR A YEAR AFTER THE LIST WAS CLOSED.
+|
+| The four cases above narrow a QUERY. `ExamPolicy::view()` and
+| `AssignmentPolicy::view()` read «published ⇒ allow» with no condition about the
+| caller at all — `belongsToCurrentWorkspace()` correctly raises no objection on
+| the null context every student has — so a uuid was the whole entitlement.
+|
+| ⚠️ THE EXAM CASE IS NOT MERELY A READ. `AttemptController::start()` authorises
+| `view` and nothing else, and `StartAttempt` asks for no enrolment and writes a
+| nullable `enrollment_id`, so the response carried every question's content and
+| options. The realistic reader is not a stranger across the platform but a
+| classmate in the SAME workspace sitting the final of a course they never bought.
+|
+| ⚠️ AND THE HOMEWORK CASE IS A WRITE. `submit()` authorises `view` too, so a
+| stranger's uploaded file landed in a paying teacher's marking queue.
+|
+| Both now ask `StudentScope::permits()` — the same class the lists above use,
+| because two spellings of one entitlement is how this gap opened.
+*/
+
+/** @return array{exam: Exam, homework: Assignment} */
+function foreignPapers(): array
+{
+    return [
+        'exam' => Exam::query()->withoutWorkspaceScope()->where('title', 'FOREIGN-EXAM')->firstOrFail(),
+        'homework' => Assignment::query()->withoutWorkspaceScope()->where('title', 'FOREIGN-HOMEWORK')->firstOrFail(),
+    ];
+}
+
+it('refuses a student the exam of a course they are not enrolled in', function (): void {
+    $this->getJson('/api/v1/exams/'.foreignPapers()['exam']->uuid)->assertForbidden();
+});
+
+it('refuses to start an attempt on another teacher\'s exam', function (): void {
+    $this->postJson('/api/v1/exams/'.foreignPapers()['exam']->uuid.'/attempts')->assertForbidden();
+
+    // The paper stays unwritten: a refusal that still created the row would have
+    // burnt an attempt allowance and frozen a snapshot of somebody else's bank.
+    expect(Attempt::query()->withoutWorkspaceScope()->count())->toBe(0);
+});
+
+it('still lets the same student sit their own course\'s exam', function (): void {
+    $mine = Exam::query()->withoutWorkspaceScope()->where('title', 'MINE-EXAM')->firstOrFail();
+
+    $this->postJson('/api/v1/exams/'.$mine->uuid.'/attempts')->assertCreated();
+
+    /*
+    | ⚠️ THE POSITIVE CONTROL IS THE HALF THAT MATTERS. A guard written as «deny
+    | unless the context matches» passes every negation above and locks every real
+    | student out of the paper they are studying for — which is `belongsTo\
+    | CurrentWorkspace()` denying on a null context, the defect this repository
+    | already paid for once across five endpoints.
+    */
+})->group('positive-control');
+
+it('refuses a student the homework of a course they are not enrolled in', function (): void {
+    $this->getJson('/api/v1/assignments/'.foreignPapers()['homework']->uuid)->assertForbidden();
+});
+
+it('refuses a submission into another teacher\'s marking queue', function (): void {
+    $this->postJson(
+        '/api/v1/assignments/'.foreignPapers()['homework']->uuid.'/submissions',
+        ['answer_text' => 'STRANGER-SUBMISSION'],
+    )->assertForbidden();
+
+    expect(Submission::query()->withoutWorkspaceScope()->count())->toBe(0);
+});
+
+it('still accepts a submission to the student\'s own homework', function (): void {
+    $mine = Assignment::query()->withoutWorkspaceScope()->where('title', 'MINE-HOMEWORK')->firstOrFail();
+
+    $this->postJson(
+        '/api/v1/assignments/'.$mine->uuid.'/submissions',
+        ['answer_text' => 'MY-SUBMISSION'],
+    )->assertCreated();
+})->group('positive-control');

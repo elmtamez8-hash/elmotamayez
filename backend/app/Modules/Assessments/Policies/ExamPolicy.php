@@ -6,8 +6,10 @@ namespace App\Modules\Assessments\Policies;
 
 use App\Models\User;
 use App\Modules\Assessments\Models\Exam;
+use App\Modules\Assessments\Support\StudentScope;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
+use App\Shared\Contracts\EnrollmentDirectory;
 use Illuminate\Auth\Access\Response;
 
 class ExamPolicy extends BasePolicy
@@ -29,7 +31,10 @@ class ExamPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        if ($exam->isPublished()) {
+        // ⚠️ PUBLISHED IS NOT AN ENTITLEMENT — it is a fact about the paper, and
+        // the caller has to be asked about separately. {@see StudentScope::permits()}
+        // is the spelling `ExamController::index()` already uses on the list.
+        if ($exam->isPublished() && StudentScope::permits($exam, $user, app(EnrollmentDirectory::class))) {
             return Response::allow();
         }
 

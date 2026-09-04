@@ -6,8 +6,10 @@ namespace App\Modules\Assessments\Policies;
 
 use App\Models\User;
 use App\Modules\Assessments\Models\Assignment;
+use App\Modules\Assessments\Support\StudentScope;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
+use App\Shared\Contracts\EnrollmentDirectory;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -30,7 +32,14 @@ class AssignmentPolicy extends BasePolicy
             return Response::allow();
         }
 
-        return $assignment->isPublished() ? Response::allow() : Response::deny();
+        // ⚠️ THIS ABILITY GUARDS A WRITE AS WELL AS A READ. `AssignmentController::submit()`
+        // authorises `view`, and `SubmitAssignment` asks for no enrolment — so
+        // "published ⇒ allow" put a stranger's uploaded file into a paying
+        // teacher's marking queue. Same predicate as the list, one spelling.
+        return $assignment->isPublished()
+            && StudentScope::permits($assignment, $user, app(EnrollmentDirectory::class))
+                ? Response::allow()
+                : Response::deny();
     }
 
     public function manage(User $user, Assignment $assignment): Response

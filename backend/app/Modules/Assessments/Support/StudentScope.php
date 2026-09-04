@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * What a STUDENT may be shown from a workspace-owned list.
@@ -66,6 +67,49 @@ class StudentScope
         }
 
         return self::apply($query, $user, $enrollments);
+    }
+
+    /**
+     * The same question about ONE row — for a policy, which has no query to narrow.
+     *
+     * ⚠️ THE LIST WAS CLOSED AND THE DOOR WAS NOT, WHICH IS THIS REPOSITORY'S
+     * TWO-SPELLINGS DEFECT IN ITS USUAL DIRECTION. `applyIfUnscoped()` above
+     * stopped `GET /exams` answering every published paper on the platform —
+     * while `ExamPolicy::view()` and `AssignmentPolicy::view()` still read
+     * "published ⇒ allow", with `belongsToCurrentWorkspace()` correctly raising
+     * no objection on the null context every student has. So a student who knew
+     * a uuid opened another course's paper and SAT it (`StartAttempt` asks for no
+     * enrolment and writes a nullable `enrollment_id`), and posted homework into
+     * a stranger's marking queue. Measured 2026-09-05.
+     *
+     * ⚠️ IT IS A METHOD ON THIS CLASS AND NOT A CONDITION COPIED INTO THE POLICY,
+     * because two spellings of one entitlement is exactly how the gap opened.
+     *
+     * ⚠️ AND IT ANSWERS TRUE FOR A RESOLVED CONTEXT, mirroring
+     * {@see applyIfUnscoped()} line for line: a workspace member is already
+     * narrowed by the scope and by the check above this call, and an invited
+     * member with no enrolment may genuinely sit a course-less paper.
+     */
+    public static function permits(Model $record, User $user, EnrollmentDirectory $enrollments): bool
+    {
+        if (app(WorkspaceContext::class)->id() !== null) {
+            return true;
+        }
+
+        $courseId = $record->getAttribute('course_id');
+
+        // Nullable on both tables by design — a paper set for every student of a
+        // workspace rather than for one course. Narrowing that by course alone
+        // would hide it from exactly the people it was written for.
+        if ($courseId !== null) {
+            return in_array((int) $courseId, array_map('intval', $enrollments->activeCourseIdsFor($user)), true);
+        }
+
+        return in_array(
+            (int) $record->getAttribute('workspace_id'),
+            array_map('intval', $enrollments->activeWorkspaceIdsFor($user)),
+            true,
+        );
     }
 
     /**

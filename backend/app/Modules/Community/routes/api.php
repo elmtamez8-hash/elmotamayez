@@ -261,18 +261,22 @@ Route::get('/chat-media/{message}', [ChatAttachmentController::class, 'show'])
 /*
 | The report card PDF itself.
 |
-| Outside the bearer-token group for the same reason as the line above: a browser
-| following a `302` into a new tab, or a print dialog fetching the file, carries
-| no `Authorization` header. The signature is minted inside `download()`, which
-| only runs for a reader `ReportCardPolicy::view()` has already admitted, and it
-| lasts five minutes — a permanent URL to a named minor's grades is exactly what
-| the redirect exists to avoid.
+| ⛔ INSIDE THE BEARER-TOKEN GROUP SINCE 2026-09-05, AND THIS BLOCK USED TO ARGUE
+| THE OPPOSITE. The argument was that a browser following a `302` or a print
+| dialog sends no `Authorization` header — true, and irrelevant here: nothing
+| navigates to this URL. `download()` returns it as JSON and the client fetches
+| it with its token (`api.ts`'s `download()` helper). Left anonymous, the `reader`
+| parameter inside the signature had nothing to be compared against, so the link
+| was a bearer capability over a named minor's grades for anyone who saw it.
 |
-| ⚠️ `throttle:public`, NOT `throttle:report-card-render`. That limiter keys on
-| `$request->user()`, which is null here — every caller would share one bucket
-| named `user:`, so one family fetching their card would rate-limit the platform.
-| The per-account budget is spent on `download()`, where there IS an account.
+| The signature STAYS as well — it is the five-minute bound, and it is what makes
+| a forwarded link expire rather than merely belong to somebody else.
+|
+| ⚠️ `throttle:public`, NOT `throttle:report-card-render`. There is an account
+| here now, so that limiter would key correctly — but the per-render budget is
+| deliberately spent once, in `download()`, and charging it twice for one document
+| would halve a family's real allowance.
 */
 Route::get('/report-card-files/{uuid}', [ReportCardController::class, 'file'])
-    ->middleware(['signed', 'throttle:public'])
+    ->middleware(['auth:sanctum', 'signed', 'throttle:public'])
     ->name('report-cards.file');

@@ -70,7 +70,14 @@ class ReportCardController extends Controller
      * new tab — sends no `Authorization` header at all, so the browser would be
      * answered `401` before it ever saw the redirect. The same fact put captions
      * behind a grant URL in 019 and chat attachments behind a signed one in this
-     * spec's own US2. The client fetches this with its token and then navigates.
+     * spec's own US2.
+     *
+     * ⚠️ THE CLIENT FETCHES THE MINTED URL WITH ITS TOKEN — it does NOT navigate
+     * to it. This line used to say "and then navigates", which was the whole
+     * reason {@see file()} carried no `auth:sanctum` and therefore had nothing to
+     * compare its `reader` parameter against. `api.ts`'s `download()` helper
+     * exists for exactly this shape: fetch with the bearer, hand the blob to the
+     * browser's downloader.
      *
      * This is where `throttle:report-card-render` is spent, on the one call that
      * has an account behind it.
@@ -91,19 +98,42 @@ class ReportCardController extends Controller
                 // route is unauthenticated by necessity, so the signature is the
                 // only thing tying the link to the person it was minted for — a
                 // forwarded URL is then a signature over somebody else's id.
-                ['uuid' => $card->uuid, 'reader' => (int) $request->user()?->getKey()],
+                // The UUID, never the autoincrement id: a route parameter is a
+                // payload, and this product exposes `uuid` everywhere else.
+                ['uuid' => $card->uuid, 'reader' => (string) $request->user()?->uuid],
             ),
             'expires_in' => 300,
         ];
     }
 
-    /** The signed target of the URL minted above. */
+    /**
+     * The signed target of the URL minted above.
+     *
+     * ⛔ THE `reader` PARAMETER IS COMPARED HERE, AND UNTIL 2026-09-05 IT WAS NOT.
+     * {@see download()}'s comment claimed the signature "ties the link to the
+     * person it was minted for" — but a parameter inside a signature binds nobody
+     * unless something reads it, and this method read the uuid alone. The route
+     * carried no `auth:sanctum` either, so there was no authenticated reader to
+     * compare against: whoever obtained the URL inside five minutes — a shared
+     * browser's history, a guardian forwarding "look at this" into a group chat —
+     * downloaded a named minor's full grade PDF with no account at all.
+     *
+     * ⚠️ RE-AUTHORISED AT OPEN, NOT ONLY AT MINT. That is the line closing the
+     * withdrawn-reader window: a guardian whose `results` permission was revoked
+     * in the last five minutes holds a signature that is still valid.
+     * `SubmissionFileController` — the same problem solved correctly one module
+     * away — is the shape this now mirrors.
+     */
     public function file(Request $request, string $uuid): StreamedResponse
     {
-        // The signature already proves the reader was authorised when the link
-        // was minted; re-deriving the permission here would be a second spelling
-        // of one question, and the link is five minutes old at most.
-        $card = ReportCard::query()->where('uuid', $uuid)->firstOrFail();
+        $card = $this->findForReader($request, $uuid);
+
+        // A mismatch is a link that travelled, refused as if it had never existed:
+        // 404 rather than 403, because "wrong person" is itself information.
+        abort_unless(
+            $request->string('reader')->toString() === (string) $request->user()?->uuid,
+            404,
+        );
 
         $media = $card->getFirstMedia('report_card_pdf');
 

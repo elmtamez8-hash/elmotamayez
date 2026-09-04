@@ -23,7 +23,11 @@ Route::post('/auth/register/parent', [ParentController::class, 'register'])
     ->middleware(['throttle:registration', 'idempotent']);
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth');
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth');
-Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
+// ⚠️ `throttle:auth` LIKE ITS TWO SIBLINGS ABOVE. The `api` group applies no
+// default limiter, so without this the endpoint is an unlimited account-existence
+// oracle — the broker's status distinguishes "no such account" from "bad token" —
+// and every attempt spends a bcrypt comparison on the shared worker pool.
+Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:auth');
 
 /*
 | Asked only after the token is already gone, which is why it carries no auth:
