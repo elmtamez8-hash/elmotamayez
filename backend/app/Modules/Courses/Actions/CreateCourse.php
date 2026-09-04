@@ -7,6 +7,7 @@ namespace App\Modules\Courses\Actions;
 use App\Models\User;
 use App\Modules\Courses\DTOs\CreateCourseDTO;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Support\CourseTeacherProfile;
 use App\Modules\Courses\Support\SubjectResolver;
 use App\Shared\Actions\Action;
 use App\Shared\Support\WorkspaceContext;
@@ -29,9 +30,11 @@ class CreateCourse extends Action
         */
         $subjectId = SubjectResolver::id($dto->subjectUuid);
 
+        $workspaceId = (int) app(WorkspaceContext::class)->id();
+
         $course = Course::create([
             'subject_id' => $subjectId,
-            'workspace_id' => app(WorkspaceContext::class)->id(),
+            'workspace_id' => $workspaceId,
             'title' => $dto->title,
             'slug' => $dto->slug ?? Str::slug($dto->title.'-'.Str::random(6)),
             'description' => $dto->description,
@@ -41,6 +44,20 @@ class CreateCourse extends Action
             'visibility' => $dto->visibility,
             'is_sequential' => $dto->isSequential,
             'created_by' => $creator->getKey(),
+
+            /*
+            | ⛔ العمودُ الذي لم يكن يكتبُه أحد. تعليقُه على النموذجِ يقولُ منذُ ٠٠٦
+            | إنّه «الذي بدونِه لا يعملُ بحثُ السعرِ المعتمَدِ إطلاقاً» — ولا سطرَ
+            | في الشجرةِ كلِّها كان يُسنِدُه، فوُلِدَ كلُّ كورسٍ بـ`NULL` وعادت
+            | قائمةُ الحزمِ فارغةً لكلِّ طالبٍ ولكلِّ موظّف، تحتَ جملةٍ تبدو
+            | سياسةً لا عطلاً. {@see CourseTeacherProfile} تحملُ القاعدةَ وحدَها.
+            |
+            | و`null` هنا حالةٌ مشروعةٌ لا خطأ: مدرّسٌ لم يُرسِلْ طلبَه بعدُ لا ملفَّ
+            | له، ومساحتُه تحملُ `courses.create` منذُ تسجيلِه (٠٢٥). الرميُ هنا
+            | يمنعُ كلَّ مدرّسٍ جديدٍ من التأليفِ حتّى يتقدّم — قرارُ منتَجٍ لم
+            | يتّخذْه أحد.
+            */
+            'teacher_profile_id' => CourseTeacherProfile::resolve($workspaceId, (int) $creator->getKey()),
         ]);
 
         $this->logActivity('created', $course, ['title' => $course->title]);

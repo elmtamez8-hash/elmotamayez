@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Courses;
 
 use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
+use App\Modules\Courses\Listeners\ClaimCoursesForNewTeacherProfile;
 use App\Modules\Courses\Listeners\ClearPromoVideoOnOffboarding;
 use App\Modules\Courses\Listeners\SyncLessonDurationFromAsset;
 use App\Modules\Courses\Support\CoursesPersonalData;
+use App\Modules\Marketplace\Events\TeacherApplicationSubmitted;
 use App\Modules\Media\Events\MediaAssetReady;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
@@ -44,5 +46,15 @@ class CoursesServiceProvider extends Module
         | because Constitution III asks for an event across a module boundary.
         */
         Event::listen(TeacherOffboardingCompleted::class, ClearPromoVideoOnOffboarding::class);
+
+        /*
+        | ⛔ الكورساتُ التي سبقَت ملفَّ صاحبِها تُطالِبُ به لحظةَ ميلادِه.
+        |
+        | منذُ ٠٢٥ تُولَدُ مساحةُ المدرّسِ مع التسجيلِ وتحملُ `courses.create` من
+        | يومِها، ولا يُخلَقُ `TeacherProfile` إلّا عندَ إرسالِ الطلب. فالتأليفُ
+        | قبلَ التقدّمِ هو الترتيبُ الطبيعيّ — وبلا هذا السطرِ يبقى
+        | `teacher_profile_id` فارغاً إلى الأبد، فلا يُسعَّرُ الكورسُ أبداً.
+        */
+        Event::listen(TeacherApplicationSubmitted::class, ClaimCoursesForNewTeacherProfile::class);
     }
 }
