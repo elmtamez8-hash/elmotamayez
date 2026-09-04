@@ -36,12 +36,18 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     // `default`, not a string: the root layout's template appends «| المنصّة», and
     // on the home page that would read as the platform name twice.
-    title: { absolute: `${name} — مدرّسون خصوصيون بالعربية، مباشرةً ومسجّلاً` },
+    /*
+    | ⚠️ لا «بالعربية» في العنوان. المدرّسونَ يشرحونَ بلغاتٍ مختلفةٍ —
+    | `teaching_languages` على الملفِّ مجموعةٌ لا قيمةٌ واحدة — فوصفُ المنصّةِ
+    | بالعربيّةِ وحدَها يَعِدُ بأقلَّ ممّا فيها ويُخرِجُ مدرّسَ الإنجليزيّةِ من
+    | العنوانِ الذي يبحثُ عنه طالبُه. واجهةُ المنتَجِ عربيّةٌ، وهذا شيءٌ آخر.
+    */
+    title: { absolute: `${name} — مدرّسون خصوصيون، مباشرةً ومسجّلاً` },
     description:
       "ابحثْ عن مدرّسٍ خصوصيٍّ لكلِّ مادّةٍ ومرحلة: حصصٌ فرديّةٌ وجماعيّةٌ مباشرة، وكورساتٌ مسجّلة، ودرجةُ ثقةٍ شفّافةٌ لكلِّ مدرّس.",
     alternates: { canonical: siteUrl("/") },
     openGraph: {
-      title: `${name} — مدرّسون خصوصيون بالعربية`,
+      title: `${name} — مدرّسون خصوصيون`,
       description:
         "حصصٌ خصوصيّةٌ مباشرةٌ ومسجّلة، مع مراجعةٍ أكاديميّةٍ لكلِّ مدرّسٍ ودرجةِ ثقةٍ مبنيّةٍ على أداءٍ فعليّ.",
       url: siteUrl("/"),

@@ -3,11 +3,14 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\LiveSessions\Enums\ClassSessionType;
+use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Tenancy\Filament\Pages\ManagePlatformSettings;
 use App\Modules\Tenancy\Models\PlatformSetting;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use Database\Seeders\PlatformSettingsSeeder;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Livewire;
 
 /**
  * FR-022 asks for an *adjustable* limit. A constant in a config file is
@@ -96,4 +99,62 @@ it('seeds a row for every settings key', function (): void {
 
     expect(PlatformSetting::query()->count())->toBe(count(PlatformSettings::KEYS));
     expect(PlatformSetting::query()->whereNull('value')->count())->toBe(0);
+});
+
+/**
+ * ⛔ حصّةُ المنصّةِ كانت أرقاماً بلا شاشة.
+ *
+ * `BillingPricingController` موجودٌ بمسارَيه وبصلاحيّةِ `billing.pricing.manage`،
+ * وتعليقُه يقولُ إنّ حارسَي الأمانةِ «يُداران من الشاشةِ نفسِها» — ولا شاشةَ في
+ * المنتَجِ كلِّه تنادِيه. فبقيَت الأربعةُ على أصفارِها المبذورة، وكلُّ بيعةٍ على
+ * الإنتاجِ سُجِّلَت بحصّةٍ صفر (قِيسَ 2026-09-04: شراءُ الأرصدةِ الوحيدُ برسومِ
+ * تشغيلٍ وبوّابةٍ صفرَين على ‏٤٨٠ ر.ق).
+ */
+it('writes the platform margin where the pricing engine reads it', function (): void {
+    $admin = User::factory()->create(['is_super_admin' => true]);
+    Auth::login($admin);
+
+    Livewire::test(ManagePlatformSettings::class)
+        ->fillForm([
+            'operating_fee_individual' => 500,
+            'operating_fee_group' => 200,
+            'gateway_fee_bps' => 250,
+            'gateway_fixed_fee_minor' => 100,
+            'stop_selling_after_days' => 45,
+            'max_unredeemed_credits' => 30,
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    /*
+    | ⚠️ التوكيدُ عبرَ {@see BillingSettings}، لا على مفاتيحِ `platform_settings`.
+    | مفتاحٌ بهجاءٍ ثانٍ يكتبُ صفّاً لا يقرؤه أحد: الشاشةُ تعرضُ ما حُفِظ، والمحرّكُ
+    | يُسعِّرُ بالصفرِ كما كان — وهو عطلٌ لا يُظهِرُه توكيدٌ على الصفِّ نفسِه.
+    */
+    $billing = app(BillingSettings::class);
+
+    expect($billing->operatingFeeMinor(ClassSessionType::Individual))->toBe(500)
+        ->and($billing->operatingFeeMinor(ClassSessionType::Group))->toBe(200)
+        ->and($billing->gatewayFeeBps())->toBe(250)
+        ->and($billing->gatewayFixedFeeMinor())->toBe(100)
+        ->and($billing->stopSellingAfterDays())->toBe(45)
+        ->and($billing->maxUnredeemedCredits())->toBe(30);
+});
+
+it('opens the pricing form on the numbers the engine is actually using', function (): void {
+    $admin = User::factory()->create(['is_super_admin' => true]);
+    Auth::login($admin);
+
+    /*
+    | ⚠️ `stop_selling_after_days` **لا صفَّ له** — يرتدُّ إلى `config/billing.php`.
+    | نموذجٌ يقرأُ المفتاحَ خامّاً يفتحُ بخانةٍ فارغةٍ عن رقمٍ يعملُ فعلاً، فيحفظُها
+    | المشغِّلُ صفراً ظانّاً أنّه لم يمسَّ شيئاً.
+    */
+    expect(PlatformSetting::query()->find('billing.stop_selling_after_days'))->toBeNull();
+
+    Livewire::test(ManagePlatformSettings::class)
+        ->assertFormSet([
+            'stop_selling_after_days' => config('billing.stop_selling_after_days', 60),
+            'max_unredeemed_credits' => config('billing.max_unredeemed_credits', 24),
+        ]);
 });
