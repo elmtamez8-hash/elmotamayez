@@ -770,8 +770,19 @@ page declares `canAccess()` of its own, because `PanelResourceDoorTest` walks
 | GET | `/reports/subscriptions` | `analytics.cross_teacher.view` — always the caller's own row |
 | PUT | `/reports/subscriptions` | `analytics.cross_teacher.view` |
 
-`/admin/platform-analytics` (Filament page) · `/admin/feature-flags`
-(`flags.manage`) · `/admin/regions` (`taxonomy.manage`) are the panel's half.
+The panel's half is the **dashboard itself**: ten platform widgets registered in
+`AdminPanelProvider`, each carrying `PlatformWideWidget` — `canView()` on
+`analytics.cross_teacher.view`, which is what `Page::filterVisibleWidgets()` reads
+before rendering, and what makes a revenue widget safe on a screen every teacher
+reaches. `/admin/feature-flags` (`flags.manage`) · `/admin/regions`
+(`taxonomy.manage`) sit beside it.
+
+⚠️ **`/admin/platform-analytics` is gone (2026-09-04), and `ReadPlatformAnalytics`
+is not.** The screen was removed at the owner's request; the Action still answers
+`GET /reports/platform` and still feeds the scheduled report, and
+`RegionSpreadWidget` reads it so the region breakdown keeps its one behaviour that
+nothing else has — a region nobody registered from shows a zero instead of
+vanishing (FR-042). Three readers, one answer.
 
 `report_subscriptions` (FR-045) holds one row per person: the metrics they chose,
 a cadence, and `last_sent_on` **stamped before the send** — a lost report beats one
