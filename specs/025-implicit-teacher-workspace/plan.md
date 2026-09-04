@@ -108,9 +108,9 @@ Filament (لوحةُ `/admin`) · Sanctum
 
 - الميلادُ والردمُ يمرّانِ بـ`CreateWorkspace` نفسِه (FR-016). الهجرةُ تنادي الـAction، ولا
   تكتبُ صفّاً بيدِها.
-- إغلاقُ البابِ يُفرَضُ في `CreateWorkspaceRequest::authorize()` **وفي السياسةِ معاً**: قاعدةٌ
-  في `FormRequest` وحدَها يُلتَفُّ عليها من لوحةِ Filament، وهي بابٌ حقيقيٌّ هنا لا افتراضيّ
-  (`WorkspaceResource` موجودٌ في `/admin`).
+- إغلاقُ البابِ يُفرَضُ في `CreateWorkspaceRequest::authorize()` **وفي `CreateWorkspace` معاً**:
+  قاعدةٌ في `FormRequest` وحدَها يُلتَفُّ عليها من لوحةِ Filament — واللوحةُ تصيرُ باباً
+  حقيقيّاً في هذه الميزةِ بالذات، إذ تُبنى فيها شاشةُ FR-009 (اليومَ `canCreate()` = `false`).
 
 ### III. استقلال الوحدات — ⚠️ يمرُّ بتصميمٍ محدَّد
 
@@ -146,6 +146,11 @@ Filament (لوحةُ `/admin`) · Sanctum
   دوراً قائماً، بخلافِ **إزالتِه** التي كسرت تجهيزَينِ في مواصفةٍ سابقة.
 - `WorkspacePolicy::create()` هي التهجئةُ الواحدةُ التي يقرؤها الـFormRequest **و**مواردُ
   Filament.
+- ⚠️ **وFR-009 سطحٌ يُبنى لا فحصٌ يُضاف**: قِيسَ أنّ `WorkspaceResource::canCreate()` تُرجِعُ
+  `false` — اللوحةُ قراءةٌ فقط، فمديرُ المنصّةِ لا يستطيعُ إنشاءَ مساحةٍ من أيِّ مكانٍ اليوم.
+  والشاشةُ الجديدةُ تنادي `CreateWorkspace` **بمنتقي مالك** (لأنّ `store()` يجعلُ المنادِيَ
+  هو المالك)، ولا تدعُ Filament يستدعي `Workspace::create()` — وإلّا أعادت إنتاجَ عطلِ WS 7
+  من داخلِ اللوحة. و**FR-012 تستثني `/admin`** لهذا السبب (research § ٩أ).
 
 ### VI. العقود الظاهرة مقصودة — ⚠️ يمرُّ بانحرافٍ مسجَّل
 
@@ -193,7 +198,7 @@ backend/
 │   ├── Http/Controllers/WorkspaceController.php # index() يصيرُ «أماكن عملي»
 │   └── Database/Migrations/                 # ثلاثُ هجرات: ردم · نقل · حذف
 ├── app/Modules/Identity/Http/Resources/UserResource.php # + workplaces
-├── app/Filament/Resources/WorkspaceResource.php         # FR-009: الإنشاءُ هنا وحدَه
+├── app/Filament/Resources/WorkspaceResource.php         # FR-009: شاشةُ إنشاءٍ تُبنى — canCreate() = false اليوم
 └── tests/Feature/{Tenancy,Marketplace}/
 
 frontend/
