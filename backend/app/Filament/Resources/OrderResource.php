@@ -66,7 +66,7 @@ class OrderResource extends Resource
         return $schema
             ->components([
                 Section::make('الطلب')
-                    ->description('المبلغُ والمشتري والمقرّرُ ثابتة — تُكتَبُ عندَ إنشاءِ الطلبِ ولا تُعدَّلُ بعدَه.')
+                    ->description('المبلغُ والمشتري والكورسُ ثابتة — تُكتَبُ عندَ إنشاءِ الطلبِ ولا تُعدَّلُ بعدَه.')
                     ->columns(2)
                     ->schema([
                         Select::make('user_id')
@@ -74,7 +74,7 @@ class OrderResource extends Resource
                             ->relationship('user', 'email')
                             ->disabled(),
                         Select::make('course_id')
-                            ->label('المقرّر')
+                            ->label('الكورس')
                             ->relationship('course', 'title')
                             ->disabled(),
                         TextInput::make('amount_minor')
@@ -273,7 +273,7 @@ class OrderResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('course.title')
-                    ->label('المقرّر')
+                    ->label('الكورس')
                     ->placeholder('—')
                     ->searchable()
                     ->sortable()

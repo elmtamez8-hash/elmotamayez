@@ -44,17 +44,17 @@ class CourseResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return 'المقرّرات';
+        return 'الكورسات';
     }
 
     public static function getModelLabel(): string
     {
-        return 'مقرّر';
+        return 'كورس';
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'المقرّرات';
+        return 'الكورسات';
     }
 
     public static function form(Schema $schema): Schema
@@ -137,7 +137,7 @@ class CourseResource extends Resource
                             ->default(0),
                         /*
                         | ⚠️ الافتراضُ كانَ `'USD'` — بقيّةٌ من هيكلِ لارافيل لا من
-                        | المنتَج — وكانَ الحقلُ نصّاً حرّاً. فكلُّ مقرّرٍ يُنشَأُ دونَ
+                        | المنتَج — وكانَ الحقلُ نصّاً حرّاً. فكلُّ كورسٍ يُنشَأُ دونَ
                         | لمسِ الحقلِ كانَ يُسعَّرُ بالدولارِ ويُعرَضُ به، بينما عملةُ
                         | المنصّةِ هي `config('billing.currency')` — الريالُ القطريّ.
                         */

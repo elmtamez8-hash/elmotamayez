@@ -50,11 +50,11 @@ class EnrollmentResource extends Resource
         return $schema
             ->components([
                 Section::make('التسجيل')
-                    ->description('الطالبُ والمقرّرُ ثابتان — التسجيلُ يُنشَأُ من اعتمادِ الطلبِ لا من هنا.')
+                    ->description('الطالبُ والكورسُ ثابتان — التسجيلُ يُنشَأُ من اعتمادِ الطلبِ لا من هنا.')
                     ->columns(2)
                     ->schema([
                         Select::make('course_id')
-                            ->label('المقرّر')
+                            ->label('الكورس')
                             ->relationship('course', 'title')
                             ->disabled(),
                         Select::make('student_user_id')
@@ -75,7 +75,7 @@ class EnrollmentResource extends Resource
             ->defaultSort('enrolled_at', 'desc')
             ->columns([
                 TextColumn::make('course.title')
-                    ->label('المقرّر')
+                    ->label('الكورس')
                     ->searchable()
                     ->sortable()
                     ->wrap(),

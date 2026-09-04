@@ -67,7 +67,7 @@ class ExamResource extends Resource
                             ->options(ExamStatus::options())
                             ->required(),
                         Select::make('course_id')
-                            ->label('المقرّر')
+                            ->label('الكورس')
                             ->relationship('course', 'title')
                             ->searchable()
                             ->preload(),
@@ -106,7 +106,7 @@ class ExamResource extends Resource
             ->columns([
                 TextColumn::make('title')->label('العنوان')->searchable()->sortable()->wrap(),
                 TextColumn::make('course.title')
-                    ->label('المقرّر')
+                    ->label('الكورس')
                     ->placeholder('—')
                     ->toggleable()
                     ->searchable(),
