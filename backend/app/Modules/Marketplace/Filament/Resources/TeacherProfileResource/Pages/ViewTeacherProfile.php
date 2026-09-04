@@ -6,6 +6,7 @@ namespace App\Modules\Marketplace\Filament\Resources\TeacherProfileResource\Page
 
 use App\Modules\Marketplace\Filament\Resources\TeacherProfileResource;
 use Filament\Actions\Action;
+use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 
 class ViewTeacherProfile extends ViewRecord
@@ -13,16 +14,21 @@ class ViewTeacherProfile extends ViewRecord
     protected static string $resource = TeacherProfileResource::class;
 
     /**
-     * لا تعديلَ ولا حذف.
+     * القراراتُ هنا، وكلٌّ منها Action — لا حفظَ مباشرٌ ولا حذف.
      *
-     * Filament يضعُ زرَّ التعديلِ هنا افتراضيّاً، وهو الزرُّ الذي لا يجوزُ أن
-     * تحملَه هذه الصفحة: الاعتمادُ يمرُّ بـ Action تُرسِلُ إشعاراً وتُبطِلُ ذاكرةَ
-     * السوقِ وتشتقُّ `is_publicly_listed`، وحقلٌ يُحفَظُ من هنا يتخطّاها كلَّها.
+     * ⚠️ الشاشةُ كانت بلا أزرارٍ إطلاقاً، والاعتمادُ لا يُتَّخَذُ إلّا من طابورِ
+     * الطلبات — فملفٌّ «قيد المراجعة» لا طلبَ له لم يكن يُعتمَدُ من أيِّ مكانٍ في
+     * المنتَج، وموقوفٌ لم يكن يُوقَفُ أصلاً. التفرّعُ في
+     * {@see TeacherProfileResource::approveAction()}.
      *
      * @return array<int, Action>
      */
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            TeacherProfileResource::approveAction(),
+            TeacherProfileResource::suspendAction(),
+            EditAction::make()->label('تعديل'),
+        ];
     }
 }

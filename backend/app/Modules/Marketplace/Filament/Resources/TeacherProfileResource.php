@@ -4,14 +4,29 @@ declare(strict_types=1);
 
 namespace App\Modules\Marketplace\Filament\Resources;
 
+use App\Models\User;
+use App\Modules\Marketplace\Actions\ApproveTeacherApplication;
+use App\Modules\Marketplace\Actions\ReinstateTeacher;
+use App\Modules\Marketplace\Actions\SubmitTeacherApplication;
+use App\Modules\Marketplace\Actions\SuspendTeacher;
+use App\Modules\Marketplace\Actions\UpdateTeacherProfile;
 use App\Modules\Marketplace\Filament\Resources\TeacherProfileResource\Pages;
 use App\Modules\Marketplace\Filament\Resources\TeacherProfileResource\RelationManagers;
 use App\Modules\Marketplace\Models\Complaint;
+use App\Modules\Marketplace\Models\GradeLevel;
+use App\Modules\Marketplace\Models\Subject;
+use App\Modules\Marketplace\Models\TeacherApplication;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Marketplace\Policies\TeacherProfilePolicy;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TagsInput;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Pages\PageRegistration;
@@ -36,10 +51,23 @@ use UnitEnum;
  * الصفّ، ولم يكن في اللوحةِ مكانٌ يُقرأُ فيه الأثر: من هو معتمَدٌ الآن، ومن هو
  * موقوف، وعلى مَن شكوى مفتوحة، ولماذا درجةُ ثقتِه فارغة.
  *
- * ⚠️ للقراءةِ فقط، بلا استثناء. الاعتمادُ والإيقافُ والعرضُ في السوقِ قراراتٌ
- * تُتَّخَذُ من الـ Actions وحدَها: `is_publicly_listed` مشتقٌّ من الاعتمادِ ومن
- * مشاركةِ المساحةِ ولا يُسنَدُ إليه مباشرةً، ودرجةُ الثقةِ يحسبُها عملٌ ليليّ.
- * حقلٌ يُكتَبُ من هنا يتخطّى الاثنَين معاً ويظهرُ صحيحاً في الجدول.
+ * ⚠️ لا يُكتَبُ من هنا حقلٌ واحدٌ مباشرةً، بلا استثناء: كلُّ زرٍّ ينادي الـAction
+ * التي ينادِيها الـAPI. `is_publicly_listed` مشتقٌّ من الاعتمادِ ومن مشاركةِ
+ * المساحةِ ولا يُسنَدُ إليه، ودرجةُ الثقةِ يحسبُها عملٌ ليليّ — وكلاهما في
+ * `$fillable`، فنموذجٌ يحفظُ مصفوفتَه خاماً يتخطّاهما بصمتٍ ويظهرُ صحيحاً في
+ * الجدول. {@see UpdateTeacherProfile} تحملُ القائمةَ البيضاءَ وحدَها.
+ *
+ * ⚠️ وزرُّ «اعتماد» يتفرّعُ ولا يُكرَّر: إن كان للملفِّ طلبٌ لم يُبَتَّ فيه بعدُ
+ * فالقرارُ قرارُ الطلب — {@see ApproveTeacherApplication} وحدَها تختمُ مشاركةَ
+ * المساحةِ وترسلُ الإشعارَ وتسجّلُ المراجِعَ وتُغلقُ الطلب؛ واعتمادٌ من هنا بدونِها
+ * يتركُ الطلبَ معلّقاً إلى الأبد. وإن لم يكن للملفِّ طلبٌ أصلاً — وهي حالةٌ
+ * قِيسَت على الإنتاج، صفوفُ بذورٍ سبقت المعالجَ — فلا طابورَ فيه ما يُضغَط،
+ * و{@see ReinstateTeacher} هي البابُ الوحيد. بلا هذا التفرّعِ كان في المنتَجِ
+ * كلِّه صفرُ أزرارِ اعتماد.
+ *
+ * ⚠️ و`marketplace.teachers.suspend` كانت صلاحيّةً لها Action ولها مسارانِ في
+ * الـAPI ولا شاشةَ لها في المنتَجِ كلِّه: مدرّسٌ معتمَدٌ وجبَ إيقافُه لا يُوقَفُ
+ * من أيِّ مكان. القدرةُ والزرُّ يُشحنانِ معاً.
  *
  * ⚠️ `canView()` مكتوبٌ صراحةً فوقَ السياسة. {@see TeacherProfilePolicy::view()}
  * يسمحُ لصاحبِ الملفّ نفسِه — وهو صحيحٌ لواجهةِ المدرّس — وكلُّ مدرّسٍ يصلُ إلى
@@ -122,9 +150,15 @@ class TeacherProfileResource extends Resource
         return false;
     }
 
+    /**
+     * ⚠️ مكتوبٌ فوقَ السياسةِ صراحةً كما `canView()` وللسببِ نفسِه.
+     * {@see TeacherProfilePolicy::update()} يسمحُ لصاحبِ الملفِّ — وهو صحيحٌ
+     * لواجهةِ المدرّسِ حيثُ يحرّرُ نفسَه — وكلُّ مدرّسٍ يصلُ إلى `/admin`. تعديلُ
+     * ما يظهرُ للطلابِ عن إنسانٍ قرارُ فريقِ المراجعةِ وحدَه.
+     */
     public static function canEdit(Model $record): bool
     {
-        return false;
+        return Auth::user()?->can(Permissions::MARKETPLACE_TEACHERS_APPROVE) ?? false;
     }
 
     public static function canDelete(Model $record): bool
@@ -155,6 +189,146 @@ class TeacherProfileResource extends Resource
     public static function canRestoreAny(): bool
     {
         return false;
+    }
+
+    /**
+     * ما يكتبُه المعالجُ يُعدَّلُ، وما يكتبُه قرارٌ لا يُعدَّل.
+     *
+     * فهذه الحقولُ هي بعينِها التي يكتبُها {@see SubmitTeacherApplication} من
+     * الخطوةِ الثانية. وما ليس هنا ليس سهواً: `approval_status` و
+     * `is_publicly_listed` قرارانِ لهما أزرارُهما، و`trust_score` والعدّاداتُ
+     * يكتبُها عملٌ ليليّ، و`hourly_rate` مدخلُ المدرّسِ ومسارُ تغييرِه طلبُ
+     * تعديلِ سعر، و`is_verified` قرارٌ لا بيان.
+     */
+    public static function form(Schema $schema): Schema
+    {
+        return $schema->components([
+            Section::make('ما يظهرُ في السوق')
+                ->columns(2)
+                ->schema([
+                    /*
+                    | السلَجُ هيكلٌ ساكنٌ من الحروفِ الصامتة — «أحمد المنصوري» ⇐
+                    | `ahmd-almnswry` — ولا شيءَ يستعيدُ الحركاتِ من الرسم. تصحيحُه
+                    | باليدِ هو الجوابُ، وهو سببُ كونِ العمودِ قابلاً للإسناد.
+                    | ⚠️ والعنوانُ القديمُ يتوقّفُ فوراً بلا تحويل.
+                    */
+                    TextInput::make('slug')
+                        ->label('عنوانه في السوق')
+                        ->helperText('تغييرُه يُعطِّلُ العنوانَ القديمَ فوراً؛ الرابطُ بالمعرّفِ يبقى يعمل.')
+                        ->maxLength(160)
+                        ->rule('regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/')
+                        ->unique(ignoreRecord: true),
+
+                    TextInput::make('years_experience')
+                        ->label('سنوات الخبرة')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(70),
+
+                    TextInput::make('headline')
+                        ->label('السطر التعريفيّ')
+                        ->maxLength(200)
+                        ->columnSpanFull(),
+
+                    Textarea::make('bio')
+                        ->label('النبذة')
+                        ->rows(6)
+                        ->maxLength(5000)
+                        ->columnSpanFull(),
+
+                    TagsInput::make('qualifications')
+                        ->label('المؤهّلات')
+                        ->columnSpanFull(),
+
+                    TagsInput::make('teaching_languages')
+                        ->label('لغات التدريس')
+                        ->columnSpanFull(),
+                ]),
+
+            Section::make('التخصّص')
+                ->columns(2)
+                ->schema([
+                    /*
+                    | ⚠️ `options()` لا `relationship()`: الثاني يجعلُ Filament
+                    | يكتبُ الجدولَ الوسيطَ بنفسِه بعدَ الحفظ، فيصيرُ للحفظِ كاتبان
+                    | — وإبطالُ ذاكرةِ السوقِ يقعُ قبلَ نصفِه، فتبقى البطاقةُ
+                    | تحملُ الموادَّ القديمةَ إلى أن تنتهيَ الذاكرةُ وحدَها.
+                    */
+                    Select::make('subjects')
+                        ->label('المواد')
+                        ->multiple()
+                        ->preload()
+                        ->options(fn (): array => Subject::query()
+                            ->orderBy('sort_order')
+                            ->pluck('name_ar', 'id')
+                            ->all()),
+
+                    Select::make('grade_levels')
+                        ->label('المراحل')
+                        ->multiple()
+                        ->preload()
+                        ->options(fn (): array => GradeLevel::query()
+                            ->orderBy('sort_order')
+                            ->pluck('name_ar', 'id')
+                            ->all()),
+                ]),
+        ]);
+    }
+
+    /**
+     * الاعتمادُ: قرارٌ واحدٌ ببابَين، والفرعُ يُقرأُ من وجودِ طلبٍ لم يُبَتَّ فيه.
+     *
+     * ⚠️ التخطّي داخلَ الاستعلامِ ضروريّ: `WorkspaceContext::id()` يرتدُّ إلى
+     * `last_workspace_id` حتّى للمشرِفِ العامّ، فطلبُ مدرّسٍ في مساحةٍ أخرى لا
+     * يُرى — والزرُّ عندَها يسلكُ الفرعَ الخطأَ ويتركُ الطلبَ معلّقاً.
+     *
+     * ⚠️ و`setRelation` ليس تحسيناً: {@see ApproveTeacherApplication} تقرأُ
+     * `$application->teacherProfile` وترمي إن كان `null`، وذلك الاستعلامُ يطبّقُ
+     * نطاقَ {@see TeacherProfile} — فيعودُ فارغاً لملفٍّ خارجَ مساحةِ المراجِع.
+     */
+    public static function approveAction(): Action
+    {
+        return Action::make('approve')
+            ->label('اعتماد')
+            ->icon(Heroicon::OutlinedCheckBadge)
+            ->color('success')
+            ->requiresConfirmation()
+            ->modalDescription('يظهرُ المدرّسُ في السوقِ فورَ الاعتمادِ إن كانت مساحتُه مشارِكة.')
+            ->visible(fn (TeacherProfile $record): bool => $record->approval_status !== TeacherProfile::STATUS_APPROVED
+                && (Auth::user()?->can(Permissions::MARKETPLACE_TEACHERS_APPROVE) ?? false))
+            ->action(function (TeacherProfile $record): void {
+                $application = TeacherApplication::query()
+                    ->withoutGlobalScope(WorkspaceScope::class)
+                    ->where('teacher_profile_id', $record->getKey())
+                    ->where('status', '!=', TeacherApplication::STATUS_APPROVED)
+                    ->latest('id')
+                    ->first();
+
+                /** @var User $reviewer */
+                $reviewer = Auth::user();
+
+                if ($application !== null) {
+                    $application->setRelation('teacherProfile', $record);
+                    app(ApproveTeacherApplication::class)->handle($application, $reviewer);
+
+                    return;
+                }
+
+                app(ReinstateTeacher::class)->handle($record);
+            });
+    }
+
+    public static function suspendAction(): Action
+    {
+        return Action::make('suspend')
+            ->label('إيقاف')
+            ->icon(Heroicon::OutlinedNoSymbol)
+            ->color('danger')
+            ->requiresConfirmation()
+            ->modalDescription('يختفي المدرّسُ من السوقِ فوراً. الطلابُ المسجَّلونَ لا يفقدونَ ما دفعوا ثمنَه.')
+            ->visible(fn (TeacherProfile $record): bool => $record->approval_status === TeacherProfile::STATUS_APPROVED
+                && (Auth::user()?->can(Permissions::MARKETPLACE_TEACHERS_SUSPEND) ?? false))
+            ->action(fn (TeacherProfile $record) => app(SuspendTeacher::class)->handle($record));
     }
 
     public static function table(Table $table): Table
@@ -255,6 +429,11 @@ class TeacherProfileResource extends Resource
                 TernaryFilter::make('is_publicly_listed')->label('معروض في السوق'),
 
                 TernaryFilter::make('is_verified')->label('موثَّق'),
+            ])
+            ->recordActions([
+                self::approveAction(),
+                self::suspendAction(),
+                EditAction::make()->label('تعديل'),
             ]);
     }
 
@@ -336,6 +515,7 @@ class TeacherProfileResource extends Resource
         return [
             'index' => Pages\ListTeacherProfiles::route('/'),
             'view' => Pages\ViewTeacherProfile::route('/{record}'),
+            'edit' => Pages\EditTeacherProfile::route('/{record}/edit'),
         ];
     }
 
