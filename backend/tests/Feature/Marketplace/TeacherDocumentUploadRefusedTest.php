@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Marketplace\Models\TeacherApplication;
-use App\Modules\Marketplace\Support\PlatformWorkspace;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\UploadedFile;
 use Laravel\Sanctum\Sanctum;
@@ -19,7 +18,11 @@ use Laravel\Sanctum\Sanctum;
  * for a document that was never stored.
  */
 beforeEach(function (): void {
-    $workspace = PlatformWorkspace::resolve();
+    // ⚠️ Spec 025 deleted `PlatformWorkspace`. The application row needs A
+    // workspace — every tenant row does — and which one is beside the point for
+    // this test, so it gets an ordinary one instead of a shared container that
+    // no longer exists.
+    [$workspace] = $this->createWorkspaceWithOwner();
 
     $this->applicant = User::factory()->create();
 

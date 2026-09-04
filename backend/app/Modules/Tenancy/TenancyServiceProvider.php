@@ -6,7 +6,9 @@ namespace App\Modules\Tenancy;
 
 use App\Models\User;
 use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
+use App\Modules\Marketplace\Events\TeacherRegistered;
 use App\Modules\Tenancy\Events\WorkspaceCreated;
+use App\Modules\Tenancy\Listeners\CreateImplicitWorkspace;
 use App\Modules\Tenancy\Listeners\RevokeWorkspaceAccess;
 use App\Modules\Tenancy\Listeners\SeedDefaultRoles;
 use App\Modules\Tenancy\Models\FeatureFlag;
@@ -45,6 +47,16 @@ class TenancyServiceProvider extends Module
             WorkspaceCreated::class,
             SeedDefaultRoles::class,
         );
+
+        /*
+        | Spec 025 · FR-001 — a teacher registering IS a teacher; there is no
+        | workspace to create afterwards because it was created with the account.
+        |
+        | ⚠️ Marketplace fires the event and Tenancy answers it, because
+        | Constitution III forbids one module calling another's Action. The
+        | listener is synchronous inside the registration transaction (FR-003).
+        */
+        Event::listen(TeacherRegistered::class, CreateImplicitWorkspace::class);
 
         /*
         | Spec 013 · FR-037 — a completed exit ends every membership and every role

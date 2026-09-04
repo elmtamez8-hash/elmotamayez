@@ -55,6 +55,7 @@ use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\GradeLevel;
 use App\Modules\Marketplace\Models\SchoolYear;
 use App\Modules\Marketplace\Models\Subject;
+use App\Modules\Marketplace\Models\TeacherApplication;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Models\MediaCaption;
@@ -76,6 +77,7 @@ use App\Modules\Settlement\Models\TeachingUnit;
 use App\Modules\Store\Models\Shipment;
 use App\Modules\Store\Models\StoreItem;
 use App\Modules\Store\Models\StoreOrder;
+use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
@@ -1166,4 +1168,56 @@ it('lets a student read their own request with no workspace context at all', fun
     $this->deleteJson("/api/v1/private-session-requests/{$theirs->uuid}")->assertForbidden();
 
     expect($theirs->refresh()->status)->toBe(PrivateSessionRequest::PENDING);
+});
+
+/*
+| Spec 025 · SC-007 — the isolation case Constitution I requires in the same PR.
+|
+| The birth of an implicit workspace is a NEW WRITER of `workspace_id` on a
+| tenant-owned table, from a path that has no authenticated user at all. That is
+| the exact shape isolation defects arrive in: the row is written while
+| `WorkspaceContext` is frozen at null for a guest, so `BelongsToWorkspace`'s
+| auto-fill contributes nothing and an explicit value is the only thing standing
+| between one teacher's application and another teacher's workspace.
+*/
+it('keeps two teachers who registered back to back out of each other rows', function (): void {
+    $this->asGuest();
+
+    $register = function (string $email, string $first): User {
+        $this->postJson('/api/v1/auth/register/teacher/step-1', [
+            'first_name' => $first,
+            'last_name' => 'القحطاني',
+            'email' => $email,
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'phone' => '+97455500'.random_int(100, 999),
+            'country' => 'QA',
+            'terms_accepted' => true,
+        ])->assertCreated();
+
+        return User::where('email', $email)->sole();
+    };
+
+    $first = $register('iso.one@example.com', 'خالد');
+    $second = $register('iso.two@example.com', 'نور');
+
+    $firstWorkspace = Workspace::query()->where('owner_user_id', $first->getKey())->sole();
+    $secondWorkspace = Workspace::query()->where('owner_user_id', $second->getKey())->sole();
+
+    expect($firstWorkspace->getKey())->not->toBe($secondWorkspace->getKey());
+
+    // Each application landed in its own author's workspace and nowhere else.
+    $applications = TeacherApplication::withoutWorkspaceScope()->get()
+        ->mapWithKeys(fn (TeacherApplication $a): array => [$a->user_id => $a->workspace_id]);
+
+    expect($applications[$first->getKey()])->toBe($firstWorkspace->getKey())
+        ->and($applications[$second->getKey()])->toBe($secondWorkspace->getKey());
+
+    // And the scope agrees: reading as the first teacher sees exactly one.
+    $this->asGuest();
+    Sanctum::actingAs($first);
+    $this->setCurrentWorkspace($firstWorkspace, $first);
+
+    expect(TeacherApplication::query()->count())->toBe(1)
+        ->and(TeacherApplication::query()->sole()->user_id)->toBe($first->getKey());
 });

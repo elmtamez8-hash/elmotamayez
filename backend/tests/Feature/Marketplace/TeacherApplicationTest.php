@@ -9,7 +9,6 @@ use App\Modules\Marketplace\Models\GradeLevel;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherApplication;
 use App\Modules\Marketplace\Models\TeacherProfile;
-use App\Modules\Marketplace\Support\PlatformWorkspace;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Tenancy\Models\Workspace;
@@ -68,17 +67,20 @@ function teacherStepFour(): array
     ];
 }
 
-/** Seed the taxonomy the platform workspace needs before a submission resolves slugs. */
-function seedPlatformTaxonomy(): Workspace
+/**
+ * Seed the taxonomy a submission resolves its slugs against.
+ *
+ * ⚠️ NO WORKSPACE, and none was ever needed. This used to run inside
+ * `forWorkspace(PlatformWorkspace::resolve())` — but since spec 009 the taxonomy
+ * is PLATFORM reference data with no `BelongsToWorkspace` on either model (its
+ * own docblock says it must never regain one), so the wrapper scoped nothing and
+ * the workspace it resolved existed only to be passed to a scope that ignored it.
+ * Spec 025 deletes that class; this is what it was actually doing.
+ */
+function seedPlatformTaxonomy(): void
 {
-    $workspace = PlatformWorkspace::resolve();
-
-    app(WorkspaceContext::class)->forWorkspace($workspace, function (): void {
-        Subject::query()->firstOrCreate(['slug' => 'math'], ['name_ar' => 'الرياضيات', 'sort_order' => 0, 'is_active' => true]);
-        GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name_ar' => 'المرحلة الثانوية', 'sort_order' => 0, 'is_active' => true]);
-    });
-
-    return $workspace;
+    Subject::query()->firstOrCreate(['slug' => 'math'], ['name_ar' => 'الرياضيات', 'sort_order' => 0, 'is_active' => true]);
+    GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name_ar' => 'المرحلة الثانوية', 'sort_order' => 0, 'is_active' => true]);
 }
 
 /**
@@ -159,10 +161,20 @@ it('creates a teacher account and a draft application at step 1', function (): v
 
     $user = User::where('email', 'khaled@example.com')->sole();
 
+    /*
+    | ⚠️ INVERTED ON PURPOSE — spec 025 · FR-001 repeals 001 · FR-010 («the three
+    | new signup paths must not create a workspace and grant no role») for the
+    | teacher path alone. It used to read `toBe(0)`.
+    |
+    | The rule was written when a workspace was a thing the user chose to make.
+    | It is not one any more: a teacher IS a workspace, born with the account, and
+    | the application row lands inside it rather than in a shared container. The
+    | student and parent paths are untouched and the old rule still governs them —
+    | which is enforced rather than asserted, by `TeacherRegistered` being the
+    | only dispatcher and Marketplace's teacher path its only caller.
+    */
     expect($user->platform_role)->toBe(PlatformRole::Teacher)
-        // FR-010: the account joins no workspace even though its application row
-        // has to live in one.
-        ->and($user->workspaces()->count())->toBe(0);
+        ->and($user->workspaces()->count())->toBe(1);
 });
 
 it('saves each step and resumes at the furthest one reached', function (): void {
@@ -276,7 +288,23 @@ it('approves without listing when the workspace has not joined the marketplace',
     $application = completeWizard();
     $this->postJson('/api/v1/teacher/application/submit')->assertOk();
 
-    $application->workspace->forceFill(['participates_in_marketplace' => false])->save();
+    /*
+    | ⚠️ THE FIXTURE MOVED, THE RULE DID NOT — spec 025.
+    |
+    | Approval now stamps participation, but ONLY on the teacher's own workspace:
+    | the marketplace wizard IS the opt-in, so refusing to list somebody who just
+    | applied to be listed would be the product arguing with itself.
+    |
+    | Where the rule this test guards still means something is a profile living
+    | inside SOMEBODY ELSE'S academy — there, participation is the owner's
+    | decision and one member's approval must not make it for them, publicly
+    | listing every other teacher in that workspace. Handing the workspace to
+    | another owner is the whole difference, and it is one line.
+    */
+    $application->workspace->forceFill([
+        'participates_in_marketplace' => false,
+        'owner_user_id' => User::factory()->create()->getKey(),
+    ])->save();
 
     academicReviewer($application->workspace);
 

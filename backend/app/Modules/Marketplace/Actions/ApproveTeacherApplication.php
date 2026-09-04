@@ -27,6 +27,8 @@ class ApproveTeacherApplication extends Action
         }
 
         return DB::transaction(function () use ($application, $profile, $reviewer): TeacherProfile {
+            $this->stampParticipation($application, $profile);
+
             $profile->forceFill([
                 'approval_status' => TeacherProfile::STATUS_APPROVED,
                 'is_publicly_listed' => self::derivePublicListing($profile),
@@ -47,6 +49,44 @@ class ApproveTeacherApplication extends Action
 
             return $profile;
         });
+    }
+
+    /**
+     * Spec 025 · FR-026 — participation is stamped HERE, at approval, never at birth.
+     *
+     * ⚠️ The reason is not tidiness. Two of the three readers of
+     * `participates_in_marketplace` additionally require `approval_status =
+     * approved`; the third —
+     * CMS's `Article::publicListingConstraints()` — requires only `status = published` and `published_at <= now()` — no approval predicate at
+     * all. So a workspace born participating opens the platform's own blog, under
+     * the platform's own domain and pushed to search engines, to any email address
+     * that finishes step one of the wizard. Participation alone IS the whole
+     * cross-tenant gate there.
+     *
+     * ⚠️ AND ONLY ON THE TEACHER'S OWN WORKSPACE. A profile that lives in somebody
+     * else's academy would otherwise opt that academy in on one member's approval,
+     * publicly listing every other teacher in it. 001 · FR-001 (participation is
+     * opt-in, default not participating) is preserved by this spec, not repealed —
+     * the owner's explicit choice stays the owner's.
+     *
+     * ⚠️ `forceFill`: the column is NOT in `$fillable` (five columns, none of them
+     * this one) and mass assignment discards a non-fillable key in silence. Every
+     * existing writer of it uses `forceFill` for exactly that reason.
+     */
+    private function stampParticipation(TeacherApplication $application, TeacherProfile $profile): void
+    {
+        $workspace = $profile->workspace;
+
+        if ($workspace === null || $workspace->owner_user_id !== $application->user_id) {
+            return;
+        }
+
+        $workspace->forceFill(['participates_in_marketplace' => true])->save();
+
+        // derivePublicListing() below reads this relation; without re-seating it
+        // the freshly stamped value is invisible and the teacher is approved but
+        // unlisted — the marketplace edge that fails with no error anywhere.
+        $profile->setRelation('workspace', $workspace);
     }
 
     /**

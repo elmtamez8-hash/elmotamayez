@@ -52,21 +52,6 @@ return [
     'cache_ttl_seconds' => 60,
 
     /*
-    |--------------------------------------------------------------------------
-    | Platform workspace
-    |--------------------------------------------------------------------------
-    |
-    | Home for teachers who applied directly rather than through an academy
-    | (FR-013). Created on first use; see Support\PlatformWorkspace.
-    |
-    */
-
-    'platform_workspace' => [
-        'slug' => env('MARKETPLACE_PLATFORM_WORKSPACE', 'platform'),
-        'name' => 'المنصة',
-    ],
-
-    /*
     | Working days the academic team is given to review an application. Shown to
     | the applicant on the confirmation screen, so it is a promise, not a hint.
     */

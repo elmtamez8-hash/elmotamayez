@@ -7,12 +7,10 @@ use App\Modules\Identity\Models\ParentStudentRelation;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\RelationType;
 use App\Modules\Marketplace\Models\GradeLevel;
-use App\Modules\Marketplace\Support\PlatformWorkspace;
 use App\Modules\Notifications\Models\NotificationPreference;
 use App\Modules\Notifications\Support\NotificationChannel;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Shared\Support\GuardianPermission;
-use App\Shared\Support\WorkspaceContext;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 
@@ -21,14 +19,13 @@ use Laravel\Sanctum\Sanctum;
  * and the next.
  */
 beforeEach(function (): void {
-    $workspace = PlatformWorkspace::resolve();
-
-    app(WorkspaceContext::class)->forWorkspace($workspace, function (): void {
-        GradeLevel::query()->firstOrCreate(
-            ['slug' => 'secondary'],
-            ['name_ar' => 'المرحلة الثانوية', 'sort_order' => 0, 'is_active' => true],
-        );
-    });
+    // ⚠️ No workspace: `GradeLevel` is platform reference data with no
+    // `BelongsToWorkspace`, so the `forWorkspace()` wrapper that stood here
+    // scoped nothing. Spec 025 deleted the class it resolved.
+    GradeLevel::query()->firstOrCreate(
+        ['slug' => 'secondary'],
+        ['name_ar' => 'المرحلة الثانوية', 'sort_order' => 0, 'is_active' => true],
+    );
 
     $this->asGuest();
 });
