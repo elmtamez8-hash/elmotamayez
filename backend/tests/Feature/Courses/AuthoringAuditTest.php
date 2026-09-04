@@ -47,10 +47,39 @@ function auditedTree(): array
     });
 }
 
-/** @return array<int, object> */
+/**
+ * The audit rows for the COURSE TREE, and nothing else on the platform.
+ *
+ * ⚠️ THE SUBJECT FILTER IS NOT DEFENSIVE TIDYING — without it this reads every
+ * row in `activity_log` whose description happens to be `created`, and that
+ * table is shared by the whole product. It broke the moment spec 025 gave
+ * `CreateWorkspace` an activity entry of its own: `auditedTree()` builds a
+ * workspace in its first line, so «three nodes created» became four, and the
+ * failure named this file while the change was two modules away.
+ *
+ * The same shape already cost the settlement audit its own fix — `activity_log`
+ * is one table that billing writes to as well, and a reader that starts from
+ * every row and hopes is one forgotten branch away from showing an auditor
+ * somebody else's business.
+ *
+ * @return array<int, object>
+ */
 function auditRows(string $description): array
 {
-    return DB::table('activity_log')->where('description', $description)->get()->all();
+    return DB::table('activity_log')
+        ->where('description', $description)
+        // ⚠️ `Course` BELONGS IN THIS LIST. A reorder is recorded against the
+        // COURSE, not the nodes that moved — one fact about one sibling group —
+        // so a filter naming only the three node types silently drops the row the
+        // reorder case exists to find, and reports zero instead of one.
+        ->whereIn('subject_type', [Course::class, Section::class, Chapter::class, Lesson::class])
+        // ⚠️ AND THE ORDER IS ASSERTED ONE SCREEN DOWN. Without an explicit sort
+        // the rows come back in whatever order the engine likes; the previous
+        // unfiltered query happened to return them in insertion order, which is
+        // the kind of accident a test leans on until somebody touches the query.
+        ->orderBy('id')
+        ->get()
+        ->all();
 }
 
 it('records who created, renamed and deleted each kind of node', function (): void {
