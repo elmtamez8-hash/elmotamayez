@@ -71,9 +71,16 @@ export function ArticleCard({
 
           <div className="min-w-0">
             {article.category ? (
+              /*
+                ⚠️ `relative z-10` — وبدونِه الشارةُ تبدو رابطاً ولا تعملُ أبداً.
+                رابطُ العنوانِ يفرشُ `::after` فوقَ البطاقةِ كلِّها ليجعلَها هدفَ
+                لمسٍ واحداً، وهذا الطبقُ يقعُ **فوقَ** كلِّ ما سبقَه في نفسِ
+                سياقِ التكديس — فنقرةُ التصنيفِ تفتحُ المقال. `CourseCard` يكتبُ
+                السطرَ نفسَه على رابطِ مدرّسِه للسببِ نفسِه.
+              */
               <Link
                 href={`/blog?category=${article.category.slug}`}
-                className="text-xs font-semibold text-primary-ink hover:underline"
+                className="relative z-10 text-xs font-semibold text-primary-ink hover:underline"
               >
                 {article.category.name}
               </Link>
@@ -100,7 +107,15 @@ export function ArticleCard({
         */}
           <Link
             href={`/blog/${article.slug}`}
-            className="after:absolute after:inset-0 after:rounded-3xl focus-visible:outline-none group-focus-within:underline hover:underline"
+            /*
+              ⚠️ `after:content-['']` صريحاً: الطبقُ الشفّافُ هو ما يجعلُ البطاقةَ
+              كلَّها قابلةً للنقر، وعنصرٌ زائفٌ بلا `content` **لا يُصيَّرُ أصلاً**
+              — فتصيرُ منطقةُ النقرِ نصَّ العنوانِ وحدَه بلا أثرٍ بصريٍّ يدلُّ على
+              ذلك. `CourseCard` يكتبُها صريحةً كذلك.
+              ⚠️ وحلقةُ التركيزِ **تبقى**: `focus-visible:outline-none` كانت تحذفُ
+              الدليلَ الوحيدَ لمن يتنقّلُ بلوحةِ المفاتيحِ على أينَ هو.
+            */
+            className="after:absolute after:inset-0 after:rounded-3xl after:content-[''] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary hover:underline"
           >
             {article.title}
           </Link>
