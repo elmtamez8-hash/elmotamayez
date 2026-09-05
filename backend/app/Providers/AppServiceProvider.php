@@ -102,6 +102,30 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(5)->by('email:'.(string) $request->input('email')),
         ]);
 
+        /*
+        | The floor under the whole `api` group (applied in `bootstrap/app.php`).
+        |
+        | ⚠️ IT IS NOT A SECURITY CEILING AND MUST NOT BE READ AS ONE. Every route
+        | that deserves a real limit still names its own; this exists so that a
+        | route which names NOTHING is bounded rather than open, which is what the
+        | Tenancy writes and the whole of Analytics were.
+        |
+        | ⚠️ AND IT IS DELIBERATELY LOOSE. A floor that bites a real flow is a
+        | floor somebody raises to infinity a week later — so it sits far above
+        | anything the product does: the busiest authenticated caller on the
+        | platform is a presence heartbeat at two a minute, whose own limiter is
+        | 240. Keyed on the account when there is one, and only then on the
+        | address: a school behind one NAT is many legitimate people, and every
+        | public route already carries `throttle:public` by ip beneath this.
+        */
+        RateLimiter::for('api', function (Request $request) {
+            $user = $request->user();
+
+            return $user !== null
+                ? Limit::perMinute(300)->by('user:'.(string) $user->getKey())
+                : Limit::perMinute(120)->by('ip:'.$request->ip());
+        });
+
         // Account creation — costlier than a login and worth a wider window.
         RateLimiter::for('registration', fn (Request $request) => Limit::perMinute(10)->by((string) $request->ip()));
 

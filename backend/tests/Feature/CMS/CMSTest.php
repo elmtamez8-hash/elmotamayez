@@ -56,9 +56,17 @@ describe('cms articles', function (): void {
         $student = $this->addWorkspaceMember($workspace, 'student');
         Sanctum::actingAs($student);
 
+        /*
+        | ⚠️ `data.0`, NOT `0` — the shape changed on 2026-09-05 and the change is
+        | the fix. `response()->json(Resource::collection($paginator))` never calls
+        | `toResponse()`, so it emitted a BARE ARRAY: `links` and `meta` dropped in
+        | silence, and every reader stuck on page one with nothing saying there is
+        | a page two. No client broke, because no file under `frontend/src` calls
+        | this route at all.
+        */
         $this->getJson('/api/v1/cms/articles')
             ->assertOk()
-            ->assertJsonPath('0.title', 'Published Article')
+            ->assertJsonPath('data.0.title', 'Published Article')
             ->assertJsonMissing(['title' => 'Draft Article']);
     });
 

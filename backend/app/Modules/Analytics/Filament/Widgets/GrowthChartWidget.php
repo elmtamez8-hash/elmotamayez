@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Analytics\Filament\Widgets;
 
-use App\Modules\Analytics\Filament\Pages\PlatformAnalytics;
 use App\Modules\Analytics\Filament\Widgets\Concerns\PlatformWideWidget;
 use App\Modules\Analytics\Models\PlatformMetricDaily;
 use App\Modules\Analytics\Support\MetricKey;
@@ -17,7 +16,7 @@ use Illuminate\Support\Carbon;
  * ⚠️ ‏FR-044 يمنعُ مسحَ السجلّاتِ عندَ كلِّ عرض، و`SC-012` يطلبُ فارقاً صفريّاً
  * بينَ الشاشةِ والمصدر — وهو معنىً لا يقومُ إلّا إن قرأَ الاثنانِ الصفَّ نفسَه.
  * فهذا البيانُ يقرأُ `platform_metrics_daily` ولا يعدُّ شيئاً بنفسِه، تماماً كما
- * تفعلُ {@see PlatformAnalytics}.
+ * تفعلُ بقيّةُ ويدجتاتِ المنصّة.
  *
  * ⚠️ **ويومٌ بلا صفٍّ يُترَكُ فراغاً (`null`) لا صفراً.** التجميعُ يكتبُ ما عدَّه؛
  * يومٌ لم يمرَّ عليه الجدولُ ليس يوماً بلا طلاب. وChart.js يقطعُ الخطَّ عندَ

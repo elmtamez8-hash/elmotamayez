@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Analytics\Filament\Widgets\Concerns;
 
-use App\Modules\Analytics\Filament\Pages\PlatformAnalytics;
 use App\Modules\Tenancy\Support\Permissions;
 use Illuminate\Support\Facades\Auth;
 
@@ -15,8 +14,6 @@ use Illuminate\Support\Facades\Auth;
  * **مساحة** وهي في مصفوفةِ المساعد، وتجيبُ عن «أتَرى أرقامَ مدرّسِك». وهذه
  * الويدجتاتُ تجمعُ كلَّ المساحاتِ معاً، فحراستُها بالاسمِ الثاني تُسلِّمُ مساعدَ
  * مدرّسٍ أرقامَ كلِّ منافسٍ له.
- * {@see PlatformAnalytics} كتبَت
- * القاعدةَ نفسَها.
  *
  * ⚠️ **وهذا البابُ هو ما يجعلُ التسجيلَ على لوحةِ `/admin` المشتركةِ آمناً.**
  * `Page::filterVisibleWidgets()` سطرٌ واحدٌ: `array_filter(... ::canView())` —

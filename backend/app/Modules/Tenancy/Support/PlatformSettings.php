@@ -95,6 +95,19 @@ final class PlatformSettings
         'billing.dormant_notice_months' => 'billing.dormant_notice_months',
         'billing.max_lots_per_draw' => 'billing.max_lots_per_draw',
         'billing.review_sla_hours' => 'billing.review_sla_hours',
+        /*
+        | ⚠️ ADDED LATE, EXACTLY AS THE STORE PAIR BELOW WAS — and written by
+        | `ManagePlatformSettings` two lines under the comment recording that
+        | defect for the store keys. `BillingSettings` reads both through
+        | `get()` with the config fallback passed explicitly, so they have
+        | always RESOLVED correctly; what a missing key costs is `all()` and
+        | `flush()` — invisible to the panel's own listing, and left stale in
+        | the cache by a clear. A key the panel WRITES and the map does not
+        | know is the sharper half of that: the operator changes it and the
+        | flush beside the write does not invalidate it.
+        */
+        'billing.stop_selling_after_days' => 'billing.stop_selling_after_days',
+        'billing.max_unredeemed_credits' => 'billing.max_unredeemed_credits',
         // The family discount (spec 011 · FR-013 · D16). ONE value for the whole
         // platform, applying at every teacher, and taken out of the platform's
         // own commission — «whoever pays is whoever decides», FR-010 to the

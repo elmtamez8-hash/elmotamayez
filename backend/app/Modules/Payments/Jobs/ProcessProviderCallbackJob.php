@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Jobs;
 
 use App\Modules\Payments\Actions\HandleProviderCallback;
+use App\Modules\Payments\Data\CallbackEvent;
 use App\Modules\Payments\Enums\CallbackResult;
 use App\Modules\Payments\Models\ProviderCallback;
-use App\Modules\Payments\Providers\PaymentProviderRegistry;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -18,12 +18,18 @@ use Illuminate\Support\Facades\Log;
 /**
  * Applies a stored callback, off the request.
  *
- * ⚠️ IT CARRIES THE ROW'S ID, NOT THE PARSED EVENT. A job that serialises the
- * body drops it into `failed_jobs` on the first exception — a sink neither
- * sanitizer reaches, holding exactly the bytes they exist to keep out of storage.
- * The raw body travels because the signature was already verified and the
- * provider's parser is the only thing that can read it; it is never persisted by
- * this class.
+ * ⚠️ IT CARRIES THE PARSED EVENT, NEVER THE RAW BODY — and it carried the raw
+ * body until 2026-09-05, under a docblock claiming the opposite. `SerializesModels`
+ * puts every constructor property into the queue payload and then into
+ * `failed_jobs.payload` on the first exception: a sink neither sanitizer reaches,
+ * holding exactly the bytes they exist to keep out of storage, for as long as the
+ * failed row lives.
+ *
+ * {@see CallbackEvent} is scrubbed AT THE CONTRACT BOUNDARY — `parseCallback()`
+ * is required to drop anything a provider echoes that we must not keep — so what
+ * travels now is the reference, the amount, the status and the provider's own id.
+ * The controller already parsed it before recording the row, so this also removes
+ * a second parse of the same bytes rather than adding work anywhere.
  *
  * ⚠️ IT ENTERS NO WORKSPACE, and that is checked rather than assumed. There is
  * no tenant in context on a webhook — no user, so WorkspaceScope adds no
@@ -46,7 +52,7 @@ class ProcessProviderCallbackJob implements ShouldQueue
     public function __construct(
         public readonly int $callbackId,
         public readonly string $provider,
-        public readonly string $rawBody,
+        public readonly CallbackEvent $event,
     ) {}
 
     public function tries(): int
@@ -63,7 +69,7 @@ class ProcessProviderCallbackJob implements ShouldQueue
         return $backoff;
     }
 
-    public function handle(PaymentProviderRegistry $registry, HandleProviderCallback $handle): void
+    public function handle(HandleProviderCallback $handle): void
     {
         $callback = ProviderCallback::query()
             ->withoutWorkspaceScope()
@@ -75,9 +81,7 @@ class ProcessProviderCallbackJob implements ShouldQueue
 
         $callback->increment('attempts');
 
-        $event = $registry->get($this->provider)->parseCallback($this->rawBody);
-
-        $result = $handle->handle($callback, $event);
+        $result = $handle->handle($callback, $this->event);
 
         if ($result !== CallbackResult::Deferred) {
             return;

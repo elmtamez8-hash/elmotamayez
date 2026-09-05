@@ -88,6 +88,12 @@ class CmsArticleResource extends Resource
         return auth()->user()?->can(Permissions::CMS_DELETE) === true;
     }
 
+    /** Read by the two form fields that decide whether the public sees the row. */
+    private static function canPublish(): bool
+    {
+        return auth()->user()?->can(Permissions::CMS_PUBLISH) === true;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
@@ -110,14 +116,40 @@ class CmsArticleResource extends Resource
                         ->helperText('اتركْه فارغاً ليُبنى من العنوان. لا يتغيّرُ بعدَ ذلك مع تغيُّرِ العنوان — '
                             .'الرابطُ المنشورُ الذي يتبدَّلُ رابطٌ مكسور.'),
 
+                    /*
+                    | ⛔ THE PANEL IS THE DOOR PEOPLE ACTUALLY USE, AND IT HAD NO
+                    | GATE ON THIS FIELD. `canEdit()` asks `cms.update`, which the
+                    | matrix gives an assistant-teacher — while `cms.publish` and
+                    | `cms.delete` are the teacher's alone. So an assistant
+                    | published to the teacher's public blog, and unpublished a
+                    | live post, by changing one select. The API half of this is
+                    | closed in `ArticleController::update()`; a rule spelled at
+                    | one door is a rule the other door does not have.
+                    |
+                    | ⚠️ `disabled()` AND NOT `visible()`: a writer who may not
+                    | publish still needs to SEE whether the article is live —
+                    | hiding the field makes «why is my draft not on the blog» a
+                    | question with nothing on screen to answer it. Filament does
+                    | not dehydrate a disabled field, so the stored value is kept
+                    | on edit and the column default (`draft`) applies on create;
+                    | the client cannot send one either way.
+                    */
                     Select::make('status')
                         ->label('الحالة')
                         ->options(['draft' => 'مسوّدة', 'published' => 'منشور'])
                         ->default('draft')
-                        ->required(),
+                        ->required()
+                        ->disabled(fn (): bool => ! self::canPublish())
+                        ->helperText(fn (): ?string => self::canPublish()
+                            ? null
+                            : 'النشرُ والسحبُ لمن يحملُ صلاحيةَ النشر.'),
 
+                    // Scheduled into the future de-lists a live article without
+                    // touching `status` at all — `publicListingConstraints()` asks
+                    // `published_at <= now()` — so it is the same capability.
                     DateTimePicker::make('published_at')
                         ->label('تاريخ النشر')
+                        ->disabled(fn (): bool => ! self::canPublish())
                         ->helperText('تاريخٌ في المستقبلِ يعني مقالاً مجدولاً: لا يظهرُ للعامّةِ حتى يحلّ.'),
 
                     Textarea::make('excerpt')->label('المقتطف')->rows(2)->maxLength(500)->columnSpanFull(),

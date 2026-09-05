@@ -60,6 +60,21 @@ return Application::configure(basePath: dirname(__DIR__))
         // the config repository is bound — and env() is not an alternative,
         // because a cached config means .env is never loaded at all.
         $middleware->statefulApi();
+
+        /*
+        | ⛔ THE `api` GROUP HAD NO DEFAULT LIMIT AT ALL, so a route that did not
+        | name one carried NONE — and «did not name one» covered every write in
+        | Tenancy (create a workspace, invite, accept, remove a member), all of
+        | Analytics, and the unauthenticated invitation lookup. Named limiters are
+        | still the guard on anything worth its own ceiling; this is the floor
+        | under the routes nobody remembered, so the next one added starts guarded
+        | instead of open.
+        |
+        | Deliberately loose: it must never be the limit that bites a legitimate
+        | flow, or the named ones stop being where the thinking happens. See
+        | `AppServiceProvider::registerRateLimiters()` for the numbers and why.
+        */
+        $middleware->throttleApi();
         $middleware->alias([
             'workspace' => EnsureCurrentWorkspace::class,
             'idempotent' => Idempotent::class,

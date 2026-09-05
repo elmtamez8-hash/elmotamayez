@@ -275,15 +275,20 @@ class AdminPanelProvider extends PanelProvider
             )
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             /*
-            | ⚠️ WITHOUT THIS LINE THE PLATFORM DASHBOARD IS A FILE, NOT A SCREEN
-            | — no route, no navigation entry, and `analytics.cross_teacher.view`
-            | back to guarding nothing. Same trap the Payments pages line below
-            | already names.
+            | ⚠️ ANALYTICS HAS NO `Pages/` DIRECTORY, AND THAT IS THE DESIGN. The
+            | comment that stood here promised a `PlatformAnalytics` screen and
+            | warned that removing the line would leave
+            | `analytics.cross_teacher.view` guarding nothing — about a page
+            | deleted on 2026-09-04 when its widgets moved onto the main
+            | dashboard. `discoverPages()` on a missing directory is a silent
+            | no-op, so the call survived along with two `use` statements
+            | importing the deleted class: three references to a screen that does
+            | not exist, and a stated guard that was not where it said.
+            |
+            | The permission IS enforced — by `PlatformWideWidget::canView()`, on
+            | each of the twelve widgets, which `Page::filterVisibleWidgets()`
+            | consults before rendering.
             */
-            ->discoverPages(
-                in: app_path('Modules/Analytics/Filament/Pages'),
-                for: 'App\Modules\Analytics\Filament\Pages',
-            )
             ->discoverPages(
                 in: app_path('Modules/Tenancy/Filament/Pages'),
                 for: 'App\Modules\Tenancy\Filament\Pages',

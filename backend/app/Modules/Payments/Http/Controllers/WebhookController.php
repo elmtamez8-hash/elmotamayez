@@ -72,10 +72,11 @@ class WebhookController extends Controller
             return response()->json(['status' => 'accepted'], 202);
         }
 
-        // ⚠️ The JOB carries the row's id, never the body. A job that serialises
-        // the raw payload drops it into `failed_jobs` — a sink neither sanitizer
-        // can reach.
-        ProcessProviderCallbackJob::dispatch($callback->getKey(), $provider, $rawBody)
+        // ⚠️ The JOB carries the row's id and the SCRUBBED event, never the raw
+        // body. A job that serialises the raw payload drops it into `failed_jobs`
+        // — a sink neither sanitizer can reach. It did exactly that until
+        // 2026-09-05, under this comment.
+        ProcessProviderCallbackJob::dispatch($callback->getKey(), $provider, $event)
             ->onQueue('payments');
 
         return response()->json(['status' => 'accepted'], 202);

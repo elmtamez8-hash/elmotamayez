@@ -19,8 +19,18 @@ use Illuminate\Support\Facades\Route;
 */
 Route::get('/platform', PlatformIdentityController::class)->middleware('throttle:public');
 
-// Public: the invitee reads the invitation before they have an account.
-Route::get('/workspaces/invitations/{token}', [WorkspaceController::class, 'showInvitation']);
+/*
+| Public: the invitee reads the invitation before they have an account.
+|
+| ⛔ IT CARRIED NO LIMITER AND THE `api` GROUP HAD NO DEFAULT — `bootstrap/app.php`
+| called `statefulApi()` and `appendToGroup()` and never `throttleApi()`. So an
+| unauthenticated route that queries the database and answers with the INVITEE'S
+| EMAIL was unlimited, while the line above it in this same file carries
+| `throttle:public`. The token itself is `Str::random(64)` and is not the exposure;
+| the cost is availability and enumeration.
+*/
+Route::get('/workspaces/invitations/{token}', [WorkspaceController::class, 'showInvitation'])
+    ->middleware('throttle:public');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/workspaces', [WorkspaceController::class, 'index']);
