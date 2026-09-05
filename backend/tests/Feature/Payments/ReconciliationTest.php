@@ -142,9 +142,18 @@ it('reads the last run back through a platform permission only', function (): vo
     // The workspace owner is not a platform operator, whatever they own.
     $this->getJson('/api/v1/admin/billing/reconciliation')->assertForbidden();
 
+    /*
+    | ⚠️ `billing.collection.view`, AND THIS LINE HELD `billing.pricing.manage`
+    | UNTIL 2026-09-05 — a READ of the platform's ledger behind the door for
+    | EDITING the platform's cut. Its twin `PaymentReconciliationController` asks
+    | the permission below, so the officer who opened the payments sweep every
+    | morning was refused this one, and granting them this one handed over the six
+    | pricing keys with it. The test agreed with the controller, which is why
+    | nothing failed: two spellings of one mistake.
+    */
     app(PermissionRegistrar::class)->setPermissionsTeamId($this->workspace->getKey());
     $operator = $this->addWorkspaceMember($this->workspace, Roles::TENANT_OWNER);
-    $operator->givePermissionTo(Permissions::BILLING_PRICING_MANAGE);
+    $operator->givePermissionTo(Permissions::BILLING_COLLECTION_VIEW);
     $this->setCurrentWorkspace($this->workspace, $operator);
 
     Sanctum::actingAs($operator);

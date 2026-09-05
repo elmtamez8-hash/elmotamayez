@@ -44,6 +44,16 @@ function collectionRoutes(): array
         '/api/v1/admin/payments/collection?'.$window,
         '/api/v1/admin/payments/collection/export?'.$window,
         '/api/v1/admin/payments/reconciliation',
+        /*
+        | ⚠️ THE CREDIT SWEEP JOINED THIS FAMILY ON 2026-09-05, AND IT WAS BEHIND
+        | THE WRONG DOOR ENTIRELY. It asked `billing.pricing.manage` — a READ of
+        | the platform's ledger behind the permission for EDITING the platform's
+        | cut — so the officer who opens the payments sweep every morning was
+        | refused its twin, and granting them the twin meant handing over the six
+        | pricing keys with it. Listed here rather than tested apart, because the
+        | five cases above are exactly the five this route needs.
+        */
+        '/api/v1/admin/billing/reconciliation',
     ];
 }
 

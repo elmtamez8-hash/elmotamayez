@@ -415,6 +415,19 @@ const platformNav: NavItem[] = [
   // What the hourly payment sweep found: money that settled without telling us,
   // and what it could not resolve on its own.
   { href: "/manage/payments/reconciliation", label: "تسوية المدفوعات", Icon: CreditsIcon, permission: P.billingCollection },
+  /*
+   * ⛔ ITS TWIN, AND THE TWIN HAD NO LINK AT ALL. `ReconcileCreditBalancesJob`
+   * has run every night since spec 014 writing `credit_reconciliation_runs`, and
+   * the only reader of that table was a test — a nightly check on whether the
+   * ledger still adds up, with nowhere for anybody to notice that it had stopped.
+   *
+   * Same permission as the line above, because it is the same job wearing a
+   * different table. Its route asked `billing.pricing.manage` until 2026-09-05:
+   * a READ of the platform's ledger behind the door for EDITING the platform's
+   * cut, so the officer who opens the sweep above every morning was refused this
+   * one.
+   */
+  { href: "/manage/billing/reconciliation", label: "مطابقة الأرصدة", Icon: CreditsIcon, permission: P.billingCollection },
   // Every financial decision and the terminal it came from. Beside the
   // reconciliation rather than under it: one asks what the machine could not
   // settle, the other asks what people decided — and an auditor opens the second

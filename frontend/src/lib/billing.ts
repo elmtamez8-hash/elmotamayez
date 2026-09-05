@@ -199,8 +199,41 @@ export interface ConsentState {
   consented_at: string | null;
 }
 
+/**
+ * One thing the nightly credit reconciliation could not make add up.
+ *
+ * The three checks emit different subjects — a balance, or a class session — so
+ * the id fields are optional and the screen renders whichever arrived. No name
+ * and no money: these are internal row ids and credit COUNTS, the same
+ * restriction the payments sweep's screen keeps beside it.
+ */
+export type CreditReconciliationFinding = {
+  check: "ledger_sum" | "lot_remainder" | "session_seats";
+  workspace_id: number;
+  credit_balance_id?: number;
+  student_user_id?: number;
+  class_session_id?: number;
+  expected: number;
+  actual: number;
+};
+
+export type CreditReconciliationRun = {
+  ran_at: string;
+  balances_checked: number;
+  sessions_checked: number;
+  /** The true total. `findings` is a sample capped at 200 by the job. */
+  findings_count: number;
+  findings: CreditReconciliationFinding[];
+};
+
 export const billing = {
   balances: () => api.get<{ data: CreditBalance[] }>("/billing/balance"),
+  /*
+   * What the nightly sweep found — `null` when it has never run at all, which is
+   * a different answer from "it ran and found nothing" and must stay one.
+   */
+  creditReconciliation: () =>
+    api.get<{ data: CreditReconciliationRun | null }>("/admin/billing/reconciliation"),
   /*
    * Agreeing to owe (FR-048). The whole list on both verbs, so the screen
    * re-renders from the response of the signature instead of asking again.

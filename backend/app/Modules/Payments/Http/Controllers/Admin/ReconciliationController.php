@@ -22,13 +22,28 @@ use Illuminate\Http\Request;
  * and "the sweep has not run since Tuesday" are the same empty list, and the
  * second is the one that matters: a reconciliation nobody notices has stopped is
  * a reconciliation that is not happening.
+ *
+ * ⚠️ AND FOR ITS FIRST FOUR MONTHS NOBODY COULD NOTICE EITHER WAY — this route
+ * had no client at all. The nightly sweep wrote a row every night and the only
+ * reader of that table was a test. `/manage/billing/reconciliation` is the screen
+ * now, beside its payments twin.
  */
 class ReconciliationController extends Controller
 {
     public function show(Request $request): JsonResponse
     {
+        /*
+        | ⚠️ `billing.collection.view`, AND IT WAS `billing.pricing.manage` — a
+        | READ of the platform's ledger behind the door for EDITING the platform's
+        | cut. The two questions have nothing to do with each other, and the
+        | consequence is not theoretical: an officer given the collection report
+        | (its twin `PaymentReconciliationController` asks exactly this permission)
+        | was refused this one, while granting them this one meant handing over the
+        | six pricing keys as well. Same permission as the payments sweep, because
+        | it is the same job wearing a different table.
+        */
         abort_unless(
-            $this->currentUser($request)->can(Permissions::BILLING_PRICING_MANAGE),
+            $this->currentUser($request)->can(Permissions::BILLING_COLLECTION_VIEW),
             403,
         );
 
