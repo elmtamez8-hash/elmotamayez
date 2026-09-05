@@ -2728,3 +2728,124 @@ payload that also carries `last_workspace_id` is a mistake made once per reading
 Zero places hides the entry (a student or guardian, who are skipped server-side
 because they are members of nothing by design); one place shows **the place's own
 name**, never a singular carved out of a plural; more shows «أماكن عملي».
+
+## Subscribing to a Group or to Private Sessions (spec 027)
+
+One press buys a month. What that press has to produce is an enrolment, a place in
+a named group, a booked seat in every lesson of the month, and a message that says
+when and where — because a student who pays and then sees an empty timetable
+assumes the payment failed.
+
+### The one screen and its two doors
+
+`/subscribe?course={uuid}` is the whole student surface: pick a plan, pick a group
+**or** «حصص خاصّة», upload the receipt. It is reached from the course page —
+`CohortList` for a group, `PrivateSessionRequestForm` for the other door — and from
+the shell nav. No new endpoint was added for it: the order goes through
+`POST /billing/subscriptions`, which has carried the plan and the workspace as
+**body uuids since 011** for the reason written beside that route (a `/{plan}` path
+parameter resolves the model before any guard runs, and `BelongsToWorkspace`
+protects nothing on a student's path). 027 adds the intent — group or private, and
+which group — to that same body.
+
+The officer's queue is `/admin/grant-credit-subscription`, which gained an
+«التفعيل» column: whether the approved order actually produced a subscription. It
+is a `withExists` on the order's own relation with the workspace scope lifted, not
+a status filter — a row already gone from the query cannot describe itself.
+
+### The two notification types
+
+| type | who | why it is not one type with a flag |
+|---|---|---|
+| `subscription_activated` | the student, **and their guardians** | it carries the schedule and the room link. It targets guardians because the week is what a family organises around; that is why `WhatsAppDefaultsTest` moved from 25 to 26 |
+| `subscription_seat_unavailable` | the student **and the teacher** | it names lessons that could NOT be booked. It reaches the teacher because the only fix — a bigger group, another session — is theirs |
+
+The activation message carries the schedule **in both forms**: the weekly rhythm
+(«السبت ٥م»), which is what a guardian plans around and does not say which
+Saturday, and the next lesson's own date, which says which day and hides the
+rhythm. And when there is no lesson yet it **says so out loud** (FR-029أ) — an
+omitted line reads as a fault, and the student refreshes and asks whether their
+payment went through.
+
+Both rows ship with a `seedMissing()` backfill migration in the same change, the
+**sixth** instance of that mechanism in this tree. A notification with no template
+is dropped silently, so a row that reaches only a fresh database is a feature that
+never runs in production.
+
+### Three shared contracts, and the wall is now guarded
+
+`SubscriptionDirectory` · `CohortDirectory` · `CohortScheduleDirectory`. LiveSessions
+asks who is a live subscriber at a given lesson's hour; Payments asks what a group
+is and when it meets. Neither module imports the other's models.
+
+⚠️ **That claim used to be justified by a guard that was not running.** 027's plan
+cited `ContextIsolationTest`, and that file scanned Settlement ⇄ Payments/Store/
+Community/Compliance **only** — LiveSessions and Learning were invisible to it, the
+same discovery `Compliance` made in 013. The sweep is widened now, and it is
+**one-directional because the reverse is the design**: `PaymentApproved →
+CreateEnrollmentFromOrder` has written enrolments since 001, `ChargeSessionSeats`
+reads `ClassSession`, and a plan types its coverage with `ClassSessionType`. Money
+drives the lower layers; the lower layers do not reach back for money.
+
+⚠️ **One import is allowed and it is a LINE, not a namespace**:
+`use App\Modules\Payments\Events\SubscriptionEnded;` — FR-045's bridge, which
+releases a lapsed subscriber's future seats. A listener on `PaymentApproved`
+tomorrow would be LiveSessions reacting to what a student PAID, and the exact-line
+allowance makes that a red build instead of a carve-out already waved through.
+
+### The seat is claimed on activation, and again whenever a lesson appears
+
+Activation books every session of the month; `BookSubscribersOnScheduled` books the
+ones created later. It listens to **two** events, and the second one is the mass
+path: `GenerateSessionsFromAvailability` builds its schedule data with no
+`cohortId`, so bulk-generated sessions carry `cohort_id = null` and are attached
+afterwards by `AssignSessionsToCohort` — one event, N sessions. Wiring the
+scheduling door alone is a green test over half a silent feature.
+
+⚠️ **`ActivateSubscription` opens no transaction, and none may be added.** All four
+connections are `after_commit => false` and `NotifyStudentEnrolled` is `ShouldQueue`
+without `ShouldHandleEventsAfterCommit`, so wrapping the three writes would send
+«أهلاً بك في الكورس» about an enrolment that can still roll back. FR-027 is
+therefore satisfied by **convergence**: a retry reads the committed subscription
+back and carries on, instead of returning at `unique(order_id)` before the access
+was ever opened.
+
+⚠️ **`isJoinable()` is asked AFTER membership, never before.** A renewing student's
+group is full **of them and their classmates** — a joinability pre-check refuses
+every renewal and leaves a paid, approved order pending for ever.
+
+⚠️ **A released seat is revived; a cancelled one is left alone.** `BookSeat` grew a
+third named entry (`reviveReleasedSeat`) for that, rather than a conditional UPDATE
+written in the caller, which would be a second spelling of the one guarded
+`seats_taken` increment in the tree.
+
+### `billable_seats` freezes at the session's start when it is born too late
+
+The count is written once, at the cancellation deadline. For a session created
+**inside** its own cancellation window that deadline is already past, so it froze
+at zero the moment it was created — a lesson taught for an hour with nothing owed
+for it, **and that was true of manual booking long before this spec** (FR-039ب).
+`ClassSession::billableSeatsFreezeAt()` returns the later of the deadline and the
+session's own start.
+
+### Settlement prices the subscriber seat by ATTENDANCE
+
+A subscription is one price a month while lessons are many, so twenty subscribers
+attending ten lessons must not be two hundred full accruals. `SessionDelivered`
+therefore carries `subscriptionSeats` as a **list of student ids, not a count** —
+`accrueOne()` writes one row per student, and a bare number cannot say which rows
+take the subscriber price.
+
+A subscriber who attended earns the teacher their approved rate; one who did not
+earns zero. The rule is **scoped to the subscription seat alone** — the credit path
+keeps «الحضور بلا أثر ماليّ», which `AttendanceHasNoFinancialEffectTest` still
+enforces everywhere else — and the zero is not flagged for review, because an
+unpriced subscriber row is the design rather than a missing rate.
+
+⚠️ **The sources that earn are an ALLOWLIST** (`Automatic` · `Manual`), never a
+denylist. A catch-up attendance source — watching 25% of the recording, downloading
+the lesson file — is a decided product rule that is **deliberately out of scope
+here**: it makes the student present in their own record and must not make the
+platform pay for a lesson it opened as a gift or a reward. With an allowlist that
+source earns nothing until somebody adds it on purpose; with a denylist it would
+start earning the day it lands, silently.

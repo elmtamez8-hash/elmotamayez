@@ -114,8 +114,12 @@ cd frontend && npm run dev        # ⚠️ لا تُشغّلْ `npm run build` �
 القبولِ تغطّي ما كانَ مجدولاً سلفاً فقط.
 
 **وكرِّرْها عبرَ الإسناد**: أنشئْ حصّةً بلا مجموعةٍ ثمّ أسنِدْها إلى المجموعة. يجبُ أن
-تُحجَزَ كذلك. **هذا هو المسارُ الذي لا يُطلِقُ حدثاً اليوم** (`AssignSessionsToCohort`)،
-فسيناريو الجدولةِ وحدَه يمرُّ أخضرَ فوقَ نصفِ ميزةٍ صامتة.
+تُحجَزَ كذلك. **وهو المسارُ الجَماعيُّ لا الاستثناء**: `GenerateSessionsFromAvailability`
+تبني جدولَها **بلا `cohortId`**، فكلُّ حصّةٍ مولَّدةٍ دفعةً تُولَدُ بـ`cohort_id = null`
+وتُسنَدُ بعدَها. ⚠️ **وكانَ مكتوباً هنا أنّ `AssignSessionsToCohort` لا يُطلِقُ حدثاً —
+صُحِّحَ في T067/T049**: الفعلُ يُطلِقُ `SessionsAssignedToCohort` (حدثٌ واحدٌ لـN حصّة)
+ويلتقطُه `BookSubscribersOnScheduled@handleAssigned`. ومع ذلك يبقى السيناريو مطلوباً:
+سيناريو الجدولةِ وحدَه يمرُّ أخضرَ فوقَ نصفِ ميزةٍ صامتة.
 
 ---
 
@@ -152,6 +156,7 @@ cd backend
 php vendor/bin/pest tests/Feature/Payments        # الطلبُ والنيّةُ والتفعيل
 php vendor/bin/pest tests/Feature/LiveSessions    # المقعدُ والحجزُ التلقائيّ
 php vendor/bin/pest tests/Feature/Learning        # العضويّةُ والتسجيلُ والبابُ المجّانيّ
+php vendor/bin/pest tests/Feature/Settlement/ContextIsolationTest.php   # جدارُ السياقات — وُسِّعَ في ٠٢٧
 ./vendor/bin/pint --test && ./vendor/bin/phpstan analyse
 
 cd ../frontend
@@ -176,11 +181,23 @@ npx tsc --noEmit && npm test
 2. `POST /api/v1/courses/{uuid}/enroll` على كورسٍ مدفوعٍ ⇒ **٤٢٢** (كانَ ٢٠١).
 3. `‎/admin/grant-credit-subscription` ⇒ ٢٠٠ والطابورُ يُصيَّرُ.
 4. ```sql
-   SELECT COUNT(*) FROM message_templates
+   SELECT type, channel, provider_approval_status FROM message_templates
    WHERE type IN ('subscription_activated', 'subscription_seat_unavailable');
    ```
-   ⇒ **٢**. أقلُّ من ذلك يعني أنّ هجرةَ الردمِ لم تصلْ، وأنّ كلَّ إشعارٍ سيسقطُ **صامتاً**.
+   ⇒ **ثلاثةُ صفوفٍ لا صفّان**، ونوعانِ متمايزان:
+
+   | type | channel | provider_approval_status |
+   |---|---|---|
+   | `subscription_activated` | `in_app` | `not_required` |
+   | `subscription_activated` | `whatsapp` | `pending` |
+   | `subscription_seat_unavailable` | `in_app` | `not_required` |
+
+   ⚠️ **وكانَ مكتوباً هنا «٢» — صُحِّحَ بالقياسِ على قاعدةِ التطويرِ في T074 (٢٠٢٦-٠٩-٠٥).**
+   الجدولُ صفٌّ **لكلِّ قناةٍ لكلِّ نوع**، و`subscription_activated` يستهدفُ الأولياءَ فيشتقُّ
+   له الباذرُ صفَّ واتساب؛ وسميُّه لا يستهدفُهم فلا يحملُ إلّا الجرس. فتحقُّقٌ ينتظرُ ٢
+   **يقرأُ قاعدةً سليمةً معطوبةً** — وهو عينُ العطلِ الذي كُتِبَ هذا البندُ ليمنعَه.
    ⚠️ **ولا تُكتَبْ `LIKE 'subscription_%'`**: `subscription_expiring` قائمٌ منذُ ٠١١
-   فيُطابِقُه النمطُ، ويصيرُ الجوابُ ٣ على قاعدةٍ سليمةٍ و١ على قاعدةٍ ناقصة — تحقّقٌ يقرأُ
-   الصحيحَ عطلاً والعطلَ صحيحاً.
+   فيُطابِقُه النمطُ — مقيسٌ: النمطُ يقرأُ **٤** حيثُ يقرأُ `IN (...)` ثلاثةً.
+   ⚠️ **وصفُّ واتساب يبقى `pending`**: الموافقةُ تحدثُ عندَ المزوّدِ لا عندَنا، وادّعاؤها
+   يجعلُ أوّلَ إرسالٍ رمزَ خطأٍ لا يعودُ به أحدٌ إلى صفّه.
 5. اشتراكٌ حقيقيٌّ واحدٌ من أوّلِه إلى آخرِه بحسابِ اختبار، وقراءةُ الإشعارِ من الجرس.
