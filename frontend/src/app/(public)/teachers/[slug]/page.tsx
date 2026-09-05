@@ -334,9 +334,16 @@ export default async function TeacherProfilePage({
 
             {active === "courses" &&
               (teacher.courses.length === 0 ? (
+                /* ⚠️ THE OLD SENTENCE HERE PROMISED A CONTROL THAT DOES NOT
+                   EXIST: «يمكنك حجز حصة فردية معه مباشرة عبر زر الحجز» — the
+                   panel's only button is `TrialCta`, which sends a guest to the
+                   student signup and a signed-in reader to their own panel.
+                   Neither books anything. And a teacher with no published course
+                   has no private-session door either, because a private
+                   subscription is bought INSIDE a course. */
                 <EmptyState
                   title="لا توجد كورسات منشورة لهذا المدرّس"
-                  description="يمكنك حجز حصة فردية معه مباشرة عبر زر الحجز."
+                  description="لم ينشر هذا المدرّس كورساً بعد، والاشتراك — بمجموعة أو بحصص خاصة — يكون داخل كورس، فلا سبيل إليه حتى ينشر واحداً."
                 />
               ) : (
                 <div className="grid gap-6 sm:grid-cols-2">
@@ -354,7 +361,56 @@ export default async function TeacherProfilePage({
             )}
 
             {active === "schedule" && (
-              <AvailabilityCalendar slots={teacher.availability} />
+              <div className="space-y-10">
+                <AvailabilityCalendar slots={teacher.availability} />
+
+                {/* ⚠️ THE CALENDAR ABOVE IS A DISPLAY, AND ON ITS OWN IT MADE A
+                    PROMISE THE PAGE DID NOT KEEP. A student reading a teacher's
+                    weekly times is one step from asking for one of them — and
+                    this tab offered no control at all: the panel's only button
+                    is the trial signup, and both subscription doors («اشترك في
+                    هذه المجموعة» · «اشترك بحصص خاصة») live on a COURSE page,
+                    three unsignposted clicks away.
+
+                    A subscription is bought per course — the plan covers one,
+                    the group belongs to one, and even a private session is
+                    requested inside one — so the courses are the honest step
+                    between a time and a booking. Each card lands directly on
+                    that course's «المجموعات المتاحة», where the open groups
+                    carry their button and a full one carries none.
+
+                    ⚠️ AND NOTHING IS FILTERED HERE. Which groups are joinable is
+                    `CohortList`'s answer, computed server-side from
+                    `is_joinable`; re-deriving it in TypeScript is the two
+                    spellings of one question that made a paid-for recording
+                    unreachable in 018. */}
+                {teacher.courses.length > 0 && (
+                  <section aria-labelledby="book-heading" className="space-y-4">
+                    <div>
+                      <h2
+                        id="book-heading"
+                        className="text-lg font-extrabold text-ink"
+                      >
+                        احجز مع {teacher.name}
+                      </h2>
+                      <p className="mt-1 text-sm text-ink-muted">
+                        اختر كورساً لترى مجموعاته المتاحة ومواعيدها، أو لتطلب حصة
+                        خاصة فيه.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      {teacher.courses.map((course) => (
+                        <CourseCard
+                          key={course.uuid}
+                          course={course}
+                          anchor="#groups"
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
             )}
           </ProfileTabs>
 

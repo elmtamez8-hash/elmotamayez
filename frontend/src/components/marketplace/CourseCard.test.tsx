@@ -74,3 +74,43 @@ describe("CourseCard", () => {
     expect(hrefOf("أساسيّات التفاضل")).not.toContain("khaled");
   });
 });
+
+/*
+| Spec 027 — the anchor is the inbound link the teacher's profile needed.
+|
+| ⚠️ THIS GUARDS A DESTINATION, NOT A PROP. The schedule tab is where a student
+| reads a teacher's weekly times, and it offered no way to act on any of them:
+| both subscription doors live on a course page, and nothing on that tab pointed
+| at one. The fix is these cards plus `#groups`, so what fails here is the LINK
+| going back to being a link to nowhere in particular — the same class of defect
+| as the title pointing at the teacher, which is what opened 023.
+|
+| The default is asserted beside it because the marketplace listing and the
+| profile's own courses tab render this card too, and a fragment leaking into
+| those is a scroll a reader did not ask for.
+*/
+describe("CourseCard · the groups anchor", () => {
+  it("lands on the course's groups when the caller asks for it", () => {
+    render(<CourseCard course={course} anchor="#groups" />);
+
+    expect(hrefOf("أساسيّات التفاضل")).toBe(
+      "/courses/c0ffee00-0000-4000-8000-000000000001#groups",
+    );
+  });
+
+  it("carries no fragment when nobody asked for one", () => {
+    render(<CourseCard course={course} />);
+
+    expect(hrefOf("أساسيّات التفاضل")).toBe(
+      "/courses/c0ffee00-0000-4000-8000-000000000001",
+    );
+  });
+
+  it("never glues the fragment onto the teacher's link", () => {
+    // `#groups` does not exist on a profile, so a byline carrying it is a
+    // control that silently does nothing.
+    render(<CourseCard course={course} anchor="#groups" />);
+
+    expect(hrefOf("خالد")).toBe("/teachers/khaled");
+  });
+});

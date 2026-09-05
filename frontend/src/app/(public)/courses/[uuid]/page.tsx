@@ -242,7 +242,13 @@ export default async function CoursePage({
         </section>
       )}
 
-      <section className="flex flex-col gap-4">
+      {/* ⚠️ THE ANCHOR IS THE INBOUND LINK, NOT DECORATION. The teacher's profile
+          lists this teacher's courses and sends each one straight here — a
+          student standing on «الجدول» could see the weekly times and had no way
+          at all to act on them, three clicks and no signpost away from the only
+          two doors that exist. `scroll-mt-24` clears the sticky header, which an
+          unmargined anchor lands underneath. */}
+      <section id="groups" className="flex scroll-mt-24 flex-col gap-4">
         <h2 className="text-lg font-extrabold text-ink">المجموعات المتاحة</h2>
 
         {course.cohorts.length > 0 ? (
