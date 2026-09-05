@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -56,6 +56,7 @@ function SubscribeScreen() {
   const [method, setMethod] = useState("bank_transfer");
   const [sending, setSending] = useState(false);
   const [placed, setPlaced] = useState<SubscriptionOrder | null>(null);
+  const problemRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     if (courseUuid === "") {
@@ -85,6 +86,23 @@ function SubscribeScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /*
+   * ⚠️ THE REFUSAL IS AT THE TOP OF THE PAGE AND THE BUTTON IS AT THE BOTTOM.
+   * Reported from a real purchase (2026-09-06): the request was refused, the
+   * Alert below rendered exactly as designed — and the buyer, standing on the
+   * send button, saw NOTHING happen. A message nobody can see is a swallowed
+   * error wearing markup, and they press send again over the same cause.
+   *
+   * Scrolled rather than toasted: the sentence has to stay on screen beside the
+   * choice it is about (FR-005أ), and a toast that fades takes the reason with
+   * it. `role="alert"` on the Alert is what says it to a screen reader.
+   */
+  useEffect(() => {
+    if (problem === null || state !== "ready" || placed !== null) return;
+
+    problemRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [problem, state, placed]);
 
   const submit = async () => {
     if (planUuid === "" || receipt === null) return;
@@ -165,12 +183,14 @@ function SubscribeScreen() {
          * refusal that bounced them elsewhere would make them start again, which
          * is the complication this feature exists to remove.
          */
-        <Alert tone="danger" title="لم يُرسل الطلب">
-          <p>{problem}</p>
-          <p className="mt-2">
-            اختيارك محفوظ في هذه الصفحة — عالِجِ السبب أعلاه ثم أرسِلْ من هنا.
-          </p>
-        </Alert>
+        <div ref={problemRef}>
+          <Alert tone="danger" title="لم يُرسل الطلب">
+            <p>{problem}</p>
+            <p className="mt-2">
+              اختيارك محفوظ في هذه الصفحة — عالِجِ السبب أعلاه ثم أرسِلْ من هنا.
+            </p>
+          </Alert>
+        </div>
       )}
 
       {/* What is being bought, shown back before any money is named (FR-006). */}

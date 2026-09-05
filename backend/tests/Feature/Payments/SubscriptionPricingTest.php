@@ -132,3 +132,48 @@ it('hides an unpriced plan from the student catalogue and keeps it on the teache
         ->assertOk()
         ->assertJsonCount(0, 'data');
 });
+
+it('offers a course-scoped plan on ITS course only, never on the teacher’s other ones', function (): void {
+    /*
+    | ⚠️ FOUND BY A REAL PURCHASE, 2026-09-06. `ListPlans` filtered by the
+    | course's WORKSPACE and never by the plan's own coverage, so every plan the
+    | teacher had appeared on every course they publish — and the two modes then
+    | failed differently, which is why one filter closes both:
+    |
+    |   • a GROUP choice was refused 422 «هذه المجموعة لم تعد متاحة للانضمام»,
+    |     a sentence about a group that was open, empty and perfectly joinable;
+    |   • a PRIVATE choice went THROUGH. Nothing sends a course on that path, so
+    |     the order was written against the plan's own coverage — the buyer read
+    |     one course's name on the screen and bought a month of another.
+    */
+    $elsewhere = courseWithRate((int) $this->workspace->getKey());
+
+    $mine = Plan::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'coverage_type' => PlanCoverage::Course,
+        'coverage_uuid' => $this->course->uuid,
+    ]);
+
+    Plan::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'coverage_type' => PlanCoverage::Course,
+        'coverage_uuid' => $elsewhere->uuid,
+    ]);
+
+    $everything = Plan::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'coverage_type' => PlanCoverage::Workspace,
+        'coverage_uuid' => null,
+    ]);
+
+    Sanctum::actingAs($this->owner);
+
+    $offered = $this->getJson('/api/v1/billing/plans?course='.$this->course->uuid)
+        ->assertOk()
+        ->json('data.*.uuid');
+
+    // The teacher-wide plan stays: it covers every course by definition, and
+    // dropping it would be this defect inverted.
+    expect($offered)->toHaveCount(2)
+        ->and($offered)->toContain((string) $mine->uuid, (string) $everything->uuid);
+});

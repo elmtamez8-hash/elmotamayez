@@ -8,6 +8,7 @@ import { PromoVideoButton } from "@/components/courses/PromoVideoButton";
 import { StarRating } from "@/components/marketplace/StarRating";
 import { TrustScoreBadge } from "@/components/marketplace/TrustScoreBadge";
 import { EmptyState } from "@/components/ui/states/EmptyState";
+import { ErrorState } from "@/components/ui/states/ErrorState";
 import { formatMinorMoney } from "@/lib/labels";
 import {
   NotFoundError,
@@ -81,7 +82,23 @@ export async function generateMetadata({
   }
 }
 
-async function loadAvailability(course: CourseDetail): Promise<AvailabilityItem[]> {
+/**
+ * The teacher's declared hours — or `null`, meaning the question was not
+ * answered at all.
+ *
+ * ⚠️ A SWALLOWED ERROR AND AN EMPTY LIST USED TO READ THE SAME. This returned
+ * `[]` from its own `catch`, so a stumbling API drew «لم يعلن المدرّس مواعيد
+ * متاحة بعد» — a sentence stating, as a fact about the teacher, something the
+ * page never found out. The student then waits for an announcement that was
+ * made weeks ago, and no refresh ever suggests itself.
+ *
+ * A 404 is deliberately NOT that case: it is an ANSWER (the teacher is not
+ * publicly listed), no retry can change it, and offering «إعادة المحاولة» over
+ * it promises something impossible.
+ */
+async function loadAvailability(
+  course: CourseDetail,
+): Promise<AvailabilityItem[] | null> {
   const key = course.teacher?.slug ?? course.teacher?.uuid;
 
   if (key === undefined) return [];
@@ -90,8 +107,10 @@ async function loadAvailability(course: CourseDetail): Promise<AvailabilityItem[
     const { data } = await publicApi.teacher(key);
 
     return data.availability;
-  } catch {
-    return [];
+  } catch (error) {
+    if (error instanceof NotFoundError) return [];
+
+    return null;
   }
 }
 
@@ -284,7 +303,17 @@ export default async function CoursePage({
       <section className="flex flex-col gap-4">
         <h2 className="text-lg font-extrabold text-ink">حصة خاصة</h2>
 
-        {availability.length > 0 ? (
+        {availability === null ? (
+          /*
+           * ⚠️ NOT `ErrorState`'S DEFAULT COPY. It says «تحقّق من اتصالك», and
+           * this fetch happened on the SERVER — the visitor's own connection
+           * demonstrably works, they are reading the page it produced.
+           */
+          <ErrorState
+            title="تعذّر تحميل مواعيد المدرّس"
+            description="حدث خطأ أثناء جلب المواعيد المتاحة. أعد المحاولة بعد قليل."
+          />
+        ) : availability.length > 0 ? (
           <PrivateSessionRequestForm
             courseUuid={course.uuid}
             availability={availability}
