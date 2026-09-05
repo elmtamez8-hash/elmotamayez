@@ -22,12 +22,33 @@ use Illuminate\Auth\Access\Response;
  * whether the public sees the row (`status` and `published_at`), on the screen
  * people actually use.
  *
- * The four methods below are what Filament falls back to for anything the
- * Resource does not answer itself, which is why they are kept rather than
- * inlined into it.
+ * The methods below are what Filament falls back to for anything the Resource
+ * does not answer itself, and what `/manage/articles` — the teacher's own door,
+ * built the same day — authorises every row against.
  */
 class ArticlePolicy extends BasePolicy
 {
+    /**
+     * May this account open the authoring list at all?
+     *
+     * ⚠️ `cms.update` AND NOT `cms.view`. Every student holds `cms.view` by the
+     * matrix — it means «may read the blog» — and a student is a member of no
+     * workspace, so `WorkspaceScope` adds no condition for them: a list gated on
+     * `cms.view` returns every workspace's drafts to every student on the
+     * platform. The deleted `/cms/articles` shipped that leak for four months.
+     *
+     * ⚠️ AND IT IS DECLARED AT ALL because a policy with no method for an
+     * ability DENIES, silently and with no error anywhere. Filament never
+     * consults it — `CmsArticleResource` overrides `canViewAny()` — so this
+     * answers for the API alone.
+     */
+    public function viewAny(User $user): Response
+    {
+        return $user->can(Permissions::CMS_UPDATE)
+            ? Response::allow()
+            : Response::deny();
+    }
+
     public function view(User $user, Article $article): Response
     {
         if (($workspaceCheck = $this->belongsToCurrentWorkspace($article))->denied()) {

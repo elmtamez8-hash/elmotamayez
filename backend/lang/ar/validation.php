@@ -413,6 +413,7 @@ return [
         'seo_title' => 'عنوان محرّكات البحث',
         'seo_description' => 'وصف محرّكات البحث',
         'canonical_url' => 'الرابط الأساسي',
+        'published_at' => 'تاريخ النشر',
         'html_template' => 'قالب HTML',
 
         // المدفوعات

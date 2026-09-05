@@ -21,6 +21,7 @@ import {
   ChevronStartIcon,
   CloseIcon,
   CoursesIcon,
+  DocumentIcon,
   CreditsIcon,
   FamilyIcon,
   ShieldIcon,
@@ -215,6 +216,21 @@ const mainNav: NavItem[] = [
     label: "الإعلانات",
     Icon: BellIcon,
     permission: P.announcementsManage,
+  },
+  /*
+   * ⛔ المدوّنةُ كانت قدرةً بلا باب. `cms.*` في دورَي المدرّسِ والمساعدِ منذُ
+   * ٠١١ — بموديلٍ وسياسةٍ وتوليدِ رابطٍ عربيٍّ وإعلانِ IndexNow وحقولِ سيو
+   * وخريطةِ موقعٍ ومدوّنةٍ عامّةٍ كلُّها مبنيّةٌ حولَ ما يكتبُه المدرّس — ولم يكنْ
+   * في المنتَجِ شاشةٌ واحدةٌ تكتبُ مقالاً، ولا مسارٌ يستدعيه ملفٌّ في الواجهة.
+   *
+   * ⚠️ والبوّابةُ `cmsUpdate` لا `cmsView`: يحملُ كلُّ طالبٍ الثانيةَ بالمصفوفة،
+   * فبوّابةٌ عليها تُظهِرُ لكلِّ طالبٍ لافتةً إلى شاشةِ تأليفٍ ليست له.
+   */
+  {
+    href: "/manage/blog",
+    label: "المدوّنة",
+    Icon: DocumentIcon,
+    permission: P.cmsUpdate,
   },
   { href: "/leaderboard", label: "لوحة الصدارة", Icon: LeaderboardIcon, audience: "learner" },
   { href: "/shop", label: "متجر المكافآت", Icon: ShopIcon, audience: "learner" },

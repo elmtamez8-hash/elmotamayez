@@ -17,7 +17,10 @@ use Illuminate\Support\Facades\Auth;
 |
 | No file under `frontend/src` ever called a `/cms/articles` path, so the API guard
 | written beside this one closed a door nobody was walking through — and those six
-| routes were deleted on 2026-09-05. `CmsArticleResource` is the ONLY surface now:
+| routes were deleted on 2026-09-05, replaced by `/manage/articles`, which is the
+| TEACHER's door while this Resource is the platform's. Both carry the gate, and
+| `ArticlePublishPermissionTest` is this file's other half.
+|
 | `canEdit()` asks `cms.update`, which the matrix gives an
 | assistant-teacher — while `cms.publish` is the teacher's alone — and the status
 | select carried no `disabled()`, `visible()` or `dehydrated()` of any kind.
@@ -106,11 +109,13 @@ it('keeps the fields shut when nobody is signed in', function (): void {
 | the same fixture; a test that only ever asks an owner and a student passes
 | against a Resource that reads one permission for both.
 |
-| ⚠️ AND `canViewAny()` IS TRUE FOR A STUDENT, WHICH IS NOT A HOLE. `cms.view`
-| is «may read the blog» and every student holds it by the matrix. What keeps
-| them out of this screen is not a Resource method at all — it is
-| `mayAccessAdminPanel()`, which admits a super admin and `platform_staff` and
-| NOBODY holding a workspace role, asserted below. These per-ability gates are
+| ⚠️ AND `canViewAny()` IS TRUE FOR A STUDENT, WHICH IS NOT A HOLE HERE AND WOULD
+| BE ONE ELSEWHERE. `cms.view` is «may read the blog» and every student holds it
+| by the matrix. What keeps them out of THIS screen is not a Resource method at
+| all — it is `mayAccessAdminPanel()`, which admits a super admin and
+| `platform_staff` and NOBODY holding a workspace role, asserted below. The API
+| has no such door in front of it, which is why `/manage/articles` is gated on
+| `cms.update` instead and `ArticlePolicy::viewAny()` says so in writing. These per-ability gates are
 | the second lock on a door the first one already shuts; both are wanted, and a
 | test that pretended the first one was `canViewAny()` would be measuring the
 | wrong thing and would break the day the panel is widened again.

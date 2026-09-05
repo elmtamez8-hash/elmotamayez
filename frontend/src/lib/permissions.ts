@@ -106,6 +106,22 @@ export const P = {
   // question in a thread a student opened, and sending three hundred families a
   // message nobody can reply to, are different powers over the same people.
   announcementsManage: "announcements.manage",
+  /*
+   * ⛔ المدوّنةُ كانت أربعَ صلاحيّاتٍ لا يستطيعُ حاملُها استعمالَها. `cms.*` في
+   * دورَي المدرّسِ والمساعدِ منذُ ٠١١، و`/admin` — الشاشةُ الوحيدةُ التي تقرؤها
+   * — لا تقبلُ دوراً في مساحةِ عملٍ أصلاً. قِيسَ في ٢٠٢٦-٠٩-٠٥: لا `cms.*` واحدةٌ
+   * في مجموعةِ صلاحيّاتِ المنصّة، فحتّى موظّفُ المنصّةِ لا يحملُها. مديرُ المنصّةِ
+   * وحدَه كان يكتبُ مقالاً، بينما كلُّ شاشةٍ حولَ المدوّنةِ تصفُ مدرّساً يكتب.
+   *
+   * ⚠️ و`cms.view` ليست منها: يحملُها كلُّ طالبٍ بالمصفوفة (معناها «يقرأُ
+   * المدوّنة»)، فبوّابةُ الشاشةِ `cmsUpdate` — والطالبُ عضوُ لا مساحة، فسياقُه
+   * فارغٌ ونطاقُ العملِ لا يُضيفُ شرطاً: بوّابةٌ على `cms.view` تُسلِّمُ كلَّ
+   * طالبٍ مسوّداتِ كلِّ مدرّس، وهو العطلُ الذي شحنَه البابُ المحذوفُ أربعةَ أشهر.
+   */
+  cmsUpdate: "cms.update",
+  cmsCreate: "cms.create",
+  cmsDelete: "cms.delete",
+  cmsPublish: "cms.publish",
   // The reconciliation screen reads the same rows as the collection report and
   // is gated on the same name — there is no separate `payments.reconcile`.
   //

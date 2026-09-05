@@ -17,13 +17,15 @@ use App\Modules\Tenancy\Support\Roles;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 
 /*
 | ⛔ `CancelSubscription` WAS BUILT, TESTED, AND UNREACHABLE.
 |
 | Its only production entrance was `POST /admin/subscriptions/{uuid}/cancel`,
-| which no file under `frontend/src` calls — and there was no platform-wide LIST
+| which no file under `frontend/src` called — and which was deleted on 2026-09-05
+| once this screen replaced it — and there was no platform-wide LIST
 | of subscriptions anywhere either, so even by hand an officer had no way to find
 | a uuid to send it. The product had no way to cancel a subscription and return
 | its money, while `ReversePayment → PaymentReversed → ReverseReferralAward +
@@ -187,4 +189,40 @@ it('creates nothing and deletes nothing from this screen', function (): void {
     expect(SubscriptionResource::canCreate())->toBeFalse()
         ->and(SubscriptionResource::canDelete($subscription))->toBeFalse()
         ->and(SubscriptionResource::canEdit($subscription))->toBeFalse();
+});
+
+/*
+| ⛔ AND WHO MAY UNDO A PURCHASE IS ASKED HERE NOW.
+|
+| `SubscriptionCancelTest` asked it of the route, which is gone — so the panel
+| action's `visible(fn () => … Gate::allows('cancel', $record))` is the ONLY
+| reader of `SubscriptionPolicy::cancel()` left in the tree. A policy nothing
+| exercises is the shape this repository has already paid for three times.
+|
+| ⚠️ HIDDEN, NOT DISABLED, AND THAT IS THE RIGHT DIRECTION HERE. The two who are
+| refused have no path to the capability at all — a teacher does not become able
+| to reverse a payment by asking — so a visible-but-dead button would only invite
+| the question. (The opposite call from the article `status` field, where the
+| writer must still SEE whether their own post is live.)
+*/
+it('offers the undo to the officer alone', function (): void {
+    $subscription = panelSubscription();
+
+    // Money leaving the platform is not a decision either party to the lesson
+    // takes alone — the same reason `BILLING_PURCHASE_APPROVE` guards the
+    // approval this undoes.
+    $this->actingAs($this->buyer);
+    expect(Gate::allows('cancel', $subscription))->toBeFalse();
+
+    $this->actingAs($this->owner);
+    expect(Gate::allows('cancel', $subscription))->toBeFalse();
+
+    asPanelOfficer();
+    expect(Gate::allows('cancel', $subscription))->toBeTrue();
+
+    // And the button follows the policy rather than restating it. Only the
+    // officer's side of this can be rendered at all — `canViewAny()` refuses the
+    // other two the screen itself, which is the first of the two locks.
+    Livewire::test(ListSubscriptions::class)
+        ->assertActionVisible(TestAction::make('cancel')->table($subscription));
 });

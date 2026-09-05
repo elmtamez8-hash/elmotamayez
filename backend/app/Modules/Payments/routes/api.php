@@ -150,11 +150,18 @@ Route::middleware(['auth:sanctum', 'throttle:coupon'])->group(function (): void 
 
 Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void {
     /*
-    | ⛔ THE CATALOGUE AND THE PLAN PRICE LEFT THIS FILE — deleted 2026-09-05.
+    | ⛔ THE CATALOGUE, THE PLAN PRICE AND THE CANCELLATION LEFT THIS FILE — deleted
+    | 2026-09-05.
     |
-    | Five routes (`/admin/billing/packages` × 3, `/admin/plans` × 2) were a
-    | second door onto `CreditPackageResource` and `PlanResource`, and no file
-    | under `frontend/src` called one of them. The panel is the door that is
+    | Six routes (`/admin/billing/packages` × 3, `/admin/plans` × 2, and
+    | `/admin/subscriptions/{uuid}/cancel`) were a second door onto
+    | `CreditPackageResource`, `PlanResource` and `SubscriptionResource`, and no
+    | file under `frontend/src` called one of them. The last of the three became a
+    | twin the same day: `CancelSubscription` had been built, tested and
+    | unreachable — this route was its only entrance and no list anywhere gave an
+    | officer a uuid to send it — so the panel screen was built for it, and the
+    | route it replaced went with the others rather than standing as a second
+    | writer beside the Action's conditional UPDATE. The panel is the door that is
     | used, and it is the complete twin: `EditPlan::handleRecordUpdate()` runs
     | `SetPlanPrice`, so the negative-price refusal AND the `plan.priced`
     | activity-log entry come with it, and both resources fall through to their
@@ -168,7 +175,6 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     | `withoutWorkspaceScope()` because a platform officer has a
     | `users.last_workspace_id` like everybody else.
     */
-    Route::post('/admin/subscriptions/{uuid}/cancel', [SubscriptionController::class, 'cancel']);
 
     /*
     | What the nightly reconciliation found, read back — never computed here.

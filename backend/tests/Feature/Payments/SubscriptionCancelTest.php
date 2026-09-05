@@ -17,7 +17,6 @@ use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\Subscription;
 use App\Modules\Tenancy\Support\Roles;
 use Database\Seeders\RolesAndPermissionsSeeder;
-use Laravel\Sanctum\Sanctum;
 
 /*
 | Undoing a purchase — and the production caller `PaymentReversed` never had.
@@ -145,21 +144,17 @@ it('refuses to cancel the same subscription twice', function (): void {
         ->toThrow(DomainException::class);
 });
 
-it('is refused to the teacher and to the student, and allowed to the platform', function (): void {
-    // Money leaving the platform is not a decision either party to the lesson
-    // takes alone — the same reason `BILLING_PURCHASE_APPROVE` guards the
-    // approval this undoes.
-    $subscription = buyAndApprove();
-
-    Sanctum::actingAs($this->buyer);
-    $this->postJson("/api/v1/admin/subscriptions/{$subscription->uuid}/cancel", ['reason' => 'غيّرت رأيي'])
-        ->assertForbidden();
-
-    Sanctum::actingAs($this->owner);
-    $this->postJson("/api/v1/admin/subscriptions/{$subscription->uuid}/cancel", ['reason' => 'قرار المدرّس'])
-        ->assertForbidden();
-
-    Sanctum::actingAs($this->officer);
-    $this->postJson("/api/v1/admin/subscriptions/{$subscription->uuid}/cancel", ['reason' => 'استرداد'])
-        ->assertOk();
-});
+/*
+| ⛔ THE AUTHORISATION CASE MOVED TO `SubscriptionPanelTest` — 2026-09-05.
+|
+| It drove `POST /admin/subscriptions/{uuid}/cancel`, deleted the same day as a
+| twin no client called. After that route went, the ONLY reader of
+| `SubscriptionPolicy::cancel()` in the tree is the panel action's
+| `visible(fn () => … Gate::allows('cancel', $record))` — so the question «who
+| may undo a purchase» has to be asked where it is now answered, or the policy
+| joins the list of guards this repository keeps finding behind unopened doors.
+|
+| The four cases above are untouched: they call `CancelSubscription` directly and
+| are about what cancelling DOES — the access, the reversal, the referral points,
+| the older course's dues, and the refusal of a second cancellation.
+*/

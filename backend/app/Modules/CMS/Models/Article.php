@@ -11,6 +11,7 @@ use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use App\Shared\Traits\IsPubliclyListed;
 use App\Shared\Traits\IsPublishable;
+use Carbon\CarbonInterface;
 use Database\Factories\Modules\CMS\ArticleFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -41,6 +42,13 @@ use Spatie\Sluggable\SlugOptions;
  *                                المنظَّمة.
  * @property array<int, mixed>|null $faq
  * @property bool $is_indexable
+ *
+ * ⚠️ `published_at` IS DECLARED HERE OR EVERY READER IS A STRING TO THE ANALYSER.
+ * It is cast to `datetime` and never appeared in this block, so `->isPast()` and
+ * `->equalTo()` on it read as method calls on a string — the same omission
+ * `Subscription::$cancelled_at` cost a fix for the same day. Being mass-assignable
+ * is not what decides whether a column is declared; being READ is.
+ * @property CarbonInterface|null $published_at
  */
 class Article extends BaseModel
 {

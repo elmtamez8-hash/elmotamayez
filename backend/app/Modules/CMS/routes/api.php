@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\CMS\Http\Controllers\Manage\ArticleController;
 use App\Modules\CMS\Http\Controllers\PublicArticleController;
 use Illuminate\Support\Facades\Route;
 
@@ -49,5 +50,40 @@ Route::middleware('throttle:public')->group(function (): void {
 | alone was the unique-slug refusal, and that rule now sits on the panel's own
 | slug field.
 |
-| The two public routes above stay: they are the blog, and they are called.
+| The two public routes above stay: they are the blog, and they are called. And
+| the teacher's own authoring door is the group BELOW, written the same day —
+| deleting these six is what exposed the fact that there was none.
 */
+
+/*
+| The teacher's own blog — `/manage/articles`, built the same day the old door
+| was removed, and deliberately not the same door.
+|
+| ⛔ FOUR PERMISSIONS THAT NOBODY ON THE PLATFORM COULD EXERCISE. `cms.create`,
+| `cms.update`, `cms.delete` and `cms.publish` sit in the teacher and assistant
+| roles; `/admin` admits a super admin and `platform_staff` and no workspace role
+| at all; and `platformPermissions()` — derived by subtraction — contains no
+| `cms.*`, so no platform officer holds one either. Measured 2026-09-05:
+| `finance-admin` holds four permissions and `compliance-officer` five, none of
+| them CMS. The whole blog was authorable by the super admin alone, while every
+| screen and every test around it described a teacher writing.
+|
+| ⚠️ AND IT IS NARROWER THAN WHAT IT REPLACES. `/cms/articles` answered any
+| signed-in account, which is why its index needed three arms to keep a student
+| out of other workspaces' drafts — and why it shipped for four months with the
+| arm missing. These five are gated on a permission a student cannot hold, so the
+| ordinary workspace scope is the entire filter and there is no second predicate
+| to get wrong.
+|
+| `throttle:authoring`, the named limiter the question bank and the grading board
+| already use: writing an article is the same kind of work as building a lesson —
+| a teacher saves dozens of times in an hour, and a limit that interrupts that is
+| a limit that loses their text.
+*/
+Route::middleware(['auth:sanctum', 'throttle:authoring'])->group(function (): void {
+    Route::get('/manage/articles', [ArticleController::class, 'index']);
+    Route::post('/manage/articles', [ArticleController::class, 'store']);
+    Route::get('/manage/articles/{article}', [ArticleController::class, 'show']);
+    Route::put('/manage/articles/{article}', [ArticleController::class, 'update']);
+    Route::delete('/manage/articles/{article}', [ArticleController::class, 'destroy']);
+});

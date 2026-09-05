@@ -401,7 +401,7 @@ and `POST /auth/register/student`).
 | `GET` · `POST` | `/billing/subscriptions` | the student, their own |
 | `GET` · `POST` · `PATCH` | `/manage/plans` | `plans.manage` (teacher) |
 | — | ~~`/admin/plans`~~ · ~~`/admin/plans/{uuid}/price`~~ | deleted 2026-09-05 — `PlanResource` in `/admin` is the only door onto `SetPlanPrice` |
-| `POST` | `/admin/subscriptions/{uuid}/cancel` | `billing.purchase.approve` (platform) |
+| — | ~~`/admin/subscriptions/{uuid}/cancel`~~ | deleted 2026-09-05 — `SubscriptionResource` in `/admin` calls the same `CancelSubscription` |
 
 ⚠️ **THE PRODUCT SELLS THREE PRICING SHAPES AND THIS TABLE IS ONE OF THEM.** A
 teacher's price changes with the subject, the year and the size of the room, so a
@@ -520,9 +520,13 @@ as credits; time is bought here.**
 |---|---|---|
 | `GET` | `/public/articles?page=&per_page=&category=&tag=` | anyone, `throttle:public` |
 | `GET` | `/public/articles/{slug}` | anyone, `throttle:public` |
-| — | ~~`/cms/articles…`~~ | deleted 2026-09-05 — six authoring routes no client called; `CmsArticleResource` in `/admin` is the only authoring door |
+| — | ~~`/cms/articles…`~~ | deleted 2026-09-05 — six authoring routes no client called |
+| `GET` · `POST` | `/manage/articles` | `cms.update` to list, `cms.create` to write, `throttle:authoring` |
+| `GET` · `PUT` · `DELETE` | `/manage/articles/{article}` | `cms.update` · `cms.delete`; `status` and `published_at` need `cms.publish` |
 
-Screens: `/blog` and `/blog/{slug}` in Next, `/admin` → «المدوّنة» (`CmsArticleResource`).
+Screens: `/blog` and `/blog/{slug}` in Next (public), `/manage/blog` in Next (the
+teacher's own authoring list), `/admin` → «المدوّنة» (`CmsArticleResource`, platform
+staff only — `mayAccessAdminPanel()` admits no workspace role).
 
 - **The public query starts from `publiclyListed()`, and the route takes a plain
   STRING.** `WorkspaceScope::apply()` adds no condition when the context is null,

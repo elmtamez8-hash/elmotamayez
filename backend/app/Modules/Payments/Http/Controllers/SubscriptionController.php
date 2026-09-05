@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Payments\Actions\CancelSubscription;
 use App\Modules\Payments\Actions\ListPlans;
 use App\Modules\Payments\Actions\PurchaseSubscription;
 use App\Modules\Payments\Http\Resources\OrderResource;
@@ -80,34 +79,5 @@ class SubscriptionController extends Controller
         }
 
         return response()->json(['data' => OrderResource::make($order)], 201);
-    }
-
-    /**
-     * Undo a purchase — a PLATFORM decision, because it reverses a captured
-     * payment. Resolved by uuid without the scope for the reason the pricing
-     * screen is: an officer's `last_workspace_id` is not the set they act on.
-     */
-    public function cancel(Request $request, string $uuid, CancelSubscription $action): JsonResponse
-    {
-        $subscription = Subscription::query()
-            ->withoutWorkspaceScope()
-            ->where('uuid', $uuid)
-            ->firstOrFail();
-
-        $this->authorize('cancel', $subscription);
-
-        $validated = $request->validate([
-            'reason' => ['required', 'string', 'max:255'],
-        ]);
-
-        try {
-            $cancelled = $action->handle($subscription, (string) $validated['reason']);
-        } catch (DomainException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
-        }
-
-        return response()->json([
-            'data' => SubscriptionResource::make($cancelled->load(['plan', 'workspace'])),
-        ]);
     }
 }
