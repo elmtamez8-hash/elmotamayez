@@ -73,6 +73,21 @@ final class PlatformSettings
         // outstanding with one teacher.
         'sessions.private_request_ttl_hours' => 'sessions.private_request_ttl_hours',
         'sessions.private_request_max_pending' => 'sessions.private_request_max_pending',
+        /*
+        | ⚠️ ADDED LATE — the fourth instance of this in the map, after the two
+        | store keys and the two billing ones. All four are read through
+        | `SessionSettings`, which passes the `config/sessions.php` fallback
+        | explicitly, so they have always RESOLVED correctly; what a missing key
+        | costs is `all()` and `flush()` — invisible to the panel's own listing,
+        | and left stale in the cache by a clear. `ManageSessionSettings` writes
+        | all four, and a key the panel writes while the map does not know it is
+        | the sharper half: the operator changes it and the flush beside the write
+        | does not invalidate it.
+        */
+        'sessions.ticket_ttl_minutes' => 'sessions.ticket_ttl_minutes',
+        'sessions.max_participants' => 'sessions.max_participants',
+        'sessions.recording_failure_alert_threshold' => 'sessions.recording_failure_alert_threshold',
+        'sessions.recording_failure_alert_window_hours' => 'sessions.recording_failure_alert_window_hours',
         'settlement.period_days' => 'settlement.period_days',
         'settlement.required_package_components' => 'settlement.required_package_components',
         'settlement.zero_attendance_compensation_enabled' => 'settlement.zero_attendance_compensation_enabled',
