@@ -256,7 +256,7 @@ ABOUT A LIST IS BULK BY SIGNATURE».
 |---|---|---|---|
 | `PaymentApproved` | Payments | `ActivateSubscription` | قائم — يتوسّعُ بوضعِ المجموعةِ ودفعِ وظيفةِ الحجز |
 | `SessionScheduled` | LiveSessions | `BookSubscribersOnScheduled` (جديد) | قائم — يجعلُ الحجزَ سلوكاً مستمرّاً (FR-040) |
-| `SessionsAssignedToCohort` (جديد) | LiveSessions | `BookSubscribersOnScheduled` | **⚠️ `AssignSessionsToCohort` لا يُطلِقُ شيئاً اليوم** (`update()` جَمعيٌّ لا يُقلِعُ حتّى أحداثَ النموذج)، وإلّا صمتتِ الميزةُ في مسارِ الإسناد |
+| `SessionsAssignedToCohort` (جديد) | LiveSessions | `BookSubscribersOnScheduled` | **نُفِّذَ في T048/T049 — والصفُّ يقرأُ حالةَ ما قبلَه**: كانَ `AssignSessionsToCohort` لا يُطلِقُ شيئاً (`update()` جَمعيٌّ لا يُقلِعُ حتّى أحداثَ النموذج)، وإلّا صمتتِ الميزةُ في مسارِ الإسناد. يُطلِقُه اليومَ داخلَ معاملتِه، حدثاً واحداً لـN حصّة |
 | `SessionDelivered` | LiveSessions | `AccrueTeachingUnits` (Settlement) | قائم — **يحملُ الآنَ `subscriptionSeats` إلى جانبِ `billableSeats`** |
 | `SubscriptionEnded` (جديد) | Payments | `ReleaseSeatsOnSubscriptionEnd` (جديد) | **يُطلَقُ من `SubscriptionAccess::close()` وحدَه** — لا من الوظيفةِ ولا من فعلِ الإلغاء |
 
