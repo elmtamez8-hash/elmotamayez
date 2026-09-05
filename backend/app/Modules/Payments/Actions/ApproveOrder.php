@@ -70,7 +70,12 @@ class ApproveOrder extends Action
                 ]);
 
             if ($claimed === 0) {
-                throw new DomainException('Only pending orders can be approved.');
+                // ⚠️ ARABIC, LIKE EVERY OTHER SENTENCE A HUMAN READS IN THIS
+                // PRODUCT. This is not an internal invariant: it is what the
+                // SECOND officer sees when two press «اعتمد» at the same
+                // instant, and spec 027 puts that button on a queue where a
+                // simultaneous press is ordinary rather than exotic.
+                throw new DomainException('اتُّخِذ القرار على هذا الطلب بالفعل.');
             }
 
             $this->mintTransaction($order);

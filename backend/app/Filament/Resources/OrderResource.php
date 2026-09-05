@@ -15,6 +15,7 @@ use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
+use DomainException;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Placeholder;
@@ -223,7 +224,27 @@ class OrderResource extends Resource
                     return;
                 }
 
-                app(ApproveOrder::class)->handle($record, self::actor(), request()->ip(), request()->userAgent());
+                /*
+                | ⚠️ THE CATCH IS NOT DEFENSIVE PROGRAMMING — IT IS THE ONLY WAY
+                | THE OFFICER LEARNS WHY. Two refusals are ORDINARY outcomes of
+                | pressing this button: the race loser («اتُّخِذ القرار على هذا
+                | الطلب بالفعل»), and — since spec 027 — a subscription whose
+                | group filled between the order and the review (FR-026). Both
+                | are `DomainException` with an Arabic sentence written for a
+                | reader; uncaught they become a stack trace over the panel.
+                |
+                | Caught HERE and not on the page, because there are two surfaces
+                | now: the orders screen and the pending-subscription queue. A
+                | try/catch around one of them guards what is pressed there and
+                | leaves the other bare.
+                */
+                try {
+                    app(ApproveOrder::class)->handle($record, self::actor(), request()->ip(), request()->userAgent());
+                } catch (DomainException $e) {
+                    Notification::make()->danger()->title($e->getMessage())->persistent()->send();
+
+                    return;
+                }
 
                 Notification::make()->success()->title('اعتُمد الطلب')->send();
             });
@@ -255,13 +276,21 @@ class OrderResource extends Resource
                     return;
                 }
 
-                app(RejectOrder::class)->handle(
-                    $record,
-                    self::actor(),
-                    (string) $data['reason'],
-                    request()->ip(),
-                    request()->userAgent(),
-                );
+                // Its twin's catch, for its twin's reason: the race loser reads a
+                // sentence rather than a trace.
+                try {
+                    app(RejectOrder::class)->handle(
+                        $record,
+                        self::actor(),
+                        (string) $data['reason'],
+                        request()->ip(),
+                        request()->userAgent(),
+                    );
+                } catch (DomainException $e) {
+                    Notification::make()->danger()->title($e->getMessage())->persistent()->send();
+
+                    return;
+                }
 
                 Notification::make()->warning()->title('رُفض الطلب')->send();
             });

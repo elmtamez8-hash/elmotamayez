@@ -144,6 +144,15 @@ class ReadPublicCourse extends Action
                 'description' => $cohort['description'],
                 'status' => $cohort['status'],
                 'schedule' => $schedules[$cohort['id']] ?? [],
+                /*
+                | ⚠️ COPIED EXPLICITLY, BECAUSE THIS SHAPE IS AN ALLOWLIST OF
+                | KEYS AND NOT A SPREAD (027 · FR-002). The directory answered
+                | `is_joinable` and this assembly quietly dropped it — every
+                | subscribe button in the product would have been absent, and
+                | `PublicExposureTest` cannot see it: that test fails on a key
+                | that is not ALLOWED, never on one that is MISSING.
+                */
+                'is_joinable' => $cohort['is_joinable'],
             ];
 
             /*

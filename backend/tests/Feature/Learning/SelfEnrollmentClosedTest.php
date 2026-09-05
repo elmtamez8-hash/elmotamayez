@@ -7,7 +7,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\Plan;
-use App\Modules\Tenancy\Support\WorkspaceContext;
+use App\Shared\Support\WorkspaceContext;
 use Illuminate\Testing\TestResponse;
 
 /*

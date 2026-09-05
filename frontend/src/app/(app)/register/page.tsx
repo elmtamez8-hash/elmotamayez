@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
+import { safeNext } from "@/lib/safe-next";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Alert } from "@/components/ui/Alert";
@@ -45,6 +46,7 @@ function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const invitation = searchParams.get("invitation");
+  const next = searchParams.get("next");
 
   const [form, setForm] = useState({
     first_name: "",
@@ -77,7 +79,18 @@ function RegisterForm() {
         return;
       }
 
-      router.push("/login");
+      /*
+       * ⚠️ THE INTENT SURVIVES THE SECOND HOP (027 · FR-005). A new account is
+       * NOT signed in here — it is sent to `/login` — so a `next` that stopped
+       * at this screen would be dropped by the very path FR-005 names out loud:
+       * «بعدَ التسجيلِ الجديدِ كما بعدَ الدخول». It is re-attached rather than
+       * acted on, and `/login` runs it through `safeNext()` at the redirect.
+       */
+      const carried = safeNext(next, "");
+
+      router.push(
+        carried === "" ? "/login" : `/login?next=${encodeURIComponent(carried)}`,
+      );
     } catch (err: unknown) {
       const found = fieldErrors(err);
       if (Object.keys(found).length > 0) setFields(found);

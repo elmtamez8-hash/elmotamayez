@@ -13,14 +13,14 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-type Search = { teacher?: string; trial?: string };
+type Search = { teacher?: string; trial?: string; next?: string };
 
 export default async function StudentSignupPage({
   searchParams,
 }: {
   searchParams: Promise<Search>;
 }) {
-  const { teacher, trial } = await searchParams;
+  const { teacher, trial, next } = await searchParams;
 
   // Fetched on the server so the year list is in the HTML: the form is useless
   // without it, and a client fetch would leave a blank select on a slow
@@ -60,7 +60,12 @@ export default async function StudentSignupPage({
         </p>
       )}
 
-      <StudentSignupForm schoolYears={schoolYears} regions={regions} teacherUuid={teacher} />
+      <StudentSignupForm
+        schoolYears={schoolYears}
+        regions={regions}
+        teacherUuid={teacher}
+        next={next}
+      />
     </div>
   );
 }

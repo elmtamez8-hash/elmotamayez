@@ -20,6 +20,19 @@ function createCourseWithLessons(int $workspaceId, int $lessonCount = 3, bool $s
         'workspace_id' => $workspaceId,
         'status' => 'published',
         'is_sequential' => $sequential,
+        /*
+        | ⚠️ FREE, EXPLICITLY — AND THE FACTORY DOES NOT SAY SO. Its default is
+        | `fake()->randomElement([0, 1999, 4999, 9999])`, so three runs in four
+        | built a PRICED course while these tests read as though the price were
+        | not part of the fixture at all.
+        |
+        | Since spec 027 · FR-004 that is the difference between 201 and 422:
+        | self-enrolment is for free courses only, because until then this route
+        | granted any authenticated account active access to any published course
+        | on the platform. A fixture that leaves the price to chance now passes or
+        | fails by the same chance. `SelfEnrollmentClosedTest` owns the other side.
+        */
+        'price_minor' => 0,
     ]);
 
     // Published at every level, explicitly. Since 016 a node that does not say

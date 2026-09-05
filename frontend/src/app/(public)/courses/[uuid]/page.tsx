@@ -246,7 +246,7 @@ export default async function CoursePage({
         <h2 className="text-lg font-extrabold text-ink">المجموعات المتاحة</h2>
 
         {course.cohorts.length > 0 ? (
-          <CohortList cohorts={course.cohorts} />
+          <CohortList courseUuid={course.uuid} cohorts={course.cohorts} />
         ) : (
           <EmptyState
             title="لا مواعيد معلَنة بعد"
@@ -263,6 +263,7 @@ export default async function CoursePage({
             courseUuid={course.uuid}
             availability={availability}
             minutes={course.private_session_minutes}
+            subscriptionAvailable={course.private_subscription_available}
           />
         ) : (
           <EmptyState

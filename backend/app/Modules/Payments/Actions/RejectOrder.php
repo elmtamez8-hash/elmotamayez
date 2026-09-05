@@ -56,7 +56,9 @@ class RejectOrder extends Action
             ]);
 
         if ($claimed === 0) {
-            throw new DomainException('Only pending orders can be rejected.');
+            // Arabic for the same reason as its twin in `ApproveOrder`: this is
+            // the sentence the officer who lost the race reads.
+            throw new DomainException('اتُّخِذ القرار على هذا الطلب بالفعل.');
         }
 
         $order->refresh();

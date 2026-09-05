@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { auth, setToken, setSessionUuid, errorMessage, fieldErrors } from "@/lib/api";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
+import { safeNext } from "@/lib/safe-next";
 import { homePathFor } from "@/lib/auth-context";
 import type { SchoolYearOption, Taxonomy } from "@/lib/public-api";
 import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
@@ -44,10 +45,19 @@ export function StudentSignupForm({
   schoolYears,
   regions,
   teacherUuid,
+  next,
 }: {
   schoolYears: SchoolYearOption[];
   regions: Taxonomy[];
   teacherUuid?: string;
+  /**
+   * Where the visitor was going before they were asked to sign up (027 · FR-005).
+   *
+   * ⚠️ THIS PATH DOES SIGN THE ACCOUNT IN, so the intent is honoured here rather
+   * than re-attached to another hop — and it goes through `safeNext()`, because
+   * the value came off the address bar.
+   */
+  next?: string;
 }) {
   const router = useRouter();
 
@@ -138,7 +148,7 @@ export function StudentSignupForm({
       setSessionUuid(session_uuid);
       // Came from a teacher's booking CTA — return there rather than to a
       // generic landing page, so the intent that started the signup survives it.
-      router.push(teacherUuid ? `/teachers/${teacherUuid}` : homePathFor(user));
+      router.push(safeNext(next, teacherUuid ? `/teachers/${teacherUuid}` : homePathFor(user)));
     } catch (err: unknown) {
       const fields = fieldErrors(err);
       setErrors(fields);

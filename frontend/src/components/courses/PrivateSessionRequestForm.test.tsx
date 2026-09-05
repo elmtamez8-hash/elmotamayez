@@ -100,22 +100,33 @@ describe("startsWithin", () => {
 });
 
 describe("PrivateSessionRequestForm", () => {
-  it("invites a signed-out reader to sign in instead of offering a button", async () => {
+  it("sends a signed-out reader to the same subscribe screen, not to a dead end", async () => {
     render(
       <PrivateSessionRequestForm
         courseUuid="c-1"
         availability={WINDOWS}
         minutes={45}
+        subscriptionAvailable
       />,
     );
 
-    expect(await screen.findByText(/سجّل الدخول/)).toBeTruthy();
+    /*
+     * ⚠️ THE SAME DESTINATION AS THE SIGNED-IN VISITOR, AND THAT IS THE POINT.
+     * The course page is public and is opened from a search engine, so most
+     * people who want to subscribe have no account — sending them to a bare
+     * `/login` and then to their dashboard is the complication FR-005 exists to
+     * remove. `/subscribe` sits inside the app shell, and the shell carries the
+     * whole address through sign-in and back (`safeNext`).
+     */
+    const link = await screen.findByRole("link", { name: "اشترك بحصص خاصة" });
+
+    expect(link.getAttribute("href")).toBe("/subscribe?course=c-1&mode=private");
     expect(screen.queryByRole("button", { name: "أرسل الطلب" })).toBeNull();
     // And it never asks the API a question about somebody who is not signed in.
     expect(nextForCourse).not.toHaveBeenCalled();
   });
 
-  it("invites a signed-in reader who did not buy the course to enrol first", async () => {
+  it("invites a signed-in reader who did not buy the course to SUBSCRIBE", async () => {
     localStorage.setItem("auth_token", "t");
     // A REAL `ApiError`: `errorCode` reads the BODY and `userMessage` narrows on
     // the class, so a plain object here would be a test that agrees with itself
@@ -132,11 +143,49 @@ describe("PrivateSessionRequestForm", () => {
         courseUuid="c-1"
         availability={WINDOWS}
         minutes={45}
+        subscriptionAvailable
       />,
     );
 
-    expect(await screen.findByText(/اشترك في هذا الكورس أوّلاً/)).toBeTruthy();
+    /*
+     * ⚠️ AN INVITATION, NOT A CLOSED DOOR (027 · FR-003). «اشترك في هذا الكورس
+     * أوّلاً» was a correct sentence with nowhere to go: the visitor looked for a
+     * way to subscribe, found none on the page, and the credits screen sent them
+     * back to the catalogue they had arrived from. That loop held the product's
+     * whole revenue path.
+     */
+    const link = await screen.findByRole("link", { name: "اشترك بحصص خاصة" });
+
+    expect(link.getAttribute("href")).toBe("/subscribe?course=c-1&mode=private");
     expect(screen.queryByRole("button", { name: "أرسل الطلب" })).toBeNull();
+  });
+
+  it("draws NO invitation when the teacher has nothing to sell", async () => {
+    /*
+     * ⚠️ A BUTTON HERE WOULD BE PRESSED AND THEN REFUSED with «هذه الباقة غير
+     * متاحة» — the exact shape this branch was written to avoid, arriving through
+     * the door meant to fix it. The server answers whether there is a priced
+     * one-to-one plan, because plans are behind auth and this page is anonymous.
+     */
+    localStorage.setItem("auth_token", "t");
+    nextForCourse.mockRejectedValue(
+      new ApiError("لا تملك تسجيلاً في هذا الكورس.", 403, {
+        message: "لا تملك تسجيلاً في هذا الكورس.",
+        code: "not_enrolled",
+      }),
+    );
+
+    render(
+      <PrivateSessionRequestForm
+        courseUuid="c-1"
+        availability={WINDOWS}
+        minutes={45}
+        subscriptionAvailable={false}
+      />,
+    );
+
+    expect(await screen.findByText(/لم يفتح المدرّس اشتراكاً بحصص خاصة/)).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "اشترك بحصص خاصة" })).toBeNull();
   });
 
   it("sends the chosen instant and nothing else", async () => {
@@ -148,6 +197,7 @@ describe("PrivateSessionRequestForm", () => {
         courseUuid="c-1"
         availability={WINDOWS}
         minutes={45}
+        subscriptionAvailable
       />,
     );
 
@@ -178,6 +228,7 @@ describe("PrivateSessionRequestForm", () => {
         courseUuid="c-1"
         availability={WINDOWS}
         minutes={90}
+        subscriptionAvailable
       />,
     );
 
@@ -194,6 +245,7 @@ describe("PrivateSessionRequestForm", () => {
         courseUuid="c-1"
         availability={WINDOWS}
         minutes={null}
+        subscriptionAvailable
       />,
     );
 
@@ -216,6 +268,7 @@ describe("PrivateSessionRequestForm", () => {
         courseUuid="c-1"
         availability={WINDOWS}
         minutes={45}
+        subscriptionAvailable
       />,
     );
 

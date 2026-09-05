@@ -538,11 +538,31 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
     });
   };
 
+  /*
+   * ⚠️ THE ADDRESS TRAVELS WITH THEM (027 · FR-005). This used to push a bare
+   * `/login`, which was harmless while every screen behind the shell was one a
+   * signed-in person had navigated to from inside — and became a silent loss the
+   * moment `/subscribe` arrived. A visitor who presses «اشترك في هذه المجموعة»
+   * on a public course page lands here, is bounced, signs in, and is deposited
+   * on their dashboard with the group they chose forgotten. That is exactly the
+   * «تعقيد» this feature exists to remove.
+   *
+   * ⚠️ AND THE QUERY IS PART OF IT. `/subscribe` carries its whole state in the
+   * address (`?course=…&cohort=…`), so a redirect that kept only the pathname
+   * would return them to a screen with nothing chosen.
+   *
+   * ⚠️ READ FROM `window.location`, NOT `useSearchParams()`. That hook forces a
+   * Suspense boundary at prerender time, and a build-time route error in this
+   * tree is a 500 on the WHOLE application rather than on one page. This effect
+   * runs only in the browser, after mount, where the location is simply there.
+   */
   useEffect(() => {
     if (!loading && !user) {
-      router.push("/login");
+      const intended = `${pathname}${window.location.search}`;
+
+      router.push(`/login?next=${encodeURIComponent(intended)}`);
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, pathname]);
 
   // Closed on every navigation. The drawer sits above the page on a phone, so
   // one left open covers the screen the link just went to.

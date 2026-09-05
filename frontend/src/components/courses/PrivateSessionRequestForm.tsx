@@ -101,9 +101,19 @@ export function PrivateSessionRequestForm({
   courseUuid,
   availability,
   minutes,
+  subscriptionAvailable,
 }: {
   courseUuid: string;
   availability: AvailabilityItem[];
+  /**
+   * Whether the teacher actually has a priced one-to-one plan (027 · FR-003).
+   *
+   * ⚠️ THE SERVER DECIDES IT. Drawing the invitation without asking produces a
+   * button that is pressed and answered «هذه الباقة غير متاحة» — the same
+   * pressed-then-refused shape this component's own refusal branch was written
+   * to avoid, arriving through the door meant to fix it.
+   */
+  subscriptionAvailable: boolean;
   /** Null on the course means the platform default — never «no private sessions». */
   minutes: number | null;
 }) {
@@ -159,19 +169,44 @@ export function PrivateSessionRequestForm({
 
   const slots = startsWithin(availability, length, new Date());
 
+  /*
+   * ⚠️ THIS BRANCH USED TO BE A CLOSED DOOR, AND IT WAS THE ONLY DOOR (027 · FR-003).
+   *
+   * «اشترك في هذا الكورس أوّلاً» was a correct sentence with nowhere to go: the
+   * visitor looked for a way to subscribe, found none on the page, and the
+   * credits screen sent them back to the catalogue they had come from. It is an
+   * invitation now — and it is the SAME screen for the signed-out visitor,
+   * because `/subscribe` is behind the app shell and carries them through login
+   * and back with their choice intact.
+   *
+   * The invitation is drawn only when there is something to buy: without a
+   * priced one-to-one plan the press is answered «هذه الباقة غير متاحة», which
+   * is the pressed-then-refused shape this very branch exists to avoid.
+   */
   if (enrolment === "signed-out" || enrolment === "not-enrolled") {
+    if (!subscriptionAvailable) {
+      return (
+        <Alert tone="info" title="الحصص الخاصة لطلاب الكورس">
+          لم يفتح المدرّس اشتراكاً بحصص خاصة في هذا الكورس بعد. تابع صفحته لتعرف حين
+          يفتحه.
+        </Alert>
+      );
+    }
+
     return (
-      <Alert tone="info" title="الحصص الخاصة لطلاب الكورس">
-        {enrolment === "signed-out" ? (
-          <>
-            <Link href="/login" className="font-bold underline">
-              سجّل الدخول
-            </Link>{" "}
-            ثم اشترك في الكورس لتطلب حصة خاصة مع المدرّس.
-          </>
-        ) : (
-          "اشترك في هذا الكورس أوّلاً، ثم يمكنك طلب حصة خاصة من مواعيد المدرّس المعلَنة."
-        )}
+      <Alert tone="info" title="اشترك بحصص خاصة">
+        <p>
+          الحصص الخاصة تُطلب باشتراك بالمدّة مع المدرّس. تختار الباقة وترفع إيصال
+          التحويل في شاشة واحدة، ويبدأ اشتراكك عند اعتماد الدفعة — لا قبله.
+        </p>
+        <p className="mt-3">
+          <Link
+            href={`/subscribe?course=${encodeURIComponent(courseUuid)}&mode=private`}
+            className="font-bold underline"
+          >
+            اشترك بحصص خاصة
+          </Link>
+        </p>
       </Alert>
     );
   }
