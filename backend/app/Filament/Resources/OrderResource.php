@@ -109,7 +109,9 @@ class OrderResource extends Resource
                         Placeholder::make('receipt')
                             ->hiddenLabel()
                             ->content(function (?Order $record): HtmlString|string {
-                                $media = $record?->getFirstMedia('receipt');
+                                // The LATEST, not the first: a rejected order may carry a replacement, and
+                                // the collection appends rather than replaces (FR-032).
+                                $media = $record?->latestReceipt();
 
                                 if ($media === null) {
                                     return 'لا إيصالَ على هذا الطلب.';

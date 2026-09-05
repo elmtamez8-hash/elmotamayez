@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * @property string $status
@@ -134,6 +135,40 @@ class Order extends BaseModel implements HasMedia
     public function isPending(): bool
     {
         return in_array($this->status, ['pending', 'under_review'], true);
+    }
+
+    /**
+     * Whether a receipt may still be uploaded onto this order (027 · FR-032).
+     *
+     * ⚠️ WIDER THAN `isPending()`, AND ONLY BY `rejected`. A refusal the payer
+     * cannot answer is a refusal they repeat — `ReceiptRejected`'s own docblock
+     * says so: «the same transfer, re-uploaded, refused again». Making them start
+     * a whole new order loses the reason, the amount they were quoted and the
+     * thread the officer was reading.
+     *
+     * ⚠️ AND `approved` STAYS OUT. `UploadPaymentReceipt`'s docblock is about
+     * that one: a second image onto an approved order replaces the document the
+     * approver actually read, and the audit trail then shows an approval of a
+     * file that arrived after it.
+     */
+    public function acceptsReceipt(): bool
+    {
+        return $this->isPending() || $this->status === 'rejected';
+    }
+
+    /**
+     * The receipt as it stands NOW — the last one uploaded.
+     *
+     * ⚠️ `getMedia()->last()`, NEVER `getFirstMedia()`. The collection is not
+     * `singleFile()`, so a re-upload APPENDS: with FR-032 letting a rejected
+     * order carry a new image, every reader that took the first one would show
+     * the officer the blurred photograph they already refused, and approve
+     * against it. Keeping both is deliberate — the rejected one is the record of
+     * what was rejected — so the fix is to read the latest, in one place.
+     */
+    public function latestReceipt(): ?Media
+    {
+        return $this->getMedia('receipt')->last();
     }
 
     public function isApproved(): bool

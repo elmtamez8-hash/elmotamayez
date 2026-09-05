@@ -60,7 +60,21 @@ class ReleaseSeatsOnTransfer implements ShouldHandleEventsAfterCommit, ShouldQue
             ->get();
 
         foreach ($bookings as $booking) {
-            $this->cancel->handle($booking, 'انتقلت إلى مجموعة أخرى.');
+            /*
+            | ⚠️ `release()`, NOT `handle()` (027 · FR-045أ). A transfer is a
+            | decision about a GROUP; the student did not cancel these seats and
+            | nothing here is theirs to be marked against. Two things follow from
+            | the status, and both were wrong before:
+            |
+            |  · A transfer landing past the cancellation deadline wrote
+            |    `cancelled_late` with `is_billable = true` — the system took the
+            |    seat away AND charged for it.
+            |  · The automatic booker skips a CANCELLED row on purpose, so a
+            |    student who moved A → B → A could never be booked into A's
+            |    sessions again. A released row is revivable; a cancelled one is
+            |    the student's own «do not put me back», and must stay.
+            */
+            $this->cancel->release($booking, 'انتقلت إلى مجموعة أخرى.');
         }
     }
 }

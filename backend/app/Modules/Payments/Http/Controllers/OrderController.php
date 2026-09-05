@@ -138,7 +138,10 @@ class OrderController extends Controller
      */
     public function downloadReceipt(Order $order): StreamedResponse
     {
-        $media = $order->getFirstMedia('receipt');
+        // ⚠️ THE LATEST. A rejected order may carry a replacement (FR-032) and the
+        // collection appends — serving the first would hand the approver the very
+        // image they refused, and record an approval against it.
+        $media = $order->latestReceipt();
 
         abort_if($media === null, 404);
 

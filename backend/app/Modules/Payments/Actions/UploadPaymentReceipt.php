@@ -63,7 +63,7 @@ class UploadPaymentReceipt extends Action
             throw new DomainException('You can only upload receipts for your own orders.');
         }
 
-        if (! $order->isPending()) {
+        if (! $order->acceptsReceipt()) {
             throw new DomainException('لا يمكن رفع إيصال على طلب صدر فيه قرار بالفعل.');
         }
 
@@ -73,8 +73,20 @@ class UploadPaymentReceipt extends Action
 
         $order->addMedia($file)->toMediaCollection('receipt');
 
+        /*
+        | ⚠️ A REJECTED ORDER COMES BACK TO `under_review`, NOT TO A NEW ORDER
+        | (027 · FR-032). The refusal reason, the amount that was quoted and the
+        | subscription snapshot all live on this row; starting again would lose
+        | all three and put a second pending order beside the first. Both decision
+        | Actions claim on `whereIn('pending','under_review')`, so a re-opened
+        | order is decidable again by exactly the same path.
+        |
+        | ⚠️ AND `rejection_reason` IS CLEARED. Left standing it reads, beside a
+        | fresh receipt, as though the new one had already been refused.
+        */
         $order->update([
             'status' => 'under_review',
+            'rejection_reason' => null,
             'metadata' => [...($order->metadata ?? []), 'method' => $method->value],
         ]);
 

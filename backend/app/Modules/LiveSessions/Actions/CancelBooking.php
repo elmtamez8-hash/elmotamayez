@@ -60,4 +60,52 @@ class CancelBooking extends Action
 
         return $booking->refresh();
     }
+
+    /**
+     * The system takes a seat back — the student did nothing (027 · FR-045).
+     *
+     * ⚠️ A NAMED SECOND ENTRY, NOT A FLAG ON `handle()`. `handle($booking, $reason, true)`
+     * says nothing at its call site and is read backwards by the first caller
+     * written after it; this repository's `BookSeat` wrote that rule down for the
+     * same shape.
+     *
+     * ⚠️ AND IT WRITES `Released`, WHICH IS THE WHOLE POINT. The enum already
+     * carries the distinction and says why: «the student did nothing — their
+     * eligibility lapsed and the system took the seat back». Filing a system
+     * release under a cancellation puts a mark against somebody who cancelled
+     * nothing — and worse, it makes the seat unrecoverable: the auto-booker skips
+     * a cancelled row on purpose (FR-044), so a student who lapses, is released,
+     * then renews would never be booked into those sessions again. Paid, unbooked,
+     * silent.
+     *
+     * ⚠️ AND THE DEADLINE IS NOT ASKED. `handle()` bills a late cancellation
+     * because the student chose the moment; nobody chose this one. Taking the
+     * seat away AND charging for it is the worst of both, and `isBillable()`
+     * already answers false for `Released` — this keeps the column agreeing with
+     * the enum.
+     */
+    public function release(SessionBooking $booking, string $reason): SessionBooking
+    {
+        if ($booking->status !== BookingStatus::Booked) {
+            // Not an error: two sweeps can reach the same seat, and a release
+            // that has already happened is the outcome asked for.
+            return $booking;
+        }
+
+        DB::transaction(function () use ($booking, $reason): void {
+            $booking->forceFill([
+                'status' => BookingStatus::Released,
+                'is_billable' => false,
+                'cancelled_at' => now(),
+                'cancellation_reason' => $reason,
+            ])->save();
+
+            ClassSession::query()
+                ->whereKey($booking->class_session_id)
+                ->where('seats_taken', '>', 0)
+                ->decrement('seats_taken');
+        });
+
+        return $booking->refresh();
+    }
 }

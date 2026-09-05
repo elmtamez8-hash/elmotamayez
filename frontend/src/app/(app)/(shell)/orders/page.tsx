@@ -10,7 +10,16 @@ import { StatusBadge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Field";
 import { Table, type Column } from "@/components/ui/Table";
 
-const OPEN_STATUSES = ["pending", "under_review"];
+/*
+ * Statuses that still take a receipt.
+ *
+ * ⚠️ `rejected` IS ON THE LIST (027 · FR-032), AND `approved` IS NOT. A refusal
+ * the payer cannot answer is a refusal they repeat — the same transfer, uploaded
+ * again as a NEW order, losing the reason, the amount they were quoted and the
+ * thread the officer was reading. An approved order is the opposite case: a
+ * second image there replaces the document the approver actually read.
+ */
+const OPEN_STATUSES = ["pending", "under_review", "rejected"];
 
 /*
  * ⚠️ THE BUYER'S SCREEN, AND THE APPROVE/REJECT BUTTONS LEFT IT ON 2026-09-03.
@@ -126,6 +135,13 @@ export default function OrdersPage() {
               تُراجَع خلال {o.review_sla_hours} ساعة
             </span>
           )}
+          {/* ⚠️ THE REASON WAS ON THE PAYLOAD AND ON NO SCREEN. `rejection_reason`
+              has been in the `Order` type all along and was rendered nowhere, so
+              a payer read «مرفوض» and had to ask by message what was wrong with
+              it — while the officer had typed the answer (FR-032). */}
+          {o.status === "rejected" && o.rejection_reason !== null && (
+            <span className="text-xs text-danger-ink">{o.rejection_reason}</span>
+          )}
         </div>
       ),
     },
@@ -133,7 +149,10 @@ export default function OrdersPage() {
       key: "receipt",
       header: "الإيصال",
       render: (o) =>
-        o.receipt_url ? (
+        // ⚠️ A REJECTED ORDER SHOWS THE UPLOAD, NOT THE OLD LINK. Its receipt
+        // exists, so the view branch would win and the payer would be left
+        // looking at the image that was refused with no way to replace it.
+        o.receipt_url && !(o.is_mine && o.status === "rejected") ? (
           <a
             href={o.receipt_url}
             target="_blank"

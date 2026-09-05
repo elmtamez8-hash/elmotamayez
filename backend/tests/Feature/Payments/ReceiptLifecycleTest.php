@@ -102,13 +102,81 @@ it('moves an uploaded receipt to under review and records the method', function 
         ->and($order->metadata['method'] ?? null)->toBe('mobile_wallet');
 });
 
-it('refuses a receipt on an order that has already been decided', function (): void {
+it('refuses a receipt on an order that has already been APPROVED', function (): void {
+    /*
+    | ⚠️ THE REFUSAL IS ABOUT `approved`, AND ONLY ABOUT IT. A second image onto
+    | an approved order replaces the document the approver actually read, and the
+    | audit trail then shows an approval of a file that arrived after it. A
+    | REJECTED order is the opposite case — see below.
+    */
     uploadReceipt($this->order);
 
     app(ApproveOrder::class)->handle($this->order->refresh(), $this->owner);
 
     expect(fn () => uploadReceipt($this->order->refresh()))
         ->toThrow(DomainException::class);
+});
+
+// Spec 027 · FR-032 — the refusal a payer can answer -------------------------
+
+it('lets a rejected order carry a new receipt on the SAME row', function (): void {
+    /*
+    | ⚠️ THE SAME ORDER, NOT A NEW ONE. `ReceiptRejected`'s own docblock says why
+    | the reason must reach the payer: «a rejection the payer cannot read is a
+    | rejection they will repeat — the same transfer, re-uploaded, refused
+    | again». Until this change the product had the reason and no way to act on
+    | it: the upload was refused, so the payer's only route was a second order,
+    | which loses the reason, the quoted amount and the subscription snapshot,
+    | and leaves two pending rows for one payment.
+    */
+    uploadReceipt($this->order);
+    app(RejectOrder::class)->handle($this->order->refresh(), $this->owner, 'الصورة غير واضحة');
+
+    expect($this->order->refresh()->status)->toBe('rejected')
+        ->and($this->order->rejection_reason)->toBe('الصورة غير واضحة');
+
+    $order = uploadReceipt($this->order->refresh());
+
+    expect($order->status)->toBe('under_review')
+        // ⚠️ CLEARED. Left standing beside a fresh receipt it reads as though the
+        // new one had already been refused.
+        ->and($order->rejection_reason)->toBeNull();
+});
+
+it('shows the approver the LATEST receipt, not the one they refused', function (): void {
+    /*
+    | ⚠️ THE COLLECTION APPENDS — IT IS NOT `singleFile()`. Every reader took
+    | `getFirstMedia('receipt')`, which was harmless while a decided order could
+    | never receive a second image and becomes the sharpest edge in this feature
+    | the moment one can: the officer opens the blurred photograph they already
+    | rejected and approves against it. Both files are KEPT on purpose — the
+    | rejected one is the record of what was rejected — so the fix is that every
+    | reader takes the last.
+    */
+    uploadReceipt($this->order);
+    app(RejectOrder::class)->handle($this->order->refresh(), $this->owner, 'غير واضحة');
+
+    $first = $this->order->refresh()->latestReceipt();
+
+    uploadReceipt($this->order->refresh());
+
+    $order = $this->order->refresh();
+
+    expect($order->getMedia('receipt'))->toHaveCount(2)
+        ->and($order->latestReceipt()?->getKey())->not->toBe($first?->getKey());
+});
+
+it('lets the officer decide the re-opened order exactly as before', function (): void {
+    // Both decision Actions claim on `whereIn('pending','under_review')`, so a
+    // re-opened order is decidable again through the very same path — no second
+    // branch, no second spelling.
+    uploadReceipt($this->order);
+    app(RejectOrder::class)->handle($this->order->refresh(), $this->owner, 'غير واضحة');
+    uploadReceipt($this->order->refresh());
+
+    app(ApproveOrder::class)->handle($this->order->refresh(), $this->owner);
+
+    expect($this->order->refresh()->status)->toBe('approved');
 });
 
 it('refuses a receipt claiming it was paid by gateway', function (): void {

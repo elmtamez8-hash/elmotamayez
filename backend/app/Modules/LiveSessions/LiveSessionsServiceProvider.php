@@ -15,6 +15,7 @@ use App\Modules\LiveSessions\Listeners\ArchiveExpiredRecordingLessons;
 use App\Modules\LiveSessions\Listeners\ExpireRequestsOnTeacherDeparture;
 use App\Modules\LiveSessions\Listeners\NotifySeatHolders;
 use App\Modules\LiveSessions\Listeners\PublishRecordingAsLesson;
+use App\Modules\LiveSessions\Listeners\ReleaseSeatsOnSubscriptionEnd;
 use App\Modules\LiveSessions\Listeners\ReleaseSeatsOnTransfer;
 use App\Modules\LiveSessions\Listeners\SendAttendanceCorrection;
 use App\Modules\LiveSessions\Listeners\UpdateTeacherCounters;
@@ -38,6 +39,7 @@ use App\Modules\LiveSessions\Support\LiveSessionsPersonalData;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Media\Events\MediaAssetReady;
 use App\Modules\Media\Events\MediaAssetsExpired;
+use App\Modules\Payments\Events\SubscriptionEnded;
 use App\Shared\Contracts\CohortScheduleDirectory;
 use App\Shared\Contracts\FreezeDirectory;
 use App\Shared\Contracts\SessionAttendanceDirectory;
@@ -182,6 +184,18 @@ class LiveSessionsServiceProvider extends Module
         | `CancelBooking`'s job, on this side of the wall.
         */
         Event::listen(CohortMembershipOpened::class, ReleaseSeatsOnTransfer::class);
+
+        /*
+        | Spec 027 · FR-045 — a subscription that ended gives its future seats
+        | back. Nothing did this before: expiry closed the enrolments and
+        | cancellation reversed the money, and both left the bookings standing —
+        | so the student was charged a credit for each remaining seat at delivery,
+        | past the floor, for sessions they were already locked out of.
+        |
+        | Payments announces that it ended and knows nothing about a seat;
+        | releasing one is `CancelBooking`'s job, on this side of the wall.
+        */
+        Event::listen(SubscriptionEnded::class, ReleaseSeatsOnSubscriptionEnd::class);
 
         // A report already in a guardian's hands is corrected rather than left
         // standing (FR-037).

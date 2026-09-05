@@ -311,3 +311,27 @@ it('names the teacher from the workspace owner, read once and frozen', function 
     expect(SubscriptionIntent::fromOrder($order)?->teacherName)
         ->toBe(Workspace::query()->withoutGlobalScopes()->find($this->workspace->getKey())?->owner?->name);
 });
+
+it('is approved at the amount captured when it was ordered, not the new price', function (): void {
+    /*
+    | Spec 027 · US4·٣ — a manual transfer takes days, and a teacher may
+    | legitimately reprice inside that lag. Reading the plan at approval would
+    | charge the student a number they were never shown.
+    |
+    | The guard is `amount_minor` on the order and it is not new; what is new is
+    | that it is now MEASURED, because 027 is what puts days between the order and
+    | the decision as a matter of course.
+    */
+    postSubscriptionOrder($this->buyer, [
+        'plan_uuid' => (string) $this->privatePlan->uuid,
+        'mode' => 'private',
+    ])->assertCreated();
+
+    $order = Order::query()->withoutWorkspaceScope()->latest('id')->firstOrFail();
+
+    $this->privatePlan->forceFill(['price_minor' => 500_000, 'title' => 'اسم آخر'])->save();
+
+    expect((int) $order->refresh()->amount_minor)->toBe(90_000)
+        // And the snapshot keeps the NAME the buyer read, too (FR-014).
+        ->and(SubscriptionIntent::fromOrder($order)?->planTitle)->toBe('الشهري — فردي');
+});

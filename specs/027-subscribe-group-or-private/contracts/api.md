@@ -170,8 +170,8 @@ Order::query()->withoutWorkspaceScope()
 ```php
 namespace App\Shared\Contracts;
 
-// جديد — يُنفِّذُه Payments\Support\SubscriptionEligibility، يستهلكُه LiveSessions
-interface SubscriberDirectory
+// جديد — يُنفِّذُه Payments\Support\SubscriptionEligibility، يستهلكُه LiveSessions وLearning
+interface SubscriptionDirectory
 {
     /**
      * أيُّ هؤلاءِ يحملُ اشتراكاً حيّاً يغطّي هذا الكورسَ بهذا النوعِ في تلك اللحظة؟
@@ -185,6 +185,12 @@ interface SubscriberDirectory
         string $sessionType,
         DateTimeInterface $moment,
     ): array;
+
+    /** أيُشترى هذا الكورسُ أصلاً؟ — سعرٌ مفرَدٌ موجبٌ أو باقةٌ قابلةٌ للبيعِ تغطّيه (FR-004). */
+    public function courseRequiresPurchase(int $courseId): bool;
+
+    /** أثمّةَ باقةٌ قابلةٌ للبيعِ تصلُ هذا الكورس، بنوعِ حصّةٍ بعينِه؟ (FR-003) */
+    public function hasSellablePlanFor(int $courseId, ?string $sessionType = null): bool;
 }
 
 // قائم — تُضافُ دالّةٌ واحدة (يُنفِّذُه Learning، يسألُه Payments في الفحصِ التمهيديّ)
@@ -252,6 +258,21 @@ ABOUT A LIST IS BULK BY SIGNATURE».
 | `SessionScheduled` | LiveSessions | `BookSubscribersOnScheduled` (جديد) | قائم — يجعلُ الحجزَ سلوكاً مستمرّاً (FR-040) |
 | `SessionsAssignedToCohort` (جديد) | LiveSessions | `BookSubscribersOnScheduled` | **⚠️ `AssignSessionsToCohort` لا يُطلِقُ شيئاً اليوم** (`update()` جَمعيٌّ لا يُقلِعُ حتّى أحداثَ النموذج)، وإلّا صمتتِ الميزةُ في مسارِ الإسناد |
 | `SessionDelivered` | LiveSessions | `AccrueTeachingUnits` (Settlement) | قائم — **يحملُ الآنَ `subscriptionSeats` إلى جانبِ `billableSeats`** |
+| `SubscriptionEnded` (جديد) | Payments | `ReleaseSeatsOnSubscriptionEnd` (جديد) | **يُطلَقُ من `SubscriptionAccess::close()` وحدَه** — لا من الوظيفةِ ولا من فعلِ الإلغاء |
+
+**⚠️ ولماذا `SubscriptionEnded` من `SubscriptionAccess::close()` لا من نداءَيه.**
+ذلك الملفُّ قائمٌ لأنّ الانتهاءَ والإلغاءَ **فعلٌ واحدٌ بسببَين**، وتعليقُه يقولُ ما يحدثُ حينَ
+يُكتَبُ الاثنانِ مرّتَين: «يفترقانِ بشرطٍ واحدٍ عندَ أوّلِ تغيير، واتّجاهُ الفشلِ صامت». وتحريرُ
+المقاعدِ جزءٌ من الفعلِ نفسِه، فدفعٌ يُضافُ إلى `ExpireSubscriptionsJob` وحدَه يتركُ المشترِكَ
+**الملغى** ممسكاً بمقاعدِ الشهرِ القادم، ولا شيءَ يقول.
+
+**⚠️ والحدثُ يحملُ الكورساتِ لأنّ التسجيلاتِ تكونُ قد أُغلِقتْ قبلَ وصولِ المستمع** — تماماً كما
+يحملُ `SessionCancelled` أصحابَ مقاعدِه. ولا يُطلَقُ شيءٌ إن لم يُغلَقْ تسجيلٌ واحد: كورسٌ
+اشتُرِيَ مفرَداً يبقى تسجيلُه قائماً بالتصميم، ومقاعدُه ليست ملكَ هذا الاشتراكِ ليأخذَها.
+
+**⚠️ ولا يُستعمَلُ `ReleaseIneligibleBookings`** رغمَ أنّه الخيارُ البديهيّ: يُحرِّرُ على
+`BookingEligibility::allows()` التي تكذبُ أثناءَ **أيِّ** فترةِ تجميدٍ تغطّي الطالب، فإعلانُ
+عطلةٍ كانَ سيُحرِّرُ مقاعدَ حصصٍ خارجَ العطلةِ كما داخلَها. وهو بلا مستدعٍ إنتاجيٍّ واحدٍ اليوم.
 
 **⚠️ ولماذا حدثٌ ثانٍ لا إعادةُ إطلاقِ `SessionScheduled` من مسارِ الإسناد.** «أُنشئتْ حصّة»
 و«أُسنِدتْ حصّةٌ إلى مجموعة» معنيان، والحدثُ الواحدُ لهما هو انقسامُ `SessionCompleted` /

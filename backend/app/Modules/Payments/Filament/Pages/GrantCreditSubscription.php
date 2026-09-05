@@ -230,7 +230,7 @@ class GrantCreditSubscription extends Page implements HasTable
      */
     private static function receiptLink(Order $order): HtmlString|string
     {
-        $media = $order->getFirstMedia('receipt');
+        $media = $order->latestReceipt();
 
         if ($media === null) {
             return 'لا إيصال';
