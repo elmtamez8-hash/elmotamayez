@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { api, fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { roleLabel } from "@/lib/labels";
+import { P, can } from "@/lib/permissions";
+import { useAuth } from "@/lib/auth-context";
 import type { Workspace } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
 import { Alert } from "@/components/ui/Alert";
@@ -19,6 +21,7 @@ interface Member {
   email: string;
   role: string;
   role_label: string | null;
+  is_owner: boolean;
 }
 
 const ROLE_OPTIONS = [
@@ -33,7 +36,11 @@ function pickCurrent(workspaces: Workspace[] | undefined): Workspace | undefined
 }
 
 export default function MembersPage() {
+  const { user } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
+  const [workspaceUuid, setWorkspaceUuid] = useState<string | null>(null);
+  const [savingUuid, setSavingUuid] = useState<string | null>(null);
+  const [roleError, setRoleError] = useState("");
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -54,6 +61,8 @@ export default function MembersPage() {
       .then(async (res) => {
         const current = pickCurrent(res.data);
         if (!current) return setMembers([]);
+
+        setWorkspaceUuid(current.uuid);
 
         const detail = await api.get<{ data: Member[] }>(
           `/workspaces/${current.uuid}/members`,
@@ -95,6 +104,38 @@ export default function MembersPage() {
     }
   };
 
+  /*
+   * ⛔ THE CONTROL `members.update` WAS NAMED AFTER AND NEVER BUILT.
+   *
+   * Until now the only way to change somebody's role was to remove them and
+   * invite them again — they lose their membership record and get a fresh
+   * invitation in their inbox for a job they already hold. The permission was on
+   * the roles screen the whole time, reading as a capability the product had.
+   *
+   * ⚠️ The list is reloaded from the server rather than patched in place: the
+   * role lives in two tables on the other side (the membership row and spatie's
+   * team-scoped roles) and the server is the only thing that has seen both.
+   */
+  const changeRole = async (member: Member, next: string) => {
+    if (!workspaceUuid || next === member.role) return;
+
+    setSavingUuid(member.uuid);
+    setRoleError("");
+
+    try {
+      await api.patch(`/workspaces/${workspaceUuid}/members/${member.uuid}`, { role: next });
+      load();
+    } catch (err: unknown) {
+      // The owner's row and an expired two-factor grace both land here, each
+      // with its own sentence from the server. Never raw.
+      setRoleError(userMessage(err));
+    } finally {
+      setSavingUuid(null);
+    }
+  };
+
+  const canChangeRoles = can(user, P.membersUpdate);
+
   const columns: Column<Member>[] = [
     {
       key: "name",
@@ -113,7 +154,30 @@ export default function MembersPage() {
     {
       key: "role",
       header: "الدور",
-      render: (m) => <Badge tone="info">{roleLabel(m.role, m.role_label)}</Badge>,
+      /*
+       * ⚠️ THE OWNER KEEPS THE BADGE, AND THE SERVER IS WHY. Their role may not
+       * change — nothing writes `owner_user_id`, so demoting them would leave the
+       * person who owns the place holding a student's permissions inside it. The
+       * answer comes from the payload (`is_owner`) rather than being re-derived
+       * here, so the control is offered exactly where the server would say yes.
+       */
+      render: (m) =>
+        canChangeRoles && !m.is_owner ? (
+          <SelectField
+            id={`role_${m.uuid}`}
+            // Named after the person, not after the column: a screen reader
+            // meets this control with no header row for context, and "الدور"
+            // repeated down a table says which field but never whose.
+            label={`دور ${m.name}`}
+            labelHidden
+            value={m.role}
+            onChange={(next) => void changeRole(m, next)}
+            options={ROLE_OPTIONS}
+            disabled={savingUuid === m.uuid}
+          />
+        ) : (
+          <Badge tone="info">{roleLabel(m.role, m.role_label)}</Badge>
+        ),
     },
   ];
 
@@ -198,6 +262,8 @@ export default function MembersPage() {
           </div>
         </Card>
       )}
+
+      {roleError !== "" && <Alert tone="danger" title={roleError} />}
 
       <Table
         columns={columns}

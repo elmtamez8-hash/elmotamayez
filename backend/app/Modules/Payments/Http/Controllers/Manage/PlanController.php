@@ -6,7 +6,6 @@ namespace App\Modules\Payments\Http\Controllers\Manage;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Payments\Actions\SavePlan;
-use App\Modules\Payments\Http\Controllers\Admin\PlanPricingController;
 use App\Modules\Payments\Http\Requests\SavePlanRequest;
 use App\Modules\Payments\Http\Resources\PlanResource;
 use App\Modules\Payments\Models\Plan;
@@ -18,8 +17,10 @@ use Illuminate\Http\Request;
 /**
  * The teacher's half of a plan: how long it lasts and what it covers (FR-025).
  *
- * The price is not here and cannot be reached from here — see
- * {@see PlanPricingController}.
+ * The price is not here and cannot be reached from here. It is written by
+ * `SetPlanPrice` under the platform permission `plans.price`, and the only door
+ * onto that Action is `PlanResource` in the panel — the HTTP one was deleted on
+ * 2026-09-05 as a twin nothing called.
  */
 class PlanController extends Controller
 {

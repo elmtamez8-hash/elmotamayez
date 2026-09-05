@@ -8,7 +8,6 @@ use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\RolePermissionMatrix;
-use App\Modules\Tenancy\Support\Roles;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Laravel\Sanctum\Sanctum;
 
@@ -76,72 +75,30 @@ it('keeps `plans.price` out of every tenant role', function (): void {
         ->and($this->owner->can(Permissions::PLANS_MANAGE))->toBeTrue();
 });
 
-it('refuses a teacher the pricing route and allows a platform officer', function (): void {
-    Sanctum::actingAs($this->owner);
-
-    $this->patchJson("/api/v1/admin/plans/{$this->plan->uuid}/price", ['price_minor' => 30_000])
-        ->assertForbidden();
-
-    Sanctum::actingAs(makePlatformStaff(Roles::FINANCE_ADMIN));
-
-    $this->patchJson("/api/v1/admin/plans/{$this->plan->uuid}/price", ['price_minor' => 30_000])
-        ->assertOk()
-        ->assertJsonPath('data.price_minor', 30_000);
-});
-
-it('reaches a plan in a workspace the officer has nothing to do with', function (): void {
-    /*
-    | ⚠️ TWO WORKSPACES, OR THIS TEST PROVES NOTHING. `WorkspaceContext::id()`
-    | falls back to `users.last_workspace_id` for a platform officer exactly as
-    | for anybody else, so a scoped read and an unscoped one agree perfectly on a
-    | single-workspace fixture — and the scoped version answers 404 for every
-    | teacher but one in production. The audit chain already shipped that once.
-    */
-    [$other, $otherOwner] = $this->createWorkspaceWithOwner();
-    $this->setCurrentWorkspace($other, $otherOwner);
-
-    $elsewhere = Plan::factory()->unpriced()->create(['workspace_id' => $other->getKey()]);
-
-    $officer = makePlatformStaff(Roles::FINANCE_ADMIN);
-    $officer->forceFill(['last_workspace_id' => $this->workspace->getKey()])->save();
-
-    Sanctum::actingAs($officer);
-
-    $this->patchJson("/api/v1/admin/plans/{$elsewhere->uuid}/price", ['price_minor' => 12_000])
-        ->assertOk();
-
-    // And the queue shows BOTH, not just the officer's fallback workspace.
-    $this->getJson('/api/v1/admin/plans')
-        ->assertOk()
-        ->assertJsonCount(2, 'data');
-});
-
-it('does not move a price that has already been agreed', function (): void {
-    /*
-    | FR-030. There is no query from the pricing Action to a subscription at all —
-    | the snapshot on `subscriptions.price_minor` is what makes that safe, and it
-    | is measured on the buying path in SubscriptionActivationTest.
-    */
-    $officer = makePlatformStaff(Roles::FINANCE_ADMIN);
-
-    Sanctum::actingAs($officer);
-
-    $this->patchJson("/api/v1/admin/plans/{$this->plan->uuid}/price", ['price_minor' => 30_000])->assertOk();
-    $this->patchJson("/api/v1/admin/plans/{$this->plan->uuid}/price", ['price_minor' => 45_000])->assertOk();
-
-    expect((int) $this->plan->refresh()->price_minor)->toBe(45_000);
-});
-
-it('takes a plan off sale when the price is cleared', function (): void {
-    $officer = makePlatformStaff(Roles::FINANCE_ADMIN);
-
-    Sanctum::actingAs($officer);
-
-    $this->patchJson("/api/v1/admin/plans/{$this->plan->uuid}/price", ['price_minor' => 30_000])->assertOk();
-    $this->patchJson("/api/v1/admin/plans/{$this->plan->uuid}/price", ['price_minor' => null])->assertOk();
-
-    expect($this->plan->refresh()->isSellable())->toBeFalse();
-});
+/*
+| ⛔ THE FOUR `/admin/plans` CASES LEFT WITH THEIR ROUTES — deleted 2026-09-05.
+|
+| `GET /admin/plans` and `PATCH /admin/plans/{uuid}/price` were a second door
+| onto `PlanResource`, called by no file under `frontend/src`. `PlanPanelTest`
+| twins every claim they carried: the screen opens for the platform and for
+| nobody in a tenant role, it shows every teacher's plan and not just the
+| officer's own fallback workspace (the two-workspace fixture that is the whole
+| point of such a test), it actually WRITES the price — `price_minor` is not
+| fillable, so mass assignment would silently not — and clearing the price takes
+| the plan off sale.
+|
+| ⚠️ AND THE PANEL IS A COMPLETE TWIN BECAUSE OF ONE LINE:
+| `EditPlan::handleRecordUpdate()` calls `SetPlanPrice`, so the refusal of a
+| negative price and the `plan.priced` activity-log entry come with it. Had it
+| written the column directly, deleting the route would have deleted the audit
+| trail of every repricing on the platform.
+|
+| FR-030 — a live subscription's price does not move when the plan is repriced —
+| is measured where it is actually decided, on the buying path in
+| `SubscriptionActivationTest`: `subscriptions.price_minor` is a snapshot written
+| at activation from the ORDER, and there is no query from the pricing Action to
+| a subscription at all.
+*/
 
 it('refuses a coverage course that belongs to another teacher', function (): void {
     // `exists:courses,uuid` is a raw query with no global scope on it, so the

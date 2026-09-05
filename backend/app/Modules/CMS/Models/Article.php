@@ -168,8 +168,10 @@ class Article extends BaseModel
      * that 404s, and every share of it is a dead link. Renaming the article
      * renames the heading and nothing else. A teacher who deliberately sends a new
      * slug still gets one — the attribute is mass-assigned and this hook simply
-     * does not overwrite it — and `CreateArticleRequest` is what refuses a
-     * collision with a sentence instead of a raw integrity error.
+     * does not overwrite it — and the panel's own `unique()` on that field is
+     * what refuses a collision with a sentence instead of a raw integrity error.
+     * (It lived on `CreateArticleRequest` until the API was deleted on
+     * 2026-09-05, and moved with the capability rather than dying with it.)
      */
     public function getSlugOptions(): SlugOptions
     {

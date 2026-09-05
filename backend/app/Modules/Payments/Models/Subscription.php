@@ -30,6 +30,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonInterface $ends_on
  * @property CarbonInterface $effective_ends_on
  * @property SubscriptionStatus $status
+ *
+ * ⚠️ The two claimed timestamps are cast to dates and were typed as the raw
+ * column, so every reader of them was a string as far as the analyser knew — and
+ * `->diffForHumans()` on one is an error nobody sees until a screen finally reads
+ * it. They are not `$fillable` (both are claimed by conditional UPDATEs); being
+ * un-fillable is not a reason to leave them undeclared.
+ * @property CarbonInterface|null $cancelled_at
+ * @property CarbonInterface|null $expiring_notified_at
  */
 class Subscription extends BaseModel
 {

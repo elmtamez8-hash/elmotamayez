@@ -110,9 +110,30 @@ class CmsArticleResource extends Resource
                     | dead link — but a teacher who renames an article and expects
                     | the address to follow will otherwise think it is broken.
                     */
+                    /*
+                    | ⚠️ UNIQUE ACROSS THE WHOLE PLATFORM, INCLUDING TRASHED ROWS,
+                    | AND WITHOUT THIS THE ANSWER TO A COLLISION IS A RAW 500. The
+                    | rule used to live on `CreateArticleRequest`, which went with
+                    | the API on 2026-09-05 — and this field carried none, so
+                    | deleting that door would have downgraded a sentence a teacher
+                    | can act on into an integrity error on a form.
+                    |
+                    | `unique()` with a table NAME builds `Rule::unique()`, a raw
+                    | query: no global scope and no `deleted_at` clause, which is
+                    | exactly the shape of the index. Both matter — the slug is
+                    | unique platform-wide because `/blog/{slug}` is otherwise
+                    | ambiguous between two teachers, and a trashed row still holds
+                    | its address against the index.
+                    |
+                    | Auto-generation never reaches it: spatie's `HasSlug` resolves
+                    | a collision to `-2` on the model. This is the door for a slug
+                    | the teacher TYPED, where silently renaming what they wrote
+                    | would be worse than refusing it.
+                    */
                     TextInput::make('slug')
                         ->label('الرابط')
                         ->maxLength(255)
+                        ->unique(table: 'cms_articles', column: 'slug', ignoreRecord: true)
                         ->helperText('اتركْه فارغاً ليُبنى من العنوان. لا يتغيّرُ بعدَ ذلك مع تغيُّرِ العنوان — '
                             .'الرابطُ المنشورُ الذي يتبدَّلُ رابطٌ مكسور.'),
 
@@ -122,9 +143,9 @@ class CmsArticleResource extends Resource
                     | matrix gives an assistant-teacher — while `cms.publish` and
                     | `cms.delete` are the teacher's alone. So an assistant
                     | published to the teacher's public blog, and unpublished a
-                    | live post, by changing one select. The API half of this is
-                    | closed in `ArticleController::update()`; a rule spelled at
-                    | one door is a rule the other door does not have.
+                    | live post, by changing one select. The API carried the same
+                    | hole and had to be closed in the same change; that door is
+                    | deleted now, so this gate is the whole of it.
                     |
                     | ⚠️ `disabled()` AND NOT `visible()`: a writer who may not
                     | publish still needs to SEE whether the article is live —

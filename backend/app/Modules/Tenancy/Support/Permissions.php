@@ -53,8 +53,6 @@ final class Permissions
 
     public const COURSES_PUBLISH = 'courses.publish';
 
-    public const COURSES_ARCHIVE = 'courses.archive';
-
     // Lessons
     public const LESSONS_MANAGE = 'lessons.manage';
 
@@ -66,8 +64,6 @@ final class Permissions
     public const ENROLLMENTS_VIEW_ALL = 'enrollments.view.all';
 
     public const ENROLLMENTS_VIEW_OWN = 'enrollments.view.own';
-
-    public const ENROLLMENTS_CREATE_MANUAL = 'enrollments.create.manual';
 
     // Exams
     public const EXAMS_VIEW = 'exams.view';
@@ -204,7 +200,6 @@ final class Permissions
     public const FLAGS_MANAGE = 'flags.manage';
 
     // Settings
-    public const SETTINGS_VIEW = 'settings.view';
 
     public const SETTINGS_UPDATE = 'settings.update';
 
@@ -579,13 +574,11 @@ final class Permissions
             self::COURSES_UPDATE,
             self::COURSES_DELETE,
             self::COURSES_PUBLISH,
-            self::COURSES_ARCHIVE,
             self::LESSONS_MANAGE,
             self::LESSONS_DELETE,
             self::LESSONS_PROGRESS_COMPLETE_OWN,
             self::ENROLLMENTS_VIEW_ALL,
             self::ENROLLMENTS_VIEW_OWN,
-            self::ENROLLMENTS_CREATE_MANUAL,
             self::EXAMS_VIEW,
             self::EXAMS_CREATE,
             self::EXAMS_UPDATE,
@@ -615,7 +608,6 @@ final class Permissions
             self::PLANS_PRICE,
             self::BILLING_COUPONS_MANAGE,
             self::FLAGS_MANAGE,
-            self::SETTINGS_VIEW,
             self::SETTINGS_UPDATE,
             self::MARKETPLACE_TEACHERS_REVIEW,
             self::MARKETPLACE_TEACHERS_APPROVE,

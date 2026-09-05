@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Modules\CMS\Http\Controllers\ArticleController;
 use App\Modules\CMS\Http\Controllers\PublicArticleController;
 use Illuminate\Support\Facades\Route;
 
@@ -33,21 +32,22 @@ Route::middleware('throttle:public')->group(function (): void {
 });
 
 /*
-| ⚠️ THESE SIX SHIPPED WITH `auth:sanctum` AND NOTHING ELSE, AND FOUR OF THEM ARE
-| WRITES. NFR-014 has required a named limiter on every write path since spec 011
-| put it in writing, and the module predates it by four months — so the absence
-| read as "internal, nobody calls it", which was true right up until spec 011
-| gave the blog a public reader and an authoring screen.
+| ⛔ AND THE SIX AUTHORING ROUTES ARE GONE — deleted 2026-09-05.
 |
-| `authoring` rather than a limiter of its own: writing an article is the same
-| kind of work as building a lesson — a teacher saves dozens of times in an hour,
-| and a limit that interrupts that is a limit that loses their text.
+| `/cms/articles` (index · show · store · update · publish · destroy) was a
+| complete second door onto `CmsArticleResource`, and no file under
+| `frontend/src` ever called one of them. Two doors onto one act is the shape
+| this repository keeps paying for: the publish gate had to be written TWICE the
+| day it was found missing, and the index leaked a foreign workspace's article
+| that the panel could not have shown.
+|
+| ⚠️ NOTHING BEHAVIOURAL WENT WITH THEM, WHICH IS WHY THEY COULD GO. The slug is
+| generated on the MODEL and the IndexNow announcement is dispatched from
+| `Article::booted()`, so the panel has always carried both — the announcement
+| moved there precisely because it started in `ArticleController::publish()` and
+| a teacher publishing from `/admin` notified nobody. What the Request DID carry
+| alone was the unique-slug refusal, and that rule now sits on the panel's own
+| slug field.
+|
+| The two public routes above stay: they are the blog, and they are called.
 */
-Route::middleware(['auth:sanctum', 'throttle:authoring'])->group(function (): void {
-    Route::get('/cms/articles', [ArticleController::class, 'index']);
-    Route::post('/cms/articles', [ArticleController::class, 'store']);
-    Route::get('/cms/articles/{article}', [ArticleController::class, 'show']);
-    Route::put('/cms/articles/{article}', [ArticleController::class, 'update']);
-    Route::post('/cms/articles/{article}/publish', [ArticleController::class, 'publish']);
-    Route::delete('/cms/articles/{article}', [ArticleController::class, 'destroy']);
-});

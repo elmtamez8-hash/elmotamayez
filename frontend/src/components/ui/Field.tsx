@@ -33,6 +33,18 @@ type Shared = {
   hint?: string;
   required?: boolean;
   disabled?: boolean;
+  /**
+   * Keep the label for a screen reader and take it off the screen.
+   *
+   * ⚠️ NEVER AN OPTIONAL LABEL — the prop hides one, it does not remove one, and
+   * the type still requires it. A control inside a table cell already has its
+   * accessible name in the column header for a sighted reader and has NONE for
+   * anybody else; dropping the label to tidy the cell is how a select becomes an
+   * unnamed control. This is the one visual variant of a label the kit offers,
+   * added rather than letting a page reach for a bare `<select>` and leave the
+   * design system behind for one cell.
+   */
+  labelHidden?: boolean;
 };
 
 /** Wrapper for a control this file does not cover (a file picker, a date range). */
@@ -42,11 +54,15 @@ export function Field({
   error,
   hint,
   required,
+  labelHidden,
   children,
 }: Shared & { children: ReactNode }) {
   return (
     <div className="space-y-1">
-      <label htmlFor={id} className="block text-sm font-medium text-ink">
+      <label
+        htmlFor={id}
+        className={labelHidden ? "sr-only" : "block text-sm font-medium text-ink"}
+      >
         {label}
         {required && (
           <span className="text-danger-ink" aria-hidden="true">

@@ -38,7 +38,6 @@ final class RolePermissionMatrix
             Permissions::COURSES_UPDATE,
             Permissions::LESSONS_MANAGE,
             Permissions::ENROLLMENTS_VIEW_ALL,
-            Permissions::ENROLLMENTS_CREATE_MANUAL,
             Permissions::EXAMS_VIEW,
             Permissions::EXAMS_CREATE,
             Permissions::EXAMS_UPDATE,
@@ -89,7 +88,6 @@ final class RolePermissionMatrix
         $teacher = array_merge($assistantTeacher, [
             Permissions::COURSES_DELETE,
             Permissions::COURSES_PUBLISH,
-            Permissions::COURSES_ARCHIVE,
             Permissions::LESSONS_DELETE,
             Permissions::EXAMS_DELETE,
             Permissions::EXAMS_PUBLISH,
@@ -262,7 +260,6 @@ final class RolePermissionMatrix
             Permissions::MEMBERS_INVITE,
             Permissions::MEMBERS_UPDATE,
             Permissions::MEMBERS_REMOVE,
-            Permissions::SETTINGS_VIEW,
             Permissions::SETTINGS_UPDATE,
             //
             // ⚠️ BILLING_SETTINGS_MANAGE USED TO BE HERE, ARGUED AS "AN OWNERSHIP

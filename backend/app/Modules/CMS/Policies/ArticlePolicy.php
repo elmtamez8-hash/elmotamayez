@@ -11,6 +11,21 @@ use App\Policies\BasePolicy;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Auth\Access\Response;
 
+/**
+ * ⚠️ THERE IS NO `publish()` HERE ANY MORE, AND THAT IS NOT A GAP.
+ *
+ * It existed for `POST /cms/articles/{article}/publish`, deleted on 2026-09-05
+ * along with the other five authoring routes: a second door onto
+ * `CmsArticleResource` that nothing under `frontend/src` ever called. The
+ * capability itself is untouched — `cms.publish` is read by
+ * `CmsArticleResource::canPublish()`, which disables the two fields that decide
+ * whether the public sees the row (`status` and `published_at`), on the screen
+ * people actually use.
+ *
+ * The four methods below are what Filament falls back to for anything the
+ * Resource does not answer itself, which is why they are kept rather than
+ * inlined into it.
+ */
 class ArticlePolicy extends BasePolicy
 {
     public function view(User $user, Article $article): Response
@@ -28,8 +43,7 @@ class ArticlePolicy extends BasePolicy
         | including the two the public blog withholds: an unlisted workspace's,
         | and one scheduled for a date that has not arrived.
         |
-        | A RESOLVED context keeps the plain answer, mirroring
-        | `ArticleController::index()` line for line: a workspace member is already
+        | A RESOLVED context keeps the plain answer: a workspace member is already
         | narrowed by the check above, and asking them for public listing would
         | hide a teacher's own published article from them the moment their
         | workspace left the marketplace.
@@ -73,17 +87,6 @@ class ArticlePolicy extends BasePolicy
         }
 
         return $user->can(Permissions::CMS_DELETE)
-            ? Response::allow()
-            : Response::deny();
-    }
-
-    public function publish(User $user, Article $article): Response
-    {
-        if (($workspaceCheck = $this->belongsToCurrentWorkspace($article))->denied()) {
-            return $workspaceCheck;
-        }
-
-        return $user->can(Permissions::CMS_PUBLISH)
             ? Response::allow()
             : Response::deny();
     }

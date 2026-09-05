@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\CMS\Filament\Resources\CmsArticleResource\Pages\CreateCmsArticle;
 use App\Modules\CMS\Models\Article;
 use App\Modules\Tenancy\Models\Workspace;
-use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
-use Laravel\Sanctum\Sanctum;
+use Filament\Facades\Filament;
+use Illuminate\Support\Facades\Auth;
+use Livewire\Livewire;
 
 /*
 | The slug is the public URL, and it is unique across the PLATFORM (011 · US5).
@@ -19,6 +21,13 @@ use Laravel\Sanctum\Sanctum;
 | and which one that is can change between two requests. The sitemap emits two
 | entries for one address, which is `SC-011` («١٠٠٪ من المنشور») undefined rather
 | than unmet.
+|
+| ⚠️ THIS FILE USED TO DRIVE `POST /api/v1/cms/articles`, DELETED 2026-09-05.
+| Nothing about the rules moved with it: generation is spatie's `HasSlug` on the
+| MODEL, so every writer gets it — which is why these cases now write the model
+| directly, the same way the panel does. The one thing the API carried alone was
+| the refusal of a slug the teacher TYPED, and that rule moved onto the panel's
+| own field; the case below is asked at that door instead.
 */
 
 /** @return array{0: Workspace, 1: User} */
@@ -30,16 +39,21 @@ function cmsAuthor(string $name): array
     return [$workspace, $owner];
 }
 
+/** Create an article as the panel does: through the model, inside a workspace. */
+function cmsArticle(Workspace $workspace, array $attributes): Article
+{
+    return app(WorkspaceContext::class)->forWorkspace(
+        $workspace,
+        fn (): Article => Article::create($attributes),
+    );
+}
+
 it('gives the second workspace a different URL for the same title', function (): void {
-    [, $first] = cmsAuthor('Academy A');
-    Sanctum::actingAs($first);
+    [$first] = cmsAuthor('Academy A');
+    cmsArticle($first, ['title' => 'خطة المراجعة']);
 
-    $this->postJson('/api/v1/cms/articles', ['title' => 'خطة المراجعة'])->assertCreated();
-
-    [, $second] = cmsAuthor('Academy B');
-    Sanctum::actingAs($second);
-
-    $this->postJson('/api/v1/cms/articles', ['title' => 'خطة المراجعة'])->assertCreated();
+    [$second] = cmsAuthor('Academy B');
+    cmsArticle($second, ['title' => 'خطة المراجعة']);
 
     $slugs = Article::query()->withoutWorkspaceScope()->orderBy('id')->pluck('slug')->all();
 
@@ -49,39 +63,35 @@ it('gives the second workspace a different URL for the same title', function ():
 });
 
 it('refuses a slug the teacher typed that somebody else already holds', function (): void {
-    [, $first] = cmsAuthor('Academy A');
-    Sanctum::actingAs($first);
-
-    $this->postJson('/api/v1/cms/articles', ['title' => 'أ', 'slug' => 'مراجعة-الثانوية'])->assertCreated();
+    /*
+    | ⚠️ A SENTENCE UNDER THE FIELD, NEVER AN INTEGRITY ERROR. The rule is a raw
+    | `Rule::unique()` — no global scope and no `deleted_at` clause — which is
+    | exactly the shape of the index, so the message the teacher reads and the
+    | constraint the database enforces answer the same question. It lived on
+    | `CreateArticleRequest` until the API was deleted; the field carried none of
+    | its own, so this case is what says the move actually happened.
+    */
+    [$first] = cmsAuthor('Academy A');
+    cmsArticle($first, ['title' => 'أ', 'slug' => 'مراجعة-الثانوية']);
 
     [, $second] = cmsAuthor('Academy B');
-    Sanctum::actingAs($second);
+    Auth::login($second);
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
 
-    /*
-    | ⚠️ 422 AND A SENTENCE, NEVER A 500. `Rule::unique()` is a raw query — no
-    | global scopes and no `deleted_at` clause — which is exactly the shape of the
-    | index, so the message the teacher reads and the constraint the database
-    | enforces answer the same question. Without the rule this is an unhandled
-    | integrity error on a form the teacher cannot correct.
-    */
-    $this->postJson('/api/v1/cms/articles', ['title' => 'ب', 'slug' => 'مراجعة-الثانوية'])
-        ->assertStatus(422)
-        ->assertJsonValidationErrors('slug');
+    Livewire::test(CreateCmsArticle::class)
+        ->fillForm(['title' => 'ب', 'slug' => 'مراجعة-الثانوية'])
+        ->call('create')
+        ->assertHasFormErrors(['slug' => 'unique']);
 });
 
 it('counts a trashed article, because a unique index knows nothing about deleted_at', function (): void {
-    [$workspace, $owner] = cmsAuthor('Academy');
-    Sanctum::actingAs($owner);
+    [$workspace] = cmsAuthor('Academy');
 
-    $uuid = $this->postJson('/api/v1/cms/articles', ['title' => 'مقال قديم'])->json('uuid');
-    $this->deleteJson("/api/v1/cms/articles/{$uuid}")->assertNoContent();
+    cmsArticle($workspace, ['title' => 'مقال قديم'])->delete();
 
-    // The trashed row still holds `مقال-قديم` against the WHOLE platform. Both
-    // doors must agree about that: the package's generator, and the validator.
-    $this->postJson('/api/v1/cms/articles', ['title' => 'مقال قديم'])->assertCreated();
-
-    $this->postJson('/api/v1/cms/articles', ['title' => 'x', 'slug' => 'مقال-قديم'])
-        ->assertStatus(422);
+    // The trashed row still holds `مقال-قديم` against the WHOLE platform, so the
+    // generator must step over it rather than collide with it.
+    cmsArticle($workspace, ['title' => 'مقال قديم']);
 
     $slugs = app(WorkspaceContext::class)->forWorkspace(
         $workspace,
@@ -92,38 +102,23 @@ it('counts a trashed article, because a unique index knows nothing about deleted
 });
 
 it('never moves a published URL when the article is renamed', function (): void {
-    [, $owner] = cmsAuthor('Academy');
-    Sanctum::actingAs($owner);
+    [$workspace] = cmsAuthor('Academy');
 
-    $created = $this->postJson('/api/v1/cms/articles', ['title' => 'العنوان الأول'])->json();
+    $article = cmsArticle($workspace, ['title' => 'العنوان الأول']);
+    $was = $article->slug;
 
-    $this->putJson("/api/v1/cms/articles/{$created['uuid']}", ['title' => 'العنوان الثاني'])
-        ->assertOk()
-        ->assertJsonPath('title', 'العنوان الثاني')
-        // A published URL that changes is a URL that 404s, and every share of it
-        // is a dead link. `doNotGenerateSlugsOnUpdate()`.
-        ->assertJsonPath('slug', $created['slug']);
+    $article->update(['title' => 'العنوان الثاني']);
+
+    // A published URL that changes is a URL that 404s, and every share of it is a
+    // dead link. `doNotGenerateSlugsOnUpdate()`.
+    expect($article->refresh()->title)->toBe('العنوان الثاني')
+        ->and($article->slug)->toBe($was);
 });
 
 it('falls back to a readable stem for a title that slugifies to nothing', function (): void {
-    [, $owner] = cmsAuthor('Academy');
-    Sanctum::actingAs($owner);
+    [$workspace] = cmsAuthor('Academy');
 
     // The package's own answer for an empty slug is `-1`, which is a URL nobody
     // can read and the one shape a fallback is for.
-    $slug = $this->postJson('/api/v1/cms/articles', ['title' => '؟؟؟ !!!'])->json('slug');
-
-    expect($slug)->toBe('مقال');
-});
-
-it('lets a teacher without publish rights create but not publish', function (): void {
-    // Guards the fixture above as much as anything: `cmsAuthor` signs in an OWNER,
-    // and a test suite that only ever exercises an owner proves nothing about the
-    // permission names the routes actually read.
-    [$workspace] = cmsAuthor('Academy');
-    $student = $this->addWorkspaceMember($workspace, Roles::STUDENT);
-
-    Sanctum::actingAs($student);
-
-    $this->postJson('/api/v1/cms/articles', ['title' => 'ممنوع'])->assertForbidden();
+    expect(cmsArticle($workspace, ['title' => '؟؟؟ !!!'])->slug)->toBe('مقال');
 });

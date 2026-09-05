@@ -39,6 +39,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // Workspace settings and membership: who gets in, and what the tenant is.
     Route::patch('/workspaces/{workspace}', [WorkspaceController::class, 'update'])->middleware('2fa.required');
     Route::get('/workspaces/{workspace}/members', [WorkspaceController::class, 'members']);
+    /*
+    | ⚠️ `2fa.required` LIKE ITS TWO NEIGHBOURS, AND FOR THE SHARPER REASON. This
+    | is the route that turns a student into a teacher inside somebody's
+    | workspace — a wider grant than an invitation, which at least requires the
+    | invitee to accept it from their own inbox.
+    */
+    Route::patch('/workspaces/{workspace}/members/{member}', [WorkspaceController::class, 'updateMemberRole'])
+        ->middleware('2fa.required');
     Route::delete('/workspaces/{workspace}/members/{member}', [WorkspaceController::class, 'removeMember'])
         ->middleware('2fa.required');
     Route::post('/workspaces/{workspace}/invitations', [WorkspaceController::class, 'invite'])

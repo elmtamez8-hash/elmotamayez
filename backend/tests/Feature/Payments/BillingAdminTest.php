@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
-use App\Modules\Payments\Models\CreditPackage;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
@@ -43,69 +42,20 @@ function billingOperator(string $permission): User
     return $operator;
 }
 
-// Packages ------------------------------------------------------------------
-
-it('lets the platform define a package with no price on it', function (): void {
-    Sanctum::actingAs(billingOperator(Permissions::BILLING_PACKAGES_MANAGE));
-
-    $payload = $this->postJson('/api/v1/admin/billing/packages', [
-        'name' => 'ثماني حصص',
-        'credits' => 8,
-        'session_type' => ClassSessionType::Individual->value,
-    ])->assertCreated()->json();
-
-    expect($payload['credits'])->toBe(8)
-        ->and($payload['is_active'])->toBeTrue();
-
-    // FR-016 — the row has a size and a session type and NO price. What it costs
-    // depends on which course it is bought against.
-    foreach (array_keys($payload) as $key) {
-        expect($key)->not->toContain('price')
-            ->and($key)->not->toContain('minor')
-            ->and($key)->not->toContain('rate');
-    }
-
-    // FR-017 — the size is a value, so the next one may differ without a deploy.
-    $this->patchJson("/api/v1/admin/billing/packages/{$payload['uuid']}", ['credits' => 12])
-        ->assertOk()
-        ->assertJsonPath('credits', 12);
-});
-
-it('refuses the workspace owner every write on the catalogue', function (): void {
-    $this->setCurrentWorkspace($this->workspace, $this->owner);
-
-    Sanctum::actingAs($this->owner);
-
-    $this->postJson('/api/v1/admin/billing/packages', [
-        'name' => 'حزمتي',
-        'credits' => 4,
-        'session_type' => ClassSessionType::Individual->value,
-    ])->assertForbidden();
-
-    expect(CreditPackage::query()->count())->toBe(0);
-});
-
-it('retires a package by disabling it, with no way to delete one', function (): void {
-    Sanctum::actingAs(billingOperator(Permissions::BILLING_PACKAGES_MANAGE));
-
-    $uuid = $this->postJson('/api/v1/admin/billing/packages', [
-        'name' => 'قديمة',
-        'credits' => 4,
-        'session_type' => ClassSessionType::Individual->value,
-    ])->assertCreated()->json('uuid');
-
-    $this->patchJson("/api/v1/admin/billing/packages/{$uuid}", ['is_active' => false])
-        ->assertOk()
-        ->assertJsonPath('is_active', false);
-
-    // FR-019 — the row survives retirement. Credits bought from it read their
-    // validity through it and spec 015's books name it.
-    $this->deleteJson("/api/v1/admin/billing/packages/{$uuid}")->assertStatus(405);
-
-    expect(CreditPackage::query()->count())->toBe(1);
-});
-
-// Pricing -------------------------------------------------------------------
+/*
+| ⛔ THE THREE PACKAGE CASES LEFT WITH THEIR ROUTES — deleted 2026-09-05.
+|
+| `/admin/billing/packages` (index · store · update) was a second door onto
+| `CreditPackageResource` that no file under `frontend/src` called, and the panel
+| falls through to `CreditPackagePolicy` for the same `billing.packages.manage`
+| the controller asked. `CreditPackagePanelTest` carries both claims this file
+| made — «opens for the platform and for nobody in a tenant role», which is the
+| owner refused every write, and «never offers to delete a package, even to the
+| platform», which is retirement by `is_active = false` (FR-019).
+|
+| The pricing cases below stay: `/admin/billing/pricing` is kept deliberately,
+| and it is now the only reader of `billing.pricing.manage` in the tree.
+*/
 
 it('lets the platform set the operating fee and the gateway cut', function (): void {
     Sanctum::actingAs(billingOperator(Permissions::BILLING_PRICING_MANAGE));

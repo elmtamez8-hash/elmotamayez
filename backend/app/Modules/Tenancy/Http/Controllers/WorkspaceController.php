@@ -12,14 +12,17 @@ use App\Modules\Tenancy\Actions\InviteMember;
 use App\Modules\Tenancy\Actions\RemoveMember;
 use App\Modules\Tenancy\Actions\SwitchWorkspace;
 use App\Modules\Tenancy\Actions\UpdateWorkspace;
+use App\Modules\Tenancy\Actions\UpdateWorkspaceMemberRole;
 use App\Modules\Tenancy\DTOs\CreateWorkspaceDTO;
 use App\Modules\Tenancy\Http\Requests\CreateWorkspaceRequest;
 use App\Modules\Tenancy\Http\Requests\InviteMemberRequest;
+use App\Modules\Tenancy\Http\Requests\UpdateMemberRoleRequest;
 use App\Modules\Tenancy\Http\Requests\UpdateWorkspaceRequest;
 use App\Modules\Tenancy\Http\Resources\WorkspaceResource;
 use App\Modules\Tenancy\Models\Invitation;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\RoleLabels;
+use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -62,6 +65,15 @@ class WorkspaceController extends Controller
                 // A map in the browser had already drifted from `Roles.php` and
                 // was printing five of the seven as English slugs.
                 'role_label' => RoleLabels::for($member->getRelationValue('pivot')?->getAttribute('role')),
+                /*
+                | ⚠️ ANSWERED HERE RATHER THAN DERIVED IN THE BROWSER. The owner
+                | is the one row whose role may not change, and the refusal lives
+                | in `UpdateWorkspaceMemberRole`; a screen that re-derived it from
+                | some other field would be a second spelling of one rule, and the
+                | direction it fails in is a control offered for an act the server
+                | refuses.
+                */
+                'is_owner' => $workspace->isOwnedBy($member),
             ]),
         ]);
     }
@@ -78,6 +90,33 @@ class WorkspaceController extends Controller
     public function update(UpdateWorkspaceRequest $request, Workspace $workspace, UpdateWorkspace $action): JsonResponse
     {
         return response()->json(WorkspaceResource::make($action->handle($workspace, $request->validated())));
+    }
+
+    /**
+     * Change what a member of this workspace may do (`members.update`).
+     *
+     * ⚠️ ITS FIRST HTTP SURFACE. The permission has existed since the module did;
+     * until now the only way to change somebody's role was to remove them and
+     * invite them again, which loses their membership record and mails them an
+     * invitation to a job they already hold.
+     */
+    public function updateMemberRole(
+        UpdateMemberRoleRequest $request,
+        Workspace $workspace,
+        User $member,
+        UpdateWorkspaceMemberRole $action,
+    ): JsonResponse {
+        $this->authorize('updateMembers', $workspace);
+
+        try {
+            $action->handle($workspace, $member, (string) $request->validated('role'));
+        } catch (DomainException $e) {
+            // The owner's own row, and a uuid belonging to nobody in this team.
+            // Both are refusals carrying a sentence, never a 500.
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(null, 204);
     }
 
     public function removeMember(Request $request, Workspace $workspace, User $member, RemoveMember $action): JsonResponse

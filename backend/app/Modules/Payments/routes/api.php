@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 use App\Modules\Payments\Http\Controllers\Admin\BillingPricingController;
 use App\Modules\Payments\Http\Controllers\Admin\CollectionReportController;
-use App\Modules\Payments\Http\Controllers\Admin\CreditPackageAdminController;
 use App\Modules\Payments\Http\Controllers\Admin\OutstandingCreditsController;
 use App\Modules\Payments\Http\Controllers\Admin\PaymentAuditController;
 use App\Modules\Payments\Http\Controllers\Admin\PaymentReconciliationController;
-use App\Modules\Payments\Http\Controllers\Admin\PlanPricingController;
 use App\Modules\Payments\Http\Controllers\Admin\ReconciliationController;
 use App\Modules\Payments\Http\Controllers\BillingController;
 use App\Modules\Payments\Http\Controllers\BillingSettingsController;
@@ -152,32 +150,25 @@ Route::middleware(['auth:sanctum', 'throttle:coupon'])->group(function (): void 
 
 Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void {
     /*
-    | The platform's catalogue and the platform's half of the price (FR-016 ·
-    | FR-021أ). Both are guarded by PLATFORM permissions that no tenant role
-    | holds — a package a teacher could define is a sale price a teacher sets,
-    | which FR-021ب forbids — so the workspace owner fails every write here.
+    | ⛔ THE CATALOGUE AND THE PLAN PRICE LEFT THIS FILE — deleted 2026-09-05.
     |
-    | No DELETE on packages: retirement is `is_active = false` (FR-019). Credits
-    | already bought keep pointing at the row, and deleting it would orphan
-    | purchases that have been paid for.
-    */
-    /*
-    | The platform's half of a plan, and undoing a subscription (011 · US4).
+    | Five routes (`/admin/billing/packages` × 3, `/admin/plans` × 2) were a
+    | second door onto `CreditPackageResource` and `PlanResource`, and no file
+    | under `frontend/src` called one of them. The panel is the door that is
+    | used, and it is the complete twin: `EditPlan::handleRecordUpdate()` runs
+    | `SetPlanPrice`, so the negative-price refusal AND the `plan.priced`
+    | activity-log entry come with it, and both resources fall through to their
+    | own policies for the platform permissions the controllers asked
+    | (`billing.packages.manage` · `plans.price`).
     |
-    | ⚠️ `{uuid}` NOT `{plan}`, AND THE CONTROLLER DECLARES
-    | `withoutWorkspaceScope()`. `WorkspaceContext::id()` falls back to
-    | `users.last_workspace_id` for a platform officer exactly as for anybody
-    | else, so an implicit binding resolves plans in one arbitrary workspace of
-    | theirs and 404s for every other teacher — a pricing queue that silently
-    | covers one workspace, which is the defect the audit chain already shipped.
+    | The rules those routes carried in their comments are still true and still
+    | enforced where they belong: a package is retired with `is_active = false`
+    | and never deleted (`CreditPackageResource::canDelete()` returns false, so
+    | not even a super admin is offered it), and a plan is fetched
+    | `withoutWorkspaceScope()` because a platform officer has a
+    | `users.last_workspace_id` like everybody else.
     */
-    Route::get('/admin/plans', [PlanPricingController::class, 'index']);
-    Route::patch('/admin/plans/{uuid}/price', [PlanPricingController::class, 'price']);
     Route::post('/admin/subscriptions/{uuid}/cancel', [SubscriptionController::class, 'cancel']);
-
-    Route::get('/admin/billing/packages', [CreditPackageAdminController::class, 'index']);
-    Route::post('/admin/billing/packages', [CreditPackageAdminController::class, 'store']);
-    Route::patch('/admin/billing/packages/{uuid}', [CreditPackageAdminController::class, 'update']);
 
     /*
     | What the nightly reconciliation found, read back — never computed here.

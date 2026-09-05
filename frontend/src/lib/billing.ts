@@ -273,6 +273,22 @@ export const billing = {
    */
   students: () => api.get<{ data: StudentBalanceRow[] }>("/manage/billing/students"),
   /*
+   * The exception FR-038 allows, with the record FR-039 requires.
+   *
+   * ⚠️ PER BALANCE, SO THE COURSE IS PART OF THE CALL. A ceiling on «the
+   * student» would be a ceiling at every teacher they study with at once;
+   * the balance sits on the course precisely so a paid-up course stays
+   * open while another is withheld.
+   *
+   * The reason is required by the server and by the Action beneath it — a
+   * nullable reason column is one caller away from an audit trail of blanks.
+   */
+  setCreditLimit: (studentUuid: string, body: { course: string; credit_limit_credits: number; reason: string }) =>
+    api.patch<{ data: { credit_limit_credits: number } }>(
+      `/manage/billing/students/${studentUuid}/limit`,
+      body,
+    ),
+  /*
    * Exam mode: the window in which nothing is deferred (FR-046).
    *
    * `data` is null when none is in force, which is the whole state — there is no

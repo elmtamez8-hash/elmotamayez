@@ -400,8 +400,7 @@ and `POST /auth/register/student`).
 | `GET` | `/billing/plans?course={uuid}` | any signed-in person |
 | `GET` · `POST` | `/billing/subscriptions` | the student, their own |
 | `GET` · `POST` · `PATCH` | `/manage/plans` | `plans.manage` (teacher) |
-| `GET` | `/admin/plans` | `plans.price` (platform) |
-| `PATCH` | `/admin/plans/{uuid}/price` | `plans.price` (platform) |
+| — | ~~`/admin/plans`~~ · ~~`/admin/plans/{uuid}/price`~~ | deleted 2026-09-05 — `PlanResource` in `/admin` is the only door onto `SetPlanPrice` |
 | `POST` | `/admin/subscriptions/{uuid}/cancel` | `billing.purchase.approve` (platform) |
 
 ⚠️ **THE PRODUCT SELLS THREE PRICING SHAPES AND THIS TABLE IS ONE OF THEM.** A
@@ -521,7 +520,7 @@ as credits; time is bought here.**
 |---|---|---|
 | `GET` | `/public/articles?page=&per_page=&category=&tag=` | anyone, `throttle:public` |
 | `GET` | `/public/articles/{slug}` | anyone, `throttle:public` |
-| `GET` · `POST` · `PUT` · `DELETE` | `/cms/articles…` | `cms.*`, `throttle:authoring` |
+| — | ~~`/cms/articles…`~~ | deleted 2026-09-05 — six authoring routes no client called; `CmsArticleResource` in `/admin` is the only authoring door |
 
 Screens: `/blog` and `/blog/{slug}` in Next, `/admin` → «المدوّنة» (`CmsArticleResource`).
 
@@ -1429,7 +1428,7 @@ student sees is either an entry in it or derived from one.**
 | PATCH | `/api/v1/manage/billing/students/{student}/limit` | the platform's manual exception |
 | GET · PATCH | `/api/v1/manage/billing/settings` | mode, cadence, thresholds, zero-balance |
 | GET · POST · DELETE | `/api/v1/manage/billing/exam-mode` | the window in which nothing defers |
-| GET · POST · PATCH | `/api/v1/admin/billing/packages` | the platform catalogue (no DELETE) |
+| — | ~~`/api/v1/admin/billing/packages`~~ | deleted 2026-09-05 — `CreditPackageResource` in `/admin` is the catalogue (retire with `is_active`, never DELETE) |
 | GET · PUT | `/api/v1/admin/billing/pricing` | the platform's half of the price |
 | GET | `/api/v1/admin/billing/outstanding` | read by the rate-approval screen (Q-7) |
 | GET | `/api/v1/admin/billing/reconciliation` | what the nightly sweep found, and when |

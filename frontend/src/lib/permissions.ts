@@ -57,6 +57,22 @@ export const P = {
   billingBalanceView: "billing.balance.view",
   billingExamMode: "billing.exam_mode.manage",
   membersView: "members.view",
+  /*
+   * ⚠️ SEPARATE FROM `membersView`, AND IT GATES A CONTROL RATHER THAN A
+   * LINK. Reading the team is one question; changing what somebody on it
+   * may do is another, and an owner may delegate inviting without
+   * delegating promotion. Until 2026-09-05 this name was read by nothing
+   * at all — on either side of the wire.
+   */
+  membersUpdate: "members.update",
+  /*
+   * ⚠️ A PLATFORM PERMISSION ON A TEACHER-SHAPED SCREEN, AND BOTH HALVES
+   * ARE TRUE. Raising a ceiling creates a debt the platform carries alone,
+   * so no teacher holds it — but the endpoint asks for the workspace in
+   * context and an active enrolment in it, so the officer does the work
+   * from the teacher's own student list. Read by nothing until 2026-09-05.
+   */
+  billingLimitManage: "billing.limit.manage",
   // Spec 010 — the assistants screen. Gated on `roles.manage` and not on a new
   // name: the matrix puts that permission on the OWNER alone, which is exactly
   // who `AssistantAssignmentPolicy` lets in, and whoever arranges the roles is

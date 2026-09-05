@@ -103,6 +103,34 @@ class WorkspacePolicy extends BasePolicy
      * without touching this line gives them an unexplainable 403. Whoever picks
      * the mechanism reads this method first.
      */
+    /**
+     * Move an existing member between roles.
+     *
+     * ⚠️ SEPARATE FROM {@see manageMembers()}, AND THAT IS THE WHOLE POINT OF
+     * `members.update` EXISTING. Inviting adds somebody at a role the inviter
+     * chose; this changes what somebody ALREADY INSIDE may do — an assistant
+     * becoming a teacher, or a teacher becoming a student. An owner may delegate
+     * the first without delegating the second, and until now the second was not a
+     * capability the product had at all.
+     *
+     * ⚠️ AND ITS ABSENCE WAS A SILENT DENY, WHICH IS THE RIGHT DIRECTION AND AN
+     * EASY ONE TO MISREAD: a policy with no method for an ability answers `false`
+     * with no error anywhere, so the route was answering 403 to an owner holding
+     * the permission while `members.invite` beside it worked. Laravel's guesser
+     * fails OPEN into «no policy applies» only when there is no policy at all;
+     * with one bound, a missing method is a refusal.
+     */
+    public function updateMembers(User $user, Workspace $workspace): Response
+    {
+        if (! $workspace->members()->where('user_id', $user->getKey())->exists()) {
+            return Response::deny('You do not belong to this workspace.');
+        }
+
+        return $user->can(Permissions::MEMBERS_UPDATE)
+            ? Response::allow()
+            : Response::deny('You are not authorized to change a member\'s role.');
+    }
+
     public function manageBillingSettings(User $user, Workspace $workspace): Response
     {
         if (! $workspace->members()->where('user_id', $user->getKey())->exists()) {
