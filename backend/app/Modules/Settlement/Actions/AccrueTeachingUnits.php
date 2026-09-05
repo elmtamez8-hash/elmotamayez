@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Settlement\Actions;
 
+use App\Modules\LiveSessions\Enums\AttendanceSource;
+use App\Modules\LiveSessions\Enums\AttendanceStatus;
 use App\Modules\LiveSessions\Enums\BookingStatus;
+use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Settlement\Enums\SettlementBasis;
 use App\Modules\Settlement\Enums\TeachingUnitStatus;
@@ -36,8 +39,11 @@ class AccrueTeachingUnits extends Action
         private readonly SettlementSettings $settings,
     ) {}
 
-    /** @return list<TeachingUnit> */
-    public function handle(ClassSession $session, int $billableSeats): array
+    /**
+     * @param  list<int>  $subscriptionSeats  seat holders a duration package already paid for
+     * @return list<TeachingUnit>
+     */
+    public function handle(ClassSession $session, int $billableSeats, array $subscriptionSeats = []): array
     {
         $seatHolderIds = $this->seatHolderIds($session);
 
@@ -59,12 +65,53 @@ class AccrueTeachingUnits extends Action
             $session->grade_level,
         );
 
+        /*
+        | ⚠️ A SUBSCRIBER IS PAID FOR BY WHO TURNED UP, NOT BY WHO WAS BOOKED
+        | (product decision 2026-09-05). Automatic booking puts every member of
+        | the group into every lesson, so pricing a subscriber's seat by the
+        | BOOKING pays the teacher for twelve people who were never in the room:
+        | the seat count stopped being evidence of anything the moment nobody had
+        | to press «احجز» for it to exist.
+        |
+        | ⚠️ AND IT IS ASKED FOR SUBSCRIBERS ONLY. Everywhere else in this product
+        | attendance has NO financial effect — the billable count is frozen at the
+        | cancellation deadline and never recomputed, and
+        | `AttendanceHasNoFinancialEffectTest` fails the build over a breach. A
+        | student who bought a LESSON bought the seat and pays for it whether they
+        | come or not; a subscriber bought a MONTH, and the month has already paid.
+        */
+        $attended = $subscriptionSeats === [] ? [] : $this->attendedStudentIds($session);
+
         $missing = $this->package->missingReason($session);
         $mismatch = count($seatHolderIds) !== $billableSeats;
         $units = [];
 
         foreach ($seatHolderIds as $studentUserId) {
-            $unit = $this->accrueOne($session, $studentUserId, $billableSeats, $rate?->getKey(), $rate?->amount_minor, $missing, $mismatch);
+            /*
+            | ⚠️ THE DECISION IS PER SEAT HOLDER, NOT PER SESSION (027 · FR-048).
+            | One rate is resolved for the whole lesson, but a room mixes people
+            | who bought a lesson with people who bought a month, and the second
+            | kind must not make the payout grow with the timetable. A count on
+            | the event could not do this — it would not say WHICH rows.
+            |
+            | The list arrives ON the delivery event. Settlement never asks the
+            | money module about a subscription: `ContextIsolationTest` fails the
+            | build on the first import in that direction, and this Action holds
+            | no idea what a subscription is beyond «a seat already paid for».
+            */
+            $bySubscription = in_array($studentUserId, $subscriptionSeats, true);
+            $earns = ! $bySubscription || in_array($studentUserId, $attended, true);
+
+            $unit = $this->accrueOne(
+                $session,
+                $studentUserId,
+                $billableSeats,
+                $earns ? $rate?->getKey() : null,
+                $earns ? $rate?->amount_minor : 0,
+                $missing,
+                $mismatch,
+                $bySubscription,
+            );
 
             if ($unit !== null) {
                 $units[] = $unit;
@@ -72,6 +119,50 @@ class AccrueTeachingUnits extends Action
         }
 
         return $units;
+    }
+
+    /**
+     * Who was actually in the room (027 · product decision 2026-09-05).
+     *
+     * `Present` and `Late` only. `Absent` is nobody taught, and `Excused` is an
+     * absence the teacher decided not to hold against the STUDENT — a mercy
+     * towards them, not an hour anybody spent in the lesson. The host's own row
+     * is excluded: `CloseClassSession` judges delivery from it, and counting it
+     * here would pay the teacher for attending themselves.
+     *
+     * ⚠️ AND THE SOURCE IS AN ALLOWLIST, NOT A DENYLIST. Only a mark meaning «was
+     * in the room» earns: the heartbeat's own, and a teacher's manual correction
+     * of it. That shape is deliberate and load-bearing for what is coming — a
+     * student who missed the lesson and later watched the recording, or took the
+     * handout, is to be marked ATTENDED for their own record and must NOT be
+     * counted among the sessions the platform pays the teacher for (product
+     * decision 2026-09-05: the platform sometimes opens a lesson for a new
+     * student, or gives one as a reward). Written as a denylist, the day that
+     * mark is introduced it would silently start earning; written this way, a new
+     * source earns nothing until somebody adds it here on purpose.
+     *
+     * ⚠️ AND NO ENUM VALUE IS ADDED HERE FOR IT. A case with readers and no writer
+     * is a requirement everybody believes is implemented — this tree has paid for
+     * that once already (`ClassSessionStatus::Interrupted`). The catch-up mark
+     * arrives with the thing that writes it.
+     *
+     * @return list<int>
+     */
+    private function attendedStudentIds(ClassSession $session): array
+    {
+        $attended = Attendance::query()
+            ->withoutWorkspaceScope()
+            ->where('class_session_id', $session->getKey())
+            ->excludingHost($session)
+            ->whereIn('status', [AttendanceStatus::Present->value, AttendanceStatus::Late->value])
+            ->whereIn('source', [AttendanceSource::Automatic->value, AttendanceSource::Manual->value])
+            ->pluck('student_user_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        return array_values($attended);
     }
 
     /**
@@ -102,11 +193,14 @@ class AccrueTeachingUnits extends Action
         ?int $amountMinor,
         ?string $missing,
         bool $mismatch,
+        bool $bySubscription = false,
     ): ?TeachingUnit {
         // A missing rate must not swallow the work: the hour was taught, and a
         // unit worth nothing that says so is recoverable, while no row at all is
         // a gap nobody notices until the teacher counts.
-        $unpriced = $rateId === null;
+        // A subscriber's seat is deliberately unpriced here, so it is not the
+        // «no rate approved» case and must not be flagged for review as one.
+        $unpriced = $rateId === null && ! $bySubscription;
 
         $attributes = [
             'workspace_id' => (int) $session->workspace_id,
@@ -118,7 +212,7 @@ class AccrueTeachingUnits extends Action
             'amount_minor' => $amountMinor ?? 0,
             'currency' => $this->settings->currency(),
             'frozen_seats' => $billableSeats,
-            'basis' => SettlementBasis::FrozenSeat,
+            'basis' => $bySubscription ? SettlementBasis::SubscriptionSeat : SettlementBasis::FrozenSeat,
             'status' => $missing === null ? TeachingUnitStatus::Accrued : TeachingUnitStatus::PendingPackage,
             'pending_reason' => $missing,
             'recording_fault' => $missing === null && $this->package->isRecordingFault($session),

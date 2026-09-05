@@ -151,7 +151,7 @@ it('consumes once however many times the event arrives', function (): void {
     $delivered = deliverBillableSession($this->session, $this->owner);
 
     foreach (range(1, 10) as $ignored) {
-        SessionDelivered::dispatch($delivered->refresh(), 1);
+        SessionDelivered::dispatch($delivered->refresh(), 1, []);
     }
 
     expect(CreditTransaction::query()->withoutWorkspaceScope()

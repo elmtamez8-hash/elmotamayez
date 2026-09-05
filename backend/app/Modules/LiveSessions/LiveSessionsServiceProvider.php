@@ -10,8 +10,11 @@ use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Events\AttendanceOverridden;
 use App\Modules\LiveSessions\Events\SessionCancelled;
 use App\Modules\LiveSessions\Events\SessionCompleted;
+use App\Modules\LiveSessions\Events\SessionsAssignedToCohort;
+use App\Modules\LiveSessions\Events\SessionScheduled;
 use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
 use App\Modules\LiveSessions\Listeners\ArchiveExpiredRecordingLessons;
+use App\Modules\LiveSessions\Listeners\BookSubscribersOnScheduled;
 use App\Modules\LiveSessions\Listeners\ExpireRequestsOnTeacherDeparture;
 use App\Modules\LiveSessions\Listeners\NotifySeatHolders;
 use App\Modules\LiveSessions\Listeners\PublishRecordingAsLesson;
@@ -196,6 +199,22 @@ class LiveSessionsServiceProvider extends Module
         | releasing one is `CancelBooking`'s job, on this side of the wall.
         */
         Event::listen(SubscriptionEnded::class, ReleaseSeatsOnSubscriptionEnd::class);
+
+        /*
+        | Spec 027 · FR-040 — a subscriber's seat is taken for lessons that did
+        | not exist when they paid. TWO events and one listener, because a session
+        | joins a group by two roads: created with a `cohort_id` (SessionScheduled)
+        | or attached afterwards by a bulk UPDATE that fires no model events at all
+        | (SessionsAssignedToCohort). Wiring only the first is a feature that works
+        | on one path and is silent on the other — and silence here means the
+        | subscriber who already paid simply never appears in the room.
+        |
+        | Registered `Class@method` rather than as two listener classes: they share
+        | the whole decision and differ only in how they enumerate, so two classes
+        | would be two places to change the rule and one place to forget.
+        */
+        Event::listen(SessionScheduled::class, BookSubscribersOnScheduled::class.'@handleScheduled');
+        Event::listen(SessionsAssignedToCohort::class, BookSubscribersOnScheduled::class.'@handleAssigned');
 
         // A report already in a guardian's hands is corrected rather than left
         // standing (FR-037).

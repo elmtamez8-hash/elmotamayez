@@ -92,6 +92,12 @@ const DESTINATIONS: Array<{ path: string; from: string }> = [
   { path: "/courses/c1b2a3d4", from: "NotifyStudentPrivateSessionDecided (rejected) · …Expired" },
   { path: "/manage/bank/import/i1j2k3l4", from: "NotifyImportReady" },
   { path: "/certificates/verify/ABC123", from: "NotifyStudentCertificateIssued · …Regenerated" },
+  // 027 · FR-030. The ONLY notification in the product that links to a room
+  // rather than to /schedule, and deliberately so: the requirement asks for «the
+  // way in», not for a page the student has to search from. `/manage/sessions`
+  // is the teacher's half of the seat-unavailable notice.
+  { path: "/sessions/s1t2u3v4/room", from: "NotifySubscriptionActivated" },
+  { path: "/manage/sessions", from: "NotifySubscriptionSeatUnavailable (teacher)" },
 ];
 
 describe("notification destinations", () => {

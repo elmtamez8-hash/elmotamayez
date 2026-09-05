@@ -13,6 +13,7 @@ use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -106,6 +107,21 @@ class Order extends BaseModel implements HasMedia
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The subscription this order activated, if activation got that far.
+     *
+     * ⚠️ ITS ABSENCE ON AN APPROVED ORDER IS THE SIGNAL (027 · FR-027). Activation
+     * is queued and runs after the approval commits, so «approved with no
+     * subscription» is exactly the incomplete work that must be readable on the
+     * officer's screen rather than left in `failed_jobs`.
+     *
+     * @return HasOne<Subscription, $this>
+     */
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class);
     }
 
     /** @return BelongsTo<Course, $this> */

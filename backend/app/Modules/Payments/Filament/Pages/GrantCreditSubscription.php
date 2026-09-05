@@ -71,10 +71,24 @@ use UnitEnum;
  * {@see self::pendingSubscriptions()} and 024's requirement reopens with nothing
  * saying it existed. `SubscriptionQueueTest` asserts the disjointness.
  *
+ * ⚠️ AND THE GUARD IS `kind`, NOT THE STATUS FILTER. That distinction became load
+ * bearing in 027 · FR-027, which widened this query to keep recently APPROVED
+ * subscription orders listed so a failed activation is visible. Approved rows
+ * carry no decision control — both buttons are `->visible(isPending())` on
+ * `OrderResource` — so widening the statuses cannot reopen 024's rule; widening
+ * the kind still would.
+ *
  * @property-read Schema $form
  */
 class GrantCreditSubscription extends Page implements HasTable
 {
+    /**
+     * How long an approved subscription order stays on the queue so a failed
+     * activation can be seen (FR-027). Long enough to survive a weekend and a
+     * drained queue; short enough that the list stays a queue.
+     */
+    private const ACTIVATION_WATCH_DAYS = 14;
+
     use InteractsWithTable;
 
     protected string $view = 'filament.pages.grant-credit-subscription';
@@ -183,6 +197,31 @@ class GrantCreditSubscription extends Page implements HasTable
                 TextColumn::make('receipt')->label('الإيصال')
                     ->state(fn (Order $record): HtmlString|string => self::receiptLink($record)),
                 TextColumn::make('created_at')->label('التاريخ')->dateTime('Y-m-d H:i')->sortable(),
+                /*
+                | The visible half of FR-027. Activation runs on a worker after
+                | the approval commits, so an order can be approved — money taken
+                | — while the subscription behind it was never written. Derived
+                | from the `withExists` above rather than looked up per row.
+                |
+                | ⚠️ IT ANSWERS «هل كُتب الاشتراك؟», NOT «هل اكتمل كلُّ شيء». A
+                | failure at the membership step leaves a subscription behind and
+                | reads as done here; that half is guarded before the money moves
+                | (`ApproveOrder::assertStillActionable`) and healed by the retry,
+                | which is why one flag is enough rather than a second subquery on
+                | every page load.
+                */
+                TextColumn::make('activation')->label('التفعيل')
+                    ->state(fn (Order $record): string => match (true) {
+                        $record->isPending() => '—',
+                        (bool) $record->getAttribute('has_subscription') => 'مكتمل',
+                        default => 'ناقص — لم يُنشأ الاشتراك',
+                    })
+                    ->badge()
+                    ->color(fn (Order $record): string => match (true) {
+                        $record->isPending() => 'gray',
+                        (bool) $record->getAttribute('has_subscription') => 'success',
+                        default => 'danger',
+                    }),
             ])
             ->recordActions([
                 // ⚠️ THE RESOURCE'S OWN ACTIONS, VERBATIM. They carry
@@ -214,10 +253,38 @@ class GrantCreditSubscription extends Page implements HasTable
             */
             ->withoutWorkspaceScope()
             ->where('kind', OrderKind::Subscription)
-            ->whereIn('status', ['pending', 'under_review'])
+            /*
+            | ⚠️ APPROVED ORDERS STAY LISTED FOR A WHILE, AND THAT IS FR-027.
+            | Activation is queued and runs after the approval commits, so a
+            | failure there leaves an approved order, money taken, and a student
+            | in no course and no group — «عملاً ناقصاً» that must be READABLE ON A
+            | SCREEN rather than left in `failed_jobs`. Filtering to pending alone
+            | removed the row from this table at the exact instant it became
+            | interesting, so no derived column could ever have described it.
+            |
+            | Bounded by a window rather than by a flag: an approved order that
+            | activated correctly is finished business, and a queue that keeps
+            | every one of them for ever is a queue nobody reads.
+            */
+            ->where(fn (Builder $query): Builder => $query
+                ->whereIn('status', ['pending', 'under_review'])
+                ->orWhere(fn (Builder $approved): Builder => $approved
+                    ->where('status', 'approved')
+                    ->where('approved_at', '>=', now()->subDays(self::ACTIVATION_WATCH_DAYS))))
             ->with([
                 'course' => fn ($relation) => $relation->withoutGlobalScope(WorkspaceScope::class),
                 'user',
+            ])
+            /*
+            | ⚠️ EXISTENCE SUBQUERIES, NOT A CLOSURE PER ROW. A column body runs
+            | once per row, so a lookup inside one is an N+1 by construction — the
+            | rule `ClassSessionResource` already wrote down. And each carries its
+            | own scope bypass: `Subscription` and `CohortMembership` are both
+            | workspace-scoped, so the officer's own fallback workspace would
+            | otherwise make every foreign row read as «not activated».
+            */
+            ->withExists([
+                'subscription as has_subscription' => fn ($relation) => $relation->withoutGlobalScope(WorkspaceScope::class),
             ]);
     }
 

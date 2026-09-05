@@ -152,7 +152,7 @@ interface CohortDirectory
      * one from the panel — after which a stranger holding its uuid would
      * subscribe into another named student's room and its thread.
      *
-     * @return array{id: int, course_id: int, workspace_id: int, name: string, course_uuid: string, is_joinable: bool}|null
+     * @return array{id: int, course_id: int, workspace_id: int, name: string, course_uuid: string, course_status: string, is_joinable: bool}|null
      */
     public function describeGroupCohort(string $uuid): ?array;
 

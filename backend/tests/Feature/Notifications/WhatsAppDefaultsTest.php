@@ -41,7 +41,13 @@ it('defaults to whatsapp for exactly the eighteen guardian types plus the securi
     // `store_purchase_unavailable`. Both are facts about a PURCHASE, so both ride
     // the payments consent the payment path already uses — and both carry
     // `requiredGuardianPermission()` in this same edit, for the reason above.
-    expect($onWhatsApp)->toHaveCount(25);
+    // 25 → 26 with spec 027: `subscription_activated`. A fact about a PURCHASE
+    // on the same footing as the two above — the guardian usually paid, and the
+    // group's timetable is what they organise the week around. It carries
+    // `requiredGuardianPermission()` in this same edit. Its sibling
+    // `subscription_seat_unavailable` deliberately does NOT target guardians and
+    // so does not move this number.
+    expect($onWhatsApp)->toHaveCount(26);
 });
 
 it('derives the set from targetsGuardians, with two named exceptions and no others', function (): void {

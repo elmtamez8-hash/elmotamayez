@@ -186,12 +186,12 @@ class EloquentCohortDirectory implements CohortDirectory
         | the refusal became a 500. That is the fifth layer of the 024 defect,
         | reached from a new door, and a test with one workspace cannot see it.
         */
-        $courseUuid = Course::query()
+        $course = Course::query()
             ->withoutWorkspaceScope()
             ->whereKey($cohort->course_id)
-            ->value('uuid');
+            ->first(['uuid', 'status']);
 
-        if ($courseUuid === null) {
+        if ($course === null) {
             return null;
         }
 
@@ -200,7 +200,17 @@ class EloquentCohortDirectory implements CohortDirectory
             'course_id' => (int) $cohort->course_id,
             'workspace_id' => (int) $cohort->workspace_id,
             'name' => (string) $cohort->name,
-            'course_uuid' => (string) $courseUuid,
+            'course_uuid' => (string) $course->uuid,
+            /*
+            | ⚠️ THE COURSE'S STATUS TRAVELS TOO (027 · FR-026). A subscription
+            | opens access by enrolling in every PUBLISHED course the plan covers,
+            | so a group whose course was unpublished between the order and the
+            | approval produces no enrolment — and the membership step then
+            | refuses with «لست مسجّلاً», after the money has committed and with
+            | nothing on the officer's screen. Answering it here lets the approval
+            | be refused while it can still be refused.
+            */
+            'course_status' => (string) $course->status,
             'is_joinable' => $cohort->isJoinable(),
         ];
     }

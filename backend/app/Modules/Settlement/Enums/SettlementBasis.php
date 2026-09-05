@@ -16,11 +16,26 @@ enum SettlementBasis: string
     case FrozenSeat = 'frozen_seat';
     case ZeroAttendanceCompensation = 'zero_attendance_compensation';
 
+    /*
+    | A seat a duration package already paid for (027 · FR-048).
+    |
+    | ⚠️ ITS AMOUNT IS ZERO, AND THAT IS THE REQUIREMENT RATHER THAN AN OMISSION.
+    | A frozen seat is priced per lesson because the student bought a lesson;
+    | a subscriber bought a MONTH, so pricing their seat per lesson makes what the
+    | platform pays grow with the timetable while what it collects stays fixed —
+    | twenty subscribers over thirteen lessons is two hundred and sixty payments
+    | against twenty packages. The row is still written, at zero, because the
+    | statement has to SHOW the lessons that were taught: a seat that produced no
+    | row at all is an obligation nobody can see.
+    */
+    case SubscriptionSeat = 'subscription_seat';
+
     public function label(): string
     {
         return match ($this) {
             self::FrozenSeat => 'مقعد مُجمَّد',
             self::ZeroAttendanceCompensation => 'تعويض حصة بلا حجوزات',
+            self::SubscriptionSeat => 'مقعد باشتراك',
         };
     }
 }

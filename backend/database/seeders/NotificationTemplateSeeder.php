@@ -523,6 +523,30 @@ class NotificationTemplateSeeder extends Seeder
                 ['plan_title', 'teacher_name', 'ends_on'],
             ],
             /*
+            | 027 · FR-029 — and the schedule is here in BOTH forms on purpose.
+            | The weekly rhythm says «السبت ٥م» and does not say which Saturday;
+            | the date of the next lesson says which day and hides the rhythm a
+            | guardian organises the week around. FR-029أ is why `next_session`
+            | is a SENTENCE rather than an omitted line: a missing row reads as a
+            | fault, so when nothing is scheduled yet the message says so.
+            */
+            NotificationType::SubscriptionActivated->value => [
+                'تم تفعيل اشتراكك مع {{ teacher_name }}',
+                'اشتراكك «{{ plan_title }}» مع {{ teacher_name }} فعّال من {{ starts_on }} حتى {{ ends_on }}. {{ schedule }} {{ next_session }}',
+                ['plan_title', 'teacher_name', 'starts_on', 'ends_on', 'schedule', 'next_session'],
+            ],
+            /*
+            | 027 · FR-042. It names the lesson and the reason, because «تعذّر
+            | الحجز» alone sends the student to ask a question the message could
+            | have answered. One notice per activation however many sessions it
+            | covers — the list is inside `sessions`.
+            */
+            NotificationType::SubscriptionSeatUnavailable->value => [
+                'مقاعد لم تُحجز تلقائيّاً',
+                'تعذّر حجز مقعد {{ student_name }} تلقائيّاً في: {{ sessions }}. راجع الجدول لحجز بديل أو لتوسيع السعة.',
+                ['student_name', 'sessions'],
+            ],
+            /*
             | ⚠️ THE NUMBERS ARE IN THE BODY, NOT A LINK TO THEM. A report that
             | says «تقريرك جاهز» is a notification whose whole content is a second
             | trip to the panel — and the person reading it on a phone at night is

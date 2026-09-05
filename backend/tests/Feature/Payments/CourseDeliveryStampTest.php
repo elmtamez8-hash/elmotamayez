@@ -42,7 +42,7 @@ function stampDeliveryOn(Course $course, CarbonImmutable $endsAt): void
         ]),
     );
 
-    app(StampCourseDelivery::class)->handle(new SessionDelivered($session, 1));
+    app(StampCourseDelivery::class)->handle(new SessionDelivered($session, 1, []));
 }
 
 it('stamps the course when a session is delivered', function (): void {

@@ -73,6 +73,79 @@ class BookSeat extends Action
         return $this->claim($session, $student, $this->eligibility->refusalReason($session, $student));
     }
 
+    /**
+     * The seat the SYSTEM took back, given back (027 · FR-045أ).
+     *
+     * ⚠️ A THIRD NAMED ENTRY, AND THE ONE THING IT DOES NOT DO IS INSERT. The
+     * unique index on (class_session_id, student_user_id) is still there, so a
+     * released row makes `claim()` throw «لديك مقعد محجوز في هذه الحصة بالفعل» —
+     * a sentence that is FALSE about a seat the student does not hold, with no
+     * way out from any screen. Reviving is an UPDATE on the row that is already
+     * there.
+     *
+     * ⚠️ AND IT LIVES HERE RATHER THAN IN THE CALLER, BECAUSE THE CAPACITY CLAIM
+     * DOES. `claimCapacity()` below is `private` and is the only guarded
+     * increment of `seats_taken` in the tree — every other writer decrements. A
+     * conditional UPDATE written inside `ClaimSubscriptionSeats` would be the
+     * second spelling of the seat claim, which is the defect the docblock above
+     * exists to forbid.
+     *
+     * ⚠️ AND ONLY `Released` IS REVIVED. A student's own cancellation stays
+     * cancelled (FR-044) — a booking they undid must not come back in the night.
+     * The conditional `where status = released` is what makes that true under a
+     * race as well: a seat re-booked by hand a millisecond earlier affects zero
+     * rows here and the claimed capacity goes straight back.
+     */
+    public function reviveReleasedSeat(ClassSession $session, User $student): SessionBooking
+    {
+        $this->assertBookable($session);
+
+        $refusal = $this->eligibility->refusalReason($session, $student);
+
+        if ($refusal !== null) {
+            throw new DomainException($refusal);
+        }
+
+        return DB::transaction(function () use ($session, $student): SessionBooking {
+            $this->claimCapacity($session);
+
+            $revived = SessionBooking::query()
+                ->withoutWorkspaceScope()
+                ->where('class_session_id', $session->getKey())
+                ->where('student_user_id', $student->getKey())
+                ->where('status', BookingStatus::Released->value)
+                ->update([
+                    'status' => BookingStatus::Booked->value,
+                    'is_billable' => true,
+                    'booked_at' => now(),
+                    'cancelled_at' => null,
+                    'cancellation_reason' => null,
+                    'updated_at' => now(),
+                ]);
+
+            if ($revived === 0) {
+                $this->releaseCapacity($session);
+
+                throw new DomainException('لم يعد هذا المقعد قابلاً للاسترجاع.');
+            }
+
+            $session->refresh();
+
+            $booking = SessionBooking::query()
+                ->withoutWorkspaceScope()
+                ->where('class_session_id', $session->getKey())
+                ->where('student_user_id', $student->getKey())
+                ->first();
+
+            if ($booking === null) {
+                // Unreachable: the UPDATE above affected exactly this row.
+                throw new DomainException('تعذّر استرجاع المقعد.');
+            }
+
+            return $booking;
+        });
+    }
+
     private function assertBookable(ClassSession $session): void
     {
         if (! $session->status->acceptsBookings()) {
@@ -91,14 +164,7 @@ class BookSeat extends Action
         }
 
         return DB::transaction(function () use ($session, $student): SessionBooking {
-            $claimed = ClassSession::query()
-                ->whereKey($session->getKey())
-                ->whereColumn('seats_taken', '<', 'seats_total')
-                ->increment('seats_taken');
-
-            if ($claimed === 0) {
-                throw new DomainException('اكتملت مقاعد هذه الحصة.');
-            }
+            $this->claimCapacity($session);
 
             try {
                 $booking = SessionBooking::query()->create([
@@ -113,7 +179,7 @@ class BookSeat extends Action
                 // The student already holds a seat. Give the one we just claimed
                 // back, or a double-tap on the button would eat a seat nobody
                 // occupies.
-                ClassSession::query()->whereKey($session->getKey())->decrement('seats_taken');
+                $this->releaseCapacity($session);
 
                 throw new DomainException('لديك مقعد محجوز في هذه الحصة بالفعل.');
             }
@@ -122,5 +188,33 @@ class BookSeat extends Action
 
             return $booking;
         });
+    }
+
+    /**
+     * The one guarded increment of `seats_taken` in the tree. Three entry points
+     * reach it and none of them may spell it a second time.
+     */
+    private function claimCapacity(ClassSession $session): void
+    {
+        $claimed = ClassSession::query()
+            ->whereKey($session->getKey())
+            ->whereColumn('seats_taken', '<', 'seats_total')
+            ->increment('seats_taken');
+
+        if ($claimed === 0) {
+            throw new DomainException('اكتملت مقاعد هذه الحصة.');
+        }
+    }
+
+    /**
+     * Give a claimed seat back when the row could not be written. Guarded at
+     * zero, so a compensation that runs twice cannot walk the count negative.
+     */
+    private function releaseCapacity(ClassSession $session): void
+    {
+        ClassSession::query()
+            ->whereKey($session->getKey())
+            ->where('seats_taken', '>', 0)
+            ->decrement('seats_taken');
     }
 }

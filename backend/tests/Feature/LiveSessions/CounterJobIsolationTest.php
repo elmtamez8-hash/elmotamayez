@@ -57,8 +57,38 @@ it('contains no WorkspaceContext::set call anywhere in the Jobs directory', func
     expect($files)->not->toBeEmpty();
 
     foreach ($files as $file) {
-        expect((string) file_get_contents($file))
+        /*
+        | ⚠️ COMMENTS ARE STRIPPED FIRST, AND THAT IS NOT A CONVENIENCE. Jobs in
+        | this directory carry a line SAYING «never `WorkspaceContext::set()`» —
+        | which is the whole reason the absence is deliberate rather than
+        | accidental. A raw `str_contains` turns that explanation into a red
+        | build, and the cheapest way to make a red build green is to delete the
+        | explanation. `TrustScoreJobIsolationTest` and `ContextIsolationTest`
+        | had both already learned this; this file had not, and 027's seat job
+        | is what found it.
+        */
+        expect(withoutPhpComments((string) file_get_contents($file)))
             ->not->toContain('$context->set(')
             ->not->toContain('WorkspaceContext::set');
     }
 });
+
+/**
+ * The source with every comment and docblock removed, tokenised rather than
+ * pattern-matched — a regex over PHP comments trips on the first `//` inside a
+ * string literal.
+ */
+function withoutPhpComments(string $source): string
+{
+    $kept = [];
+
+    foreach (token_get_all($source) as $token) {
+        if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+            continue;
+        }
+
+        $kept[] = is_array($token) ? $token[1] : $token;
+    }
+
+    return implode('', $kept);
+}
