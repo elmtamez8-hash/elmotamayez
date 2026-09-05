@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Http\Resources;
 
+use App\Modules\Payments\Data\SubscriptionIntent;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Tenancy\Support\Permissions;
@@ -70,6 +71,22 @@ class OrderResource extends JsonResource
             'review_sla_hours' => $this->isPending()
                 ? app(BillingSettings::class)->reviewSlaHours()
                 : null,
+            /*
+            | 027 · FR-014 · FR-017 — what was bought, as it was at the moment of
+            | buying. Null for every other order kind and for a subscription
+            | order written before this spec.
+            |
+            | ⚠️ THROUGH `SubscriptionIntent`, NEVER BY REACHING INTO
+            | `$this->metadata` HERE. One reader for one snapshot: the student's
+            | own «الطلبات» list and the officer's queue render the same four
+            | facts, and a second spelling returns null silently at the first
+            | renamed key.
+            |
+            | ⚠️ AND A MISSING KEY IS «—», NOT A LOOKUP. A Resource runs once per
+            | row, so a fallback query for a legacy order would be an N+1 on the
+            | one screen that lists every pending order on the platform.
+            */
+            'subscription' => SubscriptionIntent::fromOrder($this->resource)?->toArray(),
             'created_at' => $this->created_at,
         ];
     }

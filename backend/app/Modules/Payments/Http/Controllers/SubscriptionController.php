@@ -7,6 +7,7 @@ namespace App\Modules\Payments\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Payments\Actions\ListPlans;
 use App\Modules\Payments\Actions\PurchaseSubscription;
+use App\Modules\Payments\Http\Requests\PurchaseSubscriptionRequest;
 use App\Modules\Payments\Http\Resources\OrderResource;
 use App\Modules\Payments\Http\Resources\PlanResource;
 use App\Modules\Payments\Http\Resources\SubscriptionResource;
@@ -37,10 +38,14 @@ class SubscriptionController extends Controller
     {
         $validated = $request->validate([
             'course' => ['required', 'uuid'],
+            'session_type' => ['sometimes', 'string', 'in:individual,group'],
         ]);
 
         try {
-            $plans = $action->handle((string) $validated['course']);
+            $plans = $action->handle(
+                (string) $validated['course'],
+                isset($validated['session_type']) ? (string) $validated['session_type'] : null,
+            );
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
@@ -66,14 +71,17 @@ class SubscriptionController extends Controller
      * arrived yet, and a subscription written here would be a month of access
      * handed out against a bank transfer that may never clear.
      */
-    public function store(Request $request, PurchaseSubscription $action): JsonResponse
+    public function store(PurchaseSubscriptionRequest $request, PurchaseSubscription $action): JsonResponse
     {
-        $validated = $request->validate([
-            'plan_uuid' => ['required', 'uuid'],
-        ]);
+        $validated = $request->validated();
 
         try {
-            $order = $action->handle($this->currentUser($request), (string) $validated['plan_uuid']);
+            $order = $action->handle(
+                $this->currentUser($request),
+                (string) $validated['plan_uuid'],
+                (string) $validated['mode'],
+                isset($validated['cohort_uuid']) ? (string) $validated['cohort_uuid'] : null,
+            );
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }

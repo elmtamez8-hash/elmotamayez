@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Learning\Support;
 
 use App\Models\User;
+use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Shared\Contracts\CohortDirectory;
@@ -52,6 +53,17 @@ class EloquentCohortDirectory implements CohortDirectory
         return Cohort::query()
             ->withoutWorkspaceScope()
             ->where('course_id', $courseId)
+            /*
+            | ⚠️ `->group()`, OR THE SAFETY VALVE OPENS ON A ROOM NOBODY MAY
+            | ENTER. An individual cohort is born `closed` with `capacity: 1`
+            | and no membership row, so `members_count` is 0 — and nothing stops
+            | a teacher setting its status to `open` from the panel, after which
+            | it satisfies `joinable()`. This predicate is what decides whether
+            | the curriculum gate stays shut (FR-028أ/ب), so counting one would
+            | lock a paying student out of content on the strength of a private
+            | 1:1 group they can never join.
+            */
+            ->group()
             ->joinable()
             ->exists();
     }
@@ -133,9 +145,80 @@ class EloquentCohortDirectory implements CohortDirectory
             ->withoutWorkspaceScope()
             ->where('uuid', $uuid)
             ->where('course_id', $courseId)
+            /*
+            | ⚠️ `->group()` AS WELL AS THE COURSE. The course in the question is
+            | what stops a caller naming any cohort uuid on the platform; this is
+            | what stops them naming a private 1:1 cohort. Those are born `closed`
+            | with `capacity: 1`, but a teacher can open one from the panel — and
+            | this method is now reached from a STUDENT-supplied uuid on the
+            | subscription path (027), which makes an opened individual cohort a
+            | way into another named student's room and its thread.
+            */
+            ->group()
             ->value('id');
 
         return $id === null ? null : (int) $id;
+    }
+
+    /** @return array{id: int, course_id: int, workspace_id: int, name: string, course_uuid: string, is_joinable: bool}|null */
+    public function describeGroupCohort(string $uuid): ?array
+    {
+        $cohort = Cohort::query()
+            ->withoutWorkspaceScope()
+            ->where('uuid', $uuid)
+            // See the contract: no course narrows this, so the group filter is
+            // the only thing standing between a stranger's uuid and a private
+            // 1:1 room. The caller proves the rest from what comes back.
+            ->group()
+            ->first(['id', 'course_id', 'workspace_id', 'name', 'status', 'capacity', 'members_count']);
+
+        if ($cohort === null) {
+            return null;
+        }
+
+        /*
+        | ⚠️ THE COURSE UUID IS READ WITH ITS OWN BYPASS, NOT THROUGH `->with()`.
+        | An eager load runs a SECOND query on which `Course`'s own
+        | `BelongsToWorkspace` scope applies afresh — the bypass above frees only
+        | the outer read. This method is asked about ANOTHER teacher's group by
+        | design (that is the case it exists to refuse), and from the panel the
+        | reader's own workspace is a real number: the relation came back null and
+        | the refusal became a 500. That is the fifth layer of the 024 defect,
+        | reached from a new door, and a test with one workspace cannot see it.
+        */
+        $courseUuid = Course::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($cohort->course_id)
+            ->value('uuid');
+
+        if ($courseUuid === null) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $cohort->getKey(),
+            'course_id' => (int) $cohort->course_id,
+            'workspace_id' => (int) $cohort->workspace_id,
+            'name' => (string) $cohort->name,
+            'course_uuid' => (string) $courseUuid,
+            'is_joinable' => $cohort->isJoinable(),
+        ];
+    }
+
+    public function isJoinable(int $cohortId): bool
+    {
+        $cohort = Cohort::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($cohortId)
+            ->first(['id', 'status', 'capacity', 'members_count']);
+
+        /*
+        | ⚠️ DELEGATED TO THE MODEL, NEVER RE-SPELLED. `Cohort::isJoinable()` is
+        | `status === OPEN && ! isFull()`, and it is what `CohortResource` and the
+        | picker already read. A third spelling of one question is how the card
+        | says yes and the door says no — which is the defect FR-002 exists over.
+        */
+        return $cohort !== null && $cohort->isJoinable();
     }
 
     public function publicCohortsFor(int $courseId): array
@@ -174,6 +257,13 @@ class EloquentCohortDirectory implements CohortDirectory
                     default => 'open',
                 },
                 'seats_left' => $cohort->seatsLeft(),
+                /*
+                | ⚠️ THE SERVER'S ANSWER, NOT A CONDITION THE BROWSER REBUILDS
+                | (FR-002). Derived here from columns already selected, never by
+                | asking `isJoinable(int)` once per row — this method feeds a
+                | Resource, and a Resource runs once per row.
+                */
+                'is_joinable' => $cohort->isJoinable(),
             ];
         }
 

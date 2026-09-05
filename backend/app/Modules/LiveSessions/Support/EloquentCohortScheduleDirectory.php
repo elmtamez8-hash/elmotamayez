@@ -68,4 +68,34 @@ class EloquentCohortScheduleDirectory implements CohortScheduleDirectory
 
         return $out;
     }
+
+    /** @return array{uuid: string, starts_at: string}|null */
+    public function nextSessionFor(int $cohortId): ?array
+    {
+        /*
+        | ⚠️ THE SAME THREE CONDITIONS AS THE PREVIEW ABOVE, DELIBERATELY. A
+        | cancelled session is not the next meeting, and a past one is not next —
+        | telling a student who has just paid to turn up to a class that was
+        | called off is the worst first message this feature could send.
+        |
+        | Ordered ascending with one row: served end to end by the
+        | `(cohort_id, starts_at)` index this spec adds.
+        */
+        $session = ClassSession::query()
+            ->withoutWorkspaceScope()
+            ->where('cohort_id', $cohortId)
+            ->whereIn('status', [ClassSessionStatus::Scheduled->value, ClassSessionStatus::Live->value])
+            ->where('starts_at', '>=', now())
+            ->orderBy('starts_at')
+            ->first(['uuid', 'starts_at']);
+
+        if ($session === null) {
+            return null;
+        }
+
+        return [
+            'uuid' => (string) $session->uuid,
+            'starts_at' => $session->starts_at->toIso8601String(),
+        ];
+    }
 }

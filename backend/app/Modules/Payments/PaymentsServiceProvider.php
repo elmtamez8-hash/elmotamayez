@@ -51,8 +51,10 @@ use App\Modules\Payments\Providers\PaymentProviderRegistry;
 use App\Modules\Payments\Support\EloquentAccountStanding;
 use App\Modules\Payments\Support\EloquentConsentDirectory;
 use App\Modules\Payments\Support\PaymentsPersonalData;
+use App\Modules\Payments\Support\SubscriptionEligibility;
 use App\Shared\Contracts\AccountStanding;
 use App\Shared\Contracts\ConsentDirectory;
+use App\Shared\Contracts\SubscriptionDirectory;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -109,6 +111,18 @@ class PaymentsServiceProvider extends Module
         | with nothing behind it.
         */
         $this->app->bind(ConsentDirectory::class, EloquentConsentDirectory::class);
+
+        /*
+        | Spec 027 — what the subscription layer answers to LiveSessions and Learning.
+        |
+        | bind(), and neither of the other two lifetimes. NOT `scoped()`: this is
+        | asked once per seat-claim job and once per scheduled session, not the
+        | dozens-per-page shape `AssistantScopeDirectory` and `Flags` memoise for.
+        | NOT `singleton()`: a worker's container outlives the job, so a memo here
+        | would serve a subscriber list that expired hours ago — and the whole
+        | point of the moment parameter is that this answer moves.
+        */
+        $this->app->bind(SubscriptionDirectory::class, SubscriptionEligibility::class);
     }
 
     public function boot(): void

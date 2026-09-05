@@ -164,6 +164,11 @@ class PublicMarketplaceController extends Controller
         // another module's directory, and a Resource that reached across a
         // module boundary would do it once per row.
         $payload['cohorts'] = $action->cohortsOf($course);
+        // Spec 027 · FR-003 — whether the private-subscription invitation may be
+        // drawn at all. Merged here for the same reason the groups are: it comes
+        // from another module's directory, and a Resource asking one would ask
+        // once per row.
+        $payload['private_subscription_available'] = $action->privateSubscriptionAvailable($course);
 
         return response()->json(['data' => $payload]);
     }

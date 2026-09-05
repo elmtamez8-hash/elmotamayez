@@ -36,8 +36,11 @@ use Illuminate\Database\Eloquent\Collection;
  */
 class ListPlans extends Action
 {
-    /** @return Collection<int, Plan> */
-    public function handle(string $courseUuid): Collection
+    /**
+     * @param  string|null  $sessionType  narrows the list to one room size (027 · FR-008)
+     * @return Collection<int, Plan>
+     */
+    public function handle(string $courseUuid, ?string $sessionType = null): Collection
     {
         $workspaceId = Course::query()
             ->withoutWorkspaceScope()
@@ -52,6 +55,15 @@ class ListPlans extends Action
             ->withoutWorkspaceScope()
             ->where('workspace_id', $workspaceId)
             ->sellable()
+            /*
+            | ⚠️ DISPLAY, NOT PROTECTION. The one subscription screen shows only
+            | the plans that match what the buyer chose, so a group choice is not
+            | offered a one-to-one price — but the real guard is
+            | `PurchaseSubscription::guardModeMatchesPlan()`, which sees the plan
+            | the order is actually written against. A filter here alone would be
+            | a rule enforced by a dropdown.
+            */
+            ->when($sessionType !== null, fn ($query) => $query->where('session_type', $sessionType))
             ->orderBy('duration_days')
             ->get();
     }

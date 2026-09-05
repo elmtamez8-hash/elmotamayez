@@ -36,4 +36,20 @@ interface CohortScheduleDirectory
      *                                  sessions scheduled" rather than nothing
      */
     public function schedulePreviewFor(array $cohortIds): array;
+
+    /**
+     * The next session this group will hold, or null when none is scheduled.
+     *
+     * ⚠️ SINGLE-ROW, AND THAT IS NOT A BREACH OF THE BULK RULE ABOVE. This is
+     * asked ONCE per approved subscription, from a queued listener building one
+     * notification — not once per row of a list. The bulk rule exists because a
+     * Resource runs per row; nothing here does.
+     *
+     * ⚠️ AND THE CALLER MUST RENDER ITS ABSENCE (FR-029أ). A group whose next
+     * session is not scheduled yet answers null, and the notification says so in
+     * words — dropping the line instead makes its absence read as a fault.
+     *
+     * @return array{uuid: string, starts_at: string}|null
+     */
+    public function nextSessionFor(int $cohortId): ?array;
 }

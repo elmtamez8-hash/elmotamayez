@@ -428,7 +428,24 @@ class OrderResource extends Resource
             $query->withoutGlobalScope(WorkspaceScope::class);
         }
 
-        return $query->with(['course', 'user', 'approver']);
+        /*
+        | ⚠️ THE BYPASS IS PER MODEL, AND THE EAGER LOAD IS A SECOND QUERY.
+        | Dropping the scope above only frees the OUTER read; `->with('course')`
+        | runs its own query, on which `Course`'s `BelongsToWorkspace` scope
+        | applies afresh — so every order outside the officer's fallback
+        | workspace came back with a null course and rendered «—», with no error
+        | anywhere. That is the fifth layer of the 024 defect, and it was still
+        | here: the four fixed layers all raised a status code, and this one
+        | raises nothing at all.
+        |
+        | `user` and `approver` need no bypass: `users` is platform-owned and
+        | carries no workspace scope.
+        */
+        return $query->with([
+            'course' => fn ($relation) => $relation->withoutGlobalScope(WorkspaceScope::class),
+            'user',
+            'approver',
+        ]);
     }
 
     public static function getRelations(): array
