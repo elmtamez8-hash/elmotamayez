@@ -36,16 +36,31 @@ const DRAFT_SENTINEL = 'DRAFT-ONLY-LESSON-SENTINEL';
  *
  * @return array{0: Course, 1: Workspace, 2: TeacherProfile}
  */
-function publicCourseFixture(bool $participates = true, string $approval = TeacherProfile::STATUS_APPROVED): array
+function publicCourseFixture(bool $participates = true, string $approval = TeacherProfile::STATUS_APPROVED, ?string $slug = null): array
 {
+    /*
+    | ⚠️ THE DEFAULT SLUG IS UNIQUE PER CALL, AND THAT IS THE POINT.
+    |
+    | It was the literal `calculus-basics` for every course this helper made, and
+    | the four-refusals case below builds three of them in three workspaces. That
+    | was legal while the index was `unique(workspace_id, slug)`; `/courses/{slug}`
+    | made the slug a PLATFORM address, so the same three fixtures now collide on
+    | the index — the constraint proving itself on the first run.
+    |
+    | A caller that asserts on the value passes it explicitly.
+    */
+    static $sequence = 0;
+
+    $slug ??= 'calculus-basics-'.(++$sequence);
+
     $workspace = marketplaceWorkspace('Academy', $participates);
     $teacher = marketplaceTeacher($workspace, ['approval_status' => $approval]);
 
-    $course = app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace, $teacher): Course {
+    $course = app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace, $teacher, $slug): Course {
         $course = Course::factory()->published()->create([
             'workspace_id' => $workspace->getKey(),
             'title' => 'أساسيّات التفاضل',
-            'slug' => 'calculus-basics',
+            'slug' => $slug,
             'grade_level' => 'secondary',
             'price_minor' => 24900,
             'currency' => 'QAR',
@@ -101,7 +116,9 @@ function publicCourseFixture(bool $participates = true, string $approval = Teach
 }
 
 it('opens a published course to an anonymous visitor', function (): void {
-    [$course] = publicCourseFixture();
+    // Named explicitly: this case asserts the value, and the helper's default is
+    // a per-call sequence now that the slug is a platform-wide address.
+    [$course] = publicCourseFixture(slug: 'calculus-basics');
 
     $this->asGuest();
 
@@ -185,10 +202,41 @@ it('answers every unpublishable course with the identical not-found body', funct
     expect(array_unique(array_values($bodies)))->toHaveCount(1, 'the four refusals must be indistinguishable');
 });
 
-it('refuses a slug in the path, because a slug is unique inside one workspace only', function (): void {
-    [$course] = publicCourseFixture();
+/*
+| ⚠️ INVERTED, NOT DELETED (2026-09-06).
+|
+| This case asserted the opposite until today — «refuses a slug in the path,
+| because a slug is unique inside one workspace only» — and it was right: the
+| index was `unique(workspace_id, slug)`, so two teachers naming a course
+| «الرياضيات ٣» produced one address and the public route had no workspace to
+| tell them apart. `_000100_make_course_slug_platform_unique` moved the key, the
+| same one `/teachers/{slug}` has carried since 2026-08.
+|
+| Inverting rather than deleting is what keeps the closure readable as a
+| DECISION two specs from now, exactly as `AcademySignupUnchangedTest` was
+| handled when 025 repealed its clauses.
+*/
+it('opens a course by its slug, and still opens it by the uuid', function (): void {
+    [$course] = publicCourseFixture(slug: 'calculus-basics');
 
     $this->asGuest();
 
-    $this->getJson("/api/v1/marketplace/courses/{$course->slug}")->assertNotFound();
+    $bySlug = $this->getJson('/api/v1/marketplace/courses/calculus-basics')->assertOk()->json('data');
+    $byUuid = $this->getJson("/api/v1/marketplace/courses/{$course->uuid}")->assertOk()->json('data');
+
+    // Both addresses, one course. The uuid is not deprecated: every link shared
+    // before the slug existed is one, and the page 308s to the canonical form
+    // rather than serving two rankings for one page.
+    expect($bySlug['uuid'])->toBe($course->uuid)
+        ->and($byUuid['slug'])->toBe('calculus-basics');
+});
+
+it('still refuses a slug that belongs to a course it may not publish', function (): void {
+    // The new key must not become a second door past `publiclyListed()`.
+    [$draft] = publicCourseFixture(slug: 'hidden-course');
+    $draft->forceFill(['status' => 'draft'])->save();
+
+    $this->asGuest();
+
+    $this->getJson('/api/v1/marketplace/courses/hidden-course')->assertNotFound();
 });

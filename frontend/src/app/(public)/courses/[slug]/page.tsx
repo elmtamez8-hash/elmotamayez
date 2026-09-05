@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { CohortList } from "@/components/marketplace/CohortList";
 import { CourseCurriculum } from "@/components/marketplace/CourseCurriculum";
 import { PrivateSessionRequestForm } from "@/components/courses/PrivateSessionRequestForm";
@@ -17,7 +17,7 @@ import {
 } from "@/lib/public-api";
 import { siteUrl } from "@/lib/site";
 
-type Params = { uuid: string };
+type Params = { slug: string };
 
 const TYPE_LABELS: Record<CourseDetail["type"], string> = {
   individual: "فردي",
@@ -26,15 +26,21 @@ const TYPE_LABELS: Record<CourseDetail["type"], string> = {
 };
 
 /*
- * ⚠️ THE ADDRESS IS A uuid, NOT A slug. `courses.slug` is unique per
- * (workspace_id, slug) — inside one workspace only — so two teachers naming a
- * course «الرياضيات ٣» produce the same slug and a public route with no
- * workspace to read cannot tell them apart. The slug is in the payload for
- * display and is deliberately not the route segment.
+ * ⚠️ THE ADDRESS IS THE SLUG NOW, AND THE UUID STILL OPENS IT.
+ *
+ * This said the opposite until 2026-09-06, and it was true when written:
+ * `courses.slug` was unique per (workspace_id, slug) — inside one workspace only
+ * — so two teachers naming a course «الرياضيات ٣» produced the same slug and a
+ * public route with no workspace to read could not tell them apart. The index is
+ * platform-wide now, the same key `/teachers/{slug}` has carried since 2026-08.
+ *
+ * The uuid resolves and 308s to the slug, because every link shared before today
+ * is a uuid and serving one page at two addresses splits its ranking between
+ * them.
  */
-async function loadCourse(uuid: string): Promise<CourseDetail> {
+async function loadCourse(key: string): Promise<CourseDetail> {
   try {
-    const { data } = await publicApi.course(uuid);
+    const { data } = await publicApi.course(key);
 
     return data;
   } catch (error) {
@@ -54,10 +60,10 @@ export async function generateMetadata({
 }: {
   params: Promise<Params>;
 }): Promise<Metadata> {
-  const { uuid } = await params;
+  const { slug } = await params;
 
   try {
-    const course = await loadCourse(uuid);
+    const course = await loadCourse(slug);
 
     return {
       title: course.teacher
@@ -68,7 +74,7 @@ export async function generateMetadata({
         `${course.title}: ${course.lessons_count.toLocaleString("ar-QA")} درساً على منصّتنا.`,
       // Absolute, for the reason the home page's is: a relative canonical
       // resolves against whichever host the crawler arrived on.
-      alternates: { canonical: siteUrl(`/courses/${course.uuid}`) },
+      alternates: { canonical: siteUrl(`/courses/${course.slug ?? course.uuid}`) },
     };
   } catch {
     return { title: "غير متاح" };
@@ -105,8 +111,22 @@ export default async function CoursePage({
 }: {
   params: Promise<Params>;
 }) {
-  const { uuid } = await params;
-  const course = await loadCourse(uuid);
+  const { slug } = await params;
+  const course = await loadCourse(slug);
+
+  /*
+   * 308 to the canonical slug when the visitor arrived on the old uuid URL —
+   * the same block `teachers/[slug]` has carried since 2026-08, and for the same
+   * reason: serving one course at two addresses splits its ranking between them,
+   * so the search engine has to be told which of the two to keep.
+   *
+   * ⚠️ COMPARED AFTER DECODING. A slug is ASCII today, but the comparison is
+   * what decides whether a redirect fires, and an encoded segment that never
+   * equals its own decoded form is an infinite redirect to itself.
+   */
+  if (course.slug && decodeURIComponent(slug) !== course.slug) {
+    permanentRedirect(`/courses/${course.slug}`);
+  }
 
   /*
    * The teacher's declared hours, read from the endpoint that already publishes

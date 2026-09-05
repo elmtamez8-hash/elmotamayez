@@ -95,6 +95,10 @@ final class PublicFieldAllowlist
     /** @var list<string> */
     public const COURSE_CARD = [
         'uuid',
+        // The card's link target since `/courses/{slug}` (027). The uuid stays:
+        // it is what `/subscribe?course=` and every authenticated screen speak,
+        // and dropping it here would move that cost onto a second read.
+        'slug',
         'title',
         'cover_url',
         'teacher',

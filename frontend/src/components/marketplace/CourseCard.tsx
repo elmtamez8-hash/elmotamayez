@@ -81,7 +81,7 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
             this» stays a separate destination rather than being swallowed. */}
         <h3 className="text-base font-bold leading-snug text-ink">
           <Link
-            href={`/courses/${course.uuid}${anchor}`}
+            href={`/courses/${course.slug ?? course.uuid}${anchor}`}
             className="after:absolute after:inset-0 after:content-[''] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             {course.title}

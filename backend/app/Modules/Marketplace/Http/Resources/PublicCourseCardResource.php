@@ -27,6 +27,14 @@ class PublicCourseCardResource extends JsonResource
 
         return [
             'uuid' => $this->uuid,
+            /*
+            | ⚠️ THE CARD'S OWN ADDRESS, ADDED WITH `/courses/{slug}` (027).
+            | Every public link to a course is built from this card, so a payload
+            | without it sends the whole marketplace to the uuid URL — which
+            | still resolves, and 308s on arrival, making every listing one extra
+            | round trip and one redirect away from the page it names.
+            */
+            'slug' => $this->slug,
             'title' => $this->title,
             'cover_url' => $this->cover_path === null ? null : asset('storage/'.$this->cover_path),
             'teacher' => $this->teacherByline(),

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\Courses\Http\Requests;
 
+use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Support\PromoVideoUrl;
 use App\Modules\Tenancy\Support\Permissions;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateCourseRequest extends FormRequest
 {
@@ -29,7 +31,19 @@ class UpdateCourseRequest extends FormRequest
             */
             'subject' => ['sometimes', 'uuid'],
             'description' => ['nullable', 'string'],
-            'slug' => ['nullable', 'string', 'max:255'],
+            /*
+            | ⚠️ UNIQUE ACROSS THE PLATFORM, NOT WITHIN THE WORKSPACE.
+            | `/courses/{slug}` is one namespace read by guests, so the index behind
+            | this rule carries no `workspace_id` — and without the rule a teacher
+            | who types a slug another teacher already holds gets a raw integrity
+            | violation instead of a sentence under the field.
+            |
+            | ⚠️ AND `Rule::unique` IS A RAW QUERY WITH NO GLOBAL SCOPE ON IT,
+            | which is exactly what is wanted here and is why `WorkspaceRules` is NOT
+            | used: the question is whether ANY course on the platform holds this
+            | address.
+            */
+            'slug' => ['nullable', 'string', 'max:255', Rule::unique('courses', 'slug')->ignore($this->courseBeingEdited())],
             'price_minor' => ['nullable', 'integer', 'min:0'],
             'currency' => ['nullable', 'string', 'size:3'],
             'is_sequential' => ['nullable', 'boolean'],
@@ -59,5 +73,22 @@ class UpdateCourseRequest extends FormRequest
                 }
             }],
         ];
+    }
+
+    /**
+     * The row this request is editing, so its own slug is not read as taken.
+     *
+     * Route-model binding hands back a `Course` here, but the container types
+     * the parameter as `object|string` — a route CAN be reached with the raw
+     * segment, and `->getKey()` on a string is a fatal error rather than a
+     * validation failure. Null means «ignore nothing», which is the safe answer:
+     * the rule then refuses a slug the row already holds, and the worst case is
+     * a save that has to be told the value is unchanged.
+     */
+    private function courseBeingEdited(): ?int
+    {
+        $course = $this->route('course');
+
+        return $course instanceof Course ? (int) $course->getKey() : null;
     }
 }

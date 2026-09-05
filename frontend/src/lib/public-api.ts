@@ -80,6 +80,13 @@ export type AvailabilityItem = {
 
 export type CourseCard = {
   uuid: string;
+  /*
+   * The card's link target since `/courses/{slug}` (027). Nullable because a
+   * card can arrive from a page rendered before the payload carried it — an
+   * ISR-cached listing is real traffic, not a defensive `?.` — and every href
+   * built from this falls back to the uuid, which still resolves and 308s.
+   */
+  slug: string | null;
   title: string;
   cover_url: string | null;
   teacher: {

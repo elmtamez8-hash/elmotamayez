@@ -6,6 +6,7 @@ namespace App\Modules\Courses\Http\Requests;
 
 use App\Modules\Tenancy\Support\Permissions;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CreateCourseRequest extends FormRequest
 {
@@ -34,7 +35,19 @@ class CreateCourseRequest extends FormRequest
             */
             'subject' => ['required', 'uuid'],
             'description' => ['nullable', 'string'],
-            'slug' => ['nullable', 'string', 'max:255'],
+            /*
+            | ⚠️ UNIQUE ACROSS THE PLATFORM, NOT WITHIN THE WORKSPACE.
+            | `/courses/{slug}` is one namespace read by guests, so the index behind
+            | this rule carries no `workspace_id` — and without the rule a teacher
+            | who types a slug another teacher already holds gets a raw integrity
+            | violation instead of a sentence under the field.
+            |
+            | ⚠️ AND `Rule::unique` IS A RAW QUERY WITH NO GLOBAL SCOPE ON IT,
+            | which is exactly what is wanted here and is why `WorkspaceRules` is NOT
+            | used: the question is whether ANY course on the platform holds this
+            | address.
+            */
+            'slug' => ['nullable', 'string', 'max:255', Rule::unique('courses', 'slug')],
             // Integer minor units, never `numeric`: a decimal accepted here is
             // a hundredth of the price the teacher meant.
             'price_minor' => ['nullable', 'integer', 'min:0'],
