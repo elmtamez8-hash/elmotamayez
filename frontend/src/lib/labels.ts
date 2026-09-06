@@ -209,6 +209,26 @@ export function sessionEndedLabel(reason: string | null): string | null {
  * workspace. Showing that name unchanged is right; a blank would be an empty
  * badge and a guess would be worse.
  */
+/**
+ * Why a certificate was issued.
+ *
+ * ⚠️ ONE MAP, read by the public verification page and by the student's own
+ * list. It lived inside the verify page as a local constant until a second
+ * screen needed it — and Arabic status labels belong here by convention, exactly
+ * so the two cannot drift into «إتمام الكورس» on one screen and something else
+ * on the next. An unknown value falls through to itself rather than to an empty
+ * cell: a reason nobody has translated yet is still a fact about the row.
+ */
+export function certificateReasonLabel(reason: string): string {
+  return (
+    {
+      course_completed: "إتمام الكورس",
+      exam_passed: "اجتياز الاختبار",
+      manual: "إصدار يدوي",
+    }[reason] ?? reason
+  );
+}
+
 export function roleLabel(role: string, label?: string | null): string {
   return label ?? role;
 }

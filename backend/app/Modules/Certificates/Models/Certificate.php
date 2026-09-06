@@ -29,10 +29,11 @@ class Certificate extends BaseModel implements HasMedia
         'course_id',
         'student_user_id',
         'student_display_name',
+        'teacher_display_name',
+        'subject_display_name',
         'exam_attempt_id',
         'issue_reason',
         'issued_at',
-        'template_id',
         'metadata',
     ];
 
@@ -66,11 +67,5 @@ class Certificate extends BaseModel implements HasMedia
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_user_id');
-    }
-
-    /** @return BelongsTo<CertificateTemplate, $this> */
-    public function template(): BelongsTo
-    {
-        return $this->belongsTo(CertificateTemplate::class);
     }
 }

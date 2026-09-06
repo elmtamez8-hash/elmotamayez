@@ -95,11 +95,22 @@ export default function ManageCertificatesPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">شهادات الطلاب</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          كلّ شهادة صدرت عندك، والاسم عليها هو الاسم يوم استحقّها.
-        </p>
+      <header className="flex flex-wrap items-start gap-3">
+        <div className="me-auto">
+          <h1 className="text-xl font-semibold text-ink">شهادات الطلاب</h1>
+          <p className="mt-1 text-sm text-ink-muted">
+            كلّ شهادة صدرت عندك، والاسم عليها هو الاسم يوم استحقّها.
+          </p>
+        </div>
+
+        {/*
+          ⚠️ THE ONLY WAY IN. `/manage/certificates/design` is reachable from
+          nowhere else, and a screen nobody can reach is not shipped (SC-009) —
+          which is the exact defect this whole feature was born from.
+        */}
+        <Button variant="ghost" size="sm" href="/manage/certificates/design">
+          تصميم الشهادة
+        </Button>
       </header>
 
       <Table

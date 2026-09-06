@@ -80,6 +80,17 @@
   --color-trust-medium: #c89b2e;
   --color-trust-low: #a8321f;
 
+  /* Ink printed ON a certificate, and the ONE colour in this file that is
+     deliberately absent from the dark block below.
+
+     The certificate is drawn over a fixed cream artwork that has no dark
+     variant, so a theme-reactive ink would turn near-white on a pale ground and
+     print NOTHING for every viewer whose device is in dark mode — the
+     invisible-colour family this tree has shipped four times, reached from the
+     one direction the token guard cannot see (the token exists; the ground does
+     not follow it). Sampled from the shipped designs' own maroon. */
+  --color-certificate-ink: #6b0f2b;
+
   /* Arabic type scale */
   --font-sans: var(--font-cairo), system-ui, sans-serif;
 }

@@ -22,6 +22,7 @@ use App\Modules\Assessments\Models\StudyRoom;
 use App\Modules\Assessments\Models\StudyRoomParticipant;
 use App\Modules\Assessments\Models\StudyRoomQuestion;
 use App\Modules\Assessments\Models\Submission;
+use App\Modules\Certificates\Models\CertificateDesign;
 use App\Modules\Community\Models\Announcement;
 use App\Modules\Community\Models\AssistantAssignment;
 use App\Modules\Community\Models\AssistantScope;
@@ -1220,4 +1221,27 @@ it('keeps two teachers who registered back to back out of each other rows', func
 
     expect(TeacherApplication::query()->count())->toBe(1)
         ->and(TeacherApplication::query()->sole()->user_id)->toBe($first->getKey());
+});
+
+describe('a certificate design is workspace-scoped', function (): void {
+    // Required in the same PR that adds the model (Constitution I), and no
+    // automated gate notices its absence: `CertificateDesign` without
+    // BelongsToWorkspace passes every other test in the suite and puts one
+    // teacher's artwork — including one they uploaded themselves — on another
+    // teacher's certificates.
+    it('scopes certificate designs to the current workspace', function (): void {
+        [$workspaceA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+        [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+        $context = app(WorkspaceContext::class);
+
+        $context->forWorkspace($workspaceA, fn () => CertificateDesign::create(['system_key' => 'classic']));
+        $context->forWorkspace($workspaceB, fn () => CertificateDesign::create(['system_key' => 'students']));
+
+        expect($context->forWorkspace($workspaceA, fn () => CertificateDesign::query()->count()))->toBe(1)
+            ->and($context->forWorkspace($workspaceA, fn () => CertificateDesign::query()->sole()->system_key))
+            ->toBe('classic')
+            ->and($context->forWorkspace($workspaceB, fn () => CertificateDesign::query()->sole()->system_key))
+            ->toBe('students');
+    });
 });

@@ -37,6 +37,8 @@ use Laravel\Scout\Searchable;
  * @property Carbon|null $last_delivered_at
  * @property Carbon|null $created_at
  * @property-read User|null $creator created_by is nullable — a course can outlive its author
+ * @property-read Subject|null $subject subject_id is nullable — 007 added the column with no writer,
+ *   and a course created before 026's backfill (or by a factory) still carries none
  */
 class Course extends BaseModel
 {
