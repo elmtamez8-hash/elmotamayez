@@ -6,7 +6,7 @@ import { AccountPhotoCard } from "@/components/settings/AccountPhotoCard";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Field, NumberField, Select, TextField } from "@/components/ui/Field";
+import { Field, NumberField, SelectField, TextareaField, TextField } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { api, fieldErrors } from "@/lib/api";
@@ -300,31 +300,28 @@ export default function ProfileSettingsPage() {
               required
             />
 
-            <Field id="bio" label="نبذة عنك" error={fields.bio}>
-              <textarea
-                id="bio"
-                value={form.bio}
-                onChange={(event) => setForm({ ...form, bio: event.target.value })}
-                rows={6}
-                maxLength={5000}
-                className="w-full rounded-xl border border-line bg-surface-raised px-3 py-2 text-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-              />
-            </Field>
+            {/* `TextareaField` for the reason the selects below moved to
+                `SelectField`: a hand-rolled control is a second spelling of the
+                kit's own padding, border and focus ring, and it drifts from
+                them at the first token anybody changes. */}
+            <TextareaField
+              id="bio"
+              label="نبذة عنك"
+              value={form.bio}
+              onChange={(value) => setForm({ ...form, bio: value })}
+              rows={6}
+              error={fields.bio}
+            />
 
-            <Field
+            <TextareaField
               id="qualifications"
               label="الشهادات والمؤهلات"
-              error={fields.qualifications}
               hint="شهادة في كل سطر."
-            >
-              <textarea
-                id="qualifications"
-                value={form.qualifications}
-                onChange={(event) => setForm({ ...form, qualifications: event.target.value })}
-                rows={4}
-                className="w-full rounded-xl border border-line bg-surface-raised px-3 py-2 text-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-              />
-            </Field>
+              value={form.qualifications}
+              onChange={(value) => setForm({ ...form, qualifications: value })}
+              rows={4}
+              error={fields.qualifications}
+            />
 
             {/* `NumberField`, never `TextField type="number"` — the union does
                 not carry it, deliberately: one spelling per control, or the two
@@ -361,37 +358,38 @@ export default function ProfileSettingsPage() {
               void save(profileApi.saveStudent(student));
             }}
           >
-            <Field id="school_year_slug" label="الصف الدراسي" error={fields.school_year_slug} required>
-              <Select
-                id="school_year_slug"
-                value={student.school_year_slug}
-                onChange={(event) =>
-                  setStudent({ ...student, school_year_slug: event.target.value })
-                }
-              >
-                <option value="">اختر الصف</option>
-                {years.map((year) => (
-                  <option key={year.slug} value={year.slug}>
-                    {year.name_ar}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            {/*
+              ⚠️ `SelectField`, NEVER `Field` WRAPPED ROUND A BARE `Select`.
+              `Select` is the chevron and the icon lane and NOTHING ELSE — it
+              takes its whole appearance from the `className` its caller passes,
+              so mounting it without one produced a browser-default control:
+              smaller than every other field on the platform, with no border and
+              no background, and an option list the browser painted white while
+              the page's own light text stayed on it. `SelectField` is the paired
+              form that applies `CONTROL` and the error border, which is what
+              every other screen in the product uses.
+            */}
+            <SelectField
+              id="school_year_slug"
+              label="الصف الدراسي"
+              placeholder="اختر الصف"
+              value={student.school_year_slug}
+              onChange={(value) => setStudent({ ...student, school_year_slug: value })}
+              options={years.map((year) => ({ value: year.slug, label: year.name_ar }))}
+              error={fields.school_year_slug}
+              required
+            />
 
-            <Field id="region_slug" label="المنطقة" error={fields.region_slug} required>
-              <Select
-                id="region_slug"
-                value={student.region_slug}
-                onChange={(event) => setStudent({ ...student, region_slug: event.target.value })}
-              >
-                <option value="">اختر المنطقة</option>
-                {regions.map((region) => (
-                  <option key={region.slug} value={region.slug}>
-                    {region.name_ar}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            <SelectField
+              id="region_slug"
+              label="المنطقة"
+              placeholder="اختر المنطقة"
+              value={student.region_slug}
+              onChange={(value) => setStudent({ ...student, region_slug: value })}
+              options={regions.map((region) => ({ value: region.slug, label: region.name_ar }))}
+              error={fields.region_slug}
+              required
+            />
 
             {/*
               ⛔ تاريخُ الميلادِ ورقمُ وليِّ الأمرِ ليسا هنا عمداً: الأوّلُ يقودُ

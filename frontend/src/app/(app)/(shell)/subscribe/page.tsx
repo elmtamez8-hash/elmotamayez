@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Field, Select } from "@/components/ui/Field";
+import { Field, SelectField } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -276,17 +276,25 @@ function SubscribeScreen() {
         </p>
 
         <div className="mt-3 space-y-3">
-          <Field id="subscribe-method" label="طريقة الدفع">
-            <Select
-              id="subscribe-method"
-              value={method}
-              onChange={(event) => setMethod(event.target.value)}
-              chevron="sm"
-            >
-              <option value="bank_transfer">تحويل بنكي</option>
-              <option value="mobile_wallet">محفظة إلكترونية</option>
-            </Select>
-          </Field>
+          {/*
+            ⚠️ `SelectField`, NOT `Field` ROUND A BARE `Select`. `Select` is the
+            chevron and its lane and nothing else — it takes its whole appearance
+            from the caller's `className`, so with none it renders a
+            browser-default control: no border, no background, smaller than every
+            field beside it, and an option list the browser paints white under
+            the page's own light text. Reported on the sibling screen, found here
+            by the scan in `src/components/ui/select-styling.test.ts`.
+          */}
+          <SelectField
+            id="subscribe-method"
+            label="طريقة الدفع"
+            value={method}
+            onChange={setMethod}
+            options={[
+              { value: "bank_transfer", label: "تحويل بنكي" },
+              { value: "mobile_wallet", label: "محفظة إلكترونية" },
+            ]}
+          />
 
           <Field
             id="subscribe-receipt"
