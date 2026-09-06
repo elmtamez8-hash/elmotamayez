@@ -46,7 +46,7 @@ export default function VerifyCertificatePage({
     return (
       <main
         id="main"
-        className="flex min-h-screen items-center justify-center text-ink-muted"
+        className="flex min-h-[60vh] items-center justify-center text-ink-muted"
       >
         جارٍ التحقّق…
       </main>
@@ -54,7 +54,7 @@ export default function VerifyCertificatePage({
   }
 
   return (
-    <main id="main" className="flex min-h-screen items-center justify-center px-4 py-10">
+    <main id="main" className="flex min-h-[60vh] items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         {data?.valid && data.certificate ? (
           <div className="overflow-hidden rounded-2xl border border-line bg-surface-raised">

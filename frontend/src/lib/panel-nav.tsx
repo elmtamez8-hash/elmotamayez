@@ -58,7 +58,7 @@ import { P, can } from "@/lib/permissions";
 import { isLearner } from "@/lib/auth-context";
 import type { User } from "@/lib/types";
 
-export /**
+/**
  * `permission` absent means everyone who is signed in may see it.
  *
  * ⚠️ THE LIST USED TO BE FLAT AND UNGATED, and that is what the student was
@@ -68,7 +68,7 @@ export /**
  * but a menu of links that answer 403 teaches the reader that the product does
  * not know who they are.
  */
-type NavItem = {
+export type NavItem = {
   href: string;
   label: string;
   Icon: ComponentType<IconProps>;
@@ -104,19 +104,6 @@ type NavItem = {
    */
   audience?: "learner";
 };
-
-/**
- * ما يُعرَض في «وصول سريع» داخلَ قائمةِ الحساب — طلبُ المستخدِمِ ٢٠٢٦-٠٩-٠٦.
- *
- * ⚠️ **عناوينُ لا بنودٌ مكرَّرة.** البنودُ نفسُها تُؤخَذُ من {@link mainNav} بعدَ
- * `allowed()` — الصلاحيّةُ والجمهورُ — فقائمةٌ ثانيةٌ كاملةٌ كانت ستعرضُ
- * «واجباتي» لمدرّسٍ و«لوحة الصدارة» لموظّفٍ ماليّ، ثمّ تفترقُ عن الشريطِ عندَ
- * أوّلِ تسميةٍ تتغيّر. وعنوانٌ يختفي من `mainNav` يختفي من هنا من تلقاءِ نفسِه:
- * المرشِّحُ لا يجدُه فلا يعرضُه، بلا رابطٍ ميّت.
- *
- * والترتيبُ ترتيبُ هذه القائمةِ لا ترتيبُ الشريط: «متى حصّتي» أوّلُ ما يُسأل.
- */
-const quickAccessHrefs = ["/schedule", "/assignments", "/exams", "/leaderboard"] as const;
 
 export const mainNav: NavItem[] = [
   { href: "/dashboard", label: "لوحة التحكم", Icon: HomeIcon },
@@ -514,25 +501,63 @@ export function allowedNav(items: NavItem[], user: User | null): NavItem[] {
 }
 
 /**
- * ما يُعرَض في «وصول سريع» داخلَ قائمةِ الحساب — طلبُ المستخدِمِ ٢٠٢٦-٠٩-٠٦.
+ * الوصولُ السريعُ في قائمةِ الحساب — طلبُ ٢٠٢٦-٠٩-٠٦: «المنيو بيتغير حسب هو طالب
+ * او مدرس او ادمن او ولي امر».
  *
- * ⚠️ **عناوينُ لا بنودٌ مكرَّرة.** البندُ نفسُه — تسميتُه وأيقونتُه وشرطُ ظهورِه —
- * يُؤخَذُ من {@link mainNav}، فقائمةٌ ثانيةٌ كاملةٌ كانت ستعرضُ «واجباتي» لمدرّسٍ
- * و«لوحة الصدارة» لموظّفٍ ماليّ ثمّ تفترقُ عندَ أوّلِ تسميةٍ تتغيّر. وعنوانٌ
- * يختفي من `mainNav` يختفي من هنا وحدَه: المرشِّحُ لا يجدُه فلا يعرضُه، بلا
- * رابطٍ ميّت.
+ * ⚠️ **الدَّورُ يُرتِّبُ، والحارسُ وحدَه يُظهِر.** هذه القوائمُ ترتيبٌ لا صلاحيّة:
+ * كلُّ عنوانٍ فيها يمرُّ بعدَها على {@link allowedNav} — الصلاحيّةُ والجمهورُ معاً —
+ * فبندٌ لا يملكُه القارئُ يسقطُ مهما كانَ في أيِّ قائمة. والنتيجةُ أنّ خطأً في
+ * تخمينِ الدَّورِ **يُعيدُ الترتيبَ ولا يكشفُ شيئاً أبداً**، وهو الفرقُ بينَ منتقٍ
+ * يُشتَقُّ من قاعدةِ صاحبِ القرارِ وآخرَ يُجمَّعُ بجانبِها — العطبُ الذي دفعَ ثمنَه
+ * هذا المستودعُ في `BookingEligibility` و`ListLeaderboardScopes`.
  *
- * ⚠️ ومَمْشٍ على العناوينِ لا مرشِّحٌ على البنود: الترشيحُ يحفظُ ترتيبَ الشريطِ
- * الجانبيِّ لا ترتيبَ هذه القائمة، و«متى حصّتي» أوّلُ ما يُسأل.
+ * ⚠️ ولذلك **لا قائمةَ للمدرّسِ وأخرى للمشرِف**: كلاهما يقرأُ القائمةَ نفسَها،
+ * والصلاحيّاتُ هي التي تفرزُ — فمدرّسٌ بلا تصحيحٍ لا يرى لوحةَ التصحيح، وموظّفٌ
+ * ماليٌّ يرى سجلَّ التحصيلِ ولا يرى حصصاً لا يُدرِّسُها. ودَورٌ يُضافُ غداً يعملُ
+ * بلا سطرٍ هنا.
+ *
+ * ⚠️ و«وليُّ الأمرِ» يقرأُ شاشاتِ ابنِه نفسَها — قرارُ المنتَجِ مكتوبٌ في
+ * {@link isLearner}: يقرأُ «تقييماتي الدورية» و«كشف التقديرات» من شاشاتِ الطالبِ
+ * ذاتِها. فقائمتُه ليست ثالثةً مخترَعةً بل ترتيبٌ يبدأُ بـ`‎/family`، وهي الشاشةُ
+ * الوحيدةُ التي تخصُّه هو.
  */
-const QUICK_ACCESS = ["/schedule", "/assignments", "/exams", "/leaderboard"];
+const QUICK_ACCESS = {
+  guardian: ["/family", "/report-cards", "/reviews", "/schedule", "/messages"],
+  learner: ["/schedule", "/assignments", "/exams", "/leaderboard", "/enrollments"],
+  // المدرّسُ والمشرِفُ والموظّفُ الماليُّ في قائمةٍ واحدة: الترشيحُ يفرزُ بينهم.
+  staff: [
+    "/manage/sessions",
+    "/manage/grading",
+    "/manage/courses",
+    "/manage/exams",
+    "/manage/settlement",
+    "/manage/payments/collection",
+    "/manage/compliance",
+    "/members",
+  ],
+} as const;
+
+/** خمسةٌ سقفاً: أطولُ من ذلك ليس وصولاً سريعاً بل نسخةً ثانيةً من الشريطِ الجانبيّ. */
+const QUICK_ACCESS_LIMIT = 5;
 
 export function quickAccessFor(user: User | null): NavItem[] {
-  const mine = allowedNav(mainNav, user);
+  if (user === null) return [];
 
-  return QUICK_ACCESS.flatMap((href) => {
-    const item = mine.find((candidate) => candidate.href === href);
+  const order =
+    user.platform_role === "parent"
+      ? QUICK_ACCESS.guardian
+      : isLearner(user)
+        ? QUICK_ACCESS.learner
+        : QUICK_ACCESS.staff;
 
-    return item ? [item] : [];
-  });
+  // القوائمُ الثلاثُ تُرشَّحُ معاً: بندٌ يخصُّ دوراً آخرَ يسقطُ عندَ الحارسِ لا هنا.
+  const mine = allowedNav([...mainNav, ...adminNav, ...platformNav], user);
+
+  return order
+    .flatMap((href) => {
+      const item = mine.find((candidate) => candidate.href === href);
+
+      return item ? [item] : [];
+    })
+    .slice(0, QUICK_ACCESS_LIMIT);
 }
