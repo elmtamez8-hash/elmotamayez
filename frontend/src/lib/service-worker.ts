@@ -49,8 +49,13 @@ const sw = self as unknown as ServiceWorkerScope;
   Without that, a policy change that stops allowing a prefix leaves everything it
   already cached served for ever from an entry nothing will ever evict — the rule
   tightened and the device kept the old answer.
+
+  ⚠️ AND THAT IS EXACTLY WHY THIS IS `v2` NOW. The development fix below refuses a
+  prefix this worker used to accept — and a refusal changes nothing for a device
+  that already HOLDS those entries, because the `fetch` handler returns before ever
+  consulting the cache. Bumping the name is what makes `activate` delete them.
 */
-const CACHE = "mteatch-v1";
+const CACHE = "mteatch-v2";
 
 /**
  * ⚠️ PRECACHED, BECAUSE A FALLBACK FETCHED ON DEMAND IS NOT A FALLBACK. `/offline`
@@ -125,7 +130,14 @@ sw.addEventListener("fetch", ((event: {
     return;
   }
 
-  if (!isCacheable(request.url, sw.location.origin)) return;
+  /*
+    ⚠️ THE THIRD ARGUMENT IS THE WHOLE OF THE DEVELOPMENT FIX. `process.env.NODE_ENV`
+    is inlined by the bundler that compiles this file, so the shipped worker carries
+    the literal `true` and behaves exactly as it always has; a `next dev` worker
+    carries `false` and stops pinning chunks whose names never change. See
+    `isCacheable` for what that cost before it existed.
+  */
+  if (!isCacheable(request.url, sw.location.origin, process.env.NODE_ENV === "production")) return;
 
   /*
     Cache-first, which is safe for exactly this allowlist and nothing else:
