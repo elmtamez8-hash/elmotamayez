@@ -49,8 +49,17 @@ async function show(rows: Order[]) {
 
   render(<OrdersPage />);
 
+  /*
+    ⚠️ WAIT FOR THE LOADING INDICATOR TO GO, NOT FOR THE EMPTY STATE TO BE ABSENT.
+    The empty state is absent WHILE THE PAGE IS STILL LOADING too, so that
+    condition is true on the first tick and `waitFor` returns before any row
+    exists — every assertion below then runs against the skeleton. It passed on a
+    fast machine, where React had flushed anyway, and failed on CI's slower runner:
+    «Unable to find an element with the text: شراء أرصدة» over a body full of
+    `animate-pulse`.
+  */
   await waitFor(() => {
-    expect(screen.queryByText("لا طلبات في سجلّك")).toBeNull();
+    expect(screen.queryByRole("status", { name: "جارٍ التحميل" })).toBeNull();
   });
 }
 

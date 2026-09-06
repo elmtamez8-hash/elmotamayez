@@ -89,11 +89,15 @@ describe("the subscription screen's refusal", () => {
 
     await fillAndSend();
 
+    /*
+      ⚠️ BOTH FACTS INSIDE THE WAIT. The scroll happens in an effect that runs
+      AFTER the refusal is painted, so asserting it beside the wait rather than
+      inside it is a race the test loses on a slow machine — and it did, on CI.
+    */
     await waitFor(() => {
       expect(screen.getByText("لم يُرسل الطلب")).toBeDefined();
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
     });
-
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
   });
 
   it("scrolls nothing when the request went through", async () => {
