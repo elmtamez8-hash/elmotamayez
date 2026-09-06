@@ -129,6 +129,22 @@ export default function SettingsPage() {
           two would disagree the first time a role changed. */}
       <PublicProfileUrlCard />
 
+      {/*
+        ⚠️ الرابطُ الداخلُ إلى شاشةٍ لم تكنْ موجودة. كلُّ ما تكتبُه الخطوةُ
+        الثانيةُ من معالجِ الانضمامِ كانَ يُكتَبُ مرّةً ولا يُعدَّلُ إلّا من لوحةِ
+        الإدارة، وصورةُ الحسابِ لم يكنْ لها كاتبٌ في الشجرةِ أصلاً — وصفحةٌ لا
+        يصلُ إليها رابطٌ صفحةٌ لا يفتحُها أحدٌ مهما كانت صحيحة.
+      */}
+      <Card as="section">
+        <h3 className="mb-1 font-semibold text-ink">ملفّي وصورتي</h3>
+        <p className="mb-4 text-sm text-ink-muted">
+          صورة حسابك، وما تُدرّسه ولمن ووصفك — أو صفّك الدراسي ومنطقتك.
+        </p>
+        <Button href="/settings/profile" variant="secondary">
+          افتح ملفّي
+        </Button>
+      </Card>
+
       <Card as="section">
         <h3 className="mb-1 font-semibold text-ink">الإشعارات</h3>
         <p className="mb-4 text-sm text-ink-muted">

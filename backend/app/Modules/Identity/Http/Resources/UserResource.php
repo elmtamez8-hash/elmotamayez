@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Http\Resources;
 
 use App\Models\User;
+use App\Modules\Identity\Actions\SaveAccountPhoto;
 use App\Modules\Marketplace\Support\SchoolYearDirectory;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Support\WorkspaceContext;
@@ -53,7 +54,20 @@ class UserResource extends JsonResource
                 'school_year_name' => app(SchoolYearDirectory::class)
                     ->nameFor($this->studentProfile->school_year_slug),
                 'registered_by_parent' => $this->studentProfile->registered_by_parent,
+                // The region was stored at registration and never sent back, so
+                // an edit form had nothing to prefill itself with — and the
+                // student would have re-picked it blind on every save.
+                'region_slug' => $this->studentProfile->region?->slug,
             ],
+            /*
+            | صورةُ الحساب، مهما كانَ الملفُّ الذي تحملُها.
+            |
+            | ⚠️ هنا في الجذرِ لا داخلَ `student_profile`: «ما صورةُ هذا الحساب؟»
+            | سؤالٌ صحيحٌ عن كلِّ حساب، والعمودُ الذي يجيبُه يختلفُ باختلافِ
+            | الملفِّ لا باختلافِ السؤال. ومفتاحانِ — واحدٌ للمدرّسِ وآخرُ للطالبِ —
+            | يعنيانِ أنّ كلَّ شاشةٍ ترسمُ صورةً تسألُ سؤالَينِ وتنسى أحدَهما.
+            */
+            'photo_url' => $this->accountPhotoUrl(),
             /*
              | ⚠️ WHAT THIS PERSON MAY DO, because the client had no way to ask.
              |
@@ -177,5 +191,21 @@ class UserResource extends JsonResource
         return $workspaceId === null
             ? $resolve()
             : app(WorkspaceContext::class)->forWorkspace((int) $workspaceId, $resolve);
+    }
+
+    /**
+     * المسارُ العامُّ لصورةِ الحساب.
+     *
+     * ملفُّ المدرّسِ أوّلاً ثمّ ملفُّ الطالب، بنفسِ ترتيبِ
+     * {@see SaveAccountPhoto} — ترتيبانِ
+     * مختلفانِ يعنيانِ حساباً يرفعُ صورةً في مكانٍ وتُقرأُ من مكانٍ آخر.
+     */
+    private function accountPhotoUrl(): ?string
+    {
+        $path = $this->teacherProfile === null
+            ? $this->studentProfile?->avatar_path
+            : $this->teacherProfile->photo_path;
+
+        return $path === null ? null : asset('storage/'.$path);
     }
 }

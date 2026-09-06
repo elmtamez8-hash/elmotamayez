@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Marketplace\Actions\UpdateTeacherProfile;
 use App\Modules\Marketplace\Actions\UpdateTeacherSlug;
+use App\Modules\Marketplace\Http\Requests\UpdateTeacherProfileRequest;
 use App\Modules\Marketplace\Http\Requests\UpdateTeacherSlugRequest;
+use App\Modules\Marketplace\Models\GradeLevel;
+use App\Modules\Marketplace\Models\Subject;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -69,7 +73,80 @@ class TeacherProfileController extends Controller
             | does not appear in any marketplace payload.
             */
             'workspace_participates_in_marketplace' => (bool) $profile->workspace?->participates_in_marketplace,
+            /*
+            | ⚠️ WHAT THE EDIT FORM PREFILLS ITSELF FROM — and until 2026-09-06
+            | there was nowhere at all to edit these. Every one of them was
+            | written ONCE, in step two of the application wizard, and after
+            | approval no screen and no route could touch them again: a teacher
+            | who took on a new stage, earned a qualification, or wanted to fix a
+            | typo in their own description had to ask the platform to edit the
+            | row for them in `/admin`.
+            |
+            | The photo is the sharper half of the same gap: `photo_path` had
+            | FOUR readers and no writer anywhere in the tree, so the initials
+            | every avatar falls back to were not a fallback — they were the only
+            | state the product could ever be in.
+            */
+            'photo_url' => $profile->photo_path === null ? null : asset('storage/'.$profile->photo_path),
+            'headline' => $profile->headline,
+            'bio' => $profile->bio,
+            'years_experience' => $profile->years_experience,
+            'qualifications' => $profile->qualifications ?? [],
+            'teaching_languages' => $profile->teaching_languages ?? [],
+            'subjects' => $profile->subjects()->pluck('slug')->all(),
+            'grade_levels' => $profile->gradeLevels()->pluck('slug')->all(),
         ]);
+    }
+
+    /**
+     * The teacher edits their own listing, and it is public at once.
+     *
+     * ⚠️ THROUGH THE SAME ACTION THE REVIEW TEAM USES. `UpdateTeacherProfile`
+     * already existed and was reachable from `/admin` alone: it carries the
+     * white-list that keeps `approval_status` and `is_publicly_listed` out of a
+     * raw `update()`, and it flushes the marketplace cache — without which a
+     * saved change stays invisible on the public card until the cache expires by
+     * itself. A second writer here would have to remember both.
+     *
+     * ⚠️ AND IT DOES NOT RE-OPEN REVIEW. `approval_status` is untouched, so
+     * `is_publicly_listed` — derived from approval AND workspace participation —
+     * cannot move. Sending an edit back to a queue was considered and refused:
+     * it would leave a teacher's own page carrying, for days, a sentence they
+     * had already corrected.
+     */
+    public function update(UpdateTeacherProfileRequest $request, UpdateTeacherProfile $action): JsonResponse
+    {
+        $profile = $request->profile();
+
+        abort_if($profile === null, 403, 'لا يوجد ملف مدرّس لهذا الحساب.');
+
+        $validated = $request->validated();
+
+        $action->handle(
+            $profile,
+            [
+                'headline' => $validated['headline'],
+                'bio' => $validated['bio'] ?? null,
+                'years_experience' => (int) $validated['years_experience'],
+                'qualifications' => array_values($validated['qualifications'] ?? []),
+                'teaching_languages' => array_values($validated['teaching_languages']),
+            ],
+            $this->taxonomyIds(Subject::class, $validated['subjects']),
+            $this->taxonomyIds(GradeLevel::class, $validated['grade_levels']),
+        );
+
+        return $this->show($request);
+    }
+
+    /**
+     * @param  class-string<Subject|GradeLevel>  $model
+     * @param  array<int, string>  $slugs
+     * @return list<int>
+     */
+    private function taxonomyIds(string $model, array $slugs): array
+    {
+        /** @var list<int> */
+        return $model::query()->whereIn('slug', $slugs)->pluck('id')->all();
     }
 
     /**

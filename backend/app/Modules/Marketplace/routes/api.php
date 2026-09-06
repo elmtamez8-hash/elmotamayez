@@ -109,6 +109,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // Throttled by account — the uniqueness check makes this an endpoint you
     // could otherwise probe to enumerate which slugs are taken.
     Route::get('/teacher/profile', [TeacherProfileController::class, 'show']);
+    // ⚠️ THE EDIT DOOR THAT DID NOT EXIST. Everything step two of the wizard
+    // writes was writable once and never again; `/admin` was the only way to
+    // correct a teacher's own subjects, stages, languages, qualifications or
+    // description. No route parameter, so there is no ownership check to forget.
+    Route::put('/teacher/profile', [TeacherProfileController::class, 'update']);
     Route::put('/teacher/profile/slug', [TeacherProfileController::class, 'updateSlug'])
         ->middleware('throttle:profile-slug');
 

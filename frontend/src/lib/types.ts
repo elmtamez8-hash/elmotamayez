@@ -121,7 +121,25 @@ export interface User {
    * جلبٌ ثانٍ داخل الغلاف لأجل سطرٍ في القائمة الجانبية ليس ثمنًا يُدفع.
    */
   workspaces: { uuid: string; name: string }[];
+  /**
+   * صورةُ الحساب — أيّاً كانَ الملفُّ الذي تحملُها.
+   *
+   * ⚠️ مفتاحٌ واحدٌ في الجذرِ لا مفتاحانِ حسبَ الدَّور: «ما صورةُ هذا الحساب؟»
+   * سؤالٌ واحدٌ عن كلِّ حساب، ومفتاحانِ يعنيانِ أنّ كلَّ شاشةٍ ترسمُ صورةً تسألُ
+   * سؤالَينِ وتنسى أحدَهما. و`null` يعني الحرفَ الأوّلَ في دائرة.
+   */
+  photo_url: string | null;
+  student_profile: StudentProfile | null;
   created_at: string;
+}
+
+/** ما هو صحيحٌ عن الطالبِ وحدَه — والمرحلةُ مشتقّةٌ من السنةِ لا مُخزَّنةٌ معها. */
+export interface StudentProfile {
+  grade_level_slug: string | null;
+  school_year_slug: string | null;
+  school_year_name: string | null;
+  region_slug: string | null;
+  registered_by_parent: boolean;
 }
 
 export interface Course {

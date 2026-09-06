@@ -10,6 +10,7 @@ import type { Taxonomy } from "@/lib/public-api";
 import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
 import { Button } from "@/components/ui/Button";
 import { PasswordField, Select } from "@/components/ui/Field";
+import { TEACHING_LANGUAGES } from "@/lib/teaching-languages";
 
 const FIELD =
   "w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
@@ -23,11 +24,6 @@ const STEPS = [
 
 const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
-const LANGUAGES = [
-  { value: "ar", label: "العربية" },
-  { value: "en", label: "الإنجليزية" },
-  { value: "fr", label: "الفرنسية" },
-];
 
 interface ApplicationState {
   status: string;
@@ -577,7 +573,7 @@ export function TeacherSignupWizard({
           <fieldset>
             <legend className="mb-2 text-sm font-semibold text-ink">لغات التدريس</legend>
             <div className="flex flex-wrap gap-2">
-              {LANGUAGES.map((language) => (
+              {TEACHING_LANGUAGES.map((language) => (
                 <label
                   key={language.value}
                   className={`cursor-pointer rounded-xl border px-3 py-1.5 text-sm ${

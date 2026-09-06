@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Modules\Identity\Http\Controllers\AccountPhotoController;
 use App\Modules\Identity\Http\Controllers\AuthController;
 use App\Modules\Identity\Http\Controllers\FamilyController;
 use App\Modules\Identity\Http\Controllers\ParentController;
 use App\Modules\Identity\Http\Controllers\ReferralController;
 use App\Modules\Identity\Http\Controllers\SessionController;
+use App\Modules\Identity\Http\Controllers\StudentProfileController;
 use App\Modules\Identity\Http\Controllers\TwoFactorController;
 use Illuminate\Support\Facades\Route;
 
@@ -50,6 +52,18 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::patch('/auth/me', [AuthController::class, 'updateProfile']);
     Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
+    /*
+    | صورةُ الحسابِ وبياناتُ الطالبِ الدراسيّة — بابانِ لم يكونا موجودَينِ إطلاقاً.
+    |
+    | ⚠️ `teacher_profiles.photo_path` و`student_profiles.avatar_path` كانَ لكلٍّ
+    | منهما أربعةُ قرّاءٍ وبلا كاتبٍ واحدٍ في الشجرةِ كلِّها، فالحرفُ الأوّلُ في
+    | دائرةٍ لم يكنْ احتياطاً بل الحالةَ الوحيدةَ التي يقدرُ عليها المنتَج.
+    |
+    | ولا مُعامِلَ مسارٍ في أيٍّ منها: لا شيءَ يُسمّى فلا فحصَ ملكيّةٍ يُنسى.
+    */
+    Route::post('/me/photo', [AccountPhotoController::class, 'store']);
+    Route::delete('/me/photo', [AccountPhotoController::class, 'destroy']);
+    Route::patch('/me/student-profile', [StudentProfileController::class, 'update']);
 
     Route::get('/auth/2fa', [TwoFactorController::class, 'show']);
     Route::post('/auth/2fa/setup', [TwoFactorController::class, 'setup'])->middleware('throttle:two-factor');
