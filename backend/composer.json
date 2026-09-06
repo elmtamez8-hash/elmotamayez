@@ -22,6 +22,7 @@
         "meilisearch/meilisearch-php": "^1.16",
         "minishlink/web-push": "^11.0",
         "mpdf/mpdf": "^8.3",
+        "spatie/image": "^3.9",
         "spatie/laravel-activitylog": "^5.0",
         "spatie/laravel-medialibrary": "^11.23",
         "spatie/laravel-permission": "^8.3",

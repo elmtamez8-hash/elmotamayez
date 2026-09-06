@@ -107,3 +107,41 @@ it('refuses an account with neither profile, and a file that is not an image', f
         ->assertStatus(422)
         ->assertJsonPath('message', 'لا يوجد ملف شخصي لهذا الحساب يحمل صورة.');
 });
+
+/*
+| ⚠️ الحدُّ على الخادمِ لا في المتصفّح — طلبُ ٢٠٢٦-٠٩-٠٦: «تقليل حجمها وقصّها
+| ووضعُ الوجهِ في الإطارِ الدائريّ».
+|
+| المقصُّ في الواجهةِ هو التجربة، وهو على الجانبِ الذي لا يُوثَقُ به: مَن يتخطّى
+| الشاشةَ يرسلُ ما شاء. فالاختباراتُ التاليةُ تقيسُ ما **يُخزَّنُ** لا ما يُرسَل.
+*/
+it('re-encodes every upload to one square size, whatever arrives', function (): void {
+    Sanctum::actingAs($this->student);
+
+    // ٢٠٠٠×١٠٠٠ — مستطيلٌ عريض. بلا إعادةِ الترميزِ يُخزَّنُ كما هو، فتقصُّه
+    // `object-cover` في المتصفّحِ من المنتصفِ لا من حيثُ وضعَ صاحبُه وجهَه.
+    $this->postJson('/api/v1/me/photo', [
+        'photo' => UploadedFile::fake()->image('wide.jpg', 2000, 1000),
+    ])->assertOk();
+
+    $path = $this->student->studentProfile->refresh()->avatar_path;
+
+    [$width, $height] = getimagesize(Storage::disk('public')->path($path));
+
+    expect([$width, $height])->toBe([512, 512]);
+});
+
+it('stores JPEG under a .jpg name however the upload was named', function (): void {
+    // اسمٌ ينتهي بـ`.png` فوقَ بايتاتِ JPEG هو النوعُ الذي يخمّنُه كلُّ خادمٍ
+    // ثابتٍ من الاسم — والقرصُ العامُّ يُخدَمُ مباشرةً من `/storage`.
+    Sanctum::actingAs($this->student);
+
+    $this->postJson('/api/v1/me/photo', [
+        'photo' => UploadedFile::fake()->image('me.png', 300, 300),
+    ])->assertOk();
+
+    $path = $this->student->studentProfile->refresh()->avatar_path;
+
+    expect($path)->toEndWith('.jpg')
+        ->and(getimagesize(Storage::disk('public')->path($path))[2])->toBe(IMAGETYPE_JPEG);
+});
