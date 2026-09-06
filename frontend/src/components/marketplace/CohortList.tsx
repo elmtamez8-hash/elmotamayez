@@ -1,4 +1,10 @@
 import { Button } from "@/components/ui/Button";
+import {
+  MyCohortBadge,
+  MyCohortLink,
+  MyCohortProvider,
+  UnlessMyCohort,
+} from "@/components/marketplace/MyCohort";
 import { TONE_CLASSES } from "@/lib/labels";
 import type { CohortSummary } from "@/lib/public-api";
 
@@ -50,7 +56,16 @@ function seats(count: number | undefined): string | null {
  */
 export function CohortList({ courseUuid, cohorts }: { courseUuid: string; cohorts: CohortSummary[] }) {
   return (
-    <ul className="grid grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] gap-4">
+    /*
+      ⚠️ THE PROVIDER LIVES HERE, NOT AT THE CALL SITE. A page that had to
+      remember to wrap this list is a page that eventually forgets — and the
+      failure is silent: the badge simply never appears, on a screen that looks
+      complete. It is a CLIENT component around SERVER-rendered cards, which
+      costs nothing: children handed to a client component are still rendered on
+      the server, so a crawler still reads every group.
+    */
+    <MyCohortProvider courseUuid={courseUuid}>
+      <ul className="grid grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] gap-4">
       {cohorts.map((cohort) => {
         const status = STATUS[cohort.status];
         const remaining = seats(cohort.seats_left);
@@ -64,11 +79,21 @@ export function CohortList({ courseUuid, cohorts }: { courseUuid: string; cohort
               <h3 className="text-sm font-bold leading-snug text-ink">
                 {cohort.name}
               </h3>
-              <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${TONE_CLASSES[status.tone]}`}
-              >
-                {status.label}
-              </span>
+              <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                {/*
+                  ⚠️ A CLIENT LEAF INSIDE A SERVER CARD. This list stays server
+                  rendered — it is what a crawler reads — and only the answer to
+                  «is this reader a member» arrives afterwards, from the
+                  authenticated route. See `MyCohort.tsx` for why it cannot come
+                  from this page's own payload.
+                */}
+                <MyCohortBadge cohortUuid={cohort.uuid} />
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-bold ${TONE_CLASSES[status.tone]}`}
+                >
+                  {status.label}
+                </span>
+              </div>
             </div>
 
             {cohort.description && (
@@ -101,17 +126,30 @@ export function CohortList({ courseUuid, cohorts }: { courseUuid: string; cohort
             )}
 
             {cohort.is_joinable && (
-              <Button
-                href={`/subscribe?course=${encodeURIComponent(courseUuid)}&cohort=${encodeURIComponent(cohort.uuid)}`}
-                size="sm"
-                fullWidth
-              >
-                اشترك في هذه المجموعة
-              </Button>
+              // ⚠️ And never on the group the reader is already in: «مجموعتك»
+              // beside «اشترك في هذه المجموعة» is an invitation to buy a place
+              // they hold, which the server refuses after a payment screen.
+              <UnlessMyCohort cohortUuid={cohort.uuid}>
+                <Button
+                  href={`/subscribe?course=${encodeURIComponent(courseUuid)}&cohort=${encodeURIComponent(cohort.uuid)}`}
+                  size="sm"
+                  fullWidth
+                >
+                  اشترك في هذه المجموعة
+                </Button>
+              </UnlessMyCohort>
             )}
+
+            {/*
+              ⚠️ OUTSIDE the `is_joinable` branch above: a member stays a member
+              of a group that has since filled up, and their own way in must not
+              disappear because the group stopped taking newcomers.
+            */}
+            <MyCohortLink courseUuid={courseUuid} cohortUuid={cohort.uuid} />
           </li>
         );
-      })}
-    </ul>
+        })}
+      </ul>
+    </MyCohortProvider>
   );
 }
