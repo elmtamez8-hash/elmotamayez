@@ -33,8 +33,8 @@ describe('certificate listing', function (): void {
 
         $this->getJson('/api/v1/certificates')
             ->assertOk()
-            ->assertJsonCount(1)
-            ->assertJsonPath('0.certificate_number', $cert->certificate_number);
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.certificate_number', $cert->certificate_number);
     });
 
     it('lists all certificates for staff with view-all', function (): void {
@@ -48,7 +48,33 @@ describe('certificate listing', function (): void {
 
         $this->getJson('/api/v1/certificates')
             ->assertOk()
-            ->assertJsonCount(2);
+            ->assertJsonCount(2, 'data');
+    });
+
+    it('sends the pagination a second page depends on', function (): void {
+        /*
+        | ⚠️ THIS IS THE ASSERTION THAT WAS MISSING FOR THE LIFE OF THE SCREEN.
+        | `response()->json(Resource::collection($paginator))` never calls
+        | `toResponse()`, so `meta` was dropped in silence and
+        | `manage/certificates/page.tsx` read `meta.last_page` as `1` for ever —
+        | «عرض المزيد» never appeared for a teacher with more than fifteen
+        | certificates, and every other test here was green over the broken shape
+        | because it only ever created one or two rows (SC-010 · `FR-038`).
+        */
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+        $student = $this->addWorkspaceMember($workspace, 'student');
+
+        foreach (range(1, 16) as $ignored) {
+            createCertificate($workspace->id, $student->id);
+        }
+
+        Sanctum::actingAs($student);
+
+        $this->getJson('/api/v1/certificates')
+            ->assertOk()
+            ->assertJsonCount(15, 'data')
+            ->assertJsonPath('meta.last_page', 2)
+            ->assertJsonPath('meta.total', 16);
     });
 
     it('shows a single certificate', function (): void {

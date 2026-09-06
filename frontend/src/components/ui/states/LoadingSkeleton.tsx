@@ -43,6 +43,27 @@ export function CourseCardSkeleton() {
 }
 
 /**
+ * A certificate card: the brand band, then the course and three detail rows.
+ *
+ * ⚠️ Its own shape rather than `CourseCardSkeleton`, whose band is a 160px image
+ * — this file's whole point is that the placeholder holds the same space the real
+ * card will, so nothing jumps when the data lands.
+ */
+export function CertificateCardSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-line bg-surface-raised">
+      <Shimmer className="h-[5.5rem] w-full rounded-none" />
+      <div className="space-y-3 p-5">
+        <Shimmer className="h-4 w-3/4" />
+        <Shimmer className="h-3 w-1/2" />
+        <Shimmer className="h-3 w-2/3" />
+        <Shimmer className="h-3 w-1/3" />
+      </div>
+    </div>
+  );
+}
+
+/**
  * Rows, for the panel's lists and tables. The card grid above is the marketplace
  * shape and reads as wrong above a table.
  */

@@ -20,6 +20,7 @@
     "livekit-client": "^2.21.0",
     "next": "^15.1.0",
     "pusher-js": "^8.6.0",
+    "qrcode-generator": "^1.5.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sonner": "^2.0.8"

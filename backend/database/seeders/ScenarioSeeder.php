@@ -17,7 +17,6 @@ use App\Modules\Assessments\Models\ExamItem;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Assessments\Models\UnlockRule;
-use App\Modules\Certificates\Models\CertificateTemplate;
 use App\Modules\CMS\Models\Article;
 use App\Modules\CMS\Models\Category;
 use App\Modules\CMS\Models\Tag;
@@ -169,14 +168,6 @@ final class ScenarioSeeder extends Seeder
         $browser = $this->member($workspace, Roles::STUDENT, 'Hana', 'Newcomer', 'hana@academy.test');
 
         $this->invitations($workspace);
-
-        // Created before any certificate so issued certificates reference it.
-        CertificateTemplate::create([
-            'workspace_id' => $workspace->id,
-            'name' => 'Default Certificate',
-            'html_template' => '<div class="cert"><h1>{{ course_title }}</h1><p>{{ student_name }}</p><small>{{ certificate_number }}</small></div>',
-            'defaults' => ['orientation' => 'landscape', 'accent' => '#4f46e5'],
-        ]);
 
         $paid = $this->course($workspace, $teacher, [
             'title' => 'Laravel Mastery',

@@ -65,7 +65,7 @@ export async function SiteFooter() {
   return (
     // relative + isolate: bg-dots paints on ::before at z-index -1, which needs a
     // stacking context of its own or it slides behind the page background.
-    <footer className="bg-dots relative isolate mt-20 overflow-hidden border-t border-line bg-surface">
+    <footer className="bg-dots relative isolate mt-20 overflow-hidden border-t border-line bg-surface print:hidden">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2 lg:col-span-1">

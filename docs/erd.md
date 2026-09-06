@@ -122,17 +122,33 @@
        │ │ id · uuid · workspace_id · certificate_number (UNIQUE)      │
        │ │ verification_code (UNIQUE) · enrollment_id · course_id       │
        │ │ student_user_id · exam_attempt_id · issue_reason             │
-       │ │ issued_at · template_id · metadata (JSON)                    │
+       │ │ issued_at · metadata (JSON)                                  │
+       │ │ student_display_name · teacher_display_name          (028)   │
+       │ │ subject_display_name — all three FROZEN at issue     (028)   │
        │ │ UNIQUE(workspace_id, enrollment_id, course_id)              │
+       │ │ ⚠️ template_id DROPPED in 028: one writer, zero readers      │
        │ └─────────────────────────────────────────────────────────────┘
        │
-       │ ┌─────────────────────────┐
-       │ │ certificate_templates   │
-       │ ├─────────────────────────┤
-       │ │ id · workspace_id       │
-       │ │ name · html_template    │
-       │ │ defaults (JSON)         │
-       │ └─────────────────────────┘
+       │ ┌─────────────────────────────────────────────────────────────┐
+       │ │  certificate_designs                                  (028)  │
+       │ ├─────────────────────────────────────────────────────────────┤
+       │ │ id · uuid · workspace_id · name                              │
+       │ │ system_key (nullable) — a key in CertificateTemplateRegistry │
+       │ │ image_path (nullable) — an uploaded file on the public disk  │
+       │ │ ⚠️ EXACTLY ONE of those two, enforced in the Action          │
+       │ │ field_boxes (JSON, nullable) — null = take the registry's,   │
+       │ │   and on an UPLOADED row null means «not ready»              │
+       │ │ selected_for_workspace_id (nullable · UNIQUE)                │
+       │ │ ⚠️ nullable+unique, never an is_selected boolean: NULL does  │
+       │ │   not collide with NULL and MySQL has no partial indexes     │
+       │ └─────────────────────────────────────────────────────────────┘
+       │
+       │ ⚠️ certificate_templates was DELETED in 028 (table, model,
+       │   controller, resource and five routes) — zero callers under
+       │   `frontend/src`, and no renderer for its `html_template`.
+       │   The shipped designs are a CODE REGISTRY now, not a table:
+       │   a runtime catalogue seeded only by `migrate:fresh --seed`
+       │   never reaches an existing database, five times over.
        │
        │ ┌─────────────────────────────────────────────────────────────┐
        │ │  orders                                                       │
@@ -682,7 +698,12 @@ Columns added to tables that already existed:
 - `media_assets` grew `archived_at` (the mark that makes `Archive` converge) and
   `retain_until` (the departed teacher's floor, an **OR** against the age rule).
 - `certificates` grew `student_display_name`, frozen at issue — a certificate must
-  still name its holder after the account behind it is anonymised.
+  still name its holder after the account behind it is anonymised. 028 added
+  `teacher_display_name` and `subject_display_name` for the same reason, and the
+  reason only became visible when the certificate started being DRAWN: both are
+  printed on the artwork, so a live join would rewrite a public statement of fact
+  the day a teacher renames themselves or a course is re-filed under another
+  subject. Existing rows were backfilled inside that migration with `chunkById`.
 - Six retention indexes on `created_at`, because the sweep's predicate is an age:
   `attendances`, `exam_attempts`, `exam_answers`, `attempt_items`, `lesson_progress`
   and `invitations`. `attendances` already had `(student_user_id, created_at)` and it

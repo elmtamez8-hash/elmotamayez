@@ -28,6 +28,8 @@ import {
   IconBuilding,
   IconBuildingBank,
   IconCalendarCheck,
+  IconChalkboard,
+  IconHash,
   IconCalendarEvent,
   IconCalendarTime,
   IconCalendarWeek,
@@ -80,6 +82,8 @@ import {
   IconReceiptRefund,
   IconRepeatOff,
   IconBuildingMosque,
+  IconDownload,
+  IconPrinter,
   IconSchool,
   IconSettings,
   IconShieldCheck,
@@ -352,3 +356,21 @@ export const EveningIcon = wrap(IconSunset2, "h-4 w-4");
 export const NightIcon = wrap(IconMoonStars, "h-4 w-4");
 export const WeekIcon = wrap(IconCalendarWeek, "h-4 w-4");
 export const DurationIcon = wrap(IconClockHour4, "h-4 w-4");
+
+/*
+ * The six facts a certificate states, plus the two controls beside it.
+ *
+ * Named for the FACT and not for the glyph, as everything above: a certificate
+ * says who earned it, in what subject, from whom, when, under which number, and
+ * that it was verified. `StudentIcon` reuses the school glyph deliberately —
+ * `AcademicCapIcon` is the same drawing under the name the marketplace gave it,
+ * and two names for one meaning is a rename waiting to diverge.
+ */
+export const StudentIcon = wrap(IconSchool, "h-4 w-4");
+export const SubjectIcon = wrap(IconBook2, "h-4 w-4");
+export const TeacherIcon = wrap(IconChalkboard, "h-4 w-4");
+export const IssuedDateIcon = wrap(IconCalendarCheck, "h-4 w-4");
+export const CertificateNumberIcon = wrap(IconHash, "h-4 w-4");
+export const VerifiedIcon = wrap(IconShieldCheck, "h-4 w-4");
+export const PrintIcon = wrap(IconPrinter, "h-4 w-4");
+export const DownloadIcon = wrap(IconDownload, "h-4 w-4");

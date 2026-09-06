@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Certificates\Http\Controllers\CertificateController;
-use App\Modules\Certificates\Http\Controllers\CertificateTemplateController;
+use App\Modules\Certificates\Http\Controllers\CertificateDesignController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -23,9 +23,18 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/certificates/{certificate}', [CertificateController::class, 'show']);
     Route::post('/certificates/{certificate}/regenerate', [CertificateController::class, 'regenerate']);
 
-    Route::get('/certificate-templates', [CertificateTemplateController::class, 'index']);
-    Route::post('/certificate-templates', [CertificateTemplateController::class, 'store']);
-    Route::get('/certificate-templates/{template}', [CertificateTemplateController::class, 'show']);
-    Route::put('/certificate-templates/{template}', [CertificateTemplateController::class, 'update']);
-    Route::delete('/certificate-templates/{template}', [CertificateTemplateController::class, 'destroy']);
+    /*
+    | The teacher's design gallery. Guarded by `CertificateDesignPolicy` on
+    | `certificates.regenerate` — at the door, never on the screen alone.
+    |
+    | ⚠️ Each route lands in the phase that builds its caller (SC-009). These two
+    | are read by `manage/certificates/design/page.tsx`; the five deleted
+    | `/certificate-templates` routes are the reason this feature exists at all —
+    | a table, a model, a controller, two requests, a resource and five routes with
+    | not one caller under `frontend/src`.
+    */
+    Route::get('/certificate-designs', [CertificateDesignController::class, 'index']);
+    Route::post('/certificate-designs', [CertificateDesignController::class, 'store']);
+    Route::patch('/certificate-designs/{design}', [CertificateDesignController::class, 'update']);
+    Route::delete('/certificate-designs/{design}', [CertificateDesignController::class, 'destroy']);
 });

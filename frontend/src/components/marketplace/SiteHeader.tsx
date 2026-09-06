@@ -74,7 +74,7 @@ export function SiteHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur print:hidden">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
         {/* The mark carries the name, so the name is not repeated beside it —
             a wordmark plus its own text set twice is the tell of a logo nobody

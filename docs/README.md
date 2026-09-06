@@ -23,7 +23,7 @@
 | Courses | `app/Modules/Courses/` | Course, Section, Chapter, Lesson | Courses + the authoring tree: nodes, ordering, publish batches, impact preview |
 | Learning | `app/Modules/Learning/` | Enrollment, LessonProgress, ProgressHistory, Cohort, CohortMembership, CohortMembershipEvent, CohortTransferRequest | Enrollments (enroll, lesson access, complete) + the curriculum tree with a reason on every row + groups (pick, join, transfer, roster) and the teacher's half (create, archive, members, decide) |
 | Assessments | `app/Modules/Assessments/` | Exam, Question, QuestionOption, Attempt, Answer, Concept, ExamItem, AttemptItem, RubricCriterion, GradingRecord, Assignment, Submission, Accommodation, QuestionImport, UnlockRule, UnlockExemption | Exams + the question bank, imports, item analysis, the mistake notebook, self-generated papers, the essay grading board, homework and the unlock condition |
-| Certificates | `app/Modules/Certificates/` | Certificate, CertificateTemplate | Certificates (list, verify, regenerate) + templates CRUD |
+| Certificates | `app/Modules/Certificates/` | Certificate, CertificateDesign | Certificates (list, verify, regenerate) + the design gallery (list, adopt or upload, adjust field positions, delete) |
 | Payments | `app/Modules/Payments/` | Order, Product, PaymentTransaction | Orders (create, receipt, approve, reject) |
 | Media | `app/Modules/Media/` | MediaAsset, MediaCaption, PlaybackGrant | Upload tickets + playback grants (issue/stream/renew) + captions |
 | Notifications | `app/Modules/Notifications/` | Notification, NotificationDelivery, NotificationPreference, MessageTemplate, ContactVerification | Notification centre + preferences + contact verification |
@@ -126,6 +126,50 @@ Authenticated:
 | POST | `/admin/complaints/{uuid}/confirm` · `/dismiss` | `marketplace.complaints.manage` |
 | GET/POST | `/parent/children`, `/parent/children/{uuid}` | Own links only (`ParentChildLinkPolicy`, 403 not 404) |
 | GET/PUT | `/parent/notification-preferences` | Own preferences |
+
+### Certificate designs (spec 028)
+
+The public verification page DRAWS the certificate — artwork, six fields, a QR code
+carrying this page's own absolute address — instead of listing it as a receipt.
+
+| Method | Path | Permission |
+|---|---|---|
+| `GET` | `/api/v1/certificate-designs` | `certificates.regenerate` |
+| `POST` | `/api/v1/certificate-designs` | `certificates.regenerate` |
+| `PATCH` | `/api/v1/certificate-designs/{design}` | `certificates.regenerate` |
+| `DELETE` | `/api/v1/certificate-designs/{design}` | `certificates.regenerate` |
+
+⚠️ **Five routes were DELETED in place, not versioned**: the whole
+`/api/v1/certificate-templates` CRUD. The constitution requires a new version for a
+breaking change *to an existing client*, and the measurement is that **no file under
+`frontend/src` ever called any of them** — a table, a model, a controller, two
+requests, a resource and five routes with zero callers. That defect is what this
+feature was born from, and it is why every route above lands in the same phase as the
+screen that calls it.
+
+⚠️ **The shipped designs are a CODE REGISTRY, not a table**
+(`Certificates/Support/CertificateTemplateRegistry`). Platform-owned reference data
+whose guard is "who may write it", and the answer is nobody — because a runtime
+catalogue seeded only by `migrate:fresh --seed` never reaches an existing database,
+which this tree has paid for five times over.
+
+⚠️ **No new permission was minted** (`certificates.regenerate` guards all four).
+`SeedDefaultRoles` runs once at workspace creation, so a new permission reaches zero
+existing workspaces, and one assigned to no role is derived as platform-level — the
+`taxonomy.manage` shape.
+
+⚠️ **Three facts are frozen at issue and the design is read live.** The student's
+name, the teacher's name and the subject are printed on the artwork, so a live join
+would rewrite a public statement of fact the day somebody renames themselves;
+the DESIGN is resolved at every request so a crooked box, corrected once, is
+corrected on every certificate ever issued. `RegenerateCertificate` no longer moves
+`issued_at` — with the date printed, that was unintentional forgery.
+
+⚠️ **The public read bypasses `WorkspaceScope` and puts the workspace back by hand.**
+The victim of the naive version is not the visitor — the scope is inert for a guest —
+but a **signed-in teacher from another workspace** opening the link.
+`DesignScopeBypassTest` needs two workspaces and a foreign teacher who is logged in;
+a guest-only test passes against a build with no bypass at all.
 
 ## Authentication
 

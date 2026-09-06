@@ -6,7 +6,9 @@ namespace App\Modules\Certificates\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Certificates\Actions\RegenerateCertificate;
+use App\Modules\Certificates\Actions\ResolveCertificateDesign;
 use App\Modules\Certificates\Http\Resources\CertificateResource;
+use App\Modules\Certificates\Http\Resources\PublicCertificateResource;
 use App\Modules\Certificates\Models\Certificate;
 use App\Modules\Tenancy\Support\Permissions;
 use Illuminate\Http\JsonResponse;
@@ -17,19 +19,28 @@ class CertificateController extends Controller
     /**
      * Public, unauthenticated certificate verification by code.
      */
-    public function verify(string $code): JsonResponse
+    public function verify(string $code, ResolveCertificateDesign $design): JsonResponse
     {
         $certificate = Certificate::withoutWorkspaceScope()
             ->where('verification_code', $code)
             ->first();
 
+        /*
+        | ⚠️ A REFUSAL CARRIES NOTHING — no name, no number, and NO `design`. The
+        | design names an image the browser would then fetch, so a payload with one
+        | turns a wrong code into a page that looks like a certificate whose
+        | details failed to load. It has to look like a refusal.
+        */
         if ($certificate === null) {
             return response()->json(['message' => 'Certificate not found.', 'valid' => false], 404);
         }
 
         return response()->json([
             'valid' => true,
-            'certificate' => CertificateResource::make($certificate->load(['course', 'student'])),
+            'certificate' => new PublicCertificateResource(
+                $certificate->load('course'),
+                $design->handle($certificate),
+            ),
         ]);
     }
 
@@ -54,7 +65,20 @@ class CertificateController extends Controller
 
         $certificates = $query->orderByDesc('issued_at')->paginate(15);
 
-        return response()->json(CertificateResource::collection($certificates));
+        /*
+        | ⚠️ `->response()->getData(true)`, NEVER `response()->json(Resource::collection(…))`.
+        | The second form never calls `toResponse()`, so `links` and `meta` are
+        | dropped in SILENCE — `manage/certificates/page.tsx` read `meta.last_page`,
+        | fell back to `1` for ever, and «عرض المزيد» never appeared for a teacher
+        | with more than fifteen certificates. The screen's own comment warned about
+        | exactly that (`FR-038` · `research.md` ق-١٣).
+        |
+        | ⚠️ AND THE SHAPE CHANGES: a bare array becomes `{data, links, meta}`. All
+        | four callers were checked and every one reads `res.data`, which stays at
+        | the top level; what is ADDED is `meta`. `CertificateListingTest` moved
+        | from `0.…` to `data.0.…` in the same change.
+        */
+        return response()->json(CertificateResource::collection($certificates)->response()->getData(true));
     }
 
     public function show(Certificate $certificate): JsonResponse
