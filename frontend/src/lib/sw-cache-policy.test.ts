@@ -20,6 +20,27 @@ describe("isCacheable", () => {
     expect(isCacheable("/_next/static/css/app.css", ORIGIN)).toBe(true);
   });
 
+  it("refuses the build's assets when their names are not hashed", () => {
+    /*
+      ⚠️ THE HASHING IS THE WHOLE JUSTIFICATION FOR CACHING THIS PREFIX FIRST, and
+      under `next dev` it does not hold: the chunk is served as
+      `chunks/app/(app)/certificates/verify/[code]/page.js`, a STABLE name
+      (measured 2026-09-06). Cache-first then pins an edited page on the device for
+      ever — a hard reload, a cache-busting query, a dev-server restart, deleting
+      `.next` and clearing the browser cache all fail to shift it, and only
+      unregistering the worker does. Three changes in one session were diagnosed as
+      «the server is wrong» because of it.
+    */
+    expect(isCacheable("/_next/static/chunks/app/page.js", ORIGIN, false)).toBe(false);
+    expect(isCacheable("/_next/static/css/app.css", ORIGIN, false)).toBe(false);
+
+    // ⚠️ And the positive control for the SAME argument: everything else on the
+    // allowlist still works, so push and the offline page stay testable in
+    // development instead of the fix quietly disabling half the feature.
+    expect(isCacheable("/brand/icon-192.png", ORIGIN, false)).toBe(true);
+    expect(isCacheable("/offline", ORIGIN, false)).toBe(true);
+  });
+
   it("keeps the brand assets, the manifest and the offline page", () => {
     expect(isCacheable("/brand/icon-192.png", ORIGIN)).toBe(true);
     expect(isCacheable("/manifest.webmanifest", ORIGIN)).toBe(true);

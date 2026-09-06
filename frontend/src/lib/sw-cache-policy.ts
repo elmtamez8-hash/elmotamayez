@@ -38,8 +38,10 @@ const CACHEABLE_PATHS = ["/manifest.webmanifest", "/favicon.ico", "/icon.svg"] a
  *
  * @param url the full request URL, as the worker receives it
  * @param origin the page's own origin (`self.location.origin` in the worker)
+ * @param assetsAreImmutable whether `/_next/static/` filenames are content-hashed —
+ *   true in a production build, FALSE under `next dev`
  */
-export function isCacheable(url: string, origin: string): boolean {
+export function isCacheable(url: string, origin: string, assetsAreImmutable = true): boolean {
   let parsed: URL;
 
   try {
@@ -68,6 +70,27 @@ export function isCacheable(url: string, origin: string): boolean {
     authorised it was revoked.
   */
   if (path.startsWith("/api/") || path.startsWith("/playback/")) return false;
+
+  /*
+    ⚠️ `/_next/static/` IS ONLY IMMUTABLE IN A PRODUCTION BUILD, AND ASSUMING
+    OTHERWISE COST THREE DIAGNOSES IN ONE DAY.
+
+    The whole justification for caching this prefix FIRST is that its filenames
+    are content-hashed — `main-9f2c.js` — so new bytes mean a new name and a stale
+    entry is impossible. Under `next dev` that is simply not true: the chunk is
+    served as `chunks/app/(app)/certificates/verify/[code]/page.js`, a STABLE name,
+    measured 2026-09-06. Cache-first then pins a developer's edited page on the
+    device for ever: the served file is correct when you `curl` it, the open tab
+    keeps running yesterday's code, and a hard reload, a cache-busting query, a
+    dev-server restart, deleting `.next`, `Network.clearBrowserCache` AND
+    `setCacheDisabled` all fail to shift it — only unregistering the worker does.
+    Three separate changes in one session were diagnosed as «the server is wrong»
+    because of it.
+
+    Production is untouched: `assetsAreImmutable` is true there, the hashing
+    argument holds, and nothing about a deploy changes.
+  */
+  if (!assetsAreImmutable && path.startsWith("/_next/")) return false;
 
   if ((CACHEABLE_PATHS as readonly string[]).includes(path)) return true;
 
