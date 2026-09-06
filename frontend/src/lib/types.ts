@@ -206,6 +206,25 @@ export interface Certificate {
   student_name: string | null;
 }
 
+/**
+ * What a subscription order bought, frozen at the moment of buying (027 · FR-014).
+ *
+ * camelCase because it is a DTO serialised by `get_object_vars()`, not a model
+ * row — every other key on `Order` is snake_case and that difference is the
+ * server's, not a typo.
+ */
+export interface SubscriptionIntent {
+  mode: "cohort" | "private";
+  planUuid: string;
+  planTitle: string;
+  durationDays: number;
+  sessionType: "individual" | "group";
+  cohortUuid: string | null;
+  cohortName: string | null;
+  teacherUuid: string | null;
+  teacherName: string | null;
+}
+
 export interface Order {
   uuid: string;
   /** Minor units. Same rule as Course.price_minor. */
@@ -229,6 +248,16 @@ export interface Order {
   receipt_url: string | null;
   /** Hours the platform promises a receipt review in — null once decided. */
   review_sla_hours: number | null;
+  /**
+   * The subscription snapshot — null for every other kind, and for a
+   * subscription order written before spec 027.
+   */
+  subscription: SubscriptionIntent | null;
+  /**
+   * Sessions a CREDIT order bought. Null on every other kind; ABSENT when a
+   * reader forgot to eager load it, which is why the screen reads `?? null`.
+   */
+  credits?: number | null;
   created_at: string;
 }
 

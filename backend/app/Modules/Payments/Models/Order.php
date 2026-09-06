@@ -124,6 +124,29 @@ class Order extends BaseModel implements HasMedia
         return $this->hasOne(Subscription::class);
     }
 
+    /**
+     * How many sessions a CREDIT order bought.
+     *
+     * ⚠️ THE ORDER ITSELF DOES NOT KNOW. A subscription carries its whole
+     * snapshot in `metadata`; a credit purchase carries none, so «شراء أرصدة»
+     * was the entire description a buyer got — one row indistinguishable from
+     * the next except by the amount, on the screen where they check what they
+     * paid for. The count lives on `credit_purchases.credits`, copied there at
+     * purchase precisely so disabling a package cannot move it.
+     *
+     * ⚠️ EVERY READER MUST EAGER LOAD IT WITH `withoutWorkspaceScope()`.
+     * `CreditPurchase` carries `BelongsToWorkspace`, and a finance officer's
+     * context falls back to `users.last_workspace_id` — so a scoped relation
+     * query answers null for every order outside that one workspace, and the
+     * column reads «—» on exactly the rows the officer is there to decide.
+     *
+     * @return HasOne<CreditPurchase, $this>
+     */
+    public function creditPurchase(): HasOne
+    {
+        return $this->hasOne(CreditPurchase::class);
+    }
+
     /** @return BelongsTo<Course, $this> */
     public function course(): BelongsTo
     {

@@ -19,19 +19,13 @@ import type { Order } from "@/lib/types";
  */
 export type SubscriptionMode = "cohort" | "private";
 
-/** What the buyer chose, as the order froze it. */
-export type SubscriptionIntent = {
-  mode: SubscriptionMode;
-  planTitle: string;
-  durationDays: number;
-  sessionType: SessionType;
-  cohortUuid: string | null;
-  cohortName: string | null;
-  teacherUuid: string | null;
-  teacherName: string | null;
-};
-
-export type SubscriptionOrder = Order & { subscription: SubscriptionIntent | null };
+/*
+ * ⚠️ THE INTENT LIVES ON `Order` NOW, AND IS NOT REDECLARED HERE. Every order
+ * list renders it — the buyer's «الطلبات» and the officer's queue — so a second
+ * copy of the shape beside this one is the two-spellings defect in TypeScript:
+ * it stays green while the two drift, and the field simply stops appearing.
+ */
+export type SubscriptionOrder = Order;
 
 /** The session type a mode may buy — the display filter behind FR-008. */
 export function sessionTypeFor(mode: SubscriptionMode): SessionType {

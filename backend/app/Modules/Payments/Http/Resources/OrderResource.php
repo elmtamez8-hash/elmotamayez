@@ -87,6 +87,15 @@ class OrderResource extends JsonResource
             | one screen that lists every pending order on the platform.
             */
             'subscription' => SubscriptionIntent::fromOrder($this->resource)?->toArray(),
+            /*
+            | The sessions a CREDIT order bought — «٤ حصص», not «شراء أرصدة».
+            |
+            | ⚠️ `whenLoaded`, SO A FORGOTTEN EAGER LOAD IS AN ABSENT KEY AND NOT
+            | AN N+1. Which is also why the test asserts the key is PRESENT with
+            | the right number: a query-budget test alone reads a dropped eager
+            | load as the page getting one query cheaper.
+            */
+            'credits' => $this->whenLoaded('creditPurchase', fn () => $this->creditPurchase?->credits),
             'created_at' => $this->created_at,
         ];
     }
