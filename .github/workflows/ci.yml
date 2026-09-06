@@ -106,7 +106,17 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # ⚠️ 24, AND IT MUST MATCH `docker/frontend.Dockerfile` AND THE MACHINES
+          # PEOPLE WORK ON. It was 20 while development ran on 24, and the cost was
+          # not theoretical: `select-styling.test.ts` — the guard written to catch a
+          # `<Select>` with no `className`, a defect a user had reported — imports
+          # `globSync` from `node:fs`, which arrived in Node 22. It threw
+          # `TypeError: globSync is not a function` on EVERY CI run from the day it
+          # was written while passing on every developer machine, so the guard was
+          # green locally and had never once executed in the place that gates a
+          # merge. Raising this alone would only invert the hazard: CI would then
+          # accept an API the production image cannot run.
+          node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
