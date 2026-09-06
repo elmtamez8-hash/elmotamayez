@@ -6,6 +6,7 @@ namespace App\Modules\LiveSessions\Actions;
 
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Events\SessionsAssignedToCohort;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\CohortDirectory;
@@ -73,8 +74,28 @@ class AssignSessionsToCohort extends Action
             );
         }
 
-        return DB::transaction(fn (): int => ClassSession::query()
+        $assigned = DB::transaction(fn (): int => ClassSession::query()
             ->whereIn('id', $sessions->modelKeys())
             ->update(['cohort_id' => $cohortId]));
+
+        /*
+        | ⚠️ ANNOUNCED, BECAUSE A BULK `update()` FIRES NO MODEL EVENTS. Without
+        | this line 027's automatic booking works when a session is created and
+        | is silent when an existing one joins the group — and the subscribers
+        | who paid for that group simply never appear in it, with nothing
+        | reporting a fault. Dispatched after the transaction: the listener is
+        | `ShouldHandleEventsAfterCommit`, and a worker reading before the commit
+        | would find `cohort_id` still null on every row.
+        */
+        if ($assigned > 0) {
+            SessionsAssignedToCohort::dispatch(
+                (int) $course->workspace_id,
+                (int) $course->getKey(),
+                $cohortId,
+                array_values(array_map(static fn (mixed $id): int => (int) $id, $sessions->modelKeys())),
+            );
+        }
+
+        return $assigned;
     }
 }

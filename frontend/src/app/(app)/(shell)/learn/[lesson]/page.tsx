@@ -21,6 +21,16 @@ interface StudentLesson {
   type: string;
   type_label: string;
   is_completable: boolean;
+  /**
+   * هل يقولُ الطالبُ بنفسِه إنّه أتمَّه — لا مجرّدَ «هل يُحتسَب».
+   *
+   * ⚠️ الاثنانِ يختلفانِ عندَ `exam` وحدَه: عنصرُ الاختبارِ في المقامِ ويُكمَلُ
+   * فعلاً، لكنّ الذي يُكملُه هو تسليمُ الورقة (`CompleteExamLessonOnSubmission`)
+   * لا زرٌّ هنا — وزرٌّ عليه هو تخطّي الاختبارِ وتحريكُ النسبةِ بلا إجابةِ سؤال.
+   * يُقرأُ من الخادمِ ولا يُشتقُّ من `type`: البابُ يرفضُ بالقاعدةِ نفسِها.
+   */
+  may_self_complete: boolean;
+  is_completed: boolean;
   content: string | null;
   content_html: string;
   external_url: string | null;
@@ -38,6 +48,8 @@ interface LessonResponse {
   blocked_reason: string | null;
   blocked_message: string | null;
   blocked_by_title: string | null;
+  /** `null` في عرضِ المؤلِّف: لا تسجيلَ خلفَه، فلا شيءَ يُتَمّ. */
+  enrollment_uuid: string | null;
 }
 
 /**
@@ -60,6 +72,7 @@ export default function LearnLessonPage({
   const { lesson } = use(params);
 
   const [detail, setDetail] = useState<StudentLesson | null>(null);
+  const [enrollmentUuid, setEnrollmentUuid] = useState<string | null>(null);
   const [blocked, setBlocked] = useState<LessonResponse | null>(null);
   const [grant, setGrant] = useState<PlaybackGrant | null>(null);
   const [error, setError] = useState("");
@@ -79,6 +92,8 @@ export default function LearnLessonPage({
         // this page used to show a bare heading and nothing else (FR-043).
         setDetail(result.lesson);
         setBlocked(result.can_access ? null : result);
+        setEnrollmentUuid(result.enrollment_uuid);
+        setCompleted(result.lesson.is_completed);
       })
       // ⚠️ `.catch(() => undefined)` stood here, and it rendered NOTHING at all:
       // a 404 on a uuid that is not this viewer's — a teacher opening a student
@@ -143,6 +158,47 @@ export default function LearnLessonPage({
       cancelled = true;
     };
   }, [lesson, wantsPlayer]);
+
+  /*
+   * ⚠️ إتمامُ الدرسِ — ولم يكنْ في المنتَجِ كلِّه ما يفعلُه. `POST
+   * …/lessons/{lesson}/complete` قائمٌ منذُ ٠١٦ ولا ملفَّ واحدٍ في الواجهةِ
+   * ينادِيه، فالفيديو والمقالُ لا يكتملانِ أبداً و«أتممتَ ٠ من ٣ — ٠٪» هي
+   * الحالةُ الوحيدةُ التي يبلغُها طالب — ومعَها لا `CourseCompleted` ولا شهادة.
+   * بلاغُ ٢٠٢٦-٠٩-٠٦.
+   *
+   * ⚠️ ولا إتمامَ تلقائيٌّ عندَ نهايةِ الفيديو: طُلِبَ زرّ، والتلقائيُّ يُعلِنُ
+   * الإتمامَ عمّن تركَ التبويبَ مفتوحاً. ولا تراجعَ كذلك — لا نقطةَ نهايةٍ له،
+   * و`MarkLessonComplete` يعودُ مبكّراً على صفٍّ مكتمل: الإتمامُ نهائيّ.
+   */
+  const [completed, setCompleted] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [completeError, setCompleteError] = useState("");
+  const [celebrate, setCelebrate] = useState(false);
+
+  const markComplete = async () => {
+    if (enrollmentUuid === null) return;
+
+    setCompleting(true);
+    setCompleteError("");
+
+    try {
+      const result = await api.post<{
+        status: string;
+        course_completed: boolean;
+        progress_pct: number;
+      }>(`/enrollments/${enrollmentUuid}/lessons/${lesson}/complete`);
+
+      // ⚠️ لا مفتاحَ `is_completed` في هذا الردّ — `status === "completed"` هو
+      // الفحص. وقراءةُ مفتاحٍ غيرِ موجودٍ تُعطي `undefined` فيبقى الزرُّ كما هو
+      // بلا خطأ، وهو أسوأُ من رفضٍ صريح.
+      setCompleted(result.status === "completed");
+      setCelebrate(result.course_completed);
+    } catch (err: unknown) {
+      setCompleteError(userMessage(err));
+    } finally {
+      setCompleting(false);
+    }
+  };
 
   const open = blocked === null && detail !== null;
   const isDocument = open && detail !== null && (detail.type === "pdf" || detail.type === "file");
@@ -243,6 +299,56 @@ export default function LearnLessonPage({
             فتح الرابط
           </Button>
         </Card>
+      )}
+
+      {/*
+        ⚠️ الضابطُ الذي لم يكنْ موجوداً. شرطُه أربعةٌ وكلٌّ منها يمنعُ حالةً حقيقيّة:
+        `open` (درسٌ مغلقٌ لا يُتَمّ)، و`may_self_complete` (الاختبارُ يكتملُ
+        بالتسليمِ والخادمُ يرفضُ غيرَ ذلك)، و`enrollmentUuid` (المؤلِّفُ يفتحُ هذه
+        الصفحةَ بلا تسجيلٍ فلا شيءَ له أن يُتِمَّه)، وأخيراً حالةُ الإتمامِ نفسُها.
+      */}
+      {open && detail !== null && detail.may_self_complete && enrollmentUuid !== null && (
+        <Card padding="sm">
+          {completeError !== "" && (
+            <div className="mb-3">
+              <Alert tone="danger" title="لم يُسجَّل الإتمام">{completeError}</Alert>
+            </div>
+          )}
+
+          {completed ? (
+            <p className="text-sm font-medium text-secondary-ink">
+              ✓ أتممتَ هذا الدرس — احتُسب في نسبة تقدّمك.
+            </p>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" loading={completing} loadingLabel="جارٍ الحفظ…" onClick={() => void markComplete()}>
+                علِّمه مكتملاً
+              </Button>
+              <span className="text-sm text-ink-muted">
+                يرفع نسبة تقدّمك في الكورس، ويفتح ما بعده في المسار المتسلسل.
+              </span>
+            </div>
+          )}
+
+          {celebrate && (
+            <div className="mt-3">
+              {/* الشهادةُ معلَّقةٌ على `CourseCompleted`، فهذه اللحظةُ تستحقُّ سطراً. */}
+              <Alert tone="success" title="أكملتَ الكورس كلّه">
+                تصلك شهادتك في «شهاداتي» بعد قليل.
+              </Alert>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/*
+        عنصرُ الاختبارِ يُحتسَبُ ولا يُعلَنُ باليد — والصمتُ عنه هو نصفُ البلاغِ
+        الأصليّ: «مافيش حاجة بتقول اني اكملت الدرس».
+      */}
+      {open && detail !== null && detail.is_completable && !detail.may_self_complete && (
+        <p className="text-sm text-ink-muted">
+          {completed ? "✓ اكتمل هذا العنصر." : "يكتمل هذا العنصر تلقائياً عند تسليم الاختبار."}
+        </p>
       )}
 
       {open && detail !== null && (

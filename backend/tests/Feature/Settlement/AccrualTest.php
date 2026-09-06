@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Actions\BookSeat;
 use App\Modules\LiveSessions\Actions\CloseClassSession;
@@ -13,6 +14,7 @@ use App\Modules\LiveSessions\Events\SessionDelivered;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Settlement\Enums\SettlementBasis;
 use App\Modules\Settlement\Models\SettlementRate;
 use App\Modules\Settlement\Models\TeachingUnit;
 use App\Modules\Tenancy\Support\Roles;
@@ -65,7 +67,7 @@ beforeEach(function (): void {
 });
 
 /** Enrols a student and books them a seat. */
-function seatHolder(): void
+function seatHolder(): User
 {
     $test = test();
     $student = $test->addWorkspaceMember($test->workspace, Roles::STUDENT);
@@ -76,6 +78,8 @@ function seatHolder(): void
     fundBooking($test->workspace, $student, $test->course);
 
     app(BookSeat::class)->handle($test->session->refresh(), $student);
+
+    return $student;
 }
 
 /** Puts the teacher in the room for a given stay, which is what delivery means. */
@@ -175,10 +179,63 @@ it('generates one unit per seat however often the event arrives', function (): v
     // twice: all of them land here, and paying twice for one hour taught once is
     // the failure this guards (FR-002 · SC-002).
     for ($i = 0; $i < 10; $i++) {
-        SessionDelivered::dispatch($this->session->refresh(), 2);
+        SessionDelivered::dispatch($this->session->refresh(), 2, []);
     }
 
     expect(TeachingUnit::query()->count())->toBe(2);
+});
+
+it('pays a subscriber’s seat by who turned up, not by who was booked', function (): void {
+    /*
+    | 027 · FR-048 + the product decision of 2026-09-05. Automatic booking puts
+    | every member of the group into every lesson, so the seat count stopped being
+    | evidence of anything the moment nobody had to press «احجز» for it to exist.
+    | Paying per BOOKED subscriber pays the teacher for people who were never in
+    | the room; paying per ATTENDING subscriber pays for the hour actually taught.
+    |
+    | ⚠️ AND THE ROW IS WRITTEN EITHER WAY. A seat that produced no unit at all is
+    | an hour the statement cannot show, and the teacher counts differently from us.
+    */
+    $paying = seatHolder();
+    $cameToClass = seatHolder();
+    $stayedHome = seatHolder();
+    $this->session->refresh()->forceFill(['billable_seats' => 3])->save();
+
+    teacherTaught(3000);
+    app(RecordPresencePing::class)->handle($this->session->refresh(), $cameToClass);
+
+    app(CloseClassSession::class)->handle($this->session->refresh());
+
+    TeachingUnit::query()->delete();
+
+    SessionDelivered::dispatch(
+        $this->session->refresh(),
+        3,
+        [(int) $cameToClass->getKey(), (int) $stayedHome->getKey()],
+    );
+
+    $attendedUnit = TeachingUnit::query()->where('student_user_id', $cameToClass->getKey())->first();
+    $absentUnit = TeachingUnit::query()->where('student_user_id', $stayedHome->getKey())->first();
+    $payingUnit = TeachingUnit::query()->where('student_user_id', $paying->getKey())->first();
+
+    expect(TeachingUnit::query()->count())->toBe(3)
+        ->and($attendedUnit?->basis)->toBe(SettlementBasis::SubscriptionSeat)
+        ->and((int) $attendedUnit?->amount_minor)->toBeGreaterThan(0)
+        ->and($absentUnit?->basis)->toBe(SettlementBasis::SubscriptionSeat)
+        ->and((int) $absentUnit?->amount_minor)->toBe(0)
+        // ⚠️ AND THE ABSENTEE IS NOT FLAGGED FOR REVIEW. «No rate approved» and
+        // «paid for by a month nobody used» are two different zeros, and folding
+        // them together buries the first under a queue of the second.
+        ->and($absentUnit?->needs_review)->toBeFalse()
+        /*
+        | ⚠️ AND THE SEAT SOMEBODY BOUGHT OUTRIGHT IS UNTOUCHED, EVEN THOUGH THEY
+        | DID NOT COME EITHER. Attendance has no financial effect anywhere else in
+        | this product — they bought the SEAT and it is theirs whether they use it
+        | — and this test failing on that line means the rule leaked out of the
+        | subscription lane.
+        */
+        ->and($payingUnit?->basis)->toBe(SettlementBasis::FrozenSeat)
+        ->and((int) $payingUnit?->amount_minor)->toBeGreaterThan(0);
 });
 
 it('carries no reference to anything the student paid', function (): void {

@@ -304,6 +304,33 @@ enum NotificationType: string
     case SubscriptionExpiring = 'subscription_expiring';
 
     /*
+    | The subscription just started (027 · FR-029 · FR-030).
+    |
+    | ⚠️ IT TARGETS GUARDIANS, and that is the same argument
+    | `ShipmentStatusChanged` won: it is a fact about a PURCHASE. The guardian is
+    | usually who paid, and the group's timetable is what they organise their week
+    | around — a schedule that reaches only the student's own feed is a schedule
+    | the person driving them to the lesson never sees.
+    |
+    | ⚠️ AND IT IS NOT MANDATORY. Nothing is withheld and nothing has stopped; a
+    | family that mutes purchase news has decided something they are allowed to
+    | decide, and forcing this through would train them to mute the channel that
+    | also carries the absence alert.
+    */
+    case SubscriptionActivated = 'subscription_activated';
+
+    /*
+    | A seat the automatic booker could not take (027 · FR-042).
+    |
+    | ⚠️ IT DELIBERATELY DOES NOT TARGET GUARDIANS. It is operational news for
+    | the two people who can act on it — the student books an alternative, the
+    | teacher widens the capacity — and a guardian can do neither. A weekly
+    | notice with no action behind it is exactly how a family comes to mute the
+    | channel, and the absence alert goes with it.
+    */
+    case SubscriptionSeatUnavailable = 'subscription_seat_unavailable';
+
+    /*
     | The scheduled platform report (011 · US6 · FR-045).
     |
     | ⚠️ IT TARGETS NO GUARDIAN AND IS NOT MANDATORY, and both follow from who
@@ -379,6 +406,8 @@ enum NotificationType: string
             self::ShipmentStatusChanged => 'تحديث شحنة',
             self::StorePurchaseUnavailable => 'طلب متجر غير متاح',
             self::SubscriptionExpiring => 'قرب انتهاء اشتراك',
+            self::SubscriptionActivated => 'تفعيل اشتراك',
+            self::SubscriptionSeatUnavailable => 'مقعد غير متاح',
             self::ScheduledReport => 'تقرير مجدول',
         };
     }
@@ -594,7 +623,8 @@ enum NotificationType: string
             // Spec 011. A parcel and a refund are both facts about a purchase,
             // and the guardian is usually the person who made it.
             self::ShipmentStatusChanged,
-            self::StorePurchaseUnavailable => true,
+            self::StorePurchaseUnavailable,
+            self::SubscriptionActivated => true,
             default => false,
         };
     }
@@ -651,7 +681,8 @@ enum NotificationType: string
             // Spec 011. Both are purchases before they are anything else, so
             // they ride the same consent the payment path already uses.
             self::ShipmentStatusChanged,
-            self::StorePurchaseUnavailable => GuardianPermission::Payments,
+            self::StorePurchaseUnavailable,
+            self::SubscriptionActivated => GuardianPermission::Payments,
             default => null,
         };
     }

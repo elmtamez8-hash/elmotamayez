@@ -87,9 +87,11 @@ class ScheduleClassSession extends Action
         }
 
         // Fired at the cancellation deadline, so the billable seat count is
-        // settled at the moment it stops being able to change (FR-059).
+        // settled at the moment it stops being able to change (FR-059) — or at
+        // the session's start when that deadline is already behind us, which is
+        // 027 · FR-039ب. `billableSeatsFreezeAt()` carries the reason.
         FreezeBillableSeatsJob::dispatch((int) $session->getKey())
-            ->delay($session->cancellationDeadline());
+            ->delay($session->billableSeatsFreezeAt());
 
         SessionScheduled::dispatch($session);
 

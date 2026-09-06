@@ -80,6 +80,13 @@ enum NotificationCategory: string
                 NotificationType::QuestionImportFailed,
             ],
             self::Sessions => [
+                /*
+                 * Spec 027. The mirror of `SubscriptionActivated` above and
+                 * deliberately in a DIFFERENT tab: this one names a lesson and
+                 * asks the student to find another seat, which is a question
+                 * about the timetable rather than about the purchase.
+                 */
+                NotificationType::SubscriptionSeatUnavailable,
                 NotificationType::AppointmentReminder,
                 NotificationType::AttendanceAlert,
                 NotificationType::SessionReport,
@@ -171,6 +178,14 @@ enum NotificationCategory: string
                  * `Settlement`, which is the teacher's pay.
                  */
                 NotificationType::SubscriptionExpiring,
+                /*
+                 * Spec 027. Activating a subscription is a fact about a
+                 * PURCHASE — what was bought, for how long, and what it opens —
+                 * so it belongs beside the expiry notice that closes the same
+                 * story, not under `Sessions`, whose tab answers «what is on my
+                 * timetable today».
+                 */
+                NotificationType::SubscriptionActivated,
             ],
             self::Settlement => [
                 NotificationType::SettlementRateApproved,

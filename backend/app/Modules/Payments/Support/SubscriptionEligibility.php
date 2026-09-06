@@ -6,8 +6,12 @@ namespace App\Modules\Payments\Support;
 
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\Payments\Enums\PlanCoverage;
+use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\Subscription;
+use App\Shared\Contracts\SubscriptionDirectory;
 use DateTimeInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
@@ -38,7 +42,7 @@ use Illuminate\Support\Collection;
  * session types, which puts a LiveSessions enum inside a shared contract for a
  * case worth one session — do that if it ever bites.
  */
-class SubscriptionEligibility
+class SubscriptionEligibility implements SubscriptionDirectory
 {
     /**
      * Every live subscription this student holds, newest window last.
@@ -195,6 +199,114 @@ class SubscriptionEligibility
         }
 
         return $covering;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * ⚠️ THE SESSION TYPE IS MATCHED HERE AND THE COURSE-LEVEL READ ABOVE DOES
+     * NOT MATCH IT. A seat has a room size; a lesson's content does not. This is
+     * the seat question, so a group plan does not claim a one-to-one hour.
+     */
+    public function subscriberIdsAmong(
+        array $studentUserIds,
+        int $courseId,
+        string $sessionType,
+        DateTimeInterface $moment,
+    ): array {
+        if ($studentUserIds === []) {
+            return [];
+        }
+
+        $course = Course::query()->withoutWorkspaceScope()->find($courseId);
+
+        if ($course === null) {
+            return [];
+        }
+
+        /*
+        | ⚠️ `liveOn($moment)` AND NOT `liveOn(now())`. The whole reason this
+        | parameter exists: a session scheduled today for next month must be
+        | judged against the window as it will stand THEN, or the platform books
+        | a seat it will later charge a credit for.
+        */
+        $subscriptions = Subscription::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('student_user_id', $studentUserIds)
+            ->where('workspace_id', $course->workspace_id)
+            ->liveOn($moment)
+            ->with('plan')
+            ->get();
+
+        $covered = [];
+
+        foreach ($subscriptions as $subscription) {
+            if (! $this->reaches($subscription, $course)) {
+                continue;
+            }
+
+            if ($subscription->plan?->session_type->value !== $sessionType) {
+                continue;
+            }
+
+            $covered[(int) $subscription->student_user_id] = true;
+        }
+
+        return array_map(intval(...), array_keys($covered));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * ⚠️ THE PLAN SIDE IS ASKED SECOND AND ONLY WHEN THE PRICE IS ZERO. Most
+     * courses that are sold outright answer on the column alone, and this is
+     * reached from a route any authenticated account can call.
+     */
+    public function courseRequiresPurchase(int $courseId): bool
+    {
+        $course = Course::query()->withoutWorkspaceScope()->find($courseId);
+
+        if ($course === null) {
+            return false;
+        }
+
+        if ((int) $course->price_minor > 0) {
+            return true;
+        }
+
+        return $this->hasSellablePlanFor($courseId);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function hasSellablePlanFor(int $courseId, ?string $sessionType = null): bool
+    {
+        $course = Course::query()->withoutWorkspaceScope()->find($courseId);
+
+        if ($course === null) {
+            return false;
+        }
+
+        $query = Plan::query()
+            ->withoutWorkspaceScope()
+            ->sellable()
+            ->where('workspace_id', $course->workspace_id)
+            /*
+            | ⚠️ THE GROUPING PARENTHESES ARE LOAD-BEARING. Written flat, the
+            | `orWhere` would OR at the TOP level and discard the workspace and
+            | the sellable conditions — publishing every priced plan on the
+            | platform as if it covered this course.
+            */
+            ->where(fn (Builder $inner) => $inner
+                ->where('coverage_type', PlanCoverage::Workspace->value)
+                ->orWhere('coverage_uuid', $course->uuid));
+
+        if ($sessionType !== null) {
+            $query->where('session_type', $sessionType);
+        }
+
+        return $query->exists();
     }
 
     /**

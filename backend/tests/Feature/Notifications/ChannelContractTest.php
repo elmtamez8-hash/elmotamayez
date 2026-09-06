@@ -78,6 +78,15 @@ function dispatchOf(User $user, NotificationType $type): void
             // back 45 against 46 — this test doing its job.
             // (`student_name` is already above.)
             'teacher_name' => 'أستاذ خالد',
+            // And these three, added with spec 027's subscription activation.
+            // The same mechanism a seventh time, and it is the whole reason this
+            // count is asserted rather than trusted: without them both new
+            // templates refuse to render, both notifications are logged and
+            // dropped, and the count came back 59 against 61 — a channel
+            // contract that looked broken because a variable bag was short.
+            'schedule' => 'مجموعة السبت — الأحد ٥م.',
+            'next_session' => 'أقرب حصة: 2026-09-10.',
+            'sessions' => 'حصّة الجبر (2026-09-10 17:00)',
             'period_start' => '2026-08-01',
             'period_end' => '2026-08-31',
             // And these four, added with spec 008's import report. Same mechanism

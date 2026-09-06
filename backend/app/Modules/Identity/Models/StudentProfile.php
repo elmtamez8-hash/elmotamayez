@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Models;
 
 use App\Models\User;
+use App\Modules\Marketplace\Models\Region;
 use App\Modules\Marketplace\Models\SchoolYear;
 use App\Modules\Marketplace\Support\SchoolYearDirectory;
 use Carbon\CarbonImmutable;
@@ -89,6 +90,21 @@ class StudentProfile extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The region this student registered from.
+     *
+     * ⚠️ THE COLUMN IS THE FK AND EVERY PAYLOAD CARRIES THE SLUG — the same
+     * split `grade_level_slug` keeps: an autoincrement id never travels here,
+     * and the settings form that lets a student correct their region needs the
+     * slug to pre-select the option they already have.
+     *
+     * @return BelongsTo<Region, $this>
+     */
+    public function region(): BelongsTo
+    {
+        return $this->belongsTo(Region::class);
     }
 
     /**

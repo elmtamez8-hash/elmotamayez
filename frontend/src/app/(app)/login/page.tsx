@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { homePathFor, useAuth } from "@/lib/auth-context";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
+import { safeNext } from "@/lib/safe-next";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { sessionEndedLabel } from "@/lib/labels";
@@ -42,6 +43,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   // Arrived from an invitation link: go back to it so the user can accept.
   const invitation = searchParams.get("invitation");
+  const next = searchParams.get("next");
   // Arrived here because a session ended elsewhere — say which, so an eviction
   // by someone else using the account does not read as a bug in the app.
   const ended = sessionEndedLabel(searchParams.get("ended"));
@@ -56,8 +58,23 @@ function LoginForm() {
   // leaving the password fields on screen invites re-submitting them.
   const [challenge, setChallenge] = useState<string | null>(null);
 
+  /*
+   * ⚠️ THE INTENT OUTRANKS THE HOME PAGE (027 · FR-005). Most people who reach
+   * this screen from a course page have no account and never meant to come here
+   * at all — they pressed «اشترك». Sending them to a dashboard afterwards is the
+   * complication the feature exists to remove.
+   *
+   * ⚠️ AND IT GOES THROUGH `safeNext()`, ALWAYS. `next` is attacker-supplied on
+   * the sign-in flow of all places: an open redirect here is credential phishing
+   * wearing this product's own domain — the victim signs in for real and lands
+   * somewhere else believing they are still here.
+   */
   const done = (user: User) =>
-    router.push(invitation ? `/invitations/${invitation}` : homePathFor(user));
+    router.push(
+      invitation
+        ? `/invitations/${invitation}`
+        : safeNext(next, homePathFor(user)),
+    );
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,7 +155,19 @@ function LoginForm() {
             * invitation is in hand: that IS the account it creates.
             */}
           <Link
-            href={invitation ? `/register?invitation=${invitation}` : "/signup"}
+            /*
+             | ⚠️ THE INTENT CROSSES THIS HOP TOO. Somebody who arrived here from
+             | «اشترك» has no account by definition, so this is the link most of
+             | them take — and dropping `next` here would lose the choice on the
+             | one path FR-005 was written for.
+             */
+            href={
+              invitation
+                ? `/register?invitation=${invitation}`
+                : next === null
+                  ? "/signup"
+                  : `/signup?next=${encodeURIComponent(next)}`
+            }
             className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             أنشئ حساباً

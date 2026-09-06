@@ -5,7 +5,9 @@ declare(strict_types=1);
 use App\Models\User;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Enums\OrderKind;
+use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditPackage;
+use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\PlatformSettings;
@@ -194,4 +196,67 @@ it('sends the buyer no payer field at all — absent, not null', function (): vo
     expect($row)->not->toHaveKey('payer_name')
         ->and($row)->not->toHaveKey('payer_email')
         ->and($row['is_mine'])->toBeTrue();
+});
+
+/*
+| «شراء أرصدة» WAS THE WHOLE DESCRIPTION A BUYER GOT — reported 2026-09-06.
+|
+| A subscription order carries its snapshot in `metadata`; a credit order carries
+| none, so two purchases on one course differed by their amount alone, on the
+| screen where somebody checks what they paid for. The count is on
+| `credit_purchases.credits`, copied there at purchase so disabling a package
+| cannot move it.
+|
+| ⚠️ THE KEY IS ASSERTED PRESENT, NOT ONLY CORRECT. `whenLoaded` turns a dropped
+| eager load into an ABSENT key and one query CHEAPER, so a budget test alone
+| reads that regression as an improvement.
+|
+| ⚠️ AND `Order::creditPurchase()` IS EAGER LOADED `withoutWorkspaceScope()`.
+| This case does not isolate that — `/orders` is workspace-scoped for every
+| reader it has today, so a reader outside the order's workspace sees no orders
+| at all rather than orders missing a field. It is the rule this repository
+| already paid for in the audit chain: a relation query re-applies the scope
+| inside a platform read, and the fallback workspace decides what «all» means.
+*/
+it('says how many sessions a credit order bought, to the buyer and to a staff reader', function (): void {
+    $balance = CreditBalance::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $this->course->getKey(),
+    ]);
+
+    CreditPurchase::create([
+        'credit_balance_id' => $balance->getKey(),
+        'credit_package_id' => CreditPackage::query()->value('id'),
+        'course_id' => $this->course->getKey(),
+        'workspace_id' => $this->workspace->getKey(),
+        'order_id' => $this->creditOrder->getKey(),
+        'credits' => 4,
+        'teacher_rate_minor' => 5_000,
+        'operating_fee_minor' => 500,
+        'gateway_fee_minor' => 0,
+        'total_minor' => 22_000,
+        'currency' => 'QAR',
+        'purchased_at' => now(),
+    ]);
+
+    Sanctum::actingAs(orderReader('reading-officer', [
+        Permissions::ORDERS_VIEW_ALL,
+        Permissions::BILLING_PURCHASE_APPROVE,
+    ]));
+
+    $forOfficer = collect($this->getJson('/api/v1/orders')->assertOk()->json('data'))
+        ->firstWhere('uuid', $this->creditOrder->uuid);
+
+    expect($forOfficer)->toHaveKey('credits')
+        ->and($forOfficer['credits'])->toBe(4);
+
+    Sanctum::actingAs($this->student);
+    $this->setCurrentWorkspace($this->workspace, $this->student);
+
+    $rows = collect($this->getJson('/api/v1/orders')->assertOk()->json('data'));
+
+    expect($rows->firstWhere('uuid', $this->creditOrder->uuid)['credits'])->toBe(4)
+        // A course order has no credit purchase behind it: the key is there and
+        // its value is null — «—» on the screen, not a read that failed.
+        ->and($rows->firstWhere('uuid', $this->courseOrder->uuid)['credits'])->toBeNull();
 });

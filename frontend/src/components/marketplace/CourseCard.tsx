@@ -22,7 +22,16 @@ function hours(seconds: number): string {
  * badge could not be rendered here even if the rule changed back — it would need
  * the payload to change first, which is the right order.
  */
-export function CourseCard({ course }: { course: Course }) {
+/**
+ * @param anchor A fragment appended to the card's own link, e.g. `#groups`.
+ *
+ * ⚠️ ONLY THE TITLE LINK TAKES IT. The byline below points at the TEACHER, and
+ * a `#groups` glued to that href would send a reader to a fragment that does not
+ * exist on the profile — a link that silently does nothing, which is worse than
+ * one that goes somewhere wrong. Default empty, so the marketplace listing and
+ * the profile's courses tab are byte-identical to what they were.
+ */
+export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: string }) {
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-3xl border border-line bg-surface-raised transition duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg active:translate-y-0 active:duration-100">
       <div className="relative aspect-video bg-primary-soft">
@@ -72,7 +81,7 @@ export function CourseCard({ course }: { course: Course }) {
             this» stays a separate destination rather than being swallowed. */}
         <h3 className="text-base font-bold leading-snug text-ink">
           <Link
-            href={`/courses/${course.uuid}`}
+            href={`/courses/${course.slug ?? course.uuid}${anchor}`}
             className="after:absolute after:inset-0 after:content-[''] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             {course.title}

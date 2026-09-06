@@ -19,8 +19,10 @@ use App\Modules\Learning\Http\Resources\CourseAnnouncementResource;
 use App\Modules\Learning\Http\Resources\CurriculumResource;
 use App\Modules\Learning\Http\Resources\EnrollmentResource;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\Learning\Models\LessonProgress;
 use App\Modules\Learning\Support\LessonAccess;
 use App\Modules\Media\Models\MediaAsset;
+use App\Shared\Contracts\SubscriptionDirectory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -41,12 +43,45 @@ class EnrollmentController extends Controller
         return response()->json(EnrollmentResource::collection($enrollments));
     }
 
-    public function enroll(Request $request, Course $course, EnrollStudent $action): JsonResponse
-    {
+    /**
+     * Self-enrolment, and it is FREE COURSES ONLY (027 · FR-004).
+     *
+     * ⚠️ UNTIL SPEC 027 THIS GRANTED ANY AUTHENTICATED ACCOUNT ACTIVE ACCESS TO
+     * ANY PUBLISHED COURSE ON THE PLATFORM, FREE. `CoursePolicy::view()` allows
+     * every published course, and `belongsToCurrentWorkspace()` raises no
+     * objection on a null context — which is every student, since a student is a
+     * member of no workspace. `EnrollStudent` then writes `status = active`
+     * directly. Register an account, harvest a uuid from the public marketplace,
+     * POST here: curriculum, lessons and playback grants all open. It shipped
+     * with zero callers under `frontend/src`, which is why nobody noticed.
+     *
+     * ⚠️ AND THE PREDICATE IS NOT `Course::isFree()`. That is `price_minor === 0`,
+     * and `courses.price` is `->default(0)` and prices the ONE-OFF purchase alone
+     * — so a course sold by subscription or by credits reads as free and the door
+     * stays open for exactly the courses this feature exists to sell, with the
+     * criterion measuring it green over the top. `courseRequiresPurchase()` asks
+     * the price AND whether any sellable plan reaches the course.
+     *
+     * The route is not deleted: a genuinely free course is a real case, and it is
+     * the only one that still passes.
+     */
+    public function enroll(
+        Request $request,
+        Course $course,
+        EnrollStudent $action,
+        SubscriptionDirectory $subscriptions,
+    ): JsonResponse {
         $this->authorize('view', $course);
 
         if (! $course->isPublished()) {
             return response()->json(['message' => 'Course is not available for enrollment.'], 422);
+        }
+
+        if ($subscriptions->courseRequiresPurchase((int) $course->getKey())) {
+            return response()->json([
+                'message' => 'هذا الكورس يُشترَك فيه بطلبٍ معتمَد.',
+                'code' => 'purchase_required',
+            ], 422);
         }
 
         $enrollment = $action->handle($course, $this->currentUser($request));
@@ -234,6 +269,26 @@ class EnrollmentController extends Controller
                 'type' => $type->value,
                 'type_label' => $type->label(),
                 'is_completable' => LessonTypeRegistry::isCompletable($type),
+                /*
+                | ⚠️ الحقلانِ اللذانِ لم يكنْ لهما قارئ — وبلا الثاني لم يكنْ في
+                | المنتَجِ كلِّه ما يُتِمُّ درساً. `POST …/lessons/{lesson}/complete`
+                | قائمٌ منذُ ٠١٦، و`enrollment_uuid` أسفلَه يحملُ تعليقاً يقولُ
+                | صراحةً إنّه «ما تستعملُه شاشةُ الطالبِ لتعليمِ العنصرِ مكتملاً» —
+                | ولا ملفَّ واحدٍ في الواجهةِ ينادي ذلك المسار. فبقيَ «أتممتَ ٠ من
+                | ٣ — ٠٪» الحالةَ الوحيدةَ التي يبلغُها طالبٌ في فيديو أو مقال،
+                | و`CourseCompleted` لا يُطلَقُ أبداً فلا تصدرُ شهادةٌ إطلاقاً.
+                | بلاغُ ٢٠٢٦-٠٩-٠٦.
+                |
+                | و`may_self_complete` من {@see LessonTypeRegistry} لا محسوبٌ هنا:
+                | البابُ أدناه يرفضُ بالقاعدةِ نفسِها، وحقلٌ يُحسَبُ بهجاءٍ وبابٌ
+                | يرفضُ بآخرَ هو عطبُ البابَينِ المختلفَين.
+                */
+                'may_self_complete' => LessonTypeRegistry::isSelfCompletable($type),
+                'is_completed' => $enrollment !== null && LessonProgress::query()
+                    ->where('enrollment_id', $enrollment->getKey())
+                    ->where('lesson_id', $lesson->getKey())
+                    ->where('status', 'completed')
+                    ->exists(),
                 'content' => $canAccess ? $lesson->content : null,
                 // Derived per response, never stored. The student page was
                 // rendering the Markdown SOURCE, asterisks and all.
@@ -296,6 +351,25 @@ class EnrollmentController extends Controller
             return response()->json([
                 'message' => $access->message,
                 'code' => $access->code,
+            ], 422);
+        }
+
+        /*
+         * ⚠️ الرفضُ هنا في المتحكِّمِ لا في الإجراء، وهو خروجٌ مقصودٌ عن قاعدةِ
+         * «الحرسُ في الإجراء». الإجراءُ مشتركٌ مع
+         * {@see CompleteExamLessonOnSubmission}، وهو الكاتبُ **الشرعيُّ** لعنصرِ
+         * الاختبار — فرفضٌ غيرُ مشروطٍ هناك يكسرُ المستمِعَ نفسَه. والقاعدةُ
+         * المُطبَّقةُ ليست «هل يُكمَلُ هذا العنصر» بل «أيُّ بابٍ يجوزُ له أن
+         * يُعلِنَ الإكمال»، والبابُ هو هذا.
+         *
+         * ⚠️ وإخفاءُ الزرِّ ليس حرساً: المسارُ كانَ يقبلُ إتمامَ عنصرِ اختبارٍ
+         * لأيِّ طالبٍ مسجَّلٍ بطلبٍ واحد — أي تخطّي الاختبارِ وتحريكُ النسبةِ بلا
+         * إجابةِ سؤال.
+         */
+        if (! LessonTypeRegistry::isSelfCompletable(LessonType::from($lesson->type))) {
+            return response()->json([
+                'message' => 'يكتمل هذا العنصر بتسليم الاختبار نفسه، لا بتعليمه يدويّاً.',
+                'code' => 'NOT_SELF_COMPLETABLE',
             ], 422);
         }
 

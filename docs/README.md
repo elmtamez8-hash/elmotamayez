@@ -112,6 +112,10 @@ Authenticated:
 | GET/PUT | `/teacher/application`, `/teacher/application/step-2..4` | Applicant's own token |
 | POST | `/teacher/application/submit` | Applicant, `idempotent` |
 | GET | `/teacher/profile` | The signed-in teacher's own slug; `slug: null` when no listing exists yet |
+| PUT | `/teacher/profile` | ⚠️ **THE EDIT DOOR THAT DID NOT EXIST UNTIL 2026-09-06.** Everything step two of the application wizard writes — subjects, stages, teaching languages, qualifications, headline, bio, years of experience — was writable ONCE and then only from `/admin`. It goes through the same `UpdateTeacherProfile` Action the review team uses (the white-list is what keeps `approval_status` and `is_publicly_listed` out of a raw `update()`, and it flushes the marketplace cache), and it does **not** re-open review: an approved teacher's correction is public the moment it is saved. Rules live in `TeacherListingRules`, read by this door AND by the wizard, because two copies of one rule part company at the first edit |
+| POST · DELETE | `/me/photo` | The account's picture, one door for both roles — the column follows the profile (`teacher_profiles.photo_path`, else `student_profiles.avatar_path`). ⚠️ **BOTH COLUMNS HAD FOUR READERS AND NO WRITER**: the attendance roster, the cohort roster, the home page and the course card all read one of them, and nothing in the tree ever wrote either, so the initial-in-a-circle was not a fallback — it was the only state the product could reach. Replacing DELETES the previous file, deliberately unlike a payment receipt: nothing is ever decided on an avatar, so an orphan there is a face nobody can reach kept for ever after its owner replaced it. The filename carries a random suffix, or the new path equals the old one and every cache keeps serving the picture that was just changed ⚠️ **EVERY UPLOAD IS RE-ENCODED TO A 512×512 JPEG BEFORE IT IS STORED** (`SaveAccountPhoto::normalise`, spatie/image on the **GD** driver — this platform has no imagick, and the package picks its own default, so a build that relies on the default works on one machine and throws on another). Three things fall out that a browser-side cropper cannot give, because it sits on the side that is not trusted: **EXIF is stripped, GPS coordinates included** — student avatars reach public pages through review cards, and this platform has minors; a **polyglot file** served straight from `/storage` dies on a re-encode that reads pixels and writes them again; and the size becomes a **limit** rather than a hope — `max:4096` is what is accepted, ~50 KB is what is stored. The stored name always ends `.jpg` whatever was uploaded: a `.png` name over JPEG bytes is the type every static server guesses from the name. The crop UI (`AvatarCropper`) decides the FRAMING — before it, every screen's `rounded-full object-cover` cropped from the centre, and a face in a phone photograph rarely is |
+| PATCH | `/me/student-profile` | The student's own year and region. `student_profiles` was written at registration and never again, and a student in year 9 is in year 10 twelve months later. ⛔ The date of birth and the guardian's number are deliberately NOT editable here: the first drives the guardian-consent gate and 013's coming-of-age sweep, the second is the address that consent is requested at — a door a minor opens for themselves would switch the gate off from inside it. The stage is derived from the year, never accepted beside it |
+| PUT | `/teacher/availability` | ⚠️ **THE SECOND COLUMN IN TWO DAYS WITH READERS AND NO WRITER.** `availability_slots` is written by `SubmitTeacherApplication` and by nothing else — once, at submission, for the life of the account — while `GenerateSessionsFromAvailability` builds a teacher's whole schedule from it, `RequestPrivateSession` refuses outside it, and the public profile publishes it. Replaces the whole week through the same `SetAvailability` the wizard uses (full replacement, never a merge: a merge leaves a deleted window bookable, and the Action is what knows to flush the marketplace cache). Rules in `AvailabilityRules`, shared with step four. **Times arrive and are stored in UTC** — the client converts with `toUtcSlot`; a second conversion on the server shifts every window twice. `min:1`: an empty week is a teacher nothing can be booked with, and time off is a `FreezePeriod` |
 | PUT | `/teacher/profile/slug` | The teacher renames their public URL. No route parameter — the profile comes from the token. `throttle:profile-slug`. Rejects a uuid-shaped value: the public lookup accepts both, so that value would shadow another teacher's URL |
 | GET/POST | `/admin/teacher-applications`, `.../approve`, `.../reject`, `.../request-changes` | `marketplace.teachers.review` / `.approve` |
 | POST | `/admin/teachers/{uuid}/suspend` · `/reinstate` | `marketplace.teachers.suspend` |
@@ -2728,3 +2732,124 @@ payload that also carries `last_workspace_id` is a mistake made once per reading
 Zero places hides the entry (a student or guardian, who are skipped server-side
 because they are members of nothing by design); one place shows **the place's own
 name**, never a singular carved out of a plural; more shows «أماكن عملي».
+
+## Subscribing to a Group or to Private Sessions (spec 027)
+
+One press buys a month. What that press has to produce is an enrolment, a place in
+a named group, a booked seat in every lesson of the month, and a message that says
+when and where — because a student who pays and then sees an empty timetable
+assumes the payment failed.
+
+### The one screen and its two doors
+
+`/subscribe?course={uuid}` is the whole student surface: pick a plan, pick a group
+**or** «حصص خاصّة», upload the receipt. It is reached from the course page —
+`CohortList` for a group, `PrivateSessionRequestForm` for the other door — and from
+the shell nav. No new endpoint was added for it: the order goes through
+`POST /billing/subscriptions`, which has carried the plan and the workspace as
+**body uuids since 011** for the reason written beside that route (a `/{plan}` path
+parameter resolves the model before any guard runs, and `BelongsToWorkspace`
+protects nothing on a student's path). 027 adds the intent — group or private, and
+which group — to that same body.
+
+The officer's queue is `/admin/grant-credit-subscription`, which gained an
+«التفعيل» column: whether the approved order actually produced a subscription. It
+is a `withExists` on the order's own relation with the workspace scope lifted, not
+a status filter — a row already gone from the query cannot describe itself.
+
+### The two notification types
+
+| type | who | why it is not one type with a flag |
+|---|---|---|
+| `subscription_activated` | the student, **and their guardians** | it carries the schedule and the room link. It targets guardians because the week is what a family organises around; that is why `WhatsAppDefaultsTest` moved from 25 to 26 |
+| `subscription_seat_unavailable` | the student **and the teacher** | it names lessons that could NOT be booked. It reaches the teacher because the only fix — a bigger group, another session — is theirs |
+
+The activation message carries the schedule **in both forms**: the weekly rhythm
+(«السبت ٥م»), which is what a guardian plans around and does not say which
+Saturday, and the next lesson's own date, which says which day and hides the
+rhythm. And when there is no lesson yet it **says so out loud** (FR-029أ) — an
+omitted line reads as a fault, and the student refreshes and asks whether their
+payment went through.
+
+Both rows ship with a `seedMissing()` backfill migration in the same change, the
+**sixth** instance of that mechanism in this tree. A notification with no template
+is dropped silently, so a row that reaches only a fresh database is a feature that
+never runs in production.
+
+### Three shared contracts, and the wall is now guarded
+
+`SubscriptionDirectory` · `CohortDirectory` · `CohortScheduleDirectory`. LiveSessions
+asks who is a live subscriber at a given lesson's hour; Payments asks what a group
+is and when it meets. Neither module imports the other's models.
+
+⚠️ **That claim used to be justified by a guard that was not running.** 027's plan
+cited `ContextIsolationTest`, and that file scanned Settlement ⇄ Payments/Store/
+Community/Compliance **only** — LiveSessions and Learning were invisible to it, the
+same discovery `Compliance` made in 013. The sweep is widened now, and it is
+**one-directional because the reverse is the design**: `PaymentApproved →
+CreateEnrollmentFromOrder` has written enrolments since 001, `ChargeSessionSeats`
+reads `ClassSession`, and a plan types its coverage with `ClassSessionType`. Money
+drives the lower layers; the lower layers do not reach back for money.
+
+⚠️ **One import is allowed and it is a LINE, not a namespace**:
+`use App\Modules\Payments\Events\SubscriptionEnded;` — FR-045's bridge, which
+releases a lapsed subscriber's future seats. A listener on `PaymentApproved`
+tomorrow would be LiveSessions reacting to what a student PAID, and the exact-line
+allowance makes that a red build instead of a carve-out already waved through.
+
+### The seat is claimed on activation, and again whenever a lesson appears
+
+Activation books every session of the month; `BookSubscribersOnScheduled` books the
+ones created later. It listens to **two** events, and the second one is the mass
+path: `GenerateSessionsFromAvailability` builds its schedule data with no
+`cohortId`, so bulk-generated sessions carry `cohort_id = null` and are attached
+afterwards by `AssignSessionsToCohort` — one event, N sessions. Wiring the
+scheduling door alone is a green test over half a silent feature.
+
+⚠️ **`ActivateSubscription` opens no transaction, and none may be added.** All four
+connections are `after_commit => false` and `NotifyStudentEnrolled` is `ShouldQueue`
+without `ShouldHandleEventsAfterCommit`, so wrapping the three writes would send
+«أهلاً بك في الكورس» about an enrolment that can still roll back. FR-027 is
+therefore satisfied by **convergence**: a retry reads the committed subscription
+back and carries on, instead of returning at `unique(order_id)` before the access
+was ever opened.
+
+⚠️ **`isJoinable()` is asked AFTER membership, never before.** A renewing student's
+group is full **of them and their classmates** — a joinability pre-check refuses
+every renewal and leaves a paid, approved order pending for ever.
+
+⚠️ **A released seat is revived; a cancelled one is left alone.** `BookSeat` grew a
+third named entry (`reviveReleasedSeat`) for that, rather than a conditional UPDATE
+written in the caller, which would be a second spelling of the one guarded
+`seats_taken` increment in the tree.
+
+### `billable_seats` freezes at the session's start when it is born too late
+
+The count is written once, at the cancellation deadline. For a session created
+**inside** its own cancellation window that deadline is already past, so it froze
+at zero the moment it was created — a lesson taught for an hour with nothing owed
+for it, **and that was true of manual booking long before this spec** (FR-039ب).
+`ClassSession::billableSeatsFreezeAt()` returns the later of the deadline and the
+session's own start.
+
+### Settlement prices the subscriber seat by ATTENDANCE
+
+A subscription is one price a month while lessons are many, so twenty subscribers
+attending ten lessons must not be two hundred full accruals. `SessionDelivered`
+therefore carries `subscriptionSeats` as a **list of student ids, not a count** —
+`accrueOne()` writes one row per student, and a bare number cannot say which rows
+take the subscriber price.
+
+A subscriber who attended earns the teacher their approved rate; one who did not
+earns zero. The rule is **scoped to the subscription seat alone** — the credit path
+keeps «الحضور بلا أثر ماليّ», which `AttendanceHasNoFinancialEffectTest` still
+enforces everywhere else — and the zero is not flagged for review, because an
+unpriced subscriber row is the design rather than a missing rate.
+
+⚠️ **The sources that earn are an ALLOWLIST** (`Automatic` · `Manual`), never a
+denylist. A catch-up attendance source — watching 25% of the recording, downloading
+the lesson file — is a decided product rule that is **deliberately out of scope
+here**: it makes the student present in their own record and must not make the
+platform pay for a lesson it opened as a gift or a reward. With an allowlist that
+source earns nothing until somebody adds it on purpose; with a denylist it would
+start earning the day it lands, silently.

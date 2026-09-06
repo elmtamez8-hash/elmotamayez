@@ -6,9 +6,12 @@ namespace App\Modules\Marketplace\Actions\Public;
 
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\LiveSessions\Enums\ClassSessionType;
+use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\CohortScheduleDirectory;
+use App\Shared\Contracts\SubscriptionDirectory;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -20,24 +23,41 @@ use Illuminate\Database\Eloquent\Collection;
  * user — so a public query written without this scope returns every workspace's
  * rows, drafts included. There is nothing underneath to catch it.
  *
- * ⚠️ AND THE KEY IS `uuid`, NEVER `slug`. `courses.slug` is unique per
+ * ⚠️ THE KEY IS THE SLUG NOW, AND THE UUID STILL RESOLVES.
+ *
+ * This block used to say the opposite, correctly: `courses.slug` was unique per
  * (`workspace_id`, `slug`) — inside one workspace only — so two teachers naming
- * a course «الرياضيات ٣» produce the same slug, and a public route with no
- * workspace to read cannot tell them apart. The slug is published for display
- * and is not the address.
+ * a course «الرياضيات ٣» produced the same slug and a public route with no
+ * workspace to read could not tell them apart. `_000100_make_course_slug_platform_unique`
+ * is what changed the key underneath that sentence, exactly as
+ * `add_slug_to_teacher_profiles` did for `/teachers/{slug}` in 2026-08.
+ *
+ * The uuid is still accepted and is not a fallback for laziness: every link
+ * shared before today is a uuid, and the page 308s to the canonical slug so the
+ * two addresses do not split one page's ranking between them. Slug FIRST — a
+ * single `OR` would return whichever row the database happened to hand back,
+ * which is the defect the old sentence was written to prevent, wearing a
+ * different key.
  */
 class ReadPublicCourse extends Action
 {
     public function __construct(
         private readonly CohortDirectory $cohorts,
         private readonly CohortScheduleDirectory $schedules,
+        private readonly SubscriptionDirectory $subscriptions,
     ) {}
 
-    public function handle(string $uuid): ?Course
+    public function handle(string $key): ?Course
     {
         $course = Course::query()
             ->publiclyListed()
-            ->where('uuid', $uuid)
+            ->where(function ($query) use ($key): void {
+                // Grouped, or the OR escapes the `publiclyListed()` guard above
+                // it and answers with somebody's draft — the top-level-`orWhere`
+                // defect this tree has paid for in a retention sweep already.
+                $query->where('slug', $key)->orWhere('uuid', $key);
+            })
+            ->orderByRaw('CASE WHEN slug = ? THEN 0 ELSE 1 END', [$key])
             ->with([
                 'subject:id,slug,name_ar,icon',
                 // ⚠️ The accessor's columns, not the attribute's name. `users`
@@ -140,6 +160,15 @@ class ReadPublicCourse extends Action
                 'description' => $cohort['description'],
                 'status' => $cohort['status'],
                 'schedule' => $schedules[$cohort['id']] ?? [],
+                /*
+                | ⚠️ COPIED EXPLICITLY, BECAUSE THIS SHAPE IS AN ALLOWLIST OF
+                | KEYS AND NOT A SPREAD (027 · FR-002). The directory answered
+                | `is_joinable` and this assembly quietly dropped it — every
+                | subscribe button in the product would have been absent, and
+                | `PublicExposureTest` cannot see it: that test fails on a key
+                | that is not ALLOWED, never on one that is MISSING.
+                */
+                'is_joinable' => $cohort['is_joinable'],
             ];
 
             /*
@@ -153,5 +182,49 @@ class ReadPublicCourse extends Action
 
             return $shape;
         }, $cohorts);
+    }
+
+    /**
+     * Whether the private-subscription invitation may be shown (FR-003).
+     *
+     * ⚠️ THE SERVER ANSWERS THIS OR NOBODY CAN. The invitation is only honest
+     * when the teacher has both declared hours and a priced one-to-one plan —
+     * and plans live behind `auth:sanctum` while this page is anonymous and
+     * server-rendered. Left to the browser it becomes either a button that is
+     * pressed and refused with «هذه الباقة غير متاحة», or FR-002's two-spellings
+     * defect reintroduced one requirement below FR-002.
+     *
+     * ⚠️ AND IT LEAKS NOTHING. Three distinguishable states — no plan, plan
+     * switched off, plan awaiting a price — collapse into this one false, which
+     * is exactly the collapse `PurchaseSubscription` performs for the same
+     * reason: telling them apart says which teachers have a plan waiting.
+     *
+     * The availability read is cheap and comes first: most courses have a plan
+     * and the slots table is the smaller question.
+     */
+    public function privateSubscriptionAvailable(Course $course): bool
+    {
+        $teacherProfileId = $course->creator?->teacherProfile?->getKey();
+
+        if ($teacherProfileId === null) {
+            return false;
+        }
+
+        $hasHours = AvailabilitySlot::query()
+            // The slot belongs to the teacher's workspace and the reader here is
+            // nobody at all — `WorkspaceScope` adds no condition for a guest, so
+            // this is declared rather than relied upon.
+            ->withoutWorkspaceScope()
+            ->where('teacher_profile_id', $teacherProfileId)
+            ->exists();
+
+        if (! $hasHours) {
+            return false;
+        }
+
+        return $this->subscriptions->hasSellablePlanFor(
+            (int) $course->getKey(),
+            ClassSessionType::Individual->value,
+        );
     }
 }

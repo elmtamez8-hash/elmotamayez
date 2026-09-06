@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Actions;
 
 use App\Models\User;
+use App\Modules\Payments\Data\SubscriptionIntent;
+use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Enums\PaymentMethod;
 use App\Modules\Payments\Enums\PaymentStatus;
 use App\Modules\Payments\Events\PaymentApproved;
@@ -12,6 +14,7 @@ use App\Modules\Payments\Events\ReceiptApproved;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
 use Illuminate\Database\QueryException;
@@ -36,6 +39,10 @@ class ApproveOrder extends Action
 {
     use LogsActivity;
 
+    public function __construct(
+        private readonly CohortDirectory $cohorts,
+    ) {}
+
     public function handle(
         Order $order,
         User $approver,
@@ -43,6 +50,8 @@ class ApproveOrder extends Action
         ?string $userAgent = null,
     ): Order {
         return DB::transaction(function () use ($order, $approver, $ipAddress, $userAgent): Order {
+            $this->assertStillActionable($order);
+
             /*
             | ⚠️ `withoutWorkspaceScope()` — THE THIRD LAYER OF ONE DEFECT.
             |
@@ -70,7 +79,12 @@ class ApproveOrder extends Action
                 ]);
 
             if ($claimed === 0) {
-                throw new DomainException('Only pending orders can be approved.');
+                // ⚠️ ARABIC, LIKE EVERY OTHER SENTENCE A HUMAN READS IN THIS
+                // PRODUCT. This is not an internal invariant: it is what the
+                // SECOND officer sees when two press «اعتمد» at the same
+                // instant, and spec 027 puts that button on a queue where a
+                // simultaneous press is ordinary rather than exotic.
+                throw new DomainException('اتُّخِذ القرار على هذا الطلب بالفعل.');
             }
 
             $this->mintTransaction($order);
@@ -92,6 +106,84 @@ class ApproveOrder extends Action
 
             return $order;
         });
+    }
+
+    /**
+     * The re-check between ordering and approving (027 · FR-026).
+     *
+     * ⚠️ IN THE ACTION, NOT IN THE FILAMENT SCREEN. Approval has two doors — the
+     * officer's button and `POST /orders/{orderUuid}/approve` — and a guard on
+     * the screen guards what is pressed while leaving what is called wide open.
+     *
+     * ⚠️ AND NOT IN `ActivateSubscription`. That listener is queued and runs
+     * after commit, so refusing there produces literally the state FR-026 exists
+     * to prevent: an approved order, money taken, and a student in no group.
+     *
+     * ⚠️ AND IT THROWS BEFORE THE CLAIM, so the transaction rolls back with
+     * nothing in it — no status change, no payment transaction, no activity row.
+     * The order is still `pending` and the officer reads a sentence naming the
+     * cause.
+     *
+     * ⚠️ THE `PaymentCaptured` DOOR DOES NOT PASS THROUGH HERE. `ActivateSubscription`
+     * is wired to both events; today every subscription order is `manual` so a
+     * gateway capture cannot reach it, but the day one can, this check will not
+     * have run.
+     */
+    private function assertStillActionable(Order $order): void
+    {
+        if ($order->kind !== OrderKind::Subscription) {
+            return;
+        }
+
+        $intent = SubscriptionIntent::fromOrder($order);
+
+        if ($intent === null || ! $intent->isCohort() || $intent->cohortUuid === null) {
+            return;
+        }
+
+        $cohort = $this->cohorts->describeGroupCohort($intent->cohortUuid);
+
+        if ($cohort === null) {
+            throw new DomainException('المجموعة المطلوبة لم تعد موجودة. تواصل مع الطالب لاختيار مجموعة أخرى.');
+        }
+
+        if ($cohort['course_status'] !== 'published') {
+            throw new DomainException('كورس هذه المجموعة لم يعد منشوراً. أعد نشره أو تواصل مع الطالب قبل الاعتماد.');
+        }
+
+        $student = $order->user;
+
+        /*
+        | ⚠️ MEMBERSHIP IS ASKED FIRST, AND ASKING JOINABILITY FIRST REFUSES EVERY
+        | RENEWAL. A renewing student's group is full OF THEM AND THEIR
+        | CLASSMATES, so `isJoinable()` is false for exactly the person US4·4 and
+        | FR-028 promise must not be asked to choose a group again — and their
+        | paid, approved order would sit `pending` for ever under «هذه المجموعة لم
+        | تعد متاحة». `PurchaseSubscription::resolveCohort()` already orders the
+        | two the same way; this is the same question, not a second one.
+        */
+        $current = $this->cohorts->openMembershipCohortId($student, (int) $cohort['course_id']);
+
+        if ($current !== null && $current !== (int) $cohort['id']) {
+            /*
+            | They joined a different group between ordering and approval. Neither
+            | of the two obvious answers is acceptable: `JoinCohort` would throw
+            | AFTER the money committed, and `CohortMembershipWriter` would move
+            | them out of the group they are in without anybody deciding it — a
+            | transfer bought for the price of the cheapest plan, filed in the log
+            | as a join. So the APPROVAL is refused, while it can still be refused.
+            */
+            throw new DomainException('الطالب مسجّل في مجموعة أخرى من هذا الكورس. يحتاج طلب نقل قبل اعتماد هذا الاشتراك.');
+        }
+
+        if ($current === (int) $cohort['id']) {
+            // A renewal into their own group. There is no seat to find.
+            return;
+        }
+
+        if (! $this->cohorts->isJoinable((int) $cohort['id'])) {
+            throw new DomainException('لم تعد هذه المجموعة متاحة للانضمام. تواصل مع الطالب لاختيار مجموعة أخرى.');
+        }
     }
 
     /**

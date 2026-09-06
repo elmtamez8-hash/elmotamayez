@@ -31,6 +31,19 @@ class BookingEligibility
         private readonly UnlockDirectory $unlock,
     ) {}
 
+    /**
+     * The freeze refusal, named because ONE caller has to tell it apart from the
+     * others (027 · FR-042).
+     *
+     * A freeze is a holiday somebody declared on purpose, so the automatic
+     * booker must not report it to the student as a seat it failed to get —
+     * and it re-runs, so that report would arrive again every time. Every other
+     * refusal is news. A constant rather than a repeated string literal: two
+     * spellings of this sentence and the comparison below silently stops
+     * matching, which brings the notification back with nothing to show why.
+     */
+    public const FROZEN_REFUSAL = 'هذه الفترة موقوفة مؤقّتاً.';
+
     /** The reason a student may not book, or null when they may. */
     public function refusalReason(ClassSession $session, User $student): ?string
     {
@@ -39,7 +52,7 @@ class BookingEligibility
         }
 
         if ($this->isFrozen($session, $student)) {
-            return 'هذه الفترة موقوفة مؤقّتاً.';
+            return self::FROZEN_REFUSAL;
         }
 
         return $this->withholdingRefusal($session, $student);

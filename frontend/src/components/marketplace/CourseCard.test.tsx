@@ -19,6 +19,7 @@ import type { CourseCard as Course } from "@/lib/public-api";
 */
 const course: Course = {
   uuid: "c0ffee00-0000-4000-8000-000000000001",
+  slug: "asasyat-altfadl",
   title: "أساسيّات التفاضل",
   cover_url: null,
   teacher: {
@@ -43,7 +44,7 @@ describe("CourseCard", () => {
   it("sends the title to the course, not to the teacher", () => {
     render(<CourseCard course={course} />);
 
-    expect(hrefOf("أساسيّات التفاضل")).toBe(`/courses/${course.uuid}`);
+    expect(hrefOf("أساسيّات التفاضل")).toBe(`/courses/${course.slug}`);
   });
 
   it("keeps the teacher byline as its own destination", () => {
@@ -62,15 +63,74 @@ describe("CourseCard", () => {
     // rather than merely unattributed.
     render(<CourseCard course={{ ...course, teacher: null }} />);
 
-    expect(hrefOf("أساسيّات التفاضل")).toBe(`/courses/${course.uuid}`);
+    expect(hrefOf("أساسيّات التفاضل")).toBe(`/courses/${course.slug}`);
   });
 
-  it("addresses the course by uuid, never by a slug", () => {
+  /*
+  | ⚠️ INVERTED, NOT DELETED (2026-09-06). This case read «addresses the course
+  | by uuid, never by a slug», and its reason was sound: `courses.slug` was
+  | unique per (workspace_id, slug), so a slug in a public path could not tell
+  | two teachers' «الرياضيات ٣» apart. The index is platform-wide now — the key
+  | `/teachers/{slug}` has carried since 2026-08 — so the sentence it guarded is
+  | no longer true and the guard states the new rule instead of vanishing.
+  |
+  | What has NOT changed is the half that was never about the index: the course's
+  | address is never the TEACHER's slug. That is still asserted below.
+  */
+  it("addresses the course by its own slug, never by the teacher's", () => {
     render(<CourseCard course={course} />);
 
-    // `courses.slug` is unique per (workspace_id, slug) — inside one workspace
-    // only — so a slug in a public path cannot tell two teachers' «الرياضيات ٣»
-    // apart. The card carries no slug at all, which is what keeps this true.
+    expect(hrefOf("أساسيّات التفاضل")).toBe("/courses/asasyat-altfadl");
     expect(hrefOf("أساسيّات التفاضل")).not.toContain("khaled");
+  });
+});
+
+/*
+| Spec 027 — the anchor is the inbound link the teacher's profile needed.
+|
+| ⚠️ THIS GUARDS A DESTINATION, NOT A PROP. The schedule tab is where a student
+| reads a teacher's weekly times, and it offered no way to act on any of them:
+| both subscription doors live on a course page, and nothing on that tab pointed
+| at one. The fix is these cards plus `#groups`, so what fails here is the LINK
+| going back to being a link to nowhere in particular — the same class of defect
+| as the title pointing at the teacher, which is what opened 023.
+|
+| The default is asserted beside it because the marketplace listing and the
+| profile's own courses tab render this card too, and a fragment leaking into
+| those is a scroll a reader did not ask for.
+*/
+describe("CourseCard · the groups anchor", () => {
+  it("lands on the course's groups when the caller asks for it", () => {
+    render(<CourseCard course={course} anchor="#groups" />);
+
+    expect(hrefOf("أساسيّات التفاضل")).toBe("/courses/asasyat-altfadl#groups");
+  });
+
+  it("carries no fragment when nobody asked for one", () => {
+    render(<CourseCard course={course} />);
+
+    expect(hrefOf("أساسيّات التفاضل")).toBe("/courses/asasyat-altfadl");
+  });
+
+  it("falls back to the uuid for a card rendered before slugs were sent", () => {
+    /*
+    | ⚠️ NOT DEFENSIVE DECORATION — THIS IS REAL TRAFFIC. Public listings are
+    | ISR-cached, so a page rendered from a payload that predates 027's `slug`
+    | key keeps serving until it revalidates. Without the fallback those cards
+    | link to `/courses/undefined`, which 404s a listing that looked fine.
+    */
+    render(<CourseCard course={{ ...course, slug: null }} anchor="#groups" />);
+
+    expect(hrefOf("أساسيّات التفاضل")).toBe(
+      "/courses/c0ffee00-0000-4000-8000-000000000001#groups",
+    );
+  });
+
+  it("never glues the fragment onto the teacher's link", () => {
+    // `#groups` does not exist on a profile, so a byline carrying it is a
+    // control that silently does nothing.
+    render(<CourseCard course={course} anchor="#groups" />);
+
+    expect(hrefOf("خالد")).toBe("/teachers/khaled");
   });
 });

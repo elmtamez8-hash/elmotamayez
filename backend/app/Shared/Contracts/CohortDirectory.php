@@ -119,6 +119,43 @@ interface CohortDirectory
      */
     public function resolveCohortId(string $uuid, int $courseId): ?int;
 
+    /**
+     * Whether this group is open AND has a place (spec 027 · FR-002 · FR-026).
+     *
+     * ⚠️ ASKED TWICE ON PURPOSE, AT TWO MOMENTS. The subscription order is
+     * created against a joinable group, and days can pass on a manual transfer
+     * before an officer approves it — so it is asked again in `ApproveOrder`,
+     * BEFORE the conditional claim, and a group that filled in between refuses
+     * the approval rather than putting a student in a room with no chair
+     * (FR-026). Asking it once, at either end, is one of the two halves missing.
+     *
+     * ⚠️ AND IT IS THE MODEL'S OWN PREDICATE, NOT A THIRD SPELLING. The card,
+     * the picker and this all read `Cohort::isJoinable()`; two spellings put one
+     * answer on the screen and another at the door.
+     */
+    public function isJoinable(int $cohortId): bool;
+
+    /**
+     * Everything a buyer's chosen group has to prove, in one read (spec 027).
+     *
+     * ⚠️ IT TAKES NO COURSE, AND THAT IS WHY IT EXISTS BESIDE `resolveCohortId()`.
+     * A plan whose coverage is «everything this teacher publishes» stamps no
+     * course on the order at all — `coverageCourseId()` answers null for it — so
+     * the caller has no course id to constrain the lookup with, and passing `0`
+     * or null there would resolve ANY cohort uuid on the platform, on the one
+     * path where `BelongsToWorkspace` protects nothing (a student is a member of
+     * no workspace). The caller proves coverage instead, from the workspace and
+     * course this returns.
+     *
+     * ⚠️ FILTERED TO GROUP COHORTS. A private 1:1 cohort is born `closed` with
+     * `capacity: 1` and no membership row, and nothing stops a teacher opening
+     * one from the panel — after which a stranger holding its uuid would
+     * subscribe into another named student's room and its thread.
+     *
+     * @return array{id: int, course_id: int, workspace_id: int, name: string, course_uuid: string, course_status: string, is_joinable: bool}|null
+     */
+    public function describeGroupCohort(string $uuid): ?array;
+
     /*
     | Spec 023 · FR-010 — the groups of one course, as the PUBLIC may read them.
     |
@@ -135,7 +172,7 @@ interface CohortDirectory
     | not zero.
     */
     /**
-     * @return list<array{uuid: string, name: string, description: string|null, status: string, seats_left: int|null, id: int}>
+     * @return list<array{uuid: string, name: string, description: string|null, status: string, seats_left: int|null, is_joinable: bool, id: int}>
      */
     public function publicCohortsFor(int $courseId): array;
 

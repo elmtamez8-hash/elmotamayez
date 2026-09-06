@@ -152,9 +152,13 @@ class PublicMarketplaceController extends Controller
     | them apart. One distinguishable reply would make this endpoint an oracle
     | answering questions about rows it refuses to publish.
     */
-    public function course(string $uuid, ReadPublicCourse $action): JsonResponse
+    public function course(string $key, ReadPublicCourse $action): JsonResponse
     {
-        $course = $action->handle($uuid);
+        // A slug or a uuid. Renamed off `$uuid` deliberately: the parameter name
+        // is the only place a reader learns that this route takes two shapes,
+        // and a variable called `$uuid` holding `alryadyat-llthanwyt` is a lie
+        // that survives every refactor.
+        $course = $action->handle($key);
 
         abort_if($course === null, 404);
 
@@ -164,6 +168,11 @@ class PublicMarketplaceController extends Controller
         // another module's directory, and a Resource that reached across a
         // module boundary would do it once per row.
         $payload['cohorts'] = $action->cohortsOf($course);
+        // Spec 027 · FR-003 — whether the private-subscription invitation may be
+        // drawn at all. Merged here for the same reason the groups are: it comes
+        // from another module's directory, and a Resource asking one would ask
+        // once per row.
+        $payload['private_subscription_available'] = $action->privateSubscriptionAvailable($course);
 
         return response()->json(['data' => $payload]);
     }

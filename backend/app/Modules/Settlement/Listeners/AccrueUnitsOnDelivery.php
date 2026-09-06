@@ -51,7 +51,7 @@ class AccrueUnitsOnDelivery implements ShouldHandleEventsAfterCommit, ShouldQueu
 
     public function handle(SessionDelivered $event): void
     {
-        $units = $this->action->handle($event->session, $event->billableSeats);
+        $units = $this->action->handle($event->session, $event->billableSeats, $event->subscriptionSeats);
 
         foreach ($units as $unit) {
             // Announced only once it is actually an earning. A unit still waiting

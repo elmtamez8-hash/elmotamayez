@@ -43,6 +43,7 @@ final class LessonTypeRegistry
      */
     private const MAP = [
         'article' => [
+            'self_completable' => true,
             'family' => self::FAMILY_INLINE,
             'completable' => true,
             'asset_kind' => null,
@@ -50,6 +51,7 @@ final class LessonTypeRegistry
             'implemented' => true,
         ],
         'note' => [
+            'self_completable' => false,
             'family' => self::FAMILY_INLINE,
             // Nothing is asked of the reader, so nothing can be completed. It
             // also must not gate: a course would stall on an unread notice.
@@ -59,6 +61,7 @@ final class LessonTypeRegistry
             'implemented' => true,
         ],
         'video' => [
+            'self_completable' => true,
             'family' => self::FAMILY_UPLOADED,
             'completable' => true,
             'asset_kind' => MediaKind::Video,
@@ -66,6 +69,7 @@ final class LessonTypeRegistry
             'implemented' => true,
         ],
         'audio' => [
+            'self_completable' => true,
             'family' => self::FAMILY_UPLOADED,
             'completable' => true,
             'asset_kind' => MediaKind::Audio,
@@ -73,6 +77,7 @@ final class LessonTypeRegistry
             'implemented' => true,
         ],
         'pdf' => [
+            'self_completable' => true,
             'family' => self::FAMILY_UPLOADED,
             'completable' => true,
             'asset_kind' => MediaKind::Document,
@@ -80,6 +85,7 @@ final class LessonTypeRegistry
             'implemented' => true,
         ],
         'file' => [
+            'self_completable' => true,
             'family' => self::FAMILY_UPLOADED,
             'completable' => true,
             'asset_kind' => MediaKind::Document,
@@ -87,6 +93,7 @@ final class LessonTypeRegistry
             'implemented' => true,
         ],
         'exam' => [
+            'self_completable' => false,
             'family' => self::FAMILY_REFERENCE,
             'completable' => true,
             'asset_kind' => null,
@@ -94,6 +101,7 @@ final class LessonTypeRegistry
             'implemented' => true,
         ],
         'assignment' => [
+            'self_completable' => true,
             'family' => self::FAMILY_REFERENCE,
             'completable' => true,
             'asset_kind' => null,
@@ -103,6 +111,7 @@ final class LessonTypeRegistry
             'implemented' => false,
         ],
         'live_session' => [
+            'self_completable' => false,
             'family' => self::FAMILY_REFERENCE,
             // A session that has not happened cannot be completed, and the
             // recording that replaces it answers to a seat rather than to
@@ -113,6 +122,7 @@ final class LessonTypeRegistry
             'implemented' => true,
         ],
         'link' => [
+            'self_completable' => false,
             'family' => self::FAMILY_EXTERNAL,
             // The platform cannot know what the student did on someone else's
             // site, so "I finished it" would be a button pressed by people who
@@ -132,6 +142,36 @@ final class LessonTypeRegistry
     public static function isCompletable(LessonType $type): bool
     {
         return self::MAP[$type->value]['completable'];
+    }
+
+    /**
+     * Whether the STUDENT may declare this item finished, as opposed to the
+     * system concluding it from evidence.
+     *
+     * ⚠️ A NARROWER QUESTION THAN {@see isCompletable}, AND THE GAP IS `exam`.
+     * An exam item counts in the denominator and is completed by
+     * `CompleteExamLessonOnSubmission` when the paper is actually sat — so a
+     * self-declare control on it is a button that walks a student past the exam
+     * and moves their percentage without answering a question. It is refused at
+     * the door as well as hidden on the screen: hiding a control is not a guard.
+     *
+     * ⚠️ AND `assignment` IS `true` DELIBERATELY, AGAINST THE TIDY SYMMETRY.
+     * Measured 2026-09-06: `AssignmentSubmitted` has exactly ONE listener and it
+     * sends a notification — nothing anywhere completes an assignment lesson. So
+     * grouping it with `exam` because both are FAMILY_REFERENCE would make every
+     * assignment item permanently incompletable, which caps every enrolled
+     * student below 100%, stops `CourseCompleted` firing and issues no
+     * certificate, for ever — the worst defect this repository records, created
+     * by the fix for a smaller one. The day a submission listener exists, this
+     * flips to false and the listener becomes the writer, exactly as with `exam`.
+     *
+     * `note`, `live_session` and `link` are false because they are not
+     * completable at all; the two lists agree there and that is not a
+     * coincidence — nothing uncountable can be declared done.
+     */
+    public static function isSelfCompletable(LessonType $type): bool
+    {
+        return self::MAP[$type->value]['self_completable'];
     }
 
     public static function assetKind(LessonType $type): ?MediaKind

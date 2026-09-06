@@ -260,7 +260,12 @@ it('tells every guardian-facing type apart', function (): void {
     // loop below is what enforces: a type in this set with no mapping reaches NO
     // guardian at all while still picking up the WhatsApp channel, so the message
     // leaves the platform, is billed, and arrives nowhere.
-    expect($guardianTypes)->toHaveCount(23);
+    // Twenty-four, with spec 027: `subscription_activated`. A fact about a
+    // PURCHASE on the same footing as the two above — the guardian usually paid,
+    // and the group's timetable is what they organise the week around. Its
+    // sibling `subscription_seat_unavailable` deliberately targets no guardian
+    // (operational news for whoever can act on it), so it does not move this.
+    expect($guardianTypes)->toHaveCount(24);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();

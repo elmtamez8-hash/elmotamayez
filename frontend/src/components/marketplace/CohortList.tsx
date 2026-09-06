@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/Button";
 import { TONE_CLASSES } from "@/lib/labels";
 import type { CohortSummary } from "@/lib/public-api";
 
@@ -34,7 +35,20 @@ function seats(count: number | undefined): string | null {
   return `${count.toLocaleString("ar-QA")} مقعداً متبقّياً`;
 }
 
-export function CohortList({ cohorts }: { cohorts: CohortSummary[] }) {
+/**
+ * The subscribe invitation on every joinable group (027 · FR-001 · FR-002).
+ *
+ * ⚠️ ABSENT ON A GROUP THAT CANNOT BE JOINED — NOT DISABLED. A greyed-out button
+ * is a promise the product will not keep: it says «this is for you, later»,
+ * while a closed or archived group is not opening again and a full one needs a
+ * different group rather than patience. The card already says «ممتلئة» or
+ * «مغلقة»; a dead control beside that word adds nothing and invites a press.
+ *
+ * ⚠️ AND THE PREDICATE IS `is_joinable` FROM THE SERVER, never `status === "open"`
+ * rebuilt here. That is the same value the purchase route asks, so the card and
+ * the door cannot disagree.
+ */
+export function CohortList({ courseUuid, cohorts }: { courseUuid: string; cohorts: CohortSummary[] }) {
   return (
     <ul className="grid grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] gap-4">
       {cohorts.map((cohort) => {
@@ -84,6 +98,16 @@ export function CohortList({ cohorts }: { cohorts: CohortSummary[] }) {
               <p className="mt-auto text-xs font-semibold text-ink-muted">
                 {remaining}
               </p>
+            )}
+
+            {cohort.is_joinable && (
+              <Button
+                href={`/subscribe?course=${encodeURIComponent(courseUuid)}&cohort=${encodeURIComponent(cohort.uuid)}`}
+                size="sm"
+                fullWidth
+              >
+                اشترك في هذه المجموعة
+              </Button>
             )}
           </li>
         );

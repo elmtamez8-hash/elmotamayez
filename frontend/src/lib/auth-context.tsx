@@ -23,6 +23,20 @@ interface AuthContextValue {
   ) => Promise<User>;
   register: (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string; invitation?: string }) => Promise<void>;
   logout: () => Promise<void>;
+  /**
+   * إعادةُ قراءةِ الحسابِ من الخادم.
+   *
+   * ⚠️ صورةُ الحسابِ تُكتَبُ في `‎/settings/profile` وتُقرَأُ في الشريطِ الجانبيِّ
+   * وقائمةِ الحساب — من `user` نفسِه، المحمَّلِ مرّةً عندَ الإقلاع. فبلا هذه
+   * الدالّةِ يحفظُ صاحبُ الحسابِ صورةً جديدةً، تتغيّرُ في البطاقةِ التي رفعَها
+   * وحدَها، **وتبقى القديمةُ في كلِّ صفحةٍ أخرى إلى أن يُعادَ تحميلُ التطبيق**.
+   * بلاغُ مستخدِمٍ ٢٠٢٦-٠٩-٠٦.
+   *
+   * وقراءةٌ كاملةٌ لا تصحيحٌ موضعيٌّ للحقل: الخادمُ هو من يبني `photo_url` (من
+   * ملفِّ المدرّسِ أوّلاً ثمّ الطالب)، وتقليدُ ذلك في العميلِ تهجئةٌ ثانيةٌ
+   * لقاعدةٍ واحدة.
+   */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -160,8 +174,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /*
+   * ⚠️ وفشلُها يُبتلَعُ عمداً. هذه مُزامَنةٌ تاليةٌ لعملٍ **نجحَ سلفاً**
+   * — الصورةُ محفوظةٌ على الخادمِ وقد رأاها صاحبُها في البطاقة — فلافتةُ
+   * خطأٍ هنا تقولُ «لم يُحفظ» عن شيءٍ حُفِظ. والثمنُ أنَّ الشريطَ الجانبيَّ
+   * يبقى على القديمةِ حتّى التنقّلِ التّالي، وهو أقلُّ ضرراً من سطرٍ أحمرَ كاذِب.
+   */
+  const refreshUser = async () => {
+    await auth.me().then(setUser).catch(() => {});
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, completeTwoFactor, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, completeTwoFactor, register, logout, refreshUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -93,6 +93,12 @@ class DatabaseSeeder extends Seeder
             // their teachers to exist first. (The taxonomy itself is platform-wide
             // since spec 009 and no longer depends on any workspace.)
             $this->call(MarketplaceSeeder::class);
+
+            // Last, and after the demo teacher exists: platform standing is a row
+            // added to somebody who is already there. `platform_staff` was empty on
+            // every development database until now, which left the officer's half
+            // of spec 027's walk blocked on absent data rather than on code.
+            $this->call(PlatformStaffSeeder::class);
         }
     }
 }

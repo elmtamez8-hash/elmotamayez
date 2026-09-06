@@ -637,3 +637,89 @@ it('refuses the audit to a teacher who may read their own statement', function (
 
     $this->getJson('/api/v1/admin/settlement/audit')->assertForbidden();
 });
+
+/*
+ * ⚠️ SPEC 027 · FR-048أ — `LiveSessions` AND `Learning` ARE THE FIFTH AND SIXTH
+ * CONTEXTS, AND THIS CASE EXISTS BECAUSE A DESIGN DOCUMENT CITED A GUARD THAT WAS
+ * NOT SCANNING THEM.
+ *
+ * 027's plan argued that a live-session file must ask `SubscriptionDirectory`
+ * rather than import Payments, and gave THIS FILE as the reason. It was not true:
+ * every sweep above names `Settlement`, `Payments`, `Compliance`, `Community` and
+ * `Store` literally, so both modules were invisible to it. A cited guard that does
+ * not run is worse than none — it ends the argument without settling it — which is
+ * the same discovery `Compliance` made in 013, reached from a sixth direction.
+ *
+ * ⚠️ IT IS ONE-DIRECTIONAL, AND THAT IS MEASURED RATHER THAN ASSUMED. The reverse
+ * coupling is the product's oldest sanctioned chain and is not a leak:
+ * `PaymentApproved → CreateEnrollmentFromOrder` has written enrolments since 001,
+ * `ChargeSessionSeats` and `ChargeUnbilledDeliveriesJob` read `ClassSession`, and
+ * `Plan`/`SavePlan`/`PurchaseSubscription` type their coverage with
+ * `ClassSessionType`. Money drives the lower layers; the lower layers do not reach
+ * back for money. Forbidding that direction would fail the build over the design.
+ *
+ * ⚠️ ONE LINE IS ALLOWED AND IT IS A LINE, NOT A NAMESPACE. FR-045 makes
+ * `SubscriptionEnded` the bridge that releases a lapsed subscriber's future seats,
+ * so `ReleaseSeatsOnSubscriptionEnd` and the provider that wires it name it. The
+ * allowance is the exact import so that a listener on `PaymentApproved` tomorrow —
+ * LiveSessions reacting to what a STUDENT PAID, which is the join this whole file
+ * exists to prevent — is a red build and not a namespace already waved through. A
+ * second sanctioned event is one more line here, added on purpose.
+ *
+ * ⚠️ AND THIS SWEEP STRIPS COMMENTS WHERE THE MODULE SWEEPS ABOVE DELIBERATELY DO
+ * NOT. It has a false positive on its first day: `CloseClassSession.php` carries a
+ * docblock quoting «the first `use App\Modules\Payments` under `Modules/Settlement/`»
+ * to explain why one listener is queued. Scanning raw text would make deleting that
+ * explanation the cheapest way to green — the trap `TrustScoreJobIsolationTest` and
+ * `theme-tokens.test.ts` each paid for once already.
+ */
+it('lets LiveSessions name one billing EVENT and nothing else, and Learning name nothing', function (): void {
+    $billingTables = tablesCreatedBy('Payments');
+
+    // Sanity: both halves of this case pass by finding nothing if either the
+    // derivation or the Finder comes back empty.
+    expect($billingTables)->toContain('orders', 'subscriptions', 'plans')
+        ->and(iterator_count(moduleFiles('LiveSessions')))->toBeGreaterThan(50)
+        ->and(iterator_count(moduleFiles('Learning')))->toBeGreaterThan(50);
+
+    $sanctioned = 'use App\Modules\Payments\Events\SubscriptionEnded;';
+
+    $quotedTables = array_map(fn (string $table): string => "'{$table}'", $billingTables);
+
+    $offenders = [];
+    $sanctionedSeen = 0;
+
+    foreach (moduleFiles('LiveSessions') as $file) {
+        $code = codeWithoutComments($file->getContents());
+
+        $sanctionedSeen += substr_count($code, $sanctioned);
+
+        // Every OTHER mention of the billing namespace, the sanctioned import
+        // removed first so it cannot be counted as one.
+        if (str_contains(str_replace($sanctioned, '', $code), 'App\Modules\Payments')) {
+            $offenders[] = $file->getRelativePathname().' → App\Modules\Payments';
+        }
+
+        foreach ($quotedTables as $needle) {
+            if (str_contains($code, $needle)) {
+                $offenders[] = $file->getRelativePathname().' → '.$needle;
+            }
+        }
+    }
+
+    foreach (moduleFiles('Learning') as $file) {
+        $code = codeWithoutComments($file->getContents());
+
+        foreach (array_merge(['App\Modules\Payments'], $quotedTables) as $needle) {
+            if (str_contains($code, $needle)) {
+                $offenders[] = $file->getRelativePathname().' → '.$needle;
+            }
+        }
+    }
+
+    // A positive control, not decoration: an allowance nothing exercises is an
+    // allowance that could be removed without anyone noticing, and this one is
+    // the whole reason the case is not a flat ban.
+    expect($sanctionedSeen)->toBeGreaterThan(0)
+        ->and($offenders)->toBe([]);
+});

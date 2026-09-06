@@ -95,6 +95,10 @@ final class PublicFieldAllowlist
     /** @var list<string> */
     public const COURSE_CARD = [
         'uuid',
+        // The card's link target since `/courses/{slug}` (027). The uuid stays:
+        // it is what `/subscribe?course=` and every authenticated screen speak,
+        // and dropping it here would move that cost onto a second read.
+        'slug',
         'title',
         'cover_url',
         'teacher',
@@ -164,6 +168,14 @@ final class PublicFieldAllowlist
         | would be one round trip away from showing the wrong number.
         */
         'private_session_minutes',
+        /*
+        | Whether the private-subscription invitation may be drawn (027 · FR-003).
+        | ONE boolean, and it leaks nothing: «no plan», «switched off» and
+        | «awaiting a price» all answer false, exactly as `PurchaseSubscription`
+        | collapses the three into one sentence so that nobody learns which
+        | teachers have a plan waiting to be priced.
+        */
+        'private_subscription_available',
     ];
 
     /*
@@ -228,7 +240,14 @@ final class PublicFieldAllowlist
     | slots are strings.
     */
     /** @var list<string> */
-    public const COHORT = ['uuid', 'name', 'description', 'status', 'schedule', 'seats_left'];
+    /*
+    | ⚠️ `is_joinable` IS THE SERVER'S OWN VERDICT AND NOT A REPEAT OF `status`
+    | (027 · FR-002). It is derived by `Cohort::isJoinable()`, the same predicate
+    | the booking door reads — so the card cannot say yes while the door says no.
+    | Deriving it in the browser from `status` and `seats_left` is the two-
+    | spellings defect, and it publishes nothing `status` does not already.
+    */
+    public const COHORT = ['uuid', 'name', 'description', 'status', 'schedule', 'seats_left', 'is_joinable'];
 
     /*
     | The nested shapes, which had no constants until spec 006 made this class

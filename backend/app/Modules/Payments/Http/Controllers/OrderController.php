@@ -50,7 +50,16 @@ class OrderController extends Controller
                 ->orWhere('user_id', $user->getKey()));
         }
 
-        $orders = $query->with(['course', 'media', 'user', 'grantor'])->orderByDesc('created_at')->paginate(15);
+        $orders = $query
+            ->with([
+                'course', 'media', 'user', 'grantor',
+                // ⚠️ THE SCOPE BYPASS IS THE WHOLE POINT — see Order::creditPurchase().
+                // A finance officer's context falls back to their own workspace, so a
+                // scoped relation answers null for every order they are there to decide.
+                'creditPurchase' => fn ($rows) => $rows->withoutWorkspaceScope(),
+            ])
+            ->orderByDesc('created_at')
+            ->paginate(15);
 
         /*
         | ⚠️ RETURNED, NOT `response()->json(...)`-ED, AND THE PAGE DEPENDED ON IT.
@@ -69,7 +78,10 @@ class OrderController extends Controller
 
         $this->authorize('view', $order);
 
-        return response()->json(OrderResource::make($order->load(['course', 'media', 'user', 'grantor'])));
+        return response()->json(OrderResource::make($order->load([
+            'course', 'media', 'user', 'grantor',
+            'creditPurchase' => fn ($rows) => $rows->withoutWorkspaceScope(),
+        ])));
     }
 
     public function store(Request $request, Course $course, CreateOrder $action): JsonResponse
@@ -138,7 +150,10 @@ class OrderController extends Controller
      */
     public function downloadReceipt(Order $order): StreamedResponse
     {
-        $media = $order->getFirstMedia('receipt');
+        // ⚠️ THE LATEST. A rejected order may carry a replacement (FR-032) and the
+        // collection appends — serving the first would hand the approver the very
+        // image they refused, and record an approval against it.
+        $media = $order->latestReceipt();
 
         abort_if($media === null, 404);
 

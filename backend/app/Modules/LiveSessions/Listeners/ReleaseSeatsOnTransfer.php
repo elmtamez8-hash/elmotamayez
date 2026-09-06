@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Listeners;
 
+use App\Models\User;
 use App\Modules\Learning\Events\CohortMembershipOpened;
 use App\Modules\LiveSessions\Actions\CancelBooking;
+use App\Modules\LiveSessions\Actions\ClaimSubscriptionSeats;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
@@ -35,6 +37,7 @@ class ReleaseSeatsOnTransfer implements ShouldHandleEventsAfterCommit, ShouldQue
 {
     public function __construct(
         private readonly CancelBooking $cancel,
+        private readonly ClaimSubscriptionSeats $claim,
     ) {}
 
     public function handle(CohortMembershipOpened $event): void
@@ -60,7 +63,61 @@ class ReleaseSeatsOnTransfer implements ShouldHandleEventsAfterCommit, ShouldQue
             ->get();
 
         foreach ($bookings as $booking) {
-            $this->cancel->handle($booking, 'انتقلت إلى مجموعة أخرى.');
+            /*
+            | ⚠️ `release()`, NOT `handle()` (027 · FR-045أ). A transfer is a
+            | decision about a GROUP; the student did not cancel these seats and
+            | nothing here is theirs to be marked against. Two things follow from
+            | the status, and both were wrong before:
+            |
+            |  · A transfer landing past the cancellation deadline wrote
+            |    `cancelled_late` with `is_billable = true` — the system took the
+            |    seat away AND charged for it.
+            |  · The automatic booker skips a CANCELLED row on purpose, so a
+            |    student who moved A → B → A could never be booked into A's
+            |    sessions again. A released row is revivable; a cancelled one is
+            |    the student's own «do not put me back», and must stay.
+            */
+            $this->cancel->release($booking, 'انتقلت إلى مجموعة أخرى.');
         }
+
+        $this->rebook($event);
+    }
+
+    /**
+     * The other half of a transfer (027 · FR-046).
+     *
+     * ⚠️ RELEASING WITHOUT RE-BOOKING IS A NET LOSS OF SEATS, AND THE STUDENT DID
+     * NOT ASK FOR EITHER. A teacher moves them from Saturday's group to Sunday's;
+     * the loop above frees Saturday's lessons and, on its own, nothing puts them
+     * into Sunday's. They end the day with fewer seats than they woke up with, in
+     * a group they were moved into, with no message anywhere saying so — and they
+     * paid for the month.
+     *
+     * ⚠️ AND THE SUBSCRIPTION IS ASKED PER LESSON, NOT ONCE. This event carries no
+     * end date — a membership move says nothing about what was bought — so the
+     * question is «is their month live at THIS lesson's hour», which is exactly
+     * what the directory answers. A student with no subscription at all simply
+     * matches nothing and is booked into nothing, which is correct: their seats
+     * are theirs to take by hand, as they always were.
+     *
+     * Refusals are deliberately not announced here. The seats being released a
+     * few lines above are the same student's, in the same breath, by the same
+     * decision — a «تعذّر حجز مقعدك» arriving alongside would read as a fault in
+     * a move their teacher made on purpose.
+     */
+    private function rebook(CohortMembershipOpened $event): void
+    {
+        $student = User::query()->find($event->studentUserId);
+
+        if ($student === null) {
+            return;
+        }
+
+        $this->claim->forMemberInCohort(
+            $event->workspaceId,
+            $student,
+            $event->courseId,
+            $event->toCohortId,
+        );
     }
 }

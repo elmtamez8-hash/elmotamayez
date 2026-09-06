@@ -13,8 +13,10 @@ use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * @property string $status
@@ -107,6 +109,44 @@ class Order extends BaseModel implements HasMedia
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * The subscription this order activated, if activation got that far.
+     *
+     * ⚠️ ITS ABSENCE ON AN APPROVED ORDER IS THE SIGNAL (027 · FR-027). Activation
+     * is queued and runs after the approval commits, so «approved with no
+     * subscription» is exactly the incomplete work that must be readable on the
+     * officer's screen rather than left in `failed_jobs`.
+     *
+     * @return HasOne<Subscription, $this>
+     */
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class);
+    }
+
+    /**
+     * How many sessions a CREDIT order bought.
+     *
+     * ⚠️ THE ORDER ITSELF DOES NOT KNOW. A subscription carries its whole
+     * snapshot in `metadata`; a credit purchase carries none, so «شراء أرصدة»
+     * was the entire description a buyer got — one row indistinguishable from
+     * the next except by the amount, on the screen where they check what they
+     * paid for. The count lives on `credit_purchases.credits`, copied there at
+     * purchase precisely so disabling a package cannot move it.
+     *
+     * ⚠️ EVERY READER MUST EAGER LOAD IT WITH `withoutWorkspaceScope()`.
+     * `CreditPurchase` carries `BelongsToWorkspace`, and a finance officer's
+     * context falls back to `users.last_workspace_id` — so a scoped relation
+     * query answers null for every order outside that one workspace, and the
+     * column reads «—» on exactly the rows the officer is there to decide.
+     *
+     * @return HasOne<CreditPurchase, $this>
+     */
+    public function creditPurchase(): HasOne
+    {
+        return $this->hasOne(CreditPurchase::class);
+    }
+
     /** @return BelongsTo<Course, $this> */
     public function course(): BelongsTo
     {
@@ -134,6 +174,40 @@ class Order extends BaseModel implements HasMedia
     public function isPending(): bool
     {
         return in_array($this->status, ['pending', 'under_review'], true);
+    }
+
+    /**
+     * Whether a receipt may still be uploaded onto this order (027 · FR-032).
+     *
+     * ⚠️ WIDER THAN `isPending()`, AND ONLY BY `rejected`. A refusal the payer
+     * cannot answer is a refusal they repeat — `ReceiptRejected`'s own docblock
+     * says so: «the same transfer, re-uploaded, refused again». Making them start
+     * a whole new order loses the reason, the amount they were quoted and the
+     * thread the officer was reading.
+     *
+     * ⚠️ AND `approved` STAYS OUT. `UploadPaymentReceipt`'s docblock is about
+     * that one: a second image onto an approved order replaces the document the
+     * approver actually read, and the audit trail then shows an approval of a
+     * file that arrived after it.
+     */
+    public function acceptsReceipt(): bool
+    {
+        return $this->isPending() || $this->status === 'rejected';
+    }
+
+    /**
+     * The receipt as it stands NOW — the last one uploaded.
+     *
+     * ⚠️ `getMedia()->last()`, NEVER `getFirstMedia()`. The collection is not
+     * `singleFile()`, so a re-upload APPENDS: with FR-032 letting a rejected
+     * order carry a new image, every reader that took the first one would show
+     * the officer the blurred photograph they already refused, and approve
+     * against it. Keeping both is deliberate — the rejected one is the record of
+     * what was rejected — so the fix is to read the latest, in one place.
+     */
+    public function latestReceipt(): ?Media
+    {
+        return $this->getMedia('receipt')->last();
     }
 
     public function isApproved(): bool

@@ -6,6 +6,7 @@ namespace App\Modules\Payments\Support;
 
 use App\Modules\Learning\Enums\EnrollmentStatus;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\Payments\Events\SubscriptionEnded;
 use App\Modules\Payments\Models\Subscription;
 
 /**
@@ -32,14 +33,58 @@ use App\Modules\Payments\Models\Subscription;
  */
 class SubscriptionAccess
 {
-    /** @return int how many enrolments were actually closed */
+    /**
+     * @return int how many enrolments were actually closed
+     *
+     * ⚠️ THE EVENT IS FIRED FROM HERE, NOT FROM THE TWO CALLERS. This class
+     * exists because expiry and cancellation are one act with two reasons, and
+     * its docblock above says what happens when the pair is written twice: they
+     * drift one predicate apart and the failure direction is silent. Releasing
+     * the seats is part of that same act, so it hangs off the same line — a
+     * dispatch added to `ExpireSubscriptionsJob` alone would leave a cancelled
+     * subscriber holding next month's seats, and nothing would report it.
+     *
+     * ⚠️ AND THE COURSE IDS ARE READ BEFORE THE UPDATE. One line later these
+     * rows are `expired` and a listener asking «which courses did this close?»
+     * finds none — the shape `CancelClassSession` already wrote down for its
+     * seat holders.
+     *
+     * ⚠️ AND NOTHING IS ANNOUNCED WHEN NOTHING CLOSED. A student who bought a
+     * course outright keeps that enrolment (the `source` predicate leaves it
+     * alone), and a subscription that covered only such courses ends without
+     * taking anything away — an event there would ask a listener to release
+     * seats the subscription never paid for.
+     */
     public static function close(Subscription $subscription): int
     {
-        return Enrollment::query()
+        $rows = Enrollment::query()
             ->withoutWorkspaceScope()
             ->where('order_id', $subscription->order_id)
             ->where('source', 'subscription')
             ->where('status', EnrollmentStatus::Active->value)
+            ->get(['id', 'course_id']);
+
+        if ($rows->isEmpty()) {
+            return 0;
+        }
+
+        $closed = Enrollment::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('id', $rows->pluck('id'))
+            ->where('status', EnrollmentStatus::Active->value)
             ->update(['status' => EnrollmentStatus::Expired->value]);
+
+        if ($closed > 0) {
+            SubscriptionEnded::dispatch(
+                (int) $subscription->workspace_id,
+                (int) $subscription->student_user_id,
+                array_values(array_unique(array_map(
+                    static fn (mixed $id): int => (int) $id,
+                    $rows->pluck('course_id')->all(),
+                ))),
+            );
+        }
+
+        return $closed;
     }
 }

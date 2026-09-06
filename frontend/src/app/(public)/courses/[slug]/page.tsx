@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { CohortList } from "@/components/marketplace/CohortList";
 import { CourseCurriculum } from "@/components/marketplace/CourseCurriculum";
 import { PrivateSessionRequestForm } from "@/components/courses/PrivateSessionRequestForm";
@@ -8,6 +8,7 @@ import { PromoVideoButton } from "@/components/courses/PromoVideoButton";
 import { StarRating } from "@/components/marketplace/StarRating";
 import { TrustScoreBadge } from "@/components/marketplace/TrustScoreBadge";
 import { EmptyState } from "@/components/ui/states/EmptyState";
+import { ErrorState } from "@/components/ui/states/ErrorState";
 import { formatMinorMoney } from "@/lib/labels";
 import {
   NotFoundError,
@@ -17,7 +18,7 @@ import {
 } from "@/lib/public-api";
 import { siteUrl } from "@/lib/site";
 
-type Params = { uuid: string };
+type Params = { slug: string };
 
 const TYPE_LABELS: Record<CourseDetail["type"], string> = {
   individual: "فردي",
@@ -26,15 +27,21 @@ const TYPE_LABELS: Record<CourseDetail["type"], string> = {
 };
 
 /*
- * ⚠️ THE ADDRESS IS A uuid, NOT A slug. `courses.slug` is unique per
- * (workspace_id, slug) — inside one workspace only — so two teachers naming a
- * course «الرياضيات ٣» produce the same slug and a public route with no
- * workspace to read cannot tell them apart. The slug is in the payload for
- * display and is deliberately not the route segment.
+ * ⚠️ THE ADDRESS IS THE SLUG NOW, AND THE UUID STILL OPENS IT.
+ *
+ * This said the opposite until 2026-09-06, and it was true when written:
+ * `courses.slug` was unique per (workspace_id, slug) — inside one workspace only
+ * — so two teachers naming a course «الرياضيات ٣» produced the same slug and a
+ * public route with no workspace to read could not tell them apart. The index is
+ * platform-wide now, the same key `/teachers/{slug}` has carried since 2026-08.
+ *
+ * The uuid resolves and 308s to the slug, because every link shared before today
+ * is a uuid and serving one page at two addresses splits its ranking between
+ * them.
  */
-async function loadCourse(uuid: string): Promise<CourseDetail> {
+async function loadCourse(key: string): Promise<CourseDetail> {
   try {
-    const { data } = await publicApi.course(uuid);
+    const { data } = await publicApi.course(key);
 
     return data;
   } catch (error) {
@@ -54,10 +61,10 @@ export async function generateMetadata({
 }: {
   params: Promise<Params>;
 }): Promise<Metadata> {
-  const { uuid } = await params;
+  const { slug } = await params;
 
   try {
-    const course = await loadCourse(uuid);
+    const course = await loadCourse(slug);
 
     return {
       title: course.teacher
@@ -68,14 +75,30 @@ export async function generateMetadata({
         `${course.title}: ${course.lessons_count.toLocaleString("ar-QA")} درساً على منصّتنا.`,
       // Absolute, for the reason the home page's is: a relative canonical
       // resolves against whichever host the crawler arrived on.
-      alternates: { canonical: siteUrl(`/courses/${course.uuid}`) },
+      alternates: { canonical: siteUrl(`/courses/${course.slug ?? course.uuid}`) },
     };
   } catch {
     return { title: "غير متاح" };
   }
 }
 
-async function loadAvailability(course: CourseDetail): Promise<AvailabilityItem[]> {
+/**
+ * The teacher's declared hours — or `null`, meaning the question was not
+ * answered at all.
+ *
+ * ⚠️ A SWALLOWED ERROR AND AN EMPTY LIST USED TO READ THE SAME. This returned
+ * `[]` from its own `catch`, so a stumbling API drew «لم يعلن المدرّس مواعيد
+ * متاحة بعد» — a sentence stating, as a fact about the teacher, something the
+ * page never found out. The student then waits for an announcement that was
+ * made weeks ago, and no refresh ever suggests itself.
+ *
+ * A 404 is deliberately NOT that case: it is an ANSWER (the teacher is not
+ * publicly listed), no retry can change it, and offering «إعادة المحاولة» over
+ * it promises something impossible.
+ */
+async function loadAvailability(
+  course: CourseDetail,
+): Promise<AvailabilityItem[] | null> {
   const key = course.teacher?.slug ?? course.teacher?.uuid;
 
   if (key === undefined) return [];
@@ -84,8 +107,10 @@ async function loadAvailability(course: CourseDetail): Promise<AvailabilityItem[
     const { data } = await publicApi.teacher(key);
 
     return data.availability;
-  } catch {
-    return [];
+  } catch (error) {
+    if (error instanceof NotFoundError) return [];
+
+    return null;
   }
 }
 
@@ -105,8 +130,22 @@ export default async function CoursePage({
 }: {
   params: Promise<Params>;
 }) {
-  const { uuid } = await params;
-  const course = await loadCourse(uuid);
+  const { slug } = await params;
+  const course = await loadCourse(slug);
+
+  /*
+   * 308 to the canonical slug when the visitor arrived on the old uuid URL —
+   * the same block `teachers/[slug]` has carried since 2026-08, and for the same
+   * reason: serving one course at two addresses splits its ranking between them,
+   * so the search engine has to be told which of the two to keep.
+   *
+   * ⚠️ COMPARED AFTER DECODING. A slug is ASCII today, but the comparison is
+   * what decides whether a redirect fires, and an encoded segment that never
+   * equals its own decoded form is an infinite redirect to itself.
+   */
+  if (course.slug && decodeURIComponent(slug) !== course.slug) {
+    permanentRedirect(`/courses/${course.slug}`);
+  }
 
   /*
    * The teacher's declared hours, read from the endpoint that already publishes
@@ -242,11 +281,17 @@ export default async function CoursePage({
         </section>
       )}
 
-      <section className="flex flex-col gap-4">
+      {/* ⚠️ THE ANCHOR IS THE INBOUND LINK, NOT DECORATION. The teacher's profile
+          lists this teacher's courses and sends each one straight here — a
+          student standing on «الجدول» could see the weekly times and had no way
+          at all to act on them, three clicks and no signpost away from the only
+          two doors that exist. `scroll-mt-24` clears the sticky header, which an
+          unmargined anchor lands underneath. */}
+      <section id="groups" className="flex scroll-mt-24 flex-col gap-4">
         <h2 className="text-lg font-extrabold text-ink">المجموعات المتاحة</h2>
 
         {course.cohorts.length > 0 ? (
-          <CohortList cohorts={course.cohorts} />
+          <CohortList courseUuid={course.uuid} cohorts={course.cohorts} />
         ) : (
           <EmptyState
             title="لا مواعيد معلَنة بعد"
@@ -258,11 +303,22 @@ export default async function CoursePage({
       <section className="flex flex-col gap-4">
         <h2 className="text-lg font-extrabold text-ink">حصة خاصة</h2>
 
-        {availability.length > 0 ? (
+        {availability === null ? (
+          /*
+           * ⚠️ NOT `ErrorState`'S DEFAULT COPY. It says «تحقّق من اتصالك», and
+           * this fetch happened on the SERVER — the visitor's own connection
+           * demonstrably works, they are reading the page it produced.
+           */
+          <ErrorState
+            title="تعذّر تحميل مواعيد المدرّس"
+            description="حدث خطأ أثناء جلب المواعيد المتاحة. أعد المحاولة بعد قليل."
+          />
+        ) : availability.length > 0 ? (
           <PrivateSessionRequestForm
             courseUuid={course.uuid}
             availability={availability}
             minutes={course.private_session_minutes}
+            subscriptionAvailable={course.private_subscription_available}
           />
         ) : (
           <EmptyState

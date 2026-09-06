@@ -80,6 +80,13 @@ export type AvailabilityItem = {
 
 export type CourseCard = {
   uuid: string;
+  /*
+   * The card's link target since `/courses/{slug}` (027). Nullable because a
+   * card can arrive from a page rendered before the payload carried it — an
+   * ISR-cached listing is real traffic, not a defensive `?.` — and every href
+   * built from this falls back to the uuid, which still resolves and 308s.
+   */
+  slug: string | null;
   title: string;
   cover_url: string | null;
   teacher: {
@@ -143,6 +150,16 @@ export type CohortSummary = {
   status: "open" | "full" | "closed";
   schedule: string[];
   seats_left?: number;
+  /**
+   * The SERVER's answer to «could I join this?» (027 · FR-002).
+   *
+   * ⚠️ NEVER RE-DERIVED FROM `status` AND `seats_left`. It is
+   * `Cohort::isJoinable()` — the same predicate the purchase route asks — so the
+   * card cannot invite somebody into a group the door then refuses. Deriving it
+   * here would be one question with two spellings, which is exactly the defect
+   * a subscribe button turns into a 422 the visitor cannot act on.
+   */
+  is_joinable: boolean;
 };
 
 export type CourseDetail = {
@@ -176,6 +193,20 @@ export type CourseDetail = {
    * it with `??` rather than hiding itself when it is absent.
    */
   private_session_minutes: number | null;
+  /**
+   * Whether the private-subscription invitation may be drawn at all (027 · FR-003).
+   *
+   * ⚠️ THE SERVER ANSWERS THIS BECAUSE NOTHING HERE CAN. It is true only when
+   * the teacher has declared hours AND has a priced one-to-one plan — and plans
+   * sit behind `auth:sanctum` while this page is anonymous and server-rendered.
+   * A button drawn without it is pressed and then refused, which is the very
+   * thing 023's refusal branch was written to avoid.
+   *
+   * One boolean leaks nothing: «no plan», «switched off» and «awaiting a price»
+   * all answer false, the same collapse the purchase refusal performs so that
+   * nobody learns which teachers have a plan waiting to be priced.
+   */
+  private_subscription_available: boolean;
   /**
    * The promo video's ID on the teacher's own channel (018 · FR-006).
    *

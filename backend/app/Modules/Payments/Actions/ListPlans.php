@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Actions;
 
 use App\Modules\Courses\Models\Course;
+use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\Plan;
 use App\Shared\Actions\Action;
 use DomainException;
@@ -36,8 +37,11 @@ use Illuminate\Database\Eloquent\Collection;
  */
 class ListPlans extends Action
 {
-    /** @return Collection<int, Plan> */
-    public function handle(string $courseUuid): Collection
+    /**
+     * @param  string|null  $sessionType  narrows the list to one room size (027 · FR-008)
+     * @return Collection<int, Plan>
+     */
+    public function handle(string $courseUuid, ?string $sessionType = null): Collection
     {
         $workspaceId = Course::query()
             ->withoutWorkspaceScope()
@@ -52,6 +56,38 @@ class ListPlans extends Action
             ->withoutWorkspaceScope()
             ->where('workspace_id', $workspaceId)
             ->sellable()
+            /*
+            | ⚠️ THE WORKSPACE IS NOT THE COVERAGE, AND READING IT AS ONE OFFERED
+            | EVERY PLAN ON EVERY COURSE THE TEACHER HAS. A plan scoped to «الكيمياء»
+            | appeared on «التفاضل» — and the two modes failed differently, which
+            | is why one filter has to close both:
+            |
+            |   • a GROUP choice was refused at the door with «هذه المجموعة لم تعد
+            |     متاحة للانضمام» (`PurchaseSubscription::resolveCohort()` compares
+            |     the group's course against the plan's coverage) — a sentence
+            |     about the group, when the group was never the problem;
+            |   • a PRIVATE choice was accepted. Nothing sends the course on that
+            |     path — the plan's own coverage IS the course — so the buyer read
+            |     «الكورس: التفاضل» on the screen and bought a month of «الكيمياء»,
+            |     silently.
+            |
+            | Grouped, or the OR escapes `sellable()` and the workspace above it.
+            */
+            ->where(function ($query) use ($courseUuid): void {
+                $query->where('coverage_type', PlanCoverage::Workspace->value)
+                    ->orWhere(fn ($nested) => $nested
+                        ->where('coverage_type', PlanCoverage::Course->value)
+                        ->where('coverage_uuid', $courseUuid));
+            })
+            /*
+            | ⚠️ DISPLAY, NOT PROTECTION. The one subscription screen shows only
+            | the plans that match what the buyer chose, so a group choice is not
+            | offered a one-to-one price — but the real guard is
+            | `PurchaseSubscription::guardModeMatchesPlan()`, which sees the plan
+            | the order is actually written against. A filter here alone would be
+            | a rule enforced by a dropdown.
+            */
+            ->when($sessionType !== null, fn ($query) => $query->where('session_type', $sessionType))
             ->orderBy('duration_days')
             ->get();
     }

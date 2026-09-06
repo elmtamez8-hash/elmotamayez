@@ -209,6 +209,30 @@ class ClassSession extends BaseModel
         );
     }
 
+    /**
+     * When the billable seat count is settled (027 · FR-039ب).
+     *
+     * Normally the cancellation deadline — the moment the count stops being able
+     * to change. But a session SCHEDULED INSIDE ITS OWN CANCELLATION WINDOW has
+     * a deadline in the past, so freezing at it settles the count at zero
+     * before anybody could book: the teacher then delivers a full lesson and is
+     * paid for nobody, whether the seats were taken by hand or by a
+     * subscription. Such a session has no cancellation window at all, so the
+     * count settles when the lesson starts.
+     *
+     * ⚠️ Measured from `created_at`, never from `now()`: this is a question
+     * about the session's birth and must give the same answer every time it is
+     * asked. A freshly built model has no `created_at` yet, so the current
+     * moment stands in for it — the only case where they are the same thing.
+     */
+    public function billableSeatsFreezeAt(): CarbonInterface
+    {
+        $deadline = $this->cancellationDeadline();
+        $bornAt = $this->created_at ?? now();
+
+        return $deadline->greaterThan($bornAt) ? $deadline : $this->starts_at->copy();
+    }
+
     /** Whether the room accepts anyone at this moment (FR-015). */
     public function joinWindowCovers(DateTimeInterface $moment): bool
     {

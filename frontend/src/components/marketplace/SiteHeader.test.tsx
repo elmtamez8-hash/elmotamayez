@@ -24,7 +24,11 @@ vi.mock("@/lib/auth-context", () => ({
 }));
 
 let pathname = "/";
-vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => pathname,
+  // الترويسةُ تدفعُ إلى `‎/login` بعدَ الخروجِ من قائمةِ الحساب.
+  useRouter: () => ({ push: vi.fn() }),
+}));
 
 describe("isCurrentPath", () => {
   it("matches the home route exactly and never as a prefix", () => {

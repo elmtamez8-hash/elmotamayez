@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Filament\Pages;
 
+use App\Filament\Resources\OrderResource;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Payments\Actions\ListCreditPackages;
 use App\Modules\Payments\Actions\PurchaseCredits;
 use App\Modules\Payments\Actions\UploadPaymentReceipt;
+use App\Modules\Payments\Data\SubscriptionIntent;
+use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Models\CreditPackage;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -25,9 +29,16 @@ use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\HtmlString;
 use Throwable;
 use UnitEnum;
 
@@ -46,16 +57,40 @@ use UnitEnum;
  * a second answer that ages at the first pricing change, and a second write path
  * for a receipt loses one of those three fields silently.
  *
- * ⛔ AND THERE IS NO APPROVE BUTTON HERE, BY REQUIREMENT (FR-008أ). The save ends
- * at a PENDING order. Approval is a second, deliberate step on the orders screen,
- * where the receipt is opened and the amount matched — fold the two into one
- * press and the approval becomes a signature on a blank page, which is the exact
- * thing approval exists to prevent.
+ * ⛔ AND THE GRANT FORM STILL HAS NO APPROVE BUTTON, BY REQUIREMENT (024 · FR-008أ).
+ * The save ends at a PENDING order — fold the two into one press and the approval
+ * becomes a signature on a blank page.
+ *
+ * ⚠️ AND THE QUEUE ABOVE IT DOES NOT BREAK THAT RULE, BUT ONLY BECAUSE OF A
+ * PREDICATE — SO IT IS WRITTEN DOWN HERE. 027 · FR-016 puts the pending
+ * SUBSCRIPTION orders on this page with «اعتمد» beside each. What keeps 024's rule
+ * intact is that the form below creates `OrderKind::Credits` (through
+ * `PurchaseCredits`) while the table reads `OrderKind::Subscription`: the two sets
+ * do not intersect, so no officer can approve a row they just wrote. That is a
+ * consequence of a filter, not a rule anybody stated — add a kind to
+ * {@see self::pendingSubscriptions()} and 024's requirement reopens with nothing
+ * saying it existed. `SubscriptionQueueTest` asserts the disjointness.
+ *
+ * ⚠️ AND THE GUARD IS `kind`, NOT THE STATUS FILTER. That distinction became load
+ * bearing in 027 · FR-027, which widened this query to keep recently APPROVED
+ * subscription orders listed so a failed activation is visible. Approved rows
+ * carry no decision control — both buttons are `->visible(isPending())` on
+ * `OrderResource` — so widening the statuses cannot reopen 024's rule; widening
+ * the kind still would.
  *
  * @property-read Schema $form
  */
-class GrantCreditSubscription extends Page
+class GrantCreditSubscription extends Page implements HasTable
 {
+    /**
+     * How long an approved subscription order stays on the queue so a failed
+     * activation can be seen (FR-027). Long enough to survive a weekend and a
+     * drained queue; short enough that the list stays a queue.
+     */
+    private const ACTIVATION_WATCH_DAYS = 14;
+
+    use InteractsWithTable;
+
     protected string $view = 'filament.pages.grant-credit-subscription';
 
     protected static ?string $slug = 'grant-credit-subscription';
@@ -121,6 +156,157 @@ class GrantCreditSubscription extends Page
     public function mount(): void
     {
         $this->form->fill();
+    }
+
+    /**
+     * الطلباتُ المعلَّقةُ التي أرسلَها الطلابُ بأنفسِهم (027 · FR-016 · FR-017).
+     *
+     * ⚠️ THE FOUR MIDDLE COLUMNS COME FROM THE ORDER'S OWN SNAPSHOT, NOT FROM A
+     * LOOKUP. A Filament column runs once per row, so a query inside one is an
+     * N+1 by construction — and the snapshot is also what keeps the row readable
+     * after the plan is renamed or the group archived (FR-013 · FR-014).
+     *
+     * ⚠️ AND NOTHING HERE IS `sortable()` OR `searchable()`. Both would compile
+     * to `JSON_EXTRACT(metadata, …)` inside `ORDER BY`/`WHERE` — a function on an
+     * unindexed column, on a query that is already the platform's whole order
+     * table.
+     */
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query($this->pendingSubscriptions())
+            ->defaultSort('created_at', 'desc')
+            ->defaultPaginationPageOption(10)
+            ->emptyStateHeading('لا طلبات اشتراك معلَّقة')
+            ->emptyStateDescription('سيظهر هنا كلُّ طلبِ اشتراكٍ أرسلَه طالبٌ من صفحةِ الكورس، بإيصالِه ومجموعتِه.')
+            ->columns([
+                TextColumn::make('user.name')->label('الطالب')->description(fn (Order $record): string => (string) $record->user->email)->placeholder('—'),
+                TextColumn::make('teacher')->label('المدرّس')->placeholder('—')
+                    ->state(fn (Order $record): ?string => SubscriptionIntent::fromOrder($record)?->teacherName),
+                TextColumn::make('course.title')->label('الكورس')->placeholder('—'),
+                TextColumn::make('duration')->label('مدّة الاشتراك')->placeholder('—')
+                    ->state(fn (Order $record): ?string => ($days = SubscriptionIntent::fromOrder($record)?->durationDays) === null
+                        ? null
+                        : $days.' يوماً'),
+                TextColumn::make('target')->label('المجموعة')->placeholder('—')->wrap()
+                    // «حصص خاصّة» in words, never a blank — a dash here is
+                    // indistinguishable from data that failed to load (FR-017).
+                    ->state(fn (Order $record): ?string => SubscriptionIntent::fromOrder($record)?->targetLabel()),
+                TextColumn::make('amount_minor')->label('المبلغ')
+                    ->formatStateUsing(fn (mixed $state, Order $record): string => number_format(((int) $state) / 100, 2).' '.$record->currency),
+                TextColumn::make('receipt')->label('الإيصال')
+                    ->state(fn (Order $record): HtmlString|string => self::receiptLink($record)),
+                TextColumn::make('created_at')->label('التاريخ')->dateTime('Y-m-d H:i')->sortable(),
+                /*
+                | The visible half of FR-027. Activation runs on a worker after
+                | the approval commits, so an order can be approved — money taken
+                | — while the subscription behind it was never written. Derived
+                | from the `withExists` above rather than looked up per row.
+                |
+                | ⚠️ IT ANSWERS «هل كُتب الاشتراك؟», NOT «هل اكتمل كلُّ شيء». A
+                | failure at the membership step leaves a subscription behind and
+                | reads as done here; that half is guarded before the money moves
+                | (`ApproveOrder::assertStillActionable`) and healed by the retry,
+                | which is why one flag is enough rather than a second subquery on
+                | every page load.
+                */
+                TextColumn::make('activation')->label('التفعيل')
+                    ->state(fn (Order $record): string => match (true) {
+                        $record->isPending() => '—',
+                        (bool) $record->getAttribute('has_subscription') => 'مكتمل',
+                        default => 'ناقص — لم يُنشأ الاشتراك',
+                    })
+                    ->badge()
+                    ->color(fn (Order $record): string => match (true) {
+                        $record->isPending() => 'gray',
+                        (bool) $record->getAttribute('has_subscription') => 'success',
+                        default => 'danger',
+                    }),
+            ])
+            ->recordActions([
+                // ⚠️ THE RESOURCE'S OWN ACTIONS, VERBATIM. They carry
+                // `->authorize()`, `refusedForTwoFactor()`, the mandatory reason
+                // and the IP/user-agent that reach `ApproveOrder`/`RejectOrder`.
+                // A button re-implemented here loses all four in silence, which
+                // is FR-018…FR-021 and FR-037 gone with nothing red.
+                OrderResource::approveAction(),
+                OrderResource::rejectAction(),
+            ]);
+    }
+
+    /**
+     * @return Builder<Order>
+     */
+    private function pendingSubscriptions(): Builder
+    {
+        return Order::query()
+            /*
+            | ⚠️ THE BYPASS IS DECLARED ON THE ROOT **AND REPEATED IN THE EAGER
+            | LOAD**. A platform officer inherits `users.last_workspace_id` like
+            | anybody else, and `->with('course')` runs its own query on which
+            | `Course`'s workspace scope applies afresh — every order outside the
+            | officer's own workspace then renders a blank course, with no error
+            | anywhere. That is the fifth layer of the 024 defect, and it is the
+            | one that raises no status code at all.
+            |
+            | `user` needs no bypass: `users` is platform-owned.
+            */
+            ->withoutWorkspaceScope()
+            ->where('kind', OrderKind::Subscription)
+            /*
+            | ⚠️ APPROVED ORDERS STAY LISTED FOR A WHILE, AND THAT IS FR-027.
+            | Activation is queued and runs after the approval commits, so a
+            | failure there leaves an approved order, money taken, and a student
+            | in no course and no group — «عملاً ناقصاً» that must be READABLE ON A
+            | SCREEN rather than left in `failed_jobs`. Filtering to pending alone
+            | removed the row from this table at the exact instant it became
+            | interesting, so no derived column could ever have described it.
+            |
+            | Bounded by a window rather than by a flag: an approved order that
+            | activated correctly is finished business, and a queue that keeps
+            | every one of them for ever is a queue nobody reads.
+            */
+            ->where(fn (Builder $query): Builder => $query
+                ->whereIn('status', ['pending', 'under_review'])
+                ->orWhere(fn (Builder $approved): Builder => $approved
+                    ->where('status', 'approved')
+                    ->where('approved_at', '>=', now()->subDays(self::ACTIVATION_WATCH_DAYS))))
+            ->with([
+                'course' => fn ($relation) => $relation->withoutGlobalScope(WorkspaceScope::class),
+                'user',
+            ])
+            /*
+            | ⚠️ EXISTENCE SUBQUERIES, NOT A CLOSURE PER ROW. A column body runs
+            | once per row, so a lookup inside one is an N+1 by construction — the
+            | rule `ClassSessionResource` already wrote down. And each carries its
+            | own scope bypass: `Subscription` and `CohortMembership` are both
+            | workspace-scoped, so the officer's own fallback workspace would
+            | otherwise make every foreign row read as «not activated».
+            */
+            ->withExists([
+                'subscription as has_subscription' => fn ($relation) => $relation->withoutGlobalScope(WorkspaceScope::class),
+            ]);
+    }
+
+    /**
+     * ⚠️ A TEMPORARY SIGNED URL, NEVER `getFirstMediaUrl()`. The receipt lives on
+     * the `local` disk, which has no `url` in `config/filesystems.php` — spatie
+     * then falls back to the conventional `/storage/...` path, which serves the
+     * PUBLIC disk. Every such link 403s, and any that worked would be a financial
+     * document on a public path (FR-035).
+     */
+    private static function receiptLink(Order $order): HtmlString|string
+    {
+        $media = $order->latestReceipt();
+
+        if ($media === null) {
+            return 'لا إيصال';
+        }
+
+        $url = URL::temporarySignedRoute('orders.receipt', now()->addMinutes(15), ['order' => $order->uuid]);
+
+        return new HtmlString('<a href="'.e($url).'" target="_blank" rel="noopener" '
+            .'class="fi-link fi-size-sm" style="text-decoration:underline">افتحِ الإيصال</a>');
     }
 
     public function form(Schema $schema): Schema

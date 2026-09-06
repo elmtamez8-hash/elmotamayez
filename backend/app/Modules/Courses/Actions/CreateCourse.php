@@ -7,12 +7,12 @@ namespace App\Modules\Courses\Actions;
 use App\Models\User;
 use App\Modules\Courses\DTOs\CreateCourseDTO;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Support\CourseSlug;
 use App\Modules\Courses\Support\CourseTeacherProfile;
 use App\Modules\Courses\Support\SubjectResolver;
 use App\Shared\Actions\Action;
 use App\Shared\Support\WorkspaceContext;
 use App\Shared\Traits\LogsActivity;
-use Illuminate\Support\Str;
 
 class CreateCourse extends Action
 {
@@ -36,7 +36,7 @@ class CreateCourse extends Action
             'subject_id' => $subjectId,
             'workspace_id' => $workspaceId,
             'title' => $dto->title,
-            'slug' => $dto->slug ?? Str::slug($dto->title.'-'.Str::random(6)),
+            'slug' => $dto->slug ?? CourseSlug::for($dto->title),
             'description' => $dto->description,
             'price_minor' => $dto->priceMinor,
             'currency' => $dto->currency,

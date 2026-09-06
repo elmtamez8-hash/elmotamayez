@@ -17,7 +17,16 @@ import { ChevronDownIcon, EyeIcon, EyeOffIcon } from "@/components/icons";
  * a fix.
  */
 
-const CONTROL =
+/**
+ * The shape of every control in the kit.
+ *
+ * Exported because one screen composes a control the kit has no field for —
+ * `WeeklyAvailabilityEditor`'s day/time rows — and the alternative is a second
+ * hand-written spelling of the border, padding and focus ring, which drifts from
+ * this one at the first change. Reach for `TextField`/`SelectField` first; this
+ * is for a row the kit does not model.
+ */
+export const CONTROL =
   "w-full rounded-xl border bg-surface-raised px-3 py-2 text-sm text-ink placeholder:text-ink-muted " +
   "transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary " +
   "disabled:cursor-not-allowed disabled:opacity-60";
