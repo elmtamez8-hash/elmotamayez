@@ -1,4 +1,5 @@
-import { globSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /*
@@ -58,9 +59,29 @@ function selectTags(source: string): string[] {
   return tags;
 }
 
+/*
+| ⚠️ A HAND-ROLLED WALK, BECAUSE `globSync` DOES NOT EXIST WHERE THIS RUNS.
+| `node:fs`'s `globSync` arrived in Node 22; CI pins Node 20
+| (`.github/workflows/ci.yml`), and local development is on 24. So this file threw
+| `TypeError: globSync is not a function` on every CI run while passing on every
+| developer machine — **the guard was green locally and had never once executed in
+| the place that gates a merge**, which is the same shape as the defect it exists
+| to catch: present, correct-looking, and doing nothing. Found on 2026-09-06 when a
+| pull request was opened for the branch that added it.
+*/
+function tsxFilesUnder(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+
+    if (entry.isDirectory()) return tsxFilesUnder(path);
+
+    return entry.isFile() && entry.name.endsWith(".tsx") ? [path] : [];
+  });
+}
+
 describe("every <Select> is given an appearance", () => {
   it("never mounts one without a className", () => {
-    const files = globSync("src/**/*.tsx").filter(
+    const files = tsxFilesUnder("src").filter(
       // The component's own file defines it and its `SelectField` pairing.
       (file) => !file.replace(/\\/g, "/").endsWith("components/ui/Field.tsx"),
     );
