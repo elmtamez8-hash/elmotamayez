@@ -5,7 +5,9 @@ import { useRef, useState } from "react";
 import { AvatarCropper } from "@/components/settings/AvatarCropper";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
+import { useAuth } from "@/lib/auth-context";
 import { loadImageFile } from "@/lib/avatar-crop";
 import { userMessage } from "@/lib/errors";
 import { profileApi } from "@/lib/profile";
@@ -39,6 +41,7 @@ export function AccountPhotoCard({
   initialUrl: string | null;
   name: string;
 }) {
+  const { refreshUser } = useAuth();
   const [url, setUrl] = useState(initialUrl);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -73,6 +76,16 @@ export function AccountPhotoCard({
 
       setUrl(photo_url);
       closeCrop();
+
+      /*
+       * ⚠️ الشريطُ الجانبيُّ وقائمةُ الحسابِ يقرآنِ الصورةَ من `useAuth()`، وهو
+       * محمَّلٌ مرّةً واحدةً عندَ إقلاعِ التطبيق. فبلا هذا السطرِ تتغيّرُ الصورةُ في
+       * هذه البطاقةِ وحدَها **وتبقى القديمةُ في كلِّ صفحةٍ أخرى** إلى أن يُعادَ
+       * تحميلُ التطبيقِ كلِّه — بلاغُ مستخدِمٍ ٢٠٢٦-٠٩-٠٦.
+       *
+       * ولا يُنتظَرُ: البطاقةُ عرضتْ ما حفظَه الخادمُ سلفاً، والمزامنةُ خلفَها.
+       */
+      void refreshUser();
     } catch (err: unknown) {
       setError(userMessage(err));
     } finally {
@@ -110,20 +123,11 @@ export function AccountPhotoCard({
         />
       ) : (
         <div className="flex items-center gap-4">
-          {url === null ? (
-            <span
-              className="flex size-20 items-center justify-center rounded-full bg-primary-soft text-2xl font-bold text-primary-ink"
-              aria-hidden="true"
-            >
-              {name.charAt(0)}
-            </span>
-          ) : (
-            // A plain <img>: `next/image` would route a user-supplied path through
-            // `sharp`, whose advisories this tree accepts precisely because no
-            // such path reaches it.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={url} alt="" className="size-20 rounded-full object-cover" />
-          )}
+          {/* ⚠️ `Avatar` من الطقمِ لا نسخةٌ محلّيّة. كتبتُ هذه الدائرةَ بيدي أوّلَ
+              مرّةٍ والمكوّنُ قائمٌ منذُ قبل — ونسختانِ من صورةِ الحسابِ تفترقانِ
+              عندَ أوّلِ تعديل، وقد افترقتا فعلاً: `bg-surface-muted` غيرِ
+              المعرَّفِ عاشَ في إحداهما بينما الأخرى تحملُ إصلاحَه. */}
+          <Avatar url={url} name={name} size="lg" />
 
           <div className="flex flex-col gap-2">
             {/*

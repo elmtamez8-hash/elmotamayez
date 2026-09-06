@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import {
   MAX_ZOOM,
   MIN_ZOOM,
+  centredOffset,
   clampOffset,
   clampZoom,
   coverScale,
@@ -50,31 +51,74 @@ export function AvatarCropper({
    */
   onError: (message: string) => void;
 }) {
-  const [zoom, setZoom] = useState(MIN_ZOOM);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const drag = useRef<{ x: number; y: number } | null>(null);
-
   const frame = {
     naturalWidth: image.naturalWidth,
     naturalHeight: image.naturalHeight,
     view: VIEW,
   };
+
+  const [zoom, setZoom] = useState(MIN_ZOOM);
+  // مُهيَّأةٌ مرّةً واحدةً بدالّة: المكوّنُ يُركَّبُ من جديدٍ لكلِّ صورةٍ تُختار،
+  // فلا حاجةَ إلى أثرٍ يُعيدُ التوسيطَ عندَ التغيير.
+  const [offset, setOffset] = useState(() => centredOffset(frame, coverScale(frame) * MIN_ZOOM));
+  const drag = useRef<{ x: number; y: number } | null>(null);
   const scale = coverScale(frame) * clampZoom(zoom);
 
-  // مقيَّدةٌ عندَ **الرسمِ** لا عندَ الحفظِ وحدَه: تكبيرٌ ثمّ تصغيرٌ يترُكُ إزاحةً
-  // كانت صالحةً وصارتْ خارجَ الحدّ، فتظهرُ حافّةٌ فارغةٌ داخلَ الدائرة.
+  /** الإزاحةُ المخزَّنةُ مقيَّدةٌ سلفاً؛ وهذا حزامُ أمانٍ لأوّلِ رسمٍ ولا أكثر. */
   const x = clampOffset(offset.x, frame.naturalWidth, scale, VIEW);
   const y = clampOffset(offset.y, frame.naturalHeight, scale, VIEW);
 
+  /**
+   * الإزاحةُ تُقيَّدُ عندَ **التخزينِ**، والفروقُ تُراكَمُ بمُحدِّثٍ دالّيّ.
+   *
+   * ⚠️ العطبُ الذي كانَ هنا بلاغُ مستخدِمٍ: «الصورة مش بعرف احركها بسهولة، بتتحرك
+   * في اتجاه واحد فقط». وله سببانِ متضافران، وكلاهما غيرُ مرئيٍّ في قراءةِ الشيفرة:
+   *
+   *   ١. **التقييدُ عندَ الرسمِ وحدَه يجعلُ المخزَّنَ ينجرفُ بلا حدّ.** سحبٌ يتجاوزُ
+   *      الحافّةَ يُراكِمُ −٥٠٠٠ بينما المرسومُ واقفٌ عندَ −٦٠٠، فالسحبُ في
+   *      الاتّجاهِ المعاكسِ يجبُ أن «يفكَّ» ٤٤٠٠ بكسلٍ قبلَ أن تتحرّكَ الصورةُ
+   *      بكسلاً واحداً — أي حركةٌ في اتّجاهٍ واحدٍ بالضبطِ كما وُصِفَتْ.
+   *   ٢. **`setOffset` بقيمةٍ محسوبةٍ من `x` الرسمِ يفقدُ الأحداثَ.** يُطلِقُ
+   *      المتصفّحُ عدّةَ `pointermove` بينَ رسمَتَين، و`x` ثابتٌ فيها كلِّها بينما
+   *      `drag.current` يتقدّم — فكلُّ نداءٍ **يدوسُ** سابقَه بدلَ أن يضيفَ إليه،
+   *      فتتحرّكُ الصورةُ بآخرِ فرقٍ وحدَه وتبدو ثقيلةً لاصقة.
+   *
+   * والمُحدِّثُ الدالّيُّ يقرأُ الحالةَ التي انتهى إليها ما قبلَه، فيُراكِم.
+   */
   const move = (event: React.PointerEvent<HTMLDivElement>) => {
     if (drag.current === null) return;
 
-    setOffset({
-      x: x + (event.clientX - drag.current.x),
-      y: y + (event.clientY - drag.current.y),
-    });
+    const dx = event.clientX - drag.current.x;
+    const dy = event.clientY - drag.current.y;
 
     drag.current = { x: event.clientX, y: event.clientY };
+
+    setOffset((previous) => ({
+      x: clampOffset(previous.x + dx, frame.naturalWidth, scale, VIEW),
+      y: clampOffset(previous.y + dy, frame.naturalHeight, scale, VIEW),
+    }));
+  };
+
+  /**
+   * التكبيرُ يُعيدُ تقييدَ الإزاحةِ بالمقياسِ الجديد.
+   *
+   * ⚠️ بدونِه يبقى المخزَّنُ صالحاً للمقياسِ القديمِ وحدَه: تكبيرٌ ثمّ سحبٌ إلى
+   * الحافّةِ ثمّ تصغيرٌ يترُكُ قيمةً خارجَ الحدِّ الجديد، فيقيّدُها الرسمُ بينما
+   * يبدأُ السحبُ التالي منها — وهو الاتّجاهُ الواحدُ عينُه، عائداً من بابٍ آخر.
+   *
+   * ⚠️ ولاحظْ أنّ المحورَ الأضيقَ لا يتحرّكُ عندَ أدنى تكبيرٍ **وهذا صحيح**:
+   * `coverScale` يجعلُ الصورةَ تغطّي النافذةَ بالضبطِ في أحدِ المحورَينِ وتفيضُ في
+   * الآخر، فلا فُسحةَ في الأوّلِ إطلاقاً. التكبيرُ هو ما يفتحُها.
+   */
+  const rezoom = (next: number) => {
+    const zoomed = clampZoom(next);
+    const zoomedScale = coverScale(frame) * zoomed;
+
+    setZoom(zoomed);
+    setOffset((previous) => ({
+      x: clampOffset(previous.x, frame.naturalWidth, zoomedScale, VIEW),
+      y: clampOffset(previous.y, frame.naturalHeight, zoomedScale, VIEW),
+    }));
   };
 
   return (
@@ -85,7 +129,7 @@ export function AvatarCropper({
         onPointerDown={(event) => {
           // ⚠️ `setPointerCapture` وإلّا انقطعَ السحبُ لحظةَ خروجِ المؤشِّرِ من
           // الدائرة — وهو ما يفعلُه كلُّ من يسحبُ صورةً إلى حافّتِها.
-          event.currentTarget.setPointerCapture(event.pointerId);
+          event.currentTarget.setPointerCapture?.(event.pointerId);
           drag.current = { x: event.clientX, y: event.clientY };
         }}
         onPointerMove={move}
@@ -96,6 +140,19 @@ export function AvatarCropper({
           drag.current = null;
         }}
       >
+        {/*
+          ⚠️ مثبَّتةٌ عند `left: 0` الفيزيائيِّ لا بالتدفّقِ الطبيعيّ — وهذا خرقٌ
+          مقصودٌ لقاعدةِ «الخصائصُ المنطقيّةُ دائماً» في هذا الموضعِ وحدَه.
+          الصفحةُ `dir="rtl"`، وصورةٌ أعرضُ من حاويتِها تبدأُ في تدفّقِ RTL من
+          الحافّةِ **اليمنى** وتفيضُ يساراً — مقيسٌ في المتصفّحِ ٢٠٢٦-٠٩-٠٦:
+          `overflowLeft: 130, overflowRight: 0`. بينما `translate` فيزيائيٌّ
+          دائماً، وكلُّ حسابِ `clampOffset` مبنيٌّ على أنّ الصفرَ هو الحافّةُ
+          اليسرى. فالنتيجةُ أنّ المدى المسموحَ كلَّه (٠ إلى −١٣٠) يدفعُ الصورةَ
+          إلى الفراغِ بدلَ أن يكشفَ بقيّتَها: **حركةٌ في اتّجاهٍ واحدٍ لا غير**،
+          وهو نصفُ بلاغِ المستخدِمِ الثاني.
+          والتثبيتُ يجعلُ التخطيطَ مستقلّاً عن الاتّجاه، فيبقى حسابٌ واحدٌ لا
+          حسابانِ يفترقان.
+        */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={image.src}
@@ -103,6 +160,9 @@ export function AvatarCropper({
           draggable={false}
           className="max-w-none select-none"
           style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
             width: image.naturalWidth * scale,
             height: image.naturalHeight * scale,
             transform: `translate(${x}px, ${y}px)`,
@@ -123,7 +183,7 @@ export function AvatarCropper({
           step={0.05}
           value={zoom}
           disabled={busy}
-          onChange={(event) => setZoom(Number(event.target.value))}
+          onChange={(event) => rezoom(Number(event.target.value))}
           className="w-full accent-primary"
         />
       </label>

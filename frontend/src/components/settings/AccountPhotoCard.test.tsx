@@ -33,6 +33,15 @@ vi.mock("@/lib/profile", () => ({
   },
 }));
 
+/*
+| ⚠️ البطاقةُ تُخبِرُ السياقَ أنَّ الصورةَ تغيّرت، وإلّا بقيتِ القديمةُ في
+| الشريطِ الجانبيِّ وقائمةِ الحسابِ إلى أن يُعادَ تحميلُ التطبيق — بلاغُ مستخدِمٍ
+| ٢٠٢٦-٠٩-٠٦.
+*/
+const refreshUser = vi.fn();
+
+vi.mock("@/lib/auth-context", () => ({ useAuth: () => ({ refreshUser }) }));
+
 vi.mock("@/lib/avatar-crop", async (importOriginal) => ({
   // The real geometry: the cropper renders through it, so stubbing it away
   // would leave these cases asserting that a mock returns its own answer.
@@ -110,6 +119,11 @@ describe("AccountPhotoCard", () => {
         "/storage/avatars/new.jpg",
       );
     });
+
+    // ⚠️ والسياقُ يُعادُ قراءتُه. بلا هذا التوكيدِ تمرُّ الحالةُ خضراءَ على
+    // بناءٍ تتغيّرُ فيهِ الصورةُ في هذهِ البطاقةِ وحدَها وتبقى القديمةُ في كلِّ
+    // صفحةٍ أخرى — وهو البلاغُ بعينِه.
+    expect(refreshUser).toHaveBeenCalled();
   });
 
   it("returns to the picture on cancel, having sent nothing", async () => {

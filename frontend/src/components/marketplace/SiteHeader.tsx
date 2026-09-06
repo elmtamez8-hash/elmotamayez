@@ -11,13 +11,15 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { usePlatformName } from "@/lib/platform-context";
 import { BrandMarkDecorative } from "@/components/ui/BrandMark";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { panelPathFor, useAuth } from "@/lib/auth-context";
+import { quickAccessFor } from "@/lib/panel-nav";
+import { AccountMenu } from "@/components/app/AccountMenu";
 
 /**
  * ⚠️ THE ICONS ARE THE FOOTER'S, ROUTE FOR ROUTE. Five of these six links appear
@@ -66,7 +68,8 @@ export function SiteHeader() {
    | markup is what prerenders and there is no hydration mismatch; the swap
    | happens once the token in localStorage has been exchanged for a profile.
    */
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const router = useRouter();
   const platform = usePlatformName();
   const pathname = usePathname();
 
@@ -163,12 +166,28 @@ export function SiteHeader() {
                 entitled to for as long as the visitor stayed on them.
               */}
               <NotificationBell />
-              <Link
-                href={panelPathFor(user)}
-                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              >
-                {user.first_name}
-              </Link>
+              {/*
+                ⚠️ **قائمةٌ لا زرّ، ونفسُ المكوّنِ الذي في اللوحة** — طلبُ
+                ٢٠٢٦-٠٩-٠٦: «عايزه يظهر في كامل الصفحات وليس في داشبورد فقط».
+                كانَ هنا زرٌّ واحدٌ يحملُ الاسمَ الأوّلَ ويقفزُ إلى اللوحة، ولا
+                صورةَ ولا إعداداتٍ ولا خروج — **وهذه هي الصفحاتُ التي يعيشُ فيها
+                الطالبُ فعلاً**: `homePathFor` يُنزِلُه على `‎/teachers`، وتصفّحُ
+                الكورساتِ والمدرّسينَ كلُّه عامّ. فقائمةُ الحسابِ في اللوحةِ وحدَها
+                كانت قائمةً في المكانِ الذي يمرُّ به أقلَّ ما يمرّ.
+                والروابطُ السريعةُ من `quickAccessFor` — الحارسُ نفسُه الذي يرسمُ
+                الشريطَ الجانبيّ — لا من قائمةٍ ثانيةٍ مكتوبةٍ هنا.
+              */}
+              <AccountMenu
+                name={user.name}
+                firstName={user.first_name}
+                photoUrl={user.photo_url ?? null}
+                quickLinks={quickAccessFor(user)}
+                panelHref={panelPathFor(user)}
+                onLogout={() => {
+                  void logout();
+                  router.push("/login");
+                }}
+              />
             </>
           )}
 

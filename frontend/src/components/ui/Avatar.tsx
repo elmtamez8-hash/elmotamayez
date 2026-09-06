@@ -11,7 +11,30 @@
  * announcing the initial as well reads the person out twice; `alt=""` on the
  * photo is the same decision.
  */
-export function Avatar({ url, name }: { url: string | null; name: string }) {
+/**
+ * ⚠️ مقاسٌ من مجموعةٍ مغلقة، لا `className` حرّ. مكوّناتُ `components/ui/` لا تأخذُ
+ * أصنافاً من مُناديها (قاعدةُ المستودع)، وثلاثةُ مواضعَ تحتاجُ ثلاثةَ أحجام:
+ * الشريطُ الجانبيُّ ٣٢، وقائمةُ الحساب ٣٦، وبطاقةُ الإعدادات ٨٠.
+ *
+ * والصنفُ مكتوبٌ كاملاً في الخريطةِ لا مركَّباً بقالبٍ نصّيّ: Tailwind يمسحُ
+ * المصدرَ بحثاً عن أصنافٍ حرفيّة، و`size-${n}` لا يُولِّدُ قاعدةً إطلاقاً — وهي
+ * عائلةُ الرمزِ غيرِ المعرَّفِ التي شُحِنَتْ في هذا المستودعِ أربعَ مرّات.
+ */
+const SIZES = {
+  sm: "size-8 text-xs",
+  md: "size-9 text-sm",
+  lg: "size-20 text-2xl",
+} as const;
+
+export function Avatar({
+  url,
+  name,
+  size = "md",
+}: {
+  url: string | null;
+  name: string;
+  size?: keyof typeof SIZES;
+}) {
   if (url === null) {
     return (
       <span
@@ -24,7 +47,7 @@ export function Avatar({ url, name }: { url: string | null; name: string }) {
           warning, nothing in a snapshot. Fourth time in this tree, and
           `LessonRow` had already written the rule down one directory away.
         */
-        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary-ink"
+        className={`flex ${SIZES[size]} shrink-0 items-center justify-center rounded-full bg-primary-soft font-bold text-primary-ink`}
       >
         {name.trim().charAt(0)}
       </span>
@@ -33,6 +56,11 @@ export function Avatar({ url, name }: { url: string | null; name: string }) {
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={url} alt="" className="size-9 shrink-0 rounded-full object-cover" loading="lazy" />
+    <img
+      src={url}
+      alt=""
+      className={`${SIZES[size]} shrink-0 rounded-full object-cover`}
+      loading="lazy"
+    />
   );
 }
