@@ -3,13 +3,19 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { AccountPhotoCard } from "@/components/settings/AccountPhotoCard";
+import {
+  DAYS,
+  WeeklyAvailabilityEditor,
+  type Slot,
+} from "@/components/marketplace/WeeklyAvailabilityEditor";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Field, NumberField, SelectField, TextareaField, TextField } from "@/components/ui/Field";
+import { CONTROL, Field, NumberField, SelectField, TextareaField, TextField } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { api, fieldErrors } from "@/lib/api";
+import { crossesUtcMidnight, toLocalSlot, toUtcSlot } from "@/lib/availability";
 import { useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
 import { profileApi, type TeacherProfile } from "@/lib/profile";
@@ -50,6 +56,12 @@ export default function ProfileSettingsPage() {
     headline: "",
     bio: "",
   });
+
+  /*
+   * ساعةُ الحائطِ عندَ المدرّس، لا UTC. التحويلُ عندَ التحميلِ وعندَ الحفظِ
+   * وحدَهما — وموضعٌ ثالثٌ يحوّلُ هو الحالةُ التي أصلحها ٢٠٢٦-٠٩-٠٢.
+   */
+  const [slots, setSlots] = useState<Slot[]>([]);
 
   const [student, setStudent] = useState({ school_year_slug: "", region_slug: "" });
 
@@ -103,6 +115,20 @@ export default function ProfileSettingsPage() {
 
       setSubjects(s.data);
       setStages(g.data);
+
+      /*
+       * ⚠️ وأسبوعٌ فارغٌ يُبدَأُ بصفٍّ واحدٍ لا بلا شيء: أزرارُ «أضف» تشتقُّ
+       * من الصفِّ الأخير، فقائمةٌ فارغةٌ تتركُ المدرّسَ بلا طريقٍ لإضافةِ أوّلِه.
+       */
+      const week = mine.availability.map((slot) =>
+        toLocalSlot({
+          day_of_week: slot.day_of_week,
+          start_time: slot.start_time.slice(0, 5),
+          end_time: slot.end_time.slice(0, 5),
+        }),
+      );
+
+      setSlots(week.length > 0 ? week : [{ day_of_week: 0, start_time: "16:00", end_time: "18:00" }]);
     }
 
     if (user?.student_profile != null) {
@@ -339,6 +365,55 @@ export default function ProfileSettingsPage() {
 
             <Button type="submit" loading={saving} loadingLabel="جارٍ الحفظ…">
               احفظ ملفي
+            </Button>
+          </form>
+        </Card>
+      )}
+
+      {teacher !== null && (
+        <Card as="section">
+          <h3 className="mb-1 font-semibold text-ink">مواعيدي الأسبوعية</h3>
+          <p className="mb-4 text-sm text-ink-muted">
+            الساعات التي يُحجَز فيها عندك. منها تُولَّد حصص مجموعاتك، وعليها يُرفَض
+            طلب الحصة الخاصة خارجها، وهي ما تعرضه صفحتك العامة. بتوقيتك أنت.
+          </p>
+
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+
+              /*
+               * ⚠️ نافذةٌ تعبُرُ منتصفَ ليلِ UTC لا يمكنُ تخزينُها إطلاقاً — الصفُّ
+               * يحملُ يوماً وساعتَين — والخادمُ يرفضُها بجملةٍ عن أوقاتٍ لم
+               * يكتبْها المدرّس. فالسؤالُ يُطرحُ هنا لتُقالَ الجملةُ الصّحيحة.
+               */
+              const straddling = slots.findIndex((slot) => crossesUtcMidnight(slot));
+
+              if (straddling !== -1) {
+                setFields({
+                  availability: `فترة ${DAYS[slots[straddling].day_of_week]} تعبر منتصف الليل بالتوقيت العالمي. قسّمها إلى فترتين.`,
+                });
+
+                return;
+              }
+
+              void save(profileApi.saveAvailability(slots.map((slot) => toUtcSlot(slot))));
+            }}
+          >
+            <WeeklyAvailabilityEditor
+              slots={slots}
+              onChange={setSlots}
+              controlClassName={`${CONTROL} border-line`}
+              disabled={saving}
+            />
+
+            {fields.availability && (
+              <p className="text-sm text-danger-ink">{fields.availability}</p>
+            )}
+
+            <Button type="submit" loading={saving} loadingLabel="جارٍ الحفظ…">
+              احفظ مواعيدي
             </Button>
           </form>
         </Card>

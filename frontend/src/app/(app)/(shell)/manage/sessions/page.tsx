@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { SessionCard } from "@/components/sessions/SessionCard";
@@ -349,17 +351,22 @@ export default function ManageSessionsPage() {
               skip. An empty schedule produces an empty everything, which is why
               the COUNT itself has to carry the message.
 
-              ⛔ AND IT DELIBERATELY LINKS NOWHERE. There is no availability
-              screen in this product and no endpoint behind one — `availability_slots`
-              has readers on the public teacher page and here, and its only writer
-              is a seeder. Pointing at `/manage/availability` would be a dead link
-              added to explain a dead button; the honest sentence names the real
-              way to put a lesson on the calendar, which is the form below.
+              ⚠️ AND IT NOW LINKS SOMEWHERE, WHICH IT DELIBERATELY DID NOT UNTIL
+              2026-09-06. This comment used to say a link would be dead, and it was
+              right: `availability_slots` had readers here and on the public teacher
+              page, and its one writer ran once, at application submission. The
+              editor exists now (`/settings/profile` · `PUT /teacher/availability`),
+              so the sentence names the cause AND the way to fix it — which is what
+              «لم تُنشَأ أيّ حصة» could never do before.
             */}
             {result.created.length === 0 ? (
               <Alert tone="warning" title="لم تُنشَأ أيّ حصة">
                 لا مواعيد في جدول التوفّر ضمن هذا النطاق، فلم يكن هناك ما يُولَّد
-                منه. استخدم «حصة واحدة» أسفله لتحديد موعد بعينه.
+                منه.{" "}
+                <Link href="/settings/profile" className="font-semibold underline">
+                  حدِّث مواعيدك الأسبوعية
+                </Link>{" "}
+                ثم أعد التوليد، أو استخدم «حصة واحدة» أسفله لتحديد موعد بعينه.
               </Alert>
             ) : (
               <Alert tone="success" title="تمّ التوليد">

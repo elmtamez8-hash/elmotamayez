@@ -21,6 +21,7 @@ const get = vi.fn();
 const teacher = vi.fn();
 const saveTeacher = vi.fn();
 const saveStudent = vi.fn();
+const saveAvailability = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   api: { get: (path: string) => get(path) },
@@ -32,6 +33,7 @@ vi.mock("@/lib/profile", () => ({
     teacher: () => teacher(),
     saveTeacher: (body: unknown) => saveTeacher(body),
     saveStudent: (body: unknown) => saveStudent(body),
+    saveAvailability: (slots: unknown) => saveAvailability(slots),
     savePhoto: vi.fn(),
     removePhoto: vi.fn(),
   },
@@ -55,6 +57,9 @@ const TEACHER_PROFILE = {
   teaching_languages: ["ar"],
   subjects: ["physics"],
   grade_levels: ["secondary"],
+  // ⚠️ `H:i:s` كما يرسلُها الخادم، لا `H:i`: العميلُ يقتطعُ الثواني، وتجهيزةٌ
+  // ترسلُ ما افترضتُه لا ما يُرسَلُ فعلاً هي التي جعلتْ `years.map` ينفجرُ حيّاً.
+  availability: [{ day_of_week: 1, start_time: "09:00:00", end_time: "11:00:00" }],
 };
 
 /*
@@ -129,6 +134,68 @@ describe("a teacher's own listing", () => {
       "بكالوريوس فيزياء، جامعة قطر",
       "دبلوم تربوي",
     ]);
+  });
+});
+
+describe("the teacher's weekly availability", () => {
+  /*
+  | ⚠️ THE SECOND COLUMN IN TWO DAYS WITH READERS AND NO WRITER.
+  | `availability_slots` was written once, at application submission, and read
+  | ever since by the session generator, the private-session guard and the public
+  | profile. A teacher whose week changed had no screen and no route.
+  |
+  | ⚠️ AND THE COLUMN IS UTC WHILE THE FIELD IS THE TEACHER'S OWN CLOCK. The
+  | round trip is asserted here rather than a concrete offset: an assertion naming
+  | one passes on a machine in that zone alone, which is what `availability.test.ts`
+  | already records.
+  */
+  beforeEach(() => {
+    teacher.mockResolvedValue(TEACHER_PROFILE);
+  });
+
+  it("sends back exactly what the server gave, when nothing was touched", async () => {
+    saveAvailability.mockResolvedValue(TEACHER_PROFILE);
+
+    render(<ProfileSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("مواعيدي الأسبوعية")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "احفظ مواعيدي" }));
+
+    await waitFor(() => {
+      expect(saveAvailability).toHaveBeenCalled();
+    });
+
+    // The seconds are gone (the column sends `H:i:s`, the field takes `H:i`) and
+    // the hour has been through UTC and back, so it is the one the server holds.
+    expect(saveAvailability.mock.calls[0][0]).toEqual([
+      { day_of_week: 1, start_time: "09:00", end_time: "11:00" },
+    ]);
+  });
+
+  it("adds a period and removes one without leaving the week empty", async () => {
+    saveAvailability.mockResolvedValue(TEACHER_PROFILE);
+
+    render(<ProfileSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("مواعيدي الأسبوعية")).toBeDefined();
+    });
+
+    // One row only: the server refuses an empty week, so a delete button on the
+    // last row would be a control whose answer is always a refusal.
+    expect(screen.queryByRole("button", { name: /حذف/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "إضافة يوم" }));
+    fireEvent.click(screen.getByRole("button", { name: "احفظ مواعيدي" }));
+
+    await waitFor(() => {
+      expect(saveAvailability).toHaveBeenCalled();
+    });
+
+    expect(saveAvailability.mock.calls[0][0]).toHaveLength(2);
   });
 });
 

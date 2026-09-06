@@ -5,6 +5,7 @@ import { errorMessage } from "@/lib/api";
 import { formatDate, formatMinorMoney } from "@/lib/labels";
 import {
   settlement,
+  toMinorUnits,
   type SettlementPeriod,
   type TeacherStatement,
   type TeachingUnit,
@@ -13,6 +14,7 @@ import { StatementSummary } from "@/components/settlement/StatementSummary";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { NumberField, SelectField } from "@/components/ui/Field";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Table, type Column } from "@/components/ui/Table";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -36,6 +38,12 @@ export default function SettlementPage() {
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
+
+  // طلبُ السعر. المبلغُ نصٌّ حتّى الإرسالِ لأنّ حقلاً فارغاً ليس صفراً.
+  const [rateType, setRateType] = useState("individual");
+  const [rateAmount, setRateAmount] = useState("");
+  const [requesting, setRequesting] = useState(false);
+  const [rateError, setRateError] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -67,6 +75,42 @@ export default function SettlementPage() {
       setExportError(errorMessage(err, "تعذّر تصدير الكشف. أعد المحاولة."));
     } finally {
       setExporting(false);
+    }
+  };
+
+  /*
+   * ⚠️ والرفضُ للخادمِ وحدَه. فـ`RequestRateChange` يرفضُ لسببينِ لا ثالثَ لهما —
+   * طلبٌ قائمٌ على النطاقِ نفسِه، وبلوغُ الحدِّ في النافذةِ الزمنيّة — وكلاهما
+   * يقرأُ صفوفاً لا تصلُ هذه الشاشةَ (`pending_rate_request` مفردٌ والرفضُ لكلِّ
+   * نطاق). فإخفاءُ الاستمارةِ هنا اشتقاقٌ ثانٍ للقاعدة: يمنعُ طلباً مشروعاً،
+   * ويختلفُ عنِ الخادمِ عندَ أوّلِ تعديل. جملةُ الخادمِ هي الجواب، وهي تحملُ
+   * تاريخَ الطلبِ التّالي.
+   */
+  const requestRate = async () => {
+    const minor = toMinorUnits(rateAmount);
+
+    if (minor === null || minor <= 0) {
+      setRateError("اكتب مبلغاً أكبر من صفر، بمنزلتين عشريتين على الأكثر.");
+
+      return;
+    }
+
+    setRequesting(true);
+    setRateError("");
+
+    try {
+      await settlement.requestRate({
+        session_type: rateType as "individual" | "group",
+        requested_amount_minor: minor,
+      });
+
+      setRateAmount("");
+      // لتظهرَ لافتةُ «طلب سعر قيد الاعتماد» من جوابِ الخادمِ لا من افتراضِنا.
+      load();
+    } catch (err: unknown) {
+      setRateError(errorMessage(err, "تعذّر إرسال طلب السعر. أعد المحاولة."));
+    } finally {
+      setRequesting(false);
     }
   };
 
@@ -192,9 +236,69 @@ export default function SettlementPage() {
         </div>
         {statement.rates.length === 0 ? (
           <p className="text-sm text-ink-muted">
-            لم يُعتمَد لك سعر بعد. تواصل مع إدارة المنصة لاعتماد سعرك قبل أول حصة.
+            لم يُعتمَد لك سعر بعد. اطلب سعرك من النموذج أدناه قبل أول حصة.
           </p>
         ) : null}
+
+        {/*
+          ⚠️ البابُ الذي لم يكنْ له زرّ. `POST /settlement/rate-requests` قائمٌ منذُ
+          ٠١٤ و`settlement.requestRate` مكتوبٌ في `lib/settlement.ts`، ولم ينادِهما
+          ملفٌّ واحد: هذه الصفحةُ كانت تعرضُ الأسعارَ والطلبَ القائمَ ثمّ تقولُ
+          للمدرّسِ «تواصلْ مع إدارةِ المنصّة» — تذكرةُ دعمٍ عن مسارٍ مبنيّ. عائلةُ
+          `writeBans.lift` نفسُها: إجراءٌ ونقطةُ نهايةٍ ولا شاشة.
+
+          ولا حقلَ مادّةٍ ولا مرحلة: الخادمُ يقبلُ سعراً مخصوصاً بمادّةٍ ولا مدرّسَ
+          طلبَه بعد — يُضافُ متى طُلِب.
+        */}
+        <Card as="section" padding="sm">
+          <h4 className="mb-3 text-sm font-semibold text-ink">اطلب تغيير سعرك</h4>
+
+          {rateError && (
+            <div className="mb-3">
+              <Alert tone="danger" title="لم يُرسَل الطلب">{rateError}</Alert>
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SelectField
+              id="rate_session_type"
+              label="نوع الحصة"
+              value={rateType}
+              onChange={setRateType}
+              options={[
+                { value: "individual", label: "حصة خاصة" },
+                { value: "group", label: "حصة جماعية" },
+              ]}
+              required
+            />
+
+            <NumberField
+              id="rate_amount"
+              label={`السعر للحصة (${statement.currency})`}
+              value={rateAmount}
+              onChange={setRateAmount}
+              min={0}
+              step={0.01}
+              placeholder="150.00"
+              required
+            />
+          </div>
+
+          <p className="mt-2 text-xs text-ink-muted">
+            لا يسري السعر إلا بعد اعتماد المنصة، والسعر الحالي يظل سارياً حتى ذلك.
+          </p>
+
+          <div className="mt-3">
+            <Button
+              type="button"
+              loading={requesting}
+              loadingLabel="جارٍ الإرسال…"
+              onClick={() => void requestRate()}
+            >
+              أرسل الطلب
+            </Button>
+          </div>
+        </Card>
       </section>
 
       <section aria-labelledby="units" className="space-y-3">

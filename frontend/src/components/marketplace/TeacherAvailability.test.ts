@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { nextDaySlot, sameDaySlot } from "./TeacherSignupWizard";
+import { nextDaySlot, sameDaySlot } from "./WeeklyAvailabilityEditor";
 
 /*
 | THE WEEKLY TIMETABLE'S «ADD» BUTTON, WHICH USED TO APPEND A CONSTANT.

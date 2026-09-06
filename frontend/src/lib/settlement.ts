@@ -124,6 +124,25 @@ interface Paginated<T> {
   meta: { total: number; current_page: number; last_page: number };
 }
 
+/**
+ * "150.5" ←→ 15050. التحويلُ بالنصِّ لا بالضربِ في مئة.
+ *
+ * ⚠️ `Math.round(parseFloat(v) * 100)` هو الجوابُ الواضحُ وهو طريقُ العشرةِ
+ * ملّيماتٍ إلى راتبِ مدرّس: العشريُّ العائمُ لا يمثّلُ كلَّ كسرٍ، والمنصّةُ
+ * تخزّنُ مالَ التسويةِ عدداً صحيحاً من وحداتٍ صغرى لهذا السببِ بعينِه.
+ *
+ * `null` يعني «ليس مبلغاً» — فارغٌ أو فيه أكثرُ من منزلتَينِ عشريّتَين.
+ */
+export function toMinorUnits(input: string): number | null {
+  const trimmed = input.trim();
+
+  if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) return null;
+
+  const [whole, fraction = ""] = trimmed.split(".");
+
+  return Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+}
+
 export const settlement = {
   statement: () => api.get<TeacherStatement>("/settlement/statement"),
   units: (page = 1) =>

@@ -20,6 +20,11 @@ export type TeacherProfile = {
   teaching_languages: string[];
   subjects: string[];
   grade_levels: string[];
+  /**
+   * الجدولُ الأسبوعيُّ، مخزّناً UTC بـ`H:i:s` — يُحوّلُ بـ`toLocalSlot`
+   * عندَ العرضِ وبـ`toUtcSlot` عندَ الحفظ، ولا موضعَ ثالثَ للتحويل.
+   */
+  availability: Array<{ day_of_week: number; start_time: string; end_time: string }>;
 };
 
 export type TeacherProfileInput = {
@@ -37,6 +42,15 @@ export const profileApi = {
 
   saveTeacher: (body: TeacherProfileInput) =>
     api.put<TeacherProfile>("/teacher/profile", body),
+
+  /**
+   * ⚠️ الأسبوعُ كاملاً في كلِّ حفظ، لا فرقاً: `SetAvailability` يستبدِلُ ولا
+   * يدمجُ — ودمجٌ هنا يتركُ نافذةً حذفَها المدرّسُ قابلةً للحجز.
+   * والأوقاتُ تصلُ UTC من عندِ المُنادي، فلا تحويلَ هنا ولا على الخادم.
+   */
+  saveAvailability: (
+    availability: Array<{ day_of_week: number; start_time: string; end_time: string }>,
+  ) => api.put<TeacherProfile>("/teacher/availability", { availability }),
 
   saveStudent: (body: { school_year_slug: string; region_slug: string }) =>
     api.patch<User>("/me/student-profile", body),

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Marketplace\Actions\SetAvailability;
 use App\Modules\Marketplace\Actions\UpdateTeacherProfile;
 use App\Modules\Marketplace\Actions\UpdateTeacherSlug;
+use App\Modules\Marketplace\Http\Requests\SetAvailabilityRequest;
 use App\Modules\Marketplace\Http\Requests\UpdateTeacherProfileRequest;
 use App\Modules\Marketplace\Http\Requests\UpdateTeacherSlugRequest;
 use App\Modules\Marketplace\Models\GradeLevel;
@@ -95,6 +97,20 @@ class TeacherProfileController extends Controller
             'teaching_languages' => $profile->teaching_languages ?? [],
             'subjects' => $profile->subjects()->pluck('slug')->all(),
             'grade_levels' => $profile->gradeLevels()->pluck('slug')->all(),
+            /*
+            | ⚠️ معَ الملفِّ في ردٍّ واحد، لا نقطةَ نهايةٍ ثانية — والقراءةُ العامَّةُ
+            | (`PublicTeacherDetailResource`) لا تصلحُ بديلاً: هي خلفَ
+            | `publiclyListed()`، فمدرّسٌ قيدَ المراجعةِ يقرأُ أسبوعَهُ فارغاً ثمَّ
+            | يحفظُ فوقَه.
+            |
+            | و`H:i:s` كما يخزّنُها العمود؛ العميلُ يقتطعُ الثواني كما يفعلُ المعالجُ
+            | سلفاً، ويحوّلُ من UTC بـ`toLocalSlot`.
+            */
+            'availability' => $profile->availabilitySlots()
+                ->orderBy('day_of_week')
+                ->orderBy('start_time')
+                ->get(['day_of_week', 'start_time', 'end_time'])
+                ->all(),
         ]);
     }
 
@@ -134,6 +150,36 @@ class TeacherProfileController extends Controller
             $this->taxonomyIds(Subject::class, $validated['subjects']),
             $this->taxonomyIds(GradeLevel::class, $validated['grade_levels']),
         );
+
+        return $this->show($request);
+    }
+
+    /**
+     * المواعيدُ الأسبوعيّةُ التي يُحجَزُ فيها هذا المدرّس.
+     *
+     * ⚠️ الصفوفُ لها أربعةُ قرّاءٍ منذُ ٠٠١ وكاتبٌ واحدٌ يكتبُ مرّةً واحدةً في
+     * العمر: {@see SubmitTeacherApplication} عندَ الإرسال. فالمدرّسُ الذي غيّرَ
+     * أيّامَه — أو أراد إضافةَ فترةٍ — لم يكنْ أمامَه شيءٌ إطلاقاً، بينما
+     * `GenerateSessionsFromAvailability` يبني جدولَه منها،
+     * و`RequestPrivateSession` يرفضُ خارجَها، وصفحتُه العامّةُ تعلنُها. عائلةُ
+     * `photo_path` نفسُها: عمودٌ له قرّاءٌ وبلا كاتب.
+     *
+     * ويمرُّ من {@see SetAvailability} نفسِه الذي يمرُّ منه المعالج: هو الذي يعرفُ
+     * أنّ الاستبدالَ كاملٌ لا دمج، وأنّ التداخلَ مرفوض، وأنّه يجبُ إفراغُ ذاكرةِ
+     * السوقِ وإلّا بقيَ «متاح الآن» يعلنُ نافذةً حذفَها المدرّسُ للتوّ.
+     *
+     * ⚠️ ولا تحويلَ منطقةٍ زمنيّةٍ هنا: العميلُ يرسلُ UTC (`toUtcSlot`) والعمودُ
+     * UTC، فتحويلٌ ثانٍ هنا يُزيحُ كلَّ فترةٍ مرّتَين.
+     */
+    public function updateAvailability(SetAvailabilityRequest $request, SetAvailability $action): JsonResponse
+    {
+        $profile = $request->profile();
+
+        abort_if($profile === null, 403, 'لا يوجد ملف مدرّس لهذا الحساب.');
+
+        // ولا `try/catch`: رفضُ التداخلِ `DomainException` ويحوّلُه `bootstrap/app.php`
+        // إلى ٤٢٢ بجملتِه العربيّةِ نفسِها — والتقاطُه هنا نسخةٌ ثانيةٌ من قاعدةٍ عامّة.
+        $action->handle($profile, $request->validated('availability'));
 
         return $this->show($request);
     }
