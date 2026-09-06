@@ -19,6 +19,7 @@ use App\Modules\Learning\Http\Resources\CourseAnnouncementResource;
 use App\Modules\Learning\Http\Resources\CurriculumResource;
 use App\Modules\Learning\Http\Resources\EnrollmentResource;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\Learning\Models\LessonProgress;
 use App\Modules\Learning\Support\LessonAccess;
 use App\Modules\Media\Models\MediaAsset;
 use App\Shared\Contracts\SubscriptionDirectory;
@@ -268,6 +269,26 @@ class EnrollmentController extends Controller
                 'type' => $type->value,
                 'type_label' => $type->label(),
                 'is_completable' => LessonTypeRegistry::isCompletable($type),
+                /*
+                | ⚠️ الحقلانِ اللذانِ لم يكنْ لهما قارئ — وبلا الثاني لم يكنْ في
+                | المنتَجِ كلِّه ما يُتِمُّ درساً. `POST …/lessons/{lesson}/complete`
+                | قائمٌ منذُ ٠١٦، و`enrollment_uuid` أسفلَه يحملُ تعليقاً يقولُ
+                | صراحةً إنّه «ما تستعملُه شاشةُ الطالبِ لتعليمِ العنصرِ مكتملاً» —
+                | ولا ملفَّ واحدٍ في الواجهةِ ينادي ذلك المسار. فبقيَ «أتممتَ ٠ من
+                | ٣ — ٠٪» الحالةَ الوحيدةَ التي يبلغُها طالبٌ في فيديو أو مقال،
+                | و`CourseCompleted` لا يُطلَقُ أبداً فلا تصدرُ شهادةٌ إطلاقاً.
+                | بلاغُ ٢٠٢٦-٠٩-٠٦.
+                |
+                | و`may_self_complete` من {@see LessonTypeRegistry} لا محسوبٌ هنا:
+                | البابُ أدناه يرفضُ بالقاعدةِ نفسِها، وحقلٌ يُحسَبُ بهجاءٍ وبابٌ
+                | يرفضُ بآخرَ هو عطبُ البابَينِ المختلفَين.
+                */
+                'may_self_complete' => LessonTypeRegistry::isSelfCompletable($type),
+                'is_completed' => $enrollment !== null && LessonProgress::query()
+                    ->where('enrollment_id', $enrollment->getKey())
+                    ->where('lesson_id', $lesson->getKey())
+                    ->where('status', 'completed')
+                    ->exists(),
                 'content' => $canAccess ? $lesson->content : null,
                 // Derived per response, never stored. The student page was
                 // rendering the Markdown SOURCE, asterisks and all.
@@ -330,6 +351,25 @@ class EnrollmentController extends Controller
             return response()->json([
                 'message' => $access->message,
                 'code' => $access->code,
+            ], 422);
+        }
+
+        /*
+         * ⚠️ الرفضُ هنا في المتحكِّمِ لا في الإجراء، وهو خروجٌ مقصودٌ عن قاعدةِ
+         * «الحرسُ في الإجراء». الإجراءُ مشتركٌ مع
+         * {@see CompleteExamLessonOnSubmission}، وهو الكاتبُ **الشرعيُّ** لعنصرِ
+         * الاختبار — فرفضٌ غيرُ مشروطٍ هناك يكسرُ المستمِعَ نفسَه. والقاعدةُ
+         * المُطبَّقةُ ليست «هل يُكمَلُ هذا العنصر» بل «أيُّ بابٍ يجوزُ له أن
+         * يُعلِنَ الإكمال»، والبابُ هو هذا.
+         *
+         * ⚠️ وإخفاءُ الزرِّ ليس حرساً: المسارُ كانَ يقبلُ إتمامَ عنصرِ اختبارٍ
+         * لأيِّ طالبٍ مسجَّلٍ بطلبٍ واحد — أي تخطّي الاختبارِ وتحريكُ النسبةِ بلا
+         * إجابةِ سؤال.
+         */
+        if (! LessonTypeRegistry::isSelfCompletable(LessonType::from($lesson->type))) {
+            return response()->json([
+                'message' => 'يكتمل هذا العنصر بتسليم الاختبار نفسه، لا بتعليمه يدويّاً.',
+                'code' => 'NOT_SELF_COMPLETABLE',
             ], 422);
         }
 
