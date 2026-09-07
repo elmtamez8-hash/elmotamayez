@@ -1,0 +1,27 @@
+# ⚠️ الصورةُ كانَت تشحنُ جهازَ المطوِّرِ إلى الإنتاج. سياقُ البناءِ ٩٦٤
+# ميغابايت، منها ٦٢٠ ميغا `storage/` و٣١٦ ميغا `vendor/`.
+#
+# `storage/app` هو إيصالاتُ الدفعِ المرفوعةُ محليّاً — يُحجَبُ وقتَ التشغيلِ
+# بمُجلَّدٍ مُسمّى في `docker-compose.prod.yml`، لكنَّه يبقى في طبقاتِ الصورةِ
+# يقرؤه كلُّ من يملكُ سحبَها من السجلّ. و`storage/logs` ليسَ محجوباً بشيء:
+# ٢٣٥ ميغا من سجلّاتٍ تحملُ روابطَ الاستعلاماتِ — أي بياناتٍ شخصيّة.
+# و`database.sqlite` قاعدةُ التطويرِ بمستخدميها التجريبيّين، و`.env` أسرارُها.
+#
+# ⚠️ النمطُ `dir/*` لا `dir`: المجلَّدُ نفسُه يجبُ أن يصلَ، وإلّا سقطَ
+# `storage:link --force` و`chmod -R 775 storage bootstrap/cache` في Dockerfile.
+vendor
+.env
+.env.*
+database/*.sqlite*
+storage/app/*
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/testing/*
+bootstrap/cache/*
+
+.git
+.gitignore
+Dockerfile*
+.dockerignore
