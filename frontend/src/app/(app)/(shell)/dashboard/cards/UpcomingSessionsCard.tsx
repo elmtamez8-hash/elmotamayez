@@ -7,6 +7,7 @@ import { classSessions, type ClassSession, type SessionBooking } from "@/lib/cla
 import { userMessage } from "@/lib/errors";
 import { arabicNumber } from "@/lib/numerals";
 import { formatSessionClock, formatSessionDay } from "@/lib/session-format";
+import { ScheduleIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 
 /** «يبدأ بعد ساعتين و١٥ دقيقة» — الثواني تُعرَضُ في الدقيقةِ الأخيرةِ وحدَها. */
@@ -66,6 +67,7 @@ export function UpcomingSessionsCard() {
   return (
     <DashboardCard
       title="حصصك القادمة"
+      Icon={ScheduleIcon}
       href="/schedule"
       loading={loading}
       error={error}

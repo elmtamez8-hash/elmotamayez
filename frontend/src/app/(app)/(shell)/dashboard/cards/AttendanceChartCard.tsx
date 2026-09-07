@@ -7,6 +7,7 @@ import { userMessage } from "@/lib/errors";
 import { arabicNumber } from "@/lib/numerals";
 import { readChildAttendance } from "./ChildAttendanceCard";
 import type { ChildCardProps } from "./ChildCardProps";
+import { ItemAnalysisIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 
 /**
@@ -58,6 +59,7 @@ export function AttendanceChartCard({ studentUuid, studentName }: ChildCardProps
   return (
     <DashboardCard
       title={`توزيع حضور ${studentName}`}
+      Icon={ItemAnalysisIcon}
       href="/family"
       loading={loading}
       error={error}

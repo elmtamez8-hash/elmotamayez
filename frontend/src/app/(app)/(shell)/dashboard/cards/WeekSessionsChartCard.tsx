@@ -8,6 +8,7 @@ import type { ClassSession } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
 import { arabicNumber } from "@/lib/numerals";
 import { sessionDayKey } from "@/lib/session-format";
+import { ScheduleIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 import { readTeacherSessions, teacherSessionsAudience } from "./TeacherSessionsCard";
 
@@ -90,6 +91,7 @@ export function WeekSessionsChartCard() {
   return (
     <DashboardCard
       title="حصص الأسبوع القادم"
+      Icon={ScheduleIcon}
       href="/manage/sessions"
       loading={loading}
       error={error}

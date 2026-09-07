@@ -10,6 +10,7 @@ import {
   notifications,
   type NotificationItem,
 } from "@/lib/notifications";
+import { BellIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 
 /**
@@ -57,6 +58,7 @@ export function LatestNotificationsCard() {
   return (
     <DashboardCard
       title="آخر الإشعارات"
+      Icon={BellIcon}
       href="/notifications"
       loading={loading}
       error={error}

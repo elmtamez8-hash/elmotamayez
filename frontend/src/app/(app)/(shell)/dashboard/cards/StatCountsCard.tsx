@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
 import { arabicNumber } from "@/lib/numerals";
+import { LearningIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 import { readActiveEnrolments } from "./ProgressChartCard";
 
@@ -85,6 +86,7 @@ export function StatCountsCard() {
   return (
     <DashboardCard
       title="دراستك في أرقام"
+      Icon={LearningIcon}
       href="/enrollments"
       loading={loading}
       error={error}

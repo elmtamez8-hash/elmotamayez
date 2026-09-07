@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { billing, type CreditBalance } from "@/lib/billing";
 import { userMessage } from "@/lib/errors";
 import { arabicNumber } from "@/lib/numerals";
+import { CreditsIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 
 /**
@@ -40,6 +41,7 @@ export function CourseBalancesCard() {
   return (
     <DashboardCard
       title="رصيد حصصك"
+      Icon={CreditsIcon}
       href="/billing"
       loading={loading}
       error={error}

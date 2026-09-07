@@ -9,6 +9,7 @@ import { readChildAttendance } from "./ChildAttendanceCard";
 import { readChildBalances } from "./ChildBalanceCard";
 import { readChildReportCards } from "./ChildReportCardCard";
 import { readChildSchedule } from "./ChildScheduleCard";
+import { FamilyIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 
 /**
@@ -113,6 +114,7 @@ export function ChildrenComparisonCard({ options }: { options: GuardianRelation[
   return (
     <DashboardCard
       title="مقارنة سريعة"
+      Icon={FamilyIcon}
       href="/family"
       linkLabel="إدارة المرتبطين"
       loading={loading}

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { classSessions, type ChildAttendanceSummary } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
 import { arabicNumber } from "@/lib/numerals";
+import { MembersIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 import type { ChildCardProps } from "./ChildCardProps";
 import { sharedRead } from "./shared-read";
@@ -53,6 +54,7 @@ export function ChildAttendanceCard({ studentUuid, studentName }: ChildCardProps
   return (
     <DashboardCard
       title={`حضور ${studentName}`}
+      Icon={MembersIcon}
       href="/family"
       loading={loading}
       error={error}

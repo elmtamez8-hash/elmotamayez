@@ -7,6 +7,7 @@ import { userMessage } from "@/lib/errors";
 import { arabicNumber } from "@/lib/numerals";
 import type { ChildCardProps } from "./ChildCardProps";
 import { sharedRead } from "./shared-read";
+import { CreditsIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 
 /**
@@ -49,6 +50,7 @@ export function ChildBalanceCard({ studentUuid, studentName }: ChildCardProps) {
   return (
     <DashboardCard
       title={`رصيد حصص ${studentName}`}
+      Icon={CreditsIcon}
       href="/family"
       loading={loading}
       error={error}

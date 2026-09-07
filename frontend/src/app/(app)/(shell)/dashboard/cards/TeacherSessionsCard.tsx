@@ -9,6 +9,7 @@ import { classSessions, type ClassSession } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
 import { can, P } from "@/lib/permissions";
 import type { User } from "@/lib/types";
+import { SessionsIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 import { sharedRead } from "./shared-read";
 import { SessionRow, useSessionTick } from "./UpcomingSessionsCard";
@@ -104,6 +105,7 @@ export function TeacherSessionsCard() {
   return (
     <DashboardCard
       title={hostUuid === null ? "حصص مكان العمل القادمة" : "حصصي القادمة"}
+      Icon={SessionsIcon}
       href="/manage/sessions"
       loading={loading}
       error={error}

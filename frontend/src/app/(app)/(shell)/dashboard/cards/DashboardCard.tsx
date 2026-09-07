@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
+
+import type { IconProps } from "@/components/icons";
 
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -22,6 +24,7 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
  */
 export function DashboardCard({
   title,
+  Icon,
   href,
   linkLabel = "عرض الكل",
   loading = false,
@@ -31,6 +34,15 @@ export function DashboardCard({
   children,
 }: {
   title: string;
+  /**
+   * أيقونةُ البطاقة — **من الطقمِ القائمِ في `components/icons`، لا رسمٌ يُخترَعُ
+   * للمناسبة**، وهي القاعدةُ التي كتبَتها `AXIS_ICONS` في شاشةِ التقييماتِ من
+   * قبل: أربعُ أيقوناتٍ متقاربةٌ أسوأُ من أربعةِ عناوين.
+   *
+   * ⚠️ و`aria-hidden` بالبناءِ: `wrap()` يُخفيها ما لم تحملْ `title`، فالعنوانُ
+   * بجوارَها هو النصُّ ولا يُقرَأُ الرمزُ مرّتَين.
+   */
+  Icon?: ComponentType<IconProps>;
   href: string;
   linkLabel?: string;
   loading?: boolean;
@@ -45,9 +57,27 @@ export function DashboardCard({
   children?: ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-line bg-surface-raised p-6">
+    /*
+     | ⚠️ `break-inside-avoid` على البطاقةِ نفسِها لا على الحاوية. الشبكةُ كانت
+     | تُمدِّدُ كلَّ خليّةٍ إلى ارتفاعِ أطولِ بطاقةٍ في صفِّها (`align-items:
+     | stretch` هو الافتراض)، فبطاقةُ الإشعاراتِ بثلاثةِ أسطرٍ بجوارَ جدولٍ بخمسةِ
+     | صفوفٍ تحملُ فراغَ سطرَينِ داخلَها. والحاوياتُ أعمدةُ CSS الآن، فالبطاقةُ
+     | تأخذُ ارتفاعَها الطبيعيَّ وتُحزَمُ التاليةُ تحتَها مباشرةً — وهذه الخاصّيّةُ
+     | هي ما يمنعُ انقسامَ بطاقةٍ بينَ عمودَين.
+     |
+     | و`banner-rise` هو الحركةُ القائمةُ في `globals.css` — لا حركةَ جديدةٌ —
+     | وكتلةُ `prefers-reduced-motion` هناك تُصفِّرُها لمن طلبَ ذلك.
+     */
+    <section className="banner-rise break-inside-avoid rounded-xl border border-line bg-surface-raised p-6">
       <div className="mb-4 flex items-center justify-between gap-4">
-        <h3 className="font-semibold text-ink">{title}</h3>
+        <h3 className="flex min-w-0 items-center gap-2 font-semibold text-ink">
+          {Icon !== undefined && (
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-ink">
+              <Icon className="h-4 w-4" />
+            </span>
+          )}
+          <span className="truncate">{title}</span>
+        </h3>
         <Link
           href={href}
           className="shrink-0 rounded text-sm text-primary-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"

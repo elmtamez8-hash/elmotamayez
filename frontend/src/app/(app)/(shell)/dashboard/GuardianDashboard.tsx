@@ -150,7 +150,7 @@ function ChildCards({ child }: { child: GuardianRelation }) {
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div className="columns-1 gap-6 lg:columns-2 [&>*]:mb-6 [&>*]:break-inside-avoid">
       {cards.map((entry) => (
         // ⚠️ المفتاحُ يحملُ معرَّفَ الابنِ كذلك: بدونِه يُعيدُ React استعمالَ
         // المكوِّنِ نفسِه عبرَ التبديل، وتبقى صفوفُ ابنٍ معروضةً تحتَ اسمِ آخرَ

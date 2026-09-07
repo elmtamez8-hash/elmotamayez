@@ -7,6 +7,7 @@ import { userMessage } from "@/lib/errors";
 import { formatDateTime } from "@/lib/labels";
 import type { ChildCardProps } from "./ChildCardProps";
 import { sharedRead } from "./shared-read";
+import { ScheduleIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 
 /**
@@ -43,6 +44,7 @@ export function ChildScheduleCard({ studentUuid, studentName }: ChildCardProps) 
   return (
     <DashboardCard
       title={`حصص ${studentName} القادمة`}
+      Icon={ScheduleIcon}
       href="/family"
       loading={loading}
       error={error}

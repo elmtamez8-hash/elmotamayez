@@ -3,6 +3,7 @@
 import { useAuth } from "@/lib/auth-context";
 import { can, P } from "@/lib/permissions";
 import { privateSessions } from "@/lib/private-sessions";
+import { SessionsIcon } from "@/components/icons";
 import { CountCard } from "./CountCard";
 
 /**
@@ -23,6 +24,7 @@ export function PrivateRequestsCard() {
   return (
     <CountCard
       title="طلبات الحصص الخاصة"
+      Icon={SessionsIcon}
       href="/manage/private-sessions"
       linkLabel="الطلبات"
       label="طلب ينتظر ردّك"

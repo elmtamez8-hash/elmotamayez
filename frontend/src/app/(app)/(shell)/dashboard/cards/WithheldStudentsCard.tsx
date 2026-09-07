@@ -3,6 +3,7 @@
 import { useAuth } from "@/lib/auth-context";
 import { billing } from "@/lib/billing";
 import { can, P } from "@/lib/permissions";
+import { CreditsIcon } from "@/components/icons";
 import { CountCard } from "./CountCard";
 
 /**
@@ -31,6 +32,7 @@ export function WithheldStudentsCard() {
   return (
     <CountCard
       title="طلاب محجوبون"
+      Icon={CreditsIcon}
       href="/manage/billing/students"
       linkLabel="أرصدة الطلاب"
       label="طالب لا يستطيع الحجز"

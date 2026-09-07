@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { formatDate, statusLabel } from "@/lib/labels";
 import type { Order } from "@/lib/types";
+import { OrdersIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 
 /** ما اشتراهُ الصفّ، بالكلمةِ التي تقولُها شاشةُ الطلباتِ نفسُها. */
@@ -45,6 +46,7 @@ export function LatestOrdersCard() {
   return (
     <DashboardCard
       title="آخر الطلبات"
+      Icon={OrdersIcon}
       href="/orders"
       loading={loading}
       error={error}

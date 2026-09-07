@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 
 import { arabicNumber } from "@/lib/numerals";
 import { userMessage } from "@/lib/errors";
+import type { ComponentType } from "react";
+
+import type { IconProps } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 
 /**
@@ -20,6 +23,7 @@ import { DashboardCard } from "./DashboardCard";
  */
 export function CountCard({
   title,
+  Icon,
   href,
   linkLabel,
   label,
@@ -28,6 +32,7 @@ export function CountCard({
   empty,
 }: {
   title: string;
+  Icon: ComponentType<IconProps>;
   href: string;
   linkLabel?: string;
   /** الجملةُ تحتَ الرقم — «ورقة بانتظار التصحيح». */
@@ -66,6 +71,7 @@ export function CountCard({
   return (
     <DashboardCard
       title={title}
+      Icon={Icon}
       href={href}
       linkLabel={linkLabel}
       loading={loading}

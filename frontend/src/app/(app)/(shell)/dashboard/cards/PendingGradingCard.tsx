@@ -3,6 +3,7 @@
 import { useAuth } from "@/lib/auth-context";
 import { grading } from "@/lib/grading";
 import { can, P } from "@/lib/permissions";
+import { GradingIcon } from "@/components/icons";
 import { CountCard } from "./CountCard";
 
 /**
@@ -30,6 +31,7 @@ export function PendingGradingCard() {
   return (
     <CountCard
       title="بانتظار التصحيح"
+      Icon={GradingIcon}
       href="/manage/grading"
       linkLabel="لوحة التصحيح"
       label="ورقة تنتظر تصحيحك"

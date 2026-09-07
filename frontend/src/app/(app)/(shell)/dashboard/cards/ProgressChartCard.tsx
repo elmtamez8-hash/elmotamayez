@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { arabicNumber } from "@/lib/numerals";
 import type { Enrollment } from "@/lib/types";
+import { ProgressIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 import { sharedRead } from "./shared-read";
 
@@ -62,6 +63,7 @@ export function ProgressChartCard() {
   return (
     <DashboardCard
       title="تقدّمك في كورساتك"
+      Icon={ProgressIcon}
       href="/enrollments"
       loading={loading}
       error={error}

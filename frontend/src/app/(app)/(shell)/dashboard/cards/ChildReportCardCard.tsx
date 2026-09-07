@@ -7,6 +7,7 @@ import { arabicNumber } from "@/lib/numerals";
 import { periodLabel, reportCards, type ReportCard } from "@/lib/reviews";
 import type { ChildCardProps } from "./ChildCardProps";
 import { sharedRead } from "./shared-read";
+import { DocumentIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 
 /**
@@ -51,6 +52,7 @@ export function ChildReportCardCard({ studentUuid, studentName }: ChildCardProps
   return (
     <DashboardCard
       title={`آخر كشف تقديرات لـ${studentName}`}
+      Icon={DocumentIcon}
       href="/report-cards"
       loading={loading}
       error={error}

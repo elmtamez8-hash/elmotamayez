@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { useAuth } from "@/lib/auth-context";
 import { quickAccessFor } from "@/lib/panel-nav";
+import { SiteIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 
 /**
@@ -24,7 +25,7 @@ export function QuickLinksCard() {
   if (links.length === 0) return null;
 
   return (
-    <DashboardCard title="روابط سريعة" href="/settings" linkLabel="الإعدادات">
+    <DashboardCard title="روابط سريعة" Icon={SiteIcon} href="/settings" linkLabel="الإعدادات">
       <ul className="grid grid-cols-2 gap-2">
         {links.map((link) => (
           <li key={link.href}>
