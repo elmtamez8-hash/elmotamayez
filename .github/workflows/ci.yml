@@ -26,8 +26,39 @@ concurrency:
 
 jobs:
   backend:
-    name: Backend — pest · pint · phpstan
+    # ⚠️ أربعُ شرائحَ لأنّ `--parallel` يقفُ عندَ أنويةِ العدّاءِ الواحد.
+    #
+    # التوازي داخلَ الوظيفةِ أنزلَ pest من ٧٠٠ث إلى ٤٩٦ث ثمَّ ٤٣٠ث، وهو أقلُّ
+    # بكثيرٍ ممّا يُعطيه على جهازِ تطويرٍ (٤٠م → ٧م، أي ٥×) لسببٍ واحد: عدَدُ
+    # العمليّاتِ يتبعُ عددَ الأنوية، وعدّاءُ GitHub القياسيُّ ضيّقٌ فيها. والشريحةُ
+    # عدّاءٌ آخرُ بأنويةٍ أخرى، فهي اللافعةُ الوحيدةُ التي تتجاوزُ ذلك السقف.
+    #
+    # ⚠️ ولا `shards.json` — وهذا اختيارٌ بثمنٍ معلوم. لِـPest توازنٌ زمنيٌّ عبرَ
+    # `--update-shards`، وثمنُه ملفٌّ مُودَعٌ يبلى مع كلِّ اختبارٍ يُضاف، وهذه شجرةٌ
+    # تُسجّلُ مراراً أنّ قائمةً ثانيةً تُجيبُ عن سؤالٍ واحدٍ تتباعدُ عن الأولى بصمت.
+    #
+    # والتقسيمُ بالعددِ مقيسٌ لا مُقدَّر (٢٠٢٦-٠٩-٠٧، أربعُ شرائحَ تسلسليّاً):
+    #
+    #     ١/٤  ٧١٦ اختباراً  ٢م١٣ث        ٣/٤  ٧٢٠  ٢م١٩ث
+    #     ٢/٤  ٧٥٦ اختباراً  ١م٤٩ث        ٤/٤  ٧٢٠  ٣م٠١ث
+    #
+    # المجموعُ ٢٩١٢ — كلُّ اختبارٍ مرّةً واحدةً بالضبط. وزمنُ الجدارِ هو الأطولُ
+    # (٣م٠١ث) مقابلَ ٦م٣٩ث للكاملِ في وظيفةٍ واحدة، بينما المثاليُّ الموزونُ نحوُ
+    # ١م٤٥ث. أي أنّ الاختلالَ يكلّفُ نحوَ ٧٥ ثانيةً — ثمنٌ مقبولٌ لملفٍّ لا يبلى،
+    # ويُعادُ النظرُ فيه لو اتّسعت الفجوةُ: `--update-shards` هو طريقُ الترقية.
+    #
+    # ⚠️ والثمنُ الحقيقيُّ دقائقُ العدّاء: أربعُ شرائحَ = أربعُ تهيئاتٍ (نحوَ ٤٠ث
+    # لكلٍّ) مقابلَ زمنِ جدارٍ واحد. الدقائقُ تتضاعف؛ الانتظارُ ينقسم.
+    name: Backend — pest (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
+
+    strategy:
+      # ⚠️ لا تُلغِ الأخواتِ عندَ سقوطِ واحدة: شريحةٌ حمراءُ وثلاثٌ خضراءُ تعني أنّ
+      # العطلَ في تلك الشريحةِ وحدَها، وإلغاءُ البقيّةِ يُخفي ما إن كانت العلّةُ
+      # أوسعَ — وهو أوّلُ سؤالٍ يسألُه قارئُ الفشل.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
 
     steps:
       - uses: actions/checkout@v4
@@ -84,15 +115,6 @@ jobs:
           printf 'APP_KEY=\n' > .env
           php artisan key:generate
 
-      - name: Style (pint --test)
-        working-directory: backend
-        run: ./vendor/bin/pint --test
-
-      - name: Static analysis (Larastan L8)
-        working-directory: backend
-        # ⚠️ بلا خطِّ أساسٍ جديدٍ وبلا @phpstan-ignore — الشجرةُ نظيفةٌ ويجبُ أن تبقى.
-        run: ./vendor/bin/phpstan analyse --no-progress
-
       - name: Tests (pest)
         working-directory: backend
         # ⚠️ `--parallel` لا يُنشئُ قاعدةَ بياناتٍ واحدةً، وهذا مكتوبٌ في الإطارِ لا
@@ -105,7 +127,53 @@ jobs:
         #
         # ⚠️ ويحتاجُ `brianium/paratest` في require-dev — ولذلك لا يجوزُ `--no-dev`
         # في خطوةِ التركيبِ أعلاه، كما يقولُ تعليقُها.
-        run: php vendor/bin/pest --parallel
+        #
+        # ⚠️ والشريحةُ **مع** التوازي لا بدلاً منه: الأولى تُقسِّمُ بينَ العدّاءين
+        # والثاني يُقسِّمُ بينَ أنويةِ العدّاءِ الواحد، وهما سقفانِ مختلفان.
+        run: php vendor/bin/pest --shard=${{ matrix.shard }}/4 --parallel
+
+  # ⚠️ وظيفةٌ مستقلّةٌ لأنّ الأسلوبَ والتحليلَ الساكنَ يُقاسانِ الشجرةَ كلَّها مرّةً
+  # واحدة. تركُهما داخلَ مصفوفةِ الشرائحِ يُشغِّلُهما أربعَ مرّاتٍ على نفسِ الملفّاتِ
+  # — دقيقتانِ وربعٌ من دقائقِ العدّاءِ ثمناً لأربعةِ أجوبةٍ متطابقة.
+  quality:
+    name: Backend — pint · phpstan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP 8.5
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo, pdo_sqlite, mbstring, xml, bcmath, ctype, json, openssl, tokenizer, fileinfo, zip, gd, pcntl
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install
+        working-directory: backend
+        run: |
+          composer install --no-interaction --no-progress \
+            || composer install --no-interaction --no-progress --prefer-source
+
+      - name: Style (pint --test)
+        working-directory: backend
+        run: ./vendor/bin/pint --test
+
+      - name: Static analysis (Larastan L8)
+        working-directory: backend
+        # ⚠️ بلا خطِّ أساسٍ جديدٍ وبلا @phpstan-ignore — الشجرةُ نظيفةٌ ويجبُ أن تبقى.
+        #
+        # ⚠️ ولا خطوةَ `Environment` هنا: `phpstan` لا يُقلِعُ التطبيقَ ولا يلمسُ
+        # `APP_KEY`. تلك الخطوةُ تخصُّ pest وحدَه، حيثُ غيابُها يُسقِطُ ثمانيةَ عشرَ
+        # اختباراً برسائلَ لا تذكرُ السبب.
+        run: ./vendor/bin/phpstan analyse --no-progress
 
   frontend:
     name: Frontend — tsc · vitest

@@ -74,7 +74,8 @@ use Tests\Support\FakeWebPush;
 use Tests\Support\WithWorkspace;
 use Tests\TestCase;
 
-uses(TestCase::class, RefreshDatabase::class)->in('Feature', 'Unit');
+uses(TestCase::class)->in('Feature', 'Unit');
+uses(RefreshDatabase::class)->in('Feature');
 
 uses(WithWorkspace::class)->in('Feature');
 

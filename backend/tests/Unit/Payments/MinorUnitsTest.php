@@ -7,6 +7,15 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Models\Product;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+/*
+| ⚠️ يُعلِنُ حاجتَه إلى قاعدةِ بياناتٍ بنفسِه — انظرْ `CostPlusPricingTest` للسبب.
+|
+| وهو يحتاجُها بلا التباس: سؤالُه هو «هل يعودُ المبلغُ عدداً صحيحاً بعدَ رحلةٍ في
+| كلِّ جدولٍ يمرُّ به المال؟»، وهو سؤالٌ لا يُطرَحُ إلّا على جدولٍ حقيقيّ.
+*/
+uses(RefreshDatabase::class);
 
 /*
 | NFR-007 — money is an integer, and it stays one on the way back out.

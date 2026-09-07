@@ -7,6 +7,22 @@ use App\Modules\Payments\Models\CreditPackage;
 use App\Modules\Payments\Support\CostPlusPricing;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Contracts\ApprovedRateDirectory;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+/*
+| ⚠️ يُعلِنُ حاجتَه إلى قاعدةِ بياناتٍ بنفسِه، ولم يكنْ يفعل.
+|
+| كانَ `tests/Pest.php` يمنحُ `RefreshDatabase` لـ`Unit` كما يمنحُها لـ`Feature`،
+| فكانَ كلُّ اختبارِ وحدةٍ يدفعُ ثمنَ هجرةٍ ومعاملةٍ سواءٌ لمسَ جدولاً أم لا —
+| و`PhoneNumberTest`، الذي يقولُ تعليقُه «nothing here touches a database»، كلّفَ
+| ٦٫٣ ثانيةً لدالّةٍ نصّيّةٍ خالصة. صارَ المنحُ لـ`Feature` وحدَها، وستّةٌ من
+| ثمانيةِ ملفّاتِ الوحدةِ لا تحتاجُ شيئاً.
+|
+| وهذا الملفُّ يحتاجُها فعلاً: `PlatformSettings` صفوفٌ في `platform_settings`،
+| لا ثوابتُ تهيئة — وهي قاعدةُ المستودعِ نفسُها: «الأرقامُ التشغيليّةُ تعيشُ في
+| `platform_settings` لا في `config/`».
+*/
+uses(RefreshDatabase::class);
 
 /*
 | FR-021 · FR-021أ — the formula, in one place, with the gateway grossed up.
