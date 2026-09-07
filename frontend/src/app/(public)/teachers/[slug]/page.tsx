@@ -1,4 +1,16 @@
-import { CheckIcon } from "@/components/icons";
+import {
+  AcademicCapIcon,
+  CheckIcon,
+  CoursesIcon,
+  LearningIcon,
+  MessagesIcon,
+  ProgressIcon,
+  SessionsIcon,
+  StudentIcon,
+  UserIcon,
+  type IconProps,
+} from "@/components/icons";
+import type { ComponentType } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -64,11 +76,20 @@ export async function generateMetadata({
 }
 
 function QuickStats({ stats }: { stats: TeacherDetail["stats"] }) {
-  const items = [
-    { label: "طالب درّسهم", value: stats.students_taught },
-    { label: "حصة مكتملة", value: stats.completed_sessions },
-    { label: "معدّل الاستجابة", value: stats.response_rate, suffix: "٪" },
-    { label: "نسبة الحضور", value: stats.attendance_rate, suffix: "٪" },
+  /* ⚠️ أيقونةٌ لكلِّ رقمٍ من الطقمِ القائم، ولا رسمَ يُخترَعُ للمناسبة: أربعُ
+     أيقوناتٍ متقاربةٌ أسوأُ من أربعةِ عناوين — قاعدةُ `AXIS_ICONS` نفسُها. وهي
+     `aria-hidden` بالبناءِ من `wrap()`، فالتسميةُ تحتَها هي النصُّ ولا يُقرَأُ
+     الرمزُ مرّتَين. */
+  const items: Array<{
+    label: string;
+    value: number | null;
+    suffix?: string;
+    Icon: ComponentType<IconProps>;
+  }> = [
+    { label: "طالب درّسهم", value: stats.students_taught, Icon: StudentIcon },
+    { label: "حصة مكتملة", value: stats.completed_sessions, Icon: SessionsIcon },
+    { label: "معدّل الاستجابة", value: stats.response_rate, suffix: "٪", Icon: MessagesIcon },
+    { label: "نسبة الحضور", value: stats.attendance_rate, suffix: "٪", Icon: ProgressIcon },
   ];
 
   // Four bordered boxes of big-number-small-label is the hero-metric template,
@@ -78,14 +99,19 @@ function QuickStats({ stats }: { stats: TeacherDetail["stats"] }) {
   // is what a row of related numbers looks like when it is not four cards.
   return (
     <dl className="grid grid-cols-2 gap-x-8 gap-y-5 sm:gap-x-12">
-      {items.map((item) => (
-        <div key={item.label} className="flex flex-col">
-          <dd className="text-2xl font-extrabold text-primary-ink">
-            {item.value === null
-              ? "—"
-              : `${item.value.toLocaleString("ar-QA")}${item.suffix ?? ""}`}
-          </dd>
-          <dt className="text-xs text-ink-muted">{item.label}</dt>
+      {items.map(({ label, value, suffix, Icon }) => (
+        <div key={label} className="flex items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink">
+            <Icon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <dd className="text-2xl font-extrabold leading-none text-primary-ink">
+              <bdi>
+                {value === null ? "—" : `${value.toLocaleString("ar-QA")}${suffix ?? ""}`}
+              </bdi>
+            </dd>
+            <dt className="mt-1 text-xs text-ink-muted">{label}</dt>
+          </div>
         </div>
       ))}
     </dl>
@@ -127,7 +153,7 @@ export default async function TeacherProfilePage({
         | top of the page. The one thing every visitor is here to read was the
         | narrower of the two.
       */}
-      <header className="mb-8 flex flex-col gap-8 rounded-3xl border border-line bg-surface-raised p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+      <header className="banner-rise mb-8 flex flex-col gap-8 rounded-3xl border border-line bg-surface-raised p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-col gap-6 sm:flex-row">
           {/* ⚠️ `relative` AND `shrink-0` ON THE WRAPPER, not on the photo: the
               dot is positioned against this box, and the box is what has to hold
@@ -137,11 +163,11 @@ export default async function TeacherProfilePage({
               <img
                 src={teacher.photo_url}
                 alt=""
-                className="h-32 w-32 rounded-2xl object-cover"
+                className="h-32 w-32 rounded-2xl object-cover ring-1 ring-line"
               />
             ) : (
               <span
-                className="flex h-32 w-32 items-center justify-center rounded-2xl bg-primary-soft text-4xl font-bold text-primary-ink"
+                className="flex h-32 w-32 items-center justify-center rounded-2xl bg-primary-soft text-4xl font-bold text-primary-ink ring-1 ring-line"
                 aria-hidden="true"
               >
                 {teacher.name.charAt(0)}
@@ -199,9 +225,12 @@ export default async function TeacherProfilePage({
                 second thing a parent checks after the subject — «ثانوي» decides
                 whether this teacher is relevant at all. */}
             {teacher.grade_levels.length > 0 && (
-              <p className="text-sm text-ink-muted">
-                يدرّس{" "}
-                {teacher.grade_levels.map((level) => level.name_ar).join(" · ")}
+              <p className="flex items-center gap-2 text-sm text-ink-muted">
+                <AcademicCapIcon className="h-4 w-4 shrink-0 text-primary-ink" />
+                <span>
+                  يدرّس{" "}
+                  {teacher.grade_levels.map((level) => level.name_ar).join(" · ")}
+                </span>
               </p>
             )}
           </div>
@@ -233,7 +262,12 @@ export default async function TeacherProfilePage({
         {/* Sticky booking panel (FR-054): spans both content rows so it stays put
             while the tabs scroll. On mobile it sits between the identity block and
             the tabs, which is where a price belongs on a phone. */}
-        <aside className="lg:col-start-2 lg:row-start-1">
+        {/* ⚠️ الحركةُ على عمودَي الشبكةِ لا على كلِّ بطاقةٍ داخلَهما: تأخيرٌ
+            متدرّجٌ لعشراتِ العناصرِ يجعلُ آخرَها يصلُ بعدَ ثانيةٍ ونصف، والصفحةُ
+            تُقرَأُ وهي ما تزالُ تتجمّع. عنصرانِ وتأخيرٌ واحدٌ يكفيان.
+            و`banner-rise` صنفٌ قائمٌ في `globals.css` وكتلةُ
+            `prefers-reduced-motion` هناك تُصفِّرُه. */}
+        <aside className="banner-rise lg:col-start-2 lg:row-start-1" style={{ animationDelay: "80ms" }}>
           {/* ⚠️ THE BOOKING CARD IS ALONE IN HERE, AND THAT IS WHAT MAKES THE
               STICKY WORK. `position: sticky` travels inside its containing block
               and nowhere else, so the size of this column against the one beside
@@ -271,7 +305,10 @@ export default async function TeacherProfilePage({
                 The panel keeps its job. What sold the booking was never the
                 number; it was knowing who this teacher is, which is what stands
                 here instead. */}
-              <p className="mb-1 text-sm text-ink-muted">الحجز مع</p>
+              <p className="mb-1 flex items-center gap-2 text-sm text-ink-muted">
+                <SessionsIcon className="h-4 w-4 text-primary-ink" />
+                الحجز مع
+              </p>
               <p className="mb-5 text-2xl font-extrabold text-ink">
                 {teacher.name}
               </p>
@@ -290,16 +327,20 @@ export default async function TeacherProfilePage({
           </div>
         </aside>
 
-        <div className="lg:col-start-1 lg:row-start-1">
+        <div className="banner-rise lg:col-start-1 lg:row-start-1" style={{ animationDelay: "140ms" }}>
           <ProfileTabs slug={teacher.slug ?? teacher.uuid} active={active}>
             {active === "about" && (
               <div>
                 <div className="space-y-8">
                   <section aria-labelledby="bio-heading">
+                    {/* ⚠️ الرمزُ داخلَ العنوانِ لا بجوارَه في صفٍّ ثانٍ: عنوانٌ
+                        ورمزٌ في عنصرَينِ متجاورَينِ يفترقانِ عندَ أوّلِ التفافِ
+                        سطر. */}
                     <h2
                       id="bio-heading"
-                      className="mb-3 text-lg font-bold text-ink"
+                      className="mb-3 flex items-center gap-2 text-lg font-bold text-ink"
                     >
+                      <UserIcon className="h-5 w-5 text-primary-ink" />
                       نبذة عن المدرّس
                     </h2>
                     <p className="whitespace-pre-line leading-relaxed text-ink-muted">
@@ -311,17 +352,18 @@ export default async function TeacherProfilePage({
                     <section aria-labelledby="quals-heading">
                       <h2
                         id="quals-heading"
-                        className="mb-3 text-lg font-bold text-ink"
+                        className="mb-3 flex items-center gap-2 text-lg font-bold text-ink"
                       >
+                        <LearningIcon className="h-5 w-5 text-primary-ink" />
                         المؤهلات والشهادات
                       </h2>
                       <ul className="space-y-2">
                         {teacher.qualifications.map((qualification) => (
                           <li
                             key={qualification}
-                            className="flex items-start gap-2 text-ink-muted"
+                            className="flex items-start gap-2.5 rounded-xl border border-line px-3 py-2.5 text-sm text-ink-muted"
                           >
-                            <CheckIcon className="mt-1 h-4 w-4 shrink-0 text-secondary-ink" />
+                            <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-secondary-ink" />
                             {qualification}
                           </li>
                         ))}
@@ -389,8 +431,9 @@ export default async function TeacherProfilePage({
                     <div>
                       <h2
                         id="book-heading"
-                        className="text-lg font-extrabold text-ink"
+                        className="flex items-center gap-2 text-lg font-extrabold text-ink"
                       >
+                        <CoursesIcon className="h-5 w-5 text-primary-ink" />
                         احجز مع {teacher.name}
                       </h2>
                       <p className="mt-1 text-sm text-ink-muted">
