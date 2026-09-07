@@ -439,7 +439,7 @@ describe("DashboardPage · وليّ الأمر", () => {
 
     render(<DashboardPage />);
 
-    expect(await screen.findByText("حصص ابنك القادمة")).toBeDefined();
+    expect(await screen.findByText("حصص كريم القادمة")).toBeDefined();
 
     await waitFor(() => {
       expect(calledPaths().some((p) => p.startsWith("/schedule/children?student=child-1"))).toBe(
@@ -468,12 +468,12 @@ describe("DashboardPage · وليّ الأمر", () => {
 
     render(<DashboardPage />);
 
-    expect(await screen.findByText("حصص ابنك القادمة")).toBeDefined();
+    expect(await screen.findByText("حصص كريم القادمة")).toBeDefined();
 
-    // ⚠️ غائبةٌ لا فارغة: «حضور ابنك» فوقَ فراغٍ جملةٌ عن ابنٍ لا يحضر، وسببُها
+    // ⚠️ غائبةٌ لا فارغة: «حضور كريم» فوقَ فراغٍ جملةٌ عن ابنٍ لا يحضر، وسببُها
     // إذنٌ لم يُمنَحْ لا حصّةٌ لم تُحضَر.
-    expect(screen.queryByText("حضور ابنك")).toBeNull();
-    expect(screen.queryByText("رصيد حصص ابنك")).toBeNull();
+    expect(screen.queryByText("حضور كريم")).toBeNull();
+    expect(screen.queryByText("رصيد حصص كريم")).toBeNull();
     expect(screen.getAllByText(/غير ممنوح لك/).length).toBe(3);
 
     // ولا يُسأَلُ الخادمُ سؤالاً يعرفُ القارئُ أنّه سيُرفَض.
@@ -492,7 +492,7 @@ describe("DashboardPage · وليّ الأمر", () => {
 
     render(<DashboardPage />);
 
-    expect(await screen.findByText("حصص ابنك القادمة")).toBeDefined();
+    expect(await screen.findByText("حصص كريم القادمة")).toBeDefined();
 
     // ابنٌ واحدٌ صالحٌ ⇒ لا مُبدِّلَ أصلاً.
     expect(screen.queryByLabelText("الابن المعروضة بياناته")).toBeNull();
@@ -549,7 +549,7 @@ describe("DashboardPage · وليّ الأمر", () => {
 
     // لا أربعُ بطاقاتٍ فارغةٍ تصفُ عطلاً — سطرٌ واحدٌ وخطوةٌ واحدة.
     expect(await screen.findByText(/لا يوجد ابن مرتبط بحساب/)).toBeDefined();
-    expect(screen.queryByText("حصص ابنك القادمة")).toBeNull();
+    expect(screen.queryByText("حصص كريم القادمة")).toBeNull();
     expect(screen.getByText("إدارة المرتبطين").getAttribute("href")).toBe("/family");
   });
 });
@@ -813,7 +813,7 @@ describe("DashboardPage · الرسوم", () => {
 
     render(<DashboardPage />);
 
-    expect(await screen.findByText("توزيع حضور ابنك")).toBeDefined();
+    expect(await screen.findByText("توزيع حضور كريم")).toBeDefined();
 
     await waitFor(() =>
       expect(timesCalled("/attendance/children/summary?student=child-1")).toBe(1),
@@ -824,11 +824,77 @@ describe("DashboardPage · الرسوم", () => {
     | `aria-hidden`، ولونٌ وحدَه لا يقولُ شيئاً لمن لا يُفرِّقُ الأخضرَ من الأحمر.
     */
     const chart = within(
-      screen.getByText("توزيع حضور ابنك").closest("section") as HTMLElement,
+      screen.getByText("توزيع حضور كريم").closest("section") as HTMLElement,
     );
     expect(chart.getByText("حاضر")).toBeDefined();
     expect(chart.getByText("٥")).toBeDefined();
     expect(chart.getByText("متأخّر")).toBeDefined();
     expect(chart.getByText("بعذر")).toBeDefined();
+  });
+});
+
+/*
+| ٠٢٩ · طلبُ ٢٠٢٦-٠٩-٠٧: «قد يكون لديه أكثر من ابن أو وصيّ — تحديد اسمهم
+| والتنقّل بينهم وإمكانيّة عمل مقارنة بينهم».
+|
+| ⚠️ والحالةُ الفارقةُ هي **الخليةُ بلا إذن**: جدولُ مقارنةٍ يكتبُ «٠٪» مكانَ
+| «غير ممنوح» يتّهمُ ابناً لم يُسأَلْ عنه أحد.
+*/
+describe("DashboardPage · مقارنة الأبناء", () => {
+  function twoChildren() {
+    asGuardian([
+      relation({ uuid: "r-1", student_name: "آدم", student_uuid: "child-1" }),
+      relation({
+        uuid: "r-2",
+        student_name: "بدر",
+        student_uuid: "child-2",
+        // بدرٌ بإذنِ الجدولِ وحدَه: ثلاثُ خلايا من أربعٍ غيرُ ممنوحة.
+        permissions: [{ key: "schedule", label: "المواعيد والحصص" }],
+      }),
+    ]);
+  }
+
+  it("names every child and never prints a number where a permission is missing", async () => {
+    twoChildren();
+
+    render(<DashboardPage />);
+
+    const table = (await screen.findByText("مقارنة سريعة")).closest("section") as HTMLElement;
+
+    await waitFor(() => {
+      expect(within(table).getByText("آدم")).toBeDefined();
+    });
+
+    expect(within(table).getByText("بدر")).toBeDefined();
+
+    // ثلاثُ خلايا لبدرٍ وحدَه — والحضورُ لآدمَ رقمٌ حقيقيّ.
+    expect(within(table).getAllByText("غير ممنوح").length).toBe(3);
+    expect(within(table).getByText("٨٠٪")).toBeDefined();
+  });
+
+  it("is not drawn for a guardian with one child", async () => {
+    asGuardian([relation()]);
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("حصص كريم القادمة")).toBeDefined();
+    // «مقارنةٌ» بصفٍّ واحدٍ جدولٌ يصفُ نفسَه.
+    expect(screen.queryByText("مقارنة سريعة")).toBeNull();
+  });
+
+  it("titles each card with the child on screen, never «ابنك»", async () => {
+    // ⚠️ ووصيٌّ ليس أباً: «ابنك» خطأٌ في حقِّه حتّى بابنٍ واحد.
+    twoChildren();
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("حصص آدم القادمة")).toBeDefined();
+
+    fireEvent.change(await screen.findByLabelText("الابن المعروضة بياناته"), {
+      target: { value: "child-2" },
+    });
+
+    expect(await screen.findByText("حصص بدر القادمة")).toBeDefined();
+    expect(screen.queryByText("حصص آدم القادمة")).toBeNull();
   });
 });

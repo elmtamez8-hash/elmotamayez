@@ -6,6 +6,7 @@ import { classSessions, type ChildAttendanceSummary } from "@/lib/class-sessions
 import { userMessage } from "@/lib/errors";
 import { arabicNumber } from "@/lib/numerals";
 import { DashboardCard } from "./DashboardCard";
+import type { ChildCardProps } from "./ChildCardProps";
 import { sharedRead } from "./shared-read";
 
 /** الفئاتُ الأربعُ بالترتيبِ الذي تُقرَأُ به، وأسماؤُها كما يقولُها وليُّ الأمر. */
@@ -32,7 +33,7 @@ export function readChildAttendance(studentUuid: string) {
  * الأعدادُ الأربعةُ والنسبةُ **نصّاً**: الرسمُ يأتي في `US4` فوقَ هذه الأرقامِ
  * نفسِها، لا فوقَ قراءةٍ ثانيةٍ له (`FR-018`).
  */
-export function ChildAttendanceCard({ studentUuid }: { studentUuid: string }) {
+export function ChildAttendanceCard({ studentUuid, studentName }: ChildCardProps) {
   const [summary, setSummary] = useState<ChildAttendanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +52,7 @@ export function ChildAttendanceCard({ studentUuid }: { studentUuid: string }) {
 
   return (
     <DashboardCard
-      title="حضور ابنك"
+      title={`حضور ${studentName}`}
       href="/family"
       loading={loading}
       error={error}

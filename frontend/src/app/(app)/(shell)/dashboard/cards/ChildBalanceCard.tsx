@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { billing, type CreditBalance } from "@/lib/billing";
 import { userMessage } from "@/lib/errors";
 import { arabicNumber } from "@/lib/numerals";
+import type { ChildCardProps } from "./ChildCardProps";
+import { sharedRead } from "./shared-read";
 import { DashboardCard } from "./DashboardCard";
 
 /**
@@ -17,7 +19,12 @@ import { DashboardCard } from "./DashboardCard";
  *
  * ⚠️ ولا مبلغَ في أيِّ سطر (`FR-016`): سعرُ الحصّةِ يُحَلُّ منه سعرُ المدرّس.
  */
-export function ChildBalanceCard({ studentUuid }: { studentUuid: string }) {
+/** قراءةٌ واحدةٌ في الطيران — انظر `readChildAttendance`. */
+export function readChildBalances(studentUuid: string) {
+  return sharedRead(`child-balances:${studentUuid}`, () => billing.childBalances(studentUuid));
+}
+
+export function ChildBalanceCard({ studentUuid, studentName }: ChildCardProps) {
   const [balances, setBalances] = useState<CreditBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,8 +33,7 @@ export function ChildBalanceCard({ studentUuid }: { studentUuid: string }) {
     setLoading(true);
     setError(null);
 
-    billing
-      .childBalances(studentUuid)
+    readChildBalances(studentUuid)
       .then((result) => setBalances(result.data ?? []))
       .catch((err) => setError(userMessage(err)))
       .finally(() => setLoading(false));
@@ -42,7 +48,7 @@ export function ChildBalanceCard({ studentUuid }: { studentUuid: string }) {
 
   return (
     <DashboardCard
-      title="رصيد حصص ابنك"
+      title={`رصيد حصص ${studentName}`}
       href="/family"
       loading={loading}
       error={error}

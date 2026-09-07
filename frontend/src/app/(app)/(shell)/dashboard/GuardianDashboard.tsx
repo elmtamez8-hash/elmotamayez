@@ -13,6 +13,7 @@ import { ChildAttendanceCard } from "./cards/ChildAttendanceCard";
 import { ChildBalanceCard } from "./cards/ChildBalanceCard";
 import { ChildReportCardCard } from "./cards/ChildReportCardCard";
 import { ChildScheduleCard } from "./cards/ChildScheduleCard";
+import { ChildrenComparisonCard } from "./cards/ChildrenComparisonCard";
 import { ChildSwitcher, selectableChildren } from "./cards/ChildSwitcher";
 import { PermissionMissingNote } from "./cards/DashboardCard";
 
@@ -76,6 +77,13 @@ export function GuardianDashboard() {
         <NoLinkedChild />
       ) : (
         <>
+          {/*
+            ⚠️ المقارنةُ **فوقَ** المُبدِّل، لا تحتَه. هي الجوابُ عن «كيفَ حالُ
+            أبنائي؟» وهو السؤالُ الذي يفتحُ به وليُّ الأمرِ اللوحةَ أصلاً؛ ووضعُها
+            تحتَ بطاقاتِ ابنٍ بعينِه يجعلُها ذيلاً لسؤالٍ آخر. ولا تظهرُ لابنٍ
+            واحد.
+          */}
+          <ChildrenComparisonCard options={children} />
           <ChildSwitcher options={children} value={selected} onChange={setSelected} />
           <ChildCards child={current as GuardianRelation} />
         </>
@@ -115,10 +123,11 @@ function permissionLabel(key: string): string {
 
 function ChildCards({ child }: { child: GuardianRelation }) {
   const studentUuid = child.student_uuid as string;
+  const studentName = child.student_name;
   const granted = new Set(child.permissions.map((permission) => permission.key));
 
   const cards: Array<{ key: string; card: ReactNode }> = [
-    { key: "schedule", card: <ChildScheduleCard studentUuid={studentUuid} /> },
+    { key: "schedule", card: <ChildScheduleCard studentUuid={studentUuid} studentName={studentName} /> },
     {
       /*
       | ⚠️ **البطاقةُ ورسمُها في خانةٍ واحدةٍ وتحتَ الإذنِ نفسِه، عمداً.** ثلاثةُ
@@ -131,13 +140,13 @@ function ChildCards({ child }: { child: GuardianRelation }) {
       key: "attendance",
       card: (
         <div className="space-y-6">
-          <ChildAttendanceCard studentUuid={studentUuid} />
-          <AttendanceChartCard studentUuid={studentUuid} />
+          <ChildAttendanceCard studentUuid={studentUuid} studentName={studentName} />
+          <AttendanceChartCard studentUuid={studentUuid} studentName={studentName} />
         </div>
       ),
     },
-    { key: "payments", card: <ChildBalanceCard studentUuid={studentUuid} /> },
-    { key: "results", card: <ChildReportCardCard studentUuid={studentUuid} /> },
+    { key: "payments", card: <ChildBalanceCard studentUuid={studentUuid} studentName={studentName} /> },
+    { key: "results", card: <ChildReportCardCard studentUuid={studentUuid} studentName={studentName} /> },
   ];
 
   return (

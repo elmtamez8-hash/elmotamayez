@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { classSessions, type ChildSessionBooking } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
 import { formatDateTime } from "@/lib/labels";
+import type { ChildCardProps } from "./ChildCardProps";
+import { sharedRead } from "./shared-read";
 import { DashboardCard } from "./DashboardCard";
 
 /**
@@ -14,7 +16,12 @@ import { DashboardCard } from "./DashboardCard";
  * الخادمُ يرفضُه بلا مقعد، فزرٌّ هنا وعدٌ يُجيبُه `403` — والمَورِدُ الضيِّقُ
  * لا يُرسِلُ `join_open` أصلاً، وهذا هو نصفُ الحراسةِ الآخر.
  */
-export function ChildScheduleCard({ studentUuid }: { studentUuid: string }) {
+/** قراءةٌ واحدةٌ في الطيران: جدولُ المقارنةِ يقرأُ المسارَ نفسَه للابنِ المعروض. */
+export function readChildSchedule(studentUuid: string) {
+  return sharedRead(`child-schedule:${studentUuid}`, () => classSessions.childSchedule(studentUuid));
+}
+
+export function ChildScheduleCard({ studentUuid, studentName }: ChildCardProps) {
   const [rows, setRows] = useState<ChildSessionBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,8 +30,7 @@ export function ChildScheduleCard({ studentUuid }: { studentUuid: string }) {
     setLoading(true);
     setError(null);
 
-    classSessions
-      .childSchedule(studentUuid)
+    readChildSchedule(studentUuid)
       .then((result) => setRows(result.data ?? []))
       .catch((err) => setError(userMessage(err)))
       .finally(() => setLoading(false));
@@ -36,7 +42,7 @@ export function ChildScheduleCard({ studentUuid }: { studentUuid: string }) {
 
   return (
     <DashboardCard
-      title="حصص ابنك القادمة"
+      title={`حصص ${studentName} القادمة`}
       href="/family"
       loading={loading}
       error={error}

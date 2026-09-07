@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { userMessage } from "@/lib/errors";
 import { arabicNumber } from "@/lib/numerals";
 import { periodLabel, reportCards, type ReportCard } from "@/lib/reviews";
+import type { ChildCardProps } from "./ChildCardProps";
+import { sharedRead } from "./shared-read";
 import { DashboardCard } from "./DashboardCard";
 
 /**
@@ -18,7 +20,12 @@ import { DashboardCard } from "./DashboardCard";
  * ⚠️ والمنشورُ وحدَه: المسوَّدةُ حكمٌ لم يُصدِرْه المدرّسُ بعد، وعرضُها لوليِّ
  * الأمرِ يُسلِّمُه رقماً قد يتغيّرُ قبلَ أن يُقال.
  */
-export function ChildReportCardCard({ studentUuid }: { studentUuid: string }) {
+/** قراءةٌ واحدةٌ في الطيران — انظر `readChildAttendance`. */
+export function readChildReportCards(studentUuid: string) {
+  return sharedRead(`child-report-cards:${studentUuid}`, () => reportCards.mine(studentUuid));
+}
+
+export function ChildReportCardCard({ studentUuid, studentName }: ChildCardProps) {
   const [latest, setLatest] = useState<ReportCard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,8 +34,7 @@ export function ChildReportCardCard({ studentUuid }: { studentUuid: string }) {
     setLoading(true);
     setError(null);
 
-    reportCards
-      .mine(studentUuid)
+    readChildReportCards(studentUuid)
       .then((result) => {
         const published = (result.data ?? [])
           .filter((card) => card.published_at !== null)
@@ -44,7 +50,7 @@ export function ChildReportCardCard({ studentUuid }: { studentUuid: string }) {
 
   return (
     <DashboardCard
-      title="آخر كشف تقديرات"
+      title={`آخر كشف تقديرات لـ${studentName}`}
       href="/report-cards"
       loading={loading}
       error={error}

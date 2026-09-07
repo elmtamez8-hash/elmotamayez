@@ -6,6 +6,7 @@ import type { ChildAttendanceSummary } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
 import { arabicNumber } from "@/lib/numerals";
 import { readChildAttendance } from "./ChildAttendanceCard";
+import type { ChildCardProps } from "./ChildCardProps";
 import { DashboardCard } from "./DashboardCard";
 
 /**
@@ -35,7 +36,7 @@ const STATES: Array<{ key: keyof ChildAttendanceSummary; label: string; swatch: 
  *
  * ⚠️ **ومن الأرقامِ التي جلبَتها `ChildAttendanceCard`، بطلبٍ واحد** (`FR-018`).
  */
-export function AttendanceChartCard({ studentUuid }: { studentUuid: string }) {
+export function AttendanceChartCard({ studentUuid, studentName }: ChildCardProps) {
   const [summary, setSummary] = useState<ChildAttendanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +57,7 @@ export function AttendanceChartCard({ studentUuid }: { studentUuid: string }) {
 
   return (
     <DashboardCard
-      title="توزيع حضور ابنك"
+      title={`توزيع حضور ${studentName}`}
       href="/family"
       loading={loading}
       error={error}
