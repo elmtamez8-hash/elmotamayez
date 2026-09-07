@@ -39,7 +39,7 @@ class StudentReviewController extends Controller
             ->withoutGlobalScopes()
             ->where('student_user_id', $subject->getKey())
             ->whereNotNull('published_at')
-            ->with('teacher:id,first_name,last_name')
+            ->with('teacher:id,uuid,first_name,last_name')
             ->orderByDesc('period_start')
             ->get();
 

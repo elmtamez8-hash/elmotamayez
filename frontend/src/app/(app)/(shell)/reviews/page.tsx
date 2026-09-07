@@ -20,7 +20,13 @@ import { useAuth } from "@/lib/auth-context";
 import { family, type GuardianRelation } from "@/lib/notifications";
 import { navLabel } from "@/lib/panel-nav";
 import { arabicDecimal } from "@/lib/numerals";
-import { PERIODIC_AXES, periodLabel, reviews, type PeriodicReview } from "@/lib/reviews";
+import {
+  PERIODIC_AXES,
+  periodLabel,
+  reviewDeltas,
+  reviews,
+  type PeriodicReview,
+} from "@/lib/reviews";
 
 /**
  * An icon per axis, and only where one is honest.
@@ -115,6 +121,10 @@ export default function MyReviewsPage() {
 
   if (state === "error") return <ErrorState onRetry={load} />;
 
+  // مرّةً واحدةً للقائمةِ كلِّها: الدالّةُ تمشي الصفوفَ، فنداؤُها داخلَ `map`
+  // مشيٌ كاملٌ لكلِّ صفّ.
+  const deltas = reviewDeltas(rows);
+
   return (
     <div className="space-y-6">
       <header>
@@ -196,6 +206,8 @@ export default function MyReviewsPage() {
                   </div>
                 </div>
 
+                <TrendLine delta={deltas.get(review.uuid) ?? null} />
+
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {PERIODIC_AXES.map((axis, axisIndex) => (
                     <AxisScore
@@ -211,9 +223,22 @@ export default function MyReviewsPage() {
                 </div>
 
                 {review.note !== null && (
-                  <p className="animate-float-in mt-4 rounded-2xl bg-primary-soft/60 p-3 text-sm text-ink">
-                    {review.note}
-                  </p>
+                  <div className="mt-4">
+                    {/*
+                      ⚠️ الملاحظةُ تُسمّي كاتبَها، وهذا هو نصفُ البلاغِ الآخر. جملةٌ
+                      عائمةٌ فوقَ أربعةِ أرقامٍ تُقرَأُ حكماً تُصدِرُه المنصّةُ عن
+                      الأرقامِ نفسِها — فوليُّ أمرٍ قرأَ «تحسّن ملحوظ» فوقَ معدّلٍ
+                      هابط، واستنتجَ تناقضاً في المنتَجِ لا في رأيِ المدرّس. ولا
+                      شيءَ في الشجرةِ يشتقُّ حكماً من الدرجات: المحورُ «التحسّن»
+                      درجةٌ يضعُها المدرّسُ بيدِه، والملاحظةُ نصُّه هو.
+                    */}
+                    <p className="mb-1 text-xs text-ink-muted">
+                      ملاحظة المدرّس — بكلماته، لا تُحسب من الدرجات
+                    </p>
+                    <p className="animate-float-in rounded-2xl bg-primary-soft/60 p-3 text-sm text-ink">
+                      {review.note}
+                    </p>
+                  </div>
                 )}
               </Card>
             </li>
@@ -221,5 +246,35 @@ export default function MyReviewsPage() {
         </ul>
       )}
     </div>
+  );
+}
+
+/**
+ * اتّجاهُ المعدّلِ عن الفترةِ السابقةِ عندَ المدرّسِ نفسِه.
+ *
+ * ⚠️ **بالكلماتِ لا بسهمٍ ولا بلونٍ وحدَه.** اللونُ لا يقولُ شيئاً لمن لا
+ * يُفرِّقُ الأخضرَ من الأحمر، والسهمُ لا يقولُ شيئاً لقارئِ الشاشة — والجملةُ
+ * تقولُ الاتّجاهَ والمقدارَ معاً. واللونُ يبقى تعزيزاً.
+ *
+ * ⚠️ **ولا شيءَ لأوّلِ تقييم**: «٠٫٠» عن فترةٍ لا وجودَ لها رقمٌ مخترَع، وهي
+ * قاعدةُ «—» لا «٠» التي تكتبُها بطاقاتُ اللوحةِ في هذا المستودع.
+ */
+function TrendLine({ delta }: { delta: number | null }) {
+  if (delta === null) return null;
+
+  const tone =
+    delta > 0 ? "text-secondary-ink" : delta < 0 ? "text-danger-ink" : "text-ink-muted";
+
+  return (
+    <p className={`mt-2 text-xs font-medium ${tone}`}>
+      {delta === 0 ? (
+        "كما في الفترة السابقة"
+      ) : (
+        <>
+          {delta > 0 ? "أعلى من الفترة السابقة بـ" : "أقل من الفترة السابقة بـ"}
+          <bdi>{arabicDecimal(Math.abs(delta))}</bdi>
+        </>
+      )}
+    </p>
   );
 }
