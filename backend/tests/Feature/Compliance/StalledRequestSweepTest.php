@@ -16,7 +16,6 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
-use RuntimeException;
 
 /**
  * SC-021 — zero requests stuck in `processing` past a declared timeout.

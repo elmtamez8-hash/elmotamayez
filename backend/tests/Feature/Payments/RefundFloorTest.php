@@ -10,7 +10,6 @@ use App\Modules\Payments\Events\RefundIssued;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Settlement\Models\LedgerEntry;
 use App\Modules\Tenancy\Support\Roles;
-use DomainException;
 use Illuminate\Support\Facades\Event;
 
 /*

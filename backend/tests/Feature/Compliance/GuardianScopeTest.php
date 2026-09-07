@@ -18,7 +18,6 @@ use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Models\Order;
 use App\Shared\Support\GuardianPermission;
 use App\Shared\Support\WorkspaceContext;
-use DomainException;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\Support\ExportArchive;

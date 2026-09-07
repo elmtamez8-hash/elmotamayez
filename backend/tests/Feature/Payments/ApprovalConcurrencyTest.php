@@ -10,7 +10,6 @@ use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Tenancy\Support\Roles;
-use DomainException;
 
 /*
 | US3 · SC-006 — two operators reaching one order.

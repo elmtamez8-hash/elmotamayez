@@ -10,7 +10,6 @@ use App\Modules\Assessments\Models\Submission;
 use App\Modules\Assessments\Support\LatePenalty;
 use App\Modules\Courses\Models\Course;
 use Carbon\CarbonImmutable;
-use DomainException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;

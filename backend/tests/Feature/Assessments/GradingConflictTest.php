@@ -7,7 +7,6 @@ use App\Modules\Assessments\Actions\ReviseGrade;
 use App\Modules\Assessments\Models\Answer;
 use App\Modules\Assessments\Models\GradingRecord;
 use App\Modules\Tenancy\Support\Permissions;
-use DomainException;
 
 /*
 | SC-021. Two people, one paper.

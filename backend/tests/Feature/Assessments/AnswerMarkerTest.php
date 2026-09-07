@@ -8,7 +8,6 @@ use App\Modules\Assessments\Models\Answer;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Assessments\Support\AnswerMarker;
-use DomainException;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 

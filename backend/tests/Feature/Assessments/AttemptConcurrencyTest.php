@@ -8,7 +8,6 @@ use App\Modules\Assessments\Models\Answer;
 use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\QuestionOption;
-use DomainException;
 use Illuminate\Support\Str;
 
 /*

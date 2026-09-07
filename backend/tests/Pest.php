@@ -59,11 +59,6 @@ use App\Modules\Tenancy\Support\PlatformStaffDirectory;
 use App\Shared\Support\GuardianPermission;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
-use Database\Seeders\DataCategorySeeder;
-use Database\Seeders\GamificationCatalogSeeder;
-use Database\Seeders\NotificationTemplateSeeder;
-use Database\Seeders\RegionSeeder;
-use Database\Seeders\TaxonomySeeder;
 use Illuminate\Broadcasting\BroadcastManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
@@ -84,55 +79,16 @@ uses(TestCase::class, RefreshDatabase::class)->in('Feature', 'Unit');
 uses(WithWorkspace::class)->in('Feature');
 
 /*
- * Message templates are reference data, not fixtures.
+ * الفهارسُ المرجعيّةُ الخمسةُ — قوالبُ الإشعارات، وفهرسُ التلعيب، وتصنيفاتُ حمايةِ
+ * البيانات، والمناطق، والتصنيفُ الدراسيّ — كانت تُبذَرُ هنا في `beforeEach`، أي
+ * مرّةً لكلِّ اختبار: ١٨١ استعلاماً × ٢٩١٢ حالةً ≈ ٥٢٧٬٠٠٠ استعلامٍ لبياناتٍ لا
+ * تتغيّرُ بينَ اختبارَين. صارت في `Database\Seeders\TestCatalogueSeeder` تُبذَرُ
+ * مرّةً لكلِّ عمليّةٍ عبرَ `$seeder` على `Tests\TestCase`.
  *
- * A dispatch with no template for its type renders nothing and is dropped with a
- * logged error (FR-037), so without this every notification assertion in the
- * suite would pass vacuously — asserting zero and getting zero. Seeded here
- * rather than per-test for the same reason roles are: it is a precondition of
- * the app running at all, not of any one scenario.
+ * ⚠️ وسببُ وجودِ كلِّ واحدٍ منها مكتوبٌ هناك ولم يُحذَفْ حرفاً: أربعةٌ منها تفشلُ
+ * صامتةً فتجعلُ توكيداتِ الطقمِ كلِّها صادقةً على الفراغ، واثنتانِ ترفضانِ بـ٤٢٢
+ * عندَ التسجيل. ومعَهما سببُ أمانِ النقل — البذرُ يسبقُ فتحَ المعاملة.
  */
-/*
- * And the gamification catalogue, for exactly the same reason (spec 009).
- *
- * ⚠️ `AwardPoints` looks an action up by key and returns silently when there is
- * no row — an award for an undefined action is an unfilled catalogue, not an
- * error. So with no rows here NOTHING is ever awarded, and every assertion in the
- * suite about points, levels, streaks and leaderboards would pass by comparing
- * zero against zero. It is deliberately a handful of rows, because all ~1,500
- * feature tests pay for it.
- */
-/*
- * And the data-protection catalogue, a third time for the third instance of one
- * mechanism (spec 013).
- *
- * ⚠️ AN EMPTY CATALOGUE MAKES THIS WHOLE PHASE ASSERT NOTHING. The consent screen
- * lists categories, the nightly sweep iterates categories, and the schema-coverage
- * test compares against categories — over zero rows all three are green and none
- * of them looked at anything. Same shape as the two above, same handful of rows,
- * same reason.
- */
-uses()->beforeEach(function (): void {
-    $this->seed(NotificationTemplateSeeder::class);
-    $this->seed(GamificationCatalogSeeder::class);
-    $this->seed(DataCategorySeeder::class);
-    /*
-     * And the regions (spec 011 · FR-042), a fourth time for a fourth instance of
-     * one mechanism — with one difference worth naming: this catalogue does not
-     * fail quietly. `region_slug` is REQUIRED by `RegisterStudentRequest` and
-     * validated against these rows, so an empty table is a 422 on every
-     * registration rather than a silent no-op.
-     */
-    $this->seed(RegionSeeder::class);
-    /*
-     * And the taxonomy (spec 022) — subjects, broad stages and school years. A
-     * FIFTH runtime catalogue, and the second that refuses rather than shrugs:
-     * `school_year_slug` is required at registration and both signup pickers are
-     * validated against these rows, so an empty table closes the front door for
-     * students AND the application wizard for teachers.
-     */
-    $this->seed(TaxonomySeeder::class);
-})->in('Feature');
 
 /*
 |--------------------------------------------------------------------------

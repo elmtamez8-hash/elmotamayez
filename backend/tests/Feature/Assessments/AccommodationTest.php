@@ -9,7 +9,6 @@ use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\Submission;
 use App\Modules\Assessments\Support\ApplyAccommodation;
 use App\Modules\Tenancy\Support\Permissions;
-use DomainException;
 use Laravel\Sanctum\Sanctum;
 
 /*

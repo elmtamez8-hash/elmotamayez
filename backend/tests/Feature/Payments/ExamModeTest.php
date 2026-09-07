@@ -17,7 +17,6 @@ use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Contracts\AccountStanding;
 use Carbon\CarbonImmutable;
-use DomainException;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;

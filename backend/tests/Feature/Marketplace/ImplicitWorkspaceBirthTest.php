@@ -9,7 +9,6 @@ use App\Modules\Tenancy\DTOs\CreateWorkspaceDTO;
 use App\Modules\Tenancy\Models\Role;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Roles;
-use RuntimeException;
 use Spatie\Permission\PermissionRegistrar;
 
 /**

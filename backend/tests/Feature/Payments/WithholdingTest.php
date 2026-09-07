@@ -9,7 +9,6 @@ use App\Modules\Payments\Enums\BillingMode;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Tenancy\Support\Roles;
-use DomainException;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeBroadcastProvider;
 

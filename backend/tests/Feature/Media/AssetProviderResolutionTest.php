@@ -8,7 +8,6 @@ use App\Modules\Media\Providers\BunnyMediaProvider;
 use App\Modules\Media\Providers\LocalMediaProvider;
 use App\Modules\Media\Support\MediaProviderResolver;
 use Illuminate\Support\Facades\Storage;
-use RuntimeException;
 use Tests\Support\BunnyFixtures;
 
 /*
