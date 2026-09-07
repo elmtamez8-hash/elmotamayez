@@ -41,7 +41,19 @@ it('keeps the aggregate equal to the sum of the entries over ten thousand awards
 
     expect(AwardEntry::query()->count())->toBe(10_000)
         ->and($progress->xp)->toBe((int) AwardEntry::query()->sum('xp'));
-});
+    /*
+     * ⚠️ `slow` — والعددُ لا يُنقَص. هذه أبطأُ حالةٍ في الطقمِ كلِّه (٨٧ ثانيةً
+     * مقيسة)، وقد اقتُرِحَ خفضُها إلى خمسِمئةٍ ثمَّ سُحِبَ الاقتراح: سليلُها في
+     * `LedgerInvariantTest` يقولُ في تعليقِه «The number is the spec's»، فعشرةُ
+     * الآلافِ رقمُ `SC-001` لا رقمٌ اختِيرَ هنا. توكيدٌ يُضعَفُ ليمرَّ أسرعَ هو
+     * بوّابةٌ خضراءُ عن قياسٍ أصغر.
+     *
+     * والعلامةُ وصفٌ لا بوّابة: لا `--exclude-group` في `phpunit.xml` ولا في
+     * `ci.yml`، ولا يُقصَدُ أن يكون. ما يُخرِجُ هذه الحالةَ من المسارِ الحرِجِ هو
+     * تقسيمُ CI إلى شرائح، فتسقُطُ في شريحةٍ واحدةٍ من أربعٍ تعملُ بالتوازي مع
+     * أخواتِها — بلا استثناءِ شيءٍ من البوّابة.
+     */
+})->group('slow');
 
 /*
  * ⚠️ THE PENALTY LARGER THAN THE BALANCE — where FR-005 and FR-009 would
