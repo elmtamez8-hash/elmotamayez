@@ -11,6 +11,7 @@ import {
   type IconProps,
 } from "@/components/icons";
 import type { ComponentType } from "react";
+import { subjectIcon } from "@/components/marketplace/subject-icon";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -208,16 +209,25 @@ export default async function TeacherProfilePage({
 
             {teacher.subjects.length > 0 && (
               <ul className="mb-4 flex flex-wrap gap-2">
-                {teacher.subjects.map((subject) => (
-                  <li key={subject.slug}>
-                    <Link
-                      href={`/teachers?subject=${subject.slug}`}
-                      className="inline-block rounded-full bg-primary-soft px-3 py-1 text-sm font-medium text-primary-ink transition duration-200 ease-out hover:brightness-95 active:scale-[0.97] active:duration-100"
-                    >
-                      {subject.name_ar}
-                    </Link>
-                  </li>
-                ))}
+                {teacher.subjects.map((subject) => {
+                  /* ⚠️ الخريطةُ المشتركةُ نفسُها التي ترسمُ بها شبكةُ الموادِّ في
+                     الصفحةِ الأولى — لا نسخةٌ ثانيةٌ هنا: خريطتانِ تفترقانِ عندَ
+                     أوّلِ مادّةٍ تُضاف، فترسمُ الشبكةُ رمزَ الفيزياءِ وترسمُ
+                     الشريحةُ قبّعةَ تخرّج، بلا خطأٍ في أيِّ مكان. */
+                  const Icon = subjectIcon(subject);
+
+                  return (
+                    <li key={subject.slug}>
+                      <Link
+                        href={`/teachers?subject=${subject.slug}`}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1.5 text-sm font-medium text-primary-ink transition duration-200 ease-out hover:brightness-95 active:scale-[0.97] active:duration-100"
+                      >
+                        <Icon className="h-4 w-4" />
+                        {subject.name_ar}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             )}
 

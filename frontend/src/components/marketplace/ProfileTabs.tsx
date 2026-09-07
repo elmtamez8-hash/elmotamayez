@@ -1,11 +1,18 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { CoursesIcon, ScheduleIcon, StarIcon, UserIcon } from "@/components/icons";
+
+/**
+ * ⚠️ الرمزُ **داخلَ الرابطِ لا بجوارَه**، و`aria-hidden` بالبناءِ من `wrap()`:
+ * التسميةُ هي النصُّ، فلا يُقرَأُ اللسانُ مرّتَينِ لقارئِ الشاشة. ومن الطقمِ
+ * القائمِ لا رسمٌ يُخترَع.
+ */
 export const PROFILE_TABS = [
-  { id: "about", label: "نبذة" },
-  { id: "courses", label: "الكورسات" },
-  { id: "reviews", label: "التقييمات" },
-  { id: "schedule", label: "الجدول" },
+  { id: "about", label: "نبذة", Icon: UserIcon },
+  { id: "courses", label: "الكورسات", Icon: CoursesIcon },
+  { id: "reviews", label: "التقييمات", Icon: StarIcon },
+  { id: "schedule", label: "الجدول", Icon: ScheduleIcon },
 ] as const;
 
 export type ProfileTabId = (typeof PROFILE_TABS)[number]["id"];
@@ -44,12 +51,13 @@ export function ProfileTabs({
                     href={`/teachers/${slug}?tab=${tab.id}`}
                     scroll={false}
                     aria-current={isActive ? "page" : undefined}
-                    className={`inline-block whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary ${
+                    className={`inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary ${
                       isActive
                         ? "border-primary text-primary-ink"
                         : "border-transparent text-ink-muted hover:border-line hover:text-ink"
                     }`}
                   >
+                    <tab.Icon className="h-4 w-4" />
                     {tab.label}
                   </Link>
                 </li>
