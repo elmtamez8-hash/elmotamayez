@@ -114,6 +114,20 @@ export type NavItem = {
    * cannot express three audiences, so the tag names them.
    */
   audience?: DashboardAudience[];
+  /**
+   * اسمٌ آخرُ للشاشةِ نفسِها عندَ جمهورٍ آخر. غيابُه يعني أنّ `label` يصلحُ للكلّ.
+   *
+   * ⚠️ **بندٌ واحدٌ يستعملُه، وهو بندٌ كانت صفحتُه تعرفُ ما لا يعرفُه الشريط.**
+   * `‎/reviews` يكتبُ عنوانَه منذُ ٠١٠ بفرعٍ صريح — «التقييمات الدورية» لوليِّ
+   * الأمرِ و«تقييماتي الدورية» للطالب — بينما الشريطُ الجانبيُّ يقولُ «تقييماتي»
+   * لوليِّ أمرٍ لا يُقيَّم. بلاغُ ٢٠٢٦-٠٩-٠٧.
+   *
+   * ⚠️ **والصفحةُ تقرأُ هذا الحقلَ الآن ولا تُهجِّي الاسمَ مرّةً ثانية**
+   * ({@link navLabel}): اسمٌ مكتوبٌ في موضعَينِ يفترقُ عندَ أوّلِ إعادةِ صياغة،
+   * وهو العطبُ الذي دفعَ ثمنَه هذا المستودعُ في `BookingEligibility` و
+   * `ListLeaderboardScopes` — وهنا كانَ نصفُه مكتوباً بالفعل.
+   */
+  labels?: Partial<Record<DashboardAudience, string>>;
 };
 
 export const mainNav: NavItem[] = [
@@ -207,7 +221,13 @@ export const mainNav: NavItem[] = [
    * is the writing side and is reached from the class register, where the
    * teacher already knows whose row they clicked.
    */
-  { href: "/reviews", label: "تقييماتي الدورية", Icon: ProgressIcon, audience: ["student", "guardian"] },
+  {
+    href: "/reviews",
+    label: "تقييماتي الدورية",
+    Icon: ProgressIcon,
+    audience: ["student", "guardian"],
+    labels: { guardian: "التقييمات الدورية" },
+  },
   /*
    * Spec 010 · US5. The same reasoning as the line above — a student reads their
    * own cards, a guardian reads a child's through the same screen, and a teacher
@@ -517,9 +537,24 @@ export function allowedNav(items: NavItem[], user: User | null): NavItem[] {
    */
   const who = dashboardAudience(user);
 
-  return items.filter(
-    (item) => can(user, item.permission) && (item.audience === undefined || item.audience.includes(who)),
-  );
+  return items
+    .filter(
+      (item) => can(user, item.permission) && (item.audience === undefined || item.audience.includes(who)),
+    )
+    .map((item) => {
+      const named = item.labels?.[who];
+
+      return named === undefined ? item : { ...item, label: named };
+    });
+}
+
+/**
+ * اسمُ الشاشةِ كما يراهُ هذا القارئ — لتقرأَه الصفحةُ نفسُها في عنوانِها.
+ *
+ * يعودُ بـ`undefined` لعنوانٍ ليس في القوائم، فالمُنادي يُقرِّرُ بديلَه.
+ */
+export function navLabel(href: string, user: User | null): string | undefined {
+  return allowedNav(allNav, user).find((item) => item.href === href)?.label;
 }
 
 /**

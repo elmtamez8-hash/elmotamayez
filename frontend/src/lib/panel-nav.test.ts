@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { adminNav, allowedNav, mainNav, quickAccessFor } from "./panel-nav";
+import { adminNav, allowedNav, mainNav, navLabel, quickAccessFor } from "./panel-nav";
 import { P } from "./permissions";
 import type { User } from "./types";
 
@@ -146,5 +146,18 @@ describe("allowedNav · جمهورُ الشاشة", () => {
     expect(seen).not.toContain("/enrollments");
     expect(seen).not.toContain("/report-cards");
     expect(seen).toContain("/manage/sessions");
+  });
+});
+
+describe("navLabel · اسمُ الشاشةِ عندَ قارئِها", () => {
+  it("does not call a guardian's child's assessments «mine»", () => {
+    // ⚠️ الصفحةُ كانت تعرفُ هذا منذُ ٠١٠ والشريطُ لا. الاسمانِ في مكانٍ واحدٍ
+    // الآن، وهذه الحالةُ هي التي تسقطُ لو عادَ أحدُهما يُكتَبُ بجوارِ الآخر.
+    expect(navLabel("/reviews", person({ platform_role: "parent" }))).toBe("التقييمات الدورية");
+    expect(navLabel("/reviews", person())).toBe("تقييماتي الدورية");
+  });
+
+  it("answers nothing for a screen this reader may not see", () => {
+    expect(navLabel("/reviews", person({ platform_role: "teacher" }))).toBeUndefined();
   });
 });

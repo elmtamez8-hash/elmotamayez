@@ -18,6 +18,7 @@ import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { useAuth } from "@/lib/auth-context";
 import { family, type GuardianRelation } from "@/lib/notifications";
+import { navLabel } from "@/lib/panel-nav";
 import { arabicDecimal } from "@/lib/numerals";
 import { PERIODIC_AXES, periodLabel, reviews, type PeriodicReview } from "@/lib/reviews";
 
@@ -119,7 +120,10 @@ export default function MyReviewsPage() {
       <header>
         <h2 className="flex items-center gap-2 text-2xl font-bold text-ink">
           <ProgressIcon className="h-6 w-6 text-primary-ink" />
-          {isGuardian ? "التقييمات الدورية" : "تقييماتي الدورية"}
+          {/* الاسمُ من `panel-nav` لا هنا: هو ما يقرؤُه الشريطُ الجانبيُّ حرفاً
+              بحرف، واسمٌ مكتوبٌ في موضعَينِ يفترقُ عندَ أوّلِ إعادةِ صياغة — وقد
+              افترقَ فعلاً: الشريطُ ظلَّ يقولُ «تقييماتي» لوليِّ أمرٍ لا يُقيَّم. */}
+          {navLabel("/reviews", user) ?? "التقييمات الدورية"}
         </h2>
         <p className="mt-1 text-sm text-ink-muted">
           {isGuardian
