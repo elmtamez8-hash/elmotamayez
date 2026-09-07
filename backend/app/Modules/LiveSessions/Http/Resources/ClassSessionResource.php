@@ -78,6 +78,32 @@ class ClassSessionResource extends JsonResource
              | door, and those two alone.
              */
             'join_open' => $this->joinWindowCovers(now()),
+            /*
+             | ⚠️ AND HOW LONG UNTIL IT DOES — `0` open now, `null` never again.
+             |
+             | `join_open` above is answered ONCE, at fetch, so a student who
+             | opens their timetable twenty minutes early watches the countdown
+             | reach «بدأت الآن» while the door stays shut until they reload. The
+             | browser may tick this number down; it may never DERIVE one from
+             | `starts_at` minus a constant, which is the thing the block above
+             | forbids and for the same two reasons — the window is a
+             | `platform_settings` row an operator tunes, and the machine's clock
+             | may be an hour out (SC-016).
+             |
+             | One spelling: the model answers it, and `ScheduleController`'s
+             | course header reads the same method.
+             */
+            'seconds_until_join_open' => $this->secondsUntilJoinOpen(now()),
+            /*
+             | ⚠️ AND THE COUNTDOWN IS SEEDED HERE TOO, for the half of SC-016
+             | the field above does not cover: a browser that derived «starts in»
+             | from `starts_at` minus `Date.now()` counts down to a moment that
+             | does not exist on a machine an hour out, and the student arrives
+             | late believing they were early. `/schedule/next` and the course
+             | header keep their own top-level key — same number, and their
+             | callers read it there.
+             */
+            'seconds_until_start' => max(0, (int) now()->diffInSeconds($this->starts_at, false)),
             'starts_at' => $this->starts_at->toIso8601String(),
             'ends_at' => $this->ends_at->toIso8601String(),
             'duration_minutes' => $this->duration_minutes,
@@ -101,6 +127,17 @@ class ClassSessionResource extends JsonResource
                 'uuid' => $this->course->uuid,
                 'title' => $this->course->title,
             ]),
+            /*
+             | ⚠️ ONLY WHEN THE RELATION WAS LOADED — absent, never guessed. A
+             | Resource runs once per row, so `$this->teacherProfile?->user` read
+             | unconditionally is two queries per session on every calendar in the
+             | product. `whenLoaded` drops the key for a caller that did not ask,
+             | which reads as «not fetched» rather than «no teacher».
+             */
+            'teacher_name' => $this->whenLoaded(
+                'teacherProfile',
+                fn (): ?string => $this->teacherProfile?->user?->name,
+            ),
             'recording' => $this->recording_status === null ? null : [
                 'status' => $this->recording_status,
                 // The uuid is the route in. Publishing a lesson and not saying

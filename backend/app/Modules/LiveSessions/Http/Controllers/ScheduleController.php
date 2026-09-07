@@ -8,12 +8,16 @@ use App\Http\Controllers\Controller;
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Actions\GetStudentSchedule;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Http\Resources\ChildSessionResource;
 use App\Modules\LiveSessions\Http\Resources\ClassSessionResource;
 use App\Modules\LiveSessions\Http\Resources\SessionBookingResource;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\CohortSessionVisibility;
+use App\Modules\LiveSessions\Support\GuardianChild;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Shared\Contracts\EnrollmentDirectory;
+use App\Shared\Contracts\GuardianDirectory;
+use App\Shared\Support\GuardianPermission;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,10 +25,19 @@ use Illuminate\Http\Request;
 /**
  * The student's own timetable, across every teacher.
  *
- * No policy call: there is no resource to authorise against. The authorisation
- * IS the identity — the action only ever reads rows belonging to the
- * authenticated user, and there is no parameter by which to ask for anyone
- * else's.
+ * No policy call on {@see self::index()} and {@see self::next()}: there is no
+ * resource to authorise against. The authorisation IS the identity — the action
+ * only ever reads rows belonging to the authenticated user, and neither route
+ * takes a parameter by which to ask for anyone else's.
+ *
+ * ⚠️ {@see self::children()} IS THE ONE EXCEPTION AND IT CARRIES ITS OWN GUARD
+ * (029 · FR-020). It names a student, so the sentence above stops being true of
+ * this class the moment it is read as covering every method — a guardian asks
+ * for somebody else's timetable by definition. What stands in for the identity
+ * there is the guardian relation PLUS the `schedule` permission, resolved in
+ * {@see GuardianChild} before the Action is reached. It is a SEPARATE route
+ * rather than an optional `?student=` on `index()` for exactly that reason: a
+ * parameter that is usually absent is a guard that is usually not exercised.
  */
 class ScheduleController extends Controller
 {
@@ -33,6 +46,48 @@ class ScheduleController extends Controller
         $bookings = $action->handle($this->currentUser($request));
 
         return response()->json(['data' => SessionBookingResource::collection($bookings)]);
+    }
+
+    /**
+     * One child's upcoming sessions, read by their guardian (029 · US3).
+     *
+     * ⚠️ IT CALLS `GetStudentSchedule` AS IT STANDS, AND WRITES NO SECOND ACTION.
+     * «A student's upcoming sessions» is one question; a mirrored copy of that
+     * Action would be a second answer to it, and the two would drift at the first
+     * change to either — which is the defect this repository has paid for with
+     * `BookingEligibility`'s host check and with `ListLeaderboardScopes`.
+     *
+     * ⚠️ THE EAGER LOAD DROPS THE SCOPE AT EVERY LEVEL, AND WITHOUT THAT THE
+     * PAYLOAD IS A GREEN 200 FULL OF NULLS. The Action bypasses the scope for the
+     * booking and the session; `course` and `teacherProfile` are loaded here, and
+     * both models carry `BelongsToWorkspace` — so under a guardian whose
+     * `last_workspace_id` resolves to some OTHER workspace (an academy founder
+     * who is also a parent, say) a scoped nested load returns null for every one
+     * of them and the card renders a lesson with no subject and no teacher. Same
+     * shape spec 024 found five times in the payments approval chain.
+     *
+     * ⚠️ AND IT IS A LOAD RATHER THAN A LAZY READ IN THE RESOURCE: a Resource
+     * runs once per row, so reaching for `$session->course` from inside one is an
+     * N+1 by construction — and an N+1 that would each carry the scope.
+     */
+    public function children(
+        Request $request,
+        GetStudentSchedule $action,
+        GuardianDirectory $guardians,
+    ): JsonResponse {
+        $child = GuardianChild::named(
+            $request,
+            $this->currentUser($request),
+            $guardians,
+            GuardianPermission::Schedule,
+        );
+
+        // ⚠️ NO SECOND EAGER LOAD HERE. The Action loads the course and the
+        // teacher — scope dropped at every level — because the STUDENT's own
+        // timetable needs them too. Loading them again beside it would be two
+        // spellings of one requirement, and the copy that gets forgotten is the
+        // one that answers a green 200 full of nulls.
+        return response()->json(['data' => ChildSessionResource::collection($action->handle($child))]);
     }
 
     public function next(Request $request, GetStudentSchedule $action): JsonResponse
@@ -111,7 +166,10 @@ class ScheduleController extends Controller
             // the browser's clock shows a time that does not exist on a machine
             // whose clock is off (SC-016).
             'seconds_until_start' => max(0, (int) now()->diffInSeconds($session->starts_at, false)),
-            'seconds_until_join_open' => $this->secondsUntilJoinOpen($session, $window),
+            // ⚠️ ON THE MODEL NOW, BECAUSE 029'S TIMETABLE CARD ASKS THE SAME
+            // QUESTION. A private copy here and a second one in the Resource
+            // would drift the day an operator moves the join window.
+            'seconds_until_join_open' => $session->secondsUntilJoinOpen(now()),
         ]);
     }
 
@@ -201,19 +259,4 @@ class ScheduleController extends Controller
      * window already past both mean «this will not open», and a client counting
      * down to one of those would draw the button eventually.
      */
-    private function secondsUntilJoinOpen(ClassSession $session, int $window): ?int
-    {
-        if ($session->room_closed_at !== null) {
-            return null;
-        }
-
-        if (now()->greaterThan($session->ends_at->copy()->addMinutes($window))) {
-            return null;
-        }
-
-        return max(0, (int) now()->diffInSeconds(
-            $session->starts_at->copy()->subMinutes($window),
-            false,
-        ));
-    }
 }

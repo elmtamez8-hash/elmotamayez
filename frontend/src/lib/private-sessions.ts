@@ -54,9 +54,16 @@ export const privateSessions = {
   withdraw: (requestUuid: string) =>
     api.delete<PrivateSessionRequest>(`/private-session-requests/${requestUuid}`),
 
-  /** The teacher's queue. Pending unless a status is named. */
+  /**
+   * The teacher's queue. Pending unless a status is named.
+   *
+   * ⚠️ `meta` IS PART OF THE ANSWER, and the dashboard reads only that half.
+   * The queue paginates at a fixed twenty, so «how many are waiting» counted
+   * from `data.length` stops at twenty and reassures a teacher who has sixty.
+   * There is no `per_page` to send — `paginate(20)` does not read one.
+   */
   queue: (status?: PrivateSessionStatus) =>
-    api.get<{ data: PrivateSessionRequest[] }>(
+    api.get<{ data: PrivateSessionRequest[]; meta: { total: number } }>(
       status
         ? `/manage/private-session-requests?status=${status}`
         : "/manage/private-session-requests",

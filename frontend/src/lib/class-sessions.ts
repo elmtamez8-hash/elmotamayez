@@ -53,6 +53,18 @@ export interface ClassSession {
    * homework are all still asked at the door.
    */
   join_open: boolean;
+  /**
+   * كم ثانيةً حتّى يفتحُ الباب — `0` مفتوحٌ الآن، `null` لن يفتحَ ثانيةً.
+   *
+   * ⚠️ **هذا ما يجعلُ الزرَّ يظهرُ على صفحةٍ مفتوحة.** `join_open` فوقَه يُجابُ
+   * مرّةً واحدةً عندَ الجلب، فطالبٌ يفتحُ جدولَه قبلَ الحصّةِ بعشرينَ دقيقةً يرى
+   * العدَّ يبلغُ «بدأت الآن» والبابُ مغلقٌ حتّى يُعيدَ التحميل. والمتصفّحُ
+   * يُنقِصُ رقماً وصلَه ولا يشتقُّه من `starts_at` ناقصَ ثابت: النافذةُ صفٌّ في
+   * إعداداتِ المنصّةِ، وساعةُ الجهازِ قد تكونُ خطأً بساعة (SC-016).
+   */
+  seconds_until_join_open: number | null;
+  /** العدُّ إلى البداية، من الخادمِ للسببِ نفسِه. */
+  seconds_until_start: number;
   starts_at: string;
   ends_at: string;
   duration_minutes: number;
@@ -66,6 +78,13 @@ export interface ClassSession {
     may_cancel_until: string;
   } | null;
   course?: { uuid: string; title: string };
+  /**
+   * اسمُ المدرّس — **حاضرٌ فقط حين حمَّله المُنادي** (`whenLoaded`).
+   *
+   * غيابُ المفتاحِ يعني «لم يُطلَب» لا «لا مدرّسَ لها»: قراءتُه في المَورِدِ بلا
+   * تحميلٍ مسبَقٍ استعلامانِ لكلِّ صفٍّ في كلِّ تقويمٍ في المنتَج.
+   */
+  teacher_name?: string | null;
   recording: { status: string; lesson_uuid: string | null } | null;
 }
 
@@ -91,6 +110,48 @@ export interface SessionBooking {
   booked_at: string;
   cancelled_at: string | null;
   session?: ClassSession;
+}
+
+/**
+ * حجزُ الابنِ كما يراهُ وليُّ الأمرِ — `ChildSessionResource` حقلاً بحقل.
+ *
+ * ⚠️ نوعٌ ثالثٌ ولا إعادةُ استعمالٍ لـ`SessionBooking`، وهذا هو الحارسُ الوحيدُ
+ * في الواجهةِ على ضِيقِ المَورِد. المَورِدُ العامُّ يحسبُ `join_open` و
+ * `my_booking` و`seats` و`recording` **عن القارئ** — فتقولُ لوليِّ الأمرِ «لا
+ * حجز» عن حصّةٍ ابنُه محجوزٌ فيها، وتدعوه إلى غرفةٍ لا يدخلُها. ونوعٌ يدّعي
+ * حقلاً لا يرسلُه الخادمُ يُصيِّرُ فراغاً بلا خطأٍ في أيِّ مكان.
+ *
+ * ⚠️ والمفتاحُ `class_session` لا `session`.
+ */
+export interface ChildSessionBooking {
+  uuid: string;
+  class_session: {
+    uuid: string;
+    title: string;
+    starts_at: string;
+    ends_at: string;
+    status: ClassSessionStatus;
+    status_label: string;
+    /** البثُّ انتهى وإن لم تلحقْ به الحالة — يتقدّمُ على الحالةِ في الشارة. */
+    room_closed: boolean;
+    course: { uuid: string; title: string } | null;
+    teacher_name: string | null;
+  } | null;
+}
+
+/** ملخّصُ حضورِ الابنِ — الفئاتُ الأربعُ ومجموعُها والنسبةُ المشتقّةُ منها. */
+export interface ChildAttendanceSummary {
+  window_days: number;
+  present: number;
+  late: number;
+  absent: number;
+  excused: number;
+  total: number;
+  /**
+   * ⚠️ `null` لا `0` حينَ لا حصصَ في النافذة. «لم تُسجَّلْ حصصٌ بعد» و«غابَ عن
+   * كلِّ حصّة» جملتانِ متعاكستان، والصفرُ يطبعُ الثانيةَ عن ابنٍ لم يبدأ.
+   */
+  rate_pct: number | null;
 }
 
 export interface JoinTicket {
@@ -438,4 +499,31 @@ export const classSessions = {
    */
   next: () =>
     api.get<{ data: SessionBooking | null; seconds_until_start?: number }>("/schedule/next"),
+
+  /**
+   * جدولُ ابنٍ بعينِه لوليِّ أمرٍ مأذون (٠٢٩ · `FR-019`).
+   *
+   * ⚠️ `?student=` **إلزاميّةٌ ومسارٌ منفصل**، لا معاملٌ اختياريٌّ على
+   * `schedule()` فوقَها. الغيابُ هناكَ هو التصريحُ نفسُه: لا معاملَ يُطلَبُ به
+   * جدولُ غيرِك، ومعاملٌ اختياريٌّ يجعلُ أكثرَ الطلباتِ شيوعاً في المنتَجِ مساراً
+   * يمرُّ بجوارِ فحصِ إذنٍ في كلِّ نداء. والرفضُ `403` لا `404`، فلا يقولُ الردُّ
+   * إن كان هذا المعرَّفُ يسمّي شخصاً حقيقيّاً.
+   */
+  childSchedule: (studentUuid: string) =>
+    api.get<{ data: ChildSessionBooking[] }>(
+      `/schedule/children?student=${encodeURIComponent(studentUuid)}`,
+    ),
+
+  /**
+   * حضورُ ابنٍ في نافذةٍ من الأيّام (٠٢٩ · `FR-019`).
+   *
+   * يعبُرُ مساحاتِ العملِ عمداً: للابنِ الذي يدرسُ عندَ ثلاثةِ مدرّسينَ سجلُّ
+   * حضورٍ **واحد**، وجوابٌ لكلِّ مساحةٍ على حِدَةٍ ليس الحقيقةَ التي سُئِل عنها.
+   */
+  childAttendance: (studentUuid: string, days?: number) =>
+    api.get<{ data: ChildAttendanceSummary }>(
+      `/attendance/children/summary?student=${encodeURIComponent(studentUuid)}${
+        days === undefined ? "" : `&days=${days}`
+      }`,
+    ),
 };

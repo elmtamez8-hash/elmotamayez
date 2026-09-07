@@ -7,13 +7,18 @@ namespace App\Modules\LiveSessions\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\LiveSessions\Actions\OverrideAttendance;
 use App\Modules\LiveSessions\Actions\SubmitSessionFeedback;
+use App\Modules\LiveSessions\Actions\SummariseChildAttendance;
 use App\Modules\LiveSessions\Enums\AttendanceStatus;
 use App\Modules\LiveSessions\Http\Requests\SubmitFeedbackRequest;
 use App\Modules\LiveSessions\Http\Resources\AttendanceResource;
+use App\Modules\LiveSessions\Http\Resources\ChildAttendanceSummaryResource;
 use App\Modules\LiveSessions\Http\Resources\ClassSessionFeedbackResource;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Support\GuardianChild;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\GuardianDirectory;
+use App\Shared\Support\GuardianPermission;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -54,6 +59,45 @@ class AttendanceController extends Controller
             ->get();
 
         return response()->json(['data' => AttendanceResource::collection($attendances)]);
+    }
+
+    /**
+     * How a child is attending, for the guardian who is entitled to ask (029 ·
+     * US3 · FR-020).
+     *
+     * ⚠️ A SUMMARY IS NOT THE REGISTER, AND THAT IS THE WHOLE REASON IT IS A
+     * SEPARATE ROUTE. {@see self::index()} answers per session and per person —
+     * names, stay durations, and the reason a teacher changed a mark — and it is
+     * gated on `ATTENDANCE_VIEW`, which no guardian holds. What a parent asked
+     * for is four numbers about their own child, and the guard for that is the
+     * relation plus the `attendance` permission, never a workspace permission
+     * borrowed because it was the nearest one that existed.
+     *
+     * `days` is optional and bounded: an unbounded window is one request that
+     * walks a whole school life, and the Action clamps rather than refusing
+     * because a client sending 5000 wants «all of it», not an error.
+     */
+    public function childSummary(
+        Request $request,
+        SummariseChildAttendance $action,
+        GuardianDirectory $guardians,
+    ): JsonResponse {
+        $child = GuardianChild::named(
+            $request,
+            $this->currentUser($request),
+            $guardians,
+            GuardianPermission::Attendance,
+        );
+
+        $validated = $request->validate([
+            'days' => ['sometimes', 'integer', 'min:1', 'max:'.SummariseChildAttendance::MAX_DAYS],
+        ]);
+
+        return response()->json([
+            'data' => ChildAttendanceSummaryResource::make(
+                $action->handle($child, (int) ($validated['days'] ?? 30)),
+            ),
+        ]);
     }
 
     /**
