@@ -16,7 +16,6 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
 use App\Modules\Learning\Models\Enrollment;
 use App\Shared\Support\WorkspaceContext;
-use DomainException;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;

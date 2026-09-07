@@ -10,7 +10,6 @@ use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Providers\BunnyMediaProvider;
 use App\Modules\Media\Support\MediaLimits;
 use App\Modules\Tenancy\Support\PlatformSettings;
-use DomainException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\Support\BunnyFixtures;

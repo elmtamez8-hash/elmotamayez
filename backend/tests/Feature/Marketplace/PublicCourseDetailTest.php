@@ -28,7 +28,7 @@ use Illuminate\Support\Str;
 | leaked everything. Precedent: `AssessmentExposureTest::bodyText()`.
 */
 
-const DRAFT_SENTINEL = 'DRAFT-ONLY-LESSON-SENTINEL';
+const MARKETPLACE_DRAFT_SENTINEL = 'DRAFT-ONLY-LESSON-SENTINEL';
 
 /**
  * A published course with a three-level tree, one draft lesson, and one lesson
@@ -96,7 +96,7 @@ function publicCourseFixture(bool $participates = true, string $approval = Teach
         Lesson::create([
             'workspace_id' => $workspace->getKey(), 'course_id' => $course->getKey(),
             'section_id' => $section->getKey(), 'chapter_id' => $chapter->getKey(),
-            'uuid' => Str::uuid(), 'title' => DRAFT_SENTINEL, 'type' => 'article',
+            'uuid' => Str::uuid(), 'title' => MARKETPLACE_DRAFT_SENTINEL, 'type' => 'article',
             'status' => ContentStatus::Draft, 'order' => 2,
         ]);
 
@@ -105,7 +105,7 @@ function publicCourseFixture(bool $participates = true, string $approval = Teach
         Lesson::create([
             'workspace_id' => $workspace->getKey(), 'course_id' => $course->getKey(),
             'section_id' => $section->getKey(), 'chapter_id' => $hiddenChapter->getKey(),
-            'uuid' => Str::uuid(), 'title' => DRAFT_SENTINEL.'-CHAPTER', 'type' => 'article',
+            'uuid' => Str::uuid(), 'title' => MARKETPLACE_DRAFT_SENTINEL.'-CHAPTER', 'type' => 'article',
             'status' => ContentStatus::Published, 'order' => 1,
         ]);
 
@@ -153,7 +153,7 @@ it('publishes the tree three levels deep and counts only what a visitor gets', f
 
     // The ASCII sentinel: an Arabic needle would be `\u`-escaped in the raw body
     // and absent whatever the payload holds.
-    expect($response->getContent())->not->toContain(DRAFT_SENTINEL);
+    expect($response->getContent())->not->toContain(MARKETPLACE_DRAFT_SENTINEL);
 });
 
 it('publishes no lesson identifier and no media path', function (): void {

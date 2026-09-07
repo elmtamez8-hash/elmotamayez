@@ -9,7 +9,6 @@ use App\Modules\Compliance\Policies\DataRequestPolicy;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use Database\Seeders\RolesAndPermissionsSeeder;
-use DomainException;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Sanctum\Sanctum;
 

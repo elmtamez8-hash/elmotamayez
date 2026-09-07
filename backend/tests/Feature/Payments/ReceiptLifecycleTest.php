@@ -12,7 +12,6 @@ use App\Modules\Payments\Events\ReceiptRejected;
 use App\Modules\Payments\Events\ReceiptUploaded;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Support\Roles;
-use DomainException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;

@@ -8,7 +8,6 @@ use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Models\ActivityEntry;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
 
 /*

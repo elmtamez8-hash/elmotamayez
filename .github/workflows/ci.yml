@@ -95,7 +95,17 @@ jobs:
 
       - name: Tests (pest)
         working-directory: backend
-        run: php vendor/bin/pest
+        # ⚠️ `--parallel` لا يُنشئُ قاعدةَ بياناتٍ واحدةً، وهذا مكتوبٌ في الإطارِ لا
+        # مُستنتَج: كلُّ نداءٍ يُنشئُ أو يُبدّلُ أو يحذفُ قاعدةً في
+        # `Illuminate\Testing\Concerns\TestDatabases` ملفوفٌ في
+        # `whenNotUsingInMemoryDatabase()`، وهي تعودُ صامتةً حينَ يكونُ
+        # `DB::getConfig('database') === ':memory:'` — وهو ما يضبطُه `phpunit.xml`
+        # منذ ٠٠١. فكلُّ عمليّةٍ تأخذُ قاعدتَها في ذاكرتِها وتموتُ معَها: لا ملفَّ
+        # على القرص، ولا `test_db_1`، ولا اقترابَ من قاعدةِ أحد.
+        #
+        # ⚠️ ويحتاجُ `brianium/paratest` في require-dev — ولذلك لا يجوزُ `--no-dev`
+        # في خطوةِ التركيبِ أعلاه، كما يقولُ تعليقُها.
+        run: php vendor/bin/pest --parallel
 
   frontend:
     name: Frontend — tsc · vitest

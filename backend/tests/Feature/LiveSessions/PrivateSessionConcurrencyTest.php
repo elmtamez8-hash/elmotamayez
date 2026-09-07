@@ -8,7 +8,6 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\PrivateSessionRequest;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\LiveSessions\Support\PendingPrivateRequest;
-use DomainException;
 use Laravel\Sanctum\Sanctum;
 
 /*

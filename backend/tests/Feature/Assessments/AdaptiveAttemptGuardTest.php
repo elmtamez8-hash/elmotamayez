@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Modules\Assessments\Actions\GradeAttempt;
 use App\Modules\Assessments\Models\AdaptiveSession;
 use App\Modules\Assessments\Models\Attempt;
-use DomainException;
 use Laravel\Sanctum\Sanctum;
 
 /*

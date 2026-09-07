@@ -22,7 +22,6 @@ use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\GuardianPermission;
-use DomainException;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Tests\Support\FakeBroadcastProvider;

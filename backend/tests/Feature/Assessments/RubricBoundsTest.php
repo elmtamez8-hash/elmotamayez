@@ -6,7 +6,6 @@ use App\Modules\Assessments\Actions\GradeEssayAnswer;
 use App\Modules\Assessments\Actions\SaveRubric;
 use App\Modules\Assessments\Models\Answer;
 use App\Modules\Assessments\Models\RubricCriterion;
-use DomainException;
 use Laravel\Sanctum\Sanctum;
 
 /*
