@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { allowedNav, mainNav, quickAccessFor } from "./panel-nav";
+import { adminNav, allowedNav, mainNav, quickAccessFor } from "./panel-nav";
 import { P } from "./permissions";
 import type { User } from "./types";
 
@@ -85,5 +85,66 @@ describe("quickAccessFor", () => {
 
   it("answers nothing for a guest, who has no account to shortcut into", () => {
     expect(quickAccessFor(null)).toEqual([]);
+  });
+});
+
+/*
+| ٢٠٢٦-٠٩-٠٧ — بلاغٌ من حسابِ وليِّ أمرٍ حقيقيّ: «في صفحات ظاهرة المفروض ما
+| تظهرلوش».
+|
+| ⚠️ **واتّجاهُ المنعِ هو الفارِق.** `isLearner()` تُجيبُ بنعم عن وليِّ الأمر، فكانت
+| خمسَ عشْرةَ شاشةً من شاشاتِ الطالبِ في شريطِه الجانبيّ — وكلُّ توكيدةٍ تسألُ
+| «هل يرى كذا؟» كانت تمرُّ خضراءَ فوقَ ذلك بالضبط. الحالاتُ هنا تسألُ ما لا يجبُ
+| أن يراه.
+*/
+describe("allowedNav · جمهورُ الشاشة", () => {
+  const hrefs = (u: User) => allowedNav([...mainNav, ...adminNav], u).map((i) => i.href);
+
+  it("keeps the student's own screens out of a guardian's sidebar", () => {
+    const seen = hrefs(person({ platform_role: "parent" }));
+
+    for (const href of [
+      "/enrollments",
+      "/certificates",
+      "/billing",
+      "/mistakes",
+      "/practice",
+      "/assignments",
+      "/exams",
+      "/orders",
+      "/schedule",
+      "/shop",
+      "/plans",
+    ]) {
+      expect(seen).not.toContain(href);
+    }
+  });
+
+  it("keeps the two screens a guardian really reads, and the one that is theirs", () => {
+    // ⚠️ النصفُ الثاني: منعٌ يبتلعُ الشاشتَينِ اللتَينِ فيهما منتقي ابنٍ مكتوبٌ
+    // فعلاً هو إصلاحٌ يكسِرُ نصفَ ما جاءَ يحرسُه.
+    const seen = hrefs(person({ platform_role: "parent" }));
+
+    expect(seen).toContain("/report-cards");
+    expect(seen).toContain("/reviews");
+    expect(seen).toContain("/family");
+    expect(seen).toContain("/messages");
+  });
+
+  it("leaves the student everything that is theirs", () => {
+    const seen = hrefs(person());
+
+    expect(seen).toContain("/enrollments");
+    expect(seen).toContain("/certificates");
+    expect(seen).toContain("/report-cards");
+    expect(seen).toContain("/schedule");
+  });
+
+  it("shows neither side's learning screens to a teacher", () => {
+    const seen = hrefs(person({ platform_role: "teacher", permissions: [P.sessionsManage] } as Partial<User>));
+
+    expect(seen).not.toContain("/enrollments");
+    expect(seen).not.toContain("/report-cards");
+    expect(seen).toContain("/manage/sessions");
   });
 });

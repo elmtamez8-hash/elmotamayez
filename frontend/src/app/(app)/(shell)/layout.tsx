@@ -1,6 +1,6 @@
 "use client";
 
-import { isLearner, useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode, type ComponentType } from "react";
 import Link from "next/link";
@@ -153,17 +153,17 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
   /*
    * ⚠️ TWO GATES, AND THEY ANSWER DIFFERENT QUESTIONS IN DIFFERENT DIRECTIONS.
    * `can()` asks «may you», which hides the teacher's tools from the student.
-   * `learns` asks «is this yours», which hides the student's screens from the
+   * `audience` asks «is this yours», which hides the student's screens from the
    * teacher — and there is no permission that could have done it, because the
-   * student holds none to check.
+   * student holds none to check. It names the three audiences rather than
+   * carrying a boolean: a guardian is not a student, and the boolean it used to
+   * be handed them fifteen screens that read the caller's own empty rows.
    *
    * ⚠️ IT IS A FILTER ON WHAT IS OFFERED, NEVER A GUARD. The routes stay open,
    * exactly as this file's own rule has always had it: the server decides. A
    * teacher who types `/shop` still gets the page, and it is empty — which is
    * the honest answer, not a refusal.
    */
-  const learns = isLearner(user);
-
   // الحارسُ نفسُه الذي تقرؤُه ترويسةُ الموقعِ العامّة — انظر `lib/panel-nav`.
   const allowed = (items: NavItem[]) => allowedNav(items, user);
 
@@ -185,6 +185,18 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
 
       return [{ ...item, label: places.length === 1 ? places[0].name : item.label }];
     });
+
+  /*
+   * ⚠️ **`placeLabelled` كانت على `mainNav` وحدَها، و«أماكن عملي» في `adminNav`.**
+   * فالشرطُ الذي يُسقِطُ البندَ عند `places.length === 0` لم يكن يمرُّ عليه أصلاً:
+   * وليُّ الأمرِ والطالبُ — وكلاهما عضوٌ في لا مكانَ عمل — كانا يريانِ عنوانَ
+   * «الإدارة» وتحتَه بندٌ واحدٌ يفتحُ قائمةً فارغة. والنصفُ الآخرُ من العطلِ أنّ
+   * تسميةَ المكانِ الواحدِ باسمِه (٠٢٥ · `FR-014`) لم تكن تُطبَّقُ قطّ.
+   *
+   * ⚠️ والحسابُ مرّةً واحدةً لا مرّتَين: العنوانُ يُشترَطُ بالقائمةِ **بعدَ**
+   * الترشيح، وإلّا وقفَ «الإدارة» فوقَ صندوقٍ فارغ.
+   */
+  const adminItems = placeLabelled(allowed(adminNav));
 
   const refused = refusedBy(allNav, pathname, user);
 
@@ -322,7 +334,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
           {/* ⚠️ The heading is hidden with its list, not left standing over an
               empty box. A section title with nothing under it reads as content
               that failed to load. */}
-          {allowed(adminNav).length > 0 && (
+          {adminItems.length > 0 && (
             <div className="mb-1 mt-4 border-t border-line pt-4">
               {/* ⚠️ Hidden on the rail rather than truncated. «الإدارة» clipped to
                   two letters over a column of icons is noise where the border
@@ -330,7 +342,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
               <p className={`mb-2 px-3 text-xs font-semibold tracking-wide text-ink-muted ${collapsed ? "md:sr-only" : ""}`}>
                 الإدارة
               </p>
-              {allowed(adminNav).map(renderItem)}
+              {adminItems.map(renderItem)}
             </div>
           )}
           {/* ⚠️ Per item, no longer on `is_super_admin`. That flag had the bug
