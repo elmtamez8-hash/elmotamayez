@@ -10,6 +10,7 @@ import {
   LogoutIcon,
   SettingsIcon,
   SiteIcon,
+  UserIcon,
   type IconProps,
 } from "@/components/icons";
 
@@ -104,6 +105,30 @@ export function AccountMenu({
              الزرِّ التي تليها في اتّجاهِ القراءة. */
           className="absolute end-0 top-full z-20 mt-2 w-60 rounded-xl border border-line bg-surface-raised p-1.5 shadow-lg"
         >
+          {/*
+            ⚠️ **أوّلَ بندٍ في القائمة، وبالاسمِ لا بكلمةِ «ملفّي»** (طلبُ
+            ٢٠٢٦-٠٩-٠٧). البندُ كانَ يقولُ «ملفّي» تحتَ «وصول سريع» و«لوحتي»،
+            فيقرؤُه صاحبُه رابطاً كسائرِ الروابط؛ وهو في الحقيقةِ **ترويسةُ
+            القائمة**: مَن أنت، وأينَ تُغيِّرُ بياناتِك. فالاسمُ الكاملُ هنا يقولُ
+            «هذا حسابُك» في موضعٍ يُقرَأُ أوّلاً.
+
+            ⚠️ و`UserIcon` لا `Avatar`: الصورةُ في الزرِّ فوقَه مباشرةً، وتكرارُها
+            على بُعدِ بضعةِ بكسلاتٍ يقولُ الشيءَ مرّتَين. والرمزُ يبقى ثابتاً
+            لحسابٍ بلا صورة، حيثُ كانَ `Avatar` يرسمُ حرفاً أوّلَ يُقرَأُ نصّاً
+            ثانياً بجوارِ الاسم.
+          */}
+          <Link
+            href="/settings/profile"
+            role="menuitem"
+            className={item}
+            onClick={() => setOpen(false)}
+          >
+            <UserIcon />
+            <span className="truncate font-medium">{name}</span>
+          </Link>
+
+          <div className="my-1.5 border-t border-line" />
+
           {quickLinks.length > 0 && (
             <>
               <p className="px-3 pb-1 pt-2 text-xs font-semibold tracking-wide text-ink-muted">
@@ -126,10 +151,6 @@ export function AccountMenu({
             </Link>
           )}
 
-          <Link href="/settings/profile" role="menuitem" className={item} onClick={() => setOpen(false)}>
-            <Avatar url={photoUrl} name={name} size="sm" />
-            ملفّي
-          </Link>
           <Link href="/settings" role="menuitem" className={item} onClick={() => setOpen(false)}>
             <SettingsIcon />
             الإعدادات

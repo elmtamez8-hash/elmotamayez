@@ -99,6 +99,25 @@ describe("AccountMenu", () => {
     expect(screen.queryByText("لوحتي")).toBeNull();
   });
 
+  it("opens with the account itself, named, and never with the word «ملفّي»", () => {
+    /*
+    | طلبُ ٢٠٢٦-٠٩-٠٧: «بدلاً من كلمة ملفي … أيقونة يوزر وبجوارها الاسم وخليها
+    | أوّل واحدة».
+    |
+    | ⚠️ والترتيبُ توكيدةٌ قائمةٌ بذاتِها: «الاسمُ موجودٌ في القائمة» يمرُّ خضراءَ
+    | وهو في آخرِها تحتَ «الصفحة الرئيسية».
+    */
+    const { toggle } = open();
+
+    fireEvent.click(toggle);
+
+    const items = screen.getAllByRole("menuitem");
+
+    expect(items[0].textContent).toContain("خالد المنصوري");
+    expect(items[0].getAttribute("href")).toBe("/settings/profile");
+    expect(screen.queryByText("ملفّي")).toBeNull();
+  });
+
   it("signs out through the caller, which owns the redirect", () => {
     const { onLogout, toggle } = open();
 

@@ -250,15 +250,23 @@ describe("a student's own data", () => {
 });
 
 describe("an account with neither profile", () => {
-  it("says so instead of offering a form that would be refused", async () => {
+  it("still owns its photo, and is told only what it lacks", async () => {
+    /*
+    | ⚠️ **هذه الحالةُ كانت تُرسِّخُ العطب**: كانت تؤكِّدُ أنّ بطاقةَ الصورةِ
+    | **غائبة**، فوليُّ الأمرِ يفتحُ «ملفّي» — وهو أوّلُ بندٍ في قائمةِ حسابِه —
+    | فلا يجدُ شيئاً يفعلُه (بلاغُ ٢٠٢٦-٠٩-٠٨). و`‎/me/photo` بابٌ على مستوى
+    | الحسابِ بلا صلاحيّةٍ: الخادمُ كانَ يقبلُ منه، والشاشةُ وحدَها تمنعُه.
+    */
     teacher.mockRejectedValue(Object.assign(new Error("forbidden"), { status: 403 }));
 
     render(<ProfileSettingsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("لا بيانات إضافية لهذا الحساب")).toBeDefined();
+      expect(screen.getByText("لا ملفّ عامّ لهذا الحساب")).toBeDefined();
     });
 
-    expect(screen.queryByText("صورة الحساب")).toBeNull();
+    expect(screen.getByText("صورة الحساب")).toBeDefined();
+    // ولا نموذجَ ملفٍّ عامّ: البابُ الذي يُرفَضُ فعلاً يبقى مُغلَقاً.
+    expect(screen.queryByText("ملفك العام")).toBeNull();
   });
 });
