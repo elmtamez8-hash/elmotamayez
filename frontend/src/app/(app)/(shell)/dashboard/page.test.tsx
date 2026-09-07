@@ -470,9 +470,9 @@ describe("DashboardPage · وليّ الأمر", () => {
 
     expect(await screen.findByText("حصص كريم القادمة")).toBeDefined();
 
-    // ⚠️ غائبةٌ لا فارغة: «حضور كريم» فوقَ فراغٍ جملةٌ عن ابنٍ لا يحضر، وسببُها
+    // ⚠️ غائبةٌ لا فارغة: «توزيع حضور كريم» فوقَ فراغٍ جملةٌ عن ابنٍ لا يحضر، وسببُها
     // إذنٌ لم يُمنَحْ لا حصّةٌ لم تُحضَر.
-    expect(screen.queryByText("حضور كريم")).toBeNull();
+    expect(screen.queryByText("توزيع حضور كريم")).toBeNull();
     expect(screen.queryByText("رصيد حصص كريم")).toBeNull();
     expect(screen.getAllByText(/غير ممنوح لك/).length).toBe(3);
 

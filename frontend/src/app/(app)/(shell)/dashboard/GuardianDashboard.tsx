@@ -9,7 +9,6 @@ import { family, GUARDIAN_PERMISSIONS, type GuardianRelation } from "@/lib/notif
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { AttendanceChartCard } from "./cards/AttendanceChartCard";
-import { ChildAttendanceCard } from "./cards/ChildAttendanceCard";
 import { ChildBalanceCard } from "./cards/ChildBalanceCard";
 import { ChildReportCardCard } from "./cards/ChildReportCardCard";
 import { ChildScheduleCard } from "./cards/ChildScheduleCard";
@@ -140,12 +139,7 @@ function ChildCards({ child }: { child: GuardianRelation }) {
       | بلا خطأ.
       */
       key: "attendance",
-      card: (
-        <div>
-          <ChildAttendanceCard studentUuid={studentUuid} studentName={studentName} />
-          <AttendanceChartCard studentUuid={studentUuid} studentName={studentName} />
-        </div>
-      ),
+      card: <AttendanceChartCard studentUuid={studentUuid} studentName={studentName} />,
     },
     { key: "payments", card: <ChildBalanceCard studentUuid={studentUuid} studentName={studentName} /> },
     { key: "results", card: <ChildReportCardCard studentUuid={studentUuid} studentName={studentName} /> },

@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import type { ChildAttendanceSummary } from "@/lib/class-sessions";
+import { classSessions, type ChildAttendanceSummary } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
 import { arabicNumber } from "@/lib/numerals";
-import { readChildAttendance } from "./ChildAttendanceCard";
 import type { ChildCardProps } from "./ChildCardProps";
 import { ItemAnalysisIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
+import { sharedRead } from "./shared-read";
 
 /**
  * الفئاتُ الأربعُ ورموزُها.
@@ -35,8 +35,16 @@ const STATES: Array<{ key: keyof ChildAttendanceSummary; label: string; swatch: 
  * الشاشة، ولونٌ وحدَه لا يقولُ شيئاً لمن لا يُفرِّقُ الأخضرَ من الأحمر — وهي
  * القاعدةُ نفسُها التي كتبَها `ProgressBar` في هذا المستودعِ من قبل.
  *
- * ⚠️ **ومن الأرقامِ التي جلبَتها `ChildAttendanceCard`، بطلبٍ واحد** (`FR-018`).
+ * ⚠️ **ومن الأرقامِ نفسِها التي يقرؤُها جدولُ المقارنة، بطلبٍ واحد** (`FR-018`).
  */
+/**
+ * قراءةٌ واحدةٌ في الطيرانِ لملخّصِ حضورِ ابنٍ — تقرؤُها هذه البطاقةُ وجدولُ
+ * المقارنةِ معاً، فيقتسمانِ الردَّ حينَ يُصيَّرانِ في تمريرةٍ واحدة.
+ */
+export function readChildAttendance(studentUuid: string) {
+  return sharedRead(`attendance:${studentUuid}`, () => classSessions.childAttendance(studentUuid));
+}
+
 export function AttendanceChartCard({ studentUuid, studentName }: ChildCardProps) {
   const [summary, setSummary] = useState<ChildAttendanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,6 +80,20 @@ export function AttendanceChartCard({ studentUuid, studentName }: ChildCardProps
     >
       {summary === null ? null : (
         <div className="space-y-4">
+          {/*
+            ⚠️ **هذا السطرُ هو كلُّ ما كانت تُضيفُه «حضور فلان»، وقد حُذِفَت.**
+            كانت بطاقتانِ تقرآنِ الردَّ نفسَه وترسمانِ الأعدادَ الأربعةَ نفسَها
+            بالتسمياتِ نفسِها في `dl` واحدةِ الشكل، وجملةُ الفراغِ فيهما حرفٌ
+            بحرف — قسمانِ يقولانِ الشيءَ ذاتَه مرّتَينِ في شاشةٍ واحدة (بلاغُ
+            ٢٠٢٦-٠٩-٠٧). فبقيَ الشريطُ، وانتقلَ إليه ما كانَ فريداً.
+          */}
+          <p className="text-sm text-ink">
+            نسبة الحضور في آخر <bdi>{arabicNumber(summary.window_days)}</bdi> يوماً:{" "}
+            <span className="font-semibold">
+              {summary.rate_pct === null ? "—" : <bdi>{`${arabicNumber(summary.rate_pct)}٪`}</bdi>}
+            </span>
+          </p>
+
           <div className="flex h-4 overflow-hidden rounded-full bg-line" aria-hidden="true">
             {STATES.map((state) => (
               <div

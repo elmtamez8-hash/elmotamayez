@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Table, type Column } from "@/components/ui/Table";
 import { arabicNumber } from "@/lib/numerals";
 import type { GuardianRelation } from "@/lib/notifications";
-import { readChildAttendance } from "./ChildAttendanceCard";
+import { readChildAttendance } from "./AttendanceChartCard";
 import { readChildBalances } from "./ChildBalanceCard";
 import { readChildReportCards } from "./ChildReportCardCard";
 import { readChildSchedule } from "./ChildScheduleCard";
