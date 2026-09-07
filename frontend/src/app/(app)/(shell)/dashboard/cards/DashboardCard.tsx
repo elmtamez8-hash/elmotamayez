@@ -65,10 +65,15 @@ export function DashboardCard({
      | تأخذُ ارتفاعَها الطبيعيَّ وتُحزَمُ التاليةُ تحتَها مباشرةً — وهذه الخاصّيّةُ
      | هي ما يمنعُ انقسامَ بطاقةٍ بينَ عمودَين.
      |
+     | ⚠️ **والهامشُ هنا لا على الحاوية.** أعمدةُ CSS لا تعرفُ `gap` رأسيّاً —
+     | `gap` فيها تباعدُ الأعمدةِ وحدَه — فالفاصلُ بينَ بطاقةٍ والتي تحتَها هامشُها
+     | هي. وكانَ متغيّراً على الحاويةِ (`[&>*]:mb-6`) فحُذِف: لا نظيرَ لتلك الصيغةِ
+     | في هذا المستودعِ كلِّه، و`mb-6` أداةٌ عاديّةٌ مستعملةٌ في مئاتِ المواضع.
+     |
      | و`banner-rise` هو الحركةُ القائمةُ في `globals.css` — لا حركةَ جديدةٌ —
      | وكتلةُ `prefers-reduced-motion` هناك تُصفِّرُها لمن طلبَ ذلك.
      */
-    <section className="banner-rise break-inside-avoid rounded-xl border border-line bg-surface-raised p-6">
+    <section className="banner-rise mb-6 break-inside-avoid rounded-xl border border-line bg-surface-raised p-6">
       <div className="mb-4 flex items-center justify-between gap-4">
         <h3 className="flex min-w-0 items-center gap-2 font-semibold text-ink">
           {Icon !== undefined && (

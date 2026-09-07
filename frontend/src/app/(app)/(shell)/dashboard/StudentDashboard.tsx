@@ -26,8 +26,8 @@ export function StudentDashboard() {
   const { user } = useAuth();
 
   return (
-    <div className="space-y-8">
-      <div>
+    <div>
+      <div className="mb-8">
         <h2 className="text-2xl font-bold text-ink">أهلاً بعودتك، {user?.first_name}</h2>
         <p className="text-ink-muted">هذه نظرة عامة على دراستك.</p>
       </div>
@@ -44,7 +44,7 @@ export function StudentDashboard() {
         الثلاثُ تُعيدُ `null` بلا صلاحيّة، وغلافٌ حولَ كلٍّ منها كان سيتركُ
         `div` فارغاً بهامشِه — أي الفراغَ نفسَه الذي جاءَ هذا التغييرُ يحذفُه.
       */}
-      <div className="columns-1 gap-6 lg:columns-2 [&>*]:mb-6 [&>*]:break-inside-avoid">
+      <div className="columns-1 gap-6 lg:columns-2">
         {/* الحصّةُ القادمةُ أوّلاً: «متى حصّتي؟» هو السؤالُ الذي تُفتَحُ به هذه
             الشاشةُ، والرصيدُ بعدَه لأنّه ما يمنعُ حجزَ التالية. */}
         <UpcomingSessionsCard />

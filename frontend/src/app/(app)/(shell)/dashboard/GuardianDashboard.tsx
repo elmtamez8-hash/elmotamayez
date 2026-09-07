@@ -67,8 +67,8 @@ export function GuardianDashboard() {
   if (error !== null) return <ErrorState title={error} onRetry={load} />;
 
   return (
-    <div className="space-y-8">
-      <div>
+    <div>
+      <div className="mb-8">
         <h2 className="text-2xl font-bold text-ink">أهلاً، {user?.first_name}</h2>
         <p className="text-ink-muted">هذه متابعة أبنائك — كلٌّ بحسب الإذن الممنوح لك.</p>
       </div>
@@ -84,7 +84,9 @@ export function GuardianDashboard() {
             واحد.
           */}
           <ChildrenComparisonCard options={children} />
-          <ChildSwitcher options={children} value={selected} onChange={setSelected} />
+          <div className="mb-6">
+            <ChildSwitcher options={children} value={selected} onChange={setSelected} />
+          </div>
           <ChildCards child={current as GuardianRelation} />
         </>
       )}
@@ -139,7 +141,7 @@ function ChildCards({ child }: { child: GuardianRelation }) {
       */
       key: "attendance",
       card: (
-        <div className="space-y-6">
+        <div>
           <ChildAttendanceCard studentUuid={studentUuid} studentName={studentName} />
           <AttendanceChartCard studentUuid={studentUuid} studentName={studentName} />
         </div>
@@ -150,12 +152,12 @@ function ChildCards({ child }: { child: GuardianRelation }) {
   ];
 
   return (
-    <div className="columns-1 gap-6 lg:columns-2 [&>*]:mb-6 [&>*]:break-inside-avoid">
+    <div className="columns-1 gap-6 lg:columns-2">
       {cards.map((entry) => (
         // ⚠️ المفتاحُ يحملُ معرَّفَ الابنِ كذلك: بدونِه يُعيدُ React استعمالَ
         // المكوِّنِ نفسِه عبرَ التبديل، وتبقى صفوفُ ابنٍ معروضةً تحتَ اسمِ آخرَ
         // حتّى ينتهيَ الجلبُ الجديد.
-        <div key={`${studentUuid}:${entry.key}`}>
+        <div key={`${studentUuid}:${entry.key}`} className="mb-6 break-inside-avoid">
           {granted.has(entry.key) ? (
             entry.card
           ) : (

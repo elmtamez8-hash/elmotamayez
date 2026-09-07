@@ -34,15 +34,15 @@ export function TeacherDashboard() {
   const { user } = useAuth();
 
   return (
-    <div className="space-y-8">
-      <div>
+    <div>
+      <div className="mb-8">
         <h2 className="text-2xl font-bold text-ink">أهلاً، {user?.first_name}</h2>
         <p className="text-ink-muted">هذه نظرة عامة على صفّك اليوم.</p>
       </div>
 
       {/* الأرقامُ الثلاثةُ أوّلاً: ما ينتظرُ قراراً منه، لا ما أنجزَه. وكلٌّ منها
           تُخفي نفسَها حينَ لا يملكُ القارئُ صلاحيّتَها. */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-3">
         <PendingGradingCard />
         <PrivateRequestsCard />
         <WithheldStudentsCard />
@@ -58,7 +58,7 @@ export function TeacherDashboard() {
         الثلاثُ تُعيدُ `null` بلا صلاحيّة، وغلافٌ حولَ كلٍّ منها كان سيتركُ
         `div` فارغاً بهامشِه — أي الفراغَ نفسَه الذي جاءَ هذا التغييرُ يحذفُه.
       */}
-      <div className="columns-1 gap-6 lg:columns-2 [&>*]:mb-6 [&>*]:break-inside-avoid">
+      <div className="columns-1 gap-6 lg:columns-2">
         <TeacherSessionsCard />
         {/* الرسمُ بجوارِ الجدولِ ومن ردِّه نفسِه: الجدولُ أقربُ خمسٍ والرسمُ شكلُ
             الأسبوعِ كلِّه — عيّنةٌ وإجماليٌّ من طلبٍ واحد. */}
