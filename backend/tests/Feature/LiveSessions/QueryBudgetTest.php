@@ -214,8 +214,31 @@ it('keeps the heartbeat ENDPOINT cheap, which is three times the Action', functi
     Sanctum::actingAs($student);
     $url = "/api/v1/class-sessions/{$session->uuid}/presence";
 
-    // Spatie loads its permission set once per process, so the FIRST request of
-    // any test pays a warm-up that has nothing to do with row count.
+    /*
+     | Spatie loads its permission set once per process, so the FIRST request of
+     | any test pays a warm-up that has nothing to do with row count.
+     |
+     | ⚠️ AND ONE WARM-UP WAS NOT ENOUGH — THAT WAS A FLAKE, NOT A THEORY. This
+     | assertion failed once with 16 in eight full parallel runs and passed on an
+     | identical re-run. Probing sixty consecutive pings named the cause instead
+     | of guessing at it: the steady state is FOURTEEN, and the request straight
+     | after a single warm-up costs fifteen or sixteen. The difference is
+     |
+     |     select * from "platform_settings" where "platform_settings"."key" = ?
+     |
+     | — an operational number, cached after its first read (this repository keeps
+     | those in rows, not in `config/`). One request does not touch every key this
+     | path reads, because creating the attendance row and updating it are
+     | different branches reading different settings; the second request does.
+     |
+     | ⚠️ THE CEILING WAS NOT RAISED TO 16, AND MUST NOT BE. The regression this
+     | budget exists to catch is worth TWO queries — the balances were fetched
+     | twice per beat, once by the withholding check and once by the prepaid
+     | fall-through — so a ceiling of 16 over a steady state of 14 admits it back
+     | with room to spare. Warming until steady makes the measurement honest;
+     | loosening the number would have made it quiet.
+     */
+    $this->postJson($url)->assertOk();
     $this->postJson($url)->assertOk();
 
     [$count] = countingQueries(fn () => $this->postJson($url)->assertOk());
