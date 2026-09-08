@@ -11,6 +11,7 @@ use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -171,9 +172,41 @@ class Order extends BaseModel implements HasMedia
         return $this->hasMany(PaymentTransaction::class);
     }
 
+    /**
+     * The two states an order sits in while nobody has decided it yet.
+     *
+     * ⚠️ ONE SPELLING, AND IT USED TO BE SIX. `['pending','under_review']` was
+     * written out by hand in `ApproveOrder`, `RejectOrder`, `PurchaseSubscription`,
+     * `GrantCreditSubscription` and here — and the sixth reader, the credit
+     * ceiling, wrote only `'pending'`. That single missing word meant UPLOADING A
+     * RECEIPT EMPTIED THE CEILING: the order moved to `under_review`, stopped
+     * being counted, and the same student could buy the cap again, and again, with
+     * approval minting from every one of them.
+     *
+     * The list is a method rather than a `const` because {@see scopeAwaitingDecision}
+     * has to be reachable from inside a `whereHas()` subquery, where an instance
+     * method like `isPending()` cannot go — which is why the ceiling could not
+     * simply "read `isPending()`".
+     *
+     * @return list<string>
+     */
+    public static function awaitingDecisionStatuses(): array
+    {
+        return ['pending', 'under_review'];
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeAwaitingDecision(Builder $query): Builder
+    {
+        return $query->whereIn('status', self::awaitingDecisionStatuses());
+    }
+
     public function isPending(): bool
     {
-        return in_array($this->status, ['pending', 'under_review'], true);
+        return in_array($this->status, self::awaitingDecisionStatuses(), true);
     }
 
     /**

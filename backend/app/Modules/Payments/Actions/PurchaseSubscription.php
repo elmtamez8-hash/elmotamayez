@@ -251,7 +251,7 @@ class PurchaseSubscription extends Action
             ->where('user_id', $student->getKey())
             ->where('workspace_id', $workspaceId)
             ->where('kind', OrderKind::Subscription)
-            ->whereIn('status', ['pending', 'under_review'])
+            ->awaitingDecision()
             ->exists();
 
         if ($exists) {

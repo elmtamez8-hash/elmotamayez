@@ -26,9 +26,33 @@ class StopSellingGuard
 {
     public function __construct(private readonly BillingSettings $settings) {}
 
-    /** Why this course sells nothing right now, or null when it does. */
+    /**
+     * Why this course sells nothing right now, or null when it does.
+     *
+     * ⛔ THE STATUS CONDITION WAS MISSING ENTIRELY, ON EVERY DOOR. Nothing on the
+     * credit path read `courses.status` — not this guard, not `isPartyTo`, not the
+     * pricing Action, not the controller — and the column defaults to `draft`. So
+     * a student who is a member of the workspace could price and buy a package on
+     * a course the teacher has never released, and on an archived one.
+     *
+     * It lands HERE rather than in each caller because this is the class that
+     * already owns "does this course sell right now", and both doors already read
+     * it: the pricing Action turns a refusal into an empty list, the purchase
+     * Action turns it into a sentence. One spelling, and the course picker reads
+     * the same one — which is what lets the picker be exactly equal to the door
+     * instead of narrower than it.
+     */
     public function refusalToSell(Course $course): ?string
     {
+        if (! $course->isPublished()) {
+            /*
+            | Deliberately the same sentence as an unreadable timestamp: whether a
+            | course is a draft is the teacher's business, and a buyer who is told
+            | «not published yet» learns the course exists and is being worked on.
+            */
+            return 'هذا الكورس غير متاح للشراء حالياً.';
+        }
+
         $since = $course->last_delivered_at ?? $course->created_at;
 
         if ($since === null) {

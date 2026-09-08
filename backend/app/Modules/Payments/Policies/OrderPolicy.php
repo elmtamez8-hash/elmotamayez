@@ -143,7 +143,18 @@ class OrderPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $order->user_id === $user->getKey()
+        /*
+        | ⛔ AND THE PROXY WHO CREATED IT. The docblock above was written before
+        | spec 024 gave orders a `granted_by`, and the omission shipped in 029 as a
+        | two-spellings defect with both halves already live: `OrderResource` sets
+        | `is_mine` true for the grantor, `/orders` draws «ادفع الآن» on `is_mine`,
+        | and this line refused them — the button offered and the door shut. A
+        | guardian who bought for their child could see the order and upload its
+        | receipt and not pay it.
+        |
+        | The same branch `view()` and `uploadReceipt()` have carried since 029.
+        */
+        return $order->user_id === $user->getKey() || $order->granted_by === $user->getKey()
             ? Response::allow()
             : Response::deny('You can only pay for your own orders.');
     }

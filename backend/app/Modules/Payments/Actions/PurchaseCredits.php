@@ -19,6 +19,7 @@ use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Payments\Support\DiscountResolver;
 use App\Modules\Payments\Support\StopSellingGuard;
 use App\Shared\Actions\Action;
+use App\Shared\Scopes\WorkspaceScope;
 use DomainException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
@@ -213,12 +214,48 @@ class PurchaseCredits extends Action
      * already in `remaining_credits` — counting either would refuse a purchase
      * over credits that do not and will not exist.
      */
+    /**
+     * Credits already bought on this balance that nobody has decided yet.
+     *
+     * ⛔ THIS COUNTED `'pending'` AND NOTHING ELSE, SO PAYING EMPTIED THE CEILING.
+     * `UploadPaymentReceipt` moves the order to `under_review`; the row then fell
+     * out of this sum, the cap read as free, and the same student could buy it
+     * again — and again — with `ApproveOrder` minting from every one of them. The
+     * loop is two ordinary steps, not an exploit: order, upload, repeat.
+     *
+     * `Order::isPending()` held the correct pair one file away the whole time, but
+     * it is an INSTANCE method and cannot appear inside a subquery — which is why
+     * the fix is a scope both of them read, rather than a sixth hand-written copy
+     * of `['pending','under_review']`.
+     *
+     * ⚠️ AND THE BYPASS IS REPEATED INSIDE THE SUBQUERY. `withoutWorkspaceScope()`
+     * on the line above applies to `CreditPurchase` and to nothing else — the
+     * bypass is per model, and `whereHas('order', …)` builds a fresh `Order` query
+     * that carries `Order`'s own `BelongsToWorkspace`. Inert for a student in
+     * production (a member of no workspace resolves a null context), and NOT inert
+     * for a platform officer or a guardian who owns a workspace: their context
+     * falls back to `users.last_workspace_id`, the subquery matches nothing, and
+     * the ceiling silently counts zero. That is live on the officer's grant screen
+     * today. Measuring it needs TWO workspaces and an actor who belongs to one.
+     */
     private function pendingCreditsOn(CreditBalance $balance): int
     {
         return (int) CreditPurchase::query()
             ->withoutWorkspaceScope()
             ->where('credit_balance_id', $balance->getKey())
-            ->whereHas('order', fn (Builder $query) => $query->where('status', 'pending'))
+            /*
+            | ⚠️ THE MACRO AND THE SCOPE ARE BOTH SPELLED OUT HERE, DELIBERATELY.
+            | Inside a `whereHas` closure the builder is `Builder<Model>`, so neither
+            | `withoutWorkspaceScope()` (a macro on the model's own builder) nor
+            | `awaitingDecision()` (a local scope) is visible to static analysis.
+            | `WorkspaceScope::extend()` defines the first as exactly this call, and
+            | the status list stays a single source of truth as a method on `Order` —
+            | which is the whole point: the four typed call sites read the scope, and
+            | this one reads the same list the scope is built from.
+            */
+            ->whereHas('order', fn (Builder $query) => $query
+                ->withoutGlobalScope(WorkspaceScope::class)
+                ->whereIn('status', Order::awaitingDecisionStatuses()))
             ->sum('credits');
     }
 }

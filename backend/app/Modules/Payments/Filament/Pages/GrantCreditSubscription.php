@@ -267,7 +267,7 @@ class GrantCreditSubscription extends Page implements HasTable
             | every one of them for ever is a queue nobody reads.
             */
             ->where(fn (Builder $query): Builder => $query
-                ->whereIn('status', ['pending', 'under_review'])
+                ->awaitingDecision()
                 ->orWhere(fn (Builder $approved): Builder => $approved
                     ->where('status', 'approved')
                     ->where('approved_at', '>=', now()->subDays(self::ACTIVATION_WATCH_DAYS))))

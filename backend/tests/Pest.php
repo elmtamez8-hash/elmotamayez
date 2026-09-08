@@ -252,6 +252,16 @@ function courseWithRate(int $workspaceId, ?int $amountMinor = 5000): Course
             'teacher_profile_id' => $profile->getKey(),
             'subject_id' => null,
             'grade_level' => null,
+            /*
+            | ⚠️ PUBLISHED, AND THE DEFAULT WAS `draft` — which is how every credit
+            | test in this suite came to buy packages on an unreleased course. The
+            | factory's default is right for a course under construction; this
+            | helper's whole purpose is «a course you can be sold sessions on», and
+            | spec 031 put the status condition into `StopSellingGuard` where both
+            | doors already read it. Not `->published()`: that state also flips
+            | `visibility` to public, which is a different claim.
+            */
+            'status' => 'published',
         ]);
     });
 }
