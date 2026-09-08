@@ -595,6 +595,14 @@ function teacherAnswer(path: string) {
     });
   }
   if (path.startsWith("/notifications")) return Promise.resolve({ data: [] });
+  /*
+  | ⚠️ بلا غلافِ `data`: `profileApi.teacher()` يقرأُ الملفَّ من جذرِ الردِّ لا من
+  | مفتاحٍ بداخلِه — وتركيبةٌ تُغلِّفُه تصفُ ردّاً لا يُرسِلُه هذا المسار، فتمرُّ
+  | البطاقةُ في الاختبارِ وترسمُ «—» في المتصفِّح.
+  */
+  if (path.startsWith("/teacher/profile")) {
+    return Promise.resolve({ faqs: [{ question: "س", answer: "ج" }] });
+  }
 
   return Promise.reject(new Error("403"));
 }
@@ -896,5 +904,55 @@ describe("DashboardPage · مقارنة الأبناء", () => {
 
     expect(await screen.findByText("حصص بدر القادمة")).toBeDefined();
     expect(screen.queryByText("حصص آدم القادمة")).toBeNull();
+  });
+});
+
+/*
+|------------------------------------------------------------------------------
+| بطاقةُ الأسئلةِ الشائعةِ على لوحةِ المدرّس (طلبُ ٢٠٢٦-٠٩-٠٨)
+|------------------------------------------------------------------------------
+|
+| ⚠️ حالتانِ لا واحدة، والثانيةُ هي التي تبيتُ. البطاقةُ تقرأُ `/teacher/profile`،
+| وهو **٤٠٣ لحسابٍ بلا ملفٍّ عامّ** — مساعدُ مدرّسٍ جمهورُه `teacher` وليست له
+| صفحة. فبطاقةٌ ترسمُ «تعذّر التحميل» عندَه لافتةُ عطلٍ على شاشةٍ تعملُ تماماً،
+| وتوكيدةُ الحالةِ السعيدةِ وحدَها خضراءُ فوقَ ذلك.
+*/
+describe("DashboardPage · بطاقة الأسئلة الشائعة", () => {
+  it("counts the teacher's own FAQs and points at the editor", async () => {
+    asTeacher(HOST);
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("الأسئلة الشائعة")).toBeDefined();
+
+    await waitFor(() => {
+      expect(calledPaths().some((p) => p.startsWith("/teacher/profile"))).toBe(true);
+    });
+
+    // ⚠️ الرابطُ يحملُ المرساةَ: المحرِّرُ قسمٌ داخلَ «ملفّي»، ورابطٌ إلى رأسِ
+    // الصفحةِ يتركُ المدرّسَ يبحثُ عن الحقلِ الذي أرسلَته البطاقةُ إليه.
+    const link = screen.getByRole("link", { name: "أضف أو عدّل" });
+
+    expect(link.getAttribute("href")).toBe("/settings/profile#faqs");
+  });
+
+  it("draws nothing at all for an account with no public listing", async () => {
+    asTeacher(HOST);
+    get.mockImplementation((path: string) =>
+      path.startsWith("/teacher/profile")
+        ? Promise.reject(new Error("403"))
+        : teacherAnswer(path),
+    );
+
+    render(<DashboardPage />);
+
+    // انتظرْ حتّى تُرسَمَ اللوحةُ، ثمّ اسألْ عمّا يجبُ ألّا يكونَ فيها.
+    expect(await screen.findByText("حصصي القادمة")).toBeDefined();
+
+    await waitFor(() => {
+      expect(calledPaths().some((p) => p.startsWith("/teacher/profile"))).toBe(true);
+    });
+
+    expect(screen.queryByText("الأسئلة الشائعة")).toBeNull();
   });
 });

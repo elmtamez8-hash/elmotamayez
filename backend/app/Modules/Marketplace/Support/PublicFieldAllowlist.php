@@ -90,6 +90,7 @@ final class PublicFieldAllowlist
         'reviews',
         'availability',
         'faqs',
+        'intro_video_url',
     ];
 
     /** @var list<string> */

@@ -18,7 +18,9 @@ import { api, fieldErrors } from "@/lib/api";
 import { crossesUtcMidnight, toLocalSlot, toUtcSlot } from "@/lib/availability";
 import { useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
-import { profileApi, type TeacherProfile } from "@/lib/profile";
+import { profileApi, type Faq, type TeacherProfile } from "@/lib/profile";
+import { QuestionIcon } from "@/components/icons";
+import { arabicNumber } from "@/lib/numerals";
 import { TEACHING_LANGUAGES } from "@/lib/teaching-languages";
 
 type Option = { slug: string; name_ar: string };
@@ -52,6 +54,8 @@ export default function ProfileSettingsPage() {
     grade_levels: [] as string[],
     teaching_languages: [] as string[],
     qualifications: "",
+    faqs: [] as Faq[],
+    intro_video_url: "",
     years_experience: 0,
     headline: "",
     bio: "",
@@ -89,6 +93,8 @@ export default function ProfileSettingsPage() {
         grade_levels: mine.grade_levels,
         teaching_languages: mine.teaching_languages,
         qualifications: mine.qualifications.join("\n"),
+        faqs: mine.faqs,
+        intro_video_url: mine.intro_video_url ?? "",
         years_experience: mine.years_experience ?? 0,
         headline: mine.headline ?? "",
         bio: mine.bio ?? "",
@@ -240,6 +246,16 @@ export default function ProfileSettingsPage() {
                       .split("\n")
                       .map((line) => line.trim())
                       .filter((line) => line !== ""),
+                    /*
+                     * ⚠️ الصفوفُ الفارغةُ تُسقَطُ هنا لا على الخادم: زرُّ «أضف
+                     * سؤالاً» يفتحُ صفّاً فارغاً، فمدرّسٌ ضغطَه ثمّ عدلَ عن الكتابةِ
+                     * كانَ سيُجابُ ٤٢٢ عن حقلٍ لم يقصدْ ملأَه أصلاً.
+                     */
+                    faqs: form.faqs.filter(
+                      (faq) => faq.question.trim() !== "" || faq.answer.trim() !== "",
+                    ),
+                    intro_video_url:
+                      form.intro_video_url.trim() === "" ? null : form.intro_video_url.trim(),
                     years_experience: Number(form.years_experience),
                     headline: form.headline,
                     bio: form.bio,
@@ -359,6 +375,116 @@ export default function ProfileSettingsPage() {
               rows={4}
               error={fields.qualifications}
             />
+
+            {/* ⚠️ حقلُ رابطٍ لا رفعُ ملفّ: لا مسارَ رفعٍ ولا قرارَ تخزينٍ ولا فاتورةَ
+                ترميزٍ لدقيقةٍ واحدة، والمدرّسُ يملكُ الفيديو على يوتيوبَ سلفاً.
+                والتسميةُ تجمعُ الوجهَين اللذَين طلبَهما المستخدِم — تعريفٌ أو حصّةٌ
+                تجريبيّة — لأنّ كليهما رابطُ فيديو واحد. */}
+            <TextField
+              id="intro_video_url"
+              label="فيديو تعريفي أو حصة تجريبية"
+              value={form.intro_video_url}
+              onChange={(value) => setForm({ ...form, intro_video_url: value })}
+              error={fields.intro_video_url}
+              hint="رابط من يوتيوب أو فيميو. يظهر أعلى تبويب «نبذة» في صفحتك العامة."
+            />
+
+            {/*
+              ⚠️ **هنا يكتبُ المدرّسُ أسئلتَه الشائعة** (طلبُ ٢٠٢٦-٠٩-٠٨). والمرساةُ
+              `#faqs` هي ما تقصدُه بطاقةُ اللوحة، فالرابطُ يهبطُ على القسمِ نفسِه لا
+              على رأسِ صفحةٍ طويلة.
+
+              وداخلَ النموذجِ نفسِه لا في نموذجٍ ثانٍ: `PUT /teacher/profile` يستبدلُ
+              الملفَّ كاملاً في كلِّ حفظ، فنموذجٌ ثانٍ يُرسِلُ الأسئلةَ وحدَها كانَ
+              سيمسحُ ما في الحقولِ فوقَه.
+            */}
+            <fieldset id="faqs" className="scroll-mt-24 rounded-xl border border-line p-4">
+              <legend className="flex items-center gap-2 px-2 text-sm font-semibold text-ink">
+                <QuestionIcon className="h-4 w-4 text-primary-ink" />
+                الأسئلة الشائعة
+              </legend>
+
+              <p className="mb-4 text-sm text-ink-muted">
+                ما يسأله الطالب أو ولي أمره قبل الاشتراك — مدة الحصة، الواجبات،
+                طريقة التواصل. تظهر في تبويب «أسئلة شائعة» على صفحتك العامة.
+              </p>
+
+              {form.faqs.length === 0 && (
+                <p className="mb-4 text-sm text-ink-muted">لم تضف أي سؤال بعد.</p>
+              )}
+
+              <div className="space-y-4">
+                {form.faqs.map((faq, index) => (
+                  <div
+                    /* ⚠️ المفتاحُ هو الترتيبُ عمداً: الصفُّ لا معرِّفَ له، ونصُّ
+                       السؤالِ يتغيّرُ عندَ كلِّ حرفٍ يُكتَب — فمفتاحٌ منه يُعيدُ
+                       بناءَ الحقلِ ويفقدُ التركيزَ بعدَ كلِّ ضغطةِ مفتاح. */
+                    key={index}
+                    className="space-y-3 rounded-lg border border-line p-3"
+                  >
+                    <TextField
+                      id={`faq-question-${index}`}
+                      // ⚠️ أرقامٌ عربيّةٌ هنديّة: الواجهةُ عربيّةٌ كلُّها، ورقمٌ
+                      // لاتينيٌّ في تسميةِ حقلٍ يقرؤُه القارئُ الآليُّ بلغةٍ أخرى.
+                      label={`السؤال ${arabicNumber(index + 1)}`}
+                      value={faq.question}
+                      onChange={(value) =>
+                        setForm({
+                          ...form,
+                          faqs: form.faqs.map((row, at) =>
+                            at === index ? { ...row, question: value } : row,
+                          ),
+                        })
+                      }
+                      error={fields[`faqs.${index}.question`]}
+                    />
+
+                    <TextareaField
+                      id={`faq-answer-${index}`}
+                      label="الإجابة"
+                      value={faq.answer}
+                      onChange={(value) =>
+                        setForm({
+                          ...form,
+                          faqs: form.faqs.map((row, at) =>
+                            at === index ? { ...row, answer: value } : row,
+                          ),
+                        })
+                      }
+                      rows={3}
+                      error={fields[`faqs.${index}.answer`]}
+                    />
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() =>
+                        setForm({ ...form, faqs: form.faqs.filter((_, at) => at !== index) })
+                      }
+                    >
+                      احذف هذا السؤال
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* ⚠️ `type="button"`: زرٌّ عارٍ داخلَ نموذجٍ افتراضُه `submit`، فأوّلُ
+                  ضغطةٍ على «أضف» كانت ستحفظُ الملفَّ بدلَ أن تفتحَ صفّاً. */}
+              {/* الهامشُ على الغلافِ لا على الزرّ: `Button` لا يأخذُ `className`
+                  حرّاً — المظهرُ طقمٌ مغلقٌ من الأنماط. */}
+              <div className="mt-4">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={form.faqs.length >= 20}
+                  onClick={() =>
+                    setForm({ ...form, faqs: [...form.faqs, { question: "", answer: "" }] })
+                  }
+                >
+                  أضف سؤالاً
+                </Button>
+              </div>
+            </fieldset>
 
             {/* `NumberField`, never `TextField type="number"` — the union does
                 not carry it, deliberately: one spelling per control, or the two

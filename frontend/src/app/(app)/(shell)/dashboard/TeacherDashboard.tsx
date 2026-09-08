@@ -5,6 +5,7 @@ import { LatestNotificationsCard } from "./cards/LatestNotificationsCard";
 import { PendingGradingCard } from "./cards/PendingGradingCard";
 import { PrivateRequestsCard } from "./cards/PrivateRequestsCard";
 import { QuickLinksCard } from "./cards/QuickLinksCard";
+import { TeacherFaqCard } from "./cards/TeacherFaqCard";
 import { TeacherSessionsCard } from "./cards/TeacherSessionsCard";
 import { WeekSessionsChartCard } from "./cards/WeekSessionsChartCard";
 import { WithheldStudentsCard } from "./cards/WithheldStudentsCard";
@@ -64,6 +65,11 @@ export function TeacherDashboard() {
             الأسبوعِ كلِّه — عيّنةٌ وإجماليٌّ من طلبٍ واحد. */}
         <WeekSessionsChartCard />
         <LatestNotificationsCard />
+        {/* ⚠️ **بابُ كتابةٍ لا عرضٌ فقط** (طلبُ ٢٠٢٦-٠٩-٠٨): الأسئلةُ الشائعةُ
+            حقلٌ كانَ الخادمُ يُرسِلُه `[]` حرفيّاً، فلم يكنْ للمدرّسِ موضعٌ يكتبُه
+            فيه أصلاً. والبطاقةُ تُخفي نفسَها لحسابٍ بلا ملفٍّ عامّ — مساعدٌ
+            جمهورُه `teacher` ولا صفحةَ له. */}
+        <TeacherFaqCard />
       </div>
 
       <QuickLinksCard />

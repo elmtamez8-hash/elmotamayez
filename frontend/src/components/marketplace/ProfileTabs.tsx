@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { CoursesIcon, ScheduleIcon, StarIcon, UserIcon } from "@/components/icons";
+import { CoursesIcon, QuestionIcon, ScheduleIcon, StarIcon, UserIcon } from "@/components/icons";
 
 /**
  * ⚠️ الرمزُ **داخلَ الرابطِ لا بجوارَه**، و`aria-hidden` بالبناءِ من `wrap()`:
@@ -13,6 +13,12 @@ export const PROFILE_TABS = [
   { id: "courses", label: "الكورسات", Icon: CoursesIcon },
   { id: "reviews", label: "التقييمات", Icon: StarIcon },
   { id: "schedule", label: "الجدول", Icon: ScheduleIcon },
+  /*
+   * ⚠️ لساناً لا ذيلاً تحتَ الصفحة. كانَ `FaqAccordion` مرسوماً أسفلَ تفصيلِ
+   * الثقةِ بعدَ الألسنةِ كلِّها، فلا يصلُه أحد — وكانَ فارغاً على كلِّ حال، إذ
+   * كانَ الخادمُ يُرسِلُ `[]` حرفيّاً. صارَ للحقلِ مخزَنٌ وكاتب، فصارَ له موضع.
+   */
+  { id: "faq", label: "أسئلة شائعة", Icon: QuestionIcon },
 ] as const;
 
 export type ProfileTabId = (typeof PROFILE_TABS)[number]["id"];

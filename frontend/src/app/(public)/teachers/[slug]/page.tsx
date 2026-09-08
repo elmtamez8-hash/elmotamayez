@@ -5,6 +5,7 @@ import {
   LearningIcon,
   MessagesIcon,
   ProgressIcon,
+  QuestionIcon,
   SessionsIcon,
   StudentIcon,
   UserIcon,
@@ -29,6 +30,7 @@ import { FaqAccordion } from "@/components/marketplace/FaqAccordion";
 import { CourseCard } from "@/components/marketplace/CourseCard";
 import { ReviewsTab } from "@/components/marketplace/ReviewsTab";
 import { EmptyState } from "@/components/ui/states/EmptyState";
+import { videoEmbedUrl } from "@/lib/video-embed";
 import {
   ProfileTabs,
   isProfileTab,
@@ -342,6 +344,39 @@ export default async function TeacherProfilePage({
             {active === "about" && (
               <div>
                 <div className="space-y-8">
+                  {/*
+                    ⚠️ **`videoEmbedUrl` هو الحدّ، لا القاعدةُ على الخادم.** الرابطُ
+                    نصٌّ حرٌّ كتبَه المدرّسُ، وهذه الصفحةُ يفتحُها كلُّ زائر — فتمريرُه
+                    إلى `src` كما هو يجعلُ من حقلٍ في «ملفّي» باباً يُشغِّلُ ما يشاءُ
+                    في متصفِّحِ من يقرأ. الدالّةُ تستخرجُ المعرِّفَ وتبني العنوانَ من
+                    ثوابتِنا، وتُعيدُ `null` لما لا تفهمُه — فيختفي القسمُ كلُّه.
+
+                    وفوقَ النبذةِ عمداً: وجهٌ وصوتٌ لدقيقةٍ يقولانِ عن مدرّسٍ ما لا
+                    تقولُه فقرة، وهو أوّلُ ما يبحثُ عنه وليُّ أمرٍ يختارُ لابنِه.
+                  */}
+                  {videoEmbedUrl(teacher.intro_video_url) !== null && (
+                    <section aria-labelledby="intro-video-heading">
+                      <h2
+                        id="intro-video-heading"
+                        className="mb-3 flex items-center gap-2 text-lg font-bold text-ink"
+                      >
+                        <SessionsIcon className="h-5 w-5 text-primary-ink" />
+                        فيديو تعريفي
+                      </h2>
+                      {/* نسبةُ ١٦:٩ بالصنفِ القائم، فلا يقفزُ التخطيطُ عندَ التحميل. */}
+                      <div className="aspect-video overflow-hidden rounded-2xl border border-line bg-surface-raised">
+                        <iframe
+                          src={videoEmbedUrl(teacher.intro_video_url) ?? undefined}
+                          title={`فيديو تعريفي عن ${teacher.name}`}
+                          loading="lazy"
+                          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className="h-full w-full"
+                        />
+                      </div>
+                    </section>
+                  )}
+
                   <section aria-labelledby="bio-heading">
                     {/* ⚠️ الرمزُ داخلَ العنوانِ لا بجوارَه في صفٍّ ثانٍ: عنوانٌ
                         ورمزٌ في عنصرَينِ متجاورَينِ يفترقانِ عندَ أوّلِ التفافِ
@@ -465,6 +500,29 @@ export default async function TeacherProfilePage({
                 )}
               </div>
             )}
+            {active === "faq" && (
+              <div className="space-y-4">
+                <div>
+                  <h2 className="flex items-center gap-2 text-lg font-extrabold text-ink">
+                    <QuestionIcon className="h-5 w-5 text-primary-ink" />
+                    أسئلة شائعة عن {teacher.name}
+                  </h2>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    كتبها المدرّس بنفسه رداً على ما يسأله الطلاب وأولياء الأمور
+                    عادةً.
+                  </p>
+                </div>
+
+                {teacher.faqs.length === 0 ? (
+                  <EmptyState
+                    title="لم يضف هذا المدرّس أسئلة شائعة بعد"
+                    description="يمكنك سؤاله مباشرة بعد الاشتراك في أحد كورساته."
+                  />
+                ) : (
+                  <FaqAccordion items={teacher.faqs} />
+                )}
+              </div>
+            )}
           </ProfileTabs>
 
           {/* ⚠️ UNDER THE TABS, NOT IN THE BOOKING COLUMN — and that placement is
@@ -489,14 +547,6 @@ export default async function TeacherProfilePage({
             />
           </div>
 
-          {teacher.faqs.length > 0 && (
-            <section className="mt-12">
-              <FaqAccordion
-                items={teacher.faqs}
-                heading="أسئلة شائعة عن هذا المدرّس"
-              />
-            </section>
-          )}
         </div>
       </div>
 

@@ -238,6 +238,11 @@ export type TeacherDetail = TeacherCard & {
   };
   availability: AvailabilityItem[];
   faqs: { question: string; answer: string }[];
+  /**
+   * رابطُ الفيديو التعريفيِّ كما كتبَه المدرّس — **لا يُمرَّرُ إلى `src` أبداً**.
+   * {@link videoEmbedUrl} يستخرجُ المعرِّفَ ويبني العنوانَ من ثوابتِنا.
+   */
+  intro_video_url: string | null;
 };
 
 export type Paginated<T> = {

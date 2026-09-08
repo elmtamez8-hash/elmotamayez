@@ -22,7 +22,7 @@ it('returns the full profile for a published teacher', function () {
 
     expect($data)->toHaveKeys([
         'bio', 'qualifications', 'stats', 'trust_score_factors',
-        'courses', 'reviews', 'availability', 'faqs',
+        'courses', 'reviews', 'availability', 'faqs', 'intro_video_url',
     ]);
     expect($data['stats'])->toHaveKeys([
         'students_taught', 'completed_sessions', 'response_rate', 'attendance_rate',

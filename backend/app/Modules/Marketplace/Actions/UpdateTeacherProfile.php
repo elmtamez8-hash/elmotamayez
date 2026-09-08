@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\DB;
 class UpdateTeacherProfile extends Action
 {
     /**
-     * @param  array{slug?: string|null, headline?: string|null, bio?: string|null, qualifications?: array<int, string>|null, years_experience?: int|null, teaching_languages?: array<int, string>|null}  $attributes
+     * @param  array{slug?: string|null, headline?: string|null, bio?: string|null, qualifications?: array<int, string>|null, faqs?: array<int, array{question: string, answer: string}>|null, intro_video_url?: string|null, years_experience?: int|null, teaching_languages?: array<int, string>|null}  $attributes
      * @param  list<int>|null  $subjectIds
      * @param  list<int>|null  $gradeLevelIds
      */
@@ -42,6 +42,8 @@ class UpdateTeacherProfile extends Action
             'headline',
             'bio',
             'qualifications',
+            'faqs',
+            'intro_video_url',
             'years_experience',
             'teaching_languages',
         ]));
