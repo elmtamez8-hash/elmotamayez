@@ -55,8 +55,21 @@ export const subscribe = {
       `/billing/plans?course=${encodeURIComponent(courseUuid)}&session_type=${sessionType}`,
     ),
 
-  /** Creates the PENDING order. No access is granted until an officer approves. */
-  create: (body: { plan_uuid: string; mode: SubscriptionMode; cohort_uuid?: string }) =>
+  /**
+   * Creates the PENDING order. No access is granted until an officer approves.
+   *
+   * ⚠️ `student_uuid` من الوصيِّ وحدَه، ومن يشتري لنفسِه لا يُرسِلُه.
+   *
+   * الخادمُ يكتبُ `orders.user_id` **للطالبِ** و`granted_by` للدافع، فمفتاحٌ
+   * غائبٌ يعني «أنا الطالب». وحسابُ وليِّ أمرٍ يُرسِلُ لا شيءَ يُجابُ ٤٢٢ عمداً:
+   * الافتراضُ «لنفسِه» هو العطبُ الذي بلَّغَ عنه المستخدِمُ في ٢٠٢٦-٠٩-٠٨.
+   */
+  create: (body: {
+    plan_uuid: string;
+    mode: SubscriptionMode;
+    cohort_uuid?: string;
+    student_uuid?: string;
+  }) =>
     api.post<{ data: SubscriptionOrder }>("/billing/subscriptions", body),
 
   uploadReceipt: (orderUuid: string, file: File, method = "bank_transfer") => {

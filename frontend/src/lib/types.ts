@@ -274,7 +274,18 @@ export interface Order {
   payer_name?: string | null;
   payer_email?: string | null;
   has_receipt: boolean;
+  /**
+   * «عليَّ أن أدفعَه» — لا «أنا الطالب».
+   *
+   * وليُّ الأمرِ يشتري باسمِ ابنِه، فهذا المفتاحُ يحرسُ «ادفع الآن» و«ارفع
+   * الإيصال» عندَه أيضاً. الخادمُ يحسبُه من `user_id` أو `granted_by`.
+   */
   is_mine: boolean;
+  /**
+   * اسمُ الطالبِ الذي أُنشئَ الطلبُ له — لمن أنشأَه نيابةً عن غيرِه وحدَه.
+   * غائبٌ عمّن يشتري لنفسِه: لا حاجةَ لأن يُقالَ له اسمُه.
+   */
+  for_student_name?: string;
   receipt_url: string | null;
   /** Hours the platform promises a receipt review in — null once decided. */
   review_sla_hours: number | null;

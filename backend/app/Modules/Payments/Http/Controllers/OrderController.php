@@ -29,9 +29,19 @@ class OrderController extends Controller
         $user = $this->currentUser($request);
         $query = Order::query();
 
-        // Students see only their orders; staff with view-all see all.
+        /*
+        | Students see only their orders; staff with view-all see all.
+        |
+        | ⚠️ **و«طلبي» تشملُ ما أنشأتُه لابني.** وليُّ الأمرِ يشتري باسمِ الطالب
+        | (`user_id` = الابن · `granted_by` = هو)، فمُرشِّحٌ على العمودِ الأوّلِ وحدَه
+        | يُخفي عنه الطلبَ الذي دفعَه للتوّ — لا شاشةَ يرفعُ فيها الإيصالَ ولا موضعَ
+        | يقرأُ فيه القرار. وهي بعينُها القائمةُ التي شكا منها المستخدِمُ لأنّ الطلبَ
+        | ظهرَ فيها باسمِه هو.
+        */
         if (! $user->can(Permissions::ORDERS_VIEW_ALL)) {
-            $query->where('user_id', $user->getKey());
+            $query->where(fn (Builder $mine) => $mine
+                ->where('user_id', $user->getKey())
+                ->orWhere('granted_by', $user->getKey()));
         } elseif (! $user->can(Permissions::BILLING_PURCHASE_APPROVE)) {
             /*
             | ⚠️ THE SAME CUT AS `OrderPolicy::view()`, HERE BECAUSE A LIST TAKES

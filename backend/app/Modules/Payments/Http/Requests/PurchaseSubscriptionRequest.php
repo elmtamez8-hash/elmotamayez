@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Http\Requests;
 
 use App\Modules\Payments\Data\SubscriptionIntent;
+use App\Modules\Payments\Support\PurchaseBeneficiary;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -29,6 +30,14 @@ class PurchaseSubscriptionRequest extends FormRequest
     {
         return [
             'plan_uuid' => ['required', 'uuid'],
+            /*
+            | ⚠️ **بلا `exists:users,uuid`، عمداً.** القاعدةُ استعلامٌ خامٌّ يُجيبُ
+            | «هذا المعرِّفُ لحسابٍ حقيقيّ» لكلِّ من يمرِّرُ معرِّفاً — مِسبارُ هويّةٍ
+            | على بابٍ عامّ. الوصايةُ تُسألُ في {@see PurchaseBeneficiary}، وجملةُ
+            | رفضِها واحدةٌ لِـ«لا وجودَ له» و«ليسَ ابنَك» و«بلا صلاحيّةِ دفع».
+            | القاعدةُ نفسُها التي جعلت `CreateFreezePeriod` يسألُ الدليلَ أوّلاً.
+            */
+            'student_uuid' => ['sometimes', 'nullable', 'uuid'],
             'mode' => ['required', 'string', 'in:'.SubscriptionIntent::MODE_COHORT.','.SubscriptionIntent::MODE_PRIVATE],
             'cohort_uuid' => [
                 'required_if:mode,'.SubscriptionIntent::MODE_COHORT,
@@ -49,6 +58,6 @@ class PurchaseSubscriptionRequest extends FormRequest
      */
     public function attributes(): array
     {
-        return ['mode' => 'نوع الاشتراك'];
+        return ['mode' => 'نوع الاشتراك', 'student_uuid' => 'الطالب'];
     }
 }

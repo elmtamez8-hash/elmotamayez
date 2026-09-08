@@ -21,6 +21,17 @@ class OrderPolicy extends BasePolicy
             return Response::allow();
         }
 
+        /*
+        | ⚠️ **ومن أنشأَه نيابةً عن صاحبِه يقرؤُه** — وليُّ أمرٍ اشترى لابنِه، أو
+        | موظّفٌ ماليٌّ أنشأ الطلبَ عن طالب. بلا هذا السطرِ يسقطُ القارئُ إلى فرعِ
+        | `ORDERS_VIEW_ALL` أسفلَه، وهي صلاحيّةُ مدرّسٍ لا يملكُها وليُّ أمرٍ أبداً:
+        | ٤٠٣ على طلبٍ دفعَه هو. ولا يُوسِّعُ شيئاً — `granted_by` يُكتَبُ مرّةً عندَ
+        | الإنشاءِ وليسَ في `$fillable`، فلا يُدَّعى من الخارج.
+        */
+        if ($order->granted_by !== null && $order->granted_by === $user->getKey()) {
+            return Response::allow();
+        }
+
         if (($platform = $this->platformReads($user, $order, 'view')) !== null) {
             return $platform;
         }
@@ -89,6 +100,20 @@ class OrderPolicy extends BasePolicy
     public function uploadReceipt(User $user, Order $order): Response
     {
         if ($order->user_id === $user->getKey()) {
+            return Response::allow();
+        }
+
+        /*
+        | ⚠️ **ومن أنشأَه نيابةً عن صاحبِه هو من حوّلَ المبلغ** — وليُّ أمرٍ اشترى
+        | لابنِه، فالطلبُ باسمِ الابنِ والإيصالُ في هاتفِ الأب. وهذا البابُ يُسألُ
+        | قبلَ {@see UploadPaymentReceipt} بطبقة، فالقاعدةُ تُكتَبُ في الموضعَين أو
+        | تُجابُ ٤٠٣ هنا بينما الإجراءُ تحتَها يسمح — وهو ما قاسَه هذا الملفُّ
+        | مقلوباً في ٠٢٤ حينَ وُسِّعَ هذا وحدَه فصارَ الرفضُ ٤٢٢ طبقةً أسفل.
+        |
+        | ولا يُوسِّعُ شيئاً: `granted_by` ليسَ في `$fillable` ويُكتَبُ مرّةً عندَ
+        | الإنشاء، فلا يُدَّعى من الخارج.
+        */
+        if ($order->granted_by !== null && $order->granted_by === $user->getKey()) {
             return Response::allow();
         }
 

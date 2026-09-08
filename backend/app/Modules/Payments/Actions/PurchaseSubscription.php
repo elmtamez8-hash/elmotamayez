@@ -11,6 +11,7 @@ use App\Modules\Payments\Data\SubscriptionIntent;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\Plan;
+use App\Modules\Payments\Support\PurchaseBeneficiary;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\CohortDirectory;
@@ -46,14 +47,23 @@ class PurchaseSubscription extends Action
     ) {}
 
     /**
-     * @param  string  $mode  `cohort` or `private` — the buyer's intent (FR-012)
+     * ⚠️ **الوسيطُ الأوّلُ هو من يُشترى له، لا من يدفع — والدَّورانِ افترقا في
+     * ٢٠٢٦-٠٩-٠٨.** كانَ يُسمّى المشتريَ ويُكتَبُ في `user_id` بلا سؤال، فوليُّ أمرٍ
+     * ضغطَ «اشترك» صارَ هو الطالبَ: اشتراكٌ وتسجيلٌ وعضويّةُ مجموعةٍ باسمِه، وابنُه
+     * الذي دُفِعَ من أجلِه بلا شيء. {@see PurchaseBeneficiary} يحسمُ الدَّورَينِ عندَ
+     * الباب، وهذا الإجراءُ يكتبُهما كما تكتبُهما {@see PurchaseCredits} منذُ ٠٢٤ —
+     * تهجئةٌ واحدةٌ لسؤالٍ واحد.
+     *
+     * @param  string  $mode  `cohort` or `private` — the intent (FR-012)
      * @param  string|null  $cohortUuid  required with `cohort`, forbidden with `private`
+     * @param  User|null  $grantedBy  من أنشأ الطلبَ نيابةً عن الطالب، أو `null` إن اشترى بنفسِه
      */
     public function handle(
-        User $buyer,
+        User $student,
         string $planUuid,
         string $mode = SubscriptionIntent::MODE_PRIVATE,
         ?string $cohortUuid = null,
+        ?User $grantedBy = null,
     ): Order {
         $plan = Plan::query()
             ->withoutWorkspaceScope()
@@ -72,10 +82,10 @@ class PurchaseSubscription extends Action
         $this->guardModeMatchesPlan($plan, $mode);
 
         $cohort = $mode === SubscriptionIntent::MODE_COHORT
-            ? $this->resolveCohort($plan, $cohortUuid, $buyer)
+            ? $this->resolveCohort($plan, $cohortUuid, $student)
             : null;
 
-        $this->guardNoPendingOrder($buyer, (int) $plan->workspace_id);
+        $this->guardNoPendingOrder($student, (int) $plan->workspace_id, $grantedBy !== null);
 
         $teacher = $this->teacherOf($plan);
 
@@ -91,9 +101,11 @@ class PurchaseSubscription extends Action
             teacherName: $teacher === null ? null : (string) $teacher->name,
         );
 
-        return Order::create([
+        $order = Order::create([
             'workspace_id' => $plan->workspace_id,
-            'user_id' => $buyer->getKey(),
+            // ⚠️ الطالبُ، لا الدافع. ترويسةُ هجرةِ `granted_by` تقولُها بنصِّها:
+            // «صاحبُ الطلبِ والرصيد، حتّى حينَ لم يلمسْ لوحةَ مفاتيح».
+            'user_id' => $student->getKey(),
             // A course-scoped plan stamps its course; a workspace-scoped one that
             // was bought against a named group stamps THAT group's course, so the
             // officer's «الكورس» column is not blank for the very orders spec 027
@@ -124,6 +136,17 @@ class PurchaseSubscription extends Action
             */
             'metadata' => $intent->toMetadata(),
         ]);
+
+        if ($grantedBy !== null) {
+            /*
+            | ليسَ في `$fillable` عمداً — انظرِ النموذج. حقيقةٌ تدقيقيّةٌ تُكتَبُ هنا
+            | مرّةً ولا تُعادُ: إعادةُ ختمِها عندَ تعديلٍ لاحقٍ تنقلُ فعلاً مسجَّلاً
+            | إلى آخرِ من لمسَ الصفّ. و{@see PurchaseCredits} تكتبُها بالشكلِ نفسِه.
+            */
+            $order->forceFill(['granted_by' => $grantedBy->getKey()])->save();
+        }
+
+        return $order;
     }
 
     /**
@@ -162,7 +185,7 @@ class PurchaseSubscription extends Action
      *
      * @return array{id: int, course_id: int, workspace_id: int, name: string, course_uuid: string, is_joinable: bool}
      */
-    private function resolveCohort(Plan $plan, ?string $cohortUuid, User $buyer): array
+    private function resolveCohort(Plan $plan, ?string $cohortUuid, User $student): array
     {
         $cohort = $cohortUuid === null ? null : $this->cohorts->describeGroupCohort($cohortUuid);
 
@@ -185,7 +208,7 @@ class PurchaseSubscription extends Action
         | for them to join: their membership is already open, and the renewal
         | extends the subscription behind it.
         */
-        $current = $this->cohorts->openMembershipCohortId($buyer, $cohort['course_id']);
+        $current = $this->cohorts->openMembershipCohortId($student, $cohort['course_id']);
 
         if ($current === $cohort['id']) {
             return $cohort;
@@ -221,18 +244,26 @@ class PurchaseSubscription extends Action
      * through. The teacher is never null and is what the requirement protects:
      * two transfers to one teacher for one thing.
      */
-    private function guardNoPendingOrder(User $buyer, int $workspaceId): void
+    private function guardNoPendingOrder(User $student, int $workspaceId, bool $onBehalf): void
     {
         $exists = Order::query()
             ->withoutWorkspaceScope()
-            ->where('user_id', $buyer->getKey())
+            ->where('user_id', $student->getKey())
             ->where('workspace_id', $workspaceId)
             ->where('kind', OrderKind::Subscription)
             ->whereIn('status', ['pending', 'under_review'])
             ->exists();
 
         if ($exists) {
-            throw new DomainException('لديك طلب قيد المراجعة على هذا الكورس.');
+            /*
+            | ⚠️ **«لديك» تصيرُ كذبةً حينَ يشتري غيرُك لك.** الشرطُ على الطالبِ —
+            | وهو الصحيح، فالمطلوبُ طلبٌ معلّقٌ واحدٌ لكلِّ طالبٍ عندَ كلِّ مدرّس —
+            | لكنّ الجملةَ تُقالُ لمن يقفُ على الشاشة. ووليُّ أمرٍ يقرأُ «لديك طلب»
+            | عن طلبٍ قدّمَه ابنُه بنفسِه يبحثُ في طلباتِه هو عن شيءٍ ليسَ فيها.
+            */
+            throw new DomainException($onBehalf
+                ? 'لهذا الطالب طلب قيد المراجعة على هذا الكورس.'
+                : 'لديك طلب قيد المراجعة على هذا الكورس.');
         }
     }
 

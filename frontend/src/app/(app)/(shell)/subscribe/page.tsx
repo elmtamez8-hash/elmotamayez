@@ -11,7 +11,11 @@ import { Field, SelectField } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
+import { useAuth } from "@/lib/auth-context";
+import { dashboardAudience } from "@/lib/dashboard-audience";
 import { userMessage } from "@/lib/errors";
+import { family } from "@/lib/notifications";
+import type { GuardianRelation } from "@/lib/notifications";
 import { formatMinorMoney } from "@/lib/labels";
 import { SESSION_TYPE_LABELS, planDuration, type Plan } from "@/lib/plans";
 import type { CourseDetail } from "@/lib/public-api";
@@ -46,8 +50,19 @@ function SubscribeScreen() {
   const cohortUuid = params.get("cohort");
   const mode: SubscriptionMode = cohortUuid !== null ? "cohort" : "private";
 
+  const { user } = useAuth();
+  /*
+   * ⚠️ **`dashboardAudience`، لا `platform_role === "parent"`.** الترجمةُ من
+   * قيمةِ الخادمِ إلى «أيُّ تخطيطٍ يخصُّك» مكتوبةٌ مرّةً واحدةً هناك، ومقارنةٌ
+   * حرفيّةٌ هنا تهجئةٌ ثانيةٌ تفترقُ عن الشريطِ الجانبيِّ عندَ أوّلِ تعديل.
+   */
+  const isGuardian = dashboardAudience(user) === "guardian";
+
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
+  /** أبناءُ هذا الوصيِّ الذين له عليهم صلاحيّةُ الدفعِ ولهم حسابٌ فعلاً. */
+  const [children, setChildren] = useState<GuardianRelation[]>([]);
+  const [studentUuid, setStudentUuid] = useState("");
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -76,12 +91,34 @@ function SubscribeScreen() {
 
       setCourse(detail.data);
       setPlans(offers.data);
+
+      if (isGuardian) {
+        /*
+         * ⚠️ **المرشِّحانِ كلاهما مطلوبٌ، وكلٌّ منهما يحرسُ رفضاً مختلفاً.**
+         * `student_uuid` غائبٌ عن ابنٍ أضافَه الوصيُّ بالاسمِ ولم يفتحْ حساباً
+         * بعد — لا حسابَ يُسجَّلُ فيه أصلاً؛ و`payments` هي الصلاحيّةُ عينُها
+         * التي يسألُها الخادمُ في `PurchaseBeneficiary`. ومنتقٍ يعرضُ من يرفضُه
+         * الخادمُ هو عطبُ «تهجئتَينِ لسؤالٍ واحد» الذي دفعَ ثمنَه
+         * `ListLeaderboardScopes`.
+         */
+        const relations = await family.list().catch(() => ({ data: [] }));
+
+        setChildren(
+          relations.data.filter(
+            (relation) =>
+              relation.status === "active"
+              && typeof relation.student_uuid === "string"
+              && relation.permissions.some((permission) => permission.key === "payments"),
+          ),
+        );
+      }
+
       setState("ready");
     } catch (error: unknown) {
       setProblem(userMessage(error));
       setState("error");
     }
-  }, [courseUuid, mode]);
+  }, [courseUuid, mode, isGuardian]);
 
   useEffect(() => {
     void load();
@@ -106,6 +143,7 @@ function SubscribeScreen() {
 
   const submit = async () => {
     if (planUuid === "" || receipt === null) return;
+    if (isGuardian && studentUuid === "") return;
 
     setSending(true);
     setProblem(null);
@@ -120,6 +158,9 @@ function SubscribeScreen() {
         plan_uuid: planUuid,
         mode,
         ...(cohortUuid === null ? {} : { cohort_uuid: cohortUuid }),
+        // الطالبُ يُرسَلُ من الوصيِّ وحدَه؛ ومن يشتري لنفسِه لا يُسمّي أحداً،
+        // فالخادمُ يقرأُ صاحبَ الجلسةِ ولا يكتبُ `granted_by` أصلاً.
+        ...(isGuardian ? { student_uuid: studentUuid } : {}),
       });
 
       await subscribe.uploadReceipt(order.uuid, receipt, method);
@@ -192,6 +233,50 @@ function SubscribeScreen() {
           </Alert>
         </div>
       )}
+
+      {/*
+        ⚠️ **وليُّ الأمرِ يشتري لابنٍ مُسمّى، لا لنفسِه** (بلاغُ ٢٠٢٦-٠٩-٠٨). كانت
+        هذه الشاشةُ ترسلُ صاحبَ الجلسةِ طالباً، فوليُّ أمرٍ ضغطَ «اشترك» صارَ هو
+        الطالبَ: تسجيلٌ وعضويّةُ مجموعةٍ باسمِه، وابنُه بلا شيء.
+
+        والمنتقي **أوّلَ ما يُقرَأُ على الصفحة**: لمن هذا الاشتراكُ سؤالٌ يسبقُ
+        «أيُّ باقة»، ومنتقٍ تحتَ الباقةِ يُملَأُ بعدَ أن يكونَ القارئُ قد اختارَ
+        على افتراضٍ آخر. والخادمُ يرفضُ الفارغَ على كلِّ حال — هذا يقولُ السببَ
+        قبلَ الرفضِ لا بعدَه.
+      */}
+      {isGuardian &&
+        (children.length === 0 ? (
+          <Card>
+            <EmptyState
+              title="لا يوجد ابن يمكنك الاشتراك له"
+              description="الاشتراك يكون باسم طالب له حساب على المنصّة، ولك عليه صلاحيّة «المدفوعات والمستحقّات». أضِف الطالب أو عدّل صلاحيّاتك من صفحة المرتبطين."
+              // التسميةُ تسميةُ الشريطِ الجانبيِّ نفسُها — اسمانِ لشاشةٍ واحدةٍ
+              // يجعلانِ القارئَ يبحثُ عن بندٍ لا وجودَ له.
+              action={
+                <Button href="/family" variant="secondary">
+                  المرتبطون
+                </Button>
+              }
+            />
+          </Card>
+        ) : (
+          <Card>
+            <SelectField
+              id="student"
+              label="لمن هذا الاشتراك؟"
+              value={studentUuid}
+              onChange={setStudentUuid}
+              placeholder="اختر الطالب…"
+              options={children.map((relation) => ({
+                // مُرشَّحٌ فوقُ على وجودِ المعرِّف، فالحارسُ هنا للنوعِ لا للحالة.
+                value: relation.student_uuid ?? "",
+                label: relation.student_name,
+              }))}
+              hint="الاشتراك والحصص والمجموعة تُكتَب باسم الطالب، والدفع باسمك."
+              required
+            />
+          </Card>
+        ))}
 
       {/* What is being bought, shown back before any money is named (FR-006). */}
       <Card>
@@ -316,7 +401,7 @@ function SubscribeScreen() {
       <Button
         type="button"
         onClick={() => void submit()}
-        disabled={planUuid === "" || receipt === null || sending}
+        disabled={planUuid === "" || receipt === null || sending || (isGuardian && studentUuid === "")}
         loading={sending}
         loadingLabel="جارٍ الإرسال…"
         fullWidth

@@ -12,6 +12,7 @@ use App\Modules\Payments\Http\Resources\OrderResource;
 use App\Modules\Payments\Http\Resources\PlanResource;
 use App\Modules\Payments\Http\Resources\SubscriptionResource;
 use App\Modules\Payments\Models\Subscription;
+use App\Modules\Payments\Support\PurchaseBeneficiary;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -71,16 +72,32 @@ class SubscriptionController extends Controller
      * arrived yet, and a subscription written here would be a month of access
      * handed out against a bank transfer that may never clear.
      */
-    public function store(PurchaseSubscriptionRequest $request, PurchaseSubscription $action): JsonResponse
-    {
+    public function store(
+        PurchaseSubscriptionRequest $request,
+        PurchaseSubscription $action,
+        PurchaseBeneficiary $beneficiary,
+    ): JsonResponse {
         $validated = $request->validated();
 
         try {
-            $order = $action->handle(
+            /*
+            | ⚠️ **من يدفعُ ليسَ بالضرورةِ من يتعلّم** (بلاغُ ٢٠٢٦-٠٩-٠٨). كانَ
+            | `currentUser()` يُمرَّرُ طالباً بلا سؤال، فوليُّ أمرٍ اشتركَ لنفسِه:
+            | تسجيلٌ وعضويّةُ مجموعةٍ باسمِه، وابنُه بلا شيء، والطلبُ يظهرُ في
+            | `‎/orders` صحيحاً تماماً. القرارُ في {@see PurchaseBeneficiary} لا هنا
+            | — فهو الموضعُ الذي يعرفُ الوصايةَ، ويرمي جملةً واحدةً لكلِّ رفض.
+            */
+            ['student' => $student, 'grantedBy' => $grantedBy] = $beneficiary->resolve(
                 $this->currentUser($request),
+                isset($validated['student_uuid']) ? (string) $validated['student_uuid'] : null,
+            );
+
+            $order = $action->handle(
+                $student,
                 (string) $validated['plan_uuid'],
                 (string) $validated['mode'],
                 isset($validated['cohort_uuid']) ? (string) $validated['cohort_uuid'] : null,
+                $grantedBy,
             );
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
