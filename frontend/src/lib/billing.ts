@@ -155,6 +155,39 @@ export interface PurchaseStarted {
  * component crashes on `.map is not a function` — in the browser, at runtime,
  * with a green build behind it.
  */
+/**
+ * One name in the «who am I paying for» picker (031 · FR-012 · FR-018).
+ *
+ * ⚠️ TWO FIELDS, AND THE SERVER DECIDES WHICH NAMES APPEAR. `/billing/beneficiaries`
+ * is `childrenOf(caller, payments)` literally — the same call the purchase is
+ * proved against — so an option offered here cannot be refused at the door.
+ * Filtering `/family/relations` in TypeScript is what this replaces, and it had
+ * already produced two different answers in two files: `ChildSwitcher` narrows by
+ * `status` and `student_uuid` with **no permission filter at all**, while the
+ * subscription screen does filter by permission. Neither is the server's.
+ */
+export interface PurchaseBeneficiary {
+  uuid: string;
+  name: string;
+}
+
+/**
+ * One option in the course picker — and the list is the server's, not a
+ * narrowing of `/enrollments`.
+ *
+ * `isPartyTo` has three arms and an enrolment list covers one: a child enrolled
+ * in ONE course at a teacher may have credits bought on ANY of that teacher's
+ * courses. A picker built from enrolments hides those, silently, from the person
+ * who came to buy them.
+ */
+export interface PurchasableCourse {
+  uuid: string;
+  title: string;
+  /** The academy — what a student calls their teacher, and what tells two «الفيزياء ٣» apart. */
+  teacher_name: string | null;
+  cover_url: string | null;
+}
+
 /** One row of the teacher's panel: who, which course, how many sessions left. */
 export interface StudentBalanceRow {
   student_uuid: string;
@@ -247,15 +280,40 @@ export const billing = {
    * stops selling (FR-021ز · FR-021ط). Both render the same "not available"
    * state, because from the student's side they are the same fact.
    */
-  packages: (courseUuid: string) =>
+  packages: (courseUuid: string, studentUuid?: string) =>
     api.get<{ data: CreditPackageOffer[] }>(
-      `/billing/packages?course=${encodeURIComponent(courseUuid)}`,
+      `/billing/packages?course=${encodeURIComponent(courseUuid)}`
+      + (studentUuid === undefined ? "" : `&student_uuid=${encodeURIComponent(studentUuid)}`),
     ),
-  purchase: (courseUuid: string, packageUuid: string) =>
+  purchase: (courseUuid: string, packageUuid: string, studentUuid?: string) =>
     api.post<PurchaseStarted>("/billing/purchases", {
       course: courseUuid,
       package: packageUuid,
+      /*
+       * ⚠️ `student_uuid`, NEVER `student` — the name spec 029 shipped for the
+       * same field on the subscription door, resolved by the same class on the
+       * server. Two names for one thing in one module is where a divergence
+       * starts, and the field is OMITTED rather than sent null when nobody is
+       * named: absent means «me», which is what every call meant before 031.
+       */
+      ...(studentUuid === undefined ? {} : { student_uuid: studentUuid }),
     }),
+  /*
+   * The picker's two sources (031). Both are server doors precisely because the
+   * alternative — narrowing `/family/relations` and `/enrollments` in the
+   * browser — is a second answer to a question the server already answers, and
+   * FR-018 forbids it by name.
+   *
+   * ⚠️ `purchasableCourses` is PAGINATED and the envelope is real: `/enrollments`
+   * once dropped it and all four of its readers showed zero, because `res.data`
+   * on a bare array is `undefined`.
+   */
+  beneficiaries: () => api.get<{ data: PurchaseBeneficiary[] }>("/billing/beneficiaries"),
+  purchasableCourses: (studentUuid?: string) =>
+    api.get<{ data: PurchasableCourse[] }>(
+      "/billing/purchasable-courses"
+      + (studentUuid === undefined ? "" : `?student_uuid=${encodeURIComponent(studentUuid)}`),
+    ),
   /*
    * A guardian's read of one child's balances. Its own call, not a parameter on
    * `balances()`: this one has to prove the relation AND the payments consent,

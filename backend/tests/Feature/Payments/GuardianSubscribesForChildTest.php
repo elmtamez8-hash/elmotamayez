@@ -167,7 +167,7 @@ it('refuses a guardian who names nobody, rather than defaulting to themselves', 
 
     subscribeAsGuardian($this->guardian)
         ->assertStatus(422)
-        ->assertJsonPath('message', 'اختر الطالب الذي تشترك له.');
+        ->assertJsonPath('message', 'اختر الطالب الذي تدفع له.');
 
     expect(Order::query()->withoutWorkspaceScope()->count())->toBe(0);
 });
@@ -177,7 +177,7 @@ it('refuses a guardian without the payments permission on that child', function 
 
     subscribeAsGuardian($this->guardian, ['student_uuid' => (string) $this->child->uuid])
         ->assertStatus(422)
-        ->assertJsonPath('message', 'لا يمكنك الاشتراك لهذا الطالب.');
+        ->assertJsonPath('message', 'لا يمكنك الدفع لهذا الطالب.');
 
     expect(Order::query()->withoutWorkspaceScope()->count())->toBe(0);
 });
@@ -200,7 +200,7 @@ it('answers a stranger, a made-up uuid and an unauthorised child identically', f
     foreach ($refusals as $uuid) {
         subscribeAsGuardian($this->guardian, ['student_uuid' => $uuid])
             ->assertStatus(422)
-            ->assertJsonPath('message', 'لا يمكنك الاشتراك لهذا الطالب.');
+            ->assertJsonPath('message', 'لا يمكنك الدفع لهذا الطالب.');
     }
 
     expect(Order::query()->withoutWorkspaceScope()->count())->toBe(0);

@@ -7,46 +7,71 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { CardGridSkeleton, RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
-import { api, errorMessage } from "@/lib/api";
-import type { Enrollment } from "@/lib/types";
-import { billing, formatCredits, type CreditPackageOffer } from "@/lib/billing";
+import { useAuth } from "@/lib/auth-context";
+import { dashboardAudience } from "@/lib/dashboard-audience";
+import { errorMessage } from "@/lib/api";
+import {
+  billing,
+  formatCredits,
+  type CreditPackageOffer,
+  type PurchasableCourse,
+  type PurchaseBeneficiary,
+} from "@/lib/billing";
 import { formatMinorMoney } from "@/lib/labels";
 
 /**
- * Buying credits on one course.
+ * Buying credits — for yourself, or for a child you are the guardian of.
  *
  * ⚠️ ONE TOTAL PER PACKAGE AND NO BREAKDOWN — not a design preference. The total
  * is the teacher's approved settlement rate plus two platform constants, so a
- * student shown the parts could solve for the constants and read every other
+ * reader shown the parts could solve for the constants and read every other
  * teacher's pay off any published total (FR-021ج).
  *
- * ⚠️ NOTHING IS CREDITED HERE (FR-018). Pressing a package creates a PENDING
- * ORDER; the credits appear when the platform approves the payment. So the
- * screen hands off to the receipt flow that already exists rather than
+ * ⚠️ NOTHING IS CREDITED HERE (FR-018 of spec 006). Pressing a package creates a
+ * PENDING ORDER; the credits appear when the platform approves the payment. So
+ * the screen hands off to the receipt flow that already exists rather than
  * congratulating anyone.
  *
- * An empty list is a real answer, and a quiet one: the course's teacher may have
- * no approved rate yet, or the course may have stopped delivering sessions and
- * therefore stopped selling (FR-021ط). Both are the same fact from here, so both
- * get the same honest message instead of a reason the student cannot act on.
+ * ⚠️ AND NOT ONE OPTION ON THIS SCREEN IS FILTERED IN TYPESCRIPT (031 · FR-018).
+ * Both pickers read server doors that ask the SAME question the purchase is
+ * proved against — `/billing/beneficiaries` is `childrenOf(caller, payments)` and
+ * `/billing/purchasable-courses` is the plural of `isPartyTo`. The screen this
+ * replaces built its course list from `/enrollments`, which covers ONE of that
+ * predicate's three arms: a child enrolled in one course at a teacher may have
+ * credits bought on any of that teacher's courses, and every one of those was
+ * silently missing from the picker.
  */
+
+/** The address carries the whole choice, so a reload and a back button both work. */
+function useChoice() {
+  const params = useSearchParams();
+
+  return {
+    course: params.get("course"),
+    student: params.get("student"),
+  };
+}
+
+function hrefFor(course: string | null, student: string | null): string {
+  const query = new URLSearchParams();
+
+  if (student !== null) query.set("student", student);
+  if (course !== null) query.set("course", course);
+
+  return `/billing/purchase${query.size === 0 ? "" : `?${query.toString()}`}`;
+}
+
 /**
- * Which course? — asked here, answered here.
+ * Who is this for? — asked only of a guardian, and only from the server's list.
  *
- * ⚠️ THIS SCREEN USED TO SEND THE STUDENT BACK TO `/billing`, WHICH SENT THEM
- * HERE. A student with no balance saw "بعد أول عملية شراء ستظهر هنا" on the
- * balance page, whose only purchase link lives inside the balance card that
- * renders only when a balance exists; arriving here without a course, they were
- * told to go back and pick one — from a page that offers no picker. A closed
- * loop with the product's entire revenue path inside it, and the launch default
- * is PREPAID_CREDITS, where a student who cannot buy cannot book.
- *
- * The list is the student's own enrolments, which is exactly the set
- * CourseParticipation admits: what the API will price is what the screen offers,
- * rather than a catalogue that 403s on half its entries.
+ * A guardian account is not a learner account: `dashboardAudience` reads `parent`
+ * as a guardian and hides every student screen, so a purchase in their own name
+ * is one they could never spend. The server refuses it for the same reason, with
+ * «اختر الطالب الذي تدفع له.» — this picker is what makes that refusal
+ * unreachable rather than what replaces it.
  */
-function CoursePicker() {
-  const [courses, setCourses] = useState<Enrollment[]>([]);
+function StudentPicker() {
+  const [children, setChildren] = useState<PurchaseBeneficiary[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -54,9 +79,9 @@ function CoursePicker() {
     setLoading(true);
     setFailed(false);
 
-    api
-      .get<{ data: Enrollment[] }>("/enrollments")
-      .then((res) => setCourses(res.data ?? []))
+    billing
+      .beneficiaries()
+      .then((res) => setChildren(res.data ?? []))
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, []);
@@ -68,8 +93,7 @@ function CoursePicker() {
       <div>
         <h1 className="text-xl font-bold text-ink">شراء أرصدة</h1>
         <p className="mt-1 text-sm text-ink-muted">
-          اختر الكورس أولاً — سعر الحصة يختلف باختلاف المدرّس، فلا يوجد سعر واحد
-          لكل كورساتك.
+          اختر الابن الذي تشتري له أولاً — الرصيد يُقيَّد باسمه، والدفع باسمك.
         </p>
       </div>
 
@@ -77,8 +101,105 @@ function CoursePicker() {
 
       {!loading && failed && (
         <EmptyState
-          title="تعذّر تحميل كورساتك"
+          title="تعذّر تحميل قائمة الأبناء"
           description="أعد المحاولة بعد قليل."
+          action={
+            <Button variant="secondary" onClick={load}>
+              إعادة المحاولة
+            </Button>
+          }
+        />
+      )}
+
+      {/*
+        FR-013 — a reason and a way out, never an empty form. An empty list here
+        has exactly one cause worth naming: no link has been ACCEPTED yet with
+        the «المدفوعات» permission on it. A guardian who added a child by name
+        alone, or whose request the child has not answered, holds nothing — and
+        «المرتبطون» is the one screen where both are visible and actionable.
+      */}
+      {!loading && !failed && children.length === 0 && (
+        <EmptyState
+          title="لا يوجد ابن يمكنك الشراء له"
+          description="الشراء نيابةً عن ابن يحتاج ارتباطاً قَبِلَه هو، وتكون فيه صلاحية «المدفوعات» ممنوحة لك. تابع طلباتك المعلّقة من صفحة المرتبطين."
+          action={
+            <Button variant="primary" href="/family">
+              المرتبطون
+            </Button>
+          }
+        />
+      )}
+
+      {!loading && !failed && children.length > 0 && (
+        <ul className="grid gap-4 sm:grid-cols-2">
+          {children.map((child) => (
+            <li key={child.uuid}>
+              <Card>
+                <h2 className="text-base font-semibold text-ink">{child.name}</h2>
+
+                <div className="mt-4">
+                  <Button variant="primary" href={hrefFor(null, child.uuid)}>
+                    اختيار
+                  </Button>
+                </div>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Which course? — asked here, answered by the server.
+ *
+ * ⚠️ THIS SCREEN USED TO SEND THE STUDENT BACK TO `/billing`, WHICH SENT THEM
+ * HERE. A student with no balance saw "بعد أول عملية شراء ستظهر هنا" on the
+ * balance page, whose only purchase link lives inside the balance card that
+ * renders only when a balance exists; arriving here without a course, they were
+ * told to go back and pick one — from a page that offers no picker. A closed
+ * loop with the product's entire revenue path inside it, and the launch default
+ * is PREPAID_CREDITS, where a student who cannot buy cannot book.
+ */
+function CoursePicker({ student }: { student: string | null }) {
+  const [courses, setCourses] = useState<PurchasableCourse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setFailed(false);
+
+    billing
+      .purchasableCourses(student ?? undefined)
+      .then((res) => setCourses(res.data ?? []))
+      .catch((err: unknown) => {
+        setFailed(true);
+        setError(errorMessage(err, "تعذّر تحميل الكورسات. أعد المحاولة."));
+      })
+      .finally(() => setLoading(false));
+  }, [student]);
+
+  useEffect(load, [load]);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-bold text-ink">شراء أرصدة</h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          اختر الكورس أولاً — سعر الحصة يختلف باختلاف المدرّس، فلا يوجد سعر واحد
+          لكل الكورسات.
+        </p>
+      </div>
+
+      {loading && <RowsSkeleton />}
+
+      {!loading && failed && (
+        <EmptyState
+          title="تعذّر تحميل الكورسات"
+          description={error}
           action={
             <Button variant="secondary" onClick={load}>
               إعادة المحاولة
@@ -89,8 +210,8 @@ function CoursePicker() {
 
       {!loading && !failed && courses.length === 0 && (
         <EmptyState
-          title="لم تسجّل في أي كورس بعد"
-          description="الأرصدة تُشترى على كورس، فابدأ بالتسجيل في واحد."
+          title="لا يوجد كورس يمكن شراء أرصدة عليه"
+          description="الأرصدة تُشترى على كورس عند مدرّس قائم، فابدأ بالتسجيل في واحد."
           action={
             <Button variant="primary" href="/courses">
               تصفّح الكورسات
@@ -101,18 +222,17 @@ function CoursePicker() {
 
       {!loading && !failed && courses.length > 0 && (
         <ul className="grid gap-4 sm:grid-cols-2">
-          {courses.map((enrollment) => (
-            <li key={enrollment.uuid}>
+          {courses.map((course) => (
+            <li key={course.uuid}>
               <Card>
-                <h2 className="text-base font-semibold text-ink">
-                  {enrollment.course_title}
-                </h2>
+                <h2 className="text-base font-semibold text-ink">{course.title}</h2>
+
+                {course.teacher_name !== null && (
+                  <p className="mt-1 text-sm text-ink-muted">{course.teacher_name}</p>
+                )}
 
                 <div className="mt-4">
-                  <Button
-                    variant="primary"
-                    href={`/billing/purchase?course=${encodeURIComponent(enrollment.course_uuid)}`}
-                  >
+                  <Button variant="primary" href={hrefFor(course.uuid, student)}>
                     عرض الحزم
                   </Button>
                 </div>
@@ -127,8 +247,20 @@ function CoursePicker() {
 
 export default function PurchaseCreditsPage() {
   const router = useRouter();
-  const params = useSearchParams();
-  const course = params.get("course");
+  const { course, student } = useChoice();
+  const { user } = useAuth();
+
+  /*
+   * ⚠️ **`dashboardAudience`، لا `platform_role === "parent"`.** الترجمةُ من
+   * قيمةِ الخادمِ إلى «أيُّ تخطيطٍ يخصُّك» مكتوبةٌ مرّةً واحدةً هناك، ومقارنةٌ
+   * حرفيّةٌ هنا تهجئةٌ ثانيةٌ تفترقُ عن الشريطِ الجانبيِّ عندَ أوّلِ تعديل.
+   *
+   * ⚠️ **وهذه قراءةُ دَورٍ لا ترشيحُ صلاحيّات**: «هل أنا وليُّ أمر» سؤالٌ عن أيِّ
+   * شاشةٍ تُصيَّر، أمّا «لأيِّ ابنٍ يجوزُ لي الدفع» فسؤالُ الخادمِ وحدَه (FR-018).
+   * واستنتاجُ الصفةِ من فراغِ القائمةِ خطأٌ ثالث: الطالبُ ووليُّ الأمرِ بلا أبناءٍ
+   * يقرآنِ القائمةَ نفسَها الفارغة، ويحتاجانِ شاشتَين مختلفتَين.
+   */
+  const isGuardian = dashboardAudience(user) === "guardian";
 
   const [offers, setOffers] = useState<CreditPackageOffer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -137,7 +269,7 @@ export default function PurchaseCreditsPage() {
   const [error, setError] = useState("");
 
   const load = useCallback(() => {
-    if (!course) {
+    if (course === null) {
       setLoading(false);
 
       return;
@@ -147,25 +279,25 @@ export default function PurchaseCreditsPage() {
     setFailed(false);
 
     billing
-      .packages(course)
+      .packages(course, student ?? undefined)
       .then((res) => setOffers(res.data ?? []))
       .catch((err: unknown) => {
         setFailed(true);
         setError(errorMessage(err, "تعذّر تحميل الحزم المتاحة. أعد المحاولة."));
       })
       .finally(() => setLoading(false));
-  }, [course]);
+  }, [course, student]);
 
   useEffect(load, [load]);
 
   function buy(offer: CreditPackageOffer) {
-    if (!course) return;
+    if (course === null) return;
 
     setBuying(offer.uuid);
     setError("");
 
     billing
-      .purchase(course, offer.uuid)
+      .purchase(course, offer.uuid, student ?? undefined)
       .then(() => {
         /*
          * To the orders list, which is where the receipt is uploaded — there is
@@ -173,9 +305,9 @@ export default function PurchaseCreditsPage() {
          * every buyer to a 404 on the one screen that follows a payment.
          *
          * A success screen would be worse than a wrong route: it would tell a
-         * student the credits are theirs when no payment has been approved yet
-         * (FR-018). The next step is uploading the transfer receipt, so the next
-         * screen is the one that takes it.
+         * buyer the credits are theirs when no payment has been approved yet.
+         * The next step is uploading the transfer receipt, so the next screen is
+         * the one that takes it.
          */
         router.push("/orders");
       })
@@ -188,9 +320,11 @@ export default function PurchaseCreditsPage() {
       });
   }
 
-  if (!course) {
-    return <CoursePicker />;
-  }
+  // Who, then which, then how much — and a guardian cannot skip the first step,
+  // exactly as the server cannot answer without it.
+  if (isGuardian && student === null) return <StudentPicker />;
+
+  if (course === null) return <CoursePicker student={student} />;
 
   return (
     <div className="space-y-6">
@@ -212,7 +346,7 @@ export default function PurchaseCreditsPage() {
       {!loading && failed && (
         <EmptyState
           title="تعذّر تحميل الحزم"
-          description="أعد المحاولة بعد قليل."
+          description={error}
           action={
             <Button variant="secondary" onClick={load}>
               إعادة المحاولة
@@ -275,7 +409,7 @@ export default function PurchaseCreditsPage() {
       )}
 
       <p className="text-xs text-ink-muted">
-        لا يُضاف أي رصيد قبل اعتماد الدفع. بعد اختيار الحزمة ترفع إيصال التحويل،
+        لا يُضاف أي رصيد قبل اعتماد الدفع. بعد اختيار الحزمة يُرفع إيصال التحويل،
         ويظهر الرصيد فور اعتماده.
       </p>
     </div>

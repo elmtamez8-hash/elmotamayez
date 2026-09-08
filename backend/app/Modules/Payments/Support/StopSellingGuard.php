@@ -36,11 +36,19 @@ class StopSellingGuard
      * a course the teacher has never released, and on an archived one.
      *
      * It lands HERE rather than in each caller because this is the class that
-     * already owns "does this course sell right now", and both doors already read
-     * it: the pricing Action turns a refusal into an empty list, the purchase
-     * Action turns it into a sentence. One spelling, and the course picker reads
-     * the same one — which is what lets the picker be exactly equal to the door
-     * instead of narrower than it.
+     * already owns "does this course sell right now", and both doors read it: the
+     * pricing Action turns a refusal into an empty list, the purchase Action turns
+     * it into a sentence.
+     *
+     * ⚠️ THE PICKER (031) HIDES A DRAFT AND DOES NOT HIDE A STALLED COURSE, AND
+     * THE ASYMMETRY IS DELIBERATE RATHER THAN A DRIFT FROM THIS CLASS. A draft has
+     * never been released, so offering it shows a buyer something that does not
+     * exist; a stalled course is public, was sold before, and answers with the
+     * packages screen's own empty state — hiding it would tell a returning student
+     * their course had vanished. `ListPurchasableCourses` therefore filters on
+     * `status` alone, in SQL, which is exactly `isPublished()` while `courses`
+     * carries no `published_at`; the day that column arrives, the filter needs its
+     * second condition and this note is the pointer to it.
      */
     public function refusalToSell(Course $course): ?string
     {

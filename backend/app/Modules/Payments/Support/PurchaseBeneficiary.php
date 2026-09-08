@@ -40,6 +40,25 @@ use DomainException;
  */
 final class PurchaseBeneficiary
 {
+    /*
+    | ⚠️ **واللفظُ «دفعٌ» لا «اشتراك»، لأنّ هذا الحاسمَ صارَ يخدمُ بابَين.**
+    | كُتبَ في ٠٢٩ للاشتراكاتِ وحدَها، وشراءُ الأرصدةِ في ٠٣١ يمرُّ به نفسِه —
+    | فجملةُ «اختر الطالب الذي تشترك له» تُقرَأُ على شاشةِ شراءِ أرصدةٍ خطأً،
+    | و«الاشتراك» شيءٌ آخرُ في هذا المنتَجِ له بابُه وسعرُه. «الدفع» صحيحةٌ على
+    | البابَين.
+    |
+    | ⛔ **ويُدوَّنُ نفياً: هذا الحاسمُ لا يُنتِجُ صفةَ «موظّفِ منصّة»، بنيويّاً.**
+    | هو يرفضُ كلَّ من لا يحملُ علاقةَ وصايةٍ نشطة، فمخرجُه «الطالبُ لنفسِه» أو
+    | «وصيٌّ عن ابنِه» ولا ثالث. ومن يحملُ `BILLING_PURCHASE_APPROVE` بلا وصايةٍ
+    | يُرفَضُ هنا بالجملةِ الموحّدةِ كأيِّ غريب — **ولصفةِ الموظّفِ مدخلٌ واحدٌ
+    | هو لوحةُ `/admin`**، التي تنادي `PurchaseCredits::handle()` مباشرةً ولا
+    | تمرُّ بهذا الملفِّ إطلاقاً، وتحرسُ نفسَها بعاملٍ ثانٍ وبمعاملةٍ تكتبُ
+    | الإيصالَ مع الطلب — وكلاهما غائبٌ عن `POST /billing/purchases`.
+    |
+    | والصفةُ نفسُها تُشتَقُّ في {@see CourseParticipation::mayBuyFor()} من صلاحيّةِ
+    | النائب، لا هنا: منتجانِ لحكمٍ واحدٍ هما بدايةُ افتراقِهما.
+    */
+
     public function __construct(
         private readonly GuardianDirectory $guardians,
     ) {}
@@ -58,7 +77,7 @@ final class PurchaseBeneficiary
             | اشتراكٌ لا يستطيعُ هو نفسُه استعمالَه.
             */
             if ($caller->platform_role === PlatformRole::Parent) {
-                throw new DomainException('اختر الطالب الذي تشترك له.');
+                throw new DomainException('اختر الطالب الذي تدفع له.');
             }
 
             return ['student' => $caller, 'grantedBy' => null];
@@ -67,7 +86,7 @@ final class PurchaseBeneficiary
         $student = User::query()->where('uuid', $studentUuid)->first();
 
         if ($student === null || ! $this->guardians->isAuthorised($caller, $student, GuardianPermission::Payments)) {
-            throw new DomainException('لا يمكنك الاشتراك لهذا الطالب.');
+            throw new DomainException('لا يمكنك الدفع لهذا الطالب.');
         }
 
         /*
