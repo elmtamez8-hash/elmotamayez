@@ -355,11 +355,18 @@ export const mainNav: NavItem[] = [
    * the witness that their own money arrived (spec 014) — so this screen is the
    * buyer's alone now and the tag costs the teacher nothing.
    */
-  { href: "/orders", label: "الطلبات", Icon: OrdersIcon, audience: ["student"] },
+  /*
+   * ⚠️ AND THE GUARDIAN, ADDED BY 030 — a regression 029 shipped. A guardian may
+   * buy for a child they hold `payments` over, and the subscribe screen sends them
+   * here in a success banner; with `["student"]` alone that banner was their ONLY
+   * route to the order, and `/orders` is the one surface for replacing a rejected
+   * receipt. Navigate away once and the thing they paid for was unreachable.
+   */
+  { href: "/orders", label: "الطلبات", Icon: OrdersIcon, audience: ["student", "guardian"] },
   // The student's credits, counted in sessions and never in money. Separate
   // from /orders, which is one payment at a time: this is the standing balance
   // those payments produce, per course.
-  { href: "/billing", label: "رصيدي", Icon: CreditsIcon, audience: ["student"] },
+  { href: "/billing", label: "رصيدي", Icon: CreditsIcon, audience: ["student", "guardian"] },
   /*
    * Spec 010 · US2. No permission: everyone signed in has a side of a private
    * conversation — the student writes to their teacher, the teacher and whoever
@@ -368,7 +375,18 @@ export const mainNav: NavItem[] = [
    */
   { href: "/messages", label: "الرسائل", Icon: MessagesIcon },
   { href: "/notifications", label: "الإشعارات", Icon: BellIcon },
-  { href: "/family", label: "المرتبطون", Icon: FamilyIcon },
+  /*
+   * Spec 030 — and the label reads from both sides now. A guardian manages
+   * «المرتبطون»; a student reads who follows THEM, which is a different sentence
+   * about the same rows. `labels` exists for exactly this (`/reviews` is the
+   * precedent) and the screen splits its two sections the same way.
+   */
+  {
+    href: "/family",
+    label: "المرتبطون",
+    labels: { student: "من يتابعني" },
+    Icon: FamilyIcon,
+  },
   /*
    * Spec 013. ⚠️ ITS OWN ENTRY, and NOT a tab inside settings.
    *

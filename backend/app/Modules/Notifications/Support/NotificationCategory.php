@@ -200,6 +200,11 @@ enum NotificationCategory: string
                 NotificationType::TeacherApplicationChangesRequested,
                 NotificationType::GuardianConsentRequired,
                 NotificationType::GuardianConsentConflict,
+                // Spec 030. `NotificationCategoryTest` asserts every type is filed
+                // exactly once — the map runs category → types, so an unclassified
+                // type does not crash the feed, it silently stops being filterable.
+                NotificationType::GuardianLinkRequested,
+                NotificationType::GuardianLinkDecided,
                 NotificationType::DataOwnershipTransferred,
                 NotificationType::DataRequestCreated,
                 NotificationType::DataRequestCompleted,

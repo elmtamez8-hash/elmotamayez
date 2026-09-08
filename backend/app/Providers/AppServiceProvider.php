@@ -133,6 +133,30 @@ class AppServiceProvider extends ServiceProvider
         // a row is the behaviour the marketplace exists for.
         RateLimiter::for('public', fn (Request $request) => Limit::perMinute(60)->by((string) $request->ip()));
 
+        /*
+        | Asking to be somebody's guardian (spec 030 · FR-012).
+        |
+        | TWO LIMITS, and the second is the one that matters. A key carrying the
+        | TARGET gives an attacker a fresh bucket per victim — so the per-pair
+        | limit alone would bound nothing but a double tap, while three hundred
+        | children a minute each get their own untouched counter and their own
+        | notification carrying an attacker-chosen display name.
+        |
+        | ⚠️ NO `student_name` FALLBACK. That field is free text the requester
+        | controls, so a per-student limit keyed on it is bypassed by changing one
+        | letter. A request with no `student_uuid` is a name-only child: it is
+        | active at once, there is nobody to notify and nothing to re-request.
+        |
+        | Named, never inline: `ThrottleRequests` keys guests on `domain|ip` with
+        | no route in the hash, so every inline limit in the app shares one counter.
+        */
+        RateLimiter::for('family-link', fn (Request $request) => [
+            Limit::perMinute(3)->by(
+                'pair:'.(string) $request->user()?->getKey().'|'.(string) $request->input('student_uuid'),
+            ),
+            Limit::perHour(20)->by('user:'.(string) $request->user()?->getKey()),
+        ]);
+
         // Contact verification. Keyed by user as well as IP: sending codes costs
         // money at the provider, and one account looping the endpoint should not
         // be able to spend the whole office's allowance.

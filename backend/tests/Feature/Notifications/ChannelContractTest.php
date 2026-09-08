@@ -186,6 +186,18 @@ function dispatchOf(User $user, NotificationType $type): void
             'period' => 'أغسطس ٢٠٢٦',
             'date' => '٣٠ أغسطس',
             'summary' => '١٢ حصّة · ٤ طلاب جدد',
+            /*
+            | A TWELFTH time, with spec 030's `guardian_link_requested`. 62 against
+            | 63 the moment it landed, and the eleven restatements above did not
+            | stop it — which is the argument for keeping this list HAND-WRITTEN.
+            | Derive it and it would supply whatever each template asked for and
+            | could never fail again, and the failure it catches is a real one: a
+            | template whose variable is missing renders NOTHING,
+            | `DispatchNotification` LOGS rather than failing the operation, and the
+            | channel never sees the message. Here that is a child never told that
+            | somebody asked to be their guardian — and a link nobody can settle.
+            */
+            'relation_type' => 'وليّ أمر',
         ],
     ));
 }

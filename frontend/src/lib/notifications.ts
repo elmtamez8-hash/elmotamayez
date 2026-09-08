@@ -88,7 +88,28 @@ export type GuardianRelation = {
   student_name: string;
   student_age: number | null;
   student_grade_level_slug: string | null;
+  // Sent since spec 022 and absent from this type until 030 — the other copy of
+  // this payload (`ChildLink` in lib/types.ts) has had them the whole time, which
+  // is how one type drifting from the wire stayed invisible.
+  student_school_year_slug: string | null;
+  student_school_year_name: string | null;
   student_has_account: boolean;
+  /*
+   * Spec 030 — WHICH SIDE IS READING, decided by the server.
+   *
+   * `null` is a real value, not an oversight: a teacher may read a student's
+   * guardians through an active enrolment in their own workspace, and a teacher is
+   * neither side of the relation.
+   */
+  viewer_side: "guardian" | "student" | null;
+  /*
+   * ⚠️ THE BUTTON AND THE DOOR READ ONE PREDICATE. Re-deriving «pending, and I am
+   * not the one who asked» in TypeScript is the two-spellings defect `cohort_gate`
+   * and `BookingEligibility` each paid for — and the server's copy also knows that
+   * a link created before this feature existed can be settled by nobody.
+   */
+  can_decide: boolean;
+  accepted_at: string | null;
   /**
    * Present ONLY on a row the reader is the guardian of — a teacher reading a
    * student's guardians, or a student reading their own, never sees it. It is
@@ -196,10 +217,22 @@ export const family = {
   }) => api.post<GuardianRelation>("/family/relations", data),
   updatePermissions: (uuid: string, permissions: string[]) =>
     api.patch<GuardianRelation>(`/family/relations/${uuid}`, { permissions }),
+  /*
+   * Spec 030 — the party who did not ask settles the link.
+   *
+   * ⚠️ TYPED AS THE BARE RESOURCE, NEVER `{ data: … }`. `api.ts` re-wraps a bare
+   * ARRAY into `{ data }`, and only an array; a single resource passes through
+   * untouched, so a `{ data: … }` type here reads `undefined` with no error at
+   * all. `AddChildForm` has that exact bug on the POST beside it.
+   *
+   * Rejecting is `revoke()` below — `RevokeRelation` neither deletes nor
+   * re-stamps and its policy admits both parties, so no second endpoint exists.
+   */
+  accept: (uuid: string) => api.post<GuardianRelation>(`/family/relations/${uuid}/accept`, {}),
   revoke: (uuid: string) => api.delete<GuardianRelation>(`/family/relations/${uuid}`),
 };
 
-/** The five permissions a guardian relation can carry, matching the backend enum. */
+/** The six permissions a guardian relation can carry, matching the backend enum. */
 export const GUARDIAN_PERMISSIONS: { key: string; label: string }[] = [
   { key: "attendance", label: "الحضور والغياب" },
   { key: "payments", label: "المدفوعات والمستحقّات" },

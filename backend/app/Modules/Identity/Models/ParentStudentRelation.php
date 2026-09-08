@@ -37,6 +37,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $student_school_year_slug
  * @property string $status
  * @property array<int, string> $permissions
+ * @property int|null $requested_by_user_id
+ * @property Carbon|null $accepted_at
+ * @property int $live_slot
  * @property Carbon|null $revoked_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -67,6 +70,31 @@ class ParentStudentRelation extends BaseModel
         'permissions',
         'status',
         'revoked_at',
+        /*
+        | Spec 030 — WHO ASKED, and WHEN IT WAS ACCEPTED.
+        |
+        | ⛔ THESE TWO LINES ARE THE FEATURE. Both columns are written through
+        | mass assignment — `LinkGuardian` via `create()` and `RegisterStudent`
+        | via `firstOrCreate()` — and mass assignment DISCARDS A NON-FILLABLE KEY
+        | IN SILENCE: no exception, no log, a 201. Left out, every new relation
+        | carries `requested_by_user_id = NULL`, which `decidableBy()` reads as
+        | "nobody may decide this", and the whole phase ships dead with every
+        | endpoint answering 200.
+        |
+        | The rule is already written one field above, for `student_school_year_slug`.
+        | It has still shipped three times on `student_profiles` in one change,
+        | with every assertion green — because they were made against a response
+        | body, which echoes what was SUBMITTED rather than what was stored.
+        */
+        'requested_by_user_id',
+        'accepted_at',
+        /*
+        | ⚠️ AND `live_slot` IS DELIBERATELY ABSENT FROM THIS LIST. It is the
+        | unique index's sentinel (`0` while live, the row id once revoked) and it
+        | is claimed inside the same write that ends the relation. Mass-assignable
+        | it becomes a second way to free the pair from outside that write, which
+        | is exactly why `captured_order_id` is not fillable either.
+        */
     ];
 
     /** @return array<string, mixed> */
@@ -75,6 +103,7 @@ class ParentStudentRelation extends BaseModel
         return [
             'permissions' => 'array',
             'student_age' => 'integer',
+            'accepted_at' => 'datetime',
             'revoked_at' => 'datetime',
         ];
     }
@@ -97,6 +126,54 @@ class ParentStudentRelation extends BaseModel
     public function allows(GuardianPermission $permission): bool
     {
         return in_array($permission->value, $this->permissions, true);
+    }
+
+    /**
+     * May this person settle this pending link? (Spec 030 · FR-002.)
+     *
+     * ⚠️ ONE SPELLING, READ BY THREE CALLERS: the policy's `accept` ability (the
+     * 403 shape), `AcceptRelation` itself, and the Resource's `can_decide`. The
+     * first draft of this feature wrote the condition out three times and dropped
+     * `requested_by_user_id !== null` from the Resource's copy — so an old row
+     * rendered an accept button that the door answered 403. That is the
+     * two-spellings defect wearing the costume of its own fix, the same one
+     * `cohort_gate` and `BookingEligibility` each paid for.
+     *
+     * ⚠️ AND THE RESOURCE CALLS THIS, NOT `Gate::allows('accept', …)`. The gate
+     * waves a super admin past every policy method, so through it the one actor
+     * the Action refuses would be shown the button.
+     *
+     * «The party who did not ask» rather than «the student», because `pending`
+     * runs in two directions: `LinkGuardian` asks and the student answers;
+     * `RegisterStudent::inviteGuardian` asks on the student's behalf and the
+     * guardian answers. A NULL requester is a row created before this column
+     * existed — nobody can prove who asked, and assuming is inventing a consent.
+     */
+    public function decidableBy(User $user): bool
+    {
+        return $this->status === RelationStatus::Pending->value && $this->wasAskedOf($user);
+    }
+
+    /**
+     * Is this person the party the link was put to — whatever state it is in now?
+     *
+     * ⚠️ THE POLICY ASKS THIS AND THE ACTION ASKS `decidableBy()`, AND THE SPLIT IS
+     * DELIBERATE. Asking the narrower question at the door answers 403 to the very
+     * person who accepted the link when they refresh — and to the student who just
+     * refused it, in place of the sentence that tells them it has ended. So the
+     * policy decides WHO MAY ASK and the Action decides WHAT HAPPENS.
+     *
+     * `can_decide` on the payload stays the narrow one: it draws a button.
+     */
+    public function wasAskedOf(User $user): bool
+    {
+        if ($this->requested_by_user_id === null
+            || (int) $this->requested_by_user_id === (int) $user->getKey()) {
+            return false;
+        }
+
+        return (int) $user->getKey() === (int) $this->guardian_user_id
+            || (int) $user->getKey() === (int) $this->student_user_id;
     }
 
     /**

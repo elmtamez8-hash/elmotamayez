@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Identity\Actions\AcceptRelation;
 use App\Modules\Identity\Actions\LinkGuardian;
 use App\Modules\Identity\Actions\RevokeRelation;
 use App\Modules\Identity\Actions\UpdateRelationPermissions;
@@ -56,7 +57,7 @@ class FamilyController extends Controller
             LinkGuardianData::fromArray($request->validated()),
         );
 
-        return ParentStudentRelationResource::make($relation)->response()->setStatusCode(201);
+        return ParentStudentRelationResource::make($this->hydrate($relation))->response()->setStatusCode(201);
     }
 
     public function show(Request $request, string $uuid): ParentStudentRelationResource
@@ -82,12 +83,45 @@ class FamilyController extends Controller
         /** @var list<string> $values */
         $values = $request->validated('permissions');
 
-        $updated = $action->handle($relation, array_map(
+        $updated = $action->handle($this->currentUser($request), $relation, array_map(
             static fn (string $value): GuardianPermission => GuardianPermission::from($value),
             $values,
         ));
 
-        return ParentStudentRelationResource::make($updated);
+        return ParentStudentRelationResource::make($this->hydrate($updated));
+    }
+
+    /**
+     * The party who did not ask settles the link (spec 030 · FR-001).
+     *
+     * The refusal is 403 from the policy and 422 from the Action — the two differ
+     * because `DomainException` is mapped globally to 422, and the super admin
+     * that `Gate::before` waves past the policy lands on the second. Both carry
+     * the same undifferentiated sentence, so the pair is not an oracle.
+     */
+    public function accept(Request $request, string $uuid, AcceptRelation $action): ParentStudentRelationResource
+    {
+        $relation = ParentStudentRelation::query()->where('uuid', $uuid)->firstOrFail();
+
+        abort_unless($this->currentUser($request)->can('accept', $relation), 403, 'لا يمكنك البتّ في هذا الطلب.');
+
+        return ParentStudentRelationResource::make(
+            $this->hydrate($action->handle($this->currentUser($request), $relation)),
+        );
+    }
+
+    /**
+     * ⚠️ `guardian` IS `whenLoaded`, SO A MISSING EAGER LOAD IS A MISSING NAME —
+     * silently, with a 200. Only `index` and `show` loaded it; `store`, `update`
+     * and `destroy` built the Resource from a bare model, so three responses have
+     * been dropping the guardian's name since the endpoint shipped. It never
+     * showed because the screen re-lists after every mutation — and the accept
+     * response is the first one a screen has reason to render in place, which is
+     * exactly where FR-007's «read who, and what they will see» would vanish.
+     */
+    private function hydrate(ParentStudentRelation $relation): ParentStudentRelation
+    {
+        return $relation->load(['guardian', 'student:id,uuid']);
     }
 
     public function destroy(Request $request, string $uuid, RevokeRelation $action): ParentStudentRelationResource
@@ -96,6 +130,6 @@ class FamilyController extends Controller
 
         abort_unless($this->currentUser($request)->can('delete', $relation), 403);
 
-        return ParentStudentRelationResource::make($action->handle($relation));
+        return ParentStudentRelationResource::make($this->hydrate($action->handle($relation)));
     }
 }

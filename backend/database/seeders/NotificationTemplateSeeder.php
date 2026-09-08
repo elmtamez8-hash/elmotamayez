@@ -405,6 +405,22 @@ class NotificationTemplateSeeder extends Seeder
                 'سجّل {{ student_name }} حساباً على المنصّة، ولأنّه دون الثامنة عشرة لا يُفعَّل الحساب قبل موافقتك على معالجة بياناته. افتح صفحة «المرتبطون» لقراءة ما يُجمَع ولماذا.',
                 ['student_name'],
             ],
+            /*
+            | Spec 030. The student reads WHO asked and IN WHAT CAPACITY before
+            | deciding; the list of what the guardian would see is on the screen the
+            | notification links to, because a message is not the place to render a
+            | consent form.
+            */
+            NotificationType::GuardianLinkRequested->value => [
+                'طلب ارتباط من {{ name }}',
+                'طلب {{ name }} الارتباط بحسابك بصفة {{ relation_type }}. افتح صفحة «المرتبطون» لقراءة ما سيطّلع عليه قبل أن تقبل أو ترفض.',
+                ['name', 'relation_type'],
+            ],
+            NotificationType::GuardianLinkDecided->value => [
+                'ردّ {{ name }} على طلب الارتباط',
+                'بتّ {{ name }} في طلب الارتباط الذي أرسلته. افتح صفحة «المرتبطون» لقراءة حالة الطلب.',
+                ['name'],
+            ],
             NotificationType::DataOwnershipTransferred->value => [
                 'صارت بياناتك ملكَك',
                 'بلغ {{ student_name }} الثامنةَ عشرة، فانتقلت إليه ملكيةُ بياناته: هو وحده من يوافق على معالجتها ويطلب نسخةً منها أو حذفَها. لم ينقطع شيءٌ من الخدمة.',

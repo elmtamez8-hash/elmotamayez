@@ -24,6 +24,29 @@ class ParentStudentRelationResource extends JsonResource
             'relation_type_label' => $this->relationType()->label(),
             'status' => $this->status,
             'status_label' => $this->status()->label(),
+            /*
+            | Spec 030 — WHICH SIDE IS READING, ANSWERED BY THE SERVER.
+            |
+            | The screen renders one card from either angle, and deriving the side
+            | in TypeScript from `guardian.uuid === me` is the two-spellings defect
+            | `cohort_gate` and `BookingEligibility` each paid for.
+            |
+            | ⚠️ NULL IS A REAL THIRD VALUE, not an oversight: `view()` also admits
+            | a TEACHER, through an active enrolment in their own workspace, and a
+            | teacher is neither side of the relation. A closed two-value union
+            | would have told them "student" about a row they are not party to.
+            */
+            'viewer_side' => $this->viewerSide($request),
+            /*
+            | ⚠️ `decidableBy()` DIRECTLY, NEVER `can('accept', …)`. The Gate waves a
+            | super admin past every policy method, so through it the one actor the
+            | Action refuses would be shown the button. And it is the model method
+            | rather than a fourth copy of the predicate — the first draft wrote it
+            | out here by hand and dropped `requested_by_user_id !== null`, so an
+            | old row rendered an accept button the door answered 403.
+            */
+            'can_decide' => $this->decideableForReader($request),
+            'accepted_at' => $this->accepted_at?->toIso8601String(),
             'student_name' => $this->student_name,
             'student_age' => $this->student_age,
             /*
@@ -81,5 +104,28 @@ class ParentStudentRelationResource extends JsonResource
             'revoked_at' => $this->revoked_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
+    }
+
+    /** "guardian" · "student" · null for the teacher reading through the policy. */
+    private function viewerSide(Request $request): ?string
+    {
+        $id = $request->user()?->getKey();
+
+        if ($id === null) {
+            return null;
+        }
+
+        if ((int) $id === (int) $this->guardian_user_id) {
+            return 'guardian';
+        }
+
+        return (int) $id === (int) $this->student_user_id ? 'student' : null;
+    }
+
+    private function decideableForReader(Request $request): bool
+    {
+        $user = $request->user();
+
+        return $user !== null && $this->resource->decidableBy($user);
     }
 }

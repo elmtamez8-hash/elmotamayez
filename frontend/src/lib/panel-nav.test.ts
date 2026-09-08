@@ -106,18 +106,36 @@ describe("allowedNav · جمهورُ الشاشة", () => {
     for (const href of [
       "/enrollments",
       "/certificates",
-      "/billing",
       "/mistakes",
       "/practice",
       "/assignments",
       "/exams",
-      "/orders",
       "/schedule",
       "/shop",
       "/plans",
     ]) {
       expect(seen).not.toContain(href);
     }
+  });
+
+  /*
+  | ⚠️ `/orders` و`/billing` خرجَتا من القائمةِ أعلاه في ٠٣٠، وهو تصحيحُ ارتدادٍ
+  | لا توسيعُ نطاق.
+  |
+  | المرحلةُ ٠٢٩ أعطَت وليَّ الأمرِ شراءً لابنِه: `‎/subscribe` ترسلُ
+  | `student_uuid`، ثمّ تقولُ له في لافتةِ نجاحٍ «افتح صفحة الطلبات» — وتلك اللافتةُ
+  | كانت طريقَه **الوحيد**. يغادرُ الصفحةَ فيضيعُ الطلبُ الذي دفعَ ثمنَه، و`‎/orders`
+  | هو السطحُ الوحيدُ في المنتَجِ لاستبدالِ إيصالٍ مرفوض. و`‎/billing` تحملُ بطاقةَ
+  | الموافقةِ على الشروط.
+  |
+  | ما تحرسُه القائمةُ أعلاه لم يتغيّر: شاشاتُ الطالبِ التي لا معنى لها لوليِّ أمرٍ
+  | (تعلّمُه هو، شهاداتُه هو، أوراقُه هو) تبقى محجوبة.
+  */
+  it("gives a guardian the two screens their own purchase produced", () => {
+    const seen = hrefs(person({ platform_role: "parent" }));
+
+    expect(seen).toContain("/orders");
+    expect(seen).toContain("/billing");
   });
 
   it("keeps the two screens a guardian really reads, and the one that is theirs", () => {

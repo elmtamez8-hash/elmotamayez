@@ -65,6 +65,11 @@ export interface ChildLink {
   student_has_account: boolean;
   relation_type: string;
   status: string;
+  // Spec 030. Kept in step with `GuardianRelation` in lib/notifications.ts — two
+  // declarations of one payload, and the pair only stays honest if both move.
+  viewer_side: "guardian" | "student" | null;
+  can_decide: boolean;
+  accepted_at: string | null;
 }
 
 export interface NotificationPreferences {

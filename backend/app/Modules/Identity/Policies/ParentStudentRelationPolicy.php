@@ -40,6 +40,19 @@ class ParentStudentRelationPolicy
         return $this->teacherMaySee($user, $relation);
     }
 
+    /**
+     * Settling a pending link (spec 030 · FR-002).
+     *
+     * ⚠️ THE SHAPE ONLY. `AppServiceProvider`'s `Gate::before` waves a super admin
+     * past every policy method, so `AcceptRelation` asks the same question again
+     * for itself — SC-003 («nobody but the other party, the administration
+     * included») is true because of that second ask, not because of this one.
+     */
+    public function accept(User $user, ParentStudentRelation $relation): bool
+    {
+        return $relation->wasAskedOf($user);
+    }
+
     public function update(User $user, ParentStudentRelation $relation): bool
     {
         // Changing what a guardian may see is the family's decision, never the
