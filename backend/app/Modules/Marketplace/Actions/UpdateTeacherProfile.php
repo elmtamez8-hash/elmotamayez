@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Marketplace\Actions;
 
+use App\Modules\Marketplace\Models\TeacherApplication;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Marketplace\Support\MarketplaceCache;
 use App\Shared\Actions\Action;
@@ -61,6 +62,8 @@ class UpdateTeacherProfile extends Action
                 $profile->gradeLevels()->sync($gradeLevelIds);
             }
 
+            $this->mirrorToOpenApplication($profile);
+
             // بطاقةُ المدرّسِ مخزَّنةٌ داخلَ حمولاتِ الصفحةِ الأولى والقوائم، وهي
             // تحملُ الاسمَ والسطرَ التعريفيَّ والموادَّ والعنوان — فبلا الإبطالِ
             // يبقى التصحيحُ غيرَ مرئيٍّ حتّى انتهاءِ الذاكرةِ من تلقاءِ نفسِها.
@@ -68,5 +71,58 @@ class UpdateTeacherProfile extends Action
 
             return $profile;
         });
+    }
+
+    /**
+     * والطلبُ المفتوحُ يتحرّكُ مع الملفّ، وإلّا دهسَ الإرسالُ التصحيحَ الذي طُلِبَ.
+     *
+     * ⚠️ حقولُ هذا الإجراءِ هي حقولُ الخطوةِ الثانيةِ بعينِها — تقولُه وثيقتُه
+     * أعلاه — و{@see SubmitTeacherApplication} يُعيدُ كتابةَ الملفِّ منها عندَ كلِّ
+     * إرسال. فمدرّسٌ في «مطلوب تعديل» صحّحَ سيرتَه ومؤهّلاتِه وموادَّه من صفحةِ
+     * ملفِّه ثمّ أعادَ الإرسال، كانَ كلُّ ذلك يعودُ إلى ما قبلَه بصمت — والمراجِعُ
+     * يُفتَحُ له النصُّ الذي طلبَ تعديلَه بعينِه، فيردُّ «لم تُعدِّلْ شيئاً».
+     * سبعةُ حقولٍ بدلَ حقلِ المواعيدِ الواحد، وعلى الحقولِ التي يُطلَبُ تعديلُها
+     * فعلاً.
+     *
+     * ⚠️ ويُقرَأُ من الملفِّ **بعدَ** حفظِه ومزامنةِ تصنيفاتِه، لا من المصفوفةِ
+     * الواردة: الغائبُ يعني «لم يُرسَلْ» فيبقى على قيمتِه، والتصنيفُ يصلُ
+     * معرِّفاتٍ بينما الخطوةُ الثانيةُ تُخزَّنُ أسماءً — والقراءةُ من الحالةِ
+     * المحفوظةِ تُعطي الأمرَينِ بلا فرعٍ لأيٍّ منهما.
+     *
+     * ⚠️ و`isEditable()` وحدَها هي الشرط، وهي التي تجعلُ هذا آمناً على البابِ
+     * الثاني: اللوحةُ تُصحّحُ ملفَّ مدرّسٍ معتمَدٍ في الغالب، وطلبُه المعتمَدُ
+     * سجلُّ مراجعةٍ انتهت فلا يتحرّك.
+     *
+     * ⚠️ ولا `slug` ولا `faqs` ولا `intro_video_url` هنا: ثلاثتُها حقولُ ملفٍّ
+     * لا تعرفُها الخطوةُ الثانية، وكتابتُها فيها تخترعُ مفتاحاً لا قارئَ له.
+     */
+    private function mirrorToOpenApplication(TeacherProfile $profile): void
+    {
+        $application = TeacherApplication::query()
+            // نفسُ التجاوزِ المقصودِ في {@see TeacherApplicationController}:
+            // `user_id` هو الحارس، والسياقُ قد يكونُ سياقَ مراجِعٍ لا سياقَ الطلب.
+            ->withoutWorkspaceScope()
+            ->where('user_id', $profile->user_id)
+            ->first();
+
+        if ($application === null || ! $application->isEditable()) {
+            return;
+        }
+
+        $application->step_data = [
+            ...($application->step_data ?? []),
+            'step_2' => [
+                ...$application->step(2),
+                'subjects' => $profile->subjects()->pluck('slug')->all(),
+                'grade_levels' => $profile->gradeLevels()->pluck('slug')->all(),
+                'years_experience' => (int) $profile->years_experience,
+                'qualifications' => array_values($profile->qualifications ?? []),
+                'teaching_languages' => array_values($profile->teaching_languages ?? []),
+                'headline' => (string) $profile->headline,
+                'bio' => $profile->bio,
+            ],
+        ];
+
+        $application->save();
     }
 }
