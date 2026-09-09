@@ -18,8 +18,9 @@ import { SiteHeader, isCurrentPath } from "./SiteHeader";
 | visit the routes somebody remembered to add to a spec.
 */
 vi.mock("@/lib/platform-context", () => ({ usePlatformName: () => "المتميز" }));
+let auth: { user: null; loading: boolean } = { user: null, loading: false };
 vi.mock("@/lib/auth-context", () => ({
-  useAuth: () => ({ user: null }),
+  useAuth: () => auth,
   panelPathFor: () => "/dashboard",
 }));
 
@@ -79,5 +80,43 @@ describe("SiteHeader", () => {
 
     expect(current).toHaveLength(1);
     expect(current[0].textContent).toContain("المدرسون");
+  });
+});
+
+/*
+| «لا أعرفُ بعد» ليستْ «زائر».
+|
+| ⚠️ الرمزُ في `localStorage` فالخادمُ لا يراهُ، و`AuthProvider` يبدأُ بـ
+| `loading = true`. وهذه الترويسةُ كانتْ تفرّعُ على `user === null` وحدَها، فتطبعُ
+| «تسجيل دخول» و«إنشاء حساب» في وجهِ صاحبِ الحسابِ عندَ كلِّ تحديثِ صفحةٍ حتّى
+| يعودَ النداء — ثمّ تُبدِّلُهما باسمِه وصورتِه. بلاغُ مستخدِمٍ ٢٠٢٦-٠٩-٠٩.
+|
+| ⚠️ ولا يراهُ إلّا اختبارُ مكوّن: الخادمُ لا يعرفُ هذه الترويسة، وPlaywright
+| يقيسُ الصفحةَ بعدَ أن تستقرَّ — أي بعدَ اللحظةِ التي هي العطبُ كلُّه.
+*/
+describe("SiteHeader while the token is still being exchanged", () => {
+  it("offers NEITHER guest button before the answer is known", () => {
+    pathname = "/";
+    auth = { user: null, loading: true };
+
+    render(<SiteHeader />);
+
+    expect(screen.queryByRole("link", { name: "تسجيل دخول" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "إنشاء حساب" })).toBeNull();
+
+    auth = { user: null, loading: false };
+  });
+
+  it("offers them once it knows the visitor really is a guest", () => {
+    // ⚠️ الحالةُ السالبةُ: بدونِها يمرُّ حارسٌ يُخفي الزرَّينِ عن الجميعِ للأبد.
+    pathname = "/";
+    auth = { user: null, loading: false };
+
+    render(<SiteHeader />);
+
+    expect(
+      screen.getAllByRole("link", { name: "تسجيل دخول" }).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "إنشاء حساب" })).toBeTruthy();
   });
 });
