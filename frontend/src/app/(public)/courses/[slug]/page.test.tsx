@@ -22,6 +22,17 @@ import { NotFoundError, type CourseDetail } from "@/lib/public-api";
 
 const teacher = vi.fn();
 
+/*
+| ⚠️ زائرٌ غيرُ مسجَّلٍ هو الحالةُ الحقيقيّةُ لهذه الصفحة، و`AuthProvider` يعيشُ
+| في التخطيطِ الجذريِّ لا في `(public)` — فتصييرُ الصفحةِ وحدَها هنا بلا سياقٍ
+| يرمي `useAuth` عندَ أوّلِ مكوّنٍ يقرؤه. المحاكاةُ تُعيدُ `null`: هذا ما يراهُ
+| الزائرُ فعلاً، وهو السببُ في أنّ السعرَ لا يظهرُ له.
+*/
+vi.mock("@/lib/auth-context", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/auth-context")>()),
+  useAuth: () => ({ user: null }),
+}));
+
 vi.mock("@/lib/public-api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/public-api")>();
 

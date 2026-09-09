@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { CohortList } from "@/components/marketplace/CohortList";
+import { CoursePrice } from "@/components/marketplace/CoursePrice";
 import { CourseCurriculum } from "@/components/marketplace/CourseCurriculum";
 import { PrivateSessionRequestForm } from "@/components/courses/PrivateSessionRequestForm";
 import { PromoVideoButton } from "@/components/courses/PromoVideoButton";
@@ -9,7 +10,6 @@ import { StarRating } from "@/components/marketplace/StarRating";
 import { TrustScoreBadge } from "@/components/marketplace/TrustScoreBadge";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
-import { formatMinorMoney } from "@/lib/labels";
 import {
   NotFoundError,
   publicApi,
@@ -243,13 +243,12 @@ export default async function CoursePage({
             </Link>
           )}
 
-          {course.price_minor !== null && course.currency && (
-            <p className="text-xl font-black text-primary-ink">
-              {course.price_minor === 0
-                ? "مجاني"
-                : formatMinorMoney(course.price_minor, course.currency)}
-            </p>
-          )}
+          {/* ⚠️ A CLIENT COMPONENT FOR ONE LINE, BECAUSE THIS PAGE HAS NO READER.
+              It renders on the server from the public marketplace endpoint, so
+              there is no `user` here at all — and the answer to «may this person
+              see the price» is a fact about who is looking. Read its docblock
+              before treating it as protection: it is not one. */}
+          <CoursePrice priceMinor={course.price_minor} currency={course.currency ?? null} />
         </div>
       </header>
 
