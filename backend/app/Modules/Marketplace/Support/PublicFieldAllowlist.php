@@ -90,6 +90,7 @@ final class PublicFieldAllowlist
         'reviews',
         'availability',
         'faqs',
+        'intro_video_url',
     ];
 
     /** @var list<string> */
@@ -200,10 +201,22 @@ final class PublicFieldAllowlist
     /*
     | The published tree, as a visitor who has not bought it may read it.
     |
-    | ⚠️ NO `uuid` ON AN ITEM, AND NO MEDIA PATH (FR-005 · SC-004). A lesson uuid
+    | ⚠️ NO MEDIA PATH, AND NO `uuid` EXCEPT ON ONE KIND OF ITEM. A lesson uuid
     | in a public payload is an invitation to try it against the playback
-    | endpoint; the title, the kind and the duration are the whole promise being
-    | made, and they are enough to decide with.
+    | endpoint — and that reading is CORRECT and was measured again in 032:
+    | `PlaybackController` resolves the lesson with `withoutWorkspaceScope()` and
+    | `IssuePlaybackGrant::mayWatch()` answers yes to ANY signed-in account for
+    | ANY open lesson, across every workspace. Publishing the uuid of an open
+    | UPLOADED video would therefore hand every preview video on the platform to
+    | one free account.
+    |
+    | ⛔ SPEC 032 IS A DECLARED AMENDMENT TO 023 · FR-005/SC-004, NARROWED TO THE
+    | ONE CASE WHERE THAT SENTENCE DOES NOT APPLY: an `embed` item has NO MEDIA
+    | ASSET AT ALL, so its uuid opens no bytes at that endpoint — there is
+    | nothing there to open. `CURRICULUM_ITEM` therefore carries `uuid` and
+    | `is_open`, and the resource fills them for `isPubliclyReadable()` alone —
+    | never for every open lesson. Both keys are ABSENT on every other item, not
+    | null.
     */
     /** @var list<string> */
     public const CURRICULUM_SECTION = ['title', 'chapters'];
@@ -218,7 +231,33 @@ final class PublicFieldAllowlist
     public const CURRICULUM_CHAPTER = ['title', 'items'];
 
     /** @var list<string> */
-    public const CURRICULUM_ITEM = ['title', 'kind', 'duration_seconds'];
+    public const CURRICULUM_ITEM = ['title', 'kind', 'duration_seconds', 'uuid', 'is_open'];
+
+    /*
+    | Spec 032 · FR-010 — the open embedded lesson, read by a visitor with no
+    | account.
+    |
+    | What is needed to WATCH it and nothing else: no publication status, no
+    | price, no progress denominator, nothing about the rest of the tree.
+    |
+    | ⚠️ `duration_seconds` IS OMITTED ENTIRELY WHEN IT IS ZERO, never sent as
+    | zero or null. The column defaults to 0 and the teacher writes it by hand,
+    | so a zero means «not written» — and «٠ دقيقة» is a lie rather than a blank.
+    */
+    /** @var list<string> */
+    public const PREVIEW_LESSON = ['uuid', 'title', 'kind', 'duration_seconds', 'embed_url', 'course'];
+
+    /*
+    | ⚠️ ITS OWN CONSTANT, AND NOT A LUXURY. `PublicExposureTest` flattens keys
+    | and matches names at any depth, so a nested object with no constant of its
+    | own is one where a third key can be added later with nobody deciding — the
+    | shape five payloads already drifted into.
+    |
+    | `slug` is here because the enrolment invitation beside the video (FR-013)
+    | builds the course's public url from it.
+    */
+    /** @var list<string> */
+    public const PREVIEW_LESSON_COURSE = ['uuid', 'title', 'slug'];
 
     /*
     | A group as the public sees it (FR-010 · FR-014).

@@ -107,6 +107,17 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     Route::post('/billing/purchases', [CreditPurchaseController::class, 'store']);
 
     /*
+    | The picker's two sources (031 · FR-012 · FR-018) — «who may I pay for» and
+    | «which of their courses takes credits». Both exist because the screen was
+    | building its own answers in TypeScript out of `/family/relations` and
+    | `/enrollments`, and both of those answer a DIFFERENT question: the first
+    | carries no permission filter, and the second covers one of `isPartyTo`'s
+    | three arms, so the picker hid courses the server accepts.
+    */
+    Route::get('/billing/beneficiaries', [CreditPurchaseController::class, 'beneficiaries']);
+    Route::get('/billing/purchasable-courses', [CreditPurchaseController::class, 'purchasableCourses']);
+
+    /*
     | Subscriptions (011 · US4). The third pricing shape, and the only one of the
     | three that sells TIME — «بالحصّة» and «بعدد من الحصص» are the two credit
     | routes directly above, priced per course from the teacher's approved rate.

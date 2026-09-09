@@ -58,7 +58,14 @@ class UploadPaymentReceipt extends Action
         | upload rather than a refused one. The Action is the entry point Filament
         | and any console command share, so it is where the rule has to be true.
         */
+        /*
+        | ⚠️ **ومن أنشأَه نيابةً عن صاحبِه هو من يحملُ الإيصال.** وليُّ الأمرِ هو من
+        | حوّلَ المبلغَ، والطلبُ باسمِ ابنِه — فشرطٌ على `user_id` وحدَه يخلقُ طلباً
+        | لا يستطيعُ دافعُه أن يدفعَه: يُنشَأُ ثمّ يُرفَضُ رفعُ إيصالِه، ويبقى
+        | `pending` إلى الأبد. نفسُ السببِ الذي وسَّعَ هذا السطرَ للموظّفِ في ٠٢٤.
+        */
         if ($order->user_id !== $user->getKey()
+            && $order->granted_by !== $user->getKey()
             && ! ($order->requiresPlatformApproval() && $user->can(Permissions::BILLING_PURCHASE_APPROVE))) {
             throw new DomainException('You can only upload receipts for your own orders.');
         }

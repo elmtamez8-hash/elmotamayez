@@ -91,14 +91,79 @@
      not follow it). Sampled from the shipped designs' own maroon. */
   --color-certificate-ink: #6b0f2b;
 
+  /* The ground behind a modal (spec 033).
+
+     ⚠️ A TOKEN AND NOT A LITERAL, because a class naming a token `@theme` never
+     saw paints NOTHING — Tailwind v4 emits no rule for it — and this tree has
+     shipped that four times: an 8px transparent «who is speaking» dot, an ink
+     ring where a green one was meant, «إجابة معتمَدة» in body text, and an
+     avatar circle with a letter floating in it. `src/lib/theme-tokens.test.ts`
+     reads the tokens OUT of this file, so declaring it here is what covers it.
+
+     Warmer and lighter than a plain black wash: the surface is limestone, and a
+     neutral #000 scrim over it reads grey-blue. Opacity carries the dimming so
+     one value serves both themes — the ground behind it is what changes. */
+  --color-overlay: rgb(42 34 36 / 0.55);
+
   /* Arabic type scale */
   --font-sans: var(--font-cairo), system-ui, sans-serif;
+}
+
+/*
+  ⛔ THIS RULE HAS **NOTHING** BUT THE BACKDROP, AND EVERY LINE THAT WAS ONCE
+  HERE WAS A BUG — measured twice in one walk on 2026-09-09.
+
+  `dialog::backdrop` is a pseudo-element React does not own, so it is styled
+  here; its colour is written out rather than inherited, because in several
+  engines the backdrop sits OUTSIDE the inheritance tree and `inherit` there
+  resolves against the initial value.
+
+  ⚠️ AND THERE IS DELIBERATELY NO `dialog { … }` RULE BESIDE IT. A first attempt
+  reset the UA's `padding`, `border`, `background` and `max-width` on the bare
+  element — the obvious, wrong thing. **This file is UNLAYERED, and unlayered
+  CSS beats every `@layer`, including the `utilities` layer Tailwind v4 emits
+  its classes into.** So each reset silently overrode the window's own utility
+  of the same name: `max-width: none` beat `max-w-md` and the window opened full
+  width pinned to the top with its title above the fold; `background:
+  transparent` beat `bg-surface-raised` and the second attempt was a card you
+  could read the page through. None of it is needed anyway — author styles beat
+  UA styles whatever the layer, so `p-6` and `border-line` win on their own.
+
+  ⚠️ **NO COMPONENT TEST CAN SEE ANY OF THIS.** jsdom has no layout and no
+  cascade to speak of; all 30 `Modal` assertions were green over both versions.
+  It was found by opening the screen and looking at it.
+*/
+dialog::backdrop {
+  background: var(--color-overlay);
+}
+
+/*
+  ⛔ ONE DECLARATION, AND IT IS NOT OPTIONAL — measured, not reasoned.
+  `getComputedStyle` on an open modal read `margin: 0px 0px 24px`, and the card
+  sat pinned to the top-RIGHT corner (`left: 935` of a 1396px viewport, in RTL)
+  instead of centred.
+
+  A `dialog:modal` is centred by the UA's `position: fixed; inset: 0; margin:
+  auto` — and Tailwind v4's preflight resets `margin: 0` on `*`, which kills
+  exactly the third of those three. So the browser's centring is not something
+  this page inherits; it has to be asked for.
+
+  ⚠️ AND `margin` IS THE ONE PROPERTY THAT MAY BE WRITTEN HERE, because the
+  window carries no margin utility of its own. Everything else the first draft
+  reset — `padding`, `border`, `background`, `max-width` — DID have a utility on
+  the element, and this file being unlayered beat every one of them.
+*/
+dialog[open] {
+  margin: auto;
 }
 
 /* Dark-mode surface overrides. Brand hues keep their identity; only the
    neutral ramp inverts, so contrast pairings stay predictable. */
 [data-theme="dark"] {
   --color-ink: #f5efe9;
+  /* Darker AND more opaque than the light theme's: the same wash over a #191315
+     page barely separates the modal from the screen behind it. */
+  --color-overlay: rgb(10 7 8 / 0.7);
   --color-ink-muted: #a79c96;
   --color-surface: #191315;
   /* One step lighter than the page, not darker: raised means closer to the

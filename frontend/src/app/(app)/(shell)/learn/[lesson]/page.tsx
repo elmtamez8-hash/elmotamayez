@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 
 import { AttachmentList, type StudentAttachment } from "@/components/player/AttachmentList";
 import { DocumentViewer } from "@/components/player/DocumentViewer";
+import { EmbeddedVideo } from "@/components/player/EmbeddedVideo";
 import { VideoPlayer } from "@/components/player/VideoPlayer";
 import { SessionChat } from "@/components/community/SessionChat";
 import { Alert } from "@/components/ui/Alert";
@@ -30,6 +31,8 @@ interface StudentLesson {
    * يُقرأُ من الخادمِ ولا يُشتقُّ من `type`: البابُ يرفضُ بالقاعدةِ نفسِها.
    */
   may_self_complete: boolean;
+  /** Spec 032 — what the break-report button is addressed with. */
+  course_uuid: string | null;
   is_completed: boolean;
   content: string | null;
   content_html: string;
@@ -286,6 +289,27 @@ export default function LearnLessonPage({
           <div
             className="text-ink"
             dangerouslySetInnerHTML={{ __html: detail.content_html }}
+          />
+        </Card>
+      )}
+
+      {/*
+        ⛔ الفرعُ الذي لم يكنْ موجوداً. الملفُّ يحملُ ستّةَ فروعٍ للأنواعِ ولا
+        واحدَ منها `embed` — فالطالبُ الذي **دفع** كانَ يرى العنوانَ ووسمَ النوعِ
+        وتحتَهما زرَّ «علِّمه مكتملاً» **فوقَ بطاقةٍ فارغة**، بلا فيديو ولا خطأٍ
+        ولا حالةِ فراغ. و`SC-005` تمرُّ خضراءَ فوقَ تلكَ الشاشةِ البيضاءِ لأنّها
+        تقيسُ النسبةَ والشهادةَ لا ما رآهُ أحد.
+      */}
+      {open && detail !== null && detail.type === "embed" && detail.external_url !== null && (
+        <Card>
+          <EmbeddedVideo
+            embedUrl={detail.external_url}
+            title={detail.title}
+            report={
+              detail.course_uuid === null
+                ? undefined
+                : { courseKey: detail.course_uuid, lessonUuid: detail.uuid }
+            }
           />
         </Card>
       )}

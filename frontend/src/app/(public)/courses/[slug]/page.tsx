@@ -332,7 +332,7 @@ export default async function CoursePage({
         <h2 className="text-lg font-extrabold text-ink">المنهج</h2>
 
         {course.curriculum.length > 0 ? (
-          <CourseCurriculum sections={course.curriculum} />
+          <CourseCurriculum sections={course.curriculum} courseSlug={course.slug ?? undefined} />
         ) : (
           <EmptyState
             title="لم تُنشر دروس بعد"

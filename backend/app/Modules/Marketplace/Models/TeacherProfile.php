@@ -43,6 +43,8 @@ use Illuminate\Support\Carbon;
  * @property int|null $attendance_rate
  * @property string|null $average_rating
  * @property array<int, string>|null $qualifications
+ * @property array<int, array{question: string, answer: string}>|null $faqs
+ * @property string|null $intro_video_url
  * @property array<int, string>|null $teaching_languages
  * @property Collection<int, AvailabilitySlot> $availabilitySlots
  */
@@ -77,6 +79,8 @@ class TeacherProfile extends BaseModel
         'headline',
         'bio',
         'qualifications',
+        'faqs',
+        'intro_video_url',
         'years_experience',
         'teaching_languages',
         'hourly_rate',
@@ -92,6 +96,7 @@ class TeacherProfile extends BaseModel
     {
         return [
             'qualifications' => 'array',
+            'faqs' => 'array',
             'teaching_languages' => 'array',
             'trust_score_factors' => 'array',
             'hourly_rate' => 'decimal:2',

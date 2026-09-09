@@ -16,12 +16,18 @@ const DISARM_MS = 4000;
  * ejects a paying student mid-lesson. «إنهاء الحصة» ends the broadcast for
  * everybody in one tap. None of them could be taken back.
  *
- * ⚠️ AND IT IS NOT A DIALOG. There is no modal in `components/ui/` and inventing
- * one for this would be a focus trap, a scroll lock and an escape handler for a
- * question with one word in it — and `window.confirm` is untranslated on some
- * Arabic Android builds, unstyleable, and blocks the whole page while a lesson
- * is running. The button becomes the question: the first press arms it and the
- * label says what the second press will do.
+ * ⚠️ AND IT IS NOT A DIALOG — WHICH IS NOW A CHOICE RATHER THAN AN ABSENCE.
+ * There IS a modal in `components/ui/` since spec 033 ({@link Modal}, a native
+ * `<dialog>`, so the focus trap and the scroll lock this comment used to price
+ * are the browser's). It is not used here on purpose: these controls are pressed
+ * DURING a live lesson, and a window that covers the screen is the same harm as
+ * the `window.confirm` that blocks the page — a teacher cannot watch the class
+ * while answering a dialog. The button becomes the question instead: the first
+ * press arms it and the label says what the second press will do.
+ *
+ * The line between the two is WHEN, not how destructive: a window belongs on a
+ * question asked while nothing else is happening (deleting a chapter, changing
+ * an item's type), and an arm belongs on a control pressed mid-lesson.
  *
  * The disarm timer is what keeps a half-pressed control from lying in wait.
  * Four seconds is long enough to read a short Arabic label and short enough that

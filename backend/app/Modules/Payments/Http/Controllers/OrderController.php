@@ -29,9 +29,19 @@ class OrderController extends Controller
         $user = $this->currentUser($request);
         $query = Order::query();
 
-        // Students see only their orders; staff with view-all see all.
+        /*
+        | Students see only their orders; staff with view-all see all.
+        |
+        | ⚠️ **و«طلبي» تشملُ ما أنشأتُه لابني.** وليُّ الأمرِ يشتري باسمِ الطالب
+        | (`user_id` = الابن · `granted_by` = هو)، فمُرشِّحٌ على العمودِ الأوّلِ وحدَه
+        | يُخفي عنه الطلبَ الذي دفعَه للتوّ — لا شاشةَ يرفعُ فيها الإيصالَ ولا موضعَ
+        | يقرأُ فيه القرار. وهي بعينُها القائمةُ التي شكا منها المستخدِمُ لأنّ الطلبَ
+        | ظهرَ فيها باسمِه هو.
+        */
         if (! $user->can(Permissions::ORDERS_VIEW_ALL)) {
-            $query->where('user_id', $user->getKey());
+            $query->where(fn (Builder $mine) => $mine
+                ->where('user_id', $user->getKey())
+                ->orWhere('granted_by', $user->getKey()));
         } elseif (! $user->can(Permissions::BILLING_PURCHASE_APPROVE)) {
             /*
             | ⚠️ THE SAME CUT AS `OrderPolicy::view()`, HERE BECAUSE A LIST TAKES
@@ -94,6 +104,16 @@ class OrderController extends Controller
 
         if ($course->isFree()) {
             return response()->json(['message' => 'This course is free; no order needed.'], 422);
+        }
+
+        // ⛔ A teacher never buys a course — not another teacher's and not their
+        // own. The second door of three; the free one is
+        // `EnrollmentController::enroll()` and the subscription is inside
+        // `PurchaseSubscription`. Refused BEFORE the order exists: an order
+        // created and then refused at fulfilment is money taken for a seat that
+        // is never written.
+        if ($this->currentUser($request)->teachesOnPlatform()) {
+            return response()->json(['message' => 'هذا الحسابُ حسابُ مدرّسٍ على المنصّة، والمدرّسُ لا يشتركُ في الكورسات.'], 422);
         }
 
         $validated = $request->validate([

@@ -48,7 +48,7 @@ class RejectOrder extends Action
         $claimed = Order::query()
             ->withoutWorkspaceScope()
             ->whereKey($order->getKey())
-            ->whereIn('status', ['pending', 'under_review'])
+            ->awaitingDecision()
             ->update([
                 'status' => 'rejected',
                 'rejection_reason' => $reason,

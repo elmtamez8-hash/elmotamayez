@@ -26,6 +26,14 @@ const saveAvailability = vi.fn();
 vi.mock("@/lib/api", () => ({
   api: { get: (path: string) => get(path) },
   fieldErrors: () => ({}),
+  /*
+  | ⚠️ `ApiError` HAS TO BE ON THE MOCK, because `userMessage()` — imported from
+  | `@/lib/errors`, which this file does NOT mock — asks `err instanceof
+  | ApiError` on the refusal path. Left out, the failure branch dies inside the
+  | error handler with «No ApiError export is defined on the mock», which reads
+  | like a bug in the page rather than a hole in the fixture.
+  */
+  ApiError: class ApiError extends Error {},
 }));
 
 vi.mock("@/lib/profile", () => ({
@@ -45,6 +53,16 @@ vi.mock("@/lib/auth-context", () => ({
   useAuth: () => ({ user: currentUser }),
 }));
 
+const toastError = vi.fn();
+const toastSuccess = vi.fn();
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: (...args: unknown[]) => toastError(...args),
+    success: (...args: unknown[]) => toastSuccess(...args),
+  },
+}));
+
 const TEACHER_PROFILE = {
   slug: "khaled",
   is_publicly_listed: true,
@@ -54,6 +72,13 @@ const TEACHER_PROFILE = {
   bio: "نبذة",
   years_experience: 7,
   qualifications: ["ماجستير", "دبلوم"],
+  /*
+  | ⚠️ الحقلانِ هنا لأنّ الخادمَ يُرسِلُهما — لا لأنّ حالةً تحتاجُهما. تجهيزةٌ
+  | ناقصةٌ عن الحمولةِ الحقيقيّةِ هي بعينُ ما جعلَ `years.map` ينفجرُ حيّاً وكلُّ
+  | حالةٍ خضراء، وهي ما أسقطَ هذه الحالاتِ الأربعَ يومَ صارَ للأسئلةِ عمود.
+  */
+  faqs: [{ question: "كم مدة الحصة؟", answer: "ستون دقيقة." }],
+  intro_video_url: null,
   teaching_languages: ["ar"],
   subjects: ["physics"],
   grade_levels: ["secondary"],
@@ -135,6 +160,69 @@ describe("a teacher's own listing", () => {
       "دبلوم تربوي",
     ]);
   });
+
+  /*
+  | محرِّرُ الأسئلةِ الشائعة (طلبُ ٢٠٢٦-٠٩-٠٨).
+  |
+  | ⚠️ **الصفُّ الفارغُ هو الحالةُ التي تُهدِرُ حفظاً كاملاً.** «أضف سؤالاً» يفتحُ
+  | صفّاً بحقلَينِ فارغَين، وكلاهما `required` على الخادم — فمدرّسٌ ضغطَ الزرَّ ثمّ
+  | عدلَ عن الكتابةِ يُجابُ ٤٢٢ عن حقلٍ لم يقصدْ ملأَه، وتضيعُ كلُّ تعديلاتِه في
+  | النموذجِ فوقَه. الترشيحُ في العميلِ هو ما يمنعُ ذلك.
+  */
+  it("saves the FAQ rows the teacher wrote and drops the row they left blank", async () => {
+    saveTeacher.mockResolvedValue(TEACHER_PROFILE);
+
+    render(<ProfileSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("ملفك العام")).toBeDefined();
+    });
+
+    // الصفُّ الأوّلُ جاءَ من الخادم، فالسؤالُ الأوّلُ مملوءٌ سلفاً.
+    expect((screen.getByLabelText(/السؤال ١/) as HTMLInputElement).value).toBe("كم مدة الحصة؟");
+
+    fireEvent.click(screen.getByRole("button", { name: "أضف سؤالاً" }));
+    fireEvent.change(screen.getByLabelText(/السؤال ٢/), {
+      target: { value: "هل توجد حصة تجريبية؟" },
+    });
+    fireEvent.change(screen.getAllByLabelText(/الإجابة/)[1], {
+      target: { value: "نعم، الأولى مجانية." },
+    });
+
+    // وثالثٌ يُفتَحُ ولا يُملَأ — وهو ما يجبُ ألّا يصلَ الخادمَ إطلاقاً.
+    fireEvent.click(screen.getByRole("button", { name: "أضف سؤالاً" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "احفظ ملفي" }));
+
+    await waitFor(() => {
+      expect(saveTeacher).toHaveBeenCalled();
+    });
+
+    expect(saveTeacher.mock.calls[0][0].faqs).toEqual([
+      { question: "كم مدة الحصة؟", answer: "ستون دقيقة." },
+      { question: "هل توجد حصة تجريبية؟", answer: "نعم، الأولى مجانية." },
+    ]);
+  });
+
+  it("sends null for an intro video left empty, never an empty string", async () => {
+    // الخادمُ يقبلُ `nullable` ويرفضُ نصّاً لا يطابقُ المضيفَين، والسلسلةُ الفارغةُ
+    // ليست «لا فيديو» في كلِّ حارس — فالعميلُ يقولُها بالكلمةِ التي يعنيها.
+    saveTeacher.mockResolvedValue(TEACHER_PROFILE);
+
+    render(<ProfileSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("ملفك العام")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "احفظ ملفي" }));
+
+    await waitFor(() => {
+      expect(saveTeacher).toHaveBeenCalled();
+    });
+
+    expect(saveTeacher.mock.calls[0][0].intro_video_url).toBeNull();
+  });
 });
 
 describe("the teacher's weekly availability", () => {
@@ -186,7 +274,9 @@ describe("the teacher's weekly availability", () => {
 
     // One row only: the server refuses an empty week, so a delete button on the
     // last row would be a control whose answer is always a refusal.
-    expect(screen.queryByRole("button", { name: /حذف/ })).toBeNull();
+    /* ⚠️ الاسمُ كاملاً لا `/حذف/`: الصفحةُ فيها الآنَ «احذف هذا السؤال» في محرِّرِ
+       الأسئلةِ الشائعة، فمُطابِقٌ جزئيٌّ يسألُ عن زرِّ الأسبوعِ ويجدُ زرَّ سؤال. */
+    expect(screen.queryByRole("button", { name: "حذف" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "إضافة يوم" }));
     fireEvent.click(screen.getByRole("button", { name: "احفظ مواعيدي" }));
@@ -249,16 +339,84 @@ describe("a student's own data", () => {
   });
 });
 
+describe("telling the teacher whether it saved", () => {
+  /*
+  | ⚠️ IT WAS AN `<Alert>` AT THE TOP OF THE DOCUMENT, AND THIS PAGE IS LONG —
+  | reported 2026-09-09. The availability editor sits near the bottom, so its
+  | «لا يمكن أن تتداخل فترتان في اليوم نفسه» rendered metres above the control
+  | that produced it: the teacher pressed save, saw nothing, and read that as a
+  | broken button. A toast is `position: fixed`, so it is in the VIEWPORT
+  | wherever the page is scrolled.
+  |
+  | ⚠️ AND THE 422 BRANCH IS THE HALF THAT WOULD BE MISSED. It used to set the
+  | field messages and show nothing else at all — a refusal about a field below
+  | the fold was silent by exactly the same mechanism, so a fix that toasted
+  | only the general error would have left the reported defect standing on the
+  | commoner path.
+  */
+  beforeEach(() => {
+    currentUser = { platform_role: "teacher" } as Partial<User>;
+    get.mockImplementation((path: string) => Promise.resolve(CATALOGUES[path] ?? { data: [] }));
+    teacher.mockResolvedValue(TEACHER_PROFILE);
+  });
+
+  it("toasts the reason when the server refuses", async () => {
+    saveTeacher.mockRejectedValue(
+      Object.assign(new Error("clash"), { status: 422, message: "لا يمكن أن تتداخل فترتان في اليوم نفسه." }),
+    );
+
+    render(<ProfileSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("ملفك العام")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "احفظ ملفي" }));
+
+    await waitFor(() => {
+      expect(toastError).toHaveBeenCalled();
+    });
+
+    expect(toastError.mock.calls[0][0]).toBe("لم يُحفظ التغيير");
+    // No banner left behind: two places saying it is two places to keep in step.
+    expect(screen.queryByText("لم يُحفظ التغيير")).toBeNull();
+  });
+
+  it("toasts the confirmation too", async () => {
+    saveTeacher.mockResolvedValue(TEACHER_PROFILE);
+
+    render(<ProfileSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("ملفك العام")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "احفظ ملفي" }));
+
+    await waitFor(() => {
+      expect(toastSuccess).toHaveBeenCalledWith("حُفِظت بياناتك، وهي منشورة الآن.");
+    });
+  });
+});
+
 describe("an account with neither profile", () => {
-  it("says so instead of offering a form that would be refused", async () => {
+  it("still owns its photo, and is told only what it lacks", async () => {
+    /*
+    | ⚠️ **هذه الحالةُ كانت تُرسِّخُ العطب**: كانت تؤكِّدُ أنّ بطاقةَ الصورةِ
+    | **غائبة**، فوليُّ الأمرِ يفتحُ «ملفّي» — وهو أوّلُ بندٍ في قائمةِ حسابِه —
+    | فلا يجدُ شيئاً يفعلُه (بلاغُ ٢٠٢٦-٠٩-٠٨). و`‎/me/photo` بابٌ على مستوى
+    | الحسابِ بلا صلاحيّةٍ: الخادمُ كانَ يقبلُ منه، والشاشةُ وحدَها تمنعُه.
+    */
     teacher.mockRejectedValue(Object.assign(new Error("forbidden"), { status: 403 }));
 
     render(<ProfileSettingsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("لا بيانات إضافية لهذا الحساب")).toBeDefined();
+      expect(screen.getByText("لا ملفّ عامّ لهذا الحساب")).toBeDefined();
     });
 
-    expect(screen.queryByText("صورة الحساب")).toBeNull();
+    expect(screen.getByText("صورة الحساب")).toBeDefined();
+    // ولا نموذجَ ملفٍّ عامّ: البابُ الذي يُرفَضُ فعلاً يبقى مُغلَقاً.
+    expect(screen.queryByText("ملفك العام")).toBeNull();
   });
 });

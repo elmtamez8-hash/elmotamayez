@@ -12,7 +12,6 @@ use App\Modules\Payments\Support\CostPlusPricing;
 use App\Modules\Payments\Support\CourseParticipation;
 use App\Modules\Payments\Support\StopSellingGuard;
 use App\Shared\Actions\Action;
-use Illuminate\Auth\Access\AuthorizationException;
 
 /**
  * The packages a student may buy on one course, priced.
@@ -44,23 +43,13 @@ class ListCreditPackages extends Action
     public function handle(User $student, Course $course, ?User $grantedBy = null): array
     {
         /*
-        | The SAME partial skip as `PurchaseCredits` — and it belongs here for a
-        | reason that is easy to miss: this is what the officer's screen prices a
-        | grant with BEFORE saving (024 · FR-006). Left guarded, every brand-new
-        | student — the common case — shows an empty package list, and the officer
-        | reads "nothing to sell" about a course that sells fine.
-        |
-        | The seller refusal still runs on both paths: two totals on two package
-        | sizes solve for the platform's constants, and reading them is exactly
-        | what this Action's own docblock is about.
+        | The SAME question the purchase asks, in the SAME spelling — and that
+        | equality is the requirement, not a tidiness. A pricing door guarded
+        | more loosely than the buying door hands out the number the guard exists
+        | to hide, and then refuses the sale after it is too late (SC-002 is
+        | measured on both doors for exactly that reason).
         */
-        if ($grantedBy === null) {
-            if (! $this->participation->isPartyTo($student, $course)) {
-                throw new AuthorizationException('لا يمكنك شراء أرصدة على كورس لست طرفاً فيه.');
-            }
-        } elseif ($this->participation->isSeller($student, $course)) {
-            throw new AuthorizationException('لا يمكن منح أرصدة لمن يدرّس هذا الكورس.');
-        }
+        $this->participation->mayBuyFor($grantedBy, $student, $course);
 
         // A course whose teacher stopped delivering sells nothing (FR-021ط), and
         // one whose teacher has no approved rate cannot be priced at all

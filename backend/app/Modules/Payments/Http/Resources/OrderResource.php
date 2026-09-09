@@ -50,15 +50,47 @@ class OrderResource extends JsonResource
             */
             'granted_by_name' => $this->when($this->viewerSeesAll($request), fn () => $this->grantor?->name),
             'has_receipt' => $this->hasMedia('receipt'),
-            // Lets the buyer's client tell "upload your receipt" apart from a
-            // staff member looking at someone else's order.
-            'is_mine' => $this->user_id === $request->user()?->getKey(),
+            /*
+            | Lets the buyer's client tell "upload your receipt" apart from a
+            | staff member looking at someone else's order.
+            |
+            | ⚠️ **«لي» تعني «عليَّ أن أدفعَه»، لا «أنا الطالب».** وليُّ الأمرِ يشتري
+            | باسمِ ابنِه، فهذا المفتاحُ يحرسُ زرَّي «ادفع الآن» و«ارفع الإيصال» على
+            | شاشةِ `‎/orders` — ولو قِيسَ بـ`user_id` وحدَه لأنشأَ وليُّ الأمرِ طلباً
+            | يراهُ ولا يستطيعُ سدادَه. وهي القراءةُ نفسُها التي وسَّعها
+            | `UploadPaymentReceipt` على الخادم؛ تهجئتانِ لسؤالٍ واحدٍ تفترقان.
+            */
+            'is_mine' => $this->user_id === $request->user()?->getKey()
+                || ($this->granted_by !== null && $this->granted_by === $request->user()?->getKey()),
+            /*
+            | لمن هذا الطلب — لمن أنشأَه نيابةً عن غيرِه وحدَه.
+            |
+            | وليُّ أمرٍ لثلاثةِ أبناءٍ يقرأُ ثلاثةَ طلباتٍ بنفسِ الباقةِ ونفسِ المبلغِ
+            | ولا شيءَ يقولُ أيُّها لأيِّهم. والطالبُ الذي يشتري لنفسِه لا يحتاجُ أن
+            | يُقالَ له اسمُه، ولا أحدَ آخرَ يصلُه المفتاحُ أصلاً.
+            */
+            'for_student_name' => $this->when(
+                $this->granted_by !== null && $this->granted_by === $request->user()?->getKey(),
+                fn () => $this->user->name,
+            ),
             // NOT getFirstMediaUrl(): the receipt collection uses the `local`
             // disk, which has no `url` in config/filesystems.php, so spatie fell
             // back to the conventional /storage/{id}/{file} path — a path that
             // serves the *public* disk. Every receipt link 403'd, and any that
             // had worked would have been a financial document on a public path.
+            /*
+            | ⚠️ **والإيصالُ لمن رفعَه، لا لمن الطلبُ باسمِه.** حينَ يشتري وليُّ أمرٍ
+            | لابنِه صارَ الطلبُ باسمِ الابن — فبلا هذا الشرطِ يفتحُ الابنُ رابطاً
+            | موقَّعاً إلى صورةِ حوالةٍ مصرفيّةٍ من حسابِ أبيه. الطلبُ خبرُه، والإيصالُ
+            | مستندٌ ماليٌّ لصاحبِه؛ وهي القاعدةُ التي كُتِبَ من أجلِها هذا المسارُ
+            | الموقَّتُ الموقَّعُ أصلاً بدلَ قرصٍ عامّ.
+            |
+            | والموظّفُ يراهُ من فرعِه أدناه — هو من يقرّرُ على أساسِه.
+            */
             'receipt_url' => $this->hasMedia('receipt')
+                && ($this->granted_by === null
+                    || $this->granted_by === $request->user()?->getKey()
+                    || $this->viewerSeesAll($request))
                 ? URL::temporarySignedRoute(
                     'orders.receipt',
                     now()->addMinutes(15),

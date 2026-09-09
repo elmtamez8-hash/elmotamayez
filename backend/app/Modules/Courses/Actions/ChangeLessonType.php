@@ -10,6 +10,7 @@ use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Exceptions\ContentLockedException;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\CourseDuration;
+use App\Modules\Courses\Support\EmbeddedVideoUrl;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\PublishReadiness;
 use App\Shared\Actions\Action;
@@ -76,6 +77,16 @@ class ChangeLessonType extends Action
             $losses[] = 'الرابط الخارجي';
         }
 
+        // Spec 032. The target KEEPS the column, and the url is still lost —
+        // because `embed` takes nothing but what it built itself, and a `link`
+        // may hold any address at all. Reported here rather than discovered
+        // afterwards, which is this Action's whole reason for existing.
+        if ($target === LessonType::Embed
+            && trim((string) $lesson->external_url) !== ''
+            && EmbeddedVideoUrl::build((string) $lesson->external_url) === null) {
+            $losses[] = 'الرابط الخارجي (ليس من يوتيوب أو فيميو)';
+        }
+
         // Lost on ANY change of type, including one reference type to another.
         // `reference_id` is a bare id whose meaning comes from `type` (R9), so an
         // exam id carried over to `live_session` is not the same link preserved —
@@ -111,10 +122,35 @@ class ChangeLessonType extends Action
         DB::transaction(function () use ($lesson, $target, $current, $lost): void {
             $keeps = LessonTypeRegistry::requiredToPublish($target);
 
+            $carried = in_array('external_url', $keeps, true) ? $lesson->external_url : null;
+
             $lesson->forceFill([
                 'type' => $target->value,
                 'content' => in_array('content', $keeps, true) ? $lesson->content : null,
-                'external_url' => in_array('external_url', $keeps, true) ? $lesson->external_url : null,
+                /*
+                | ⛔ THE BACK DOOR, CLOSED IN ONE PLACE (032 · FR-003).
+                |
+                | A url carried across a type change was validated by the OLD
+                | type's rule, and `link` accepts ANY https address up to 2048
+                | characters. `embed` is the only type whose column feeds an
+                | `<iframe src>` on a page of ours, so it takes nothing but what
+                | it built itself — «create a link → retype it → publish» would
+                | otherwise plant free text in a frame on our own public page,
+                | having passed every rule written for something else.
+                |
+                | A url the builder cannot build becomes null and is announced in
+                | `losses()`, never kept.
+                */
+                'external_url' => $target === LessonType::Embed
+                    ? EmbeddedVideoUrl::build((string) $carried)
+                    : $carried,
+                /*
+                | Spec 032 — the break report was about a url this item no longer
+                | has. Cleared inside the same `forceFill` for the reason the
+                | column is not `$fillable`: it is claimed by a conditional
+                | UPDATE, and mass assignment would drop it in silence.
+                */
+                'link_reported_at' => null,
                 // Always cleared — see losses(). The teacher repicks, which takes
                 // one click and cannot point an item at a row in the wrong table.
                 'reference_id' => null,

@@ -55,7 +55,7 @@ import {
   type IconProps,
 } from "@/components/icons";
 import { P, can } from "@/lib/permissions";
-import { isLearner } from "@/lib/auth-context";
+import { dashboardAudience, type DashboardAudience } from "@/lib/dashboard-audience";
 import type { User } from "@/lib/types";
 
 /**
@@ -86,7 +86,7 @@ export type NavItem = {
   /** Renders the waiting count beside the label — see `pendingGrading` below. */
   badge?: "grading";
   /**
-   * Shown to the learning side only. Absent means everybody who passes the
+   * Who this screen belongs to. Absent means everybody who passes the
    * permission gate above.
    *
    * ⚠️ THE SECOND DIRECTION, AND THE ONE THAT COULD NOT BE SPELLED AS A
@@ -101,8 +101,33 @@ export type NavItem = {
    * `refusedBy()` walks to decide whether a typed URL is refused politely
    * instead of as a broken page; a list lifted out of that union loses its
    * route guard silently, and no test in this repository would notice.
+   *
+   * ⚠️ **AND IT WAS THE BARE WORD `"learner"`, WHICH PUT FIFTEEN OF THE
+   * STUDENT'S OWN SCREENS IN A GUARDIAN'S SIDEBAR.** The filter read
+   * {@link isLearner}, which answers YES for a parent — deliberately, since two
+   * of these entries (`/reviews`, `/report-cards`) really are read by both, each
+   * with a child picker written into the page. The other fifteen are not:
+   * «تعلّمي», «شهاداتي», «رصيدي», «واجباتي», «دفتر أخطائي» are the STUDENT'S
+   * enrolments, certificates, balance and homework, and a guardian holds none of
+   * them — every one of those screens reads the caller's own rows and renders
+   * empty. Reported from a real guardian account on 2026-09-07. One boolean
+   * cannot express three audiences, so the tag names them.
    */
-  audience?: "learner";
+  audience?: DashboardAudience[];
+  /**
+   * اسمٌ آخرُ للشاشةِ نفسِها عندَ جمهورٍ آخر. غيابُه يعني أنّ `label` يصلحُ للكلّ.
+   *
+   * ⚠️ **بندٌ واحدٌ يستعملُه، وهو بندٌ كانت صفحتُه تعرفُ ما لا يعرفُه الشريط.**
+   * `‎/reviews` يكتبُ عنوانَه منذُ ٠١٠ بفرعٍ صريح — «التقييمات الدورية» لوليِّ
+   * الأمرِ و«تقييماتي الدورية» للطالب — بينما الشريطُ الجانبيُّ يقولُ «تقييماتي»
+   * لوليِّ أمرٍ لا يُقيَّم. بلاغُ ٢٠٢٦-٠٩-٠٧.
+   *
+   * ⚠️ **والصفحةُ تقرأُ هذا الحقلَ الآن ولا تُهجِّي الاسمَ مرّةً ثانية**
+   * ({@link navLabel}): اسمٌ مكتوبٌ في موضعَينِ يفترقُ عندَ أوّلِ إعادةِ صياغة،
+   * وهو العطبُ الذي دفعَ ثمنَه هذا المستودعُ في `BookingEligibility` و
+   * `ListLeaderboardScopes` — وهنا كانَ نصفُه مكتوباً بالفعل.
+   */
+  labels?: Partial<Record<DashboardAudience, string>>;
 };
 
 export const mainNav: NavItem[] = [
@@ -113,7 +138,7 @@ export const mainNav: NavItem[] = [
   // /schedule is the student's own timetable across every teacher;
   // /manage/sessions is the teacher's calendar. Two screens, two audiences —
   // collapsing them into one route would make each show the other half nothing.
-  { href: "/schedule", label: "جدولي", Icon: ScheduleIcon, audience: "learner" },
+  { href: "/schedule", label: "جدولي", Icon: ScheduleIcon, audience: ["student"] },
   { href: "/manage/sessions", label: "حصصي", Icon: SessionsIcon, permission: P.sessionsManage },
   // ⚠️ ITS OWN ENTRY, BECAUSE A SURFACE NOTHING LINKS TO IS A SURFACE NOBODY HAS.
   // The queue has a deadline running on every row — a screen reachable only by
@@ -124,17 +149,17 @@ export const mainNav: NavItem[] = [
   // question with different permissions — SETTLEMENT_STATEMENT_VIEW reaches only
   // the teacher, never their assistant.
   { href: "/manage/settlement", label: "كشف التسوية", Icon: SettlementIcon, permission: P.settlementStatement },
-  { href: "/enrollments", label: "تعلّمي", Icon: LearningIcon, audience: "learner" },
+  { href: "/enrollments", label: "تعلّمي", Icon: LearningIcon, audience: ["student"] },
   // ⚠️ The student's own notebook, and it needs its own entry. It is derived
   // from answers rather than authored, so nothing in the product would ever link
   // to it — a screen reachable only by typing its address is a screen nobody
   // opens.
-  { href: "/mistakes", label: "دفتر أخطائي", Icon: MistakesIcon, audience: "learner" },
+  { href: "/mistakes", label: "دفتر أخطائي", Icon: MistakesIcon, audience: ["student"] },
   // Building your own paper is a different act from reading what you got wrong:
   // one starts from the bank and the other from your own history. Two entries,
   // because a student who wants to revise a topic they have never been tested on
   // would never look for it inside a notebook of mistakes.
-  { href: "/practice", label: "درّب نفسك", Icon: PracticeIcon, audience: "learner" },
+  { href: "/practice", label: "درّب نفسك", Icon: PracticeIcon, audience: ["student"] },
   /*
    * ⚠️ TWO ENTRIES BECAUSE «الاختبارات» WAS TWO SCREENS WEARING ONE HEADING.
    * `ExamController::index()` already answered two different questions — the
@@ -149,7 +174,7 @@ export const mainNav: NavItem[] = [
    * same name the controller branches on. Two spellings of one question is how
    * one answer reaches the screen and another reaches the door.
    */
-  { href: "/exams", label: "الاختبارات", Icon: ExamIcon, audience: "learner" },
+  { href: "/exams", label: "الاختبارات", Icon: ExamIcon, audience: ["student"] },
   { href: "/manage/exams", label: "إدارة الاختبارات", Icon: ExamIcon, permission: P.examsView },
   // The teacher's own question library. Separate from /exams, which is the
   // student's list of what they may sit: one question here serves three exams
@@ -170,7 +195,7 @@ export const mainNav: NavItem[] = [
   // owes; "الواجبات" is what a teacher set and has to mark. One shared link
   // whose meaning flipped with the reader's permission is the shape that made a
   // student's sidebar offer them the exam builder.
-  { href: "/assignments", label: "واجباتي", Icon: AssignmentIcon, audience: "learner" },
+  { href: "/assignments", label: "واجباتي", Icon: AssignmentIcon, audience: ["student"] },
   { href: "/manage/assignments", label: "الواجبات", Icon: AssignmentIcon, permission: P.assignmentsManage },
   // ⚠️ ITS OWN ENTRY, not a tab inside the session calendar. It answers a
   // question about the WHOLE course — what earns the next class — and a screen
@@ -188,7 +213,7 @@ export const mainNav: NavItem[] = [
    * their meaning within two weeks, and a shop reachable only by typing its
    * address is a shop with nowhere to spend them.
    */
-  { href: "/progress", label: "تقدّمي", Icon: ProgressIcon, audience: "learner" },
+  { href: "/progress", label: "تقدّمي", Icon: ProgressIcon, audience: ["student"] },
   /*
    * Spec 010 · US4. No permission: every signed-in person has a side of this —
    * a student reads their own, a guardian reads a child's through the same
@@ -196,14 +221,20 @@ export const mainNav: NavItem[] = [
    * is the writing side and is reached from the class register, where the
    * teacher already knows whose row they clicked.
    */
-  { href: "/reviews", label: "تقييماتي الدورية", Icon: ProgressIcon, audience: "learner" },
+  {
+    href: "/reviews",
+    label: "تقييماتي الدورية",
+    Icon: ProgressIcon,
+    audience: ["student", "guardian"],
+    labels: { guardian: "التقييمات الدورية" },
+  },
   /*
    * Spec 010 · US5. The same reasoning as the line above — a student reads their
    * own cards, a guardian reads a child's through the same screen, and a teacher
    * sees an empty list because the card is not theirs to hold. Their side is the
    * weightings below, and their own segment on the student's page.
    */
-  { href: "/report-cards", label: "كشف التقديرات", Icon: ProgressIcon, audience: "learner" },
+  { href: "/report-cards", label: "كشف التقديرات", Icon: ProgressIcon, audience: ["student", "guardian"] },
   {
     href: "/manage/grading-schemes",
     label: "أوزان التقدير",
@@ -236,8 +267,8 @@ export const mainNav: NavItem[] = [
     Icon: DocumentIcon,
     permission: P.cmsUpdate,
   },
-  { href: "/leaderboard", label: "لوحة الصدارة", Icon: LeaderboardIcon, audience: "learner" },
-  { href: "/shop", label: "متجر المكافآت", Icon: ShopIcon, audience: "learner" },
+  { href: "/leaderboard", label: "لوحة الصدارة", Icon: LeaderboardIcon, audience: ["student"] },
+  { href: "/shop", label: "متجر المكافآت", Icon: ShopIcon, audience: ["student"] },
   // The teacher's side of that shop, and the queue of what has been claimed.
   /*
    * ⚠️ «مكافآت الطلاب», NOT «متجر مكافآتي» — a possessive on the TEACHER'S entry,
@@ -259,7 +290,7 @@ export const mainNav: NavItem[] = [
    * the page lists their own purchases plus the stores of the teachers they are
    * actually enrolled with.
    */
-  { href: "/store", label: "مشترياتي", Icon: StoreIcon, audience: "learner" },
+  { href: "/store", label: "مشترياتي", Icon: StoreIcon, audience: ["student"] },
   /*
    * ⚠️ AND THE SAME SHAPE ONE ROW DOWN, WITH A SECOND FAULT: «متجري» was a
    * possessive beside the learner's «مشترياتي», AND the page it opened was
@@ -287,14 +318,14 @@ export const mainNav: NavItem[] = [
    * the teacher's approved rate, and they are bought from «رصيدي» below. Three
    * shapes, two screens, because two of them are one mechanism.
    */
-  { href: "/plans", label: "اشتراكاتي", Icon: CreditsIcon, audience: "learner" },
+  { href: "/plans", label: "اشتراكاتي", Icon: CreditsIcon, audience: ["student"] },
   { href: "/manage/plans", label: "باقات الاشتراك", Icon: CreditsIcon, permission: P.plansManage },
 
   /*
    * Spec 011 · US3. Ungated: everybody has a code, and the page mints it on
    * first open — which is exactly why the endpoint is a `GET` that writes.
    */
-  { href: "/referrals", label: "دعوة صديق", Icon: ReferralIcon, audience: "learner" },
+  { href: "/referrals", label: "دعوة صديق", Icon: ReferralIcon, audience: ["student"] },
   /*
    * ⚠️ THE SHARPER HALF OF THE SAME SPLIT, AND IT WAS SHOWING THE WRONG PEOPLE'S
    * NAMES — or rather, none of them. `CertificateController::index()` widens to
@@ -308,7 +339,7 @@ export const mainNav: NavItem[] = [
    * makes the pair legible in one glance, exactly as «واجباتي» sits beside
    * «الواجبات».
    */
-  { href: "/certificates", label: "شهاداتي", Icon: CertificateIcon, audience: "learner" },
+  { href: "/certificates", label: "شهاداتي", Icon: CertificateIcon, audience: ["student"] },
   {
     href: "/manage/certificates",
     label: "شهادات الطلاب",
@@ -324,11 +355,18 @@ export const mainNav: NavItem[] = [
    * the witness that their own money arrived (spec 014) — so this screen is the
    * buyer's alone now and the tag costs the teacher nothing.
    */
-  { href: "/orders", label: "الطلبات", Icon: OrdersIcon, audience: "learner" },
+  /*
+   * ⚠️ AND THE GUARDIAN, ADDED BY 030 — a regression 029 shipped. A guardian may
+   * buy for a child they hold `payments` over, and the subscribe screen sends them
+   * here in a success banner; with `["student"]` alone that banner was their ONLY
+   * route to the order, and `/orders` is the one surface for replacing a rejected
+   * receipt. Navigate away once and the thing they paid for was unreachable.
+   */
+  { href: "/orders", label: "الطلبات", Icon: OrdersIcon, audience: ["student", "guardian"] },
   // The student's credits, counted in sessions and never in money. Separate
   // from /orders, which is one payment at a time: this is the standing balance
   // those payments produce, per course.
-  { href: "/billing", label: "رصيدي", Icon: CreditsIcon, audience: "learner" },
+  { href: "/billing", label: "رصيدي", Icon: CreditsIcon, audience: ["student", "guardian"] },
   /*
    * Spec 010 · US2. No permission: everyone signed in has a side of a private
    * conversation — the student writes to their teacher, the teacher and whoever
@@ -337,7 +375,18 @@ export const mainNav: NavItem[] = [
    */
   { href: "/messages", label: "الرسائل", Icon: MessagesIcon },
   { href: "/notifications", label: "الإشعارات", Icon: BellIcon },
-  { href: "/family", label: "المرتبطون", Icon: FamilyIcon },
+  /*
+   * Spec 030 — and the label reads from both sides now. A guardian manages
+   * «المرتبطون»; a student reads who follows THEM, which is a different sentence
+   * about the same rows. `labels` exists for exactly this (`/reviews` is the
+   * precedent) and the screen splits its two sections the same way.
+   */
+  {
+    href: "/family",
+    label: "المرتبطون",
+    labels: { student: "من يتابعني" },
+    Icon: FamilyIcon,
+  },
   /*
    * Spec 013. ⚠️ ITS OWN ENTRY, and NOT a tab inside settings.
    *
@@ -493,11 +542,37 @@ export const allNav = [...mainNav, ...adminNav, ...platformNav];
  * نفسَه، ولأنّ شرطاً يُكتَبُ مرّتَينِ يفترقُ عندَ أوّلِ جمهورٍ يُضاف.
  */
 export function allowedNav(items: NavItem[], user: User | null): NavItem[] {
-  const learns = isLearner(user);
+  /*
+   | ⚠️ **`dashboardAudience()` وليست تهجئةً ثانيةً بجوارِها.** هي السؤالُ الذي
+   | يُوجِّهُ `/dashboard` نفسَه إلى ثلاثةِ تخطيطات، والشريطُ الجانبيُّ يسألُ
+   | السؤالَ عينَه: «أيُّ الشاشاتِ لك؟». و`isLearner()` تجيبُ بنعم عن الطالبِ
+   | ووليِّ الأمرِ معاً — فتوسيعُها لتفرّقَ كان سيغيّرُ `homePathFor` و
+   | `panelPathFor` من حيثُ لا يقصدُ أحد، وهما سؤالانِ آخران.
+   |
+   | ⚠️ وحسابٌ بلا دَورٍ وبلا صلاحيّةٍ يُقرَأُ طالباً هنا الآن، وهذا مقصود: هو ما
+   | يفعلُه `/dashboard` له سلفاً (`StudentDashboard`)، فالشريطُ يلحقُ باللوحةِ لا
+   | ينحرفُ عنها.
+   */
+  const who = dashboardAudience(user);
 
-  return items.filter(
-    (item) => can(user, item.permission) && (item.audience !== "learner" || learns),
-  );
+  return items
+    .filter(
+      (item) => can(user, item.permission) && (item.audience === undefined || item.audience.includes(who)),
+    )
+    .map((item) => {
+      const named = item.labels?.[who];
+
+      return named === undefined ? item : { ...item, label: named };
+    });
+}
+
+/**
+ * اسمُ الشاشةِ كما يراهُ هذا القارئ — لتقرأَه الصفحةُ نفسُها في عنوانِها.
+ *
+ * يعودُ بـ`undefined` لعنوانٍ ليس في القوائم، فالمُنادي يُقرِّرُ بديلَه.
+ */
+export function navLabel(href: string, user: User | null): string | undefined {
+  return allowedNav(allNav, user).find((item) => item.href === href)?.label;
 }
 
 /**
@@ -522,7 +597,9 @@ export function allowedNav(items: NavItem[], user: User | null): NavItem[] {
  * الوحيدةُ التي تخصُّه هو.
  */
 const QUICK_ACCESS = {
-  guardian: ["/family", "/report-cards", "/reviews", "/schedule", "/messages"],
+  // ⚠️ لا `/schedule` هنا: تلك شاشةُ حجوزاتِ القارئِ نفسِه، ووليُّ الأمرِ لا مقعدَ
+  // له — فهي فارغةٌ له دائماً. جدولُ ابنِه في اللوحةِ نفسِها وفي `/family`.
+  guardian: ["/family", "/report-cards", "/reviews", "/messages", "/notifications"],
   learner: ["/schedule", "/assignments", "/exams", "/leaderboard", "/enrollments"],
   // المدرّسُ والمشرِفُ والموظّفُ الماليُّ في قائمةٍ واحدة: الترشيحُ يفرزُ بينهم.
   staff: [
@@ -543,10 +620,12 @@ const QUICK_ACCESS_LIMIT = 5;
 export function quickAccessFor(user: User | null): NavItem[] {
   if (user === null) return [];
 
+  // التهجئةُ نفسُها التي يقرؤُها الحارسُ فوق، لا مقارنةٌ بـ`platform_role` هنا.
+  const who = dashboardAudience(user);
   const order =
-    user.platform_role === "parent"
+    who === "guardian"
       ? QUICK_ACCESS.guardian
-      : isLearner(user)
+      : who === "student"
         ? QUICK_ACCESS.learner
         : QUICK_ACCESS.staff;
 

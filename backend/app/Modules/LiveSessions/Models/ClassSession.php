@@ -15,6 +15,7 @@ use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Media\Models\MediaAsset;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Database\Factories\Modules\LiveSessions\ClassSessionFactory;
 use DateTimeInterface;
@@ -244,6 +245,42 @@ class ClassSession extends BaseModel
 
         return $moment >= $this->starts_at->copy()->subMinutes($window)
             && $moment <= $this->ends_at->copy()->addMinutes($window);
+    }
+
+    /**
+     * How many seconds until the door opens — `0` for open now, `null` for never
+     * again (a closed room, or a window already past).
+     *
+     * ⚠️ IT LIVES ON THE MODEL BECAUSE TWO CALLERS ASK IT. `ScheduleController`
+     * carried this as a private helper for the course header, and 029's timetable
+     * card needs the same number — a second copy is the two-spellings defect this
+     * repository has paid for with `BookingEligibility`'s host check and with
+     * `ListLeaderboardScopes`, and here the two copies would drift on the day an
+     * operator moves the window.
+     *
+     * ⚠️ AND IT IS WHY A JOIN BUTTON APPEARS ON A PAGE LEFT OPEN. `join_open` is
+     * answered once, at fetch, so without a number to tick down a student who
+     * opens their timetable twenty minutes early watches the countdown reach
+     * «بدأت الآن» while the door stays shut until they reload. The browser may
+     * tick a number down; it may never derive one from a clock that may be an
+     * hour out (SC-016), and the window itself is a `platform_settings` row.
+     */
+    public function secondsUntilJoinOpen(DateTimeInterface $moment): ?int
+    {
+        if ($this->room_closed_at !== null) {
+            return null;
+        }
+
+        $window = app(SessionSettings::class)->joinWindowMinutes();
+
+        if ($moment > $this->ends_at->copy()->addMinutes($window)) {
+            return null;
+        }
+
+        return max(0, (int) Carbon::instance($moment)->diffInSeconds(
+            $this->starts_at->copy()->subMinutes($window),
+            false,
+        ));
     }
 
     public function isDelivered(): bool

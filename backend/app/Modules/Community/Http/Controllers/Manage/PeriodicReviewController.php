@@ -36,7 +36,7 @@ class PeriodicReviewController extends Controller
 
         $reviews = PeriodicReview::query()
             ->whereHas('student', fn ($query) => $query->where('uuid', $studentUuid))
-            ->with('teacher:id,first_name,last_name')
+            ->with('teacher:id,uuid,first_name,last_name')
             ->orderByDesc('period_start')
             ->get();
 
@@ -54,7 +54,7 @@ class PeriodicReviewController extends Controller
         );
 
         return response()->json(
-            PeriodicReviewResource::make($review->load('teacher:id,first_name,last_name')),
+            PeriodicReviewResource::make($review->load('teacher:id,uuid,first_name,last_name')),
             $review->wasRecentlyCreated ? 201 : 200,
         );
     }
@@ -68,7 +68,7 @@ class PeriodicReviewController extends Controller
         $this->authorize('manage', PeriodicReview::class);
 
         return response()->json(
-            PeriodicReviewResource::make($action->handle($review)->load('teacher:id,first_name,last_name')),
+            PeriodicReviewResource::make($action->handle($review)->load('teacher:id,uuid,first_name,last_name')),
         );
     }
 

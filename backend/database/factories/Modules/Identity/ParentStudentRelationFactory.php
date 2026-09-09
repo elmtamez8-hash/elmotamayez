@@ -36,6 +36,31 @@ class ParentStudentRelationFactory extends Factory
         ];
     }
 
+    /**
+     * ⚠️ THE REQUESTER DEFAULTS TO THE GUARDIAN, NEVER TO NULL (spec 030).
+     *
+     * `decidableBy()` reads a NULL requester as "nobody may settle this" — the
+     * correct answer for a row created before the column existed, and a silent
+     * disaster in a fixture: every acceptance test would measure the 403 branch
+     * and pass, proving the opposite of what it claims. Set here rather than in
+     * `definition()` because `guardian_user_id` is still a Factory instance until
+     * the attributes are expanded.
+     */
+    public function configure(): static
+    {
+        return $this->afterMaking(function (ParentStudentRelation $relation): void {
+            $relation->requested_by_user_id ??= $relation->guardian_user_id;
+        });
+    }
+
+    /** A link waiting on the party who did not ask for it. */
+    public function pending(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => RelationStatus::Pending->value,
+        ]);
+    }
+
     public function parent(): static
     {
         return $this->state(fn (array $attributes) => [

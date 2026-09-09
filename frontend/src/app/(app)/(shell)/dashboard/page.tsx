@@ -1,204 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { api } from "@/lib/api";
-import type { Enrollment, Certificate } from "@/lib/types";
-import { isLearner, useAuth } from "@/lib/auth-context";
-import Link from "next/link";
-import { ProgressBar } from "@/components/ui/ProgressBar";
-import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
-import { ErrorState } from "@/components/ui/states/ErrorState";
+import { useAuth } from "@/lib/auth-context";
+import { dashboardAudience } from "@/lib/dashboard-audience";
+import { GuardianDashboard } from "./GuardianDashboard";
+import { StudentDashboard } from "./StudentDashboard";
+import { TeacherDashboard } from "./TeacherDashboard";
 
+/**
+ * `/dashboard` — مُوجِّهٌ لا شاشة (٠٢٩ · `FR-001`).
+ *
+ * ⚠️ **ولا قراءةَ بيانٍ واحدةٍ تبقى هنا.** هذا الملفُّ حملَ ثلاثَ قراءاتٍ في
+ * `Promise.all` واحد، فرفضُ واحدةٍ منها أسقطَ اللوحةَ كلَّها لكلِّ طالبٍ ووليِّ
+ * أمرٍ على المنصّة. والقاعدةُ التي تمنعُ عودةَ ذلك ليست انضباطاً بل بناءً: ما
+ * دامَ المُوجِّهُ لا يقرأُ شيئاً، لا يوجدُ فيه مكانٌ يقعُ فيه.
+ *
+ * ⚠️ ولا صلاحيّةَ على هذا العنوانِ في القائمةِ الجانبيّة — يصلُه الطالبُ ووليُّ
+ * الأمرِ والمدرّسُ والمساعد. فكلُّ قراءةٍ تحتَه يجبُ أن تكونَ قراءةً يملكُها
+ * جمهورُ الشاشةِ كلُّه.
+ */
 export default function DashboardPage() {
   const { user } = useAuth();
-  const learns = isLearner(user);
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [certificates, setCertificates] = useState<Certificate[]>([]);
-  const [availableCourses, setAvailableCourses] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    setFailed(false);
+  const audience = dashboardAudience(user);
 
-    Promise.all([
-      api.get<{ data: Enrollment[] }>("/enrollments"),
-      api.get<{ data: Certificate[] }>("/certificates"),
-      /*
-       * ⚠️ THE MARKETPLACE LISTING, NOT `/courses`. That route is the AUTHORING
-       * index and `CoursePolicy::viewAny()` gates it on `courses.view` — a
-       * tenant permission, and a student is a member of no workspace, so their
-       * context is null, their spatie team id is null, and every `can()` is
-       * false. It answered 403 for every student and every guardian on the
-       * platform, and because the three good reads share one `Promise.all`, the
-       * WHOLE dashboard rendered «تعذّر تحميل البيانات» — the landing page after
-       * sign-in, for the majority of the accounts, since it shipped. `/dashboard`
-       * carries no `permission` in the nav for exactly that reason: it is
-       * everybody's first screen, so every read on it has to be one everybody
-       * holds.
-       *
-       * The count is `meta.total` and not `data.length`: the old call was
-       * paginated fifteen at a time, so even where it was allowed the card read
-       * «١٥» however many courses existed. `per_page=1` because the row itself
-       * is thrown away — only the total is drawn.
-       */
-      api.get<{ meta: { total: number } }>("/marketplace/courses?per_page=1"),
-    ])
-      .then(([enr, cert, crs]) => {
-        setEnrollments(enr.data ?? []);
-        setCertificates(cert.data ?? []);
-        setAvailableCourses(crs.meta?.total ?? 0);
-      })
-      // Swallowing the rejection used to render an empty dashboard on a dead
-      // backend, which reads as "you have nothing" rather than "we could not
-      // load this" (FR-018).
-      .catch(() => setFailed(true))
-      .finally(() => setLoading(false));
-  }, []);
+  if (audience === "guardian") return <GuardianDashboard />;
+  if (audience === "student") return <StudentDashboard />;
 
-  useEffect(load, [load]);
-
-  if (loading) return <RowsSkeleton />;
-  if (failed) return <ErrorState onRetry={load} />;
-
-  const activeEnrollments = enrollments.filter((e) => e.status === "active");
-  const completedCount = enrollments.filter((e) => e.status === "completed").length;
-
-  return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold text-ink">أهلاً بعودتك، {user?.first_name}</h2>
-        <p className="text-ink-muted">هذه نظرة عامة على تقدّمك الدراسي.</p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="كورسات جارية" value={activeEnrollments.length} />
-        <StatCard label="كورسات مكتملة" value={completedCount} />
-        <StatCard label="الشهادات" value={certificates.length} />
-        <StatCard label="كورسات متاحة" value={availableCourses} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Panel title="أكمل ما بدأته" href="/enrollments">
-          {activeEnrollments.length === 0 ? (
-            <p className="text-sm text-ink-muted">
-              لا كورسات جارية.{" "}
-              <Link
-                href="/courses"
-                className="text-primary-ink underline underline-offset-4"
-              >
-                تصفّح الكورسات
-              </Link>
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {activeEnrollments.slice(0, 5).map((enr) => (
-                <div
-                  key={enr.uuid}
-                  className="flex items-center justify-between gap-4 rounded-lg border border-line p-3"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink">
-                      <Link
-                        href={`/enrollments/${enr.course_uuid}`}
-                        className="rounded hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                      >
-                        {enr.course_title}
-                      </Link>
-                    </p>
-                    <p className="text-xs text-ink-muted">
-                      سُجِّل في {new Date(enr.enrolled_at).toLocaleDateString("ar")}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {/* The shared bar: the four ARIA attributes were repeated
-                        here and on /enrollments, which is one copy away from a
-                        screen reader announcing «٤٠» with nothing to compare it
-                        to. */}
-                    <div className="w-24">
-                      <ProgressBar value={enr.progress_pct} label="نسبة الإنجاز" size="sm" />
-                    </div>
-                    <span className="text-xs font-medium text-ink-muted">
-                      <bdi>{enr.progress_pct}%</bdi>
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Panel>
-
-        {/* ⚠️ THE PANEL FOLLOWS THE SPLIT, OR IT UNDOES IT. `/certificates` is the
-            learner's screen now and `/manage/certificates` the teacher's — and
-            this ONE `GET /certificates` already answers differently for each,
-            widening to the whole workspace for a holder of `certificates.view.all`.
-            Left pointing at the student half, the dashboard would keep handing a
-            teacher their students' records under «لم تحصل على شهادة بعد», which
-            is the exact sentence the split exists to stop. */}
-        <Panel
-          title={learns ? "أحدث الشهادات" : "أحدث شهادات الطلاب"}
-          href={learns ? "/certificates" : "/manage/certificates"}
-        >
-          {certificates.length === 0 ? (
-            <p className="text-sm text-ink-muted">
-              {learns
-                ? "لم تحصل على شهادة بعد. أكمل كورساً لتحصل على أولى شهاداتك."
-                : "لم تصدر شهادة عندك بعد. تصدر تلقائياً حين يُكمل طالبٌ كورساً."}
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {certificates.slice(0, 5).map((cert) => (
-                <div key={cert.uuid} className="rounded-lg border border-line p-3">
-                  <p className="text-sm font-medium text-ink">{cert.course_title}</p>
-                  <p className="text-xs text-ink-muted">
-                    <bdi>{cert.certificate_number}</bdi> · صدرت في{" "}
-                    {new Date(cert.issued_at).toLocaleDateString("ar")}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </Panel>
-      </div>
-    </div>
-  );
-}
-
-function Panel({
-  title,
-  href,
-  children,
-}: {
-  title: string;
-  href: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-xl border border-line bg-surface-raised p-6">
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <h3 className="font-semibold text-ink">{title}</h3>
-        <Link
-          href={href}
-          className="rounded text-sm text-primary-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        >
-          عرض الكل
-        </Link>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-line bg-surface-raised p-5">
-      <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-        <span className="text-lg font-bold text-white">
-          <bdi>{value}</bdi>
-        </span>
-      </div>
-      <p className="text-sm font-medium text-ink-muted">{label}</p>
-    </div>
-  );
+  // والمدرّسُ هو الافتراض: حسابٌ بلا دَورٍ مسجَّلٍ يحملُ صلاحيّةَ مساحةِ عملٍ
+  // يقرؤُه `dashboardAudience()` مدرّساً، وهو ما تقولُه المواصفةُ في «الحالاتُ
+  // الحدّيّة». و`LegacyDashboard.tsx` حُذِفَ هنا: لم يبقَ له قارئ.
+  return <TeacherDashboard />;
 }

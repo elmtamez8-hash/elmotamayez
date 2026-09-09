@@ -148,6 +148,7 @@ const LESSON_TYPE_LABELS: Record<string, string> = {
   exam: "اختبار",
   assignment: "واجب",
   live_session: "حصة مباشرة",
+  embed: "فيديو مُضمَّن",
 };
 
 export function lessonTypeLabel(type: string): string {

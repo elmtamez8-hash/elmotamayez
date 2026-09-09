@@ -96,6 +96,7 @@ import {
   IconSunset2,
   IconTag,
   IconTrash,
+  IconUser,
   IconUserPlus,
   IconUserSearch,
   IconUsers,
@@ -218,6 +219,9 @@ export const ShipmentIcon = wrap(IconPackage, "h-5 w-5");
 export const ReferralIcon = wrap(IconUserPlus, "h-5 w-5");
 export const WorkspaceIcon = wrap(IconBuilding, "h-5 w-5");
 export const MembersIcon = wrap(IconUsers, "h-5 w-5");
+
+/** شخصٌ واحد — للحساب. `MembersIcon` جماعةٌ وتقولُ شيئاً آخر. */
+export const UserIcon = wrap(IconUser, "h-5 w-5");
 export const SettingsIcon = wrap(IconSettings, "h-5 w-5");
 export const LogoutIcon = wrap(IconLogout, "h-4 w-4");
 /*

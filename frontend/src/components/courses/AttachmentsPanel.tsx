@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AssetRow, AssetUploader } from "./editors/AssetUploader";
 import { Alert } from "@/components/ui/Alert";
+import { Modal } from "@/components/ui/Modal";
 import { userMessage } from "@/lib/errors";
 import { media, type MediaAsset } from "@/lib/media";
 
@@ -31,9 +32,18 @@ export function AttachmentsPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const remove = async (asset: MediaAsset) => {
-    if (!window.confirm(`سيُحذف «${asset.original_filename}» نهائياً. متابعة؟`)) return;
+  /*
+    The attachment whose deletion is waiting on an answer (spec 033).
 
+    ⚠️ ASKED IN OUR OWN WINDOW, never in the browser's. `window.confirm` renders
+    English buttons on some Arabic Android builds, lays itself out
+    left-to-right inside a right-to-left page, and freezes everything while it
+    is open — and it asked a permanent deletion in exactly the same grey box the
+    same screen used to ask for a new item's title.
+  */
+  const [pending, setPending] = useState<MediaAsset | null>(null);
+
+  const remove = async (asset: MediaAsset) => {
     setBusy(true);
     setError("");
 
@@ -71,11 +81,34 @@ export function AttachmentsPanel({
               key={attachment.uuid}
               asset={attachment}
               busy={busy}
-              onRemove={() => void remove(attachment)}
+              onRemove={() => {
+                setError("");
+                setPending(attachment);
+              }}
             />
           ))}
         </div>
       )}
+
+      <Modal
+        open={pending !== null}
+        title="تأكيد الحذف"
+        message={
+          pending === null ? undefined : `سيُحذف «${pending.original_filename}» نهائياً. متابعة؟`
+        }
+        confirmLabel="احذف"
+        tone="danger"
+        busy={busy}
+        onCancel={() => setPending(null)}
+        onConfirm={() => {
+          if (pending === null) return;
+
+          const asset = pending;
+
+          setPending(null);
+          void remove(asset);
+        }}
+      />
 
       <AssetUploader
         lessonUuid={lessonUuid}

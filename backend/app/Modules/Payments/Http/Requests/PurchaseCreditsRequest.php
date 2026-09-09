@@ -28,12 +28,34 @@ class PurchaseCreditsRequest extends FormRequest
         return $this->user() !== null;
     }
 
+    /** @return array<string, string> */
+    public function attributes(): array
+    {
+        return ['student_uuid' => 'الطالب'];
+    }
+
     /** @return array<string, mixed> */
     public function rules(): array
     {
         return [
             'course' => ['required', 'string', 'uuid'],
             'package' => ['required', 'string', 'uuid'],
+            /*
+            | Who this is being bought FOR — absent means «me», which is exactly
+            | what every request sent before spec 031 and therefore what they all
+            | keep meaning.
+            |
+            | ⚠️ `student_uuid`, NEVER `student`: this is the name spec 029 shipped
+            | on `PurchaseSubscriptionRequest`, for the same field, resolved by the
+            | same class, in this same module. Two names for one thing in one
+            | module is where a divergence starts.
+            |
+            | And no `exists:` here either, for the reason written above: it would
+            | answer «this uuid names a real account» to anyone who guesses one.
+            | The guardianship is asked in `PurchaseBeneficiary`, whose refusal is
+            | one sentence for all three ways of being wrong.
+            */
+            'student_uuid' => ['sometimes', 'nullable', 'uuid'],
             // Shape only, as above. Whether the code exists, is live, is in
             // scope and has a place left is `DiscountResolver`'s to answer with
             // one uniform sentence — an `exists:` rule here would be the oracle

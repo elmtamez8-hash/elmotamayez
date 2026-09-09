@@ -14,6 +14,7 @@ use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\PlatformStaffDirectory;
+use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\AssistantForbiddenPermissions;
 use App\Shared\Support\WorkspaceContext;
@@ -98,6 +99,39 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
         return $this->belongsToMany(Workspace::class, 'workspace_members')
             ->withPivot(['role', 'joined_at'])
             ->withTimestamps();
+    }
+
+    /**
+     * Whether this account teaches on the platform — and therefore never buys.
+     *
+     * ⚠️ THE PIVOT **ROLE**, NEVER MERE MEMBERSHIP — and this file said the
+     * opposite until it was checked against a real database on 2026-09-08.
+     * `CLAUDE.md` states that a student is a member of no workspace at all, and
+     * that is true of a student who registered themselves; it is NOT true of the
+     * ones a teacher or a seeder puts in a workspace, and the development
+     * database held **six** `workspace_members` rows with `role = student`. A
+     * predicate of «belongs to any workspace» would therefore have refused a
+     * purchase to real students — the mirror of the bug it was written to fix,
+     * and far worse, because it takes money-making away rather than a stray row.
+     *
+     * ⚠️ ASKED IN THE NEGATIVE, so the safe direction is refusal. A workspace
+     * role this product has not seen (a teacher inventing one from `/admin`)
+     * counts as teaching, and the worst case is a teacher-side account being
+     * told it cannot buy — visible, reportable, and reversible. The positive
+     * spelling («role is one of these three») fails the other way: a renamed
+     * role reopens the door silently, which is the failure this repository
+     * records under «a rule written against a role NAME».
+     *
+     * ⚠️ AND IT IS ASKED ABOUT THE STUDENT, NEVER THE CALLER. A guardian buying
+     * for their child is the ordinary case, and the person who lands in
+     * `enrollments` is the child — a guard on `currentUser()` would refuse the
+     * wrong person and let the real one through.
+     */
+    public function teachesOnPlatform(): bool
+    {
+        return $this->workspaces()
+            ->wherePivot('role', '!=', Roles::STUDENT)
+            ->exists();
     }
 
     /**

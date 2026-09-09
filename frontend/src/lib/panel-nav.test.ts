@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { allowedNav, mainNav, quickAccessFor } from "./panel-nav";
+import { adminNav, allowedNav, mainNav, navLabel, quickAccessFor } from "./panel-nav";
 import { P } from "./permissions";
 import type { User } from "./types";
 
@@ -85,5 +85,97 @@ describe("quickAccessFor", () => {
 
   it("answers nothing for a guest, who has no account to shortcut into", () => {
     expect(quickAccessFor(null)).toEqual([]);
+  });
+});
+
+/*
+| ٢٠٢٦-٠٩-٠٧ — بلاغٌ من حسابِ وليِّ أمرٍ حقيقيّ: «في صفحات ظاهرة المفروض ما
+| تظهرلوش».
+|
+| ⚠️ **واتّجاهُ المنعِ هو الفارِق.** `isLearner()` تُجيبُ بنعم عن وليِّ الأمر، فكانت
+| خمسَ عشْرةَ شاشةً من شاشاتِ الطالبِ في شريطِه الجانبيّ — وكلُّ توكيدةٍ تسألُ
+| «هل يرى كذا؟» كانت تمرُّ خضراءَ فوقَ ذلك بالضبط. الحالاتُ هنا تسألُ ما لا يجبُ
+| أن يراه.
+*/
+describe("allowedNav · جمهورُ الشاشة", () => {
+  const hrefs = (u: User) => allowedNav([...mainNav, ...adminNav], u).map((i) => i.href);
+
+  it("keeps the student's own screens out of a guardian's sidebar", () => {
+    const seen = hrefs(person({ platform_role: "parent" }));
+
+    for (const href of [
+      "/enrollments",
+      "/certificates",
+      "/mistakes",
+      "/practice",
+      "/assignments",
+      "/exams",
+      "/schedule",
+      "/shop",
+      "/plans",
+    ]) {
+      expect(seen).not.toContain(href);
+    }
+  });
+
+  /*
+  | ⚠️ `/orders` و`/billing` خرجَتا من القائمةِ أعلاه في ٠٣٠، وهو تصحيحُ ارتدادٍ
+  | لا توسيعُ نطاق.
+  |
+  | المرحلةُ ٠٢٩ أعطَت وليَّ الأمرِ شراءً لابنِه: `‎/subscribe` ترسلُ
+  | `student_uuid`، ثمّ تقولُ له في لافتةِ نجاحٍ «افتح صفحة الطلبات» — وتلك اللافتةُ
+  | كانت طريقَه **الوحيد**. يغادرُ الصفحةَ فيضيعُ الطلبُ الذي دفعَ ثمنَه، و`‎/orders`
+  | هو السطحُ الوحيدُ في المنتَجِ لاستبدالِ إيصالٍ مرفوض. و`‎/billing` تحملُ بطاقةَ
+  | الموافقةِ على الشروط.
+  |
+  | ما تحرسُه القائمةُ أعلاه لم يتغيّر: شاشاتُ الطالبِ التي لا معنى لها لوليِّ أمرٍ
+  | (تعلّمُه هو، شهاداتُه هو، أوراقُه هو) تبقى محجوبة.
+  */
+  it("gives a guardian the two screens their own purchase produced", () => {
+    const seen = hrefs(person({ platform_role: "parent" }));
+
+    expect(seen).toContain("/orders");
+    expect(seen).toContain("/billing");
+  });
+
+  it("keeps the two screens a guardian really reads, and the one that is theirs", () => {
+    // ⚠️ النصفُ الثاني: منعٌ يبتلعُ الشاشتَينِ اللتَينِ فيهما منتقي ابنٍ مكتوبٌ
+    // فعلاً هو إصلاحٌ يكسِرُ نصفَ ما جاءَ يحرسُه.
+    const seen = hrefs(person({ platform_role: "parent" }));
+
+    expect(seen).toContain("/report-cards");
+    expect(seen).toContain("/reviews");
+    expect(seen).toContain("/family");
+    expect(seen).toContain("/messages");
+  });
+
+  it("leaves the student everything that is theirs", () => {
+    const seen = hrefs(person());
+
+    expect(seen).toContain("/enrollments");
+    expect(seen).toContain("/certificates");
+    expect(seen).toContain("/report-cards");
+    expect(seen).toContain("/schedule");
+  });
+
+  it("shows neither side's learning screens to a teacher", () => {
+    const seen = hrefs(person({ platform_role: "teacher", permissions: [P.sessionsManage] } as Partial<User>));
+
+    expect(seen).not.toContain("/enrollments");
+    expect(seen).not.toContain("/report-cards");
+    expect(seen).toContain("/manage/sessions");
+  });
+});
+
+describe("navLabel · اسمُ الشاشةِ عندَ قارئِها", () => {
+  it("does not call a guardian's child's assessments «mine»", () => {
+    // ⚠️ الصفحةُ كانت تعرفُ هذا منذُ ٠١٠ والشريطُ لا. الاسمانِ في مكانٍ واحدٍ
+    // الآن، وهذه الحالةُ هي التي تسقطُ لو عادَ أحدُهما يُكتَبُ بجوارِ الآخر.
+    expect(navLabel("/reviews", person({ platform_role: "parent" }))).toBe("التقييمات الدورية");
+    expect(navLabel("/reviews", person())).toBe("تقييماتي الدورية");
+  });
+
+  it("answers nothing for a screen this reader may not see", () => {
+    expect(navLabel("/reviews", person({ platform_role: "teacher" }))).toBeUndefined();
   });
 });

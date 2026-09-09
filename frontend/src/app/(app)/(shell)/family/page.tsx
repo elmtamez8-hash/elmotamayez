@@ -9,8 +9,16 @@ import { CheckboxField, SelectField, TextField } from "@/components/ui/Field";
 import { errorMessage, fieldErrors } from "@/lib/api";
 import { family, GUARDIAN_PERMISSIONS, type GuardianRelation } from "@/lib/notifications";
 
+import { RelationRow } from "./RelationRow";
+
 /**
- * Guardians and the students they follow.
+ * Guardians and the students they follow — FROM BOTH SIDES.
+ *
+ * ⚠️ THIS SCREEN WAS WRITTEN ENTIRELY FROM THE GUARDIAN'S ANGLE, and the reader it
+ * failed was the one the whole feature depends on. `/family` has no audience gate,
+ * so a student has always reached it — and read a row headed with THEIR OWN NAME,
+ * with one button on it saying «إلغاء الارتباط». The link waiting on them was
+ * invisible, and there was no route in the product that could activate it.
  *
  * Permissions are shown as what they mean ("الحضور والغياب"), not as flags: the
  * person setting them is a parent deciding what an uncle may see, not an admin
@@ -68,7 +76,40 @@ export default function FamilyPage() {
     }
   };
 
+  const accept = async (uuid: string) => {
+    setError("");
+
+    try {
+      await family.accept(uuid);
+      await load();
+    } catch (err) {
+      setError(errorMessage(err, "تعذّر قبول الطلب."));
+    }
+  };
+
+  const savePermissions = async (uuid: string, permissions: string[]) => {
+    setError("");
+
+    try {
+      await family.updatePermissions(uuid, permissions);
+      await load();
+    } catch (err) {
+      // The server refuses a guardian widening their own reach with an Arabic
+      // sentence of its own; `errorMessage` is what puts it on the screen instead
+      // of a raw error.
+      setError(errorMessage(err, "تعذّر حفظ الصلاحيات."));
+    }
+  };
+
   if (loading) return <p className="text-ink-muted">جارٍ التحميل…</p>;
+
+  /*
+   * Split by the SERVER'S answer. `viewer_side` is null for a teacher reading a
+   * student's guardians through an active enrolment — neither list is theirs, and
+   * a two-value union would have told them they were the student.
+   */
+  const mine = relations.filter((relation) => relation.viewer_side === "guardian");
+  const following = relations.filter((relation) => relation.viewer_side === "student");
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -76,45 +117,44 @@ export default function FamilyPage() {
 
       {error && <Alert tone="danger" title={error} />}
 
+      {/*
+        The student's half, and it comes FIRST when there is something waiting: a
+        request nobody can see is a request nobody answers, which is exactly how
+        this shipped.
+      */}
+      {following.length > 0 && (
+        <Card as="section">
+          <h3 className="mb-4 font-semibold text-ink">من يتابعني</h3>
+
+          <ul className="space-y-3">
+            {following.map((relation) => (
+              <RelationRow
+                key={relation.uuid}
+                relation={relation}
+                onAccept={accept}
+                onRevoke={revoke}
+                onSavePermissions={savePermissions}
+              />
+            ))}
+          </ul>
+        </Card>
+      )}
+
       <Card as="section">
         <h3 className="mb-4 font-semibold text-ink">المرتبطون</h3>
 
-        {relations.length === 0 ? (
+        {mine.length === 0 ? (
           <p className="py-6 text-center text-ink-muted">لا يوجد مرتبطون بعد.</p>
         ) : (
           <ul className="space-y-3">
-            {relations.map((relation) => (
-              <li key={relation.uuid} className="rounded-xl border border-line p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-ink">{relation.student_name}</p>
-                    <p className="mt-1 text-xs text-ink-muted">
-                      {relation.relation_type_label} · {relation.status_label}
-                      {!relation.student_has_account && " · لا يملك حساباً بعد"}
-                    </p>
-                    <ul className="mt-2 flex flex-wrap gap-1.5">
-                      {relation.permissions.map((permission) => (
-                        <li
-                          key={permission.key}
-                          className="rounded bg-primary-soft px-2 py-0.5 text-xs text-primary-ink"
-                        >
-                          {permission.label}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {relation.status !== "revoked" && (
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => revoke(relation.uuid)}
-                    >
-                      إلغاء الارتباط
-                    </Button>
-                  )}
-                </div>
-              </li>
+            {mine.map((relation) => (
+              <RelationRow
+                key={relation.uuid}
+                relation={relation}
+                onAccept={accept}
+                onRevoke={revoke}
+                onSavePermissions={savePermissions}
+              />
             ))}
           </ul>
         )}

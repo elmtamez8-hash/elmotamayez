@@ -83,8 +83,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // Guardians and the students they follow. Replaces /parent/children, which
     // could only express "linked", not who may see what (spec 003).
     Route::get('/family/relations', [FamilyController::class, 'index']);
-    Route::post('/family/relations', [FamilyController::class, 'store']);
+    Route::post('/family/relations', [FamilyController::class, 'store'])
+        ->middleware('throttle:family-link');
     Route::get('/family/relations/{uuid}', [FamilyController::class, 'show']);
+    /*
+    | Spec 030 — the one route the product was missing. No named limiter: FR-012
+    | bounds RE-REQUESTING, which is the store route; this body is empty, so a key
+    | carrying the target would collapse to `{user}|`. It inherits the `api`
+    | group's floor.
+    */
+    Route::post('/family/relations/{uuid}/accept', [FamilyController::class, 'accept']);
     Route::patch('/family/relations/{uuid}', [FamilyController::class, 'update']);
     Route::delete('/family/relations/{uuid}', [FamilyController::class, 'destroy']);
 

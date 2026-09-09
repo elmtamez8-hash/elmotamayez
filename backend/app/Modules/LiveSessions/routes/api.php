@@ -28,6 +28,27 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/schedule', [ScheduleController::class, 'index']);
     Route::get('/schedule/next', [ScheduleController::class, 'next']);
 
+    /*
+    | The guardian's two reads about one child (029 · US3).
+    |
+    | ⚠️ TWO SEPARATE ROUTES RATHER THAN AN OPTIONAL `?student=` ON THE STUDENT'S
+    | OWN, AND THE REASON IS THAT A GUARD WHICH IS USUALLY SKIPPED IS A GUARD
+    | NOBODY EXERCISES. `/schedule` above has no parameter by which to ask for
+    | anyone else's rows — that absence IS its authorisation — and adding an
+    | optional one would turn the commonest request in the product into a path
+    | that walks past a permission check on every call. The shape is
+    | `GET /billing/children/balance`'s, which drew the same line for money:
+    | `?student=` REQUIRED, matched inside the authorised list, and `403` rather
+    | than `404` so the refusal says nothing about whether that uuid names a
+    | real person.
+    |
+    | Unthrottled like their siblings: indexed reads behind `auth:sanctum`, and
+    | rate-limiting a parent's own dashboard would leave them staring at a
+    | screen that cannot say why it is empty.
+    */
+    Route::get('/schedule/children', [ScheduleController::class, 'children']);
+    Route::get('/attendance/children/summary', [AttendanceController::class, 'childSummary']);
+
     // The next session of ONE course, for the header of its page (FR-015).
     // Deliberately not `/schedule/next?course=`: that one reads the student's
     // own bookings across every teacher, and this header must name the next

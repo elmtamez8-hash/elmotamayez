@@ -171,6 +171,31 @@ enum NotificationType: string
     case TeacherOffboardingNotice = 'teacher_offboarding_notice';
 
     /*
+    | Spec 030 — a guardian link can finally be settled, so both parties need to
+    | hear about it. Two types, not one: «somebody asked» is read by the person who
+    | has to decide, and «they answered» by the person who asked.
+    |
+    | ⚠️ NEITHER TARGETS GUARDIANS, AND THAT IS THE DECISION. Both have a direct
+    | recipient — the same shape as `guardian_consent_required`, which is addressed
+    | TO a guardian rather than copied to one. Naming either in `targetsGuardians()`
+    | would fan a student's own message out to their parent AND move
+    | `WhatsAppDefaultsTest`'s exact count (26 as of 027).
+    |
+    | ⚠️ AND NEITHER GETS A WHATSAPP EXCEPTION. `guardian_consent_required` earned
+    | one because a guardian whose only contact with the platform is that message
+    | may have no next visit; these two are read by someone who is already here —
+    | they were just asked to decide, or they just asked. Every exception is also a
+    | template approved at the provider before anything can be delivered.
+    |
+    | ⚠️ The other direction reuses the EXISTING type rather than inventing a third:
+    | `RegisterStudent::inviteGuardian` has been sending `guardian_consent_required`
+    | since 013, to a guardian who until now had no button to press. It needed an
+    | `actionUrl`, not a new name.
+    */
+    case GuardianLinkRequested = 'guardian_link_requested';
+    case GuardianLinkDecided = 'guardian_link_decided';
+
+    /*
     | Spec 010 — somebody wrote to you and you were not looking (FR-012).
     |
     | ⚠️ IT DOES NOT TARGET GUARDIANS, AND THAT IS A DECISION RATHER THAN AN
@@ -342,6 +367,27 @@ enum NotificationType: string
     */
     case ScheduledReport = 'scheduled_report';
 
+    /*
+    | A viewer reported that an embedded lesson's video is broken (032 · FR-020).
+    |
+    | ⚠️ THE VIEWER IS THE ONLY SENSOR THERE IS. The platform cannot detect a
+    | deleted or privatised video: the host answers a perfectly valid response
+    | and writes its own message inside its own frame, and the browser forbids
+    | reading across origins. So this type is never raised by a job or a sweep —
+    | only by somebody pressing a button.
+    |
+    | ⚠️ IT TARGETS NO GUARDIAN, AND THAT IS WHY THE PINNED NUMBER IN
+    | `WhatsAppDefaultsTest` MUST NOT MOVE. `defaultChannels()` is derived from
+    | `targetsGuardians()`, so a type added there picks up a paid WhatsApp
+    | message — and a broken link is a teacher's maintenance task, not news for a
+    | parent. Any movement in that assertion is evidence of a mistake, never of
+    | progress.
+    |
+    | ⚠️ AND IT IS NOT MANDATORY. Nothing is withheld and no money moved; a
+    | teacher who mutes it has decided something they are allowed to decide.
+    */
+    case LessonLinkReported = 'lesson_link_reported';
+
     public function label(): string
     {
         return match ($this) {
@@ -392,6 +438,8 @@ enum NotificationType: string
             self::DataRequestCompleted => 'اكتمال طلب بيانات',
             self::GuardianConsentConflict => 'تعارض في موافقة الأولياء',
             self::TeacherOffboardingNotice => 'إخطار بمغادرة مدرّس',
+            self::GuardianLinkRequested => 'طلب ارتباط بوليّ أمر',
+            self::GuardianLinkDecided => 'ردّ على طلب الارتباط',
             self::ChatMessage => 'رسالة جديدة',
             self::PeriodicReviewPublished => 'تقييم دوري جديد',
             self::Announcement => 'إعلان من المدرّس',
@@ -409,6 +457,10 @@ enum NotificationType: string
             self::SubscriptionActivated => 'تفعيل اشتراك',
             self::SubscriptionSeatUnavailable => 'مقعد غير متاح',
             self::ScheduledReport => 'تقرير مجدول',
+            // ⚠️ `label()` is an EXHAUSTIVE match with no default arm — a new
+            // case without a line here fails static analysis before it fails a
+            // test, which is the cheapest place to find out.
+            self::LessonLinkReported => 'بلاغ عن رابط درس لا يعمل',
         };
     }
 

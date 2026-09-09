@@ -94,6 +94,15 @@ class TeacherProfileController extends Controller
             'bio' => $profile->bio,
             'years_experience' => $profile->years_experience,
             'qualifications' => $profile->qualifications ?? [],
+            /*
+            | ⚠️ **القراءةُ العامّةُ ليست هذه القراءة، والحقلُ يحتاجُ الاثنتَين.**
+            | `PublicTeacherDetailResource` يُجيبُ الزائرَ، وهذا يُجيبُ صاحبَ الملفِّ
+            | — ونموذجُ التحريرِ يملأُ نفسَه من هنا وحدَه. فحقلٌ أُضيفَ هناك ونُسِيَ
+            | هنا يصلُ العميلَ `undefined`، و`form.faqs.length` ينفجرُ في المتصفِّح
+            | بينما كلُّ اختبارٍ أخضرُ — تجهيزةُ الاختبارِ تصفُ ما ظُنَّ لا ما يُرسَل.
+            */
+            'faqs' => $profile->faqs ?? [],
+            'intro_video_url' => $profile->intro_video_url,
             'teaching_languages' => $profile->teaching_languages ?? [],
             'subjects' => $profile->subjects()->pluck('slug')->all(),
             'grade_levels' => $profile->gradeLevels()->pluck('slug')->all(),
@@ -145,6 +154,20 @@ class TeacherProfileController extends Controller
                 'bio' => $validated['bio'] ?? null,
                 'years_experience' => (int) $validated['years_experience'],
                 'qualifications' => array_values($validated['qualifications'] ?? []),
+                /*
+                | ⚠️ **الشكلُ يُطبَّعُ عندَ الكتابةِ لا عندَ القراءة.** العمودُ JSON،
+                | فمفتاحٌ ثالثٌ يرسلُه عميلٌ يُخزَّنُ كما جاءَ ثمّ يُنشَرُ على صفحةٍ
+                | عامّة؛ و`PublicFieldAllowlist::FAQ` يعرفُ مفتاحَين اثنَين. فبناءُ
+                | الصفِّ هنا بيدِنا هو ما يجعلُ القائمةَ البيضاءَ صادقةً بالبناء.
+                */
+                'faqs' => array_values(array_map(
+                    static fn (array $faq): array => [
+                        'question' => $faq['question'],
+                        'answer' => $faq['answer'],
+                    ],
+                    $validated['faqs'] ?? [],
+                )),
+                'intro_video_url' => $validated['intro_video_url'] ?? null,
                 'teaching_languages' => array_values($validated['teaching_languages']),
             ],
             $this->taxonomyIds(Subject::class, $validated['subjects']),

@@ -69,6 +69,21 @@ class UserResource extends JsonResource
             */
             'photo_url' => $this->accountPhotoUrl(),
             /*
+            | ⚠️ «هل يستضيفُ هذا الحسابُ حصصاً؟» — لا «ما دَورُه؟» (٠٢٩ · `FR-007أ`).
+            |
+            | اللوحةُ تقيِّدُ به قراءةَ الحصصِ على صاحبِها (`?teacher={uuid}`
+            | تحتَ «حصصي»)، وتُفرِّقُ به بينَ **مدرّسٍ بلا حصصٍ هذا الأسبوع**
+            | و**مساعدٍ لا يستضيفُ شيئاً أصلاً**: جملتانِ مختلفتانِ على الشاشة،
+            | وبلا الحقلِ تُرسَمُ الأولى مكانَ الثانية.
+            |
+            | ⚠️ ولا تحميلَ مسبقٌ يُضاف: `accountPhotoUrl()` أسفلَه يقرأُ
+            | `teacherProfile` على كلِّ نداءٍ سلفاً، فالعلاقةُ محمَّلةٌ قبلَ أن
+            | يصلَ هذا السطرُ وكلفتُه صفرُ استعلامات — و`whenLoaded` هنا كانت
+            | ستُسقِطُ المفتاحَ عندَ كلِّ مُنادٍ لم يُحمِّل، وهو السببُ نفسُه
+            | المكتوبُ فوقَ `student_profile`.
+            */
+            'teacher_profile_uuid' => $this->teacherProfile?->uuid,
+            /*
              | ⚠️ WHAT THIS PERSON MAY DO, because the client had no way to ask.
              |
              | The panel's sidebar offered every teacher screen to every account:

@@ -6,6 +6,8 @@ import { PublishImpactDialog } from "@/components/courses/PublishImpactDialog";
 import { TreeOutline } from "@/components/courses/TreeOutline";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { TextField } from "@/components/ui/Field";
+import { Modal } from "@/components/ui/Modal";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ApiError, errorMessage } from "@/lib/api";
@@ -31,6 +33,23 @@ interface PendingPublish {
   title: string;
   confirmLabel: string;
   message: string;
+}
+
+/**
+ * A question this screen asks in its own window rather than the browser's.
+ *
+ * `kind` decides only what the window CONTAINS — a field for a new item's title,
+ * nothing for a confirmation. It is deliberately not two components: two
+ * near-identical windows are two answers to one question, and they drift at the
+ * first edit.
+ */
+interface PendingAsk {
+  kind: "confirm" | "title";
+  title: string;
+  message?: string;
+  confirmLabel: string;
+  tone: "danger" | "primary";
+  run: (value: string) => void;
 }
 
 /** The 409 body this screen knows how to act on: our own, carrying the tree. */
@@ -72,6 +91,20 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingPublish | null>(null);
+
+  /*
+    A question waiting on the teacher, asked in OUR window (spec 033).
+
+    ⚠️ THE SAME SHAPE `PendingPublish` ABOVE ALREADY USES — a piece of state that
+    the render turns into a window — rather than a second pattern for the same
+    job. It replaces `window.confirm`/`window.prompt`, which are not ours in any
+    respect a reader can see: English buttons on some Arabic Android builds,
+    left-to-right inside a right-to-left page, unstyleable, and asking a
+    permanent deletion in exactly the voice they ask for a new item's title.
+  */
+  const [ask, setAsk] = useState<PendingAsk | null>(null);
+  const [newTitle, setNewTitle] = useState("");
+  const [askError, setAskError] = useState("");
 
   /*
     `?lesson=` opens that item straight away.
@@ -181,19 +214,40 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
     setPending(pending);
   };
 
+  /**
+   * Open the window, from a clean slate.
+   *
+   * ⚠️ THE FIELD AND THE ERROR ARE CLEARED HERE, not on close. A window that
+   * opens carrying the last attempt's refusal tells the teacher they got
+   * something wrong before they have typed anything.
+   */
+  const askIn = (question: PendingAsk) => {
+    setError("");
+    setNotice("");
+    setNewTitle("");
+    setAskError("");
+    setAsk(question);
+  };
+
   const addLesson = (chapter: TreeChapter) => {
-    const title = window.prompt("عنوان العنصر الجديد");
-    if (title === null || title.trim() === "") return;
+    askIn({
+      kind: "title",
+      title: "عنصر جديد",
+      confirmLabel: "أضِف",
+      tone: "primary",
+      run: (title) => {
+        // Article is the default because it is the only type that needs nothing
+        // uploaded or referenced — the teacher can start writing immediately and
+        // change the type from the item itself.
+        const type: LessonTypeValue = "article";
 
-    // Article is the default because it is the only type that needs nothing
-    // uploaded or referenced — the teacher can start writing immediately and
-    // change the type from the item itself.
-    const type: LessonTypeValue = "article";
-
-    void run(
-      () => courses.createLesson(uuid, { chapter_uuid: chapter.uuid, title: title.trim(), type }),
-      "أُضيف العنصر كمسودّة — لن يراه طلابك حتى تنشره.",
-    );
+        void run(
+          () =>
+            courses.createLesson(uuid, { chapter_uuid: chapter.uuid, title: title.trim(), type }),
+          "أُضيف العنصر كمسودّة — لن يراه طلابك حتى تنشره.",
+        );
+      },
+    });
   };
 
   return (
@@ -274,6 +328,51 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
         />
       )}
 
+      <Modal
+        open={ask !== null}
+        title={ask?.title ?? ""}
+        message={ask?.message}
+        confirmLabel={ask?.confirmLabel ?? ""}
+        tone={ask?.tone}
+        onCancel={() => setAsk(null)}
+        onConfirm={() => {
+          if (ask === null) return;
+
+          /*
+            ⛔ AN EMPTY TITLE IS REFUSED **WITH A REASON**, and the window stays
+            open. The old `window.prompt` branch returned silently on an empty
+            string — «nothing happened» about a correct press is the defect
+            people report as «the button does not work».
+          */
+          if (ask.kind === "title" && newTitle.trim() === "") {
+            setAskError("اكتب عنواناً للعنصر أولاً.");
+
+            return;
+          }
+
+          const value = newTitle;
+
+          setAsk(null);
+          ask.run(value);
+        }}
+      >
+        {ask?.kind === "title" && (
+          /*
+            ⚠️ NO `autoFocus`, AND IT IS NOT NEEDED. `showModal()` focuses the
+            first focusable descendant, and `Modal` renders `children` above its
+            button row — so the field is where focus lands, by construction
+            rather than by a prop `TextField` does not take.
+          */
+          <TextField
+            id="new-lesson-title"
+            label="عنوان العنصر الجديد"
+            value={newTitle}
+            onChange={setNewTitle}
+            error={askError === "" ? undefined : askError}
+          />
+        )}
+      </Modal>
+
       {editing !== null && (
         <LessonEditor
           courseUuid={uuid}
@@ -332,13 +431,19 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
             ? `«${label}» تسجيل حصة، وهو الطريق الوحيد لمن حضرها إليه. حذفه يقطعه عنهم نهائياً. متابعة؟`
             : `سيُحذف «${label}» وكل ما بداخله. متابعة؟`;
 
-          if (!window.confirm(question)) return;
-
-          void run(() => {
-            if (kind === "section") return courses.deleteSection(uuid, nodeUuid);
-            if (kind === "chapter") return courses.deleteChapter(uuid, nodeUuid);
-            return courses.deleteLesson(uuid, nodeUuid);
-          }, "حُذف العنصر.");
+          askIn({
+            kind: "confirm",
+            title: "تأكيد الحذف",
+            message: question,
+            confirmLabel: "احذف",
+            tone: "danger",
+            run: () =>
+              void run(() => {
+                if (kind === "section") return courses.deleteSection(uuid, nodeUuid);
+                if (kind === "chapter") return courses.deleteChapter(uuid, nodeUuid);
+                return courses.deleteLesson(uuid, nodeUuid);
+              }, "حُذف العنصر."),
+          });
         }}
         onMoveSection={(nodeUuid, direction) => {
           const order = moveWithin(

@@ -1,0 +1,78 @@
+"use client";
+
+import { useAuth } from "@/lib/auth-context";
+import { LatestNotificationsCard } from "./cards/LatestNotificationsCard";
+import { PendingGradingCard } from "./cards/PendingGradingCard";
+import { PrivateRequestsCard } from "./cards/PrivateRequestsCard";
+import { QuickLinksCard } from "./cards/QuickLinksCard";
+import { TeacherFaqCard } from "./cards/TeacherFaqCard";
+import { TeacherSessionsCard } from "./cards/TeacherSessionsCard";
+import { WeekSessionsChartCard } from "./cards/WeekSessionsChartCard";
+import { WithheldStudentsCard } from "./cards/WithheldStudentsCard";
+
+/**
+ * ما يراهُ المدرّسُ حينَ يفتحُ اللوحة (٠٢٩ · `US2`).
+ *
+ * ⚠️ **كلُّ حراسةٍ بثابتِ `Permissions` عبرَ `can()`، لا باسمِ دَورٍ ولا بنصٍّ
+ * حرفيّ** (`FR-003`). الحراسةُ داخلَ كلِّ بطاقةٍ لا هنا: القاعدةُ هي التي تُقرَأُ
+ * بجوارِ القراءةِ التي تحرسُها، وقائمةُ شروطٍ في هذا الملفّ تُصبِحُ جواباً ثانياً
+ * يفترقُ عن الأوّلِ عندَ أوّلِ صلاحيّةٍ تتحرّك — وهو العطبُ الذي دفعَ ثمنَه هذا
+ * المستودعُ في `BookingEligibility` و`ListLeaderboardScopes`.
+ *
+ * والنتيجةُ أنّ **مساعدَ المدرّسِ ممنوعٌ عندَ الفحصِ لا عندَ اسمِ الدَّور**: دَورٌ
+ * مخصَّصٌ اسمُه أيُّ شيءٍ ما زالَ محجوباً، ومساعدٌ منحَه صاحبُ المساحةِ التصحيحَ
+ * يرى بطاقتَه — وهو ما يقصدُه `FR-031` من أنّ المصفوفةَ تبذُرُ افتراضاً لا حكماً.
+ *
+ * ⚠️ ولا `Promise.all` ولا قراءةَ واحدةٍ في هذا الملفّ (`FR-013`): كلُّ بطاقةٍ
+ * تجلبُ بنفسِها وتفشلُ وحدَها. العطلُ المسجَّلُ في صدرِ هذه الشاشةِ كان ثلاثَ
+ * قراءاتٍ في وعدٍ واحد.
+ *
+ * ⚠️ و**لا بطاقةَ طلبات** هنا وإن ذكرَها سيناريو ٤ في المواصفة: `FR-007` لا
+ * يُدرِجُها في تخطيطِ المدرّس، وعقدُ المرحلةِ يضعُ قراءةَ الطلباتِ على الطالبِ
+ * ووليِّ الأمرِ وحدَهما. وبطاقةٌ هنا كانت سترتبطُ بشاشةِ مشترٍ.
+ */
+export function TeacherDashboard() {
+  const { user } = useAuth();
+
+  return (
+    <div>
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-ink">أهلاً، {user?.first_name}</h2>
+        <p className="text-ink-muted">هذه نظرة عامة على صفّك اليوم.</p>
+      </div>
+
+      {/* الأرقامُ الثلاثةُ أوّلاً: ما ينتظرُ قراراً منه، لا ما أنجزَه. وكلٌّ منها
+          تُخفي نفسَها حينَ لا يملكُ القارئُ صلاحيّتَها. */}
+      <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-3">
+        <PendingGradingCard />
+        <PrivateRequestsCard />
+        <WithheldStudentsCard />
+      </div>
+
+            {/*
+        ⚠️ **أعمدةُ CSS لا شبكة، والفرقُ هو الفراغُ الذي بلَّغَ عنه القارئ.**
+        `grid` يُمدِّدُ كلَّ خليّةٍ إلى ارتفاعِ أطولِ بطاقةٍ في صفِّها، فبطاقةٌ
+        بثلاثةِ أسطرٍ بجوارَ جدولٍ بخمسةِ صفوفٍ تحملُ فراغَ سطرَينِ داخلَها.
+        والأعمدةُ تُعطي كلَّ بطاقةٍ ارتفاعَها الطبيعيَّ وتحزِمُ التاليةَ تحتَها.
+
+        ⚠️ **والتباعدُ على الأبناءِ المباشرينَ بلا غلافٍ إضافيّ**: بطاقاتُ العددِ
+        الثلاثُ تُعيدُ `null` بلا صلاحيّة، وغلافٌ حولَ كلٍّ منها كان سيتركُ
+        `div` فارغاً بهامشِه — أي الفراغَ نفسَه الذي جاءَ هذا التغييرُ يحذفُه.
+      */}
+      <div className="columns-1 gap-6 lg:columns-2">
+        <TeacherSessionsCard />
+        {/* الرسمُ بجوارِ الجدولِ ومن ردِّه نفسِه: الجدولُ أقربُ خمسٍ والرسمُ شكلُ
+            الأسبوعِ كلِّه — عيّنةٌ وإجماليٌّ من طلبٍ واحد. */}
+        <WeekSessionsChartCard />
+        <LatestNotificationsCard />
+        {/* ⚠️ **بابُ كتابةٍ لا عرضٌ فقط** (طلبُ ٢٠٢٦-٠٩-٠٨): الأسئلةُ الشائعةُ
+            حقلٌ كانَ الخادمُ يُرسِلُه `[]` حرفيّاً، فلم يكنْ للمدرّسِ موضعٌ يكتبُه
+            فيه أصلاً. والبطاقةُ تُخفي نفسَها لحسابٍ بلا ملفٍّ عامّ — مساعدٌ
+            جمهورُه `teacher` ولا صفحةَ له. */}
+        <TeacherFaqCard />
+      </div>
+
+      <QuickLinksCard />
+    </div>
+  );
+}

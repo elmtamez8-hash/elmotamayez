@@ -19,8 +19,8 @@ use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Payments\Support\DiscountResolver;
 use App\Modules\Payments\Support\StopSellingGuard;
 use App\Shared\Actions\Action;
+use App\Shared\Scopes\WorkspaceScope;
 use DomainException;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -58,30 +58,15 @@ class PurchaseCredits extends Action
         ?User $grantedBy = null,
     ): CreditPurchase {
         /*
-        | ⚠️ THE SKIP IS PARTIAL, AND SKIPPING THE WHOLE THING IS THE DEFECT.
+        | ⚠️ ONE CALL, AND THE CONDITION IT REPLACES WAS COPIED IN TWO PLACES.
         |
-        | `isPartyTo()` answers TWO questions in one call: the seller refusal
-        | first, then the ways in — an active enrolment, or membership as a
-        | STUDENT. Spec 024 lets a platform officer buy on a student's behalf,
-        | and the ways in are exactly what a brand-new student has none of: a
-        | real student is a member of no workspace at all (only `AcceptInvitation`
-        | and `CreateWorkspace` write that pivot), so their first purchase would
-        | be refused for ever. Hence the skip.
-        |
-        | But the REFUSAL must survive it. A grant to the course's own teacher
-        | hands them their own totals for two package sizes, which solve for the
-        | platform's two constants — and every OTHER teacher's approved settlement
-        | rate follows from any other course's total (FR-021ب). So `isSeller()` is
-        | asked on both paths, and the student's path keeps `isPartyTo()` as its
-        | single spelling with its own message unchanged.
+        | `mayBuyFor()` derives the capacity from the proxy's own permission and
+        | proves the right thing for each — including the guardian's own seller
+        | refusal, which neither copy here could ask, because the person to check
+        | was not the person being bought for. The reasoning lives beside the
+        | method; the panel and any future console command reach the same one.
         */
-        if ($grantedBy === null) {
-            if (! $this->participation->isPartyTo($student, $course)) {
-                throw new AuthorizationException('لا يمكنك شراء أرصدة على كورس لست طرفاً فيه.');
-            }
-        } elseif ($this->participation->isSeller($student, $course)) {
-            throw new AuthorizationException('لا يمكن منح أرصدة لمن يدرّس هذا الكورس.');
-        }
+        $this->participation->mayBuyFor($grantedBy, $student, $course);
 
         $refusal = $this->sales->refusalToSell($course);
 
@@ -124,11 +109,27 @@ class PurchaseCredits extends Action
         $held = max(0, $balance->remaining_credits) + $this->pendingCreditsOn($balance);
 
         if ($held + $package->credits > $ceiling) {
-            throw new DomainException(sprintf(
-                'الحد الأقصى للأرصدة غير المستهلَكة على هذا الكورس %d، ولديك %d (بما في ذلك طلبات لم تُعتمَد بعد). اشترِ حزمة أصغر أو استهلك ما لديك أولاً.',
-                $ceiling,
-                $held,
-            ));
+            /*
+            | ⚠️ «لديك» IS WRONG FOR EVERY PROXY, AND A PROXY IS NOW THE ORDINARY
+            | CASE. A guardian topping up their child reads a refusal about a
+            | balance that is not theirs — and the number is the one fact they
+            | need in order to pick a smaller package, so a sentence that
+            | misattributes it sends them looking at their own account. The
+            | student is NAMED rather than called «الطالب»: a guardian with two
+            | children cannot act on a refusal that does not say which one.
+            */
+            throw new DomainException($grantedBy === null
+                ? sprintf(
+                    'الحد الأقصى للأرصدة غير المستهلَكة على هذا الكورس %d، ولديك %d (بما في ذلك طلبات لم تُعتمَد بعد). اشترِ حزمة أصغر أو استهلك ما لديك أولاً.',
+                    $ceiling,
+                    $held,
+                )
+                : sprintf(
+                    'الحد الأقصى للأرصدة غير المستهلَكة على هذا الكورس %d، ولدى %s %d (بما في ذلك طلبات لم تُعتمَد بعد). اشترِ حزمة أصغر أو انتظر استهلاك ما لديه أولاً.',
+                    $ceiling,
+                    $student->name,
+                    $held,
+                ));
         }
 
         $price = $this->pricing->price($package, (int) $course->getKey(), now());
@@ -213,12 +214,48 @@ class PurchaseCredits extends Action
      * already in `remaining_credits` — counting either would refuse a purchase
      * over credits that do not and will not exist.
      */
+    /**
+     * Credits already bought on this balance that nobody has decided yet.
+     *
+     * ⛔ THIS COUNTED `'pending'` AND NOTHING ELSE, SO PAYING EMPTIED THE CEILING.
+     * `UploadPaymentReceipt` moves the order to `under_review`; the row then fell
+     * out of this sum, the cap read as free, and the same student could buy it
+     * again — and again — with `ApproveOrder` minting from every one of them. The
+     * loop is two ordinary steps, not an exploit: order, upload, repeat.
+     *
+     * `Order::isPending()` held the correct pair one file away the whole time, but
+     * it is an INSTANCE method and cannot appear inside a subquery — which is why
+     * the fix is a scope both of them read, rather than a sixth hand-written copy
+     * of `['pending','under_review']`.
+     *
+     * ⚠️ AND THE BYPASS IS REPEATED INSIDE THE SUBQUERY. `withoutWorkspaceScope()`
+     * on the line above applies to `CreditPurchase` and to nothing else — the
+     * bypass is per model, and `whereHas('order', …)` builds a fresh `Order` query
+     * that carries `Order`'s own `BelongsToWorkspace`. Inert for a student in
+     * production (a member of no workspace resolves a null context), and NOT inert
+     * for a platform officer or a guardian who owns a workspace: their context
+     * falls back to `users.last_workspace_id`, the subquery matches nothing, and
+     * the ceiling silently counts zero. That is live on the officer's grant screen
+     * today. Measuring it needs TWO workspaces and an actor who belongs to one.
+     */
     private function pendingCreditsOn(CreditBalance $balance): int
     {
         return (int) CreditPurchase::query()
             ->withoutWorkspaceScope()
             ->where('credit_balance_id', $balance->getKey())
-            ->whereHas('order', fn (Builder $query) => $query->where('status', 'pending'))
+            /*
+            | ⚠️ THE MACRO AND THE SCOPE ARE BOTH SPELLED OUT HERE, DELIBERATELY.
+            | Inside a `whereHas` closure the builder is `Builder<Model>`, so neither
+            | `withoutWorkspaceScope()` (a macro on the model's own builder) nor
+            | `awaitingDecision()` (a local scope) is visible to static analysis.
+            | `WorkspaceScope::extend()` defines the first as exactly this call, and
+            | the status list stays a single source of truth as a method on `Order` —
+            | which is the whole point: the four typed call sites read the scope, and
+            | this one reads the same list the scope is built from.
+            */
+            ->whereHas('order', fn (Builder $query) => $query
+                ->withoutGlobalScope(WorkspaceScope::class)
+                ->whereIn('status', Order::awaitingDecisionStatuses()))
             ->sum('credits');
     }
 }

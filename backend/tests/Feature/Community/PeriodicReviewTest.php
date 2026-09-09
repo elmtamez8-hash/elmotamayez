@@ -106,7 +106,15 @@ it('hides a draft from the student and shows it once published', function (): vo
         | was an empty string on every screen. Found against the running app, not
         | here: the first version of this test asserted the axes and never the name.
         */
-        ->assertJsonPath('0.teacher_name', $this->teacher->name);
+        ->assertJsonPath('0.teacher_name', $this->teacher->name)
+        /*
+        | ⚠️ AS A VALUE, FOR THE REASON WRITTEN ONE ASSERTION ABOVE. The trend on
+        | the student's card groups by this key, and the eager load names its
+        | columns — so a `uuid` dropped from that list is a `null` here, one
+        | undifferentiated pile of teachers, and a fall invented out of two
+        | unrelated opinions. Asserting the KEY would pass over exactly that.
+        */
+        ->assertJsonPath('0.teacher_uuid', $this->teacher->uuid);
 });
 
 it('shows a published assessment to an authorised guardian and to nobody else', function (): void {

@@ -15,10 +15,13 @@ import { store, type AppliedDiscount, type StoreItem, type StorePurchase } from 
 /**
  * Confirm a purchase.
  *
- * ⚠️ NOT A MODAL. There is no dialog in `components/ui/`, and inventing one means
- * a focus trap, a scroll lock and an escape handler for a two-field form —
- * `ConfirmButton` made the same trade for the same reason. This is a card that
- * replaces the grid, so the back button and the keyboard both behave.
+ * ⚠️ NOT A MODAL, AND STILL NOT ONE NOW THAT `components/ui/` HAS `Modal`
+ * (spec 033). The reason changed: it was the cost of building one, and it is now
+ * that a purchase is a FORM with a coupon field, an address and a server-side
+ * discount preview — several steps and several refusals, one of which sends the
+ * buyer back to fix an address. A card that replaces the grid keeps the back
+ * button and the keyboard behaving; a window would put a multi-step flow inside
+ * something whose Escape key throws the whole thing away.
  *
  * ⚠️ AND THE ADDRESS APPEARS FOR A PRINTED ITEM ONLY. A screen that asked a
  * buyer for a postal address to download a file is the `LessonEditor` defect:

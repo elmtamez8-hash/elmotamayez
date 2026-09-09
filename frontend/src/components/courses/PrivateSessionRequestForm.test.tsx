@@ -37,6 +37,23 @@ vi.mock("@/lib/class-sessions", () => ({
   },
 }));
 
+/*
+  ⚠️ `importActual` FOR `ApiError`, WHICH IS A CLASS THIS FILE'S SUBJECT DOES
+  `instanceof` AGAINST. A hand-written stand-in makes every `err instanceof
+  ApiError` false, and the component's refusal branch silently falls through to
+  «enrolled» — a green suite over a student who was never asked to subscribe.
+
+  `auth.me` is mocked because spec 033's teacher branch reads it. Its default is
+  an empty `workspaces`, i.e. a STUDENT, so every existing case keeps measuring
+  what it was written to measure.
+*/
+const me = vi.fn(async () => ({ workspaces: [] as { uuid: string; name: string }[] }));
+
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
+  auth: { me: () => me() },
+}));
+
 const WINDOWS: AvailabilityItem[] = [
   { day_of_week: 2, start_time: "14:00", end_time: "18:00" },
 ];
@@ -280,5 +297,66 @@ describe("PrivateSessionRequestForm", () => {
     expect(
       await screen.findByText("هذا الوقت خارج مواعيد المدرّس المعلَنة."),
     ).toBeTruthy();
+  });
+});
+
+/*
+| ⛔ A TEACHER IS NEVER INVITED TO BUY THEIR OWN COURSE — reported 2026-09-08.
+|
+| ⚠️ AND THIS IS THE **SECOND** DOOR ON THE SAME PAGE. The group cards were fixed
+| first (`MyCohortTeacher.test.tsx`); this private-sessions panel is a separate
+| entrance to `/subscribe`, and it was still offering «اشترك بحصص خاصة» to the
+| course's owner after that fix — found by opening the page, not by a test. One
+| rule in two places is how the second place gets it wrong.
+*/
+function renderForm() {
+  return render(
+    <PrivateSessionRequestForm
+      courseUuid="c-1"
+      availability={WINDOWS}
+      minutes={45}
+      subscriptionAvailable
+    />,
+  );
+}
+
+describe("a teacher-side account", () => {
+  it("is not offered the private-session subscription", async () => {
+    localStorage.setItem("auth_token", "t");
+    me.mockResolvedValue({ workspaces: [{ uuid: "w1", name: "أكاديميّة" }] });
+    // A teacher holds no enrolment anywhere, so the oracle truthfully answers
+    // «not enrolled» — about the wrong question.
+    nextForCourse.mockRejectedValue(
+      new ApiError("لا تملك تسجيلاً في هذا الكورس.", 403, {
+        message: "لا تملك تسجيلاً في هذا الكورس.",
+        code: "not_enrolled",
+      }),
+    );
+
+    renderForm();
+
+    expect(await screen.findByText("الحصص الخاصة")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "اشترك بحصص خاصة" })).toBeNull();
+  });
+
+  it("CONTROL — a student IS still offered it, or the case above is vacuous", async () => {
+    localStorage.setItem("auth_token", "t");
+    me.mockResolvedValue({ workspaces: [] });
+    /*
+      ⚠️ A REAL `ApiError` CARRYING `not_enrolled`, not a bare `Error`. The
+      component fails OPEN on anything else — a network blip is not «you did not
+      buy this course» — so a plain rejection lands in the ENROLLED branch and
+      this control looks broken while the code is right.
+    */
+    nextForCourse.mockRejectedValue(
+      new ApiError("لا تملك تسجيلاً في هذا الكورس.", 403, {
+        message: "لا تملك تسجيلاً في هذا الكورس.",
+        code: "not_enrolled",
+      }),
+    );
+
+    renderForm();
+
+    expect(await screen.findByRole("link", { name: "اشترك بحصص خاصة" })).toBeTruthy();
   });
 });

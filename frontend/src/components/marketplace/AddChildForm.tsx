@@ -53,7 +53,14 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
     setLoading(true);
 
     try {
-      const created = await api.post<{ data: ChildLink }>("/family/relations", {
+      /*
+       * ⚠️ THE BARE RESOURCE, NOT `{ data: … }`. `api.ts` re-wraps a bare ARRAY
+       * into `{ data }` — and only an array. A single resource passes through
+       * untouched, so the old `{ data: ChildLink }` type meant `created.data` was
+       * `undefined` and the child pushed onto the signup list below was nothing at
+       * all. TypeScript agreed with the lie because the type said so.
+       */
+      const created = await api.post<ChildLink>("/family/relations", {
         student_name: form.name,
         age: form.age === "" ? null : Number(form.age),
         school_year_slug:
@@ -64,7 +71,7 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
         permissions: ["attendance", "payments", "schedule", "results", "academic_warnings"],
       });
 
-      setChildren((current) => [...current, created.data]);
+      setChildren((current) => [...current, created]);
       setForm({ name: "", age: "", school_year_slug: "" });
     } catch (err: unknown) {
       const fields = fieldErrors(err);

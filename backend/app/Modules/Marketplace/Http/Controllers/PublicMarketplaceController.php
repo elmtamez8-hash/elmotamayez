@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Courses\Actions\ReportBrokenEmbed;
 use App\Modules\Marketplace\Actions\Public\GetMarketplaceHome;
 use App\Modules\Marketplace\Actions\Public\GetMarketplaceStats;
 use App\Modules\Marketplace\Actions\Public\ListPublicCourses;
@@ -12,11 +13,13 @@ use App\Modules\Marketplace\Actions\Public\ListPublicTaxonomy;
 use App\Modules\Marketplace\Actions\Public\ListPublicTeachers;
 use App\Modules\Marketplace\Actions\Public\ListRegions;
 use App\Modules\Marketplace\Actions\Public\ReadPublicCourse;
+use App\Modules\Marketplace\Actions\Public\ReadPublicPreviewLesson;
 use App\Modules\Marketplace\Actions\Public\ShowPublicTeacher;
 use App\Modules\Marketplace\Http\Requests\ListPublicCoursesRequest;
 use App\Modules\Marketplace\Http\Requests\ListPublicTeachersRequest;
 use App\Modules\Marketplace\Http\Resources\PublicCourseCardResource;
 use App\Modules\Marketplace\Http\Resources\PublicCourseDetailResource;
+use App\Modules\Marketplace\Http\Resources\PublicPreviewLessonResource;
 use App\Modules\Marketplace\Http\Resources\PublicTeacherCardResource;
 use App\Modules\Marketplace\Http\Resources\PublicTeacherDetailResource;
 use App\Modules\Marketplace\Support\MarketplaceCache;
@@ -175,6 +178,69 @@ class PublicMarketplaceController extends Controller
         $payload['private_subscription_available'] = $action->privateSubscriptionAvailable($course);
 
         return response()->json(['data' => $payload]);
+    }
+
+    /*
+    | Spec 032 · US2 — one open embedded lesson, watched without an account.
+    |
+    | ⚠️ THE SAME 404 SEVEN TIMES OVER, and it is the whole guard on this door:
+    | a uuid nobody issued · a locked lesson · a lesson published inside a DRAFT
+    | SECTION · an open lesson of another kind · a draft course · a teacher not
+    | publicly listed · a deleted course. The Action answers null to all seven
+    | from ONE query, so there is no branch here that could tell them apart —
+    | and `SC-004` compares the BODY, not only the status.
+    |
+    | ⚠️ `abort_if(…, 404)` AND NOTHING ELSE — the spelling `course()` above uses.
+    | A hand-written Arabic body here would be a second spelling of the refusal
+    | one route away from the first, which is the defect this file's own comments
+    | warn about repeatedly.
+    */
+    public function previewLesson(
+        string $courseKey,
+        string $lessonUuid,
+        ReadPublicPreviewLesson $action,
+    ): JsonResponse {
+        $found = $action->handle($courseKey, $lessonUuid);
+
+        abort_if($found === null, 404);
+
+        [, $lesson] = $found;
+
+        return response()->json(['data' => PublicPreviewLessonResource::make($lesson)->resolve()]);
+    }
+
+    /*
+    | Spec 032 · US3 — «الفيديو لا يعمل», pressed by whoever is watching.
+    |
+    | ⚠️ NO AUTHENTICATION AND NO REQUEST BODY AT ALL. No account, because the
+    | visitor is the first to see the break and the least likely to have one. No
+    | body, because a free-text field written by an anonymous stranger arriving at
+    | a teacher's notification bell is an unmoderated message channel.
+    |
+    | ⚠️ ONE ANSWER, ALWAYS — whether the lesson exists, is locked, was reported a
+    | minute ago, or was never there. ⛔ AND IT DOES NOT SAY «أبلغنا المدرّس»:
+    | that is a lie in the duplicate branch and in the no-such-thing branch, and
+    | it is the same rule that forbids printing «٠ دقيقة» for a duration nobody
+    | wrote. The sentence thanks; it does not promise.
+    */
+    public function reportBrokenEmbed(
+        Request $request,
+        string $courseKey,
+        string $lessonUuid,
+        ReportBrokenEmbed $action,
+    ): JsonResponse {
+        /*
+        | The reporter, distinguished but not identified.
+        |
+        | ⚠️ HASHED HERE AND NEVER STORED IN A ROW — it lives only as part of a
+        | cache key that expires by itself. A stored address hash is personal
+        | data with a full contract behind it: a `data_categories` row, an export
+        | path, an erasure path and a retention sweep, for a number that means
+        | nothing after a day.
+        */
+        $action->handle($courseKey, $lessonUuid, hash('sha256', (string) $request->ip()));
+
+        return response()->json(['message' => 'شكراً لك. سُجِّلت ملاحظتك.'], 202);
     }
 
     public function teacher(string $key, ShowPublicTeacher $action): JsonResponse

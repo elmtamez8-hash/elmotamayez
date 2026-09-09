@@ -7,6 +7,7 @@ namespace App\Modules\Courses\Http\Requests;
 use App\Modules\Courses\Enums\ExamGate;
 use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Rules\AcceptedEmbedUrl;
 use App\Shared\Support\WorkspaceRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -47,7 +48,12 @@ class StoreLessonRequest extends FormRequest
             'title' => ['required', 'string', 'max:255'],
             'type' => ['required', Rule::enum(LessonType::class)],
             'content' => ['nullable', 'string'],
-            'external_url' => ['nullable', 'string', 'url', 'starts_with:https://', 'max:2048'],
+            // Spec 032 · FR-002/FR-004. On create the type is IN the payload, so
+            // it is read from there; `UpdateLessonRequest` reads the stored row
+            // for the opposite reason, and the comment there says why.
+            'external_url' => $this->input('type') === LessonType::Embed->value
+                ? ['nullable', 'string', 'max:2048', new AcceptedEmbedUrl]
+                : ['nullable', 'string', 'url', 'starts_with:https://', 'max:2048'],
             'reference_uuid' => ['nullable', 'string'],
             'exam_gate' => ['nullable', Rule::enum(ExamGate::class)],
             'duration_seconds' => ['nullable', 'integer', 'min:0'],

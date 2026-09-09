@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode, SelectHTMLAttributes } from "react";
 import { ChevronDownIcon, EyeIcon, EyeOffIcon } from "@/components/icons";
 
@@ -448,5 +448,129 @@ export function CheckboxField({
       />
       <span>{label}</span>
     </label>
+  );
+}
+
+/**
+ * Several choices out of a list, in ONE control the size of a select.
+ *
+ * ⚠️ NOT `<select multiple>`, and the native control is rejected on a measured
+ * edge case rather than on taste. A plain click in a native multi-select
+ * REPLACES the whole selection: a teacher holding three subjects who clicks a
+ * fourth is left with one, on a required field, with nothing said about it —
+ * the family of the second tap that turned a right answer into a zero on a
+ * graded paper. It also renders as an always-open listbox rather than the
+ * dropdown this replaces a wall of chips with.
+ *
+ * ⚠️ AND NOT A `role="listbox"` EITHER. The panel is the kit's own
+ * {@link CheckboxField} rows, because a checkbox is what "these toggle
+ * independently" already means to a screen reader — a hand-built listbox with
+ * `aria-multiselectable` is a second spelling of that sentence, and one this
+ * file would have to keep correct through every keyboard interaction the
+ * browser gives a checkbox for free.
+ *
+ * The trigger is a `<button>` carrying the field's `id`: a button is labelable,
+ * so `Field`'s existing `htmlFor` reaches it unchanged.
+ */
+export function MultiSelectField(
+  props: Shared & {
+    value: string[];
+    onChange: (value: string[]) => void;
+    options: Array<{ value: string; label: string }>;
+    placeholder?: string;
+  },
+) {
+  const { id, value, onChange, options, placeholder, required, disabled, error } = props;
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onOutside = (event: MouseEvent) => {
+      if (!box.current?.contains(event.target as Node)) setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onOutside);
+
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, [open]);
+
+  const chosen = options.filter((option) => value.includes(option.value));
+
+  // `Intl.ListFormat` rather than `join("، ")` — Arabic separates with «،» and
+  // joins the last pair with «و», and the platform already knows that.
+  const summary = new Intl.ListFormat("ar", { type: "conjunction" }).format(
+    chosen.map((option) => option.label),
+  );
+
+  return (
+    <Field {...props}>
+      <div
+        ref={box}
+        className="relative"
+        onKeyDown={(event) => {
+          if (event.key !== "Escape" || !open) return;
+
+          setOpen(false);
+          // Focus goes back where the press came from; left on a panel that no
+          // longer exists it falls to the document and the next Tab restarts.
+          trigger.current?.focus();
+        }}
+      >
+        <button
+          ref={trigger}
+          id={id}
+          type="button"
+          disabled={disabled}
+          onClick={() => setOpen((was) => !was)}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-required={required}
+          className={`${CONTROL} ${borderFor(error)} flex items-center justify-between gap-2 text-start`}
+          {...aria(props)}
+        >
+          <span className={`truncate ${chosen.length === 0 ? "text-ink-muted" : ""}`}>
+            {chosen.length === 0 ? (placeholder ?? "اختر") : summary}
+          </span>
+          <ChevronDownIcon className="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
+        </button>
+
+        {open && (
+          <div
+            id={panelId}
+            role="group"
+            aria-labelledby={id}
+            /* `start-0`, never `left-0` — the product is RTL-only and a panel
+               pinned to the left edge of an RTL trigger hangs off the wrong
+               side of it. `z-10` clears the fields below. */
+            className="absolute start-0 top-full z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-line bg-surface-raised p-2 shadow-lg"
+          >
+            {options.map((option) => (
+              <div key={option.value} className="rounded-lg px-2 py-1.5 hover:bg-surface">
+                <CheckboxField
+                  id={`${id}-${option.value}`}
+                  label={option.label}
+                  checked={value.includes(option.value)}
+                  /* Never `required` on the boxes: on a checkbox that means
+                     "this one must be ticked", so a required field would demand
+                     ALL of them. The server's 422 is the validation, and
+                     `fieldErrors()` puts it under this field. */
+                  onChange={(checked) =>
+                    onChange(
+                      checked
+                        ? [...value, option.value]
+                        : value.filter((current) => current !== option.value),
+                    )
+                  }
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Field>
   );
 }

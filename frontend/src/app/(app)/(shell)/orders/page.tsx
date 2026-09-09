@@ -181,6 +181,18 @@ export default function OrdersPage() {
             {o.course_title !== null && (
               <span className="text-xs text-ink-muted">{o.course_title}</span>
             )}
+            {/*
+              ⚠️ **لمن هذا الطلب — لوليِّ الأمرِ وحدَه.** الاشتراكُ يُكتَبُ باسمِ
+              الطالبِ والدفعُ باسمِ الدافع، فوليُّ أمرٍ لثلاثةِ أبناءٍ كانَ سيقرأُ
+              ثلاثةَ صفوفٍ بنفسِ الباقةِ ونفسِ المبلغِ ولا شيءَ يفرّقُ بينها.
+              والخادمُ يُرسِلُ المفتاحَ لمن أنشأَ الطلبَ نيابةً عن غيرِه فقط، فمن
+              يشتري لنفسِه لا يُقالُ له اسمُه.
+            */}
+            {o.for_student_name !== undefined && (
+              <span className="text-xs font-medium text-primary-ink">
+                لـ {o.for_student_name}
+              </span>
+            )}
           </div>
         );
       },

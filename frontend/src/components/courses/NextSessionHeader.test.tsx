@@ -24,6 +24,11 @@ function session(overrides: Partial<ClassSession> = {}): ClassSession {
     status_label: "مجدولة",
     room_closed: false,
     join_open: false,
+    // ٠٢٩: الحقلانِ يأتيانِ من الخادمِ على كلِّ حصّةٍ الآن. هذه الترويسةُ تقرأُ
+    // نظيرَهما العلويَّ من `‎/courses/{c}/next-session` عبرَ خصائصِها، فالقيمتانِ
+    // هنا وصفٌ صادقٌ لحصّةٍ قادمةٍ لم يفتحْ بابُها — لا صفرٌ يعني «مفتوحٌ الآن».
+    seconds_until_join_open: 900,
+    seconds_until_start: 1800,
     starts_at: "2026-09-01T16:00:00+03:00",
     ends_at: "2026-09-01T17:00:00+03:00",
     duration_minutes: 60,

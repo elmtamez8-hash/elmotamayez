@@ -65,6 +65,11 @@ export interface ChildLink {
   student_has_account: boolean;
   relation_type: string;
   status: string;
+  // Spec 030. Kept in step with `GuardianRelation` in lib/notifications.ts — two
+  // declarations of one payload, and the pair only stays honest if both move.
+  viewer_side: "guardian" | "student" | null;
+  can_decide: boolean;
+  accepted_at: string | null;
 }
 
 export interface NotificationPreferences {
@@ -129,6 +134,18 @@ export interface User {
    * سؤالَينِ وتنسى أحدَهما. و`null` يعني الحرفَ الأوّلَ في دائرة.
    */
   photo_url: string | null;
+  /**
+   * مُعرِّفُ ملفِّ التدريسِ إن كانَ هذا الحسابُ **يستضيفُ** حصصاً (٠٢٩ · `FR-007أ`).
+   *
+   * ⚠️ سؤالٌ عن المضيفِ لا عن الدَّور. اللوحةُ تقيِّدُ به قراءةَ الحصصِ على
+   * صاحبِها — `?teacher={uuid}` تحتَ «حصصي» — وتُفرِّقُ به بينَ مدرّسٍ **بلا
+   * حصصٍ هذا الأسبوع** ومساعدٍ **لا يستضيفُ شيئاً أصلاً**: جملتانِ مختلفتانِ،
+   * وبلا الحقلِ تُرسَمُ الأولى مكانَ الثانية — جدولٌ فارغٌ تحتَ «حصصي».
+   *
+   * ويُحَلُّ تحتَ مساحةِ العملِ التي يقفُ فيها القارئ: من يُدرِّسُ في أكاديميّةٍ
+   * ويتعلّمُ في أخرى يستضيفُ في الأولى وحدَها.
+   */
+  teacher_profile_uuid: string | null;
   student_profile: StudentProfile | null;
   created_at: string;
 }
@@ -262,7 +279,18 @@ export interface Order {
   payer_name?: string | null;
   payer_email?: string | null;
   has_receipt: boolean;
+  /**
+   * «عليَّ أن أدفعَه» — لا «أنا الطالب».
+   *
+   * وليُّ الأمرِ يشتري باسمِ ابنِه، فهذا المفتاحُ يحرسُ «ادفع الآن» و«ارفع
+   * الإيصال» عندَه أيضاً. الخادمُ يحسبُه من `user_id` أو `granted_by`.
+   */
   is_mine: boolean;
+  /**
+   * اسمُ الطالبِ الذي أُنشئَ الطلبُ له — لمن أنشأَه نيابةً عن غيرِه وحدَه.
+   * غائبٌ عمّن يشتري لنفسِه: لا حاجةَ لأن يُقالَ له اسمُه.
+   */
+  for_student_name?: string;
   receipt_url: string | null;
   /** Hours the platform promises a receipt review in — null once decided. */
   review_sla_hours: number | null;

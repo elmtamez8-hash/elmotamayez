@@ -71,7 +71,7 @@ class ApproveOrder extends Action
             $claimed = Order::query()
                 ->withoutWorkspaceScope()
                 ->whereKey($order->getKey())
-                ->whereIn('status', ['pending', 'under_review'])
+                ->awaitingDecision()
                 ->update([
                     'status' => 'approved',
                     'approved_by' => $approver->getKey(),

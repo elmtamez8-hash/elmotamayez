@@ -20,11 +20,14 @@ import { Button } from "@/components/ui/Button";
  * were one day loosened. The server stores only the extracted id; this is the
  * second lock on the same door, and it costs one function call.
  *
- * Revealed in place rather than in an overlay: there is no dialog primitive in
- * `components/ui/`, and this repository refused to build one at `ConfirmButton`
- * — «a dialog means a focus trap, a scroll lock and an escape handler for a
- * one-word question». Native `<dialog>` is the upgrade path if an overlay is
- * ever actually wanted.
+ * Revealed in place rather than in an overlay. ⚠️ The upgrade path this comment
+ * named — a native `<dialog>` — was taken in spec 033, so `components/ui/Modal`
+ * exists and the focus trap and scroll lock it used to price are the browser's.
+ * It is still not used here, for a different reason: a video is CONTENT, not a
+ * question. A window demands an answer and takes the page away until it gets
+ * one; a promo clip is something a visitor glances at and scrolls past, and
+ * putting it behind an Escape key would be the only way out of a video that
+ * needs no way out.
  *
  * There is deliberately no booking call to action underneath: the course page
  * has carried one since 023, and a second is a duplicate of a live entrance.

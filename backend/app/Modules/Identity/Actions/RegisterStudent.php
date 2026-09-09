@@ -138,33 +138,69 @@ class RegisterStudent extends Action
             return;
         }
 
-        $relation = ParentStudentRelation::query()->firstOrCreate(
-            [
-                'guardian_user_id' => $guardian->getKey(),
-                'student_user_id' => $student->getKey(),
-            ],
-            [
-                'student_name' => trim($student->first_name.' '.$student->last_name),
-                'relation_type' => RelationType::Parent->value,
-                // Empty, and filled on acceptance. See the note above.
-                'permissions' => [GuardianPermission::DataRights->value],
-                'status' => RelationStatus::Pending->value,
-            ],
-        );
+        $name = trim($student->first_name.' '.$student->last_name);
 
-        // A guardian who already holds an ACTIVE relation with this student needs
-        // no invitation — they can consent from the screen they already have.
-        if (! $relation->wasRecentlyCreated) {
+        /*
+        | ⚠️ LIVE ROWS ONLY. This used to be a `firstOrCreate` matching the pair at
+        | ANY status — which, once spec 030 let a refused link be requested again,
+        | meant a student returning after a cut relationship matched the dead row,
+        | `wasRecentlyCreated` came back false, and THE GUARDIAN WAS NEVER TOLD.
+        | Two spellings of one rule in two files; `LinkGuardian::alreadyLinked()`
+        | is the other, and both read `[pending, active]` now.
+        |
+        | A guardian who already holds a live relation needs no invitation: they
+        | can consent from the screen they already have.
+        */
+        $existing = ParentStudentRelation::query()
+            ->where('guardian_user_id', $guardian->getKey())
+            ->where('student_user_id', $student->getKey())
+            ->whereIn('status', [RelationStatus::Pending->value, RelationStatus::Active->value])
+            ->exists();
+
+        if ($existing) {
             return;
         }
+
+        ParentStudentRelation::query()->create([
+            'guardian_user_id' => $guardian->getKey(),
+            'student_user_id' => $student->getKey(),
+            'student_name' => $name,
+            'relation_type' => RelationType::Parent->value,
+            /*
+            | `DataRights` and nothing more — the single permission a guardian needs
+            | to consent to processing this child's data, and the one the account
+            | activation is blocked on.
+            |
+            | ⚠️ The comment that stood here said «Empty, and filled on acceptance»
+            | directly above this line, which has always written a value. The
+            | docblock's reasoning survives and its wording did not: a self-registering
+            | child hands over NO authority by typing a phone number, because a
+            | `pending` row grants nothing — every method of `EloquentGuardianDirectory`
+            | asks `active()`. What acceptance adds is the guardian's own act, not a
+            | wider permission set. Widening is the student's decision alone (FR-009).
+            */
+            'permissions' => [GuardianPermission::DataRights->value],
+            'status' => RelationStatus::Pending->value,
+            /*
+            | ⚠️ THE STUDENT ASKED HERE, WHICH IS THE OPPOSITE OF `LinkGuardian`.
+            | So the party who settles this row is the GUARDIAN. One column, one
+            | rule, both directions (spec 030 · FR-002).
+            */
+            'requested_by_user_id' => $student->getKey(),
+        ]);
 
         $this->notifications->handle(new NotificationRequest(
             recipient: $guardian,
             type: NotificationType::GuardianConsentRequired,
-            variables: ['student_name' => trim($student->first_name.' '.$student->last_name)],
-            // Named as the subject so a guardian of three can tell which child the
-            // message is about — the type is ADDRESSED to a guardian rather than
-            // copied to one, which is why it is absent from `targetsGuardians()`.
+            variables: ['student_name' => $name],
+            /*
+            | ⚠️ ADDED BY SPEC 030, AND IT IS THE HALF THAT MAKES THIS MESSAGE
+            | ACTIONABLE. `NotificationRow` wraps a feed row in a link only when
+            | `action_url` is set, so since 013 this notice has rendered as a plain
+            | <div> — telling a guardian a child is waiting on them and leading
+            | nowhere. There is a button on that page now.
+            */
+            actionUrl: '/family',
             subject: $student,
         ));
     }

@@ -58,6 +58,25 @@ function budgetCourse(int $sections, int $lessonsPerChapter): array
                         'status' => ContentStatus::Published, 'order' => $l, 'duration_seconds' => 300,
                     ]);
                 }
+
+                /*
+                | Spec 032 — ONE OPEN EMBEDDED LESSON IN EVERY CHAPTER.
+                |
+                | ⛔ Every lesson this fixture built was LOCKED, so the branch
+                | that fills `uuid`/`is_open` was never entered — and this is the
+                | ONLY budget guarding that endpoint. A per-row query added there
+                | (`isPubliclyReadable()` calls `isVisibleChain()`, which loads
+                | the parents) would have grown the cost with the tree and been
+                | invisible to the one test written to catch exactly that.
+                */
+                Lesson::create([
+                    'workspace_id' => $workspace->getKey(), 'course_id' => $course->getKey(),
+                    'section_id' => $section->getKey(), 'chapter_id' => $chapter->getKey(),
+                    'uuid' => Str::uuid(), 'title' => "تعريفيّة {$s}-{$c}", 'type' => 'embed',
+                    'status' => ContentStatus::Published, 'order' => $lessonsPerChapter + 1,
+                    'duration_seconds' => 1200, 'is_preview' => true,
+                    'external_url' => 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
+                ]);
             }
         }
 
@@ -101,6 +120,8 @@ it('serves the course page at a cost that does not grow with the tree', function
         ->and($data['subject']['name_ar'])->toBeString()
         ->and($data['curriculum'])->toHaveCount(4)
         ->and($data['curriculum'][0]['chapters'])->toHaveCount(2)
-        ->and($data['curriculum'][0]['chapters'][0]['items'])->toHaveCount(6)
-        ->and($data['lessons_count'])->toBe(48);
+        // Six articles plus the one open embedded lesson every chapter now
+        // carries — without it this budget never entered the new branch at all.
+        ->and($data['curriculum'][0]['chapters'][0]['items'])->toHaveCount(7)
+        ->and($data['lessons_count'])->toBe(56);
 });

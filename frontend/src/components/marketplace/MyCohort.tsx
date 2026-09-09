@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { hasAuthToken } from "@/lib/api";
+import { auth, hasAuthToken } from "@/lib/api";
 import { cohorts } from "@/lib/cohorts";
 import { TONE_CLASSES } from "@/lib/labels";
 
@@ -30,6 +30,27 @@ import { TONE_CLASSES } from "@/lib/labels";
  */
 const MyCohortContext = createContext<string | null>(null);
 
+/**
+ * Whether the reader is a teacher-side account — a teacher or an assistant.
+ *
+ * ⛔ REPORTED 2026-09-08: the public page of a course offered «اشترك في هذه
+ * المجموعة» to the course's own owner, and the three purchase doors accepted it.
+ * The doors refuse now; this is the other half, because a control that is
+ * offered and then refused is a promise the product does not keep.
+ *
+ * ⚠️ AND IT IS NOT A GUARD. The guard is on the server, on all three doors, with
+ * its own tests. This hides a button — nothing more — which is exactly the
+ * division `UnlessMyCohort` below already draws for the reader's own group.
+ *
+ * ⚠️ READ FROM `/auth/me`'s `workspaces`, WHICH IS ALREADY THE RIGHT QUESTION.
+ * `UserResource::workplaces()` answers «the places this person works — owned or
+ * assisted at» and returns an empty list for a student or a guardian outright,
+ * so a non-empty one IS a teacher-side account. Adding a `viewer_teaches` field
+ * would be a second answer to a question the payload already answers, and a
+ * second answer is what drifts.
+ */
+const ViewerTeachesContext = createContext(false);
+
 export function MyCohortProvider({
   courseUuid,
   children,
@@ -38,6 +59,7 @@ export function MyCohortProvider({
   children: ReactNode;
 }) {
   const [mine, setMine] = useState<string | null>(null);
+  const [teaches, setTeaches] = useState(false);
 
   useEffect(() => {
     /*
@@ -62,12 +84,33 @@ export function MyCohortProvider({
       */
       .catch(() => undefined);
 
+    /*
+      ⚠️ A SECOND REQUEST, AND ONLY FOR A SIGNED-IN READER. `hasAuthToken()`
+      already gates the block, so a crawler and a logged-out visitor still make
+      zero requests from this page — which is the whole reason that guard is
+      above rather than inside each fetch.
+
+      Swallowed for the same reason the one above is: if we cannot tell whether
+      the reader teaches, showing the button is the status quo, and the server
+      refuses it anyway.
+    */
+    auth
+      .me()
+      .then((user) => {
+        if (alive) setTeaches(user.workspaces.length > 0);
+      })
+      .catch(() => undefined);
+
     return () => {
       alive = false;
     };
   }, [courseUuid]);
 
-  return <MyCohortContext.Provider value={mine}>{children}</MyCohortContext.Provider>;
+  return (
+    <MyCohortContext.Provider value={mine}>
+      <ViewerTeachesContext.Provider value={teaches}>{children}</ViewerTeachesContext.Provider>
+    </MyCohortContext.Provider>
+  );
 }
 
 /** Marks the reader's own group. Renders nothing for everyone else's. */
@@ -106,6 +149,12 @@ export function UnlessMyCohort({
   children: ReactNode;
 }) {
   const mine = useContext(MyCohortContext);
+  const teaches = useContext(ViewerTeachesContext);
+
+  // ⛔ A teacher never buys — in any course, theirs included. Same reasoning as
+  // the reader's own group one line down: the server refuses it, so offering it
+  // is a payment screen that ends in a refusal.
+  if (teaches) return null;
 
   if (mine === cohortUuid) return null;
 

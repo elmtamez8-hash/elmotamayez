@@ -32,7 +32,8 @@ export type LessonTypeValue =
   | "link"
   | "exam"
   | "assignment"
-  | "live_session";
+  | "live_session"
+  | "embed";
 
 export interface TreeLesson {
   uuid: string;
@@ -155,6 +156,18 @@ export interface LessonEdit {
   exam_gate?: ExamGate;
   is_preview?: boolean;
   is_free?: boolean;
+  /**
+   * Spec 032 · FR-018 — the ONE type whose duration the teacher writes.
+   *
+   * Every other duration is read off the uploaded file, so accepting it from the
+   * teacher there would let the number under the play button disagree with the
+   * file above it. An embed has no file of ours to read, and the host gives
+   * nothing away without a key.
+   *
+   * ⚠️ It was absent from this interface entirely and no editor drew the field,
+   * so FR-018 had no surface at all before this line.
+   */
+  duration_seconds?: number;
 }
 
 /** What an exam item asks before the course goes on. Two values, no third. */

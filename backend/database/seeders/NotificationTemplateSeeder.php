@@ -405,6 +405,22 @@ class NotificationTemplateSeeder extends Seeder
                 'سجّل {{ student_name }} حساباً على المنصّة، ولأنّه دون الثامنة عشرة لا يُفعَّل الحساب قبل موافقتك على معالجة بياناته. افتح صفحة «المرتبطون» لقراءة ما يُجمَع ولماذا.',
                 ['student_name'],
             ],
+            /*
+            | Spec 030. The student reads WHO asked and IN WHAT CAPACITY before
+            | deciding; the list of what the guardian would see is on the screen the
+            | notification links to, because a message is not the place to render a
+            | consent form.
+            */
+            NotificationType::GuardianLinkRequested->value => [
+                'طلب ارتباط من {{ name }}',
+                'طلب {{ name }} الارتباط بحسابك بصفة {{ relation_type }}. افتح صفحة «المرتبطون» لقراءة ما سيطّلع عليه قبل أن تقبل أو ترفض.',
+                ['name', 'relation_type'],
+            ],
+            NotificationType::GuardianLinkDecided->value => [
+                'ردّ {{ name }} على طلب الارتباط',
+                'بتّ {{ name }} في طلب الارتباط الذي أرسلته. افتح صفحة «المرتبطون» لقراءة حالة الطلب.',
+                ['name'],
+            ],
             NotificationType::DataOwnershipTransferred->value => [
                 'صارت بياناتك ملكَك',
                 'بلغ {{ student_name }} الثامنةَ عشرة، فانتقلت إليه ملكيةُ بياناته: هو وحده من يوافق على معالجتها ويطلب نسخةً منها أو حذفَها. لم ينقطع شيءٌ من الخدمة.',
@@ -556,6 +572,24 @@ class NotificationTemplateSeeder extends Seeder
                 'تقرير المنصّة — {{ period }}',
                 'أرقام المنصّة حتى {{ date }}: {{ summary }}',
                 ['period', 'date', 'summary'],
+            ],
+            /*
+            | Spec 032 · FR-020 — a viewer reported that a hosted video is broken.
+            |
+            | ⚠️ IT NAMES THE COURSE AND THE LESSON AND NOTHING ELSE. The report
+            | carries no body at all — a free-text field written by an anonymous
+            | stranger, arriving at a teacher's bell, is an unmoderated message
+            | channel — so there is nothing here for one to be interpolated into.
+            |
+            | ⚠️ AND IT DOES NOT PROMISE THE VIDEO IS GONE. Nobody knows that: the
+            | platform cannot see inside another origin's frame, and the reporter
+            | may be wrong. The wording says what actually happened — somebody
+            | said it did not work.
+            */
+            NotificationType::LessonLinkReported->value => [
+                'بلاغ: «{{ lesson_title }}» لا يعمل',
+                'أبلغنا مشاهدٌ أنّ فيديو «{{ lesson_title }}» في «{{ course_title }}» لا يعمل. الفيديو مستضاف على قناتك، فافتح الدرس وتأكّد من الرابط.',
+                ['lesson_title', 'course_title'],
             ],
             NotificationType::ExamPendingGrading->value => [
                 'تسلّمنا ورقتك في «{{ exam_title }}»',

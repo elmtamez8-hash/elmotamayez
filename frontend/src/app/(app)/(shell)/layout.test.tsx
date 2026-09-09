@@ -120,16 +120,22 @@ describe("الشريط الجانبي يفصل شاشات المدرّس عن ش
     /*
      * ⚠️ THE CASE A «هل أنت موظّف؟» PREDICATE WOULD HAVE BROKEN. A guardian
      * holds zero permissions exactly like a student, so hiding the learner block
-     * from everyone-who-is-not-staff would have taken «كشف التقديرات» and
-     * «تقييماتي الدورية» away from the one reader those two screens name in
-     * their own comments. Asking «do you learn here» keeps them.
+     * from everyone-who-is-not-staff would have taken «كشف التقديرات» and the
+     * periodic assessments away from the one reader those two screens name in
+     * their own comments. Naming the audience on the item keeps them.
+     *
+     * ⚠️ AND THE LABEL IS «التقييمات الدورية», NOT «تقييماتي». This assertion
+     * used to encode the bug: the page has branched on the reader since spec 010
+     * while the sidebar said «MY assessments» to a guardian, who is not
+     * assessed. The nav item carries both names now and the page reads them.
      */
     currentUser = account({ platform_role: "parent" });
 
     const labels = (render(<ShellLayout>محتوى</ShellLayout>), navLabels());
 
     expect(labels).toContain("كشف التقديرات");
-    expect(labels).toContain("تقييماتي الدورية");
+    expect(labels).toContain("التقييمات الدورية");
+    expect(labels).not.toContain("تقييماتي الدورية");
     expect(labels).not.toContain("بنك الأسئلة");
   });
 

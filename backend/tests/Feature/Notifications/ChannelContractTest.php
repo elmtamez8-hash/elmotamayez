@@ -72,6 +72,11 @@ function dispatchOf(User $user, NotificationType $type): void
             // already above, so this one key is the whole difference between the
             // count reading 54 and reading 53.
             'plan_title' => 'اشتراك شهري',
+            // And `lesson_title`, added with spec 032's broken-link report. The
+            // same mechanism a sixth time — `course_title` is already above, so
+            // this one key is the whole difference between the count reading 64
+            // and reading 63. The test doing its job, not a channel that failed.
+            'lesson_title' => 'الحصّة التعريفيّة',
             // And these three, added with spec 010's periodic assessment. The
             // same mechanism yet again: without them the template refuses to
             // render, the notification is logged and dropped, and the count comes
@@ -186,6 +191,18 @@ function dispatchOf(User $user, NotificationType $type): void
             'period' => 'أغسطس ٢٠٢٦',
             'date' => '٣٠ أغسطس',
             'summary' => '١٢ حصّة · ٤ طلاب جدد',
+            /*
+            | A TWELFTH time, with spec 030's `guardian_link_requested`. 62 against
+            | 63 the moment it landed, and the eleven restatements above did not
+            | stop it — which is the argument for keeping this list HAND-WRITTEN.
+            | Derive it and it would supply whatever each template asked for and
+            | could never fail again, and the failure it catches is a real one: a
+            | template whose variable is missing renders NOTHING,
+            | `DispatchNotification` LOGS rather than failing the operation, and the
+            | channel never sees the message. Here that is a child never told that
+            | somebody asked to be their guardian — and a link nobody can settle.
+            */
+            'relation_type' => 'وليّ أمر',
         ],
     ));
 }

@@ -27,6 +27,7 @@ export interface PeriodicReview {
   is_published: boolean;
   published_at: string | null;
   teacher_name?: string | null;
+  teacher_uuid?: string | null;
 }
 
 export interface PeriodicReviewInput {
@@ -227,4 +228,43 @@ export function cardPeriodLabel(card: Pick<ReportCard, "period_start" | "period_
     });
 
   return `${format(card.period_start)} – ${format(card.period_end)}`;
+}
+
+/**
+ * فرقُ المعدّلِ عن الفترةِ السابقةِ **عندَ المدرّسِ نفسِه** (بلاغُ ٢٠٢٦-٠٩-٠٧).
+ *
+ * البطاقةُ كانت تعرضُ رقماً وجملةً ولا تعرضُ اتّجاهاً — فالجملةُ، وهي نصٌّ حرٌّ
+ * يكتبُه المدرّسُ بيدِه، صارَت مؤشِّرَ الاتّجاهِ الوحيدَ الذي يقرؤُه وليُّ الأمر.
+ * وليُّ أمرٍ رأى «تحسّن ملحوظ» فوقَ معدّلٍ نزلَ من ٤٫٣ إلى ٤٫٠.
+ *
+ * ⚠️ **الطرحُ بدقّةِ ما يُعرَضُ لا بدقّةِ ما وصل.** الشاشةُ تكتبُ المعدّلَ بخانةٍ
+ * عشريّةٍ واحدة، والقارئُ يطرحُ ما يراه: ٤٫٢٤ و٤٫١٦ تُعرَضانِ ٤٫٢ و٤٫٢، وفرقُهما
+ * الخامُّ ٠٫٠٨ كان سيُكتَبُ «٠٫١» تحتَ رقمَينِ متساويَين — شاشةٌ تناقضُ نفسَها
+ * (`FR-018`).
+ *
+ * ⚠️ **وبمعرِّفِ المدرّسِ لا بجارِ المصفوفة.** قائمةُ الطالبِ تجمعُ كلَّ من
+ * قيَّمَه، فمقارنةُ شهرِ مدرّسٍ بشهرِ آخرَ هبوطٌ مخترَعٌ من رأيَينِ لا صلةَ
+ * بينهما. وأقدمُ تقييمٍ لكلِّ مدرّسٍ يعودُ بـ`null`: «لا سابقَ له» حالةٌ، لا صفر.
+ */
+export function reviewDeltas(rows: PeriodicReview[]): Map<string, number | null> {
+  const shown = (value: number) => Math.round(value * 10) / 10;
+  const deltas = new Map<string, number | null>();
+
+  for (const row of rows) {
+    const previous = rows
+      .filter(
+        (other) =>
+          (other.teacher_uuid ?? null) === (row.teacher_uuid ?? null) &&
+          other.period_start < row.period_start,
+      )
+      .sort((a, b) => a.period_start.localeCompare(b.period_start))
+      .at(-1);
+
+    deltas.set(
+      row.uuid,
+      previous === undefined ? null : shown(shown(row.average) - shown(previous.average)),
+    );
+  }
+
+  return deltas;
 }

@@ -98,6 +98,14 @@ const DESTINATIONS: Array<{ path: string; from: string }> = [
   // is the teacher's half of the seat-unavailable notice.
   { path: "/sessions/s1t2u3v4/room", from: "NotifySubscriptionActivated" },
   { path: "/manage/sessions", from: "NotifySubscriptionSeatUnavailable (teacher)" },
+  /*
+   * 030 · FR-006. Three entries and only two of them are new: the guardian's
+   * consent notice has existed since 013 and pointed NOWHERE — dispatched with no
+   * `actionUrl`, so `NotificationRow` rendered it as a plain <div>, telling a
+   * guardian a child's account was waiting on them and giving them nothing to
+   * press. It has a button on that page now.
+   */
+  { path: "/family", from: "LinkGuardian · AcceptRelation · RegisterStudent::inviteGuardian" },
 ];
 
 describe("notification destinations", () => {

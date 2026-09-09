@@ -55,27 +55,66 @@ class ListStudentBalances extends Action
 
         $balances = $this->balancesFor($workspace, $enrollments);
 
-        return $enrollments->map(function (Enrollment $enrollment) use ($balances): array {
-            $balance = $balances->get($enrollment->student_user_id.':'.$enrollment->course_id);
+        /*
+         | ⚠️ AN ORPHANED ENROLMENT TOOK THE WHOLE PANEL DOWN WITH A 500, and the
+         | column that would have prevented it does not exist: `student_user_id`
+         | is a bare `unsignedBigInteger` with an index and NO foreign key, on
+         | MySQL as much as on SQLite. So a user row that goes away — an erasure
+         | under spec 013, a hand-run delete, an e2e teardown — leaves its
+         | enrolment behind, `$enrollment->student` resolves to null, and reading
+         | `->uuid` off it is `ErrorException: Attempt to read property "uuid" on
+         | null`. Not for that row: for the REQUEST. Every student in the
+         | workspace disappears from the teacher's screen, permanently, over one
+         | record that names nobody.
+         |
+         | Skipping is the honest answer rather than a placeholder row: the panel
+         | exists so a teacher can chase a student about credits, and there is no
+         | one left to chase. Found by walking the product (`029` · `T057`) — the
+         | suite could not see it, because every fixture builds the enrolment
+         | from a student it just created.
+         |
+         | ⚠️ `getRelation()` AND NOT `->student`, BECAUSE THE MODEL'S ANNOTATION
+         | SAYS THE RELATION CANNOT BE NULL — and it is wrong: it reasons from
+         | «course_id is NOT NULL», which is a statement about the COLUMN and not
+         | about the row it points at. Retyping both to `?Course`/`?User` is the
+         | real fix and it is **thirty-one PHPStan errors across nine files**, in
+         | every module that dereferences an enrolment's course — a change of its
+         | own, not a line inside a dashboard. The deeper fix is the FOREIGN KEY
+         | neither column has, which would make the annotation true and delete
+         | this filter; that is a migration with platform-wide deletion semantics
+         | behind it. Reading the loaded relation directly is neither a cast nor a
+         | suppression: it asks for what is actually there.
+         |
+         | ⚠️ AND THAT MAKES THE EAGER LOAD ABOVE LOAD-BEARING FOR THE GUARD, not
+         | only for the query count: `getRelation()` on a relation nobody loaded
+         | throws `RelationNotFoundException` rather than answering null. Drop the
+         | `->with([...])` to «save a query» and this filter becomes a different
+         | 500.
+         */
+        return $enrollments
+            ->filter(fn (Enrollment $enrollment): bool => $enrollment->getRelation('student') !== null
+                && $enrollment->getRelation('course') !== null)
+            ->map(function (Enrollment $enrollment) use ($balances): array {
+                $balance = $balances->get($enrollment->student_user_id.':'.$enrollment->course_id);
 
-            /** @var array<string, scalar> $row */
-            $row = [
-                'student_uuid' => $enrollment->student->uuid,
-                'student_name' => $enrollment->student->name,
-                'course_uuid' => $enrollment->course->uuid,
-                'course_title' => $enrollment->course->title,
-                // Zeros, not nulls. A student with no balance row holds nothing,
-                // which is a number — and a null here renders as a blank cell
-                // that reads like "not loaded" rather than "none".
-                'remaining_credits' => $balance === null ? 0 : $balance->remaining_credits,
-                'purchased_credits' => $balance === null ? 0 : $balance->purchased_credits,
-                'consumed_credits' => $balance === null ? 0 : $balance->consumed_credits,
-                'credit_limit_credits' => $balance === null ? 0 : $balance->credit_limit_credits,
-                'is_withheld' => $balance !== null && (bool) $balance->getAttribute('is_withheld'),
-            ];
+                /** @var array<string, scalar> $row */
+                $row = [
+                    'student_uuid' => $enrollment->student->uuid,
+                    'student_name' => $enrollment->student->name,
+                    'course_uuid' => $enrollment->course->uuid,
+                    'course_title' => $enrollment->course->title,
+                    // Zeros, not nulls. A student with no balance row holds nothing,
+                    // which is a number — and a null here renders as a blank cell
+                    // that reads like "not loaded" rather than "none".
+                    'remaining_credits' => $balance === null ? 0 : $balance->remaining_credits,
+                    'purchased_credits' => $balance === null ? 0 : $balance->purchased_credits,
+                    'consumed_credits' => $balance === null ? 0 : $balance->consumed_credits,
+                    'credit_limit_credits' => $balance === null ? 0 : $balance->credit_limit_credits,
+                    'is_withheld' => $balance !== null && (bool) $balance->getAttribute('is_withheld'),
+                ];
 
-            return $row;
-        })->values();
+                return $row;
+            })->values();
     }
 
     /**

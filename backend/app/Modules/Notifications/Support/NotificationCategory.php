@@ -78,6 +78,13 @@ enum NotificationCategory: string
                 NotificationType::PeriodicReviewPublished,
                 NotificationType::QuestionImportReady,
                 NotificationType::QuestionImportFailed,
+                /*
+                 * Spec 032. Filed under «الدراسة» rather than «الحساب»: what the
+                 * teacher is being told is that a LESSON in their course does not
+                 * play, which is a content task on the same footing as an import
+                 * that failed — not a fact about their account.
+                 */
+                NotificationType::LessonLinkReported,
             ],
             self::Sessions => [
                 /*
@@ -200,6 +207,11 @@ enum NotificationCategory: string
                 NotificationType::TeacherApplicationChangesRequested,
                 NotificationType::GuardianConsentRequired,
                 NotificationType::GuardianConsentConflict,
+                // Spec 030. `NotificationCategoryTest` asserts every type is filed
+                // exactly once — the map runs category → types, so an unclassified
+                // type does not crash the feed, it silently stops being filterable.
+                NotificationType::GuardianLinkRequested,
+                NotificationType::GuardianLinkDecided,
                 NotificationType::DataOwnershipTransferred,
                 NotificationType::DataRequestCreated,
                 NotificationType::DataRequestCompleted,

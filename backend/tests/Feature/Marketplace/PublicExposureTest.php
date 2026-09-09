@@ -146,6 +146,26 @@ function exposureCourse(TeacherProfile $teacher): Course
             'status' => ContentStatus::Published, 'order' => 1, 'duration_seconds' => 300,
         ]);
 
+        /*
+        | Spec 032 — AN OPEN EMBEDDED LESSON, AND ITS ABSENCE IS WHY THIS FILE
+        | COULD NOT SEE THE NEW BRANCH AT ALL.
+        |
+        | ⛔ This fixture was ONE LOCKED `article`, so the `uuid`/`is_open` keys
+        | the new branch adds were never filled and this walk covered none of
+        | them — while the flat union above already carried `uuid` from
+        | `COURSE_DETAIL`, so adding it to `CURRICULUM_ITEM` could never have
+        | turned this red either. Two independent reasons the cited guard did not
+        | bite, both measured.
+        */
+        Lesson::create([
+            'workspace_id' => $teacher->workspace_id, 'course_id' => $course->getKey(),
+            'section_id' => $section->getKey(), 'chapter_id' => $chapter->getKey(),
+            'uuid' => Str::uuid(), 'title' => 'الحصّة التعريفيّة', 'type' => 'embed',
+            'status' => ContentStatus::Published, 'order' => 2, 'duration_seconds' => 1200,
+            'external_url' => 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
+            'is_preview' => true,
+        ]);
+
         return $course;
     });
 }
@@ -173,6 +193,9 @@ it('publishes only allowlisted fields, in every public payload', function () {
         ...PublicFieldAllowlist::CURRICULUM_CHAPTER,
         ...PublicFieldAllowlist::CURRICULUM_ITEM,
         ...PublicFieldAllowlist::COHORT,
+        // Spec 032 — the open embedded lesson's own door.
+        ...PublicFieldAllowlist::PREVIEW_LESSON,
+        ...PublicFieldAllowlist::PREVIEW_LESSON_COURSE,
         ...marketplaceEnvelopeKeys(),
     ];
 
@@ -190,6 +213,27 @@ it('publishes only allowlisted fields, in every public payload', function () {
         // because it found nothing.
         'course detail' => $this->getJson('/api/v1/marketplace/courses/'.exposureCourse($teacher)->uuid)->json(),
     ];
+
+    /*
+    | Spec 032 · US2 — THE NEW DOOR, WHICH WAS IN NO LIST AND SO WALKED BY
+    | NOTHING.
+    |
+    | Added here for the union check AND asserted BY EQUALITY below, because the
+    | two ask different questions: the union answers «is this key published
+    | somewhere», FR-010 asks «may THIS door publish it».
+    */
+    $previewCourse = exposureCourse($teacher);
+    $previewLesson = Lesson::query()->withoutWorkspaceScope()
+        ->where('course_id', $previewCourse->getKey())->where('type', 'embed')->firstOrFail();
+
+    $previewBody = $this->getJson(
+        "/api/v1/marketplace/courses/{$previewCourse->uuid}/lessons/{$previewLesson->uuid}",
+    )->assertOk()->json('data');
+
+    $payloads['preview lesson'] = ['data' => $previewBody];
+
+    expect(array_keys($previewBody))->toEqualCanonicalizing(PublicFieldAllowlist::PREVIEW_LESSON)
+        ->and(array_keys($previewBody['course']))->toEqualCanonicalizing(PublicFieldAllowlist::PREVIEW_LESSON_COURSE);
 
     $unlisted = [];
     $forbidden = [];

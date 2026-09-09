@@ -42,13 +42,46 @@ Route::middleware('throttle:public')->prefix('marketplace')->name('marketplace.'
     // reachable by url.
     Route::get('/teachers/{uuid}', [PublicMarketplaceController::class, 'teacher'])->name('teachers.show');
 
-    // Spec 023 · FR-001. `uuid` and never `slug`: `courses.slug` is unique per
-    // (workspace_id, slug) — inside one workspace only — so two teachers naming
-    // a course «الرياضيات ٣» produce the same slug and a public route has no
-    // workspace to tell them apart. Bound as a plain string for the same reason
-    // the teacher route is: implicit binding resolves by uuid WITHOUT the
-    // publiclyListed() guard, which would serve every draft by url.
+    /*
+    | Spec 023 · FR-001 — one course. THE KEY IS A SLUG OR A UUID.
+    |
+    | ⚠️ THIS COMMENT USED TO SAY «uuid and never slug, because `courses.slug` is
+    | unique per (workspace_id, slug)» — TRUE WHEN IT WAS WRITTEN AND FALSE SINCE
+    | `_000100_make_course_slug_platform_unique` shipped. `ReadPublicCourse`
+    | resolves both (slug first, grouped) and the public page lives at
+    | `/courses/[slug]`. A stale comment two lines from the code it describes is
+    | how the next reader builds the wrong thing.
+    |
+    | Bound as a plain string for the reason the teacher route is: implicit
+    | binding resolves by uuid WITHOUT the publiclyListed() guard, which would
+    | serve every draft by url.
+    */
     Route::get('/courses/{uuid}', [PublicMarketplaceController::class, 'course'])->name('courses.show');
+
+    /*
+    | Spec 032 · US2 — the free preview lesson, watched with no account at all.
+    |
+    | ⚠️ BOTH PARAMETERS ARE PLAIN STRINGS, for the reason above: implicit
+    | binding would resolve a `{lesson}` by uuid with no guard whatsoever, which
+    | is every locked lesson on the platform served by url.
+    |
+    | Inside `throttle:public` like everything else here — and the report door
+    | needs it most, being a write reachable by anybody.
+    */
+    Route::get('/courses/{courseKey}/lessons/{lessonUuid}', [PublicMarketplaceController::class, 'previewLesson'])
+        ->name('courses.lessons.show');
+
+    /*
+    | Spec 032 · US3 · FR-021 — «الفيديو لا يعمل», from whoever is watching.
+    |
+    | ⚠️ A WRITE ON A PUBLIC ROUTE, and what earns that is the CONSTANT reply: it
+    | returns no identifier, no count and no echo, so it cannot be asked whether
+    | a lesson exists or whether it has been reported already. Requiring an
+    | account instead would restrict the report to the population least likely to
+    | be making it — the same argument the breach-report door won in 013.
+    */
+    Route::post('/courses/{courseKey}/lessons/{lessonUuid}/report', [PublicMarketplaceController::class, 'reportBrokenEmbed'])
+        ->name('courses.lessons.report');
 });
 
 /*

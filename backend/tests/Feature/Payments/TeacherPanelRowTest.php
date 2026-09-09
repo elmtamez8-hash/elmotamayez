@@ -126,3 +126,32 @@ it('refuses a reader without the balance permission', function (): void {
 
     $this->getJson('/api/v1/manage/billing/students')->assertForbidden();
 });
+
+it('survives an enrolment whose student no longer exists', function (): void {
+    /*
+    | ⚠️ MEASURED ON A REAL DATABASE (029 · T057), NOT IMAGINED. The teacher's
+    | dashboard card answered 500 and the whole panel with it:
+    | `ErrorException: Attempt to read property "uuid" on null`, from ONE row
+    | out of six.
+    |
+    | It is reachable because `enrollments.student_user_id` carries NO foreign
+    | key — a bare `unsignedBigInteger` with an index, on MySQL as much as on
+    | SQLite — so nothing deletes the enrolment when the user goes. And no
+    | fixture in the suite could show it: every one of them builds the enrolment
+    | from a student it created a line earlier.
+    |
+    | The assertion is that the OTHER rows survive. A test that only asserted
+    | «200» would pass over an implementation that returns an empty list.
+    */
+    $ghost = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->course, $ghost);
+
+    DB::table('users')->where('id', $ghost->getKey())->delete();
+
+    Sanctum::actingAs(panelReader($this->workspace));
+
+    $rows = collect($this->getJson('/api/v1/manage/billing/students')->assertOk()->json('data'));
+
+    expect($rows->firstWhere('student_uuid', $this->student->uuid))->not->toBeNull()
+        ->and($rows->pluck('student_uuid'))->not->toContain($ghost->uuid);
+});

@@ -5,12 +5,14 @@ import { AttachmentsPanel } from "./AttachmentsPanel";
 import { ArticleEditor } from "./editors/ArticleEditor";
 import { AudioEditor } from "./editors/AudioEditor";
 import { DocumentEditor } from "./editors/DocumentEditor";
+import { EmbedEditor } from "./editors/EmbedEditor";
 import { ExamPicker } from "./editors/ExamPicker";
 import { LinkEditor } from "./editors/LinkEditor";
 import { LiveSessionPicker } from "./editors/LiveSessionPicker";
 import { NoteEditor } from "./editors/NoteEditor";
 import { VideoEditor } from "./editors/VideoEditor";
 import { Alert } from "@/components/ui/Alert";
+import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CheckboxField, SelectField } from "@/components/ui/Field";
@@ -84,6 +86,29 @@ const TYPE_OPTIONS: Array<{ value: LessonTypeValue; label: string; disabled?: bo
   { value: "assignment", label: "واجب — يصل مع بنك الأسئلة", disabled: true },
 ];
 
+/**
+ * Spec 032 · FR-007 — «فيديو مُضمَّن» is offered only to a lesson that is
+ * already open.
+ *
+ * ⚠️ HIDDEN, NOT DISABLED, AND THAT IS THE OPPOSITE CALL FROM `assignment`
+ * ABOVE — for the reason that decides between them. `assignment` is unavailable
+ * to everybody until a whole spec ships, so a disabled row with its reason is
+ * the only honest reading. This option is unavailable for a condition the
+ * teacher can change on THIS screen: ticking «متاح بلا تسجيل» two sections down
+ * makes it appear. The select's hint says so, so its absence is not a mystery.
+ *
+ * ⚠️ AND IT IS THE SECOND HALF OF A GUARD, NEVER THE GUARD (FR-007). The server
+ * refuses to publish a locked embed whatever this list does — hiding a control
+ * is not a guard, and a second API reader carries none of these rules.
+ */
+function typeOptionsFor(lesson: LessonDetail) {
+  const open = lesson.is_preview || lesson.is_free;
+
+  return open
+    ? [...TYPE_OPTIONS, { value: "embed" as LessonTypeValue, label: "فيديو مُضمَّن" }]
+    : TYPE_OPTIONS;
+}
+
 export function LessonEditor({
   courseUuid,
   lessonUuid,
@@ -98,10 +123,25 @@ export function LessonEditor({
   const [lesson, setLesson] = useState<LessonDetail | null>(null);
   const [content, setContent] = useState("");
   const [url, setUrl] = useState("");
+  // A STRING, not a number: an empty box has to stay empty while it is being
+  // typed in, and `0` is what «not written» is stored as (FR-018).
+  const [duration, setDuration] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+
+  /*
+    The type change waiting on an answer, with the cost already read (spec 033).
+
+    ⚠️ IT HOLDS THE WARNING TEXT, not just the target type. The sentence names
+    what disappears, and it was computed from the server's preview — recomputing
+    it at render time would be a second derivation of one answer, which is how
+    the teacher gets shown a cost that no longer matches the one that was read.
+  */
+  const [pendingType, setPendingType] = useState<{ next: LessonTypeValue; warning: string } | null>(
+    null,
+  );
 
   const load = useCallback(() => {
     setLoading(true);
@@ -113,6 +153,7 @@ export function LessonEditor({
         setLesson(detail);
         setContent(detail.content ?? "");
         setUrl(detail.external_url ?? "");
+        setDuration(detail.duration_seconds > 0 ? String(detail.duration_seconds) : "");
       })
       .catch((err: unknown) => setError(errorMessage(err, "تعذّر تحميل العنصر.")))
       .finally(() => setLoading(false));
@@ -139,6 +180,7 @@ export function LessonEditor({
       setLesson(fresh);
       setContent(fresh.content ?? "");
       setUrl(fresh.external_url ?? "");
+      setDuration(fresh.duration_seconds > 0 ? String(fresh.duration_seconds) : "");
       setNotice(message);
       // The outline shows the type and the status; both can have just moved.
       onSaved();
@@ -155,6 +197,11 @@ export function LessonEditor({
         courses.updateLesson(courseUuid, lesson.uuid, {
           content: lesson.family === "inline" ? content : undefined,
           external_url: lesson.family === "external" ? url : undefined,
+          // Only the embedded type states its own duration — every other one
+          // reads it off the uploaded file. An empty box is `0`, which every
+          // reader treats as «not written» and prints as nothing.
+          duration_seconds:
+            lesson.type === "embed" ? Number.parseInt(duration, 10) || 0 : undefined,
         }),
       "حُفظ العنصر.",
     );
@@ -175,26 +222,53 @@ export function LessonEditor({
           ? `سيتحوّل العنصر إلى «${preview.type_label}». متابعة؟`
           : `سيتحوّل العنصر إلى «${preview.type_label}» وسيُفقد: ${preview.losses.join(" · ")}`;
 
-      if (!window.confirm(warning)) {
-        setBusy(false);
+      /*
+        ⚠️ THE ORDER IS THE MEANING, NOT THE STYLE. The cost is read from the
+        server BEFORE anything is shown, so the window can name what disappears —
+        a confirmation that lists nothing is a confirmation people click through.
+        Asking first and costing after would be a question about an answer nobody
+        has yet.
 
-        return;
-      }
+        ⚠️ AND `busy` IS PUT DOWN BEFORE THE WINDOW OPENS. Left up, the type
+        select stays disabled underneath it — so cancelling returns the teacher
+        to a dead control that says nothing about why.
+      */
+      setBusy(false);
+      setPendingType({ next, warning });
+
+      return;
     } catch (err: unknown) {
       setError(errorMessage(err, "تعذّر قراءة أثر تغيير النوع."));
       setBusy(false);
 
       return;
     }
-
-    setBusy(false);
-    void run(() => courses.changeLessonType(courseUuid, lesson.uuid, next), "تغيّر نوع العنصر.");
   };
 
   const pending = PENDING[lesson.type];
 
   return (
     <Card as="section">
+      <Modal
+        open={pendingType !== null}
+        title="تغيير نوع العنصر"
+        message={pendingType?.warning}
+        confirmLabel="غيّر النوع"
+        tone="danger"
+        onCancel={() => setPendingType(null)}
+        onConfirm={() => {
+          if (pendingType === null) return;
+
+          const next = pendingType.next;
+
+          setPendingType(null);
+          void run(
+            () => courses.changeLessonType(courseUuid, lesson.uuid, next),
+            "تغيّر نوع العنصر.",
+          );
+        }}
+      />
+
       <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold text-ink">{lesson.title}</h3>
@@ -234,10 +308,10 @@ export function LessonEditor({
           <SelectField
             id={`type-${lesson.uuid}`}
             label="نوع العنصر"
-            hint="تغيير النوع يعرض ما سيُفقد قبل التنفيذ، ولا يُسمح به على عنصر منشور."
+            hint="تغيير النوع يعرض ما سيُفقد قبل التنفيذ، ولا يُسمح به على عنصر منشور. و«فيديو مُضمَّن» يظهر بعد تعليم العنصر «متاح بلا تسجيل» أو «بلا مقابل»."
             value={lesson.type}
             disabled={busy || lesson.status === "published"}
-            options={TYPE_OPTIONS}
+            options={typeOptionsFor(lesson)}
             onChange={(value) => void changeType(value as LessonTypeValue)}
           />
         )}
@@ -250,6 +324,16 @@ export function LessonEditor({
         )}
         {lesson.type === "link" && (
           <LinkEditor lesson={lesson} url={url} disabled={busy} onChange={setUrl} />
+        )}
+        {lesson.type === "embed" && (
+          <EmbedEditor
+            lesson={lesson}
+            url={url}
+            durationSeconds={duration}
+            disabled={busy}
+            onUrlChange={setUrl}
+            onDurationChange={setDuration}
+          />
         )}
 
         {lesson.asset_kind === "video" && (
@@ -309,7 +393,9 @@ export function LessonEditor({
               <span>
                 متاح بلا تسجيل
                 <span className="block text-xs text-ink-muted">
-                  يفتحه أي زائر من صفحة الكورس دون أن يسجّل فيه. إتاحة فعلية، لا وسم تسويقي.
+                  {lesson.type === "embed"
+                    ? "يفتحه أي زائر من صفحة الكورس دون أن يسجّل فيه. إتاحة فعلية، لا وسم تسويقي."
+                    : "يفتحه المسجَّل ولو لم يبلغه بعد. الزائر بلا حساب لا يفتح إلا الدرس المُضمَّن."}
                 </span>
               </span>
             }
@@ -329,7 +415,9 @@ export function LessonEditor({
               <span>
                 بلا مقابل داخل الكورس
                 <span className="block text-xs text-ink-muted">
-                  للمسجَّلين وحدهم؛ لا يفتحه زائر. اجعله «متاح بلا تسجيل» إن أردت ذلك.
+                  {lesson.type === "embed"
+                    ? "يفتحه أي زائر أيضاً — الدرس المُضمَّن مفتوح بأيّ من الوسمَين."
+                    : "للمسجَّلين وحدهم؛ لا يفتحه زائر. اجعله «متاح بلا تسجيل» إن أردت ذلك."}
                 </span>
               </span>
             }

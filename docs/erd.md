@@ -1215,3 +1215,37 @@ a whole, handed to peers who may be children; this one dies with the room.
 — a derived state fires no event, so hanging the `study_room_finished` award on
 `ends_at` passing would be a key with readers and no writer, which is the defect
 `ClassSessionStatus::Interrupted` already cost this tree once.
+
+## `lessons.link_reported_at` — the only sensor there is (spec 032)
+
+```
+lessons gains:  link_reported_at  → timestamp, NULLABLE, no index, not $fillable
+```
+
+The platform **cannot detect** that an embedded lesson's video was deleted or made
+private: the host answers a perfectly valid response and writes its own message
+inside its own frame, and the browser forbids reading across origins. So the
+viewer is the sensor, and this column is what stops a hundred viewers of one
+broken lesson producing a hundred alerts — which is the road to every alert on the
+account being muted.
+
+**Three writers, and that is declared rather than tolerated**: `ReportBrokenEmbed`
+stamps it, `ManageLessons::update` clears it when `external_url` actually changed,
+and `ChangeLessonType` clears it when the new type no longer wants the column. All
+three use `forceFill()` or raw SQL — ⚠️ **it is deliberately NOT `$fillable`**,
+because it is CLAIMED by a conditional UPDATE (the `captured_order_id` idiom) and
+mass-assignable it becomes a second way to take the window from outside the
+statement that owns it. Mass assignment would also discard it **in silence**.
+
+⚠️ **No index, and `down()` is a bare `dropColumn` BECAUSE of that.** The claim is
+a primary-key lookup, so a secondary index here is pure write cost; and SQLite's
+native DROP COLUMN refuses an indexed column, so the day one is added it must be
+dropped first in its own closure or every test in this repository fails on the
+rollback.
+
+⚠️ **The reporter's fingerprint is NOT a column.** Distinguishing reporters lives
+in the cache under `embed-report:{lessonId}:{ipHash}` with a 24-hour life. A
+stored address hash is personal data with a full contract behind it — a
+`data_categories` row, an export path, an erasure path and a retention sweep — for
+a number that means nothing after a day. The key expires by itself and there is
+nothing to sweep.

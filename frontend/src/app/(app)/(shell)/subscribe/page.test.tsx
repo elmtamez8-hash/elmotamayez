@@ -17,6 +17,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const create = vi.fn();
 const uploadReceipt = vi.fn();
 
+/* الحسابُ القارئُ — يُبدَّلُ لكلِّ حالة؛ الافتراضُ طالبٌ يشتري لنفسِه. */
+let mockUser: Record<string, unknown> = { platform_role: "student" };
+
+vi.mock("@/lib/auth-context", () => ({
+  useAuth: () => ({ user: mockUser }),
+}));
+
+const listRelations = vi.fn();
+
+vi.mock("@/lib/notifications", () => ({
+  family: { list: () => listRelations() },
+}));
+
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams("course=course-uuid&cohort=cohort-uuid"),
 }));
@@ -76,6 +89,9 @@ describe("the subscription screen's refusal", () => {
     vi.resetModules();
     create.mockReset();
     uploadReceipt.mockReset();
+    listRelations.mockReset();
+    listRelations.mockResolvedValue({ data: [] });
+    mockUser = { platform_role: "student" };
     Element.prototype.scrollIntoView = vi.fn();
   });
 
@@ -111,5 +127,110 @@ describe("the subscription screen's refusal", () => {
     });
 
     expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+  });
+});
+
+/*
+|------------------------------------------------------------------------------
+| A GUARDIAN SUBSCRIBES FOR A CHILD — reported by the user on 2026-09-08.
+|------------------------------------------------------------------------------
+|
+| «منطقياً ماينفعش» — the screen sent the session's own account as the student,
+| so a guardian who pressed «اشترك» became the learner: the enrolment and the
+| group membership were written in their name and the child held nothing. The
+| server refuses that now; these cases are the half that lets the payer pay.
+|
+| ⚠️ THE FILTER IS THE POINT OF THE FIRST TWO. An option the server will refuse
+| is worse than no option — it is a refusal the reader cannot act on — and the
+| two conditions guard two different refusals: a child with no account has
+| nothing to enrol, and a relation without «payments» is one the server denies.
+*/
+const CHILD = {
+  uuid: "rel-1",
+  status: "active",
+  student_name: "كريم",
+  student_uuid: "child-1",
+  permissions: [{ key: "payments", label: "المدفوعات" }],
+};
+
+async function openAsGuardian(relations: unknown[]) {
+  mockUser = { platform_role: "parent" };
+  listRelations.mockResolvedValue({ data: relations });
+
+  const { default: SubscribePage } = await import("./page");
+
+  render(<SubscribePage />);
+}
+
+describe("the subscription screen for a guardian", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    create.mockReset();
+    uploadReceipt.mockReset();
+    listRelations.mockReset();
+    mockUser = { platform_role: "student" };
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  it("sends the chosen child, and will not send without one", async () => {
+    create.mockResolvedValue({ data: { uuid: "order-uuid" } });
+    uploadReceipt.mockResolvedValue({});
+
+    await openAsGuardian([CHILD]);
+
+    const plan = await screen.findByRole("radio");
+
+    fireEvent.click(plan);
+    fireEvent.change(document.querySelector("#subscribe-receipt") as HTMLInputElement, {
+      target: { files: [new File(["x"], "receipt.png", { type: "image/png" })] },
+    });
+
+    // ⚠️ الزرُّ معطَّلٌ قبلَ اختيارِ الطالبِ رغمَ اكتمالِ الباقةِ والإيصال: الخادمُ
+    // يرفضُ الفارغَ، وزرٌّ نشطٌ يقودُ إلى ٤٢٢ عن حقلٍ لم يُطلَبْ ملؤُه بعد.
+    const send = screen.getByRole("button", { name: "أرسِلِ الطلب" });
+
+    expect((send as HTMLButtonElement).disabled).toBe(true);
+
+    fireEvent.change(screen.getByLabelText(/لمن هذا الاشتراك/), {
+      target: { value: "child-1" },
+    });
+    fireEvent.click(send);
+
+    await waitFor(() => {
+      expect(create).toHaveBeenCalled();
+    });
+
+    expect(create.mock.calls[0][0].student_uuid).toBe("child-1");
+  });
+
+  it("offers no child the server would refuse, and says what to do instead", async () => {
+    await openAsGuardian([
+      // أُضيفَ بالاسمِ ولم يفتحْ حساباً — لا حسابَ يُسجَّلُ فيه.
+      { ...CHILD, uuid: "rel-2", student_name: "بدر", student_uuid: undefined },
+      // وصايةٌ بلا صلاحيّةِ دفع — الخادمُ يرفضُها بجملةٍ واحدة.
+      {
+        ...CHILD,
+        uuid: "rel-3",
+        student_name: "سارة",
+        student_uuid: "child-3",
+        permissions: [{ key: "attendance", label: "الحضور" }],
+      },
+    ]);
+
+    expect(await screen.findByText("لا يوجد ابن يمكنك الاشتراك له")).toBeDefined();
+    expect(screen.queryByLabelText(/لمن هذا الاشتراك/)).toBeNull();
+    expect(screen.getByRole("link", { name: "المرتبطون" }).getAttribute("href")).toBe("/family");
+  });
+
+  it("asks a student buying for themselves for nobody", async () => {
+    const { default: SubscribePage } = await import("./page");
+
+    render(<SubscribePage />);
+
+    await screen.findByRole("radio");
+
+    expect(screen.queryByLabelText(/لمن هذا الاشتراك/)).toBeNull();
+    // ولا يُسألُ الخادمُ عن أبناءٍ لحسابٍ ليسَ وليَّ أمر.
+    expect(listRelations).not.toHaveBeenCalled();
   });
 });

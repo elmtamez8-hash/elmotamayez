@@ -56,6 +56,25 @@ final class TeacherListingRules
             'teaching_languages.*' => ['string', Rule::in(TeachingLanguages::all())],
             'headline' => ['required', 'string', 'max:150'],
             'bio' => ['nullable', 'string', 'max:5000'],
+
+            /*
+            | الأسئلةُ الشائعةُ والفيديوُ التعريفيّ — اختياريّانِ، فمعالجُ الانضمامِ
+            | يمرُّ من هنا ولا يرسلُهما، والشاشةُ وحدَها تكتبُهما.
+            |
+            | ⚠️ و`intro_video_url` **مُقيَّدٌ بمُضيفَين** لا `url` وحدَها: الرابطُ
+            | يُغرَسُ في `<iframe>` على صفحةٍ عامّة، فحقلٌ حرٌّ هنا هو لوحةُ مفاتيحِ
+            | مدرّسٍ تُشغِّلُ ما تشاءُ في متصفِّحِ كلِّ زائر. والحارسُ الحقيقيُّ
+            | مُحلِّلُ العميلِ الذي يبني `src` بنفسِه؛ هذا يقولُ «لا» مبكراً وبعربيّة.
+            */
+            'faqs' => ['array', 'max:20'],
+            'faqs.*.question' => ['required', 'string', 'max:255'],
+            'faqs.*.answer' => ['required', 'string', 'max:2000'],
+            'intro_video_url' => [
+                'nullable',
+                'string',
+                'max:500',
+                'regex:/^https:\/\/((www|m)\.)?(youtube\.com|youtu\.be|vimeo\.com|player\.vimeo\.com)\//',
+            ],
         ];
     }
 
@@ -72,6 +91,12 @@ final class TeacherListingRules
             'teaching_languages.*.in' => 'إحدى لغات التدريس المختارة غير مدعومة.',
             'headline.max' => 'السطر التعريفي طويل جداً.',
             'bio.max' => 'الوصف طويل جداً.',
+            'faqs.max' => 'أقصى عدد للأسئلة الشائعة عشرون سؤالاً.',
+            'faqs.*.question.required' => 'اكتب نص السؤال أو احذف الصف.',
+            'faqs.*.question.max' => 'السؤال طويل جداً.',
+            'faqs.*.answer.required' => 'اكتب إجابة هذا السؤال أو احذف الصف.',
+            'faqs.*.answer.max' => 'الإجابة طويلة جداً.',
+            'intro_video_url.regex' => 'الرابط يجب أن يكون من يوتيوب أو فيميو.',
         ];
     }
 

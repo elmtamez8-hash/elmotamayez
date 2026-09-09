@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useCallback, useEffect, useState } from "react";
 
 import { AccountPhotoCard } from "@/components/settings/AccountPhotoCard";
@@ -8,17 +9,25 @@ import {
   WeeklyAvailabilityEditor,
   type Slot,
 } from "@/components/marketplace/WeeklyAvailabilityEditor";
-import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { CONTROL, Field, NumberField, SelectField, TextareaField, TextField } from "@/components/ui/Field";
+import {
+  CONTROL,
+  MultiSelectField,
+  NumberField,
+  SelectField,
+  TextareaField,
+  TextField,
+} from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { api, fieldErrors } from "@/lib/api";
 import { crossesUtcMidnight, toLocalSlot, toUtcSlot } from "@/lib/availability";
 import { useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
-import { profileApi, type TeacherProfile } from "@/lib/profile";
+import { profileApi, type Faq, type TeacherProfile } from "@/lib/profile";
+import { QuestionIcon } from "@/components/icons";
+import { arabicNumber } from "@/lib/numerals";
 import { TEACHING_LANGUAGES } from "@/lib/teaching-languages";
 
 type Option = { slug: string; name_ar: string };
@@ -52,6 +61,8 @@ export default function ProfileSettingsPage() {
     grade_levels: [] as string[],
     teaching_languages: [] as string[],
     qualifications: "",
+    faqs: [] as Faq[],
+    intro_video_url: "",
     years_experience: 0,
     headline: "",
     bio: "",
@@ -65,8 +76,6 @@ export default function ProfileSettingsPage() {
 
   const [student, setStudent] = useState({ school_year_slug: "", region_slug: "" });
 
-  const [saved, setSaved] = useState("");
-  const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -89,6 +98,8 @@ export default function ProfileSettingsPage() {
         grade_levels: mine.grade_levels,
         teaching_languages: mine.teaching_languages,
         qualifications: mine.qualifications.join("\n"),
+        faqs: mine.faqs,
+        intro_video_url: mine.intro_video_url ?? "",
         years_experience: mine.years_experience ?? 0,
         headline: mine.headline ?? "",
         bio: mine.bio ?? "",
@@ -153,30 +164,45 @@ export default function ProfileSettingsPage() {
     void load();
   }, [load]);
 
-  const toggle = (key: "subjects" | "grade_levels" | "teaching_languages", value: string) =>
-    setForm((prev) => ({
-      ...prev,
-      [key]: prev[key].includes(value)
-        ? prev[key].filter((item) => item !== value)
-        : [...prev[key], value],
-    }));
-
+  /*
+  | ⚠️ A TOAST, NOT A BANNER AT THE TOP OF THE DOCUMENT — reported 2026-09-09.
+  | This page is long: the availability editor sits near the bottom, and its
+  | «لا يمكن أن تتداخل فترتان في اليوم نفسه» was rendered above the heading,
+  | metres above the control that provoked it. The teacher pressed save, nothing
+  | visible happened, and they concluded the button was broken. A toast is
+  | `position: fixed`, so it is in the viewport wherever the page is scrolled —
+  | which is the whole of the fix; the sentence itself is unchanged.
+  |
+  | ⚠️ AND THE 422 BRANCH TOASTS TOO. It used to set the field messages and show
+  | nothing else, so a refusal about a field off the bottom of the screen was
+  | silent in exactly the same way — the banner was never the only door onto this
+  | defect. The toast says WHERE to look and the field still carries the reason;
+  | putting the reason itself in the toast would be «انتهت جلستك» under a list of
+  | subjects, which is why the two were separated in the first place.
+  |
+  | ⚠️ Errors are given ten seconds, not sonner's four. An Arabic sentence
+  | explaining a clash needs longer to read than a confirmation does, and this
+  | one is the only record of why the save did not happen.
+  */
   const save = async (task: Promise<unknown>) => {
     setSaving(true);
-    setSaved("");
-    setError("");
     setFields({});
 
     try {
       await task;
-      setSaved("حُفِظت بياناتك، وهي منشورة الآن.");
+      toast.success("حُفِظت بياناتك، وهي منشورة الآن.");
     } catch (err: unknown) {
-      // 422 under its own field; everything else in the banner. Mixing them puts
-      // «انتهت جلستك» under a list of subjects.
       const found = fieldErrors(err);
 
-      if (Object.keys(found).length > 0) setFields(found);
-      else setError(userMessage(err));
+      if (Object.keys(found).length > 0) {
+        setFields(found);
+        toast.error("لم يُحفظ التغيير", {
+          description: "راجع الحقول المميّزة بالأحمر في النموذج.",
+          duration: 10000,
+        });
+      } else {
+        toast.error("لم يُحفظ التغيير", { description: userMessage(err), duration: 10000 });
+      }
     } finally {
       setSaving(false);
     }
@@ -190,18 +216,26 @@ export default function ProfileSettingsPage() {
     <div className="mx-auto max-w-2xl space-y-8">
       <h2 className="text-2xl font-bold text-ink">ملفّي</h2>
 
-      {error && <Alert tone="danger" title="لم يُحفظ التغيير">{error}</Alert>}
-      {saved && <Alert tone="success" title={saved} />}
+      {/*
+        ⚠️ **الصورةُ لكلِّ حساب، وحجبُها خلفَ «هل لك ملفّ؟» كانَ يُغلِقُ الشاشةَ
+        في وجهِ وليِّ الأمر** (بلاغُ ٢٠٢٦-٠٩-٠٨). و`‎/me/photo` بابٌ على مستوى
+        الحسابِ بلا صلاحيّةٍ ولا مُعامِلِ مسار — الخادمُ يقبلُه من كلِّ من دخل —
+        فالمنعُ كانَ في الشاشةِ وحدَها: وليُّ أمرٍ يفتحُ «ملفّي» فيقرأُ «لا بيانات
+        إضافية لهذا الحساب» ولا يجدُ حتّى صورتَه. وهو الآن **أوّلُ بندٍ في قائمةِ
+        الحساب**، فالبابُ المغلقُ صارَ أوّلَ ما يُطرَق.
 
-      {hasProfile ? (
-        <AccountPhotoCard
-          initialUrl={teacher?.photo_url ?? user?.photo_url ?? null}
-          name={user?.name ?? "؟"}
-        />
-      ) : (
+        ⚠️ والجملةُ البديلةُ تصفُ **ما ينقُصُ لا الشاشةَ كلَّها**: «لا ملفَّ
+        عامّاً» جملةٌ صحيحةٌ عن وليِّ أمرٍ يستطيعُ مع ذلك تغييرَ صورتِه هنا.
+      */}
+      <AccountPhotoCard
+        initialUrl={teacher?.photo_url ?? user?.photo_url ?? null}
+        name={user?.name ?? "؟"}
+      />
+
+      {!hasProfile && (
         <EmptyState
-          title="لا بيانات إضافية لهذا الحساب"
-          description="هذه الصفحة لمن يملك ملف مدرّس أو ملف طالب. حسابك ليس واحداً منهما، وبياناته الأساسية في صفحة الإعدادات."
+          title="لا ملفّ عامّ لهذا الحساب"
+          description="الملفّ العامّ لمن يدرّس أو يدرس على المنصّة. صورتك واسمك فوق، وبقيّة بياناتك في صفحة الإعدادات."
         />
       )}
 
@@ -229,6 +263,16 @@ export default function ProfileSettingsPage() {
                       .split("\n")
                       .map((line) => line.trim())
                       .filter((line) => line !== ""),
+                    /*
+                     * ⚠️ الصفوفُ الفارغةُ تُسقَطُ هنا لا على الخادم: زرُّ «أضف
+                     * سؤالاً» يفتحُ صفّاً فارغاً، فمدرّسٌ ضغطَه ثمّ عدلَ عن الكتابةِ
+                     * كانَ سيُجابُ ٤٢٢ عن حقلٍ لم يقصدْ ملأَه أصلاً.
+                     */
+                    faqs: form.faqs.filter(
+                      (faq) => faq.question.trim() !== "" || faq.answer.trim() !== "",
+                    ),
+                    intro_video_url:
+                      form.intro_video_url.trim() === "" ? null : form.intro_video_url.trim(),
                     years_experience: Number(form.years_experience),
                     headline: form.headline,
                     bio: form.bio,
@@ -237,84 +281,52 @@ export default function ProfileSettingsPage() {
               );
             }}
           >
-            <Field id="subjects" label="المواد التي تدرّسها" error={fields.subjects} required>
-              <div className="flex flex-wrap gap-2">
-                {subjects.map((subject) => (
-                  <label
-                    key={subject.slug}
-                    className={`cursor-pointer rounded-xl border px-3 py-1.5 text-sm ${
-                      form.subjects.includes(subject.slug)
-                        ? "border-primary bg-primary-soft text-primary-ink"
-                        : "border-line text-ink"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="sr-only"
-                      checked={form.subjects.includes(subject.slug)}
-                      onChange={() => toggle("subjects", subject.slug)}
-                    />
-                    {subject.name_ar}
-                  </label>
-                ))}
-              </div>
-            </Field>
+            {/* ⚠️ THREE `MultiSelectField`s, NOT WALLS OF CHIPS. Nine subjects,
+                four stages and three languages laid out as toggle chips is a
+                screenful of controls that all look alike, and a teacher scrolls
+                past their own answer looking for the next question. The kit's
+                control shows the chosen ones as a sentence and keeps the list
+                behind one press — and it is `MultiSelectField` rather than
+                `<select multiple>` for the reason written on the component: a
+                plain click in the native control REPLACES the selection. */}
+            <MultiSelectField
+              id="subjects"
+              label="المواد التي تدرّسها"
+              error={fields.subjects}
+              required
+              placeholder="اختر المواد"
+              value={form.subjects}
+              onChange={(subjects) => setForm({ ...form, subjects })}
+              options={subjects.map((subject) => ({
+                value: subject.slug,
+                label: subject.name_ar,
+              }))}
+            />
 
-            <Field
+            <MultiSelectField
               id="grade_levels"
               label="المراحل التي تدرّس لها"
               error={fields.grade_levels}
               required
-            >
-              <div className="flex flex-wrap gap-2">
-                {stages.map((stage) => (
-                  <label
-                    key={stage.slug}
-                    className={`cursor-pointer rounded-xl border px-3 py-1.5 text-sm ${
-                      form.grade_levels.includes(stage.slug)
-                        ? "border-primary bg-primary-soft text-primary-ink"
-                        : "border-line text-ink"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="sr-only"
-                      checked={form.grade_levels.includes(stage.slug)}
-                      onChange={() => toggle("grade_levels", stage.slug)}
-                    />
-                    {stage.name_ar}
-                  </label>
-                ))}
-              </div>
-            </Field>
+              placeholder="اختر المراحل"
+              value={form.grade_levels}
+              onChange={(grade_levels) => setForm({ ...form, grade_levels })}
+              options={stages.map((stage) => ({ value: stage.slug, label: stage.name_ar }))}
+            />
 
-            <Field
+            <MultiSelectField
               id="teaching_languages"
               label="لغات التدريس"
               error={fields.teaching_languages}
               required
-            >
-              <div className="flex flex-wrap gap-2">
-                {TEACHING_LANGUAGES.map((language) => (
-                  <label
-                    key={language.value}
-                    className={`cursor-pointer rounded-xl border px-3 py-1.5 text-sm ${
-                      form.teaching_languages.includes(language.value)
-                        ? "border-primary bg-primary-soft text-primary-ink"
-                        : "border-line text-ink"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="sr-only"
-                      checked={form.teaching_languages.includes(language.value)}
-                      onChange={() => toggle("teaching_languages", language.value)}
-                    />
-                    {language.label}
-                  </label>
-                ))}
-              </div>
-            </Field>
+              placeholder="اختر اللغات"
+              value={form.teaching_languages}
+              onChange={(teaching_languages) => setForm({ ...form, teaching_languages })}
+              options={TEACHING_LANGUAGES.map((language) => ({
+                value: language.value,
+                label: language.label,
+              }))}
+            />
 
             <TextField
               id="headline"
@@ -348,6 +360,116 @@ export default function ProfileSettingsPage() {
               rows={4}
               error={fields.qualifications}
             />
+
+            {/* ⚠️ حقلُ رابطٍ لا رفعُ ملفّ: لا مسارَ رفعٍ ولا قرارَ تخزينٍ ولا فاتورةَ
+                ترميزٍ لدقيقةٍ واحدة، والمدرّسُ يملكُ الفيديو على يوتيوبَ سلفاً.
+                والتسميةُ تجمعُ الوجهَين اللذَين طلبَهما المستخدِم — تعريفٌ أو حصّةٌ
+                تجريبيّة — لأنّ كليهما رابطُ فيديو واحد. */}
+            <TextField
+              id="intro_video_url"
+              label="فيديو تعريفي أو حصة تجريبية"
+              value={form.intro_video_url}
+              onChange={(value) => setForm({ ...form, intro_video_url: value })}
+              error={fields.intro_video_url}
+              hint="رابط من يوتيوب أو فيميو. يظهر أعلى تبويب «نبذة» في صفحتك العامة."
+            />
+
+            {/*
+              ⚠️ **هنا يكتبُ المدرّسُ أسئلتَه الشائعة** (طلبُ ٢٠٢٦-٠٩-٠٨). والمرساةُ
+              `#faqs` هي ما تقصدُه بطاقةُ اللوحة، فالرابطُ يهبطُ على القسمِ نفسِه لا
+              على رأسِ صفحةٍ طويلة.
+
+              وداخلَ النموذجِ نفسِه لا في نموذجٍ ثانٍ: `PUT /teacher/profile` يستبدلُ
+              الملفَّ كاملاً في كلِّ حفظ، فنموذجٌ ثانٍ يُرسِلُ الأسئلةَ وحدَها كانَ
+              سيمسحُ ما في الحقولِ فوقَه.
+            */}
+            <fieldset id="faqs" className="scroll-mt-24 rounded-xl border border-line p-4">
+              <legend className="flex items-center gap-2 px-2 text-sm font-semibold text-ink">
+                <QuestionIcon className="h-4 w-4 text-primary-ink" />
+                الأسئلة الشائعة
+              </legend>
+
+              <p className="mb-4 text-sm text-ink-muted">
+                ما يسأله الطالب أو ولي أمره قبل الاشتراك — مدة الحصة، الواجبات،
+                طريقة التواصل. تظهر في تبويب «أسئلة شائعة» على صفحتك العامة.
+              </p>
+
+              {form.faqs.length === 0 && (
+                <p className="mb-4 text-sm text-ink-muted">لم تضف أي سؤال بعد.</p>
+              )}
+
+              <div className="space-y-4">
+                {form.faqs.map((faq, index) => (
+                  <div
+                    /* ⚠️ المفتاحُ هو الترتيبُ عمداً: الصفُّ لا معرِّفَ له، ونصُّ
+                       السؤالِ يتغيّرُ عندَ كلِّ حرفٍ يُكتَب — فمفتاحٌ منه يُعيدُ
+                       بناءَ الحقلِ ويفقدُ التركيزَ بعدَ كلِّ ضغطةِ مفتاح. */
+                    key={index}
+                    className="space-y-3 rounded-lg border border-line p-3"
+                  >
+                    <TextField
+                      id={`faq-question-${index}`}
+                      // ⚠️ أرقامٌ عربيّةٌ هنديّة: الواجهةُ عربيّةٌ كلُّها، ورقمٌ
+                      // لاتينيٌّ في تسميةِ حقلٍ يقرؤُه القارئُ الآليُّ بلغةٍ أخرى.
+                      label={`السؤال ${arabicNumber(index + 1)}`}
+                      value={faq.question}
+                      onChange={(value) =>
+                        setForm({
+                          ...form,
+                          faqs: form.faqs.map((row, at) =>
+                            at === index ? { ...row, question: value } : row,
+                          ),
+                        })
+                      }
+                      error={fields[`faqs.${index}.question`]}
+                    />
+
+                    <TextareaField
+                      id={`faq-answer-${index}`}
+                      label="الإجابة"
+                      value={faq.answer}
+                      onChange={(value) =>
+                        setForm({
+                          ...form,
+                          faqs: form.faqs.map((row, at) =>
+                            at === index ? { ...row, answer: value } : row,
+                          ),
+                        })
+                      }
+                      rows={3}
+                      error={fields[`faqs.${index}.answer`]}
+                    />
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() =>
+                        setForm({ ...form, faqs: form.faqs.filter((_, at) => at !== index) })
+                      }
+                    >
+                      احذف هذا السؤال
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* ⚠️ `type="button"`: زرٌّ عارٍ داخلَ نموذجٍ افتراضُه `submit`، فأوّلُ
+                  ضغطةٍ على «أضف» كانت ستحفظُ الملفَّ بدلَ أن تفتحَ صفّاً. */}
+              {/* الهامشُ على الغلافِ لا على الزرّ: `Button` لا يأخذُ `className`
+                  حرّاً — المظهرُ طقمٌ مغلقٌ من الأنماط. */}
+              <div className="mt-4">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={form.faqs.length >= 20}
+                  onClick={() =>
+                    setForm({ ...form, faqs: [...form.faqs, { question: "", answer: "" }] })
+                  }
+                >
+                  أضف سؤالاً
+                </Button>
+              </div>
+            </fieldset>
 
             {/* `NumberField`, never `TextField type="number"` — the union does
                 not carry it, deliberately: one spelling per control, or the two

@@ -4,15 +4,21 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Identity\Models\ParentStudentRelation;
+use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\LiveSessions\Actions\BookSeat;
 use App\Modules\LiveSessions\Actions\OpenBroadcastRoom;
 use App\Modules\LiveSessions\Actions\RecordPresencePing;
 use App\Modules\LiveSessions\Actions\SendSessionReport;
+use App\Modules\LiveSessions\Enums\AttendanceStatus;
+use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Jobs\SendSessionReportsJob;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Support\GuardianPermission;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Queue;
@@ -304,4 +310,107 @@ it('reports a full register without a query storm', function (): void {
     // loop, which would have moved the number by a multiple of the register
     // rather than by one row each.
     expect($count)->toBeLessThan(48);
+});
+
+/*
+| ٠٢٩ · SC-009 — قراءتا وليِّ الأمر.
+|
+| ⚠️ كلتاهما تُسقِطُ نطاقَ مساحةِ العملِ عمداً وتُحمِّلُ علاقاتٍ متداخلةً بإسقاطٍ
+| في كلِّ طبقة، وهذا بالضبط الشكلُ الذي يتحوّلُ فيه تحميلٌ مسبَقٌ منسيٌّ إلى
+| استعلامٍ لكلِّ صفٍّ بلا خطأٍ في أيِّ مكان: المَورِدُ يجري مرّةً لكلِّ صفّ.
+|
+| ⚠️ والسياقُ هنا محلولٌ إلى مساحةِ المدرّسِ لا إلى `null` — وهي الحالةُ الفارقةُ
+| نفسُها: قياسٌ تحتَ سياقٍ فارغٍ لا يوقظُ النطاقَ أصلاً.
+*/
+
+/** وليُّ أمرٍ مأذونٌ وابنُه، بلا مساحةِ عملٍ لأيٍّ منهما. */
+function guardianWithChild(GuardianPermission $permission): array
+{
+    $child = User::factory()->create(['platform_role' => PlatformRole::Student]);
+    $guardian = User::factory()->create(['platform_role' => PlatformRole::Parent]);
+
+    ParentStudentRelation::factory()
+        ->withPermissions([$permission])
+        ->create([
+            'guardian_user_id' => $guardian->getKey(),
+            'student_user_id' => $child->getKey(),
+            'student_name' => $child->first_name,
+        ]);
+
+    return [$guardian, $child];
+}
+
+/** مقعدٌ للابنِ في كلِّ حصّةٍ لم يحجزْها بعد. */
+function bookChildEverywhere(User $child): void
+{
+    $test = test();
+
+    foreach (ClassSession::query()->withoutWorkspaceScope()->get() as $session) {
+        SessionBooking::query()->firstOrCreate([
+            'class_session_id' => $session->getKey(),
+            'student_user_id' => $child->getKey(),
+        ], [
+            'workspace_id' => $test->workspace->getKey(),
+            'status' => BookingStatus::Booked,
+            'is_billable' => true,
+            'booked_at' => now(),
+        ]);
+    }
+}
+
+it('serves a guardian one child\'s timetable at a fixed cost', function (): void {
+    [$guardian, $child] = guardianWithChild(GuardianPermission::Schedule);
+
+    sessionsFor(3);
+    bookChildEverywhere($child);
+
+    Sanctum::actingAs($guardian);
+    $url = "/api/v1/schedule/children?student={$child->uuid}";
+
+    /*
+     | ⚠️ حمِّ الطلبَ حتّى يستقرَّ: الطلبُ الأوّلُ يدفعُ ثمنَ تحميلِ صلاحيّاتِ
+     | spatie، والثاني يقرأُ صفوفَ `platform_settings` التي يذخرُها المسارُ بعدَ
+     | أوّلِ قراءة. طلبُ تحميةٍ واحدٌ لا يكفي — قِيسَ ذلك في هذا الملفِّ نفسِه.
+     */
+    $this->getJson($url)->assertOk();
+    $this->getJson($url)->assertOk();
+
+    [$small] = countingQueries(fn () => $this->getJson($url)->assertOk());
+
+    // عشرون حصّةً بدل ثلاث.
+    sessionsFor(17);
+    bookChildEverywhere($child);
+
+    [$large] = countingQueries(fn () => $this->getJson($url)->assertOk());
+
+    // ⚠️ حينَ يهتزُّ هذا بواحدٍ فالمطلوبُ إيجادُ الاستعلامِ لا رفعُ الرقم.
+    expect($large)->toBeLessThanOrEqual($small);
+});
+
+it('summarises a child\'s attendance at a fixed cost', function (): void {
+    [$guardian, $child] = guardianWithChild(GuardianPermission::Attendance);
+
+    sessionsFor(3);
+    foreach (ClassSession::query()->withoutWorkspaceScope()->get() as $session) {
+        attendanceRow($this->workspace, $session, $child, AttendanceStatus::Present);
+    }
+
+    Sanctum::actingAs($guardian);
+    $url = "/api/v1/attendance/children/summary?student={$child->uuid}";
+
+    $this->getJson($url)->assertOk();
+    $this->getJson($url)->assertOk();
+
+    [$small] = countingQueries(fn () => $this->getJson($url)->assertOk());
+
+    sessionsFor(17);
+    foreach (ClassSession::query()->withoutWorkspaceScope()->whereDoesntHave('attendances')->get() as $session) {
+        attendanceRow($this->workspace, $session, $child, AttendanceStatus::Absent);
+    }
+
+    [$large] = countingQueries(fn () => $this->getJson($url)->assertOk());
+
+    // تجميعٌ واحدٌ مهما بلغَ عددُ الصفوف — والبديلُ الذي يمشي الصفوفَ في PHP
+    // يمرُّ هنا أيضاً، ولذلك السقفُ مقرونٌ بتوكيدِ الصحّةِ في ملفِّ الملخّص.
+    expect($large)->toBeLessThanOrEqual($small);
 });

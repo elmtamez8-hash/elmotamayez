@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Http\Requests;
 
 use App\Modules\Courses\Enums\ExamGate;
+use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Rules\AcceptedEmbedUrl;
 use App\Shared\Support\WorkspaceRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -44,7 +47,24 @@ class UpdateLessonRequest extends FormRequest
             'chapter_uuid' => ['sometimes', 'string', $chapterRule],
             'title' => ['sometimes', 'string', 'max:255'],
             'content' => ['nullable', 'string'],
-            'external_url' => ['nullable', 'string', 'url', 'starts_with:https://', 'max:2048'],
+            /*
+            | Spec 032 · FR-002/FR-004.
+            |
+            | ⚠️ THE TYPE IS READ FROM THE STORED ROW, NEVER FROM THE PAYLOAD.
+            | This request carries no `type` at all — changing it is a different
+            | door (`ChangeLessonTypeRequest`) — so a condition written against
+            | `$this->input('type')` answers null on EVERY edit and the whole of
+            | FR-004 silently vanishes from the editing path, with nothing to say
+            | so.
+            |
+            | ⚠️ AND `max:2048`, NOT 500. The same column is capped at 2048 today
+            | for `link`; an unexplained narrower cap on one column is two
+            | spellings of one length. What is stored is a few dozen characters
+            | either way.
+            */
+            'external_url' => $this->storedType() === LessonType::Embed->value
+                ? ['nullable', 'string', 'max:2048', new AcceptedEmbedUrl]
+                : ['nullable', 'string', 'url', 'starts_with:https://', 'max:2048'],
             'reference_uuid' => ['nullable', 'string'],
             'exam_gate' => ['nullable', Rule::enum(ExamGate::class)],
             'duration_seconds' => ['nullable', 'integer', 'min:0'],
@@ -54,5 +74,13 @@ class UpdateLessonRequest extends FormRequest
             // untouched checkbox is not an instruction to clear the flag.
             'is_high_value' => ['nullable', 'boolean'],
         ];
+    }
+
+    /** The type of the row being edited — the only place it can be read here. */
+    private function storedType(): ?string
+    {
+        $lesson = $this->route('lesson');
+
+        return $lesson instanceof Lesson ? $lesson->type : null;
     }
 }

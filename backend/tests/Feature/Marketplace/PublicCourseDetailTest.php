@@ -92,6 +92,25 @@ function publicCourseFixture(bool $participates = true, string $approval = Teach
             'status' => ContentStatus::Published, 'order' => 1, 'duration_seconds' => 720,
         ]);
 
+        /*
+        | Spec 032 — AN OPEN EMBEDDED LESSON, AND WITHOUT IT THIS FILE MEASURES
+        | NOTHING ABOUT THE NEW BRANCH.
+        |
+        | ⛔ Every lesson this fixture built was LOCKED, so the `uuid`/`is_open`
+        | keys could never be filled and the exact-keys assertion below stayed
+        | green while covering none of them. Its duration is non-zero on purpose:
+        | FR-018 omits the key at zero, and a zero here would make that assertion
+        | measure the omission instead of the shape.
+        */
+        Lesson::create([
+            'workspace_id' => $workspace->getKey(), 'course_id' => $course->getKey(),
+            'section_id' => $section->getKey(), 'chapter_id' => $chapter->getKey(),
+            'uuid' => Str::uuid(), 'title' => 'الحصّة التعريفيّة', 'type' => 'embed',
+            'status' => ContentStatus::Published, 'order' => 3, 'duration_seconds' => 1200,
+            'external_url' => 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
+            'is_preview' => true,
+        ]);
+
         // Draft, under a published chapter.
         Lesson::create([
             'workspace_id' => $workspace->getKey(), 'course_id' => $course->getKey(),
@@ -148,8 +167,9 @@ it('publishes the tree three levels deep and counts only what a visitor gets', f
         ->and($data['curriculum'][0]['title'])->toBe('المشتقّة')
         ->and($data['curriculum'][0]['chapters'])->toHaveCount(1)
         ->and($data['curriculum'][0]['chapters'][0]['title'])->toBe('التعريف')
-        ->and($data['curriculum'][0]['chapters'][0]['items'])->toHaveCount(1)
-        ->and($data['lessons_count'])->toBe(1);
+        // Two now: the uploaded video and the open embedded preview.
+        ->and($data['curriculum'][0]['chapters'][0]['items'])->toHaveCount(2)
+        ->and($data['lessons_count'])->toBe(2);
 
     // The ASCII sentinel: an Arabic needle would be `\u`-escaped in the raw body
     // and absent whatever the payload holds.
@@ -161,11 +181,55 @@ it('publishes no lesson identifier and no media path', function (): void {
 
     $this->asGuest();
 
-    $item = $this->getJson("/api/v1/marketplace/courses/{$course->uuid}")
+    $items = $this->getJson("/api/v1/marketplace/courses/{$course->uuid}")
         ->assertOk()
-        ->json('data.curriculum.0.chapters.0.items.0');
+        ->json('data.curriculum.0.chapters.0.items');
 
-    expect(array_keys($item))->toBe(['title', 'kind', 'duration_seconds']);
+    /*
+    | ⛔ TWO ASSERTIONS NOW, AND THE SPLIT IS THE POINT (032 · FR-019).
+    |
+    | An uploaded video carries NO identifier however open it is: a lesson uuid
+    | in a public payload is an invitation to try the playback endpoint, and
+    | `mayWatch()` answers yes there to any signed-in account for any open
+    | lesson, across every workspace. An `embed` has no media asset at all, so
+    | its uuid opens nothing — which is the entire width of 032's amendment to
+    | 023 · FR-005/SC-004.
+    */
+    $video = collect($items)->firstWhere('kind', 'video');
+    $embed = collect($items)->firstWhere('kind', 'embed');
+
+    expect(array_keys($video))->toBe(['title', 'kind', 'duration_seconds'])
+        ->and(array_keys($embed))->toBe(['title', 'kind', 'duration_seconds', 'uuid', 'is_open'])
+        ->and($embed['is_open'])->toBeTrue()
+        // ⚠️ AND NEVER THE FRAME URL. The tree says «there is a free lesson
+        // here»; the lesson's own door says what plays in it.
+        ->and($embed)->not->toHaveKey('embed_url');
+});
+
+it('publishes no identifier for an OPEN uploaded video — the case the tree must refuse', function (): void {
+    [$course, $workspace] = publicCourseFixture();
+
+    // The video the fixture already built, marked open. `isOpen()` is now true
+    // of it and `isPubliclyReadable()` is not.
+    app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($course): void {
+        Lesson::query()->where('course_id', $course->getKey())->where('type', 'video')
+            ->update(['is_free' => true]);
+    });
+
+    $this->asGuest();
+
+    $items = $this->getJson("/api/v1/marketplace/courses/{$course->uuid}")
+        ->assertOk()
+        ->json('data.curriculum.0.chapters.0.items');
+
+    $video = collect($items)->firstWhere('kind', 'video');
+
+    // ⛔ A tree that advertised with `isOpen()` would make this row clickable
+    // and the door would answer the 404 that means «no such thing» — a
+    // permanently dead link, with neither the visitor nor the teacher given a
+    // reason.
+    expect($video)->not->toHaveKey('uuid')
+        ->and($video)->not->toHaveKey('is_open');
 });
 
 it('answers every unpublishable course with the identical not-found body', function (): void {

@@ -9,7 +9,7 @@ import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import type { Taxonomy } from "@/lib/public-api";
 import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
 import { Button } from "@/components/ui/Button";
-import { PasswordField, Select } from "@/components/ui/Field";
+import { MultiSelectField, PasswordField, Select } from "@/components/ui/Field";
 import {
   DAYS,
   WeeklyAvailabilityEditor,
@@ -311,14 +311,6 @@ export function TeacherSignupWizard({
     }
   };
 
-  const toggle = (key: "subjects" | "grade_levels" | "teaching_languages", value: string) =>
-    setProfessional((current) => ({
-      ...current,
-      [key]: current[key].includes(value)
-        ? current[key].filter((item) => item !== value)
-        : [...current[key], value],
-    }));
-
   if (restoring) {
     return <p className="py-16 text-center text-ink-muted">جارٍ تحميل طلبك…</p>;
   }
@@ -463,79 +455,48 @@ export function TeacherSignupWizard({
 
       {step === 2 && (
         <form onSubmit={submitStepTwo} noValidate className="space-y-6">
-          <fieldset>
-            <legend className="mb-2 text-sm font-semibold text-ink">المواد التي تدرّسها</legend>
-            <div className="flex flex-wrap gap-2">
-              {subjects.map((subject) => (
-                <label
-                  key={subject.slug}
-                  className={`cursor-pointer rounded-xl border px-3 py-1.5 text-sm ${
-                    professional.subjects.includes(subject.slug)
-                      ? "border-primary bg-primary-soft text-primary-ink"
-                      : "border-line text-ink-muted"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={professional.subjects.includes(subject.slug)}
-                    onChange={() => toggle("subjects", subject.slug)}
-                  />
-                  {subject.name_ar}
-                </label>
-              ))}
-            </div>
-            <FieldError id="subjects" message={errors.subjects} />
-          </fieldset>
+          {/* ⚠️ THE SAME THREE FIELDS AS `/settings/profile`, SO THE SAME
+              CONTROL. A teacher meets them here at signup and again in their
+              settings, and two spellings of one question is how the two drift —
+              the defect this repository records under every «one rule in two
+              places». `MultiSelectField` rather than `<select multiple>`: a
+              plain click in the native control replaces the whole selection. */}
+          <MultiSelectField
+            id="subjects"
+            label="المواد التي تدرّسها"
+            error={errors.subjects}
+            required
+            placeholder="اختر المواد"
+            value={professional.subjects}
+            onChange={(subjects) => setProfessional({ ...professional, subjects })}
+            options={subjects.map((subject) => ({ value: subject.slug, label: subject.name_ar }))}
+          />
 
-          <fieldset>
-            <legend className="mb-2 text-sm font-semibold text-ink">المراحل الدراسية</legend>
-            <div className="flex flex-wrap gap-2">
-              {gradeLevels.map((level) => (
-                <label
-                  key={level.slug}
-                  className={`cursor-pointer rounded-xl border px-3 py-1.5 text-sm ${
-                    professional.grade_levels.includes(level.slug)
-                      ? "border-primary bg-primary-soft text-primary-ink"
-                      : "border-line text-ink-muted"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={professional.grade_levels.includes(level.slug)}
-                    onChange={() => toggle("grade_levels", level.slug)}
-                  />
-                  {level.name_ar}
-                </label>
-              ))}
-            </div>
-            <FieldError id="grade_levels" message={errors.grade_levels} />
-          </fieldset>
+          <MultiSelectField
+            id="grade_levels"
+            label="المراحل الدراسية"
+            error={errors.grade_levels}
+            required
+            placeholder="اختر المراحل"
+            value={professional.grade_levels}
+            onChange={(grade_levels) => setProfessional({ ...professional, grade_levels })}
+            options={gradeLevels.map((level) => ({ value: level.slug, label: level.name_ar }))}
+          />
 
-          <fieldset>
-            <legend className="mb-2 text-sm font-semibold text-ink">لغات التدريس</legend>
-            <div className="flex flex-wrap gap-2">
-              {TEACHING_LANGUAGES.map((language) => (
-                <label
-                  key={language.value}
-                  className={`cursor-pointer rounded-xl border px-3 py-1.5 text-sm ${
-                    professional.teaching_languages.includes(language.value)
-                      ? "border-primary bg-primary-soft text-primary-ink"
-                      : "border-line text-ink-muted"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={professional.teaching_languages.includes(language.value)}
-                    onChange={() => toggle("teaching_languages", language.value)}
-                  />
-                  {language.label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <MultiSelectField
+            id="teaching_languages"
+            label="لغات التدريس"
+            required
+            placeholder="اختر اللغات"
+            value={professional.teaching_languages}
+            onChange={(teaching_languages) =>
+              setProfessional({ ...professional, teaching_languages })
+            }
+            options={TEACHING_LANGUAGES.map((language) => ({
+              value: language.value,
+              label: language.label,
+            }))}
+          />
 
           <div>
             <label htmlFor="t-headline" className="mb-1 block text-sm font-medium text-ink">

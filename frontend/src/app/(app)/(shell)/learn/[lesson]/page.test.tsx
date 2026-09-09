@@ -42,6 +42,7 @@ const ARTICLE = {
   type_label: "مقال",
   is_completable: true,
   may_self_complete: true,
+  course_uuid: "c-1",
   is_completed: false,
   content: "نص",
   content_html: "<p>نص</p>",
@@ -160,5 +161,69 @@ describe("marking a lesson complete", () => {
     fireEvent.click(await screen.findByRole("button", { name: "علِّمه مكتملاً" }));
 
     expect(await screen.findByText("لم يُسجَّل الإتمام")).toBeDefined();
+  });
+});
+
+/*
+| ⛔ الحالةُ التي كانت تفشلُ قبلَ أن تُكتَبَ الشيفرة (٠٣٢ · US1).
+|
+| الملفُّ يحملُ ستّةَ فروعٍ للأنواعِ ولم يكنْ فيها `embed`، فالطالبُ الذي دفعَ
+| يرى العنوانَ وزرَّ الإتمامِ **فوقَ بطاقةٍ فارغة** بلا فيديو ولا خطأٍ ولا حالةِ
+| فراغ — والزائرُ المجّانيُّ يرى الفيديو. و`SC-005` تمرُّ خضراءَ فوقَها لأنّها
+| تقيسُ النسبةَ والشهادةَ لا ما رآهُ أحد.
+*/
+describe("an embedded lesson on the enrolled student's own screen", () => {
+  const EMBED = {
+    type: "embed",
+    type_label: "فيديو مُضمَّن",
+    content: null,
+    content_html: "",
+    external_url: "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
+  };
+
+  it("draws the frame, not an empty card", async () => {
+    answer({}, EMBED);
+
+    await open();
+
+    const frame = await screen.findByTitle("الدرس الأول");
+
+    expect(frame.tagName).toBe("IFRAME");
+    expect(frame.getAttribute("src")).toBe(
+      "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
+    );
+  });
+
+  it("keeps the frame out of the top-level navigation and off the wide permission set", async () => {
+    answer({}, EMBED);
+
+    await open();
+
+    const frame = await screen.findByTitle("الدرس الأول");
+
+    // ⚠️ الغيابُ هو الحارس: `allow-top-navigation` يجعلُ إطاراً على صفحةٍ عامّةٍ
+    // لنا قادراً على تحويلِ اللسانِ كلِّه إلى واجهةِ دفعٍ مقلَّدة.
+    expect(frame.getAttribute("sandbox")).toBe(
+      "allow-scripts allow-same-origin allow-presentation",
+    );
+    expect(frame.getAttribute("referrerpolicy")).toBe("strict-origin");
+    expect(frame.getAttribute("allow")).not.toContain("clipboard-write");
+    expect(frame.getAttribute("allow")).not.toContain("gyroscope");
+  });
+
+  it("still offers the completion control — the item is in the denominator", async () => {
+    answer({}, EMBED);
+
+    await open();
+
+    expect(await screen.findByRole("button", { name: "علِّمه مكتملاً" })).toBeDefined();
+  });
+
+  it("says the video lives elsewhere, always and not on a detection we do not have", async () => {
+    answer({}, EMBED);
+
+    await open();
+
+    expect(await screen.findByText(/مستضافة خارج المنصّة/)).toBeDefined();
   });
 });

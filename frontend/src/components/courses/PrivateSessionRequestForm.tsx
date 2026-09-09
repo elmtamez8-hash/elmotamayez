@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { classSessions } from "@/lib/class-sessions";
-import { ApiError } from "@/lib/api";
+import { ApiError, auth } from "@/lib/api";
 import { errorCode, userMessage } from "@/lib/errors";
 import { privateSessions } from "@/lib/private-sessions";
 import type { AvailabilityItem } from "@/lib/public-api";
@@ -36,7 +36,14 @@ const DAYS = [
   "السبت",
 ];
 
-type Enrolment = "checking" | "enrolled" | "not-enrolled" | "signed-out";
+/*
+ | ⚠️ `"teaches"` IS A FIFTH STATE AND NOT A FLAG BESIDE THE OTHER FOUR. A
+ | teacher-side account holds no enrolment anywhere, so without it they land in
+ | `"not-enrolled"` and are shown «اشترك بحصص خاصة» about their own course — the
+ | exact defect reported on 2026-09-08 for the group cards, arriving through the
+ | second door on the same page.
+ */
+type Enrolment = "checking" | "enrolled" | "not-enrolled" | "signed-out" | "teaches";
 
 /**
  * Every start this student could ask for: each declared window, cut into slots
@@ -118,6 +125,7 @@ export function PrivateSessionRequestForm({
   minutes: number | null;
 }) {
   const [enrolment, setEnrolment] = useState<Enrolment>("checking");
+  const [teaches, setTeaches] = useState(false);
   const [chosen, setChosen] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -144,6 +152,28 @@ export function PrivateSessionRequestForm({
      | boolean would be a sixth route answering a question this one already
      | answers, and a second spelling of «is this course yours».
      */
+    /*
+     | ⛔ ASKED BEFORE THE ENROLMENT ORACLE, because for a teacher that oracle
+     | answers `not_enrolled` — truthfully, and about the wrong question. The
+     | reader is not a student who has yet to buy; they are the person selling.
+     |
+     | `workspaces` from `/auth/me` IS the question: `UserResource::workplaces()`
+     | answers «the places this person works — owned or assisted at» and returns
+     | an empty list for a student or a guardian outright. No new field, and the
+     | same predicate `MyCohortProvider` reads for the group cards — one spelling
+     | for one question, on both of this page's subscribe doors.
+     */
+    void auth
+      .me()
+      .then((user) => {
+        if (user.workspaces.length > 0) setTeaches(true);
+      })
+      // A reader we cannot classify is treated as a student: the server refuses
+      // a teacher at the door anyway, so the cost of guessing wrong here is one
+      // Arabic sentence, while the opposite default hides the buy button from
+      // every student whose request happened to time out.
+      .catch(() => undefined);
+
     classSessions
       .nextForCourse(courseUuid)
       .then(() => setEnrolment("enrolled"))
@@ -183,6 +213,25 @@ export function PrivateSessionRequestForm({
    * priced one-to-one plan the press is answered «هذه الباقة غير متاحة», which
    * is the pressed-then-refused shape this very branch exists to avoid.
    */
+  /*
+    ⛔ A TEACHER IS NEVER INVITED TO BUY — in any course, theirs included. The
+    server refuses all three purchase doors (`TeacherNeverBuysTest`); this is the
+    other half, because a control offered and then refused is a payment screen
+    that ends in a sentence.
+
+    It says something rather than rendering null: the heading «حصة خاصة» is drawn
+    by the page above this component, and an empty panel under a heading reads as
+    a screen that failed to load.
+  */
+  if (teaches) {
+    return (
+      <Alert tone="info" title="الحصص الخاصة">
+        هذه الشاشة لطلابك. الحصص الخاصة تُطلب باشتراكٍ من حساب الطالب، ومواعيدك
+        المعلنة هي ما يختارون منه.
+      </Alert>
+    );
+  }
+
   if (enrolment === "signed-out" || enrolment === "not-enrolled") {
     if (!subscriptionAvailable) {
       return (

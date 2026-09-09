@@ -18,6 +18,7 @@ use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\UploadedFile;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -285,6 +286,82 @@ it('counts purchases still awaiting approval against the ceiling', function (): 
 
     // 4 more would be 8 held under a ceiling of 6 — refused on the promise, not
     // on the balance.
+    $this->postJson('/api/v1/billing/purchases', purchasePayload($this->course, $this->package))
+        ->assertStatus(422);
+
+    expect(CreditPurchase::query()->withoutWorkspaceScope()->count())->toBe(1);
+});
+
+/*
+| ⛔ AND THE HOLE THE CASE ABOVE LEFT: PAYING EMPTIED THE CEILING.
+|
+| `pendingCreditsOn()` counted `status = 'pending'` literally, and
+| `UploadPaymentReceipt` moves the order to `under_review`. So the loop was two
+| ordinary steps and no exploit: buy up to the cap, upload the receipt, watch the
+| cap read free, buy it again — with `ApproveOrder` minting from every one of
+| them. `Order::isPending()` held the correct pair one file away the whole time
+| and could not be called from inside a subquery; `scopeAwaitingDecision()` is the
+| one spelling both of them read now.
+*/
+it('keeps counting a purchase after its receipt is uploaded', function (): void {
+    PlatformSettings::set('billing.max_unredeemed_credits', 6);
+
+    Sanctum::actingAs($this->student);
+
+    $uuid = $this->postJson('/api/v1/billing/purchases', purchasePayload($this->course, $this->package))
+        ->assertCreated()
+        ->json('order');
+
+    $this->postJson("/api/v1/orders/{$uuid}/receipt", [
+        'receipt' => UploadedFile::fake()->image('receipt.jpg'),
+        'method' => 'bank_transfer',
+    ])->assertOk();
+
+    expect(Order::query()->withoutWorkspaceScope()->where('uuid', $uuid)->value('status'))
+        ->toBe('under_review');
+
+    // Before the fix this answered 201: the order had left `pending`, the sum read
+    // zero, and the student could walk the loop as many times as they liked.
+    $this->postJson('/api/v1/billing/purchases', purchasePayload($this->course, $this->package))
+        ->assertStatus(422);
+
+    expect(CreditPurchase::query()->withoutWorkspaceScope()->count())->toBe(1);
+});
+
+/*
+| ⛔ AND THE SUBQUERY CARRIED THE WORKSPACE SCOPE, SO THE CEILING COUNTED ZERO.
+|
+| `withoutWorkspaceScope()` on the outer `CreditPurchase` query reaches that model
+| and no other — `whereHas('order', …)` builds a fresh `Order` query carrying
+| `Order`'s own `BelongsToWorkspace`. Inert for a student in production, who is a
+| member of no workspace and resolves a null context; NOT inert for a platform
+| officer on the grant screen, nor for a guardian who owns one, because
+| `WorkspaceContext::id()` falls back to `users.last_workspace_id` for everybody.
+|
+| ⚠️ THE FIXTURE IS THE TEST. A SECOND workspace, and the buyer resolving to it —
+| a one-workspace fixture, or a buyer with a null context, passes against a build
+| with no bypass in it at all.
+*/
+it('enforces the ceiling when the buyer resolves to another workspace', function (): void {
+    PlatformSettings::set('billing.max_unredeemed_credits', 6);
+
+    [$elsewhere] = $this->createWorkspaceWithOwner(['name' => 'أكاديمية أخرى']);
+
+    /*
+    | ⚠️ `setCurrentWorkspace()`, NEVER `forget()`. `WorkspaceContext::forget()`
+    | means «operate globally»: it sets `resolvedId = null` AND `resolved = true`,
+    | so it PINS the answer to null rather than clearing the memo. Written with
+    | `forget()` this case passed against a build with no bypass in it at all —
+    | the scope was inert because the context was nailed to null, which is the
+    | one state that cannot show the defect.
+    */
+    $this->setCurrentWorkspace($elsewhere, $this->student);
+
+    Sanctum::actingAs($this->student);
+
+    $this->postJson('/api/v1/billing/purchases', purchasePayload($this->course, $this->package))
+        ->assertCreated();
+
     $this->postJson('/api/v1/billing/purchases', purchasePayload($this->course, $this->package))
         ->assertStatus(422);
 

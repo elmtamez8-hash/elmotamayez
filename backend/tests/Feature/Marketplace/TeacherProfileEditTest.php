@@ -122,3 +122,88 @@ it('cannot promote itself past the review team', function (): void {
         ->and((bool) $fresh?->is_publicly_listed)->toBeFalse()
         ->and((bool) $fresh?->is_verified)->toBeFalse();
 });
+
+/*
+| ⚠️ `faqs` WAS `[]` WRITTEN LITERALLY INTO `PublicTeacherDetailResource`, with
+| the key in the public allow-list since 002 and `FaqAccordion` rendered on the
+| page behind `length > 0`. So the accordion could never appear, nothing failed,
+| and every existing assertion about the payload passed — the key was present and
+| correct, and empty for ever. A column with a reader and no writer, inverted.
+|
+| The two assertions below are one requirement each and must stay separate: that
+| the teacher can WRITE them, and that a VISITOR can read them. The write alone
+| passes against a resource still returning a literal empty array.
+*/
+it('publishes the FAQs and intro video a teacher writes on their own listing', function (): void {
+    Sanctum::actingAs($this->teacher->user);
+
+    $this->putJson('/api/v1/teacher/profile', editProfile([
+        'faqs' => [
+            ['question' => 'كم مدة الحصة؟', 'answer' => 'ستون دقيقة.'],
+            ['question' => 'هل توجد حصة تجريبية؟', 'answer' => 'نعم، الأولى مجانية.'],
+        ],
+        'intro_video_url' => 'https://www.youtube.com/watch?v=abc12345678',
+    ]))
+        ->assertOk()
+        /*
+        | ⚠️ **ردُّ الحفظِ هو `show()` — وهذه هي التوكيدةُ الوحيدةُ التي تراهُ.**
+        | التحقّقُ من العمودِ وحدَه أخضرُ فوقَ خادمٍ لا يُرسِلُ المفتاحَ أصلاً، ونموذجُ
+        | التحريرِ يملأُ نفسَه من هذا الردِّ لا من الجدول: `undefined` هناك يعني
+        | `form.faqs.length` ينفجرُ في وجهِ المدرّسِ أوّلَ ما يفتحُ «ملفّي».
+        */
+        ->assertJsonPath('faqs.0.question', 'كم مدة الحصة؟')
+        ->assertJsonPath('intro_video_url', 'https://www.youtube.com/watch?v=abc12345678');
+
+    expect($this->teacher->fresh()?->faqs)->toBe([
+        ['question' => 'كم مدة الحصة؟', 'answer' => 'ستون دقيقة.'],
+        ['question' => 'هل توجد حصة تجريبية؟', 'answer' => 'نعم، الأولى مجانية.'],
+    ]);
+
+    // The visitor's half — as a GUEST, which is who the accordion is for.
+    $uuid = $this->teacher->fresh()?->uuid;
+
+    $this->asGuest();
+
+    $this->getJson("/api/v1/marketplace/teachers/{$uuid}")
+        ->assertOk()
+        ->assertJsonPath('data.faqs.0.question', 'كم مدة الحصة؟')
+        ->assertJsonPath('data.faqs.1.answer', 'نعم، الأولى مجانية.')
+        ->assertJsonPath('data.intro_video_url', 'https://www.youtube.com/watch?v=abc12345678');
+});
+
+it('stores only question and answer, whatever else a client sends', function (): void {
+    // The column is JSON, so an extra key would be stored verbatim and then
+    // published — and `PublicFieldAllowlist::FAQ` knows exactly two keys.
+    Sanctum::actingAs($this->teacher->user);
+
+    $this->putJson('/api/v1/teacher/profile', editProfile([
+        'faqs' => [[
+            'question' => 'سؤال',
+            'answer' => 'جواب',
+            'is_pinned' => true,
+            'internal_note' => 'لا ينبغي أن يصل هذا إلى أحد',
+        ]],
+    ]))->assertOk();
+
+    expect($this->teacher->fresh()?->faqs)->toBe([['question' => 'سؤال', 'answer' => 'جواب']]);
+});
+
+it('refuses an intro video from any host but YouTube or Vimeo', function (): void {
+    // The url lands in an `<iframe>` on a public page. The client's own parser is
+    // the real guard; this door says no earlier, and in Arabic.
+    Sanctum::actingAs($this->teacher->user);
+
+    $this->putJson('/api/v1/teacher/profile', editProfile([
+        'intro_video_url' => 'https://evil.example.com/embed/x',
+    ]))->assertJsonValidationErrors('intro_video_url');
+
+    expect($this->teacher->fresh()?->intro_video_url)->toBeNull();
+});
+
+it('refuses a FAQ row with a question and no answer', function (): void {
+    Sanctum::actingAs($this->teacher->user);
+
+    $this->putJson('/api/v1/teacher/profile', editProfile([
+        'faqs' => [['question' => 'سؤال بلا إجابة', 'answer' => '']],
+    ]))->assertJsonValidationErrors('faqs.0.answer');
+});

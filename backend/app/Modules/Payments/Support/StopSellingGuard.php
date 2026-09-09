@@ -26,9 +26,41 @@ class StopSellingGuard
 {
     public function __construct(private readonly BillingSettings $settings) {}
 
-    /** Why this course sells nothing right now, or null when it does. */
+    /**
+     * Why this course sells nothing right now, or null when it does.
+     *
+     * ⛔ THE STATUS CONDITION WAS MISSING ENTIRELY, ON EVERY DOOR. Nothing on the
+     * credit path read `courses.status` — not this guard, not `isPartyTo`, not the
+     * pricing Action, not the controller — and the column defaults to `draft`. So
+     * a student who is a member of the workspace could price and buy a package on
+     * a course the teacher has never released, and on an archived one.
+     *
+     * It lands HERE rather than in each caller because this is the class that
+     * already owns "does this course sell right now", and both doors read it: the
+     * pricing Action turns a refusal into an empty list, the purchase Action turns
+     * it into a sentence.
+     *
+     * ⚠️ THE PICKER (031) HIDES A DRAFT AND DOES NOT HIDE A STALLED COURSE, AND
+     * THE ASYMMETRY IS DELIBERATE RATHER THAN A DRIFT FROM THIS CLASS. A draft has
+     * never been released, so offering it shows a buyer something that does not
+     * exist; a stalled course is public, was sold before, and answers with the
+     * packages screen's own empty state — hiding it would tell a returning student
+     * their course had vanished. `ListPurchasableCourses` therefore filters on
+     * `status` alone, in SQL, which is exactly `isPublished()` while `courses`
+     * carries no `published_at`; the day that column arrives, the filter needs its
+     * second condition and this note is the pointer to it.
+     */
     public function refusalToSell(Course $course): ?string
     {
+        if (! $course->isPublished()) {
+            /*
+            | Deliberately the same sentence as an unreadable timestamp: whether a
+            | course is a draft is the teacher's business, and a buyer who is told
+            | «not published yet» learns the course exists and is being worked on.
+            */
+            return 'هذا الكورس غير متاح للشراء حالياً.';
+        }
+
         $since = $course->last_delivered_at ?? $course->created_at;
 
         if ($since === null) {

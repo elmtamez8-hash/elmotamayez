@@ -15,6 +15,7 @@ use App\Modules\Learning\Actions\EnrollStudent;
 use App\Modules\Learning\Actions\MarkLessonComplete;
 use App\Modules\Learning\Actions\ReadCourseAnnouncements;
 use App\Modules\Learning\Actions\ReadCurriculum;
+use App\Modules\Learning\Enums\EnrollmentStatus;
 use App\Modules\Learning\Http\Resources\CourseAnnouncementResource;
 use App\Modules\Learning\Http\Resources\CurriculumResource;
 use App\Modules\Learning\Http\Resources\EnrollmentResource;
@@ -25,13 +26,32 @@ use App\Modules\Media\Models\MediaAsset;
 use App\Shared\Contracts\SubscriptionDirectory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class EnrollmentController extends Controller
 {
+    /**
+     * Everything this person is enrolled in, newest first.
+     *
+     * ⚠️ `status` IS VALIDATED, NEVER SILENTLY DROPPED. A filter that vanishes on
+     * an unrecognised value hands the reader EVERY enrolment under the heading
+     * «كورساتٌ جارية» — a wrong number that looks right, which is worse than a
+     * refusal. Same line `CertificateController@index` draws for its `course`
+     * filter, and the reason 029's count card can ask for one status at a time
+     * instead of counting the rows of a fifteen-row page.
+     */
     public function index(Request $request): JsonResponse
     {
+        $validated = $request->validate([
+            'status' => ['sometimes', Rule::enum(EnrollmentStatus::class)],
+        ]);
+
         $enrollments = Enrollment::query()
             ->where('student_user_id', $this->currentUser($request)->getKey())
+            ->when(
+                $validated['status'] ?? null,
+                fn ($query, string $status) => $query->where('status', $status),
+            )
             // The workspace comes with it: `EnrollmentResource` names the teacher
             // so a student can open the one private conversation with them, and a
             // Resource runs once per row — a query inside it is an N+1 by
@@ -40,7 +60,25 @@ class EnrollmentController extends Controller
             ->orderByDesc('enrolled_at')
             ->paginate(15);
 
-        return response()->json(EnrollmentResource::collection($enrollments));
+        /*
+        | ⚠️ `->response()->getData(true)`, NEVER `response()->json(Resource::collection(…))`.
+        | The second form never calls `toResponse()`, so `links` and `meta` are
+        | dropped in SILENCE — and this endpoint shipped that way, which means the
+        | body was a BARE ARRAY. All four readers under `frontend/src` read
+        | `res.data ?? []`, so every one of them saw `undefined` and rendered
+        | ZERO ROWS for every student on the platform: «تعلّمي» empty for people
+        | who had paid, the course picker in credit purchase empty, the points
+        | store unable to name a teacher, and two dashboard counters at nought.
+        |
+        | ⚠️ AND THE SHAPE CHANGES: a bare array becomes `{data, links, meta}`.
+        | What was checked before changing it, and found: FOUR list readers under
+        | `frontend/src` (`enrollments`, `billing/purchase`, `store`, the
+        | dashboard), every one already reading `res.data` — which is what the
+        | wrapper restores; ZERO tests touching this index at all; and nothing
+        | anywhere indexing the top level. So what is ADDED is `meta` and nothing
+        | breaks. The zero is the reason it survived this long.
+        */
+        return response()->json(EnrollmentResource::collection($enrollments)->response()->getData(true));
     }
 
     /**
@@ -75,6 +113,26 @@ class EnrollmentController extends Controller
 
         if (! $course->isPublished()) {
             return response()->json(['message' => 'Course is not available for enrollment.'], 422);
+        }
+
+        /*
+        | ⛔ A TEACHER NEVER ENROLS — IN ANY COURSE, THEIRS INCLUDED.
+        |
+        | Reported 2026-09-08 against a live page: `CoursePolicy::view()` allows
+        | every PUBLISHED course to every reader, so the owner walked straight
+        | through their own door and wrote a real `enrollments` row — counted in
+        | `enrolled_count`, listed in their own «تعلّمي», and on the paid
+        | door an order they would then approve themselves.
+        |
+        | ⚠️ THREE DOORS, ONE PREDICATE. This is the free one; the paid course sits
+        | in `OrderController::store()` and the subscription in
+        | `PurchaseSubscription`. Refused HERE rather than inside `EnrollStudent`
+        | — see the note there: that Action is the FULFILMENT path, and a refusal
+        | at fulfilment strands a paid order in `failed_jobs` instead of stopping
+        | a purchase.
+        */
+        if ($this->currentUser($request)->teachesOnPlatform()) {
+            return response()->json(['message' => 'هذا الحسابُ حسابُ مدرّسٍ على المنصّة، والمدرّسُ لا يشتركُ في الكورسات.'], 422);
         }
 
         if ($subscriptions->courseRequiresPurchase((int) $course->getKey())) {
@@ -247,7 +305,11 @@ class EnrollmentController extends Controller
      */
     private function lessonPayload(Lesson $lesson, LessonAccess $access, ?Enrollment $enrollment = null): array
     {
-        $lesson->load(['section', 'chapter', 'attachments']);
+        // `course:id,uuid` joins the existing eager load rather than adding a
+        // query: the break-report door is addressed by (course, lesson), and a
+        // lazy `$lesson->course` here would be one more SELECT on the one
+        // endpoint that plays every lesson in the product.
+        $lesson->load(['section', 'chapter', 'attachments', 'course:id,uuid']);
 
         // A draft or archived item answers 404, not a payload with a reason.
         //
@@ -284,6 +346,18 @@ class EnrollmentController extends Controller
                 | يرفضُ بآخرَ هو عطبُ البابَينِ المختلفَين.
                 */
                 'may_self_complete' => LessonTypeRegistry::isSelfCompletable($type),
+                /*
+                | Spec 032 · FR-021 — what the break-report button is addressed
+                | with.
+                |
+                | ⚠️ THE ENROLLED STUDENT SEES THE BREAK TOO, and their teacher may
+                | not be publicly listed at all — which is exactly why the report
+                | door does not ask `publiclyListed()`. Without this field the
+                | button could not exist on the one screen that plays every lesson
+                | in the product, and «أيُّ قارئ» in FR-017 would mean «any
+                | visitor».
+                */
+                'course_uuid' => $lesson->course?->uuid,
                 'is_completed' => $enrollment !== null && LessonProgress::query()
                     ->where('enrollment_id', $enrollment->getKey())
                     ->where('lesson_id', $lesson->getKey())

@@ -17,6 +17,13 @@ export type TeacherProfile = {
   bio: string | null;
   years_experience: number | null;
   qualifications: string[];
+  /**
+   * ⚠️ كانَ الخادمُ يُرسِلُ `[]` مكتوبةً حرفيّاً في المورد — مفتاحٌ صحيحٌ وفارغٌ
+   * إلى الأبد. صارَ عموداً في ٢٠٢٦-٠٩-٠٨، والمدرّسُ يكتبُه من «ملفّي».
+   */
+  faqs: Faq[];
+  /** رابطُ يوتيوبَ أو فيميو كما كتبَه صاحبُه؛ `videoEmbedUrl` هو من يبني الإطار. */
+  intro_video_url: string | null;
   teaching_languages: string[];
   subjects: string[];
   grade_levels: string[];
@@ -27,11 +34,15 @@ export type TeacherProfile = {
   availability: Array<{ day_of_week: number; start_time: string; end_time: string }>;
 };
 
+export type Faq = { question: string; answer: string };
+
 export type TeacherProfileInput = {
   subjects: string[];
   grade_levels: string[];
   teaching_languages: string[];
   qualifications: string[];
+  faqs: Faq[];
+  intro_video_url: string | null;
   years_experience: number;
   headline: string;
   bio: string;
