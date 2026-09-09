@@ -136,6 +136,34 @@ describe("a group's own page", () => {
     expect(body.starts_at).not.toBe("2026-10-06T18:00");
   });
 
+  it("opens the lesson from its own row — the title is the link", async () => {
+    list.mockResolvedValue({
+      data: [
+        {
+          uuid: "sess-7",
+          title: "المتجهات",
+          status: "scheduled",
+          starts_at: "2026-10-10T13:00:00Z",
+          timezone: "Asia/Qatar",
+        },
+      ],
+    });
+
+    await open();
+
+    /*
+    | ⚠️ الصفُّ كان يحملُ كلمةَ «تعديل» وحدَها في آخرِه. للحصّةِ شاشةٌ كاملةٌ —
+    | الحضورُ والغرفةُ والتسجيلُ والإلغاء — و«تعديل» تَعِدُ بحقلٍ واحد، فلا شيءَ
+    | في الصفِّ كان يقولُ إنّ للحصّةِ مكاناً يُدخَلُ إليه.
+    */
+    expect(screen.getByText("المتجهات").closest("a")?.getAttribute("href")).toBe(
+      "/manage/sessions/sess-7",
+    );
+    expect(screen.getByRole("link", { name: "افتح الحصة" }).getAttribute("href")).toBe(
+      "/manage/sessions/sess-7",
+    );
+  });
+
   it("clears the description rather than leaving the old text standing", async () => {
     show.mockResolvedValue({ ...GROUP, description: "كل سبت" });
 

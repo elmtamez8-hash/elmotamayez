@@ -431,20 +431,32 @@ export default function ManageCohortPage({
                 className="animate-float-in flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-3"
                 style={{ animationDelay: `${Math.min(index, 8) * 30}ms` }}
               >
-                <div className="min-w-0">
-                  <p className="truncate text-sm text-ink">{session.title}</p>
+                {/*
+                  ⚠️ العنوانُ نفسُه هو الرابط، وكانت الكلمةَ «تعديل» وحدَها في
+                  آخرِ السطر. الحصّةُ لها شاشةٌ كاملةٌ — الحضورُ والغرفةُ
+                  والتسجيلُ والإلغاء — و«تعديل» تَعِدُ بحقلٍ واحد، فلا شيءَ في
+                  الصفِّ كان يقولُ إنّ للحصّةِ مكاناً يُدخَلُ إليه. وهدفُ الضغطِ
+                  صارَ العنوانَ والتاريخَ معاً بدلَ كلمةٍ من خمسةِ أحرف.
+                */}
+                <Link
+                  href={`/manage/sessions/${session.uuid}`}
+                  className="min-w-0 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  <p className="truncate text-sm font-medium text-ink underline-offset-4 hover:underline">
+                    {session.title}
+                  </p>
                   <p className="text-xs text-ink-muted">{formatDateTime(session.starts_at)}</p>
-                </div>
+                </Link>
                 <div className="flex items-center gap-2">
                   <Badge tone={statusTone(session.status)}>{statusLabel(session.status)}</Badge>
-                  {/* Editing a date is the session's own screen — a second
+                  {/* Changing a date is the session's own screen — a second
                       spelling of «change the time» here would be one more place
                       the overlap and freeze rules could disagree. */}
                   <Link
                     href={`/manage/sessions/${session.uuid}`}
                     className="rounded text-xs text-primary-ink underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   >
-                    تعديل
+                    افتح الحصة
                   </Link>
                 </div>
               </li>
