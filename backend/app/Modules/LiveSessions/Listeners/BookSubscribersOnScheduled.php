@@ -30,8 +30,8 @@ use Illuminate\Support\Carbon;
  * ⚠️ THE NAME PREDATES 052 AND IS KEPT DELIBERATELY. It used to seat SUBSCRIBERS
  * only; the subscription is now the choice of door and not the guest list, so
  * the class seats members. Renaming it would churn the provider wiring and every
- * test that names it for no change in behaviour — `media.bunny.source_disk` is
- * the precedent for keeping a name and writing down what it now means.
+ * test that names it for no change in behaviour — Media's own source-disk config
+ * key is the precedent for keeping a name and writing down what it now means.
  *
  * ⚠️ BOOKING IS A CONTINUING BEHAVIOUR, NOT A SWEEP RUN ONCE AT ACTIVATION.
  * Without this, next week's lesson — created tomorrow — passes the subscriber by

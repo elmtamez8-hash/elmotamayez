@@ -36,8 +36,9 @@ use Illuminate\Support\Carbon;
  * ⚠️ THE NAME PREDATES 052, WHICH ADDED THE CREDIT-PAYING MEMBER. `claimOne()`
  * is the subscriber's door and `claimOneAsMember()` the member's; both share one
  * status table in `decide()`, because two spellings of it is the defect family
- * named above. The class is not renamed for the same reason
- * `media.bunny.source_disk` was not.
+ * named above. The class is not renamed for the reason Media's own source-disk
+ * config key was not: a rename is churn, and what the name now means is written
+ * down instead.
  */
 class ClaimSubscriptionSeats extends Action
 {

@@ -22,8 +22,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * member and to a first join — so it is «what happens to a person's seats when
  * their group changes», releasing being one of two answers. Renaming it would
  * churn the provider wiring and every test that names it for no behaviour;
- * `media.bunny.source_disk` is the precedent for keeping a name and writing down
- * what it now means.
+ * Media's own source-disk config key is the precedent for keeping a name and
+ * writing down what it now means.
  *
  * ⚠️ THROUGH `CancelBooking`, NEVER A RAW DELETE. A cancellation frees the seat,
  * settles what it costs and leaves the row where it was; deleting one breaks
