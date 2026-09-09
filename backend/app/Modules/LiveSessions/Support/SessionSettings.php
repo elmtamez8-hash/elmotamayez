@@ -35,6 +35,19 @@ class SessionSettings
         return (int) PlatformSettings::get('sessions.cancellation_window_minutes', 1440);
     }
 
+    /**
+     * How long before a lesson its seat holders are reminded.
+     *
+     * ⚠️ A ROW, NOT A CONSTANT. It is an operational number an operator tunes
+     * from the panel — sixty minutes is right for an evening class and useless
+     * for one at seven in the morning — and a limit that can only change by
+     * shipping code is a limit nobody ever tunes.
+     */
+    public function reminderLeadMinutes(): int
+    {
+        return (int) PlatformSettings::get('sessions.reminder_lead_minutes', 60);
+    }
+
     public function joinWindowMinutes(): int
     {
         return (int) PlatformSettings::get('sessions.join_window_minutes', 15);

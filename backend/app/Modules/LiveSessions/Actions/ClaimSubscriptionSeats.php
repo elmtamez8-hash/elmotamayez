@@ -32,6 +32,12 @@ use Illuminate\Support\Carbon;
  * ⚠️ AND NOTHING IS ROLLED BACK. A seat that could not be taken is REPORTED, not
  * an error: refunding a paid subscription because the seventh session filled up
  * is cancelling a month over one hour (FR-042).
+ *
+ * ⚠️ THE NAME PREDATES 052, WHICH ADDED THE CREDIT-PAYING MEMBER. `claimOne()`
+ * is the subscriber's door and `claimOneAsMember()` the member's; both share one
+ * status table in `decide()`, because two spellings of it is the defect family
+ * named above. The class is not renamed for the same reason
+ * `media.bunny.source_disk` was not.
  */
 class ClaimSubscriptionSeats extends Action
 {
@@ -107,6 +113,53 @@ class ClaimSubscriptionSeats extends Action
      */
     public function claimOne(ClassSession $session, User $student, ?SessionBooking $existing): ?string
     {
+        return $this->decide(
+            $session,
+            $student,
+            $existing,
+            fn (): mixed => $this->seats->claimGrantedSeat($session, $student),
+        );
+    }
+
+    /**
+     * The same decision for a member who pays by CREDIT rather than by
+     * subscription (052).
+     *
+     * ⚠️ ONE DIFFERENCE, AND IT IS THE DOOR. A subscriber's seat is already paid
+     * for, so `claimGrantedSeat()` waives the FR-041 unlock gate — refusing them
+     * a seat their month bought over an unfinished worksheet would be taking back
+     * something they own. A member has bought nothing yet (booking charges no
+     * credits; `ChargeSeatsOnDelivery` does, at delivery), so the question is the
+     * one their own «احجز» button asks: `BookSeat::handle()`, which is
+     * `openingRefusal()` — enrolment, freeze, balance AND the unlock gate. Two
+     * doors for one act is how a control on a screen and the automation beside it
+     * come to disagree; this way the automation can seat exactly whom the student
+     * could have seated themselves.
+     *
+     * ⚠️ A `Released` ROW IS STILL REVIVED THROUGH `reviveReleasedSeat()`, which
+     * asks `refusalReason()` and therefore waives the gate for a member too. That
+     * is deliberate and narrow: the row exists because a seat was taken away by a
+     * decision that was not the student's — a transfer, a lapse — and giving it
+     * back is not the same act as handing out the next one.
+     *
+     * @param  SessionBooking|null  $existing  the student's row for this session, if they have one
+     * @return string|null the same three answers `claimOne()` gives
+     */
+    public function claimOneAsMember(ClassSession $session, User $student, ?SessionBooking $existing): ?string
+    {
+        return $this->decide(
+            $session,
+            $student,
+            $existing,
+            fn (): mixed => $this->seats->handle($session, $student),
+        );
+    }
+
+    /**
+     * @param  callable(): mixed  $open  the door a student with no row yet goes through
+     */
+    private function decide(ClassSession $session, User $student, ?SessionBooking $existing, callable $open): ?string
+    {
         /*
         | ⚠️ `billable_seats !== null` means the count the teacher is paid on has
         | already been settled for this session, and it is never recomputed — it
@@ -118,7 +171,10 @@ class ClaimSubscriptionSeats extends Action
         | `ClassSession::billableSeatsFreezeAt()` (FR-039ب).
         */
         if ($session->billable_seats !== null) {
-            return 'أُغلق حساب مقاعد هذه الحصة قبل تفعيل اشتراكك.';
+            // Not «قبل تفعيل اشتراكك» any more: 052 sends credit-paying members
+            // through here too, and a sentence naming a subscription would reach
+            // somebody who has never held one.
+            return 'أُغلق حساب مقاعد هذه الحصة، فلم يعد الحجز فيها ممكناً.';
         }
 
         if ($existing !== null) {
@@ -134,7 +190,7 @@ class ClaimSubscriptionSeats extends Action
             };
         }
 
-        return $this->attempt(fn (): mixed => $this->seats->claimGrantedSeat($session, $student));
+        return $this->attempt($open);
     }
 
     /**
@@ -233,13 +289,16 @@ class ClaimSubscriptionSeats extends Action
                 $session->starts_at,
             );
 
-            if ($covered === []) {
-                // Their month does not reach this lesson. Not a refusal to
-                // report — nobody promised them a seat in it.
-                continue;
-            }
-
-            $refusal = $this->claimOne($session, $student, $existing->get($session->getKey()));
+            /*
+            | ⚠️ THE SUBSCRIPTION PICKS THE DOOR; IT NO LONGER DECIDES WHETHER TO
+            | OPEN ONE (052). Until then, a member whose month did not reach this
+            | lesson was skipped — which meant every credit-paying student, i.e.
+            | most of them, joined a group and was booked into nothing. Now they
+            | go through the same door their own button uses.
+            */
+            $refusal = $covered === []
+                ? $this->claimOneAsMember($session, $student, $existing->get($session->getKey()))
+                : $this->claimOne($session, $student, $existing->get($session->getKey()));
 
             if ($refusal === null) {
                 $booked++;
