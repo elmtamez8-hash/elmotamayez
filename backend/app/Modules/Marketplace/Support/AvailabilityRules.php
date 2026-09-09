@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Marketplace\Support;
 
+use App\Modules\Marketplace\Data\TeacherStepFourData;
+
 /**
  * قاعدةُ نافذةِ التوفّرِ الأسبوعيّة، وهجاؤها واحدٌ مهما اختلفَ الباب.
  *
@@ -32,6 +34,41 @@ final class AvailabilityRules
             $key.'.*.start_time' => ['required', 'date_format:H:i,H:i:s'],
             $key.'.*.end_time' => ['required', 'date_format:H:i,H:i:s'],
         ];
+    }
+
+    /**
+     * الشكلُ الواحدُ الذي تُخزَّنُ به الفترة، مهما كتبَها البابُ الذي جاءتْ منه.
+     *
+     * ⚠️ القاعدةُ أعلاه تقبلُ `H:i` و`H:i:s` كليهما، فالبابانِ يُسلِّمانِ شكلَينِ
+     * مختلفَينِ لوقتٍ واحد: معالجُ الانضمامِ كانَ يُسوّي داخلَ
+     * {@see TeacherStepFourData} وشاشةُ «مواعيدي»
+     * تُمرِّرُ ما وصلَها حرفيّاً. و«١٦:٠٠» و«١٦:٠٠:٠٠» يجبُ أن يتساويا — وإلّا
+     * اختلفَ نصُّ الخطوةِ الرابعةِ عن نصِّ الصفِّ للساعةِ نفسِها.
+     *
+     * ⚠️ وMySQL يُسوّي عمودَ `time` من تلقاءِ نفسِه فيُخفي الفرقَ في الإنتاج،
+     * بينما SQLite يحفظُ ما أُعطِيَ حرفيّاً — أي أنّ الاختلافَ يظهرُ في بيئةِ
+     * التطويرِ وحدَها، وهي البيئةُ التي يُقرَأُ فيها هذا العمودُ بالمقارنةِ النصّيّة.
+     *
+     * @param  array<int, mixed>  $slots
+     * @return list<array{day_of_week: int, start_time: string, end_time: string}>
+     */
+    public static function normalise(array $slots): array
+    {
+        return array_values(array_map(function ($slot): array {
+            $slot = (array) $slot;
+
+            return [
+                'day_of_week' => (int) $slot['day_of_week'],
+                'start_time' => self::seconds((string) $slot['start_time']),
+                'end_time' => self::seconds((string) $slot['end_time']),
+            ];
+        }, $slots));
+    }
+
+    /** «١٦:٠٠» و«١٦:٠٠:٠٠» ساعةٌ واحدة، فتُخزَّنُ بشكلٍ واحد. */
+    public static function seconds(string $time): string
+    {
+        return substr_count($time, ':') === 1 ? $time.':00' : $time;
     }
 
     /** @return array<string, string> */
