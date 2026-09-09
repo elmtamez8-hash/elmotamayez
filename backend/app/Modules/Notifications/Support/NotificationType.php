@@ -301,6 +301,33 @@ enum NotificationType: string
     case PrivateSessionExpired = 'private_session_expired';
 
     /*
+    | Spec 049 — «أجّل حصّةَ هذا الأسبوع». Three, and the middle one is the only
+    | one in the family that reaches a guardian.
+    |
+    | ⚠️ `SessionRescheduled` TARGETS GUARDIANS BECAUSE `SessionCancelled` DOES,
+    | and for the identical reason: a lesson that is no longer at the hour the
+    | family arranged their day around is the same news whether it moved or
+    | vanished. It carries `GuardianPermission::Schedule` in the same breath —
+    | a type in `targetsGuardians()` with no permission beside it picks up the
+    | paid WhatsApp channel, is billed, and reaches nobody.
+    |
+    | ⚠️ AND THE OTHER TWO DELIBERATELY DO NOT. The ask and the refusal are a
+    | conversation between one student and their teacher about a lesson that has
+    | not moved; putting every step of it on a parent's phone is how the number
+    | gets muted, and the attendance alert goes with it.
+    |
+    | ⚠️ THE REFUSAL IS ITS OWN TYPE RATHER THAN A FLAG ON THE DECISION.
+    | `TemplateRenderer` counts a present-but-empty variable as MISSING and
+    | refuses to render, so one template holding `{{ decision_reason }}` would
+    | drop every approval on the platform in silence.
+    */
+    case SessionRescheduleRequested = 'session_reschedule_requested';
+
+    case SessionRescheduled = 'session_rescheduled';
+
+    case SessionRescheduleRejected = 'session_reschedule_rejected';
+
+    /*
     | The store (011 · US1). Two, and the second is the one that is easy to
     | leave out.
     |
@@ -451,6 +478,9 @@ enum NotificationType: string
             self::PrivateSessionAccepted => 'قبول حصة خاصة',
             self::PrivateSessionRejected => 'رفض حصة خاصة',
             self::PrivateSessionExpired => 'انتهاء مهلة طلب حصة خاصة',
+            self::SessionRescheduleRequested => 'طلب تأجيل حصة',
+            self::SessionRescheduled => 'تغيير موعد حصة',
+            self::SessionRescheduleRejected => 'رفض تأجيل حصة',
             self::ShipmentStatusChanged => 'تحديث شحنة',
             self::StorePurchaseUnavailable => 'طلب متجر غير متاح',
             self::SubscriptionExpiring => 'قرب انتهاء اشتراك',
@@ -624,6 +654,10 @@ enum NotificationType: string
             self::AcademicWarning,
             self::SessionReport,
             self::SessionCancelled,
+            // 049. A lesson moved to another hour is the same fact for the
+            // family as a lesson called off — the day was arranged around it
+            // either way, and only the guardian can rearrange the rest of it.
+            self::SessionRescheduled,
             // A mark is a result, and the guardian asking how their child is
             // doing is asking exactly this. Gated on the same permission as
             // ExamResult below, because it is the same kind of fact.
@@ -700,6 +734,7 @@ enum NotificationType: string
             // anything else, so it rides the guardian's attendance consent.
             self::SessionReport => GuardianPermission::Attendance,
             self::SessionCancelled => GuardianPermission::Schedule,
+            self::SessionRescheduled => GuardianPermission::Schedule,
             // Payments, specifically. A guardian with no right to see the
             // financial record has no business being told about a payment due
             // on it — the permission is the message's audience, not a filter

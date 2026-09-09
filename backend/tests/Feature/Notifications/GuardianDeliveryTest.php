@@ -265,7 +265,13 @@ it('tells every guardian-facing type apart', function (): void {
     // and the group's timetable is what they organise the week around. Its
     // sibling `subscription_seat_unavailable` deliberately targets no guardian
     // (operational news for whoever can act on it), so it does not move this.
-    expect($guardianTypes)->toHaveCount(24);
+    // Twenty-five, with spec 049: `session_rescheduled`. A lesson moved to
+    // another hour is the same fact for the family as a lesson called off, so it
+    // rides `SessionCancelled`'s own `Schedule` consent. Its two siblings — the
+    // ask and the refusal — deliberately target no guardian: nothing has moved,
+    // and putting every step of a scheduling conversation on a parent's phone is
+    // how the number gets muted, taking the attendance alert with it.
+    expect($guardianTypes)->toHaveCount(25);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();

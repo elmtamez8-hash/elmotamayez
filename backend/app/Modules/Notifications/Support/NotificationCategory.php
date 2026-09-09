@@ -106,6 +106,11 @@ enum NotificationCategory: string
                 NotificationType::CohortTransferRequested,
                 NotificationType::CohortTransferApproved,
                 NotificationType::CohortTransferRejected,
+                // 049. A postponement is a question about the timetable from
+                // the first message to the last.
+                NotificationType::SessionRescheduleRequested,
+                NotificationType::SessionRescheduled,
+                NotificationType::SessionRescheduleRejected,
                 /*
                 | ⚠️ 023, AND CI IS WHAT FOUND THEM UNFILED. This map runs
                 | CATEGORY → TYPES, so an unclassified type cannot crash

@@ -137,6 +137,12 @@ function dispatchOf(User $user, NotificationType $type): void
             'session_time' => '2026-09-08 15:00',
             'duration' => '45',
             'decision_reason' => 'الموعد محجوز لطالب آخر.',
+            // 049. Both ends of a postponement — the template says «من كذا إلى
+            // كذا», so a bag with only one of them drops all three types in
+            // silence and this test's count is the only thing that notices.
+            'from_time' => '2026-10-10 16:00',
+            'to_time' => '2026-10-11 18:00',
+            'student_reason' => 'عندي امتحان ذلك اليوم.',
             'reward_title' => 'خصم على حصة',
             'teacher_name' => 'أ. خالد',
             // A SIXTH time, with spec 013's six data-protection types. The count

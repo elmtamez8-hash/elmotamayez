@@ -340,6 +340,21 @@ class NotificationTemplateSeeder extends Seeder
                 'لم يصل ردّ على طلب حصتك الخاصة يوم {{ session_time }} في «{{ course_title }}»، فانتهت مهلته. لم يُخصم من رصيدك شيء، ويمكنك الطلب من جديد.',
                 ['course_title', 'session_time'],
             ],
+            NotificationType::SessionRescheduleRequested->value => [
+                'طلب تأجيل «{{ title }}»',
+                'يطلب {{ student_name }} تأجيل «{{ title }}» من {{ from_time }} إلى {{ to_time }}. السبب: {{ student_reason }} — افتح الطلبات للردّ.',
+                ['student_name', 'title', 'from_time', 'to_time', 'student_reason'],
+            ],
+            NotificationType::SessionRescheduled->value => [
+                'تغيّر موعد «{{ title }}»',
+                'تغيّر موعد «{{ title }}» من {{ from_time }} إلى {{ to_time }}. الحصة التالية في موعدها المعتاد.',
+                ['title', 'from_time', 'to_time'],
+            ],
+            NotificationType::SessionRescheduleRejected->value => [
+                'لم يُقبل تأجيل «{{ title }}»',
+                'بقي موعد «{{ title }}» كما هو في {{ from_time }}. السبب: {{ decision_reason }}',
+                ['title', 'from_time', 'decision_reason'],
+            ],
             NotificationType::AssignmentSubmitted->value => [
                 'تسليم جديد في «{{ assignment_title }}»',
                 'سلّم {{ student_name }} واجب «{{ assignment_title }}». افتح اللوحة لتصحيحه.',
