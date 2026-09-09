@@ -24,6 +24,16 @@ import { formatDate } from "@/lib/labels";
  * timetable at a stroke — a hiding the owner of the timetable does not know
  * about is a silent loss, and this is the only place the product says so.
  *
+ * ⚠️ AND IT HAS TWO WORDINGS, BECAUSE UNTIL THE FIRST GROUP EXISTS NOTHING IS
+ * HIDDEN. `CohortSessionVisibility`'s second arm shows every unassigned session
+ * of a course that has NO groups — that arm IS FR-036 — so on such a course the
+ * present tense «محجوبة عن جداول الطلاب» is simply false. It was shipped that
+ * way and reported by a teacher looking at seventeen perfectly visible sessions
+ * under a warning with no control beneath it (the assign button is gated on
+ * there being an open group to assign to, which is exactly what they did not
+ * have). The future tense is both true and actionable: it names the consequence
+ * of the button directly below.
+ *
  * ⚠️ AND THE ASSIGNMENT IS ONE REQUEST FOR THE WHOLE BATCH, never a loop here:
  * forty requests are forty chances for one to fail in the middle, leaving half
  * the timetable hidden with nothing to say which half.
@@ -111,11 +121,26 @@ export default function ManageCohortsPage({
       {hidden !== null && hidden.meta.total_hidden > 0 && (
         <Card>
           <div className="space-y-3">
-            <h2 className="font-bold text-ink">حصص محجوبة عن الطلاب</h2>
+            {/* The heading follows the same fact as the sentence below it: a
+                title in the present tense over a future-tense body is the same
+                false claim, one line higher. */}
+            <h2 className="font-bold text-ink">
+              {openGroups.length === 0 ? "حصص بلا مجموعة" : "حصص محجوبة عن الطلاب"}
+            </h2>
 
             <p className="text-sm text-ink-muted">
-              <bdi>{hidden.meta.total_hidden}</bdi> حصة في هذا الكورس بلا مجموعة، فهي محجوبة عن
-              جداول الطلاب حتى تُسنِدها.
+              {openGroups.length === 0 ? (
+                <>
+                  <bdi>{hidden.meta.total_hidden}</bdi> حصة في هذا الكورس بلا مجموعة. تظهر لطلابك
+                  الآن، وستُحجب عنهم فور إنشاء أوّل مجموعة — أنشئها من النموذج أدناه ثم أسنِدها
+                  إليها.
+                </>
+              ) : (
+                <>
+                  <bdi>{hidden.meta.total_hidden}</bdi> حصة في هذا الكورس بلا مجموعة، فهي محجوبة عن
+                  جداول الطلاب حتى تُسنِدها.
+                </>
+              )}
               {hidden.meta.already_held > 0 && (
                 <>
                   {" "}
@@ -246,9 +271,27 @@ export default function ManageCohortsPage({
             </ul>
           )}
 
+          {/*
+            ⚠️ THE CONSEQUENCE, BESIDE THE BUTTON THAT CAUSES IT. The first group
+            of a course is not a setting — from that moment every session still
+            carrying no group leaves each student's discovery list, and the
+            curriculum gate (FR-028أ) asks every enrolled student to join a
+            group. A teacher who learns that from a student's question learns it
+            too late.
+          */}
           <div className="flex flex-wrap items-end gap-3 border-t border-line pt-4">
             <div className="min-w-52">
-              <TextField id="cohort-name" label="اسم المجموعة" value={name} onChange={setName} />
+              <TextField
+                id="cohort-name"
+                label="اسم المجموعة"
+                value={name}
+                onChange={setName}
+                hint={
+                  groups.length === 0
+                    ? "أوّل مجموعة تجعل الكورس كورس مجموعات: تُحجب حصصه غير المُسنَدة حتى تُسنِدها، ويُطلَب من طلابه الانضمام إلى مجموعة."
+                    : undefined
+                }
+              />
             </div>
 
             <div className="w-40">
