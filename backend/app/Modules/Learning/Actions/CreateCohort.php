@@ -14,23 +14,30 @@ use Illuminate\Database\UniqueConstraintViolationException;
 /**
  * A new run of a course.
  *
- * ⚠️ FOR A `group` COURSE ONLY (FR-037). A recorded course has no timetable to
- * be a group of, and an individual one is already one student — a group there
- * would be a room with a capacity of one and a picker with one entry, which is
- * a screen that asks a question with no answers.
+ * ⚠️ OPEN TO EVERY COURSE, AND IT WAS NOT UNTIL 2026-09-09. This refused
+ * anything whose `course_type` was not `group`, on the reasoning that «a
+ * recorded course has no timetable to be a group of» — which is false on this
+ * platform, because **`courses.course_type` has never had a writer**. It is
+ * fillable, it defaults to `recorded` in its own migration, and no request,
+ * form, Action or seeder assigns it: 91 of 96 rows say `recorded` (measured
+ * 2026-09-09), including a course carrying seventeen live sessions whose owner
+ * was told groups were «available for group courses only» about a
+ * classification nobody ever made.
  *
- * ⚠️ AND THE RULE IS ENFORCED HERE RATHER THAN ONLY IN THE FORM REQUEST,
- * because the Action is the single entry point the panel, a seeder and the API
- * all share.
+ * A rule that enforces an unmade decision is not a rule. The teacher decides
+ * whether a course runs in groups by creating one — which is a decision they
+ * can see, undo by archiving, and take one course at a time.
+ *
+ * ⚠️ AND THE FIRST GROUP OF A COURSE IS A CONSEQUENCE, NOT A SETTING. From that
+ * moment `CohortSessionVisibility` hides every session still carrying no group,
+ * and the curriculum gate (FR-028أ) asks every enrolled student to join one. The
+ * screen says so beside the button; this Action does not, because a refusal
+ * would be the unmade decision again wearing a different word.
  */
 class CreateCohort extends Action
 {
     public function handle(Course $course, User $creator, string $name, ?string $description = null, ?int $capacity = null): Cohort
     {
-        if ($course->course_type !== Course::TYPE_GROUP) {
-            throw new CohortRefusal('not_a_group_course', 'المجموعات متاحة لكورسات المجموعة فقط.');
-        }
-
         try {
             // ⚠️ REFRESHED: `status` and `members_count` are deliberately not
             // fillable, so their DB defaults are absent from the instance

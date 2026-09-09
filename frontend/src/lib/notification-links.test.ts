@@ -89,6 +89,9 @@ const DESTINATIONS: Array<{ path: string; from: string }> = [
   // dead link here is a request that expires unanswered — and the student is
   // told «انتهت المهلة» about a lesson their teacher meant to give them.
   { path: "/manage/private-sessions", from: "NotifyTeacherPrivateSessionRequested" },
+  // 049. The teacher decides here; a dead link is a lesson nobody moved and a
+  // student who does not turn up.
+  { path: "/manage/reschedule-requests", from: "NotifyTeacherSessionRescheduleRequested" },
   { path: "/courses/c1b2a3d4", from: "NotifyStudentPrivateSessionDecided (rejected) · …Expired" },
   { path: "/manage/bank/import/i1j2k3l4", from: "NotifyImportReady" },
   { path: "/certificates/verify/ABC123", from: "NotifyStudentCertificateIssued · …Regenerated" },

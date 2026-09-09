@@ -74,6 +74,8 @@ function scheduleAt(CarbonImmutable $startsAt): ClassSession
             startsAt: $startsAt,
             durationMinutes: 60,
             seatsTotal: 5,
+            // A group lesson names its group from the moment it is created.
+            cohortId: groupCohortIdFor((int) test()->course->getKey(), (int) test()->workspace->getKey()),
         ),
         test()->owner,
     );

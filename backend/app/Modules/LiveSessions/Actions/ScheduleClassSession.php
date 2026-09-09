@@ -8,11 +8,12 @@ use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Data\ScheduleSessionData;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Events\SessionScheduled;
 use App\Modules\LiveSessions\Jobs\FreezeBillableSeatsJob;
 use App\Modules\LiveSessions\Models\ClassSession;
-use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Modules\LiveSessions\Support\SchedulableTeachers;
+use App\Modules\LiveSessions\Support\SessionClash;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Actions\Action;
 use Carbon\CarbonImmutable;
@@ -46,6 +47,7 @@ class ScheduleClassSession extends Action
         $this->assertMayScheduleForTheNamedTeacher($data, $actor);
 
         $this->assertTypeMatchesSeats($data);
+        $this->assertGroupSessionHasItsGroup($data);
         $course = $this->requireCourse($data);
         $this->assertNoOverlap($data);
         $this->assertNotFrozen($data);
@@ -98,6 +100,31 @@ class ScheduleClassSession extends Action
         return $session;
     }
 
+    /**
+     * A group lesson belongs to a group, from the moment it is created.
+     *
+     * ⚠️ THE ABSENCE OF THIS WAS A HOLE WITH NOBODY AT THE BOTTOM OF IT.
+     * `StoreClassSessionRequest` carried no `cohort_uuid` at all, so **every**
+     * group session ever created from `/manage/sessions` was born with
+     * `cohort_id = null` — and the first group the teacher later created took
+     * every one of them out of every student's discovery list at a stroke
+     * (`CohortSessionVisibility`). The teacher's only way back was the «حصص
+     * محجوبة» panel, which refuses any session that has already started
+     * (FR-025و): a lesson taught in the gap could never be filed at all.
+     *
+     * ⚠️ AND AN INDIVIDUAL SESSION IS DELIBERATELY EXEMPT. A 1:1 slot generated
+     * from the teacher's weekly availability has no student yet, so there is no
+     * one-seat group for it to belong to and no one to create one for. It gets
+     * that group the moment somebody takes the seat — {@see BookSeat} — which
+     * is the earliest instant at which the question has an answer.
+     */
+    private function assertGroupSessionHasItsGroup(ScheduleSessionData $data): void
+    {
+        if ($data->type === ClassSessionType::Group && $data->cohortId === null) {
+            throw new DomainException('حصة المجموعة يجب أن تكون ضمن مجموعة — اختر مجموعة الكورس أو أنشئ واحدة أوّلاً.');
+        }
+    }
+
     private function assertTypeMatchesSeats(ScheduleSessionData $data): void
     {
         if (! $data->type->allowsSeats($data->seatsTotal)) {
@@ -136,27 +163,16 @@ class ScheduleClassSession extends Action
      */
     private function assertNoOverlap(ScheduleSessionData $data): void
     {
-        $clash = ClassSession::query()
-            ->where('teacher_profile_id', $data->teacherProfileId)
-            ->whereNotIn('status', [ClassSessionStatus::Cancelled, ClassSessionStatus::Suspended])
-            ->where('starts_at', '<', $data->endsAt())
-            ->where('ends_at', '>', $data->startsAt)
-            ->exists();
-
-        if ($clash) {
-            throw new DomainException('لديك حصة أخرى في هذا الوقت.');
-        }
+        SessionClash::assertFree(
+            $data->teacherProfileId,
+            CarbonImmutable::instance($data->startsAt),
+            CarbonImmutable::instance($data->endsAt()),
+        );
     }
 
     private function assertNotFrozen(ScheduleSessionData $data): void
     {
-        $frozen = FreezePeriod::query()
-            ->covering(CarbonImmutable::instance($data->startsAt))
-            ->exists();
-
-        if ($frozen) {
-            throw new DomainException('لا يمكن جدولة حصة داخل فترة تجميد.');
-        }
+        SessionClash::assertNotFrozen(CarbonImmutable::instance($data->startsAt));
     }
 
     /**

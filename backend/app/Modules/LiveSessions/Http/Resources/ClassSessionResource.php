@@ -128,6 +128,23 @@ class ClassSessionResource extends JsonResource
                 'title' => $this->course->title,
             ]),
             /*
+             | The group this lesson belongs to, by NAME.
+             |
+             | ⚠️ NOT `whenLoaded`, BECAUSE THERE IS NO RELATION TO LOAD. There is
+             | no `cohort()` on `ClassSession` and there must not be — the cohort
+             | is Learning's model and this module never imports one — so the
+             | name is STAMPED in bulk by `CohortNames::stamp()` at the call site,
+             | the same shape `UnlockReader::stamp()` has. A lookup here would run
+             | once per row, which is fifty queries on a month of calendar.
+             |
+             | ⚠️ AND `null` IS AN ANSWER, NOT AN ABSENCE. Every row that went
+             | through the stamp has one, so null means «no group» — the state
+             | every session in this database was born in, before groups existed.
+             | A caller that forgets to stamp gets null too, which is why the
+             | stamp sits beside the query rather than being left to each screen.
+             */
+            'cohort_name' => $this->getAttribute('cohort_name'),
+            /*
              | ⚠️ ONLY WHEN THE RELATION WAS LOADED — absent, never guessed. A
              | Resource runs once per row, so `$this->teacherProfile?->user` read
              | unconditionally is two queries per session on every calendar in the

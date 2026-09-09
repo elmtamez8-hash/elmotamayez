@@ -24,8 +24,14 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Carbon;
 
 /**
- * A session the teacher just put on the calendar is booked for everyone whose
- * subscription already paid for it (027 · FR-040).
+ * A session the teacher just put on the calendar is booked for every active
+ * member of the group it belongs to (027 · FR-040 · 052).
+ *
+ * ⚠️ THE NAME PREDATES 052 AND IS KEPT DELIBERATELY. It used to seat SUBSCRIBERS
+ * only; the subscription is now the choice of door and not the guest list, so
+ * the class seats members. Renaming it would churn the provider wiring and every
+ * test that names it for no change in behaviour — Media's own source-disk config
+ * key is the precedent for keeping a name and writing down what it now means.
  *
  * ⚠️ BOOKING IS A CONTINUING BEHAVIOUR, NOT A SWEEP RUN ONCE AT ACTIVATION.
  * Without this, next week's lesson — created tomorrow — passes the subscriber by
@@ -121,6 +127,14 @@ class BookSubscribersOnScheduled implements ShouldHandleEventsAfterCommit, Shoul
                 | can span the end of somebody's month, and seating them in a
                 | lesson their subscription no longer reaches is the seat FR-045
                 | exists to take away again.
+                |
+                | ⚠️ AND SINCE 052 IT CHOOSES THE DOOR RATHER THAN THE AUDIENCE.
+                | An empty answer used to end the session's turn — so a group
+                | whose students pay by credit, which is most of them, was booked
+                | into nothing at all and every member had to find each lesson and
+                | press «احجز» by hand. The list is the GROUP's membership now;
+                | the subscription only says which of `claimOne` /
+                | `claimOneAsMember` a given member goes through.
                 */
                 $subscriberIds = $this->subscriptions->subscriberIdsAmong(
                     $memberIds,
@@ -129,31 +143,48 @@ class BookSubscribersOnScheduled implements ShouldHandleEventsAfterCommit, Shoul
                     $session->starts_at,
                 );
 
-                if ($subscriberIds === []) {
-                    continue;
-                }
+                $isSubscriber = array_flip($subscriberIds);
 
                 $existing = SessionBooking::query()
                     ->withoutWorkspaceScope()
                     ->where('class_session_id', $session->getKey())
-                    ->whereIn('student_user_id', $subscriberIds)
+                    ->whereIn('student_user_id', $memberIds)
                     ->get()
                     ->keyBy('student_user_id');
 
-                foreach ($subscriberIds as $studentId) {
+                foreach ($memberIds as $studentId) {
                     $student = $students[$studentId] ??= User::query()->find($studentId);
 
                     if ($student === null) {
                         continue;
                     }
 
-                    $refusal = $this->claim->claimOne($session, $student, $existing->get($studentId));
+                    $subscribed = isset($isSubscriber[$studentId]);
+
+                    $refusal = $subscribed
+                        ? $this->claim->claimOne($session, $student, $existing->get($studentId))
+                        : $this->claim->claimOneAsMember($session, $student, $existing->get($studentId));
 
                     if ($refusal === null || $refusal === '') {
                         continue;
                     }
 
-                    $refusedBy[$studentId][] = $this->label($session);
+                    /*
+                    | ⚠️ ONLY A SUBSCRIBER'S REFUSAL IS ANNOUNCED, AND THE REASON
+                    | IS WHAT WAS PROMISED. A month that was paid for and then
+                    | could not be seated is news the student must have. A member
+                    | paying by credit was promised nothing by this pass — the
+                    | commonest refusals they meet are their own unfinished
+                    | homework and their own balance, both of which their «احجز»
+                    | button already says to their face — so «تعذّر حجز مقعدك»
+                    | fired at every one of them on every schedule the teacher
+                    | publishes is a channel that gets muted, taking the absence
+                    | alert with it. The type is `SubscriptionSeatUnavailable`
+                    | besides, and it names a thing they do not hold.
+                    */
+                    if ($subscribed) {
+                        $refusedBy[$studentId][] = $this->label($session);
+                    }
                 }
             }
 

@@ -16,6 +16,7 @@ use App\Modules\Identity\Jobs\TransferDataOwnershipJob;
 use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
 use App\Modules\LiveSessions\Jobs\ExpirePrivateSessionRequestsJob;
 use App\Modules\LiveSessions\Jobs\RetryPendingRecordingsJob;
+use App\Modules\LiveSessions\Jobs\SendSessionRemindersJob;
 use App\Modules\Media\Jobs\PruneExpiredGrantsJob;
 use App\Modules\Media\Jobs\ReconcileAssetStatus;
 use App\Modules\Payments\Jobs\ChargeUnbilledDeliveriesJob;
@@ -81,6 +82,22 @@ Schedule::job(new CloseStaleSessionsJob)->hourlyAt(20);
 | defect.
 */
 Schedule::job(new ExpirePrivateSessionRequestsJob)->everyTenMinutes();
+
+/*
+| «حصّتك تبدأ بعد ساعة» (052).
+|
+| Every five minutes, and the number follows from what it is measuring: the
+| lead time is a `platform_settings` row an operator tunes, so a pass that ran
+| hourly would deliver a «one hour before» reminder up to an hour late — which
+| is a message arriving as the lesson starts, and worse than none. The cost is
+| one indexed query over a window that is empty most of the time.
+|
+| ⚠️ NO `->withoutOverlapping()` HERE, for the reason written above the sweep
+| before it: it guards the dispatch and is released before a worker starts.
+| The guard is `WithoutOverlapping` middleware ON the job, with `expireAfter()`
+| beneath it.
+*/
+Schedule::job(new SendSessionRemindersJob)->everyFiveMinutes();
 
 // Waiting units become earnings the moment their recording lands. Every fifteen
 // minutes rather than hourly: this is a teacher watching an hour they taught sit

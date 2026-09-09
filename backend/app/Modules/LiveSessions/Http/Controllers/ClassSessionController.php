@@ -19,8 +19,10 @@ use App\Modules\LiveSessions\Http\Requests\StoreClassSessionRequest;
 use App\Modules\LiveSessions\Http\Requests\UpdateClassSessionRequest;
 use App\Modules\LiveSessions\Http\Resources\ClassSessionResource;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Support\CohortNames;
 use App\Modules\LiveSessions\Support\CohortSessionVisibility;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\UnlockDirectory;
 use Carbon\CarbonImmutable;
 use DomainException;
@@ -83,6 +85,25 @@ class ClassSessionController extends Controller
                 fn ($query, $uuid) => $query->whereHas('course', fn ($course) => $course->where('uuid', $uuid)),
             )
             /*
+             | ⚠️ RESOLVED THROUGH THE CONTRACT, BECAUSE THERE IS NO `cohort()`
+             | RELATION ON THIS MODEL AND THERE MUST NOT BE — the cohort is
+             | Learning's, and `CohortSessionVisibility` says in as many words
+             | that this module never imports one.
+             |
+             | An unresolvable uuid filters to `0`, which matches nothing: a
+             | filter whose value cannot be resolved returns an EMPTY list rather
+             | than the unfiltered one, exactly like the two above it. Silently
+             | ignoring it would show a teacher every session in the workspace
+             | under a group's name.
+             */
+            ->when(
+                is_string($request->query('cohort')) ? $request->query('cohort') : null,
+                fn ($query, string $uuid) => $query->where(
+                    'cohort_id',
+                    app(CohortDirectory::class)->describeGroupCohort($uuid)['id'] ?? 0,
+                ),
+            )
+            /*
              | ⚠️ Q3 · FR-025ج — DISCOVERY IS FILTERED BY THE READER'S GROUP, AND
              | AN UNASSIGNED SESSION IS HIDDEN ONLY IN A COURSE THAT HAS GROUPS.
              |
@@ -126,6 +147,11 @@ class ClassSessionController extends Controller
         */
         $unlock->stamp(collect($sessions->items()), $this->currentUser($request));
 
+        // ⚠️ BESIDE THE QUERY, NOT INSIDE THE RESOURCE. One query for the whole
+        // page; asked per row it is fifty on a month of calendar. Same shape as
+        // the line above it, and for the same reason.
+        CohortNames::stamp($sessions->items());
+
         return response()->json(ClassSessionResource::collection($sessions)->response()->getData(true));
     }
 
@@ -161,6 +187,7 @@ class ClassSessionController extends Controller
             (int) $request->validated('seats_total', 1),
             ClassSessionType::from((string) $request->validated('type', ClassSessionType::Individual->value)),
             $request->validated('title'),
+            $request->cohortId(),
         );
 
         return response()->json([
@@ -176,6 +203,12 @@ class ClassSessionController extends Controller
         $this->authorize('view', $session);
 
         $session->load(['course', 'bookings', 'recordingLesson']);
+
+        // One row, so the bulk shape buys nothing here — it is called anyway so
+        // the two endpoints answer the same question the same way. A field that
+        // exists on the list and is silently null on the detail is the shape this
+        // tree keeps paying for.
+        CohortNames::stamp([$session]);
 
         return response()->json(ClassSessionResource::make($session));
     }

@@ -79,6 +79,16 @@ export interface ClassSession {
   } | null;
   course?: { uuid: string; title: string };
   /**
+   * اسمُ المجموعةِ التي تنتمي إليها الحصّة — «السبت ٤م».
+   *
+   * ⚠️ **`null` جوابٌ لا غياب.** لا علاقةَ `cohort()` على `ClassSession` ولا
+   * يجوزُ أن تكون (المجموعةُ نموذجُ وحدةِ التعلّم)، فالاسمُ **يُختَمُ** دفعةً
+   * واحدةً بجوارِ الاستعلامِ عبرَ العقد — `CohortNames::stamp()`. فكلُّ صفٍّ مرَّ
+   * من هناك له جواب: `null` تعني «بلا مجموعة»، وهي حالةُ كلِّ حصّةٍ وُلِدَت قبلَ
+   * المجموعاتِ أصلاً.
+   */
+  cohort_name?: string | null;
+  /**
    * اسمُ المدرّس — **حاضرٌ فقط حين حمَّله المُنادي** (`whenLoaded`).
    *
    * غيابُ المفتاحِ يعني «لم يُطلَب» لا «لا مدرّسَ لها»: قراءتُه في المَورِدِ بلا
@@ -327,6 +337,12 @@ export const classSessions = {
        * of students a session is taught to.
        */
       course?: string;
+      /**
+       * A group uuid. Resolved on the server through `CohortDirectory` — there
+       * is no `cohort()` relation on `ClassSession` and there must not be — and
+       * an unresolvable one filters to nothing rather than to everything.
+       */
+      cohort?: string;
       order?: "asc" | "desc";
     } = {},
   ) => {
@@ -407,6 +423,15 @@ export const classSessions = {
     course_uuid: string;
     title: string;
     type: "individual" | "group";
+    /**
+     * ⚠️ REQUIRED FOR A GROUP LESSON, AND THE SERVER REFUSES WITHOUT IT.
+     * Every group session created here used to be born with no group, and the
+     * teacher's first group then took all of them out of every student's
+     * discovery list at once — with the «حصص محجوبة» panel refusing to file any
+     * that had already been taught. An individual slot has no student yet, so it
+     * has no one-seat group to belong to; it gets one at booking.
+     */
+    cohort_uuid?: string;
     starts_at: string;
     duration_minutes: number;
     seats_total: number;
@@ -429,6 +454,13 @@ export const classSessions = {
     seats_total?: number;
     type?: "individual" | "group";
     title?: string;
+    /**
+     * ⚠️ THE GROUP THE GENERATED DATES BELONG TO. Without it every session this
+     * produces is born with no group — and the teacher's first group then takes
+     * all of them out of every student's discovery list at a stroke, with the
+     * «حصص محجوبة» panel refusing to file the ones already taught.
+     */
+    cohort_uuid?: string;
   }) => api.post<GenerateResult>("/class-sessions/generate", body),
 
   cancel: (uuid: string, reason?: string) =>

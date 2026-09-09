@@ -10,6 +10,7 @@ use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Laravel\Sanctum\Sanctum;
 
@@ -236,4 +237,70 @@ it('leaves a course with no groups showing exactly what it showed before', funct
         ->pluck('title')->all();
 
     expect($titles)->toContain($session->title);
+});
+
+/*
+| ⚠️ A PRIVATE 1:1 ROOM IS NOT «THIS COURSE RUNS IN GROUPS», AND SAYING IT WAS
+| EMPTIED A TIMETABLE IN PRODUCTION.
+|
+| `DecidePrivateSessionRequest` calls `ensureIndividualCohort()` every time a
+| teacher grants a private hour, so a `cohorts` row appears on a course that has
+| no groups at all — and `coursesWithCohorts()` counted it. From that instant
+| every unassigned session of that course vanished from every enrolled student's
+| discovery list: no error, no message, and the teacher's own «حصص محجوبة» panel
+| offering them a group to assign to that the student could never be a member of.
+|
+| `joinableCohortsExist()` has carried the same `->group()` since 021 with a
+| comment saying why. This is its sibling, and it missed it.
+*/
+it('does not call a course «grouped» because one student has a private 1:1 room', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $student = User::factory()->create();
+
+    $session = app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace, $owner, $student): ClassSession {
+        $course = Course::factory()->published()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $owner->getKey(),
+        ]);
+
+        Enrollment::create([
+            'workspace_id' => $workspace->getKey(),
+            'course_id' => $course->getKey(),
+            'student_user_id' => $student->getKey(),
+            'source' => 'manual',
+            'status' => 'active',
+            'progress_pct' => 0,
+            'enrolled_at' => now(),
+        ]);
+
+        // The row a granted private hour leaves behind — somebody else's room,
+        // and the only `cohorts` row on the whole course.
+        app(CohortDirectory::class)->ensureIndividualCohort(
+            (int) $course->getKey(),
+            (int) $workspace->getKey(),
+            User::factory()->create(),
+            $owner,
+        );
+
+        $profile = TeacherProfile::factory()->create(['workspace_id' => $workspace->getKey()]);
+
+        return ClassSession::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'teacher_profile_id' => $profile->getKey(),
+            'course_id' => $course->getKey(),
+            'cohort_id' => null,
+            'title' => 'حصة لم تُحجب',
+            'starts_at' => now()->addWeek(),
+            'ends_at' => now()->addWeek()->addHour(),
+        ]);
+    });
+
+    Sanctum::actingAs($student);
+    $this->asGuest();
+
+    $titles = collect(
+        $this->getJson('/api/v1/courses/'.$session->course->uuid.'/sessions')->assertOk()->json('data'),
+    )->pluck('title')->all();
+
+    expect($titles)->toContain('حصة لم تُحجب');
 });

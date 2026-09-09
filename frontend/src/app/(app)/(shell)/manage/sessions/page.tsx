@@ -21,6 +21,7 @@ import {
 import { api, fieldErrors } from "@/lib/api";
 import { localDateTimeToIso } from "@/lib/labels";
 import type { Course } from "@/lib/types";
+import { manageCohorts, type CohortOption } from "@/lib/cohorts";
 import { userMessage } from "@/lib/errors";
 
 /** The local date, as `YYYY-MM-DD`. */
@@ -79,10 +80,18 @@ const TODAY: Filters = {
  * edits one of them. Looking BACKWARDS also flips the order — ascending over a
  * past range is the «oldest fifty» defect wearing the other face.
  */
-const SHORTCUTS: Record<string, { label: string; apply: (current: Filters) => Filters }> = {
+const SHORTCUTS: Record<
+  string,
+  { label: string; apply: (current: Filters) => Filters }
+> = {
   today: {
     label: "اليوم",
-    apply: (current) => ({ ...current, from: today(), to: today(), order: "asc" }),
+    apply: (current) => ({
+      ...current,
+      from: today(),
+      to: today(),
+      order: "asc",
+    }),
   },
   upcoming: {
     label: "القادمة",
@@ -111,9 +120,11 @@ const STATUS_OPTIONS = [
  * un-highlighting the button there would say the shortcut had been left.
  */
 function sameRangeAs(current: Filters, candidate: Filters): boolean {
-  return current.from === candidate.from
-    && current.to === candidate.to
-    && current.order === candidate.order;
+  return (
+    current.from === candidate.from &&
+    current.to === candidate.to &&
+    current.order === candidate.order
+  );
 }
 
 /**
@@ -125,7 +136,11 @@ function sameRangeAs(current: Filters, candidate: Filters): boolean {
  * have.
  */
 function emptyReason(filters: Filters): string {
-  if (filters.course !== "" || filters.teacher !== "" || filters.status !== "") {
+  if (
+    filters.course !== "" ||
+    filters.teacher !== "" ||
+    filters.status !== ""
+  ) {
     return "لا حصص تطابق هذه الفلاتر. جرّب «امسح الفلاتر».";
   }
 
@@ -155,7 +170,9 @@ function queryFrom(filters: Filters): Record<string, string> {
 export default function ManageSessionsPage() {
   const [sessions, setSessions] = useState<ClassSession[]>([]);
   // Opens on today, which is what the shortcut of the same name writes.
-  const [filters, setFilters] = useState<Filters>(() => SHORTCUTS.today.apply(TODAY));
+  const [filters, setFilters] = useState<Filters>(() =>
+    SHORTCUTS.today.apply(TODAY),
+  );
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -192,7 +209,20 @@ export default function ManageSessionsPage() {
 
   // The one-off form. It shares only the course with the generator above; the
   // teacher is no longer asked for on either.
-  const [oneOff, setOneOff] = useState({ title: "", startsAt: "", duration: "60", seats: "1" });
+  const [oneOff, setOneOff] = useState({
+    title: "",
+    startsAt: "",
+    duration: "60",
+    seats: "1",
+    cohortUuid: "",
+  });
+  /*
+    ⚠️ THE GROUPS OF THE CHOSEN COURSE. A group lesson must name one from the
+    moment it is created — before that rule, every group session made here was
+    born with no group, and the teacher's first group then removed all of them
+    from every student's discovery list at a stroke.
+  */
+  const [cohorts, setCohorts] = useState<CohortOption[]>([]);
   const [creating, setCreating] = useState(false);
   const [oneOffError, setOneOffError] = useState("");
   const [oneOffErrors, setOneOffErrors] = useState<Record<string, string>>({});
@@ -210,6 +240,20 @@ export default function ManageSessionsPage() {
       .then((response) => setCourseList(response.data))
       .catch(() => setCourseList([]));
   }, []);
+
+  // Refetched per course, and cleared first: a stale list from the previous
+  // course is a picker offering groups the server will refuse.
+  useEffect(() => {
+    setCohorts([]);
+    setOneOff((current) => ({ ...current, cohortUuid: "" }));
+
+    if (courseUuid === "") return;
+
+    manageCohorts
+      .list(courseUuid)
+      .then((response) => setCohorts((response.data ?? []).filter((c) => c.status !== "archived")))
+      .catch(() => setCohorts([]));
+  }, [courseUuid]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -262,6 +306,9 @@ export default function ManageSessionsPage() {
         // has exactly one meaning, and making the teacher say it twice invites
         // the pair to disagree.
         type: seats === 1 ? "individual" : "group",
+        // Sent only for a group lesson: the server refuses one without it, and
+        // an individual slot has no group to name yet.
+        ...(seats === 1 ? {} : { cohort_uuid: oneOff.cohortUuid }),
         // ⚠️ CONVERTED, NEVER SENT RAW. The input's value is a naive wall clock
         // and the API runs on UTC, so the string alone moved a lesson by the
         // operator's own offset — three hours, on the screen that schedules it.
@@ -270,7 +317,7 @@ export default function ManageSessionsPage() {
         seats_total: seats,
       });
 
-      setOneOff({ title: "", startsAt: "", duration: "60", seats: "1" });
+      setOneOff({ title: "", startsAt: "", duration: "60", seats: "1", cohortUuid: "" });
       load();
     } catch (err: unknown) {
       setOneOffErrors(fieldErrors(err));
@@ -285,34 +332,53 @@ export default function ManageSessionsPage() {
       <h2 className="text-2xl font-bold text-ink">حصصي</h2>
 
       <Card>
-        <h3 className="mb-4 font-semibold text-ink">توليد حصص من جدول التوفّر</h3>
+        <h3 className="mb-4 font-semibold text-ink">
+          توليد حصص من جدول التوفّر
+        </h3>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/*
+          ⚠️ صفٌّ للكورسِ وصفٌّ للمَدى، لا شبكةٌ واحدةٌ تُوزّعُ الثلاثةَ بالترتيب.
+          بعمودَينِ متساويَينِ كانَ الكورسُ يقتسمُ السطرَ مع «من تاريخ» ويهبطُ
+          «إلى تاريخ» وحدَه إلى السطرِ التالي — فطرفا مدًى واحدٍ منفصلانِ بينما
+          حقلٌ لا علاقةَ له بهما يقفُ بجانبِ أحدِهما. والقراءةُ تتبعُ المعنى:
+          «أيُّ كورس» سؤالٌ قائمٌ بذاتِه، و«من … إلى» سؤالٌ واحدٌ بطرفَين.
+
+          ⚠️ ولا `className` على حقلٍ من `components/ui/`: مظهرُ تلك العائلةِ
+          مجموعةٌ مغلقةٌ من الصيغ، فامتدادُ العمودِ يعيشُ في الحاويةِ لا في
+          الحقل — وهذا هو سببُ الشبكتَينِ بدلَ `md:col-span-2`.
+        */}
+        <div className="space-y-4">
           <SelectField
             id="course_uuid"
             label="الكورس"
             value={courseUuid}
             onChange={setCourseUuid}
             placeholder="اختر الكورس"
-            options={courseList.map((course) => ({ value: course.uuid, label: course.title }))}
+            options={courseList.map((course) => ({
+              value: course.uuid,
+              label: course.title,
+            }))}
             error={errors.course_uuid}
           />
-          <TextField
-            id="from"
-            label="من تاريخ"
-            type="date"
-            value={from}
-            onChange={setFrom}
-            error={errors.from}
-          />
-          <TextField
-            id="to"
-            label="إلى تاريخ"
-            type="date"
-            value={to}
-            onChange={setTo}
-            error={errors.to}
-          />
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <TextField
+              id="from"
+              label="من تاريخ"
+              type="date"
+              value={from}
+              onChange={setFrom}
+              error={errors.from}
+            />
+            <TextField
+              id="to"
+              label="إلى تاريخ"
+              type="date"
+              value={to}
+              onChange={setTo}
+              error={errors.to}
+            />
+          </div>
         </div>
 
         <div className="mt-4 flex items-center gap-3">
@@ -361,9 +427,12 @@ export default function ManageSessionsPage() {
             */}
             {result.created.length === 0 ? (
               <Alert tone="warning" title="لم تُنشَأ أيّ حصة">
-                لا مواعيد في جدول التوفّر ضمن هذا النطاق، فلم يكن هناك ما يُولَّد
-                منه.{" "}
-                <Link href="/settings/profile" className="font-semibold underline">
+                لا مواعيد في جدول التوفّر ضمن هذا النطاق، فلم يكن هناك ما
+                يُولَّد منه.{" "}
+                <Link
+                  href="/settings/profile"
+                  className="font-semibold underline"
+                >
                   حدِّث مواعيدك الأسبوعية
                 </Link>{" "}
                 ثم أعد التوليد، أو استخدم «حصة واحدة» أسفله لتحديد موعد بعينه.
@@ -394,8 +463,8 @@ export default function ManageSessionsPage() {
       <Card>
         <h3 className="mb-2 font-semibold text-ink">حصة واحدة</h3>
         <p className="mb-4 text-sm text-ink-muted">
-          خارج الجدول الأسبوعي — موعد بعينه لمرة واحدة (FR-002). التداخل مع حصة أخرى مرفوض،
-          وكذلك أي موعد داخل فترة تجميد.
+          خارج الجدول الأسبوعي — موعد بعينه لمرة واحدة (FR-002). التداخل مع حصة
+          أخرى مرفوض، وكذلك أي موعد داخل فترة تجميد.
         </p>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -427,14 +496,57 @@ export default function ManageSessionsPage() {
             value={oneOff.seats}
             onChange={(seats) => setOneOff({ ...oneOff, seats })}
             error={oneOffErrors.seats_total}
+            hint="مقعد واحد يعني حصة فردية."
           />
         </div>
+
+        {/*
+          ⚠️ SHOWN ONLY FOR A GROUP LESSON, AND REQUIRED THERE. One seat is a
+          private hour whose one-seat group cannot exist until somebody books
+          it; more than one is a class, and a class belongs to a group from the
+          moment it is created — otherwise the teacher's first group hides it
+          from every student, and the «حصص محجوبة» panel refuses to file it once
+          it has been taught.
+        */}
+        {Number(oneOff.seats) > 1 && (
+          <div className="mt-4">
+            {cohorts.length === 0 ? (
+              <Alert tone="warning" title="لا مجموعة في هذا الكورس بعد">
+                حصة المجموعة تنتمي إلى مجموعة منذ إنشائها.{" "}
+                {courseUuid !== "" && (
+                  <Link
+                    href={`/manage/courses/${courseUuid}/cohorts`}
+                    className="rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    أنشئ مجموعة لهذا الكورس
+                  </Link>
+                )}
+              </Alert>
+            ) : (
+              <SelectField
+                id="one_off_cohort"
+                label="المجموعة"
+                value={oneOff.cohortUuid}
+                onChange={(cohortUuid) => setOneOff({ ...oneOff, cohortUuid })}
+                placeholder="اختر مجموعة"
+                options={cohorts.map((cohort) => ({ value: cohort.uuid, label: cohort.name }))}
+                error={oneOffErrors.cohort_uuid}
+                required
+              />
+            )}
+          </div>
+        )}
 
         <div className="mt-4">
           <Button
             onClick={createOne}
             loading={creating}
-            disabled={courseUuid === "" || oneOff.title === "" || oneOff.startsAt === ""}
+            disabled={
+              courseUuid === "" ||
+              oneOff.title === "" ||
+              oneOff.startsAt === "" ||
+              (Number(oneOff.seats) > 1 && oneOff.cohortUuid === "")
+            }
           >
             إنشاء الحصة
           </Button>
@@ -460,12 +572,20 @@ export default function ManageSessionsPage() {
         asked for.
       */}
       <Card>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="مدى سريع">
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label="مدى سريع"
+        >
           {Object.entries(SHORTCUTS).map(([key, shortcut]) => (
             <Button
               key={key}
               size="sm"
-              variant={sameRangeAs(filters, shortcut.apply(filters)) ? "primary" : "ghost"}
+              variant={
+                sameRangeAs(filters, shortcut.apply(filters))
+                  ? "primary"
+                  : "ghost"
+              }
               onClick={() => setFilters(shortcut.apply(filters))}
             >
               {shortcut.label}
@@ -499,7 +619,12 @@ export default function ManageSessionsPage() {
             id="filter_order"
             label="الترتيب"
             value={filters.order}
-            onChange={(value) => setFilters({ ...filters, order: value === "desc" ? "desc" : "asc" })}
+            onChange={(value) =>
+              setFilters({
+                ...filters,
+                order: value === "desc" ? "desc" : "asc",
+              })
+            }
             options={[
               { value: "asc", label: "الأقدم أولاً" },
               { value: "desc", label: "الأحدث أولاً" },
@@ -516,7 +641,10 @@ export default function ManageSessionsPage() {
               value={filters.teacher}
               onChange={(value) => setFilters({ ...filters, teacher: value })}
               placeholder="كل المدرّسين"
-              options={teachers.map((teacher) => ({ value: teacher.uuid, label: teacher.name }))}
+              options={teachers.map((teacher) => ({
+                value: teacher.uuid,
+                label: teacher.name,
+              }))}
             />
           )}
 
@@ -528,7 +656,10 @@ export default function ManageSessionsPage() {
             value={filters.course}
             onChange={(value) => setFilters({ ...filters, course: value })}
             placeholder="كل المجموعات"
-            options={courseList.map((course) => ({ value: course.uuid, label: course.title }))}
+            options={courseList.map((course) => ({
+              value: course.uuid,
+              label: course.title,
+            }))}
           />
 
           <SelectField

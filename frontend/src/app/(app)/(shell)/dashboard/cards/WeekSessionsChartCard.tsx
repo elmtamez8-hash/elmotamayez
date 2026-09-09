@@ -27,21 +27,47 @@ function weekdayLabel(dayKey: string, timeZone: string): string {
  * عنوان**. ومنطقةُ الصفوفِ هي المرجع؛ فإذا لم يكن ثمَّ صفٌّ فالأعمدةُ أصفارٌ
  * كلُّها ولا يبقى للمنطقةِ أثرٌ إلّا في التسمية.
  */
-function buckets(rows: ClassSession[], now: Date): Array<{ key: string; count: number }> {
+function buckets(rows: ClassSession[], now: Date): Array<{ key: string; sessions: ClassSession[] }> {
   const zone = rows[0]?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const days = Array.from({ length: DAYS }, (_, index) => ({
     key: sessionDayKey(new Date(now.getTime() + index * 86_400_000).toISOString(), zone),
-    count: 0,
+    sessions: [] as ClassSession[],
   }));
 
   for (const session of rows) {
     const day = days.find((entry) => entry.key === sessionDayKey(session.starts_at, session.timezone));
 
-    if (day !== undefined) day.count += 1;
+    // ⚠️ الصفوفُ نفسُها تُحفَظُ لا عددُها وحدَه: العمودُ يقولُ «٣ حصص السبت»
+    // ويتركُ المدرّسَ يفتحُ التقويمَ ليعرفَ **أيّ** ثلاث. والصفوفُ محمَّلةٌ هنا
+    // أصلاً، فعرضُها لا يكلّفُ طلباً.
+    if (day !== undefined) day.sessions.push(session);
+  }
+
+  for (const day of days) {
+    // الخادمُ يرتّبُ القائمةَ كاملةً، لا كلَّ يومٍ على حدة — والفرزُ هنا هو ما
+    // يجعلُ ساعاتِ اليومِ تُقرَأُ من أوّلِها.
+    day.sessions.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   }
 
   return days;
+}
+
+/** «١٠/٠٩» — اليومُ والشهرُ بلا سنة: الأسبوعُ القادمُ لا يعبرُ سنتَين. */
+function dateLabel(dayKey: string, timeZone: string): string {
+  return new Date(`${dayKey}T12:00:00Z`).toLocaleDateString("ar", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone,
+  });
+}
+
+function clock(session: ClassSession): string {
+  return new Date(session.starts_at).toLocaleTimeString("ar", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: session.timezone,
+  });
 }
 
 /**
@@ -65,6 +91,15 @@ export function WeekSessionsChartCard() {
   const [rows, setRows] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /*
+   * ⚠️ حالتانِ لا واحدة، ولمسُ الهاتفِ هو السبب. المرورُ (`hovered`) عابرٌ يزولُ
+   * بمغادرةِ المؤشِّر؛ والضغطُ (`pinned`) يثبت. وهاتفٌ لا مؤشِّرَ له يُطلِقُ
+   * `mouseenter` **مرّةً** مع اللمسةِ ثمّ لا يُطلِقُ `mouseleave` أبداً — فحالةٌ
+   * واحدةٌ تعني لوحةً تُفتَحُ باللمسِ ولا تُغلَقُ إلّا بلمسِ يومٍ آخر، بلا أيِّ
+   * طريقٍ إلى الإغلاق.
+   */
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [pinned, setPinned] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!shown) return;
@@ -85,8 +120,10 @@ export function WeekSessionsChartCard() {
   const days = buckets(rows, new Date());
   // ⚠️ المقامُ واحدٌ على الأقلّ: أسبوعٌ خالٍ يجعلُ `count / max` قسمةً على صفرٍ
   // فيصيرُ الارتفاعُ `NaN%` — وهو عمودٌ لا يُرسَمُ بصمت.
-  const max = Math.max(1, ...days.map((day) => day.count));
+  const max = Math.max(1, ...days.map((day) => day.sessions.length));
   const zone = rows[0]?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const shownKey = pinned ?? hovered;
+  const shownDay = days.find((day) => day.key === shownKey) ?? null;
 
   return (
     <DashboardCard
@@ -99,21 +136,81 @@ export function WeekSessionsChartCard() {
     >
       {/* الرسمُ زينةٌ والقائمةُ هي البيان: كلُّ عمودٍ يحملُ اسمَ يومِه وعددَه
           نصّاً، فلا شيءَ هنا يُقرَأُ بالارتفاعِ وحدَه. */}
-      <ol className="flex items-end justify-between gap-2" style={{ height: "8rem" }}>
+      <ol className="flex items-end justify-between gap-2" style={{ height: "9.5rem" }}>
         {days.map((day) => (
-          <li key={day.key} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
-            <span className="text-xs text-ink-muted">
-              <bdi>{arabicNumber(day.count)}</bdi>
-            </span>
-            <div
-              className="w-full rounded-t bg-primary"
-              style={{ height: `${(day.count / max) * 100}%`, minHeight: "2px" }}
-              aria-hidden="true"
-            />
-            <span className="text-xs text-ink-muted">{weekdayLabel(day.key, zone)}</span>
+          <li key={day.key} className="flex h-full flex-1 flex-col justify-end">
+            {/*
+              ⚠️ زرٌّ حقيقيّ، لا `div` عليه `onMouseEnter`. اللوحةُ تحتَه هي
+              الطريقُ الوحيدُ إلى معرفةِ **أيّ** حصصٍ في اليوم، ولوحةٌ لا تُفتَحُ
+              إلّا بمؤشِّرٍ لا وجودَ لها على هاتفٍ ولا على لوحةِ مفاتيح.
+            */}
+            <button
+              type="button"
+              onMouseEnter={() => setHovered(day.key)}
+              onMouseLeave={() => setHovered(null)}
+              onFocus={() => setHovered(day.key)}
+              onBlur={() => setHovered(null)}
+              onClick={() => setPinned((current) => (current === day.key ? null : day.key))}
+              aria-pressed={pinned === day.key}
+              aria-label={`${weekdayLabel(day.key, zone)} ${dateLabel(day.key, zone)} — ${arabicNumber(day.sessions.length)} حصة`}
+              className={`flex h-full w-full flex-col items-center justify-end gap-1 rounded-lg p-1 transition hover:bg-primary-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                shownKey === day.key ? "bg-primary-soft" : ""
+              }`}
+            >
+              <span className="text-xs text-ink-muted">
+                <bdi>{arabicNumber(day.sessions.length)}</bdi>
+              </span>
+              <div
+                className="w-full rounded-t bg-primary"
+                style={{ height: `${(day.sessions.length / max) * 100}%`, minHeight: "2px" }}
+                aria-hidden="true"
+              />
+              <span className="text-xs text-ink-muted">{weekdayLabel(day.key, zone)}</span>
+              {/* ⚠️ التاريخُ تحتَ الاسمِ لأنّ «السبت» وحدَه يقعُ مرّتَينِ في أسبوعٍ
+                  يبدأُ اليوم: سبتُ الغدِ وسبتُ الأسبوعِ القادمِ عمودانِ بالاسمِ
+                  نفسِه، ولا شيءَ في الرسمِ يقولُ أيُّهما أيّ. */}
+              <span className="text-[0.625rem] text-ink-muted">
+                <bdi>{dateLabel(day.key, zone)}</bdi>
+              </span>
+            </button>
           </li>
         ))}
       </ol>
+
+      {shownDay !== null && (
+        <div className="mt-3 rounded-xl border border-line bg-primary-soft p-3">
+          <p className="mb-2 text-xs font-bold text-ink">
+            {weekdayLabel(shownDay.key, zone)} <bdi>{dateLabel(shownDay.key, zone)}</bdi>
+          </p>
+
+          {shownDay.sessions.length === 0 ? (
+            <p className="text-xs text-ink-muted">لا حصص في هذا اليوم.</p>
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {shownDay.sessions.map((session) => (
+                <li key={session.uuid} className="flex items-baseline justify-between gap-3 text-xs">
+                  <Link
+                    href={`/manage/sessions/${session.uuid}`}
+                    className="min-w-0 rounded text-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    <span className="block truncate">{session.title}</span>
+                    {/* ⚠️ اسمُ المجموعةِ هو ما يجعلُ السطرَ صالحاً للقراءة أصلاً:
+                        مدرّسٌ له ثلاثُ مجموعاتٍ في كورسٍ واحدٍ يرى ثلاثةَ عناوينَ
+                        متطابقةٍ في يومٍ واحد، ولا شيءَ يقولُ أيُّها لِمَن. وغيابُه
+                        `null` جوابٌ صريحٌ لا مفتاحٌ ناقص — «حصّة بلا مجموعة». */}
+                    {session.cohort_name != null && (
+                      <span className="block truncate text-[0.625rem] text-ink-muted">
+                        {session.cohort_name}
+                      </span>
+                    )}
+                  </Link>
+                  <bdi className="shrink-0 font-bold text-primary-ink">{clock(session)}</bdi>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {!loading && error === null && rows.length === 0 && (
         <p className="mt-4 text-sm text-ink-muted">

@@ -6,10 +6,12 @@ namespace App\Modules\LiveSessions\Actions;
 
 use App\Models\User;
 use App\Modules\LiveSessions\Enums\BookingStatus;
+use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\LiveSessions\Support\BookingEligibility;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\CohortDirectory;
 use DomainException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +38,7 @@ class BookSeat extends Action
 {
     public function __construct(
         private readonly BookingEligibility $eligibility,
+        private readonly CohortDirectory $cohorts,
     ) {}
 
     public function handle(ClassSession $session, User $student): SessionBooking
@@ -184,10 +187,59 @@ class BookSeat extends Action
                 throw new DomainException('لديك مقعد محجوز في هذه الحصة بالفعل.');
             }
 
+            $this->fileUnderTheStudentsOwnGroup($session, $student);
+
             $session->refresh();
 
             return $booking;
         });
+    }
+
+    /**
+     * A 1:1 slot joins the student's own one-seat group the moment they take it.
+     *
+     * ⚠️ THE EARLIEST INSTANT THE QUESTION HAS AN ANSWER. «No session without a
+     * group» is straightforward for a group lesson — it is refused at creation —
+     * and impossible for an open individual slot generated from the teacher's
+     * weekly availability: there is no student yet, so there is nobody to make a
+     * one-seat group of. The seat is what supplies the missing half.
+     *
+     * ⚠️ AND THIS IS SAFE ONLY BECAUSE `coursesWithCohorts()` FILTERS `->group()`.
+     * Until that was fixed, one individual cohort on a course made the course
+     * «grouped» — and every session on it still carrying no group vanished from
+     * every student's discovery list. Writing one here before that would have
+     * turned each private booking into exactly that outage.
+     *
+     * ⚠️ INSIDE THE TRANSACTION, so it is the booking or neither. A stamp written
+     * afterwards and failing leaves a seat whose session belongs to nobody — the
+     * state this exists to abolish — with nothing that would ever notice.
+     * `ensureIndividualCohort()` is idempotent by unique index, so a retry cannot
+     * make a second room.
+     */
+    private function fileUnderTheStudentsOwnGroup(ClassSession $session, User $student): void
+    {
+        if ($session->type !== ClassSessionType::Individual || $session->cohort_id !== null) {
+            return;
+        }
+
+        if ($session->course_id === null) {
+            // A one-off with no course has no curriculum to be a group of, and
+            // `ensureIndividualCohort` needs one. Historic rows only: a course
+            // is required on every schedulable session since Q-7.
+            return;
+        }
+
+        $cohortId = $this->cohorts->ensureIndividualCohort(
+            (int) $session->course_id,
+            (int) $session->workspace_id,
+            $student,
+            null,
+        );
+
+        // `forceFill`: `cohort_id` is deliberately not `$fillable` — which group
+        // a session belongs to decides who is offered it, so it is never a
+        // mass-assignable field. Same spelling `ScheduleClassSession` uses.
+        $session->forceFill(['cohort_id' => $cohortId])->save();
     }
 
     /**

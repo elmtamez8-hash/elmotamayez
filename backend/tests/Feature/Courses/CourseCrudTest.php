@@ -16,7 +16,9 @@ describe('course CRUD', function (): void {
 
         $this->getJson('/api/v1/courses')
             ->assertOk()
-            ->assertJsonPath('0.title', 'Test Course');
+            // `{data, links, meta}` since the index stopped dropping its
+            // envelope — see CourseController::index().
+            ->assertJsonPath('data.0.title', 'Test Course');
     });
 
     it('shows a single course', function (): void {

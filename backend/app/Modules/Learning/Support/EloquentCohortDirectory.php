@@ -6,9 +6,11 @@ namespace App\Modules\Learning\Support;
 
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Learning\Http\Resources\CohortResource;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Shared\Contracts\CohortDirectory;
+use App\Shared\Contracts\CohortScheduleDirectory;
 use Illuminate\Database\UniqueConstraintViolationException;
 use RuntimeException;
 
@@ -26,6 +28,10 @@ use RuntimeException;
  */
 class EloquentCohortDirectory implements CohortDirectory
 {
+    public function __construct(
+        private readonly CohortScheduleDirectory $schedule,
+    ) {}
+
     public function hasOpenMembership(User $user, int $courseId): bool
     {
         return CohortMembership::query()
@@ -131,6 +137,20 @@ class EloquentCohortDirectory implements CohortDirectory
         $ids = Cohort::query()
             ->withoutWorkspaceScope()
             ->whereIn('course_id', $courseIds)
+            /*
+            | ⚠️ `->group()`, THE SIBLING OF `joinableCohortsExist()`'s — AND ITS
+            | ABSENCE HERE WAS LIVE. This answers «does this course run in
+            | groups», which is what `CohortSessionVisibility` uses to decide
+            | whether an unassigned session is hidden. A private 1:1 cohort is
+            | not a run of the course: it is one named student's own room, and
+            | `DecidePrivateSessionRequest` creates one every time a teacher
+            | grants a private hour. So one granted request made the course
+            | «grouped», and every unassigned session on it vanished from every
+            | student's timetable at that instant — no error, no message, and the
+            | teacher's own «حصص محجوبة» panel offering a group to assign to that
+            | the student could never be in.
+            */
+            ->group()
             ->distinct()
             ->pluck('course_id')
             ->map(fn (mixed $id): int => (int) $id)
@@ -280,6 +300,46 @@ class EloquentCohortDirectory implements CohortDirectory
         return $out;
     }
 
+    public function teacherCohortsFor(array $courseIds): array
+    {
+        if ($courseIds === []) {
+            return [];
+        }
+
+        $cohorts = Cohort::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('course_id', $courseIds)
+            /*
+            | ⚠️ `->group()`: a private 1:1 cohort is one student's own room —
+            | born `closed` with `capacity: 1` and the student's id on it. Listed
+            | on a course card it would put a named student's private
+            | arrangement in a grid the whole workspace reads, and would drown
+            | the real groups the teacher is looking for.
+            */
+            ->group()
+            // The groups tab's own ordering, character for character.
+            ->orderBy('status')
+            ->orderBy('name')
+            ->get();
+
+        // ONE call for every group of every course on the page — the whole
+        // reason this method takes a list.
+        $preview = $this->schedule->schedulePreviewFor(
+            array_values($cohorts->map(fn (Cohort $cohort): int => (int) $cohort->getKey())->all()),
+        );
+
+        $out = [];
+
+        foreach ($cohorts as $cohort) {
+            $out[(int) $cohort->course_id][] = CohortResource::make(
+                $cohort,
+                $preview[(int) $cohort->getKey()] ?? [],
+            )->resolve();
+        }
+
+        return $out;
+    }
+
     public function ensureIndividualCohort(int $courseId, int $workspaceId, User $student, ?User $creator): int
     {
         $existing = $this->findIndividualCohort($courseId, (int) $student->getKey());
@@ -334,6 +394,36 @@ class EloquentCohortDirectory implements CohortDirectory
         }
 
         return (int) $cohort->getKey();
+    }
+
+    /**
+     * @param  list<int>  $cohortIds
+     * @return array<int, string>
+     */
+    public function namesFor(array $cohortIds): array
+    {
+        if ($cohortIds === []) {
+            return [];
+        }
+
+        /*
+        | ⚠️ `withoutWorkspaceScope()`, AND THE IDS ARE THE GUARD.
+        |
+        | The caller is a session row the reader is already entitled to see, so
+        | the id itself has passed every door there is. Leaving the scope on
+        | would answer differently for the two readers of the same calendar: a
+        | teacher resolves a workspace and would get the name, while a STUDENT is
+        | a member of no workspace at all — `WorkspaceContext::id()` is null for
+        | them, the scope adds no condition, and they would get it too. One
+        | answer for both, spelled out, beats one that is only accidentally the
+        | same.
+        */
+        return Cohort::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('id', array_values(array_unique($cohortIds)))
+            ->pluck('name', 'id')
+            ->mapWithKeys(fn (string $name, int|string $id): array => [(int) $id => $name])
+            ->all();
     }
 
     private function findIndividualCohort(int $courseId, int $studentUserId): ?int

@@ -67,6 +67,13 @@ export interface CohortOption {
    * to a student choosing between two groups, and rendering null as `0` would
    * hide the only group they can actually join.
    */
+  /**
+   * The ceiling the group declared, or `null` for none. Sent by `CohortResource`
+   * since 021 and absent from this type until the teacher's screen needed to
+   * draw how full a group is — the mirror of the usual drift: a field the API
+   * sends that nothing here could read.
+   */
+  capacity: number | null;
   seats_left: number | null;
   is_full: boolean;
   /**
@@ -161,10 +168,31 @@ export const manageCohorts = {
   list: (courseUuid: string) =>
     api.get<{ data: CohortOption[] }>(`/manage/courses/${courseUuid}/cohorts`),
 
+  /**
+   * One group and the course it is a run of.
+   *
+   * ⚠️ THE COURSE COMES WITH IT. The group's page is reached by its uuid alone,
+   * and everything on it — the timetable, «back to the course», generating dates
+   * — needs the course; fetching every course to find the owner of one group is
+   * a list read to answer a question one row already knows.
+   */
+  show: (cohortUuid: string) =>
+    api.get<CohortOption & { course: { uuid: string; title: string } | null }>(
+      `/manage/cohorts/${cohortUuid}`,
+    ),
+
   create: (courseUuid: string, body: { name: string; description?: string; capacity?: number | null }) =>
     api.post<CohortOption>(`/manage/courses/${courseUuid}/cohorts`, body),
 
-  update: (cohortUuid: string, body: { name?: string; capacity?: number | null; status?: "open" | "closed" }) =>
+  update: (
+    cohortUuid: string,
+    body: {
+      name?: string;
+      description?: string | null;
+      capacity?: number | null;
+      status?: "open" | "closed";
+    },
+  ) =>
     api.patch<CohortOption>(`/manage/cohorts/${cohortUuid}`, body),
 
   archive: (cohortUuid: string) => api.post<CohortOption>(`/manage/cohorts/${cohortUuid}/archive`),
@@ -207,3 +235,26 @@ export const manageCohorts = {
       session_uuids: sessionUuids,
     }),
 };
+
+/**
+ * What one line of the group's history says, in words.
+ *
+ * ⚠️ HERE RATHER THAN IN THE SCREEN THAT PRINTS IT. The union above is this
+ * module's, so the labels belong beside it — a map written inside a page is a
+ * second vocabulary the moment a second screen reads the same log, and an event
+ * added to the union with no label renders as a bare English key.
+ */
+export function cohortEventLabel(event: CohortHistoryEvent["event"]): string {
+  const LABELS: Record<CohortHistoryEvent["event"], string> = {
+    joined: "انضمّ",
+    transferred: "انتقل",
+    left: "غادر",
+    removed: "أُخرِج",
+    requested: "طلب الانتقال",
+    approved: "وُوفِق على انتقاله",
+    rejected: "رُفض انتقاله",
+    request_dropped: "سُحب طلبه",
+  };
+
+  return LABELS[event] ?? event;
+}

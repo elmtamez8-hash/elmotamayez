@@ -81,11 +81,21 @@ const SESSION = {
   join_open: false,
   seconds_until_join_open: 3600,
   seconds_until_start: 4500,
-  starts_at: "2026-09-09T09:00:00+03:00",
-  ends_at: "2026-09-09T10:00:00+03:00",
+  /*
+  | ⚠️ **غداً، لا تاريخٌ مكتوبٌ بالحرف.** كان `2026-09-09` حرفيّاً، ورسمُ الأسبوعِ
+  | يبني أعمدتَه من `now()` — فتوكيدةُ «عمودٌ واحدٌ فيه حصّة» كانت صحيحةً في اليومِ
+  | الذي كُتِبَت فيه وحدَه، وتحمَرُّ من تلقاءِ نفسِها في اليومِ التالي على بناءٍ لم
+  | يتغيّرْ فيه شيء. ولا توكيدةَ في هذا الملفِّ تقرأُ التاريخَ نصّاً، فالنسبيّةُ
+  | لا تكلّفُ شيئاً.
+  */
+  starts_at: new Date(Date.now() + 86_400_000).toISOString(),
+  ends_at: new Date(Date.now() + 90_000_000).toISOString(),
   duration_minutes: 60,
   timezone: "Asia/Qatar",
   seats: { total: 10, taken: 3, available: 7 },
+  // ⚠️ اسمٌ مختومٌ لا علاقةٌ محمَّلة: لا `cohort()` على `ClassSession` ولا يجوزُ
+  // أن تكون، فـ`CohortNames::stamp()` يضعُه بجوارِ الاستعلامِ عبرَ العقد.
+  cohort_name: "السبت ٤م",
   my_booking: null,
   course: { uuid: "c-1", title: "الفيزياء" },
   teacher_name: "أ. منى",
@@ -788,6 +798,61 @@ describe("DashboardPage · الرسوم", () => {
     expect(chart.getAllByRole("listitem")).toHaveLength(7);
     expect(chart.getAllByText("٠").length).toBe(6);
     expect(chart.getAllByText("١").length).toBe(1);
+  });
+
+  it("names each column by DATE as well as weekday, and opens that day on a tap", async () => {
+    asTeacher(HOST);
+
+    render(<DashboardPage />);
+
+    const chart = within(
+      (await screen.findByText("حصص الأسبوع القادم")).closest("section") as HTMLElement,
+    );
+
+    /*
+    | ⚠️ **الاسمُ وحدَه يقعُ مرّتَين.** أسبوعٌ يبدأُ اليومَ يحملُ «السبت» عمودَينِ —
+    | سبتَ الغدِ وسبتَ الأسبوعِ القادم — ولا شيءَ في الرسمِ يقولُ أيُّهما أيّ. فاسمُ
+    | كلِّ عمودٍ يحملُ تاريخَه.
+    */
+    const day = chart.getByRole("button", { name: /١ حصة/ });
+
+    /*
+    | ⚠️ التاريخُ **المحسوبُ من التركيبةِ نفسِها**، لا نمطٌ عامٌّ لرقم. توكيدةٌ من
+    | شكلِ `/[٠-٩]/` تمرُّ على «١ حصة» وحدَها وتبقى خضراءَ لو حُذِفَ التاريخُ
+    | بالكامل — وهي شكلُ التوكيدةِ الفارغةِ الذي يُسجَّلُ في هذه الشجرةِ مراراً.
+    */
+    const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString("ar", {
+      day: "2-digit",
+      month: "2-digit",
+      timeZone: "Asia/Qatar",
+    });
+
+    expect(day.textContent).toContain(tomorrow);
+
+    /*
+    | ⚠️ **ضغطةٌ لا مرورُ مؤشِّر.** هاتفٌ لا مؤشِّرَ له، ولوحةٌ لا تُفتَحُ إلّا
+    | بـ`hover` غيرُ موجودةٍ على نصفِ الأجهزةِ ولا على لوحةِ المفاتيح.
+    */
+    fireEvent.click(day);
+
+    expect(chart.getByText("المتجهات")).toBeDefined();
+
+    /*
+    | ⚠️ واسمُ المجموعةِ تحتَ العنوان. مدرّسٌ له ثلاثُ مجموعاتٍ في كورسٍ واحدٍ يرى
+    | ثلاثةَ عناوينَ متطابقةً في اليومِ الواحد، ولا شيءَ في اللوحةِ يقولُ أيُّها
+    | لِمَن — وهو الفرقُ بينَ لوحةٍ تُقرَأُ ولوحةٍ تُفتَحُ ثمّ يُفتَحُ التقويمُ بعدَها.
+    */
+    expect(chart.getByText("السبت ٤م")).toBeDefined();
+
+    // `closest`: العنوانُ صارَ داخلَ الرابطِ لا هو الرابط، وسطرُ المجموعةِ تحتَه.
+    expect(chart.getByText("المتجهات").closest("a")?.getAttribute("href")).toBe(
+      "/manage/sessions/s-1",
+    );
+
+    // والضغطةُ الثانيةُ تُغلِق: لوحةٌ لا مخرجَ لها على هاتفٍ لا تُغلَقُ أبداً.
+    fireEvent.click(day);
+
+    expect(chart.queryByText("المتجهات")).toBeNull();
   });
 
   it("draws seven zero columns AND says why, when the week is empty", async () => {

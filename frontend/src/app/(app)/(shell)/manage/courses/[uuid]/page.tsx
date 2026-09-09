@@ -12,22 +12,41 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 
+/**
+ * ⚠️ MIRRORS `CourseSectionResource` FIELD FOR FIELD, AND UNTIL NOW IT DID NOT.
+ *
+ * It declared `id: number` on a section and on a chapter, plus an
+ * `is_published: boolean` the server has never sent — three fields that do not
+ * exist in the payload. Models here expose `uuid` and never the serial key
+ * (`HasUuid`, and the resource says so in a comment of its own), so `section.id`
+ * was `undefined` for every row on every course.
+ *
+ * ⚠️ AND A LOCAL TYPE IS EXACTLY WHY `tsc` COULD NOT SEE IT. A hand-written
+ * shape beside the fetch is an ASSERTION about a response, not a reading of one:
+ * it type-checks perfectly against itself while describing a payload nobody
+ * sends. The only symptom was React's duplicate-key warning in the console —
+ * `key={undefined}` on every section — which says nothing about the cause and
+ * appears on a screen that otherwise renders correctly.
+ */
 interface CourseDetail extends Course {
   sections?: Array<{
-    id: number;
+    uuid: string;
     title: string;
     order: number;
-    is_published: boolean;
+    status: string;
     chapters?: Array<{
-      id: number;
+      uuid: string;
       title: string;
       order: number;
+      status: string;
       lessons?: Array<{
         uuid: string;
         title: string;
         type: string;
         order: number;
+        status: string;
         is_preview: boolean;
+        is_high_value: boolean;
         duration_seconds: number;
       }>;
     }>;
@@ -136,12 +155,12 @@ export default function CourseDetailPage({
           <h3 className="mb-4 font-semibold text-ink">محتوى الكورس</h3>
           <div className="space-y-4">
             {course.sections.map((section) => (
-              <div key={section.id}>
+              <div key={section.uuid}>
                 <h4 className="mb-2 text-sm font-medium text-ink">{section.title}</h4>
 
                 {section.chapters?.map((chapter) => (
                   // ms-*, not ml-*: the indent has to grow from the right in RTL.
-                  <div key={chapter.id} className="ms-4 space-y-1">
+                  <div key={chapter.uuid} className="ms-4 space-y-1">
                     <p className="text-xs text-ink-muted">{chapter.title}</p>
 
                     <ul className="ms-4 space-y-1">

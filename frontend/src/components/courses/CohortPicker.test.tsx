@@ -25,6 +25,7 @@ function option(overrides: Partial<CohortOption> = {}): CohortOption {
     name: "السبت ٤م",
     description: null,
     status: "open",
+    capacity: null,
     seats_left: 3,
     is_full: false,
     is_joinable: true,
