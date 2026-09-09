@@ -8,6 +8,17 @@
 # وهو أربعُ دقائقَ مقابلَ ثانيتَين لـ`npm test` — وسؤالُه مختلفٌ أصلاً: «هل يعملُ
 # المنتَجُ من طرفٍ إلى طرف» لا «هل يفعلُ هذا المكوّنُ ما يقول».
 
+# ⚠️ THE ACTION MAJORS ARE THE RUNTIME THE *ACTIONS* RUN ON, NOT OUR `node-version`.
+# GitHub's «Node 20 is being deprecated» notice in the log is about `checkout`,
+# `setup-node` and `cache` themselves — the runner already substitutes Node 24 for
+# them, which is why nothing was failing. `node-version: '24'` below is a separate
+# decision with its own reason written beside it, and it did not move.
+#
+# checkout v7 · setup-node v7 · cache v6 all require runner ≥ 2.327.1 (every
+# GitHub-hosted runner is past it; a self-hosted one would have to be checked).
+# The one behavioural change on this repo's path is setup-node's automatic
+# caching — see the note above that step.
+
 name: CI
 
 on:
@@ -61,7 +72,7 @@ jobs:
         shard: [1, 2, 3, 4]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: PHP 8.5
         uses: shivammathur/setup-php@v2
@@ -74,7 +85,7 @@ jobs:
           coverage: none
 
       - name: Cache Composer
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.composer/cache
           key: composer-${{ hashFiles('backend/composer.lock') }}
@@ -140,7 +151,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: PHP 8.5
         uses: shivammathur/setup-php@v2
@@ -150,7 +161,7 @@ jobs:
           coverage: none
 
       - name: Cache Composer
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.composer/cache
           key: composer-${{ hashFiles('backend/composer.lock') }}
@@ -180,9 +191,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      # ⚠️ `setup-node@v5` STARTED CACHING BY ITSELF, AND THE ONLY REASON THAT IS
+      # HARMLESS HERE IS A FIELD WE DO NOT HAVE. Automatic caching fires when
+      # `package.json` carries `packageManager`; `frontend/package.json` carries
+      # none, and the `cache:`/`cache-dependency-path:` below are explicit
+      # anyway. Add a `packageManager` field one day and read this again — the
+      # opt-out is `package-manager-cache: false`, and two caches keyed
+      # differently over one lockfile is a slow build nobody can explain.
+      - uses: actions/setup-node@v7
         with:
           # ⚠️ 24, AND IT MUST MATCH `docker/frontend.Dockerfile` AND THE MACHINES
           # PEOPLE WORK ON. It was 20 while development ran on 24, and the cost was
