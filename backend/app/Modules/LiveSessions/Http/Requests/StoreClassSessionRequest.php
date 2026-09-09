@@ -10,6 +10,7 @@ use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Support\SchedulableTeachers;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Support\WorkspaceRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -72,6 +73,25 @@ class StoreClassSessionRequest extends FormRequest
             | check of any kind.
             */
             'subject_uuid' => ['nullable', 'uuid', Rule::exists('subjects', 'uuid')],
+            /*
+            | ⚠️ REQUIRED FOR A GROUP LESSON, AND ABSENT FROM THIS FILE UNTIL
+            | 2026-09-09. Every group session created from `/manage/sessions` was
+            | born with no group — which the teacher's first group then hid from
+            | every student's discovery list at a stroke, with the «حصص محجوبة»
+            | panel refusing to file any of them that had already been taught.
+            |
+            | No `exists` rule: the uuid is resolved through `CohortDirectory` in
+            | {@see self::payload()}, which asks the question that actually
+            | matters — «is this group THIS COURSE's, and is it a real group
+            | rather than somebody's private 1:1 room» — and answers the same
+            | `null` for a uuid belonging to another course as for one that names
+            | nothing, so the refusal is not an oracle for which uuids exist.
+            |
+            | `required_if`, not `required`: an individual slot has no student
+            | yet, so it has no one-seat group to belong to. It gets one at
+            | booking.
+            */
+            'cohort_uuid' => ['nullable', 'uuid', 'required_if:type,'.ClassSessionType::Group->value],
             'title' => ['required', 'string', 'max:255'],
             'type' => ['required', Rule::enum(ClassSessionType::class)],
             'starts_at' => ['required', 'date', 'after:now'],
@@ -104,6 +124,21 @@ class StoreClassSessionRequest extends FormRequest
             ->where('uuid', $data['course_uuid'])
             ->firstOrFail()
             ->getKey();
+
+        if (($data['cohort_uuid'] ?? null) !== null) {
+            $cohortId = app(CohortDirectory::class)->resolveCohortId(
+                (string) $data['cohort_uuid'],
+                (int) $data['course_id'],
+            );
+
+            if ($cohortId === null) {
+                throw ValidationException::withMessages([
+                    'cohort_uuid' => 'هذه المجموعة ليست من هذا الكورس.',
+                ]);
+            }
+
+            $data['cohort_id'] = $cohortId;
+        }
 
         if (($data['subject_uuid'] ?? null) !== null) {
             $data['subject_id'] = Subject::query()

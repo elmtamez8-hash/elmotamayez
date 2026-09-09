@@ -407,6 +407,15 @@ export const classSessions = {
     course_uuid: string;
     title: string;
     type: "individual" | "group";
+    /**
+     * ⚠️ REQUIRED FOR A GROUP LESSON, AND THE SERVER REFUSES WITHOUT IT.
+     * Every group session created here used to be born with no group, and the
+     * teacher's first group then took all of them out of every student's
+     * discovery list at once — with the «حصص محجوبة» panel refusing to file any
+     * that had already been taught. An individual slot has no student yet, so it
+     * has no one-seat group to belong to; it gets one at booking.
+     */
+    cohort_uuid?: string;
     starts_at: string;
     duration_minutes: number;
     seats_total: number;
