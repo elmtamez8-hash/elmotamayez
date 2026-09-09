@@ -15,7 +15,15 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 
 /**
  * A student who moved to another group gives up the seats they held in the one
- * they left (FR-030).
+ * they left (FR-030), and takes the seats of the one they entered (052).
+ *
+ * ⚠️ THE NAME PREDATES THE SECOND HALF AND IS DELIBERATELY NOT CHANGED. Since
+ * 027 this class has also RE-BOOKED, and 052 widened that arm to every active
+ * member and to a first join — so it is «what happens to a person's seats when
+ * their group changes», releasing being one of two answers. Renaming it would
+ * churn the provider wiring and every test that names it for no behaviour;
+ * Media's own source-disk config key is the precedent for keeping a name and
+ * writing down what it now means.
  *
  * ⚠️ THROUGH `CancelBooking`, NEVER A RAW DELETE. A cancellation frees the seat,
  * settles what it costs and leaves the row where it was; deleting one breaks
@@ -42,6 +50,20 @@ class ReleaseSeatsOnTransfer implements ShouldHandleEventsAfterCommit, ShouldQue
 
     public function handle(CohortMembershipOpened $event): void
     {
+        /*
+        | ⚠️ A FIRST JOIN CARRIES NO ORIGIN, AND ONLY THE RELEASE ARM CARES.
+        | 052 made this event fire on a first join as well as a move, because
+        | `rebook()` below is what seats a new member in the term their teacher
+        | already published. There is nothing to give up then — a `cohort_id` of
+        | null would match every session that belongs to no group at all, which
+        | is the student's own private lessons and every session predating groups.
+        */
+        if ($event->fromCohortId === null) {
+            $this->rebook($event);
+
+            return;
+        }
+
         $bookings = SessionBooking::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $event->studentUserId)
@@ -96,9 +118,14 @@ class ReleaseSeatsOnTransfer implements ShouldHandleEventsAfterCommit, ShouldQue
      * ⚠️ AND THE SUBSCRIPTION IS ASKED PER LESSON, NOT ONCE. This event carries no
      * end date — a membership move says nothing about what was bought — so the
      * question is «is their month live at THIS lesson's hour», which is exactly
-     * what the directory answers. A student with no subscription at all simply
-     * matches nothing and is booked into nothing, which is correct: their seats
-     * are theirs to take by hand, as they always were.
+     * what the directory answers.
+     *
+     * ⚠️ THE SENTENCE THAT STOOD HERE — «a student with no subscription matches
+     * nothing and is booked into nothing, which is correct: their seats are
+     * theirs to take by hand» — IS REPEALED BY 052. It was the whole feature for
+     * the majority of students, who pay by credit, and it meant joining a group
+     * put nothing on their timetable at all. `forMemberInCohort()` now seats them
+     * through the same door their own «احجز» button uses.
      *
      * Refusals are deliberately not announced here. The seats being released a
      * few lines above are the same student's, in the same breath, by the same

@@ -132,16 +132,23 @@ final class CohortMembershipWriter
             | because by the time a listener runs the membership row no longer
             | says which group it was — the same reason `SessionCancelled`
             | carries its seat holders.
+            |
+            | ⚠️ AND IT FIRES ON A FIRST JOIN TOO, WHICH IT DID NOT UNTIL 052.
+            | The old `if ($existing !== null)` was right while the only listener
+            | RELEASED seats; that same listener now also SEATS the member in the
+            | group they entered, and withholding the event on a first join made
+            | the new half reach nobody in the ordinary case — a teacher publishes
+            | a term on Sunday, students join through the week, and not one of
+            | them is booked into it. `fromCohortId` is null then, and the release
+            | arm reads that as «there is nothing to give up».
             */
-            if ($existing !== null) {
-                event(new CohortMembershipOpened(
-                    workspaceId: (int) $cohort->workspace_id,
-                    courseId: (int) $cohort->course_id,
-                    studentUserId: (int) $student->getKey(),
-                    fromCohortId: (int) $existing->cohort_id,
-                    toCohortId: (int) $cohort->getKey(),
-                ));
-            }
+            event(new CohortMembershipOpened(
+                workspaceId: (int) $cohort->workspace_id,
+                courseId: (int) $cohort->course_id,
+                studentUserId: (int) $student->getKey(),
+                fromCohortId: $existing === null ? null : (int) $existing->cohort_id,
+                toCohortId: (int) $cohort->getKey(),
+            ));
 
             return $membership;
         });
