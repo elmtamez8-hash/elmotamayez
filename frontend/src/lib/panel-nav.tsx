@@ -145,6 +145,7 @@ export const mainNav: NavItem[] = [
   // typing its address is one whose requests expire unanswered, and the student
   // is told «انتهت المهلة» about a lesson the teacher meant to give them.
   { href: "/manage/private-sessions", label: "طلبات الحصص الخاصة", Icon: SessionsIcon, permission: P.sessionsManage },
+  { href: "/manage/reschedule-requests", label: "طلبات تأجيل الحصص", Icon: SessionsIcon, permission: P.sessionsManage },
   // The teacher's own money. /orders is the student's side and is a different
   // question with different permissions — SETTLEMENT_STATEMENT_VIEW reaches only
   // the teacher, never their assistant.

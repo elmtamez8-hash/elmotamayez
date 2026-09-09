@@ -47,7 +47,10 @@ it('defaults to whatsapp for exactly the eighteen guardian types plus the securi
     // `requiredGuardianPermission()` in this same edit. Its sibling
     // `subscription_seat_unavailable` deliberately does NOT target guardians and
     // so does not move this number.
-    expect($onWhatsApp)->toHaveCount(26);
+    // 26 → 27 with spec 049: `session_rescheduled` alone. It carries
+    // `requiredGuardianPermission()` in this same edit; its two siblings do not
+    // target guardians and so do not move this number.
+    expect($onWhatsApp)->toHaveCount(27);
 });
 
 it('derives the set from targetsGuardians, with two named exceptions and no others', function (): void {

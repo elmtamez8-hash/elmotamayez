@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ScheduleIcon } from "@/components/icons";
 import { NextSessionCountdown } from "@/components/sessions/NextSessionCountdown";
+import { RescheduleAskButton } from "@/components/sessions/RescheduleAskButton";
 import { SessionCard } from "@/components/sessions/SessionCard";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -164,6 +165,23 @@ export default function SchedulePage() {
                              see the prop's own note on SessionCard. */
                           variant="timetable"
                         />
+
+                        {/*
+                          ⚠️ ONLY ON A LESSON THAT HAS NOT STARTED. An hour
+                          already under way cannot be moved, and offering the
+                          control there is a request the server refuses with a
+                          sentence the student can do nothing about. The server
+                          refuses it too — hiding a control is not a guard.
+                        */}
+                        {new Date(row.session.starts_at).getTime() > Date.now() && (
+                          <div className="mt-1 flex justify-end">
+                            <RescheduleAskButton
+                              sessionUuid={row.session.uuid}
+                              title={row.session.title}
+                              onDone={load}
+                            />
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

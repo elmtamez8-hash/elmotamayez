@@ -27,11 +27,13 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Modules\LiveSessions\Models\PrivateSessionRequest;
 use App\Modules\LiveSessions\Models\SessionBooking;
+use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
 use App\Modules\LiveSessions\Policies\AttendancePolicy;
 use App\Modules\LiveSessions\Policies\ClassSessionPolicy;
 use App\Modules\LiveSessions\Policies\FreezePeriodPolicy;
 use App\Modules\LiveSessions\Policies\PrivateSessionRequestPolicy;
 use App\Modules\LiveSessions\Policies\SessionBookingPolicy;
+use App\Modules\LiveSessions\Policies\SessionRescheduleRequestPolicy;
 use App\Modules\LiveSessions\Providers\LiveKitBroadcastProvider;
 use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
 use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
@@ -153,6 +155,7 @@ class LiveSessionsServiceProvider extends Module
         | that was never written.
         */
         Gate::policy(PrivateSessionRequest::class, PrivateSessionRequestPolicy::class);
+        Gate::policy(SessionRescheduleRequest::class, SessionRescheduleRequestPolicy::class);
 
         // A departing teacher answers nobody (023 · FR-026). Heard rather than
         // called: Compliance announces the exit and every module claims the part

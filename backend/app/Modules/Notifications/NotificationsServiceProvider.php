@@ -21,6 +21,8 @@ use App\Modules\Learning\Events\EnrollmentCreated;
 use App\Modules\LiveSessions\Events\PrivateSessionDecided;
 use App\Modules\LiveSessions\Events\PrivateSessionExpired;
 use App\Modules\LiveSessions\Events\PrivateSessionRequested;
+use App\Modules\LiveSessions\Events\SessionRescheduleDecided;
+use App\Modules\LiveSessions\Events\SessionRescheduleRequested;
 use App\Modules\Marketplace\Events\TeacherApproved;
 use App\Modules\Marketplace\Events\TeacherChangesRequested;
 use App\Modules\Marketplace\Events\TeacherRejected;
@@ -31,6 +33,7 @@ use App\Modules\Notifications\Channels\WhatsAppChannel;
 use App\Modules\Notifications\Listeners\NotifyImportReady;
 use App\Modules\Notifications\Listeners\NotifyOffboardingStudents;
 use App\Modules\Notifications\Listeners\NotifyOnRewardRedeemed;
+use App\Modules\Notifications\Listeners\NotifySessionRescheduleDecided;
 use App\Modules\Notifications\Listeners\NotifyStudentBadgeAwarded;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateIssued;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateRegenerated;
@@ -48,6 +51,7 @@ use App\Modules\Notifications\Listeners\NotifyTeacherChangesRequested;
 use App\Modules\Notifications\Listeners\NotifyTeacherCohortTransferRequested;
 use App\Modules\Notifications\Listeners\NotifyTeacherPrivateSessionRequested;
 use App\Modules\Notifications\Listeners\NotifyTeacherRejected;
+use App\Modules\Notifications\Listeners\NotifyTeacherSessionRescheduleRequested;
 use App\Modules\Notifications\Support\NotificationsPersonalData;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
@@ -168,6 +172,9 @@ class NotificationsServiceProvider extends Module
         Event::listen(PrivateSessionRequested::class, NotifyTeacherPrivateSessionRequested::class);
         Event::listen(PrivateSessionDecided::class, NotifyStudentPrivateSessionDecided::class);
         Event::listen(PrivateSessionExpired::class, NotifyStudentPrivateSessionExpired::class);
+
+        Event::listen(SessionRescheduleRequested::class, NotifyTeacherSessionRescheduleRequested::class);
+        Event::listen(SessionRescheduleDecided::class, NotifySessionRescheduleDecided::class);
         Event::listen(SubmissionGraded::class, NotifyStudentSubmissionGraded::class);
 
         /*

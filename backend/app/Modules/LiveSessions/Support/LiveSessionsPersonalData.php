@@ -6,6 +6,7 @@ namespace App\Modules\LiveSessions\Support;
 
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\SessionBooking;
+use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
@@ -119,6 +120,48 @@ class LiveSessionsPersonalData implements PersonalDataOwner
             ],
             column: 'session_bookings.id',
         );
+
+        /*
+        | 049. ⚠️ FILED UNDER `attendance_record` RATHER THAN UNDER A CATEGORY OF
+        | ITS OWN, and the reason is the retention it inherits: a postponement is
+        | a sentence a student wrote about a lesson they had a seat in, which is
+        | exactly what a cancellation reason on the booking beside it already is.
+        | A second category would be a second retention number for one kind of
+        | fact — and the day they drift, one of the two is wrong and nothing says
+        | which.
+        |
+        | ⚠️ AND `private_session_requests` AND `cohort_transfer_requests` ARE
+        | STILL ABSENT FROM THIS FILE. Both carry a student's own words and
+        | neither is exported or swept, because `PersonalDataContractCoverageTest`
+        | is a per-MODULE guard and a new table inside a registered module is
+        | invisible to it — the limitation this repository records rather than
+        | half-closes. Named here so the next reader knows it is a gap and not a
+        | decision.
+        */
+        yield from ExportWalk::keyed(
+            'attendance_record',
+            SessionRescheduleRequest::query()
+                ->withoutWorkspaceScope()
+                ->leftJoin('class_sessions', 'class_sessions.id', '=', 'session_reschedule_requests.class_session_id')
+                ->where('session_reschedule_requests.student_user_id', $userId)
+                ->select([
+                    'session_reschedule_requests.*',
+                    'class_sessions.title as session_title',
+                ]),
+            fn (SessionRescheduleRequest $ask): array => [
+                'uuid' => $ask->uuid,
+                'session_title' => $ask->getAttribute('session_title'),
+                'from_starts_at' => ExportWalk::at($ask->from_starts_at),
+                'to_starts_at' => ExportWalk::at($ask->to_starts_at),
+                'status' => $ask->status,
+                // Both are statements about this person: their own reason for
+                // asking, and their teacher's for refusing.
+                'student_reason' => $ask->student_reason,
+                'decision_reason' => $ask->decision_reason,
+                'decided_at' => ExportWalk::at($ask->decided_at),
+            ],
+            column: 'session_reschedule_requests.id',
+        );
     }
 
     /**
@@ -162,12 +205,25 @@ class LiveSessionsPersonalData implements PersonalDataOwner
             return $cleared;
         }
 
-        return $cleared + SessionBooking::query()
+        $cleared += SessionBooking::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $userId)
             ->whereNotNull('cancellation_reason')
             ->limit($limit - $cleared)
             ->update(['cancellation_reason' => null]);
+
+        if ($cleared >= $limit) {
+            return $cleared;
+        }
+
+        // The row stays — it is the record that a lesson moved, which the group
+        // it moved for can still see. What goes is the writing about a person.
+        return $cleared + SessionRescheduleRequest::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $userId)
+            ->whereNotNull('student_reason')
+            ->limit($limit - $cleared)
+            ->update(['student_reason' => null]);
     }
 
     /**
@@ -222,12 +278,24 @@ class LiveSessionsPersonalData implements PersonalDataOwner
             return $cleared;
         }
 
-        return $cleared + SessionBooking::query()
+        $cleared += SessionBooking::query()
             ->withoutWorkspaceScope()
             ->where('created_at', '<', $cutoff)
             ->whereNotNull('cancellation_reason')
             ->when($exemptUserIds !== [], fn ($query) => $query->whereNotIn('student_user_id', $exemptUserIds))
             ->limit($limit - $cleared)
             ->update(['cancellation_reason' => null]);
+
+        if ($cleared >= $limit) {
+            return $cleared;
+        }
+
+        return $cleared + SessionRescheduleRequest::query()
+            ->withoutWorkspaceScope()
+            ->where('created_at', '<', $cutoff)
+            ->whereNotNull('student_reason')
+            ->when($exemptUserIds !== [], fn ($query) => $query->whereNotIn('student_user_id', $exemptUserIds))
+            ->limit($limit - $cleared)
+            ->update(['student_reason' => null]);
     }
 }

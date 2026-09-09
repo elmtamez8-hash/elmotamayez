@@ -10,6 +10,7 @@ use App\Modules\LiveSessions\Http\Controllers\EligibilityController;
 use App\Modules\LiveSessions\Http\Controllers\FreezePeriodController;
 use App\Modules\LiveSessions\Http\Controllers\PrivateSessionRequestController;
 use App\Modules\LiveSessions\Http\Controllers\ScheduleController;
+use App\Modules\LiveSessions\Http\Controllers\SessionRescheduleRequestController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -128,6 +129,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/private-session-requests', [PrivateSessionRequestController::class, 'index']);
     Route::get('/manage/private-session-requests', [PrivateSessionRequestController::class, 'queue']);
 
+    /*
+    | 049 — «أجّل حصّةَ هذا الأسبوع». Two reads, unthrottled for the same reason
+    | as the two above them: indexed queries behind `auth:sanctum`, and rate
+    | limiting a student's own list of asks leaves them staring at a screen that
+    | cannot say what it is waiting for.
+    */
+    Route::get('/session-reschedule-requests', [SessionRescheduleRequestController::class, 'index']);
+    Route::get('/manage/session-reschedule-requests', [SessionRescheduleRequestController::class, 'queue']);
+
     Route::middleware('throttle:sessions')->group(function (): void {
         Route::post('/manage/courses/{course}/assign-sessions', [ClassSessionController::class, 'assignSessions']);
 
@@ -158,6 +168,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/courses/{course}/private-session-requests', [PrivateSessionRequestController::class, 'store']);
         Route::delete('/private-session-requests/{uuid}', [PrivateSessionRequestController::class, 'destroy']);
         Route::post('/manage/private-session-requests/{uuid}/decide', [PrivateSessionRequestController::class, 'decide']);
+
+        // ⚠️ `{uuid}` IS A STRING HERE TOO, and the segment is NAMED `uuid`
+        // because Laravel fills an untyped controller parameter by matching its
+        // name to the route segment — `{session}` beside a `Request $request`
+        // argument silently leaves it empty.
+        Route::post('/class-sessions/{uuid}/reschedule-requests', [SessionRescheduleRequestController::class, 'store']);
+        Route::post('/manage/session-reschedule-requests/{uuid}/decide', [SessionRescheduleRequestController::class, 'decide']);
 
         Route::post('/freeze-periods', [FreezePeriodController::class, 'store']);
         Route::delete('/freeze-periods/{period}', [FreezePeriodController::class, 'destroy']);
