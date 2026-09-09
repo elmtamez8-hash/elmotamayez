@@ -20,8 +20,26 @@ class ApproveTeacherApplication extends Action
 {
     public function handle(TeacherApplication $application, User $reviewer): TeacherProfile
     {
+        /*
+         | ⚠️ «المعتمَدُ وحدَه» لا `isPending()` — والفرقُ قدرةٌ قائمة. زرُّ الاعتمادِ
+         | في {@see TeacherProfileResource} يختارُ أيَّ طلبٍ حالتُه ليستْ معتمَدة
+         | **بما فيها المرفوضة**: هو مسارُ «غيّرنا رأيَنا في مدرّسٍ رفضناه». فحارسٌ
+         | يشترطُ التعليقَ هنا يقتلُ إعادةَ التفعيلِ بدلَ أن يسدَّ ثغرة.
+         |
+         | وما يسدُّه هذا: `TeacherApproved` له مستمعُ إشعار، فاعتمادٌ ثانٍ يُرسلُ
+         | «تمّ اعتمادُ طلبك» مرّتَين ويختمُ مراجِعاً وتاريخاً فوقَ قرارٍ سابق.
+         | واللوحةُ كانتْ تُخفي زرَّها فيبدو الأمرُ محروساً، ومسارُ الـAPI بلا شرطٍ.
+         */
+        if ($application->status === TeacherApplication::STATUS_APPROVED) {
+            throw new DomainException('هذا الطلب معتمَد بالفعل.');
+        }
+
         $profile = $application->teacherProfile;
 
+        /*
+         | ⚠️ وهذا وحدَه ما يرفضُ «مسوّدة»: الملفُّ يُولَدُ عندَ الإرسال، فطلبٌ لم
+         | يُرسَلْ لا ملفَّ له — ولا حاجةَ لحارسِ حالةٍ ثانٍ يقولُ الشيءَ نفسَه.
+         */
         if ($profile === null) {
             throw new DomainException('لا يوجد ملف مدرّس مرتبط بهذا الطلب.');
         }
