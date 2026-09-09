@@ -36,6 +36,15 @@ export default function CreateCoursePage() {
     screen ever wrote it. Everything that groups by subject was grouping nothing.
   */
   const [subjects, setSubjects] = useState<{ uuid: string; label: string }[]>([]);
+  /*
+    ⚠️ THE STAGE, AND IT HAD NO WRITER AT ALL UNTIL NOW — `subject_id`'s history
+    one column along. `courses.grade_level` has been fillable since 006 and is
+    read by the settlement-rate key and the course leaderboard, and no request,
+    form, Action or seeder ever assigned it: NULL on 95 of 96 rows. Optional
+    rather than required — making it mandatory is a product decision nobody has
+    taken, and it would refuse every future edit of the 95.
+  */
+  const [stages, setStages] = useState<{ slug: string; name_ar: string }[]>([]);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -45,6 +54,7 @@ export default function CreateCoursePage() {
     currency: CURRENCY,
     is_sequential: true,
     subject: "",
+    grade_level: "",
   });
   const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -55,6 +65,13 @@ export default function CreateCoursePage() {
       .get<{ data: { uuid: string; label: string }[] }>("/course-subjects")
       .then((response) => setSubjects(response.data ?? []))
       .catch(() => setSubjects([]));
+  }, []);
+
+  useEffect(() => {
+    api
+      .get<{ data: { slug: string; name_ar: string }[] }>("/signup/grade-levels")
+      .then((response) => setStages(response.data ?? []))
+      .catch(() => setStages([]));
   }, []);
 
   const submit = async (e: React.FormEvent) => {
@@ -127,6 +144,17 @@ export default function CreateCoursePage() {
             options={subjects.map((subject) => ({ value: subject.uuid, label: subject.label }))}
             error={fields.subject}
             required
+          />
+
+          <SelectField
+            id="grade_level"
+            label="المرحلة الدراسية"
+            value={form.grade_level}
+            onChange={(v) => setForm({ ...form, grade_level: v })}
+            placeholder="بلا مرحلة محدّدة"
+            options={stages.map((stage) => ({ value: stage.slug, label: stage.name_ar }))}
+            error={fields.grade_level}
+            hint="تُستخدم لفلترة كورساتك ولربط سعر التسوية بالمرحلة."
           />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
