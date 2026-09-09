@@ -84,10 +84,23 @@ jobs:
           extensions: pdo, pdo_sqlite, mbstring, xml, bcmath, ctype, json, openssl, tokenizer, fileinfo, zip, gd, pcntl
           coverage: none
 
+      # ⚠️ THE PATH IS ASKED FOR, NEVER SPELLED. It was `~/.composer/cache`,
+      # which is where Composer 1 kept it; Composer 2 on Linux follows XDG and
+      # uses `~/.cache/composer`. So the directory named here never existed, and
+      # every run ended with `Path Validation Error: Path(s) specified in the
+      # action for caching do(es) not exist, hence no cache is being saved` — a
+      # WARNING, not a failure. Nothing was ever written, so nothing was ever
+      # restored: «Cache not found for input keys: composer-…, composer-» on
+      # every run since the step was written (2026-08-28), with all six jobs
+      # green over it. Measured on runs 34338333189 and 34339532749.
+      - name: Composer cache dir
+        id: composer-cache
+        run: echo "dir=$(composer config --global cache-dir)" >> "$GITHUB_OUTPUT"
+
       - name: Cache Composer
         uses: actions/cache@v6
         with:
-          path: ~/.composer/cache
+          path: ${{ steps.composer-cache.outputs.dir }}
           key: composer-${{ hashFiles('backend/composer.lock') }}
           restore-keys: composer-
 
@@ -96,12 +109,20 @@ jobs:
         # `--no-dev` ممنوعٌ هنا: Pest وPHPStan وPint كلُّها في require-dev.
         #
         # ⚠️ والمحاولةُ الثانيةُ مصدرٌ آخرُ لا إعادةُ محاولةٍ — وهي تحمي ما لا
-        # تحميه الخطوةُ التي فوقها. `Cache Composer` هو ما أنجى هذا الملفَّ يومَ
-        # سقطَ الإنتاجُ ثلاثَ مرّاتٍ (٢٠٢٦-٠٨-٣١): ثلاثُ حزمٍ من ١٧٣ تردُّ
-        # `HTTP 400` على أرشيفِها عندَ GitHub، والذّاكرةُ أعادتِ الحزمَ بلا
-        # تنزيلٍ فمرّت خضراء. **خضرةُ التخزينِ ليست دليلاً على أنَّ الحزمةَ
-        # قابلةٌ للتنزيل**، وأوّلُ ذاكرةٍ باردةٍ — ترقيةُ PHP، تغيّرُ الـlock،
-        # انتهاءُ صلاحيةِ المفتاح — تُوقِفُ كلَّ شيء.
+        # تحميه الخطوةُ التي فوقها: ثلاثُ حزمٍ من ١٧٣ تردُّ `HTTP 400` على
+        # أرشيفِها عندَ GitHub (٢٠٢٦-٠٨-٣١)، والمسارُ الثاني هو ما يعبُرُ بها.
+        #
+        # ⚠️ **وكانَ هنا سطرٌ يقولُ إنّ `Cache Composer` هو ما أنجى ذلك اليوم،
+        # وهو مستحيل.** المسارُ في تلك الخطوةِ كانَ خطأً منذُ كُتِبَت
+        # (٢٠٢٦-٠٨-٢٨، الإيداع 3f32534)، فلم يُحفَظْ صفُّ ذاكرةٍ واحدٌ قطُّ ولم
+        # يُستَعَدْ — قِيسَ في تشغيلتَي 34338333189 و34339532749. ما حملَ ذلك
+        # اليومَ شيءٌ آخَرُ لا نعرفُه؛ الذاكرةُ لم تكن.
+        #
+        # والتحذيرُ الذي كانَ مكتوباً هناك يصيرُ **صحيحاً لأوّلِ مرّةٍ** الآنَ بعدَ
+        # إصلاحِ المسار: خضرةُ التخزينِ ليست دليلاً على أنَّ الحزمةَ قابلةٌ
+        # للتنزيل، وأوّلُ ذاكرةٍ باردةٍ — ترقيةُ PHP، تغيّرُ الـlock، انتهاءُ
+        # صلاحيةِ المفتاح — تكشفُ ما كانت تُخفيه. فالمسارُ الثاني أدناهُ هو
+        # الحمايةُ الوحيدةُ التي عملت طَوالَ الوقت، ولا يُحذَف.
         #
         # ⚠️ وحذفُ `--prefer-dist` وحدَهُ لا يُغيّرُ شيئاً: `composer.json` يحملُ
         # `preferred-install: "dist"`، فالسلوكُ واحدٌ بالعَلَمِ وبدونِه. الذي
@@ -160,10 +181,23 @@ jobs:
           extensions: pdo, pdo_sqlite, mbstring, xml, bcmath, ctype, json, openssl, tokenizer, fileinfo, zip, gd, pcntl
           coverage: none
 
+      # ⚠️ THE PATH IS ASKED FOR, NEVER SPELLED. It was `~/.composer/cache`,
+      # which is where Composer 1 kept it; Composer 2 on Linux follows XDG and
+      # uses `~/.cache/composer`. So the directory named here never existed, and
+      # every run ended with `Path Validation Error: Path(s) specified in the
+      # action for caching do(es) not exist, hence no cache is being saved` — a
+      # WARNING, not a failure. Nothing was ever written, so nothing was ever
+      # restored: «Cache not found for input keys: composer-…, composer-» on
+      # every run since the step was written (2026-08-28), with all six jobs
+      # green over it. Measured on runs 34338333189 and 34339532749.
+      - name: Composer cache dir
+        id: composer-cache
+        run: echo "dir=$(composer config --global cache-dir)" >> "$GITHUB_OUTPUT"
+
       - name: Cache Composer
         uses: actions/cache@v6
         with:
-          path: ~/.composer/cache
+          path: ${{ steps.composer-cache.outputs.dir }}
           key: composer-${{ hashFiles('backend/composer.lock') }}
           restore-keys: composer-
 
