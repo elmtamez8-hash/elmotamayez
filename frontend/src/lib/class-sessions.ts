@@ -327,6 +327,12 @@ export const classSessions = {
        * of students a session is taught to.
        */
       course?: string;
+      /**
+       * A group uuid. Resolved on the server through `CohortDirectory` — there
+       * is no `cohort()` relation on `ClassSession` and there must not be — and
+       * an unresolvable one filters to nothing rather than to everything.
+       */
+      cohort?: string;
       order?: "asc" | "desc";
     } = {},
   ) => {
@@ -438,6 +444,13 @@ export const classSessions = {
     seats_total?: number;
     type?: "individual" | "group";
     title?: string;
+    /**
+     * ⚠️ THE GROUP THE GENERATED DATES BELONG TO. Without it every session this
+     * produces is born with no group — and the teacher's first group then takes
+     * all of them out of every student's discovery list at a stroke, with the
+     * «حصص محجوبة» panel refusing to file the ones already taught.
+     */
+    cohort_uuid?: string;
   }) => api.post<GenerateResult>("/class-sessions/generate", body),
 
   cancel: (uuid: string, reason?: string) =>

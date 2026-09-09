@@ -54,7 +54,16 @@ function sourceFiles(dir: string): string[] {
   (`border`, `border-t`, `border-2`) do NOT match, because the pattern needs a
   prefix AND a name after it.
 */
-const TEMPTING = /\b(?:bg|text|border|ring|fill|from|to|divide)-(surface-muted|success|error|info|muted|border)(?:-[a-z]+)?\b/g;
+/*
+  ⚠️ AND `warning` IS ON THE LIST NOW, CAUGHT ONE EDIT BEFORE IT SHIPPED. There
+  is no `warning` token either — the warning TONE is `bg-accent/20 text-ink`
+  (`TONE_CLASSES`) — and `text-warning-ink` on the groups screen would have been
+  the fifth invisible mark in this family. The name is exactly the kind this list
+  exists for: `Alert` and `Badge` both take `tone="warning"`, so it reads like a
+  token and is not one.
+*/
+const TEMPTING =
+  /\b(?:bg|text|border|ring|fill|from|to|divide)-(surface-muted|success|error|warning|info|muted|border)(?:-[a-z]+)?\b/g;
 
 /**
  * Comments out, because a comment naming a dead class is the FIX being written

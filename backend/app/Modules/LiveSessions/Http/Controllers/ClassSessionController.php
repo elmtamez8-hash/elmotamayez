@@ -21,6 +21,7 @@ use App\Modules\LiveSessions\Http\Resources\ClassSessionResource;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\CohortSessionVisibility;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\UnlockDirectory;
 use Carbon\CarbonImmutable;
 use DomainException;
@@ -81,6 +82,25 @@ class ClassSessionController extends Controller
             ->when(
                 $request->query('course'),
                 fn ($query, $uuid) => $query->whereHas('course', fn ($course) => $course->where('uuid', $uuid)),
+            )
+            /*
+             | ⚠️ RESOLVED THROUGH THE CONTRACT, BECAUSE THERE IS NO `cohort()`
+             | RELATION ON THIS MODEL AND THERE MUST NOT BE — the cohort is
+             | Learning's, and `CohortSessionVisibility` says in as many words
+             | that this module never imports one.
+             |
+             | An unresolvable uuid filters to `0`, which matches nothing: a
+             | filter whose value cannot be resolved returns an EMPTY list rather
+             | than the unfiltered one, exactly like the two above it. Silently
+             | ignoring it would show a teacher every session in the workspace
+             | under a group's name.
+             */
+            ->when(
+                is_string($request->query('cohort')) ? $request->query('cohort') : null,
+                fn ($query, string $uuid) => $query->where(
+                    'cohort_id',
+                    app(CohortDirectory::class)->describeGroupCohort($uuid)['id'] ?? 0,
+                ),
             )
             /*
              | ⚠️ Q3 · FR-025ج — DISCOVERY IS FILTERED BY THE READER'S GROUP, AND
@@ -161,6 +181,7 @@ class ClassSessionController extends Controller
             (int) $request->validated('seats_total', 1),
             ClassSessionType::from((string) $request->validated('type', ClassSessionType::Individual->value)),
             $request->validated('title'),
+            $request->cohortId(),
         );
 
         return response()->json([

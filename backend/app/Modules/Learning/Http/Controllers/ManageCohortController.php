@@ -70,6 +70,33 @@ class ManageCohortController extends Controller
         ]);
     }
 
+    /**
+     * One group, with the course it is a run of.
+     *
+     * ⚠️ THE COURSE TRAVELS WITH IT, AND THAT IS THE WHOLE REASON THIS EXISTS.
+     * The group's own page is reached by its uuid alone, and everything a
+     * teacher does from there — the roster, the timetable, «back to the course»
+     * — needs the course. Without it the page would have to fetch every course
+     * and look for the one that owns this group, which is a list read to answer
+     * a question one row already knows.
+     */
+    public function show(Request $request, Cohort $cohort): JsonResponse
+    {
+        $this->authorize('view', $cohort);
+
+        $preview = $this->schedule->schedulePreviewFor([(int) $cohort->getKey()]);
+
+        $course = Course::query()->whereKey($cohort->course_id)->first(['uuid', 'title']);
+
+        return response()->json([
+            ...CohortResource::make($cohort, $preview[(int) $cohort->getKey()] ?? [])->toArray($request),
+            'course' => $course === null ? null : [
+                'uuid' => (string) $course->uuid,
+                'title' => (string) $course->title,
+            ],
+        ]);
+    }
+
     public function store(Request $request, Course $course, CreateCohort $action): JsonResponse
     {
         $this->authorize('create', Cohort::class);

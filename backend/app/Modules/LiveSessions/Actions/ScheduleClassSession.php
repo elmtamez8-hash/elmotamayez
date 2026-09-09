@@ -12,8 +12,8 @@ use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Events\SessionScheduled;
 use App\Modules\LiveSessions\Jobs\FreezeBillableSeatsJob;
 use App\Modules\LiveSessions\Models\ClassSession;
-use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Modules\LiveSessions\Support\SchedulableTeachers;
+use App\Modules\LiveSessions\Support\SessionClash;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Actions\Action;
 use Carbon\CarbonImmutable;
@@ -163,27 +163,16 @@ class ScheduleClassSession extends Action
      */
     private function assertNoOverlap(ScheduleSessionData $data): void
     {
-        $clash = ClassSession::query()
-            ->where('teacher_profile_id', $data->teacherProfileId)
-            ->whereNotIn('status', [ClassSessionStatus::Cancelled, ClassSessionStatus::Suspended])
-            ->where('starts_at', '<', $data->endsAt())
-            ->where('ends_at', '>', $data->startsAt)
-            ->exists();
-
-        if ($clash) {
-            throw new DomainException('لديك حصة أخرى في هذا الوقت.');
-        }
+        SessionClash::assertFree(
+            $data->teacherProfileId,
+            CarbonImmutable::instance($data->startsAt),
+            CarbonImmutable::instance($data->endsAt()),
+        );
     }
 
     private function assertNotFrozen(ScheduleSessionData $data): void
     {
-        $frozen = FreezePeriod::query()
-            ->covering(CarbonImmutable::instance($data->startsAt))
-            ->exists();
-
-        if ($frozen) {
-            throw new DomainException('لا يمكن جدولة حصة داخل فترة تجميد.');
-        }
+        SessionClash::assertNotFrozen(CarbonImmutable::instance($data->startsAt));
     }
 
     /**

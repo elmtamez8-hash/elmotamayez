@@ -59,6 +59,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     | every one of them into a row naming a group that no longer exists.
     */
     Route::get('/manage/courses/{course}/cohorts', [ManageCohortController::class, 'index']);
+    // The group's own page: everything about one run, reached by its uuid alone.
+    Route::get('/manage/cohorts/{cohort}', [ManageCohortController::class, 'show']);
     Route::get('/manage/cohorts/{cohort}/members', [ManageCohortController::class, 'members']);
     Route::get('/manage/cohorts/{cohort}/history', [ManageCohortController::class, 'history']);
     Route::get('/manage/courses/{course}/students/{student}/cohort-history', [ManageCohortController::class, 'studentHistory']);
