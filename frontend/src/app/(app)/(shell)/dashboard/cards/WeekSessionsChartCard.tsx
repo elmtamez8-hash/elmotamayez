@@ -191,9 +191,18 @@ export function WeekSessionsChartCard() {
                 <li key={session.uuid} className="flex items-baseline justify-between gap-3 text-xs">
                   <Link
                     href={`/manage/sessions/${session.uuid}`}
-                    className="truncate rounded text-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    className="min-w-0 rounded text-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   >
-                    {session.title}
+                    <span className="block truncate">{session.title}</span>
+                    {/* ⚠️ اسمُ المجموعةِ هو ما يجعلُ السطرَ صالحاً للقراءة أصلاً:
+                        مدرّسٌ له ثلاثُ مجموعاتٍ في كورسٍ واحدٍ يرى ثلاثةَ عناوينَ
+                        متطابقةٍ في يومٍ واحد، ولا شيءَ يقولُ أيُّها لِمَن. وغيابُه
+                        `null` جوابٌ صريحٌ لا مفتاحٌ ناقص — «حصّة بلا مجموعة». */}
+                    {session.cohort_name != null && (
+                      <span className="block truncate text-[0.625rem] text-ink-muted">
+                        {session.cohort_name}
+                      </span>
+                    )}
                   </Link>
                   <bdi className="shrink-0 font-bold text-primary-ink">{clock(session)}</bdi>
                 </li>
