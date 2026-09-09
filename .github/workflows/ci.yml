@@ -264,6 +264,15 @@ jobs:
         # `e2e/*.spec.ts` ويموتُ داخلَ مُشغِّلِ Playwright.
         run: npm test
 
+      - name: Cache Next.js build
+        uses: actions/cache@v6
+        with:
+          # `~/.npm` مُخبّأٌ أصلاً في `setup-node` أعلاه، وخبيئتانِ على قفلٍ
+          # واحدٍ بطءٌ لا يفسِّرُه أحد. هذه لِـ`.next/cache` وحدَها.
+          path: frontend/.next/cache
+          key: nextjs-${{ hashFiles('frontend/package-lock.json') }}-${{ hashFiles('frontend/src/**') }}
+          restore-keys: nextjs-${{ hashFiles('frontend/package-lock.json') }}-
+
       - name: Production build
         working-directory: frontend
         # ⚠️ البناءُ بوّابةٌ بنفسِه ولا يُغني عنه `tsc`. مساران يتحلّلان إلى عنوانٍ
