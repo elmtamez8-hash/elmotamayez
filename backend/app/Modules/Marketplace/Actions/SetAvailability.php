@@ -19,17 +19,22 @@ use Illuminate\Support\Facades\DB;
  * Full replacement, not a merge: a teacher editing their week expects the result
  * to be what they submitted, and merging leaves deleted windows bookable.
  *
- * The overlap rule is enforced here, not only in validation, because the wizard,
- * the availability endpoint and Filament all arrive through this Action
- * (Constitution II) and two of them have no FormRequest.
+ * The overlap rule is enforced here, not only in validation, because both doors
+ * arrive through this Action (Constitution II) — the wizard's step four and
+ * «مواعيدي الأسبوعيّة».
+ *
+ * ⚠️ ولا بابَ ثالثٌ في `‎/admin`: قِيسَ في ٢٠٢٦-٠٩-٠٩، لا حقلَ مواعيدَ في اللوحةِ
+ * إطلاقاً. كانَ هذا الموضعُ يقولُ «والوحةُ تمرُّ من هنا أيضاً» — وصفٌ لمستدعٍ لا
+ * وجودَ له، وهو ما يُنهي النقاشَ دونَ أن يحسمَه.
  */
 class SetAvailability extends Action
 {
     /** @param list<array{day_of_week: int, start_time: string, end_time: string}> $slots */
     public function handle(TeacherProfile $teacher, array $slots): void
     {
-        // قبلَ كلِّ شيءٍ آخر: المقارنةُ أدناهُ نصّيّةٌ والعمودُ يُقرَأُ نصّيّاً،
-        // فوقتٌ بشكلَينِ وقتانِ مختلفان.
+        // قبلَ كلِّ شيءٍ آخر. العمودُ يحرسُ نفسَه في {@see AvailabilitySlot}،
+        // لكنّ فحصَ التداخلِ أدناهُ ونسخةَ الخطوةِ الرابعةِ يعملانِ قبلَ النموذجِ
+        // وخارجَه، وكلاهُما يُقارنُ نصّاً — فوقتٌ بشكلَينِ وقتانِ مختلفان.
         $slots = AvailabilityRules::normalise($slots);
 
         $this->assertNoOverlaps($slots);

@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace\Models;
 
 use App\Models\BaseModel;
+use App\Modules\Marketplace\Actions\SetAvailability;
+use App\Modules\Marketplace\Support\AvailabilityRules;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Marketplace\AvailabilitySlotFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -37,6 +40,33 @@ class AvailabilitySlot extends BaseModel
         return [
             'day_of_week' => 'integer',
         ];
+    }
+
+    /**
+     * الوقتُ يُسوّى عندَ الكتابة، لأنّ العمودَ يُقرَأُ بالمقارنةِ النصّيّة.
+     *
+     * ⚠️ أربعةُ كتّابٍ لهذا الجدول — {@see SetAvailability}
+     * وبذرتانِ ومصنع — وقاعدةُ التحقّقِ تقبلُ `H:i` و`H:i:s` كليهما. فصفٌّ فيه
+     * `19:00` وصفٌّ فيه `19:00:00` ساعةٌ واحدةٌ بشكلَين، و`coversUtc()` أدناهُ
+     * و`RequestPrivateSession` يُقارنانِ نصّاً ضدّ `H:i:s` دائماً: فطلبٌ ينتهي
+     * عندَ الحافّةِ بالضبطِ يُرفَضُ عندَ الأوّلِ ويُقبَلُ عندَ الثاني. الحارسُ هنا
+     * لا عندَ كلِّ كاتب، فالكاتبُ التالي لن يقرأَ هذه القاعدة.
+     *
+     * ⚠️ وMySQL يُسوّي عمودَ `time` من تلقاءِ نفسِه فيُخفي الفرقَ في الإنتاج،
+     * وSQLite يحفظُ ما أُعطِيَ حرفيّاً — أي أنّ البيئةَ الوحيدةَ التي تكشفُه هي
+     * التي تدورُ فيها كلُّ اختباراتِ هذه الحزمة.
+     *
+     * @return Attribute<string, string>
+     */
+    protected function startTime(): Attribute
+    {
+        return Attribute::set(fn (string $value): string => AvailabilityRules::seconds($value));
+    }
+
+    /** @return Attribute<string, string> */
+    protected function endTime(): Attribute
+    {
+        return Attribute::set(fn (string $value): string => AvailabilityRules::seconds($value));
     }
 
     /** @return BelongsTo<TeacherProfile, $this> */

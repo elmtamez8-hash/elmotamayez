@@ -91,6 +91,38 @@ it('leaves a decided application exactly as the reviewer left it', function (): 
         ->and($application->refresh()->step_data)->toBe($before);
 });
 
+it('normalises at the COLUMN, so a writer that never passes through the Action is covered too', function (): void {
+    /*
+    | ⚠️ أربعةُ كتّابٍ لهذا الجدول: الفعلُ، وبذرتانِ ومصنع. والبذرةُ
+    | `DemoDataSeeder` تكتبُ `16:00` حرفيّاً — وصفوفُها موجودةٌ أصلاً لتكونَ ما
+    | يقعُ طلبُ الحصّةِ الخاصّةِ داخلَه، وهي المقارنةُ التي تنكسرُ عندَ الحافّة
+    | بالضبط. فالحارسُ على العمودِ لا عندَ كلِّ كاتب.
+    */
+    $slot = AvailabilitySlot::query()->create([
+        'workspace_id' => $this->workspace->id,
+        'teacher_profile_id' => $this->teacher->id,
+        'day_of_week' => 5,
+        'start_time' => '16:00',
+        'end_time' => '19:00',
+    ]);
+
+    expect($slot->refresh()->start_time)->toBe('16:00:00')
+        ->and($slot->end_time)->toBe('19:00:00');
+
+    /*
+    | ⚠️ والمقارنةُ عينُها التي يُجريها {@see RequestPrivateSession}: الطرفُ
+    | الأيمنُ `H:i:s` دائماً. فصفٌّ مكتوبٌ `19:00` أقصرُ نصّاً من `19:00:00`
+    | ومن ثمّ أصغر — فحصّةٌ تنتهي عندَ الحافّةِ بالضبطِ تُرفَضُ عندَه وتُقبَلُ
+    | عندَ جارِه. هذا هو السطرُ الذي يسقطُ بلا الحارس.
+    */
+    expect(
+        AvailabilitySlot::query()
+            ->whereKey($slot->getKey())
+            ->where('end_time', '>=', '19:00:00')
+            ->exists(),
+    )->toBeTrue();
+});
+
 it('stores one time whichever door wrote it', function (): void {
     /*
     | ⚠️ القاعدةُ تقبلُ `H:i` و`H:i:s`، والمعالجُ كانَ يُسوّي وحدَه. فالساعةُ

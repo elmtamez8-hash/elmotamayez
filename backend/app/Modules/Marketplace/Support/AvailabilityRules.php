@@ -65,7 +65,8 @@ final class AvailabilityRules
         }, $slots));
     }
 
-    private static function seconds(string $time): string
+    /** «١٦:٠٠» و«١٦:٠٠:٠٠» ساعةٌ واحدة، فتُخزَّنُ بشكلٍ واحد. */
+    public static function seconds(string $time): string
     {
         return substr_count($time, ':') === 1 ? $time.':00' : $time;
     }
