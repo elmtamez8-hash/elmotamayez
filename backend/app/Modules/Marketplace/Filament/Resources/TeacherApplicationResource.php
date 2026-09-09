@@ -172,7 +172,7 @@ class TeacherApplicationResource extends Resource
                     ->label('قبول')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn (TeacherApplication $record): bool => self::isPending($record) && self::canDecide())
+                    ->visible(fn (TeacherApplication $record): bool => $record->isPending() && self::canDecide())
                     ->action(fn (TeacherApplication $record) => app(ApproveTeacherApplication::class)
                         ->handle($record, self::reviewer())),
 
@@ -180,7 +180,7 @@ class TeacherApplicationResource extends Resource
                     ->label('طلب تعديل')
                     ->color('warning')
                     ->schema([Textarea::make('reason')->label('المطلوب')->required()->maxLength(1000)])
-                    ->visible(fn (TeacherApplication $record): bool => self::isPending($record) && self::canDecide())
+                    ->visible(fn (TeacherApplication $record): bool => $record->isPending() && self::canDecide())
                     ->action(fn (TeacherApplication $record, array $data) => app(RequestApplicationChanges::class)
                         ->handle($record, self::reviewer(), (string) $data['reason'])),
 
@@ -190,7 +190,7 @@ class TeacherApplicationResource extends Resource
                     // Required, not optional: a rejection the applicant cannot act
                     // on is a dead end (FR-016).
                     ->schema([Textarea::make('reason')->label('سبب الرفض')->required()->maxLength(1000)])
-                    ->visible(fn (TeacherApplication $record): bool => self::isPending($record) && self::canDecide())
+                    ->visible(fn (TeacherApplication $record): bool => $record->isPending() && self::canDecide())
                     ->action(fn (TeacherApplication $record, array $data) => app(RejectTeacherApplication::class)
                         ->handle($record, self::reviewer(), (string) $data['reason'])),
             ]);
@@ -232,14 +232,6 @@ class TeacherApplicationResource extends Resource
         return [
             'index' => Pages\ListTeacherApplications::route('/'),
         ];
-    }
-
-    private static function isPending(TeacherApplication $application): bool
-    {
-        return in_array($application->status, [
-            TeacherApplication::STATUS_SUBMITTED,
-            TeacherApplication::STATUS_CHANGES_REQUESTED,
-        ], true);
     }
 
     private static function canDecide(): bool
