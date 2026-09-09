@@ -131,6 +131,20 @@ class EloquentCohortDirectory implements CohortDirectory
         $ids = Cohort::query()
             ->withoutWorkspaceScope()
             ->whereIn('course_id', $courseIds)
+            /*
+            | ⚠️ `->group()`, THE SIBLING OF `joinableCohortsExist()`'s — AND ITS
+            | ABSENCE HERE WAS LIVE. This answers «does this course run in
+            | groups», which is what `CohortSessionVisibility` uses to decide
+            | whether an unassigned session is hidden. A private 1:1 cohort is
+            | not a run of the course: it is one named student's own room, and
+            | `DecidePrivateSessionRequest` creates one every time a teacher
+            | grants a private hour. So one granted request made the course
+            | «grouped», and every unassigned session on it vanished from every
+            | student's timetable at that instant — no error, no message, and the
+            | teacher's own «حصص محجوبة» panel offering a group to assign to that
+            | the student could never be in.
+            */
+            ->group()
             ->distinct()
             ->pluck('course_id')
             ->map(fn (mixed $id): int => (int) $id)
