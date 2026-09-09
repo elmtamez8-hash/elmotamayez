@@ -31,6 +31,17 @@ vi.mock("@/lib/class-sessions", () => ({
   },
 }));
 
+/*
+  ⚠️ حصّةُ المجموعةِ تُسمّي مجموعتَها منذُ إنشائها. قبلَ ذلك كانت كلُّ حصّةِ مجموعةٍ
+  تُنشَأُ من هذه الشاشةِ تُولَدُ بلا مجموعة — وأوّلُ مجموعةٍ يُنشِئُها المدرّسُ
+  تُخرِجُها جميعاً من قوائمِ الطلاب، ولوحةُ «حصص محجوبة» ترفضُ إسنادَ ما انعقدَ منها.
+*/
+const cohortList = vi.fn();
+
+vi.mock("@/lib/cohorts", () => ({
+  manageCohorts: { list: (uuid: string) => cohortList(uuid) },
+}));
+
 vi.mock("@/lib/api", () => ({
   api: {
     get: () => Promise.resolve({ data: [{ uuid: "c-1", title: "رياضيات ٣ث" }] }),
@@ -42,7 +53,27 @@ beforeEach(() => {
   vi.clearAllMocks();
   list.mockResolvedValue({ data: [] });
   create.mockResolvedValue({});
+  cohortList.mockResolvedValue({ data: [] });
 });
+
+/** Fill the one-off form far enough that only the group is missing. */
+async function fillOneOff(seats: string) {
+  render(<ManageSessionsPage />);
+  await waitFor(() => expect(list).toHaveBeenCalled());
+
+  await userEvent.selectOptions(
+    await waitFor(() => document.getElementById("course_uuid") as HTMLSelectElement),
+    "c-1",
+  );
+
+  await userEvent.type(document.getElementById("one_off_title") as HTMLInputElement, "تجربة");
+  fireEvent.change(document.getElementById("one_off_starts_at") as HTMLInputElement, {
+    target: { value: "2026-09-03T20:31" },
+  });
+
+  const seatsField = document.getElementById("one_off_seats") as HTMLInputElement;
+  fireEvent.change(seatsField, { target: { value: seats } });
+}
 
 describe("ManageSessionsPage — which sessions it asks for", () => {
   it("asks for today, not for everything since the beginning", async () => {
@@ -254,5 +285,53 @@ describe("ManageSessionsPage — the one-off form sends an instant, not a wall c
     // And it is the SAME moment the operator meant, read in this browser's zone —
     // which is what makes the check hold in CI (UTC) and on a Qatari laptop alike.
     expect(payload.starts_at).toBe(new Date(WALL_CLOCK).toISOString());
+  });
+});
+
+describe("a group lesson names its group", () => {
+  it("asks for no group at all while the lesson is a private hour", async () => {
+    await fillOneOff("1");
+
+    expect(document.getElementById("one_off_cohort")).toBeNull();
+    expect(screen.getByRole("button", { name: "إنشاء الحصة" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("sends the chosen group, and will not submit without one", async () => {
+    cohortList.mockResolvedValue({
+      data: [{ uuid: "g-1", name: "مجموعة السبت", status: "open" }],
+    });
+
+    await fillOneOff("6");
+
+    const picker = await waitFor(() => {
+      const found = document.getElementById("one_off_cohort");
+
+      expect(found).not.toBeNull();
+
+      return found as HTMLSelectElement;
+    });
+
+    // Nothing chosen yet: the button is the guard, not a 422 the teacher reads
+    // after typing four fields.
+    expect(screen.getByRole("button", { name: "إنشاء الحصة" }).hasAttribute("disabled")).toBe(true);
+
+    await userEvent.selectOptions(picker, "g-1");
+    await userEvent.click(screen.getByRole("button", { name: "إنشاء الحصة" }));
+
+    await waitFor(() => expect(create).toHaveBeenCalled());
+
+    const payload = create.mock.calls.at(-1)?.[0] as { cohort_uuid?: string; type: string };
+
+    expect(payload.type).toBe("group");
+    expect(payload.cohort_uuid).toBe("g-1");
+  });
+
+  it("points at the way to make one when the course has no group", async () => {
+    await fillOneOff("6");
+
+    expect(await screen.findByText("أنشئ مجموعة لهذا الكورس")).toBeTruthy();
+    // No picker to choose from, so the button stays shut rather than sending a
+    // payload the server will refuse.
+    expect(screen.getByRole("button", { name: "إنشاء الحصة" }).hasAttribute("disabled")).toBe(true);
   });
 });

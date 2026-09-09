@@ -29,14 +29,18 @@ beforeEach(function (): void {
 
 function scheduleData(TeacherProfile $teacher, CarbonImmutable $startsAt, int $minutes = 60): ScheduleSessionData
 {
+    $courseId = (int) Course::query()->where('workspace_id', $teacher->workspace_id)->value('id');
+
     return new ScheduleSessionData(
         teacherProfileId: (int) $teacher->getKey(),
-        courseId: (int) Course::query()->where('workspace_id', $teacher->workspace_id)->value('id'),
+        courseId: $courseId,
         title: 'حصة رياضيات',
         type: ClassSessionType::Group,
         startsAt: $startsAt,
         durationMinutes: $minutes,
         seatsTotal: 8,
+        // A group lesson names its group from the moment it is created.
+        cohortId: groupCohortIdFor($courseId, (int) $teacher->workspace_id),
     );
 }
 

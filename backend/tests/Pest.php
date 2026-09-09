@@ -408,6 +408,30 @@ function settlementPayloadKeys(mixed $value): array
  * happen is somebody adding a class here to make their own assertion pass.
  */
 /**
+ * The id of a group for this course, made once and reused.
+ *
+ * ⚠️ EVERY GROUP SESSION NEEDS ONE SINCE `ScheduleClassSession` STARTED SAYING SO
+ * — «لا حصّة مجموعة بلا مجموعة». A fixture that schedules a group lesson is a
+ * fixture that has to name the group it is a lesson of, exactly as the screen
+ * does; `unique(course_id, name)` is why this reads before it writes rather than
+ * making a second one per call.
+ */
+function groupCohortIdFor(int $courseId, int $workspaceId): int
+{
+    $existing = Cohort::query()->withoutWorkspaceScope()->where('course_id', $courseId)->group()->value('id');
+
+    if ($existing !== null) {
+        return (int) $existing;
+    }
+
+    return (int) Cohort::factory()->create([
+        'workspace_id' => $workspaceId,
+        'course_id' => $courseId,
+        'name' => 'مجموعة الاختبار',
+    ])->getKey();
+}
+
+/**
  * A course that runs in two groups, and a student enrolled in it.
  *
  * ⚠️ THE STUDENT LEAVES `users.last_workspace_id` NULL AND THE CONTEXT IS RESET.

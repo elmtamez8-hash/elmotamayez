@@ -21,6 +21,7 @@ import {
 import { api, fieldErrors } from "@/lib/api";
 import { localDateTimeToIso } from "@/lib/labels";
 import type { Course } from "@/lib/types";
+import { manageCohorts, type CohortOption } from "@/lib/cohorts";
 import { userMessage } from "@/lib/errors";
 
 /** The local date, as `YYYY-MM-DD`. */
@@ -213,7 +214,15 @@ export default function ManageSessionsPage() {
     startsAt: "",
     duration: "60",
     seats: "1",
+    cohortUuid: "",
   });
+  /*
+    ⚠️ THE GROUPS OF THE CHOSEN COURSE. A group lesson must name one from the
+    moment it is created — before that rule, every group session made here was
+    born with no group, and the teacher's first group then removed all of them
+    from every student's discovery list at a stroke.
+  */
+  const [cohorts, setCohorts] = useState<CohortOption[]>([]);
   const [creating, setCreating] = useState(false);
   const [oneOffError, setOneOffError] = useState("");
   const [oneOffErrors, setOneOffErrors] = useState<Record<string, string>>({});
@@ -231,6 +240,20 @@ export default function ManageSessionsPage() {
       .then((response) => setCourseList(response.data))
       .catch(() => setCourseList([]));
   }, []);
+
+  // Refetched per course, and cleared first: a stale list from the previous
+  // course is a picker offering groups the server will refuse.
+  useEffect(() => {
+    setCohorts([]);
+    setOneOff((current) => ({ ...current, cohortUuid: "" }));
+
+    if (courseUuid === "") return;
+
+    manageCohorts
+      .list(courseUuid)
+      .then((response) => setCohorts((response.data ?? []).filter((c) => c.status !== "archived")))
+      .catch(() => setCohorts([]));
+  }, [courseUuid]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -283,6 +306,9 @@ export default function ManageSessionsPage() {
         // has exactly one meaning, and making the teacher say it twice invites
         // the pair to disagree.
         type: seats === 1 ? "individual" : "group",
+        // Sent only for a group lesson: the server refuses one without it, and
+        // an individual slot has no group to name yet.
+        ...(seats === 1 ? {} : { cohort_uuid: oneOff.cohortUuid }),
         // ⚠️ CONVERTED, NEVER SENT RAW. The input's value is a naive wall clock
         // and the API runs on UTC, so the string alone moved a lesson by the
         // operator's own offset — three hours, on the screen that schedules it.
@@ -291,7 +317,7 @@ export default function ManageSessionsPage() {
         seats_total: seats,
       });
 
-      setOneOff({ title: "", startsAt: "", duration: "60", seats: "1" });
+      setOneOff({ title: "", startsAt: "", duration: "60", seats: "1", cohortUuid: "" });
       load();
     } catch (err: unknown) {
       setOneOffErrors(fieldErrors(err));
@@ -470,15 +496,56 @@ export default function ManageSessionsPage() {
             value={oneOff.seats}
             onChange={(seats) => setOneOff({ ...oneOff, seats })}
             error={oneOffErrors.seats_total}
+            hint="مقعد واحد يعني حصة فردية."
           />
         </div>
+
+        {/*
+          ⚠️ SHOWN ONLY FOR A GROUP LESSON, AND REQUIRED THERE. One seat is a
+          private hour whose one-seat group cannot exist until somebody books
+          it; more than one is a class, and a class belongs to a group from the
+          moment it is created — otherwise the teacher's first group hides it
+          from every student, and the «حصص محجوبة» panel refuses to file it once
+          it has been taught.
+        */}
+        {Number(oneOff.seats) > 1 && (
+          <div className="mt-4">
+            {cohorts.length === 0 ? (
+              <Alert tone="warning" title="لا مجموعة في هذا الكورس بعد">
+                حصة المجموعة تنتمي إلى مجموعة منذ إنشائها.{" "}
+                {courseUuid !== "" && (
+                  <Link
+                    href={`/manage/courses/${courseUuid}/cohorts`}
+                    className="rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    أنشئ مجموعة لهذا الكورس
+                  </Link>
+                )}
+              </Alert>
+            ) : (
+              <SelectField
+                id="one_off_cohort"
+                label="المجموعة"
+                value={oneOff.cohortUuid}
+                onChange={(cohortUuid) => setOneOff({ ...oneOff, cohortUuid })}
+                placeholder="اختر مجموعة"
+                options={cohorts.map((cohort) => ({ value: cohort.uuid, label: cohort.name }))}
+                error={oneOffErrors.cohort_uuid}
+                required
+              />
+            )}
+          </div>
+        )}
 
         <div className="mt-4">
           <Button
             onClick={createOne}
             loading={creating}
             disabled={
-              courseUuid === "" || oneOff.title === "" || oneOff.startsAt === ""
+              courseUuid === "" ||
+              oneOff.title === "" ||
+              oneOff.startsAt === "" ||
+              (Number(oneOff.seats) > 1 && oneOff.cohortUuid === "")
             }
           >
             إنشاء الحصة
