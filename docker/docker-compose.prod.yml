@@ -16,6 +16,12 @@ name: elmotamayez
 
 services:
   backend:
+    # ⚠️ FPM يتكلّمُ FastCGI لا HTTP، فلا `curl` يصلُ إليه من داخلِ حاويتِه —
+    # والفحصُ اتّصالُ TCP بمنفذِه عبرَ PHP نفسِه، الأداةِ الوحيدةِ المضمونةِ هنا.
+    #
+    # ⚠️ وسقفُه مكتوبٌ عمداً: يُثبتُ أنّ FPM **يقبلُ اتّصالاً**، لا أنّ التطبيقَ
+    # يُقلعُ ولا أنّ العمّالَ متفرّغون. الفحصُ الكاملُ يمرُّ من nginx، وهو ما
+    # يقيسُه فحصُ nginx أدناه.
     build:
       context: ../backend
       dockerfile: ../docker/backend.Dockerfile
@@ -24,6 +30,12 @@ services:
     working_dir: /var/www/html
     # ⚠️ لا ربطَ للشيفرة. الصورةُ هي النشرة؛ مجلَّدان فقط يعيشان أطولَ منها:
     # المرفوعاتُ (إيصالاتُ الدفعِ والوسائط) وسجلُّ التخزين.
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 9000) ? 0 : 1);"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     volumes:
       - storage:/var/www/html/storage/app
     env_file: .env
@@ -60,6 +72,18 @@ services:
     restart: unless-stopped
     working_dir: /var/www/html
     command: php artisan horizon
+    # ⚠️ `horizon:status` يُرجعُ ٠ يعمل · ١ موقوف · ٢ خامل — مقيسٌ من مصدرِ
+    # الحزمةِ لا من وثيقةٍ فوقَه. و«موقوف» يُعَدُّ اعتلالاً عمداً: Horizon
+    # الموقوفُ لا يُصرّفُ شيئاً، وهي بالضبطِ الحالةُ التي يُراقَبُ من أجلِها.
+    #
+    # ⚠️ وهو يقرأُ Redis، فسقوطُ Redis يُعلَّمُ هنا أيضاً — وذلكَ صحيح: Horizon
+    # بلا Redis لا يعملُ مهما بدا حيّاً.
+    healthcheck:
+      test: ["CMD", "php", "artisan", "horizon:status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     volumes:
       - storage:/var/www/html/storage/app
     env_file: .env
@@ -95,6 +119,19 @@ services:
     restart: unless-stopped
     working_dir: /var/www/html
     command: php artisan schedule:work
+    # ⚠️ لا أمرَ حالةٍ للمجدوِل، فالنبضةُ في `routes/console.php` هي الجواب:
+    # لمسةُ ملفٍّ كلَّ دقيقة، وهذا يقرأُ عمرَها. ثلاثُ دقائقَ لا دقيقتان —
+    # المجدوِلُ ليسَ دقيقاً إلى الثانية، ونافذةٌ ضيّقةٌ تُعلِّمُ حاويةً سليمةً
+    # معتلّةً كلَّ ليلةٍ عندَ أوّلِ مهمّةٍ ثقيلة.
+    #
+    # ⚠️ و`start_period` أطولُ من الفترةِ عمداً: الملفُّ لا يوجدُ قبلَ أوّلِ
+    # نبضة، و`stat` عليه يفشل — فبدونِها تُولَدُ الحاويةُ معتلّةً دائماً.
+    healthcheck:
+      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(stat -c %Y /var/www/html/storage/app/scheduler-heartbeat) )) -lt 180"]
+      interval: 60s
+      timeout: 10s
+      retries: 2
+      start_period: 150s
     volumes:
       - storage:/var/www/html/storage/app
     env_file: .env
@@ -125,6 +162,15 @@ services:
     restart: unless-stopped
     working_dir: /var/www/html
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    # ⚠️ `/up` مسارٌ تُصرِّحُ به الحزمةُ نفسُها (`HealthCheckController`) ويردُّ
+    # `{"health":"OK"}` — لا تخمينَ فيه ولا مسارَ اخترعناه. و`curl` مثبَّتٌ في
+    # الصورةِ (`backend.Dockerfile`)، و`-f` هي ما يجعلُ ٤٠٤ فشلاً.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/up"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     env_file: .env
     environment:
       DB_HOST: mysql
@@ -148,6 +194,17 @@ services:
         NEXT_PUBLIC_REVERB_SCHEME: ${REVERB_PUBLIC_SCHEME}
     image: elmotamayez-frontend:latest
     restart: unless-stopped
+    # ⚠️ اتّصالُ TCP لا طلبُ HTTP على `/`، **وهذا قرارٌ لا كسل**. الصفحةُ
+    # الرئيسيّةُ تُصيَّرُ على الخادمِ بجلبٍ من الـAPI، فتعثّرُ الخادمِ الخلفيِّ
+    # كانَ سيُعلِّمُ **الواجهةَ** معتلّةً وهي سليمة — أي اتّهامُ الحاويةِ الخطأ،
+    # ومع أيِّ آليّةِ إحياءٍ لاحقاً: إعادةُ تشغيلٍ لا تُصلحُ شيئاً وتقطعُ الزوّار.
+    # وNext لا يُصدّرُ مسارَ صحّةٍ خاصّاً به، ولا نخترعُ واحداً لأجلِ فحص.
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').connect(3000,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     environment:
       NODE_ENV: production
       # ⚠️ لِما يجلبُه Next من **داخلِ** الحاوية أثناءَ التصييرِ على الخادم.
@@ -173,6 +230,16 @@ services:
   nginx:
     image: nginx:alpine
     restart: unless-stopped
+    # ⚠️ `/nginx-health` مسارٌ يردُّه nginx بنفسِه ولا يمرُّ بخادمٍ خلفيّ — انظر
+    # `nginx.prod.conf`. فحصٌ على `/` يمرُّ إلى Next ثمّ إلى الـAPI، فيقيسُ
+    # ثلاثَ حاوياتٍ ويُسمّي الأولى. و`wget` من BusyBox موجودٌ في `nginx:alpine`
+    # بينما `curl` ليسَ كذلك.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/nginx-health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     ports:
       - "80:80"
       - "443:443"

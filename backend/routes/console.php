@@ -40,6 +40,26 @@ Artisan::command('inspire', function () {
 // last Tuesday can still be answered. Staggered off the retention sweep at 03:30
 // — which is what now holds the slot the notification prune used to — because two
 // bulk deletes on the same minute is one lock contention nobody planned for.
+/*
+| نبضةُ المجدوِل، وهي الشيءُ الوحيدُ الذي يُخلّفُه `schedule:work` حيّاً.
+|
+| ⚠️ `restart: unless-stopped` يُعيدُ تشغيلَ ما **خرج**، ولا يرى ما **علّق** —
+| وعمليّةٌ حيّةٌ لا تُنفّذُ شيئاً تبدو سليمةً للأبد. ولا أمرَ حالةٍ للمجدوِل كما
+| لـHorizon (`horizon:status`)، فلا شيءَ يُسأل. فيلمسُ ملفّاً كلَّ دقيقة،
+| و`healthcheck` الحاويةِ يقرأُ عمرَه: تأخُّرٌ فوقَ ثلاثِ دقائقَ يعني أنّ
+| المجدوِلَ توقّفَ عن الدوران.
+|
+| ⚠️ وملفٌّ لا `Cache::put`: الذاكرةُ في الإنتاجِ Redis، فسائقٌ ساقطٌ يجعلُ
+| النبضةَ تفشلُ ويُتَّهَمُ المجدوِلُ بعطبٍ ليسَ عطبَه. و`storage/app` مُجلَّدٌ
+| مشترَكٌ يراهُ الفحصُ من داخلِ الحاويةِ نفسِها.
+|
+| ⚠️ ولا `->withoutOverlapping()` ولا سجلّ: لمسةُ ملفٍّ لا تتداخلُ مع نفسِها،
+| وسطرُ سجلٍّ كلَّ دقيقةٍ يُغرِقُ السجلَّ الذي يُقرَأُ عندَ العطبِ الحقيقيّ.
+*/
+Schedule::call(static function (): void {
+    touch(storage_path('app/scheduler-heartbeat'));
+})->everyMinute()->name('scheduler-heartbeat');
+
 Schedule::job(new PruneExpiredGrantsJob)->dailyAt('03:45');
 
 // The safety net under each session's own delayed close. Hourly rather than
