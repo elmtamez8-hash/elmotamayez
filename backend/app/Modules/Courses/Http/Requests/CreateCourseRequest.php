@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Courses\Http\Requests;
 
+use App\Modules\Courses\Support\CourseStage;
 use App\Modules\Tenancy\Support\Permissions;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -35,6 +36,13 @@ class CreateCourseRequest extends FormRequest
             */
             'subject' => ['required', 'uuid'],
             'description' => ['nullable', 'string'],
+            /*
+            | ⚠️ THE FIRST WRITER `courses.grade_level` HAS EVER HAD. Fillable
+            | since 006, named by the settlement-rate key and by the course
+            | leaderboard, and assigned by nothing — NULL on 95 of 96 rows.
+            | See {@see CourseStage} for why it is nullable rather than required.
+            */
+            'grade_level' => CourseStage::rules(),
             /*
             | ⚠️ UNIQUE ACROSS THE PLATFORM, NOT WITHIN THE WORKSPACE.
             | `/courses/{slug}` is one namespace read by guests, so the index behind

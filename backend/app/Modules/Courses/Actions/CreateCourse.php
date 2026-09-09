@@ -43,6 +43,7 @@ class CreateCourse extends Action
             'status' => $dto->status,
             'visibility' => $dto->visibility,
             'is_sequential' => $dto->isSequential,
+            'grade_level' => $dto->gradeLevel,
             'created_by' => $creator->getKey(),
 
             /*

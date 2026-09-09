@@ -177,6 +177,28 @@ interface CohortDirectory
     public function publicCohortsFor(int $courseId): array;
 
     /**
+     * Every group of each of these courses, as the TEACHER's list reads them —
+     * name, seats, status and the times they meet.
+     *
+     * ⚠️ BULK BY SIGNATURE, LIKE EVERYTHING ELSE HERE. The caller is the course
+     * list, which stamps the answer onto each row from outside; a per-row read
+     * inside `CourseResource` is the `ClassSessionResource` N+1 arriving through
+     * yet another door — and this one would drag `schedulePreviewFor()` in with
+     * it, one query per group per course.
+     *
+     * ⚠️ AND IT IS THE SAME QUERY AND THE SAME PAYLOAD AS THE GROUPS TAB
+     * (`ManageCohortController::index`), archived groups included. The card and
+     * the tab answer one question about one course, and two spellings of it put
+     * one count on the card and another on the screen it links to.
+     *
+     * @param  list<int>  $courseIds
+     * @return array<int, list<array<string, mixed>>> keyed by course id; a
+     *                                                course with no groups is
+     *                                                simply absent
+     */
+    public function teacherCohortsFor(array $courseIds): array;
+
+    /**
      * The student's own one-seat group in this course, created on first use
      * (023 · FR-019ج · FR-019د).
      *

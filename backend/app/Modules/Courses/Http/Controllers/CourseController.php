@@ -17,6 +17,7 @@ use App\Modules\Courses\Http\Resources\CourseResource;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Support\SubjectResolver;
 use App\Modules\Marketplace\Models\Subject;
+use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,11 +25,37 @@ use Illuminate\Support\Facades\DB;
 
 class CourseController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    /**
+     * The teacher's own courses.
+     *
+     * ⚠️ THE ENVELOPE WAS BEING DROPPED. `response()->json(Resource::collection($paginator))`
+     * never calls `toResponse()`, so `links` and `meta` vanished in silence and
+     * every reader sat on page one with nothing saying there was a page two —
+     * the defect `/enrollments` and `/cms/articles` were each fixed for. The
+     * shape changes from a bare array to `{data, links, meta}`; every caller in
+     * `frontend/src` already reads `res.data ?? []`, which on a bare array is
+     * `undefined`, so they were all reading the fix's shape already.
+     */
+    public function index(Request $request, CohortDirectory $cohorts): JsonResponse
     {
         $this->authorize('viewAny', Course::class);
 
         $searchTerm = $request->string('search')->toString();
+
+        /*
+        | ⚠️ THE PAGE ASKS FOR ITS OWN SIZE, AND THE CEILING IS THE POINT.
+        | The management screen filters by stage and subject in the browser over
+        | the whole set — facets built from one page of fifteen offer only what
+        | that page happens to contain, which is a filter that lies. Measured
+        | 2026-09-09: the largest workspace on the platform holds 82 courses and
+        | every other one holds four or fewer.
+        |
+        | ponytail: 200 is a real ceiling, and the client is told when it bites
+        | (`meta.total` against what it received). Past that the honest fix is a
+        | server-side filter with facets computed over the whole set — not a
+        | bigger number.
+        */
+        $perPage = min(max($request->integer('per_page', 15), 1), 200);
 
         if ($searchTerm !== '') {
             // Scout queries the search engine directly, outside the WorkspaceScope
@@ -41,12 +68,39 @@ class CourseController extends Controller
                 $search->where('workspace_id', $workspaceId);
             }
 
-            $courses = $search->paginate(15);
+            $courses = $search->paginate($perPage);
         } else {
-            $courses = Course::query()->orderByDesc('created_at')->paginate(15);
+            $courses = Course::query()->with('subject')->orderByDesc('created_at')->paginate($perPage);
         }
 
-        return response()->json(CourseResource::collection($courses));
+        /*
+        | ⚠️ ONE READ FOR THE WHOLE PAGE, ASKED THROUGH THE CONTRACT.
+        | `Modules/Courses` may not reach into `Modules/Learning` — the cohort is
+        | Learning's model — and a per-row read inside `CourseResource` would be
+        | one query per course plus one schedule read per course.
+        */
+        // `items()`, not `getCollection()`: Scout's paginator is typed as the
+        // CONTRACT, which declares only the first of the two.
+        $items = $courses->items();
+
+        $byCourse = $cohorts->teacherCohortsFor(
+            array_values(array_map(fn (Course $course): int => (int) $course->getKey(), $items)),
+        );
+
+        $payload = CourseResource::collection($courses)->response()->getData(true);
+
+        $payload['data'] = array_values(array_map(
+            fn (Course $course): array => CourseResource::make($course)
+                ->withCohorts($byCourse[(int) $course->getKey()] ?? [])
+                // `resolve()`, never `toArray()`: the latter skips the filter
+                // that strips a `whenLoaded` MissingValue, and `sections` is one
+                // — `CourseSectionResource::collection(MissingValue)` then dies
+                // inside `json_encode` with «first() on null».
+                ->resolve($request),
+            $items,
+        ));
+
+        return response()->json($payload);
     }
 
     /**

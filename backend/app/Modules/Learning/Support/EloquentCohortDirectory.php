@@ -6,9 +6,11 @@ namespace App\Modules\Learning\Support;
 
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Learning\Http\Resources\CohortResource;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Shared\Contracts\CohortDirectory;
+use App\Shared\Contracts\CohortScheduleDirectory;
 use Illuminate\Database\UniqueConstraintViolationException;
 use RuntimeException;
 
@@ -26,6 +28,10 @@ use RuntimeException;
  */
 class EloquentCohortDirectory implements CohortDirectory
 {
+    public function __construct(
+        private readonly CohortScheduleDirectory $schedule,
+    ) {}
+
     public function hasOpenMembership(User $user, int $courseId): bool
     {
         return CohortMembership::query()
@@ -275,6 +281,46 @@ class EloquentCohortDirectory implements CohortDirectory
                 */
                 'is_joinable' => $cohort->isJoinable(),
             ];
+        }
+
+        return $out;
+    }
+
+    public function teacherCohortsFor(array $courseIds): array
+    {
+        if ($courseIds === []) {
+            return [];
+        }
+
+        $cohorts = Cohort::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('course_id', $courseIds)
+            /*
+            | ⚠️ `->group()`: a private 1:1 cohort is one student's own room —
+            | born `closed` with `capacity: 1` and the student's id on it. Listed
+            | on a course card it would put a named student's private
+            | arrangement in a grid the whole workspace reads, and would drown
+            | the real groups the teacher is looking for.
+            */
+            ->group()
+            // The groups tab's own ordering, character for character.
+            ->orderBy('status')
+            ->orderBy('name')
+            ->get();
+
+        // ONE call for every group of every course on the page — the whole
+        // reason this method takes a list.
+        $preview = $this->schedule->schedulePreviewFor(
+            array_values($cohorts->map(fn (Cohort $cohort): int => (int) $cohort->getKey())->all()),
+        );
+
+        $out = [];
+
+        foreach ($cohorts as $cohort) {
+            $out[(int) $cohort->course_id][] = CohortResource::make(
+                $cohort,
+                $preview[(int) $cohort->getKey()] ?? [],
+            )->resolve();
         }
 
         return $out;
