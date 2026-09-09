@@ -1,3 +1,5 @@
+import type { CohortOption } from "./cohorts";
+
 /** Null for accounts created through the academy-signup path. */
 export type PlatformRole = "student" | "teacher" | "parent";
 
@@ -169,6 +171,23 @@ export interface Course {
    * type because lists do not eager-load the relation.
    */
   subject?: { uuid: string; label: string } | null;
+  /**
+   * ⚠️ THE STAGE, AND UNTIL 2026-09-09 NOTHING ON THE PLATFORM WROTE IT.
+   * `courses.grade_level` was fillable from 006 and assigned by no request, form,
+   * Action or seeder — NULL on 95 of 96 rows — so it is `null` on every course
+   * created before the field appeared on both course forms. A filter over it must
+   * therefore treat «no stage» as a state, not as a missing value to hide.
+   *
+   * The bare `grade_levels` slug; the Arabic label comes from
+   * `/signup/grade-levels`, never restated in TypeScript.
+   */
+  grade_level: string | null;
+  /**
+   * The course's groups and the times they meet, stamped on by the list
+   * endpoint. Absent on `/courses/{uuid}`, which answers about one course and
+   * has the groups tab beside it.
+   */
+  cohorts?: CohortOption[];
   slug: string;
   description: string;
   /** Minor units — 4999 is 49.99. Format with formatMinorMoney, never directly. */
