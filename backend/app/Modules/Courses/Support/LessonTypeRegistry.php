@@ -132,6 +132,32 @@ final class LessonTypeRegistry
             'required_to_publish' => ['external_url'],
             'implemented' => true,
         ],
+        'embed' => [
+            // ⚠️ `true`, UNLIKE ITS SIBLING `link` IN THE SAME FAMILY, and the
+            // difference is what is being asked of the reader. A `link` sends
+            // the student to somebody else's site and the platform cannot know
+            // what they did there. An `embed` plays INSIDE our page — it is the
+            // uploaded video with a different host behind the frame, so it is
+            // completed the same way (FR-014).
+            'self_completable' => true,
+            'family' => self::FAMILY_EXTERNAL,
+            // ⛔ AN ITEM THAT ENTERS THE DENOMINATOR AND CAN NEVER BE COMPLETED
+            // caps every enrolled student below 100% for ever, so
+            // `CourseCompleted` never fires and no certificate ever issues. That
+            // is the worst defect this repository records, and it is not created
+            // for a saving in bandwidth.
+            'completable' => true,
+            // No asset, no bytes, no grant — SC-001 is measured on this line.
+            'asset_kind' => null,
+            // ⛔ AND THIS IS THE BACK DOOR, not a benign detail.
+            // `ChangeLessonType` carries `external_url` verbatim when the target
+            // type asks for it, and `link` accepts ANY https url — so
+            // «create a link → change it to embed → publish» would plant free
+            // text in an `<iframe src>` on our own domain. The canonicaliser
+            // therefore runs on the TRANSITION too, not in `ManageLessons` alone.
+            'required_to_publish' => ['external_url'],
+            'implemented' => true,
+        ],
     ];
 
     public static function family(LessonType $type): string

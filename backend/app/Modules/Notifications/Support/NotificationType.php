@@ -367,6 +367,27 @@ enum NotificationType: string
     */
     case ScheduledReport = 'scheduled_report';
 
+    /*
+    | A viewer reported that an embedded lesson's video is broken (032 · FR-020).
+    |
+    | ⚠️ THE VIEWER IS THE ONLY SENSOR THERE IS. The platform cannot detect a
+    | deleted or privatised video: the host answers a perfectly valid response
+    | and writes its own message inside its own frame, and the browser forbids
+    | reading across origins. So this type is never raised by a job or a sweep —
+    | only by somebody pressing a button.
+    |
+    | ⚠️ IT TARGETS NO GUARDIAN, AND THAT IS WHY THE PINNED NUMBER IN
+    | `WhatsAppDefaultsTest` MUST NOT MOVE. `defaultChannels()` is derived from
+    | `targetsGuardians()`, so a type added there picks up a paid WhatsApp
+    | message — and a broken link is a teacher's maintenance task, not news for a
+    | parent. Any movement in that assertion is evidence of a mistake, never of
+    | progress.
+    |
+    | ⚠️ AND IT IS NOT MANDATORY. Nothing is withheld and no money moved; a
+    | teacher who mutes it has decided something they are allowed to decide.
+    */
+    case LessonLinkReported = 'lesson_link_reported';
+
     public function label(): string
     {
         return match ($this) {
@@ -436,6 +457,10 @@ enum NotificationType: string
             self::SubscriptionActivated => 'تفعيل اشتراك',
             self::SubscriptionSeatUnavailable => 'مقعد غير متاح',
             self::ScheduledReport => 'تقرير مجدول',
+            // ⚠️ `label()` is an EXHAUSTIVE match with no default arm — a new
+            // case without a line here fails static analysis before it fails a
+            // test, which is the cheapest place to find out.
+            self::LessonLinkReported => 'بلاغ عن رابط درس لا يعمل',
         };
     }
 

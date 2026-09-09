@@ -80,7 +80,25 @@ final class LessonGate
             );
         }
 
-        if ($lesson->is_preview) {
+        /*
+        | ⛔ `isOpen()`, NEVER `is_preview` ALONE — spec 032's third open decision,
+        | closed by the owner on 2026-09-09.
+        |
+        | `is_free` and `is_preview` are two spellings of «this item is open», and
+        | `Lesson::isOpen()` is the one that says so. Reading only the second put
+        | two doors on one lesson and made them disagree in BOTH directions: an
+        | `is_free` embedded lesson opened to a stranger off the public course page
+        | (`isPubliclyReadable()` says yes) and was refused here to the enrolled
+        | student whose term had lapsed — the person with the better claim of the
+        | two. The mirror of spec 018's recording, where `mayWatch()` said yes and
+        | the sequence said no, and the video opened only from the closed door.
+        |
+        | ⚠️ AND IT IS ALSO WRITTEN AT `:383` in the bulk path below. One rule in
+        | two places is how the second place gets it wrong, which is exactly the
+        | shape this fix is repairing — so the two must move together, and the
+        | test that guards it walks BOTH.
+        */
+        if ($lesson->isOpen()) {
             return LessonAccess::allow();
         }
 
@@ -380,7 +398,12 @@ final class LessonGate
                     );
                 }
 
-                if ($lesson->is_preview) {
+                // ⛔ `isOpen()`, never `is_preview` alone — the bulk twin of the
+                // single-lesson branch above, and the two move together. See the
+                // block there for why: `is_free` and `is_preview` are one
+                // question, and reading half of it opened an embedded lesson to a
+                // stranger while refusing it to a lapsed student.
+                if ($lesson->isOpen()) {
                     return LessonAccess::allow();
                 }
 

@@ -22,6 +22,29 @@ function actionFiles(): Finder
         ->name('*.php');
 }
 
+/**
+ * Source with every comment removed.
+ *
+ * Named distinctly rather than reusing a sibling's copy on purpose: these live
+ * in Pest files with no namespace, `--parallel` loads several of them into one
+ * worker, and two identical global function names is a fatal redeclare — the
+ * failure mode the suite already paid for with a duplicated constant.
+ */
+function agnosticSourceWithoutComments(string $source): string
+{
+    $kept = [];
+
+    foreach (token_get_all($source) as $token) {
+        if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+            continue;
+        }
+
+        $kept[] = is_array($token) ? $token[1] : $token;
+    }
+
+    return implode('', $kept);
+}
+
 it('never names a channel or provider inside business logic', function (): void {
     $forbidden = [
         'whatsapp', 'telegram', 'twilio', 'vonage', 'firebase',
@@ -35,7 +58,17 @@ it('never names a channel or provider inside business logic', function (): void 
     $offenders = [];
 
     foreach (actionFiles() as $file) {
-        $contents = $file->getContents();
+        /*
+        | ⚠️ COMMENTS STRIPPED FIRST, AND THIS FILE WAS THE LAST GUARD IN THE TREE
+        | WITHOUT IT. A rule written down beside the code it governs was read as a
+        | breach of itself: an Action explaining WHY it does not call Laravel's
+        | own Notifiable method turned this build red for containing the very
+        | string it was warning against. `TrustScoreJobIsolationTest` and
+        | `ContextIsolationTest` each learned this and each wrote their own
+        | stripper; a red build over an explanation teaches people to delete the
+        | explanation.
+        */
+        $contents = agnosticSourceWithoutComments($file->getContents());
 
         foreach ($forbidden as $needle) {
             if (str_contains($contents, $needle)) {

@@ -115,6 +115,26 @@ class EnrollmentController extends Controller
             return response()->json(['message' => 'Course is not available for enrollment.'], 422);
         }
 
+        /*
+        | ⛔ A TEACHER NEVER ENROLS — IN ANY COURSE, THEIRS INCLUDED.
+        |
+        | Reported 2026-09-08 against a live page: `CoursePolicy::view()` allows
+        | every PUBLISHED course to every reader, so the owner walked straight
+        | through their own door and wrote a real `enrollments` row — counted in
+        | `enrolled_count`, listed in their own «تعلّمي», and on the paid
+        | door an order they would then approve themselves.
+        |
+        | ⚠️ THREE DOORS, ONE PREDICATE. This is the free one; the paid course sits
+        | in `OrderController::store()` and the subscription in
+        | `PurchaseSubscription`. Refused HERE rather than inside `EnrollStudent`
+        | — see the note there: that Action is the FULFILMENT path, and a refusal
+        | at fulfilment strands a paid order in `failed_jobs` instead of stopping
+        | a purchase.
+        */
+        if ($this->currentUser($request)->teachesOnPlatform()) {
+            return response()->json(['message' => 'هذا الحسابُ حسابُ مدرّسٍ على المنصّة، والمدرّسُ لا يشتركُ في الكورسات.'], 422);
+        }
+
         if ($subscriptions->courseRequiresPurchase((int) $course->getKey())) {
             return response()->json([
                 'message' => 'هذا الكورس يُشترَك فيه بطلبٍ معتمَد.',
@@ -285,7 +305,11 @@ class EnrollmentController extends Controller
      */
     private function lessonPayload(Lesson $lesson, LessonAccess $access, ?Enrollment $enrollment = null): array
     {
-        $lesson->load(['section', 'chapter', 'attachments']);
+        // `course:id,uuid` joins the existing eager load rather than adding a
+        // query: the break-report door is addressed by (course, lesson), and a
+        // lazy `$lesson->course` here would be one more SELECT on the one
+        // endpoint that plays every lesson in the product.
+        $lesson->load(['section', 'chapter', 'attachments', 'course:id,uuid']);
 
         // A draft or archived item answers 404, not a payload with a reason.
         //
@@ -322,6 +346,18 @@ class EnrollmentController extends Controller
                 | يرفضُ بآخرَ هو عطبُ البابَينِ المختلفَين.
                 */
                 'may_self_complete' => LessonTypeRegistry::isSelfCompletable($type),
+                /*
+                | Spec 032 · FR-021 — what the break-report button is addressed
+                | with.
+                |
+                | ⚠️ THE ENROLLED STUDENT SEES THE BREAK TOO, and their teacher may
+                | not be publicly listed at all — which is exactly why the report
+                | door does not ask `publiclyListed()`. Without this field the
+                | button could not exist on the one screen that plays every lesson
+                | in the product, and «أيُّ قارئ» in FR-017 would mean «any
+                | visitor».
+                */
+                'course_uuid' => $lesson->course?->uuid,
                 'is_completed' => $enrollment !== null && LessonProgress::query()
                     ->where('enrollment_id', $enrollment->getKey())
                     ->where('lesson_id', $lesson->getKey())

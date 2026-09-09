@@ -6,8 +6,16 @@ import { MyCohortBadge, MyCohortLink, MyCohortProvider, UnlessMyCohort } from ".
 const hasAuthToken = vi.fn();
 const forCourse = vi.fn();
 
+/*
+  ⚠️ `auth.me` IS MOCKED HERE TOO, and an empty `workspaces` is what makes these
+  cases about a STUDENT. Spec 033 added a second read to this provider — «does
+  the reader teach?», answered by `UserResource::workplaces()` — and
+  `UnlessMyCohort` hides the subscribe button outright for a teacher. Without
+  this the module has no `auth` export and every case here dies in the effect.
+*/
 vi.mock("@/lib/api", () => ({
   hasAuthToken: () => hasAuthToken(),
+  auth: { me: async () => ({ workspaces: [] }) },
 }));
 
 vi.mock("@/lib/cohorts", () => ({

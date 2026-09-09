@@ -65,6 +65,27 @@ class PurchaseSubscription extends Action
         ?string $cohortUuid = null,
         ?User $grantedBy = null,
     ): Order {
+        /*
+        | ⛔ THE TEACHER IS NEVER THE STUDENT — IN ANY WORKSPACE, THEIRS INCLUDED.
+        |
+        | Reported 2026-09-08: «اشترك في هذه المجموعة» on a public course page was
+        | open to the course's own owner. Nothing in this Action asked WHO was
+        | buying — it checked the plan, the group, the transfer rule and the
+        | pending order, and every one of those is a question about the thing
+        | being bought.
+        |
+        | ⚠️ ON `$student`, NEVER ON `$grantedBy`. A guardian buying for their
+        | child is the ordinary case and the child is who lands in `enrollments`;
+        | a guard on the payer would refuse the wrong person and let the real one
+        | through. The mirror of {@see PurchaseBeneficiary}'s own rule.
+        |
+        | The third of three doors — the free enrolment and the paid course order
+        | carry the same predicate in their controllers.
+        */
+        if ($student->teachesOnPlatform()) {
+            throw new DomainException('هذا الحسابُ حسابُ مدرّسٍ على المنصّة، والمدرّسُ لا يشتركُ في الكورسات.');
+        }
+
         $plan = Plan::query()
             ->withoutWorkspaceScope()
             ->where('uuid', $planUuid)

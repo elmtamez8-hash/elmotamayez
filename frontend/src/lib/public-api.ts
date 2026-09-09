@@ -113,13 +113,45 @@ export type CourseCard = {
  *
  * ⚠️ IT CARRIES THE PRICE AND THE CARD DOES NOT (006 · FR-021هـ): the price
  * belongs to the buyable unit, and until 023 the unit had no page. And no item
- * in `curriculum` carries a uuid or a media path — the title, the kind and the
- * duration are the whole promise a visitor is deciding on.
+ * in `curriculum` carries a media path — the title, the kind and the duration
+ * are the whole promise a visitor is deciding on.
+ */
+
+/*
+ * ⚠️ `uuid` AND `is_open` ARE OPTIONAL, NOT NULLABLE, AND THE DIFFERENCE IS THE
+ * GUARD (032 · FR-019).
+ *
+ * The server fills them for ONE kind of row — an open `embed` lesson, which has
+ * no media asset and therefore nothing behind the playback endpoint for its
+ * identifier to open. On every other item the keys are ABSENT, so a link cannot
+ * be built for one even by mistake: the SHAPE OF THE DATA is what stops it, as
+ * `CourseCurriculum`'s own docblock has said since 023.
+ *
+ * `duration_seconds` is optional for the same reason and a different one: the
+ * column defaults to 0 and the teacher writes it by hand, so the server omits it
+ * rather than sending a zero that reads as «٠ دقيقة» (FR-018).
  */
 export type CurriculumItem = {
   title: string;
   kind: string;
-  duration_seconds: number | null;
+  duration_seconds?: number | null;
+  uuid?: string;
+  is_open?: boolean;
+};
+
+/*
+ * Spec 032 · FR-010 — the open embedded lesson, on its own public page.
+ *
+ * What is needed to WATCH it and nothing else. `embed_url` is built by the
+ * server from a closed host set at save time; it is never re-parsed here.
+ */
+export type PreviewLesson = {
+  uuid: string;
+  title: string;
+  kind: string;
+  duration_seconds?: number;
+  embed_url: string;
+  course: { uuid: string; title: string; slug: string };
 };
 
 export type CurriculumChapter = {
@@ -419,6 +451,15 @@ export const publicApi = {
   course: (uuid: string) =>
     get<{ data: CourseDetail }>(
       `/marketplace/courses/${encodeURIComponent(uuid)}`,
+    ),
+
+  /*
+   * Spec 032 · US2. The course key is a SLUG or a uuid — the page this is
+   * reached from lives at `/courses/[slug]`, and the server resolves both.
+   */
+  previewLesson: (courseKey: string, lessonUuid: string) =>
+    get<{ data: PreviewLesson }>(
+      `/marketplace/courses/${encodeURIComponent(courseKey)}/lessons/${encodeURIComponent(lessonUuid)}`,
     ),
 
   /*

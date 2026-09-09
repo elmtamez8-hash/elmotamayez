@@ -48,6 +48,33 @@ final class PublishReadiness
 
     public static function assertPublishable(Lesson $lesson): void
     {
+        /*
+        | Spec 032 · FR-005 — an embedded lesson is never published locked.
+        |
+        | Here rather than in a controller because BOTH doors pass through this
+        | one line: `PublishTreeNodes::assertReady()` performs the publish, and
+        | `PreviewPublishImpact` walks whole rows of `resolve()` through it to
+        | cost one before it happens. A guard beside either of them would be a
+        | preview that promises what the publish then refuses.
+        |
+        | ⚠️ NOT in `required_to_publish`. That list is about MISSING FIELDS and
+        | its sentences read «الرابط مطلوب»; this is a state the teacher has to be
+        | told how to change, by either of two roads.
+        |
+        | ⚠️ AND IT IS NOT THE ONLY DOOR IN THE TREE, whatever is convenient to
+        | assume: `PublishRecordingAsLesson` writes `status = Published` directly
+        | (its type is `video`, so no risk today), and `SeedCommand` runs inside
+        | `Model::unguarded()`. SC-003 is measured by a direct count, so a seed
+        | that adds a locked embedded lesson fails it with nothing guarding that.
+        */
+        if ($lesson->type === LessonType::Embed->value && ! $lesson->isOpen()) {
+            throw new DomainException(sprintf(
+                'لا يمكن نشر «%s»: الدرس المُضمَّن لا يكون إلّا مجّانيّاً أو تعريفيّاً. '
+                .'علّمه مجّانيّاً، أو حوّله إلى فيديو مرفوع.',
+                $lesson->title,
+            ));
+        }
+
         $missing = self::missingFields($lesson);
 
         if ($missing === []) {

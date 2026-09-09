@@ -15,6 +15,7 @@ use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\CourseDuration;
+use App\Modules\Courses\Support\EmbeddedVideoUrl;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\SiblingOrderRetry;
 use App\Modules\Courses\Support\TreeDeletionGuard;
@@ -64,7 +65,7 @@ class ManageLessons extends Action
                 // ManageSections::create().
                 'status' => ContentStatus::Draft,
                 'content' => $data->content,
-                'external_url' => $data->externalUrl,
+                'external_url' => $this->canonicalUrl($data->type, $data->externalUrl),
                 'reference_id' => $this->resolveReference($course, $data, $data->type),
                 // Stated, not defaulted in the column: a model built with `new`
                 // carries no column default, which is how `status` and `kind`
@@ -99,7 +100,10 @@ class ManageLessons extends Action
         $attributes = [
             'title' => $data->title,
             'content' => $data->content,
-            'external_url' => $data->externalUrl,
+            // Spec 032 — canonicalised against the STORED type, not the DTO's:
+            // this door never changes the type, and the controller carries the
+            // current one forward.
+            'external_url' => $this->canonicalUrl($this->typeOf($lesson), $data->externalUrl),
         ];
 
         // Written only when mentioned. The merge semantics live HERE and not in
@@ -138,6 +142,8 @@ class ManageLessons extends Action
 
         $type = $this->typeOf($lesson);
 
+        $this->assertStaysOpen($lesson, $type, $attributes);
+
         if ($data->referenceUuid !== null && $lesson->course !== null) {
             $attributes['reference_id'] = $this->resolveReference($lesson->course, $data, $type);
         }
@@ -161,6 +167,26 @@ class ManageLessons extends Action
         // leave a course whose stated length disagrees with its items.
         DB::transaction(function () use ($lesson, $attributes, $moved): void {
             $lesson->update($attributes);
+
+            /*
+            | Spec 032 — a NEW url is a new video, so the old break report is
+            | stale and its window must not silence the first report about this
+            | one.
+            |
+            | ⚠️ `forceFill`, NOT `$attributes`. `link_reported_at` is deliberately
+            | not `$fillable` (it is claimed by a conditional UPDATE), and MASS
+            | ASSIGNMENT DISCARDS A NON-FILLABLE KEY IN SILENCE — no exception, no
+            | log, a 200 — so a clear written into the array above would never
+            | happen. Three columns shipped on `student_profiles` that way in 013.
+            |
+            | ⚠️ `wasChanged`, NOT «was the key present». The controller carries
+            | `external_url` forward on EVERY edit, so a presence test would clear
+            | the stamp when the teacher renames the lesson — and the duplicate
+            | guard would be defeated by a typo fix.
+            */
+            if ($lesson->wasChanged('external_url')) {
+                $lesson->forceFill(['link_reported_at' => null])->save();
+            }
 
             // A move is a STRUCTURAL write, so it raises the token a concurrent
             // editor's stale layout is detected against (FR-009). Without it their
@@ -259,6 +285,67 @@ class ManageLessons extends Action
     private function typeOf(Lesson $lesson): LessonType
     {
         return LessonType::from($lesson->type);
+    }
+
+    /**
+     * The frame url WE build, for the one type whose column feeds an
+     * `<iframe src>` (032 · FR-003 · FR-004).
+     *
+     * ⚠️ CONDITIONAL ON THE TYPE, DELIBERATELY. An unconditional canonicalise
+     * answers null for every legitimate `link` lesson and empties its column.
+     *
+     * ⚠️ AND IT THROWS RATHER THAN WRITING null OR THE PASTE. Writing null makes
+     * a lesson refused at publish for a DIFFERENT reason («الرابط مطلوب»), which
+     * sends the teacher looking for a field they filled in; writing the paste is
+     * the whole defect. This is the half of FR-004 a FormRequest cannot cover —
+     * seeders and the panel reach here with no form behind them.
+     */
+    private function canonicalUrl(LessonType $type, ?string $raw): ?string
+    {
+        if ($type !== LessonType::Embed || $raw === null || trim($raw) === '') {
+            return $raw;
+        }
+
+        $built = EmbeddedVideoUrl::build($raw);
+
+        if ($built === null) {
+            throw new DomainException(EmbeddedVideoUrl::refusal());
+        }
+
+        return $built;
+    }
+
+    /**
+     * A PUBLISHED embedded lesson may not stop being open (032 · FR-005).
+     *
+     * ⚠️ THE CONDITION IS ON THE RESULTING STATE, NEVER ON THE FIELD SENT. A
+     * request that turns `is_preview` off while `is_free` is on leaves the
+     * lesson open and must be accepted; reading the submitted field alone
+     * refuses a legitimate edit.
+     *
+     * Refused here rather than at publish because the lesson is ALREADY
+     * published — there is no later door to catch it, and the paid-embed state
+     * this spec exists to prevent would exist for however long it took anyone to
+     * notice.
+     *
+     * @param  array<string, mixed>  $attributes  the write about to be applied
+     */
+    private function assertStaysOpen(Lesson $lesson, LessonType $type, array $attributes): void
+    {
+        if ($type !== LessonType::Embed || $lesson->status !== ContentStatus::Published) {
+            return;
+        }
+
+        $preview = (bool) ($attributes['is_preview'] ?? $lesson->is_preview);
+        $free = (bool) ($attributes['is_free'] ?? $lesson->is_free);
+
+        if ($preview || $free) {
+            return;
+        }
+
+        throw new DomainException(
+            'لا يمكن جعل درس مُضمَّن منشور غير مجّاني. حوّله إلى فيديو مرفوع أوّلاً، أو ألغِ نشره.',
+        );
     }
 
     /**

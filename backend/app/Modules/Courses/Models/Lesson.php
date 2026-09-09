@@ -7,12 +7,14 @@ namespace App\Modules\Courses\Models;
 use App\Models\BaseModel;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Enums\ExamGate;
+use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Support\HasSiblingOrder;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\OrdersSiblings;
 use App\Modules\Courses\Support\ReferenceIntegrity;
 use App\Modules\Media\Enums\MediaRole;
 use App\Modules\Media\Models\MediaAsset;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Courses\LessonFactory;
@@ -100,10 +102,32 @@ class Lesson extends BaseModel implements OrdersSiblings
         // nobody can sit an exam that is gone (FR-045).
         ReferenceIntegrity::apply($query);
 
+        /*
+        | ⚠️ THE PARENTS' SCOPE IS BYPASSED INSIDE THE SUBQUERIES, AND «the caller
+        | already called `withoutWorkspaceScope()`» IS NOT ENOUGH — the bypass is
+        | PER MODEL, and `whereHas` runs Chapter's and Section's OWN global scopes
+        | inside their own subqueries.
+        |
+        | Measured 032 · T023: the public course page returned an EMPTY curriculum
+        | to a teacher signed in from another workspace, whose context resolves
+        | from `users.last_workspace_id` — while a guest read it perfectly,
+        | because `WorkspaceScope` adds no condition when the context is null. The
+        | family of `->with('order')` answering null inside a platform report.
+        |
+        | Nothing is widened: both subqueries are already tied to THIS lesson's
+        | row by foreign key, so they can match no other workspace's chapter.
+        |
+        | ⚠️ SPELLED THE LONG WAY HERE, AND ONLY HERE. `withoutWorkspaceScope()`
+        | is a model SCOPE, and a `whereHas` closure is typed `Builder<Model>` —
+        | so the scope is invisible to the analyser and level 8 refuses the call.
+        | The trait's whole body is `withoutGlobalScope(WorkspaceScope::class)`,
+        | which is this line: the same operation, in the spelling the type system
+        | can check, rather than an ignore comment over a call it cannot see.
+        */
         return $query
             ->where('lessons.status', ContentStatus::Published)
-            ->whereHas('chapter', fn (Builder $q) => $q->where('status', ContentStatus::Published))
-            ->whereHas('section', fn (Builder $q) => $q->where('status', ContentStatus::Published));
+            ->whereHas('chapter', fn (Builder $q) => $q->withoutGlobalScope(WorkspaceScope::class)->where('status', ContentStatus::Published))
+            ->whereHas('section', fn (Builder $q) => $q->withoutGlobalScope(WorkspaceScope::class)->where('status', ContentStatus::Published));
     }
 
     /**
@@ -120,11 +144,63 @@ class Lesson extends BaseModel implements OrdersSiblings
      */
     public function isVisibleChain(): bool
     {
-        $this->loadMissing(['section', 'chapter']);
+        // The same per-model bypass as the scope above, for the same measured
+        // reason: a reader whose context resolves elsewhere would load `null` for
+        // both parents and be told a published lesson is hidden.
+        $this->loadMissing([
+            'section' => fn ($query) => $query->withoutWorkspaceScope(),
+            'chapter' => fn ($query) => $query->withoutWorkspaceScope(),
+        ]);
 
         return $this->status->isVisibleToStudents()
             && $this->chapter?->status->isVisibleToStudents() === true
             && $this->section?->status->isVisibleToStudents() === true;
+    }
+
+    /**
+     * «Open» — the lesson its owner decided anyone may have (032 · FR-008).
+     *
+     * ⚠️ THIS IS THE FIFTH SPELLING OF THAT QUESTION IN THE TREE, NOT THE FIRST,
+     * and the divergence is measured rather than assumed. `IssuePlaybackGrant`
+     * asks `is_free || is_preview` at :183 and :265; `LessonGate` asks
+     * `is_preview` ALONE at :83 and :383. The absurd consequence is live today:
+     * an `is_free` lesson opens to a stranger with no account and is REFUSED to
+     * a student whose enrolment lapsed.
+     *
+     * This method reads the pair, matching the grant issuer — the door that
+     * actually decides who may watch. Aligning `LessonGate` with it is two lines
+     * but WIDENS shipped access for every `is_free` uploaded lesson on the
+     * platform, so it is a product decision and not a refactor: raised, and
+     * deliberately left out of 032's scope.
+     */
+    public function isOpen(): bool
+    {
+        return $this->is_preview || $this->is_free;
+    }
+
+    /**
+     * Whether a visitor with no account may read THIS lesson (032 · FR-019).
+     *
+     * ⛔ THIS, NEVER {@see isOpen}, IS WHAT THE PUBLIC SIDE ASKS. Every place
+     * that says «this lesson is open to a visitor» reads this one — the public
+     * curriculum tree, the public lesson query, and the `is_open` flag in the
+     * payload. A tree that advertises with the first while the door measures
+     * with the second publishes PERMANENTLY DEAD LINKS: an open uploaded video
+     * renders clickable and answers the 404 that means «no such thing», with
+     * neither the visitor nor the teacher given a reason.
+     *
+     * The `embed` condition is not cosmetic narrowing. `PublicFieldAllowlist`
+     * says in as many words that a lesson uuid in a public payload is an
+     * invitation to try it against the playback endpoint — and it is right:
+     * `IssuePlaybackGrant::mayWatch()` answers yes to ANY signed-in account for
+     * ANY open lesson, across every workspace. An embed has no media asset, so
+     * its uuid opens no bytes there.
+     */
+    public function isPubliclyReadable(): bool
+    {
+        return $this->isOpen()
+            && $this->type === LessonType::Embed->value
+            && $this->isVisibleChain();
     }
 
     /**

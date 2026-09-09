@@ -106,6 +106,16 @@ class OrderController extends Controller
             return response()->json(['message' => 'This course is free; no order needed.'], 422);
         }
 
+        // ⛔ A teacher never buys a course — not another teacher's and not their
+        // own. The second door of three; the free one is
+        // `EnrollmentController::enroll()` and the subscription is inside
+        // `PurchaseSubscription`. Refused BEFORE the order exists: an order
+        // created and then refused at fulfilment is money taken for a seat that
+        // is never written.
+        if ($this->currentUser($request)->teachesOnPlatform()) {
+            return response()->json(['message' => 'هذا الحسابُ حسابُ مدرّسٍ على المنصّة، والمدرّسُ لا يشتركُ في الكورسات.'], 422);
+        }
+
         $validated = $request->validate([
             'coupon_code' => ['nullable', 'string', 'max:32'],
         ]);

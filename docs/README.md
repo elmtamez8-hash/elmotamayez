@@ -103,6 +103,8 @@ nothing on these requests; the guard is `publiclyListed()` inside each Action.
 | GET | `/marketplace/teachers` | Filters: subject, grade_level, price, min_rating, min_trust_score, language, available_now, q; sorts: rating_desc, price_asc, trust_desc |
 | GET | `/marketplace/teachers/{slug}` | Resolves a slug **or** a uuid — links shared before slugs existed are uuids; the page 308s to the canonical slug. One 404 for missing / unapproved / unlisted / withdrawn |
 | GET | `/marketplace/courses` | Filters: subject, grade_level, type, price; sorts: popular, price_asc, newest |
+| GET | `/marketplace/courses/{courseKey}/lessons/{lessonUuid}` | 032 — one OPEN `embed` lesson, watched with no account. Course key is a slug **or** a uuid. **One 404** for seven reasons: unknown uuid · locked lesson · lesson in a draft section · open lesson of any other kind · draft course · unlisted teacher · deleted course |
+| POST | `/marketplace/courses/{courseKey}/lessons/{lessonUuid}/report` | 032 — «الفيديو لا يعمل», from whoever is watching. No account, **no request body**, and one constant `202` whatever it finds. One alert per lesson per 24h, plus one for a second distinct reporter inside that window |
 
 Authenticated:
 
@@ -1404,11 +1406,37 @@ Courses does not import Learning. The enrolment half goes through
 
 ### Item types
 
-Ten declared in `LessonTypeRegistry`, in four families — `inline` (article, note),
+Eleven declared in `LessonTypeRegistry`, in four families — `inline` (article, note),
 `uploaded` (video, audio, pdf, file), `reference` (exam, live_session, assignment) and
-`external` (link). The registry is the single source of truth for what each type IS, and
-the payload carries `family` and `asset_kind` so the editor branches on the registry's
+`external` (link, embed). The registry is the single source of truth for what each type IS,
+and the payload carries `family` and `asset_kind` so the editor branches on the registry's
 answer rather than a second copy of it in TypeScript.
+
+`embed` (032) is a video hosted at YouTube or Vimeo and played inside OUR page. Three things
+about it are not guessable from its family:
+
+- **It is completable, unlike its sibling `link`.** A link sends the student to somebody
+  else's site and the platform cannot know what they did there; an embed plays here, so it
+  is the uploaded video with a different host behind the frame. An item in the denominator
+  that can never be completed is the worst defect this file records.
+- **It is structurally confined to the OPEN lesson.** `PublishReadiness` refuses to publish
+  one that is neither `is_preview` nor `is_free`, and `ManageLessons` refuses to take that
+  mark off a published one. The protections a hosted video gives up — an expiring grant, the
+  watermark, the device limit, a signed token — are not needed by content its owner decided
+  to open, while a PAID lesson on YouTube means whoever holds the url owns it.
+- **`lessons.external_url` holds the url WE built, never the teacher's paste.**
+  `EmbeddedVideoUrl::build()` is the one server-side spelling (its YouTube arm delegates to
+  `PromoVideoUrl`), and it runs on the TYPE CHANGE as well as on save — `ChangeLessonType`
+  carries the column verbatim when the target type asks for it, and `link` accepts any
+  https address, so «create a link → retype it → publish» was free text in an `<iframe src>`
+  on our own public page.
+
+⚠️ **And the free preview was reachable only by people who had already bought the course.**
+Measured before 032: `is_preview` relaxed two conditions for a student who already held an
+enrolment row, and `Modules/Marketplace/` did not mention it in a single line. The public
+door and the `uuid`/`is_open` keys on an open embed item in the public tree are what make it
+mean «open to everyone» — a declared amendment to 023 · FR-005/SC-004, narrowed to the one
+kind of item that has no media asset behind its identifier.
 
 `assignment` is declared and **not implemented** — spec 008 owns the entity. It is refused
 by name in the Action and shown disabled with its reason in the editor: hiding it would be

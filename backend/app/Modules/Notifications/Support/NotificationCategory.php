@@ -78,6 +78,13 @@ enum NotificationCategory: string
                 NotificationType::PeriodicReviewPublished,
                 NotificationType::QuestionImportReady,
                 NotificationType::QuestionImportFailed,
+                /*
+                 * Spec 032. Filed under «الدراسة» rather than «الحساب»: what the
+                 * teacher is being told is that a LESSON in their course does not
+                 * play, which is a content task on the same footing as an import
+                 * that failed — not a fact about their account.
+                 */
+                NotificationType::LessonLinkReported,
             ],
             self::Sessions => [
                 /*

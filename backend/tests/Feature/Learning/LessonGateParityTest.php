@@ -122,3 +122,40 @@ it('agrees on a non-sequential course, where only the seat still refuses', funct
         ->and($codes['archived'])->toBe(LessonAccess::NOT_VISIBLE)
         ->and($codes['no_seat'])->toBe(LessonAccess::NO_SEAT);
 });
+
+/*
+| ⛔ `is_free` IS THE SAME QUESTION AS `is_preview`, AND THE GATE READ ONLY ONE
+| HALF OF IT UNTIL 2026-09-09.
+|
+| Spec 032's third open decision. `Lesson::isOpen()` is `is_preview || is_free`
+| and `isPubliclyReadable()` is built on it, so an `is_free` embedded lesson was
+| offered to a STRANGER off the public course page while this gate — the only
+| surface in the product that plays a lesson — refused it to the enrolled student
+| whose term had lapsed. Two doors, disagreeing, and the video opening only from
+| the one that was never meant to carry it. That is spec 018's recording defect
+| reached from a new direction.
+|
+| ⚠️ THE INACTIVE ENROLMENT IS THE LOAD-BEARING HALF OF THIS CASE. On an ACTIVE
+| enrolment a non-sequential free item opens anyway, so a test written that way
+| passes against a gate with no `is_free` in it at all — green over exactly the
+| bug. The refusal has to be the one `isOpen()` is meant to jump.
+*/
+it('opens an is_free item on an inactive enrolment, in BOTH forms', function (): void {
+    ['enrollment' => $enrollment, 'lessons' => $lessons] = $this->curriculumTree();
+
+    // Marked free rather than preview — the half that was not being read.
+    $lessons['sequence']->update(['is_free' => true, 'is_preview' => false]);
+
+    $enrollment->update(['status' => 'expired']);
+    $enrollment->refresh();
+
+    $codes = parityCodes($enrollment, $lessons);
+
+    expect($codes['sequence'])->toBe('allowed')
+        // ⚠️ And the control: everything NOT open still shuts on the same
+        // enrolment, or «allowed» above would just be a gate that stopped
+        // refusing anything.
+        ->and($codes['done'])->toBe(LessonAccess::INACTIVE)
+        ->and($codes['open'])->toBe(LessonAccess::INACTIVE)
+        ->and($codes['draft'])->toBe(LessonAccess::NOT_VISIBLE);
+});

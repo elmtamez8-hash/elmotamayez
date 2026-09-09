@@ -23,9 +23,15 @@ use Illuminate\Support\Collection;
  * browsing cards and left it on «the buyable unit's own page» — this is that
  * page, and until 023 it did not exist.
  *
- * ⚠️ AND NO ITEM CARRIES A uuid OR A MEDIA PATH (FR-005 · SC-004). The title,
+ * ⚠️ NO ITEM CARRIES A MEDIA PATH, AND ONLY ONE KIND CARRIES A uuid. The title,
  * the kind and the duration are the promise being made; an identifier is an
- * invitation to try the playback endpoint with it.
+ * invitation to try the playback endpoint with it — which is still true of every
+ * item that HAS something there to open.
+ *
+ * ⛔ SPEC 032 AMENDS 023 · FR-005/SC-004 DELIBERATELY AND NARROWLY: an `embed`
+ * item has no media asset at all, so its uuid opens nothing at that endpoint,
+ * and without it a visitor has no way to point at the free preview lesson —
+ * which is the whole of US2. See `PublicFieldAllowlist::CURRICULUM_ITEM`.
  *
  * @mixin Course
  */
@@ -138,7 +144,7 @@ class PublicCourseDetailResource extends JsonResource
      * teaching order (section, chapter, lesson) that access itself is derived
      * from.
      *
-     * @return list<array{title: string, chapters: list<array{title: string, items: list<array{title: string, kind: string, duration_seconds: int|null}>}>}>
+     * @return list<array{title: string, chapters: list<array{title: string, items: list<array<string, mixed>>}>}>
      */
     private function curriculumShape(): array
     {
@@ -154,11 +160,40 @@ class PublicCourseDetailResource extends JsonResource
                 $items = [];
 
                 foreach ($inChapter as $lesson) {
-                    $items[] = [
+                    $item = [
                         'title' => (string) $lesson->title,
                         'kind' => (string) $lesson->type,
-                        'duration_seconds' => $lesson->duration_seconds,
                     ];
+
+                    // Spec 032 · FR-018 — omitted entirely when it is zero. The
+                    // column defaults to 0 and the teacher writes it by hand, so
+                    // a zero means «not written»: «٠ دقيقة» is a lie, not a
+                    // blank. The reader already draws nothing for a missing key.
+                    if ((int) $lesson->duration_seconds > 0) {
+                        $item['duration_seconds'] = (int) $lesson->duration_seconds;
+                    }
+
+                    /*
+                    | Spec 032 · FR-019.
+                    |
+                    | ⛔ `isPubliclyReadable()`, NEVER `isOpen()`. The two keys
+                    | below are what makes the row clickable, and the public
+                    | lesson door measures with the first — so advertising with
+                    | the second publishes PERMANENTLY DEAD LINKS: an open
+                    | uploaded video would render clickable and answer the 404
+                    | that means «no such thing», leaving neither the visitor nor
+                    | the teacher a reason.
+                    |
+                    | ABSENT on every other item, never null: the shape of the
+                    | data is what stops a link being built (`CourseCurriculum`'s
+                    | own docblock).
+                    */
+                    if ($lesson->isPubliclyReadable()) {
+                        $item['uuid'] = (string) $lesson->uuid;
+                        $item['is_open'] = true;
+                    }
+
+                    $items[] = $item;
                 }
 
                 $chapters[] = [

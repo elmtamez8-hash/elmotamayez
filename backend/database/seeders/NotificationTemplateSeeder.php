@@ -573,6 +573,24 @@ class NotificationTemplateSeeder extends Seeder
                 'أرقام المنصّة حتى {{ date }}: {{ summary }}',
                 ['period', 'date', 'summary'],
             ],
+            /*
+            | Spec 032 · FR-020 — a viewer reported that a hosted video is broken.
+            |
+            | ⚠️ IT NAMES THE COURSE AND THE LESSON AND NOTHING ELSE. The report
+            | carries no body at all — a free-text field written by an anonymous
+            | stranger, arriving at a teacher's bell, is an unmoderated message
+            | channel — so there is nothing here for one to be interpolated into.
+            |
+            | ⚠️ AND IT DOES NOT PROMISE THE VIDEO IS GONE. Nobody knows that: the
+            | platform cannot see inside another origin's frame, and the reporter
+            | may be wrong. The wording says what actually happened — somebody
+            | said it did not work.
+            */
+            NotificationType::LessonLinkReported->value => [
+                'بلاغ: «{{ lesson_title }}» لا يعمل',
+                'أبلغنا مشاهدٌ أنّ فيديو «{{ lesson_title }}» في «{{ course_title }}» لا يعمل. الفيديو مستضاف على قناتك، فافتح الدرس وتأكّد من الرابط.',
+                ['lesson_title', 'course_title'],
+            ],
             NotificationType::ExamPendingGrading->value => [
                 'تسلّمنا ورقتك في «{{ exam_title }}»',
                 'تسلّمنا ورقة {{ student_name }} في «{{ exam_title }}». فيها أسئلة مقالية ينتظر تصحيحُها المدرّس، وتصلك النتيجة كاملةً بعده.',

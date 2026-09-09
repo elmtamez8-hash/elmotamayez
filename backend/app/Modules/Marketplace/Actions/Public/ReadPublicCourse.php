@@ -50,6 +50,24 @@ class ReadPublicCourse extends Action
     public function handle(string $key): ?Course
     {
         $course = Course::query()
+            /*
+            | ⚠️ DECLARED, AND «A GUEST ACTIVATES NO SCOPE» IS EXACTLY THE BLIND
+            | SPOT (032 · T023).
+            |
+            | `WorkspaceScope` adds no condition when the context is null, so a
+            | visitor read this correctly whether the bypass was here or not —
+            | and a TEACHER SIGNED IN FROM ANOTHER WORKSPACE did not: their
+            | context resolves from `users.last_workspace_id`, the scope bites,
+            | and every public course page on the platform answered them the 404
+            | that means «no such thing». Measured while building the preview
+            | lesson door, which reuses this resolver.
+            |
+            | Nothing is widened: `publiclyListed()` below already requires the
+            | course published and public, its teacher approved and listed, and
+            | its workspace participating. The scope could only ever remove rows
+            | that satisfy all four.
+            */
+            ->withoutWorkspaceScope()
             ->publiclyListed()
             ->where(function ($query) use ($key): void {
                 // Grouped, or the OR escapes the `publiclyListed()` guard above
@@ -66,15 +84,26 @@ class ReadPublicCourse extends Action
                 // that does not exist and every screen renders a blank. Six call
                 // sites shipped that way in 010.
                 'creator:id,first_name,last_name',
-                'creator.teacherProfile',
+                // ⚠️ THE BYPASS IS PER MODEL, AND `teacher_profiles` IS TENANT
+                // OWNED. Declared on the outer query it does NOT reach inside a
+                // relation query — so for the signed-in foreign teacher above,
+                // this eager load answered null and the page rendered with no
+                // teacher on it. A 200 with a hole in it, which no 404 test can
+                // see.
+                'creator.teacherProfile' => fn ($query) => $query->withoutWorkspaceScope(),
             ])
             ->withCount([
                 // The same constraint the card uses: an unconstrained count adds
                 // the teacher's drafts and their archive to a number a visitor
                 // reads as «what I get», which is a draft item's existence
                 // leaking as one integer.
-                'lessons as lessons_count' => fn ($query) => $query->visibleToStudents(),
-                'enrollments as enrolled_count',
+                //
+                // ⚠️ AND THE BYPASS AGAIN: a `withCount` is a subquery over
+                // `lessons`, which runs Lesson's own global scope. Without it
+                // the same reader is told the course has zero items and zero
+                // students — the emptiest possible page, answered 200.
+                'lessons as lessons_count' => fn ($query) => $query->withoutWorkspaceScope()->visibleToStudents(),
+                'enrollments as enrolled_count' => fn ($query) => $query->withoutWorkspaceScope(),
             ])
             ->first();
 
@@ -113,7 +142,20 @@ class ReadPublicCourse extends Action
             ->withoutWorkspaceScope()
             ->where('lessons.course_id', $course->getKey())
             ->visibleToStudents()
-            ->with(['section:id,title,order', 'chapter:id,title,order,section_id'])
+            /*
+            | ⚠️ `status` IS IN BOTH LISTS, AND ITS ABSENCE WAS A 500.
+            |
+            | A constrained eager load must name the columns the READER needs,
+            | not the ones the screen prints — the `first_name`/`last_name` rule
+            | from 010 reached from the opposite direction. `isPubliclyReadable()`
+            | asks `isVisibleChain()`, which reads the parents' statuses; without
+            | them `$chapter->status` is null and `null->isVisibleToStudents()`
+            | takes the whole public course page down.
+            */
+            ->with([
+                'section' => fn ($query) => $query->withoutWorkspaceScope()->select('id', 'title', 'order', 'status'),
+                'chapter' => fn ($query) => $query->withoutWorkspaceScope()->select('id', 'title', 'order', 'section_id', 'status'),
+            ])
             ->join('course_sections', 'course_sections.id', '=', 'lessons.section_id')
             ->join('course_chapters', 'course_chapters.id', '=', 'lessons.chapter_id')
             ->orderBy('course_sections.order')

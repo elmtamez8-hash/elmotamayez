@@ -7,4 +7,4 @@
  * specs/002-arabic-rtl-app-shell/contracts/ui-components.md.
  */
 
-export {};
+export { Modal } from "./Modal";

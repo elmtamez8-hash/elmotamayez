@@ -7,7 +7,7 @@ namespace App\Modules\Courses\Enums;
 /**
  * What a content item in the course tree is.
  *
- * Ten values in four families, and the family is what decides where the content
+ * Eleven values in four families, and the family is what decides where the content
  * actually lives — written on the row, uploaded as an asset, a reference to
  * another entity, or an address outside the platform. `LessonTypeRegistry` owns
  * that mapping; this enum owns only the vocabulary and its Arabic labels.
@@ -32,6 +32,19 @@ enum LessonType: string
     case Assignment = 'assignment';
     case LiveSession = 'live_session';
 
+    /**
+     * Spec 032. An `<iframe>` built by US from a url the teacher pasted — the
+     * column holds OUR url, never their paste, so `FR-003` is unrepresentable
+     * rather than guarded (the `PromoVideoUrl` rule from 018).
+     *
+     * Structurally confined to the OPEN lesson: `PublishReadiness` refuses to
+     * publish one that is neither `is_preview` nor `is_free`. The protections a
+     * hosted video gives up — an expiring grant, the watermark, the device
+     * limit, a signed token — are not needed by content its owner decided to
+     * open, while a PAID lesson on YouTube means whoever holds the url owns it.
+     */
+    case Embed = 'embed';
+
     public function label(): string
     {
         return match ($this) {
@@ -45,6 +58,7 @@ enum LessonType: string
             self::Exam => 'اختبار',
             self::Assignment => 'واجب',
             self::LiveSession => 'حصة مباشرة',
+            self::Embed => 'فيديو مُضمَّن',
         };
     }
 }
