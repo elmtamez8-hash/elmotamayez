@@ -56,6 +56,7 @@ export default function EditCoursePage({
     currency: "QAR",
     is_sequential: true,
     subject: "",
+    grade_level: "",
     promo_video_url: "",
   });
   /*
@@ -66,6 +67,13 @@ export default function EditCoursePage({
     permanent, which is a worse state than the null it replaced.
   */
   const [subjects, setSubjects] = useState<{ uuid: string; label: string }[]>([]);
+  /*
+    ⚠️ HERE FOR THE SAME REASON THE SUBJECT IS. `courses.grade_level` had no
+    writer at all until 2026-09-09, so 95 of 96 existing courses carry no stage —
+    and this is the only screen where a teacher can put one in. Without the field
+    the filter that reads it would be permanently one option wide.
+  */
+  const [stages, setStages] = useState<{ slug: string; name_ar: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -89,6 +97,7 @@ export default function EditCoursePage({
           currency: c.currency,
           is_sequential: c.is_sequential,
           subject: c.subject?.uuid ?? "",
+          grade_level: c.grade_level ?? "",
           /*
             ⚠️ SEEDED EMPTY EVEN WHEN A VIDEO EXISTS, and that is deliberate.
             The server stores the extracted ID and never the pasted link, so
@@ -110,6 +119,13 @@ export default function EditCoursePage({
       .get<{ data: { uuid: string; label: string }[] }>("/course-subjects")
       .then((response) => setSubjects(response.data ?? []))
       .catch(() => setSubjects([]));
+  }, []);
+
+  useEffect(() => {
+    api
+      .get<{ data: { slug: string; name_ar: string }[] }>("/signup/grade-levels")
+      .then((response) => setStages(response.data ?? []))
+      .catch(() => setStages([]));
   }, []);
 
   const submit = async (e: React.FormEvent) => {
@@ -250,6 +266,17 @@ export default function EditCoursePage({
             options={subjects.map((subject) => ({ value: subject.uuid, label: subject.label }))}
             error={fields.subject}
             required
+          />
+
+          <SelectField
+            id="grade_level"
+            label="المرحلة الدراسية"
+            value={form.grade_level}
+            onChange={(v) => setForm({ ...form, grade_level: v })}
+            placeholder="بلا مرحلة محدّدة"
+            options={stages.map((stage) => ({ value: stage.slug, label: stage.name_ar }))}
+            error={fields.grade_level}
+            hint="تُستخدم لفلترة كورساتك ولربط سعر التسوية بالمرحلة."
           />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

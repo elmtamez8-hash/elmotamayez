@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Http\Requests;
 
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Support\CourseStage;
 use App\Modules\Courses\Support\PromoVideoUrl;
 use App\Modules\Tenancy\Support\Permissions;
 use Closure;
@@ -31,6 +32,9 @@ class UpdateCourseRequest extends FormRequest
             */
             'subject' => ['sometimes', 'uuid'],
             'description' => ['nullable', 'string'],
+            // The stage — see {@see CourseStage}. Reaches `update()` as an
+            // ordinary fillable column; there is nothing to resolve.
+            'grade_level' => CourseStage::rules(),
             /*
             | ⚠️ UNIQUE ACROSS THE PLATFORM, NOT WITHIN THE WORKSPACE.
             | `/courses/{slug}` is one namespace read by guests, so the index behind

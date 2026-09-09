@@ -20,6 +20,8 @@ class CreateCourseDTO extends DataTransferObject
         public readonly bool $isSequential = true,
         /** The platform-wide subject uuid; resolved to an id in the Action. */
         public readonly ?string $subjectUuid = null,
+        /** A `grade_levels` slug, stored as the undefended text every reader of it expects. */
+        public readonly ?string $gradeLevel = null,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -35,6 +37,7 @@ class CreateCourseDTO extends DataTransferObject
             visibility: $data['visibility'] ?? 'private',
             isSequential: $data['is_sequential'] ?? true,
             subjectUuid: isset($data['subject']) && is_string($data['subject']) ? $data['subject'] : null,
+            gradeLevel: isset($data['grade_level']) && is_string($data['grade_level']) ? $data['grade_level'] : null,
         );
     }
 }
