@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: PHP 8.5
         uses: shivammathur/setup-php@v2
@@ -62,7 +62,7 @@ jobs:
           coverage: none
 
       - name: Cache Composer
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.composer/cache
           key: composer-${{ hashFiles('backend/composer.lock') }}
