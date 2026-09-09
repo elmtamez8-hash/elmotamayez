@@ -13,6 +13,7 @@ use App\Modules\Marketplace\Http\Requests\UpdateTeacherProfileRequest;
 use App\Modules\Marketplace\Http\Requests\UpdateTeacherSlugRequest;
 use App\Modules\Marketplace\Models\GradeLevel;
 use App\Modules\Marketplace\Models\Subject;
+use App\Modules\Marketplace\Models\TeacherApplication;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -145,6 +146,8 @@ class TeacherProfileController extends Controller
 
         abort_if($profile === null, 403, 'لا يوجد ملف مدرّس لهذا الحساب.');
 
+        $this->abortIfUnderReview($request);
+
         $validated = $request->validated();
 
         $action->handle(
@@ -200,11 +203,43 @@ class TeacherProfileController extends Controller
 
         abort_if($profile === null, 403, 'لا يوجد ملف مدرّس لهذا الحساب.');
 
+        $this->abortIfUnderReview($request);
+
         // ولا `try/catch`: رفضُ التداخلِ `DomainException` ويحوّلُه `bootstrap/app.php`
         // إلى ٤٢٢ بجملتِه العربيّةِ نفسِها — والتقاطُه هنا نسخةٌ ثانيةٌ من قاعدةٍ عامّة.
         $action->handle($profile, $request->validated('availability'));
 
         return $this->show($request);
+    }
+
+    /**
+     * البابانِ كانا يختلفانِ على سؤالٍ واحد: هل يُعدَّلُ أثناءَ المراجعة؟
+     *
+     * ⚠️ المعالجُ يقولُ لا — {@see SaveTeacherApplicationStep} يرفضُ كلَّ حفظٍ بعدَ
+     * الإرسال — وهاتانِ الشاشتانِ كانتا تقولانِ نعم، بلا حارسٍ إطلاقاً. ومن ذلكَ
+     * الخلافِ يُولَدُ الضياع: تعديلٌ يقعُ والطلبُ «مُرسَل» لا تنسخُه المزامنةُ
+     * (شرطُها `isEditable()`)، فإن طلبَ المراجِعُ تعديلاً بعدَها كتبَ الإرسالُ
+     * التالي الملفَّ من نسخةٍ لا تعرفُه — فالتجميدُ كانَ يؤجّلُ الضياعَ جولةً
+     * واحدةً لا يمنعُه.
+     *
+     * ⚠️ والحارسُ هنا لا في {@see UpdateTeacherProfile}: ذلكَ الفعلُ يخدمُ
+     * فاعلَينِ لا واحداً — صاحبَ الطلبِ من هذه الشاشة، وفريقَ المراجعةِ من
+     * اللوحة. والمنعُ منعُ صاحبِ الطلبِ من تحريكِ ما يُنظَرُ فيه؛ أمّا المراجِعُ
+     * فتصحيحُه هو الغرضُ من شاشتِه. ولذلك هو بابٌ لا فعل.
+     *
+     * ⚠️ و٤٢٢ لا ٤٠٣: رفضُ حالةٍ لا رفضُ صلاحيّة — الشكلُ نفسُه الذي يردُّ به
+     * المعالجُ على الحفظِ بعدَ الإرسال.
+     */
+    private function abortIfUnderReview(Request $request): void
+    {
+        $underReview = TeacherApplication::query()
+            // `user_id` هو الحارس، والسياقُ قد يكونُ غيرَ سياقِ الطلب.
+            ->withoutWorkspaceScope()
+            ->where('user_id', $this->currentUser($request)->getKey())
+            ->where('status', TeacherApplication::STATUS_SUBMITTED)
+            ->exists();
+
+        abort_if($underReview, 422, 'طلبك قيد المراجعة الآن — لا يمكن تعديل بياناتك حتى يردّ الفريق.');
     }
 
     /**

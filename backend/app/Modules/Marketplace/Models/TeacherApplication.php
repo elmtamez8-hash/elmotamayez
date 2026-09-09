@@ -88,6 +88,21 @@ class TeacherApplication extends BaseModel
     }
 
     /**
+     * هل ما زالَ للمراجِعِ أن يفعلَ بهذا الطلبِ شيئاً؟
+     *
+     * ⚠️ سؤالٌ آخرُ غيرُ {@see self::isEditable()}: ذاكَ عن صاحبِ الطلب، وهذا عن
+     * المراجِع، والحالتانِ الوسطى واحدةٌ فيهما والطرفانِ مقلوبان — «مسوّدة»
+     * يُعدِّلُها صاحبُها ولا قرارَ فيها لأحد، و«مُرسَل» العكس.
+     *
+     * ⚠️ وكانَ هذا الهجاءُ مكتوباً في اللوحةِ وحدَها بينما المسارُ في الـAPI بلا
+     * حارسِ حالةٍ إطلاقاً — واللوحةُ تُخفي زرَّها فيبدو الأمرُ محروساً.
+     */
+    public function isPending(): bool
+    {
+        return in_array($this->status, [self::STATUS_SUBMITTED, self::STATUS_CHANGES_REQUESTED], true);
+    }
+
+    /**
      * One step's answers, or an empty array if it has not been filled yet.
      *
      * @return array<string, mixed>
