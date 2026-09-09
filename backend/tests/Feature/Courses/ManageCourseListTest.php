@@ -12,6 +12,7 @@ use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
 
 /*
 | `/courses` as the management screen reads it: the groups, their times, the
@@ -27,7 +28,7 @@ use Laravel\Sanctum\Sanctum;
 /** @return array{0: Course, 1: mixed, 2: mixed} */
 function manageListCourse(?string $title = null): array
 {
-    /** @var Tests\TestCase $test */
+    /** @var TestCase $test */
     $test = test();
 
     // ⚠️ The context CACHES its resolution, and the budget case below builds two

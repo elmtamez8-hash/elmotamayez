@@ -14,8 +14,9 @@ class CourseResource extends JsonResource
 {
     /**
      * ⚠️ THE GROUPS ARE STAMPED IN FROM OUTSIDE, NEVER FETCHED HERE — the rule
-     * {@see \App\Modules\Learning\Http\Resources\CohortResource} already
-     * carries. A Resource runs once per row, so asking `CohortDirectory` in
+     * Learning's own `CohortResource` already carries (named in prose, because
+     * `Modules/Courses` may not import `Modules/Learning`). A Resource runs once
+     * per row, so asking `CohortDirectory` in
      * `toArray()` is one query per course plus one schedule read per course; the
      * caller asks once for the whole page and passes the answer in. An unstamped
      * resource sends an empty list rather than reaching for one.

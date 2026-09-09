@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Support;
 
 use App\Modules\Marketplace\Models\GradeLevel;
-use App\Modules\Marketplace\Support\TeacherListingRules;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\In;
 
@@ -17,7 +16,7 @@ use Illuminate\Validation\Rules\In;
  * question the first time somebody edits one of them.
  *
  * ⚠️ `is_active` ALONE, with no participation condition — the predicate
- * {@see TeacherListingRules} reads and
+ * `Marketplace\Support\TeacherListingRules` reads and
  * deliberately not the marketplace's. Narrowing it to stages that already have a
  * course would be a circular lock: the first course of a stage could never be
  * filed under it.
