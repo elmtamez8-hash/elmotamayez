@@ -234,8 +234,15 @@ services:
     # `nginx.prod.conf`. فحصٌ على `/` يمرُّ إلى Next ثمّ إلى الـAPI، فيقيسُ
     # ثلاثَ حاوياتٍ ويُسمّي الأولى. و`wget` من BusyBox موجودٌ في `nginx:alpine`
     # بينما `curl` ليسَ كذلك.
+    #
+    # ⚠️ والمنفذُ **٨٠٨١ لا ٨٠**، وهذا هو ما أعطبَ الفحصَ منذُ أوّلِ نشرة: كتلةُ
+    # المنفذِ ٨٠ تُحوِّلُ كلَّ شيءٍ إلى https، فيتبعُ `wget` التحويلةَ إلى
+    # `https://127.0.0.1/…` ويسقطُ على التحقّقِ من الشهادةِ — اسمُ المضيفِ ليسَ
+    # النطاق. قِيسَ على الخادمِ في ٢٠٢٦-٠٩-٠٩: `certificate verify failed` ثمّ
+    # `Connection reset by peer`، وnginx `unhealthy` بينما الفحصُ الدخانيُّ يردُّ
+    # ٢٠٠ من الخارج — أي اتّهامُ حاويةٍ سليمةٍ بعطبٍ في الفاحصِ نفسِه.
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/nginx-health"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/nginx-health"]
       interval: 30s
       timeout: 10s
       retries: 3
