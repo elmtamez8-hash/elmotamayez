@@ -337,7 +337,16 @@ it('CONTROL — a real student still buys credits', function (): void {
 | people who legitimately buy on somebody's behalf and block nobody it was
 | written for. These two cases are what make that mistake red.
 */
-function relateGuardian(User $guardian, User $child): void
+/*
+| ⚠️ NAMED FOR THIS FILE, because a Pest helper is a GLOBAL function. It was
+| `relateGuardian()`, which `LiveSessions/ChildScheduleGuardTest.php` also
+| declares with a different signature — invisible while each file gets its own
+| process, and a fatal «Cannot redeclare function» the moment one worker loads
+| both, which is every `pest --parallel` run and any invocation naming the two
+| directories together. Same family as the `DRAFT_SENTINEL` collision this
+| repository already paid for.
+*/
+function relatePayingGuardian(User $guardian, User $child): void
 {
     ParentStudentRelation::query()->create([
         'guardian_user_id' => $guardian->getKey(),
@@ -353,7 +362,7 @@ it('lets a guardian WHO OWNS A WORKSPACE buy a subscription for their child', fu
     [, $guardianTeacher] = $this->createWorkspaceWithOwner(['name' => 'أكاديمية وليّ الأمر']);
 
     $child = User::factory()->create(['last_workspace_id' => null]);
-    relateGuardian($guardianTeacher, $child);
+    relatePayingGuardian($guardianTeacher, $child);
 
     app()->forgetInstance(WorkspaceContext::class);
 

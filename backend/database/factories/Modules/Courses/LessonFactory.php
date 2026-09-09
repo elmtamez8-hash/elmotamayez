@@ -6,10 +6,9 @@ namespace Database\Factories\Modules\Courses;
 
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
-use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
-use App\Modules\Courses\Models\Section;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -24,9 +23,27 @@ class LessonFactory extends Factory
     {
         return [
             'workspace_id' => 1,
-            'course_id' => Course::factory(),
-            'section_id' => Section::factory(),
             'chapter_id' => Chapter::factory(),
+            /*
+            | ⚠️ BOTH DERIVED FROM THE CHAPTER — the same two lines
+            | `ManageLessons::create()` writes, and for the same reason its own
+            | comment gives: asking for a section as well is what let a lesson
+            | hold a section from one branch and a chapter from another. All
+            | three were independent factories here, so a bare
+            | `Lesson::factory()` created four unrelated courses and left a
+            | lesson none of them could reach. See `ChapterFactory` for why the
+            | key order and `DB::table` both matter.
+            |
+            | The ceiling: `->for($course)` overrides `course_id` before this
+            | closure runs, so it still gets a chapter of its own. Pin the
+            | chapter instead when the course has to be a particular one.
+            */
+            'section_id' => fn (array $attributes) => DB::table('course_chapters')
+                ->where('id', $attributes['chapter_id'])
+                ->value('section_id'),
+            'course_id' => fn (array $attributes) => DB::table('course_chapters')
+                ->where('id', $attributes['chapter_id'])
+                ->value('course_id'),
             'uuid' => Str::uuid(),
             'title' => fake()->sentence(4),
             'type' => fake()->randomElement(['article', 'video', 'pdf', 'file']),

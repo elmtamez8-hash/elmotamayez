@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useCallback, useEffect, useState } from "react";
 
 import { AccountPhotoCard } from "@/components/settings/AccountPhotoCard";
@@ -8,10 +9,16 @@ import {
   WeeklyAvailabilityEditor,
   type Slot,
 } from "@/components/marketplace/WeeklyAvailabilityEditor";
-import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { CONTROL, Field, NumberField, SelectField, TextareaField, TextField } from "@/components/ui/Field";
+import {
+  CONTROL,
+  MultiSelectField,
+  NumberField,
+  SelectField,
+  TextareaField,
+  TextField,
+} from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { api, fieldErrors } from "@/lib/api";
@@ -69,8 +76,6 @@ export default function ProfileSettingsPage() {
 
   const [student, setStudent] = useState({ school_year_slug: "", region_slug: "" });
 
-  const [saved, setSaved] = useState("");
-  const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -159,30 +164,45 @@ export default function ProfileSettingsPage() {
     void load();
   }, [load]);
 
-  const toggle = (key: "subjects" | "grade_levels" | "teaching_languages", value: string) =>
-    setForm((prev) => ({
-      ...prev,
-      [key]: prev[key].includes(value)
-        ? prev[key].filter((item) => item !== value)
-        : [...prev[key], value],
-    }));
-
+  /*
+  | ⚠️ A TOAST, NOT A BANNER AT THE TOP OF THE DOCUMENT — reported 2026-09-09.
+  | This page is long: the availability editor sits near the bottom, and its
+  | «لا يمكن أن تتداخل فترتان في اليوم نفسه» was rendered above the heading,
+  | metres above the control that provoked it. The teacher pressed save, nothing
+  | visible happened, and they concluded the button was broken. A toast is
+  | `position: fixed`, so it is in the viewport wherever the page is scrolled —
+  | which is the whole of the fix; the sentence itself is unchanged.
+  |
+  | ⚠️ AND THE 422 BRANCH TOASTS TOO. It used to set the field messages and show
+  | nothing else, so a refusal about a field off the bottom of the screen was
+  | silent in exactly the same way — the banner was never the only door onto this
+  | defect. The toast says WHERE to look and the field still carries the reason;
+  | putting the reason itself in the toast would be «انتهت جلستك» under a list of
+  | subjects, which is why the two were separated in the first place.
+  |
+  | ⚠️ Errors are given ten seconds, not sonner's four. An Arabic sentence
+  | explaining a clash needs longer to read than a confirmation does, and this
+  | one is the only record of why the save did not happen.
+  */
   const save = async (task: Promise<unknown>) => {
     setSaving(true);
-    setSaved("");
-    setError("");
     setFields({});
 
     try {
       await task;
-      setSaved("حُفِظت بياناتك، وهي منشورة الآن.");
+      toast.success("حُفِظت بياناتك، وهي منشورة الآن.");
     } catch (err: unknown) {
-      // 422 under its own field; everything else in the banner. Mixing them puts
-      // «انتهت جلستك» under a list of subjects.
       const found = fieldErrors(err);
 
-      if (Object.keys(found).length > 0) setFields(found);
-      else setError(userMessage(err));
+      if (Object.keys(found).length > 0) {
+        setFields(found);
+        toast.error("لم يُحفظ التغيير", {
+          description: "راجع الحقول المميّزة بالأحمر في النموذج.",
+          duration: 10000,
+        });
+      } else {
+        toast.error("لم يُحفظ التغيير", { description: userMessage(err), duration: 10000 });
+      }
     } finally {
       setSaving(false);
     }
@@ -195,9 +215,6 @@ export default function ProfileSettingsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <h2 className="text-2xl font-bold text-ink">ملفّي</h2>
-
-      {error && <Alert tone="danger" title="لم يُحفظ التغيير">{error}</Alert>}
-      {saved && <Alert tone="success" title={saved} />}
 
       {/*
         ⚠️ **الصورةُ لكلِّ حساب، وحجبُها خلفَ «هل لك ملفّ؟» كانَ يُغلِقُ الشاشةَ
@@ -264,84 +281,52 @@ export default function ProfileSettingsPage() {
               );
             }}
           >
-            <Field id="subjects" label="المواد التي تدرّسها" error={fields.subjects} required>
-              <div className="flex flex-wrap gap-2">
-                {subjects.map((subject) => (
-                  <label
-                    key={subject.slug}
-                    className={`cursor-pointer rounded-xl border px-3 py-1.5 text-sm ${
-                      form.subjects.includes(subject.slug)
-                        ? "border-primary bg-primary-soft text-primary-ink"
-                        : "border-line text-ink"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="sr-only"
-                      checked={form.subjects.includes(subject.slug)}
-                      onChange={() => toggle("subjects", subject.slug)}
-                    />
-                    {subject.name_ar}
-                  </label>
-                ))}
-              </div>
-            </Field>
+            {/* ⚠️ THREE `MultiSelectField`s, NOT WALLS OF CHIPS. Nine subjects,
+                four stages and three languages laid out as toggle chips is a
+                screenful of controls that all look alike, and a teacher scrolls
+                past their own answer looking for the next question. The kit's
+                control shows the chosen ones as a sentence and keeps the list
+                behind one press — and it is `MultiSelectField` rather than
+                `<select multiple>` for the reason written on the component: a
+                plain click in the native control REPLACES the selection. */}
+            <MultiSelectField
+              id="subjects"
+              label="المواد التي تدرّسها"
+              error={fields.subjects}
+              required
+              placeholder="اختر المواد"
+              value={form.subjects}
+              onChange={(subjects) => setForm({ ...form, subjects })}
+              options={subjects.map((subject) => ({
+                value: subject.slug,
+                label: subject.name_ar,
+              }))}
+            />
 
-            <Field
+            <MultiSelectField
               id="grade_levels"
               label="المراحل التي تدرّس لها"
               error={fields.grade_levels}
               required
-            >
-              <div className="flex flex-wrap gap-2">
-                {stages.map((stage) => (
-                  <label
-                    key={stage.slug}
-                    className={`cursor-pointer rounded-xl border px-3 py-1.5 text-sm ${
-                      form.grade_levels.includes(stage.slug)
-                        ? "border-primary bg-primary-soft text-primary-ink"
-                        : "border-line text-ink"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="sr-only"
-                      checked={form.grade_levels.includes(stage.slug)}
-                      onChange={() => toggle("grade_levels", stage.slug)}
-                    />
-                    {stage.name_ar}
-                  </label>
-                ))}
-              </div>
-            </Field>
+              placeholder="اختر المراحل"
+              value={form.grade_levels}
+              onChange={(grade_levels) => setForm({ ...form, grade_levels })}
+              options={stages.map((stage) => ({ value: stage.slug, label: stage.name_ar }))}
+            />
 
-            <Field
+            <MultiSelectField
               id="teaching_languages"
               label="لغات التدريس"
               error={fields.teaching_languages}
               required
-            >
-              <div className="flex flex-wrap gap-2">
-                {TEACHING_LANGUAGES.map((language) => (
-                  <label
-                    key={language.value}
-                    className={`cursor-pointer rounded-xl border px-3 py-1.5 text-sm ${
-                      form.teaching_languages.includes(language.value)
-                        ? "border-primary bg-primary-soft text-primary-ink"
-                        : "border-line text-ink"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="sr-only"
-                      checked={form.teaching_languages.includes(language.value)}
-                      onChange={() => toggle("teaching_languages", language.value)}
-                    />
-                    {language.label}
-                  </label>
-                ))}
-              </div>
-            </Field>
+              placeholder="اختر اللغات"
+              value={form.teaching_languages}
+              onChange={(teaching_languages) => setForm({ ...form, teaching_languages })}
+              options={TEACHING_LANGUAGES.map((language) => ({
+                value: language.value,
+                label: language.label,
+              }))}
+            />
 
             <TextField
               id="headline"

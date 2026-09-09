@@ -26,6 +26,14 @@ const saveAvailability = vi.fn();
 vi.mock("@/lib/api", () => ({
   api: { get: (path: string) => get(path) },
   fieldErrors: () => ({}),
+  /*
+  | ⚠️ `ApiError` HAS TO BE ON THE MOCK, because `userMessage()` — imported from
+  | `@/lib/errors`, which this file does NOT mock — asks `err instanceof
+  | ApiError` on the refusal path. Left out, the failure branch dies inside the
+  | error handler with «No ApiError export is defined on the mock», which reads
+  | like a bug in the page rather than a hole in the fixture.
+  */
+  ApiError: class ApiError extends Error {},
 }));
 
 vi.mock("@/lib/profile", () => ({
@@ -43,6 +51,16 @@ let currentUser: Partial<User> | null = null;
 
 vi.mock("@/lib/auth-context", () => ({
   useAuth: () => ({ user: currentUser }),
+}));
+
+const toastError = vi.fn();
+const toastSuccess = vi.fn();
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: (...args: unknown[]) => toastError(...args),
+    success: (...args: unknown[]) => toastSuccess(...args),
+  },
 }));
 
 const TEACHER_PROFILE = {
@@ -317,6 +335,66 @@ describe("a student's own data", () => {
         school_year_slug: "year-10",
         region_slug: "doha",
       });
+    });
+  });
+});
+
+describe("telling the teacher whether it saved", () => {
+  /*
+  | ⚠️ IT WAS AN `<Alert>` AT THE TOP OF THE DOCUMENT, AND THIS PAGE IS LONG —
+  | reported 2026-09-09. The availability editor sits near the bottom, so its
+  | «لا يمكن أن تتداخل فترتان في اليوم نفسه» rendered metres above the control
+  | that produced it: the teacher pressed save, saw nothing, and read that as a
+  | broken button. A toast is `position: fixed`, so it is in the VIEWPORT
+  | wherever the page is scrolled.
+  |
+  | ⚠️ AND THE 422 BRANCH IS THE HALF THAT WOULD BE MISSED. It used to set the
+  | field messages and show nothing else at all — a refusal about a field below
+  | the fold was silent by exactly the same mechanism, so a fix that toasted
+  | only the general error would have left the reported defect standing on the
+  | commoner path.
+  */
+  beforeEach(() => {
+    currentUser = { platform_role: "teacher" } as Partial<User>;
+    get.mockImplementation((path: string) => Promise.resolve(CATALOGUES[path] ?? { data: [] }));
+    teacher.mockResolvedValue(TEACHER_PROFILE);
+  });
+
+  it("toasts the reason when the server refuses", async () => {
+    saveTeacher.mockRejectedValue(
+      Object.assign(new Error("clash"), { status: 422, message: "لا يمكن أن تتداخل فترتان في اليوم نفسه." }),
+    );
+
+    render(<ProfileSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("ملفك العام")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "احفظ ملفي" }));
+
+    await waitFor(() => {
+      expect(toastError).toHaveBeenCalled();
+    });
+
+    expect(toastError.mock.calls[0][0]).toBe("لم يُحفظ التغيير");
+    // No banner left behind: two places saying it is two places to keep in step.
+    expect(screen.queryByText("لم يُحفظ التغيير")).toBeNull();
+  });
+
+  it("toasts the confirmation too", async () => {
+    saveTeacher.mockResolvedValue(TEACHER_PROFILE);
+
+    render(<ProfileSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("ملفك العام")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "احفظ ملفي" }));
+
+    await waitFor(() => {
+      expect(toastSuccess).toHaveBeenCalledWith("حُفِظت بياناتك، وهي منشورة الآن.");
     });
   });
 });
