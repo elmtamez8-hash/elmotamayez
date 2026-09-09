@@ -33,6 +33,23 @@ const STATUS_LABELS: Record<string, string> = {
   mastered: "أُتقِنت",
   ended: "انتهت",
 
+  /*
+    Live sessions (005 · 017). `scheduled`, `live` and `interrupted` were the
+    three the table never had — so a teacher's own group page badged every
+    upcoming lesson «scheduled», in English, on an Arabic-only product. The
+    fall-through is deliberate («a new backend status should look unfinished,
+    not invisible») and it is a diagnostic, not a design: a value that reaches a
+    screen belongs here.
+
+    ⚠️ `interrupted` IS NOT `cancelled`. It is the sweep's verdict on a session
+    the teacher never opened — «لم تنعقد» — while a cancellation is a decision
+    somebody took and announced. Reading them as one word hides which of the two
+    happened from the only person who can fix it.
+  */
+  scheduled: "مجدولة",
+  live: "جارية الآن",
+  interrupted: "لم تنعقد",
+
   // Course · exam
   draft: "مسودّة",
   published: "منشور",
@@ -89,6 +106,12 @@ const STATUS_TONES: Record<string, StatusTone> = {
   running: "info",
   mastered: "success",
   ended: "neutral",
+
+  // Live sessions. `live` is emphasis and not alarm; `interrupted` is the
+  // sweep's verdict on a lesson nobody opened, which is a fault worth seeing.
+  scheduled: "info",
+  live: "success",
+  interrupted: "danger",
 
   // Settlement. A reversal is not a failure — it is a correction with an author
   // and a reason — so it reads neutral rather than red.

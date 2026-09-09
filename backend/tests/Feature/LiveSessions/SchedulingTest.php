@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Actions\GenerateSessionsFromAvailability;
 use App\Modules\LiveSessions\Actions\ScheduleClassSession;
+use App\Modules\LiveSessions\Actions\UpdateClassSession;
 use App\Modules\LiveSessions\Data\ScheduleSessionData;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
@@ -182,4 +183,46 @@ it('refuses to change the type once a seat is booked', function (): void {
     $this->putJson("/api/v1/class-sessions/{$session->uuid}", [
         'type' => ClassSessionType::Individual->value,
     ])->assertStatus(422);
+});
+
+/*
+| ⚠️ المواعيدُ تُفحَصُ عندَ التعديلِ كما تُفحَصُ عندَ الإنشاء — ولم تكنْ.
+|
+| `ScheduleClassSession` يرفضُ التداخلَ وفترةَ التجميدِ منذُ كُتِب؛ و
+| `UpdateClassSession` كان ينقلُ `starts_at` بلا فحصٍ من الاثنين. فالقاعدةُ تصمدُ
+| أثناءَ الإنشاءِ وتتبخّرُ عندَ أوّلِ نقل — وهكذا يقعُ سبتُ مجموعةٍ فوقَ سبتِ مجموعةٍ
+| أخرى: غرفتانِ من الطلابِ تُدعَيانِ إلى الساعةِ نفسِها، ولا شيءَ يقولُ ذلك.
+|
+| والتصادمُ لكلِّ **مدرّس** لا لكلِّ مجموعة: المدرّسُ لا يكونُ في غرفتين معاً.
+*/
+it('refuses to move a session on top of another group\'s hour', function (): void {
+    $at = CarbonImmutable::now()->addDays(2)->startOfHour();
+
+    $first = app(ScheduleClassSession::class)->handle(
+        scheduleData($this->teacher, $at),
+        $this->owner,
+    );
+
+    $second = app(ScheduleClassSession::class)->handle(
+        scheduleData($this->teacher, $at->addHours(3)),
+        $this->owner,
+    );
+
+    expect(fn () => app(UpdateClassSession::class)->handle($second, [
+        'starts_at' => $at->toIso8601String(),
+    ]))->toThrow(DomainException::class);
+
+    // And the row it would have landed on is untouched.
+    expect($first->fresh()->starts_at->equalTo($at))->toBeTrue();
+});
+
+it('lets a session be edited without reading it as a clash with itself', function (): void {
+    $session = app(ScheduleClassSession::class)->handle(
+        scheduleData($this->teacher, CarbonImmutable::now()->addDays(2)->startOfHour()),
+        $this->owner,
+    );
+
+    $updated = app(UpdateClassSession::class)->handle($session, ['title' => 'العنوان الجديد']);
+
+    expect($updated->title)->toBe('العنوان الجديد');
 });

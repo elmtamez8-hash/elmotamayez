@@ -9,6 +9,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Support\SchedulableTeachers;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Support\WorkspaceRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -39,6 +40,14 @@ class GenerateSessionsRequest extends FormRequest
             // Bounded so one request cannot generate a decade of sessions and
             // spend the rest of the afternoon doing it.
             'to' => ['required', 'date', 'after:from', 'before:'.now()->addYear()->toDateString()],
+            /*
+            | The group these dates are a run of. No `exists` rule: it is resolved
+            | through `CohortDirectory` in {@see self::cohortId()}, which asks
+            | whether the group is THIS COURSE's and is a real group rather than
+            | somebody's private 1:1 room — and answers the same `null` either
+            | way, so the refusal is not an oracle for which uuids exist.
+            */
+            'cohort_uuid' => ['nullable', 'uuid'],
             'slot_uuids' => ['sometimes', 'array'],
             'slot_uuids.*' => ['uuid'],
             'seats_total' => ['sometimes', 'integer', 'min:1', 'max:500'],
@@ -71,6 +80,26 @@ class GenerateSessionsRequest extends FormRequest
         }
 
         return $own;
+    }
+
+    /** The group named by the payload, resolved against the course it must belong to. */
+    public function cohortId(): ?int
+    {
+        $uuid = $this->validated('cohort_uuid');
+
+        if (! is_string($uuid) || $uuid === '') {
+            return null;
+        }
+
+        $id = app(CohortDirectory::class)->resolveCohortId($uuid, (int) $this->course()->getKey());
+
+        if ($id === null) {
+            throw ValidationException::withMessages([
+                'cohort_uuid' => 'هذه المجموعة ليست من هذا الكورس.',
+            ]);
+        }
+
+        return $id;
     }
 
     public function course(): Course

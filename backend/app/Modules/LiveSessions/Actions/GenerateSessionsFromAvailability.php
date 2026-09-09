@@ -48,6 +48,15 @@ class GenerateSessionsFromAvailability extends Action
         int $seatsTotal = 1,
         ClassSessionType $type = ClassSessionType::Individual,
         ?string $title = null,
+        /*
+        | ⚠️ THE GROUP THE GENERATED SESSIONS BELONG TO. Without it every session
+        | this action produces is born with no group — and the teacher's first
+        | group then takes all of them out of every student's discovery list at a
+        | stroke, with the «حصص محجوبة» panel refusing to file the ones already
+        | taught. `ScheduleClassSession` refuses a GROUP session with no group;
+        | an individual slot passes null and gets its one-seat group at booking.
+        */
+        ?int $cohortId = null,
     ): array {
         $slots = AvailabilitySlot::query()
             ->where('teacher_profile_id', $teacher->getKey())
@@ -70,6 +79,7 @@ class GenerateSessionsFromAvailability extends Action
                 startsAt: $occurrence['starts_at'],
                 durationMinutes: $occurrence['duration_minutes'],
                 seatsTotal: $seatsTotal,
+                cohortId: $cohortId,
             );
 
             try {
