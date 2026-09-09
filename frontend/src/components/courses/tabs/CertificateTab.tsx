@@ -51,7 +51,19 @@ export function CertificateTab({
               رقم الشهادة <bdi>{certificate.certificate_number}</bdi>
             </p>
 
-            <Button href={`/certificates`} size="sm">
+            {/*
+              ⚠️ THE CERTIFICATE, NOT THE SHELF IT SITS ON. This was
+              `href={`/certificates`}` — a template literal with nothing
+              interpolated into it, which is what a half-finished line looks
+              like — so a student reading «شهادتك في هذه المادّة», with its
+              number printed above the button, pressed «افتح شهادتك» and landed
+              on the index of every certificate they own, to find that one again
+              by hand. `/certificates/verify/{code}` is the ONE page that draws
+              the document, and it is where each card on that index already
+              points: two spellings of «open this certificate» would be one more
+              chance to disagree.
+            */}
+            <Button href={`/certificates/verify/${certificate.verification_code}`} size="sm">
               افتح شهادتك
             </Button>
           </div>
