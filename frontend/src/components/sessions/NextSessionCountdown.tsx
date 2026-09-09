@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { ClockIcon } from "@/components/icons";
+import { SessionOwners } from "@/components/sessions/SessionOwners";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import type { SessionBooking } from "@/lib/class-sessions";
@@ -68,6 +69,16 @@ export function NextSessionCountdown({
 
   return (
     <Card>
+      {/*
+        ⚠️ TWO COLUMNS, BECAUSE ONE COLUMN LEFT THE CARD MOSTLY EMPTY. Every line
+        here is short — a title, an hour, a course, four two-digit numbers — and
+        stacked they filled a third of the width and none of the height beside
+        them, so the hero read as a half-drawn box. `flex-wrap` is what keeps it
+        honest on a phone: below the basis the timer drops under the title
+        instead of squeezing the hour onto three lines.
+      */}
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
+        <div className="min-w-60 flex-1">
       <p className="mb-1 flex items-center gap-2 text-sm text-ink-muted">
         {/*
           ⚠️ THE DOT PULSES ONLY WHILE THE DOOR IS ACTUALLY OPEN, and it is a
@@ -94,6 +105,19 @@ export function NextSessionCountdown({
       </p>
 
       {/*
+        ⚠️ THE COURSE AND THE TEACHER WERE ON THE WIRE AND ON THE SCREEN NOWHERE.
+        `ClassSessionResource` sends both — `course` always, `teacher_name` when
+        the caller loaded it — and a student studies with several teachers at
+        once, so «حصة اليوم — مراجعةٌ سريعة» named no subject, no course and
+        nobody. Absent keys are simply not rendered: `teacher_name` is
+        `whenLoaded`, so its absence means «not asked for» on the teacher's own
+        calendar, never «this lesson has no teacher».
+      */}
+      <SessionOwners session={session} />
+        </div>
+
+        <div className="shrink-0">
+      {/*
         ⚠️ NO `aria-live`, AND IT HAD ONE ON A PARAGRAPH THAT CHANGES EVERY
         SECOND. A screen reader re-read the whole sentence once a second, for as
         long as the page was open — a countdown is glanceable by nature and there
@@ -119,7 +143,17 @@ export function NextSessionCountdown({
               keeps «days hours minutes seconds» in that order, while each cell
               stays a plain number that needs no bidi handling of its own.
             */}
-            <div dir="ltr" className="flex gap-2">
+            {/*
+              ⚠️ `w-fit`, AND IT IS THE WHOLE OF THE FIX. `dir="ltr"` sets the
+              order of the four cells; on a full-width block it ALSO drags the
+              row to the left edge of an otherwise right-aligned card, so the
+              numbers sat alone in the corner with the title, the time and the
+              note stacked opposite them — a broken axis that reads as a layout
+              accident, not as a design. A fit-width block is placed by the
+              PARENT's direction, so the row hugs the start edge while its cells
+              keep counting down left to right.
+            */}
+            <div dir="ltr" className="flex w-fit gap-2">
               {[
                 ...(days > 0 ? [[days, "يوم"] as const] : []),
                 [hours, "ساعة"] as const,
@@ -156,6 +190,8 @@ export function NextSessionCountdown({
       ) : (
         <p className="text-sm text-ink-muted">يُفتح الدخول قبل الموعد بربع ساعة.</p>
       )}
+        </div>
+      </div>
     </Card>
   );
 }

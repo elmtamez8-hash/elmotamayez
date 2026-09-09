@@ -86,7 +86,14 @@ export default function SchedulePage() {
   }, [bookings]);
 
   return (
-    <div className="space-y-6">
+    /*
+      ⚠️ A MEASURE, NOT THE WHOLE WIDTH. Stretched edge to edge the card's own
+      `justify-between` strands the status badge a thousand pixels from the title
+      it belongs to, and the hour — the one part a reader is actually looking for
+      — ends up across an empty band. A timetable is a list scanned downwards, so
+      it is given a column to be scanned down.
+    */
+    <div className="max-w-3xl space-y-6">
       <h2 className="flex items-center gap-2 text-2xl font-bold text-ink">
         <ScheduleIcon className="h-6 w-6 text-primary-ink" />
         جدولي
@@ -109,8 +116,13 @@ export default function SchedulePage() {
             <div className="space-y-6">
               {days.map((day, dayIndex) => (
                 <section key={day.key} className="space-y-3">
-                  <h3 className="flex items-center gap-3 text-sm font-semibold text-ink-muted">
-                    <span>{day.label}</span>
+                  {/* ⚠️ THE DAY IS THE ANCHOR, SO IT CARRIES INK. It was muted at
+                      the same size and weight as the count beside it, which made
+                      the two read as one grey caption and left the cards to be
+                      told apart by their dates — the thing the grouping exists to
+                      remove. */}
+                  <h3 className="flex items-center gap-3 text-sm text-ink-muted">
+                    <span className="text-base font-bold text-ink">{day.label}</span>
                     {/* A rule to the end of the row, so the eye can find where
                         one day stops without another border competing with the
                         cards' own. */}
@@ -120,7 +132,15 @@ export default function SchedulePage() {
                     </span>
                   </h3>
 
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {/*
+                    ⚠️ ONE COLUMN, AND `md:grid-cols-2` IS WHAT WAS WRONG WITH IT.
+                    A day holds one or two lessons, so the second column was empty
+                    on almost every row — a card floating against a void, with the
+                    next day's heading starting the pattern again. A timetable is
+                    read down the hours, not across them; the width that column
+                    gave back is what the course and the teacher now occupy.
+                  */}
+                  <div className="grid grid-cols-1 gap-3">
                     {day.rows.map((row, index) => (
                       /*
                         ⚠️ THE STAGGER IS CAPPED AND THE FILL MODE IS `both`.
@@ -140,6 +160,9 @@ export default function SchedulePage() {
                           session={row.session}
                           href={`/sessions/${row.session.uuid}/room`}
                           time="clock"
+                          /* Every row here is a seat the reader already holds —
+                             see the prop's own note on SessionCard. */
+                          variant="timetable"
                         />
                       </div>
                     ))}
