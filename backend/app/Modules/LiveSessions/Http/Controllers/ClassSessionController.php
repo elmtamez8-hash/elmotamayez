@@ -19,6 +19,7 @@ use App\Modules\LiveSessions\Http\Requests\StoreClassSessionRequest;
 use App\Modules\LiveSessions\Http\Requests\UpdateClassSessionRequest;
 use App\Modules\LiveSessions\Http\Resources\ClassSessionResource;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Support\CohortNames;
 use App\Modules\LiveSessions\Support\CohortSessionVisibility;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\CohortDirectory;
@@ -146,6 +147,11 @@ class ClassSessionController extends Controller
         */
         $unlock->stamp(collect($sessions->items()), $this->currentUser($request));
 
+        // ⚠️ BESIDE THE QUERY, NOT INSIDE THE RESOURCE. One query for the whole
+        // page; asked per row it is fifty on a month of calendar. Same shape as
+        // the line above it, and for the same reason.
+        CohortNames::stamp($sessions->items());
+
         return response()->json(ClassSessionResource::collection($sessions)->response()->getData(true));
     }
 
@@ -197,6 +203,12 @@ class ClassSessionController extends Controller
         $this->authorize('view', $session);
 
         $session->load(['course', 'bookings', 'recordingLesson']);
+
+        // One row, so the bulk shape buys nothing here — it is called anyway so
+        // the two endpoints answer the same question the same way. A field that
+        // exists on the list and is silently null on the detail is the shape this
+        // tree keeps paying for.
+        CohortNames::stamp([$session]);
 
         return response()->json(ClassSessionResource::make($session));
     }

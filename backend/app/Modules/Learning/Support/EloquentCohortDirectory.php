@@ -396,6 +396,36 @@ class EloquentCohortDirectory implements CohortDirectory
         return (int) $cohort->getKey();
     }
 
+    /**
+     * @param  list<int>  $cohortIds
+     * @return array<int, string>
+     */
+    public function namesFor(array $cohortIds): array
+    {
+        if ($cohortIds === []) {
+            return [];
+        }
+
+        /*
+        | ⚠️ `withoutWorkspaceScope()`, AND THE IDS ARE THE GUARD.
+        |
+        | The caller is a session row the reader is already entitled to see, so
+        | the id itself has passed every door there is. Leaving the scope on
+        | would answer differently for the two readers of the same calendar: a
+        | teacher resolves a workspace and would get the name, while a STUDENT is
+        | a member of no workspace at all — `WorkspaceContext::id()` is null for
+        | them, the scope adds no condition, and they would get it too. One
+        | answer for both, spelled out, beats one that is only accidentally the
+        | same.
+        */
+        return Cohort::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('id', array_values(array_unique($cohortIds)))
+            ->pluck('name', 'id')
+            ->mapWithKeys(fn (string $name, int|string $id): array => [(int) $id => $name])
+            ->all();
+    }
+
     private function findIndividualCohort(int $courseId, int $studentUserId): ?int
     {
         $id = Cohort::query()

@@ -93,6 +93,9 @@ const SESSION = {
   duration_minutes: 60,
   timezone: "Asia/Qatar",
   seats: { total: 10, taken: 3, available: 7 },
+  // ⚠️ اسمٌ مختومٌ لا علاقةٌ محمَّلة: لا `cohort()` على `ClassSession` ولا يجوزُ
+  // أن تكون، فـ`CohortNames::stamp()` يضعُه بجوارِ الاستعلامِ عبرَ العقد.
+  cohort_name: "السبت ٤م",
   my_booking: null,
   course: { uuid: "c-1", title: "الفيزياء" },
   teacher_name: "أ. منى",
@@ -833,7 +836,18 @@ describe("DashboardPage · الرسوم", () => {
     fireEvent.click(day);
 
     expect(chart.getByText("المتجهات")).toBeDefined();
-    expect(chart.getByText("المتجهات").getAttribute("href")).toBe("/manage/sessions/s-1");
+
+    /*
+    | ⚠️ واسمُ المجموعةِ تحتَ العنوان. مدرّسٌ له ثلاثُ مجموعاتٍ في كورسٍ واحدٍ يرى
+    | ثلاثةَ عناوينَ متطابقةً في اليومِ الواحد، ولا شيءَ في اللوحةِ يقولُ أيُّها
+    | لِمَن — وهو الفرقُ بينَ لوحةٍ تُقرَأُ ولوحةٍ تُفتَحُ ثمّ يُفتَحُ التقويمُ بعدَها.
+    */
+    expect(chart.getByText("السبت ٤م")).toBeDefined();
+
+    // `closest`: العنوانُ صارَ داخلَ الرابطِ لا هو الرابط، وسطرُ المجموعةِ تحتَه.
+    expect(chart.getByText("المتجهات").closest("a")?.getAttribute("href")).toBe(
+      "/manage/sessions/s-1",
+    );
 
     // والضغطةُ الثانيةُ تُغلِق: لوحةٌ لا مخرجَ لها على هاتفٍ لا تُغلَقُ أبداً.
     fireEvent.click(day);

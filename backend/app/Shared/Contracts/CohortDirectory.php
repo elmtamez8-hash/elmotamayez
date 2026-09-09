@@ -218,4 +218,27 @@ interface CohortDirectory
      * @return int the cohort's primary key
      */
     public function ensureIndividualCohort(int $courseId, int $workspaceId, User $student, ?User $creator): int;
+
+    /**
+     * The names of these groups, by id — one query for a whole calendar.
+     *
+     * ⚠️ BULK, AND THAT IS THE ONLY REASON IT EXISTS. A Resource runs once per
+     * row, so a name asked inside one is an N+1 by construction — a month of
+     * sessions is fifty extra queries on the teacher's calendar and on the
+     * dashboard that reads the same list. `teacherCohortsFor()` above answers a
+     * different question (every group of a course, with its schedule); this one
+     * answers «what are these particular groups called», which is what a session
+     * row needs and all it needs.
+     *
+     * ⚠️ AND IT IS HERE RATHER THAN A `cohort()` RELATION ON `ClassSession`,
+     * which LiveSessions must not have: the cohort is Learning's model, and one
+     * module borrowing another's once is how the boundary stops being one.
+     *
+     * An id with no row is simply absent from the result — a group that was
+     * deleted is not an error on a calendar that merely wanted to label a row.
+     *
+     * @param  list<int>  $cohortIds
+     * @return array<int, string> keyed by cohort id
+     */
+    public function namesFor(array $cohortIds): array;
 }
