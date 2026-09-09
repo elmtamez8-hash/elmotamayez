@@ -112,6 +112,16 @@ class TeacherApplicationController extends Controller
         return [
             'uuid' => $application->uuid,
             'status' => $application->status,
+            /*
+             | ⚠️ THE SERVER'S OWN ANSWER, NOT A STATUS LIST THE CLIENT REPEATS.
+             | `SaveTeacherApplicationStep` refuses anything `isEditable()` says
+             | no to, so a browser deciding «draft or changes_requested» for
+             | itself is a second spelling of that predicate — and the failure
+             | direction is a form whose every save is refused, which is worse
+             | than not opening it. The signup layout reads this to decide
+             | whether an applicant may come back to an unfinished application.
+             */
+            'editable' => $application->isEditable(),
             'current_step' => $application->current_step,
             'step_data' => $application->step_data ?? [],
             'rejection_reason' => $application->rejection_reason,
