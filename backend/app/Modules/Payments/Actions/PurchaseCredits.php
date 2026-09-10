@@ -40,6 +40,24 @@ use Illuminate\Support\Facades\DB;
  */
 class PurchaseCredits extends Action
 {
+    /**
+     * The one sentence for «this package was retired underneath you».
+     *
+     * ⚠️ A CONSTANT BECAUSE TWO DOORS ANSWER THIS, AND THE PANEL'S DOOR IS THE
+     * ONE PEOPLE ACTUALLY WALK THROUGH. Filament validates the Select against
+     * its own `options()` — which no longer holds a retired package — so the
+     * field's rule fires BEFORE this Action is ever reached, and the officer
+     * read Laravel's generic «القيمة المختارة في الباقة غير صالحة»: a refusal
+     * that names no cause, on the one screen that mints a balance out of a bank
+     * receipt. Measured on the manual walk (024 · T034, 2026-09-10); the guard
+     * held and nothing was written, but the reason was unsayable.
+     *
+     * The throw below stays: it is the last line for the sliver between the
+     * form's validation and the write, and for every caller with no form behind
+     * it (the student's own purchase). Two guards, one sentence.
+     */
+    public const PACKAGE_RETIRED = 'هذه الحزمة لم تعد متاحة.';
+
     public function __construct(
         private readonly CostPlusPricing $pricing,
         private readonly StopSellingGuard $sales,
@@ -78,7 +96,7 @@ class PurchaseCredits extends Action
             // Checked against the row rather than trusting the listing: the
             // screen was rendered at some earlier moment, and a package retired
             // in between must not still be buyable from a stale tab.
-            throw new DomainException('هذه الحزمة لم تعد متاحة.');
+            throw new DomainException(self::PACKAGE_RETIRED);
         }
 
         $balance = $this->accounts->balanceFor($student, $course);

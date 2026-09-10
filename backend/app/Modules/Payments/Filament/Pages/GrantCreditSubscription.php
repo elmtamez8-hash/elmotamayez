@@ -370,6 +370,10 @@ class GrantCreditSubscription extends Page implements HasTable
                                         $p->getKey() => $p->name.' — '.$p->credits.' حصص',
                                     ])
                                     ->all())
+                                // The `in` rule Filament derives from `options()`
+                                // is what a package retired between opening this
+                                // screen and saving it trips — see the constant.
+                                ->validationMessages(['in' => PurchaseCredits::PACKAGE_RETIRED])
                                 ->live(),
 
                             /*
