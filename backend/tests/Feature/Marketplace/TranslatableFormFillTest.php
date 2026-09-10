@@ -50,64 +50,32 @@ beforeEach(function (): void {
 });
 
 dataset('translatable edit forms', [
-    'مادّة' => [
-        EditSubject::class,
-        fn (): Subject => Subject::factory()->create(['name' => 'الكيمياء']),
-        'name',
-        'الكيمياء',
-    ],
-    'مرحلة' => [
-        EditGradeLevel::class,
-        fn (): GradeLevel => GradeLevel::factory()->create(['name' => 'المرحلة الثانوية']),
-        'name',
-        'المرحلة الثانوية',
-    ],
-    'منطقة' => [
-        EditRegion::class,
-        fn (): Region => Region::factory()->create(['name' => 'الدوحة']),
-        'name',
-        'الدوحة',
-    ],
-    'صفّ دراسيّ' => [
-        EditSchoolYear::class,
-        fn (): SchoolYear => SchoolYear::factory()->create(['name' => 'الصف العاشر']),
-        'name',
-        'الصف العاشر',
-    ],
-    'فعل تلعيب' => [
-        EditGamificationAction::class,
-        fn (): GamificationAction => GamificationAction::factory()->create(['name' => 'حضور حصة']),
-        'name',
-        'حضور حصة',
-    ],
-    'مستوى' => [
-        EditLevel::class,
-        fn (): Level => Level::factory()->create(['name' => 'مجتهد']),
-        'name',
-        'مجتهد',
-    ],
-    'شارة' => [
-        EditBadge::class,
-        fn (): Badge => Badge::factory()->create(['name' => 'الخطوة الأولى']),
-        'name',
-        'الخطوة الأولى',
-    ],
-    'قالب رسالة' => [
-        EditMessageTemplate::class,
-        fn (): MessageTemplate => MessageTemplate::query()->firstOrFail(),
-        'title',
-        null,
-    ],
+    /*
+    | ⚠️ صفوفٌ **مبذورة**، لا `factory()`. الكتالوجاتُ الخمسةُ تُبذَرُ قبلَ كلِّ
+    | اختبارٍ في `TestCatalogueSeeder`، فمصنعٌ هنا يصطدمُ بمفتاحٍ فريدٍ موجودٍ
+    | أصلاً — `unique(levels.level)` سقطَ على CI ومرَّ محلّيّاً بالصدفة. وهي
+    | كذلك الصفوفُ التي يفتحُها المشغّلُ فعلاً.
+    */
+    'مادّة' => [EditSubject::class, fn (): Subject => Subject::query()->firstOrFail(), 'name'],
+    'مرحلة' => [EditGradeLevel::class, fn (): GradeLevel => GradeLevel::query()->firstOrFail(), 'name'],
+    'منطقة' => [EditRegion::class, fn (): Region => Region::query()->firstOrFail(), 'name'],
+    'صفّ دراسيّ' => [EditSchoolYear::class, fn (): SchoolYear => SchoolYear::query()->firstOrFail(), 'name'],
+    'فعل تلعيب' => [EditGamificationAction::class, fn (): GamificationAction => GamificationAction::query()->firstOrFail(), 'name'],
+    'مستوى' => [EditLevel::class, fn (): Level => Level::query()->firstOrFail(), 'name'],
+    'شارة' => [EditBadge::class, fn (): Badge => Badge::query()->firstOrFail(), 'name'],
+    'قالب رسالة' => [EditMessageTemplate::class, fn (): MessageTemplate => MessageTemplate::query()->firstOrFail(), 'title'],
 ]);
 
 it('fills the form with the locale string, never the document', function (
     string $page,
     Closure $make,
     string $field,
-    ?string $expected,
 ): void {
     $record = $make();
-    $expected ??= (string) $record->{$field};
+    $expected = $record->{$field};
+
+    // Or the assertion below could be comparing nothing with nothing.
+    expect($expected)->toBeString()->not->toBe('');
 
     Livewire::test($page, ['record' => $record->getRouteKey()])
         ->assertFormSet([$field => $expected]);
@@ -117,7 +85,6 @@ it('writes the edited locale and leaves another language on the row alone', func
     string $page,
     Closure $make,
     string $field,
-    ?string $expected,
 ): void {
     $record = $make();
 
