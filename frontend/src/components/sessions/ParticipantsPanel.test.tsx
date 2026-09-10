@@ -54,7 +54,7 @@ function roster(): void {
         name: "سلمى محمود",
         role: "student",
         avatar_url: null,
-        badges: [{ key: "streak", name_ar: "مواظبة", icon: null }],
+        badges: [{ key: "streak", name: "مواظبة", icon: null }],
       },
     ],
   });

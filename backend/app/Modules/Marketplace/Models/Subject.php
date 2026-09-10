@@ -9,6 +9,7 @@ use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Marketplace\SubjectFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Spatie\Translatable\HasTranslations;
 
 /**
  * PLATFORM reference data since spec 009 (constitution v1.2.0 §I, layer ب).
@@ -25,15 +26,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * row edits it for everybody.
  *
  * @property string $slug
- * @property string $name_ar
+ * @property string $name
  */
 class Subject extends BaseModel
 {
     /** @use HasFactory<SubjectFactory> */
-    use HasFactory, HasUuid;
+    use HasFactory, HasTranslations, HasUuid;
+
+    /** @var list<string> */
+    public array $translatable = ['name'];
 
     protected $fillable = [
-        'name_ar',
+        'name',
         'slug',
         'icon',
         'sort_order',

@@ -17,7 +17,7 @@ export type TrustBand = "high" | "medium" | "low" | "building";
 
 export type Taxonomy = {
   slug: string;
-  name_ar: string;
+  name: string;
   icon?: string | null;
   teachers_count?: number;
 };
@@ -31,7 +31,7 @@ export type Taxonomy = {
  */
 export type SchoolYearOption = {
   slug: string;
-  name_ar: string;
+  name: string;
   grade_level_slug: string;
 };
 
@@ -200,7 +200,7 @@ export type CourseDetail = {
   title: string;
   description: string | null;
   cover_url: string | null;
-  subject: { slug: string; name_ar: string; icon: string | null } | null;
+  subject: { slug: string; name: string; icon: string | null } | null;
   grade_level: string | null;
   teacher: {
     uuid: string;

@@ -73,7 +73,7 @@ export function CourseFilters({
             <option value="">كل المواد</option>
             {subjects.map((subject) => (
               <option key={subject.slug} value={subject.slug}>
-                {subject.name_ar}
+                {subject.name}
               </option>
             ))}
           </Select>
@@ -92,7 +92,7 @@ export function CourseFilters({
             <option value="">كل المراحل</option>
             {gradeLevels.map((level) => (
               <option key={level.slug} value={level.slug}>
-                {level.name_ar}
+                {level.name}
               </option>
             ))}
           </Select>

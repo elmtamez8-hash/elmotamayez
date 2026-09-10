@@ -32,7 +32,7 @@ beforeEach(function (): void {
         $workspace,
         // firstOrCreate, not create: TaxonomySeeder now runs before every Feature
         // test and the slug is unique platform-wide (spec 022 · T008).
-        fn () => GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name_ar' => 'المرحلة الثانوية', 'sort_order' => 0, 'is_active' => true]),
+        fn () => GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name' => 'المرحلة الثانوية', 'sort_order' => 0, 'is_active' => true]),
     );
 
     $this->asGuest();

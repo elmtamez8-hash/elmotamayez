@@ -170,7 +170,7 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
               <option value="">اختر الصف</option>
               {schoolYears.map((year) => (
                 <option key={year.slug} value={year.slug}>
-                  {year.name_ar}
+                  {year.name}
                 </option>
               ))}
             </Select>

@@ -219,7 +219,7 @@ it('carries an edit to everyone already holding it', function (): void {
 
     $bodies = Notification::query()
         ->where('source_type', Announcement::SOURCE_TYPE)
-        ->pluck('body_ar')
+        ->pluck('body')
         ->all();
 
     // ASCII sentinels, for the reason every exposure test in this product uses

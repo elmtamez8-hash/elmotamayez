@@ -27,7 +27,7 @@ export interface PlatformMetric {
 
 export interface RegionShare {
   slug: string;
-  name_ar: string;
+  name: string;
   students: number;
 }
 

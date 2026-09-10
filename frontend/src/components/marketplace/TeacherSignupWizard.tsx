@@ -400,7 +400,7 @@ export function TeacherSignupWizard({
               >
                 {COUNTRIES.map((country) => (
                   <option key={country.code} value={country.code}>
-                    {country.name_ar}
+                    {country.name}
                   </option>
                 ))}
               </Select>
@@ -469,7 +469,7 @@ export function TeacherSignupWizard({
             placeholder="اختر المواد"
             value={professional.subjects}
             onChange={(subjects) => setProfessional({ ...professional, subjects })}
-            options={subjects.map((subject) => ({ value: subject.slug, label: subject.name_ar }))}
+            options={subjects.map((subject) => ({ value: subject.slug, label: subject.name }))}
           />
 
           <MultiSelectField
@@ -480,7 +480,7 @@ export function TeacherSignupWizard({
             placeholder="اختر المراحل"
             value={professional.grade_levels}
             onChange={(grade_levels) => setProfessional({ ...professional, grade_levels })}
-            options={gradeLevels.map((level) => ({ value: level.slug, label: level.name_ar }))}
+            options={gradeLevels.map((level) => ({ value: level.slug, label: level.name }))}
           />
 
           <MultiSelectField

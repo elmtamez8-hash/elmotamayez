@@ -24,7 +24,7 @@ class SchoolYearFactory extends Factory
             // fixtures pointing at a stage no picker ever offers.
             'grade_level_id' => fn (): int => GradeLevel::query()->value('id')
                 ?? GradeLevel::factory()->create()->getKey(),
-            'name_ar' => 'الصف '.fake()->numberBetween(1, 12),
+            'name' => 'الصف '.fake()->numberBetween(1, 12),
             'slug' => Str::slug(fake()->unique()->word()),
             'sort_order' => 0,
             'is_active' => true,

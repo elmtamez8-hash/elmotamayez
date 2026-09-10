@@ -120,7 +120,7 @@ it('says out loud that no lesson is scheduled yet, rather than dropping the line
         ->first();
 
     expect($notification)->not->toBeNull()
-        ->and($notification->body_ar)->toContain('لم تُجدول حصة قادمة بعد');
+        ->and($notification->body)->toContain('لم تُجدول حصة قادمة بعد');
 });
 
 it('refuses the APPROVAL when the group filled up after the order, writing nothing', function (): void {
@@ -220,5 +220,5 @@ it('opens the private-session door instead of a group when that is what was boug
         ->where('course_id', $this->course->getKey())
         ->exists())->toBeTrue()
         ->and($notification)->not->toBeNull()
-        ->and($notification->body_ar)->toContain('مواعيد مدرّسك');
+        ->and($notification->body)->toContain('مواعيد مدرّسك');
 });

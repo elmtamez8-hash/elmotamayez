@@ -49,10 +49,20 @@ class UpdateAnnouncement extends Action
         $announcement->save();
 
         if ($announcement->isLive()) {
+            /*
+             | ⚠️ `body->{locale}`, NEVER `body`. `notifications.body` is a
+             | translatable JSON document since 055, and a RAW builder applies no
+             | cast — a plain string written here decodes to nothing and every one
+             | of those notifications reads as EMPTY in the bell, permanently. The
+             | JSON path keeps this one statement (the fan-out is a whole class,
+             | which is why it is not a model loop) and leaves any other locale on
+             | the row untouched; Laravel spells it `json_set` on MySQL and
+             | `json_patch` on SQLite.
+             */
             DB::table('notifications')
                 ->where('source_type', Announcement::SOURCE_TYPE)
                 ->where('source_id', $announcement->getKey())
-                ->update(['body_ar' => $body, 'updated_at' => now()]);
+                ->update(['body->'.app()->getLocale() => $body, 'updated_at' => now()]);
         }
 
         // FR-047's second half: it is recorded. The subject is the announcement,

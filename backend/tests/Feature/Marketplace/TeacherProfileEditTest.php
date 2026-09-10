@@ -26,8 +26,8 @@ beforeEach(function (): void {
     // Feature test, so a bare `create()` collides on `subjects.slug` — and a
     // fixture that invents its own vocabulary would be testing a catalogue
     // production does not have.
-    Subject::query()->firstOrCreate(['slug' => 'physics'], ['name_ar' => 'الفيزياء', 'is_active' => true]);
-    GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name_ar' => 'الثانوية', 'is_active' => true]);
+    Subject::query()->firstOrCreate(['slug' => 'physics'], ['name' => 'الفيزياء', 'is_active' => true]);
+    GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name' => 'الثانوية', 'is_active' => true]);
 });
 
 function editProfile(array $overrides = []): array

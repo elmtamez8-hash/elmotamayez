@@ -24,10 +24,10 @@ use Illuminate\Support\Facades\Cache;
  */
 class ListRegions extends Action
 {
-    /** @return list<array{slug: string, name_ar: string}> */
+    /** @return list<array{slug: string, name: string}> */
     public function handle(): array
     {
-        /** @var list<array{slug: string, name_ar: string}> */
+        /** @var list<array{slug: string, name: string}> */
         return Cache::remember(
             MarketplaceCache::key('regions'),
             MarketplaceCache::ttl(),
@@ -35,10 +35,10 @@ class ListRegions extends Action
                 ->where('is_active', true)
                 ->orderBy('sort_order')
                 ->orderBy('id')
-                ->get(['slug', 'name_ar'])
+                ->get(['slug', 'name'])
                 ->map(fn (Region $region): array => [
                     'slug' => $region->slug,
-                    'name_ar' => $region->name_ar,
+                    'name' => $region->name,
                 ])
                 ->all(),
         );

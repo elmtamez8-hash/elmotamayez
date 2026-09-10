@@ -7,6 +7,7 @@ namespace Database\Seeders;
 use App\Modules\Marketplace\Models\GradeLevel;
 use App\Modules\Marketplace\Models\SchoolYear;
 use App\Modules\Marketplace\Models\Subject;
+use App\Shared\Database\TranslatableColumns;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Schema;
@@ -44,6 +45,11 @@ class TaxonomySeeder extends Seeder
 
     public function seedMissing(): void
     {
+        // The conversion migration has not run yet — see {@see TranslatableColumns::converted}.
+        if (! TranslatableColumns::converted('subjects', 'name')) {
+            return;
+        }
+
         $this->write(overwrite: false);
     }
 
@@ -51,7 +57,7 @@ class TaxonomySeeder extends Seeder
     {
         foreach (self::SUBJECTS as [$slug, $name, $icon, $order]) {
             $this->upsert(Subject::query(), $overwrite, ['slug' => $slug], [
-                'name_ar' => $name,
+                'name' => $name,
                 'icon' => $icon,
                 'sort_order' => $order,
                 'is_active' => true,
@@ -60,7 +66,7 @@ class TaxonomySeeder extends Seeder
 
         foreach (self::GRADE_LEVELS as [$slug, $name, $order]) {
             $this->upsert(GradeLevel::query(), $overwrite, ['slug' => $slug], [
-                'name_ar' => $name,
+                'name' => $name,
                 'sort_order' => $order,
                 'is_active' => true,
             ]);
@@ -105,7 +111,7 @@ class TaxonomySeeder extends Seeder
 
             $this->upsert(SchoolYear::query(), $overwrite, ['slug' => $slug], [
                 'grade_level_id' => $stages[$stageSlug],
-                'name_ar' => $name,
+                'name' => $name,
                 'sort_order' => $order,
                 'is_active' => true,
             ]);

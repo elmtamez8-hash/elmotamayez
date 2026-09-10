@@ -40,7 +40,7 @@ describe('the facts a certificate freezes at issue', function (): void {
         $certificate = CertificateFixtures::issue($workspace->id, $student->id, $owner->id);
         $frozen = $certificate->subject_display_name;
 
-        $other = Subject::create(['slug' => 'astro-'.uniqid(), 'name_ar' => 'Astronomy', 'is_active' => true]);
+        $other = Subject::create(['slug' => 'astro-'.uniqid(), 'name' => 'Astronomy', 'is_active' => true]);
         $certificate->course->update(['subject_id' => $other->getKey()]);
 
         $this->asGuest();

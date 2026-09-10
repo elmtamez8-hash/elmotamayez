@@ -33,7 +33,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 abstract class TaxonomyResource extends Resource
 {
-    protected static ?string $recordTitleAttribute = 'name_ar';
+    protected static ?string $recordTitleAttribute = 'name';
 
     public static function form(Schema $schema): Schema
     {
@@ -42,7 +42,7 @@ abstract class TaxonomyResource extends Resource
                 ->description('الاسمُ يقرؤه الزائر، والمُعرِّفُ تشيرُ إليه الكورساتُ والطلابُ نصّاً — فلكلٍّ منهما قاعدةٌ مختلفة.')
                 ->columns(2)
                 ->schema([
-                    TextInput::make('name_ar')
+                    TextInput::make('name')
                         ->label('الاسم')
                         ->required()
                         ->maxLength(255)
@@ -97,7 +97,11 @@ abstract class TaxonomyResource extends Resource
         return $table
             ->defaultSort('sort_order')
             ->columns([
-                TextColumn::make('name_ar')->label('الاسم')->searchable()->sortable(),
+                // ⚠️ SORTED BY THE LOCALE'S KEY, NEVER BY THE DOCUMENT. `name` is a
+                // translatable JSON column: ordering it raw happens to order by the
+                // Arabic value only while every row carries exactly one language.
+                TextColumn::make('name')->label('الاسم')->searchable()
+                    ->sortable(['name->'.app()->getLocale()]),
                 TextColumn::make('slug')->label('المُعرِّف')->searchable(),
 
                 /*

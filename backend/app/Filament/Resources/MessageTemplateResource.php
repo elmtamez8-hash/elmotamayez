@@ -76,8 +76,8 @@ class MessageTemplateResource extends Resource
                 ->formatStateUsing(fn (?string $state): string => $state === null
                     ? '—'
                     : (NotificationChannel::tryFrom($state)?->label() ?? $state)),
-            TextInput::make('title_ar')->label('العنوان')->required()->maxLength(200),
-            Textarea::make('body_ar')
+            TextInput::make('title')->label('العنوان')->required()->maxLength(200),
+            Textarea::make('body')
                 ->label('النصّ')
                 ->required()
                 ->rows(4)
@@ -115,7 +115,7 @@ class MessageTemplateResource extends Resource
                 TextColumn::make('channel')
                     ->label('القناة')
                     ->formatStateUsing(fn (string $state): string => NotificationChannel::from($state)->label()),
-                TextColumn::make('title_ar')->label('العنوان')->searchable()->limit(40),
+                TextColumn::make('title')->label('العنوان')->searchable()->limit(40),
                 TextColumn::make('provider_approval_status')->label('اعتماد المزوّد')->badge()
                     ->formatStateUsing(fn (string $state): string => TemplateApprovalStatus::labelFor($state))
                     ->color(fn (string $state): string => match ($state) {

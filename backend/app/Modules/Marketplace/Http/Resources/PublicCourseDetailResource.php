@@ -82,7 +82,7 @@ class PublicCourseDetailResource extends JsonResource
         ];
     }
 
-    /** @return array{slug: string, name_ar: string, icon: string|null}|null */
+    /** @return array{slug: string, name: string, icon: string|null}|null */
     private function subjectShape(): ?array
     {
         $subject = $this->subject;
@@ -93,7 +93,7 @@ class PublicCourseDetailResource extends JsonResource
 
         return [
             'slug' => (string) $subject->slug,
-            'name_ar' => (string) $subject->name_ar,
+            'name' => (string) $subject->name,
             'icon' => $subject->icon,
         ];
     }

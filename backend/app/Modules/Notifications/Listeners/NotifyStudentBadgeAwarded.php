@@ -27,7 +27,7 @@ class NotifyStudentBadgeAwarded implements ShouldQueue
             type: NotificationType::BadgeAwarded,
             variables: [
                 'student_name' => $event->student->name,
-                'badge_name' => $event->badge->name_ar,
+                'badge_name' => $event->badge->name,
             ],
             actionUrl: '/progress',
         ));

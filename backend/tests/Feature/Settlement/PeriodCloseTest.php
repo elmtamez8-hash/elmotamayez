@@ -375,7 +375,7 @@ it('lets a platform admin close and pay, and tells the teacher both times', func
         // The reference is the whole content of the second one: an amount the
         // teacher cannot match against a bank line is an amount they must ask
         // about.
-        ->and($paid->body_ar)->toContain('TRF-99');
+        ->and($paid->body)->toContain('TRF-99');
 });
 
 it('answers 422 rather than 500 when the period is closed twice through the API', function (): void {

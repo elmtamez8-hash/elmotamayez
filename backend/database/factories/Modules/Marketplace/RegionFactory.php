@@ -17,7 +17,7 @@ class RegionFactory extends Factory
     public function definition(): array
     {
         return [
-            'name_ar' => fake()->randomElement(['الدوحة', 'الريان', 'الوكرة', 'الخور']),
+            'name' => fake()->randomElement(['الدوحة', 'الريان', 'الوكرة', 'الخور']),
             'slug' => Str::slug(fake()->unique()->word()),
             'sort_order' => 0,
             'is_active' => true,

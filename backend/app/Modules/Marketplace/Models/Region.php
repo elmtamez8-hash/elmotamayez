@@ -8,6 +8,7 @@ use App\Models\BaseModel;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Marketplace\RegionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Spatie\Translatable\HasTranslations;
 
 /**
  * A place a student lives (spec 011 · FR-042).
@@ -19,16 +20,19 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  *
  * @property int $id
  * @property string $slug
- * @property string $name_ar
+ * @property string $name
  * @property bool $is_active
  */
 class Region extends BaseModel
 {
     /** @use HasFactory<RegionFactory> */
-    use HasFactory, HasUuid;
+    use HasFactory, HasTranslations, HasUuid;
+
+    /** @var list<string> */
+    public array $translatable = ['name'];
 
     protected $fillable = [
-        'name_ar',
+        'name',
         'slug',
         'sort_order',
         'is_active',

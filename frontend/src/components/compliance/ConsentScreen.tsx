@@ -110,10 +110,10 @@ export function ConsentScreen({
           {required.map((category) => (
             <li key={category.key} className="py-3">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-ink">{category.label_ar}</span>
+                <span className="font-medium text-ink">{category.label}</span>
                 <Badge tone="neutral">لازم</Badge>
               </div>
-              <p className="mt-1 text-sm text-ink-muted">{category.purpose_ar}</p>
+              <p className="mt-1 text-sm text-ink-muted">{category.purpose}</p>
               <p className="mt-1 text-xs text-ink-muted">
                 يطّلع عليه: {category.audience} · مدة الحفظ: {category.retention_label_ar}
               </p>
@@ -144,9 +144,9 @@ export function ConsentScreen({
                   onChange={() => toggle(category.key)}
                   label={
                     <span>
-                      <span className="font-medium text-ink">{category.label_ar}</span>
+                      <span className="font-medium text-ink">{category.label}</span>
                       <span className="mt-1 block text-sm text-ink-muted">
-                        {category.purpose_ar}
+                        {category.purpose}
                       </span>
                       <span className="mt-1 block text-xs text-ink-muted">
                         يطّلع عليه: {category.audience} · مدة الحفظ: {category.retention_label_ar}
@@ -174,7 +174,7 @@ export function ConsentScreen({
           {processors.map((processor) => (
             <li key={processor.key} className="py-3">
               <span className="font-medium text-ink">{processor.name}</span>
-              <p className="mt-1 text-sm text-ink-muted">{processor.purpose_ar}</p>
+              <p className="mt-1 text-sm text-ink-muted">{processor.purpose}</p>
               <p className="mt-1 text-xs text-ink-muted">
                 مكان المعالجة: {processor.processing_location} ·{" "}
                 {processor.erasure_capability_label_ar}

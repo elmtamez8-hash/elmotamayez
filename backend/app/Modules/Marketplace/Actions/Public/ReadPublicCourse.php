@@ -77,7 +77,7 @@ class ReadPublicCourse extends Action
             })
             ->orderByRaw('CASE WHEN slug = ? THEN 0 ELSE 1 END', [$key])
             ->with([
-                'subject:id,slug,name_ar,icon',
+                'subject:id,slug,name,icon',
                 // ⚠️ The accessor's columns, not the attribute's name. `users`
                 // has no `name` — it is composed from `first_name`/`last_name`,
                 // so a constrained eager load naming `name` selects a column

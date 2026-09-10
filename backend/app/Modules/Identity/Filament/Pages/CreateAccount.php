@@ -197,7 +197,7 @@ class CreateAccount extends Page
                                 ->options(fn (): array => SchoolYear::query()
                                     ->activelyOffered()
                                     ->orderBy('sort_order')
-                                    ->pluck('name_ar', 'slug')
+                                    ->pluck('name', 'slug')
                                     ->all())
                                 ->required()
                                 ->searchable(),
@@ -206,7 +206,7 @@ class CreateAccount extends Page
                                 ->options(fn (): array => Region::query()
                                     ->where('is_active', true)
                                     ->orderBy('sort_order')
-                                    ->pluck('name_ar', 'slug')
+                                    ->pluck('name', 'slug')
                                     ->all())
                                 ->required()
                                 ->searchable(),

@@ -121,7 +121,7 @@ it('declares appearing in a class recording as required, with no second consent 
         ->and($recording?->is_required)->toBeTrue()
         // Said in words a parent can read, which is what FR-004 asks for — and
         // what a screen shows verbatim.
-        ->and($recording?->label_ar)->toContain('صوتاً وصورةً');
+        ->and($recording?->label)->toContain('صوتاً وصورةً');
 
     // And no second consent table crept in beside `terms_consents`.
     foreach (['recording_consents', 'processing_consents', 'consent_records'] as $table) {

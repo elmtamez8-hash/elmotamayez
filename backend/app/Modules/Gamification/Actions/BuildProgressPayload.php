@@ -40,7 +40,7 @@ class BuildProgressPayload extends Action
         $catalogue = Badge::query()
             ->get()
             ->mapWithKeys(fn (Badge $badge): array => [
-                $badge->key => ['name_ar' => $badge->name_ar, 'icon' => $badge->icon],
+                $badge->key => ['name' => $badge->name, 'icon' => $badge->icon],
             ])
             ->all();
 
@@ -52,7 +52,7 @@ class BuildProgressPayload extends Action
                 'key' => $award->badge_key,
                 // Falls back to the key itself: a badge retired from the
                 // catalogue stays visible on the profile it was earned on.
-                'name_ar' => $catalogue[$award->badge_key]['name_ar'] ?? $award->badge_key,
+                'name' => $catalogue[$award->badge_key]['name'] ?? $award->badge_key,
                 'icon' => $catalogue[$award->badge_key]['icon'] ?? null,
                 'awarded_at' => $award->awarded_at->toIso8601String(),
             ])
@@ -94,7 +94,7 @@ class BuildProgressPayload extends Action
         $next = $levels->first(fn (Level $level): bool => $level->xp_threshold > $progress->xp);
 
         return [$progress, [
-            'level_name_ar' => $current?->name_ar,
+            'level_name' => $current?->name,
             'next_level_xp' => $next?->xp_threshold,
             'badges' => $badges,
             'coin_balances' => $purses,

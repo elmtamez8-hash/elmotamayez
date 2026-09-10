@@ -25,8 +25,8 @@ beforeEach(function (): void {
     [$this->workspaceA, $this->ownerA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
     [$this->workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
 
-    $this->subject = Subject::query()->firstOrCreate(['slug' => 'math'], ['name_ar' => 'الرياضيات']);
-    GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name_ar' => 'الثانوية']);
+    $this->subject = Subject::query()->firstOrCreate(['slug' => 'math'], ['name' => 'الرياضيات']);
+    GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name' => 'الثانوية']);
 
     $this->student = User::factory()->create(['platform_role' => PlatformRole::Student]);
 

@@ -212,7 +212,7 @@ it('carries the teacher\'s words into the notification itself', function (): voi
         ->where('recipient_user_id', $this->mathsStudent->getKey())
         ->firstOrFail();
 
-    expect($notification->body_ar)->toContain('ANNOUNCEMENT_SENTINEL');
+    expect($notification->body)->toContain('ANNOUNCEMENT_SENTINEL');
 });
 
 it('reaches a student mid-focus only when it is urgent', function (): void {

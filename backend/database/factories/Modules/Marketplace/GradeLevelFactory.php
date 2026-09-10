@@ -17,7 +17,7 @@ class GradeLevelFactory extends Factory
     public function definition(): array
     {
         return [
-            'name_ar' => fake()->randomElement(['الابتدائية', 'الإعدادية', 'الثانوية', 'الجامعية']),
+            'name' => fake()->randomElement(['الابتدائية', 'الإعدادية', 'الثانوية', 'الجامعية']),
             'slug' => Str::slug(fake()->unique()->word()),
             'icon' => 'academic-cap',
             'sort_order' => 0,

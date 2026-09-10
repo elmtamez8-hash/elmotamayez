@@ -12,8 +12,8 @@ import { api } from "@/lib/api";
 /** One thing the platform collects, as the consent screen reads it. */
 export interface DataCategory {
   key: string;
-  label_ar: string;
-  purpose_ar: string;
+  label: string;
+  purpose: string;
   audience: string;
   /**
    * ⚠️ NEVER HIDDEN, AND NEVER RENDERED THE SAME AS AN OPTIONAL ONE. A screen
@@ -32,7 +32,7 @@ export interface DataCategory {
 export interface DataProcessor {
   key: string;
   name: string;
-  purpose_ar: string;
+  purpose: string;
   processing_location: string;
   categories: string[];
   erasure_capability: "full" | "partial" | "none";

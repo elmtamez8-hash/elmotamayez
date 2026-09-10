@@ -25,7 +25,7 @@ import type { Taxonomy } from "@/lib/public-api";
  * مادّةٍ تُضاف: الشبكةُ ترسمُ رمزَ الفيزياء والشريحةُ ترسمُ قبّعةَ تخرّج، بلا
  * خطأٍ في أيِّ مكان. عائلةُ `BookingEligibility` و`ListLeaderboardScopes` نفسُها.
  *
- * والمفتاحُ **السَّبيكة** لا الاسمُ العربيّ: `name_ar` يُحرَّرُ من `‎/admin`،
+ * والمفتاحُ **السَّبيكة** لا الاسمُ العربيّ: `name` يُحرَّرُ من `‎/admin`،
  * وإعادةُ تسميةٍ كانت ستُسقِطُ المادّةَ إلى الاحتياطيِّ بصمت.
  */
 const BY_SLUG: Record<string, (props: IconProps) => React.ReactElement> = {

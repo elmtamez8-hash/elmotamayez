@@ -28,8 +28,8 @@ class MessageTemplateFactory extends Factory
             'key' => MessageTemplate::keyFor($type, $channel),
             'type' => $type->value,
             'channel' => $channel->value,
-            'title_ar' => $type->label(),
-            'body_ar' => 'مرحباً {{ name }}.',
+            'title' => $type->label(),
+            'body' => 'مرحباً {{ name }}.',
             'variables' => ['name'],
             'provider_approval_status' => MessageTemplate::APPROVAL_NOT_REQUIRED,
             'is_active' => true,
@@ -43,7 +43,7 @@ class MessageTemplateFactory extends Factory
             'key' => MessageTemplate::keyFor($type, $channel),
             'type' => $type->value,
             'channel' => $channel->value,
-            'title_ar' => $type->label(),
+            'title' => $type->label(),
         ]);
     }
 

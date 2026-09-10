@@ -47,7 +47,7 @@ class PrivacyCategoryController extends Controller
                 ->map(fn (DataProcessor $processor): array => [
                     'key' => $processor->key,
                     'name' => $processor->name,
-                    'purpose_ar' => $processor->purpose_ar,
+                    'purpose' => $processor->purpose,
                     'processing_location' => $processor->processing_location,
                     'categories' => $processor->categories,
                     'erasure_capability' => $processor->erasure_capability->value,

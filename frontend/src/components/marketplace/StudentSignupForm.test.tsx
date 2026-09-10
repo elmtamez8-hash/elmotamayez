@@ -22,14 +22,14 @@ vi.mock("next/navigation", () => ({
 }));
 
 const YEARS: SchoolYearOption[] = [
-  { slug: "year-1", name_ar: "الصف الأول الابتدائي", grade_level_slug: "primary" },
-  { slug: "year-7", name_ar: "الصف السابع", grade_level_slug: "preparatory" },
-  { slug: "year-10", name_ar: "الصف العاشر", grade_level_slug: "secondary" },
+  { slug: "year-1", name: "الصف الأول الابتدائي", grade_level_slug: "primary" },
+  { slug: "year-7", name: "الصف السابع", grade_level_slug: "preparatory" },
+  { slug: "year-10", name: "الصف العاشر", grade_level_slug: "secondary" },
 ];
 
 const REGIONS: Taxonomy[] = [
-  { slug: "doha", name_ar: "الدوحة" },
-  { slug: "al-rayyan", name_ar: "الريان" },
+  { slug: "doha", name: "الدوحة" },
+  { slug: "al-rayyan", name: "الريان" },
 ];
 
 describe("StudentSignupForm", () => {

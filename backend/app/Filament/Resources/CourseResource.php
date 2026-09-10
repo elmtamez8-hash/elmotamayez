@@ -74,7 +74,7 @@ class CourseResource extends Resource
                             ->maxLength(255),
                         Select::make('subject_id')
                             ->label('المادّة')
-                            ->relationship('subject', 'name_ar')
+                            ->relationship('subject', 'name')
                             ->searchable()
                             ->preload(),
                         /*
@@ -167,7 +167,7 @@ class CourseResource extends Resource
                     ->label('المدرّس / الأكاديميّة')
                     ->placeholder('—')
                     ->toggleable(),
-                TextColumn::make('subject.name_ar')
+                TextColumn::make('subject.name')
                     ->label('المادّة')
                     ->badge()
                     ->placeholder('—')

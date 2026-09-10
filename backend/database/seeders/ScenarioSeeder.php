@@ -928,7 +928,7 @@ final class ScenarioSeeder extends Seeder
             */
             'subject_id' => Subject::query()->firstOrCreate(
                 ['slug' => 'general'],
-                ['name_ar' => 'عامّ'],
+                ['name' => 'عامّ'],
             )->getKey(),
         ], $attributes));
     }

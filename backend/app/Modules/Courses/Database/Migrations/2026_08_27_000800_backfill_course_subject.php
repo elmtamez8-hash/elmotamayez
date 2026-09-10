@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use App\Modules\Courses\Models\Course;
-use App\Modules\Marketplace\Models\Subject;
+use App\Shared\Database\TranslatableColumns;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 /**
  * Give every existing course a subject, and stop the column being nullable.
@@ -58,12 +60,30 @@ return new class extends Migration
             return;
         }
 
-        $general = Subject::query()->firstOrCreate(
-            ['slug' => 'general'],
-            ['name_ar' => 'عامّ'],
-        );
+        /*
+         | ⚠️ `DB::table()`, NOT `Subject::firstOrCreate()`. A migration speaks the
+         | schema of ITS OWN DATE and a model speaks today's: spec 055 turned
+         | `name_ar` into a translatable `name`, and the model then discarded the
+         | key this table still has — in SILENCE, mass assignment's own rule — so
+         | the insert would arrive with no name and fail NOT NULL. `uuid` is
+         | passed explicitly because `HasUuid` is not here to supply it.
+         */
+        $generalId = DB::table('subjects')->where('slug', 'general')->value('id');
 
-        $unclassified->update(['subject_id' => $general->getKey()]);
+        if ($generalId === null) {
+            $generalId = DB::table('subjects')->insertGetId([
+                'uuid' => (string) Str::uuid(),
+                'slug' => 'general',
+                // Whichever name column this database has — see the helper.
+                ...TranslatableColumns::forWrite('subjects', 'name_ar', 'name', 'عامّ'),
+                'sort_order' => 0,
+                'is_active' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $unclassified->update(['subject_id' => $generalId]);
     }
 
     /**

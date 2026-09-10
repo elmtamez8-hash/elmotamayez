@@ -7,21 +7,21 @@
  */
 export interface Country {
   code: string;
-  name_ar: string;
+  name: string;
   dial: string;
 }
 
 export const COUNTRIES: Country[] = [
-  { code: "QA", name_ar: "قطر", dial: "+974" },
-  { code: "SA", name_ar: "السعودية", dial: "+966" },
-  { code: "AE", name_ar: "الإمارات", dial: "+971" },
-  { code: "KW", name_ar: "الكويت", dial: "+965" },
-  { code: "BH", name_ar: "البحرين", dial: "+973" },
-  { code: "OM", name_ar: "عُمان", dial: "+968" },
-  { code: "EG", name_ar: "مصر", dial: "+20" },
-  { code: "JO", name_ar: "الأردن", dial: "+962" },
-  { code: "LB", name_ar: "لبنان", dial: "+961" },
-  { code: "MA", name_ar: "المغرب", dial: "+212" },
+  { code: "QA", name: "قطر", dial: "+974" },
+  { code: "SA", name: "السعودية", dial: "+966" },
+  { code: "AE", name: "الإمارات", dial: "+971" },
+  { code: "KW", name: "الكويت", dial: "+965" },
+  { code: "BH", name: "البحرين", dial: "+973" },
+  { code: "OM", name: "عُمان", dial: "+968" },
+  { code: "EG", name: "مصر", dial: "+20" },
+  { code: "JO", name: "الأردن", dial: "+962" },
+  { code: "LB", name: "لبنان", dial: "+961" },
+  { code: "MA", name: "المغرب", dial: "+212" },
 ];
 
 export const DEFAULT_COUNTRY = COUNTRIES[0];

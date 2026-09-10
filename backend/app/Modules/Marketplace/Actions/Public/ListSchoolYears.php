@@ -24,10 +24,10 @@ use Illuminate\Support\Facades\DB;
  */
 class ListSchoolYears extends Action
 {
-    /** @return list<array{slug: string, name_ar: string, grade_level_slug: string}> */
+    /** @return list<array{slug: string, name: string, grade_level_slug: string}> */
     public function handle(): array
     {
-        /** @var list<array{slug: string, name_ar: string, grade_level_slug: string}> */
+        /** @var list<array{slug: string, name: string, grade_level_slug: string}> */
         return Cache::remember(
             // `signup:` prefix — see ListSignupTaxonomy for why the flat key
             // namespace makes it mandatory.
@@ -40,12 +40,12 @@ class ListSchoolYears extends Action
                 ->orderBy('school_years.id')
                 ->get([
                     'school_years.slug as slug',
-                    'school_years.name_ar as name_ar',
+                    'school_years.name as name',
                     DB::raw('grade_levels.slug as grade_level_slug'),
                 ])
                 ->map(fn (SchoolYear $year): array => [
                     'slug' => (string) $year->getAttribute('slug'),
-                    'name_ar' => (string) $year->getAttribute('name_ar'),
+                    'name' => (string) $year->getAttribute('name'),
                     'grade_level_slug' => (string) $year->getAttribute('grade_level_slug'),
                 ])
                 ->all(),

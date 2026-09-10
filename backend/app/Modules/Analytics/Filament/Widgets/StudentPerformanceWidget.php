@@ -101,7 +101,7 @@ class StudentPerformanceWidget extends BaseWidget
                     }),
                 SelectFilter::make('subject')
                     ->label('المادّة')
-                    ->options(fn (): array => Subject::query()->where('is_active', true)->pluck('name_ar', 'id')->all())
+                    ->options(fn (): array => Subject::query()->where('is_active', true)->pluck('name', 'id')->all())
                     ->query(fn (Builder $query, array $data): Builder => $this->enrolledIn($query, 'subject_id', $data['value'] ?? null)),
                 SelectFilter::make('course')
                     ->label('الكورس')

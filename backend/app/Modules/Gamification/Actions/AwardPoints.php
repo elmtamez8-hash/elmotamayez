@@ -138,7 +138,7 @@ class AwardPoints extends Action
             return;
         }
 
-        $name = Level::query()->where('level', $level)->value('name_ar');
+        $name = Level::query()->where('level', $level)->value('name');
         $student = $progress->user;
 
         if ($student === null) {

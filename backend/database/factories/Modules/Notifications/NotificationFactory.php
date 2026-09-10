@@ -27,8 +27,8 @@ class NotificationFactory extends Factory
             'type' => NotificationType::EnrollmentCreated->value,
             'subject_user_id' => null,
             'payload' => [],
-            'title_ar' => 'عنوان الإشعار',
-            'body_ar' => 'نصّ الإشعار.',
+            'title' => 'عنوان الإشعار',
+            'body' => 'نصّ الإشعار.',
             'action_url' => null,
             'read_at' => null,
         ];
@@ -43,7 +43,7 @@ class NotificationFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'type' => $type->value,
-            'title_ar' => $type->label(),
+            'title' => $type->label(),
         ]);
     }
 }

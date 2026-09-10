@@ -87,8 +87,8 @@ class NotificationsPersonalData implements PersonalDataOwner
                 // A plain string column: `Notification` casts `payload` and `read_at` and
                 // nothing else, so there is no enum here to unwrap.
                 'type' => $notification->type,
-                'title' => $notification->title_ar,
-                'body' => $notification->body_ar,
+                'title' => $notification->title,
+                'body' => $notification->body,
                 'read_at' => ExportWalk::at($notification->read_at),
                 'created_at' => ExportWalk::at($notification->created_at),
             ],

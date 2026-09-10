@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Modules\Marketplace\Models\Region;
+use App\Shared\Database\TranslatableColumns;
 use Illuminate\Database\Seeder;
 
 /**
@@ -33,13 +34,18 @@ class RegionSeeder extends Seeder
 
     public function seedMissing(): void
     {
+        // The conversion migration has not run yet — see {@see TranslatableColumns::converted}.
+        if (! TranslatableColumns::converted('regions', 'name')) {
+            return;
+        }
+
         $this->write(overwrite: false);
     }
 
     private function write(bool $overwrite): void
     {
         foreach ($this->regions() as $order => [$slug, $name]) {
-            $attributes = ['name_ar' => $name, 'sort_order' => $order, 'is_active' => true];
+            $attributes = ['name' => $name, 'sort_order' => $order, 'is_active' => true];
 
             if ($overwrite) {
                 Region::query()->updateOrCreate(['slug' => $slug], $attributes);

@@ -9,8 +9,8 @@ use App\Shared\Data\DataTransferObject;
 final class RenderedMessage extends DataTransferObject
 {
     public function __construct(
-        public readonly string $titleAr,
-        public readonly string $bodyAr,
+        public readonly string $title,
+        public readonly string $body,
         public readonly int $templateId,
     ) {}
 }

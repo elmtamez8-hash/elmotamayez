@@ -35,7 +35,7 @@ describe('course CRUD', function (): void {
     it('creates a course', function (): void {
         [$workspace, $owner] = $this->createWorkspaceWithOwner();
 
-        $subject = Subject::factory()->create(['name_ar' => 'الرياضيات']);
+        $subject = Subject::factory()->create(['name' => 'الرياضيات']);
 
         Sanctum::actingAs($owner);
 
@@ -94,7 +94,7 @@ describe('course CRUD', function (): void {
     it('moves a course to another subject', function (): void {
         [$workspace, $owner] = $this->createWorkspaceWithOwner();
         $course = Course::factory()->create(['workspace_id' => $workspace->id]);
-        $physics = Subject::factory()->create(['name_ar' => 'الفيزياء']);
+        $physics = Subject::factory()->create(['name' => 'الفيزياء']);
 
         Sanctum::actingAs($owner);
 

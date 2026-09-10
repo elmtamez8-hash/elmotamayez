@@ -75,7 +75,7 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
           <p className="mt-1 text-xs text-ink-muted">
             {teacher.years_experience.toLocaleString("ar-QA")} سنوات خبرة
             {teacher.grade_levels.length > 0 && (
-              <> · {teacher.grade_levels.map((level) => level.name_ar).join(" · ")}</>
+              <> · {teacher.grade_levels.map((level) => level.name).join(" · ")}</>
             )}
           </p>
         </div>
@@ -96,7 +96,7 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
               key={subject.slug}
               className="rounded-lg bg-primary-soft px-2 py-0.5 text-xs text-primary-ink"
             >
-              {subject.name_ar}
+              {subject.name}
             </li>
           ))}
         </ul>

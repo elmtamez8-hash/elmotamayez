@@ -44,8 +44,8 @@ const course = (over: Record<string, unknown>) => ({
 
 const STAGES = {
   data: [
-    { slug: "primary", name_ar: "المرحلة الابتدائية" },
-    { slug: "secondary", name_ar: "المرحلة الثانوية" },
+    { slug: "primary", name: "المرحلة الابتدائية" },
+    { slug: "secondary", name: "المرحلة الثانوية" },
   ],
 };
 

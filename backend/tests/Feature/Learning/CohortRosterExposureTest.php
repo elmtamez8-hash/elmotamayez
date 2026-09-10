@@ -111,7 +111,7 @@ it('carries only the allowlisted fields, for a member with a rank and a badge', 
 
     standingFor($this, $peer, rank: 7, level: 4);
 
-    $badge = Badge::factory()->create(['key' => 'streak_7', 'name_ar' => 'أسبوعٌ متّصل']);
+    $badge = Badge::factory()->create(['key' => 'streak_7', 'name' => 'أسبوعٌ متّصل']);
     BadgeAward::factory()->create([
         'user_id' => $peer->getKey(),
         'badge_key' => $badge->key,
@@ -127,7 +127,7 @@ it('carries only the allowlisted fields, for a member with a rank and a badge', 
     expect($peerRow['rank'])->toBe(7)
         ->and($peerRow['level'])->toBe(4)
         ->and($peerRow['badges'])->toHaveCount(1)
-        ->and($peerRow['badges'][0]['name_ar'])->toBe('أسبوعٌ متّصل')
+        ->and($peerRow['badges'][0]['name'])->toBe('أسبوعٌ متّصل')
         // The accessor, not the column that does not exist — `users` has no
         // `name`, so a constrained eager load naming it returns «  ».
         ->and($peerRow['name'])->toBe('ليلى الزميل');
@@ -136,7 +136,7 @@ it('carries only the allowlisted fields, for a member with a rank and a badge', 
         expect(array_diff(array_keys($row), ROSTER_ALLOWED))->toBe([]);
 
         foreach ($row['badges'] as $chip) {
-            expect(array_diff(array_keys($chip), ['key', 'name_ar', 'icon']))->toBe([]);
+            expect(array_diff(array_keys($chip), ['key', 'name', 'icon']))->toBe([]);
         }
     }
 });

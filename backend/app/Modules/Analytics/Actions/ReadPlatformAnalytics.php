@@ -91,7 +91,7 @@ class ReadPlatformAnalytics extends Action
     /**
      * Students per region — every ACTIVE region, including the empty ones.
      *
-     * @return list<array{slug: string, name_ar: string, students: int}>
+     * @return list<array{slug: string, name: string, students: int}>
      */
     private function regions(string $date): array
     {
@@ -101,13 +101,13 @@ class ReadPlatformAnalytics extends Action
             ->where('metric_key', MetricKey::StudentsByRegion->value)
             ->pluck('numerator', 'region_id');
 
-        /** @var list<array{slug: string, name_ar: string, students: int}> $report */
+        /** @var list<array{slug: string, name: string, students: int}> $report */
         $report = [];
 
         foreach (Region::query()->where('is_active', true)->orderBy('sort_order')->orderBy('id')->get() as $region) {
             $report[] = [
                 'slug' => $region->slug,
-                'name_ar' => $region->name_ar,
+                'name' => $region->name,
                 'students' => (int) ($counts[$region->getKey()] ?? 0),
             ];
         }
@@ -123,7 +123,7 @@ class ReadPlatformAnalytics extends Action
         $unknown = (int) ($counts[0] ?? 0);
 
         if ($unknown > 0) {
-            $report[] = ['slug' => 'unknown', 'name_ar' => 'غير محدَّدة', 'students' => $unknown];
+            $report[] = ['slug' => 'unknown', 'name' => 'غير محدَّدة', 'students' => $unknown];
         }
 
         return $report;

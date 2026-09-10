@@ -42,14 +42,14 @@ final class CertificateTemplateRegistry
      * viewers — the invisible-colour family this tree has shipped four times,
      * reached from the one direction the token guard cannot see.
      *
-     * @return list<array{key: string, name_ar: string, image_url: string, is_default: bool, boxes: array<string, array<string, mixed>>}>
+     * @return list<array{key: string, name: string, image_url: string, is_default: bool, boxes: array<string, array<string, mixed>>}>
      */
     public static function all(): array
     {
         return [
             [
                 'key' => 'classic',
-                'name_ar' => 'كلاسيكي',
+                'name' => 'كلاسيكي',
                 'image_url' => '/certificate-templates/classic.webp',
                 'is_default' => true,
                 'boxes' => [
@@ -69,7 +69,7 @@ final class CertificateTemplateRegistry
             ],
             [
                 'key' => 'students',
-                'name_ar' => 'طلّاب',
+                'name' => 'طلّاب',
                 'image_url' => '/certificate-templates/students.webp',
                 'is_default' => false,
                 'boxes' => [
@@ -97,7 +97,7 @@ final class CertificateTemplateRegistry
         ];
     }
 
-    /** @return array{key: string, name_ar: string, image_url: string, is_default: bool, boxes: array<string, array<string, mixed>>} */
+    /** @return array{key: string, name: string, image_url: string, is_default: bool, boxes: array<string, array<string, mixed>>} */
     public static function default(): array
     {
         foreach (self::all() as $template) {
@@ -110,7 +110,7 @@ final class CertificateTemplateRegistry
         return self::all()[0];
     }
 
-    /** @return array{key: string, name_ar: string, image_url: string, is_default: bool, boxes: array<string, array<string, mixed>>}|null */
+    /** @return array{key: string, name: string, image_url: string, is_default: bool, boxes: array<string, array<string, mixed>>}|null */
     public static function find(?string $key): ?array
     {
         if ($key === null) {

@@ -42,11 +42,11 @@ class RegionSpreadWidget extends ChartWidget
     /** @return array<string, mixed> */
     protected function getData(): array
     {
-        /** @var list<array{slug: string, name_ar: string, students: int}> $regions */
+        /** @var list<array{slug: string, name: string, students: int}> $regions */
         $regions = app(ReadPlatformAnalytics::class)->handle()['regions'];
 
         return [
-            'labels' => array_map(fn (array $region): string => $region['name_ar'], $regions),
+            'labels' => array_map(fn (array $region): string => $region['name'], $regions),
             'datasets' => [[
                 'label' => 'الطلاب',
                 'data' => array_map(fn (array $region): int => $region['students'], $regions),

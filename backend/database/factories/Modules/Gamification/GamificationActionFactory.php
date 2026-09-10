@@ -18,7 +18,7 @@ class GamificationActionFactory extends Factory
     {
         return [
             'key' => 'act_'.Str::lower(Str::random(10)),
-            'name_ar' => 'فعل تجريبي',
+            'name' => 'فعل تجريبي',
             'xp' => 10,
             'coins' => 5,
             'daily_cap' => null,

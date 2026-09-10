@@ -34,13 +34,13 @@ class ListSignupTaxonomy extends Action
 
     public const GRADE_LEVELS = 'grade_levels';
 
-    /** @return list<array{slug: string, name_ar: string}> */
+    /** @return list<array{slug: string, name: string}> */
     public function handle(string $taxonomy = self::SUBJECTS): array
     {
         /** @var class-string<Subject|GradeLevel> $model */
         $model = $taxonomy === self::GRADE_LEVELS ? GradeLevel::class : Subject::class;
 
-        /** @var list<array{slug: string, name_ar: string}> */
+        /** @var list<array{slug: string, name: string}> */
         return Cache::remember(
             // ⚠️ THE `signup:` PREFIX IS NOT DECORATION. `MarketplaceCache::key()`
             // is a FLAT namespace with a version counter folded in, and
@@ -55,10 +55,10 @@ class ListSignupTaxonomy extends Action
                 ->where('is_active', true)
                 ->orderBy('sort_order')
                 ->orderBy('id')
-                ->get(['slug', 'name_ar'])
+                ->get(['slug', 'name'])
                 ->map(fn ($row): array => [
                     'slug' => (string) $row->slug,
-                    'name_ar' => (string) $row->name_ar,
+                    'name' => (string) $row->name,
                 ])
                 ->all(),
         );

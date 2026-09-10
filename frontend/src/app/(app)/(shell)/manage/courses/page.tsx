@@ -71,10 +71,10 @@ export default function ManageCoursesPage() {
   */
   useEffect(() => {
     api
-      .get<{ data: { slug: string; name_ar: string }[] }>("/signup/grade-levels")
+      .get<{ data: { slug: string; name: string }[] }>("/signup/grade-levels")
       .then((res) =>
         setStageNames(
-          Object.fromEntries((res.data ?? []).map((row) => [row.slug, row.name_ar])),
+          Object.fromEntries((res.data ?? []).map((row) => [row.slug, row.name])),
         ),
       )
       .catch(() => setStageNames({}));

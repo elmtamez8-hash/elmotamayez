@@ -30,8 +30,8 @@ import { QuestionIcon } from "@/components/icons";
 import { arabicNumber } from "@/lib/numerals";
 import { TEACHING_LANGUAGES } from "@/lib/teaching-languages";
 
-type Option = { slug: string; name_ar: string };
-type SchoolYear = { slug: string; name_ar: string };
+type Option = { slug: string; name: string };
+type SchoolYear = { slug: string; name: string };
 
 /**
  * «ملفّي» — حيثُ يصفُ المدرّسُ نفسَه ويُصحِّحُ الطالبُ بياناتِه.
@@ -299,7 +299,7 @@ export default function ProfileSettingsPage() {
               onChange={(subjects) => setForm({ ...form, subjects })}
               options={subjects.map((subject) => ({
                 value: subject.slug,
-                label: subject.name_ar,
+                label: subject.name,
               }))}
             />
 
@@ -311,7 +311,7 @@ export default function ProfileSettingsPage() {
               placeholder="اختر المراحل"
               value={form.grade_levels}
               onChange={(grade_levels) => setForm({ ...form, grade_levels })}
-              options={stages.map((stage) => ({ value: stage.slug, label: stage.name_ar }))}
+              options={stages.map((stage) => ({ value: stage.slug, label: stage.name }))}
             />
 
             <MultiSelectField
@@ -572,7 +572,7 @@ export default function ProfileSettingsPage() {
               placeholder="اختر الصف"
               value={student.school_year_slug}
               onChange={(value) => setStudent({ ...student, school_year_slug: value })}
-              options={years.map((year) => ({ value: year.slug, label: year.name_ar }))}
+              options={years.map((year) => ({ value: year.slug, label: year.name }))}
               error={fields.school_year_slug}
               required
             />
@@ -583,7 +583,7 @@ export default function ProfileSettingsPage() {
               placeholder="اختر المنطقة"
               value={student.region_slug}
               onChange={(value) => setStudent({ ...student, region_slug: value })}
-              options={regions.map((region) => ({ value: region.slug, label: region.name_ar }))}
+              options={regions.map((region) => ({ value: region.slug, label: region.name }))}
               error={fields.region_slug}
               required
             />

@@ -123,7 +123,7 @@ it('offers only teachers and subjects that have published homework, and every op
 | homework of every maths course the student has, not the first one.
 */
 it('gathers every course of one subject across teachers', function (): void {
-    $subject = Subject::factory()->create(['name_ar' => 'الرياضيات']);
+    $subject = Subject::factory()->create(['name' => 'الرياضيات']);
 
     $student = null;
     $courses = [];

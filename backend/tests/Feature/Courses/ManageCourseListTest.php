@@ -168,8 +168,8 @@ it('answers a total, so a page knows there is more than it received', function (
 it('stores and updates the stage, and refuses one that is not a stage', function (): void {
     [$course, , $owner] = manageListCourse();
 
-    GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name_ar' => 'الثانوية', 'is_active' => true]);
-    $subject = Subject::factory()->create(['name_ar' => 'الرياضيات']);
+    GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name' => 'الثانوية', 'is_active' => true]);
+    $subject = Subject::factory()->create(['name' => 'الرياضيات']);
 
     Sanctum::actingAs($owner);
 

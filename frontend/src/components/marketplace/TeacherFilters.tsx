@@ -116,7 +116,7 @@ export function TeacherFilters({
           <option value="">كل المراحل</option>
           {gradeLevels.map((level) => (
             <option key={level.slug} value={level.slug}>
-              {level.name_ar}
+              {level.name}
             </option>
           ))}
         </Select>
@@ -142,7 +142,7 @@ export function TeacherFilters({
           </option>
           {subjects.map((subject) => (
             <option key={subject.slug} value={subject.slug}>
-              {subject.name_ar}
+              {subject.name}
               {subject.teachers_count !== undefined
                 ? ` (${ar(subject.teachers_count)})`
                 : ""}
@@ -260,7 +260,7 @@ export function ActiveFilters({
   const params = useSearchParams();
 
   const nameOf = (list: Taxonomy[], slug: string) =>
-    list.find((item) => item.slug === slug)?.name_ar ?? slug;
+    list.find((item) => item.slug === slug)?.name ?? slug;
 
   const describe = (key: string, value: string): string | null => {
     switch (key) {

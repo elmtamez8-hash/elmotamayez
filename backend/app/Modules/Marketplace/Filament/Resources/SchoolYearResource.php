@@ -49,7 +49,7 @@ class SchoolYearResource extends Resource
 {
     protected static ?string $model = SchoolYear::class;
 
-    protected static ?string $recordTitleAttribute = 'name_ar';
+    protected static ?string $recordTitleAttribute = 'name';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAcademicCap;
 
@@ -79,7 +79,7 @@ class SchoolYearResource extends Resource
                 ->description('يختاره الطالب عند التسجيل، وتُشتقّ منه مرحلتُه العريضة.')
                 ->columns(2)
                 ->schema([
-                    TextInput::make('name_ar')
+                    TextInput::make('name')
                         ->label('الاسم')
                         ->required()
                         ->maxLength(255)
@@ -97,7 +97,7 @@ class SchoolYearResource extends Resource
                     Select::make('grade_level_id')
                         ->label('المرحلة العريضة')
                         ->required()
-                        ->relationship('gradeLevel', 'name_ar')
+                        ->relationship('gradeLevel', 'name')
                         ->helperText('يُشتقّ منها ما يظهر للمدرّس وما يُبنى عليه سعرُ التسوية.'),
 
                     // Immutable once written, exactly as the taxonomy's slug and
@@ -130,8 +130,13 @@ class SchoolYearResource extends Resource
         return $table
             ->defaultSort('sort_order')
             ->columns([
-                TextColumn::make('name_ar')->label('الاسم')->searchable()->sortable(),
-                TextColumn::make('gradeLevel.name_ar')->label('المرحلة')->sortable(),
+                // ⚠️ SORTED BY THE LOCALE'S KEY, NEVER BY THE DOCUMENT. `name` is a
+                // translatable JSON column: ordering it raw happens to order by the
+                // Arabic value only while every row carries exactly one language.
+                TextColumn::make('name')->label('الاسم')->searchable()
+                    ->sortable(['name->'.app()->getLocale()]),
+                TextColumn::make('gradeLevel.name')->label('المرحلة')
+                    ->sortable(['grade_levels.name->'.app()->getLocale()]),
                 TextColumn::make('slug')->label('المُعرِّف')->searchable(),
                 TextColumn::make('sort_order')->label('الترتيب')->sortable(),
                 IconColumn::make('is_active')->label('مفعَّل')->boolean(),
@@ -141,7 +146,7 @@ class SchoolYearResource extends Resource
                     ->label('المرحلة')
                     ->options(fn (): array => GradeLevel::query()
                         ->orderBy('sort_order')
-                        ->pluck('name_ar', 'id')
+                        ->pluck('name', 'id')
                         ->all()),
                 TernaryFilter::make('is_active')->label('مفعَّل'),
             ]);

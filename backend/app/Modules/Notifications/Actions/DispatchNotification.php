@@ -108,8 +108,8 @@ class DispatchNotification extends Action
             'source_type' => $request->sourceType,
             'source_id' => $request->sourceId,
             'payload' => $request->variables,
-            'title_ar' => $rendered->titleAr,
-            'body_ar' => $rendered->bodyAr,
+            'title' => $rendered->title,
+            'body' => $rendered->body,
             'action_url' => $request->actionUrl,
         ]);
 

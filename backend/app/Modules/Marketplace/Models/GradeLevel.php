@@ -9,21 +9,25 @@ use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Marketplace\GradeLevelFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Spatie\Translatable\HasTranslations;
 
 /**
  * PLATFORM reference data since spec 009 — see {@see Subject} for why the
  * workspace column had to go, and why it must not come back.
  *
  * @property string $slug
- * @property string $name_ar
+ * @property string $name
  */
 class GradeLevel extends BaseModel
 {
     /** @use HasFactory<GradeLevelFactory> */
-    use HasFactory, HasUuid;
+    use HasFactory, HasTranslations, HasUuid;
+
+    /** @var list<string> */
+    public array $translatable = ['name'];
 
     protected $fillable = [
-        'name_ar',
+        'name',
         'slug',
         'icon',
         'sort_order',

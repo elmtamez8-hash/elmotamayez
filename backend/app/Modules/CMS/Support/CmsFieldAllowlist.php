@@ -109,7 +109,7 @@ final class CmsFieldAllowlist
             // string if a filter were ever echoed back into them.
             'data', 'meta', 'links', 'current_page', 'per_page', 'total', 'last_page',
             'first', 'last', 'prev', 'next', 'from', 'to', 'url', 'label', 'active', 'path', 'page',
-            'teacher', 'name_ar', 'icon', 'teachers_count',
+            'teacher', 'name', 'icon', 'teachers_count',
         ]));
     }
 

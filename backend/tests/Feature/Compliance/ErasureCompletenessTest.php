@@ -58,8 +58,8 @@ function erasureFixtureFor(User $subject, int $workspaceId): void
         'recipient_user_id' => $subject->getKey(),
         'workspace_id' => $workspaceId,
         'type' => NotificationType::AttendanceAlert->value,
-        'title_ar' => 'تنبيه',
-        'body_ar' => 'نصّ',
+        'title' => 'تنبيه',
+        'body' => 'نصّ',
     ]);
 
     ContactVerification::query()->create([

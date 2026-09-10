@@ -30,9 +30,9 @@ function iconOf(name: string): string | undefined {
     ?.replace("tabler-icon-", "");
 }
 
-const subject = (slug: string, name_ar: string, icon?: string): Taxonomy => ({
+const subject = (slug: string, name: string, icon?: string): Taxonomy => ({
   slug,
-  name_ar,
+  name,
   icon,
 });
 
@@ -57,12 +57,12 @@ describe("SubjectsGrid", () => {
     render(<SubjectsGrid subjects={subjects.map(([s]) => s)} />);
 
     for (const [s, expected] of subjects) {
-      expect(iconOf(s.name_ar), s.slug).toBe(expected);
+      expect(iconOf(s.name), s.slug).toBe(expected);
     }
 
     // The grid is thirteen tiles wearing eleven glyphs, not one worn thirteen
     // times — the state this replaced, and the one a bad merge restores.
-    expect(new Set(subjects.map(([s]) => iconOf(s.name_ar))).size).toBeGreaterThan(10);
+    expect(new Set(subjects.map(([s]) => iconOf(s.name))).size).toBeGreaterThan(10);
   });
 
   it("falls back to the icon column for a slug it has never heard of", () => {

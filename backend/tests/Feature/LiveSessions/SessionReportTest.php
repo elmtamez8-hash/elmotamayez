@@ -124,8 +124,8 @@ it('sends on attendance alone when the teacher wrote nothing', function (): void
     $notification = Notification::query()->forRecipient($student)->first();
 
     expect($notification)->not->toBeNull()
-        ->and($notification->body_ar)->toContain('غائب')
-        ->and($notification->body_ar)->toContain('لا ملاحظات إضافية.');
+        ->and($notification->body)->toContain('غائب')
+        ->and($notification->body)->toContain('لا ملاحظات إضافية.');
 });
 
 it('carries the teacher remark when there is one', function (): void {
@@ -137,7 +137,7 @@ it('carries the teacher remark when there is one', function (): void {
 
     closeAndReport();
 
-    expect(Notification::query()->forRecipient($student)->first()->body_ar)
+    expect(Notification::query()->forRecipient($student)->first()->body)
         ->toContain('شارك بفاعلية.');
 });
 
@@ -211,8 +211,8 @@ it('sends a correction when attendance is edited after the report went out', fun
     $reports = Notification::query()->forRecipient($student)->orderBy('id')->get();
 
     expect($reports)->toHaveCount(2)
-        ->and($reports->last()->body_ar)->toContain('تصحيح لتقرير سابق.')
-        ->and($reports->last()->body_ar)->toContain('حاضر');
+        ->and($reports->last()->body)->toContain('تصحيح لتقرير سابق.')
+        ->and($reports->last()->body)->toContain('حاضر');
 });
 
 // An edit before the delay elapses is not a correction: nobody has been told

@@ -43,7 +43,7 @@ class RegionResource extends Resource
 {
     protected static ?string $model = Region::class;
 
-    protected static ?string $recordTitleAttribute = 'name_ar';
+    protected static ?string $recordTitleAttribute = 'name';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMapPin;
 
@@ -73,7 +73,7 @@ class RegionResource extends Resource
                 ->description('تظهر في نموذج التسجيل، ويُبنى عليها توزيعُ الطلاب في لوحة التحليلات.')
                 ->columns(2)
                 ->schema([
-                    TextInput::make('name_ar')
+                    TextInput::make('name')
                         ->label('الاسم')
                         ->required()
                         ->maxLength(255)
@@ -109,7 +109,11 @@ class RegionResource extends Resource
         return $table
             ->defaultSort('sort_order')
             ->columns([
-                TextColumn::make('name_ar')->label('الاسم')->searchable()->sortable(),
+                // ⚠️ SORTED BY THE LOCALE'S KEY, NEVER BY THE DOCUMENT. `name` is a
+                // translatable JSON column: ordering it raw happens to order by the
+                // Arabic value only while every row carries exactly one language.
+                TextColumn::make('name')->label('الاسم')->searchable()
+                    ->sortable(['name->'.app()->getLocale()]),
                 TextColumn::make('slug')->label('المُعرِّف')->searchable(),
                 TextColumn::make('sort_order')->label('الترتيب')->sortable(),
                 IconColumn::make('is_active')->label('مفعَّل')->boolean(),

@@ -46,7 +46,7 @@ class ProgressResource extends JsonResource
         return [
             'xp' => $this->resource->xp,
             'level' => $this->resource->level,
-            'level_name_ar' => $this->context['level_name_ar'],
+            'level_name' => $this->context['level_name'],
             'next_level_xp' => $this->context['next_level_xp'],
             'current_streak' => $this->resource->current_streak,
             'best_streak' => $this->resource->best_streak,

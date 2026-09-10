@@ -61,21 +61,24 @@ it('keeps an operator rename when the deploy path runs again', function (): void
     // SC-006. `seedMissing()` is `firstOrCreate`, so a row an operator edited
     // from /admin survives the next release. `run()` would not — which is why
     // the two backfill migrations call this method and never that one.
-    Subject::query()->where('slug', 'math')->update(['name_ar' => 'الرياضيات المتقدمة']);
+    // Through the MODEL, as /admin does: `name` is a translatable JSON column
+    // and a bulk `update()` applies no cast, so the raw string would land in the
+    // document and read back as nothing at all.
+    Subject::query()->where('slug', 'math')->firstOrFail()->update(['name' => 'الرياضيات المتقدمة']);
     $before = Subject::query()->count();
 
     (new TaxonomySeeder)->seedMissing();
 
-    expect(Subject::query()->where('slug', 'math')->value('name_ar'))->toBe('الرياضيات المتقدمة')
+    expect(Subject::query()->where('slug', 'math')->value('name'))->toBe('الرياضيات المتقدمة')
         ->and(Subject::query()->count())->toBe($before);
 });
 
 it('overwrites an edit in development mode, and only there', function (): void {
     // The other half of the two-mode contract: `run()` is `migrate:fresh --seed`
     // and is what makes a developer's database match the constants.
-    Subject::query()->where('slug', 'math')->update(['name_ar' => 'شيء آخر']);
+    Subject::query()->where('slug', 'math')->firstOrFail()->update(['name' => 'شيء آخر']);
 
     (new TaxonomySeeder)->run();
 
-    expect(Subject::query()->where('slug', 'math')->value('name_ar'))->toBe('الرياضيات');
+    expect(Subject::query()->where('slug', 'math')->value('name'))->toBe('الرياضيات');
 });

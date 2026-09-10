@@ -90,7 +90,7 @@ class SelectCertificateDesign extends Action
         | resolution a console command or a job would not have.
         |
         | `name` stays null for an adopted row — the display name is the registry's
-        | (`name_ar`), and a copy of it here is a second answer that goes stale the
+        | (`name`), and a copy of it here is a second answer that goes stale the
         | day a template is renamed.
         */
         $design->forceFill(['workspace_id' => $workspaceId])->save();

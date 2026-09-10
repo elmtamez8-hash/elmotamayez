@@ -98,13 +98,13 @@ const TEACHER_PROFILE = {
 const CATALOGUES: Record<string, unknown> = {
   "/signup/subjects": {
     data: [
-      { slug: "physics", name_ar: "الفيزياء" },
-      { slug: "maths", name_ar: "الرياضيات" },
+      { slug: "physics", name: "الفيزياء" },
+      { slug: "maths", name: "الرياضيات" },
     ],
   },
-  "/signup/grade-levels": { data: [{ slug: "secondary", name_ar: "الثانوية" }] },
-  "/signup/school-years": { data: [{ slug: "year-10", name_ar: "الصف العاشر" }] },
-  "/marketplace/regions": { data: [{ slug: "doha", name_ar: "الدوحة" }] },
+  "/signup/grade-levels": { data: [{ slug: "secondary", name: "الثانوية" }] },
+  "/signup/school-years": { data: [{ slug: "year-10", name: "الصف العاشر" }] },
+  "/marketplace/regions": { data: [{ slug: "doha", name: "الدوحة" }] },
 };
 
 beforeEach(() => {

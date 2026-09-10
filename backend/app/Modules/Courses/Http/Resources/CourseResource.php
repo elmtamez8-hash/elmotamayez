@@ -54,7 +54,7 @@ class CourseResource extends JsonResource
             */
             'subject' => $this->whenLoaded('subject', fn (): ?array => $this->subject === null ? null : [
                 'uuid' => (string) $this->subject->uuid,
-                'label' => (string) $this->subject->name_ar,
+                'label' => (string) $this->subject->name,
             ]),
             /*
             | ⚠️ THE SPELLING OF `PublicCourseCardResource:31`, CHARACTER FOR

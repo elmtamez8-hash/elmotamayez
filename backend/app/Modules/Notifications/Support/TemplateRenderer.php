@@ -46,8 +46,8 @@ class TemplateRenderer
         }
 
         return new RenderedMessage(
-            titleAr: $this->interpolate($template->title_ar, $variables),
-            bodyAr: $this->interpolate($template->body_ar, $variables),
+            title: $this->interpolate($template->title, $variables),
+            body: $this->interpolate($template->body, $variables),
             templateId: (int) $template->getKey(),
         );
     }

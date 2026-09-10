@@ -51,7 +51,7 @@ beforeEach(function (): void {
 
     app(WorkspaceContext::class)->forWorkspace(
         $workspace,
-        fn () => GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name_ar' => 'المرحلة الثانوية', 'sort_order' => 0, 'is_active' => true]),
+        fn () => GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name' => 'المرحلة الثانوية', 'sort_order' => 0, 'is_active' => true]),
     );
 
     $this->asGuest();

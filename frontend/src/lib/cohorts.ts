@@ -128,7 +128,7 @@ export interface CohortMember {
   level?: number;
   rank?: number;
   /** `icon` is nullable: a badge in the catalogue may carry no glyph. */
-  badges: Array<{ key: string; name_ar: string; icon: string | null }>;
+  badges: Array<{ key: string; name: string; icon: string | null }>;
 }
 
 /** The refusal codes §ج answers a join or a transfer request with. */

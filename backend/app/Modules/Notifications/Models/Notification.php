@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Spatie\Translatable\HasTranslations;
 
 /**
  * One notification as the recipient sees it.
@@ -32,8 +33,8 @@ use Illuminate\Support\Carbon;
  * migration, where they are plain `timestamp`, and does not see casts().
  *
  * @property string $type
- * @property string $title_ar
- * @property string $body_ar
+ * @property string $title
+ * @property string $body
  * @property array<string, mixed>|null $payload
  * @property Carbon|null $read_at
  * @property Carbon|null $created_at
@@ -43,7 +44,10 @@ use Illuminate\Support\Carbon;
 class Notification extends BaseModel
 {
     /** @use HasFactory<NotificationFactory> */
-    use HasFactory, HasUuid;
+    use HasFactory, HasTranslations, HasUuid;
+
+    /** @var list<string> */
+    public array $translatable = ['title', 'body'];
 
     protected $fillable = [
         'recipient_user_id',
@@ -56,8 +60,8 @@ class Notification extends BaseModel
         'source_type',
         'source_id',
         'payload',
-        'title_ar',
-        'body_ar',
+        'title',
+        'body',
         'action_url',
         'read_at',
     ];

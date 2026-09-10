@@ -225,7 +225,7 @@ export default async function TeacherProfilePage({
                         className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1.5 text-sm font-medium text-primary-ink transition duration-200 ease-out hover:brightness-95 active:scale-[0.97] active:duration-100"
                       >
                         <Icon className="h-4 w-4" />
-                        {subject.name_ar}
+                        {subject.name}
                       </Link>
                     </li>
                   );
@@ -241,7 +241,7 @@ export default async function TeacherProfilePage({
                 <AcademicCapIcon className="h-4 w-4 shrink-0 text-primary-ink" />
                 <span>
                   يدرّس{" "}
-                  {teacher.grade_levels.map((level) => level.name_ar).join(" · ")}
+                  {teacher.grade_levels.map((level) => level.name).join(" · ")}
                 </span>
               </p>
             )}
@@ -559,7 +559,7 @@ export default async function TeacherProfilePage({
             <span className="block text-lg font-bold text-ink">
               {teacher.name}
             </span>
-            {teacher.subjects[0]?.name_ar ?? "حصص خاصة"}
+            {teacher.subjects[0]?.name ?? "حصص خاصة"}
           </p>
           {/* ⚠️ THE THIRD CALL SITE, AND THE ONE THAT ONLY APPEARS ON A PHONE.
               Two of them were fixed and this one sat under `lg:hidden`, so the
