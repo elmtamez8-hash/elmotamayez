@@ -16,6 +16,7 @@ import {
   type AvailabilityItem,
   type CourseDetail,
 } from "@/lib/public-api";
+import { counted } from "@/lib/labels";
 import { siteUrl } from "@/lib/site";
 
 type Params = { slug: string };
@@ -118,11 +119,13 @@ function hours(seconds: number): string | null {
   const value = Math.round(seconds / 3600);
 
   if (value <= 0) return null;
-  if (value === 1) return "ساعة";
-  if (value === 2) return "ساعتان";
-  if (value <= 10) return `${value.toLocaleString("ar-QA")} ساعات`;
 
-  return `${value.toLocaleString("ar-QA")} ساعة`;
+  return counted(value, {
+    one: "ساعة",
+    two: "ساعتان",
+    few: "ساعات",
+    many: "ساعة",
+  });
 }
 
 export default async function CoursePage({
@@ -161,9 +164,19 @@ export default async function CoursePage({
   const availability = await loadAvailability(course);
 
   const facts = [
-    `${course.lessons_count.toLocaleString("ar-QA")} درساً`,
+    counted(course.lessons_count, {
+      one: "درس واحد",
+      two: "درسان",
+      few: "دروس",
+      many: "درساً",
+    }),
     hours(course.duration_seconds),
-    `${course.enrolled_count.toLocaleString("ar-QA")} طالباً`,
+    counted(course.enrolled_count, {
+      one: "طالب واحد",
+      two: "طالبان",
+      few: "طلاب",
+      many: "طالباً",
+    }),
   ].filter((fact): fact is string => fact !== null);
 
   return (

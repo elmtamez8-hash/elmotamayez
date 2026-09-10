@@ -5,7 +5,7 @@ import {
   MyCohortProvider,
   UnlessMyCohort,
 } from "@/components/marketplace/MyCohort";
-import { TONE_CLASSES } from "@/lib/labels";
+import { counted, TONE_CLASSES } from "@/lib/labels";
 import type { CohortSummary } from "@/lib/public-api";
 
 /**
@@ -33,12 +33,15 @@ const STATUS: Record<CohortSummary["status"], { label: string; tone: keyof typeo
  */
 function seats(count: number | undefined): string | null {
   if (count === undefined) return null;
-  if (count === 0) return "لا مقاعد متاحة";
-  if (count === 1) return "مقعد واحد متبقٍ";
-  if (count === 2) return "مقعدان متبقّيان";
-  if (count <= 10) return `${count.toLocaleString("ar-QA")} مقاعد متبقّية`;
 
-  return `${count.toLocaleString("ar-QA")} مقعداً متبقّياً`;
+  return counted(count, {
+    zero: "لا مقاعد متاحة",
+    one: "مقعد واحد متبقٍ",
+    two: "مقعدان متبقّيان",
+    few: "مقاعد متبقّية",
+    many: "مقعداً متبقّياً",
+    other: "مقعد متبقٍّ",
+  });
 }
 
 /**

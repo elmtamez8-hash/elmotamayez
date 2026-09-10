@@ -13,6 +13,7 @@ import { PageBanner } from "@/components/ui/PageBanner";
 import { BookIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
+import { counted } from "@/lib/labels";
 
 export const revalidate = 60;
 
@@ -85,7 +86,12 @@ export default async function CoursesPage({
         description="مسارات كاملة — مباشرة ومسجّلة — يبنيها المدرّس ويتابع فيها تقدّمك درساً بدرس، لا حصصاً متفرّقة."
       >
         <p className="mt-5 inline-flex items-center rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur-sm">
-          {courses.meta.total.toLocaleString("ar-QA")} كورس متاح
+          {counted(courses.meta.total, {
+            one: "كورس متاح",
+            two: "كورسان متاحان",
+            few: "كورسات متاحة",
+            many: "كورساً متاحاً",
+          })}
         </p>
       </PageBanner>
 

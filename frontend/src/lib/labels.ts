@@ -418,3 +418,64 @@ export function fromMinorMoney(minor: number): string {
 
   return (minor / MINOR_UNITS).toFixed(2);
 }
+
+/**
+ * The five forms an Arabic counted noun takes, so a sentence can agree.
+ *
+ * ⚠️ «٢ مدرّس متاح» IS THE DEFECT, AND IT WAS SPELLED TWENTY-FIVE TIMES. Arabic
+ * agrees the noun AND its adjective with the number in five bands, and a
+ * template literal knows about none of them: the marketplace banner said «٢
+ * مدرّس متاح» for two teachers and «١١ مدرّس متاح» for eleven — the second
+ * accidentally right, the first wrong in both words. Reported from the live
+ * marketplace on 2026-09-11.
+ *
+ * ⚠️ AND FOUR SCREENS HAD ALREADY WRITTEN THEIR OWN HALF OF THIS RULE. The
+ * orders table, the lesson preview, the course page and the cohort card each
+ * carried a private `if (count <= 10)` ladder — four spellings of one rule,
+ * which is the drift this file exists to prevent. They read this now.
+ *
+ * The BANDS come from `Intl.PluralRules("ar")` rather than from a hand-written
+ * `n % 100` chain: CLDR is where the rule is maintained, and the two disagree
+ * exactly where a hand-written one is most often wrong — 103 is `few` while 111
+ * is `many`, because the band is decided by the last two digits and not by the
+ * size of the number.
+ *
+ * ⚠️ THE NUMERAL IS THE HELPER'S DECISION, NOT THE CALLER'S. One and two are
+ * written WITHOUT a numeral («مدرّس متاح» · «مدرّسان متاحان») because Arabic
+ * carries the count in the word itself and «٢ مدرّسان» is a stutter; everything
+ * else is prefixed. Left to the caller, the next one passes a phrase with a
+ * digit already in it and the rule is back to being spelled twice.
+ *
+ * `other` (100, 101, 200 …) falls back to the SINGULAR phrase, which is what it
+ * takes — «١٠٠ مدرّس متاح» — and `zero` to «لا » plus the plural, which is a
+ * sentence rather than «٠ مدرّس».
+ */
+export type CountedForms = {
+  /** مدرّس متاح */
+  one: string;
+  /** مدرّسان متاحان */
+  two: string;
+  /** ٣ مدرّسين متاحين */
+  few: string;
+  /** ١١ مدرّساً متاحاً */
+  many: string;
+  /** ١٠٠ مدرّس متاح — defaults to `one`. */
+  other?: string;
+  /** لا مدرّسين متاحين — defaults to «لا » + `few`. */
+  zero?: string;
+};
+
+const ARABIC_BANDS = new Intl.PluralRules("ar");
+
+export function counted(count: number, forms: CountedForms): string {
+  const band = ARABIC_BANDS.select(count);
+
+  if (band === "zero") return forms.zero ?? `لا ${forms.few}`;
+  if (band === "one") return forms.one;
+  if (band === "two") return forms.two;
+
+  const noun =
+    band === "few" ? forms.few : band === "many" ? forms.many : (forms.other ?? forms.one);
+
+  return `${count.toLocaleString("ar-QA")} ${noun}`;
+}
