@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\Gamification\Filament\Resources\BadgeResource\Pages;
 
 use App\Modules\Gamification\Filament\Resources\BadgeResource;
+use App\Shared\Traits\EditsTranslatableRecord;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
 
 class EditBadge extends EditRecord
 {
+    use EditsTranslatableRecord;
+
     protected static string $resource = BadgeResource::class;
 
     /**

@@ -6,11 +6,14 @@ namespace App\Modules\Marketplace\Filament\Resources\GradeLevelResource\Pages;
 
 use App\Modules\Marketplace\Filament\Resources\GradeLevelResource;
 use App\Modules\Marketplace\Policies\TaxonomyPolicy;
+use App\Shared\Traits\EditsTranslatableRecord;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
 
 class EditGradeLevel extends EditRecord
 {
+    use EditsTranslatableRecord;
+
     protected static string $resource = GradeLevelResource::class;
 
     /**
