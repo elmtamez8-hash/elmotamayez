@@ -415,6 +415,34 @@ it('prices the grant on the screen before anything is saved', function (): void 
         ->assertSee('QAR');
 });
 
+it('names the retirement when a package is pulled from under an open form', function (): void {
+    /*
+    | ⚠️ الحارسُ الذي يمسكُ ولا يقولُ لماذا. تحقّقُ Filament للحقلِ مشتقٌّ من
+    | `options()` — ولا تحملُ باقةً معطَّلة — فيقعُ **قبلَ** `PurchaseCredits`
+    | ورميتِه. فالموظّفُ كانَ يقرأُ «القيمة المختارة في الباقة غير صالحة»:
+    | رفضٌ لا يسمّي سبباً، على الشاشةِ التي تسكُّ رصيداً من إيصالٍ بنكيّ.
+    | وُجِدَ بالمشيةِ اليدويّة (T034 · ٢٠٢٦-٠٩-١٠) لا باختبار.
+    |
+    | والباقةُ تُعطَّلُ **بعدَ** ملءِ النموذجِ لا قبلَه، وإلّا لم يكنْ في الحالةِ
+    | مفتاحٌ أصلاً ومرَّ الاختبارُ على «حقلٌ فارغ» بدلَ ما كُتِبَ له.
+    */
+    $this->actingAs($this->officer);
+
+    $component = Livewire::test(GrantCreditSubscription::class)
+        ->fillForm([
+            'student' => $this->student->getKey(),
+            'course' => $this->courseA->getKey(),
+            'package' => $this->package->getKey(),
+        ]);
+
+    $this->package->forceFill(['is_active' => false])->save();
+
+    $component->call('grant')->assertHasFormErrors(['package']);
+
+    expect($component->errors()->first('data.package'))->toBe(PurchaseCredits::PACKAGE_RETIRED)
+        ->and(Order::query()->withoutWorkspaceScope()->where('user_id', $this->student->getKey())->count())->toBe(0);
+});
+
 it('names the field still missing rather than listing all three', function (): void {
     /*
     | ⚠️ جملةٌ تعدُّ الثلاثةَ بعدَ اختيارِ اثنَينِ منها تُقرأُ على أنّها عطل: الموظّفُ
