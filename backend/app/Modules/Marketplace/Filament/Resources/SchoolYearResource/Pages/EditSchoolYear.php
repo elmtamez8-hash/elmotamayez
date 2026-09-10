@@ -6,11 +6,14 @@ namespace App\Modules\Marketplace\Filament\Resources\SchoolYearResource\Pages;
 
 use App\Modules\Marketplace\Filament\Resources\SchoolYearResource;
 use App\Modules\Marketplace\Policies\TaxonomyPolicy;
+use App\Shared\Traits\EditsTranslatableRecord;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
 
 class EditSchoolYear extends EditRecord
 {
+    use EditsTranslatableRecord;
+
     protected static string $resource = SchoolYearResource::class;
 
     /**

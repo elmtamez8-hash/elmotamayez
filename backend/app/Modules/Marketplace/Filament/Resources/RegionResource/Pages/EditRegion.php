@@ -6,11 +6,14 @@ namespace App\Modules\Marketplace\Filament\Resources\RegionResource\Pages;
 
 use App\Modules\Marketplace\Filament\Resources\RegionResource;
 use App\Modules\Marketplace\Policies\TaxonomyPolicy;
+use App\Shared\Traits\EditsTranslatableRecord;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
 
 class EditRegion extends EditRecord
 {
+    use EditsTranslatableRecord;
+
     protected static string $resource = RegionResource::class;
 
     /**

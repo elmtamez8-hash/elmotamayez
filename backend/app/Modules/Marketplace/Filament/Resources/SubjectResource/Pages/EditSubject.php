@@ -6,11 +6,14 @@ namespace App\Modules\Marketplace\Filament\Resources\SubjectResource\Pages;
 
 use App\Modules\Marketplace\Filament\Resources\SubjectResource;
 use App\Modules\Marketplace\Policies\TaxonomyPolicy;
+use App\Shared\Traits\EditsTranslatableRecord;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
 
 class EditSubject extends EditRecord
 {
+    use EditsTranslatableRecord;
+
     protected static string $resource = SubjectResource::class;
 
     /**

@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\Gamification\Filament\Resources\GamificationActionResource\Pages;
 
 use App\Modules\Gamification\Filament\Resources\GamificationActionResource;
+use App\Shared\Traits\EditsTranslatableRecord;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
 
 class EditGamificationAction extends EditRecord
 {
+    use EditsTranslatableRecord;
+
     protected static string $resource = GamificationActionResource::class;
 
     /**
