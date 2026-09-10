@@ -9,6 +9,7 @@ import { PageBanner } from "@/components/ui/PageBanner";
 import { ArticleCard } from "@/components/blog/ArticleCard";
 import { CtaBand } from "@/components/blog/CtaBand";
 import { BookIcon, ChevronEndIcon, ChevronStartIcon } from "@/components/icons";
+import { counted } from "@/lib/labels";
 
 const TITLE = "المدوّنة";
 const DESCRIPTION =
@@ -152,7 +153,13 @@ export default async function BlogIndexPage({
               يُعادُ ترتيبُه بقواعدِ bidi فيُقرَأُ مقلوباً — الدرسُ نفسُه الذي
               كلّفَ عدّادَ المالِ إعادةَ تصميم.
             */}
-            {total.toLocaleString("ar-QA")} مقالاً منشوراً
+            {counted(total, {
+              one: "مقال منشور",
+              two: "مقالان منشوران",
+              few: "مقالات منشورة",
+              many: "مقالاً منشوراً",
+              other: "مقال منشور",
+            })}
           </p>
         ) : null}
       </PageBanner>

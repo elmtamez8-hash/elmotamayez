@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { EmbeddedVideo } from "@/components/player/EmbeddedVideo";
 import { NotFoundError, publicApi, type PreviewLesson } from "@/lib/public-api";
+import { counted } from "@/lib/labels";
 import { siteUrl } from "@/lib/site";
 
 type Params = { slug: string; lesson: string };
@@ -62,12 +63,13 @@ function duration(seconds: number | undefined): string | null {
 
   const minutes = Math.round(seconds / 60);
 
-  // Arabic counts in four bands and 11+ returns to the SINGULAR.
-  if (minutes === 1) return "دقيقة";
-  if (minutes === 2) return "دقيقتان";
-  if (minutes <= 10) return `${minutes.toLocaleString("ar-QA")} دقائق`;
-
-  return `${minutes.toLocaleString("ar-QA")} دقيقة`;
+  return counted(minutes, {
+    one: "دقيقة",
+    two: "دقيقتان",
+    few: "دقائق",
+    many: "دقيقة",
+    other: "دقيقة",
+  });
 }
 
 export default async function PreviewLessonPage({

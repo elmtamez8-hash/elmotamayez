@@ -16,6 +16,7 @@ import { PageBanner } from "@/components/ui/PageBanner";
 import { UsersIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
+import { counted } from "@/lib/labels";
 
 export const revalidate = 60;
 
@@ -110,7 +111,13 @@ export default async function TeachersPage({
         description="كل مدرّس هنا مرّ بمراجعة أكاديمية قبل أن يظهر، ودرجة ثقته محسوبة من أدائه الفعلي لا من وصفه لنفسه."
       >
         <p className="mt-5 inline-flex items-center rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur-sm">
-          {teachers.meta.total.toLocaleString("ar-QA")} مدرّس متاح
+          {counted(teachers.meta.total, {
+            one: "مدرّس متاح",
+            two: "مدرّسان متاحان",
+            few: "مدرّسين متاحين",
+            many: "مدرّساً متاحاً",
+            other: "مدرّس متاح",
+          })}
         </p>
       </PageBanner>
 

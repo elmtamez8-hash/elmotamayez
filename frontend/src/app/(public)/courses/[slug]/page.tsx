@@ -16,6 +16,7 @@ import {
   type AvailabilityItem,
   type CourseDetail,
 } from "@/lib/public-api";
+import { counted } from "@/lib/labels";
 import { siteUrl } from "@/lib/site";
 
 type Params = { slug: string };
@@ -72,7 +73,13 @@ export async function generateMetadata({
         : course.title,
       description:
         course.description?.slice(0, 155) ??
-        `${course.title}: ${course.lessons_count.toLocaleString("ar-QA")} درساً على منصّتنا.`,
+        `${course.title}: ${counted(course.lessons_count, {
+          one: "درس واحد",
+          two: "درسان",
+          few: "دروس",
+          many: "درساً",
+          other: "درس",
+        })} على منصّتنا.`,
       // Absolute, for the reason the home page's is: a relative canonical
       // resolves against whichever host the crawler arrived on.
       alternates: { canonical: siteUrl(`/courses/${course.slug ?? course.uuid}`) },
@@ -118,11 +125,14 @@ function hours(seconds: number): string | null {
   const value = Math.round(seconds / 3600);
 
   if (value <= 0) return null;
-  if (value === 1) return "ساعة";
-  if (value === 2) return "ساعتان";
-  if (value <= 10) return `${value.toLocaleString("ar-QA")} ساعات`;
 
-  return `${value.toLocaleString("ar-QA")} ساعة`;
+  return counted(value, {
+    one: "ساعة",
+    two: "ساعتان",
+    few: "ساعات",
+    many: "ساعة",
+    other: "ساعة",
+  });
 }
 
 export default async function CoursePage({
@@ -160,11 +170,30 @@ export default async function CoursePage({
    */
   const availability = await loadAvailability(course);
 
+  /*
+   * ⚠️ الصفرُ يسقطُ من الشريطِ ولا يُنطَق. `hours()` تُعيدُ `null` عندَ الصفرِ
+   * منذُ كُتِبَت، ولنفسِ السبب: «لا طلاب» على كورسٍ جديدٍ إعلانٌ ضدَّ صاحبِه،
+   * و«٠ طالباً» — وهو ما كان يُطبَع — أسوأُ منه.
+   */
   const facts = [
-    `${course.lessons_count.toLocaleString("ar-QA")} درساً`,
+    course.lessons_count > 0 &&
+      counted(course.lessons_count, {
+        one: "درس واحد",
+        two: "درسان",
+        few: "دروس",
+        many: "درساً",
+        other: "درس",
+      }),
     hours(course.duration_seconds),
-    `${course.enrolled_count.toLocaleString("ar-QA")} طالباً`,
-  ].filter((fact): fact is string => fact !== null);
+    course.enrolled_count > 0 &&
+      counted(course.enrolled_count, {
+        one: "طالب واحد",
+        two: "طالبان",
+        few: "طلاب",
+        many: "طالباً",
+        other: "طالب",
+      }),
+  ].filter((fact): fact is string => typeof fact === "string");
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-10 sm:px-6">

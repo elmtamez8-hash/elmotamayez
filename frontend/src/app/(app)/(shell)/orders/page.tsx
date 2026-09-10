@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, errorMessage } from "@/lib/api";
 import type { Order } from "@/lib/types";
-import { formatDate, formatMinorMoney } from "@/lib/labels";
+import { counted, formatDate, formatMinorMoney } from "@/lib/labels";
 import { planDuration, SESSION_TYPE_LABELS } from "@/lib/plans";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/Badge";
@@ -38,13 +38,15 @@ const KIND_LABELS: Record<string, string> = {
   subscription: "اشتراك",
 };
 
-/** «حصة واحدة» · «حصتان» · «٤ حصص» · «١٢ حصة» — `hours()` on the course page is the precedent. */
+/** «حصة واحدة» · «حصتان» · «٤ حصص» · «١٢ حصة» — the bands live in `counted()`. */
 function sessions(count: number): string {
-  if (count === 1) return "حصة واحدة";
-  if (count === 2) return "حصتان";
-  if (count <= 10) return `${count.toLocaleString("ar-QA")} حصص`;
-
-  return `${count.toLocaleString("ar-QA")} حصة`;
+  return counted(count, {
+    one: "حصة واحدة",
+    two: "حصتان",
+    few: "حصص",
+    many: "حصة",
+    other: "حصة",
+  });
 }
 
 /** The headline of the «الطلب» cell, and the line under it. */

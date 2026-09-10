@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { lessonTypeLabel } from "@/lib/labels";
+import { counted, lessonTypeLabel } from "@/lib/labels";
 import type { CurriculumSection } from "@/lib/public-api";
 
 /**
@@ -27,13 +27,13 @@ function duration(seconds: number | null | undefined): string | null {
 
   const minutes = Math.round(seconds / 60);
 
-  // Arabic counts in four bands and 11+ returns to the SINGULAR — «١٢ دقيقة»,
-  // never «١٢ دقائق». The dual is its own word.
-  if (minutes === 1) return "دقيقة";
-  if (minutes === 2) return "دقيقتان";
-  if (minutes <= 10) return `${minutes.toLocaleString("ar-QA")} دقائق`;
-
-  return `${minutes.toLocaleString("ar-QA")} دقيقة`;
+  return counted(minutes, {
+    one: "دقيقة",
+    two: "دقيقتان",
+    few: "دقائق",
+    many: "دقيقة",
+    other: "دقيقة",
+  });
 }
 
 export function CourseCurriculum({
