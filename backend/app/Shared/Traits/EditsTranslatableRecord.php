@@ -30,11 +30,23 @@ namespace App\Shared\Traits;
  *
  * ⚠️ AND THIS COMES OUT THE DAY A LANGUAGE-TABS COMPONENT GOES IN. A tabbed
  * editor wants the whole document — one input per locale — so flattening it on
- * fill is exactly what would break it. `pixelpeter/filament-language-tabs` is
- * the obvious candidate and its newest release requires `filament/filament ^4.0`
- * against our 5.7.6 (measured 2026-09-10: `composer require --dry-run` refuses
- * all three of its majors), so this stays until that catches up — which is
- * likely the same day a second language makes the tabs worth having.
+ * fill is exactly what would break it, and such a component fills and saves per
+ * locale itself, which is this whole trait.
+ *
+ * Two candidates were measured on 2026-09-10 and they do NOT have the same
+ * answer, so read the version and not the popularity:
+ *
+ *   pixelpeter/filament-language-tabs        v3.0.0  needs filament ^4.0  ✗
+ *   solution-forest/filament-translate-field v3.0.3  needs filament ^5.0  ✓
+ *
+ * We are on 5.7.6, so `composer require --dry-run` refused all three of the
+ * first one's majors and installed the second cleanly. The second is therefore
+ * a decision rather than a blocker, and the decision was to WAIT: the product
+ * is Arabic-only by design (spec 002), so `defaultLocales(['ar'])` draws one
+ * tab around every field for no gain, at the cost of a dependency and eight
+ * rewritten form definitions — and those same eight edits are due whether it
+ * goes in today or the day English arrives, so nothing is saved by paying now.
+ * The day a second language lands, that package replaces this file.
  */
 trait EditsTranslatableRecord
 {
