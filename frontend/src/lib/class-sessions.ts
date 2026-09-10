@@ -189,7 +189,7 @@ export interface RoomParticipant {
    *  front of the class is a lie the screen would repeat every week. */
   role: "host" | "student" | "staff";
   avatar_url: string | null;
-  badges: { key: string; name_ar: string; icon: string | null }[];
+  badges: { key: string; name: string; icon: string | null }[];
   /**
    * Whether the host put this person out of THIS session.
    *

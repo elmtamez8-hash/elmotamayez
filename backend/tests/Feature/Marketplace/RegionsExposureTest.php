@@ -33,7 +33,7 @@ it('publishes only the two fields a picker needs', function (): void {
 
     foreach ($payload as $region) {
         foreach (array_keys($region) as $key) {
-            if (! in_array($key, ['slug', 'name_ar'], true)) {
+            if (! in_array($key, ['slug', 'name'], true)) {
                 $unlisted[] = $key;
             }
 

@@ -107,11 +107,17 @@ return [
     | by Laravel's translation / localization methods. This option can be
     | set to any locale for which you plan to have translation strings.
     |
+    | The DEFAULT is 'ar', not Laravel's 'en'. The product is Arabic-only (spec
+    | 002) and, since the taxonomy/notification columns became translatable JSON,
+    | the locale decides which key every write lands under: an environment that
+    | forgets APP_LOCALE would silently store {"en": "عربي"} and every reader
+    | asking for Arabic would fall back to it or find nothing.
+    |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    'locale' => env('APP_LOCALE', 'ar'),
 
-    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
+    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'ar'),
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 

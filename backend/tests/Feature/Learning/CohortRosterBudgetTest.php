@@ -32,7 +32,7 @@ function rosterOfSize(object $test, int $members): array
 {
     $fx = cohortFixture();
 
-    $badge = Badge::factory()->create(['key' => 'streak_'.$members, 'name_ar' => 'مواظبة']);
+    $badge = Badge::factory()->create(['key' => 'streak_'.$members, 'name' => 'مواظبة']);
 
     $students = app(WorkspaceContext::class)->forWorkspace($fx['workspace'], function () use ($fx, $members): array {
         $made = [];

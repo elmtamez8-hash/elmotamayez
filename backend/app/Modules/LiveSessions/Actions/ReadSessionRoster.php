@@ -47,7 +47,7 @@ class ReadSessionRoster extends Action
      *     name: string,
      *     role: string,
      *     avatar_url: string|null,
-     *     badges: list<array{key: string, name_ar: string, icon: string|null}>,
+     *     badges: list<array{key: string, name: string, icon: string|null}>,
      *     is_removed?: bool
      * }>
      */

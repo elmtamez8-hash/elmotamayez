@@ -104,7 +104,7 @@ class WebPushChannel implements NotificationChannelInterface
         }
 
         $payload = json_encode([
-            'title' => $envelope->titleAr,
+            'title' => $envelope->title,
             'url' => $envelope->actionUrl ?? '/notifications',
             // The bell reads this to mark the row read when the person taps.
             'uuid' => $envelope->notificationUuid,

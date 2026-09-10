@@ -79,8 +79,8 @@ function teacherStepFour(): array
  */
 function seedPlatformTaxonomy(): void
 {
-    Subject::query()->firstOrCreate(['slug' => 'math'], ['name_ar' => 'الرياضيات', 'sort_order' => 0, 'is_active' => true]);
-    GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name_ar' => 'المرحلة الثانوية', 'sort_order' => 0, 'is_active' => true]);
+    Subject::query()->firstOrCreate(['slug' => 'math'], ['name' => 'الرياضيات', 'sort_order' => 0, 'is_active' => true]);
+    GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name' => 'المرحلة الثانوية', 'sort_order' => 0, 'is_active' => true]);
 }
 
 /**

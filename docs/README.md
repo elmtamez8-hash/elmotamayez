@@ -920,7 +920,7 @@ one screen on purpose.
 
 **A WhatsApp message is a provider-approved template, never text we compose.** The
 row in `message_templates` supplies the template NAME (`type`), the ORDER of its
-parameters (`variables`) and the approval state; `body_ar` documents what was
+parameters (`variables`) and the approval state; `body` documents what was
 approved and is not what the phone displays. Rows ship `pending` — see
 `docs/deployment.md` for the approval checklist, and for why `contact_verification`
 must be approved before any of the others.

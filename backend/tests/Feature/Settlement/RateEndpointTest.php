@@ -104,7 +104,7 @@ it('lets a platform admin approve, and tells the teacher when it takes effect', 
     // The date is the point: a new number with no "from when" reads as applying
     // to hours already taught.
     expect($notification)->not->toBeNull()
-        ->and($notification->body_ar)->toContain('يسري من');
+        ->and($notification->body)->toContain('يسري من');
 });
 
 it('refuses a student the settlement routes entirely', function (): void {

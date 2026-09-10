@@ -48,11 +48,11 @@ it('leaves an admin\'s edited wording exactly as they wrote it', function (): vo
     // An ASCII sentinel, for the reason every exposure test in this product uses
     // one — and here because the shipped default is Arabic and a comparison
     // against it would be true for the wrong reason on any encoding slip.
-    $template->update(['body_ar' => 'ADMIN_EDITED_SENTINEL']);
+    $template->update(['body' => 'ADMIN_EDITED_SENTINEL']);
 
     (new NotificationTemplateSeeder)->seedMissing();
 
-    expect($template->fresh()?->body_ar)->toBe('ADMIN_EDITED_SENTINEL');
+    expect($template->fresh()?->body)->toBe('ADMIN_EDITED_SENTINEL');
 });
 
 it('overwrites deliberately when the seeder is run for a fresh database', function (): void {
@@ -61,13 +61,13 @@ it('overwrites deliberately when the seeder is run for a fresh database', functi
         ->where('channel', NotificationChannel::InApp->value)
         ->firstOrFail();
 
-    $template->update(['body_ar' => 'ADMIN_EDITED_SENTINEL']);
+    $template->update(['body' => 'ADMIN_EDITED_SENTINEL']);
 
     // The other direction, asserted so the two modes cannot quietly become one:
     // `migrate:fresh --seed` must restore the shipped wording.
     (new NotificationTemplateSeeder)->run();
 
-    expect($template->fresh()?->body_ar)->not->toBe('ADMIN_EDITED_SENTINEL');
+    expect($template->fresh()?->body)->not->toBe('ADMIN_EDITED_SENTINEL');
 });
 
 it('holds a template for every type the product can send', function (): void {

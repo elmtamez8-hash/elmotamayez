@@ -7,6 +7,7 @@ namespace App\Modules\Compliance\Models;
 use App\Models\BaseModel;
 use App\Modules\Compliance\Enums\ErasureCapability;
 use App\Shared\Traits\HasUuid;
+use Spatie\Translatable\HasTranslations;
 
 /**
  * A third party that receives personal data — PLATFORM reference data (layer ب).
@@ -15,7 +16,7 @@ use App\Shared\Traits\HasUuid;
  *
  * @property string $key
  * @property string $name
- * @property string $purpose_ar
+ * @property string $purpose
  * @property string $processing_location
  * @property list<string> $categories
  * @property ErasureCapability $erasure_capability
@@ -23,12 +24,15 @@ use App\Shared\Traits\HasUuid;
  */
 class DataProcessor extends BaseModel
 {
-    use HasUuid;
+    use HasTranslations, HasUuid;
+
+    /** @var list<string> */
+    public array $translatable = ['purpose'];
 
     protected $fillable = [
         'key',
         'name',
-        'purpose_ar',
+        'purpose',
         'processing_location',
         'categories',
         'erasure_capability',

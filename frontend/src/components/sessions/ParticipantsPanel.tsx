@@ -453,7 +453,7 @@ function ParticipantRow({
             <span className="flex flex-wrap gap-1">
               {person.badges.map((badge) => (
                 <Badge key={badge.key} tone="success">
-                  {badge.name_ar}
+                  {badge.name}
                 </Badge>
               ))}
             </span>

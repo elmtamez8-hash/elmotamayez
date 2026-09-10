@@ -67,7 +67,7 @@ class IssueCertificate extends Action
                 // `->` and not `?->` on the left of `??`: `??` already uses isset
                 // semantics, so a null course subject yields the title rather
                 // than an error — and PHPStan rejects the redundant nullsafe.
-                'subject_display_name' => $enrollment->course->subject->name_ar
+                'subject_display_name' => $enrollment->course->subject->name
                     ?? $enrollment->course->title,
                 'exam_attempt_id' => $examAttemptId,
                 'issue_reason' => $reason,

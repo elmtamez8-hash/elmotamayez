@@ -117,7 +117,7 @@ it('serves the course page at a cost that does not grow with the tree', function
     expect($data['teacher'])->not->toBeNull()
         ->and(trim((string) $data['teacher']['name']))->not->toBe('')
         ->and($data['subject'])->not->toBeNull()
-        ->and($data['subject']['name_ar'])->toBeString()
+        ->and($data['subject']['name'])->toBeString()
         ->and($data['curriculum'])->toHaveCount(4)
         ->and($data['curriculum'][0]['chapters'])->toHaveCount(2)
         // Six articles plus the one open embedded lesson every chapter now

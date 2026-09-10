@@ -218,7 +218,7 @@ intended behaviour of an unconfigured deployment, not a fault.
       platform starts must be an approved template: free-form text is permitted only inside
       the 24-hour window a user opens **by replying**, and we receive nothing, so that window
       never opens. Submit each with the name in `message_templates.type` and the body
-      matching `body_ar` — the numbered placeholders in the approved template must line up
+      matching `body` — the numbered placeholders in the approved template must line up
       with `variables` **in order**, because that order is the only thing that says which
       parameter is which.
 - [ ] ⚠️ **Approve `contact_verification` FIRST.** It carries the one-time code, so until it

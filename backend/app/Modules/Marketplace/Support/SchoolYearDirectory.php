@@ -48,13 +48,13 @@ class SchoolYearDirectory
                 ->orderBy('school_years.id')
                 ->get([
                     'school_years.slug as slug',
-                    'school_years.name_ar as name_ar',
+                    'school_years.name as name',
                     DB::raw('grade_levels.slug as stage_slug'),
                 ])
                 ->mapWithKeys(fn (SchoolYear $year): array => [
                     (string) $year->getAttribute('slug') => [
                         'stage' => (string) $year->getAttribute('stage_slug'),
-                        'name' => (string) $year->getAttribute('name_ar'),
+                        'name' => (string) $year->getAttribute('name'),
                     ],
                 ])
                 ->all(),

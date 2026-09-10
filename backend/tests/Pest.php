@@ -1264,8 +1264,8 @@ function envelopeFor(User $user, NotificationType $type = NotificationType::Sess
     return new NotificationEnvelope(
         recipient: $user,
         type: $type,
-        titleAr: 'عنوان',
-        bodyAr: 'نصّ',
+        title: 'عنوان',
+        body: 'نصّ',
         actionUrl: null,
         payload: [
             'title' => 'حصّة الجبر',

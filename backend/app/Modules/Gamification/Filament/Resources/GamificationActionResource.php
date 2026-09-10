@@ -53,7 +53,7 @@ class GamificationActionResource extends Resource
 
     protected static ?int $navigationSort = 20;
 
-    protected static ?string $recordTitleAttribute = 'name_ar';
+    protected static ?string $recordTitleAttribute = 'name';
 
     public static function getNavigationLabel(): string
     {
@@ -84,7 +84,7 @@ class GamificationActionResource extends Resource
                         ->unique(ignoreRecord: true)
                         ->helperText('يُطابق ما يرسله المستمع. تغييرُه يفصل الفعلَ عن مصدره فيتوقّف المنح بصمت.'),
 
-                    TextInput::make('name_ar')
+                    TextInput::make('name')
                         ->label('الاسم')
                         ->required()
                         ->maxLength(255),
@@ -149,7 +149,11 @@ class GamificationActionResource extends Resource
         return $table
             ->defaultSort('key')
             ->columns([
-                TextColumn::make('name_ar')->label('الاسم')->searchable()->sortable(),
+                // ⚠️ SORTED BY THE LOCALE'S KEY, NEVER BY THE DOCUMENT. `name` is a
+                // translatable JSON column: ordering it raw happens to order by the
+                // Arabic value only while every row carries exactly one language.
+                TextColumn::make('name')->label('الاسم')->searchable()
+                    ->sortable(['name->'.app()->getLocale()]),
                 TextColumn::make('key')->label('المفتاح')->searchable(),
                 TextColumn::make('xp')->label('الخبرة')->sortable()->badge()
                     // القيمةُ السالبةُ عقوبة، وقراءتُها كرقمٍ عاديٍّ بين الأرقام هي

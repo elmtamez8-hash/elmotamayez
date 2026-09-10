@@ -52,8 +52,8 @@ trait RegistersFakeChannels
                 ['type' => $type->value, 'channel' => $channel->value],
                 [
                     'key' => MessageTemplate::keyFor($type, $channel),
-                    'title_ar' => $inApp?->title_ar ?? $type->label(),
-                    'body_ar' => $inApp?->body_ar ?? $type->label(),
+                    'title' => $inApp?->title ?? $type->label(),
+                    'body' => $inApp?->body ?? $type->label(),
                     'variables' => $inApp?->variables ?? [],
                     'provider_approval_status' => MessageTemplate::APPROVAL_NOT_REQUIRED,
                     'is_active' => true,

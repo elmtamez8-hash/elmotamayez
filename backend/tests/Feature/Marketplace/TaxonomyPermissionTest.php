@@ -143,7 +143,7 @@ it('invalidates the public taxonomy cache when a row is saved', function (): voi
     $subject = Subject::factory()->create();
     $before = MarketplaceCache::version();
 
-    $subject->update(['name_ar' => 'الرياضيات المتقدّمة']);
+    $subject->update(['name' => 'الرياضيات المتقدّمة']);
 
     expect(MarketplaceCache::version())->toBeGreaterThan($before);
 
@@ -173,7 +173,7 @@ it('invalidates the public taxonomy cache when a row is saved', function (): voi
     $year = SchoolYear::factory()->create();
     $afterRegion = MarketplaceCache::version();
 
-    $year->update(['name_ar' => 'الصف السادس']);
+    $year->update(['name' => 'الصف السادس']);
 
     expect(MarketplaceCache::version())->toBeGreaterThan($afterRegion);
 });
@@ -196,7 +196,7 @@ it('offers a newly added year on the very next request', function (): void {
     SchoolYear::query()->create([
         'grade_level_id' => GradeLevel::query()->where('slug', 'secondary')->value('id'),
         'slug' => 'year-13',
-        'name_ar' => 'الصف الثالث عشر',
+        'name' => 'الصف الثالث عشر',
         'sort_order' => 900,
         'is_active' => true,
     ]);

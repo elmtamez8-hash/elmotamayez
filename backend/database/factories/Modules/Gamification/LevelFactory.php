@@ -19,7 +19,7 @@ class LevelFactory extends Factory
 
         return [
             'level' => $level,
-            'name_ar' => 'مستوى '.$level,
+            'name' => 'مستوى '.$level,
             'xp_threshold' => $level * 100,
         ];
     }

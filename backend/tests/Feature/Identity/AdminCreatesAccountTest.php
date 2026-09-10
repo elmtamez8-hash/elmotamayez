@@ -29,13 +29,13 @@ use Livewire\Livewire;
 beforeEach(function (): void {
     $stage = GradeLevel::query()->firstOrCreate(
         ['slug' => 'secondary'],
-        ['name_ar' => 'الثانويّة', 'sort_order' => 1, 'is_active' => true],
+        ['name' => 'الثانويّة', 'sort_order' => 1, 'is_active' => true],
     );
 
     SchoolYear::query()->firstOrCreate(
         ['slug' => 'year-10'],
         [
-            'name_ar' => 'الصفّ العاشر',
+            'name' => 'الصفّ العاشر',
             'grade_level_id' => $stage->getKey(),
             'sort_order' => 10,
             'is_active' => true,
@@ -44,7 +44,7 @@ beforeEach(function (): void {
 
     Region::query()->firstOrCreate(
         ['slug' => 'doha'],
-        ['name_ar' => 'الدوحة', 'sort_order' => 1, 'is_active' => true],
+        ['name' => 'الدوحة', 'sort_order' => 1, 'is_active' => true],
     );
 
     $this->admin = User::factory()->create(['is_super_admin' => true]);

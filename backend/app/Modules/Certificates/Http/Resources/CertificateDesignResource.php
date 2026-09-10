@@ -31,7 +31,7 @@ class CertificateDesignResource extends JsonResource
         return [
             'uuid' => $this->uuid,
             'system_key' => $this->system_key,
-            'name' => $this->name ?? $this->template()['name_ar'] ?? null,
+            'name' => $this->name ?? $this->template()['name'] ?? null,
             'image_url' => $this->imageUrl(),
             'source' => $this->system_key !== null ? 'system' : 'uploaded',
             'is_selected' => $this->selected_for_workspace_id !== null,
@@ -43,7 +43,7 @@ class CertificateDesignResource extends JsonResource
     /**
      * The same card for a shipped template nobody has adopted yet.
      *
-     * @param  array{key: string, name_ar: string, image_url: string, is_default: bool, boxes: array<string, array<string, mixed>>}  $template
+     * @param  array{key: string, name: string, image_url: string, is_default: bool, boxes: array<string, array<string, mixed>>}  $template
      * @return array<string, mixed>
      */
     public static function fromTemplate(array $template): array
@@ -51,7 +51,7 @@ class CertificateDesignResource extends JsonResource
         return [
             'uuid' => null,
             'system_key' => $template['key'],
-            'name' => $template['name_ar'],
+            'name' => $template['name'],
             'image_url' => $template['image_url'],
             'source' => 'system',
             // No row, so nothing can have selected it.

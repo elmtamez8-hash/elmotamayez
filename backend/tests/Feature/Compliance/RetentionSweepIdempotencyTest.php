@@ -117,8 +117,8 @@ beforeEach(function (): void {
         'recipient_user_id' => $this->student->getKey(),
         'workspace_id' => $workspace->getKey(),
         'type' => 'session_reminder',
-        'title_ar' => 'تذكير',
-        'body_ar' => 'حصّتك غداً.',
+        'title' => 'تذكير',
+        'body' => 'حصّتك غداً.',
         'read_at' => now()->subDays(400),
     ]);
 
@@ -133,8 +133,8 @@ beforeEach(function (): void {
         'recipient_user_id' => $this->student->getKey(),
         'workspace_id' => $workspace->getKey(),
         'type' => 'session_reminder',
-        'title_ar' => 'تذكير لم يُقرأ',
-        'body_ar' => 'حصّتك غداً.',
+        'title' => 'تذكير لم يُقرأ',
+        'body' => 'حصّتك غداً.',
     ]);
 
     // Aged by query — see the note in the workspace block above.
@@ -219,8 +219,8 @@ it('spares a held subject s rows and sweeps everyone else s', function (): void 
         'recipient_user_id' => $other->getKey(),
         'workspace_id' => $this->workspace->getKey(),
         'type' => 'session_reminder',
-        'title_ar' => 'تذكير',
-        'body_ar' => 'حصّتك غداً.',
+        'title' => 'تذكير',
+        'body' => 'حصّتك غداً.',
         'read_at' => now()->subDays(400),
     ]);
 

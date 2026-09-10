@@ -19,7 +19,7 @@ class BadgeFactory extends Factory
     {
         return [
             'key' => 'badge_'.Str::lower(Str::random(10)),
-            'name_ar' => 'شارة تجريبية',
+            'name' => 'شارة تجريبية',
             'icon' => 'star',
             'rule_type' => BadgeRuleType::TotalXp,
             'rule_value' => 100,

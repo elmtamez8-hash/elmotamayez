@@ -9,6 +9,7 @@ use App\Modules\Gamification\Enums\BadgeRuleType;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Gamification\BadgeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Spatie\Translatable\HasTranslations;
 
 /**
  * An achievement and the rule that earns it — PLATFORM reference data (layer ب).
@@ -16,6 +17,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  * Changing a rule never withdraws a badge already awarded (FR-017): what a
  * student earned under the old rule they earned.
  *
+ * ⚠️ `$name` IS DECLARED HERE BECAUSE THE COLUMN IS JSON. Larastan types a
+ * property from the migration, where a translatable column is a `json`, so
+ * without this line every reader of the accessor is «undefined property» —
+ * `HasTranslations` returns the locale's string, never the document.
+ *
+ * @property string $name
  * @property BadgeRuleType $rule_type
  * @property int $rule_value
  * @property string|null $rule_action_key
@@ -24,11 +31,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 class Badge extends BaseModel
 {
     /** @use HasFactory<BadgeFactory> */
-    use HasFactory, HasUuid;
+    use HasFactory, HasTranslations, HasUuid;
+
+    /** @var list<string> */
+    public array $translatable = ['name'];
 
     protected $fillable = [
         'key',
-        'name_ar',
+        'name',
         'icon',
         'rule_type',
         'rule_value',

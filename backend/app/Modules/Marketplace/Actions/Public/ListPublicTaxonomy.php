@@ -44,7 +44,7 @@ class ListPublicTaxonomy extends Action
      * @param  string|null  $gradeLevel  Slug. Narrows SUBJECTS to those taught at
      *                                   that stage; ignored for grade levels,
      *                                   which are the axis being scoped by.
-     * @return list<array{slug: string, name_ar: string, icon: string|null, teachers_count: int}>
+     * @return list<array{slug: string, name: string, icon: string|null, teachers_count: int}>
      */
     public function handle(string $taxonomy = self::SUBJECTS, ?string $gradeLevel = null): array
     {
@@ -79,7 +79,7 @@ class ListPublicTaxonomy extends Action
                     ->orderBy('sort_order')
                     ->get();
 
-                /** @var list<array{slug: string, name_ar: string, icon: string|null, teachers_count: int}> $entries */
+                /** @var list<array{slug: string, name: string, icon: string|null, teachers_count: int}> $entries */
                 $entries = [];
 
                 foreach ($rows as $row) {
@@ -93,7 +93,7 @@ class ListPublicTaxonomy extends Action
 
                     $entries[] = [
                         'slug' => $row->slug,
-                        'name_ar' => $row->name_ar,
+                        'name' => $row->name,
                         'icon' => is_string($icon) ? $icon : null,
                         'teachers_count' => $count,
                     ];

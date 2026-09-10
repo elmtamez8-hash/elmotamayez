@@ -41,7 +41,7 @@ export function SubjectsGrid({ subjects }: { subjects: Taxonomy[] }) {
                 <Icon className="h-6 w-6" />
               </span>
               <span className="text-sm font-semibold text-ink">
-                {subject.name_ar}
+                {subject.name}
               </span>
               {subject.teachers_count !== undefined && (
                 <span className="text-xs text-ink-muted">

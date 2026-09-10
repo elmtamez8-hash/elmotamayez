@@ -35,6 +35,7 @@ class CertificateDesign extends BaseModel
     |
     | `workspace_id` is filled by `BelongsToWorkspace`.
     */
+
     protected $fillable = [
         'name',
         'system_key',
@@ -66,7 +67,7 @@ class CertificateDesign extends BaseModel
     /**
      * The shipped template this row adopted, if it adopted one.
      *
-     * @return array{key: string, name_ar: string, image_url: string, is_default: bool, boxes: array<string, array<string, mixed>>}|null
+     * @return array{key: string, name: string, image_url: string, is_default: bool, boxes: array<string, array<string, mixed>>}|null
      */
     public function template(): ?array
     {

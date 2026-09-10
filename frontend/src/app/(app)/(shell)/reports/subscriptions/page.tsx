@@ -119,7 +119,7 @@ export default function ReportSubscriptionsPage() {
         <ul className="mt-4 space-y-1 text-sm text-ink">
           {report.regions.map((region) => (
             <li key={region.slug} className="flex justify-between">
-              <span>{region.name_ar}</span>
+              <span>{region.name}</span>
               <span>{region.students.toLocaleString("ar-QA")}</span>
             </li>
           ))}

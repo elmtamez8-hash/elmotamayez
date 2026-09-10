@@ -91,7 +91,7 @@ export function RosterTab({ cohortUuid }: { cohortUuid: string | null }) {
               */}
               {member.badges.map((badge) => (
                 <Badge key={badge.key} tone="neutral">
-                  {badge.name_ar}
+                  {badge.name}
                 </Badge>
               ))}
             </div>

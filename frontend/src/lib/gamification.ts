@@ -17,7 +17,7 @@ export interface CoinPurse {
 
 export interface EarnedBadge {
   key: string;
-  name_ar: string;
+  name: string;
   icon: string | null;
   awarded_at: string | null;
 }
@@ -25,7 +25,7 @@ export interface EarnedBadge {
 export interface Progress {
   xp: number;
   level: number;
-  level_name_ar: string | null;
+  level_name: string | null;
   /** Null at the top of the ladder — there is no next threshold to show. */
   next_level_xp: number | null;
   current_streak: number;

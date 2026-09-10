@@ -12,6 +12,7 @@ use Database\Factories\Modules\Marketplace\SchoolYearFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Translatable\HasTranslations;
 
 /**
  * The individual year a student is in (spec 022 · FR-001ب).
@@ -24,14 +25,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property int $grade_level_id
  * @property string $slug
- * @property string $name_ar
+ * @property string $name
  * @property bool $is_active
  * @property-read GradeLevel $gradeLevel
  */
 class SchoolYear extends BaseModel
 {
     /** @use HasFactory<SchoolYearFactory> */
-    use HasFactory, HasUuid;
+    use HasFactory, HasTranslations, HasUuid;
 
     /**
      * ⚠️ `grade_level_id` IS IN THIS LIST AND ITS THREE SIBLINGS HAVE NO FOREIGN
@@ -40,9 +41,12 @@ class SchoolYear extends BaseModel
      * seeded or panel-created year would land with a NOT NULL violation at best
      * and, on a nullable column, with nothing at all.
      */
+    /** @var list<string> */
+    public array $translatable = ['name'];
+
     protected $fillable = [
         'grade_level_id',
-        'name_ar',
+        'name',
         'slug',
         'sort_order',
         'is_active',

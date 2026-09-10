@@ -9,6 +9,7 @@ use App\Modules\Gamification\Filament\Resources\GamificationActionResource;
 use App\Modules\Gamification\Models\Badge;
 use App\Modules\Gamification\Models\GamificationAction;
 use App\Modules\Gamification\Models\Level;
+use App\Shared\Database\TranslatableColumns;
 use Illuminate\Database\Seeder;
 
 /**
@@ -29,12 +30,12 @@ use Illuminate\Database\Seeder;
  */
 class GamificationCatalogSeeder extends Seeder
 {
-    /** @var list<array{key: string, name_ar: string, xp: int, coins: int, daily_cap: int|null}> */
+    /** @var list<array{key: string, name: string, xp: int, coins: int, daily_cap: int|null}> */
     private const ACTIONS = [
-        ['key' => 'session_attended', 'name_ar' => 'حضور حصة', 'xp' => 10, 'coins' => 5, 'daily_cap' => 4],
-        ['key' => 'homework_submitted', 'name_ar' => 'تسليم واجب', 'xp' => 15, 'coins' => 5, 'daily_cap' => 3],
-        ['key' => 'exam_passed', 'name_ar' => 'اجتياز اختبار', 'xp' => 50, 'coins' => 20, 'daily_cap' => 2],
-        ['key' => 'mistake_resolved', 'name_ar' => 'إصلاح خطأ سابق', 'xp' => 8, 'coins' => 2, 'daily_cap' => 10],
+        ['key' => 'session_attended', 'name' => 'حضور حصة', 'xp' => 10, 'coins' => 5, 'daily_cap' => 4],
+        ['key' => 'homework_submitted', 'name' => 'تسليم واجب', 'xp' => 15, 'coins' => 5, 'daily_cap' => 3],
+        ['key' => 'exam_passed', 'name' => 'اجتياز اختبار', 'xp' => 50, 'coins' => 20, 'daily_cap' => 2],
+        ['key' => 'mistake_resolved', 'name' => 'إصلاح خطأ سابق', 'xp' => 8, 'coins' => 2, 'daily_cap' => 10],
 
         /*
         | Spec 010 — the teacher endorsed an answer in a public room (FR-023).
@@ -48,7 +49,7 @@ class GamificationCatalogSeeder extends Seeder
         | uncapped one is a teacher able to mint a term's worth of XP for one
         | student in an afternoon.
         */
-        ['key' => 'helpful_answer', 'name_ar' => 'إجابة اعتمدها المدرّس', 'xp' => 20, 'coins' => 10, 'daily_cap' => 3],
+        ['key' => 'helpful_answer', 'name' => 'إجابة اعتمدها المدرّس', 'xp' => 20, 'coins' => 10, 'daily_cap' => 3],
 
         /*
         | ⚠️ ZERO COINS, AND THAT IS NOT AN OVERSIGHT. A focus session belongs to
@@ -57,14 +58,14 @@ class GamificationCatalogSeeder extends Seeder
         | coin-bearing action with no workspace for exactly this reason: there is
         | no correct purse to put them in.
         */
-        ['key' => 'focus_session', 'name_ar' => 'جلسة تركيز مكتملة', 'xp' => 5, 'coins' => 0, 'daily_cap' => 6],
+        ['key' => 'focus_session', 'name' => 'جلسة تركيز مكتملة', 'xp' => 5, 'coins' => 0, 'daily_cap' => 6],
 
         /*
         | The negative action. It lives in the catalogue as a ROW with a signed
         | value, not as a branch in the awarding code — which is what keeps the
         | penalty visible to the operator editing the values.
         */
-        ['key' => 'payment_overdue', 'name_ar' => 'تأخّر في الدفع', 'xp' => -30, 'coins' => 0, 'daily_cap' => 1],
+        ['key' => 'payment_overdue', 'name' => 'تأخّر في الدفع', 'xp' => -30, 'coins' => 0, 'daily_cap' => 1],
 
         /*
         | Spec 011 — a friend was invited and actually subscribed (FR-020 · FR-024).
@@ -86,7 +87,7 @@ class GamificationCatalogSeeder extends Seeder
         | The value here is seeded from `referral.reward_points` on a live
         | database and is authoritative afterwards — see the backfill migration.
         */
-        ['key' => 'invite_friend', 'name_ar' => 'دعوة صديق اشترك فعلاً', 'xp' => 50, 'coins' => 0, 'daily_cap' => null],
+        ['key' => 'invite_friend', 'name' => 'دعوة صديق اشترك فعلاً', 'xp' => 50, 'coins' => 0, 'daily_cap' => null],
 
         /*
         | Spec 012 — a concept mastered on the adaptive path (FR-003).
@@ -106,7 +107,7 @@ class GamificationCatalogSeeder extends Seeder
         | an uncapped one is a student walking a thin concept list for coins
         | rather than for the practice.
         */
-        ['key' => 'concept_mastered', 'name_ar' => 'إتقان فكرة', 'xp' => 25, 'coins' => 10, 'daily_cap' => 3],
+        ['key' => 'concept_mastered', 'name' => 'إتقان فكرة', 'xp' => 25, 'coins' => 10, 'daily_cap' => 3],
 
         /*
         | Spec 012 · US3. Awarded when a participant answers the LAST question of
@@ -122,25 +123,25 @@ class GamificationCatalogSeeder extends Seeder
         | And the backfill migration ships beside this line: an action with no row
         | awards nothing, in silence.
         */
-        ['key' => 'study_room_finished', 'name_ar' => 'إنهاء غرفة مذاكرة', 'xp' => 15, 'coins' => 5, 'daily_cap' => 2],
+        ['key' => 'study_room_finished', 'name' => 'إنهاء غرفة مذاكرة', 'xp' => 15, 'coins' => 5, 'daily_cap' => 2],
     ];
 
-    /** @var list<array{level: int, name_ar: string, xp_threshold: int}> */
+    /** @var list<array{level: int, name: string, xp_threshold: int}> */
     private const LEVELS = [
-        ['level' => 1, 'name_ar' => 'مبتدئ', 'xp_threshold' => 0],
-        ['level' => 2, 'name_ar' => 'مجتهد', 'xp_threshold' => 100],
-        ['level' => 3, 'name_ar' => 'متقدّم', 'xp_threshold' => 300],
-        ['level' => 4, 'name_ar' => 'متمكّن', 'xp_threshold' => 700],
-        ['level' => 5, 'name_ar' => 'متميّز', 'xp_threshold' => 1500],
-        ['level' => 6, 'name_ar' => 'خبير', 'xp_threshold' => 3000],
+        ['level' => 1, 'name' => 'مبتدئ', 'xp_threshold' => 0],
+        ['level' => 2, 'name' => 'مجتهد', 'xp_threshold' => 100],
+        ['level' => 3, 'name' => 'متقدّم', 'xp_threshold' => 300],
+        ['level' => 4, 'name' => 'متمكّن', 'xp_threshold' => 700],
+        ['level' => 5, 'name' => 'متميّز', 'xp_threshold' => 1500],
+        ['level' => 6, 'name' => 'خبير', 'xp_threshold' => 3000],
     ];
 
-    /** @var list<array{key: string, name_ar: string, icon: string, rule_type: BadgeRuleType, rule_value: int, rule_action_key: string|null}> */
+    /** @var list<array{key: string, name: string, icon: string, rule_type: BadgeRuleType, rule_value: int, rule_action_key: string|null}> */
     private const BADGES = [
-        ['key' => 'first_steps', 'name_ar' => 'الخطوة الأولى', 'icon' => 'sparkles', 'rule_type' => BadgeRuleType::TotalXp, 'rule_value' => 50, 'rule_action_key' => null],
-        ['key' => 'committed', 'name_ar' => 'مواظب', 'icon' => 'fire', 'rule_type' => BadgeRuleType::StreakDays, 'rule_value' => 7, 'rule_action_key' => null],
-        ['key' => 'regular_attender', 'name_ar' => 'حاضر دائم', 'icon' => 'calendar', 'rule_type' => BadgeRuleType::ActionCount, 'rule_value' => 20, 'rule_action_key' => 'session_attended'],
-        ['key' => 'climber', 'name_ar' => 'صاعد', 'icon' => 'trophy', 'rule_type' => BadgeRuleType::LevelReached, 'rule_value' => 3, 'rule_action_key' => null],
+        ['key' => 'first_steps', 'name' => 'الخطوة الأولى', 'icon' => 'sparkles', 'rule_type' => BadgeRuleType::TotalXp, 'rule_value' => 50, 'rule_action_key' => null],
+        ['key' => 'committed', 'name' => 'مواظب', 'icon' => 'fire', 'rule_type' => BadgeRuleType::StreakDays, 'rule_value' => 7, 'rule_action_key' => null],
+        ['key' => 'regular_attender', 'name' => 'حاضر دائم', 'icon' => 'calendar', 'rule_type' => BadgeRuleType::ActionCount, 'rule_value' => 20, 'rule_action_key' => 'session_attended'],
+        ['key' => 'climber', 'name' => 'صاعد', 'icon' => 'trophy', 'rule_type' => BadgeRuleType::LevelReached, 'rule_value' => 3, 'rule_action_key' => null],
     ];
 
     public function run(): void
@@ -169,6 +170,11 @@ class GamificationCatalogSeeder extends Seeder
      */
     public function seedMissing(): void
     {
+        // The conversion migration has not run yet — see {@see TranslatableColumns::converted}.
+        if (! TranslatableColumns::converted('gamification_actions', 'name')) {
+            return;
+        }
+
         $this->write(overwrite: false);
     }
 

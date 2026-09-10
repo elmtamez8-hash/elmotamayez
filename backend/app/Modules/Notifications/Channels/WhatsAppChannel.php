@@ -31,7 +31,7 @@ use RuntimeException;
  * receive nothing — so the window never opens. What travels is a template NAME
  * and an ORDERED list of parameters; the Arabic sentence lives at Meta.
  *
- * ⚠️ WHICH MEANS `message_templates.body_ar` IS DOCUMENTATION HERE, NOT TEXT.
+ * ⚠️ WHICH MEANS `message_templates.body` IS DOCUMENTATION HERE, NOT TEXT.
  * Editing it from the admin panel changes what the notification bell shows and
  * changes nothing at all on a phone. The row still matters for two things a
  * message cannot be sent without: the ORDER of `variables`, which is the meaning

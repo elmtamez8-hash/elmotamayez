@@ -132,7 +132,7 @@ class CourseController extends Controller
      * The subjects a course may be filed under.
      *
      * ⚠️ AN AUTHENTICATED ROUTE RATHER THAN THE PUBLIC ONE. `/marketplace/subjects`
-     * exists but answers `slug`, `name_ar`, `icon` and a teacher count — a
+     * exists but answers `slug`, `name`, `icon` and a teacher count — a
      * visitor's payload, guarded by `PublicFieldAllowlist`, with no uuid in it.
      * Adding one there to save a route would widen a public payload for the
      * convenience of an authoring form.
@@ -144,11 +144,14 @@ class CourseController extends Controller
     {
         return response()->json([
             'data' => Subject::query()
-                ->orderBy('name_ar')
-                ->get(['uuid', 'name_ar'])
+                // A translatable column is JSON, so the sort names the locale's
+                // key: ordering the raw document sorts by `{"ar":"…` and is right
+                // only for as long as every row carries exactly one language.
+                ->orderBy('name->'.app()->getLocale())
+                ->get(['uuid', 'name'])
                 ->map(fn (Subject $subject): array => [
                     'uuid' => (string) $subject->uuid,
-                    'label' => (string) $subject->name_ar,
+                    'label' => (string) $subject->name,
                 ])
                 ->all(),
         ]);

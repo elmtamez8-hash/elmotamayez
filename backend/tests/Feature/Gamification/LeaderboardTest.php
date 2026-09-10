@@ -31,7 +31,7 @@ beforeEach(function (): void {
     [$this->workspaceA, $this->ownerA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
     [$this->workspaceB, $this->ownerB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
 
-    $this->subject = Subject::query()->firstOrCreate(['slug' => 'math'], ['name_ar' => 'الرياضيات']);
+    $this->subject = Subject::query()->firstOrCreate(['slug' => 'math'], ['name' => 'الرياضيات']);
 
     $make = function ($workspace) {
         return Course::factory()->create([

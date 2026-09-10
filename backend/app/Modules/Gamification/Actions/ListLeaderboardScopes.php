@@ -110,7 +110,7 @@ class ListLeaderboardScopes extends Action
         }
 
         /** @var Collection<string, string> $names */
-        $names = GradeLevel::query()->whereIn('slug', $slugs)->pluck('name_ar', 'slug');
+        $names = GradeLevel::query()->whereIn('slug', $slugs)->pluck('name', 'slug');
 
         // array_values: `->all()` on a keyed collection is an array<int, …>, and
         // the declared `list<…>` is what keeps the payload a JSON ARRAY. Without
@@ -143,13 +143,13 @@ class ListLeaderboardScopes extends Action
         return array_values(Subject::query()
             ->whereIn('id', $ids)
             ->orderBy('sort_order')
-            ->get(['uuid', 'name_ar'])
+            ->get(['uuid', 'name'])
             // The wire form is the uuid, never the id — a sequential identifier
             // makes the whole space walkable and the scope key is echoed back.
             ->map(fn (Subject $subject): array => $this->option(
                 LeaderboardScope::Subject,
                 (string) $subject->uuid,
-                (string) $subject->name_ar,
+                (string) $subject->name,
             ))
             ->all());
     }

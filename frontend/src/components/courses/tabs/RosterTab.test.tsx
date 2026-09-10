@@ -66,7 +66,7 @@ describe("RosterTab", () => {
   it("draws each badge the member holds and nothing where there are none", async () => {
     roster.mockResolvedValue({
       members: [
-        member({ uuid: "a", name: "هند", badges: [{ key: "streak_7", name_ar: "أسبوعٌ متّصل", icon: null }] }),
+        member({ uuid: "a", name: "هند", badges: [{ key: "streak_7", name: "أسبوعٌ متّصل", icon: null }] }),
         // A photo rather than the initial fallback, so the row's whole text
         // IS the name — the assertion below is then about badges and nothing else.
         member({ uuid: "b", name: "نور", avatar_url: "/storage/x.jpg", badges: [] }),

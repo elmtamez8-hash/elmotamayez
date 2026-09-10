@@ -44,7 +44,7 @@ export default function CreateCoursePage() {
     rather than required — making it mandatory is a product decision nobody has
     taken, and it would refuse every future edit of the 95.
   */
-  const [stages, setStages] = useState<{ slug: string; name_ar: string }[]>([]);
+  const [stages, setStages] = useState<{ slug: string; name: string }[]>([]);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -69,7 +69,7 @@ export default function CreateCoursePage() {
 
   useEffect(() => {
     api
-      .get<{ data: { slug: string; name_ar: string }[] }>("/signup/grade-levels")
+      .get<{ data: { slug: string; name: string }[] }>("/signup/grade-levels")
       .then((response) => setStages(response.data ?? []))
       .catch(() => setStages([]));
   }, []);
@@ -152,7 +152,7 @@ export default function CreateCoursePage() {
             value={form.grade_level}
             onChange={(v) => setForm({ ...form, grade_level: v })}
             placeholder="بلا مرحلة محدّدة"
-            options={stages.map((stage) => ({ value: stage.slug, label: stage.name_ar }))}
+            options={stages.map((stage) => ({ value: stage.slug, label: stage.name }))}
             error={fields.grade_level}
             hint="تُستخدم لفلترة كورساتك ولربط سعر التسوية بالمرحلة."
           />

@@ -197,7 +197,7 @@ export default async function CoursePage({
             </span>
             {course.subject && (
               <span className="rounded-lg bg-primary-soft px-2 py-0.5 font-medium text-primary-ink">
-                {course.subject.name_ar}
+                {course.subject.name}
               </span>
             )}
           </div>

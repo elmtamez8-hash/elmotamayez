@@ -19,8 +19,8 @@ const policy = vi.mocked(compliance.policy);
 
 const RECORDING = {
   key: "class_recording",
-  label_ar: "الظهور في تسجيلات الحصص (‏صوتاً وصورةً)",
-  purpose_ar: "تُسجَّل الحصص لتتمكّن أنت وزملاؤك من مراجعتها.",
+  label: "الظهور في تسجيلات الحصص (‏صوتاً وصورةً)",
+  purpose: "تُسجَّل الحصص لتتمكّن أنت وزملاؤك من مراجعتها.",
   audience: "من حجز الحصة · المدرّس · مزوّد الفيديو",
   is_required: true,
   owning_module: "media",
@@ -31,8 +31,8 @@ const RECORDING = {
 
 const REVIEW = {
   key: "review",
-  label_ar: "تقييماتك للمدرّسين",
-  purpose_ar: "لتساعد غيرك على الاختيار.",
+  label: "تقييماتك للمدرّسين",
+  purpose: "لتساعد غيرك على الاختيار.",
   audience: "علنيّ",
   is_required: false,
   owning_module: "marketplace",
@@ -129,7 +129,7 @@ describe("ConsentScreen", () => {
         {
           key: "whatsapp",
           name: "WhatsApp Business",
-          purpose_ar: "يوصل الرسائل إلى هاتفك.",
+          purpose: "يوصل الرسائل إلى هاتفك.",
           processing_location: "خوادم المزوّد خارج قطر",
           categories: ["contact_phone"],
           erasure_capability: "none" as const,

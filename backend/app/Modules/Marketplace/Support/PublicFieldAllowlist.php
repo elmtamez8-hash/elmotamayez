@@ -346,7 +346,7 @@ final class PublicFieldAllowlist
     public const FAQ = ['question', 'answer'];
 
     /** @var list<string> */
-    public const TAXONOMY = ['slug', 'name_ar', 'icon', 'teachers_count'];
+    public const TAXONOMY = ['slug', 'name', 'icon', 'teachers_count'];
 
     /*
     | The signup reads (spec 022 · FR-002) — a SEPARATE constant, not three keys
@@ -360,7 +360,7 @@ final class PublicFieldAllowlist
     | beside an option reads as a warning against picking it.
     */
     /** @var list<string> */
-    public const SIGNUP_TAXONOMY = ['slug', 'name_ar', 'grade_level_slug'];
+    public const SIGNUP_TAXONOMY = ['slug', 'name', 'grade_level_slug'];
 
     /*
     | TWO faces are publishable on a review, and they are not the same decision.

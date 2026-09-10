@@ -8,6 +8,7 @@ use App\Models\BaseModel;
 use App\Shared\Support\ErasureMode;
 use App\Shared\Support\ExpiryBehaviour;
 use App\Shared\Traits\HasUuid;
+use Spatie\Translatable\HasTranslations;
 
 /**
  * One thing the platform collects — PLATFORM reference data (layer ب).
@@ -18,8 +19,8 @@ use App\Shared\Traits\HasUuid;
  * `compliance.registry.manage` — see the migration.
  *
  * @property string $key
- * @property string $label_ar
- * @property string $purpose_ar
+ * @property string $label
+ * @property string $purpose
  * @property string $audience
  * @property bool $is_required
  * @property string $owning_module
@@ -31,12 +32,15 @@ use App\Shared\Traits\HasUuid;
  */
 class DataCategory extends BaseModel
 {
-    use HasUuid;
+    use HasTranslations, HasUuid;
+
+    /** @var list<string> */
+    public array $translatable = ['label', 'purpose'];
 
     protected $fillable = [
         'key',
-        'label_ar',
-        'purpose_ar',
+        'label',
+        'purpose',
         'audience',
         'is_required',
         'owning_module',

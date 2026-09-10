@@ -62,7 +62,7 @@ function cachedPayloadSubject(TeacherProfile $teacher, string $slug, string $nam
     app(WorkspaceContext::class)->forWorkspace($teacher->workspace_id, function () use ($teacher, $slug, $name): void {
         $subject = Subject::query()->firstOrCreate(
             ['slug' => $slug],
-            ['name_ar' => $name],
+            ['name' => $name],
         );
 
         $teacher->subjects()->attach($subject->getKey());
@@ -79,7 +79,7 @@ function cachedPayloadGradeLevel(TeacherProfile $teacher, string $slug, string $
         // that the catalogue is seeded before every test (spec 022).
         $level = GradeLevel::query()->firstOrCreate(
             ['slug' => $slug],
-            ['name_ar' => $name],
+            ['name' => $name],
         );
 
         $teacher->gradeLevels()->syncWithoutDetaching([$level->getKey()]);
@@ -112,10 +112,10 @@ it('resolves nested taxonomies, so a cached card survives its store', function (
     // `icon` comes from the seeded catalogue now — the fixture attaches an
     // existing row rather than inventing one (spec 022).
     expect($payload[0]['subjects'])->toBe([
-        ['slug' => 'math', 'name_ar' => 'الرياضيات', 'icon' => 'calculator'],
+        ['slug' => 'math', 'name' => 'الرياضيات', 'icon' => 'calculator'],
     ]);
     expect($payload[0]['grade_levels'])->toBe([
-        ['slug' => 'secondary', 'name_ar' => 'المرحلة الثانوية', 'icon' => null],
+        ['slug' => 'secondary', 'name' => 'المرحلة الثانوية', 'icon' => null],
     ]);
 });
 

@@ -19,7 +19,7 @@ class SubjectFactory extends Factory
         $name = fake()->randomElement(['الرياضيات', 'الفيزياء', 'الكيمياء', 'اللغة العربية', 'اللغة الإنجليزية']);
 
         return [
-            'name_ar' => $name,
+            'name' => $name,
             'slug' => Str::slug(fake()->unique()->word()),
             'icon' => 'academic-cap',
             'sort_order' => 0,

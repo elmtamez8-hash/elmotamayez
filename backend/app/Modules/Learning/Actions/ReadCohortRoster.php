@@ -61,7 +61,7 @@ class ReadCohortRoster extends Action
      *     uuid: string,
      *     name: string,
      *     avatar_url: string|null,
-     *     badges: list<array{key: string, name_ar: string, icon: string|null}>,
+     *     badges: list<array{key: string, name: string, icon: string|null}>,
      *     level?: int,
      *     rank?: int
      * }>

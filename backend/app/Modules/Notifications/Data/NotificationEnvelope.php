@@ -21,8 +21,8 @@ final class NotificationEnvelope extends DataTransferObject
     public function __construct(
         public readonly User $recipient,
         public readonly NotificationType $type,
-        public readonly string $titleAr,
-        public readonly string $bodyAr,
+        public readonly string $title,
+        public readonly string $body,
         public readonly ?string $actionUrl,
         public readonly array $payload,
         /** Lets a channel reference the record without being able to change it. */

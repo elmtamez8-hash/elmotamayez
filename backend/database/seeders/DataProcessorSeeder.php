@@ -6,6 +6,7 @@ namespace Database\Seeders;
 
 use App\Modules\Compliance\Enums\ErasureCapability;
 use App\Modules\Compliance\Models\DataProcessor;
+use App\Shared\Database\TranslatableColumns;
 use Illuminate\Database\Seeder;
 
 /**
@@ -25,6 +26,11 @@ class DataProcessorSeeder extends Seeder
 {
     public function run(): void
     {
+        // The conversion migration has not run yet — see {@see TranslatableColumns::converted}.
+        if (! TranslatableColumns::converted('data_processors', 'purpose')) {
+            return;
+        }
+
         foreach ($this->processors() as $processor) {
             // On the key alone — reference data at birth, operator data after.
             DataProcessor::query()->firstOrCreate(['key' => $processor['key']], $processor);
@@ -38,7 +44,7 @@ class DataProcessorSeeder extends Seeder
             [
                 'key' => 'livekit',
                 'name' => 'LiveKit',
-                'purpose_ar' => 'يُشغّل غرفة البثّ الحيّ، فيمرّ به صوتُ الحصة وصورتُها أثناءها ويُجمَع منه ملفُّ التسجيل.',
+                'purpose' => 'يُشغّل غرفة البثّ الحيّ، فيمرّ به صوتُ الحصة وصورتُها أثناءها ويُجمَع منه ملفُّ التسجيل.',
                 'processing_location' => 'خوادم المزوّد خارج قطر',
                 'categories' => ['class_recording', 'student_name'],
                 // The room is torn down when the session closes and the recording
@@ -49,7 +55,7 @@ class DataProcessorSeeder extends Seeder
             [
                 'key' => 'bunny',
                 'name' => 'Bunny Stream',
-                'purpose_ar' => 'يخزّن تسجيلات الحصص ويوزّعها على من يحقّ له مشاهدتها.',
+                'purpose' => 'يخزّن تسجيلات الحصص ويوزّعها على من يحقّ له مشاهدتها.',
                 'processing_location' => 'شبكة توزيعٍ عالمية',
                 'categories' => ['class_recording'],
                 /*
@@ -65,7 +71,7 @@ class DataProcessorSeeder extends Seeder
             [
                 'key' => 'r2',
                 'name' => 'Cloudflare R2',
-                'purpose_ar' => 'يخزّن الملفّات المرفوعة — إيصالات التحويل وملفّات الدروس وأرشيف التصدير.',
+                'purpose' => 'يخزّن الملفّات المرفوعة — إيصالات التحويل وملفّات الدروس وأرشيف التصدير.',
                 'processing_location' => 'خوادم المزوّد خارج قطر',
                 'categories' => ['payment_record', 'class_recording'],
                 'erasure_capability' => ErasureCapability::Full->value,
@@ -74,7 +80,7 @@ class DataProcessorSeeder extends Seeder
             [
                 'key' => 'whatsapp',
                 'name' => 'WhatsApp Business',
-                'purpose_ar' => 'يوصل الرسائل إلى هاتفك أو هاتف وليّ أمرك — تقارير الحصص وتنبيهات الحضور.',
+                'purpose' => 'يوصل الرسائل إلى هاتفك أو هاتف وليّ أمرك — تقارير الحصص وتنبيهات الحضور.',
                 'processing_location' => 'خوادم المزوّد خارج قطر',
                 'categories' => ['contact_phone', 'student_name', 'notification_record'],
                 /*
@@ -105,7 +111,7 @@ class DataProcessorSeeder extends Seeder
                 */
                 'key' => 'push',
                 'name' => 'خدمات الدفع في المتصفّحات (Google · Mozilla · Apple)',
-                'purpose_ar' => 'توقظ هاتفك بإشعار الحصّة أو الرصيد أو الحساب — عنوانٌ قصيرٌ ورابط، لا نصّ الرسالة.',
+                'purpose' => 'توقظ هاتفك بإشعار الحصّة أو الرصيد أو الحساب — عنوانٌ قصيرٌ ورابط، لا نصّ الرسالة.',
                 'processing_location' => 'خوادم مزوّد المتصفّح خارج قطر',
                 'categories' => ['notification_record', 'push_subscription'],
                 /*
@@ -120,7 +126,7 @@ class DataProcessorSeeder extends Seeder
             [
                 'key' => 'meilisearch',
                 'name' => 'Meilisearch',
-                'purpose_ar' => 'يفهرس الكورسات والأسئلة ليعمل البحث.',
+                'purpose' => 'يفهرس الكورسات والأسئلة ليعمل البحث.',
                 'processing_location' => 'خادمُنا',
                 'categories' => ['authored_content'],
                 /*
@@ -136,7 +142,7 @@ class DataProcessorSeeder extends Seeder
             [
                 'key' => 'redis',
                 'name' => 'Redis',
-                'purpose_ar' => 'يحمل الطوابير والذاكرة المؤقّتة، فتمرّ به حمولاتُ الوظائف لحظياً.',
+                'purpose' => 'يحمل الطوابير والذاكرة المؤقّتة، فتمرّ به حمولاتُ الوظائف لحظياً.',
                 'processing_location' => 'خادمُنا',
                 'categories' => ['notification_record'],
                 /*
@@ -153,7 +159,7 @@ class DataProcessorSeeder extends Seeder
             [
                 'key' => 'indexnow',
                 'name' => 'IndexNow',
-                'purpose_ar' => 'يُبلَّغُ محرّكات البحث بعناوين المقالات المنشورة لتزورَها وتفهرسَها.',
+                'purpose' => 'يُبلَّغُ محرّكات البحث بعناوين المقالات المنشورة لتزورَها وتفهرسَها.',
                 'processing_location' => 'خوادم المزوّد خارج قطر',
                 /*
                 | ⚠️ WHAT TRAVELS IS A URL, AND WHAT THAT URL LEADS TO IS THE

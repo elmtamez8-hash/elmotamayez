@@ -304,7 +304,7 @@ class TeacherProfileResource extends Resource
                         ->preload()
                         ->options(fn (): array => Subject::query()
                             ->orderBy('sort_order')
-                            ->pluck('name_ar', 'id')
+                            ->pluck('name', 'id')
                             ->all()),
 
                     Select::make('grade_levels')
@@ -313,7 +313,7 @@ class TeacherProfileResource extends Resource
                         ->preload()
                         ->options(fn (): array => GradeLevel::query()
                             ->orderBy('sort_order')
-                            ->pluck('name_ar', 'id')
+                            ->pluck('name', 'id')
                             ->all()),
                 ]),
         ]);
@@ -538,8 +538,8 @@ class TeacherProfileResource extends Resource
             Section::make('التخصّص')
                 ->columns(2)
                 ->schema([
-                    TextEntry::make('subjects.name_ar')->label('المواد')->badge()->placeholder('—'),
-                    TextEntry::make('gradeLevels.name_ar')->label('المراحل')->badge()->placeholder('—'),
+                    TextEntry::make('subjects.name')->label('المواد')->badge()->placeholder('—'),
+                    TextEntry::make('gradeLevels.name')->label('المراحل')->badge()->placeholder('—'),
                 ]),
         ]);
     }

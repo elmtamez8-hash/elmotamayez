@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Modules\Gamification\Models\GamificationAction;
 use App\Modules\Tenancy\Support\PlatformSettings;
+use App\Shared\Database\TranslatableColumns;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Spec 011 · T081 — the row without which the whole referral feature is silent.
@@ -30,6 +32,15 @@ use Illuminate\Database\Migrations\Migration;
  * re-read at award time would be a second live source for one number, and the
  * operator editing the panel would be editing the one nobody reads.
  *
+ * ⚠️ AND IT WRITES THROUGH `DB::table()`, NOT THROUGH THE MODEL. A migration
+ * speaks the schema of ITS OWN DATE; a model speaks today's. Spec 055 turned
+ * `name_ar` into a translatable `name`, and the model stopped being able to name
+ * the column that exists here — mass assignment discards the unknown key in
+ * SILENCE, so the insert arrived with no name at all and every test in the
+ * repository died inside `migrate:fresh` on a NOT NULL constraint. `uuid` and the
+ * timestamps are passed explicitly because the model layer is not here to supply
+ * them, exactly as `CreditLedger::writeEntry()` passes them.
+ *
  * `down()` is empty on purpose: removing the row on a rollback stops awarding
  * points that were being awarded a moment earlier.
  */
@@ -37,10 +48,16 @@ return new class extends Migration
 {
     public function up(): void
     {
-        GamificationAction::query()->firstOrCreate(
-            ['key' => 'invite_friend'],
+        if (DB::table('gamification_actions')->where('key', 'invite_friend')->exists()) {
+            return;
+        }
+
+        DB::table('gamification_actions')->insert(
             [
-                'name_ar' => 'دعوة صديق اشترك فعلاً',
+                'uuid' => (string) Str::uuid(),
+                'key' => 'invite_friend',
+                // Whichever name column this database has — see the helper.
+                ...TranslatableColumns::forWrite('gamification_actions', 'name_ar', 'name', 'دعوة صديق اشترك فعلاً'),
                 'xp' => (int) PlatformSettings::get('referral.reward_points', config('referral.reward_points', 50)),
                 // ⚠️ ZERO, AND NOT NEGOTIABLE. A referral belongs to no teacher,
                 // so there is no purse for coins — and `AwardPoints` throws on a
@@ -54,6 +71,8 @@ return new class extends Migration
                 // before the flip.
                 'daily_cap' => null,
                 'is_active' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
         );
     }

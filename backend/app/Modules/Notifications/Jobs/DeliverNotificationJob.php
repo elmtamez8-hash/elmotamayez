@@ -92,8 +92,8 @@ class DeliverNotificationJob implements ShouldQueue
         $envelope = new NotificationEnvelope(
             recipient: $recipient,
             type: $type,
-            titleAr: $notification->title_ar,
-            bodyAr: $notification->body_ar,
+            title: $notification->title,
+            body: $notification->body,
             actionUrl: $notification->action_url,
             payload: $notification->payload ?? [],
             notificationUuid: $notification->uuid,

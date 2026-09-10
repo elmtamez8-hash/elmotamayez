@@ -48,7 +48,7 @@ class BadgeResource extends Resource
 
     protected static ?int $navigationSort = 10;
 
-    protected static ?string $recordTitleAttribute = 'name_ar';
+    protected static ?string $recordTitleAttribute = 'name';
 
     public static function getNavigationLabel(): string
     {
@@ -79,7 +79,7 @@ class BadgeResource extends Resource
                         ->unique(ignoreRecord: true)
                         ->helperText('تغييرُه بعد المنح يجعل الشاراتِ الممنوحةَ تشير إلى مفتاحٍ لا وجودَ له، فيظهر المفتاحُ الخام بدل الاسم.'),
 
-                    TextInput::make('name_ar')->label('الاسم')->required()->maxLength(255),
+                    TextInput::make('name')->label('الاسم')->required()->maxLength(255),
                     TextInput::make('icon')->label('الأيقونة')->maxLength(64),
 
                     Toggle::make('is_active')->label('مفعَّلة')->default(true),
@@ -103,7 +103,7 @@ class BadgeResource extends Resource
 
                     Select::make('rule_action_key')
                         ->label('الفعل المعدود')
-                        ->options(fn (): array => GamificationAction::query()->pluck('name_ar', 'key')->all())
+                        ->options(fn (): array => GamificationAction::query()->pluck('name', 'key')->all())
                         // Only one rule type counts an action; on the others the column is
                         // meaningless and a value left behind would read as a constraint
                         // that is not applied.
@@ -148,7 +148,10 @@ class BadgeResource extends Resource
     {
         return parent::getEloquentQuery()->addSelect([
             'rule_action_name' => GamificationAction::query()
-                ->select('name_ar')
+                // The column is a translatable JSON document and the alias lands
+                // on Badge, which has no cast for it — so the locale is extracted
+                // in SQL rather than shipping `{"ar":"…"}` to the table cell.
+                ->select('name->'.app()->getLocale())
                 ->whereColumn('gamification_actions.key', 'badges.rule_action_key')
                 ->limit(1),
         ]);
@@ -159,7 +162,7 @@ class BadgeResource extends Resource
         return $table
             ->defaultSort('key')
             ->columns([
-                TextColumn::make('name_ar')->label('الاسم')->searchable(),
+                TextColumn::make('name')->label('الاسم')->searchable(),
                 TextColumn::make('key')->label('المفتاح')->searchable(),
                 TextColumn::make('rule_type')->label('القاعدة')->badge()
                     ->formatStateUsing(fn (mixed $state): string => match ($state instanceof BadgeRuleType ? $state : BadgeRuleType::tryFrom((string) $state)) {

@@ -27,20 +27,23 @@ it('applies an edited template to the next message without a deploy', function (
 
     dispatchEnrolled($user);
 
+    // Through the MODEL, as /admin does: `body` is a translatable JSON column
+    // and a bulk `update()` applies no cast.
     MessageTemplate::query()
         ->where('type', NotificationType::EnrollmentCreated->value)
         ->where('channel', NotificationChannel::InApp->value)
-        ->update(['body_ar' => 'أهلاً {{ name }}! انضممت إلى {{ course_title }}.']);
+        ->firstOrFail()
+        ->update(['body' => 'أهلاً {{ name }}! انضممت إلى {{ course_title }}.']);
 
     dispatchEnrolled($user);
 
     $notifications = Notification::query()->forRecipient($user)->orderBy('id')->get();
 
     expect($notifications)->toHaveCount(2)
-        ->and($notifications[1]->body_ar)->toStartWith('أهلاً')
+        ->and($notifications[1]->body)->toStartWith('أهلاً')
         // And the archive keeps the wording it was sent with — editing a template
         // must not rewrite history.
-        ->and($notifications[0]->body_ar)->toStartWith('مرحباً');
+        ->and($notifications[0]->body)->toStartWith('مرحباً');
 });
 
 // FR-037, first half.

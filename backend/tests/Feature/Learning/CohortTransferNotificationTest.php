@@ -11,7 +11,7 @@ use App\Modules\Notifications\Support\NotificationType;
 /*
 | FR-028ح — «وأن يُخطَرَ بالقرارِ قبولاً أو رفضاً، وأن يُخطَرَ المدرّسُ بالطلبِ عندَ وصولِه».
 |
-| ⚠️ EVERY CASE ASSERTS ON THE RENDERED `body_ar`, NEVER ON A ROW COUNT. A
+| ⚠️ EVERY CASE ASSERTS ON THE RENDERED `body`, NEVER ON A ROW COUNT. A
 | notification whose template is missing is DROPPED IN SILENCE — DispatchNotification
 | logs and does not fail the operation — so a test that counted rows would pass on
 | the day the seeder row was forgotten only if the row also failed to exist, and
@@ -45,7 +45,7 @@ it('tells the teacher a transfer was requested', function (): void {
     $notice = cohortNotice(NotificationType::CohortTransferRequested, (int) $fx['owner']->getKey());
 
     expect($notice)->not->toBeNull();
-    expect($notice->body_ar)->toContain('السبت ٤م')->toContain('الأحد ٦م');
+    expect($notice->body)->toContain('السبت ٤م')->toContain('الأحد ٦م');
 
     // The queue, not the course page: the teacher opens this to press one of
     // two buttons.
@@ -69,7 +69,7 @@ it('tells the student their transfer was approved', function (): void {
     $notice = cohortNotice(NotificationType::CohortTransferApproved, (int) $fx['student']->getKey());
 
     expect($notice)->not->toBeNull();
-    expect($notice->body_ar)->toContain('الأحد ٦م');
+    expect($notice->body)->toContain('الأحد ٦م');
     expect($notice->action_url)->toBe('/enrollments/'.$fx['course']->uuid);
 });
 
@@ -90,7 +90,7 @@ it('carries the written reason into the rejection the student reads', function (
     $notice = cohortNotice(NotificationType::CohortTransferRejected, (int) $fx['student']->getKey());
 
     expect($notice)->not->toBeNull();
-    expect($notice->body_ar)->toContain('المجموعة تكاد تكتمل');
+    expect($notice->body)->toContain('المجموعة تكاد تكتمل');
 
     // And no approval was sent alongside it — two types, one decision.
     expect(cohortNotice(NotificationType::CohortTransferApproved, (int) $fx['student']->getKey()))->toBeNull();

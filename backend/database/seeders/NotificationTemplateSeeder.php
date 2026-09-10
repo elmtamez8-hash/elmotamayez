@@ -8,6 +8,7 @@ use App\Modules\Notifications\Channels\WhatsAppChannel;
 use App\Modules\Notifications\Models\MessageTemplate;
 use App\Modules\Notifications\Support\NotificationChannel;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Shared\Database\TranslatableColumns;
 use Illuminate\Database\Seeder;
 
 /**
@@ -52,6 +53,11 @@ class NotificationTemplateSeeder extends Seeder
      */
     public function seedMissing(): void
     {
+        // The conversion migration has not run yet — see {@see TranslatableColumns::converted}.
+        if (! TranslatableColumns::converted('message_templates', 'title')) {
+            return;
+        }
+
         $this->write(overwrite: false);
     }
 
@@ -67,8 +73,8 @@ class NotificationTemplateSeeder extends Seeder
 
             $values = [
                 'key' => MessageTemplate::keyFor($notificationType, NotificationChannel::InApp),
-                'title_ar' => $title,
-                'body_ar' => $body,
+                'title' => $title,
+                'body' => $body,
                 'variables' => $variables,
                 'provider_approval_status' => MessageTemplate::APPROVAL_NOT_REQUIRED,
                 'is_active' => true,
@@ -113,7 +119,7 @@ class NotificationTemplateSeeder extends Seeder
      * the ORDER of `variables`, which is what every numbered placeholder in the
      * approved template means, and `provider_approval_status`, which is how the
      * system learns the outcome of a human process that happens outside it.
-     * Editing `body_ar` from the admin panel changes the notification bell and
+     * Editing `body` from the admin panel changes the notification bell and
      * changes nothing on WhatsApp.
      *
      * Seeded PENDING, never APPROVED. Claiming an approval that has not happened
@@ -133,8 +139,8 @@ class NotificationTemplateSeeder extends Seeder
             ],
             [
                 'key' => $type.'.'.NotificationChannel::WhatsApp->value,
-                'title_ar' => $title,
-                'body_ar' => $body,
+                'title' => $title,
+                'body' => $body,
                 'variables' => $variables,
                 'provider_approval_status' => MessageTemplate::APPROVAL_PENDING,
                 'is_active' => true,

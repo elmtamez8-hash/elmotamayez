@@ -91,7 +91,7 @@ class TopTeachersWidget extends BaseWidget
                 */
                 SelectFilter::make('subject')
                     ->label('المادّة')
-                    ->options(fn (): array => Subject::query()->where('is_active', true)->pluck('name_ar', 'id')->all())
+                    ->options(fn (): array => Subject::query()->where('is_active', true)->pluck('name', 'id')->all())
                     ->query(fn (Builder $query, array $data): Builder => $this->teachingWhere(
                         $query,
                         'teacher_profile_subject.subject_id',
@@ -99,7 +99,7 @@ class TopTeachersWidget extends BaseWidget
                     )),
                 SelectFilter::make('grade_level')
                     ->label('المرحلة')
-                    ->options(fn (): array => GradeLevel::query()->pluck('name_ar', 'slug')->all())
+                    ->options(fn (): array => GradeLevel::query()->pluck('name', 'slug')->all())
                     ->query(fn (Builder $query, array $data): Builder => $this->teachesStage($query, $data['value'] ?? null)),
             ]);
     }

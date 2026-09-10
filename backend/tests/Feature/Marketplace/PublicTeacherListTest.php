@@ -25,14 +25,14 @@ beforeEach(function () {
 */
 function attachSubject(TeacherProfile $teacher, string $slug, string $name): void
 {
-    $subject = Subject::query()->firstOrCreate(['slug' => $slug], ['name_ar' => $name]);
+    $subject = Subject::query()->firstOrCreate(['slug' => $slug], ['name' => $name]);
 
     $teacher->subjects()->syncWithoutDetaching([$subject->getKey()]);
 }
 
 function attachGradeLevel(TeacherProfile $teacher, string $slug, string $name): void
 {
-    $level = GradeLevel::query()->firstOrCreate(['slug' => $slug], ['name_ar' => $name]);
+    $level = GradeLevel::query()->firstOrCreate(['slug' => $slug], ['name' => $name]);
 
     $teacher->gradeLevels()->syncWithoutDetaching([$level->getKey()]);
 }
@@ -200,7 +200,7 @@ it('filters by grade level slug', function () {
     app(WorkspaceContext::class)->forWorkspace($this->workspace, function () use ($teacher): void {
         $level = GradeLevel::query()->firstOrCreate(
             ['slug' => 'secondary'],
-            ['name_ar' => 'الثانوية'],
+            ['name' => 'الثانوية'],
         );
 
         $teacher->gradeLevels()->attach($level->getKey());

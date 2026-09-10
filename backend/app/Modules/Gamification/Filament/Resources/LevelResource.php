@@ -41,7 +41,7 @@ class LevelResource extends Resource
 
     protected static ?int $navigationSort = 30;
 
-    protected static ?string $recordTitleAttribute = 'name_ar';
+    protected static ?string $recordTitleAttribute = 'name';
 
     public static function getNavigationLabel(): string
     {
@@ -72,7 +72,7 @@ class LevelResource extends Resource
                         ->minValue(1)
                         ->unique(ignoreRecord: true),
 
-                    TextInput::make('name_ar')
+                    TextInput::make('name')
                         ->label('الاسم')
                         ->required()
                         ->maxLength(255),
@@ -117,7 +117,7 @@ class LevelResource extends Resource
             ->defaultSort('xp_threshold')
             ->columns([
                 TextColumn::make('level')->label('الرقم')->sortable(),
-                TextColumn::make('name_ar')->label('الاسم')->searchable(),
+                TextColumn::make('name')->label('الاسم')->searchable(),
                 TextColumn::make('xp_threshold')->label('عتبة الخبرة')->sortable(),
                 TextColumn::make('badges_count')->label('شارات تُمنح عنده')->sortable()
                     ->tooltip('رفعُ العتبةِ يؤخّر هذه الشارات لمن لم يبلغ الدرجة، ولا يسحب ما مُنح منها.'),

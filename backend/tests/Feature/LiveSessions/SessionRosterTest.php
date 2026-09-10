@@ -74,7 +74,7 @@ function rosterSeatHolder(?string $firstName = null): User
 it('answers a seat holder with names, roles and badges instead of uuids', function (): void {
     $student = rosterSeatHolder('سلمى');
 
-    Badge::factory()->create(['key' => 'streak', 'name_ar' => 'مواظبة']);
+    Badge::factory()->create(['key' => 'streak', 'name' => 'مواظبة']);
     BadgeAward::create([
         'user_id' => $student->getKey(),
         'badge_key' => 'streak',
@@ -93,7 +93,7 @@ it('answers a seat holder with names, roles and badges instead of uuids', functi
         ->and($roster[$student->uuid]['name'])->toBe($student->name)
         ->and($roster[$student->uuid]['role'])->toBe('student')
         ->and($roster[$student->uuid]['badges'])->toHaveCount(1)
-        ->and($roster[$student->uuid]['badges'][0]['name_ar'])->toBe('مواظبة')
+        ->and($roster[$student->uuid]['badges'][0]['name'])->toBe('مواظبة')
         // The teacher is in the room too, and the screen says which one they are.
         ->and($roster[$this->owner->uuid]['role'])->toBe('host')
         ->and($roster[$this->owner->uuid]['badges'])->toBe([]);
@@ -177,7 +177,7 @@ it('costs the same number of queries for two participants as for eight', functio
     // catalogue read is skipped entirely when nobody has an award, so a small
     // case with no badges and a large one with badges differ by a CONSTANT — and
     // the test would fail over a read that is perfectly flat.
-    Badge::factory()->create(['key' => 'streak', 'name_ar' => 'مواظبة']);
+    Badge::factory()->create(['key' => 'streak', 'name' => 'مواظبة']);
     BadgeAward::create([
         'user_id' => $reader->getKey(),
         'badge_key' => 'streak',

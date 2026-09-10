@@ -227,7 +227,7 @@ export function StudentSignupForm({
           >
             {COUNTRIES.map((country) => (
               <option key={country.code} value={country.code}>
-                {country.name_ar}
+                {country.name}
               </option>
             ))}
           </Select>
@@ -243,7 +243,7 @@ export function StudentSignupForm({
           >
             {schoolYears.map((year) => (
               <option key={year.slug} value={year.slug}>
-                {year.name_ar}
+                {year.name}
               </option>
             ))}
           </Select>
@@ -263,7 +263,7 @@ export function StudentSignupForm({
           >
             {regions.map((region) => (
               <option key={region.slug} value={region.slug}>
-                {region.name_ar}
+                {region.name}
               </option>
             ))}
           </Select>

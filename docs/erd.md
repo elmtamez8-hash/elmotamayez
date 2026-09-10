@@ -265,7 +265,7 @@ guard is written explicitly in its Action or Policy.
 ├──────────────────────────────┤    ├──────────────────────────────┤
 │ id · uuid · key              │    │ id · uuid                    │
 │ type · channel               │    │ user_id (FK → users)         │
-│ title_ar · body_ar           │    │ channel · contact_value      │
+│ title · body                 │    │ channel · contact_value      │
 │ variables (json)             │    │ code_hash (HASHED, never raw)│
 │ provider_approval_status     │    │ attempts · expires_at        │
 │ is_active                    │    │ verified_at                  │
@@ -283,7 +283,7 @@ never scopes:
 │ workspace_id (NULLABLE, ctx) │    │ channel · template_id        │
 │ type · subject_user_id       │    │ status · attempts            │
 │ payload (json)               │    │ failure_reason               │
-│ title_ar · body_ar (rendered)│    │ deferred_until               │
+│ title · body (rendered)      │    │ deferred_until               │
 │ action_url · read_at         │    │ last_attempted_at            │
 └──────────────────────────────┘    │ delivered_at                 │
    INDEX (recipient_user_id,        └──────────────────────────────┘
@@ -664,7 +664,7 @@ the trait: an exit is one workspace winding down, so the tenant column is the
 subject of the row rather than a partition of somebody's personal data.
 
 ```
-data_categories     (platform)  the catalogue: key, purpose_ar, lawful basis, retain_days,
+data_categories     (platform)  the catalogue: key, purpose, lawful basis, retain_days,
                                 erasure_mode, is_optional. Reference data, edited from /admin
 data_processors     (platform)  who receives data outside our servers. categories[] and an
                                 honest erasure_capability per row (full · partial · none)
@@ -918,7 +918,7 @@ deleting anything.
 ┌────────────────────────────────────────────────┐   ┌──────────────────────────────────┐
 │ platform_metrics_daily                         │   │ regions                          │
 ├────────────────────────────────────────────────┤   ├──────────────────────────────────┤
-│ id · date · metric_key(48)                     │   │ id · uuid · name_ar              │
+│ id · date · metric_key(48)                     │   │ id · uuid · name                 │
 │ workspace_id  ← 0 = the platform total         │   │ slug (unique, platform-wide)     │
 │ region_id     ← 0 = all regions / never asked  │───│ sort_order · is_active           │
 │ numerator · denominator  ← BOTH SIGNED         │   │ ⚠️ no workspace_id at all        │
@@ -1037,7 +1037,7 @@ index does not know about `deleted_at`. `SaveArticle` must answer «هذا ال�
 │ school_years                    (PLATFORM ب) │
 │ id · uuid                                    │
 │ grade_level_id  NOT NULL → grade_levels      │──┐ restrictOnDelete
-│ name_ar                                      │  │
+│ name                                         │  │
 │ slug           unique platform-wide          │  │
 │ sort_order · is_active                       │  │
 └──────────────────────────────────────────────┘  │
@@ -1249,3 +1249,58 @@ stored address hash is personal data with a full contract behind it — a
 `data_categories` row, an export path, an erasure path and a retention sweep — for
 a number that means nothing after a day. The key expires by itself and there is
 nothing to sweep.
+
+## Translatable columns (spec 055)
+
+Fourteen `x_ar` columns on eleven tables are now `json` documents keyed by locale,
+read through spatie's `HasTranslations`:
+
+```
+subjects · grade_levels · regions · school_years          name
+gamification_actions · levels · badges                    name
+notifications · message_templates                         title · body
+data_categories                                           label · purpose
+data_processors                                           purpose
+```
+
+A row holds `{"ar": "الرياضيات"}` today and `{"ar": …, "en": …}` the day a second
+language is added; `$model->name` answers the current locale's string and never
+the document. The conversion is add · backfill in PHP · drop, three separate
+statements and never `->change()` — a multi-alteration is a table rebuild on
+SQLite, and `JSON_OBJECT()` is a SQL function whose SQLite half depends on the
+build. `App\Shared\Database\TranslatableColumns` carries the whole mechanism and
+the reason for each step, `toStrings()` is the way back.
+
+⚠️ **`data_processors.name` is deliberately NOT translatable.** It is a vendor's
+trading name, and a company is called the same thing in every language — a second
+spelling of one processor is the last thing a register of processors needs.
+
+⚠️ **The locale decides the KEY, so `config('app.locale')` defaults to `'ar'`
+now.** It was Laravel's `'en'`, invisible because `.env` and `phpunit.xml` both
+set the variable; an environment that forgot it would have written every row
+under a key nobody asks for, and the fallback would hand the same string back, so
+nothing would fail and the document would simply be wrong.
+
+⚠️ **A backfill migration dated BEFORE the conversion calls a runtime-catalogue
+seeder that writes the NEW name.** On a fresh database — every `RefreshDatabase`
+run — that is «no such column» inside `migrate:fresh`, killing the whole suite
+rather than one test. The six seeders return early behind
+`TranslatableColumns::converted()` and each conversion migration calls the seeder
+again at the end, so a database part-way through the sequence still ends with
+every row.
+
+⚠️ **`pluck('name', 'id')` still works, by a side effect worth knowing about**:
+`HasTranslations` merges an `array` cast, and `Eloquent\Builder::pluck()`
+re-hydrates through `newFromBuilder()` whenever the column carries one. A
+SUBQUERY ALIAS does not — the alias lands on a model with no such cast — so
+`BadgeResource` reads `->select('name->'.app()->getLocale())` and lets Laravel's
+grammar spell it per engine. `orderBy('name')` is the same trap wearing an
+accident: ordering the raw document orders by the Arabic value only while every
+row carries exactly one language.
+
+⚠️ **A bulk `update()` applies no cast**, so `->update(['body' => $text])` writes a
+bare string into the document and every reader gets nothing back. The spelling is
+the JSON path — `['body->'.app()->getLocale() => $text]` — which Laravel compiles
+to `json_set` on MySQL and `json_patch` on SQLite, keeps a fan-out edit to one
+statement, and leaves any other locale on the row alone. `UpdateAnnouncement` is
+the one place in the tree that needs it.

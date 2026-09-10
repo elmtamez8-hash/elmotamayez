@@ -39,8 +39,8 @@ class NotificationResource extends JsonResource
             'category' => $this->categoryPayload(),
             // The stored text, not a re-render: an old notification keeps the
             // wording it was sent with even after its template changes.
-            'title' => $this->title_ar,
-            'body' => $this->body_ar,
+            'title' => $this->title,
+            'body' => $this->body,
             'action_url' => $this->action_url,
             'subject' => $this->whenLoaded('subject', fn () => $this->subject === null ? null : [
                 'uuid' => $this->subject->uuid,

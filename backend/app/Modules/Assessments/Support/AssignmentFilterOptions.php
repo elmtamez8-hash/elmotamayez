@@ -84,9 +84,9 @@ class AssignmentFilterOptions
             'subjects' => $this->label(
                 Subject::query()
                     ->whereIn('id', $courses->pluck('subject_id')->filter()->unique()->all())
-                    ->orderBy('name_ar')
-                    ->get(['uuid', 'name_ar']),
-                'name_ar',
+                    ->orderBy('name->'.app()->getLocale())
+                    ->get(['uuid', 'name']),
+                'name',
             ),
             'cohorts' => $this->cohortOptions($student, $courses),
         ];

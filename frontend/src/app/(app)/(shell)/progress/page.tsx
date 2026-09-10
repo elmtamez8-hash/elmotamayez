@@ -62,7 +62,7 @@ export default function ProgressPage() {
         <Card>
           <p className="text-sm text-ink-muted">المستوى</p>
           <p className="text-2xl font-bold text-ink">
-            {progress.level_name_ar ?? <bdi>{progress.level}</bdi>}
+            {progress.level_name ?? <bdi>{progress.level}</bdi>}
           </p>
           {toNext !== null && (
             <p className="text-xs text-ink-muted">
@@ -126,7 +126,7 @@ export default function ProgressPage() {
           <ul className="flex flex-wrap gap-2">
             {progress.badges.map((badge) => (
               <li key={badge.key}>
-                <Badge tone="success">{badge.name_ar}</Badge>
+                <Badge tone="success">{badge.name}</Badge>
               </li>
             ))}
           </ul>

@@ -24,7 +24,7 @@ beforeEach(function (): void {
     // scoped nothing. Spec 025 deleted the class it resolved.
     GradeLevel::query()->firstOrCreate(
         ['slug' => 'secondary'],
-        ['name_ar' => 'المرحلة الثانوية', 'sort_order' => 0, 'is_active' => true],
+        ['name' => 'المرحلة الثانوية', 'sort_order' => 0, 'is_active' => true],
     );
 
     $this->asGuest();

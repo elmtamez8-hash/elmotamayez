@@ -25,8 +25,8 @@ class DataCategoryResource extends JsonResource
     {
         return [
             'key' => $this->key,
-            'label_ar' => $this->label_ar,
-            'purpose_ar' => $this->purpose_ar,
+            'label' => $this->label,
+            'purpose' => $this->purpose,
             'audience' => $this->audience,
             // ⚠️ THE REQUIRED/OPTIONAL SPLIT IS NEVER HIDDEN (FR-004). A screen
             // that showed one undifferentiated list would be asking for consent to

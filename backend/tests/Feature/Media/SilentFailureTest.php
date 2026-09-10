@@ -115,7 +115,7 @@ it('tells the seat holders in their own words, with no provider reason', functio
     $body = (string) Notification::query()
         ->withoutGlobalScopes()
         ->where('type', NotificationType::SessionRecordingUnavailable->value)
-        ->value('body_ar');
+        ->value('body');
 
     expect($body)->toContain($this->session->title)
         // The provider's own words name a system the student cannot reach.

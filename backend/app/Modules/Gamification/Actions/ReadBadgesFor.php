@@ -34,7 +34,7 @@ class ReadBadgesFor extends Action
      * @param  int  $limitPerUser  the newest N, because a row of chips beside a
      *                             name has a width and a participant list with
      *                             thirty badges on one line is unreadable
-     * @return array<int, list<array{key: string, name_ar: string, icon: string|null}>> keyed by user id
+     * @return array<int, list<array{key: string, name: string, icon: string|null}>> keyed by user id
      */
     public function handle(array $userIds, int $limitPerUser = 6): array
     {
@@ -54,7 +54,7 @@ class ReadBadgesFor extends Action
 
         $catalogue = Badge::query()
             ->whereIn('key', $awards->pluck('badge_key')->unique()->all())
-            ->get(['key', 'name_ar', 'icon'])
+            ->get(['key', 'name', 'icon'])
             ->keyBy('key');
 
         $byUser = [];
@@ -74,7 +74,7 @@ class ReadBadgesFor extends Action
 
             $byUser[$userId][] = [
                 'key' => (string) $badge->key,
-                'name_ar' => (string) $badge->name_ar,
+                'name' => (string) $badge->name,
                 'icon' => $badge->icon === null ? null : (string) $badge->icon,
             ];
         }

@@ -308,7 +308,7 @@ it('separates the biggest payers from the students in arrears', function (): voi
 it('counts a teacher students inside the filtered subject, not their whole roll', function (): void {
     $physics = Subject::query()->firstOrCreate(
         ['slug' => 'physics-insight'],
-        ['name_ar' => 'الفيزياء', 'is_active' => true, 'sort_order' => 90],
+        ['name' => 'الفيزياء', 'is_active' => true, 'sort_order' => 90],
     );
 
     $teacher = User::factory()->create(['platform_role' => 'teacher']);

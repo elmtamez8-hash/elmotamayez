@@ -42,7 +42,7 @@ export function PhoneInput({
         >
           {COUNTRIES.map((country) => (
             <option key={country.code} value={country.dial}>
-              {country.dial} {country.name_ar}
+              {country.dial} {country.name}
             </option>
           ))}
         </Select>

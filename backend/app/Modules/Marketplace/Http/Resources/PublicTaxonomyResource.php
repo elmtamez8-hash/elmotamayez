@@ -21,7 +21,7 @@ class PublicTaxonomyResource extends JsonResource
     {
         return [
             'slug' => $this->resource->getAttribute('slug'),
-            'name_ar' => $this->resource->getAttribute('name_ar'),
+            'name' => $this->resource->getAttribute('name'),
             'icon' => $this->resource->getAttribute('icon'),
         ];
     }

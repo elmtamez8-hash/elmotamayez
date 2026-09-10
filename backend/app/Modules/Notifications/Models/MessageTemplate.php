@@ -10,13 +10,14 @@ use App\Modules\Notifications\Support\NotificationType;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Notifications\MessageTemplateFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Spatie\Translatable\HasTranslations;
 
 /**
  * @property string $key
  * @property string $type
  * @property string $channel
- * @property string $title_ar
- * @property string $body_ar
+ * @property string $title
+ * @property string $body
  * @property array<int, string>|null $variables
  * @property string $provider_approval_status
  * @property bool $is_active
@@ -24,7 +25,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 class MessageTemplate extends BaseModel
 {
     /** @use HasFactory<MessageTemplateFactory> */
-    use HasFactory, HasUuid;
+    use HasFactory, HasTranslations, HasUuid;
 
     public const APPROVAL_NOT_REQUIRED = 'not_required';
 
@@ -34,12 +35,15 @@ class MessageTemplate extends BaseModel
 
     public const APPROVAL_REJECTED = 'rejected';
 
+    /** @var list<string> */
+    public array $translatable = ['title', 'body'];
+
     protected $fillable = [
         'key',
         'type',
         'channel',
-        'title_ar',
-        'body_ar',
+        'title',
+        'body',
         'variables',
         'provider_approval_status',
         'is_active',

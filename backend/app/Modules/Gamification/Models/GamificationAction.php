@@ -8,6 +8,7 @@ use App\Models\BaseModel;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Gamification\GamificationActionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Spatie\Translatable\HasTranslations;
 
 /**
  * What an action is worth — PLATFORM reference data (layer ب).
@@ -17,6 +18,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  * change applies from then on and NEVER recomputes past awards (FR-003): the
  * entries froze what was actually applied.
  *
+ * ⚠️ `$name` IS DECLARED HERE BECAUSE THE COLUMN IS JSON. Larastan types a
+ * property from the migration, where a translatable column is a `json`, so
+ * without this line every reader of the accessor is «undefined property» —
+ * `HasTranslations` returns the locale's string, never the document.
+ *
+ * @property string $name
  * @property int $xp
  * @property int $coins
  * @property int|null $daily_cap
@@ -25,11 +32,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 class GamificationAction extends BaseModel
 {
     /** @use HasFactory<GamificationActionFactory> */
-    use HasFactory, HasUuid;
+    use HasFactory, HasTranslations, HasUuid;
+
+    /** @var list<string> */
+    public array $translatable = ['name'];
 
     protected $fillable = [
         'key',
-        'name_ar',
+        'name',
         'xp',
         'coins',
         'daily_cap',

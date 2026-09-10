@@ -170,7 +170,7 @@ export function ParentSignupForm() {
         >
           {COUNTRIES.map((country) => (
             <option key={country.code} value={country.code}>
-              {country.name_ar}
+              {country.name}
             </option>
           ))}
         </Select>

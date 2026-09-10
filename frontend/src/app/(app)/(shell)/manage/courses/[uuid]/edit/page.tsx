@@ -73,7 +73,7 @@ export default function EditCoursePage({
     and this is the only screen where a teacher can put one in. Without the field
     the filter that reads it would be permanently one option wide.
   */
-  const [stages, setStages] = useState<{ slug: string; name_ar: string }[]>([]);
+  const [stages, setStages] = useState<{ slug: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -123,7 +123,7 @@ export default function EditCoursePage({
 
   useEffect(() => {
     api
-      .get<{ data: { slug: string; name_ar: string }[] }>("/signup/grade-levels")
+      .get<{ data: { slug: string; name: string }[] }>("/signup/grade-levels")
       .then((response) => setStages(response.data ?? []))
       .catch(() => setStages([]));
   }, []);
@@ -274,7 +274,7 @@ export default function EditCoursePage({
             value={form.grade_level}
             onChange={(v) => setForm({ ...form, grade_level: v })}
             placeholder="بلا مرحلة محدّدة"
-            options={stages.map((stage) => ({ value: stage.slug, label: stage.name_ar }))}
+            options={stages.map((stage) => ({ value: stage.slug, label: stage.name }))}
             error={fields.grade_level}
             hint="تُستخدم لفلترة كورساتك ولربط سعر التسوية بالمرحلة."
           />
