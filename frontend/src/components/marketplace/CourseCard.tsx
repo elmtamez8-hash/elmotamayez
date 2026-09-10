@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { counted } from "@/lib/labels";
 import type { CourseCard as Course } from "@/lib/public-api";
 import { StarRating } from "./StarRating";
 
@@ -11,7 +12,17 @@ const TYPE_LABELS: Record<Course["type"], string> = {
 function hours(seconds: number): string {
   const value = Math.round(seconds / 3600);
 
-  return value > 0 ? `${value.toLocaleString("ar-QA")} ساعة` : "—";
+  // «—» rather than «لا ساعات»: a course with no declared duration has not
+  // been measured, which is a different fact from one that lasts no time.
+  if (value <= 0) return "—";
+
+  return counted(value, {
+    one: "ساعة",
+    two: "ساعتان",
+    few: "ساعات",
+    many: "ساعة",
+    other: "ساعة",
+  });
 }
 
 /*
@@ -67,7 +78,14 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
             {TYPE_LABELS[course.type]}
           </span>
           <span className="text-ink-muted">
-            {course.lessons_count.toLocaleString("ar-QA")} حصة ·{" "}
+            {counted(course.lessons_count, {
+              one: "حصة",
+              two: "حصتان",
+              few: "حصص",
+              many: "حصة",
+              other: "حصة",
+            })}{" "}
+            ·{" "}
             {hours(course.duration_seconds)}
           </span>
         </div>
@@ -115,7 +133,14 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
         <div className="flex items-center justify-between gap-2">
           <StarRating value={course.average_rating} />
           <span className="text-xs text-ink-muted">
-            {course.enrolled_count.toLocaleString("ar-QA")} طالب
+            {counted(course.enrolled_count, {
+              zero: "لا طلاب بعد",
+              one: "طالب واحد",
+              two: "طالبان",
+              few: "طلاب",
+              many: "طالباً",
+              other: "طالب",
+            })}
           </span>
         </div>
 

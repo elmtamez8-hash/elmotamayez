@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/Card";
-import { formatDate, formatMinorMoney } from "@/lib/labels";
+import { counted, formatDate, formatMinorMoney } from "@/lib/labels";
 import type { TeacherStatement } from "@/lib/settlement";
 
 /**
@@ -101,7 +101,13 @@ export function StatementSummary({
           hint={
             statement.units.pending_package === 0
               ? undefined
-              : `${statement.units.pending_package.toLocaleString("ar-QA")} وحدة بانتظار اكتمال الحزمة`
+              : `${counted(statement.units.pending_package, {
+                  one: "وحدة واحدة",
+                  two: "وحدتان",
+                  few: "وحدات",
+                  many: "وحدة",
+                  other: "وحدة",
+                })} بانتظار اكتمال الحزمة`
           }
         />
       </div>

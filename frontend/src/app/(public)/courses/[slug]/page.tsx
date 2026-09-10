@@ -73,7 +73,13 @@ export async function generateMetadata({
         : course.title,
       description:
         course.description?.slice(0, 155) ??
-        `${course.title}: ${course.lessons_count.toLocaleString("ar-QA")} درساً على منصّتنا.`,
+        `${course.title}: ${counted(course.lessons_count, {
+          one: "درس واحد",
+          two: "درسان",
+          few: "دروس",
+          many: "درساً",
+          other: "درس",
+        })} على منصّتنا.`,
       // Absolute, for the reason the home page's is: a relative canonical
       // resolves against whichever host the crawler arrived on.
       alternates: { canonical: siteUrl(`/courses/${course.slug ?? course.uuid}`) },

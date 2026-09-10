@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { CourseCard } from "@/components/marketplace/CourseCard";
 import { ArticleToc } from "@/components/blog/ArticleToc";
 import { CtaBand } from "@/components/blog/CtaBand";
-import { formatDate } from "@/lib/labels";
+import { counted, formatDate } from "@/lib/labels";
 import {
   isoMinutes,
   readingMinutes,
@@ -252,7 +252,13 @@ export default async function ArticlePage({
           */}
           <span className="flex items-center gap-1 text-sm text-ink-muted">
             <ClockIcon className="h-4 w-4" aria-hidden="true" />
-            {minutes.toLocaleString("ar-QA")} دقائق قراءة
+            {counted(minutes, {
+              one: "دقيقة قراءة",
+              two: "دقيقتا قراءة",
+              few: "دقائق قراءة",
+              many: "دقيقة قراءة",
+              other: "دقيقة قراءة",
+            })}
           </span>
         </div>
 
