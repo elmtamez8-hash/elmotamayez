@@ -91,6 +91,7 @@ export default async function CoursesPage({
             two: "كورسان متاحان",
             few: "كورسات متاحة",
             many: "كورساً متاحاً",
+            other: "كورس متاح",
           })}
         </p>
       </PageBanner>

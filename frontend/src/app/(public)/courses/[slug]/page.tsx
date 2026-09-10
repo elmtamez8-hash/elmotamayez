@@ -125,6 +125,7 @@ function hours(seconds: number): string | null {
     two: "ساعتان",
     few: "ساعات",
     many: "ساعة",
+    other: "ساعة",
   });
 }
 
@@ -163,21 +164,30 @@ export default async function CoursePage({
    */
   const availability = await loadAvailability(course);
 
+  /*
+   * ⚠️ الصفرُ يسقطُ من الشريطِ ولا يُنطَق. `hours()` تُعيدُ `null` عندَ الصفرِ
+   * منذُ كُتِبَت، ولنفسِ السبب: «لا طلاب» على كورسٍ جديدٍ إعلانٌ ضدَّ صاحبِه،
+   * و«٠ طالباً» — وهو ما كان يُطبَع — أسوأُ منه.
+   */
   const facts = [
-    counted(course.lessons_count, {
-      one: "درس واحد",
-      two: "درسان",
-      few: "دروس",
-      many: "درساً",
-    }),
+    course.lessons_count > 0 &&
+      counted(course.lessons_count, {
+        one: "درس واحد",
+        two: "درسان",
+        few: "دروس",
+        many: "درساً",
+        other: "درس",
+      }),
     hours(course.duration_seconds),
-    counted(course.enrolled_count, {
-      one: "طالب واحد",
-      two: "طالبان",
-      few: "طلاب",
-      many: "طالباً",
-    }),
-  ].filter((fact): fact is string => fact !== null);
+    course.enrolled_count > 0 &&
+      counted(course.enrolled_count, {
+        one: "طالب واحد",
+        two: "طالبان",
+        few: "طلاب",
+        many: "طالباً",
+        other: "طالب",
+      }),
+  ].filter((fact): fact is string => typeof fact === "string");
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-10 sm:px-6">

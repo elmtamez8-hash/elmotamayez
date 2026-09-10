@@ -32,6 +32,7 @@ function duration(seconds: number | null | undefined): string | null {
     two: "دقيقتان",
     few: "دقائق",
     many: "دقيقة",
+    other: "دقيقة",
   });
 }
 

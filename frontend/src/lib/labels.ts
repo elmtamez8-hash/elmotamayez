@@ -459,9 +459,19 @@ export type CountedForms = {
   few: string;
   /** ١١ مدرّساً متاحاً */
   many: string;
-  /** ١٠٠ مدرّس متاح — defaults to `one`. */
-  other?: string;
-  /** لا مدرّسين متاحين — defaults to «لا » + `few`. */
+  /**
+   * ١٠٠ مدرّس متاح — the SINGULAR noun, and required rather than defaulted.
+   *
+   * ⚠️ IT DEFAULTED TO `one` FOR ONE REVIEW AND THAT WAS A REGRESSION. Three
+   * callers write «حصة واحدة» · «درس واحد» · «طالب واحد» — the word «واحد»
+   * belongs to the standalone singular and cannot follow a numeral, so the
+   * default printed «١٠٠ طالب واحد» on the course fact strip, which the
+   * template literal it replaced got right. `enrolled_count` is the one count
+   * here that realistically passes a hundred. Required, `tsc` names every site;
+   * optional, the next caller ships the same sentence.
+   */
+  other: string;
+  /** لا مدرّسين متاحين — defaults to «لا » + `few`, which is a bare plural everywhere. */
   zero?: string;
 };
 
@@ -474,8 +484,7 @@ export function counted(count: number, forms: CountedForms): string {
   if (band === "one") return forms.one;
   if (band === "two") return forms.two;
 
-  const noun =
-    band === "few" ? forms.few : band === "many" ? forms.many : (forms.other ?? forms.one);
+  const noun = band === "few" ? forms.few : band === "many" ? forms.many : forms.other;
 
   return `${count.toLocaleString("ar-QA")} ${noun}`;
 }

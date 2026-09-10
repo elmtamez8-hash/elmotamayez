@@ -158,6 +158,7 @@ export default async function BlogIndexPage({
               two: "مقالان منشوران",
               few: "مقالات منشورة",
               many: "مقالاً منشوراً",
+              other: "مقال منشور",
             })}
           </p>
         ) : null}

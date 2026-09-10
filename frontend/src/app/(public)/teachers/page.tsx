@@ -116,6 +116,7 @@ export default async function TeachersPage({
             two: "مدرّسان متاحان",
             few: "مدرّسين متاحين",
             many: "مدرّساً متاحاً",
+            other: "مدرّس متاح",
           })}
         </p>
       </PageBanner>

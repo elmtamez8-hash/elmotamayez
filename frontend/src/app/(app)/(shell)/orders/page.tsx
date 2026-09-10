@@ -45,6 +45,7 @@ function sessions(count: number): string {
     two: "حصتان",
     few: "حصص",
     many: "حصة",
+    other: "حصة",
   });
 }
 
