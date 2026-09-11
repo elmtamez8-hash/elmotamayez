@@ -13,6 +13,9 @@
 | **US1** إسنادُ طالبٍ إلى مجموعة | «لا شاشةَ في `/admin` إطلاقاً ⇒ بناءٌ كامل» | **الفعلُ مكتوبٌ منذُ ٠٢١**: `MoveMember` يحملُ السبعةَ قيوداً كلَّها. الباقي **صلاحيّةٌ وشاشةٌ وسطرٌ واحدٌ لا يكذب** |
 | **US2** إغلاقُ الانضمامِ الذاتيّ | «حذفُ `JoinCohort`» | ⚠️ **`ApproveOrder` و`ActivateSubscription` يستدعيانِه** — يُغلَقُ **المسارُ لا الفعل**. ولا اختبارَ واحدٌ يمسُّ المسار ⇒ الإغلاقُ رخيصٌ ويحتاجُ اختباراً جديداً |
 | **US3** باقةٌ للإدارة | «بابٌ ثانٍ» | `SavePlan` يقبلُ `$workspaceId` وسيطاً أصلاً ⇒ زرٌّ وحقلُ مدرّسٍ مطلوب. **لا صلاحيّةَ جديدة** |
+| **US4** السعةُ والدَّور *(أُضيفَت 2026-09-11)* | — | ⚠️ **أكبرُ بندٍ في المرحلة**: الجدولُ الوحيدُ الجديد، وشاشتانِ (طالب · إدارة)، وحارسٌ على بابِ الشراء |
+
+⚠️ **وقياسٌ حسمَ بنداً ثالثاً بصفرِ كود**: «الطالبُ يرى تسجيلاتِ الحصصِ التي دفعَ فيها وحدَها» **مبنيٌّ منذُ ٠١٨** — `IssuePlaybackGrant::mayWatch()` سطر ١٤٨ يُفتِّحُ تسجيلَ الحصّةِ بـ`hasBookingForLesson()` لا بالتسجيلِ في الكورس، ومختصرُ عضويّةِ المساحةِ **مستبعَدٌ عنه بتعليقٍ يشرحُ لماذا**، و`Lesson:261` يُخرِجُه من مقامِ النسبة.
 
 فالكتلةُ الحقيقيّةُ للعملِ ليست المنطق، بل: **صلاحيّةٌ منصّيّةٌ واحدة · شاشتانِ في `/admin` · تجاوزُ نطاقٍ في كلِّ قراءةٍ فيهما · جملةُ بوّابةٍ للطالب · قالبُ إشعارٍ بهجرةِ ردمِه.**
 
@@ -22,7 +25,7 @@
 
 **Primary Dependencies**: Filament 5 (لوحةُ `/admin`، جلسة) · spatie/permission في وضعِ الفِرَق · Sanctum (واجهةُ الـSPA)
 
-**Storage**: MySQL في الإنتاج · SQLite داخلَ الذاكرةِ في الاختبار. **لا هجرةَ مخطَّطٍ في هذه المرحلة** — انظر [data-model.md](./data-model.md)
+**Storage**: MySQL في الإنتاج · SQLite داخلَ الذاكرةِ في الاختبار. **هجرةُ مخطَّطٍ واحدة** — جدولُ الدَّور (US4). ⚠️ وكانَ هذا السطرُ يقولُ «لا هجرةَ مخطَّط» قبلَ إضافةِ US4 — انظر [data-model.md](./data-model.md)
 
 **Testing**: Pest (أربعُ شرائحَ في CI) · vitest + jsdom للمكوّنات · Playwright لا يُستدعى هنا
 
@@ -34,7 +37,7 @@
 
 **Constraints**: لا بياناتِ إنتاجٍ حقيقيّةً بعد ⇒ لا هجرةَ بيانات · ولا كسرَ لـ`ContextIsolationTest` ولا لعددِ `WhatsAppDefaultsTest`
 
-**Scale/Scope**: شاشتانِ · صلاحيّةٌ واحدة · مسارٌ يُغلَق · وسيطٌ اختياريٌّ واحدٌ في فعلٍ قائم
+**Scale/Scope**: أربعُ شاشات (اثنتانِ في `/admin` · واحدةٌ للطالب · حارسٌ على صفحةِ الكورس) · صلاحيّةٌ منصّيّةٌ واحدة · جدولٌ واحد · مسارٌ يُغلَق
 
 ## Constitution Check
 
@@ -49,9 +52,13 @@
 | **V — التفويضُ بالسياسات** | ⚠️ يمرُّ **بشرطٍ** أدناه |
 | **VI — العقودُ الظاهرة** | ⚠️ مخالفةٌ حقيقيّةٌ **مُعتمَدةٌ من المالك** — حيثيّاتُها في جدولِ التعقيد |
 
-### I — لا كيانَ جديدَ يُصنَّف، وشرطانِ يُكتَبانِ لا يُفترَضان
+### I — كيانٌ واحدٌ جديدٌ يُصنَّفُ صراحةً، وشرطانِ يُكتَبانِ لا يُفترَضان
 
-لا نموذجَ جديدَ في هذه المرحلة ([data-model.md](./data-model.md))، فبندُ «كلُّ كيانٍ جديدٍ يُصنَّفُ في إحدى الطبقاتِ الثلاثِ قبلَ كتابةِ هجرتِه» **لا موضعَ له**. والكتابةُ آمنةٌ بالقياس: `CohortMembershipWriter::open()` يكتبُ `workspace_id` من **المجموعة**، و`SavePlan` يأخذُه **وسيطاً صريحاً**، و`BelongsToWorkspace::creating` لا يكتبُ إلّا على `null`.
+⚠️ **US4 أدخلَت نموذجاً جديداً، فالبندُ صارَ له موضع**: «كلُّ كيانٍ جديدٍ **يجب** أن يُصنَّفَ صراحةً في إحدى الطبقاتِ الثلاثِ **قبلَ كتابةِ هجرتِه**، وكيانٌ بلا تصنيفٍ معلَنٍ يُرَدُّ في المراجعة».
+
+**التصنيف**: `course_waitlist_entries` = **جسر** (مع `Enrollment` · `ClassBooking` · `Certificate`) ⇒ يحملُ `workspace_id` ويشيرُ إلى المستخدمِ العامّ ⇒ **`BelongsToWorkspace` نعم**، **ومعه حالةٌ في `tests/Feature/Tenancy/WorkspaceIsolationTest.php` في الطلبِ نفسِه** — نصُّ الدستورِ حرفاً، وهي البوّابةُ الوحيدةُ التي تكشفُ نموذجاً نُسِيَ نطاقُه.
+
+والكتابةُ آمنةٌ بالقياس: `CohortMembershipWriter::open()` يكتبُ `workspace_id` من **المجموعة**، و`SavePlan` يأخذُه **وسيطاً صريحاً**، و`BelongsToWorkspace::creating` لا يكتبُ إلّا على `null`.
 
 **والشرطانِ نصُّ الدستورِ حرفاً:**
 
@@ -105,14 +112,20 @@ specs/034-admin-owns-enrolment/
 ```text
 backend/app/Modules/
 ├── Learning/
+│   ├── Actions/JoinWaitlist.php                  # جديد — US4 (طالب)
+│   ├── Actions/InviteFromWaitlist.php            # جديد — US4 (إدارة)
 │   ├── Actions/MoveMember.php                    # + $dropNote وسيطاً اختياريّاً
+│   ├── Database/Migrations/…_create_course_waitlist_entries.php  # الهجرةُ الوحيدة
+│   ├── Filament/Pages/CourseWaitlist.php         # جديد — US4
+│   ├── Models/CourseWaitlistEntry.php            # جديد — BelongsToWorkspace
 │   ├── Filament/Pages/AssignStudentToCohort.php  # جديد — US1
 │   ├── Http/Controllers/CohortController.php     # − join()
 │   ├── Policies/CohortPolicy.php                 # + فرعُ COHORTS_ASSIGN
 │   ├── Support/CohortGate.php                    # locks() ⇒ false · message() تتغيّر
 │   └── routes/api.php                            # − POST /cohorts/{cohort}/join
 ├── Payments/
-│   ├── Actions/ApproveOrder.php                  # FR-016 — الفرعُ الجماعيُّ وحدَه
+│   ├── Actions/CreateOrder.php                   # FR-023 — حارسُ السعةِ عندَ الطلب
+│   ├── Actions/ApproveOrder.php                  # FR-016 + FR-024 — السعةُ تُقاسُ ثانيةً
 │   ├── Actions/CreatePlanForTeacher.php          # جديد — يلفُّ SavePlan + SetPlanPrice (مبدأ II)
 │   └── Filament/Resources/PlanResource.php       # canCreate() ⇒ true · + حقلُ المدرّس
 ├── Tenancy/Support/Permissions.php               # + COHORTS_ASSIGN
@@ -129,6 +142,8 @@ backend/tests/Feature/Learning/
 ├── CohortGateSafetyValveTest.php                 # حالتانِ مقلوبتان — لا تُدمَجانِ في واحدة
 ├── AdminAssignsCohortTest.php                    # جديد — مساحتا عملٍ وموظَّفٌ يملكُ إحداهما
 ├── AdminAssignPermissionTest.php                 # جديد — أعلى دورِ مستأجرٍ ⇒ 403 (شرطُ المبدأ V)
+├── CourseWaitlistTest.php                        # جديد — الترتيبُ والخروجُ والدعوة
+└── ../Tenancy/WorkspaceIsolationTest.php         # + حالةُ CourseWaitlistEntry (شرطُ المبدأ I)
 └── SelfJoinClosedTest.php                        # جديد — التوكيدُ على الكتابةِ لا على الرمز
 ```
 
