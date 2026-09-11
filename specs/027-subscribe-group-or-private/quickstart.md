@@ -183,7 +183,11 @@ npx tsc --noEmit && npm test
    مُدرَجٍ لا شاشةَ لها أصلاً — `IsPubliclyListed` يردُّ الصفحةَ بـ«غير متاح»، وهو الصحيح.
    ⚠️ **وأوّلُ تحميلٍ بعدَ إنشاءِ المجموعةِ قد يُظهرُ «لا مواعيد معلَنة بعد»** من ذاكرةٍ مؤقّتة —
    مقيسٌ: استقرَّ خلالَ دقيقةٍ بلا تدخّل. أعِدِ التحميلَ قبلَ أن تُسمّيَه عطلاً.
-2. `POST /api/v1/courses/{uuid}/enroll` على كورسٍ مدفوعٍ ⇒ **٤٢٢** (كانَ ٢٠١).
+2. `POST /api/v1/courses/{uuid}/enroll` على كورسٍ مدفوعٍ ⇒ **٤٢٢** بـ`code: purchase_required` (كانَ ٢٠١).
+   ⚠️ **والكورسُ لا بدَّ أن يكونَ في مساحةِ عملِ الطالبِ نفسِها، وإلّا جاءَ ٤٠٤ لا ٤٢٢ — وهو رفضٌ آخرُ لسببٍ آخر.** قِيسَ في ٢٠٢٦-٠٩-١٠: طالبُ الإنتاجِ يحملُ `last_workspace_id` وصفَّ `workspace_members` (خلافاً للطالبِ المُسجِّلِ نفسَه بنفسِه، وهو الشكلُ الذي يصفُه `CLAUDE.md` بأنّ النطاقَ خاملٌ معه)، فسياقُه يُحَلُّ، و`WorkspaceScope` يُخفي كورسَ مساحةِ عملٍ أخرى عندَ ربطِ النموذجِ بالمسار — **فيقعُ الرفضُ قبلَ `courseRequiresPurchase()` بخطوة**، ويُقرَأُ ٤٠٤ عطباً في حارسٍ لم يُستدعَ أصلاً. اقرأْ مساحةَ الطالبِ واختَرْ كورساً فيها.
+   ```bash
+   php artisan tinker --execute="dump(\App\Models\User::where('email','student@example.com')->value('last_workspace_id'));"
+   ```
 3. `‎/admin/grant-credit-subscription` ⇒ ٢٠٠ والطابورُ يُصيَّرُ.
 4. ```sql
    SELECT type, channel, provider_approval_status FROM message_templates
