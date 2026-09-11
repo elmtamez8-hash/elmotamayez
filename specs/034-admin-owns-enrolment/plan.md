@@ -47,7 +47,7 @@
 |---|---|
 | **I — عزلُ المستأجرين** | ⚠️ يمرُّ **بشرطَين مكتوبَين** أدناه |
 | **II — المنطقُ في الـActions** | ⚠️ يمرُّ **بعدَ تصحيحِ تصميم** أدناه |
-| **III — استقلالُ الوحدات** | ✅ قياساً |
+| **III — استقلالُ الوحدات** | ⚠️ يمرُّ — **والقياسُ الذي كانَ هنا كانَ خاطئاً** |
 | **IV — البوّاباتُ خضراء** | ⚠️ يمسُّ **مساراً حرجاً** — يُعلَن |
 | **V — التفويضُ بالسياسات** | ⚠️ يمرُّ **بشرطٍ** أدناه |
 | **VI — العقودُ الظاهرة** | ⚠️ مخالفةٌ حقيقيّةٌ **مُعتمَدةٌ من المالك** — حيثيّاتُها في جدولِ التعقيد |
@@ -79,19 +79,36 @@
 | `Cohort` · `CohortMembership` · `MoveMember` | **`Modules/Learning`** |
 | عنوانُ الكورس | `leftJoin('courses', …)` — وهو ما يفعلُه `LearningPersonalData:60` اليومَ بالضبط، جدولاً لا نموذجاً |
 
-فلا `use App\Modules\Courses` في الشجرةِ كلِّها تحتَ `Learning/` — **قِيس** — ولا يُضافُ واحد. وشاشةُ الباقةِ في `Payments/` حيثُ `PlanResource`.
+⚠️ **وكُتِبَ هنا «لا `use App\Modules\Courses` في الشجرةِ كلِّها تحتَ `Learning/` — قِيس». هي ٢١ ملفّاً** (`Models/Cohort` · `Models/Enrollment` · `Actions/EnrollStudent` · `Http/Controllers/CohortController` …). فالقاعدةُ المُدَّعاةُ غيرُ موجودة، و`leftJoin` سابقةٌ حقيقيّةٌ سببُها **تجاوزُ النطاقِ في الضمِّ المُسبَق** لا عزلُ الوحدات.
+
+**والحارسُ القائمُ فعلاً غيرُ هذا**: `ContextIsolationTest` يمنعُ `Learning` من تسميةِ `App\Modules\Payments` ومن لمسِ جداولِها. ⇒ **قائمةُ الانتظارِ لا تسألُ Payments عن الشراءِ إطلاقاً** (FR-028)؛ تركبُ حدثَ **إنشاءِ التسجيل**، وهو الخطّافُ الذي يحتاجُه FR-016أ أصلاً. وشاشةُ الباقةِ في `Payments/` حيثُ `PlanResource`.
+
+⚠️ **والشاشتانِ لا تُكتشَفانِ إلّا بسطرٍ يُضاف**: اكتشافُ لوحةِ الإدارةِ **سطرٌ لكلِّ وحدة**، ولا سطرَ لـ`Learning` اليوم. وتعليقٌ فوقَ ذلكَ الموضعِ بالضبطِ يقولُ: «صفحةٌ في مجلَّدٍ لا يكتشفُه أحدٌ **شاشةٌ لا وجودَ لها** — لا مسارَ ولا خطأَ في أيِّ مكان، وصلاحيتُها تحرسُ العدمَ وهي تمرُّ في كلِّ اختبارٍ لها». ويُضافُ `Modules/Learning` إلى مساراتِ هجراتِ `phpstan.neon` مع الجدولِ الجديد.
 
 ### IV — يمسُّ مساراً من الثمانيةِ الحرجة، ويُعلَن
 
 «التسجيلُ وتقييدُ الدروس» أحدُ الثمانيةِ التي «كسرُ أيٍّ منها يوقفُ الدمج». و`CohortGate` نصفُ تقييدِ الدروس، و`locks()` تصيرُ `false`.
 
-⚠️ **فهذا ليسَ كسراً بل إعادةُ تعريفٍ لمتطلَّبٍ، و`CohortGateSafetyValveTest` يُقلَبُ لا يُحذَف** — توكيداتُه معكوسةٌ بالضبط. **وهو البندُ الأوجبُ مراجعةً في الطلبِ كلِّه**: اختبارٌ حارسٌ يُعدَّلُ في الطلبِ الذي يُغيِّرُ ما يحرسُه هو الشكلُ الذي يمرُّ منه عطبٌ حقيقيٌّ باسمِ «تحديثِ التوكيدات».
+⚠️ **فهذا ليسَ كسراً بل إعادةُ تعريفٍ لمتطلَّبٍ، و`CohortGateSafetyValveTest` يُقلَبُ لا يُحذَف** — توكيداتُه معكوسةٌ بالضبط. **وهو خمسُ حالاتٍ لا حالتانِ كما كُتِبَ أوّلاً** (قِيسَ): ثلاثٌ تنقلبُ، **واثنتانِ نتيجتُهما لم تعُدْ قابلةً للإنتاجِ فتُحذَفان بجملةٍ تقولُ لماذا** — وحذفُ حالةٍ في الطلبِ الذي يُلغي شرطَها صحيحٌ، وحذفُها بلا جملةٍ هو الشكلُ الذي يمرُّ منه العطب.
+
+⚠️ **ورمزُ `NO_COHORT` له كاتبانِ لا كاتبٌ واحد** — الدرسُ المفردُ **ومشيُ الشجرة** — وفوقَ كلٍّ منهما تعليقٌ يشرحُ ترتيباً يصيرُ كذباً. يُحذَفانِ معاً، وإلّا فهو رمزٌ بثلاثةِ قرّاءَ وبلا كاتب: `Interrupted` نفسُها. **وهو البندُ الأوجبُ مراجعةً في الطلبِ كلِّه**: اختبارٌ حارسٌ يُعدَّلُ في الطلبِ الذي يُغيِّرُ ما يحرسُه هو الشكلُ الذي يمرُّ منه عطبٌ حقيقيٌّ باسمِ «تحديثِ التوكيدات».
 
 ### V — الصلاحيّةُ ثابتٌ، ومعها اختبارُ الرفضِ الذي يُنسى
 
 `Permissions::COHORTS_ASSIGN` ثابتاً لا نصّاً حرفيّاً، ولا تُوضَعُ في أيِّ دورِ مستأجِر — والمجموعةُ المنصّيّةُ **مشتقّة**، و`Tenancy\Models\Role` يرمي عندَ منحِها لدورٍ يحملُ `team_id`.
 
 ⚠️ **وشرطُ الدستورِ الذي يُنسى**: «يُضافُ في نفسِ الـPR اختبارٌ يؤكّدُ أنّ **حاملَ أعلى دورِ مستأجرٍ يُرَدُّ بـ403**». صلاحيّةٌ مُصنَّفةٌ **بالغياب** تمرُّ على كلِّ اختبارٍ لها وهي لا تحرسُ شيئاً — وهو ما وقعَ لـ`taxonomy.manage` حرفيّاً.
+
+**وحاملُها: مديرُ المنصّةِ وحدَه** (قرارُ المالكِ 2026-09-11) — لا دورَ موظَّفٍ جديد. ⚠️ **ويُكتَبُ ذلكَ قراراً لا صمتاً**، لأنّه يجعلُ اختبارَ السماحِ بمديرِ منصّةٍ **بلا قيمةٍ برهانيّة**: `Gate::before` يُمرِّرُه فوقَ كلِّ سياسة، فالاختبارُ يمرُّ والصلاحيّةُ محذوفة. فالحدُّ الذي يُقاسُ حدٌّ آخر:
+
+1. حاملُ **أعلى دورِ مستأجر** ⇒ 403 (نصُّ الدستور).
+2. **موظَّفُ منصّةٍ ليسَ مديرَها** — مسؤولُ الامتثالِ مثلاً — ⇒ 403. ⚠️ وهذه هي الحالةُ الحيّة: `mayAccessAdminPanel()` يقبلُ **كلَّ صفٍّ في `platform_staff`**، فشاشةٌ بلا `canAccess()` مرئيّةٌ لمسؤولِ حمايةِ بيانات، **وصفحةُ الدَّورِ تحملُ أسماءَ طلابٍ عبرَ كلِّ المساحات**.
+
+⚠️ **والبابُ المقروءُ هو `canAccess()` لا السياسة**: صفحةُ Filament **لا تستدعي سياسةً إطلاقاً**، وقائمتُها لا تستدعي سياسةَ الصفّ — فالقطعُ على الاستعلامِ أيضاً. والصلاحيّةُ تُسأَلُ **مرّتَين**: عندَ فتحِ الشاشةِ وعندَ كلِّ كتابة، لأنّ إخفاءَ زرٍّ ليسَ حراسة.
+
+### والتوثيقُ الثنائيُّ — تشترطُه المواصفةُ ولم يذكرْه هذا الملفُّ
+
+`/admin` لا يمرُّ من `2fa.required` إطلاقاً؛ الصيغةُ المشحونةُ نداءٌ صريحٌ في كلِّ سطحٍ يكتب. فالشاشتانِ تحملانِه في مُعالِجِ الإرسال، وإلّا فالمتطلَّبُ يُقرَأُ محقَّقاً وهو غيرُ منفَّذ.
 
 ## Project Structure
 
@@ -101,8 +118,8 @@
 specs/034-admin-owns-enrolment/
 ├── plan.md              # هذا الملفّ
 ├── research.md          # تسعةُ قياساتٍ على الشجرة
-├── data-model.md        # لا هجرةَ مخطَّط — والسببُ مكتوب
-├── quickstart.md        # ثلاثُ مشياتٍ تُثبِتُ الثلاث
+├── data-model.md        # جدولٌ واحدٌ جديد — وتصنيفُه معلَن
+├── quickstart.md        # أربعُ مشياتٍ تُثبِتُ الأربع
 ├── contracts/           # المسارُ المُغلَق · حمولةُ البوّابة
 └── tasks.md             # ‹/speckit-tasks› — لا يُنشِئُه هذا الأمر
 ```
@@ -114,38 +131,57 @@ backend/app/Modules/
 ├── Learning/
 │   ├── Actions/JoinWaitlist.php                  # جديد — US4 (طالب)
 │   ├── Actions/InviteFromWaitlist.php            # جديد — US4 (إدارة)
-│   ├── Actions/MoveMember.php                    # + $dropNote وسيطاً اختياريّاً
+│   ├── Actions/MoveMember.php                    # + $dropNote · ونوعُ الحدثِ يُشتَقُّ في الكاتب
+│   ├── Support/CohortMembershipWriter.php        # ASSIGNED إن لا عضويّةَ قائمة (ويُصلِحُ كذبةَ بابِ المدرّس)
+│   ├── Support/EloquentCohortDirectory.php       # + «صالحةٌ للإسناد» سؤالاً ثانياً (FR-030)
+│   ├── Listeners/AssignCohortFromOrder.php       # جديد — على إنشاءِ التسجيل (FR-016أ)
+│   ├── Listeners/LeaveWaitlistOnEnrolment.php    # جديد — تحديثٌ شرطيٌّ واحد (FR-028)
+│   ├── Http/Requests/JoinWaitlistRequest.php     # جديد — الطالبُ أو وليٌّ عن ابنِه (FR-026أ)
 │   ├── Database/Migrations/…_create_course_waitlist_entries.php  # الهجرةُ الوحيدة
 │   ├── Filament/Pages/CourseWaitlist.php         # جديد — US4
 │   ├── Models/CourseWaitlistEntry.php            # جديد — BelongsToWorkspace
 │   ├── Filament/Pages/AssignStudentToCohort.php  # جديد — US1
-│   ├── Http/Controllers/CohortController.php     # − join()
+│   ├── Http/Controllers/CohortController.php     # − join() · + waitlist()
+│   ├── Http/Controllers/EnrollmentController.php # FR-023 — البابُ المجّانيُّ لا يمرُّ من CreateOrder
 │   ├── Policies/CohortPolicy.php                 # + فرعُ COHORTS_ASSIGN
 │   ├── Support/CohortGate.php                    # locks() ⇒ false · message() تتغيّر
-│   └── routes/api.php                            # − POST /cohorts/{cohort}/join
+│   └── routes/api.php                            # − POST /cohorts/{cohort}/join · + الدَّور خلفَ حدٍّ مُسمّى
 ├── Payments/
 │   ├── Actions/CreateOrder.php                   # FR-023 — حارسُ السعةِ عندَ الطلب
-│   ├── Actions/ApproveOrder.php                  # FR-016 + FR-024 — السعةُ تُقاسُ ثانيةً
-│   ├── Actions/CreatePlanForTeacher.php          # جديد — يلفُّ SavePlan + SetPlanPrice (مبدأ II)
-│   └── Filament/Resources/PlanResource.php       # canCreate() ⇒ true · + حقلُ المدرّس
+│   ├── Actions/ApproveOrder.php                  # FR-016ب في الفعلِ لا الشاشة · FR-024أ — يُطالَبُ بالمقعدِ قبلَ المال
+│   ├── Actions/SavePlan.php                      # withoutWorkspaceScope() في resolveCoverage()
+│   ├── Actions/CreatePlanForTeacher.php          # جديد — يلفُّ SavePlan + SetPlanPrice · ويرفضُ مساحةً ليسَت لمدرّسٍ أو غادرَ
+│   ├── Filament/Resources/OrderResource.php      # مُنتقي المجموعةِ — قراءةٌ متجاوِزةُ النطاقِ (الطبقةُ السادسةُ لعيبِ ٠٢٤)
+│   └── Filament/Resources/PlanResource.php       # canCreate() ⇒ true · نموذجُ إنشاءٍ كامل (حقولُ المدرّسِ عرضٌ اليوم)
 ├── Tenancy/Support/Permissions.php               # + COHORTS_ASSIGN
-└── Notifications/
-    ├── Enums/NotificationType.php                # + plan_created_for_you
-    └── Database/Migrations/…_backfill_plan_notice # هجرةُ ردمٍ تستدعي seedMissing()
+├── Notifications/
+│   ├── Support/NotificationType.php              # + ثلاثةُ أنواع (إسناد · إسقاطُ طلب · باقةٌ باسمِك)
+│   └── Database/Migrations/…_backfill_034_notices # هجرةُ ردمٍ **واحدةٌ** تستدعي seedMissing()
+└── Compliance/…                                  # + صنفُ بياناتٍ لـcourse_waitlist_entries وردمُه
+
+backend/app/Providers/Filament/AdminPanelProvider.php  # + سطرُ اكتشافِ صفحاتِ Learning — وإلّا فالشاشتانِ ملفّان
+backend/phpstan.neon                                   # + مساراتُ هجراتِ Learning
+docs/README.md · docs/erd.md                           # الصلاحيّةُ والمسارُ المحذوفُ والجدولُ الجديد
 
 frontend/src/
-├── lib/cohorts.ts                                # − join()
+├── lib/cohorts.ts                                # − join() · + الدَّور
 ├── components/courses/CohortPicker.tsx           # يصيرُ عرضاً بلا زرّ
-└── app/(app)/(shell)/enrollments/[course]/       # جملةُ البوّابةِ الجديدة
+├── components/courses/CohortPicker.test.tsx      # سبعُ حالاتٍ تقودُ زرَّ الانضمام — تنقلبُ في الطلبِ نفسِه
+├── app/(app)/(shell)/enrollments/[course]/       # جملةُ البوّابةِ الجديدة
+└── … صفحةُ الكورسِ العامّة                        # لا زرَّ شراءٍ إن اكتمل · زرُّ الدَّور (US4)
 
 backend/tests/Feature/Learning/
-├── CohortGateSafetyValveTest.php                 # حالتانِ مقلوبتان — لا تُدمَجانِ في واحدة
+├── CohortGateSafetyValveTest.php                 # خمسُ حالات: ثلاثٌ تنقلبُ واثنتانِ تُحذَفانِ بجملةٍ تقولُ لماذا
 ├── AdminAssignsCohortTest.php                    # جديد — مساحتا عملٍ وموظَّفٌ يملكُ إحداهما
 ├── AdminAssignPermissionTest.php                 # جديد — أعلى دورِ مستأجرٍ ⇒ 403 (شرطُ المبدأ V)
 ├── CourseWaitlistTest.php                        # جديد — الترتيبُ والخروجُ والدعوة
 └── ../Tenancy/WorkspaceIsolationTest.php         # + حالةُ CourseWaitlistEntry (شرطُ المبدأ I)
-└── SelfJoinClosedTest.php                        # جديد — التوكيدُ على الكتابةِ لا على الرمز
+├── SelfJoinClosedTest.php                        # جديد — التوكيدُ على الكتابةِ لا على الرمز
+├── AdminScreenBudgetTest.php                     # جديد — الكلفةُ لا تنمو بالصفوف (المُنتقي والاسمُ والمجموعة)
+└── ../Payments/ApproveWithCohortTest.php         # جديد — سباقُ آخرِ مقعد: يُرفَضُ الاعتمادُ ولا يُقبَضُ مال
 ```
+
+⚠️ **وهذه الشجرةُ هي ما قلبَتْه المراجعةُ**: ما كانَ «شاشتانِ وصلاحيّةٌ ومسارٌ يُغلَق» صارَ يمسُّ **لوحةَ الإدارةِ ومسارَ المالِ وبابَ التسجيلِ المجّانيِّ ووحدةَ الامتثال**. والزيادةُ كلُّها تصحيحُ طبقةٍ أو سدُّ بابٍ ثانٍ — لا نطاقٌ جديد.
 
 **Structure Decision**: الوحدةُ المتراصّةُ المعياريّةُ القائمة. **كلُّ ملفٍّ جديدٍ يسكنُ الوحدةَ التي يملكُ نموذجَه** — وهذا وحدَه ما يُبقي `ContextIsolationTest` أخضرَ ويمنعُ نداءً عبرَ حدِّ وحدة.
 
