@@ -84,7 +84,7 @@ beforeEach(function (): void {
 });
 
 /** A funded, enrolled student with a seat on `$session`. */
-function seatedStudent(ClassSession $session): User
+function verdictSeatHolder(ClassSession $session): User
 {
     $test = test();
 
@@ -124,7 +124,7 @@ function verdictSession(int $seats = 1, ?CarbonImmutable $startsAt = null): Clas
 }
 
 /** Close it the way a delivered session closes, with `$present` having sat through it. */
-function closeDelivered(ClassSession $session, array $present = []): ClassSession
+function closeVerdictSession(ClassSession $session, array $present = []): ClassSession
 {
     $test = test();
 
@@ -143,7 +143,7 @@ function closeDelivered(ClassSession $session, array $present = []): ClassSessio
  * file asserting only the column passes over a build that stamps it correctly
  * and charges everybody anyway. The two disagreeing is itself the finding.
  */
-function creditsSpentOnSeat(ClassSession $session, User $student): int
+function verdictCreditsSpent(ClassSession $session, User $student): int
 {
     // ⚠️ THROUGH THE BALANCE. `credit_transactions` carries no `student_user_id`
     // — a ledger row belongs to a BALANCE, and a balance is one student in one
@@ -158,7 +158,7 @@ function creditsSpentOnSeat(ClassSession $session, User $student): int
 }
 
 /** Was this seat charged? The one column, read where the product reads it. */
-function seatWasCharged(ClassSession $session, User $student): bool
+function verdictSeatWasCharged(ClassSession $session, User $student): bool
 {
     return Attendance::query()->withoutWorkspaceScope()
         ->where('class_session_id', $session->getKey())
@@ -168,7 +168,7 @@ function seatWasCharged(ClassSession $session, User $student): bool
 }
 
 /** What the teacher earned for THIS seat, in minor units. Zero means nothing. */
-function teacherDueForSeat(ClassSession $session, User $student): int
+function verdictTeacherDue(ClassSession $session, User $student): int
 {
     return (int) TeachingUnit::query()->withoutWorkspaceScope()
         ->where('class_session_id', $session->getKey())
@@ -177,7 +177,7 @@ function teacherDueForSeat(ClassSession $session, User $student): int
 }
 
 /** May this student open anything of this session? */
-function contentIsOpen(ClassSession $session, User $student): bool
+function verdictContentIsOpen(ClassSession $session, User $student): bool
 {
     return app(SessionContentAccess::class)
         ->mayOpenSessionContent($student, (int) $session->getKey());
@@ -189,14 +189,14 @@ function contentIsOpen(ClassSession $session, User $student): bool
 
 it('charges the student who reached the bar, pays the teacher, and opens the hour', function (): void {
     $session = verdictSession();
-    $student = seatedStudent($session);
+    $student = verdictSeatHolder($session);
 
-    closeDelivered($session, [$student]);
+    closeVerdictSession($session, [$student]);
 
-    expect(seatWasCharged($session, $student))->toBeTrue()
-        ->and(creditsSpentOnSeat($session, $student))->toBe(1)
-        ->and(teacherDueForSeat($session, $student))->toBe(5000)
-        ->and(contentIsOpen($session, $student))->toBeTrue();
+    expect(verdictSeatWasCharged($session, $student))->toBeTrue()
+        ->and(verdictCreditsSpent($session, $student))->toBe(1)
+        ->and(verdictTeacherDue($session, $student))->toBe(5000)
+        ->and(verdictContentIsOpen($session, $student))->toBeTrue();
 });
 
 it('charges the silent no-show, pays the teacher, and opens the hour with no second consent', function (): void {
@@ -208,14 +208,14 @@ it('charges the silent no-show, pays the teacher, and opens the hour with no sec
     | the hour, so they receive it (FR-008ج · SC-014).
     */
     $session = verdictSession();
-    $student = seatedStudent($session);
+    $student = verdictSeatHolder($session);
 
-    closeDelivered($session);
+    closeVerdictSession($session);
 
-    expect(seatWasCharged($session, $student))->toBeTrue()
-        ->and(creditsSpentOnSeat($session, $student))->toBe(1)
-        ->and(teacherDueForSeat($session, $student))->toBe(5000)
-        ->and(contentIsOpen($session, $student))->toBeTrue()
+    expect(verdictSeatWasCharged($session, $student))->toBeTrue()
+        ->and(verdictCreditsSpent($session, $student))->toBe(1)
+        ->and(verdictTeacherDue($session, $student))->toBe(5000)
+        ->and(verdictContentIsOpen($session, $student))->toBeTrue()
         // SC-014's one-to-one arm, spelled out: a whole unit, never a fraction
         // of an empty room, and `attended` and `charged` disagreeing is the
         // entire reason there are two columns.
@@ -225,23 +225,23 @@ it('charges the silent no-show, pays the teacher, and opens the hour with no sec
 
 it('exempts the excuse the teacher accepted before the room closed, and keeps the content shut', function (): void {
     $session = verdictSession();
-    $student = seatedStudent($session);
+    $student = verdictSeatHolder($session);
 
     SessionBooking::query()->withoutWorkspaceScope()
         ->where('class_session_id', $session->getKey())
         ->where('student_user_id', $student->getKey())
         ->update(['excused_at' => now(), 'excused_by_user_id' => $this->owner->getKey()]);
 
-    closeDelivered($session);
+    closeVerdictSession($session);
 
-    expect(seatWasCharged($session, $student))->toBeFalse()
-        ->and(creditsSpentOnSeat($session, $student))->toBe(0)
+    expect(verdictSeatWasCharged($session, $student))->toBeFalse()
+        ->and(verdictCreditsSpent($session, $student))->toBe(0)
         // ⚠️ AND THE TEACHER EARNS NOTHING FOR IT (FR-014). Without this the
         // platform pays for the excuse out of its own pocket — the student's
         // credit comes back and the teacher's fee does not.
-        ->and(teacherDueForSeat($session, $student))->toBe(0)
+        ->and(verdictTeacherDue($session, $student))->toBe(0)
         // Locked, not opened: the exemption is not a gift of the material.
-        ->and(contentIsOpen($session, $student))->toBeFalse();
+        ->and(verdictContentIsOpen($session, $student))->toBeFalse();
 });
 
 it('charges nothing to the student the teacher ejected, and opens it anyway', function (): void {
@@ -252,7 +252,7 @@ it('charges nothing to the student the teacher ejected, and opens it anyway', fu
     | what the room produced.
     */
     $session = verdictSession();
-    $student = seatedStudent($session);
+    $student = verdictSeatHolder($session);
 
     /*
     | ⛔ THE EJECTION IS RECORDED BEFORE THE ONE CLOSE, NEVER BY CLOSING TWICE.
@@ -273,27 +273,27 @@ it('charges nothing to the student the teacher ejected, and opens it anyway', fu
         'removed_at' => now()->subMinutes(10),
     ]);
 
-    closeDelivered($session);
+    closeVerdictSession($session);
 
-    expect(seatWasCharged($session, $student))->toBeFalse()
-        ->and(creditsSpentOnSeat($session, $student))->toBe(0)
-        ->and(teacherDueForSeat($session, $student))->toBe(0)
+    expect(verdictSeatWasCharged($session, $student))->toBeFalse()
+        ->and(verdictCreditsSpent($session, $student))->toBe(0)
+        ->and(verdictTeacherDue($session, $student))->toBe(0)
         // ⚠️ OPEN WITHOUT CONSENT — the one exempt case whose content is not
         // shut, because the reason they missed it was the teacher's decision.
-        ->and(contentIsOpen($session, $student))->toBeTrue();
+        ->and(verdictContentIsOpen($session, $student))->toBeTrue();
 });
 
 it('charges nobody at all when the teacher never delivered it', function (): void {
     $session = verdictSession();
-    $student = seatedStudent($session);
+    $student = verdictSeatHolder($session);
 
     // No room opened, no host stay: `wasDelivered()` fails its three-part test.
     app(CloseClassSession::class)->handle($session->refresh());
 
     expect($session->refresh()->delivered_at)->toBeNull()
-        ->and(seatWasCharged($session, $student))->toBeFalse()
-        ->and(creditsSpentOnSeat($session, $student))->toBe(0)
-        ->and(teacherDueForSeat($session, $student))->toBe(0)
+        ->and(verdictSeatWasCharged($session, $student))->toBeFalse()
+        ->and(verdictCreditsSpent($session, $student))->toBe(0)
+        ->and(verdictTeacherDue($session, $student))->toBe(0)
         /*
         | «لا محتوى أصلاً» — SHUT, AND NOTHING ON OFFER EITHER.
         |
@@ -307,7 +307,7 @@ it('charges nobody at all when the teacher never delivered it', function (): voi
         | And no price is quoted for it either: an offer would tell the student
         | the hour happened and invite them to pay for one that did not.
         */
-        ->and(contentIsOpen($session, $student))->toBeFalse()
+        ->and(verdictContentIsOpen($session, $student))->toBeFalse()
         ->and(app(SessionContentAccess::class)
             ->unlockOfferFor($student, (int) $session->getKey()))->toBeNull();
 });
@@ -330,8 +330,8 @@ it('answers differently either side of the cancellation deadline', function (): 
     $inWindow = verdictSession(startsAt: CarbonImmutable::now()->addHours(24)->addMinutes(5));
     $tooLate = verdictSession(startsAt: CarbonImmutable::now()->addHours(24)->subMinutes(5));
 
-    $early = seatedStudent($inWindow);
-    $late = seatedStudent($tooLate);
+    $early = verdictSeatHolder($inWindow);
+    $late = verdictSeatHolder($tooLate);
 
     app(CancelBooking::class)->handle(
         SessionBooking::query()->withoutWorkspaceScope()
@@ -351,18 +351,18 @@ it('answers differently either side of the cancellation deadline', function (): 
             ->where('class_session_id', $tooLate->getKey())->value('status'))
         ->toBe(BookingStatus::CancelledLate);
 
-    closeDelivered($inWindow);
-    closeDelivered($tooLate);
+    closeVerdictSession($inWindow);
+    closeVerdictSession($tooLate);
 
-    expect(seatWasCharged($inWindow, $early))->toBeFalse()
-        ->and(creditsSpentOnSeat($inWindow, $early))->toBe(0)
-        ->and(teacherDueForSeat($inWindow, $early))->toBe(0)
-        ->and(contentIsOpen($inWindow, $early))->toBeFalse()
+    expect(verdictSeatWasCharged($inWindow, $early))->toBeFalse()
+        ->and(verdictCreditsSpent($inWindow, $early))->toBe(0)
+        ->and(verdictTeacherDue($inWindow, $early))->toBe(0)
+        ->and(verdictContentIsOpen($inWindow, $early))->toBeFalse()
         // And the other side of the same line.
-        ->and(seatWasCharged($tooLate, $late))->toBeTrue()
-        ->and(creditsSpentOnSeat($tooLate, $late))->toBe(1)
-        ->and(teacherDueForSeat($tooLate, $late))->toBe(5000)
-        ->and(contentIsOpen($tooLate, $late))->toBeTrue();
+        ->and(verdictSeatWasCharged($tooLate, $late))->toBeTrue()
+        ->and(verdictCreditsSpent($tooLate, $late))->toBe(1)
+        ->and(verdictTeacherDue($tooLate, $late))->toBe(5000)
+        ->and(verdictContentIsOpen($tooLate, $late))->toBeTrue();
 });
 
 // ---------------------------------------------------------------------------
@@ -379,8 +379,8 @@ it('reads an unanswered reschedule request as notice and a refusal in time as no
     | Either case alone passes against an implementation with no bound in it.
     */
     $session = verdictSession(seats: 2);
-    $unanswered = seatedStudent($session);
-    $refusedInTime = seatedStudent($session);
+    $unanswered = verdictSeatHolder($session);
+    $refusedInTime = verdictSeatHolder($session);
 
     $deadline = $session->cancellationDeadline();
 
@@ -416,17 +416,17 @@ it('reads an unanswered reschedule request as notice and a refusal in time as no
         'student_reason' => 'ظرفٌ عائليّ',
     ])->forceFill(['status' => SessionRescheduleRequest::PENDING])->save();
 
-    closeDelivered($session);
+    closeVerdictSession($session);
 
-    expect(seatWasCharged($session, $unanswered))->toBeFalse()
-        ->and(creditsSpentOnSeat($session, $unanswered))->toBe(0)
-        ->and(teacherDueForSeat($session, $unanswered))->toBe(0)
-        ->and(contentIsOpen($session, $unanswered))->toBeFalse()
+    expect(verdictSeatWasCharged($session, $unanswered))->toBeFalse()
+        ->and(verdictCreditsSpent($session, $unanswered))->toBe(0)
+        ->and(verdictTeacherDue($session, $unanswered))->toBe(0)
+        ->and(verdictContentIsOpen($session, $unanswered))->toBeFalse()
         // Refused in time, then absent: charged like anybody else.
-        ->and(seatWasCharged($session, $refusedInTime))->toBeTrue()
-        ->and(creditsSpentOnSeat($session, $refusedInTime))->toBe(1)
-        ->and(teacherDueForSeat($session, $refusedInTime))->toBe(5000)
-        ->and(contentIsOpen($session, $refusedInTime))->toBeTrue();
+        ->and(verdictSeatWasCharged($session, $refusedInTime))->toBeTrue()
+        ->and(verdictCreditsSpent($session, $refusedInTime))->toBe(1)
+        ->and(verdictTeacherDue($session, $refusedInTime))->toBe(5000)
+        ->and(verdictContentIsOpen($session, $refusedInTime))->toBeTrue();
 });
 
 // ---------------------------------------------------------------------------
@@ -435,7 +435,7 @@ it('reads an unanswered reschedule request as notice and a refusal in time as no
 
 it('records who consented, when, to which session and for how much', function (): void {
     $session = verdictSession();
-    $student = seatedStudent($session);
+    $student = verdictSeatHolder($session);
 
     // Notice given, so the seat is exempt and the content is shut — which is the
     // only state in which a consent is possible at all.
@@ -443,9 +443,9 @@ it('records who consented, when, to which session and for how much', function ()
         ->where('class_session_id', $session->getKey())
         ->update(['excused_at' => now(), 'excused_by_user_id' => $this->owner->getKey()]);
 
-    closeDelivered($session);
+    closeVerdictSession($session);
 
-    expect(contentIsOpen($session, $student))->toBeFalse();
+    expect(verdictContentIsOpen($session, $student))->toBeFalse();
 
     app(UnlockSessionContent::class)->handle($student, $session->refresh());
 
@@ -456,7 +456,7 @@ it('records who consented, when, to which session and for how much', function ()
         ->and($unlock->consented_at)->not->toBeNull()
         ->and($unlock->credits_charged)->toBe(1)
         ->and($unlock->reason)->toBe(SessionUnlock::REASON_CONSENT)
-        ->and(contentIsOpen($session, $student))->toBeTrue();
+        ->and(verdictContentIsOpen($session, $student))->toBeTrue();
 
     /*
     | ⚠️ AND THE AUDIT LINE, not only the row. `activity_log` is the one surface

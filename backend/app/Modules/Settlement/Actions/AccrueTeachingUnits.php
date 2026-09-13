@@ -237,7 +237,7 @@ class AccrueTeachingUnits extends Action
      */
     private function chargedStudentIds(ClassSession $session): array
     {
-        return Attendance::query()
+        return array_values(Attendance::query()
             ->withoutWorkspaceScope()
             ->where('class_session_id', $session->getKey())
             ->excludingHost($session)
@@ -246,7 +246,7 @@ class AccrueTeachingUnits extends Action
             ->map(static fn (mixed $id): int => (int) $id)
             ->unique()
             ->values()
-            ->all();
+            ->all());
     }
 
     /**

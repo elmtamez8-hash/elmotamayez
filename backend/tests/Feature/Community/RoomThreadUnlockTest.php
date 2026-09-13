@@ -68,21 +68,21 @@ beforeEach(function (): void {
     ]);
 });
 
-function roomPolicy(): ConversationPolicy
+function roomUnlockPolicy(): ConversationPolicy
 {
     return app(ConversationPolicy::class);
 }
 
 it('refuses both doors to the student who never held a seat and has not paid', function (): void {
     // The control. Without it the case below proves only that the room exists.
-    expect(roomPolicy()->view($this->outsider, $this->room)->allowed())->toBeFalse()
-        ->and(roomPolicy()->post($this->outsider, $this->room)->allowed())->toBeFalse();
+    expect(roomUnlockPolicy()->view($this->outsider, $this->room)->allowed())->toBeFalse()
+        ->and(roomUnlockPolicy()->post($this->outsider, $this->room)->allowed())->toBeFalse();
 });
 
 it('opens the thread for reading and keeps it shut for writing once they pay', function (): void {
     app(UnlockSessionContent::class)->handle($this->outsider, $this->session->refresh());
 
-    expect(roomPolicy()->view($this->outsider, $this->room)->allowed())->toBeTrue()
+    expect(roomUnlockPolicy()->view($this->outsider, $this->room)->allowed())->toBeTrue()
         /*
         | ⛔ THE ASSERTION THIS FILE EXISTS FOR. It fails on the obvious
         | implementation — widening `publicRoom()` alone — because `post()`
@@ -90,7 +90,7 @@ it('opens the thread for reading and keeps it shut for writing once they pay', f
         | second seat check anywhere on the way. The refusal has to be written
         | out explicitly in `post()`, and this line is what says so.
         */
-        ->and(roomPolicy()->post($this->outsider, $this->room)->allowed())->toBeFalse();
+        ->and(roomUnlockPolicy()->post($this->outsider, $this->room)->allowed())->toBeFalse();
 });
 
 it('leaves the seat holder writing exactly as before', function (): void {
@@ -99,12 +99,12 @@ it('leaves the seat holder writing exactly as before', function (): void {
     | condition too wide silences the whole room — and the person it would
     | silence first is the student who actually sat in the lesson.
     */
-    expect(roomPolicy()->view($this->attender, $this->room)->allowed())->toBeTrue()
-        ->and(roomPolicy()->post($this->attender, $this->room)->allowed())->toBeTrue();
+    expect(roomUnlockPolicy()->view($this->attender, $this->room)->allowed())->toBeTrue()
+        ->and(roomUnlockPolicy()->post($this->attender, $this->room)->allowed())->toBeTrue();
 });
 
 it('leaves the teacher writing in the room they ran', function (): void {
     // A teacher holds no seat of their own — `chat.moderate` is the exemption,
     // the same one the discussion lock and the ejection both read.
-    expect(roomPolicy()->post($this->owner, $this->room)->allowed())->toBeTrue();
+    expect(roomUnlockPolicy()->post($this->owner, $this->room)->allowed())->toBeTrue();
 });

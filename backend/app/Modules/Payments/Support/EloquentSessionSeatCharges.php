@@ -7,6 +7,7 @@ namespace App\Modules\Payments\Support;
 use App\Models\User;
 use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\CreditTransactionType;
+use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditTransaction;
 use App\Shared\Contracts\SessionSeatCharges;
 
@@ -33,9 +34,13 @@ class EloquentSessionSeatCharges implements SessionSeatCharges
             ->where('source_type', 'class_session')
             ->where('source_id', $classSessionId)
             ->where('credits', '<', 0)
-            ->whereHas('balance', fn ($query) => $query
+            // ⚠️ THE RELATION BUILDER IS TYPED FROM THE RELATION, so the bypass is
+            // named on the MODEL's own query rather than on the closure's
+            // argument, which PHPStan reads as a bare `Builder<Model>`.
+            ->whereIn('credit_balance_id', CreditBalance::query()
                 ->withoutWorkspaceScope()
-                ->where('student_user_id', $student->getKey()))
+                ->where('student_user_id', $student->getKey())
+                ->select('id'))
             ->first();
 
         if ($charge === null) {

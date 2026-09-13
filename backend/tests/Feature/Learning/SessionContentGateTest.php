@@ -94,7 +94,7 @@ beforeEach(function (): void {
 });
 
 /** Enrolled, funded, and holding a seat on the hour. */
-function gateStudent(): User
+function contentGateStudent(): User
 {
     $test = test();
 
@@ -109,7 +109,7 @@ function gateStudent(): User
 }
 
 /** Whether each of the six doors opens for this person. */
-function doorsFor(User $student): array
+function contentDoorsFor(User $student): array
 {
     $test = test();
 
@@ -156,12 +156,12 @@ function doorsFor(User $student): array
 }
 
 it('opens all six for whoever sat through the hour', function (): void {
-    $student = gateStudent();
+    $student = contentGateStudent();
 
     $this->session->refresh()->forceFill(['billable_seats' => 1])->save();
     deliverBillableSession($this->session->refresh(), $this->owner, [$student]);
 
-    expect(doorsFor($student))->toBe([
+    expect(contentDoorsFor($student))->toBe([
         'lesson' => true,
         'lesson_bulk' => true,
         'playback' => true,
@@ -178,7 +178,7 @@ it('shuts all six on the excused student who has not paid', function (): void {
     | today. They gave notice, kept their credit, and FR-008د says the hour stays
     | shut until they spend one on purpose.
     */
-    $student = gateStudent();
+    $student = contentGateStudent();
 
     SessionBooking::query()->withoutWorkspaceScope()
         ->where('class_session_id', $this->session->getKey())
@@ -188,7 +188,7 @@ it('shuts all six on the excused student who has not paid', function (): void {
     $this->session->refresh()->forceFill(['billable_seats' => 1])->save();
     deliverBillableSession($this->session->refresh(), $this->owner, []);
 
-    expect(doorsFor($student))->toBe([
+    expect(contentDoorsFor($student))->toBe([
         'lesson' => false,
         'lesson_bulk' => false,
         'playback' => false,
@@ -205,7 +205,7 @@ it('opens all six for the student who cancelled in time and then paid', function
     | «lock with no exit» FR-013 forbids. After ٠٣٥ they spend one credit and the
     | hour is theirs.
     */
-    $student = gateStudent();
+    $student = contentGateStudent();
 
     SessionBooking::query()->withoutWorkspaceScope()
         ->where('class_session_id', $this->session->getKey())
@@ -215,11 +215,11 @@ it('opens all six for the student who cancelled in time and then paid', function
     $this->session->refresh()->forceFill(['billable_seats' => 0])->save();
     deliverBillableSession($this->session->refresh(), $this->owner, []);
 
-    expect(doorsFor($student)['lesson'])->toBeFalse();
+    expect(contentDoorsFor($student)['lesson'])->toBeFalse();
 
     app(UnlockSessionContent::class)->handle($student, $this->session->refresh());
 
-    expect(doorsFor($student))->toBe([
+    expect(contentDoorsFor($student))->toBe([
         'lesson' => true,
         'lesson_bulk' => true,
         'playback' => true,
@@ -241,11 +241,11 @@ it('opens all six for the enrolled student who never held a seat and then paid',
     $this->session->refresh()->forceFill(['billable_seats' => 0])->save();
     deliverBillableSession($this->session->refresh(), $this->owner, []);
 
-    expect(doorsFor($student)['playback'])->toBeFalse();
+    expect(contentDoorsFor($student)['playback'])->toBeFalse();
 
     app(UnlockSessionContent::class)->handle($student, $this->session->refresh());
 
-    expect(doorsFor($student))->toBe([
+    expect(contentDoorsFor($student))->toBe([
         'lesson' => true,
         'lesson_bulk' => true,
         'playback' => true,
@@ -263,7 +263,7 @@ it('never lets the sequence stand in front of a locked hour', function (): void 
     | the hour and not by the course order. Answering the second about the first
     | is the ٠١٨ defect — «أكمِل … أولاً» about a lesson the student had paid for.
     */
-    $student = gateStudent();
+    $student = contentGateStudent();
 
     $this->course->forceFill(['is_sequential' => true])->save();
 

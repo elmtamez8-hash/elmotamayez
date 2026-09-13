@@ -106,7 +106,6 @@ class OverrideAttendance extends Action
         }
 
         $reversed = $reversing
-            && $student !== null
             && $this->charges->reverse(
                 $student,
                 (int) $attendance->class_session_id,

@@ -72,14 +72,14 @@ beforeEach(function (): void {
 });
 
 /** Consent rows only — T043's automatic openings cost zero and are a different fact. */
-function consentUnlocks(): int
+function unlockConsentRows(): int
 {
     return SessionUnlock::query()->withoutWorkspaceScope()
         ->where('reason', SessionUnlock::REASON_CONSENT)
         ->count();
 }
 
-function entriesFrom(string $sourceType): int
+function unlockEntriesFrom(string $sourceType): int
 {
     return CreditTransaction::query()->withoutWorkspaceScope()
         ->where('source_type', $sourceType)
@@ -109,8 +109,8 @@ it('spends exactly one credit however many presses arrive together', function ()
     expect(fn () => app(UnlockSessionContent::class)->handle($this->student, $this->session))
         ->toThrow(DomainException::class);
 
-    expect(consentUnlocks())->toBe(1)
-        ->and(entriesFrom('session_unlock'))->toBe(1)
+    expect(unlockConsentRows())->toBe(1)
+        ->and(unlockEntriesFrom('session_unlock'))->toBe(1)
         /*
         | ⚠️ FR-023, AND THE ONE ASSERTION AN EQUALITY CANNOT MAKE. The seat's
         | charge already occupies `('class_session', <this session>)` on the
@@ -122,7 +122,7 @@ it('spends exactly one credit however many presses arrive together', function ()
         ->and(CreditTransaction::query()->withoutWorkspaceScope()
             ->whereKey($seatEntry->getKey())->value('credits'))
         ->toBe($seatEntry->credits)
-        ->and(entriesFrom('class_session'))->toBe(1)
+        ->and(unlockEntriesFrom('class_session'))->toBe(1)
         // And the money, which is the thing the student actually feels.
         ->and((int) $this->balance->refresh()->remaining_credits)->toBe($before - 1)
         ->and(app(SessionContentAccess::class)
@@ -142,6 +142,6 @@ it('refuses a second consent over HTTP with a 409 and charges nothing more', fun
         // client turns into a second «تم الخصم» toast for a credit nobody spent.
         ->assertStatus(409);
 
-    expect(consentUnlocks())->toBe(1)
+    expect(unlockConsentRows())->toBe(1)
         ->and((int) $this->balance->refresh()->remaining_credits)->toBe($after);
 });

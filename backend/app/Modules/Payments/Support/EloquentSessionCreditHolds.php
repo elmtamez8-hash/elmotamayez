@@ -13,6 +13,7 @@ use App\Modules\Payments\Models\CreditHold;
 use App\Shared\Contracts\SessionCreditHolds;
 use App\Shared\Data\CreditHoldResult;
 use DateTimeInterface;
+use Illuminate\Support\Facades\DB;
 
 /**
  * ٠٣٥ — الجانبُ الذي يعرفُ الفوترة، من العقدِ الذي لا يعرفُها.
@@ -90,17 +91,32 @@ class EloquentSessionCreditHolds implements SessionCreditHolds
 
         $soonest = $rows?->getAttribute('soonest');
 
-        $course = Course::query()->withoutWorkspaceScope()->find($courseId);
+        /*
+        | ⛔ `DB::table`, NEVER `balanceFor()` — A READ MUST NOT WRITE. That
+        | accessor is a `firstOrCreate`, so asking it here would mint a
+        | `credit_balances` row for every student who merely LOOKED at a booking
+        | refusal and never had a balance at all.
+        |
+        | ⚠️ AND IT IS ONE QUERY BECAUSE OF WHERE THIS IS CALLED FROM.
+        | `BookingEligibility::openingRefusal()` runs inside the presence
+        | heartbeat, whose budget is 15 against a steady state measured at 14 and
+        | whose docblock says the ceiling is not raised. `unlockOfferFor()` reads
+        | the same two columns the same way, one file over.
+        |
+        | Read from the balance rather than subtracted from the sum above:
+        | `held_credits` is the counter every claim moves, and a total recomputed
+        | from the hold rows would be a second answer that disagrees with the
+        | floor the booking is actually judged against.
+        */
+        $balance = DB::table('credit_balances')
+            ->where('course_id', $courseId)
+            ->where('student_user_id', $student->getKey())
+            ->first(['remaining_credits', 'held_credits']);
 
         return [
             'held' => (int) ($rows?->getAttribute('held') ?? 0),
-            // Read from the balance rather than subtracted from the sum above:
-            // `held_credits` is the counter every claim moves, and a total
-            // recomputed from the rows here would be a second answer that
-            // disagrees with the floor the booking is actually judged against.
-            'available' => $course === null
-                ? 0
-                : $this->available($this->accounts->balanceFor($student, $course)),
+            'available' => (int) ($balance->remaining_credits ?? 0)
+                - (int) ($balance->held_credits ?? 0),
             // ⚠️ THE SENTENCE, NOT DECORATION. «لا رصيد» with no date is a
             // refusal the student can do nothing with; the session's END is when
             // the hold is judged, so it is the honest answer to «when do I get

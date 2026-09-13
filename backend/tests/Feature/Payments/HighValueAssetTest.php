@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\LiveSessions\Actions\BookSeat;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
+use App\Modules\LiveSessions\Enums\AttendanceStatus;
 use App\Modules\Media\Actions\IssuePlaybackGrant;
 use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\BillingMode;
@@ -177,6 +178,16 @@ it('vetoes a classified REVIEW RECORDING too, in the bulk path', function (): vo
 
     $class = billableSession($this->workspace, $this->owner, $notes->course);
     app(BookSeat::class)->handle($class->refresh(), $student);
+
+    /*
+    | ⚠️ THE SEAT ALONE STOPPED BEING THE ENTITLEMENT WITH ٠٣٥ · FR-008. The
+    | comment above says «you booked and attended» — this is the attending, and
+    | before ٠٣٥ it was implicit in the booking. `credit_verdict_at` stamped is
+    | «this seat was charged», which is what opens the hour; without it the first
+    | assertion below refuses for a reason that has nothing to do with the money
+    | veto this file exists to measure.
+    */
+    attendanceRow($this->workspace, $class->refresh(), $student, AttendanceStatus::Present);
 
     $recording = app(WorkspaceContext::class)->forWorkspace($this->workspace, fn (): Lesson => Lesson::factory()->create([
         'workspace_id' => $this->workspace->getKey(),

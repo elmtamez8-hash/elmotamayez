@@ -381,11 +381,9 @@ final class LessonGate
         */
         $openSessionIds = null;
 
-        $sessionIdOf = static fn (object $row): int => (int) $row->class_session_id;
-
         $recordedSessionIds = array_values(array_unique(array_map(
-            $sessionIdOf,
-            array_filter($items, static fn (object $row): bool => $row->class_session_id !== null),
+            static fn (Lesson $row): int => (int) $row->class_session_id,
+            array_filter($items, static fn (Lesson $row): bool => $row->class_session_id !== null),
         )));
 
         $sequential = (bool) $enrollment->course->is_sequential;
