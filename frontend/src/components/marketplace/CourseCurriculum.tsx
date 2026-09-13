@@ -20,6 +20,7 @@ import {
 } from "@/components/icons";
 import { useCourseOwnership } from "@/components/marketplace/CourseOwnership";
 import { counted, lessonTypeLabel } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 import type { CurriculumSection } from "@/lib/public-api";
 
 /**
@@ -116,13 +117,20 @@ export function CourseCurriculum({
           className="overflow-hidden rounded-2xl border border-line bg-surface-raised"
         >
           <h3 className="flex items-center gap-3 border-b border-line bg-primary-soft px-5 py-3.5 text-sm font-extrabold text-primary-ink">
-            {/* الترقيم معلومة: الوحدات تُدرَّس بالترتيب الذي وضعها به المدرّس. */}
-            <span
-              className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-primary text-xs font-extrabold text-white"
-              aria-hidden="true"
-            >
-              {sectionIndex + 1}
+            {/*
+              الترقيمُ معلومةٌ لا زينة: الوحداتُ تُدرَّسُ بالترتيبِ الذي وضعَها به
+              المدرّس.
+
+              ⚠️ لكنّه كانَ يُقرَأُ عدداً لا ترتيباً — قرصٌ مصمتٌ يحملُ رقماً
+              لاتينيّاً بجوارِ عنوانٍ إنجليزيّ، في صفحةٍ كلُّ أرقامِها عربيّةٌ
+              (٨ دروس · ١٠ دقائق). فالرقمُ يمرُّ على `arabicNumber` — التهجئةُ
+              القائمةُ التي تستعملُها `StarRating` و`TrustScoreBadge` — وكلمةُ
+              «الوحدة» أمامَه تحسمُ أنّه ترتيبٌ لا كَمّ.
+            */}
+            <span className="shrink-0 text-xs font-bold opacity-70">
+              الوحدة {arabicNumber(sectionIndex + 1)}
             </span>
+            <span aria-hidden="true" className="h-3.5 w-px shrink-0 bg-primary-ink/25" />
             <span className="min-w-0 flex-1">{section.title}</span>
           </h3>
 
