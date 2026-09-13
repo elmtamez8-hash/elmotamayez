@@ -59,7 +59,19 @@ async function renderRail() {
   await act(async () => {
     render(
       <CourseOwnershipProvider courseUuid="c-1">
-        <CourseRail priceMinor={49900} currency="QAR" courseUuid="c-1" />
+        <CourseRail
+          priceMinor={49900}
+          currency="QAR"
+          courseUuid="c-1"
+          teacher={{
+            uuid: "t-1",
+            slug: "sami-teacher",
+            name: "Sami Teacher",
+            photo_url: null,
+            trust_score: null,
+            trust_score_band: "building",
+          }}
+        />
       </CourseOwnershipProvider>,
     );
   });

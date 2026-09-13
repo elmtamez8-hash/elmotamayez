@@ -10,8 +10,10 @@ import {
   MessagesIcon,
 } from "@/components/icons";
 import { useCourseOwnership } from "@/components/marketplace/CourseOwnership";
+import { TrustScoreBadge } from "@/components/marketplace/TrustScoreBadge";
 import { CoursePrice } from "@/components/marketplace/CoursePrice";
 import type { Curriculum } from "@/lib/curriculum";
+import type { CourseDetail } from "@/lib/public-api";
 import { counted } from "@/lib/labels";
 
 /**
@@ -28,18 +30,62 @@ export function CourseRail({
   priceMinor,
   currency,
   courseUuid,
+  teacher,
 }: {
   priceMinor: number | null;
   currency: string | null;
   courseUuid: string;
+  teacher: CourseDetail["teacher"];
 }) {
   const ownership = useCourseOwnership();
 
-  if (ownership.state === "owner") {
-    return <OwnerRail data={ownership.data} courseUuid={courseUuid} />;
-  }
+  return (
+    <div className="flex flex-col gap-4">
+      {ownership.state === "owner" ? (
+        <OwnerRail data={ownership.data} courseUuid={courseUuid} />
+      ) : (
+        <VisitorRail priceMinor={priceMinor} currency={currency} />
+      )}
 
-  return <VisitorRail priceMinor={priceMinor} currency={currency} />;
+      {/*
+        ⚠️ المدرّسُ هنا لا في الترويسة، وهو إصلاحٌ لا إعادةُ ترتيب: العمودُ كانَ
+        قرصاً قصيراً معلّقاً في فراغٍ بجوارِ منهجٍ طويل، والمدرّسُ هو الحقيقةُ
+        الثانيةُ التي يُقرَّرُ على أساسِها. وبقاؤُه لاصقاً يعني أنّ اسمَه يظلُّ
+        أمامَ العينِ وأنتَ تقرأُ منهجَه — وهو أقربُ إلى سببِ وجودِه من موضعِه
+        السابقِ أعلى الصفحة.
+
+        ⛔ ومنقولٌ لا مكرّر: نسخةٌ ثانيةٌ منه في الترويسةِ رابطانِ إلى صفحةٍ
+        واحدةٍ على شاشةٍ واحدة.
+      */}
+      {teacher && (
+        <Link
+          href={`/teachers/${teacher.slug ?? teacher.uuid}`}
+          className="flex items-center gap-3 rounded-2xl border border-line bg-surface-raised px-4 py-3.5 transition hover:border-primary hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          {teacher.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={teacher.photo_url}
+              alt=""
+              className="h-11 w-11 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            <span
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-soft font-black text-primary-ink"
+              aria-hidden="true"
+            >
+              {teacher.name.charAt(0)}
+            </span>
+          )}
+
+          <span className="flex min-w-0 flex-col gap-1">
+            <span className="truncate text-sm font-bold text-ink">{teacher.name}</span>
+            <TrustScoreBadge score={teacher.trust_score} band={teacher.trust_score_band} />
+          </span>
+        </Link>
+      )}
+    </div>
+  );
 }
 
 /** ما يشتريه التسجيل — ثلاث جُمَل، لا قائمة تسويق. */

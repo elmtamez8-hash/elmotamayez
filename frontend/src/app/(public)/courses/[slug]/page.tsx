@@ -294,37 +294,6 @@ export default async function CoursePage({
               )}
 
               <StarRating value={course.average_rating} />
-
-              {course.teacher && (
-                <Link
-                  href={`/teachers/${course.teacher.slug ?? course.teacher.uuid}`}
-                  className="flex w-fit items-center gap-3 rounded-2xl border border-line bg-surface-raised px-4 py-3 transition hover:border-primary hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                >
-                  {course.teacher.photo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={course.teacher.photo_url}
-                      alt=""
-                      className="h-11 w-11 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span
-                      className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-soft font-black text-primary-ink"
-                      aria-hidden="true"
-                    >
-                      {course.teacher.name.charAt(0)}
-                    </span>
-                  )}
-
-                  <span className="flex flex-col gap-1">
-                    <span className="text-sm font-bold text-ink">{course.teacher.name}</span>
-                    <TrustScoreBadge
-                      score={course.teacher.trust_score}
-                      band={course.teacher.trust_score_band}
-                    />
-                  </span>
-                </Link>
-              )}
             </header>
 
             {/*
@@ -425,6 +394,7 @@ export default async function CoursePage({
               priceMinor={course.price_minor}
               currency={course.currency ?? null}
               courseUuid={course.uuid}
+              teacher={course.teacher}
             />
           </div>
         </div>
