@@ -125,3 +125,57 @@ export function lockMessage(lock: CurriculumLesson["lock"]): string {
 export function curriculum(courseUuid: string): Promise<Curriculum> {
   return api.get<Curriculum>(`/courses/${courseUuid}/curriculum`);
 }
+
+/**
+ * الشجرةُ مفرودةً في ترتيبِها.
+ *
+ * ⚠️ **قراءةُ ترتيبٍ لا اشتقاقُه.** الخادمُ يبني القائمةَ بـ
+ * `(section.order, chapter.order, lesson.order)` ثمّ يُعشِّشُها، فالمشيُ عليها
+ * بالترتيبِ نفسِه يُعيدُ الترتيبَ الأصليَّ بلا فرز. وأيُّ `sort` هنا هجاءٌ ثانٍ
+ * لترتيبٍ يُقرَّرُ في الخادم — وترتيبُ الشجرةِ في هذا المنتَجِ **كتابةٌ في حقوقِ
+ * الوصولِ** لا ترتيبُ عرض، فنسخةٌ ثانيةٌ منه تفتحُ لطالبٍ ما لم يُفتَحْ له.
+ *
+ * ⚠️ **والمقفولُ يبقى في القائمة.** حذفُه هنا يجعلُ «التالي» يقفزُ فوقَ الدرسِ
+ * الذي يجبُ إكمالُه — أي زرٌّ يتخطّى القفلَ الذي وُجِدَ ليمنعَه. الصفُّ المحذوفُ
+ * أصلاً (`NOT_VISIBLE`) لا يصلُ الحمولةَ من الخادمِ إطلاقاً.
+ */
+export function flattenLessons(tree: Curriculum): CurriculumLesson[] {
+  return tree.sections.flatMap((section) =>
+    section.chapters.flatMap((chapter) => chapter.lessons),
+  );
+}
+
+/** موضعُ درسٍ في الكورس، وجاراه. */
+export interface LessonNeighbours {
+  previous: CurriculumLesson | null;
+  next: CurriculumLesson | null;
+  /** ترتيبُه بدءاً من ١، أو `0` إن لم يُعرَف. */
+  position: number;
+  total: number;
+}
+
+/**
+ * الدرسُ السابقُ والتالي، من القائمةِ التي بناها الخادم.
+ *
+ * ⚠️ **وحالةُ «التالي» تُقرَأُ ولا تُحسَب.** إغراءُ كتابةِ
+ * `is_sequential && !completed ⇒ مقفول` في TypeScript كبير — وهو خطأ:
+ * `Enrollment::accessTo()` يقرِّرُ الفتحَ من التسلسلِ **وبوّابةِ الاختبارِ
+ * ومقعدِ التسجيلِ والمجموعة**، فقاعدةٌ مكتوبةٌ هنا تُخالفُه عندَ أوّلِ تسجيلِ
+ * حصّةٍ في المسار: الزرُّ يقولُ «مفتوح» والبابُ يردُّ ‏٤٠٣. `state` و`lock`
+ * جوابُ الخادمِ لكلِّ صفّ، وهما ما يُقرَأ.
+ */
+export function neighboursOf(tree: Curriculum, lessonUuid: string): LessonNeighbours {
+  const flat = flattenLessons(tree);
+  const index = flat.findIndex((item) => item.uuid === lessonUuid);
+
+  if (index === -1) {
+    return { previous: null, next: null, position: 0, total: flat.length };
+  }
+
+  return {
+    previous: flat[index - 1] ?? null,
+    next: flat[index + 1] ?? null,
+    position: index + 1,
+    total: flat.length,
+  };
+}
