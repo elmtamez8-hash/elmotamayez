@@ -54,16 +54,97 @@ const ARTICLE = {
   exam_gate_label: null,
 };
 
-function answer(over: Record<string, unknown> = {}, lesson: Record<string, unknown> = {}) {
-  get.mockResolvedValue({
-    lesson: { ...ARTICLE, ...lesson },
-    can_access: true,
-    blocked_reason: null,
-    blocked_message: null,
-    blocked_by_title: null,
-    enrollment_uuid: "e-1",
+/** درسٌ في شجرةِ المنهج. الحالةُ والقفلُ جوابُ الخادمِ لا حسابُ الشاشة. */
+function node(uuid: string, title: string, over: Record<string, unknown> = {}) {
+  return {
+    uuid,
+    title,
+    type: "article",
+    type_label: "مقال",
+    family: "inline",
+    asset_kind: null,
+    is_completable: true,
+    duration_seconds: 0,
+    state: "open",
+    lock: null,
     ...over,
-  });
+  };
+}
+
+/**
+ * ⚠️ الدرسُ الأخيرُ **مقفولٌ بالتسلسل**، وهو الحالةُ التي طُلِبَت: كورسٌ متسلسلٌ
+ * والدرسُ الحاليُّ غيرُ مكتملٍ ⇒ «التالي» لا يُفتَح. والقفلُ يأتي من الخادمِ
+ * (`state` + `lock`) ولا يُشتَقُّ هنا من `is_sequential`.
+ */
+function tree(lessons?: Record<string, unknown>[]) {
+  return {
+    course: {
+      uuid: "c-1",
+      title: "مقدّمة في لارافيل",
+      cover_url: null,
+      teacher_name: "أكاديميّة ديمو",
+      is_sequential: true,
+      course_type: "recorded",
+      progress_pct: 33,
+      completed_count: 1,
+      countable_count: 3,
+      resume_lesson_uuid: "l-1",
+      locked_session_count: 0,
+    },
+    cohort_gate: { required: false, satisfied: true, joinable_exists: false, message: null },
+    sections: [
+      {
+        uuid: "s-1",
+        title: "القسم الأول",
+        order: 1,
+        chapters: [
+          {
+            uuid: "ch-1",
+            title: "الفصل الأول",
+            order: 1,
+            lessons: lessons ?? [
+              node("l-0", "الدرس صفر", { state: "completed" }),
+              node("l-1", "الدرس الأول"),
+              node("l-2", "الدرس الثاني", {
+                state: "locked",
+                lock: {
+                  code: "sequence",
+                  message: "أكمِل «الدرس الأول» أولاً — هذا الكورس متسلسل.",
+                  blocked_by_title: "الدرس الأول",
+                },
+              }),
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function answer(
+  over: Record<string, unknown> = {},
+  lesson: Record<string, unknown> = {},
+  curriculum: unknown = tree(),
+) {
+  /*
+   | ⚠️ تمويهٌ **حسبَ المسار** لا جوابٌ واحدٌ للجميع. الصفحةُ تطلبُ الآن شجرةَ
+   | المنهجِ كذلك، و`mockResolvedValue` يردُّ حمولةَ الدرسِ على المسارَين —
+   | فـ`tree.sections` تصيرُ `undefined` وينهارُ الرسمُ كلُّه برسالةٍ لا تُسمّي
+   | السبب.
+   */
+  get.mockImplementation((path: string) =>
+    path.includes("/curriculum")
+      ? Promise.resolve(curriculum)
+      : Promise.resolve({
+          lesson: { ...ARTICLE, ...lesson },
+          can_access: true,
+          blocked_reason: null,
+          blocked_message: null,
+          blocked_by_title: null,
+          enrollment_uuid: "e-1",
+          ...over,
+        }),
+  );
 }
 
 async function open() {
@@ -128,7 +209,9 @@ describe("marking a lesson complete", () => {
 
     await open();
 
-    await screen.findByText("الدرس الأول");
+    // ⚠️ بالعنوانِ لا بالنصّ: اسمُ الدرسِ صارَ يظهرُ مرّتَين — ترويسةً وصفّاً في
+    // الشريطِ الجانبيّ — فبحثٌ نصّيٌّ عامٌّ يسقطُ بـ«وجدتُ أكثرَ من عنصر».
+    await screen.findByRole("heading", { name: "الدرس الأول" });
 
     expect(screen.queryByRole("button", { name: "علِّمه مكتملاً" })).toBeNull();
   });
@@ -225,5 +308,91 @@ describe("an embedded lesson on the enrolled student's own screen", () => {
     await open();
 
     expect(await screen.findByText(/مستضافة خارج المنصّة/)).toBeDefined();
+  });
+});
+
+/*
+| الانتقالُ بينَ الدروس — طلبُ ٢٠٢٦-٠٩-١٣.
+|
+| ⚠️ **والقياسُ على جوابِ الخادمِ لا على `is_sequential`.** الشاشةُ لا تحسبُ
+| «متسلسلٌ وغيرُ مكتملٍ ⇒ اقفل»: `Enrollment::accessTo()` يقرِّرُ ذلك ومعه بوّابةُ
+| الاختبارِ ومقعدُ الحصّةِ والمجموعة. فكلُّ حالةٍ هنا تُبدِّلُ `state`/`lock` في
+| الحمولةِ وتقيسُ ما رُسِم — واختبارٌ يُبدِّلُ `is_sequential` كانَ سيقيسُ القاعدةَ
+| الخطأ.
+*/
+describe("moving between lessons", () => {
+  it("links to the next lesson when the server says it is open", async () => {
+    // شجرةٌ التاليةُ فيها مفتوحة — والافتراضيّةُ تقفلُها عمداً، فهي حالةُ
+    // «المتسلسل» التي تليها.
+    answer({}, {}, tree([node("l-1", "الدرس الأول"), node("l-2", "الدرس الثاني")]));
+    await open();
+
+    const link = await screen.findByRole("link", { name: /الدرس التالي/ });
+
+    expect(link.getAttribute("href")).toBe("/learn/l-2");
+  });
+
+  it("refuses the next lesson as text, never a link, and says why", async () => {
+    // الحالةُ المطلوبةُ حرفيّاً: كورسٌ متسلسلٌ والدرسُ الحاليُّ غيرُ مكتمل.
+    answer();
+    await open();
+
+    /*
+     | ⚠️ صفُّ «مقفول» ليس رابطاً ولا زرّاً معطَّلاً (٠١٦ · FR-007): رابطٌ يبدو
+     | معطَّلاً يبقى قابلاً للنقرِ بلوحةِ المفاتيح، وزرٌّ `disabled` يخرجُ من
+     | ترتيبِ التنقّلِ فلا يعرفُ أحدٌ لماذا توقّف.
+     */
+    expect(screen.queryByRole("link", { name: /الدرس الثاني/ })).toBeNull();
+
+    // والسببُ من الخادمِ ويُسمّي العنصرَ المطلوب — وهذا كلُّ معنى FR-043.
+    expect(
+      screen.getAllByText("أكمِل «الدرس الأول» أولاً — هذا الكورس متسلسل.").length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("says so at the edges instead of drawing a dead tile", async () => {
+    answer({}, {}, tree([node("l-1", "الدرس الأول")]));
+    await open();
+
+    expect(await screen.findByText("هذا أول درس في الكورس.")).toBeTruthy();
+    expect(screen.getByText("هذا آخر درس في الكورس.")).toBeTruthy();
+  });
+
+  it("re-reads the curriculum after completing, so the lock actually lifts", async () => {
+    /*
+     | ⚠️ **إعادةُ جلبٍ لا قلبٌ محلّيّ.** فتحُ «التالي» تفاؤلاً بعدَ الإتمامِ
+     | يفترضُ أنّ التسلسلَ هو الشرطُ الوحيد؛ وقد تقفُ خلفَه بوّابةُ اختبارٍ فيظهرُ
+     | الزرُّ مفتوحاً ويردُّ البابُ ‏٤٠٣.
+     */
+    answer();
+    await open();
+
+    expect(screen.queryByRole("link", { name: /الدرس التالي/ })).toBeNull();
+
+    post.mockResolvedValue({ status: "completed", course_completed: false, progress_pct: 66 });
+    // الشجرةُ التالية: الخادمُ فتحَ ما بعدَه.
+    answer({}, { is_completed: true }, tree([
+      node("l-1", "الدرس الأول", { state: "completed" }),
+      node("l-2", "الدرس الثاني"),
+    ]));
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "علِّمه مكتملاً" }));
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: /الدرس التالي/ }).getAttribute("href")).toBe(
+        "/learn/l-2",
+      ),
+    );
+  });
+
+  it("marks where the reader is with aria-current, not colour alone", async () => {
+    answer();
+    await open();
+
+    const current = await screen.findByRole("link", { current: "page" });
+
+    expect(current.getAttribute("href")).toBe("/learn/l-1");
   });
 });
