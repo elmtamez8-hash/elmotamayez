@@ -108,15 +108,9 @@ class EloquentSessionCreditHolds implements SessionCreditHolds
         | from the hold rows would be a second answer that disagrees with the
         | floor the booking is actually judged against.
         */
-        $balance = DB::table('credit_balances')
-            ->where('course_id', $courseId)
-            ->where('student_user_id', $student->getKey())
-            ->first(['remaining_credits', 'held_credits']);
-
         return [
             'held' => (int) ($rows?->getAttribute('held') ?? 0),
-            'available' => (int) ($balance->remaining_credits ?? 0)
-                - (int) ($balance->held_credits ?? 0),
+            'available' => $this->availableFor($student, $courseId),
             // ⚠️ THE SENTENCE, NOT DECORATION. «لا رصيد» with no date is a
             // refusal the student can do nothing with; the session's END is when
             // the hold is judged, so it is the honest answer to «when do I get
@@ -127,6 +121,19 @@ class EloquentSessionCreditHolds implements SessionCreditHolds
                     ? (date_create_immutable($soonest) ?: null)?->format(DateTimeInterface::ATOM)
                     : null),
         ];
+    }
+
+    public function availableFor(User $student, int $courseId): int
+    {
+        $balance = DB::table('credit_balances')
+            ->where('course_id', $courseId)
+            ->where('student_user_id', $student->getKey())
+            ->first(['remaining_credits', 'held_credits']);
+
+        // A student with no balance row has nothing available, and asking for
+        // one here would be a READ THAT WRITES — `balanceFor()` is a
+        // `firstOrCreate`, so it would mint a row for whoever merely looked.
+        return (int) ($balance->remaining_credits ?? 0) - (int) ($balance->held_credits ?? 0);
     }
 
     /**

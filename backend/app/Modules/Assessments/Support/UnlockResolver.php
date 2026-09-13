@@ -10,6 +10,7 @@ use App\Modules\Assessments\Models\Submission;
 use App\Modules\Assessments\Models\UnlockExemption;
 use App\Modules\Assessments\Models\UnlockRule;
 use App\Shared\Contracts\SessionAttendanceDirectory;
+use App\Shared\Contracts\SessionContentAccess;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -330,6 +331,40 @@ class UnlockResolver
             ->published()
             ->whereIn('class_session_id', $sessionIds)
             ->get(['id', 'class_session_id', 'points']);
+
+        if ($assignments->isEmpty()) {
+            return [];
+        }
+
+        /*
+        | ⛔ ٠٣٥ · T041 — HOMEWORK THE STUDENT CANNOT OPEN IS NOT A CONDITION.
+        |
+        | Since FR-008 the worksheet of a session is locked to whoever did not
+        | receive that hour. Left in the predicate, the student who gave notice
+        | for Tuesday is refused Wednesday over a piece of homework the product
+        | itself will not let them see — a condition no action of theirs can
+        | satisfy, which is the forever-lock family this repository records six
+        | times. They may still open it by spending a credit; until they do, the
+        | requirement simply is not theirs.
+        |
+        | ⛔ AND IT IS ONE QUERY INSIDE THE PASS THAT ALREADY RUNS, never a second
+        | read from `BookingEligibility`. That method's chain is re-run by
+        | `BroadcastController::presence()` on EVERY heartbeat, under a budget of
+        | 15 against a steady state measured at 14 with «do not raise it» written
+        | above the number. One query fills the gap; two turn the build red.
+        */
+        $openSessionIds = array_flip(app(SessionContentAccess::class)->openableSessionIds(
+            $student,
+            array_values($assignments->pluck('class_session_id')
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->unique()
+                ->values()
+                ->all()),
+        ));
+
+        $assignments = $assignments->filter(
+            static fn (Assignment $row): bool => isset($openSessionIds[(int) $row->class_session_id]),
+        );
 
         if ($assignments->isEmpty()) {
             return [];
