@@ -143,9 +143,16 @@ export default async function ArticlePage({
    */
   const { html, headings } = withHeadingAnchors(article.body_html);
   const minutes = readingMinutes(article.body_html);
+  /*
+    الشرطُ نفسُه الذي يردُّ به `ArticleToc` لا شيء، مقروءاً هنا لأنّ **الشبكةَ**
+    تعتمدُ عليه: عمودٌ محجوزٌ لفهرسٍ لا يُصيَّرُ هو فراغٌ بجانبِ النصّ. وهجاءٌ
+    ثانٍ للقاعدةِ داخلَ المكوّنِ يفترقُ عن هذا عندَ أوّلِ تعديل — فالأفضلُ أن
+    يُقرأَ العددُ هنا ويبقى القرارُ واحداً.
+  */
+  const hasToc = headings.length >= 2;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <JsonLd
         data={{
           "@context": "https://schema.org",
@@ -227,7 +234,13 @@ export default async function ArticlePage({
       </nav>
 
       {article.cover_url ? (
-        <div className="banner-rise mb-8 aspect-video overflow-hidden rounded-3xl border border-line bg-primary-soft">
+        /*
+          ⚠️ ‏٢١:٩ لا ‏١٦:٩ **لأنّ العمودَ اتّسع**. المقاسانِ متساويانِ في صفحةٍ
+          ضيّقة، وفي ‏١١٥٢ بكسلاً يصيرُ ‏١٦:٩ سلاباً ارتفاعُه ‏٦٤٨ فوقَ العنوان —
+          أي مقالٌ يبدأُ تحتَ الطيّة. والأغلفةُ مرسومةٌ ‏١٦:٩ وحركتُها في المنتصفِ
+          عمداً، فالقصُّ هنا ‏١٠٧ بكسلاً من أعلى ومثلُها من أسفل ولا يمسُّ الرسم.
+        */
+        <div className="banner-rise mb-8 aspect-[21/9] overflow-hidden rounded-3xl border border-line bg-primary-soft">
           {/*
             ⚠️ `<img>` لا `next/image`: المسارُ يكتبُه مدرّسٌ من اللوحة، أي مدخلٌ
             غيرُ حرفيّ — وملاحظةُ هذا المستودعِ عن تحذيراتِ npm تقولُ إنّ ثغرةَ
@@ -316,96 +329,123 @@ export default async function ArticlePage({
         </section>
       ) : null}
 
-      <ArticleToc headings={headings} />
+      {/*
+        ⚠️ **عمودانِ على الشاشةِ الواسعة، وترتيبُ المصدرِ هو ترتيبُ الهاتف.**
+        الفهرسُ أوّلاً في DOM فيقرؤه صاحبُ الهاتفِ قبلَ النصِّ كما كانَ تماماً،
+        و`lg:col-start-2` يضعُه يميناً على الحاسوبِ بلا أن يتبدّلَ الترتيب — وضعُ
+        الشبكةِ مستقلٌّ عن ترتيبِ المصدر. وبغيرِ ذلك: فهرسٌ **بعدَ** المقالِ على
+        الهاتف، وهو فهرسٌ لا يفيدُ أحداً.
 
-      {/* The API renders the Markdown and STRIPS raw HTML at the parse rather
+        ⚠️ و«باختصار» فوقَ الشبكةِ بعرضِ الصفحةِ كلِّها: هو ما يقتبسُه محرّكُ
+        الإجابةِ وما يقرؤه المستعجل، فلا يُزحَمُ في عمود.
+
+        ⚠️ والشبكةُ لا تُفتَحُ أصلاً بلا فهرس: `ArticleToc` يردُّ لا شيءَ لعنوانٍ
+        واحد، فعمودٌ محجوزٌ بعرضِ ‏١٩rem يصيرُ فراغاً بجانبِ النصِّ بلا سبب.
+      */}
+      <div
+        className={
+          hasToc
+            ? "lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-10"
+            : ""
+        }
+      >
+        {hasToc ? (
+          <aside className="lg:col-start-2 lg:row-start-1 lg:sticky lg:top-24">
+            <ArticleToc headings={headings} />
+          </aside>
+        ) : null}
+
+        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+          {/* The API renders the Markdown and STRIPS raw HTML at the parse rather
           than escaping it, so the tag allowlist is the Markdown feature set
           itself — there is nothing to configure here and no `body` field to
           render by mistake. `prose-article` is the typography rule in
           globals.css; this component sets no colours of its own. */}
-      <div
-        className="prose-article"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+          <div
+            className="prose-article"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
 
-      {article.tags && article.tags.length > 0 ? (
-        <ul className="mt-10 flex flex-wrap items-center gap-2">
-          <li aria-hidden="true">
-            <TagIcon className="h-4 w-4 text-ink-muted" />
-          </li>
-          {article.tags.map((tag) => (
-            <li key={tag.slug}>
-              {/* وسمٌ يُنقَرُ: `?tag=` مدعومٌ في الواجهةِ الخلفيّةِ سلفاً. */}
-              <Link href={`/blog?tag=${tag.slug}`}>
-                <Badge tone="neutral">{tag.name}</Badge>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+          {article.tags && article.tags.length > 0 ? (
+            <ul className="mt-10 flex flex-wrap items-center gap-2">
+              <li aria-hidden="true">
+                <TagIcon className="h-4 w-4 text-ink-muted" />
+              </li>
+              {article.tags.map((tag) => (
+                <li key={tag.slug}>
+                  {/* وسمٌ يُنقَرُ: `?tag=` مدعومٌ في الواجهةِ الخلفيّةِ سلفاً. */}
+                  <Link href={`/blog?tag=${tag.slug}`}>
+                    <Badge tone="neutral">{tag.name}</Badge>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
-      {article.faq.length > 0 ? (
-        <section
-          aria-labelledby="faq-heading"
-          className="mt-14 border-t border-line pt-10"
-        >
-          <h2
-            id="faq-heading"
-            className="mb-5 flex items-center gap-2 text-xl font-bold text-ink"
-          >
-            <QuestionIcon
-              className="h-5 w-5 text-primary-ink"
-              aria-hidden="true"
-            />
-            أسئلة شائعة
-          </h2>
+          {article.faq.length > 0 ? (
+            <section
+              aria-labelledby="faq-heading"
+              className="mt-14 border-t border-line pt-10"
+            >
+              <h2
+                id="faq-heading"
+                className="mb-5 flex items-center gap-2 text-xl font-bold text-ink"
+              >
+                <QuestionIcon
+                  className="h-5 w-5 text-primary-ink"
+                  aria-hidden="true"
+                />
+                أسئلة شائعة
+              </h2>
 
-          {/*
+              {/*
             ⚠️ `<details>` الأصليّ لا مطواةٌ بـJavaScript: يفتحُ ويغلقُ بلا شيفرة،
             ويحملُ دورَه ووصولَه من المتصفّح، **ونصُّه في DOM حتّى وهو مطويّ** —
             فيقرؤه الزاحفُ ومحرّكُ الإجابةِ ويجدُه بحثُ الصفحة. مطواةٌ تُصيِّرُ
             الجوابَ عندَ النقرِ تُخفيه عن الثلاثة.
           */}
-          <ul className="space-y-3">
-            {article.faq.map((entry) => (
-              <li key={entry.question}>
-                <details className="group rounded-2xl border border-line bg-surface-raised p-4 transition hover:border-primary/40">
-                  <summary className="flex cursor-pointer items-center justify-between gap-3 font-semibold text-ink">
-                    {entry.question}
-                    <ChevronDownIcon
-                      className="h-4 w-4 shrink-0 text-ink-muted transition-transform duration-200 group-open:rotate-180"
-                      aria-hidden="true"
-                    />
-                  </summary>
-                  <p className="mt-3 leading-relaxed text-ink-muted">
-                    {entry.answer}
-                  </p>
-                </details>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+              <ul className="space-y-3">
+                {article.faq.map((entry) => (
+                  <li key={entry.question}>
+                    <details className="group rounded-2xl border border-line bg-surface-raised p-4 transition hover:border-primary/40">
+                      <summary className="flex cursor-pointer items-center justify-between gap-3 font-semibold text-ink">
+                        {entry.question}
+                        <ChevronDownIcon
+                          className="h-4 w-4 shrink-0 text-ink-muted transition-transform duration-200 group-open:rotate-180"
+                          aria-hidden="true"
+                        />
+                      </summary>
+                      <p className="mt-3 leading-relaxed text-ink-muted">
+                        {entry.answer}
+                      </p>
+                    </details>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
-      {article.faq.length > 0 ? (
-        /*
+          {article.faq.length > 0 ? (
+            /*
           ⚠️ **`FAQPage` يُرسَلُ فقط حينَ يوجدُ القسمُ المرئيّ**، وكلاهما من نفسِ
           المصفوفة. بياناتٌ منظَّمةٌ تصفُ أسئلةً ليست على الصفحةِ مخالفةٌ صريحةٌ
           تُعاقِبُ عليها المحرّكاتُ لا تُكافئ — والزوجُ الناقصُ مُصفّىً في الخلفيّةِ
           قبلَ أن يصلَ أيّاً منهما.
         */
-        <JsonLd
-          data={{
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            mainEntity: article.faq.map((entry) => ({
-              "@type": "Question",
-              name: entry.question,
-              acceptedAnswer: { "@type": "Answer", text: entry.answer },
-            })),
-          }}
-        />
-      ) : null}
+            <JsonLd
+              data={{
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                mainEntity: article.faq.map((entry) => ({
+                  "@type": "Question",
+                  name: entry.question,
+                  acceptedAnswer: { "@type": "Answer", text: entry.answer },
+                })),
+              }}
+            />
+          ) : null}
+        </div>
+      </div>
 
       {article.related_teachers.length > 0 ? (
         <section className="mt-14 border-t border-line pt-10">
