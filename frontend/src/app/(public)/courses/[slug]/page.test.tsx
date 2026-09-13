@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { NotFoundError, type CourseDetail } from "@/lib/public-api";
@@ -96,10 +96,21 @@ describe("the course page's private-session section", () => {
     vi.mocked(publicApi.course).mockResolvedValue({ data: course });
   });
 
+  /*
+    ⚠️ القسمُ صارَ لوحَ تبويبٍ مُغلَقاً بعدَ تصميمِ ٢٠٢٦-٠٩-١٣، فـ«افتحْه ثمّ
+    اقرأْ» شرطٌ للقياسِ لا زينةٌ فيه: التأكيدُ على نصٍّ داخلَ لوحٍ غيرِ نشطٍ
+    يفشلُ لسببٍ لا علاقةَ له بالقاعدةِ التي يحرسُها هذا الملفّ — وهو بالضبطِ ما
+    حدثَ وكشفَتْه هذه الحالاتُ الثلاثُ عندَ أوّلِ تشغيل.
+  */
+  function openPrivateTab() {
+    fireEvent.click(screen.getByRole("tab", { name: /حصة خاصة/ }));
+  }
+
   it("says the teacher declared no hours when the read came back empty", async () => {
     teacher.mockResolvedValue({ data: { availability: [] } });
 
     await renderPage();
+    openPrivateTab();
 
     expect(screen.getByText("لا مواعيد للحصص الخاصة")).toBeDefined();
     expect(screen.queryByText("تعذّر تحميل مواعيد المدرّس")).toBeNull();
@@ -109,6 +120,7 @@ describe("the course page's private-session section", () => {
     teacher.mockRejectedValue(new Error("Marketplace API 500 for /teachers/x"));
 
     await renderPage();
+    openPrivateTab();
 
     expect(screen.getByText("تعذّر تحميل مواعيد المدرّس")).toBeDefined();
     expect(screen.queryByText("لا مواعيد للحصص الخاصة")).toBeNull();
@@ -120,8 +132,23 @@ describe("the course page's private-session section", () => {
     teacher.mockRejectedValue(new NotFoundError("Not found"));
 
     await renderPage();
+    openPrivateTab();
 
     expect(screen.getByText("لا مواعيد للحصص الخاصة")).toBeDefined();
     expect(screen.queryByText("تعذّر تحميل مواعيد المدرّس")).toBeNull();
+  });
+
+  /*
+    ⛔ والقسمُ لا يجوزُ أن يختفيَ خلفَ التبويبِ اختفاءً تامّاً: شريطُ التبويبِ
+    نفسُه هو ما يقولُ إنّ هناكَ حصصاً خاصّةً أصلاً. تبويبٌ مفقودٌ يجعلُ البابَ
+    الوحيدَ للحصّةِ الفرديّةِ غيرَ موجودٍ على الشاشة.
+  */
+  it("keeps the way to the private-session section on the strip", async () => {
+    teacher.mockResolvedValue({ data: { availability: [] } });
+
+    await renderPage();
+
+    expect(screen.getByRole("tab", { name: /حصة خاصة/ })).toBeDefined();
+    expect(screen.getByRole("tab", { name: /المجموعات المتاحة/ })).toBeDefined();
   });
 });

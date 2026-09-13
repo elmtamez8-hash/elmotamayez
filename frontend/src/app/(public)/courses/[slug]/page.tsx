@@ -2,13 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import {
-  BookIcon,
-  ClockIcon,
-  InfoIcon,
-  SessionsIcon,
-  UsersIcon,
-} from "@/components/icons";
+import { BookIcon, ClockIcon, UsersIcon } from "@/components/icons";
 import { CohortList } from "@/components/marketplace/CohortList";
 import { CourseCurriculum } from "@/components/marketplace/CourseCurriculum";
 import {
@@ -16,6 +10,7 @@ import {
   CourseOwnershipProvider,
 } from "@/components/marketplace/CourseOwnership";
 import { CourseRail } from "@/components/marketplace/CourseRail";
+import { CourseTabs } from "@/components/marketplace/CourseTabs";
 import { PrivateSessionRequestForm } from "@/components/courses/PrivateSessionRequestForm";
 import { PromoVideoButton } from "@/components/courses/PromoVideoButton";
 import { StarRating } from "@/components/marketplace/StarRating";
@@ -313,62 +308,61 @@ export default async function CoursePage({
               </section>
             )}
 
-            {course.description && (
-              <section className="flex flex-col gap-3">
-                <SectionHeading Icon={InfoIcon}>عن الكورس</SectionHeading>
-                <p className="max-w-[62ch] whitespace-pre-line text-[0.95rem] leading-loose text-ink-muted">
-                  {course.description}
-                </p>
-              </section>
-            )}
+            {/*
+              ⚠️ ثلاثةُ أقسامٍ صارت شريطاً واحداً، والمنهجُ **بقيَ تحتَه مفتوحاً**.
+              الثلاثةُ أجوبةٌ قصيرةٌ عن «ما هو» و«متى» و«وحدي؟» يُقرَأُ منها واحدٌ
+              في المرّة؛ والمنهجُ هو ما تُفتَحُ الصفحةُ لأجلِه، ودفنُه خلفَ نقرةٍ
+              يجعلُ أطولَ قسمٍ وأهمَّه أقلَّها ظهوراً.
 
-            {/* ⚠️ THE ANCHOR IS THE INBOUND LINK, NOT DECORATION. The teacher's
-                profile lists this teacher's courses and sends each one straight
-                here — a student standing on «الجدول» could see the weekly times
-                and had no way at all to act on them, three clicks and no signpost
-                away from the only two doors that exist. `scroll-mt-24` clears the
-                sticky header, which an unmargined anchor lands underneath. */}
-            <section id="groups" className="flex scroll-mt-24 flex-col gap-4">
-              <SectionHeading Icon={UsersIcon}>المجموعات المتاحة</SectionHeading>
-
-              {course.cohorts.length > 0 ? (
-                <CohortList courseUuid={course.uuid} cohorts={course.cohorts} />
-              ) : (
-                <EmptyState
-                  title="لا مواعيد معلَنة بعد"
-                  description="لم يفتح المدرّس مجموعات لهذا الكورس حتى الآن. تابع صفحته لتعرف حين يفتح موعداً."
-                />
-              )}
-            </section>
-
-            <section className="flex flex-col gap-4">
-              <SectionHeading Icon={SessionsIcon}>حصة خاصة</SectionHeading>
-
-              {availability === null ? (
-                /*
-                 * ⚠️ NOT `ErrorState`'S DEFAULT COPY. It says «تحقّق من اتصالك»,
-                 * and this fetch happened on the SERVER — the visitor's own
-                 * connection demonstrably works, they are reading the page it
-                 * produced.
-                 */
-                <ErrorState
-                  title="تعذّر تحميل مواعيد المدرّس"
-                  description="حدث خطأ أثناء جلب المواعيد المتاحة. أعد المحاولة بعد قليل."
-                />
-              ) : availability.length > 0 ? (
-                <PrivateSessionRequestForm
-                  courseUuid={course.uuid}
-                  availability={availability}
-                  minutes={course.private_session_minutes}
-                  subscriptionAvailable={course.private_subscription_available}
-                />
-              ) : (
-                <EmptyState
-                  title="لا مواعيد للحصص الخاصة"
-                  description="لم يعلن المدرّس مواعيد متاحة بعد. تابع صفحته لتعرف حين يفتح موعداً."
-                />
-              )}
-            </section>
+              و`#groups` — الرابطُ الذي تُلصِقُه صفحةُ المدرّسِ بكلِّ بطاقةِ كورس —
+              يفتحُ تبويبَ المجموعات، فلا يصيرُ مرساةً إلى لوحٍ مخفيّ.
+            */}
+            <CourseTabs
+              groupCount={course.cohorts.length}
+              about={
+                course.description === null ? null : (
+                  <p className="max-w-[62ch] whitespace-pre-line text-[0.95rem] leading-loose text-ink-muted">
+                    {course.description}
+                  </p>
+                )
+              }
+              groups={
+                course.cohorts.length > 0 ? (
+                  <CohortList courseUuid={course.uuid} cohorts={course.cohorts} />
+                ) : (
+                  <EmptyState
+                    title="لا مواعيد معلَنة بعد"
+                    description="لم يفتح المدرّس مجموعات لهذا الكورس حتى الآن. تابع صفحته لتعرف حين يفتح موعداً."
+                  />
+                )
+              }
+              privateSession={
+                availability === null ? (
+                  /*
+                   * ⚠️ NOT `ErrorState`'S DEFAULT COPY. It says «تحقّق من اتصالك»,
+                   * and this fetch happened on the SERVER — the visitor's own
+                   * connection demonstrably works, they are reading the page it
+                   * produced.
+                   */
+                  <ErrorState
+                    title="تعذّر تحميل مواعيد المدرّس"
+                    description="حدث خطأ أثناء جلب المواعيد المتاحة. أعد المحاولة بعد قليل."
+                  />
+                ) : availability.length > 0 ? (
+                  <PrivateSessionRequestForm
+                    courseUuid={course.uuid}
+                    availability={availability}
+                    minutes={course.private_session_minutes}
+                    subscriptionAvailable={course.private_subscription_available}
+                  />
+                ) : (
+                  <EmptyState
+                    title="لا مواعيد للحصص الخاصة"
+                    description="لم يعلن المدرّس مواعيد متاحة بعد. تابع صفحته لتعرف حين يفتح موعداً."
+                  />
+                )
+              }
+            />
 
             <section className="flex flex-col gap-4">
               <SectionHeading Icon={BookIcon}>المنهج</SectionHeading>
