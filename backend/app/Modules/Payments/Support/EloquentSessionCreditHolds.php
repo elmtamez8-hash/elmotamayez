@@ -32,6 +32,7 @@ class EloquentSessionCreditHolds implements SessionCreditHolds
         private readonly CreditAccounts $accounts,
         private readonly PlaceCreditHold $place,
         private readonly SettleCreditHold $settle,
+        private readonly SubscriptionEligibility $subscriptions,
     ) {}
 
     public function place(User $student, int $classSessionId, int $courseId, int $workspaceId): CreditHoldResult
@@ -45,7 +46,57 @@ class EloquentSessionCreditHolds implements SessionCreditHolds
             return new CreditHoldResult(granted: true);
         }
 
-        $balance = $this->accounts->balanceFor($student, $course);
+        /*
+        | ⛔ A SUBSCRIBER FREEZES NOTHING, AND THIS IS THE SAME SEAM THAT WAIVES
+        | THEIR WITHHOLDING (٠١١ · FR-026 · FR-028).
+        |
+        | `ClaimSubscriptionSeats` passes `subscriptionCovered: true` and that is
+        | the deliberate branch T059 asks for — but it covers the AUTOMATION
+        | alone. A subscriber who presses «احجز» on a session themselves reaches
+        | `BookSeat::handle()` directly, and their credit balance is legitimately
+        | zero and stays zero because their seats cost nothing: a hold there
+        | refuses the very first booking of a month they have paid for, which is
+        | word for word the defect `EloquentAccountStanding::isWithheld()` has a
+        | paragraph about.
+        |
+        | Asked through `SubscriptionEligibility::coversCourse()` — the one
+        | spelling — rather than re-derived, because a second answer to «is this
+        | covered» would waive one door and refuse the other.
+        */
+        if ($this->subscriptions->coversCourse((int) $student->getKey(), $courseId)) {
+            return new CreditHoldResult(granted: true);
+        }
+
+        /*
+        | ⛔ NO BALANCE ROW MEANS THERE IS NOTHING TO FREEZE, AND MINTING ONE HERE
+        | INVENTED A SECOND ANSWER TO A QUESTION THE PRODUCT ALREADY ANSWERS.
+        |
+        | `balanceFor()` is a `firstOrCreate`, so asking it turned every student
+        | who had never bought anything into a row at zero — and the hold then
+        | compared that zero against the floor and refused them. In a workspace
+        | that collects cash by hand that is «رصيدك لا يكفي» to somebody whose
+        | teacher takes the money in an envelope, on their FIRST EVER booking.
+        | Measured: nine existing cases across three files, and every one of them
+        | was right.
+        |
+        | The existing spelling of this is `EloquentAccountStanding::isWithheld()`,
+        | which on a missing row falls through to `prepaidWithNoBalance()` — the
+        | student is refused only where the mode forbids deferral — and that
+        | refusal happens UPSTREAM of this call, with a sentence naming a number
+        | and a way to pay. So by the time a booking reaches here with no row, the
+        | product has already decided it is allowed, and the one thing this guard
+        | exists for cannot apply: you cannot double-spend a credit that does not
+        | exist. A funded student always has a row, which is where the arithmetic
+        | bites.
+        |
+        | ⚠️ AND IT IS ALSO A READ THAT MUST NOT WRITE, for the reason
+        | `heldFor()` one method below says in as many words.
+        */
+        $balance = $this->accounts->existingBalanceFor($student, $course);
+
+        if ($balance === null) {
+            return new CreditHoldResult(granted: true);
+        }
 
         if ($this->place->handle($balance, $classSessionId)) {
             return new CreditHoldResult(

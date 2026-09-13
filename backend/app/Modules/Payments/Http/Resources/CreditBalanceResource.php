@@ -52,6 +52,29 @@ class CreditBalanceResource extends JsonResource
             'purchased_credits' => $this->resource->purchased_credits,
             'consumed_credits' => $this->resource->consumed_credits,
             'remaining_credits' => $this->resource->remaining_credits,
+            /*
+            | ٠٣٥ · T064 — OWNED AND AVAILABLE ARE TWO NUMBERS, AND THE STUDENT
+            | READS BOTH.
+            |
+            | `remaining_credits` is what they own; `available_credits` is what
+            | they may still commit, and the difference is every seat they have
+            | already booked. Sent as a pair rather than as one «balance»: a
+            | student who sees «٣ حصص» here and is refused a fourth booking with
+            | no explanation reads the product as broken, which is the exact
+            | shape FR-013 forbids.
+            |
+            | ⚠️ AND THEY ARE COUNTS, NEVER MONEY — the rule this whole payload is
+            | built on.
+            |
+            | ⛔ AND THIS IS THE STUDENT'S OWN PAYLOAD ABOUT THEMSELVES.
+            | `StudentBalanceAllowlist` is a different question entirely — «the
+            | only fields a TEACHER may read about a student's credits» — so
+            | adding these two there would be a decision that a teacher may see
+            | what their student has frozen with OTHER teachers. That decision is
+            | not taken here, and it is not taken by accident.
+            */
+            'held_credits' => (int) $this->resource->held_credits,
+            'available_credits' => (int) $this->resource->remaining_credits - (int) $this->resource->held_credits,
             'credit_limit_credits' => $this->resource->credit_limit_credits,
             'is_withheld' => $withheld,
             /*

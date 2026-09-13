@@ -8,6 +8,8 @@ use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Jobs\SyncTeacherCountersJob;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\SessionCreditHolds;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The lesson that never started, and the missing writer of `Interrupted`.
@@ -53,16 +55,48 @@ class AbandonClassSession extends Action
     /** Written to `interruption_note` when the teacher never opened the room. */
     public const TEACHER_NO_SHOW = 'teacher_no_show';
 
+    public function __construct(private readonly SessionCreditHolds $holds) {}
+
     public function handle(ClassSession $session): ClassSession
     {
-        if ($session->status !== ClassSessionStatus::Scheduled) {
+        /*
+        | ٠٣٥ · T062 — ⛔ THE TRANSITION IS A CONDITIONAL UPDATE, so only the
+        | winner releases and dispatches. This was a read (`!== Scheduled`) and
+        | then a write, and the sweep that calls it walks a page of rows per hour
+        | while a second sweep may already be inside this method — two workers
+        | both reading `scheduled`, both writing, both releasing. The release is
+        | harmless twice (T057 claims `WHERE settled_at IS NULL`); the counter
+        | sync is not free, and a status written twice is a second answer.
+        */
+        $claimed = DB::table('class_sessions')
+            ->where('id', $session->getKey())
+            ->where('status', ClassSessionStatus::Scheduled->value)
+            ->update([
+                'status' => ClassSessionStatus::Interrupted->value,
+                'interruption_note' => self::TEACHER_NO_SHOW,
+                'updated_at' => now(),
+            ]);
+
+        if ($claimed === 0) {
             return $session;
         }
 
+        // The in-memory model does not learn about a conditional UPDATE, and
+        // every caller reads it.
         $session->forceFill([
             'status' => ClassSessionStatus::Interrupted,
             'interruption_note' => self::TEACHER_NO_SHOW,
-        ])->save();
+        ])->syncChanges();
+        $session->setAttribute('status', ClassSessionStatus::Interrupted);
+
+        /*
+        | ⚠️ AND THE STATE WITH NO CLOSE AT ALL. The teacher never opened the
+        | room, so nothing was ever scheduled against this session: no
+        | `CloseClassSessionJob`, no register, no `SessionDelivered` — and
+        | therefore no charge and no verdict. Every seat here is a student who
+        | turned up to nothing, and their credits go back.
+        */
+        $this->holds->release((int) $session->getKey());
 
         SyncTeacherCountersJob::dispatch((int) $session->teacher_profile_id);
 

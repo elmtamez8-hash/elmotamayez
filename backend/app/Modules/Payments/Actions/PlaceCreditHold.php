@@ -64,13 +64,36 @@ class PlaceCreditHold extends Action
     {
         $floor = $this->ledger->floorForBalance($balance);
 
-        $claimed = DB::table('credit_balances')
-            ->where('id', $balance->getKey())
-            ->whereRaw(
+        $claim = DB::table('credit_balances')->where('id', $balance->getKey());
+
+        /*
+        | ⛔ THE ARITHMETIC GUARD APPLIES ONLY WHERE THE BALANCE IS THE GATE, AND
+        | THE FIRST DRAFT REFUSED BOOKINGS THE PRODUCT ALLOWS.
+        |
+        | A workspace that collects cash by hand (`ManualCollection`, or prepaid
+        | with `zero_balance_behavior = remind`) never sells a credit, so its
+        | students sit at zero for ever and `isBlocked()` lets them book anyway —
+        | it falls through to the behaviour, which does not block. Comparing
+        | against the floor regardless refused every one of them at the first
+        | seat: «رصيدك لا يكفي» to a student whose teacher takes the money in an
+        | envelope. Measured — it turned thirteen existing cases red, and the
+        | thirteen were right.
+        |
+        | So the mode decides whether there is anything to enforce, and the
+        | enforcement itself stays one conditional UPDATE. The mode cannot change
+        | inside the race, which is why reading it here in PHP costs the guard
+        | nothing.
+        */
+        $enforced = $floor < 0 || $this->ledger->blocksAtZeroFor($balance);
+
+        if ($enforced) {
+            $claim->whereRaw(
                 'CAST(remaining_credits AS SIGNED) - CAST(held_credits AS SIGNED) - ? >= ?',
                 [$credits, $floor],
-            )
-            ->incrementEach(['held_credits' => $credits], ['updated_at' => now()]);
+            );
+        }
+
+        $claimed = $claim->incrementEach(['held_credits' => $credits], ['updated_at' => now()]);
 
         if ($claimed === 0) {
             return false;

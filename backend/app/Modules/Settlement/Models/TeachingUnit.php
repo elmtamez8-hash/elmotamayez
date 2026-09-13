@@ -41,6 +41,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property ClassSessionType $session_type
  * @property int $amount_minor
  * @property int $frozen_seats
+ * @property int|null $attended_seats ٠٣٥ — who was in the room (display). Null = not judged.
+ * @property int|null $charged_seats ٠٣٥ — the wage base (FR-014). Null = not judged.
  * @property bool $recording_fault
  * @property bool $needs_review
  * @property CarbonInterface $delivered_at
@@ -65,6 +67,11 @@ class TeachingUnit extends BaseModel
         'amount_minor',
         'currency',
         'frozen_seats',
+        // ⚠️ FILLABLE, and that is not paperwork. A column a migration adds and
+        // `$fillable` does not name is discarded by mass assignment in SILENCE —
+        // this tree shipped three of them on `student_profiles` at once.
+        'attended_seats',
+        'charged_seats',
         'basis',
         'status',
         'pending_reason',
@@ -88,6 +95,8 @@ class TeachingUnit extends BaseModel
             'session_type' => ClassSessionType::class,
             'amount_minor' => 'integer',
             'frozen_seats' => 'integer',
+            'attended_seats' => 'integer',
+            'charged_seats' => 'integer',
             'recording_fault' => 'boolean',
             'needs_review' => 'boolean',
             'delivered_at' => 'datetime',

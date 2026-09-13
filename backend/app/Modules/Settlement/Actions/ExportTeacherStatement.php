@@ -120,6 +120,8 @@ class ExportTeacherStatement extends Action
             'status' => $unit->status->value,
             'basis' => $unit->basis->value,
             'frozen_seats' => (string) $unit->frozen_seats,
+            'attended_seats' => (string) $unit->attended_seats,
+            'charged_seats' => (string) $unit->charged_seats,
             'amount_minor' => (string) $unit->amount_minor,
             'currency' => (string) $unit->currency,
         ];

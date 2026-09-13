@@ -8,6 +8,7 @@ use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Support\SessionSettings;
@@ -188,6 +189,37 @@ class ClassSession extends BaseModel
         return $this->bookings()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $user->getKey())
+            ->exists();
+    }
+
+    /**
+     * Did this person's seat here carry a financial right?
+     *
+     * ٠٣٥ · T063. The sibling above answers «is this session any of your
+     * business», which a cancelled seat settles too. This answers the narrower
+     * money question: `Booked` or `CancelledLate` — the seat that is, or was,
+     * paid for. A seat cancelled inside the window and one released by
+     * `ReleaseIneligibleBookings` are both outside it, because neither was ever
+     * charged.
+     *
+     * ⚠️ TWO QUESTIONS, TWO PREDICATES, AND THE WIDER ONE IS NOT NARROWED. The
+     * precedent is one file away: `EloquentSessionAttendanceDirectory` keeps
+     * `ENTITLING` and `occupiesSeat()` apart for exactly this reason — sharing a
+     * constant is how the second answer quietly becomes the first.
+     *
+     * ⛔ AND IT HAS NO READER YET. Written on the owner's instruction
+     * (2026-09-13) rather than the day its caller was written, which is this
+     * repository's rule; `SessionContentController::entitled()` is the nearest
+     * money-shaped door and its width is DELIBERATE — a student who cancelled in
+     * time may still buy the hour, and narrowing it would shut a door they hold
+     * the price of. Anyone reaching for this: prove your door is not that one.
+     */
+    public function heldBillableSeat(User $user): bool
+    {
+        return $this->bookings()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $user->getKey())
+            ->whereIn('status', [BookingStatus::Booked, BookingStatus::CancelledLate])
             ->exists();
     }
 

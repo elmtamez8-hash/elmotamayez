@@ -103,17 +103,28 @@ const SESSION = {
 };
 
 function balanceRow(over: Record<string, unknown> = {}) {
-  return {
+  const row = {
     uuid: "bal-1",
     course: { uuid: "c-1", title: "الفيزياء", teacher_name: "أ. منى" },
     purchased_credits: 10,
     consumed_credits: 4,
     remaining_credits: 6,
+    held_credits: 0,
     credit_limit_credits: 0,
     is_withheld: false,
     credits_needed: 0,
     ...over,
   };
+
+  /*
+   | ٠٣٥ — المتاحُ يتبعُ المملوكَ ما لم تُسمِّه الحالةُ بنفسِها.
+   |
+   | ⚠️ وهذا ليس راحةً في الكتابة: بطاقاتُ لوحةِ التحكّمِ تقرأُ `available_credits`
+   | الآن، وتجهيزةٌ لا تحملُ المفتاحَ تجعلُ كلَّ توكيدٍ على رقمٍ هنا يقيسُ
+   | `undefined` — وهو بالضبط شكلُ العطبِ الذي كلّفَ عرضَ الفتحِ تهجئتَه: نصفانِ
+   | صحيحانِ ولا شيءَ يقيسُ اللُّحمة.
+  */
+  return { available_credits: row.remaining_credits, ...row };
 }
 
 function studentAnswer(overrides: Record<string, unknown> = {}) {
@@ -288,6 +299,15 @@ describe("DashboardPage · الطالب", () => {
     */
     expect(screen.queryByText("٤")).toBeNull();
     expect(screen.getByText(/محجوب/)).toBeDefined();
+
+    /*
+     | ٠٣٥ — والرقمُ المطبوعُ هو المتاحُ فعلاً، لا مفتاحٌ غائبٌ يُرسَمُ فراغاً.
+     |
+     | ⚠️ توكيدُ الغيابِ فوقَه يمرُّ وحدَه على بطاقةٍ لا تطبعُ شيئاً إطلاقاً —
+     | وهو بالضبط ما يحدثُ حينَ يتغيّرُ مفتاحُ الحمولةِ ولا تتغيّرُ التجهيزة.
+     | توكيدٌ موجِبٌ واحدٌ هو الفرقُ بينَ «لا يجمع» و«لا يعرض».
+    */
+    expect(screen.getByText("١٠")).toBeDefined();
   });
 
   it("offers the room only when the server says the door is open", async () => {

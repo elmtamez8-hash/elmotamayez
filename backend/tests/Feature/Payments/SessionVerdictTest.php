@@ -18,6 +18,7 @@ use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Payments\Actions\UnlockSessionContent;
 use App\Modules\Payments\Models\CreditBalance;
+use App\Modules\Payments\Models\CreditHold;
 use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Models\SessionUnlock;
 use App\Modules\Payments\Support\BillingAuditSubjects;
@@ -26,6 +27,7 @@ use App\Modules\Settlement\Models\TeachingUnit;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Contracts\SessionContentAccess;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Spatie\Activitylog\Models\Activity;
 use Tests\Support\FakeBroadcastProvider;
@@ -176,6 +178,39 @@ function verdictTeacherDue(ClassSession $session, User $student): int
         ->sum('amount_minor');
 }
 
+/**
+ * ٠٣٥ · US2 — HOW THE FREEZE ENDED, which is a fourth question and not a
+ * restatement of the third.
+ *
+ * ⛔ AND IT IS ASKED IN EVERY CASE BECAUSE NOTHING ELSE MEASURES THE JOIN.
+ * `CreditHoldLifecycleTest` proves the hold Action and the settle Action in
+ * isolation; delete the `settleHolds()` call out of `ChargeSessionSeats` and
+ * every one of those cases stays green, while `held_credits` never comes down
+ * for anybody who ever attended a lesson. Their available balance then falls by
+ * one per hour for the life of the account, until a student who owns ten credits
+ * can book nothing and no screen in the product can say why.
+ *
+ * The outcome matters as much as the counter: a charged seat and a released one
+ * both leave zero frozen, so a settlement writing the wrong word is invisible to
+ * the counter alone — and `outcome` is what the nightly reconciliation and any
+ * later audit read.
+ */
+function verdictHoldSettled(ClassSession $session, User $student, string $outcome): bool
+{
+    $hold = DB::table('credit_holds')
+        ->where('class_session_id', $session->getKey())
+        ->where('student_user_id', $student->getKey())
+        ->first();
+
+    if ($hold === null || $hold->settled_at === null || $hold->outcome !== $outcome) {
+        return false;
+    }
+
+    return (int) DB::table('credit_balances')
+        ->where('id', $hold->credit_balance_id)
+        ->value('held_credits') === 0;
+}
+
 /** May this student open anything of this session? */
 function verdictContentIsOpen(ClassSession $session, User $student): bool
 {
@@ -196,7 +231,8 @@ it('charges the student who reached the bar, pays the teacher, and opens the hou
     expect(verdictSeatWasCharged($session, $student))->toBeTrue()
         ->and(verdictCreditsSpent($session, $student))->toBe(1)
         ->and(verdictTeacherDue($session, $student))->toBe(5000)
-        ->and(verdictContentIsOpen($session, $student))->toBeTrue();
+        ->and(verdictContentIsOpen($session, $student))->toBeTrue()
+        ->and(verdictHoldSettled($session, $student, CreditHold::OUTCOME_CHARGED))->toBeTrue();
 });
 
 it('charges the silent no-show, pays the teacher, and opens the hour with no second consent', function (): void {
@@ -220,7 +256,8 @@ it('charges the silent no-show, pays the teacher, and opens the hour with no sec
         // of an empty room, and `attended` and `charged` disagreeing is the
         // entire reason there are two columns.
         ->and($session->refresh()->attended_seats)->toBe(0)
-        ->and($session->charged_seats)->toBe(1);
+        ->and($session->charged_seats)->toBe(1)
+        ->and(verdictHoldSettled($session, $student, CreditHold::OUTCOME_CHARGED))->toBeTrue();
 });
 
 it('exempts the excuse the teacher accepted before the room closed, and keeps the content shut', function (): void {
@@ -241,7 +278,12 @@ it('exempts the excuse the teacher accepted before the room closed, and keeps th
         // credit comes back and the teacher's fee does not.
         ->and(verdictTeacherDue($session, $student))->toBe(0)
         // Locked, not opened: the exemption is not a gift of the material.
-        ->and(verdictContentIsOpen($session, $student))->toBeFalse();
+        ->and(verdictContentIsOpen($session, $student))->toBeFalse()
+        // ⚠️ AND THE CREDIT IS GIVEN BACK, not merely left unspent. An exempt
+        // seat whose hold is never settled costs the student the credit anyway —
+        // frozen instead of deducted, which is the same number missing from the
+        // balance they can actually book with.
+        ->and(verdictHoldSettled($session, $student, CreditHold::OUTCOME_RELEASED))->toBeTrue();
 });
 
 it('charges nothing to the student the teacher ejected, and opens it anyway', function (): void {
@@ -280,7 +322,8 @@ it('charges nothing to the student the teacher ejected, and opens it anyway', fu
         ->and(verdictTeacherDue($session, $student))->toBe(0)
         // ⚠️ OPEN WITHOUT CONSENT — the one exempt case whose content is not
         // shut, because the reason they missed it was the teacher's decision.
-        ->and(verdictContentIsOpen($session, $student))->toBeTrue();
+        ->and(verdictContentIsOpen($session, $student))->toBeTrue()
+        ->and(verdictHoldSettled($session, $student, CreditHold::OUTCOME_RELEASED))->toBeTrue();
 });
 
 it('charges nobody at all when the teacher never delivered it', function (): void {
@@ -309,7 +352,17 @@ it('charges nobody at all when the teacher never delivered it', function (): voi
         */
         ->and(verdictContentIsOpen($session, $student))->toBeFalse()
         ->and(app(SessionContentAccess::class)
-            ->unlockOfferFor($student, (int) $session->getKey()))->toBeNull();
+            ->unlockOfferFor($student, (int) $session->getKey()))->toBeNull()
+        /*
+        | ٠٣٥ · T061 — AND THIS LINE IS THE ONLY THING IN THE SUITE THAT MEASURES
+        | THE SEVENTH RELEASE DOOR. Nothing else reaches an undelivered session:
+        | `SessionDelivered` never fires, so no charge settles anything, and no
+        | seat was given up, so none of T060's six doors runs either. Without the
+        | arm in `CloseClassSession` every credit frozen on this hour stays frozen
+        | for ever — and the nightly invariant is GREEN, because the row really is
+        | unsettled and the counter really does match it.
+        */
+        ->and(verdictHoldSettled($session, $student, CreditHold::OUTCOME_RELEASED))->toBeTrue();
 });
 
 // ---------------------------------------------------------------------------
@@ -362,7 +415,19 @@ it('answers differently either side of the cancellation deadline', function (): 
         ->and(verdictSeatWasCharged($tooLate, $late))->toBeTrue()
         ->and(verdictCreditsSpent($tooLate, $late))->toBe(1)
         ->and(verdictTeacherDue($tooLate, $late))->toBe(5000)
-        ->and(verdictContentIsOpen($tooLate, $late))->toBeTrue();
+        ->and(verdictContentIsOpen($tooLate, $late))->toBeTrue()
+        /*
+        | ⛔ AND THE TWO FREEZES END DIFFERENTLY TOO — the sharpest half of T060.
+        | Cancelling IN the window gives the credit back at the press; cancelling
+        | LATE keeps the seat, keeps `is_billable`, and the freeze must survive
+        | until the close charges it. Released early, that credit is free to be
+        | frozen against another hour before the charge lands — and the floor is
+        | switched off in the charge path on purpose, so the balance goes negative
+        | and the student reads as in arrears over a button that did exactly what
+        | it said.
+        */
+        ->and(verdictHoldSettled($inWindow, $early, CreditHold::OUTCOME_RELEASED))->toBeTrue()
+        ->and(verdictHoldSettled($tooLate, $late, CreditHold::OUTCOME_CHARGED))->toBeTrue();
 });
 
 // ---------------------------------------------------------------------------
@@ -426,7 +491,9 @@ it('reads an unanswered reschedule request as notice and a refusal in time as no
         ->and(verdictSeatWasCharged($session, $refusedInTime))->toBeTrue()
         ->and(verdictCreditsSpent($session, $refusedInTime))->toBe(1)
         ->and(verdictTeacherDue($session, $refusedInTime))->toBe(5000)
-        ->and(verdictContentIsOpen($session, $refusedInTime))->toBeTrue();
+        ->and(verdictContentIsOpen($session, $refusedInTime))->toBeTrue()
+        ->and(verdictHoldSettled($session, $unanswered, CreditHold::OUTCOME_RELEASED))->toBeTrue()
+        ->and(verdictHoldSettled($session, $refusedInTime, CreditHold::OUTCOME_CHARGED))->toBeTrue();
 });
 
 // ---------------------------------------------------------------------------

@@ -39,6 +39,11 @@ class ReverseTeachingUnit extends Action
             'amount_minor' => -$original->amount_minor,
             'currency' => (string) $original->currency,
             'frozen_seats' => $original->frozen_seats,
+            // Copied with the rest of the frozen facts. Omitted, a reversal row
+            // reads as «not judged» — the pre-035 era — on a statement beside the
+            // row it reverses, which does carry them.
+            'attended_seats' => $original->attended_seats,
+            'charged_seats' => $original->charged_seats,
             'basis' => $original->basis,
             'status' => TeachingUnitStatus::Reversed,
             'delivered_at' => $original->delivered_at,

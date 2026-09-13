@@ -58,7 +58,11 @@ export function CourseBalancesCard() {
             <p className="text-sm font-medium text-ink">{balance.course.title}</p>
             <p className="text-xs text-ink-muted">{balance.course.teacher_name}</p>
             <p className="mt-1 text-sm text-ink">
-              الحصص المتبقّية: <bdi>{arabicNumber(balance.remaining_credits)}</bdi>
+              {/* ٠٣٥ — المتاحُ لا المملوك: بطاقتانِ تعرضانِ رقمَينِ مختلفَينِ
+                  للكورسِ نفسِه هما جوابانِ لسؤالٍ واحد، وهذا المستودعُ يسمّي تلك
+                  العائلةَ في كلِّ صفحةٍ من قواعدِه. والتفصيلُ — كم مجمَّدٌ ولماذا —
+                  في صفحةِ الأرصدة، حيثُ للجملةِ مكانٌ تقولُ فيه نفسَها. */}
+              الحصص المتاحة: <bdi>{arabicNumber(balance.available_credits)}</bdi>
             </p>
             {balance.is_withheld && (
               <p className="mt-1 text-sm text-danger-ink">

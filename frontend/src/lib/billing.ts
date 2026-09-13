@@ -39,6 +39,21 @@ export interface CreditBalance {
   consumed_credits: number;
   /** Signed: a deferring mode lets this fall below zero, down to the limit. */
   remaining_credits: number;
+  /**
+   * ٠٣٥ — الحصصُ المجمَّدةُ لمقاعدَ محجوزةٍ لم يُبَتَّ فيها بعد.
+   *
+   * الحجزُ يُجمِّدُ ولا يخصم، فالفرقُ بينَ المملوكِ والمتاحِ هو كلُّ مقعدٍ حجزتَه
+   * ولم تأتِ حصّتُه بعد.
+   */
+  held_credits: number;
+  /**
+   * `remaining_credits − held_credits` — **وهذا** ما يُقارَنُ بثمنِ أيِّ حجزٍ أو
+   * فتح.
+   *
+   * ⚠️ يأتي من الخادمِ ولا يُطرَحُ هنا: تهجئتانِ للطرحِ تختلفانِ عندَ أوّلِ
+   * عمودٍ يُضاف، وهذا المستودعُ دفعَ ثمنَ ذلكَ في `credits_needed` نفسِه.
+   */
+  available_credits: number;
   /** How far below zero this balance may go. Zero in prepaid mode. */
   credit_limit_credits: number;
   /** Derived server-side from the balance, the limit, the mode and exam mode. */

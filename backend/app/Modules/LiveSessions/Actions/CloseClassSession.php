@@ -19,6 +19,7 @@ use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
 use App\Modules\LiveSessions\Support\AttendanceLadder;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\SessionCreditHolds;
 use App\Shared\Contracts\SubscriptionDirectory;
 use Illuminate\Support\Facades\DB;
 
@@ -52,6 +53,7 @@ class CloseClassSession extends Action
         private readonly AttendanceLadder $ladder,
         private readonly SessionSettings $settings,
         private readonly SubscriptionDirectory $subscriptions,
+        private readonly SessionCreditHolds $holds,
     ) {}
 
     public function handle(ClassSession $session): ClassSession
@@ -163,6 +165,21 @@ class CloseClassSession extends Action
                 // session, while the sweep re-fetches and answers correctly.
                 $chargedSeats,
             );
+        } else {
+            /*
+            | ٠٣٥ · T061 — ⛔ THE SEVENTH RELEASE DOOR, AND THE ONE NOTHING ELSE
+            | REACHES. The teacher opened the room and left early: the status
+            | becomes `Completed` with `delivered_at` null, so `SessionDelivered`
+            | never fires, nothing charges, no seat is cancelled — and T060's six
+            | doors are all about a seat being GIVEN UP, which this one never is.
+            | Without this line every frozen credit on the hour stays frozen for
+            | ever, and the nightly invariant is GREEN, because the row really is
+            | unsettled and the counter really does match it. The student simply
+            | cannot book with credits they own, and nothing anywhere says why.
+            |
+            | It is FR-008د's fifth row, and three independent reviewers found it.
+            */
+            $this->holds->release((int) $session->getKey());
         }
 
         SessionCompleted::dispatch($session);

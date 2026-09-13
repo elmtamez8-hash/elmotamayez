@@ -12,6 +12,7 @@ use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Events\CreditConsumed;
 use App\Modules\Payments\Models\CreditBalance;
+use App\Modules\Payments\Models\CreditHold;
 use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Models\SessionUnlock;
 use App\Modules\Payments\Models\Subscription;
@@ -78,6 +79,7 @@ class ChargeSessionSeats extends Action
         private readonly ExamMode $examMode,
         private readonly SubscriptionEligibility $subscriptions,
         private readonly UnlockSessionContent $unlock,
+        private readonly SettleCreditHold $settle,
     ) {}
 
     /** @return list<CreditTransaction> */
@@ -101,6 +103,21 @@ class ChargeSessionSeats extends Action
         $seatHolders = $this->seatHolders($session);
 
         if ($seatHolders === []) {
+            /*
+            | ٠٣٥ — AND ANY STRAGGLER FREEZE GOES BACK BEFORE THE STAMP.
+            |
+            | A hold should not be able to outlive its seat — every door that
+            | releases a seat settles it — but this is the last moment anything
+            | looks at this session, and after the stamp the sweep never returns
+            | to it. Two statements on a path that almost never runs, against a
+            | credit frozen for the life of the account if it ever does.
+            |
+            | The branch ABOVE this one needs no such line: a session with no
+            | course never had a hold at all, because both writers skip it —
+            | `BookSeat::freezeCredit()` and the adapter's own null-course arm.
+            */
+            $this->settle->handle((int) $session->getKey(), CreditHold::OUTCOME_RELEASED);
+
             // Nobody held a seat, so there is nothing to charge and nothing to
             // repair. Stamped, or the sweep picks this session up every fifteen
             // minutes for the life of the product.
@@ -311,6 +328,31 @@ class ChargeSessionSeats extends Action
             );
         }
 
+        /*
+        | ٠٣٥ — ⛔ AND THE FREEZE ENDS HERE, WITH THE VERDICT THAT ENDED IT.
+        |
+        | This is where a hold stops being a hold: the charged seats spent their
+        | credit through the ledger a few lines above, and the exempt ones — an
+        | excused absence, an ejection, a subscription, a session nobody judged —
+        | get theirs back. Left out, `held_credits` never comes down for anybody
+        | who ever attended: their available balance falls by one per lesson for
+        | the life of the account, until a student who owns ten credits can book
+        | nothing and no screen in the product can say why. It is what the fourth
+        | nightly invariant would report the following night, by which time a
+        | week of traffic sits between the cause and the alert.
+        |
+        | ⚠️ TWO BULK CALLS, NOT ONE PER SEAT, and each is two statements
+        | whatever the room size — the shape the contract was written in. And
+        | they are ABSOLUTE and claimed (`WHERE settled_at IS NULL`), so the
+        | sweep re-charging a session that threw mid-loop settles nothing twice.
+        |
+        | ⚠️ AND THEY RUN BEFORE `stamp()`, for the same reason the stamp is last:
+        | a throw here leaves the session unstamped, `ChargeUnbilledDeliveriesJob`
+        | picks it up again, and the entries already written are refused by their
+        | idempotency key while the holds are settled on the second pass.
+        */
+        $this->settleHolds($session, $balances, $chargedSeatIds);
+
         // AFTER the whole loop, never per seat. A throw partway through leaves
         // the stamp unwritten, the sweep picks the session up again, and the
         // seats already charged are refused by their idempotency key rather than
@@ -319,6 +361,35 @@ class ChargeSessionSeats extends Action
         $this->stamp($session);
 
         return $entries;
+    }
+
+    /**
+     * End every freeze on this session, charged or released.
+     *
+     * @param  EloquentCollection<int, CreditBalance>  $balances
+     * @param  array<int, int>|null  $chargedSeatIds  null means «not judged» —
+     *                                                the pre-035 fallback,
+     *                                                which charges every seat
+     */
+    private function settleHolds(ClassSession $session, EloquentCollection $balances, ?array $chargedSeatIds): void
+    {
+        $seatIds = array_values($balances
+            ->map(static fn (CreditBalance $balance): int => (int) $balance->student_user_id)
+            ->all());
+
+        $charged = $chargedSeatIds === null
+            ? $seatIds
+            : array_values(array_intersect($seatIds, $chargedSeatIds));
+
+        $released = array_values(array_diff($seatIds, $charged));
+
+        if ($charged !== []) {
+            $this->settle->handle((int) $session->getKey(), CreditHold::OUTCOME_CHARGED, $charged);
+        }
+
+        if ($released !== []) {
+            $this->settle->handle((int) $session->getKey(), CreditHold::OUTCOME_RELEASED, $released);
+        }
     }
 
     /**

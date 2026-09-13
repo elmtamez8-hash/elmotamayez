@@ -12,6 +12,7 @@ use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\LiveSessions\Support\BookingEligibility;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\CohortDirectory;
+use App\Shared\Contracts\SessionCreditHolds;
 use DomainException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +40,7 @@ class BookSeat extends Action
     public function __construct(
         private readonly BookingEligibility $eligibility,
         private readonly CohortDirectory $cohorts,
+        private readonly SessionCreditHolds $holds,
     ) {}
 
     public function handle(ClassSession $session, User $student): SessionBooking
@@ -61,6 +63,15 @@ class BookSeat extends Action
      * defect this repository has paid for six times. The claim below is the one
      * that runs for both doors.
      *
+     * ⚠️ `$subscriptionCovered` IS NOT THAT FLAG, AND THE DIFFERENCE IS WHAT IT
+     * SELECTS. The rule above is about the DOOR — which refusal is asked — and
+     * that stays a named method. This one says who already PAID for the hour,
+     * which is a fact about the seat rather than a choice of question, and it
+     * cannot be a fourth entry point because it cuts across this one: the same
+     * `claimGrantedSeat()` serves a subscriber (their month bought it) and a
+     * teacher granting a private request (the student pays in credits like
+     * anybody else). Passed by NAME at every call site, so it reads there.
+     *
      * ⚠️ AND IT ASKS `refusalReason()`, NOT `openingRefusal()`. The unlock gate
      * (008 · FR-036) governs the next lesson on a course PATH; a private hour is
      * what a student asks for precisely because they are behind on it, so asking
@@ -69,11 +80,19 @@ class BookSeat extends Action
      * decided. The money and enrolment conditions are asked, because those the
      * teacher cannot waive.
      */
-    public function claimGrantedSeat(ClassSession $session, User $student): SessionBooking
-    {
+    public function claimGrantedSeat(
+        ClassSession $session,
+        User $student,
+        bool $subscriptionCovered = false,
+    ): SessionBooking {
         $this->assertBookable($session);
 
-        return $this->claim($session, $student, $this->eligibility->refusalReason($session, $student));
+        return $this->claim(
+            $session,
+            $student,
+            $this->eligibility->refusalReason($session, $student),
+            $subscriptionCovered,
+        );
     }
 
     /**
@@ -99,8 +118,11 @@ class BookSeat extends Action
      * race as well: a seat re-booked by hand a millisecond earlier affects zero
      * rows here and the claimed capacity goes straight back.
      */
-    public function reviveReleasedSeat(ClassSession $session, User $student): SessionBooking
-    {
+    public function reviveReleasedSeat(
+        ClassSession $session,
+        User $student,
+        bool $subscriptionCovered = false,
+    ): SessionBooking {
         $this->assertBookable($session);
 
         $refusal = $this->eligibility->refusalReason($session, $student);
@@ -109,7 +131,7 @@ class BookSeat extends Action
             throw new DomainException($refusal);
         }
 
-        return DB::transaction(function () use ($session, $student): SessionBooking {
+        return DB::transaction(function () use ($session, $student, $subscriptionCovered): SessionBooking {
             $this->claimCapacity($session);
 
             $revived = SessionBooking::query()
@@ -145,6 +167,11 @@ class BookSeat extends Action
                 throw new DomainException('تعذّر استرجاع المقعد.');
             }
 
+            // A revived seat freezes a credit exactly as a fresh one does — and
+            // the row it reuses is why `credit_holds` carries `hold_seq`: the
+            // first hold was settled when the seat was taken away.
+            $this->freezeCredit($session, $student, $subscriptionCovered);
+
             return $booking;
         });
     }
@@ -160,13 +187,17 @@ class BookSeat extends Action
         }
     }
 
-    private function claim(ClassSession $session, User $student, ?string $refusal): SessionBooking
-    {
+    private function claim(
+        ClassSession $session,
+        User $student,
+        ?string $refusal,
+        bool $subscriptionCovered = false,
+    ): SessionBooking {
         if ($refusal !== null) {
             throw new DomainException($refusal);
         }
 
-        return DB::transaction(function () use ($session, $student): SessionBooking {
+        return DB::transaction(function () use ($session, $student, $subscriptionCovered): SessionBooking {
             $this->claimCapacity($session);
 
             try {
@@ -187,12 +218,67 @@ class BookSeat extends Action
                 throw new DomainException('لديك مقعد محجوز في هذه الحصة بالفعل.');
             }
 
+            // ⛔ AFTER THE BOOKING ROW AND BEFORE THE COMMIT. Placed above the
+            // insert, two workers racing for the last seat both compute
+            // `hold_seq = 0` and the second violates the hold index — which the
+            // catcher above does not cover, because it is written for the SEAT
+            // index and answers «لديك مقعد محجوز» about a seat nobody holds.
+            $this->freezeCredit($session, $student, $subscriptionCovered);
+
             $this->fileUnderTheStudentsOwnGroup($session, $student);
 
             $session->refresh();
 
             return $booking;
         });
+    }
+
+    /**
+     * ٠٣٥ · T058 — freeze one credit for this seat, or give the seat back.
+     *
+     * ⛔ INSIDE THE BOOKING'S OWN TRANSACTION, WHICH IS THE WHOLE REASON THE HOLD
+     * IS A CONTRACT AND NOT AN EVENT. A listener runs after the commit, by which
+     * time the seat is sold — so a refusal has to throw from in here, where the
+     * rollback hands the seat back in the same statement that took it.
+     *
+     * ⛔ AND A SUBSCRIPTION SEAT NEVER REACHES IT. The subscriber's month has
+     * already paid for the hour and they hold no credit balance to freeze, so a
+     * hold here would refuse them a seat they own (٠٢٧ · FR-041). The branch that
+     * decides is at the CALL SITE — `ClaimSubscriptionSeats` — and not a guess
+     * made here: `claimGrantedSeat()` also serves a teacher granting a private
+     * request, where the student pays in credits like anybody else, so «granted»
+     * and «covered» are two different facts about one door.
+     *
+     * ⚠️ AND A REFUSAL IS A SENTENCE, never a bare «no». The contract answers
+     * what is available and when the soonest frozen credit comes back, because a
+     * refusal a student can do nothing with is the shape FR-013 forbids.
+     */
+    private function freezeCredit(ClassSession $session, User $student, bool $subscriptionCovered): void
+    {
+        if ($subscriptionCovered || $session->course_id === null) {
+            return;
+        }
+
+        $result = $this->holds->place(
+            $student,
+            (int) $session->getKey(),
+            (int) $session->course_id,
+            (int) $session->workspace_id,
+        );
+
+        if ($result->granted) {
+            return;
+        }
+
+        $back = $result->firstReleaseAt === null
+            ? null
+            : (date_create_immutable($result->firstReleaseAt) ?: null)?->format('Y-m-d H:i');
+
+        throw new DomainException(
+            $back === null
+                ? 'رصيدك لا يكفي لحجز هذه الحصة. اشترِ رصيداً من صفحة الأرصدة.'
+                : "رصيدك محجوزٌ لحصصٍ أخرى. أوّل ما يعود منه بعد انتهاء حصة {$back}، أو اشترِ رصيداً من صفحة الأرصدة.",
+        );
     }
 
     /**

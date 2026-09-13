@@ -41,7 +41,19 @@ class SessionUnlock extends BaseModel
     /** Removed by the teacher mid-lesson: the hour was taken from them. */
     public const REASON_REMOVED_FROM_ROOM = 'removed_from_room';
 
-    /** The silent no-show was charged, so the content is theirs already. */
+    /**
+     * The silent no-show was charged, so the content is theirs already.
+     *
+     * ⛔ DECLARED AND DELIBERATELY NEVER WRITTEN (T043, 2026-09-13). It is
+     * redundant by construction: a charged seat carries `credit_verdict_at`, and
+     * the gate's second query opens the hour from that column alone — so a row
+     * here would be a second answer to a question already answered, and the two
+     * would disagree the first time one of them was corrected.
+     *
+     * The constant stays because the column's vocabulary is the spec's (T004) and
+     * a value absent from the class is a value the next writer invents as a
+     * string. Anybody about to write it: read `openableSessionIds()` first.
+     */
     public const REASON_CHARGED_ABSENCE = 'charged_absence';
 
     protected $fillable = [

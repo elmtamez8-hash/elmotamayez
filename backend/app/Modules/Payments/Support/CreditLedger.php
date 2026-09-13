@@ -195,6 +195,24 @@ class CreditLedger
      * workspace behind it, and the resolving version is what keeps FR-013's "one
      * place reads the billing decision" true at the call sites.
      */
+    /**
+     * ٠٣٥ — does a ZERO balance stop this student booking in this workspace?
+     *
+     * ⚠️ ASKED BY THE HOLD, AND ONLY BY IT. A freeze is a guard on the
+     * arithmetic, and in a workspace that collects cash by hand there is no
+     * arithmetic to guard: every student sits at zero for ever and books
+     * perfectly legitimately (`isBlocked()` falls through to the behaviour,
+     * which does not block). Comparing against the floor there refuses a booking
+     * the product allows — measured, thirteen existing cases.
+     *
+     * The behaviour is read through `BillingSettings` like every other billing
+     * decision (FR-013): one place reads it, and this is not a second one.
+     */
+    public function blocksAtZeroFor(CreditBalance $balance): bool
+    {
+        return $this->settings->zeroBalanceBehavior($balance->workspace)->blocks();
+    }
+
     public function isBlockedForBalance(CreditBalance $balance, int $floor): bool
     {
         return $this->isBlocked(

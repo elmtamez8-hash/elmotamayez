@@ -58,7 +58,19 @@ export interface TeachingUnit {
   basis: string;
   amount_minor: number;
   currency: string;
+  /**
+   * Three numbers about one hour, and they answer three different questions:
+   * seats held when the cancellation window shut, who was actually in the room,
+   * and how many of those seats were charged.
+   *
+   * ⛔ THE LAST ONE IS THE WAGE BASE (٠٣٥ · FR-014). `frozen_seats` used to be,
+   * and a screen that shows only it tells the teacher they were paid on a number
+   * they were not. Null on anything delivered before that shipment — «not
+   * judged», which renders as «—» and never as zero.
+   */
   frozen_seats: number;
+  attended_seats: number | null;
+  charged_seats: number | null;
   /** What the package is still missing. Null once nothing is. */
   pending_reason: string | null;
   recording_fault: boolean;
