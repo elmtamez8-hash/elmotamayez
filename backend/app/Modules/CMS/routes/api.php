@@ -26,6 +26,12 @@ use Illuminate\Support\Facades\Route;
 */
 Route::middleware('throttle:public')->group(function (): void {
     Route::get('/public/articles', [PublicArticleController::class, 'index']);
+    /*
+    | أبوابُ التصفّح. **فوقَ** مسارِ الـslug عمداً: `{slug}` نمطُه `[^/]+` — لأنّ
+    | السلَغَ عربيّ، ونمطٌ أضيقُ يُنتِجُ ‏٤٠٤ لكلِّ مقالٍ على المنصّة — فهو يبتلعُ
+    | أيَّ جزءٍ يأتي بعدَه، و`article-topics` تحتَه تُقرَأُ سلَغَ مقالٍ لا يوجد.
+    */
+    Route::get('/public/article-topics', [PublicArticleController::class, 'topics']);
     // No `->where()` on the slug: it is Arabic and arrives percent-encoded, so
     // the default `[^/]+` matches it and an `[a-z0-9-]+` pattern — the reflex
     // when a segment is called «slug» — would 404 every article on the platform.

@@ -6,6 +6,7 @@ namespace App\Modules\CMS\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\CMS\Actions\ListPublicArticles;
+use App\Modules\CMS\Actions\ListPublicArticleTopics;
 use App\Modules\CMS\Actions\ReadPublicArticle;
 use App\Modules\CMS\Http\Resources\PublicArticleResource;
 use App\Modules\Marketplace\Actions\Public\RelatedTeachers;
@@ -42,6 +43,18 @@ class PublicArticleController extends Controller
         );
 
         return response()->json(PublicArticleResource::collection($page)->response()->getData(true));
+    }
+
+    /**
+     * أبوابُ التصفّحِ في الفهرس: التصنيفاتُ والوسومُ التي لها مقالٌ منشور.
+     *
+     * ⚠️ بلا تصفيح، وبلا مُعامِلات. الجوابُ هو المدوّنةُ كلُّها في سطرَينِ من
+     * الشرائح، وصفحةٌ ثانيةٌ من التصنيفاتِ شريطُ تصفّحٍ لا يُتصفَّح. السقفُ على
+     * الوسومِ داخلَ الإجراءِ لأنّه قرارُ عرضٍ لا قرارُ طلب.
+     */
+    public function topics(ListPublicArticleTopics $topics): JsonResponse
+    {
+        return response()->json(['data' => $topics->handle()]);
     }
 
     /**

@@ -1,7 +1,12 @@
 import Link from "next/link";
 import type { ArticleCard as Article } from "@/lib/public-api";
 import { formatDate } from "@/lib/labels";
-import { ChevronStartIcon, DocumentIcon, TagIcon } from "@/components/icons";
+import {
+  ChevronStartIcon,
+  DocumentIcon,
+  SparkIcon,
+  TagIcon,
+} from "@/components/icons";
 
 /**
  * بطاقةُ مقالٍ في المدوّنة.
@@ -37,11 +42,28 @@ export function ArticleCard({
   /** أوّلُ مقالٍ في الصفحةِ الأولى: أعرضُ وأكبرُ خطّاً. */
   featured?: boolean;
 }) {
+  /*
+    ⚠️ **الصدارةُ عمودانِ لا صورةٌ فوقَ نصّ، والسببُ قياس.** الشكلُ الأوّلُ كانَ
+    شريطاً ‏٢١:٩ بعرضِ الصفحةِ — نحوَ ‏٤٩٠ بكسلاً من الرسمِ فوقَ العنوان، فيبدأُ
+    الفهرسُ بصورةٍ وحدَها ويسقطُ أوّلُ مقالٍ وباقي الشبكةِ تحتَ الطيّة. وعمودانِ
+    يجعلانِ الصورةَ والعنوانَ يُقرآنِ معاً، ويُعيدانِ القصَّ إلى ‏١٦:٩ — وهو مقاسُ
+    الأغلفةِ نفسُه، فلا يُقصُّ منها شيءٌ أصلاً.
+    ⚠️ وبلا غلافٍ تبقى عموداً واحداً: نصفُ بطاقةٍ فارغٌ بجانبِ نصٍّ أسوأُ من نصٍّ
+    بعرضِ البطاقة، وأغلبُ ما يكتبُه المدرّسونَ من اللوحةِ بلا غلاف.
+  */
+  const wide = featured && article.cover_url !== null;
+
   return (
-    <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-surface-raised transition duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg active:translate-y-0 active:duration-100">
+    <article
+      className={`group relative flex h-full overflow-hidden rounded-3xl border border-line bg-surface-raised transition duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg active:translate-y-0 active:duration-100 ${
+        wide ? "flex-col lg:grid lg:grid-cols-[1.05fr_1fr]" : "flex-col"
+      }`}
+    >
       {article.cover_url ? (
         <div
-          className={`relative overflow-hidden bg-primary-soft ${featured ? "aspect-[21/9]" : "aspect-video"}`}
+          className={`relative overflow-hidden bg-primary-soft ${
+            wide ? "aspect-[16/10] lg:aspect-auto lg:h-full lg:min-h-80" : "aspect-video"
+          }`}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -57,6 +79,18 @@ export function ArticleCard({
       ) : null}
 
       <div className={`flex h-full flex-col p-6 ${featured ? "sm:p-8" : ""}`}>
+        {featured ? (
+          /*
+            شارةٌ لا رقم: «٠١» فوقَ مقالٍ تقولُ إنّ هناك ترتيباً يُتبَع، والمدوّنةُ
+            قائمةٌ بالأحدثِ لا سلسلةٌ تُقرَأُ بالترتيب. وهي نصٌّ مقروءٌ لا لونٌ
+            وحدَه، فالتمييزُ بالحجمِ لا يصلُ قارئَ الشاشة.
+          */
+          <p className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary-ink">
+            <SparkIcon className="h-4 w-4" aria-hidden="true" />
+            أحدث مقال
+          </p>
+        ) : null}
+
         <div className="mb-4 flex items-center gap-3">
           {article.cover_url ? null : (
             <span

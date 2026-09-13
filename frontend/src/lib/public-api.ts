@@ -320,6 +320,19 @@ export type HomePayload = {
 
 export type ArticleTaxonomy = { slug: string; name: string };
 
+/**
+ * تصنيفٌ أو وسمٌ في شريطِ تصفّحِ المدوّنة، ومعه عددُ ما تحتَه.
+ *
+ * ⚠️ العددُ يأتي من الخادمِ ولا يُحسَبُ من الصفحةِ المعروضة: الفهرسُ يعرضُ اثنَي
+ * عشرَ مقالاً، فعدٌّ مبنيٌّ عليها يقولُ «٣» عن تصنيفٍ تحتَه ثلاثون.
+ */
+export type ArticleTopic = ArticleTaxonomy & { articles_count: number };
+
+export type ArticleTopics = {
+  categories: ArticleTopic[];
+  tags: ArticleTopic[];
+};
+
 export type ArticleCard = {
   uuid: string;
   slug: string;
@@ -469,6 +482,13 @@ export const publicApi = {
    */
   articles: (params: Record<string, string | undefined> = {}) =>
     get<Paginated<ArticleCard>>("/public/articles", params),
+
+  /*
+   * أبوابُ التصفّح. بلا مُعامِلات: الجوابُ هو المدوّنةُ كلُّها في سطرَينِ من
+   * الشرائح، والسقفُ على الوسومِ يُقرَّرُ في الخادمِ لأنّه قرارُ عرضٍ واحدٌ
+   * لكلِّ قارئ.
+   */
+  articleTopics: () => get<{ data: ArticleTopics }>("/public/article-topics"),
 
   // `encodeURIComponent` because the slugs are Arabic: an unencoded one is not a
   // legal request target, and the path segment is the whole address here.
