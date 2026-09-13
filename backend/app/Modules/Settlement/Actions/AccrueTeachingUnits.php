@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Settlement\Actions;
 
-use App\Modules\LiveSessions\Enums\AttendanceSource;
-use App\Modules\LiveSessions\Enums\AttendanceStatus;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
@@ -43,8 +41,12 @@ class AccrueTeachingUnits extends Action
      * @param  list<int>  $subscriptionSeats  seat holders a duration package already paid for
      * @return list<TeachingUnit>
      */
-    public function handle(ClassSession $session, int $billableSeats, array $subscriptionSeats = []): array
-    {
+    public function handle(
+        ClassSession $session,
+        int $billableSeats,
+        array $subscriptionSeats = [],
+        ?int $chargedSeats = null,
+    ): array {
         $seatHolderIds = $this->seatHolderIds($session);
 
         if ($seatHolderIds === [] || $billableSeats === 0) {
@@ -82,6 +84,25 @@ class AccrueTeachingUnits extends Action
         */
         $attended = $subscriptionSeats === [] ? [] : $this->attendedStudentIds($session);
 
+        /*
+        | ٠٣٥ · T070 · FR-014 — WHO THE TEACHER IS PAID FOR.
+        |
+        | The frozen per-seat verdict, read from the column that carries it:
+        | `attendances.credit_verdict_at` stamped means THIS SEAT WAS CHARGED —
+        | the attender, the silent no-show and the late canceller — and null
+        | means exempt. One column, two readers, no second derivation: Payments
+        | charges from it and Settlement pays from it, so the two halves of one
+        | hour cannot drift apart.
+        |
+        | ⛔ AND `$chargedSeats === null` IS «NOT JUDGED», WHICH MEANS THE PRE-035
+        | RULE VERBATIM — every seat holder earns. A session delivered before this
+        | shipment, or inside the deploy window in which the code is up and the
+        | migration is not, has no verdict to read; treating an absent column as
+        | «nobody was charged» would pay every teacher on the platform nothing for
+        | every lesson they had already taught.
+        */
+        $charged = $chargedSeats === null ? null : $this->chargedStudentIds($session);
+
         $missing = $this->package->missingReason($session);
         $mismatch = count($seatHolderIds) !== $billableSeats;
         $units = [];
@@ -100,7 +121,24 @@ class AccrueTeachingUnits extends Action
             | no idea what a subscription is beyond «a seat already paid for».
             */
             $bySubscription = in_array($studentUserId, $subscriptionSeats, true);
-            $earns = ! $bySubscription || in_array($studentUserId, $attended, true);
+
+            /*
+            | ⚠️ THE SUBSCRIBER IS STILL JUDGED BY ATTENDANCE AND NOT BY THE
+            | CHARGE, and the two really do differ for exactly this person. A
+            | subscriber's month has already paid, so their seat is «chargeable»
+            | in the register whether or not they appeared — reading the charge
+            | here would pay the teacher for twelve people who were never in the
+            | room, which is the product decision of 2026-09-05 inverted.
+            |
+            | Everybody else earns when their seat was CHARGED: the silent
+            | no-show costs the teacher the whole hour and pays for it, and the
+            | student who gave notice pays nothing and earns the teacher nothing.
+            */
+            $earns = match (true) {
+                $bySubscription => in_array($studentUserId, $attended, true),
+                $charged === null => true,
+                default => in_array($studentUserId, $charged, true),
+            };
 
             $unit = $this->accrueOne(
                 $session,
@@ -150,12 +188,34 @@ class AccrueTeachingUnits extends Action
      */
     private function attendedStudentIds(ClassSession $session): array
     {
+        /*
+        | ٠٣٥ · T070 — MEASURED, NEVER MARKED.
+        |
+        | ⛔ THE OLD PREDICATE LET A TEACHER DECIDE THEIR OWN PAY. It read
+        | `status IN (Present, Late)` with `Manual` in the source allowlist, so a
+        | teacher typing «حاضر» on a subscriber's row after the lesson moved money
+        | towards themselves — which FR-004 and T027 forbid in as many words, and
+        | which is the whole reason `credit_verdict_at` is frozen from the stay
+        | rather than from the mark.
+        |
+        | `first_joined_at` is written by `RecordPresencePing` alone — a heartbeat
+        | against our own route, from inside the room — so it is a fact nobody can
+        | type. It is also exactly the question the 2026-09-05 decision asks:
+        | «who TURNED UP», not «who stayed long enough». The stay bar is the
+        | STUDENT'S charge and is deliberately not reused here: a subscriber who
+        | sat for twenty minutes of an hour was in the room and the teacher taught
+        | them, while the same twenty minutes does not reach the bar that decides
+        | what a paying student is charged. Two questions, two predicates.
+        |
+        | ⚠️ AND IT NEEDS NO ERA BRANCH. The column has been written since ٠٠٥, so
+        | a session delivered before ٠٣٥ answers it exactly as one delivered
+        | after.
+        */
         $attended = Attendance::query()
             ->withoutWorkspaceScope()
             ->where('class_session_id', $session->getKey())
             ->excludingHost($session)
-            ->whereIn('status', [AttendanceStatus::Present->value, AttendanceStatus::Late->value])
-            ->whereIn('source', [AttendanceSource::Automatic->value, AttendanceSource::Manual->value])
+            ->whereNotNull('first_joined_at')
             ->pluck('student_user_id')
             ->map(static fn (mixed $id): int => (int) $id)
             ->unique()
@@ -163,6 +223,30 @@ class AccrueTeachingUnits extends Action
             ->all();
 
         return array_values($attended);
+    }
+
+    /**
+     * Whose seat was CHARGED — the frozen verdict, per seat (٠٣٥ · FR-014).
+     *
+     * ⚠️ `excludingHost()` FOR THE REASON IT EXISTS: the teacher has an attendance
+     * row on purpose (`CloseClassSession` judges delivery from it), so a query
+     * without it would hand them an extra teaching unit for attending their own
+     * lesson, in every session, for ever.
+     *
+     * @return list<int>
+     */
+    private function chargedStudentIds(ClassSession $session): array
+    {
+        return Attendance::query()
+            ->withoutWorkspaceScope()
+            ->where('class_session_id', $session->getKey())
+            ->excludingHost($session)
+            ->whereNotNull('credit_verdict_at')
+            ->pluck('student_user_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

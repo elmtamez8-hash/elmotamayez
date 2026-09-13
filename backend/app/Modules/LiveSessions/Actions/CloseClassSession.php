@@ -78,9 +78,23 @@ class CloseClassSession extends Action
         $verdict = null;
 
         $claimed = DB::transaction(function () use ($session, &$verdict): int {
-            $verdict = $this->completeRegister($session);
-
+            /*
+            | ⛔ DELIVERY IS JUDGED **BEFORE** THE REGISTER, not after, and the
+            | order is what makes FR-008د's last row true: «الحصّةُ لم تُسلَّمْ ⇒
+            | يعودُ حجزُه ⇒ لا محتوى أصلاً». Written the other way round, a
+            | session the teacher never turned up to still stamped
+            | `credit_verdict_at` on every silent no-show — the column says the
+            | seat was CHARGED, `ChargeSessionSeats` never ran because
+            | `SessionDelivered` never fired, and the content gate opened an hour
+            | that did not happen to a student who paid nothing for it.
+            |
+            | Safe to reorder: `wasDelivered()` reads the HOST's attendance row,
+            | which the heartbeat wrote and `completeRegister()` never touches —
+            | that loop walks seat holders, and the teacher holds no booking.
+            */
             $delivered = $this->wasDelivered($session) ? now() : null;
+
+            $verdict = $this->completeRegister($session, $delivered !== null);
 
             $claimed = DB::table('class_sessions')
                 ->where('id', $session->getKey())
@@ -184,7 +198,7 @@ class CloseClassSession extends Action
      *
      * @return array{attended: int, charged: int, bar: int}
      */
-    private function completeRegister(ClassSession $session): array
+    private function completeRegister(ClassSession $session, bool $delivered = true): array
     {
         $seats = $session->bookings()
             ->whereIn('status', [BookingStatus::Booked, BookingStatus::CancelledLate])
@@ -248,7 +262,11 @@ class CloseClassSession extends Action
                 || $attendance->removed_at !== null
                 || in_array((int) $seat->student_user_id, $notified, true);
 
-            $chargeable = $reached || ! $exempt;
+            // ⛔ AND NOT ONE SEAT IS CHARGED ON A SESSION THAT WAS NOT
+            // DELIVERED. Delivery is the premise of the whole charge (FR-025أ);
+            // ٠٣٥ narrows who pays WITHIN a delivered hour and never creates a
+            // charge where there was none.
+            $chargeable = $delivered && ($reached || ! $exempt);
 
             if ($reached) {
                 $attended++;

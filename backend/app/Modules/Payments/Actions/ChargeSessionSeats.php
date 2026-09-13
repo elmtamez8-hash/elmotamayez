@@ -13,6 +13,7 @@ use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Events\CreditConsumed;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditTransaction;
+use App\Modules\Payments\Models\SessionUnlock;
 use App\Modules\Payments\Models\Subscription;
 use App\Modules\Payments\Support\BalanceAnnouncer;
 use App\Modules\Payments\Support\CreditAccounts;
@@ -20,6 +21,7 @@ use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Payments\Support\ExamMode;
 use App\Modules\Payments\Support\SubscriptionEligibility;
 use App\Shared\Actions\Action;
+use DomainException;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -75,6 +77,7 @@ class ChargeSessionSeats extends Action
         private readonly BalanceAnnouncer $announcer,
         private readonly ExamMode $examMode,
         private readonly SubscriptionEligibility $subscriptions,
+        private readonly UnlockSessionContent $unlock,
     ) {}
 
     /** @return list<CreditTransaction> */
@@ -240,6 +243,26 @@ class ChargeSessionSeats extends Action
                 ->map(static fn (mixed $id): int => (int) $id)
                 ->all();
 
+        /*
+        | ٠٣٥ · T043 — WHO IS EJECTED, read here because FR-036 is a money rule.
+        | «إخراج» must not become an indirect deduction button, and the student
+        | must not be punished twice: removed from the room AND locked out of
+        | what the room produced.
+        */
+        $removedIds = DB::table('attendances')
+            ->where('class_session_id', $session->getKey())
+            ->whereNotNull('removed_at')
+            ->pluck('student_user_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all();
+
+        /** @var array<int, User> $students */
+        $students = [];
+
+        foreach ($seatHolders as $seatHolder) {
+            $students[(int) $seatHolder->getKey()] = $seatHolder;
+        }
+
         $entries = [];
 
         foreach ($balances as $balance) {
@@ -257,6 +280,23 @@ class ChargeSessionSeats extends Action
 
             if ($entry !== null) {
                 $entries[] = $entry;
+            }
+
+            $studentId = (int) $balance->student_user_id;
+
+            $chargeable = $chargedSeatIds === null
+                || in_array($studentId, $chargedSeatIds, true);
+
+            if (! $chargeable && isset($students[$studentId])) {
+                $this->openFreely(
+                    $session,
+                    $students[$studentId],
+                    match (true) {
+                        in_array($studentId, $removedIds, true) => SessionUnlock::REASON_REMOVED_FROM_ROOM,
+                        ($covered[$studentId] ?? null) !== null => SessionUnlock::REASON_SUBSCRIPTION,
+                        default => null,
+                    },
+                );
             }
         }
 
@@ -387,6 +427,47 @@ class ChargeSessionSeats extends Action
         }
 
         return $entry;
+    }
+
+    /**
+     * ٠٣٥ · T043 — a lock with no exit is not a lock, it is a wall.
+     *
+     * ⛔ TWO REASONS, NOT THREE, AND THE THIRD IS DELIBERATELY ABSENT. The task
+     * names `charged_absence` beside these two; it is redundant BY CONSTRUCTION
+     * and writing it would be a second answer to a question already answered.
+     * Charged ⇒ `credit_verdict_at` stamped ⇒ `openableSessionIds()`'s second
+     * query already opens the hour. A `session_unlocks` row for the same person
+     * would be a row that can silently disagree with the column beside it.
+     *
+     * The two that are real are the two with NO WAY OUT:
+     *
+     *  · a SUBSCRIBER who was exempt has no credit balance to spend at all, so
+     *    the offer prices an hour they cannot buy however long they look at it;
+     *  · an EJECTED student is exempt because of the teacher's own decision, and
+     *    charging them for the way back in would make «إخراج» a deduction button
+     *    (FR-036 · FR-004).
+     *
+     * ⚠️ AND `reason` IS NOT DECORATION. A zero-credit unlock with nothing saying
+     * why is indistinguishable from a defect a month later, which is the same
+     * argument the zero-credit ledger entry's `exempt_seat` already carries.
+     */
+    private function openFreely(ClassSession $session, User $student, ?string $reason): void
+    {
+        if ($reason === null) {
+            return;
+        }
+
+        try {
+            $this->unlock->handle($student, $session, $reason, credits: 0);
+        } catch (DomainException) {
+            /*
+            | Already open, or a session with no course. Both are the guard
+            | working: this Action is reached by a replayed event and by the
+            | sweep as well as by the close, so a second pass must be a no-op
+            | rather than a second row — the `unique(student, session)` key is
+            | the mechanism and this is where it reports.
+            */
+        }
     }
 
     private function stamp(ClassSession $session): void
