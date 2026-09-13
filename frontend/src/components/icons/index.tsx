@@ -36,6 +36,8 @@ import {
   IconCertificate,
   IconClock,
   IconClockHour4,
+  IconMicrophone,
+  IconPlayerPlay,
   IconChartHistogram,
   IconEraser,
   IconEye,
@@ -83,6 +85,7 @@ import {
   IconRepeatOff,
   IconBuildingMosque,
   IconDownload,
+  IconExternalLink,
   IconPrinter,
   IconSchool,
   IconSettings,
@@ -153,6 +156,12 @@ export const InfoIcon = wrap(IconInfoCircle, "h-4 w-4");
 export const UserPlusIcon = wrap(IconUserPlus, "h-4 w-4");
 export const AcademicCapIcon = wrap(IconSchool, "h-4 w-4");
 export const DocumentIcon = wrap(IconFileText, "h-4 w-4");
+
+// ٠٣٥ — أيقونةٌ لكلِّ نوعِ عنصرٍ في المنهج. تُقرأُ مع تسميةِ النوعِ لا بدلاً منها:
+// النوعُ مكتوبٌ بالكلمات في كلِّ صفّ، والأيقونةُ تأكيدٌ يُمسَحُ بالعين.
+export const PlayIcon = wrap(IconPlayerPlay, "h-4 w-4");
+export const AudioIcon = wrap(IconMicrophone, "h-4 w-4");
+export const ExternalLinkIcon = wrap(IconExternalLink, "h-4 w-4");
 // فهرسُ المقال — الأيقونةُ تسمّي ما تعنيه، لا ما ترسمُه المكتبة.
 export const ListIcon = wrap(IconListDetails, "h-4 w-4");
 // قسمُ الأسئلةِ الشائعةِ أسفلَ المقال.

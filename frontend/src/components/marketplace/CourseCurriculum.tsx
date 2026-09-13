@@ -1,14 +1,34 @@
-import Link from "next/link";
+"use client";
 
+import Link from "next/link";
+import type { ComponentType } from "react";
+
+import { CurriculumTree } from "@/components/courses/CurriculumTree";
+import {
+  AssignmentIcon,
+  AudioIcon,
+  ChevronStartIcon,
+  ClockIcon,
+  DocumentIcon,
+  DownloadIcon,
+  ExamIcon,
+  ExternalLinkIcon,
+  InfoIcon,
+  LockIcon,
+  PlayIcon,
+  SessionsIcon,
+} from "@/components/icons";
+import { useCourseOwnership } from "@/components/marketplace/CourseOwnership";
 import { counted, lessonTypeLabel } from "@/lib/labels";
 import type { CurriculumSection } from "@/lib/public-api";
 
 /**
- * The published tree, as a visitor who has not bought the course may read it.
+ * The published tree, as a visitor who has not bought the course may read it —
+ * and, for somebody who HAS, their own tree instead.
  *
- * ⚠️ THIS IS THE ONE PLACE A LESSON LINK IS MADE, AND ITS CONDITION IS THE
- * PAYLOAD'S SHAPE — NOT A RULE RESTATED HERE (023 · FR-005/SC-004, amended by
- * 032 · FR-019).
+ * ⚠️ THIS IS THE ONE PLACE A LESSON LINK IS MADE FOR A VISITOR, AND ITS CONDITION
+ * IS THE PAYLOAD'S SHAPE — NOT A RULE RESTATED HERE (023 · FR-005/SC-004,
+ * amended by 032 · FR-019).
  *
  * The rule used to be «nothing here is a link», and the guard was that the
  * payload carried no identifier at all. It still carries none for every item
@@ -21,7 +41,45 @@ import type { CurriculumSection } from "@/lib/public-api";
  * TypeScript is a second spelling of `Lesson::isPubliclyReadable()`, and the two
  * drift: the version that made a paid-for recording unreachable in 018 was
  * exactly that. Read the key the server filled.
+ *
+ * ⛔ AND THE OWNER'S BRANCH BUILDS NO LINKS OF ITS OWN EITHER. It hands the
+ * authenticated curriculum to `CurriculumTree` — the SAME component
+ * `/enrollments/{course}` renders — so the locks, the reasons and the addresses
+ * are the ones the server decided, in one implementation. A second syllabus
+ * renderer here would be the two-spellings defect arriving through the door
+ * built to close it.
  */
+
+/** The icon per item kind, and the family its tint belongs to. */
+const KINDS: Record<string, { Icon: ComponentType; tone: string }> = {
+  // ما يُشاهَد أو يُسمَع.
+  video: { Icon: PlayIcon, tone: "bg-primary-soft text-primary-ink" },
+  embed: { Icon: PlayIcon, tone: "bg-primary-soft text-primary-ink" },
+  live_session: { Icon: SessionsIcon, tone: "bg-primary-soft text-primary-ink" },
+  audio: { Icon: AudioIcon, tone: "bg-primary-soft text-primary-ink" },
+
+  // ما يُقرَأ أو يُؤخَذ.
+  article: { Icon: DocumentIcon, tone: "bg-secondary/15 text-secondary-ink" },
+  pdf: { Icon: DocumentIcon, tone: "bg-secondary/15 text-secondary-ink" },
+  note: { Icon: InfoIcon, tone: "bg-secondary/15 text-secondary-ink" },
+  file: { Icon: DownloadIcon, tone: "bg-secondary/15 text-secondary-ink" },
+  link: { Icon: ExternalLinkIcon, tone: "bg-secondary/15 text-secondary-ink" },
+
+  // ما يُقيَّم.
+  exam: { Icon: ExamIcon, tone: "bg-danger/12 text-danger-ink" },
+  assignment: { Icon: AssignmentIcon, tone: "bg-danger/12 text-danger-ink" },
+};
+
+/*
+  ⚠️ A KIND THIS MAP HAS NOT HEARD OF STILL DRAWS. `LessonTypeRegistry` on the
+  server is what decides the vocabulary, and a screen that renders nothing for a
+  type added there would show an empty square beside a real lesson — the
+  invisible-state family this tree has shipped four times. The fallback is the
+  neutral document mark, and the WORD beside it is `lessonTypeLabel()`'s, which
+  falls back to the raw key rather than to silence.
+*/
+const FALLBACK = { Icon: DocumentIcon, tone: "bg-primary-soft text-primary-ink" } as const;
+
 function duration(seconds: number | null | undefined): string | null {
   if (seconds === null || seconds === undefined || seconds <= 0) return null;
 
@@ -44,15 +102,28 @@ export function CourseCurriculum({
   /** Absent on a preview that has no page to link to yet. */
   courseSlug?: string;
 }) {
+  const ownership = useCourseOwnership();
+
+  if (ownership.state === "owner") {
+    return <CurriculumTree sections={ownership.data.sections} />;
+  }
+
   return (
-    <ol className="flex flex-col gap-6">
+    <ol className="flex flex-col gap-5">
       {sections.map((section, sectionIndex) => (
         <li
           key={`${section.title}-${sectionIndex}`}
           className="overflow-hidden rounded-2xl border border-line bg-surface-raised"
         >
-          <h3 className="border-b border-line bg-primary-soft px-5 py-3 text-sm font-extrabold text-primary-ink">
-            {section.title}
+          <h3 className="flex items-center gap-3 border-b border-line bg-primary-soft px-5 py-3.5 text-sm font-extrabold text-primary-ink">
+            {/* الترقيم معلومة: الوحدات تُدرَّس بالترتيب الذي وضعها به المدرّس. */}
+            <span
+              className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-primary text-xs font-extrabold text-white"
+              aria-hidden="true"
+            >
+              {sectionIndex + 1}
+            </span>
+            <span className="min-w-0 flex-1">{section.title}</span>
           </h3>
 
           <ol className="flex flex-col">
@@ -69,25 +140,54 @@ export function CourseCurriculum({
                       item.uuid !== undefined &&
                       courseSlug !== undefined;
 
-                    const label = (
+                    const kind = KINDS[item.kind] ?? FALLBACK;
+                    const length = duration(item.duration_seconds);
+
+                    const body = (
                       <>
-                        <span className="flex min-w-0 items-baseline gap-2">
-                          <span className="shrink-0 rounded bg-primary-soft px-1.5 py-0.5 text-[0.6875rem] font-medium text-primary-ink">
-                            {lessonTypeLabel(item.kind)}
-                          </span>
-                          <span className={`truncate ${openable ? "text-primary-ink underline" : "text-ink"}`}>
-                            {item.title}
-                          </span>
-                          {openable && (
-                            <span className="shrink-0 rounded bg-secondary/15 px-1.5 py-0.5 text-[0.6875rem] font-medium text-secondary-ink">
-                              مجّانيّة
-                            </span>
-                          )}
+                        <span
+                          className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${kind.tone}`}
+                          aria-hidden="true"
+                        >
+                          <kind.Icon />
                         </span>
 
-                        {duration(item.duration_seconds) && (
-                          <span className="shrink-0 text-xs text-ink-muted">
-                            {duration(item.duration_seconds)}
+                        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                          <span className="truncate text-sm font-bold text-ink">
+                            {item.title}
+                          </span>
+                          <span className="text-xs text-ink-muted">
+                            {lessonTypeLabel(item.kind)}
+                          </span>
+                        </span>
+
+                        {length !== null && (
+                          <span className="flex shrink-0 items-center gap-1 text-xs text-ink-muted">
+                            <span aria-hidden="true">
+                              <ClockIcon />
+                            </span>
+                            <bdi>{length}</bdi>
+                          </span>
+                        )}
+
+                        {/*
+                          ⚠️ الحالة كلمةٌ قبل أن تكون شكلاً. «مجّانيّة» تُقرأ،
+                          و«مقفول» تُقرأ — واللون فوقهما تأكيد. أيقونةٌ وحدها
+                          حالةٌ لا يصل إليها قارئُ الشاشة.
+                        */}
+                        {openable ? (
+                          <span className="flex shrink-0 items-center gap-1.5 rounded-lg bg-secondary/15 px-2 py-1 text-xs font-bold text-secondary-ink">
+                            مجّانيّة
+                            <span aria-hidden="true">
+                              <ChevronStartIcon />
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="flex shrink-0 items-center gap-1.5 rounded-lg bg-line px-2 py-1 text-xs font-bold text-ink-muted">
+                            <span aria-hidden="true">
+                              <LockIcon />
+                            </span>
+                            بعد التسجيل
                           </span>
                         )}
                       </>
@@ -98,14 +198,12 @@ export function CourseCurriculum({
                         {openable ? (
                           <Link
                             href={`/courses/${courseSlug}/lessons/${item.uuid}`}
-                            className="flex items-baseline justify-between gap-3 px-5 py-2.5 text-sm hover:bg-primary-soft/40"
+                            className="flex items-center gap-3 px-5 py-3 transition hover:bg-primary-soft/50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                           >
-                            {label}
+                            {body}
                           </Link>
                         ) : (
-                          <span className="flex items-baseline justify-between gap-3 px-5 py-2.5 text-sm">
-                            {label}
-                          </span>
+                          <span className="flex items-center gap-3 px-5 py-3">{body}</span>
                         )}
                       </li>
                     );
