@@ -186,7 +186,7 @@ export function NextSessionCountdown({
         window; any honest ceiling beats a button that always refuses.
       */}
       {open ? (
-        <Button href={`/sessions/${session.uuid}/room`}>دخول الغرفة</Button>
+        <Button href={`/sessions/${session.uuid}`}>افتح الحصّة</Button>
       ) : (
         <p className="text-sm text-ink-muted">يُفتح الدخول قبل الموعد بربع ساعة.</p>
       )}

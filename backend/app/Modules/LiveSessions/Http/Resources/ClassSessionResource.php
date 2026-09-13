@@ -42,6 +42,22 @@ class ClassSessionResource extends JsonResource
              */
             'unlock_open' => $this->getAttribute('unlock_open'),
             'unlock_reason' => $this->getAttribute('unlock_reason'),
+            /*
+             | ٠٣٥ — THE SAME CONVENTION, AND DELIBERATELY A THIRD NAME.
+             |
+             | ⚠️ `content_offer`, NEVER `unlock_offer`. The two keys above carry
+             | spec ٠٠٨'s meaning of «unlock» — a homework condition on the NEXT
+             | session — and a third key with that prefix and a third meaning is
+             | how one reader answers the other's question. `contracts/README.md`
+             | §٠ records the decision.
+             |
+             | Stamped by the caller for the reason written above: a Resource runs
+             | once per row, and the offer is three queries. Null reads as «not
+             | asked», never as «open» — a screen that needs the answer asks for
+             | it, and `SessionContentAccess::stampAll()` is the one spelling.
+             */
+            'content_locked' => $this->getAttribute('content_locked'),
+            'content_offer' => $this->getAttribute('content_offer'),
             'uuid' => $this->uuid,
             'title' => $this->title,
             'type' => $this->type->value,

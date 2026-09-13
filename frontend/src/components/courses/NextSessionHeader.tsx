@@ -169,7 +169,7 @@ export function NextSessionHeader({
 
       <div className="mt-4">
         {open ? (
-          <Button href={`/sessions/${session.uuid}/room`}>دخول الغرفة</Button>
+          <Button href={`/sessions/${session.uuid}`}>افتح الحصّة</Button>
         ) : (
           <p className="text-sm text-ink-muted">
             {session.room_closed

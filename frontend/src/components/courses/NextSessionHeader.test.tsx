@@ -53,18 +53,25 @@ describe("NextSessionHeader", () => {
    | server says the door is open — a header computing its own window would
    | refuse to draw it, and the student would sit outside a room that was open.
   */
-  it("offers the room when the server says the door is open, whatever the countdown says", () => {
+  /*
+   | ٠٣٥ · T048 — الوجهةُ صارت صفحةَ الحصّةِ لا الغرفة، والاسمُ تبعَها.
+   |
+   | الغرفةُ بابٌ يُغلَقُ بانتهاءِ النافذة؛ فالطالبُ الذي لم يحضرْ كانَ يصلُ إلى
+   | شاشةٍ لا تقولُ له ما حدثَ ولا تفتحُ له شيئاً. زرُّ «دخول الغرفة» يعيشُ على
+   | صفحةِ الحصّةِ الآن، وهو ما زالَ مشروطاً بالجوابِ نفسِه من الخادم.
+  */
+  it("offers the session page when the server says the door is open, whatever the countdown says", () => {
     render(<NextSessionHeader session={session({ join_open: true })} secondsUntilStart={3 * 3600} />);
 
-    expect(screen.getByRole("link", { name: "دخول الغرفة" }).getAttribute("href")).toBe(
-      "/sessions/s-1/room",
+    expect(screen.getByRole("link", { name: "افتح الحصّة" }).getAttribute("href")).toBe(
+      "/sessions/s-1",
     );
   });
 
   it("withholds it while the door is shut, and says so instead", () => {
     render(<NextSessionHeader session={session()} secondsUntilStart={60} />);
 
-    expect(screen.queryByRole("link", { name: "دخول الغرفة" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "افتح الحصّة" })).toBeNull();
     expect(screen.getByText(/يُفتح الدخول قبل الموعد/)).toBeTruthy();
   });
 
@@ -83,7 +90,7 @@ describe("NextSessionHeader", () => {
       />,
     );
 
-    expect(screen.queryByRole("link", { name: "دخول الغرفة" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "افتح الحصّة" })).toBeNull();
     expect(screen.queryByText("جارية")).toBeNull();
     expect(screen.getByText("انتهت")).toBeTruthy();
     expect(screen.getByText(/أُغلقت الغرفة/)).toBeTruthy();
@@ -112,13 +119,13 @@ describe("NextSessionHeader", () => {
       <NextSessionHeader session={session()} secondsUntilStart={20} secondsUntilJoinOpen={3} />,
     );
 
-    expect(screen.queryByRole("link", { name: "دخول الغرفة" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "افتح الحصّة" })).toBeNull();
 
     act(() => {
       vi.advanceTimersByTime(4000);
     });
 
-    expect(screen.getByRole("link", { name: "دخول الغرفة" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "افتح الحصّة" })).toBeTruthy();
   });
 
   /*
@@ -141,7 +148,7 @@ describe("NextSessionHeader", () => {
       vi.advanceTimersByTime(60_000);
     });
 
-    expect(screen.queryByRole("link", { name: "دخول الغرفة" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "افتح الحصّة" })).toBeNull();
   });
 });
 

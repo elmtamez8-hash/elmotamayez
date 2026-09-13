@@ -71,5 +71,20 @@ interface SessionContentAccess
      *
      * @param  iterable<Model>  $sessions
      */
-    public function stampAll(iterable $sessions, User $student): void;
+    /**
+     * Stamp `content_locked` on every row, and `content_offer` only when asked.
+     *
+     * ⛔ `$withOffer` DEFAULTS TO FALSE, AND THE DEFAULT IS THE BUDGET. The lock
+     * is ONE bulk read for the whole page; the OFFER is several queries per
+     * locked row — a price, a balance, a content count and a retention date —
+     * and a month of timetable is twenty rows, not a handful. Stamping offers
+     * there took `/schedule` from 23 queries to 61 and turned its budget test
+     * red, which is the net working rather than a surprise.
+     *
+     * Pass true on a page that shows ONE session, where the price is what the
+     * student is about to decide on.
+     *
+     * @param  iterable<Model>  $sessions
+     */
+    public function stampAll(iterable $sessions, User $student, bool $withOffer = false): void;
 }

@@ -162,12 +162,14 @@ class EloquentSessionContentAccess implements SessionContentAccess
             | out that 404s is the «endpoint nobody calls» defect wearing its
             | mirror image, and FR-013 forbids a refusal a student can do nothing
             | with.
-            */
+            *
+     * @param  iterable<Model>  $sessions
+     */
             purchaseUrl: '/billing/purchase',
         );
     }
 
-    public function stampAll(iterable $sessions, User $student): void
+    public function stampAll(iterable $sessions, User $student, bool $withOffer = false): void
     {
         /** @var list<Model> $rows */
         $rows = [];
@@ -188,14 +190,17 @@ class EloquentSessionContentAccess implements SessionContentAccess
 
             $row->setAttribute('content_locked', $locked);
             /*
-            | ⚠️ THE OFFER IS RESOLVED ONLY FOR THE LOCKED ONES, and on a page
-            | that is a handful of rows at most. The alternative — an offer per
-            | row — is the `ClassSessionResource` N+1 this repository already
-            | paid for once, wearing a new face.
+            | ⚠️ THE OFFER IS RESOLVED ONLY WHEN THE CALLER ASKS, AND ONLY FOR THE
+            | LOCKED ROWS. An offer per row is the `ClassSessionResource` N+1 this
+            | repository already paid for once — measured again here: stamping it
+            | on `/schedule` took that endpoint from 23 queries to 61.
+            |
+            | Null on an unasked page means «not asked», which is the same
+            | convention `unlock_open` beside it already uses.
             */
             $row->setAttribute(
                 'content_offer',
-                $locked ? $this->unlockOfferFor($student, (int) $row->getKey()) : null,
+                $locked && $withOffer ? $this->unlockOfferFor($student, (int) $row->getKey()) : null,
             );
         }
     }

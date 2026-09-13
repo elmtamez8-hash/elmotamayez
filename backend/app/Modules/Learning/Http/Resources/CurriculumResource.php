@@ -60,6 +60,23 @@ class CurriculumResource extends JsonResource
                 'completed_count' => $view->completedCount,
                 'countable_count' => $view->countableCount,
                 'resume_lesson_uuid' => $this->resumeUuid($view),
+                /*
+                | ٠٣٥ · FR-025 — «كذا حصّةً مقفولة»، ON THE PROGRESS BLOCK AND
+                | NEXT TO THE NUMBER IT EXPLAINS.
+                |
+                | ⛔ A DENOMINATOR WITH NOTHING SAYING WHY IS THE DEFECT, NOT THE
+                | LOCK. The spec's third non-deferrable condition is that a
+                | student below 100% is told what is missing and how to reach it;
+                | a percentage that simply stops short is the «capped for ever»
+                | family wearing a smaller face.
+                |
+                | ⚠️ AND IT COSTS ZERO QUERIES. Every answer is already in the
+                | access map the gate built in bulk — this is a count over an
+                | array, and it is SESSIONS rather than items, because one consent
+                | opens the whole hour and «سبعة عناصر مقفولة» would price an
+                | hour at seven credits in the reader's head (FR-010).
+                */
+                'locked_session_count' => $this->lockedSessionCount($view),
             ],
             /*
             | ⚠️ THE VALVE IS THE HALF THAT MATTERS (FR-028ب). `required` with
@@ -193,6 +210,32 @@ class CurriculumResource extends JsonResource
                 'blocked_by_title' => $access->blockedByTitle,
             ],
         ];
+    }
+
+    /**
+     * How many distinct HOURS of this course are shut for want of a credit.
+     *
+     * ⚠️ `NO_SEAT` ALONE. The other refusal codes are different sentences with
+     * different exits — a sequence is finished, a cohort is joined, an
+     * enrolment is renewed — and folding them in would offer to sell a credit as
+     * the way out of all four.
+     */
+    private function lockedSessionCount(CurriculumView $view): int
+    {
+        $sessions = [];
+
+        foreach ($view->lessons as $lesson) {
+            $access = $view->access[(int) $lesson->getKey()] ?? null;
+
+            if ($lesson->class_session_id !== null
+                && $access !== null
+                && ! $access->allowed
+                && $access->code === LessonAccess::NO_SEAT) {
+                $sessions[(int) $lesson->class_session_id] = true;
+            }
+        }
+
+        return count($sessions);
     }
 
     /**

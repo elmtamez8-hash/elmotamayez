@@ -23,11 +23,13 @@ use App\Modules\LiveSessions\Support\CohortNames;
 use App\Modules\LiveSessions\Support\CohortSessionVisibility;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\CohortDirectory;
+use App\Shared\Contracts\SessionContentAccess;
 use App\Shared\Contracts\UnlockDirectory;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class ClassSessionController extends Controller
 {
@@ -198,7 +200,7 @@ class ClassSessionController extends Controller
         ], 201);
     }
 
-    public function show(Request $request, ClassSession $session): JsonResponse
+    public function show(Request $request, ClassSession $session, SessionContentAccess $content): JsonResponse
     {
         $this->authorize('view', $session);
 
@@ -209,6 +211,26 @@ class ClassSessionController extends Controller
         // exists on the list and is silently null on the detail is the shape this
         // tree keeps paying for.
         CohortNames::stamp([$session]);
+
+        /*
+        | ٠٣٥ — THE STUDENT'S OWN ANSWER, ON THE ONE ROUTE THEIR SESSION PAGE
+        | READS. `withOffer` because this is a single session and the price is
+        | exactly what the reader is about to decide on.
+        |
+        | ⛔ AND THE HOST IS NEVER ASKED. This endpoint serves the teacher's own
+        | session screen as well, and `mayOpenSessionContent(teacher)` is FALSE in
+        | their own workspace — they hold no seat and are charged nothing. Asked
+        | anyway, the teacher's page would announce that the lesson they taught is
+        | locked to them and offer to sell it back. That is the `/eligibility`
+        | defect word for word: it told the host «لست مسجَّلاً عند هذا المدرّس».
+        |
+        | Null then reads as «not asked», which is what a teacher-facing payload
+        | means, and `ClassSessionResource` already documents that convention for
+        | the two keys beside it.
+        */
+        if (! Gate::allows('host', $session)) {
+            $content->stampAll([$session], $this->currentUser($request), withOffer: true);
+        }
 
         return response()->json(ClassSessionResource::make($session));
     }

@@ -60,6 +60,18 @@ class FreezePeriodController extends Controller
 
         return response()->json([
             'data' => FreezePeriodResource::make($result['period']->load(['student', 'creator'])),
+            /*
+            | ⛔ ٠٣٥ — DELIBERATELY NOT STAMPED, and that is the answer rather
+            | than an omission. `content_locked` is a fact about a STUDENT, and
+            | the caller here is the teacher declaring the freeze: stamping with
+            | them would answer false for every row, because a teacher holds no
+            | seat in their own workspace and is charged nothing. That is the
+            | `/eligibility` defect exactly — it told the host of a lesson «لست
+            | مسجَّلاً عند هذا المدرّس».
+            |
+            | Null reads as «not asked», which is what this payload means. A
+            | screen that needs the answer asks the student's own endpoint for it.
+            */
             'suspended' => ClassSessionResource::collection($result['suspended']),
             'notified' => $result['notified'],
         ], 201);
