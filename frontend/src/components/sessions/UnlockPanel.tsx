@@ -172,12 +172,13 @@ export function UnlockPanel({
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <Button
-          onClick={open}
-          loading={pending}
-          loadingLabel="جارٍ الفتح…"
-          disabled={!affordable}
-        >
+        {/*
+          ⛔ **ولا `disabled` هنا.** الرأسُ فوقَ يقولُها وFR-013 تقولُها نصّاً: زرٌّ
+          رماديٌّ هو «غير مسموح» بوجهٍ ألطف. والجملةُ تحتَه تقولُ السببَ قبلَ
+          الضغط، والخادمُ يُجيبُ ٤٢٢ بجملةٍ عربيّةٍ تمرُّ عبرَ `userMessage()` —
+          فالرفضُ مقروءٌ في الحالَين، ولا حالةَ يصمتُ فيها المنتَج.
+        */}
+        <Button onClick={open} loading={pending} loadingLabel="جارٍ الفتح…">
           افتحْ بخصم حصة
         </Button>
 

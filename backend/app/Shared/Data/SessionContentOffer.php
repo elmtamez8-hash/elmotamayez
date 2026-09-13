@@ -52,6 +52,32 @@ final class SessionContentOffer extends DataTransferObject
         public readonly string $purchaseUrl,
     ) {}
 
+    /**
+     * ⛔ SNAKE_CASE, BECAUSE THE WIRE IS SNAKE_CASE AND THE BASE IS NOT.
+     *
+     * `DataTransferObject::toArray()` is `get_object_vars()`, i.e. the PHP
+     * property names — and `jsonSerialize()` delegates to it, so BOTH doors
+     * this object leaves by (the 422 body's `offer`, and the attribute a
+     * Resource stamps) would send `availableCredits` while every other key in
+     * the same payload is `available_credits`. The screen reads the snake
+     * spelling, so `undefined >= 1` is false: a student holding ten credits is
+     * told «لا يكفي», with nothing failing anywhere — `tsc`, pest and vitest
+     * are each green over a broken wire. One override, both doors.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(): array
+    {
+        return [
+            'credits' => $this->credits,
+            'owned_credits' => $this->ownedCredits,
+            'available_credits' => $this->availableCredits,
+            'opens' => $this->opens,
+            'available_until' => $this->availableUntil,
+            'purchase_url' => $this->purchaseUrl,
+        ];
+    }
+
     /** Whether pressing the button would succeed — the floor, with held subtracted. */
     public function affordable(): bool
     {

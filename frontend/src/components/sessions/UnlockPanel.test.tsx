@@ -85,6 +85,15 @@ describe("UnlockPanel", () => {
     expect(screen.getByRole("link", { name: "اشترِ رصيداً" })).toBeTruthy();
     // ⚠️ الجملةُ هي المخرج. زرٌّ رماديٌّ بلا سببٍ هو «غير مسموح» بوجهٍ ألطف.
     expect(screen.getByText(/لا يكفي لفتحِ هذه الحصّة/)).toBeTruthy();
+
+    /*
+     | ⛔ والزرُّ **غيرُ معطَّل** — وهذا توكيدٌ قائمٌ بذاتِه لأنّ `disabled` شُحِنَ
+     | فعلاً هنا ومرَّ على كلِّ ما فوقَه: الحالاتُ الخمسُ الأخرى لا تقتربُ منه،
+     | ورأسُ اللوحةِ نفسُه يقولُ «ولا زرَّ معطَّلاً» بينما الشيفرةُ تُعطِّله.
+     | الرفضُ جملةٌ تُقرَأ — قبلَ الضغطِ هنا، وبعدَه من الخادمِ بـ٤٢٢.
+    */
+    const unlock = screen.getByRole("button", { name: "افتحْ بخصم حصة" });
+    expect(unlock.hasAttribute("disabled")).toBe(false);
   });
 
   it("says how much is frozen elsewhere when owned and available disagree", () => {

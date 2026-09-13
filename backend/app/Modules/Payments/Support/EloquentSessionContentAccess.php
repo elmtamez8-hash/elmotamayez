@@ -162,13 +162,14 @@ class EloquentSessionContentAccess implements SessionContentAccess
             | out that 404s is the «endpoint nobody calls» defect wearing its
             | mirror image, and FR-013 forbids a refusal a student can do nothing
             | with.
-            *
-     * @param  iterable<Model>  $sessions
-     */
+            */
             purchaseUrl: '/billing/purchase',
         );
     }
 
+    /**
+     * @param  iterable<Model>  $sessions
+     */
     public function stampAll(iterable $sessions, User $student, bool $withOffer = false): void
     {
         /** @var list<Model> $rows */

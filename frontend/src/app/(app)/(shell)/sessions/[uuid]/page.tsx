@@ -138,9 +138,14 @@ export default function SessionPage({
       {/*
         FR-039ج — دفعَ ثمنَ الساعةِ ثمّ انتهت مدّةُ الاحتفاظِ بمادّتِها. الفتحُ
         قائمٌ والتسجيلُ ذهبَ، ولا شيءَ آخرُ في المنتَجِ يقولُ ذلك.
+
+        ⛔ **`published` بلا معرِّفِ درسٍ وحدَها.** غيابُ المعرِّفِ على أيِّ حالةٍ
+        أخرى يعني «لم يُرفَعْ بعد» — وهي حالُ كلِّ حصّةٍ في دقائقِها الأولى، فشرطٌ
+        لا يقرأُ الحالةَ يقولُ لمن حضرَ إنّ مادّتَه ذهبت وهي قيدَ المعالجة. وهذه
+        جملةٌ كاذبةٌ تبقى، ولا نجاحٌ لاحقٌ يمحوها.
       */}
       {session.content_locked === false &&
-        session.recording !== null &&
+        session.recording?.status === "published" &&
         session.recording.lesson_uuid === null && <ArchivedAfterUnlockNotice />}
     </div>
   );
