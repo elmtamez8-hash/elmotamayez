@@ -160,9 +160,27 @@ final class LessonGate
              * billing namespace — an import, a table name in quotes, and
              * comments are stripped before the scan.
              */
-            return app(SessionContentAccess::class)
-                ->mayOpenSessionContent($enrollment->student, (int) $lesson->class_session_id)
-                ? LessonAccess::allow()
+            $access = app(SessionContentAccess::class);
+            $sessionId = (int) $lesson->class_session_id;
+
+            if ($access->mayOpenSessionContent($enrollment->student, $sessionId)) {
+                return LessonAccess::allow();
+            }
+
+            /*
+             * ⛔ AND THE SENTENCE IS CHOSEN, NOT ASSUMED. «افتحه بخصم حصة» is an
+             * INSTRUCTION, and it was printed on every locked hour of the course
+             * — including the ones belonging to a group the student was never
+             * in, which `POST /class-sessions/{uuid}/unlock` refuses with 403.
+             * Measured 2026-09-13: told to spend a credit, refused one press
+             * later. Two doors disagreeing, the ٠١٨ defect wearing a new face,
+             * and the promise is the half that was wrong.
+             */
+            return $access->unlockableSessionIds($enrollment->student, [$sessionId]) === []
+                ? LessonAccess::deny(
+                    LessonAccess::OTHER_COHORT,
+                    'هذه الحصة ليست من حصص مجموعتك.',
+                )
                 : LessonAccess::deny(
                     LessonAccess::NO_SEAT,
                     'محتوى هذه الحصة مقفول — افتحه بخصم حصة من رصيدك.',
@@ -380,6 +398,7 @@ final class LessonGate
         | they did in ٠١٨, when a paid-for recording became unopenable.
         */
         $openSessionIds = null;
+        $sellableSessionIds = null;
 
         $recordedSessionIds = array_values(array_unique(array_map(
             static fn (Lesson $row): int => (int) $row->class_session_id,
@@ -401,7 +420,7 @@ final class LessonGate
 
             $access = (function () use (
                 $lesson, $enrollment, $completedIds, $cohortLocks,
-                $satisfiedExamIds, &$openSessionIds, $recordedSessionIds, $sequential, $active, $previous,
+                $satisfiedExamIds, &$openSessionIds, &$sellableSessionIds, $recordedSessionIds, $sequential, $active, $previous,
             ): LessonAccess {
                 if ($lesson->course_id !== $enrollment->course_id) {
                     return LessonAccess::deny(
@@ -452,11 +471,28 @@ final class LessonGate
                             ->openableSessionIds($enrollment->student, $recordedSessionIds),
                     );
 
-                    return isset($openSessionIds[(int) $lesson->class_session_id])
-                        ? LessonAccess::allow()
-                        : LessonAccess::deny(
+                    $sessionId = (int) $lesson->class_session_id;
+
+                    if (isset($openSessionIds[$sessionId])) {
+                        return LessonAccess::allow();
+                    }
+
+                    // ⚠️ THE SECOND SET IS ASKED ONCE TOO, for the reason the
+                    // first one is. See the single-row branch for why the
+                    // sentence has to be chosen rather than assumed.
+                    $sellableSessionIds ??= array_flip(
+                        app(SessionContentAccess::class)
+                            ->unlockableSessionIds($enrollment->student, $recordedSessionIds),
+                    );
+
+                    return isset($sellableSessionIds[$sessionId])
+                        ? LessonAccess::deny(
                             LessonAccess::NO_SEAT,
                             'محتوى هذه الحصة مقفول — افتحه بخصم حصة من رصيدك.',
+                        )
+                        : LessonAccess::deny(
+                            LessonAccess::OTHER_COHORT,
+                            'هذه الحصة ليست من حصص مجموعتك.',
                         );
                 }
 

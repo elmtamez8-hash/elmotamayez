@@ -50,6 +50,26 @@ interface SessionContentAccess
     public function openableSessionIds(User $student, array $classSessionIds): array;
 
     /**
+     * Which of these sessions this student may BUY the content of.
+     *
+     * ⛔ A DIFFERENT QUESTION FROM {@see openableSessionIds()}, AND THE GAP
+     * BETWEEN THEM IS A SENTENCE ON A SCREEN. «Open» is «you already have it»;
+     * this is «you may pay for it». A student in Saturday's group looking at
+     * Sunday's hour is neither — and until this method existed the curriculum
+     * told them «افتحه بخصم حصة من رصيدك» while the endpoint that sentence
+     * points at answered 403, one press apart. Measured on 2026-09-13.
+     *
+     * True for a seat of ANY status, and otherwise for an active enrolment in
+     * the session's course plus a group that held it — «was ever a member»,
+     * never «is a member today», or a transferred student is refused the hours
+     * they sat in.
+     *
+     * @param  list<int>  $classSessionIds
+     * @return list<int> the subset they may buy — never the whole input
+     */
+    public function unlockableSessionIds(User $student, array $classSessionIds): array;
+
+    /**
      * What pressing «افتح» would cost and what it would open.
      *
      * Null when there is nothing to offer: already open, never entitled, the

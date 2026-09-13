@@ -5,12 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Payments\Actions\UnlockSessionContent;
 use App\Modules\Payments\Models\SessionUnlock;
-use App\Shared\Contracts\CohortDirectory;
-use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\SessionContentAccess;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -36,8 +33,6 @@ class SessionContentController extends Controller
 {
     public function __construct(
         private readonly SessionContentAccess $access,
-        private readonly EnrollmentDirectory $enrollments,
-        private readonly CohortDirectory $cohorts,
     ) {}
 
     public function unlock(
@@ -52,15 +47,23 @@ class SessionContentController extends Controller
             ->where('uuid', $sessionUuid)
             ->first();
 
-        // ١ + ٢ — one refusal for both. See the class docblock.
-        if ($session === null || ! $this->entitled($student, $session)) {
+        // ١ — no such session. See the class docblock for why the sentence is
+        // the same one every other refusal below gives.
+        if ($session === null) {
             return response()->json(['message' => 'لا يمكن فتح محتوى هذه الحصّة.'], 403);
         }
 
         /*
-        | ٣ · ٤ · ٥ · ٦ — resolved by ONE call to the read contract's offer,
-        | which already refuses a session with no course, one never delivered,
-        | one whose material is gone, and one that is open already.
+        | ٢ · ٣ · ٤ · ٥ · ٦ — resolved by ONE call to the read contract's offer,
+        | which refuses a student the hour was never theirs to buy, a session
+        | with no course, one never delivered, one whose material is gone, and
+        | one that is open already.
+        |
+        | ⛔ THE ENTITLEMENT USED TO BE A PRIVATE METHOD ON THIS CONTROLLER, and
+        | that was the whole defect: the door was right and the SCREEN was not.
+        | `unlockOfferFor()` asked nothing about it, so the curriculum told a
+        | student in another group «افتحه بخصم حصة من رصيدك» and this endpoint
+        | answered 403 one press later. It is on the contract now.
         |
         | Asked here rather than re-derived, because a second spelling of «may
         | this be sold» on the door would disagree with the one on the screen —
@@ -98,34 +101,5 @@ class SessionContentController extends Controller
             'credits_charged' => $row->credits_charged,
             'content_locked' => false,
         ], 200);
-    }
-
-    /**
-     * A seat OF ANY STATUS, or enrolment in the course plus a cohort that can
-     * see this session.
-     *
-     * ⚠️ «WAS EVER IN THE GROUP», NEVER «IS IN IT TODAY». The precedent is
-     * `ConversationPolicy`'s `wasEverMember` — without it a student transferred
-     * between cohorts is refused a session they sat in and were charged for.
-     */
-    private function entitled(User $student, ClassSession $session): bool
-    {
-        if ($session->holdsSeat($student)) {
-            return true;
-        }
-
-        if ($session->course_id === null) {
-            return false;
-        }
-
-        if (! $this->enrollments->hasActiveEnrollment($student, (int) $session->course_id)) {
-            return false;
-        }
-
-        // An unassigned session belongs to the course rather than to a group, so
-        // enrolment is the whole question there. `cohort_id` is nullable because
-        // every session predating groups carries null.
-        return $session->cohort_id === null
-            || $this->cohorts->wasEverMember($student, (int) $session->cohort_id);
     }
 }

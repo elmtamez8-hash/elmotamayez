@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Payments\Models\SessionUnlock;
+use App\Shared\Contracts\CohortDirectory;
+use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\SessionContentAccess;
 use App\Shared\Data\SessionContentOffer;
 use Illuminate\Database\Eloquent\Model;
@@ -40,6 +42,11 @@ use Illuminate\Support\Facades\DB;
  */
 class EloquentSessionContentAccess implements SessionContentAccess
 {
+    public function __construct(
+        private readonly EnrollmentDirectory $enrollments,
+        private readonly CohortDirectory $cohorts,
+    ) {}
+
     public function mayOpenSessionContent(User $student, int $classSessionId): bool
     {
         return $this->openableSessionIds($student, [$classSessionId]) !== [];
@@ -107,6 +114,64 @@ class EloquentSessionContentAccess implements SessionContentAccess
         return array_values(array_unique(array_merge($unjudged, $charged, $unlocked)));
     }
 
+    public function unlockableSessionIds(User $student, array $classSessionIds): array
+    {
+        $classSessionIds = array_values(array_unique(array_map('intval', $classSessionIds)));
+
+        if ($classSessionIds === []) {
+            return [];
+        }
+
+        /*
+        | ١ — A SEAT OF ANY STATUS, AND IT IS ASKED FIRST FOR THE BUDGET AS MUCH
+        | AS FOR THE MEANING. The spelling is `ClassSession::holdsSeat()` — a
+        | booking row, whatever became of it — and somebody who gave notice in
+        | time keeps the right to buy the hour back (FR-013ب). That is also the
+        | overwhelmingly common case at the unlock endpoint, so answering it
+        | before the three reads below keeps `UnlockQueryBudgetTest` at ONE query
+        | for this question, which is what the private method it replaced cost.
+        */
+        $seated = array_values(array_unique(DB::table('session_bookings')
+            ->whereIn('class_session_id', $classSessionIds)
+            ->where('student_user_id', $student->getKey())
+            ->pluck('class_session_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all()));
+
+        $rest = array_values(array_diff($classSessionIds, $seated));
+
+        if ($rest === []) {
+            return $seated;
+        }
+
+        // ٢ — enrolment in the session's own course, plus a group that held it.
+        $sessions = DB::table('class_sessions')
+            ->whereIn('id', $rest)
+            ->get(['id', 'course_id', 'cohort_id']);
+
+        $courses = array_flip($this->enrollments->activeCourseIdsFor($student));
+        $cohorts = array_flip($this->cohorts->everMemberCohortIdsFor($student));
+
+        $out = $seated;
+
+        foreach ($sessions as $row) {
+            // No course: nothing to charge against and no enrolment to ask
+            // about — the same refusal `unlockOfferFor()` already gives it.
+            if ($row->course_id === null || ! isset($courses[(int) $row->course_id])) {
+                continue;
+            }
+
+            // An unassigned session belongs to the COURSE rather than to a
+            // group, so enrolment is the whole question there. `cohort_id` is
+            // nullable because every session predating groups carries null.
+            if ($row->cohort_id === null || isset($cohorts[(int) $row->cohort_id])) {
+                $out[] = (int) $row->id;
+            }
+        }
+
+        return $out;
+    }
+
     public function unlockOfferFor(User $student, int $classSessionId): ?SessionContentOffer
     {
         if ($this->mayOpenSessionContent($student, $classSessionId)) {
@@ -123,6 +188,23 @@ class EloquentSessionContentAccess implements SessionContentAccess
         // answer. Offering a price for an hour the teacher called off would tell
         // the student it happened.
         if ($session === null || $session->course_id === null || $session->delivered_at === null) {
+            return null;
+        }
+
+        /*
+        | ⛔ THE CONTRACT ABOVE THIS METHOD HAS PROMISED «never entitled ⇒ null»
+        | SINCE IT WAS WRITTEN, AND THIS IS THE LINE THAT KEEPS IT. The check
+        | lived privately inside `SessionContentController` instead, so the DOOR
+        | was right and every other reader of the offer was wrong: the
+        | curriculum promised a student in another group that a credit would
+        | open the hour, `stampAll(withOffer: true)` quoted them a price for it
+        | on the session card, and pressing either answered 403.
+        |
+        | One spelling, on the contract, so the screen and the door cannot
+        | disagree again — which is the ٠١٨ defect this module's every docblock
+        | is written against.
+        */
+        if ($this->unlockableSessionIds($student, [$classSessionId]) === []) {
             return null;
         }
 

@@ -16,6 +16,7 @@ export type LockCode =
   | "exam_attempt"
   | "exam_pass"
   | "no_seat"
+  | "other_cohort"
   | "inactive"
   | "no_cohort";
 
@@ -110,6 +111,7 @@ const FALLBACK: Record<LockCode, string> = {
   exam_attempt: "أدِّ الاختبار السابق وسلّم إجابتك ليُفتح ما بعده.",
   exam_pass: "لا يُفتح ما بعد الاختبار السابق حتى تجتازه بالدرجة المطلوبة.",
   no_seat: "هذا تسجيل حصة لم تحجز فيها مقعداً.",
+  other_cohort: "هذه الحصة ليست من حصص مجموعتك.",
   inactive: "تسجيلك في هذا الكورس غير نشط حالياً.",
   no_cohort: "اختر مجموعتك للبدء.",
 };
