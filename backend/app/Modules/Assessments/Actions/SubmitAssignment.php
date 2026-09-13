@@ -10,6 +10,7 @@ use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\Submission;
 use App\Modules\Assessments\Support\AssignmentDeadline;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\SessionContentAccess;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -45,6 +46,22 @@ class SubmitAssignment extends Action
     {
         if (! $assignment->isPublished()) {
             throw new DomainException('هذا الواجب لم يُنشر بعد.');
+        }
+
+        /*
+        | ⛔ ٠٣٥ · FR-008 — THE HOMEWORK OF A SESSION IS PART OF THAT SESSION.
+        | `assignments.class_session_id` is the link and it is asked HERE rather
+        | than only on the screen: hiding a control is not a guard, and this
+        | Action is what the seeder, the panel and the API all reach.
+        |
+        | ⚠️ AND IT SITS ABOVE THE DEADLINE, NOT BESIDE IT. Answered in the wrong
+        | order, a locked-out student would be told their work is late — a
+        | sentence about a paper they were never able to open.
+        */
+        if ($assignment->class_session_id !== null
+            && ! app(SessionContentAccess::class)
+                ->mayOpenSessionContent($student, (int) $assignment->class_session_id)) {
+            throw new DomainException('محتوى هذه الحصة مقفول — افتحه بخصم حصة من رصيدك.');
         }
 
         if ($assignment->submission_type === Assignment::TYPE_FILE && $file === null) {

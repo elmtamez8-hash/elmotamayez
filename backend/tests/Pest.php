@@ -1155,15 +1155,45 @@ function gatedPair(Workspace $workspace, User $student): array
 }
 
 /** The register row a gate reads. */
-function attendanceRow(Workspace $workspace, ClassSession $session, User $student, AttendanceStatus $status): Attendance
-{
-    return Attendance::create([
+function attendanceRow(
+    Workspace $workspace,
+    ClassSession $session,
+    User $student,
+    AttendanceStatus $status,
+    ?bool $charged = null,
+): Attendance {
+    $row = Attendance::create([
         'workspace_id' => $workspace->getKey(),
         'class_session_id' => $session->getKey(),
         'student_user_id' => $student->getKey(),
         'status' => $status,
         'source' => 'automatic',
     ]);
+
+    /*
+    | ⛔ ٠٣٥ — THE VERDICT COLUMN COMES WITH THE ROW, and a fixture that omits it
+    | is a student the product would never produce.
+    |
+    | `credit_verdict_at` stamped means THIS SEAT WAS CHARGED, and since ٠٣٥ it
+    | is what opens everything the hour produced — the recording, the files, the
+    | exam, the homework and the room's thread. A register row written without it
+    | is somebody who sat through a lesson and is then locked out of its worksheet,
+    | which is a state `CloseClassSession` cannot create.
+    |
+    | ⚠️ THE DEFAULT IS DERIVED FROM THE MARK **HERE AND NOWHERE ELSE**. In the
+    | product the mark decides nothing — a teacher typing «حاضر» must never move
+    | money (FR-004) — so this shorthand is a fixture convenience and is written
+    | down as one. Pass `$charged` explicitly whenever the case is ABOUT the two
+    | disagreeing: the silent no-show who is charged, or the excused seat that is
+    | not.
+    */
+    $isCharged = $charged ?? in_array($status, [AttendanceStatus::Present, AttendanceStatus::Late], true);
+
+    if ($isCharged) {
+        $row->forceFill(['credit_verdict_at' => now()])->save();
+    }
+
+    return $row;
 }
 
 /*

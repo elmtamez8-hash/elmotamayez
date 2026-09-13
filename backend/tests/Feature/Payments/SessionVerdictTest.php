@@ -295,15 +295,19 @@ it('charges nobody at all when the teacher never delivered it', function (): voi
         ->and(creditsSpentOnSeat($session, $student))->toBe(0)
         ->and(teacherDueForSeat($session, $student))->toBe(0)
         /*
-        | «لا محتوى أصلاً» IS MEASURED AS «NOTHING IS ON OFFER», never as
-        | «the gate refuses». An undelivered session is never judged, so
-        | `attended_seats` stays null and the gate's unjudged fallback entitles
-        | every seat — deliberately, because the deploy raises the code before
-        | the migration and the alternative is locking every student out of
-        | every session taught before this shipment. What must not happen is a
-        | PRICE being quoted for an hour the teacher called off: that would tell
-        | the student it happened and invite them to pay for it.
+        | «لا محتوى أصلاً» — SHUT, AND NOTHING ON OFFER EITHER.
+        |
+        | ⚠️ THE «not judged yet» FALLBACK DOES NOT REACH HERE, and that is half
+        | its predicate rather than an accident: it is `delivered_at IS NOT NULL
+        | AND attended_seats IS NULL`, i.e. the deploy window in which a session
+        | was already taught and the verdict column does not exist yet. A session
+        | never delivered was measured, briefly, as OPEN — which would have
+        | published next week's worksheet to the whole register today.
+        |
+        | And no price is quoted for it either: an offer would tell the student
+        | the hour happened and invite them to pay for one that did not.
         */
+        ->and(contentIsOpen($session, $student))->toBeFalse()
         ->and(app(SessionContentAccess::class)
             ->unlockOfferFor($student, (int) $session->getKey()))->toBeNull();
 });

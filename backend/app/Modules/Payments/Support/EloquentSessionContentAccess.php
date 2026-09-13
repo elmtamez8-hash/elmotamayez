@@ -23,8 +23,8 @@ use Illuminate\Support\Facades\DB;
  * stays shut until they consent to spend a credit. The two sets are identical
  * by construction, which is why there is no second predicate to keep in step.
  *
- * ⛔ AND `attended_seats IS NULL` ON THE SESSION IS «NOT JUDGED YET», WHICH
- * ENTITLES. `scripts/deploy.sh` raises the containers before it runs the
+ * ⛔ AND `delivered_at IS NOT NULL AND attended_seats IS NULL` IS «DELIVERED BUT
+ * NOT JUDGED YET», WHICH ENTITLES — both halves, never the second alone. `scripts/deploy.sh` raises the containers before it runs the
  * migrations and Eloquent returns null for a column that does not exist, so
  * without that fallback every student of every session delivered before this
  * shipment — and every session inside the deploy window — would be CHARGED
@@ -65,9 +65,21 @@ class EloquentSessionContentAccess implements SessionContentAccess
             return [];
         }
 
-        // 1. Not judged yet ⇒ the seat entitles. See the class docblock.
+        /*
+        | 1. DELIVERED BUT NOT JUDGED ⇒ the seat entitles. See the class docblock.
+        |
+        | ⛔ AND `delivered_at IS NOT NULL` IS HALF THE PREDICATE, NOT DECORATION.
+        | Written as «not judged» alone it also covers every session that has not
+        | HAPPENED yet — a teacher who attaches next week's worksheet to next
+        | week's lesson would be publishing it to the whole register today, and
+        | the register is precisely who this gate exists to narrow. The deploy
+        | window is sessions ALREADY DELIVERED whose verdict column does not exist
+        | yet; a session never delivered is FR-008د's last row, «لا محتوى أصلاً»,
+        | and it stays shut.
+        */
         $unjudged = DB::table('class_sessions')
             ->whereIn('id', $classSessionIds)
+            ->whereNotNull('delivered_at')
             ->whereNull('attended_seats')
             ->pluck('id')
             ->map(static fn (mixed $id): int => (int) $id)

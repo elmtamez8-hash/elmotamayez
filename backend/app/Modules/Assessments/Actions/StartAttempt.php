@@ -12,8 +12,10 @@ use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Assessments\Support\ApplyAccommodation;
 use App\Modules\Assessments\Support\QuestionSnapshot;
+use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Learning\Models\Enrollment;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\SessionContentAccess;
 use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +34,8 @@ class StartAttempt extends Action
         if (! $isPractice) {
             $this->guardAttemptLimit($exam, $student);
         }
+
+        $this->guardSessionContent($exam, $student);
 
         // exam_attempts.random_seed is an unsignedInteger column — keep the seed
         // inside 32 bits or strict-mode MySQL rejects the insert.
@@ -64,6 +68,38 @@ class StartAttempt extends Action
 
             return $attempt;
         });
+    }
+
+    /**
+     * ٠٣٥ · FR-008 — an exam that belongs to a session is part of that session.
+     *
+     * ⛔ AND THE LINK IS THROUGH `lessons`, BECAUSE `exams` CARRIES NO
+     * `class_session_id` AT ALL. Measured: the column exists on `assignments` and
+     * on `unlock_rules` and nowhere else in this module. An exam is reached from
+     * a lesson whose `reference_id` names it, and that lesson is what carries the
+     * session — so the join is the only spelling available and inventing a column
+     * would be a second answer to a question the tree already answers.
+     *
+     * ⚠️ ASKED HERE AND NOT ONLY IN THE CURRICULUM PAYLOAD. A screen that hides a
+     * button is not a guard: this Action is the single entry point the seeder,
+     * the panel and the API all share, which is the rule the whole module is
+     * built on.
+     */
+    private function guardSessionContent(Exam $exam, User $student): void
+    {
+        $sessionId = DB::table('lessons')
+            ->where('reference_id', $exam->getKey())
+            ->where('type', LessonType::Exam->value)
+            ->whereNotNull('class_session_id')
+            ->value('class_session_id');
+
+        if ($sessionId === null) {
+            return;
+        }
+
+        if (! app(SessionContentAccess::class)->mayOpenSessionContent($student, (int) $sessionId)) {
+            throw new DomainException('محتوى هذه الحصة مقفول — افتحه بخصم حصة من رصيدك.');
+        }
     }
 
     /**

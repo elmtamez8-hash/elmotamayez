@@ -11,7 +11,7 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\ReferenceIntegrity;
 use App\Modules\Learning\Models\Enrollment;
-use App\Shared\Contracts\SessionAttendanceDirectory;
+use App\Shared\Contracts\SessionContentAccess;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -149,12 +149,23 @@ final class LessonGate
          * so the rule has one implementation and Constitution III holds.
          */
         if ($lesson->class_session_id !== null) {
-            return app(SessionAttendanceDirectory::class)
-                ->hasBookingForLesson($enrollment->student, (int) $lesson->getKey())
+            /*
+             * ⛔ ٠٣٥ · FR-008 — THE SEAT IS NO LONGER THE QUESTION. Holding a
+             * booking and RECEIVING the hour stopped being the same thing the
+             * day the absentee stopped being charged for it: whoever paid for
+             * the session gets everything it produced, and whoever gave notice
+             * keeps their credit and the content stays shut until they spend one
+             * on purpose. Asked through `SessionContentAccess` because
+             * `ContextIsolationTest` forbids this module every mention of the
+             * billing namespace — an import, a table name in quotes, and
+             * comments are stripped before the scan.
+             */
+            return app(SessionContentAccess::class)
+                ->mayOpenSessionContent($enrollment->student, (int) $lesson->class_session_id)
                 ? LessonAccess::allow()
                 : LessonAccess::deny(
                     LessonAccess::NO_SEAT,
-                    'هذا تسجيل حصة لم تحجز فيها مقعداً.',
+                    'محتوى هذه الحصة مقفول — افتحه بخصم حصة من رصيدك.',
                 );
         }
 
@@ -361,11 +372,21 @@ final class LessonGate
             self::examGatesAmong($items, $eligibleIds),
         );
 
-        // ⚠️ ASKED ONCE, AND ONLY IF THE TREE HOLDS A RECORDING. The single-row
-        // form asks the directory per lesson, which is the N+1 this method
-        // exists to remove; the bulk form is on the same interface, so the two
-        // still read one implementation.
-        $seatLessonIds = null;
+        /*
+        | ⚠️ ASKED ONCE, AND ONLY IF THE TREE HOLDS A RECORDING. The single-row
+        | form asks per lesson, which is the N+1 this method exists to remove;
+        | the bulk form is on the same CONTRACT, so the two still read one
+        | implementation — which is what stops the two doors disagreeing the way
+        | they did in ٠١٨, when a paid-for recording became unopenable.
+        */
+        $openSessionIds = null;
+
+        $sessionIdOf = static fn (object $row): int => (int) $row->class_session_id;
+
+        $recordedSessionIds = array_values(array_unique(array_map(
+            $sessionIdOf,
+            array_filter($items, static fn (object $row): bool => $row->class_session_id !== null),
+        )));
 
         $sequential = (bool) $enrollment->course->is_sequential;
         $active = $enrollment->isActive();
@@ -381,8 +402,8 @@ final class LessonGate
             $id = (int) $lesson->getKey();
 
             $access = (function () use (
-                $lesson, $id, $enrollment, $completedIds, $cohortLocks,
-                $satisfiedExamIds, &$seatLessonIds, $sequential, $active, $previous,
+                $lesson, $enrollment, $completedIds, $cohortLocks,
+                $satisfiedExamIds, &$openSessionIds, $recordedSessionIds, $sequential, $active, $previous,
             ): LessonAccess {
                 if ($lesson->course_id !== $enrollment->course_id) {
                     return LessonAccess::deny(
@@ -426,15 +447,18 @@ final class LessonGate
                 }
 
                 if ($lesson->class_session_id !== null) {
-                    $seatLessonIds ??= array_flip(
-                        app(SessionAttendanceDirectory::class)->bookedLessonIdsFor($enrollment->student),
+                    // ٠٣٥ · FR-008. See the single-row branch for why the seat
+                    // stopped being the question.
+                    $openSessionIds ??= array_flip(
+                        app(SessionContentAccess::class)
+                            ->openableSessionIds($enrollment->student, $recordedSessionIds),
                     );
 
-                    return isset($seatLessonIds[$id])
+                    return isset($openSessionIds[(int) $lesson->class_session_id])
                         ? LessonAccess::allow()
                         : LessonAccess::deny(
                             LessonAccess::NO_SEAT,
-                            'هذا تسجيل حصة لم تحجز فيها مقعداً.',
+                            'محتوى هذه الحصة مقفول — افتحه بخصم حصة من رصيدك.',
                         );
                 }
 
