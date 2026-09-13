@@ -27,19 +27,34 @@ import { formatMinorMoney } from "@/lib/labels";
  * an auth-aware public endpoint, which is a different change; this one is about
  * what the product SHOWS. Nothing here should ever be cited as protection.
  */
+/*
+  ⚠️ A CLOSED SET OF TWO, NOT A `className` PROP. The rule above is what this
+  component is FOR, and a free-form class is how a second caller ends up
+  re-implementing the rule beside it rather than reusing it — which is exactly
+  what nearly happened when the course page grew a rail: the price was about to
+  be printed there with its own copy of `isLearner`, and two spellings of one
+  question is the defect this repository records a dozen times over.
+*/
+const SIZES = {
+  inline: "text-xl font-black text-primary-ink",
+  rail: "text-3xl font-black text-ink",
+} as const;
+
 export function CoursePrice({
   priceMinor,
   currency,
+  size = "inline",
 }: {
   priceMinor: number | null;
   currency: string | null;
+  size?: keyof typeof SIZES;
 }) {
   const { user } = useAuth();
 
   if (priceMinor === null || currency === null || !isLearner(user)) return null;
 
   return (
-    <p className="text-xl font-black text-primary-ink">
+    <p className={SIZES[size]}>
       {priceMinor === 0 ? "مجاني" : formatMinorMoney(priceMinor, currency)}
     </p>
   );

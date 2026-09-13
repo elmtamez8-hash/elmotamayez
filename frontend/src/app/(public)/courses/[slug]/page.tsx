@@ -1,9 +1,21 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
+import {
+  BookIcon,
+  ClockIcon,
+  InfoIcon,
+  SessionsIcon,
+  UsersIcon,
+} from "@/components/icons";
 import { CohortList } from "@/components/marketplace/CohortList";
-import { CoursePrice } from "@/components/marketplace/CoursePrice";
 import { CourseCurriculum } from "@/components/marketplace/CourseCurriculum";
+import {
+  CourseOwnedBadge,
+  CourseOwnershipProvider,
+} from "@/components/marketplace/CourseOwnership";
+import { CourseRail } from "@/components/marketplace/CourseRail";
 import { PrivateSessionRequestForm } from "@/components/courses/PrivateSessionRequestForm";
 import { PromoVideoButton } from "@/components/courses/PromoVideoButton";
 import { StarRating } from "@/components/marketplace/StarRating";
@@ -20,6 +32,15 @@ import { counted } from "@/lib/labels";
 import { siteUrl } from "@/lib/site";
 
 type Params = { slug: string };
+
+/**
+ * أيقونةٌ من مفرداتِ المشروع — النوعُ مأخوذٌ من المجموعةِ نفسِها لا `ComponentType`.
+ *
+ * ⚠️ الأيقوناتُ هنا تقبلُ `className` و`title`، و`ComponentType` يقبلُ الأصنافَ
+ * أيضاً — فيتّسعُ النوعُ حتى لا يَصِفَ ما يُمرَّرُ فعلاً، ويسقطُ `tsc` عندَ أوّلِ
+ * مُسنَدٍ لا يطابقُ التوقيع.
+ */
+type Glyph = typeof BookIcon;
 
 const TYPE_LABELS: Record<CourseDetail["type"], string> = {
   individual: "فردي",
@@ -176,198 +197,255 @@ export default async function CoursePage({
    * و«٠ طالباً» — وهو ما كان يُطبَع — أسوأُ منه.
    */
   const facts = [
-    course.lessons_count > 0 &&
-      counted(course.lessons_count, {
+    course.lessons_count > 0 && {
+      key: "lessons",
+      Icon: BookIcon,
+      text: counted(course.lessons_count, {
         one: "درس واحد",
         two: "درسان",
         few: "دروس",
         many: "درساً",
         other: "درس",
       }),
-    hours(course.duration_seconds),
-    course.enrolled_count > 0 &&
-      counted(course.enrolled_count, {
+    },
+    hours(course.duration_seconds) !== null && {
+      key: "hours",
+      Icon: ClockIcon,
+      text: hours(course.duration_seconds) as string,
+    },
+    course.enrolled_count > 0 && {
+      key: "students",
+      Icon: UsersIcon,
+      text: counted(course.enrolled_count, {
         one: "طالب واحد",
         two: "طالبان",
         few: "طلاب",
         many: "طالباً",
         other: "طالب",
       }),
-  ].filter((fact): fact is string => typeof fact === "string");
+    },
+  ].filter(
+    (fact): fact is { key: string; Icon: Glyph; text: string } =>
+      typeof fact === "object",
+  );
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-10 sm:px-6">
-      <header className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        <div className="aspect-video w-full shrink-0 overflow-hidden rounded-3xl bg-primary-soft lg:w-80">
+    /*
+      ⛔ THE PROVIDER WRAPS THE WHOLE PAGE BECAUSE TWO PLACES ASK ONE QUESTION —
+      the rail and the syllabus — and the badge on the cover is a third. A fetch
+      per consumer is the same request three times on a page most readers open
+      signed out. See `CourseOwnership` for why a SERVER page needs this at all.
+    */
+    <CourseOwnershipProvider courseUuid={course.uuid}>
+      <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6">
+        {/*
+          الغلافُ شريطٌ عريضٌ لا مربّعٌ جانبيّ: صفحةُ الكورسِ تُفتَحُ لقرار،
+          وأوّلُ ما يُرى يجبُ أن يكونَ الكورسَ نفسَه.
+        */}
+        <div className="relative aspect-[21/9] w-full overflow-hidden rounded-3xl bg-primary sm:aspect-[21/7]">
           {course.cover_url ? (
             // A plain <img>: `next/image` would route a remote path through
             // `sharp`, whose advisories this tree accepts precisely because no
             // user-supplied image reaches it.
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={course.cover_url}
-              alt=""
-              className="h-full w-full object-cover"
-            />
+            <img src={course.cover_url} alt="" className="h-full w-full object-cover" />
           ) : (
             <span
-              className="flex h-full w-full items-center justify-center text-6xl font-black text-primary-ink/30"
+              className="flex h-full w-full items-center justify-center text-7xl font-black text-white/85"
               aria-hidden="true"
             >
               {course.title.charAt(0)}
             </span>
           )}
+
+          <CourseOwnedBadge />
         </div>
 
-        <div className="flex min-w-0 flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded-lg bg-primary-soft px-2 py-0.5 font-medium text-primary-ink">
-              {TYPE_LABELS[course.type]}
-            </span>
-            {course.subject && (
-              <span className="rounded-lg bg-primary-soft px-2 py-0.5 font-medium text-primary-ink">
-                {course.subject.name}
-              </span>
-            )}
-          </div>
-
-          <h1 className="text-2xl font-black leading-tight text-ink sm:text-3xl">
-            {course.title}
-          </h1>
-
-          <p className="text-sm text-ink-muted">{facts.join(" · ")}</p>
-
-          <StarRating value={course.average_rating} />
-
-          {course.teacher && (
-            <Link
-              href={`/teachers/${course.teacher.slug ?? course.teacher.uuid}`}
-              className="flex w-fit items-center gap-3 rounded-2xl border border-line px-4 py-3 transition hover:border-primary hover:shadow-sm"
-            >
-              {course.teacher.photo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={course.teacher.photo_url}
-                  alt=""
-                  className="h-10 w-10 rounded-full object-cover"
-                />
-              ) : (
-                <span
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-soft font-bold text-primary-ink"
-                  aria-hidden="true"
-                >
-                  {course.teacher.name.charAt(0)}
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+          <div className="flex min-w-0 flex-col gap-9">
+            <header className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="rounded-lg bg-primary-soft px-2.5 py-1 font-semibold text-primary-ink">
+                  {TYPE_LABELS[course.type]}
                 </span>
+                {course.subject && (
+                  <span className="rounded-lg bg-primary-soft px-2.5 py-1 font-semibold text-primary-ink">
+                    {course.subject.name}
+                  </span>
+                )}
+              </div>
+
+              <h1 className="text-balance text-3xl font-black leading-tight text-ink sm:text-4xl">
+                {course.title}
+              </h1>
+
+              {/* ⚠️ الحقيقةُ أيقونةٌ وكلمة، والصفرُ يسقطُ ولا يُنطَق — انظر `facts`. */}
+              {facts.length > 0 && (
+                <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink-muted">
+                  {facts.map(({ key, Icon, text }) => (
+                    <li key={key} className="flex items-center gap-1.5">
+                      <span aria-hidden="true">
+                        <Icon />
+                      </span>
+                      <bdi>{text}</bdi>
+                    </li>
+                  ))}
+                </ul>
               )}
 
-              <span className="flex flex-col gap-1">
-                <span className="text-sm font-bold text-ink">
-                  {course.teacher.name}
-                </span>
-                <TrustScoreBadge
-                  score={course.teacher.trust_score}
-                  band={course.teacher.trust_score_band}
+              <StarRating value={course.average_rating} />
+
+              {course.teacher && (
+                <Link
+                  href={`/teachers/${course.teacher.slug ?? course.teacher.uuid}`}
+                  className="flex w-fit items-center gap-3 rounded-2xl border border-line bg-surface-raised px-4 py-3 transition hover:border-primary hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  {course.teacher.photo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={course.teacher.photo_url}
+                      alt=""
+                      className="h-11 w-11 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span
+                      className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-soft font-black text-primary-ink"
+                      aria-hidden="true"
+                    >
+                      {course.teacher.name.charAt(0)}
+                    </span>
+                  )}
+
+                  <span className="flex flex-col gap-1">
+                    <span className="text-sm font-bold text-ink">{course.teacher.name}</span>
+                    <TrustScoreBadge
+                      score={course.teacher.trust_score}
+                      band={course.teacher.trust_score_band}
+                    />
+                  </span>
+                </Link>
+              )}
+            </header>
+
+            {/*
+              The promo video (018 · US1). Mounted only when there is an approved
+              one: the button is ABSENT, never disabled — a disabled control
+              promises something and then refuses it, leaving the visitor hunting
+              for what she did wrong. The server already collapses «no video» and
+              «awaiting review» into null, so this page has one condition to read.
+
+              And no booking call to action underneath it: the entrance below has
+              been on this page since 023, and a second one is a duplicate of a
+              live door.
+            */}
+            {course.promo_video_id !== null && (
+              <section className="flex flex-col gap-3">
+                <PromoVideoButton videoId={course.promo_video_id} courseTitle={course.title} />
+              </section>
+            )}
+
+            {course.description && (
+              <section className="flex flex-col gap-3">
+                <SectionHeading Icon={InfoIcon}>عن الكورس</SectionHeading>
+                <p className="max-w-[62ch] whitespace-pre-line text-[0.95rem] leading-loose text-ink-muted">
+                  {course.description}
+                </p>
+              </section>
+            )}
+
+            {/* ⚠️ THE ANCHOR IS THE INBOUND LINK, NOT DECORATION. The teacher's
+                profile lists this teacher's courses and sends each one straight
+                here — a student standing on «الجدول» could see the weekly times
+                and had no way at all to act on them, three clicks and no signpost
+                away from the only two doors that exist. `scroll-mt-24` clears the
+                sticky header, which an unmargined anchor lands underneath. */}
+            <section id="groups" className="flex scroll-mt-24 flex-col gap-4">
+              <SectionHeading Icon={UsersIcon}>المجموعات المتاحة</SectionHeading>
+
+              {course.cohorts.length > 0 ? (
+                <CohortList courseUuid={course.uuid} cohorts={course.cohorts} />
+              ) : (
+                <EmptyState
+                  title="لا مواعيد معلَنة بعد"
+                  description="لم يفتح المدرّس مجموعات لهذا الكورس حتى الآن. تابع صفحته لتعرف حين يفتح موعداً."
                 />
-              </span>
-            </Link>
-          )}
+              )}
+            </section>
 
-          {/* ⚠️ A CLIENT COMPONENT FOR ONE LINE, BECAUSE THIS PAGE HAS NO READER.
-              It renders on the server from the public marketplace endpoint, so
-              there is no `user` here at all — and the answer to «may this person
-              see the price» is a fact about who is looking. Read its docblock
-              before treating it as protection: it is not one. */}
-          <CoursePrice priceMinor={course.price_minor} currency={course.currency ?? null} />
+            <section className="flex flex-col gap-4">
+              <SectionHeading Icon={SessionsIcon}>حصة خاصة</SectionHeading>
+
+              {availability === null ? (
+                /*
+                 * ⚠️ NOT `ErrorState`'S DEFAULT COPY. It says «تحقّق من اتصالك»,
+                 * and this fetch happened on the SERVER — the visitor's own
+                 * connection demonstrably works, they are reading the page it
+                 * produced.
+                 */
+                <ErrorState
+                  title="تعذّر تحميل مواعيد المدرّس"
+                  description="حدث خطأ أثناء جلب المواعيد المتاحة. أعد المحاولة بعد قليل."
+                />
+              ) : availability.length > 0 ? (
+                <PrivateSessionRequestForm
+                  courseUuid={course.uuid}
+                  availability={availability}
+                  minutes={course.private_session_minutes}
+                  subscriptionAvailable={course.private_subscription_available}
+                />
+              ) : (
+                <EmptyState
+                  title="لا مواعيد للحصص الخاصة"
+                  description="لم يعلن المدرّس مواعيد متاحة بعد. تابع صفحته لتعرف حين يفتح موعداً."
+                />
+              )}
+            </section>
+
+            <section className="flex flex-col gap-4">
+              <SectionHeading Icon={BookIcon}>المنهج</SectionHeading>
+
+              {course.curriculum.length > 0 ? (
+                <CourseCurriculum
+                  sections={course.curriculum}
+                  courseSlug={course.slug ?? undefined}
+                />
+              ) : (
+                <EmptyState
+                  title="لم تُنشر دروس بعد"
+                  description="سيظهر محتوى الكورس هنا فور نشر المدرّس أوّل درس."
+                />
+              )}
+            </section>
+          </div>
+
+          {/* ⚠️ لاصقٌ على الشاشاتِ الواسعةِ وحدَها. عمودٌ لاصقٌ على الهاتفِ يأكلُ
+              نصفَ الشاشة، فيهبطُ هنا إلى مكانِه في التدفّقِ ويُمرَّرُ كأيِّ قسم. */}
+          <div className="lg:sticky lg:top-24">
+            <CourseRail
+              priceMinor={course.price_minor}
+              currency={course.currency ?? null}
+              courseUuid={course.uuid}
+            />
+          </div>
         </div>
-      </header>
+      </div>
+    </CourseOwnershipProvider>
+  );
+}
 
-      {/*
-        The promo video (018 · US1). Mounted only when there is an approved one:
-        the button is ABSENT, never disabled — a disabled control promises
-        something and then refuses it, leaving the visitor hunting for what she
-        did wrong. The server already collapses «no video» and «awaiting review»
-        into null, so this page has one condition to read.
-
-        And no booking call to action underneath it: the entrance below has been
-        on this page since 023, and a second one is a duplicate of a live door.
-      */}
-      {course.promo_video_id !== null && (
-        <section className="flex flex-col gap-3">
-          <PromoVideoButton
-            videoId={course.promo_video_id}
-            courseTitle={course.title}
-          />
-        </section>
-      )}
-
-      {course.description && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-lg font-extrabold text-ink">عن الكورس</h2>
-          <p className="whitespace-pre-line text-sm leading-relaxed text-ink-muted">
-            {course.description}
-          </p>
-        </section>
-      )}
-
-      {/* ⚠️ THE ANCHOR IS THE INBOUND LINK, NOT DECORATION. The teacher's profile
-          lists this teacher's courses and sends each one straight here — a
-          student standing on «الجدول» could see the weekly times and had no way
-          at all to act on them, three clicks and no signpost away from the only
-          two doors that exist. `scroll-mt-24` clears the sticky header, which an
-          unmargined anchor lands underneath. */}
-      <section id="groups" className="flex scroll-mt-24 flex-col gap-4">
-        <h2 className="text-lg font-extrabold text-ink">المجموعات المتاحة</h2>
-
-        {course.cohorts.length > 0 ? (
-          <CohortList courseUuid={course.uuid} cohorts={course.cohorts} />
-        ) : (
-          <EmptyState
-            title="لا مواعيد معلَنة بعد"
-            description="لم يفتح المدرّس مجموعات لهذا الكورس حتى الآن. تابع صفحته لتعرف حين يفتح موعداً."
-          />
-        )}
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-extrabold text-ink">حصة خاصة</h2>
-
-        {availability === null ? (
-          /*
-           * ⚠️ NOT `ErrorState`'S DEFAULT COPY. It says «تحقّق من اتصالك», and
-           * this fetch happened on the SERVER — the visitor's own connection
-           * demonstrably works, they are reading the page it produced.
-           */
-          <ErrorState
-            title="تعذّر تحميل مواعيد المدرّس"
-            description="حدث خطأ أثناء جلب المواعيد المتاحة. أعد المحاولة بعد قليل."
-          />
-        ) : availability.length > 0 ? (
-          <PrivateSessionRequestForm
-            courseUuid={course.uuid}
-            availability={availability}
-            minutes={course.private_session_minutes}
-            subscriptionAvailable={course.private_subscription_available}
-          />
-        ) : (
-          <EmptyState
-            title="لا مواعيد للحصص الخاصة"
-            description="لم يعلن المدرّس مواعيد متاحة بعد. تابع صفحته لتعرف حين يفتح موعداً."
-          />
-        )}
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-extrabold text-ink">المنهج</h2>
-
-        {course.curriculum.length > 0 ? (
-          <CourseCurriculum sections={course.curriculum} courseSlug={course.slug ?? undefined} />
-        ) : (
-          <EmptyState
-            title="لم تُنشر دروس بعد"
-            description="سيظهر محتوى الكورس هنا فور نشر المدرّس أوّل درس."
-          />
-        )}
-      </section>
-    </div>
+/**
+ * عنوانُ قسمٍ بأيقونتِه.
+ *
+ * ⚠️ الأيقونةُ `aria-hidden` دائماً: الكلمةُ إلى جانبِها تقولُ ما تقولُه، وإعلانُها
+ * مرّتَينِ ضجيجٌ على قارئِ الشاشة — قاعدةُ ملفِّ الأيقوناتِ نفسِها.
+ */
+function SectionHeading({ Icon, children }: { Icon: Glyph; children: ReactNode }) {
+  return (
+    <h2 className="flex items-center gap-2.5 text-lg font-extrabold text-ink">
+      <span className="text-primary-ink" aria-hidden="true">
+        <Icon />
+      </span>
+      {children}
+    </h2>
   );
 }
