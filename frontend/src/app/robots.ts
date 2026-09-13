@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { generateSitemaps } from "@/app/sitemap";
 import { SITE_URL } from "@/lib/site";
 
 /**
@@ -14,16 +15,29 @@ import { SITE_URL } from "@/lib/site";
  * `/admin` is Filament's session-authenticated panel, and `/api` answers JSON
  * that has no business in a search result.
  */
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  /*
+   * ⚠️ **الشرائحُ بأسمائِها، لأنّ Next لا يُنتِجُ فهرساً على الإطلاق.** كانَ هذا
+   * السطرُ `${SITE_URL}/sitemap.xml` وفوقَه تعليقٌ يقولُ إنّه «الفهرسُ الذي
+   * يُنتِجُه `generateSitemaps()`» — وهو غيرُ صحيح: التوثيقُ يقولُ إنّ الملفّاتِ
+   * تُخدَمُ على `/sitemap/[id].xml` ولا شيءَ يُخدَمُ على `/sitemap.xml`. قِيسَ
+   * على الإنتاج ٢٠٢٦-٠٩-١٣: `/sitemap.xml` ‏٤٠٤ و`/sitemap/0.xml` ‏٢٠٠ — أي أنّ
+   * `robots.txt` كانَ يدلُّ كلَّ زاحفٍ على عنوانٍ غيرِ موجود، والموقعُ كلُّه بلا
+   * خريطةٍ يقرؤها أحد.
+   *
+   * ⚠️ والقائمةُ تُشتَقُّ من `generateSitemaps()` نفسِها لا تُكتَبُ بيدٍ هنا:
+   * عددُ الشرائحِ يكبرُ مع المقالات، وقائمةٌ ثابتةٌ تُخفي ذيلَ الموقعِ في صمتٍ —
+   * وهو بالضبطِ العطبُ الذي وُجِدَ التقسيمُ لتفاديه.
+   */
+  const chunks = await generateSitemaps();
+
   return {
     rules: {
       userAgent: "*",
       allow: "/",
       disallow: ["/api/", "/admin", "/dashboard", "/manage/", "/settings", "/login"],
     },
-    // The sitemap INDEX, which is what `generateSitemaps()` produces. Naming
-    // `/sitemap/0.xml` here would advertise the first chunk and hide the rest.
-    sitemap: `${SITE_URL}/sitemap.xml`,
+    sitemap: chunks.map(({ id }) => `${SITE_URL}/sitemap/${id}.xml`),
     host: SITE_URL,
   };
 }

@@ -88,6 +88,16 @@ final class CmsFieldAllowlist
     public const TAXONOMY = ['slug', 'name'];
 
     /**
+     * شريطُ التصفّحِ في الفهرس — `/public/article-topics`.
+     *
+     * ⚠️ بابٌ عامٌّ ثالثٌ، فقائمةٌ ثالثة. الحمولةُ تجميعٌ لا صفوف: `articles_count`
+     * عددُ المنشورِ علناً تحتَ ذلك الـslug عبرَ المساحاتِ كلِّها، وهو ما يراه
+     * الزائرُ في الشريحةِ على أيِّ حال. ولا `id` هنا كما في `TAXONOMY`:
+     * التصنيفُ يُخاطَبُ بالـslug على كلِّ سطحٍ عامّ.
+     */
+    public const TOPICS = ['categories', 'tags', 'slug', 'name', 'articles_count'];
+
+    /**
      * Every key any public CMS payload may contain, including the envelope.
      *
      * ⚠️ THE ENVELOPE KEYS ARE HERE AND NOT IN `ARTICLE_*`: `current_page` is not
@@ -100,6 +110,7 @@ final class CmsFieldAllowlist
         return array_values(array_unique([
             ...self::ARTICLE_DETAIL,
             ...self::TAXONOMY,
+            ...self::TOPICS,
             ...PublicFieldAllowlist::TEACHER_CARD,
             ...PublicFieldAllowlist::COURSE_CARD,
             ...PublicFieldAllowlist::TAXONOMY,

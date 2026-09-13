@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { publicApi, type ArticleCard as Article } from "@/lib/public-api";
+import {
+  publicApi,
+  type ArticleCard as Article,
+  type ArticleTopics,
+} from "@/lib/public-api";
 import { SITE_URL, siteUrl } from "@/lib/site";
 import { platformName } from "@/lib/platform";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { PageBanner } from "@/components/ui/PageBanner";
 import { ArticleCard } from "@/components/blog/ArticleCard";
+import { TopicRail } from "@/components/blog/TopicRail";
 import { CtaBand } from "@/components/blog/CtaBand";
 import { BookIcon, ChevronEndIcon, ChevronStartIcon } from "@/components/icons";
 import { counted } from "@/lib/labels";
@@ -29,9 +34,12 @@ export async function generateMetadata(): Promise<Metadata> {
       type: "website",
       locale: "ar_QA",
       /*
-       * ⚠️ صورةٌ ثابتةٌ للقسمِ لا صورةُ مقال: `cms_articles` بلا عمودِ غلاف، وبطاقةُ
-       * المشاركةِ بلا صورةٍ تُصيَّرُ شريطاً رماديّاً على كلِّ منصّةِ تواصل. هذه
-       * صورةُ القسمِ نفسِها التي يعلوها العنوان، فما يُشارَكُ يُشبِهُ ما يُفتَح.
+       * ⚠️ صورةُ القسمِ لا غلافُ أحدثِ مقال، **والسببُ تغيّرَ ولم يتغيّرِ القرار**.
+       * كانَ مكتوباً هنا أنّ `cms_articles` بلا عمودِ غلاف — وهذا لم يعُدْ صحيحاً
+       * منذُ `cover_path`. ما يبقى صحيحاً أنّ هذا عنوانُ **القسم**: غلافٌ يتبعُ
+       * أحدثَ مقالٍ يجعلُ بطاقةَ مشاركةِ `/blog` تتبدّلُ مع كلِّ نشرة، فرابطٌ
+       * شاركَه أحدُهم الأسبوعَ الماضي يعرضُ اليومَ رسمَ مقالٍ لا علاقةَ له به —
+       * ويكلّفُ طلباً إضافيّاً في كلِّ فتحةِ صفحةٍ لبناءِ وسمٍ لا يراه القارئ.
        */
       images: [{ url: `${SITE_URL}/marketplace/banner-about.webp` }],
     },
@@ -58,6 +66,24 @@ async function loadArticles(page: number, category?: string, tag?: string) {
     // The `EmptyState` below says «لا توجد مقالات» — which is wrong for a minute
     // and recoverable, unlike an error page a crawler caches.
     return null;
+  }
+}
+
+/**
+ * أبوابُ التصفّح.
+ *
+ * ⚠️ شريطٌ فارغٌ لا صفحةٌ ساقطة، بنفسِ قاعدةِ `loadArticles` فوقَها: `/blog`
+ * مرتبطٌ من ذيلِ كلِّ صفحةٍ عامّة، وتعثّرُ طلبٍ ثانويٍّ يجبُ ألّا يُسقِطَ
+ * المقالاتِ نفسَها. وهما في `Promise.all` واحدٍ لأنّهما مستقلّان — مسلسلَينِ
+ * يُضاعِفانِ زمنَ أوّلِ بايت.
+ */
+async function loadTopics(): Promise<ArticleTopics> {
+  try {
+    const { data } = await publicApi.articleTopics();
+
+    return data;
+  } catch {
+    return { categories: [], tags: [] };
   }
 }
 
@@ -89,11 +115,28 @@ export default async function BlogIndexPage({
 }) {
   const { page, category, tag } = await searchParams;
   const current = Math.max(1, Number(page ?? 1) || 1);
-  const result = await loadArticles(current, category, tag);
+  const [result, topics, name] = await Promise.all([
+    loadArticles(current, category, tag),
+    loadTopics(),
+    platformName(),
+  ]);
   const articles: Article[] = result?.data ?? [];
   const lastPage = result?.meta.last_page ?? 1;
   const total = result?.meta.total ?? 0;
-  const name = await platformName();
+
+  /*
+    ⚠️ الاسمُ من الشريطِ لا السلَغُ من العنوان. كانَ السطرُ يطبعُ `{category ?? tag}`
+    أي `study-guide` حرفيّاً في جملةٍ عربيّةٍ يقرؤها طالب — سلَغٌ لاتينيٌّ داخلَ
+    نصٍّ عربيٍّ يُعادُ ترتيبُه بقواعدِ bidi فوقَ ذلك. والسلَغُ يبقى بديلاً أخيراً:
+    مرشِّحٌ مكتوبٌ بيدٍ في العنوانِ لا يقابلُه بابٌ موجودٌ يجبُ أن يقولَ شيئاً.
+  */
+  const activeTopic =
+    category !== undefined
+      ? topics.categories.find((topic) => topic.slug === category)
+      : tag !== undefined
+        ? topics.tags.find((topic) => topic.slug === tag)
+        : undefined;
+  const filtered = category !== undefined || tag !== undefined;
 
   // المقالُ الأوّلُ في الصفحةِ الأولى وبلا مرشِّح: صدارةٌ عريضةٌ ثمّ شبكة. مع
   // مرشِّحٍ لا صدارةَ — القارئُ يبحثُ في قائمةٍ لا يُقدَّمُ له اختيارُنا.
@@ -164,36 +207,79 @@ export default async function BlogIndexPage({
         ) : null}
       </PageBanner>
 
-      {category || tag ? (
-        <p className="mb-6 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
-          <span>تعرض مقالات ضمن:</span>
-          <span className="rounded-full bg-primary-soft px-3 py-1 font-semibold text-primary-ink">
-            {category ?? tag}
-          </span>
-          <Link href="/blog" className="font-semibold text-primary-ink underline">
-            أزلِ المرشّح
-          </Link>
+      <TopicRail
+        categories={topics.categories}
+        tags={topics.tags}
+        activeCategory={category}
+        activeTag={tag}
+      />
+
+      {filtered ? (
+        <p className="mb-6 text-sm text-ink-muted">
+          {counted(total, {
+            one: "مقال",
+            two: "مقالان",
+            few: "مقالات",
+            many: "مقالاً",
+            other: "مقال",
+            zero: "لا مقالات",
+          })}{" "}
+          تحت «{activeTopic?.name ?? category ?? tag}».
         </p>
       ) : null}
 
       {articles.length === 0 ? (
-        <EmptyState
-          title="لا توجد مقالات بعد"
-          description="سيظهر هنا ما ينشره المدرّسون. تصفَّحِ المدرّسين في هذه الأثناء."
-          action={
-            <Link href="/teachers" className="font-semibold text-primary-ink underline">
-              تصفَّحِ المدرّسين
-            </Link>
-          }
-        />
+        /*
+          ⚠️ جملتانِ لا واحدة. «لا توجد مقالات بعد» تحتَ مرشِّحٍ تقولُ للقارئِ إنّ
+          المدوّنةَ فارغةٌ بينما فيها عشراتُ المقالاتِ في أبوابٍ أخرى — وهي جملةٌ
+          تُنهي الزيارة. الفرقُ هو المرشِّحُ نفسُه، وكلُّ حالةٍ تعرضُ مخرجَها.
+        */
+        filtered ? (
+          <EmptyState
+            title="لا مقالات في هذا الباب"
+            description="جرّبْ باباً آخرَ من الشريط فوق، أو اقرأِ المدوّنةَ كلَّها."
+            action={
+              <Link href="/blog" className="font-semibold text-primary-ink underline">
+                اقرأِ المدوّنةَ كلَّها
+              </Link>
+            }
+          />
+        ) : (
+          <EmptyState
+            title="لا توجد مقالات بعد"
+            description="سيظهر هنا ما ينشره المدرّسون. تصفَّحِ المدرّسين في هذه الأثناء."
+            action={
+              <Link href="/teachers" className="font-semibold text-primary-ink underline">
+                تصفَّحِ المدرّسين
+              </Link>
+            }
+          />
+        )
       ) : (
         <>
           {isPlainFirstPage && lead ? (
-            <div
-              className="animate-float-in mb-6"
-              style={{ animationDelay: "60ms" }}
-            >
-              <ArticleCard article={lead} featured />
+            /*
+              شكلانِ خلفَ الصدارةِ لا خلفَ كلِّ بطاقة: أثرٌ يُميّزُ مقالَ اليومِ عن
+              الشبكةِ تحتَه. `aria-hidden` و`pointer-events-none` لأنّهما رسمٌ
+              خالص، ولا `z-index`: البطاقةُ بعدَهما في ترتيبِ المصدرِ و`relative`،
+              فتُرسَمُ فوقَهما بلا سياقِ تكديسٍ جديدٍ يُربِكُ ما تحتَه.
+            */
+            <div className="relative mb-6">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -top-16 -start-10 h-56 w-56 rounded-full bg-primary-soft blur-3xl"
+              />
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -bottom-14 -end-10 h-48 w-48 rounded-full bg-secondary/10 blur-3xl"
+              />
+
+              <div
+                className="animate-float-in relative"
+                style={{ animationDelay: "60ms" }}
+              >
+                <ArticleCard article={lead} featured />
+              </div>
             </div>
           ) : null}
 

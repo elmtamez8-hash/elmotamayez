@@ -177,6 +177,12 @@ it('publishes only allowlisted fields, in both public payloads', function (): vo
     $payloads = [
         'index' => $this->getJson('/api/v1/public/articles')->json(),
         'detail' => $this->getJson('/api/v1/public/articles/'.$article->slug)->json(),
+        /*
+        | البابُ العامُّ الثالث. مُدرَجٌ هنا لأنّ هذا الملفَّ هو قائمةٌ مكتوبةٌ
+        | بيدٍ لا مَشيٌ تلقائيّ — والدرسُ مكتوبٌ فوقَه: بابٌ عامٌّ ليسَ في قائمةٍ
+        | لا يُمشى عليه شيء، وحقلٌ يُضافُ إليه يُنشَرُ بلا اختبارٍ يلاحظ.
+        */
+        'topics' => $this->getJson('/api/v1/public/article-topics')->json(),
     ];
 
     $allowed = CmsFieldAllowlist::all();
