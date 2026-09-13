@@ -15,6 +15,17 @@ import { SITE_URL } from "@/lib/site";
  * `/admin` is Filament's session-authenticated panel, and `/api` answers JSON
  * that has no business in a search result.
  */
+/*
+ * ⚠️ **مُصيَّرٌ وقتَ الطلب، وهذا هو ما يجعلُ `SITE_URL` يصلُ أصلاً.** المتغيّرُ
+ * يُقرأُ وقتَ التشغيلِ من بيئةِ الحاوية — ولا وجودَ له داخلَ `docker build` —
+ * فنسخةٌ مُصيَّرةٌ وقتَ البناءِ تحملُ سقوطَ `lib/site.ts` إلى
+ * `http://localhost:3000` وتُخدَمُ هكذا للأبد. قِيسَ على الإنتاجِ بعدَ ضبطِ
+ * المتغيّرِ: صفحاتُ المقالاتِ (ISR) صحّحت رابطَها القانونيَّ فوراً بينما بقيَ
+ * `robots.txt` يقولُ `Host: http://localhost:3000` — وهو الفرقُ نفسُه بينَ ما
+ * يُصيَّرُ وقتَ الطلبِ وما يُخبَزُ في الصورة.
+ */
+export const dynamic = "force-dynamic";
+
 export default async function robots(): Promise<MetadataRoute.Robots> {
   /*
    * ⚠️ **الشرائحُ بأسمائِها، لأنّ Next لا يُنتِجُ فهرساً على الإطلاق.** كانَ هذا

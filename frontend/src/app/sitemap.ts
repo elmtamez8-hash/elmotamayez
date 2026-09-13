@@ -55,11 +55,29 @@ export async function generateSitemaps(): Promise<{ id: number }[]> {
   }
 }
 
-export default async function sitemap({
-  id,
-}: {
-  id: number;
+/*
+ * ⚠️ **مُصيَّرٌ وقتَ التشغيل، لا وقتَ البناء.** الخريطةُ تُبنى من الـAPI ومن
+ * `SITE_URL`، وكلاهما غيرُ موجودٍ داخلَ `docker build` — فنسخةُ البناءِ خريطةٌ
+ * فارغةٌ بعناوينِ `localhost`، وتُخدَمُ إلى الأبدِ بلا شيءٍ يُعيدُ توليدَها.
+ */
+export const revalidate = 60;
+
+/**
+ * ⚠️ **`id` ليسَ رقماً، والتوقيعُ الخطأُ أفرغَ الخريطةَ بالكامل.** توثيقُ Next
+ * يُصرِّحُ به `Promise<string>`؛ الملفُّ كانَ يُصرِّحُه `number` ويقارنُ
+ * `id === 0` — وهي كاذبةٌ دائماً، فسقطَ **النصفُ الثابتُ** (`/` · `/teachers` ·
+ * `/courses` · `/blog` …) وهو نصفٌ لا يعتمدُ على شبكةٍ ولا على قاعدةِ بيانات.
+ * ثمّ `String(id + 1)` يُنتِجُ صفحةً غيرَ صالحةٍ فيبتلعُها `catch` ويسقطُ النصفُ
+ * الآخر. النتيجةُ `<urlset>` فارغٌ تماماً — قِيسَ على الإنتاجِ وعلى المُطوِّرِ
+ * معاً في ٢٠٢٦-٠٩-١٣، أي أنّه ليسَ عطبَ بناءٍ بل عطبُ توقيع.
+ *
+ * `Number(await …)` صحيحٌ للثلاثةِ: وعدٌ، أو نصّ، أو رقمٌ — فلا يتعلّقُ بما
+ * تُقرِّرُه نسخةُ Next القادمة.
+ */
+export default async function sitemap(props: {
+  id: Promise<string>;
 }): Promise<MetadataRoute.Sitemap> {
+  const id = Number(await props.id);
   const staticEntries: MetadataRoute.Sitemap =
     id === 0
       ? STATIC_PATHS.map((path) => ({
