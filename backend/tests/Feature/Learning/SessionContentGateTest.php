@@ -20,7 +20,6 @@ use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Media\Actions\IssuePlaybackGrant;
 use App\Modules\Payments\Actions\UnlockSessionContent;
 use App\Modules\Tenancy\Support\Roles;
-use DomainException;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeBroadcastProvider;
 

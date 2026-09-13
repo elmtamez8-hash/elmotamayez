@@ -12,7 +12,6 @@ use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Models\SessionUnlock;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Contracts\SessionContentAccess;
-use DomainException;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Tests\Support\FakeBroadcastProvider;
