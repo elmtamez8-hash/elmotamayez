@@ -8,6 +8,7 @@ use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Support\SessionSettings;
@@ -41,6 +42,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CarbonInterface|null $room_opened_at
  * @property CarbonInterface|null $room_closed_at
  * @property CarbonInterface|null $recording_attempted_at
+ * @property int|null $attended_seats ٠٣٥ — for DISPLAY (FR-015أ)
+ * @property int|null $charged_seats ٠٣٥ — what the TEACHER IS PAID ON (FR-014)
+ * @property int|null $verdict_stay_seconds the bar ACTUALLY APPLIED, so moving
+ *                                          the setting cannot re-judge the past (SC-012)
  */
 class ClassSession extends BaseModel
 {
@@ -95,6 +100,14 @@ class ClassSession extends BaseModel
             'seats_total' => 'integer',
             'seats_taken' => 'integer',
             'billable_seats' => 'integer',
+            // ٠٣٥ — frozen at close by ONE conditional UPDATE, and deliberately
+            // absent from $fillable and from UpdateClassSessionRequest: the
+            // `captured_order_id` rule. Mass-assignable, `charged_seats` is a
+            // second door through which a teacher writes their own wage with a
+            // PUT. NULL means «not computed yet», never zero.
+            'attended_seats' => 'integer',
+            'charged_seats' => 'integer',
+            'verdict_stay_seconds' => 'integer',
             'seats_frozen_at' => 'datetime',
             'reminded_at' => 'datetime',
             'room_opened_at' => 'datetime',
@@ -176,6 +189,37 @@ class ClassSession extends BaseModel
         return $this->bookings()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $user->getKey())
+            ->exists();
+    }
+
+    /**
+     * Did this person's seat here carry a financial right?
+     *
+     * ٠٣٥ · T063. The sibling above answers «is this session any of your
+     * business», which a cancelled seat settles too. This answers the narrower
+     * money question: `Booked` or `CancelledLate` — the seat that is, or was,
+     * paid for. A seat cancelled inside the window and one released by
+     * `ReleaseIneligibleBookings` are both outside it, because neither was ever
+     * charged.
+     *
+     * ⚠️ TWO QUESTIONS, TWO PREDICATES, AND THE WIDER ONE IS NOT NARROWED. The
+     * precedent is one file away: `EloquentSessionAttendanceDirectory` keeps
+     * `ENTITLING` and `occupiesSeat()` apart for exactly this reason — sharing a
+     * constant is how the second answer quietly becomes the first.
+     *
+     * ⛔ AND IT HAS NO READER YET. Written on the owner's instruction
+     * (2026-09-13) rather than the day its caller was written, which is this
+     * repository's rule; `SessionContentController::entitled()` is the nearest
+     * money-shaped door and its width is DELIBERATE — a student who cancelled in
+     * time may still buy the hour, and narrowing it would shut a door they hold
+     * the price of. Anyone reaching for this: prove your door is not that one.
+     */
+    public function heldBillableSeat(User $user): bool
+    {
+        return $this->bookings()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $user->getKey())
+            ->whereIn('status', [BookingStatus::Booked, BookingStatus::CancelledLate])
             ->exists();
     }
 

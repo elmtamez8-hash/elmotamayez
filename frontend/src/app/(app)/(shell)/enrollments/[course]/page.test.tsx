@@ -56,6 +56,7 @@ function payload(overrides: Partial<Curriculum> = {}): Curriculum {
       completed_count: 4,
       countable_count: 10,
       resume_lesson_uuid: "l-open",
+    locked_session_count: 0,
     },
     cohort_gate: { required: false, satisfied: true, joinable_exists: false, message: null },
     sections: [

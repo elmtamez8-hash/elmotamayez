@@ -157,6 +157,12 @@ final class TeacherFieldAllowlist
         'amount_minor',
         'currency',
         'frozen_seats',
+        // ٠٣٥ · FR-014 — COUNTS OF SEATS, never amounts. The teacher is told how
+        // many of their seats were charged because that is the base their own fee
+        // was computed from; what any of those seats cost a student is not here
+        // and is not filtered out, it is absent (FR-018).
+        'attended_seats',
+        'charged_seats',
         'pending_reason',
         'recording_fault',
         'delivered_at',
@@ -242,6 +248,8 @@ final class TeacherFieldAllowlist
         'status',
         'basis',
         'frozen_seats',
+        'attended_seats',
+        'charged_seats',
         'amount_minor',
         'currency',
     ];

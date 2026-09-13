@@ -159,7 +159,9 @@ export default function SchedulePage() {
                       >
                         <SessionCard
                           session={row.session}
-                          href={`/sessions/${row.session.uuid}/room`}
+                          /* ٠٣٥ · T048 — صفحةُ الحصّةِ لا الغرفة؛ الغرفةُ
+                             زرٌّ عليها ما دامتِ النافذةُ مفتوحة. */
+                          href={`/sessions/${row.session.uuid}`}
                           time="clock"
                           /* Every row here is a seat the reader already holds —
                              see the prop's own note on SessionCard. */

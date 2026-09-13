@@ -9,6 +9,7 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Shared\Contracts\AccountStanding;
 use App\Shared\Contracts\EnrollmentDirectory;
+use App\Shared\Contracts\SessionCreditHolds;
 use App\Shared\Contracts\UnlockDirectory;
 
 /**
@@ -29,6 +30,7 @@ class BookingEligibility
         private readonly EnrollmentDirectory $enrollments,
         private readonly AccountStanding $standing,
         private readonly UnlockDirectory $unlock,
+        private readonly SessionCreditHolds $holds,
     ) {}
 
     /**
@@ -111,7 +113,57 @@ class BookingEligibility
             return $refusal;
         }
 
+        $frozen = $this->frozenCreditRefusal($session, $student);
+
+        if ($frozen !== null) {
+            return $frozen;
+        }
+
         return $this->unlock->refusalFor($student, (int) $session->getKey());
+    }
+
+    /**
+     * ٠٣٥ · T042 — the credits already promised to OTHER seats.
+     *
+     * ⛔ AND IT IS HERE AND NOT IN `refusalReason()`, for the reason written
+     * above that method's sibling: `ReleaseIneligibleBookings` sweeps booked
+     * seats through `allows()` and CANCELS what it finds ineligible. Every booked
+     * seat holds a credit by definition, so folding this in would have the
+     * nightly job repossess every seat on the platform — each one refused for
+     * holding exactly the credit it is entitled to hold.
+     *
+     * ⚠️ THE HAPPY PATH IS ONE QUERY AND THE DATE IS ON THE REFUSAL BRANCH. This
+     * chain is re-run by `BroadcastController::presence()` on every heartbeat,
+     * and its budget is 15 against a steady state of 14 with «the ceiling is not
+     * raised» written above the number.
+     *
+     * ⚠️ AND THE SENTENCE CARRIES THE DATE, because a refusal a student can do
+     * nothing with is the shape FR-013 forbids. «لا رصيد» to somebody whose
+     * credits come back on Thursday is false as well as useless.
+     */
+    private function frozenCreditRefusal(ClassSession $session, User $student): ?string
+    {
+        if ($session->course_id === null) {
+            return null;
+        }
+
+        if ($this->holds->availableFor($student, (int) $session->course_id) >= 1) {
+            return null;
+        }
+
+        $held = $this->holds->heldFor($student, (int) $session->course_id);
+
+        if ($held['first_release_at'] === null) {
+            // Nothing frozen and nothing available: an empty balance, which the
+            // withholding refusal above has already explained in its own words
+            // whenever the course is withheld. Saying it twice in two different
+            // sentences is two answers to one question.
+            return null;
+        }
+
+        $back = (date_create_immutable($held['first_release_at']) ?: null)?->format('Y-m-d H:i');
+
+        return "رصيدك محجوزٌ لحصصٍ أخرى ({$held['held']} حصة). أوّل ما يعود منه بعد انتهاء حصة {$back}، أو اشترِ رصيداً من صفحة الأرصدة.";
     }
 
     /**

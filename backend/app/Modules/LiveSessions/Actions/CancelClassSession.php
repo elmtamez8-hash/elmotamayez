@@ -9,6 +9,7 @@ use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Events\SessionCancelled;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\SessionCreditHolds;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -22,6 +23,8 @@ use Illuminate\Support\Facades\DB;
  */
 class CancelClassSession extends Action
 {
+    public function __construct(private readonly SessionCreditHolds $holds) {}
+
     public function handle(ClassSession $session, ?string $reason = null): ClassSession
     {
         if ($session->status->isTerminal()) {
@@ -52,6 +55,11 @@ class CancelClassSession extends Action
                 'cancelled_at' => now(),
                 'cancellation_reason' => $reason,
             ])->save();
+
+            // ٠٣٥ · T060 — every frozen credit on this hour comes back, in TWO
+            // statements whatever the seat count: the teacher called the lesson
+            // off, so no seat here is billable and none is waiting on a verdict.
+            $this->holds->release((int) $session->getKey());
         });
 
         // Everyone who held a seat hears about it (FR-006). Dispatched after the

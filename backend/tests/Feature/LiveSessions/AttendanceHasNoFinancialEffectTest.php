@@ -20,23 +20,38 @@ use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeBroadcastProvider;
 
 /*
-| SC-024 · FR-023ج — attendance carries no financial weight whatsoever.
+| ⛔ INVERTED ON 2026-09-13, NOT DELETED — ٠٣٥ · FR-002 · T017.
 |
-| Written now, before billing exists, because the event 006 will consume is
-| defined HERE. If the rule is only stated in prose, the phase that builds
-| billing will read `status` because it is right there and looks relevant.
+| This file used to assert «attendance carries no financial weight whatsoever»
+| (٠٠٥ · SC-024 · FR-023ج), and its proof was the right shape: two identical
+| sessions, one where everybody attended and one where nobody did, with every
+| financial fact held identical.
 |
-| The proof is a comparison: two identical sessions, same seats, one where
-| everybody attended and one where nobody did. The financial facts — the frozen
-| seat count and the delivery event — must be identical.
+| ٠٣٥ keeps the comparison and splits the answer, because the owner's decision
+| of 2026-09-13 is that there are now TWO seat counts and they mean different
+| things:
+|
+|  · `billable_seats` — frozen at the cancellation deadline, unchanged by ٠٣٥,
+|    and STILL identical across the two sessions. It answers «how many seats
+|    were closed to everyone else», which attendance cannot retroactively alter.
+|  · `attended_seats` — DIFFERENT. Two against zero. This is the number ٠٣٥
+|    adds, and the whole of what this file now proves exists.
+|  · `charged_seats` — IDENTICAL AGAIN, and that is the subtle half. The silent
+|    no-show is charged: they gave nobody notice and the seat stood empty and
+|    closed for the hour. So the empty session pays the teacher exactly what the
+|    full one does, which is why `attended_seats` may never be the wage base.
+|
+| ⚠️ AND THE BARE `Queue::fake()` WENT WITH IT. It swallowed the queued charge
+| listener along with the timeline jobs, so anything this file asserted about
+| money was an assertion about an empty table. `fakeSessionTimeline()` is the one
+| spelling of «the five jobs a `->delay()` would misfire, and nothing else».
 */
 
 beforeEach(function (): void {
-    Queue::fake();
+    fakeSessionTimeline();
     $this->app->instance(BroadcastProviderInterface::class, new FakeBroadcastProvider);
 
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
@@ -104,21 +119,41 @@ function taughtSession(bool $studentsAttend): array
     return [$session->refresh(), $students];
 }
 
-it('produces the same financial facts whether everyone attended or nobody did', function (): void {
+it('separates the seat that was closed, the seat that sat, and the seat that pays', function (): void {
     Event::fake([SessionDelivered::class]);
 
     [$attended] = taughtSession(true);
     [$empty] = taughtSession(false);
 
+    // Held constant: what was frozen at the deadline, and that both were taught.
     expect($attended->billable_seats)->toBe(2)
         ->and($empty->billable_seats)->toBe(2)
         ->and($attended->delivered_at)->not->toBeNull()
         ->and($empty->delivered_at)->not->toBeNull();
 
-    // Both delivered, both for the same number of seats. Attendance moved
-    // nothing.
+    /*
+     | ⚠️ THIS PAIR IS WHAT FAILS ON A BUILD WITH NO ٠٣٥ IN IT: both columns are
+     | null there, so `2` and `0` are the two assertions that cannot be reached
+     | by accident. And they are asserted as an exact pair rather than as «not
+     | equal», because a build that wrote `attended_seats` from the BOOKINGS
+     | would produce 2 and 2 and read as working.
+     */
+    expect($attended->attended_seats)->toBe(2)
+        ->and($empty->attended_seats)->toBe(0);
+
+    /*
+     | ⛔ AND THIS IS THE OWNER'S DECISION MEASURED. The empty session pays the
+     | teacher exactly what the full one does, because the silent no-show is
+     | charged — so `attended_seats` can never be the wage base, and a 1-on-1
+     | whose student never showed would otherwise be routed to the empty-session
+     | branch and paid a fraction while the student paid in full.
+     */
+    expect($attended->charged_seats)->toBe(2)
+        ->and($empty->charged_seats)->toBe(2);
+
     Event::assertDispatchedTimes(SessionDelivered::class, 2);
     Event::assertDispatched(SessionDelivered::class, fn (SessionDelivered $event): bool => $event->billableSeats === 2);
+    Event::assertDispatched(SessionDelivered::class, fn (SessionDelivered $event): bool => $event->chargedSeats === 2);
 });
 
 // SC-023 · FR-021د — watching the recording is recorded and changes nothing.

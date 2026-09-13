@@ -14,6 +14,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Models\Workspace;
@@ -212,11 +213,41 @@ trait CurriculumFixtures
             ]);
 
             $profile = TeacherProfile::factory()->create(['workspace_id' => $workspace->getKey()]);
-            $session = ClassSession::factory()->create([
-                'workspace_id' => $workspace->getKey(),
-                'teacher_profile_id' => $profile->getKey(),
-                'course_id' => $course->getKey(),
-            ]);
+
+            /*
+            | ٠٣٥ · T078 — ONE SESSION PER RECORDING, DELIVERED, AND JUDGED.
+            |
+            | Three corrections to this fixture, and each one hid a third of the
+            | new walk.
+            |
+            |  · ONE SHARED SESSION made an implementation that de-duplicates by
+            |    session id look free: the small course and the big one both ask
+            |    about a single id, so a per-row lookup and a one-shot lookup
+            |    agree at both sizes and the comparison proves nothing.
+            |  · AN UNDELIVERED SESSION WITH NO FROZEN VERDICT sends every row
+            |    down T032's pre-035 fallback, so the branch this budget exists to
+            |    measure is never entered at all.
+            |  · AND THE STUDENT MUST BE ABSENT. Attended, the content is open and
+            |    the gate returns before the part that costs anything.
+            */
+            $sessionFor = function () use ($workspace, $profile, $course): ClassSession {
+                $session = ClassSession::factory()->create([
+                    'workspace_id' => $workspace->getKey(),
+                    'teacher_profile_id' => $profile->getKey(),
+                    'course_id' => $course->getKey(),
+                ]);
+
+                $session->forceFill([
+                    'status' => ClassSessionStatus::Completed,
+                    'delivered_at' => now()->subDay(),
+                    'billable_seats' => 1,
+                    'attended_seats' => 0,
+                    'charged_seats' => 1,
+                    'verdict_stay_seconds' => 1800,
+                ])->save();
+
+                return $session;
+            };
 
             $order = 0;
 
@@ -257,7 +288,7 @@ trait CurriculumFixtures
                                 ])->getKey(),
                             ],
                             // And one recording, so the seat lookup is reached.
-                            5 => ['type' => 'article', 'class_session_id' => $session->getKey()],
+                            5 => ['type' => 'article', 'class_session_id' => $sessionFor()->getKey()],
                             default => ['type' => 'article'],
                         };
 

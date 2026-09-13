@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Http\Resources;
 
+use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
@@ -42,6 +43,22 @@ class ClassSessionResource extends JsonResource
              */
             'unlock_open' => $this->getAttribute('unlock_open'),
             'unlock_reason' => $this->getAttribute('unlock_reason'),
+            /*
+             | ٠٣٥ — THE SAME CONVENTION, AND DELIBERATELY A THIRD NAME.
+             |
+             | ⚠️ `content_offer`, NEVER `unlock_offer`. The two keys above carry
+             | spec ٠٠٨'s meaning of «unlock» — a homework condition on the NEXT
+             | session — and a third key with that prefix and a third meaning is
+             | how one reader answers the other's question. `contracts/README.md`
+             | §٠ records the decision.
+             |
+             | Stamped by the caller for the reason written above: a Resource runs
+             | once per row, and the offer is three queries. Null reads as «not
+             | asked», never as «open» — a screen that needs the answer asks for
+             | it, and `SessionContentAccess::stampAll()` is the one spelling.
+             */
+            'content_locked' => $this->getAttribute('content_locked'),
+            'content_offer' => $this->getAttribute('content_offer'),
             'uuid' => $this->uuid,
             'title' => $this->title,
             'type' => $this->type->value,
@@ -174,6 +191,14 @@ class ClassSessionResource extends JsonResource
      * fallback entirely would be worse — a caller who forgot to eager-load would
      * silently publish a recording with no way in, which is a bug this product
      * has already shipped once.
+     *
+     * ⛔ AND AN ARCHIVED LESSON IS NO ROUTE IN (FR-039ج). Retention expires the
+     * ASSET and archives the lesson that carried it — the row survives, so an
+     * unfiltered read hands the student a «افتح التسجيل» button that opens a
+     * refusal. That is the two-doors defect this repository paid a whole phase
+     * for in 018, and it is also the only honest signal the payload has for
+     * «you opened this hour and its material is gone»: published, with no uuid.
+     * A missing uuid on any OTHER status means the encode has not landed yet.
      */
     private function recordingLessonUuid(): ?string
     {
@@ -182,12 +207,17 @@ class ClassSessionResource extends JsonResource
         }
 
         if ($this->relationLoaded('recordingLesson')) {
-            return $this->recordingLesson?->uuid;
+            $lesson = $this->recordingLesson;
+
+            return $lesson === null || $lesson->status === ContentStatus::Archived
+                ? null
+                : $lesson->uuid;
         }
 
         $uuid = Lesson::query()
             ->withoutWorkspaceScope()
             ->where('class_session_id', $this->getKey())
+            ->where('status', '!=', ContentStatus::Archived->value)
             ->value('uuid');
 
         return $uuid === null ? null : (string) $uuid;

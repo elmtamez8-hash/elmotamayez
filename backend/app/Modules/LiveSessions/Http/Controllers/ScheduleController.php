@@ -17,6 +17,7 @@ use App\Modules\LiveSessions\Support\GuardianChild;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\GuardianDirectory;
+use App\Shared\Contracts\SessionContentAccess;
 use App\Shared\Support\GuardianPermission;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -41,9 +42,31 @@ use Illuminate\Http\Request;
  */
 class ScheduleController extends Controller
 {
-    public function index(Request $request, GetStudentSchedule $action): JsonResponse
+    public function index(Request $request, GetStudentSchedule $action, SessionContentAccess $content): JsonResponse
     {
-        $bookings = $action->handle($this->currentUser($request));
+        $student = $this->currentUser($request);
+        $bookings = $action->handle($student);
+
+        /*
+        | ⚠️ STAMPED HERE, AND THIS SCREEN HAD NO STAMPING CALL AT ALL.
+        | `/schedule` nests `ClassSessionResource` INSIDE `SessionBookingResource`,
+        | so a Resource-side lookup is one read per row of a whole month's
+        | timetable — the `ClassSessionResource` N+1 this module has already paid
+        | for once, and `QueryBudgetTest` fails the build over it.
+        |
+        | ⛔ THE HOST IS NEVER ASKED, and the reason is a measured defect rather
+        | than tidiness: this Resource serves the teacher's calendar too, and
+        | `mayOpenSessionContent(teacher)` is FALSE in their own workspace — a
+        | teacher holds no seat and is charged nothing. That is exactly what made
+        | `/eligibility` print «لست مسجّلاً عند هذا المدرّس» to the host of a
+        | lesson. A student's own timetable is students only, so the call is safe
+        | here; the guard lives with the stamp rather than inside it, because the
+        | contract answers a question about a STUDENT and cannot know who asked.
+        */
+        $content->stampAll(
+            $bookings->pluck('classSession')->filter()->values(),
+            $student,
+        );
 
         return response()->json(['data' => SessionBookingResource::collection($bookings)]);
     }
@@ -102,6 +125,9 @@ class ScheduleController extends Controller
             return response()->json(['data' => null]);
         }
 
+        // One session, so the price is what the reader is about to decide on.
+        app(SessionContentAccess::class)->stampAll([$session], $this->currentUser($request), withOffer: true);
+
         return response()->json([
             'data' => SessionBookingResource::make($booking),
             // Counted on the server. A countdown built from the browser's clock
@@ -159,6 +185,9 @@ class ScheduleController extends Controller
             // (FR-015).
             return response()->json(['data' => null]);
         }
+
+        // One session, so the price is what the reader is about to decide on.
+        app(SessionContentAccess::class)->stampAll([$session], $user, withOffer: true);
 
         return response()->json([
             'data' => ClassSessionResource::make($session),

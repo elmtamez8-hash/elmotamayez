@@ -18,6 +18,7 @@ use App\Modules\Payments\Http\Controllers\Manage\PlanController;
 use App\Modules\Payments\Http\Controllers\Manage\StudentBalanceController;
 use App\Modules\Payments\Http\Controllers\OrderController;
 use App\Modules\Payments\Http\Controllers\PaymentController;
+use App\Modules\Payments\Http\Controllers\SessionContentController;
 use App\Modules\Payments\Http\Controllers\SubscriptionController;
 use App\Modules\Payments\Http\Controllers\TermsConsentController;
 use App\Modules\Payments\Http\Controllers\WebhookController;
@@ -317,3 +318,23 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
 Route::post('/webhooks/payments/{provider}', WebhookController::class)
     ->middleware([VerifyWebhookSource::class, 'throttle:webhook'])
     ->name('webhooks.payments');
+
+/*
+| ٠٣٥ — «افتحْ محتوى هذه الحصّة بخصمِ حصّةٍ من رصيدي».
+|
+| ⚠️ INSIDE THE NAMED BILLING LIMITER, AND THAT IS NOT PAPERWORK. This is the
+| one route in the product that spends a student's credit with no undo, and the
+| default API floor is three hundred a minute: one loop over every locked
+| session of a course drains the whole balance, and the unique key stops none of
+| it because every call names a DIFFERENT session.
+|
+| ⚠️ `{sessionUuid}` AND NOT `{session}`. The SEGMENT NAME is what turns implicit
+| binding on, whatever a comment above the route says — and implicit binding
+| resolves through `BelongsToWorkspace`, which adds NO condition for a student
+| (their context is null), so it would hand over any session on the platform.
+| The controller resolves it explicitly and refuses uniformly.
+*/
+Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void {
+    Route::post('/class-sessions/{sessionUuid}/unlock', [SessionContentController::class, 'unlock'])
+        ->name('class-sessions.unlock');
+});

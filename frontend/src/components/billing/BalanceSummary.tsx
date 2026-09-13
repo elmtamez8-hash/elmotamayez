@@ -43,9 +43,23 @@ export function BalanceSummary({ balances }: { balances: CreditBalance[] }) {
               {/* bdi, because a credit count sits inside an Arabic sentence and
                   the bidirectional algorithm would otherwise put a leading digit
                   on the wrong side of the words around it. */}
-              <bdi>{formatCredits(balance.remaining_credits)}</bdi>
+              <bdi>{formatCredits(balance.available_credits)}</bdi>
             </p>
-            <p className="text-sm text-ink-muted">حصة متبقّية</p>
+            {/*
+              ٠٣٥ · T068 — ⛔ THE BIG NUMBER IS WHAT CAN BE SPENT, AND THE FROZEN
+              PART IS NAMED BESIDE IT. Showing the owned figure alone is how a
+              student reads «٣ حصص» here and is refused a booking one screen
+              later with nothing connecting the two — the refusal that reads as a
+              broken product (FR-013). Owned is still shown, one line down, so
+              nothing looks as though it went missing.
+            */}
+            <p className="text-sm text-ink-muted">حصة متاحة للحجز</p>
+            {balance.held_credits > 0 && (
+              <p className="mt-1 text-xs text-ink-muted">
+                منها <bdi>{formatCredits(balance.held_credits)}</bdi> مجمَّدة
+                لمقاعدَ حجزتَها — تعودُ بعدَ انتهاءِ كلِّ حصّة أو خصمِها.
+              </p>
+            )}
 
             <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-4 text-sm">
               <div>
@@ -58,6 +72,12 @@ export function BalanceSummary({ balances }: { balances: CreditBalance[] }) {
                 <dt className="text-ink-muted">المستهلَك</dt>
                 <dd className="font-medium text-ink">
                   <bdi>{formatCredits(balance.consumed_credits)}</bdi>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-ink-muted">المملوك</dt>
+                <dd className="font-medium text-ink">
+                  <bdi>{formatCredits(balance.remaining_credits)}</bdi>
                 </dd>
               </div>
             </dl>

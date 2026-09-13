@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 | only control on most of its rows — and SEVEN of them pointed at routes this
 | application has never had:
 |
-|   /sessions/{uuid}            there is only /sessions/[uuid]/room
+|   /sessions/{uuid}            ⚠️ TRUE UNTIL ٠٣٥ AND FALSE NOW — see below
 |   /courses/{uuid}             the catalogue has no detail route
 |   /exams/attempts/{uuid} ×2   the result screen is /exams/[uuid]/result
 |   /assignments/{uuid}         handing in happens on the list
@@ -132,7 +132,6 @@ describe("notification destinations", () => {
    | proves nothing about what is not in it.
   */
   it.each([
-    "/sessions/s1t2u3v4",
     "/exams/attempts/a1b2c3d4",
     "/assignments/a1b2c3d4",
     "/manage/assignments/a1b2c3d4",
@@ -140,6 +139,19 @@ describe("notification destinations", () => {
   ])("%s is still not a route, which is why it was a 404", (path) => {
     expect(known.some((route) => matches(route, path))).toBe(false);
   });
+
+  /*
+   | ⚠️ `/sessions/{uuid}` LEFT THE LIST ABOVE ON 2026-09-13, FOR THE SAME REASON
+   | `/courses/{uuid}` DID, AND THE PRECEDENT BELOW IS WHY THIS IS NOT A SILENT
+   | DELETION.
+   |
+   | The premise of that list is «this address has never existed, so a link
+   | naming it is a 404». ٠٣٥ · T048 built the session page — the one screen that
+   | tells a student what happened in an hour they missed and lets them open its
+   | content — so the premise stopped being true. Leaving the entry would have
+   | asserted that a real route is broken, which is the mirror image of the
+   | defect this whole file exists to catch.
+  */
 
   /*
    | ⚠️ `/courses/{uuid}` LEFT THE LIST ABOVE ON 2026-09-02, AND ONLY BECAUSE

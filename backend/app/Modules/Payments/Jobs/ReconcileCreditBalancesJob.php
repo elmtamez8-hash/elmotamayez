@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Does the ledger still add up? Asked nightly, in three ways.
+ * Does the ledger still add up? Asked nightly, in four ways.
  *
  * ⚠️ A JOB, NEVER A GET. Every check here is a `GROUP BY` across the fastest
  * growing tables of this phase with no tenant filter and no pagination. On a
@@ -35,7 +35,21 @@ use Illuminate\Support\Facades\Log;
  *     to (this is the one that catches a half-charged session, where three of
  *     five students were debited before the worker died);
  *   · a positive balance must equal the credits left in its lots, which is the
- *     drawer's own arithmetic checked against the counter it maintains.
+ *     drawer's own arithmetic checked against the counter it maintains;
+ *   · ٠٣٥ — `held_credits` must equal the number of unsettled holds, and no live
+ *     hold may point at a session that has reached a terminal state.
+ *
+ * ⚠️ THE FOURTH ONE EXISTS BECAUSE NOTHING ELSE IN THE PRODUCT READS
+ * `credit_holds` AT ALL. It is a derived counter written by one Action and
+ * settled by a listener AND a sweep working the same rows by design — which is
+ * the literal definition of silent drift, and until ٠٣٥ there was no invariant
+ * over it. The third check above is unaffected by it, contrary to an earlier
+ * reading: `sessionsAgainstEntries()` counts ROWS (`COUNT(*)`), not values, so
+ * the zero-value entry ٠٣٥ writes for an exempt seat keeps that count exact.
+ *
+ * ⚠️ AND IT IS MEASURED ON TWO CONSECUTIVE NIGHTS, NOT ONE (SC-010). A hold
+ * placed a second before the run and settled a second after is a false finding
+ * on any single night; a drift that is real is still there tomorrow.
  *
  * Nothing here repairs anything. A sweep that silently corrected a balance would
  * destroy the evidence of what went wrong, and the append-only ledger has no
@@ -67,6 +81,7 @@ class ReconcileCreditBalancesJob implements ShouldQueue
             ...$this->ledgerAgainstBalances(),
             ...$this->lotsAgainstBalances(),
             ...$this->sessionsAgainstEntries(),
+            ...$this->holdsAgainstBalances(),
         ];
 
         if (count($findings) > self::SAMPLE_LIMIT) {
@@ -174,6 +189,84 @@ class ReconcileCreditBalancesJob implements ShouldQueue
                     }
                 }
             });
+
+        return $findings;
+    }
+
+    /**
+     * ٠٣٥ — `held_credits` is the number of live holds, and a finished session
+     * holds nothing.
+     *
+     * Two findings from one walk, because they fail in opposite directions and
+     * a reader needs to know which:
+     *
+     *   · `held_counter` — the counter disagrees with the rows. A worker killed
+     *     between the claim and the decrement writes exactly this, permanently,
+     *     and the student's available balance is short by one for ever.
+     *   · `stale_hold` — a hold still live on a session that ended long ago.
+     *     `SweepStaleCreditHoldsJob` repairs those every fifteen minutes, so one
+     *     appearing here means the sweep itself has stopped — which its own
+     *     middleware lock can do, silently, if a worker dies while holding it.
+     *
+     * ⚠️ THE SECOND FINDING IS THE ONE THE COUNTER CANNOT PRODUCE. A stale hold
+     * keeps `held_credits` perfectly accurate: the row really is unsettled. The
+     * drift is that it is unsettled for a lesson that finished last month.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function holdsAgainstBalances(): array
+    {
+        $live = DB::table('credit_holds')
+            ->selectRaw('credit_balance_id, SUM(credits) AS total')
+            ->whereNull('settled_at')
+            ->groupBy('credit_balance_id')
+            ->pluck('total', 'credit_balance_id');
+
+        $findings = [];
+
+        DB::table('credit_balances')
+            ->select(['id', 'workspace_id', 'student_user_id', 'held_credits'])
+            ->chunkById(500, function (iterable $balances) use ($live, &$findings): void {
+                foreach ($balances as $balance) {
+                    $expected = (int) ($live[$balance->id] ?? 0);
+
+                    if ($expected !== (int) $balance->held_credits) {
+                        $findings[] = $this->finding(
+                            'held_counter',
+                            (int) $balance->workspace_id,
+                            (int) $balance->id,
+                            (int) $balance->student_user_id,
+                            $expected,
+                            (int) $balance->held_credits,
+                        );
+                    }
+                }
+            });
+
+        // A day's grace beyond the sweep's own six hours: anything still frozen
+        // against a lesson that ended yesterday is not waiting on a worker.
+        $stale = DB::table('credit_holds')
+            ->join('class_sessions', 'class_sessions.id', '=', 'credit_holds.class_session_id')
+            ->whereNull('credit_holds.settled_at')
+            ->where('class_sessions.ends_at', '<', now()->subDay())
+            ->select([
+                'credit_holds.workspace_id',
+                'credit_holds.credit_balance_id',
+                'credit_holds.student_user_id',
+            ])
+            ->limit(self::SAMPLE_LIMIT)
+            ->get();
+
+        foreach ($stale as $hold) {
+            $findings[] = $this->finding(
+                'stale_hold',
+                (int) $hold->workspace_id,
+                (int) $hold->credit_balance_id,
+                (int) $hold->student_user_id,
+                0,
+                1,
+            );
+        }
 
         return $findings;
     }

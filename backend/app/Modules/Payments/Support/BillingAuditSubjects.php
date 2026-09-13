@@ -10,6 +10,7 @@ use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Models\ExamModeWindow;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
+use App\Modules\Payments\Models\SessionUnlock;
 use App\Modules\Payments\Models\TermsConsent;
 
 /**
@@ -56,6 +57,11 @@ final class BillingAuditSubjects
         CreditPackage::class => 'package',
         ExamModeWindow::class => 'exam_window',
         TermsConsent::class => 'consent',
+        // ٠٣٥ — the one act in this module a STUDENT performs on their own
+        // money. Without the row here the unlock is logged and then filtered
+        // straight back out of the only screen an auditor opens, so FR-012 is
+        // satisfied on paper and invisible in practice.
+        SessionUnlock::class => 'session_unlock',
     ];
 
     /** @return list<class-string> */

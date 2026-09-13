@@ -91,7 +91,9 @@ function Group({
           >
             <SessionCard
               session={session}
-              href={`/sessions/${session.uuid}/room`}
+              /* ٠٣٥ · T048 — صفحةُ الحصّةِ لا الغرفة: هذا التبويبُ يعرضُ
+                 الماضيَ كذلك، والماضي لا غرفةَ له وله محتوىً يُفتَح. */
+              href={`/sessions/${session.uuid}`}
               time="full"
               action={past ? <RecordingLink session={session} /> : undefined}
             />

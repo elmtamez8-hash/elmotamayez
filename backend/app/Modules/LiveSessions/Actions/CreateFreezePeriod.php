@@ -12,6 +12,7 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\EnrollmentDirectory;
+use App\Shared\Contracts\SessionCreditHolds;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use DomainException;
@@ -42,6 +43,7 @@ class CreateFreezePeriod extends Action
     public function __construct(
         private readonly EnrollmentDirectory $enrollments,
         private readonly WorkspaceContext $context,
+        private readonly SessionCreditHolds $holds,
     ) {}
 
     /**
@@ -151,6 +153,12 @@ class CreateFreezePeriod extends Action
                 'status' => ClassSessionStatus::Suspended,
                 'seats_taken' => 0,
             ])->save();
+
+            // ٠٣٥ · T060 — a suspended hour holds nobody's credit. The seats are
+            // taken away by a decision that was not the student's, so keeping
+            // their credits frozen would be charging them for the teacher's
+            // holiday — in the one currency they cannot see moving.
+            $this->holds->release((int) $session->getKey());
         });
 
         // Same event as an outright cancellation, because from a seat's point of

@@ -63,7 +63,9 @@ async function rowFor(relation: GuardianRelation): Promise<Row> {
     may("results") ? quietly(() => readChildReportCards(uuid)) : null,
   ]);
 
-  const credits = (balances?.data ?? []).map((balance) => balance.remaining_credits);
+  // ٠٣٥ — المتاحُ لا المملوك، كما في بطاقتَي الرصيدِ فوقَها: وليُّ الأمرِ يقارنُ
+  // ما يستطيعُ كلُّ ابنٍ أن يحجزَ به، لا رقماً بعضُه محجوزٌ لمقاعدَ قائمة.
+  const credits = (balances?.data ?? []).map((balance) => balance.available_credits);
 
   const published = (cards?.data ?? [])
     .filter((card) => card.published_at !== null && card.overall_pct !== null)

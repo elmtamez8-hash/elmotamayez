@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Support;
 
+use App\Modules\Payments\Models\CreditHold;
 use App\Modules\Payments\Models\Order;
+use App\Modules\Payments\Models\SessionUnlock;
 use App\Modules\Payments\Models\TermsConsent;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
@@ -35,7 +37,7 @@ class PaymentsPersonalData implements PersonalDataOwner
     /** @return list<string> */
     public function describe(): array
     {
-        return ['payment_record'];
+        return ['payment_record', 'credit_hold', 'session_unlock'];
     }
 
     /**
@@ -139,6 +141,52 @@ class PaymentsPersonalData implements PersonalDataOwner
                 'consented_at' => ExportWalk::at($consent->consented_at),
             ],
         );
+
+        /*
+        | ٠٣٥ — «لماذا نقصَ متاحي هذا الأسبوع؟». A hold is the answer, and until
+        | it reached this walk the student's own archive could not explain the
+        | one number their screen shows them.
+        |
+        | ⚠️ `withoutWorkspaceScope()` WITH THE OWNERSHIP PREDICATE WRITTEN OUT.
+        | The scope is not a guard on either of these tables: the export runs in
+        | a queued job with no context at all, and a student who does carry a
+        | `last_workspace_id` would otherwise have every hold placed with a
+        | second teacher silently missing from the archive that FR-016 says is
+        | complete.
+        |
+        | ⚠️ AND NO MONEY, in either walk. A credit's price is the teacher's
+        | settlement rate plus two platform constants, so a figure here is
+        | solvable for that teacher's rate — and an export is a payload with a
+        | longer life than any other.
+        */
+        yield from ExportWalk::keyed(
+            'credit_hold',
+            CreditHold::query()
+                ->withoutWorkspaceScope()
+                ->where('student_user_id', $userId),
+            fn (CreditHold $hold): array => [
+                'uuid' => $hold->uuid,
+                'credits' => $hold->credits,
+                'outcome' => $hold->outcome,
+                'held_at' => ExportWalk::at($hold->held_at),
+                'settled_at' => ExportWalk::at($hold->settled_at),
+            ],
+        );
+
+        yield from ExportWalk::keyed(
+            'session_unlock',
+            SessionUnlock::query()
+                ->withoutWorkspaceScope()
+                ->where('student_user_id', $userId),
+            fn (SessionUnlock $unlock): array => [
+                'uuid' => $unlock->uuid,
+                'credits_charged' => $unlock->credits_charged,
+                // Why it cost what it cost — which for a zero row is the whole
+                // of the answer.
+                'reason' => $unlock->reason,
+                'consented_at' => ExportWalk::at($unlock->consented_at),
+            ],
+        );
     }
 
     /**
@@ -205,6 +253,13 @@ class PaymentsPersonalData implements PersonalDataOwner
         | JOB THAT DESTROYS THE BOOKS ON A SCHEDULE. It is also why `erase()`
         | receives `Retain` for this category rather than deciding for itself. The
         | catalogue row carries a null retention and must keep carrying one.
+        |
+        | ⚠️ AND ٠٣٥'S TWO TABLES ANSWER THE SAME WAY, deliberately. A hold and an
+        | unlock are both sides of a credit that was spent or returned, i.e. the
+        | arithmetic the balance is judged by — and `ReconcileCreditBalancesJob`
+        | reads exactly these rows every night. A retention on either is a sweep
+        | that deletes one side of an invariant and reports a drift nobody can
+        | explain. Their catalogue rows carry a null retention for that reason.
         */
         return 0;
     }

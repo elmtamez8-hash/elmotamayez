@@ -10,6 +10,8 @@ use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\SessionEndReason;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\LiveSessions\Enums\AttendanceStatus;
+use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Media\Actions\IssuePlaybackGrant;
@@ -166,6 +168,23 @@ it('leaks no broadcast provider or room id for a session recording', function ()
         'class_session_id' => $session->getKey(),
         'student_user_id' => $viewer->getKey(),
     ]);
+
+    /*
+    | ⚠️ THE SEAT STOPPED BEING THE ENTITLEMENT WITH ٠٣٥ · FR-008, and the
+    | booking above is no longer enough on its own. What opens a recording now is
+    | having RECEIVED the hour — `attendances.credit_verdict_at`, the one column
+    | Payments charges from and the content gate reads. The subject of this case
+    | is payload hygiene and not entitlement, so the entitlement is given rather
+    | than argued; without it the request is a correct 403 about a lesson nobody
+    | paid for, and the leak assertion below would pass over an empty body.
+    */
+    Attendance::query()->create([
+        'workspace_id' => $workspace->getKey(),
+        'class_session_id' => $session->getKey(),
+        'student_user_id' => $viewer->getKey(),
+        'status' => AttendanceStatus::Present,
+        'auto_status' => AttendanceStatus::Present,
+    ])->forceFill(['credit_verdict_at' => now()])->save();
 
     $payload = $this->postJson("/api/v1/lessons/{$lesson->uuid}/playback")->assertOk()->json();
     $serialised = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '';

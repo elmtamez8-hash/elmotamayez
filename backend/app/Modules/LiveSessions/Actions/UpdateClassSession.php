@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Actions;
 
+use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\SessionClash;
@@ -25,6 +26,41 @@ class UpdateClassSession extends Action
     {
         if ($session->status->isTerminal()) {
             throw new DomainException('لا يمكن تعديل حصة منتهية أو ملغاة.');
+        }
+
+        /*
+        | ٠٣٥ · T075 · FR-029 — THE CLOCK AND THE DURATION ARE FROZEN WHILE THE
+        | LESSON IS BEING TAUGHT.
+        |
+        | The existing guard above covers a TERMINAL session and stops there, so
+        | this was open the whole time the room was live — and the duration is not
+        | a label. The stay bar is half of it (٠٣٥ · FR-005) and is read when the
+        | register closes, so a teacher who drops a sixty-minute lesson to ten in
+        | its fiftieth minute moves that bar from thirty minutes to five: everyone
+        | who looked in briefly is charged a credit, and the teacher is paid for
+        | every one of them. `starts_at` is the same lever from the other end — it
+        | also derives the cancellation deadline, which is what decides who is
+        | exempt when the hour is judged.
+        |
+        | ⛔ THE CONDITION IS THE STATUS, NEVER `room_opened_at`. The two agree in a
+        | real database, where only `OpenBroadcastRoom` writes `Live` and it writes
+        | both in one statement — but fixtures across the suite stamp `live` with
+        | no timestamp, so the second spelling turns forty existing tests into
+        | claims about a lesson that never happened.
+        |
+        | ⛔ AND IT NAMES THE TWO FIELDS RATHER THAN LOCKING THE ACTION. There is a
+        | third caller with no FormRequest above it: `DecideSessionRescheduleRequest`
+        | reaches this Action directly with `starts_at`. A blanket refusal would
+        | take the reschedule decision down with it — and a live session really is
+        | one the decision may not move, so that call refuses here on purpose while
+        | every other edit it makes goes through.
+        */
+        if ($session->status === ClassSessionStatus::Live) {
+            foreach (['starts_at', 'duration_minutes'] as $frozen) {
+                if (array_key_exists($frozen, $attributes)) {
+                    throw new DomainException('لا يمكن تغيير موعد الحصة أو مدتها وهي جارية.');
+                }
+            }
         }
 
         if (isset($attributes['type'])) {

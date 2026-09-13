@@ -1304,3 +1304,82 @@ the JSON path — `['body->'.app()->getLocale() => $text]` — which Laravel com
 to `json_set` on MySQL and `json_patch` on SQLite, keeps a fan-out edit to one
 statement, and leaves any other locale on the row alone. `UpdateAnnouncement` is
 the one place in the tree that needs it.
+
+
+## Session credits, the hold, and the content gate (spec 035)
+
+### `credit_holds` — a frozen credit is not a spent one
+
+`unique(credit_balance_id, class_session_id, hold_seq)`. The third column is there
+because a seat can legitimately come back: `ReleaseIneligibleBookings` cancels a seat,
+the student is reinstated, and the revived seat needs a second row at `hold_seq = 1`
+rather than colliding with the settled one. It is deliberately **outside `$fillable`**
+— it discriminates a unique key, which is the `captured_order_id` rule — so
+`PlaceCreditHold` writes with `(new CreditHold)->forceFill([...])->save()`.
+
+⚠️ **The counter is `credit_balances.held_credits` and it is written ABSOLUTELY, from
+a subquery, never with `decrement()`.** Two settlers on the same seats is the design,
+not an edge case: the charge listener settles on delivery and
+`SweepStaleCreditHoldsJob` sweeps every fifteen minutes behind a six-hour grace. A
+relative write from two runners loses one of them and the counter never comes back
+down — a student who owns ten credits can then book nothing, with the nightly
+invariant GREEN, because the rows really are unsettled and the counter really does
+match them.
+
+⚠️ **`settled_at IS NULL` is both the check and the claim**, the seat idiom this
+schema uses in five other places. Never `lockForUpdate()`, a no-op on SQLite.
+
+### `session_unlocks` — one consent per hour
+
+`unique(student_user_id, class_session_id)` is the whole idempotency guard: FR-011
+says a double tap is one charge, and a count-then-insert is the definition of the
+race. `credits_charged` is stored even when it is **zero**, and `reason` says why —
+`consent` (bought), `subscription` and `removed_from_room` (opened freely). A
+zero-credit row with no reason cannot be told from a defect a month later.
+
+⚠️ **`charged_absence` is declared in the vocabulary and deliberately never
+written.** A charged seat already carries `attendances.credit_verdict_at`, which the
+gate's second query reads — so a row here would be a second answer to a question
+already answered, and the two would disagree the first time one was corrected. The
+constant stays on the model because a value absent from the class is a value the next
+writer invents as a bare string.
+
+### The verdict columns, and why there are three
+
+`class_sessions` carries `attended_seats`, `charged_seats` and `verdict_stay_seconds`,
+all nullable, all written ONCE by a conditional UPDATE keyed on
+`attended_seats IS NULL`. They are not redundant:
+
+- `attended_seats` is for DISPLAY (FR-015أ) — who was in the room.
+- `charged_seats` is WHAT THE TEACHER IS PAID ON (FR-014). A one-to-one hour whose
+  student never showed gives 0 and 1, and the teacher is paid on the 1.
+- `verdict_stay_seconds` is the bar actually applied, because the ratio behind it is
+  a `platform_settings` row an operator edits and a past hour must not be re-judged.
+
+⚠️ **NULL means «not judged», which is not zero.** Every reader falls back to the
+pre-035 rule on a null: `scripts/deploy.sh` raises the containers before the
+migrations run, and Eloquent returns null for a column that does not exist yet. Read
+as «nobody attended and nobody was charged», that window pays every teacher on the
+platform nothing for every lesson they have already taught.
+
+⚠️ **And the question is asked of the SESSION, never of the attendance row.**
+`attendances.credit_verdict_at` is per seat and has exactly two meanings — stamped is
+«charged» and null is «judged and exempt» — so there is no third value left in it to
+mean «not judged yet».
+
+### `teaching_units.attended_seats` / `charged_seats`
+
+Copied onto the unit beside `frozen_seats`, nullable with the same meaning of NULL.
+Copied rather than joined for the reason `frozen_seats` is a column at all: a unit is
+a frozen record of a past moment, and a statement that re-derived these would show a
+different answer every time somebody edited the register afterwards.
+`ReverseTeachingUnit` copies them with the rest of the frozen facts, or a reversal row
+reads as «not judged» beside the row it reverses.
+
+### `session_bookings.excused_at` / `excused_by_user_id`
+
+The MONEY meaning of «العذر», and a different column from
+`attendances.status = Excused`, which is the PASTORAL one. Two columns for two facts,
+on purpose: the mark counts as attendance wherever attendance is a condition and
+exempts nothing financially, while this column exempts the charge and leaves the hour
+shut. Unifying them in either direction breaks one of the two doors silently.

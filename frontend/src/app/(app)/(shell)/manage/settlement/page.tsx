@@ -137,6 +137,11 @@ export default function SettlementPage() {
     .filter((period) => period.status === "closed")
     .reduce((total, period) => total + period.net_minor, 0);
 
+  // «—», never «٠». A unit delivered before ٠٣٥ carries no verdict at all, and a
+  // zero there would tell a teacher nobody attended an hour they taught in full.
+  const seatCount = (seats: number | null) =>
+    seats === null ? "—" : seats.toLocaleString("ar-QA");
+
   const columns: Column<TeachingUnit>[] = [
     {
       key: "delivered_at",
@@ -150,9 +155,21 @@ export default function SettlementPage() {
     },
     {
       key: "frozen_seats",
-      header: "المقاعد المُجمَّدة",
+      header: "المقاعد المحجوزة",
       numeric: true,
       render: (unit) => unit.frozen_seats.toLocaleString("ar-QA"),
+    },
+    {
+      key: "attended_seats",
+      header: "الحاضرون",
+      numeric: true,
+      render: (unit) => seatCount(unit.attended_seats),
+    },
+    {
+      key: "charged_seats",
+      header: "المقاعد المحمَّلة",
+      numeric: true,
+      render: (unit) => seatCount(unit.charged_seats),
     },
     {
       key: "status",
@@ -286,6 +303,13 @@ export default function SettlementPage() {
 
           <p className="mt-2 text-xs text-ink-muted">
             لا يسري السعر إلا بعد اعتماد المنصة، والسعر الحالي يظل سارياً حتى ذلك.
+            {/* ٠٣٥ · T073 — WHERE THE PRICE IS AGREED, not only where it is
+                reported. The unit table says the same thing after the fact; a
+                teacher deciding what an hour of theirs costs has to know what
+                the platform will count as an hour before they name a number. */}
+            {" "}
+            وهذا السعر يُحتسب على المقعد المحمَّل — الحاضر ومَن تخلَّف دون إخطار — لا على
+            كل مقعد محجوز.
           </p>
 
           <div className="mt-3">
@@ -305,6 +329,15 @@ export default function SettlementPage() {
         <h3 id="units" className="text-lg font-bold text-ink">
           وحدات هذه الفترة
         </h3>
+        {/* ٠٣٥ · T073 — SAID HERE, AND SAID IN THE CONTRACT ON DAY ONE.
+            Three numbers side by side invite the reader to assume the first one
+            is theirs, because it was until this shipment. The sentence names the
+            third, and it carries no number of its own: a count repeated in prose
+            is a second answer that ages the first time anything changes. */}
+        <p className="text-sm text-ink-muted">
+          المحاسبة على المقاعد المحمَّلة وحدها — وهي مَن حضر، ومَن تخلَّف دون إخطار.
+          المقعد الذي أُخطِر عنه في الوقت أو قُبِل عذره لا يُحمَّل ولا يدخل مستحقَّك.
+        </p>
         <Table
           columns={columns}
           rows={units}

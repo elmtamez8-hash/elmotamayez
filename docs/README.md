@@ -2920,10 +2920,139 @@ keeps «الحضور بلا أثر ماليّ», which `AttendanceHasNoFinancial
 enforces everywhere else — and the zero is not flagged for review, because an
 unpriced subscriber row is the design rather than a missing rate.
 
-⚠️ **The sources that earn are an ALLOWLIST** (`Automatic` · `Manual`), never a
-denylist. A catch-up attendance source — watching 25% of the recording, downloading
-the lesson file — is a decided product rule that is **deliberately out of scope
-here**: it makes the student present in their own record and must not make the
-platform pay for a lesson it opened as a gift or a reward. With an allowlist that
-source earns nothing until somebody adds it on purpose; with a denylist it would
-start earning the day it lands, silently.
+⚠️ **AND SPEC 035 REPLACED THE PREDICATE UNDER IT.** This paragraph used to say
+the earning sources were an allowlist of `Automatic` and `Manual`, and the `Manual`
+half was the defect: a teacher typing «حاضر» on a subscriber's row after the lesson
+moved money towards themselves, which FR-004 forbids in as many words. A subscriber's
+seat now earns on `attendances.first_joined_at` — written by `RecordPresencePing`
+alone, a heartbeat against our own route from inside the room, so it is MEASURED and
+not typed. The concern the allowlist was written for survives and is now free: a
+catch-up source (watching the recording, downloading the file) writes no
+`first_joined_at`, so it makes the student present in their own record and pays the
+platform's teacher nothing.
+
+⚠️ **The stay bar is deliberately NOT reused here.** A subscriber who sat for
+twenty minutes of an hour was in the room and was taught; the same twenty minutes
+does not reach the bar that decides what a PAYING student is charged. Two questions,
+two predicates — and everybody who is not a subscriber earns on the charge
+(`credit_verdict_at`), which is spec 035's rule and is described below.
+
+
+## Session Credits, Attendance and the Content Gate (spec 035)
+
+A credit is no longer spent by holding a seat. **Booking FREEZES it, the close of the
+register SPENDS it, and everything the lesson produced is shut to whoever did not pay
+for it** until they say otherwise. Three modules move together: LiveSessions decides,
+Payments charges, Settlement pays.
+
+### The six states of one hour
+
+The table is the whole feature, and it is written in the code where it is read
+(`CloseClassSession::completeRegister()`). ⚠️ **Attendance alone is not the rule** —
+falling short of the bar is one condition and giving no notice is the second, and a
+student who did neither still pays.
+
+| State | The student | The teacher | The hour's material |
+|---|---|---|---|
+| Reached the stay bar | **charged** | **earns** | open |
+| Gave notice before the deadline | freeze returned | nothing | shut until they consent |
+| **Fell short with no notice** | **charged** | **earns** | **open, with no second consent** |
+| A reschedule request nobody answered in time | freeze returned | nothing | shut until they consent |
+| Excused by the teacher before the room closed | freeze returned | nothing | shut until they consent |
+| The lesson was never delivered | freeze returned | nothing | there is no material |
+
+⚠️ **The third row is the most important sentence in the shipment.** Most lessons here
+are one-to-one, so a student who simply does not turn up costs the teacher the whole
+hour — and the same row says they RECEIVE that hour, because charging them and then
+locking them out is punishing one act twice.
+
+⚠️ **And the bar is half the duration, frozen at the moment it was applied.**
+`sessions.required_stay_ratio` is a `platform_settings` row an operator edits, so
+`class_sessions.verdict_stay_seconds` stores the number ACTUALLY used. Without it,
+moving the setting re-judges every hour already taught.
+
+### Two tables
+
+**`credit_holds`** — a frozen credit, one row per seat.
+`unique(credit_balance_id, class_session_id, hold_seq)`, because a revived seat
+legitimately needs a second row. A hold NEVER deducts: `credit_balances.held_credits`
+is the counter and `available = remaining − held`. Settling is one conditional UPDATE
+(`WHERE settled_at IS NULL`) plus an ABSOLUTE counter write from a subquery — never
+`decrement()`, because two settlers on the same seats is the design (the charge
+listener and `SweepStaleCreditHoldsJob` every fifteen minutes, on a six-hour grace).
+`hold_seq` is deliberately outside `$fillable`: it discriminates a unique key, the
+`captured_order_id` rule.
+
+**`session_unlocks`** — who bought an hour they did not attend, when, and for how
+many credits. `unique(student_user_id, class_session_id)` is what makes a double tap
+one charge. The `reason` column is not decoration: `consent` is a purchase, while
+`subscription` and `removed_from_room` are opened at ZERO credits because a lock
+priced in credits is a lock with no way out for somebody who holds none, or who was
+ejected by the teacher's own decision.
+
+### Six columns on tables that already existed
+
+| Column | Answers |
+|---|---|
+| `credit_balances.held_credits` | how much of what you own is frozen against seats you hold |
+| `session_bookings.excused_at` / `excused_by_user_id` | the teacher accepted the excuse before the room closed — **the money meaning of the word** |
+| `attendances.credit_verdict_at` | stamped = this seat was charged. Null = judged and exempt |
+| `class_sessions.attended_seats` | who was in the room, **for display** (FR-015أ) |
+| `class_sessions.charged_seats` | **what the teacher is paid on** (FR-014) |
+| `class_sessions.verdict_stay_seconds` | the bar actually applied, so the past is not re-judged |
+
+`teaching_units.attended_seats` and `teaching_units.charged_seats` are copied onto
+the unit beside `frozen_seats` for the same reason that column is a column: a unit
+records a moment that has passed, and a statement that re-derived the numbers would
+answer differently every time the register was edited.
+
+⚠️ **`credit_verdict_at` is ONE column with TWO readers and no second derivation.**
+Payments charges from it and Settlement pays from it, so the two halves of one hour
+cannot drift apart — and it is exactly what the content gate needs, because the
+silent no-show is charged AND receives the hour while the excused student is charged
+nothing AND keeps it shut.
+
+⚠️ **«Not judged yet» is a question about the SESSION, never about the row.**
+`class_sessions.attended_seats IS NULL` is the fallback: the deploy raises the
+containers before it runs the migrations, and Eloquent returns null for a column that
+does not exist yet. Read per-row, every session delivered before this shipment would
+be charged (correct) and locked out (not).
+
+### «العذر» is one word with two meanings, on purpose
+
+- **In the money**: `session_bookings.excused_at`. No charge, and the hour stays shut
+  until the student consents to pay for it.
+- **In the pastoral record**: `attendances.status = Excused`. It counts as attendance
+  wherever attendance is a condition, so an excused student books the next lesson
+  normally — only `absent` fails.
+
+Every place that reads either one carries a sentence saying WHICH it means, and
+`ExcusedTwoMeaningsTest` holds both doors. The first person to unify them in good
+faith breaks one of the two, and neither failure announces itself.
+
+### What the teacher sees, and what changed in their contract
+
+The settlement screen shows three numbers side by side — booked, attended, charged —
+and says in words that the third is the wage base. It is repeated where the teacher
+AGREES their price, not only where it is reported: a teacher deciding what an hour of
+theirs costs has to know what the platform counts as an hour before they name a
+number. **They will see more credits consumed on their course than they were paid
+for**, because a late unlock is a credit that goes to the platform, and that has to
+be in the contract from day one rather than discovered in a statement.
+
+⚠️ **Zero ATTENDEES stopped being suspicious; zero CHARGED seats did not.** An empty
+room the teacher taught in full is now ordinary and is paid in full. An hour where
+seats were held, the lesson was delivered, and not one of them was charged — every
+holder excused, ejected or waiting on an unanswered reschedule — is flagged for
+review.
+
+### The progress denominator did not move, and that is guarded
+
+Nothing in this shipment touches `CourseProgress`, `Lesson::scopeProgressEligible()`
+or the certificate condition. `ProgressDenominatorUnchangedTest` compares the ID set
+the scope returns against a list written out by hand, over a fixture carrying a
+session recording, a session-linked exam and a session-linked assignment — the three
+a well-meaning widening drags in. **An item that enters the denominator and cannot be
+completed caps every enrolled student below 100% for ever**, so `CourseCompleted`
+never fires and no certificate ever issues. This repository has recorded that family
+six times from six directions.

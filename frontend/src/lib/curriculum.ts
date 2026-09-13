@@ -16,6 +16,7 @@ export type LockCode =
   | "exam_attempt"
   | "exam_pass"
   | "no_seat"
+  | "other_cohort"
   | "inactive"
   | "no_cohort";
 
@@ -68,6 +69,17 @@ export interface Curriculum {
     countable_count: number;
     /** Null on a finished course, and on one whose first item is shut. */
     resume_lesson_uuid: string | null;
+    /**
+     * ٠٣٥ · FR-025 — كم حصّةً من هذا الكورسِ مقفولةٌ لانتظارِ موافقةٍ بخصمِ رصيد.
+     *
+     * ⛔ **حِصَصٌ لا عناصر.** موافقةٌ واحدةٌ تفتحُ الساعةَ كلَّها بخصمِ حصّةٍ
+     * واحدة، فـ«سبعةُ عناصرَ مقفولة» تُسعِّرُ الساعةَ بسبعِ حصصٍ في رأسِ القارئ.
+     *
+     * ⚠️ **والرقمُ من الخادمِ ولا يُعَدُّ هنا.** عَدُّ صفوفِ `no_seat` في
+     * TypeScript هجاءٌ ثانٍ لسؤالٍ يُجيبُه الخادمُ فوقَ خريطةِ الوصولِ نفسِها،
+     * وهذه الشاشةُ بُنيَت أصلاً لإنهاءِ «جوابٌ هنا وآخرُ هناك».
+     */
+    locked_session_count: number;
   };
   /**
    * ⚠️ `required: false` FOR EVERY COURSE UNTIL GROUPS EXIST (US3). Not a
@@ -99,6 +111,7 @@ const FALLBACK: Record<LockCode, string> = {
   exam_attempt: "أدِّ الاختبار السابق وسلّم إجابتك ليُفتح ما بعده.",
   exam_pass: "لا يُفتح ما بعد الاختبار السابق حتى تجتازه بالدرجة المطلوبة.",
   no_seat: "هذا تسجيل حصة لم تحجز فيها مقعداً.",
+  other_cohort: "هذه الحصة ليست من حصص مجموعتك.",
   inactive: "تسجيلك في هذا الكورس غير نشط حالياً.",
   no_cohort: "اختر مجموعتك للبدء.",
 };

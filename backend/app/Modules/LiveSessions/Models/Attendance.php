@@ -36,6 +36,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonInterface|null $report_sent_at
  * @property CarbonInterface|null $recording_watched_at
  * @property CarbonInterface|null $overridden_at
+ * @property CarbonInterface|null $credit_verdict_at stamped ⇒ THIS SEAT WAS
+ *                                                   CHARGED, which is not the same as «the stay reached the
+ *                                                   bar»: FR-008ج charges the silent no-show too, and the four
+ *                                                   exemptions (excused · removed · notified · never
+ *                                                   delivered) are judged in `CloseClassSession` and frozen
+ *                                                   here. It is read as «charged» by the billing side and as
+ *                                                   «receives the hour» by the content gate, because those are
+ *                                                   one set. Null on a JUDGED session means exempt; the
+ *                                                   «not judged yet» branch is `class_sessions.attended_seats
+ *                                                   IS NULL`, read from the SESSION.
  */
 class Attendance extends BaseModel
 {
@@ -50,7 +60,19 @@ class Attendance extends BaseModel
         'source',
         'first_joined_at',
         'last_ping_at',
-        'stay_seconds',
+        // ⚠️ `stay_seconds` IS DELIBERATELY ABSENT SINCE ٠٣٥, and removing the
+        // `->default(0)` from its migration is what would break three callers.
+        // Measured: `RecordPresencePing.php:70`, `CloseClassSession.php:129`
+        // and `MarkAbsenteesJob.php:75` all pass `'stay_seconds' => 0` inside a
+        // `firstOrCreate` attributes array — i.e. through mass assignment,
+        // which now discards the key in silence and lands on the column
+        // default. They survive BECAUSE of that default.
+        //
+        // It is out because the column became MONEY with ٠٣٥: the seat is
+        // charged when the stay reaches the bar, so any bulk update written
+        // tomorrow is a teacher writing a deduction against their own student.
+        // Every legitimate writer uses `forceFill()` and the arithmetic in
+        // `RecordPresencePing`, which is the one spelling of it.
         'auto_status',
         'overridden_by',
         'overridden_at',
@@ -74,6 +96,9 @@ class Attendance extends BaseModel
             'overridden_at' => 'datetime',
             'confirmed_at' => 'datetime',
             'removed_at' => 'datetime',
+            // ٠٣٥ — written inside the close loop's existing `forceFill`, and
+            // deliberately not fillable for the reason `stay_seconds` left.
+            'credit_verdict_at' => 'datetime',
             'report_sent_at' => 'datetime',
             'recording_watched_at' => 'datetime',
         ];

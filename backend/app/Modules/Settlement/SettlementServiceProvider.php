@@ -21,9 +21,11 @@ use App\Modules\Settlement\Policies\RateChangeRequestPolicy;
 use App\Modules\Settlement\Policies\SettlementPeriodPolicy;
 use App\Modules\Settlement\Policies\TeachingUnitPolicy;
 use App\Modules\Settlement\Support\EloquentApprovedRateDirectory;
+use App\Modules\Settlement\Support\EloquentSessionUnitReversal;
 use App\Modules\Settlement\Support\EloquentSettlementClearance;
 use App\Modules\Settlement\Support\SettlementPersonalData;
 use App\Shared\Contracts\ApprovedRateDirectory;
+use App\Shared\Contracts\SessionUnitReversal;
 use App\Shared\Contracts\SettlementClearance;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
@@ -75,6 +77,18 @@ class SettlementServiceProvider extends Module
         // same shape, and the same reason: `ContextIsolationTest` fails the build
         // on a query that joins these schemas from outside.
         $this->app->bind(SettlementClearance::class, EloquentSettlementClearance::class);
+
+        /*
+        | ٠٣٥ — عذرٌ قُبِلَ بعدَ القفلِ يُسقِطُ أجرَ المدرّسِ عن ذلكَ المقعد.
+        |
+        | ⛔ A CONTRACT AND NOT A LISTENER, and that is a measured correction
+        | rather than a preference: `ContextIsolationTest` asserts the set of
+        | FOREIGN events subscribed under `Modules/Settlement/Listeners/` is
+        | EXACTLY `['SessionDelivered']`, so a second bridge is a red build on
+        | the import line alone. The caller resolves this the way Compliance
+        | resolves the clearance above, and neither module names the other.
+        */
+        $this->app->bind(SessionUnitReversal::class, EloquentSessionUnitReversal::class);
     }
 
     public function boot(): void

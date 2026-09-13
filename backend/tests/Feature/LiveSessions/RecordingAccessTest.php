@@ -11,11 +11,12 @@ use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Support\LessonAccess;
 use App\Modules\LiveSessions\Actions\BookSeat;
 use App\Modules\LiveSessions\Actions\CancelBooking;
+use App\Modules\LiveSessions\Enums\AttendanceStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Media\Actions\IssuePlaybackGrant;
 use App\Modules\Tenancy\Support\Roles;
-use App\Shared\Contracts\SessionAttendanceDirectory;
+use App\Shared\Contracts\SessionContentAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Queue;
 
@@ -28,6 +29,20 @@ use Illuminate\Support\Facades\Queue;
 | ordinary lesson without it would hand the hour to every student on the
 | register, including the ones who were not in the room and were never charged
 | for it.
+|
+| ⛔ AND ٠٣٥ NARROWED «THE PEOPLE WHO BOOKED» TO «THE PEOPLE WHO RECEIVED IT»,
+| ON 2026-09-13. Holding a booking and receiving the hour were one fact until the
+| day the absentee stopped being charged for it. Now the seat is what lets you
+| BUY the hour and `attendances.credit_verdict_at` is what says you already own
+| it: whoever was charged — the attender, the silent no-show, the late canceller
+| — watches, and whoever gave notice keeps their credit and the recording stays
+| shut until they spend one on purpose.
+|
+| ⚠️ SO `learner()` STAMPS THE VERDICT, and that is the whole edit to this file.
+| Every case below asks the same question it always asked; what changed is that
+| a fixture holding only a booking is now a student the product cannot produce —
+| a seat is not a verdict, and `CloseClassSession` never leaves one without the
+| other on a delivered session.
 */
 
 beforeEach(function (): void {
@@ -75,8 +90,16 @@ beforeEach(function (): void {
     ]);
 });
 
-/** A student enrolled in the course, optionally holding a seat. */
-function learner(bool $withSeat): User
+/**
+ * A student enrolled in the course, optionally holding a seat — and, since ٠٣٥,
+ * optionally having RECEIVED the hour.
+ *
+ * @param  bool|null  $received  null means «the same as the seat», which is what a
+ *                               delivered session produces for somebody who sat
+ *                               through it. Pass it explicitly whenever the case
+ *                               is about the two disagreeing.
+ */
+function learner(bool $withSeat, ?bool $received = null): User
 {
     $test = test();
     $student = $test->addWorkspaceMember($test->workspace, Roles::STUDENT);
@@ -88,6 +111,10 @@ function learner(bool $withSeat): User
 
     if ($withSeat) {
         app(BookSeat::class)->handle($test->session->refresh(), $student);
+    }
+
+    if ($received ?? $withSeat) {
+        attendanceRow($test->workspace, $test->session, $student, AttendanceStatus::Present);
     }
 
     return $student;
@@ -124,7 +151,8 @@ it('keeps access after a late cancellation', function (): void {
 });
 
 it('drops access when a seat was released in time', function (): void {
-    $student = learner(withSeat: true);
+    // Released before the deadline, so nothing was ever charged — no verdict.
+    $student = learner(withSeat: true, received: false);
 
     $booking = $this->session->bookings()->where('student_user_id', $student->getKey())->first();
     app(CancelBooking::class)->handle($booking);
@@ -150,13 +178,18 @@ it('answers the same in the bulk path', function (): void {
         ->toBe([(int) $this->recording->getKey() => false]);
 });
 
-it('reads the seat through the shared contract, not the model', function (): void {
+it('reads the entitlement through the shared contract, not the model', function (): void {
     $student = learner(withSeat: true);
 
-    // Media depends on this interface and never on LiveSessions' models
-    // (Constitution III). If the binding disappears, this is what says so.
-    expect(app(SessionAttendanceDirectory::class)->hasBookingForLesson($student, (int) $this->recording->getKey()))
-        ->toBeTrue();
+    /*
+    | Media depends on an INTERFACE and never on another module's models
+    | (Constitution III). ٠٣٥ changed WHICH interface — the question moved from
+    | «do they hold a seat» to «did they receive the hour» — so this asserts the
+    | contract the grant actually resolves today. If the binding disappears, this
+    | is what says so.
+    */
+    expect(app(SessionContentAccess::class)
+        ->mayOpenSessionContent($student, (int) $this->session->getKey()))->toBeTrue();
 });
 
 /*

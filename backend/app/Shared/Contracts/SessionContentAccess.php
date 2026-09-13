@@ -1,0 +1,110 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Shared\Contracts;
+
+use App\Models\User;
+use App\Shared\Data\SessionContentOffer;
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * ٠٣٥ — السؤالُ الواحدُ الذي تسألُه أبوابُ محتوى الحصّةِ الستّة.
+ *
+ * ⚠️ A CONTRACT AND NOT A QUERY, because two automatic walls forbid
+ * `Modules/Learning/` and `Modules/Community/` from naming `Payments` in ANY
+ * form — an import or a quoted table name — and comments are stripped before
+ * the scan, so a line explaining itself does not survive either
+ * (`ContextIsolationTest`). Without the contract FR-008 cannot be implemented
+ * at all. The third instance of this pattern in this repository, not an
+ * invention: `UnlockDirectory`, `EnrollmentDirectory`, `SettlementClearance`.
+ *
+ * ⚠️ THE BULK FORM IS A CORRECTNESS CONDITION, NOT AN OPTIMISATION. Reading the
+ * curriculum is the hottest read in the product and its cost is FLAT in the
+ * size of the tree, guarded by a budget test that compares ten items against
+ * two hundred. One question per item makes that hundreds of queries on a single
+ * course, and the build is red in the same minute.
+ *
+ * ⚠️ AND THE VERDICT IS READ FROM THE PAYLOAD ON THE SCREEN, never re-derived
+ * in TypeScript. Two spellings of one question is what made a paid-for
+ * recording unopenable in 018, with the two doors disagreeing.
+ */
+interface SessionContentAccess
+{
+    /**
+     * May this student open the files, the exam, the homework and the recording
+     * of this session?
+     *
+     * True when they attended, when the seat was charged anyway (the silent
+     * no-show has already paid for the hour), when a subscription covers it, or
+     * when they consented to spend a credit.
+     */
+    public function mayOpenSessionContent(User $student, int $classSessionId): bool;
+
+    /**
+     * The same question for a page of sessions, in a fixed number of queries.
+     *
+     * @param  list<int>  $classSessionIds
+     * @return list<int> the subset they may open — never the whole input
+     */
+    public function openableSessionIds(User $student, array $classSessionIds): array;
+
+    /**
+     * Which of these sessions this student may BUY the content of.
+     *
+     * ⛔ A DIFFERENT QUESTION FROM {@see openableSessionIds()}, AND THE GAP
+     * BETWEEN THEM IS A SENTENCE ON A SCREEN. «Open» is «you already have it»;
+     * this is «you may pay for it». A student in Saturday's group looking at
+     * Sunday's hour is neither — and until this method existed the curriculum
+     * told them «افتحه بخصم حصة من رصيدك» while the endpoint that sentence
+     * points at answered 403, one press apart. Measured on 2026-09-13.
+     *
+     * True for a seat of ANY status, and otherwise for an active enrolment in
+     * the session's course plus a group that held it — «was ever a member»,
+     * never «is a member today», or a transferred student is refused the hours
+     * they sat in.
+     *
+     * @param  list<int>  $classSessionIds
+     * @return list<int> the subset they may buy — never the whole input
+     */
+    public function unlockableSessionIds(User $student, array $classSessionIds): array;
+
+    /**
+     * What pressing «افتح» would cost and what it would open.
+     *
+     * Null when there is nothing to offer: already open, never entitled, the
+     * session was not delivered, or its material has been archived.
+     */
+    public function unlockOfferFor(User $student, int $classSessionId): ?SessionContentOffer;
+
+    /**
+     * Stamp a page of sessions with `content_locked` and `content_offer`.
+     *
+     * ⚠️ ON THE CONTRACT RATHER THAN AS A PAYMENTS CLASS THE CALLER IMPORTS,
+     * for the reason `UnlockDirectory::stamp()` carries: the consumer is a
+     * LiveSessions controller, and a helper imported directly is the coupling
+     * this interface exists to prevent, one indirection deeper. The signature
+     * therefore carries only Illuminate and root types.
+     *
+     * They are not columns: the same session is locked for one student and open
+     * for another.
+     *
+     * @param  iterable<Model>  $sessions
+     */
+    /**
+     * Stamp `content_locked` on every row, and `content_offer` only when asked.
+     *
+     * ⛔ `$withOffer` DEFAULTS TO FALSE, AND THE DEFAULT IS THE BUDGET. The lock
+     * is ONE bulk read for the whole page; the OFFER is several queries per
+     * locked row — a price, a balance, a content count and a retention date —
+     * and a month of timetable is twenty rows, not a handful. Stamping offers
+     * there took `/schedule` from 23 queries to 61 and turned its budget test
+     * red, which is the net working rather than a surprise.
+     *
+     * Pass true on a page that shows ONE session, where the price is what the
+     * student is about to decide on.
+     *
+     * @param  iterable<Model>  $sessions
+     */
+    public function stampAll(iterable $sessions, User $student, bool $withOffer = false): void;
+}

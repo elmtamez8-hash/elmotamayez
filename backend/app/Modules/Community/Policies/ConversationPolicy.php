@@ -15,6 +15,7 @@ use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\SessionAttendanceDirectory;
+use App\Shared\Contracts\SessionContentAccess;
 use App\Shared\Contracts\TeacherOffboardingDirectory;
 use Illuminate\Auth\Access\Response;
 
@@ -43,6 +44,7 @@ class ConversationPolicy
         private readonly TeacherOffboardingDirectory $departures,
         private readonly CohortDirectory $cohorts,
         private readonly WriteBanReader $writeBans,
+        private readonly SessionContentAccess $sessionContent,
     ) {}
 
     /** May this person read the thread at all? */
@@ -181,6 +183,24 @@ class ConversationPolicy
             }
 
             /*
+            | ⛔ ٠٣٥ · R10 — AN EXPLICIT REFUSAL, NOT A COMMENT SAYING WHY THERE IS
+            | NONE. `post()` reaches here by calling `view()`, and `view()`'s room
+            | branch now admits whoever OPENED the hour as well as whoever held a
+            | seat. Without this line, widening the read silently widened the
+            | WRITE: a student who never sat in the lesson pays one credit and is
+            | typing into a thread every seat holder reads.
+            |
+            | `chat.moderate` is exempt for the reason the lock and the ejection
+            | both exempt it — a teacher or an assistant holds no seat of their
+            | own in the room they run.
+            */
+            if ($conversation->class_session_id !== null
+                && ! $this->runsTheRoom($user, $conversation)
+                && ! $this->seats->hasSeatInSession($user, (int) $conversation->class_session_id)) {
+                return Response::deny('فتحتَ محتوى هذه الحصّة للقراءة، والكتابة في نقاشها لأصحاب المقاعد.');
+            }
+
+            /*
             | A room has no enrolment to end: entitlement to be in it IS the seat
             | or the membership, and `view()` has just asked. The FR-014 rule
             | below is about a RELATIONSHIP with one teacher, which a room does
@@ -246,6 +266,28 @@ class ConversationPolicy
      * would mean Community loading Learning's models, and a chat under a lesson
      * nobody has opened yet is empty anyway.
      */
+    /**
+     * The teaching side of a room: whoever may answer in it, or moderate it.
+     *
+     * ⛔ IT IS THE SAME PREDICATE `publicRoom()` LETS IN AT THE TOP, and it is a
+     * method rather than a repeated condition for the reason this file already
+     * pays twice over: two spellings of one question put one answer on the screen
+     * and another at the door. Written as `chat.moderate` alone, ٠٣٥'s write
+     * refusal silenced the ASSISTANT — who holds `chat.reply`, holds no seat of
+     * their own, and is exactly the person watching the room while the teacher
+     * talks.
+     */
+    private function runsTheRoom(User $user, Conversation $conversation): bool
+    {
+        if ($user->hasPermissionTo(Permissions::CHAT_MODERATE)) {
+            return true;
+        }
+
+        return $user->workspaces()->withoutGlobalScopes()
+            ->whereKey((int) $conversation->workspace_id)->exists()
+            && $user->hasPermissionTo(Permissions::CHAT_REPLY);
+    }
+
     private function publicRoom(User $user, Conversation $conversation): Response
     {
         $workspaceId = (int) $conversation->workspace_id;
@@ -267,7 +309,19 @@ class ConversationPolicy
         }
 
         if ($conversation->class_session_id !== null) {
+            /*
+            | ٠٣٥ · FR-008 · R10 — THE SEAT **OR** THE OPENED HOUR, AND READING
+            | ONLY.
+            |
+            | The seat stays first because it is the ordinary case and costs one
+            | cheap query; the contract is the second door, for whoever gave
+            | notice, kept their credit, and later spent one on purpose. Both are
+            | READS: `post()` carries its own explicit refusal, because this
+            | method is reached through `view()` and a denial here would take the
+            | archive away rather than the pen.
+            */
             return $this->seats->hasSeatInSession($user, (int) $conversation->class_session_id)
+                || $this->sessionContent->mayOpenSessionContent($user, (int) $conversation->class_session_id)
                 ? Response::allow()
                 : Response::deny('هذه الغرفة لمن حجز مقعداً في الحصّة.');
         }

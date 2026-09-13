@@ -76,6 +76,18 @@ interface CohortDirectory
     public function isCurrentMember(User $user, int $cohortId): bool;
 
     /**
+     * Every cohort this student has EVER belonged to, closed ones included.
+     *
+     * ⚠️ THE BULK TWIN OF {@see wasEverMember()}, and it exists for the reason
+     * that method's own docblock gives: a student moved between groups keeps the
+     * hours they sat in. Asked one cohort at a time inside a loop it is the N+1
+     * the curriculum read is budget-tested against.
+     *
+     * @return list<int>
+     */
+    public function everMemberCohortIdsFor(User $user): array;
+
+    /**
      * Everyone whose membership of this group is open — the roster and the
      * announcement fan-out.
      *

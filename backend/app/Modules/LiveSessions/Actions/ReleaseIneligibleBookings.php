@@ -8,6 +8,7 @@ use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\BookingEligibility;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\SessionCreditHolds;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -24,6 +25,7 @@ class ReleaseIneligibleBookings extends Action
 {
     public function __construct(
         private readonly BookingEligibility $eligibility,
+        private readonly SessionCreditHolds $holds,
     ) {}
 
     public function handle(ClassSession $session): int
@@ -54,6 +56,12 @@ class ReleaseIneligibleBookings extends Action
                     ->whereKey($session->getKey())
                     ->where('seats_taken', '>', 0)
                     ->decrement('seats_taken');
+
+                // ٠٣٥ · T060 — the sweep took the seat, so the credit goes back
+                // with it. `is_billable` is false on a released row, so nothing
+                // downstream will ever charge this seat and the freeze has
+                // nothing left to wait for.
+                $this->holds->release((int) $session->getKey(), [(int) $booking->student_user_id]);
             });
 
             $released++;

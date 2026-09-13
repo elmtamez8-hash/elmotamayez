@@ -54,6 +54,18 @@ class EloquentCohortDirectory implements CohortDirectory
         return $id === null ? null : (int) $id;
     }
 
+    public function everMemberCohortIdsFor(User $user): array
+    {
+        // No `closed_at` filter, deliberately — see the contract.
+        return array_values(CohortMembership::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $user->getKey())
+            ->distinct()
+            ->pluck('cohort_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all());
+    }
+
     public function joinableCohortsExist(int $courseId): bool
     {
         return Cohort::query()

@@ -118,7 +118,16 @@ class ClaimSubscriptionSeats extends Action
             $session,
             $student,
             $existing,
-            fn (): mixed => $this->seats->claimGrantedSeat($session, $student),
+            /*
+            | ٠٣٥ · T059 — ⛔ THE SUBSCRIBER'S SEAT FREEZES NO CREDIT, AND THE
+            | BRANCH IS HERE RATHER THAN INSIDE `BookSeat`. The month has already
+            | paid for the hour and the subscriber holds no credit balance at all
+            | (٠٢٧ · FR-041), so a hold placed for them is a refusal of a seat
+            | they own — and it would arrive through an automation, with no
+            | button anywhere for them to argue with.
+            */
+            fn (): mixed => $this->seats->claimGrantedSeat($session, $student, subscriptionCovered: true),
+            subscriptionCovered: true,
         );
     }
 
@@ -152,15 +161,24 @@ class ClaimSubscriptionSeats extends Action
             $session,
             $student,
             $existing,
+            // ⚠️ AND THE MEMBER'S SEAT DOES FREEZE ONE. They have bought nothing
+            // yet — booking charges no credits and `ChargeSeatsOnDelivery` does,
+            // at delivery — so this is the ordinary path and the ordinary hold.
             fn (): mixed => $this->seats->handle($session, $student),
+            subscriptionCovered: false,
         );
     }
 
     /**
      * @param  callable(): mixed  $open  the door a student with no row yet goes through
      */
-    private function decide(ClassSession $session, User $student, ?SessionBooking $existing, callable $open): ?string
-    {
+    private function decide(
+        ClassSession $session,
+        User $student,
+        ?SessionBooking $existing,
+        callable $open,
+        bool $subscriptionCovered = false,
+    ): ?string {
         /*
         | ⚠️ `billable_seats !== null` means the count the teacher is paid on has
         | already been settled for this session, and it is never recomputed — it
@@ -185,8 +203,16 @@ class ClaimSubscriptionSeats extends Action
                 // undone must not come back in the night — that is a button with
                 // no effect, which is worse than no button.
                 BookingStatus::CancelledInWindow, BookingStatus::CancelledLate => '',
+                // ⚠️ AND THE REVIVAL CARRIES THE SAME FACT. Both doors share this
+                // arm, so a revived seat with the flag dropped freezes a credit
+                // for a subscriber who has none — the refusal FR-041 forbids,
+                // reached through the one path neither door owns.
                 BookingStatus::Released => $this->attempt(
-                    fn (): mixed => $this->seats->reviveReleasedSeat($session, $student),
+                    fn (): mixed => $this->seats->reviveReleasedSeat(
+                        $session,
+                        $student,
+                        subscriptionCovered: $subscriptionCovered,
+                    ),
                 ),
             };
         }

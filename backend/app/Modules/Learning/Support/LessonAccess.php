@@ -61,6 +61,20 @@ final class LessonAccess
      * anything, and distinct from NO_SEAT because there IS something they can
      * do: NO_SEAT means "not yours", this means "pick a group first".
      */
+    /**
+     * ٠٣٥ — الحصّةُ لمجموعةٍ أخرى: مقفولةٌ، ولا تُشترى.
+     *
+     * ⛔ A CODE OF ITS OWN RATHER THAN A SECOND `NO_SEAT` MESSAGE, and the
+     * reason is a number on the screen: `CurriculumResource::lockedSessionCount()`
+     * counts `NO_SEAT` rows and the page prints «كذا حصّةً مقفولةً — افتحْها
+     * بكذا من رصيدِك». Folded in here, that offers to sell hours the endpoint
+     * refuses — a price quoted for something not on sale.
+     *
+     * It names no action because the student has none: the group is the
+     * teacher's decision, and after ٠٣٤ it is the administration's.
+     */
+    public const OTHER_COHORT = 'other_cohort';
+
     public const NO_COHORT = 'no_cohort';
 
     private function __construct(

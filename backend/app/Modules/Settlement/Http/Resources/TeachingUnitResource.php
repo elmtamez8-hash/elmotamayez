@@ -35,7 +35,13 @@ class TeachingUnitResource extends JsonResource
             // to parse back to do arithmetic on.
             'amount_minor' => $this->amount_minor,
             'currency' => $this->currency,
+            // Three numbers about one hour: seats held when the window shut, who
+            // was in the room, and how many seats were charged. The LAST is what
+            // this unit was priced on (FR-014). Null on anything delivered before
+            // ٠٣٥, and the client renders that as «—» rather than as zero.
             'frozen_seats' => $this->frozen_seats,
+            'attended_seats' => $this->attended_seats,
+            'charged_seats' => $this->charged_seats,
             'pending_reason' => $this->pending_reason,
             'recording_fault' => $this->recording_fault,
             'delivered_at' => $this->delivered_at->toIso8601String(),

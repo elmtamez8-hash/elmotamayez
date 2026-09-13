@@ -222,6 +222,15 @@ it('does not shut a paper the teacher has not marked yet', function (): void {
 
     unlockDefault((int) $workspace->getKey(), attendance: false, assignment: true, minScore: 80);
 
+    /*
+    | ⚠️ THE REGISTER ROW IS FIXTURE, NOT SUBJECT. This rule does not require
+    | attendance — that is the point of `attendance: false` — but since ٠٣٥ the
+    | homework of a session is part of that session, so a student who was never
+    | in the room cannot hand it in at all. Without this row the case fails on the
+    | LOCK while claiming to measure the marking queue.
+    */
+    attendanceRow($workspace, $first, $student, AttendanceStatus::Present);
+
     $homework = Assignment::factory()->published()->create([
         'workspace_id' => $workspace->getKey(),
         'course_id' => $course->getKey(),

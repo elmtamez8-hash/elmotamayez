@@ -63,11 +63,13 @@ use App\Modules\Media\Models\MediaCaption;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Models\CreditAllocation;
 use App\Modules\Payments\Models\CreditBalance;
+use App\Modules\Payments\Models\CreditHold;
 use App\Modules\Payments\Models\CreditLot;
 use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Models\ExamModeWindow;
 use App\Modules\Payments\Models\ProviderCallback;
+use App\Modules\Payments\Models\SessionUnlock;
 use App\Modules\Payments\Models\StudentCreditAccount;
 use App\Modules\Settlement\Models\LedgerEntry;
 use App\Modules\Settlement\Models\RateChangeRequest;
@@ -423,6 +425,69 @@ describe('credit models are workspace-scoped', function (): void {
 
         expect($context->forWorkspace($workspaceA, fn () => ExamModeWindow::query()->count()))->toBe(1)
             ->and($context->forWorkspace($workspaceB, fn () => ExamModeWindow::query()->count()))->toBe(1);
+    });
+
+    it('scopes credit holds and session unlocks to the workspace that owns them', function (): void {
+        /*
+        | ٠٣٥ · T065 — TWO WORKSPACES AND A READER WHO REALLY IS A MEMBER.
+        |
+        | ⛔ A FIXTURE BUILT ON A SELF-REGISTERED STUDENT PROVES NOTHING ABOUT
+        | THESE TWO TABLES. Such a student is a member of no workspace, so
+        | `WorkspaceContext::id()` is null, `WorkspaceScope::apply()` adds no
+        | condition at all, and both models answer identically whether or not
+        | they carry `BelongsToWorkspace`. The scope only ever bites for a reader
+        | whose context resolves — which is the teacher, the panel, and every
+        | platform report.
+        |
+        | ⚠️ AND `workspace_id` IS PASSED EXPLICITLY, exactly as the Actions pass
+        | it. The writer of a hold is a student's own request and the settler is a
+        | queued job: neither has a context, so the trait's auto-fill writes
+        | nothing and a test relying on it would be measuring a path production
+        | never takes.
+        */
+        [$workspaceA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+        [$workspaceB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+        $context = app(WorkspaceContext::class);
+
+        $seed = function (Workspace $workspace, int $rows) use ($context): void {
+            $context->forWorkspace($workspace, function () use ($workspace, $rows): void {
+                foreach (range(1, $rows) as $index) {
+                    $course = Course::factory()->create(['workspace_id' => $workspace->getKey()]);
+                    $balance = CreditBalance::factory()->create(['course_id' => $course->getKey()]);
+                    $session = ClassSession::factory()->create([
+                        'workspace_id' => $workspace->getKey(),
+                        'course_id' => $course->getKey(),
+                    ]);
+
+                    CreditHold::create([
+                        'workspace_id' => $workspace->getKey(),
+                        'credit_balance_id' => $balance->getKey(),
+                        'class_session_id' => $session->getKey(),
+                        'student_user_id' => $balance->student_user_id,
+                        'credits' => 1,
+                        'held_at' => now(),
+                    ]);
+
+                    SessionUnlock::create([
+                        'workspace_id' => $workspace->getKey(),
+                        'student_user_id' => $balance->student_user_id,
+                        'class_session_id' => $session->getKey(),
+                        'credits_charged' => $index,
+                        'reason' => SessionUnlock::REASON_CONSENT,
+                        'consented_at' => now(),
+                    ]);
+                }
+            });
+        };
+
+        $seed($workspaceA, 1);
+        $seed($workspaceB, 2);
+
+        foreach ([CreditHold::class, SessionUnlock::class] as $model) {
+            expect($context->forWorkspace($workspaceA, fn () => $model::query()->count()))->toBe(1)
+                ->and($context->forWorkspace($workspaceB, fn () => $model::query()->count()))->toBe(2);
+        }
     });
 
     it('declares the tenant key on every credit model that has one', function (): void {

@@ -50,10 +50,16 @@ use App\Modules\Payments\Providers\ManualTransferProvider;
 use App\Modules\Payments\Providers\PaymentProviderRegistry;
 use App\Modules\Payments\Support\EloquentAccountStanding;
 use App\Modules\Payments\Support\EloquentConsentDirectory;
+use App\Modules\Payments\Support\EloquentSessionContentAccess;
+use App\Modules\Payments\Support\EloquentSessionCreditHolds;
+use App\Modules\Payments\Support\EloquentSessionSeatCharges;
 use App\Modules\Payments\Support\PaymentsPersonalData;
 use App\Modules\Payments\Support\SubscriptionEligibility;
 use App\Shared\Contracts\AccountStanding;
 use App\Shared\Contracts\ConsentDirectory;
+use App\Shared\Contracts\SessionContentAccess;
+use App\Shared\Contracts\SessionCreditHolds;
+use App\Shared\Contracts\SessionSeatCharges;
 use App\Shared\Contracts\SubscriptionDirectory;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
@@ -123,6 +129,39 @@ class PaymentsServiceProvider extends Module
         | point of the moment parameter is that this answer moves.
         */
         $this->app->bind(SubscriptionDirectory::class, SubscriptionEligibility::class);
+
+        /*
+        | ٠٣٥ — عقدُ الكتابة: الحجزُ يُجمِّدُ الرصيدَ ولا يخصمُه.
+        |
+        | `scoped()`, for the two OPPOSITE reasons written above
+        | `AssistantScopeDirectory` and `Flags`: NOT `bind()`, because the
+        | release path walks several sessions in one request when a teacher
+        | cancels a day and a freeze period suspends a week — rebuilding the
+        | graph for each is the shape those two memoise away. NOT `singleton()`,
+        | because a worker's container outlives the job and this reads the
+        | billing mode and the ceiling, which an operator moves from the panel
+        | while the worker is running.
+        */
+        $this->app->scoped(SessionCreditHolds::class, EloquentSessionCreditHolds::class);
+
+        /*
+        | ٠٣٥ — عقدُ القراءة: السؤالُ الواحدُ الذي تسألُه الأبوابُ الستّة.
+        |
+        | `scoped()` for the same two opposite reasons: six gates ask it on one
+        | curriculum read, so `bind()` rebuilds the graph six times per page —
+        | and `singleton()` outlives a queued job, which would serve a verdict
+        | frozen before the session it is about even closed.
+        */
+        $this->app->scoped(SessionContentAccess::class, EloquentSessionContentAccess::class);
+
+        /*
+        | 035 — the exceptional door: an excuse accepted after the charge.
+        |
+        | `bind()` rather than `scoped()`: this is asked at most once per
+        | register correction, which is the rarest write in the product — not the
+        | dozens-per-page shape the two memoised bindings above exist for.
+        */
+        $this->app->bind(SessionSeatCharges::class, EloquentSessionSeatCharges::class);
     }
 
     public function boot(): void

@@ -17,6 +17,7 @@ import { RosterTab } from "@/components/courses/tabs/RosterTab";
 import { SessionsTab } from "@/components/courses/tabs/SessionsTab";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { counted } from "@/lib/labels";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -278,6 +279,27 @@ export default function CourseCurriculumPage({
             أتممتَ <bdi>{course.completed_count}</bdi> من <bdi>{course.countable_count}</bdi>{" "}
             — <bdi>{course.progress_pct}%</bdi>
           </p>
+
+          {/*
+            ٠٣٥ · FR-025 — «كذا حصّةً مقفولة»، بجانبِ الرقمِ الذي تُفسِّرُه.
+            ⛔ نسبةٌ تقفُ دونَ ١٠٠٪ بلا سببٍ هي العطبُ لا القفلُ نفسُه: الشرطُ
+            الثالثُ غيرُ القابلِ للتأجيلِ في المواصفةِ هو أن يُقالَ للطالبِ ما
+            الناقصُ وكيف يبلغُه، لا أن يُترَكَ أمامَ رقمٍ يتوقّف.
+            ⚠️ والعددُ عبرَ `counted()` بخانةِ `other` صريحة: «١٠٠ حصة واحدة»
+            أسوأُ من القالبِ الذي حلَّ محلَّه.
+          */}
+          {course.locked_session_count > 0 && (
+            <p className="text-sm text-white/85">
+              {counted(course.locked_session_count, {
+                one: "حصة واحدة مقفولة",
+                two: "حصتان مقفولتان",
+                few: "حصص مقفولة",
+                many: "حصة مقفولة",
+                other: "حصة مقفولة",
+              })}{" "}
+              — افتحْ كلَّ واحدةٍ منها بخصمِ حصّةٍ من رصيدِك من صفحةِ الحصّة.
+            </p>
+          )}
 
           {/*
             «تابعْ من هنا» (FR-010). Absent rather than disabled when there is

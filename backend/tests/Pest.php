@@ -609,8 +609,28 @@ function billableSession(Workspace $workspace, User $teacherUser, Course $course
  * premise of the charge, and a fixture that writes the column skips the very
  * judgement CloseClassSession exists to make — so a regression in that judgement
  * would leave every one of these tests green.
+ *
+ * ⛔ `$present` IS ٠٣٥'S HALF, AND OMITTING IT IS NOW AN ASSERTION ABOUT NOBODY.
+ * Before ٠٣٥ attendance had no financial effect at all, so a fixture could
+ * deliver a session without saying who sat in it and still assert «ten frozen
+ * seats ⇒ ten consumption entries». After ٠٣٥ the charge reads the stay, so a
+ * fixture that names nobody delivers a session every one of whose students was
+ * a silent no-show — which, because the silent no-show IS charged, happens to
+ * keep most of those numbers right and every one of them accidental.
+ *
+ * ⛔ AND IT STAMPS ONLY THE STUDENTS IT WAS GIVEN. Never every attendance row:
+ * `SeatNotAttendanceTest::markRegisterWith()` writes `stay_seconds = 0`
+ * DELIBERATELY before calling here, and a blanket update would erase the one
+ * fact that file exists to measure. The host's own stamp is untouched for the
+ * same reason it exists: `wasDelivered()` reads it, so removing it stops every
+ * session in the suite being billable.
+ *
+ * @param  list<User>|null  $present  students who stayed long enough to be charged.
+ *                                    Null means «nobody sat in it», which is a
+ *                                    real fixture and not an oversight — say so
+ *                                    by passing `[]` when that is the point.
  */
-function deliverBillableSession(ClassSession $session, User $teacherUser): ClassSession
+function deliverBillableSession(ClassSession $session, User $teacherUser, ?array $present = null): ClassSession
 {
     app(OpenBroadcastRoom::class)->handle($session->refresh());
     app(RecordPresencePing::class)->handle($session, $teacherUser);
@@ -619,6 +639,15 @@ function deliverBillableSession(ClassSession $session, User $teacherUser): Class
         ->where('class_session_id', $session->getKey())
         ->where('student_user_id', $teacherUser->getKey())
         ->update(['stay_seconds' => 3000]);
+
+    foreach ($present ?? [] as $student) {
+        app(RecordPresencePing::class)->handle($session, $student);
+
+        Attendance::query()
+            ->where('class_session_id', $session->getKey())
+            ->where('student_user_id', $student->getKey())
+            ->update(['stay_seconds' => 3000]);
+    }
 
     return app(CloseClassSession::class)->handle($session->refresh());
 }
@@ -1126,15 +1155,45 @@ function gatedPair(Workspace $workspace, User $student): array
 }
 
 /** The register row a gate reads. */
-function attendanceRow(Workspace $workspace, ClassSession $session, User $student, AttendanceStatus $status): Attendance
-{
-    return Attendance::create([
+function attendanceRow(
+    Workspace $workspace,
+    ClassSession $session,
+    User $student,
+    AttendanceStatus $status,
+    ?bool $charged = null,
+): Attendance {
+    $row = Attendance::create([
         'workspace_id' => $workspace->getKey(),
         'class_session_id' => $session->getKey(),
         'student_user_id' => $student->getKey(),
         'status' => $status,
         'source' => 'automatic',
     ]);
+
+    /*
+    | ⛔ ٠٣٥ — THE VERDICT COLUMN COMES WITH THE ROW, and a fixture that omits it
+    | is a student the product would never produce.
+    |
+    | `credit_verdict_at` stamped means THIS SEAT WAS CHARGED, and since ٠٣٥ it
+    | is what opens everything the hour produced — the recording, the files, the
+    | exam, the homework and the room's thread. A register row written without it
+    | is somebody who sat through a lesson and is then locked out of its worksheet,
+    | which is a state `CloseClassSession` cannot create.
+    |
+    | ⚠️ THE DEFAULT IS DERIVED FROM THE MARK **HERE AND NOWHERE ELSE**. In the
+    | product the mark decides nothing — a teacher typing «حاضر» must never move
+    | money (FR-004) — so this shorthand is a fixture convenience and is written
+    | down as one. Pass `$charged` explicitly whenever the case is ABOUT the two
+    | disagreeing: the silent no-show who is charged, or the excused seat that is
+    | not.
+    */
+    $isCharged = $charged ?? in_array($status, [AttendanceStatus::Present, AttendanceStatus::Late], true);
+
+    if ($isCharged) {
+        $row->forceFill(['credit_verdict_at' => now()])->save();
+    }
+
+    return $row;
 }
 
 /*

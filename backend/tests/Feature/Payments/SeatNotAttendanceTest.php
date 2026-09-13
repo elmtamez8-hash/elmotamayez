@@ -10,6 +10,7 @@ use App\Modules\LiveSessions\Enums\AttendanceStatus;
 use App\Modules\LiveSessions\Jobs\CloseClassSessionJob;
 use App\Modules\LiveSessions\Jobs\SendSessionReportsJob;
 use App\Modules\LiveSessions\Models\Attendance;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Tenancy\Support\Roles;
@@ -17,16 +18,32 @@ use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeBroadcastProvider;
 
 /*
-| SC-008 · FR-025د — the seat is charged, never the attendance.
+| ⛔ THIS FILE WAS INVERTED ON 2026-09-13, NOT DELETED — ٠٣٥ · FR-002 · T017.
 |
-| Four students, four different marks, four entries. What the student bought is
-| the SESSION PACKAGE — the recording, the files, the homework — and all four of
-| them received it. `Excused` is the one that reads as a refund and is not: its
-| meaning is pastoral and reportorial, and FR-025ب says so in as many words.
+| It used to assert «the seat is charged, never the attendance», and it was
+| right: ٠١٤ · FR-025د decided that in as many words, and `ChargeSessionSeats`
+| carried the comment «ATTENDANCE IS NOT CONSULTED, ANYWHERE». The argument
+| behind that decision was that the absentee still RECEIVES the hour — the
+| recording, the files and the homework all reach them — so charging them is
+| charging for what they got.
 |
-| The mirror image is asserted too, because it is the failure that costs money in
-| the other direction: a session the teacher never delivered charges NOBODY, no
-| matter how present everyone was.
+| ٠٣٥ · FR-003 removes that premise: nothing of a session opens for somebody who
+| did not sit in it unless they consent to spend the credit. The moment the
+| absentee stops receiving the hour, charging them for it stops being the same
+| transaction. The two decisions ship together or neither ships.
+|
+| ⚠️ WHAT SURVIVES IS THE HALF THIS FILE WAS ALWAYS REALLY ABOUT: the TEACHER'S
+| MARK moves no money (FR-004). The stay is measured by a heartbeat against our
+| own route and the arithmetic is the server's; `status` is a pastoral judgement
+| a human types, and a human typing a number that decides their own pay is the
+| defect `OverrideAttendance`'s window exists inside.
+|
+| ⚠️ AND «EXCUSED» IS NOW TWO DIFFERENT FACTS ON TWO DIFFERENT COLUMNS. The
+| FINANCIAL excuse is `session_bookings.excused_at`, written before the room
+| closes, and it exempts. The EDUCATIONAL one is `attendances.status = excused`,
+| and it exempts nothing — it says the absence is not held against the student
+| when the next booking's eligibility is judged. One word, two meanings; the
+| first developer to unify them in good faith breaks one of the two doors.
 */
 
 beforeEach(function (): void {
@@ -44,7 +61,7 @@ beforeEach(function (): void {
         $this->createEnrollment($this->workspace, $this->course, $student);
         $this->setCurrentWorkspace($this->workspace, $this->owner);
         // Prepaid is the default, so a seat has to be paid for before it can be
-        // taken. The subject of this file is not money; the funding is fixture.
+        // taken. The subject of this file is not funding; the funding is fixture.
         fundBooking($this->workspace, $student, $this->course);
 
         app(BookSeat::class)->handle($this->session->refresh(), $student);
@@ -55,78 +72,145 @@ beforeEach(function (): void {
     $this->session->refresh()->forceFill(['billable_seats' => 4])->save();
 });
 
-/** Marks in the register, in the order the four students were created. */
-function markRegisterWith(AttendanceStatus ...$statuses): void
+/**
+ * Marks and stays in the register, in the order the four students were created.
+ *
+ * ⚠️ THE STAY IS `forceFill`ED AND NOT MASS-ASSIGNED. `stay_seconds` left
+ * `Attendance::$fillable` with ٠٣٥ — it became money — so passing it in an
+ * `updateOrCreate` attributes array is DISCARDED IN SILENCE and every row here
+ * would land on the column default of zero, turning this whole file into four
+ * silent no-shows and every number in it into an accident.
+ *
+ * @param  array<int, array{0: AttendanceStatus, 1: int}>  $rows  status and stay per student
+ */
+function markRegisterWith(array $rows): void
 {
     $test = test();
 
     foreach ($test->students as $index => $student) {
-        Attendance::query()->updateOrCreate(
+        [$status, $staySeconds] = $rows[$index];
+
+        $attendance = Attendance::query()->updateOrCreate(
             [
                 'class_session_id' => $test->session->getKey(),
                 'student_user_id' => $student->getKey(),
             ],
             [
                 'workspace_id' => $test->workspace->getKey(),
-                'status' => $statuses[$index],
-                'auto_status' => $statuses[$index],
-                'stay_seconds' => $statuses[$index] === AttendanceStatus::Absent ? 0 : 2400,
+                'status' => $status,
+                'auto_status' => $status,
             ],
         );
+
+        $attendance->forceFill(['stay_seconds' => $staySeconds])->save();
     }
 }
 
-it('charges all four seats whatever the register says', function (): void {
-    markRegisterWith(
-        AttendanceStatus::Present,
-        AttendanceStatus::Late,
-        AttendanceStatus::Absent,
-        AttendanceStatus::Excused,
+/** How many consumption entries actually moved a credit. */
+function chargedSeatCount(): int
+{
+    return CreditTransaction::query()->withoutWorkspaceScope()
+        ->where('type', CreditTransactionType::Consume)
+        ->where('credits', '<', 0)
+        ->count();
+}
+
+/** Close it the way a delivered session closes, with the register already written. */
+function closeWithRegister(): void
+{
+    $test = test();
+
+    // The host's own row is the evidence `wasDelivered()` reads — it exists ON
+    // PURPOSE and is not a student row. Written here rather than through
+    // `deliverBillableSession()` because that helper rebuilds the register.
+    $host = Attendance::query()->updateOrCreate(
+        [
+            'class_session_id' => $test->session->getKey(),
+            'student_user_id' => $test->owner->getKey(),
+        ],
+        [
+            'workspace_id' => $test->workspace->getKey(),
+            'status' => AttendanceStatus::Present,
+            'auto_status' => AttendanceStatus::Present,
+        ],
     );
 
-    deliverBillableSession($this->session, $this->owner);
+    $host->forceFill(['stay_seconds' => 3000, 'first_joined_at' => now()->subHour()])->save();
 
-    $entries = CreditTransaction::query()->withoutWorkspaceScope()
-        ->where('type', CreditTransactionType::Consume)->get();
+    app(CloseClassSession::class)->handle($test->session->refresh()->forceFill([
+        'room_opened_at' => now()->subHour(),
+    ]));
+}
 
-    expect($entries)->toHaveCount(4)
-        // One per student, not four on one balance — the balance is per
-        // (student, course), and four entries on one of them would be the same
-        // count with the wrong people paying.
-        ->and($entries->pluck('credit_balance_id')->unique())->toHaveCount(4)
-        ->and($entries->pluck('credits')->unique()->all())->toBe([-1]);
+it('charges by the stay and never by the mark the teacher wrote', function (): void {
+    /*
+     | The bar is half of a sixty-minute session, i.e. 1800 seconds. The marks
+     | are deliberately at odds with the stays: two people who sat through it are
+     | marked absent, and two who never appeared are marked present.
+     |
+     | ⚠️ THIS IS WHAT FAILS ON A BUILD THAT READS `status`. Wire the charge to
+     | the mark and the first two are exempted and the count drops to two —
+     | which is also exactly the shape of a teacher deciding their own pay.
+     */
+    markRegisterWith([
+        [AttendanceStatus::Absent, 2400],
+        [AttendanceStatus::Absent, 2400],
+        [AttendanceStatus::Present, 0],
+        [AttendanceStatus::Present, 0],
+    ]);
+
+    closeWithRegister();
+
+    // All four: the first two reached the bar, and the second two are silent
+    // no-shows — who are charged, because they gave nobody any notice and the
+    // seat was closed to everyone else for the whole hour (FR-008د · row 3).
+    expect(chargedSeatCount())->toBe(4);
 });
 
-it('does not exempt the excused seat', function (): void {
-    // Named on its own because it is the one a reader expects to be refunded,
-    // and the one a well-meaning change would exempt first.
-    markRegisterWith(
-        AttendanceStatus::Excused,
-        AttendanceStatus::Excused,
-        AttendanceStatus::Excused,
-        AttendanceStatus::Excused,
-    );
+it('exempts the FINANCIAL excuse and not the educational one', function (): void {
+    markRegisterWith([
+        // Marked excused by the teacher, and present for the whole hour: the
+        // pastoral mark says nothing about money in either direction.
+        [AttendanceStatus::Excused, 2400],
+        // Marked excused, never appeared, and NO excuse on the booking: a silent
+        // no-show wearing a kind word.
+        [AttendanceStatus::Excused, 0],
+        [AttendanceStatus::Absent, 0],
+        [AttendanceStatus::Absent, 0],
+    ]);
 
-    deliverBillableSession($this->session, $this->owner);
+    // The fourth student's teacher accepted their excuse BEFORE the room closed
+    // — the one door FR-008د's fourth row travels through.
+    SessionBooking::query()->withoutWorkspaceScope()
+        ->where('class_session_id', $this->session->getKey())
+        ->where('student_user_id', $this->students[3]->getKey())
+        ->update(['excused_at' => now()->subHour(), 'excused_by_user_id' => $this->owner->getKey()]);
 
-    expect(CreditTransaction::query()->withoutWorkspaceScope()
-        ->where('type', CreditTransactionType::Consume)->count())->toBe(4);
+    closeWithRegister();
+
+    // Three, not four: the excused booking alone is exempt. On a build with no
+    // feature this is four, and on a build that read the MARK instead it is two.
+    expect(chargedSeatCount())->toBe(3);
 });
 
 it('charges nobody when the teacher never delivered it, however present they were', function (): void {
-    markRegisterWith(
-        AttendanceStatus::Present,
-        AttendanceStatus::Present,
-        AttendanceStatus::Present,
-        AttendanceStatus::Present,
-    );
+    /*
+     | ⚠️ STILL TRUE AFTER ٠٣٥, AND NOT TOUCHED. Delivery is the premise of the
+     | charge (FR-025أ) and ٠٣٥ narrows who is charged WITHIN a delivered
+     | session — it does not create a charge where there was none.
+     */
+    markRegisterWith([
+        [AttendanceStatus::Present, 3000],
+        [AttendanceStatus::Present, 3000],
+        [AttendanceStatus::Present, 3000],
+        [AttendanceStatus::Present, 3000],
+    ]);
 
     // The room is never opened and the teacher never joins, so
     // CloseClassSession's three-part test fails and SessionDelivered is not
-    // fired at all (FR-025أ).
+    // fired at all.
     app(CloseClassSession::class)->handle($this->session->refresh());
 
     expect($this->session->refresh()->delivered_at)->toBeNull()
-        ->and(CreditTransaction::query()->withoutWorkspaceScope()
-            ->where('type', CreditTransactionType::Consume)->count())->toBe(0);
+        ->and(chargedSeatCount())->toBe(0);
 });

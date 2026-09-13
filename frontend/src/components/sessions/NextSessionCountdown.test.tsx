@@ -43,14 +43,14 @@ describe("NextSessionCountdown", () => {
   it("offers no room link for a lesson that is still hours away", () => {
     render(<NextSessionCountdown booking={bookingIn()} secondsUntilStart={3 * 3600} />);
 
-    expect(screen.queryByRole("link", { name: "دخول الغرفة" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "افتح الحصّة" })).toBeNull();
     expect(screen.getByText(/يُفتح الدخول/)).toBeTruthy();
   });
 
   it("offers it once the door can actually open", () => {
     render(<NextSessionCountdown booking={bookingIn()} secondsUntilStart={5 * 60} />);
 
-    expect(screen.getByRole("link", { name: "دخول الغرفة" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "افتح الحصّة" })).toBeTruthy();
   });
 
   it("says the lesson has started instead of counting zeroes for ever", () => {

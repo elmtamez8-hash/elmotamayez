@@ -8,6 +8,7 @@ use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\SessionCreditHolds;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -25,6 +26,8 @@ use Illuminate\Support\Facades\DB;
  */
 class CancelBooking extends Action
 {
+    public function __construct(private readonly SessionCreditHolds $holds) {}
+
     public function handle(SessionBooking $booking, ?string $reason = null): SessionBooking
     {
         if ($booking->status !== BookingStatus::Booked) {
@@ -55,6 +58,20 @@ class CancelBooking extends Action
                     ->whereKey($session->getKey())
                     ->where('seats_taken', '>', 0)
                     ->decrement('seats_taken');
+
+                /*
+                | ٠٣٥ · T060 — ⛔ THE IN-WINDOW ARM ALONE GIVES THE CREDIT BACK,
+                | AND THE OTHER ONE MUST NOT. A late cancellation keeps the seat
+                | and writes `is_billable = true`, and that is exactly the seat
+                | `CloseClassSession` charges at the end (FR-008ج). Freeing its
+                | credit here lets the student freeze it again for another hour
+                | before the charge lands — and the floor is switched OFF in the
+                | charge path on purpose, because a session that was delivered is
+                | owed whether or not anyone can pay for it. So the balance goes
+                | negative and the student reads as in arrears, over a button
+                | that behaved correctly.
+                */
+                $this->holds->release((int) $session->getKey(), [(int) $booking->student_user_id]);
             }
         });
 
@@ -104,6 +121,15 @@ class CancelBooking extends Action
                 ->whereKey($booking->class_session_id)
                 ->where('seats_taken', '>', 0)
                 ->decrement('seats_taken');
+
+            // ⚠️ AND THIS ARM ALWAYS RELEASES, whatever the clock says. The
+            // deadline is not asked here for the reason written above — nobody
+            // chose this moment — and `is_billable` is false, so the seat is
+            // never charged and its credit has nothing left to wait for.
+            $this->holds->release(
+                (int) $booking->class_session_id,
+                [(int) $booking->student_user_id],
+            );
         });
 
         return $booking->refresh();

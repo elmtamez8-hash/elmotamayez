@@ -15,7 +15,7 @@ use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AccountStanding;
 use App\Shared\Contracts\EnrollmentDirectory;
-use App\Shared\Contracts\SessionAttendanceDirectory;
+use App\Shared\Contracts\SessionContentAccess;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use RuntimeException;
@@ -34,7 +34,7 @@ class IssuePlaybackGrant extends Action
 {
     public function __construct(
         private readonly EnrollmentDirectory $enrollments,
-        private readonly SessionAttendanceDirectory $bookings,
+        private readonly SessionContentAccess $sessionContent,
         private readonly AccountStanding $standing,
         private readonly MintPlaybackGrant $mint,
     ) {}
@@ -158,7 +158,19 @@ class IssuePlaybackGrant extends Action
              * and were never charged for it (FR-030). Only someone who can run
              * the workspace's sessions gets in without a seat.
              */
-            return $this->bookings->hasBookingForLesson($viewer, (int) $lesson->getKey())
+            /*
+             * ⛔ ٠٣٥ · FR-008 — THE SEAT STOPPED BEING THE QUESTION, and BOTH
+             * SPELLINGS MOVE TOGETHER. `mayWatchMany()` below is a hand-written
+             * bulk copy of this branch and it is the door the CURRICULUM SCREEN
+             * goes through; changing one alone is exactly the «two doors
+             * disagreeing» that made a paid-for recording unopenable in ٠١٨,
+             * with the roles reversed.
+             *
+             * The administrative arm is untouched: only somebody who can run the
+             * workspace's sessions gets in without having received the hour.
+             */
+            return $this->sessionContent
+                ->mayOpenSessionContent($viewer, (int) $lesson->class_session_id)
                 || $viewer->can(Permissions::SESSIONS_MANAGE);
         }
 
@@ -229,8 +241,18 @@ class IssuePlaybackGrant extends Action
          * two extra queries plus a permission load for a rule it never reaches
          * would trade SC-011 for nothing.
          */
-        $bookedLessonIds = null;
+        $openSessionIds = null;
         $mayManageSessions = null;
+
+        // Asked once for every recording on the page, never per row — the N+1
+        // this method exists to remove, and the contract's bulk form is what
+        // makes the two spellings read one implementation.
+        $recordedSessionIds = array_values(array_unique(array_filter(array_map(
+            static fn (Lesson $row): ?int => $row->class_session_id === null
+                ? null
+                : (int) $row->class_session_id,
+            [...$lessons],
+        ), static fn (?int $id): bool => $id !== null)));
 
         /*
          * And the same for withholding: one read of the whole withheld set, paid
@@ -248,10 +270,13 @@ class IssuePlaybackGrant extends Action
             // Same ordering as mayWatch(), and for the same reason: a recording
             // must not be opened by workspace membership.
             if ($lesson->class_session_id !== null) {
-                $bookedLessonIds ??= array_flip($this->bookings->bookedLessonIdsFor($viewer));
+                $openSessionIds ??= array_flip(
+                    $this->sessionContent->openableSessionIds($viewer, $recordedSessionIds),
+                );
                 $mayManageSessions ??= $viewer->can(Permissions::SESSIONS_MANAGE);
 
-                $allowed[$lessonId] = isset($bookedLessonIds[$lessonId]) || $mayManageSessions;
+                $allowed[$lessonId] = isset($openSessionIds[(int) $lesson->class_session_id])
+                    || $mayManageSessions;
             } elseif (isset($workspaceIds[$lesson->workspace_id])) {
                 // The author, who may watch their own unfinished work.
                 $allowed[$lessonId] = true;

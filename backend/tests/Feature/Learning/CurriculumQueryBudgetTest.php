@@ -39,7 +39,16 @@ function measureCurriculum(object $test, array $fixture): array
 
     $url = '/api/v1/courses/'.$fixture['course']->uuid.'/curriculum';
 
-    // Warm-up. Everything after this measures the page, not the sign-in.
+    /*
+     | TWO warm-ups, not one. Measured on the heartbeat budget: the first request
+     | after a cold start does not touch every `platform_settings` key the path
+     | reads — creating a row and updating one are different branches reading
+     | different settings — so request two still carries a cached-forever read or
+     | two that request three does not. One warm-up leaves the measurement
+     | drifting by one or two queries between identical runs, which is a budget
+     | that flakes rather than a budget that bites.
+     */
+    $test->getJson($url)->assertOk();
     $test->getJson($url)->assertOk();
 
     [$count, $response] = countingQueries(fn () => $test->getJson($url)->assertOk());

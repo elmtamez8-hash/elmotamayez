@@ -9,6 +9,7 @@ use App\Modules\Payments\Enums\BillingMode;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Tenancy\Support\Roles;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeBroadcastProvider;
 
@@ -154,6 +155,20 @@ it('lets a newcomer with no balance row book where collection is by hand', funct
     app(BookSeat::class)->handle($session->refresh(), $newcomer);
 
     expect($session->refresh()->seats_taken)->toBe(1);
+
+    /*
+    | ⛔ ٠٣٥ — AND THE HOLD MUST NOT HAVE INVENTED A BALANCE TO REFUSE THEM WITH.
+    | This case caught exactly that: the freeze asked `balanceFor()`, which is a
+    | `firstOrCreate`, so it minted a row at zero for a student who had never
+    | bought anything and then judged the zero against the floor — «رصيدك لا
+    | يكفي» on the first ever booking of every student of every teacher who takes
+    | the money in an envelope. Nine cases across three files, all of them right.
+    |
+    | Both halves asserted, because the seat count alone is green over a build
+    | that grants the hold and writes the row anyway.
+    */
+    expect(DB::table('credit_holds')->count())->toBe(0)
+        ->and(DB::table('credit_balances')->where('student_user_id', $newcomer->getKey())->count())->toBe(0);
 });
 
 it('blocks at zero in a prepaid workspace even when the switch says remind only', function (): void {

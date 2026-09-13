@@ -73,6 +73,30 @@ class CreditAccounts
      * honoured, the first by the consent read below and the second inside
      * `initialLimitFor()`.
      */
+    /**
+     * The same row, WITHOUT minting one — null when the student never had a balance.
+     *
+     * ⛔ THE ABSENCE IS INFORMATION, and `balanceFor()` destroys it. «No row at
+     * all» is a distinct state the product already answers on: a student who has
+     * never bought anything is refused only where the mode forbids deferral
+     * ({@see EloquentAccountStanding::isWithheld()} falling through to
+     * `prepaidWithNoBalance()`). A caller that mints instead of reading turns
+     * that student into a zero balance and then judges the zero — which refused
+     * the first ever booking of every student of every teacher who collects cash
+     * by hand.
+     *
+     * Use this wherever the question is «what does this student have», and
+     * `balanceFor()` only where a row is about to be written to.
+     */
+    public function existingBalanceFor(User $student, Course $course): ?CreditBalance
+    {
+        return CreditBalance::query()
+            ->withoutWorkspaceScope()
+            ->where('course_id', $course->getKey())
+            ->where('student_user_id', $student->getKey())
+            ->first();
+    }
+
     public function balanceFor(User $student, Course $course): CreditBalance
     {
         $account = $this->accountFor($student);

@@ -273,8 +273,25 @@ class StudentDashboardSeeder extends Seeder
                 'stay_seconds' => 3480,
                 'first_joined_at' => $past->starts_at,
                 'confirmed_at' => $past->ends_at,
+                // ٠٣٥ — he sat through it, so the seat was charged and the
+                // content is his.
+                'credit_verdict_at' => $past->ends_at,
             ],
         );
+
+        /*
+        | ٠٣٥ — الحكمُ مجمَّدٌ على صفِّ الحصّة.
+        |
+        | ⚠️ NULL HERE WOULD SHOW THE STUDENT'S OWN SESSION PAGE LOCKED. The
+        | fallback for «not computed yet» is the pre-035 rule, and the content
+        | gate reads the same column: a demo session with a null verdict renders
+        | «افتح بخصم حصّة» to the student who actually sat in it.
+        */
+        $past->forceFill([
+            'attended_seats' => 1,
+            'charged_seats' => 1,
+            'verdict_stay_seconds' => (int) ($past->duration_minutes * 60 / 2),
+        ])->save();
     }
 
     /**

@@ -130,9 +130,14 @@ export function SessionRow({ session, tick }: { session: ClassSession; tick: num
         <p className="mt-1 text-xs text-ink-muted">{untilLabel(untilStart)}</p>
       )}
 
+      {/*
+        ٠٣٥ · T048 — إلى صفحةِ الحصّةِ لا إلى الغرفة. الغرفةُ بابٌ يُغلَقُ
+        بانتهاءِ النافذة؛ صفحةُ الحصّةِ تقولُ ما حدثَ وتحملُ زرَّ الغرفةِ ما
+        دامَ مفتوحاً، وتفتحُ المحتوى لمن لم يحضر.
+      */}
       {open && (
         <Link
-          href={`/sessions/${session.uuid}/room`}
+          href={`/sessions/${session.uuid}`}
           className="mt-2 inline-block rounded text-sm font-medium text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           دخول الغرفة
