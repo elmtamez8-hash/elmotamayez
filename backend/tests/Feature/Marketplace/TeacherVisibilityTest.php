@@ -78,12 +78,25 @@ it('hides a whole workspace on withdrawal without touching approval status', fun
 
     expect($this->getJson('/api/v1/marketplace/teachers')->json('meta.total'))->toBe(0)
         ->and($teacher->fresh()?->approval_status)->toBe(TeacherProfile::STATUS_APPROVED)
-        ->and($teacher->fresh()?->is_publicly_listed)->toBeTrue();
+        /*
+        | ⚠️ **كانت `toBeTrue()` هنا، وهي ما أخفى العطب.** العمودُ مشتقٌّ من
+        | (معتمَد × المكانُ مشارِك)، فقيمةٌ `true` على مكانٍ منسحبٍ عمودٌ يخالفُ
+        | تعريفَه — غيرُ ضارٍّ هنا لأنّ استعلامَ المدرّسِ يسألُ المشاركةَ بوصلةٍ
+        | فوقَه، وضارٌّ جدّاً في الاتّجاهِ الآخر: مدرّسٌ اعتُمِدَ **بينما** مكانُه
+        | خارجَ السوقِ يُخزَّنُ عندَه `false`، ثمّ يعودُ المكانُ ولا شيءَ يُعيدُ
+        | الحساب — فيبقى هو وكورساتُه مخفيَّينِ للأبد. الآن يُعادُ الاشتقاقُ في
+        | الاتّجاهَينِ معاً، فالعمودُ يساوي تعريفَه دائماً.
+        |
+        | وما يحرسُه هذا الاختبارُ فعلاً باقٍ كما هو: `approval_status` لا يُمَسُّ،
+        | والعودةُ تُرجِعُ العرضَ بلا جولةِ اعتمادٍ ثانية — وهو السطرُ التالي.
+        */
+        ->and($teacher->fresh()?->is_publicly_listed)->toBeFalse();
 
     // Re-joining restores the listings without a second round of approvals.
     app(SetMarketplaceParticipation::class)->handle($this->workspace, true);
 
-    expect($this->getJson('/api/v1/marketplace/teachers')->json('meta.total'))->toBe(1);
+    expect($this->getJson('/api/v1/marketplace/teachers')->json('meta.total'))->toBe(1)
+        ->and($teacher->fresh()?->is_publicly_listed)->toBeTrue();
 });
 
 /**

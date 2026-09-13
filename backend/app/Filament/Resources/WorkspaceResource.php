@@ -7,15 +7,19 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\WorkspaceResource\Pages;
 use App\Models\User;
 use App\Modules\Identity\Support\PlatformRole;
+use App\Modules\Marketplace\Actions\SetMarketplaceParticipation;
 use App\Modules\Tenancy\Enums\WorkspaceType;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\Permissions;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -164,11 +168,61 @@ class WorkspaceResource extends Resource
                     ->badge()
                     ->color('gray')
                     ->sortable(),
+                IconColumn::make('participates_in_marketplace')
+                    ->label('في السوق')
+                    ->boolean()
+                    ->sortable(),
                 TextColumn::make('created_at')
                     ->label('أُنشئت في')
                     ->dateTime('Y-m-d H:i')
                     ->sortable(),
+            ])
+            ->recordActions([
+                self::participationAction(),
             ]);
+    }
+
+    /**
+     * إدراجُ مكانِ العملِ في السوقِ العامِّ أو سحبُه منه.
+     *
+     * ⚠️ **الصلاحيّةُ موجودةٌ والإجراءُ موجودٌ والمسارُ موجود — ولم يكنْ لأيٍّ منها
+     * بابٌ يُضغَط.** `PUT /workspace/marketplace-participation` لا يُناديه ملفٌّ
+     * واحدٌ تحتَ `frontend/src`، ولم تكنْ له شاشةٌ في اللوحة: فمكانُ عملٍ خارجَ
+     * السوقِ يُخفي كلَّ مدرّسيه وكورساتِه ومقالاتِه **بلا وسيلةٍ لأحدٍ أن يُرجِعَه**.
+     * قِيسَ على الإنتاجِ ٢٠٢٦-٠٩-١٣: مكانانِ خارجَ السوقِ وفيهما كورسانِ منشورانِ
+     * وخمسةُ طلّابٍ مسجّلين. وهي رابعُ مرّةٍ في هذه الشجرة: `settlement.requestRate`
+     * و`PUT /teacher/availability` و`completeLesson` كلُّها كانت أبواباً خلفيّةً بلا
+     * مُنادٍ.
+     *
+     * ⚠️ **ويمرُّ بالإجراءِ لا بكتابةِ العمود.** {@see SetMarketplaceParticipation}
+     * يُفرِغُ {@see MarketplaceCache} بعدَ الكتابة، وتبديلٌ يكتبُ العمودَ مباشرةً
+     * يتركُ السوقَ يعرضُ الجوابَ القديمَ حتّى تنتهي مدّةُ الخبء — أي زرٌّ «نجحَ»
+     * ولا شيءَ يتغيّرُ على الصفحة.
+     *
+     * ⚠️ **والصلاحيّةُ تُسألُ هنا صراحةً.** قائمةُ Filament لا تستدعي سياسةَ الصفِّ
+     * أبداً، و`Gate::before` يُمرِّرُ المشرِفَ العامَّ فوقَ كلِّ سياسة — فحارسٌ
+     * مكتوبٌ في سياسةٍ وحدَها حارسٌ لا يعملُ على هذه الشاشة.
+     *
+     * ⚠️ **وتأكيدٌ لأنّ السحبَ واسعُ الأثر**: مدرّسو المكانِ وكورساتُه ومدوّنتُه
+     * تختفي كلُّها من السوقِ في ضغطةٍ واحدة، ولا شيءَ في الجدولِ يقولُ ذلك.
+     */
+    public static function participationAction(): Action
+    {
+        return Action::make('participation')
+            ->label(fn (Workspace $record): string => $record->participates_in_marketplace
+                ? 'اسحبْ من السوق'
+                : 'أدرِجْ في السوق')
+            ->icon(fn (Workspace $record): Heroicon => $record->participates_in_marketplace
+                ? Heroicon::OutlinedEyeSlash
+                : Heroicon::OutlinedGlobeAlt)
+            ->color(fn (Workspace $record): string => $record->participates_in_marketplace ? 'danger' : 'success')
+            ->requiresConfirmation()
+            ->modalDescription(fn (Workspace $record): string => $record->participates_in_marketplace
+                ? 'يختفي مدرّسو هذا المكان وكورساتُه ومقالاتُه من السوق العامّ فورًا. لا يتغيّر اعتمادُ أيِّ مدرّس، ولا يفقد طالبٌ مسجَّلٌ شيئًا.'
+                : 'يظهر مدرّسو هذا المكان المعتمَدون وكورساتُهم ومقالاتُهم في السوق العامّ فورًا.')
+            ->visible(fn (): bool => Auth::user()?->can(Permissions::MARKETPLACE_PARTICIPATION_MANAGE) ?? false)
+            ->action(fn (Workspace $record) => app(SetMarketplaceParticipation::class)
+                ->handle($record, ! $record->participates_in_marketplace));
     }
 
     public static function getPages(): array
