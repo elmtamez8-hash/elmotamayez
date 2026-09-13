@@ -66,6 +66,15 @@ beforeEach(function (): void {
      */
     app(BillingSettings::class)->save($this->workspace, ['mode' => BillingMode::ManualCollection->value]);
 
+    /*
+     | ⚠️ ٠٣٥ — EVERY DELIVERY BELOW NAMES THE STUDENT AS PRESENT, and that is
+     | the point of the third argument rather than paperwork. The charge now
+     | reads the stay, so a delivery that names nobody is a delivery every one
+     | of whose students was a silent no-show — which, because the silent
+     | no-show is charged too, keeps most of the numbers in this file right and
+     | makes every one of them accidental. A fixture meaning «he attended» has
+     | to say so.
+     */
     $this->session = billableSession($this->workspace, $this->owner, $this->course);
 
     app(BookSeat::class)->handle($this->session->refresh(), $this->student);
@@ -98,7 +107,7 @@ it('runs the four links in the order the criterion names', function (): void {
         $seen[] = 'balance';
     });
 
-    deliverBillableSession($this->session, $this->owner);
+    deliverBillableSession($this->session, $this->owner, [$this->student]);
 
     // Consumed BEFORE balance: the entry is written first and the balance moves
     // after it. Reversed, a replayed event debits twice while the duplicate entry
@@ -111,7 +120,7 @@ it('writes one consume entry per seat and moves the balance with it', function (
     $balance = billingBalance($this->workspace, $this->student, $this->course);
     grantCredits($balance, 3, 'chain');
 
-    deliverBillableSession($this->session, $this->owner);
+    deliverBillableSession($this->session, $this->owner, [$this->student]);
 
     $entries = CreditTransaction::query()->withoutWorkspaceScope()
         ->where('type', CreditTransactionType::Consume)->get();
@@ -133,7 +142,7 @@ it('writes one consume entry per seat and moves the balance with it', function (
 it('marks the session charged, which is what takes it out of the sweep', function (): void {
     expect($this->session->charged_at)->toBeNull();
 
-    deliverBillableSession($this->session, $this->owner);
+    deliverBillableSession($this->session, $this->owner, [$this->student]);
 
     expect($this->session->refresh()->charged_at)->not->toBeNull();
 });
@@ -148,7 +157,7 @@ it('marks the session charged, which is what takes it out of the sweep', functio
 it('consumes once however many times the event arrives', function (): void {
     grantCredits(billingBalance($this->workspace, $this->student, $this->course), 10, 'replay');
 
-    $delivered = deliverBillableSession($this->session, $this->owner);
+    $delivered = deliverBillableSession($this->session, $this->owner, [$this->student]);
 
     foreach (range(1, 10) as $ignored) {
         SessionDelivered::dispatch($delivered->refresh(), 1, []);
@@ -180,7 +189,7 @@ it('records the debt on a student sitting exactly at their floor', function (): 
     // reading one of those would render a balance it cannot know is zero.
     expect($balance->refresh()->remaining_credits)->toBe(0);
 
-    deliverBillableSession($this->session, $this->owner);
+    deliverBillableSession($this->session, $this->owner, [$this->student]);
 
     expect($balance->refresh()->remaining_credits)->toBe(-1)
         ->and(CreditTransaction::query()->withoutWorkspaceScope()

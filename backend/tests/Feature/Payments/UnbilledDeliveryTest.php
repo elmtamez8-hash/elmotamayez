@@ -54,6 +54,13 @@ beforeEach(function (): void {
     // — and the numbers the assertions use are unchanged.
     grantCredits(billingBalance($this->workspace, $this->student, $this->course), 5, 'unbilled');
 
+    /*
+     | ⚠️ ٠٣٥ — EVERY DELIVERY BELOW NAMES THE STUDENT AS PRESENT. The sweep's
+     | whole subject is «the charge that never happened», so the fixture has to
+     | be a session that genuinely owes one: unnamed, the student is a silent
+     | no-show — still charged, but for a different reason, which would make
+     | every «exactly one credit» below true by coincidence.
+     */
     $this->session = billableSession($this->workspace, $this->owner, $this->course);
 
     app(BookSeat::class)->handle($this->session->refresh(), $this->student);
@@ -63,7 +70,7 @@ beforeEach(function (): void {
 it('charges a delivered session the queue never got to, exactly once', function (): void {
     Event::fake([SessionDelivered::class]);
 
-    deliverBillableSession($this->session, $this->owner);
+    deliverBillableSession($this->session, $this->owner, [$this->student]);
 
     // The outage: delivered, and nothing charged.
     expect($this->session->refresh()->delivered_at)->not->toBeNull()
@@ -86,7 +93,7 @@ it('charges a delivered session the queue never got to, exactly once', function 
 it('writes nothing on a second run', function (): void {
     Event::fake([SessionDelivered::class]);
 
-    deliverBillableSession($this->session, $this->owner);
+    deliverBillableSession($this->session, $this->owner, [$this->student]);
 
     $run = fn (): mixed => app(ChargeUnbilledDeliveriesJob::class)->handle(
         app(WorkspaceContext::class),
@@ -146,7 +153,7 @@ it('charges the seats it can see when the frozen count never got written', funct
     // The deadline job never ran: the column is still null.
     $this->session->forceFill(['billable_seats' => null])->save();
 
-    deliverBillableSession($this->session, $this->owner);
+    deliverBillableSession($this->session, $this->owner, [$this->student]);
 
     app(WorkspaceContext::class)->forWorkspace(
         $this->workspace,
@@ -171,7 +178,7 @@ it('stamps a session nobody booked, because there is nothing to repair', functio
     $this->session->bookings()->delete();
     $this->session->forceFill(['billable_seats' => 0])->save();
 
-    deliverBillableSession($this->session, $this->owner);
+    deliverBillableSession($this->session, $this->owner, [$this->student]);
 
     app(WorkspaceContext::class)->forWorkspace(
         $this->workspace,

@@ -41,6 +41,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CarbonInterface|null $room_opened_at
  * @property CarbonInterface|null $room_closed_at
  * @property CarbonInterface|null $recording_attempted_at
+ * @property int|null $attended_seats ٠٣٥ — for DISPLAY (FR-015أ)
+ * @property int|null $charged_seats ٠٣٥ — what the TEACHER IS PAID ON (FR-014)
+ * @property int|null $verdict_stay_seconds the bar ACTUALLY APPLIED, so moving
+ *                                          the setting cannot re-judge the past (SC-012)
  */
 class ClassSession extends BaseModel
 {
@@ -95,6 +99,14 @@ class ClassSession extends BaseModel
             'seats_total' => 'integer',
             'seats_taken' => 'integer',
             'billable_seats' => 'integer',
+            // ٠٣٥ — frozen at close by ONE conditional UPDATE, and deliberately
+            // absent from $fillable and from UpdateClassSessionRequest: the
+            // `captured_order_id` rule. Mass-assignable, `charged_seats` is a
+            // second door through which a teacher writes their own wage with a
+            // PUT. NULL means «not computed yet», never zero.
+            'attended_seats' => 'integer',
+            'charged_seats' => 'integer',
+            'verdict_stay_seconds' => 'integer',
             'seats_frozen_at' => 'datetime',
             'reminded_at' => 'datetime',
             'room_opened_at' => 'datetime',

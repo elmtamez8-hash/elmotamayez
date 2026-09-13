@@ -98,7 +98,9 @@ beforeEach(function (): void {
     */
     $this->session->refresh()->forceFill(['billable_seats' => 1])->save();
 
-    deliverBillableSession($this->session->refresh(), $this->owner);
+    // ٠٣٥ — the student SAT in it. Unnamed, they are a silent no-show, whose
+    // zero-value subscription entry would be right for the wrong reason.
+    deliverBillableSession($this->session->refresh(), $this->owner, [$this->student]);
 });
 
 it('leaves the nightly reconciliation with nothing to report', function (): void {

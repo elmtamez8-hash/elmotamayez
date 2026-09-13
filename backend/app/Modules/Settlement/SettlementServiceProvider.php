@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Settlement;
 
+use App\Modules\LiveSessions\Events\AttendanceOverridden;
 use App\Modules\LiveSessions\Events\SessionDelivered;
 use App\Modules\Settlement\Events\SettlementPeriodClosed;
 use App\Modules\Settlement\Events\SettlementRateApproved;
@@ -14,6 +15,7 @@ use App\Modules\Settlement\Listeners\NotifyPayoutIssued;
 use App\Modules\Settlement\Listeners\NotifyPeriodClosed;
 use App\Modules\Settlement\Listeners\NotifyRateDecision;
 use App\Modules\Settlement\Listeners\RecordUnitInLedger;
+use App\Modules\Settlement\Listeners\ReverseUnitOnExcusedOverride;
 use App\Modules\Settlement\Models\RateChangeRequest;
 use App\Modules\Settlement\Models\SettlementPeriod;
 use App\Modules\Settlement\Models\TeachingUnit;
@@ -94,6 +96,18 @@ class SettlementServiceProvider extends Module
         // late release, or a correction. Three call sites writing their own
         // entries is three chances for the balance to stop being the sum of its
         // rows.
+        /*
+        | ٠٣٥ — عذرٌ قُبِلَ بعدَ القفلِ يُسقِطُ أجرَ المدرّسِ عن ذلكَ المقعد.
+        |
+        | The student's credit is given back on the billing side; without this
+        | the teacher keeps the unit that same seat earned and the platform pays
+        | the difference out of its own pocket. It hangs off a LiveSessions event
+        | because this context may not so much as NAME a file in the billing
+        | module's events directory — `ContextIsolationTest` scans for the bare
+        | basenames.
+        */
+        Event::listen(AttendanceOverridden::class, ReverseUnitOnExcusedOverride::class);
+
         Event::listen(TeachingUnitAccrued::class, RecordUnitInLedger::class);
 
         // The teacher hears that their rate moved AND from when. A new number

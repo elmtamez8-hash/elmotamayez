@@ -609,8 +609,28 @@ function billableSession(Workspace $workspace, User $teacherUser, Course $course
  * premise of the charge, and a fixture that writes the column skips the very
  * judgement CloseClassSession exists to make — so a regression in that judgement
  * would leave every one of these tests green.
+ *
+ * ⛔ `$present` IS ٠٣٥'S HALF, AND OMITTING IT IS NOW AN ASSERTION ABOUT NOBODY.
+ * Before ٠٣٥ attendance had no financial effect at all, so a fixture could
+ * deliver a session without saying who sat in it and still assert «ten frozen
+ * seats ⇒ ten consumption entries». After ٠٣٥ the charge reads the stay, so a
+ * fixture that names nobody delivers a session every one of whose students was
+ * a silent no-show — which, because the silent no-show IS charged, happens to
+ * keep most of those numbers right and every one of them accidental.
+ *
+ * ⛔ AND IT STAMPS ONLY THE STUDENTS IT WAS GIVEN. Never every attendance row:
+ * `SeatNotAttendanceTest::markRegisterWith()` writes `stay_seconds = 0`
+ * DELIBERATELY before calling here, and a blanket update would erase the one
+ * fact that file exists to measure. The host's own stamp is untouched for the
+ * same reason it exists: `wasDelivered()` reads it, so removing it stops every
+ * session in the suite being billable.
+ *
+ * @param  list<User>|null  $present  students who stayed long enough to be charged.
+ *                                    Null means «nobody sat in it», which is a
+ *                                    real fixture and not an oversight — say so
+ *                                    by passing `[]` when that is the point.
  */
-function deliverBillableSession(ClassSession $session, User $teacherUser): ClassSession
+function deliverBillableSession(ClassSession $session, User $teacherUser, ?array $present = null): ClassSession
 {
     app(OpenBroadcastRoom::class)->handle($session->refresh());
     app(RecordPresencePing::class)->handle($session, $teacherUser);
@@ -619,6 +639,15 @@ function deliverBillableSession(ClassSession $session, User $teacherUser): Class
         ->where('class_session_id', $session->getKey())
         ->where('student_user_id', $teacherUser->getKey())
         ->update(['stay_seconds' => 3000]);
+
+    foreach ($present ?? [] as $student) {
+        app(RecordPresencePing::class)->handle($session, $student);
+
+        Attendance::query()
+            ->where('class_session_id', $session->getKey())
+            ->where('student_user_id', $student->getKey())
+            ->update(['stay_seconds' => 3000]);
+    }
 
     return app(CloseClassSession::class)->handle($session->refresh());
 }

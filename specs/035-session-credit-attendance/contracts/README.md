@@ -4,6 +4,22 @@
 
 ---
 
+## ٠) الأسماءُ — قرارُ T010 بعدَ مطابقتِها على الحرّاس (2026-09-13)
+
+القوائمُ المحظورةُ قُرِئَت من `backend/tests/Feature/Settlement/ContextIsolationTest.php` (لا وجودَ لمجلّدِ `Architecture/`)، وهذه الأسماءُ نجَت منها:
+
+| الشيء | الاسم | لماذا نجا |
+|---|---|---|
+| عقدُ القراءة | `App\Shared\Contracts\SessionContentAccess` | تحت `Shared\Contracts` فلا يذكرُ Learning ولا Community سلسلةَ `App\Modules\Payments` |
+| نوعُ الجواب | `App\Shared\Data\SessionContentOffer` | السابقةُ `SettlementClearance` تُرجِعُ `App\Shared\Data\SettlementStanding` (`:8,28`) — ونوعٌ تحتَ Payments يُذكَرُ اسمُه في موردِ LiveSessions فيُسقِطُ الجدارَ على السلسلةِ المجرَّدة |
+| عقدُ الكتابة | `App\Shared\Contracts\SessionCreditHolds` | نفسُه، والجوابُ `App\Shared\Data\CreditHoldResult` |
+| مفتاحُ الحمولة | **`content_offer` لا `unlock_offer`** | ⛔ **التصادمُ مقيسٌ على نفسِ المورد**: `ClassSessionResource:44-45` يحملُ `unlock_open` و`unlock_reason` **بمعنى ٠٠٨** (شرطُ الواجبِ السابق) — ومفتاحٌ ثالثٌ بالبادئةِ نفسِها ومعنىً ثالثٍ هو سطرٌ يُساءُ قراءتُه مرّةً واحدةً وتكفي |
+| الجدول | `session_unlocks` كما هو | اسمُ جدولٍ لا يظهرُ في حمولةٍ ولا في سطرِ استيراد |
+
+⚠️ **وأحداثُ Payments: لا حدثَ جديد.** جدارُ العزلِ يمنعُ داخلَ Settlement كلَّ **اسمٍ مجرَّدٍ** لملفٍّ في `app/Modules/Payments/Events/` (`ContextIsolationTest:152-155`)، في اللحظةِ نفسِها التي يُضيفُ فيها T071 مفرداتِ المقاعدِ إلى ملفِّ حقولِ المدرّس. **والناقلُ الذي تحتاجُه الأبوابُ السبعةُ هو عقدُ الكتابةِ نفسُه** — `place()` و`release()` — فحدثٌ لا مستمعَ له scaffolding يكسرُ حارساً. الشطرُ الحاملُ في T013 هو **الكنسُ الدوريّ**، وهو المُنفَّذ.
+
+---
+
 ## ١) `App\Shared\Contracts\SessionContentAccess` — **جديد**
 
 السؤالُ الواحدُ الذي تسألُه الأبوابُ الستّة. تربطُه Payments، ولا تعرفُ الوحداتُ السائلةُ عنه شيئاً سوى اسمِه.
@@ -83,7 +99,7 @@ unlockOfferFor(User $student, int $classSessionId): ?UnlockOffer      ← الث
 | الحمولة | يُضاف |
 |---|---|
 | رصيدُ الطالب | `available_credits` · `held_credits` — **عدَدانِ لا مال** |
-| بطاقةُ الحصّة | `content_locked` · `unlock_offer`\|null (وفيه `available_until`) |
+| بطاقةُ الحصّة | `content_locked` · `content_offer`\|null (وفيه `available_until`) |
 | المنهج | `locked_session_count` — ⚠️ **عددٌ للعرضِ لا مقامٌ للنسبة** |
 | وحدةُ تدريسِ المدرّس | `attended_seats` **و`charged_seats`** بجانبِ المحجوزِ القائم |
 

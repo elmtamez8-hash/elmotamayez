@@ -332,6 +332,43 @@ class DataCategorySeeder extends Seeder
                 'expiry_behaviour' => null,
                 'erasure_mode' => ErasureMode::Anonymise,
             ],
+            /*
+            | ٠٣٥ — الحجزُ يُجمِّدُ الرصيدَ ولا يخصمُه.
+            |
+            | ⚠️ NULL RETENTION, AND NOT BY INERTIA. `ReconcileCreditBalancesJob`
+            | reads these rows every night: `held_credits` must equal the number
+            | of unsettled holds, and one consumption entry must exist per seat
+            | of a charged session. A sweep that deleted either side of that
+            | would report a drift with no cause anybody could find.
+            */
+            [
+                'key' => 'credit_hold',
+                'label' => 'الحصص المحجوزة من رصيدك',
+                'purpose' => 'لتجميد حصّة من رصيدك عند الحجز، فتُخصَم بالحضور أو تعود إليك.',
+                'audience' => 'إدارة المنصّة · المدرّس المسجَّل عنده',
+                'is_required' => true,
+                'owning_module' => 'payments',
+                'table_name' => 'credit_holds',
+                'column_name' => 'student_user_id',
+                'retain_days' => null,
+                'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Anonymise,
+            ],
+            [
+                'key' => 'session_unlock',
+                'label' => 'موافقتك على فتح محتوى حصّة',
+                'purpose' => 'لتسجيل موافقتك على خصم حصّة مقابل فتح محتوى حصّة لم تحضرها.',
+                'audience' => 'إدارة المنصّة · المدرّس المسجَّل عنده',
+                'is_required' => true,
+                'owning_module' => 'payments',
+                'table_name' => 'session_unlocks',
+                'column_name' => 'student_user_id',
+                // A consent is evidence of what the student agreed to, and the
+                // ledger entry beside it is the money it moved. Both stay.
+                'retain_days' => null,
+                'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Anonymise,
+            ],
 
             // ── LiveSessions ────────────────────────────────────────────────
             [

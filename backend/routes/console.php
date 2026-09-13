@@ -26,6 +26,7 @@ use App\Modules\Payments\Jobs\ExpireSubscriptionsJob;
 use App\Modules\Payments\Jobs\NotifyDormantBalancesJob;
 use App\Modules\Payments\Jobs\ReconcileCreditBalancesJob;
 use App\Modules\Payments\Jobs\ReconcilePaymentsJob;
+use App\Modules\Payments\Jobs\SweepStaleCreditHoldsJob;
 use App\Modules\Settlement\Jobs\CloseDueSettlementPeriodsJob;
 use App\Modules\Settlement\Jobs\ReleasePendingUnitsJob;
 use Illuminate\Foundation\Inspiring;
@@ -209,6 +210,21 @@ Schedule::job(new ExpireCreditLotsJob, 'maintenance')
 Schedule::job(new ExpireSubscriptionsJob, 'maintenance')
     ->dailyAt('04:40')
     ->withoutOverlapping();
+
+/*
+| ٠٣٥ — حجزُ رصيدٍ بقيَ معلَّقاً بعدَ أن انتهت حصّتُه.
+|
+| ⚠️ THE JOB CARRIES ITS OWN `WithoutOverlapping` MIDDLEWARE, so there is no
+| `->withoutOverlapping()` here: the scheduler's lock wraps the PUSH, which for
+| a queued job is a few milliseconds. The reason is written out in the class,
+| beside the `expireAfter()` that is the half that actually matters.
+|
+| Every fifteen minutes rather than nightly, because what it repairs is a
+| student's own available balance — a credit frozen against a lesson that
+| finished this morning and is waiting until 04:45 to come back is a booking
+| they were refused for no reason they can see.
+*/
+Schedule::job(new SweepStaleCreditHoldsJob, 'maintenance')->everyFifteenMinutes();
 
 // Does the ledger still add up? Nightly, after every sweep that moves a balance,
 // so what it reads is the settled state rather than a snapshot mid-write. Three

@@ -35,6 +35,12 @@ use Tests\Support\FakeBroadcastProvider;
 | session», nightly, for every subscribed student, permanently. That invariant is
 | measured for real in SubscriptionReconcileTest; the row is counted here.
 |
+| ⚠️ ٠٣٥ — EVERY DELIVERY HERE NAMES WHO SAT IN THE ROOM. The charge reads the
+| stay now, so a delivery naming nobody is a room of silent no-shows; the
+| subscriber's zero would still be zero and the payer's −1 would still be −1,
+| and every one of those numbers would be right by accident rather than by the
+| condition this file claims to measure.
+|
 | ⚠️ THE FAKE IS PARTIAL. `Queue::fake()` with no arguments swallows the queued
 | charge listener and turns every count below into a confident claim about an
 | empty table; no fake at all lets `->delay()` run immediately on `sync`, so the
@@ -91,7 +97,7 @@ it('charges the unsubscribed student one credit and the subscriber none', functi
     app(BookSeat::class)->handle($this->session, $this->subscriber);
     app(BookSeat::class)->handle($this->session->refresh(), $this->payer);
 
-    deliverBillableSession($this->session->refresh(), $this->owner);
+    deliverBillableSession($this->session->refresh(), $this->owner, [$this->subscriber, $this->payer]);
 
     $entries = CreditTransaction::query()
         ->withoutWorkspaceScope()
@@ -124,7 +130,7 @@ it('says on the entry WHY it cost nothing', function (): void {
     $subscription = subscribePlan($this->subscriber, $this->workspace);
 
     app(BookSeat::class)->handle($this->session, $this->subscriber);
-    deliverBillableSession($this->session->refresh(), $this->owner);
+    deliverBillableSession($this->session->refresh(), $this->owner, [$this->subscriber, $this->payer]);
 
     $entry = CreditTransaction::query()
         ->withoutWorkspaceScope()
@@ -145,7 +151,7 @@ it('does NOT cover a session whose room size the plan was not priced for', funct
 
     // The session is a group room; the plan was priced for one-to-one.
     app(BookSeat::class)->handle($this->session, $this->subscriber);
-    deliverBillableSession($this->session->refresh(), $this->owner);
+    deliverBillableSession($this->session->refresh(), $this->owner, [$this->subscriber]);
 
     $entry = CreditTransaction::query()
         ->withoutWorkspaceScope()
@@ -161,7 +167,7 @@ it('does NOT cover another teacher\'s session', function (): void {
     subscribePlan($this->subscriber, $other);
 
     app(BookSeat::class)->handle($this->session, $this->subscriber);
-    deliverBillableSession($this->session->refresh(), $this->owner);
+    deliverBillableSession($this->session->refresh(), $this->owner, [$this->subscriber]);
 
     expect((int) CreditTransaction::query()
         ->withoutWorkspaceScope()
@@ -179,7 +185,7 @@ it('stops covering once the subscription has expired', function (): void {
     ]);
 
     app(BookSeat::class)->handle($this->session, $this->subscriber);
-    deliverBillableSession($this->session->refresh(), $this->owner);
+    deliverBillableSession($this->session->refresh(), $this->owner, [$this->subscriber]);
 
     expect((int) CreditTransaction::query()
         ->withoutWorkspaceScope()

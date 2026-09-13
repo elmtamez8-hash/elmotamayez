@@ -49,5 +49,27 @@ class CreditMovement extends DataTransferObject
          * credits a second time, out of lots that have not expired at all.
          */
         public readonly bool $drawsFromLots = true,
+        /**
+         * ٠٣٥ — whether the floor must also subtract what is FROZEN.
+         *
+         * ⛔ TRUE FOR EXACTLY ONE MOVEMENT: the student spending a credit to
+         * open a session they did not sit in. That is a NEW voluntary
+         * commitment, and a student whose remaining credit is already frozen
+         * against a seat they booked must not be able to spend it twice.
+         *
+         * ⚠️ AND FALSE EVERYWHERE ELSE, WHICH IS THE HALF THAT MATTERS. It is
+         * read INSIDE the `enforceFloor` branch of `applyToBalance()` and
+         * nowhere near `canAfford()`, `isBlocked()` or `floorFor()` — those
+         * three are the single spelling of «can this student pay», and
+         * `isBlocked()` calls `canAfford()` directly. Subtract the held credits
+         * there and a student with one credit who books one session reads as
+         * DEFAULTED: locked out of the room their booking bought, and out of
+         * every lesson in a course they have paid for.
+         *
+         * ⚠️ AND `applyToBalance()` IS ALSO THE REFUND PATH (`AdjustCredits`
+         * is the other producer of `enforceFloor: true`). A refund is not a new
+         * commitment, so it does not subtract the held credits either.
+         */
+        public readonly bool $subtractHeld = false,
     ) {}
 }

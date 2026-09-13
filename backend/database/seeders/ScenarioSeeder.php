@@ -485,6 +485,31 @@ final class ScenarioSeeder extends Seeder
             'billable_seats' => 2,
         ]);
 
+        /*
+        | ٠٣٥ — الحكمُ مجمَّدٌ على الصفّ، لأنّ فارغاً يعني «لم يُحكَمْ بعد».
+        |
+        | ⚠️ A DELIVERED SESSION WITH A NULL `attended_seats` IS READ AS THE
+        | PRE-035 FALLBACK — charge every seat — which is the correct answer for
+        | a session taught before this shipment and the WRONG demo: the register
+        | below has one attender and one absentee, and the whole point of the
+        | screen is that those two rows now differ. Seeded null, the demo shows
+        | the feature switched off.
+        |
+        | ⛔ `forceFill`, NOT AN ATTRIBUTE ARRAY. The three columns are out of
+        | `$fillable` on purpose — a teacher must not be able to write their own
+        | wage with a PUT — and `Model::unguarded()` inside the seed command
+        | would hide that, so writing them the guarded way here keeps the seeder
+        | honest about how production writes them.
+        |
+        | `charged` is 2 and `attended` is 1: the absentee gave no notice, so
+        | they are charged and the teacher is paid for them.
+        */
+        $past->forceFill([
+            'attended_seats' => 1,
+            'charged_seats' => 2,
+            'verdict_stay_seconds' => (int) ($past->duration_minutes * 60 / 2),
+        ])->save();
+
         foreach ([AttendanceStatus::Present, AttendanceStatus::Absent] as $index => $status) {
             Attendance::create([
                 'workspace_id' => $workspace->id,
@@ -496,6 +521,11 @@ final class ScenarioSeeder extends Seeder
                 'stay_seconds' => $status === AttendanceStatus::Present ? 3480 : 0,
                 'first_joined_at' => $status === AttendanceStatus::Present ? $past->starts_at : null,
                 'confirmed_at' => $past->ends_at,
+                // ٠٣٥ — stamped ⇒ the stay reached the financial bar. The
+                // absentee's stays null, which is «judged, and did not reach
+                // it»; the session's own frozen verdict above is what says the
+                // judging happened at all.
+                'credit_verdict_at' => $status === AttendanceStatus::Present ? $past->ends_at : null,
             ]);
         }
 

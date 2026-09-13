@@ -1,0 +1,247 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Payments\Support;
+
+use App\Models\User;
+use App\Modules\Courses\Enums\ContentStatus;
+use App\Modules\Courses\Models\Lesson;
+use App\Modules\Payments\Models\SessionUnlock;
+use App\Shared\Contracts\SessionContentAccess;
+use App\Shared\Data\SessionContentOffer;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * ٠٣٥ — «هل يُفتَحُ لك ما يخصُّ هذه الحصّة؟»، من الجانبِ الذي يعرفُ الجواب.
+ *
+ * ⚠️ ONE COLUMN ANSWERS IT: `attendances.credit_verdict_at`. Stamped means the
+ * seat was charged — either the student sat through the lesson, or they fell
+ * short and gave no notice, and FR-008ج says the silent no-show receives the
+ * hour they paid for. Null means judged and exempt: no charge, and the content
+ * stays shut until they consent to spend a credit. The two sets are identical
+ * by construction, which is why there is no second predicate to keep in step.
+ *
+ * ⛔ AND `attended_seats IS NULL` ON THE SESSION IS «NOT JUDGED YET», WHICH
+ * ENTITLES. `scripts/deploy.sh` raises the containers before it runs the
+ * migrations and Eloquent returns null for a column that does not exist, so
+ * without that fallback every student of every session delivered before this
+ * shipment — and every session inside the deploy window — would be CHARGED
+ * (the pre-035 rule, which is correct) AND LOCKED OUT (which is not). The same
+ * fallback `ChargeSessionSeats` reads, from the other side.
+ *
+ * ⚠️ EVERY READ DECLARES `withoutWorkspaceScope()` AND WRITES ITS OWNERSHIP
+ * PREDICATE OUT BY HAND. The scope guards nothing here in either direction: for
+ * a student who registered themselves it is inert, and for one carrying a
+ * `last_workspace_id` — and `workspace_members` really does hold student rows —
+ * it bites the WRONG way, hiding an unlock they bought from another teacher and
+ * offering to sell it to them a second time.
+ */
+class EloquentSessionContentAccess implements SessionContentAccess
+{
+    public function mayOpenSessionContent(User $student, int $classSessionId): bool
+    {
+        return $this->openableSessionIds($student, [$classSessionId]) !== [];
+    }
+
+    /**
+     * ⚠️ THE BULK FORM IS A CORRECTNESS CONDITION AND NOT AN OPTIMISATION.
+     * Reading the curriculum is the hottest read in the product, and its cost is
+     * flat in the size of the tree under a budget test that compares ten items
+     * against two hundred. One question per item makes that hundreds of queries
+     * on one course, and the build is red in the same minute.
+     *
+     * Three queries whatever the page size.
+     *
+     * @param  list<int>  $classSessionIds
+     * @return list<int>
+     */
+    public function openableSessionIds(User $student, array $classSessionIds): array
+    {
+        $classSessionIds = array_values(array_unique(array_map('intval', $classSessionIds)));
+
+        if ($classSessionIds === []) {
+            return [];
+        }
+
+        // 1. Not judged yet ⇒ the seat entitles. See the class docblock.
+        $unjudged = DB::table('class_sessions')
+            ->whereIn('id', $classSessionIds)
+            ->whereNull('attended_seats')
+            ->pluck('id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all();
+
+        // 2. Charged ⇒ the hour is theirs.
+        $charged = DB::table('attendances')
+            ->whereIn('class_session_id', $classSessionIds)
+            ->where('student_user_id', $student->getKey())
+            ->whereNotNull('credit_verdict_at')
+            ->pluck('class_session_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all();
+
+        // 3. Bought, or opened automatically (a subscription seat, an ejection,
+        //    a charged absence).
+        $unlocked = SessionUnlock::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('class_session_id', $classSessionIds)
+            ->where('student_user_id', $student->getKey())
+            ->pluck('class_session_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all();
+
+        return array_values(array_unique(array_merge($unjudged, $charged, $unlocked)));
+    }
+
+    public function unlockOfferFor(User $student, int $classSessionId): ?SessionContentOffer
+    {
+        if ($this->mayOpenSessionContent($student, $classSessionId)) {
+            // Already open. An offer here would invite a second charge for
+            // something the student already owns (FR-011).
+            return null;
+        }
+
+        $session = DB::table('class_sessions')
+            ->where('id', $classSessionId)
+            ->first(['id', 'course_id', 'delivered_at', 'workspace_id']);
+
+        // No session, no course, or never delivered: three refusals wearing one
+        // answer. Offering a price for an hour the teacher called off would tell
+        // the student it happened.
+        if ($session === null || $session->course_id === null || $session->delivered_at === null) {
+            return null;
+        }
+
+        $opens = $this->contentOf($classSessionId);
+
+        if ($opens === []) {
+            // Nothing to sell. The material was archived, or there was never any
+            // — and FR-039 says an unlock does not extend retention, so selling
+            // access to something already gone is selling what cannot be
+            // delivered.
+            return null;
+        }
+
+        $balance = DB::table('credit_balances')
+            ->where('course_id', $session->course_id)
+            ->where('student_user_id', $student->getKey())
+            ->first(['remaining_credits', 'held_credits']);
+
+        $owned = (int) ($balance->remaining_credits ?? 0);
+        $held = (int) ($balance->held_credits ?? 0);
+
+        return new SessionContentOffer(
+            // One consent opens the whole hour — never a price per item
+            // (FR-013). A per-file tariff would make the student do arithmetic
+            // about a lesson they have not seen.
+            credits: 1,
+            ownedCredits: $owned,
+            availableCredits: $owned - $held,
+            opens: $opens,
+            availableUntil: $this->availableUntil($classSessionId),
+            // ⚠️ ALWAYS, never only when the balance is empty. A payload whose
+            // SHAPE changes with what it found is a distinguishing answer.
+            purchaseUrl: '/credits',
+        );
+    }
+
+    public function stampAll(iterable $sessions, User $student): void
+    {
+        /** @var list<Model> $rows */
+        $rows = [];
+
+        foreach ($sessions as $session) {
+            $rows[] = $session;
+        }
+
+        if ($rows === []) {
+            return;
+        }
+
+        $ids = array_map(static fn (Model $row): int => (int) $row->getKey(), $rows);
+        $open = $this->openableSessionIds($student, $ids);
+
+        foreach ($rows as $row) {
+            $locked = ! in_array((int) $row->getKey(), $open, true);
+
+            $row->setAttribute('content_locked', $locked);
+            /*
+            | ⚠️ THE OFFER IS RESOLVED ONLY FOR THE LOCKED ONES, and on a page
+            | that is a handful of rows at most. The alternative — an offer per
+            | row — is the `ClassSessionResource` N+1 this repository already
+            | paid for once, wearing a new face.
+            */
+            $row->setAttribute(
+                'content_offer',
+                $locked ? $this->unlockOfferFor($student, (int) $row->getKey()) : null,
+            );
+        }
+    }
+
+    /**
+     * What a credit would open: KINDS AND COUNTS, never titles.
+     *
+     * ⚠️ A LIST OF THE WORKSHEET TITLES OF AN HOUR IS A LESSON PLAN FOR A LESSON
+     * ITS OWNER DID NOT ATTEND. The public-field allowlist already draws exactly
+     * that line on a lesson id, with the reason written beside it.
+     *
+     * ⚠️ AND AN ARCHIVED RECORDING IS NOT COUNTED. FR-039 says an unlock does
+     * not extend retention, so a recording whose asset has been archived is not
+     * something a credit can buy — and a count that included it would sell an
+     * hour that no longer exists.
+     *
+     * @return array<string, int>
+     */
+    private function contentOf(int $classSessionId): array
+    {
+        /*
+        | WARNING: THE JOIN IS POLYMORPHIC AND THERE IS NO `lessons.media_asset_id`,
+        | which the first draft of this method assumed. Media is attached by
+        | `(owner_type, owner_id)`, and «archived» on the LESSON is a value of
+        | `status`, not a timestamp — measured, not remembered.
+        |
+        | `leftJoin` and not `join`: a lesson with no asset at all (an article
+        | the teacher attached to the hour) is still content worth opening.
+        */
+        $lessons = DB::table('lessons')
+            ->leftJoin('media_assets', function ($join): void {
+                $join->on('media_assets.owner_id', '=', 'lessons.id')
+                    ->where('media_assets.owner_type', '=', Lesson::class);
+            })
+            ->where('lessons.class_session_id', $classSessionId)
+            ->where('lessons.status', '!=', ContentStatus::Archived->value)
+            ->whereNull('media_assets.archived_at')
+            ->distinct()
+            ->count('lessons.id');
+
+        $assignments = DB::table('assignments')
+            ->where('class_session_id', $classSessionId)
+            ->count();
+
+        return array_filter([
+            'lesson' => $lessons,
+            'assignment' => $assignments,
+        ], static fn (int $count): bool => $count > 0);
+    }
+
+    /**
+     * How long the material stays available (FR-039ب) — the price of retention
+     * being untouched is that the student is TOLD before they press.
+     */
+    private function availableUntil(int $classSessionId): ?string
+    {
+        $until = DB::table('lessons')
+            ->join('media_assets', function ($join): void {
+                $join->on('media_assets.owner_id', '=', 'lessons.id')
+                    ->where('media_assets.owner_type', '=', Lesson::class);
+            })
+            ->where('lessons.class_session_id', $classSessionId)
+            ->min('media_assets.retain_until');
+
+        return is_string($until) && $until !== ''
+            ? (date_create_immutable($until) ?: null)?->format(DATE_ATOM)
+            : null;
+    }
+}

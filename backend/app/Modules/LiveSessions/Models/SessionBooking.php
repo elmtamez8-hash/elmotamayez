@@ -49,6 +49,16 @@ class SessionBooking extends BaseModel
             'is_billable' => 'boolean',
             'booked_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            // ٠٣٥ — the FINANCIAL excuse, written by `ExcuseBooking` before the
+            // room closes. Not fillable: it exempts a seat from a charge, so it
+            // is written by one Action that asks `EnrollmentDirectory` first,
+            // never by whatever array reaches a `firstOrCreate` next year.
+            //
+            // ⚠️ NOT THE SAME FACT AS `attendances.status = excused`. That one
+            // is the teacher's EDUCATIONAL mark and counts as attendance for
+            // the next booking's eligibility; this one is money. One word, two
+            // meanings, two columns — see `ExcusedTwoMeaningsTest`.
+            'excused_at' => 'datetime',
         ];
     }
 

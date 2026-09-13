@@ -21,6 +21,7 @@ use App\Modules\Payments\Support\ExamMode;
 use App\Modules\Payments\Support\SubscriptionEligibility;
 use App\Shared\Actions\Action;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -44,10 +45,27 @@ use Illuminate\Support\Facades\Log;
  * build over an import across this boundary — correctly. What a student pays and
  * what a teacher earns share one event and nothing else.
  *
- * ⚠️ ATTENDANCE IS NOT CONSULTED, ANYWHERE (FR-025د). The seat is what was sold:
- * the recording, the files and the homework reach the student who did not show
- * up, so `Absent` and `Excused` charge exactly like `Present`. `Excused` is a
- * pastoral mark, never a financial exemption (FR-025ب).
+ * ⛔ THAT PARAGRAPH SAID THE OPPOSITE UNTIL 2026-09-13, AND IT WAS RIGHT WHILE
+ * ITS PREMISE HELD. It read: «ATTENDANCE IS NOT CONSULTED, ANYWHERE (FR-025د).
+ * The seat is what was sold: the recording, the files and the homework reach the
+ * student who did not show up, so `Absent` and `Excused` charge exactly like
+ * `Present`. `Excused` is a pastoral mark, never a financial exemption
+ * (FR-025ب).»
+ *
+ * 035 · FR-003 removes the premise: nothing of a session opens for somebody who
+ * did not sit in it unless they consent to spend the credit. The moment the
+ * absentee stops RECEIVING the hour, charging them for it stops being the same
+ * transaction — so 014 · FR-025د and FR-025ب are both revoked, and the two
+ * halves ship together or neither ships. Half of this change is a defect: cut
+ * the access without cutting the charge and the student pays for an hour they
+ * are then locked out of.
+ *
+ * ⚠️ WHAT IS CONSULTED IS THE FROZEN VERDICT, NEVER THE REGISTER'S `status`.
+ * `CloseClassSession` decides per seat — stay against the bar, then four
+ * exemptions over three of its own tables — and stamps
+ * `attendances.credit_verdict_at` on the seats that pay. Re-deriving any of that
+ * here would be two spellings of one question, which is this repository's most
+ * expensive recurring defect.
  */
 class ChargeSessionSeats extends Action
 {
@@ -187,6 +205,41 @@ class ChargeSessionSeats extends Action
             $session,
         );
 
+        /*
+        | 035 · T032 — the frozen verdict, read ONCE for the session and passed
+        | down exactly as `$covered` is.
+        |
+        | ⛔ READ FRESH FROM THE ROW, never from `$session` and never from the
+        | event. `SessionDelivered` carries `Dispatchable` and NOT
+        | `SerializesModels`, so a queued listener unserializes the model's
+        | attributes as they stood AT DISPATCH — and the conditional UPDATE that
+        | froze the verdict ran after the model was built. Read the model and
+        | this branch sees null for ever: every session falls back to the
+        | pre-035 rule, permanently, while `ChargeUnbilledDeliveriesJob`
+        | re-fetches and answers correctly. Two answers to one question, and the
+        | wrong one is the default.
+        |
+        | ⚠️ A GENUINELY NULL `attended_seats` IS STILL THE FALLBACK, and that is
+        | not laziness. `scripts/deploy.sh` raises the containers before it runs
+        | the migrations, and Eloquent returns null for a column that does not
+        | exist rather than throwing — so during that window every seat must be
+        | charged, which is the rule that really was in force when those sessions
+        | were delivered. One guard closes the deploy window and the backlog
+        | before it.
+        */
+        $frozen = DB::table('class_sessions')
+            ->where('id', $session->getKey())
+            ->value('attended_seats');
+
+        $chargedSeatIds = $frozen === null
+            ? null
+            : DB::table('attendances')
+                ->where('class_session_id', $session->getKey())
+                ->whereNotNull('credit_verdict_at')
+                ->pluck('student_user_id')
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->all();
+
         $entries = [];
 
         foreach ($balances as $balance) {
@@ -197,6 +250,9 @@ class ChargeSessionSeats extends Action
                 count($seatHolders),
                 $mismatch,
                 $covered[(int) $balance->student_user_id] ?? null,
+                // Null means «not judged» — the pre-035 fallback, which charges.
+                $chargedSeatIds === null
+                    || in_array((int) $balance->student_user_id, $chargedSeatIds, true),
             );
 
             if ($entry !== null) {
@@ -253,13 +309,25 @@ class ChargeSessionSeats extends Action
         int $seatHolders,
         bool $mismatch,
         ?Subscription $subscription = null,
+        bool $chargeable = true,
     ): ?CreditTransaction {
 
         $entry = $this->ledger->post(new CreditMovement(
             balance: $balance,
             type: CreditTransactionType::Consume,
-            // ⚠️ ZERO, NOT «no entry». See the bulk read in handle().
-            credits: $subscription === null ? -1 : 0,
+            /*
+            | ⚠️ ZERO, NOT «no entry» — and 035 · T034 adds a second road to the
+            | same zero. A subscription covers the seat, OR the student was
+            | exempt: gave notice through a reschedule nobody answered, was
+            | excused before the room closed, or was ejected from it.
+            |
+            | Either way the ROW is written. Skipping it would look identical on
+            | every balance assertion and would break
+            | `ReconcileCreditBalancesJob`'s «one consumption entry per seat of a
+            | charged session» — nightly, for every exempt student, permanently,
+            | with the ledger and the balances still agreeing perfectly.
+            */
+            credits: $subscription === null && $chargeable ? -1 : 0,
             sourceType: 'class_session',
             // The idempotency key. The unique index on
             // (balance, type, source_type, source_id) is what makes a replayed
@@ -281,6 +349,10 @@ class ChargeSessionSeats extends Action
                 // out later has nowhere to go.
                 'subscription_uuid' => $subscription?->uuid,
                 'plan_uuid' => $subscription?->plan?->uuid,
+                // 035 — the other reason a row can cost nothing. Without it a
+                // zero entry with no subscription behind it is indistinguishable
+                // from a defect to whoever reads the ledger in a month.
+                'exempt_seat' => ! $chargeable,
             ],
             // Explicit, though it is also the DTO's default. The floor guards
             // BOOKING; this is the recording of a debt already incurred.
@@ -310,7 +382,7 @@ class ChargeSessionSeats extends Action
         // announcement here would tell a subscriber their balance had crossed a
         // line it is sitting exactly where it was — and «رصيدك يقترب من النفاد»
         // is the wrong sentence to send somebody who has paid for a month.
-        if ($subscription === null) {
+        if ($subscription === null && $chargeable) {
             $this->announcer->announceMovement($balance, -1);
         }
 

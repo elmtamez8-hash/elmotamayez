@@ -118,6 +118,30 @@ class CreditLedger
     }
 
     /**
+     * ٠٣٥ — «هل يكفي لالتزامٍ جديد؟», which subtracts what is already frozen.
+     *
+     * ⛔ A SECOND PREDICATE BESIDE `canAfford()`, NEVER A CHANGE TO IT. This is
+     * asked at exactly two doors — placing a hold, and spending a credit to open
+     * a session's content — and both are a NEW voluntary commitment, where a
+     * credit already promised to a booked seat must not be spendable twice.
+     *
+     * ⚠️ `canAfford()` IS THE SINGLE SPELLING OF «CAN THIS STUDENT PAY», AND
+     * `isBlocked()` CALLS IT. So subtracting the held credits there would mean:
+     * a student with one credit books one session ⇒ available is zero ⇒ blocked
+     * ⇒ refused entry to the room that booking bought, and refused every lesson
+     * in a course they paid for. That is the exact harm the frozen credit exists
+     * to prevent, produced by the guard meant to prevent it.
+     *
+     * ⚠️ AND «WITHHELD» IS DERIVED FROM THIS FAMILY IN THREE OTHER MODULES
+     * (`BookingEligibility`, `IssuePlaybackGrant`, `SubscriptionEligibility`),
+     * so the blast radius of widening `canAfford()` is the whole product.
+     */
+    public function canCommit(CreditBalance $balance, int $credits, int $floor): bool
+    {
+        return $balance->remaining_credits - $balance->held_credits - $credits >= $floor;
+    }
+
+    /**
      * Withheld — derived, never stored.
      *
      * "Cannot afford one more credit", which at `remaining = 0, limit = 0` is
@@ -412,12 +436,38 @@ class CreditLedger
         $query = DB::table('credit_balances')->where('id', $movement->balance->getKey());
 
         if ($movement->enforceFloor && $movement->credits < 0) {
-            $query = $movement->zeroFloor
-                ? $query->whereRaw('remaining_credits + ? >= 0', [$movement->credits])
-                : $query->whereRaw(
+            /*
+            | ٠٣٥ — الفرعُ الثالثُ والرابع: الأرضيّةُ نفسُها، مطروحاً منها المحجوز.
+            |
+            | ⚠️ READ HERE AND NOWHERE ELSE. `subtractHeld` is true for exactly
+            | one movement — the student spending a credit to open a session
+            | they did not sit in — and putting it anywhere near `canAfford()`
+            | would lock a student with one credit and one booking out of their
+            | own room. See the flag's own docblock.
+            |
+            | ⚠️ AND `CAST(... AS SIGNED)` ON `held_credits` TOO. One unsigned
+            | operand makes the whole expression unsigned in MySQL, so
+            | `remaining - held + delta` at a zero balance raises ERROR 1690 —
+            | on the first press of the button by any student with an empty
+            | balance, in production only, because SQLite has no unsigned
+            | arithmetic to overflow. `held_credits` is a SIGNED column for the
+            | same reason its three neighbours are.
+            */
+            $query = match (true) {
+                $movement->subtractHeld && $movement->zeroFloor => $query->whereRaw(
+                    'CAST(remaining_credits AS SIGNED) - CAST(held_credits AS SIGNED) + ? >= 0',
+                    [$movement->credits],
+                ),
+                $movement->subtractHeld => $query->whereRaw(
+                    'CAST(remaining_credits AS SIGNED) - CAST(held_credits AS SIGNED) + ? >= -1 * CAST(credit_limit_credits AS SIGNED)',
+                    [$movement->credits],
+                ),
+                $movement->zeroFloor => $query->whereRaw('remaining_credits + ? >= 0', [$movement->credits]),
+                default => $query->whereRaw(
                     'remaining_credits + ? >= -1 * CAST(credit_limit_credits AS SIGNED)',
                     [$movement->credits],
-                );
+                ),
+            };
         }
 
         $delta = $movement->credits;
