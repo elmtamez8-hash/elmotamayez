@@ -12,6 +12,7 @@ use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\SessionSeatCharges;
+use App\Shared\Contracts\SessionUnitReversal;
 use DomainException;
 
 /**
@@ -46,6 +47,7 @@ class OverrideAttendance extends Action
     public function __construct(
         private readonly SessionSettings $settings,
         private readonly SessionSeatCharges $charges,
+        private readonly SessionUnitReversal $units,
     ) {}
 
     public function handle(
@@ -84,14 +86,47 @@ class OverrideAttendance extends Action
         |    this module exactly one literal mention of the billing namespace,
         |    counted, and comments are stripped before the scan.
         */
-        $reversed = $status === AttendanceStatus::Excused
+        $reversing = $status === AttendanceStatus::Excused
             && $attendance->credit_verdict_at !== null
-            && $hasElevatedPermission
+            && $hasElevatedPermission;
+
+        $student = $attendance->student;
+
+        if ($reversing && $student === null) {
+            /*
+            | ⛔ NEVER THE ACTOR IN THE STUDENT'S PLACE, which the first draft
+            | wrote as a `?? $actor` fallback. `attendances.student_user_id`
+            | carries no foreign key, so a deleted account really does leave the
+            | row behind (the `ListStudentBalances` defect) — and substituting
+            | the teacher there does not fail, it reverses a charge against the
+            | WRONG PERSON'S balance, or silently finds nothing and returns
+            | false while the register says the excuse was accepted.
+            */
+            throw new DomainException('لا يمكن ردُّ حصّةِ سجلٍّ لا يخصُّ حساباً قائماً.');
+        }
+
+        $reversed = $reversing
+            && $student !== null
             && $this->charges->reverse(
-                $attendance->student ?? $actor,
+                $student,
                 (int) $attendance->class_session_id,
                 $reason,
             );
+
+        /*
+        | ⛔ AND THE TEACHER'S SIDE OF THE SAME HOUR, or the platform pays for
+        | the excuse out of its own pocket (T031). Two contracts rather than one
+        | because they are two contexts with no key between them — the credit
+        | lives in billing, the unit in settlement, and `ContextIsolationTest`
+        | fails the build over anything that joins them.
+        */
+        if ($reversed) {
+            $this->units->reverseSeat(
+                (int) $attendance->class_session_id,
+                (int) $attendance->student_user_id,
+                $reason,
+            );
+        }
 
         $attendance->forceFill([
             'status' => $status,

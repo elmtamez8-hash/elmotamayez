@@ -17,6 +17,13 @@ use Illuminate\Support\Facades\DB;
  * to hand the seat back in the same statement that took it, and a listener runs
  * after the commit — by which time the seat is sold.
  *
+ * ⛔ AND IT WRAPS ITSELF ANYWAY, because a docblock is not a guard. The order is
+ * claim-the-counter → count → insert, so a collision on that insert outside a
+ * transaction leaves `held_credits` incremented with NO ROW BEHIND IT: a credit
+ * frozen for ever, invisible to the sweep (which walks holds), and caught only
+ * by the nightly `held_counter` invariant a day later. Laravel nests through a
+ * savepoint, so `BookSeat`'s outer transaction still decides the whole booking.
+ *
  * ⚠️ THE CLAIM IS ONE CONDITIONAL UPDATE AND THE WINNER ALONE MOVES THE
  * COUNTER. Read-then-write is the race two simultaneous bookings win together:
  * both read `remaining = 1, held = 0`, both decide there is room, and a student
@@ -49,6 +56,11 @@ class PlaceCreditHold extends Action
      * @return bool whether the credit was frozen — false means «not enough»
      */
     public function handle(CreditBalance $balance, int $classSessionId, int $credits = 1): bool
+    {
+        return DB::transaction(fn (): bool => $this->place($balance, $classSessionId, $credits));
+    }
+
+    private function place(CreditBalance $balance, int $classSessionId, int $credits): bool
     {
         $floor = $this->ledger->floorForBalance($balance);
 

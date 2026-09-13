@@ -69,10 +69,16 @@ interface SessionCreditHolds
     public function release(int $classSessionId, array $studentUserIds = []): int;
 
     /**
-     * How many credits this student has frozen for this course, and when the
-     * soonest of them is expected back.
+     * How many credits this student has frozen for this course, how many are
+     * left to spend, and when the soonest frozen one is expected back.
      *
-     * @return array{held: int, first_release_at: string|null}
+     * ⚠️ `available` TRAVELS WITH THE OTHER TWO ON PURPOSE. The one caller that
+     * needs a release date is the booking refusal, and it needs the number the
+     * refusal is ABOUT in the same breath — `remaining - held`, which is not a
+     * column and which a caller computing it for itself would be the second
+     * spelling of. One read, three facts.
+     *
+     * @return array{held: int, available: int, first_release_at: string|null}
      */
     public function heldFor(User $student, int $courseId): array;
 }

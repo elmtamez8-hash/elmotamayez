@@ -74,7 +74,7 @@ class EloquentSessionCreditHolds implements SessionCreditHolds
      * student rows — it bites the WRONG way and hides a hold placed with another
      * teacher.
      *
-     * @return array{held: int, first_release_at: string|null}
+     * @return array{held: int, available: int, first_release_at: string|null}
      */
     public function heldFor(User $student, int $courseId): array
     {
@@ -90,8 +90,17 @@ class EloquentSessionCreditHolds implements SessionCreditHolds
 
         $soonest = $rows?->getAttribute('soonest');
 
+        $course = Course::query()->withoutWorkspaceScope()->find($courseId);
+
         return [
             'held' => (int) ($rows?->getAttribute('held') ?? 0),
+            // Read from the balance rather than subtracted from the sum above:
+            // `held_credits` is the counter every claim moves, and a total
+            // recomputed from the rows here would be a second answer that
+            // disagrees with the floor the booking is actually judged against.
+            'available' => $course === null
+                ? 0
+                : $this->available($this->accounts->balanceFor($student, $course)),
             // ⚠️ THE SENTENCE, NOT DECORATION. «لا رصيد» with no date is a
             // refusal the student can do nothing with; the session's END is when
             // the hold is judged, so it is the honest answer to «when do I get

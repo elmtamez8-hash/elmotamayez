@@ -141,9 +141,17 @@ class EloquentSessionContentAccess implements SessionContentAccess
             availableCredits: $owned - $held,
             opens: $opens,
             availableUntil: $this->availableUntil($classSessionId),
-            // ⚠️ ALWAYS, never only when the balance is empty. A payload whose
-            // SHAPE changes with what it found is a distinguishing answer.
-            purchaseUrl: '/credits',
+            /*
+            | ⚠️ ALWAYS, never only when the balance is empty. A payload whose
+            | SHAPE changes with what it found is a distinguishing answer.
+            |
+            | ⛔ AND THE PATH IS MEASURED, NOT GUESSED: the first draft wrote
+            | `/credits`, which no file under `frontend/src/app` answers — a road
+            | out that 404s is the «endpoint nobody calls» defect wearing its
+            | mirror image, and FR-013 forbids a refusal a student can do nothing
+            | with.
+            */
+            purchaseUrl: '/billing/purchase',
         );
     }
 

@@ -36,9 +36,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonInterface|null $report_sent_at
  * @property CarbonInterface|null $recording_watched_at
  * @property CarbonInterface|null $overridden_at
- * @property CarbonInterface|null $credit_verdict_at stamped ⇒ the stay reached
- *                                                   the financial bar. NULL means «not judged yet», never «did
- *                                                   not reach it» — the branch is read from the SESSION.
+ * @property CarbonInterface|null $credit_verdict_at stamped ⇒ THIS SEAT WAS
+ *                                                   CHARGED, which is not the same as «the stay reached the
+ *                                                   bar»: FR-008ج charges the silent no-show too, and the four
+ *                                                   exemptions (excused · removed · notified · never
+ *                                                   delivered) are judged in `CloseClassSession` and frozen
+ *                                                   here. It is read as «charged» by the billing side and as
+ *                                                   «receives the hour» by the content gate, because those are
+ *                                                   one set. Null on a JUDGED session means exempt; the
+ *                                                   «not judged yet» branch is `class_sessions.attended_seats
+ *                                                   IS NULL`, read from the SESSION.
  */
 class Attendance extends BaseModel
 {

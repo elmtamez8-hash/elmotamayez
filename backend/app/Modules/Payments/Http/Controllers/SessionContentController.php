@@ -9,9 +9,9 @@ use App\Models\User;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Payments\Actions\UnlockSessionContent;
 use App\Modules\Payments\Models\SessionUnlock;
-use App\Modules\Payments\Support\EloquentSessionContentAccess;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
+use App\Shared\Contracts\SessionContentAccess;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,7 +35,7 @@ use Illuminate\Http\Request;
 class SessionContentController extends Controller
 {
     public function __construct(
-        private readonly EloquentSessionContentAccess $access,
+        private readonly SessionContentAccess $access,
         private readonly EnrollmentDirectory $enrollments,
         private readonly CohortDirectory $cohorts,
     ) {}
