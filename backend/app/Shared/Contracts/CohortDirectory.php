@@ -56,6 +56,36 @@ interface CohortDirectory
     public function joinableCohortsExist(int $courseId): bool;
 
     /**
+     * Whether ANY group of this course could be ASSIGNED INTO at this instant —
+     * open **or closed**, not full, not archived (٠٣٤ · FR-030).
+     *
+     * ⚠️ THE SECOND QUESTION, AND ASKING IT BY THE NAME ABOVE IS FORBIDDEN. A
+     * `closed` group that is not full is a legitimate destination for
+     * administration and an illegal one for a student, so the two answers differ
+     * for a real and ordinary row — and {@see joinableCohortsExist()} additionally
+     * answers `false` for a course with NO GROUPS AT ALL, by the identical value.
+     * Four readers were asking one name for two questions.
+     *
+     * ⚠️ AND «no assignable group» IS NOT «no groups». They read the same here;
+     * {@see coursesWithCohorts()} is what tells them apart, and a sale guard
+     * written with one condition refuses every recorded course on the platform.
+     */
+    public function assignableCohortsExist(int $courseId): bool;
+
+    /**
+     * The bulk twin of {@see assignableCohortsExist()} — which of these courses
+     * have one.
+     *
+     * ⚠️ BULK BY SIGNATURE, LIKE EVERY LIST-SHAPED READ HERE. The «مكتمل» badge
+     * on a marketplace card is asked once per row, so the single-id form inside a
+     * Resource is the `ClassSessionResource` N+1 arriving through a new door.
+     *
+     * @param  list<int>  $courseIds
+     * @return list<int>
+     */
+    public function coursesWithAssignableCohorts(array $courseIds): array;
+
+    /**
      * Whether this person was a member of this group AT ANY POINT.
      *
      * Reading the old group's thread survives the transfer (FR-046); writing to

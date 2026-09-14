@@ -37,7 +37,30 @@ final class CohortMembershipWriter
     /**
      * Put this student in this group, closing whatever they were in.
      *
-     * @param  string  $event  one of {@see CohortMembershipEvent}'s constants
+     * @param  string|null  $event  one of {@see CohortMembershipEvent}'s
+     *                              constants, or **null to derive** the
+     *                              `ASSIGNED`/`TRANSFERRED` pair from whether
+     *                              there was a membership to move out of.
+     *
+     *                              ⚠️ THE DERIVATION LIVES HERE BECAUSE THE
+     *                              ANSWER LIVES HERE (٠٣٤ · FR-005). «Has this
+     *                              student a membership?» asked by the CALLER is
+     *                              a read outside the transaction, and the reply
+     *                              can change before the row is written — so an
+     *                              argument computed there is a label that
+     *                              sometimes disagrees with what actually
+     *                              happened. Inside, it is the same `$existing`
+     *                              the close and the seat release already turn
+     *                              on.
+     *
+     *                              ⚠️ AND IT FIXES A LIE THAT WAS ALREADY
+     *                              SHIPPING: the teacher's «أضِفْ عضواً» button
+     *                              hard-coded `TRANSFERRED`, so a student put
+     *                              into their FIRST group read «نُقِلت» in their
+     *                              own history. `JOINED` is deliberately NOT
+     *                              derived — it names the student as the actor,
+     *                              which is a fact about who pressed the button
+     *                              and not something this method can see.
      * @param  bool  $requireOpen  a student may only enter an `open` group; a
      *                             teacher moving somebody by hand may enter a
      *                             `closed` one, which means "no new joins" and
@@ -48,7 +71,7 @@ final class CohortMembershipWriter
     public static function open(
         Cohort $cohort,
         User $student,
-        string $event,
+        ?string $event,
         ?User $actor,
         ?string $reason = null,
         bool $requireOpen = true,
@@ -68,6 +91,11 @@ final class CohortMembershipWriter
             if ($existing !== null && (int) $existing->cohort_id === (int) $cohort->getKey()) {
                 throw CohortRefusal::sameCohort();
             }
+
+            // ٠٣٤ · FR-005 — read from the same row the close below turns on.
+            $event ??= $existing === null
+                ? CohortMembershipEvent::ASSIGNED
+                : CohortMembershipEvent::TRANSFERRED;
 
             $claimed = Cohort::query()
                 ->withoutWorkspaceScope()

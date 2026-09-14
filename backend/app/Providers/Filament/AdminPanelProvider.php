@@ -307,6 +307,15 @@ class AdminPanelProvider extends PanelProvider
                 in: app_path('Modules/Identity/Filament/Pages'),
                 for: 'App\Modules\Identity\Filament\Pages',
             )
+            // ⚠️ والثالثةُ بالسببِ نفسِه المكتوبِ فوقَها مرّتَين (٠٣٤): شاشةُ
+            // إسنادِ الطالبِ إلى مجموعةٍ وشاشةُ الدَّورِ تسكنانِ هذا المجلَّد،
+            // و`discoverPages()` على مجلَّدٍ غيرِ مذكورٍ لا يُنتِجُ خطأً ولا
+            // مساراً — فتمرُّ `cohorts.assign` في كلِّ اختبارٍ لها وهي تحرسُ
+            // العدم.
+            ->discoverPages(
+                in: app_path('Modules/Learning/Filament/Pages'),
+                for: 'App\Modules\Learning\Filament\Pages',
+            )
             ->pages([
                 Dashboard::class,
             ])

@@ -315,6 +315,31 @@ class NotificationTemplateSeeder extends Seeder
                 ['to_cohort', 'course_title', 'decision_reason'],
             ],
             /*
+            | ٠٣٤ · FR-006 · FR-008 — الإدارةُ أسنَدَت.
+            |
+            | ⚠️ **المواعيدُ في المتن، لا رابطٌ إليها**: الطالبُ يقرأُ هذا على
+            | هاتفِه ليعرفَ متى درسُه القادم، ورسالةٌ تقولُ «افتحْ جدولَك» رحلةٌ
+            | ثانيةٌ إلى الشاشةِ لتُجيبَ السؤالَ الذي أُرسِلَت لأجلِه.
+            |
+            | ⚠️ **و«لم تُعلَنْ مواعيدُها بعد» تُقالُ صراحةً**: سطرٌ محذوفٌ يُقرَأُ
+            | عُطلاً — السابقةُ مكتوبةٌ في `ActivateSubscription` (٠٢٧ · FR-029أ).
+            */
+            NotificationType::CohortAssigned->value => [
+                'أُسندت إلى مجموعة «{{ cohort_name }}»',
+                'أسندتك إدارة المنصّة إلى مجموعة «{{ cohort_name }}» في «{{ course_title }}». {{ schedule }}',
+                ['cohort_name', 'course_title', 'schedule'],
+            ],
+            /*
+            | ⚠️ **ليسَ رفضاً، والفرقُ هو سببُ وجودِ النوعِ منفصلاً.** الرفضُ قرارٌ
+            | اتُّخِذَ في الطلب؛ وهذا أنّ الطلبَ فقدَ معناه. ولولا الجملةُ لقرأَ
+            | الطالبُ اختفاءَ طلبِه عُطلاً وأعادَ إرسالَه (٠٢١ · FR-028ح).
+            */
+            NotificationType::CohortTransferRequestDropped->value => [
+                'سقط طلب انتقالك في «{{ course_title }}»',
+                'أسندتك إدارة المنصّة إلى مجموعة «{{ cohort_name }}» في «{{ course_title }}»، فلم يعد لطلب انتقالك السابق محلّ وأُغلق. إن أردت مجموعة أخرى فأرسل طلباً جديداً.',
+                ['course_title', 'cohort_name'],
+            ],
+            /*
             | The private session (023). Four rows, and the two refusals are the
             | ones a reader is tempted to fold into one: an expiry is «nobody
             | answered» and a rejection is «somebody did» — a student who reads
@@ -582,6 +607,18 @@ class NotificationTemplateSeeder extends Seeder
                 'مقاعد لم تُحجز تلقائيّاً',
                 'تعذّر حجز مقعد {{ student_name }} تلقائيّاً في: {{ sessions }}. راجع الجدول لحجز بديل أو لتوسيع السعة.',
                 ['student_name', 'sessions'],
+            ],
+            /*
+            | ٠٣٤ · FR-019 — باقةٌ أنشأَتها الإدارةُ باسمِ المدرّس.
+            |
+            | ⚠️ **السعرُ في المتن.** الباقةُ تُباعُ باسمِ المدرّسِ بسعرٍ لم يضعْه،
+            | ورسالةٌ تقولُ «أُنشِئَت باقة» بلا رقمٍ تتركُ الشيءَ الوحيدَ الذي
+            | يحتاجُ المدرّسُ أن يعترضَ عليه خارجَ الرسالة.
+            */
+            NotificationType::PlanCreatedForYou->value => [
+                'أُنشئت باقة باسمك: «{{ plan_title }}»',
+                'أنشأت إدارة المنصّة باقة «{{ plan_title }}» باسمك بسعر {{ price }} لمدّة {{ duration_days }} يوماً. راجعها في باقاتك، وتواصل مع الإدارة إن كان فيها ما يحتاج تعديلاً.',
+                ['plan_title', 'price', 'duration_days'],
             ],
             /*
             | ⚠️ THE NUMBERS ARE IN THE BODY, NOT A LINK TO THEM. A report that

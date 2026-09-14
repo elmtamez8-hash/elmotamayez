@@ -267,6 +267,27 @@ enum NotificationType: string
     case CohortTransferRejected = 'cohort_transfer_rejected';
 
     /*
+    | ٠٣٤ · FR-006 · FR-008 — الإدارةُ صارَت تُسنِد، فصارَ للطالبِ حدثانِ يقعانِ
+    | عليه ولم يطلبْهما.
+    |
+    | ⚠️ **وكلاهما جديدٌ حقّاً، والقياسُ يقولُه**: `CohortMembershipWriter::open()`
+    | يُطلِقُ `CohortMembershipOpened` ومستمِعُه الوحيدُ في الشجرةِ يُحرِّرُ
+    | المقاعدَ ويحجزُها — لا إشعارَ في أيِّ موضع — و`MoveMember` لا يُبلِّغُ
+    | أحداً. فالطالبُ يُنقَلُ اليومَ بينَ المجموعاتِ ولا يعلمُ حتّى يفتحَ جدولَه.
+    |
+    | ⚠️ **وإسقاطُ طلبِ الانتقالِ نوعٌ مستقلٌّ لا `CohortTransferRejected`**: الرفضُ
+    | قرارٌ في الطلبِ نفسِه، والإسقاطُ هو أنّ الطلبَ فقدَ معناهُ لأنّ الإدارةَ
+    | أسنَدَت. ولولا جملةٌ تقولُ ذلك لقرأَ الطالبُ اختفاءَ طلبِه عُطلاً وأعادَ
+    | إرسالَه (٠٢١ · FR-028ح).
+    |
+    | ⚠️ **ولا يُمَسُّ `targetsGuardians()`**: إخوتُهما الثلاثةُ فوقَهما خارجَها
+    | بالحجّةِ المكتوبةِ هناك، و`WhatsAppDefaultsTest` يؤكّدُ العددَ بالضبط.
+    */
+    case CohortAssigned = 'cohort_assigned';
+
+    case CohortTransferRequestDropped = 'cohort_transfer_request_dropped';
+
+    /*
     | The private session (023 · FR-018 · FR-023 · FR-027). Four, and each one is
     | somebody's whole knowledge of where a request got to.
     |
@@ -383,6 +404,19 @@ enum NotificationType: string
     case SubscriptionSeatUnavailable = 'subscription_seat_unavailable';
 
     /*
+    | ٠٣٤ · FR-019 — الإدارةُ أنشأَت باقةً **باسمِ المدرّس**.
+    |
+    | ⚠️ **المُستقبِلُ مدرّسٌ لا طالب، وهذا ما يُخرِجُه من `targetsGuardians()`**:
+    | وليُّ الأمرِ لا شأنَ له بمنتَجٍ لم يُعرَضْ عليه بعد، وإدخالُه هناكَ رسالةٌ
+    | مدفوعةٌ على هاتفِ كلِّ وليٍّ عن سعرٍ يخصُّ مدرّساً — وكسرٌ لبوّابةِ العدد.
+    |
+    | ⚠️ **وهو ليسَ مجاملة**: `plans.workspace_id` يقولُ إنّ الباقةَ للمدرّس، وهي
+    | تُباعُ باسمِه بسعرٍ لم يضعْه. مدرّسٌ لا يعلمُ أنّ منتَجاً أُنشِئَ باسمِه
+    | يكتشفُه من كشفِ حسابِه، وهو أسوأُ موضعٍ لاكتشافِه.
+    */
+    case PlanCreatedForYou = 'plan_created_for_you';
+
+    /*
     | The scheduled platform report (011 · US6 · FR-045).
     |
     | ⚠️ IT TARGETS NO GUARDIAN AND IS NOT MANDATORY, and both follow from who
@@ -474,6 +508,8 @@ enum NotificationType: string
             self::CohortTransferRequested => 'طلب انتقال بين المجموعات',
             self::CohortTransferApproved => 'قبول طلب الانتقال',
             self::CohortTransferRejected => 'رفض طلب الانتقال',
+            self::CohortAssigned => 'إسناد إلى مجموعة',
+            self::CohortTransferRequestDropped => 'سقوط طلب الانتقال',
             self::PrivateSessionRequested => 'طلب حصة خاصة',
             self::PrivateSessionAccepted => 'قبول حصة خاصة',
             self::PrivateSessionRejected => 'رفض حصة خاصة',
@@ -486,6 +522,7 @@ enum NotificationType: string
             self::SubscriptionExpiring => 'قرب انتهاء اشتراك',
             self::SubscriptionActivated => 'تفعيل اشتراك',
             self::SubscriptionSeatUnavailable => 'مقعد غير متاح',
+            self::PlanCreatedForYou => 'باقة أُنشئت باسمك',
             self::ScheduledReport => 'تقرير مجدول',
             // ⚠️ `label()` is an EXHAUSTIVE match with no default arm — a new
             // case without a line here fails static analysis before it fails a

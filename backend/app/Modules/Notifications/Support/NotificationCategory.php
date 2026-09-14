@@ -106,6 +106,11 @@ enum NotificationCategory: string
                 NotificationType::CohortTransferRequested,
                 NotificationType::CohortTransferApproved,
                 NotificationType::CohortTransferRejected,
+                // ٠٣٤. الإسنادُ الإداريُّ ينقلُ جدولَ الطالبِ كما ينقلُه طلبُ
+                // الانتقال، وإسقاطُ الطلبِ نصفُ الخبرِ الآخر — فهما حيثُ
+                // إخوتُهما الثلاثةُ فوقَهما، للسببِ نفسِه.
+                NotificationType::CohortAssigned,
+                NotificationType::CohortTransferRequestDropped,
                 // 049. A postponement is a question about the timetable from
                 // the first message to the last.
                 NotificationType::SessionRescheduleRequested,
@@ -204,6 +209,13 @@ enum NotificationCategory: string
                 NotificationType::SettlementRateRejected,
                 NotificationType::SettlementPeriodClosed,
                 NotificationType::TeacherPayoutIssued,
+                /*
+                | ٠٣٤ · FR-019 — **تحتَ مالِ المدرّسِ لا تحتَ رصيدِ الطالب**،
+                | وهذا هو الخطُّ الذي يحرسُه اختبارُ هذا الملفِّ نفسُه. الباقةُ
+                | تُباعُ باسمِ المدرّسِ بسعرٍ لم يضعْه، فهي خبرٌ عمّا سيُقبَضُ
+                | له — ولا يقرؤُها طالبٌ إطلاقاً.
+                */
+                NotificationType::PlanCreatedForYou,
             ],
             self::Account => [
                 NotificationType::SecurityAlert,

@@ -209,6 +209,18 @@ function dispatchOf(User $user, NotificationType $type): void
             | somebody asked to be their guardian — and a link nobody can settle.
             */
             'relation_type' => 'وليّ أمر',
+            /*
+            | A THIRTEENTH time, with ٠٣٤'s three. 67 against 70 the moment they
+            | landed, and the mechanism is still the one twelve restatements above
+            | describe — which is the argument for this list staying HAND-WRITTEN:
+            | derive it and it supplies whatever each template asks for and can
+            | never fail again. Here the miss would be a student never told that
+            | the platform put them in a group, and a teacher never told that a
+            | product was created in their name at a price they did not set.
+            */
+            'cohort_name' => 'مجموعة السبت',
+            'price' => '٣٠٠ ر.ق',
+            'duration_days' => '٣٠',
         ],
     ));
 }

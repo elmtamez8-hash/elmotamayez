@@ -37,6 +37,22 @@ class CohortMembershipEvent extends BaseModel
 
     public const TRANSFERRED = 'transferred';
 
+    /**
+     * Somebody with authority put them in a group they were in NONE before
+     * (٠٣٤ · FR-005).
+     *
+     * ⚠️ NOT `TRANSFERRED` REUSED, AND NOT `JOINED`. The student reads this row
+     * in their own history: «نُقِلتَ» over a first membership is a sentence about
+     * an event that did not happen, and `JOINED` attributes the act to the
+     * student, who did nothing. The column is `string(24)` on both engines with
+     * no enum and no check constraint (measured), so this costs no migration.
+     *
+     * ⚠️ AND THE WRITER DERIVES IT — see {@see CohortMembershipWriter::open()}.
+     * A constant declared with no writer is `ClassSessionStatus::Interrupted`,
+     * which had three readers and survived a whole phase looking implemented.
+     */
+    public const ASSIGNED = 'assigned';
+
     public const LEFT = 'left';
 
     public const REMOVED = 'removed';
