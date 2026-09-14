@@ -1,0 +1,80 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Shared\Support;
+
+use InvalidArgumentException;
+use MessageFormatter;
+use NumberFormatter;
+
+/**
+ * اسمٌ معدودٌ بالعربيّة — نظيرُ `counted()` في الواجهة، بالقاعدةِ نفسِها.
+ *
+ * ⛔ **والبِنيةُ تُسأَلُ من CLDR، لا من سُلَّمٍ مكتوبٍ باليد.** العربيّةُ تُوافِقُ
+ * في خمسِ بِنًى، و**CLDR يحسمُها بآخرِ رقمَين**: ١٠٣ في `few` بينما ١١١ في
+ * `many`. فسُلَّمٌ مثلُ `n <= 10` يُوافِقُ تحتَ المئةِ ويفترقُ فوقَها — وهو
+ * بالضبطِ حيثُ لا يختبرُ أحد. الواجهةُ تسألُ `Intl.PluralRules("ar")`، وهذا
+ * يسألُ `MessageFormatter` — والبياناتُ واحدة، فلا تفترقُ الشاشتان.
+ *
+ * ⚠️ **و`intl` ليس اختياريّاً هنا ولا يُذكَرُ في `composer.json`**: صورةُ الخادمِ
+ * تُثبِّتُه صراحةً (`docker/backend.Dockerfile`) وقِيسَ وجودُه على الإنتاج.
+ *
+ * ⚠️ **والرقمُ قرارُ هذه الدالّةِ لا قرارُ المنادي.** الواحدُ والاثنانِ بلا رقمٍ
+ * («مقعد» · «مقعدان») لأنّ العربيّةَ تحملُ العددَ في الكلمةِ نفسِها و«٢ مقعدان»
+ * تلعثُم؛ وما سواهما مسبوقٌ برقمٍ عربيٍّ هنديّ. تُرِكَت للمنادي يُمرِّرُ أوّلُهم
+ * عبارةً فيها رقمٌ سلفاً، فتعودُ القاعدةُ مكتوبةً مرّتَين.
+ *
+ * ⚠️ **و`other` مطلوبةٌ ولا تُشتَقُّ من `one`.** «واحد» اسمٌ مفردٌ قائمٌ بذاتِه لا
+ * يجوزُ بعدَ رقم، فاشتقاقُها من `one` يطبعُ «١٠٠ مقعد واحد» — أسوأُ ممّا كانَ
+ * قبلَه. الواجهةُ دفعَت ثمنَ هذا في مراجعةٍ، ولا يُعادُ هنا.
+ */
+final class CountedNoun
+{
+    /**
+     * @param  array{one: string, two: string, few: string, many: string, other: string, zero?: string}  $forms
+     */
+    public static function of(int $count, array $forms): string
+    {
+        /*
+        | ⚠️ **ولا فحصَ للصِّيَغِ وقتَ التشغيل: التوقيعُ هو الحارس.** `phpstan`
+        | يمرُّ على `app/` كلِّه بالمستوى الثامن، فمنادٍ يُسقِطُ `other` يُسمّى
+        | بالاسمِ قبلَ الدمج — كما يفعلُ `tsc` في الواجهة. وفحصٌ يكرّرُ ما يضمنُه
+        | التوقيعُ سطرٌ لا يُنفَّذُ أبداً ويُقرَأُ كأنّه يحرس.
+        */
+        $band = self::band($count);
+
+        if ($band === 'zero') {
+            // «لا مقاعد» جملةٌ، بينما «٠ مقعد» ليست عربيّةً يقولُها أحد.
+            return $forms['zero'] ?? 'لا '.$forms['few'];
+        }
+
+        if ($band === 'one' || $band === 'two') {
+            return $forms[$band];
+        }
+
+        return self::number($count).' '.$forms[$band];
+    }
+
+    /** البِنيةُ كما يقرّرُها CLDR لهذا العدد. */
+    private static function band(int $count): string
+    {
+        $pattern = '{n, plural, zero{zero} one{one} two{two} few{few} many{many} other{other}}';
+
+        $selected = MessageFormatter::formatMessage('ar', $pattern, ['n' => $count]);
+
+        // ⚠️ لا سُلَّمَ احتياطيّاً هنا: سُلَّمٌ يُوافِقُ تحتَ المئةِ ويفترقُ فوقَها
+        // هو عطبٌ صامتٌ أسوأُ من انفجارٍ يُقرَأ.
+        if (! is_string($selected) || $selected === '') {
+            throw new InvalidArgumentException('تعذّر تحديد صيغة العدد — تحقّق من امتداد intl.');
+        }
+
+        return $selected;
+    }
+
+    /** الأرقامُ العربيّةُ الهنديّةُ، كما تكتبُها الواجهةُ بـ`toLocaleString("ar-QA")`. */
+    private static function number(int $count): string
+    {
+        return (new NumberFormatter('ar-QA', NumberFormatter::DECIMAL))->format($count) ?: (string) $count;
+    }
+}

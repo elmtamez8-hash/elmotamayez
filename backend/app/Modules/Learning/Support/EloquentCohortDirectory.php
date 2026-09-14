@@ -11,6 +11,7 @@ use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\CohortScheduleDirectory;
+use App\Shared\Support\CountedNoun;
 use Illuminate\Database\UniqueConstraintViolationException;
 use RuntimeException;
 
@@ -307,7 +308,7 @@ class EloquentCohortDirectory implements CohortDirectory
     /** @return array<string, string> */
     public function assignableOptionsFor(int $courseId): array
     {
-        return Cohort::query()
+        $cohorts = Cohort::query()
             ->withoutWorkspaceScope()
             ->where('course_id', $courseId)
             // ⚠️ `assignable()` لا `joinable()` (FR-030)، و`group()` تُخرِجُ الغرفةَ
@@ -315,12 +316,61 @@ class EloquentCohortDirectory implements CohortDirectory
             ->group()
             ->assignable()
             ->orderBy('name')
-            ->get()
-            ->mapWithKeys(static fn (Cohort $cohort): array => [
-                (string) $cohort->uuid => $cohort->name.($cohort->seatsLeft() === null
-                    ? ''
-                    : ' — '.$cohort->seatsLeft().' مقعداً'),
-            ])
+            ->get();
+
+        /*
+        | ⚠️ **والموعدُ يُقرَأُ جُملةً واحدةً لكلِّ المجموعات، لا واحدةً واحدة.**
+        | هذه الخياراتُ تُبنى داخلَ `->options()` في Filament، فسؤالٌ لكلِّ صفٍّ
+        | هو N+1 بالتكوين — على شاشةٍ يفتحُها الموظَّفُ لكلِّ طلب.
+        | `schedulePreviewFor()` جمليٌّ بالتعريف، ويُرجِعُ **قائمةً فارغةً** لا
+        | مفتاحاً غائباً لمجموعةٍ بلا حصص (عقدُه يقولُ ذلك صراحةً).
+        */
+        $schedules = $this->schedule->schedulePreviewFor(
+            // `array_values(...)` — الإملاءُ نفسُه الذي يستعملُه كلُّ منادٍ آخرَ
+            // لهذا العقد: `map()` يُبقي مفاتيحَ المجموعة، والعقدُ يطلبُ `list<int>`.
+            array_values($cohorts->map(static fn (Cohort $cohort): int => (int) $cohort->getKey())->all()),
+        );
+
+        return $cohorts
+            ->mapWithKeys(static function (Cohort $cohort) use ($schedules): array {
+                /*
+                | ⛔ **والموعدُ حقيقةُ القرارِ الأولى، لا زينة.** الموظَّفُ يُسنِدُ
+                | طالباً إلى مجموعة، والسؤالُ الذي يُقرَّرُ عليه «متى تجتمع» —
+                | والاسمُ وحدَه يحملُه بالعُرفِ («الأحد ٦م») لا بالبيانات، فمجموعةٌ
+                | سُمِّيَت «المجموعة الثانية» لا تقولُ شيئاً.
+                |
+                | ⚠️ **و«لم تُجدول» تُكتَبُ ولا تُترَك**: مجموعةٌ بلا حصصٍ قرارٌ
+                | مختلفٌ عن مجموعةٍ لها موعد، وفراغٌ في مكانِ الموعدِ يُقرَأُ خطأً
+                | في الشاشةِ لا حقيقةً عن المجموعة.
+                */
+                $slots = $schedules[(int) $cohort->getKey()] ?? [];
+
+                $parts = [
+                    $cohort->name,
+                    $slots === [] ? 'لم تُجدول حصص بعد' : implode(' · ', $slots),
+                ];
+
+                /*
+                | ⚠️ **الاسمُ المعدودُ يُوافَقُ، ولا يُكتَبُ «مقعداً» لكلِّ عدد.**
+                | «٣ مقعداً» خطأٌ في العربيّة، و«مقعد واحد» لا تُسبَقُ برقم.
+                | و`CountedNoun` يسألُ CLDR كما تسألُه الواجهةُ في `counted()` —
+                | فالشاشتانِ تقولانِ الشيءَ نفسَه، ولا سُلَّمَ مكتوباً باليدِ
+                | يفترقُ فوقَ المئة.
+                |
+                | و`null` سعةٌ بلا حدّ، فلا رقمَ يُقال.
+                */
+                if ($cohort->seatsLeft() !== null) {
+                    $parts[] = CountedNoun::of($cohort->seatsLeft(), [
+                        'one' => 'مقعد واحد متبقٍّ',
+                        'two' => 'مقعدان متبقّيان',
+                        'few' => 'مقاعد متبقّية',
+                        'many' => 'مقعداً متبقّياً',
+                        'other' => 'مقعد متبقٍّ',
+                    ]);
+                }
+
+                return [(string) $cohort->uuid => implode(' — ', $parts)];
+            })
             ->all();
     }
 
