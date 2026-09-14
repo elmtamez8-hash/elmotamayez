@@ -8,7 +8,6 @@ use App\Filament\Resources\EnrollmentResource\Pages;
 use App\Models\User;
 use App\Modules\Learning\Enums\EnrollmentStatus;
 use App\Modules\Learning\Models\Enrollment;
-use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use Filament\Actions\EditAction;
@@ -131,10 +130,18 @@ class EnrollmentResource extends Resource
     }
 
     /**
-     * ⚠️ **التجاوزُ مشروطٌ بحاملِ صلاحيّةِ المنصّة، ولا يجوزُ أن يكونَ مطلَقاً.**
-     * كلُّ مدرّسٍ يصلُ `/admin`، فتجاوزٌ بلا شرطٍ هنا يسلّمُ مدرّساً واحداً
-     * **تسجيلاتِ المنصّةِ كلِّها** ومعها بريدُ كلِّ طالبٍ فيها. الشكلُ منسوخٌ
-     * حرفيّاً عن `OrderResource::getEloquentQuery()` كما صُحِّحَ في ٠٢٤.
+     * ⚠️ **الشرطُ هو بابُ اللوحةِ نفسُه — `mayAccessAdminPanel()` — لا صلاحيّةُ
+     * الإسناد.** كُتِبَ هنا أوّلاً `COHORTS_ASSIGN`، وذلكَ خطأٌ يُبقي العطبَ
+     * الذي يصفُه `T017` قائماً **لموظَّفِ المنصّةِ الذي كُتِبَت له المهمّة**: لا
+     * يحملُ تلكَ الصلاحيّةَ إلّا مديرُ المنصّةِ عبرَ `Gate::before`، فمسؤولُ
+     * الماليّةِ يفتحُ هذه الشاشةَ ويرى القائمةَ القصيرةَ الصامتةَ كما كانَ.
+     *
+     * ⚠️ **ويبدو غيرَ مشروطٍ لأنّ الشرطَ في البابِ الذي فوقَه**: تلك الطريقةُ
+     * هي «مديرُ منصّةٍ **أو** صفٌّ في `platform_staff`» ولا تقبلُ مدرّساً ولا
+     * مساعِداً إطلاقاً. ويبقى مكتوباً بدلَ أن يُحذَفَ لأنّ ذلكَ البابَ **قد
+     * اتّسعَ من قبل**: كانَ يقبلُ `tenant-owner` و`teacher` و`assistant-teacher`،
+     * وثمنُ ذلكَ دُفِعَ في `OrderResource` مرّةً — بريدُ كلِّ طالبٍ والمبلغُ الذي
+     * دفعَه، على شاشةِ مساعِد.
      *
      * ⚠️ **وبلا التجاوزِ أصلاً — وهو الحالُ السابق — لا يرفعُ شيءٌ رمزَ خطأ**:
      * سياقُ موظَّفِ المنصّةِ يرجعُ إلى `users.last_workspace_id` كغيرِه، فيرى
@@ -152,7 +159,7 @@ class EnrollmentResource extends Resource
 
         $user = Auth::user();
 
-        if ($user instanceof User && $user->can(Permissions::COHORTS_ASSIGN)) {
+        if ($user instanceof User && $user->mayAccessAdminPanel()) {
             // `withoutGlobalScope(WorkspaceScope::class)` وليسَ مساعدَ النموذجِ
             // `withoutWorkspaceScope()`: أبُ Filament يردُّ `Builder<Model>`،
             // والنطاقُ المحلّيُّ للنموذجِ غيرُ مُنمَّطٍ عليه. والنداءانِ واحد.

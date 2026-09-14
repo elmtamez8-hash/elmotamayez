@@ -53,7 +53,12 @@ class CohortMembershipOpened
          *
          * ولا يُشتَقُّ من `fromCohortId`: `null` تعني «جاءَ من لا مكان»، وهي
          * صادقةٌ على الإسنادِ وعلى انضمامِ الطالبِ بنفسِه معاً.
+         *
+         * ⚠️ **ومطلوبٌ بلا قيمةٍ افتراضيّة، عمداً.** افتراضُ `''` يجعلُ «نسيَ
+         * المُنشِئُ تمريرَه» **صمتاً لا خطأً**: لا إشعارَ، ولا سطرَ سجلّ، ولا
+         * شيءَ في أيِّ مِلَفّ — وهو شكلُ `ClassSessionStatus::Interrupted` نفسُه
+         * الذي أُصلِحَ في `T006` بعدَ أن عاشَ طوراً كاملاً يبدو منفَّذاً.
          */
-        public readonly string $membershipEvent = '',
+        public readonly string $membershipEvent,
     ) {}
 }
