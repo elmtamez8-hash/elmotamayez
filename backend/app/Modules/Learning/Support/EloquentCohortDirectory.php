@@ -279,6 +279,43 @@ class EloquentCohortDirectory implements CohortDirectory
         ];
     }
 
+    public function claimSeat(int $cohortId): bool
+    {
+        // ⚠️ مُفوَّضةٌ إلى الكاتب، لا مُعادةَ الإملاءِ هنا — هو مالكُ نمطِ المقعدِ
+        // في هذه الوحدة، وإملاءانِ للجملةِ نفسِها يفترقانِ عندَ أوّلِ تعديلٍ
+        // لشرطِ السعة.
+        return CohortMembershipWriter::claimSeat($cohortId);
+    }
+
+    public function isAssignable(int $cohortId): bool
+    {
+        $cohort = Cohort::query()->withoutWorkspaceScope()->whereKey($cohortId)->first();
+
+        // ⚠️ مُفوَّضةٌ إلى النموذجِ كتوأمِها أدناه، و`isIndividual()` معها: غرفةُ
+        // طالبٍ بعينِه تُرضي `isAssignable()` وحدَها لأنّها لا تنظرُ إلى الحالة.
+        return $cohort !== null && ! $cohort->isIndividual() && $cohort->isAssignable();
+    }
+
+    /** @return array<string, string> */
+    public function assignableOptionsFor(int $courseId): array
+    {
+        return Cohort::query()
+            ->withoutWorkspaceScope()
+            ->where('course_id', $courseId)
+            // ⚠️ `assignable()` لا `joinable()` (FR-030)، و`group()` تُخرِجُ الغرفةَ
+            // الخاصّة — وهي `closed` بسعةِ واحد، فتُرضي `assignable()` وحدَها.
+            ->group()
+            ->assignable()
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(static fn (Cohort $cohort): array => [
+                (string) $cohort->uuid => $cohort->name.($cohort->seatsLeft() === null
+                    ? ''
+                    : ' — '.$cohort->seatsLeft().' مقعداً'),
+            ])
+            ->all();
+    }
+
     public function isJoinable(int $cohortId): bool
     {
         $cohort = Cohort::query()

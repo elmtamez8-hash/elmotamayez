@@ -13,6 +13,7 @@ use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Enums\OrderStatus;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use DomainException;
@@ -221,7 +222,31 @@ class OrderResource extends Resource
             ->requiresConfirmation()
             ->modalHeading('اعتماد التحويل')
             ->modalDescription('يُنشئ هذا التسجيل أو الرصيد فوراً. افتحِ الإيصال وطابقِ المبلغ قبل الاعتماد.')
-            ->action(function (Order $record): void {
+            ->schema([
+                /*
+                | ٠٣٤ · FR-016 — **المجموعةُ تُختارُ في اللحظةِ نفسِها التي
+                | يُعتمَدُ فيها الطلب**، لا في خطوةٍ لاحقةٍ اختياريّة: فيكونُ
+                | انتظارُ الطالبِ صفراً في الحالةِ العاديّة.
+                |
+                | ⚠️ **ويظهرُ للكورساتِ التي لها مجموعةٌ صالحةٌ للإسنادِ وحدَها.**
+                | حقلٌ مطلوبٌ على كلِّ طلبٍ يجعلُ طلبَ كورسٍ بلا مجموعاتٍ **لا
+                | يُعتمَدُ أبداً** — وهو العطبُ نفسُه الذي تمنعُه FR-015، منقولاً
+                | خطوةً إلى الوراء. والاشتراطُ في `ApproveOrder` لا هنا (FR-016ب).
+                |
+                | ⚠️ **وقراءةٌ متجاوِزةُ النطاقِ مع إعادةِ شرطِ الكورسِ بيدِك** —
+                | وهذه الطبقةُ السادسةُ لعيبِ ٠٢٤: موظَّفٌ يملكُ مساحةً يفتحُ طلبَ
+                | مساحةٍ أخرى فيجدُ المُنتقيَ **فارغاً**، ولأنّ الاختيارَ مطلوبٌ
+                | لا يستطيعُ اعتمادَ طلبٍ مدفوعٍ إطلاقاً.
+                */
+                Select::make('cohort_uuid')
+                    ->label('المجموعة')
+                    ->required()
+                    ->visible(fn (Order $record): bool => self::assignableCohorts($record) !== [])
+                    ->options(fn (Order $record): array => self::assignableCohorts($record))
+                    ->helperText('المفتوحةُ والمغلَقةُ غيرُ المكتمِلة. يُحجَز المقعد قبل قبض المبلغ — '
+                        .'فإن امتلأت قبلك، يُرفَض الاعتماد ويبقى الطلب معلّقاً بلا خصم.'),
+            ])
+            ->action(function (Order $record, array $data): void {
                 if (self::refusedForTwoFactor()) {
                     return;
                 }
@@ -241,7 +266,13 @@ class OrderResource extends Resource
                 | leaves the other bare.
                 */
                 try {
-                    app(ApproveOrder::class)->handle($record, self::actor(), request()->ip(), request()->userAgent());
+                    app(ApproveOrder::class)->handle(
+                        $record,
+                        self::actor(),
+                        request()->ip(),
+                        request()->userAgent(),
+                        is_string($data['cohort_uuid'] ?? null) ? $data['cohort_uuid'] : null,
+                    );
                 } catch (DomainException $e) {
                     Notification::make()->danger()->title($e->getMessage())->persistent()->send();
 
@@ -393,6 +424,39 @@ class OrderResource extends Resource
         Notification::make()->danger()->title('التحقّق بخطوتين مطلوب')->body($refusal)->persistent()->send();
 
         return true;
+    }
+
+    /**
+     * مجموعاتُ كورسِ هذا الطلبِ الصالحةُ للإسناد — أو لا شيء.
+     *
+     * ⚠️ **`assignable` لا `joinable`** (FR-030): المغلَقةُ غيرُ المكتمِلةِ وجهةٌ
+     * مشروعةٌ للإدارةِ وممنوعةٌ على الطالب. والسؤالانِ باسمٍ واحدٍ كانا يُفرِغانِ
+     * هذا المُنتقي عن كورسٍ له مجموعةٌ نصفُ ممتلئة.
+     *
+     * ⚠️ **ولطلبِ الكورسِ وحدَه**: اشتراكُ ٠٢٧ يحملُ مجموعةَ الطالبِ في لقطتِه،
+     * ورصيدُ الحصصِ لا مجموعةَ له — وحقلٌ يظهرُ على الثلاثةِ يسألُ الموظَّفَ
+     * سؤالاً لا معنى له على اثنَينِ منها.
+     *
+     * @return array<int|string, string>
+     */
+    private static function assignableCohorts(Order $record): array
+    {
+        if ($record->kind !== OrderKind::Course || $record->course_id === null) {
+            return [];
+        }
+
+        $directory = app(CohortDirectory::class);
+
+        // الطالبُ في مجموعةٍ سلفاً: لا اختيارَ يُطلَب — و`ApproveOrder` يقرأُ
+        // الشرطَ نفسَه فلا يشترطُ شيئاً.
+        if ($directory->openMembershipCohortId($record->user, (int) $record->course_id) !== null) {
+            return [];
+        }
+
+        // ⚠️ مُفوَّضةٌ إلى الدليل، لا حلقةً تسألُ صفّاً صفّاً: شاشةُ الإسنادِ
+        // تسألُ السؤالَ نفسَه، وإملاءانِ لشرطٍ واحدٍ يفترقانِ عندَ أوّلِ تعديل
+        // (FR-030) — والحلقةُ كذلك استعلامٌ لكلِّ مجموعةٍ على ضغطةِ زرّ.
+        return $directory->assignableOptionsFor((int) $record->course_id);
     }
 
     private static function actor(): User

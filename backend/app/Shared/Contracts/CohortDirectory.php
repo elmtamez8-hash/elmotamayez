@@ -178,6 +178,58 @@ interface CohortDirectory
     public function isJoinable(int $cohortId): bool;
 
     /**
+     * Take one seat in this group, atomically. `false` means it just filled.
+     *
+     * ⚠️ **A READ IS NOT A CLAIM, AND FR-024أ SAYS SO IN AS MANY WORDS.** Two
+     * officers approving two orders against the last seat both pass
+     * {@see isJoinable()} — it is a question, and the answer is stale the instant
+     * it is given. This is one conditional UPDATE that is the check and the claim
+     * together, so exactly one of them wins and the loser's approval is refused
+     * **before any money is taken**, which is what makes «zero refunds caused by
+     * a full group» (SC-009) a claim anybody can verify.
+     *
+     * ⚠️ AND THE CALLER OWNS THE TRANSACTION. The increment is rolled back with
+     * whatever transaction it was issued inside, so a refusal further down gives
+     * the seat back with no compensating write. A caller that claims outside a
+     * transaction and then throws leaks a place.
+     *
+     * ⚠️ AND WHOEVER CLAIMS HERE MUST SAY SO TO THE WRITER. `CohortMembershipWriter::open()`
+     * claims its own seat; reaching it afterwards without the flag increments
+     * twice, leaking a place on every approval — and the second increment can
+     * REFUSE with «full» after the money has already been taken.
+     */
+    public function claimSeat(int $cohortId): bool;
+
+    /**
+     * Whether ADMINISTRATION could put somebody into THIS group at this instant.
+     *
+     * ⚠️ The per-cohort twin of {@see assignableCohortsExist()}, and the door's
+     * half of the pair {@see isJoinable()} already has. The picker offers what
+     * this answers and the write asks it again: two spellings put one answer on
+     * the screen and another at the door, which is the defect FR-030 is about.
+     */
+    public function isAssignable(int $cohortId): bool;
+
+    /**
+     * The groups an officer may assign into on this course, ready for a picker:
+     * `uuid => label`, ordered by name.
+     *
+     * ⚠️ **ONE STATEMENT AND ONE SPELLING, AND BOTH HALVES MATTER.** Two screens
+     * ask this question — the assignment page and the approve button — and both
+     * first wrote it as their own query; one of them looped {@see isAssignable()}
+     * per row, which is N queries on a click AND a second spelling of the
+     * predicate. The next person to change what «assignable» means would have
+     * changed one of them.
+     *
+     * ⚠️ AND THE KEY IS THE PUBLIC UUID, never the autoincrement id: these values
+     * travel through a form and into `ApproveOrder`, and `HasUuid` is the rule
+     * that an id never leaves the server.
+     *
+     * @return array<string, string>
+     */
+    public function assignableOptionsFor(int $courseId): array;
+
+    /**
      * Everything a buyer's chosen group has to prove, in one read (spec 027).
      *
      * ⚠️ IT TAKES NO COURSE, AND THAT IS WHY IT EXISTS BESIDE `resolveCohortId()`.

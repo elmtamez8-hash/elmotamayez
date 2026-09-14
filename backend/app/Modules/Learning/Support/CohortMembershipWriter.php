@@ -75,12 +75,13 @@ final class CohortMembershipWriter
         ?User $actor,
         ?string $reason = null,
         bool $requireOpen = true,
+        bool $seatAlreadyClaimed = false,
     ): CohortMembership {
         if ($cohort->status === Cohort::ARCHIVED || ($requireOpen && $cohort->status !== Cohort::OPEN)) {
             throw CohortRefusal::closed();
         }
 
-        return DB::transaction(function () use ($cohort, $student, $event, $actor, $reason): CohortMembership {
+        return DB::transaction(function () use ($cohort, $student, $event, $actor, $reason, $seatAlreadyClaimed): CohortMembership {
             $existing = CohortMembership::query()
                 ->withoutWorkspaceScope()
                 ->where('student_user_id', $student->getKey())
@@ -97,13 +98,18 @@ final class CohortMembershipWriter
                 ? CohortMembershipEvent::ASSIGNED
                 : CohortMembershipEvent::TRANSFERRED;
 
-            $claimed = Cohort::query()
-                ->withoutWorkspaceScope()
-                ->whereKey($cohort->getKey())
-                ->where(fn ($query) => $query->whereNull('capacity')->orWhereColumn('members_count', '<', 'capacity'))
-                ->increment('members_count');
-
-            if ($claimed === 0) {
+            /*
+            | ⛔ **المقعدُ يُطالَبُ به مرّةً واحدةً في المسارِ كلِّه** (٠٣٤ ·
+            | `T021أ`). اعتمادُ الطلبِ يُطالِبُ بالمقعدِ **قبلَ قبضِ المال**
+            | (FR-024أ) — فلو زادَ هذا العدّادَ بعدَه لتسرّبَ مقعدٌ في كلِّ
+            | اعتماد، **ولرُفِضَت الزيادةُ الثانيةُ بـ«مكتملة» بعدَ أن قُبِضَ
+            | المالُ فعلاً**. الرايةُ تتخطّى الزيادةَ **ولا شيءَ غيرَها**:
+            | الإغلاقُ والتحريرُ والفهرسُ الفريدُ كما هي.
+            |
+            | ⚠️ **ولا تُمرَّرُ إلّا من مسارِ الاعتماد**، حيثُ يُطالَبُ بالمقعدِ
+            | في المعاملةِ نفسِها التي تعتمدُ الطلب — فرجوعُها يُعيدُ المقعد.
+            */
+            if (! $seatAlreadyClaimed && ! self::claimSeat((int) $cohort->getKey())) {
                 throw CohortRefusal::full();
             }
 
@@ -256,7 +262,31 @@ final class CohortMembershipWriter
             ]) > 0;
     }
 
-    private static function releaseSeat(int $cohortId): void
+    /**
+     * مُطالَبةٌ ذرّيّةٌ بمقعدٍ واحد — `false` تعني أنّ المجموعةَ امتلأَت.
+     *
+     * ⚠️ **جملةٌ شرطيّةٌ واحدةٌ هي الفحصُ والمُطالَبةُ معاً**، لا `count()` ثمّ
+     * `insert()` — تلكَ هي تعريفُ السباق — **ولا `lockForUpdate()`**: لا أثرَ له
+     * على SQLite، فاختبارٌ مبنيٌّ عليه يمرُّ محلّيّاً ولا يبرهنُ شيئاً عن MySQL
+     * التي يُشحَنُ إليها. نمطُ المقعدِ من ٠٠٥، وهو نفسُه خلفَ
+     * `captured_order_id` و`StructureVersion::claim()`.
+     *
+     * ⚠️ **وعامّةٌ لأنّ لها مُنادِياً ثانياً خارجَ هذا الملفّ** (٠٣٤ · FR-024أ):
+     * `ApproveOrder` يُطالِبُ بالمقعدِ قبلَ قبضِ المال، والعضويّةُ تُكتَبُ بعدَ
+     * ذلكَ بمهمّةٍ مُصطفّة. وإملاءٌ ثانٍ للجملةِ هناكَ هو عيبُ «الإملاءَين» الذي
+     * يسجّلُه هذا المستودعُ مراراً.
+     */
+    public static function claimSeat(int $cohortId): bool
+    {
+        return Cohort::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($cohortId)
+            ->where(fn ($query) => $query->whereNull('capacity')->orWhereColumn('members_count', '<', 'capacity'))
+            ->increment('members_count') > 0;
+    }
+
+    /** ⚠️ عامّةٌ كتوأمِها: مَن طالبَ بالمقعدِ ثمّ فشلَ يُعيدُه. */
+    public static function releaseSeat(int $cohortId): void
     {
         Cohort::query()
             ->withoutWorkspaceScope()

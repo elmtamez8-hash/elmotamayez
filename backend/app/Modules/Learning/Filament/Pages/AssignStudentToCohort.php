@@ -11,7 +11,7 @@ use App\Modules\Learning\Actions\MoveMember;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Tenancy\Support\Permissions;
-use App\Shared\Scopes\WorkspaceScope;
+use App\Shared\Contracts\CohortDirectory;
 use BackedEnum;
 use DomainException;
 use Filament\Actions\Action;
@@ -88,7 +88,7 @@ class AssignStudentToCohort extends Page implements HasTable
      * مجموعاتٍ داخلَه هو `N+1` بالبناء — وهي القاعدةُ التي كتبَها
      * `ClassSessionResource` في هذه الشجرةِ أوّلَ مرّة.
      *
-     * @var array<int, string>|null
+     * @var array<string, string>|null
      */
     private ?array $cohortOptions = null;
 
@@ -268,8 +268,11 @@ class AssignStudentToCohort extends Page implements HasTable
             return;
         }
 
+        // ⚠️ بالمعرِّفِ العلنيِّ **ومعه شرطُ الكورس**: خيارُ النموذجِ يُكتَبُ كما
+        // يُنقَر، ومعرِّفُ مجموعةٍ من كورسٍ آخرَ يضعُ الطالبَ في غرفةٍ لا تسجيلَ
+        // له فيها.
         $cohort = Cohort::query()->withoutWorkspaceScope()
-            ->whereKey($data['cohort'] ?? null)
+            ->where('uuid', $data['cohort'] ?? null)
             ->where('course_id', $record->course_id)
             ->first();
 
@@ -379,7 +382,7 @@ class AssignStudentToCohort extends Page implements HasTable
     /**
      * المجموعاتُ الصالحةُ للإسنادِ في هذا الكورس — محمَّلةً مرّةً واحدة.
      *
-     * @return array<int, string>
+     * @return array<string, string>
      */
     private function assignableCohorts(): array
     {
@@ -389,22 +392,11 @@ class AssignStudentToCohort extends Page implements HasTable
 
         $courseId = $this->courseId();
 
-        return $this->cohortOptions = $courseId === null ? [] : Cohort::query()
-            ->withoutGlobalScope(WorkspaceScope::class)
-            ->where('course_id', $courseId)
-            // ⚠️ `assignable()` لا `joinable()` (FR-030): المغلَقةُ غيرُ المكتمِلةِ
-            // وجهةٌ مشروعةٌ للإدارة. و`group()` تُخرِجُ الغرفةَ الخاصّةَ — وهي
-            // `closed` بسعةِ واحدٍ، فتُرضي `assignable()` وحدَها.
-            ->group()
-            ->assignable()
-            ->orderBy('name')
-            ->get()
-            ->mapWithKeys(fn (Cohort $cohort): array => [
-                $cohort->getKey() => $cohort->name.($cohort->seatsLeft() === null
-                    ? ''
-                    : ' — '.$cohort->seatsLeft().' مقعداً'),
-            ])
-            ->all();
+        // ⚠️ مُفوَّضةٌ إلى الدليل: بابُ الاعتمادِ يسألُ السؤالَ نفسَه، وإملاءانِ
+        // لشرطٍ واحدٍ يفترقانِ عندَ أوّلِ تعديلٍ لمعنى «صالحة للإسناد» (FR-030).
+        return $this->cohortOptions = $courseId === null
+            ? []
+            : app(CohortDirectory::class)->assignableOptionsFor($courseId);
     }
 
     private function courseId(): ?int

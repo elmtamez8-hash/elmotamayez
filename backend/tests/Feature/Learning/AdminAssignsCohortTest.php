@@ -87,7 +87,7 @@ it('assigns a student in a workspace the officer does not belong to', function (
     Livewire::test(AssignStudentToCohort::class)
         ->fillForm(['course' => $this->course->getKey()])
         ->assertCanSeeTableRecords([$this->enrollment])
-        ->callTableAction('assign', $this->enrollment, ['cohort' => $this->cohort->getKey()])
+        ->callTableAction('assign', $this->enrollment, ['cohort' => (string) $this->cohort->uuid])
         ->assertHasNoTableActionErrors();
 
     $membership = CohortMembership::query()->withoutWorkspaceScope()
@@ -105,7 +105,7 @@ it('names the officer and the moment in the history the student reads', function
     Livewire::test(AssignStudentToCohort::class)
         ->fillForm(['course' => $this->course->getKey()])
         ->callTableAction('assign', $this->enrollment, [
-            'cohort' => $this->cohort->getKey(),
+            'cohort' => (string) $this->cohort->uuid,
             'reason' => 'طلب وليّ الأمر السبت',
         ]);
 
@@ -151,7 +151,7 @@ it('drops a pending transfer request with a sentence that names the right actor'
 
     Livewire::test(AssignStudentToCohort::class)
         ->fillForm(['course' => $this->course->getKey()])
-        ->callTableAction('assign', $this->enrollment, ['cohort' => $this->cohort->getKey()]);
+        ->callTableAction('assign', $this->enrollment, ['cohort' => (string) $this->cohort->uuid]);
 
     $request->refresh();
 
@@ -234,7 +234,7 @@ it('refuses a group that belongs to another course, however the request is shape
 
     Livewire::test(AssignStudentToCohort::class)
         ->fillForm(['course' => $this->course->getKey()])
-        ->callTableAction('assign', $this->enrollment, ['cohort' => $foreignCohort->getKey()]);
+        ->callTableAction('assign', $this->enrollment, ['cohort' => (string) $foreignCohort->uuid]);
 
     expect(CohortMembership::query()->withoutWorkspaceScope()->count())->toBe(0);
 });
