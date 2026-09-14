@@ -72,9 +72,22 @@ final class CountedNoun
         return $selected;
     }
 
-    /** الأرقامُ العربيّةُ الهنديّةُ، كما تكتبُها الواجهةُ بـ`toLocaleString("ar-QA")`. */
+    /**
+     * الأرقامُ العربيّةُ الهنديّة — **مُثبَّتةً بـ`-u-nu-arab`، لا موروثةً**.
+     *
+     * ⛔ **وهذا قِيسَ على الإنتاجِ بعدَ النشر، لا استُنتِج.** `ar-QA` وحدَها
+     * تُعطي `١٠٣` على ICU ٧٧ و`103` على ICU ٧٨ — **النسخةُ نفسُها من الكودِ
+     * تُعطي شكلَين**، لأنّ CLDR غيّرَ نظامَ الأرقامِ الافتراضيَّ لهذه اللغة.
+     * فشكلُ كلِّ رقمٍ في اللوحةِ كانَ معلّقاً بنسخةِ مكتبةٍ في الصورة، وينقلبُ
+     * وحدَه عندَ أوّلِ بناءٍ يرفعُها — بلا سطرٍ في أيِّ فرق.
+     *
+     * والمنتَجُ كلُّه عربيُّ الأرقام («٦ دروس» · «٤ طلاب»)، فهذا قرارٌ يُكتَبُ
+     * لا يُورَث. و`CountedNounTest` يُوكِّدُ الشكلَ، فترقيةُ ICU تُسقِطُ البناءَ
+     * بدلَ أن تُغيِّرَ كلَّ رقمٍ في المنتَجِ صامتةً.
+     */
     private static function number(int $count): string
     {
-        return (new NumberFormatter('ar-QA', NumberFormatter::DECIMAL))->format($count) ?: (string) $count;
+        return (new NumberFormatter('ar-QA-u-nu-arab', NumberFormatter::DECIMAL))->format($count)
+            ?: (string) $count;
     }
 }

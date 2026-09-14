@@ -52,3 +52,19 @@ it('takes an explicit zero when the caller has a better sentence than «لا»',
     expect(CountedNoun::of(0, [...SEATS, 'zero' => 'اكتملت المجموعة']))
         ->toBe('اكتملت المجموعة');
 });
+
+it('writes the numeral in Arabic-Indic digits whatever ICU the image ships', function (): void {
+    /*
+    | ⛔ **هذا الحارسُ وُلِدَ من عطبٍ قِيسَ على الإنتاجِ بعدَ النشر.**
+    |
+    | `ar-QA` وحدَها تُعطي `١٠٣` على ICU ٧٧ و`103` على ICU ٧٨ — النسخةُ نفسُها من
+    | الكودِ تُعطي شكلَين، لأنّ CLDR غيّرَ نظامَ الأرقامِ الافتراضيَّ لهذه اللغة.
+    | فمحلّيّاً ظهرَت الأرقامُ عربيّةً وعلى الإنتاجِ إنجليزيّةً، **بلا سطرٍ في أيِّ
+    | فرق** — وأوّلُ بناءٍ يرفعُ ICU كانَ سيقلبُ كلَّ رقمٍ في اللوحةِ صامتاً.
+    |
+    | فالنظامُ مُثبَّتٌ بـ`-u-nu-arab`، وهذه الحالةُ هي ما يجعلُ ترقيةَ ICU
+    | **تُسقِطُ البناء** بدلَ أن تُغيِّرَ المنتَجَ من وراءِ ظهرِ من يقرأُه.
+    */
+    expect(CountedNoun::of(103, SEATS))->toStartWith('١٠٣')
+        ->and(CountedNoun::of(11, SEATS))->toStartWith('١١');
+});
