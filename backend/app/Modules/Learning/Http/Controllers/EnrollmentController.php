@@ -459,7 +459,22 @@ class EnrollmentController extends Controller
             return response()->json(['message' => 'This lesson does not belong to the enrolled course.'], 404);
         }
 
-        $lesson->load(['section', 'chapter']);
+        /*
+        | ⛔ **بلا نطاقٍ، وإلّا أبطلَ هذا السطرُ تجاوزَ `isVisibleChain()` نفسِه.**
+        |
+        | التحميلُ المُسبَقُ هنا توفيرُ استعلامٍ لا أكثر — لكنّه يكتبُ العلاقتَينِ
+        | **تحتَ النطاق**، فترجعانِ `null` لطالبٍ سياقُه مساحةٌ أخرى. و
+        | `isVisibleChain()` يستعملُ `loadMissing` بتجاوزٍ مُعلَنٍ في متنِه، فيجدُهما
+        | «محمَّلتَينِ» ولا يُعيدُ تحميلَهما — فيُجابُ عن درسٍ **منشورٍ**
+        | `not_visible`، ولا يُتِمُّ الطالبُ درساً واحداً عندَ مدرّسٍ آخرَ أبداً.
+        |
+        | قِيسَ بقيادةِ المسارِ نفسِه: بابُ القراءةِ يمرُّ ٢٠٠ على الدرسِ عينِه
+        | لأنّه لا يحملُ هذا السطر. تحميلٌ مُسبَقٌ يُبطِلُ حارساً هو أسوأُ من غيابِه.
+        */
+        $lesson->load([
+            'section' => fn ($query) => $query->withoutWorkspaceScope(),
+            'chapter' => fn ($query) => $query->withoutWorkspaceScope(),
+        ]);
         $access = $enrollment->accessTo($lesson);
 
         if (! $access->allowed) {
