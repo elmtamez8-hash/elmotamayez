@@ -279,7 +279,7 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     */
     Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{orderUuid}', [OrderController::class, 'show']);
-    Route::post('/courses/{course}/orders', [OrderController::class, 'store']);
+    Route::post('/courses/{courseUuid}/orders', [OrderController::class, 'store']);
     Route::post('/orders/{orderUuid}/receipt', [OrderController::class, 'uploadReceipt']);
     // Money moves and an enrolment is granted — sensitive by any reading, so
     // the second factor is required here once the account's grace period is up.

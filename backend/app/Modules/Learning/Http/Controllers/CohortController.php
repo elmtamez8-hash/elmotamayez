@@ -43,8 +43,10 @@ class CohortController extends Controller
     ) {}
 
     /** The picker: what this course offers, and where the reader already stands. */
-    public function index(Request $request, Course $course): JsonResponse
+    public function index(Request $request, string $courseUuid): JsonResponse
     {
+        $course = $this->courseByUuid($courseUuid);
+
         $user = $this->currentUser($request);
         $courseId = (int) $course->getKey();
 
@@ -168,8 +170,10 @@ class CohortController extends Controller
      * to a second answer is the two-spellings defect this module has already
      * fixed twice.
      */
-    public function roster(Request $request, Cohort $cohort, ReadCohortRoster $action): JsonResponse
+    public function roster(Request $request, string $cohortUuid, ReadCohortRoster $action): JsonResponse
     {
+        $cohort = $this->cohortByUuid($cohortUuid);
+
         if (! $this->cohorts->isCurrentMember($this->currentUser($request), (int) $cohort->getKey())) {
             abort(403, 'هذه القائمة لأعضاء المجموعة.');
         }
@@ -226,8 +230,10 @@ class CohortController extends Controller
         ], 201);
     }
 
-    public function join(Request $request, Cohort $cohort, JoinCohort $action): JsonResponse
+    public function join(Request $request, string $cohortUuid, JoinCohort $action): JsonResponse
     {
+        $cohort = $this->cohortByUuid($cohortUuid);
+
         try {
             $membership = $action->handle($cohort, $this->currentUser($request));
         } catch (CohortRefusal $refusal) {
@@ -240,8 +246,10 @@ class CohortController extends Controller
         ], 201);
     }
 
-    public function requestTransfer(Request $request, Cohort $cohort, RequestTransfer $action): JsonResponse
+    public function requestTransfer(Request $request, string $cohortUuid, RequestTransfer $action): JsonResponse
     {
+        $cohort = $this->cohortByUuid($cohortUuid);
+
         $validated = $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
 
         try {
@@ -256,8 +264,11 @@ class CohortController extends Controller
         );
     }
 
-    public function withdraw(Request $request, CohortTransferRequest $transferRequest, WithdrawTransferRequest $action): JsonResponse
+    public function withdraw(Request $request, string $transferRequestUuid, WithdrawTransferRequest $action): JsonResponse
     {
+        $transferRequest = CohortTransferRequest::query()
+            ->withoutWorkspaceScope()->where('uuid', $transferRequestUuid)->firstOrFail();
+
         // The ownership test is the whole guard — a student holds no workspace
         // role, so a permission check here would deny the person the row is.
         $this->authorize('withdraw', $transferRequest);
@@ -283,5 +294,26 @@ class CohortController extends Controller
             'message' => $refusal->getMessage(),
             'code' => $refusal->refusalCode,
         ], $refusal->status);
+    }
+
+    /*
+    | ⛔ **حالّانِ باليدِ، لأنّ الربطَ الضمنيَّ يمرُّ من `WorkspaceScope`** —
+    | و`users.last_workspace_id` مختومٌ لكلِّ طالبٍ أُضيفَ يوماً إلى مساحةِ عمل،
+    | فيُجابُ ٤٠٤ عن مجموعةٍ أو كورسٍ قائمٍ يخصُّه. قِيسَ على الإنتاجِ من بابِ
+    | الدَّور (٢٠٢٦-٠٩-١٤)، وهذه بقيّةُ العائلة.
+    |
+    | ⚠️ **ولا توسيعَ**: الحُرّاسُ هنا كلُّهم مِلكيّةٌ أو عضويّةٌ أو تسجيل، وكلُّها
+    | تُسأَلُ عبرَ `EnrollmentDirectory`/`CohortDirectory` — وهما يُعلِنانِ تجاوزَ
+    | النطاقِ في استعلامَيهما أصلاً، أي أنّ الحارسَ كانَ يعملُ والبابُ وحدَه
+    | مُغلَق.
+    */
+    private function courseByUuid(string $uuid): Course
+    {
+        return Course::query()->withoutWorkspaceScope()->where('uuid', $uuid)->firstOrFail();
+    }
+
+    private function cohortByUuid(string $uuid): Cohort
+    {
+        return Cohort::query()->withoutWorkspaceScope()->where('uuid', $uuid)->firstOrFail();
     }
 }

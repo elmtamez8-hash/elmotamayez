@@ -10,6 +10,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Learning\Support\LessonAccess;
 use App\Modules\Learning\Support\LessonGate;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Learning\EnrollmentFactory;
@@ -54,9 +55,22 @@ class Enrollment extends BaseModel
     }
 
     /** @return BelongsTo<Course, $this> */
+    /*
+    | ⛔ **بلا نطاقٍ على العلاقة، وغيابُه كانَ ٥٠٠ لا صفحةً ناقصة.**
+    |
+    | العلاقةُ تجري تحتَ `WorkspaceScope` كأيِّ استعلامٍ آخر، و`WorkspaceContext::id()`
+    | يرجعُ إلى `users.last_workspace_id` — المختومِ لكلِّ طالبٍ أُضيفَ يوماً إلى
+    | مساحةِ عمل. فترجعُ `null` عن كورسٍ قائمٍ، ثمّ ينفجرُ `->title` أو `->lessons()`
+    | فوقَها: المنهجُ ٥٠٠، و«تعلّمي» ٥٠٠، وإشعارُ التسجيلِ يقتلُ التسجيلَ نفسَه.
+    |
+    | ⚠️ **ولا يفتحُ هذا باباً**: الوصولُ إلى هذا الصفِّ محروسٌ فوقَه (مِلكيّةٌ أو
+    | سياسة)، والكورسُ هنا هو الكورسُ الذي يُشيرُ إليه المفتاحُ الأجنبيُّ لا كورسٌ
+    | يختارُه القارئ. وهي القاعدةُ المكتوبةُ في CLAUDE.md: التجاوزُ **لكلِّ نموذجٍ
+    | على حِدة**، و`->with('course')` يُعيدُ تشغيلَ نطاقِ الكورسِ داخلَ العلاقة.
+    */
     public function course(): BelongsTo
     {
-        return $this->belongsTo(Course::class);
+        return $this->belongsTo(Course::class)->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /** @return BelongsTo<User, $this> */

@@ -9,24 +9,24 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/enrollments', [EnrollmentController::class, 'index']);
-    Route::post('/courses/{course}/enroll', [EnrollmentController::class, 'enroll']);
+    Route::post('/courses/{courseUuid}/enroll', [EnrollmentController::class, 'enroll']);
     // The course as a curriculum — the tree with a state and a reason on every
     // row. Addressed by COURSE uuid, because that is what the page reaching it
     // holds; the enrolment is found from the viewer, and finding it is the guard.
-    Route::get('/courses/{course}/curriculum', [EnrollmentController::class, 'curriculum']);
+    Route::get('/courses/{courseUuid}/curriculum', [EnrollmentController::class, 'curriculum']);
 
     // What was said about this course, for the student it was said to (FR-019).
     // The teacher's `/manage/announcements` is a different list answering a
     // different question — it carries who was reached and who has read, which is
     // the publisher's business and a headcount of the class.
-    Route::get('/courses/{course}/announcements', [EnrollmentController::class, 'announcements']);
+    Route::get('/courses/{courseUuid}/announcements', [EnrollmentController::class, 'announcements']);
 
-    Route::get('/enrollments/{enrollment}/lessons/{lesson}', [EnrollmentController::class, 'showLesson']);
+    Route::get('/enrollments/{enrollmentUuid}/lessons/{lessonUuid}', [EnrollmentController::class, 'showLesson']);
 
     // The same item, resolved from the viewer's own enrolment. `/learn/{lesson}`
     // is reached from a page that knows the course uuid, not the enrolment's.
-    Route::get('/learn/lessons/{lesson}', [EnrollmentController::class, 'showLessonForViewer']);
-    Route::post('/enrollments/{enrollment}/lessons/{lesson}/complete', [EnrollmentController::class, 'completeLesson']);
+    Route::get('/learn/lessons/{lessonUuid}', [EnrollmentController::class, 'showLessonForViewer']);
+    Route::post('/enrollments/{enrollmentUuid}/lessons/{lessonUuid}/complete', [EnrollmentController::class, 'completeLesson']);
     /*
     | التراجعُ عن الإتمام — درسٌ واحدٌ أو الكورسُ كلُّه.
     |
@@ -34,8 +34,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     | الفريدُ يمنعُ صفّاً ثانياً عندَ الإتمامِ من جديد. فالتراجعُ يُرجِعُ التقدّمَ
     | ولا يسحبُ ما كُسِبَ مرّةً.
     */
-    Route::post('/enrollments/{enrollment}/lessons/{lesson}/reset', [EnrollmentController::class, 'resetLesson']);
-    Route::post('/enrollments/{enrollment}/reset', [EnrollmentController::class, 'resetCourse']);
+    Route::post('/enrollments/{enrollmentUuid}/lessons/{lessonUuid}/reset', [EnrollmentController::class, 'resetLesson']);
+    Route::post('/enrollments/{enrollmentUuid}/reset', [EnrollmentController::class, 'resetCourse']);
 
     /*
     | ── المجموعات · الطالب ─────────────────────────────────────────────────
@@ -46,15 +46,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
     | counter and the strictest one in the application wins — browsing the
     | marketplace used to lock a visitor out of logging in.
     */
-    Route::get('/courses/{course}/cohorts', [CohortController::class, 'index']);
+    Route::get('/courses/{courseUuid}/cohorts', [CohortController::class, 'index']);
 
     // Who is in it (FR-050). Read-only, so outside the write limiter — and
     // guarded on an OPEN membership, unlike the group's thread one tab away,
     // which FR-046 keeps readable for whoever was ever in it.
-    Route::get('/cohorts/{cohort}/roster', [CohortController::class, 'roster']);
+    Route::get('/cohorts/{cohortUuid}/roster', [CohortController::class, 'roster']);
 
     Route::middleware('throttle:cohort-write')->group(function (): void {
-        Route::post('/cohorts/{cohort}/join', [CohortController::class, 'join']);
+        Route::post('/cohorts/{cohortUuid}/join', [CohortController::class, 'join']);
         /*
         | ٠٣٤ · FR-026 — دَورُ الكورسِ المكتمل، خلفَ الحدِّ المُسمّى نفسِه.
         |
@@ -63,8 +63,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
         | فكلُّ حدٍّ سطريٍّ يتقاسمُ عدّاداً واحداً ويفوزُ أشدُّها.
         */
         Route::post('/courses/{courseUuid}/waitlist', [CohortController::class, 'joinWaitlist']);
-        Route::post('/cohorts/{cohort}/transfer-requests', [CohortController::class, 'requestTransfer']);
-        Route::delete('/transfer-requests/{transferRequest}', [CohortController::class, 'withdraw']);
+        Route::post('/cohorts/{cohortUuid}/transfer-requests', [CohortController::class, 'requestTransfer']);
+        Route::delete('/transfer-requests/{transferRequestUuid}', [CohortController::class, 'withdraw']);
     });
 
     /*

@@ -20,14 +20,25 @@ class CoursePolicy extends BasePolicy
             : Response::deny();
     }
 
+    /*
+    | ⛔ **فرعُ «منشور» فوقَ فحصِ المساحة، لأنّ المنشورَ عامٌّ بالتعريف.**
+    |
+    | `belongsToCurrentWorkspace()` لا يعترضُ على سياقٍ عدم، لكنّه يرفضُ حينَ
+    | يُحَلُّ السياقُ إلى مساحةٍ أخرى — و`users.last_workspace_id` مختومٌ لكلِّ
+    | طالبٍ أُضيفَ يوماً إلى مساحةِ عمل. فطالبٌ مختومٌ كانَ يُمنَعُ من كورسٍ
+    | **منشورٍ** يراهُ في السوقِ ويقرأُ صفحتَه، لمجرَّدِ أنّ مدرِّسَه غيرُ مدرِّسِه.
+    |
+    | والمساحةُ سؤالٌ عن المسوَّدات، لا عن المنشور: فرعُ `COURSES_VIEW` أدناه
+    | يبقى خلفَ الفحصِ كما كان، وهو الفرعُ الوحيدُ الذي يفتحُ غيرَ المنشور.
+    */
     public function view(User $user, Course $course): Response
     {
-        if (($workspaceCheck = $this->belongsToCurrentWorkspace($course))->denied()) {
-            return $workspaceCheck;
-        }
-
         if ($course->isPublished()) {
             return Response::allow();
+        }
+
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($course))->denied()) {
+            return $workspaceCheck;
         }
 
         return $user->can(Permissions::COURSES_VIEW)
