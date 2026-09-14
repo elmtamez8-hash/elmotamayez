@@ -59,8 +59,10 @@ beforeEach(function (): void {
 
     // ⚠️ `course_id` AS WELL AS `cohort_id`. `hasOpenMembership()` reads the
     // course column, so a membership without it leaves the student outside every
-    // group — and the whole tree answers `no_cohort` before this rule is ever
-    // reached, which is a green file measuring the wrong gate.
+    // group — and `cohort_gate.satisfied` then answers `false` for somebody this
+    // file needs INSIDE a group. (No longer a LOCK: ٠٣٤ · FR-015 repealed
+    // `no_cohort` and the tree opens regardless. The column is still required,
+    // the reason is not what it was.)
     CohortMembership::factory()->create([
         'workspace_id' => $this->workspace->getKey(),
         'cohort_id' => $this->mine->getKey(),

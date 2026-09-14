@@ -74,15 +74,19 @@ export function CohortPicker({
         {error !== null && <Alert tone="danger" title="تعذّر الانضمام">{error}</Alert>}
 
         {/*
-          ⚠️ AN EMPTY LIST IS A STATE, AND IT IS THE VALVE'S STATE. The curriculum
-          below this card is fully open when nothing is joinable, so the sentence
-          has to say so — a bare «لا توجد مجموعات» over an open course reads as a
-          fault rather than as an answer.
+          ⚠️ **قائمةٌ بلا مجموعةٍ مفتوحةٍ حالة، لا خطأ.** والمنهجُ تحتَ هذه
+          البطاقةِ مفتوحٌ دائماً منذُ ٠٣٤ · FR-015، فالجملةُ تقولُ ذلك — و«لا
+          توجد مجموعات» وحدَها فوقَ كورسٍ مفتوحٍ تُقرَأُ عُطلاً لا جواباً.
+
+          ⚠️ **والفاعلُ هو الإدارةُ لا المدرّس، ولا «يُفتَحُ لك الاختيار»**:
+          الطالبُ لم يعُدْ يختار. الزرُّ فوقُ باقٍ حتّى T030/T035 — لا يُحذَفُ
+          قبلَ أن تُبنى شاشةُ الإسناد — لكنّ **النصَّ لا يجوزُ أن يَعِدَ بفاعلٍ
+          تغيّر**.
         */}
         {joinable.length === 0 && (
           <p className="text-sm text-ink-muted">
-            لا توجد مجموعة مفتوحة للانضمام الآن. يمكنك متابعة المنهج، وسيفتح لك الاختيار حين
-            يفتح مدرّسك مجموعة.
+            لا توجد مجموعة مفتوحة الآن. تابِع المنهج — وهو مفتوح لك — وتُسنِدك الإدارة إلى
+            مجموعة حين تُفتح واحدة.
           </p>
         )}
 

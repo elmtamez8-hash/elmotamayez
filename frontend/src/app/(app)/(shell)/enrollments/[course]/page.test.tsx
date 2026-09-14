@@ -215,6 +215,48 @@ describe("CourseCurriculumPage", () => {
     expect(screen.queryByRole("button", { name: /ابدأِ الكورس من جديد/ })).toBeNull();
   });
 
+  /*
+  | ٠٣٤ · FR-015 — **المنهجُ مفتوحٌ لمن لا مجموعةَ له، والجملةُ فوقَه.**
+  |
+  | ⛔ كانَ هنا حاجزٌ: `mustChoose` يرسمُ المُنتقيَ وحدَه ويُخفي الشجرةَ كلَّها.
+  | وقِيسَ على الإنتاج أنّ إنشاءَ أوّلِ مجموعةٍ لكورسٍ قائمٍ كانَ يُغلِقُ منهجَ
+  | كلِّ من سجّلَ قبلَها في اللحظةِ نفسِها — على محتوًى مدفوع.
+  |
+  | ⚠️ **والتوكيدُ على ظهورِ الدرسِ لا على غيابِ المُنتقي**: المُنتقي باقٍ عمداً
+  | (غيرَ حاجز) حتّى تُبنى شاشةُ الإسناد، فقياسُ غيابِه كانَ سيقيسُ الشيءَ الخطأ.
+  */
+  it("shows the curriculum to a student in no group, with the sentence above it", async () => {
+    mockRoutes({
+      curriculum: payload({
+        cohort_gate: {
+          required: true,
+          satisfied: false,
+          joinable_exists: true,
+          message: "لم تُسنَد إلى مجموعة بعد — إدارة المنصّة هي من تُسنِدك.",
+        },
+      }),
+    });
+
+    await renderPage();
+
+    // الشجرةُ نفسُها — لا شاشةَ حاجزةً فوقَها.
+    expect(await screen.findByText("المعادلات الخطّيّة")).toBeTruthy();
+    expect(screen.getByText(/إدارة المنصّة هي من تُسنِدك/)).toBeTruthy();
+
+    // والضابط: الأقفالُ الأخرى لم تُفتَحْ معها.
+    expect(screen.getByText(/أكمِل «المعادلات الخطّيّة» أوّلاً/)).toBeTruthy();
+  });
+
+  it("says nothing about groups on a course that has none", async () => {
+    // ⚠️ الضابطُ المقابل: تنبيهٌ يظهرُ لكلِّ كورسٍ ضجيجٌ يُعلِّمُ القارئَ تجاهلَه.
+    mockRoutes({ curriculum: payload() });
+
+    await renderPage();
+
+    expect(await screen.findByText("المعادلات الخطّيّة")).toBeTruthy();
+    expect(screen.queryByText("مجموعتك في هذه المادّة")).toBeNull();
+  });
+
   it("offers «تابعْ من هنا» pointing at the item the server named", async () => {
     get.mockResolvedValue(payload());
 

@@ -75,8 +75,6 @@ final class LessonAccess
      */
     public const OTHER_COHORT = 'other_cohort';
 
-    public const NO_COHORT = 'no_cohort';
-
     private function __construct(
         public readonly bool $allowed,
         public readonly ?string $code = null,

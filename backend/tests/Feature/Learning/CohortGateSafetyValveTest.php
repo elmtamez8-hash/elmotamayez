@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Modules\Learning\Actions\JoinCohort;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Support\LessonAccess;
 use Laravel\Sanctum\Sanctum;
@@ -11,23 +10,27 @@ use Tests\Support\CurriculumFixtures;
 uses(CurriculumFixtures::class);
 
 /*
-| SC-009أ — ⚠️ THE VALVE (FR-028ب).
+| ٠٣٤ · FR-015 — **المنهجُ مفتوحٌ لمن لا مجموعةَ له، والجملةُ فوقَه تقولُ مَن
+| يُسنِد.** وكانَ هذا الملفُّ يحرسُ العكسَ (٠٢١ · FR-028أ)، فانقلبَ معَ الشرطِ
+| الذي كانَ يحرسُه.
 |
-| Membership is a condition on opening content the student has ALREADY PAID FOR.
-| It may therefore only hold while there is something they can do about it: the
-| moment the last joinable group fills up, closes or is archived, the whole
-| curriculum opens.
+| ⚠️ **وتعديلُ اختبارٍ حارسٍ في الطلبِ الذي يُغيِّرُ ما يحرسُه هو الشكلُ الذي
+| يمرُّ منه عطبٌ حقيقيٌّ باسمِ «تحديثِ التوكيدات»** — فكلُّ تغييرٍ هنا مكتوبٌ
+| سببُه بجانبِه، والمحذوفُ مكتوبٌ لماذا لم تعُدْ نتيجتُه قابلةً للإنتاج.
 |
-| A condition no action of the student's can satisfy is a PERMANENT LOCK on paid
-| content — the family of the worst defect this repository records, the item that
-| enters the denominator and can never be completed, capping every enrolled
-| student below 100% for ever so no certificate ever issues.
+| ⚠️ **وT034 قالت «ثلاثٌ تنقلبُ واثنتانِ تُحذَفان»، والواقعُ ثلاثٌ تنقلبُ وواحدةٌ
+| تُحذَفُ وواحدةٌ تبقى.** «كورسٌ بلا مجموعاتٍ أصلاً» تبقى لأنّها **الضابط**:
+| بدونَها يمرُّ بناءٌ فتحَ الكورسَ بآليّةٍ أخرى تماماً. والعددُ في المهمّةِ وصفٌ،
+| والتوكيدُ في الملفِّ هو الحُكم.
 |
-| ⚠️ HOW TO CHECK THIS TEST IS NOT MEASURING SOMETHING ELSE: delete the
-| `joinableCohortsExist()` branch from `CohortGate::locks()` and re-run. The
-| second case must FAIL. If it still passes, the fixture is not producing a
-| gated course at all and every assertion here is vacuous — which is exactly how
-| US6 shipped nine green tests of a check somebody had removed.
+| ⚠️ **وكلُّ حالةِ فتحٍ هنا تحملُ ضابطاً إيجابيّاً** (`SEQUENCE` حاضرة). توكيدُ
+| «لا يحملُ `no_cohort`» وحدَه يمرُّ فوقَ بناءٍ أعادَ تسميةَ الثابتِ، **وفوقَ
+| بناءٍ فتحَ الكورسَ كلَّه** — والثاني هو ما يُسلِّمُ المنهجَ لمن لم يُتِمَّ شيئاً.
+|
+| ⚠️ **ولا يوجدُ اليومَ تحويرٌ يُسقِطُ هذه الحالات**: الطريقةُ المكتوبةُ سابقاً
+| هنا («احذِفْ فرعَ `joinableCohortsExist()` من `CohortGate::locks()`») تصفُ
+| دالّةً حُذِفَت. التحويرُ الآن هو إعادةُ فرعِ `NO_COHORT` إلى `LessonGate`:
+| تسقطُ الحالاتُ الثلاثُ الأولى معاً.
 */
 
 /** Every lock code the curriculum payload carries, in order. */
@@ -58,7 +61,17 @@ function addCohort(array $tree, array $attributes = []): Cohort
     ]);
 }
 
-it('shuts the whole tree while there is a group the student could join', function (): void {
+/*
+| ⛔ **انقلبَت.** كانَ عنوانُها «يُغلِقُ الشجرةَ كلَّها ما دامَت هناكَ مجموعةٌ
+| يستطيعُ الانضمامَ إليها»، وهي الحالةُ التي قاسَت الشرطَ المُلغى نصّاً. وهي
+| الآنَ برهانُ FR-015: **مجموعةٌ مفتوحةٌ موجودة، والطالبُ ليسَ فيها، والمنهجُ
+| مفتوح.**
+|
+| ⛔ **وهذه هي الحالةُ التي كانت تقعُ على الإنتاج:** «Laravel Mastery» أُنشِئَت
+| لها مجموعةٌ في ٢٠٢٦-٠٩-١٠ فانغلقَ المنهجُ على أربعةِ تسجيلاتٍ من أربعةٍ سجّلَت
+| في ٢٠٢٦-٠٨-٢٨ — أحدُها عندَ ١٠٠٪ وكلُّ دروسِه مكتملة.
+*/
+it('opens the tree even while a joinable group exists, because membership is no longer a condition', function (): void {
     $tree = $this->curriculumTree();
     addCohort($tree, ['name' => 'السبت ٤م']);
 
@@ -67,24 +80,35 @@ it('shuts the whole tree while there is a group the student could join', functio
 
     $payload = $this->getJson('/api/v1/courses/'.$tree['course']->uuid.'/curriculum')->assertOk()->json();
 
+    // ⚠️ الحمولةُ **لم تتغيّر**: الثلاثةُ تُنتِجُ الجملةَ وتُميِّزُ حالتَيها،
+    // ولا يُشتَقُّ منها قفلٌ في أيِّ موضع.
     expect($payload['cohort_gate'])->toMatchArray([
         'required' => true,
         'satisfied' => false,
         'joinable_exists' => true,
     ]);
 
-    expect($payload['cohort_gate']['message'])->not->toBeNull();
+    // والجملةُ تُسمّي الإدارةَ لا المدرّسَ ولا الطالب. ⚠️ بلا «ال» التعريف:
+    // الجملتانِ تختلفانِ في صيغتِها («إدارةُ المنصّة» · «تُسنِدك الإدارة»)،
+    // والتوكيدُ على **مَن سُمِّيَ فاعلاً** لا على هجاءِ الجملة.
+    expect($payload['cohort_gate']['message'])->toContain('إدارة');
 
-    // Every item bar the preview — a free sample is what a course shows before
-    // anybody has committed to anything, so it stays open above the gate.
-    expect(lockCodes($payload))->each->toBe(LessonAccess::NO_COHORT);
+    expect(lockCodes($payload))->not->toContain('no_cohort');
+
+    // ⚠️ الضابط: بوّاباتُ الكورسِ نفسِها لم تُفتَح. بدونَه يمرُّ بناءٌ سلَّمَ
+    // المنهجَ كلَّه لمن لم يُتِمَّ درساً واحداً.
+    expect(lockCodes($payload))->toContain(LessonAccess::SEQUENCE);
 });
 
-it('opens the whole tree the moment nothing is joinable, and says why', function (): void {
+/*
+| ⛔ **انقلبَت جزئيّاً.** الفتحُ كانَ يقعُ بالصمّامِ وصارَ يقعُ دائماً، فما بقيَ
+| لها أن تقيسَه هو **الجملةُ الثانية**: «لا مجموعةَ أصلاً» غيرُ «مجموعاتٌ متاحةٌ
+| ولستَ فيها». وكلمةُ «مدرّسك» انتقلَت إلى «الإدارة» لأنّ الفاعلَ تغيّر.
+*/
+it('says the other sentence when there is no group to be put into', function (): void {
     $tree = $this->curriculumTree();
 
-    // Every road to "you cannot join anything", one group each: full, closed to
-    // new joins, and over.
+    // كلُّ طرقِ «لا شيءَ يُنضَمُّ إليه»، واحدةٌ لكلِّ طريق.
     addCohort($tree, ['name' => 'ممتلئة', 'capacity' => 1, 'members_count' => 1]);
     addCohort($tree, ['name' => 'مغلقة', 'status' => Cohort::CLOSED]);
     addCohort($tree, ['name' => 'مؤرشفة', 'status' => Cohort::ARCHIVED, 'archived_at' => now()]);
@@ -95,26 +119,27 @@ it('opens the whole tree the moment nothing is joinable, and says why', function
     $payload = $this->getJson('/api/v1/courses/'.$tree['course']->uuid.'/curriculum')->assertOk()->json();
 
     expect($payload['cohort_gate'])->toMatchArray([
-        // ⚠️ STILL `required`. The course DOES run in groups — hiding that would
-        // leave the student unable to make sense of a picker their classmates
-        // used. What changed is that there is nothing to pick.
+        // ⚠️ ما زالَت `required`. الكورسُ **يعملُ** بالمجموعاتِ فعلاً، وإخفاءُ
+        // ذلكَ يتركُ الطالبَ لا يفهمُ سجلَّ مجموعةٍ يراه زملاؤُه.
         'required' => true,
         'satisfied' => false,
         'joinable_exists' => false,
     ]);
 
-    // ⚠️ AND THE SENTENCE NAMES WHO TO ASK. An open course under «لا توجد
-    // مجموعة» with nothing after it reads as a fault rather than as a state.
-    expect($payload['cohort_gate']['message'])->toContain('مدرّسك');
+    expect($payload['cohort_gate']['message'])
+        ->toContain('إدارة')
+        // ⚠️ «مدرّسك» كانت هنا، وهي اليومَ تسميةٌ للفاعلِ الخطأ.
+        ->not->toContain('مدرّسك');
 
-    expect(lockCodes($payload))->not->toContain(LessonAccess::NO_COHORT);
-
-    // The control: the course's own gates are untouched. A valve that opened
-    // everything — sequence, exam, seat — would pass the assertion above while
-    // handing out the whole course.
-    expect(lockCodes($payload))->toContain(LessonAccess::SEQUENCE);
+    expect(lockCodes($payload))->not->toContain('no_cohort')
+        ->and(lockCodes($payload))->toContain(LessonAccess::SEQUENCE);
 });
 
+/*
+| ⚠️ **باقيةٌ كما هي، وهي الضابط.** كورسٌ بلا مجموعاتٍ إطلاقاً: لا جملة، ولا
+| `required`. بدونَها يمرُّ بناءٌ فتحَ الكورساتِ كلَّها بآليّةٍ لا علاقةَ لها
+| بالمجموعات، وتوكيداتُ الفتحِ أعلاه تصيرُ صحيحةً لسببٍ آخرَ تماماً.
+*/
 it('leaves a course with no groups at all exactly as it was (FR-036)', function (): void {
     $tree = $this->curriculumTree();
 
@@ -130,44 +155,38 @@ it('leaves a course with no groups at all exactly as it was (FR-036)', function 
         'message' => null,
     ]);
 
-    expect(lockCodes($payload))->not->toContain(LessonAccess::NO_COHORT);
-});
-
-it('lifts the gate for the student the instant they join', function (): void {
-    $tree = $this->curriculumTree();
-    $cohort = addCohort($tree, ['name' => 'السبت ٤م']);
-
-    Sanctum::actingAs($tree['student']);
-    $this->forgetWorkspace();
-
-    app(JoinCohort::class)->handle($cohort, $tree['student']);
-
-    $payload = $this->getJson('/api/v1/courses/'.$tree['course']->uuid.'/curriculum')->assertOk()->json();
-
-    expect($payload['cohort_gate']['satisfied'])->toBeTrue();
-    expect(lockCodes($payload))->not->toContain(LessonAccess::NO_COHORT);
+    expect(lockCodes($payload))->not->toContain('no_cohort');
 });
 
 /*
-| ⚠️ AND THE DOOR AGREES WITH THE SCREEN. `LessonGate::forTree()` builds the
-| payload above and `LessonGate::for()` guards `/learn/lessons/{uuid}` — the only
-| surface in the product that plays a lesson. Two spellings of one question is
-| the defect that let `IssuePlaybackGrant` allow a recording `accessTo()` refused.
+| ⛔ **حُذِفَت: «ترفعُ البوّابةَ عن الطالبِ لحظةَ انضمامِه».**
+|
+| نتيجتُها لم تعُدْ قابلةً للإنتاجِ بأيِّ طريق: لا بوّابةَ تُرفَع. وتوكيدُها —
+| «لا `no_cohort` بعدَ الانضمام» — صارَ صحيحاً **قبلَ** الانضمامِ وبعدَه وبلا
+| مجموعاتٍ أصلاً، أي جملةٌ تمرُّ على كلِّ بناءٍ ممكنٍ فلا تحرسُ شيئاً. وبقاؤُها
+| مع `JoinCohort` — الذي يُغلَقُ بابُه في T030 — كانَ سيجعلُها تُقاسُ على مسارٍ
+| سيُحذَف. وما تبقّى من معناها (أنّ العضويّةَ تُغيّرُ `satisfied`) يقعُ في
+| `AdminAssignsCohortTest` مع البابِ الذي صارَ يكتبُها.
 */
-it('refuses the lesson itself with the same reason the tree gave', function (): void {
+
+/*
+| ⛔ **انقلبَت — والبابانِ يتّفقانِ كما كانا.** `forTree()` يبني الحمولةَ أعلاه
+| و`for()` يحرسُ `/learn/lessons/{uuid}`، وهو **السطحُ الوحيدُ في المنتَجِ الذي
+| يُشغِّلُ درساً**. فحذفُ فرعٍ من أحدِهما وتركُه في الآخرِ هو بعينِه عيبُ
+| «بابانِ يختلفان» الذي جعلَ تسجيلاً مدفوعاً غيرَ قابلٍ للفتحِ في ٠١٨.
+*/
+it('serves the lesson itself, with the body, to a student in no group', function (): void {
     $tree = $this->curriculumTree();
     addCohort($tree, ['name' => 'السبت ٤م']);
 
     Sanctum::actingAs($tree['student']);
     $this->forgetWorkspace();
 
-    // ⚠️ A `200` CARRYING A REFUSAL, not a `403` — that is this endpoint's
-    // shape: the student gets the item's identity and the REASON, with the body
-    // withheld. Asserting on the status alone would have passed against a build
-    // that served the whole lesson.
+    // ⚠️ التوكيدُ على **المحتوى** لا على `can_access` وحدَه: هذا الباب شكلُه
+    // ٢٠٠ يحملُ رفضاً، فقراءةُ الحالةِ وحدَها تمرُّ فوقَ درسٍ مُفرَغٍ من نصِّه.
     $this->getJson('/api/v1/learn/lessons/'.$tree['lessons']['open']->uuid)
         ->assertOk()
-        ->assertJsonPath('can_access', false)
-        ->assertJsonPath('blocked_reason', LessonAccess::NO_COHORT)
-        ->assertJsonPath('lesson.content', null);
+        ->assertJsonPath('can_access', true)
+        ->assertJsonPath('blocked_reason', null)
+        ->assertJsonPath('lesson.content', $tree['lessons']['open']->content);
 });

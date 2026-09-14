@@ -110,25 +110,25 @@ final class LessonGate
         }
 
         /*
-         * ⚠️ THE GROUP IS ASKED AFTER THE ENROLMENT AND BEFORE THE SEAT.
+         * ⛔ **لا سؤالَ عن المجموعةِ هنا بعدَ اليوم — ٠٣٤ · FR-015.**
          *
-         * After, because «تسجيلك غير نشط» is the truer sentence for somebody
-         * whose course has lapsed — telling them to pick a group would send them
-         * to a picker that then refuses them. Before the recording branch,
-         * because a recording belongs to a session belonging to a GROUP: asking
-         * about the seat first would answer «لم تحجز مقعداً» to a student who
-         * has not yet been given the chance to join the group whose timetable
-         * that seat would have been in.
+         * كانَ في هذا الموضعِ فرعٌ يرفضُ بـ`no_cohort`، ينفّذُ ٠٢١ · FR-028أ؛
+         * و٠٣٤ · FR-015 **تُلغي ذلكَ الشرطَ نصّاً** («يُلغي هذا شرطَ ٠٢١ ·
+         * FR-028أ ويُبقي مقصدَ FR-028ب»): المنهجُ يُفتَحُ لطالبٍ مسجَّلٍ لا
+         * مجموعةَ له، وتعلوه جملةٌ تقولُ إنّه لم يُسنَدْ بعدُ ومَن يُسنِد —
+         * والجملةُ من `CohortGate::describe()` في الحمولة، لا من قفلٍ هنا.
          *
-         * ⚠️ AND `is_preview` IS ABOVE BOTH, deliberately. A free sample is what
-         * a course shows before anybody has committed to anything.
+         * ⛔ **وكانَ القفلُ رجعيّاً، وقِيسَ على الإنتاج:** «Laravel Mastery»
+         * أُنشِئَت لها مجموعةٌ في ٢٠٢٦-٠٩-١٠، فانغلقَ المنهجُ في اللحظةِ نفسِها
+         * على **أربعةِ تسجيلاتٍ من أربعة** سجّلَت وأنهَت في ٢٠٢٦-٠٨-٢٨ — أحدُها
+         * عندَ ١٠٠٪ وكلُّ دروسِه مكتملة. ضغطةٌ واحدةٌ من المدرّسِ أغلقَت كورساً
+         * دفعَه أربعةٌ وأتمَّه أحدُهم.
+         *
+         * ⚠️ **ولا يُترَكُ نصفُ الحذف.** الفرعُ الآخرُ في {@see forTree()} يمشي
+         * معَه في الطلبِ نفسِه: رمزٌ يبقى له قارئٌ بلا كاتبٍ هو الشكلُ الذي عاشَ
+         * به `ClassSessionStatus::Interrupted` طوراً كاملاً وكلُّ قارئٍ يظنُّه
+         * منفَّذاً.
          */
-        if (self::cohortLocks($enrollment)) {
-            return LessonAccess::deny(
-                LessonAccess::NO_COHORT,
-                'اختر مجموعتك في هذا الكورس أولاً.',
-            );
-        }
 
         /*
          * ⚠️ A RECORDING IS ENTITLED BY THE SEAT, AND THE SEQUENCE MUST NOT ASK
@@ -407,7 +407,6 @@ final class LessonGate
 
         $sequential = (bool) $enrollment->course->is_sequential;
         $active = $enrollment->grantsContentAccess();
-        $cohortLocks = self::cohortLocks($enrollment);
 
         /** @var array<int, LessonAccess> $out */
         $out = [];
@@ -419,7 +418,7 @@ final class LessonGate
             $id = (int) $lesson->getKey();
 
             $access = (function () use (
-                $lesson, $enrollment, $completedIds, $cohortLocks,
+                $lesson, $enrollment, $completedIds,
                 $satisfiedExamIds, &$openSessionIds, &$sellableSessionIds, $recordedSessionIds, $sequential, $active, $previous,
             ): LessonAccess {
                 if ($lesson->course_id !== $enrollment->course_id) {
@@ -449,17 +448,6 @@ final class LessonGate
                     return LessonAccess::deny(
                         LessonAccess::INACTIVE,
                         'تسجيلك في هذا الكورس غير نشط حالياً.',
-                    );
-                }
-
-                // ⚠️ THE ANSWER IS COMPUTED ONCE, OUTSIDE THE LOOP. It is a fact
-                // about the STUDENT AND THE COURSE, identical for all two
-                // hundred rows — asked in here it would be two queries per item
-                // on the screen this method exists to make flat.
-                if ($cohortLocks) {
-                    return LessonAccess::deny(
-                        LessonAccess::NO_COHORT,
-                        'اختر مجموعتك في هذا الكورس أولاً.',
                     );
                 }
 
@@ -574,20 +562,5 @@ final class LessonGate
         }
 
         return array_map(array_values(...), $out);
-    }
-
-    /**
-     * Whether the group condition shuts this student out of this course right
-     * now.
-     *
-     * ⚠️ ONE SPELLING FOR BOTH FORMS. `for()` asks it per lesson and `forTree()`
-     * asks it once per page, and both reach the same predicate — two spellings
-     * of "does this student need a group" put one answer on the curriculum and
-     * another behind the lesson's own door, which is the two-doors defect that
-     * made a paid-for recording unreachable in 018.
-     */
-    private static function cohortLocks(Enrollment $enrollment): bool
-    {
-        return CohortGate::locks($enrollment->student, (int) $enrollment->course_id);
     }
 }
