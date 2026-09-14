@@ -59,6 +59,11 @@ export interface CurriculumSection {
 export interface Curriculum {
   course: {
     uuid: string;
+    /**
+     * ما يُنادَى به `/enrollments/{enrollment}/reset` — والصفحةُ تحملُ معرّفَ
+     * الكورسِ في مسارِها لا معرّفَ التسجيل.
+     */
+    enrollment_uuid: string;
     title: string;
     cover_url: string | null;
     teacher_name: string | null;

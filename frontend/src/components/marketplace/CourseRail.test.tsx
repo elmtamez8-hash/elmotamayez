@@ -38,6 +38,7 @@ function curriculum(overrides: Partial<Curriculum["course"]> = {}): Curriculum {
   return {
     course: {
       uuid: "c-1",
+      enrollment_uuid: "e-1",
       title: "Authoring Showcase",
       cover_url: null,
       teacher_name: "Sami Teacher",

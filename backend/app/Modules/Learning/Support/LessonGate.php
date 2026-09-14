@@ -102,7 +102,7 @@ final class LessonGate
             return LessonAccess::allow();
         }
 
-        if (! $enrollment->isActive()) {
+        if (! $enrollment->grantsContentAccess()) {
             return LessonAccess::deny(
                 LessonAccess::INACTIVE,
                 'تسجيلك في هذا الكورس غير نشط حالياً.',
@@ -406,7 +406,7 @@ final class LessonGate
         )));
 
         $sequential = (bool) $enrollment->course->is_sequential;
-        $active = $enrollment->isActive();
+        $active = $enrollment->grantsContentAccess();
         $cohortLocks = self::cohortLocks($enrollment);
 
         /** @var array<int, LessonAccess> $out */

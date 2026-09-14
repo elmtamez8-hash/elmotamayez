@@ -15,8 +15,11 @@ import { ChatTab } from "@/components/courses/tabs/ChatTab";
 import { ExamsTab } from "@/components/courses/tabs/ExamsTab";
 import { RosterTab } from "@/components/courses/tabs/RosterTab";
 import { SessionsTab } from "@/components/courses/tabs/SessionsTab";
+import { HistoryIcon } from "@/components/icons";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
+import { api } from "@/lib/api";
 import { counted } from "@/lib/labels";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -77,6 +80,9 @@ export default function CourseCurriculumPage({
   const [cohortState, setCohortState] = useState<CohortsForCourse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [resetAsking, setResetAsking] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -107,6 +113,34 @@ export default function CourseCurriculumPage({
       .then((r) => setCertificate(r.data?.[0] ?? null))
       .catch(() => setCertificate(null));
   }, [courseUuid]);
+
+  /*
+    إعادةُ الكورسِ من أوّله (طلبُ المالكِ ٢٠٢٦-٠٩-١٤).
+
+    ⚠️ **المعرّفُ من الحمولةِ لا من المسار.** مسارُ هذه الصفحةِ هو معرّفُ
+    الكورس، والبابُ `/enrollments/{enrollment}/reset` — فـ`enrollment_uuid`
+    أُضيفَ إلى `CurriculumResource` لهذا، وبدونِه يذهبُ `undefined` في الرابطِ
+    بلا خطأٍ في أيِّ مكان.
+
+    و`load()` بعدَها: النسبةُ والعدّادُ و«تابعْ من هنا» وكلُّ حالةِ صفٍّ في
+    الشجرةِ قراراتُ الخادمِ، وقلبُها هنا تفاؤلاً هجاءٌ ثانٍ لِما يُقرّرُه
+    `Enrollment::accessTo()`.
+  */
+  const resetCourse = async (enrollmentUuid: string) => {
+    setResetting(true);
+    setResetError("");
+
+    try {
+      await api.post(`/enrollments/${enrollmentUuid}/reset`);
+      setResetAsking(false);
+      load();
+    } catch (err: unknown) {
+      setResetError(userMessage(err));
+      setResetAsking(false);
+    } finally {
+      setResetting(false);
+    }
+  };
 
   /*
     The groups, loaded beside the curriculum rather than inside it. The gate's
@@ -316,6 +350,52 @@ export default function CourseCurriculumPage({
               تابعْ من هنا
             </Button>
           )}
+
+          {/*
+            «ابدأْه من جديد» — ولا يُرسَمُ على كورسٍ لم يُتِمَّ صاحبُه فيه شيئاً:
+            زرٌّ يُعيدُ صفراً إلى صفرٍ سؤالٌ بلا جواب.
+          */}
+          {course.completed_count > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              iconStart={<HistoryIcon className="h-4 w-4" aria-hidden="true" />}
+              onClick={() => setResetAsking(true)}
+            >
+              ابدأِ الكورس من جديد
+            </Button>
+          )}
+
+          {resetError !== "" && (
+            <Alert tone="danger" title="لم تتم الإعادة">
+              {resetError}
+            </Alert>
+          )}
+
+          {/*
+            ⚠️ **ثلاثُ نتائجَ تُقالُ قبلَ الضغطِ لا بعدَه**، وكلُّ واحدةٍ منها
+            سؤالُ طالبٍ حقيقيّ: النسبةُ ترجعُ صفراً، وما بعدَ الأوّلِ يُقفَلُ في
+            كورسٍ متسلسل، والشهادةُ **تبقى** — وهي أوّلُ ما يُخافُ عليه، فالصمتُ
+            عنها وحدَه كافٍ لألّا يضغطَ أحد.
+            ⚠️ وعنصرُ الاختبارِ يبقى مكتملاً: الخادمُ يتخطّاه لأنَّ محاولاتِه
+            محدودة، فالقولُ «كلُّ شيءٍ يرجع» وعدٌ يكسِرُه الخادمُ بحقّ.
+          */}
+          <Modal
+            open={resetAsking}
+            title="تبدأ هذا الكورس من جديد؟"
+            message={
+              (course.is_sequential
+                ? "ترجع نسبتك إلى ٠٪، ويُقفل كل درس بعد الأول حتى تُتمّه من جديد."
+                : "ترجع نسبتك إلى ٠٪، ويرجع كل درس أتممتَه غير مكتمل.") +
+              "\nشهادتك — إن صدرت — تبقى صالحة كما هي، ولا تُصدر ثانية." +
+              "\nونتيجة أي اختبار أدّيتَه تبقى كما هي."
+            }
+            confirmLabel="ابدأْ من جديد"
+            busy={resetting}
+            onConfirm={() => void resetCourse(course.enrollment_uuid)}
+            onCancel={() => setResetAsking(false)}
+          />
         </div>
       </CourseBanner>
 
