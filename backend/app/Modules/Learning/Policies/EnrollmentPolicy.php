@@ -67,4 +67,34 @@ class EnrollmentPolicy extends BasePolicy
 
         return Response::allow();
     }
+
+    /**
+     * التراجعُ عن التقدّم: درسٌ واحدٌ أو الكورسُ كلُّه.
+     *
+     * ⚠️ **قدرةٌ مستقلّةٌ عن `completeLessons`، ولو أعيدَ استعمالُها لَرُدَّ
+     * ٤٠٣ على الشخصِ الوحيدِ الذي تعنيه الميزة.** ذلكَ الشرطُ يطلبُ
+     * `isActive()`، وحالةُ من أنهى الكورسَ هي `completed` لا `active` — فالطالبُ
+     * الذي أنهى ويريدُ الإعادةَ من أوّلِها كانَ سيُمنَع. والسؤالُ مختلفٌ فعلاً لا
+     * شكلاً: الإتمامُ كسبُ تقدّمٍ ويليقُ به تسجيلٌ نشط، والتراجعُ إنقاصُ تقدّمِ
+     * صاحبِه ويليقُ به كلُّ من بدأَ الطريقَ أو أنهاه.
+     *
+     * ⚠️ **والموقوفُ والملغى يبقيانِ ممنوعَين**: الشرطُ يُوسَّعُ حالةً واحدةً لا
+     * يُرفَع، وتسجيلٌ أُوقِفَ لا يُعدَّلُ تقدّمُه من جانبِ الطالب.
+     */
+    public function resetProgress(User $user, Enrollment $enrollment): Response
+    {
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($enrollment))->denied()) {
+            return $workspaceCheck;
+        }
+
+        if ($enrollment->student_user_id !== $user->getKey()) {
+            return Response::deny('You can only reset your own enrollment.');
+        }
+
+        if (! $enrollment->isActive() && ! $enrollment->isCompleted()) {
+            return Response::deny('This enrollment is not active.');
+        }
+
+        return Response::allow();
+    }
 }

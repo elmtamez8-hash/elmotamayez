@@ -131,7 +131,11 @@ it('carries the course cover, the teacher and both counts', function (): void {
         // The denominator excludes the recording, the preview's own type aside:
         // eight countable articles and exams, one of them done.
         ->and($payload['countable_count'])->toBeGreaterThan(0)
-        ->and($payload['completed_count'])->toBe(2);
+        ->and($payload['completed_count'])->toBe(2)
+        // ⚠️ معرّفُ التسجيل: زرُّ «أعِدِ الكورسَ من جديد» يُنادي
+        // `/enrollments/{enrollment}/reset` والشاشةُ تحملُ معرّفَ الكورسِ وحدَه،
+        // فغيابُ المفتاحِ هنا يُعطي `undefined` في الرابطِ بلا خطأٍ في أيِّ مكان.
+        ->and($payload['enrollment_uuid'])->toBe($this->tree['enrollment']->uuid);
 });
 
 /*

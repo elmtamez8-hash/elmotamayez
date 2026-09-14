@@ -45,6 +45,14 @@ class CurriculumResource extends JsonResource
         return [
             'course' => [
                 'uuid' => $course->uuid,
+                /*
+                | ⚠️ **معرّفُ التسجيلِ لأنّ الشاشةَ تحملُ معرّفَ الكورسِ وحدَه.**
+                | «أعِدِ الكورسَ من جديد» يُنادي `/enrollments/{enrollment}/reset`،
+                | ولا شيءَ في هذه الصفحةِ يعرفُ ذلكَ المعرّف — والخادمُ يعرفُه هنا
+                | بلا استعلامٍ زائد. ولا كشفَ جديد: حمولةُ الدرسِ تُعطي القارئَ
+                | نفسَه المعرّفَ نفسَه منذُ ٠١٦.
+                */
+                'enrollment_uuid' => $enrollment->uuid,
                 'title' => $course->title,
                 // ⚠️ THE SPELLING OF `PublicCourseCardResource:31`, CHARACTER FOR
                 // CHARACTER. Two spellings of one URL diverge at the first change

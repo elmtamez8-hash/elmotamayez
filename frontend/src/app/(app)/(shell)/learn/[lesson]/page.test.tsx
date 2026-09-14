@@ -88,6 +88,7 @@ function tree(lessons?: Record<string, unknown>[]) {
       progress_pct: 33,
       completed_count: 1,
       countable_count: 3,
+      enrollment_uuid: "e-1",
       resume_lesson_uuid: "l-1",
       locked_session_count: 0,
     },
@@ -191,6 +192,61 @@ describe("marking a lesson complete", () => {
 
     expect(await screen.findByText(/أتممتَ هذا الدرس/)).toBeDefined();
     expect(screen.queryByRole("button", { name: "علِّمه مكتملاً" })).toBeNull();
+  });
+
+  /*
+  | التراجعُ عن الإتمام (طلبُ المالكِ ٢٠٢٦-٠٩-١٤).
+  |
+  | ⚠️ **والقفلُ الراجعُ مقيسٌ في النصِّ لا موصوف.** هو أهمُّ نتيجةٍ في هذه
+  | الميزةِ وأكثرُها مفاجأةً للطالب، فاختفاؤه من سؤالِ التأكيدِ عطبٌ حقيقيٌّ لا
+  | نقصُ صياغة — وهذه الحالةُ هي ما يسقطُ إن حُذِفَت الجملة.
+  */
+  it("offers the undo once it is done, and names the re-lock BEFORE the press", async () => {
+    answer({}, { is_completed: true });
+
+    await open();
+
+    fireEvent.click(await screen.findByRole("button", { name: /أعِدْه من أوّله/ }));
+
+    expect(screen.getByText(/يُقفل ما بعده في المسار/)).toBeDefined();
+    // والشهادةُ أوّلُ ما يُخافُ عليه.
+    expect(screen.getByText(/شهادتك/)).toBeDefined();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("posts the reset only on confirm, and re-reads the tree rather than unlocking locally", async () => {
+    post.mockResolvedValue({ reset_count: 1, progress_pct: 0, course_completed: false });
+    answer({}, { is_completed: true });
+
+    await open();
+
+    get.mockClear();
+    fireEvent.click(await screen.findByRole("button", { name: /أعِدْه من أوّله/ }));
+    fireEvent.click(screen.getByRole("button", { name: "أعِدِ الدرس" }));
+
+    await waitFor(() => {
+      expect(post).toHaveBeenCalledWith("/enrollments/e-1/lessons/l-1/reset");
+    });
+
+    // ⚠️ القفلُ قرارُ الخادمِ — إعادةُ الجلبِ هي الفرقُ بين شريطٍ صادقٍ وآخرَ
+    // يقولُ «مكتمل» فوقَ «٠٪».
+    await waitFor(() => {
+      expect(get.mock.calls.some(([path]) => String(path).includes("/curriculum"))).toBe(true);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText(/أتممتَ هذا الدرس/)).toBeNull();
+    });
+    expect(await screen.findByRole("button", { name: "علِّمه مكتملاً" })).toBeDefined();
+  });
+
+  it("does not offer an undo for something not done yet", async () => {
+    answer();
+
+    await open();
+
+    expect(await screen.findByRole("button", { name: "علِّمه مكتملاً" })).toBeDefined();
+    expect(screen.queryByRole("button", { name: /أعِدْه من أوّله/ })).toBeNull();
   });
 
   it("NEVER offers it on an exam, and says what does complete one", async () => {

@@ -27,6 +27,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // is reached from a page that knows the course uuid, not the enrolment's.
     Route::get('/learn/lessons/{lesson}', [EnrollmentController::class, 'showLessonForViewer']);
     Route::post('/enrollments/{enrollment}/lessons/{lesson}/complete', [EnrollmentController::class, 'completeLesson']);
+    /*
+    | التراجعُ عن الإتمام — درسٌ واحدٌ أو الكورسُ كلُّه.
+    |
+    | ⚠️ والشهادةُ خارجَ هذا البابِ تماماً: الإجراءُ لا يلمسُ جدولَها، وفهرسُها
+    | الفريدُ يمنعُ صفّاً ثانياً عندَ الإتمامِ من جديد. فالتراجعُ يُرجِعُ التقدّمَ
+    | ولا يسحبُ ما كُسِبَ مرّةً.
+    */
+    Route::post('/enrollments/{enrollment}/lessons/{lesson}/reset', [EnrollmentController::class, 'resetLesson']);
+    Route::post('/enrollments/{enrollment}/reset', [EnrollmentController::class, 'resetCourse']);
 
     /*
     | ── المجموعات · الطالب ─────────────────────────────────────────────────

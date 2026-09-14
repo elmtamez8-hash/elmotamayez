@@ -11,12 +11,13 @@ import { DocumentViewer } from "@/components/player/DocumentViewer";
 import { EmbeddedVideo } from "@/components/player/EmbeddedVideo";
 import { VideoPlayer } from "@/components/player/VideoPlayer";
 import { SessionChat } from "@/components/community/SessionChat";
-import { BookIcon, CheckIcon, ChevronEndIcon } from "@/components/icons";
+import { BookIcon, CheckIcon, ChevronEndIcon, HistoryIcon } from "@/components/icons";
 import { LessonNav } from "@/components/learn/LessonNav";
 import { LessonRail } from "@/components/learn/LessonRail";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Modal } from "@/components/ui/Modal";
 import { ApiError, api } from "@/lib/api";
 import type { ExamReference, SessionReference } from "@/lib/courses";
 import { userMessage } from "@/lib/errors";
@@ -209,8 +210,11 @@ export default function LearnLessonPage({
    * بلاغُ ٢٠٢٦-٠٩-٠٦.
    *
    * ⚠️ ولا إتمامَ تلقائيٌّ عندَ نهايةِ الفيديو: طُلِبَ زرّ، والتلقائيُّ يُعلِنُ
-   * الإتمامَ عمّن تركَ التبويبَ مفتوحاً. ولا تراجعَ كذلك — لا نقطةَ نهايةٍ له،
-   * و`MarkLessonComplete` يعودُ مبكّراً على صفٍّ مكتمل: الإتمامُ نهائيّ.
+   * الإتمامَ عمّن تركَ التبويبَ مفتوحاً.
+   *
+   * ⚠️ **والتراجعُ صارَ له بابٌ** (`…/reset`، طلبُ المالكِ ٢٠٢٦-٠٩-١٤) — وكانَ
+   * هذا الموضعُ يقولُ «الإتمامُ نهائيّ». وهو يُعيدُ قفلَ ما بعدَه في كورسٍ
+   * متسلسل، فسؤالُ التأكيدِ يقولُ ذلك بالنصِّ قبلَ الضغط.
    */
   const [completed, setCompleted] = useState(false);
   const [completing, setCompleting] = useState(false);
@@ -248,6 +252,38 @@ export default function LearnLessonPage({
       setCompleteError(userMessage(err));
     } finally {
       setCompleting(false);
+    }
+  };
+
+  const [resetAsking, setResetAsking] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  const resetLesson = async () => {
+    if (enrollmentUuid === null) return;
+
+    setResetting(true);
+    setCompleteError("");
+
+    try {
+      await api.post(`/enrollments/${enrollmentUuid}/lessons/${lesson}/reset`);
+
+      setCompleted(false);
+      // الاحتفالُ مُعلَّقٌ على إتمامِ الكورس، وقد رجع. تركُه معروضاً يهنّئُ
+      // الطالبَ على شيءٍ ألغاه بنفسِه في الضغطةِ السابقة.
+      setCelebrate(false);
+      setResetAsking(false);
+
+      /*
+       * ⚠️ إعادةُ جلبِ المنهجِ كما في الإتمامِ تماماً، وللسببِ نفسِه معكوساً:
+       * القفلُ الراجعُ قرارُ `Enrollment::accessTo()` لا قرارُنا، والنسبةُ
+       * والعدّادُ في الشريطِ يتحدّثانِ في الطلبِ نفسِه.
+       */
+      if (detail?.course_uuid != null) await loadTree(detail.course_uuid);
+    } catch (err: unknown) {
+      setCompleteError(userMessage(err));
+      setResetAsking(false);
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -456,9 +492,20 @@ export default function LearnLessonPage({
               )}
 
               {completed ? (
-                <p className="text-sm font-medium text-secondary-ink">
-                  ✓ أتممتَ هذا الدرس — احتُسب في نسبة تقدّمك.
-                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-sm font-medium text-secondary-ink">
+                    ✓ أتممتَ هذا الدرس — احتُسب في نسبة تقدّمك.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    iconStart={<HistoryIcon className="h-4 w-4" aria-hidden="true" />}
+                    onClick={() => setResetAsking(true)}
+                  >
+                    أعِدْه من أوّله
+                  </Button>
+                </div>
               ) : (
                 <div className="flex flex-wrap items-center gap-3">
                   <Button
@@ -484,6 +531,29 @@ export default function LearnLessonPage({
                   </Alert>
                 </div>
               )}
+
+              {/*
+                ⚠️ **القفلُ الراجعُ مكتوبٌ في السؤالِ قبلَ الضغط، لا بعدَه.** في
+                كورسٍ متسلسلٍ يُعيدُ التراجعُ قفلَ كلِّ ما بعدَ هذا الدرس — أهمُّ
+                نتيجةٍ في هذه الميزةِ وأكثرُها مفاجأةً — وطالبٌ يكتشفُها بعدَ
+                الضغطةِ يظنُّ أنّه كسرَ الكورس. و`tree` قد يكونُ `null` لأنَّ
+                جلبَه يُبتلَعُ بصمتٍ عمداً، فالجملةُ مشروطةٌ بمعرفةٍ مؤكّدة.
+                والشهادةُ تبقى: يُقالُ ذلك هنا لأنّه أوّلُ ما يخافُ عليه.
+              */}
+              <Modal
+                open={resetAsking}
+                title="تُعيد هذا الدرس من أوّله؟"
+                message={
+                  (tree?.course.is_sequential === true
+                    ? "سيرجع الدرس غير مكتمل، ويُقفل ما بعده في المسار حتى تُتمّه من جديد."
+                    : "سيرجع الدرس غير مكتمل، وتنقص نسبة تقدّمك في الكورس.") +
+                  "\nوشهادتك — إن صدرت — تبقى كما هي."
+                }
+                confirmLabel="أعِدِ الدرس"
+                busy={resetting}
+                onConfirm={() => void resetLesson()}
+                onCancel={() => setResetAsking(false)}
+              />
             </Card>
           )}
 

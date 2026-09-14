@@ -15,6 +15,7 @@ use App\Modules\Learning\Actions\EnrollStudent;
 use App\Modules\Learning\Actions\MarkLessonComplete;
 use App\Modules\Learning\Actions\ReadCourseAnnouncements;
 use App\Modules\Learning\Actions\ReadCurriculum;
+use App\Modules\Learning\Actions\ResetProgress;
 use App\Modules\Learning\Enums\EnrollmentStatus;
 use App\Modules\Learning\Http\Resources\CourseAnnouncementResource;
 use App\Modules\Learning\Http\Resources\CurriculumResource;
@@ -454,6 +455,66 @@ class EnrollmentController extends Controller
             'status' => $progress->status,
             'course_completed' => $enrollment->isCompleted(),
             'progress_pct' => $enrollment->progress_pct,
+        ]);
+    }
+
+    /**
+     * التراجعُ عن إتمامِ درسٍ واحد.
+     *
+     * ⚠️ **وفي كورسٍ متسلسلٍ يُقفَلُ ما بعدَه — وذلك ليس أثراً جانبيّاً بل هو
+     * القانونُ نفسُه.** `Enrollment::accessTo()` يشتقُّ المفتوحَ من حالةِ الإتمام،
+     * فرفعُ الإتمامِ يُعيدُ القفلَ بالضرورة. الشاشةُ تقولُ ذلك في سؤالِ التأكيدِ
+     * قبلَ الضغط؛ إخفاؤه يجعلُ الطالبَ يظنُّ أنّه كسرَ الكورس.
+     *
+     * ⛔ **وعنصرُ الاختبارِ يُرفَضُ صراحةً هنا — وكانَ هذا الموضعُ يقولُ العكس.**
+     * الحجّةُ المكتوبةُ كانت «المنعُ يعني طالباً لا يستطيعُ إعادةَ كورسٍ
+     * فيه اختبار»، وقياسٌ يقلبُها: إعادةُ الكورسِ قائمةٌ وعنصرُ الاختبارِ يبقى
+     * مكتملاً فحسب، بينما رفعُ إتمامِه عن طالبٍ استنفدَ `exams.max_attempts` يضعُ في
+     * المقامِ عنصراً لا يمكنُ إتمامُه أبداً. {@see ResetProgress} يتخطّاه في نطاقِ
+     * الكورسِ بصمت، وبابُ الدرسِ الواحدِ يقولُ لماذا — فردٌّ بـ`reset_count: 0` على
+     * ضغطةٍ مقصودةٍ رفضٌ لا يعرفُ صاحبُه أنّه رفض.
+     */
+    public function resetLesson(
+        Request $request,
+        Enrollment $enrollment,
+        Lesson $lesson,
+        ResetProgress $action,
+    ): JsonResponse {
+        // ⚠️ `resetProgress` لا `completeLessons`: الثانيةُ تشترطُ تسجيلاً
+        // **نشطاً**، وحالةُ من أنهى الكورسَ `completed` — فإعادةُ استعمالِها
+        // كانت سترُدُّ ٤٠٣ على الشخصِ الوحيدِ الذي تعنيه هذه الميزة.
+        $this->authorize('resetProgress', $enrollment);
+
+        if ($lesson->course_id !== $enrollment->course_id) {
+            return response()->json(['message' => 'This lesson does not belong to the enrolled course.'], 404);
+        }
+
+        if (! LessonTypeRegistry::isSelfCompletable(LessonType::from($lesson->type))) {
+            return response()->json([
+                'message' => 'هذا العنصر يكتمل بتسليم الاختبار، ولا يُتراجع عنه من هنا.',
+            ], 422);
+        }
+
+        return $this->resetResponse($enrollment, $action->handle($enrollment, $lesson->getKey()));
+    }
+
+    /** إعادةُ الكورسِ من أوّلِه: كلُّ إتمامٍ فيه يرجع. */
+    public function resetCourse(Request $request, Enrollment $enrollment, ResetProgress $action): JsonResponse
+    {
+        $this->authorize('resetProgress', $enrollment);
+
+        return $this->resetResponse($enrollment, $action->handle($enrollment, null));
+    }
+
+    /** @param  int  $count  عددُ الدروسِ التي رجعَت */
+    private function resetResponse(Enrollment $enrollment, int $count): JsonResponse
+    {
+        $enrollment->refresh();
+
+        return response()->json([
+            'reset_count' => $count,
+            'progress_pct' => $enrollment->progress_pct,
+            'course_completed' => $enrollment->isCompleted(),
         ]);
     }
 }

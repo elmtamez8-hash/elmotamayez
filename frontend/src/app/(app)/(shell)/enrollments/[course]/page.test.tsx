@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,6 +15,7 @@ import type { Curriculum, CurriculumLesson } from "@/lib/curriculum";
 */
 
 const get = vi.fn();
+const post = vi.fn();
 
 /*
  | ⚠️ A PARTIAL MOCK. `userMessage()` in `lib/errors` reads `ApiError` from this
@@ -24,7 +25,7 @@ const get = vi.fn();
 */
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
-  api: { get: (path: string) => get(path) },
+  api: { get: (path: string) => get(path), post: (path: string) => post(path) },
 }));
 
 function lesson(overrides: Partial<CurriculumLesson> = {}): CurriculumLesson {
@@ -47,6 +48,7 @@ function payload(overrides: Partial<Curriculum> = {}): Curriculum {
   return {
     course: {
       uuid: "c-1",
+      enrollment_uuid: "e-1",
       title: "الرياضيات — التاسع",
       cover_url: "http://localhost/storage/courses/cover.jpg",
       teacher_name: "أ. سامي",
@@ -172,6 +174,45 @@ describe("CourseCurriculumPage", () => {
     const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
     expect(hrefs).toContain("/learn/l-open");
     expect(hrefs).not.toContain("/learn/l-locked");
+  });
+
+  /*
+  | «ابدأِ الكورس من جديد» (طلبُ المالكِ ٢٠٢٦-٠٩-١٤).
+  |
+  | ⚠️ **والمعرّفُ هو `enrollment_uuid` لا معرّفُ الكورسِ في المسار.** البابُ
+  | `/enrollments/{enrollment}/reset`، فخلطُ الاثنَينِ يُنتِجُ ٤٠٤ على زرٍّ
+  | يبدو سليماً — وهذه الحالةُ تُثبّتُ المفتاحَ الذي أُضيفَ للحمولةِ من أجلِه.
+  */
+  it("resets the whole course against the ENROLMENT uuid, not the course one", async () => {
+    post.mockResolvedValue({ reset_count: 4, progress_pct: 0, course_completed: false });
+    get.mockResolvedValue(payload());
+
+    await renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: /ابدأِ الكورس من جديد/ }));
+
+    // ثلاثُ نتائجَ تُقالُ قبلَ الضغط، والشهادةُ أوّلُ ما يُخافُ عليه.
+    expect(screen.getByText(/يُقفل كل درس بعد الأول/)).toBeTruthy();
+    expect(screen.getByText(/شهادتك/)).toBeTruthy();
+    expect(post).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "ابدأْ من جديد" }));
+
+    await waitFor(() => {
+      expect(post).toHaveBeenCalledWith("/enrollments/e-1/reset");
+    });
+  });
+
+  it("does not offer it on a course nothing has been finished in", async () => {
+    // زرٌّ يُعيدُ صفراً إلى صفرٍ سؤالٌ بلا جواب.
+    get.mockResolvedValue(payload({
+      course: { ...payload().course, completed_count: 0, progress_pct: 0 },
+    }));
+
+    await renderPage();
+
+    expect(await screen.findByText("المتباينات")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /ابدأِ الكورس من جديد/ })).toBeNull();
   });
 
   it("offers «تابعْ من هنا» pointing at the item the server named", async () => {
