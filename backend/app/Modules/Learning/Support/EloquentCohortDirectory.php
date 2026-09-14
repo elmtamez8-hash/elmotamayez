@@ -11,6 +11,7 @@ use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\CohortScheduleDirectory;
+use App\Shared\Support\CountedNoun;
 use Illuminate\Database\UniqueConstraintViolationException;
 use RuntimeException;
 
@@ -349,9 +350,23 @@ class EloquentCohortDirectory implements CohortDirectory
                     $slots === [] ? 'لم تُجدول حصص بعد' : implode(' · ', $slots),
                 ];
 
-                // `null` سعةٌ بلا حدّ، فلا رقمَ يُقال.
+                /*
+                | ⚠️ **الاسمُ المعدودُ يُوافَقُ، ولا يُكتَبُ «مقعداً» لكلِّ عدد.**
+                | «٣ مقعداً» خطأٌ في العربيّة، و«مقعد واحد» لا تُسبَقُ برقم.
+                | و`CountedNoun` يسألُ CLDR كما تسألُه الواجهةُ في `counted()` —
+                | فالشاشتانِ تقولانِ الشيءَ نفسَه، ولا سُلَّمَ مكتوباً باليدِ
+                | يفترقُ فوقَ المئة.
+                |
+                | و`null` سعةٌ بلا حدّ، فلا رقمَ يُقال.
+                */
                 if ($cohort->seatsLeft() !== null) {
-                    $parts[] = $cohort->seatsLeft().' مقعداً';
+                    $parts[] = CountedNoun::of($cohort->seatsLeft(), [
+                        'one' => 'مقعد واحد متبقٍّ',
+                        'two' => 'مقعدان متبقّيان',
+                        'few' => 'مقاعد متبقّية',
+                        'many' => 'مقعداً متبقّياً',
+                        'other' => 'مقعد متبقٍّ',
+                    ]);
                 }
 
                 return [(string) $cohort->uuid => implode(' — ', $parts)];

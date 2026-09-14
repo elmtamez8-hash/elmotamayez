@@ -74,8 +74,14 @@ it('carries the group\'s meeting time into the option, beside its seats', functi
 
     expect($label)->toContain('المجموعة الثانية')
         ->and($label)->toContain('18:00')
-        // والمقاعدُ تبقى: هذه إضافةٌ لا استبدال.
-        ->and($label)->toContain('مقعداً');
+        /*
+        | والمقاعدُ تبقى: هذه إضافةٌ لا استبدال.
+        |
+        | ⚠️ **وكانَ هذا التوكيدُ `toContain('مقعداً')` فثبّتَ خطأً**: «٨ مقعداً»
+        | ليست عربيّة. سقطَ يومَ صارَ العددُ يُوافَقُ عبرَ `CountedNoun`، وهو
+        | السقوطُ الصحيح — توكيدٌ يحرسُ صيغةً خاطئةً يمنعُ إصلاحَها.
+        */
+        ->and($label)->toContain('٨ مقاعد متبقّية');
 });
 
 it('says so when the group has no sessions yet, rather than leaving a gap', function (): void {
