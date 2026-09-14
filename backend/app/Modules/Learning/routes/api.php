@@ -62,7 +62,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         | `ThrottleRequests` يُفهرِسُ الزائرَ على `domain|ip` بلا مسارٍ في التجزئة،
         | فكلُّ حدٍّ سطريٍّ يتقاسمُ عدّاداً واحداً ويفوزُ أشدُّها.
         */
-        Route::post('/courses/{course}/waitlist', [CohortController::class, 'joinWaitlist']);
+        Route::post('/courses/{courseUuid}/waitlist', [CohortController::class, 'joinWaitlist']);
         Route::post('/cohorts/{cohort}/transfer-requests', [CohortController::class, 'requestTransfer']);
         Route::delete('/transfer-requests/{transferRequest}', [CohortController::class, 'withdraw']);
     });
