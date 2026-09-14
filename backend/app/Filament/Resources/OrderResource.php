@@ -447,28 +447,16 @@ class OrderResource extends Resource
 
         $directory = app(CohortDirectory::class);
 
-        if (! $directory->assignableCohortsExist((int) $record->course_id)) {
-            return [];
-        }
-
         // الطالبُ في مجموعةٍ سلفاً: لا اختيارَ يُطلَب — و`ApproveOrder` يقرأُ
         // الشرطَ نفسَه فلا يشترطُ شيئاً.
         if ($directory->openMembershipCohortId($record->user, (int) $record->course_id) !== null) {
             return [];
         }
 
-        $options = [];
-
-        foreach ($directory->publicCohortsFor((int) $record->course_id) as $cohort) {
-            if (! $directory->isAssignable($cohort['id'])) {
-                continue;
-            }
-
-            $options[$cohort['uuid']] = $cohort['name']
-                .($cohort['seats_left'] === null ? '' : ' — '.$cohort['seats_left'].' مقعداً');
-        }
-
-        return $options;
+        // ⚠️ مُفوَّضةٌ إلى الدليل، لا حلقةً تسألُ صفّاً صفّاً: شاشةُ الإسنادِ
+        // تسألُ السؤالَ نفسَه، وإملاءانِ لشرطٍ واحدٍ يفترقانِ عندَ أوّلِ تعديل
+        // (FR-030) — والحلقةُ كذلك استعلامٌ لكلِّ مجموعةٍ على ضغطةِ زرّ.
+        return $directory->assignableOptionsFor((int) $record->course_id);
     }
 
     private static function actor(): User

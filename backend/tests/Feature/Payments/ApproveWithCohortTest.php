@@ -7,9 +7,15 @@ use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\Learning\Models\CohortMembershipEvent;
 use App\Modules\Payments\Actions\ApproveOrder;
+use App\Modules\Payments\Actions\PurchaseSubscription;
 use App\Modules\Payments\Enums\OrderKind;
+use App\Modules\Payments\Enums\PaymentStatus;
+use App\Modules\Payments\Enums\PlanCoverage;
+use App\Modules\Payments\Events\PaymentCaptured;
+use App\Modules\Payments\Listeners\ActivateSubscription;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
+use App\Modules\Payments\Models\Plan;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Contracts\CohortDirectory;
 
@@ -233,4 +239,107 @@ it('claims the seat exactly once across the approval and the membership write', 
 
     expect($row->event)->toBe(CohortMembershipEvent::ASSIGNED)
         ->and((int) $row->actor_user_id)->toBe((int) $this->owner->getKey());
+});
+
+it('claims the seat exactly once on the subscription door too', function (): void {
+    /*
+    | ⛔ **بابُ الاشتراكِ بابٌ ثانٍ للمُطالَبةِ نفسِها، و`T027` شُحِنَ بلا حالةٍ
+    | على مسارِه.** `ApproveOrder` يُطالِبُ بالمقعدِ لكلِّ طلبٍ يحملُ مجموعةً —
+    | لا لطلبِ الكورسِ وحدَه — و`ActivateSubscription` هو الكاتبُ هناك. فإن
+    | افترقَ البابانِ في رايةِ «المقعدُ مُطالَبٌ به سلفاً» صارَ العدّادُ **٢**
+    | لطالبٍ واحدٍ أو **٠** بعضويّةٍ قائمة، وكلاهما يضعُ الطالبَ التاليَ فوقَ
+    | السعة (SC-002 · FR-024أ).
+    */
+    $this->course->forceFill(['status' => 'published'])->save();
+
+    $plan = Plan::factory()->group()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'title' => 'الشهري — جماعي',
+        'duration_days' => 30,
+        'coverage_type' => PlanCoverage::Course,
+        'coverage_uuid' => $this->course->uuid,
+    ]);
+
+    $cohort = Cohort::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $this->course->getKey(),
+        'capacity' => 5,
+        'members_count' => 0,
+        'created_by' => $this->owner->getKey(),
+    ]);
+
+    $order = app(PurchaseSubscription::class)->handle(
+        $this->first,
+        (string) $plan->uuid,
+        'cohort',
+        (string) $cohort->uuid,
+    );
+
+    app(ApproveOrder::class)->handle($order, $this->owner);
+
+    expect((int) $cohort->refresh()->members_count)->toBe(1);
+
+    $row = CohortMembershipEvent::query()->withoutWorkspaceScope()
+        ->where('student_user_id', $this->first->getKey())->sole();
+
+    expect($row->event)->toBe(CohortMembershipEvent::ASSIGNED)
+        ->and((int) $row->actor_user_id)->toBe((int) $this->owner->getKey());
+});
+
+it('claims the seat itself when the payment came through the gateway door', function (): void {
+    /*
+    | ⛔ **الرايةُ مشروطةٌ لا مطلَقة، وهذه هي الجهةُ المقابلةُ من التسرّب.**
+    | `ApproveOrder` وحدَه يُطالِبُ بالمقعدِ قبلَ المال، و**بابُ بوّابةِ الدفعِ
+    | لا يمرُّ به** — فرايةٌ مطلَقةٌ `true` في `ActivateSubscription` تكتبُ
+    | العضويّةَ **والعدّادُ لم يزدْ قطّ**: المجموعةُ تقرأُ مقعداً شاغراً لا وجودَ
+    | له، ويُوضَعُ الطالبُ التالي فوقَ السعة.
+    |
+    | ⚠️ ولا طلبَ اشتراكٍ يمرُّ من ذلكَ البابِ اليومَ (كلُّها `manual`)، وهو
+    | بالضبطِ سببُ كتابةِ الحالةِ الآن: بابٌ بلا حالةٍ هو بابٌ لا يقيسُه شيءٌ
+    | حتّى يُفتَح.
+    */
+    $this->course->forceFill(['status' => 'published'])->save();
+
+    $plan = Plan::factory()->group()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'title' => 'الشهري — جماعي',
+        'duration_days' => 30,
+        'coverage_type' => PlanCoverage::Course,
+        'coverage_uuid' => $this->course->uuid,
+    ]);
+
+    $cohort = Cohort::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $this->course->getKey(),
+        'capacity' => 5,
+        'members_count' => 0,
+        'created_by' => $this->owner->getKey(),
+    ]);
+
+    $order = app(PurchaseSubscription::class)->handle(
+        $this->first,
+        (string) $plan->uuid,
+        'cohort',
+        (string) $cohort->uuid,
+    );
+
+    // بوّابةٌ قبضَت: الطلبُ مدفوعٌ و**لا مُعتمِدَ عليه**.
+    $order->forceFill(['status' => 'approved', 'approved_by' => null])->save();
+
+    app(ActivateSubscription::class)->handle(new PaymentCaptured(
+        $order,
+        PaymentTransaction::create([
+            'workspace_id' => $this->workspace->getKey(),
+            'order_id' => $order->getKey(),
+            'provider' => 'stripe',
+            'amount_minor' => (int) $order->amount_minor,
+            'currency' => 'QAR',
+            'status' => PaymentStatus::Captured,
+            'reference' => 'REF-GATEWAY-COHORT',
+        ]),
+    ));
+
+    expect(CohortMembership::query()->withoutWorkspaceScope()
+        ->where('student_user_id', $this->first->getKey())->count())->toBe(1)
+        ->and((int) $cohort->refresh()->members_count)->toBe(1);
 });

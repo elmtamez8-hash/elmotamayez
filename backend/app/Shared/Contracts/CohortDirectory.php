@@ -211,6 +211,25 @@ interface CohortDirectory
     public function isAssignable(int $cohortId): bool;
 
     /**
+     * The groups an officer may assign into on this course, ready for a picker:
+     * `uuid => label`, ordered by name.
+     *
+     * ⚠️ **ONE STATEMENT AND ONE SPELLING, AND BOTH HALVES MATTER.** Two screens
+     * ask this question — the assignment page and the approve button — and both
+     * first wrote it as their own query; one of them looped {@see isAssignable()}
+     * per row, which is N queries on a click AND a second spelling of the
+     * predicate. The next person to change what «assignable» means would have
+     * changed one of them.
+     *
+     * ⚠️ AND THE KEY IS THE PUBLIC UUID, never the autoincrement id: these values
+     * travel through a form and into `ApproveOrder`, and `HasUuid` is the rule
+     * that an id never leaves the server.
+     *
+     * @return array<string, string>
+     */
+    public function assignableOptionsFor(int $courseId): array;
+
+    /**
      * Everything a buyer's chosen group has to prove, in one read (spec 027).
      *
      * ⚠️ IT TAKES NO COURSE, AND THAT IS WHY IT EXISTS BESIDE `resolveCohortId()`.
