@@ -47,6 +47,14 @@ class MoveMember extends Action
      *                                 (٠٣٤ · FR-008) — so the caller that is not
      *                                 a teacher says so, and every existing
      *                                 caller keeps the sentence it had.
+     * @param  bool  $seatAlreadyClaimed  passed by the approval path ALONE
+     *                                    (٠٣٤ · FR-024أ · `T021أ`): the seat was
+     *                                    taken by an atomic conditional UPDATE
+     *                                    **before the money moved**, so claiming
+     *                                    it again here leaks a place on every
+     *                                    approval — and the second claim can
+     *                                    refuse with «full» after the payment has
+     *                                    already been captured.
      */
     public function handle(
         Cohort $to,
@@ -54,6 +62,7 @@ class MoveMember extends Action
         User $actor,
         ?string $reason = null,
         ?string $dropNote = null,
+        bool $seatAlreadyClaimed = false,
     ): CohortMembership {
         /*
         | ⚠️ THE ENROLMENT IS CHECKED EVEN THOUGH THE TEACHER ASKED. NFR-001أ:
@@ -65,7 +74,7 @@ class MoveMember extends Action
             throw CohortRefusal::notEnrolled();
         }
 
-        return DB::transaction(function () use ($to, $student, $actor, $reason, $dropNote): CohortMembership {
+        return DB::transaction(function () use ($to, $student, $actor, $reason, $dropNote, $seatAlreadyClaimed): CohortMembership {
             /*
             | ⚠️ `null`, SO THE WRITER DERIVES IT (٠٣٤ · FR-005). This line said
             | `TRANSFERRED` literally, and «أضِفْ عضواً» on a student in no group
@@ -80,6 +89,7 @@ class MoveMember extends Action
                 $actor,
                 $reason,
                 requireOpen: false,
+                seatAlreadyClaimed: $seatAlreadyClaimed,
             );
 
             PendingTransfer::drop(

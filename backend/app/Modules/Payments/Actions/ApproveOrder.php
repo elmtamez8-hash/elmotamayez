@@ -43,14 +43,26 @@ class ApproveOrder extends Action
         private readonly CohortDirectory $cohorts,
     ) {}
 
+    /**
+     * @param  string|null  $cohortUuid  the group the officer picked, on an order
+     *                                   for a course that runs in groups
+     *                                   (٠٣٤ · FR-016). Required **by this
+     *                                   Action** rather than by the screen:
+     *                                   approval has two doors — the panel button
+     *                                   and `POST /orders/{orderUuid}/approve` —
+     *                                   and a guard on the screen guards what is
+     *                                   pressed while leaving what is called wide
+     *                                   open (FR-016ب).
+     */
     public function handle(
         Order $order,
         User $approver,
         ?string $ipAddress = null,
         ?string $userAgent = null,
+        ?string $cohortUuid = null,
     ): Order {
-        return DB::transaction(function () use ($order, $approver, $ipAddress, $userAgent): Order {
-            $this->assertStillActionable($order);
+        return DB::transaction(function () use ($order, $approver, $ipAddress, $userAgent, $cohortUuid): Order {
+            $cohort = $this->resolveCohortToClaim($order, $cohortUuid);
 
             /*
             | ⚠️ `withoutWorkspaceScope()` — THE THIRD LAYER OF ONE DEFECT.
@@ -87,9 +99,38 @@ class ApproveOrder extends Action
                 throw new DomainException('اتُّخِذ القرار على هذا الطلب بالفعل.');
             }
 
+            /*
+            | ⛔ **المقعدُ يُطالَبُ به قبلَ قبضِ المال** (FR-024أ).
+            |
+            | إعادةُ القياسِ وحدَها **قراءةٌ لا مُطالَبة**: موظَّفانِ يعتمدانِ
+            | طلبَينِ على آخرِ مقعدٍ يمرّانِ كلاهما منها ويقبضانِ كلاهما، وأحدُ
+            | الطالبَينِ يبقى بلا مجموعة — أي استردادٌ بالتعريف. والجملةُ أدناه
+            | هي الفحصُ والمُطالَبةُ معاً، فيربحُ واحدٌ ويُرَدُّ الآخرُ **والطلبُ
+            | ما زالَ معلَّقاً ولم يُقبَضْ منه شيء**، وهو ما يجعلُ `SC-009`
+            | («صفرُ استردادٍ سببُه الامتلاء») قابلاً للتحقّقِ أصلاً.
+            |
+            | ⚠️ **وداخلَ معاملةِ الاعتمادِ نفسِها**: أيُّ رميةٍ تحتَها تُرجِعُ
+            | المقعدَ بلا كتابةٍ تعويضيّة.
+            |
+            | ⚠️ **ومَن طالبَ هنا يقولُ ذلكَ للكاتبِ لاحقاً** (`T021أ`): العضويّةُ
+            | تُكتَبُ بمهمّةٍ مُصطفّةٍ بعدَ التثبيت، و`CohortMembershipWriter::open()`
+            | يُطالِبُ بمقعدِه بنفسِه — فبلا الرايةِ يتسرّبُ مقعدٌ في كلِّ اعتماد،
+            | **وقد تُرفَضُ الزيادةُ الثانيةُ بـ«مكتملة» بعدَ أن قُبِضَ المال**.
+            */
+            if ($cohort !== null && ! $this->cohorts->claimSeat((int) $cohort['id'])) {
+                throw new DomainException(
+                    'امتلأت المجموعة قبل اعتماد هذا الطلب. لم يُقبض أيّ مبلغ والطلب ما زال معلّقاً — '
+                    .'تواصل مع الطالب لاختيار مجموعة أخرى.'
+                );
+            }
+
             $this->mintTransaction($order);
 
             $order->refresh();
+
+            if ($cohort !== null && $order->kind === OrderKind::Course) {
+                $this->recordChoice($order, $cohort);
+            }
 
             event(new PaymentApproved($order));
 
@@ -129,19 +170,33 @@ class ApproveOrder extends Action
      * gateway capture cannot reach it, but the day one can, this check will not
      * have run.
      */
-    private function assertStillActionable(Order $order): void
+    /**
+     * المجموعةُ التي يجبُ أن يُطالَبَ بمقعدٍ فيها قبلَ قبضِ المال، أو `null`.
+     *
+     * ⚠️ **بابانِ في دالّةٍ واحدةٍ عمداً** (FR-024أ). طلبُ الكورسِ يحملُ اختيارَ
+     * الموظَّف، وطلبُ الاشتراكِ يحملُ اختيارَ الطالبِ في لقطتِه — والسؤالُ
+     * المطروحُ عليهما واحد: «هل يُؤخَذُ مقعدٌ هنا، وأيّ مقعد؟». جوابانِ منفصلانِ
+     * كانا سيُطالِبانِ بمقعدَينِ أو ينسيانِ أحدَهما.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function resolveCohortToClaim(Order $order, ?string $cohortUuid): ?array
     {
+        if ($order->kind === OrderKind::Course) {
+            return $this->resolveCourseOrderCohort($order, $cohortUuid);
+        }
+
         if ($order->kind !== OrderKind::Subscription) {
-            return;
+            return null;
         }
 
         $intent = SubscriptionIntent::fromOrder($order);
 
         if ($intent === null || ! $intent->isCohort() || $intent->cohortUuid === null) {
-            return;
+            return null;
         }
 
-        $cohort = $this->cohorts->describeGroupCohort($intent->cohortUuid);
+        $cohort = $this->describe($intent->cohortUuid);
 
         if ($cohort === null) {
             throw new DomainException('المجموعة المطلوبة لم تعد موجودة. تواصل مع الطالب لاختيار مجموعة أخرى.');
@@ -167,9 +222,9 @@ class ApproveOrder extends Action
         if ($current !== null && $current !== (int) $cohort['id']) {
             /*
             | They joined a different group between ordering and approval. Neither
-            | of the two obvious answers is acceptable: `JoinCohort` would throw
-            | AFTER the money committed, and `CohortMembershipWriter` would move
-            | them out of the group they are in without anybody deciding it — a
+            | of the two obvious answers is acceptable: the activation listener
+            | would throw AFTER the money committed, and moving them silently would
+            | take them out of the group they are in with nobody deciding it — a
             | transfer bought for the price of the cheapest plan, filed in the log
             | as a join. So the APPROVAL is refused, while it can still be refused.
             */
@@ -177,13 +232,139 @@ class ApproveOrder extends Action
         }
 
         if ($current === (int) $cohort['id']) {
-            // A renewal into their own group. There is no seat to find.
-            return;
+            /*
+            | تجديدٌ داخلَ مجموعتِه نفسِها: لا مقعدَ يُبحَثُ عنه، **ولا
+            | مقعدَ يُطالَبُ به** — فلذلكَ تردُّ `null` لا الصفّ. و
+            | `ActivateSubscription` يتخطّى الكتابةَ بالشرطِ نفسِه وبالترتيبِ
+            | نفسِه، فلا يختلفان.
+            */
+            return null;
         }
 
         if (! $this->cohorts->isJoinable((int) $cohort['id'])) {
             throw new DomainException('لم تعد هذه المجموعة متاحة للانضمام. تواصل مع الطالب لاختيار مجموعة أخرى.');
         }
+
+        return $cohort;
+    }
+
+    /**
+     * الكورسُ الذي يُدرَّسُ في مجموعات: الموظَّفُ يختارُ لحظةَ الاعتماد (FR-016).
+     *
+     * ⚠️ **وفي كلِّ ما عدا ذلكَ يمضي الاعتمادُ بلا مجموعة**: كورسٌ لا مجموعةَ
+     * فيه إطلاقاً، أو امتلأَت كلُّ مجموعاتِه، أو أُرشِفَت. **اشتراطُ مجموعةٍ
+     * حيثُ لا توجدُ واحدةٌ يجعلُ طلباً مدفوعاً لا يُعتمَدُ أبداً** — وهو العطبُ
+     * نفسُه الذي تمنعُه FR-015، منقولاً خطوةً إلى الوراء.
+     *
+     * ⚠️ **والسؤالُ «صالحةٌ للإسناد» لا «صالحةٌ للانضمام»** (FR-030): المغلَقةُ
+     * غيرُ المكتمِلةِ وجهةٌ مشروعةٌ للإدارة، و«صالحةٌ للانضمام» كانت سترفضُها
+     * فيُمضي الاعتمادُ بلا مجموعةٍ عن كورسٍ له واحدة.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function resolveCourseOrderCohort(Order $order, ?string $cohortUuid): ?array
+    {
+        $courseId = $order->course_id;
+
+        if ($courseId === null) {
+            return null;
+        }
+
+        /*
+        | الطالبُ في مجموعةٍ من هذا الكورسِ سلفاً: لا مقعدَ يُطالَبُ به،
+        | ولا إسنادَ يُكتَب. ونقلُه قرارٌ ثانٍ يُتَّخَذُ من شاشةِ الإسناد، لا
+        | أثرٌ جانبيٌّ لاعتمادِ طلبٍ اشتراه. **وقبلَ طلبِ الاختيارِ لا بعدَه**:
+        | وإلّا لمُنِعَ المجدِّدُ من الاعتمادِ حتّى يُختارَ له مجموعةٌ هو فيها.
+        */
+        if ($this->cohorts->openMembershipCohortId($order->user, (int) $courseId) !== null) {
+            return null;
+        }
+
+        /*
+        | ⛔ **الاختيارُ المُسمَّى يُفحَصُ دائماً، ولا يُبتلَعُ بسؤالِ «هل بقيَت
+        | وجهةٌ؟».** كُتِبَ هذا أوّلاً بالترتيبِ المعكوس — «إن لم تبقَ مجموعةٌ
+        | صالحةٌ فامضِ بلا مجموعة» **فوقَ** قراءةِ ما اختارَه الموظَّف — وقِيسَ أنّ
+        | ذلكَ يُمضي الاعتمادَ **بلا مجموعةٍ وقد قُبِضَ المال** حينَ تمتلئُ
+        | المجموعةُ التي اختارَها بينَ فتحِه الشاشةَ وضغطِه الزرّ: أي بالضبطِ
+        | الحالُ التي كُتِبَت `FR-024أ` لأجلِها، مقلوبةً.
+        */
+        if ($cohortUuid === null || $cohortUuid === '') {
+            /*
+            | لم يُسمَّ شيء: عندئذٍ وحدَه يُسأَلُ «هل للكورسِ وجهةٌ صالحةٌ أصلاً؟».
+            | و**لا** يُشترَطُ حينَ لا توجد (FR-016): كورسٌ بلا مجموعاتٍ أو
+            | امتلأَت كلُّها يُعتمَدُ بلا مجموعةٍ ويعملُ FR-015 — واشتراطُ مجموعةٍ
+            | حيثُ لا توجدُ واحدةٌ يجعلُ طلباً مدفوعاً لا يُعتمَدُ أبداً.
+            */
+            if ($this->cohorts->assignableCohortsExist((int) $courseId)) {
+                throw new DomainException('اختر المجموعة قبل اعتماد الطلب — هذا الكورس يُدرَّس في مجموعات.');
+            }
+
+            return null;
+        }
+
+        $cohort = $this->describe($cohortUuid);
+
+        /*
+        | ⚠️ **الكورسُ جزءٌ من السؤالِ لا مجاملة.** بلا هذا الشرطِ يُسمّي
+        | المُنادي أيَّ معرِّفِ مجموعةٍ على المنصّةِ فيُوضَعُ الطالبُ في غرفةٍ لا
+        | يملكُ فيها تسجيلاً — والبابُ البرمجيُّ يُكتَبُ كما يُنقَر.
+        */
+        if ($cohort === null || (int) $cohort['course_id'] !== (int) $courseId) {
+            throw new DomainException('المجموعة المختارة ليست من مجموعات هذا الكورس.');
+        }
+
+        /*
+        | ⚠️ **قراءةٌ من أجلِ الجملة، والمُطالَبةُ هي الحارس.** هذه تُعطي
+        | الموظَّفَ سبباً مسمّىً في الحالةِ العاديّة (امتلأَت أمسِ، أو أُرشِفَت)؛
+        | أمّا موظَّفانِ يضغطانِ في اللحظةِ نفسِها فيمرّانِ كلاهما من هنا —
+        | ويُرَدُّ أحدُهما بالجملةِ الشرطيّةِ في `handle()` **قبلَ قبضِ المال**.
+        | واحدةٌ بلا الأخرى: إمّا رسالةٌ لا تصفُ شيئاً، أو سباقٌ بلا حارس.
+        */
+        if (! $this->cohorts->isAssignable((int) $cohort['id'])) {
+            throw new DomainException('لم تعد هذه المجموعة وجهةً ممكنة — اختر مجموعة أخرى قبل الاعتماد.');
+        }
+
+        return $cohort;
+    }
+
+    /**
+     * وصفُ المجموعةِ ومعه **معرِّفُها العلنيُّ**.
+     *
+     * ⚠️ `describeGroupCohort()` لا يردُّ `uuid` ولا يحتاجُه قرّاؤُه القدامى —
+     * وهذا المسارُ يحفظُ الاختيارَ على الطلبِ، وما يُحفَظُ هو المعرِّفُ
+     * العلنيُّ لا الرقمُ الداخليُّ (`HasUuid`: الحمولاتُ تحملُ `uuid` دائماً).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function describe(string $uuid): ?array
+    {
+        $cohort = $this->cohorts->describeGroupCohort($uuid);
+
+        return $cohort === null ? null : [...$cohort, 'uuid' => $uuid];
+    }
+
+    /**
+     * ما اختارَه الموظَّفُ، محفوظاً على الطلبِ نفسِه (FR-016أ).
+     *
+     * ⚠️ **عبرَ النموذجِ لا بتحديثٍ جماعيّ.** `orders.metadata` عمودٌ مُنمَّطٌ
+     * `array`، وجملةُ `update()` الجماعيّةُ لا تسترجِعُ نموذجاً فلا يسري عليها
+     * تنميطٌ — قاعدةُ `LedgerEntry` نفسُها، والأثرُ هنا حقلٌ يُقرَأُ فارغاً
+     * إلى الأبد.
+     *
+     * ⚠️ **والاسمُ يُحفَظُ معَ المعرِّف**، على سابقةِ `SubscriptionIntent`: صفٌ
+     * يجبُ أن يبقى مقروءاً بعدَ أن تُؤرشَفَ المجموعةُ أو يُغَيَّرَ اسمُها.
+     *
+     * @param  array<string, mixed>  $cohort
+     */
+    private function recordChoice(Order $order, array $cohort): void
+    {
+        $order->forceFill([
+            'metadata' => [
+                ...($order->metadata ?? []),
+                'assigned_cohort_uuid' => $cohort['uuid'],
+                'assigned_cohort_name' => $cohort['name'],
+            ],
+        ])->save();
     }
 
     /**

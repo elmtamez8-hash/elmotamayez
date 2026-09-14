@@ -279,6 +279,23 @@ class EloquentCohortDirectory implements CohortDirectory
         ];
     }
 
+    public function claimSeat(int $cohortId): bool
+    {
+        // ⚠️ مُفوَّضةٌ إلى الكاتب، لا مُعادةَ الإملاءِ هنا — هو مالكُ نمطِ المقعدِ
+        // في هذه الوحدة، وإملاءانِ للجملةِ نفسِها يفترقانِ عندَ أوّلِ تعديلٍ
+        // لشرطِ السعة.
+        return CohortMembershipWriter::claimSeat($cohortId);
+    }
+
+    public function isAssignable(int $cohortId): bool
+    {
+        $cohort = Cohort::query()->withoutWorkspaceScope()->whereKey($cohortId)->first();
+
+        // ⚠️ مُفوَّضةٌ إلى النموذجِ كتوأمِها أدناه، و`isIndividual()` معها: غرفةُ
+        // طالبٍ بعينِه تُرضي `isAssignable()` وحدَها لأنّها لا تنظرُ إلى الحالة.
+        return $cohort !== null && ! $cohort->isIndividual() && $cohort->isAssignable();
+    }
+
     public function isJoinable(int $cohortId): bool
     {
         $cohort = Cohort::query()

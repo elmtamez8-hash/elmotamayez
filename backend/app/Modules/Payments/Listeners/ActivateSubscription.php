@@ -6,7 +6,7 @@ namespace App\Modules\Payments\Listeners;
 
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Actions\EnrollStudent;
-use App\Modules\Learning\Actions\JoinCohort;
+use App\Modules\Learning\Actions\MoveMember;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\LiveSessions\Jobs\ClaimSubscriptionSeatsJob;
 use App\Modules\Notifications\Actions\DispatchNotification;
@@ -75,7 +75,7 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
 
     public function __construct(
         private readonly EnrollStudent $enroll,
-        private readonly JoinCohort $join,
+        private readonly MoveMember $move,
         private readonly CohortDirectory $cohorts,
         private readonly CohortScheduleDirectory $schedules,
         private readonly DispatchNotification $notify,
@@ -158,17 +158,24 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
      * The group the student paid to be in (027 · FR-025), and the seats it owes
      * them (FR-039).
      *
-     * ⚠️ AFTER `openAccess()`, NEVER BEFORE IT. `JoinCohort` refuses a student
+     * ⚠️ AFTER `openAccess()`, NEVER BEFORE IT. `MoveMember` refuses a student
      * with no active enrolment in the course, and the enrolment is what
      * `openAccess()` has just written — for the cohort's OWN course, which a
      * workspace-wide plan covers alongside several others.
      *
-     * ⚠️ AND «ALREADY IN THIS GROUP» IS A SUCCESS. `JoinCohort` throws
-     * `alreadyMember()` for any open membership in the course, so a renewal —
+     * ⚠️ AND «ALREADY IN THIS GROUP» IS A SUCCESS. The writer throws
+     * `sameCohort()` for a student already in this very group, so a renewal —
      * the ordinary case, and what US4·4 promises must need no new choice — would
      * throw HERE, after the money committed, retry, throw again, and end in
      * `failed_jobs` with nothing on the officer's screen. The membership is asked
      * first, in the same order `ApproveOrder` and `PurchaseSubscription` ask it.
+     *
+     * ⚠️ **AND THE ACTION IS `MoveMember`, NOT `JoinCohort` — CHANGED BY ٠٣٤ ·
+     * `T027`.** The old call wrote `joined` with the STUDENT as actor, so the
+     * history said «the student joined» about a membership the platform's own
+     * approval created: `SC-002` failed for every subscription however correct the
+     * implementation. The event is now DERIVED inside the writer's transaction,
+     * and the actor is the officer who approved.
      */
     private function joinCohort(Order $order, Subscription $subscription): void
     {
@@ -214,9 +221,32 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
                 return;
             }
 
+            /*
+            | ⛔ **فاعلُ السجلِّ هو الموظَّفُ المُعتمِدُ، والحدثُ `assigned`**
+            | (٠٣٤ · `T027` · قرارُ المالك). كانَ `JoinCohort` يكتبُ `joined`
+            | بفاعلٍ هو الطالب — فالسجلُّ يقولُ «انضمَّ الطالب» عن عضويّةٍ
+            | أنشأَها اعتمادُ الإدارة، و`SC-002` يفشلُ دائماً مهما صحَّ التنفيذ.
+            | و`MoveMember` **يشتقُّ الحدثَ داخلَ المعاملة** فلا يُملَى من هنا.
+            |
+            | ⚠️ **و`requireOpen: false` مقصودٌ**: الطالبُ اختارَ مجموعةً
+            | مفتوحةً ودفعَ، والمقعدُ مُطالَبٌ به سلفاً — فإغلاقُ المدرّسِ
+            | للبابِ بينَ الاعتمادِ والتفعيلِ لا يجوزُ أن يترُكَ طالباً دفعَ
+            | بلا مجموعة ومقعدُه محجوز.
+            |
+            | ⚠️ **و`seatAlreadyClaimed: true`** (`T021أ`): `ApproveOrder` طالبَ
+            | بالمقعدِ قبلَ قبضِ المال (FR-024أ)، فزيادةٌ ثانيةٌ هنا تُسرِّبُ
+            | مقعداً في كلِّ اشتراك **وقد تُرفَضُ بـ«مكتملة» بعدَ أن
+            | قُبِضَ المال**. و«وحدَه» في وصفِ `T021أ` بائتٌ: هذا ثاني
+            | مُمرِّرٍ للراية.
+            */
             $this->workspace->forWorkspace(
                 (int) $described['workspace_id'],
-                fn (): mixed => $this->join->handle($cohort, $student),
+                fn (): mixed => $this->move->handle(
+                    $cohort,
+                    $student,
+                    $order->approver ?? $student,
+                    seatAlreadyClaimed: true,
+                ),
             );
         }
 

@@ -186,8 +186,19 @@ class OrderController extends Controller
 
         $this->authorize('approve', $order);
 
+        // ٠٣٤ · FR-016ب — البابُ البرمجيُّ يحملُ الاختيارَ كما يحملُه الزرّ،
+        // **والاشتراطُ في الفعلِ لا هنا**: حارسٌ على أحدِ البابَينِ يترُكُ الآخرَ
+        // مفتوحاً على مصراعَيه.
+        $request->validate(['cohort_uuid' => ['nullable', 'string', 'uuid']]);
+
         try {
-            $order = $action->handle($order, $this->currentUser($request), $request->ip(), $request->userAgent());
+            $order = $action->handle(
+                $order,
+                $this->currentUser($request),
+                $request->ip(),
+                $request->userAgent(),
+                $request->string('cohort_uuid')->toString() ?: null,
+            );
         } catch (\DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
