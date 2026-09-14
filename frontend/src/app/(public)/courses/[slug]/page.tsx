@@ -392,6 +392,7 @@ export default async function CoursePage({
               priceMinor={course.price_minor}
               currency={course.currency ?? null}
               courseUuid={course.uuid}
+              isFull={course.is_full}
               teacher={course.teacher}
             />
           </div>

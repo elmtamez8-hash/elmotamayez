@@ -56,7 +56,7 @@ function curriculum(overrides: Partial<Curriculum["course"]> = {}): Curriculum {
   };
 }
 
-async function renderRail() {
+async function renderRail(isFull = false) {
   await act(async () => {
     render(
       <CourseOwnershipProvider courseUuid="c-1">
@@ -64,6 +64,7 @@ async function renderRail() {
           priceMinor={49900}
           currency="QAR"
           courseUuid="c-1"
+          isFull={isFull}
           teacher={{
             uuid: "t-1",
             slug: "sami-teacher",
@@ -165,5 +166,32 @@ describe("CourseRail", () => {
     await renderRail();
 
     expect(get).not.toHaveBeenCalled();
+  });
+
+  /*
+  | ⛔ **الشاشةُ لا تَعِدُ بما يرفضُه الباب.**
+  |
+  | `CreateOrder` يرفضُ كورساً اكتملت مجموعاتُه (٠٣٤ · FR-023)، والعمودُ كانَ
+  | يعرضُ «سجّل في الكورس» بالسعرِ فوقَه بلا حرفٍ يقولُ ذلك — قِيسَ بالمشي على
+  | الإنتاجِ ٢٠٢٦-٠٩-١٤.
+  |
+  | ⚠️ **والتوكيدُ على غيابِ الزرّ، لا على وجودِ الجملة.** جملةٌ تُضافُ فوقَ زرٍّ
+  | باقٍ تُرضي توكيداً يقرأُ النصَّ وتترُكُ الوعدَ الكاذبَ في مكانِه — والقاعدةُ
+  | المكتوبةُ في هذا الملفِّ نفسِه: يغيبُ، ولا يُعطَّل.
+  */
+  it("withholds the way in when the course is full, and says why", async () => {
+    await renderRail(true);
+
+    expect(screen.queryByRole("link", { name: "سجّل في الكورس" })).toBeNull();
+    expect(screen.getByText("اكتملت مجموعات هذا الكورس")).toBeTruthy();
+    expect(screen.getByText(/تبويب «المجموعات المتاحة»/)).toBeTruthy();
+  });
+
+  it("keeps the way in on a course that still has a place", async () => {
+    // ⚠️ الحارسُ في الاتّجاهِ الآخر: شرطٌ مقلوبٌ يُخفي الزرَّ عن كلِّ كورس.
+    await renderRail(false);
+
+    expect(screen.getByRole("link", { name: "سجّل في الكورس" })).toBeTruthy();
+    expect(screen.queryByText("اكتملت مجموعات هذا الكورس")).toBeNull();
   });
 });
