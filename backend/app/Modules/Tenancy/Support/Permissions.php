@@ -65,6 +65,22 @@ final class Permissions
 
     public const ENROLLMENTS_VIEW_OWN = 'enrollments.view.own';
 
+    /*
+    | ٠٣٤ · FR-001 — إسنادُ طالبٍ إلى مجموعةٍ من `/admin`.
+    |
+    | ⚠️ **حاملُه مديرُ المنصّةِ وحدَه بقرارِ المالك (2026-09-11)، وهذا قرارٌ لا
+    | أثرٌ جانبيّ.** الاسمُ غائبٌ عن كلِّ مصفوفةِ دورٍ في `RolePermissionMatrix`،
+    | والمجموعةُ المنصّيّةُ مشتقّةٌ بالطرحِ (`all()` ناقصَ ما تحملُه الأدوار) —
+    | **فالغيابُ هو التصنيف**. ولا صفَّ له في `platform_staff` أيضاً: لا دورَ
+    | منصّيّاً منصوصاً عليه يحملُه، فيمرُّ عبرَ `Gate::before` لمديرِ المنصّةِ
+    | وحدَه.
+    |
+    | ⚠️ **فلا تمنحْه دوراً لاحقاً «لأنّه يبدو ناقصاً»**: `Tenancy\Models\Role`
+    | يرمي على `givePermissionTo()` لأيِّ صلاحيّةٍ منصّيّةٍ تصلُ دوراً يحملُ
+    | `team_id`، والقرارُ هنا هو أن يبقى كذلك.
+    */
+    public const COHORTS_ASSIGN = 'cohorts.assign';
+
     // Exams
     public const EXAMS_VIEW = 'exams.view';
 
@@ -579,6 +595,7 @@ final class Permissions
             self::LESSONS_PROGRESS_COMPLETE_OWN,
             self::ENROLLMENTS_VIEW_ALL,
             self::ENROLLMENTS_VIEW_OWN,
+            self::COHORTS_ASSIGN,
             self::EXAMS_VIEW,
             self::EXAMS_CREATE,
             self::EXAMS_UPDATE,

@@ -42,6 +42,9 @@ export interface CohortHistoryEvent {
   event:
     | "joined"
     | "transferred"
+    // ٠٣٤ · FR-005 — وُضِع في مجموعته الأولى بيد صاحب صلاحية. ليس "transferred"
+    // (لا مجموعة سابقة، والطالب يقرأ سطره بنفسه) ولا "joined" (لم يفعل شيئاً).
+    | "assigned"
     | "left"
     | "removed"
     | "requested"
@@ -248,6 +251,8 @@ export function cohortEventLabel(event: CohortHistoryEvent["event"]): string {
   const LABELS: Record<CohortHistoryEvent["event"], string> = {
     joined: "انضمّ",
     transferred: "انتقل",
+    // ⚠️ بصيغة المبني للمجهول: الفاعل هو الإدارة، والسطر يُقرأ في تاريخ الطالب.
+    assigned: "أُسنِد إلى مجموعة",
     left: "غادر",
     removed: "أُخرِج",
     requested: "طلب الانتقال",

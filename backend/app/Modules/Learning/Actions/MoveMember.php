@@ -7,7 +7,6 @@ namespace App\Modules\Learning\Actions;
 use App\Models\User;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
-use App\Modules\Learning\Models\CohortMembershipEvent;
 use App\Modules\Learning\Support\CohortMembershipWriter;
 use App\Modules\Learning\Support\CohortRefusal;
 use App\Modules\Learning\Support\PendingTransfer;
@@ -39,8 +38,23 @@ class MoveMember extends Action
         private readonly EnrollmentDirectory $enrollments,
     ) {}
 
-    public function handle(Cohort $to, User $student, User $actor, ?string $reason = null): CohortMembership
-    {
+    /**
+     * @param  string|null  $dropNote  what the student reads when this move drops
+     *                                 a transfer request they had pending. The
+     *                                 default names the TEACHER, which is true of
+     *                                 this Action's only caller today and false
+     *                                 the moment a platform officer reaches it
+     *                                 (٠٣٤ · FR-008) — so the caller that is not
+     *                                 a teacher says so, and every existing
+     *                                 caller keeps the sentence it had.
+     */
+    public function handle(
+        Cohort $to,
+        User $student,
+        User $actor,
+        ?string $reason = null,
+        ?string $dropNote = null,
+    ): CohortMembership {
         /*
         | ⚠️ THE ENROLMENT IS CHECKED EVEN THOUGH THE TEACHER ASKED. NFR-001أ:
         | an Action that acts on a named student must prove the student is
@@ -51,11 +65,18 @@ class MoveMember extends Action
             throw CohortRefusal::notEnrolled();
         }
 
-        return DB::transaction(function () use ($to, $student, $actor, $reason): CohortMembership {
+        return DB::transaction(function () use ($to, $student, $actor, $reason, $dropNote): CohortMembership {
+            /*
+            | ⚠️ `null`, SO THE WRITER DERIVES IT (٠٣٤ · FR-005). This line said
+            | `TRANSFERRED` literally, and «أضِفْ عضواً» on a student in no group
+            | at all is not a transfer — the student read «نُقِلت» in their own
+            | history over a membership that was their first. The writer knows,
+            | because it has already read whether there was one to leave.
+            */
             $membership = CohortMembershipWriter::open(
                 $to,
                 $student,
-                CohortMembershipEvent::TRANSFERRED,
+                null,
                 $actor,
                 $reason,
                 requireOpen: false,
@@ -65,7 +86,7 @@ class MoveMember extends Action
                 (int) $to->course_id,
                 (int) $student->getKey(),
                 $actor,
-                'نقلك المدرّس إلى مجموعة مباشرةً.',
+                $dropNote ?? 'نقلك المدرّس إلى مجموعة مباشرةً.',
             );
 
             return $membership;

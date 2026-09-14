@@ -116,6 +116,41 @@ class Cohort extends BaseModel
     }
 
     /**
+     * Whether ADMINISTRATION could put somebody in this group at this instant
+     * (٠٣٤ · FR-030).
+     *
+     * ⚠️ A SECOND QUESTION, NOT A LOOSER SPELLING OF {@see isJoinable()}. A
+     * `closed` group that is not full is a legitimate destination for a person
+     * with authority and an illegal one for a student — `closed` says «no new
+     * joins», which is a statement about the door rather than about the room, and
+     * `CohortMembershipWriter::open()` has taken `requireOpen: false` for exactly
+     * that since ٠٢١ · FR-028ط. So four readers were asking one name for two
+     * questions, and the one that got the wrong answer was the picker: an officer
+     * with a half-empty closed group was offered nothing.
+     *
+     * ⚠️ ARCHIVED IS REFUSED FOR BOTH, and the ceiling binds both — the writer
+     * throws on either, so an «assignable» that ignored them would produce a
+     * picker offering rows every write refuses.
+     */
+    public function isAssignable(): bool
+    {
+        return $this->status !== self::ARCHIVED && ! $this->isFull();
+    }
+
+    /**
+     * @param  Builder<Cohort>  $query
+     * @return Builder<Cohort>
+     */
+    public function scopeAssignable(Builder $query): Builder
+    {
+        return $query
+            ->where('status', '!=', self::ARCHIVED)
+            ->where(fn (Builder $inner): Builder => $inner
+                ->whereNull('capacity')
+                ->orWhereColumn('members_count', '<', 'capacity'));
+    }
+
+    /**
      * @param  Builder<Cohort>  $query
      * @return Builder<Cohort>
      */

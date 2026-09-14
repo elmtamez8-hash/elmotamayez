@@ -86,6 +86,38 @@ class EloquentCohortDirectory implements CohortDirectory
             ->exists();
     }
 
+    public function assignableCohortsExist(int $courseId): bool
+    {
+        // The bulk form is the implementation; one course is a list of one. Two
+        // spellings of one predicate is the defect FR-030 exists over.
+        return $this->coursesWithAssignableCohorts([$courseId]) !== [];
+    }
+
+    /** @return list<int> */
+    public function coursesWithAssignableCohorts(array $courseIds): array
+    {
+        if ($courseIds === []) {
+            return [];
+        }
+
+        return array_values(Cohort::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('course_id', $courseIds)
+            /*
+            | ⚠️ `->group()`, FOR THE REASON ITS TWO SIBLINGS ABOVE CARRY — and
+            | here it is the sharper one. `assignable()` does not look at the
+            | status at all, so an EMPTY private 1:1 room satisfies it outright:
+            | without this filter the officer's picker would offer one named
+            | student's private hour as a destination for a second student.
+            */
+            ->group()
+            ->assignable()
+            ->distinct()
+            ->pluck('course_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all());
+    }
+
     public function wasEverMember(User $user, int $cohortId): bool
     {
         // No `closed_at` condition at all — "ever" is the question (FR-046), and
