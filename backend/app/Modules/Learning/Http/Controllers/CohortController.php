@@ -187,9 +187,29 @@ class CohortController extends Controller
      *
      * ⚠️ **والجوابُ بلا موضع** (FR-027): رقمٌ يُرسَلُ يُقرَأُ حجزاً، والدَّورُ لا
      * يحجزُ مقعداً ولا يَعِدُ به — والشاشةُ تقولُ ذلك بالنصّ.
+     *
+     * ⛔ **والكورسُ يُحَلُّ باليدِ لا بالربطِ الضمنيّ، وهذا قيسٌ على الإنتاجِ لا احتياط.**
+     * الربطُ الضمنيُّ يَمُرُّ من `WorkspaceScope`، و`WorkspaceContext::id()` يرجعُ
+     * إلى `users.last_workspace_id` **للطالبِ كذلك** — وهو مختومٌ لكلِّ من أُضيفَ
+     * يوماً إلى مساحةِ عمل (`addWorkspaceMember` · `AcceptInvitation` · البذور). فطالبٌ
+     * مختومٌ على مساحةٍ يضغطُ «سجّلني في الدَّور» على كورسِ مدرّسٍ آخرَ
+     * يُجابُ ـ٤٠٤ عن كورسٍ قائمٍ يراهُ أمامَهُ على الصفحة. قِيسَ على الإنتاجِ
+     * ٢٠٢٦-٠٩-١٤ بمتصفّحٍ حقيقيّ: `POST /api/v1/courses/{uuid}/waitlist` ← `404`.
+     *
+     * ⚠️ **وهو عينُ ما وُجِدَ وصُلِّحَ في ٠٣٢ · T023** لصفحةِ الكورسِ العامّة،
+     * فـ`ReadPublicCourse` يحملُ العلاجَ نفسَه. و`publiclyListed()` **يُسقِطُ النطاقَ بنفسِه**
+     * منذُ ٢٠٢٦-٠٩-٠٣ (التجاوُزُ المُعلَنُ في وثيقةِ السِّمة)، فلا تجاوُزَ ثانياً هنا. وهو الشرطُ
+     * نفسُهُ الذي تُقرَأُ بهِ الصفحةُ التي تحملُ الزرّ — والبابُ يسألُ ما تسألُهُ
+     * الشاشة، وإلّا فهُما إملاءانِ لسؤالٍ واحد. وبلا توسيعٍ: النطاقُ لا يملِكُ
+     * إلّا حذفَ صفوفٍ تستوفي ذلك الشرطَ أصلاً.
      */
-    public function joinWaitlist(JoinWaitlistRequest $request, Course $course, JoinWaitlist $action): JsonResponse
+    public function joinWaitlist(JoinWaitlistRequest $request, string $courseUuid, JoinWaitlist $action): JsonResponse
     {
+        $course = Course::query()
+            ->publiclyListed()
+            ->where('uuid', $courseUuid)
+            ->firstOrFail();
+
         try {
             $entry = $action->handle(
                 $this->currentUser($request),
