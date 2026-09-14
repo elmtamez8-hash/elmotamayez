@@ -17,8 +17,7 @@ export type LockCode =
   | "exam_pass"
   | "no_seat"
   | "other_cohort"
-  | "inactive"
-  | "no_cohort";
+  | "inactive";
 
 export type LessonState = "completed" | "open" | "locked";
 
@@ -87,11 +86,13 @@ export interface Curriculum {
     locked_session_count: number;
   };
   /**
-   * ⚠️ `required: false` FOR EVERY COURSE UNTIL GROUPS EXIST (US3). Not a
-   * placeholder that lies: no course requires a group today, so no student is
-   * missing one. `joinable_exists` is the valve — a course that requires a group
-   * while none is joinable must open completely, or a condition no action can
-   * satisfy becomes a permanent lock on content somebody paid for.
+   * ⛔ **جملةٌ لا بوّابة** (٠٣٤ · FR-015). كانَ هذا الحقلُ يُغلِقُ المنهجَ حتّى
+   * ينضمَّ الطالبُ إلى مجموعة؛ وقد أُلغيَ ذلكَ الشرطُ نصّاً، فالمنهجُ مفتوحٌ
+   * مهما قالَت هذه الثلاثة.
+   *
+   * ⚠️ **و`joinable_exists` لم يعُدْ صمّاماً**: هو الذي يختارُ أيَّ الجملتَينِ
+   * يُرسِلُ الخادمُ — «لم تُسنَدْ بعد» أم «لا مجموعةَ مفتوحةً أصلاً» — والشاشةُ
+   * **تقرأُ `message`** ولا تشتقُّ منه شيئاً.
    */
   cohort_gate: {
     required: boolean;
@@ -118,7 +119,6 @@ const FALLBACK: Record<LockCode, string> = {
   no_seat: "هذا تسجيل حصة لم تحجز فيها مقعداً.",
   other_cohort: "هذه الحصة ليست من حصص مجموعتك.",
   inactive: "تسجيلك في هذا الكورس غير نشط حالياً.",
-  no_cohort: "اختر مجموعتك للبدء.",
 };
 
 export function lockMessage(lock: CurriculumLesson["lock"]): string {

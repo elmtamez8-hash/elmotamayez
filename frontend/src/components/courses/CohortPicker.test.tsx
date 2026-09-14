@@ -132,11 +132,14 @@ describe("CohortPicker", () => {
   });
 
   /*
-   | ⚠️ AND THE VALVE'S STATE READS AS AN ANSWER. When nothing is joinable the
-   | curriculum below this card is fully open — a bare «لا توجد مجموعات» over an
-   | open course reads as a fault instead.
+   | ⚠️ **حالةٌ لا خطأ، والمنهجُ تحتَها مفتوح.** «لا توجد مجموعات» وحدَها فوقَ
+   | كورسٍ مفتوحٍ تُقرَأُ عُطلاً.
+   |
+   | ⚠️ **والتوكيدُ انتقلَ إلى الفاعل** (٠٣٤ · FR-015): كانَ يقيسُ «يمكنك متابعة
+   | المنهج» وحدَها، وهي جملةٌ تبقى صحيحةً مع نصٍّ يَعِدُ الطالبَ باختيارٍ لم يعُدْ
+   | له ويُسمّي المدرّسَ فاعلاً. فالمقيسُ الآنَ **مَن يُسنِد** — وهو ما تغيّر.
   */
-  it("says the course is open to them when there is nothing to join", () => {
+  it("names the admin as the one who will place them, and says the course is open meanwhile", () => {
     render(
       <CohortPicker
         options={[option({ is_full: true, is_joinable: false })]}
@@ -145,6 +148,8 @@ describe("CohortPicker", () => {
       />,
     );
 
-    expect(screen.getByText(/يمكنك متابعة المنهج/)).toBeTruthy();
+    expect(screen.getByText(/تُسنِدك الإدارة/)).toBeTruthy();
+    expect(screen.getByText(/وهو مفتوح لك/)).toBeTruthy();
+    expect(screen.queryByText(/مدرّسك/)).toBeNull();
   });
 });

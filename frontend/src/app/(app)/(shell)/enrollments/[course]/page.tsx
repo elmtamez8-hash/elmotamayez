@@ -258,38 +258,21 @@ export default function CourseCurriculumPage({
   const gate = data.cohort_gate;
 
   /*
-    ⚠️ THE PICKER STANDS IN FRONT OF THE CONTENT ONLY WHILE THERE IS SOMETHING TO
-    PICK (FR-028أ · FR-028ب). `joinable_exists: false` means every group is full,
-    closed or archived — the server has already opened every lesson, and putting
-    a blocking screen over an open course would be a lock the student cannot
-    clear by any action of theirs, on content they have paid for.
+    ⛔ **لا شاشةَ حاجزةً بعدَ اليوم — ٠٣٤ · FR-015 · FR-012.**
 
-    The verdict is READ, never re-derived: `LessonGate` and this line have to
-    agree, and two spellings of one question is the defect that made a paid-for
-    recording unreachable in 018.
+    كانَ هنا `mustChoose`: متى وُجِدَت مجموعةٌ قابلةٌ للانضمامِ ولم يكنِ الطالبُ
+    في واحدة، يُرسَمُ المُنتقي وحدَهُ ويُحجَبُ المنهجُ كلُّهُ خلفَه. و٠٣٤ · FR-015
+    **تُلغي ذلكَ الشرطَ نصّاً** («يُلغي هذا شرطَ ٠٢١ · FR-028أ»)، والطالبُ
+    لم يعُدْ هو من يختار: الإدارةُ تُسنِد، والجملةُ تعلو المنهجَ **المفتوح**.
+
+    ⛔ **وكانَ القفلُ رجعيّاً، وقِيسَ على الإنتاج**: إنشاءُ أوّلِ مجموعةٍ
+    لكورسٍ قائمٍ كانَ يُغلِقُ منهجَ كلِّ من سجّلَ قبلَها في اللحظةِ نفسِها.
+
+    ⚠️ **والمُنتقي يبقى معروضاً حتّى T030/T035**، غيرَ حاجز. وذلكَ مقصود:
+    مسارُ `POST /cohorts/{cohort}/join` ما زالَ قائماً، وحذفُ الزرِّ قبلَ بناءِ
+    شاشةِ الإسنادِ (US1) يتركُ الطالبَ بلا مخرجٍ إطلاقاً — «لا يُغلَقُ بابٌ
+    قبلَ بناءِ البابِ الذي يحلُّ محلَّه».
   */
-  const mustChoose = gate.required && !gate.satisfied && gate.joinable_exists;
-
-  if (mustChoose && cohortState !== null && Array.isArray(cohortState.cohorts)) {
-    return (
-      <div className="space-y-6">
-        <CourseBanner
-          title={course.title}
-          teacherName={course.teacher_name}
-          coverUrl={course.cover_url}
-        />
-
-        <CohortPicker
-          options={cohortState.cohorts}
-          message={gate.message}
-          onJoined={() => {
-            load();
-            loadCohorts();
-          }}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -409,14 +392,37 @@ export default function CourseCurriculumPage({
       )}
 
       {/*
-        ⚠️ AND THE SENTENCE SURVIVES THE VALVE. A course whose groups are all
-        full opens completely — so without this line the reader sees an open
-        course, no picker and no explanation, which reads as the groups feature
-        being broken rather than as an answer.
+        ⛔ **الجملةُ فوقَ منهجٍ مفتوح، وفي الحالتَينِ معاً** (FR-015 · FR-012).
+
+        كانَ الشرطُ `!gate.joinable_exists` وحدَه — أي أنَّ الجملةَ لا تُقالُ إلّا
+        لمن لا يستطيعُ الانضمام، لأنَّ الآخَرَ كانَ يراها على الشاشةِ الحاجزة. وقد
+        زالَت الحاجزةُ، فبقاءُ الشرطِ يتركُ الأكثريّةَ أمامَ منهجٍ مفتوحٍ بلا
+        تفسيرٍ لماذا لا مجموعةَ لهم — وهو ما يُقرَأُ عُطلاً. والنصُّ من الخادمِ لا
+        يُشتَقُّ هنا: إملاءانِ لسؤالٍ واحدٍ هو ما جعلَ تسجيلاً مدفوعاً غيرَ قابلٍ
+        للفتحِ في ٠١٨.
       */}
-      {gate.required && !gate.satisfied && !gate.joinable_exists && gate.message !== null && (
-        <Alert tone="info" title="مجموعات هذه المادّة">{gate.message}</Alert>
+      {gate.message !== null && (
+        <Alert tone="info" title="مجموعتك في هذه المادّة">{gate.message}</Alert>
       )}
+
+      {/*
+        والمُنتقي تحتَها وفوقَ المنهجِ — عرضاً لا بوّابةً. ولا يُرسَمُ على
+        قائمةٍ فارغة: بطاقةٌ خاويةٌ فوقَ منهجٍ مفتوحٍ ضجيجٌ لا جواب.
+      */}
+      {gate.required &&
+        !gate.satisfied &&
+        cohortState !== null &&
+        Array.isArray(cohortState.cohorts) &&
+        cohortState.cohorts.length > 0 && (
+          <CohortPicker
+            options={cohortState.cohorts}
+            message={null}
+            onJoined={() => {
+              load();
+              loadCohorts();
+            }}
+          />
+        )}
 
       {cohortState?.membership != null && (
         <CohortSwitcher

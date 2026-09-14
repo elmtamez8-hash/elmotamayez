@@ -87,13 +87,15 @@ class CurriculumResource extends JsonResource
                 'locked_session_count' => $this->lockedSessionCount($view),
             ],
             /*
-            | ⚠️ THE VALVE IS THE HALF THAT MATTERS (FR-028ب). `required` with
-            | `satisfied: false` and `joinable_exists: false` means the page
-            | shows the WHOLE curriculum and a sentence saying why there is no
-            | group to pick — not a locked tree. A condition no action of the
-            | student's can satisfy is a permanent lock on content they have
-            | already paid for, and `LessonGate` agrees with this block by
-            | construction: both read `CohortGate`.
+            | ⛔ **هذه الكتلةُ تُنتِجُ جملةً، ولا تُقرَّرُ منها بوّابةٌ في أيِّ
+            | موضع** (٠٣٤ · FR-015). كانَ مكتوباً هنا أنّ `LessonGate` يوافقُها
+            | «بالبناء لأنّ كلَيهما يقرأُ `CohortGate`» — وذلكَ لم يعُدْ صحيحاً:
+            | `LessonGate` لا يسألُ عن المجموعاتِ إطلاقاً، و`CohortGate::locks()`
+            | حُذِفَت. فالمنهجُ مفتوحٌ في كلِّ الحالات.
+            |
+            | ⚠️ **و`joinable_exists` لم يعُدْ صمّاماً بل مُفرِّقُ جملتَين**:
+            | «مجموعاتٌ متاحةٌ ولستَ فيها» غيرُ «لا مجموعةَ أصلاً» — الأولى
+            | انتظارُ إسناد، والثانيةُ لا شيءَ يُنتظَرُ فيه بعد.
             |
             | ⚠️ AND IT IS COMPUTED IN THE ACTION. A Resource runs once per row;
             | the day this block moves down into `row()` it becomes three queries
