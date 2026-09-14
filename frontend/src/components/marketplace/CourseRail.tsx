@@ -30,11 +30,14 @@ export function CourseRail({
   priceMinor,
   currency,
   courseUuid,
+  isFull,
   teacher,
 }: {
   priceMinor: number | null;
   currency: string | null;
   courseUuid: string;
+  /** حكمُ الخادم، ولا يُشتَقُّ هنا — {@see VisitorRail}. */
+  isFull: boolean;
   teacher: CourseDetail["teacher"];
 }) {
   const ownership = useCourseOwnership();
@@ -44,7 +47,7 @@ export function CourseRail({
       {ownership.state === "owner" ? (
         <OwnerRail data={ownership.data} courseUuid={courseUuid} />
       ) : (
-        <VisitorRail priceMinor={priceMinor} currency={currency} />
+        <VisitorRail priceMinor={priceMinor} currency={currency} isFull={isFull} />
       )}
 
       {/*
@@ -95,12 +98,32 @@ const PROMISES = [
   { Icon: MessagesIcon, text: "سؤال المدرّس داخل كلّ درس" },
 ] as const;
 
+/**
+ * ⛔ **الزرُّ يغيبُ حينَ يرفضُه الباب — لا يُعطَّل، ولا يبقى واعداً.**
+ *
+ * `CreateOrder` يرفضُ كورساً اكتملت مجموعاتُه (٠٣٤ · FR-023)، والعمودُ كانَ
+ * يعرضُ «سجّل في الكورس» بالسعرِ فوقَه بلا حرفٍ يقولُ ذلك — فالشاشةُ تَعِدُ بما
+ * يرفضُه الباب. قِيسَ بالمشي على الإنتاجِ ٢٠٢٦-٠٩-١٤.
+ *
+ * ⚠️ **و`isFull` حكمُ الخادمِ يُمرَّرُ كما هو** — هو الحقلُ نفسُه الذي تقرأُه
+ * `CohortList`، والذي يقرأُه بابُ الشراءِ من `CohortDirectory::courseIsFull()`.
+ * إعادةُ اشتقاقِه هنا («مفتوحةٌ وغيرُ مكتمِلة») إملاءٌ ثانٍ لسؤالٍ واحد، وهو ما
+ * جعلَ تسجيلاً مدفوعاً غيرَ قابلٍ للفتحِ في ٠١٨.
+ *
+ * ⚠️ **ولا زرَّ دَورٍ هنا ولا رابطَ إليه.** الزرُّ الحقيقيُّ في لافتةِ تبويبِ
+ * المجموعات، ورابطٌ بـ`?tab=groups` **ميّتٌ من هذه الصفحة**: `useTabParam` يقرأُ
+ * الاستعلامَ في `useEffect` بمُعتمَداتٍ ثابتة، فتغييرُ العنوانِ وحدَه لا يُبدِّلُ
+ * التبويب. فالعمودُ يقولُ الحقيقةَ ويدلُّ على موضعِ الفعل، ولا يَعِدُ بنقرةٍ لا
+ * تقع.
+ */
 function VisitorRail({
   priceMinor,
   currency,
+  isFull,
 }: {
   priceMinor: number | null;
   currency: string | null;
+  isFull: boolean;
 }) {
   return (
     <aside className="flex flex-col gap-5 rounded-3xl border border-line bg-surface-raised p-6 shadow-sm">
@@ -113,12 +136,21 @@ function VisitorRail({
       */}
       <CoursePrice priceMinor={priceMinor} currency={currency} size="rail" />
 
-      <Link
-        href="/signup/student"
-        className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-extrabold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      >
-        سجّل في الكورس
-      </Link>
+      {isFull ? (
+        <p className="flex flex-col gap-1.5 rounded-xl bg-primary-soft px-4 py-3.5 text-sm text-ink">
+          <b className="font-extrabold text-primary-ink">اكتملت مجموعات هذا الكورس</b>
+          <span className="text-ink-muted">
+            لا مكان شاغراً الآن. سجّل في الدَّور من تبويب «المجموعات المتاحة».
+          </span>
+        </p>
+      ) : (
+        <Link
+          href="/signup/student"
+          className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-extrabold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          سجّل في الكورس
+        </Link>
+      )}
 
       <ul className="flex flex-col gap-3">
         {PROMISES.map(({ Icon, text }) => (
