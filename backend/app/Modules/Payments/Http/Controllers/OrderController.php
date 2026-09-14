@@ -94,8 +94,20 @@ class OrderController extends Controller
         ])));
     }
 
-    public function store(Request $request, Course $course, CreateOrder $action): JsonResponse
+    public function store(Request $request, string $courseUuid, CreateOrder $action): JsonResponse
     {
+        /*
+        | ⛔ **وهذا البابُ أيضاً، من جهةِ الطالبِ لا الموظَّف.** التعليقُ فوقَ
+        | المسارِ يشرحُ لماذا صارَت الأربعةُ الأخرى `{orderUuid}`: موظَّفُ المنصّةِ
+        | يسقطُ سياقُه إلى `users.last_workspace_id`. والعمودُ نفسُه **مختومٌ لكلِّ
+        | طالبٍ أُضيفَ يوماً إلى مساحةِ عمل**، فالشراءُ من مدرّسٍ ثانٍ كانَ يُجابُ
+        | ٤٠٤ — والسوقُ كلُّه قائمٌ على أنّ الطالبَ يشتري من أيِّ مدرّس.
+        |
+        | ⚠️ ولا توسيعَ: `OrderPolicy::create()` صلاحيّةٌ بلا سؤالِ مساحة،
+        | و`isPublished()` أدناه هو الحارسُ الذي كانَ ويبقى.
+        */
+        $course = Course::query()->withoutWorkspaceScope()->where('uuid', $courseUuid)->firstOrFail();
+
         $this->authorize('create', Order::class);
 
         if (! $course->isPublished()) {

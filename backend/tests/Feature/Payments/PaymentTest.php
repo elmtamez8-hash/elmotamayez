@@ -208,7 +208,21 @@ describe('payment approval critical path', function (): void {
             ->assertForbidden();
     });
 
-    it('prevents cross-workspace order access', function (): void {
+    /*
+    | ⚠️ **٤٢٢ لا ٤٠٤، وتغيُّرُ الرقمِ هو الإصلاحُ لا الانحدار.**
+    |
+    | الفاعلُ **مدرّس**، والرفضُ كانَ يأتي من `WorkspaceScope` على الربطِ الضمنيِّ
+    | لـ`{course}`: «لا وجودَ لهذا الكورس». وذلك الحارسُ نفسُه كانَ يرفضُ
+    | **الطالبَ** المختومَ على مساحةٍ أخرى — أي الشراءَ من مدرّسٍ ثانٍ، وهو
+    | السوقُ كلُّه (قِيسَ على الإنتاجِ ٢٠٢٦-٠٩-١٤ من بابِ الدَّور).
+    |
+    | فلمّا رُفِعَ صارَ الرفضُ من حارسِه الصحيحِ المكتوبِ في `store()`: «المدرّسُ
+    | لا يشتركُ في الكورسات» — وهو **أقوى**، لأنّه يشملُ كورسَ مساحتِه هو، بينما
+    | فحصُ النطاقِ كانَ يُمرِّرُه إليه.
+    |
+    | والخاصّيّةُ المقيسةُ هي الكتابةُ لا الرقم: صفرُ طلبات.
+    */
+    it('refuses a teacher buying a course at another workspace, and writes nothing', function (): void {
         [$workspaceA] = $this->createWorkspaceWithOwner();
         [$workspaceB, $ownerB] = $this->createWorkspaceWithOwner();
         $course = createPaidCourse($workspaceA->id);
@@ -216,7 +230,10 @@ describe('payment approval critical path', function (): void {
         Sanctum::actingAs($ownerB);
 
         $this->postJson("/api/v1/courses/{$course->uuid}/orders")
-            ->assertNotFound();
+            ->assertStatus(422);
+
+        expect(Order::query()->withoutWorkspaceScope()
+            ->where('user_id', $ownerB->getKey())->count())->toBe(0);
     });
 });
 

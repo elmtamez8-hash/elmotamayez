@@ -106,7 +106,20 @@ describe('enrollment', function (): void {
             ->assertStatus(422);
     });
 
-    it('prevents cross-workspace enrollment', function (): void {
+    /*
+    | ⚠️ **٤٢٢ لا ٤٠٤، وتغيُّرُ الرقمِ هو الإصلاحُ لا الانحدار.**
+    |
+    | الفاعلُ هنا **مالكُ مساحة**، والرفضُ كانَ يأتي من `WorkspaceScope` على الربطِ
+    | الضمنيِّ: «لا وجودَ لهذا الكورس». وذلك الحارسُ نفسُه كانَ يرفضُ **الطالبَ**
+    | المختومَ على مساحةٍ أخرى — وهو الشراءُ من مدرّسٍ ثانٍ، أي السوقُ كلُّه.
+    |
+    | فلمّا رُفِعَ عن البابِ صارَ الرفضُ من حارسِه الصحيح: «المدرّسُ لا يسجّلُ في
+    | كورسٍ أبداً، ولا في كورسِه هو». وهو **أقوى** من الأوّل: يشملُ مساحةَ الفاعلِ
+    | نفسِها، بينما فحصُ النطاقِ كانَ يُمرِّرُ المالكَ إلى كورسِ مساحتِه.
+    |
+    | والخاصّيّةُ المقيسةُ هي الكتابةُ لا الرقم: صفرُ صفوفِ تسجيل.
+    */
+    it('refuses a teacher enrolling in a course at another workspace, and writes nothing', function (): void {
         [$workspaceA] = $this->createWorkspaceWithOwner();
         [$workspaceB, $ownerB] = $this->createWorkspaceWithOwner();
         $course = createCourseWithLessons($workspaceA->id);
@@ -114,7 +127,10 @@ describe('enrollment', function (): void {
         Sanctum::actingAs($ownerB);
 
         $this->postJson("/api/v1/courses/{$course->uuid}/enroll")
-            ->assertNotFound();
+            ->assertStatus(422);
+
+        expect(Enrollment::query()->withoutWorkspaceScope()
+            ->where('student_user_id', $ownerB->getKey())->count())->toBe(0);
     });
 });
 

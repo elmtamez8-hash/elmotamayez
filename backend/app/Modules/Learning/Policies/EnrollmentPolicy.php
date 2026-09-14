@@ -31,14 +31,27 @@ class EnrollmentPolicy extends BasePolicy
             : Response::deny('You are not authorized to list enrollments.');
     }
 
+    /*
+    | ⛔ **فرعُ المِلكيّةِ فوقَ فحصِ المساحة، وترتيبُهما هو المتطلَّب.**
+    |
+    | `belongsToCurrentWorkspace()` لا يعترضُ حينَ يكونُ السياقُ عدماً — وهذا ما
+    | صُلِّحَ في ٢٠٢٦-٠٨-٢٦ — لكنّه **يرفضُ حينَ يُحَلُّ السياقُ إلى مساحةٍ أخرى**،
+    | و`users.last_workspace_id` مختومٌ لكلِّ طالبٍ أُضيفَ يوماً إلى مساحةِ عمل.
+    | فصاحبُ الصفِّ كانَ يُمنَعُ من صفِّه هو، والفرعُ الذي يسمحُ له مكتوبٌ في
+    | السطرِ التالي مباشرةً ولا يُبلَغ.
+    |
+    | والمِلكيّةُ دعوى أقوى من المساحة: «هذا تسجيلي» لا يحتاجُ إذنَ مساحةٍ
+    | ليصحّ. أمّا فرعُ `ENROLLMENTS_VIEW_ALL` أدناه فيحتاجُه ويبقى خلفَه —
+    | مدرّسٌ يقرأُ تسجيلَ مساحةٍ أخرى مرفوضٌ كما كان.
+    */
     public function view(User $user, Enrollment $enrollment): Response
     {
-        if (($workspaceCheck = $this->belongsToCurrentWorkspace($enrollment))->denied()) {
-            return $workspaceCheck;
-        }
-
         if ($enrollment->student_user_id === $user->getKey()) {
             return Response::allow();
+        }
+
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($enrollment))->denied()) {
+            return $workspaceCheck;
         }
 
         return $user->can(Permissions::ENROLLMENTS_VIEW_ALL)
@@ -51,12 +64,15 @@ class EnrollmentPolicy extends BasePolicy
         return Response::allow();
     }
 
+    /*
+    | ⛔ **ولا فحصَ مساحةٍ هنا إطلاقاً، وحذفُه هو الإصلاح.**
+    |
+    | لا يعبرُ السطرَ التاليَ إلّا صاحبُ الصفِّ نفسُه، فالفحصُ فوقَه لم يكنْ يمنعُ
+    | إلّا **المالكَ** حينَ يُحَلُّ سياقُه إلى مساحةٍ غيرِ مساحةِ تسجيلِه. حارسٌ
+    | لا يردُّ إلّا من يحرسُه ليسَ حارساً.
+    */
     public function completeLessons(User $user, Enrollment $enrollment): Response
     {
-        if (($workspaceCheck = $this->belongsToCurrentWorkspace($enrollment))->denied()) {
-            return $workspaceCheck;
-        }
-
         if ($enrollment->student_user_id !== $user->getKey()) {
             return Response::deny('You can only complete lessons for your own enrollment.');
         }
@@ -81,12 +97,15 @@ class EnrollmentPolicy extends BasePolicy
      * ⚠️ **والموقوفُ والملغى يبقيانِ ممنوعَين**: الشرطُ يُوسَّعُ حالةً واحدةً لا
      * يُرفَع، وتسجيلٌ أُوقِفَ لا يُعدَّلُ تقدّمُه من جانبِ الطالب.
      */
+    /*
+    | ⛔ **ولا فحصَ مساحةٍ هنا إطلاقاً، وحذفُه هو الإصلاح.**
+    |
+    | لا يعبرُ السطرَ التاليَ إلّا صاحبُ الصفِّ نفسُه، فالفحصُ فوقَه لم يكنْ يمنعُ
+    | إلّا **المالكَ** حينَ يُحَلُّ سياقُه إلى مساحةٍ غيرِ مساحةِ تسجيلِه. حارسٌ
+    | لا يردُّ إلّا من يحرسُه ليسَ حارساً.
+    */
     public function resetProgress(User $user, Enrollment $enrollment): Response
     {
-        if (($workspaceCheck = $this->belongsToCurrentWorkspace($enrollment))->denied()) {
-            return $workspaceCheck;
-        }
-
         if ($enrollment->student_user_id !== $user->getKey()) {
             return Response::deny('You can only reset your own enrollment.');
         }

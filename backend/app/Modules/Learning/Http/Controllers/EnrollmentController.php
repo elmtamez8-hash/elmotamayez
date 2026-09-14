@@ -48,7 +48,10 @@ class EnrollmentController extends Controller
             'status' => ['sometimes', Rule::enum(EnrollmentStatus::class)],
         ]);
 
+        // بلا نطاقٍ: قائمةُ «تعلّمي» هي صفوفُ الطالبِ نفسِه عندَ كلِّ مدرّسيه،
+        // والنطاقُ يحذفُ منها كلَّ مدرّسٍ غيرِ الذي خُتِمَ عليه العمود.
         $enrollments = Enrollment::query()
+            ->withoutWorkspaceScope()
             ->where('student_user_id', $this->currentUser($request)->getKey())
             ->when(
                 $validated['status'] ?? null,
@@ -107,11 +110,13 @@ class EnrollmentController extends Controller
      */
     public function enroll(
         Request $request,
-        Course $course,
+        string $courseUuid,
         EnrollStudent $action,
         SubscriptionDirectory $subscriptions,
         CohortDirectory $cohorts,
     ): JsonResponse {
+        $course = $this->courseByUuid($courseUuid);
+
         $this->authorize('view', $course);
 
         if (! $course->isPublished()) {
@@ -182,8 +187,10 @@ class EnrollmentController extends Controller
      * could buy — pretending it does not exist would break the buy button beside
      * the message.
      */
-    public function curriculum(Request $request, Course $course, ReadCurriculum $action): JsonResponse
+    public function curriculum(Request $request, string $courseUuid, ReadCurriculum $action): JsonResponse
     {
+        $course = $this->courseByUuid($courseUuid);
+
         $enrollment = $this->enrolmentIn($request, $course);
 
         if ($enrollment === null) {
@@ -204,8 +211,10 @@ class EnrollmentController extends Controller
      * resolves any teacher's course by uuid and nothing but a row in
      * `enrollments` stands in front of this payload.
      */
-    public function announcements(Request $request, Course $course, ReadCourseAnnouncements $action): JsonResponse
+    public function announcements(Request $request, string $courseUuid, ReadCourseAnnouncements $action): JsonResponse
     {
+        $course = $this->courseByUuid($courseUuid);
+
         $enrollment = $this->enrolmentIn($request, $course);
 
         if ($enrollment === null) {
@@ -228,7 +237,14 @@ class EnrollmentController extends Controller
      */
     private function enrolmentIn(Request $request, Course $course): ?Enrollment
     {
+        /*
+        | ⛔ **بلا نطاقٍ: المُرشِّحُ هنا هو المِلكيّةُ، لا المساحة.**
+        | `WorkspaceScope` يقرِنُ `users.last_workspace_id` — وهو مختومٌ لكلِّ
+        | طالبٍ أُضيفَ يوماً إلى مساحةِ عمل — فيُخفي عن الطالبِ تسجيلَه هو عندَ
+        | مدرِّسٍ آخر، ويُجابُ «لستَ مسجَّلاً» عن كورسٍ دفعَ ثمنَه.
+        */
         return Enrollment::query()
+            ->withoutWorkspaceScope()
             ->where('course_id', $course->getKey())
             ->where('student_user_id', $this->currentUser($request)->getKey())
             ->first();
@@ -247,8 +263,11 @@ class EnrollmentController extends Controller
         ], 403);
     }
 
-    public function showLesson(Request $request, Enrollment $enrollment, Lesson $lesson): JsonResponse
+    public function showLesson(Request $request, string $enrollmentUuid, string $lessonUuid): JsonResponse
     {
+        $enrollment = $this->enrollmentByUuid($enrollmentUuid);
+        $lesson = $this->lessonByUuid($lessonUuid);
+
         $this->authorize('view', $enrollment);
 
         // `completeLesson` below has always checked this and this method never
@@ -274,11 +293,15 @@ class EnrollmentController extends Controller
      * find the enrolment. A 404 when there is none: that a particular lesson
      * exists is itself information.
      */
-    public function showLessonForViewer(Request $request, Lesson $lesson): JsonResponse
+    public function showLessonForViewer(Request $request, string $lessonUuid): JsonResponse
     {
+        $lesson = $this->lessonByUuid($lessonUuid);
+
         $viewer = $this->currentUser($request);
 
+        // بلا نطاقٍ، للسببِ المكتوبِ فوقَ `enrolmentIn()`: المِلكيّةُ هي المُرشِّح.
         $enrollment = Enrollment::query()
+            ->withoutWorkspaceScope()
             ->where('course_id', $lesson->course_id)
             ->where('student_user_id', $viewer->getKey())
             ->first();
@@ -425,8 +448,11 @@ class EnrollmentController extends Controller
         ];
     }
 
-    public function completeLesson(Request $request, Enrollment $enrollment, Lesson $lesson, MarkLessonComplete $action): JsonResponse
+    public function completeLesson(Request $request, string $enrollmentUuid, string $lessonUuid, MarkLessonComplete $action): JsonResponse
     {
+        $enrollment = $this->enrollmentByUuid($enrollmentUuid);
+        $lesson = $this->lessonByUuid($lessonUuid);
+
         $this->authorize('completeLessons', $enrollment);
 
         if ($lesson->course_id !== $enrollment->course_id) {
@@ -494,10 +520,13 @@ class EnrollmentController extends Controller
      */
     public function resetLesson(
         Request $request,
-        Enrollment $enrollment,
-        Lesson $lesson,
+        string $enrollmentUuid,
+        string $lessonUuid,
         ResetProgress $action,
     ): JsonResponse {
+        $enrollment = $this->enrollmentByUuid($enrollmentUuid);
+        $lesson = $this->lessonByUuid($lessonUuid);
+
         // ⚠️ `resetProgress` لا `completeLessons`: الثانيةُ تشترطُ تسجيلاً
         // **نشطاً**، وحالةُ من أنهى الكورسَ `completed` — فإعادةُ استعمالِها
         // كانت سترُدُّ ٤٠٣ على الشخصِ الوحيدِ الذي تعنيه هذه الميزة.
@@ -517,8 +546,10 @@ class EnrollmentController extends Controller
     }
 
     /** إعادةُ الكورسِ من أوّلِه: كلُّ إتمامٍ فيه يرجع. */
-    public function resetCourse(Request $request, Enrollment $enrollment, ResetProgress $action): JsonResponse
+    public function resetCourse(Request $request, string $enrollmentUuid, ResetProgress $action): JsonResponse
     {
+        $enrollment = $this->enrollmentByUuid($enrollmentUuid);
+
         $this->authorize('resetProgress', $enrollment);
 
         return $this->resetResponse($enrollment, $action->handle($enrollment, null));
@@ -534,5 +565,35 @@ class EnrollmentController extends Controller
             'progress_pct' => $enrollment->progress_pct,
             'course_completed' => $enrollment->isCompleted(),
         ]);
+    }
+
+    /*
+    | ⛔ **ثلاثةُ حالّاتٍ باليدِ، لأنّ الربطَ الضمنيَّ يمرُّ من `WorkspaceScope`.**
+    |
+    | و`WorkspaceContext::id()` يرجعُ إلى `users.last_workspace_id` **للطالبِ
+    | كذلك** — وهو مختومٌ لكلِّ من أُضيفَ يوماً إلى مساحةِ عمل
+    | (`addWorkspaceMember` · `AcceptInvitation` · البذور). فالنطاقُ يَقرِنُ مساحةً
+    | ليست مساحةَ الصفّ، ويُجابُ ٤٠٤ عن كورسٍ أو تسجيلٍ أو درسٍ قائمٍ يملكُه
+    | الطالبُ نفسُه. قِيسَ على الإنتاجِ ٢٠٢٦-٠٩-١٤ من بابِ الدَّور، وهذه بقيّةُ
+    | العائلةِ نفسِها.
+    |
+    | ⚠️ **ولا يُوسِّعُ هذا شيئاً**: الحارسُ في كلِّ بابٍ أدناه هو المِلكيّةُ أو
+    | السياسة، لا النطاق — `EnrollmentPolicy` تسألُ عن صاحبِ الصفّ،
+    | و`CoursePolicy::view()` تفتحُ المنشورَ للجميعِ أصلاً، ودرسٌ من كورسٍ آخرَ
+    | مرفوضٌ بمقارنةِ `course_id` كما كان.
+    */
+    private function courseByUuid(string $uuid): Course
+    {
+        return Course::query()->withoutWorkspaceScope()->where('uuid', $uuid)->firstOrFail();
+    }
+
+    private function enrollmentByUuid(string $uuid): Enrollment
+    {
+        return Enrollment::query()->withoutWorkspaceScope()->where('uuid', $uuid)->firstOrFail();
+    }
+
+    private function lessonByUuid(string $uuid): Lesson
+    {
+        return Lesson::query()->withoutWorkspaceScope()->where('uuid', $uuid)->firstOrFail();
     }
 }
