@@ -94,7 +94,20 @@ class SavePlan extends Action
             throw new DomainException('باقة الكورس الواحد تحتاج تحديد الكورس.');
         }
 
+        /*
+        | AND IT DECLARES `withoutWorkspaceScope()` -- WHICH IS NOT A WIDENING,
+        | BECAUSE THE EXPLICIT CONDITION BELOW IS THE GUARD. The scope adds a
+        | SECOND workspace condition, taken from whoever is asking: on the
+        | teacher's own door the two agree and it changes nothing, and on 034 .
+        | FR-017's admin door they cannot agree -- a platform officer's context
+        | falls back to `users.last_workspace_id`, so the statement ANDs their
+        | own workspace onto a query about somebody else's course, matches zero
+        | rows, and refuses EVERY teacher's course. The same shape spec 024 found
+        | five layers of in the approval chain, and no one-workspace fixture can
+        | see it.
+        */
         $exists = Course::query()
+            ->withoutWorkspaceScope()
             ->where('workspace_id', $workspaceId)
             ->where('uuid', $uuid)
             ->exists();
