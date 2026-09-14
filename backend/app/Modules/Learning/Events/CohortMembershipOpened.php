@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Learning\Events;
 
+use App\Modules\Learning\Models\CohortMembershipEvent;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
@@ -40,5 +41,24 @@ class CohortMembershipOpened
         public readonly int $studentUserId,
         public readonly ?int $fromCohortId,
         public readonly int $toCohortId,
+        /**
+         * ⚠️ **أيُّ فعلٍ فتحَ هذه العضويّة** — قيمةٌ من ثوابتِ
+         * {@see CohortMembershipEvent}.
+         *
+         * أُضيفَ في ٠٣٤ · FR-006 لأنّ هذا الحدثَ **يقعُ على أربعةِ مساراتٍ**
+         * وإشعارُ الإسنادِ يخصُّ واحداً منها: الطالبُ الذي انضمَّ بنفسِه يرى
+         * النتيجةَ على الشاشةِ التي ضغطَ فيها، وانتقالٌ وُوفِقَ عليه **له
+         * إشعارُه** (`CohortTransferApproved`) — فمستمِعٌ بلا هذا الحقلِ يُرسِلُ
+         * رسالتَينِ عن حركةٍ واحدة.
+         *
+         * ولا يُشتَقُّ من `fromCohortId`: `null` تعني «جاءَ من لا مكان»، وهي
+         * صادقةٌ على الإسنادِ وعلى انضمامِ الطالبِ بنفسِه معاً.
+         *
+         * ⚠️ **ومطلوبٌ بلا قيمةٍ افتراضيّة، عمداً.** افتراضُ `''` يجعلُ «نسيَ
+         * المُنشِئُ تمريرَه» **صمتاً لا خطأً**: لا إشعارَ، ولا سطرَ سجلّ، ولا
+         * شيءَ في أيِّ مِلَفّ — وهو شكلُ `ClassSessionStatus::Interrupted` نفسُه
+         * الذي أُصلِحَ في `T006` بعدَ أن عاشَ طوراً كاملاً يبدو منفَّذاً.
+         */
+        public readonly string $membershipEvent,
     ) {}
 }

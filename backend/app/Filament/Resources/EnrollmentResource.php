@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\EnrollmentResource\Pages;
+use App\Models\User;
 use App\Modules\Learning\Enums\EnrollmentStatus;
 use App\Modules\Learning\Models\Enrollment;
+use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
@@ -18,6 +20,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 use UnitEnum;
 
 class EnrollmentResource extends Resource
@@ -126,9 +129,48 @@ class EnrollmentResource extends Resource
             ]);
     }
 
+    /**
+     * ⚠️ **الشرطُ هو بابُ اللوحةِ نفسُه — `mayAccessAdminPanel()` — لا صلاحيّةُ
+     * الإسناد.** كُتِبَ هنا أوّلاً `COHORTS_ASSIGN`، وذلكَ خطأٌ يُبقي العطبَ
+     * الذي يصفُه `T017` قائماً **لموظَّفِ المنصّةِ الذي كُتِبَت له المهمّة**: لا
+     * يحملُ تلكَ الصلاحيّةَ إلّا مديرُ المنصّةِ عبرَ `Gate::before`، فمسؤولُ
+     * الماليّةِ يفتحُ هذه الشاشةَ ويرى القائمةَ القصيرةَ الصامتةَ كما كانَ.
+     *
+     * ⚠️ **ويبدو غيرَ مشروطٍ لأنّ الشرطَ في البابِ الذي فوقَه**: تلك الطريقةُ
+     * هي «مديرُ منصّةٍ **أو** صفٌّ في `platform_staff`» ولا تقبلُ مدرّساً ولا
+     * مساعِداً إطلاقاً. ويبقى مكتوباً بدلَ أن يُحذَفَ لأنّ ذلكَ البابَ **قد
+     * اتّسعَ من قبل**: كانَ يقبلُ `tenant-owner` و`teacher` و`assistant-teacher`،
+     * وثمنُ ذلكَ دُفِعَ في `OrderResource` مرّةً — بريدُ كلِّ طالبٍ والمبلغُ الذي
+     * دفعَه، على شاشةِ مساعِد.
+     *
+     * ⚠️ **وبلا التجاوزِ أصلاً — وهو الحالُ السابق — لا يرفعُ شيءٌ رمزَ خطأ**:
+     * سياقُ موظَّفِ المنصّةِ يرجعُ إلى `users.last_workspace_id` كغيرِه، فيرى
+     * قائمةً قصيرةً تُقرَأُ أسبوعاً هادئاً، واسمَ مساحةٍ فارغاً لكلِّ صفٍّ غريب.
+     * تلكَ هي الطبقةُ الخامسةُ من طبقاتِ ٠٢٤، الوحيدةُ الصامتةُ تماماً.
+     *
+     * ⚠️ **والتجاوزُ يُكرَّرُ داخلَ الضمِّ المُسبَق**: إسقاطُه عن الجذرِ يُحرِّرُ
+     * القراءةَ الخارجيّةَ وحدَها، و`->with('course')` يعملُ باستعلامٍ ثانٍ يسري
+     * عليه نطاقُ `Course` من جديد. `student` لا يحتاجُ تجاوزاً — `users` مملوكٌ
+     * للمنصّةِ ولا نطاقَ عليه.
+     */
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['course.workspace', 'student']);
+        $query = parent::getEloquentQuery();
+
+        $user = Auth::user();
+
+        if ($user instanceof User && $user->mayAccessAdminPanel()) {
+            // `withoutGlobalScope(WorkspaceScope::class)` وليسَ مساعدَ النموذجِ
+            // `withoutWorkspaceScope()`: أبُ Filament يردُّ `Builder<Model>`،
+            // والنطاقُ المحلّيُّ للنموذجِ غيرُ مُنمَّطٍ عليه. والنداءانِ واحد.
+            $query->withoutGlobalScope(WorkspaceScope::class);
+        }
+
+        return $query->with([
+            'course' => fn ($relation) => $relation->withoutGlobalScope(WorkspaceScope::class),
+            'course.workspace',
+            'student',
+        ]);
     }
 
     public static function getPages(): array

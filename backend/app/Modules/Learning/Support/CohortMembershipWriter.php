@@ -176,6 +176,9 @@ final class CohortMembershipWriter
                 studentUserId: (int) $student->getKey(),
                 fromCohortId: $existing === null ? null : (int) $existing->cohort_id,
                 toCohortId: (int) $cohort->getKey(),
+                // ٠٣٤ · FR-006 — أربعةُ مساراتٍ تفتحُ عضويّةً، وإشعارُ الإسنادِ
+                // يخصُّ واحداً. الحقلُ هو ما يُفرِّقُها عندَ المستمِع.
+                membershipEvent: $event,
             ));
 
             return $membership;
