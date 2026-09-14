@@ -15,7 +15,9 @@ use App\Modules\Compliance\Events\TeacherOffboardingRequested;
 use App\Modules\Gamification\Events\BadgeAwarded;
 use App\Modules\Gamification\Events\LevelReachedUp;
 use App\Modules\Gamification\Events\RewardRedeemed;
+use App\Modules\Learning\Events\CohortMembershipOpened;
 use App\Modules\Learning\Events\CohortTransferDecided;
+use App\Modules\Learning\Events\CohortTransferRequestDropped;
 use App\Modules\Learning\Events\CohortTransferRequested;
 use App\Modules\Learning\Events\EnrollmentCreated;
 use App\Modules\LiveSessions\Events\PrivateSessionDecided;
@@ -37,6 +39,7 @@ use App\Modules\Notifications\Listeners\NotifySessionRescheduleDecided;
 use App\Modules\Notifications\Listeners\NotifyStudentBadgeAwarded;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateIssued;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateRegenerated;
+use App\Modules\Notifications\Listeners\NotifyStudentCohortAssigned;
 use App\Modules\Notifications\Listeners\NotifyStudentCohortTransferDecided;
 use App\Modules\Notifications\Listeners\NotifyStudentEnrolled;
 use App\Modules\Notifications\Listeners\NotifyStudentExamResult;
@@ -45,6 +48,7 @@ use App\Modules\Notifications\Listeners\NotifyStudentLevelUp;
 use App\Modules\Notifications\Listeners\NotifyStudentPrivateSessionDecided;
 use App\Modules\Notifications\Listeners\NotifyStudentPrivateSessionExpired;
 use App\Modules\Notifications\Listeners\NotifyStudentSubmissionGraded;
+use App\Modules\Notifications\Listeners\NotifyStudentTransferRequestDropped;
 use App\Modules\Notifications\Listeners\NotifyTeacherApproved;
 use App\Modules\Notifications\Listeners\NotifyTeacherAssignmentSubmitted;
 use App\Modules\Notifications\Listeners\NotifyTeacherChangesRequested;
@@ -165,6 +169,16 @@ class NotificationsServiceProvider extends Module
         // has to answer it; the answer goes back to whoever is waiting.
         Event::listen(CohortTransferRequested::class, NotifyTeacherCohortTransferRequested::class);
         Event::listen(CohortTransferDecided::class, NotifyStudentCohortTransferDecided::class);
+        /*
+        | ٠٣٤ · FR-006 · FR-008 — الإدارةُ صارَت تُسنِد، فصارَ للطالبِ حدثانِ
+        | يقعانِ عليه ولم يطلبْهما، ولم يكنْ لأيٍّ منهما مستمِعٌ في الشجرة.
+        |
+        | ⚠️ **و`CohortMembershipOpened` يقعُ على أربعةِ مسارات**، فالمستمِعُ
+        | يُرشِّحُ على نوعِ الحدثِ في أوّلِ سطرٍ منه — ربطُه هنا بلا ذلكَ يُرسِلُ
+        | رسالةً ثانيةً عن كلِّ انتقالٍ وُوفِقَ عليه.
+        */
+        Event::listen(CohortMembershipOpened::class, NotifyStudentCohortAssigned::class);
+        Event::listen(CohortTransferRequestDropped::class, NotifyStudentTransferRequestDropped::class);
 
         // The private session (023 · FR-018 · FR-023 · FR-027). Three listeners
         // and four types: the decision carries both of its answers, because they

@@ -38,7 +38,7 @@ class CohortPolicy extends BasePolicy
 
     public function view(User $user, Cohort $cohort): Response
     {
-        return $this->manage($user, $cohort);
+        return $this->platformAssign($user) ?? $this->manage($user, $cohort);
     }
 
     public function create(User $user): Response
@@ -59,7 +59,29 @@ class CohortPolicy extends BasePolicy
     /** Adding somebody by hand, taking somebody out, reading the roll. */
     public function manageMembers(User $user, Cohort $cohort): Response
     {
-        return $this->manage($user, $cohort);
+        return $this->platformAssign($user) ?? $this->manage($user, $cohort);
+    }
+
+    /**
+     * الإدارةُ تُسنِدُ في كلِّ مساحةٍ (٠٣٤ · FR-001) — **فوقَ سؤالِ المساحة**.
+     *
+     * ⚠️ **سياقٌ يُحَلُّ ولا يُطابِقُ رفضٌ كذلك، وهذه ثانيةُ طبقاتِ ٠٢٤ الخمس.**
+     * `WorkspaceContext::id()` يرجعُ إلى `users.last_workspace_id` لكلِّ مستخدمٍ
+     * **بمن فيهم موظَّفُ المنصّة** — فموظَّفٌ يملكُ مساحةَ عملٍ (وهو حالٌ عاديّ:
+     * مالكُ المنصّةِ يدرّسُ أيضاً) كانَ سيُرَدُّ بـ٤٠٣ عن كلِّ مجموعةٍ خارجَها،
+     * على الشاشةِ التي كلُّ غرضِها العملُ عبرَ المساحاتِ كلِّها.
+     *
+     * ⚠️ **وعلى `view` و`manageMembers` وحدَهما.** وضعُ الفرعِ في `manage()`
+     * يمنحُ حاملَ `cohorts.assign` **`update` و`archive`** معه — أي إعادةَ تسميةِ
+     * مجموعةِ مدرّسٍ وأرشفتَها. الصلاحيّةُ تقولُ «أسنِدْ»، لا «أدِرْ».
+     *
+     * ⚠️ **و`null` لا `deny()`**: عدمُ حملِ الصلاحيّةِ ليسَ رفضاً هنا — المدرّسُ
+     * صاحبُ المجموعةِ يمرُّ من الفرعِ الذي تحتَه. (سابقةُ الشكلِ:
+     * `OrderPolicy::platformReads()`.)
+     */
+    private function platformAssign(User $user): ?Response
+    {
+        return $user->can(Permissions::COHORTS_ASSIGN) ? Response::allow() : null;
     }
 
     private function manage(User $user, Cohort $cohort): Response

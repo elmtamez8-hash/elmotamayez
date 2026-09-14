@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Learning\Support;
 
 use App\Models\User;
+use App\Modules\Learning\Events\CohortTransferRequestDropped;
 use App\Modules\Learning\Models\CohortMembershipEvent;
 use App\Modules\Learning\Models\CohortTransferRequest;
 
@@ -89,5 +90,16 @@ final class PendingTransfer
             'actor_user_id' => $actor?->getKey(),
             'reason' => $reason,
         ]);
+
+        /*
+        | ⚠️ **٠٣٤ · FR-008 — السببُ كانَ يُكتَبُ ولا يقرؤُه الطالبُ أبداً.** هذا
+        | العمودُ (`decision_reason`) قارئاه مساران إداريّانِ للمدرّس، فالطلبُ
+        | يختفي من شاشةِ الطالبِ بلا كلمةٍ ويُعادُ إرسالُه.
+        |
+        | ⚠️ **وبعدَ الختمِ لا قبلَه**: `settle()` مُطالَبةٌ شرطيّة، فمنادٍ خسرَ
+        | السباقَ يخرجُ فوقَ هذا السطرِ — ولا يُرسِلُ رسالةً ثانيةً عن إسقاطٍ
+        | أوقعَه غيرُه.
+        */
+        event(new CohortTransferRequestDropped($request, $reason, $actor?->getKey()));
     }
 }
