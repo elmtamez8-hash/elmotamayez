@@ -814,17 +814,24 @@ workspaces ─┬─< cohorts                       (course_id · capacity · me
             │       ├─< cohort_memberships    (student_user_id · course_id · joined_at · closed_at)
             │       └─< class_sessions.cohort_id          ⚠️ nullable — see below
             │       └── individual_for_user_id            ⚠️ nullable — 023, see below
+            ├─< course_waitlist_entries       (student_user_id · course_id · invited_at · closed_at)
+            │       ⚠️ ٠٣٤ — the queue for a FULL course. No `position` column:
+            │       a stored number needs renumbering on every departure, and a
+            │       departure happens on every new enrolment. Order is
+            │       `created_at` then `id`; the number is drawn from the row's
+            │       index on the officer's page and NEVER sent to a student.
             ├─< cohort_membership_events      (joined | transferred | left | removed | requested …)
             ├─< cohort_transfer_requests      (to_cohort_id · from_cohort_id · status · decision_reason)
             └─< conversations.cohort_id ──< conversation_write_bans
                         ⚠️ unique(cohort_id), nullable          (user_id · expires_at · lifted_at)
 ```
 
-### Four claimed columns, and every one of them is a unique index
+### Five claimed columns, and every one of them is a unique index
 
 | Table | Column | What it guards |
 |---|---|---|
 | `cohort_memberships` | `closed_slot` — `0` while open, the row's own id afterwards | `unique(student_user_id, course_id, closed_slot)` — ONE open membership per course, enforced by the database. MySQL has no partial index, so «unique WHERE closed_at IS NULL» does not exist on the engine this ships to |
+| `course_waitlist_entries` | `closed_slot`, the same idiom again | `unique(student_user_id, course_id, closed_slot)` — one open place in the queue per course, and a row closed by enrolment releases them to queue again one day. The second index `(course_id, closed_slot, created_at)` is the SCREEN's: the unique one starts with the student and the officer's page starts with the course |
 | `cohort_transfer_requests` | `pending_slot`, the same idiom | one pending request per course. A second one is `request_pending`, not a queue |
 | `private_session_requests` | `pending_slot`, the same idiom again | `unique(student_user_id, starts_at, pending_slot)` — one LIVE request per (student × starting instant), `FR-022`. ⚠️ The slot MUST move off its zero when the request is decided, or a Tuesday six o'clock a teacher once refused stays booked against that student for ever; the guard is the THIRD case of `PrivateSessionRequestUniquenessTest`, and the first two pass without it |
 | `cohorts` | `members_count` | claimed by the atomic conditional UPDATE that takes the seat — never `count()` then `insert()`, and never `lockForUpdate()`, a no-op on SQLite |

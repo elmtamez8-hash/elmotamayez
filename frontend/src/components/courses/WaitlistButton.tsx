@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { Alert } from "@/components/ui/Alert";
@@ -23,12 +23,29 @@ import { userMessage } from "@/lib/errors";
  * ⚠️ **وزائرٌ بلا حساب يُدعى إلى الدخولِ لا يُضغَطُ به الزرّ.** الصفحةُ عامّةٌ
  * ومرسومةٌ على الخادم، فالضغطُ بلا رمزٍ ينتهي بـ401 يُحوِّلُه معالِجُ الأخطاءِ
  * إلى «انتهت جلستُك» — جملةٌ كاذبةٌ لمن لم تبدأْ له جلسةٌ قطّ.
+ *
+ * ⚠️ **والرمزُ يُقرَأُ في `useEffect` لا في التصيير**، كما تفعلُ جارتُه
+ * `MyCohort` على الصفحةِ نفسِها. `getToken()` يردُّ `null` على الخادمِ دائماً،
+ * فقراءتُه في التصييرِ ترسمُ «سجّلْ دخولك» على الخادمِ والزرَّ في المتصفّح —
+ * اختلافُ ترطيبٍ لا يراهُ jsdom ويراهُ كلُّ زائرٍ مسجَّلٍ في طرَفيّتِه.
  */
 export function WaitlistButton({ courseUuid }: { courseUuid: string }) {
   const [state, setState] = useState<"idle" | "pending" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
+  // `null` حتّى يعملَ المتصفّح: الخادمُ لا يعرفُ ولا يدّعي.
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
 
-  if (!hasAuthToken()) {
+  useEffect(() => {
+    setSignedIn(hasAuthToken());
+  }, []);
+
+  if (signedIn === null) {
+    // ⚠️ لا شيءَ في التصييرِ الأوّل — لا زرٌّ ولا دعوةٌ إلى الدخول. أيُّهما
+    // رُسِمَ هنا صارَ نصفَه خطأً في المتصفّحِ بعدَ لحظة.
+    return null;
+  }
+
+  if (!signedIn) {
     return (
       <p className="text-sm text-ink-muted">
         <Link href="/login" className="font-bold text-primary-ink underline">

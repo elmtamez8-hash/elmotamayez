@@ -16,6 +16,7 @@ use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * دعوةُ أوائلِ الدَّورِ إلى مقاعدَ فُتِحَت (٠٣٤ · FR-029).
@@ -55,6 +56,17 @@ class InviteFromWaitlist extends Action
      */
     public function handle(Cohort $cohort, User $actor): int
     {
+        /*
+        | ⚠️ **الصلاحيّةُ تُسأَلُ هنا كما تُسأَلُ في المُنتقي.** الشاشةُ تعرِضُ
+        | الصالحةَ للإسنادِ وحدَها، لكنّ قائمةً مُرشَّحةً تُشكِّلُ طلباً واحداً لا
+        | الذي بعدَه — ومجموعةٌ أُرشِفَت بينَ الرسمِ والضغطِ تُرسِلُ دعوةً إلى
+        | غرفةٍ انتهت. وهي قاعدةُ «يُسأَلُ مرّتَين» التي يكتبُها
+        | {@see \App\Shared\Contracts\CohortDirectory::isJoinable()}.
+        */
+        if (! $cohort->isAssignable()) {
+            return 0;
+        }
+
         $seats = $cohort->seatsLeft();
 
         if ($seats === 0) {
@@ -81,6 +93,22 @@ class InviteFromWaitlist extends Action
             | فيضيعُ المقعدُ على من ينتظرُه فعلاً.
             */
             ->whereHas('student')
+            /*
+            | ⚠️ **ولا يُدعى من صارَ له تسجيلٌ فعلاً — وهذا ليسَ بديلاً عن
+            | {@see \App\Modules\Learning\Listeners\LeaveWaitlistOnEnrolment}.**
+            | الخروجُ من الدَّورِ يقعُ على حدثِ إنشاءِ التسجيل، و`EnrollStudent`
+            | هو `firstOrCreate` فلا يُطلِقُ الحدثَ على صفٍّ قائم: طالبٌ انتهى
+            | تسجيلُه فاصطفَّ ثمّ عادَ فاشترى يُعادُ استعمالُ صفِّه بلا حدث،
+            | فيبقى في الدَّورِ مفتوحاً. وبلا هذا الشرطِ **تُنفَقُ دعوةٌ عليه**
+            | فيُحرَمُ منها من ينتظرُ فعلاً — وهو نصفُ FR-029 المهدور.
+            |
+            | واستعلامٌ فرعيٌّ واحدٌ في الجملةِ نفسِها، لا سؤالٌ لكلِّ صفّ.
+            */
+            ->whereNotExists(fn ($sub) => $sub->select(DB::raw(1))
+                ->from('enrollments')
+                ->whereColumn('enrollments.student_user_id', 'course_waitlist_entries.student_user_id')
+                ->where('enrollments.course_id', $courseId)
+                ->where('enrollments.status', 'active'))
             ->orderBy('created_at')
             ->orderBy('id')
             ->when($seats !== null, fn (Builder $query): Builder => $query->limit(max(1, (int) $seats)))
@@ -103,7 +131,7 @@ class InviteFromWaitlist extends Action
             }
 
             $invited++;
-            $this->notify($entry, $cohort);
+            $this->tellStudent($entry, $cohort);
         }
 
         if ($invited > 0) {
@@ -120,10 +148,15 @@ class InviteFromWaitlist extends Action
     }
 
     /**
-     * ⚠️ الكورسُ يُقرَأُ بتجاوزِ النطاق: الفاعلُ قد يكونُ موظَّفَ منصّةٍ سياقُه
+     * ⚠️ **`tellStudent` لا `notify`.** `ProviderAgnosticTest` يرفضُ اسمَ قناةٍ
+     * أو مزوِّدٍ داخلَ `Actions/`، و`notify()` هو مِنهاجُ `Notifiable` في
+     * لارافل — فمِنهاجٌ خاصٌّ بهذا الاسمِ يُحمِّرُ البناءَ ولو لم يُنادِ قناةً.
+     * والحارسُ محقٌّ في التشدُّد: اسمٌ يُقرَأُ قناةً هو أوّلُ خطوةٍ إلى واحدة.
+     *
+     * ⚠️ والكورسُ يُقرَأُ بتجاوزِ النطاق: الفاعلُ قد يكونُ موظَّفَ منصّةٍ سياقُه
      * مساحةٌ أخرى، فقراءةٌ مُنطَّقةٌ تردُّ `null` وتُرسِلُ رسالةً بلا اسمِ كورس.
      */
-    private function notify(CourseWaitlistEntry $entry, Cohort $cohort): void
+    private function tellStudent(CourseWaitlistEntry $entry, Cohort $cohort): void
     {
         // الطالبُ مضمونٌ بـ`whereHas('student')` فوقَ حلقةِ المطالبة.
         $student = $entry->student;

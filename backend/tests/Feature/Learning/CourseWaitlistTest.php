@@ -76,6 +76,15 @@ it('keeps the order of registration, including two in the same second', function
         ->all();
 
     expect($order)->toBe([$first->getKey(), $second->getKey(), $third->getKey()]);
+
+    /*
+    | ⚠️ **و`workspace_id` مكتوبٌ من الكورسِ صراحةً.** صاحبُ الصفِّ عضوٌ في لا
+    | مساحة، فسياقُه `null` والملءُ التلقائيُّ في `BelongsToWorkspace` لا يقعُ
+    | أبداً — ويبقى العمودُ صفراً وتقرأُ لوحةُ الإدارةِ قائمةً فارغة، بلا خطأ.
+    */
+    expect((int) CourseWaitlistEntry::query()->withoutWorkspaceScope()
+        ->where('student_user_id', $first->getKey())->value('workspace_id'))
+        ->toBe((int) $this->course->workspace_id);
 });
 
 it('takes a student out of the queue the moment they are enrolled, from any door', function (): void {

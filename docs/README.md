@@ -2322,13 +2322,22 @@ certificate, the group's thread and the classmates.
   index, which MySQL does not have, and never `count()` then `insert()`, which is
   the definition of the race. `closed_slot` is deliberately **not** `$fillable`:
   it is written inside the statement that owns the closing.
-- **Membership can be REQUIRED to reach the content, and the requirement has a
-  safety valve.** `LessonGate` refuses the tree while the course has a joinable
-  group and the reader is in none — and opens it **completely** the moment every
-  group is full, closed or archived (`joinableCohortsExist()` is false). Without
-  that valve a student who paid for a course is held behind a condition no action
-  of theirs can satisfy, which is the family of the worst defect this repository
-  records.
+- **⛔ MEMBERSHIP WAS REQUIRED TO REACH THE CONTENT, AND 034 REPEALED THAT.**
+  `LessonGate` used to refuse the tree while the course had a joinable group and
+  the reader was in none (021 · FR-028أ); 034 · FR-015 abolishes the condition in
+  as many words and the curriculum now opens for a student with no group, with a
+  sentence above it naming who may place them. The lock had already bitten: a
+  teacher created the first group of a live course and the curriculum shut,
+  retroactively, on four enrolments — one of them at 100%.
+  `joinableCohortsExist()` survives and decides nothing: it picks which of two
+  sentences the server sends («not placed yet» vs «no group open at all»).
+- **And self-join STAYS** (034 · FR-014أ, owner-decided 2026-09-14). A student may
+  join an open group themselves, on the one condition that they are not already
+  in another group of the same course — `already_member`, implemented since 021 —
+  and keeps the right to request a transfer. The platform's assignment screen is
+  an ADDITIONAL door, not a replacement, which is why the gate sentence names
+  both routes: one that names only the administration leaves the student waiting
+  in front of a working button.
 
 ### Endpoints
 
@@ -2336,6 +2345,7 @@ certificate, the group's thread and the classmates.
 |---|---|---|
 | `GET /courses/{course}/cohorts` | the enrolled student | the picker: schedule preview, seats left, the reader's own membership, their pending request, **and the groups they have left** |
 | `POST /cohorts/{cohort}/join` | the enrolled student | first join is free (FR-028د) · `throttle:cohort-write` |
+| `POST /courses/{course}/waitlist` | the student, or a guardian for their child | 034 · FR-026 — queue for a FULL course. `{ student_uuid? }` · `throttle:cohort-write` · ⚠️ answers **no position**: a number read by the student is a reservation, and the queue reserves nothing |
 | `POST /cohorts/{cohort}/transfer-requests` | the enrolled student | `{ reason? }` · `throttle:cohort-write` |
 | `DELETE /transfer-requests/{request}` | the requester | withdraw · `throttle:cohort-write` |
 | `GET /cohorts/{cohort}/roster` | a CURRENT member | name, face, level, rank, badges — and nothing else |
@@ -2356,6 +2366,40 @@ edit the course may schedule its runs. Moderation of the group's thread is
 seeder row **and** a backfill migration for every workspace that already exists
 (`SeedDefaultRoles` runs once at creation and never comes back) in exchange for no
 delegation anybody asked for.
+
+### The waitlist (034 · US4)
+
+A course that runs in groups and has **no assignable group left** is full: the
+purchase door refuses it (`CreateOrder`), the FREE enrolment door refuses it
+(`EnrollmentController::enroll`, which never passes through an order at all), the
+public card says so and offers the queue instead.
+
+⚠️ **THE CONDITION IS TWO CONDITIONS.** `assignableCohortsExist()` answers `false`
+for a full course AND for a course with no groups at all, by the identical value —
+so a guard written with that one line refuses the sale of every RECORDED course on
+the platform, which is FR-025 inverted onto the money path.
+`CohortDirectory::courseIsFull()` is the one spelling all four readers ask.
+
+⚠️ **THE QUEUE RESERVES NOTHING, AND EVERY SURFACE SAYS SO** (FR-027). There is no
+`position` column — a stored number needs renumbering on every departure, and
+departures happen on every new enrolment — the order is `created_at` then `id`, and
+the number is drawn from the row's index on the officer's page. Nothing sends a
+position to a student: a number on a screen reads as a reservation whatever the
+text around it says.
+
+⚠️ **THE INVITATION CLAIMS EACH ROW WITH A CONDITIONAL UPDATE** (`WHERE invited_at
+IS NULL`). Two officers opening two groups at once read the same list and would
+invite the same people twice, leaving the next in line never invited — the
+read-then-write this repository has paid for five times. A SEQUENTIAL test cannot
+see it: the candidate list already excludes invited rows, so one is written that
+opens the window from inside `get()` itself. Whoever is not invited is told
+**nothing**: a message about seats to somebody who got none is the promise FR-027
+forbids.
+
+Leaving is a listener on `EnrollmentCreated`, not an exception at read time — a
+correlated subquery on every page load that additionally leaves `closed_at`
+meaningless for ever. `closed_slot` becomes the row's own id, so the unique index
+`(student, course, closed_slot)` releases them to queue again one day.
 
 ### The two doors of a group's thread are different questions
 
