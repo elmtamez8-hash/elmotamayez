@@ -31,8 +31,32 @@ use Illuminate\Support\Facades\Schema;
 */
 return new class extends Migration
 {
+    /** ٣٠ حرفاً وَ٢٩ — والمولَّدُ منهما ٦٨ وَ٦٢. */
+    private const UNIQUE = 'cwe_student_course_slot_unique';
+
+    private const LOOKUP = 'cwe_course_slot_created_index';
+
+    /*
+    | ⛔ **واسمُ الفهرسِ يُكتَبُ بيدٍ، لأنّ المولَّدَ ٦٨ حرفاً وسقفُ MySQL ٦٤ —
+    | وSQLite لا سقفَ له، فلا اختبارٌ محلّيٌّ يرى ذلك.** قِيسَ على الإنتاجِ
+    | ٢٠٢٦-٠٩-١٤: `ERROR 1059 Identifier name … is too long` على
+    | `course_waitlist_entries_student_user_id_course_id_closed_slot_unique`،
+    | فسقطَ النشرُ كلُّه ولم تصلْ هجرتا الردمِ بعدَه.
+    |
+    | ⚠️ **و`Schema::create` ليست جملةً واحدة**: CREATE TABLE أوّلاً ثمّ جملةٌ
+    | لكلِّ فهرس — فالجدولُ **أُنشِئَ فعلاً** على الإنتاجِ ثمّ سقطَ الفهرسُ
+    | الفريدُ وما بعدَه، ولم يُسجَّلْ صفٌّ في `migrations`. فهذه الهجرةُ تُعيدُ
+    | التشغيلَ على قاعدةٍ فيها الجدولُ ناقصَ فهرسَين، ولا يجوزُ أن تُسقِطَه:
+    | صفوفُه — إن وُجِدَت — كُتِبَت بينَ بدءِ الحاوياتِ وفشلِ الهجرة.
+    */
     public function up(): void
     {
+        if (Schema::hasTable('course_waitlist_entries')) {
+            $this->addIndexes();
+
+            return;
+        }
+
         Schema::create('course_waitlist_entries', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
@@ -47,13 +71,27 @@ return new class extends Migration
             $table->unsignedBigInteger('closed_slot')->default(0);
             $table->timestamps();
 
-            $table->unique(['student_user_id', 'course_id', 'closed_slot']);
-            $table->index(['course_id', 'closed_slot', 'created_at']);
+            $table->unique(['student_user_id', 'course_id', 'closed_slot'], self::UNIQUE);
+            $table->index(['course_id', 'closed_slot', 'created_at'], self::LOOKUP);
         });
     }
 
     public function down(): void
     {
         Schema::dropIfExists('course_waitlist_entries');
+    }
+
+    /** الإصلاحُ: جدولٌ موجودٌ من نشرٍ سقطَ قبلَ فهرسَيه. */
+    private function addIndexes(): void
+    {
+        Schema::table('course_waitlist_entries', function (Blueprint $table): void {
+            if (! Schema::hasIndex('course_waitlist_entries', self::UNIQUE)) {
+                $table->unique(['student_user_id', 'course_id', 'closed_slot'], self::UNIQUE);
+            }
+
+            if (! Schema::hasIndex('course_waitlist_entries', self::LOOKUP)) {
+                $table->index(['course_id', 'closed_slot', 'created_at'], self::LOOKUP);
+            }
+        });
     }
 };
