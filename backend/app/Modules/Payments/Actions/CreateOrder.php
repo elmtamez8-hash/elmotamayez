@@ -10,6 +10,8 @@ use App\Modules\Payments\Enums\CouponScope;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Support\DiscountResolver;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\CohortDirectory;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -31,10 +33,31 @@ class CreateOrder extends Action
     public function __construct(
         private readonly DiscountResolver $discounts,
         private readonly RedeemCoupon $redeem,
+        private readonly CohortDirectory $cohorts,
     ) {}
 
     public function handle(Course $course, User $user, ?string $couponCode = null): Order
     {
+        /*
+        | ⚠️ **034 . FR-023 — AND THE CONDITION IS TWO CONDITIONS, NOT ONE.**
+        | A course taught in groups with no assignable group left is a seat that
+        | does not exist, and selling it is a refund with a student's hope
+        | attached. But `assignableCohortsExist()` answers `false` for a course
+        | with NO GROUPS AT ALL by the identical value — so a guard written with
+        | that one line refuses the sale of every RECORDED course on the
+        | platform, which is FR-025 inverted onto the money path. Both halves
+        | live behind {@see CohortDirectory::courseIsFull()}, which is also what
+        | the free door, the waitlist and the public card read.
+        |
+        | ⚠️ AND IT IS ASKED ONCE MORE AT APPROVAL, ATOMICALLY. This is a read
+        | and reads go stale; FR-024أ claims the seat inside `ApproveOrder`
+        | BEFORE any money is taken. This refusal is the one the student sees
+        | instead of paying for a queue.
+        */
+        if ($this->cohorts->courseIsFull((int) $course->getKey())) {
+            throw new DomainException('اكتملت مجموعات هذا الكورس. سجِّل في الدَّور ونُعلِمك حين يُفتح مكان.');
+        }
+
         // Against the COURSE's workspace, never `WorkspaceContext::id()` — null
         // for every student, which would silently let only platform coupons match.
         $discount = $this->discounts->resolve(

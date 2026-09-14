@@ -55,6 +55,7 @@ const course: CourseDetail = {
   cover_url: null,
   subject: null,
   grade_level: null,
+  is_full: false,
   teacher: {
     uuid: "a270bec8-49b4-4aed-bf97-cdb46ae14890",
     slug: "demo-teacher",

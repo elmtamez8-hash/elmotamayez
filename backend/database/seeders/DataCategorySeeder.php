@@ -137,6 +137,24 @@ class DataCategorySeeder extends Seeder
                 'expiry_behaviour' => ExpiryBehaviour::Delete->value,
                 'erasure_mode' => ErasureMode::Delete,
             ],
+            [
+                'key' => 'course_waitlist',
+                'label' => 'تسجيلك في دَور كورس مكتمل',
+                'purpose' => 'ليعرف المدرّس من ينتظر مكاناً، وليدعوك بالترتيب حين يُفتح واحد.',
+                'audience' => 'المدرّس صاحب الكورس · إدارة المنصّة',
+                'is_required' => false,
+                'owning_module' => 'learning',
+                'table_name' => 'course_waitlist_entries',
+                'column_name' => 'student_user_id',
+                /*
+                | سنةٌ واحدة، وهي أطولُ من عمرِ السؤالِ الذي يُجيبُه الصفّ.
+                | الصفُّ يقولُ «أعلِمْني إن فُتِحَ مكان» — ودَورٌ عمرُه عامٌ ونصفٌ
+                | يدعو إلى كورسٍ لم يعُدْ أحدٌ يذكرُ أنّه طلبَه.
+                */
+                'retain_days' => 365,
+                'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Delete,
+            ],
 
             // ── Assessments ─────────────────────────────────────────────────
             [

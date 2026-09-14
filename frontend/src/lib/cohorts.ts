@@ -152,6 +152,18 @@ export const cohorts = {
   join: (cohortUuid: string) =>
     api.post<CohortMembership>(`/cohorts/${cohortUuid}/join`),
 
+  /**
+   * التسجيلُ في دَورِ كورسٍ مكتمل (٠٣٤ · FR-026).
+   *
+   * ⚠️ ولا موضعَ في الجواب (FR-027): الدَّورُ لا يحجزُ مقعداً ولا يَعِدُ به،
+   * ورقمٌ يصلُ المتصفّحَ يُرسَمُ حجزاً مهما قالَ النصُّ حولَه.
+   */
+  joinWaitlist: (courseUuid: string, studentUuid?: string) =>
+    api.post<{ uuid: string; joined_at: string }>(
+      `/courses/${courseUuid}/waitlist`,
+      studentUuid === undefined ? {} : { student_uuid: studentUuid },
+    ),
+
   requestTransfer: (cohortUuid: string, reason?: string) =>
     api.post<CohortTransferRequest>(`/cohorts/${cohortUuid}/transfer-requests`, { reason }),
 

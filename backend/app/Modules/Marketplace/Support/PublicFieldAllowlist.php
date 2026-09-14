@@ -163,6 +163,12 @@ final class PublicFieldAllowlist
         'curriculum',
         'cohorts',
         /*
+        | ٠٣٤ · FR-023 — اكتملَ الكورسُ فلا يُباع، والبطاقةُ تقولُ ذلك وتعرِضُ
+        | الدَّور. **حكمُ الخادمِ لا اشتقاقٌ في المتصفّح**: إملاءانِ لشرطٍ واحدٍ
+        | يضعانِ جواباً على الشاشةِ وآخرَ عندَ الباب.
+        */
+        'is_full',
+        /*
         | How long a private hour in this course lasts (023 · FR-016أ). A
         | DURATION, never a price: the student reads it in the request form and
         | does not choose it, and a form that had to ask a second endpoint for it

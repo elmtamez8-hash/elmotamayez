@@ -220,6 +220,15 @@ export type CourseDetail = {
   curriculum: CurriculumSection[];
   cohorts: CohortSummary[];
   /**
+   * هل اكتملَ الكورس؟ (٠٣٤ · FR-023)
+   *
+   * ⚠️ **حكمُ الخادمِ، ولا يُشتَقُّ هنا من `cohorts`.** «صالحةٌ للانضمام» غيرُ
+   * «صالحةٍ للإسناد»، والقائمةُ العامّةُ مُرشَّحةٌ على الملكيّةِ لا على الحالة —
+   * فاشتقاقٌ هنا يُخالِفُ الشرطَ الذي يحرسُ بابَ الشراءِ نفسَه، وهي عينُ
+   * الإملاءَينِ اللذَينِ جعلا تسجيلاً مدفوعاً غيرَ قابلٍ للفتحِ في ٠١٨.
+   */
+  is_full: boolean;
+  /**
    * How long a private hour in this course lasts (023 · FR-016أ). Null means the
    * platform default — never «no private sessions», which is why the form reads
    * it with `??` rather than hiding itself when it is absent.

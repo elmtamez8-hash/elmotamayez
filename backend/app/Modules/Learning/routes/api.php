@@ -55,6 +55,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::middleware('throttle:cohort-write')->group(function (): void {
         Route::post('/cohorts/{cohort}/join', [CohortController::class, 'join']);
+        /*
+        | ٠٣٤ · FR-026 — دَورُ الكورسِ المكتمل، خلفَ الحدِّ المُسمّى نفسِه.
+        |
+        | ⚠️ والحدُّ السطريُّ (`throttle:5,1`) ممنوعٌ في هذه الشجرة:
+        | `ThrottleRequests` يُفهرِسُ الزائرَ على `domain|ip` بلا مسارٍ في التجزئة،
+        | فكلُّ حدٍّ سطريٍّ يتقاسمُ عدّاداً واحداً ويفوزُ أشدُّها.
+        */
+        Route::post('/courses/{course}/waitlist', [CohortController::class, 'joinWaitlist']);
         Route::post('/cohorts/{cohort}/transfer-requests', [CohortController::class, 'requestTransfer']);
         Route::delete('/transfer-requests/{transferRequest}', [CohortController::class, 'withdraw']);
     });

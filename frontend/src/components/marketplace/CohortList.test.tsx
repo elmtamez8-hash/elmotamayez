@@ -39,6 +39,7 @@ describe("CohortList", () => {
     render(
       <CohortList
         courseUuid={COURSE}
+        isFull={false}
         cohorts={[
           { ...base, uuid: "1", name: "أ", status: "open" },
           { ...base, uuid: "2", name: "ب", status: "full", seats_left: 0, is_joinable: false },
@@ -52,8 +53,44 @@ describe("CohortList", () => {
     expect(badgeOf("ج")?.textContent).toBe("مغلقة");
   });
 
+  /*
+    ٠٣٤ · FR-023 · FR-027 — اكتملَ الكورسُ فلا شراء، والدَّورُ مكانَه.
+  */
+  it("says the course is full, offers the queue, and keeps the cards drawn", () => {
+    render(
+      <CohortList
+        courseUuid={COURSE}
+        isFull
+        cohorts={[{ ...base, name: "أ", status: "full", seats_left: 0, is_joinable: false }]}
+      />,
+    );
+
+    expect(screen.getByText("اكتملت مجموعات هذا الكورس")).toBeTruthy();
+
+    // ⚠️ والجملةُ تقولُ إنّ الدَّورَ لا يحجز — قبلَ الضغطِ لا بعدَه. دَورٌ يُقرَأُ
+    // وعداً هو وعدٌ يُخلَف، ومَن يقرؤُه هنا هو من سينتظر.
+    expect(screen.getByText(/لا يحجز مقعداً ولا يَعِد به/)).toBeTruthy();
+
+    // والبطاقاتُ تبقى: «اكتمل» فوقَ لا شيءٍ لا يقولُ للزائرِ في أيِّ المواعيدِ
+    // يُدرَّسُ الكورسُ، وهو ما يقرّرُ على أساسِه أن ينتظرَ أو لا.
+    expect(screen.getByText("أ")).toBeTruthy();
+  });
+
+  it("says nothing about a queue while the course still has a place", () => {
+    render(
+      <CohortList
+        courseUuid={COURSE}
+        isFull={false}
+        cohorts={[{ ...base, name: "أ", status: "open" }]}
+      />,
+    );
+
+    expect(screen.queryByText("اكتملت مجموعات هذا الكورس")).toBeNull();
+  });
+
   it("paints each badge with tokens that exist", () => {
-    render(<CohortList courseUuid={COURSE} cohorts={[{ ...base, name: "أ", status: "open" }]} />);
+    render(<CohortList courseUuid={COURSE}
+        isFull={false} cohorts={[{ ...base, name: "أ", status: "open" }]} />);
 
     // Compared against the map rather than against a literal class string: a
     // literal here would be a second copy of the palette, and it would agree
@@ -64,7 +101,8 @@ describe("CohortList", () => {
   });
 
   it("says «no seats» rather than falling silent at zero", () => {
-    render(<CohortList courseUuid={COURSE} cohorts={[{ ...base, seats_left: 0 }]} />);
+    render(<CohortList courseUuid={COURSE}
+        isFull={false} cohorts={[{ ...base, seats_left: 0 }]} />);
 
     // `!seats_left` swallows the zero, and the group a visitor most needs to be
     // warned about would then read as «unlimited».
@@ -74,7 +112,8 @@ describe("CohortList", () => {
   it("prints no seat line at all for a group with no ceiling", () => {
     const { seats_left: _omitted, ...unlimited } = base;
 
-    render(<CohortList courseUuid={COURSE} cohorts={[unlimited]} />);
+    render(<CohortList courseUuid={COURSE}
+        isFull={false} cohorts={[unlimited]} />);
 
     // «غير محدود» is not a quantity: the key is absent and nothing is printed,
     // rather than a zero that reads as full.
@@ -85,6 +124,7 @@ describe("CohortList", () => {
     render(
       <CohortList
         courseUuid={COURSE}
+        isFull={false}
         cohorts={[
           { ...base, uuid: "1", name: "أ", seats_left: 1 },
           { ...base, uuid: "2", name: "ب", seats_left: 2 },
@@ -103,7 +143,8 @@ describe("CohortList", () => {
   });
 
   it("says so out loud when nothing is scheduled yet", () => {
-    render(<CohortList courseUuid={COURSE} cohorts={[{ ...base, schedule: [] }]} />);
+    render(<CohortList courseUuid={COURSE}
+        isFull={false} cohorts={[{ ...base, schedule: [] }]} />);
 
     // An empty gap reads as a broken section rather than as an answer.
     expect(screen.getByText("لم تُجدول حصص بعد")).toBeTruthy();
@@ -124,7 +165,8 @@ describe("CohortList", () => {
   | would refuse it.
   */
   it("offers a subscribe invitation on a joinable group", () => {
-    render(<CohortList courseUuid={COURSE} cohorts={[base]} />);
+    render(<CohortList courseUuid={COURSE}
+        isFull={false} cohorts={[base]} />);
 
     const link = screen.getByRole("link", { name: "اشترك في هذه المجموعة" });
 
@@ -137,6 +179,7 @@ describe("CohortList", () => {
     render(
       <CohortList
         courseUuid={COURSE}
+        isFull={false}
         cohorts={[{ ...base, status: "full", seats_left: 0, is_joinable: false }]}
       />,
     );
@@ -149,6 +192,7 @@ describe("CohortList", () => {
     render(
       <CohortList
         courseUuid={COURSE}
+        isFull={false}
         cohorts={[{ ...base, status: "open", is_joinable: false }]}
       />,
     );

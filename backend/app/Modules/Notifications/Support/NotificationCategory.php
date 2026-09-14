@@ -111,6 +111,9 @@ enum NotificationCategory: string
                 // إخوتُهما الثلاثةُ فوقَهما، للسببِ نفسِه.
                 NotificationType::CohortAssigned,
                 NotificationType::CohortTransferRequestDropped,
+                // ٠٣٤ · FR-029. الدعوةُ من الدَّورِ خبرٌ عن مقعدٍ في مجموعة،
+                // فهي حيثُ إخوتُها.
+                NotificationType::WaitlistInvited,
                 // 049. A postponement is a question about the timetable from
                 // the first message to the last.
                 NotificationType::SessionRescheduleRequested,

@@ -328,7 +328,11 @@ export default async function CoursePage({
               }
               groups={
                 course.cohorts.length > 0 ? (
-                  <CohortList courseUuid={course.uuid} cohorts={course.cohorts} />
+                  <CohortList
+                    courseUuid={course.uuid}
+                    cohorts={course.cohorts}
+                    isFull={course.is_full}
+                  />
                 ) : (
                   <EmptyState
                     title="لا مواعيد معلَنة بعد"

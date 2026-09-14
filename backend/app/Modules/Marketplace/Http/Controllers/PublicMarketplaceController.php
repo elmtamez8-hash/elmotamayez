@@ -176,6 +176,13 @@ class PublicMarketplaceController extends Controller
         // from another module's directory, and a Resource asking one would ask
         // once per row.
         $payload['private_subscription_available'] = $action->privateSubscriptionAvailable($course);
+        /*
+        | ٠٣٤ · FR-023 — اكتملَ الكورسُ فلا زرَّ شراء، وزرُّ الدَّورِ مكانَه.
+        | والقرارُ يُرسَلُ من الخادمِ ولا يُشتَقُّ في TypeScript: اشتقاقُ
+        | `status === "open" && !is_full` في المتصفّحِ هو الإملاءُ الثاني الذي
+        | جعلَ تسجيلاً مدفوعاً غيرَ قابلٍ للفتحِ في ٠١٨.
+        */
+        $payload['is_full'] = $action->isFull($course);
 
         return response()->json(['data' => $payload]);
     }

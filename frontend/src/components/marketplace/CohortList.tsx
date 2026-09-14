@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/Button";
+import { WaitlistButton } from "@/components/courses/WaitlistButton";
 import {
   MyCohortBadge,
   MyCohortLink,
@@ -57,7 +58,21 @@ function seats(count: number | undefined): string | null {
  * rebuilt here. That is the same value the purchase route asks, so the card and
  * the door cannot disagree.
  */
-export function CohortList({ courseUuid, cohorts }: { courseUuid: string; cohorts: CohortSummary[] }) {
+export function CohortList({
+  courseUuid,
+  cohorts,
+  isFull,
+}: {
+  courseUuid: string;
+  cohorts: CohortSummary[];
+  /**
+   * ⚠️ **حكمُ الخادم، ولا يُشتَقُّ هنا** (٠٣٤ · FR-023). «مفتوحةٌ وغيرُ مكتمِلة»
+   * غيرُ «غيرُ مؤرشَفةٍ وغيرُ مكتمِلة»، والبطاقاتُ أدناه مُرشَّحةٌ على الملكيّةِ
+   * لا على الحالة — فاشتقاقٌ من `cohorts` يُخالِفُ الشرطَ الذي يحرسُ بابَ
+   * الشراءِ نفسَه.
+   */
+  isFull: boolean;
+}) {
   return (
     /*
       ⚠️ THE PROVIDER LIVES HERE, NOT AT THE CALL SITE. A page that had to
@@ -68,6 +83,24 @@ export function CohortList({ courseUuid, cohorts }: { courseUuid: string; cohort
       the server, so a crawler still reads every group.
     */
     <MyCohortProvider courseUuid={courseUuid}>
+      {/*
+        ⚠️ **الجملةُ قبلَ القائمة، لا بدلاً منها.** البطاقاتُ تبقى مرسومةً:
+        زائرٌ يقرأُ «اكتمل» فوقَ لا شيءٍ لا يعرفُ كم مجموعةً في الكورسِ ولا في
+        أيِّ المواعيدِ يُدرَّس — وهو ما يقرّرُ على أساسِه أن ينتظرَ أو لا.
+      */}
+      {isFull && (
+        <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-line bg-primary-soft p-5">
+          <p className="text-sm font-bold text-ink">اكتملت مجموعات هذا الكورس</p>
+          <p className="text-xs leading-relaxed text-ink-muted">
+            لا مكان شاغراً الآن، فالتسجيل مغلق حتى يفتح المدرّس مكاناً. سجّل في الدَّور
+            ونُعلِمك أوّلاً حين يُفتح — <strong>والدَّور لا يحجز مقعداً ولا يَعِد به</strong>.
+          </p>
+          <div>
+            <WaitlistButton courseUuid={courseUuid} />
+          </div>
+        </div>
+      )}
+
       <ul className="grid grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] gap-4">
       {cohorts.map((cohort) => {
         const status = STATUS[cohort.status];

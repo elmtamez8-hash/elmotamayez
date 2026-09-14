@@ -86,6 +86,22 @@ interface CohortDirectory
     public function coursesWithAssignableCohorts(array $courseIds): array;
 
     /**
+     * Whether this course is FULL — it runs in groups, and not one of them could
+     * be assigned into (٠٣٤ · FR-023).
+     *
+     * ⚠️ **TWO CONDITIONS, AND A GUARD WRITTEN WITH ONE REFUSES EVERY RECORDED
+     * COURSE ON THE PLATFORM.** {@see assignableCohortsExist()} answers `false`
+     * for a course whose every group is full AND for a course with no groups at
+     * all, by the identical value — so «not assignable ⇒ refuse the sale» is
+     * FR-025 inverted onto the money path by a one-line condition that looks
+     * right. The pair lives here rather than at each caller because it is asked
+     * on the purchase door, on the free-enrolment door, on the waitlist door and
+     * on the public card — and four spellings of one predicate is the defect
+     * FR-030 already exists over.
+     */
+    public function courseIsFull(int $courseId): bool;
+
+    /**
      * Whether this person was a member of this group AT ANY POINT.
      *
      * Reading the old group's thread survives the transfer (FR-046); writing to
