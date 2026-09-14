@@ -38,7 +38,10 @@ use UnitEnum;
  * behind a uuid nobody was shown — and `PATCH /admin/plans/{uuid}/price` reachable
  * only by curl is the fourth.
  *
- * ⚠️ THE TEACHER'S OWN FIELDS ARE READ-ONLY HERE. The row is split between two
+ * ⚠️ THE TEACHER'S OWN FIELDS ARE READ-ONLY *ON THE EDIT SCREEN*, and the create
+ * screen beside it is a different question — 034 · FR-017 gave the platform a
+ * second door for WRITING a plan on a named teacher's behalf, which is not the
+ * same as rewriting one they wrote. See {@see Pages\CreatePlan}. The row is split between two
  * actors by FR-025: the teacher writes the duration and the coverage, the
  * platform writes the price. An officer who could rewrite «كلّ كورساتي» into «كورس
  * واحد» would be editing what a teacher is selling, which is not what this screen
@@ -205,6 +208,7 @@ class PlanResource extends Resource
     {
         return [
             'index' => Pages\ListPlans::route('/'),
+            'create' => Pages\CreatePlan::route('/create'),
             'edit' => Pages\EditPlan::route('/{record}/edit'),
         ];
     }
@@ -219,10 +223,19 @@ class PlanResource extends Resource
         return auth()->user()?->can(Permissions::PLANS_PRICE) === true;
     }
 
-    /** A plan is created by its teacher, in their own screen. Never here. */
+    /**
+     * ⚠️ بابٌ ثانٍ لا بديل (٠٣٤ · FR-017): كانَ هذا `false` ومكتوباً تحتَه
+     * «تُنشَأُ من شاشةِ المدرّسِ وحدَها» — وهي جملةٌ صارَت تناقضُ ما شُحِن.
+     * وبابُ المدرّسِ باقٍ كما هو، وهذا يُضافُ إليه.
+     *
+     * ⚠️ **ولا صلاحيّةَ ثانية**: مَن يُسعّرُ هو مَن يُنشئُ بالنيابة،
+     * واختراعُ ثانيةٍ جوابٌ ثانٍ لسؤالٍ له جواب — وكلُّ إنشاءٍ هنا
+     * يضعُ سعراً أصلاً. وتُسأَلُ ثانيةً داخلَ {@see CreatePlanForTeacher}،
+     * لأنَّ إخفاءَ زرٍّ ليسَ حراسة.
+     */
     public static function canCreate(): bool
     {
-        return false;
+        return auth()->user()?->can(Permissions::PLANS_PRICE) === true;
     }
 
     /**

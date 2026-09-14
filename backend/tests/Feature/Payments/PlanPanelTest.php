@@ -45,15 +45,22 @@ it('opens for the platform and for nobody in a tenant role', function (): void {
         $this->actingAs($tenant);
         app(WorkspaceContext::class)->set($this->workspace);
 
-        expect(PlanResource::canViewAny())->toBeFalse();
+        expect(PlanResource::canViewAny())->toBeFalse()
+            ->and(PlanResource::canCreate())->toBeFalse();
     }
 
     $this->actingAs($this->platform);
 
     expect(PlanResource::canViewAny())->toBeTrue()
-        // A plan is the teacher's product; an officer inventing one in somebody
-        // else's workspace is not what this screen is for.
-        ->and(PlanResource::canCreate())->toBeFalse();
+        /*
+        | 034 . FR-017 REVERSED THIS ASSERTION, AND IT USED TO READ `toBeFalse()`
+        | under a comment saying a plan is created by its teacher alone. The
+        | platform now has a SECOND door for writing one on a named teacher's
+        | behalf -- the teacher's own door is untouched -- and it is the pricing
+        | permission that opens it, because whoever prices is whoever creates on
+        | their behalf.
+        */
+        ->and(PlanResource::canCreate())->toBeTrue();
 });
 
 it('never offers to delete a plan, even to a super admin', function (): void {
