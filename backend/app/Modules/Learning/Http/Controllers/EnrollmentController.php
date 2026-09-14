@@ -24,6 +24,7 @@ use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Models\LessonProgress;
 use App\Modules\Learning\Support\LessonAccess;
 use App\Modules\Media\Models\MediaAsset;
+use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\SubscriptionDirectory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -109,6 +110,7 @@ class EnrollmentController extends Controller
         Course $course,
         EnrollStudent $action,
         SubscriptionDirectory $subscriptions,
+        CohortDirectory $cohorts,
     ): JsonResponse {
         $this->authorize('view', $course);
 
@@ -134,6 +136,22 @@ class EnrollmentController extends Controller
         */
         if ($this->currentUser($request)->teachesOnPlatform()) {
             return response()->json(['message' => 'هذا الحسابُ حسابُ مدرّسٍ على المنصّة، والمدرّسُ لا يشتركُ في الكورسات.'], 422);
+        }
+
+        /*
+        | ⚠️ **034 . FR-023 — THE SECOND DOOR, AND WITHOUT IT THE GUARD COVERS
+        | HALF THE PRODUCT.** A FREE course never passes through `CreateOrder` at
+        | all, so a full free course would keep accepting enrolments without
+        | limit — a room with thirty chairs and no ceiling on who walks in. Same
+        | predicate, read from the same place: the two conditions live behind
+        | `courseIsFull()` because a one-line version of this refuses every
+        | recorded course on the platform.
+        */
+        if ($cohorts->courseIsFull((int) $course->getKey())) {
+            return response()->json([
+                'message' => 'اكتملت مجموعات هذا الكورس. سجِّل في الدَّور ونُعلِمك حين يُفتح مكان.',
+                'code' => 'course_full',
+            ], 422);
         }
 
         if ($subscriptions->courseRequiresPurchase((int) $course->getKey())) {

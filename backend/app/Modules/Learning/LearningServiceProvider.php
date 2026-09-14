@@ -7,8 +7,10 @@ namespace App\Modules\Learning;
 use App\Modules\Assessments\Events\ExamSubmitted;
 use App\Modules\Courses\Events\CourseStructureChanged;
 use App\Modules\Courses\Events\ExamItemOpened;
+use App\Modules\Learning\Events\EnrollmentCreated;
 use App\Modules\Learning\Listeners\CompleteExamLessonOnSubmission;
 use App\Modules\Learning\Listeners\CompleteExamLessonsAlreadyAnswered;
+use App\Modules\Learning\Listeners\LeaveWaitlistOnEnrolment;
 use App\Modules\Learning\Listeners\ResyncCourseProgress;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortTransferRequest;
@@ -89,5 +91,12 @@ class LearningServiceProvider extends Module
         // so without this every stored percentage in the course describes a tree
         // that no longer exists.
         Event::listen(CourseStructureChanged::class, ResyncCourseProgress::class);
+
+        /*
+        | ٠٣٤ · FR-028 — مَن صارَ له تسجيلٌ يخرجُ من الدَّور، من أيِّ بابٍ جاء.
+        | على الحدثِ لا عندَ القراءة: استثناءٌ وقتَ القراءةِ استعلامٌ فرعيٌّ في
+        | كلِّ فتحِ صفحة، ويتركُ الصفَّ غيرَ مختومٍ إلى الأبد.
+        */
+        Event::listen(EnrollmentCreated::class, LeaveWaitlistOnEnrolment::class);
     }
 }

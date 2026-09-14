@@ -47,6 +47,7 @@ use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\Learning\Models\CohortMembershipEvent;
 use App\Modules\Learning\Models\CohortTransferRequest;
+use App\Modules\Learning\Models\CourseWaitlistEntry;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
@@ -1048,14 +1049,15 @@ it('refuses an edit or a deletion of a moderation record', function (): void {
 });
 
 /*
-| Spec 021 — the four new tenant-owned tables (Constitution I, non-negotiable).
+| Spec 021 — the four new tenant-owned tables, plus 034's waitlist
+| (Constitution I, non-negotiable).
 |
 | ⚠️ A TENANT-SCOPED MODEL WITHOUT `BelongsToWorkspace` LEAKS ACROSS WORKSPACES
 | AND NO OTHER TEST IN THIS REPOSITORY WILL SAY SO. The trait check beside the
 | count is not decoration: a count of one can also be produced by a fixture that
 | happened to create one row, so both halves are asserted for every table.
 */
-it('scopes the four cohort tables to the workspace that owns them', function (): void {
+it('scopes the cohort tables and the waitlist to the workspace that owns them', function (): void {
     [$workspaceA, $ownerA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
     [$workspaceB, $ownerB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
 
@@ -1096,12 +1098,34 @@ it('scopes the four cohort tables to the workspace that owns them', function ():
             'to_cohort_id' => $cohort->getKey(),
             'student_user_id' => $student->getKey(),
         ]);
+
+        /*
+        | 034 . T043 — the waitlist, added in the same change as its table
+        | (Principle I). The scope does NOT guard the student here: they are a
+        | member of no workspace, so `WorkspaceScope` is inert on every route
+        | they reach and the guard is an explicit owner condition inside the
+        | Action. What it guards is the panel's read, which is a list of other
+        | people's students.
+        */
+        CourseWaitlistEntry::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'course_id' => $course->getKey(),
+            'student_user_id' => $student->getKey(),
+        ]);
     });
 
     $seed($workspaceA, $ownerA);
     $seed($workspaceB, $ownerB);
 
-    foreach ([Cohort::class, CohortMembership::class, CohortMembershipEvent::class, CohortTransferRequest::class] as $model) {
+    $tables = [
+        Cohort::class,
+        CohortMembership::class,
+        CohortMembershipEvent::class,
+        CohortTransferRequest::class,
+        CourseWaitlistEntry::class,
+    ];
+
+    foreach ($tables as $model) {
         expect($context->forWorkspace($workspaceA, fn () => $model::query()->count()))->toBe(1)
             ->and($context->forWorkspace($workspaceB, fn () => $model::query()->count()))->toBe(1)
             ->and($model::query()->withoutGlobalScopes()->count())->toBe(2)

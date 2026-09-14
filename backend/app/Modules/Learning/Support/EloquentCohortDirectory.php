@@ -93,6 +93,14 @@ class EloquentCohortDirectory implements CohortDirectory
         return $this->coursesWithAssignableCohorts([$courseId]) !== [];
     }
 
+    public function courseIsFull(int $courseId): bool
+    {
+        // Both halves, in the order that costs least: a course with no groups at
+        // all is the common case and answers on the first query.
+        return $this->coursesWithCohorts([$courseId]) !== []
+            && $this->coursesWithAssignableCohorts([$courseId]) === [];
+    }
+
     /** @return list<int> */
     public function coursesWithAssignableCohorts(array $courseIds): array
     {

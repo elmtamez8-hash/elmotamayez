@@ -288,6 +288,18 @@ enum NotificationType: string
     case CohortTransferRequestDropped = 'cohort_transfer_request_dropped';
 
     /*
+    | ٠٣٤ · FR-029 — فُتِحَ مكانٌ، ودَورُك جاء.
+    |
+    | ⚠️ **ولا يُرسَلُ لمن لم يُدعَ شيء.** الصفُّ التالي في الدَّورِ لم يتغيّرْ
+    | حالُه، ورسالةٌ تقولُ «فُتِحَت مقاعد» لمن لم ينَلْ واحداً منها هي الوعدُ
+    | الذي تمنعُه FR-027 مُرسَلاً في رسالة.
+    |
+    | ⚠️ **وخارجَ `targetsGuardians()` كإخوتِه** — أسرةُ المجموعاتِ كلُّها خارجَها
+    | بالحجّةِ المكتوبةِ فوقَها، و`WhatsAppDefaultsTest` يؤكّدُ العددَ بالضبط.
+    */
+    case WaitlistInvited = 'waitlist_invited';
+
+    /*
     | The private session (023 · FR-018 · FR-023 · FR-027). Four, and each one is
     | somebody's whole knowledge of where a request got to.
     |
@@ -510,6 +522,7 @@ enum NotificationType: string
             self::CohortTransferRejected => 'رفض طلب الانتقال',
             self::CohortAssigned => 'إسناد إلى مجموعة',
             self::CohortTransferRequestDropped => 'سقوط طلب الانتقال',
+            self::WaitlistInvited => 'دعوة من دَور الانتظار',
             self::PrivateSessionRequested => 'طلب حصة خاصة',
             self::PrivateSessionAccepted => 'قبول حصة خاصة',
             self::PrivateSessionRejected => 'رفض حصة خاصة',

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Learning\Support;
 
+use App\Modules\Learning\Models\CourseWaitlistEntry;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Models\LessonProgress;
 use App\Shared\Contracts\PersonalDataOwner;
@@ -32,7 +33,7 @@ class LearningPersonalData implements PersonalDataOwner
     /** @return list<string> */
     public function describe(): array
     {
-        return ['enrollment_record', 'lesson_progress'];
+        return ['enrollment_record', 'lesson_progress', 'course_waitlist'];
     }
 
     /**
@@ -111,6 +112,34 @@ class LearningPersonalData implements PersonalDataOwner
                 column: 'lesson_progress.id',
             );
         }
+
+        /*
+        | 034 . T044 — the waitlist.
+        |
+        | The course TITLE by JOIN, for the reason written above the first walk:
+        | `->with('course')` runs Course's own global scope inside the relation
+        | query and returns null for every course outside whatever workspace the
+        | reader happens to resolve into — a list of blanks, exported in silence.
+        |
+        | The row is the student's OWN place in a queue, so it reaches them
+        | through `student_user_id` directly and needs no id list.
+        */
+        yield from ExportWalk::keyed(
+            'course_waitlist',
+            CourseWaitlistEntry::query()
+                ->withoutWorkspaceScope()
+                ->leftJoin('courses', 'courses.id', '=', 'course_waitlist_entries.course_id')
+                ->where('course_waitlist_entries.student_user_id', $subject->user->getKey())
+                ->select(['course_waitlist_entries.*', 'courses.title as course_title']),
+            fn (CourseWaitlistEntry $entry): array => [
+                'uuid' => $entry->uuid,
+                'course_title' => $entry->getAttribute('course_title'),
+                'joined_at' => ExportWalk::at($entry->created_at),
+                'invited_at' => ExportWalk::at($entry->invited_at),
+                'closed_at' => ExportWalk::at($entry->closed_at),
+            ],
+            column: 'course_waitlist_entries.id',
+        );
     }
 
     /**
@@ -137,7 +166,18 @@ class LearningPersonalData implements PersonalDataOwner
         | resolved once at the top of the walk, and it is still true after this
         | batch because the enrolments are deleted only when the progress is gone.
         */
-        $deleted = 0;
+        // The waitlist names its student directly and nothing points at it, so it
+        // goes first and cheaply — and a row left behind would be a person in a
+        // queue for a course they asked to be forgotten by.
+        $deleted = CourseWaitlistEntry::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $subject->user->getKey())
+            ->limit($limit)
+            ->delete();
+
+        if ($deleted >= $limit) {
+            return $deleted;
+        }
 
         foreach (array_chunk($subject->enrollmentIds, 500) as $enrollmentIds) {
             $deleted += LessonProgress::query()
@@ -173,7 +213,15 @@ class LearningPersonalData implements PersonalDataOwner
         int $limit,
         array $exemptUserIds = [],
     ): int {
-        if ($category !== 'lesson_progress' || $mode !== ExpiryBehaviour::Delete) {
+        if ($mode !== ExpiryBehaviour::Delete) {
+            return 0;
+        }
+
+        if ($category === 'course_waitlist') {
+            return $this->expireWaitlist($before, $limit, $exemptUserIds);
+        }
+
+        if ($category !== 'lesson_progress') {
             return 0;
         }
 
@@ -204,6 +252,31 @@ class LearningPersonalData implements PersonalDataOwner
                 ->withoutWorkspaceScope()
                 ->whereIn('student_user_id', $exemptUserIds)
                 ->select('id'));
+        }
+
+        return $query->limit($limit)->delete();
+    }
+
+    /**
+     * ⚠️ THE BOUND IS A DATE COMPUTED IN PHP AND COMPARED AS A STRING, for the
+     * two reasons written above: `whereDate()` throws away the index, and
+     * `created_at + INTERVAL n DAY` raises ERROR 1441 on MySQL past year 9999
+     * while SQLite returns NULL and expires nothing at all.
+     *
+     * ⚠️ AND THE HELD SUBJECT IS EXCLUDED BY A COLUMN HERE, not through a
+     * subquery: this table names its student directly, which `lesson_progress`
+     * does not.
+     *
+     * @param  list<int>  $exemptUserIds
+     */
+    private function expireWaitlist(CarbonImmutable $before, int $limit, array $exemptUserIds): int
+    {
+        $query = CourseWaitlistEntry::query()
+            ->withoutWorkspaceScope()
+            ->where('created_at', '<', $before->toDateTimeString());
+
+        if ($exemptUserIds !== []) {
+            $query->whereNotIn('student_user_id', $exemptUserIds);
         }
 
         return $query->limit($limit)->delete();

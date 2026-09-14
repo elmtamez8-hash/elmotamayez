@@ -7,9 +7,11 @@ namespace App\Modules\Learning\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Actions\JoinCohort;
+use App\Modules\Learning\Actions\JoinWaitlist;
 use App\Modules\Learning\Actions\ReadCohortRoster;
 use App\Modules\Learning\Actions\RequestTransfer;
 use App\Modules\Learning\Actions\WithdrawTransferRequest;
+use App\Modules\Learning\Http\Requests\JoinWaitlistRequest;
 use App\Modules\Learning\Http\Resources\CohortResource;
 use App\Modules\Learning\Http\Resources\TransferRequestResource;
 use App\Modules\Learning\Models\Cohort;
@@ -174,6 +176,34 @@ class CohortController extends Controller
 
         // `members`, not `data` — the payload is a roll, and the contract names it.
         return response()->json(['members' => $action->handle($cohort)]);
+    }
+
+    /**
+     * التسجيلُ في دَورِ كورسٍ مكتمل (٠٣٤ · FR-026 · FR-027).
+     *
+     * ⚠️ **ولا تسجيلَ في الكورسِ شرطاً هنا، بخلافِ كلِّ مسارٍ آخرَ في هذا
+     * الملفّ.** الدَّورُ هو ما يفعلُه من **لا** يستطيعُ التسجيل: اشتراطُ تسجيلٍ
+     * قائمٍ يجعلُه صفّاً لا يدخلُه إلّا من لا يحتاجُه.
+     *
+     * ⚠️ **والجوابُ بلا موضع** (FR-027): رقمٌ يُرسَلُ يُقرَأُ حجزاً، والدَّورُ لا
+     * يحجزُ مقعداً ولا يَعِدُ به — والشاشةُ تقولُ ذلك بالنصّ.
+     */
+    public function joinWaitlist(JoinWaitlistRequest $request, Course $course, JoinWaitlist $action): JsonResponse
+    {
+        try {
+            $entry = $action->handle(
+                $this->currentUser($request),
+                $course,
+                $request->string('student_uuid')->value() ?: null,
+            );
+        } catch (DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'uuid' => $entry->uuid,
+            'joined_at' => $entry->created_at,
+        ], 201);
     }
 
     public function join(Request $request, Cohort $cohort, JoinCohort $action): JsonResponse
