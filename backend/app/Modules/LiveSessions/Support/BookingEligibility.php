@@ -132,10 +132,15 @@ class BookingEligibility
      * nightly job repossess every seat on the platform — each one refused for
      * holding exactly the credit it is entitled to hold.
      *
-     * ⚠️ THE HAPPY PATH IS ONE QUERY AND THE DATE IS ON THE REFUSAL BRANCH. This
-     * chain is re-run by `BroadcastController::presence()` on every heartbeat,
-     * and its budget is 15 against a steady state of 14 with «the ceiling is not
-     * raised» written above the number.
+     * ⚠️ THIS IS NO LONGER ON THE HEARTBEAT, AND THE NUMBER IT USED TO CITE WAS
+     * ITS OWN DOING. It said «the budget is 15 against a steady state of 14» —
+     * and this method's one query is what turned that 14 into a 15, so the
+     * comment described the world before itself. `presence()` asks
+     * `RoomRevocation` now and never reaches here: running out of credit is a
+     * question about the NEXT booking, not about the hour a student has already
+     * paid for and is sitting in.
+     *
+     * The happy path is still one query, for the door's sake.
      *
      * ⚠️ AND THE SENTENCE CARRIES THE DATE, because a refusal a student can do
      * nothing with is the shape FR-013 forbids. «لا رصيد» to somebody whose
