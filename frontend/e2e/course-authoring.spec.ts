@@ -55,6 +55,19 @@ test.describe("SC-016 — من صفحة الكورس إلى عنصر منشور"
 
     await page.getByLabel("عنوان الكورس").fill(course);
     await page.getByLabel("الوصف").fill("كورس ينشئه اختبار آلي ثم يؤلّف محتواه.");
+
+    /*
+      ⚠️ **الحقلانِ مطلوبانِ والمتصفّحُ يرفضُ الإرسالَ بدونِهما، فلا يُبلَّغُ عن
+      خطأٍ أصلاً — تنتهي المهلةُ عندَ السطرِ التالي بجملةٍ تسمّي العنصرَ الذي لم
+      يُوجَدْ لا السببَ.** «المادّة» صارَت مطلوبةً حينَ وُجِدَت `subject_id`
+      فارغةً على كلِّ كورسٍ على المنصّة، و«نوع الكورس» في ٢٠٢٦-٠٩-١٥ للسببِ
+      نفسِه — وهذا الملفُّ لم يُمَسَّ في المرّتَين. أيُّ حقلٍ مطلوبٍ يُضافُ إلى
+      استمارةِ الإنشاءِ يُضافُ هنا في التغييرِ نفسِه، لأنّ Playwright لا تعملُ
+      في بوّابةِ الدمج.
+    */
+    await page.getByLabel("المادّة").selectOption({ index: 1 });
+    await page.getByLabel("نوع الكورس").selectOption("recorded");
+
     await page.getByRole("button", { name: "أنشئ الكورس" }).click();
 
     // Straight from creating a course to authoring it — the button T100 added.

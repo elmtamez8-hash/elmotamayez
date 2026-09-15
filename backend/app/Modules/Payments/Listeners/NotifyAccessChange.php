@@ -83,9 +83,30 @@ class NotifyAccessChange implements ShouldQueue
         // missing one refuses the render rather than printing a gap (FR-037). So
         // the two bodies take different keys and this is not a shared payload
         // with an unused half.
-        $variables += $type === NotificationType::AccessWithheld
-            ? ['credits_needed' => (string) $this->standing->creditsNeededFor($student, (int) $balance->course_id)]
-            : ['credits' => (string) max(0, $balance->remaining_credits)];
+        if ($type === NotificationType::AccessWithheld) {
+            /*
+            | ⛔ **مشترِكٌ لا يُحجَبُ أصلاً، وكانَ يُقالُ له «تحتاج ٠ حصة».**
+            |
+            | `BalanceAnnouncer` يقرّرُ **هل** يقعُ الإشعارُ من الختمِ
+            | (`WithholdingReader`)، وهو لا يسألُ عن الاشتراكاتِ قطّ — بينما
+            | `AccountStanding` يُعفي المشترِكَ منذُ ٠١١ · FR-026. فالمشترِكُ
+            | برصيدٍ سالبٍ يُعلَنُ محجوباً ثمّ يُقرَأُ رقمُه صفراً: «رفضٌ لا
+            | يطلبُ شيئاً»، وهو ما يرفضُه `EloquentAccountStanding` بنصِّه.
+            |
+            | فالحكمُ والرقمُ يُقرآنِ من مشيةٍ واحدة، ولا إشعارَ بلا حكم — وهذا
+            | أصحُّ من إعادةِ الرقمِ القديم: الصوابُ ألّا يصلَ المشترِكَ إشعارُ
+            | حجبٍ من الأساس.
+            */
+            $money = $this->standing->refusalFor($student, (int) $balance->course_id);
+
+            if (! $money['withheld']) {
+                return;
+            }
+
+            $variables['credits_needed'] = (string) $money['credits_needed'];
+        } else {
+            $variables['credits'] = (string) max(0, $balance->remaining_credits);
+        }
 
         $this->notifications->handle(new NotificationRequest(
             recipient: $student,

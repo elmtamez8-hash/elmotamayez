@@ -1,13 +1,7 @@
 import Link from "next/link";
-import { counted } from "@/lib/labels";
+import { counted, courseTypeLabel } from "@/lib/labels";
 import type { CourseCard as Course } from "@/lib/public-api";
 import { StarRating } from "./StarRating";
-
-const TYPE_LABELS: Record<Course["type"], string> = {
-  individual: "فردي",
-  group: "جماعي",
-  recorded: "مسجّل",
-};
 
 function hours(seconds: number): string {
   const value = Math.round(seconds / 3600);
@@ -75,7 +69,7 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div className="flex items-center gap-2 text-xs">
           <span className="rounded-lg bg-primary-soft px-2 py-0.5 font-medium text-primary-ink">
-            {TYPE_LABELS[course.type]}
+            {courseTypeLabel(course.type)}
           </span>
           <span className="text-ink-muted">
             {counted(course.lessons_count, {

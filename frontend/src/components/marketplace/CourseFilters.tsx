@@ -4,6 +4,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTransition } from "react";
 import type { Taxonomy } from "@/lib/public-api";
 import { Select } from "@/components/ui/Field";
+import { COURSE_TYPES, courseTypeLabel } from "@/lib/labels";
 
 /**
  * Horizontal filter bar for the courses page.
@@ -11,12 +12,6 @@ import { Select } from "@/components/ui/Field";
  * Same contract as TeacherFilters: state lives in the URL so a filtered result is
  * shareable and the page can stay a Server Component (FR-051, SC-015).
  */
-const TYPES = [
-  { value: "individual", label: "فردي" },
-  { value: "group", label: "جماعي" },
-  { value: "recorded", label: "مسجّل" },
-];
-
 const SORTS = [
   { value: "popular", label: "الأكثر طلباً" },
   { value: "newest", label: "الأحدث" },
@@ -109,9 +104,10 @@ export function CourseFilters({
             className={field}
           >
             <option value="">كل الأنواع</option>
-            {TYPES.map((type) => (
+            {COURSE_TYPES.map((type) => (
               <option key={type.value} value={type.value}>
-                {type.label}
+                {/* الفلتر يعرض الاسم وحده: التوضيحُ بعد الشرطة للمدرّس وهو يختار، لا للزائر وهو يفلتر. */}
+                {courseTypeLabel(type.value)}
               </option>
             ))}
           </Select>

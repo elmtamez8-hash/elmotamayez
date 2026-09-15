@@ -181,29 +181,39 @@ export function lessonTypeLabel(type: string): string {
 /**
  * How a course is taught — `courses.course_type`.
  *
- * ⚠️ HERE BECAUSE IT IS READ BY THREE SCREENS, and until 2026-09-15 the only
- * copy lived inside the public course page. The teacher's create and edit forms
- * now WRITE the column, so a second and third spelling of these three words was
- * the next commit — the rule this file exists for.
+ * ⚠️ **AND THE CONSOLIDATION WAS INCOMPLETE WHEN IT WAS FIRST WRITTEN.** This
+ * docblock claimed «until 2026-09-15 the only copy lived inside the public
+ * course page»; there were THREE more — `CourseCard.tsx`, `CourseFilters.tsx`
+ * and the Filament Select, the last of which built its map POSITIONALLY with
+ * `array_combine`, so a reorder would have mislabelled every option in silence.
+ * A claim of exhaustiveness is worth a grep before it is written down. All four
+ * read from here or from `Course::typeLabels()` now.
  *
  * `COURSE_TYPES` is the order the pickers offer, and the hints are part of the
  * label rather than decoration: «جماعي» and «مسجّل» are the two a teacher picks
  * between wrongly, and the difference is whether there are live sessions.
  */
-const COURSE_TYPE_LABELS: Record<string, string> = {
+export type CourseType = "individual" | "group" | "recorded";
+
+/**
+ * ⚠️ `Record<CourseType, …>`, NOT `Record<string, …>`. The public page it was
+ * lifted out of had the exhaustive form, and the loose one lets a fourth course
+ * type print its raw English slug into Arabic UI instead of failing `tsc`.
+ */
+const COURSE_TYPE_LABELS: Record<CourseType, string> = {
   individual: "فردي",
   group: "جماعي",
   recorded: "مسجّل",
 };
 
-export const COURSE_TYPES: { value: string; label: string }[] = [
+export const COURSE_TYPES: { value: CourseType; label: string }[] = [
   { value: "individual", label: "فردي — حصص خاصّة مع الطالب" },
   { value: "group", label: "جماعي — مجموعات لها مواعيد وحصص حيّة" },
   { value: "recorded", label: "مسجّل — دروس يشاهدها الطالب بلا حصص حيّة" },
 ];
 
 export function courseTypeLabel(type: string): string {
-  return COURSE_TYPE_LABELS[type] ?? type;
+  return COURSE_TYPE_LABELS[type as CourseType] ?? type;
 }
 
 const DIFFICULTY_LABELS: Record<string, string> = {

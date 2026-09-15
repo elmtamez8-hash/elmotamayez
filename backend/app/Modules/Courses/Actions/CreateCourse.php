@@ -13,7 +13,7 @@ use App\Modules\Courses\Support\SubjectResolver;
 use App\Shared\Actions\Action;
 use App\Shared\Support\WorkspaceContext;
 use App\Shared\Traits\LogsActivity;
-use InvalidArgumentException;
+use DomainException;
 
 class CreateCourse extends Action
 {
@@ -40,13 +40,23 @@ class CreateCourse extends Action
         | الإنتاج (قِيسَ ٢٠٢٦-٠٩-١٥)، ومنها كورسٌ يحملُ ثماني حصصٍ حيّةٍ ومجموعةً
         | مفتوحة.
         |
-        | و«مطلوب» في `CreateCourseRequest` تحرسُ بابَ الواجهةِ وحدَه: لوحةُ
-        | Filament تُنشئُ بـ`handleRecordCreation()` بلا طلبٍ أصلاً، والبذورُ تكتبُ
-        | داخلَ `Model::unguarded()`. فالقاعدةُ في الفعلِ — البابُ الوحيدُ الذي
-        | يمرُّ منه الثلاثة — كما يوجبُ هذا المستودعُ لكلِّ قاعدةِ عمل.
+        | و«مطلوب» في `CreateCourseRequest` تحرسُ بابَ الواجهةِ وحدَه: صفحةُ
+        | إنشاءٍ في لوحةِ Filament تبني الصفَّ بـ`new Model($data)` ولا تبلغُ
+        | `FormRequest` أصلاً. فالقاعدةُ هنا، حيثُ يضعُ هذا المستودعُ كلَّ قاعدةِ
+        | عمل.
+        |
+        | ⚠️ **ولا يشملُ ذلكَ البذور، ولا يجوزُ أن يُقالَ إنّه يشملُها.** لا بذرةَ
+        | في الشجرةِ تُنادي هذا الفعلَ (`grep -rn CreateCourse database/` فارغ)،
+        | وهي تكتبُ داخلَ `Model::unguarded()` — فكلُّ بذرةٍ تكتبُ العمودَ بيدِها
+        | أو تأخذُ القيمةَ الافتراضيّة. هذه الجملةُ كانت تقولُ «البابُ الوحيدُ
+        | الذي يمرُّ منه الثلاثة»، وهي ادّعاءُ شمولٍ يُنهي المراجعةَ بلا أن
+        | يحسمَها.
         */
         if ($dto->courseType === null || ! in_array($dto->courseType, Course::types(), true)) {
-            throw new InvalidArgumentException('نوعُ الكورسِ مطلوبٌ وواحدٌ من: '.implode('، ', Course::types()));
+            // `DomainException` لا `InvalidArgumentException`: `bootstrap/app.php`
+            // يَعرِضُ الأولى ٤٢٢ على `api/*` ولا يَعرِفُ الثانيةَ أصلاً — فرفضٌ
+            // بجملةٍ عربيّةٍ كانَ سيخرجُ ٥٠٠.
+            throw new DomainException('اختر نوع الكورس: فردي أو جماعي أو مسجّل.');
         }
 
         $workspaceId = (int) app(WorkspaceContext::class)->id();

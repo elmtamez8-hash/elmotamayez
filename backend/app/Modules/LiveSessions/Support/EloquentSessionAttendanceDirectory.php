@@ -81,7 +81,9 @@ class EloquentSessionAttendanceDirectory implements SessionAttendanceDirectory
         // needs it, and this one is asked from BOTH sides: a student is a member
         // of no workspace so the context is null, and the teacher's own request
         // would AND the wrong workspace and find nothing. Same spelling as
-        // `IssueJoinTicket::wasRemoved()`, which is the door this mirrors.
+        // `RoomRevocation::wasRemoved()`, which is the door this mirrors. (It
+        // lived on `IssueJoinTicket` until the heartbeat split moved it,
+        // 2026-09-15.)
         return Attendance::query()
             ->withoutWorkspaceScope()
             ->where('class_session_id', $classSessionId)

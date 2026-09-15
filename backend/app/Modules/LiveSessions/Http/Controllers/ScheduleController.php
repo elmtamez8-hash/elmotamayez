@@ -156,8 +156,10 @@ class ScheduleController extends Controller
      * still says yes on a cancelled session — the 018 defect that sent a teacher
      * who had just cancelled a lesson to a raw error page.
      */
-    public function nextForCourse(Request $request, Course $course, EnrollmentDirectory $enrollments): JsonResponse
+    public function nextForCourse(Request $request, string $courseUuid, EnrollmentDirectory $enrollments): JsonResponse
     {
+        $course = $this->courseByUuid($courseUuid);
+
         $user = $this->currentUser($request);
 
         if (! $enrollments->hasActiveEnrollment($user, (int) $course->getKey())) {
@@ -167,6 +169,16 @@ class ScheduleController extends Controller
         $window = app(SessionSettings::class)->joinWindowMinutes();
 
         $session = ClassSession::query()
+            /*
+             | ⚠️ **والاستعلامُ نفسُه كذلك، وهي الطبقةُ الثالثة.** تصحيحُ الربطِ
+             | وحدَه ردَّ ٢٠٠ **وصفرَ صفوف**: `ClassSession` يحملُ
+             | `BelongsToWorkspace`، فالنطاقُ يُضيفُ مساحةَ القارئِ لا مساحةَ
+             | الكورس. والتجاوزُ مع إعادةِ الشرطِ بخطِّ اليدِ هو إملاءُ هذا
+             | المستودعِ (`DesignScopeBypassTest`): السؤالُ عن حصصِ **هذا
+             | الكورس**، ومساحتُه هي جوابُه.
+             */
+            ->withoutWorkspaceScope()
+            ->where('class_sessions.workspace_id', $course->workspace_id)
             ->where('course_id', $course->getKey())
             // Q3 — the header counts down to a lesson this student is actually
             // invited to. One spelling for every door (FR-025ج).
@@ -227,8 +239,10 @@ class ScheduleController extends Controller
      * fifty either side loses the far end; a term is well under it, and the
      * upgrade is paging this tab, not raising a number nobody can see.
      */
-    public function forCourse(Request $request, Course $course, EnrollmentDirectory $enrollments): JsonResponse
+    public function forCourse(Request $request, string $courseUuid, EnrollmentDirectory $enrollments): JsonResponse
     {
+        $course = $this->courseByUuid($courseUuid);
+
         $user = $this->currentUser($request);
 
         if (! $enrollments->hasActiveEnrollment($user, (int) $course->getKey())) {
@@ -236,6 +250,16 @@ class ScheduleController extends Controller
         }
 
         $base = fn (): Builder => ClassSession::query()
+            /*
+             | ⚠️ **والاستعلامُ نفسُه كذلك، وهي الطبقةُ الثالثة.** تصحيحُ الربطِ
+             | وحدَه ردَّ ٢٠٠ **وصفرَ صفوف**: `ClassSession` يحملُ
+             | `BelongsToWorkspace`، فالنطاقُ يُضيفُ مساحةَ القارئِ لا مساحةَ
+             | الكورس. والتجاوزُ مع إعادةِ الشرطِ بخطِّ اليدِ هو إملاءُ هذا
+             | المستودعِ (`DesignScopeBypassTest`): السؤالُ عن حصصِ **هذا
+             | الكورس**، ومساحتُه هي جوابُه.
+             */
+            ->withoutWorkspaceScope()
+            ->where('class_sessions.workspace_id', $course->workspace_id)
             ->where('course_id', $course->getKey())
             /*
              | ⚠️ Q3 IS ENFORCED HERE, BECAUSE THIS IS THE STUDENT'S REAL
@@ -288,4 +312,25 @@ class ScheduleController extends Controller
      * window already past both mean «this will not open», and a client counting
      * down to one of those would draw the button eventually.
      */
+
+    /**
+     * ⛔ **المعرّفُ نصٌّ يُحَلُّ هنا، لا ربطٌ ضمنيّ — وهذا عطلُ ٠٣٢ بعينِه.**
+     *
+     * الربطُ الضمنيُّ يمرُّ بـ`WorkspaceScope`، و`WorkspaceContext::id()` يرجعُ
+     * إلى `users.last_workspace_id` — المختومِ على كلِّ طالبٍ أضافَه مدرّسٌ أو
+     * دعوةٌ أو بذرةٌ إلى مساحة. فطالبٌ مختومٌ عندَ «ب» ومسجَّلٌ عندَ «أ» كانَ
+     * يقرأُ **٤٠٤** على تبويبِ حصصِ كورسٍ دفعَ ثمنَه.
+     *
+     * قِيسَ ٢٠٢٦-٠٩-١٦: `/courses/{uuid}/sessions` و`/courses/{uuid}/next-session`
+     * كلاهما ٤٠٤ لذلكَ الطالب. ولم يظهرْ قبلَ اليومِ لأنّ الشاشةَ لم تكنْ ترسمُ
+     * التبويبَ أصلاً — كانت تشتقُّه من `course_type`، فبقيَ البابانِ مقفولَينِ
+     * خلفَ بابٍ مقفول.
+     *
+     * والحارسُ هو التسجيلُ لا النطاق: كلا الدالّتَينِ تسألُ
+     * `hasActiveEnrollment` في أوّلِ سطرَينِ بعدَ هذا.
+     */
+    private function courseByUuid(string $uuid): Course
+    {
+        return Course::query()->withoutWorkspaceScope()->where('uuid', $uuid)->firstOrFail();
+    }
 }

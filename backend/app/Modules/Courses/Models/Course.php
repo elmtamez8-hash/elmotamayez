@@ -10,6 +10,7 @@ use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use App\Shared\Traits\IsPubliclyListed;
@@ -55,7 +56,25 @@ class Course extends BaseModel
     /** @return list<string> */
     public static function types(): array
     {
-        return [self::TYPE_INDIVIDUAL, self::TYPE_GROUP, self::TYPE_RECORDED];
+        return array_keys(self::typeLabels());
+    }
+
+    /**
+     * ⚠️ **مفتاحٌ لكلِّ قيمة، لا مصفوفتانِ متوازيتان.** كانت لوحةُ Filament
+     * تُركِّبُها بـ`array_combine(Course::types(), [...])` — فترتيبٌ يتغيّرُ
+     * يُبدِّلُ التسمياتِ في صمت، وقيمةٌ رابعةٌ تُضاف ترمي `ValueError` تُسقِطُ
+     * استمارةَ الكورسِ كلَّها. و`CourseVisibility::options()` بجوارِها في الملفِّ
+     * نفسِه هي الإملاءُ الصحيح.
+     *
+     * @return array<string, string>
+     */
+    public static function typeLabels(): array
+    {
+        return [
+            self::TYPE_INDIVIDUAL => 'فردي — حصص خاصّة',
+            self::TYPE_GROUP => 'جماعي — مجموعات بمواعيد',
+            self::TYPE_RECORDED => 'مسجّل — دروس بلا حصص حيّة',
+        ];
     }
 
     protected $fillable = [
@@ -213,6 +232,29 @@ class Course extends BaseModel
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * هل لهذا الكورسِ حصّةٌ حيّةٌ واحدةٌ أصلاً؟
+     *
+     * ⛔ **الصيغةُ المُحمَّلةُ أوّلاً والاستعلامُ آخرَ فرع — إملاءُ
+     * `ClassSessionResource::recordingLesson` بعينِه.** كانَ الـResource يقرأُ
+     * `getAttribute('class_sessions_exists')` مباشرةً، فسمةٌ لم تُحمَّلْ تُقرَأُ
+     * `false` **في صمت**: أربعةٌ من ستّةِ مواضعَ في `CourseController` تُرجِعُ
+     * الصنفَ بلا `loadExists` (الإنشاءُ والتعديلُ ومراجعةُ الفيديو والنشر)،
+     * فكانت جميعُها تقولُ «لا حصصَ لهذا الكورس» مهما كانَ في جدولِه.
+     *
+     * لا قارئَ يتضرّرُ اليوم — شاشةُ التعديلِ تُهمِلُ جسمَ الـPUT — لكنّ
+     * `types.ts` يُعلِنُ `has_sessions: boolean` بلا شرط، فأوّلُ من يربطُ جوابَ
+     * تعديلٍ بحالةِ الشاشةِ يأخذُ `false` واثقاً تُصادِقُ عليه TypeScript.
+     * والفرعُ الأخيرُ استعلامٌ حقيقيٌّ لأنّ ناسياً يجبُ أن يدفعَ استعلاماً لا أن
+     * ينشرَ جواباً خاطئاً.
+     */
+    public function hasClassSessions(): bool
+    {
+        $loaded = $this->getAttribute('class_sessions_exists');
+
+        return $loaded !== null ? (bool) $loaded : $this->classSessions()->exists();
+    }
+
     /** @return HasMany<Enrollment, $this> */
     public function enrollments(): HasMany
     {
@@ -243,7 +285,36 @@ class Course extends BaseModel
      */
     public function classSessions(): HasMany
     {
-        return $this->hasMany(ClassSession::class);
+        /*
+        | ⛔ **النطاقُ يسقطُ داخلَ `exists`، وبدونِ هذا السطرِ يعودُ العطلُ الذي
+        | كُتِبَت هذه العلاقةُ لإزالتِه — من بابٍ جديد.**
+        |
+        | `ClassSession` يحملُ `BelongsToWorkspace`، و`withExists`/`loadExists`
+        | يبنيانِ الاستعلامَ الفرعيَّ من `newQuery()` **بنطاقاتِه**. فيصيرُ
+        | الشرطُ `class_sessions.workspace_id = <مساحةُ القارئ>` لا مساحةَ
+        | الكورس — و`WorkspaceContext::id()` يرجعُ إلى `users.last_workspace_id`،
+        | المختومِ على كلِّ طالبٍ أضافَه مدرّسٌ أو دعوةٌ أو بذرةٌ إلى مساحة.
+        |
+        | قِيسَ: طالبٌ مختومٌ بمساحةِ المدرّسِ «ب» ومسجَّلٌ عندَ «أ» يقرأُ
+        | `has_sessions = false` على كورسٍ له حصصٌ حيّة — فيختفي تبويبُ «الحصص»
+        | وعدّادُ الحصّةِ القادمةِ من جديد. وهي قاعدةُ هذا المستودعِ بحرفِها:
+        | «التجاوزُ لكلِّ نموذجٍ على حدة — `->with('order')` يُشغِّلُ نطاقَ Order
+        | داخلَ استعلامِ العلاقة».
+        |
+        | ⚠️ **وحذفُ الشرطِ لا استبدالُه بمقارنةِ عمود.** كُتِبَت أوّلَ مرّةٍ
+        | `whereColumn('class_sessions.workspace_id', 'courses.workspace_id')`
+        | لتُبقِيَ فهرساً يخدمُ الاستعلام — وهي صحيحةٌ **داخلَ استعلامٍ فرعيٍّ
+        | فقط**، حيثُ يكونُ `courses` في النطاق. أمّا العلاقةُ مسؤولةً عن نفسِها
+        | (`$course->classSessions()->exists()`، وهو فرعُ الاحتياطِ في
+        | {@see self::hasClassSessions()}) فلا `courses` هناك: قِيسَ **١٦ فشلاً**
+        | بـ«no such column: courses.workspace_id». علاقةٌ لا تصلحُ إلّا في
+        | موضعٍ واحدٍ هي فخٌّ لمن يستعملُها في الثاني.
+        |
+        | وثمنُ ذلكَ فهرسٌ: لا فهرسَ على `class_sessions` يبدأُ بـ`course_id`،
+        | فالاستعلامُ الفرعيُّ بلا شرطِ المساحةِ كانَ مسحاً كاملاً. لذلكَ هجرةُ
+        | `2026_09_16_000100_add_course_id_index_to_class_sessions` بجانبِه.
+        */
+        return $this->hasMany(ClassSession::class)->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /**
