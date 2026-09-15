@@ -75,6 +75,24 @@ final class LessonAccess
      */
     public const OTHER_COHORT = 'other_cohort';
 
+    /**
+     * ٠٢٦ — حصّةٌ انتهت ولم تُسلَّمْ قطّ: لا محتوى لها يُفتَحُ ولا يُشترى.
+     *
+     * ⛔ AND THE ROW IS REMOVED, NOT WORDED — the one code here that
+     * `CurriculumResource` drops rather than renders. There is no action behind
+     * it in either direction: the hour was never given, so nothing is owed and
+     * nothing is on sale, and «مقفول» with no way out is the «رقمٌ ناقصٌ بلا
+     * سبب» that ٠٣٥ · FR-025 exists to forbid.
+     *
+     * ⚠️ IT IS NOT A THEORETICAL STATE. The recording ingest hangs off
+     * `SessionCompleted`, not `SessionDelivered`, so a session whose teacher
+     * never turned up still produces a lesson in the tree — and until today its
+     * row promised «افتحه بخصم حصة من رصيدك» while the unlock endpoint refused
+     * it one press later, because `unlockableSessionIds()` never asked about
+     * delivery and `unlockOfferFor()` always did.
+     */
+    public const NO_SESSION_CONTENT = 'no_session_content';
+
     private function __construct(
         public readonly bool $allowed,
         public readonly ?string $code = null,

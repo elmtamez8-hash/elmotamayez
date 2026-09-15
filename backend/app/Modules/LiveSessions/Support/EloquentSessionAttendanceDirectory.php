@@ -190,6 +190,40 @@ class EloquentSessionAttendanceDirectory implements SessionAttendanceDirectory
      * @param  list<int>  $classSessionIds
      * @return array<int, int|null>
      */
+    /**
+     * ٠٢٦ — أيُّ هذه الحصصِ انتهى أمرُها، فصارَ لمحتواها وجود؟
+     *
+     * ⚠️ `withoutWorkspaceScope()` FOR THE REASON EVERY READ IN THIS CLASS
+     * CARRIES IT, and here it decides whether a row is SHOWN AT ALL: the caller
+     * is a student, whose context resolves to whatever `users.last_workspace_id`
+     * holds — null for most of them, and somebody else's teacher for the six a
+     * seeder or an invitation ever stamped. A scoped read answers "not released"
+     * for those, which on this path means "hide the row", silently.
+     *
+     * @param  list<int>  $classSessionIds
+     * @return list<int>
+     */
+    public function releasedSessionIds(array $classSessionIds): array
+    {
+        if ($classSessionIds === []) {
+            return [];
+        }
+
+        $ids = [];
+
+        foreach (ClassSession::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('id', $classSessionIds)
+            ->where(fn ($query) => $query
+                ->whereNotNull('delivered_at')
+                ->orWhere('status', ClassSessionStatus::Cancelled->value))
+            ->pluck('id') as $id) {
+            $ids[] = (int) $id;
+        }
+
+        return $ids;
+    }
+
     public function previousCountableSessionIds(array $classSessionIds): array
     {
         if ($classSessionIds === []) {

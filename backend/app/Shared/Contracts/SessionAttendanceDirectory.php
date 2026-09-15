@@ -125,6 +125,31 @@ interface SessionAttendanceDirectory
     public function previousCountableSessionIds(array $classSessionIds): array;
 
     /**
+     * ٠٢٦ — أيُّ هذه الحصصِ انتهى أمرُها، فصارَ لمحتواها وجود؟
+     *
+     * Two states and not one: **delivered** (the teacher came, stayed, the hour
+     * ended normally — ٠٢٦ · FR-005أ), and **cancelled**, which is not delivery
+     * but is just as final. Without the second arm the material of a class that
+     * will never be held is buried for ever, which is the escape hatch FR-008
+     * demands precisely because the definition of delivery is strict on purpose.
+     *
+     * ⚠️ A SESSION THAT SIMPLY ENDED IS NEITHER. `SessionCompleted` is not
+     * `SessionDelivered` — the recording ingest hangs off the first, so a
+     * session whose teacher never turned up has a lesson in the tree and no
+     * content behind it. That is the case this method exists to name.
+     *
+     * ⚠️ IT LIVES HERE RATHER THAN IN A CONTRACT OF ITS OWN because this
+     * interface already answers a question about a session's STANDING rather
+     * than about anybody's attendance — {@see previousCountableSessionIds()} is
+     * the same shape — and a fifth contract beside it would be a second home
+     * for one question.
+     *
+     * @param  list<int>  $classSessionIds
+     * @return list<int> the subset whose story is over — never the whole input
+     */
+    public function releasedSessionIds(array $classSessionIds): array;
+
+    /**
      * Who actually attended one session — EXCLUDING THE HOST (spec 009).
      *
      * ⚠️ THE TEACHER HAS AN ATTENDANCE ROW ON PURPOSE, and it is not a student
