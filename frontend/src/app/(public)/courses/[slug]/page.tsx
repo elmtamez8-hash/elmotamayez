@@ -23,7 +23,7 @@ import {
   type AvailabilityItem,
   type CourseDetail,
 } from "@/lib/public-api";
-import { counted } from "@/lib/labels";
+import { counted, courseTypeLabel } from "@/lib/labels";
 import { siteUrl } from "@/lib/site";
 
 type Params = { slug: string };
@@ -36,12 +36,6 @@ type Params = { slug: string };
  * مُسنَدٍ لا يطابقُ التوقيع.
  */
 type Glyph = typeof BookIcon;
-
-const TYPE_LABELS: Record<CourseDetail["type"], string> = {
-  individual: "فردي",
-  group: "جماعي",
-  recorded: "مسجّل",
-};
 
 /*
  * ⚠️ THE ADDRESS IS THE SLUG NOW, AND THE UUID STILL OPENS IT.
@@ -261,7 +255,7 @@ export default async function CoursePage({
             <header className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="rounded-lg bg-primary-soft px-2.5 py-1 font-semibold text-primary-ink">
-                  {TYPE_LABELS[course.type]}
+                  {courseTypeLabel(course.type)}
                 </span>
                 {course.subject && (
                   <span className="rounded-lg bg-primary-soft px-2.5 py-1 font-semibold text-primary-ink">

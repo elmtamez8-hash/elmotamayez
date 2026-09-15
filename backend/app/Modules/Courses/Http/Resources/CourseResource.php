@@ -90,6 +90,9 @@ class CourseResource extends JsonResource
             'is_published' => $this->isPublished(),
             'visibility' => $this->visibility,
             'is_sequential' => $this->is_sequential,
+            // ⚠️ لم يكنْ يُرسَلُ قطُّ، فشاشةُ تعديلِ الكورسِ لا تستطيعُ حتّى أن
+            // تقرأَ النوعَ الذي صارَت تكتبُه.
+            'course_type' => $this->course_type,
             'private_session_minutes' => $this->private_session_minutes,
             /*
             | The promo video as its OWNER sees it (018 · US2).

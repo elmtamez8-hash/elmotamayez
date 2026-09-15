@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Courses\Http\Requests;
 
+use App\Modules\Courses\Actions\CreateCourse;
+use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Support\CourseStage;
 use App\Modules\Tenancy\Support\Permissions;
 use Illuminate\Foundation\Http\FormRequest;
@@ -43,6 +45,28 @@ class CreateCourseRequest extends FormRequest
             | See {@see CourseStage} for why it is nullable rather than required.
             */
             'grade_level' => CourseStage::rules(),
+            /*
+            | ⚠️ **REQUIRED, AND `courses.course_type` HAD NEVER HAD A WRITER AT
+            | ALL** — `subject_id`'s history one column along, except this one
+            | carries a DB DEFAULT, so instead of a visible NULL it produced a
+            | confident wrong answer: `recorded` on 6 of the 7 courses on
+            | production (measured 2026-09-15), including one with eight live
+            | sessions and an open group. The student's course page drops its
+            | «الحصص» tab on `recorded`, and the public page badges it «مسجّل».
+            |
+            | Required rather than nullable — the opposite of `grade_level` one
+            | line up, and deliberately: a stage nobody chose reads as «unset»,
+            | while a TYPE nobody chose reads as a declaration the teacher never
+            | made. There is no honest default for it.
+            |
+            | ⚠️ AND THE RULE HERE GUARDS THE HTTP DOOR ALONE. Every seeder
+            | writes inside `Model::unguarded()`, and a Filament create page —
+            | this resource has only Edit and List today — would build the row
+            | with `new Model($data)` and never reach a FormRequest at all. So
+            | the refusal that covers all of them is {@see CreateCourse::handle()}'s,
+            | which is where this repository puts a business rule anyway.
+            */
+            'course_type' => ['required', 'string', Rule::in(Course::types())],
             /*
             | ⚠️ UNIQUE ACROSS THE PLATFORM, NOT WITHIN THE WORKSPACE.
             | `/courses/{slug}` is one namespace read by guests, so the index behind

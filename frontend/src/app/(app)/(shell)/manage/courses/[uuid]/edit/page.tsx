@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import { api, fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { fromMinorMoney, toMinorMoney } from "@/lib/labels";
+import { COURSE_TYPES, fromMinorMoney, toMinorMoney } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
@@ -57,6 +57,7 @@ export default function EditCoursePage({
     is_sequential: true,
     subject: "",
     grade_level: "",
+    course_type: "",
     promo_video_url: "",
   });
   /*
@@ -98,6 +99,15 @@ export default function EditCoursePage({
           is_sequential: c.is_sequential,
           subject: c.subject?.uuid ?? "",
           grade_level: c.grade_level ?? "",
+          /*
+            ⚠️ THIS SCREEN IS WHERE THE BACKFILL BECOMES CORRECTABLE. The column
+            carried a DB default of `recorded` with no writer since 2026-08-01,
+            and the migration that repairs it derives «جماعي» ONLY from a group
+            row — an unambiguous fact — and deliberately leaves every other
+            course alone rather than inventing a classification. So the courses
+            it did not touch are put right here, by the person who knows.
+          */
+          course_type: c.course_type ?? "",
           /*
             ⚠️ SEEDED EMPTY EVEN WHEN A VIDEO EXISTS, and that is deliberate.
             The server stores the extracted ID and never the pasted link, so
@@ -277,6 +287,18 @@ export default function EditCoursePage({
             options={stages.map((stage) => ({ value: stage.slug, label: stage.name }))}
             error={fields.grade_level}
             hint="تُستخدم لفلترة كورساتك ولربط سعر التسوية بالمرحلة."
+          />
+
+          <SelectField
+            id="course_type"
+            label="نوع الكورس"
+            value={form.course_type}
+            onChange={(v) => setForm({ ...form, course_type: v })}
+            placeholder="اختر النوع"
+            options={COURSE_TYPES}
+            error={fields.course_type}
+            hint="يقرّر أين يظهر الكورس في السوق، وهل تظهر للطالب حصصه ومواعيدها."
+            required
           />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

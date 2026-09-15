@@ -179,6 +179,7 @@ it('stores and updates the stage, and refuses one that is not a stage', function
         'title' => 'فيزياء',
         'subject' => $subject->uuid,
         'grade_level' => 'secondary',
+        'course_type' => Course::TYPE_RECORDED,
     ])->assertCreated();
 
     expect($created->json('grade_level'))->toBe('secondary');

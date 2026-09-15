@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Courses\DTOs;
 
+use App\Modules\Courses\Models\Course;
 use App\Shared\Data\DataTransferObject;
 
 class CreateCourseDTO extends DataTransferObject
@@ -22,6 +23,17 @@ class CreateCourseDTO extends DataTransferObject
         public readonly ?string $subjectUuid = null,
         /** A `grade_levels` slug, stored as the undefended text every reader of it expects. */
         public readonly ?string $gradeLevel = null,
+        /**
+         * How the course is taught — one of {@see Course::types()}.
+         *
+         * ⚠️ NULLABLE HERE AND REFUSED IN THE ACTION, never defaulted. The column
+         * has carried `recorded` by DB default since 2026-08-01 with no writer
+         * anywhere, so every course a teacher ever made claimed to be recorded
+         * about a classification nobody had made. A default in this DTO would be
+         * that same unmade decision wearing a new face; the Action throws
+         * instead, so the seeders and the panel meet the rule too.
+         */
+        public readonly ?string $courseType = null,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -38,6 +50,7 @@ class CreateCourseDTO extends DataTransferObject
             isSequential: $data['is_sequential'] ?? true,
             subjectUuid: isset($data['subject']) && is_string($data['subject']) ? $data['subject'] : null,
             gradeLevel: isset($data['grade_level']) && is_string($data['grade_level']) ? $data['grade_level'] : null,
+            courseType: isset($data['course_type']) && is_string($data['course_type']) ? $data['course_type'] : null,
         );
     }
 }

@@ -301,6 +301,7 @@ return [
         'is_free' => 'مجاني',
         'is_preview' => 'معاينة مجانية',
         'is_published' => 'منشور',
+        'course_type' => 'نوع الكورس',
         'is_sequential' => 'التسلسل الإجباري',
         'private_session_minutes' => 'مدة الحصة الخاصة',
         'promo_video_url' => 'رابط الفيديو الترويجي',

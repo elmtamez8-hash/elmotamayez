@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\CourseResource\Pages;
 use App\Models\User;
+use App\Modules\Courses\Actions\CreateCourse;
 use App\Modules\Courses\Actions\ReviewCoursePromoVideo;
 use App\Modules\Courses\Enums\CourseStatus;
 use App\Modules\Courses\Enums\CourseVisibility;
@@ -95,6 +96,26 @@ class CourseResource extends Resource
                         Select::make('visibility')
                             ->label('الظهور')
                             ->options(CourseVisibility::options())
+                            ->required(),
+                        /*
+                        | ⚠️ **هنا لأنّ اللوحةَ تُصحِّح، لا لأنّها تُنشئ.** هذا المَورِدُ
+                        | يحملُ `EditCourse` و`ListCourses` ولا صفحةَ إنشاءَ له، فالحقلُ
+                        | هو ما يجعلُ نوعاً خاطئاً قابلاً للتصحيحِ من المنصّةِ كذلك —
+                        | والهجرةُ تشتقُّ «جماعي» من المجموعاتِ وحدَها وتتركُ الباقي
+                        | عمداً، فبقيَ صفٌّ يحتاجُ من يقولُ له ما هو.
+                        |
+                        | ولو أُضيفَت صفحةُ إنشاءٍ يوماً فهي لا تمرُّ بـ`FormRequest`
+                        | أصلاً (`handleRecordCreation()` هو `new Model($data)`)، وهو
+                        | السببُ الذي من أجلِه يرفضُ {@see CreateCourse::handle()}.
+                        | الخياراتُ من `Course::types()`، الإملاءُ الواحد.
+                        */
+                        Select::make('course_type')
+                            ->label('نوع الكورس')
+                            ->options(array_combine(Course::types(), [
+                                'فردي — حصص خاصّة',
+                                'جماعي — مجموعات بمواعيد',
+                                'مسجّل — دروس بلا حصص حيّة',
+                            ]))
                             ->required(),
                         /*
                         | ⚠️ أعضاءُ مساحةِ **المقرَّرِ**، لا مساحةِ من يقرأُ الشاشة.

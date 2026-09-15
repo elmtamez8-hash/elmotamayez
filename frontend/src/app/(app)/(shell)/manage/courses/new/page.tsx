@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { toMinorMoney } from "@/lib/labels";
+import { COURSE_TYPES, toMinorMoney } from "@/lib/labels";
 import { CURRENCY } from "@/lib/platform";
 import { useRouter } from "next/navigation";
 import type { Course } from "@/lib/types";
@@ -55,6 +55,15 @@ export default function CreateCoursePage() {
     is_sequential: true,
     subject: "",
     grade_level: "",
+    /*
+      ⚠️ EMPTY, NOT PRE-PICKED. `courses.course_type` has carried a DB default of
+      `recorded` since 2026-08-01 with nothing anywhere writing it, so every
+      course a teacher made declared itself recorded about a choice nobody took —
+      and the student's course page drops its «الحصص» tab on exactly that value.
+      A default selected here would be that same unmade decision, moved into the
+      browser; the server refuses an empty one.
+    */
+    course_type: "",
   });
   const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -155,6 +164,24 @@ export default function CreateCoursePage() {
             options={stages.map((stage) => ({ value: stage.slug, label: stage.name }))}
             error={fields.grade_level}
             hint="تُستخدم لفلترة كورساتك ولربط سعر التسوية بالمرحلة."
+          />
+
+          {/*
+            ⚠️ THE ONE FIELD WITH NO DEFAULT, AND THE HINT SAYS WHAT IT DECIDES.
+            «جماعي» and «مسجّل» are the pair a teacher picks between wrongly, and
+            what separates them is whether the course has live sessions at all —
+            which is exactly what the student's course page reads this for.
+          */}
+          <SelectField
+            id="course_type"
+            label="نوع الكورس"
+            value={form.course_type}
+            onChange={(v) => setForm({ ...form, course_type: v })}
+            placeholder="اختر النوع"
+            options={COURSE_TYPES}
+            error={fields.course_type}
+            hint="يقرّر أين يظهر الكورس في السوق، وهل تظهر للطالب حصصه ومواعيدها."
+            required
           />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

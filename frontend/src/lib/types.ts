@@ -183,6 +183,18 @@ export interface Course {
    */
   grade_level: string | null;
   /**
+   * ⚠️ HOW THE COURSE IS TAUGHT — «فردي» · «جماعي» · «مسجّل» — AND THE COLUMN
+   * ONLY GOT A WRITER ON 2026-09-15. It has carried a DB default of `recorded`
+   * since 2026-08-01 with no request, Action or screen assigning it, so it read
+   * `recorded` on 6 of the 7 courses on production, one of them with eight live
+   * sessions and an open group. It is not decoration: the student's course page
+   * draws the «الحصص» tab and the next-session countdown from it, and the public
+   * page badges the course with it.
+   *
+   * The bare value; the Arabic label comes from `courseTypeLabel()`.
+   */
+  course_type: string;
+  /**
    * The course's groups and the times they meet, stamped on by the list
    * endpoint. Absent on `/courses/{uuid}`, which answers about one course and
    * has the groups tab beside it.
