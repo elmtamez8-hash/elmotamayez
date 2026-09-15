@@ -7,6 +7,7 @@ namespace App\Modules\Media\Actions;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Support\LessonAudience;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Media\Exceptions\AccessWithheldException;
 use App\Modules\Media\Models\MediaAsset;
@@ -174,6 +175,27 @@ class IssuePlaybackGrant extends Action
                 || $viewer->can(Permissions::SESSIONS_MANAGE);
         }
 
+        /*
+        | ⛔ ٠٢٦ — **وهذا هو البابُ الرابعُ الذي أسقطَته الخطّةُ أوّلَ مرّة.**
+        |
+        | البابُ الذي يخدُمُ الملفَّ فعلاً هو هذا، لا `LessonGate`. فبدونَ هذا
+        | السؤالِ يصيرُ الصفُّ مخفيّاً من المنهجِ والفيديو يُخدَمُ لمن يحملُ
+        | المعرّف — «بابانِ يختلفان»، وهو بعينِه ما جعلَ تسجيلاً **مدفوعاً**
+        | غيرَ قابلٍ للفتحِ في ٠١٨ بالأدوارِ معكوسة.
+        |
+        | ⚠️ **وموضعُه قبلَ اختصارِ العضويّةِ أسفلَه**، والصنفُ يستثني المؤلّفَ
+        | بنفسِه — **بدورِ المحورِ لا بمجرّدِ العضويّة**. والسطرُ التالي يسألُ
+        | العضويّةَ وحدَها، فعضوٌ بدورِ «طالب» (وهي ستّةُ صفوفٍ مقيسةٌ على قاعدةٍ
+        | حقيقيّة) يُعَدُّ مؤلّفاً هناك ويُمنَحُ فيديوَ **مسوَّدة**. عطلٌ قائمٌ
+        | قبلَ هذه المواصفةِ وخارجَ نطاقِها، مرفوعٌ للمالكِ ولم يُمَسَّ هنا —
+        | وهذا السؤالُ يُغلِقُه للعناصرِ المقصورةِ وحدَها.
+        */
+        $hidden = LessonAudience::hiddenFor($viewer, $lesson);
+
+        if ($hidden !== null) {
+            return false;
+        }
+
         // The author's side, and it comes BEFORE the visibility check on purpose:
         // watching back the video you just uploaded to a draft item is what the
         // authoring surface is for. A student is not a workspace member — the only
@@ -235,6 +257,11 @@ class IssuePlaybackGrant extends Action
         $courseIds = array_flip($this->enrollments->activeCourseIdsFor($viewer));
         $workspaceIds = array_flip($viewer->workspaces()->pluck('workspaces.id')->all());
 
+        // ⛔ ٠٢٦ — التوأمُ الجمليُّ لسؤالِ `mayWatch()`، والتهجئتانِ تتحرّكانِ معاً:
+        // هذا هو البابُ الذي تمرُّ منه **شاشةُ المنهج**، وشرطٌ في أحدِهما
+        // وحدَه ثقبٌ يُبلَغُ من المنادي الآخَر. ويُسأَلُ مرّةً واحدةً للقائمةِ كلِّها.
+        $hiddenAmong = LessonAudience::hiddenAmong($viewer, $lessons);
+
         /*
          * The seat lookup is paid for only when a recording is actually in the
          * list. A course of ordinary lessons is the common case, and charging it
@@ -266,6 +293,12 @@ class IssuePlaybackGrant extends Action
 
         foreach ($lessons as $lesson) {
             $lessonId = (int) $lesson->getKey();
+
+            if (($hiddenAmong[$lessonId] ?? null) !== null) {
+                $allowed[$lessonId] = false;
+
+                continue;
+            }
 
             // Same ordering as mayWatch(), and for the same reason: a recording
             // must not be opened by workspace membership.

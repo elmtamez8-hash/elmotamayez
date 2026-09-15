@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TrashIcon } from "@/components/icons";
+import { counted } from "@/lib/labels";
 import type { ContentStatus, CourseTree, TreeChapter, TreeSection } from "@/lib/courses";
 
 /**
@@ -125,6 +126,26 @@ export function TreeOutline({
                             they are the one who must be told. */}
                         {lesson.reference_missing ? (
                           <Badge tone="danger">الاختبار أو الحصة محذوفة — لا يراه طلابك</Badge>
+                        ) : null}
+                        {/*
+                          ٠٢٦ · FR-011 — التضييقُ يُقالُ على الصفِّ لا داخلَ المحرّرِ وحدَه:
+                          المدرّسُ يمشي الشجرةَ ليرى ما عندَه، وعنصرٌ مخفيٌّ عن أكثرِ طلابِه
+                          بلا علامةٍ هنا هو عنصرٌ يظنُّه منشوراً للجميع.
+
+                          ⚠️ **وهذا الموضعُ لا `LessonRow`** الذي سمّته قائمةُ المهامّ: ذاكَ صفُّ
+                          **الطالب**، ورسمُ النطاقِ فيه إعلانٌ له عن عنصرٍ قُصِرَ على غيرِه — وهو
+                          نقضُ المحورِ نفسِه.
+                        */}
+                        {lesson.cohort_uuids.length > 0 ? (
+                          <Badge tone="neutral">
+                            {counted(lesson.cohort_uuids.length, {
+                              one: "مقصور على مجموعة واحدة",
+                              two: "مقصور على مجموعتين",
+                              few: "مجموعات مقصور عليها",
+                              many: "مجموعة مقصور عليها",
+                              other: "مجموعة مقصور عليها",
+                            })}
+                          </Badge>
                         ) : null}
                       </span>
                       <span className="flex items-center gap-1">

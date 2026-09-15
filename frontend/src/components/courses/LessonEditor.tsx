@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AttachmentsPanel } from "./AttachmentsPanel";
+import { LessonAudienceFields } from "./LessonAudienceFields";
 import { ArticleEditor } from "./editors/ArticleEditor";
 import { AudioEditor } from "./editors/AudioEditor";
 import { DocumentEditor } from "./editors/DocumentEditor";
@@ -429,6 +430,23 @@ export function LessonEditor({
             }
           />
         </div>
+
+        {/*
+          ٠٢٦ · FR-001 — «لمن هذا العنصر»، ويُحفَظُ عندَ الاختيارِ كما تُحفَظُ
+          الوسومُ فوقَه — لا معَ زرِّ «حفظ» أسفلَه، فذاكَ لا يُعرَضُ إلّا على
+          نوعينِ من عشرة، فيصيرُ المحورُ غيرَ قابلٍ للحفظِ على البقيّة.
+        */}
+        <LessonAudienceFields
+          courseUuid={courseUuid}
+          value={lesson.cohort_uuids}
+          disabled={busy}
+          onChange={(next) =>
+            void run(
+              () => courses.updateLesson(courseUuid, lesson.uuid, { cohort_uuids: next }),
+              "حُفِظَ من يرى هذا العنصر.",
+            )
+          }
+        />
 
         {(lesson.family === "inline" || lesson.family === "external") && (
           <Button onClick={save} loading={busy} loadingLabel="جارٍ الحفظ">

@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Courses\Actions\ChangeLessonType;
 use App\Modules\Courses\Actions\ManageLessons;
 use App\Modules\Courses\Actions\ReorderTreeNodes;
+use App\Modules\Courses\Actions\SaveLessonAudience;
 use App\Modules\Courses\DTOs\LessonData;
 use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Http\Requests\ChangeLessonTypeRequest;
@@ -51,6 +52,7 @@ class LessonController extends Controller
         Course $course,
         Lesson $lesson,
         ManageLessons $action,
+        SaveLessonAudience $audience,
     ): JsonResponse {
         $this->assertBelongsToCourse($lesson, $course);
 
@@ -83,9 +85,24 @@ class LessonController extends Controller
             }
         }
 
-        return response()->json(
-            LessonResource::make($action->update($lesson, LessonData::fromArray($payload), $chapter)),
-        );
+        $fresh = $action->update($lesson, LessonData::fromArray($payload), $chapter);
+
+        /*
+        | ٠٢٦ · FR-001 — محورُ «لمن هذا العنصر»، ويُكتَبُ بفعلِه الخاصّ.
+        |
+        | ⚠️ **`has()` لا `filled()`**: `filled()` تُنكِرُ المصفوفةَ الفارغةَ،
+        | وهي هنا **تعليمةٌ لا صمت** — «ألغِ التضييقَ وأعِدْه للجميع». فبها
+        | يصيرُ إلغاءُ التضييقِ زرّاً بلا أثر.
+        |
+        | وليسَ في `ManageLessons` لأنّ ذاكَ الفعلَ يكتبُ أعمدةَ الصفِّ، وهذا
+        | يكتبُ جدولاً آخرَ ويُطلِقُ حدثَ بنيةٍ يُعيدُ حسابَ مقامِ كلِّ مسجَّل.
+        */
+        if ($request->has('cohort_uuids')) {
+            $audience->handle($fresh, array_values($request->validated('cohort_uuids', [])));
+            $fresh->refresh();
+        }
+
+        return response()->json(LessonResource::make($fresh));
     }
 
     /**
