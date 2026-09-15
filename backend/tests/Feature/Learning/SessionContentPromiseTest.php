@@ -8,6 +8,7 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
+use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Jobs\CloseClassSessionJob;
 use App\Modules\LiveSessions\Jobs\SendSessionReportsJob;
 use App\Modules\Tenancy\Support\Roles;
@@ -201,6 +202,72 @@ it('keeps the promise for an hour the student was moved away from', function ():
         'course_id' => $this->course->getKey(),
         'student_user_id' => $this->student->getKey(),
     ]);
+
+    $seen = bothDoors($this, $session);
+
+    expect($seen['lock']['code'])->toBe('no_seat')
+        ->and($seen['locked_session_count'])->toBe(1);
+
+    $seen['door']->assertOk();
+});
+
+/*
+| ⛔ ٠٢٦ — AND THE THIRD CASE IS AN HOUR THAT WAS NEVER GIVEN AT ALL.
+|
+| `SessionCompleted` is not `SessionDelivered`, and the recording ingest hangs
+| off the FIRST (`LiveSessionsServiceProvider:228`) — so a session whose teacher
+| never turned up still produces a published lesson in the tree. Until today its
+| row read `no_seat` + «افتحه بخصم حصة من رصيدك» to a student sitting in that
+| very group, while this endpoint answered 403: `unlockableSessionIds()` never
+| asked about delivery and `unlockOfferFor()` always did.
+|
+| The row is REMOVED rather than re-worded, because every sentence available was
+| false — «ليست من حصص مجموعتك» to somebody who is in it, or an offer that is
+| refused. Nothing was given, so nothing is owed and nothing is on sale.
+*/
+
+/** The same hour, ended and never delivered — the teacher did not turn up. */
+function unheldHourOf(object $test, Cohort $cohort): object
+{
+    $session = billableSession($test->workspace, $test->owner, $test->course, seatsTotal: 5);
+
+    $session->forceFill([
+        'cohort_id' => $cohort->getKey(),
+        // Ended, and NOT delivered. This is the exact pair the ingest leaves
+        // behind when nobody taught the hour — never forced on a delivered one.
+        'status' => ClassSessionStatus::Completed->value,
+        'delivered_at' => null,
+    ])->save();
+
+    Lesson::factory()->create([
+        'workspace_id' => $test->workspace->getKey(),
+        'course_id' => $test->course->getKey(),
+        'class_session_id' => $session->getKey(),
+        'type' => LessonType::Video,
+        'status' => ContentStatus::Published,
+    ]);
+
+    return $session->refresh();
+}
+
+it('says nothing at all about an hour that was never given', function (): void {
+    $seen = bothDoors($this, unheldHourOf($this, $this->mine));
+
+    // The row is gone: no lock to read, and nothing quoting a price for it.
+    expect($seen['lock'])->toBeNull()
+        ->and($seen['locked_session_count'])->toBe(0);
+
+    // And the door agrees — which is the whole contract of this file.
+    $seen['door']->assertForbidden();
+});
+
+it('shows that same hour the moment it is actually delivered', function (): void {
+    /*
+    | ⚠️ THE CONTROL, AND WITHOUT IT THE CASE ABOVE PASSES AGAINST A BUILD THAT
+    | HIDES EVERY RECORDING. It is the same session, same group, same student —
+    | the only thing that changes is that the hour was taught.
+    */
+    $session = hourOf($this, $this->mine);
 
     $seen = bothDoors($this, $session);
 

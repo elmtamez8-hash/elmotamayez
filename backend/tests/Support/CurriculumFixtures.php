@@ -107,10 +107,34 @@ trait CurriculumFixtures
             $untouchedExam = $paper('اختبار لم يُفتَح');
 
             $profile = TeacherProfile::factory()->create(['workspace_id' => $workspace->getKey()]);
+            /*
+             | ⚠️ DELIVERED, AND ٠٢٦ IS WHY IT HAD TO BECOME EXPLICIT. The factory
+             | leaves `delivered_at` null, which since ٠٢٦ means «this hour was
+             | never given» — the gate then answers `no_session_content` and the
+             | Resource REMOVES the row, so `no_seat` below silently stopped
+             | existing and three files asserted a code nothing could produce.
+             |
+             | A recording only exists because a session ran, so the fixture that
+             | carries one has to say the session ran. The state the factory left
+             | behind was never a state production reaches with a published
+             | recording in the tree.
+             */
             $session = ClassSession::factory()->create([
                 'workspace_id' => $workspace->getKey(),
                 'teacher_profile_id' => $profile->getKey(),
                 'course_id' => $course->getKey(),
+                'status' => ClassSessionStatus::Completed,
+                'delivered_at' => now()->subDay(),
+                /*
+                 | ⚠️ AND **JUDGED**, WHICH IS A SECOND FACT AND NOT A DETAIL.
+                 | `openableSessionIds()`'s first arm is «delivered but not yet
+                 | judged ⇒ open to everyone» — the ٠٣٥ deploy window for hours
+                 | that ran before the verdict column existed — and it is NOT
+                 | per-student. Leave `attended_seats` null here and this row
+                 | answers `allowed` for a student holding no seat at all, which
+                 | is the opposite of what `no_seat` is named for.
+                 */
+                'attended_seats' => 0,
             ]);
 
             $lessons = [];

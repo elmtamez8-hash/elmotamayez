@@ -11,6 +11,7 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\ReferenceIntegrity;
 use App\Modules\Learning\Models\Enrollment;
+use App\Shared\Contracts\SessionAttendanceDirectory;
 use App\Shared\Contracts\SessionContentAccess;
 use Illuminate\Support\Facades\DB;
 
@@ -165,6 +166,31 @@ final class LessonGate
 
             if ($access->mayOpenSessionContent($enrollment->student, $sessionId)) {
                 return LessonAccess::allow();
+            }
+
+            /*
+             * ⛔ ٠٢٦ — AN HOUR THAT WAS NEVER GIVEN HAS NO CONTENT, AND THE ROW
+             * GOES AWAY RATHER THAN CARRYING EITHER SENTENCE BELOW.
+             *
+             * The recording ingest hangs off `SessionCompleted`, not
+             * `SessionDelivered`, so a session whose teacher never turned up
+             * still produces a lesson here — and both refusals underneath would
+             * be false about it: «ليست من حصص مجموعتك» to somebody who IS in
+             * that group, or «افتحه بخصم حصة» pointing at an endpoint that
+             * refuses, because `unlockOfferFor()` has always asked about
+             * delivery. Hiding it is the only true answer: nothing is owed and
+             * nothing is on sale.
+             *
+             * ⚠️ ASKED BEFORE `unlockableSessionIds()` AND NOT AFTER. That
+             * method now asks about delivery too, so an undelivered hour falls
+             * out of it — and the `=== []` arm below would then print the
+             * other-group sentence to the student's own group.
+             */
+            if (! in_array($sessionId, app(SessionAttendanceDirectory::class)->releasedSessionIds([$sessionId]), true)) {
+                return LessonAccess::deny(
+                    LessonAccess::NO_SESSION_CONTENT,
+                    'هذه الحصة لم تُعقد، فلا محتوى لها.',
+                );
             }
 
             /*
@@ -399,6 +425,7 @@ final class LessonGate
         */
         $openSessionIds = null;
         $sellableSessionIds = null;
+        $releasedSessionIds = null;
 
         $recordedSessionIds = array_values(array_unique(array_map(
             static fn (Lesson $row): int => (int) $row->class_session_id,
@@ -419,7 +446,7 @@ final class LessonGate
 
             $access = (function () use (
                 $lesson, $enrollment, $completedIds,
-                $satisfiedExamIds, &$openSessionIds, &$sellableSessionIds, $recordedSessionIds, $sequential, $active, $previous,
+                $satisfiedExamIds, &$openSessionIds, &$sellableSessionIds, &$releasedSessionIds, $recordedSessionIds, $sequential, $active, $previous,
             ): LessonAccess {
                 if ($lesson->course_id !== $enrollment->course_id) {
                     return LessonAccess::deny(
@@ -463,6 +490,22 @@ final class LessonGate
 
                     if (isset($openSessionIds[$sessionId])) {
                         return LessonAccess::allow();
+                    }
+
+                    // ⛔ ٠٢٦ — the bulk twin of the «never given, no content»
+                    // branch in `for()`. See it for why this is asked ABOVE the
+                    // unlockable set rather than below it. Asked once for the
+                    // whole tree, like the two sets around it.
+                    $releasedSessionIds ??= array_flip(
+                        app(SessionAttendanceDirectory::class)
+                            ->releasedSessionIds($recordedSessionIds),
+                    );
+
+                    if (! isset($releasedSessionIds[$sessionId])) {
+                        return LessonAccess::deny(
+                            LessonAccess::NO_SESSION_CONTENT,
+                            'هذه الحصة لم تُعقد، فلا محتوى لها.',
+                        );
                     }
 
                     // ⚠️ THE SECOND SET IS ASKED ONCE TOO, for the reason the

@@ -7,6 +7,7 @@ namespace App\Modules\Payments\Support;
 use App\Models\User;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\Payments\Models\SessionUnlock;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
@@ -132,9 +133,37 @@ class EloquentSessionContentAccess implements SessionContentAccess
         | for this question, which is what the private method it replaced cost.
         */
         $seated = array_values(array_unique(DB::table('session_bookings')
-            ->whereIn('class_session_id', $classSessionIds)
-            ->where('student_user_id', $student->getKey())
-            ->pluck('class_session_id')
+            ->join('class_sessions', 'session_bookings.class_session_id', '=', 'class_sessions.id')
+            ->whereIn('session_bookings.class_session_id', $classSessionIds)
+            ->where('session_bookings.student_user_id', $student->getKey())
+            /*
+            | ⛔ ٠٢٦ — AN HOUR THAT WAS NEVER GIVEN IS NOT AN HOUR ANYONE MAY BUY,
+            | AND THE SEATED ARM IS WHERE THAT WAS MISSING.
+            |
+            | `unlockOfferFor()` below refuses outright when `delivered_at` is
+            | null — «لا محتوى أصلاً», FR-008د — while this method asked about a
+            | booking and nothing else. The two are read one after the other by
+            | `LessonGate`, so the curriculum printed «افتحه بخصم حصة من رصيدك»
+            | on a row whose unlock endpoint answers with a refusal: the exact
+            | two-doors defect ٠٣٥ fixed for the OTHER-group case on 2026-09-13
+            | and left standing here.
+            |
+            | ⚠️ AND IT IS REACHABLE, which is the half that is not obvious: the
+            | recording ingest hangs off `SessionCompleted`, NOT
+            | `SessionDelivered` (`LiveSessionsServiceProvider:228`), so a
+            | session whose teacher never turned up still produces a lesson in
+            | the tree — with a seat holder looking at it.
+            |
+            | Cancelled counts as settled for the same reason it releases a
+            | linked item: nothing further will ever happen to it.
+            |
+            | ⚠️ A JOIN AND NOT A SECOND QUERY. `UnlockQueryBudgetTest` holds
+            | this arm at ONE query and the endpoint at a ceiling of 28.
+            */
+            ->where(fn ($q) => $q
+                ->whereNotNull('class_sessions.delivered_at')
+                ->orWhere('class_sessions.status', ClassSessionStatus::Cancelled->value))
+            ->pluck('session_bookings.class_session_id')
             ->map(static fn (mixed $id): int => (int) $id)
             ->all()));
 
@@ -147,7 +176,9 @@ class EloquentSessionContentAccess implements SessionContentAccess
         // ٢ — enrolment in the session's own course, plus a group that held it.
         $sessions = DB::table('class_sessions')
             ->whereIn('id', $rest)
-            ->get(['id', 'course_id', 'cohort_id']);
+            // ٠٢٦ — the two verdict columns ride along in the SAME select, so the
+            // settled test below costs nothing. See the seated arm for why.
+            ->get(['id', 'course_id', 'cohort_id', 'delivered_at', 'status']);
 
         $courses = array_flip($this->enrollments->activeCourseIdsFor($student));
         $cohorts = array_flip($this->cohorts->everMemberCohortIdsFor($student));
@@ -158,6 +189,12 @@ class EloquentSessionContentAccess implements SessionContentAccess
             // No course: nothing to charge against and no enrolment to ask
             // about — the same refusal `unlockOfferFor()` already gives it.
             if ($row->course_id === null || ! isset($courses[(int) $row->course_id])) {
+                continue;
+            }
+
+            // ٠٢٦ — an hour that was never given is not an hour anyone may buy.
+            // The seated arm above carries the reasoning.
+            if ($row->delivered_at === null && $row->status !== ClassSessionStatus::Cancelled->value) {
                 continue;
             }
 

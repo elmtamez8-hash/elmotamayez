@@ -31,6 +31,21 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class CurriculumResource extends JsonResource
 {
+    /**
+     * The refusal codes whose ROW GOES AWAY rather than rendering closed.
+     *
+     * A list rather than a chain of comparisons because it has grown twice and
+     * will grow again with ٠٢٦'s two narrowing axes — and the one thing every
+     * member shares is written above the place it is read: there is no action
+     * behind it, in either direction.
+     *
+     * @var list<string>
+     */
+    private const REMOVED_CODES = [
+        LessonAccess::NOT_VISIBLE,
+        LessonAccess::NO_SESSION_CONTENT,
+    ];
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
@@ -124,7 +139,17 @@ class CurriculumResource extends JsonResource
             $access = $view->access[(int) $lesson->getKey()] ?? null;
 
             // FR-004: the row is removed, not shown closed.
-            if ($access === null || $access->code === LessonAccess::NOT_VISIBLE) {
+            //
+            // ⛔ ٠٢٦ — AND `no_session_content` JOINS IT, for the opposite reason
+            // rather than the same one. `not_visible` is removed because the
+            // teacher's unfinished work is the teacher's business; this one is
+            // removed because there is nothing to say: the hour was never given,
+            // so nothing is owed, nothing is on sale, and every sentence the
+            // gate could print about it is false — «ليست من حصص مجموعتك» to
+            // somebody who is in that group, or an offer the unlock endpoint
+            // refuses. A locked row with no way out is the «رقمٌ ناقصٌ بلا سبب»
+            // that ٠٣٥ · FR-025 forbids.
+            if ($access === null || in_array($access->code, self::REMOVED_CODES, true)) {
                 continue;
             }
 
