@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Learning\Support;
 
+use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Models\Lesson;
 use App\Modules\Learning\Models\Enrollment;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * How far through a course one student is — computed in exactly one place.
@@ -39,7 +42,31 @@ final class CourseProgress
      */
     public static function total(Enrollment $enrollment): int
     {
-        return $enrollment->course->lessons()->countableForProgress()->count();
+        return self::countable($enrollment)->count();
+    }
+
+    /**
+     * المقامُ كاستعلامٍ — **بلا نطاقٍ تنظيميٍّ، ومعرّفُ الكورسِ هو الحارس.**
+     *
+     * ⛔ **وهذا عطلٌ قائمٌ وجدَه اختبارُ ٠٢٦، لا شيءٌ أحدثَتْه المواصفة.**
+     * `Course::lessons()` تجري تحتَ `WorkspaceScope`، و`WorkspaceContext::id()`
+     * يرجعُ إلى `users.last_workspace_id` — المطبوعِ على **كلِّ طالبٍ أُضيفَ
+     * يوماً إلى مساحةِ عمل** (ستّةُ صفوفٍ بدورِ `student` مقيسةٌ على قاعدةٍ
+     * حقيقيّة). فطالبٌ مختومٌ بمساحةٍ أخرى مقامُه **صفرٌ**: نسبتُه صفرٌ إلى
+     * الأبد، و`$total > 0` تمنعُ إتمامَ الكورسِ فلا تصدُرُ له شهادةٌ أبداً — وهي
+     * عائلةُ أسوأِ عطلٍ يسجّلُه هذا المستودع، تصلُ من بابِ النطاق.
+     *
+     * ولا يُوسّعُ شيءٌ: الكورسُ لمساحةِ عملٍ واحدةٍ بالتعريف، فالدروسُ
+     * المربوطةُ بمعرّفِه لا تتجاوزُها ولو سقطَ النطاق. وFR-013أ تقولُ إنَّ
+     * المقامَ **واحدٌ لكلِّ كورس** مهما اختلفَ من يقرؤُه.
+     *
+     * @return HasMany<Lesson, Course>
+     */
+    private static function countable(Enrollment $enrollment): HasMany
+    {
+        return $enrollment->course->lessons()
+            ->withoutWorkspaceScope()
+            ->countableForProgress();
     }
 
     /**
@@ -55,7 +82,7 @@ final class CourseProgress
             ->where('lesson_progress.status', 'completed')
             ->whereIn(
                 'lesson_progress.lesson_id',
-                $enrollment->course->lessons()->countableForProgress()->select('lessons.id'),
+                self::countable($enrollment)->select('lessons.id'),
             )
             ->count();
     }

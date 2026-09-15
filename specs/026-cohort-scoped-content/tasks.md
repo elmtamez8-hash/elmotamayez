@@ -20,7 +20,19 @@ contracts/lesson-audience.md · quickstart.md
 وقارئٌ في الشحنةِ نفسِها** (`LessonAudience` يُصدِرُهما و`LessonAudienceTest` يقرؤُهما)،
 ولا يبلغانِ باباً حتّى US1 — وهي التاليةُ مباشرةً، وإلّا كانا رمزَينِ بلا كاتبٍ حقيقيّ.
 
-**ما زالَ**: US1 · US2 · US4 والصقل — إحدى وثلاثونَ مهمّة.
+**وشُحِنَ بعدَه (US1)**: محورُ «لمن هذا العنصر» كاملاً — الكتابةُ
+(T012 · T013 · T015)، والأبوابُ الأربعةُ (T016 · T017 · T018)، والمقامُ (T019)،
+والشاشاتُ (T020–T023)، والاختباراتُ (T024–T029).
+
+⚠️ **ومعَها T030 وT031 من US2**، وليسَ ذلكَ توسيعاً: `LessonAudience` يُجيبُ
+**حكماً واحداً** لا فرعًا لكلِّ رمز، فسؤالُ «أهوَ `out_of_scope`؟» عندَ الأبوابِ
+الأربعةِ تهجئةٌ ثانيةٌ لـ«أمخفيٌّ هو». وما دامَ `unreleased` يسري، فشرطُ
+المقامِ (T031) **لا يؤجَّلُ يوماً واحداً**: عنصرٌ يدخلُ المقامَ ولا يمكنُ
+إتمامُه يُبقي كلَّ طالبٍ تحتَ ١٠٠٪ للأبد. فما بقيَ من US2 هو **الكاتبُ
+والشاشةُ واختباراتُهما** لا أكثر.
+
+**ما زالَ**: نصفُ US2 (T032–T034) · US4 (T040–T043) · الصقل (T044–T048) — ثلاثَ عشرةَ
+مهمّة، وشقٌّ من T014 (حقلُ `release_session_uuid` ينتظِرُ شاشتَه).
 
 ⚠️ **وشُحِنَ خارجَ هذه القائمةِ شيئان** خرَجا من مشيةٍ على الإنتاج، لا من تخطيطٍ مسبَق:
 قسمُ «المجموعة والحصص» على شاشةِ الطلب، وإصلاحُ منطقةِ الموعدِ الزمنيّةِ في
@@ -67,41 +79,41 @@ contracts/lesson-audience.md · quickstart.md
 
 ### الكتابة
 
-- [ ] T012 [US1] Action `SaveLessonAudience` في `backend/app/Modules/Courses/Actions/SaveLessonAudience.php` — يكتبُ النطاقَ والموعدَ في معاملةٍ واحدة، ويرفضُ مجموعةً أو حصّةً **من غيرِ كورسِ الدرس**
-- [ ] T013 [US1] يُطلِقُ `CourseStructureChanged` **مرّةً واحدةً للكورس** إن تغيّرَ محور (FR-016) — الحدثُ والمستمعُ القائمانِ، بلا سطرِ مزامنةٍ جديد
-- [ ] T014 [US1] حقلا `cohort_uuids` و`release_session_uuid` في `backend/app/Modules/Courses/Http/Requests/UpdateLessonRequest.php` بـ`WorkspaceRules::exists` لا `exists:`، ومصفوفةٌ فارغةٌ = «للجميع»
-- [ ] T015 [P] [US1] مدخلا `attributes` العربيّانِ في `backend/lang/ar/validation.php` — بدونَهما يقرأُ المدرّسُ `cohort_uuids`
+- [X] T012 [US1] Action `SaveLessonAudience` في `backend/app/Modules/Courses/Actions/SaveLessonAudience.php` — يكتبُ النطاقَ والموعدَ في معاملةٍ واحدة، ويرفضُ مجموعةً أو حصّةً **من غيرِ كورسِ الدرس**
+- [X] T013 [US1] يُطلِقُ `CourseStructureChanged` **مرّةً واحدةً للكورس** إن تغيّرَ محور (FR-016) — الحدثُ والمستمعُ القائمانِ، بلا سطرِ مزامنةٍ جديد
+- [~] T014 [US1] حقلا `cohort_uuids` و`release_session_uuid` في `backend/app/Modules/Courses/Http/Requests/UpdateLessonRequest.php` بـ`WorkspaceRules::exists` لا `exists:`، ومصفوفةٌ فارغةٌ = «للجميع»
+- [X] T015 [P] [US1] مدخلا `attributes` العربيّانِ في `backend/lang/ar/validation.php` — بدونَهما يقرأُ المدرّسُ `cohort_uuids`
 
 ### القراءة
 
-- [ ] T016 [US1] فرعُ `out_of_scope` في `LessonGate::for()` **و**`forTree()` معاً في `backend/app/Modules/Learning/Support/LessonGate.php` — بعدَ فرعِ `class_session_id` وقبلَ سؤالِ التسلسل
-- [~] T017 [US1] إسقاطُ الرموزِ الثلاثةِ في `backend/app/Modules/Learning/Http/Resources/CurriculumResource.php:127` — الشرطُ يصيرُ مجموعةً بدلَ مقارنةٍ واحدة، ويُسقَطُ الفصلُ ثمّ القسمُ إذا فرغ
-- [ ] T018 [US1] ⛔ سؤالُ `LessonAudience` في `mayWatch()` **و**`mayWatchMany()` في `backend/app/Modules/Media/Actions/IssuePlaybackGrant.php` — الرفضُ بالرسالةِ العامّةِ القائمةِ لا برسالةٍ تكشفُ وجودَ العنصر
+- [X] T016 [US1] فرعُ `out_of_scope` في `LessonGate::for()` **و**`forTree()` معاً في `backend/app/Modules/Learning/Support/LessonGate.php` — بعدَ فرعِ `class_session_id` وقبلَ سؤالِ التسلسل
+- [X] T017 [US1] إسقاطُ الرموزِ الثلاثةِ في `backend/app/Modules/Learning/Http/Resources/CurriculumResource.php:127` — الشرطُ يصيرُ مجموعةً بدلَ مقارنةٍ واحدة، ويُسقَطُ الفصلُ ثمّ القسمُ إذا فرغ
+- [X] T018 [US1] ⛔ سؤالُ `LessonAudience` في `mayWatch()` **و**`mayWatchMany()` في `backend/app/Modules/Media/Actions/IssuePlaybackGrant.php` — الرفضُ بالرسالةِ العامّةِ القائمةِ لا برسالةٍ تكشفُ وجودَ العنصر
 
 ### المقام ⛔
 
-- [ ] T019 [US1] `->whereDoesntHave('cohortScopes')` في `Lesson::scopeProgressEligible()` في `backend/app/Modules/Courses/Models/Lesson.php` — **خاصّيّةُ العنصرِ لا حالُ القارئ** (FR-013أ)، فالمقامُ يبقى واحداً لكلِّ كورس
+- [X] T019 [US1] `->whereDoesntHave('cohortScopes')` في `Lesson::scopeProgressEligible()` في `backend/app/Modules/Courses/Models/Lesson.php` — **خاصّيّةُ العنصرِ لا حالُ القارئ** (FR-013أ)، فالمقامُ يبقى واحداً لكلِّ كورس
 
 ### الشاشات
 
-- [ ] T020 [P] [US1] `audience` و`release` على حمولةِ المدرّسِ في `backend/app/Modules/Courses/Http/Resources/LessonResource.php` و`CourseTreeResource.php` — بإسنادٍ مُسبَقٍ للمجموعات، فالمورِدُ يعملُ مرّةً لكلِّ صفّ
-- [ ] T021 [P] [US1] نوعا `LessonAudience` و`LessonRelease` في `frontend/src/lib/courses.ts`
-- [ ] T022 [US1] مكوّنُ `frontend/src/components/courses/LessonAudienceFields.tsx` — «للجميع» أو اختيارُ مجموعاتٍ متعدّدة، **ولا يُعرَضُ إن كان الكورسُ بلا مجموعات** (FR-003)
-- [ ] T023 [US1] وصلُه في `frontend/src/components/courses/LessonEditor.tsx`، وعرضُ النطاقِ بجوارِ كلِّ صفٍّ في `frontend/src/components/courses/LessonRow.tsx` (FR-011)
+- [X] T020 [P] [US1] `audience` و`release` على حمولةِ المدرّسِ في `backend/app/Modules/Courses/Http/Resources/LessonResource.php` و`CourseTreeResource.php` — بإسنادٍ مُسبَقٍ للمجموعات، فالمورِدُ يعملُ مرّةً لكلِّ صفّ
+- [X] T021 [P] [US1] نوعا `LessonAudience` و`LessonRelease` في `frontend/src/lib/courses.ts`
+- [X] T022 [US1] مكوّنُ `frontend/src/components/courses/LessonAudienceFields.tsx` — «للجميع» أو اختيارُ مجموعاتٍ متعدّدة، **ولا يُعرَضُ إن كان الكورسُ بلا مجموعات** (FR-003)
+- [X] T023 [US1] وصلُه في `frontend/src/components/courses/LessonEditor.tsx`، وعرضُ النطاقِ بجوارِ كلِّ صفٍّ في `frontend/src/components/courses/LessonRow.tsx` (FR-011)
 
 ### الاختبارات
 
-- [ ] T024 [US1] `backend/tests/Feature/Learning/CohortScopedCurriculumTest.php` — طالبُ مجموعةٍ أخرى لا يرى الصفّ · طالبُ المجموعةِ يراه ويفتحُه · «للجميع» يراه الكلّ · طالبٌ بلا مجموعةٍ يرى «للجميع» وحدَها (٠٣٤) · المنقولُ يرى مجموعتَه الجديدة · طالبٌ في مجموعتَينِ يرى الاتّحاد
+- [X] T024 [US1] `backend/tests/Feature/Learning/CohortScopedCurriculumTest.php` — طالبُ مجموعةٍ أخرى لا يرى الصفّ · طالبُ المجموعةِ يراه ويفتحُه · «للجميع» يراه الكلّ · طالبٌ بلا مجموعةٍ يرى «للجميع» وحدَها (٠٣٤) · المنقولُ يرى مجموعتَه الجديدة · طالبٌ في مجموعتَينِ يرى الاتّحاد
   - **كيفَ يمسك**: احذفْ فرعَ `out_of_scope` من `forTree()` وحدَه ⇒ يسقطُ هذا الملفُّ **و**`LessonGateParityTest`. سقوطُ الأوّلِ وحدَه يعني أنّ المقارنةَ لا تغطّي الرمزَ الجديد
-- [ ] T025 [US1] حالتانِ في `backend/tests/Feature/Learning/LessonGateParityTest.php` تُدخِلانِ الرموزَ الثلاثةَ في تجهيزةِ المقارنة
-- [ ] T026 [US1] ⛔ `backend/tests/Feature/Media/PlaybackAudienceTest.php` — طالبٌ **مسجَّلٌ ونشط** من مجموعةٍ أخرى يُرفَضُ إذنُ التشغيل، مفرداً وجماعيّاً
+- [X] T025 [US1] حالتانِ في `backend/tests/Feature/Learning/LessonGateParityTest.php` تُدخِلانِ الرموزَ الثلاثةَ في تجهيزةِ المقارنة
+- [X] T026 [US1] ⛔ `backend/tests/Feature/Media/PlaybackAudienceTest.php` — طالبٌ **مسجَّلٌ ونشط** من مجموعةٍ أخرى يُرفَضُ إذنُ التشغيل، مفرداً وجماعيّاً
   - **كيفَ يمسك**: أزِلِ السؤالَ من `mayWatch()` وحدَه ⇒ تسقطُ الحالةُ المفردةُ وحدَها؛ ثمّ من `mayWatchMany()` وحدَه ⇒ تسقطُ الجماعيّةُ وحدَها
   - ⚠️ **التجهيزةُ بطالبٍ مسجَّلٍ نشطٍ حتماً**: الفرعُ الأخيرُ اليومَ هو `hasActiveEnrollment`، فطالبٌ غيرُ مسجَّلٍ يُرفَضُ لسببٍ آخرَ والاختبارُ أخضرُ كاذب
-- [ ] T027 [US1] ⛔ `backend/tests/Feature/Learning/CohortScopedProgressTest.php` — كورسٌ فيه عنصرانِ مشتركانِ وثالثٌ مقصور؛ طالبُ المجموعةِ الأخرى يُكمِلُ الاثنَينِ ⇒ **١٠٠٪** وحدثُ الإتمامِ وشهادة. وطالبُ المجموعةِ المقصورِ عليها كذلك (FR-012أ · FR-013ب)
+- [X] T027 [US1] ⛔ `backend/tests/Feature/Learning/CohortScopedProgressTest.php` — كورسٌ فيه عنصرانِ مشتركانِ وثالثٌ مقصور؛ طالبُ المجموعةِ الأخرى يُكمِلُ الاثنَينِ ⇒ **١٠٠٪** وحدثُ الإتمامِ وشهادة. وطالبُ المجموعةِ المقصورِ عليها كذلك (FR-012أ · FR-013ب)
   - **كيفَ يمسك**: احذفْ `whereDoesntHave('cohortScopes')` ⇒ يسقطُ بـ«٦٦.٦ ≠ ١٠٠»
   - ⚠️ العنصرُ المقصورُ **منشورٌ ومن نوعٍ قابلٍ للإتمام**، وإلّا فهو خارجُ المقامِ لسببٍ آخرَ أصلاً
-- [ ] T028 [P] [US1] `backend/tests/Feature/Courses/LessonAudienceWriteTest.php` — مجموعةٌ من كورسٍ آخرَ تُرفَض · حصّةٌ من كورسٍ آخرَ تُرفَض · مصفوفةٌ فارغةٌ تُلغي التضييق · `CourseStructureChanged` يقعُ **مرّةً واحدةً** لا مرّةً لكلِّ عنصر
-- [ ] T029 [P] [US1] `frontend/src/components/courses/LessonAudienceFields.test.tsx` — يُعرَضُ مع مجموعات، **ولا يُعرَضُ بلا مجموعات**، ويرسلُ مصفوفةً فارغةً عندَ «للجميع»
+- [X] T028 [P] [US1] `backend/tests/Feature/Courses/LessonAudienceWriteTest.php` — مجموعةٌ من كورسٍ آخرَ تُرفَض · حصّةٌ من كورسٍ آخرَ تُرفَض · مصفوفةٌ فارغةٌ تُلغي التضييق · `CourseStructureChanged` يقعُ **مرّةً واحدةً** لا مرّةً لكلِّ عنصر
+- [X] T029 [P] [US1] `frontend/src/components/courses/LessonAudienceFields.test.tsx` — يُعرَضُ مع مجموعات، **ولا يُعرَضُ بلا مجموعات**، ويرسلُ مصفوفةً فارغةً عندَ «للجميع»
 
 ---
 
@@ -110,8 +122,8 @@ contracts/lesson-audience.md · quickstart.md
 **اختبارُها المستقلّ**: اربطْ عنصراً بحصّةٍ لم تُبَثَّ، وافتحِ المنهجَ بحسابِ طالبٍ في تلك
 المجموعة ⇒ غيرُ موجود. سلِّمِ الحصّةَ وأعِدِ الفتح ⇒ ظهر.
 
-- [ ] T030 [US2] فرعُ `unreleased` في `LessonGate::for()` **و**`forTree()` في `backend/app/Modules/Learning/Support/LessonGate.php`
-- [ ] T031 [US2] `->whereNull('lessons.release_session_id')` في `Lesson::scopeProgressEligible()` — **إلى الأبدِ لا حتّى الإفراج** (FR-013)
+- [X] T030 [US2] فرعُ `unreleased` في `LessonGate::for()` **و**`forTree()` في `backend/app/Modules/Learning/Support/LessonGate.php`
+- [X] T031 [US2] `->whereNull('lessons.release_session_id')` في `Lesson::scopeProgressEligible()` — **إلى الأبدِ لا حتّى الإفراج** (FR-013)
 - [ ] T032 [US2] اختيارُ حصّةِ الإفراجِ في `frontend/src/components/courses/LessonAudienceFields.tsx` مع «يظهر الآن» خياراً افتراضيّاً، وفكُّ الربطِ من المكانِ نفسِه — وهو مخرجُ FR-008 لحصّةٍ لم تُسلَّمْ ولم تُلغَ
 - [ ] T033 [US2] `backend/tests/Feature/Learning/SessionTimedReleaseTest.php` — مجدولةٌ ⇒ مخفيّ · سُلِّمت ⇒ ظاهرٌ ومفتوح · **أُلغيت ⇒ ظاهر** (FR-008) · بلا ربطٍ ⇒ ظاهرٌ فوراً
   - **كيفَ يمسك**: أزِلْ `status = cancelled` من شرطِ الإفراج ⇒ تسقطُ الحالةُ الثالثةُ وحدَها

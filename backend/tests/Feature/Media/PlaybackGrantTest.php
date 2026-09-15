@@ -252,6 +252,16 @@ it('checks entitlement for many lessons without a query per lesson', function ()
 
     $action = app(IssuePlaybackGrant::class);
 
+    $cost = function (iterable $rows) use ($action, $student): int {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $action->mayWatchMany($rows, $student);
+        $count = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $count;
+    };
+
     DB::enableQueryLog();
     $allowed = $action->mayWatchMany($lessons, $student);
     $queries = count(DB::getQueryLog());
@@ -259,9 +269,17 @@ it('checks entitlement for many lessons without a query per lesson', function ()
 
     expect($allowed)->toHaveCount(50)
         ->and(array_unique(array_values($allowed)))->toBe([true])
-        // Two reads total — entitlement and workspace membership — regardless of
-        // how many lessons were asked about.
-        ->and($queries)->toBeLessThanOrEqual(3);
+        /*
+        | ⚠️ **أربعةٌ منذُ ٠٢٦، والرابعُ مسمّىً:** قراءةُ صفوفِ النطاقِ
+        | في `LessonAudience` — واحدٌ للقائمةِ كلِّها، يرجعُ فارغاً على كورسٍ
+        | لم يُضيَّقْ فيه شيء، فلا يُسأَلُ بعدَه عن مجموعاتِ القارئ.
+        |
+        | ⛔ **والمقارنةُ تحتَه هي الحارسُ الحقيقيّ، لا الرقمُ.** سقفٌ مطلقٌ
+        | عندَ حجمٍ واحدٍ لا يُثبِتُ شيئاً عن النموّ، وSC-011 إنّما هي «لا ينمو
+        | بعددِ الصفوف». فالعددانِ عندَ خمسةٍ وعندَ خمسينَ متساويان.
+        */
+        ->and($queries)->toBeLessThanOrEqual(4)
+        ->and($cost($lessons->take(5)))->toBe($cost($lessons));
 
     expect($owner)->not->toBeNull();
 });

@@ -31,21 +31,6 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class CurriculumResource extends JsonResource
 {
-    /**
-     * The refusal codes whose ROW GOES AWAY rather than rendering closed.
-     *
-     * A list rather than a chain of comparisons because it has grown twice and
-     * will grow again with ٠٢٦'s two narrowing axes — and the one thing every
-     * member shares is written above the place it is read: there is no action
-     * behind it, in either direction.
-     *
-     * @var list<string>
-     */
-    private const REMOVED_CODES = [
-        LessonAccess::NOT_VISIBLE,
-        LessonAccess::NO_SESSION_CONTENT,
-    ];
-
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
@@ -149,7 +134,7 @@ class CurriculumResource extends JsonResource
             // somebody who is in that group, or an offer the unlock endpoint
             // refuses. A locked row with no way out is the «رقمٌ ناقصٌ بلا سبب»
             // that ٠٣٥ · FR-025 forbids.
-            if ($access === null || in_array($access->code, self::REMOVED_CODES, true)) {
+            if ($access === null || LessonAccess::hidesRow($access->code)) {
                 continue;
             }
 

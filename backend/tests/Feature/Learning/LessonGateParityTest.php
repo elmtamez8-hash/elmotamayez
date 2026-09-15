@@ -3,9 +3,13 @@
 declare(strict_types=1);
 
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Models\LessonCohortScope;
+use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Support\LessonAccess;
 use App\Modules\Learning\Support\LessonGate;
+use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\Marketplace\Models\TeacherProfile;
 use Tests\Support\CurriculumFixtures;
 
 uses(CurriculumFixtures::class);
@@ -158,4 +162,49 @@ it('opens an is_free item on an inactive enrolment, in BOTH forms', function ():
         ->and($codes['done'])->toBe(LessonAccess::INACTIVE)
         ->and($codes['open'])->toBe(LessonAccess::INACTIVE)
         ->and($codes['draft'])->toBe(LessonAccess::NOT_VISIBLE);
+});
+
+/*
+| ⛔ ٠٢٦ — الرمزانِ الجديدانِ يدخلانِ تجهيزةَ المقارنة.
+|
+| بلا هذه الحالةِ يبقى `LessonGateParityTest` أخضرَ على بناءٍ كُتِبَ فيه الفرعُ
+| في `for()` وحدَها أو في `forTree()` وحدَها — وهو «بابانِ يختلفان» يعودُ من
+| البابِ الذي وُضِعَ هذا الملفُّ لإغلاقِه.
+|
+| **كيفَ يمسك**: احذفِ السؤالَ من `forTree()` وحدَه ⇒ تسقطُ هذه الحالةُ برمزٍ
+| مختلفٍ بينَ الصيغتَين.
+*/
+it('agrees on a narrowed item and on one waiting for its session', function (): void {
+    ['enrollment' => $enrollment, 'lessons' => $lessons] = $this->curriculumTree();
+
+    $scoped = $lessons['open'];
+    $waiting = $lessons['sequence'];
+
+    $cohort = Cohort::factory()->create([
+        'workspace_id' => $enrollment->workspace_id,
+        'course_id' => $enrollment->course_id,
+        'created_by' => $enrollment->course->created_by,
+    ]);
+
+    LessonCohortScope::query()->create([
+        'workspace_id' => $enrollment->workspace_id,
+        'lesson_id' => $scoped->getKey(),
+        'cohort_id' => $cohort->getKey(),
+    ]);
+
+    // حصّةٌ مجدولةٌ لم تُعقَدْ بعد — والعمودُ ليس في `$fillable` عن قصد.
+    $session = ClassSession::factory()->create([
+        'workspace_id' => $enrollment->workspace_id,
+        'teacher_profile_id' => TeacherProfile::factory()->create([
+            'workspace_id' => $enrollment->workspace_id,
+        ])->getKey(),
+        'course_id' => $enrollment->course_id,
+    ]);
+
+    $waiting->forceFill(['release_session_id' => $session->getKey()])->save();
+
+    $codes = parityCodes($enrollment->fresh(), $lessons);
+
+    expect($codes['open'])->toBe(LessonAccess::OUT_OF_SCOPE)
+        ->and($codes['sequence'])->toBe(LessonAccess::UNRELEASED);
 });

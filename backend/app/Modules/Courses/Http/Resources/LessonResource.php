@@ -6,6 +6,7 @@ namespace App\Modules\Courses\Http\Resources;
 
 use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Models\LessonCohortScope;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\MarkdownRenderer;
 use App\Modules\Courses\Support\ReferenceSummary;
@@ -64,6 +65,19 @@ class LessonResource extends JsonResource
             'family' => LessonTypeRegistry::family($type),
             'asset_kind' => LessonTypeRegistry::assetKind($type)?->value,
             'is_recording' => $this->class_session_id !== null,
+            /*
+            | ٠٢٦ · FR-011 — «لمن هذا العنصر»، ليَملأَ المحرّرُ اختيارَه.
+            |
+            | ⚠️ **وهذا المورِدُ للمدرّسِ وحدَه**: قرّاؤُه الأربعةُ كلُّهم في
+            | `LessonController`، وكلُّها محروسةٌ بـ`manageLessons`. وحمولةُ
+            | الطالبِ لا تكسبُ من هذا المحورِ حرفاً — العنصرُ المقصورُ يختفي من
+            | شجرتِه، ومجرّدُ إخبارِه بأنّ عنصراً «لمجموعةٍ أخرى» هو إعلانٌ عن
+            | وجودِ شيءٍ ما كانَ ليعرفَه.
+            |
+            | ومفردٌ هنا لأنّ الصفَّ واحد؛ والشجرةُ تسألُ الصيغةَ الجماعيّةَ
+            | مرّةً واحدة.
+            */
+            'cohort_uuids' => LessonCohortScope::uuidsAmong([$this->resource])[(int) $this->getKey()] ?? [],
             'order' => $this->order,
             'duration_seconds' => $this->duration_seconds,
             'is_preview' => $this->is_preview,

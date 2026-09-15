@@ -8,6 +8,7 @@ use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Enums\ExamGate;
 use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Support\LessonAudience;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\ReferenceIntegrity;
 use App\Modules\Learning\Models\Enrollment;
@@ -213,6 +214,28 @@ final class LessonGate
                 );
         }
 
+        /*
+        | ⛔ ٠٢٦ — «لمن هذا العنصرُ ومتى يظهر»، **حكماً واحداً لا فرعَين**.
+        |
+        | `LessonAudience` يُجيبُ بالرمزِ أو بـ`null`، ولا يُسأَلُ هنا «أهوَ
+        | `out_of_scope`؟» — فسؤالُ الرمزِ بعينِه تهجئةٌ ثانيةٌ لـ«أمخفيٌّ هو»
+        | تُكتَبُ في أربعةِ أبوابٍ وتفترقُ عندَ أوّلِ رمزٍ يُضاف. والصنفُ نفسُه
+        | يستثني المؤلّفَ، فلا يُعادُ استثناؤه هنا.
+        |
+        | **وموضعُه بعدَ فرعِ التسجيلِ وقبلَ التسلسلِ** (FR-015): عنصرٌ خارجَ
+        | النطاقِ لا يقفُ في طريقِ شيءٍ أصلاً، فسؤالُ «أكمِلْ ما قبلَه» عنه
+        | إجابةٌ عن سؤالٍ لا يُطرَح.
+        |
+        | ⚠️ **والجملةُ هي جملةُ `NOT_VISIBLE` نفسُها، عن قصد.** الرمزُ يُسقِطُ
+        | الصفَّ من المنهج، فمَن يبلغُ هذا السطرَ إنّما طرَقَ العنوانَ مباشرةً —
+        | وجملةٌ تقولُ «ليسَ لمجموعتِك» تُخبِرُه بوجودِ شيءٍ ما كانَ ليعرفَه.
+        */
+        $hidden = LessonAudience::hiddenFor($enrollment->student, $lesson);
+
+        if ($hidden !== null) {
+            return LessonAccess::deny($hidden, 'هذا الدرس غير متاح حالياً.');
+        }
+
         if (! $enrollment->course->is_sequential) {
             return LessonAccess::allow();
         }
@@ -238,6 +261,24 @@ final class LessonGate
             // was not in that room. That is the same forever-bug the progress
             // denominator had, arriving through the ordering instead.
             ->whereNull('lessons.class_session_id')
+            /*
+            | ⛔ ٠٢٦ · FR-015 — **والشرطانِ يُكتَبانِ هنا صراحةً، لأنّ هذا
+            | الاستعلامَ لا ينادي `progressEligible()` إطلاقاً.**
+            |
+            | `forTree()` يرثُهما مجّاناً عبرَ `countableForProgress()`، وهذا
+            | الفرعُ مكتوبٌ بيدِه منذُ ٠١٦ — فنسيانُهما هنا يجعلُ عنصراً مقصوراً
+            | على مجموعةٍ أخرى **يقفُ في طريقِ** طالبٍ لا يراه ولا يستطيعُ
+            | إتمامَه: «أكمِلْ درساً» عن درسٍ غيرِ موجودٍ في شاشتِه، إلى الأبد.
+            | وهي عائلةُ أسوأِ عطلٍ يسجّلُه هذا المستودع، تصلُ من بابِ الترتيبِ
+            | بدلاً من بابِ المقام.
+            |
+            | ⚠️ **و`whereNotIn` على استعلامٍ فرعيٍّ خامٍّ لا `whereDoesntHave`**:
+            | الثانيةُ تُجري استعلامَ العلاقةِ تحتَ `WorkspaceScope`، فتُرجِعُ
+            | صفراً لقارئٍ مختومٍ بمساحةٍ أخرى — فيقفُ العنصرُ المقصورُ في طريقِه
+            | وحدَه دونَ زملائِه. حكمٌ يختلفُ باختلافِ القارئ.
+            */
+            ->whereNotIn('lessons.id', DB::table('lesson_cohort_scopes')->select('lesson_id'))
+            ->whereNull('lessons.release_session_id')
             ->where('lessons.status', ContentStatus::Published->value)
             ->where('course_chapters.status', ContentStatus::Published->value)
             ->where('course_sections.status', ContentStatus::Published->value)
@@ -435,6 +476,14 @@ final class LessonGate
         $sequential = (bool) $enrollment->course->is_sequential;
         $active = $enrollment->grantsContentAccess();
 
+        /*
+        | ⛔ ٠٢٦ — التوأمُ الجمليُّ لسؤالِ `LessonAudience` في `for()`، **مرّةً
+        | واحدةً للشجرةِ كلِّها**. الصنفُ نفسُه يكتفي باستعلامٍ واحدٍ إن لم يكنْ
+        | في الشجرةِ عنصرٌ مقصورٌ ولا موعد، وهو الحالُ على كلِّ كورسٍ لم يُضيَّقْ
+        | فيه شيء.
+        */
+        $hiddenAmong = LessonAudience::hiddenAmong($enrollment->student, $items);
+
         /** @var array<int, LessonAccess> $out */
         $out = [];
 
@@ -445,8 +494,8 @@ final class LessonGate
             $id = (int) $lesson->getKey();
 
             $access = (function () use (
-                $lesson, $enrollment, $completedIds,
-                $satisfiedExamIds, &$openSessionIds, &$sellableSessionIds, &$releasedSessionIds, $recordedSessionIds, $sequential, $active, $previous,
+                $lesson, $id, $enrollment, $completedIds,
+                $satisfiedExamIds, &$openSessionIds, &$sellableSessionIds, &$releasedSessionIds, $recordedSessionIds, $sequential, $active, $previous, $hiddenAmong,
             ): LessonAccess {
                 if ($lesson->course_id !== $enrollment->course_id) {
                     return LessonAccess::deny(
@@ -525,6 +574,13 @@ final class LessonGate
                             LessonAccess::OTHER_COHORT,
                             'هذه الحصة ليست من حصص مجموعتك.',
                         );
+                }
+
+                // ⛔ ٠٢٦ — توأمُ فرعِ `for()`، في موضعِه نفسِه من الترتيبِ وبجملتِه
+                // نفسِها. `LessonGateParityTest` يُسقِطُ البناءَ على اختلافِهما.
+                // (`isset` ينفي الـ`null` بنفسِه، فلا شرطَ ثانٍ بجوارِه.)
+                if (isset($hiddenAmong[$id])) {
+                    return LessonAccess::deny($hiddenAmong[$id], 'هذا الدرس غير متاح حالياً.');
                 }
 
                 if (! $sequential) {

@@ -49,6 +49,17 @@ export interface TreeLesson {
   /** A published session recording: watched by seat, and not repointable from here. */
   is_recording: boolean;
   /**
+   * ٠٢٦ · FR-001 — المجموعاتُ التي قُصِرَ عليها هذا العنصر، **وفارغةٌ = للجميع**.
+   *
+   * ⚠️ **لا تُقرَأُ «لا أحد».** غيابُ الصفِّ هو الحالُ الذي وُلِدَ عليهِ
+   * كلُّ عنصرٍ على المنصّة، فقراءتُها «مخفيٌّ عن الجميع» تُخفي كلَّ منهجٍ في
+   * المنتَج.
+   *
+   * ومعرّفاتٌ لا أسماء: الشاشةُ تحملُ قائمةَ مجموعاتِ الكورسِ أصلاً،
+   * واسمٌ مرسلٌ معَ العنصرِ تهجئةٌ ثانيةٌ تفترقُ أوّلَ ما تُعادُ تسميةُ مجموعة.
+   */
+  cohort_uuids: string[];
+  /**
    * The exam or session this item points at has been deleted.
    *
    * Shown to the author and to nobody else: the student's tree drops the row, but
@@ -120,6 +131,17 @@ export interface LessonDetail {
   is_completable: boolean;
   is_recording: boolean;
   /**
+   * ٠٢٦ · FR-001 — المجموعاتُ التي قُصِرَ عليها هذا العنصر، **وفارغةٌ = للجميع**.
+   *
+   * ⚠️ **لا تُقرَأُ «لا أحد».** غيابُ الصفِّ هو الحالُ الذي وُلِدَ عليهِ
+   * كلُّ عنصرٍ على المنصّة، فقراءتُها «مخفيٌّ عن الجميع» تُخفي كلَّ منهجٍ في
+   * المنتَج.
+   *
+   * ومعرّفاتٌ لا أسماء: الشاشةُ تحملُ قائمةَ مجموعاتِ الكورسِ أصلاً،
+   * واسمٌ مرسلٌ معَ العنصرِ تهجئةٌ ثانيةٌ تفترقُ أوّلَ ما تُعادُ تسميةُ مجموعة.
+   */
+  cohort_uuids: string[];
+  /**
    * What kind of thing this type IS, from `LessonTypeRegistry` — not restated here.
    *
    * `inline` has a body to type, `external` a URL, `uploaded` a file,
@@ -149,6 +171,15 @@ export interface LessonDetail {
 
 export interface LessonEdit {
   title?: string;
+  /**
+   * ٠٢٦ · FR-001 — محورُ «لمن هذا العنصر».
+   *
+   * ⚠️ **مصفوفةٌ فارغةٌ تعليمةٌ والغيابُ صمتٌ**، والخادمُ يفرّقُ بينهما:
+   * الفارغةُ تلغي التضييقَ وتُعيدُ العنصرَ للجميع، وعدمُ ذكرِ الحقلِ يتركُ
+   * المحورَ كما هو. فلا تُرسِلْها من حفظٍ لا يقصدُ هذا المحور، وإلّا محا
+   * تغييرُ عنوانٍ كلَّ نطاقٍ على العنصر، بصمت.
+   */
+  cohort_uuids?: string[];
   content?: string | null;
   external_url?: string | null;
   /** The exam or session this item places, by uuid. */

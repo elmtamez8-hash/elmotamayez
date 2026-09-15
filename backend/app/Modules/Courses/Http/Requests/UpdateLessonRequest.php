@@ -43,8 +43,31 @@ class UpdateLessonRequest extends FormRequest
             $chapterRule->where('course_id', $course->getKey());
         }
 
+        $cohortRule = WorkspaceRules::exists('cohorts', 'uuid');
+
+        if ($course !== null) {
+            $cohortRule->where('course_id', $course->getKey());
+        }
+
         return [
             'chapter_uuid' => ['sometimes', 'string', $chapterRule],
+            /*
+            | ٠٢٦ · FR-001 — «لمن هذا العنصر».
+            |
+            | ⛔ **`sometimes` و«فارغةٌ = للجميع» شرطانِ لا واحد.** الغيابُ يعني
+            | «لم أذكرِ المحورَ فاتركْه كما هو» — وكلُّ حفظٍ من شاشةِ التحرير
+            | يُرسِلُ حقولاً لا يذكرُ هذا فيها؛ والمصفوفةُ الفارغةُ تعني «ألغِ
+            | التضييق». فبلا `sometimes` يمحو كلُّ حفظِ عنوانٍ كلَّ نطاقٍ على
+            | العنصر، بصمت.
+            |
+            | ⚠️ **والقاعدةُ `WorkspaceRules::exists` لا `exists:`**: الثانيةُ
+            | استعلامٌ خامٌّ خارجَ النطاقِ التنظيميّ. وهي هنا **لصياغةِ الرسالةِ
+            | تحتَ حقلِها**؛ الحارسُ الحقيقيُّ في `SaveLessonAudience` التي
+            | تُحوِّلُ كلَّ معرّفٍ عبرَ `resolveCohortId($uuid, $courseId)` —
+            | فالبذورُ ولوحةُ الإدارةِ تبلغُ الفعلَ بلا نموذجِ طلبٍ إطلاقاً.
+            */
+            'cohort_uuids' => ['sometimes', 'array'],
+            'cohort_uuids.*' => ['string', $cohortRule],
             'title' => ['sometimes', 'string', 'max:255'],
             'content' => ['nullable', 'string'],
             /*

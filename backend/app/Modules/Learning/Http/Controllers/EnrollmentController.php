@@ -361,7 +361,11 @@ class EnrollmentController extends Controller
         // payload, and even the title is a field. That a particular lesson exists
         // at this uuid is itself information about work the teacher has not
         // published.
-        abort_if($access->code === LessonAccess::NOT_VISIBLE, 404, 'لا يوجد درس بهذا المعرّف.');
+        // ⛔ ٠٢٦ — **والقائمةُ واحدةٌ معَ `CurriculumResource`.** كلُّ رمزٍ
+        // يُسقِطُ الصفَّ من المنهجِ يُجيبُ هنا ـ٤٠٤ للسببِ المكتوبِ فوقَهُ
+        // نفسِه: العنوانُ حقلٌ، وإسقاطُ الصفِّ من شاشةٍ واحدةٍ بينما يُرسَلُ
+        // عنوانُه من بابٍ آخرَ إخفاءٌ على شاشةٍ واحدةٍ وحسب.
+        abort_if(LessonAccess::hidesRow($access->code), 404, 'لا يوجد درس بهذا المعرّف.');
 
         $canAccess = $access->allowed;
         $type = LessonType::from($lesson->type);

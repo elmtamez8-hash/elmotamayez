@@ -112,6 +112,29 @@ final class LessonAccess
     /** العنصرُ ينتظرُ حصّةً لم تُعقَدْ بعدُ ولم تُلغَ. */
     public const UNRELEASED = LessonAudience::UNRELEASED;
 
+    /**
+     * رموزُ «يُسقَطُ الصفُّ ولا يُوصَف» — تهجئةٌ واحدةٌ لقارئَين.
+     *
+     * ⛔ **والقارئانِ بابانِ لا شاشةٌ واحدة.** `CurriculumResource` يُسقِطُ
+     * الصفَّ من القائمة، و`lessonPayload()` يجيبُ ٤٠٤ لمن طرَقَ العنوانَ
+     * مباشرةً — وحُجّتُهما واحدةٌ مكتوبةٌ في `NOT_VISIBLE` منذُ زمن: **«أنَّ درساً
+     * بعينِه موجودٌ عندَ هذا المعرّفِ خبرٌ في نفسِه»**. فصفٌّ مُسقَطٌ من المنهجِ
+     * تُرسَلُ عنوانُه من البابِ الآخرِ هو إخفاءٌ على شاشةٍ واحدةٍ وحسب.
+     *
+     * @var list<string>
+     */
+    public const HIDDEN_CODES = [
+        self::NOT_VISIBLE,
+        self::NO_SESSION_CONTENT,
+        self::OUT_OF_SCOPE,
+        self::UNRELEASED,
+    ];
+
+    public static function hidesRow(?string $code): bool
+    {
+        return $code !== null && in_array($code, self::HIDDEN_CODES, true);
+    }
+
     private function __construct(
         public readonly bool $allowed,
         public readonly ?string $code = null,

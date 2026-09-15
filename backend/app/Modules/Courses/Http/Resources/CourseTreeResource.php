@@ -9,6 +9,7 @@ use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Models\LessonCohortScope;
 use App\Modules\Courses\Models\Section;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\ReferenceIntegrity;
@@ -36,6 +37,13 @@ class CourseTreeResource extends JsonResource
     private array $missingReferences = [];
 
     /**
+     * معرّفاتُ المجموعاتِ التي قُصِرَ عليها كلُّ عنصرٍ — مرّةً واحدةً للشجرة.
+     *
+     * @var array<int, list<string>>
+     */
+    private array $cohortScopes = [];
+
+    /**
      * The resource WITH the loads it needs — the only supported way to build it.
      *
      * A Resource runs once per row, so a relation it touches that was not eager
@@ -59,7 +67,7 @@ class CourseTreeResource extends JsonResource
                 ->select([
                     'id', 'uuid', 'course_id', 'section_id', 'chapter_id', 'title', 'type',
                     'status', 'order', 'duration_seconds', 'is_preview', 'is_free', 'is_high_value',
-                    'class_session_id', 'reference_id', 'exam_gate',
+                    'class_session_id', 'release_session_id', 'reference_id', 'exam_gate',
                 ])
                 ->orderBy('order'),
         ]);
@@ -72,11 +80,14 @@ class CourseTreeResource extends JsonResource
     {
         // Two queries for the whole tree, here rather than in `lesson()` where
         // they would be one pair per row.
-        $this->missingReferences = ReferenceIntegrity::missingAmong(
-            $this->sections->flatMap(
-                fn (Section $section) => $section->chapters->flatMap->lessons,
-            ),
+        $lessons = $this->sections->flatMap(
+            fn (Section $section) => $section->chapters->flatMap->lessons,
         );
+
+        $this->missingReferences = ReferenceIntegrity::missingAmong($lessons);
+
+        // والنطاقُ كذلكَ: استعلامانِ للشجرةِ كلِّها، لا اثنانِ لكلِّ صفّ.
+        $this->cohortScopes = LessonCohortScope::uuidsAmong($lessons);
 
         return [
             'uuid' => $this->uuid,
@@ -135,6 +146,12 @@ class CourseTreeResource extends JsonResource
             'status_label' => $lesson->status->label(),
             'blocked_by' => $this->blockedBy($lesson->status, $section->status, $chapter->status),
             'is_completable' => LessonTypeRegistry::isCompletable($type),
+            /*
+            | ٠٢٦ · FR-011 — «لمن هذا العنصر»، **معرّفاتٌ لا أسماء**: الشاشةُ
+            | تحملُ قائمةَ مجموعاتِ الكورسِ أصلاً، واسمٌ مرسلٌ هنا تهجئةٌ ثانيةٌ
+            | تفترقُ أوّلَ ما يُعادُ تسميةُ مجموعة. **وفارغةٌ = للجميع.**
+            */
+            'cohort_uuids' => $this->cohortScopes[(int) $lesson->getKey()] ?? [],
             // Says out loud that this row is a recording, because two rules turn
             // on it: it is entitled by a seat rather than by enrolment, and the
             // authoring surface may not repoint it.

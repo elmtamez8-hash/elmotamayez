@@ -351,4 +351,23 @@ interface CohortDirectory
      * @return array<int, string> keyed by cohort id
      */
     public function namesFor(array $cohortIds): array;
+
+    /**
+     * The public identifiers of these groups, by internal id (٠٢٦).
+     *
+     * ⚠️ **THE TWIN OF {@see namesFor()}, AND IT EXISTS BECAUSE AN ID NEVER
+     * LEAVES THE SERVER.** `lesson_cohort_scopes` stores internal ids, and the
+     * authoring payload has to say WHICH groups an item was narrowed to so the
+     * editor can tick them — `HasUuid` makes the uuid the only thing that may
+     * travel. Bulk by signature like everything else here: a Resource runs once
+     * per row, so a per-lesson lookup is the `ClassSessionResource` N+1 arriving
+     * through yet another door.
+     *
+     * An id with no row is simply absent — a group that was deleted is not an
+     * error on a screen that merely wanted to label a row.
+     *
+     * @param  list<int>  $cohortIds
+     * @return array<int, string> keyed by cohort id
+     */
+    public function uuidsFor(array $cohortIds): array;
 }

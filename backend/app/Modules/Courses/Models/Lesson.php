@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @property string $type
@@ -229,8 +230,28 @@ class Lesson extends BaseModel implements OrdersSiblings
             // the denominator. Nobody could ever complete it, so every enrolled
             // student's ceiling sat below 100% and no certificate issued. A
             // fourth road into the same forever-bug, through the publish chain.
-            ->whereHas('chapter', fn (Builder $q) => $q->where('status', ContentStatus::Published))
-            ->whereHas('section', fn (Builder $q) => $q->where('status', ContentStatus::Published));
+            /*
+            | ⛔ **والتجاوزُ داخلَ الاستعلامَينِ الفرعيَّين، وهو عطلٌ قائمٌ وجدَه
+            | اختبارُ ٠٢٦ لا شيءٌ أحدثَته المواصفة.**
+            |
+            | `scopeVisibleToStudents` أعلاه يحملُ هذا التجاوزَ بعينِه ومعَه
+            | تحذيرٌ يشرحُه، وهذه الدالّةُ — على بُعدِ عشرةِ أسطر — لم تحملْه.
+            | والتجاوزُ **لكلِّ نموذجٍ على حدة**: `whereHas` تُجري نطاقَ `Chapter`
+            | و`Section` داخلَ استعلامَيهما، فقارئٌ سياقُه مساحةٌ أخرى يحصلُ على
+            | **صفرٍ** من هذه الدالّة.
+            |
+            | وصفرٌ هنا ليسَ رقماً ناقصاً: `progress_pct` صفرٌ إلى الأبد،
+            | و`$total > 0` في `CourseProgress::sync()` تمنعُ إتمامَ الكورسِ فلا
+            | يقعُ `CourseCompleted` ولا تصدرُ شهادةٌ أبداً — عائلةُ أسوأِ عطلٍ
+            | يسجّلُه هذا المستودع، تصلُ من بابِ النطاقِ هذه المرّة. ويُصيبُ كلَّ
+            | طالبٍ مطبوعٍ عليه `last_workspace_id`، وهم كلُّ من أُضيفَ يوماً إلى
+            | مساحةِ عمل.
+            |
+            | ⚠️ ولا يُوسَّعُ شيء: الاستعلامانِ مربوطانِ بمفتاحِ هذا الصفِّ
+            | الأجنبيِّ، فلا يطالانِ فصلاً ولا قسماً من مساحةٍ أخرى.
+            */
+            ->whereHas('chapter', fn (Builder $q) => $q->withoutGlobalScope(WorkspaceScope::class)->where('status', ContentStatus::Published))
+            ->whereHas('section', fn (Builder $q) => $q->withoutGlobalScope(WorkspaceScope::class)->where('status', ContentStatus::Published));
     }
 
     /**
@@ -258,9 +279,31 @@ class Lesson extends BaseModel implements OrdersSiblings
     {
         ReferenceIntegrity::apply($query);
 
+        /*
+        | ⛔ ٠٢٦ · FR-013أ — **والشرطانِ خاصّيّتانِ في العنصرِ نفسِه، لا في
+        | القارئ.** فالمقامُ يبقى **واحداً لكلِّ كورس** مهما اختلفَ مَن يقرؤُه،
+        | وتصيرُ «لا تنقصُ نسبةُ أحدٍ بتضييقِ عنصر» صحيحةً بالبناءِ لا بالحراسة.
+        |
+        | ومقامٌ يختلفُ باختلافِ القارئِ ليسَ تحسيناً بل عطلٌ من نوعٍ آخر: طالبانِ
+        | في الكورسِ نفسِه يريانِ رقمَينِ مختلفَينِ عن العملِ نفسِه، وشهادةٌ تصدرُ
+        | لأحدِهما ولا تصدرُ للآخر.
+        |
+        | ⚠️ **و`whereNotIn` على استعلامٍ فرعيٍّ خامٍّ لا `whereDoesntHave`**:
+        | العلاقةُ تجري تحتَ `WorkspaceScope`، و`WorkspaceContext::id()` يرجعُ إلى
+        | `users.last_workspace_id` المطبوعِ على كلِّ طالبٍ أُضيفَ يوماً إلى
+        | مساحةِ عمل — فتُرجِعُ العلاقةُ صفراً لذلكَ القارئ، ويدخلُ العنصرُ
+        | المقصورُ مقامَه وحدَه. وهو مقامٌ لا يستطيعُ إتمامَه أبداً: أسوأُ عطلٍ
+        | يسجّلُه هذا المستودع، ولا تجهيزةَ بمساحةِ عملٍ واحدةٍ تراه.
+        |
+        | ⚠️ **و«مربوطٌ بحصّة» لا «لم يُفرَجْ عنه بعد»** (FR-013 مقابلَ FR-013أ).
+        | الثاني يُدخِلُ العنصرَ المقامَ يومَ تُعقَدُ الحصّة، فتنقصُ نسبةُ طالبٍ
+        | كانَ على ١٠٠٪ — وهو ما تمنعُه FR-014 نصّاً.
+        */
         return $query
             ->whereIn('lessons.type', LessonTypeRegistry::completableValues())
-            ->whereNull('lessons.class_session_id');
+            ->whereNull('lessons.class_session_id')
+            ->whereNull('lessons.release_session_id')
+            ->whereNotIn('lessons.id', DB::table('lesson_cohort_scopes')->select('lesson_id'));
     }
 
     /**

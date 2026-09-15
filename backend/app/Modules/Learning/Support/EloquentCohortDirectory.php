@@ -565,6 +565,27 @@ class EloquentCohortDirectory implements CohortDirectory
             ->all();
     }
 
+    /**
+     * @param  list<int>  $cohortIds
+     * @return array<int, string>
+     */
+    public function uuidsFor(array $cohortIds): array
+    {
+        if ($cohortIds === []) {
+            return [];
+        }
+
+        // `withoutWorkspaceScope()` for the reason {@see namesFor()} gives above
+        // it: the ids are the guard, and a scoped read answers differently for a
+        // teacher and for a student of the same course.
+        return Cohort::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('id', array_values(array_unique($cohortIds)))
+            ->pluck('uuid', 'id')
+            ->mapWithKeys(fn (string $uuid, int|string $id): array => [(int) $id => $uuid])
+            ->all();
+    }
+
     private function findIndividualCohort(int $courseId, int $studentUserId): ?int
     {
         $id = Cohort::query()
