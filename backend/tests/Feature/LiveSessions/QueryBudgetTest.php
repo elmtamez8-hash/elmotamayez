@@ -224,30 +224,48 @@ it('keeps the heartbeat ENDPOINT cheap, which is three times the Action', functi
      | Spatie loads its permission set once per process, so the FIRST request of
      | any test pays a warm-up that has nothing to do with row count.
      |
-     | ⚠️ AND ONE WARM-UP WAS NOT ENOUGH — THAT WAS A FLAKE, NOT A THEORY. This
-     | assertion failed once with 16 in eight full parallel runs and passed on an
-     | identical re-run. Probing sixty consecutive pings named the cause instead
-     | of guessing at it: the steady state is FOURTEEN, and the request straight
-     | after a single warm-up costs fifteen or sixteen. The difference is
+     | ⚠️ AND A FIXED NUMBER OF WARM-UPS IS NOT «WARM UNTIL STEADY» — that was
+     | the shape of the last fix, and it rode the line until CI knocked it over.
+     | Two warm-ups were added because two were what THIS machine needed; main
+     | went red on 2026-09-15 with 16, and an identical re-run was green.
      |
-     |     select * from "platform_settings" where "platform_settings"."key" = ?
+     | ⚠️ MEASURED, NOT REASONED — six consecutive pings, counted per request:
      |
-     | — an operational number, cached after its first read (this repository keeps
-     | those in rows, not in `config/`). One request does not touch every key this
-     | path reads, because creating the attendance row and updating it are
-     | different branches reading different settings; the second request does.
+     |     1 → 24    2 → 16    3 → 15    4 → 15    5 → 15    6 → 15
      |
-     | ⚠️ THE CEILING WAS NOT RAISED TO 16, AND MUST NOT BE. The regression this
-     | budget exists to catch is worth TWO queries — the balances were fetched
-     | twice per beat, once by the withholding check and once by the prepaid
-     | fall-through — so a ceiling of 16 over a steady state of 14 admits it back
-     | with room to spare. Warming until steady makes the measurement honest;
+     | So the steady state is FIFTEEN and the ceiling is fifteen: the margin is
+     | ZERO, not the one this comment used to claim. (It said fourteen, and that
+     | was true when it was written — the drift since is real and is worth one
+     | person's afternoon; it is NOT this test's job to hide it.) The settle is a
+     | `platform_settings` read cached after its first use, and creating the
+     | attendance row and updating it are different branches reading different
+     | keys — so how many requests it takes depends on the machine, which is
+     | exactly why a COUNT of warm-ups is the wrong instrument.
+     |
+     | The loop below asks the question the rule actually asks: keep pinging
+     | until two consecutive requests cost the same, then assert THAT. It cannot
+     | drift with the environment, and it still fails on a real regression —
+     | the steady state is what is compared against the ceiling.
+     |
+     | ⛔ THE CEILING WAS NOT RAISED, AND MUST NOT BE. The regression this budget
+     | exists to catch is worth TWO queries — the balances were fetched twice per
+     | beat, once by the withholding check and once by the prepaid fall-through —
+     | so a ceiling of 16 over a steady 15 would readmit half of it and a ceiling
+     | of 17 all of it. Warming until steady makes the measurement honest;
      | loosening the number would have made it quiet.
      */
-    $this->postJson($url)->assertOk();
-    $this->postJson($url)->assertOk();
+    $count = 0;
+    $previous = null;
 
-    [$count] = countingQueries(fn () => $this->postJson($url)->assertOk());
+    foreach (range(1, 6) as $ignored) {
+        [$count] = countingQueries(fn () => $this->postJson($url)->assertOk());
+
+        if ($count === $previous) {
+            break;
+        }
+
+        $previous = $count;
+    }
 
     /*
      | Auth and binding, the eligibility chain, the ping's transaction, and the
