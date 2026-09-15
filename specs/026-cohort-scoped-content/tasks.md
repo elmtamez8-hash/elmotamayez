@@ -9,6 +9,21 @@ contracts/lesson-audience.md · quickstart.md
 
 **Format**: `[ID] [P?] [Story] الوصفُ ومعه مسارُ الملفّ`
 
+## الحالةُ اليومَ — ٢٠٢٦-٠٩-١٥
+
+**شُحِنَ وعُمِلَ به على الإنتاج**: US3 كاملةً (T035–T039) ومعها T005 · T006، وشِقّانِ من
+مهمّتَين: `NO_SESSION_CONTENT` وحدَه من رموزِ T010، وإسقاطُه وحدَه من T017. الرمزانِ
+الآخرانِ ينتظرانِ قصّتَيهما.
+
+**ما زالَ**: US1 · US2 · US4 والمرحلتانِ ١ و٢ والصقل — أربعونَ مهمّة.
+
+⚠️ **وشُحِنَ خارجَ هذه القائمةِ شيئان** خرَجا من مشيةٍ على الإنتاج، لا من تخطيطٍ مسبَق:
+قسمُ «المجموعة والحصص» على شاشةِ الطلب، وإصلاحُ منطقةِ الموعدِ الزمنيّةِ في
+`schedulePreviewFor()` — التي كانت تُعلِنُ مواعيدَ كلِّ المجموعاتِ بـUTC على شاشاتِ
+الإدارةِ **وعلى صفحةِ الكورسِ العامّة** معاً.
+
+---
+
 ---
 
 ## Phase 1 — الأساسُ المشترك (يسبقُ كلَّ قصّة)
@@ -17,8 +32,8 @@ contracts/lesson-audience.md · quickstart.md
 - [ ] T002 [P] ترحيلٌ يضيفُ `lessons.release_session_id` مفرَّغاً بعدَ `class_session_id` مع فهرسٍ مسمّى في `backend/app/Modules/Courses/Database/Migrations/2026_09_15_000200_add_release_session_id_to_lessons.php`
 - [ ] T003 نموذجُ `LessonCohortScope` بـ`BelongsToWorkspace` و`HasUuid` في `backend/app/Modules/Courses/Models/LessonCohortScope.php`
 - [ ] T004 علاقةُ `cohortScopes(): HasMany` و`releaseSession` (بلا علاقةٍ عابرةٍ للوحدات — معرّفٌ فقط) وخاصّيّةُ `release_session_id` في `backend/app/Modules/Courses/Models/Lesson.php`
-- [ ] T005 دالّةُ `releasedSessionIds(array): array` على `backend/app/Shared/Contracts/SessionAttendanceDirectory.php` — المُفرَجُ عنه `delivered_at IS NOT NULL` **أو** `status = 'cancelled'`
-- [ ] T006 تنفيذُها في `backend/app/Modules/LiveSessions/Support/EloquentSessionAttendanceDirectory.php` — استعلامٌ واحدٌ جماعيّ، ويردُّ المُفرَجَ عنه فقط لا المُدخَلَ كلَّه
+- [X] T005 دالّةُ `releasedSessionIds(array): array` على `backend/app/Shared/Contracts/SessionAttendanceDirectory.php` — المُفرَجُ عنه `delivered_at IS NOT NULL` **أو** `status = 'cancelled'`
+- [X] T006 تنفيذُها في `backend/app/Modules/LiveSessions/Support/EloquentSessionAttendanceDirectory.php` — استعلامٌ واحدٌ جماعيّ، ويردُّ المُفرَجَ عنه فقط لا المُدخَلَ كلَّه
 
 **نقطةُ تحقُّق**: `php artisan migrate` ثمّ `php vendor/bin/pest tests/Feature/Seeding/SchemaIdentifierLengthTest.php` — الحارسُ القائمُ يقرأُ كلَّ اسمٍ بعدَ الترحيلِ ويُسقِطُ ما جاوزَ ٦٤.
 
@@ -32,7 +47,7 @@ contracts/lesson-audience.md · quickstart.md
 - [ ] T007 صنفُ `LessonAudience` في `backend/app/Modules/Courses/Support/LessonAudience.php` — `hiddenAmong(User, iterable<Lesson>): array<int,string|null>` جماعيّاً، و`hiddenFor(User, Lesson): ?string` **مشتقّاً منه** لا مكتوباً ثانيةً
 - [ ] T008 داخلَه: مجموعاتُ القارئِ المفتوحةُ من `CohortDirectory::openMembershipCohortIdsFor()` (لا `everMemberCohortIdsFor` — سؤالٌ آخر، انظر research.md · ق-٦)، وصفوفُ النطاقِ بـ`whereIn('lesson_id', …)`، وحالُ حصصِ الإفراجِ من T005 — **ثلاثةُ استعلاماتٍ ثابتةٍ مهما كَبُرَت الشجرة**
 - [ ] T009 داخلَه: استثناءُ المؤلّفِ (عضوِ مساحةِ عملِ الدرس) **مرّةً واحدةً هنا** لا في أربعةِ أبواب (FR-011)
-- [ ] T010 ثلاثةُ رموزٍ على `backend/app/Modules/Learning/Support/LessonAccess.php`: `OUT_OF_SCOPE` · `UNRELEASED` · `NO_SESSION_CONTENT`، ومعَ كلٍّ منها في دفترِ تعليقِه سببُ إخفائِه لا عرضِه
+- [~] T010 ثلاثةُ رموزٍ على `backend/app/Modules/Learning/Support/LessonAccess.php`: `OUT_OF_SCOPE` · `UNRELEASED` · `NO_SESSION_CONTENT`، ومعَ كلٍّ منها في دفترِ تعليقِه سببُ إخفائِه لا عرضِه
 - [ ] T011 اختبارُ وحدةٍ للقارئِ في `backend/tests/Feature/Courses/LessonAudienceTest.php` — يغطّي: بلا نطاقٍ ⇒ null · نطاقٌ يشملُ ⇒ null · نطاقٌ لا يشملُ ⇒ `out_of_scope` · حصّةٌ مجدولةٌ ⇒ `unreleased` · حصّةٌ سُلِّمت ⇒ null · حصّةٌ أُلغيت ⇒ null · مؤلّفٌ ⇒ null دائماً
   - **كيفَ يمسك**: احذفْ استثناءَ المؤلّفِ ⇒ تسقطُ الحالةُ الأخيرةُ وحدَها
 
@@ -55,7 +70,7 @@ contracts/lesson-audience.md · quickstart.md
 ### القراءة
 
 - [ ] T016 [US1] فرعُ `out_of_scope` في `LessonGate::for()` **و**`forTree()` معاً في `backend/app/Modules/Learning/Support/LessonGate.php` — بعدَ فرعِ `class_session_id` وقبلَ سؤالِ التسلسل
-- [ ] T017 [US1] إسقاطُ الرموزِ الثلاثةِ في `backend/app/Modules/Learning/Http/Resources/CurriculumResource.php:127` — الشرطُ يصيرُ مجموعةً بدلَ مقارنةٍ واحدة، ويُسقَطُ الفصلُ ثمّ القسمُ إذا فرغ
+- [~] T017 [US1] إسقاطُ الرموزِ الثلاثةِ في `backend/app/Modules/Learning/Http/Resources/CurriculumResource.php:127` — الشرطُ يصيرُ مجموعةً بدلَ مقارنةٍ واحدة، ويُسقَطُ الفصلُ ثمّ القسمُ إذا فرغ
 - [ ] T018 [US1] ⛔ سؤالُ `LessonAudience` في `mayWatch()` **و**`mayWatchMany()` في `backend/app/Modules/Media/Actions/IssuePlaybackGrant.php` — الرفضُ بالرسالةِ العامّةِ القائمةِ لا برسالةٍ تكشفُ وجودَ العنصر
 
 ### المقام ⛔
@@ -106,12 +121,12 @@ contracts/lesson-audience.md · quickstart.md
 **اختبارُها المستقلّ**: حصّةٌ `completed` و`delivered_at` مفرَّغٌ ولها درسُ تسجيل ⇒ الصفُّ غيرُ
 موجودٍ في المنهج.
 
-- [ ] T035 [US3] شرطُ التسليم/الإلغاءِ في **فرعَي** `unlockableSessionIds()` في `backend/app/Modules/Payments/Support/EloquentSessionContentAccess.php` (المقعدُ والتسجيلُ+المجموعة) — انظر research.md · ق-٤
-- [ ] T036 [US3] فرعُ `no_session_content` في `LessonGate::for()` **و**`forTree()` — يقعُ بعدَ `unlockableSessionIds` ويُسقِطُ الصفَّ بدلَ الوعدِ بفتحٍ يُرفَض
-- [ ] T037 [US3] التأكّدُ من أنّ `lockedSessionCount()` في `CurriculumResource:233` **لا يعُدُّ** صفّاً أُسقِط — اليومَ يشترطُ `NO_SEAT` فهو آمنٌ بالبناء؛ تُكتَبُ الحراسةُ في اختبارٍ لا في شرطٍ جديد
-- [ ] T038 [US3] حالتانِ تُضافانِ إلى `backend/tests/Feature/Learning/SessionContentPromiseTest.php` القائم — **لا ملفٌّ منافس**: ذلك الملفُّ هو العقدُ الذي يقرأُ الحمولةَ ويضغطُ النقطةَ ويؤكّدُ اتّفاقَهما
+- [X] T035 [US3] شرطُ التسليم/الإلغاءِ في **فرعَي** `unlockableSessionIds()` في `backend/app/Modules/Payments/Support/EloquentSessionContentAccess.php` (المقعدُ والتسجيلُ+المجموعة) — انظر research.md · ق-٤
+- [X] T036 [US3] فرعُ `no_session_content` في `LessonGate::for()` **و**`forTree()` — يقعُ بعدَ `unlockableSessionIds` ويُسقِطُ الصفَّ بدلَ الوعدِ بفتحٍ يُرفَض
+- [X] T037 [US3] التأكّدُ من أنّ `lockedSessionCount()` في `CurriculumResource:233` **لا يعُدُّ** صفّاً أُسقِط — اليومَ يشترطُ `NO_SEAT` فهو آمنٌ بالبناء؛ تُكتَبُ الحراسةُ في اختبارٍ لا في شرطٍ جديد
+- [X] T038 [US3] حالتانِ تُضافانِ إلى `backend/tests/Feature/Learning/SessionContentPromiseTest.php` القائم — **لا ملفٌّ منافس**: ذلك الملفُّ هو العقدُ الذي يقرأُ الحمولةَ ويضغطُ النقطةَ ويؤكّدُ اتّفاقَهما
   - **كيفَ يمسك**: أعِدْ `unlockableSessionIds()` إلى صيغتِها قبلَ T035 ⇒ تسقطُ الحالتانِ برسالةٍ تقارنُ الحمولةَ بجوابِ نقطةِ الفتح
-- [ ] T039 [P] [US3] حالةٌ في `backend/tests/Feature/Learning/CurriculumEndpointTest.php` تؤكّدُ أنّ `locked_session_count` لا يشملُ الصفوفَ المُسقَطة
+- [X] T039 [P] [US3] حالةٌ في `backend/tests/Feature/Learning/CurriculumEndpointTest.php` تؤكّدُ أنّ `locked_session_count` لا يشملُ الصفوفَ المُسقَطة
 
 ---
 
