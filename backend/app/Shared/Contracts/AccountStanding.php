@@ -49,6 +49,32 @@ interface AccountStanding
     public function creditsNeededFor(User $student, int $courseId): int;
 
     /**
+     * Both halves of one refusal, read ONCE.
+     *
+     * ⛔ **THE TWO METHODS ABOVE ARE ASKED TOGETHER, AND ASKING THEM SEPARATELY
+     * READ THE SAME BALANCE TWICE.** Every refuser in the product needs the
+     * verdict AND the number in the same breath — FR-032 requires the sentence
+     * to name the amount — so `isWithheld()` returning true is always followed
+     * by `creditsNeededFor()`, and each of them walks the student's account, the
+     * balance rows, the workspace and its exam window from scratch. Measured on
+     * `/class-sessions/{s}/eligibility` for a student with no credits: **16
+     * queries before, 12 after** — four rows that were each read twice. (The
+     * `enrollments` read that still appears twice is somebody else's: it is
+     * there on the funded path too, where the number below is never asked for.)
+     *
+     * So the two stay on the contract — `IssueStoreAccess` asks the verdict
+     * alone and `NotifyAccessChange` asks the number alone, and neither should
+     * carry an answer it does not use — and this one exists for the callers that
+     * need both. A memo behind the old pair was the other candidate and was
+     * rejected: `ReleaseIneligibleBookings` holds one instance across a whole
+     * sweep and RELEASES credits inside the loop, so a cached verdict would
+     * outlive the balance it describes.
+     *
+     * @return array{withheld: bool, credits_needed: int}
+     */
+    public function refusalFor(User $student, int $courseId): array;
+
+    /**
      * Every course in which this student is currently withheld.
      *
      * The bulk form is mandatory, not a convenience: both sibling contracts

@@ -81,11 +81,21 @@ class BookingEligibility
             return null;
         }
 
-        if (! $this->standing->isWithheld($student, (int) $session->course_id)) {
+        /*
+        | ⚠️ ONE QUESTION, NOT TWO. The verdict and the number are the same walk —
+        | the account, the balances, the workspace, its exam window — and asking
+        | them separately walked it twice on every refusal. And it IS every
+        | refusal: `ReleaseIneligibleBookings` sweeps each booked seat through
+        | `allows()`, so the double landed once per ineligible student per
+        | session, nightly.
+        */
+        $money = $this->standing->refusalFor($student, (int) $session->course_id);
+
+        if (! $money['withheld']) {
             return null;
         }
 
-        $needed = $this->standing->creditsNeededFor($student, (int) $session->course_id);
+        $needed = $money['credits_needed'];
 
         return "رصيدك في هذا الكورس لا يكفي لحجز حصة جديدة. تحتاج {$needed} حصة على الأقل، وتُشترى من صفحة الأرصدة.";
     }

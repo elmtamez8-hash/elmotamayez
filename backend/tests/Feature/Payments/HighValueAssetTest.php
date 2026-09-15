@@ -14,6 +14,7 @@ use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Shared\Contracts\AccountStanding;
 use App\Shared\Support\WorkspaceContext;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Tests\Support\FakeBroadcastProvider;
@@ -248,6 +249,43 @@ it('lets the teacher classify their own content, and lift it again (FR-041)', fu
         ->assertJsonPath('is_high_value', false);
 });
 
+/*
+| ⛔ **الرفضُ يقرأُ الرصيدَ مرّةً واحدة، وكانَ يقرؤُه مرّتَين.**
+|
+| الحكمُ («محجوب؟») والرقمُ («كم حصّةً يحتاج؟») مشيةٌ واحدةٌ في
+| `AccountStanding` — الحسابُ ثمّ الرصيدُ ثمّ مساحةُ العملِ ونافذةُ امتحاناتِها —
+| و FR-032 يوجبُ أن تحملَ جملةُ الرفضِ الرقمَ، فهذا البابُ يسألُ النصفَينِ معاً
+| في كلِّ رفض.
+|
+| **كيفَ يمسك**: أعِدْ `IssuePlaybackGrant` إلى `isWithheld()` ثمّ
+| `creditsNeededFor()` ⇒ يسقطُ بـ«٢ بدلَ ١».
+*/
+it('reads the balance once to refuse a high-value file', function (): void {
+    $notes = classify($this->lessonWithVideo($this->workspace));
+    [$student] = $this->enrolledViewer($this->workspace, $notes);
+    oweOn($notes->course, $student);
+
+    // تحميةٌ: الإعداداتُ التشغيليّةُ صفوفٌ تُحفَظُ بعدَ أوّلِ قراءة.
+    $this->postJson("/api/v1/lessons/{$notes->uuid}/playback")->assertStatus(402);
+
+    $reads = 0;
+
+    DB::listen(function ($query) use (&$reads): void {
+        if (str_contains($query->sql, 'from "credit_balances" where "student_credit_account_id"')) {
+            $reads++;
+        }
+    });
+
+    // الضابطُ الموجَب: الرفضُ ما زالَ رفضاً ويحملُ رقمَه — قراءةٌ واحدةٌ
+    // تُرضيها نسخةٌ لا ترفضُ شيئاً إرضاءً تامّاً.
+    $this->postJson("/api/v1/lessons/{$notes->uuid}/playback")
+        ->assertStatus(402)
+        ->assertJsonPath('code', 'access_withheld')
+        ->assertJsonPath('credits_needed', fn (int $n): bool => $n > 0);
+
+    expect($reads)->toBe(1);
+});
+
 it('never asks the contract from inside a Resource', function (): void {
     // A Resource runs once per row, so a call there is an N+1 by construction —
     // the reason the contract carries a bulk form at all. Swept across EVERY
@@ -258,7 +296,8 @@ it('never asks the contract from inside a Resource', function (): void {
     foreach (glob(base_path('app/Modules/*/Http/Resources/*.php')) ?: [] as $file) {
         $source = (string) file_get_contents($file);
 
-        if (str_contains($source, 'AccountStanding') || str_contains($source, 'isWithheld(')) {
+        if (str_contains($source, 'AccountStanding') || str_contains($source, 'isWithheld(')
+            || str_contains($source, 'refusalFor(')) {
             $offenders[] = basename($file);
         }
     }
