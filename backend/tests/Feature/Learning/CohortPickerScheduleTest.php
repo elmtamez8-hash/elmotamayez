@@ -59,21 +59,34 @@ function pickerCohort(string $name, int $capacity = 8): Cohort
 it('carries the group\'s meeting time into the option, beside its seats', function (): void {
     $cohort = pickerCohort('المجموعة الثانية');
 
-    // الأحدُ السادسةُ مساءً — مرّتانِ، فهي الفترةُ المتكرّرة.
+    /*
+    | الأحدُ السادسةُ مساءً **بتوقيتِ المنصّة** — مرّتانِ، فهي الفترةُ المتكرّرة.
+    |
+    | ⛔ والمنطقةُ مذكورةٌ صراحةً، وهي نصفُ الاختبار. `config('app.timezone')` هو
+    | `UTC` و`sessions.timezone` هو `Asia/Qatar`، فوقتٌ مكتوبٌ بلا منطقةٍ هنا
+    | يعني UTC — وكانَ المُنتقي يطبعُه كما هو، فتُعلَنُ حصّةُ السادسةِ «15:00».
+    | قِيسَ على الإنتاجِ في ٢٠٢٦-٠٩-١٥: مجموعةٌ سمّاها مدرّسُها «السبت ٥م» كانت
+    | تُعلِنُ «السبت 14:00».
+    |
+    | ⚠️ **و`->utc()` لازمةٌ لا زينة.** إيلوكوِنت يكتبُ ساعةَ الحائطِ الخاصّةَ
+    | بكائنِ Carbon كما هي، بلا تحويل — فوقتٌ بمنطقةِ قطرٍ بلا `->utc()` يُخزَّنُ
+    | «18:00» ويُقرَأُ UTC، فيصيرُ الحدثُ نفسُه ثلاثَ ساعاتٍ متأخّراً في القاعدة.
+    | والإنتاجُ يكتبُ UTC دائماً: `ScheduleSessionData` تستدعي `->utc()` بنفسِها.
+    */
     foreach (['2026-09-20 18:00:00', '2026-09-27 18:00:00'] as $at) {
         ClassSession::factory()->create([
             'workspace_id' => $this->workspace->getKey(),
             'teacher_profile_id' => $this->teacher->getKey(),
             'course_id' => $this->course->getKey(),
             'cohort_id' => $cohort->getKey(),
-            'starts_at' => Carbon::parse($at),
+            'starts_at' => Carbon::parse($at, 'Asia/Qatar')->utc(),
         ]);
     }
 
     $label = app(CohortDirectory::class)->assignableOptionsFor((int) $this->course->getKey())[(string) $cohort->uuid];
 
     expect($label)->toContain('المجموعة الثانية')
-        ->and($label)->toContain('18:00')
+        ->and($label)->toContain('الأحد 18:00')
         /*
         | والمقاعدُ تبقى: هذه إضافةٌ لا استبدال.
         |
@@ -96,4 +109,35 @@ it('says so when the group has no sessions yet, rather than leaving a gap', func
     $label = app(CohortDirectory::class)->assignableOptionsFor((int) $this->course->getKey())[(string) $cohort->uuid];
 
     expect($label)->toContain('لم تُجدول حصص بعد');
+});
+
+/*
+| ⛔ واليومُ هو النصفُ الأخطر، لا الساعة.
+|
+| حصّةٌ في الواحدةِ بعدَ منتصفِ الليلِ بتوقيتِ قطر هي العاشرةُ مساءَ **اليومِ
+| السابق** بتوقيتِ UTC. فتنسيقٌ بلا تحويلٍ لا يخطئُ الساعةَ وحدَها — يخطئُ اسمَ
+| اليوم، فتُعلَنُ مجموعةُ الأحدِ «السبت».
+|
+| ⚠️ والساعةُ رقمٌ قد يشكُّ فيه قارئ؛ واليومُ يُقرأُ حقيقةً فيُبنى عليه. ولهذا
+| الحالةُ مستقلّةٌ عن التي قبلَها: تجهيزةٌ في وسطِ النهارِ تعبرُ التحويلَ بلا أن
+| تلمسَ هذا الشقَّ إطلاقاً.
+*/
+it('names the weekday the students meet on, not the one UTC happens to be in', function (): void {
+    $cohort = pickerCohort('مجموعة الفجر');
+
+    // الأحدُ الواحدةُ صباحاً بتوقيتِ قطر = السبتُ العاشرةُ مساءً بتوقيت UTC.
+    foreach (['2026-09-20 01:00:00', '2026-09-27 01:00:00'] as $at) {
+        ClassSession::factory()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'teacher_profile_id' => $this->teacher->getKey(),
+            'course_id' => $this->course->getKey(),
+            'cohort_id' => $cohort->getKey(),
+            'starts_at' => Carbon::parse($at, 'Asia/Qatar')->utc(),
+        ]);
+    }
+
+    $label = app(CohortDirectory::class)->assignableOptionsFor((int) $this->course->getKey())[(string) $cohort->uuid];
+
+    expect($label)->toContain('الأحد 01:00')
+        ->and($label)->not->toContain('السبت');
 });

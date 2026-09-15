@@ -159,7 +159,12 @@ it('answers when the group meets, and an empty list when nothing is scheduled', 
     // Two sessions on the same weekday and hour: the preview is a SUMMARY, so
     // both collapse into one label rather than listing two instants.
     foreach ([1, 8] as $days) {
-        $startsAt = now()->addDays($days)->setTime(16, 0);
+        /*
+        | ⚠️ **بتوقيتِ المنصّةِ ثمّ `->utc()`.** اللافتةُ تُكتَبُ بتوقيتِ الطلاب،
+        | والتخزينُ UTC — ووقتٌ هنا بلا منطقةٍ يعني UTC، فتُعلَنُ حصّةُ الرابعةِ
+        | «19:00» على صفحةِ الكورسِ العامّة.
+        */
+        $startsAt = now('Asia/Qatar')->addDays($days)->setTime(16, 0)->utc();
 
         ClassSession::factory()->create([
             'workspace_id' => $course->workspace_id,
