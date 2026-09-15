@@ -49,6 +49,12 @@ class UpdateLessonRequest extends FormRequest
             $cohortRule->where('course_id', $course->getKey());
         }
 
+        $sessionRule = WorkspaceRules::exists('class_sessions', 'uuid');
+
+        if ($course !== null) {
+            $sessionRule->where('course_id', $course->getKey());
+        }
+
         return [
             'chapter_uuid' => ['sometimes', 'string', $chapterRule],
             /*
@@ -68,6 +74,23 @@ class UpdateLessonRequest extends FormRequest
             */
             'cohort_uuids' => ['sometimes', 'array'],
             'cohort_uuids.*' => ['string', $cohortRule],
+            /*
+            | 026 - FR-006 - when does this item appear.
+            |
+            | `sometimes` + `nullable`, and the two mean different things: an
+            | absent key is silence, while an explicit null is the teacher
+            | UNLINKING the item so it appears now. That null is the escape
+            | hatch FR-008 demands for a session that was neither delivered nor
+            | cancelled, and `nullable` is what keeps it out of the "required"
+            | arm of validation and inside `validated()`, where the controller
+            | reads it with `array_key_exists`.
+            |
+            | The course condition is the real point: without it a teacher can
+            | pin their item to another teacher's session, which may never be
+            | delivered - and the item then vanishes from every one of their own
+            | students for ever, with no screen saying why.
+            */
+            'release_session_uuid' => ['sometimes', 'nullable', 'string', $sessionRule],
             'title' => ['sometimes', 'string', 'max:255'],
             'content' => ['nullable', 'string'],
             /*

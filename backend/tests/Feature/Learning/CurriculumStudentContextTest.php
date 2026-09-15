@@ -93,3 +93,61 @@ it('refuses the teacher, who holds no enrolment in their own workspace', functio
 
     $this->getJson('/api/v1/courses/'.$tree['course']->uuid.'/curriculum')->assertForbidden();
 });
+
+/*
+| ⛔ **والمختومُ بمساحةِ عملٍ أخرى يرى كورسَه كاملاً — وكانَ يراه فارغاً.**
+|
+| الملفُّ كلُّه فوقَ هذه النقطةِ عن الطالبِ **عديمِ السياق**، وهو الشكلُ الذي
+| ينتجُه التسجيلُ الذاتيُّ. والمرآةُ الأخرى غائبةٌ كانت: `users.last_workspace_id`
+| مطبوعٌ على كلِّ طالبٍ أضافَه مدرّسٌ أو دعوةٌ أو بذرةٌ إلى مساحةِ عمل — **ستّةُ
+| صفوفٍ بدورِ `student` قِيسَت على قاعدةٍ حقيقيّة — فيُحَلُّ سياقُه إلى مساحةٍ
+| ليست مساحةَ الكورس، و`Course::lessons()` استعلامٌ جديدٌ على `Lesson` يجري
+| تحتَ `WorkspaceScope`.
+|
+| فكانَ الجوابُ **٢٠٠ بصفرِ دروس**: كورسٌ دُفِعَ ثمنُه يُقرَأُ كأنّه لم يُكتَبْ
+| فيه شيء، بلا خطأٍ في أيِّ مكان. ولا شيءَ في `CourseProgress` كانَ يراه —
+| ذاكَ أُصلِحَ في US1 — لأنّ هذا بابٌ ثالثٌ لنفسِ الغلط.
+|
+| **كيفَ يمسك**: احذفْ `withoutWorkspaceScope()` من `orderedLessons()` ⇒ تسقطُ
+| هذه وحدَها بصفرٍ بدلَ ثلاثة. واحذفِ التجاوزَ من داخلِ `->with([...])` وحدَه ⇒
+| تسقطُ كذلك، لأنّ `isVisibleChain()` يجدُ القسمَ والفصلَ «محمَّلَينِ» فارغَين.
+*/
+function curriculumRowCount(string $courseUuid): int
+{
+    $payload = test()->getJson('/api/v1/courses/'.$courseUuid.'/curriculum')->assertOk()->json();
+
+    $rows = 0;
+
+    foreach ($payload['sections'] as $section) {
+        foreach ($section['chapters'] as $chapter) {
+            $rows += count($chapter['lessons']);
+        }
+    }
+
+    return $rows;
+}
+
+it('shows the whole course to a student stamped with another workspace', function (): void {
+    $tree = $this->curriculumTree();
+
+    Sanctum::actingAs($tree['student']);
+    $this->forgetWorkspace();
+
+    // الأساسُ: ما يراه الطالبُ عديمُ السياق، وهو الشكلُ الذي ينتجُه التسجيلُ
+    // الذاتيّ. و«غيرُ فارغ» وحدَها تمرُّ على بناءٍ يُسقِطُ نصفَ الشجرةِ لسببٍ آخر.
+    $baseline = curriculumRowCount($tree['course']->uuid);
+
+    expect($baseline)->toBeGreaterThan(0);
+
+    [$elsewhere] = $this->createWorkspaceWithOwner();
+
+    // ⚠️ `forceFill`: العمودُ في `User::$guarded`، فـ`create([...])` يُسقِطُه في
+    // صمتٍ ويبني الطالبَ عديمَ السياقِ من جديد — أي الحالةَ التي قِيسَتْ للتوّ.
+    $tree['student']->forceFill(['last_workspace_id' => $elsewhere->getKey()])->save();
+
+    Sanctum::actingAs($tree['student']);
+    $this->forgetWorkspace();
+
+    expect(app(WorkspaceContext::class)->id())->toBe($elsewhere->getKey())
+        ->and(curriculumRowCount($tree['course']->uuid))->toBe($baseline);
+});

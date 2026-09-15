@@ -51,7 +51,11 @@ class ResyncCourseProgress implements ShouldHandleEventsAfterCommit, ShouldQueue
         // denominator is a fact about the TREE and is identical for every
         // enrolment in it. Same scope, same number — the per-student half is the
         // completed count, and that stays per student.
-        $total = $course->lessons()->countableForProgress()->count();
+        // ⚠️ `withoutWorkspaceScope()`، وهو الهجاءُ نفسُه الذي يحملُه
+        // `CourseProgress::total()`. هذا الصفُّ يُكتَبُ في `progress_pct`،
+        // فمقامٌ يُحسَبُ هنا تحتَ النطاقِ ويُقرَأُ هناكَ بدونِه رقمانِ لسؤالٍ
+        // واحد — والعاملُ قد يحملُ سياقَ مساحةٍ من مهمّةٍ سابقة.
+        $total = $course->lessons()->withoutWorkspaceScope()->countableForProgress()->count();
 
         Enrollment::query()
             ->where('course_id', $course->getKey())

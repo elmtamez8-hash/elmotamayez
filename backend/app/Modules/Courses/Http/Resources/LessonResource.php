@@ -7,6 +7,7 @@ namespace App\Modules\Courses\Http\Resources;
 use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\LessonCohortScope;
+use App\Modules\Courses\Support\LessonRelease;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\MarkdownRenderer;
 use App\Modules\Courses\Support\ReferenceSummary;
@@ -78,6 +79,16 @@ class LessonResource extends JsonResource
             | مرّةً واحدة.
             */
             'cohort_uuids' => LessonCohortScope::uuidsAmong([$this->resource])[(int) $this->getKey()] ?? [],
+            /*
+            | 026 - FR-006 - when this item appears, for the editor to fill in.
+            |
+            | The session's uuid and nothing more: the screen already holds the
+            | course's session list, and a title sent here is a second spelling
+            | that parts from the first the moment a session is renamed. `null`
+            | means «appears now», which is what every item on the platform was
+            | born as.
+            */
+            'release_session_uuid' => LessonRelease::uuidsAmong([$this->resource])[(int) $this->getKey()] ?? null,
             'order' => $this->order,
             'duration_seconds' => $this->duration_seconds,
             'is_preview' => $this->is_preview,

@@ -60,6 +60,14 @@ export interface TreeLesson {
    */
   cohort_uuids: string[];
   /**
+   * 026 - FR-006 - the session that makes this item appear, or `null` for «now».
+   *
+   * A uuid and nothing else: the screen holds the course's session list already,
+   * and a title sent beside the item is a second spelling that parts from the
+   * first the moment a session is renamed.
+   */
+  release_session_uuid: string | null;
+  /**
    * The exam or session this item points at has been deleted.
    *
    * Shown to the author and to nobody else: the student's tree drops the row, but
@@ -141,6 +149,8 @@ export interface LessonDetail {
    * واسمٌ مرسلٌ معَ العنصرِ تهجئةٌ ثانيةٌ تفترقُ أوّلَ ما تُعادُ تسميةُ مجموعة.
    */
   cohort_uuids: string[];
+  /** 026 - FR-006 - the session that makes this item appear, `null` = now. */
+  release_session_uuid: string | null;
   /**
    * What kind of thing this type IS, from `LessonTypeRegistry` — not restated here.
    *
@@ -180,6 +190,16 @@ export interface LessonEdit {
    * تغييرُ عنوانٍ كلَّ نطاقٍ على العنصر، بصمت.
    */
   cohort_uuids?: string[];
+  /**
+   * 026 - FR-006 - when this item appears.
+   *
+   * Three states, not two: absent = «leave it as it is», a uuid = «appear when
+   * that session has been held», and an explicit `null` = «unlink it, appear
+   * now» - the way out FR-008 demands for a session that was neither delivered
+   * nor cancelled. Send `null` on purpose; never send it from a save that does
+   * not mean this axis.
+   */
+  release_session_uuid?: string | null;
   content?: string | null;
   external_url?: string | null;
   /** The exam or session this item places, by uuid. */

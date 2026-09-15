@@ -13,6 +13,7 @@ use App\Modules\Media\Exceptions\AccessWithheldException;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Models\PlaybackGrant;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AccountStanding;
 use App\Shared\Contracts\EnrollmentDirectory;
@@ -201,7 +202,19 @@ class IssuePlaybackGrant extends Action
         // authoring surface is for. A student is not a workspace member — the only
         // writers of that pivot are `AcceptInvitation` and `CreateWorkspace`, so
         // enrolling does not grant it.
-        if ($viewer->workspaces()->where('workspaces.id', $lesson->workspace_id)->exists()) {
+        /*
+        | ⛔ **والشرطُ دورُ المحورِ لا مجرّدُ العضويّة.** قِيسَ على قاعدةٍ
+        | حقيقيّةٍ في ٢٠٢٦-٠٩-٠٩: `workspace_members` تحملُ **ستّةَ صفوفٍ بدورِ
+        | `student`** — فمدرّسٌ أو دعوةٌ أو بذرةٌ تضعُ طالباً في مساحةِ عمل،
+        | و«عضوٌ ⇒ مؤلّف» يفتحُ لأولئكَ الستّةِ **مسوّداتِ الكورسِ كلَّها**
+        | قبلَ كلِّ فحصٍ للحالةِ تحتَه. والسؤالُ بالنفيِ كما في
+        | `User::teachesOnPlatform()`، فدورٌ مخصَّصٌ مجهولٌ يسقطُ نحوَ المنعِ لا
+        | نحوَ الفتح.
+        */
+        if ($viewer->workspaces()
+            ->wherePivot('role', '!=', Roles::STUDENT)
+            ->where('workspaces.id', $lesson->workspace_id)
+            ->exists()) {
             return true;
         }
 
@@ -255,7 +268,11 @@ class IssuePlaybackGrant extends Action
         );
 
         $courseIds = array_flip($this->enrollments->activeCourseIdsFor($viewer));
-        $workspaceIds = array_flip($viewer->workspaces()->pluck('workspaces.id')->all());
+        // التوأمُ الجمليُّ للسؤالِ نفسِه: الدورُ لا العضويّة (انظرْ `mayWatch()`).
+        $workspaceIds = array_flip($viewer->workspaces()
+            ->wherePivot('role', '!=', Roles::STUDENT)
+            ->pluck('workspaces.id')
+            ->all());
 
         // ⛔ ٠٢٦ — التوأمُ الجمليُّ لسؤالِ `mayWatch()`، والتهجئتانِ تتحرّكانِ معاً:
         // هذا هو البابُ الذي تمرُّ منه **شاشةُ المنهج**، وشرطٌ في أحدِهما

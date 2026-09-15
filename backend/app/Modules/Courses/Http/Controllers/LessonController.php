@@ -88,7 +88,7 @@ class LessonController extends Controller
         $fresh = $action->update($lesson, LessonData::fromArray($payload), $chapter);
 
         /*
-        | ٠٢٦ · FR-001 — محورُ «لمن هذا العنصر»، ويُكتَبُ بفعلِه الخاصّ.
+        | ٠٢٦ · FR-001 · FR-006 — محورا «لمن هذا العنصر ومتى يظهر»، ويُكتبان بفعلهما الخاصّ.
         |
         | ⚠️ **`has()` لا `filled()`**: `filled()` تُنكِرُ المصفوفةَ الفارغةَ،
         | وهي هنا **تعليمةٌ لا صمت** — «ألغِ التضييقَ وأعِدْه للجميع». فبها
@@ -97,8 +97,28 @@ class LessonController extends Controller
         | وليسَ في `ManageLessons` لأنّ ذاكَ الفعلَ يكتبُ أعمدةَ الصفِّ، وهذا
         | يكتبُ جدولاً آخرَ ويُطلِقُ حدثَ بنيةٍ يُعيدُ حسابَ مقامِ كلِّ مسجَّل.
         */
+        $wanted = [];
+
         if ($request->has('cohort_uuids')) {
-            $audience->handle($fresh, array_values($request->validated('cohort_uuids', [])));
+            $wanted['cohort_uuids'] = array_values($request->validated('cohort_uuids', []));
+        }
+
+        /*
+        | ⛔ **`array_key_exists` لا `??`.** القاعدةُ `sometimes|nullable`،
+        | فقيمةٌ `null` صريحةٌ **تبقى** في `validated()` وهي تعليمةُ فكِّ
+        | الربط — مخرجُ FR-008 لحصّةٍ لم تُسلَّمْ ولم تُلغَ. وقراءتُها بـ`??`
+        | تجعلُ زرَّ «يظهر الآن» زرّاً بلا أثرٍ إطلاقاً، بصمت.
+        */
+        $validated = $request->validated();
+
+        if (array_key_exists('release_session_uuid', $validated)) {
+            $wanted['release_session_uuid'] = $validated['release_session_uuid'] === null
+                ? null
+                : (string) $validated['release_session_uuid'];
+        }
+
+        if ($wanted !== []) {
+            $audience->handle($fresh, $wanted);
             $fresh->refresh();
         }
 
