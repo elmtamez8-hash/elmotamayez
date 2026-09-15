@@ -53,9 +53,29 @@ class EloquentCohortScheduleDirectory implements CohortScheduleDirectory
         /** @var array<int, array<string, int>> $counts */
         $counts = [];
 
+        /*
+        | ⛔ THE LABEL IS BUILT IN THE PLATFORM'S TIMEZONE, AND IT WAS BUILT IN
+        | UTC — measured on production 2026-09-15.
+        |
+        | `config('app.timezone')` is `UTC` and `sessions.timezone` is
+        | `Asia/Qatar`, so a group whose teacher named it «السبت ٥م» advertised
+        | «السبت 14:00» in the assignment picker: three hours early, on the one
+        | string a student and an officer read to know when the class meets.
+        |
+        | ⚠️ AND THE DAY IS THE SHARPER HALF. A session at 01:00 Qatar is 22:00
+        | the PREVIOUS day in UTC, so the weekday itself came out wrong — a
+        | Sunday group labelled «السبت». The hour is a number somebody might
+        | question; the weekday reads as a fact.
+        |
+        | Read from `SessionSettings`, which is the platform's one declaration of
+        | its timezone, exactly as `ReferenceTargetController` already reads it.
+        */
+        $timezone = app(SessionSettings::class)->timezone();
+
         foreach ($sessions as $session) {
             $cohortId = (int) $session->cohort_id;
-            $label = self::DAYS[(int) $session->starts_at->format('w')].' '.$session->starts_at->format('H:i');
+            $localStart = $session->starts_at->copy()->setTimezone($timezone);
+            $label = self::DAYS[(int) $localStart->format('w')].' '.$localStart->format('H:i');
 
             $counts[$cohortId][$label] = ($counts[$cohortId][$label] ?? 0) + 1;
         }

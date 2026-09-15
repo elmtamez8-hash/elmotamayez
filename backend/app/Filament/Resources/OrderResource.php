@@ -7,6 +7,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\OrderResource\Pages;
 use App\Models\User;
 use App\Modules\Identity\Support\TwoFactorMandate;
+use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\RejectOrder;
 use App\Modules\Payments\Enums\OrderKind;
@@ -502,9 +503,17 @@ class OrderResource extends Resource
              | ⚠️ «لا حصّةَ قادمة» جملةٌ مكتوبةٌ لا فراغ. المجموعةُ قد تكونُ
              | انتهت حصصُها كلُّها، وسطرٌ غائبٌ يُقرأُ «لم نقرأْ» لا «لا يوجد».
              */
+            /*
+             | ⛔ وبتوقيتِ المنصّةِ لا بـUTC. `config('app.timezone')` هو `UTC`
+             | بينما `sessions.timezone` هو `Asia/Qatar`، وتنسيقٌ بلا تحويلٍ
+             | يكتبُ حصّةَ الخامسةِ «14:00» — وهو ما كانَ يفعلُه مُنتقي المجموعةِ
+             | نفسُه حتّى قِيسَ على الإنتاجِ في ٢٠٢٦-٠٩-١٥.
+             */
             'next' => $next === null
                 ? 'لا حصّةَ قادمةً مجدولة'
-                : 'الحصّةُ القادمة: '.CarbonImmutable::parse($next['starts_at'])->format('Y-m-d H:i'),
+                : 'الحصّةُ القادمة: '.CarbonImmutable::parse($next['starts_at'])
+                    ->setTimezone(app(SessionSettings::class)->timezone())
+                    ->format('Y-m-d H:i'),
         ];
     }
 

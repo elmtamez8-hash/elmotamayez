@@ -205,8 +205,15 @@ it('names the group the student landed in, and when it meets', function (): void
         'course_id' => $course->getKey(),
         'cohort_id' => $cohort->getKey(),
         'status' => ClassSessionStatus::Scheduled,
-        'starts_at' => now()->next('Saturday')->setTime(17, 0),
-        'ends_at' => now()->next('Saturday')->setTime(18, 0),
+        /*
+        | ⚠️ **بتوقيتِ المنصّةِ ثمّ `->utc()`، والاثنانِ لازمان.** التخزينُ UTC —
+        | `ScheduleSessionData` تستدعي `->utc()` بنفسِها — بينما اللافتةُ تُكتَبُ
+        | بتوقيتِ المنصّة. ووقتٌ مكتوبٌ هنا بلا منطقةٍ يعني UTC، فتصيرُ حصّةُ
+        | الخامسةِ «20:00» على الشاشة. وإيلوكوِنت يكتبُ ساعةَ الحائطِ كما هي بلا
+        | تحويل، فوقتٌ بمنطقةِ قطرٍ بلا `->utc()` يُخزَّنُ ثلاثَ ساعاتٍ متأخّراً.
+        */
+        'starts_at' => now('Asia/Qatar')->next('Saturday')->setTime(17, 0)->utc(),
+        'ends_at' => now('Asia/Qatar')->next('Saturday')->setTime(18, 0)->utc(),
     ]);
 
     CohortMembership::factory()->create([
