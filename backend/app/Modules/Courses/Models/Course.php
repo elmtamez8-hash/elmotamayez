@@ -7,6 +7,7 @@ namespace App\Modules\Courses\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Traits\BelongsToWorkspace;
@@ -216,6 +217,33 @@ class Course extends BaseModel
     public function enrollments(): HasMany
     {
         return $this->hasMany(Enrollment::class);
+    }
+
+    /**
+     * ⛔ **موجودةٌ لسؤالٍ واحد: «هل لهذا الكورسِ حصصٌ حيّةٌ أصلاً؟» — ولا تُقرَأُ
+     * صفوفُها أبداً.**
+     *
+     * صفحةُ الكورسِ عندَ الطالبِ كانت تسألُ `course_type !== 'recorded'`، وذلكَ
+     * العمودُ عاشَ بلا كاتبٍ من ٢٠٢٦-٠٨-٠١ إلى ٢٠٢٦-٠٩-١٥ — فكورسٌ على الإنتاجِ
+     * بثماني حصصٍ حيّةٍ ومجموعةٍ مفتوحةٍ لم يعرضْ منها شيئاً لأربعةِ طلبةٍ
+     * مسجَّلين. صارَ للعمودِ كاتبٌ، لكنّ **إعلانَ المدرّسِ ليسَ هو الواقع**:
+     * اختيارٌ خاطئٌ منه يُخفي الجدولَ عن طلبتِه في صمتٍ ولا يظهرُ أثرُه لأحد،
+     * بينما شارةً خاطئةً في السوقِ يراها الناسُ فيُبلِّغون. فالتبويبُ يمشي وراءَ
+     * الواقعِ والشارةُ وراءَ الإعلان.
+     *
+     * ⚠️ **و`withExists`/`loadExists` وحدَهما، لا `with`**: الجوابُ بُولِيّ،
+     * وتحميلُ فصلٍ دراسيٍّ كاملٍ من الحصصِ لتُعَدَّ لا شيءَ هو الـN+1 نفسُه بوجهٍ
+     * آخر. والسمةُ الناتجةُ `class_sessions_exists`.
+     *
+     * ⚠️ **وحدودُ الوحداتِ مقصودة**: `Courses` تعرفُ `ClassSession` هنا كما
+     * تعرفُها {@see LessonRelease} منذُ ٠٢٦ — ولا حارسَ عزلٍ بينَ الوحدتَينِ في
+     * هذا المستودع، بخلافِ التسويةِ والمدفوعات.
+     *
+     * @return HasMany<ClassSession, $this>
+     */
+    public function classSessions(): HasMany
+    {
+        return $this->hasMany(ClassSession::class);
     }
 
     /**

@@ -63,7 +63,25 @@ class CurriculumResource extends JsonResource
                 // spelling `EnrollmentResource` already uses.
                 'teacher_name' => $enrollment->workspace?->name,
                 'is_sequential' => (bool) $course->is_sequential,
+                /*
+                | ⛔ **الشارةُ تتبعُ الإعلان، والتبويبُ يتبعُ الواقع — وهما سؤالان.**
+                |
+                | `course_type` إعلانُ المدرّسِ عن كورسِه، وله كاتبٌ منذُ
+                | ٢٠٢٦-٠٩-١٥ فقط؛ قبلَها عاشَ بقيمةٍ افتراضيّةٍ `recorded` كتبَها
+                | الجدولُ لا إنسان. وكانت الشاشةُ تشتقُّ منه
+                | `hasSessions = course_type !== 'recorded'`، فكورسٌ على الإنتاجِ
+                | بثماني حصصٍ حيّةٍ جايّةٍ ومجموعةٍ مفتوحةٍ أسقطَ تبويبَ «الحصص»
+                | وعدّادَ الحصّةِ القادمةِ عن أربعةِ طلبةٍ مسجَّلين.
+                |
+                | ⚠️ **واتّجاهُ العطلِ هو ما يفصل**: إعلانٌ خاطئٌ يُخفي الجدولَ في
+                | صمتٍ ولا يراهُ أحد، بينما شارةً خاطئةً في السوقِ يراها الناسُ
+                | فيُبلِّغون. فالأوّلُ لا يجوزُ أن يُبنى على إعلان.
+                |
+                | والاثنانِ يُرسَلانِ معاً: الشاشةُ تحتاجُ الواقعَ للتبويبِ
+                | والإعلانَ لتقولَ للمدرّسِ إنّهما اختلفا.
+                */
                 'course_type' => $course->course_type,
+                'has_sessions' => $view->hasSessions,
                 'progress_pct' => $enrollment->progress_pct,
                 'completed_count' => $view->completedCount,
                 'countable_count' => $view->countableCount,

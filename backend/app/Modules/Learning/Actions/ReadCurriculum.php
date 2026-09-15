@@ -36,6 +36,17 @@ class ReadCurriculum extends Action
     {
         $enrollment->loadMissing(['course', 'workspace']);
 
+        /*
+        | ⚠️ **`loadExists` لا `load`، واستعلامٌ واحدٌ لا فصلٌ دراسيٌّ من الصفوف.**
+        | الجوابُ بُولِيّ، فتحميلُ كلِّ حصصِ الكورسِ لتُعَدَّ لا شيءَ هو الـN+1
+        | نفسُه بوجهٍ آخر.
+        |
+        | ⚠️ **وهنا لا في الـResource**، كما يقولُ `cohortGate` تحتَه بالحرف:
+        | صنفُ عرضٍ يُصدِرُ استعلاماً هو صنفٌ يُصدِرُه مرّةً لكلِّ صفٍّ يومَ
+        | ينقلُه أحدٌ إلى `row()`.
+        */
+        $enrollment->course->loadExists('classSessions');
+
         // `array_values`, so the shape really is a list: `Collection::all()`
         // preserves keys, and the walk downstream depends on the order alone.
         $lessons = array_values($enrollment->orderedLessons()->all());
@@ -62,6 +73,7 @@ class ReadCurriculum extends Action
             // moves the block down into `row()` — and the gate's own hot-path
             // predicate is already answered once inside `LessonGate::forTree()`.
             cohortGate: CohortGate::describe($enrollment->student, (int) $enrollment->course_id),
+            hasSessions: (bool) $enrollment->course->getAttribute('class_sessions_exists'),
         );
     }
 }

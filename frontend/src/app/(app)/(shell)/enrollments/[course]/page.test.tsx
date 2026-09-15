@@ -54,6 +54,7 @@ function payload(overrides: Partial<Curriculum> = {}): Curriculum {
       teacher_name: "أ. سامي",
       is_sequential: true,
       course_type: "group",
+      has_sessions: true,
       progress_pct: 40,
       completed_count: 4,
       countable_count: 10,
@@ -326,14 +327,15 @@ describe("CourseCurriculumPage", () => {
   */
 
   /*
-   | ⚠️ A `recorded` COURSE HAS NO SESSIONS TAB AND NO HEADER AT ALL (FR-014).
-   | Not an empty tab and not «لا حصّة قادمة»: a recorded course can never have a
-   | session, so both are answers to a question this course does not raise — and
-   | a tab with nothing behind it is a promise the course cannot keep.
+   | ⚠️ A COURSE WITH NOTHING SCHEDULED HAS NO SESSIONS TAB AND NO HEADER AT ALL
+   | (FR-014). Not an empty tab and not «لا حصّة قادمة»: there is no session to
+   | answer about, so both are answers to a question this course does not raise —
+   | and a tab with nothing behind it is a promise the course cannot keep.
   */
-  it("draws no sessions tab and no next-session header on a recorded course", async () => {
+  it("draws no sessions tab and no next-session header when nothing is scheduled", async () => {
     const recorded = payload();
     recorded.course.course_type = "recorded";
+    recorded.course.has_sessions = false;
     mockRoutes({ curriculum: recorded });
 
     await renderPage();
@@ -347,6 +349,37 @@ describe("CourseCurriculumPage", () => {
     const asked = get.mock.calls.map((call) => String(call[0]));
     expect(asked.some((path) => path.includes("next-session"))).toBe(false);
     expect(asked).not.toContain("/courses/c-1/sessions");
+  });
+
+  /*
+   | ⛔ **THE TAB FOLLOWS THE SCHEDULE, NOT THE LABEL — AND THIS IS THE CASE THE
+   | PRODUCT SHIPPED BROKEN.**
+   |
+   | `courses.course_type` had NO WRITER ANYWHERE from 2026-08-01 to 2026-09-15:
+   | it carried a DB default of `recorded` that read as a decision. «Laravel
+   | Mastery» on production — eight live sessions ahead of it, an open group,
+   | four enrolled students — drew no tab and no countdown, and nothing said why.
+   |
+   | ⚠️ The column has a writer now and that is still not enough: a mislabel
+   | hides a timetable SILENTLY, while a wrong marketplace badge is visible and
+   | gets reported. The failure directions are not symmetric, so the two
+   | questions are answered from two fields.
+   |
+   | **كيفَ يمسك**: أعِدْ `hasSessions` إلى `course_type !== "recorded"` ⇒ يسقطُ
+   | هذا الشقُّ وحدَه، والذي قبلَه يبقى أخضرَ — وهو الفرقُ كلُّه.
+  */
+  it("draws the sessions tab on a course labelled recorded that has live sessions", async () => {
+    const mislabelled = payload();
+    mislabelled.course.course_type = "recorded";
+    mislabelled.course.has_sessions = true;
+    mockRoutes({ curriculum: mislabelled });
+
+    await renderPage();
+
+    expect(await screen.findByRole("tab", { name: "الحصص" })).toBeTruthy();
+
+    const asked = get.mock.calls.map((call) => String(call[0]));
+    expect(asked).toContain("/courses/c-1/sessions");
   });
 
   /*
