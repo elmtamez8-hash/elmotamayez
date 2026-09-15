@@ -221,38 +221,34 @@ it('keeps the heartbeat ENDPOINT cheap, which is three times the Action', functi
     $url = "/api/v1/class-sessions/{$session->uuid}/presence";
 
     /*
-     | Spatie loads its permission set once per process, so the FIRST request of
-     | any test pays a warm-up that has nothing to do with row count.
+     | ⛔ ٥ — AND IT WAS 15 UNTIL THE HEARTBEAT STOPPED ASKING THE DOOR'S
+     | QUESTIONS.
      |
-     | ⚠️ AND A FIXED NUMBER OF WARM-UPS IS NOT «WARM UNTIL STEADY» — that was
-     | the shape of the last fix, and it rode the line until CI knocked it over.
-     | Two warm-ups were added because two were what THIS machine needed; main
-     | went red on 2026-09-15 with 16, and an identical re-run was green.
+     | `presence()` used to call `IssueJoinTicket::handle()` whole, so every
+     | thirty seconds it re-ran the enrolment, the freeze, the withholding and
+     | the unlock rule — none of which can change while a student is sitting in
+     | the lesson. A thirty-seat room was nine hundred queries a minute, and a
+     | student whose balance flickered mid-explanation was thrown out of an hour
+     | she had paid for. `RoomRevocation` is the split: the beat asks what can
+     | change and evict, the door asks the rest.
      |
-     | ⚠️ MEASURED, NOT REASONED — six consecutive pings, counted per request:
+     | What is left, measured: the session binding, the seat, the removal, the
+     | attendance row the ping writes, and the status read for the reply. The
+     | clock and the terminal-status check cost nothing — both are columns on a
+     | row the router already loaded.
      |
-     |     1 → 24    2 → 16    3 → 15    4 → 15    5 → 15    6 → 15
+     | ⚠️ WARM UNTIL STEADY, NOT A FIXED NUMBER OF WARM-UPS. Two warm-ups were
+     | what THIS machine needed; main went red with 16 against a ceiling of 15 on
+     | 2026-09-15 and an identical re-run was green. The settle is a
+     | `platform_settings` read cached after first use, and how many requests it
+     | takes depends on the machine — so the loop keeps pinging until two
+     | consecutive requests agree and asserts THAT.
      |
-     | So the steady state is FIFTEEN and the ceiling is fifteen: the margin is
-     | ZERO, not the one this comment used to claim. (It said fourteen, and that
-     | was true when it was written — the drift since is real and is worth one
-     | person's afternoon; it is NOT this test's job to hide it.) The settle is a
-     | `platform_settings` read cached after its first use, and creating the
-     | attendance row and updating it are different branches reading different
-     | keys — so how many requests it takes depends on the machine, which is
-     | exactly why a COUNT of warm-ups is the wrong instrument.
-     |
-     | The loop below asks the question the rule actually asks: keep pinging
-     | until two consecutive requests cost the same, then assert THAT. It cannot
-     | drift with the environment, and it still fails on a real regression —
-     | the steady state is what is compared against the ceiling.
-     |
-     | ⛔ THE CEILING WAS NOT RAISED, AND MUST NOT BE. The regression this budget
-     | exists to catch is worth TWO queries — the balances were fetched twice per
-     | beat, once by the withholding check and once by the prepaid fall-through —
-     | so a ceiling of 16 over a steady 15 would readmit half of it and a ceiling
-     | of 17 all of it. Warming until steady makes the measurement honest;
-     | loosening the number would have made it quiet.
+     | ⛔ AND THE CEILING FOLLOWS THE MEASUREMENT DOWNWARD, NEVER UPWARD. One
+     | spare over a steady five. The regression this exists to catch is the whole
+     | door chain coming back, which is worth ten — but a ceiling left at 15
+     | would have readmitted all of it in silence, which is exactly how the two
+     | duplicate balance reads got back in after the last time they were removed.
      */
     $count = 0;
     $previous = null;
@@ -279,7 +275,7 @@ it('keeps the heartbeat ENDPOINT cheap, which is three times the Action', functi
      | withholding check and once by the prepaid fall-through beneath it, and a
      | roomier ceiling would have let that back in unnoticed.
      */
-    expect($count)->toBeLessThanOrEqual(15);
+    expect($count)->toBeLessThanOrEqual(6);
 });
 
 /*

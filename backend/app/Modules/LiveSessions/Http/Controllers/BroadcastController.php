@@ -15,6 +15,7 @@ use App\Modules\LiveSessions\Exceptions\BroadcastProviderUnavailable;
 use App\Modules\LiveSessions\Exceptions\UnsupportedCapability;
 use App\Modules\LiveSessions\Http\Resources\JoinTicketResource;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Support\RoomRevocation;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -77,16 +78,27 @@ class BroadcastController extends Controller
      * the page displays, the server decides. Refused for anyone who could not
      * get a ticket, because a ping is a claim to be in the room.
      */
-    public function presence(Request $request, ClassSession $session, IssueJoinTicket $tickets, RecordPresencePing $action): JsonResponse
+    /**
+     * ⛔ **النبضةُ تسألُ أسئلةَ السحبِ وحدَها، لا سلسلةَ الباب.**
+     *
+     * إعادةُ السؤالِ في كلِّ نبضةٍ هي أداتُنا الوحيدةُ لإخراجِ أحد — المزوّدُ لا
+     * يسحبُ تذكرةً ويُعيدُ إنشاءَ غرفةٍ محذوفةٍ عندَ أوّلِ دخول — فهي **لا
+     * تُحذَف**. لكنّ هذا السطرَ كانَ يستدعي `IssueJoinTicket::handle()` بحالِها،
+     * فيُعيدُ كلَّ ثلاثينَ ثانيةً سؤالَ التسجيلِ والإجازةِ والحجبِ وقاعدةِ الفتح:
+     * **خمسةَ عشرَ استعلاماً** لكلِّ مشتركٍ مرّتَينِ في الدقيقة، وغرفةٌ بثلاثينَ
+     * طالباً تسعُ مئةِ استعلامٍ في الدقيقة.
+     *
+     * والأسوأُ أنّه لم يكنْ بطئاً فقط: طالبةٌ اضطربَ رصيدُها في منتصفِ الشرحِ
+     * تُرمى خارجَ حصّةٍ **دفعَت ثمنَها**. {@see RoomRevocation} يكتبُ أيُّ
+     * الأسئلةِ يتغيّرُ أثناءَ الحصّةِ وأيُّها حُسِمَ على الباب.
+     *
+     * ⚠️ **وصنفٌ واحدٌ يملكُها، يسألُه البابانِ** — فلا «بابانِ يختلفان».
+     */
+    public function presence(Request $request, ClassSession $session, RoomRevocation $revocation, RecordPresencePing $action): JsonResponse
     {
         $user = $this->currentUser($request);
 
-        try {
-            $tickets->handle($session, $user);
-        } catch (DomainException|RuntimeException) {
-            // Both, for the reason spelled out in join(): a `DomainException` here
-            // was an uncaught 500 arriving every thirty seconds into a loop
-            // written to expect a 403.
+        if (! $revocation->stillAdmitted($session, $user)) {
             return response()->json([
                 'message' => 'انتهت صلاحية وجودك في الغرفة.',
                 'code' => 'session_not_joinable',

@@ -86,12 +86,15 @@ interface SessionCreditHolds
      * What is left to spend: owned minus frozen, in ONE query.
      *
      * ⛔ IT IS SEPARATE FROM `heldFor()` BECAUSE OF WHERE IT IS ASKED.
-     * `BookingEligibility::openingRefusal()` is re-run by
-     * `BroadcastController::presence()` on every heartbeat, under a budget of 15
-     * against a steady state measured at 14 and a docblock saying the ceiling is
-     * not raised. The HAPPY path — «yes, you have credit» — must cost one read;
+     * `BookingEligibility::openingRefusal()` is the DOOR — booking, and entering
+     * the room. The HAPPY path — «yes, you have credit» — must cost one read;
      * the `MIN(ends_at)` that answers «when do I get it back» belongs on the
      * refusal branch, where it is paid for once and by the person who needs it.
+     *
+     * ⚠️ IT USED TO SAY «and again on every heartbeat, under a budget of 15
+     * against a steady state measured at 14». Both halves are gone: the
+     * heartbeat asks `RoomRevocation` and not this chain at all, and the 14 it
+     * cited had already become a 15 — by this very read being added to the path.
      *
      * ⚠️ AND IT IS `remaining - held`, NEVER `remaining`. That difference is the
      * whole of ٠٣٥'s booking rule: a credit frozen against Tuesday's seat is not
