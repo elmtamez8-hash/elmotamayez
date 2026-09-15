@@ -72,11 +72,25 @@ class BuildPracticeFromMistakes extends Action
 
         $withheld = $this->pool->withheldQuestionIds($workspaceId, (int) $student->getKey());
 
+        /*
+        | ⛔ ٠٢٦ · FR-020 — **ودفترُ الأخطاءِ لا يمرُّ من `questionsFor()`**، فهو
+        | يبني ورقتَه من معرّفاتِ الدفترِ مباشرةً — فالاستبعادُ يُكتَبُ هنا كذلك
+        | أو صارَ للبِركةِ بابانِ أحدُهما مفتوح.
+        |
+        | ⚠️ **و`lesson_id` يقبلُ الفراغ**، و`NULL NOT IN (…)` يساوي `NULL` —
+        | فالشرطُ بلا ذراعِ الفراغِ يُسقِطُ كلَّ سؤالٍ لا درسَ له بدلَ أن يُبقيه.
+        | ومجموعةٌ حولَه، وإلّا انفصلَ الـ`OR` عن الشروطِ فوقَه.
+        */
+        $hiddenLessons = $this->pool->hiddenLessonIds($workspaceId, $student);
+
         $questions = Question::query()
             ->withoutWorkspaceScope()
             ->where('workspace_id', $workspaceId)
             ->whereIn('id', $questionIds)
             ->whereNotIn('id', $withheld)
+            ->when($hiddenLessons !== [], fn ($query) => $query->where(fn ($group) => $group
+                ->whereNull('lesson_id')
+                ->orWhereNotIn('lesson_id', $hiddenLessons)))
             // ⚠️ Disabled stays IN the notebook and out of the paper. The mistake
             // happened and the student may still read it; a question the teacher
             // withdrew must not be put back in front of anyone.

@@ -1390,3 +1390,33 @@ The MONEY meaning of «العذر», and a different column from
 on purpose: the mark counts as attendance wherever attendance is a condition and
 exempts nothing financially, while this column exempts the charge and leaves the hour
 shut. Unifying them in either direction breaks one of the two doors silently.
+
+## `lesson_cohort_scopes` و`lessons.release_session_id` — لمن ومتى (spec 026)
+
+```
+lesson_cohort_scopes:  workspace_id · lesson_id → lessons · cohort_id → cohorts
+                       unique(lesson_id, cohort_id)
+
+lessons gains:         release_session_id → class_sessions, NULLABLE, indexed,
+                       **NOT $fillable**
+```
+
+⚠️ **الغيابُ هو الحالُ الافتراضيُّ في المحورَين، وهذا هو التصميم.** صفٌّ غائبٌ
+يعني «لكلِّ طلابِ الكورس» وليسَ «لا أحد»، و`NULL` في العمودِ يعني «يظهر الآن»
+وليسَ «مخفيّ» — فكلُّ عنصرٍ على المنصّةِ يومَ الترحيلِ بقيَ كما كان، بلا بذرةٍ
+ولا ملءٍ رجعيّ.
+
+⚠️ **والعمودُ خارجَ `$fillable` عمداً.** كاتبُه الوحيدُ
+`Courses\Actions\SaveLessonAudience` بـ`forceFill`، وهي التي تتحقّقُ أنّ الحصّةَ
+من حصصِ هذا الكورس — والإسنادُ الجماعيُّ **يُسقِطُ المفتاحَ غيرَ المسموحِ في
+صمت**: لا استثناءَ ولا سطرَ سجلّ.
+
+⚠️ **والمفتاحُ الغائبُ في الحمولةِ صمتٌ، والقيمةُ الصريحةُ تعليمة.**
+`cohort_uuids: []` تُلغي التضييق، و`release_session_uuid: null` تفكُّ الربط،
+وغيابُ المفتاحِ يعني «اتركْه كما هو». تُقرَأُ بـ`array_key_exists` — لا `??` ولا
+`filled()`، وكلاهما يخلطُ الغيابَ بالفراغ.
+
+⚠️ **ولا قراءةَ من هذين المحورَينِ تجري تحتَ `WorkspaceScope`.**
+`WorkspaceContext::id()` يرجعُ إلى `users.last_workspace_id`، وهو مطبوعٌ على كلِّ
+طالبٍ أُضيفَ يوماً إلى مساحةِ عمل — فقراءةٌ مُنطَقةٌ هنا حكمٌ يختلفُ باختلافِ
+القارئ، ولا تجهيزةَ بمساحةِ عملٍ واحدةٍ تراه.

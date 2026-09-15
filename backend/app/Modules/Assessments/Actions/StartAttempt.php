@@ -13,6 +13,8 @@ use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Assessments\Support\ApplyAccommodation;
 use App\Modules\Assessments\Support\QuestionSnapshot;
 use App\Modules\Courses\Enums\LessonType;
+use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Support\LessonAudience;
 use App\Modules\Learning\Models\Enrollment;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\SessionContentAccess;
@@ -87,18 +89,44 @@ class StartAttempt extends Action
      */
     private function guardSessionContent(Exam $exam, User $student): void
     {
-        $sessionId = DB::table('lessons')
+        /*
+        | ⛔ ٠٢٦ — **صفُّ الشجرةِ كلُّه لا `class_session_id` وحدَه.** الفحصُ
+        | كانَ يقرأُ العمودَ بـ`value()`، فلم يكنْ يبلغُ سطراً واحداً من أسطرِ
+        | «لمن هذا العنصرُ ومتى يظهر»: اختبارٌ مقصورٌ على مجموعةٍ أو مربوطٌ
+        | بحصّةٍ لم تُعقَدْ لا يحملُ حصّةً لِيَحمِلَها هذا العمود.
+        */
+        $lesson = Lesson::query()
+            // الطالبُ سياقُه فارغٌ أو مساحةٌ أخرى، والنطاقُ يُرجِعُ صفراً له.
+            ->withoutWorkspaceScope()
             ->where('reference_id', $exam->getKey())
             ->where('type', LessonType::Exam->value)
-            ->whereNotNull('class_session_id')
-            ->value('class_session_id');
+            ->first();
 
-        if ($sessionId === null) {
+        if ($lesson === null) {
             return;
         }
 
-        if (! app(SessionContentAccess::class)->mayOpenSessionContent($student, (int) $sessionId)) {
+        /*
+        | ٠٣٥ · FR-008 — محتوى الحصّةِ أوّلاً، بترتيبِ `LessonGate::for()` نفسِه:
+        | بابانِ يسألانِ السؤالَينِ بترتيبَينِ مختلفَينِ جوابانِ مختلفانِ لحالةٍ
+        | واحدة.
+        */
+        if ($lesson->class_session_id !== null
+            && ! app(SessionContentAccess::class)->mayOpenSessionContent($student, (int) $lesson->class_session_id)) {
             throw new DomainException('محتوى هذه الحصة مقفول — افتحه بخصم حصة من رصيدك.');
+        }
+
+        /*
+        | ⛔ ٠٢٦ · FR-011 — **الحكمُ واحدٌ لا فرعٌ لكلِّ رمز**، و`LessonAudience`
+        | يستثني المؤلّفَ بنفسِه فلا يُستثنى هنا ثانية.
+        |
+        | ⚠️ **والجملةُ لا تُفشي شيئاً.** الصفُّ مُسقَطٌ من المنهجِ ومن فهرسِ
+        | الاختبارات، فمَن بلغَ هذا السطرَ إنّما طرَقَ المعرّفَ مباشرةً — و«هذا
+        | لمجموعةٍ أخرى» تُخبِرُه بوجودِ ورقةٍ ما كانَ ليعرفَها، و«افتحه بخصمِ
+        | حصّة» تعليمةٌ تدلُّه على بابٍ سيُرفَضُ عندَه.
+        */
+        if (LessonAudience::hiddenFor($student, $lesson) !== null) {
+            throw new DomainException('هذا الاختبار غير متاح حالياً.');
         }
     }
 

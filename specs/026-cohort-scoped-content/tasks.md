@@ -52,7 +52,17 @@ contracts/lesson-audience.md · quickstart.md
 **دروساً منشورةً بلا تسجيلٍ** لعضوٍ بدورِ «طالب» غيرِ مسجَّل. الحارسُ في
 `AuthorBranchIsRoleBasedTest`.
 
-**ما زالَ**: US4 (T040–T043) · الصقل (T044–T048) — تسعُ مهامّ.
+**وشُحِنَ بعدَه (US4 والصقل)**: الأبوابُ الثلاثةُ الباقيةُ في وحدةِ التقييمات
+(T040 · T041 · T042) واختبارُها (T043)، وميزانيّةُ منهجٍ فيه نطاقاتٌ ومواعيدُ
+إفراج (T044)، والتوثيقُ (T045 · T046).
+
+⚠️ **ورابعُ موضعٍ لم يكنْ في القائمة**: `BuildPracticeFromMistakes` لا يمرُّ من
+`PracticePool::questionsFor()` إطلاقاً — يبني ورقتَه من معرّفاتِ الدفترِ مباشرةً
+— فبلا استبعادٍ مكتوبٍ فيه كذلك يبقى للبِركةِ بابانِ أحدُهما مفتوح. والأربعةُ
+مثبَّتةٌ بالتخريب: كلُّ حارسٍ حُذِفَ وسقطَ اختبارُه وحدَه.
+
+**ما زالَ**: T047 (البوّابات) · T048 (مشيةٌ يدويّةٌ بحسابِ طالبٍ من كلِّ مجموعة —
+تحتاجُ حساباتٍ حقيقيّةً، فهي بيدِ المالك).
 
 ⚠️ **وشُحِنَ خارجَ هذه القائمةِ شيئان** خرَجا من مشيةٍ على الإنتاج، لا من تخطيطٍ مسبَق:
 قسمُ «المجموعة والحصص» على شاشةِ الطلب، وإصلاحُ منطقةِ الموعدِ الزمنيّةِ في
@@ -172,20 +182,20 @@ contracts/lesson-audience.md · quickstart.md
 **اختبارُها المستقلّ**: امتحانٌ صفُّه في الشجرةِ مقصورٌ على مجموعةٍ أخرى ⇒ غيرُ موجودٍ في
 فهرسِ الاختبارات، وبدءُ المحاولةِ مرفوض.
 
-- [ ] T040 [US4] توسيعُ `guardSessionContent()` في `backend/app/Modules/Assessments/Actions/StartAttempt.php` بسؤالِ `LessonAudience` عبرَ **صفِّ الشجرةِ الذي يقرؤُه الآن**
-- [ ] T041 [US4] استبعادُ الامتحاناتِ المخفيّةِ في `backend/app/Modules/Assessments/Http/Controllers/ExamController.php::index()` — بعدَ `StudentScope` وداخلَ مجموعتِه، فلا يُكسَرُ ترتيبُ الشروطِ المحروسُ بتعليقِه
-- [ ] T042 [US4] استبعادُها من بركةِ التدريبِ في `backend/app/Modules/Assessments/Support/PracticePool.php` (FR-020) — ودفترُ الأخطاءِ يقرأُ منها
-- [ ] T043 [US4] `backend/tests/Feature/Assessments/ExamAudienceTest.php` — الفهرسُ لا يحملُه · بدءُ المحاولةِ مرفوض · بركةُ التدريبِ صفرُ أسئلةٍ منه · **ومحاولةٌ بدأت قبلَ التضييقِ تُكمَلُ وتُحفَظُ درجتُها** (FR-019)
+- [X] T040 [US4] توسيعُ `guardSessionContent()` في `backend/app/Modules/Assessments/Actions/StartAttempt.php` بسؤالِ `LessonAudience` عبرَ **صفِّ الشجرةِ الذي يقرؤُه الآن**
+- [X] T041 [US4] استبعادُ الامتحاناتِ المخفيّةِ في `backend/app/Modules/Assessments/Http/Controllers/ExamController.php::index()` — بعدَ `StudentScope` وداخلَ مجموعتِه، فلا يُكسَرُ ترتيبُ الشروطِ المحروسُ بتعليقِه
+- [X] T042 [US4] استبعادُها من بركةِ التدريبِ في `backend/app/Modules/Assessments/Support/PracticePool.php` (FR-020) — ودفترُ الأخطاءِ يقرأُ منها
+- [X] T043 [US4] `backend/tests/Feature/Assessments/ExamAudienceTest.php` — الفهرسُ لا يحملُه · بدءُ المحاولةِ مرفوض · بركةُ التدريبِ صفرُ أسئلةٍ منه · **ومحاولةٌ بدأت قبلَ التضييقِ تُكمَلُ وتُحفَظُ درجتُها** (FR-019)
   - **كيفَ يمسك**: اكتفِ بإخفائِه من الفهرسِ وأبقِ `StartAttempt` كما هو ⇒ تسقطُ حالةُ البدء. شاشةٌ تُخفي زرّاً ليست حارساً
 
 ---
 
 ## Phase 7 — الصقلُ والحراساتُ العابرة
 
-- [ ] T044 حالةٌ في `backend/tests/Feature/Learning/CurriculumQueryBudgetTest.php` بمنهجٍ **فيه نطاقاتٌ ومواعيد** — الملفُّ يؤكّدُ تساويَ العددَينِ (١٠ مقابلَ ٢٠٠)، وبلا هذه الحالةِ يقيسُ الفرعَ الذي لا يُسأَلُ أصلاً
+- [X] T044 حالةٌ في `backend/tests/Feature/Learning/CurriculumQueryBudgetTest.php` بمنهجٍ **فيه نطاقاتٌ ومواعيد** — الملفُّ يؤكّدُ تساويَ العددَينِ (١٠ مقابلَ ٢٠٠)، وبلا هذه الحالةِ يقيسُ الفرعَ الذي لا يُسأَلُ أصلاً
   - **كيفَ يمسك**: اسألِ النطاقَ داخلَ حلقةِ العناصر ⇒ يسقطُ بعددٍ ينمو
-- [ ] T045 [P] تحديثُ `docs/README.md` و`docs/erd.md` بالجدولِ والعمودِ الجديدَين
-- [ ] T046 [P] فقرةٌ في `CLAUDE.md` تحتَ Gotchas: **أبوابُ محتوى الدرسِ أربعةٌ لا واحد**، ومنها `IssuePlaybackGrant::mayWatch()` التي تنتهي عندَ `hasActiveEnrollment` — مع أنّ الحكمَ في `LessonAudience`
+- [X] T045 [P] تحديثُ `docs/README.md` و`docs/erd.md` بالجدولِ والعمودِ الجديدَين
+- [X] T046 [P] فقرةٌ في `CLAUDE.md` تحتَ Gotchas: **أبوابُ محتوى الدرسِ أربعةٌ لا واحد**، ومنها `IssuePlaybackGrant::mayWatch()` التي تنتهي عندَ `hasActiveEnrollment` — مع أنّ الحكمَ في `LessonAudience`
 - [ ] T047 بوّاباتٌ: `./vendor/bin/pint` · `./vendor/bin/phpstan analyse` · `php vendor/bin/pest tests/Feature/Learning tests/Feature/Courses tests/Feature/Assessments tests/Feature/Media` · `npx tsc --noEmit` · `npm test`
 - [ ] T048 مشيةٌ يدويّةٌ: بحسابِ طالبٍ من كلِّ مجموعةٍ، افتحِ المنهجَ وقارنْ **ما يُعرَضُ بما يُفتَح** ⇒ صفرُ فروق (SC-001)
 

@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace App\Modules\Assessments\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Modules\Assessments\Actions\PublishExam;
 use App\Modules\Assessments\Http\Requests\StoreExamRequest;
 use App\Modules\Assessments\Http\Requests\UpdateExamRequest;
 use App\Modules\Assessments\Http\Resources\ExamResource;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Support\StudentScope;
+use App\Modules\Courses\Enums\LessonType;
+use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Support\LessonAudience;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Support\WorkspaceContext;
@@ -38,7 +42,20 @@ class ExamController extends Controller
              | disjunction below opens: two `orWhere`s at one level is how the
              | filter beneath them stopped biting.
              */
-            ->when(! $manages, fn ($q) => StudentScope::applyIfUnscoped($q, $user, $enrollments))
+            /*
+             | ⛔ ٠٢٦ · FR-018 — **والإخفاءُ داخلَ هذه المجموعةِ نفسِها، لا بعدَها.**
+             |
+             | `$manages` يعني عضواً بدورٍ غيرِ `student` — و`LessonAudience`
+             | يستثني المؤلّفَ بنفسِه، فسؤالُه لقارئٍ كهذا استعلامٌ جوابُه معروفٌ
+             | سلفاً. ودورُ `student` لا يحملُ `exams.view` (قِيسَ في
+             | `RolePermissionMatrix`)، فلا قارئَ يقعُ بينَ الحالتَين.
+             |
+             | ⚠️ **والصفُّ يُسقَطُ ولا يُوصَف**: «هذا لمجموعةٍ أخرى» فوقَ بطاقةِ
+             | ورقةٍ تقولُ لطالبٍ إنّ هناكَ امتحاناً لا يخصُّه، وهو ما لم يكنْ
+             | ليعرفَه ولا فعلَ له يفتحُه.
+             */
+            ->when(! $manages, fn ($q) => StudentScope::applyIfUnscoped($q, $user, $enrollments)
+                ->whereNotIn('id', $this->hiddenExamIds($user, $enrollments)))
             /*
              | ⚠️ THE STATUS DISJUNCTION IS GROUPED, AND IT HAS TO BE.
              |
@@ -90,6 +107,36 @@ class ExamController extends Controller
             ->paginate(15);
 
         return response()->json(ExamResource::collection($exams));
+    }
+
+    /**
+     * معرّفاتُ الاختباراتِ المخفيّةِ عن هذا الطالبِ — «لمن هذا العنصرُ ومتى يظهر».
+     *
+     * ⚠️ **الحكمُ من `LessonAudience` لا من شرطٍ مكتوبٍ هنا.** عضويّةُ المجموعةِ
+     * وحالُ الحصّةِ يمكنُ التعبيرُ عنهما بـSQL، وتلكَ هي التهجئةُ الثانيةُ التي
+     * تفترقُ عن الأولى عندَ أوّلِ محورٍ يُضاف — وأربعةُ أبوابٍ تقرأُ هذا الحكمَ
+     * اليوم.
+     *
+     * ⚠️ **ومُضيَّقٌ بكورساتِ الطالبِ التي يُضيّقُ بها `StudentScope` نفسُه**،
+     * فلا يُقرَأُ من الشجرةِ ما لا يُمكِنُ أن يظهرَ في هذه القائمةِ أصلاً.
+     *
+     * @return list<int>
+     */
+    private function hiddenExamIds(User $user, EnrollmentDirectory $enrollments): array
+    {
+        $courseIds = $enrollments->activeCourseIdsFor($user);
+
+        if ($courseIds === []) {
+            return [];
+        }
+
+        return array_values(LessonAudience::hiddenLessons($user, Lesson::query()
+            ->withoutWorkspaceScope()
+            ->where('type', LessonType::Exam->value)
+            ->whereNotNull('reference_id')
+            ->whereIn('course_id', $courseIds))
+            ->map(static fn (Lesson $lesson): int => (int) $lesson->reference_id)
+            ->all());
     }
 
     public function show(Exam $exam): JsonResponse

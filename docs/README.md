@@ -3100,3 +3100,47 @@ a well-meaning widening drags in. **An item that enters the denominator and cann
 completed caps every enrolled student below 100% for ever**, so `CourseCompleted`
 never fires and no certificate ever issues. This repository has recorded that family
 six times from six directions.
+
+## لمن هذا العنصرُ ومتى يظهر (spec 026)
+
+محوران صريحان بيد المدرّس على كلِّ عنصرٍ في الشجرة، **وكلاهما مولودٌ فارغاً**:
+غيابُ صفٍّ في `lesson_cohort_scopes` يعني «لكلِّ طلابِ الكورس»، و
+`lessons.release_session_id IS NULL` يعني «يظهر الآن». فيومَ الشحنِ لم يتغيّرْ
+شيءٌ لأحد.
+
+### الحكمُ واحدٌ والأبوابُ أربعة
+
+`Courses\Support\LessonAudience` هو الجوابُ الوحيدُ على «أيُخفى هذا العنصرُ عن
+هذا القارئ، ولماذا؟» ويردُّ `out_of_scope` أو `unreleased` أو `null`. يُسأَلُ من:
+
+| الباب | الموضع |
+|---|---|
+| المنهجُ وصفحةُ الدرس | `Learning\Support\LessonGate::for()` · `forTree()` |
+| تشغيلُ الملفّ | `Media\Actions\IssuePlaybackGrant::mayWatch()` · `mayWatchMany()` |
+| بدءُ محاولةِ امتحان | `Assessments\Actions\StartAttempt::guardSessionContent()` |
+| فهرسُ الاختباراتِ وبِركةُ التدريب | `Assessments\Http\Controllers\ExamController::index()` · `Assessments\Support\PracticePool` |
+
+لا يسألُ أيٌّ منها عن رمزٍ بعينه (`$hidden === 'out_of_scope'`): سؤالُ الرمزِ
+تهجئةٌ ثانيةٌ لـ«أمخفيٌّ هو» تفترقُ عن الأولى عندَ أوّلِ رمزٍ يُضاف. والمؤلّفُ
+مُستثنًى **داخلَ الصنف** لا على الأبواب، والشرطُ دورُ العضويّةِ مسؤولاً بالنفي
+(`role != student`) لا مجرّدُ العضويّة.
+
+### الامتحانُ يُبلَغُ من درسِه
+
+`exams` لا تحملُ مجموعةً ولا حصّة. الرابطُ درسٌ نوعُه `exam` يُسمّي الورقةَ في
+`reference_id`، وذلكَ الدرسُ هو الذي يحملُ المحورَين — فكلُّ أبوابِ التقييماتِ
+تقرأُ حكمَ الدرس.
+
+### المقامُ يستثني المربوطَ بحصّةٍ إلى الأبد
+
+`Lesson::scopeProgressEligible()` يُسقِطُ كلَّ عنصرٍ يحملُ `release_session_id`
+**بخاصّيّتِه لا بحالِ اللحظة**. لو كانَ الشرطُ «لم يُفرَجْ عنه بعد» لقفزَ المقامُ
+لحظةَ تسليمِ الحصّة، فنزلَ كلُّ طالبٍ بلغَ ١٠٠٪ — ولا يقعُ حدثُ إتمامِ الكورسِ
+ولا تصدرُ شهادةٌ أبداً. والمقصورُ على مجموعةٍ أخرى خارجَ مقامِ مَن لا يراه كذلك.
+
+### «أُفرِجَ عنه» = سُلِّمَت **أو** أُلغيَت
+
+`releasedSessionIds()` يقرأُ `delivered_at IS NOT NULL` أو `status = cancelled`.
+حصّةٌ أُلغيَت لن تُعقَدَ أبداً، فحجبُ ملفّاتِها للأبدِ عقوبةٌ على قرارِ المدرّس؛
+وفكُّ الربطِ يدويّاً (إرسالُ `release_session_uuid: null`) هو مخرجُ FR-008 لحصّةٍ
+لم تُسلَّمْ ولم تُلغَ.
