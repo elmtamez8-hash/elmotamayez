@@ -170,6 +170,35 @@ it('refuses to hand over a paper waiting on a session that has not been held', f
 });
 
 /*
+| ⛔ FR-018 — **والمعرّفُ بابٌ كالقائمة.**
+|
+| الفهرسُ يُسقِطُ الورقةَ وبدءُ المحاولةِ يرفضُها، و`GET /exams/{uuid}` كانت
+| تردُّ عنوانَها ووصفَها ومدّتَها وعددَ أسئلتِها لمن يحملُ المعرّف.
+|
+| ⚠️ **و٤٠٤ لا ٤٠٣**: أنّ ورقةً بهذا المعرّفِ موجودةٌ هو نفسُه خبرٌ.
+|
+| **كيفَ يمسك**: احذفْ `abort_if` من `ExamController::show()` ⇒ يسقطُ بـ«٢٠٠
+| بدلَ ٤٠٤»، ويسقطُ معه توكيدُ أنّ العنوانَ لم يُرسَل.
+*/
+it('does not answer a narrowed paper to whoever knows its id', function (): void {
+    actAsAudienceStudent();
+
+    $response = $this->getJson('/api/v1/exams/'.$this->fx['scoped']['exam']->uuid);
+
+    $response->assertNotFound();
+
+    expect($response->json('title'))->toBeNull();
+});
+
+it('still answers the shared paper by id', function (): void {
+    actAsAudienceStudent();
+
+    $this->getJson('/api/v1/exams/'.$this->fx['shared']['exam']->uuid)
+        ->assertOk()
+        ->assertJsonPath('title', 'SHARED-EXAM');
+});
+
+/*
 | ⛔ FR-020 — **وبِركةُ التدريبِ بابٌ يُسلِّمُ المادّةَ ومعها شرحُها.**
 |
 | ⚠️ **والسؤالانِ خارجَ أيِّ امتحانٍ منشور، عمداً.** `withheldQuestionIdsQuery()`

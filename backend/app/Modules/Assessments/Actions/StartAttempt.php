@@ -98,8 +98,7 @@ class StartAttempt extends Action
         $lesson = Lesson::query()
             // الطالبُ سياقُه فارغٌ أو مساحةٌ أخرى، والنطاقُ يُرجِعُ صفراً له.
             ->withoutWorkspaceScope()
-            ->where('reference_id', $exam->getKey())
-            ->where('type', LessonType::Exam->value)
+            ->referencing(LessonType::Exam->value, (int) $exam->getKey())
             ->first();
 
         if ($lesson === null) {

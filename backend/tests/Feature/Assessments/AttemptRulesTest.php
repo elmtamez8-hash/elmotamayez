@@ -255,7 +255,7 @@ describe('exam listing', function (): void {
         $student = $this->addWorkspaceMember($workspace, 'student');
         Sanctum::actingAs($student);
 
-        $titles = collect($this->getJson('/api/v1/exams')->assertOk()->json())->pluck('title');
+        $titles = collect($this->getJson('/api/v1/exams')->assertOk()->json('data'))->pluck('title');
 
         expect($titles)->toContain($published->title)
             ->and($titles)->not->toContain($draft->title);

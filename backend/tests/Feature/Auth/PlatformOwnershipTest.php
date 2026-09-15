@@ -55,7 +55,7 @@ it('shows a teacher nothing about their own student devices', function (): void 
     // read a platform-owned row about their student; a session is not one of
     // those, because which machine someone studies on is not academic
     // information. Enrolment buys nothing here.
-    $this->getJson('/api/v1/auth/sessions')->assertOk()->assertJsonCount(0);
+    $this->getJson('/api/v1/auth/sessions')->assertOk()->assertJsonCount(0, 'data');
 
     $this->deleteJson("/api/v1/auth/sessions/{$session->uuid}")->assertNotFound();
 });
@@ -122,7 +122,7 @@ it('shows an assistant nothing either', function (): void {
     Sanctum::actingAs($assistant);
     $this->setCurrentWorkspace($workspace, $assistant);
 
-    $this->getJson('/api/v1/auth/sessions')->assertOk()->assertJsonCount(0);
+    $this->getJson('/api/v1/auth/sessions')->assertOk()->assertJsonCount(0, 'data');
 });
 
 it('keeps two-factor state off the workspace layer', function (): void {

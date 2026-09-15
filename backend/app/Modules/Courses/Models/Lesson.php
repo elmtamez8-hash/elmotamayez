@@ -255,6 +255,24 @@ class Lesson extends BaseModel implements OrdersSiblings
     }
 
     /**
+     * صفُّ الشجرةِ الذي يُشيرُ إلى هذا المرجع — ورقةٌ أو حصّة.
+     *
+     * ⚠️ **عمودانِ معاً لا `reference_id` وحدَه.** المعرّفاتُ مستقلّةٌ لكلِّ
+     * جدول، فرقم ٧ ورقةٌ ورقم ٧ حصّةٌ في آنٍ واحد — وشرطٌ بلا `type` يُرجِعُ
+     * صفَّ حصّةٍ حكماً على ورقة.
+     *
+     * ⚠️ **وموضعُه هنا لأنّ له قارئَين**: `StartAttempt` تسألُه لتقرأَ الحصّةَ
+     * والحكمَ، و`ExamController::show()` تسألُه للحكمِ وحدَه. تهجئتانِ لشرطٍ
+     * واحدٍ تفترقانِ عندَ أوّلِ نوعٍ يُضاف.
+     *
+     * @param  Builder<Lesson>  $query
+     */
+    public function scopeReferencing(Builder $query, string $type, int $referenceId): void
+    {
+        $query->where('type', $type)->where('reference_id', $referenceId);
+    }
+
+    /**
      * The half of `countableForProgress` that a publish cannot change.
      *
      * Split out for the impact preview (`FR-049`), which has to answer what the
