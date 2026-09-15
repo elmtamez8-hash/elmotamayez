@@ -85,6 +85,7 @@ function tree(lessons?: Record<string, unknown>[]) {
       teacher_name: "أكاديميّة ديمو",
       is_sequential: true,
       course_type: "recorded",
+      has_sessions: false,
       progress_pct: 33,
       completed_count: 1,
       countable_count: 3,

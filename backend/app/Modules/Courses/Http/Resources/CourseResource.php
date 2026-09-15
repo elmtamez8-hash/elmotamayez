@@ -99,12 +99,13 @@ class CourseResource extends JsonResource
             | كتبَ «مسجّل» ثمّ جدولَ حصصاً يقرأُ في شاشةِ التعديلِ جملةً تقولُ
             | له ذلك — بدلَ أن يكتشفَه من طالبٍ يشتكي أنّ جدولَه اختفى.
             |
-            | ⚠️ **يُحمَّلُ في المتحكِّمِ دائماً، في الفهرسِ والعرضِ معاً.** سمةٌ
-            | غائبةٌ تُقرَأُ هنا `false` في صمت، وهي القراءةُ التي تُسكِتُ
-            | التحذيرَ عن الكورسِ الذي كُتِبَ من أجلِه بالضبط —
-            | `CourseSessionsTruthTest` يوكِّدُ حضورَ المفتاحِ لا قيمتَه وحدَها.
+            | ⚠️ **الفهرسُ والعرضُ يُحمِّلانِ السمةَ بـ`withExists`، والأربعةُ
+            | الباقيةُ في المتحكِّمِ لا.** فالقراءةُ تمرُّ بـ`hasClassSessions()`،
+            | التي تقرأُ المُحمَّلَ إن وُجِدَ وتسألُ الجدولَ إن لم يوجد — إملاءُ
+            | `recordingLesson`. جملةٌ هنا كانت تقولُ «يُحمَّلُ دائماً» وهي غيرُ
+            | صحيحة، وسمةٌ غائبةٌ كانت تُقرَأُ `false` في صمت.
             */
-            'has_sessions' => (bool) $this->getAttribute('class_sessions_exists'),
+            'has_sessions' => $this->resource->hasClassSessions(),
             'private_session_minutes' => $this->private_session_minutes,
             /*
             | The promo video as its OWNER sees it (018 · US2).

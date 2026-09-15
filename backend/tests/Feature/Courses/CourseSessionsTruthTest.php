@@ -109,6 +109,11 @@ it('carries the key on every row of the index, at a flat cost', function (): voi
 
     Sanctum::actingAs($this->owner);
 
+    // ⚠️ تحميةٌ أوّلاً: ذاكرةُ صلاحيّاتِ spatie تُقرَأُ من الجدولِ في أوّلِ طلب،
+    // فقياسٌ باردٌ مقابلَ قياسٍ دافئٍ يُظهِرُ فرقاً أربعةَ استعلاماتٍ لا علاقةَ
+    // له بعددِ الصفوف — وهو ما يُسقِطُ المقارنةَ بسببٍ لا تقصدُه.
+    $this->getJson('/api/v1/courses')->assertOk();
+
     [$count, $payload] = countingQueries(fn () => $this->getJson('/api/v1/courses')->assertOk()->json());
 
     expect($payload['data'])->toHaveCount(3);
@@ -118,9 +123,20 @@ it('carries the key on every row of the index, at a flat cost', function (): voi
             ->and($row['has_sessions'])->toBeTrue();
     }
 
-    // ميزانيّةٌ فضفاضةٌ عمداً: المقصودُ ألّا تنموَ مع الصفوف، لا أن تُثبَّتَ على
-    // رقم. ثلاثةُ كورساتٍ بقراءةٍ لكلِّ صفٍّ تتجاوزُها.
-    expect($count)->toBeLessThanOrEqual(15);
+    /*
+    | ⛔ **مقارنةٌ بين حجمَين، لا سقفٌ مكتوبٌ بالرقم.** كانَ الشرطُ
+    | `<= 15` وقِيسَ الفعليُّ **٨** — وقراءةٌ لكلِّ صفٍّ كانت ستُعطي ١١، أي
+    | تمرُّ. سقفٌ لا يعضُّ هو ضابطٌ أخضرُ أبداً، وهو ما يحرسُ منه هذا المستودعُ
+    | بقياسِ صفوفٍ قليلةٍ ثمّ صفوفٍ أكثرَ وتوكيدِ أنّ الفرقَ لا ينمو.
+    */
+    foreach (range(1, 7) as $ignored) {
+        mislabelledCourse();
+    }
+
+    [$larger, $biggerPayload] = countingQueries(fn () => $this->getJson('/api/v1/courses')->assertOk()->json());
+
+    expect($biggerPayload['data'])->toHaveCount(10)
+        ->and($larger)->toBe($count);
 });
 
 /*
@@ -142,4 +158,60 @@ it('answers the student the schedule, not the label', function (): void {
         ->assertOk()
         ->assertJsonPath('course.has_sessions', true)
         ->assertJsonPath('course.course_type', Course::TYPE_RECORDED);
+});
+
+/*
+| ⛔ **والطالبُ المختومُ بمساحةِ مدرّسٍ آخَر، وهو الشكلُ الذي كانَ هذا الملفُّ
+| أعمى عنه — فمرَّ العطلُ إلى الإنتاج.**
+|
+| `has_sessions` يُقرَأُ بـ`withExists`، وذلكَ يبني الاستعلامَ الفرعيَّ من
+| `ClassSession::newQuery()` **بنطاقاتِه** — فيصيرُ الشرطُ مساحةَ القارئِ لا
+| مساحةَ الكورس. و`WorkspaceContext::id()` يرجعُ إلى `users.last_workspace_id`،
+| المختومِ على كلِّ طالبٍ أضافَه مدرّسٌ أو دعوةٌ أو بذرةٌ إلى مساحة (ستّةُ صفوفٍ
+| بدورِ `student` قِيسَت على قاعدةٍ حقيقيّة).
+|
+| فالشقُّ الوحيدُ الذي كانَ في هذا الملفِّ — طالبٌ بسياقٍ فارغ — أخضرُ على
+| البناءِ المعطوب، لأنّ `WorkspaceScope::apply()` لا يُضيفُ شرطاً حينَ يكونُ
+| المعرّفُ `null`. وتعليقُه «لا شيءَ في مسارِ الطالبِ يكتبُ ذلك العمود» صحيحٌ
+| عن الطالبِ المسجِّلِ نفسَه وخطأٌ في العموم.
+|
+| ⚠️ **و`forceFill` لا `create([...])`**: `last_workspace_id` في
+| `User::$guarded`، فالإسنادُ الجَماعيُّ يُسقِطُه في صمتٍ ويعيدُ بناءَ الطالبِ
+| ذي السياقِ الفارغِ — أي يقيسُ الشقَّ الذي فوقَه مرّةً ثانية.
+|
+| **كيفَ يمسك**: احذفْ `withoutGlobalScope(WorkspaceScope::class)` من
+| `Course::classSessions()` ⇒ يسقطُ بـ«false بدل true».
+*/
+it('answers a student stamped into another workspace, on both doors', function (): void {
+    $course = mislabelledCourse();
+
+    [$otherWorkspace] = $this->createWorkspaceWithOwner();
+
+    $student = User::factory()->create();
+    $student->forceFill(['last_workspace_id' => $otherWorkspace->getKey()])->save();
+
+    $this->createEnrollment($this->workspace, $course, $student);
+
+    Sanctum::actingAs($student);
+    app()->forgetInstance(WorkspaceContext::class);
+
+    $this->getJson("/api/v1/courses/{$course->uuid}/curriculum")
+        ->assertOk()
+        ->assertJsonPath('course.has_sessions', true);
+
+    /*
+    | ⛔ **والتبويبُ الذي يظهرُ يجبُ أن يفتحَ على شيء.** الطريقانِ اللذانِ
+    | يملآنِه كانا يربطانِ `{course}` ربطاً ضمنيّاً، فيمرّانِ بالنطاقِ نفسِه:
+    | **٤٠٤** لهذا الطالبِ بالضبط — قِيسَ. ولم يظهرْ قبلُ لأنّ الشاشةَ لم تكنْ
+    | ترسمُ التبويبَ أصلاً؛ بابانِ مقفولانِ خلفَ بابٍ مقفول.
+    |
+    | وصفراً من الصفوفِ ليسَ جواباً كذلك: تصحيحُ الربطِ وحدَه ردَّ ٢٠٠ وقائمةً
+    | فارغةً، لأنّ استعلامَ `ClassSession` نفسَه تحتَ النطاق. الطبقاتُ الثلاثُ
+    | تُقاسُ هنا معاً.
+    */
+    $this->getJson("/api/v1/courses/{$course->uuid}/next-session")->assertOk();
+
+    $sessions = $this->getJson("/api/v1/courses/{$course->uuid}/sessions")->assertOk();
+
+    expect($sessions->json('data'))->toHaveCount(1);
 });

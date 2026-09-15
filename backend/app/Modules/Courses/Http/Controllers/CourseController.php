@@ -75,7 +75,17 @@ class CourseController extends Controller
             | **false** لكلِّ صفٍّ في نتائجِ البحثِ وحدَها — نصفٌ صامتٌ من
             | الحقيقة، وهو بعينِه شكلُ العطلِ الذي يُصلِحُه هذا الفرع.
             */
-            $courses = $search->query(fn ($query) => $query->withExists('classSessions'))->paginate($perPage);
+            /*
+            | ⚠️ **و`with('subject')` هنا كذلك، وغيابُه لم يكنْ N+1 بل صمتاً.**
+            | `CourseResource` يقرأُ المادّةَ بـ`whenLoaded`، فالفرعُ غيرُ
+            | المُحمَّلِ لا يُكلِّفُ استعلاماً زائداً — **يُسقِطُ المفتاحَ من كلِّ
+            | صفٍّ في نتائجِ البحثِ وحدَها**، وهي عائلةُ «ميزانيّةُ الاستعلاماتِ
+            | لا ترى تحميلاً محذوفاً بجوارِ `whenLoaded`» المسجَّلةُ في هذا
+            | المستودع. والفرعُ الآخَرُ تحتَه يُحمِّلُها منذُ البداية.
+            */
+            $courses = $search
+                ->query(fn ($query) => $query->with('subject')->withExists('classSessions'))
+                ->paginate($perPage);
         } else {
             $courses = Course::query()
                 ->with('subject')

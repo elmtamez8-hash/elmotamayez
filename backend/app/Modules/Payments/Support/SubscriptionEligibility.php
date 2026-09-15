@@ -48,9 +48,14 @@ class SubscriptionEligibility implements SubscriptionDirectory
      * Every live subscription this student holds, newest window last.
      *
      * ⚠️ ONE READ, AND EVERY CALLER BELOW FILTERS IT IN MEMORY. A student holds
-     * one or two of these, and the alternative is a query per course on the
-     * hottest path in the product — `isWithheld` is asked by `IssueJoinTicket`
-     * on every presence heartbeat.
+     * one or two of these, and the alternative is a query per course at the
+     * door — `isWithheld` is asked by `IssueJoinTicket` on every `join`.
+     *
+     * ⚠️ THIS USED TO SAY «on every presence heartbeat», AND IT IS NO LONGER
+     * TRUE: `BroadcastController::presence()` asks `RoomRevocation` now, which
+     * asks nothing about money (2026-09-15). The reasoning survives the move —
+     * a query per course is still the wrong shape at a door — but the number it
+     * was arguing against is gone.
      *
      * ⚠️ `withoutWorkspaceScope()` IS REQUIRED, NOT DEFENSIVE. This is asked
      * about a student, and a student is a member of no workspace: the context is
@@ -77,11 +82,17 @@ class SubscriptionEligibility implements SubscriptionDirectory
     {
         /*
         | ⚠️ THE SUBSCRIPTIONS ARE READ FIRST, AND THE ORDER IS THE WHOLE COST.
-        | This sits at the top of `isWithheld()`, which `IssueJoinTicket` asks on
-        | EVERY presence heartbeat — thirty students twice a minute, per room —
-        | and almost none of them holds a subscription. Reading the course first
-        | spends a query on every one of those beats to answer a question the
-        | empty list below settles for free.
+        | This sits at the top of `refusalFor()`, which every money refusal in
+        | the product asks — the booking door, the room door, a high-value file,
+        | and the nightly sweep walking every booked seat — and almost none of
+        | those students holds a subscription. Reading the course first spends a
+        | query on every one of them to answer a question the empty list below
+        | settles for free.
+        |
+        | ⚠️ AND IT USED TO NAME THE PRESENCE HEARTBEAT, WHICH NO LONGER REACHES
+        | HERE (2026-09-15): the beat asks `RoomRevocation`, which asks nothing
+        | about money. A docblock citing a measurement must be re-measured when
+        | the code around it moves, or it describes the world before itself.
         */
         $live = $this->liveFor($studentUserId, $moment);
 

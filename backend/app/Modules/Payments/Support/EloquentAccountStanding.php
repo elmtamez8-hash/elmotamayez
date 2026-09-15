@@ -89,10 +89,16 @@ class EloquentAccountStanding implements AccountStanding
      * ⚠️ **AND A COVERED COURSE NEEDS ZERO CREDITS, WHICH `creditsNeededFor()`
      * USED TO GET WRONG.** It never asked about subscriptions, so a subscriber
      * with an old balance row was quoted a number of credits to buy — for a
-     * course their subscription already pays for. Nothing displayed it, because
-     * the only refusers that print it ask `isWithheld()` first and that method
-     * has waived subscribers since ٠١١ · FR-026; the number was simply wrong
-     * wherever anyone looked at it alone.
+     * course their subscription already pays for.
+     *
+     * ⚠️ AND A DOCBLOCK HERE CLAIMED NOBODY DISPLAYED THAT NUMBER, WHICH WAS
+     * FALSE THE DAY IT WAS WRITTEN. `NotifyAccessChange` asks for it alone and
+     * prints it into a notification body, and `BalanceAnnouncer` fires that
+     * event from the STAMP — which never asks about subscriptions — so a
+     * subscriber really was announced blocked and really would have read
+     * «تحتاج 0 حصة». That listener asks `refusalFor()` now and sends nothing
+     * when the verdict is false. A claim of the form «nothing does X» is worth
+     * a grep before it is written down.
      *
      * @return array{withheld: bool, credits_needed: int}
      */

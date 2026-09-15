@@ -111,11 +111,7 @@ class CourseResource extends Resource
                         */
                         Select::make('course_type')
                             ->label('نوع الكورس')
-                            ->options(array_combine(Course::types(), [
-                                'فردي — حصص خاصّة',
-                                'جماعي — مجموعات بمواعيد',
-                                'مسجّل — دروس بلا حصص حيّة',
-                            ]))
+                            ->options(Course::typeLabels())
                             ->required(),
                         /*
                         | ⚠️ أعضاءُ مساحةِ **المقرَّرِ**، لا مساحةِ من يقرأُ الشاشة.

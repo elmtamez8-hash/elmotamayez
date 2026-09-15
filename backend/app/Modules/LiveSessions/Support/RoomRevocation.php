@@ -7,10 +7,10 @@ namespace App\Modules\LiveSessions\Support;
 use App\Models\User;
 use App\Modules\LiveSessions\Actions\IssueJoinTicket;
 use App\Modules\LiveSessions\Enums\BookingStatus;
-use App\Modules\LiveSessions\Http\Controllers\BroadcastController;
+use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
-use App\Modules\Tenancy\Support\Permissions;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * «هل ما زالَ من حقِّ هذا الشخصِ أن يكونَ في الغرفةِ **الآن**؟»
@@ -21,7 +21,7 @@ use App\Modules\Tenancy\Support\Permissions;
  * المزوّدُ لا يملكُ سحبَ تذكرة، ويُعيدُ إنشاءَ غرفةٍ محذوفةٍ عندَ أوّلِ دخول —
  * فأداتُنا الوحيدةُ لإخراجِ أحدٍ هي إعادةُ السؤالِ في كلِّ نبضةٍ والرفض. وذلكَ
  * السؤالُ **لازمٌ ولا يُحذَف** (`TicketAfterCloseTest` يكتبُه). لكنّ
- * {@see BroadcastController::presence()} كانَ يُعيدُ سلسلةَ **الباب** كاملةً:
+ * `BroadcastController::presence()` كانَ يُعيدُ سلسلةَ **الباب** كاملةً:
  * التسجيلَ والإجازةَ والحجبَ وقاعدةَ الفتحِ — أسئلةً إجابتُها لا تتغيّرُ والطالبُ
  * جالسٌ في الحصّة.
  *
@@ -57,8 +57,19 @@ final class RoomRevocation
      */
     public function isHost(ClassSession $session, User $user): bool
     {
-        return $user->can(Permissions::SESSIONS_HOST)
-            && (int) $user->last_workspace_id === (int) $session->workspace_id;
+        /*
+        | ⚠️ **السياسةُ لا صيغةٌ ثالثة.** كانَ هذا السطرُ يُعيدُ بناءَ الشرطِ
+        | بيدِه — `can(SESSIONS_HOST)` مع مقارنةِ `last_workspace_id` — بينما
+        | `BroadcastController` يسألُ `Gate::allows('host')` لأفعالِ المضيفِ
+        | ولقائمةِ المشتركين. والاثنانِ يختلفانِ فعلاً على مديرِ المنصّة:
+        | `Gate::before` يمرِّرُه فوقَ كلِّ سياسة، ومقارنةُ العمودِ ترفضُه. صيغتانِ
+        | لسؤالٍ واحدٍ تضعانِ جواباً على الشاشةِ وآخرَ على الباب — العطلُ الذي
+        | دفعَه هذا المستودعُ في `BookingEligibility` و`ListLeaderboardScopes`.
+        |
+        | `forUser` لا `allows` المجرّدة: السؤالُ عن صاحبِ النبضةِ المُمرَّرِ
+        | إلينا، لا عمّن يحملُ الطلبَ — وهما واحدٌ اليوم ولا يلزمُ أن يبقيا.
+        */
+        return Gate::forUser($user)->allows('host', $session);
     }
 
     /**
@@ -80,7 +91,7 @@ final class RoomRevocation
         | أوّلَ مرّة: بدونَه ردَّتِ النبضةُ ٢٠٠ على حصّةٍ ملغاة، لأنّ الرفضَ كانَ
         | يأتي بالصدفةِ من دالّةِ فتحِ الغرفةِ في مسارِ المضيف.
         */
-        if (! $session->joinWindowCovers(now()) || $session->status->isTerminal()) {
+        if (! $session->joinWindowCovers(now()) || ! $this->statusAdmits($session)) {
             return false;
         }
 
@@ -109,6 +120,26 @@ final class RoomRevocation
 
         // غرفةٌ لم تُفتَحْ بعدُ: الطالبُ لا يفتحُها، والمضيفُ وحدَه من يفعل.
         return $session->broadcast_room_id !== null;
+    }
+
+    /**
+     * هل حالةُ الحصّةِ تسمحُ لأحدٍ بأن يكونَ في الغرفةِ أصلاً؟
+     *
+     * ⛔ **و«الموقوفة» ليست حالةً نهائيّةً، وإغفالُها كانَ تراجعاً أدخلَه هذا
+     * التقسيمُ نفسُه.** `isTerminal()` هي «منتهية» أو «ملغاة» وحدَهما، بينما
+     * `OpenBroadcastRoom` يرفضُ `Suspended` **في سطرٍ مستقلٍّ بجوارِ**
+     * `isTerminal()` — وقبلَ التقسيمِ كانت النبضةُ تمرُّ بذلكَ الفعلِ فتأخذُ
+     * الرفضَينِ معاً. بعدَه صارَت تسألُ هنا وحدَها، فحصّةٌ أوقفَتها فترةُ تجميدٍ
+     * تردُّ ٢٠٠ على نبضةٍ كانت تردُّ ٤٠٣.
+     *
+     * والتجميدُ **يُوقِفُ ولا يُلغي** (٠٠٥ · FR-043)، فالحالتانِ سؤالانِ
+     * مختلفانِ ولا تُدمَجانِ في واحدة — تماماً كما أنّ `CancelClassSession`
+     * لا يختمُ `room_closed_at` فلا تكفي النافذةُ وحدَها.
+     */
+    private function statusAdmits(ClassSession $session): bool
+    {
+        return ! $session->status->isTerminal()
+            && $session->status !== ClassSessionStatus::Suspended;
     }
 
     /**

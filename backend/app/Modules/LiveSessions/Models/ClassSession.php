@@ -173,7 +173,7 @@ class ClassSession extends BaseModel
     /**
      * Does this person hold a seat here — of ANY status?
      *
-     * ⚠️ DELIBERATELY WIDER THAN THE DOOR. `IssueJoinTicket::roleFor()` asks for a
+     * ⚠️ DELIBERATELY WIDER THAN THE DOOR. `RoomRevocation::isHost()` asks for a
      * `Booked` seat, because entering a room is a live entitlement. This answers
      * "is this session any of your business", which a cancelled seat also settles:
      * the student whose enrolment lapsed and whose seat `ReleaseIneligibleBookings`

@@ -54,7 +54,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // Deliberately not `/schedule/next?course=`: that one reads the student's
     // own bookings across every teacher, and this header must name the next
     // lesson whether or not a seat has been taken yet.
-    Route::get('/courses/{course}/next-session', [ScheduleController::class, 'nextForCourse']);
+    Route::get('/courses/{courseUuid}/next-session', [ScheduleController::class, 'nextForCourse']);
 
     /*
      | Every session of one course, for its page's tab (FR-016).
@@ -65,7 +65,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
      | context is null and every `can()` below it is false. The route a student
      | can use is one whose guard is the ENROLMENT.
      */
-    Route::get('/courses/{course}/sessions', [ScheduleController::class, 'forCourse']);
+    Route::get('/courses/{courseUuid}/sessions', [ScheduleController::class, 'forCourse']);
 
     Route::get('/freeze-periods', [FreezePeriodController::class, 'index']);
 

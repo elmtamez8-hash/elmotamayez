@@ -115,6 +115,20 @@ it('evicts everyone from a cancelled session', function (): void {
     ($this->beat)()->assertForbidden();
 });
 
+/*
+| ⚠️ **والموقوفةُ سببٌ خامسٌ، وإغفالُه كانَ تراجعاً أدخلَه هذا التقسيمُ نفسَه.**
+| قبلَه كانتِ النبضةُ تمرُّ بـ`OpenBroadcastRoom`، وهو يرفضُ `Suspended` في سطرٍ
+| مستقلٍّ بجوارِ `isTerminal()` — فأخذَتِ النبضةُ الرفضَينِ بالصدفةِ لا بالقصد.
+| وبعدَ التقسيمِ صارَت تسألُ `RoomRevocation` وحدَها، فحصّةٌ أوقفَتها فترةُ تجميدٍ
+| كانت تردُّ ٢٠٠ على نبضةٍ كانت تردُّ ٤٠٣. والتجميدُ يُوقِفُ ولا يُلغي (٠٠٥ ·
+| FR-043)، فهما سؤالان.
+*/
+it('evicts everyone from a suspended session', function (): void {
+    $this->session->forceFill(['status' => ClassSessionStatus::Suspended])->save();
+
+    ($this->beat)()->assertForbidden();
+});
+
 it('evicts everyone once the room has been closed', function (): void {
     $this->session->forceFill(['room_closed_at' => now()])->save();
 

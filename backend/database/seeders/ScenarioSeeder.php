@@ -960,6 +960,20 @@ final class ScenarioSeeder extends Seeder
                 ['slug' => 'general'],
                 ['name' => 'عامّ'],
             )->getKey(),
+            /*
+            | ⚠️ AND THE TYPE, FOR THE REASON WRITTEN ABOVE, ONE COLUMN ALONG.
+            | `courses.course_type` carries a DB default of `recorded` and got a
+            | writer on 2026-09-15 — on the HTTP door, the Action and the panel.
+            | This seeder reaches `Course::create()` past all three, so without
+            | this line `authoredCourse()` builds a `recorded` course and then
+            | hangs a live `ClassSession` off it: the exact contradiction the
+            | 2026-09-15 backfill was written to abolish, regenerated on every
+            | `migrate:fresh --seed` — and invisible to that backfill, which
+            | derives `group` from a COHORT and this course has none.
+            |
+            | Overridable per call: `$attributes` wins the merge.
+            */
+            'course_type' => Course::TYPE_RECORDED,
         ], $attributes));
     }
 
@@ -984,6 +998,9 @@ final class ScenarioSeeder extends Seeder
         $course = $this->course($workspace, $teacher, [
             'title' => 'Authoring Showcase',
             'slug' => 'authoring-showcase',
+            // ⚠️ جماعيّ لأنّه يحملُ حصّةً حيّةً بعدَ أسطر — ولا مجموعةَ له،
+            // فالهجرةُ التي تشتقُّ «جماعي» من المجموعاتِ لا تراهُ أبداً.
+            'course_type' => Course::TYPE_GROUP,
             'description' => 'Every supported item type, laid out the way the authoring surface builds them.',
             'price_minor' => 0,
             'status' => 'published',
