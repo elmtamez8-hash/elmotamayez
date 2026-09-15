@@ -70,7 +70,19 @@
 
 ---
 
-## ٥ · عقدٌ داخليٌّ جديد · `App\Shared\Contracts\SessionReleaseStatus`
+## ٥ · `POST /api/v1/lessons/{lesson}/playback` — البابُ الذي لا يمرُّ بالمنهج
+
+`IssuePlaybackGrant::mayWatch()` يخدمُ الملفَّ والفيديو والمرفقات، وينتهي اليومَ عندَ
+`hasActiveEnrollment($viewer, $lesson->course_id)` — **بلا أيِّ سؤالٍ عن نطاقٍ أو موعد**. فبعدَ
+هذه المواصفةِ يجبُ أن يسألَ `LessonAudience` كما يسألُه المنهج، **هو و`mayWatchMany()` معاً**
+(دفترُ تعليقِهما يوجبُ أنّهما يتحرّكانِ في الشحنةِ نفسِها).
+
+**والرفضُ يبقى بالرسالةِ العامّةِ القائمة** «لا تملك صلاحية لهذا الإجراء» — رسالةٌ تقولُ «هذا
+لمجموعةٍ أخرى» تكشفُ وجودَ ما FR-009 تُوجِبُ ألّا يُعرَفَ له أثر.
+
+---
+
+## ٦ · دالّةٌ تُضافُ إلى `App\Shared\Contracts\SessionAttendanceDirectory`
 
 ```php
 /** @param list<int> $classSessionIds @return list<int> */
@@ -80,4 +92,5 @@ public function releasedSessionIds(array $classSessionIds): array;
 المُفرَجُ عنه = `delivered_at IS NOT NULL` **أو** `status = 'cancelled'`.
 
 ⚠️ **المردودُ هو المُفرَجُ عنه فقط، لا المُدخَلُ كلُّه** — الصيغةُ التي تكتبُها
-`SessionContentAccess` في كلِّ دالّةٍ جماعيّةٍ لها، ليقرأَ القارئُ الجوابَ بلا عكس.
+`SessionContentAccess` و`previousCountableSessionIds()` في كلِّ دالّةٍ جماعيّةٍ لهما، ليقرأَ
+القارئُ الجوابَ بلا عكس.

@@ -110,23 +110,43 @@ $table->index('release_session_id', 'lessons_release_session_id_index');
 
 ---
 
-## عقدٌ جديد · `SessionReleaseStatus`
+## دالّةٌ تُضافُ إلى عقدٍ قائم · `SessionAttendanceDirectory`
 
 ```php
-interface SessionReleaseStatus
-{
-    /** @param list<int> $classSessionIds @return list<int> */
-    public function releasedSessionIds(array $classSessionIds): array;
-}
+/** @param list<int> $classSessionIds @return list<int> */
+public function releasedSessionIds(array $classSessionIds): array;
 ```
 
-**لماذا عقدٌ لا استعلام**: `ContextIsolationTest` يمنعُ `Modules/Learning/` و`Modules/Courses/`
-من تسميةِ وحدةٍ أخرى — استيراداً أو اسمَ جدولٍ بينَ علامتَي اقتباس، والتعليقاتُ تُنزَعُ قبلَ
-الفحص. وهو النمطُ الرابعُ في هذا المستودعِ بعدَ `EnrollmentDirectory` و`SettlementClearance`
-و`SessionContentAccess`، لا اختراع.
+المُفرَجُ عنه = `delivered_at IS NOT NULL` **أو** `status = 'cancelled'`.
 
-**والصيغةُ جماعيّةٌ بلا مفرَد**: القارئُ الوحيدُ شجرةٌ كاملة، ومفردٌ بجوارَها دعوةٌ إلى
-استعلامٍ لكلِّ صفّ — وهو ما تحرسُه ميزانيّةُ المنهجِ القائمة.
+**ولماذا هذا العقدُ بعينِه ولا عقدَ جديد**: هو يحملُ اليومَ
+`previousCountableSessionIds(array): array` — سؤالاً عن **حالِ حصّةٍ** لا عن حضورِ أحد، بالصيغةِ
+الجماعيّةِ نفسِها. وهو مربوطٌ في `LiveSessionsServiceProvider:111`، و`Learning` تسألُه بالفعلِ
+ولا تسمّي `class_sessions` في أيِّ ملفٍّ لها. عقدٌ خامسٌ بجوارَه جوابٌ ثانٍ لسؤالٍ له بيت.
+
+**والصيغةُ جماعيّةٌ بلا مفرَد**: القارئُ شجرةٌ كاملة، ومفردٌ بجوارَها دعوةٌ إلى استعلامٍ لكلِّ
+صفّ — وهو ما تحرسُه ميزانيّةُ المنهجِ القائمة.
+
+---
+
+## ⛔ القارئُ الواحد · `Courses\Support\LessonAudience`
+
+**الأبوابُ أربعةٌ، والحكمُ واحد.** صنفٌ واحدٌ يُسأَلُ من الأربعةِ جميعاً:
+
+```php
+/** @param iterable<Lesson> $lessons @return array<int,string|null> معرّفُ الدرس ⇒ رمزُ الإخفاء أو null */
+public static function hiddenAmong(User $viewer, iterable $lessons): array;
+
+public static function hiddenFor(User $viewer, Lesson $lesson): ?string;
+```
+
+- **المفردُ يُشتَقُّ من الجماعيِّ** (`hiddenAmong([$lesson])[$id] ?? null`) فلا تهجئتان.
+- المؤلّفُ (عضوُ مساحةِ العمل) يُستثنى في الصنفِ نفسِه، فلا يُعادُ استثناؤه في أربعةِ مواضع.
+- **القارئُ الأوّل**: `LessonGate::for()`/`forTree()` — والرمزُ يصيرُ سببَ الرفض.
+- **القارئُ الثاني**: `IssuePlaybackGrant::mayWatch()` و`mayWatchMany()`. ⛔ بدونَه، الصفُّ
+  مخفيٌّ من المنهجِ والملفُّ يُخدَمُ لمن يحملُ المعرّف — بابانِ يختلفان.
+- **القارئُ الثالث**: `StartAttempt` عبرَ صفِّ الشجرةِ الذي يشيرُ إلى الامتحان.
+- **القارئُ الرابع**: `ExamController::index()` وبركةُ التدريبِ ودفترُ الأخطاء.
 
 ---
 

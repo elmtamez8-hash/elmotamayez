@@ -73,7 +73,7 @@
 |---|---|
 | **I — عزلُ المستأجرين** | ✅ الجدولُ الجديدُ يحملُ `workspace_id` ويستعملُ `BelongsToWorkspace`. وقراءةُ الطالبِ لا تعتمدُ على النطاقِ العامِّ (عقيمٌ له) بل على عضويّةٍ صريحة. |
 | **II — المنطقُ في الـActions** | ✅ الكتابةُ في Action واحد، والقراءةُ في `LessonGate` وحدَه. لا شرطَ في متحكّم. |
-| **III — استقلالُ الوحدات** | ⚠️ `Courses`/`Learning` تحتاجانِ «أسُلِّمت هذه الحصّةُ أو أُلغيت؟» و«في أيِّ مجموعاتٍ هذا الطالبُ الآن؟». الثانيةُ في `CohortDirectory` (وحدتُها). **والأولى بعقدٍ جديدٍ `SessionReleaseStatus`** لا باستيرادِ نماذجِ `LiveSessions` — نمطٌ رابعٌ بعدَ `EnrollmentDirectory` و`SettlementClearance` و`SessionContentAccess`، لا اختراع. |
+| **III — استقلالُ الوحدات** | ⚠️ يُحتاجُ «أسُلِّمت هذه الحصّةُ أو أُلغيت؟» و«في أيِّ مجموعاتٍ هذا الطالبُ الآن؟». الثانيةُ في `CohortDirectory`. **والأولى تُضافُ دالّةً إلى `SessionAttendanceDirectory` القائم، لا عقداً جديداً**: ذلك العقدُ يحملُ `previousCountableSessionIds()` — سؤالاً عن **حالِ حصّةٍ** لا عن حضورٍ — فالبيتُ موجودٌ، وعقدٌ جديدٌ بجوارَه جوابٌ ثانٍ لسؤالٍ له جوابٌ أوّل. |
 | **IV — البوّاباتُ خضراء** | ✅ pint · phpstan level 8 · pest · tsc · vitest. |
 | **V — التفويضُ بالسياسات** | ✅ الكتابةُ تحتَ `manageLessons` القائمة؛ لا صلاحيّةَ جديدة. |
 | **VI — العقودُ الظاهرةُ مقصودة** | ✅ حقلانِ جديدانِ على حمولةِ المدرّسِ (FR-011)، و**صفرُ حقولٍ جديدةٍ على حمولةِ الطالب** — ما لا يراه لا يُرسَلُ إليه أصلاً. |
@@ -100,8 +100,12 @@ specs/026-cohort-scoped-content/
 
 ```text
 backend/app/
-├── Shared/Contracts/SessionReleaseStatus.php                          # جديد
-├── Modules/LiveSessions/Support/EloquentSessionReleaseStatus.php      # جديد
+├── Shared/Contracts/SessionAttendanceDirectory.php     # دالّةٌ واحدةٌ تُضاف
+├── Modules/LiveSessions/Support/EloquentSessionAttendanceDirectory.php   # تنفيذُها
+├── Modules/Courses/Support/LessonAudience.php          # ⛔ جديد — القارئُ الواحد
+├── Modules/Media/Actions/IssuePlaybackGrant.php        # ⛔ البابُ الثاني
+├── Modules/Assessments/Actions/StartAttempt.php        # البابُ الثالث
+├── Modules/Assessments/Http/Controllers/ExamController.php               # البابُ الرابع
 ├── Modules/Courses/
 │   ├── Database/Migrations/…_create_lesson_cohort_scopes_table.php    # جديد
 │   ├── Database/Migrations/…_add_release_session_id_to_lessons.php    # جديد
@@ -149,6 +153,28 @@ frontend/src/
 **القرارُ المركزيُّ في جملةٍ واحدة**: المحورانِ يدخلانِ `progressEligible()` شرطَينِ بجوارِ
 `whereNull('class_session_id')` القائم، ويدخلانِ `LessonGate` فرعَينِ يُرَدُّ عنهما برمزٍ
 **تُسقِطُه** `CurriculumResource` كما تُسقِطُ `not_visible` اليومَ.
+
+### ⛔ والأبوابُ أربعةٌ لا بابٌ واحد — وهذا أهمُّ تصحيحٍ في المراجعة
+
+`LessonGate` ليس الطريقَ الوحيدَ إلى محتوى الدرس. قِيسَ في ٢٠٢٦-٠٩-١٥:
+
+| الباب | الملفّ | ما يقولُه اليومَ |
+|---|---|---|
+| المنهجُ وصفحةُ الدرسِ والإتمام | `LessonGate::for()` · `forTree()` | ✅ يُغطّى بالخطّة |
+| **الملفُّ والفيديو والمرفقات** | `IssuePlaybackGrant::mayWatch():198` | ⛔ **`hasActiveEnrollment($viewer, $lesson->course_id)` وكفى** — فأيُّ مسجَّلٍ في الكورسِ ينالُ إذنَ تشغيلٍ لملفِّ أيِّ درسٍ منشورٍ فيه، مهما كان نطاقُه أو موعدُه |
+| بدءُ محاولةِ امتحان | `StartAttempt::guardSessionContent()` | يسألُ عن الحصّةِ ولا يسألُ عن النطاق |
+| فهرسُ الامتحاناتِ وبركةُ التدريب | `ExamController::index()` · `PracticePool` | لا يسألانِ شيئاً من المحورَين |
+
+**فالحكمُ يُستخرَجُ إلى قارئٍ واحدٍ `Courses\Support\LessonAudience`** يُسأَلُ من الأبوابِ
+الأربعة، مفرداً وجماعيّاً. ⚠️ **وهذا ليس تحسيناً بل هو المواصفةُ نفسُها**: خطّةٌ تُخفي الصفَّ
+من المنهجِ وتتركُ نقطةَ التشغيلِ تخدمُ الملفَّ لمن يحملُ المعرّفَ هي «بابانِ يختلفان» — العطلُ
+الذي جعلَ تسجيلاً مدفوعاً غيرَ قابلٍ للفتحِ في ٠١٨، بالأدوارِ معكوسة. و`mayWatchMany()` نسخةٌ
+جماعيّةٌ مكتوبةٌ باليدِ من `mayWatch()`، ودفترُ تعليقِها يوجبُ أن يتحرّكا معاً.
+
+**وحدٌّ مذكورٌ لا مسكوتٌ عنه**: صفحةُ الكورسِ العامّةُ (`CourseController@show` ·
+`ReadPublicCourse`) تسردُ العناوينَ بـ`visibleToStudents()` وحدَها — بلا قارئٍ تُنسَبُ إليه —
+فعنوانُ عنصرٍ مقصورٍ يظلُّ في الفهرسِ العامّ. تضييقُها يحتاجُ قراراً من المالكِ (هل يُخفى
+العنصرُ عن زائرٍ لا مجموعةَ له أصلاً؟)، ولا تدخلُ هذه الشحنة.
 
 **رموزُ الرفضِ الثلاثةُ الجديدة** — كلُّها مُسقَطةٌ من حمولةِ الطالبِ، ظاهرةٌ للمدرّس:
 
