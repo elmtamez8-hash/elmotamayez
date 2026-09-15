@@ -127,12 +127,33 @@ class Enrollment extends BaseModel
      * extra queries, growing with the tree. That is exactly what `SC-004` and
      * `CurriculumQueryBudgetTest` forbid.
      *
+     * ⛔ **AND EVERY READ HERE BYPASSES `WorkspaceScope`, ON THE RELATION AND
+     * INSIDE THE EAGER LOAD BOTH — WITHOUT IT THE COURSE IS EMPTY.**
+     * `course()` above carries the bypass; `Course::lessons()` is a fresh query
+     * on `Lesson` and runs the scope again, and `WorkspaceContext::id()` falls
+     * back to `users.last_workspace_id` — stamped on every student a teacher, an
+     * invitation or a seeder ever added to a workspace (six rows with role
+     * `student` measured on a real database). So the whole curriculum came back
+     * with **zero lessons** for those students: a 200, no error, a course they
+     * paid for reading as if nothing had been written in it.
+     *
+     * ⚠️ **And the eager load is the second half, not a detail.** A scoped
+     * `->with(['section','chapter'])` returns null for both, and `loadMissing`
+     * inside `isVisibleChain()` then finds them «already loaded» and does not
+     * refetch — so a published lesson reads as invisible and is dropped by a
+     * guard that was written correctly. An eager load that overwrites a relation
+     * a guard means to fetch with a bypass is worse than no eager load at all.
+     *
      * @return Collection<int, Lesson>
      */
     public function orderedLessons(): Collection
     {
         return $this->course->lessons()
-            ->with(['section', 'chapter'])
+            ->withoutWorkspaceScope()
+            ->with([
+                'section' => fn ($query) => $query->withoutGlobalScope(WorkspaceScope::class),
+                'chapter' => fn ($query) => $query->withoutGlobalScope(WorkspaceScope::class),
+            ])
             ->join('course_sections', 'lessons.section_id', '=', 'course_sections.id')
             ->join('course_chapters', 'lessons.chapter_id', '=', 'course_chapters.id')
             ->orderBy('course_sections.order')

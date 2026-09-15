@@ -31,8 +31,28 @@ contracts/lesson-audience.md · quickstart.md
 إتمامُه يُبقي كلَّ طالبٍ تحتَ ١٠٠٪ للأبد. فما بقيَ من US2 هو **الكاتبُ
 والشاشةُ واختباراتُهما** لا أكثر.
 
-**ما زالَ**: نصفُ US2 (T032–T034) · US4 (T040–T043) · الصقل (T044–T048) — ثلاثَ عشرةَ
-مهمّة، وشقٌّ من T014 (حقلُ `release_session_uuid` ينتظِرُ شاشتَه).
+**وشُحِنَ بعدَه (US2 كاملةً)**: محورُ «متى يظهر» من طرفِه إلى طرفِه — الكاتبُ
+(T014 كاملاً · `LessonRelease` · `SaveLessonAudience` صارَ يكتبُ المحورَينِ في
+معاملةٍ واحدةٍ وحدثٍ واحد)، والشاشةُ (T032)، والاختباراتُ (T033 · T034).
+
+⚠️ **وأخرجَ اختبارُ T033 عطلَينِ قائمَينِ خارجَ نطاقِ هذه المواصفة**، وكلاهما
+من عائلةِ «القراءةُ مُنطَقةٌ فتختلفُ باختلافِ القارئ»:
+
+١) **`Enrollment::orderedLessons()` كانت تُرجِعُ صفرَ دروسٍ لطالبٍ مختومٍ
+بمساحةِ عملٍ **غيرِ مساحةِ الكورسِ الذي اشتراه** — طالبٌ أضافَه مدرّسٌ إلى
+مساحتِه ثمّ اشترى من مدرّسٍ آخر** — `course()` تحملُ التجاوزَ و`Course::lessons()` استعلامٌ
+جديدٌ لا يحملُه. فالمنهجُ ٢٠٠ بصفرِ صفوف: كورسٌ دُفِعَ ثمنُه يُقرَأُ كأنّه
+فارغ، بلا خطأٍ في أيِّ مكان. والإسنادُ المُسبَقُ نصفٌ ثانٍ من العطلِ نفسِه:
+`->with(['section','chapter'])` مُنطَقةً تُرجِعُ `null` للاثنَين، فيجدُهما
+`isVisibleChain()` «محمَّلَين» فلا يُعيدُ جلبَهما. الحارسُ في
+`CurriculumStudentContextTest`.
+
+٢) **«المؤلّف» كانَ يُقاسُ بالعضويّةِ لا بالدور** في ثلاثةِ أبواب
+(`mayWatch()` · `mayWatchMany()` · `/learn/lessons/{uuid}`)، والأخيرُ يفتحُ
+**دروساً منشورةً بلا تسجيلٍ** لعضوٍ بدورِ «طالب» غيرِ مسجَّل. الحارسُ في
+`AuthorBranchIsRoleBasedTest`.
+
+**ما زالَ**: US4 (T040–T043) · الصقل (T044–T048) — تسعُ مهامّ.
 
 ⚠️ **وشُحِنَ خارجَ هذه القائمةِ شيئان** خرَجا من مشيةٍ على الإنتاج، لا من تخطيطٍ مسبَق:
 قسمُ «المجموعة والحصص» على شاشةِ الطلب، وإصلاحُ منطقةِ الموعدِ الزمنيّةِ في
@@ -81,7 +101,7 @@ contracts/lesson-audience.md · quickstart.md
 
 - [X] T012 [US1] Action `SaveLessonAudience` في `backend/app/Modules/Courses/Actions/SaveLessonAudience.php` — يكتبُ النطاقَ والموعدَ في معاملةٍ واحدة، ويرفضُ مجموعةً أو حصّةً **من غيرِ كورسِ الدرس**
 - [X] T013 [US1] يُطلِقُ `CourseStructureChanged` **مرّةً واحدةً للكورس** إن تغيّرَ محور (FR-016) — الحدثُ والمستمعُ القائمانِ، بلا سطرِ مزامنةٍ جديد
-- [~] T014 [US1] حقلا `cohort_uuids` و`release_session_uuid` في `backend/app/Modules/Courses/Http/Requests/UpdateLessonRequest.php` بـ`WorkspaceRules::exists` لا `exists:`، ومصفوفةٌ فارغةٌ = «للجميع»
+- [X] T014 [US1] حقلا `cohort_uuids` و`release_session_uuid` في `backend/app/Modules/Courses/Http/Requests/UpdateLessonRequest.php` بـ`WorkspaceRules::exists` لا `exists:`، ومصفوفةٌ فارغةٌ = «للجميع»
 - [X] T015 [P] [US1] مدخلا `attributes` العربيّانِ في `backend/lang/ar/validation.php` — بدونَهما يقرأُ المدرّسُ `cohort_uuids`
 
 ### القراءة
@@ -124,11 +144,11 @@ contracts/lesson-audience.md · quickstart.md
 
 - [X] T030 [US2] فرعُ `unreleased` في `LessonGate::for()` **و**`forTree()` في `backend/app/Modules/Learning/Support/LessonGate.php`
 - [X] T031 [US2] `->whereNull('lessons.release_session_id')` في `Lesson::scopeProgressEligible()` — **إلى الأبدِ لا حتّى الإفراج** (FR-013)
-- [ ] T032 [US2] اختيارُ حصّةِ الإفراجِ في `frontend/src/components/courses/LessonAudienceFields.tsx` مع «يظهر الآن» خياراً افتراضيّاً، وفكُّ الربطِ من المكانِ نفسِه — وهو مخرجُ FR-008 لحصّةٍ لم تُسلَّمْ ولم تُلغَ
-- [ ] T033 [US2] `backend/tests/Feature/Learning/SessionTimedReleaseTest.php` — مجدولةٌ ⇒ مخفيّ · سُلِّمت ⇒ ظاهرٌ ومفتوح · **أُلغيت ⇒ ظاهر** (FR-008) · بلا ربطٍ ⇒ ظاهرٌ فوراً
+- [X] T032 [US2] اختيارُ حصّةِ الإفراجِ في `frontend/src/components/courses/LessonAudienceFields.tsx` مع «يظهر الآن» خياراً افتراضيّاً، وفكُّ الربطِ من المكانِ نفسِه — وهو مخرجُ FR-008 لحصّةٍ لم تُسلَّمْ ولم تُلغَ
+- [X] T033 [US2] `backend/tests/Feature/Learning/SessionTimedReleaseTest.php` — مجدولةٌ ⇒ مخفيّ · سُلِّمت ⇒ ظاهرٌ ومفتوح · **أُلغيت ⇒ ظاهر** (FR-008) · بلا ربطٍ ⇒ ظاهرٌ فوراً
   - **كيفَ يمسك**: أزِلْ `status = cancelled` من شرطِ الإفراج ⇒ تسقطُ الحالةُ الثالثةُ وحدَها
   - ⚠️ الأحوالُ الثلاثةُ في ملفٍّ واحد: تجهيزةٌ تُسلِّمُ الحصّةَ دائماً لا ترى شيئاً
-- [ ] T034 [US2] ⛔ `backend/tests/Feature/Learning/ProgressNeverDropsTest.php` — طالبٌ على ١٠٠٪، ثمّ يُنشَرُ عنصرٌ مربوطٌ بحصّةٍ لم تُسلَّم ⇒ ما زال ١٠٠٪؛ **وبعدَ التسليمِ كذلك** (FR-014 · SC-003)
+- [X] T034 [US2] ⛔ `backend/tests/Feature/Learning/ProgressNeverDropsTest.php` — طالبٌ على ١٠٠٪، ثمّ يُنشَرُ عنصرٌ مربوطٌ بحصّةٍ لم تُسلَّم ⇒ ما زال ١٠٠٪؛ **وبعدَ التسليمِ كذلك** (FR-014 · SC-003)
   - **كيفَ يمسك**: اجعلِ الشرطَ «لم يُفرَجْ عنه بعد» بدلَ «مربوطٌ بحصّة» ⇒ يسقطُ الشقُّ الثاني وحدَه — وهو الفرقُ بين FR-013 وFR-013أ حرفيّاً
 
 ---

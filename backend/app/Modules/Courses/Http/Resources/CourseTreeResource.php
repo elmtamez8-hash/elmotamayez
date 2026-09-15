@@ -11,6 +11,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\LessonCohortScope;
 use App\Modules\Courses\Models\Section;
+use App\Modules\Courses\Support\LessonRelease;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\ReferenceIntegrity;
 use Illuminate\Http\Request;
@@ -42,6 +43,13 @@ class CourseTreeResource extends JsonResource
      * @var array<int, list<string>>
      */
     private array $cohortScopes = [];
+
+    /**
+     * معرّفُ حصّةِ الإفراجِ لكلِّ عنصرٍ — استعلامٌ واحدٌ للشجرةِ كذلك.
+     *
+     * @var array<int, string>
+     */
+    private array $releaseSessions = [];
 
     /**
      * The resource WITH the loads it needs — the only supported way to build it.
@@ -88,6 +96,7 @@ class CourseTreeResource extends JsonResource
 
         // والنطاقُ كذلكَ: استعلامانِ للشجرةِ كلِّها، لا اثنانِ لكلِّ صفّ.
         $this->cohortScopes = LessonCohortScope::uuidsAmong($lessons);
+        $this->releaseSessions = LessonRelease::uuidsAmong($lessons);
 
         return [
             'uuid' => $this->uuid,
@@ -152,6 +161,9 @@ class CourseTreeResource extends JsonResource
             | تفترقُ أوّلَ ما يُعادُ تسميةُ مجموعة. **وفارغةٌ = للجميع.**
             */
             'cohort_uuids' => $this->cohortScopes[(int) $lesson->getKey()] ?? [],
+            // 026 - FR-006. `null` = appears now, which is every item that
+            // was never linked to a session.
+            'release_session_uuid' => $this->releaseSessions[(int) $lesson->getKey()] ?? null,
             // Says out loud that this row is a recording, because two rules turn
             // on it: it is entitled by a seat rather than by enrolment, and the
             // authoring surface may not repoint it.

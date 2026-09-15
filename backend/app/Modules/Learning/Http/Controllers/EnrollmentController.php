@@ -24,6 +24,7 @@ use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Models\LessonProgress;
 use App\Modules\Learning\Support\LessonAccess;
 use App\Modules\Media\Models\MediaAsset;
+use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\SubscriptionDirectory;
 use Illuminate\Http\JsonResponse;
@@ -330,7 +331,22 @@ class EnrollmentController extends Controller
          * of that pivot are `AcceptInvitation` and `CreateWorkspace`, so
          * enrolling never grants it.
          */
-        if ($viewer->workspaces()->where('workspaces.id', $lesson->workspace_id)->exists()) {
+        /*
+         | ⛔ **AND THE PREDICATE IS THE PIVOT ROLE, NEVER MERE MEMBERSHIP.**
+         | Measured on a real database on 2026-09-09: `workspace_members` holds
+         | **six rows with role `student`** — a teacher, an invitation or a
+         | seeder puts a student into a workspace — so «member ⇒ author» hands
+         | those six the DRAFT tree of that workspace, past every status check
+         | below. Asked in the negative, as `User::teachesOnPlatform()` does, so
+         | an unknown custom role falls toward refusal rather than toward the
+         | open door. `IssuePlaybackGrant::mayWatch()` asks it the same way, and
+         | the two must move together: one widened alone opens the page and
+         | refuses the video, or the reverse.
+         */
+        if ($viewer->workspaces()
+            ->wherePivot('role', '!=', Roles::STUDENT)
+            ->where('workspaces.id', $lesson->workspace_id)
+            ->exists()) {
             return response()->json($this->lessonPayload($lesson, LessonAccess::allow()));
         }
 

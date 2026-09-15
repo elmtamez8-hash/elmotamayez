@@ -432,18 +432,29 @@ export function LessonEditor({
         </div>
 
         {/*
-          ٠٢٦ · FR-001 — «لمن هذا العنصر»، ويُحفَظُ عندَ الاختيارِ كما تُحفَظُ
-          الوسومُ فوقَه — لا معَ زرِّ «حفظ» أسفلَه، فذاكَ لا يُعرَضُ إلّا على
-          نوعينِ من عشرة، فيصيرُ المحورُ غيرَ قابلٍ للحفظِ على البقيّة.
+          026 . FR-001 . FR-006 - who this item is for and when it appears. Both
+          save on CHANGE, the way the flags above them do - not with the "save"
+          button below, which renders for two types out of ten, so the two axes
+          would be unsavable on the other eight.
         */}
         <LessonAudienceFields
           courseUuid={courseUuid}
-          value={lesson.cohort_uuids}
+          cohortUuids={lesson.cohort_uuids}
+          releaseSessionUuid={lesson.release_session_uuid}
           disabled={busy}
-          onChange={(next) =>
+          onChangeCohorts={(next) =>
             void run(
               () => courses.updateLesson(courseUuid, lesson.uuid, { cohort_uuids: next }),
               "حُفِظَ من يرى هذا العنصر.",
+            )
+          }
+          onChangeRelease={(next) =>
+            void run(
+              () =>
+                courses.updateLesson(courseUuid, lesson.uuid, {
+                  release_session_uuid: next,
+                }),
+              next === null ? "يظهر الآن." : "حُفِظَ متى يظهر هذا العنصر.",
             )
           }
         />
