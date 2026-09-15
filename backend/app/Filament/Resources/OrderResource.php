@@ -14,8 +14,10 @@ use App\Modules\Payments\Enums\OrderStatus;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\CohortDirectory;
+use App\Shared\Contracts\CohortScheduleDirectory;
 use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
+use Carbon\CarbonImmutable;
 use DomainException;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -86,6 +88,46 @@ class OrderResource extends Resource
                         TextInput::make('currency')
                             ->label('العملة')
                             ->disabled(),
+                    ]),
+
+                /*
+                | ⛔ **المجموعةُ تختفي من الشاشةِ في اللحظةِ التي تصيرُ فيها
+                | حقيقةً** — وهذا ما كانَ ناقصاً، لا حقلاً في جدولٍ أسفلَ الصفحة.
+                |
+                | مُنتقي المجموعةِ يعيشُ داخلَ استمارةِ الاعتمادِ وحدَها، ويُخفي
+                | نفسَه بمجرّدِ أن يصيرَ للطالبِ عضويّةٌ مفتوحة
+                | ({@see self::assignableCohorts()}). فبعدَ الاعتمادِ **لا شيءَ
+                | في الصفحةِ كلِّها يقولُ إلى أيِّ مجموعةٍ ذهبَ الطالبُ ولا متى
+                | تجتمع** — والموظّفُ الذي يسألُ «ما الذي حُجِزَ بالضبط؟» يجدُ
+                | جدولَ المعاملاتِ وحدَه، وهو يجيبُ سؤالاً آخر.
+                |
+                | ⚠️ وهي قراءةٌ لا حقلٌ محفوظ: العضويّةُ تتغيّرُ بالنقلِ بعدَ
+                | الاعتماد، فنسخةٌ مكتوبةٌ على الطلبِ تصيرُ كاذبةً عندَ أوّلِ نقل.
+                |
+                | ⚠️ والمواعيدُ من `CohortScheduleDirectory` نفسِه الذي يغذّي
+                | المُنتقي، لا من استعلامٍ ثانٍ هنا: إملاءانِ لجدولِ مجموعةٍ
+                | واحدةٍ يفترقانِ عندَ أوّلِ تعديل، وقد دفعَ هذا المستودعُ ثمنَ
+                | ذلك مراراً.
+                */
+                Section::make('المجموعة والحصص')
+                    ->description('إلى أينَ ذهبَ الطالبُ بعدَ الاعتماد، ومتى تجتمعُ مجموعتُه.')
+                    ->visible(fn (Order $record): bool => self::cohortSummary($record) !== null)
+                    ->schema([
+                        Placeholder::make('cohort_summary')
+                            ->hiddenLabel()
+                            ->content(function (Order $record): string {
+                                $summary = self::cohortSummary($record);
+
+                                if ($summary === null) {
+                                    return '—';
+                                }
+
+                                return implode("\n", array_filter([
+                                    'المجموعة: '.$summary['name'],
+                                    'المواعيد: '.$summary['schedule'],
+                                    $summary['next'],
+                                ]));
+                            }),
                     ]),
 
                 /*
@@ -424,6 +466,46 @@ class OrderResource extends Resource
         Notification::make()->danger()->title('التحقّق بخطوتين مطلوب')->body($refusal)->persistent()->send();
 
         return true;
+    }
+
+    /**
+     * مجموعةُ هذا الطالبِ في كورسِ هذا الطلب، ومواعيدُها — أو `null` إن لم تكن.
+     *
+     * ⚠️ `null` هنا يعني «لا شيءَ يُعرَض»، وله ثلاثةُ أسبابٍ متساوية: الطلبُ ليس
+     * شراءَ كورسٍ أصلاً (رصيدٌ أو اشتراك)، أو لم يُعتمَدْ بعدُ فلا عضويّةَ له،
+     * أو الطالبُ خارجُ كلِّ مجموعة. الثلاثةُ حالاتٌ يكونُ فيها القسمُ فارغاً،
+     * وقسمٌ فارغٌ على شاشةِ قرارٍ أسوأُ من غيابِه.
+     *
+     * @return array{name: string, schedule: string, next: ?string}|null
+     */
+    private static function cohortSummary(Order $record): ?array
+    {
+        if ($record->kind !== OrderKind::Course || $record->course_id === null) {
+            return null;
+        }
+
+        $cohorts = app(CohortDirectory::class);
+        $cohortId = $cohorts->openMembershipCohortId($record->user, (int) $record->course_id);
+
+        if ($cohortId === null) {
+            return null;
+        }
+
+        $schedule = app(CohortScheduleDirectory::class);
+        $slots = $schedule->schedulePreviewFor([$cohortId])[$cohortId] ?? [];
+        $next = $schedule->nextSessionFor($cohortId);
+
+        return [
+            'name' => $cohorts->namesFor([$cohortId])[$cohortId] ?? '—',
+            'schedule' => $slots === [] ? 'لم تُجدول حصص بعد' : implode(' · ', $slots),
+            /*
+             | ⚠️ «لا حصّةَ قادمة» جملةٌ مكتوبةٌ لا فراغ. المجموعةُ قد تكونُ
+             | انتهت حصصُها كلُّها، وسطرٌ غائبٌ يُقرأُ «لم نقرأْ» لا «لا يوجد».
+             */
+            'next' => $next === null
+                ? 'لا حصّةَ قادمةً مجدولة'
+                : 'الحصّةُ القادمة: '.CarbonImmutable::parse($next['starts_at'])->format('Y-m-d H:i'),
+        ];
     }
 
     /**

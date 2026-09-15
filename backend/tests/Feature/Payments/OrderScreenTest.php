@@ -5,6 +5,11 @@ declare(strict_types=1);
 use App\Filament\Resources\OrderResource\Pages\EditOrder;
 use App\Filament\Resources\OrderResource\RelationManagers\TransactionsRelationManager;
 use App\Models\User;
+use App\Modules\Courses\Models\Course;
+use App\Modules\Learning\Models\Cohort;
+use App\Modules\Learning\Models\CohortMembership;
+use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\UploadPaymentReceipt;
 use App\Modules\Payments\Enums\PaymentStatus;
@@ -168,4 +173,67 @@ it('mints the transaction and the audit stamp when the button is the door', func
 
     expect($transaction->captured_order_id)->toBe($this->order->getKey())
         ->and($transaction->status)->toBe(PaymentStatus::Captured);
+});
+
+/*
+| ⛔ المجموعةُ تختفي في اللحظةِ التي تصيرُ فيها حقيقةً — 2026-09-15.
+|
+| مُنتقي المجموعةِ يعيشُ داخلَ استمارةِ الاعتمادِ، ويُخفي نفسَه بمجرّدِ أن يصيرَ
+| للطالبِ عضويّةٌ مفتوحة. فبعدَ الاعتمادِ لا شيءَ في الصفحةِ كلِّها يقولُ إلى أيِّ
+| مجموعةٍ ذهبَ الطالب — والموظّفُ الذي يسألُ «ما الذي حُجِزَ بالضبط؟» يجدُ جدولَ
+| المعاملاتِ وحدَه، وهو يجيبُ سؤالاً آخر.
+|
+| ⚠️ والتوكيدُ على الاسمِ **والموعدِ معاً**: قسمٌ يعرضُ اسمَ المجموعةِ بلا مواعيدَ
+| يمرُّ فوقَ نصفِ الطلبِ ويقرأُ كأنّه نُفِّذ.
+*/
+it('names the group the student landed in, and when it meets', function (): void {
+    $course = Course::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+    ]);
+
+    $cohort = Cohort::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $course->getKey(),
+        'name' => 'مجموعة السبت',
+    ]);
+
+    // The schedule is derived from the sessions the group actually has —
+    // never from a declared availability slot, which is what the teacher COULD
+    // teach rather than when the class meets.
+    ClassSession::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $course->getKey(),
+        'cohort_id' => $cohort->getKey(),
+        'status' => ClassSessionStatus::Scheduled,
+        'starts_at' => now()->next('Saturday')->setTime(17, 0),
+        'ends_at' => now()->next('Saturday')->setTime(18, 0),
+    ]);
+
+    CohortMembership::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'cohort_id' => $cohort->getKey(),
+        'course_id' => $course->getKey(),
+        'student_user_id' => $this->student->getKey(),
+    ]);
+
+    $this->order->forceFill([
+        'course_id' => $course->getKey(),
+        'status' => 'approved',
+    ])->save();
+
+    Livewire::test(EditOrder::class, ['record' => $this->order->getRouteKey()])
+        ->assertSuccessful()
+        ->assertSee('مجموعة السبت')
+        ->assertSee('السبت 17:00');
+});
+
+it('shows no group section on an order that never had one', function (): void {
+    /*
+    | ⚠️ الحارسُ المقابل، وبدونَه يمرُّ الأوّلُ فوقَ قسمٍ يظهرُ دائماً. طلبُ رصيدٍ
+    | أو طلبٌ لم يُعتمَدْ بعدُ لا مجموعةَ له، وقسمٌ فارغٌ على شاشةِ قرارٍ أسوأُ من
+    | غيابِه.
+    */
+    Livewire::test(EditOrder::class, ['record' => $this->order->getRouteKey()])
+        ->assertSuccessful()
+        ->assertDontSee('المجموعة والحصص');
 });
