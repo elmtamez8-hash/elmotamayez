@@ -75,6 +75,30 @@ beforeEach(function (): void {
         // the boundary.
         'starts_at' => CarbonImmutable::now()->addDays(5),
         'ends_at' => CarbonImmutable::now()->addDays(5)->addHour(),
+        /*
+        | ⚠️ DELIVERED AND JUDGED, AND ٠٢٦ IS WHY IT HAD TO BE SAID OUT LOUD.
+        |
+        | This fixture hangs a PUBLISHED RECORDING off a session — and a
+        | recording exists only because the hour ran. Left with `delivered_at`
+        | null the pair is a state production never reaches, and since ٠٢٦ it
+        | means «this hour was never given»: the gate answers
+        | `no_session_content` and the row is removed, so the `no_seat` this file
+        | is about stopped existing.
+        |
+        | `attended_seats` is the second half. `openableSessionIds()`'s first arm
+        | is «delivered but not yet judged ⇒ open to EVERYONE» — the ٠٣٥ deploy
+        | window — and it is not per-student, so leaving it null hands the
+        | recording to the unseated learner this file exists to refuse.
+        |
+        | ⚠️ AND `status` IS LEFT ALONE, DELIBERATELY. `BookSeat` refuses
+        | anything but a scheduled session, and five cases here book a seat — so
+        | «completed» would refuse the fixture itself with «لم تعد متاحة للحجز».
+        | `starts_at` stays in the future for the same reason: it is what puts
+        | the cancellation cases comfortably inside the 24-hour window. Neither
+        | is read on the content path, which asks `delivered_at` alone.
+        */
+        'delivered_at' => CarbonImmutable::now()->subDay(),
+        'attended_seats' => 0,
     ]);
 
     // The lesson a published recording produces.
