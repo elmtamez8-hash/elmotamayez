@@ -44,6 +44,7 @@ function curriculum(overrides: Partial<Curriculum["course"]> = {}): Curriculum {
       teacher_name: "Sami Teacher",
       is_sequential: true,
       course_type: "recorded",
+      has_sessions: false,
       progress_pct: 25,
       completed_count: 2,
       countable_count: 8,

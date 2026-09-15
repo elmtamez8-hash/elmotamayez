@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Learning\Support;
 
+use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Learning\Actions\ReadCurriculum;
 use App\Modules\Learning\Models\Enrollment;
@@ -36,5 +37,10 @@ final class CurriculumView
         public readonly int $completedCount,
         public readonly int $countableCount,
         public readonly CohortGate $cohortGate,
+        /**
+         * هل لهذا الكورسِ حصّةٌ حيّةٌ واحدةٌ أصلاً — أيّاً كانَ ما يقولُه
+         * `courses.course_type`. انظرْ {@see Course::classSessions()} للسببِ.
+         */
+        public readonly bool $hasSessions,
     ) {}
 }

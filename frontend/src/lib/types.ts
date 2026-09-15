@@ -195,6 +195,11 @@ export interface Course {
    */
   course_type: string;
   /**
+   * هل في الجدولِ حصّةٌ حيّةٌ واحدةٌ لهذا الكورسِ فعلاً — أيّاً كانَ ما أعلنَه
+   * `course_type`. شاشةُ التعديلِ تقرؤُهما معاً لتقولَ للمدرّسِ إنّهما اختلفا.
+   */
+  has_sessions: boolean;
+  /**
    * The course's groups and the times they meet, stamped on by the list
    * endpoint. Absent on `/courses/{uuid}`, which answers about one course and
    * has the groups tab beside it.

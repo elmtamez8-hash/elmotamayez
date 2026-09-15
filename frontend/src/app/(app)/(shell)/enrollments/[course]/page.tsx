@@ -158,12 +158,28 @@ export default function CourseCurriculumPage({
   useEffect(load, [load]);
   useEffect(loadCohorts, [loadCohorts]);
 
-  const courseType = data?.course.course_type ?? null;
-  // ⚠️ A `recorded` COURSE IS NEVER ASKED ABOUT SESSIONS. Not «asked and given
-  // an empty list» — there is nothing to schedule, so the request itself is the
-  // wrong question, and two of them on every page load of a course that can
-  // never have one.
-  const hasSessions = courseType !== null && courseType !== "recorded";
+  /*
+    ⛔ **THE SCHEDULE, NOT THE DECLARATION — AND THE TWO ARE DIFFERENT QUESTIONS.**
+
+    This was `course_type !== "recorded"`, and `courses.course_type` had NO
+    WRITER ANYWHERE from 2026-08-01 to 2026-09-15: it carried a DB default that
+    read as a decision. So «Laravel Mastery» on production — eight live sessions
+    ahead of it, an open group, four enrolled students — drew no «الحصص» tab and
+    no next-session countdown at all, and nothing anywhere said why.
+
+    ⚠️ **THE COLUMN HAS A WRITER NOW AND THAT STILL IS NOT ENOUGH**, because the
+    failure directions are not symmetric: a teacher who mislabels their course
+    hides the timetable from their own students SILENTLY — no error, no badge,
+    nobody sees it — while the same mistake in the marketplace is a visible wrong
+    label somebody reports. So the tab follows what is actually scheduled, and
+    the declaration keeps the badge and the filter. The teacher is told when the
+    two disagree, on `/manage/courses/{uuid}/edit`.
+
+    The original reason for the flag survives intact: a course with nothing
+    scheduled is still never ASKED about sessions — two requests on every load of
+    a page that has none to show.
+  */
+  const hasSessions = data?.course.has_sessions ?? false;
 
   useEffect(() => {
     if (!hasSessions) return;

@@ -68,9 +68,21 @@ class CourseController extends Controller
                 $search->where('workspace_id', $workspaceId);
             }
 
-            $courses = $search->paginate($perPage);
+            /*
+            | ⚠️ **`query()` لأنّ الترطيبَ هو ما يُحمِّلُ السمة.** Scout يسألُ
+            | المحرّكَ عن المعرّفاتِ ثمّ يجلبُ الصفوفَ باستعلامِ Eloquent، وهذا
+            | المُغلَقُ هو المنفذُ الوحيدُ إليه. وبدونِه يخرجُ `has_sessions`
+            | **false** لكلِّ صفٍّ في نتائجِ البحثِ وحدَها — نصفٌ صامتٌ من
+            | الحقيقة، وهو بعينِه شكلُ العطلِ الذي يُصلِحُه هذا الفرع.
+            */
+            $courses = $search->query(fn ($query) => $query->withExists('classSessions'))->paginate($perPage);
         } else {
-            $courses = Course::query()->with('subject')->orderByDesc('created_at')->paginate($perPage);
+            $courses = Course::query()
+                ->with('subject')
+                // بُولِيّ واحد، لا فصلٌ دراسيٌّ من الحصصِ يُحمَّلُ ليُعَدَّ لا شيء.
+                ->withExists('classSessions')
+                ->orderByDesc('created_at')
+                ->paginate($perPage);
         }
 
         /*
@@ -120,7 +132,7 @@ class CourseController extends Controller
     {
         $this->authorize('view', $course);
 
-        return response()->json(CourseResource::make($course->load([
+        return response()->json(CourseResource::make($course->loadExists('classSessions')->load([
             'subject',
             'sections' => fn ($query) => $query->published()->orderBy('order'),
             'sections.chapters' => fn ($query) => $query->published()->orderBy('order'),
