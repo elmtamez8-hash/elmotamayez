@@ -65,7 +65,9 @@ it('sends each course its groups and the times they meet', function (): void {
         'cohort_id' => $cohort->getKey(),
         'status' => ClassSessionStatus::Scheduled->value,
         // A Saturday, so the label is deterministic whatever day the suite runs.
-        'starts_at' => now()->next('saturday')->setTime(16, 0),
+        // بتوقيتِ المنصّةِ ثمّ `->utc()`: اللافتةُ تُكتَبُ بتوقيتِ الطلابِ
+        // والتخزينُ UTC، ووقتٌ بلا منطقةٍ هنا يُعلَنُ ثلاثَ ساعاتٍ مبكّراً.
+        'starts_at' => now('Asia/Qatar')->next('saturday')->setTime(16, 0)->utc(),
     ]);
 
     Sanctum::actingAs($owner);
