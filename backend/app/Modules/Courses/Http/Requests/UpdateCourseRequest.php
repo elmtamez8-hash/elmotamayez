@@ -36,6 +36,13 @@ class UpdateCourseRequest extends FormRequest
             // ordinary fillable column; there is nothing to resolve.
             'grade_level' => CourseStage::rules(),
             /*
+            | `sometimes` and NOT `required`, unlike the create door: a PATCH
+            | that changes only the price must not be refused for omitting a
+            | field it is not touching. It reaches `update()` as an ordinary
+            | fillable column — there is nothing to resolve.
+            */
+            'course_type' => ['sometimes', 'string', Rule::in(Course::types())],
+            /*
             | ⚠️ UNIQUE ACROSS THE PLATFORM, NOT WITHIN THE WORKSPACE.
             | `/courses/{slug}` is one namespace read by guests, so the index behind
             | this rule carries no `workspace_id` — and without the rule a teacher

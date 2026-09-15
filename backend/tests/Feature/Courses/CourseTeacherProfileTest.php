@@ -40,6 +40,9 @@ function courseHere(?User $creator = null): Course
             // مطلوبةٌ في الإجراءِ نفسِه لا في الطلب: الفهرسُ مرجعيّةٌ يبذرُها
             // `TaxonomySeeder` قبلَ كلِّ اختبارِ Feature.
             subjectUuid: (string) Subject::query()->value('uuid'),
+            // ومطلوبٌ كذلك، وللسببِ نفسِه: الفعلُ يرفضُ كورساً بلا نوعٍ لأنّ
+            // القيمةَ الافتراضيّةَ في الجدولِ هي تصنيفٌ لم يختَرْه أحد.
+            courseType: Course::TYPE_RECORDED,
         ),
         $creator ?? test()->teacher,
     );

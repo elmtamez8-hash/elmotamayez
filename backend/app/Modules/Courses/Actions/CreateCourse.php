@@ -13,6 +13,7 @@ use App\Modules\Courses\Support\SubjectResolver;
 use App\Shared\Actions\Action;
 use App\Shared\Support\WorkspaceContext;
 use App\Shared\Traits\LogsActivity;
+use InvalidArgumentException;
 
 class CreateCourse extends Action
 {
@@ -30,6 +31,24 @@ class CreateCourse extends Action
         */
         $subjectId = SubjectResolver::id($dto->subjectUuid);
 
+        /*
+        | ⛔ **الرفضُ هنا لا في الطلبِ وحدَه، لأنّ الطلبَ بابٌ واحدٌ من ثلاثة.**
+        |
+        | `courses.course_type` وُلِدَ في ٢٠٢٦-٠٨-٠١ بقيمةٍ افتراضيّةٍ `recorded`
+        | و**بلا كاتبٍ في الشجرةِ كلِّها**: لا طلبٌ ولا فعلٌ ولا شاشة. فكلُّ كورسٍ
+        | أنشأَه مدرّسٌ بيدِه يقولُ «مسجَّل» عن تصنيفٍ لم يختَرْه أحد — ٦ من ٧ على
+        | الإنتاج (قِيسَ ٢٠٢٦-٠٩-١٥)، ومنها كورسٌ يحملُ ثماني حصصٍ حيّةٍ ومجموعةً
+        | مفتوحة.
+        |
+        | و«مطلوب» في `CreateCourseRequest` تحرسُ بابَ الواجهةِ وحدَه: لوحةُ
+        | Filament تُنشئُ بـ`handleRecordCreation()` بلا طلبٍ أصلاً، والبذورُ تكتبُ
+        | داخلَ `Model::unguarded()`. فالقاعدةُ في الفعلِ — البابُ الوحيدُ الذي
+        | يمرُّ منه الثلاثة — كما يوجبُ هذا المستودعُ لكلِّ قاعدةِ عمل.
+        */
+        if ($dto->courseType === null || ! in_array($dto->courseType, Course::types(), true)) {
+            throw new InvalidArgumentException('نوعُ الكورسِ مطلوبٌ وواحدٌ من: '.implode('، ', Course::types()));
+        }
+
         $workspaceId = (int) app(WorkspaceContext::class)->id();
 
         $course = Course::create([
@@ -44,6 +63,7 @@ class CreateCourse extends Action
             'visibility' => $dto->visibility,
             'is_sequential' => $dto->isSequential,
             'grade_level' => $dto->gradeLevel,
+            'course_type' => $dto->courseType,
             'created_by' => $creator->getKey(),
 
             /*

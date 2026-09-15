@@ -46,6 +46,8 @@ describe('course CRUD', function (): void {
             'currency' => 'USD',
             'is_sequential' => true,
             'subject' => (string) $subject->uuid,
+            // مطلوبٌ منذُ ٢٠٢٦-٠٩-١٥ — {@see CourseTypeWriterTest}.
+            'course_type' => Course::TYPE_RECORDED,
         ])->assertCreated()
             ->assertJsonPath('title', 'New Course')
             ->assertJsonPath('status', 'draft');
@@ -88,6 +90,9 @@ describe('course CRUD', function (): void {
             'price_minor' => 0,
             'currency' => 'QAR',
             'subject' => (string) Str::uuid(),
+            // حاضرٌ حتى يكونَ الخطأُ المقيسُ هو خطأَ المادّةِ وحدَه: بدونِه
+            // يرفضُ الطلبُ عن النوعِ ويمرُّ هذا الشقُّ على سببٍ لا يقصدُه.
+            'course_type' => Course::TYPE_RECORDED,
         ])->assertStatus(422)->assertJsonValidationErrors('subject');
     });
 
