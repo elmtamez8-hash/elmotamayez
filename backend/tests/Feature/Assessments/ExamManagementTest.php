@@ -33,7 +33,7 @@ describe('exam management', function (): void {
 
         Sanctum::actingAs($owner);
 
-        $this->getJson('/api/v1/exams')->assertOk()->assertJsonCount(1);
+        $this->getJson('/api/v1/exams')->assertOk()->assertJsonCount(1, 'data');
         $this->getJson("/api/v1/exams/{$exam->uuid}")->assertOk()->assertJsonPath('title', 'Final');
     });
 

@@ -153,7 +153,22 @@ it('lists a user own sessions and lets them end one', function (): void {
     $signIn = signInFrom('laptop');
 
     $this->withHeader('Authorization', 'Bearer '.$signIn['token'])
-        ->getJson('/api/v1/auth/sessions')->assertOk()->assertJsonCount(1);
+        ->getJson('/api/v1/auth/sessions')->assertOk()->assertJsonCount(1, 'data');
+
+    /*
+    | ⛔ **والغلافُ نفسُه، لا عددُ الصفوفِ وحدَه.**
+    |
+    | `lib/sessions.ts` يقرأُ `res.data ?? []`، فمصفوفةٌ عاريةٌ تعني `undefined`
+    | وشاشةً فارغةً لكلِّ مستخدم — وهي الشاشةُ التي يُنهي منها صاحبُ الحسابِ
+    | جلسةً على جهازٍ ضاعَ منه. و`assertJsonCount` وحدَها كانت صحيحةً على
+    | الشكلَينِ معاً (`0` و`1` و`2` مفاتيحُ مصفوفةٍ أيضاً)، وهو ما تركَ العطلَ
+    | يعيش.
+    |
+    | **كيفَ يمسك**: أعِدْ `response()->json(AuthSessionResource::collection(…))`
+    | ⇒ يسقطُ بـ«المفتاحُ `data` غائب».
+    */
+    expect(array_keys($this->withHeader('Authorization', 'Bearer '.$signIn['token'])
+        ->getJson('/api/v1/auth/sessions')->assertOk()->json()))->toContain('data');
 
     $session = AuthSession::query()->where('user_id', $user->getKey())->active()->sole();
 

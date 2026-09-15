@@ -23,7 +23,19 @@ class SessionController extends Controller
             ->latest('created_at')
             ->get();
 
-        return response()->json(AuthSessionResource::collection($sessions));
+        /*
+        | ⛔ **الغلافُ صريحٌ، والقارئُ كانَ يقرؤُه والخادمُ لا يرسلُه.**
+        |
+        | `lib/sessions.ts` يكتبُ `res.data ?? []` — و`res.data` على مصفوفةٍ
+        | عاريةٍ هو `undefined` — فشاشةُ «الأجهزة والجلسات» كانت تُرى **فارغةً
+        | لكلِّ مستخدمٍ على المنصّة**، وهي الشاشةُ التي يُنهي منها صاحبُ الحسابِ
+        | جلسةً على جهازٍ ضاعَ منه. الخادمُ وحدَه كانَ المخطئ.
+        |
+        | ⚠️ **و`['data' => …]` لا `->response()->getData(true)` هنا**: هذه
+        | مجموعةٌ عاديّةٌ لا مُرقَّمة، فلا `links` ولا `meta` لتُفقَد — والصيغةُ
+        | الثانيةُ تَعِدُ بغلافِ ترقيمٍ لا وجودَ له.
+        */
+        return response()->json(['data' => AuthSessionResource::collection($sessions)]);
     }
 
     public function destroy(Request $request, string $uuid, TerminateAuthSession $terminate): JsonResponse

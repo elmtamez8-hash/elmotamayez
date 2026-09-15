@@ -106,7 +106,24 @@ class ExamController extends Controller
             ->orderByDesc('created_at')
             ->paginate(15);
 
-        return response()->json(ExamResource::collection($exams));
+        /*
+        | ⛔ **`->response()->getData(true)`، ولا شيءَ سواه.**
+        |
+        | `response()->json(Resource::collection($paginator))` **لا تُنادي
+        | `toResponse()` أبداً**، فيسقطُ الغلافُ في صمتٍ ويصيرُ الردُّ مصفوفةً
+        | عاريةً بلا `data` ولا `links` ولا `meta`. والقرّاءُ الثلاثةُ في
+        | الواجهةِ يكتبونَ `res.data ?? []` — وهو `undefined` على مصفوفة — فكانت
+        | **كلُّ قائمةِ اختباراتٍ في المنتَجِ فارغةً**: شاشةُ الطالبِ تقولُ «لا
+        | اختبارات متاحة الآن»، وتبويبُ الكورسِ صفرٌ، و«إدارة الاختبارات» تقولُ
+        | للمدرّسِ إنّه لم يكتبْ ورقةً قطّ. الخادمُ وحدَه كانَ المخطئَ، فالإصلاحُ
+        | سطرٌ ولا يتغيّرُ في الواجهةِ حرف.
+        |
+        | ⚠️ **وما أبقاه هو أنّ الفهرسَ لم يكنْ له اختبارُ شكلٍ قطّ** — كلُّ
+        | اختباراتِه تسألُ عن المحتوى: عنوانٌ حاضرٌ وآخرُ غائب، وكلاهما صحيحٌ
+        | على المصفوفةِ العاريةِ كما على المغلَّفة. الشكلُ يُكتَبُ مع الإصلاح
+        | (`ExamIndexShapeTest`)، وإلّا عادَ بعدَ أوّلِ تعديل.
+        */
+        return response()->json(ExamResource::collection($exams)->response()->getData(true));
     }
 
     /**
@@ -139,9 +156,32 @@ class ExamController extends Controller
             ->all());
     }
 
-    public function show(Exam $exam): JsonResponse
+    /**
+     * ⛔ ٠٢٦ · FR-018 — **والمعرّفُ بابٌ كالقائمة.**
+     *
+     * الفهرسُ يُسقِطُ الورقةَ المقصورةَ وبدءُ المحاولةِ يرفضُها، وهذه النقطةُ
+     * كانت تردُّ عنوانَها ووصفَها ومدّتَها وعددَ أسئلتِها لمن يحملُ المعرّف —
+     * «بابانِ يختلفان»، وهو ما يسجّلُه هذا المستودعُ مرّاتٍ.
+     *
+     * ⚠️ **و٤٠٤ لا ٤٠٣.** أنّ ورقةً بهذا المعرّفِ موجودةٌ هو نفسُه خبرٌ: الرمزُ
+     * يُسقِطُ الصفَّ من المنهجِ ومن الفهرس، فمَن بلغَ هنا إنّما طرَقَ المعرّفَ
+     * مباشرةً — و«ليست لمجموعتك» تُخبِرُه بوجودِ شيءٍ ما كانَ ليعرفَه.
+     */
+    public function show(Request $request, Exam $exam): JsonResponse
     {
         $this->authorize('view', $exam);
+
+        $lesson = Lesson::query()
+            ->withoutWorkspaceScope()
+            ->referencing(LessonType::Exam->value, (int) $exam->getKey())
+            ->first();
+
+        // ورقةٌ بلا عنصرٍ في شجرةٍ لا محورَ لها تُسأَلُ عنه — والصنفُ يستثني
+        // المؤلّفَ بنفسِه، فلا يُستثنى هنا ثانية.
+        abort_if(
+            $lesson !== null && LessonAudience::hiddenFor($this->currentUser($request), $lesson) !== null,
+            404,
+        );
 
         return response()->json(ExamResource::make($exam->loadCount('questions')));
     }
