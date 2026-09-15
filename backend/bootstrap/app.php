@@ -75,6 +75,32 @@ return Application::configure(basePath: dirname(__DIR__))
         | `AppServiceProvider::registerRateLimiters()` for the numbers and why.
         */
         $middleware->throttleApi();
+
+        /*
+        | ⛔ **بلا هذا السطرِ يردُّ كلُّ طريقٍ محميٍّ على المنصّةِ ٥٠٠ بدلَ ٤٠١
+        | لأيِّ طالبٍ لا يُرسِلُ `Accept: application/json`.**
+        |
+        | `ApplicationBuilder::withMiddleware()` **يضعُ افتراضاً قبلَ أن يعملَ
+        | هذا الإغلاق**: `redirectGuestsTo(fn () => route('login'))`. ولا وجودَ
+        | لطريقٍ اسمُه `login` في هذا المشروعِ — هذه واجهةُ برمجةٍ ولوحةُ
+        | Filament، ولوحةُ Filament تُعيدُ تعريفَ `redirectTo()` في صنفِها
+        | فتذهبُ إلى `filament.admin.auth.login` بنفسِها. فيُرمى
+        | `RouteNotFoundException` **داخلَ الوسيطِ نفسِه**، قبلَ أن يُبنى
+        | `AuthenticationException` أصلاً، ولا يبلغُ المعالِجُ سطرَ الـ٤٠١ الذي
+        | كانَ سيردُّه.
+        |
+        | ⚠️ **و`shouldRenderJsonWhen` أعلاه يُخفي العطلَ بدلَ أن يكشفَه**: هو
+        | يجعلُ جوابَ الـ٥٠٠ **JSON**، فيقرؤُه العابرُ «خطأُ خادمٍ حقيقيّ» لا
+        | «إعدادُ إعادةِ توجيهٍ ناقص».
+        |
+        | ⚠️ **ولا يراه المتصفّحُ ولا الواجهة**: `lib/api.ts` يُرسِلُ الهيدر في
+        | كلِّ طلب، فمَن يقعُ في العطلِ هو ما يأتي من خارجِه — فاحصُ مراقبةٍ،
+        | أو `curl` في تشخيصِ عُطلٍ آخر، فيُقرَأُ الموقعُ «واقعاً» وهو يعمل.
+        |
+        | و`null` تعني «لا إعادةَ توجيهٍ لضيف»: المعالِجُ يردُّ ٤٠١ JSON لكلِّ
+        | ما تحتَ `api/*` و٤٠١ بلا متنٍ لما عداه.
+        */
+        $middleware->redirectGuestsTo(fn () => null);
         $middleware->alias([
             'workspace' => EnsureCurrentWorkspace::class,
             'idempotent' => Idempotent::class,
