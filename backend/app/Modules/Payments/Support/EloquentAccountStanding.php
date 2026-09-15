@@ -58,21 +58,45 @@ class EloquentAccountStanding implements AccountStanding
     ) {}
 
     /**
-     * ⚠️ ONE READ OF THE BALANCES, AND IT USED TO BE TWO — ON THE HOTTEST PATH IN
-     * THE PRODUCT.
+     * The verdict alone, for a caller that wants no number with it.
      *
-     * `withheldCourseIdsFor()` reads them and stamps them; when the answer came
-     * back "not withheld" the fall-through asked `prepaidWithNoBalance()`, which
-     * read the very same balances again. Six queries where four will do, and this
-     * is asked by `IssueJoinTicket` on EVERY presence heartbeat — thirty students
-     * twice a minute, per room.
-     *
-     * It also stamps ONE balance rather than the whole set: a student with eight
-     * teachers was paying for eight teachers' workspaces and exam windows to
-     * answer a question about one course. The bulk form is still there and still
-     * correct — it is what the panel wants, and it is not what this wants.
+     * ⚠️ A DOCBLOCK HERE USED TO CITE «six queries where four will do» about a
+     * fall-through this method no longer contains — the shape `frozenCreditRefusal()`
+     * was caught in. The walk and its reasons live in {@see self::refusalFor()}
+     * now, in one place, so there is nothing here left to go stale.
      */
     public function isWithheld(User $student, int $courseId): bool
+    {
+        return $this->refusalFor($student, $courseId)['withheld'];
+    }
+
+    /**
+     * ⛔ **ONE READ FOR BOTH HALVES, BECAUSE BOTH ARE ALWAYS WANTED AT ONCE.**
+     *
+     * `isWithheld()` and `creditsNeededFor()` are the same walk — the account,
+     * the balances, the workspace, its exam window — differing only in which
+     * stamped attribute they read at the end. And FR-032 makes every refuser ask
+     * for both: the sentence must name the number. So the pair cost the walk
+     * TWICE on every refusal: `/eligibility` for a student with no credits was
+     * measured at **16 queries, and at 12 once the walk happened once** — the
+     * account, the balances, the workspace and its exam window, each read twice.
+     *
+     * Both keep their places on the contract for the callers that genuinely want
+     * one — `IssueStoreAccess` asks the verdict, `NotifyAccessChange` asks the
+     * number — and both are answered from here, so there is one walk in this
+     * class rather than three.
+     *
+     * ⚠️ **AND A COVERED COURSE NEEDS ZERO CREDITS, WHICH `creditsNeededFor()`
+     * USED TO GET WRONG.** It never asked about subscriptions, so a subscriber
+     * with an old balance row was quoted a number of credits to buy — for a
+     * course their subscription already pays for. Nothing displayed it, because
+     * the only refusers that print it ask `isWithheld()` first and that method
+     * has waived subscribers since ٠١١ · FR-026; the number was simply wrong
+     * wherever anyone looked at it alone.
+     *
+     * @return array{withheld: bool, credits_needed: int}
+     */
+    public function refusalFor(User $student, int $courseId): array
     {
         /*
         | ⚠️ A LIVE SUBSCRIPTION LIFTS WITHHOLDING FOR WHAT IT COVERS (011 ·
@@ -88,18 +112,36 @@ class EloquentAccountStanding implements AccountStanding
         | cheaper question, and this is the hottest path in the product.
         */
         if ($this->subscriptions->coversCourse((int) $student->getKey(), $courseId)) {
-            return false;
+            return ['withheld' => false, 'credits_needed' => 0];
         }
 
         $own = $this->accounts->balancesFor($student)->firstWhere('course_id', $courseId);
 
         if ($own === null) {
-            return $this->prepaidWithNoBalance($courseId);
+            // One session's worth, when the missing row is itself the refusal.
+            // Zero here would print "تحتاج 0 حصة على الأقل" on the one screen a
+            // newcomer sees first — a refusal that asks for nothing.
+            $prepaid = $this->prepaidWithNoBalance($courseId);
+
+            return ['withheld' => $prepaid, 'credits_needed' => $prepaid ? 1 : 0];
         }
 
-        return (bool) $this->withholding->stamp(new Collection([$own]))
-            ->first()
-            ?->getAttribute('is_withheld');
+        /*
+        | ⚠️ ONE STAMP, AND IT STAMPS ONE BALANCE RATHER THAN THE WHOLE SET: a
+        | student with eight teachers was paying for eight workspaces and eight
+        | exam windows to answer a question about one course. The bulk form below
+        | is still correct and is what the panel wants; it is not what this wants.
+        |
+        | The number is READ off the stamp, never recomputed beside it. The reader
+        | knows the exam window and the consent; a second computation here knew
+        | neither, and quoted a number the booking gate did not agree with.
+        */
+        $stamped = $this->withholding->stamp(new Collection([$own]))->first();
+
+        return [
+            'withheld' => (bool) $stamped?->getAttribute('is_withheld'),
+            'credits_needed' => (int) ($stamped?->getAttribute('credits_needed') ?? 0),
+        ];
     }
 
     /**
@@ -161,19 +203,6 @@ class EloquentAccountStanding implements AccountStanding
 
     public function creditsNeededFor(User $student, int $courseId): int
     {
-        $balance = $this->accounts->balancesFor($student)->firstWhere('course_id', $courseId);
-
-        if ($balance === null) {
-            // One session's worth, when the missing row is itself the refusal.
-            // Zero here would print "تحتاج 0 حصة على الأقل" on the one screen a
-            // newcomer sees first — a refusal that asks for nothing.
-            return $this->prepaidWithNoBalance($courseId) ? 1 : 0;
-        }
-
-        // READ off the stamp, never recomputed beside it. The reader knows the
-        // exam window and the consent; a second computation here knew neither,
-        // and quoted a number the booking gate did not agree with.
-        return (int) ($this->withholding->stamp(new Collection([$balance]))
-            ->first()?->getAttribute('credits_needed') ?? 0);
+        return $this->refusalFor($student, $courseId)['credits_needed'];
     }
 }

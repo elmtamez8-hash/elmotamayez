@@ -116,11 +116,16 @@ class IssuePlaybackGrant extends Action
 
         $courseId = (int) $lesson->course_id;
 
-        if (! $this->standing->isWithheld($viewer, $courseId)) {
+        // ⚠️ ONE QUESTION, NOT TWO: the verdict and the number are the same walk
+        // through the account, the balances and the workspace's exam window, and
+        // asking them separately paid for it twice on every refusal.
+        $money = $this->standing->refusalFor($viewer, $courseId);
+
+        if (! $money['withheld']) {
             return;
         }
 
-        $needed = $this->standing->creditsNeededFor($viewer, $courseId);
+        $needed = $money['credits_needed'];
 
         // Read past the scope by primary key: the viewer's current workspace is
         // whichever teacher they last visited, and a student studying with three
