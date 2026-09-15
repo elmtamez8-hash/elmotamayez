@@ -7,6 +7,7 @@ namespace App\Modules\Assessments\Support;
 use App\Models\User;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Support\LessonAudience;
 use App\Shared\Contracts\EnrollmentDirectory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -28,6 +29,9 @@ use Illuminate\Support\Facades\DB;
  */
 class PracticePool
 {
+    /** @var array<string, list<int>> */
+    private array $hiddenLessons = [];
+
     public function __construct(
         private readonly EnrollmentDirectory $enrollments,
     ) {}
@@ -83,7 +87,34 @@ class PracticePool
             | PAYLOAD grows linearly with the bank, on the hottest read the module
             | has. Spec 012's adaptive path asks this once per question served.
             */
-            ->whereNotIn('id', $this->withheldQuestionIdsQuery($workspaceId, (int) $student->getKey()));
+            ->whereNotIn('id', $this->withheldQuestionIdsQuery($workspaceId, (int) $student->getKey()))
+            /*
+            | ⛔ ٠٢٦ · FR-020 — **وما أُخفيَ عن الطالبِ لا يُدرَّبُ عليه.** سؤالٌ
+            | من درسٍ مقصورٍ على مجموعةٍ أخرى، أو من درسٍ مربوطٍ بحصّةٍ لم تُعقَدْ
+            | بعدُ، يُقدَّمُ هنا **ومعه شرحُه** (FR-024) — أي المادّةُ التي
+            | ضيَّقَها المدرّسُ أو أجَّلَها، مسلَّمةً من بابٍ آخر.
+            */
+            ->whereNotIn('lesson_id', $this->hiddenLessonIds($workspaceId, $student));
+    }
+
+    /**
+     * معرّفاتُ الدروسِ المخفيّةِ عن هذا الطالبِ في هذا البنك.
+     *
+     * ⚠️ **يُحفَظُ الجوابُ لعمرِ هذا الكائن، ولهذا الكائنُ يُحقَنُ ولا يُربَط.**
+     * `AdaptiveLadder` يسألُ {@see questionsFor()} لكلِّ سؤالٍ يُقدَّم، فقراءةٌ
+     * جديدةٌ في كلِّ نداءٍ ميزانيّةُ استعلاماتٍ تنمو بعددِ الأسئلة — والمِيزانيّاتُ
+     * في `AdaptiveQueryBudgetTest` تقيسُ ذلكَ بالضبط.
+     *
+     * @return list<int>
+     */
+    public function hiddenLessonIds(int $workspaceId, User $student): array
+    {
+        $key = $workspaceId.':'.$student->getKey();
+
+        return $this->hiddenLessons[$key] ??= array_values(LessonAudience::hiddenLessons(
+            $student,
+            Lesson::query()->withoutWorkspaceScope()->where('workspace_id', $workspaceId),
+        )->map(static fn (Lesson $lesson): int => (int) $lesson->getKey())->all());
     }
 
     /**

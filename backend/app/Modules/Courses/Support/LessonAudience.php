@@ -10,6 +10,8 @@ use App\Modules\Learning\Support\LessonGate;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\SessionAttendanceDirectory;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -89,6 +91,60 @@ final class LessonAudience
     public static function hiddenFor(User $viewer, Lesson $lesson): ?string
     {
         return self::hiddenAmong($viewer, [$lesson])[(int) $lesson->getKey()] ?? null;
+    }
+
+    /**
+     * الدروسُ المخفيّةُ عن هذا القارئِ من بينِ ما يُسمّيه هذا الاستعلام.
+     *
+     * ⚠️ **للقوائمِ التي تُبنى بالاستعلامِ لا بالصفِّ الواحد** — فهرسُ
+     * الاختباراتِ وبِركةُ التدريب. والجوابُ صفوفٌ لا معرّفاتٌ، لأنّ قارئاً
+     * يريدُ `id` وآخرَ يريدُ `reference_id`.
+     *
+     * @param  Builder<Lesson>  $lessons
+     * @return Collection<int, Lesson>
+     */
+    public static function hiddenLessons(User $viewer, Builder $lessons): Collection
+    {
+        $candidates = self::couldBeHidden($lessons)->get([
+            'lessons.id',
+            'lessons.workspace_id',
+            'lessons.release_session_id',
+            'lessons.reference_id',
+        ]);
+
+        if ($candidates->isEmpty()) {
+            return $candidates;
+        }
+
+        $hidden = self::hiddenAmong($viewer, $candidates);
+
+        return $candidates
+            ->filter(static fn (Lesson $lesson): bool => ($hidden[(int) $lesson->getKey()] ?? null) !== null)
+            ->values();
+    }
+
+    /**
+     * ما **يمكنُ** أن يُخفى: الصفوفُ التي يسألُ عنها المحورانِ تحت.
+     *
+     * ⛔ **وهذا تضييقُ تكلفةٍ لا حكمٌ ثانٍ، ومكانُه هنا لذلك.** درسٌ بلا صفِّ
+     * نطاقٍ وبلا ربطِ حصّةٍ لا يُخفى أبداً، فتحميلُ كلِّ دروسِ البنكِ لبِركةٍ
+     * تُسأَلُ لكلِّ سؤالٍ يُقدَّمُ ثمنٌ بلا مقابل.
+     *
+     * ⚠️ **ومَن أضافَ محوراً ثالثاً إلى {@see applyScopes} أو {@see applyRelease}
+     * يُضيفُه هنا في التغييرِ نفسِه** — وإلّا صارَ المحورُ الجديدُ صامتاً في
+     * القوائمِ وحدَها، وهو أسوأُ من ألّا يكونَ.
+     *
+     * @param  Builder<Lesson>  $lessons
+     * @return Builder<Lesson>
+     */
+    private static function couldBeHidden(Builder $lessons): Builder
+    {
+        return $lessons->where(fn (Builder $query): Builder => $query
+            ->whereNotNull('lessons.release_session_id')
+            ->orWhereExists(fn ($exists) => $exists
+                ->selectRaw('1')
+                ->from('lesson_cohort_scopes')
+                ->whereColumn('lesson_cohort_scopes.lesson_id', 'lessons.id')));
     }
 
     /**
