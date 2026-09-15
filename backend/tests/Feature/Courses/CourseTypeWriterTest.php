@@ -7,6 +7,7 @@ use App\Modules\Courses\DTOs\CreateCourseDTO;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Marketplace\Models\Subject;
+use DomainException;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -85,7 +86,10 @@ it('refuses at the Action, where the panel and the seeders walk', function (): v
     expect(fn () => $action->handle(
         new CreateCourseDTO(title: 'من اللوحة', subjectUuid: (string) $this->subject->uuid),
         $this->owner,
-    ))->toThrow(InvalidArgumentException::class);
+        // `DomainException` لا `InvalidArgumentException`: `bootstrap/app.php` يَعرِضُ
+        // الأولى ٤٢٢ على `api/*` ولا يَعرِفُ الثانيةَ أصلاً — فرفضٌ بجملةٍ عربيّةٍ
+        // كانَ سيخرجُ ٥٠٠.
+    ))->toThrow(DomainException::class);
 
     // الضابطُ الموجَب: الرفضُ عن النوعِ وحدَه، لا عن كلِّ نداءٍ للفعل.
     $course = $action->handle(
