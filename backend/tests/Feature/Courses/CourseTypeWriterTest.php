@@ -7,7 +7,6 @@ use App\Modules\Courses\DTOs\CreateCourseDTO;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Marketplace\Models\Subject;
-use DomainException;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -89,6 +88,10 @@ it('refuses at the Action, where the panel and the seeders walk', function (): v
         // `DomainException` لا `InvalidArgumentException`: `bootstrap/app.php` يَعرِضُ
         // الأولى ٤٢٢ على `api/*` ولا يَعرِفُ الثانيةَ أصلاً — فرفضٌ بجملةٍ عربيّةٍ
         // كانَ سيخرجُ ٥٠٠.
+        // ⚠️ ولا `use DomainException;` فوق: هذا الملفُّ بلا `namespace`
+        // كسائرِ ملفّاتِ Pest، فالاستيرادُ **بلا أثر** — وPHP تُحذِّر، والمحمّلُ
+        // يحوّلُ التحذيرَ إلى خطأٍ يُسقِطُ الشرائحَ الأربعَ معاً. والاسمُ عالميٌّ
+        // فيُحَلُّ بدونِه.
     ))->toThrow(DomainException::class);
 
     // الضابطُ الموجَب: الرفضُ عن النوعِ وحدَه، لا عن كلِّ نداءٍ للفعل.
