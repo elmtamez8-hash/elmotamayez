@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Learning\Support;
 
+use App\Modules\Courses\Support\LessonAudience;
+
 /**
  * Whether the student may open this item, and — when not — why (FR-043).
  *
@@ -92,6 +94,23 @@ final class LessonAccess
      * delivery and `unlockOfferFor()` always did.
      */
     public const NO_SESSION_CONTENT = 'no_session_content';
+
+    /*
+    | ٠٢٦ — الرمزانِ الآتيانِ **مُسنَدانِ من {@see LessonAudience} لا مكتوبانِ
+    | ثانية**، وهو الصنفُ الذي يُصدِرُهما. حرفيّةٌ مكرَّرةٌ هنا هي تهجئةٌ ثانيةٌ
+    | لقيمةٍ واحدةٍ تفترقانِ يومَ يتغيّرُ أحدُهما، وسُمِّيَتِ الجهةُ هكذا لأنّ
+    | `Learning` تستوردُ `Courses` أصلاً — والعكسُ حدٌّ جديدٌ لا داعيَ له.
+    |
+    | ⛔ **وكلاهما يُسقِطُ الصفَّ ولا يُوصَفُ**، كما يفعلُ `NO_SESSION_CONTENT`
+    | فوقَه: لا فعلَ للطالبِ في أيٍّ منهما، و«مقفولٌ» بلا مخرجٍ هو «الرقمُ
+    | الناقصُ بلا سبب» الذي تمنعُه ٠٣٥ · FR-025.
+    */
+
+    /** العنصرُ مقصورٌ على مجموعةٍ ليسَ القارئُ فيها. */
+    public const OUT_OF_SCOPE = LessonAudience::OUT_OF_SCOPE;
+
+    /** العنصرُ ينتظرُ حصّةً لم تُعقَدْ بعدُ ولم تُلغَ. */
+    public const UNRELEASED = LessonAudience::UNRELEASED;
 
     private function __construct(
         public readonly bool $allowed,

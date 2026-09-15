@@ -21,6 +21,7 @@ use Database\Factories\Modules\Courses\LessonFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 
@@ -31,6 +32,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
  * @property ExamGate|null $exam_gate
  * @property string|null $external_url
  * @property int|null $class_session_id
+ * @property int|null $release_session_id
  */
 class Lesson extends BaseModel implements OrdersSiblings
 {
@@ -311,5 +313,23 @@ class Lesson extends BaseModel implements OrdersSiblings
     public function chapter(): BelongsTo
     {
         return $this->belongsTo(Chapter::class);
+    }
+
+    /**
+     * المجموعاتُ التي قُصِرَ عليها هذا العنصر — و**لا صفَّ يعني للجميع**.
+     *
+     * ⚠️ **للكتابةِ وللوحةِ الإدارة، لا لمسارِ الطالب.** العلاقةُ تجري تحتَ
+     * `WorkspaceScope` مثلَ أيِّ استعلامٍ على النموذج، و`LessonAudience` يقرأُ
+     * الصفوفَ بـ`DB::table` لذلك — انظرْ دفترَ {@see LessonCohortScope}.
+     *
+     * ولا علاقةَ لـ`release_session_id` هنا: `ClassSession` نموذجُ وحدةٍ أخرى،
+     * وعلاقةٌ عابرةٌ للوحداتِ هي الحدُّ الذي يسقطُ أوّلَ مرّة — والمعرّفُ وحدَه
+     * كافٍ، والسؤالُ عن حالِ الحصّةِ يُطرَحُ على `SessionAttendanceDirectory`.
+     *
+     * @return HasMany<LessonCohortScope, $this>
+     */
+    public function cohortScopes(): HasMany
+    {
+        return $this->hasMany(LessonCohortScope::class);
     }
 }

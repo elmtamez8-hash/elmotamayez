@@ -15,7 +15,12 @@ contracts/lesson-audience.md · quickstart.md
 مهمّتَين: `NO_SESSION_CONTENT` وحدَه من رموزِ T010، وإسقاطُه وحدَه من T017. الرمزانِ
 الآخرانِ ينتظرانِ قصّتَيهما.
 
-**ما زالَ**: US1 · US2 · US4 والمرحلتانِ ١ و٢ والصقل — أربعونَ مهمّة.
+**وشُحِنَ بعدَه**: المرحلتانِ ١ و٢ كاملتَينِ (T001–T011) — الجدولُ والعمودُ والنموذجُ
+والعلاقةُ والقارئُ الواحد. ورمزا `OUT_OF_SCOPE` و`UNRELEASED` لهما اليومَ **كاتبٌ
+وقارئٌ في الشحنةِ نفسِها** (`LessonAudience` يُصدِرُهما و`LessonAudienceTest` يقرؤُهما)،
+ولا يبلغانِ باباً حتّى US1 — وهي التاليةُ مباشرةً، وإلّا كانا رمزَينِ بلا كاتبٍ حقيقيّ.
+
+**ما زالَ**: US1 · US2 · US4 والصقل — إحدى وثلاثونَ مهمّة.
 
 ⚠️ **وشُحِنَ خارجَ هذه القائمةِ شيئان** خرَجا من مشيةٍ على الإنتاج، لا من تخطيطٍ مسبَق:
 قسمُ «المجموعة والحصص» على شاشةِ الطلب، وإصلاحُ منطقةِ الموعدِ الزمنيّةِ في
@@ -28,10 +33,10 @@ contracts/lesson-audience.md · quickstart.md
 
 ## Phase 1 — الأساسُ المشترك (يسبقُ كلَّ قصّة)
 
-- [ ] T001 [P] ترحيلٌ ينشئُ `lesson_cohort_scopes` بالأعمدةِ والفهارسِ **المسمّاةِ باليد** في `backend/app/Modules/Courses/Database/Migrations/2026_09_15_000100_create_lesson_cohort_scopes_table.php` — أطولُ اسمٍ `lesson_cohort_scopes_workspace_index` (٣٦ محرفاً مقيسة)، والحدُّ ٦٤
-- [ ] T002 [P] ترحيلٌ يضيفُ `lessons.release_session_id` مفرَّغاً بعدَ `class_session_id` مع فهرسٍ مسمّى في `backend/app/Modules/Courses/Database/Migrations/2026_09_15_000200_add_release_session_id_to_lessons.php`
-- [ ] T003 نموذجُ `LessonCohortScope` بـ`BelongsToWorkspace` و`HasUuid` في `backend/app/Modules/Courses/Models/LessonCohortScope.php`
-- [ ] T004 علاقةُ `cohortScopes(): HasMany` و`releaseSession` (بلا علاقةٍ عابرةٍ للوحدات — معرّفٌ فقط) وخاصّيّةُ `release_session_id` في `backend/app/Modules/Courses/Models/Lesson.php`
+- [X] T001 [P] ترحيلٌ ينشئُ `lesson_cohort_scopes` بالأعمدةِ والفهارسِ **المسمّاةِ باليد** في `backend/app/Modules/Courses/Database/Migrations/2026_09_15_000100_create_lesson_cohort_scopes_table.php` — أطولُ اسمٍ `lesson_cohort_scopes_workspace_index` (٣٦ محرفاً مقيسة)، والحدُّ ٦٤
+- [X] T002 [P] ترحيلٌ يضيفُ `lessons.release_session_id` مفرَّغاً بعدَ `class_session_id` مع فهرسٍ مسمّى في `backend/app/Modules/Courses/Database/Migrations/2026_09_15_000200_add_release_session_id_to_lessons.php`
+- [X] T003 نموذجُ `LessonCohortScope` بـ`BelongsToWorkspace` و`HasUuid` في `backend/app/Modules/Courses/Models/LessonCohortScope.php`
+- [X] T004 علاقةُ `cohortScopes(): HasMany` و`releaseSession` (بلا علاقةٍ عابرةٍ للوحدات — معرّفٌ فقط) وخاصّيّةُ `release_session_id` في `backend/app/Modules/Courses/Models/Lesson.php`
 - [X] T005 دالّةُ `releasedSessionIds(array): array` على `backend/app/Shared/Contracts/SessionAttendanceDirectory.php` — المُفرَجُ عنه `delivered_at IS NOT NULL` **أو** `status = 'cancelled'`
 - [X] T006 تنفيذُها في `backend/app/Modules/LiveSessions/Support/EloquentSessionAttendanceDirectory.php` — استعلامٌ واحدٌ جماعيّ، ويردُّ المُفرَجَ عنه فقط لا المُدخَلَ كلَّه
 
@@ -44,11 +49,11 @@ contracts/lesson-audience.md · quickstart.md
 ⛔ **هذه المرحلةُ هي تصحيحُ المراجعة.** الأبوابُ أربعةٌ والحكمُ واحد؛ حكمٌ مكتوبٌ في أربعةِ
 مواضعَ هو «بابانِ يختلفان» الذي جعلَ تسجيلاً مدفوعاً غيرَ قابلٍ للفتحِ في ٠١٨.
 
-- [ ] T007 صنفُ `LessonAudience` في `backend/app/Modules/Courses/Support/LessonAudience.php` — `hiddenAmong(User, iterable<Lesson>): array<int,string|null>` جماعيّاً، و`hiddenFor(User, Lesson): ?string` **مشتقّاً منه** لا مكتوباً ثانيةً
-- [ ] T008 داخلَه: مجموعاتُ القارئِ المفتوحةُ من `CohortDirectory::openMembershipCohortIdsFor()` (لا `everMemberCohortIdsFor` — سؤالٌ آخر، انظر research.md · ق-٦)، وصفوفُ النطاقِ بـ`whereIn('lesson_id', …)`، وحالُ حصصِ الإفراجِ من T005 — **ثلاثةُ استعلاماتٍ ثابتةٍ مهما كَبُرَت الشجرة**
-- [ ] T009 داخلَه: استثناءُ المؤلّفِ (عضوِ مساحةِ عملِ الدرس) **مرّةً واحدةً هنا** لا في أربعةِ أبواب (FR-011)
-- [~] T010 ثلاثةُ رموزٍ على `backend/app/Modules/Learning/Support/LessonAccess.php`: `OUT_OF_SCOPE` · `UNRELEASED` · `NO_SESSION_CONTENT`، ومعَ كلٍّ منها في دفترِ تعليقِه سببُ إخفائِه لا عرضِه
-- [ ] T011 اختبارُ وحدةٍ للقارئِ في `backend/tests/Feature/Courses/LessonAudienceTest.php` — يغطّي: بلا نطاقٍ ⇒ null · نطاقٌ يشملُ ⇒ null · نطاقٌ لا يشملُ ⇒ `out_of_scope` · حصّةٌ مجدولةٌ ⇒ `unreleased` · حصّةٌ سُلِّمت ⇒ null · حصّةٌ أُلغيت ⇒ null · مؤلّفٌ ⇒ null دائماً
+- [X] T007 صنفُ `LessonAudience` في `backend/app/Modules/Courses/Support/LessonAudience.php` — `hiddenAmong(User, iterable<Lesson>): array<int,string|null>` جماعيّاً، و`hiddenFor(User, Lesson): ?string` **مشتقّاً منه** لا مكتوباً ثانيةً
+- [X] T008 داخلَه: مجموعاتُ القارئِ المفتوحةُ من `CohortDirectory::openMembershipCohortIdsFor()` (لا `everMemberCohortIdsFor` — سؤالٌ آخر، انظر research.md · ق-٦)، وصفوفُ النطاقِ بـ`whereIn('lesson_id', …)`، وحالُ حصصِ الإفراجِ من T005 — **ثلاثةُ استعلاماتٍ ثابتةٍ مهما كَبُرَت الشجرة**
+- [X] T009 داخلَه: استثناءُ المؤلّفِ (عضوِ مساحةِ عملِ الدرس) **مرّةً واحدةً هنا** لا في أربعةِ أبواب (FR-011)
+- [X] T010 ثلاثةُ رموزٍ على `backend/app/Modules/Learning/Support/LessonAccess.php`: `OUT_OF_SCOPE` · `UNRELEASED` · `NO_SESSION_CONTENT`، ومعَ كلٍّ منها في دفترِ تعليقِه سببُ إخفائِه لا عرضِه
+- [X] T011 اختبارُ وحدةٍ للقارئِ في `backend/tests/Feature/Courses/LessonAudienceTest.php` — يغطّي: بلا نطاقٍ ⇒ null · نطاقٌ يشملُ ⇒ null · نطاقٌ لا يشملُ ⇒ `out_of_scope` · حصّةٌ مجدولةٌ ⇒ `unreleased` · حصّةٌ سُلِّمت ⇒ null · حصّةٌ أُلغيت ⇒ null · مؤلّفٌ ⇒ null دائماً
   - **كيفَ يمسك**: احذفْ استثناءَ المؤلّفِ ⇒ تسقطُ الحالةُ الأخيرةُ وحدَها
 
 ---

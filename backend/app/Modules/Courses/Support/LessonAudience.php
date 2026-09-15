@@ -1,0 +1,214 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Courses\Support;
+
+use App\Models\User;
+use App\Modules\Courses\Models\Lesson;
+use App\Modules\Learning\Support\LessonGate;
+use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Contracts\CohortDirectory;
+use App\Shared\Contracts\SessionAttendanceDirectory;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * «هل يُخفى هذا العنصرُ عن هذا القارئ، ولماذا؟» — في موضعٍ واحد.
+ *
+ * ⛔ **الأبوابُ أربعةٌ والحكمُ واحد.** محتوى الدرسِ يُبلَغُ من أربعةِ أبوابٍ لا
+ * بابٍ واحد: {@see LessonGate} بصيغتَيه،
+ * و`IssuePlaybackGrant::mayWatch()`/`mayWatchMany()` (وهو البابُ الذي يخدُمُ
+ * الملفَّ فعلاً)، و`StartAttempt::guardSessionContent()`، وفهرسُ الاختباراتِ
+ * وبِركةُ التدريب. وحكمٌ مكتوبٌ في أربعةِ مواضعَ هو «بابانِ يختلفان»: في ٠١٨
+ * قالَ `mayWatch()` نعم وقالَ التسلسلُ لا، فصارَ تسجيلٌ **مدفوعٌ** غيرَ قابلٍ
+ * للفتحِ إطلاقاً. فهذا الصنفُ يُسأَلُ من الأربعةِ جميعاً.
+ *
+ * ⛔ **وكلُّ قراءةٍ هنا تتجاوزُ `WorkspaceScope` بالبناء، لا بالتذكُّر.**
+ * `WorkspaceContext::id()` يرجعُ إلى `users.last_workspace_id`، وهو مطبوعٌ على
+ * كلِّ طالبٍ أُضيفَ يوماً إلى مساحةِ عملٍ — فقراءةٌ مُنطَقةٌ هنا تُرجِعُ صفوفَ
+ * نطاقٍ أقلَّ لطالبٍ مختومٍ بمساحةٍ أخرى، أي **حكماً يختلفُ باختلافِ القارئ**،
+ * ولا تجهيزةَ بمساحةِ عملٍ واحدةٍ تراه. فصفوفُ النطاقِ بـ`DB::table`،
+ * والمجموعاتُ من `CohortDirectory` (يُعلِنُ التجاوزَ بنفسِه)، وحالُ الحصصِ من
+ * `SessionAttendanceDirectory` (كذلك).
+ *
+ * ⚠️ **والتكلفةُ ثابتةٌ مهما كَبُرَت الشجرة**: أربعةُ استعلاماتٍ في أسوأِ
+ * الحالات، وواحدٌ في الشجرةِ التي لا نطاقَ فيها ولا موعد — وهو الحالُ اليومَ
+ * على كلِّ كورسٍ على المنصّة. `CurriculumQueryBudgetTest` يُسقِطُ ما ينمو.
+ */
+final class LessonAudience
+{
+    /**
+     * العنصرُ مقصورٌ على مجموعاتٍ ليسَ القارئُ في واحدةٍ منها.
+     *
+     * **يُسقَطُ الصفُّ ولا يُوصَفُ**: «هذا لمجموعةٍ أخرى» يقولُ لطالبٍ إنّ
+     * هناكَ شيئاً لا يخصُّه، وهو ما لم يكنْ ليعرفَه — ولا فعلَ له يفتحُه، فليسَ
+     * قفلاً بل غياب.
+     */
+    public const OUT_OF_SCOPE = 'out_of_scope';
+
+    /**
+     * العنصرُ مربوطٌ بحصّةٍ لم تُعقَدْ بعدُ ولم تُلغَ.
+     *
+     * والمُفرَجُ عنه `delivered_at` أو الإلغاء: حصّةٌ أُلغيَت لن تأتيَ، فحجبُ
+     * ملفّاتِها إلى الأبدِ عقوبةٌ على قرارِ المدرّس (FR-008).
+     */
+    public const UNRELEASED = 'unreleased';
+
+    /**
+     * الحكمُ لكلِّ عنصرٍ في الشجرة: **معرّفُ الدرسِ ⇒ رمزُ الإخفاءِ أو `null`**.
+     *
+     * @param  iterable<Lesson>  $lessons
+     * @return array<int, string|null>
+     */
+    public static function hiddenAmong(User $viewer, iterable $lessons): array
+    {
+        /** @var array<int, Lesson> $items */
+        $items = [];
+
+        foreach ($lessons as $lesson) {
+            $items[(int) $lesson->getKey()] = $lesson;
+        }
+
+        if ($items === []) {
+            return [];
+        }
+
+        /** @var array<int, string|null> $out */
+        $out = array_fill_keys(array_keys($items), null);
+
+        self::applyScopes($viewer, $items, $out);
+        self::applyRelease($items, $out);
+
+        return self::exemptAuthor($viewer, $items, $out);
+    }
+
+    /**
+     * الحكمُ نفسُه لعنصرٍ واحد — **مشتقٌّ من الجماعيِّ لا مكتوبٌ ثانية**، فلا
+     * تهجئتانِ لسؤالٍ واحد.
+     */
+    public static function hiddenFor(User $viewer, Lesson $lesson): ?string
+    {
+        return self::hiddenAmong($viewer, [$lesson])[(int) $lesson->getKey()] ?? null;
+    }
+
+    /**
+     * المحورُ الأوّل — «لمن هذا العنصر».
+     *
+     * ⚠️ **ولا يُسأَلُ عن مجموعاتِ القارئِ إن لم يكنْ في الشجرةِ عنصرٌ مقصور**،
+     * وهو الحالُ على كلِّ كورسٍ لم يُضيَّقْ فيه شيء: استعلامٌ واحدٌ يرجعُ
+     * فارغاً وينتهي الأمر.
+     *
+     * @param  array<int, Lesson>  $items
+     * @param  array<int, string|null>  $out
+     */
+    private static function applyScopes(User $viewer, array $items, array &$out): void
+    {
+        /** @var array<int, array<int, true>> $scoped */
+        $scoped = [];
+
+        foreach (DB::table('lesson_cohort_scopes')
+            ->whereIn('lesson_id', array_keys($items))
+            ->get(['lesson_id', 'cohort_id']) as $row) {
+            $scoped[(int) $row->lesson_id][(int) $row->cohort_id] = true;
+        }
+
+        if ($scoped === []) {
+            return;
+        }
+
+        /*
+        | ⚠️ **العضويّةُ المفتوحةُ الآن، لا «كانَ عضواً يوماً».**
+        | `everMemberCohortIdsFor()` سؤالٌ آخرُ له بيتُه: قراءةُ خيطِ مجموعةٍ
+        | قديمةٍ تبقى بعدَ النقل، أمّا «لمن هذا العنصر» فيتبعُ الطالبَ إلى
+        | مجموعتِه الجديدةِ ويتركُ ما قُصِرَ على القديمة (`research.md` · ق-٦).
+        */
+        $mine = array_flip(app(CohortDirectory::class)->openMembershipCohortIdsFor($viewer));
+
+        foreach ($scoped as $lessonId => $cohortIds) {
+            if (array_intersect_key($cohortIds, $mine) === []) {
+                $out[$lessonId] = self::OUT_OF_SCOPE;
+            }
+        }
+    }
+
+    /**
+     * المحورُ الثاني — «متى يظهر».
+     *
+     * @param  array<int, Lesson>  $items
+     * @param  array<int, string|null>  $out
+     */
+    private static function applyRelease(array $items, array &$out): void
+    {
+        $sessionIds = array_values(array_unique(array_map(
+            static fn (Lesson $lesson): int => (int) $lesson->release_session_id,
+            array_filter($items, static fn (Lesson $lesson): bool => $lesson->release_session_id !== null),
+        )));
+
+        if ($sessionIds === []) {
+            return;
+        }
+
+        $released = array_flip(
+            app(SessionAttendanceDirectory::class)->releasedSessionIds($sessionIds),
+        );
+
+        foreach ($items as $id => $lesson) {
+            if ($out[$id] === null
+                && $lesson->release_session_id !== null
+                && ! isset($released[(int) $lesson->release_session_id])) {
+                $out[$id] = self::UNRELEASED;
+            }
+        }
+    }
+
+    /**
+     * المؤلّفُ يرى ما ألَّف — **استثناءٌ واحدٌ هنا لا أربعةٌ على الأبواب**
+     * (FR-011). فمدرّسٌ لا يرى ما قَصَرَه بنفسِه لا يستطيعُ تصحيحَه.
+     *
+     * ⛔ **والشرطُ دورُ المحورِ لا مجرّدُ العضويّة.** قِيسَ على قاعدةٍ حقيقيّةٍ
+     * في ٢٠٢٦-٠٩-٠٩: `workspace_members` تحملُ **ستّةَ صفوفٍ بدورِ `student`** —
+     * فمدرّسٌ أو بذرةٌ تضعُ طالباً في مساحةِ عمل، و«عضوٌ ⇒ مؤلّف» يفتحُ
+     * لأولئكَ الستّةِ كلَّ ما قُصِرَ على غيرِهم. والسؤالُ بالنفيِ
+     * (`role != student`) كما في `User::teachesOnPlatform()`، فدورٌ مخصَّصٌ
+     * مجهولٌ يسقطُ نحوَ **الإخفاء** لا نحوَ الفتح.
+     *
+     * ⚠️ **ولا يُسأَلُ إلّا إن كانَ ثمّةَ ما يُخفى** — وهو النادر.
+     *
+     * @param  array<int, Lesson>  $items
+     * @param  array<int, string|null>  $out
+     * @return array<int, string|null>
+     */
+    private static function exemptAuthor(User $viewer, array $items, array $out): array
+    {
+        $hidden = array_filter($out, static fn (?string $code): bool => $code !== null);
+
+        if ($hidden === []) {
+            return $out;
+        }
+
+        $workspaceIds = array_values(array_unique(array_map(
+            static fn (int $id): int => (int) $items[$id]->workspace_id,
+            array_keys($hidden),
+        )));
+
+        $teaches = array_flip(DB::table('workspace_members')
+            ->where('user_id', $viewer->getKey())
+            ->whereIn('workspace_id', $workspaceIds)
+            ->where('role', '!=', Roles::STUDENT)
+            ->pluck('workspace_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all());
+
+        if ($teaches === []) {
+            return $out;
+        }
+
+        foreach (array_keys($hidden) as $id) {
+            if (isset($teaches[(int) $items[$id]->workspace_id])) {
+                $out[$id] = null;
+            }
+        }
+
+        return $out;
+    }
+}
