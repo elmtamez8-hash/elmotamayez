@@ -1,3 +1,5 @@
+import type { PlatformRole } from "./types";
+
 import { api } from "@/lib/api";
 
 /**
@@ -15,6 +17,14 @@ export interface DataCategory {
   label: string;
   purpose: string;
   audience: string;
+  /**
+   * عن مَن هذه الفئة — والحقلُ فوقَه عن مَن يراها.
+   *
+   * ⚠️ سؤالانِ مختلفان: `audience` نصٌّ حرٌّ بالعربيّةِ يُقرَأُ ولا يُرشَّحُ به
+   * («المدرّس المسجَّل عنده · ولي الأمر»)، وهذا قائمةُ أدوارٍ يقرّرُها الخادم.
+   * صفحةُ السياسةِ العامّةُ تُقسِّمُ بها، وشاشةُ «خصوصيّتي» تُرشِّحُ بها.
+   */
+  subject_roles: PlatformRole[];
   /**
    * ⚠️ NEVER HIDDEN, AND NEVER RENDERED THE SAME AS AN OPTIONAL ONE. A screen
    * showing one undifferentiated list asks for consent to things that cannot be

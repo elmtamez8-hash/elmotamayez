@@ -28,6 +28,16 @@ class DataCategoryResource extends JsonResource
             'label' => $this->label,
             'purpose' => $this->purpose,
             'audience' => $this->audience,
+            /*
+            | ⚠️ عن مَن هذه الفئة — والحقلُ فوقَه عن مَن يراها. سؤالانِ مختلفانِ
+            | ولا يُغني أحدُهما عن الآخر: `audience` نصٌّ حرٌّ بالعربيّةِ يُقرَأُ
+            | ولا يُرشَّحُ به، وهذا قائمةُ أدوارٍ من مفرداتِ `PlatformRole`.
+            |
+            | ويُرسَلُ من بابٍ **عامّ** بلا حرج: هو وصفُ ما تجمعُه المنصّةُ لا
+            | خبرٌ عن أحد. صفحةُ السياسةِ العامّةُ تعرضُ الثلاثةَ والثلاثينَ
+            | مقسَّمةً به، وشاشةُ «خصوصيّتي» تعرضُ ما يخصُّ قارئَها وحدَه.
+            */
+            'subject_roles' => $this->subject_roles,
             // ⚠️ THE REQUIRED/OPTIONAL SPLIT IS NEVER HIDDEN (FR-004). A screen
             // that showed one undifferentiated list would be asking for consent to
             // things that cannot be refused as though they could.

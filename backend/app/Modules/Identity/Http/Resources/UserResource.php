@@ -41,6 +41,15 @@ class UserResource extends JsonResource
             | يقرِّرُ عرضَ لينكٍ لا دخولاً.
             */
             'may_access_admin_panel' => $this->resource->mayAccessAdminPanel(),
+            /*
+            | أيُّ أنواعِ البياناتِ الشخصيّةِ تخصُّ هذا الحساب — تُقرَنُ في
+            | الواجهةِ بـ`data_categories.subject_roles`.
+            |
+            | ⚠️ **والقاعدتانِ كلتاهُما على الخادم**: «مَن يُدرِّس» هنا، و«هذه
+            | الفئةُ لمن» في الجدول. والواجهةُ تتقاطعُ مجموعتَينِ وصلتاها، ولا
+            | تشتقُّ قاعدةً — وهو الفرقُ بينَ قراءةِ جوابٍ وتهجئتِه ثانيةً.
+            */
+            'data_subject_roles' => $this->resource->dataSubjectRoles(),
             // FR-012: the frontend routes on this after login. Hidden on the model
             // so it never leaks through a stray ->toArray(); named here on purpose.
             'platform_role' => $this->platform_role?->value,

@@ -9,6 +9,7 @@ use App\Shared\Database\TranslatableColumns;
 use App\Shared\Support\ErasureMode;
 use App\Shared\Support\ExpiryBehaviour;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * The catalogue — REFERENCE DATA, not fixtures (spec 013 · FR-004 · SC-002).
@@ -40,7 +41,23 @@ class DataCategorySeeder extends Seeder
             return;
         }
 
+        /*
+        | ⚠️ **العمودُ قد لا يكونُ موجوداً بعد، والباذرُ يُنادى من هجرةِ ٢٠٢٦-٠٨.**
+        | Laravel يُرتِّبُ الهجراتِ بالاسم، وهجرةُ الإملاءِ الخلفيِّ للكتالوجِ
+        | أقدمُ من الهجرةِ التي تُضيفُ `subject_roles` — فعلى قاعدةٍ جديدةٍ
+        | (وهي كلُّ تشغيلٍ لـ`RefreshDatabase`) يُنادى هذا الباذرُ والعمودُ لم
+        | يُخلَقْ بعد، فتسقطُ الحزمةُ كلُّها داخلَ `migrate:fresh` لا في اختبارٍ
+        | واحد. وهي القاعدةُ عينُها التي يحرسُها `TranslatableColumns::converted`
+        | فوقَ هذا السطر، مقروءةً من بابٍ ثانٍ. والهجرةُ الجديدةُ تكتبُ القيمَ
+        | حينَ يصلُ دورُها.
+        */
+        $writable = Schema::hasColumn('data_categories', 'subject_roles');
+
         foreach (self::categories() as $category) {
+            if (! $writable) {
+                unset($category['subject_roles']);
+            }
+
             /*
             | `firstOrCreate` on the KEY alone. These rows are reference data at
             | birth and operator data ever after — an operator who shortened a
@@ -52,6 +69,22 @@ class DataCategorySeeder extends Seeder
     }
 
     /**
+     * ⚠️ **`subject_roles` — عن مَن هذه الفئة، لا مَن يراها.** العمودُ `audience`
+     * جوابٌ عن السؤالِ الثاني (نصٌّ حرٌّ: «المدرّس المسجَّل عنده · ولي الأمر»)،
+     * فلا يصلحُ ترشيحاً: كلُّ صفٍّ من الثلاثةِ والثلاثينَ كانَ يُعرَضُ على كلِّ
+     * حساب، فقرأَ مدرّسٌ على شاشةِ «خصوصيّتي» عن «تقدّمك في الدروس» و«محاولاتك في
+     * الاختبارات» و«الأفكار التي أتقنتها» — بلاغُ مستخدِمٍ ٢٠٢٦-٠٩-١٦.
+     *
+     * ⚠️ **واتّجاهُ الخطأِ هو الذي حسمَ كلَّ صفٍّ مشكوكٍ فيه.** عرضُ فئةٍ لا تخصُّ
+     * القارئَ ضجيج؛ وإخفاءُ فئةٍ بياناتُه فيها **شاشةُ موافقةٍ تكذِب**. فما لم
+     * يكنِ الجوابُ يقيناً كُتِبَ بالثلاثةِ جميعاً — و`report_subscription` منها
+     * صراحةً.
+     *
+     * والمفرداتُ مفرداتُ `PlatformRole` نفسُها (`student` · `teacher` · `parent`)
+     * ولا ثالثةَ لها: قاموسٌ ثانٍ لثلاثةِ أدوارٍ يفترقُ عن الحمولةِ عندَ أوّلِ
+     * تعديل، وقد سبقَ لهذا المستودعِ أن دفعَ ثمنَ «parent في الحمولةِ وguardian
+     * على الشاشة» مرّةً.
+     *
      * The shipped catalogue.
      *
      * ⚠️ PUBLIC AND STATIC BECAUSE THE `erasure_mode` MIGRATION READS IT, and the
@@ -69,6 +102,7 @@ class DataCategorySeeder extends Seeder
             // ── Identity ────────────────────────────────────────────────────
             [
                 'key' => 'student_name',
+                'subject_roles' => ['student', 'teacher', 'parent'],
                 'label' => 'الاسم',
                 'purpose' => 'لمخاطبتك باسمك، ولطباعة اسمك على الشهادة، وليعرف مدرّسك من في صفّه.',
                 'audience' => 'المدرّسون المسجَّل عندهم · ولي الأمر · إدارة المنصّة',
@@ -82,6 +116,7 @@ class DataCategorySeeder extends Seeder
             ],
             [
                 'key' => 'contact_phone',
+                'subject_roles' => ['student', 'teacher', 'parent'],
                 'label' => 'رقم الهاتف',
                 'purpose' => 'لإرسال تنبيهات الحصص والتقارير إليك أو إلى وليّ أمرك، وللتحقّق من حسابك.',
                 'audience' => 'إدارة المنصّة · مزوّد الرسائل',
@@ -95,6 +130,7 @@ class DataCategorySeeder extends Seeder
             ],
             [
                 'key' => 'date_of_birth',
+                'subject_roles' => ['student'],
                 'label' => 'تاريخ الميلاد',
                 'purpose' => 'لمعرفة هل أنت دون الثامنة عشرة، فتُطلب موافقةُ وليّ أمرك — ولتنتقل إليك ملكيةُ بياناتك يوم تبلغ.',
                 'audience' => 'إدارة المنصّة',
@@ -110,6 +146,7 @@ class DataCategorySeeder extends Seeder
             // ── Learning ────────────────────────────────────────────────────
             [
                 'key' => 'enrollment_record',
+                'subject_roles' => ['student'],
                 'label' => 'سجلّ التسجيل في الكورسات',
                 'purpose' => 'ليعرف النظامُ ما يحقّ لك فتحُه، وليتابع مدرّسُك تقدّمك.',
                 'audience' => 'المدرّس المسجَّل عنده · ولي الأمر',
@@ -123,6 +160,7 @@ class DataCategorySeeder extends Seeder
             ],
             [
                 'key' => 'lesson_progress',
+                'subject_roles' => ['student'],
                 'label' => 'تقدّمك في الدروس',
                 'purpose' => 'لحفظ موضعِ توقّفك ولحساب نسبة إتمامك للكورس.',
                 'audience' => 'المدرّس المسجَّل عنده · ولي الأمر',
@@ -139,6 +177,7 @@ class DataCategorySeeder extends Seeder
             ],
             [
                 'key' => 'course_waitlist',
+                'subject_roles' => ['student'],
                 'label' => 'تسجيلك في دَور كورس مكتمل',
                 'purpose' => 'ليعرف المدرّس من ينتظر مكاناً، وليدعوك بالترتيب حين يُفتح واحد.',
                 'audience' => 'المدرّس صاحب الكورس · إدارة المنصّة',
@@ -159,6 +198,7 @@ class DataCategorySeeder extends Seeder
             // ── Assessments ─────────────────────────────────────────────────
             [
                 'key' => 'exam_attempt',
+                'subject_roles' => ['student'],
                 'label' => 'محاولاتك في الاختبارات',
                 'purpose' => 'لاحتساب درجتك، ولتعرف أنت ومدرّسك مواضعَ الضعف.',
                 'audience' => 'المدرّس المسجَّل عنده · ولي الأمر إن كان مُخوَّلاً بالنتائج',
@@ -187,6 +227,7 @@ class DataCategorySeeder extends Seeder
             ],
             [
                 'key' => 'exam_answer',
+                'subject_roles' => ['student'],
                 'label' => 'إجاباتك التفصيلية',
                 'purpose' => 'لتصحيح المحاولة، ولبناء دفتر أخطائك.',
                 'audience' => 'المدرّس المسجَّل عنده',
@@ -209,6 +250,7 @@ class DataCategorySeeder extends Seeder
             */
             [
                 'key' => 'adaptive_session',
+                'subject_roles' => ['student'],
                 'label' => 'جلسات التدريب التكيّفي',
                 'purpose' => 'لتضبط صعوبة السؤال التالي على مستواك، ولتتابع تقدّمك في كل فكرة.',
                 'audience' => 'المدرّس المسجَّل عنده',
@@ -226,6 +268,7 @@ class DataCategorySeeder extends Seeder
             ],
             [
                 'key' => 'concept_mastery',
+                'subject_roles' => ['student'],
                 'label' => 'الأفكار التي أتقنتها',
                 'purpose' => 'لتعرف أنت ومدرّسك ما أتقنته، ولئلّا يُعاد تدريبك عليه.',
                 'audience' => 'المدرّس المسجَّل عنده',
@@ -254,6 +297,7 @@ class DataCategorySeeder extends Seeder
             */
             [
                 'key' => 'study_room',
+                'subject_roles' => ['student'],
                 'label' => 'غرف المذاكرة التي أنشأتها',
                 'purpose' => 'لتفتح غرفةً تحلّ فيها مع أصدقائك المجموعةَ نفسها في الوقت نفسه.',
                 'audience' => 'من انضمّ إلى الغرفة',
@@ -270,6 +314,7 @@ class DataCategorySeeder extends Seeder
             ],
             [
                 'key' => 'study_room_participation',
+                'subject_roles' => ['student'],
                 'label' => 'مشاركاتك في غرف المذاكرة',
                 'purpose' => 'لتستأنف من حيث توقّفت إن انقطع اتّصالك، ولتظهر درجتك على لوحة الغرفة.',
                 'audience' => 'من في الغرفة نفسها',
@@ -285,6 +330,7 @@ class DataCategorySeeder extends Seeder
             // ── Certificates ────────────────────────────────────────────────
             [
                 'key' => 'certificate',
+                'subject_roles' => ['student'],
                 'label' => 'شهاداتك',
                 'purpose' => 'إفادةٌ بما أتممتَه، يمكن لأيّ جهةٍ التحقّق منها برقمها.',
                 'audience' => 'علنيّ لمن يحمل رمز التحقّق',
@@ -321,6 +367,7 @@ class DataCategorySeeder extends Seeder
             */
             [
                 'key' => 'referral_record',
+                'subject_roles' => ['student', 'teacher', 'parent'],
                 'label' => 'دعواتك وكود الدعوة',
                 'purpose' => 'لتتبُّع من دعوتَ ومن دعاك، ولصرف نقاط الدعوة عند اشتراك فعليّ.',
                 'audience' => 'إدارة المنصّة',
@@ -336,6 +383,7 @@ class DataCategorySeeder extends Seeder
             // ── Payments ────────────────────────────────────────────────────
             [
                 'key' => 'payment_record',
+                'subject_roles' => ['student', 'parent'],
                 'label' => 'سجلّ المدفوعات',
                 'purpose' => 'إثباتُ ما دُفع ومقابلَ ماذا — ونحن ملزمون بحفظه.',
                 'audience' => 'إدارة المنصّة · المدرّس المسجَّل عنده',
@@ -361,6 +409,7 @@ class DataCategorySeeder extends Seeder
             */
             [
                 'key' => 'credit_hold',
+                'subject_roles' => ['student'],
                 'label' => 'الحصص المحجوزة من رصيدك',
                 'purpose' => 'لتجميد حصّة من رصيدك عند الحجز، فتُخصَم بالحضور أو تعود إليك.',
                 'audience' => 'إدارة المنصّة · المدرّس المسجَّل عنده',
@@ -374,6 +423,7 @@ class DataCategorySeeder extends Seeder
             ],
             [
                 'key' => 'session_unlock',
+                'subject_roles' => ['student'],
                 'label' => 'موافقتك على فتح محتوى حصّة',
                 'purpose' => 'لتسجيل موافقتك على خصم حصّة مقابل فتح محتوى حصّة لم تحضرها.',
                 'audience' => 'إدارة المنصّة · المدرّس المسجَّل عنده',
@@ -391,6 +441,7 @@ class DataCategorySeeder extends Seeder
             // ── LiveSessions ────────────────────────────────────────────────
             [
                 'key' => 'attendance_record',
+                'subject_roles' => ['student'],
                 'label' => 'حضورك وغيابك',
                 'purpose' => 'لتسجيل حضورك الحصص ومدّة بقائك، ولإخبار وليّ أمرك.',
                 'audience' => 'المدرّس المسجَّل عنده · ولي الأمر إن كان مُخوَّلاً بالحضور',
@@ -406,6 +457,7 @@ class DataCategorySeeder extends Seeder
             // ── Media ───────────────────────────────────────────────────────
             [
                 'key' => 'class_recording',
+                'subject_roles' => ['student', 'teacher'],
                 'label' => 'الظهور في تسجيلات الحصص (‏صوتاً وصورةً)',
                 'purpose' => 'تُسجَّل الحصص لتتمكّن أنت وزملاؤك من مراجعتها. قد يظهر صوتُك وصورتُك في التسجيل، ويصل إلى كلّ من حجز الحصة.',
                 'audience' => 'من حجز الحصة · المدرّس · مزوّد الفيديو',
@@ -452,6 +504,7 @@ class DataCategorySeeder extends Seeder
                 | to nobody, which is worse than no row at all.
                 */
                 'key' => 'push_subscription',
+                'subject_roles' => ['student', 'teacher', 'parent'],
                 'label' => 'الأجهزة المشتركة في الإشعارات الفوريّة',
                 'purpose' => 'ليصلك إشعار الحصّة أو الرصيد على هاتفك دون فتح الموقع.',
                 'audience' => 'أنت',
@@ -465,6 +518,7 @@ class DataCategorySeeder extends Seeder
             ],
             [
                 'key' => 'notification_record',
+                'subject_roles' => ['student', 'teacher', 'parent'],
                 'label' => 'الإشعارات المرسَلة إليك',
                 'purpose' => 'لتقرأها في مركز الإشعارات، ولنعرف ما أُرسل ومتى.',
                 'audience' => 'أنت · ولي الأمر بحسب تخويله',
@@ -480,6 +534,7 @@ class DataCategorySeeder extends Seeder
             // ── Marketplace ─────────────────────────────────────────────────
             [
                 'key' => 'review',
+                'subject_roles' => ['student'],
                 'label' => 'تقييماتك للمدرّسين',
                 'purpose' => 'لتساعد غيرَك على الاختيار. يظهر باسمٍ مختصر.',
                 'audience' => 'علنيّ',
@@ -495,6 +550,7 @@ class DataCategorySeeder extends Seeder
             // ── Settlement ──────────────────────────────────────────────────
             [
                 'key' => 'teacher_earnings',
+                'subject_roles' => ['teacher'],
                 'label' => 'سجلّ أجر المدرّس',
                 'purpose' => 'لحساب مستحقّات المدرّس وصرفها. لا يخصّ الطلاب.',
                 'audience' => 'المدرّس · إدارة المنصّة',
@@ -510,6 +566,7 @@ class DataCategorySeeder extends Seeder
             // ── Courses ─────────────────────────────────────────────────────
             [
                 'key' => 'authored_content',
+                'subject_roles' => ['teacher'],
                 'label' => 'المحتوى الذي ألّفته',
                 'purpose' => 'كورساتُك ودروسُك. يخصّ المدرّسين، ويُسلَّم لهم نسخةً عند الخروج.',
                 'audience' => 'المدرّس · طلابه المسجَّلون',
@@ -525,6 +582,7 @@ class DataCategorySeeder extends Seeder
             // ── Tenancy ─────────────────────────────────────────────────────
             [
                 'key' => 'workspace_invitation',
+                'subject_roles' => ['teacher'],
                 'label' => 'دعوات الانضمام',
                 'purpose' => 'بريدُ من دُعي للانضمام إلى مساحة عمل، حتى يقبل الدعوة أو تنتهي.',
                 'audience' => 'صاحب مساحة العمل · إدارة المنصّة',
@@ -542,6 +600,7 @@ class DataCategorySeeder extends Seeder
             // ── CMS ─────────────────────────────────────────────────────────
             [
                 'key' => 'cms_authorship',
+                'subject_roles' => ['teacher'],
                 'label' => 'ما نشرتَه من مقالات',
                 'purpose' => 'مقالاتُ المدوّنة ومن كتبها.',
                 'audience' => 'علنيّ',
@@ -566,6 +625,7 @@ class DataCategorySeeder extends Seeder
             // written against the actual schema).
             [
                 'key' => 'chat_message',
+                'subject_roles' => ['student', 'teacher', 'parent'],
                 'label' => 'رسائلك في المحادثات',
                 'purpose' => 'لتسأل مدرّسك ويجيبك، ولتُراجَع أيّ إساءة عند البلاغ.',
                 'audience' => 'الطرف الآخر في المحادثة · المشرف عند البلاغ',
@@ -582,6 +642,7 @@ class DataCategorySeeder extends Seeder
             ],
             [
                 'key' => 'periodic_review',
+                'subject_roles' => ['student'],
                 'label' => 'تقييمات مدرّسك الدورية عنك',
                 'purpose' => 'ليعرف الطالب ووليّ أمره موضعَه ويتابعا تحسّنه.',
                 'audience' => 'الطالب · وليّ أمره المخوَّل بالنتائج · المدرّس الكاتب',
@@ -595,6 +656,7 @@ class DataCategorySeeder extends Seeder
             ],
             [
                 'key' => 'report_card',
+                'subject_roles' => ['student'],
                 'label' => 'كشوف تقديراتك',
                 'purpose' => 'سجلُّ تقديرك في كلّ فترة عبرَ مدرّسيك جميعاً.',
                 'audience' => 'الطالب · وليّ أمره المخوَّل بالنتائج',
@@ -627,6 +689,7 @@ class DataCategorySeeder extends Seeder
             */
             [
                 'key' => 'announcement',
+                'subject_roles' => ['teacher'],
                 'label' => 'الإعلانات التي نشرتَها',
                 'purpose' => 'لتبلّغ طلابك أمراً يخصّ الصفَّ أو الحصّة.',
                 'audience' => 'طلاب المدرّس المعنيّون بنطاق الإعلان',
@@ -646,6 +709,7 @@ class DataCategorySeeder extends Seeder
             // ── Store (spec 011) ──────────────────────────────────────
             [
                 'key' => 'store_purchase',
+                'subject_roles' => ['student', 'parent'],
                 'label' => 'مشترياتك من المتجر',
                 'purpose' => 'إثباتُ ما اشتريتَه ومتى — ولفتحِ الكتابِ الرقميِّ الذي دفعتَ ثمنَه.',
                 'audience' => 'إدارة المنصّة · المدرّس البائع',
@@ -665,6 +729,7 @@ class DataCategorySeeder extends Seeder
             ],
             [
                 'key' => 'shipping_address',
+                'subject_roles' => ['student', 'parent'],
                 'label' => 'عنوان الشحن',
                 'purpose' => 'لإيصالِ النسخةِ المطبوعةِ إلى الباب.',
                 'audience' => 'المدرّس البائع · شركة الشحن',
@@ -697,6 +762,7 @@ class DataCategorySeeder extends Seeder
             */
             [
                 'key' => 'report_subscription',
+                'subject_roles' => ['student', 'teacher', 'parent'],
                 'label' => 'اشتراكك في التقارير المجدولة',
                 'purpose' => 'لإرسالِ أرقامِ المنصّةِ التي طلبتَها في موعدِها.',
                 'audience' => 'إدارة المنصّة',
