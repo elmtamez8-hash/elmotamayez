@@ -28,10 +28,12 @@ use App\Modules\Identity\Support\TwoFactorChallenges;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -104,17 +106,65 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * ⛔ **`currentAccessToken()` IS NOT ALWAYS A TOKEN, AND ASSUMING IT WAS
+     * CRASHED THE ONE REQUEST THAT MUST NEVER FAIL.**
+     *
+     * Measured on production 2026-09-16: `Call to undefined method
+     * Laravel\Sanctum\TransientToken::getKey()`, 500, `userId: 1`. Sanctum's
+     * `statefulApi()` authenticates a same-domain request by the SESSION COOKIE
+     * when one is present — and every teacher on this platform has one, because
+     * `/admin` is session-based — and for that request `currentAccessToken()`
+     * returns a {@see TransientToken}: a marker meaning «there is no token
+     * here», with no key, no id and nothing to delete.
+     *
+     * ⚠️ AND THE 500 WAS THE SMALL HALF. The line threw BEFORE anything was
+     * revoked, so «تسجيل الخروج» left the session alive while the browser
+     * cleared its own storage and moved to `/login` — the account stayed signed
+     * in on a machine whose owner had just asked to leave it. That is the same
+     * failure `StartAuthSession`'s device limit exists to prevent, reached from
+     * the opposite direction.
+     *
+     * The two shapes are answered separately because they ARE separate: a
+     * bearer token is a row to revoke, a cookie session is state to invalidate,
+     * and neither instrument can end the other. The `instanceof` is the same
+     * predicate {@see User::currentTokenId()} uses — this branch keeps the
+     * OBJECT because it has to delete it, and that is the only reason it is
+     * spelled here rather than read from there.
+     */
     public function logout(Request $request, TerminateAuthSession $terminate): JsonResponse
     {
         $token = $this->currentUser($request)->currentAccessToken();
 
-        $session = AuthSession::query()->where('token_id', $token->getKey())->first();
+        if ($token instanceof PersonalAccessToken) {
+            $session = AuthSession::query()->where('token_id', $token->getKey())->first();
 
-        if ($session !== null) {
-            $terminate->handle($session, SessionEndReason::Logout);
-        } else {
-            // A token minted before this feature existed has no session row.
-            $token->delete();
+            if ($session !== null) {
+                $terminate->handle($session, SessionEndReason::Logout);
+            } else {
+                // A token minted before this feature existed has no session row.
+                $token->delete();
+            }
+
+            return response()->json(null, 204);
+        }
+
+        /*
+        | The cookie half. `logout()` alone clears the guard and leaves the
+        | session id valid, so a stolen cookie still names a live session —
+        | `invalidate()` is what actually ends it, and the token regenerate
+        | keeps the next form on the login page from being refused.
+        |
+        | Guarded on the session's existence rather than assumed: this route is
+        | in the `api` group, and a request that arrived with a bearer token has
+        | no session at all — which is the branch above, but a future caller
+        | reaching here without one must not trade a 500 for a 500.
+        */
+        Auth::guard('web')->logout();
+
+        if ($request->hasSession()) {
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
         }
 
         return response()->json(null, 204);

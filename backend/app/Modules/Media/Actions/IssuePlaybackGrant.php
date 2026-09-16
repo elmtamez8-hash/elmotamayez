@@ -202,6 +202,12 @@ class IssuePlaybackGrant extends Action
             return false;
         }
 
+        // ⛔ التوأمُ الجمليُّ لفرعِ `EnrollmentController::showLessonForViewer()`:
+        // البابانِ يتحرّكانِ معاً أو تُفتَحُ الصفحةُ ويُرفَضُ الفيديو (عطبُ ٠١٨).
+        if ($viewer->isSuperAdmin()) {
+            return true;
+        }
+
         // The author's side, and it comes BEFORE the visibility check on purpose:
         // watching back the video you just uploaded to a draft item is what the
         // authoring surface is for. A student is not a workspace member — the only
@@ -253,6 +259,15 @@ class IssuePlaybackGrant extends Action
         $lessons = $lessons instanceof EloquentCollection
             ? $lessons
             : new EloquentCollection(is_array($lessons) ? $lessons : iterator_to_array($lessons));
+
+        // ⛔ والتوأمُ الجمليُّ لـ`mayWatch()` هنا كذلك، قبلَ أيِّ استعلام: شرطٌ
+        // في أحدِ الصيغتَينِ وحدَه ثقبٌ يُبلَغُ من المُنادي الآخَر.
+        if ($viewer->isSuperAdmin()) {
+            return array_fill_keys(
+                array_map(intval(...), $lessons->modelKeys()),
+                true,
+            );
+        }
 
         // Which of these are published, chain and all — ONE query for the list,
         // asked through the same scope the student-facing readers use.

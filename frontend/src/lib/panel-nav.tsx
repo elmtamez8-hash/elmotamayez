@@ -86,6 +86,22 @@ export type NavItem = {
   /** Renders the waiting count beside the label — see `pendingGrading` below. */
   badge?: "grading";
   /**
+   * الشاشةُ تحتاجُ ملفَّ تدريسٍ لا صلاحيّةً وحدَها.
+   *
+   * ⛔ **صلاحيّةٌ لا تكفي، وهذه هي عيلةُ عطلِ `/dashboard` نفسُها.**
+   * `settlement.statement.view` صلاحيّةٌ يأخذُها مالكُ المنصّةِ تلقائيّاً عبرَ
+   * `Gate::before`، فظهرَ له «كشف التسوية» في القائمة — والخادمُ يردُّ ٤٠٤ لأنَّ
+   * الكشفَ يُبنى من `teacher_profiles` وهو لا صفَّ له فيها (مقيسٌ على الإنتاج
+   * ٢٠٢٦-٠٩-١٦: صفر من أصلِ أربعة على المنصّة). لينكٌ يوصِّلُ إلى رفضٍ دائمٍ
+   * ليس حارساً ناقصاً بل وعدٌ كاذب.
+   *
+   * ⚠️ **والجوابُ من الحمولةِ لا يُشتقُّ هنا**: `teacher_profile_uuid` موجودٌ
+   * على `/auth/me` منذُ مواصفةٍ سابقة، فالسؤالُ يُقرَأُ ولا يُخمَّن. وإخفاءُ
+   * اللينكِ لا يُغلِقُ المسار — البابُ على الخادمِ هو الحارس، وهو يردُّ الآن
+   * بجملةٍ تقولُ السببَ بدلَ «حُذف».
+   */
+  needsTeacherProfile?: boolean;
+  /**
    * Who this screen belongs to. Absent means everybody who passes the
    * permission gate above.
    *
@@ -149,7 +165,13 @@ export const mainNav: NavItem[] = [
   // The teacher's own money. /orders is the student's side and is a different
   // question with different permissions — SETTLEMENT_STATEMENT_VIEW reaches only
   // the teacher, never their assistant.
-  { href: "/manage/settlement", label: "كشف التسوية", Icon: SettlementIcon, permission: P.settlementStatement },
+  {
+    href: "/manage/settlement",
+    label: "كشف التسوية",
+    Icon: SettlementIcon,
+    permission: P.settlementStatement,
+    needsTeacherProfile: true,
+  },
   { href: "/enrollments", label: "تعلّمي", Icon: LearningIcon, audience: ["student"] },
   // ⚠️ The student's own notebook, and it needs its own entry. It is derived
   // from answers rather than authored, so nothing in the product would ever link
@@ -558,7 +580,10 @@ export function allowedNav(items: NavItem[], user: User | null): NavItem[] {
 
   return items
     .filter(
-      (item) => can(user, item.permission) && (item.audience === undefined || item.audience.includes(who)),
+      (item) =>
+        can(user, item.permission)
+        && (item.audience === undefined || item.audience.includes(who))
+        && (item.needsTeacherProfile !== true || user?.teacher_profile_uuid != null),
     )
     .map((item) => {
       const named = item.labels?.[who];

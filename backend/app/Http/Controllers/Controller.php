@@ -35,15 +35,18 @@ abstract class Controller
     /**
      * The row id of the token making this request, if there is one.
      *
-     * A session-authenticated request (the Filament panel, or a test using
-     * `Sanctum::actingAs`) carries a TransientToken, whose `getKey()` answers
-     * `false` rather than null — so anything that hands this to a typed
-     * parameter has to normalise it here rather than trust the call.
+     * ⛔ **THIS DOCBLOCK USED TO SAY `TransientToken::getKey()` «answers `false`
+     * rather than null». IT DOES NOT EXIST.** That class has exactly two
+     * methods, `can()` and `cant()`, so the old body was a fatal
+     * `Call to undefined method` for every session-authenticated request — the
+     * Filament panel, and any SPA request made while a panel cookie is present.
+     * A comment describing a crash as a value is worse than no comment: it
+     * tells the next reader the case is handled.
+     *
+     * One spelling now, on the model: {@see User::currentTokenId()}.
      */
     protected function currentTokenId(Request $request): ?int
     {
-        $key = $request->user()?->currentAccessToken()?->getKey();
-
-        return is_numeric($key) ? (int) $key : null;
+        return $request->user()?->currentTokenId();
     }
 }

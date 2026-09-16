@@ -216,7 +216,7 @@ class PlaybackController extends Controller
 
     private function currentSession(Request $request): ?AuthSession
     {
-        $tokenId = $request->user()?->currentAccessToken()?->getKey();
+        $tokenId = $this->currentTokenId($request);
 
         if ($tokenId === null) {
             return null;

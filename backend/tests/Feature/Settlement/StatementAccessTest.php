@@ -48,6 +48,28 @@ it('shows the teacher their own statement', function (): void {
         ->assertJsonPath('units.accrued', 3);
 });
 
+/*
+| ⛔ **ورفضٌ ثالثٌ ليس صلاحيّةً ولا ملكيّة: لا ملفَّ تدريسٍ أصلاً.**
+|
+| مالكُ المنصّةِ يحملُ `settlement.statement.view` عبرَ `Gate::before`، ولا صفَّ
+| له في `teacher_profiles` — قِيسَ على الإنتاج ٢٠٢٦-٠٩-١٦: صفرٌ له من أصلِ
+| أربعةٍ على المنصّة. فكانَ `abort_if(…, 404)` بلا جسم، و`userMessage()` يطبعُ
+| «العنصر المطلوب غير موجود أو حُذف»: قيلَ لمالكِ المنصّةِ إنَّ كشفَ تسويتِه
+| **حُذِف**.
+|
+| والتوكيدُ على **الرمز** لا على الحالة: ٤٠٤ وحدَها كانت تمرُّ قبلَ الإصلاحِ كذلك.
+*/
+it('tells a reader with no teaching profile why, instead of «deleted»', function (): void {
+    $officer = $this->addWorkspaceMember($this->workspace, Roles::TENANT_OWNER);
+    $officer->forceFill(['is_super_admin' => true])->save();
+
+    Sanctum::actingAs($officer);
+
+    $this->getJson('/api/v1/settlement/statement')
+        ->assertNotFound()
+        ->assertJsonPath('code', 'no_teacher_profile');
+});
+
 it('refuses the assistant teacher the statement and the export', function (): void {
     $assistant = $this->addWorkspaceMember($this->workspace, Roles::ASSISTANT_TEACHER);
 

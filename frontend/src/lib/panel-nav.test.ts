@@ -179,3 +179,36 @@ describe("navLabel · اسمُ الشاشةِ عندَ قارئِها", () => {
     expect(navLabel("/reviews", person({ platform_role: "teacher" }))).toBeUndefined();
   });
 });
+
+/*
+| ⛔ **صلاحيّةٌ لا تكفي — لينكٌ يوصِّلُ إلى رفضٍ دائم.**
+|
+| `settlement.statement.view` صلاحيّةٌ يأخذُها مالكُ المنصّةِ تلقائيّاً عبرَ
+| `Gate::before`، فظهرَ له «كشف التسوية» — والخادمُ يبني الكشفَ من
+| `teacher_profiles` وهو لا صفَّ له فيها (مقيسٌ على الإنتاج ٢٠٢٦-٠٩-١٦: صفرٌ
+| له من أصلِ أربعة). فتحَه وقرأ «العنصر المطلوب غير موجود أو حُذف».
+|
+| **وشقّانِ ضدّان**: يُخفى عمّن لا ملفَّ له، ويبقى لمن له — وشقٌّ واحدٌ يمرُّ
+| على بناءٍ يُخفيه عن كلِّ أحدٍ بمن فيهم المدرّس.
+*/
+describe("a screen that needs a teaching profile, not just a permission", () => {
+  const withPermission = { permissions: [P.settlementStatement] };
+
+  it("hides «كشف التسوية» from a reader who holds no teaching profile", () => {
+    const hrefs = allowedNav(
+      mainNav,
+      person({ ...withPermission, teacher_profile_uuid: null }),
+    ).map((item) => item.href);
+
+    expect(hrefs).not.toContain("/manage/settlement");
+  });
+
+  it("keeps it for the teacher it belongs to", () => {
+    const hrefs = allowedNav(
+      mainNav,
+      person({ ...withPermission, teacher_profile_uuid: "tp-1" }),
+    ).map((item) => item.href);
+
+    expect(hrefs).toContain("/manage/settlement");
+  });
+});
