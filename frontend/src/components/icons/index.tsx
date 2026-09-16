@@ -45,6 +45,8 @@ import {
   IconBarbell,
   IconChartLine,
   IconCheck,
+  IconCopy,
+  IconCreditCard,
   IconGift,
   IconTrophy,
   IconChevronDown,
@@ -147,6 +149,18 @@ export const YouTubeIcon = wrap(IconBrandYoutube, "h-5 w-5");
 
 /** Manual bank transfer — the only payment method in the MVP. */
 export const BankIcon = wrap(IconBuildingBank, "h-5 w-5");
+
+/*
+ * The transfer destination's own fields.
+ *
+ * `AccountNumberIcon` draws the same glyph as `CertificateNumberIcon` and is a
+ * separate export on purpose: this file's job is that a component names what an
+ * icon MEANS, so a bank account borrowing the certificate's name is how the two
+ * stop being separable the day either one changes.
+ */
+export const AccountNumberIcon = wrap(IconHash, "h-4 w-4");
+export const IbanIcon = wrap(IconCreditCard, "h-4 w-4");
+export const CopyIcon = wrap(IconCopy, "h-4 w-4");
 
 // Footer link glyphs.
 export const UsersIcon = wrap(IconUsers, "h-4 w-4");

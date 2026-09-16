@@ -1,9 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { billing, type TransferInstructions } from "@/lib/billing";
+import {
+  AccountNumberIcon,
+  BankIcon,
+  CheckIcon,
+  CopyIcon,
+  IbanIcon,
+  InfoIcon,
+  UserIcon,
+  WalletIcon,
+} from "@/components/icons";
 
 /**
  * إلى أينَ يُحوِّلُ المشتري — بلاغُ مستخدِمٍ ٢٠٢٦-٠٩-١٦.
@@ -22,9 +32,68 @@ import { billing, type TransferInstructions } from "@/lib/billing";
  * قاعدةٌ واحدةٌ — اسمُ بنكٍ بلا رقمٍ ليسَ عنواناً — وتهجئتُها ثانيةً في
  * TypeScript هي العطبُ الذي يسجّلُه هذا المستودعُ مرّاتٍ.
  */
+
+/** الحقولُ التي تُنسَخُ لأنّها تُلصَقُ في تطبيقِ بنك، لا تُقرَأُ فقط. */
+type Row = {
+  label: string;
+  value: string | undefined;
+  Icon: ComponentType<{ className?: string }>;
+  /** رقمٌ لاتينيٌّ طويلٌ يُلصَقُ في مكانٍ آخر — يحتاجُ زرَّ نسخٍ وخطّاً أحاديّاً. */
+  copyable: boolean;
+};
+
+/**
+ * زرُّ نسخٍ لحقلٍ واحد.
+ *
+ * ⚠️ **`navigator.clipboard` قد لا يكونُ موجوداً أصلاً**، ولا علاقةَ لذلك
+ * بالصلاحيّات: خارجَ السياقِ الآمنِ لا يعرضُه المتصفّحُ إطلاقاً — وهو بالضبطِ ما
+ * حدثَ مع `navigator.mediaDevices` على عنوانِ شبكةٍ محلّيّة. فالزرُّ لا يُرسَمُ
+ * حينَها بدلَ أن يُرسَمَ ويرمي.
+ *
+ * ⚠️ **و«تمّ النسخ» لا يُعلَنُ بتبديلِ نصِّ الزرِّ وحدَه**: الزرُّ أيقونةٌ، فاسمُه
+ * المقروءُ لقارئِ الشاشةِ هو `aria-label`، وهو ما يتبدّل.
+ */
+function CopyButton({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+
+    const timer = setTimeout(() => setCopied(false), 2000);
+
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+    } catch {
+      // ⚠️ يُبتلَع: النصُّ ظاهرٌ على الشاشةِ ويمكنُ تحديدُه باليد، فلافتةُ خطأٍ
+      // هنا تُقلِقُ عن شيءٍ لم يُفقَدْ أصلاً.
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      aria-label={copied ? `نُسخ ${label}` : `انسخ ${label}`}
+      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none ${
+        copied
+          ? "border-secondary/40 bg-secondary/15 text-secondary-ink"
+          : "border-line bg-surface text-ink-muted hover:border-primary hover:text-primary-ink"
+      }`}
+    >
+      {copied ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
+    </button>
+  );
+}
+
 export function TransferDestination() {
   const [data, setData] = useState<TransferInstructions | null>(null);
   const [configured, setConfigured] = useState<boolean | null>(null);
+  const [canCopy, setCanCopy] = useState(false);
 
   useEffect(() => {
     billing
@@ -41,6 +110,15 @@ export function TransferDestination() {
       .catch(() => setConfigured(null));
   }, []);
 
+  /*
+    ⚠️ يُسألُ في `useEffect` لا أثناءَ الرسم. الخادمُ لا `navigator` عندَه، وقراءتُه
+    في جسمِ المكوّنِ تجعلُ أوّلَ رسمٍ في المتصفّحِ يخالفُ ما جاءَ من الخادمِ فيشتكي
+    React من عدمِ التطابق.
+  */
+  useEffect(() => {
+    setCanCopy(typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function");
+  }, []);
+
   if (configured === null) return null;
 
   if (!configured) {
@@ -51,38 +129,75 @@ export function TransferDestination() {
     );
   }
 
-  const rows: [string, string | undefined][] = [
-    ["البنك", data?.bank_name],
-    ["اسم الحساب", data?.account_name],
-    ["رقم الحساب", data?.account_number],
-    ["الآيبان", data?.iban],
-    [data?.wallet_label ?? "المحفظة", data?.wallet_number],
+  const rows: Row[] = [
+    { label: "البنك", value: data?.bank_name, Icon: BankIcon, copyable: false },
+    { label: "اسم الحساب", value: data?.account_name, Icon: UserIcon, copyable: false },
+    { label: "رقم الحساب", value: data?.account_number, Icon: AccountNumberIcon, copyable: true },
+    { label: "الآيبان", value: data?.iban, Icon: IbanIcon, copyable: true },
+    {
+      label: data?.wallet_label ?? "المحفظة",
+      value: data?.wallet_number,
+      Icon: WalletIcon,
+      copyable: true,
+    },
   ];
 
-  return (
-    <div className="rounded-xl border border-line bg-primary-soft p-4">
-      <h3 className="text-sm font-bold text-ink">حوِّل إلى</h3>
+  const shown = rows.filter((row): row is Row & { value: string } =>
+    typeof row.value === "string" && row.value !== "",
+  );
 
-      <dl className="mt-2 space-y-1">
-        {rows
-          .filter(([, value]) => typeof value === "string" && value !== "")
-          .map(([label, value]) => (
-            <div key={label} className="flex flex-wrap gap-2 text-sm">
-              <dt className="text-ink-muted">{label}:</dt>
+  return (
+    <div className="animate-float-in overflow-hidden rounded-2xl border border-line bg-surface-raised">
+      <div className="flex items-center gap-3 border-b border-line bg-primary-soft px-4 py-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
+          <BankIcon className="h-5 w-5" />
+        </span>
+        <div className="flex flex-col items-start">
+          <h3 className="text-sm font-bold text-ink">حوِّل إلى</h3>
+          <p className="text-xs text-ink-muted">ثم ارفع صورة الإيصال من الجدول بالأسفل.</p>
+        </div>
+      </div>
+
+      {/*
+        ⚠️ `dl` لا جدولٌ ولا قائمةُ فقرات: هذه أزواجُ «مصطلحٍ وقيمتِه» بنصِّها،
+        وقارئُ الشاشةِ يربطُ الاسمَ بقيمتِه من العنصرِ نفسِه بلا سمةٍ إضافيّة.
+      */}
+      <dl className="divide-y divide-line">
+        {shown.map(({ label, value, Icon, copyable }) => (
+          <div key={label} className="flex items-center gap-3 px-4 py-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-ink">
+              <Icon className="h-4 w-4" />
+            </span>
+
+            <div className="flex min-w-0 flex-1 flex-col items-start">
+              <dt className="text-xs text-ink-muted">{label}</dt>
               {/*
                 ⚠️ `bdi` ونصٌّ أحاديُّ العرض: الآيبان ورقمُ الحسابِ لاتينيّانِ في
                 فقرةٍ عربيّة، وبلا العزلِ تُعيدُ الخوارزميّةُ ثنائيّةُ الاتّجاهِ
                 ترتيبَ مقاطعِهما على الشاشةِ فيُنسَخُ رقمٌ غيرُ الذي كُتِب.
+
+                ⚠️ و`break-all`: الآيبانُ تسعةٌ وعشرونَ محرفاً بلا مسافة، فبلا
+                كسرٍ يمدُّ البطاقةَ ويُحدِثُ تمريراً أفقيّاً على الهاتف.
               */}
-              <dd className="font-mono font-semibold text-ink">
+              <dd
+                className={`w-full text-sm font-semibold text-ink ${
+                  copyable ? "break-all font-mono" : ""
+                }`}
+              >
                 <bdi>{value}</bdi>
               </dd>
             </div>
-          ))}
+
+            {copyable && canCopy && <CopyButton label={label} value={value} />}
+          </div>
+        ))}
       </dl>
 
       {typeof data?.note === "string" && data.note !== "" && (
-        <p className="mt-2 text-xs text-ink-muted">{data.note}</p>
+        <p className="flex items-start gap-2 border-t border-line bg-accent/10 px-4 py-2.5 text-xs text-ink">
+          <InfoIcon className="mt-px h-4 w-4 shrink-0 text-ink-muted" />
+          {data.note}
+        </p>
       )}
     </div>
   );
