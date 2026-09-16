@@ -274,7 +274,28 @@ export type CreditReconciliationRun = {
   findings: CreditReconciliationFinding[];
 };
 
+/**
+ * إلى أينَ يُحوِّلُ المشتري.
+ *
+ * ⚠️ كلُّ حقلٍ اختياريّ — الخادمُ يُسقِطُ الفارغَ ولا يُرسِلُ خانةً بلا قيمة —
+ * و`configured` جوابُه هو لا اشتقاقٌ هنا: «هل فيها رقمٌ يُحوَّلُ إليه» قاعدةٌ
+ * واحدةٌ، واسمُ بنكٍ بلا رقمٍ يجعلُ الشاشةَ تبدو مكتملةً وهي ليست كذلك.
+ */
+export interface TransferInstructions {
+  bank_name?: string;
+  account_name?: string;
+  account_number?: string;
+  iban?: string;
+  wallet_label?: string;
+  wallet_number?: string;
+  note?: string;
+}
+
 export const billing = {
+  transferInstructions: () =>
+    api.get<{ data: TransferInstructions; configured: boolean }>(
+      "/billing/transfer-instructions",
+    ),
   balances: () => api.get<{ data: CreditBalance[] }>("/billing/balance"),
   /*
    * What the nightly sweep found — `null` when it has never run at all, which is

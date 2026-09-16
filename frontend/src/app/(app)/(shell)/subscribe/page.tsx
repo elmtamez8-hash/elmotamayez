@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+import { TransferDestination } from "@/components/billing/TransferDestination";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -404,6 +405,12 @@ function SubscribeScreen() {
         <p className="mt-1 text-xs text-ink-muted">
           حوِّلْ قيمة الباقة إلى حساب المنصّة، ثم ارفعْ صورة التحويل أو ملف PDF.
         </p>
+
+        {/* ⚠️ الوجهةُ تحتَ الجملةِ التي تطلبُ التحويل، لا في صفحةٍ أخرى: جملةٌ
+            تقولُ «حوِّلْ» ولا تقولُ «إلى أين» هي ما أبلغَ عنه المستخدِم. */}
+        <div className="mt-3">
+          <TransferDestination />
+        </div>
 
         <div className="mt-3 space-y-3">
           {/*

@@ -7,6 +7,7 @@ namespace App\Modules\Tenancy\Filament\Pages;
 use App\Models\User;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Support\BillingSettings;
+use App\Modules\Payments\Support\TransferInstructions;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -70,6 +71,7 @@ class ManagePlatformSettings extends Page
 
         $this->form->fill([
             'platform_name' => PlatformSettings::get('platform.name'),
+            ...self::transferFormState(),
             'student_device_limit' => $limits['student'] ?? 1,
             'two_factor_grace_days' => PlatformSettings::get('auth.two_factor_grace_days'),
             'max_size_bytes' => PlatformSettings::get('media.max_size_bytes'),
@@ -92,6 +94,23 @@ class ManagePlatformSettings extends Page
         ]);
     }
 
+    /**
+     * @return array<string, string>
+     */
+    private static function transferFormState(): array
+    {
+        /** @var array<string, mixed> $stored */
+        $stored = PlatformSettings::get('billing.transfer', []);
+
+        $state = [];
+
+        foreach (TransferInstructions::FIELDS as $field) {
+            $state['transfer_'.$field] = (string) ($stored[$field] ?? '');
+        }
+
+        return $state;
+    }
+
     public function form(Schema $schema): Schema
     {
         return $schema
@@ -111,6 +130,29 @@ class ManagePlatformSettings extends Page
                                 ->helperText('الشعار يُرسَم من ملف العلامة، وهذا الاسم هو ما يُقرأ نصّاً — في عنوان التبويب ولقارئ الشاشة.')
                                 ->maxLength(60)
                                 ->required(),
+                        ]),
+                    /*
+                    | ⛔ **المنتَجُ كانَ يطلبُ تحويلاً إلى مكانٍ لا يُسمّيه.** شاشةُ
+                    | الاشتراكِ تقولُ «حوِّلْ قيمة الباقة إلى حساب المنصّة» — ولا
+                    | تقولُ أيُّ حساب. بلاغُ مستخدِمٍ ٢٠٢٦-٠٩-١٦، وقِيسَ أنّ
+                    | `platform_settings` لم يكنْ فيه اسمُ بنكٍ ولا آيبان ولا محفظة.
+                    |
+                    | ⚠️ وكلُّها اختياريّة: منصّةٌ تُحوَّلُ إليها بالبنكِ وحدَه لا
+                    | تعرضُ سطرَ محفظةٍ فارغاً. والشاشةُ تُسقِطُ ما لم يُملأ.
+                    */
+                    Section::make('وجهة التحويل')
+                        ->description('يراها المشتري قبل أن يرفع الإيصال. اترك ما لا تستعمله فارغاً — لا يظهر.')
+                        ->schema([
+                            TextInput::make('transfer_bank_name')->label('اسم البنك')->maxLength(120),
+                            TextInput::make('transfer_account_name')->label('اسم صاحب الحساب')->maxLength(120),
+                            TextInput::make('transfer_account_number')->label('رقم الحساب')->maxLength(64),
+                            TextInput::make('transfer_iban')->label('الآيبان (IBAN)')->maxLength(64),
+                            TextInput::make('transfer_wallet_label')->label('اسم المحفظة الإلكترونية')->maxLength(60),
+                            TextInput::make('transfer_wallet_number')->label('رقم المحفظة')->maxLength(40),
+                            TextInput::make('transfer_note')
+                                ->label('ملاحظة للمشتري')
+                                ->helperText('مثال: اكتب اسمك في خانة الملاحظات ليُطابَق التحويل بطلبك.')
+                                ->maxLength(200),
                         ]),
                     Section::make('الأجهزة والحسابات')
                         ->description('عدد الأجهزة لا الجلسات: جلستان على الجهاز نفسه تبقيان معاً.')
@@ -214,6 +256,21 @@ class ManagePlatformSettings extends Page
 
         // ⚠️ `trim`، فاسمٌ بفراغٍ في طرفِه يظهرُ في `<title>` ولا يُرى في الحقل.
         PlatformSettings::set('platform.name', trim((string) $data['platform_name']), $userId);
+
+        /*
+        | ⚠️ خريطةٌ واحدةٌ تُكتَبُ كاملةً في كلِّ حفظ، فالخانةُ التي أفرغَها
+        | المشغِّلُ تُفرَغُ فعلاً. كتابةُ المملوءِ وحدَه تُبقي رقمَ حسابٍ قديماً
+        | حيّاً بعدَ أن مسحَه صاحبُه — وهو رقمٌ يُحوَّلُ إليه مال.
+        */
+        PlatformSettings::set(
+            'billing.transfer',
+            collect(TransferInstructions::FIELDS)
+                ->mapWithKeys(fn (string $field): array => [
+                    $field => trim((string) ($data['transfer_'.$field] ?? '')),
+                ])
+                ->all(),
+            $userId,
+        );
         PlatformSettings::set('auth.device_limits', ['student' => (int) $data['student_device_limit']], $userId);
         PlatformSettings::set('auth.two_factor_grace_days', (int) $data['two_factor_grace_days'], $userId);
         PlatformSettings::set('media.max_size_bytes', (int) $data['max_size_bytes'], $userId);

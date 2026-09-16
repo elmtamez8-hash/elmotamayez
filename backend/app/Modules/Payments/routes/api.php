@@ -21,6 +21,7 @@ use App\Modules\Payments\Http\Controllers\PaymentController;
 use App\Modules\Payments\Http\Controllers\SessionContentController;
 use App\Modules\Payments\Http\Controllers\SubscriptionController;
 use App\Modules\Payments\Http\Controllers\TermsConsentController;
+use App\Modules\Payments\Http\Controllers\TransferInstructionsController;
 use App\Modules\Payments\Http\Controllers\WebhookController;
 use App\Modules\Payments\Http\Middleware\VerifyWebhookSource;
 use Illuminate\Support\Facades\Route;
@@ -47,6 +48,12 @@ Route::get('/orders/{order}/receipt', [OrderController::class, 'downloadReceipt'
 | everyone else out of buying credits.
 */
 Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void {
+    /*
+    | إلى أينَ يُحوِّلُ المشتري. تُقرَأُ قبلَ إنشاءِ الطلبِ لا بعدَه، فلا
+    | `{order}` في المسار — انظرِ التعليقَ على المُتحكِّم.
+    */
+    Route::get('/billing/transfer-instructions', TransferInstructionsController::class);
+
     Route::get('/billing/balance', [BillingController::class, 'balance']);
     Route::get('/billing/transactions', [BillingController::class, 'transactions']);
 

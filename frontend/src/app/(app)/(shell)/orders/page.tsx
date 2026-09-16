@@ -1,5 +1,6 @@
 "use client";
 
+import { TransferDestination } from "@/components/billing/TransferDestination";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, errorMessage } from "@/lib/api";
@@ -353,6 +354,10 @@ export default function OrdersPage() {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-ink">الطلبات</h2>
+
+      {/* ⚠️ هنا تحديداً يُرفَعُ الإيصال — و`‎/billing/pay` تُحيلُ إلى هذه الصفحةِ
+          بنصِّها. فالوجهةُ تُقرأُ حيثُ يُنفَّذُ التحويل، لا حيثُ يُوصَفُ فقط. */}
+      <TransferDestination />
 
       {error && (
         <p role="alert" className="rounded-lg bg-danger/15 p-3 text-sm text-danger-ink">
