@@ -21,6 +21,17 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 
+/*
+| ⚠️ `importOriginal`, NOT A BARE STUB. `homePathFor` is a pure function this
+| form calls for its destination; replacing the whole module with `{ useAuth }`
+| would hand it `undefined` and the failure would name the router, not the mock.
+| Only the hook is stood in for — there is no provider around a bare render.
+*/
+vi.mock("@/lib/auth-context", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/auth-context")>()),
+  useAuth: () => ({ adoptSession: vi.fn() }),
+}));
+
 const YEARS: SchoolYearOption[] = [
   { slug: "year-1", name: "الصف الأول الابتدائي", grade_level_slug: "primary" },
   { slug: "year-7", name: "الصف السابع", grade_level_slug: "preparatory" },

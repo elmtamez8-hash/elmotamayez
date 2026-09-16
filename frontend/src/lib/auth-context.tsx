@@ -24,6 +24,23 @@ interface AuthContextValue {
   register: (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string; invitation?: string }) => Promise<void>;
   logout: () => Promise<void>;
   /**
+   * ⚠️ THE ONE SPELLING OF «THIS TAB NOW HOLDS A SESSION», AND THERE WERE FOUR.
+   *
+   * `login` and the two-factor exchange went through `finishSignIn` — token,
+   * session uuid AND `setUser`. The three signup forms did the first two BY HAND
+   * out of `lib/api` and never told this provider, so `user` stayed `null` for
+   * the whole tab: the header rendered its signed-OUT state on the page a person
+   * had just created their account from, and only a full reload fixed it —
+   * because a reload remounts the provider, which then exchanges the token in
+   * `localStorage` for a profile. Reported 2026-09-16.
+   *
+   * `user` is optional because ONE caller has no user to give: teacher step 1
+   * answers `{application, token}` and no profile, so the token is adopted and
+   * the account is read back. Every other caller passes what the server already
+   * sent rather than spending a round trip to be told it again.
+   */
+  adoptSession: (session: { token: string; session_uuid?: string; user?: User }) => Promise<void>;
+  /**
    * إعادةُ قراءةِ الحسابِ من الخادم.
    *
    * ⚠️ صورةُ الحسابِ تُكتَبُ في `‎/settings/profile` وتُقرَأُ في الشريطِ الجانبيِّ
@@ -148,6 +165,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return user;
   };
 
+  const adoptSession = async ({
+    token,
+    session_uuid,
+    user: signedIn,
+  }: { token: string; session_uuid?: string; user?: User }) => {
+    setToken(token);
+
+    if (session_uuid !== undefined) setSessionUuid(session_uuid);
+
+    if (signedIn !== undefined) {
+      setUser(signedIn);
+
+      return;
+    }
+
+    /*
+     | The teacher's first step alone. Swallowed for the reason `refreshUser`
+     | swallows: the ACCOUNT EXISTS by the time we are here, so a banner saying
+     | otherwise would be a lie about a write that succeeded — the cost of a
+     | failure is a stale header until the next navigation, which is exactly the
+     | state we are improving on.
+     */
+    await auth.me().then(setUser).catch(() => {});
+  };
+
   const login = async (email: string, password: string): Promise<LoginOutcome> => {
     const result = await auth.login(email, password);
 
@@ -186,7 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, completeTwoFactor, register, logout, refreshUser }}
+      value={{ user, loading, login, completeTwoFactor, register, logout, refreshUser, adoptSession }}
     >
       {children}
     </AuthContext.Provider>

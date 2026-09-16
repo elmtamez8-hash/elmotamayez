@@ -49,13 +49,53 @@ import { isLearner, panelPathFor, useAuth } from "@/lib/auth-context";
  * whose every save is refused — a worse dead end than the redirect it replaced.
  */
 export default function SignupLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   // Once. `useEffect` re-runs on every render the router causes, and a toast
   // per run stacks the same sentence four deep on one screen.
   const told = useRef(false);
+
+  /*
+   | ⛔ THE GUARD IS FOR SOMEBODY WHO **ARRIVES** SIGNED IN — NEVER FOR A SESSION
+   | CREATED ON THIS PAGE, AND UNTIL 2026-09-16 NOTHING SAID SO BECAUSE NOTHING
+   | HAD TO: the three forms never told `AuthProvider` about the account they had
+   | just made, so `user` stayed `null` right through the redirect and this
+   | effect could not fire. The stale header was one symptom; **this was the
+   | other**, and fixing the first without this turns it into a worse defect than
+   | the one it fixes.
+   |
+   | Two things break the moment a fresh registration is read as "already signed
+   | in". `/signup/parent/children` — the step a parent is HANDED by the form one
+   | screen earlier, whose own page says «only reachable with a session» — sits
+   | under this layout, so the parent is bounced to their panel with «لا حاجة
+   | لإنشاء حساب جديد» and can never name a child. Measured in a real browser on
+   | production. And on the student form `router.replace(panelPathFor(user))`
+   | here RACES the form's own `router.push(safeNext(next, …))`, so the teacher
+   | page or the `/subscribe` selection that started the signup — FR-005, the
+   | promise printed on the page itself — is lost to whichever navigation lands
+   | second.
+   |
+   | `loading` is what separates the two, and it is the only thing that can:
+   | `user` is null on the server, on the first paint, AND for a guest, so the
+   | value alone says nothing. The provider answers `loading = false` exactly
+   | once the token in `localStorage` has been exchanged for a profile — or found
+   | not to be there — so the FIRST settled answer is who walked in. Anything
+   | after it happened here.
+   |
+   | It is a ref rather than state because nothing renders from it, and it is
+   | scoped to this layout's mount — which is the signup flow's own lifetime:
+   | it survives `/signup/parent` → `/signup/parent/children` and is asked again
+   | from scratch by anybody who leaves `/signup` and comes back.
+   */
+  const arrivedSignedIn = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    if (loading || arrivedSignedIn.current !== null) return;
+
+    arrivedSignedIn.current = user !== null;
+  }, [loading, user]);
 
   /*
    | `null` while the question has not been answered yet — the redirect waits for
@@ -66,7 +106,7 @@ export default function SignupLayout({ children }: { children: React.ReactNode }
   const [resumable, setResumable] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (user === null) return;
+    if (user === null || arrivedSignedIn.current !== true) return;
 
     if (pathname !== "/signup/teacher") {
       setResumable(false);
@@ -89,7 +129,8 @@ export default function SignupLayout({ children }: { children: React.ReactNode }
   }, [user, pathname]);
 
   useEffect(() => {
-    if (user === null || told.current || resumable === null || resumable) return;
+    if (user === null || arrivedSignedIn.current !== true) return;
+    if (told.current || resumable === null || resumable) return;
 
     told.current = true;
 

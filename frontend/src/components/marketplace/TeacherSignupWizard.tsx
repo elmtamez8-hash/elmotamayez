@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, auth, setToken, errorMessage, fieldErrors } from "@/lib/api";
+import { api, auth, errorMessage, fieldErrors } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { crossesUtcMidnight, toLocalSlot, toUtcSlot } from "@/lib/availability";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import type { Taxonomy } from "@/lib/public-api";
@@ -84,6 +85,7 @@ export function TeacherSignupWizard({
   const router = useRouter();
 
   const [application, setApplication] = useState<ApplicationState | null>(null);
+  const { adoptSession } = useAuth();
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState("");
@@ -230,7 +232,13 @@ export function TeacherSignupWizard({
         idempotencyKey,
       );
 
-      if (result.token) setToken(result.token);
+      /*
+       | ⚠️ NO `user` COMES BACK HERE — step 1 answers `{application, token}`
+       | alone — so the account is read back rather than guessed at. And the
+       | token is nullable: a wizard resumed from a session already in hand has
+       | nothing new to adopt.
+       */
+      if (result.token) await adoptSession({ token: result.token });
       setApplication(result.application);
       setStep(result.application.current_step);
     } catch (err: unknown) {

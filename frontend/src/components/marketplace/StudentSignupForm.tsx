@@ -3,10 +3,10 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { auth, setToken, setSessionUuid, errorMessage, fieldErrors } from "@/lib/api";
+import { auth, errorMessage, fieldErrors } from "@/lib/api";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import { safeNext } from "@/lib/safe-next";
-import { homePathFor } from "@/lib/auth-context";
+import { homePathFor, useAuth } from "@/lib/auth-context";
 import type { SchoolYearOption, Taxonomy } from "@/lib/public-api";
 import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
 import { Button } from "@/components/ui/Button";
@@ -60,6 +60,7 @@ export function StudentSignupForm({
   next?: string;
 }) {
   const router = useRouter();
+  const { adoptSession } = useAuth();
 
   const [form, setForm] = useState({
     first_name: "",
@@ -144,8 +145,10 @@ export function StudentSignupForm({
         idempotencyKey,
       );
 
-      setToken(token);
-      setSessionUuid(session_uuid);
+      // ⚠️ THROUGH THE PROVIDER, NEVER `setToken` BY HAND — the header reads
+      // `user`, and a token written past it leaves the signed-OUT chrome on the
+      // page this account was just created from.
+      await adoptSession({ token, session_uuid, user });
       // Came from a teacher's booking CTA — return there rather than to a
       // generic landing page, so the intent that started the signup survives it.
       router.push(safeNext(next, teacherUuid ? `/teachers/${teacherUuid}` : homePathFor(user)));
