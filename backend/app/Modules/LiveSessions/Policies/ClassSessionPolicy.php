@@ -58,6 +58,21 @@ class ClassSessionPolicy extends BasePolicy
      * through `ClassSession::holdsSeat()`, and the enrolment through the same
      * `EnrollmentDirectory` method `BookingEligibility::refusalReason()` asks. A
      * third spelling is how one answer reaches the screen and another the door.
+     *
+     * ⚠️ SO `enrollments` IS READ TWICE ON EVERY BOOKING REQUEST — here at the
+     * door, and again inside `BookingEligibility` behind it — AND IT STAYS THAT
+     * WAY ON PURPOSE. A `scoped()` memo on `EloquentEnrollmentDirectory` closed
+     * it (measured 2026-09-16: 2 ⇒ 1 on `/eligibility` and on `…/book`) and was
+     * REVERTED the same day: its invalidation hung on model events, a bulk
+     * `update()` fires none, and `ArchiveAfterEnrollmentEndsTest` caught a
+     * student whose enrolment had ENDED still posting into the chat — 201 where
+     * 403 was demanded. A remembered entitlement fails OPEN, silently, on an
+     * authorization read; the whole saving was one query.
+     *
+     * ⚠️ AND `holdsSeat()` IS ASKED FIRST, which is why the duplicate is not
+     * universal: a student who already holds a seat never reaches the enrolment
+     * line at all. Anyone measuring this must build a student WITHOUT a seat, or
+     * they are measuring a branch that does not run.
      */
     public function view(User $user, ClassSession $session): Response
     {
