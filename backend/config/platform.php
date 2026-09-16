@@ -29,4 +29,29 @@ return [
 
     'name' => 'المتميز',
 
+    /*
+    |--------------------------------------------------------------------------
+    | The support number on WhatsApp
+    |--------------------------------------------------------------------------
+    |
+    | Digits only, in E.164 without the leading "+" (e.g. 97455512345), because
+    | that is the shape `wa.me/<number>` takes. Stored that way rather than
+    | normalised on read: one spelling written once beats a strip at every
+    | reader.
+    |
+    | ⚠️ IT LIVED IN `NEXT_PUBLIC_WHATSAPP_NUMBER`, WHICH IS THE `platform.name`
+    | DEFECT WEARING A SECOND FACE. A `NEXT_PUBLIC_*` variable is inlined at
+    | BUILD time and was set nowhere, so the floating button rendered for nobody
+    | — and nothing failed anywhere, because an empty number is also how the
+    | button is switched OFF on purpose.
+    |
+    | Empty is the fallback and it means OFF, deliberately. There is no sensible
+    | placeholder: a `wa.me` link with an invented number opens a stranger's
+    | chat, and every visitor who taps it reaches a real person who never agreed
+    | to it.
+    |
+    */
+
+    'support_whatsapp' => '',
+
 ];

@@ -15,7 +15,7 @@ import {
   XIcon,
   YouTubeIcon,
 } from "@/components/icons";
-import { platformName, SUPPORT_WHATSAPP } from "@/lib/platform";
+import { platformIdentity } from "@/lib/platform";
 import { BrandMark } from "@/components/ui/BrandMark";
 
 const COLUMNS = [
@@ -60,7 +60,7 @@ const SOCIAL_CLASS =
   "flex h-9 w-9 items-center justify-center rounded-full border border-line transition duration-200 motion-reduce:transition-none";
 
 export async function SiteFooter() {
-  const name = await platformName();
+  const { name, supportWhatsapp } = await platformIdentity();
 
   return (
     // relative + isolate: bg-dots paints on ::before at z-index -1, which needs a
@@ -135,10 +135,10 @@ export async function SiteFooter() {
           </div>
 
           <ul className="order-2 flex items-center gap-3 lg:order-3">
-            {SUPPORT_WHATSAPP !== "" && (
+            {supportWhatsapp !== "" && (
               <li>
                 <a
-                  href={`https://wa.me/${SUPPORT_WHATSAPP}`}
+                  href={`https://wa.me/${supportWhatsapp}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="تواصل معنا عبر واتساب"

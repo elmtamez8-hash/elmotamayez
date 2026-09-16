@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import OrdersPage from "./page";
 import type { Order } from "@/lib/types";
+import { formatMinorMoney } from "@/lib/labels";
 
 /*
 | «الطلبات» — ما اشتراه الصفُّ، ومتى يختفي «ادفع الآن». بُلِّغَ ٢٠٢٦-٠٩-٠٦.
@@ -66,6 +67,11 @@ async function show(rows: Order[]) {
 beforeEach(() => {
   vi.clearAllMocks();
 });
+
+/** The summary banner, by its accessible name — never by the figure it prints. */
+function owedRegion(): HTMLElement {
+  return screen.getByRole("status", { name: "المطلوب سداده" });
+}
 
 describe("what the order row says was bought", () => {
   it("names the duration, the room size and the group of a subscription", async () => {
@@ -141,5 +147,103 @@ describe("the pay-now link", () => {
     // different one.
     expect(screen.queryByText("عرض الإيصال")).toBeNull();
     expect(screen.getByText("استبدل الإيصال")).toBeDefined();
+  });
+});
+
+describe("the amount still owed", () => {
+  /*
+  | ⚠️ «كم عليّ أدفع» لم يكنْ على هذه الشاشةِ أصلاً، فكانَ يُجابُ بجمعِ عمودِ
+  | المبالغِ بالعين. والمجموعُ هنا يُقاسُ لا يُوصَف: توكيدٌ على وجودِ السطرِ وحدَه
+  | يمرُّ فوقَ مجموعٍ خاطئ.
+  */
+  it("counts what is open and leaves out what was already approved", async () => {
+    await show([
+      order({ uuid: "o-1", status: "pending", amount_minor: 45_000 }),
+      order({ uuid: "o-2", status: "rejected", amount_minor: 5_000 }),
+      // ⚠️ معتمَدٌ خارجَ المجموع: لا شيءَ مطلوبٌ عليه.
+      order({ uuid: "o-3", status: "approved", amount_minor: 90_000 }),
+    ]);
+
+    /*
+    | ⚠️ داخلَ المنطقةِ المسمّاة، لا في الصفحةِ كلِّها: عمودُ المبالغِ يطبعُ
+    | السلسلةَ نفسَها، فبحثٌ عامٌّ يجدُ صفّاً ويظنُّه المجموع.
+    |
+    | ⚠️ و`textContent` لا `getByText`: `Intl` يفصلُ الرقمَ عن العملةِ بمسافةٍ
+    | غيرِ فاصلة، ومُطبِّعُ testing-library يحوّلُها إلى مسافةٍ عاديّةً في الصفحةِ
+    | ولا يلمسُ السلسلةَ المتوقَّعة — فلا يتطابقان أبداً.
+    */
+    expect(owedRegion().textContent).toContain(formatMinorMoney(50_000, "QAR"));
+  });
+
+  it("never adds up somebody else's order, on the officer's own screen", async () => {
+    /*
+    | ⚠️ الموظّفُ يرى طلباتِ غيرِه هنا، ومجموعٌ من كلِّ صفٍّ ظاهرٍ يقولُ له إنّه
+    | يدينُ للمنصّةِ بكلِّ ما لم يُسدَّدْ عليها.
+    */
+    await show([
+      order({ uuid: "o-1", status: "pending", amount_minor: 45_000 }),
+      order({ uuid: "o-2", status: "pending", amount_minor: 900_000, is_mine: false }),
+    ]);
+
+    expect(owedRegion().textContent).toContain(formatMinorMoney(45_000, "QAR"));
+  });
+
+  it("shows no total rather than a wrong one when two currencies are open", async () => {
+    // مجموعٌ عبرَ عملتَينِ رقمٌ ليسَ مالاً بأيِّ عملة، تحتَ عنوانٍ يقولُ إنّه
+    // المطلوبُ سداده. الغيابُ فجوة، والرقمُ الخاطئُ كذب.
+    await show([
+      order({ uuid: "o-1", status: "pending", amount_minor: 45_000, currency: "QAR" }),
+      order({ uuid: "o-2", status: "pending", amount_minor: 45_000, currency: "USD" }),
+    ]);
+
+    expect(screen.queryByRole("status", { name: "المطلوب سداده" })).toBeNull();
+  });
+});
+
+describe("the status strip", () => {
+  it("narrows the table to one status", async () => {
+    await show([
+      order({ uuid: "o-1", status: "pending", course_title: "أساسيّات التفاضل" }),
+      order({ uuid: "o-2", status: "approved", course_title: "الكيمياء العضوية" }),
+    ]);
+
+    expect(screen.getByText("الكيمياء العضوية")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: /بانتظار الدفع/ }));
+
+    expect(screen.getByText("أساسيّات التفاضل")).toBeDefined();
+    expect(screen.queryByText("الكيمياء العضوية")).toBeNull();
+  });
+
+  it("gives every status on the page a tile, «ملغى» included", async () => {
+    /*
+    | ⛔ الشريطُ كانَ قائمةً مكتوبةً باليدِ فيها أربعٌ من خمس: `OrderStatus` يحملُ
+    | `cancelled` أيضاً، فكانَ «الكل: ٢» فوقَ بلاطاتٍ مجموعُها واحد، والصفُّ
+    | الملغى ظاهرٌ في الجدولِ ولا بلاطةَ تصلُ إليه. وهو الآنَ مشتقٌّ من الصفوف،
+    | فحالةٌ سادسةٌ تُضافُ غداً تَظهرُ بنفسِها.
+    */
+    await show([
+      order({ uuid: "o-1", status: "pending" }),
+      order({ uuid: "o-2", status: "cancelled" }),
+    ]);
+
+    expect(screen.getByRole("button", { name: /ملغى/ })).toBeDefined();
+  });
+
+  it("draws no tile for a status nobody on this page has", async () => {
+    // بلاطةٌ تقولُ «٠ مرفوض» على شاشةِ من له طلبٌ واحدٌ قيدَ الدفعِ هي زرٌّ لا
+    // يفعلُ شيئاً، ونصفُ الشريطِ منها.
+    await show([order({ uuid: "o-1", status: "pending" })]);
+
+    expect(screen.queryByRole("button", { name: /مرفوض/ })).toBeNull();
+  });
+
+  it("is not drawn at all over an empty history", async () => {
+    // خمسةُ أزرارٍ تؤدّي كلُّها إلى «لا طلبات» هي خياراتٌ بلا أثر، على شاشةِ من
+    // لم يشترِ شيئاً بعد.
+    await show([]);
+
+    expect(screen.queryByRole("group", { name: "تصفية الطلبات بالحالة" })).toBeNull();
+    expect(screen.getByText("لا طلبات في سجلّك")).toBeDefined();
   });
 });

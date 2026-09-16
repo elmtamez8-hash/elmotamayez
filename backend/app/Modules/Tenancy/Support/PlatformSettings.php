@@ -49,6 +49,26 @@ final class PlatformSettings
         */
         'platform.name' => 'platform.name',
         /*
+        | The support number on WhatsApp — the second and last field of the
+        | public identity.
+        |
+        | ⚠️ IT WAS `NEXT_PUBLIC_WHATSAPP_NUMBER`, WHICH IS THE DEFECT THE
+        | COMMENT ABOVE RECORDS, REACHED A SECOND TIME. Inlined at BUILD time,
+        | set nowhere on the server, and the floating button therefore rendered
+        | for nobody — with nothing failing, because an empty number is also how
+        | that button is switched OFF on purpose. A row here is read at RUN time
+        | and edited from the panel.
+        |
+        | ⚠️ AND IT IS PUBLISHABLE WHILE `billing.transfer` BELOW IT IS NOT. A
+        | support number is printed on the page it belongs on — it invites a
+        | message and opens nothing — whereas a bank account is read by somebody
+        | about to pay and its door is behind authentication. The device limits
+        | and the gateway's basis points are not publishable at all. Being on
+        | this map is not what publishes a key: `PublicFieldAllowlist` is, and it
+        | names exactly two.
+        */
+        'platform.support_whatsapp' => 'platform.support_whatsapp',
+        /*
         | إلى أينَ يُحوِّلُ المشتري (بلاغُ مستخدِمٍ ٢٠٢٦-٠٩-١٦).
         |
         | ⛔ **الشاشةُ كانت تقولُ «حوِّلْ قيمة الباقة إلى حساب المنصّة» ولا تقولُ

@@ -75,7 +75,41 @@ it('sends the name and nothing else from the settings table', function (): void 
     $payload = $this->getJson('/api/v1/platform')->assertOk()->json('data');
 
     expect(array_keys($payload))->toBe(PublicFieldAllowlist::PLATFORM_IDENTITY)
-        ->and(PublicFieldAllowlist::PLATFORM_IDENTITY)->toBe(['name']);
+        ->and(PublicFieldAllowlist::PLATFORM_IDENTITY)->toBe(['name', 'support_whatsapp']);
+});
+
+/*
+| رقمُ الواتسابِ للدعم — الحقلُ الثاني، وقد وصلَ للسببِ الذي وصلَ به الاسم.
+|
+| ⛔ **الزرُّ العائمُ مبنيٌّ منذُ زمنٍ ولم يُعرَضْ لأحدٍ قطّ.** رقمُه كانَ في
+| `NEXT_PUBLIC_WHATSAPP_NUMBER`، يُدمَجُ وقتَ البناءِ ولم يُضبَطْ في أيِّ بيئة،
+| فقرأَ `SUPPORT_WHATSAPP` سلسلةً فارغةً ولم يُرسَمِ الزرُّ ولا في التذييل. ولم
+| يفشلْ شيء: الفراغُ هو أيضاً كيفَ يُطفَأُ الزرُّ عن قصد، فالعطبُ والإعدادُ
+| الصحيحُ لهما نفسُ الشكلِ بالضبط.
+*/
+
+it('answers the support number without any authentication, and empty means off', function (): void {
+    /*
+    | ⚠️ الفراغُ يُرسَلُ ولا يُحذَفُ المفتاح. مفتاحٌ غائبٌ يجعلُ العميلَ يخمّنُ
+    | أهوَ «غيرُ مضبوط» أم «خادمٌ أقدمُ من هذا الحقل»؛ والسلسلةُ الفارغةُ تقولُ
+    | «لا خطَّ دعمٍ» بشكلٍ واحد.
+    */
+    $this->getJson('/api/v1/platform')
+        ->assertOk()
+        ->assertJsonPath('data.support_whatsapp', '');
+
+    PlatformSettings::set('platform.support_whatsapp', '97455512345');
+
+    $this->getJson('/api/v1/platform')
+        ->assertOk()
+        ->assertJsonPath('data.support_whatsapp', '97455512345');
+});
+
+it('keeps the support number in the settings the panel can edit', function (): void {
+    expect(PlatformSettings::KEYS)->toHaveKey('platform.support_whatsapp')
+        // ⚠️ مفتاحٌ بلا ملفِّ إعداداتٍ خلفَه يُرجِعُ `null`، و`platform_settings.value`
+        // ليسَ `NULL`-able: هذا بعينُه العطبُ الذي قتلَ البذرَ في PR #108.
+        ->and(config('platform.support_whatsapp'))->toBe('');
 });
 
 it('is registered in the platform settings the panel can edit', function (): void {

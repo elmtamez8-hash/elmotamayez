@@ -1,16 +1,35 @@
 "use client";
 
 import { TransferDestination } from "@/components/billing/TransferDestination";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import Link from "next/link";
 import { api, errorMessage } from "@/lib/api";
 import type { Order } from "@/lib/types";
-import { counted, formatDate, formatMinorMoney } from "@/lib/labels";
+import {
+  counted,
+  formatDate,
+  formatMinorMoney,
+  statusLabel,
+  statusTone,
+  TONE_CLASSES,
+} from "@/lib/labels";
 import { planDuration, SESSION_TYPE_LABELS } from "@/lib/plans";
-import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Field";
 import { Table, type Column } from "@/components/ui/Table";
+import {
+  AlertIcon,
+  CheckIcon,
+  ClockIcon,
+  CloseIcon,
+  CoursesIcon,
+  CreditsIcon,
+  HumanReviewIcon,
+  OrdersIcon,
+  ScheduleIcon,
+  StoreIcon,
+  WalletIcon,
+} from "@/components/icons";
 
 /*
  * Statuses that still take a receipt.
@@ -39,6 +58,57 @@ const KIND_LABELS: Record<string, string> = {
   subscription: "اشتراك",
 };
 
+/*
+ * A mark for the KIND, beside the title that already says it.
+ *
+ * Decorative on purpose and with no `title`: the row spells what it bought one
+ * character to the side, and announcing the glyph again is noise to a screen
+ * reader. What it buys a sighted reader is a list they can scan by shape —
+ * «where is the subscription among nine credit purchases» stops being a read.
+ */
+const KIND_ICONS: Record<string, ComponentType<{ className?: string }>> = {
+  course: CoursesIcon,
+  credits: CreditsIcon,
+  store: StoreIcon,
+  subscription: ScheduleIcon,
+};
+
+/*
+ * The strip above the table: the summary AND the filter, deliberately one control.
+ *
+ * ⚠️ A COUNT THE READER CANNOT ACT ON IS DECORATION, and a filter with no count
+ * is a guess about whether pressing it shows anything. Two rows of chrome
+ * answering half a question each is what this replaces.
+ *
+ * ⚠️ THE LABELS COME FROM `statusLabel()` AND ARE NOT SPELLED AGAIN HERE. A
+ * second «قيد المراجعة» written in this file drifts from the badge in the row
+ * directly beneath it, which is the two-spellings defect wearing its smallest
+ * possible face.
+ *
+ * ⛔ AND THE TILES ARE DERIVED FROM THE ROWS, NOT WRITTEN OUT. A hand-written
+ * list of four had already missed one: `OrderStatus` carries `cancelled` as a
+ * fifth case, so «الكل: ٧» would have sat above tiles adding to six, with the
+ * seventh row visible in the table and no tile able to reach it. This ordering
+ * is presentation only — a status that is not on it still gets a tile, at the
+ * end — so a sixth case added tomorrow appears by itself.
+ */
+const STATUS_ORDER = ["pending", "under_review", "rejected", "approved", "cancelled"];
+
+const STATUS_ICONS: Record<string, ComponentType<{ className?: string }>> = {
+  pending: ClockIcon,
+  under_review: HumanReviewIcon,
+  rejected: AlertIcon,
+  approved: CheckIcon,
+  cancelled: CloseIcon,
+};
+
+/** Reading position; anything unknown sorts after everything named. */
+function statusRank(status: string): number {
+  const index = STATUS_ORDER.indexOf(status);
+
+  return index === -1 ? STATUS_ORDER.length : index;
+}
+
 /** «حصة واحدة» · «حصتان» · «٤ حصص» · «١٢ حصة» — the bands live in `counted()`. */
 function sessions(count: number): string {
   return counted(count, {
@@ -47,6 +117,17 @@ function sessions(count: number): string {
     few: "حصص",
     many: "حصة",
     other: "حصة",
+  });
+}
+
+/** «طلب واحد» · «طلبان» · «٤ طلبات» · «١٢ طلباً» — five bands, `other` required. */
+function orderCount(count: number): string {
+  return counted(count, {
+    one: "طلب واحد",
+    two: "طلبان",
+    few: "طلبات",
+    many: "طلباً",
+    other: "طلب",
   });
 }
 
@@ -102,6 +183,8 @@ export default function OrdersPage() {
   const [error, setError] = useState("");
   /** How each payer says they paid, by order uuid. Bank transfer until told. */
   const [methods, setMethods] = useState<Record<string, string>>({});
+  /** Which status the strip is showing. `all` until the reader narrows it. */
+  const [filter, setFilter] = useState("all");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -144,13 +227,63 @@ export default function OrdersPage() {
   };
 
   /*
+   * What is still owed, which is the question this screen exists to answer and
+   * did not.
+   *
+   * ⚠️ `is_mine`, BECAUSE A STAFF READER SEES OTHER PEOPLE'S ORDERS HERE. A total
+   * built from every visible row would tell the finance officer that they
+   * personally owe the platform every outstanding payment on it.
+   *
+   * ⚠️ AND ONE CURRENCY OR NO TOTAL AT ALL. Adding QAR to anything else produces
+   * a number that is money in no currency, printed under a label saying it is
+   * what the reader must pay. A missing total is a gap; a wrong one is a lie,
+   * and the product has exactly one currency today so the gap is unreachable.
+   *
+   * `rejected` is deliberately inside the sum: nothing there was accepted as
+   * paid, so it is still owed — the same reasoning that puts it in
+   * `OPEN_STATUSES` and brings «ادفع الآن» back on a refusal.
+   */
+  const owed = useMemo(() => {
+    const open = orders.filter((o) => o.is_mine && OPEN_STATUSES.includes(o.status));
+    const currencies = new Set(open.map((o) => o.currency));
+
+    if (open.length === 0 || currencies.size !== 1) return null;
+
+    return {
+      minor: open.reduce((sum, o) => sum + o.amount_minor, 0),
+      currency: open[0].currency,
+      count: open.length,
+    };
+  }, [orders]);
+
+  /*
     The payer's column exists only for staff, and the SERVER decides that: the
     key is absent from a buyer's own payload (`orders.view_all` gates it), so
     testing the data is the same question as testing the permission — with one
     answer instead of two. Re-deriving "am I staff?" in TypeScript is the
     two-spellings defect this repository keeps paying for.
+
+    ⚠️ ASKED OF THE WHOLE LIST, NEVER OF THE FILTERED ONE. Narrowing to a status
+    whose rows happen to be the officer's own would otherwise drop the column
+    they are reading the page for, and bring it back when they widen again.
   */
   const seesPayer = orders.some((o) => o.payer_name != null || o.payer_email != null);
+
+  /*
+   * ⚠️ ONLY THE STATUSES THAT ARE ACTUALLY THERE. A tile reading «٠ مرفوض» on
+   * somebody with one pending order is four-fifths of a control strip that
+   * cannot do anything — and «الكل» stays equal to the tiles beside it by
+   * construction rather than by a list somebody has to keep in step.
+   */
+  const tiles = useMemo(
+    () => [
+      "all",
+      ...[...new Set(orders.map((o) => o.status))].sort((a, b) => statusRank(a) - statusRank(b)),
+    ],
+    [orders],
+  );
+
+  const visible = filter === "all" ? orders : orders.filter((o) => o.status === filter);
 
   const columns: Column<Order>[] = [
     ...(seesPayer
@@ -174,28 +307,34 @@ export default function OrdersPage() {
       header: "الطلب",
       render: (o) => {
         const { title, detail } = bought(o);
+        const Icon = KIND_ICONS[o.kind] ?? OrdersIcon;
 
         return (
-          <div className="flex flex-col items-start">
-            <span className="font-medium">{title}</span>
-            {detail !== null && detail !== "" && (
-              <span className="text-xs text-ink-muted">{detail}</span>
-            )}
-            {o.course_title !== null && (
-              <span className="text-xs text-ink-muted">{o.course_title}</span>
-            )}
-            {/*
-              ⚠️ **لمن هذا الطلب — لوليِّ الأمرِ وحدَه.** الاشتراكُ يُكتَبُ باسمِ
-              الطالبِ والدفعُ باسمِ الدافع، فوليُّ أمرٍ لثلاثةِ أبناءٍ كانَ سيقرأُ
-              ثلاثةَ صفوفٍ بنفسِ الباقةِ ونفسِ المبلغِ ولا شيءَ يفرّقُ بينها.
-              والخادمُ يُرسِلُ المفتاحَ لمن أنشأَ الطلبَ نيابةً عن غيرِه فقط، فمن
-              يشتري لنفسِه لا يُقالُ له اسمُه.
-            */}
-            {o.for_student_name !== undefined && (
-              <span className="text-xs font-medium text-primary-ink">
-                لـ {o.for_student_name}
-              </span>
-            )}
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary-ink">
+              <Icon className="h-5 w-5" />
+            </span>
+            <div className="flex flex-col items-start">
+              <span className="font-medium">{title}</span>
+              {detail !== null && detail !== "" && (
+                <span className="text-xs text-ink-muted">{detail}</span>
+              )}
+              {o.course_title !== null && (
+                <span className="text-xs text-ink-muted">{o.course_title}</span>
+              )}
+              {/*
+                ⚠️ **لمن هذا الطلب — لوليِّ الأمرِ وحدَه.** الاشتراكُ يُكتَبُ باسمِ
+                الطالبِ والدفعُ باسمِ الدافع، فوليُّ أمرٍ لثلاثةِ أبناءٍ كانَ سيقرأُ
+                ثلاثةَ صفوفٍ بنفسِ الباقةِ ونفسِ المبلغِ ولا شيءَ يفرّقُ بينها.
+                والخادمُ يُرسِلُ المفتاحَ لمن أنشأَ الطلبَ نيابةً عن غيرِه فقط، فمن
+                يشتري لنفسِه لا يُقالُ له اسمُه.
+              */}
+              {o.for_student_name !== undefined && (
+                <span className="text-xs font-medium text-primary-ink">
+                  لـ {o.for_student_name}
+                </span>
+              )}
+            </div>
           </div>
         );
       },
@@ -204,7 +343,14 @@ export default function OrdersPage() {
       key: "amount_minor",
       header: "المبلغ",
       numeric: true,
-      render: (o) => formatMinorMoney(o.amount_minor, o.currency),
+      render: (o) => (
+        // ⚠️ `tabular-nums`: the amounts sit in one column and are compared down
+        // it, and proportional digits make «٤٥٠» and «١١١» different widths for
+        // the same number of figures.
+        <span className="font-semibold tabular-nums">
+          {formatMinorMoney(o.amount_minor, o.currency)}
+        </span>
+      ),
     },
     {
       key: "status",
@@ -216,7 +362,8 @@ export default function OrdersPage() {
               who uploaded a receipt and sees nothing but "قيد المراجعة" has no
               way to tell waiting from being forgotten. */}
           {o.review_sla_hours !== null && o.has_receipt && (
-            <span className="text-xs text-ink-muted">
+            <span className="flex items-center gap-1 text-xs text-ink-muted">
+              <ClockIcon className="h-3.5 w-3.5" />
               تُراجَع خلال {o.review_sla_hours} ساعة
             </span>
           )}
@@ -225,7 +372,10 @@ export default function OrdersPage() {
               a payer read «مرفوض» and had to ask by message what was wrong with
               it — while the officer had typed the answer (FR-032). */}
           {o.status === "rejected" && o.rejection_reason !== null && (
-            <span className="text-xs text-danger-ink">{o.rejection_reason}</span>
+            <span className="flex items-start gap-1 text-xs text-danger-ink">
+              <AlertIcon className="mt-px h-3.5 w-3.5 shrink-0" />
+              {o.rejection_reason}
+            </span>
           )}
         </div>
       ),
@@ -339,21 +489,60 @@ export default function OrdersPage() {
         && (o.status === "rejected" || !o.has_receipt) ? (
           <Link
             href={`/billing/pay?order=${o.uuid}`}
-            className="rounded text-xs font-semibold text-primary-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
+            <WalletIcon className="h-4 w-4" />
             ادفع الآن
           </Link>
         ) : (
           <span className="text-xs text-ink-muted">—</span>
         ),
     },
-    { key: "date", header: "التاريخ", render: (o) => formatDate(o.created_at) },
+    {
+      key: "date",
+      header: "التاريخ",
+      render: (o) => <span className="whitespace-nowrap text-ink-muted">{formatDate(o.created_at)}</span>,
+    },
   ];
-
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-ink">الطلبات</h2>
+      {/*
+        The heading and the one number the reader came for, on one line: «كم
+        عليّ» was answered nowhere on this page, so it was answered by adding up
+        the amount column by eye.
+      */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h2 className="text-2xl font-bold text-ink">الطلبات</h2>
+
+        {owed !== null && (
+          <div
+            /*
+              ⚠️ A NAMED REGION, NOT A BARE `div`. The figure it carries is the
+              same string the amount column prints, so «the total» and «one row's
+              amount» are indistinguishable to anything reading the page by text
+              — a screen reader landing on it, and a test asserting on it. The
+              name is what separates them. `status` because the number really is
+              a summarised state: it moves when a row's status does.
+            */
+            role="status"
+            aria-label="المطلوب سداده"
+            className="animate-float-in flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-2.5"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/20 text-ink">
+              <WalletIcon className="h-5 w-5" />
+            </span>
+            <div className="flex flex-col items-start">
+              <span className="text-xs text-ink-muted">
+                المطلوب سداده — {orderCount(owed.count)}
+              </span>
+              <bdi className="text-lg font-bold tabular-nums text-ink">
+                {formatMinorMoney(owed.minor, owed.currency)}
+              </bdi>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ⚠️ هنا تحديداً يُرفَعُ الإيصال — و`‎/billing/pay` تُحيلُ إلى هذه الصفحةِ
           بنصِّها. فالوجهةُ تُقرأُ حيثُ يُنفَّذُ التحويل، لا حيثُ يُوصَفُ فقط. */}
@@ -365,15 +554,87 @@ export default function OrdersPage() {
         </p>
       )}
 
+      {/*
+        ⚠️ RENDERED ONLY OVER ROWS THAT EXIST. A filter strip above an empty
+        table is five buttons that all lead to the same «لا طلبات» — chrome
+        offering choices with no consequence, on the screen of somebody who has
+        never bought anything.
+
+        ⚠️ AND IT IS `role="group"` WITH PRESSED STATE ON EACH BUTTON, not a list
+        of links. The narrowing is client-side and leaves no URL behind it, so a
+        reader with a screen reader is told which one is current by
+        `aria-pressed` — the only thing that says so, since the visual cue is a
+        border colour.
+      */}
+      {!loading && !failed && orders.length > 0 && (
+        <div role="group" aria-label="تصفية الطلبات بالحالة" className="flex flex-wrap gap-2">
+          {tiles.map((key, index) => {
+            const Icon = key === "all" ? OrdersIcon : (STATUS_ICONS[key] ?? OrdersIcon);
+            const count = key === "all" ? orders.length : orders.filter((o) => o.status === key).length;
+            const label = key === "all" ? "الكل" : statusLabel(key);
+            const active = filter === key;
+
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilter(key)}
+                aria-pressed={active}
+                /* The stagger is 40ms a tile and stops at the fifth — the
+                   reduced-motion block zeroes the delay as well as the duration,
+                   so a reader who asked for less motion gets them all at once
+                   rather than five invisible buttons for 200ms. */
+                style={{ animationDelay: `${index * 40}ms` }}
+                className={`animate-float-in flex items-center gap-2.5 rounded-2xl border px-3.5 py-2 text-start transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
+                  active
+                    ? "border-primary bg-primary-soft"
+                    : "border-line bg-surface-raised hover:border-primary"
+                }`}
+              >
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                    TONE_CLASSES[key === "all" ? "info" : statusTone(key)]
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="flex flex-col">
+                  {/* ⚠️ ARABIC-INDIC, like every other number this product
+                      prints. `counted()` does the same inside itself; here the
+                      label beside it already carries the noun, so the numeral is
+                      all that is needed. */}
+                  <span className="text-sm font-semibold tabular-nums text-ink">
+                    {count.toLocaleString("ar-QA")}
+                  </span>
+                  <span className="text-xs text-ink-muted">{label}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <Table
         columns={columns}
-        rows={orders}
+        rows={visible}
         rowKey={(o) => o.uuid}
         caption="طلبات الشراء وحالتها وإيصالاتها"
         state={loading ? "loading" : failed ? "error" : "ready"}
         onRetry={load}
-        emptyTitle="لا طلبات في سجلّك"
-        emptyDescription="سيظهر هنا كل طلب شراء بحالته وإيصاله."
+        /* ⚠️ TWO DIFFERENT EMPTIES. «لا طلبات في سجلّك» over a list the reader
+           just narrowed is the product telling them they have never bought
+           anything, a minute after showing them nine rows.
+
+           Reachable through exactly one path now that the tiles are derived:
+           filter to «بانتظار الدفع», upload the receipt on the only row there,
+           and the server's answer moves it to «قيد المراجعة» — the tile empties
+           under a selection that is still pointing at it. */
+        emptyTitle={filter === "all" ? "لا طلبات في سجلّك" : `لا طلبات بحالة «${statusLabel(filter)}»`}
+        emptyDescription={
+          filter === "all"
+            ? "سيظهر هنا كل طلب شراء بحالته وإيصاله."
+            : "اختر «الكل» من الشريط أعلاه لترى بقيّة طلباتك."
+        }
       />
     </div>
   );
