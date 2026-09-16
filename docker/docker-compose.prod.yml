@@ -25,6 +25,16 @@ services:
     build:
       context: ../backend
       dockerfile: ../docker/backend.Dockerfile
+      args:
+        # ⚠️ رمزُ GitHub لتنزيلِ حُزَمِ composer — و`:-` هو ما يجعلُه اختياريّاً.
+        # بدونِه نطلبُ غيرَ موثَّقين، والحدُّ ٦٠ طلباً في الساعةِ للعنوان: ثماني
+        # نشراتٍ في يومٍ تستنفِدُها، فيردُّ codeload بـ٤٢٩ ويسقطُ البناءُ على
+        # مسارِ المصدر — ٦١٤ ثانيةً بدلَ ستّين (٢٠٢٦-٠٩-١٥ و١٦). والسببُ
+        # والعلاجُ مشروحانِ عندَ `ARG COMPOSER_AUTH` في `backend.Dockerfile`.
+        #
+        # ⚠️ ومتغيّرٌ غيرُ معرَّفٍ بلا `:-` يُفشِلُ البناءَ أو يُحذِّر، فالصيغةُ
+        # هذه تُبقي كلَّ خادمٍ لم يُضَفْ إليه الرمزُ بعدُ يبني كما كانَ بالضبط.
+        COMPOSER_AUTH: ${COMPOSER_AUTH:-}
     image: elmotamayez-backend:latest
     restart: unless-stopped
     working_dir: /var/www/html
