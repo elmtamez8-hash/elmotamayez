@@ -49,6 +49,34 @@ return [
     'currency' => 'QAR',
 
     /*
+    | إلى أينَ يُحوِّلُ المشتري — الارتدادُ وحدَه (٢٠٢٦-٠٩-١٦).
+    |
+    | ⚠️ **وجودُ هذا المفتاحِ شرطٌ لا زينة.** `PlatformSettings::KEYS` تُسمّي لكلِّ
+    | مفتاحٍ مسارَ إعدادٍ يُقرَأُ منه الافتراض، و`PlatformSettingsSeeder` يكتبُ ما
+    | يردُّه. ومسارٌ بلا ملفٍّ خلفَه يردُّ `null`، و`platform_settings.value` عمودٌ
+    | NOT NULL — فيموتُ البذرُ على الثالثِ من عشرةٍ وتبقى ستُّ كتالوجاتٍ مرجعيّةٍ
+    | بعدَه فارغة. حدثَ هذا فعلاً بـ`subscription.`، ويحرسُه اليومَ
+    | `PlatformSettingsTest` بمشيٍ على الخريطةِ كلِّها.
+    |
+    | ⚠️ **وخريطةُ سبعةٍ فارغةٍ لا `[]`**: كلاهما يمرُّ من حارسِ الـ`null`، لكنّ
+    | هذه هي الصورةُ التي يكتبُها `ManagePlatformSettings` ويقرأُها
+    | `TransferInstructions`. والقيمُ فارغةٌ عمداً — `areSet()` تردُّ `false`
+    | فتقولُ الشاشةُ «غيرُ معلَنةٍ بعد» بدلَ أن تعرضَ وجهةً اخترعَها ملفُّ إعداد.
+    |
+    | والحقولُ مكتوبةٌ حرفاً ولا تُشتَقُّ من `TransferInstructions::FIELDS`:
+    | `config:cache` يُصدِّرُ هذا الملفَّ قيماً، فلا يُستدعى فيه صنف.
+    */
+    'transfer' => [
+        'bank_name' => '',
+        'account_name' => '',
+        'account_number' => '',
+        'iban' => '',
+        'wallet_label' => '',
+        'wallet_number' => '',
+        'note' => '',
+    ],
+
+    /*
     | Credit limit policy (Q-9) — deliberately conservative, and switched OFF at
     | launch because the default mode is PREPAID_CREDITS, where FR-014 forbids
     | going below zero whatever these say.

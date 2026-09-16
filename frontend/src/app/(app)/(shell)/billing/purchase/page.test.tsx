@@ -99,8 +99,19 @@ describe("الطالب لنفسه", () => {
 
     await waitFor(() => expect(screen.getByText("أربع حصص")).toBeTruthy());
 
+    const asked = get.mock.calls.map((call) => String(call[0]));
+
+    /*
+     * ⚠️ **بالمضمونِ لا بالموضع.** كانَ `get.mock.calls[0][0]`، فكسرَه أوّلُ
+     * نداءٍ أُضيفَ إلى الشاشة (`‎/billing/transfer-instructions` من
+     * `TransferDestination`) — والاختبارُ لم يكنْ يعني «أوّلُ بابٍ طُرِق» بل
+     * «أيَّ بابٍ طرقتَ»، وهو ما تقولُه ترويسةُ هذا الملفِّ نفسُها وما تفعلُه
+     * حالاتُه الأخرى بـ`asked`.
+     */
     // الحقلُ غائبٌ لا `null`: الغيابُ يعني «أنا»، وهو ما عنَتْه كلُّ طلباتِ ما قبلَ ٠٣١.
-    expect(get.mock.calls[0][0]).toBe("/billing/packages?course=c-1");
+    expect(asked).toContain("/billing/packages?course=c-1");
+    // ووجهةُ التحويلِ تُطلَبُ من الشاشةِ نفسِها، فالمشتري يعرفُ إلى أين قبلَ أن يدفع.
+    expect(asked).toContain("/billing/transfer-instructions");
 
     screen.getByRole("button", { name: "اختيار هذه الحزمة" }).click();
 
@@ -166,8 +177,10 @@ describe("وليّ الأمر", () => {
 
     await waitFor(() => expect(screen.getByText("أربع حصص")).toBeTruthy());
 
+    const asked = get.mock.calls.map((call) => String(call[0]));
+
     // التسعيرُ محروسٌ كالشراء، فالابنُ مُسمّىً على البابَين معاً.
-    expect(get.mock.calls[0][0]).toBe("/billing/packages?course=c-1&student_uuid=s-1");
+    expect(asked).toContain("/billing/packages?course=c-1&student_uuid=s-1");
 
     screen.getByRole("button", { name: "اختيار هذه الحزمة" }).click();
 
