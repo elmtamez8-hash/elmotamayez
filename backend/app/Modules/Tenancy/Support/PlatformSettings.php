@@ -48,6 +48,23 @@ final class PlatformSettings
         | the device limits and the billing knobs beside it stay where they are.
         */
         'platform.name' => 'platform.name',
+        /*
+        | إلى أينَ يُحوِّلُ المشتري (بلاغُ مستخدِمٍ ٢٠٢٦-٠٩-١٦).
+        |
+        | ⛔ **الشاشةُ كانت تقولُ «حوِّلْ قيمة الباقة إلى حساب المنصّة» ولا تقولُ
+        | أيُّ حساب.** قِيسَ: تسعةٌ وستّونَ صفّاً في هذا الجدولِ وليسَ فيها اسمُ
+        | بنكٍ ولا آيبان ولا محفظة. فالمنتَجُ يطلبُ تحويلاً إلى مكانٍ غيرِ معلَن،
+        | ثمّ يطلبُ إيصالَه.
+        |
+        | ⚠️ **خريطةٌ في صفٍّ واحدٍ لا سبعةُ صفوف**: هذه الحقولُ تُقرَأُ معاً
+        | وتُحرَّرُ معاً في قسمٍ واحد، وسابقتُها `auth.device_limits` في السطرِ
+        | التالي. وسبعةُ مفاتيحَ تعني سبعَ فرصٍ لأن يُملأَ بعضُها ويُنسى الباقي.
+        |
+        | ⚠️ **ولا تُضافُ إلى `/platform` العامّ.** ذاك قائمةُ سماحٍ بحقلٍ واحدٍ
+        | يحرسُها `PublicFieldAllowlist`، وتعليقُه يقولُ لماذا. ومَن يحتاجُ هذه
+        | البياناتِ هو مَن على وشكِ الدفع، فبابُها بمصادقة.
+        */
+        'billing.transfer' => 'billing.transfer',
         'auth.device_limits' => 'media.device_limits',
         'auth.two_factor_grace_days' => 'media.two_factor_grace_days',
         'media.max_size_bytes' => 'media.max_size_bytes',

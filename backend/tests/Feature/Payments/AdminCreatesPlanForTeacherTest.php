@@ -9,12 +9,15 @@ use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Payments\Actions\CreatePlanForTeacher;
 use App\Modules\Payments\Enums\PlanCoverage;
+use App\Modules\Payments\Filament\Resources\PlanResource;
 use App\Modules\Payments\Filament\Resources\PlanResource\Pages\CreatePlan;
+use App\Modules\Payments\Filament\Resources\PlanResource\Pages\ListPlans;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Livewire\Livewire;
 
 /*
 | ٠٣٤ · FR-017 … FR-019 — الإدارةُ تُنشئُ باقةً باسمِ مدرّسٍ منصوصٍ عليه.
@@ -154,3 +157,37 @@ function adminPlanData(PlanCoverage $coverage = PlanCoverage::Workspace): array
         'coverage_type' => $coverage->value,
     ];
 }
+
+/*
+| ⛔ **البابُ مفتوحٌ منذُ ٠٣٤، ولم يكنْ إليه طريق.**
+|
+| `canCreate()` صارَ `true` وصفحةُ `CreatePlan` كُتِبَت وسُجِّلَت في `getPages()` —
+| بينما `ListPlans::getHeaderActions()` بقيَ فارغاً، وتحتَه تعليقٌ يدافعُ عن
+| القاعدةِ التي ألغاها ٠٣٤ نفسُه. فالصفحةُ لا تُفتَحُ إلّا بكتابةِ عنوانِها.
+|
+| قِيسَ على الإنتاج ٢٠٢٦-٠٩-١٦: `plans` فيه صفرُ صفوفٍ واحتاجَ مشغِّلٌ أوّلَ
+| باقةٍ على المنصّةِ فلم يجدْ زرّاً. وهي ثالثةُ مرّةٍ يُبنى فيها سطحٌ ولا يصلُ
+| إليه شيء.
+|
+| ⚠️ **وشقٌّ ضدٌّ معه**: الزرُّ يقرأُ `canCreate()` نفسَها، فمن لا يملكُ
+| `plans.price` لا يراه — وإخفاءُ الزرِّ ليسَ حراسةً، لذلك يبقى الفعلُ يسألُ
+| الصلاحيّةَ داخلَه كما هو.
+*/
+it('offers a way into the create screen instead of hiding it behind its address', function (): void {
+    Livewire::actingAs($this->officer)
+        ->test(ListPlans::class)
+        ->assertActionExists('create');
+});
+
+it('offers it to nobody without the pricing permission', function (): void {
+    [, $stranger] = $this->createWorkspaceWithOwner();
+
+    // ⚠️ الشقُّ الموجَبُ أوّلاً وبحسابٍ محدَّد: `canCreate()` تسألُ
+    // `auth()->user()`، فسؤالُها بلا حسابٍ يُجيبُ `false` دائماً — وحالةٌ
+    // مبنيّةٌ على ذلك تمرُّ خضراءَ فوقَ بناءٍ يُخفي الزرَّ عن الجميع.
+    Livewire::actingAs($this->officer);
+    expect(PlanResource::canCreate())->toBeTrue();
+
+    Livewire::actingAs($stranger);
+    expect(PlanResource::canCreate())->toBeFalse();
+});

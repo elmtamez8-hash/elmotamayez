@@ -1,5 +1,6 @@
 "use client";
 
+import { TransferDestination } from "@/components/billing/TransferDestination";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
@@ -407,6 +408,8 @@ export default function PurchaseCreditsPage() {
           ))}
         </ul>
       )}
+
+      <TransferDestination />
 
       <p className="text-xs text-ink-muted">
         لا يُضاف أي رصيد قبل اعتماد الدفع. بعد اختيار الحزمة يُرفع إيصال التحويل،
