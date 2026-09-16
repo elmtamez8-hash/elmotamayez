@@ -58,6 +58,17 @@ class ClassSessionPolicy extends BasePolicy
      * through `ClassSession::holdsSeat()`, and the enrolment through the same
      * `EnrollmentDirectory` method `BookingEligibility::refusalReason()` asks. A
      * third spelling is how one answer reaches the screen and another the door.
+     *
+     * ⚠️ AND SINCE 2026-09-16 THEY SHARE THE READ, NOT ONLY THE SPELLING. That
+     * one spelling was being executed twice per booking request — here at the
+     * door, and again behind it — so `EloquentEnrollmentDirectory` is bound
+     * `scoped()` and memoises the answer, flushed by any write to an
+     * `Enrollment`. Nothing about this method changes; it is measured from
+     * outside by `BookingPathReadsOnceTest`.
+     *
+     * ⚠️ `holdsSeat()` IS ASKED FIRST, which is why that test's student holds no
+     * seat: a seated student never reaches the enrolment line at all, and a
+     * fixture with a seat would measure a memo nothing touches.
      */
     public function view(User $user, ClassSession $session): Response
     {

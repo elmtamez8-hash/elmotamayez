@@ -121,13 +121,31 @@ class PaymentsServiceProvider extends Module
         /*
         | Spec 027 — what the subscription layer answers to LiveSessions and Learning.
         |
-        | bind(), and neither of the other two lifetimes. NOT `scoped()`: this is
-        | asked once per seat-claim job and once per scheduled session, not the
-        | dozens-per-page shape `AssistantScopeDirectory` and `Flags` memoise for.
-        | NOT `singleton()`: a worker's container outlives the job, so a memo here
-        | would serve a subscriber list that expired hours ago — and the whole
-        | point of the moment parameter is that this answer moves.
+        | ⚠️ `scoped()`, AND THIS LINE SAID `bind()` UNTIL IT WAS MEASURED. The
+        | reason given was «asked once per seat-claim job and once per scheduled
+        | session, not the dozens-per-page shape `AssistantScopeDirectory` and
+        | `Flags` memoise for» — and it was wrong about the busiest caller of all:
+        | `POST /class-sessions/{s}/book` reads `subscriptions` TWICE, because
+        | `EloquentAccountStanding::refusalFor()` asks `coversCourse()` at the top
+        | of its walk and `EloquentSessionCreditHolds::place()` asks the same one
+        | spelling again before it freezes a credit. Measured 2026-09-16: **2
+        | before, 1 after**.
+        |
+        | NOT `singleton()`, and that half of the old comment stands: a worker's
+        | container outlives the job, so a memo there would serve a subscriber
+        | list that expired hours ago — and the whole point of the moment
+        | parameter is that this answer moves.
+        |
+        | ⚠️ THE CONCRETE CLASS IS BOUND, NOT ONLY THE INTERFACE, and both lines
+        | are needed. `coversCourse()` is not on `SubscriptionDirectory`, so
+        | `EloquentSessionCreditHolds` and `EloquentAccountStanding` inject
+        | `SubscriptionEligibility` itself — left unbound, the container builds
+        | each of them a private instance and the memo below never hits. The
+        | interface then resolves THROUGH that binding, so both doors share one
+        | object; `BookingPathReadsOnceTest` asserts they are the same instance
+        | rather than trusting this paragraph.
         */
+        $this->app->scoped(SubscriptionEligibility::class);
         $this->app->bind(SubscriptionDirectory::class, SubscriptionEligibility::class);
 
         /*
@@ -167,6 +185,27 @@ class PaymentsServiceProvider extends Module
     public function boot(): void
     {
         parent::boot();
+
+        /*
+        | ⛔ THE COVERAGE MEMO'S INVALIDATION, AND IT IS WHAT MAKES THE MEMO HONEST.
+        |
+        | `SubscriptionEligibility` remembers a student's live subscriptions for
+        | the life of the request or the job, because the booking door asks about
+        | them twice. A remembered verdict that outlives the row it describes is
+        | precisely why `AccountStanding` refused a memo of its own (see
+        | `OneMoneyQuestionTest`) — so every write to a `Subscription` drops the
+        | whole map. Everything rather than one key: the map holds one or two
+        | entries, and a per-key invalidation is a second place to spell the key.
+        |
+        | ⚠️ A BULK `update()` RETRIEVES NO MODELS AND FIRES NO EVENTS — the
+        | `LedgerEntry` rule. A bulk writer must call `forget()` itself.
+        */
+        $forgetCoverage = static function (): void {
+            app(SubscriptionEligibility::class)->forget();
+        };
+
+        Subscription::saved($forgetCoverage);
+        Subscription::deleted($forgetCoverage);
 
         // One event, two listeners, split on `orders.kind`. A course order enrols;
         // a credit order mints credits. Each ignores the other's kind, and

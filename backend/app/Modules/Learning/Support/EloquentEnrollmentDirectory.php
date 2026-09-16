@@ -16,12 +16,43 @@ use Carbon\CarbonImmutable;
  * with many teachers and asks about a lesson before any workspace is current, so
  * scoping here would return nothing and silently deny every playback. The guard
  * is the student's own id, which is stricter than a workspace filter would be.
+ *
+ * ⚠️ THE TWO ENTITLEMENT BOOLEANS ARE MEMOISED, AND THE BINDING IS `scoped()`.
+ * Both are asked TWICE on one booking request and each asker is right to ask:
+ * `ClassSessionPolicy::view()` guards the door with
+ * `hasActiveEnrollmentInWorkspace()`, and `BookingEligibility::refusalReason()`
+ * — which is also reached from the nightly sweep, where no policy runs — asks
+ * the same question in the same spelling one step later. That shared spelling is
+ * deliberate and must stay; the repeated READ was not. Measured on
+ * `/class-sessions/{s}/eligibility` and on `POST …/book`: **2 before, 1 after**.
+ *
+ * ⛔ AND THE MEMO IS INVALIDATED BY A WRITE, which is the whole difference
+ * between a memo and a lie. `AccountStanding` refused one for exactly this
+ * reason (see `OneMoneyQuestionTest`): the nightly sweep holds a single instance
+ * for its whole cycle and RELEASES CREDIT inside it, so a remembered verdict
+ * outlives the thing it describes. Here `LearningServiceProvider` flushes this
+ * on every `Enrollment` save and delete, so a row written mid-lifetime is seen.
+ *
+ * ⚠️ KNOWN CEILING: a BULK `update()`/`delete()` retrieves no models and fires
+ * no events, so it does not flush. The one such writer is
+ * `LearningPersonalData`'s retention sweep, which erases the rows of a person
+ * nothing else in that job asks about. A new bulk writer must call
+ * {@see self::forget()} itself.
  */
 class EloquentEnrollmentDirectory implements EnrollmentDirectory
 {
+    /** @var array<string, bool> */
+    private array $entitlement = [];
+
+    /** Drop everything remembered — called from the model hooks. */
+    public function forget(): void
+    {
+        $this->entitlement = [];
+    }
+
     public function hasActiveEnrollment(User $user, int $courseId): bool
     {
-        return Enrollment::query()
+        return $this->entitlement['c:'.$user->getKey().':'.$courseId] ??= Enrollment::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $user->getKey())
             ->where('course_id', $courseId)
@@ -31,7 +62,7 @@ class EloquentEnrollmentDirectory implements EnrollmentDirectory
 
     public function hasActiveEnrollmentInWorkspace(User $user, int $workspaceId): bool
     {
-        return Enrollment::query()
+        return $this->entitlement['w:'.$user->getKey().':'.$workspaceId] ??= Enrollment::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $user->getKey())
             ->where('workspace_id', $workspaceId)

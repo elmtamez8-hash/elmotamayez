@@ -45,6 +45,20 @@ use Illuminate\Support\Collection;
 class SubscriptionEligibility implements SubscriptionDirectory
 {
     /**
+     * Live subscriptions already read in this request or job, keyed by student
+     * and moment.
+     *
+     * @var array<string, Collection<int, Subscription>>
+     */
+    private array $live = [];
+
+    /** Drop everything remembered — called from the model hooks. */
+    public function forget(): void
+    {
+        $this->live = [];
+    }
+
+    /**
      * Every live subscription this student holds, newest window last.
      *
      * ⚠️ ONE READ, AND EVERY CALLER BELOW FILTERS IT IN MEMORY. A student holds
@@ -63,11 +77,29 @@ class SubscriptionEligibility implements SubscriptionDirectory
      * where the reader's workspace is a real number that would hide every other
      * teacher's subscription from a platform report.
      *
+     * ⚠️ AND IT IS MEMOISED FOR THE LIFE OF THE REQUEST, because `coversCourse()`
+     * is asked TWICE on one booking and each asker is right to ask:
+     * `EloquentAccountStanding::refusalFor()` opens its walk with it, and
+     * `EloquentSessionCreditHolds::place()` asks the same one spelling again a
+     * step later before it freezes anything. Measured on `POST …/book`:
+     * **2 reads before, 1 after**.
+     *
+     * ⚠️ THE KEY NORMALISES A NULL MOMENT TO A SENTINEL, NOT TO `now()`. Two
+     * `now()` instances differ by microseconds, so a key built from the resolved
+     * clock never matches itself and the memo is a map that only ever grows.
+     *
+     * ⛔ AND IT IS FLUSHED BY EVERY WRITE (see `PaymentsServiceProvider::boot()`).
+     * A remembered coverage verdict that outlives the row it describes is the
+     * lie `AccountStanding` refused a memo of its own to avoid — and this one is
+     * read on a door that decides whether a student pays for a seat.
+     *
      * @return Collection<int, Subscription>
      */
     public function liveFor(int $studentUserId, ?DateTimeInterface $moment = null): Collection
     {
-        return Subscription::query()
+        $key = $studentUserId.':'.($moment?->format('Y-m-d H:i:s') ?? 'now');
+
+        return $this->live[$key] ??= Subscription::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $studentUserId)
             ->liveOn($moment ?? now())
