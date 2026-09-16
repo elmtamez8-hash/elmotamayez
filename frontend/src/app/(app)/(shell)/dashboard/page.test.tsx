@@ -637,8 +637,19 @@ function teacherAnswer(path: string) {
   return Promise.reject(new Error("403"));
 }
 
+/*
+| ⚠️ **ومساحةُ العملِ في الأساسِ لا في كلِّ حالة، لأنّ كلَّ مدرّسٍ يملكُ واحدة.**
+| تجهيزةٌ بلا مساحةٍ تصفُ شخصاً لا وجودَ له في المنتَج، وكانت ستجعلَ حالاتِ
+| المساعِدِ تحتَها تمرُّ بسببَينِ لا بالسببِ الذي كُتِبَت له. والاستثناءُ الوحيدُ
+| — مالكُ المنصّةِ — يقولُ ذلك صراحةً في حالتِه.
+*/
 function asTeacher(user: Record<string, unknown>) {
-  mockUser = { first_name: "محمود", platform_role: "teacher", ...user };
+  mockUser = {
+    first_name: "محمود",
+    platform_role: "teacher",
+    workspaces: [{ uuid: "w-1", name: "أكاديميتي" }],
+    ...user,
+  };
   get.mockImplementation(teacherAnswer);
 }
 
@@ -677,6 +688,33 @@ describe("DashboardPage · المدرّس", () => {
     */
     expect(paths.some((p) => p.startsWith("/enrollments"))).toBe(false);
     expect(screen.queryByText("كورسات جارية")).toBeNull();
+  });
+
+  /*
+  | مالكُ المنصّةِ: لا مساحةَ عملٍ ولا ملفَّ تدريس (قِيسَ على الإنتاج ٢٠٢٦-٠٩-١٦
+  | — `workspaces = 0` و`last_workspace_id` فارغ)، و`Gate::before` يمرّرُه فوقَ
+  | كلِّ صلاحيّةٍ فحمولتُه تحملُها كلَّها.
+  |
+  | ⚠️ **والتوكيدُ على أنّ البابَ لم يُطرَقْ لا على أنّ الكرتَ غائب.** الكرتُ
+  | يغيبُ في كلتا الحالتَين؛ ما كانَ يحدثُ هو طلبٌ يُجابُ ٤٠٣ فيرسمُ «لا تملك
+  | صلاحية لهذا الإجراء» على أوّلِ شاشةٍ بعدَ الدخول — عن الصلاحيّةِ الوحيدةِ
+  | التي يملكُها بلا نزاع. والجملةُ كاذبةٌ فوقَ رفضٍ صادق.
+  */
+  it("asks a platform owner with no workspace nothing a workspace answers", async () => {
+    asTeacher({ ...HOST, workspaces: [], teacher_profile_uuid: null });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("روابط سريعة")).toBeDefined();
+
+    const paths = calledPaths();
+
+    expect(paths.some((p) => p.startsWith("/manage/billing/students"))).toBe(false);
+    expect(paths.some((p) => p.startsWith("/teacher/profile"))).toBe(false);
+    expect(screen.queryByText("طلاب محجوبون")).toBeNull();
+
+    // وما لا يحتاجُ مساحةً يبقى مطروقاً — وإلّا قِيسَ صمتٌ لا حراسة.
+    expect(paths.some((p) => p.startsWith("/manage/grading/queue"))).toBe(true);
   });
 
   it("counts people, not rows, among the withheld", async () => {

@@ -212,3 +212,54 @@ describe("a screen that needs a teaching profile, not just a permission", () => 
     expect(hrefs).toContain("/manage/settlement");
   });
 });
+
+/*
+| شرطٌ ثانٍ، وهو شرطُ شخصٍ آخر (طلبُ ٢٠٢٦-٠٩-١٦).
+|
+| «أرصدة الطلاب» تردُّ ٤٠٣ بلا مساحةِ عملٍ من `abort_if($workspaceId === null)`
+| — لا من الصلاحيّة. ومالكُ المنصّةِ يمرُّ فوقَ كلِّ صلاحيّةٍ بـ`Gate::before`
+| ولا يملكُ مساحةَ عملٍ واحدة، فاللينكُ كانَ يُعرَضُ له ويوصِّلُ إلى رفضٍ دائم.
+|
+| **وشقّانِ ضدّان** كالزوجِ أعلاه، **والثالثُ يمنعُ الخلطَ بينَ الشرطَين**: مساعدُ
+| مدرّسٍ لا ملفَّ تدريسٍ له ويملكُ مساحةَ عمل، فتوحيدُ الشرطَينِ في واحدٍ كانَ
+| سيسحبُ منه شاشةً هي شاشتُه.
+*/
+describe("a screen that needs a workspace, not just a permission", () => {
+  const withPermission = { permissions: [P.billingBalanceView] };
+
+  it("hides «أرصدة الطلاب» from a platform owner who holds no workspace", () => {
+    const hrefs = allowedNav(adminNav, person({ ...withPermission, workspaces: [] })).map(
+      (item) => item.href,
+    );
+
+    expect(hrefs).not.toContain("/manage/billing/students");
+  });
+
+  it("keeps it for the teacher whose workspace it is about", () => {
+    const hrefs = allowedNav(
+      adminNav,
+      person({ ...withPermission, workspaces: [{ uuid: "w-1", name: "أكاديميتي" }] }),
+    ).map((item) => item.href);
+
+    expect(hrefs).toContain("/manage/billing/students");
+  });
+
+  it("does not confuse the two preconditions — an assistant has a workspace and no profile", () => {
+    const hrefs = allowedNav(
+      adminNav,
+      person({
+        ...withPermission,
+        teacher_profile_uuid: null,
+        workspaces: [{ uuid: "w-1", name: "أكاديميتي" }],
+      }),
+    ).map((item) => item.href);
+
+    expect(hrefs).toContain("/manage/billing/students");
+    // والشاشةُ الأخرى — في قائمةٍ أخرى — تبقى مخفيّةً عنه بالشرطِ الآخر.
+    expect(allowedNav(mainNav, person({
+      permissions: [P.settlementStatement],
+      teacher_profile_uuid: null,
+      workspaces: [{ uuid: "w-1", name: "أكاديميتي" }],
+    })).map((item) => item.href)).not.toContain("/manage/settlement");
+  });
+});
