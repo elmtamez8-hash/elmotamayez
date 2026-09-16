@@ -10,6 +10,7 @@ import { CheckboxField } from "@/components/ui/Field";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { userMessage } from "@/lib/errors";
+import { useAuth } from "@/lib/auth-context";
 import { compliance, type DataCategory, type DataProcessor } from "@/lib/compliance";
 
 /**
@@ -24,6 +25,21 @@ import { compliance, type DataCategory, type DataProcessor } from "@/lib/complia
  * is the one category a parent is most likely to be surprised by, so it is stated
  * as «صوتاً وصورةً» rather than as a technical noun — that exact sentence is what
  * `ConsentScreen.test.tsx` asserts, because the wording IS the requirement.
+ *
+ * ⛔ **وتُرشَّحُ بدَورِ صاحبِ البيانات، وإلّا قرأَ المدرّسُ عن نفسِه ما ليسَ عنه.**
+ * الكتالوجُ كلُّه ثلاثةٌ وثلاثونَ فئةً تصفُ ما تجمعُه المنصّةُ من **كلِّ**
+ * أنواعِ الحسابات، وكانت تُعرَضُ كاملةً لكلِّ قارئ: «سجلّ التسجيل في الكورسات»
+ * و«تقدّمك في الدروس» و«محاولاتك في الاختبارات» و«الأفكار التي أتقنتها» على
+ * شاشةِ مدرّسٍ لا يدرسُ عندَ أحد. بلاغُ مستخدِمٍ ٢٠٢٦-٠٩-١٦.
+ *
+ * ⚠️ **والكتالوجُ الكاملُ يبقى منشوراً — في `‎(public)/privacy` مقسَّماً بالدَّور.**
+ * هذه الشاشةُ «بياناتي أنا»، وتلك «ما تجمعُه المنصّة»؛ ترشيحُ الثانيةِ كانَ
+ * سيُخفي عن زائرٍ يُوازِنُ قبلَ التسجيلِ نصفَ ما سيُجمَع.
+ *
+ * ⚠️ **والقاعدتانِ كلتاهُما على الخادم**: `data_subject_roles` على الحساب،
+ * و`subject_roles` على الفئة. وما يجري هنا تقاطعُ مجموعتَينِ وصلتا جاهزتَين —
+ * لا اشتقاقُ «مَن المدرّس» في TypeScript، وهو الفرقُ الذي جعلَ تسجيلاً مدفوعاً
+ * غيرَ قابلٍ للفتحِ في ٠١٨.
  */
 export function ConsentScreen({
   studentUuid,
@@ -33,6 +49,7 @@ export function ConsentScreen({
   studentUuid?: string;
   onSaved?: () => void;
 }) {
+  const { user } = useAuth();
   const [categories, setCategories] = useState<DataCategory[] | null>(null);
   const [processors, setProcessors] = useState<DataProcessor[]>([]);
   const [chosen, setChosen] = useState<Set<string>>(new Set());
@@ -95,8 +112,28 @@ export function ConsentScreen({
     return <RowsSkeleton />;
   }
 
-  const required = categories.filter((category) => category.is_required);
-  const optional = categories.filter((category) => !category.is_required);
+  /*
+    ⚠️ **وليُّ الأمرِ الذي يُوافِقُ عن طفلِه يقرأُ فئاتِ الطفل، لا فئاتِه هو.**
+    صاحبُ البياناتِ هنا هو مَن تُكتَبُ الموافقةُ عنه — وهو الطالبُ متى وُجِدَ
+    `studentUuid` — وترشيحٌ بدَورِ القارئِ كانَ سيعرضُ على وليِّ الأمرِ فئاتِه
+    الشخصيّةَ في شاشةٍ عن ابنِه.
+  */
+  const subjectRoles = studentUuid !== undefined ? ["student"] : (user?.data_subject_roles ?? []);
+
+  /*
+    ⚠️ ومجموعةٌ فارغةٌ تعرضُ الكلَّ ولا تعرضُ لا شيء. الحسابُ لم يُحمَّلْ بعد،
+    أو لم يُميِّزْه الخادم — وشاشةُ موافقةٍ فارغةٌ تقولُ «لا نجمعُ عنك شيئاً»،
+    وهي أسوأُ كذبةٍ ممكنةٍ في هذه الصفحةِ بالذات.
+  */
+  const mine =
+    subjectRoles.length === 0
+      ? categories
+      : categories.filter((category) =>
+          category.subject_roles.some((role) => subjectRoles.includes(role)),
+        );
+
+  const required = mine.filter((category) => category.is_required);
+  const optional = mine.filter((category) => !category.is_required);
 
   return (
     <div className="space-y-6">

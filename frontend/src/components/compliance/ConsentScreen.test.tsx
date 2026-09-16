@@ -14,6 +14,17 @@ vi.mock("@/lib/compliance", () => ({
   compliance: { categories: vi.fn(), policy: vi.fn(), updateCategories: vi.fn() },
 }));
 
+/*
+ * ⚠️ الشاشةُ تُرشِّحُ بدَورِ صاحبِ البيانات، فالحسابُ جزءٌ من التجهيزةِ لا زينة.
+ * ومجموعةٌ فارغةٌ هنا كانت ستعرضُ الكلَّ وتمرُّ خضراءَ فوقَ بناءٍ بلا ترشيحٍ
+ * أصلاً — فكلُّ حالةٍ تُسمّي دورَها.
+ */
+let subjectRoles: string[] = ["student"];
+
+vi.mock("@/lib/auth-context", () => ({
+  useAuth: () => ({ user: { data_subject_roles: subjectRoles } }),
+}));
+
 const categories = vi.mocked(compliance.categories);
 const policy = vi.mocked(compliance.policy);
 
@@ -23,6 +34,7 @@ const RECORDING = {
   purpose: "تُسجَّل الحصص لتتمكّن أنت وزملاؤك من مراجعتها.",
   audience: "من حجز الحصة · المدرّس · مزوّد الفيديو",
   is_required: true,
+  subject_roles: ["student", "teacher"],
   owning_module: "media",
   retain_days: 730,
   retention_label_ar: "٧٣٠ يوماً",
@@ -35,7 +47,22 @@ const REVIEW = {
   purpose: "لتساعد غيرك على الاختيار.",
   audience: "علنيّ",
   is_required: false,
+  subject_roles: ["student"],
   owning_module: "marketplace",
+  retain_days: null,
+  retention_label_ar: "يُحفظ ما دام الحساب قائماً",
+  expiry_behaviour: null,
+};
+
+
+const EARNINGS = {
+  key: "teacher_earnings",
+  label: "أرباحك من التدريس",
+  purpose: "لحساب مستحقّاتك.",
+  audience: "المدرّس · إدارة المنصّة",
+  is_required: true,
+  subject_roles: ["teacher"],
+  owning_module: "settlement",
   retain_days: null,
   retention_label_ar: "يُحفظ ما دام الحساب قائماً",
   expiry_behaviour: null,
@@ -46,6 +73,7 @@ describe("ConsentScreen", () => {
     categories.mockReset();
     policy.mockReset();
 
+    subjectRoles = ["student"];
     categories.mockResolvedValue({ data: [RECORDING, REVIEW], processors: [] } as never);
     policy.mockResolvedValue({ version: "1.0", body_html: "<p>نصّ</p>" } as never);
   });
@@ -142,5 +170,61 @@ describe("ConsentScreen", () => {
 
     await waitFor(() => expect(screen.getByText("WhatsApp Business")).not.toBeNull());
     expect(screen.getByText(/لا يستقبل طلبَ حذف/)).not.toBeNull();
+  });
+
+  /*
+  | ⛔ بلاغُ مستخدِمٍ ٢٠٢٦-٠٩-١٦: مدرّسٌ يقرأُ على شاشتِه عن «تقدّمك في الدروس»
+  | و«محاولاتك في الاختبارات». الكتالوجُ يصفُ ما تجمعُه المنصّةُ من كلِّ أنواعِ
+  | الحسابات، وكانَ يُعرَضُ كاملاً لكلِّ قارئ.
+  |
+  | ⚠️ **وثلاثُ حالاتٍ لا واحدة**، وكلٌّ منها تحرسُ الأخرى: يُخفى ما ليسَ له،
+  | ويبقى ما هو له، ومَن يجمعُ الدَّورَينِ يرى الجانبَين — وشقٌّ واحدٌ يمرُّ على
+  | بناءٍ يُخفي كلَّ شيءٍ عن الجميع.
+  */
+  it("hides a student's categories from a teacher who studies nowhere", async () => {
+    subjectRoles = ["teacher"];
+    categories.mockResolvedValue({ data: [RECORDING, REVIEW, EARNINGS], processors: [] } as never);
+
+    render(<ConsentScreen />);
+
+    expect(await screen.findByText("أرباحك من التدريس")).toBeDefined();
+    expect(screen.queryByText("تقييماتك للمدرّسين")).toBeNull();
+    // والتسجيلُ يحملُ صوتَ المدرّسِ وصورتَه أيضاً، فيبقى.
+    expect(screen.queryByText("الظهور في تسجيلات الحصص (‏صوتاً وصورةً)")).not.toBeNull();
+  });
+
+  it("keeps a teacher's own categories off a student's screen", async () => {
+    subjectRoles = ["student"];
+    categories.mockResolvedValue({ data: [RECORDING, REVIEW, EARNINGS], processors: [] } as never);
+
+    render(<ConsentScreen />);
+
+    expect(await screen.findByText("تقييماتك للمدرّسين")).toBeDefined();
+    expect(screen.queryByText("أرباحك من التدريس")).toBeNull();
+  });
+
+  it("shows both sides to a teacher who also studies", async () => {
+    subjectRoles = ["teacher", "student"];
+    categories.mockResolvedValue({ data: [RECORDING, REVIEW, EARNINGS], processors: [] } as never);
+
+    render(<ConsentScreen />);
+
+    expect(await screen.findByText("أرباحك من التدريس")).toBeDefined();
+    expect(screen.queryByText("تقييماتك للمدرّسين")).not.toBeNull();
+  });
+
+  /*
+  | ⚠️ الاتّجاهُ الآمن، وهو قرارُ المواصفةِ لا سهوٌ: الخادمُ يُرجِعُ المجموعةَ
+  | فارغةً حينَ لا يُميِّزُ الحساب — وشاشةُ موافقةٍ فارغةٌ تقولُ «لا نجمعُ عنك
+  | شيئاً»، وهي أسوأُ كذبةٍ ممكنةٍ هنا.
+  */
+  it("shows everything when the server could not tell what this account is", async () => {
+    subjectRoles = [];
+    categories.mockResolvedValue({ data: [RECORDING, REVIEW, EARNINGS], processors: [] } as never);
+
+    render(<ConsentScreen />);
+
+    expect(await screen.findByText("أرباحك من التدريس")).toBeDefined();
+    expect(screen.queryByText("تقييماتك للمدرّسين")).not.toBeNull();
   });
 });

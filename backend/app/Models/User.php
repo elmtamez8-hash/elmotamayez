@@ -144,6 +144,51 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     }
 
     /**
+     * أيُّ أنواعِ البياناتِ الشخصيّةِ تخصُّ هذا الحساب.
+     *
+     * ⛔ شاشةُ «خصوصيّتي» كانت تعرضُ الثلاثةَ والثلاثينَ فئةً لكلِّ حساب، فقرأَ
+     * مدرّسٌ عن «تقدّمك في الدروس» و«محاولاتك في الاختبارات» و«الأفكار التي
+     * أتقنتها» — بلاغُ مستخدِمٍ ٢٠٢٦-٠٩-١٦. والجوابُ يُبنى هنا مرّةً، ويُقرَنُ
+     * في الواجهةِ بـ`data_categories.subject_roles`.
+     *
+     * ⚠️ **مجموعةٌ لا قيمةٌ واحدة.** مدرّسٌ يدرسُ عندَ غيرِه، ووليُّ أمرٍ يدرسُ
+     * هو أيضاً — كلاهما موجودٌ ويجبُ أن يرى الجانبَين. وقيمةٌ واحدةٌ تُجبِرُ على
+     * اختيارِ أحدِهما وإخفاءِ الآخر.
+     *
+     * ⚠️ **والتدريسُ من الدَّورِ في المحور، لا من `platform_role`.** العمودُ
+     * فارغٌ عندَ سبعةٍ وثلاثينَ حساباً منها ثمانيةٌ تحملُ دوراً تدريسيّاً —
+     * قِيسَ على قاعدةٍ حقيقيّة — فقراءةٌ منه وحدَها تُخطئُ في ثمانيةٍ بلا أثر.
+     *
+     * ⚠️ **والمجموعةُ الفارغةُ تعني «اعرضِ الكلَّ» لا «لا تعرضْ شيئاً»، وهذا هو
+     * القرار.** حسابٌ لا يُدرِّسُ ولا أعلنَ دورَه — وهو شكلٌ قائمٌ في القاعدة —
+     * لا نعرفُ عنه شيئاً، وإخفاءُ فئةٍ بياناتُه فيها **شاشةُ موافقةٍ تكذِب**،
+     * بينما عرضُ فئةٍ لا تخصُّه ضجيجٌ يُقرَأُ ويُتجاوَز. اتّجاهُ الخطأِ هو الذي
+     * يحسِم.
+     *
+     * @return list<string> من مفرداتِ {@see PlatformRole} ولا ثالثةَ لها
+     */
+    public function dataSubjectRoles(): array
+    {
+        $roles = [];
+
+        if ($this->teachesOnPlatform()) {
+            $roles[] = PlatformRole::Teacher->value;
+        }
+
+        if ($this->platform_role === PlatformRole::Parent) {
+            $roles[] = PlatformRole::Parent->value;
+        }
+
+        if ($this->platform_role === PlatformRole::Student) {
+            $roles[] = PlatformRole::Student->value;
+        }
+
+        return $roles === []
+            ? [PlatformRole::Student->value, PlatformRole::Teacher->value, PlatformRole::Parent->value]
+            : $roles;
+    }
+
+    /**
      * The marketplace teacher profile, if this user applied to teach.
      *
      * @return HasOne<TeacherProfile, $this>

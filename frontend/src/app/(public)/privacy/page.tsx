@@ -28,6 +28,65 @@ export const metadata: Metadata = {
  */
 export const revalidate = 300;
 
+type Category = {
+  key: string;
+  label: string;
+  purpose: string;
+  audience: string;
+  is_required: boolean;
+  retention_label_ar: string;
+  subject_roles: ("student" | "teacher" | "parent")[];
+};
+
+/*
+| ⚠️ **الكتالوجُ مقسَّمٌ بالدَّورِ لا مسروداً عائماً.** ثلاثةٌ وثلاثونَ فئةً في
+| قائمةٍ واحدةٍ تجعلُ الزائرَ يقرأُ عن أرباحِ المدرّسِ وهو يُوازِنُ تسجيلَ ابنِه،
+| وعن محاولاتِ الطالبِ في الاختباراتِ وهو مدرّسٌ يفكّرُ في الانضمام. والأقسامُ
+| هنا تعرضُ الكلَّ — هذه صفحةُ السياسةِ وليست «بياناتي» — لكنّها تقولُ لكلِّ
+| قارئٍ أينَ يقرأُ عن نفسِه.
+|
+| وفئةٌ تخصُّ أكثرَ من دَورٍ تظهرُ في كلِّ قسمٍ يخصُّه: «الاسم» و«رقم الهاتف»
+| تُجمَعانِ من الجميع، وتكرارُهما أصدقُ من قسمٍ رابعٍ اسمُه «مشترك» يذهبُ إليه
+| القارئُ ليكتشفَ أنّ نصفَ ما يخصُّه هناك.
+*/
+const SECTIONS: { role: Category["subject_roles"][number]; title: string; lead: string }[] = [
+  {
+    role: "student",
+    title: "إن كنت طالباً",
+    lead: "ما نجمعه عنك بصفتك دارساً على المنصّة.",
+  },
+  {
+    role: "parent",
+    title: "إن كنت وليّ أمر",
+    lead: "ما نجمعه عنك بصفتك مسؤولاً عن حساب طالب.",
+  },
+  {
+    role: "teacher",
+    title: "إن كنت مدرّساً",
+    lead: "ما نجمعه عنك بصفتك مدرّساً يعرض دروسه هنا.",
+  },
+];
+
+async function categories(): Promise<Category[]> {
+  try {
+    const response = await fetch(
+      `${process.env.API_URL ?? "http://localhost:8000"}/api/v1/privacy/categories`,
+      { cache: "no-store" },
+    );
+
+    if (!response.ok) return [];
+
+    return ((await response.json()) as { data: Category[] }).data;
+  } catch {
+    /*
+      ⚠️ قائمةٌ فارغةٌ لا صفحةُ خطأ. نصُّ السياسةِ فوقَها هو الوثيقةُ، والأقسامُ
+      تفصيلٌ يشرحُه — فانقطاعٌ في القراءةِ لا يجوزُ أن يمنعَ النصَّ المنشورَ
+      الذي يُحيلُ إليه كلُّ فوتر.
+    */
+    return [];
+  }
+}
+
 async function policy(): Promise<{ version: string; body_html: string } | null> {
   try {
     const response = await fetch(`${process.env.API_URL ?? "http://localhost:8000"}/api/v1/privacy/policy`, {
@@ -53,7 +112,7 @@ async function policy(): Promise<{ version: string; body_html: string } | null> 
 }
 
 export default async function PrivacyPage() {
-  const document = await policy();
+  const [document, catalogue] = await Promise.all([policy(), categories()]);
 
   return (
     <div className="space-y-6">
@@ -90,6 +149,45 @@ export default async function PrivacyPage() {
           */}
           <p className="text-xs text-ink-muted">نسخة السياسة: {document.version}</p>
         </>
+      )}
+
+      {catalogue.length > 0 && (
+        <section className="space-y-6">
+          <h2 className="text-lg font-semibold text-ink">تفصيل ما نجمعه، حسب نوع الحساب</h2>
+
+          {SECTIONS.map((section) => {
+            const rows = catalogue.filter((category) =>
+              category.subject_roles.includes(section.role),
+            );
+
+            if (rows.length === 0) return null;
+
+            return (
+              <div key={section.role} className="rounded-2xl border border-line p-5">
+                <h3 className="font-semibold text-ink">{section.title}</h3>
+                <p className="mb-4 text-sm text-ink-muted">{section.lead}</p>
+
+                <ul className="divide-y divide-line">
+                  {rows.map((category) => (
+                    <li key={category.key} className="py-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-ink">{category.label}</span>
+                        {/* لازم/اختياري تفرقةٌ لا تُخفى — هي نفسُها تفرقةُ شاشةِ الموافقة. */}
+                        <span className="text-xs text-ink-muted">
+                          {category.is_required ? "لازم" : "اختياري"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-ink-muted">{category.purpose}</p>
+                      <p className="mt-1 text-xs text-ink-muted">
+                        يطّلع عليه: {category.audience} · مدة الحفظ: {category.retention_label_ar}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </section>
       )}
     </div>
   );
