@@ -39,9 +39,26 @@ class OrderController extends Controller
         | ظهرَ فيها باسمِه هو.
         */
         if (! $user->can(Permissions::ORDERS_VIEW_ALL)) {
-            $query->where(fn (Builder $mine) => $mine
-                ->where('user_id', $user->getKey())
-                ->orWhere('granted_by', $user->getKey()));
+            /*
+            | ⛔ **وبلا نطاقِ مساحةِ العمل، وإلّا اختفى من المشتري طلبُه هو.**
+            | `Order` مملوكٌ لمساحةِ عمل، و`WorkspaceContext::id()` يرتدُّ إلى
+            | `users.last_workspace_id` — وهو مختومٌ على كلِّ طالبٍ أضافَه مدرّسٌ
+            | أو دعوةٌ أو باذِر. فطالبٌ مختومٌ بمساحةِ مدرّسٍ ثمّ اشترى من مدرّسٍ
+            | آخرَ كانَ يفتحُ «طلباتي» فيقرأُ «لا طلبات في سجلّك» — قائمةٌ فارغةٌ
+            | بلا خطأٍ واحد، ومعها يختفي زرُّ رفعِ الإيصالِ وموضعُ قراءةِ القرار.
+            |
+            | قِيسَ على الإنتاج ٢٠٢٦-٠٩-١٦ بمشيٍ حقيقيّ: طلبٌ #٩ في مساحةِ العملِ
+            | ٥ باسمِ طالبٍ مختومٍ بـ١ — الاستعلامُ نفسُه يردُّ **صفراً** عبرَ HTTP
+            | و**واحداً** في الطرفيّةِ حيثُ السياقُ فارغٌ فالنطاقُ خامل.
+            |
+            | ⚠️ **والحارسُ هو المُرشِّحُ تحتَه لا النطاق**: «طلبي» = `user_id` أو
+            | `granted_by`، وكلاهما أضيقُ من أيِّ مساحةِ عمل. وهي عائلةُ عطبِ
+            | ٠٣٢ نفسِها — قراءةٌ يواجهُها طالبٌ لا يجوزُ أن تمرَّ بالنطاق.
+            */
+            $query->withoutWorkspaceScope()
+                ->where(fn (Builder $mine) => $mine
+                    ->where('user_id', $user->getKey())
+                    ->orWhere('granted_by', $user->getKey()));
         } elseif (! $user->can(Permissions::BILLING_PURCHASE_APPROVE)) {
             /*
             | ⚠️ THE SAME CUT AS `OrderPolicy::view()`, HERE BECAUSE A LIST TAKES
@@ -58,6 +75,17 @@ class OrderController extends Controller
             $query->where(fn (Builder $rows) => $rows
                 ->whereIn('kind', OrderKind::teacherListedValues())
                 ->orWhere('user_id', $user->getKey()));
+        }
+
+        /*
+        | ⚠️ **وموظّفُ المنصّةِ كذلك، وهو الفرعُ الثالثُ بلا مُرشِّحٍ فوقَه.**
+        | سياقُه يرتدُّ إلى مساحتِه هو تماماً كأيِّ حساب، فطابورٌ مُنطَّقٌ يعرضُ
+        | طلباتِ مساحةٍ واحدةٍ ويُسمّيها المنصّة — وهي الطبقةُ التي لا تُصدِرُ رمزَ
+        | حالةٍ أصلاً: قائمةٌ قصيرةٌ تُقرَأُ أسبوعاً هادئاً. أمّا فرعُ المدرّسِ
+        | فيبقى مُنطَّقاً: هناك النطاقُ **هو** الحارس.
+        */
+        if ($user->can(Permissions::ORDERS_VIEW_ALL) && $user->can(Permissions::BILLING_PURCHASE_APPROVE)) {
+            $query->withoutWorkspaceScope();
         }
 
         $orders = $query
