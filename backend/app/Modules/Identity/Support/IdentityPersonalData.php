@@ -44,7 +44,7 @@ class IdentityPersonalData implements PersonalDataOwner
     /** @return list<string> */
     public function describe(): array
     {
-        return ['student_name', 'contact_phone', 'date_of_birth', 'referral_record'];
+        return ['student_name', 'contact_phone', 'date_of_birth', 'guardian_link', 'referral_record'];
     }
 
     /**
@@ -105,18 +105,50 @@ class IdentityPersonalData implements PersonalDataOwner
         | of the OTHER guardians — that is personal data about third parties, and
         | a custody dispute is exactly the situation a rights request is made in.
         */
+        /*
+        | ⚠️ **والمفتاحُ يُذكَرُ ولو لم يُؤذَنْ بقراءتِه** — تهجئةُ `date_of_birth`
+        | فوقَه وللسببِ عينِه: ملفٌّ غائبٌ صمتٌ، و«لا علاقةَ مسجَّلةً لك» جوابٌ
+        | يستحقُّه مَن سأل. وهو أيضاً ما يُبقي `describe()` صادقةً، إذ يُقارِنُها
+        | `PersonalDataContractCoverageTest` بما خرجَ فعلاً.
+        */
+        if (! $subject->mayReceive(GuardianPermission::DataRights)) {
+            yield 'guardian_link' => [];
+        }
+
         if ($subject->mayReceive(GuardianPermission::DataRights)) {
             /*
-            | ⚠️ FILED UNDER `student_name`, NOT UNDER A CATEGORY OF ITS OWN. Every
-            | key yielded here becomes a file in the archive, and a key that no
-            | `data_categories` row declares is a file with no retention rule and no
-            | owner — invisible to `PersonalDataContractCoverageTest`, and to the
-            | nightly sweep that reads the same catalogue.
+            | ⚠️ **كانَ يُودَعُ تحتَ `student_name`، وقد صارَ له مفتاحُه.** هذا
+            | التعليقُ نفسُه كانَ يقولُ السببَ ويصفُه عطباً: «كلُّ مفتاحٍ يُنتِجُ
+            | ملفّاً في الأرشيف، ومفتاحٌ لا يُصرِّحُ به صفٌّ في `data_categories`
+            | ملفٌّ بلا قاعدةِ حفظٍ وبلا مالك». وصفُّ `guardian_link` أُضيفَ في
+            | ٢٠٢٦-٠٩-١٦ فزالَ العذر.
+            |
+            | ⚠️ **والطرفانِ معاً، لا الطالبُ وحدَه.** الصفُّ يصفُ اثنَين، ووليُّ
+            | أمرٍ يطلبُ نسخةَ بياناتِه كانَ يُجابُ بأرشيفٍ لا ذِكرَ فيه لأطفالِه
+            | الذين ربطَهم بيدِه — ومنهم مَن لا حسابَ له، فلا نسخةَ لبياناتِه في
+            | أيِّ مكانٍ آخر.
             */
             yield from ExportWalk::keyed(
-                'student_name',
-                ParentStudentRelation::query()->where('student_user_id', $user->getKey()),
+                'guardian_link',
+                ParentStudentRelation::query()
+                    ->where('student_user_id', $user->getKey())
+                    ->orWhere('guardian_user_id', $user->getKey()),
                 fn (ParentStudentRelation $relation): array => [
+                    /*
+                    | جهةُ القارئِ من العلاقة، بلا تسميةِ الطرفِ الآخر — وهي
+                    | التهجئةُ نفسُها التي يستعملُها مشيُ الإحالاتِ تحتَه.
+                    */
+                    'side' => (int) $relation->guardian_user_id === (int) $user->getKey()
+                        ? 'guardian'
+                        : 'student',
+                    /*
+                    | ⚠️ ويُذكَرُ الاسمُ لوليِّ الأمرِ وحدَه: هو ما كتبَه هو عن
+                    | طفلِه، وطفلٌ بلا حسابٍ لا نسخةَ لاسمِه في مكانٍ آخر. وفي
+                    | أرشيفِ الطالبِ يكونُ اسمَ نفسِه ولا يُضيفُ شيئاً.
+                    */
+                    'child_name' => (int) $relation->guardian_user_id === (int) $user->getKey()
+                        ? $relation->student_name
+                        : null,
                     'relation_type' => $relation->relation_type,
                     'status' => $relation->status,
                     'permissions' => $relation->permissions,
@@ -206,9 +238,19 @@ class IdentityPersonalData implements PersonalDataOwner
                 'guardian_contact' => null,
             ]);
 
-            // The relations name a child by hand-written string, so they go
-            // entirely rather than being blanked.
-            ParentStudentRelation::query()->where('student_user_id', $user->getKey())->delete();
+            /*
+            | The relations name a child by hand-written string, so they go
+            | entirely rather than being blanked.
+            |
+            | ⚠️ **والطرفانِ معاً، وكانَ الطالبُ وحدَه.** وليُّ أمرٍ يُجهَّلُ
+            | حسابُه كانَ يترُكُ خلفَه صفوفاً تحملُ **أسماءَ أطفالِه** مكتوبةً
+            | بيدِه — ومنهم مَن لا حسابَ له فلا شيءَ يُجهَّلُ عنه من ناحيةٍ أخرى.
+            | وتجهيلُ نصفِ علاقةٍ ثقبُ إعادةِ تعرُّفٍ لا تجهيل.
+            */
+            ParentStudentRelation::query()
+                ->where('student_user_id', $user->getKey())
+                ->orWhere('guardian_user_id', $user->getKey())
+                ->delete();
 
             return 1;
         });
