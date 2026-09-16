@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { QuestionIcon } from "@/components/icons";
 import { arabicNumber } from "@/lib/numerals";
+import { useAuth } from "@/lib/auth-context";
 import { profileApi } from "@/lib/profile";
 import { DashboardCard } from "./DashboardCard";
 
@@ -15,29 +16,47 @@ import { DashboardCard } from "./DashboardCard";
  * يرسلُ الأسئلةَ وحدَها كانَ سيمسحُ الموادَّ والمراحلَ واللغاتِ والنبذةَ في
  * الطلبِ نفسِه — بلا أن يفشلَ شيء. الرابطُ يهبطُ على القسمِ عينِه، فالخطوةُ واحدة.
  *
- * ⚠️ **و`catch(() => null)` يرسمُ لا شيءَ ولا يرسمُ خطأً.** الحسابُ الذي لا ملفَّ
- * له يُجابُ **٤٠٣** — مساعدُ مدرّسٍ جمهورُه `teacher` وليسَ له ملفٌّ عامّ — وشريطُ
- * «تعذّر التحميل» عنده لافتةُ عطلٍ على شاشةٍ تعملُ عندَه تماماً. وهو بعينِه ما
- * تفعلُه شاشةُ «ملفّي» بالقراءةِ نفسِها للسببِ نفسِه.
+ * ⚠️ **و`catch` يرسمُ لا شيءَ ولا يرسمُ خطأً.** الحسابُ الذي لا ملفَّ له يُجابُ
+ * **٤٠٣** — مساعدُ مدرّسٍ جمهورُه `teacher` وليسَ له ملفٌّ عامّ — وشريطُ «تعذّر
+ * التحميل» عنده لافتةُ عطلٍ على شاشةٍ تعملُ عندَه تماماً. وهو بعينِه ما تفعلُه
+ * شاشةُ «ملفّي» بالقراءةِ نفسِها للسببِ نفسِه.
+ *
+ * ⚠️ **والسؤالُ صارَ يُسأَلُ قبلَ الطلبِ لا بعدَه.** المسلكُ لم يتغيّرْ — لا بطاقةَ
+ * لمن لا ملفَّ له — لكنَّ الطريقَ إليه كانَ ٤٠٣ في سِجِلِّ الخادمِ على أوّلِ شاشةٍ
+ * بعدَ الدخول، يُقرَأُ عطباً وهو حارسٌ يعملُ. و`teacher_profile_uuid` على
+ * `/auth/me` يُجيبُ السؤالَ نفسَه بلا طلب، وهو التهجئةُ التي تقرأُها القائمةُ
+ * الجانبيّةُ لكشفِ التسوية. **والرفضُ يبقى مُلتقَطاً**: الحقلُ يقولُ إنَّ صفّاً
+ * موجودٌ لا إنَّ القراءةَ ستنجح.
  */
 export function TeacherFaqCard() {
+  const { user } = useAuth();
   const [count, setCount] = useState<number | null>(null);
-  const [hasProfile, setHasProfile] = useState(true);
+  const [refused, setRefused] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  /*
+   | ⚠️ مُشتقٌّ في كلِّ تصيير، لا حالةٌ مبذورةٌ منه مرّةً. `user` فارغٌ في أوّلِ
+   | رسمٍ حتّى عندَ المدرّسِ الكامل — المزوِّدُ يُبادِلُ الرمزَ بملفِّ الحسابِ بعدَ
+   | التركيب — فبذرُ `useState` منه يُجمِّدُ الجوابَ على «لا ملفَّ له» ويُخفي
+   | البطاقةَ عن كلِّ مدرّسٍ في المنتَج.
+   */
+  const hasProfile = user?.teacher_profile_uuid != null;
+
   const load = useCallback(() => {
+    if (!hasProfile) return;
+
     setLoading(true);
 
     profileApi
       .teacher()
       .then((mine) => setCount(mine.faqs.length))
-      .catch(() => setHasProfile(false))
+      .catch(() => setRefused(true))
       .finally(() => setLoading(false));
-  }, []);
+  }, [hasProfile]);
 
   useEffect(load, [load]);
 
-  if (!hasProfile) return null;
+  if (!hasProfile || refused) return null;
 
   return (
     <DashboardCard

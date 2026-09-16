@@ -102,6 +102,22 @@ export type NavItem = {
    */
   needsTeacherProfile?: boolean;
   /**
+   * شاشةٌ لا معنى لها بلا مساحةِ عمل.
+   *
+   * ⚠️ **أخٌ للحقلِ أعلاه لا تهجئةٌ ثانيةٌ له: الشرطانِ مختلفانِ ويفشلانِ عندَ
+   * أشخاصٍ مختلفين.** «ملفُّ تدريس» صفٌّ في `teacher_profiles`، ومساعدُ المدرّسِ
+   * لا يملكُه ويملكُ مساحةَ عمل. و«مساحةُ عمل» هي ما يُحلُّ منه
+   * `WorkspaceContext::id()`، وبدونِه يردُّ `‎/manage/billing/students` **٤٠٣**
+   * من `abort_if($workspaceId === null, 403)` — رفضٌ صادقٌ وتعليقُه يقولُ لماذا:
+   * لا جوابَ اسمُه «طلّابُ كلِّ المدرّسين».
+   *
+   * ومالكُ المنصّةِ هو مَن يقعُ فيه: `Gate::before` يمرّرُه فوقَ كلِّ صلاحيّة،
+   * فالصلاحيّةُ وحدَها تعرضُ له اللينكَ — وقِيسَ على الإنتاج ٢٠٢٦-٠٩-١٦ أنّه
+   * يملكُ **صفرَ** مساحاتِ عملٍ و`last_workspace_id` فارغاً. لينكٌ يوصِّلُ إلى
+   * رفضٍ دائمٍ وعدٌ كاذب، وهي القاعدةُ نفسُها التي كُتِبَت لكشفِ التسوية.
+   */
+  needsWorkspace?: boolean;
+  /**
    * Who this screen belongs to. Absent means everybody who passes the
    * permission gate above.
    *
@@ -438,7 +454,13 @@ export const adminNav: NavItem[] = [
   // Who has sessions left and who has stopped. Beside the policy rather than
   // under /manage/sessions, because it answers a money question about students
   // — in credits only, never in money.
-  { href: "/manage/billing/students", label: "أرصدة الطلاب", Icon: CreditsIcon, permission: P.billingBalanceView },
+  {
+    href: "/manage/billing/students",
+    label: "أرصدة الطلاب",
+    Icon: CreditsIcon,
+    permission: P.billingBalanceView,
+    needsWorkspace: true,
+  },
   // Exam season, when nothing is deferred. Its own entry rather than a switch on
   // the settings screen: it is a period on a calendar with a start and an end,
   // not a preference, and it expires by itself.
@@ -583,7 +605,8 @@ export function allowedNav(items: NavItem[], user: User | null): NavItem[] {
       (item) =>
         can(user, item.permission)
         && (item.audience === undefined || item.audience.includes(who))
-        && (item.needsTeacherProfile !== true || user?.teacher_profile_uuid != null),
+        && (item.needsTeacherProfile !== true || user?.teacher_profile_uuid != null)
+        && (item.needsWorkspace !== true || (user?.workspaces?.length ?? 0) > 0),
     )
     .map((item) => {
       const named = item.labels?.[who];
