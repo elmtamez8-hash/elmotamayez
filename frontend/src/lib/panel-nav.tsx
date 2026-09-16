@@ -118,6 +118,22 @@ export type NavItem = {
    */
   needsWorkspace?: boolean;
   /**
+   * شاشةٌ خلفَ بابِ لوحةِ المنصّة.
+   *
+   * تُقرَأُ من `may_access_admin_panel` — جوابُ الخادمِ عن الشرطِ نفسِه الذي
+   * يحرسُ `‎/admin` — ولا تُشتقُّ من `is_super_admin`، وإلّا اختفى اللينكُ عن
+   * موظّفِ المنصّةِ وهي شاشاتُه الوحيدة.
+   */
+  needsAdminPanel?: boolean;
+  /**
+   * عنوانٌ خارجَ تطبيقِ Next.
+   *
+   * ⚠️ `‎/admin` لوحةُ Laravel على المضيفِ نفسِه، و`<Link>` يتصرّفُ معها كمسارٍ
+   * داخليٍّ فيُمهِّدُ لها ويُحاولُ تنقّلاً في العميلِ لا وجهةَ له. `<a>` عاديٌّ
+   * يُسلِّمُ الطلبَ إلى الخادمِ حيثُ يُوجِّهُه nginx إلى مكانِه.
+   */
+  external?: boolean;
+  /**
    * Who this screen belongs to. Absent means everybody who passes the
    * permission gate above.
    *
@@ -526,6 +542,25 @@ export const adminNav: NavItem[] = [
  * The server is still the guard — this array only decides what is offered.
  */
 export const platformNav: NavItem[] = [
+  /*
+   | ⛔ **لوحةُ المنصّةِ مبنيّةٌ منذُ زمنٍ ولم يكنْ إليها طريقٌ واحدٌ من المنتَج.**
+   | قِيسَ على الشجرةِ ٢٠٢٦-٠٩-١٦: الذِّكرُ الوحيدُ لـ`‎/admin` في `robots.ts`،
+   | ليمنعَ أرشفتَها. فصاحبُها كانَ يصلُها بكتابةِ العنوانِ بيدِه، وموظّفُ
+   | المنصّةِ — الذي هي شاشاتُه **الوحيدة** — بأن يُقالَ له العنوانُ في رسالة.
+   | وهي قاعدةُ «كلُّ سطحٍ يحتاجُ رابطاً يصلُ إليه» مقروءةً من جهةِ سطحٍ قديم.
+   |
+   | ⚠️ وأوّلُ العناصرِ لا آخرُها: هذه ليست شاشةً من شاشاتِ المنتَج بل مخرجاً
+   | إليه — وهو الترتيبُ نفسُه الذي تضعُ به لوحةُ Filament رابطَها المقابلَ
+   | («الصفحة الرئيسية» بـ`sort(-1)`)، والرابطانِ معاً هما ما يجعلُ الانتقالَ
+   | ذهاباً وإياباً بدلَ بابٍ في اتّجاهٍ واحد.
+   */
+  {
+    href: "/admin",
+    label: "لوحة المنصّة",
+    Icon: ShieldIcon,
+    needsAdminPanel: true,
+    external: true,
+  },
   // What the hourly payment sweep found: money that settled without telling us,
   // and what it could not resolve on its own.
   { href: "/manage/payments/reconciliation", label: "تسوية المدفوعات", Icon: CreditsIcon, permission: P.billingCollection },
@@ -606,7 +641,8 @@ export function allowedNav(items: NavItem[], user: User | null): NavItem[] {
         can(user, item.permission)
         && (item.audience === undefined || item.audience.includes(who))
         && (item.needsTeacherProfile !== true || user?.teacher_profile_uuid != null)
-        && (item.needsWorkspace !== true || (user?.workspaces?.length ?? 0) > 0),
+        && (item.needsWorkspace !== true || (user?.workspaces?.length ?? 0) > 0)
+        && (item.needsAdminPanel !== true || user?.may_access_admin_panel === true),
     )
     .map((item) => {
       const named = item.labels?.[who];

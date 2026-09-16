@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { adminNav, allowedNav, mainNav, navLabel, quickAccessFor } from "./panel-nav";
+import { adminNav, allowedNav, mainNav, navLabel, platformNav, quickAccessFor } from "./panel-nav";
 import { P } from "./permissions";
 import type { User } from "./types";
 
@@ -261,5 +261,40 @@ describe("a screen that needs a workspace, not just a permission", () => {
       teacher_profile_uuid: null,
       workspaces: [{ uuid: "w-1", name: "أكاديميتي" }],
     })).map((item) => item.href)).not.toContain("/manage/settlement");
+  });
+});
+
+/*
+| لوحةُ المنصّةِ مبنيّةٌ منذُ زمنٍ ولم يكنْ إليها طريقٌ من المنتَج (طلبُ ٢٠٢٦-٠٩-١٦).
+|
+| ⚠️ **والشرطُ `may_access_admin_panel` لا `is_super_admin`.** الحالةُ الثالثةُ
+| هي التي تحرسُ ذلك: موظّفُ المنصّةِ — مسؤولُ الماليّةِ مثلاً — لا يحملُ الثاني،
+| و`‎/admin` شاشاتُه **الوحيدة**. فاشتقاقٌ من عَلَمِ السوبر أدمن كانَ سيُخفيها
+| عمَّن لا شاشةَ له سواها، وهو عطبٌ لا يُرى إلّا بحسابٍ من هذا النوع.
+*/
+describe("the platform panel is reachable from the product", () => {
+  const hrefs = (over: Partial<User>) =>
+    allowedNav(platformNav, person(over)).map((item) => item.href);
+
+  it("offers «لوحة المنصّة» to whoever the server says may enter it", () => {
+    expect(hrefs({ may_access_admin_panel: true })).toContain("/admin");
+  });
+
+  it("offers it to nobody else", () => {
+    expect(hrefs({ may_access_admin_panel: false })).not.toContain("/admin");
+    expect(hrefs({})).not.toContain("/admin");
+  });
+
+  it("reads the server's answer, never the super-admin flag", () => {
+    // موظّفُ منصّةٍ: يدخُلُ اللوحةَ ولا يحملُ `is_super_admin`.
+    expect(hrefs({ may_access_admin_panel: true, is_super_admin: false })).toContain("/admin");
+    // ولا يُعرَضُ لمن يحملُ العَلَمَ وحدَه بلا جوابِ الخادم — الحقلُ هو الحَكَم.
+    expect(hrefs({ is_super_admin: true })).not.toContain("/admin");
+  });
+
+  it("leaves the panel as an external address, not a Next route", () => {
+    const item = platformNav.find((entry) => entry.href === "/admin");
+
+    expect(item?.external).toBe(true);
   });
 });
