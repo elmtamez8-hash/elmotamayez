@@ -717,6 +717,43 @@ describe("DashboardPage · المدرّس", () => {
     expect(paths.some((p) => p.startsWith("/manage/grading/queue"))).toBe(true);
   });
 
+  /*
+  | مالكُ المنصّةِ لوحتُه `‎/admin`، وكانَ يهبطُ على لوحةِ مدرّسٍ ليست لوحتَه.
+  |
+  | ⚠️ **وشقّانِ ضدّان**: يُحوَّلُ من لا مساحةَ عملٍ له، ويبقى مَن له — ومديرُ
+  | منصّةٍ يُدرِّسُ أيضاً له صفوفٌ هنا، فشرطُ «يدخُلُ اللوحة» وحدَه كانَ سيسحبُه
+  | من شاشتِه.
+  */
+  it("sends a platform owner with no workspace to the panel that is theirs", async () => {
+    const replace = vi.fn();
+    vi.stubGlobal("location", { replace, href: "/dashboard" });
+
+    asTeacher({ ...HOST, workspaces: [], teacher_profile_uuid: null, may_access_admin_panel: true });
+
+    render(<DashboardPage />);
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/admin"));
+
+    // ولا يُطرَقُ بابٌ في الطريق: الصفحةُ لا تُصيَّرُ أصلاً.
+    expect(calledPaths().some((p) => p.startsWith("/manage/"))).toBe(false);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps a platform owner who also teaches on their own classroom", async () => {
+    const replace = vi.fn();
+    vi.stubGlobal("location", { replace, href: "/dashboard" });
+
+    asTeacher({ ...HOST, may_access_admin_panel: true });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("حصصي القادمة")).toBeDefined();
+    expect(replace).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+  });
+
   it("counts people, not rows, among the withheld", async () => {
     asTeacher(HOST);
 

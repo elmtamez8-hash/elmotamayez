@@ -108,6 +108,16 @@ export interface User {
   email_verified_at: string | null;
   status: string;
   is_super_admin: boolean;
+  /**
+   * هل يملكُ هذا الحسابُ أن يدخُلَ لوحةَ المنصّة (`/admin`)؟
+   *
+   * ⚠️ **سؤالٌ غيرُ `is_super_admin` أعلاه.** الخادمُ يُجيبُه من
+   * `mayAccessAdminPanel()` — «مديرُ المنصّةِ **أو** موظّفٌ في `platform_staff`» —
+   * وهي الدالّةُ نفسُها التي يسألُها `EnsureFilamentAccess` عندَ الباب. ومسؤولُ
+   * الماليّةِ لا يحملُ `is_super_admin`، فاشتقاقٌ منه هنا كانَ سيُخفي عنه
+   * شاشاتِه الوحيدة.
+   */
+  may_access_admin_panel: boolean;
   platform_role: PlatformRole | null;
   last_workspace_id: number | null;
   /**

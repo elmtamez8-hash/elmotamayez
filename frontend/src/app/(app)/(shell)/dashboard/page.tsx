@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 import { useAuth } from "@/lib/auth-context";
 import { dashboardAudience } from "@/lib/dashboard-audience";
 import { GuardianDashboard } from "./GuardianDashboard";
@@ -20,6 +22,32 @@ import { TeacherDashboard } from "./TeacherDashboard";
  */
 export default function DashboardPage() {
   const { user } = useAuth();
+
+  /*
+   | ⛔ **مالكُ المنصّةِ لوحتُه `‎/admin`، وكانَ يهبطُ هنا على لوحةِ مدرّسٍ ليست
+   | لوحتَه.** قِيسَ على الإنتاج ٢٠٢٦-٠٩-١٦: حسابُ المالكِ يملكُ صفرَ مساحاتِ
+   | عملٍ ولا ملفَّ تدريس، فكلُّ بطاقةٍ هنا إمّا فارغةٌ أو عن شخصٍ آخر.
+   |
+   | ⚠️ **والشرطانِ معاً لا أحدُهما.** «يدخُلُ اللوحة» وحدَه يُحوِّلُ مديرَ منصّةٍ
+   | يُدرِّسُ أيضاً بعيداً عن صفوفِه، و«بلا مساحةِ عمل» وحدَه يُحوِّلُ طالباً —
+   | ولا يصلُ هنا أصلاً، فالجمهورُ فُرِزَ قبلَه، لكنَّ شرطاً يعتمدُ على ترتيبِ
+   | سطرٍ فوقَه شرطٌ ينكسرُ عندَ أوّلِ إعادةِ ترتيب.
+   |
+   | ⚠️ **و`window.location` لا `router`**: اللوحةُ تطبيقُ Laravel على المضيفِ
+   | نفسِه، ولا يعرفُها موجِّهُ Next. و`replace` لا `assign` حتّى لا يردَّ زرُّ
+   | الرجوعِ القارئَ إلى صفحةٍ تُحوِّلُه من جديد.
+   |
+   | ⚠️ **وليسَ باباً في اتّجاهٍ واحد**: لوحةُ Filament تحملُ «الصفحة الرئيسية»
+   | بـ`sort(-1)`، والقائمةُ الجانبيّةُ هنا تحملُ «لوحة المنصّة» — والرابطانِ
+   | معاً هما ما يجعلُ هذا تحويلاً لا حبساً.
+   */
+  const toPanel = user?.may_access_admin_panel === true && (user?.workspaces?.length ?? 0) === 0;
+
+  useEffect(() => {
+    if (toPanel) window.location.replace("/admin");
+  }, [toPanel]);
+
+  if (toPanel) return null;
 
   const audience = dashboardAudience(user);
 

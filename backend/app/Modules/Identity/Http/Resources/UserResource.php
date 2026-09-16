@@ -27,6 +27,20 @@ class UserResource extends JsonResource
             'email_verified_at' => $this->email_verified_at,
             'status' => $this->status,
             'is_super_admin' => $this->is_super_admin,
+            /*
+            | مَن يملكُ أن يدخُلَ لوحةَ المنصّة — وهو سؤالٌ غيرُ `is_super_admin`.
+            |
+            | ⚠️ **الجوابُ من `mayAccessAdminPanel()` نفسِها التي يسألُها الباب**
+            | (`EnsureFilamentAccess`)، لا من إعادةِ اشتقاقِه في TypeScript. فهي
+            | تقولُ «مديرُ المنصّةِ **أو** موظّفٌ في `platform_staff`»، والثاني —
+            | مسؤولُ الماليّةِ مثلاً — لا يحملُ `is_super_admin` ولا يُميَّزُ من
+            | قائمةِ الصلاحيّاتِ وحدَها. فشرطٌ مكتوبٌ في الواجهةِ كانَ سيُخفي عنه
+            | شاشاتِه الوحيدة، وهي عينُ عطبِ «تهجئتَينِ لسؤالٍ واحد».
+            |
+            | ولا يفتحُ شيئاً: `‎/admin` جلسةٌ على Laravel بحارسِها، وهذا الحقلُ
+            | يقرِّرُ عرضَ لينكٍ لا دخولاً.
+            */
+            'may_access_admin_panel' => $this->resource->mayAccessAdminPanel(),
             // FR-012: the frontend routes on this after login. Hidden on the model
             // so it never leaks through a stray ->toArray(); named here on purpose.
             'platform_role' => $this->platform_role?->value,

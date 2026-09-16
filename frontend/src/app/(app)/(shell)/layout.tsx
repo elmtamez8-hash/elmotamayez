@@ -200,12 +200,21 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
 
   const refused = refusedBy(allNav, pathname, user);
 
-  const renderItem = ({ href, label, Icon, badge }: NavItem) => {
+  const renderItem = ({ href, label, Icon, badge, external }: NavItem) => {
     const active = pathname === href || pathname.startsWith(href + "/");
     const showBadge = badge === "grading" && pendingGrading > 0;
 
+    /*
+      ⚠️ `<a>` لا `<Link>` للعناوينِ الخارجة. `‎/admin` لوحةُ Laravel على المضيفِ
+      نفسِه، و`<Link>` يقرؤُها مساراً من مساراتِ Next فيُمهِّدُ لها ويُحاولُ
+      تنقّلاً في العميلِ لا وجهةَ له عندَه. والوسمُ العاديُّ يُسلِّمُ الطلبَ إلى
+      الخادمِ حيثُ يُوجِّهُه nginx. وكلُّ ما عداه — الأصنافُ والشارةُ والحالةُ
+      المطويّة — واحدٌ للاثنَين، فلا تهجئتَين.
+    */
+    const Tag = external ? "a" : Link;
+
     return (
-      <Link
+      <Tag
         key={href}
         href={href}
         aria-current={active ? "page" : undefined}
@@ -267,7 +276,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
             name rather than leaving «لوحة التصحيح» with a silent dot. Harmless at
             full width, where the badge above already says it visibly. */}
         {showBadge && collapsed && <span className="sr-only">{`${pendingGrading} بانتظار التصحيح`}</span>}
-      </Link>
+      </Tag>
     );
   };
 
