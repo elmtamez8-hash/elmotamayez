@@ -14,6 +14,10 @@ const replace = vi.fn();
 const get = vi.fn();
 let pathname = "/signup/teacher";
 let user: { platform_role: string } | null = null;
+/* The provider answers `true` until the token in `localStorage` has been
+   exchanged for a profile — or found not to be there. That first settled answer
+   is the whole of what separates «arrived signed in» from «signed in here». */
+let loading = false;
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace }),
@@ -27,7 +31,7 @@ vi.mock("@/lib/api", () => ({
 }));
 
 vi.mock("@/lib/auth-context", () => ({
-  useAuth: () => ({ user }),
+  useAuth: () => ({ user, loading }),
   isLearner: () => false,
   panelPathFor: () => "/dashboard",
 }));
@@ -48,6 +52,7 @@ describe("SignupLayout", () => {
     get.mockReset();
     pathname = "/signup/teacher";
     user = null;
+    loading = false;
   });
 
   it("lets a guest fill in any form", async () => {
@@ -98,5 +103,50 @@ describe("SignupLayout", () => {
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
     expect(get).not.toHaveBeenCalled();
+  });
+
+  /*
+  | ⛔ الحالتانِ الأخيرتانِ زوجٌ، ولا تُقرأُ واحدةٌ منهما وحدَها.
+  |
+  | الحارسُ لمن **يصلُ** مسجَّلاً، لا لمن سجَّلَ هنا. وبلا الثانيةِ يُطرَدُ وليُّ
+  | الأمرِ من `‎/signup/parent/children` — الخطوةِ التي سلَّمتْه إيّاها الاستمارةُ
+  | قبلَها بسطر، وصفحتُها تقولُ عن نفسِها «لا تُفتَحُ إلّا بجلسة» — ويُسحَبُ
+  | الطالبُ من وجهةِ `next` التي بدأَ التسجيلَ من أجلِها. وبلا الأولى يُفتَحُ
+  | البابُ للجميعِ ويعودُ العطبُ الذي وُجِدَ الحارسُ له.
+  |
+  | ⚠️ **وقِيسَ بالتحوير: حذفُ الشرطِ من أثرِ التحويلِ وحدَه يمرُّ أخضر.** الشرطُ
+  | مكتوبٌ في أثرَين — سؤالِ الخادمِ وأثرِ التحويلِ — والأوّلُ يتركُ `resumable`
+  | على `null` فيرتدُّ الثاني قبلَ أن يُحوِّل. فالحالةُ تعضُّ عندَ حذفِ الاثنَين
+  | معاً لا أحدِهما، وهي قاعدةُ هذا المستودعِ نفسُها: اختبارُ شرطٍ واحدٍ من عدّةٍ
+  | يقيسُ أيَّها يقعُ أوّلاً ما لم تُحيَّدِ البقيّة.
+  */
+  it("bounces a visitor who ARRIVED signed in — the answer settles after the read", async () => {
+    user = null;
+    loading = true;
+    pathname = "/signup/student";
+
+    const { rerender } = renderLayout();
+
+    // `auth.me()` came back: the token was already in this browser.
+    user = { platform_role: "teacher" };
+    loading = false;
+    rerender(<SignupLayout><p>النموذج</p></SignupLayout>);
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
+  });
+
+  it("does NOT bounce a session created on this page", async () => {
+    user = null;
+    loading = false;
+    pathname = "/signup/parent";
+
+    const { rerender } = renderLayout();
+
+    // The form registered the account and handed it to the provider.
+    user = { platform_role: "student" };
+    rerender(<SignupLayout><p>النموذج</p></SignupLayout>);
+
+    await waitFor(() => expect(get).not.toHaveBeenCalled());
+    expect(replace).not.toHaveBeenCalled();
   });
 });
