@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TransferDestination } from "./TransferDestination";
@@ -44,8 +44,14 @@ describe("TransferDestination", () => {
     render(<TransferDestination />);
 
     await waitFor(() => expect(screen.getByText("3000-1111")).toBeDefined());
-    expect(screen.queryByText("الآيبان:")).toBeNull();
-    expect(screen.queryByText("البنك:")).toBeNull();
+    /*
+    | ⚠️ بلا نقطتَين. كانت الإبرةُ تحملُ «:» لأنّ البطاقةَ كانت تكتبُ `{label}:`،
+    | فلمّا صارَ العنوانُ سطراً فوقَ القيمةِ بلا علامةٍ أصبحَ التوكيدانِ صادقَينِ
+    | عن لا شيء: يمرّانِ فوقَ بطاقةٍ ترسمُ كلَّ خانةٍ فارغة. وهو عطبُ «أخضرُ
+    | لسببٍ خاطئ» الذي يسجّلُه هذا المستودعُ بنصِّه.
+    */
+    expect(screen.queryByText("الآيبان")).toBeNull();
+    expect(screen.queryByText("البنك")).toBeNull();
   });
 
   /*
@@ -80,3 +86,51 @@ describe("TransferDestination", () => {
   | والحالاتُ الثلاثُ أعلاه هي ما يحرسُ البلاغَ فعلاً.
   */
 });
+
+/*
+| ⚠️ **النسخُ هو سببُ قراءةِ هذه البطاقةِ أصلاً**: الآيبانُ تسعةٌ وعشرونَ محرفاً
+| لاتينيّاً يُلصَقُ في تطبيقِ بنك، وكتابتُه باليدِ عن شاشةٍ هي الطريقُ إلى تحويلٍ
+| يصلُ إلى حسابٍ آخر.
+*/
+describe("copying a number into a banking app", () => {
+  beforeEach(() => read.mockReset());
+
+  it("puts the value itself on the clipboard, not the label beside it", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+
+    read.mockResolvedValue({ data: { iban: "QA58DOHB0000123" }, configured: true } as never);
+
+    render(<TransferDestination />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "انسخ الآيبان" })).toBeDefined());
+
+    fireEvent.click(screen.getByRole("button", { name: "انسخ الآيبان" }));
+
+    expect(writeText).toHaveBeenCalledWith("QA58DOHB0000123");
+
+    /*
+    | ⚠️ الاسمُ هو ما يتبدّلُ لا لونُ الزرّ: الزرُّ أيقونةٌ، فمَن يقرأُ الشاشةَ
+    | بأذنِه لا يرى التبديلَ إلّا في `aria-label`.
+    */
+    await waitFor(() => expect(screen.getByRole("button", { name: "نُسخ الآيبان" })).toBeDefined());
+  });
+
+  it("draws no copy button at all where the browser exposes no clipboard", async () => {
+    /*
+    | ⚠️ ولا علاقةَ لذلك بالصلاحيّات: خارجَ السياقِ الآمنِ لا يعرضُ المتصفّحُ
+    | `navigator.clipboard` إطلاقاً — وهو بعينُه ما حدثَ مع `navigator.mediaDevices`
+    | على عنوانِ شبكةٍ محلّيّة. فزرٌّ يُرسَمُ ثمّ يرمي أسوأُ من زرٍّ لا يُرسَم.
+    */
+    Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true });
+
+    read.mockResolvedValue({ data: { iban: "QA58DOHB0000123" }, configured: true } as never);
+
+    render(<TransferDestination />);
+
+    await waitFor(() => expect(screen.getByText("QA58DOHB0000123")).toBeDefined());
+    expect(screen.queryByRole("button", { name: "انسخ الآيبان" })).toBeNull();
+  });
+});
+

@@ -1,7 +1,14 @@
 "use client";
 
 import { TransferDestination } from "@/components/billing/TransferDestination";
-import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { api, errorMessage } from "@/lib/api";
 import type { Order } from "@/lib/types";
@@ -16,7 +23,9 @@ import {
 import { planDuration, SESSION_TYPE_LABELS } from "@/lib/plans";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Field";
-import { Table, type Column } from "@/components/ui/Table";
+import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
+import { EmptyState } from "@/components/ui/states/EmptyState";
+import { ErrorState } from "@/components/ui/states/ErrorState";
 import {
   AlertIcon,
   CheckIcon,
@@ -108,6 +117,21 @@ function statusRank(status: string): number {
 
   return index === -1 ? STATUS_ORDER.length : index;
 }
+
+/**
+ * A column of the orders table.
+ *
+ * Same shape `components/ui/Table` declares, on purpose: the page keeps that
+ * component's vocabulary so a reader moving between the two screens reads one
+ * idea, and so the columns could move back if the phone layout ever lands there.
+ */
+type Column<T> = {
+  key: string;
+  header: string;
+  render: (row: T) => ReactNode;
+  /** Wraps the value in <bdi> and aligns it to the end — for money and counts. */
+  numeric?: boolean;
+};
 
 /** «حصة واحدة» · «حصتان» · «٤ حصص» · «١٢ حصة» — the bands live in `counted()`. */
 function sessions(count: number): string {
@@ -285,6 +309,25 @@ export default function OrdersPage() {
 
   const visible = filter === "all" ? orders : orders.filter((o) => o.status === filter);
 
+  /*
+   * ⛔ THE TABLE IS BUILT HERE AND NOT WITH `components/ui/Table`, AND THE REASON
+   * IS THE PHONE. That component is one shape at every width: seven columns
+   * inside `overflow-x-auto`, so a payer on a 360px screen reads «الطلب» and
+   * drags sideways for the amount, again for the status, again for the button
+   * that takes their money. It is right for the thirty other screens that use
+   * it, and a second shape added THERE would be two spellings of a shared
+   * component — the defect this repository records over and over.
+   *
+   * ⚠️ ONE DOM, RESHAPED BY CSS — NOT A TABLE AND A CARD LIST SIDE BY SIDE. Two
+   * render paths mean every cell's rule written twice, and in jsdom (which has no
+   * layout) BOTH would be present, so every assertion finds two elements and the
+   * suite breaks over a change that was purely visual.
+   *
+   * ⚠️ AND THE FOUR STATES STILL COME FROM `components/ui/states/`. What `Table`
+   * gave this page was loading, error, empty and retry in one place; those are
+   * the three components it itself renders, imported directly. Re-implementing
+   * them here is what would have made this a regression.
+   */
   const columns: Column<Order>[] = [
     ...(seesPayer
       ? [
@@ -546,7 +589,16 @@ export default function OrdersPage() {
 
       {/* ⚠️ هنا تحديداً يُرفَعُ الإيصال — و`‎/billing/pay` تُحيلُ إلى هذه الصفحةِ
           بنصِّها. فالوجهةُ تُقرأُ حيثُ يُنفَّذُ التحويل، لا حيثُ يُوصَفُ فقط. */}
-      <TransferDestination />
+      {/*
+        ⚠️ مقيَّدةُ العرض هنا وحدَها، لا في المكوّنِ نفسِه: `/billing/purchase`
+        و`/subscribe` يرسمانِها داخلَ عمودٍ ضيّقٍ أصلاً، وقيدٌ في المكوّنِ يشدُّ
+        تخطيطَهما. وبلا قيدٍ هنا تمتدُّ البطاقةُ على ١٤٠٠ بكسل، فيبعُدُ زرُّ
+        النسخِ عن الرقمِ الذي ينسخُه عرضَ الشاشةِ كلِّه — مساحةٌ ميّتةٌ بينَ
+        شيئَين ينتميانِ لبعضِهما.
+      */}
+      <div className="lg:max-w-xl">
+        <TransferDestination />
+      </div>
 
       {error && (
         <p role="alert" className="rounded-lg bg-danger/15 p-3 text-sm text-danger-ink">
@@ -614,13 +666,11 @@ export default function OrdersPage() {
         </div>
       )}
 
-      <Table
-        columns={columns}
-        rows={visible}
-        rowKey={(o) => o.uuid}
-        caption="طلبات الشراء وحالتها وإيصالاتها"
-        state={loading ? "loading" : failed ? "error" : "ready"}
-        onRetry={load}
+      {loading ? (
+        <RowsSkeleton />
+      ) : failed ? (
+        <ErrorState onRetry={load} />
+      ) : visible.length === 0 ? (
         /* ⚠️ TWO DIFFERENT EMPTIES. «لا طلبات في سجلّك» over a list the reader
            just narrowed is the product telling them they have never bought
            anything, a minute after showing them nine rows.
@@ -629,13 +679,87 @@ export default function OrdersPage() {
            filter to «بانتظار الدفع», upload the receipt on the only row there,
            and the server's answer moves it to «قيد المراجعة» — the tile empties
            under a selection that is still pointing at it. */
-        emptyTitle={filter === "all" ? "لا طلبات في سجلّك" : `لا طلبات بحالة «${statusLabel(filter)}»`}
-        emptyDescription={
-          filter === "all"
-            ? "سيظهر هنا كل طلب شراء بحالته وإيصاله."
-            : "اختر «الكل» من الشريط أعلاه لترى بقيّة طلباتك."
-        }
-      />
+        <EmptyState
+          title={filter === "all" ? "لا طلبات في سجلّك" : `لا طلبات بحالة «${statusLabel(filter)}»`}
+          description={
+            filter === "all"
+              ? "سيظهر هنا كل طلب شراء بحالته وإيصاله."
+              : "اختر «الكل» من الشريط أعلاه لترى بقيّة طلباتك."
+          }
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-line bg-surface-raised">
+          {/*
+            ⚠️ `role` MUTELY RESTATED ON EVERY PART, BECAUSE `display: block` TAKES
+            TABLE SEMANTICS AWAY. A browser that is told a `<tr>` is a block stops
+            treating it as a row, and the element silently becomes a generic box
+            to a screen reader. On `md` and up the roles agree with the native
+            ones and cost nothing; below it they are what keeps the grid a grid.
+          */}
+          <table role="table" className="block w-full text-sm md:table md:min-w-max">
+            <caption className="sr-only">طلبات الشراء وحالتها وإيصالاتها</caption>
+
+            {/*
+              ⚠️ REMOVED ON A PHONE RATHER THAN HIDDEN, and the label moves INTO
+              each cell. A header row read once at the top and then seven values
+              read in order is a table nobody can follow by ear; «المبلغ» sitting
+              directly above the amount is the same information where it is used.
+            */}
+            <thead role="rowgroup" className="hidden border-b border-line md:table-header-group">
+              <tr role="row">
+                {columns.map((col) => (
+                  <th
+                    key={col.key}
+                    role="columnheader"
+                    scope="col"
+                    className={`px-4 py-3 font-medium text-ink-muted ${
+                      col.numeric ? "text-end" : "text-start"
+                    }`}
+                  >
+                    {col.header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+
+            <tbody role="rowgroup" className="block divide-y divide-line md:table-row-group">
+              {visible.map((o, index) => (
+                <tr
+                  key={o.uuid}
+                  role="row"
+                  /* The stagger stops at the sixth row: past that it is a page
+                     that takes a quarter of a second to finish arriving, which
+                     is a cost rather than a cue. */
+                  style={{ animationDelay: `${Math.min(index, 5) * 40}ms` }}
+                  className="animate-float-in block py-2 transition hover:bg-primary-soft/40 md:table-row md:py-0"
+                >
+                  {columns.map((col) => (
+                    <td
+                      key={col.key}
+                      role="cell"
+                      className={`block px-4 py-1.5 text-ink md:table-cell md:py-3 ${
+                        col.numeric ? "md:text-end" : "text-start"
+                      }`}
+                    >
+                      {/*
+                        ⚠️ A REAL ELEMENT, NOT `content: attr(data-label)`. A CSS
+                        `content` that fails — a typo, a token that was never
+                        defined — paints NOTHING and reports nothing, which is a
+                        family of defect this repository has shipped four times.
+                        A span that is there is a span a test can find.
+                      */}
+                      <span className="mb-0.5 block text-xs text-ink-muted md:hidden">
+                        {col.header}
+                      </span>
+                      {col.numeric ? <bdi>{col.render(o)}</bdi> : col.render(o)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

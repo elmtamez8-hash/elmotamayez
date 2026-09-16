@@ -255,7 +255,13 @@ final class ScenarioSeeder extends Seeder
 
         // Rejected order.
         $rejected = app(CreateOrder::class)->handle($paid, $halfway);
-        app(RejectOrder::class)->handle($rejected, $owner, 'Transfer receipt did not match the order amount.');
+        /*
+        | ⚠️ بالعربيّة، ولا يُترَكُ بالإنجليزيّة «لأنّه بيانُ عرضٍ». هذا النصُّ
+        | يُطبَعُ **كما هو** على شاشةِ الطلباتِ تحتَ شارةِ «مرفوض» — وقد قرأه
+        | مستخدِمٌ على الإنتاجِ وبلّغَ عنه. والمنتَجُ عربيٌّ وحدَه بالمواصفةِ ٠٠٢،
+        | فجملةٌ إنجليزيّةٌ من بذرةٍ هي واجهةٌ إنجليزيّةٌ شحنَت.
+        */
+        app(RejectOrder::class)->handle($rejected, $owner, 'مبلغ التحويل في الإيصال لا يطابق مبلغ الطلب.');
 
         // Manual enrollments in three states.
         $halfwayEnrollment = app(EnrollStudent::class)->handle($paid, $halfway);
