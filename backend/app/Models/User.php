@@ -32,6 +32,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Laravel\Sanctum\PersonalAccessToken;
+use Laravel\Sanctum\TransientToken;
 use SensitiveParameter;
 use Spatie\Permission\Contracts\Permission;
 use Spatie\Permission\Traits\HasRoles;
@@ -46,7 +48,14 @@ use Spatie\Permission\Traits\HasRoles;
  */
 class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, MustVerifyEmail
 {
-    /** @use HasFactory<UserFactory> */
+    /**
+     * @use HasFactory<UserFactory>
+     * @use HasApiTokens<PersonalAccessToken|TransientToken>
+     *
+     * ⚠️ THE UNION IS THE TRUTH, and pinning it to `PersonalAccessToken` alone
+     * is what let five `?->getKey()` call sites past the analyser and into a
+     * production 500. See {@see self::currentTokenId()}.
+     */
     use HasApiTokens, HasFactory, HasRoles, HasUuid, Notifiable {
         // Spec 010 — the financial wall overrides this method; the alias is how
         // the overriding version calls the one it is wrapping. See the note on
@@ -218,6 +227,38 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     public function getNameAttribute(): string
     {
         return trim($this->first_name.' '.$this->last_name);
+    }
+
+    /**
+     * The row id of the token making the CURRENT request, or null when there is
+     * no token row behind it.
+     *
+     * ⛔ **`currentAccessToken()` CAN RETURN A `TransientToken`, WHICH HAS
+     * EXACTLY TWO METHODS: `can()` AND `cant()`.** Sanctum's `statefulApi()`
+     * authenticates a same-domain request by the SESSION COOKIE when one is
+     * present — every teacher here has one, because `/admin` is session-based —
+     * and hands the user that marker instead of a model. So `?->getKey()` is NOT
+     * safe: the null-safe operator guards a null, not a wrong class, and the
+     * call is a fatal `Call to undefined method`.
+     *
+     * ⚠️ **AND THE VENDOR'S OWN GENERIC SAYS OTHERWISE.** `HasApiTokens` declares
+     * `@return TToken`, so PHPStan reads whatever this class pins it to and
+     * proves the `instanceof` below «always true» — the `AccessToken::$ttl`
+     * family, where a vendor annotation disagreed with the code under it. The
+     * generic is pinned to the union it really holds, which is what makes the
+     * analyser check every OTHER call site instead of blessing them.
+     *
+     * Measured on production 2026-09-16: `POST /auth/logout` answered 500 with
+     * `Call to undefined method Laravel\Sanctum\TransientToken::getKey()`, and
+     * the account stayed signed in — the browser cleared its own storage and
+     * moved to `/login`, so the person believed they had left a machine they had
+     * not. Five call sites carried the same assumption.
+     */
+    public function currentTokenId(): ?int
+    {
+        $token = $this->currentAccessToken();
+
+        return $token instanceof PersonalAccessToken ? (int) $token->getKey() : null;
     }
 
     public function isSuperAdmin(): bool

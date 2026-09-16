@@ -61,12 +61,32 @@ class StatementController extends Controller
         );
     }
 
-    /** A reader with no teacher profile has no statement — not somebody else's. */
+    /**
+     * A reader with no teacher profile has no statement — not somebody else's.
+     *
+     * ⚠️ **AND IT SAYS SO NOW.** `abort_if(…, 404)` with no body sent Laravel's
+     * bare 404, which `userMessage()` renders «العنصر المطلوب غير موجود أو
+     * حُذف» — so the platform owner, who holds `settlement.statement.view`
+     * through `Gate::before` and holds no teaching profile, was told their
+     * settlement statement had been DELETED. Measured on production
+     * 2026-09-16: zero `teacher_profiles` rows for that account, four on the
+     * platform.
+     *
+     * The code is what the screen reads; the sentence is for a log and for a
+     * client that does not know the code. Same mechanism the lesson door uses
+     * for `not_enrolled`, and the same reason: a refusal a reader cannot act on
+     * is the shape FR-013 forbids.
+     */
     private function ownProfile(Request $request): TeacherProfile
     {
         $profile = $this->ownTeacherProfile($request);
 
-        abort_if($profile === null, 404);
+        if ($profile === null) {
+            abort(response()->json([
+                'message' => 'لا يوجد كشف تسوية لهذا الحساب — الكشف لمن له ملفُّ تدريس.',
+                'code' => 'no_teacher_profile',
+            ], 404));
+        }
 
         return $profile;
     }

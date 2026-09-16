@@ -17,8 +17,10 @@ class AuthSessionResource extends JsonResource
         return [
             'uuid' => $this->uuid,
             'status' => $this->status,
+            // ⚠️ `currentTokenId()`، لا `currentAccessToken()?->getKey()`:
+            // الطلبُ المُوثَّقُ بالكوكي يحملُ `TransientToken` ولا `getKey()` فيه.
             'is_current' => $this->token_id !== null
-                && $this->token_id === $request->user()?->currentAccessToken()?->getKey(),
+                && $this->token_id === $request->user()?->currentTokenId(),
             'device' => [
                 'uuid' => $this->device->uuid,
                 'label' => $this->device->label,
