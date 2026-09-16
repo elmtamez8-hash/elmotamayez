@@ -457,7 +457,8 @@ export default function CourseCurriculumPage({
       </TabPanel>
 
       <TabPanel tabKey="sessions" active={active}>
-        <SessionsTab sessions={sessions} />
+        {/* السببُ من الخادم، لا يُشتقُّ هنا — انظر `SessionsTab`. */}
+        <SessionsTab sessions={sessions} unplacedReason={gate.message} />
       </TabPanel>
 
       <TabPanel tabKey="exams" active={active}>

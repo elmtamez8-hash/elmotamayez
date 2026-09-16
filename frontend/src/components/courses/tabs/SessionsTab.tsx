@@ -21,8 +21,31 @@ import type { ClassSession } from "@/lib/class-sessions";
  * A student who was in the lesson has the button; one who was not sees the
  * session without it. Naming the reason here is the upgrade, and it needs the
  * entitlement stamped in bulk the way `UnlockReader::stamp()` does.
+ *
+ * ⛔ **AN EMPTY LIST HAS TWO CAUSES AND ONLY ONE OF THEM IS THE TEACHER'S.**
+ * This tab is drawn from `has_sessions`, which answers «does this course have
+ * ANY session» — while the list itself is narrowed by `CohortSessionVisibility`
+ * to the groups the reader belongs to. So a student not yet placed in a group,
+ * on a course with a full timetable, was shown «لا حصص في هذه المادّة بعد —
+ * حين يجدول مدرّسك حصّة ستظهر هنا»: a sentence that is FALSE and blames a
+ * teacher who has scheduled every one of them. Owner-approved 2026-09-16 — say
+ * what is actually true.
+ *
+ * ⚠️ **THE REASON IS READ, NEVER RE-DERIVED.** `unplacedReason` is
+ * `cohort_gate.message` straight off the curriculum payload — non-null exactly
+ * when the course runs in groups and this reader is in none, and it is the
+ * server that picks between «a group is open, join it or wait to be placed» and
+ * «no group is open yet». Spelling that condition again in TypeScript is the
+ * two-spellings defect `cohort_gate` was created to end, and its failure
+ * direction here is telling a placed student they are not placed.
  */
-export function SessionsTab({ sessions }: { sessions: ClassSession[] }) {
+export function SessionsTab({
+  sessions,
+  unplacedReason = null,
+}: {
+  sessions: ClassSession[];
+  unplacedReason?: string | null;
+}) {
   const now = Date.now();
 
   // One pass, and `ends_at` rather than `starts_at`: a lesson in progress belongs
@@ -38,7 +61,14 @@ export function SessionsTab({ sessions }: { sessions: ClassSession[] }) {
   past.sort((a, b) => Date.parse(b.starts_at) - Date.parse(a.starts_at));
 
   if (sessions.length === 0) {
-    return (
+    // ⚠️ الترتيبُ مقصود: السببُ المعروفُ أوّلاً. القائمةُ فارغةٌ في الحالتَين،
+    // والجملةُ الافتراضيّةُ تحتَها تتّهمُ مدرّساً جدولَ الحصصَ فعلاً.
+    return unplacedReason !== null ? (
+      <EmptyState
+        title="حصص هذه المادّة تظهر بعد إسنادك إلى مجموعة"
+        description={unplacedReason}
+      />
+    ) : (
       <EmptyState
         title="لا حصص في هذه المادّة بعد"
         description="حين يجدول مدرّسك حصّة ستظهر هنا بموعدها ومقاعدها."

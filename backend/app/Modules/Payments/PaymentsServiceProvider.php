@@ -121,9 +121,32 @@ class PaymentsServiceProvider extends Module
         /*
         | Spec 027 — what the subscription layer answers to LiveSessions and Learning.
         |
-        | bind(), and neither of the other two lifetimes. NOT `scoped()`: this is
-        | asked once per seat-claim job and once per scheduled session, not the
-        | dozens-per-page shape `AssistantScopeDirectory` and `Flags` memoise for.
+        | bind(), and neither of the other two lifetimes.
+        |
+        | ⚠️ THE OLD REASON GIVEN HERE WAS MEASURED AND FOUND WRONG, AND THE
+        | ANSWER IS STILL `bind()`. It said «asked once per seat-claim job and
+        | once per scheduled session, not the dozens-per-page shape
+        | `AssistantScopeDirectory` and `Flags` memoise for» — but `POST
+        | /class-sessions/{s}/book` reads `subscriptions` TWICE (measured
+        | 2026-09-16): `EloquentAccountStanding::refusalFor()` asks
+        | `coversCourse()` at the top of its walk, and
+        | `EloquentSessionCreditHolds::place()` asks the same one spelling again
+        | before it freezes a credit. Both askers are right to ask.
+        |
+        | ⛔ A `scoped()` MEMO WAS BUILT FOR THAT SECOND READ AND WAS REVERTED,
+        | and the reason generalises past this line. Its invalidation hung on
+        | `saved`/`deleted` model events — and a BULK `update()` retrieves no
+        | models and fires none, which is the `LedgerEntry` rule reached from a
+        | new direction. The sibling memo on `EloquentEnrollmentDirectory`, built
+        | in the same change, was caught by `ArchiveAfterEnrollmentEndsTest`
+        | doing exactly that: a student whose enrolment had been ENDED kept
+        | posting into the teacher's chat, 201 where the test demands 403. The
+        | coverage memo has the same blind spot and passed only because no test
+        | bulk-writes `subscriptions` — untested is not safe, and a stale
+        | «covered» fails OPEN on money: a seat taken with no credit frozen
+        | against it. Sealing it properly needs a listener on every SQL statement
+        | in the application, to save ONE query on a path nobody calls hot.
+        |
         | NOT `singleton()`: a worker's container outlives the job, so a memo here
         | would serve a subscriber list that expired hours ago — and the whole
         | point of the moment parameter is that this answer moves.
