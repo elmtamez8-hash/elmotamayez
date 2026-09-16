@@ -71,6 +71,23 @@ function SubscribeScreen() {
   const [method, setMethod] = useState("bank_transfer");
   const [sending, setSending] = useState(false);
   const [placed, setPlaced] = useState<SubscriptionOrder | null>(null);
+  /*
+   * ⛔ **الطلبُ الذي وُلِدَ ثمّ تعثَّرَ إيصالُه — ولا تُقالُ عنه «لم يُرسل».**
+   * الإرسالُ خطوتان بالضرورة: `POST /billing/subscriptions` ثمّ
+   * `POST /orders/{uuid}/receipt`، ولا نقطةَ نهايةٍ مُدمَجةٌ ولا يجوزُ أن تكون
+   * (انظرِ التعليقَ في `submit`). فحينَ تنجحُ الأولى وتُخفِقُ الثانيةُ كانَ
+   * المُلتَقَطُ واحداً فتُقالُ الجملةُ نفسُها — «لم يُرسل الطلب» — عن طلبٍ
+   * مكتوبٍ يقعدُ في طابورِ الموظّفِ بلا إيصال.
+   *
+   * قِيسَ على الإنتاج ٢٠٢٦-٠٩-١٦: `201` ثمّ `422` (الصورةُ فوقَ عشرةِ ميغابايت)
+   * ⇐ الطلبُ #٩ موجودٌ `pending` والشاشةُ تقولُ إنّ شيئاً لم يُرسَل.
+   *
+   * ⚠️ **ووجودُه هنا يمنعُ الطلبَ الثاني**: إعادةُ الإرسالِ ترفعُ الإيصالَ على
+   * الطلبِ نفسِه ولا تُنشئُ غيرَه. وبدونِه كلُّ محاولةٍ تُولِّدُ صفّاً جديداً في
+   * الطابور — أو تُرفَضُ بجملةِ «لديك طلبٌ قائم» بعدَ أن قِيلَ للقارئِ لتوِّه إنّ
+   * طلبَه لم يُرسَل، وهي أسوأُ من الأولى.
+   */
+  const [awaitingReceipt, setAwaitingReceipt] = useState<SubscriptionOrder | null>(null);
   const problemRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -154,17 +171,26 @@ function SubscribeScreen() {
        * endpoint and there must not be: `POST /orders/{uuid}/receipt` is the one
        * path that records the method, the IP and the user agent together.
        */
-      const { data: order } = await subscribe.create({
-        plan_uuid: planUuid,
-        mode,
-        ...(cohortUuid === null ? {} : { cohort_uuid: cohortUuid }),
-        // الطالبُ يُرسَلُ من الوصيِّ وحدَه؛ ومن يشتري لنفسِه لا يُسمّي أحداً،
-        // فالخادمُ يقرأُ صاحبَ الجلسةِ ولا يكتبُ `granted_by` أصلاً.
-        ...(isGuardian ? { student_uuid: studentUuid } : {}),
-      });
+      const order =
+        awaitingReceipt
+        ?? (
+          await subscribe.create({
+            plan_uuid: planUuid,
+            mode,
+            ...(cohortUuid === null ? {} : { cohort_uuid: cohortUuid }),
+            // الطالبُ يُرسَلُ من الوصيِّ وحدَه؛ ومن يشتري لنفسِه لا يُسمّي أحداً،
+            // فالخادمُ يقرأُ صاحبَ الجلسةِ ولا يكتبُ `granted_by` أصلاً.
+            ...(isGuardian ? { student_uuid: studentUuid } : {}),
+          })
+        ).data;
+
+      // يُحفَظُ قبلَ الرفعِ لا بعدَه: إن أخفقَ ما تحتَه فالطلبُ موجودٌ بالفعل،
+      // وهذا السطرُ هو ما يجعلُ الشاشةَ تعرفُ ذلك.
+      setAwaitingReceipt(order);
 
       await subscribe.uploadReceipt(order.uuid, receipt, method);
 
+      setAwaitingReceipt(null);
       setPlaced(order);
     } catch (error: unknown) {
       setProblem(userMessage(error));
@@ -225,12 +251,31 @@ function SubscribeScreen() {
          * is the complication this feature exists to remove.
          */
         <div ref={problemRef}>
-          <Alert tone="danger" title="لم يُرسل الطلب">
-            <p>{problem}</p>
-            <p className="mt-2">
-              اختيارك محفوظ في هذه الصفحة — عالِجِ السبب أعلاه ثم أرسِلْ من هنا.
-            </p>
-          </Alert>
+          {awaitingReceipt === null ? (
+            <Alert tone="danger" title="لم يُرسل الطلب">
+              <p>{problem}</p>
+              <p className="mt-2">
+                اختيارك محفوظ في هذه الصفحة — عالِجِ السبب أعلاه ثم أرسِلْ من هنا.
+              </p>
+            </Alert>
+          ) : (
+            /*
+             * ⚠️ **نبرةُ تحذيرٍ لا خطأ، والعنوانُ يقولُ ما وقعَ بالضبط.** الطلبُ
+             * أُنشئ — وهذا خبرٌ يجبُ أن يعرفَه صاحبُه قبلَ أن يُقرِّرَ ماذا يفعل —
+             * والناقصُ إيصالُه وحدَه. و«لم يُرسل» هنا كذبةٌ تدفعُ إلى طلبٍ ثانٍ.
+             */
+            <Alert tone="warning" title="طلبك وصل — والإيصال لم يُرفع">
+              <p>{problem}</p>
+              <p className="mt-2">
+                اختر صورة أو ملف PDF أصغر ثم أرسِلْ من هنا — سيُرفَع على الطلب نفسه
+                ولن يُنشأ طلب ثانٍ. ويمكنك رفعه لاحقاً من{" "}
+                <Link href="/orders" className="font-bold underline">
+                  صفحة الطلبات
+                </Link>
+                .
+              </p>
+            </Alert>
+          )}
         </div>
       )}
 

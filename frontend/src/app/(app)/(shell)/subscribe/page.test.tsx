@@ -116,6 +116,66 @@ describe("the subscription screen's refusal", () => {
     });
   });
 
+  /*
+  | ⛔ الطلبُ الذي وُلِدَ ثمّ تعثَّرَ إيصالُه — بلاغُ مشيٍ حقيقيٍّ ٢٠٢٦-٠٩-١٦.
+  |
+  | الإرسالُ خطوتان: `create` ثمّ `uploadReceipt`. حينَ تنجحُ الأولى وتُخفِقُ
+  | الثانيةُ كانَ المُلتَقَطُ واحداً فتُقالُ الجملةُ نفسُها «لم يُرسل الطلب» —
+  | عن طلبٍ مكتوبٍ يقعدُ في طابورِ الموظّفِ بلا إيصال. قِيسَ: `201` ثمّ `422`
+  | ⇐ الطلبُ #٩ موجودٌ والشاشةُ تقولُ إنّ شيئاً لم يُرسَل.
+  |
+  | ⚠️ **وشقّانِ ضدّان**: الإخفاقُ قبلَ الإنشاءِ يبقى «لم يُرسل» — وهو صادقٌ
+  | هناك — والإخفاقُ بعدَه يقولُ ما وقع. وشقٌّ واحدٌ يمرُّ على بناءٍ يقولُ
+  | الجملةَ الجديدةَ لكلِّ رفض.
+  */
+  it("says the order arrived when only the receipt was refused", async () => {
+    create.mockResolvedValue({ data: { uuid: "order-uuid" } });
+    uploadReceipt.mockRejectedValue(
+      Object.assign(new Error("refused"), { status: 422, message: "حجم الملف كبير." }),
+    );
+
+    await fillAndSend();
+
+    await waitFor(() => {
+      expect(screen.getByText("طلبك وصل — والإيصال لم يُرفع")).toBeDefined();
+    });
+
+    expect(screen.queryByText("لم يُرسل الطلب")).toBeNull();
+  });
+
+  /*
+  | ⚠️ وإعادةُ الإرسالِ ترفعُ على الطلبِ نفسِه ولا تُنشئُ ثانياً. وبدونِ هذه
+  | الحالةِ يمرُّ بناءٌ يقولُ الجملةَ الصحيحةَ ثمّ يُولِّدُ صفّاً جديداً في
+  | الطابورِ مع كلِّ محاولة.
+  */
+  it("retries the receipt onto the same order, and raises no second one", async () => {
+    create.mockResolvedValue({ data: { uuid: "order-uuid" } });
+    uploadReceipt.mockRejectedValueOnce(
+      Object.assign(new Error("refused"), { status: 422, message: "حجم الملف كبير." }),
+    );
+
+    await fillAndSend();
+
+    await waitFor(() => {
+      expect(screen.getByText("طلبك وصل — والإيصال لم يُرفع")).toBeDefined();
+    });
+
+    /*
+      ⚠️ ضغطةٌ ثانيةٌ على الرسمِ نفسِه، لا نداءٌ ثانٍ لـ`fillAndSend` — ذاك يرسمُ
+      الصفحةَ من جديدٍ فيصيرُ في المستندِ زرّانِ بالاسمِ نفسِه، ويسقطُ الاختبارُ
+      برسالةٍ عن المُنتقي لا عن السلوك. والملفُّ ما زالَ في الحالةِ بعدَ الرفض.
+    */
+    uploadReceipt.mockResolvedValue({});
+    fireEvent.click(screen.getByRole("button", { name: "أرسِلِ الطلب" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("وصل طلبك")).toBeDefined();
+    });
+
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(uploadReceipt).toHaveBeenCalledTimes(2);
+  });
+
   it("scrolls nothing when the request went through", async () => {
     create.mockResolvedValue({ data: { uuid: "order-uuid" } });
     uploadReceipt.mockResolvedValue({});
