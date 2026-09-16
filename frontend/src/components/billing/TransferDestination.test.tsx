@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TransferDestination } from "./TransferDestination";
 import { billing } from "@/lib/billing";
@@ -93,7 +93,20 @@ describe("TransferDestination", () => {
 | يصلُ إلى حسابٍ آخر.
 */
 describe("copying a number into a banking app", () => {
+  /*
+  | ⚠️ **`navigator` عالميٌّ يعيشُ بعدَ الحالةِ التي عدّلَته**، و`vitest` يُحمِّلُ
+  | عدّةَ ملفّاتٍ في العاملِ الواحد: حالةٌ تكتبُ `clipboard = undefined` ولا
+  | تُعيدُه تتركُ متصفّحاً بلا حافظةٍ لكلِّ ما يأتي بعدَها في ذلك العامل — وهو
+  | اعتمادٌ على الترتيبِ يظهرُ مرّةً ويختفي في الإعادة، أسوأُ من فشلٍ ثابت.
+  */
+  const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+
   beforeEach(() => read.mockReset());
+
+  afterEach(() => {
+    if (original) Object.defineProperty(navigator, "clipboard", original);
+    else Reflect.deleteProperty(navigator as unknown as Record<string, unknown>, "clipboard");
+  });
 
   it("puts the value itself on the clipboard, not the label beside it", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
