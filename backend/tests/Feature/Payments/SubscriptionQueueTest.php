@@ -234,3 +234,48 @@ it('costs the same number of queries whatever the number of pending orders', fun
     */
     expect($withFour)->toBeLessThanOrEqual($withOne);
 });
+
+/*
+| ⛔ ثلاثُ حالاتٍ للافتةِ التفعيل، ولا تُقرأُ واحدةٌ منها وحدَها.
+|
+| التفعيلُ يقعُ على عامِلٍ بعدَ ثبوتِ الاعتماد، فبينَ الضغطةِ وكتابةِ الاشتراكِ
+| نافذةٌ حقيقيّة — قِيسَت على الإنتاج ٢٠٢٦-٠٩-١٦: الاعتمادُ 14:16:39 والاشتراكُ
+| 14:16:42. رُسِمَت فيها لافتةٌ حمراءُ تقولُ «لم يُنشأ الاشتراك» عن اشتراكٍ كُتِبَ
+| بعدَها بثلاثِ ثوانٍ، وصارَت خضراءَ بإعادةِ تحميل.
+|
+| ⚠️ **والحالةُ الحمراءُ تبقى، وهي نصفُ `FR-027` الظاهر**: طلبٌ اعتُمِدَ — أي
+| أُخِذَ مالُه — ولم يُكتَبْ اشتراكُه عطبٌ يجبُ أن يُرى. فما تغيّرَ هو **متى**
+| يُقالُ، لا أنْ يُقال.
+*/
+it('says «قيد التفعيل» in the worker window, never «ناقص»', function (): void {
+    $order = pendingSubscriptionOrder();
+
+    $order->forceFill(['status' => 'approved', 'approved_at' => now()])->save();
+
+    queueAs($this->officer)
+        ->assertSee('قيد التفعيل')
+        ->assertDontSee('لم يُنشأ الاشتراك');
+});
+
+it('says «ناقص» once the window has passed with no subscription written', function (): void {
+    $order = pendingSubscriptionOrder();
+
+    // دقيقتانِ: خارجَ المهلةِ بيقين، ولا اشتراكَ كُتِب.
+    $order->forceFill(['status' => 'approved', 'approved_at' => now()->subMinutes(2)])->save();
+
+    queueAs($this->officer)->assertSee('لم يُنشأ الاشتراك');
+});
+
+/*
+| ⚠️ والحالةُ الثالثةُ تمنعُ الإصلاحَ من أن يبتلعَ الحقيقة: اشتراكٌ مكتوبٌ يُقرَأُ
+| «مكتمل» حتّى داخلَ المهلة، فالمهلةُ تُؤجِّلُ الحكمَ ولا تُؤجِّلُ الخبرَ السارّ.
+*/
+it('says «مكتمل» inside the window when the subscription is already there', function (): void {
+    $order = pendingSubscriptionOrder();
+
+    app(ApproveOrder::class)->handle($order, $this->officer, '127.0.0.1', 'pest');
+
+    queueAs($this->officer)
+        ->assertSee('مكتمل')
+        ->assertDontSee('قيد التفعيل');
+});
