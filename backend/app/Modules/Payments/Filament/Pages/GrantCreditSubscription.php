@@ -18,6 +18,7 @@ use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
@@ -209,17 +210,30 @@ class GrantCreditSubscription extends Page implements HasTable
                 | (`ApproveOrder::assertStillActionable`) and healed by the retry,
                 | which is why one flag is enough rather than a second subquery on
                 | every page load.
+                |
+                | ⛔ **وثلاثُ حالاتٍ لا حالتان، وإلّا أدانَ العاملَ قبلَ أن يعمل.**
+                | التفعيلُ يقعُ على عامِلٍ بعدَ ثبوتِ الاعتماد، فبينَ الضغطةِ
+                | وكتابةِ الاشتراكِ نافذةٌ حقيقيّة — قِيسَت على الإنتاج ٢٠٢٦-٠٩-١٦:
+                | الاعتمادُ 14:16:39 والاشتراكُ 14:16:42، **ثلاثُ ثوانٍ** رُسِمَت
+                | فيها لافتةٌ حمراءُ تقولُ «لم يُنشأ الاشتراك» عن اشتراكٍ كُتِبَ
+                | بعدَها بلحظة. والموظّفُ الذي يقرؤُها يضغطُ ثانيةً أو يُبلِّغُ عن
+                | عطبٍ ليسَ هناك.
+                |
+                | فالحمراءُ لا تُقالُ إلّا بعدَ أن تنقضيَ مهلةُ العامِل. وقبلَها
+                | «قيد التفعيل» — وهو وصفُ الحقيقةِ لا تلطيفٌ لها.
                 */
                 TextColumn::make('activation')->label('التفعيل')
                     ->state(fn (Order $record): string => match (true) {
                         $record->isPending() => '—',
                         (bool) $record->getAttribute('has_subscription') => 'مكتمل',
+                        self::awaitingActivation($record) => 'قيد التفعيل…',
                         default => 'ناقص — لم يُنشأ الاشتراك',
                     })
                     ->badge()
                     ->color(fn (Order $record): string => match (true) {
                         $record->isPending() => 'gray',
                         (bool) $record->getAttribute('has_subscription') => 'success',
+                        self::awaitingActivation($record) => 'warning',
                         default => 'danger',
                     }),
             ])
@@ -231,7 +245,16 @@ class GrantCreditSubscription extends Page implements HasTable
                 // is FR-018…FR-021 and FR-037 gone with nothing red.
                 OrderResource::approveAction(),
                 OrderResource::rejectAction(),
-            ]);
+            ])
+            /*
+            | ⚠️ **الاستطلاعُ نصفُ الإصلاحِ الآخر، لا زينة.** «قيد التفعيل» وعدٌ
+            | بأنّ الجوابَ آتٍ، وبلا هذا السطرِ يبقى الوعدُ معلَّقاً حتّى يُعيدَ
+            | الموظّفُ التحميلَ بيدِه — وهو بالضبطِ ما فعلَه مَن أبلغَ عن اللافتةِ
+            | الحمراء. عشرُ ثوانٍ أوسعُ من النافذةِ المقيسة (ثلاث)، والصفحةُ
+            | ميزانيّةُ استعلاماتِها مُثبَّتةٌ باختبارٍ بجوارِ هذا الملفّ فلا
+            | يزيدُها عددُ الطلبات.
+            */
+            ->poll('10s');
     }
 
     /**
@@ -286,6 +309,35 @@ class GrantCreditSubscription extends Page implements HasTable
             ->withExists([
                 'subscription as has_subscription' => fn ($relation) => $relation->withoutGlobalScope(WorkspaceScope::class),
             ]);
+    }
+
+    /**
+     * مهلةُ العامِل: بعدَها وحدَها يُقالُ «ناقص».
+     *
+     * ⚠️ **دقيقةٌ سخيّةٌ عن قصد.** المقيسُ ثلاثُ ثوانٍ على إنتاجٍ سليم، والرقمُ
+     * هنا ليسَ تقديراً للسرعةِ بل سقفاً للصبر: أن يُقالَ «قيد التفعيل» عن عطبٍ
+     * حقيقيٍّ دقيقةً زائدةً أرخصُ من أن يُقالَ «ناقص» عن اشتراكٍ يُكتَبُ بعدَ
+     * لحظة — الأولى تأخيرٌ في الخبر، والثانيةُ خبرٌ كاذبٌ يدفعُ الموظّفَ إلى
+     * ضغطةٍ ثانيةٍ أو بلاغٍ عن عطبٍ ليسَ هناك.
+     *
+     * ⚠️ ويُقارَنُ بـ`greaterThan` لا بفارقٍ عدديّ: `diffInSeconds` على تاريخٍ
+     * في الماضي أو المستقبلِ يُغيِّرُ إشارتَه، وهذا المستودعُ دفعَ ثمنَ ذلك مرّةً
+     * في توكيدةِ مدّةِ تذكرةِ البثّ — مرَّت خضراءَ لأيِّ مدّةٍ كانت.
+     */
+    private const ACTIVATION_GRACE_SECONDS = 60;
+
+    private static function awaitingActivation(Order $order): bool
+    {
+        /*
+         | ⚠️ `instanceof` لا `!== null`: العمودُ نصٌّ في الهجرة، والذي يجعلُه
+         | تاريخاً هو `casts()` على النموذج — فالمحلِّلُ يقرؤُه نصّاً وهو محقّ في
+         | أنّه لا يضمنُ الصبّ. والفحصُ يفشلُ في الاتّجاهِ القديمِ الظاهر: لو
+         | سقطَ الصبُّ يوماً عادَتِ اللافتةُ حمراءَ فوراً كما كانت، لا صامتة.
+         */
+        $approvedAt = $order->getAttribute('approved_at');
+
+        return $approvedAt instanceof CarbonInterface
+            && $approvedAt->greaterThan(now()->subSeconds(self::ACTIVATION_GRACE_SECONDS));
     }
 
     /**
