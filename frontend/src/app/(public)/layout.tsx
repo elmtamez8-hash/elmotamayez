@@ -1,6 +1,6 @@
 import { SiteHeader } from "@/components/marketplace/SiteHeader";
 import { SiteFooter } from "@/components/marketplace/SiteFooter";
-import { FloatingActions } from "@/components/marketplace/FloatingActions";
+import { FloatingActions } from "@/components/ui/FloatingActions";
 
 // Chrome only. `<html>`, `<body>`, the font, the theme script and the skip link
 // moved to the root layout in 002 so the authenticated panel inherits them too.

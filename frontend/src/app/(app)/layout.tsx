@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { platformName } from "@/lib/platform";
+import { FloatingActions } from "@/components/ui/FloatingActions";
 
 /*
  * ⚠️ THE DEFAULT IS BARE, AND IT USED TO REPEAT THE NAME. Measured live on
@@ -21,13 +22,30 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-// Metadata only now. `<html>` and `<body>` moved to the root layout in 002, and
-// the auth context followed them there: held here, it made the marketplace a
-// place where nobody was ever signed in.
+/*
+ * Chrome is otherwise the root layout's and the shell's; this group adds one
+ * thing.
+ *
+ * ⚠️ THE WAY TO ASK FOR HELP WAS MOUNTED IN `(public)` ALONE, so the entire
+ * signed-in product had none — the student stuck on a receipt, the teacher whose
+ * room will not open, the visitor who cannot get past `/login`. The marketplace,
+ * where nobody is stuck on anything yet, was the one place it was offered.
+ *
+ * ⚠️ AND IT IS HERE RATHER THAN IN `(shell)`, WHICH IS THE WHOLE POINT: `/login`,
+ * `/register`, `/invitations` and the certificate verifier live in this group and
+ * NOT in the shell. Someone who cannot sign in is exactly the reader who needs a
+ * human and has no other channel — the same argument `PlatformIdentityController`
+ * makes for answering this number without authentication.
+ */
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <FloatingActions />
+    </>
+  );
 }

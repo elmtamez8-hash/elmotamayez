@@ -411,13 +411,20 @@ final class PublicFieldAllowlist
     public const STATS = ['students', 'teachers', 'sessions', 'satisfaction_rate'];
 
     /**
-     * `GET /platform` — the product's own name, and nothing else.
+     * `GET /platform` — what the product calls itself, and how to reach it.
      *
-     * ⚠️ ONE FIELD, AND THE LIST IS WHAT KEEPS IT ONE. `platform_settings` holds
-     * the device limit, the grant TTL, the operating fee and the gateway's basis
-     * points; an endpoint that answered with the map would put the platform's
-     * half of the price on a public URL, and every key added to that table
-     * afterwards would join it silently.
+     * ⚠️ TWO FIELDS NOW, AND THE LIST IS WHAT KEEPS IT TWO. `platform_settings`
+     * holds the device limit, the grant TTL, the operating fee and the gateway's
+     * basis points; an endpoint that answered with the map would put the
+     * platform's half of the price on a public URL, and every key added to that
+     * table afterwards would join it silently.
+     *
+     * ⚠️ THE SECOND FIELD IS SAFE FOR THE SAME REASON THE FIRST IS, AND THE
+     * REASON IS NOT «it is only a setting». A support number is published BY
+     * DESIGN — it is printed on the page it belongs on, it invites a message and
+     * it opens nothing. `billing.transfer` beside it in `PlatformSettings::KEYS`
+     * is the counter-example and stays off this list: an account number is read
+     * by somebody about to pay, and its door is behind authentication.
      */
-    public const PLATFORM_IDENTITY = ['name'];
+    public const PLATFORM_IDENTITY = ['name', 'support_whatsapp'];
 }

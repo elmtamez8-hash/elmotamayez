@@ -71,6 +71,7 @@ class ManagePlatformSettings extends Page
 
         $this->form->fill([
             'platform_name' => PlatformSettings::get('platform.name'),
+            'support_whatsapp' => PlatformSettings::get('platform.support_whatsapp'),
             ...self::transferFormState(),
             'student_device_limit' => $limits['student'] ?? 1,
             'two_factor_grace_days' => PlatformSettings::get('auth.two_factor_grace_days'),
@@ -123,13 +124,28 @@ class ManagePlatformSettings extends Page
                     | الموقعِ الاسمَ البديلَ «منصّتي» بلا خطأٍ في أيِّ مكان.
                     */
                     Section::make('هويّة المنصّة')
-                        ->description('يظهر في عنوان كل صفحة، وفي رأس اللوحة وتذييل الموقع. التغيير يسري بلا إعادة نشر.')
+                        ->description('الاسم يظهر في عنوان كل صفحة وفي رأس اللوحة، ورقم الواتساب هو الزرّ العائم في صفحات الموقع. التغيير يسري بلا إعادة نشر.')
                         ->schema([
                             TextInput::make('platform_name')
                                 ->label('اسم المنصّة')
                                 ->helperText('الشعار يُرسَم من ملف العلامة، وهذا الاسم هو ما يُقرأ نصّاً — في عنوان التبويب ولقارئ الشاشة.')
                                 ->maxLength(60)
                                 ->required(),
+                            /*
+                            | ⚠️ **الزرُّ العائمُ موجودٌ من زمنٍ ولم يرَه أحد.**
+                            | الرقمُ كانَ في `NEXT_PUBLIC_WHATSAPP_NUMBER` — يُدمَجُ
+                            | وقتَ البناءِ ولم يُضبَطْ قطّ — وهو بعينِه عطبُ اسمِ
+                            | المنصّةِ فوقَه مرّةً ثانية. ولم يفشلْ شيء: الرقمُ
+                            | الفارغُ هو أيضاً كيفَ يُطفَأُ الزرُّ عن قصد.
+                            |
+                            | ⚠️ **وليسَ `->required()`**: الفراغُ قرارٌ — منصّةٌ
+                            | بلا خطِّ واتسابٍ لا تعرضُ زرّاً يفتحُ محادثةَ غريب.
+                            */
+                            TextInput::make('support_whatsapp')
+                                ->label('رقم الواتساب للدعم')
+                                ->helperText('بالصيغة الدوليّة بلا «+» — مثال: 97455512345. اتركه فارغاً ليختفي زرّ الواتساب من الموقع.')
+                                ->tel()
+                                ->maxLength(20),
                         ]),
                     /*
                     | ⛔ **المنتَجُ كانَ يطلبُ تحويلاً إلى مكانٍ لا يُسمّيه.** شاشةُ
@@ -256,6 +272,18 @@ class ManagePlatformSettings extends Page
 
         // ⚠️ `trim`، فاسمٌ بفراغٍ في طرفِه يظهرُ في `<title>` ولا يُرى في الحقل.
         PlatformSettings::set('platform.name', trim((string) $data['platform_name']), $userId);
+
+        /*
+        | ⚠️ الأرقامُ وحدَها، والتطبيعُ عندَ الكتابةِ لا عندَ القراءة. الرابطُ
+        | `wa.me/<digits>` لا يقبلُ «+» ولا مسافةً ولا شَرطة، وتطبيعٌ عندَ كلِّ
+        | قارئٍ هو تهجئةٌ في كلِّ ملفٍّ يقرأ. يُكتَبُ مرّةً على الشكلِ الذي
+        | يُستعمَلُ به.
+        */
+        PlatformSettings::set(
+            'platform.support_whatsapp',
+            (string) preg_replace('/[^0-9]/', '', (string) ($data['support_whatsapp'] ?? '')),
+            $userId,
+        );
 
         /*
         | ⚠️ خريطةٌ واحدةٌ تُكتَبُ كاملةً في كلِّ حفظ، فالخانةُ التي أفرغَها

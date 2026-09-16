@@ -23,11 +23,43 @@ import { PLATFORM_NAME_FALLBACK } from "./platform";
  */
 const PlatformNameContext = createContext<string>(PLATFORM_NAME_FALLBACK);
 
-export function PlatformProvider({ name, children }: { name: string; children: ReactNode }) {
-  return <PlatformNameContext.Provider value={name}>{children}</PlatformNameContext.Provider>;
+/*
+ * The support number, on the same context and for the same reasons.
+ *
+ * ⚠️ THE DEFAULT IS EMPTY WHILE THE NAME'S IS THE REAL NAME, AND THAT ASYMMETRY
+ * IS THE POINT. A component rendered outside the provider — a test, an island —
+ * should still spell the product; it must NOT invent a phone number, because
+ * empty is what keeps the button off and a guess is a link to a stranger.
+ */
+const SupportWhatsappContext = createContext<string>("");
+
+export function PlatformProvider({
+  name,
+  supportWhatsapp,
+  children,
+}: {
+  name: string;
+  supportWhatsapp: string;
+  children: ReactNode;
+}) {
+  return (
+    <PlatformNameContext.Provider value={name}>
+      <SupportWhatsappContext.Provider value={supportWhatsapp}>
+        {children}
+      </SupportWhatsappContext.Provider>
+    </PlatformNameContext.Provider>
+  );
 }
 
 /** The product's name, for a client component. Server code calls `platformName()`. */
 export function usePlatformName(): string {
   return useContext(PlatformNameContext);
+}
+
+/**
+ * The support number for a client component; `""` means there is no support line
+ * and every caller must render nothing rather than a dead link.
+ */
+export function useSupportWhatsapp(): string {
+  return useContext(SupportWhatsappContext);
 }

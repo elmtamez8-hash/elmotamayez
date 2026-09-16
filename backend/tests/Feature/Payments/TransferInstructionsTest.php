@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Payments\Support\TransferInstructions;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use Laravel\Sanctum\Sanctum;
 
@@ -64,16 +65,31 @@ it('says «not configured» rather than failing when nothing was ever written', 
 });
 
 /*
-| ⚠️ **ولا تُضافُ إلى `/platform` العامّ.** ذاك قائمةُ سماحٍ بحقلٍ **واحد**،
-| وتعليقُه يقولُ إنّ كلَّ حقلٍ يُضافُ إليه ينضمُّ صامتاً إلى عنوانٍ عامّ. وهذه
-| الحالةُ هي ما يمنعُ أن تُوضَعَ هناك «تسهيلاً» يوماً.
+| ⚠️ **ولا تُضافُ إلى `/platform` العامّ.** ذاك قائمةُ سماحٍ يحرسُها
+| {@see PublicFieldAllowlist::PLATFORM_IDENTITY}، وكلُّ حقلٍ يُضافُ إليها ينضمُّ
+| صامتاً إلى عنوانٍ غيرِ مصادَق. وهذه الحالةُ هي ما يمنعُ أن تُوضَعَ وجهةُ
+| التحويلِ هناك «تسهيلاً» يوماً.
+|
+| ⛔ **وكانت تُهجّي القائمةَ بيدِها (`toBe(['name'])`)، فسقطَت يومَ أُضيفَ
+| `support_whatsapp` — حقلٌ ثانٍ مقصودٌ ومراجَع، لا تسريب.** وهو عطبُ
+| التهجئتَينِ الذي يسجّلُه هذا المستودَعُ مراراً، في اختبارٍ هذه المرّة: مجموعةُ
+| المفاتيحِ بالضبطِ مؤكَّدةٌ **مرّةً واحدة**، في `PlatformIdentityTest`، مقابلَ
+| الثابتِ نفسِه. وما يخصُّ هذا الملفَّ هو النفيُ: لا حقلَ تحويلٍ في الحمولة،
+| ولا قيمتُه — والآيبانُ شاهدٌ لاتينيٌّ لأنّ `getContent()` يهربُ غيرَ
+| اللاتينيِّ فيمرُّ توكيدٌ بإبرةٍ عربيّةٍ فارغاً مهما حملَتِ الحمولة.
 */
 it('keeps the destination off the public identity endpoint', function (): void {
-    PlatformSettings::set('billing.transfer', ['iban' => 'QA58DOHB00001234567890ABCDEFG']);
+    $iban = 'QA58DOHB00001234567890ABCDEFG';
+
+    PlatformSettings::set('billing.transfer', ['iban' => $iban]);
 
     $body = $this->getJson('/api/v1/platform')->assertOk();
 
-    expect(array_keys((array) $body->json('data')))->toBe(['name']);
+    /** @var array<string, mixed> $payload */
+    $payload = (array) $body->json('data');
+
+    expect(array_intersect(TransferInstructions::FIELDS, array_keys($payload)))->toBe([])
+        ->and($body->getContent())->not->toContain($iban);
 });
 
 it('refuses the destination to somebody with no account', function (): void {

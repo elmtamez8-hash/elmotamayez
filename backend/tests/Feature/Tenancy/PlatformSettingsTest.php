@@ -158,3 +158,39 @@ it('opens the pricing form on the numbers the engine is actually using', functio
             'max_unredeemed_credits' => config('billing.max_unredeemed_credits', 24),
         ]);
 });
+
+/**
+ * ⛔ **الزرُّ العائمُ كانَ مبنيّاً ولا يراهُ أحد.** رقمُ الواتسابِ كانَ في
+ * `NEXT_PUBLIC_WHATSAPP_NUMBER` — يُدمَجُ وقتَ البناءِ ولم يُضبَطْ قطّ — فقرأَه
+ * الواجهةُ سلسلةً فارغةً ولم يُرسَمِ الزرُّ ولا رابطُ التذييل. وهو بعينِه عطبُ
+ * اسمِ المنصّةِ الذي كلّفَ الموقعَ شهوراً يقولُ «منصّتي».
+ *
+ * ⚠️ **والتطبيعُ عندَ الكتابةِ لا عندَ القراءة**: `wa.me/<digits>` لا يقبلُ «+»
+ * ولا مسافةً ولا شَرطة، وتطبيعٌ في كلِّ قارئٍ هو تهجئةٌ في كلِّ ملفٍّ يقرأ.
+ */
+it('stores the support number as digits alone, whatever the operator typed', function (): void {
+    $admin = User::factory()->create(['is_super_admin' => true]);
+    Auth::login($admin);
+
+    Livewire::test(ManagePlatformSettings::class)
+        ->fillForm(['support_whatsapp' => '+974 5551-2345'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect(PlatformSettings::get('platform.support_whatsapp'))->toBe('97455512345');
+});
+
+it('lets the operator switch the button off by clearing the field', function (): void {
+    $admin = User::factory()->create(['is_super_admin' => true]);
+    Auth::login($admin);
+
+    PlatformSettings::set('platform.support_whatsapp', '97455512345');
+
+    Livewire::test(ManagePlatformSettings::class)
+        ->fillForm(['support_whatsapp' => ''])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    // الفراغُ قرارٌ لا عطلٌ: منصّةٌ بلا خطِّ دعمٍ لا تعرضُ زرّاً يفتحُ محادثةَ غريب.
+    expect(PlatformSettings::get('platform.support_whatsapp'))->toBe('');
+});

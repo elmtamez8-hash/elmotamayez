@@ -4,7 +4,7 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth-context";
 import { PlatformProvider } from "@/lib/platform-context";
-import { platformName } from "@/lib/platform";
+import { platformIdentity, platformName } from "@/lib/platform";
 
 // Self-hosted by next/font — no runtime request to Google, which would otherwise
 // block first paint on the very metric SC-007 measures.
@@ -66,12 +66,13 @@ export default async function RootLayout({
 }) {
   /*
     ⚠️ ONE FETCH FOR THE WHOLE TREE. The name is read by the sidebar, the public
-    header, the footer and every wordmark's `aria-label` — all of them client
-    islands — so it is resolved once here and handed down through a context. A
-    fetch inside each of those would be one request per component per page for a
-    string that changes once a year.
+    header, the footer and every wordmark's `aria-label`; the support number is
+    read by the floating button on every page in the product — all of them client
+    islands — so both are resolved once here and handed down through a context. A
+    fetch inside each of those would be one request per component per page for
+    two strings that change once a year.
   */
-  const name = await platformName();
+  const identity = await platformIdentity();
 
   return (
     <html lang="ar" dir="rtl" className={cairo.variable} suppressHydrationWarning>
@@ -93,7 +94,7 @@ export default async function RootLayout({
           header that still said "sign in" and offered no way into the product
           they had just been admitted to.
         */}
-        <PlatformProvider name={name}>
+        <PlatformProvider name={identity.name} supportWhatsapp={identity.supportWhatsapp}>
           <AuthProvider>{children}</AuthProvider>
         </PlatformProvider>
 
