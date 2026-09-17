@@ -28,6 +28,7 @@ const course: Course = {
     name: "خالد",
     photo_url: null,
   },
+  subject: { slug: "math", name: "الرياضيات", icon: null },
   type: "group",
   lessons_count: 12,
   duration_seconds: 7200,

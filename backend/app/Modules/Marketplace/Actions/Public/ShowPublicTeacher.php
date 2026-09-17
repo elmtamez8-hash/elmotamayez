@@ -129,7 +129,7 @@ class ShowPublicTeacher extends Action
         return Course::query()
             ->publiclyListed()
             ->where('created_by', $teacher->user_id)
-            ->with(['creator:id,first_name,last_name', 'creator.teacherProfile'])
+            ->with(['creator:id,first_name,last_name', 'creator.teacherProfile', 'subject'])
             ->withCount([
                 // Scoped, and it was not. `withCount('lessons')` counts every row
                 // — so a teacher's half-written drafts and their retired archive

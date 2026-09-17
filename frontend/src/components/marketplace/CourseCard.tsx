@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { counted, courseTypeLabel } from "@/lib/labels";
 import type { CourseCard as Course } from "@/lib/public-api";
+import { CourseCover } from "./CourseCover";
 import { StarRating } from "./StarRating";
 
 function hours(seconds: number): string {
@@ -40,24 +41,12 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-3xl border border-line bg-surface-raised transition duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg active:translate-y-0 active:duration-100">
       <div className="relative aspect-video bg-primary-soft">
-        {course.cover_url ? (
-          <img
-            src={course.cover_url}
-            alt=""
-            // The cover is what the card is ABOUT, so it is the thing that moves.
-            // 400ms and a 4% scale: slow and small enough to read as the image
-            // breathing, not as a zoom effect applied to a photo.
-            className="h-full w-full object-cover transition duration-[400ms] ease-out group-hover:scale-[1.04]"
-            loading="lazy"
-          />
-        ) : (
-          <span
-            className="flex h-full w-full items-center justify-center text-4xl font-black text-primary-ink/30"
-            aria-hidden="true"
-          >
-            {course.title.charAt(0)}
-          </span>
-        )}
+        <CourseCover
+          title={course.title}
+          coverUrl={course.cover_url}
+          subject={course.subject}
+          variant="card"
+        />
 
         {course.is_bestseller && (
           <span className="absolute top-3 start-3 rounded-full bg-accent px-2.5 py-1 text-xs font-bold text-accent-foreground">

@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use App\Modules\Courses\Models\Course;
+use App\Modules\Marketplace\Actions\Public\ListPublicCourses;
+use App\Modules\Marketplace\DTOs\CourseFilterDTO;
+use App\Modules\Marketplace\Http\Resources\PublicCourseCardResource;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Models\Workspace;
@@ -223,4 +226,41 @@ it('keeps the author condition out of the search index too', function (): void {
 
     expect($hidden->fresh()->isPubliclyListed())->toBeFalse()
         ->and($shown->fresh()->isPubliclyListed())->toBeTrue();
+});
+
+/*
+| ⛔ **مقيسٌ على الفعلِ لا على الطرَف، والسببُ أنّ الطرَفَ مخبوء.**
+|
+| `PublicMarketplaceController::courses()` يلفُّ الحمولةَ في `Cache::remember`،
+| فطلبٌ ثانٍ بالشكلِ نفسِه يُجيبُ بصفرِ استعلام — وقياسٌ يقارنُ صفراً بخمسةٍ يقيسُ
+| المخبأَ لا الحملَ الحريص. والدَّرزةُ التي يقعُ فيها العطلُ هي الفعلُ والمورِدُ
+| معاً: الاستعلامُ يُحمِّلُ والمورِدُ يقرأُ لكلِّ صفّ.
+|
+| ⚠️ والتوكيدانِ معاً، ولا يُغني أحدُهما عن الآخَر — قاعدةُ ٠١٠ بنصِّها: عدٌّ وحدَه
+| يمرُّ فوقَ إسقاطِ الحقلِ كلِّه (أرخصُ بسطرٍ وبطاقةٌ بلا مادّة)، وحضورُ الحقلِ
+| وحدَه يمرُّ فوقَ استعلامٍ لكلِّ بطاقة.
+*/
+it('reads the subject once for the page, not once per card', function (): void {
+    $subject = Subject::query()->firstOrFail();
+
+    foreach (range(1, 6) as $ignored) {
+        marketplaceCourse($this->workspace, $this->teacher, ['subject_id' => $subject->getKey()]);
+    }
+
+    $render = function (int $perPage): array {
+        $courses = app(ListPublicCourses::class)
+            ->handle(CourseFilterDTO::fromArray(['per_page' => $perPage]));
+
+        return PublicCourseCardResource::collection($courses->items())->resolve();
+    };
+
+    // إحماءٌ: أوّلُ نداءٍ يدفعُ قراءاتٍ تخصُّ الإقلاعَ لا القياس.
+    $render(1);
+
+    [$one] = countingQueries(fn () => $render(1));
+    [$six, $cards] = countingQueries(fn () => $render(6));
+
+    expect($six)->toBeLessThanOrEqual($one)
+        ->and($cards)->toHaveCount(6)
+        ->and($cards[5]['subject']['slug'])->toBe($subject->slug);
 });
