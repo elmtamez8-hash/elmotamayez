@@ -402,8 +402,10 @@ final class LessonGate
      *
      * - the visibility chain is asked BEFORE the preview flag, so a preview
      *   lesson pulled back to draft is still a draft;
-     * - `is_preview` is asked BEFORE the enrolment status, so a preview item
-     *   opens on an expired enrolment — which is what a preview is for;
+     * - `isOpen()` is asked BEFORE the enrolment status, so an open item opens
+     *   on an expired enrolment — which is what an open item is for. (It says
+     *   `isOpen()`, not `is_preview`: the two flags became one question on
+     *   2026-09-09, and the branch below has read the pair ever since.)
      * - a recording answers to its SEAT and returns, so the sequence never gets
      *   to ask a second question in front of it.
      *

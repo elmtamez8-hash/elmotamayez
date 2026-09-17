@@ -163,18 +163,23 @@ class Lesson extends BaseModel implements OrdersSiblings
     /**
      * «Open» — the lesson its owner decided anyone may have (032 · FR-008).
      *
-     * ⚠️ THIS IS THE FIFTH SPELLING OF THAT QUESTION IN THE TREE, NOT THE FIRST,
-     * and the divergence is measured rather than assumed. `IssuePlaybackGrant`
-     * asks `is_free || is_preview` at :183 and :265; `LessonGate` asks
-     * `is_preview` ALONE at :83 and :383. The absurd consequence is live today:
-     * an `is_free` lesson opens to a stranger with no account and is REFUSED to
-     * a student whose enrolment lapsed.
+     * ⚠️ ONE SPELLING NOW, AND THIS METHOD IS IT. Every door that asks «is this
+     * item open» calls here: `IssuePlaybackGrant` at :241 and :360, and
+     * `LessonGate` at :103 and :519.
      *
-     * This method reads the pair, matching the grant issuer — the door that
-     * actually decides who may watch. Aligning `LessonGate` with it is two lines
-     * but WIDENS shipped access for every `is_free` uploaded lesson on the
-     * platform, so it is a product decision and not a refactor: raised, and
-     * deliberately left out of 032's scope.
+     * ⛔ THIS PARAGRAPH USED TO SAY THE OPPOSITE, AND IT COST A SESSION. It read
+     * «`LessonGate` asks `is_preview` ALONE at :83 and :383 … the absurd
+     * consequence is live today», describing a divergence the owner closed on
+     * 2026-09-09 — `LessonGate:86` carries the decision in its own words. The
+     * comment was never moved with the code, so a reader measuring from it
+     * concluded that a public «this lesson is free» badge would send a student
+     * to a door that refuses, and nearly narrowed a correct predicate to fix a
+     * defect that no longer existed. Read the assignment, never the paragraph
+     * above it — the same rule this tree wrote down for `AccessToken::$ttl`,
+     * where a vendor docblock said six hours over a line that assigns four.
+     *
+     * A docblock that cites line numbers is a measurement, and a measurement is
+     * re-taken when the code around it moves.
      */
     public function isOpen(): bool
     {
