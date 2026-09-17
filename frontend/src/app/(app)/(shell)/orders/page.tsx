@@ -133,6 +133,14 @@ type Column<T> = {
   render: (row: T) => ReactNode;
   /** Wraps the value in <bdi> and aligns it to the end — for money and counts. */
   numeric?: boolean;
+  /**
+   * على الهاتف: هذه الخليّةُ عنوانُ البطاقة — بلا تسميةٍ فوقَها وبعرضِ البطاقة.
+   *
+   * ⚠️ التسميةُ فوقَها كانت تُعيدُ ما تقولُه الخليّةُ نفسُها. «الطلب: ٨ حصص»
+   * سطرانِ لمعلومةٍ واحدة، وثمنُهما على شاشةِ هاتفٍ هو أن يصيرَ الصفُّ الواحدُ
+   * أطولَ من الشاشة، فلا يُرى منه اثنانِ معاً.
+   */
+  lead?: boolean;
 };
 
 /** «حصة واحدة» · «حصتان» · «٤ حصص» · «١٢ حصة» — the bands live in `counted()`. */
@@ -350,6 +358,7 @@ export default function OrdersPage() {
     {
       key: "bought",
       header: "الطلب",
+      lead: true,
       render: (o) => {
         const { title, detail } = bought(o);
         const Icon = KIND_ICONS[o.kind] ?? OrdersIcon;
@@ -569,111 +578,105 @@ export default function OrdersPage() {
       )}
 
       {/*
-        ⚠️ **السؤالانِ اللذانِ يأتي بهما الدافعُ إلى هذه الشاشةِ متجاورانِ الآن:**
-        «كم عليَّ» و«إلى أين أحوّل». كانا مكدَّسَينِ فوقَ بعضِهما فوقَ الجدول،
-        فيدفعانِ الصفوفَ خارجَ أوّلِ شاشةٍ على حاسوبٍ محمول — وهي الصفوفُ التي
-        جاءَ من أجلِها من الأصل.
-
-        والعمودُ الثاني مقيَّدٌ بعرضٍ ثابتٍ لا بنصفِ الشاشة: بطاقةُ وجهةٍ عرضُها
-        ٧٠٠ بكسل تباعِدُ زرَّ النسخِ عن الرقمِ الذي ينسخُه عرضَ الشاشةِ كلِّه.
-        وتحتَ `lg` يعودانِ عموداً واحداً بلا قاعدةٍ ثانيةٍ تُكتَب.
+        ⚠️ **الترتيبُ هو ترتيبُ الأسئلة، والبطاقةُ تأخذُ العرضَ كلَّه.** «كم عليَّ»
+        ثمّ «إلى أين أحوّل» ثمّ «أيُّ طلبٍ هو طلبي» — وجهةُ التحويلِ فوقَ المُرشِّحِ
+        لأنّها ما يُفعَلُ الآن، والمُرشِّحُ ملاصقٌ للجدولِ لأنّه يعملُ فيه وحدَه:
+        ضابطٌ بعيدٌ عمّا يضبطُه هو ضابطٌ لا يُربَطُ بأثرِه.
       */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
-        <div className="space-y-4">
-          {owed !== null && (
-            <div
-              /*
-                ⚠️ A NAMED REGION, NOT A BARE `div`. The figure it carries is the
-                same string the amount column prints, so «the total» and «one row's
-                amount» are indistinguishable to anything reading the page by text
-                — a screen reader landing on it, and a test asserting on it. The
-                name is what separates them. `status` because the number really is
-                a summarised state: it moves when a row's status does.
-              */
-              role="status"
-              aria-label="المطلوب سداده"
-              className="animate-float-in flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3"
-            >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/20 text-ink">
-                <WalletIcon className="h-5 w-5" />
+      <div className="flex flex-wrap items-center gap-3">
+        {owed !== null && (
+          <div
+            /*
+              ⚠️ A NAMED REGION, NOT A BARE `div`. The figure it carries is the
+              same string the amount column prints, so «the total» and «one row's
+              amount» are indistinguishable to anything reading the page by text
+              — a screen reader landing on it, and a test asserting on it. The
+              name is what separates them. `status` because the number really is
+              a summarised state: it moves when a row's status does.
+            */
+            role="status"
+            aria-label="المطلوب سداده"
+            className="animate-float-in flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/20 text-ink">
+              <WalletIcon className="h-5 w-5" />
+            </span>
+            <div className="flex flex-col items-start">
+              <span className="text-xs text-ink-muted">
+                المطلوب سداده — {orderCount(owed.count)}
               </span>
-              <div className="flex flex-col items-start">
-                <span className="text-xs text-ink-muted">
-                  المطلوب سداده — {orderCount(owed.count)}
-                </span>
-                <bdi className="text-xl font-bold tabular-nums text-ink">
-                  {formatMinorMoney(owed.minor, owed.currency)}
-                </bdi>
-              </div>
+              <bdi className="text-xl font-bold tabular-nums text-ink">
+                {formatMinorMoney(owed.minor, owed.currency)}
+              </bdi>
             </div>
-          )}
-
-          {/*
-            ⚠️ RENDERED ONLY OVER ROWS THAT EXIST. A filter strip above an empty
-            table is five buttons that all lead to the same «لا طلبات» — chrome
-            offering choices with no consequence, on the screen of somebody who has
-            never bought anything.
-
-            ⚠️ AND IT IS `role="group"` WITH PRESSED STATE ON EACH BUTTON, not a list
-            of links. The narrowing is client-side and leaves no URL behind it, so a
-            reader with a screen reader is told which one is current by
-            `aria-pressed` — the only thing that says so, since the visual cue is a
-            border colour.
-          */}
-          {!loading && !failed && orders.length > 0 && (
-            <div role="group" aria-label="تصفية الطلبات بالحالة" className="flex flex-wrap gap-2">
-              {tiles.map((key, index) => {
-                const Icon = key === "all" ? OrdersIcon : (STATUS_ICONS[key] ?? OrdersIcon);
-                const count =
-                  key === "all" ? orders.length : orders.filter((o) => o.status === key).length;
-                const label = key === "all" ? "الكل" : statusLabel(key);
-                const active = filter === key;
-
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setFilter(key)}
-                    aria-pressed={active}
-                    /* The stagger is 40ms a tile and stops at the fifth — the
-                       reduced-motion block zeroes the delay as well as the duration,
-                       so a reader who asked for less motion gets them all at once
-                       rather than five invisible buttons for 200ms. */
-                    style={{ animationDelay: `${index * 40}ms` }}
-                    className={`animate-float-in flex items-center gap-2.5 rounded-2xl border px-3.5 py-2 text-start transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
-                      active
-                        ? "border-primary bg-primary-soft"
-                        : "border-line bg-surface-raised hover:border-primary"
-                    }`}
-                  >
-                    <span
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
-                        TONE_CLASSES[key === "all" ? "info" : statusTone(key)]
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="flex flex-col">
-                      {/* ⚠️ ARABIC-INDIC, like every other number this product
-                          prints. `counted()` does the same inside itself; here the
-                          label beside it already carries the noun, so the numeral is
-                          all that is needed. */}
-                      <span className="text-sm font-semibold tabular-nums text-ink">
-                        {count.toLocaleString("ar-QA")}
-                      </span>
-                      <span className="text-xs text-ink-muted">{label}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ⚠️ هنا تحديداً يُرفَعُ الإيصال — و`‎/billing/pay` تُحيلُ إلى هذه الصفحةِ
-            بنصِّها. فالوجهةُ تُقرأُ حيثُ يُنفَّذُ التحويل، لا حيثُ يُوصَفُ فقط. */}
-        <TransferDestination />
+          </div>
+        )}
       </div>
+
+      {/* ⚠️ هنا تحديداً يُرفَعُ الإيصال — و`‎/billing/pay` تُحيلُ إلى هذه الصفحةِ
+          بنصِّها. فالوجهةُ تُقرأُ حيثُ يُنفَّذُ التحويل، لا حيثُ يُوصَفُ فقط. */}
+      <TransferDestination />
+
+      {/*
+        ⚠️ RENDERED ONLY OVER ROWS THAT EXIST. A filter strip above an empty
+        table is five buttons that all lead to the same «لا طلبات» — chrome
+        offering choices with no consequence, on the screen of somebody who has
+        never bought anything.
+
+        ⚠️ AND IT IS `role="group"` WITH PRESSED STATE ON EACH BUTTON, not a list
+        of links. The narrowing is client-side and leaves no URL behind it, so a
+        reader with a screen reader is told which one is current by
+        `aria-pressed` — the only thing that says so, since the visual cue is a
+        border colour.
+      */}
+      {!loading && !failed && orders.length > 0 && (
+        <div role="group" aria-label="تصفية الطلبات بالحالة" className="flex flex-wrap gap-2">
+          {tiles.map((key, index) => {
+            const Icon = key === "all" ? OrdersIcon : (STATUS_ICONS[key] ?? OrdersIcon);
+            const count =
+              key === "all" ? orders.length : orders.filter((o) => o.status === key).length;
+            const label = key === "all" ? "الكل" : statusLabel(key);
+            const active = filter === key;
+
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilter(key)}
+                aria-pressed={active}
+                /* The stagger is 40ms a tile and stops at the fifth — the
+                   reduced-motion block zeroes the delay as well as the duration,
+                   so a reader who asked for less motion gets them all at once
+                   rather than five invisible buttons for 200ms. */
+                style={{ animationDelay: `${index * 40}ms` }}
+                className={`animate-float-in flex items-center gap-2.5 rounded-2xl border px-3.5 py-2 text-start transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
+                  active
+                    ? "border-primary bg-primary-soft"
+                    : "border-line bg-surface-raised hover:border-primary"
+                }`}
+              >
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                    TONE_CLASSES[key === "all" ? "info" : statusTone(key)]
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="flex flex-col">
+                  {/* ⚠️ ARABIC-INDIC, like every other number this product
+                      prints. `counted()` does the same inside itself; here the
+                      label beside it already carries the noun, so the numeral is
+                      all that is needed. */}
+                  <span className="text-sm font-semibold tabular-nums text-ink">
+                    {count.toLocaleString("ar-QA")}
+                  </span>
+                  <span className="text-xs text-ink-muted">{label}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {loading ? (
         <RowsSkeleton />
@@ -715,7 +718,9 @@ export default function OrdersPage() {
             ⚠️ ولا يراهُ أيُّ اختبارٍ هنا: jsdom بلا تخطيط، فالعرضُ صفرٌ في كلِّ
             الحالات. وُجِدَ بالنظرِ إلى الشاشةِ ثمّ بالقياسِ في المتصفّح.
           */
-          className="[contain:inline-size] overflow-x-auto rounded-2xl border border-line bg-surface-raised"
+          /* ⚠️ الصندوقُ من `md` فقط: على الهاتفِ كلُّ صفٍّ بطاقةٌ لها حدُّها، وحدٌّ
+             حولَ الثمانيةِ معاً يجعلُها بطاقاتٍ داخلَ بطاقة. */
+          className="[contain:inline-size] overflow-x-auto md:rounded-2xl md:border md:border-line md:bg-surface-raised"
         >
           {/*
             ⚠️ `role` MUTELY RESTATED ON EVERY PART, BECAUSE `display: block` TAKES
@@ -753,7 +758,10 @@ export default function OrdersPage() {
               </tr>
             </thead>
 
-            <tbody role="rowgroup" className="block divide-y divide-line md:table-row-group">
+            {/* ⚠️ فراغٌ بينَ البطاقاتِ على الهاتفِ، وخطٌّ فاصلٌ على الحاسوب. صفوفٌ
+                يفصلُها خطٌّ وحدَه على شاشةِ هاتفٍ تُقرأُ قائمةً واحدةً طويلةً لا
+                ثمانيةَ طلبات — والقارئُ يبحثُ عن طلبِه فيها بالعين. */}
+            <tbody role="rowgroup" className="block space-y-3 md:table-row-group md:space-y-0 md:divide-y md:divide-line">
               {visible.map((o, index) => (
                 <tr
                   key={o.uuid}
@@ -762,15 +770,26 @@ export default function OrdersPage() {
                      that takes a quarter of a second to finish arriving, which
                      is a cost rather than a cue. */
                   style={{ animationDelay: `${Math.min(index, 5) * 40}ms` }}
-                  className="animate-float-in block py-2 transition hover:bg-primary-soft/40 md:table-row md:py-0"
+                  /* بطاقةٌ لها حدٌّ وحشوةٌ على الهاتف، وصفُّ جدولٍ عاديٌّ من `md`:
+                     الحدُّ والزوايا والحشوةُ كلُّها تُلغى هناك، فلا يُرسَمُ صندوقٌ
+                     حولَ كلِّ صفٍّ في جدول. */
+                  className="animate-float-in block rounded-2xl border border-line bg-surface-raised p-4 transition hover:bg-primary-soft/40 md:table-row md:rounded-none md:border-0 md:bg-transparent md:p-0"
                 >
                   {columns.map((col) => (
                     <td
                       key={col.key}
                       role="cell"
-                      className={`block px-4 py-1.5 text-ink md:table-cell md:py-4 md:align-top ${
-                        col.numeric ? "md:text-end" : "text-start"
-                      }`}
+                      /*
+                        على الهاتف: العنوانُ بلا تسمية، وكلُّ ما بعدَه سطرٌ واحدٌ
+                        تسميتُه في أوّلِه وقيمتُه في آخرِه — وهو الشكلُ الذي يُقرأُ
+                        بمسحةِ عينٍ واحدةٍ من الأعلى إلى الأسفل. ومن `md` تعودُ
+                        خلايا جدولٍ عاديّة.
+                      */
+                      className={`text-ink md:table-cell md:px-4 md:py-4 md:align-top ${
+                        col.lead
+                          ? "block border-b border-line pb-3 md:border-0 md:pb-4"
+                          : "flex items-baseline justify-between gap-3 py-1.5 md:block md:py-4"
+                      } ${col.numeric ? "md:text-end" : "text-start"}`}
                     >
                       {/*
                         ⚠️ A REAL ELEMENT, NOT `content: attr(data-label)`. A CSS
@@ -778,10 +797,15 @@ export default function OrdersPage() {
                         defined — paints NOTHING and reports nothing, which is a
                         family of defect this repository has shipped four times.
                         A span that is there is a span a test can find.
+
+                        ⚠️ ولا تسميةَ فوقَ عنوانِ البطاقة: «الطلب: ٨ حصص» سطرانِ
+                        لمعلومةٍ واحدة، وثمنُهما صفٌّ أطولُ من شاشةِ الهاتف.
                       */}
-                      <span className="mb-0.5 block text-xs text-ink-muted md:hidden">
-                        {col.header}
-                      </span>
+                      {!col.lead && (
+                        <span className="shrink-0 text-xs text-ink-muted md:hidden">
+                          {col.header}
+                        </span>
+                      )}
                       {col.numeric ? <bdi>{col.render(o)}</bdi> : col.render(o)}
                     </td>
                   ))}

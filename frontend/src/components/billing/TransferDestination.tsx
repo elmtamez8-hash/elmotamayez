@@ -172,20 +172,31 @@ export function TransferDestination() {
         ⚠️ `dl` لا جدولٌ ولا قائمةُ فقرات: هذه أزواجُ «مصطلحٍ وقيمتِه» بنصِّها،
         وقارئُ الشاشةِ يربطُ الاسمَ بقيمتِه من العنصرِ نفسِه بلا سمةٍ إضافيّة.
       */}
-      <dl className="divide-y divide-line">
+      {/*
+        ⚠️ **شبكةٌ لا قائمةٌ رأسيّة، لأنّ البطاقةَ تأخذُ العرضَ كلَّه الآن.** قائمةٌ
+        من خمسةِ سطورٍ عبرَ ١٢٠٠ بكسل تتركُ زرَّ النسخِ على بُعدِ شاشةٍ كاملةٍ من
+        الرقمِ الذي ينسخُه — مساحةٌ ميّتةٌ بينَ شيئَين ينتميانِ لبعضِهما. وكلُّ
+        حقلٍ في بطاقتِه: الزرُّ بجوارِ رقمِه دائماً، مهما اتّسعتِ الشاشة.
+
+        `dl` ما زالَ هو الوعاء: هذه أزواجُ «مصطلحٍ وقيمتِه» بنصِّها، وقارئُ الشاشةِ
+        يربطُ الاسمَ بقيمتِه من العنصرِ نفسِه بلا سمةٍ إضافيّة.
+      */}
+      <dl className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
         {shown.map(({ label, value, Icon, copyable }) => (
           <div
             key={label}
-            /* ⚠️ الأرضيّةُ هي الفاصلُ، لا خطٌّ ثالثٌ في بطاقةٍ فيها خطّانِ أصلاً:
-               الصفوفُ التي تُنسَخُ على `bg-surface` وما فوقَها على أرضيّةِ
-               البطاقة، فيُقرأُ النصفانِ دونَ أن يُقالَ «نصفان». */
-            className={`flex items-center gap-3 px-4 py-2.5 ${copyable ? "bg-surface" : ""}`}
+            /* ⚠️ الأرضيّةُ والأيقونةُ المصمتةُ هما الفاصلُ بينَ نصفَي البطاقة، لا
+               عنوانٌ ثالثٌ يقولُ «هذا ما تنسخُه»: ما يُنسَخُ هو ما يُلصَقُ هو ما
+               يُبرَز، قاعدةٌ واحدةٌ بثلاثةِ آثار. */
+            className={`flex items-center gap-3 rounded-xl border p-3 ${
+              copyable ? "border-primary/25 bg-surface" : "border-line"
+            }`}
           >
             <span
               className={`flex shrink-0 items-center justify-center rounded-lg ${
                 copyable
                   ? "h-9 w-9 bg-primary text-white"
-                  : "h-8 w-8 bg-primary-soft text-primary-ink"
+                  : "h-9 w-9 bg-primary-soft text-primary-ink"
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -198,12 +209,12 @@ export function TransferDestination() {
                 فقرةٍ عربيّة، وبلا العزلِ تُعيدُ الخوارزميّةُ ثنائيّةُ الاتّجاهِ
                 ترتيبَ مقاطعِهما على الشاشةِ فيُنسَخُ رقمٌ غيرُ الذي كُتِب.
 
-                ⚠️ و`break-all`: الآيبانُ تسعةٌ وعشرونَ محرفاً بلا مسافة، فبلا
-                كسرٍ يمدُّ البطاقةَ ويُحدِثُ تمريراً أفقيّاً على الهاتف.
+                ⚠️ و`break-all`: الآيبانُ تسعةٌ وعشرونَ محرفاً بلا مسافة، وعمودُ
+                الشبكةِ أضيقُ منه — فبلا كسرٍ يمدُّ بطاقتَه ويكسرُ الصفَّ كلَّه.
               */}
               <dd
                 className={`w-full font-semibold text-ink ${
-                  copyable ? "break-all font-mono text-base tracking-wide" : "text-sm"
+                  copyable ? "break-all font-mono text-[0.95rem] tracking-wide" : "text-sm"
                 }`}
               >
                 <bdi>{value}</bdi>
