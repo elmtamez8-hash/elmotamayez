@@ -82,6 +82,51 @@ describe("CourseCurriculum", () => {
     expect(within(links[0]).getByText("مجّانيّة")).toBeTruthy();
   });
 
+  it("says a lesson is free when the teacher opened it, without promising a click", () => {
+    /*
+      ⛔ العطلُ الذي كُتبَ هذا لأجلِه: فيديو مرفوعٌ وسمَه المدرّسُ «متاح بلا
+      تسجيل» كانَ يُرسَمُ «بعد التسجيل» — أي أنّ الوسمَ له قارئٌ عندَ منحِ
+      التشغيلِ ولا قارئَ على الصفحةِ التي تبيعُ الكورس.
+
+      والصفُّ **لا يصيرُ رابطاً**: الخادمُ لا يُرسِلُ `uuid` معَ هذا المفتاح،
+      فشكلُ البيانات — لا شرطٌ يُعادُ هنا — هو ما يمنعُ بناءَه.
+    */
+    render(
+      <CourseCurriculum
+        sections={tree([
+          item({ title: "Lecture recording", kind: "video", free_with_account: true }),
+        ])}
+        courseSlug="authoring-showcase"
+      />,
+    );
+
+    expect(screen.getByText("مجّانيّة بحساب")).toBeTruthy();
+    expect(screen.queryByText("بعد التسجيل")).toBeNull();
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
+  });
+
+  it("keeps the three states apart on one tree", () => {
+    /*
+      ثلاثةُ أجوبةٍ لمشترٍ يقرّر: «افتحْه الآن» و«مجّانيٌّ ويحتاجُ حساباً»
+      و«بعد الشراء». جمعُ الثاني مع الثالثِ هو العطلُ نفسُه بصياغةٍ أخرى.
+    */
+    render(
+      <CourseCurriculum
+        sections={tree([
+          item({ title: "Welcome", kind: "embed", uuid: "l-open", is_open: true }),
+          item({ title: "Unit one", kind: "video", free_with_account: true }),
+          item({ title: "Unit two", kind: "video" }),
+        ])}
+        courseSlug="authoring-showcase"
+      />,
+    );
+
+    expect(screen.getByText("مجّانيّة")).toBeTruthy();
+    expect(screen.getByText("مجّانيّة بحساب")).toBeTruthy();
+    expect(screen.getByText("بعد التسجيل")).toBeTruthy();
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+  });
+
   it("builds no link at all without a course to link into", () => {
     // المعاينةُ قبلَ النشرِ لا صفحةَ لها، فالرابطُ هناك عنوانٌ لا يفتحُ شيئاً.
     render(

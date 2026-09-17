@@ -17,6 +17,7 @@ import {
   LockIcon,
   PlayIcon,
   SessionsIcon,
+  SparkIcon,
 } from "@/components/icons";
 import { useCourseOwnership } from "@/components/marketplace/CourseOwnership";
 import { counted, lessonTypeLabel } from "@/lib/labels";
@@ -148,6 +149,18 @@ export function CourseCurriculum({
                       item.uuid !== undefined &&
                       courseSlug !== undefined;
 
+                    /*
+                      ⚠️ حالةٌ ثالثةٌ لأنّ الحالاتِ ثلاث، لا لأنّ الشكلَ يحتملُها.
+                      «يُفتَحُ الآن» و«مجّانيٌّ ويحتاجُ حساباً» و«بعد الشراء»
+                      ثلاثةُ أجوبةٍ مختلفةٍ لمشترٍ يقرّر — وجمعُ الثاني مع الثالثِ
+                      في «بعد التسجيل» هو ما كانَ يُخفي على الصفحةِ قرارَ المدرّسِ
+                      بفتحِ الدرس.
+
+                      ولا رابطَ هنا: الخادمُ لا يُرسِلُ `uuid` مع هذا المفتاح،
+                      فالشرطُ أعلاه لا يتحقّقُ أصلاً ولا شيءَ يُبنى.
+                    */
+                    const freeWithAccount = !openable && item.free_with_account === true;
+
                     const kind = KINDS[item.kind] ?? FALLBACK;
                     const length = duration(item.duration_seconds);
 
@@ -189,6 +202,13 @@ export function CourseCurriculum({
                             <span aria-hidden="true">
                               <ChevronStartIcon />
                             </span>
+                          </span>
+                        ) : freeWithAccount ? (
+                          <span className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary-soft px-2 py-1 text-xs font-bold text-primary-ink">
+                            <span aria-hidden="true">
+                              <SparkIcon />
+                            </span>
+                            مجّانيّة بحساب
                           </span>
                         ) : (
                           <span className="flex shrink-0 items-center gap-1.5 rounded-lg bg-line px-2 py-1 text-xs font-bold text-ink-muted">
