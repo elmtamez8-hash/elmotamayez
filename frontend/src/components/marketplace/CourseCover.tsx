@@ -78,7 +78,7 @@ export function CourseCover({
       }`}
     >
       <Mark
-        className={variant === "card" ? "h-14 w-14 text-primary/30" : "h-24 w-24 text-white/25"}
+        className={variant === "card" ? "h-14 w-14 text-primary-ink/30" : "h-24 w-24 text-white/25"}
       />
 
       {/*
