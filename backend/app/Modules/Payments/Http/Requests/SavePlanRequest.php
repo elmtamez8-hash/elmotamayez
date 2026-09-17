@@ -27,10 +27,26 @@ class SavePlanRequest extends FormRequest
     {
         return [
             'title' => ['required', 'string', 'max:120'],
-            'duration_days' => ['required', 'integer', 'min:1', 'max:730'],
+            /*
+            | ⛔ NEITHER SHAPE IS REQUIRED HERE, AND THAT IS NOT A LOOSENING.
+            | «Exactly one of these two» is enforced in `SavePlan`, where the
+            | Action is the single entrance the panel, the API and any seeder all
+            | share. Left `required`, this door refused a session-shaped plan with
+            | a 422 BEFORE the Action was ever reached — so the repository's own
+            | rule that «the Action is the common entrance» was true of the Action
+            | and false of the validation in front of it.
+            |
+            | What stays is the RANGE of each: a shape that is sent must be sane.
+            */
+            'duration_days' => ['nullable', 'integer', 'min:1', 'max:730'],
+            'session_count' => ['nullable', 'integer', 'min:1', 'max:200'],
             'session_type' => ['required', Rule::enum(ClassSessionType::class)],
             'coverage_type' => ['required', Rule::enum(PlanCoverage::class)],
-            'coverage_uuid' => ['nullable', 'uuid', 'required_if:coverage_type,course'],
+            // ⚠️ AND THE COHORT COVERAGE NEEDS ITS UUID EXACTLY AS THE COURSE ONE
+            // DOES. Without the second value here a group plan passes validation
+            // with an empty coverage and is refused deeper in, by a message about
+            // a field this form never marked.
+            'coverage_uuid' => ['nullable', 'uuid', 'required_if:coverage_type,course', 'required_if:coverage_type,cohort'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

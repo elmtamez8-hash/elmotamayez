@@ -466,6 +466,8 @@ return [
         'package' => 'الحزمة',
         'credits' => 'عدد الأرصدة',
         'session_type' => 'نوع الحصة',
+        'duration_days' => 'مدة الباقة بالأيام',
+        'session_count' => 'عدد الحصص',
         'validity_days' => 'مدة الصلاحية بالأيام',
         'is_active' => 'حالة التفعيل',
         'sort_order' => 'ترتيب العرض',

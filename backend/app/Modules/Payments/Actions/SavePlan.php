@@ -52,11 +52,7 @@ class SavePlan extends Action
             ? $data['session_type']
             : ClassSessionType::from((string) $data['session_type']);
 
-        $duration = (int) $data['duration_days'];
-
-        if ($duration < 1) {
-            throw new DomainException('مدّة الباقة يوم واحد على الأقل.');
-        }
+        [$duration, $sessionCount] = $this->resolveShape($data, $coverage, $sessionType);
 
         $plan ??= new Plan;
 
@@ -64,6 +60,7 @@ class SavePlan extends Action
             'workspace_id' => $workspaceId,
             'title' => (string) $data['title'],
             'duration_days' => $duration,
+            'session_count' => $sessionCount,
             'session_type' => $sessionType,
             'coverage_type' => $coverage,
             'coverage_uuid' => $this->resolveCoverage($coverage, $data['coverage_uuid'] ?? null, $workspaceId),
@@ -74,6 +71,72 @@ class SavePlan extends Action
         $plan->save();
 
         return $plan;
+    }
+
+    /**
+     * «One shape or the other — never both, never neither» (٠٣٦ · FR-020).
+     *
+     * ⛔ THE ACTION IS WHERE THIS LIVES, and the engine deliberately does not help.
+     * A `CHECK` constraint is spelled differently on MySQL and SQLite, is invisible
+     * to every test here, and tells the teacher nothing about WHICH field to fix.
+     * The Action is also the one entrance the panel, the API and any seeder share.
+     *
+     * ⚠️ AND IT REPLACES `(int) $data['duration_days']`, WHICH WAS THE REAL DOOR.
+     * That cast turned a missing duration into `0`, the line under it refused
+     * anything below 1, and so a session-shaped plan was refused by the Action
+     * itself — «مدّة الباقة يوم واحد على الأقل» about a field the teacher had
+     * deliberately left empty.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{0: int|null, 1: int|null}
+     */
+    private function resolveShape(array $data, PlanCoverage $coverage, ClassSessionType $sessionType): array
+    {
+        $duration = $this->positiveOrNull($data['duration_days'] ?? null);
+        $sessionCount = $this->positiveOrNull($data['session_count'] ?? null);
+
+        if ($duration !== null && $sessionCount !== null) {
+            throw new DomainException('الباقة إمّا بمدّة وإمّا بعدد حصص، لا الاثنين معاً.');
+        }
+
+        if ($duration === null && $sessionCount === null) {
+            throw new DomainException('حدّد مدّة الباقة أو عدد حصصها.');
+        }
+
+        /*
+        | ⛔ FR-022 — SESSIONS NEED A COURSE TO HANG OFF. Workspace coverage names
+        | no single course, so a balance of sessions bought under it has nothing to
+        | be spent on: the row saves, the student pays, and no seat anywhere knows
+        | about it.
+        */
+        if ($sessionCount !== null && $coverage === PlanCoverage::Workspace) {
+            throw new DomainException('باقة الحصص تخصّ كورساً أو مجموعة، لا كلّ كورسات المدرّس.');
+        }
+
+        /*
+        | ⛔ AND A GROUP PLAN OF THE PRIVATE KIND IS A PLAN THAT DISAPPEARS. The
+        | bridge that decides which cohorts are priced filters on the group session
+        | type, so a cohort-covered plan typed `individual` is written, saved,
+        | listed on the teacher's own screen — and reaches no group at all, while
+        | the group it was written for reads «no plan reaches it». Two screens
+        | contradicting each other with nothing logged.
+        */
+        if ($coverage === PlanCoverage::Cohort && $sessionType !== ClassSessionType::Group) {
+            throw new DomainException('باقة المجموعة لا تكون فرديّة.');
+        }
+
+        return [$duration, $sessionCount];
+    }
+
+    private function positiveOrNull(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $number = (int) $value;
+
+        return $number < 1 ? null : $number;
     }
 
     /**
