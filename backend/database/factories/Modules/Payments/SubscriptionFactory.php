@@ -10,6 +10,7 @@ use App\Modules\Payments\Enums\SubscriptionStatus;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\Subscription;
+use App\Modules\Payments\Support\CoveredCourses;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -54,6 +55,21 @@ class SubscriptionFactory extends Factory
                 'currency' => $attributes['currency'],
                 'provider' => 'manual',
                 'status' => 'approved',
+
+                /*
+                | ⚠️ THE COURSE IS DERIVED THROUGH THE SAME CLASS THE PURCHASE
+                | USES, AND LEAVING IT NULL WAS THE TRAP. `PurchaseSubscription`
+                | writes this column from `CoveredCourses::coverageCourseId()`, so
+                | a fixture that leaves it empty builds a subscription production
+                | never produces — and `SubscriptionEligibility::reaches()` reads
+                | this column FIRST, falling back to the directory only when it is
+                | empty. Every test would therefore have measured the fallback and
+                | nothing at all would have exercised the path every real
+                | subscription takes.
+                */
+                'course_id' => app(CoveredCourses::class)->coverageCourseId(
+                    Plan::query()->withoutWorkspaceScope()->whereKey($attributes['plan_id'])->firstOrFail(),
+                ),
             ])->getKey(),
 
             'starts_on' => $starts,
