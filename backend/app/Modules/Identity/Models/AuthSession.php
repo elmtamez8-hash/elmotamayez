@@ -42,6 +42,7 @@ class AuthSession extends BaseModel
         'user_id',
         'device_id',
         'token_id',
+        'session_id',
         'status',
         'ended_reason',
         'ip_hash',

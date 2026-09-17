@@ -7,6 +7,7 @@ namespace App\Modules\Identity;
 use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
 use App\Modules\Identity\Listeners\ActivateOnProcessingConsent;
 use App\Modules\Identity\Listeners\CompleteReferral;
+use App\Modules\Identity\Listeners\RecordPanelSignIn;
 use App\Modules\Identity\Listeners\ReverseReferralAward;
 use App\Modules\Identity\Listeners\RevokeTeacherSessions;
 use App\Modules\Identity\Models\AuthSession;
@@ -20,6 +21,7 @@ use App\Modules\Payments\Events\ProcessingConsentGranted;
 use App\Modules\Payments\Events\RefundIssued;
 use App\Shared\Contracts\GuardianDirectory;
 use App\Shared\Modules\Module;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 
@@ -93,5 +95,16 @@ class IdentityServiceProvider extends Module
         // made SC-007 a criterion with no entrance.
         Event::listen(PaymentReversed::class, ReverseReferralAward::class);
         Event::listen(RefundIssued::class, ReverseReferralAward::class);
+
+        /*
+        | Spec 037 · story 2 — the panel door is recorded like every other door.
+        |
+        | ⚠️ THE FRAMEWORK'S EVENT, NOT A LINE IN A CONTROLLER OF OURS, because the
+        | panel has two entrances and neither is ours to edit: Filament owns its
+        | login page, and the handoff bridge signs the same guard in from a second
+        | place. A hook in one leaves the other unrecorded, which is the shape of
+        | the hole this closes rather than a new one to open.
+        */
+        Event::listen(Login::class, RecordPanelSignIn::class);
     }
 }

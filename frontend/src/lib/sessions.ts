@@ -13,6 +13,14 @@ export type AuthSession = {
   uuid: string;
   status: string;
   is_current: boolean;
+  /**
+   * Which door this sign-in came through. Derived server-side from whether the
+   * row carries a session id or a token id — never a column, and never re-derived
+   * here: the panel and the app share one device fingerprint on the same machine,
+   * so without this the list shows two rows under one name and «أنهِ» becomes a
+   * guess about which one closes.
+   */
+  surface: "app" | "panel";
   device: { uuid: string; label: string };
   ended_reason: string | null;
   last_active_at: string | null;
