@@ -19,6 +19,7 @@ use App\Modules\Payments\Events\Contracts\CarriesPaidOrder;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\Subscription;
+use App\Modules\Payments\Support\CoveredCourses;
 use App\Modules\Payments\Support\EffectiveSubscriptionEnd;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\CohortScheduleDirectory;
@@ -81,6 +82,7 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
         private readonly DispatchNotification $notify,
         private readonly EffectiveSubscriptionEnd $ends,
         private readonly WorkspaceContext $workspace,
+        private readonly CoveredCourses $covered,
     ) {}
 
     public function handle(CarriesPaidOrder $event): void
@@ -470,16 +472,14 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
     /**
      * @return EloquentCollection<int, Course>
      */
+    /*
+    | ⛔ DELEGATED, AND THE THIRD COVERAGE IS WHY. Written here, the `when()` above
+    | asked «is this the Course case» — false for a group plan — so the buyer of
+    | one group's term was enrolled in EVERY PUBLISHED COURSE the teacher has.
+    | Silently, at approval, after the money.
+    */
     private function coveredCourses(Plan $plan): EloquentCollection
     {
-        return Course::query()
-            ->withoutWorkspaceScope()
-            ->where('workspace_id', $plan->workspace_id)
-            ->where('status', 'published')
-            ->when(
-                $plan->coverage_type->needsCourse(),
-                fn ($query) => $query->where('uuid', $plan->coverage_uuid),
-            )
-            ->get();
+        return $this->covered->coveredCourses($plan);
     }
 }

@@ -30,9 +30,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * individual/group vocabulary owned by Payments drifts the day either module
  * adds a third kind of room.
  *
+ * ⚠️ A PLAN HAS TWO SHAPES (٠٣٦ · FR-020): a stretch of days, or a number of
+ * sessions. Both columns are nullable and EXACTLY ONE is set. The rule is enforced
+ * in `SavePlan`, not by the engine — a `CHECK` constraint differs between MySQL
+ * and SQLite and tells the teacher nothing about which field to fix. And a reader
+ * that treats a null `duration_days` as zero produces a subscription that expires
+ * the instant it is activated, which is why both annotations below are nullable
+ * rather than left alone: at level 8 the analyser is what walks every comparison
+ * that forgot.
+ *
  * @property int $workspace_id
  * @property string $title
- * @property int $duration_days
+ * @property int|null $duration_days
+ * @property int|null $session_count
  * @property ClassSessionType $session_type
  * @property PlanCoverage $coverage_type
  * @property string|null $coverage_uuid
@@ -49,6 +59,7 @@ class Plan extends BaseModel
         'workspace_id',
         'title',
         'duration_days',
+        'session_count',
         'session_type',
         'coverage_type',
         'coverage_uuid',
@@ -71,6 +82,7 @@ class Plan extends BaseModel
     {
         return [
             'duration_days' => 'integer',
+            'session_count' => 'integer',
             'session_type' => ClassSessionType::class,
             'coverage_type' => PlanCoverage::class,
             'price_minor' => 'integer',

@@ -44,6 +44,15 @@ use Illuminate\Support\Collection;
  */
 class SubscriptionEligibility implements SubscriptionDirectory
 {
+    /*
+    | ⚠️ `CoveredCourses` AND NOT THE COHORT DIRECTORY DIRECTLY. This class is the
+    | hot path — asked twice on every booking — and it must stay free of any
+    | knowledge of how a cohort uuid becomes a course. One class answers that, and
+    | a second spelling here is the divergence every reader of this repository has
+    | already paid for once.
+    */
+    public function __construct(private readonly CoveredCourses $covered) {}
+
     /**
      * Every live subscription this student holds, newest window last.
      *
@@ -340,10 +349,27 @@ class SubscriptionEligibility implements SubscriptionDirectory
 
         $plan = $subscription->plan;
 
-        if ($plan === null || ! $plan->coverage_type->needsCourse()) {
-            return $plan !== null;
+        if ($plan === null) {
+            return false;
         }
 
-        return $plan->coverage_uuid === $course->uuid;
+        /*
+        | ⛔ `return $plan !== null` WAS THE WHOLE TEST FOR EVERY NON-COURSE PLAN,
+        | and the third coverage turned that into «a group subscription covers
+        | every course this teacher has, for its whole life». Workspace coverage
+        | really does mean all of them; group coverage means exactly one.
+        |
+        | ⚠️ AND THIS IS A HOT PATH — asked twice on every booking — so the answer
+        | comes from the plan row already loaded and costs no query for the two
+        | coverages that need none. Only the group case asks the directory, which
+        | is the case that cannot be answered from this table at all.
+        */
+        $covered = $this->covered->courseUuid($plan);
+
+        if ($plan->coverage_type === PlanCoverage::Workspace) {
+            return true;
+        }
+
+        return $covered !== null && $covered === $course->uuid;
     }
 }

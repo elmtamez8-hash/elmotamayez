@@ -11,6 +11,7 @@ use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\CohortDirectory;
 use DomainException;
 
 /**
@@ -32,6 +33,8 @@ use DomainException;
  */
 class SavePlan extends Action
 {
+    public function __construct(private readonly CohortDirectory $cohorts) {}
+
     /**
      * @param  array<string, mixed>  $data
      */
@@ -82,7 +85,13 @@ class SavePlan extends Action
      */
     private function resolveCoverage(PlanCoverage $coverage, mixed $uuid, int $workspaceId): ?string
     {
-        if (! $coverage->needsCourse()) {
+        /*
+        | ⛔ `requiresUuid()`, NOT `needsCourse()` — AND THE RESTRUCTURE IS THE FIX,
+        | not the rename. Read as «is this the Course case», a group plan fell into
+        | the branch below and had its `coverage_uuid` NULLED on the way to the
+        | database: saved, listed, and pointing at no group at all.
+        */
+        if (! $coverage->requiresUuid()) {
             // Cleared, not kept: a plan edited from one course to the whole
             // workspace that keeps its old `coverage_uuid` is a row whose two
             // columns disagree, and the reader that trusts the wrong one is
@@ -91,7 +100,26 @@ class SavePlan extends Action
         }
 
         if (! is_string($uuid) || $uuid === '') {
-            throw new DomainException('باقة الكورس الواحد تحتاج تحديد الكورس.');
+            throw new DomainException($coverage === PlanCoverage::Cohort
+                ? 'باقة المجموعة تحتاج تحديد المجموعة.'
+                : 'باقة الكورس الواحد تحتاج تحديد الكورس.');
+        }
+
+        /*
+        | A group plan names a COHORT, so it is proved against the group directory
+        | rather than against `courses` — and `describeGroupCohort()` is already
+        | filtered to group cohorts, which is what stops a plan being pointed at a
+        | private 1:1 room. The workspace is pinned from the plan's own, because
+        | that read is deliberately unscoped.
+        */
+        if ($coverage === PlanCoverage::Cohort) {
+            $cohort = $this->cohorts->describeGroupCohort($uuid);
+
+            if ($cohort === null || (int) $cohort['workspace_id'] !== $workspaceId) {
+                throw new DomainException('هذه المجموعة غير موجودة عندك.');
+            }
+
+            return $uuid;
         }
 
         /*

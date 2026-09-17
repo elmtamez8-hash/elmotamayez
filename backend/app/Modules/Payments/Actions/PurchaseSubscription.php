@@ -9,8 +9,10 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Data\SubscriptionIntent;
 use App\Modules\Payments\Enums\OrderKind;
+use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\Plan;
+use App\Modules\Payments\Support\CoveredCourses;
 use App\Modules\Payments\Support\PurchaseBeneficiary;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Actions\Action;
@@ -44,6 +46,7 @@ class PurchaseSubscription extends Action
 {
     public function __construct(
         private readonly CohortDirectory $cohorts,
+        private readonly CoveredCourses $covered,
     ) {}
 
     /**
@@ -214,8 +217,13 @@ class PurchaseSubscription extends Action
             throw new DomainException('هذه المجموعة لم تعد متاحة للانضمام.');
         }
 
+        // ⚠️ `courseUuid()`, not `coverage_uuid`: on a group plan the raw column is a
+        // cohort uuid and would never equal a course uuid, so the comparison would
+        // refuse every group the plan was written for.
+        $planCourseUuid = $this->covered->courseUuid($plan);
+
         $covered = $cohort['workspace_id'] === (int) $plan->workspace_id
-            && (! $plan->coverage_type->needsCourse() || $cohort['course_uuid'] === $plan->coverage_uuid);
+            && ($planCourseUuid === null || $cohort['course_uuid'] === $planCourseUuid);
 
         if (! $covered) {
             throw new DomainException('هذه المجموعة لم تعد متاحة للانضمام.');
@@ -312,13 +320,27 @@ class PurchaseSubscription extends Action
      */
     private function guardCoverageStillExists(Plan $plan): void
     {
-        if (! $plan->coverage_type->needsCourse()) {
+        $uuid = $this->covered->courseUuid($plan);
+
+        if ($plan->coverage_type === PlanCoverage::Workspace) {
             return;
         }
 
-        $live = Course::query()
+        /*
+        | ⛔ A COHORT UUID IS NOT A COURSE UUID, and this method used to look both
+        | up in `courses` — so every group plan matched zero rows and was refused
+        | «هذه الباقة غير متاحة» about a plan the teacher could see on their own
+        | screen. `CoveredCourses` is what translates one into the other, in the
+        | one place that knows how.
+        |
+        | And a coverage that no longer resolves at all — the group archived, the
+        | course deleted — falls into the same refusal, which is the correct one:
+        | there is nothing left to sell.
+        */
+        $live = $uuid !== null && Course::query()
             ->withoutWorkspaceScope()
-            ->where('uuid', $plan->coverage_uuid)
+            ->where('workspace_id', $plan->workspace_id)
+            ->where('uuid', $uuid)
             ->where('status', 'published')
             ->exists();
 
@@ -327,17 +349,12 @@ class PurchaseSubscription extends Action
         }
     }
 
+    // ⛔ Same defect as the guard above, same fix: the uuid on a group plan names a
+    // COHORT, so the old query returned null and `orders.course_id` was left empty
+    // on every group purchase — after which nothing downstream knew which course
+    // had been bought.
     private function coverageCourseId(Plan $plan): ?int
     {
-        if (! $plan->coverage_type->needsCourse()) {
-            return null;
-        }
-
-        $id = Course::query()
-            ->withoutWorkspaceScope()
-            ->where('uuid', $plan->coverage_uuid)
-            ->value('id');
-
-        return $id === null ? null : (int) $id;
+        return $this->covered->coverageCourseId($plan);
     }
 }
