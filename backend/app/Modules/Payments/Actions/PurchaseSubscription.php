@@ -113,10 +113,39 @@ class PurchaseSubscription extends Action
 
         $teacher = $this->teacherOf($plan);
 
+        /*
+        | ⛔ THE SHAPE IS BRANCHED ON HERE, AND «HERE» IS BEFORE ANY ORDER EXISTS.
+        | ٠٣٦ gave a plan two possible shapes — a window of days, or a number of
+        | hours — and exactly one of them is ever filled. The snapshot has to say
+        | which, because everything downstream reads the snapshot rather than the
+        | plan row: a manual transfer takes days to clear and the teacher may
+        | legitimately re-shape the plan inside that lag.
+        |
+        | ⛔ WHAT HAPPENS WITHOUT THIS BRANCH, IN FULL (٠٣٦ · T030). A session
+        | plan's `duration_days` is NULL; `(int) null` is **0**; the snapshot then
+        | carries a duration of zero; `ActivateSubscription` computes
+        | `$starts->addDays(0)`, so the subscription's end date EQUALS its start
+        | date — **a subscription that has expired the instant it was activated**.
+        | The student has paid, the officer has approved, the row exists, and
+        | every screen is correct about a window that is empty. Nothing throws,
+        | nothing is logged, and nobody finds out until the student cannot open
+        | what they bought.
+        |
+        | ⚠️ AND THE REFUSAL DOES NOT BELONG IN THE DTO. A guard in
+        | {@see SubscriptionIntent} would fire inside a deserialiser that is
+        | called after the money has committed; its own docblock now carries that
+        | argument in full.
+        */
+        $sessionCount = $plan->session_count === null ? null : (int) $plan->session_count;
+        $durationDays = $sessionCount !== null || $plan->duration_days === null
+            ? null
+            : (int) $plan->duration_days;
+
         $intent = new SubscriptionIntent(
             planUuid: (string) $plan->uuid,
             planTitle: (string) $plan->title,
-            durationDays: (int) $plan->duration_days,
+            durationDays: $durationDays,
+            sessionCount: $sessionCount,
             sessionType: $plan->session_type->value,
             mode: $mode,
             cohortUuid: $cohort === null ? null : $cohortUuid,

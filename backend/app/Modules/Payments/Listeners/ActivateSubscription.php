@@ -106,7 +106,32 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
             return;
         }
 
-        $subscription = $this->claim($order, $plan);
+        /*
+        | ٠٣٦ — A SHAPE WITH NO WINDOW IS NOT A SUBSCRIPTION ROW, AND THIS IS THE
+        | HALF OF IT THAT EXISTS SO FAR. A plan sold by the hour carries no
+        | `duration_days`, so there is no end date to write and `subscriptions`
+        | is the wrong table for it entirely — the hours belong in the credit
+        | ledger, which is T064's arm and is not built yet.
+        |
+        | ⛔ IT MUST NOT FALL THROUGH TO `addDays(0)`. That writes a row whose end
+        | date equals its start date: a subscription that expired the instant it
+        | was activated, after the student paid, with every screen correct about
+        | an empty window and nothing logged anywhere. Logged rather than thrown,
+        | in the shape the branch above already uses — the payment is real and
+        | every other listener on this event must still run.
+        */
+        $window = $this->windowFor($order, $plan);
+
+        if ($window === null) {
+            Log::warning('٠٣٦: باقة بعدد حصص وصلت التفعيل قبل بناء ذراع الدفتر', [
+                'order_id' => $order->getKey(),
+                'plan_id' => $plan->getKey(),
+            ]);
+
+            return;
+        }
+
+        $subscription = $this->claim($order, $plan, $window);
 
         if ($subscription === null) {
             /*
@@ -362,6 +387,33 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
     }
 
     /**
+     * How many days this subscription runs for, or `null` when it has no window.
+     *
+     * ⚠️ THE DURATION COMES FROM THE ORDER'S SNAPSHOT, NOT FROM THE PLAN. A
+     * manual transfer takes days to clear, and a teacher may legitimately
+     * re-duration the plan inside that lag — the officer's queue prints the
+     * snapshot, so reading the live plan here sells one number to the officer and
+     * another to the student. Exactly the argument the price already won. The
+     * plan stands in only when the order carries no snapshot at all (an order
+     * placed before 027 shipped).
+     *
+     * ⚠️ AND A ZERO IS «NO WINDOW», NOT A WINDOW OF ZERO. Both sources can
+     * produce one — a truncated metadata blob, or a plan re-shaped to hours while
+     * the transfer cleared — and the whole point of answering `null` is that
+     * `addDays(0)` never gets the chance.
+     */
+    private function windowFor(Order $order, Plan $plan): ?int
+    {
+        $intent = SubscriptionIntent::fromOrder($order);
+
+        $days = $intent === null
+            ? ($plan->duration_days === null ? null : (int) $plan->duration_days)
+            : $intent->durationDays;
+
+        return $days !== null && $days > 0 ? $days : null;
+    }
+
+    /**
      * The plan this order was placed against.
      *
      * Carried on `orders.metadata` rather than in a column of its own: the order
@@ -390,21 +442,10 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
      * subscription would never exist, with the payment approved and nothing
      * logged. The read-back is what tells the two apart.
      */
-    private function claim(Order $order, Plan $plan): ?Subscription
+    private function claim(Order $order, Plan $plan, int $window): ?Subscription
     {
         $starts = CarbonImmutable::today();
-
-        /*
-        | ⚠️ THE DURATION COMES FROM THE ORDER'S SNAPSHOT, NOT FROM THE PLAN. A
-        | manual transfer takes days to clear, and a teacher may legitimately
-        | re-duration the plan inside that lag — the officer's queue prints the
-        | snapshot, so reading the live plan here sells one number to the officer
-        | and another to the student. Exactly the argument the price above already
-        | won. The plan stands in only when the order carries no snapshot at all
-        | (an order placed before 027 shipped).
-        */
-        $intent = SubscriptionIntent::fromOrder($order);
-        $ends = $starts->addDays($intent === null ? (int) $plan->duration_days : $intent->durationDays);
+        $ends = $starts->addDays($window);
 
         try {
             return Subscription::create([

@@ -44,6 +44,22 @@ class PlanFactory extends Factory
         return $this->state(fn (): array => ['price_minor' => null]);
     }
 
+    /**
+     * A plan sold by the HOUR — a number of sessions and no window (٠٣٦ · FR-020).
+     *
+     * ⚠️ IT CLEARS `duration_days`, and that is the point rather than tidiness.
+     * `SavePlan` refuses to write both, and a fixture carrying both would let a
+     * shape branch read whichever it happened to look at first — which is the
+     * one thing a test of the branch must not allow.
+     */
+    public function bySessions(int $count = 12): self
+    {
+        return $this->state(fn (): array => [
+            'duration_days' => null,
+            'session_count' => $count,
+        ]);
+    }
+
     public function inactive(): self
     {
         return $this->state(fn (): array => ['is_active' => false]);
