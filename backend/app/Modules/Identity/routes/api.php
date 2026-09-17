@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Identity\Http\Controllers\AccountPhotoController;
 use App\Modules\Identity\Http\Controllers\AuthController;
 use App\Modules\Identity\Http\Controllers\FamilyController;
+use App\Modules\Identity\Http\Controllers\PanelHandoffController;
 use App\Modules\Identity\Http\Controllers\ParentController;
 use App\Modules\Identity\Http\Controllers\ReferralController;
 use App\Modules\Identity\Http\Controllers\SessionController;
@@ -24,6 +25,16 @@ Route::post('/auth/register/student', [AuthController::class, 'registerStudent']
 Route::post('/auth/register/parent', [ParentController::class, 'register'])
     ->middleware(['throttle:registration', 'idempotent']);
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth');
+
+/*
+| جسرُ لوحةِ الإدارة — يُطلَبُ بالرمزِ القائمِ ويُصرَفُ مرّةً واحدة.
+|
+| `auth:sanctum` لأنّه لا يُسأَلُ إلّا بالمفتاحِ الذي في اليد، و`throttle:auth`
+| لأنّ هذا هو الموضعُ الذي يُصنَعُ فيه مفتاحُ دخولٍ — يُعامَلُ معامَلةَ تسجيلِ
+| الدخولِ نفسِها لا معامَلةَ قراءة.
+*/
+Route::post('/auth/panel-ticket', [PanelHandoffController::class, 'mint'])
+    ->middleware(['auth:sanctum', 'throttle:auth']);
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth');
 // ⚠️ `throttle:auth` LIKE ITS TWO SIBLINGS ABOVE. The `api` group applies no
 // default limiter, so without this the endpoint is an unlimited account-existence

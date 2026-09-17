@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
+import { openAdminPanel } from "@/lib/admin-panel";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode, type ComponentType } from "react";
 import Link from "next/link";
@@ -217,6 +218,32 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
       <Tag
         key={href}
         href={href}
+        /*
+          ⚠️ **الجسرُ يعترضُ الضغطةَ، و`href` يبقى كما هو — والاثنانِ مقصودان.**
+
+          `‎/admin` لوحةُ Laravel بجلسةٍ وكوكي، والواجهةُ تحملُ رمزاً في
+          `localStorage` **لا يسافرُ مع طلبِ صفحة**. فالرابطُ المباشرُ يهبطُ على
+          شاشةِ دخولٍ ثانيةٍ لمن سجّلَ دخولَه توّاً، وهذه الضغطةُ تطلبُ تذكرةً
+          بالمفتاحِ الذي في اليدِ أوّلاً.
+
+          و`href` **يبقى عنواناً حقيقيّاً** لا `#`: زرُّ الفأرةِ الأوسطُ وفتحٌ في
+          تبويبٍ جديدٍ وقارئٌ بلا جافاسكربت — كلُّهم يصلونَ اللوحةَ كما كانوا،
+          ويُسألونَ كلمةَ السرِّ كما كانوا. وهو نفسُه الارتدادُ عندَ فشلِ النداء:
+          سلوكُ اليومِ، لا انحدارٌ جديد.
+        */
+        onClick={
+          external
+            ? (event: React.MouseEvent) => {
+                // الضغطةُ المعدَّلةُ ليست تنقّلاً في هذا التبويب: تركُها للمتصفّحِ
+                // هو ما يُبقي «افتح في تبويبٍ جديد» يعمل.
+                if (event.defaultPrevented || event.metaKey || event.ctrlKey
+                  || event.shiftKey || event.altKey || event.button !== 0) return;
+
+                event.preventDefault();
+                void openAdminPanel().catch(() => window.location.assign(href));
+              }
+            : undefined
+        }
         aria-current={active ? "page" : undefined}
         /*
           ⚠️ `title` ONLY WHEN THE LABEL IS HIDDEN. A tooltip repeating text that
