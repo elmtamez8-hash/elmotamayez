@@ -106,9 +106,35 @@ export const plans = {
   },
 };
 
-/** «شهر» / «٣٠ يوماً» — a month is a marketing word, the column is days. */
-export function planDuration(days: number): string {
-  if (days % 30 === 0 && days >= 30) {
+/**
+ * «شهر» / «٣٠ يوماً» — a month is a marketing word, the column is days.
+ *
+ * ⛔ **IT PRINTED «null يوماً», AND THE TYPE SIGNATURE IS WHY THAT WAS INVISIBLE.**
+ * `null % 30 === 0` is TRUE in JavaScript, so a null slipped past the month
+ * branch's first condition and landed in the fallback as text: a plan advertised
+ * to a buyer as «null يوماً · حصص جماعية». The parameter was typed `number`, so
+ * `tsc` could never raise it — and a TypeScript type is a claim about the API,
+ * not a guarantee from it, which this repository has paid for before (a
+ * constrained eager load that answered 200 with a blank name).
+ *
+ * ⚠️ IT IS NOT REACHABLE TODAY AND THAT IS NOT WHY THE GUARD IS HERE.
+ * `plans.duration_days` is `unsignedInteger` NOT NULL, so the API cannot send
+ * one. Spec 036 makes a plan «by sessions OR by duration» — the day that column
+ * turns nullable, every screen that prices a plan starts printing the word
+ * `null` at a buyer, with nothing failing anywhere. The guard is cheap now and
+ * unwritable later, after the first report.
+ *
+ * Returns `null` rather than «—» so a caller joining parts with « · » drops it
+ * instead of printing a dash in a sentence; the one place that needs a visible
+ * placeholder (a table cell under a «المدّة» header) supplies its own.
+ */
+export function planDuration(days: number | null | undefined): string | null {
+  // `typeof` first, because it is the narrowing one — after it the rest of the
+  // body sees a `number` and needs no cast. `isInteger` then refuses NaN,
+  // Infinity and 30.5, and `<= 0` refuses the zero a half-filled row carries.
+  if (typeof days !== "number" || !Number.isInteger(days) || days <= 0) return null;
+
+  if (days % 30 === 0) {
     const months = days / 30;
 
     return months === 1 ? "شهر واحد" : months === 2 ? "شهران" : `${months} أشهر`;

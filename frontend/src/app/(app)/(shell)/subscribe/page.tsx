@@ -380,8 +380,9 @@ function SubscribeScreen() {
                     <span>
                       <span className="block text-sm font-medium text-ink">{plan.title}</span>
                       <span className="block text-xs text-ink-muted">
-                        {planDuration(plan.duration_days)} ·{" "}
-                        {SESSION_TYPE_LABELS[plan.session_type]}
+                        {[planDuration(plan.duration_days), SESSION_TYPE_LABELS[plan.session_type]]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </span>
                     </span>
                   </span>

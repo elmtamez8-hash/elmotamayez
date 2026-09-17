@@ -205,8 +205,16 @@ export default function PlansPage() {
               <div>
                 <p className="text-sm font-medium text-ink">{plan.title}</p>
                 <p className="text-xs text-ink-muted">
-                  {planDuration(plan.duration_days)} · {SESSION_TYPE_LABELS[plan.session_type]} ·{" "}
-                  {plan.coverage_label}
+                  {/* ⚠️ يُبنى ثمّ يُرشَّح، لا يُوصَلُ بفواصلَ مكتوبةٍ بينَ القيم:
+                      `planDuration` تُرجِعُ `null` لمدّةٍ غيرِ معلومة، وفاصلٌ
+                      مكتوبٌ بيدِه يتركُ « · » معلّقةً في أوّلِ السطر. */}
+                  {[
+                    planDuration(plan.duration_days),
+                    SESSION_TYPE_LABELS[plan.session_type],
+                    plan.coverage_label,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </p>
               </div>
 

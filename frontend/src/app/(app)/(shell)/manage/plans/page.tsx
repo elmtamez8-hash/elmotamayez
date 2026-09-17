@@ -129,7 +129,13 @@ export default function ManagePlansPage() {
 
   const columns: Column<Plan>[] = [
     { key: "title", header: "الباقة", render: (row) => row.title },
-    { key: "duration", header: "المدّة", render: (row) => planDuration(row.duration_days) },
+    {
+      key: "duration",
+      header: "المدّة",
+      // خانةٌ تحتَ عنوانِ «المدّة» تحتاجُ علامةً مرئيّة: الفراغُ يُقرأُ عموداً لم
+      // يُحمَّل، بينما «—» تقولُ «لا مدّةَ لهذه الباقة».
+      render: (row) => planDuration(row.duration_days) ?? "—",
+    },
     {
       key: "type",
       header: "نوع الحصص",

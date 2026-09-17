@@ -67,9 +67,31 @@ export function Table<T>({
   }
 
   return (
-    // The scroll container is the wrapper, never the page: a wide table must not
-    // make the document itself pan sideways at 360px (SC-008).
-    <div className="overflow-x-auto rounded-2xl border border-line bg-surface-raised">
+    /*
+      The scroll container is the wrapper, never the page: a wide table must not
+      make the document itself pan sideways at 360px (SC-008).
+
+      ⛔ **AND THAT PROMISE WAS FALSE UNTIL 2026-09-17: `overflow-x-auto` ALONE
+      DOES NOT KEEP IT, AND `min-w-max` BELOW IS WHAT BREAKS IT.** A scroll
+      container's content still contributes to the minimum width it reports
+      upward, so `min-width: max-content` on the table travels through this div,
+      through `main`, and into the shell's flex item — which then cannot shrink,
+      and the DOCUMENT grows a horizontal scrollbar. Measured on
+      `/manage/exams` with a table forced wider than the viewport:
+      `documentElement.scrollWidth` 1536 against `clientWidth` 1382.
+
+      `contain: inline-size` is what actually keeps it (measured: 1382). It makes
+      this box's width independent of its content — the definition of a scroll
+      container — so `min-w-max` keeps its own promise («columns are not crushed,
+      the table scrolls») without the page paying for it. `min-width: 0` on this
+      div, on `main`, or on the flex item does NOT help; all three were measured
+      at 1536.
+
+      ⚠️ NO TEST IN THIS REPOSITORY CAN SEE THIS. jsdom has no layout, so every
+      width is zero and the whole suite was green over it for thirty screens. It
+      was found by looking at a page, then measured in the browser.
+    */
+    <div className="[contain:inline-size] overflow-x-auto rounded-2xl border border-line bg-surface-raised">
       <table className="w-full min-w-max text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead className="border-b border-line">
