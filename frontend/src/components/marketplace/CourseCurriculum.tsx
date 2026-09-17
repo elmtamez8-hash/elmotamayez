@@ -204,11 +204,29 @@ export function CourseCurriculum({
                             </span>
                           </span>
                         ) : freeWithAccount ? (
+                          /*
+                            ⛔ «مفتوح مجّاناً» لا «مجّانيّة بحساب»، والفرقُ ليس
+                            صياغة.
+
+                            الصفُّ هنا **لا رابطَ له ولن يكونَ له واحدٌ ولو
+                            سجّلَ القارئُ دخولَه**: `CourseOwnership` يسألُ
+                            `/courses/{uuid}/curriculum`، وهي تردُّ ٤٠٣ على
+                            متعلّمٍ غيرِ مسجَّلٍ في الكورس، فيسقطُ إلى
+                            `visitor` ويرى هذه الشجرةَ نفسَها. فجملةٌ تَعِدُ
+                            بأنّ الحسابَ يفتحُه طريقٌ مسدودٌ يقطعُه القارئُ
+                            إلى نهايتِه — وهي عائلةُ الروابطِ الميّتةِ التي
+                            كتبَت ٠٣٢ ثلاثَ فقراتٍ لتجنّبَها، واصلةً في صورةِ
+                            جملةٍ بدلَ `<a>`.
+
+                            وهذه تقولُ ما هو صحيحٌ وكافٍ لقرارِ الشراء: المدرّسُ
+                            فتحَ هذا الدرس. ولا تَعِدُ بشيءٍ تُسلِّمُه هذه
+                            الصفحة.
+                          */
                           <span className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary-soft px-2 py-1 text-xs font-bold text-primary-ink">
                             <span aria-hidden="true">
                               <SparkIcon />
                             </span>
-                            مجّانيّة بحساب
+                            مفتوح مجّاناً
                           </span>
                         ) : (
                           <span className="flex shrink-0 items-center gap-1.5 rounded-lg bg-line px-2 py-1 text-xs font-bold text-ink-muted">

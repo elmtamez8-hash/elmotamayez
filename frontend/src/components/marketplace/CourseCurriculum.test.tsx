@@ -100,14 +100,14 @@ describe("CourseCurriculum", () => {
       />,
     );
 
-    expect(screen.getByText("مجّانيّة بحساب")).toBeTruthy();
+    expect(screen.getByText("مفتوح مجّاناً")).toBeTruthy();
     expect(screen.queryByText("بعد التسجيل")).toBeNull();
     expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 
   it("keeps the three states apart on one tree", () => {
     /*
-      ثلاثةُ أجوبةٍ لمشترٍ يقرّر: «افتحْه الآن» و«مجّانيٌّ ويحتاجُ حساباً»
+      ثلاثةُ أجوبةٍ لمشترٍ يقرّر: «افتحْه الآن» و«فتحَهُ المدرّسُ مجّاناً»
       و«بعد الشراء». جمعُ الثاني مع الثالثِ هو العطلُ نفسُه بصياغةٍ أخرى.
     */
     render(
@@ -122,7 +122,7 @@ describe("CourseCurriculum", () => {
     );
 
     expect(screen.getByText("مجّانيّة")).toBeTruthy();
-    expect(screen.getByText("مجّانيّة بحساب")).toBeTruthy();
+    expect(screen.getByText("مفتوح مجّاناً")).toBeTruthy();
     expect(screen.getByText("بعد التسجيل")).toBeTruthy();
     expect(screen.getAllByRole("link")).toHaveLength(1);
   });
