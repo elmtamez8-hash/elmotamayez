@@ -94,6 +94,7 @@ export type CourseCard = {
     slug: string | null;
     name: string;
     photo_url: string | null;
+    is_verified: boolean;
   } | null;
   /*
    * ⚠️ ADDED FOR THE GENERATED COVER, AND IT IS A RELATION THE THREE CARD
@@ -224,6 +225,7 @@ export type CourseDetail = {
     slug: string | null;
     name: string;
     photo_url: string | null;
+    is_verified: boolean;
     trust_score: number | null;
     trust_score_band: TrustBand;
   } | null;

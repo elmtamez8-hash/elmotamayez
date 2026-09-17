@@ -80,6 +80,18 @@
   --color-trust-medium: #c89b2e;
   --color-trust-low: #a8321f;
 
+  /* ⚠️ A STAR IS NOT THE ACCENT, and the reason is written two screens up:
+     `--color-accent` was DARKENED from #b8873a to #956d2f so it could carry
+     white text on a filled button (4.66:1). That constraint has nothing to do
+     with a 16px graphic, and the price it paid — a browner, heavier gold — is
+     paid by every star drawn with it. It also has no dark-theme value at all,
+     so a rating in the dark is a muddy brown mark on a near-black ground.
+
+     The hues are `trust-medium`'s, deliberately: reusing that TOKEN would be a
+     band colour standing in for a rating, which the next reader reads as a
+     trust signal. Same swatch, honest name. */
+  --color-star: #c89b2e;
+
   /* Ink printed ON a certificate, and the ONE colour in this file that is
      deliberately absent from the dark block below.
 
@@ -185,6 +197,9 @@ dialog[open] {
   --color-danger-ink: #e88b78;
   --color-trust-high-ink: #4fc79b;
   --color-trust-medium-ink: #e0ba5e;
+  /* Lifted for the same reason every ink token is: the light gold reads as
+     brown against #191315. */
+  --color-star: #e0ba5e;
   /* Lifted well past the band's own #a8321f: the low badge puts its ink on a
      15% tint of itself, and the raw hue lands under the bar against that tint.
      The high and medium bands clear it on their own tints — only this one

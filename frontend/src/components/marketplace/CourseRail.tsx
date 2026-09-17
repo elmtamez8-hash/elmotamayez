@@ -10,6 +10,7 @@ import {
   MessagesIcon,
 } from "@/components/icons";
 import { useCourseOwnership } from "@/components/marketplace/CourseOwnership";
+import { VerifiedBadgeIcon } from "@/components/icons";
 import { TrustScoreBadge } from "@/components/marketplace/TrustScoreBadge";
 import { CoursePrice } from "@/components/marketplace/CoursePrice";
 import type { Curriculum } from "@/lib/curriculum";
@@ -82,7 +83,16 @@ export function CourseRail({
           )}
 
           <span className="flex min-w-0 flex-col gap-1">
-            <span className="truncate text-sm font-bold text-ink">{teacher.name}</span>
+            {/* الشارةُ بجوارِ الاسمِ هنا كما في الكارتِ وكما في الملفِّ الشخصيّ. */}
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate text-sm font-bold text-ink">{teacher.name}</span>
+              {teacher.is_verified && (
+                <VerifiedBadgeIcon
+                  className="h-4 w-4 shrink-0 text-secondary-ink"
+                  title="مدرّس موثّق"
+                />
+              )}
+            </span>
             <TrustScoreBadge score={teacher.trust_score} band={teacher.trust_score_band} />
           </span>
         </Link>

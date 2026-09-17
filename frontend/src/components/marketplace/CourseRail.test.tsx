@@ -71,6 +71,7 @@ async function renderRail(isFull = false) {
             slug: "sami-teacher",
             name: "Sami Teacher",
             photo_url: null,
+            is_verified: true,
             trust_score: null,
             trust_score_band: "building",
           }}

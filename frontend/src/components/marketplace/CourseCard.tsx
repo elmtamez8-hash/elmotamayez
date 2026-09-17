@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { counted, courseTypeLabel } from "@/lib/labels";
 import type { CourseCard as Course } from "@/lib/public-api";
+import { ClockIcon, PlayIcon, UsersIcon, VerifiedBadgeIcon } from "@/components/icons";
 import { CourseCover } from "./CourseCover";
+import { subjectIcon } from "./subject-icon";
 import { StarRating } from "./StarRating";
 
 function hours(seconds: number): string {
@@ -38,6 +40,17 @@ function hours(seconds: number): string {
  * the profile's courses tab are byte-identical to what they were.
  */
 export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: string }) {
+  /*
+    ⚠️ «—» هي جوابُ `hours()` لكورسٍ لم تُقَسْ مدّتُه، وهي هنا `null` لا سطر:
+    أيقونةُ ساعةٍ أمامَ شَرطةٍ تقولُ «فيه حقلٌ لم يُملأ»، والغيابُ لا يقولُ شيئاً
+    وهو الصحيح. والحسابُ مرّةً واحدةً لا مرّتَين — الشرطُ والقيمةُ سؤالٌ واحد.
+  */
+  const measured = hours(course.duration_seconds);
+  const length = measured === "—" ? null : measured;
+
+  // العلامةُ نفسُها التي يرسمُها الغلاف، من المُحلّلِ المشترَكِ لا من خريطةٍ ثانية.
+  const Mark = course.subject ? subjectIcon(course.subject) : null;
+
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-3xl border border-line bg-surface-raised transition duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg active:translate-y-0 active:duration-100">
       <div className="relative aspect-video bg-primary-soft">
@@ -53,25 +66,31 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
             الأكثر طلباً
           </span>
         )}
+
+        {/*
+          النوعُ على الغلافِ لا في سطرِ البيانات: هو أوّلُ ما يفرزُ به المتصفّحُ
+          («مباشر» أم «مسجَّل»)، وفي طرفٍ لا يزاحمُ «الأكثر طلباً» في الطرفِ الآخَر.
+        */}
+        <span className="absolute top-3 end-3 rounded-full bg-surface-raised/95 px-2.5 py-1 text-xs font-bold text-primary-ink shadow-sm">
+          {courseTypeLabel(course.type)}
+        </span>
+
+        {/*
+          ⚠️ **التقييمُ فوقَ الصورةِ خلفَ حاجب، لا بجوارِها على الأبيض.**
+          نصٌّ فوقَ صورةٍ بلا حاجبٍ لا ضمانَ لتباينِه إطلاقاً: النجمةُ نفسُها
+          ١٢:١ فوقَ ركنٍ داكنٍ و١٫٤:١ فوقَ ركنٍ فاتح، وأيُّ ركنٍ تقعُ عليه قرارُ
+          القَصِّ لا قرارُنا. والحاجبُ الأسودُ يُخرِجُ الصورةَ من حسابِ التباينِ
+          حيثُ تقعُ الكلمات — وهي التهجئةُ المقيسةُ في `PageBanner` بحرفِها.
+
+          والتدرّجُ إلى الشفافِ لا مستطيلٌ مصمت: شريطٌ صلبٌ يقطعُ الصورةَ بخطٍّ
+          ويُقرَأُ عنصراً آخَرَ فوقَها، والتدرّجُ يُقرَأُ ظلَّها.
+        */}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-4 pb-3 pt-8">
+          <StarRating value={course.average_rating} tone="overlay" />
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col gap-3 p-5">
-        <div className="flex items-center gap-2 text-xs">
-          <span className="rounded-lg bg-primary-soft px-2 py-0.5 font-medium text-primary-ink">
-            {courseTypeLabel(course.type)}
-          </span>
-          <span className="text-ink-muted">
-            {counted(course.lessons_count, {
-              one: "حصة",
-              two: "حصتان",
-              few: "حصص",
-              many: "حصة",
-              other: "حصة",
-            })}{" "}
-            ·{" "}
-            {hours(course.duration_seconds)}
-          </span>
-        </div>
 
         {/* ⚠️ THE WHOLE CARD, IN ONE CLICK (spec 023 · SC-001).
             The title used to lead to the teacher's courses tab, which cost three
@@ -110,12 +129,68 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
               </span>
             )}
             {course.teacher.name}
+            {/*
+              شارةُ التوثيقِ بجوارِ الاسمِ أينما كُتِب. الحقيقةُ واحدةٌ، فإن
+              ظهرَت على بطاقةِ المدرّسِ وحدَها بدا الموثَّقُ غيرَ موثَّقٍ على كلِّ
+              كورسٍ له.
+            */}
+            {course.teacher.is_verified && (
+              <VerifiedBadgeIcon
+                className="h-4 w-4 shrink-0 text-secondary-ink"
+                title="مدرّس موثّق"
+              />
+            )}
           </Link>
         )}
 
-        <div className="flex items-center justify-between gap-2">
-          <StarRating value={course.average_rating} />
-          <span className="text-xs text-ink-muted">
+        {/*
+          ⚠️ سطرٌ لكلِّ حقيقة، لا حقائقُ مرصوصةٌ بفواصلَ في سطرٍ واحد.
+          «٦ حصص · ساعتان» كانت تُقرَأُ جملةً واحدةً غامضة؛ والعينُ تمسحُ عموداً
+          من الأيقوناتِ أسرعَ ممّا تفكُّ سطراً مضغوطاً — وهو ما يفعلُه كارتُ
+          المنافسِ بأربعةِ أسطر.
+
+          ⚠️ والصفرُ يسقطُ: `hours()` تُعيدُ «—» لكورسٍ لم تُقَسْ مدّتُه، وسطرٌ
+          كاملٌ بأيقونةِ ساعةٍ أمامَ شَرطةٍ أسوأُ من غيابِه.
+        */}
+        <dl className="flex flex-col gap-1.5 text-xs text-ink-muted">
+          <dt className="sr-only">عدد الحصص</dt>
+          <dd className="flex items-center gap-2">
+            <PlayIcon className="h-4 w-4 shrink-0 text-primary-ink/70" />
+            {counted(course.lessons_count, {
+              zero: "لم تُضَف حصص بعد",
+              one: "حصة واحدة",
+              two: "حصتان",
+              few: "حصص",
+              many: "حصة",
+              other: "حصة",
+            })}
+          </dd>
+
+          {/*
+            ⛔ **ولا مدّةَ لكورسٍ بلا حصص، وقد شُوهِدَ العكسُ على الشاشة.**
+            «الرياضيات للثانوية العامة» كانت تقولُ «لم تُضَف حصص بعد» و«٢٤ ساعة»
+            في سطرَين متتاليَين — وكلاهما صادقٌ عن مصدرِه: العددُ مشتقٌّ
+            بـ`withCount` من صفوفِ الدروسِ المرئيّة، والمدّةُ **عمودٌ يكتبُه
+            المؤلّفُ بيدِه** على صفِّ الكورس. فالتناقضُ ليس في الكارتِ بل في
+            جمعِ رقمٍ محسوبٍ ورقمٍ مُعلَنٍ بلا شرطٍ بينَهما.
+
+            ومحتوىً مُعلَنٌ بأربعٍ وعشرينَ ساعةً خلفَ كورسٍ فارغٍ وعدٌ لا يُوفَّى،
+            فالسطرُ يسقطُ حتّى يوجدَ ما يُقاس. والعمودُ لا يُمَسُّ: هو تصريحُ
+            المدرّسِ عن كورسِه، وتصحيحُه من هنا كتابةٌ في بياناتِ غيرِنا.
+          */}
+          {length !== null && course.lessons_count > 0 && (
+            <>
+              <dt className="sr-only">مدة المحتوى</dt>
+              <dd className="flex items-center gap-2">
+                <ClockIcon className="h-4 w-4 shrink-0 text-primary-ink/70" />
+                {length}
+              </dd>
+            </>
+          )}
+
+          <dt className="sr-only">عدد الطلاب</dt>
+          <dd className="flex items-center gap-2">
+            <UsersIcon className="h-4 w-4 shrink-0 text-primary-ink/70" />
             {counted(course.enrolled_count, {
               zero: "لا طلاب بعد",
               one: "طالب واحد",
@@ -124,14 +199,34 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
               many: "طالباً",
               other: "طالب",
             })}
-          </span>
-        </div>
+          </dd>
+        </dl>
 
-        <div className="mt-auto flex items-baseline gap-2 pt-2">
-          <span className="text-sm font-semibold text-primary-ink">
-            عرض التفاصيل والسعر
-          </span>
-        </div>
+        {/*
+          شريحةُ المادّةِ بعرضِ الكارتِ كاملاً، بالعلامةِ نفسِها التي يرسمُها
+          الغلافُ — `subjectIcon()` مرّةً أخرى، لا خريطةً ثانية. وتغيبُ كلّيّاً
+          لكورسٍ بلا مادّة: صندوقٌ رماديٌّ فارغٌ يُقرَأُ حقلاً لم يُحمَّل.
+        */}
+        {course.subject && Mark && (
+          <p className="flex items-center gap-2 rounded-xl bg-surface px-3 py-2 text-xs font-semibold text-ink">
+            <Mark className="h-4 w-4 shrink-0 text-primary-ink/70" />
+            {course.subject.name}
+          </p>
+        )}
+
+        {/*
+          ⚠️ زرٌّ في شكلِه، `span` في بنيتِه — والفرقُ مقصود. الكارتُ كلُّه رابطٌ
+          واحدٌ منذُ ٠٢٣ · SC-001 (`after:inset-0` فوق العنوان)، ورابطٌ ثانٍ هنا
+          يضعُ وجهتَين على سطحٍ واحدٍ ويكسرُ تنقّلَ لوحةِ المفاتيح: مقصدانِ
+          لإصبعٍ واحد. فالتركيزُ يبقى على رابطِ العنوانِ الذي يغطّي الكارتَ كلَّه،
+          وهذا نداءٌ مرئيٌّ لا هدفٌ ثانٍ.
+        */}
+        <span
+          aria-hidden="true"
+          className="mt-auto block rounded-xl bg-primary px-4 py-2.5 text-center text-sm font-bold text-white transition group-hover:brightness-110"
+        >
+          عرض التفاصيل والسعر
+        </span>
       </div>
     </article>
   );

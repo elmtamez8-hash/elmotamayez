@@ -113,6 +113,7 @@ class PublicCourseDetailResource extends JsonResource
             'slug' => $profile->slug,
             'name' => $creator->name,
             'photo_url' => $profile->photo_path === null ? null : asset('storage/'.$profile->photo_path),
+            'is_verified' => (bool) $profile->is_verified,
             // ⚠️ A score below the data threshold is `null` with band
             // `building`, never `0` — a zero reads as «rated badly» about a
             // teacher nobody has rated yet.
