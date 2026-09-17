@@ -1,6 +1,7 @@
 import {
   AcademicCapIcon,
   CheckIcon,
+  VerifiedBadgeIcon,
   CoursesIcon,
   LearningIcon,
   MessagesIcon,
@@ -185,7 +186,7 @@ export default async function TeacherProfilePage({
               {teacher.name}
               {teacher.is_verified && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-secondary/15 px-2.5 py-1 text-xs font-semibold text-secondary-ink">
-                  <CheckIcon className="h-3.5 w-3.5" />
+                  <VerifiedBadgeIcon className="h-4 w-4" />
                   موثّق
                 </span>
               )}

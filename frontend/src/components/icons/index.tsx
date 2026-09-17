@@ -93,6 +93,7 @@ import {
   IconSchool,
   IconSettings,
   IconShieldCheck,
+  IconRosetteDiscountCheckFilled,
   IconShieldLock,
   IconPackage,
   IconShoppingBag,
@@ -403,5 +404,17 @@ export const TeacherIcon = wrap(IconChalkboard, "h-4 w-4");
 export const IssuedDateIcon = wrap(IconCalendarCheck, "h-4 w-4");
 export const CertificateNumberIcon = wrap(IconHash, "h-4 w-4");
 export const VerifiedIcon = wrap(IconShieldCheck, "h-4 w-4");
+
+/**
+ * شارةُ التوثيقِ المعروفة — الوردةُ المصمتةُ وبداخلِها صحّ.
+ *
+ * ⚠️ ليست `VerifiedIcon` أعلاه ولا بديلاً عنها: تلك درعٌ وتخصُّ **الشهادات**
+ * (صحّةُ مستندٍ صدرَ عنّا)، وهذه تخصُّ **شخصاً** تحقّقَت المنصّةُ منه. رمزٌ واحدٌ
+ * لمعنيَين هو ما يجعلُ القارئَ يخلطُ بينَ شهادةٍ موثَّقةٍ ومدرّسٍ موثَّق.
+ *
+ * ⚠️ والشكلُ المصمتُ مقصود: علامةُ صحٍّ عاريةٌ تُقرَأُ «تمَّ» — وهي ما كانَ
+ * مرسوماً — بينما الوردةُ تُقرَأُ «موثَّق» في كلِّ منصّةٍ يعرفُها القارئُ أصلاً.
+ */
+export const VerifiedBadgeIcon = wrap(IconRosetteDiscountCheckFilled, "h-4 w-4");
 export const PrintIcon = wrap(IconPrinter, "h-4 w-4");
 export const DownloadIcon = wrap(IconDownload, "h-4 w-4");

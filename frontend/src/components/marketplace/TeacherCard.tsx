@@ -1,4 +1,4 @@
-import { CheckIcon } from "@/components/icons";
+import { VerifiedBadgeIcon } from "@/components/icons";
 import Link from "next/link";
 import { counted } from "@/lib/labels";
 import type { TeacherCard as Teacher } from "@/lib/public-api";
@@ -61,7 +61,7 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
               {teacher.name}
             </Link>
             {teacher.is_verified && (
-              <CheckIcon className="h-4 w-4 shrink-0 text-secondary-ink" />
+              <VerifiedBadgeIcon className="h-[1.1rem] w-[1.1rem] shrink-0 text-secondary-ink" title="مدرّس موثّق" />
             )}
             {teacher.available_now && <AvailableNowChip />}
           </h3>

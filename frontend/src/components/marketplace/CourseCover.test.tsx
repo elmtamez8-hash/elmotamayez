@@ -37,14 +37,18 @@ describe("CourseCover", () => {
     expect(screen.queryByText("الرياضيات")).toBeNull();
   });
 
-  it("names the subject where there is no uploaded cover", () => {
+  it("draws the subject mark where there is no uploaded cover, and names it nowhere", () => {
     const { container } = render(
       <CourseCover title="أساسيّات التفاضل" coverUrl={null} subject={SUBJECT} variant="card" />,
     );
 
-    expect(screen.getByText("الرياضيات")).toBeTruthy();
-    expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector("svg")).toBeTruthy();
+    expect(container.querySelector("img")).toBeNull();
+    /*
+      ⛔ الاسمُ مكتوبٌ في شريحةِ المادّةِ أسفلَ الغلافِ مباشرةً على الكارت، فكتابتُه
+      هنا كذلك كلمةٌ مكرّرةٌ في لقطةٍ واحدة — تُقرَأُ خطأً في البيانات لا تأكيداً.
+    */
+    expect(screen.queryByText("الرياضيات")).toBeNull();
   });
 
   it("still draws a mark for a course nobody has filed under a subject", () => {
