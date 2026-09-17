@@ -33,7 +33,7 @@ vi.mock("@/lib/api", () => ({
 vi.mock("@/lib/auth-context", () => ({
   useAuth: () => ({ user, loading }),
   isLearner: () => false,
-  panelPathFor: () => "/dashboard",
+  panelPathFor: () => "/",
 }));
 
 const SignupLayout = (await import("./layout")).default;
@@ -80,7 +80,7 @@ describe("SignupLayout", () => {
 
     renderLayout();
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
   });
 
   it("redirects when the read is refused — a 403 is not a resumable application", async () => {
@@ -89,7 +89,7 @@ describe("SignupLayout", () => {
 
     renderLayout();
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
   });
 
   /*
@@ -101,7 +101,7 @@ describe("SignupLayout", () => {
 
     renderLayout();
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
     expect(get).not.toHaveBeenCalled();
   });
 
@@ -132,7 +132,7 @@ describe("SignupLayout", () => {
     loading = false;
     rerender(<SignupLayout><p>النموذج</p></SignupLayout>);
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
   });
 
   it("does NOT bounce a session created on this page", async () => {
@@ -147,6 +147,71 @@ describe("SignupLayout", () => {
     rerender(<SignupLayout><p>النموذج</p></SignupLayout>);
 
     await waitFor(() => expect(get).not.toHaveBeenCalled());
+    expect(replace).not.toHaveBeenCalled();
+  });
+});
+
+/*
+| ⛔ **والنموذجُ لا يُرسَمُ لمن سيُنقَل — وهذا ما لم تكنْ تقيسُه أيُّ حالةٍ أعلاه.**
+|
+| كلُّها تسألُ «أحدثَ التحويل؟»، والتحويلُ كانَ يحدثُ من قبلُ كذلك: صاحبُ الحسابِ
+| يرى استمارةَ تسجيلٍ كاملةً تومضُ ثمّ تختفي. فالقياسُ هنا على ما يُرسَمُ على
+| الشاشةِ لا على ما يُستدعى بعدَه.
+*/
+describe("what the page paints while it decides", () => {
+  beforeEach(() => {
+    replace.mockReset();
+    get.mockReset();
+    pathname = "/signup/student";
+    user = null;
+    loading = false;
+  });
+
+  it("paints no form for a visitor who arrived signed in", async () => {
+    user = { platform_role: "student" };
+
+    const { queryByText } = renderLayout();
+
+    expect(queryByText("النموذج")).toBeNull();
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+    expect(queryByText("النموذج")).toBeNull();
+  });
+
+  it("paints no form while the session is still being restored", () => {
+    /*
+      `loading` جوابٌ ثالثٌ لا «ضيف»: الرمزُ في `localStorage` لم يُبادَلْ بعدُ،
+      فرسمُ النموذجِ الآنَ رهانٌ على أنّ الطارقَ ضيف.
+    */
+    loading = true;
+    user = null;
+
+    expect(renderLayout().queryByText("النموذج")).toBeNull();
+  });
+
+  it("paints the form for a guest with nothing to restore", () => {
+    expect(renderLayout().queryByText("النموذج")).toBeTruthy();
+  });
+
+  it("paints the form for somebody who made their account on this page", async () => {
+    /*
+      ⛔ الحالةُ التي يكسرُها أيُّ حارسٍ مكتوبٍ بلا حذر: وليُّ الأمرِ يُنشئُ
+      حسابَه ثمّ يُنقَلُ إلى «أبنائي» — وهي تحتَ هذا التخطيطِ نفسِه. فلو أمسكَ
+      الرسمَ لمن «مسجَّلُ الدخول» أطلقَ، لاختفت الخطوةُ الثانيةُ في وجهِه.
+    */
+    pathname = "/signup/parent/children";
+
+    const view = renderLayout();
+
+    await waitFor(() => expect(view.queryByText("النموذج")).toBeTruthy());
+
+    user = { platform_role: "guardian" };
+    view.rerender(
+      <SignupLayout>
+        <p>النموذج</p>
+      </SignupLayout>,
+    );
+
+    expect(view.queryByText("النموذج")).toBeTruthy();
     expect(replace).not.toHaveBeenCalled();
   });
 });
