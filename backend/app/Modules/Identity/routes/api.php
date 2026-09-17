@@ -18,11 +18,11 @@ use Illuminate\Support\Facades\Route;
 | skipped `RegisterStudent` and therefore the guardian gate for minors.
 */
 Route::post('/auth/register', [AuthController::class, 'register'])
-    ->middleware(['throttle:registration', 'idempotent']);
+    ->middleware(['guest.only', 'throttle:registration', 'idempotent']);
 Route::post('/auth/register/student', [AuthController::class, 'registerStudent'])
-    ->middleware(['throttle:registration', 'idempotent']);
+    ->middleware(['guest.only', 'throttle:registration', 'idempotent']);
 Route::post('/auth/register/parent', [ParentController::class, 'register'])
-    ->middleware(['throttle:registration', 'idempotent']);
+    ->middleware(['guest.only', 'throttle:registration', 'idempotent']);
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth');
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth');
 // ⚠️ `throttle:auth` LIKE ITS TWO SIBLINGS ABOVE. The `api` group applies no

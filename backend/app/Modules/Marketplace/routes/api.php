@@ -117,7 +117,7 @@ Route::middleware('throttle:public')->prefix('signup')->name('signup.')->group(f
 */
 
 Route::post('/auth/register/teacher/step-1', [TeacherApplicationController::class, 'register'])
-    ->middleware(['throttle:registration', 'idempotent']);
+    ->middleware(['guest.only', 'throttle:registration', 'idempotent']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
     /*

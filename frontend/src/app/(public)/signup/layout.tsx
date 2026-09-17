@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { api } from "@/lib/api";
-import { isLearner, panelPathFor, useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 
 /**
  * Nobody signs up twice — EXCEPT the applicant who has not finished.
@@ -22,11 +22,20 @@ import { isLearner, panelPathFor, useAuth } from "@/lib/auth-context";
  * nested step of its own, and a guard copied into each is a guard the fourth one
  * will not have. One file, one rule.
  *
- * ⚠️ `user` IS NULL ON THE SERVER AND ON THE FIRST CLIENT PAINT, so the form
- * renders for everyone and the redirect follows once the token in `localStorage`
- * has been exchanged for a profile. A guest never sees a flicker; a signed-in
- * visitor sees the form for a moment and then their own panel, with the reason
- * said out loud rather than left to be guessed at.
+ * ⚠️ `user` IS NULL ON THE SERVER AND ON THE FIRST CLIENT PAINT, and there is no
+ * server-side answer to be had: the token lives in `localStorage`, so no Next
+ * middleware and no server component can read it. The guard is therefore a
+ * client one by construction — and it HOLDS THE RENDER rather than letting the
+ * form paint and pulling it back (see the condition at the bottom of this file).
+ * This paragraph used to say the opposite, and described the flash as acceptable;
+ * a full registration form that blinks and vanishes reads as a fault, not a
+ * courtesy.
+ *
+ * ⛔ AND HOLDING A RENDER IS NOT A GUARD. The browser decides what it draws; a
+ * `curl` with a valid bearer token draws nothing and posts anyway. The door is
+ * `RefuseAuthenticated` (`guest.only`) on all four account-minting routes — and
+ * it went on the day this hold was written, because until then a signed-in
+ * account could mint a second one from its own session with nothing to stop it.
  *
  * ⚠️ **AND «مسجَّلُ الدخول» ALONE WAS TOO WIDE, WHICH BROKE A PROMISE PRINTED ON
  * THE PAGE ABOVE THIS ONE.** The teacher application is FOUR steps and says «أربع
@@ -84,18 +93,22 @@ export default function SignupLayout({ children }: { children: React.ReactNode }
    | not to be there — so the FIRST settled answer is who walked in. Anything
    | after it happened here.
    |
-   | It is a ref rather than state because nothing renders from it, and it is
-   | scoped to this layout's mount — which is the signup flow's own lifetime:
-   | it survives `/signup/parent` → `/signup/parent/children` and is asked again
+   | ⚠️ IT WAS A REF «because nothing renders from it», AND SOMETHING RENDERS
+   | FROM IT NOW — the hold at the bottom of this file. A ref read during render
+   | does not re-render when it changes, so the condition would have frozen on
+   | its first value for ever. State, and the effects read the same one value.
+   |
+   | Scoped to this layout's mount, which is the signup flow's own lifetime: it
+   | survives `/signup/parent` → `/signup/parent/children` and is asked again
    | from scratch by anybody who leaves `/signup` and comes back.
    */
-  const arrivedSignedIn = useRef<boolean | null>(null);
+  const [arrivedSignedIn, setArrivedSignedIn] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (loading || arrivedSignedIn.current !== null) return;
+    if (loading || arrivedSignedIn !== null) return;
 
-    arrivedSignedIn.current = user !== null;
-  }, [loading, user]);
+    setArrivedSignedIn(user !== null);
+  }, [loading, user, arrivedSignedIn]);
 
   /*
    | `null` while the question has not been answered yet — the redirect waits for
@@ -106,7 +119,7 @@ export default function SignupLayout({ children }: { children: React.ReactNode }
   const [resumable, setResumable] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (user === null || arrivedSignedIn.current !== true) return;
+    if (user === null || arrivedSignedIn !== true) return;
 
     if (pathname !== "/signup/teacher") {
       setResumable(false);
@@ -126,24 +139,51 @@ export default function SignupLayout({ children }: { children: React.ReactNode }
     return () => {
       alive = false;
     };
-  }, [user, pathname]);
+  }, [user, pathname, arrivedSignedIn]);
 
   useEffect(() => {
-    if (user === null || arrivedSignedIn.current !== true) return;
+    if (user === null || arrivedSignedIn !== true) return;
     if (told.current || resumable === null || resumable) return;
 
     told.current = true;
 
     toast.info("أنت مسجَّل الدخول بالفعل", {
-      description: `لا حاجة لإنشاء حساب جديد — نقلناك إلى ${
-        isLearner(user) ? "صفحة دراستك" : "لوحتك"
-      }. سجّل الخروج أوّلاً إن أردت حساباً آخر.`,
+      description:
+        "لا حاجة لإنشاء حساب جديد — أعدناك إلى الرئيسيّة. سجّل الخروج أوّلاً إن أردت حساباً آخر.",
     });
 
     // `replace`, not `push`: the form is not a place to come back to with the
     // browser's own back button.
-    router.replace(panelPathFor(user));
-  }, [user, router, resumable]);
+    router.replace("/");
+  }, [user, router, resumable, arrivedSignedIn]);
+
+  /*
+    ⛔ **والنموذجُ لا يُرسَمُ أصلاً لمن سيُنقَل، وقد كانَ يُرسَمُ ثمّ يُسحَب.**
+
+    الوثيقةُ أعلاه تصفُ ذلك بوصفِه نتيجةً معروفة: «النموذجُ يُرسَمُ للجميعِ
+    والتحويلُ يتبعُ». لكنّ ما يراه صاحبُ الحسابِ هو استمارةُ تسجيلٍ كاملةٌ تومضُ
+    ثمّ تختفي — ووميضُ شاشةٍ لم تكنْ له يُقرَأُ عطلاً، لا لطفاً.
+
+    ثلاثُ حالاتٍ تُمسِكُ الرسم، وواحدةٌ فقط تُطلِقُه:
+    - `loading`: السؤالُ لم يُجَبْ بعد. ونافذتُه معدومةٌ عمليّاً لضيفٍ بلا رمزٍ
+      في `localStorage` — لا شيءَ يُبادَل، فالجوابُ يأتي في الإطارِ نفسِه.
+    - `arrivedSignedIn === true` مع `resumable !== true`: نحنُ في طريقِنا إلى
+      الرئيسيّة، فالرسمُ عملٌ يُلقى.
+    - `resumable === null` على مسارِ المدرّس: السؤالُ في الشبكةِ الآن.
+
+    ⚠️ و`arrivedSignedIn` صارَ حالةً لا `ref`. كانَ مرجعاً لأنّ «لا شيءَ يُرسَمُ
+    منه» — وقد صارَ يُرسَمُ منه، ومرجعٌ يُقرَأُ في الرسمِ لا يُعيدُ الرسمَ حينَ
+    يتغيّر، فيبقى الشرطُ على قيمتِه الأولى للأبد.
+
+    ⚠️ ولا يُمسِكُ شيئاً لمن أنشأَ حسابَه **على هذه الصفحة**: `arrivedSignedIn`
+    عندَه `false`، وهو الفرقُ الذي تشرحُه الفقرةُ الطويلةُ أعلاه — وبدونِه يختفي
+    نموذجُ «أبنائي» في وجهِ وليِّ الأمرِ لحظةَ إنشاءِ حسابِه.
+
+    و`null` لا شاشةَ انتظار: هذا تخطيطٌ متداخِل، فترويسةُ الموقعِ وتذييلُه
+    مرسومانِ فوقَه وتحتَه — والفراغُ لحظةً أهدأُ من «جارٍ التحقّق» تومضُ لكلِّ
+    ضيفٍ يفتحُ الصفحةَ لأوّلِ مرّة.
+  */
+  if (loading || (arrivedSignedIn === true && resumable !== true)) return null;
 
   return <>{children}</>;
 }

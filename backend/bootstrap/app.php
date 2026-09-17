@@ -3,6 +3,7 @@
 use App\Modules\Courses\Exceptions\ContentLockedException;
 use App\Shared\Middleware\EnsureCurrentWorkspace;
 use App\Shared\Middleware\Idempotent;
+use App\Shared\Middleware\RefuseAuthenticated;
 use App\Shared\Middleware\RequireTwoFactor;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -104,6 +105,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'workspace' => EnsureCurrentWorkspace::class,
             'idempotent' => Idempotent::class,
+            // أبوابُ سكِّ الحسابات. انظر وثيقةَ الوسيطِ نفسِه.
+            'guest.only' => RefuseAuthenticated::class,
             'stateful' => EnsureFrontendRequestsAreStateful::class,
             // Named, and applied route by route — never to a group. See the
             // middleware's own docblock for why.
