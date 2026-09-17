@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import { BookIcon, ClockIcon, UsersIcon } from "@/components/icons";
+import { BookIcon, ClockIcon, SparkIcon, UsersIcon } from "@/components/icons";
 import { CohortList } from "@/components/marketplace/CohortList";
 import { CourseCurriculum } from "@/components/marketplace/CourseCurriculum";
 import {
@@ -185,6 +185,27 @@ export default async function CoursePage({
    * منذُ كُتِبَت، ولنفسِ السبب: «لا طلاب» على كورسٍ جديدٍ إعلانٌ ضدَّ صاحبِه،
    * و«٠ طالباً» — وهو ما كان يُطبَع — أسوأُ منه.
    */
+  /*
+   * كم درساً يفتحُه المدرّسُ قبلَ الشراء — محسوبٌ من الشجرةِ لا من عمودٍ ثانٍ.
+   *
+   * الحالتانِ تُعَدّانِ معاً: ما يُفتَحُ الآنَ بلا حساب (`is_open`) وما هو
+   * مجّانيٌّ لمن يُنشئُ حساباً (`free_with_account`). الفرقُ بينهما يظهرُ على
+   * الصفِّ نفسِه في الشجرة، أمّا هنا فالسؤالُ واحد: «هل أجرّبُ قبلَ أن أدفع؟».
+   */
+  const previewCount = course.curriculum.reduce(
+    (total, section) =>
+      total +
+      section.chapters.reduce(
+        (inSection, chapter) =>
+          inSection +
+          chapter.items.filter(
+            (item) => item.is_open === true || item.free_with_account === true,
+          ).length,
+        0,
+      ),
+    0,
+  );
+
   const facts = [
     course.lessons_count > 0 && {
       key: "lessons",
@@ -211,6 +232,32 @@ export default async function CoursePage({
         few: "طلاب",
         many: "طالباً",
         other: "طالب",
+      }),
+    },
+    /*
+      ⚠️ الرقمُ مشتقٌّ من الشجرةِ نفسِها، ولا عمودَ له في الحمولة.
+      المنهجُ محمَّلٌ على هذه الصفحةِ بالفعل، و`previewCount` يعدُّ الصفوفَ التي
+      وسمَها الخادمُ مفتوحة — فلا يمكنُ للرقمِ أن يخالفَ ما تحتَه. عدّادٌ يرسلُه
+      الخادمُ منفصلاً هو جوابٌ ثانٍ عن سؤالٍ واحد، يختلفُ عن الأوّلِ أوّلَ مرّةٍ
+      يتغيّرُ فيها شرطُ الفتحِ في أحدِ الموضعَين.
+
+      والصفرُ يسقطُ كبقيّةِ الشريط: «لا دروس مجّانيّة» إعلانٌ ضدَّ الكورس.
+    */
+    previewCount > 0 && {
+      key: "previews",
+      Icon: SparkIcon,
+      /*
+        ⚠️ «مفتوحة» لا «معاينة»، ولنفسِ سببِ الشارةِ على الصفِّ نفسِه: بعضُ
+        هذه الدروسِ لا يفتحُه هذا الموقعُ بضغطةٍ اليومَ ولا بعدَ تسجيلِ الدخول،
+        فكلمةُ «معاينة» تَعِدُ بتجربةٍ لا تُسلَّم. والعددُ حقيقةٌ عن الكورسِ
+        يقرّرُ بها المشتري، وهي صحيحةٌ كما هي.
+      */
+      text: counted(previewCount, {
+        one: "درس مفتوح مجّاناً",
+        two: "درسان مفتوحان مجّاناً",
+        few: "دروس مفتوحة مجّاناً",
+        many: "درساً مفتوحاً مجّاناً",
+        other: "درس مفتوح مجّاناً",
       }),
     },
   ].filter(

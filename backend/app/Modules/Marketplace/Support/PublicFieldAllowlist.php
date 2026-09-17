@@ -236,8 +236,20 @@ final class PublicFieldAllowlist
     /** @var list<string> */
     public const CURRICULUM_CHAPTER = ['title', 'items'];
 
+    /*
+    | `free_with_account` يُعلِنُ ولا يفتح، وهو الفرقُ كلُّه.
+    |
+    | الفقرةُ أعلاه تمنعُ نشرَ معرّفِ فيديوٍ مفتوحٍ مرفوع، وهي على حقّ. لكنّها
+    | تركَتِ الفيديوَ الموسومَ «متاح بلا تسجيل» يُرسَمُ «بعد التسجيل» على الصفحةِ
+    | العامّة — أي وسمٌ لهُ قارئٌ عندَ المنحِ ولا قارئَ عندَ الإعلان. وهذا
+    | المفتاحُ بولياني **بلا `uuid` معه**: القارئُ يعرفُ أنّ الدرسَ مجّانيٌّ
+    | ويُطلَبُ منه حسابٌ ليفتحَه، ولا رابطَ يُبنى من لا شيء.
+    |
+    | ولا يُسرِّبُ شيئاً لم يكنْ معلَناً: الاسمُ والنوعُ والمدّةُ كلُّها منشورةٌ
+    | في الصفِّ نفسِه بالفعل، وهذا يضيفُ إليها قراراً اتّخذَه المدرّسُ ليُعلَن.
+    */
     /** @var list<string> */
-    public const CURRICULUM_ITEM = ['title', 'kind', 'duration_seconds', 'uuid', 'is_open'];
+    public const CURRICULUM_ITEM = ['title', 'kind', 'duration_seconds', 'uuid', 'is_open', 'free_with_account'];
 
     /*
     | Spec 032 · FR-010 — the open embedded lesson, read by a visitor with no

@@ -131,12 +131,23 @@ export type CourseCard = {
  * column defaults to 0 and the teacher writes it by hand, so the server omits it
  * rather than sending a zero that reads as «٠ دقيقة» (FR-018).
  */
+/*
+ * `free_with_account` ADVERTISES; `is_open` OPENS. The two are not degrees of
+ * one thing and must not be collapsed into one key.
+ *
+ * A lesson its teacher marked open but which is NOT an embed carries this one
+ * and NO `uuid` — deliberately, so the paragraph above stays true to the letter:
+ * the shape of the data is still what stops a link being built. Without it that
+ * lesson rendered «بعد التسجيل», i.e. the teacher's tick had a reader at the
+ * playback door and none on the page that sells the course.
+ */
 export type CurriculumItem = {
   title: string;
   kind: string;
   duration_seconds?: number | null;
   uuid?: string;
   is_open?: boolean;
+  free_with_account?: boolean;
 };
 
 /*

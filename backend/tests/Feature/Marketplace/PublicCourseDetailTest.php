@@ -229,7 +229,35 @@ it('publishes no identifier for an OPEN uploaded video — the case the tree mus
     // permanently dead link, with neither the visitor nor the teacher given a
     // reason.
     expect($video)->not->toHaveKey('uuid')
-        ->and($video)->not->toHaveKey('is_open');
+        ->and($video)->not->toHaveKey('is_open')
+        /*
+        | ⛔ **ويُعلَنُ مع ذلك، وهذا هو النصفُ الذي كانَ ناقصاً.**
+        |
+        | التوكيدانِ أعلاه وحدَهما كانا يمرّانِ فوقَ صفحةٍ تكتبُ «بعد التسجيل»
+        | على درسٍ فتحَه المدرّسُ بنفسِه: الوسمُ له قارئٌ عندَ منحِ التشغيلِ
+        | ولا قارئَ عندَ الإعلان. والمفتاحُ هنا يفصلُ السؤالَين — «هل يُفتَحُ
+        | بالضغط؟» لا، «هل هو مجّانيّ؟» نعم — فيبقى الرابطُ ممتنعاً بشكلِ
+        | البياناتِ لا بشرطٍ يُعادُ في الواجهة.
+        */
+        ->and($video['free_with_account'])->toBeTrue();
+});
+
+it('advertises nothing for a lesson its teacher never opened', function (): void {
+    /*
+    | الاتّجاهُ المعاكس، وبدونَه يمرُّ التوكيدُ أعلاه فوقَ تطبيقٍ يكتبُ المفتاحَ
+    | على كلِّ صفّ. الفيديو في التجهيزةِ مقفولٌ بالأصل.
+    */
+    [$course] = publicCourseFixture();
+
+    $this->asGuest();
+
+    $video = collect(
+        $this->getJson("/api/v1/marketplace/courses/{$course->uuid}")
+            ->assertOk()
+            ->json('data.curriculum.0.chapters.0.items'),
+    )->firstWhere('kind', 'video');
+
+    expect($video)->not->toHaveKey('free_with_account');
 });
 
 it('answers every unpublishable course with the identical not-found body', function (): void {
