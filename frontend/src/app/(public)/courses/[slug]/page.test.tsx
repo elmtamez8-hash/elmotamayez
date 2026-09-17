@@ -61,6 +61,7 @@ const course: CourseDetail = {
     slug: "demo-teacher",
     name: "Demo Teacher",
     photo_url: null,
+    is_verified: true,
     trust_score: null,
     trust_score_band: "building",
   },

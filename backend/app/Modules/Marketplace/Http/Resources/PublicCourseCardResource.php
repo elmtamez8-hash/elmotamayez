@@ -110,6 +110,7 @@ class PublicCourseCardResource extends JsonResource
             'slug' => $profile->slug,
             'name' => $creator->name,
             'photo_url' => $profile->photo_path === null ? null : asset('storage/'.$profile->photo_path),
+            'is_verified' => (bool) $profile->is_verified,
         ];
     }
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { counted, courseTypeLabel } from "@/lib/labels";
 import type { CourseCard as Course } from "@/lib/public-api";
-import { ClockIcon, PlayIcon, UsersIcon } from "@/components/icons";
+import { ClockIcon, PlayIcon, UsersIcon, VerifiedBadgeIcon } from "@/components/icons";
 import { CourseCover } from "./CourseCover";
 import { subjectIcon } from "./subject-icon";
 import { StarRating } from "./StarRating";
@@ -129,6 +129,17 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
               </span>
             )}
             {course.teacher.name}
+            {/*
+              شارةُ التوثيقِ بجوارِ الاسمِ أينما كُتِب. الحقيقةُ واحدةٌ، فإن
+              ظهرَت على بطاقةِ المدرّسِ وحدَها بدا الموثَّقُ غيرَ موثَّقٍ على كلِّ
+              كورسٍ له.
+            */}
+            {course.teacher.is_verified && (
+              <VerifiedBadgeIcon
+                className="h-4 w-4 shrink-0 text-secondary-ink"
+                title="مدرّس موثّق"
+              />
+            )}
           </Link>
         )}
 

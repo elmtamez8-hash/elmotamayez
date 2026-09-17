@@ -27,6 +27,7 @@ const course: Course = {
     slug: "khaled",
     name: "خالد",
     photo_url: null,
+    is_verified: true,
   },
   subject: { slug: "math", name: "الرياضيات", icon: null },
   type: "group",
