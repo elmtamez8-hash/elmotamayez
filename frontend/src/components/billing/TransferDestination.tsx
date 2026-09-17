@@ -42,6 +42,16 @@ type Row = {
   copyable: boolean;
 };
 
+/*
+ * ⚠️ **البطاقةُ نصفانِ لا قائمةٌ واحدة، والفرقُ بينَهما فعلٌ لا تصنيف.** «بنك
+ * قطر الوطني» و«منصّة المتميّز» يُقرآنِ مرّةً للتأكّدِ أنّ الوجهةَ صحيحة؛ ورقمُ
+ * الحسابِ والآيبانُ والمحفظةُ تُنقَلُ حرفاً بحرفٍ إلى تطبيقِ بنك. فالثانيةُ هي
+ * ما جاءَ القارئُ من أجلِه، وهي التي تُرسَمُ أكبرَ وعلى أرضيّةٍ تفصلُها.
+ *
+ * ولذلك `copyable` هو المفتاحُ نفسُه في الحالتَين: ما يُنسَخُ هو ما يُلصَقُ هو ما
+ * يُبرَز — قاعدةٌ واحدةٌ بثلاثةِ آثار، لا ثلاثُ قوائمَ تتّفقُ حتّى أوّلِ تعديل.
+ */
+
 /**
  * زرُّ نسخٍ لحقلٍ واحد.
  *
@@ -164,8 +174,20 @@ export function TransferDestination() {
       */}
       <dl className="divide-y divide-line">
         {shown.map(({ label, value, Icon, copyable }) => (
-          <div key={label} className="flex items-center gap-3 px-4 py-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-ink">
+          <div
+            key={label}
+            /* ⚠️ الأرضيّةُ هي الفاصلُ، لا خطٌّ ثالثٌ في بطاقةٍ فيها خطّانِ أصلاً:
+               الصفوفُ التي تُنسَخُ على `bg-surface` وما فوقَها على أرضيّةِ
+               البطاقة، فيُقرأُ النصفانِ دونَ أن يُقالَ «نصفان». */
+            className={`flex items-center gap-3 px-4 py-2.5 ${copyable ? "bg-surface" : ""}`}
+          >
+            <span
+              className={`flex shrink-0 items-center justify-center rounded-lg ${
+                copyable
+                  ? "h-9 w-9 bg-primary text-white"
+                  : "h-8 w-8 bg-primary-soft text-primary-ink"
+              }`}
+            >
               <Icon className="h-4 w-4" />
             </span>
 
@@ -180,8 +202,8 @@ export function TransferDestination() {
                 كسرٍ يمدُّ البطاقةَ ويُحدِثُ تمريراً أفقيّاً على الهاتف.
               */}
               <dd
-                className={`w-full text-sm font-semibold text-ink ${
-                  copyable ? "break-all font-mono" : ""
+                className={`w-full font-semibold text-ink ${
+                  copyable ? "break-all font-mono text-base tracking-wide" : "text-sm"
                 }`}
               >
                 <bdi>{value}</bdi>

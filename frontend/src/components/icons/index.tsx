@@ -46,6 +46,7 @@ import {
   IconChartLine,
   IconCheck,
   IconCopy,
+  IconUpload,
   IconCreditCard,
   IconGift,
   IconTrophy,
@@ -161,6 +162,9 @@ export const BankIcon = wrap(IconBuildingBank, "h-5 w-5");
 export const AccountNumberIcon = wrap(IconHash, "h-4 w-4");
 export const IbanIcon = wrap(IconCreditCard, "h-4 w-4");
 export const CopyIcon = wrap(IconCopy, "h-4 w-4");
+
+/** رفعُ إيصالِ التحويل — الفعلُ الوحيدُ الذي يملكُه الدافعُ على صفِّ طلبِه. */
+export const UploadIcon = wrap(IconUpload, "h-4 w-4");
 
 // Footer link glyphs.
 export const UsersIcon = wrap(IconUsers, "h-4 w-4");

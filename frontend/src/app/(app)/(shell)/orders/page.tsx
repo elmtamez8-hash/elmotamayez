@@ -33,10 +33,12 @@ import {
   CloseIcon,
   CoursesIcon,
   CreditsIcon,
+  EyeIcon,
   HumanReviewIcon,
   OrdersIcon,
   ScheduleIcon,
   StoreIcon,
+  UploadIcon,
   WalletIcon,
 } from "@/components/icons";
 
@@ -415,9 +417,12 @@ export default function OrdersPage() {
               a payer read «مرفوض» and had to ask by message what was wrong with
               it — while the officer had typed the answer (FR-032). */}
           {o.status === "rejected" && o.rejection_reason !== null && (
-            <span className="flex items-start gap-1 text-xs text-danger-ink">
+            /* ⚠️ مقيَّدُ العرض. السببُ جملةٌ يكتبُها الموظّفُ بحرّيّة، وبلا سقفٍ
+               يمدُّ عمودَ «الحالة» حتّى يبتلعَ الجدول — وعلى شاشةٍ عريضةٍ يصيرُ
+               سطراً واحداً طولُه نصفُ متر. */
+            <span className="flex max-w-[16rem] items-start gap-1 text-xs text-danger-ink">
               <AlertIcon className="mt-px h-3.5 w-3.5 shrink-0" />
-              {o.rejection_reason}
+              <span className="text-pretty">{o.rejection_reason}</span>
             </span>
           )}
         </div>
@@ -441,14 +446,18 @@ export default function OrdersPage() {
         const mayReplace = o.is_mine && OPEN_STATUSES.includes(o.status);
 
         return (
-          <div className="flex flex-col items-start gap-1.5">
+          /* ⚠️ صفٌّ يلتفُّ لا عمودٌ من ثلاثةِ ضوابط. الرابطُ والمنتقي والرافعُ
+             ثلاثةُ أشكالٍ مختلفةٍ فوقَ بعضِها كانت أكثرَ ما يبدو غيرَ منتهٍ في
+             الجدول؛ وهي الآنَ ثلاثُ حبّاتٍ بحدٍّ واحدٍ وارتفاعٍ واحد. */
+          <div className="flex flex-wrap items-center gap-1.5">
             {o.receipt_url && !(o.is_mine && o.status === "rejected") && (
               <a
                 href={o.receipt_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded text-xs font-medium text-primary-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="inline-flex items-center gap-1 rounded-lg border border-line bg-surface px-2 py-1 text-xs font-medium text-ink transition duration-200 hover:border-primary hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
               >
+                <EyeIcon className="h-3.5 w-3.5" />
                 عرض الإيصال
               </a>
             )}
@@ -476,7 +485,8 @@ export default function OrdersPage() {
                   <option value="bank_transfer">تحويل بنكي</option>
                   <option value="mobile_wallet">محفظة إلكترونية</option>
                 </Select>
-                <label className="cursor-pointer rounded text-xs font-medium text-primary-ink underline-offset-4 hover:underline focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary">
+                <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-primary/40 bg-primary-soft px-2 py-1 text-xs font-medium text-primary-ink transition duration-200 hover:border-primary hover:bg-primary hover:text-white focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary motion-reduce:transition-none">
+                  <UploadIcon className="h-3.5 w-3.5" />
                   {busy === o.uuid
                     ? "جارٍ الرفع…"
                     : o.has_receipt
@@ -550,55 +560,7 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-6">
-      {/*
-        The heading and the one number the reader came for, on one line: «كم
-        عليّ» was answered nowhere on this page, so it was answered by adding up
-        the amount column by eye.
-      */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-ink">الطلبات</h2>
-
-        {owed !== null && (
-          <div
-            /*
-              ⚠️ A NAMED REGION, NOT A BARE `div`. The figure it carries is the
-              same string the amount column prints, so «the total» and «one row's
-              amount» are indistinguishable to anything reading the page by text
-              — a screen reader landing on it, and a test asserting on it. The
-              name is what separates them. `status` because the number really is
-              a summarised state: it moves when a row's status does.
-            */
-            role="status"
-            aria-label="المطلوب سداده"
-            className="animate-float-in flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-2.5"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/20 text-ink">
-              <WalletIcon className="h-5 w-5" />
-            </span>
-            <div className="flex flex-col items-start">
-              <span className="text-xs text-ink-muted">
-                المطلوب سداده — {orderCount(owed.count)}
-              </span>
-              <bdi className="text-lg font-bold tabular-nums text-ink">
-                {formatMinorMoney(owed.minor, owed.currency)}
-              </bdi>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ⚠️ هنا تحديداً يُرفَعُ الإيصال — و`‎/billing/pay` تُحيلُ إلى هذه الصفحةِ
-          بنصِّها. فالوجهةُ تُقرأُ حيثُ يُنفَّذُ التحويل، لا حيثُ يُوصَفُ فقط. */}
-      {/*
-        ⚠️ مقيَّدةُ العرض هنا وحدَها، لا في المكوّنِ نفسِه: `/billing/purchase`
-        و`/subscribe` يرسمانِها داخلَ عمودٍ ضيّقٍ أصلاً، وقيدٌ في المكوّنِ يشدُّ
-        تخطيطَهما. وبلا قيدٍ هنا تمتدُّ البطاقةُ على ١٤٠٠ بكسل، فيبعُدُ زرُّ
-        النسخِ عن الرقمِ الذي ينسخُه عرضَ الشاشةِ كلِّه — مساحةٌ ميّتةٌ بينَ
-        شيئَين ينتميانِ لبعضِهما.
-      */}
-      <div className="lg:max-w-xl">
-        <TransferDestination />
-      </div>
+      <h2 className="text-2xl font-bold text-ink">الطلبات</h2>
 
       {error && (
         <p role="alert" className="rounded-lg bg-danger/15 p-3 text-sm text-danger-ink">
@@ -607,64 +569,111 @@ export default function OrdersPage() {
       )}
 
       {/*
-        ⚠️ RENDERED ONLY OVER ROWS THAT EXIST. A filter strip above an empty
-        table is five buttons that all lead to the same «لا طلبات» — chrome
-        offering choices with no consequence, on the screen of somebody who has
-        never bought anything.
+        ⚠️ **السؤالانِ اللذانِ يأتي بهما الدافعُ إلى هذه الشاشةِ متجاورانِ الآن:**
+        «كم عليَّ» و«إلى أين أحوّل». كانا مكدَّسَينِ فوقَ بعضِهما فوقَ الجدول،
+        فيدفعانِ الصفوفَ خارجَ أوّلِ شاشةٍ على حاسوبٍ محمول — وهي الصفوفُ التي
+        جاءَ من أجلِها من الأصل.
 
-        ⚠️ AND IT IS `role="group"` WITH PRESSED STATE ON EACH BUTTON, not a list
-        of links. The narrowing is client-side and leaves no URL behind it, so a
-        reader with a screen reader is told which one is current by
-        `aria-pressed` — the only thing that says so, since the visual cue is a
-        border colour.
+        والعمودُ الثاني مقيَّدٌ بعرضٍ ثابتٍ لا بنصفِ الشاشة: بطاقةُ وجهةٍ عرضُها
+        ٧٠٠ بكسل تباعِدُ زرَّ النسخِ عن الرقمِ الذي ينسخُه عرضَ الشاشةِ كلِّه.
+        وتحتَ `lg` يعودانِ عموداً واحداً بلا قاعدةٍ ثانيةٍ تُكتَب.
       */}
-      {!loading && !failed && orders.length > 0 && (
-        <div role="group" aria-label="تصفية الطلبات بالحالة" className="flex flex-wrap gap-2">
-          {tiles.map((key, index) => {
-            const Icon = key === "all" ? OrdersIcon : (STATUS_ICONS[key] ?? OrdersIcon);
-            const count = key === "all" ? orders.length : orders.filter((o) => o.status === key).length;
-            const label = key === "all" ? "الكل" : statusLabel(key);
-            const active = filter === key;
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+        <div className="space-y-4">
+          {owed !== null && (
+            <div
+              /*
+                ⚠️ A NAMED REGION, NOT A BARE `div`. The figure it carries is the
+                same string the amount column prints, so «the total» and «one row's
+                amount» are indistinguishable to anything reading the page by text
+                — a screen reader landing on it, and a test asserting on it. The
+                name is what separates them. `status` because the number really is
+                a summarised state: it moves when a row's status does.
+              */
+              role="status"
+              aria-label="المطلوب سداده"
+              className="animate-float-in flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3"
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/20 text-ink">
+                <WalletIcon className="h-5 w-5" />
+              </span>
+              <div className="flex flex-col items-start">
+                <span className="text-xs text-ink-muted">
+                  المطلوب سداده — {orderCount(owed.count)}
+                </span>
+                <bdi className="text-xl font-bold tabular-nums text-ink">
+                  {formatMinorMoney(owed.minor, owed.currency)}
+                </bdi>
+              </div>
+            </div>
+          )}
 
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setFilter(key)}
-                aria-pressed={active}
-                /* The stagger is 40ms a tile and stops at the fifth — the
-                   reduced-motion block zeroes the delay as well as the duration,
-                   so a reader who asked for less motion gets them all at once
-                   rather than five invisible buttons for 200ms. */
-                style={{ animationDelay: `${index * 40}ms` }}
-                className={`animate-float-in flex items-center gap-2.5 rounded-2xl border px-3.5 py-2 text-start transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
-                  active
-                    ? "border-primary bg-primary-soft"
-                    : "border-line bg-surface-raised hover:border-primary"
-                }`}
-              >
-                <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
-                    TONE_CLASSES[key === "all" ? "info" : statusTone(key)]
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                </span>
-                <span className="flex flex-col">
-                  {/* ⚠️ ARABIC-INDIC, like every other number this product
-                      prints. `counted()` does the same inside itself; here the
-                      label beside it already carries the noun, so the numeral is
-                      all that is needed. */}
-                  <span className="text-sm font-semibold tabular-nums text-ink">
-                    {count.toLocaleString("ar-QA")}
-                  </span>
-                  <span className="text-xs text-ink-muted">{label}</span>
-                </span>
-              </button>
-            );
-          })}
+          {/*
+            ⚠️ RENDERED ONLY OVER ROWS THAT EXIST. A filter strip above an empty
+            table is five buttons that all lead to the same «لا طلبات» — chrome
+            offering choices with no consequence, on the screen of somebody who has
+            never bought anything.
+
+            ⚠️ AND IT IS `role="group"` WITH PRESSED STATE ON EACH BUTTON, not a list
+            of links. The narrowing is client-side and leaves no URL behind it, so a
+            reader with a screen reader is told which one is current by
+            `aria-pressed` — the only thing that says so, since the visual cue is a
+            border colour.
+          */}
+          {!loading && !failed && orders.length > 0 && (
+            <div role="group" aria-label="تصفية الطلبات بالحالة" className="flex flex-wrap gap-2">
+              {tiles.map((key, index) => {
+                const Icon = key === "all" ? OrdersIcon : (STATUS_ICONS[key] ?? OrdersIcon);
+                const count =
+                  key === "all" ? orders.length : orders.filter((o) => o.status === key).length;
+                const label = key === "all" ? "الكل" : statusLabel(key);
+                const active = filter === key;
+
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setFilter(key)}
+                    aria-pressed={active}
+                    /* The stagger is 40ms a tile and stops at the fifth — the
+                       reduced-motion block zeroes the delay as well as the duration,
+                       so a reader who asked for less motion gets them all at once
+                       rather than five invisible buttons for 200ms. */
+                    style={{ animationDelay: `${index * 40}ms` }}
+                    className={`animate-float-in flex items-center gap-2.5 rounded-2xl border px-3.5 py-2 text-start transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
+                      active
+                        ? "border-primary bg-primary-soft"
+                        : "border-line bg-surface-raised hover:border-primary"
+                    }`}
+                  >
+                    <span
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                        TONE_CLASSES[key === "all" ? "info" : statusTone(key)]
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="flex flex-col">
+                      {/* ⚠️ ARABIC-INDIC, like every other number this product
+                          prints. `counted()` does the same inside itself; here the
+                          label beside it already carries the noun, so the numeral is
+                          all that is needed. */}
+                      <span className="text-sm font-semibold tabular-nums text-ink">
+                        {count.toLocaleString("ar-QA")}
+                      </span>
+                      <span className="text-xs text-ink-muted">{label}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+
+        {/* ⚠️ هنا تحديداً يُرفَعُ الإيصال — و`‎/billing/pay` تُحيلُ إلى هذه الصفحةِ
+            بنصِّها. فالوجهةُ تُقرأُ حيثُ يُنفَّذُ التحويل، لا حيثُ يُوصَفُ فقط. */}
+        <TransferDestination />
+      </div>
 
       {loading ? (
         <RowsSkeleton />
@@ -688,7 +697,26 @@ export default function OrdersPage() {
           }
         />
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-line bg-surface-raised">
+        <div
+          /*
+            ⛔ **`overflow-x-auto` وحدَه لا يمنعُ الصفحةَ من التزحلقِ جانبيّاً،
+            و`min-w-max` داخلَه يُسرِّبُ عرضَه إلى الوثيقةِ كلِّها.** قِيسَ في
+            المتصفّحِ ٢٠٢٦-٠٩-١٧: `documentElement.scrollWidth` ‏١٥٣٦ مقابلَ
+            `clientWidth` ‏١٣٨٢ — شريطُ تزحلقٍ أفقيٌّ على الصفحةِ بأكملِها.
+            وإلغاءُ `min-width` من الجدولِ وحدَه يُعيدُها إلى ‏١٣٨٢ بالضبط، بينما
+            `min-width: 0` على الحاوي أو على `main` أو على عنصرِ الـflex **لا
+            يغيّرُ شيئاً**: مساهمةُ المحتوى في العرضِ الأدنى تصعدُ فوقَ كلِّ ذلك.
+
+            و`contain: inline-size` هو ما قِيسَ أنّه يُوقِفُها (‏١٣٨٢): يجعلُ عرضَ
+            الحاوي مستقلّاً عن محتواه، وهو تعريفُ حاويةِ التزحلقِ أصلاً. فيبقى
+            وعدُ `min-w-max` — «الأعمدةُ لا تُسحَق، بل يُزحلَقُ الجدول» — صحيحاً
+            دونَ أن تدفعَ الوثيقةُ ثمنَه.
+
+            ⚠️ ولا يراهُ أيُّ اختبارٍ هنا: jsdom بلا تخطيط، فالعرضُ صفرٌ في كلِّ
+            الحالات. وُجِدَ بالنظرِ إلى الشاشةِ ثمّ بالقياسِ في المتصفّح.
+          */
+          className="[contain:inline-size] overflow-x-auto rounded-2xl border border-line bg-surface-raised"
+        >
           {/*
             ⚠️ `role` MUTELY RESTATED ON EVERY PART, BECAUSE `display: block` TAKES
             TABLE SEMANTICS AWAY. A browser that is told a `<tr>` is a block stops
@@ -705,14 +733,17 @@ export default function OrdersPage() {
               read in order is a table nobody can follow by ear; «المبلغ» sitting
               directly above the amount is the same information where it is used.
             */}
-            <thead role="rowgroup" className="hidden border-b border-line md:table-header-group">
+            <thead
+              role="rowgroup"
+              className="hidden border-b border-line bg-surface md:table-header-group"
+            >
               <tr role="row">
                 {columns.map((col) => (
                   <th
                     key={col.key}
                     role="columnheader"
                     scope="col"
-                    className={`px-4 py-3 font-medium text-ink-muted ${
+                    className={`px-4 py-3 text-xs font-medium tracking-wide text-ink-muted ${
                       col.numeric ? "text-end" : "text-start"
                     }`}
                   >
@@ -737,7 +768,7 @@ export default function OrdersPage() {
                     <td
                       key={col.key}
                       role="cell"
-                      className={`block px-4 py-1.5 text-ink md:table-cell md:py-3 ${
+                      className={`block px-4 py-1.5 text-ink md:table-cell md:py-4 md:align-top ${
                         col.numeric ? "md:text-end" : "text-start"
                       }`}
                     >
