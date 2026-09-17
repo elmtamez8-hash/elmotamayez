@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { openAdminPanel } from "@/lib/admin-panel";
 
 import { useAuth } from "@/lib/auth-context";
 import { dashboardAudience } from "@/lib/dashboard-audience";
@@ -44,7 +45,20 @@ export default function DashboardPage() {
   const toPanel = user?.may_access_admin_panel === true && (user?.workspaces?.length ?? 0) === 0;
 
   useEffect(() => {
-    if (toPanel) window.location.replace("/admin");
+    if (!toPanel) return;
+
+    /*
+      ⚠️ **جسرٌ لا رابط.** `window.location.replace("/admin")` كانَ يهبطُ على
+      شاشةِ دخولٍ ثانيةٍ لمسؤولٍ سجّلَ دخولَه توّاً: الرمزُ في `localStorage` لا
+      يسافرُ مع طلبِ صفحة. والنداءُ يطلبُ تذكرةً بالمفتاحِ الذي في اليدِ ثمّ
+      يذهبُ إلى العنوانِ الذي يردُّه الخادم.
+
+      ⚠️ وعندَ الفشلِ **لا نُبقي الشاشةَ فارغةً**: `toPanel` يُرجِعُ `null` أدناه،
+      فسقوطُ النداءِ بلا بديلٍ صفحةٌ بيضاءُ بلا سببٍ ظاهر. العنوانُ المباشرُ هو
+      الارتدادُ — يطلبُ كلمةَ السرِّ مرّةً ثانيةً، وهو ما كانَ يحدثُ دائماً قبلَ
+      هذا، لا انحداراً جديداً.
+    */
+    void openAdminPanel().catch(() => window.location.replace("/admin"));
   }, [toPanel]);
 
   if (toPanel) return null;
