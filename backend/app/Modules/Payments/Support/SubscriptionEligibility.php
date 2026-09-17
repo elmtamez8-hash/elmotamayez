@@ -9,9 +9,9 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\Subscription;
+use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\SubscriptionDirectory;
 use DateTimeInterface;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
@@ -51,7 +51,11 @@ class SubscriptionEligibility implements SubscriptionDirectory
     | a second spelling here is the divergence every reader of this repository has
     | already paid for once.
     */
-    public function __construct(private readonly CoveredCourses $covered) {}
+    public function __construct(
+        private readonly CoveredCourses $covered,
+        private readonly PlanReach $reach,
+        private readonly CohortDirectory $cohorts,
+    ) {}
 
     /**
      * Every live subscription this student holds, newest window last.
@@ -318,25 +322,32 @@ class SubscriptionEligibility implements SubscriptionDirectory
             return false;
         }
 
-        $query = Plan::query()
-            ->withoutWorkspaceScope()
-            ->sellable()
-            ->where('workspace_id', $course->workspace_id)
-            /*
-            | ⚠️ THE GROUPING PARENTHESES ARE LOAD-BEARING. Written flat, the
-            | `orWhere` would OR at the TOP level and discard the workspace and
-            | the sellable conditions — publishing every priced plan on the
-            | platform as if it covered this course.
-            */
-            ->where(fn (Builder $inner) => $inner
-                ->where('coverage_type', PlanCoverage::Workspace->value)
-                ->orWhere('coverage_uuid', $course->uuid));
+        /*
+        | ⛔ THE COURSE'S GROUPS ARE ANCHORS TOO, AND WITHOUT THEM A COURSE SOLD
+        | ONLY IN GROUPS READS AS FREE. This answer is what
+        | `courseRequiresPurchase()` hands to the free-enrolment door
+        | (`EnrollmentController`), so a teacher whose every price is written per
+        | group was giving that course away to anybody who pressed the button —
+        | no order, no subscription, nothing to notice.
+        |
+        | ⚠️ THE UUIDS COME FROM THE DIRECTORY, NEVER FROM A JOIN ON `cohorts`.
+        | That table is Learning's and this module may not name it; the contract
+        | is the whole of the crossing.
+        |
+        | ⚠️ AND THE PREDICATE ITSELF IS {@see PlanReach}, CALLED FROM HERE AND
+        | FROM THE COHORT BRIDGE. A parallel arm written out here would be a
+        | third spelling of the coverage rule, which is the divergence FR-016
+        | exists over — and it is where the grouping parentheses that used to be
+        | commented at this very line now live.
+        */
+        $anchors = array_values(array_unique(array_merge(
+            [(string) $course->uuid],
+            $this->cohorts->cohortUuidsFor($courseId),
+        )));
 
-        if ($sessionType !== null) {
-            $query->where('session_type', $sessionType);
-        }
-
-        return $query->exists();
+        return $this->reach
+            ->reaching([(int) $course->workspace_id], $anchors, $sessionType)
+            ->exists();
     }
 
     /**

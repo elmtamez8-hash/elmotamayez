@@ -262,7 +262,7 @@ interface CohortDirectory
      * one from the panel — after which a stranger holding its uuid would
      * subscribe into another named student's room and its thread.
      *
-     * @return array{id: int, course_id: int, workspace_id: int, name: string, course_uuid: string, course_status: string, is_joinable: bool}|null
+     * @return array{id: int, uuid: string, course_id: int, workspace_id: int, name: string, course_uuid: string, course_status: string, is_joinable: bool}|null
      */
     public function describeGroupCohort(string $uuid): ?array;
 
@@ -351,6 +351,30 @@ interface CohortDirectory
      * @return array<int, string> keyed by cohort id
      */
     public function namesFor(array $cohortIds): array;
+
+    /**
+     * The public identifiers of EVERY group of this course, whatever its status.
+     *
+     * ⛔ IT EXISTS SO THAT «IS THIS COURSE SOLD AT ALL» CAN SEE A GROUP PRICE
+     * (٠٣٦ · T012). A plan may name a group, `plans.coverage_uuid` is a `uuid`
+     * column, and `Payments` may not turn a cohort id into one — that would be
+     * `Payments` reading `cohorts`. Without this, a course sold ONLY through its
+     * groups reads as «no price attached», and the free-enrolment door opens it
+     * to anybody who asks.
+     *
+     * ⚠️ NO STATUS FILTER, AND THAT IS THE POINT. The question is whether a
+     * price exists, not whether a seat is open today: a course whose only group
+     * is full or closed is still a course that is sold, and filtering here would
+     * hand it out free for as long as it stays that way.
+     *
+     * ⚠️ AND IT IS DELIBERATELY NOT THE BULK SHAPE THE REST OF THIS FILE USES.
+     * Both callers hold exactly one course — the free-enrolment door and the
+     * public course page — so a list-shaped signature here would be a parameter
+     * every caller wraps and unwraps for nothing.
+     *
+     * @return list<string>
+     */
+    public function cohortUuidsFor(int $courseId): array;
 
     /**
      * The public identifiers of these groups, by internal id (٠٢٦).

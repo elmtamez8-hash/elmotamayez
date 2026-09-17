@@ -243,7 +243,12 @@ class EloquentCohortDirectory implements CohortDirectory
             // the only thing standing between a stranger's uuid and a private
             // 1:1 room. The caller proves the rest from what comes back.
             ->group()
-            ->first(['id', 'course_id', 'workspace_id', 'name', 'status', 'capacity', 'members_count']);
+            // ⚠️ `uuid` IS SELECTED THOUGH THE CALLER ALREADY HOLDS IT (٠٣٦ ·
+            // T024). It is what a plan NAMES — `plans.coverage_uuid` is a uuid
+            // column — so a caller checking whether this group has a price of
+            // its own has to put it in the triple, and reading it back off the
+            // row it just resolved is one fewer thing to keep in step.
+            ->first(['id', 'uuid', 'course_id', 'workspace_id', 'name', 'status', 'capacity', 'members_count']);
 
         if ($cohort === null) {
             return null;
@@ -270,6 +275,7 @@ class EloquentCohortDirectory implements CohortDirectory
 
         return [
             'id' => (int) $cohort->getKey(),
+            'uuid' => (string) $cohort->uuid,
             'course_id' => (int) $cohort->course_id,
             'workspace_id' => (int) $cohort->workspace_id,
             'name' => (string) $cohort->name,
@@ -402,7 +408,19 @@ class EloquentCohortDirectory implements CohortDirectory
             ->group()
             ->where('status', '!=', Cohort::ARCHIVED)
             ->orderBy('name')
-            ->get(['id', 'uuid', 'name', 'description', 'status', 'capacity', 'members_count']);
+            /*
+            | ⚠️ `workspace_id` IS SELECTED AND IS NEVER EMITTED (٠٣٦ · T024).
+            | The price bridge is asked in triples — uuid, course, workspace —
+            | because `Payments` may not name `cohorts` and a plan covering «this
+            | whole teacher» carries a NULL coverage uuid: without the tenant pin
+            | its arm degenerates into «is there ANY live workspace plan on the
+            | platform», which is true for every group of every teacher. And
+            | omitting the column here is the other failure of the same pin — the
+            | triple carries a null, the match finds zero rows, and **every public
+            | group on the platform disappears behind a 200 with nothing in the
+            | log**.
+            */
+            ->get(['id', 'uuid', 'name', 'description', 'status', 'capacity', 'members_count', 'workspace_id']);
 
         $out = [];
 
@@ -584,6 +602,32 @@ class EloquentCohortDirectory implements CohortDirectory
             ->pluck('uuid', 'id')
             ->mapWithKeys(fn (string $uuid, int|string $id): array => [(int) $id => $uuid])
             ->all();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * ⚠️ `individual_for_user_id IS NULL`, NEVER A STATUS FILTER. A private 1:1
+     * group is born `closed` with one seat and belongs to one named student; a
+     * plan can no more be written for it than a stranger can be sold into it, so
+     * it is not a price this course is sold at. Filtering by status instead
+     * would hide it today for a reason that has nothing to do with whose it is —
+     * the rule `publicCohortsFor()` already writes down one method away.
+     *
+     * ⚠️ AND `withoutWorkspaceScope()` FOR THE REASON `uuidsFor()` GIVES: the
+     * course id is the guard, and this is read from the free-enrolment door,
+     * where the caller is a student whose context is null, and from the public
+     * course page, where it is a guest's.
+     */
+    public function cohortUuidsFor(int $courseId): array
+    {
+        return array_values(Cohort::query()
+            ->withoutWorkspaceScope()
+            ->where('course_id', $courseId)
+            ->whereNull('individual_for_user_id')
+            ->pluck('uuid')
+            ->map(strval(...))
+            ->all());
     }
 
     private function findIndividualCohort(int $courseId, int $studentUserId): ?int
