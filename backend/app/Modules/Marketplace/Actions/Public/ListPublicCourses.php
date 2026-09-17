@@ -24,7 +24,7 @@ class ListPublicCourses extends Action
     {
         $query = Course::query()
             ->publiclyListed()
-            ->with(['creator:id,first_name,last_name', 'creator.teacherProfile'])
+            ->with(['creator:id,first_name,last_name', 'creator.teacherProfile', 'subject'])
             ->withCount([
                 // Scoped, and it was not. `withCount('lessons')` counts every row
                 // — so a teacher's half-written drafts and their retired archive

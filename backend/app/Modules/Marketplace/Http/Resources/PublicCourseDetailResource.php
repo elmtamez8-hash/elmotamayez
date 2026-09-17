@@ -37,6 +37,8 @@ use Illuminate\Support\Collection;
  */
 class PublicCourseDetailResource extends JsonResource
 {
+    use PublishesSubject;
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
@@ -79,22 +81,6 @@ class PublicCourseDetailResource extends JsonResource
             'enrolled_count' => (int) ($this->getAttribute('enrolled_count') ?? 0),
             'private_session_minutes' => $this->private_session_minutes,
             'curriculum' => $this->curriculumShape(),
-        ];
-    }
-
-    /** @return array{slug: string, name: string, icon: string|null}|null */
-    private function subjectShape(): ?array
-    {
-        $subject = $this->subject;
-
-        if ($subject === null) {
-            return null;
-        }
-
-        return [
-            'slug' => (string) $subject->slug,
-            'name' => (string) $subject->name,
-            'icon' => $subject->icon,
         ];
     }
 

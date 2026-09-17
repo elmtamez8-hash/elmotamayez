@@ -95,6 +95,12 @@ export type CourseCard = {
     name: string;
     photo_url: string | null;
   } | null;
+  /*
+   * ⚠️ ADDED FOR THE GENERATED COVER, AND IT IS A RELATION THE THREE CARD
+   * QUERIES EAGER-LOAD. Nullable because `courses.subject_id` is: a course
+   * nobody has filed still has a card, and the cover falls back to its own mark.
+   */
+  subject: Taxonomy | null;
   type: "individual" | "group" | "recorded";
   lessons_count: number;
   duration_seconds: number;

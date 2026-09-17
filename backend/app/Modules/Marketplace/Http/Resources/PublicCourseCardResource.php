@@ -20,6 +20,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class PublicCourseCardResource extends JsonResource
 {
+    use PublishesSubject;
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
@@ -38,6 +40,7 @@ class PublicCourseCardResource extends JsonResource
             'title' => $this->title,
             'cover_url' => $this->cover_path === null ? null : asset('storage/'.$this->cover_path),
             'teacher' => $this->teacherByline(),
+            'subject' => $this->subjectShape(),
             'type' => $this->course_type,
             'lessons_count' => (int) ($this->getAttribute('lessons_count') ?? 0),
             'duration_seconds' => $this->duration_seconds,

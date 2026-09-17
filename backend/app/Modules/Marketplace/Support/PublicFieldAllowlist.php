@@ -103,6 +103,7 @@ final class PublicFieldAllowlist
         'title',
         'cover_url',
         'teacher',
+        'subject',
         'type',
         'lessons_count',
         'duration_seconds',

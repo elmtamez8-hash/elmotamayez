@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { BookIcon, ClockIcon, SparkIcon, UsersIcon } from "@/components/icons";
 import { CohortList } from "@/components/marketplace/CohortList";
+import { CourseCover } from "@/components/marketplace/CourseCover";
 import { CourseCurriculum } from "@/components/marketplace/CourseCurriculum";
 import {
   CourseOwnedBadge,
@@ -279,20 +280,12 @@ export default async function CoursePage({
           وأوّلُ ما يُرى يجبُ أن يكونَ الكورسَ نفسَه.
         */}
         <div className="relative aspect-[21/9] w-full overflow-hidden rounded-3xl bg-primary sm:aspect-[21/7]">
-          {course.cover_url ? (
-            // A plain <img>: `next/image` would route a remote path through
-            // `sharp`, whose advisories this tree accepts precisely because no
-            // user-supplied image reaches it.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={course.cover_url} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <span
-              className="flex h-full w-full items-center justify-center text-7xl font-black text-white/85"
-              aria-hidden="true"
-            >
-              {course.title.charAt(0)}
-            </span>
-          )}
+          <CourseCover
+            title={course.title}
+            coverUrl={course.cover_url}
+            subject={course.subject}
+            variant="hero"
+          />
 
           <CourseOwnedBadge />
         </div>

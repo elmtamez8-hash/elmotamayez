@@ -57,7 +57,7 @@ class RelatedTeachers extends Action
             $courses = Course::query()
                 ->publiclyListed()
                 ->where('courses.workspace_id', $workspaceId)
-                ->with(['creator:id,first_name,last_name', 'creator.teacherProfile'])
+                ->with(['creator:id,first_name,last_name', 'creator.teacherProfile', 'subject'])
                 ->withCount([
                     // ⚠️ SCOPED, exactly as `ListPublicCourses` had to be. A bare
                     // `withCount('lessons')` counts a teacher's drafts and their
