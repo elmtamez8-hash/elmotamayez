@@ -13,6 +13,7 @@ use App\Modules\Notifications\Models\Notification;
 use App\Modules\Payments\Actions\CreateOrder;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Support\Carbon;
+use Laravel\Sanctum\Sanctum;
 
 /*
 | ٠٣٤ · US4 — الكورسُ المكتمِلُ لا يُباع، ويُفتَحُ له دَور (FR-023 … FR-029).
@@ -187,8 +188,16 @@ it('refuses a FREE full course too, which never passes through an order', functi
 
     $student = waitlistStudent();
 
-    $this->actingAs($student)
-        ->postJson('/api/v1/courses/'.$free->uuid.'/enroll')
+    /*
+    | ⚠️ `Sanctum::actingAs`، لا `$this->actingAs`. الثانيةُ تُسجِّلُ على حارسِ
+    | `web`، وكانَ ذلك يكفي لاجتيازِ `auth:sanctum` ما دامَ `sanctum.guard`
+    | يحملُ `['web']` — وهو ما أفرغَه `048` لأنّه كانَ يُسقِطُ حدَّ الأجهزةِ على
+    | الإنتاج. فالنجاحُ هنا كانَ عَرَضاً من إعدادٍ لا علاقةَ له بما يقيسُه هذا
+    | الاختبار: بابُ التسجيلِ يرفضُ كورساً مجّانيّاً مكتمِلاً.
+    */
+    Sanctum::actingAs($student);
+
+    $this->postJson('/api/v1/courses/'.$free->uuid.'/enroll')
         ->assertStatus(422)
         ->assertJsonPath('code', 'course_full');
 });
