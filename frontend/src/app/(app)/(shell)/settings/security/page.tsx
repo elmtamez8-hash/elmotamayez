@@ -93,6 +93,15 @@ export default function SecuritySettingsPage() {
                         {session.device.label}
                       </span>
                       {session.is_current && <Badge tone="success">هذا الجهاز</Badge>}
+                      {/*
+                        اللوحةُ والواجهةُ على الجهازِ نفسِه بصمةٌ واحدةٌ وصفٌّ
+                        واحدٌ في `devices` — وهو المقصود، فالحدُّ يَعُدُّ الأجهزةَ
+                        لا الجلسات. لكنّه يجعلُ الصفَّينِ متطابقَينِ في الاسم،
+                        فيُضغطُ «أنهِ» على أحدِهما تخميناً. الوسمُ هو الفرق.
+                      */}
+                      {session.surface === "panel" && (
+                        <Badge tone="info">لوحة الإدارة</Badge>
+                      )}
                     </div>
                     <p className="mt-1 text-xs text-ink-muted">
                       آخر نشاط: {formatDate(session.last_active_at)} · بدأت في{" "}

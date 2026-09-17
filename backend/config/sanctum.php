@@ -69,10 +69,12 @@ return [
     | authenticates against the `web` guard directly, never through `auth:sanctum`),
     | and so does the panel handoff bridge. This line is about the API alone.
     |
-    | The residual gap is written down rather than pretended away: a panel session
-    | is still absent from `auth_sessions`, so «أجهزتي» does not list it. Harmless
-    | now that it authenticates nothing on the API — and it is `specs/037-…`'s
-    | story 2, deferred by the owner on 2026-09-17.
+    | The gap this used to leave open — a panel session absent from `auth_sessions`
+    | and therefore unlistable and unendable — was closed the same day by
+    | `RecordPanelSession` and the `session_id` column beside `token_id`
+    | (`specs/037-…` story 2). The two halves are separate on purpose and both are
+    | needed: this line stops a session ANSWERING on the API, and that column is
+    | what lets one be ENDED. Neither substitutes for the other.
     |
     | **How it is caught**: put `['web']` back and
     | `tests/Feature/Identity/ApiIsBearerOnlyTest.php` fails — measured, two of its
