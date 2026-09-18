@@ -26,7 +26,7 @@ import {
   cohortEventLabel,
   manageCohorts,
   type CohortHistoryEvent,
-  type CohortOption,
+  type ManagedCohort,
 } from "@/lib/cohorts";
 import { userMessage } from "@/lib/errors";
 import { formatDate, formatDateTime, localDateTimeToIso, statusLabel, statusTone } from "@/lib/labels";
@@ -55,7 +55,7 @@ export default function ManageCohortPage({
   const { uuid: cohortUuid } = use(params);
 
   const [group, setGroup] = useState<
-    (CohortOption & { course: { uuid: string; title: string } | null }) | null
+    (ManagedCohort & { course: { uuid: string; title: string } | null }) | null
   >(null);
   const [sessions, setSessions] = useState<ClassSession[]>([]);
   const [members, setMembers] = useState<Array<{ uuid: string; name: string; joined_at: string }>>(
@@ -169,6 +169,28 @@ export default function ManageCohortPage({
           )}
         </div>
       </div>
+
+      {/*
+        ⛔ WHY THIS GROUP IS NOT ON SALE (٠٣٦ · FR-014). Without the sentence the
+        teacher reads the absence as a mistake of theirs and goes looking for a
+        setting that was never the problem — and in one of the three cases there
+        is no setting at all, because the platform has not priced the plan yet.
+
+        ⛔ THE SERVER SENDS THE VERDICT AND THE WORDS. Re-deriving «is this on
+        sale» here from the status and the seat count is the two-spellings defect
+        that made a paid-for recording unreachable in ٠١٨; and the sentence is
+        the backend's because the three cases are its own enum.
+
+        `tone="warning"` rather than `danger`: nothing is broken, and one of the
+        three resolves itself without the teacher doing anything.
+      */}
+      {group.absence_reason !== undefined && (
+        <div className="animate-float-in">
+          <Alert tone="warning" title={group.absence_reason.label}>
+            {group.absence_reason.remedy ?? "لا إجراء مطلوب منك — المنصّة تُسعّر الباقة."}
+          </Alert>
+        </div>
+      )}
 
       {error !== null && (
         <div className="animate-float-in">

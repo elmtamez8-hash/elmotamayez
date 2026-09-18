@@ -22,7 +22,9 @@ use App\Modules\Learning\Models\CohortMembershipEvent;
 use App\Modules\Learning\Models\CohortTransferRequest;
 use App\Modules\Learning\Support\CohortPricing;
 use App\Modules\Learning\Support\CohortRefusal;
+use App\Shared\Contracts\CohortPricingReasonDirectory;
 use App\Shared\Contracts\CohortScheduleDirectory;
+use App\Shared\Support\CohortPricingGap;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,6 +55,13 @@ class ManageCohortController extends Controller
         | responses here return one freshly-saved group.
         */
         private readonly CohortPricing $pricing,
+        /*
+        | ⛔ THE SECOND CONTRACT, AND IT IS ASKED FROM HERE AND NOWHERE ELSE
+        | (٠٣٦ · FR-014 · T052). Whether the platform has priced a teacher's plan
+        | is a commercial fact between the two of them — the student's picker and
+        | the public page answer WHETHER a group is listed and never WHY.
+        */
+        private readonly CohortPricingReasonDirectory $reasons,
     ) {}
 
     public function index(Request $request, Course $course): JsonResponse
@@ -71,14 +80,78 @@ class ManageCohortController extends Controller
 
         $this->pricing->stamp($cohorts);
 
+        /*
+        | ⛔ ASSEMBLED HERE, NEVER INSIDE `CohortResource` (عقود §٥). ONE
+        | transformer serves the student's picker and both of the teacher's
+        | screens, so a field added to it reaches the student too — which is the
+        | measured trap this requirement names by hand.
+        */
+        $gaps = $this->reasons->pricingGapsFor($this->candidates($cohorts));
+
         return response()->json([
             'data' => $cohorts
-                ->map(fn (Cohort $cohort): array => CohortResource::make(
-                    $cohort,
-                    $preview[(int) $cohort->getKey()] ?? [],
-                )->toArray($request))
+                ->map(fn (Cohort $cohort): array => [
+                    ...CohortResource::make(
+                        $cohort,
+                        $preview[(int) $cohort->getKey()] ?? [],
+                    )->toArray($request),
+                    ...$this->absenceReason($gaps[(int) $cohort->getKey()] ?? null),
+                ])
                 ->all(),
         ]);
+    }
+
+    /**
+     * The triples the price contracts take.
+     *
+     * ⚠️ BUILT ONCE FOR A WHOLE LIST. Both contracts are bulk by signature: a
+     * Resource runs once per row, so a per-group question inside one is an N+1
+     * by construction.
+     *
+     * @param  iterable<int, Cohort>  $cohorts
+     * @return list<array{id: int, uuid: string, course_id: int, workspace_id: int}>
+     */
+    private function candidates(iterable $cohorts): array
+    {
+        $out = [];
+
+        foreach ($cohorts as $cohort) {
+            $out[] = [
+                'id' => (int) $cohort->getKey(),
+                'uuid' => (string) $cohort->uuid,
+                'course_id' => (int) $cohort->course_id,
+                'workspace_id' => (int) $cohort->workspace_id,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * The teacher's «why is this not listed», and what they do about it.
+     *
+     * ⚠️ AN EMPTY ARRAY FOR A GROUP THAT IS LISTED, never a fourth «nothing is
+     * wrong» value: a case meaning «no gap» is one every caller has to remember
+     * to exclude, and the first who forgets prints «لا توجد باقة» beside a group
+     * that is on sale.
+     *
+     * @return array<string, mixed>
+     */
+    private function absenceReason(?CohortPricingGap $gap): array
+    {
+        if ($gap === null) {
+            return [];
+        }
+
+        return [
+            'absence_reason' => [
+                'code' => $gap->value,
+                'label' => $gap->label(),
+                // `null` where the answer is «wait» — the one case with nothing
+                // for the teacher to do, and the whole reason this field exists.
+                'remedy' => $gap->remedy(),
+            ],
+        ];
     }
 
     /**
@@ -99,8 +172,11 @@ class ManageCohortController extends Controller
 
         $course = Course::query()->whereKey($cohort->course_id)->first(['uuid', 'title']);
 
+        $gaps = $this->reasons->pricingGapsFor($this->candidates([$cohort]));
+
         return response()->json([
             ...CohortResource::make($this->pricing->stampOne($cohort), $preview[(int) $cohort->getKey()] ?? [])->toArray($request),
+            ...$this->absenceReason($gaps[(int) $cohort->getKey()] ?? null),
             'course' => $course === null ? null : [
                 'uuid' => (string) $course->uuid,
                 'title' => (string) $course->title,

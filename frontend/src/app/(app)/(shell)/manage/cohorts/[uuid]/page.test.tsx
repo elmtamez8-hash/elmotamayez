@@ -183,3 +183,65 @@ describe("a group's own page", () => {
     expect(body.description).toBeNull();
   });
 });
+
+/*
+| ٠٣٦ · T055 · FR-014 — WHICH reason was shown, never «was something shown».
+|
+| ⛔ A screen printing «لا توجد باقة» over a plan that is merely switched off
+| sends the teacher to write a second plan they already have; one printing a
+| remedy over «awaiting pricing» sends them to do something that cannot help.
+| Both render "an alert", so an assertion that merely finds one is green over
+| either mistake.
+|
+| ⛔ AND THE VERDICT IS THE SERVER'S. Nothing here derives «is this on sale» from
+| the status and the seat count — that derivation is the defect ٠٣٦ · T054
+| removed from the sibling screen.
+*/
+describe("why a group is not on sale", () => {
+  it("shows the switched-off plan and what the teacher does about it", async () => {
+    show.mockResolvedValue({
+      ...GROUP,
+      is_joinable: false,
+      absence_reason: {
+        code: "disabled",
+        label: "باقتها معطَّلة",
+        remedy: "فعِّلْ الباقة من صفحة الباقات.",
+      },
+    });
+
+    await open();
+
+    expect(screen.getByText("باقتها معطَّلة")).toBeTruthy();
+    expect(screen.getByText("فعِّلْ الباقة من صفحة الباقات.")).toBeTruthy();
+    // The other two reasons must not be on the screen at the same time.
+    expect(screen.queryByText("لا توجد باقة تغطّي هذه المجموعة")).toBeNull();
+  });
+
+  it("says plainly that nothing is required when the platform owes a price", async () => {
+    show.mockResolvedValue({
+      ...GROUP,
+      is_joinable: false,
+      absence_reason: {
+        code: "awaiting_pricing",
+        label: "باقتها بانتظار التسعير من المنصّة",
+        remedy: null,
+      },
+    });
+
+    await open();
+
+    expect(screen.getByText("باقتها بانتظار التسعير من المنصّة")).toBeTruthy();
+    // ⛔ THE ONE CASE WITH NOTHING FOR THE TEACHER TO DO. A remedy here would be
+    // an instruction that cannot work.
+    expect(screen.getByText(/لا إجراء مطلوب منك/)).toBeTruthy();
+  });
+
+  it("says nothing at all about a group that IS on sale", async () => {
+    // The key is ABSENT for a listed group — not a fourth «nothing is wrong»
+    // code that every reader has to remember to exclude.
+    await open();
+
+    expect(screen.queryByText("باقتها معطَّلة")).toBeNull();
+    expect(screen.queryByText(/لا إجراء مطلوب منك/)).toBeNull();
+  });
+});
