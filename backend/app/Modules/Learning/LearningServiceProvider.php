@@ -7,6 +7,7 @@ namespace App\Modules\Learning;
 use App\Modules\Assessments\Events\ExamSubmitted;
 use App\Modules\Courses\Events\CourseStructureChanged;
 use App\Modules\Courses\Events\ExamItemOpened;
+use App\Modules\Learning\Console\CohortGateImpact;
 use App\Modules\Learning\Events\EnrollmentCreated;
 use App\Modules\Learning\Listeners\CompleteExamLessonOnSubmission;
 use App\Modules\Learning\Listeners\CompleteExamLessonsAlreadyAnswered;
@@ -64,6 +65,16 @@ class LearningServiceProvider extends Module
     public function boot(): void
     {
         parent::boot();
+
+        /*
+        | ⚠️ LARAVEL AUTO-DISCOVERS `app/Console/Commands` AND NOTHING ELSE, so a
+        | module's command is its provider's job to register. Without this line
+        | `artisan` does not know the command exists at all — and a pre-release
+        | guard nobody can run is a guard that does not exist (٠٣٦ · T091).
+        */
+        if ($this->app->runningInConsole()) {
+            $this->commands([CohortGateImpact::class]);
+        }
 
         /*
         | ⚠️ REGISTERED EXPLICITLY, NEVER LEFT TO THE GUESSER. Laravel's guesser
