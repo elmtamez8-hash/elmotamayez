@@ -211,7 +211,7 @@ class ApproveOrder extends Action
         /*
         | ⚠️ MEMBERSHIP IS ASKED FIRST, AND ASKING JOINABILITY FIRST REFUSES EVERY
         | RENEWAL. A renewing student's group is full OF THEM AND THEIR
-        | CLASSMATES, so `isJoinable()` is false for exactly the person US4·4 and
+        | CLASSMATES, so `isStructurallyJoinable()` is false for exactly the person US4·4 and
         | FR-028 promise must not be asked to choose a group again — and their
         | paid, approved order would sit `pending` for ever under «هذه المجموعة لم
         | تعد متاحة». `PurchaseSubscription::resolveCohort()` already orders the
@@ -241,7 +241,17 @@ class ApproveOrder extends Action
             return null;
         }
 
-        if (! $this->cohorts->isJoinable((int) $cohort['id'])) {
+        /*
+        | ⛔ THE STRUCTURAL QUESTION, AND THE «structurally» IN ITS NAME IS THE
+        | EXEMPTION ٠٣٦ · FR-018 GRANTS THIS DOOR, WRITTEN WHERE IT IS READ.
+        | ٠٣٦ made a live price part of what a STUDENT may join. The money here
+        | was taken days ago, before the manual transfer cleared — so a teacher
+        | who switched a plan off in the meantime would have this approval refused
+        | and the student left holding a payment and no group. The decision about
+        | price was made at purchase; what is still genuinely open is whether the
+        | room is open and has a chair.
+        */
+        if (! $this->cohorts->isStructurallyJoinable((int) $cohort['id'])) {
             throw new DomainException('لم تعد هذه المجموعة متاحة للانضمام. تواصل مع الطالب لاختيار مجموعة أخرى.');
         }
 

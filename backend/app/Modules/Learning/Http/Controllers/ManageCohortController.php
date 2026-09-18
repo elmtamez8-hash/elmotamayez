@@ -20,6 +20,7 @@ use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\Learning\Models\CohortMembershipEvent;
 use App\Modules\Learning\Models\CohortTransferRequest;
+use App\Modules\Learning\Support\CohortPricing;
 use App\Modules\Learning\Support\CohortRefusal;
 use App\Shared\Contracts\CohortScheduleDirectory;
 use DomainException;
@@ -44,6 +45,14 @@ class ManageCohortController extends Controller
 {
     public function __construct(
         private readonly CohortScheduleDirectory $schedule,
+        /*
+        | ⚠️ THE TEACHER'S SCREENS STAMP THEIR OWN ROWS (٠٣٦ · T046).
+        | `CohortResource` answers `is_joinable`, which reads a stamp and RAISES
+        | rather than falling back to a query — so a single-row response built
+        | straight out of a write has to be stamped exactly as a list is. Four
+        | responses here return one freshly-saved group.
+        */
+        private readonly CohortPricing $pricing,
     ) {}
 
     public function index(Request $request, Course $course): JsonResponse
@@ -59,6 +68,8 @@ class ManageCohortController extends Controller
         $preview = $this->schedule->schedulePreviewFor(
             array_values($cohorts->map(fn (Cohort $cohort): int => (int) $cohort->getKey())->all()),
         );
+
+        $this->pricing->stamp($cohorts);
 
         return response()->json([
             'data' => $cohorts
@@ -89,7 +100,7 @@ class ManageCohortController extends Controller
         $course = Course::query()->whereKey($cohort->course_id)->first(['uuid', 'title']);
 
         return response()->json([
-            ...CohortResource::make($cohort, $preview[(int) $cohort->getKey()] ?? [])->toArray($request),
+            ...CohortResource::make($this->pricing->stampOne($cohort), $preview[(int) $cohort->getKey()] ?? [])->toArray($request),
             'course' => $course === null ? null : [
                 'uuid' => (string) $course->uuid,
                 'title' => (string) $course->title,
@@ -119,7 +130,7 @@ class ManageCohortController extends Controller
             return $this->refusal($refusal);
         }
 
-        return response()->json(CohortResource::make($cohort), 201);
+        return response()->json(CohortResource::make($this->pricing->stampOne($cohort)), 201);
     }
 
     public function update(Request $request, Cohort $cohort, UpdateCohort $action): JsonResponse
@@ -139,14 +150,14 @@ class ManageCohortController extends Controller
             return $this->refusal($refusal);
         }
 
-        return response()->json(CohortResource::make($cohort));
+        return response()->json(CohortResource::make($this->pricing->stampOne($cohort)));
     }
 
     public function archive(Request $request, Cohort $cohort, ArchiveCohort $action): JsonResponse
     {
         $this->authorize('archive', $cohort);
 
-        return response()->json(CohortResource::make($action->handle($cohort, $this->currentUser($request))));
+        return response()->json(CohortResource::make($this->pricing->stampOne($action->handle($cohort, $this->currentUser($request)))));
     }
 
     public function members(Request $request, Cohort $cohort): JsonResponse

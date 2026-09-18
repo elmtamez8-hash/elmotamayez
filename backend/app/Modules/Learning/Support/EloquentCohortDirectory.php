@@ -31,6 +31,7 @@ class EloquentCohortDirectory implements CohortDirectory
 {
     public function __construct(
         private readonly CohortScheduleDirectory $schedule,
+        private readonly CohortPricing $pricing,
     ) {}
 
     public function hasOpenMembership(User $user, int $courseId): bool
@@ -69,7 +70,21 @@ class EloquentCohortDirectory implements CohortDirectory
 
     public function joinableCohortsExist(int $courseId): bool
     {
-        return Cohort::query()
+        /*
+        | ⚠️ TWO HALVES, AND THE QUERY CAN ONLY ANSWER ONE OF THEM (٠٣٦ · T047).
+        | `scopeJoinable()` is structural — open, with a place — because a scope
+        | cannot read a stamp and `Learning` may not put a subquery on `plans`.
+        | The price is the second half, and it is joined HERE rather than pushed
+        | into the scope, which is why the rows are fetched instead of counted.
+        |
+        | ⛔ AND THE VALVE FAILS OPEN BY DESIGN (FR-028ب). A `false` here does not
+        | close a door — it opens the whole curriculum, because the condition has
+        | become one no student action can satisfy. So a course whose every group
+        | has lost its price reads exactly like a course whose every group is
+        | full, which is the correct answer to «can a student do anything about
+        | this?».
+        */
+        $cohorts = Cohort::query()
             ->withoutWorkspaceScope()
             ->where('course_id', $courseId)
             /*
@@ -84,7 +99,15 @@ class EloquentCohortDirectory implements CohortDirectory
             */
             ->group()
             ->joinable()
-            ->exists();
+            ->get();
+
+        foreach ($this->pricing->stamp($cohorts) as $cohort) {
+            if ($cohort->priceReaches()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function assignableCohortsExist(int $courseId): bool
@@ -273,6 +296,15 @@ class EloquentCohortDirectory implements CohortDirectory
             return null;
         }
 
+        /*
+         * ⚠️ STAMPED, NEVER DROPPED (٠٣٦ · T046). This feeds the purchase door,
+         * which has to be able to REFUSE a group with a sentence — returning
+         * null for an unpriced one would answer «no such group» to a buyer
+         * looking straight at it, and would be indistinguishable from a uuid
+         * that belongs to another teacher.
+         */
+        $this->pricing->stampOne($cohort);
+
         return [
             'id' => (int) $cohort->getKey(),
             'uuid' => (string) $cohort->uuid,
@@ -380,7 +412,7 @@ class EloquentCohortDirectory implements CohortDirectory
             ->all();
     }
 
-    public function isJoinable(int $cohortId): bool
+    public function isStructurallyJoinable(int $cohortId): bool
     {
         $cohort = Cohort::query()
             ->withoutWorkspaceScope()
@@ -388,12 +420,19 @@ class EloquentCohortDirectory implements CohortDirectory
             ->first(['id', 'status', 'capacity', 'members_count']);
 
         /*
-        | ⚠️ DELEGATED TO THE MODEL, NEVER RE-SPELLED. `Cohort::isJoinable()` is
-        | `status === OPEN && ! isFull()`, and it is what `CohortResource` and the
-        | picker already read. A third spelling of one question is how the card
-        | says yes and the door says no — which is the defect FR-002 exists over.
+        | ⚠️ DELEGATED TO THE MODEL, NEVER RE-SPELLED. `Cohort::isStructurallyJoinable()`
+        | is `status === OPEN && ! isFull()`, and a second spelling of one question
+        | is how the card says yes and the door says no — the defect FR-002 exists
+        | over.
+        |
+        | ⛔ AND IT IS THE STRUCTURAL HALF ON PURPOSE (٠٣٦ · T050). Its one caller
+        | in the whole tree is `ApproveOrder`, where the money has ALREADY been
+        | taken: re-asking the price there would refuse an approval over a plan the
+        | teacher switched off after the transfer was made, which is FR-018
+        | inverted. The narrowing in ٠٣٦ therefore renamed this rather than letting
+        | it inherit the new condition silently.
         */
-        return $cohort !== null && $cohort->isJoinable();
+        return $cohort !== null && $cohort->isStructurallyJoinable();
     }
 
     public function publicCohortsFor(int $courseId): array
@@ -424,7 +463,20 @@ class EloquentCohortDirectory implements CohortDirectory
 
         $out = [];
 
-        foreach ($cohorts as $cohort) {
+        foreach ($this->pricing->stamp($cohorts) as $cohort) {
+            /*
+            | ⛔ DROPPED ENTIRELY, NOT MARKED (٠٣٦ · FR-003, owner decision
+            | 2026-09-16). A group nobody can be sold a place in is not a group a
+            | visitor is deciding between — published with a badge it invites the
+            | one action that cannot succeed. `is_joinable` stays in the payload
+            | for the states that ARE worth showing (full, closed), and carries
+            | no reason: whether the platform has priced a teacher's plan is a
+            | commercial fact between the two of them.
+            */
+            if (! $cohort->priceReaches()) {
+                continue;
+            }
+
             $out[] = [
                 'id' => (int) $cohort->getKey(),
                 'uuid' => (string) $cohort->uuid,
@@ -447,11 +499,51 @@ class EloquentCohortDirectory implements CohortDirectory
                 /*
                 | ⚠️ THE SERVER'S ANSWER, NOT A CONDITION THE BROWSER REBUILDS
                 | (FR-002). Derived here from columns already selected, never by
-                | asking `isJoinable(int)` once per row — this method feeds a
+                | asking `isStructurallyJoinable(int)` once per row — this method feeds a
                 | Resource, and a Resource runs once per row.
                 */
                 'is_joinable' => $cohort->isJoinable(),
             ];
+        }
+
+        return $out;
+    }
+
+    public function pickerCohortsFor(int $courseId): array
+    {
+        $cohorts = Cohort::query()
+            ->withoutWorkspaceScope()
+            ->where('course_id', $courseId)
+            /*
+            | ⛔ OWNERSHIP, NOT STATUS, AND THE COMMENT MOVED HERE WITH THE QUERY.
+            | A private cohort is named «حصص خاصة — <student>» and created
+            | `closed`, and this list deliberately KEEPS closed groups — so one
+            | accepted private-session request used to put a card carrying a named
+            | classmate, and the times of her private lessons, into every enrolled
+            | student's group list. `CohortResource` emits no
+            | `individual_for_user_id`, so no client could have filtered it out.
+            | Her own private session reaches her through her BOOKING.
+            */
+            ->group()
+            ->where('status', '!=', Cohort::ARCHIVED)
+            ->orderBy('name')
+            ->get();
+
+        // ONE call for the whole list. Inside the Resource it would be a query
+        // per group, on the screen that exists to be compared across.
+        $preview = $this->schedule->schedulePreviewFor(
+            array_values($cohorts->map(fn (Cohort $cohort): int => (int) $cohort->getKey())->all()),
+        );
+
+        $out = [];
+
+        foreach ($this->pricing->stamp($cohorts) as $cohort) {
+            // ⛔ DROPPED, NOT FLAGGED (owner decision 2026-09-16). See the contract.
+            if (! $cohort->priceReaches()) {
+                continue;
+            }
+
+            $out[] = CohortResource::make($cohort, $preview[(int) $cohort->getKey()] ?? [])->resolve();
         }
 
         return $out;
@@ -487,7 +579,11 @@ class EloquentCohortDirectory implements CohortDirectory
 
         $out = [];
 
-        foreach ($cohorts as $cohort) {
+        // ⚠️ STAMPED AND NOTHING DROPPED. This is the teacher's own list, and a
+        // group missing from it is exactly the number they would read as a
+        // mistake of theirs. The REASON travels on the teacher's path only —
+        // never through this shared transformer.
+        foreach ($this->pricing->stamp($cohorts) as $cohort) {
             $out[(int) $cohort->course_id][] = CohortResource::make(
                 $cohort,
                 $preview[(int) $cohort->getKey()] ?? [],

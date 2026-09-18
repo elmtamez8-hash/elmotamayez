@@ -307,7 +307,7 @@ final class PublicFieldAllowlist
     /** @var list<string> */
     /*
     | ⚠️ `is_joinable` IS THE SERVER'S OWN VERDICT AND NOT A REPEAT OF `status`
-    | (027 · FR-002). It is derived by `Cohort::isJoinable()`, the same predicate
+    | (027 · FR-002). It is derived by `Cohort::isJoinable()` — open, with a place, and with a live price behind it (٠٣٦) — the same predicate
     | the booking door reads — so the card cannot say yes while the door says no.
     | Deriving it in the browser from `status` and `seats_left` is the two-
     | spellings defect, and it publishes nothing `status` does not already.

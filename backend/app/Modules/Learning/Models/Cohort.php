@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use RuntimeException;
 
 /**
  * A scheduled run of one course.
@@ -87,6 +88,13 @@ class Cohort extends BaseModel
     }
 
     /**
+     * The stamp {@see self::priceReaches()} reads — `null` means «never asked».
+     *
+     * Not `$appends`, not a cast, and not in `$fillable`: it is not a column.
+     */
+    private ?bool $priceReaches = null;
+
+    /**
      * Full right now.
      *
      * ⚠️ DERIVED FROM TWO COLUMNS THAT ARE ALREADY HERE, never stored. And a
@@ -105,14 +113,90 @@ class Cohort extends BaseModel
     }
 
     /**
+     * Whether this group is structurally open to a new student — open, and with
+     * a place.
+     *
+     * ⛔ IT IS NOT THE PICKER'S QUESTION AND MUST NEVER BE USED AS ONE
+     * (٠٣٦ · FR-003). {@see self::isJoinable()} is that, and it adds the price.
+     * This half exists because three doors ask a genuinely different question:
+     * a paid order being approved, a transfer, and a waitlist invitation have
+     * all already settled the money, so re-asking it there would repossess what
+     * somebody bought.
+     */
+    public function isStructurallyJoinable(): bool
+    {
+        return $this->status === self::OPEN && ! $this->isFull();
+    }
+
+    /**
      * Whether a student could join THIS group at this instant.
      *
-     * The screen and the safety valve read the same predicate — two spellings of
+     * The screen and the door read the same predicate — two spellings of
      * "joinable" put one answer on the picker and another at the door.
+     *
+     * ⛔ NARROWED IN PLACE RATHER THAN RENAMED (٠٣٦ · T041), AND THE DIRECTION OF
+     * FAILURE IS THE REASON. This name has four readers and two of them are money
+     * doors; renaming it leaves each caller compiling against whichever name they
+     * were written with, so a door that should have gained the price condition
+     * simply keeps the old one — **failing open**. Narrowing the existing name
+     * fails CLOSED: a caller that must not have the new condition has to say so,
+     * in writing, by asking {@see self::isStructurallyJoinable()} instead.
+     *
+     * ⚠️ AND `scopeJoinable()` IS DELIBERATELY NOT NARROWED WITH IT. A query
+     * scope cannot read a stamp, and a subquery on `plans` inside `Learning` is
+     * forbidden by the contract that owns that table. It stays structural, says
+     * so in its own docblock, and its single caller in the whole tree joins the
+     * two halves itself.
      */
     public function isJoinable(): bool
     {
-        return $this->status === self::OPEN && ! $this->isFull();
+        return $this->isStructurallyJoinable() && $this->priceReaches();
+    }
+
+    /**
+     * Whether a live price reaches this group — read from a STAMP, never asked.
+     *
+     * ⛔ AND THERE IS NO SILENT FALL-BACK TO A QUERY (٠٣٦ · T045). A read with no
+     * stamp is a programming error and is raised as one. A fall-back would fire a
+     * question about `plans` under whatever context the caller happens to be in —
+     * a queue worker among them, where the workspace resolution is somebody
+     * else's — and it would do it once per row inside a Resource, which is an
+     * N+1 by construction. Two defects for the price of one convenience.
+     *
+     * The precedent is `WithholdingReader::stamp()`, and it is the same shape: a
+     * bulk answer computed once by whoever knows the whole list, carried on the
+     * rows.
+     */
+    public function priceReaches(): bool
+    {
+        if ($this->priceReaches === null) {
+            throw new RuntimeException(
+                'Cohort::priceReaches() was read without a stamp. Ask the cohort directory for these rows — '
+                .'it stamps them in bulk — rather than reading a model straight out of a query.'
+            );
+        }
+
+        return $this->priceReaches;
+    }
+
+    /**
+     * Carry the bulk answer onto this row.
+     *
+     * ⚠️ NOT A COLUMN AND NOT AN ATTRIBUTE. It is derived from another module's
+     * table and moves the instant an officer prices a plan or a teacher switches
+     * one off; stored, it would be a second answer that drifts from the first.
+     */
+    public function stampPriceReach(bool $reached): static
+    {
+        $this->priceReaches = $reached;
+
+        return $this;
+    }
+
+    /** Whether this row has been stamped at all — for a caller that has to know. */
+    public function hasPriceStamp(): bool
+    {
+        return $this->priceReaches !== null;
     }
 
     /**
@@ -151,6 +235,13 @@ class Cohort extends BaseModel
     }
 
     /**
+     * ⚠️ STRUCTURAL ONLY, AND DELIBERATELY NOT NARROWED WITH {@see self::isJoinable()}
+     * (٠٣٦ · T041). A query scope cannot read a stamp, and a subquery on `plans`
+     * from inside `Learning` is forbidden by the contract that owns that table —
+     * `ContextIsolationTest` fails the build over it. It has exactly ONE caller in
+     * the whole tree, `EloquentCohortDirectory::joinableCohortsExist()`, and that
+     * caller joins the price half itself.
+     *
      * @param  Builder<Cohort>  $query
      * @return Builder<Cohort>
      */
