@@ -25,6 +25,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * bigInteger in the minor unit, matching 014: 2.1 billion minor units is only 21
  * million riyals.
  *
+ * ⚠️ AND SINCE ٠٣٦ THE FOUR COMPONENTS ARE NULLABLE FOR ONE SHAPE ONLY: a
+ * SESSION PLAN. Its price is a number a human types with no formula behind it,
+ * so there is nothing to take apart — and three zeros in those columns would be
+ * read as facts by the books and the money dashboard, i.e. a teacher who earns
+ * nothing. `total_minor` is never null: it is the one component a plan knows.
+ * A row carries `credit_package_id` OR `plan_id`, never both.
+ *
  * @property-read Workspace $workspace workspace_id is NOT NULL
  * @property int $total_minor
  */
@@ -35,6 +42,7 @@ class CreditPurchase extends BaseModel
     protected $fillable = [
         'credit_balance_id',
         'credit_package_id',
+        'plan_id',
         'course_id',
         'workspace_id',
         'order_id',
@@ -70,6 +78,21 @@ class CreditPurchase extends BaseModel
     public function package(): BelongsTo
     {
         return $this->belongsTo(CreditPackage::class, 'credit_package_id');
+    }
+
+    /**
+     * The subscription plan this sale came from, for the rows that came from one.
+     *
+     * ⚠️ THE TWIN OF {@see self::package()}, AND EXACTLY ONE OF THEM IS SET.
+     * «Which of the two things was sold» is a question the finance screen has to
+     * answer, and deriving it from three null fee columns would be a second
+     * spelling that stops working the day a package legitimately has none.
+     *
+     * @return BelongsTo<Plan, $this>
+     */
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
     }
 
     /** @return BelongsTo<Course, $this> */

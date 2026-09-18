@@ -50,7 +50,12 @@ it('defaults to whatsapp for exactly the eighteen guardian types plus the securi
     // 26 → 27 with spec 049: `session_rescheduled` alone. It carries
     // `requiredGuardianPermission()` in this same edit; its two siblings do not
     // target guardians and so do not move this number.
-    expect($onWhatsApp)->toHaveCount(27);
+    // 27 → 28 with ٠٣٦: `session_plan_activated` — the second shape of the same
+    // purchase `subscription_activated` already announces, and it targets
+    // guardians for the identical reason. It carries its
+    // `requiredGuardianPermission()` in the same edit: one without the other
+    // picks up the channel, is billed, and reaches no guardian at all.
+    expect($onWhatsApp)->toHaveCount(28);
 });
 
 it('derives the set from targetsGuardians, with two named exceptions and no others', function (): void {

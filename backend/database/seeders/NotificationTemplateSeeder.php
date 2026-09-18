@@ -610,6 +610,22 @@ class NotificationTemplateSeeder extends Seeder
                 ['plan_title', 'teacher_name', 'starts_on', 'ends_on', 'schedule', 'next_session'],
             ],
             /*
+            | ٠٣٦ · FR-020 — باقةُ حصصٍ فُعِّلَت.
+            |
+            | ⛔ **بلا تاريخَين، وهذا سببُ وجودِها منفصلةً.** قالبُ الاشتراكِ
+            | فوقَها يطلبُ `starts_on` و`ends_on` ويرمي على أيِّ فراغ، وباقةُ
+            | الحصصِ بلا نافذة — فإعادةُ استعمالِه إمّا ترمي بعدَ قبضِ المال
+            | وإمّا تخترعُ تاريخاً يقرؤُه الطالبُ حقيقة.
+            |
+            | ⚠️ و«الرصيد» يُمرَّرُ مصاغاً بـ`CountedNoun`: «حصّتان» لا «٢
+            | حصص»، لأنّ العربيّةَ تُوافِقُ المعدودَ في خمسِ نطاقات.
+            */
+            NotificationType::SessionPlanActivated->value => [
+                'تم تفعيل باقة الحصص مع {{ teacher_name }}',
+                'باقتك «{{ plan_title }}» مع {{ teacher_name }} فُعِّلت، وأُضيف إلى رصيدك {{ sessions }}. {{ schedule }} {{ next_session }}',
+                ['plan_title', 'teacher_name', 'sessions', 'schedule', 'next_session'],
+            ],
+            /*
             | 027 · FR-042. It names the lesson and the reason, because «تعذّر
             | الحجز» alone sends the student to ask a question the message could
             | have answered. One notice per activation however many sessions it

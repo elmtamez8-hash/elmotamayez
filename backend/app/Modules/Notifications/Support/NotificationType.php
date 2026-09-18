@@ -405,6 +405,22 @@ enum NotificationType: string
     case SubscriptionActivated = 'subscription_activated';
 
     /*
+    | باقةُ حصصٍ فُعِّلَت: رصيدٌ لا نافذة (٠٣٦ · FR-020 · T117).
+    |
+    | ⛔ **نوعٌ ثانٍ ولا إعادةَ استعمالٍ للأوّل، والسببُ في قالبِه.** قالبُ
+    | `SubscriptionActivated` يطلبُ ستَّ متغيّراتٍ منها `starts_on` و`ends_on`
+    | **ويرمي على أيِّ فراغ** — وباقةُ الحصصِ بلا نافذةٍ أصلاً. فإعادةُ
+    | استعمالِه تُخيِّرُ بينَ رميٍ بعدَ أن قُبِضَ المال، وبينَ اختراعِ
+    | تاريخَينِ يقرؤُهما الطالبُ حقيقةً: «فعّال حتّى ٢٠٢٦-١٠-١٨» عن شيءٍ لا
+    | ينتهي بالتاريخ بل بالحصص.
+    |
+    | ⚠️ ويستهدفُ وليَّ الأمرِ بالحجّةِ نفسِها: هو حقيقةٌ عن **شراء**، ووليُّ
+    | الأمرِ هو الدافعُ غالباً. وغيرُ إلزاميٍّ للسببِ نفسِه: لم يُمنَعْ شيءٌ
+    | ولم يتوقّفْ شيء.
+    */
+    case SessionPlanActivated = 'session_plan_activated';
+
+    /*
     | A seat the automatic booker could not take (027 · FR-042).
     |
     | ⚠️ IT DELIBERATELY DOES NOT TARGET GUARDIANS. It is operational news for
@@ -534,6 +550,7 @@ enum NotificationType: string
             self::StorePurchaseUnavailable => 'طلب متجر غير متاح',
             self::SubscriptionExpiring => 'قرب انتهاء اشتراك',
             self::SubscriptionActivated => 'تفعيل اشتراك',
+            self::SessionPlanActivated => 'تفعيل باقة حصص',
             self::SubscriptionSeatUnavailable => 'مقعد غير متاح',
             self::PlanCreatedForYou => 'باقة أُنشئت باسمك',
             self::ScheduledReport => 'تقرير مجدول',
@@ -760,7 +777,9 @@ enum NotificationType: string
             // and the guardian is usually the person who made it.
             self::ShipmentStatusChanged,
             self::StorePurchaseUnavailable,
-            self::SubscriptionActivated => true,
+            self::SubscriptionActivated,
+            // ٠٣٦ — الشكلُ الثاني من الشراءِ نفسِه.
+            self::SessionPlanActivated => true,
             default => false,
         };
     }
@@ -819,7 +838,8 @@ enum NotificationType: string
             // they ride the same consent the payment path already uses.
             self::ShipmentStatusChanged,
             self::StorePurchaseUnavailable,
-            self::SubscriptionActivated => GuardianPermission::Payments,
+            self::SubscriptionActivated,
+            self::SessionPlanActivated => GuardianPermission::Payments,
             default => null,
         };
     }
