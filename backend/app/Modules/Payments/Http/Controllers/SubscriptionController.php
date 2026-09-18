@@ -40,12 +40,26 @@ class SubscriptionController extends Controller
         $validated = $request->validate([
             'course' => ['required', 'uuid'],
             'session_type' => ['sometimes', 'string', 'in:individual,group'],
+            /*
+            | 036 · FR-016 -- the group the buyer is standing on, so the SCREEN
+            | applies the same replacement the purchase door applies. Optional:
+            | private hours name no group, and a course page with no group chosen
+            | is asking what the course sells.
+            |
+            | ⚠️ NOT `exists:cohorts,uuid`. That rule is a raw query with no global
+            | scope on it, so it answers yes for every group on the platform --
+            | and this route is reached by a student, for whom the scope is inert
+            | anyway. The Action resolves it through the directory and pins the
+            | workspace itself.
+            */
+            'cohort' => ['sometimes', 'nullable', 'uuid'],
         ]);
 
         try {
             $plans = $action->handle(
                 (string) $validated['course'],
                 isset($validated['session_type']) ? (string) $validated['session_type'] : null,
+                isset($validated['cohort']) ? (string) $validated['cohort'] : null,
             );
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);

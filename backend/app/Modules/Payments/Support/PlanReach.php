@@ -113,6 +113,31 @@ class PlanReach
     }
 
     /**
+     * The ids of every plan written FOR this group -- priced or not, any room size.
+     *
+     * ⛔ 036 · FR-016 -- THE ONE SPELLING THE SCREEN AND THE DOOR BOTH READ, and
+     * that is the requirement rather than a convenience. `ListPlans` uses it to
+     * show the group's own price INSTEAD of its course's; `PurchaseSubscription`
+     * uses it to refuse the course's price on a group that was priced apart.
+     * Spelled twice, they disagree the first time one of them moves -- and the
+     * shape of that disagreement is a plan that is listed and then refused, with
+     * a sentence about the group, which was never the problem.
+     *
+     * ⚠️ EXISTENCE, NOT SELLABILITY -- see {@see self::naming()}. A group whose
+     * own plan is written and unpriced has stopped inheriting: it shows nothing
+     * and buys nothing, rather than quietly being sold its course's price.
+     *
+     * @return list<int>
+     */
+    public function ownPlanIds(int $workspaceId, string $cohortUuid): array
+    {
+        return array_values(array_map(
+            intval(...),
+            $this->naming([$workspaceId], [$cohortUuid])->pluck('id')->all(),
+        ));
+    }
+
+    /**
      * Plans that NAME one of these anchors — wide coverage excluded, sellable or
      * not, of any room size.
      *

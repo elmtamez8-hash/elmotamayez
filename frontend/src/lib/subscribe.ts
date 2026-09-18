@@ -50,9 +50,23 @@ export const subscribe = {
    * this only keeps a one-to-one price off a group choice. A rule enforced by a
    * dropdown is not enforced.
    */
-  plans: (courseUuid: string, sessionType: SessionType) =>
+  plans: (courseUuid: string, sessionType: SessionType, cohortUuid?: string | null) =>
     api.get<{ data: Plan[] }>(
-      `/billing/plans?course=${encodeURIComponent(courseUuid)}&session_type=${sessionType}`,
+      `/billing/plans?course=${encodeURIComponent(courseUuid)}&session_type=${sessionType}` +
+        /*
+         * 036 · FR-016 — THE GROUP TRAVELS, AND WITHOUT IT THE REPLACEMENT CAN
+         * ONLY HAPPEN AT THE DOOR. A teacher may price one group apart from the
+         * rest of its course; the server shows that group's own price INSTEAD of
+         * the course's — but it can only do that if it is told which group the
+         * buyer is standing on. Left out, the screen offers the course's month,
+         * the buyer picks it, and the purchase is refused with a sentence about
+         * their group, which was never the problem.
+         *
+         * Absent for private hours, which name no group at all.
+         */
+        (cohortUuid == null || cohortUuid === ""
+          ? ""
+          : `&cohort=${encodeURIComponent(cohortUuid)}`),
     ),
 
   /**

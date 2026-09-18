@@ -104,7 +104,7 @@ function SubscribeScreen() {
     try {
       const [detail, offers] = await Promise.all([
         subscribe.course(courseUuid),
-        subscribe.plans(courseUuid, sessionTypeFor(mode)),
+        subscribe.plans(courseUuid, sessionTypeFor(mode), cohortUuid),
       ]);
 
       setCourse(detail.data);
@@ -136,7 +136,9 @@ function SubscribeScreen() {
       setProblem(userMessage(error));
       setState("error");
     }
-  }, [courseUuid, mode, isGuardian]);
+  // `cohortUuid` منها: هو ما يقرّرُ أيَّ باقاتٍ يردُّها الخادمُ (٠٣٦ · FR-016)،
+  // فبدونِه تبقى القائمةُ قائمةَ المجموعةِ السابقةِ عندَ تبديلِ المجموعةِ في الرابط.
+  }, [courseUuid, cohortUuid, mode, isGuardian]);
 
   useEffect(() => {
     void load();

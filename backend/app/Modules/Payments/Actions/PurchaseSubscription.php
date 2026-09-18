@@ -13,6 +13,7 @@ use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Support\CoveredCourses;
+use App\Modules\Payments\Support\PlanReach;
 use App\Modules\Payments\Support\PurchaseBeneficiary;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Actions\Action;
@@ -47,6 +48,9 @@ class PurchaseSubscription extends Action
     public function __construct(
         private readonly CohortDirectory $cohorts,
         private readonly CoveredCourses $covered,
+        // 036 · FR-016 -- the same object `ListPlans` reads, so the screen and
+        // this door cannot disagree about which plans reach a group.
+        private readonly PlanReach $reach,
     ) {}
 
     /**
@@ -251,7 +255,46 @@ class PurchaseSubscription extends Action
         // refuse every group the plan was written for.
         $planCourseUuid = $this->covered->courseUuid($plan);
 
-        $covered = $cohort['workspace_id'] === (int) $plan->workspace_id
+        /*
+        | ⛔ ٠٣٦ · FR-015 — THE THIRD ARM, AND WITHOUT IT A GROUP PLAN SOLD ANY
+        | GROUP IN ITS COURSE. `courseUuid()` resolves a cohort-covered plan to
+        | its group's COURSE, which is right for enrolment and far too wide for
+        | this door: «مجموعة الجمعة» priced at double, because it is four
+        | students, was buyable by anyone standing on «مجموعة السبت» of the same
+        | course -- and the other way round, so the intensive group could be had
+        | at the ordinary group's price. Both directions, no error anywhere, and
+        | the order's own snapshot would name the group that was actually chosen.
+        |
+        | So a plan that NAMES a group is proved against that group and nothing
+        | else. Coverage that names a course or a workspace still reaches every
+        | group inside it -- that is the inheritance FR-015 keeps.
+        */
+        $namesThisCohort = $plan->coverage_type !== PlanCoverage::Cohort
+            || $plan->coverage_uuid === $cohort['uuid'];
+
+        /*
+        | ⛔ AND THE OTHER HALF OF FR-015: A GROUP THAT WAS PRICED APART NO LONGER
+        | INHERITS. Without this the replacement lived on the SCREEN alone -- the
+        | course's month was hidden from the buyer standing on «مجموعة الجمعة»
+        | and still bought, by anyone who had the plan's uuid from the course page
+        | or a bookmark, at the price the teacher had deliberately moved away from.
+        |
+        | The predicate is `PlanReach::ownPlanIds()`, which is the object the
+        | listing reads; asked here in its own words the two would agree until the
+        | first time either moved.
+        |
+        | ⚠️ EXISTENCE, NOT SELLABILITY. A group whose own plan is written and
+        | unpriced buys nothing at all rather than falling back -- the fallback is
+        | what would sell it at the price it was moved away from, in silence.
+        */
+        $ownPlanIds = $this->reach->ownPlanIds((int) $plan->workspace_id, $cohort['uuid']);
+
+        $notPricedApart = $ownPlanIds === []
+            || in_array((int) $plan->getKey(), $ownPlanIds, true);
+
+        $covered = $namesThisCohort
+            && $notPricedApart
+            && $cohort['workspace_id'] === (int) $plan->workspace_id
             && ($planCourseUuid === null || $cohort['course_uuid'] === $planCourseUuid);
 
         if (! $covered) {
