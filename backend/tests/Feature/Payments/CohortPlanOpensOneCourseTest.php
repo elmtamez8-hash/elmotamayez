@@ -117,11 +117,29 @@ it('opens every published course for a teacher-wide plan', function (): void {
         'coverage_uuid' => null,
     ]);
 
+    /*
+    | ⛔ A GROUP WITH NO PLAN OF ITS OWN, AND 036 · FR-015 IS WHY. The group in
+    | the fixture above is priced apart — it has a plan naming it — so it no
+    | longer inherits anything, teacher-wide coverage included. Bought against it,
+    | this control would measure that replacement rather than coverage, and would
+    | be refused. The wide plan's reach is the claim here, so the buyer stands on
+    | a group nobody has priced separately.
+    */
+    $plain = app(WorkspaceContext::class)->forWorkspace(
+        $this->workspace,
+        fn (): Cohort => Cohort::factory()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'course_id' => $this->sold->getKey(),
+            'created_by' => $this->teacher->getKey(),
+            'name' => 'مجموعة الأحد',
+        ]),
+    );
+
     $order = app(PurchaseSubscription::class)->handle(
         $this->student,
         (string) $wide->uuid,
         'cohort',
-        (string) $this->cohort->uuid,
+        (string) $plain->uuid,
     );
 
     app(ApproveOrder::class)->handle($order->refresh(), $this->officer);
