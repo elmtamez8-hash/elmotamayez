@@ -12,7 +12,7 @@ import { userMessage } from "@/lib/errors";
 import { formatMinorMoney } from "@/lib/labels";
 import {
   plans as plansApi,
-  planDuration,
+  planShape,
   SESSION_TYPE_LABELS,
   type Plan,
   type PlanCoverage,
@@ -134,7 +134,7 @@ export default function ManagePlansPage() {
       header: "المدّة",
       // خانةٌ تحتَ عنوانِ «المدّة» تحتاجُ علامةً مرئيّة: الفراغُ يُقرأُ عموداً لم
       // يُحمَّل، بينما «—» تقولُ «لا مدّةَ لهذه الباقة».
-      render: (row) => planDuration(row.duration_days) ?? "—",
+      render: (row) => planShape(row) ?? "—",
     },
     {
       key: "type",

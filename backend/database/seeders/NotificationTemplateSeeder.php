@@ -645,8 +645,15 @@ class NotificationTemplateSeeder extends Seeder
             */
             NotificationType::PlanCreatedForYou->value => [
                 'أُنشئت باقة باسمك: «{{ plan_title }}»',
-                'أنشأت إدارة المنصّة باقة «{{ plan_title }}» باسمك بسعر {{ price }} لمدّة {{ duration_days }} يوماً. راجعها في باقاتك، وتواصل مع الإدارة إن كان فيها ما يحتاج تعديلاً.',
-                ['plan_title', 'price', 'duration_days'],
+                /*
+                | ⛔ ٠٣٦ — «{{ shape }}» بدلَ «{{ duration_days }} يوماً»، وبدونِ
+                | هذا التغييرِ تسقطُ الرسالةُ كلَّها في صمت. `TemplateRenderer`
+                | يرفضُ متغيّراً فارغاً، وباقةُ الحصصِ لا تحملُ مدّةً إطلاقاً —
+                | فالمدرّسُ الذي أُنشئَت باسمِه باقةُ اثنتَي عشرةَ حصّةً لا يعلمُ
+                | بها، والصفُّ مكتوبٌ والمالُ مُسعَّرٌ ولا سطرَ في السجلّ.
+                */
+                'أنشأت إدارة المنصّة باقة «{{ plan_title }}» باسمك بسعر {{ price }}، وتبيع {{ shape }}. راجعها في باقاتك، وتواصل مع الإدارة إن كان فيها ما يحتاج تعديلاً.',
+                ['plan_title', 'price', 'shape'],
             ],
             /*
             | ⚠️ THE NUMBERS ARE IN THE BODY, NOT A LINK TO THEM. A report that

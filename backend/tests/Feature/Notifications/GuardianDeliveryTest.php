@@ -271,7 +271,13 @@ it('tells every guardian-facing type apart', function (): void {
     // ask and the refusal — deliberately target no guardian: nothing has moved,
     // and putting every step of a scheduling conversation on a parent's phone is
     // how the number gets muted, taking the attendance alert with it.
-    expect($guardianTypes)->toHaveCount(25);
+    // Twenty-six, with 036: `session_plan_activated`. The same purchase as
+    // `subscription_activated` in its second shape -- hours rather than a
+    // window -- so it rides the same `Payments` consent. It is a separate
+    // type because the subscription template demands a start and an end date
+    // and throws on an empty variable: reusing it would either fail after the
+    // money committed, or invent two dates the family reads as true.
+    expect($guardianTypes)->toHaveCount(26);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();

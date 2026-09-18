@@ -92,12 +92,45 @@ class CreatePlan extends CreateRecord
                         ->required()
                         ->maxLength(255),
 
+                    /*
+                    | 036 . T071 -- THE SHAPE IS PICKED, AND WITHOUT IT NO OFFICER
+                    | COULD WRITE AN HOURS PLAN AT ALL. The duration was
+                    | `required()->minValue(1)`, so the form refused to submit
+                    | without one; and `SavePlan` refuses a row carrying both, so
+                    | a second always-visible field would have made every save
+                    | fail from the other side.
+                    |
+                    | It is a picker rather than «fill whichever you mean» because
+                    | one of the two IS the decision -- and a form that lets both
+                    | be typed is a form whose only error message arrives after
+                    | the save.
+                    */
+                    Select::make('shape')
+                        ->label('ما تبيعه الباقة')
+                        ->required()
+                        ->live()
+                        ->default('duration')
+                        ->options([
+                            'duration' => 'مدّة بالأيّام',
+                            'sessions' => 'عدد من الحصص',
+                        ])
+                        ->helperText('باقةُ الحصصِ تصبُّ رصيداً في دفترِ الطالب ولا تكتبُ اشتراكاً، '
+                            .'ولا بدَّ أن تخصَّ كورساً أو مجموعة.'),
+
                     TextInput::make('duration_days')
                         ->label('المدّة بالأيّام')
                         ->numeric()
-                        ->required()
+                        ->required(fn (callable $get): bool => $get('shape') !== 'sessions')
+                        ->visible(fn (callable $get): bool => $get('shape') !== 'sessions')
                         ->minValue(1)
                         ->default(30),
+
+                    TextInput::make('session_count')
+                        ->label('عدد الحصص')
+                        ->numeric()
+                        ->required(fn (callable $get): bool => $get('shape') === 'sessions')
+                        ->visible(fn (callable $get): bool => $get('shape') === 'sessions')
+                        ->minValue(1),
 
                     Select::make('session_type')
                         ->label('نوع الحصص')
@@ -173,7 +206,15 @@ class CreatePlan extends CreateRecord
                 $workspace,
                 [
                     'title' => $data['title'],
-                    'duration_days' => $data['duration_days'],
+                    /*
+                    | ⛔ THE HIDDEN FIELD IS SENT AS NULL, NOT LEFT OUT. Filament
+                    | keeps the state of a field it stopped showing, so an officer
+                    | who fills 30, switches to «حصص» and saves would otherwise
+                    | reach the Action with BOTH -- refused with a sentence about a
+                    | field the form is no longer displaying.
+                    */
+                    'duration_days' => ($data['shape'] ?? 'duration') === 'sessions' ? null : ($data['duration_days'] ?? null),
+                    'session_count' => ($data['shape'] ?? 'duration') === 'sessions' ? ($data['session_count'] ?? null) : null,
                     'session_type' => $data['session_type'],
                     'coverage_type' => $data['coverage_type'],
                     'coverage_uuid' => $data['coverage_uuid'] ?? null,

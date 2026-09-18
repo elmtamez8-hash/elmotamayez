@@ -119,4 +119,32 @@ class Plan extends BaseModel
     {
         return $query->where('is_active', true)->whereNotNull('price_minor');
     }
+
+    /**
+     * The catalogue's reading order (036 . T075).
+     *
+     * A plain `orderBy('duration_days')` was the whole ordering, and once that
+     * column turned nullable it stopped saying anything: NULL sorts FIRST in
+     * ascending order on MySQL and on SQLite alike, so every plan sold by
+     * SESSIONS jumped to the top of every list -- the teacher's own screen and
+     * the buyer's -- ahead of the month plan that is the ordinary thing to sell,
+     * for no reason a reader could see.
+     *
+     * So the SHAPE is the first key and the number is the second: the plans that
+     * sell time, shortest first, then the plans that sell sessions, fewest first.
+     *
+     * The CASE is written out rather than leaning on either engine's null
+     * placement, because `NULLS LAST` is a Postgres spelling and MySQL's answer
+     * to `ORDER BY col DESC` is the opposite of SQLite's for the same rows.
+     *
+     * @param  Builder<Plan>  $query
+     * @return Builder<Plan>
+     */
+    public function scopeOrderedByShape(Builder $query): Builder
+    {
+        return $query
+            ->orderByRaw('CASE WHEN duration_days IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('duration_days')
+            ->orderBy('session_count');
+    }
 }

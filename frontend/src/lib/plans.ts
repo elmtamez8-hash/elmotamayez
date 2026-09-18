@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { counted } from "./labels";
 
 /**
  * Subscription plans and the subscriptions bought from them (spec 011 · US4).
@@ -21,14 +22,27 @@ import { api } from "./api";
  * is the only place it becomes text — a formatted string is a number the client
  * has to parse back before it can add anything up.
  */
-export type PlanCoverage = "workspace" | "course";
+/**
+ * 036 -- the third case, and its absence kept `tsc` green over the whole leak.
+ * A plan may cover one GROUP, which is the only coverage a plan sold by
+ * sessions is allowed to carry.
+ */
+export type PlanCoverage = "workspace" | "course" | "cohort";
 export type SessionType = "individual" | "group";
 export type SubscriptionStatus = "active" | "expired" | "cancelled";
 
 export interface Plan {
   uuid: string;
   title: string;
-  duration_days: number;
+  /**
+   * 036 -- NULLABLE NOW, and exactly one of this and `session_count` is set.
+   * Typed `number`, every screen printing it was unreachable to `tsc` on the
+   * day the column turned nullable -- and `null % 30 === 0` is true in
+   * JavaScript, so the fallback printed the word `null` at a buyer.
+   */
+  duration_days: number | null;
+  /** The other shape: a number of sessions, poured into 035's ledger. */
+  session_count: number | null;
   session_type: SessionType;
   coverage_type: PlanCoverage;
   coverage_label: string;
@@ -65,7 +79,9 @@ export interface Subscription {
 
 export interface SavePlanPayload {
   title: string;
-  duration_days: number;
+  /** One of the two, never both and never neither -- the Action refuses the rest. */
+  duration_days?: number | null;
+  session_count?: number | null;
   session_type: SessionType;
   coverage_type: PlanCoverage;
   coverage_uuid?: string | null;
@@ -141,6 +157,39 @@ export function planDuration(days: number | null | undefined): string | null {
   }
 
   return days === 1 ? "يوم واحد" : `${days} يوماً`;
+}
+
+/**
+ * «١٢ حصّة» / «شهر واحد» — what this plan actually sells, in one sentence.
+ *
+ * ⛔ ONE SPELLING, FOUR SCREENS. `subscribe`, `manage/plans`, `plans` and
+ * `orders` each printed the duration directly, so the day a plan could be sold
+ * by SESSIONS all four would have printed «null يوماً» at a buyer — three of
+ * them at the student who had already paid. Deriving «which shape is this» in
+ * each of them is the two-spellings defect this tree has paid for a dozen times.
+ *
+ * ⚠️ AND THE COUNT GOES THROUGH `counted()`, NEVER A TEMPLATE LITERAL. Arabic
+ * agrees the noun with its number across five bands, so «٢ حصص» is wrong where
+ * «حصّتان» is right — and 12 and 30 are precisely the band where a hand-written
+ * literal happens to agree, which is why the test for this uses neither.
+ *
+ * Returns `null` for a row carrying neither, so a caller joining parts with
+ * « · » drops it instead of printing a dash inside a sentence.
+ */
+export function planShape(plan: Pick<Plan, "duration_days" | "session_count">): string | null {
+  const sessions = plan.session_count;
+
+  if (typeof sessions === "number" && Number.isInteger(sessions) && sessions > 0) {
+    return counted(sessions, {
+      one: "حصّة واحدة",
+      two: "حصّتان",
+      few: "حصص",
+      many: "حصّة",
+      other: "حصّة",
+    });
+  }
+
+  return planDuration(plan.duration_days);
 }
 
 export const SESSION_TYPE_LABELS: Record<SessionType, string> = {

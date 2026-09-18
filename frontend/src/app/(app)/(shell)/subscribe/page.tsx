@@ -18,7 +18,7 @@ import { userMessage } from "@/lib/errors";
 import { family } from "@/lib/notifications";
 import type { GuardianRelation } from "@/lib/notifications";
 import { formatMinorMoney } from "@/lib/labels";
-import { SESSION_TYPE_LABELS, planDuration, type Plan } from "@/lib/plans";
+import { SESSION_TYPE_LABELS, planShape, type Plan } from "@/lib/plans";
 import type { CourseDetail } from "@/lib/public-api";
 import {
   chosenCohort,
@@ -380,7 +380,7 @@ function SubscribeScreen() {
                     <span>
                       <span className="block text-sm font-medium text-ink">{plan.title}</span>
                       <span className="block text-xs text-ink-muted">
-                        {[planDuration(plan.duration_days), SESSION_TYPE_LABELS[plan.session_type]]
+                        {[planShape(plan), SESSION_TYPE_LABELS[plan.session_type]]
                           .filter(Boolean)
                           .join(" · ")}
                       </span>

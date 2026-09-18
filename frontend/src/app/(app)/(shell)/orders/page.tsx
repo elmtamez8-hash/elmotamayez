@@ -20,7 +20,7 @@ import {
   statusTone,
   TONE_CLASSES,
 } from "@/lib/labels";
-import { planDuration, SESSION_TYPE_LABELS } from "@/lib/plans";
+import { planShape, SESSION_TYPE_LABELS } from "@/lib/plans";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Field";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -175,7 +175,10 @@ function bought(order: Order): { title: string; detail: string | null } {
       // beneath it are derived, so they stay true whatever the title says.
       title: intent.planTitle,
       detail: [
-        planDuration(intent.durationDays),
+        // 036 -- the snapshot's own shape, read from the order and not from
+        // the plan row: a plan edited while a bank transfer is in review
+        // must not change what the buyer was sold.
+        planShape({ duration_days: intent.durationDays, session_count: intent.sessionCount }),
         SESSION_TYPE_LABELS[intent.sessionType],
         intent.cohortName,
       ]

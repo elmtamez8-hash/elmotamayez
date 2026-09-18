@@ -30,7 +30,7 @@ class PlanController extends Controller
 
         // Scoped by the global scope, which resolves here: the reader is a
         // workspace MEMBER, unlike every student-facing read in this module.
-        $plans = Plan::query()->orderBy('duration_days')->get();
+        $plans = Plan::query()->orderedByShape()->get();
 
         return response()->json(['data' => PlanResource::collection($plans)]);
     }

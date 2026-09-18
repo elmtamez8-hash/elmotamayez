@@ -88,7 +88,7 @@ class ListPlans extends Action
             | a rule enforced by a dropdown.
             */
             ->when($sessionType !== null, fn ($query) => $query->where('session_type', $sessionType))
-            ->orderBy('duration_days')
+            ->orderedByShape()
             ->get();
     }
 }
