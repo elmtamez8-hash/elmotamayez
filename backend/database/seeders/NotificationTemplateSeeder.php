@@ -343,7 +343,7 @@ class NotificationTemplateSeeder extends Seeder
             */
             NotificationType::WaitlistInvited->value => [
                 'فُتح مكان في «{{ course_title }}»',
-                'جاء دورك في «{{ course_title }}»: فُتح مكان في مجموعة «{{ cohort_name }}». سجِّل الآن — المقعد ليس محجوزاً لك، وهو لمن يسبق.',
+                'جاء دورك في «{{ course_title }}»: فُتح مكان في مجموعة «{{ cohort_name }}». افتحِ الكورس لتكمل — المقعد ليس محجوزاً لك، وهو لمن يسبق.',
                 ['course_title', 'cohort_name'],
             ],
             NotificationType::CohortTransferRequestDropped->value => [
