@@ -88,6 +88,50 @@ export interface SavePlanPayload {
   is_active?: boolean;
 }
 
+/**
+ * What a teacher may ask for on a plan the platform has already priced (036).
+ *
+ * ⚠️ `requested_price_minor` IS OPTIONAL, AND ITS ABSENCE IS «THE PLATFORM
+ * DECIDES» RATHER THAN «FREE». Pricing is the platform's half of the row, so a
+ * teacher asking for a new shape and leaving the number alone is the ordinary
+ * case — and the approval then puts the new plan in the pricing queue.
+ */
+export interface PlanChangePayload {
+  duration_days?: number | null;
+  session_count?: number | null;
+  session_type: SessionType;
+  coverage_type: PlanCoverage;
+  coverage_uuid?: string | null;
+  requested_price_minor?: number | null;
+  reason?: string | null;
+}
+
+export type PlanChangeStatus = "pending" | "approved" | "rejected";
+
+/**
+ * ⚠️ BOTH SIDES ARRIVE AS SENTENCES THE SERVER BUILT. «من حصّة واحدة إلى ١٢
+ * حصّة» is the whole content of a row here, and deriving it in TypeScript would
+ * be a second spelling of `planShape` — which is the defect spec 036 spent a
+ * whole requirement on.
+ */
+export interface PlanChangeRequest {
+  uuid: string;
+  plan_title: string;
+  current_shape: string | null;
+  requested_shape: string | null;
+  current_coverage_label: string;
+  requested_coverage_label: string;
+  current_price_minor: number | null;
+  requested_price_minor: number | null;
+  currency: string;
+  reason: string | null;
+  status: PlanChangeStatus;
+  status_label: string;
+  decision_reason: string | null;
+  requested_at: string | null;
+  decided_at: string | null;
+}
+
 export const plans = {
   /**
    * What the teacher behind this course sells.
@@ -119,6 +163,21 @@ export const plans = {
     create: (payload: SavePlanPayload) => api.post<{ data: Plan }>("/manage/plans", payload),
     update: (uuid: string, payload: SavePlanPayload) =>
       api.patch<{ data: Plan }>(`/manage/plans/${uuid}`, payload),
+
+    /**
+     * ⛔ 036 — THE WAY THROUGH ONCE THE PLATFORM HAS PRICED A PLAN. `update`
+     * refuses to move the shape or the coverage of a priced plan, because that
+     * moves the thing the platform put a number on out from under the number.
+     * This asks instead; an officer decides, and approval writes a NEW plan and
+     * retires this one.
+     */
+    requestChange: (planUuid: string, payload: PlanChangePayload) =>
+      api.post<{ data: PlanChangeRequest }>(
+        `/manage/plans/${encodeURIComponent(planUuid)}/change-requests`,
+        payload,
+      ),
+
+    changeRequests: () => api.get<{ data: PlanChangeRequest[] }>("/manage/plan-change-requests"),
   },
 };
 
