@@ -9,6 +9,7 @@ use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\Learning\Models\CohortMembershipEvent;
 use App\Modules\Learning\Support\CohortMembershipWriter;
+use App\Modules\Learning\Support\CohortPricing;
 use App\Modules\Learning\Support\CohortRefusal;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\CohortDirectory;
@@ -31,6 +32,7 @@ class JoinCohort extends Action
     public function __construct(
         private readonly EnrollmentDirectory $enrollments,
         private readonly CohortDirectory $cohorts,
+        private readonly CohortPricing $pricing,
     ) {}
 
     public function handle(Cohort $cohort, User $student): CohortMembership
@@ -50,6 +52,24 @@ class JoinCohort extends Action
         */
         if ($this->cohorts->hasOpenMembership($student, $courseId)) {
             throw CohortRefusal::alreadyMember();
+        }
+
+        /*
+        | ⛔ THE PRICE CONDITION LIVES HERE AND NOT IN THE WRITER (٠٣٦ · T048).
+        | `CohortMembershipWriter::open()` has FOUR callers, and one of them runs
+        | on a queue worker AFTER the money has committed — an approved
+        | subscription being turned into a membership. A throw there leaves a
+        | student who has paid with no group, no message anybody sees, and a
+        | `failed_jobs` row as the only trace. This door is the one a student
+        | walks through of their own accord, and it is the only one where a
+        | refusal is something they asked for and can read.
+        |
+        | ⚠️ AND IT IS ASKED OF THE DOOR, NOT OF THE SCREEN. Dropping the card
+        | from the picker is a courtesy; a uuid typed straight at this route is
+        | what the gate is actually for.
+        */
+        if (! $this->pricing->stampOne($cohort)->priceReaches()) {
+            throw CohortRefusal::notListed();
         }
 
         return CohortMembershipWriter::open(

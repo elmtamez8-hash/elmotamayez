@@ -47,8 +47,26 @@ function absentPreviousSession(array $fx): array
             'seats_taken' => 0,
         ]);
 
+        /*
+        | ⛔ DERIVED FROM THE FIXTURE'S OWN SLOT, NEVER FROM `now()` -- AND THAT
+        | IS A BUG THIS FILE ALREADY HAD, WAITING ON THE CLOCK.
+        |
+        | `privateSessionFixture()` asks for a private hour at next week's
+        | 15:00 UTC, and this row was `now() + 3 days` at whatever time of day the
+        | suite happened to run. Those land on the SAME DAY for part of every
+        | week, and when the run also happens between about 14:00 and 16:00 UTC
+        | the two overlap -- so accepting the request is refused with «لديك حصة
+        | أخرى في هذا الوقت», a real product rule answering a question the case is
+        | not asking. Measured on CI at 14:41 UTC on 2026-09-18, and reproduced
+        | locally in the same hour; green every other hour of the day, which is
+        | exactly what makes it expensive.
+        |
+        | 09:00 the day AFTER the private slot: always future, always after the
+        | missed one, and it cannot collide with a 15:00 booking whatever day the
+        | suite runs.
+        */
         $missed = $make(ClassSessionStatus::Completed, '-1 week', 10);
-        $next = $make(ClassSessionStatus::Scheduled, '+3 days', 10);
+        $next = $make(ClassSessionStatus::Scheduled, $fx['startsAt']->addDay()->setTime(9, 0)->toDateTimeString(), 10);
 
         attendanceRow($fx['workspace'], $missed, $fx['student'], AttendanceStatus::Absent);
 

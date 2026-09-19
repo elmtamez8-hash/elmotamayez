@@ -53,40 +53,22 @@ function tablesCreatedBy(string $module): array
     return array_values(array_unique($tables));
 }
 
-/** Every PHP file under one module. */
-function moduleFiles(string $module): Finder
-{
-    return Finder::create()->files()->in(app_path("Modules/{$module}"))->name('*.php');
-}
-
-/**
- * One file's source with every comment removed.
- *
- * The payload scan below reads CODE. Without this it fires on the docblock that
- * explains why a field is absent — so the only way to keep it green would be to
- * stop writing down the reason, which is the opposite of what the guard is for.
- * CreditBalanceResource's own comment, naming this context to say that none of
- * its numbers appear, is exactly the case.
- *
- * Applied here and NOT to the two module scans above: those forbid an import and
- * a quoted table name, which is coupling wherever it appears, and a stricter
- * guard on the thing that actually joins the contexts is worth the false
- * positive it has never yet produced.
- */
-function codeWithoutComments(string $source): string
-{
-    $kept = [];
-
-    foreach (token_get_all($source) as $token) {
-        if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-            continue;
-        }
-
-        $kept[] = is_array($token) ? $token[1] : $token;
-    }
-
-    return implode('', $kept);
-}
+/*
+| ⚠️ `moduleFiles()` AND `codeWithoutComments()` LIVE IN `tests/Pest.php` NOW,
+| because `CohortPlanBoundaryTest` needs the same two and a Pest helper is a
+| GLOBAL function: declared in a test file it exists only for the files Pest
+| loads afterwards, and declared in two it is a fatal «Cannot redeclare» the
+| first time one worker loads both — which is every `pest --parallel` run.
+|
+| The stripper's reason is unchanged and is worth keeping beside its readers: the
+| payload scan below reads CODE, and without it the guard fires on the docblock
+| that explains why a field is absent. Keeping it green would then mean deleting
+| the explanation, which is the opposite of what the guard is for —
+| `CreditBalanceResource`'s own comment, naming this context to say that none of
+| its numbers appear, is exactly the case. It is applied to the payload scan and
+| NOT to the two module scans: those forbid an import and a quoted table name,
+| which is coupling wherever it appears.
+*/
 
 // ---------------------------------------------------------------------------
 // FR-030 — zero foreign keys, in both directions.

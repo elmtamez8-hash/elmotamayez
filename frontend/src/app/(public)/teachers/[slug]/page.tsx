@@ -32,6 +32,7 @@ import { CourseCard } from "@/components/marketplace/CourseCard";
 import { ReviewsTab } from "@/components/marketplace/ReviewsTab";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { videoEmbedUrl } from "@/lib/video-embed";
+import { arabicNumber } from "@/lib/numerals";
 import {
   ProfileTabs,
   isProfileTab,
@@ -111,7 +112,7 @@ function QuickStats({ stats }: { stats: TeacherDetail["stats"] }) {
           <div className="min-w-0">
             <dd className="text-2xl font-extrabold leading-none text-primary-ink">
               <bdi>
-                {value === null ? "—" : `${value.toLocaleString("ar-QA")}${suffix ?? ""}`}
+                {value === null ? "—" : `${arabicNumber(value)}${suffix ?? ""}`}
               </bdi>
             </dd>
             <dt className="mt-1 text-xs text-ink-muted">{label}</dt>

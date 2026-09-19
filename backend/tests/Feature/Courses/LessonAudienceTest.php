@@ -11,8 +11,10 @@ use App\Modules\Courses\Models\Section;
 use App\Modules\Courses\Support\LessonAudience;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
+use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
@@ -224,19 +226,52 @@ function audienceSession(array $attributes = []): ClassSession
     ]);
 }
 
+/** مقعدُ الطالبِ في الحصّة — المادّةُ تتبعُ المقعدَ لا تاريخَها (٠٣٦). */
+function audienceSeat(ClassSession $session, User $student, BookingStatus $status = BookingStatus::Booked): void
+{
+    SessionBooking::query()->withoutWorkspaceScope()->create([
+        'workspace_id' => $session->workspace_id,
+        'class_session_id' => $session->getKey(),
+        'student_user_id' => $student->getKey(),
+        'status' => $status,
+        'is_billable' => true,
+        'booked_at' => now()->subDay(),
+    ]);
+}
+
 it('hides an item waiting on a session that has not been held', function (): void {
     $lesson = audienceLesson(['release_session_id' => audienceSession()->getKey()]);
 
     expect(hiddenAs($this->student, $lesson))->toBe(LessonAudience::UNRELEASED);
 });
 
-it('shows it the moment that session is delivered', function (): void {
+it('shows it the moment that session is delivered, to whoever took that hour', function (): void {
     $session = audienceSession([
         'status' => ClassSessionStatus::Completed,
         'delivered_at' => now()->subHour(),
     ]);
 
+    audienceSeat($session, $this->student);
+
     expect(hiddenAs($this->student, audienceLesson(['release_session_id' => $session->getKey()])))->toBeNull();
+});
+
+/*
+| ⛔ **٠٣٦ — والتسليمُ وحدَه لا يُفرِج.** المادّةُ تتبعُ المقعدَ كما يتبعُه
+| التسجيلُ منذُ ٠١٠ · FR-030، وإلّا تدفّقَت مادّةُ كلِّ حصّةٍ جايةٍ على كلِّ
+| عضوٍ في المجموعةِ ولو لم يحجزْ منها ساعةً واحدة — وهو بالضبطِ حالُ مَن نفدَ
+| رصيدُه.
+|
+| **كيفَ يمسك**: أعِدْ `applyRelease()` إلى «مُفرَجٌ عنها ⇒ ظاهرة».
+*/
+it('hides it from a member of the same group who never took that hour', function (): void {
+    $session = audienceSession([
+        'status' => ClassSessionStatus::Completed,
+        'delivered_at' => now()->subHour(),
+    ]);
+
+    expect(hiddenAs($this->student, audienceLesson(['release_session_id' => $session->getKey()])))
+        ->toBe(LessonAudience::NOT_MY_SESSION);
 });
 
 /*

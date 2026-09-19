@@ -48,7 +48,9 @@ use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Enums\PaymentMethod;
 use App\Modules\Payments\Enums\PaymentStatus;
+use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\CreditBalance;
+use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Settlement\Models\SettlementRate;
@@ -70,6 +72,7 @@ use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Minishlink\WebPush\WebPush;
+use Symfony\Component\Finder\Finder;
 use Tests\Support\FakeWebPush;
 use Tests\Support\WithWorkspace;
 use Tests\TestCase;
@@ -222,6 +225,32 @@ function billingCourse(Workspace $workspace): Course
         $workspace,
         fn (): Course => Course::factory()->create(['workspace_id' => $workspace->getKey()]),
     );
+}
+
+/**
+ * A live group price covering every group of this course (٠٣٦ · FR-003).
+ *
+ * ⛔ AFTER ٠٣٦, A GROUP NO PRICE REACHES IS NOT LISTED AND CANNOT BE JOINED —
+ * so a fixture that creates groups and no plan is describing a course nobody can
+ * be sold a place in, which is not the course any of these tests mean. Six cases
+ * across four files went red on exactly that, all of them about whether a group
+ * is VISIBLE rather than about whether it is priced.
+ *
+ * ⚠️ WORKSPACE COVERAGE, ON PURPOSE. The narrow forms have their own meaning:
+ * a plan naming ONE group stops every other group of the course inheriting, and
+ * a plan naming the course does not. A fixture that only wants «this teacher
+ * sells groups» should say the widest thing it means.
+ *
+ * ⚠️ AND `->group()`: a room size is part of a price, and an individual plan
+ * lists no group at all.
+ */
+function groupPriceFor(Course $course): Plan
+{
+    return Plan::factory()->group()->create([
+        'workspace_id' => $course->workspace_id,
+        'coverage_type' => PlanCoverage::Workspace,
+        'coverage_uuid' => null,
+    ]);
 }
 
 /**
@@ -469,6 +498,15 @@ function cohortFixture(?int $capacityA = null, ?int $capacityB = null): array
             'progress_pct' => 0,
             'enrolled_at' => now(),
         ]);
+
+        /*
+         | ⛔ A LIVE GROUP PRICE, OR EVERY GROUP THIS HELPER BUILDS IS UNLISTED.
+         | ٠٣٦ · FR-003 made «a price reaches this group» part of what a student
+         | may join, so a fixture with groups and no plan describes a course
+         | nobody can be sold a place in — which no caller of this helper means.
+         | A case that wants an UNPRICED group says so by narrowing the plan.
+         */
+        groupPriceFor($course);
 
         $make = fn (string $name, ?int $capacity): Cohort => Cohort::factory()->create([
             'workspace_id' => $workspace->getKey(),
@@ -1718,4 +1756,48 @@ function adaptiveWrongOption(int $questionId): int
         ->where('question_id', $questionId)
         ->where('is_correct', false)
         ->value('id');
+}
+
+/*
+|--------------------------------------------------------------------------
+| Source scanning, for the architectural guards
+|--------------------------------------------------------------------------
+|
+| ⚠️ HERE RATHER THAN IN ONE TEST FILE, FOR THE REASON THIS FILE ALREADY GIVES
+| ABOVE: a Pest helper is a GLOBAL function, so two files declaring one name is a
+| fatal «Cannot redeclare» the first time a worker loads both — which is every
+| `pest --parallel` run. `ContextIsolationTest` and `CohortPlanBoundaryTest` both
+| need these two.
+|
+*/
+
+/** Every PHP file under one module. */
+function moduleFiles(string $module): Finder
+{
+    return Finder::create()->files()->in(app_path("Modules/{$module}"))->name('*.php');
+}
+
+/**
+ * One file's source with every comment removed.
+ *
+ * ⛔ A GUARD THAT GREPS SOURCE MUST STRIP COMMENTS FIRST, OR IT FIRES ON THE
+ * RULE WRITTEN BESIDE THE CODE. Every one of these scans forbids something, and
+ * the files that obey them say so in a docblock naming the very thing — so a red
+ * build over an explanation teaches people to delete the explanation.
+ * `TrustScoreJobIsolationTest` paid for this over four jobs whose comments read
+ * «NEVER `WorkspaceContext::set()`».
+ */
+function codeWithoutComments(string $source): string
+{
+    $kept = [];
+
+    foreach (token_get_all($source) as $token) {
+        if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+            continue;
+        }
+
+        $kept[] = is_array($token) ? $token[1] : $token;
+    }
+
+    return implode('', $kept);
 }

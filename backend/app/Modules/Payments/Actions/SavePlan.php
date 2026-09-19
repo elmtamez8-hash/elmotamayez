@@ -8,10 +8,13 @@ use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Enums\PlanCoverage;
+use App\Modules\Payments\Exceptions\PlanWouldHideCohorts;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\CohortDirectory;
 use DomainException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * A teacher writes a plan's duration and coverage (T091 · FR-025).
@@ -29,9 +32,40 @@ use DomainException;
  * Silently dropping it would be worse than refusing: a teacher who types 300 and
  * is told nothing believes they have set a price, and finds out when a student
  * cannot buy.
+ *
+ * ⛔ **AND THE WRITE RUNS FOR REAL, IS MEASURED, AND IS ROLLED BACK — BECAUSE
+ * FR-013 SAYS «قبلَ التنفيذِ لا بعدَه» (٠٣٦ · T095 · T096).** A teacher who
+ * disables a plan, or narrows what it covers, can be the reason a group with
+ * students in it drops out of every picker on the platform — and nothing told
+ * them. The warning has to carry a NUMBER, and the number has to be the gate's
+ * own: «والعددُ يُحسَبُ بتهجئةِ FR-002 نفسِها التي يقرؤها حارسُ ما قبلَ
+ * النشر». So the gate is read before the save and again after it, inside one
+ * transaction, and the difference is the answer.
+ *
+ * ⚠️ **RUNNING IT RATHER THAN MODELLING IT IS THE WHOLE DESIGN, AND THE SECOND
+ * TRIGGER IS WHY.** Disabling a plan could be simulated — it is exactly «drop
+ * this id from the sellable set». **Narrowing its coverage cannot**: «this plan
+ * now covers one course instead of the workspace» is a hypothetical ROW, and
+ * handing the bridge a hypothetical row is the second spelling of the overrule
+ * rule that `CohortPlanReach` exists to prevent. The performed write is the
+ * only thing that answers both, which is the rule `PreviewPublishImpact` already
+ * wrote down: a change is previewed by the code that performs it, never by an
+ * estimate beside it.
+ *
+ * ⚠️ **AND THE DIFFERENCE, NEVER THE AFTER-READ ALONE.** A group that was
+ * already dark — its own plan sitting unpriced while its course's plan is live,
+ * so the overrule rule holds it out — is not this edit's doing, and reporting it
+ * would teach the teacher to click past a warning that is usually wrong.
+ *
+ * ⚠️ **BOTH READS HAPPEN ON A CREATE TOO.** A NEW plan looks like it can only
+ * add, and it cannot: a group that inherits its course's live price loses that
+ * inheritance the moment it is given an unpriced plan of its own — the overrule
+ * rule again, from the other side.
  */
 class SavePlan extends Action
 {
+    public function __construct(private readonly CohortDirectory $cohorts) {}
+
     /**
      * @param  array<string, mixed>  $data
      */
@@ -49,10 +83,12 @@ class SavePlan extends Action
             ? $data['session_type']
             : ClassSessionType::from((string) $data['session_type']);
 
-        $duration = (int) $data['duration_days'];
+        [$duration, $sessionCount] = $this->resolveShape($data, $coverage, $sessionType);
 
-        if ($duration < 1) {
-            throw new DomainException('مدّة الباقة يوم واحد على الأقل.');
+        $coverageUuid = $this->resolveCoverage($coverage, $data['coverage_uuid'] ?? null, $workspaceId);
+
+        if ($plan !== null) {
+            $this->guardPricedPlan($author, $plan, $duration, $sessionCount, $sessionType, $coverage, $coverageUuid);
         }
 
         $plan ??= new Plan;
@@ -61,16 +97,168 @@ class SavePlan extends Action
             'workspace_id' => $workspaceId,
             'title' => (string) $data['title'],
             'duration_days' => $duration,
+            'session_count' => $sessionCount,
             'session_type' => $sessionType,
             'coverage_type' => $coverage,
-            'coverage_uuid' => $this->resolveCoverage($coverage, $data['coverage_uuid'] ?? null, $workspaceId),
+            'coverage_uuid' => $coverageUuid,
             'currency' => (string) ($data['currency'] ?? 'QAR'),
             'is_active' => (bool) ($data['is_active'] ?? true),
         ]);
 
-        $plan->save();
+        return DB::transaction(function () use ($plan, $workspaceId, $data): Plan {
+            $before = $this->cohorts->unlistedCohortsWithMembers($workspaceId);
 
-        return $plan;
+            $plan->save();
+
+            $hidden = array_diff_key(
+                $this->cohorts->unlistedCohortsWithMembers($workspaceId),
+                $before,
+            );
+
+            if ($hidden !== [] && ! (bool) ($data['acknowledge_hidden_cohorts'] ?? false)) {
+                throw new PlanWouldHideCohorts($hidden);
+            }
+
+            return $plan;
+        });
+    }
+
+    /**
+     * «One shape or the other — never both, never neither» (٠٣٦ · FR-020).
+     *
+     * ⛔ THE ACTION IS WHERE THIS LIVES, and the engine deliberately does not help.
+     * A `CHECK` constraint is spelled differently on MySQL and SQLite, is invisible
+     * to every test here, and tells the teacher nothing about WHICH field to fix.
+     * The Action is also the one entrance the panel, the API and any seeder share.
+     *
+     * ⚠️ AND IT REPLACES `(int) $data['duration_days']`, WHICH WAS THE REAL DOOR.
+     * That cast turned a missing duration into `0`, the line under it refused
+     * anything below 1, and so a session-shaped plan was refused by the Action
+     * itself — «مدّة الباقة يوم واحد على الأقل» about a field the teacher had
+     * deliberately left empty.
+     *
+     * ⚠️ PUBLIC BECAUSE {@see RequestPlanChange} ASKS THE SAME QUESTION OF THE
+     * SAME DATA. A request whose shape this writer would refuse is a request
+     * nobody can approve — and finding that out at the decision means finding
+     * it in front of the officer, days after the teacher could have fixed it.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{0: int|null, 1: int|null}
+     */
+    public function resolveShape(array $data, PlanCoverage $coverage, ClassSessionType $sessionType): array
+    {
+        $duration = $this->positiveOrNull($data['duration_days'] ?? null);
+        $sessionCount = $this->positiveOrNull($data['session_count'] ?? null);
+
+        if ($duration !== null && $sessionCount !== null) {
+            throw new DomainException('الباقة إمّا بمدّة وإمّا بعدد حصص، لا الاثنين معاً.');
+        }
+
+        if ($duration === null && $sessionCount === null) {
+            throw new DomainException('حدّد مدّة الباقة أو عدد حصصها.');
+        }
+
+        /*
+        | ⛔ FR-022 — SESSIONS NEED A COURSE TO HANG OFF. Workspace coverage names
+        | no single course, so a balance of sessions bought under it has nothing to
+        | be spent on: the row saves, the student pays, and no seat anywhere knows
+        | about it.
+        */
+        if ($sessionCount !== null && $coverage === PlanCoverage::Workspace) {
+            throw new DomainException('باقة الحصص تخصّ كورساً أو مجموعة، لا كلّ كورسات المدرّس.');
+        }
+
+        /*
+        | ⛔ AND A GROUP PLAN OF THE PRIVATE KIND IS A PLAN THAT DISAPPEARS. The
+        | bridge that decides which cohorts are priced filters on the group session
+        | type, so a cohort-covered plan typed `individual` is written, saved,
+        | listed on the teacher's own screen — and reaches no group at all, while
+        | the group it was written for reads «no plan reaches it». Two screens
+        | contradicting each other with nothing logged.
+        */
+        if ($coverage === PlanCoverage::Cohort && $sessionType !== ClassSessionType::Group) {
+            throw new DomainException('باقة المجموعة لا تكون فرديّة.');
+        }
+
+        return [$duration, $sessionCount];
+    }
+
+    /**
+     * What the platform priced may not be moved underneath the price (٠٣٦).
+     *
+     * ⛔ THE HOLE THIS CLOSES IS A SECOND REQUEST TO A ROUTE THE TEACHER ALREADY
+     * HOLDS. `price_minor` is the platform's half of the row and is guarded
+     * everywhere — but nothing re-asked when the thing that was priced MOVED. A
+     * teacher wrote a plan of ONE session, the officer read «حصّة واحدة» on the
+     * pricing screen and put 100 on it, and the teacher then sent
+     * `PATCH /manage/plans/{uuid}` with `session_count: 200`. The plan stayed
+     * sellable at 100, and the next buyer had two hundred sessions poured into
+     * 035's ledger for the price of one. Three spellings of the same move:
+     * widening the count, flipping a priced month into sessions, and repointing
+     * the coverage at a more expensive course or group.
+     *
+     * The money does not come back from the student, either: the teacher is paid
+     * per delivered session at their own approved settlement rate, whatever the
+     * student paid, so the gap is the platform's.
+     *
+     * ⚠️ IT REFUSES RATHER THAN SILENTLY UNPRICING. An edit that quietly pulled
+     * the plan out of sale would look to the teacher exactly like an edit that
+     * worked, and they would find out when a student could not buy — the same
+     * argument the price refusal above it already makes. The way through is a
+     * change request the platform decides, which is what the sentence names.
+     *
+     * ⚠️ AND THE TITLE AND THE SWITCH STAY THE TEACHER'S. Neither moves what was
+     * priced. `is_active` especially: a teacher must be able to stop selling a
+     * plan this minute without asking anybody.
+     *
+     * ⚠️ ALREADY-SOLD ROWS ARE UNTOUCHED BY ANY OF THIS AND NEED NO GUARD --
+     * verified rather than assumed: `orders.amount_minor` is frozen from
+     * `plan->price_minor` at purchase, `subscriptions.price_minor` from the
+     * order, and every `teaching_units` row pins the `settlement_rate_id` that
+     * earned it. What a student paid and what a teacher earned are both facts
+     * about a moment that has passed.
+     */
+    private function guardPricedPlan(
+        User $author,
+        Plan $plan,
+        ?int $duration,
+        ?int $sessionCount,
+        ClassSessionType $sessionType,
+        PlanCoverage $coverage,
+        ?string $coverageUuid,
+    ): void {
+        if ($plan->price_minor === null || $author->can(Permissions::PLANS_PRICE)) {
+            return;
+        }
+
+        $moved = $this->nullableInt($plan->duration_days) !== $duration
+            || $this->nullableInt($plan->session_count) !== $sessionCount
+            || $plan->session_type !== $sessionType
+            || $plan->coverage_type !== $coverage
+            || $plan->coverage_uuid !== $coverageUuid;
+
+        if ($moved) {
+            throw new DomainException(
+                'هذه الباقة سعّرتها المنصّة، فتغيير مدّتها أو عدد حصصها أو ما تغطّيه يكون بطلب تعديل. '
+                .'ويمكنك تعديل عنوانها أو إيقافها عن البيع في أي وقت.'
+            );
+        }
+    }
+
+    private function nullableInt(mixed $value): ?int
+    {
+        return $value === null ? null : (int) $value;
+    }
+
+    private function positiveOrNull(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $number = (int) $value;
+
+        return $number < 1 ? null : $number;
     }
 
     /**
@@ -80,9 +268,15 @@ class SavePlan extends Action
      * somebody else's course is a teacher selling a subscription to a colleague's
      * material.
      */
-    private function resolveCoverage(PlanCoverage $coverage, mixed $uuid, int $workspaceId): ?string
+    public function resolveCoverage(PlanCoverage $coverage, mixed $uuid, int $workspaceId): ?string
     {
-        if (! $coverage->needsCourse()) {
+        /*
+        | ⛔ `requiresUuid()`, NOT `needsCourse()` — AND THE RESTRUCTURE IS THE FIX,
+        | not the rename. Read as «is this the Course case», a group plan fell into
+        | the branch below and had its `coverage_uuid` NULLED on the way to the
+        | database: saved, listed, and pointing at no group at all.
+        */
+        if (! $coverage->requiresUuid()) {
             // Cleared, not kept: a plan edited from one course to the whole
             // workspace that keeps its old `coverage_uuid` is a row whose two
             // columns disagree, and the reader that trusts the wrong one is
@@ -91,7 +285,26 @@ class SavePlan extends Action
         }
 
         if (! is_string($uuid) || $uuid === '') {
-            throw new DomainException('باقة الكورس الواحد تحتاج تحديد الكورس.');
+            throw new DomainException($coverage === PlanCoverage::Cohort
+                ? 'باقة المجموعة تحتاج تحديد المجموعة.'
+                : 'باقة الكورس الواحد تحتاج تحديد الكورس.');
+        }
+
+        /*
+        | A group plan names a COHORT, so it is proved against the group directory
+        | rather than against `courses` — and `describeGroupCohort()` is already
+        | filtered to group cohorts, which is what stops a plan being pointed at a
+        | private 1:1 room. The workspace is pinned from the plan's own, because
+        | that read is deliberately unscoped.
+        */
+        if ($coverage === PlanCoverage::Cohort) {
+            $cohort = $this->cohorts->describeGroupCohort($uuid);
+
+            if ($cohort === null || (int) $cohort['workspace_id'] !== $workspaceId) {
+                throw new DomainException('هذه المجموعة غير موجودة عندك.');
+            }
+
+            return $uuid;
         }
 
         /*

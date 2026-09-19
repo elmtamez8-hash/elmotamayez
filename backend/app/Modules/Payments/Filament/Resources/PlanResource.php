@@ -8,6 +8,7 @@ use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Filament\Resources\PlanResource\Pages;
 use App\Modules\Payments\Models\Plan;
+use App\Modules\Payments\Support\PlanShape;
 use App\Modules\Tenancy\Support\Permissions;
 use BackedEnum;
 use Filament\Forms\Components\Placeholder;
@@ -138,11 +139,18 @@ class PlanResource extends Resource
                         ->label('المدرّس')
                         ->content(fn (?Plan $record): string => (string) $record?->workspace?->name),
 
-                    Placeholder::make('duration_ro')
-                        ->label('المدّة')
+                    /*
+                    | 036 . T074 -- IT IS WHAT THE PLAN SELLS, NOT ITS DURATION.
+                    | This is the screen where the platform puts a number on a
+                    | teacher's plan, and it read «٠ يوماً» for every plan sold by
+                    | sessions: the officer priced twelve lessons believing they
+                    | were pricing nothing at all.
+                    */
+                    Placeholder::make('shape_ro')
+                        ->label('ما تبيعه الباقة')
                         ->content(fn (?Plan $record): string => $record === null
                             ? '—'
-                            : $record->duration_days.' يوماً'),
+                            : PlanShape::describe($record->duration_days, $record->session_count) ?? '—'),
 
                     Placeholder::make('session_type_ro')
                         ->label('نوع الحصص')
@@ -158,6 +166,18 @@ class PlanResource extends Resource
                     .'لا «مجّاناً». بالوحدةِ الصغرى: ٣٠٠٫٠٠ ريالاً تُكتَبُ 30000.')
                 ->columns(1)
                 ->schema([
+                    /*
+                    | ⚠️ 036 . T073 -- RE-CHECKED WHEN THE SHAPE FIELDS LANDED, and
+                    | it is unchanged: the field is reachable only through this
+                    | Resource, whose `canViewAny()` and `canCreate()` both ask
+                    | `plans.price` and nothing else, and both write paths
+                    | (`SetPlanPrice` on edit, `CreatePlanForTeacher` on create)
+                    | ask it AGAIN, because hiding a control is not a guard. The
+                    | new shape fields are the TEACHER's half of the row and open
+                    | no door onto this one -- `SavePlan` refuses `price_minor`
+                    | from a writer without the permission, measured in
+                    | `PlanFormTest`.
+                    */
                     TextInput::make('price_minor')
                         ->label('السعر بالوحدة الصغرى')
                         ->numeric()
@@ -176,8 +196,15 @@ class PlanResource extends Resource
             ->columns([
                 TextColumn::make('title')->label('الباقة')->searchable()->sortable(),
                 TextColumn::make('workspace.name')->label('المدرّس')->searchable(),
-                TextColumn::make('duration_days')->label('المدّة')->sortable()
-                    ->formatStateUsing(fn (int $state): string => $state.' يوماً'),
+                /*
+                | 036 -- ONE COLUMN FOR BOTH SHAPES, and `state()` rather than
+                | `formatStateUsing` because there is no single column to format:
+                | a plan carries a duration or a count, never both. Sorting goes
+                | through the model's own `orderedByShape`, so it is dropped here
+                | rather than left pointing at a column half the rows leave empty.
+                */
+                TextColumn::make('shape')->label('ما تبيعه')->placeholder('—')
+                    ->state(fn (Plan $record): ?string => PlanShape::describe($record->duration_days, $record->session_count)),
                 TextColumn::make('session_type')->label('النوع')->badge()
                     ->formatStateUsing(fn (ClassSessionType $state): string => $state->label()),
                 TextColumn::make('coverage_type')->label('التغطية')

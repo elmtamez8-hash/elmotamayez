@@ -96,6 +96,40 @@ export interface CohortOption {
   schedule_preview: string[];
 }
 
+/**
+ * Why a group of mine is not on sale, as the TEACHER's screens read it
+ * (٠٣٦ · FR-014).
+ *
+ * ⛔ A SEPARATE TYPE FROM {@link CohortOption}, NOT AN OPTIONAL FIELD ON IT, AND
+ * THE REASON IS THE SHARED TRANSFORMER. One `CohortResource` feeds the student's
+ * picker and both of the teacher's screens; the backend assembles this field in
+ * the teacher's controller alone for exactly that reason, and a field bolted
+ * onto the shared type here would invite a student screen to read one the server
+ * never sends it.
+ *
+ * ⚠️ `remedy` IS NULL FOR EXACTLY ONE CASE — the plan is waiting on the
+ * platform's price — and that is the case the whole field exists for. A teacher
+ * reading a group that vanished with nothing beside it goes hunting for a
+ * setting that was never the problem.
+ */
+export interface CohortAbsenceReason {
+  code: "no_plan" | "awaiting_pricing" | "disabled";
+  label: string;
+  remedy: string | null;
+}
+
+/**
+ * A group as the teacher's own screens read it.
+ *
+ * ⚠️ THE FIELD IS ABSENT — NOT `null`, NOT A FOURTH «nothing is wrong» CODE —
+ * when the group IS listed. A value meaning «no gap» is one every caller has to
+ * remember to exclude, and the first who forgets prints «لا توجد باقة» beside a
+ * group that is on sale.
+ */
+export interface ManagedCohort extends CohortOption {
+  absence_reason?: CohortAbsenceReason;
+}
+
 export interface CohortsForCourse {
   membership: CohortMembership | null;
   /**
@@ -107,6 +141,24 @@ export interface CohortsForCourse {
   past_cohorts: Array<{ uuid: string; name: string; left_at: string | null }>;
   pending_request: CohortTransferRequest | null;
   cohorts: CohortOption[];
+  /**
+   * ⛔ 036 · FR-019 — WHERE A TRANSFER MAY BE ASKED FOR, WHICH IS NOT THE
+   * PICKER LIST NARROWED. `cohorts` above answers «which group may I JOIN» and
+   * drops any group no live price reaches; this answers «where may I ask to be
+   * MOVED», which an officer decides — so it keeps a group that is open and has
+   * room but is not on sale, and says so with `is_on_sale`. Filtering the picker
+   * list instead deleted that case twice over, and the requirement to mark it
+   * could never fire.
+   */
+  transfer_destinations: TransferDestination[];
+}
+
+export interface TransferDestination {
+  uuid: string;
+  name: string;
+  /** «الأحد ٦م» — the fact a student actually picks a destination on. */
+  schedule_preview: string[];
+  is_on_sale: boolean;
 }
 
 /**
@@ -181,7 +233,7 @@ export const cohorts = {
  */
 export const manageCohorts = {
   list: (courseUuid: string) =>
-    api.get<{ data: CohortOption[] }>(`/manage/courses/${courseUuid}/cohorts`),
+    api.get<{ data: ManagedCohort[] }>(`/manage/courses/${courseUuid}/cohorts`),
 
   /**
    * One group and the course it is a run of.
@@ -192,7 +244,7 @@ export const manageCohorts = {
    * a list read to answer a question one row already knows.
    */
   show: (cohortUuid: string) =>
-    api.get<CohortOption & { course: { uuid: string; title: string } | null }>(
+    api.get<ManagedCohort & { course: { uuid: string; title: string } | null }>(
       `/manage/cohorts/${cohortUuid}`,
     ),
 

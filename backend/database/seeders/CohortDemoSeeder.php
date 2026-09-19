@@ -17,6 +17,8 @@ use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Payments\Enums\PlanCoverage;
+use App\Modules\Payments\Models\Plan;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
@@ -100,6 +102,19 @@ class CohortDemoSeeder extends Seeder
                 $this->command->warn('حُوِّل «'.$course->title.'» إلى كورس مجموعات ليقبل المجموعات.');
             }
 
+            /*
+             | ⛔ الثمنُ يُزرَعُ قبلَ المجموعات، لأنّ المجموعةَ بلا ثمنٍ نافذٍ لا
+             | تُعرَضُ ولا يُنضَمُّ إليها منذ ٠٣٦ · FR-003. وهذا السيدرُ يزرعُ
+             | «ثلاثاً تُرى ويُنضَمُّ إلى اثنتَين» ويُنادي `JoinCohort` بنفسِه في
+             | الأسفل — فبلا هذا السطرِ يزرعُ عرضاً مكسوراً ويسقطُ على رفضٍ عن
+             | التسعير، وهو آخرُ ما يبحثُ عنه من يُشغِّلُه ليُجرِّبَ المجموعات.
+             |
+             | ⚠️ وتغطيتُها مساحةُ العملِ لا مجموعةً بعينِها: باقةٌ تُسمّي مجموعةً
+             | تمنعُ أخواتِها من الوراثةِ (قاعدةُ الغَلَبة)، فتصيرُ الاثنتانِ
+             | الأخريانِ غيرَ معروضتَين — عكسُ ما يزرعُه هذا الملفُّ بالضبط.
+             */
+            $this->groupPlan($workspace);
+
             $saturday = $this->cohort($course, $teacher, self::SATURDAY, 'مساءُ السبت — للمبتدئين.', 8);
             $sunday = $this->cohort($course, $teacher, self::SUNDAY, 'مساءُ الأحد — نفسُ المنهج.', 8);
             $full = $this->cohort($course, $teacher, self::FULL, 'اكتملت — تُرى ولا يُنضَمُّ إليها.', 1);
@@ -115,6 +130,40 @@ class CohortDemoSeeder extends Seeder
         });
 
         $this->command->info('مجموعاتُ ٠٢١: ثلاثٌ (اثنتان مفتوحتان بمواعيدَ متباعدة · واحدةٌ مكتملة) · حصّةٌ لكلٍّ · وحصّتان غيرُ مُسنَدتَين إحداهما بمقعدٍ محجوزٍ لطالبِنا.');
+    }
+
+    /**
+     * باقةٌ جماعيّةٌ نافذةٌ تُغطّي كلَّ مجموعاتِ هذه المساحة (٠٣٦ · FR-003).
+     *
+     * ⚠️ `firstOrCreate` على العنوانِ كمفتاحٍ ثابت، كسائرِ صفوفِ هذا الملفّ —
+     * فالتشغيلةُ الثانيةُ تجدُ ما زرعتْه ولا تُكرِّرُه.
+     *
+     * ⚠️ و`price_minor` يُكتَبُ بـ`forceFill` **عمداً**: هو نصفُ المنصّةِ من
+     * صفٍّ يكتبُه فاعلان، ومُستبعَدٌ من `$fillable` لأنّ `SavePlan` يأخذُ
+     * مصفوفةً كاملةً من استمارةِ مدرّس. والسيدرُ ليس تلكَ الاستمارة، فيكتبُه
+     * صراحةً كما يكتبُه `SetPlanPrice`.
+     */
+    private function groupPlan(Workspace $workspace): Plan
+    {
+        $plan = Plan::query()->firstOrNew([
+            'workspace_id' => $workspace->getKey(),
+            'title' => 'اشتراك المجموعات — تجريبيّ',
+        ]);
+
+        $plan->fill([
+            'workspace_id' => $workspace->getKey(),
+            'title' => 'اشتراك المجموعات — تجريبيّ',
+            'duration_days' => 30,
+            'session_type' => ClassSessionType::Group,
+            'coverage_type' => PlanCoverage::Workspace,
+            'coverage_uuid' => null,
+            'currency' => 'QAR',
+            'is_active' => true,
+        ]);
+
+        $plan->forceFill(['price_minor' => 30_000])->save();
+
+        return $plan->refresh();
     }
 
     private function cohort(Course $course, User $teacher, string $name, string $description, int $capacity): Cohort

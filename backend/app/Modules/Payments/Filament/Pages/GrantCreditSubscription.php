@@ -15,6 +15,7 @@ use App\Modules\Payments\Data\SubscriptionIntent;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Models\CreditPackage;
 use App\Modules\Payments\Models\Order;
+use App\Modules\Payments\Support\PlanShape;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
@@ -185,10 +186,23 @@ class GrantCreditSubscription extends Page implements HasTable
                 TextColumn::make('teacher')->label('المدرّس')->placeholder('—')
                     ->state(fn (Order $record): ?string => SubscriptionIntent::fromOrder($record)?->teacherName),
                 TextColumn::make('course.title')->label('الكورس')->placeholder('—'),
-                TextColumn::make('duration')->label('مدّة الاشتراك')->placeholder('—')
-                    ->state(fn (Order $record): ?string => ($days = SubscriptionIntent::fromOrder($record)?->durationDays) === null
-                        ? null
-                        : $days.' يوماً'),
+                /*
+                | 036 . T069 -- IT PRINTED «٠ يوماً» FOR EVERY HOURS PURCHASE.
+                | `durationDays` is null on that shape and `$days.' يوماً'` was
+                | reached through a `=== null` check that a zero passes, so the
+                | officer deciding whether to approve read a subscription of no
+                | length at all. Read from the ORDER SNAPSHOT, which costs zero
+                | queries -- a lookup on `plans` inside a column body runs once per
+                | row and would turn `SubscriptionQueueTest`'s budget red.
+                */
+                TextColumn::make('shape')->label('ما اشتُري')->placeholder('—')
+                    ->state(function (Order $record): ?string {
+                        $intent = SubscriptionIntent::fromOrder($record);
+
+                        return $intent === null
+                            ? null
+                            : PlanShape::describe($intent->durationDays, $intent->sessionCount);
+                    }),
                 TextColumn::make('target')->label('المجموعة')->placeholder('—')->wrap()
                     // «حصص خاصّة» in words, never a blank — a dash here is
                     // indistinguishable from data that failed to load (FR-017).
@@ -225,14 +239,14 @@ class GrantCreditSubscription extends Page implements HasTable
                 TextColumn::make('activation')->label('التفعيل')
                     ->state(fn (Order $record): string => match (true) {
                         $record->isPending() => '—',
-                        (bool) $record->getAttribute('has_subscription') => 'مكتمل',
+                        self::wasActivated($record) => 'مكتمل',
                         self::awaitingActivation($record) => 'قيد التفعيل…',
-                        default => 'ناقص — لم يُنشأ الاشتراك',
+                        default => self::missingLabel($record),
                     })
                     ->badge()
                     ->color(fn (Order $record): string => match (true) {
                         $record->isPending() => 'gray',
-                        (bool) $record->getAttribute('has_subscription') => 'success',
+                        self::wasActivated($record) => 'success',
                         self::awaitingActivation($record) => 'warning',
                         default => 'danger',
                     }),
@@ -308,6 +322,16 @@ class GrantCreditSubscription extends Page implements HasTable
             */
             ->withExists([
                 'subscription as has_subscription' => fn ($relation) => $relation->withoutGlobalScope(WorkspaceScope::class),
+                /*
+                | ⛔ 036 . T069 -- THE SECOND PROOF, AND WITHOUT IT EVERY HOURS
+                | PURCHASE SITS ON THIS QUEUE MARKED «ناقص» FOR EVER. That shape
+                | writes NO subscription row by design, so `has_subscription` is
+                | false on a purchase that completed perfectly: a red badge the
+                | officer cannot clear, on money that was taken and credits that
+                | were poured. The sale row is what this shape does write, keyed on
+                | the order, so it is the existence question for it.
+                */
+                'creditPurchase as has_credit_purchase' => fn ($relation) => $relation->withoutGlobalScope(WorkspaceScope::class),
             ]);
     }
 
@@ -325,6 +349,36 @@ class GrantCreditSubscription extends Page implements HasTable
      * في توكيدةِ مدّةِ تذكرةِ البثّ — مرَّت خضراءَ لأيِّ مدّةٍ كانت.
      */
     private const ACTIVATION_GRACE_SECONDS = 60;
+
+    /**
+     * «اكتمل» for either shape (036 . T069).
+     *
+     * ⚠️ IT IS TWO EXISTENCE FLAGS, NOT ONE READ OF THE SNAPSHOT. Branching on
+     * `isSessionShaped()` and then asking only the matching flag would report an
+     * hours purchase as complete the instant its shape was known -- which is at
+     * the moment of BUYING, before the listener has run at all. What is being
+     * asked is whether the activation actually wrote something, so the answer is
+     * «something got written», whichever thing this order's shape writes.
+     */
+    private static function wasActivated(Order $order): bool
+    {
+        return (bool) $order->getAttribute('has_subscription')
+            || (bool) $order->getAttribute('has_credit_purchase');
+    }
+
+    /**
+     * The red badge names the thing that is actually missing.
+     *
+     * «لم يُنشأ الاشتراك» about an hours purchase sends the officer looking for a
+     * subscription row that was never going to exist, which is worse than no
+     * sentence at all.
+     */
+    private static function missingLabel(Order $order): string
+    {
+        return SubscriptionIntent::fromOrder($order)?->isSessionShaped() === true
+            ? 'ناقص — لم يُصَبَّ الرصيد'
+            : 'ناقص — لم يُنشأ الاشتراك';
+    }
 
     private static function awaitingActivation(Order $order): bool
     {

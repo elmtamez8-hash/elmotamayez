@@ -13,8 +13,10 @@ use App\Modules\Courses\Models\Section;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Models\Workspace;
@@ -188,7 +190,25 @@ function audienceWalkFixture(): array
         $narrow($lessons['video_beta'], $beta);
 
         $lessons['waiting']->forceFill(['release_session_id' => $session(false)->getKey()])->save();
-        $lessons['released']->forceFill(['release_session_id' => $session(true)->getKey()])->save();
+
+        $releasedSession = $session(true);
+        $lessons['released']->forceFill(['release_session_id' => $releasedSession->getKey()])->save();
+
+        /*
+        | ⚠️ **ومقعدٌ لكلِّ الثلاثةِ في تلكَ الحصّة (٠٣٦).** المادّةُ تتبعُ
+        | المقعدَ لا تاريخَ الحصّة، فبلا هذه المقاعدِ يكونُ «ظاهرٌ للجميع»
+        | حكماً عن ثلاثةِ طلابٍ لم يأخذْ أحدُهم تلكَ الساعة.
+        */
+        foreach ($students as $student) {
+            SessionBooking::query()->withoutWorkspaceScope()->create([
+                'workspace_id' => $workspace->getKey(),
+                'class_session_id' => $releasedSession->getKey(),
+                'student_user_id' => $student->getKey(),
+                'status' => BookingStatus::Booked,
+                'is_billable' => true,
+                'booked_at' => now()->subDays(2),
+            ]);
+        }
 
         foreach ($students as $key => $student) {
             Enrollment::create([
@@ -374,7 +394,12 @@ it('shows each group a different tree, and the loose student only the shared ite
         ->and($seen['loose'])->not->toContain($uuid('alpha_only'))
         ->and($seen['loose'])->not->toContain($uuid('beta_only'));
 
-    // والمحورُ الثاني يُخفي ويُظهِرُ للجميعِ سواءً — فهو خاصّيّةُ العنصرِ لا القارئ.
+    /*
+    | ⚠️ **والمحورُ الثاني يُخفي ويُظهِرُ سواءً لمن أخذوا الساعةَ نفسَها.** لم
+    | يعُدْ خاصّيّةَ العنصرِ وحدَه منذُ ٠٣٦: المادّةُ تتبعُ المقعد، والثلاثةُ
+    | هنا يحملونَ مقعداً في الحصّةِ المُسلَّمةِ عمداً — فما يُقاسُ هو أنّ
+    | **محورَ المجموعةِ لا يتسرّبُ إليه**.
+    */
     foreach ($seen as $who => $uuids) {
         // ⚠️ `toContain` مُتغيّرُ المعاملات: نصٌّ ثانٍ هنا إبرةٌ أخرى لا رسالة.
         expect($uuids)->not->toContain($uuid('waiting'))

@@ -9,6 +9,7 @@ import {
 } from "@/components/icons";
 import { PageBanner } from "@/components/ui/PageBanner";
 import { platformName } from "@/lib/platform";
+import { arabicNumber } from "@/lib/numerals";
 import {
   TrustFactorBars,
   type TrustFactor,
@@ -116,7 +117,7 @@ export default async function AboutPage() {
                     className="absolute -top-1.5 -start-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white"
                     aria-hidden="true"
                   >
-                    {(index + 1).toLocaleString("ar-QA")}
+                    {arabicNumber((index + 1))}
                   </span>
                 </span>
                 <span>

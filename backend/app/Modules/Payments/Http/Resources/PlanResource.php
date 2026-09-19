@@ -34,7 +34,15 @@ class PlanResource extends JsonResource
         return [
             'uuid' => $this->resource->uuid,
             'title' => $this->resource->title,
+            /*
+            | 036 -- BOTH SHAPES TRAVEL, AND EXACTLY ONE OF THEM IS SET.
+            | Without `session_count` on the payload the four screens that
+            | describe a plan fall back to the duration, which for an
+            | hours-shaped plan is null -- and `null % 30 === 0` is true in
+            | JavaScript, so the buyer reads the word `null` under a price.
+            */
             'duration_days' => $this->resource->duration_days,
+            'session_count' => $this->resource->session_count,
             'session_type' => $this->resource->session_type->value,
             'coverage_type' => $this->resource->coverage_type->value,
             'coverage_label' => $this->resource->coverage_type->label(),

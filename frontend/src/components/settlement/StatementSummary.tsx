@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/Card";
 import { counted, formatDate, formatMinorMoney } from "@/lib/labels";
 import type { TeacherStatement } from "@/lib/settlement";
 
+import { arabicNumber } from "@/lib/numerals";
 /**
  * The window at a glance: how much work, at what price, for how much.
  *
@@ -92,12 +93,12 @@ export function StatementSummary({
         <Figure label="الإجمالي قبل الخصومات" value={money(statement.gross_minor)} />
         <Figure
           label="الوحدات المستحقّة"
-          value={statement.units.accrued.toLocaleString("ar-QA")}
-          hint={`فردية ${individual.toLocaleString("ar-QA")} · جماعية ${group.toLocaleString("ar-QA")}`}
+          value={arabicNumber(statement.units.accrued)}
+          hint={`فردية ${arabicNumber(individual)} · جماعية ${arabicNumber(group)}`}
         />
         <Figure
           label="الطلاب"
-          value={statement.students_count.toLocaleString("ar-QA")}
+          value={arabicNumber(statement.students_count)}
           hint={
             statement.units.pending_package === 0
               ? undefined

@@ -206,6 +206,14 @@ enum NotificationCategory: string
                  * timetable today».
                  */
                 NotificationType::SubscriptionActivated,
+                /*
+                 * 036. The second shape of the same purchase: hours rather
+                 * than a window. It writes no subscription row at all, so
+                 * nothing above it covers it -- and it is still the answer
+                 * to «what did I buy and what does it open», which is what
+                 * this tab is.
+                 */
+                NotificationType::SessionPlanActivated,
             ],
             self::Settlement => [
                 NotificationType::SettlementRateApproved,
@@ -219,6 +227,13 @@ enum NotificationCategory: string
                 | له — ولا يقرؤُها طالبٌ إطلاقاً.
                 */
                 NotificationType::PlanCreatedForYou,
+                /*
+                 * ٠٣٦ — قرارُ المنصّةِ في طلبِ تعديلِ باقة. خبرٌ عمّا يُباعُ
+                 * باسمِ المدرّسِ وبأيِّ ثمن، فهو حيثُ أخوه فوقَه — ولا يقرؤه
+                 * طالبٌ إطلاقاً.
+                 */
+                NotificationType::PlanChangeApproved,
+                NotificationType::PlanChangeRejected,
             ],
             self::Account => [
                 NotificationType::SecurityAlert,

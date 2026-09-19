@@ -226,6 +226,70 @@ class EloquentSessionAttendanceDirectory implements SessionAttendanceDirectory
         return $ids;
     }
 
+    public function releaseStatesFor(array $classSessionIds): array
+    {
+        if ($classSessionIds === []) {
+            return [];
+        }
+
+        $states = [];
+
+        foreach (ClassSession::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('id', $classSessionIds)
+            ->where(fn ($query) => $query
+                ->whereNotNull('delivered_at')
+                ->orWhere('status', ClassSessionStatus::Cancelled->value))
+            ->get(['id', 'delivered_at']) as $session) {
+            $states[(int) $session->getKey()] = $session->delivered_at !== null;
+        }
+
+        return $states;
+    }
+
+    /**
+     * ⚠️ ONE STATEMENT FOR BOTH ARMS, and `orWhereExists` rather than two
+     * queries merged in PHP: this is asked once per curriculum tree, beside a
+     * budget test that fails on a query added to that path.
+     *
+     * ⚠️ AND THE ATTENDANCE ARM IS A SUBQUERY ON ITS OWN TABLE, not a join — a
+     * student with a booking AND an attendance row would otherwise come back
+     * twice and the caller would flip a duplicate key for nothing.
+     */
+    public function paidSessionIdsFor(User $user, array $classSessionIds): array
+    {
+        if ($classSessionIds === []) {
+            return [];
+        }
+
+        $entitling = array_map(
+            static fn (BookingStatus $status): string => $status->value,
+            self::ENTITLING,
+        );
+
+        $ids = [];
+
+        foreach (ClassSession::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('id', $classSessionIds)
+            ->where(fn ($query) => $query
+                ->whereExists(fn ($sub) => $sub->selectRaw('1')
+                    ->from('session_bookings')
+                    ->whereColumn('session_bookings.class_session_id', 'class_sessions.id')
+                    ->where('session_bookings.student_user_id', $user->getKey())
+                    ->whereIn('session_bookings.status', $entitling))
+                ->orWhereExists(fn ($sub) => $sub->selectRaw('1')
+                    ->from('attendances')
+                    ->whereColumn('attendances.class_session_id', 'class_sessions.id')
+                    ->where('attendances.student_user_id', $user->getKey())
+                    ->where('attendances.status', '!=', AttendanceStatus::Absent->value)))
+            ->pluck('id') as $id) {
+            $ids[] = (int) $id;
+        }
+
+        return $ids;
+    }
+
     public function previousCountableSessionIds(array $classSessionIds): array
     {
         if ($classSessionIds === []) {

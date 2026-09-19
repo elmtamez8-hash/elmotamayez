@@ -6,8 +6,10 @@ use App\Models\User;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Support\LessonGate;
+use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Shared\Support\WorkspaceContext;
 use Laravel\Sanctum\Sanctum;
 use Tests\Support\ScopedTreeFixture;
@@ -48,6 +50,25 @@ function releaseOn(Lesson $lesson, array $state = []): ClassSession
     $lesson->forceFill(['release_session_id' => $session->getKey()])->save();
 
     return $session;
+}
+
+/**
+ * مقعدُ هذا الطالبِ في هذه الحصّة (٠٣٦).
+ *
+ * ⛔ **والمادّةُ تتبعُ المقعدَ لا تاريخَ الحصّة.** التسليمُ وحدَه كانَ يُفرِجُ
+ * لكلِّ عضوِ مجموعةٍ ولو لم يحجزْ ساعةً واحدة — والتسجيلُ يُستحَقُّ بالمقعدِ
+ * منذُ ٠١٠ · FR-030، والمادّةُ المكتوبةُ للساعةِ نفسِها هي الاستحقاقُ نفسُه.
+ */
+function seatIn(ClassSession $session, User $student, BookingStatus $status = BookingStatus::Booked): SessionBooking
+{
+    return SessionBooking::query()->withoutWorkspaceScope()->create([
+        'workspace_id' => $session->workspace_id,
+        'class_session_id' => $session->getKey(),
+        'student_user_id' => $student->getKey(),
+        'status' => $status,
+        'is_billable' => true,
+        'booked_at' => now()->subDay(),
+    ]);
 }
 
 /** عناوينُ المنهجِ كما يقرؤُها الطالبُ فعلاً — بحسابِه، وبسياقٍ يُحَلُّ من جديد. */
@@ -94,10 +115,12 @@ it('hides an item whose session has not been held yet', function (): void {
 });
 
 it('shows it, and opens it, once the session has been delivered', function (): void {
-    releaseOn($this->tree['lessons']['shared_last'], [
+    $session = releaseOn($this->tree['lessons']['shared_last'], [
         'status' => ClassSessionStatus::Completed,
         'delivered_at' => now()->subHour(),
     ]);
+
+    seatIn($session, $this->tree['student']);
 
     $titles = releaseTitles($this->tree['student'], $this->tree['enrollment']);
 
@@ -147,10 +170,13 @@ it('shows it when the session was cancelled, because it will never be held', fun
 | الحالةُ على بناءٍ معطوبٍ وتُقرَأُ حارساً.
 */
 it('shows it to a student stamped with somebody else’s workspace', function (): void {
-    releaseOn($this->tree['lessons']['shared_last'], [
+    $session = releaseOn($this->tree['lessons']['shared_last'], [
         'status' => ClassSessionStatus::Completed,
         'delivered_at' => now()->subHour(),
     ]);
+
+    // ⚠️ والمقعدُ يُقرَأُ بتجاوزِ النطاقِ هو الآخر — وهذه هي الحالةُ التي تكشفُه.
+    seatIn($session, $this->tree['student']);
 
     [$otherWorkspace] = $this->createWorkspaceWithOwner();
 
@@ -159,4 +185,44 @@ it('shows it to a student stamped with somebody else’s workspace', function ()
     $titles = releaseTitles($this->tree['student'], $this->tree['enrollment']);
 
     expect($titles)->toContain('المشتَركُ الأخير');
+});
+
+/*
+| ⛔ **٠٣٦ — التسليمُ وحدَه لا يُفرِج، والمقعدُ هو السؤال.** عضوُ المجموعةِ الذي
+| لم يحجزْ هذه الساعةَ ولم يحضرْها لا يتلقّى مادّتَها — وهذا ما يقفُ بينَ
+| «رصيدُه انتهى فلم يعدْ يحجز» وبينَ «ومع ذلكَ تصلُه مادّةُ كلِّ حصّةٍ جايةٍ
+| إلى الأبد». والقاعدةُ واحدةٌ مع التسجيل (٠١٠ · FR-030): **يُستحَقُّ بالمقعد.**
+|
+| **كيفَ يمسك**: أعِدْ `applyRelease()` إلى «مُفرَجٌ عنها ⇒ ظاهرة» ⇒ تسقطُ هذه
+| وحدَها وتبقى أخواتُها خضراء.
+*/
+it('hides a delivered session’s material from a member who never took that hour', function (): void {
+    releaseOn($this->tree['lessons']['shared_last'], [
+        'status' => ClassSessionStatus::Completed,
+        'delivered_at' => now()->subHour(),
+    ]);
+
+    expect(releaseTitles($this->tree['student'], $this->tree['enrollment']))
+        ->not->toContain('المشتَركُ الأخير');
+});
+
+/*
+| ⛔ **وإلغاءٌ متأخّرٌ يُبقي المادّة، وهذه هي الحالةُ التي تفصلُ الثابتَ الصحيحَ
+| عن الخطأ.** المقعدُ المُلغى متأخّراً **دُفِعَ ثمنُه** (FR-010)، فالتسجيلُ
+| مستحَقٌّ ومعه المادّة. واختبارٌ على `Booked` وحدَه أخضرُ فوقَ بناءٍ يسألُ
+| `occupiesSeat()` — وهو سؤالُ «أفي الغرفةِ هو؟» لا سؤالُ «أدفعَ؟».
+|
+| **كيفَ يمسك**: بدِّلْ `ENTITLING` بـ`occupiesSeat()` في `paidSessionIdsFor()`
+| ⇒ تسقطُ هذه وحدَها.
+*/
+it('keeps it for a late cancellation, because that seat was charged for', function (): void {
+    $session = releaseOn($this->tree['lessons']['shared_last'], [
+        'status' => ClassSessionStatus::Completed,
+        'delivered_at' => now()->subHour(),
+    ]);
+
+    seatIn($session, $this->tree['student'], BookingStatus::CancelledLate);
+
+    expect(releaseTitles($this->tree['student'], $this->tree['enrollment']))
+        ->toContain('المشتَركُ الأخير');
 });

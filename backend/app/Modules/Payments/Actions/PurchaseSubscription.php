@@ -9,8 +9,11 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Data\SubscriptionIntent;
 use App\Modules\Payments\Enums\OrderKind;
+use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\Plan;
+use App\Modules\Payments\Support\CoveredCourses;
+use App\Modules\Payments\Support\PlanReach;
 use App\Modules\Payments\Support\PurchaseBeneficiary;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Actions\Action;
@@ -44,6 +47,10 @@ class PurchaseSubscription extends Action
 {
     public function __construct(
         private readonly CohortDirectory $cohorts,
+        private readonly CoveredCourses $covered,
+        // 036 · FR-016 -- the same object `ListPlans` reads, so the screen and
+        // this door cannot disagree about which plans reach a group.
+        private readonly PlanReach $reach,
     ) {}
 
     /**
@@ -110,10 +117,39 @@ class PurchaseSubscription extends Action
 
         $teacher = $this->teacherOf($plan);
 
+        /*
+        | ⛔ THE SHAPE IS BRANCHED ON HERE, AND «HERE» IS BEFORE ANY ORDER EXISTS.
+        | ٠٣٦ gave a plan two possible shapes — a window of days, or a number of
+        | hours — and exactly one of them is ever filled. The snapshot has to say
+        | which, because everything downstream reads the snapshot rather than the
+        | plan row: a manual transfer takes days to clear and the teacher may
+        | legitimately re-shape the plan inside that lag.
+        |
+        | ⛔ WHAT HAPPENS WITHOUT THIS BRANCH, IN FULL (٠٣٦ · T030). A session
+        | plan's `duration_days` is NULL; `(int) null` is **0**; the snapshot then
+        | carries a duration of zero; `ActivateSubscription` computes
+        | `$starts->addDays(0)`, so the subscription's end date EQUALS its start
+        | date — **a subscription that has expired the instant it was activated**.
+        | The student has paid, the officer has approved, the row exists, and
+        | every screen is correct about a window that is empty. Nothing throws,
+        | nothing is logged, and nobody finds out until the student cannot open
+        | what they bought.
+        |
+        | ⚠️ AND THE REFUSAL DOES NOT BELONG IN THE DTO. A guard in
+        | {@see SubscriptionIntent} would fire inside a deserialiser that is
+        | called after the money has committed; its own docblock now carries that
+        | argument in full.
+        */
+        $sessionCount = $plan->session_count === null ? null : (int) $plan->session_count;
+        $durationDays = $sessionCount !== null || $plan->duration_days === null
+            ? null
+            : (int) $plan->duration_days;
+
         $intent = new SubscriptionIntent(
             planUuid: (string) $plan->uuid,
             planTitle: (string) $plan->title,
-            durationDays: (int) $plan->duration_days,
+            durationDays: $durationDays,
+            sessionCount: $sessionCount,
             sessionType: $plan->session_type->value,
             mode: $mode,
             cohortUuid: $cohort === null ? null : $cohortUuid,
@@ -214,8 +250,52 @@ class PurchaseSubscription extends Action
             throw new DomainException('هذه المجموعة لم تعد متاحة للانضمام.');
         }
 
-        $covered = $cohort['workspace_id'] === (int) $plan->workspace_id
-            && (! $plan->coverage_type->needsCourse() || $cohort['course_uuid'] === $plan->coverage_uuid);
+        // ⚠️ `courseUuid()`, not `coverage_uuid`: on a group plan the raw column is a
+        // cohort uuid and would never equal a course uuid, so the comparison would
+        // refuse every group the plan was written for.
+        $planCourseUuid = $this->covered->courseUuid($plan);
+
+        /*
+        | ⛔ ٠٣٦ · FR-015 — THE THIRD ARM, AND WITHOUT IT A GROUP PLAN SOLD ANY
+        | GROUP IN ITS COURSE. `courseUuid()` resolves a cohort-covered plan to
+        | its group's COURSE, which is right for enrolment and far too wide for
+        | this door: «مجموعة الجمعة» priced at double, because it is four
+        | students, was buyable by anyone standing on «مجموعة السبت» of the same
+        | course -- and the other way round, so the intensive group could be had
+        | at the ordinary group's price. Both directions, no error anywhere, and
+        | the order's own snapshot would name the group that was actually chosen.
+        |
+        | So a plan that NAMES a group is proved against that group and nothing
+        | else. Coverage that names a course or a workspace still reaches every
+        | group inside it -- that is the inheritance FR-015 keeps.
+        */
+        $namesThisCohort = $plan->coverage_type !== PlanCoverage::Cohort
+            || $plan->coverage_uuid === $cohort['uuid'];
+
+        /*
+        | ⛔ AND THE OTHER HALF OF FR-015: A GROUP THAT WAS PRICED APART NO LONGER
+        | INHERITS. Without this the replacement lived on the SCREEN alone -- the
+        | course's month was hidden from the buyer standing on «مجموعة الجمعة»
+        | and still bought, by anyone who had the plan's uuid from the course page
+        | or a bookmark, at the price the teacher had deliberately moved away from.
+        |
+        | The predicate is `PlanReach::ownPlanIds()`, which is the object the
+        | listing reads; asked here in its own words the two would agree until the
+        | first time either moved.
+        |
+        | ⚠️ EXISTENCE, NOT SELLABILITY. A group whose own plan is written and
+        | unpriced buys nothing at all rather than falling back -- the fallback is
+        | what would sell it at the price it was moved away from, in silence.
+        */
+        $ownPlanIds = $this->reach->ownPlanIds((int) $plan->workspace_id, $cohort['uuid']);
+
+        $notPricedApart = $ownPlanIds === []
+            || in_array((int) $plan->getKey(), $ownPlanIds, true);
+
+        $covered = $namesThisCohort
+            && $notPricedApart
+            && $cohort['workspace_id'] === (int) $plan->workspace_id
+            && ($planCourseUuid === null || $cohort['course_uuid'] === $planCourseUuid);
 
         if (! $covered) {
             throw new DomainException('هذه المجموعة لم تعد متاحة للانضمام.');
@@ -312,13 +392,27 @@ class PurchaseSubscription extends Action
      */
     private function guardCoverageStillExists(Plan $plan): void
     {
-        if (! $plan->coverage_type->needsCourse()) {
+        $uuid = $this->covered->courseUuid($plan);
+
+        if ($plan->coverage_type === PlanCoverage::Workspace) {
             return;
         }
 
-        $live = Course::query()
+        /*
+        | ⛔ A COHORT UUID IS NOT A COURSE UUID, and this method used to look both
+        | up in `courses` — so every group plan matched zero rows and was refused
+        | «هذه الباقة غير متاحة» about a plan the teacher could see on their own
+        | screen. `CoveredCourses` is what translates one into the other, in the
+        | one place that knows how.
+        |
+        | And a coverage that no longer resolves at all — the group archived, the
+        | course deleted — falls into the same refusal, which is the correct one:
+        | there is nothing left to sell.
+        */
+        $live = $uuid !== null && Course::query()
             ->withoutWorkspaceScope()
-            ->where('uuid', $plan->coverage_uuid)
+            ->where('workspace_id', $plan->workspace_id)
+            ->where('uuid', $uuid)
             ->where('status', 'published')
             ->exists();
 
@@ -327,17 +421,12 @@ class PurchaseSubscription extends Action
         }
     }
 
+    // ⛔ Same defect as the guard above, same fix: the uuid on a group plan names a
+    // COHORT, so the old query returned null and `orders.course_id` was left empty
+    // on every group purchase — after which nothing downstream knew which course
+    // had been bought.
     private function coverageCourseId(Plan $plan): ?int
     {
-        if (! $plan->coverage_type->needsCourse()) {
-            return null;
-        }
-
-        $id = Course::query()
-            ->withoutWorkspaceScope()
-            ->where('uuid', $plan->coverage_uuid)
-            ->value('id');
-
-        return $id === null ? null : (int) $id;
+        return $this->covered->coverageCourseId($plan);
     }
 }

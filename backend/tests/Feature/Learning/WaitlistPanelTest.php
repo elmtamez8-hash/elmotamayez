@@ -9,7 +9,9 @@ use App\Modules\Learning\Filament\Pages\CourseWaitlist;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CourseWaitlistEntry;
 use App\Modules\Notifications\Models\Notification;
+use App\Modules\Payments\Models\Plan;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Support\CohortPricingGap;
 use App\Shared\Support\WorkspaceContext;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Carbon;
@@ -138,4 +140,61 @@ it('is closed to a tenant role, however senior', function (): void {
     $this->actingAs($this->officer);
 
     expect(CourseWaitlist::canAccess())->toBeTrue();
+});
+
+it('warns the officer which group cannot be bought before a single invitation goes out', function (): void {
+    /*
+    | ⛔ **٠٣٦ · FR-020 — الإخبارُ هو الحلّ، لا المنع.** الدعوةُ إسنادٌ إداريٌّ
+    | فلا تقرأُ الباقات (FR-004): منعُها يتركُ مقعداً فارغاً بسببِ خانةِ سعرٍ
+    | عندَ المنصّة. ودعوةٌ صامتةٌ تُوصِلُ المدعوَّ إلى شاشةٍ لا يشتري منها شيئاً،
+    | **وصفُّه مختومٌ فلا يعودُ مرشَّحاً أبداً**. فالمواصفةُ تقولُ بحرفِها:
+    | «والإخبارُ وحدَه يُسقِطُ الاثنَين» — يُرسِلُ المسؤولُ عالماً أو ينتظر.
+    |
+    | ⚠️ **والمجموعةُ المُسعَّرةُ بلا علامةٍ هي نصفُ القياس.** علامةٌ تظهرُ على
+    | كلِّ صفٍّ لا تقولُ شيئاً، وتُقرَأُ زينةً بعدَ أسبوع.
+    */
+    $priced = Cohort::factory()->create([
+        'workspace_id' => $this->away->getKey(),
+        'course_id' => $this->course->getKey(),
+        'name' => 'مجموعة الثلاثاء',
+        'created_by' => $this->awayTeacher->getKey(),
+    ]);
+
+    Plan::factory()->group()->forCohort((string) $priced->uuid)->create([
+        'workspace_id' => $this->away->getKey(),
+    ]);
+
+    // ⚠️ باقةٌ كُتِبَت ولم تُسعَّرْ — وهي الحالةُ الوحيدةُ التي لا عملَ فيها
+    // للمدرّس، فلا يجوزُ أن تُقرَأَ «لا توجد باقة».
+    $waiting = Cohort::factory()->create([
+        'workspace_id' => $this->away->getKey(),
+        'course_id' => $this->course->getKey(),
+        'name' => 'مجموعة الخميس',
+        'created_by' => $this->awayTeacher->getKey(),
+    ]);
+
+    Plan::factory()->unpriced()->forCohort((string) $waiting->uuid)->create([
+        'workspace_id' => $this->away->getKey(),
+    ]);
+
+    $this->actingAs($this->officer);
+
+    /*
+    | ⚠️ **يُقاسُ ما يُرسَمُ في المُنتقي، لا ما يردُّه مِنهاجٌ خاصّ.** الخيارُ هو
+    | كلُّ ما يراه المسؤولُ قبلَ الضغط، وتأكيدٌ على قيمةٍ داخليّةٍ يمرُّ فوقَ
+    | نموذجٍ يحسبُها ثمّ لا يعرضُها.
+    */
+    $options = Livewire::test(CourseWaitlist::class)
+        ->fillForm(['course' => $this->course->getKey()])
+        ->instance()
+        ->cohortOptions();
+
+    expect($options[(string) $waiting->uuid] ?? '')
+        ->toContain(CohortPricingGap::AwaitingPricing->label())
+        // ⛔ والمُسعَّرةُ بلا علامة — انظرْ أعلاه.
+        ->and($options[(string) $priced->uuid] ?? 'x')->not->toContain('⚠️')
+        // ⚠️ والمجموعةُ بلا باقةٍ أصلاً تقولُ جملةً أخرى: الفرقُ بينَهما «دورُ
+        // مَن هو الآن» — المدرّسِ أم المنصّة — ودمجُهما يُرسِلُ أحدَهما ينتظرُ
+        // قراراً لا ينتظرُه أحد.
+        ->and($options[(string) $this->cohort->uuid] ?? null)->toBeNull();
 });

@@ -7,6 +7,9 @@ namespace Database\Factories\Modules\Learning;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Cohort;
+use App\Modules\LiveSessions\Enums\ClassSessionType;
+use App\Modules\Payments\Enums\PlanCoverage;
+use App\Modules\Payments\Models\Plan;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -35,6 +38,37 @@ class CohortFactory extends Factory
             'archived_at' => null,
             'created_by' => User::factory(),
         ];
+    }
+
+    /**
+     * A group a live price reaches (٠٣٦ · T102 · FR-003).
+     *
+     * ⛔ **ASKED FOR, NEVER THE DEFAULT — AND THAT IS THE WHOLE POINT OF THE
+     * STATE.** Sixty-seven fixtures build a cohort, and making them covered by
+     * default would hand every one of them a price they never meant to have: the
+     * gate this spec exists to install would then be green in every test that
+     * touches a group, including the ones written to prove it BITES. A guard
+     * silenced by its own fixtures is the shape this tree has paid for before.
+     *
+     * ⚠️ WORKSPACE COVERAGE, WHICH IS THE WIDEST THING A FIXTURE CAN MEAN.
+     * The narrow forms carry their own meaning — a plan naming ONE group stops
+     * every other group of the course inheriting, and a plan naming the course
+     * does not — so a fixture that only wants «this group is on sale» should not
+     * accidentally be saying «and its siblings are not».
+     *
+     * ⚠️ AND `group()`: a room size is part of a price. An `individual` plan
+     * lists no group at all, so the covered state would cover nothing.
+     */
+    public function covered(): static
+    {
+        return $this->afterCreating(function (Cohort $cohort): void {
+            Plan::factory()->create([
+                'workspace_id' => $cohort->workspace_id,
+                'session_type' => ClassSessionType::Group,
+                'coverage_type' => PlanCoverage::Workspace,
+                'coverage_uuid' => null,
+            ]);
+        });
     }
 
     public function full(): static

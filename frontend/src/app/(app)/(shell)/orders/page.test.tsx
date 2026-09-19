@@ -83,6 +83,7 @@ describe("what the order row says was bought", () => {
           planUuid: "p-1",
           planTitle: "الشهري",
           durationDays: 30,
+          sessionCount: null,
           sessionType: "group",
           cohortUuid: "c-1",
           cohortName: "مجموعة السبت",
@@ -96,6 +97,37 @@ describe("what the order row says was bought", () => {
     expect(
       screen.getByText("شهر واحد · حصص جماعية · مجموعة السبت"),
     ).toBeDefined();
+  });
+
+  it("names the COUNT when the plan was sold by sessions, not «null يوماً»", async () => {
+    /*
+     * ⛔ 036. The buyer of hours has no duration at all, and `null % 30 === 0` is
+     * true in JavaScript — so before `planShape` this cell read «null يوماً» to
+     * the person who had already paid, with nothing failing anywhere.
+     *
+     * ⚠️ AND THE COUNT IS THREE, NOT TWELVE. Twelve and thirty are exactly the
+     * band where a template literal happens to agree with Arabic agreement, so a
+     * case written with one passes over «٣ حصّة».
+     */
+    await show([
+      order({
+        kind: "subscription",
+        subscription: {
+          mode: "cohort",
+          planUuid: "p-2",
+          planTitle: "باقة الحصص",
+          durationDays: null,
+          sessionCount: 3,
+          sessionType: "group",
+          cohortUuid: "c-1",
+          cohortName: "مجموعة السبت",
+          teacherUuid: "t-1",
+          teacherName: "Demo Teacher",
+        },
+      }),
+    ]);
+
+    expect(screen.getByText("٣ حصص · حصص جماعية · مجموعة السبت")).toBeDefined();
   });
 
   it("counts the sessions a credit order bought instead of saying «شراء أرصدة» alone", async () => {

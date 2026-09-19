@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { listen } from "@/lib/echo";
 import { NOTIFICATIONS_CHANGED, notifications } from "@/lib/notifications";
 
+import { arabicNumber } from "@/lib/numerals";
 /**
  * The unread badge in the panel header.
  *
@@ -108,7 +109,7 @@ export function NotificationBell() {
           // the icon, which is the left one in RTL.
           className="absolute -top-0.5 -end-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white"
         >
-          {count > 99 ? "٩٩+" : count.toLocaleString("ar-EG")}
+          {count > 99 ? "٩٩+" : arabicNumber(count)}
         </span>
       )}
     </Link>

@@ -462,12 +462,67 @@ student is offered:
 | بالحصّة | `CreditPackage(credits: 1)` | `credit_packages`, priced per course |
 | بعدد من الحصص | `CreditPackage(credits: N)` | `credit_packages`, priced per course |
 | بالشهر | `Plan` | `plans` — **this section** |
+| بعدد من الحصص، على باقة | `Plan(session_count: N)` | `plans` — **since spec 036** |
 
-A `session_count` column on `plans` would be a second credit engine beside the
-first: two vocabularies for one fact, and FR-028 forbids a plan session touching
-a balance at all, so the pack would have to reimplement lots, expiry, the floor
-and the reconciliation invariants rather than reuse them. **Sessions are bought
-as credits; time is bought here.**
+⛔ **THE PARAGRAPH THAT STOOD HERE SAID `plans` COULD NOT CARRY A
+`session_count`, AND SPEC 036 GAVE IT ONE.** It argued that such a column would
+be a second credit engine beside the first, and the argument was sound — it is
+answered by REUSE rather than by absence. FR-020 makes a plan «either a window
+of days or a number of hours, never both and never neither», and the hours shape
+mints ordinary credits through `CreditLedger` from the order itself: the same
+lots, the same expiry, the same floor, the same reconciliation invariants,
+reused rather than rebuilt. Nothing here reimplements a balance.
+
+The rule that replaces it lives in ONE place — `SavePlan::resolveShape()`, not
+in a `CHECK` constraint (spelled differently on MySQL and SQLite, invisible to
+the suite, and it tells the teacher nothing about which field to fix) and not in
+the form request (the panel, the seeders and any importer arrive with no form
+behind them).
+
+- **`duration_days` IS NULLABLE NOW, AND `(int) null === 0`** — a subscription
+  that expires the instant it is activated. The guard is the SHAPE BRANCH: the
+  hours shape never reads the duration at all. Every docblock written about that
+  column while it was NOT NULL is suspect; two printed the literal word `null` at
+  a buyer before they were found.
+
+### The third coverage, and the rule that decides it (spec 036)
+
+`PlanCoverage` has THREE cases, not two: `workspace` · `course` · **`cohort`**.
+`coverage_uuid` names whatever the coverage points at — a second `cohort_uuid`
+column beside it would be null on two rows out of three, and the first reader to
+forget it opens a group plan onto every course the teacher has.
+
+⚠️ **`PlanCoverage::requiresUuid()`, NEVER the old `needsCourse()`.** That name
+answered «is this the Course case» while every caller was really asking «does
+this row need a uuid» — two questions that agree while there are two cases and
+disagree the moment there are three. Read literally it sent a cohort plan down
+the «no uuid needed» branch, and `SavePlan` NULLED the uuid on the way to the
+database: a group plan saved, listed, and pointing at no group.
+
+⛔ **THE OVERRULE RULE IS WRITTEN ONCE, IN `Payments\Support\CohortPlanReach`,
+AND THIS IS A POINTER TO IT — NOT A COPY.** Read that class's header for the
+argument; a second statement of it here is the second spelling that diverges at
+the first edit. The short form: a group is listed when a plan **of its own** can
+be bought, **or**, only when it has no plan of its own at all, when its course's
+or its teacher's plan can be bought. Written as «own OR inherited» the second
+clause collapses into the first negated and «باقتها بانتظار التسعير» becomes a
+sentence no group on the platform can ever be in.
+
+- **A group no live price reaches is ABSENT from the student's picker, not
+  flagged** (owner decision 2026-09-16) — a card offering the one action that
+  cannot succeed is worse than no card. Its MEMBERS keep seeing it: their own
+  membership is read by a separate query that never passes through the gate.
+- **The TRANSFER picker is a different read** (`transferDestinationsFor()`) and
+  deliberately KEEPS a group that is open and has room but is not on sale,
+  marked. Joining is the student's act and must not fail; moving is an officer's
+  decision, and an option missing from a list is a question nobody can ask.
+- **A teacher is warned BEFORE a plan edit hides a group with students in it**
+  (FR-013). `SavePlan` runs the write, reads the gate before and after it inside
+  one transaction, rolls it back and refuses with the names — the count comes
+  from `CohortDirectory::unlistedCohortsWithMembers()`, the same method
+  `php artisan cohorts:gate-impact` reads before a release. Simulating the edit
+  instead cannot answer the second trigger («or narrows its coverage»), because
+  that is a hypothetical ROW.
 
 - **`plans` HAS a price column and `credit_packages` deliberately does not**, and
   that is the boundary of 006's rule rather than a breach of it. A credit package

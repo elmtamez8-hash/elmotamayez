@@ -14,7 +14,7 @@ import { userMessage } from "@/lib/errors";
 import { formatDate, formatMinorMoney } from "@/lib/labels";
 import {
   plans as plansApi,
-  planDuration,
+  planShape,
   SESSION_TYPE_LABELS,
   type Plan,
   type Subscription,
@@ -209,7 +209,7 @@ export default function PlansPage() {
                       `planDuration` تُرجِعُ `null` لمدّةٍ غيرِ معلومة، وفاصلٌ
                       مكتوبٌ بيدِه يتركُ « · » معلّقةً في أوّلِ السطر. */}
                   {[
-                    planDuration(plan.duration_days),
+                    planShape(plan),
                     SESSION_TYPE_LABELS[plan.session_type],
                     plan.coverage_label,
                   ]

@@ -12,20 +12,14 @@ import {
 import Link from "next/link";
 import { api, errorMessage } from "@/lib/api";
 import type { Order } from "@/lib/types";
-import {
-  counted,
-  formatDate,
-  formatMinorMoney,
-  statusLabel,
-  statusTone,
-  TONE_CLASSES,
-} from "@/lib/labels";
-import { planDuration, SESSION_TYPE_LABELS } from "@/lib/plans";
+import { TONE_CLASSES, counted, formatDate, formatMinorMoney, statusLabel, statusTone } from "@/lib/labels";
+import { planShape, SESSION_TYPE_LABELS } from "@/lib/plans";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Field";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
+import { arabicNumber } from "@/lib/numerals";
 import {
   AlertIcon,
   CheckIcon,
@@ -175,7 +169,10 @@ function bought(order: Order): { title: string; detail: string | null } {
       // beneath it are derived, so they stay true whatever the title says.
       title: intent.planTitle,
       detail: [
-        planDuration(intent.durationDays),
+        // 036 -- the snapshot's own shape, read from the order and not from
+        // the plan row: a plan edited while a bank transfer is in review
+        // must not change what the buyer was sold.
+        planShape({ duration_days: intent.durationDays, session_count: intent.sessionCount }),
         SESSION_TYPE_LABELS[intent.sessionType],
         intent.cohortName,
       ]
@@ -668,7 +665,7 @@ export default function OrdersPage() {
                       label beside it already carries the noun, so the numeral is
                       all that is needed. */}
                   <span className="text-sm font-semibold tabular-nums text-ink">
-                    {count.toLocaleString("ar-QA")}
+                    {arabicNumber(count)}
                   </span>
                   <span className="text-xs text-ink-muted">{label}</span>
                 </span>

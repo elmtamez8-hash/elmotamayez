@@ -3,6 +3,7 @@ import { StarRating } from "@/components/marketplace/StarRating";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ReviewForm } from "@/components/marketplace/ReviewForm";
 
+import { arabicDecimal, arabicNumber } from "@/lib/numerals";
 const STARS = [5, 4, 3, 2, 1] as const;
 
 /**
@@ -43,10 +44,9 @@ export function ReviewsTab({
 
         <div className="text-center sm:border-e sm:border-line sm:pe-8">
           <p className="text-5xl font-extrabold text-ink">
-            {reviews.average?.toLocaleString("ar-QA", {
-              minimumFractionDigits: 1,
-              maximumFractionDigits: 1,
-            })}
+            {reviews.average === null || reviews.average === undefined
+              ? "—"
+              : arabicDecimal(reviews.average)}
           </p>
           <div className="mt-2 flex justify-center">
             <StarRating value={reviews.average} count={reviews.total} size="lg" />
@@ -77,7 +77,7 @@ export function ReviewsTab({
                     />
                   </span>
                   <span className="w-8 shrink-0 text-sm tabular-nums text-ink-muted">
-                    {count.toLocaleString("ar-QA")}
+                    {arabicNumber(count)}
                   </span>
                 </dd>
               </div>

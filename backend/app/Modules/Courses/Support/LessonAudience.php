@@ -57,6 +57,16 @@ final class LessonAudience
     public const UNRELEASED = 'unreleased';
 
     /**
+     * الحصّةُ عُقِدَت، والقارئُ لم يكنْ فيها ولم يدفعْ ثمنَها (٠٣٦).
+     *
+     * ⛔ **رمزٌ ثانٍ لأنّ السببَ ثانٍ، ولو كانَ الأثرُ واحداً.** كلاهما يُسقِطُ
+     * الصفَّ بلا جملة، لكنّ «لم تُعقَدْ بعد» ينقضي بمرورِ الوقتِ و«لم تكنْ فيها»
+     * لا ينقضي إلّا بمقعد — وقارئٌ يجدُ `unreleased` على حصّةٍ سُلِّمَت الشهرَ
+     * الماضيَ يطاردُ عطباً في التوقيت.
+     */
+    public const NOT_MY_SESSION = 'not_my_session';
+
+    /**
      * الحكمُ لكلِّ عنصرٍ في الشجرة: **معرّفُ الدرسِ ⇒ رمزُ الإخفاءِ أو `null`**.
      *
      * @param  iterable<Lesson>  $lessons
@@ -79,7 +89,7 @@ final class LessonAudience
         $out = array_fill_keys(array_keys($items), null);
 
         self::applyScopes($viewer, $items, $out);
-        self::applyRelease($items, $out);
+        self::applyRelease($viewer, $items, $out);
 
         return self::exemptAuthor($viewer, $items, $out);
     }
@@ -188,12 +198,23 @@ final class LessonAudience
     }
 
     /**
-     * المحورُ الثاني — «متى يظهر».
+     * المحورُ الثاني — «متى يظهر، ولمن».
+     *
+     * ⛔ **والتسليمُ وحدَه لم يكنْ كافياً، وهي الفتحةُ التي أبقَت المادّةَ
+     * تتدفّقُ على مَن لا يستطيعُ حجزَ حصّةٍ واحدة (٠٣٦).** الشرطُ كانَ «هل
+     * عُقِدَت هذه الحصّة؟» ولم يكنْ «هل كانَ هذا الطالبُ فيها؟» — فعضوُ
+     * المجموعةِ يتلقّى مادّةَ كلِّ حصّةٍ جايةٍ إلى الأبدِ ولو لم يحجزْ منها
+     * واحدة. والتسجيلُ يُستحَقُّ **بالمقعد** منذُ ٠١٠ · FR-030، والمادّةُ
+     * المكتوبةُ للساعةِ نفسِها هي الاستحقاقُ نفسُه بامتدادِ ملفٍّ آخر.
+     *
+     * ⚠️ **والملغاةُ تُفرَجُ للجميع، ولا يُسأَلُ عنها مقعد.** الإلغاءُ يردُّ
+     * المقاعدَ (`SessionCancelled`)، فشرطُ المقعدِ عليها يدفنُ مادّةَ حصّةٍ لن
+     * تُعقَدَ أبداً — عينُ ما كُتِبَت FR-008 لمنعِه.
      *
      * @param  array<int, Lesson>  $items
      * @param  array<int, string|null>  $out
      */
-    private static function applyRelease(array $items, array &$out): void
+    private static function applyRelease(User $viewer, array $items, array &$out): void
     {
         $sessionIds = array_values(array_unique(array_map(
             static fn (Lesson $lesson): int => (int) $lesson->release_session_id,
@@ -204,15 +225,28 @@ final class LessonAudience
             return;
         }
 
-        $released = array_flip(
-            app(SessionAttendanceDirectory::class)->releasedSessionIds($sessionIds),
-        );
+        $directory = app(SessionAttendanceDirectory::class);
+
+        // استعلامان لا أكثر: حالُ الحصص، ثمّ ما دفعَ هذا القارئُ ثمنَه منها.
+        $states = $directory->releaseStatesFor($sessionIds);
+        $mine = array_flip($directory->paidSessionIdsFor($viewer, $sessionIds));
 
         foreach ($items as $id => $lesson) {
-            if ($out[$id] === null
-                && $lesson->release_session_id !== null
-                && ! isset($released[(int) $lesson->release_session_id])) {
+            if ($out[$id] !== null || $lesson->release_session_id === null) {
+                continue;
+            }
+
+            $sessionId = (int) $lesson->release_session_id;
+
+            if (! isset($states[$sessionId])) {
                 $out[$id] = self::UNRELEASED;
+
+                continue;
+            }
+
+            // الملغاةُ (`false`) مُفرَجةٌ للجميعِ ولا مقعدَ فيها لأحد — انظرْ وصفَ المِنهاج.
+            if ($states[$sessionId] && ! isset($mine[$sessionId])) {
+                $out[$id] = self::NOT_MY_SESSION;
             }
         }
     }

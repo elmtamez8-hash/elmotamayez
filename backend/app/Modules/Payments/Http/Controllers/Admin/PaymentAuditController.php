@@ -7,6 +7,7 @@ namespace App\Modules\Payments\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Http\Resources\BillingAuditEntryResource;
+use App\Modules\Payments\Listeners\ActivateSubscription;
 use App\Modules\Payments\Models\CreditAllocation;
 use App\Modules\Payments\Models\CreditLot;
 use App\Modules\Payments\Models\CreditPurchase;
@@ -112,6 +113,33 @@ class PaymentAuditController extends Controller
             ->where('type', CreditTransactionType::Purchase->value)
             ->where('source_type', 'credit_purchase')
             ->where('source_id', $purchase->getKey())
+            ->first();
+
+        /*
+        | ⛔ **THE SECOND SHAPE OF THE SAME PURCHASE, AND WITHOUT IT THE WHOLE
+        | CHAIN ANSWERS «nothing was bought» (٠٣٦).** An hours plan mints its
+        | credits straight from the order — no `credit_purchases` row exists at
+        | all — so `$purchase` is null, and with it the entry, the lot and every
+        | allocation beneath. The auditor gets a `200` carrying four nulls and an
+        | empty list about a sale that settled, which is worse than an error: it
+        | reads as evidence that nothing happened.
+        |
+        | ⚠️ THE TYPE HALF COMES FROM THE WRITER, never retyped here — a string
+        | literal in an auditor's query is a second spelling of an idempotency
+        | key, and it would go quiet rather than red the day the writer's moved.
+        |
+        | ⚠️ AND THE BALANCE CANNOT LEAD THIS ONE. There is no purchase row to
+        | read it from, and re-deriving it from the order would be a third
+        | spelling of {@see ActivateSubscription::creditCourseFor()}. The
+        | `(source_type, source_id)` index is what makes the read cheap instead —
+        | it ships in the same change, because without it this is a scan of the
+        | fastest-growing table in the module.
+        */
+        $entry ??= $order === null ? null : CreditTransaction::query()
+            ->withoutWorkspaceScope()
+            ->where('type', CreditTransactionType::Purchase->value)
+            ->where('source_type', ActivateSubscription::CREDIT_SOURCE_TYPE)
+            ->where('source_id', $order->getKey())
             ->first();
 
         $lot = $entry === null ? null : CreditLot::query()
