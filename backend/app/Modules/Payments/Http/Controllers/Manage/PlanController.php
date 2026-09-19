@@ -132,11 +132,19 @@ class PlanController extends Controller
             | so it carries a `code` the client branches on rather than a sentence
             | it would have to match on. Nothing was written — the Action rolled
             | its own transaction back.
+            |
+            | ⚠️ `hidden_cohorts`, NOT `cohorts` — AND THAT IS THE BOUNDARY
+            | GUARD, not a preference. `CohortPlanBoundaryTest` forbids the bare
+            | string `'cohorts'` anywhere under `Modules/Payments`, because that
+            | is exactly how the query builder names a table; an allowlist for
+            | «but this one is a payload key» is how a boundary guard stops being
+            | one. The longer name is the more accurate name besides: these are
+            | the groups this edit WOULD hide.
             */
             return response()->json([
                 'message' => $e->getMessage(),
                 'code' => 'plan_would_hide_cohorts',
-                'cohorts' => $e->names(),
+                'hidden_cohorts' => $e->names(),
             ], 422);
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);

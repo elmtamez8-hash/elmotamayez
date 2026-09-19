@@ -223,9 +223,9 @@ export default function ManagePlansPage() {
 
     const body = error.body;
 
-    if (typeof body !== "object" || body === null || !("cohorts" in body)) return [];
+    if (typeof body !== "object" || body === null || !("hidden_cohorts" in body)) return [];
 
-    const names = (body as { cohorts: unknown }).cohorts;
+    const names = (body as { hidden_cohorts: unknown }).hidden_cohorts;
 
     return Array.isArray(names) ? names.filter((name): name is string => typeof name === "string") : [];
   }

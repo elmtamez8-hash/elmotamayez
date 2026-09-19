@@ -210,7 +210,7 @@ describe("stopping a plan that a group depends on (036 · FR-013)", () => {
     new ApiError("هذا التعديل يُخرِج مجموعة واحدة فيها طلاب من العرض: مجموعة السبت.", 422, {
       message: "…",
       code: "plan_would_hide_cohorts",
-      cohorts: ["مجموعة السبت"],
+      hidden_cohorts: ["مجموعة السبت"],
     });
 
   it("asks first, writes only after the teacher says they know", async () => {

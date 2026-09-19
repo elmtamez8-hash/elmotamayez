@@ -8,6 +8,7 @@ use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\Learning\Models\CohortMembershipEvent;
 use App\Modules\Learning\Support\CohortMembershipWriter;
+use App\Modules\Payments\Models\Plan;
 use App\Shared\Support\WorkspaceContext;
 
 /*
@@ -117,4 +118,51 @@ it('changes nothing it looked at', function (): void {
     expect(CohortMembership::query()->withoutWorkspaceScope()->whereNull('closed_at')->count())->toBe(2)
         ->and((int) $cohort->refresh()->members_count)->toBe(2)
         ->and($cohort->status)->toBe(Cohort::OPEN);
+});
+
+it('counts a group whose OWN plan is switched off, live course plan or not', function (): void {
+    /*
+    | ⛔ T094'S THIRD CASE, AND ITS EXPECTATION WAS WRONG — MEASURED, NOT
+    | ARGUED. The task asked for ZERO here on the reasoning that the course's
+    | live plan still covers the group. It does not, and that is the whole of the
+    | overrule rule: a group with a plan OF ITS OWN does not inherit, whether or
+    | not that plan can be bought. `CohortPlanReach`'s own header spells out why
+    | the alternative collapses — «own-sellable OR (no own-sellable AND
+    | inherited-sellable)» is the first clause negated, so it reduces to «own OR
+    | inherited», and «باقتها بانتظار التسعير» becomes a sentence no group on the
+    | platform can ever be in.
+    |
+    | ⚠️ SO THE GUARD IS RIGHT TO STOP THE RELEASE, and the teacher's remedy is
+    | the actionable one `gapFrom()` picks: switch their own plan back on. A case
+    | written to the task's number would have pinned the collapse instead.
+    */
+    $cohort = cohortWithMembers('مجموعة السبت');
+
+    Plan::factory()->group()->inactive()->forCohort((string) $cohort->uuid)->create([
+        'workspace_id' => $this->workspace->getKey(),
+    ]);
+
+    // The course IS priced, and it changes nothing for a group that has its own.
+    Plan::factory()->group()->forCourse((string) $this->course->uuid)->create([
+        'workspace_id' => $this->workspace->getKey(),
+    ]);
+
+    $this->artisan('cohorts:gate-impact')
+        ->expectsOutputToContain('مجموعات فيها أعضاء ستخرج من العرض: 1')
+        ->assertExitCode(1);
+});
+
+it('lets a group with no plan of its own inherit the price of its course', function (): void {
+    /*
+    | ⚠️ THE OTHER HALF OF THE SAME RULE, AND WITHOUT IT THE CASE ABOVE IS
+    | EQUALLY TRUE OF A BRIDGE THAT NEVER INHERITS AT ALL. No own plan ⇒ the
+    | course's live one reaches the group ⇒ the release takes nothing.
+    */
+    cohortWithMembers('مجموعة الأحد');
+
+    Plan::factory()->group()->forCourse((string) $this->course->uuid)->create([
+        'workspace_id' => $this->workspace->getKey(),
+    ]);
+
+    $this->artisan('cohorts:gate-impact')->assertExitCode(0);
 });

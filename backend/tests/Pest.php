@@ -72,6 +72,7 @@ use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Minishlink\WebPush\WebPush;
+use Symfony\Component\Finder\Finder;
 use Tests\Support\FakeWebPush;
 use Tests\Support\WithWorkspace;
 use Tests\TestCase;
@@ -1755,4 +1756,48 @@ function adaptiveWrongOption(int $questionId): int
         ->where('question_id', $questionId)
         ->where('is_correct', false)
         ->value('id');
+}
+
+/*
+|--------------------------------------------------------------------------
+| Source scanning, for the architectural guards
+|--------------------------------------------------------------------------
+|
+| ⚠️ HERE RATHER THAN IN ONE TEST FILE, FOR THE REASON THIS FILE ALREADY GIVES
+| ABOVE: a Pest helper is a GLOBAL function, so two files declaring one name is a
+| fatal «Cannot redeclare» the first time a worker loads both — which is every
+| `pest --parallel` run. `ContextIsolationTest` and `CohortPlanBoundaryTest` both
+| need these two.
+|
+*/
+
+/** Every PHP file under one module. */
+function moduleFiles(string $module): Finder
+{
+    return Finder::create()->files()->in(app_path("Modules/{$module}"))->name('*.php');
+}
+
+/**
+ * One file's source with every comment removed.
+ *
+ * ⛔ A GUARD THAT GREPS SOURCE MUST STRIP COMMENTS FIRST, OR IT FIRES ON THE
+ * RULE WRITTEN BESIDE THE CODE. Every one of these scans forbids something, and
+ * the files that obey them say so in a docblock naming the very thing — so a red
+ * build over an explanation teaches people to delete the explanation.
+ * `TrustScoreJobIsolationTest` paid for this over four jobs whose comments read
+ * «NEVER `WorkspaceContext::set()`».
+ */
+function codeWithoutComments(string $source): string
+{
+    $kept = [];
+
+    foreach (token_get_all($source) as $token) {
+        if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+            continue;
+        }
+
+        $kept[] = is_array($token) ? $token[1] : $token;
+    }
+
+    return implode('', $kept);
 }

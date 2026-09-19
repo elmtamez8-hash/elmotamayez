@@ -13,8 +13,8 @@ use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Exceptions\PlanWouldHideCohorts;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Tenancy\Support\Roles;
-use Database\Seeders\RolesAndPermissionsSeeder;
 use App\Shared\Support\WorkspaceContext;
+use Database\Seeders\RolesAndPermissionsSeeder;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -83,9 +83,15 @@ function planWarningCohort(string $name, ?Course $course = null, int $members = 
 /**
  * The teacher's own edit, through the one Action every door shares.
  *
+ * ⚠️ NAMED AFTER THIS FILE'S SUBJECT, NOT AFTER THE DOMAIN NOUN. A Pest helper
+ * is a GLOBAL function, and `PlanFormTest` already declares a `savePlanAs()`
+ * with a different signature — invisible while each file gets its own process,
+ * and a fatal «Cannot redeclare» the moment one worker loads both, which is
+ * every `pest --parallel` run.
+ *
  * @param  array<string, mixed>  $overrides
  */
-function savePlanAs(Plan $plan, array $overrides = [], ?User $author = null): Plan
+function saveWarningPlan(Plan $plan, array $overrides = [], ?User $author = null): Plan
 {
     return app(SavePlan::class)->handle(
         $author ?? test()->teacher,
@@ -109,7 +115,7 @@ it('refuses the switch-off with the count, and writes nothing', function (): voi
 
     $plan = groupPriceFor($this->course);
 
-    savePlanAs($plan, ['is_active' => false]);
+    saveWarningPlan($plan, ['is_active' => false]);
 })
     ->throws(PlanWouldHideCohorts::class, 'مجموعة السبت');
 
@@ -127,7 +133,7 @@ it('leaves the plan switched ON after the refusal', function (): void {
     $plan = groupPriceFor($this->course);
 
     try {
-        savePlanAs($plan, ['is_active' => false]);
+        saveWarningPlan($plan, ['is_active' => false]);
     } catch (PlanWouldHideCohorts) {
         // The sentence is measured above; this case is about the row.
     }
@@ -140,7 +146,7 @@ it('writes it when the teacher says they know', function (): void {
 
     $plan = groupPriceFor($this->course);
 
-    savePlanAs($plan, ['is_active' => false, 'acknowledge_hidden_cohorts' => true]);
+    saveWarningPlan($plan, ['is_active' => false, 'acknowledge_hidden_cohorts' => true]);
 
     // ⚠️ THE OTHER HALF OF A QUESTION. FR-013 asks that the teacher be told, not
     // that they be stopped: a plan they still want off goes off.
@@ -158,7 +164,7 @@ it('says nothing when another live plan still reaches the group', function (): v
         'workspace_id' => $this->workspace->getKey(),
     ]);
 
-    savePlanAs($plan, ['is_active' => false]);
+    saveWarningPlan($plan, ['is_active' => false]);
 
     expect((bool) $plan->fresh()?->is_active)->toBeFalse();
 });
@@ -185,7 +191,7 @@ it('says nothing about a group that was already dark', function (): void {
         'workspace_id' => $this->workspace->getKey(),
     ]);
 
-    savePlanAs($coursePlan, ['is_active' => false]);
+    saveWarningPlan($coursePlan, ['is_active' => false]);
 
     expect((bool) $coursePlan->fresh()?->is_active)->toBeFalse();
 });
@@ -202,7 +208,7 @@ it('says nothing about a group nobody is in', function (): void {
 
     $plan = groupPriceFor($this->course);
 
-    savePlanAs($plan, ['is_active' => false]);
+    saveWarningPlan($plan, ['is_active' => false]);
 
     expect((bool) $plan->fresh()?->is_active)->toBeFalse();
 });
@@ -235,7 +241,7 @@ it('refuses a NARROWED coverage that drops another course\'s group', function ()
 
     $plan = groupPriceFor($this->course);
 
-    expect(fn () => savePlanAs($plan, [
+    expect(fn () => saveWarningPlan($plan, [
         'coverage_type' => PlanCoverage::Course,
         'coverage_uuid' => (string) $this->course->uuid,
     ], $officer))->toThrow(PlanWouldHideCohorts::class, 'مجموعة الكيمياء');
@@ -270,7 +276,7 @@ it('answers the teacher\'s own screen with a code it can branch on', function ()
     $this->patchJson('/api/v1/manage/plans/'.$plan->uuid, $body)
         ->assertStatus(422)
         ->assertJsonPath('code', 'plan_would_hide_cohorts')
-        ->assertJsonPath('cohorts.0', 'مجموعة السبت');
+        ->assertJsonPath('hidden_cohorts.0', 'مجموعة السبت');
 
     expect((bool) $plan->fresh()?->is_active)->toBeTrue();
 
