@@ -150,6 +150,52 @@ interface SessionAttendanceDirectory
     public function releasedSessionIds(array $classSessionIds): array;
 
     /**
+     * ٠٣٦ — الحصصُ التي انتهى أمرُها من هذه، **ومعَ كلٍّ منها: أسُلِّمَت أم أُلغيَت؟**
+     *
+     * ⛔ THE TWO HALVES OF {@see releasedSessionIds()} IN ONE READ, BECAUSE ONLY
+     * ONE OF THEM MAY BE ASKED ABOUT A SEAT. A cancelled session releases its
+     * material to everybody in scope (FR-008) and, by the time a listener has
+     * run, **nobody holds a seat in it at all** — `SessionCancelled` gives them
+     * back. So a seat condition applied to the whole released set would bury the
+     * material of a class that will never be held, for ever, which is the exact
+     * thing FR-008 exists to forbid.
+     *
+     * ⚠️ AND ONE STATEMENT RATHER THAN TWO. This is read once per curriculum
+     * tree, beside a budget test that fails on a query added to that path.
+     *
+     * @param  list<int>  $classSessionIds
+     * @return array<int, bool> معرّفُ الحصّةِ ⇒ `true` سُلِّمَت، `false` أُلغيَت.
+     *                          الغائبُ عن المفاتيحِ لم ينتهِ أمرُه بعد.
+     */
+    public function releaseStatesFor(array $classSessionIds): array;
+
+    /**
+     * أيُّ هذه الحصصِ **دفعَ هذا الطالبُ ثمنَها أو كانَ فيها** (٠٣٦).
+     *
+     * ⛔ THE RECORDING'S OWN PREDICATE, WIDENED TO THE WRITTEN MATERIAL. A
+     * recording has answered to the SEAT since ٠١٠ · FR-030 — «not to the whole
+     * cohort» — and the supplementary material of the same hour is the same
+     * entitlement wearing a different file type. Left on «the session was
+     * delivered» alone, every member of the group receives the material of every
+     * future session for ever, including the one who can no longer book a single
+     * hour of it.
+     *
+     * ⚠️ `ENTITLING`, NEVER `occupiesSeat()`. A late cancellation was charged
+     * for, so it entitles — the same line the recording draws, and a predicate
+     * built on «is in the room» would take the material away from the person who
+     * paid for it and pulled out.
+     *
+     * ⚠️ AND ATTENDANCE IS A SECOND ARM, NOT A SUBSTITUTE. A teacher may mark
+     * somebody present who never booked; that person was in the hour, and
+     * «حضر أو حجز» is the owner's rule in as many words (2026-09-19). Only
+     * `absent` fails, as everywhere else in this interface.
+     *
+     * @param  list<int>  $classSessionIds
+     * @return list<int>
+     */
+    public function paidSessionIdsFor(User $user, array $classSessionIds): array;
+
+    /**
      * Who actually attended one session — EXCLUDING THE HOST (spec 009).
      *
      * ⚠️ THE TEACHER HAS AN ATTENDANCE ROW ON PURPOSE, and it is not a student

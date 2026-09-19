@@ -112,6 +112,9 @@ final class LessonAccess
     /** العنصرُ ينتظرُ حصّةً لم تُعقَدْ بعدُ ولم تُلغَ. */
     public const UNRELEASED = LessonAudience::UNRELEASED;
 
+    /** الحصّةُ عُقِدَت والقارئُ لم يكنْ فيها ولم يدفعْ ثمنَها (٠٣٦). */
+    public const NOT_MY_SESSION = LessonAudience::NOT_MY_SESSION;
+
     /**
      * رموزُ «يُسقَطُ الصفُّ ولا يُوصَف» — تهجئةٌ واحدةٌ لقارئَين.
      *
@@ -128,6 +131,7 @@ final class LessonAccess
         self::NO_SESSION_CONTENT,
         self::OUT_OF_SCOPE,
         self::UNRELEASED,
+        self::NOT_MY_SESSION,
     ];
 
     public static function hidesRow(?string $code): bool
