@@ -7,6 +7,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Actions\SavePlan;
+use App\Modules\Payments\Actions\SetPlanPrice;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Tenancy\Support\Permissions;
@@ -64,7 +65,7 @@ beforeEach(function (): void {
  *
  * @param  array<string, mixed>  $overrides
  */
-function savePlanAs(?User $author = null, array $overrides = []): Plan
+function savePlanAs(?User $author = null, array $overrides = [], ?Plan $plan = null): Plan
 {
     $author ??= test()->teacher;
 
@@ -79,6 +80,7 @@ function savePlanAs(?User $author = null, array $overrides = []): Plan
                 'coverage_type' => PlanCoverage::Course,
                 'coverage_uuid' => (string) test()->course->uuid,
             ], $overrides),
+            $plan,
         ),
     );
 }
@@ -201,4 +203,65 @@ it('refuses a price written by the teacher, and takes one from the platform', fu
 
     // The platform's half of the same row: the officer carries the key through.
     expect(savePlanAs($this->officer, ['duration_days' => 30, 'price_minor' => 30_000])->exists)->toBeTrue();
+});
+
+it('refuses to move what the platform has already priced', function (): void {
+    /*
+    | ⛔ THE MONEY HOLE, MEASURED. A teacher wrote a ONE-session plan, the officer
+    | read «حصّة واحدة» on the pricing screen and put 100 on it — and a second
+    | request to the route the teacher already holds turned it into 200 sessions,
+    | still on sale at 100. The plan stays sellable throughout, so nothing
+    | anywhere fails; the next buyer simply has two hundred sessions poured into
+    | ٠٣٥'s ledger for the price of one. The teacher is still paid per delivered
+    | session at their own approved rate, so the gap is the platform's.
+    */
+    $plan = savePlanAs(overrides: ['session_count' => 1, 'title' => 'حصّة واحدة']);
+
+    app(SetPlanPrice::class)->handle($plan, 10_000);
+
+    foreach ([
+        'the count widens' => ['session_count' => 200],
+        'the shape flips' => ['duration_days' => 30, 'session_count' => null],
+        // ⚠️ التغطيةُ تبقى كورساً: حصصٌ + تغطيةُ مساحةِ عملٍ يرفضُها حارسُ
+        // الشكلِ قبلَ هذا الحارسِ أصلاً، فتأتي الجملةُ من بابٍ آخر.
+        'the room size changes' => ['session_type' => ClassSessionType::Individual],
+        'the coverage moves to a group' => ['coverage_type' => PlanCoverage::Cohort, 'coverage_uuid' => (string) test()->cohort->uuid],
+    ] as $what => $overrides) {
+        expect(fn () => savePlanAs(overrides: array_merge(['session_count' => 1], $overrides), plan: $plan->fresh()))
+            ->toThrow(DomainException::class, 'بطلب تعديل', $what);
+    }
+
+    expect((int) $plan->fresh()->session_count)->toBe(1);
+});
+
+it('leaves the title and the on-off switch to the teacher', function (): void {
+    /*
+    | ⚠️ THE OTHER DIRECTION, AND IT IS WHAT STOPS THE GUARD ABOVE FROM BECOMING
+    | «a priced plan is frozen». Neither field moves what was priced, and a
+    | teacher who cannot stop selling a plan this minute without filing a request
+    | is a teacher whose only remaining instrument is asking a student not to buy.
+    */
+    $plan = savePlanAs(overrides: ['session_count' => 1, 'title' => 'حصّة واحدة']);
+
+    app(SetPlanPrice::class)->handle($plan, 10_000);
+
+    $saved = savePlanAs(overrides: [
+        'session_count' => 1,
+        'title' => 'حصّة تجريبيّة',
+        'is_active' => false,
+    ], plan: $plan->fresh());
+
+    expect($saved->title)->toBe('حصّة تجريبيّة')
+        ->and($saved->is_active)->toBeFalse()
+        ->and((int) $saved->price_minor)->toBe(10_000);
+});
+
+it('lets the platform itself move a priced plan', function (): void {
+    // مَن يُسعِّرُ هو مَن يملكُ تغييرَ ما سُعِّر — وهو الطرفُ الذي يقرّرُ طلبَ
+    // التعديل، فلو مُنِعَ لصارَ الطلبُ طابوراً لا مخرجَ له.
+    $plan = savePlanAs(overrides: ['session_count' => 1]);
+
+    app(SetPlanPrice::class)->handle($plan, 10_000);
+
+    expect((int) savePlanAs($this->officer, ['session_count' => 5], plan: $plan->fresh())->session_count)->toBe(5);
 });

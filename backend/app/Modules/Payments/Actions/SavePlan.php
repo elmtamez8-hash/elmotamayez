@@ -54,6 +54,12 @@ class SavePlan extends Action
 
         [$duration, $sessionCount] = $this->resolveShape($data, $coverage, $sessionType);
 
+        $coverageUuid = $this->resolveCoverage($coverage, $data['coverage_uuid'] ?? null, $workspaceId);
+
+        if ($plan !== null) {
+            $this->guardPricedPlan($author, $plan, $duration, $sessionCount, $sessionType, $coverage, $coverageUuid);
+        }
+
         $plan ??= new Plan;
 
         $plan->fill([
@@ -63,7 +69,7 @@ class SavePlan extends Action
             'session_count' => $sessionCount,
             'session_type' => $sessionType,
             'coverage_type' => $coverage,
-            'coverage_uuid' => $this->resolveCoverage($coverage, $data['coverage_uuid'] ?? null, $workspaceId),
+            'coverage_uuid' => $coverageUuid,
             'currency' => (string) ($data['currency'] ?? 'QAR'),
             'is_active' => (bool) ($data['is_active'] ?? true),
         ]);
@@ -126,6 +132,73 @@ class SavePlan extends Action
         }
 
         return [$duration, $sessionCount];
+    }
+
+    /**
+     * What the platform priced may not be moved underneath the price (٠٣٦).
+     *
+     * ⛔ THE HOLE THIS CLOSES IS A SECOND REQUEST TO A ROUTE THE TEACHER ALREADY
+     * HOLDS. `price_minor` is the platform's half of the row and is guarded
+     * everywhere — but nothing re-asked when the thing that was priced MOVED. A
+     * teacher wrote a plan of ONE session, the officer read «حصّة واحدة» on the
+     * pricing screen and put 100 on it, and the teacher then sent
+     * `PATCH /manage/plans/{uuid}` with `session_count: 200`. The plan stayed
+     * sellable at 100, and the next buyer had two hundred sessions poured into
+     * 035's ledger for the price of one. Three spellings of the same move:
+     * widening the count, flipping a priced month into sessions, and repointing
+     * the coverage at a more expensive course or group.
+     *
+     * The money does not come back from the student, either: the teacher is paid
+     * per delivered session at their own approved settlement rate, whatever the
+     * student paid, so the gap is the platform's.
+     *
+     * ⚠️ IT REFUSES RATHER THAN SILENTLY UNPRICING. An edit that quietly pulled
+     * the plan out of sale would look to the teacher exactly like an edit that
+     * worked, and they would find out when a student could not buy — the same
+     * argument the price refusal above it already makes. The way through is a
+     * change request the platform decides, which is what the sentence names.
+     *
+     * ⚠️ AND THE TITLE AND THE SWITCH STAY THE TEACHER'S. Neither moves what was
+     * priced. `is_active` especially: a teacher must be able to stop selling a
+     * plan this minute without asking anybody.
+     *
+     * ⚠️ ALREADY-SOLD ROWS ARE UNTOUCHED BY ANY OF THIS AND NEED NO GUARD --
+     * verified rather than assumed: `orders.amount_minor` is frozen from
+     * `plan->price_minor` at purchase, `subscriptions.price_minor` from the
+     * order, and every `teaching_units` row pins the `settlement_rate_id` that
+     * earned it. What a student paid and what a teacher earned are both facts
+     * about a moment that has passed.
+     */
+    private function guardPricedPlan(
+        User $author,
+        Plan $plan,
+        ?int $duration,
+        ?int $sessionCount,
+        ClassSessionType $sessionType,
+        PlanCoverage $coverage,
+        ?string $coverageUuid,
+    ): void {
+        if ($plan->price_minor === null || $author->can(Permissions::PLANS_PRICE)) {
+            return;
+        }
+
+        $moved = $this->nullableInt($plan->duration_days) !== $duration
+            || $this->nullableInt($plan->session_count) !== $sessionCount
+            || $plan->session_type !== $sessionType
+            || $plan->coverage_type !== $coverage
+            || $plan->coverage_uuid !== $coverageUuid;
+
+        if ($moved) {
+            throw new DomainException(
+                'هذه الباقة سعّرتها المنصّة، فتغيير مدّتها أو عدد حصصها أو ما تغطّيه يكون بطلب تعديل. '
+                .'ويمكنك تعديل عنوانها أو إيقافها عن البيع في أي وقت.'
+            );
+        }
+    }
+
+    private function nullableInt(mixed $value): ?int
+    {
+        return $value === null ? null : (int) $value;
     }
 
     private function positiveOrNull(mixed $value): ?int
