@@ -7,7 +7,9 @@ namespace App\Modules\Payments\Actions;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\Plan;
+use App\Modules\Payments\Support\PlanReach;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\CohortDirectory;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -37,11 +39,17 @@ use Illuminate\Database\Eloquent\Collection;
  */
 class ListPlans extends Action
 {
+    public function __construct(
+        private readonly PlanReach $reach,
+        private readonly CohortDirectory $cohorts,
+    ) {}
+
     /**
      * @param  string|null  $sessionType  narrows the list to one room size (027 · FR-008)
+     * @param  string|null  $cohortUuid  the group the buyer is standing on (036 · FR-015)
      * @return Collection<int, Plan>
      */
-    public function handle(string $courseUuid, ?string $sessionType = null): Collection
+    public function handle(string $courseUuid, ?string $sessionType = null, ?string $cohortUuid = null): Collection
     {
         $workspaceId = Course::query()
             ->withoutWorkspaceScope()
@@ -50,6 +58,12 @@ class ListPlans extends Action
 
         if ($workspaceId === null) {
             throw new DomainException('هذا الكورس غير موجود.');
+        }
+
+        $own = $this->ownPlansFor($cohortUuid, $courseUuid, (int) $workspaceId, $sessionType);
+
+        if ($own !== null) {
+            return $own;
         }
 
         return Plan::query()
@@ -88,7 +102,64 @@ class ListPlans extends Action
             | a rule enforced by a dropdown.
             */
             ->when($sessionType !== null, fn ($query) => $query->where('session_type', $sessionType))
-            ->orderBy('duration_days')
+            ->orderedByShape()
+            ->get();
+    }
+
+    /**
+     * The plans written FOR this group, or `null` when it has none of its own.
+     *
+     * ⛔ 036 · FR-015 · FR-016 — THE SCREEN NOW ANSWERS WHAT THE DOOR ANSWERS.
+     * A teacher may price one group apart from the rest of its course; when they
+     * have, that price REPLACES the course's rather than being offered beside it.
+     * Until this, the replacement happened at `PurchaseSubscription` alone — so
+     * the buyer was shown the course's month, picked it, and was refused with a
+     * sentence about their group, which was never the problem.
+     *
+     * ⛔ AND THE GATE IS EXISTENCE, NOT SELLABILITY — which is why `naming()` is
+     * asked before `sellableAmong()` rather than one `reaching()` call doing
+     * both. A group whose own plan is written but not yet priced must show
+     * NOTHING, not quietly fall back on its course: falling back is what makes
+     * «باقتها بانتظار التسعير» a state no group can ever be in, and it would sell
+     * the intensive group at the ordinary group's price in the meantime.
+     *
+     * ⚠️ AND IT CALLS {@see PlanReach}, WHICH IS THE SAME OBJECT THE LISTING GATE
+     * CALLS. Re-spelling the coverage condition here is precisely the two-
+     * spellings defect FR-016 exists to forbid — and the grouping parentheses
+     * inside `covering()` are load-bearing enough that a second copy would
+     * eventually lose them and publish every plan on the platform.
+     *
+     * ⚠️ A GROUP THAT DOES NOT RESOLVE INTO THIS COURSE IS IGNORED, NOT REFUSED.
+     * This is a display read reached from a bookmarked address; throwing here
+     * would blank the purchase screen over a stale uuid. The door still refuses
+     * that group, with its own sentence about the group.
+     *
+     * @return Collection<int, Plan>|null
+     */
+    private function ownPlansFor(?string $cohortUuid, string $courseUuid, int $workspaceId, ?string $sessionType): ?Collection
+    {
+        if ($cohortUuid === null) {
+            return null;
+        }
+
+        $cohort = $this->cohorts->describeGroupCohort($cohortUuid);
+
+        if ($cohort === null
+            || (int) $cohort['workspace_id'] !== $workspaceId
+            || $cohort['course_uuid'] !== $courseUuid) {
+            return null;
+        }
+
+        $ownIds = $this->reach->ownPlanIds($workspaceId, $cohortUuid);
+
+        if ($ownIds === []) {
+            return null;
+        }
+
+        return $this->reach
+            ->sellableAmong($ownIds)
+            ->when($sessionType !== null, fn ($query) => $query->where('session_type', $sessionType))
+            ->orderedByShape()
             ->get();
     }
 }

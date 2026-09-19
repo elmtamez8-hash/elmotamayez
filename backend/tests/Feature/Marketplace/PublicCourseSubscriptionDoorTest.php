@@ -58,6 +58,18 @@ function doorPayload(Course $course): array
 
 function cohortAt(Course $course, array $attributes = []): Cohort
 {
+    /*
+    | ⛔ ٠٣٦ · FR-003 — A GROUP NO LIVE PRICE REACHES IS ABSENT FROM THIS PAYLOAD
+    | ENTIRELY, not published with `is_joinable: false`. Without a price every
+    | case below reads an empty `cohorts` array: the `is_joinable` case errors on
+    | a missing key, and the two that assert an ABSENCE pass vacuously — which is
+    | worse, because they are the guards.
+    |
+    | A group plan only: the individual-subscription cases below assert on a
+    | predicate asked with `individual`, which no group plan can satisfy.
+    */
+    groupPriceFor($course);
+
     return Cohort::factory()->create([
         'workspace_id' => $course->workspace_id,
         'course_id' => $course->getKey(),
@@ -102,7 +114,17 @@ it('does not publish a private one-to-one group on the public page', function ()
         'status' => Cohort::OPEN,
     ]);
 
-    expect(doorPayload($this->course)['cohorts'])->toBe([]);
+    /*
+    | ⚠️ THE POSITIVE CONTROL, AND ٠٣٦ IS WHAT MADE IT NECESSARY. «The list is
+    | empty» is now true of a course whose groups are simply unpriced, of a
+    | workspace that never opted into the marketplace, and of a 404 — so an
+    | ordinary group standing beside the private one is what makes the absence
+    | mean «this row was excluded» rather than «nothing came back».
+    */
+    $ordinary = cohortAt($this->course, ['name' => 'مجموعة عاديّة']);
+
+    expect(array_column(doorPayload($this->course)['cohorts'], 'uuid'))
+        ->toBe([(string) $ordinary->uuid]);
 });
 
 it('offers private subscription only with declared hours AND a priced individual plan', function (): void {

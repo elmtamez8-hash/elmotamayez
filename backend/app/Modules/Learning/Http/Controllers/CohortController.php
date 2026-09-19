@@ -12,14 +12,12 @@ use App\Modules\Learning\Actions\ReadCohortRoster;
 use App\Modules\Learning\Actions\RequestTransfer;
 use App\Modules\Learning\Actions\WithdrawTransferRequest;
 use App\Modules\Learning\Http\Requests\JoinWaitlistRequest;
-use App\Modules\Learning\Http\Resources\CohortResource;
 use App\Modules\Learning\Http\Resources\TransferRequestResource;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\Learning\Models\CohortTransferRequest;
 use App\Modules\Learning\Support\CohortRefusal;
 use App\Shared\Contracts\CohortDirectory;
-use App\Shared\Contracts\CohortScheduleDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -38,7 +36,6 @@ class CohortController extends Controller
 {
     public function __construct(
         private readonly EnrollmentDirectory $enrollments,
-        private readonly CohortScheduleDirectory $schedule,
         private readonly CohortDirectory $cohorts,
     ) {}
 
@@ -55,39 +52,23 @@ class CohortController extends Controller
         }
 
         /*
-        | ⚠️ ARCHIVED GROUPS ARE OUT OF THE PICKER AND `closed` ONES ARE IN IT.
-        | A closed group is a run the reader can see is happening and cannot
-        | join; hiding it makes «لماذا لا أرى مجموعتي؟» unanswerable for a
-        | student whose classmates are in it. An archived one is over.
+        | ⛔ THROUGH THE DIRECTORY, NOT THROUGH A QUERY WRITTEN HERE (٠٣٦ · T042).
+        | «Which groups may this student be offered» is one question with a gate
+        | on it now, and a controller spelling it out is the second spelling that
+        | puts one answer on the screen and another at the door — the defect this
+        | module has already paid for twice. The ownership filter, the archived
+        | filter, the ordering and the schedule preview all moved with it.
+        |
+        | ⛔ AND AN UNLISTED GROUP IS ABSENT, NOT FLAGGED (owner decision
+        | 2026-09-16), which REPLACES the rule this comment used to carry. It said
+        | closed groups stay in the list so «لماذا لا أرى مجموعتي وزملائي فيها؟»
+        | stays answerable — and that promise is kept by something else entirely:
+        | the reader's OWN membership is read below by a separate query that never
+        | passes through the gate, so a member keeps seeing their group whatever
+        | the price does. Closed groups are still in the list; only the unpriced
+        | ones are gone.
         */
-        $cohorts = Cohort::query()
-            ->withoutWorkspaceScope()
-            ->where('course_id', $courseId)
-            /*
-            | ⛔ OWNERSHIP, NOT STATUS — AND THIS LINE WAS MISSING UNTIL 2026-09-05.
-            | `Cohort::scopeGroup()` says why the public read filters on it, and
-            | the reasoning applies here with more force: a private cohort is named
-            | `'حصص خاصة — '.$student->name` and created `closed`, and the comment
-            | directly above deliberately KEEPS `closed` in this picker. So one
-            | accepted private-session request put a card carrying a named
-            | classmate — and, through `schedulePreviewFor()` below, the times of
-            | her private lessons — into every enrolled student's group list.
-            | `CohortResource` emits no `individual_for_user_id`, so no client
-            | could have filtered it out. 200, nothing logged.
-            |
-            | Her own private session reaches her through her BOOKING, which is
-            | where a lesson somebody holds a seat in belongs.
-            */
-            ->group()
-            ->where('status', '!=', Cohort::ARCHIVED)
-            ->orderBy('name')
-            ->get();
-
-        // Asked ONCE for the whole list. Inside the Resource it would be one
-        // query per group, on the screen that exists to be compared across.
-        $preview = $this->schedule->schedulePreviewFor(
-            array_values($cohorts->map(fn (Cohort $cohort): int => (int) $cohort->getKey())->all()),
-        );
+        $cohorts = $this->cohorts->pickerCohortsFor($courseId);
 
         $membership = CohortMembership::query()
             ->withoutWorkspaceScope()
@@ -146,12 +127,24 @@ class CohortController extends Controller
                 ])
                 ->all(),
             'pending_request' => $pending === null ? null : TransferRequestResource::make($pending)->toArray($request),
-            'cohorts' => $cohorts
-                ->map(fn (Cohort $cohort): array => CohortResource::make(
-                    $cohort,
-                    $preview[(int) $cohort->getKey()] ?? [],
-                )->toArray($request))
-                ->all(),
+            'cohorts' => $cohorts,
+            /*
+            | ⛔ ٠٣٦ · T118 · FR-019 — THE TRANSFER PICKER'S OWN READ, AND
+            | WITHOUT IT FR-019 CANNOT BE IMPLEMENTED AT ALL. The switcher built
+            | its destinations out of `cohorts` above and filtered those again on
+            | `is_joinable` — and this spec narrowed BOTH: the picker list drops a
+            | group no live price reaches, and `isJoinable()` now asks the price
+            | too. So «open, has room, not on sale» — the exact destination
+            | FR-019 asks to be MARKED — was deleted twice over before the screen
+            | ever saw it.
+            |
+            | ⚠️ IT IS NOT A WIDENING OF THE PICKER. The picker answers «which
+            | group may I JOIN», where an option that cannot succeed is worse than
+            | no option; this answers «where may I ask to be MOVED», which an
+            | officer decides — a request into an unpriced group is one somebody
+            | can answer, and an absent option is a question nobody can ask.
+            */
+            'transfer_destinations' => $this->cohorts->transferDestinationsFor($courseId),
         ]);
     }
 

@@ -6,6 +6,7 @@ import { CloseIcon } from "@/components/icons";
 import { Select } from "@/components/ui/Field";
 import type { Taxonomy } from "@/lib/public-api";
 
+import { arabicNumber } from "@/lib/numerals";
 /**
  * Filter state lives in the URL, not in component state.
  *
@@ -34,7 +35,7 @@ const LANGUAGES = [
 const RATINGS = [4.5, 4, 3.5, 3];
 const TRUST_SCORES = [80, 60, 40];
 
-const ar = (value: number) => value.toLocaleString("ar-QA");
+const ar = (value: number) => arabicNumber(value);
 
 export function TeacherFilters({
   subjects,

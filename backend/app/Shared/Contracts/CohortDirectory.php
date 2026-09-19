@@ -178,7 +178,15 @@ interface CohortDirectory
     public function resolveCohortId(string $uuid, int $courseId): ?int;
 
     /**
-     * Whether this group is open AND has a place (spec 027 · FR-002 · FR-026).
+     * Whether this group is open AND has a place — **structurally, with no
+     * question about price** (spec 027 · FR-002 · FR-026 · ٠٣٦ · FR-018).
+     *
+     * ⛔ THE NAME CARRIES «STRUCTURALLY» BECAUSE IT IS A SECOND QUESTION, NOT A
+     * WIDER SPELLING OF THE PICKER'S — exactly as {@see isAssignable()} is. ٠٣٦
+     * added a price condition to what a STUDENT may join, and its one caller here
+     * is an approval of an order that has already been paid for: re-asking the
+     * price there would repossess a place over a plan the teacher switched off
+     * while the transfer was clearing.
      *
      * ⚠️ ASKED TWICE ON PURPOSE, AT TWO MOMENTS. The subscription order is
      * created against a joinable group, and days can pass on a manual transfer
@@ -188,17 +196,17 @@ interface CohortDirectory
      * (FR-026). Asking it once, at either end, is one of the two halves missing.
      *
      * ⚠️ AND IT IS THE MODEL'S OWN PREDICATE, NOT A THIRD SPELLING. The card,
-     * the picker and this all read `Cohort::isJoinable()`; two spellings put one
+     * the picker and this all read the model's own predicate; two spellings put one
      * answer on the screen and another at the door.
      */
-    public function isJoinable(int $cohortId): bool;
+    public function isStructurallyJoinable(int $cohortId): bool;
 
     /**
      * Take one seat in this group, atomically. `false` means it just filled.
      *
      * ⚠️ **A READ IS NOT A CLAIM, AND FR-024أ SAYS SO IN AS MANY WORDS.** Two
      * officers approving two orders against the last seat both pass
-     * {@see isJoinable()} — it is a question, and the answer is stale the instant
+     * {@see isStructurallyJoinable()} — it is a question, and the answer is stale the instant
      * it is given. This is one conditional UPDATE that is the check and the claim
      * together, so exactly one of them wins and the loser's approval is refused
      * **before any money is taken**, which is what makes «zero refunds caused by
@@ -220,7 +228,7 @@ interface CohortDirectory
      * Whether ADMINISTRATION could put somebody into THIS group at this instant.
      *
      * ⚠️ The per-cohort twin of {@see assignableCohortsExist()}, and the door's
-     * half of the pair {@see isJoinable()} already has. The picker offers what
+     * half of the pair {@see isStructurallyJoinable()} already has. The picker offers what
      * this answers and the write asks it again: two spellings put one answer on
      * the screen and another at the door, which is the defect FR-030 is about.
      */
@@ -262,7 +270,7 @@ interface CohortDirectory
      * one from the panel — after which a stranger holding its uuid would
      * subscribe into another named student's room and its thread.
      *
-     * @return array{id: int, course_id: int, workspace_id: int, name: string, course_uuid: string, course_status: string, is_joinable: bool}|null
+     * @return array{id: int, uuid: string, course_id: int, workspace_id: int, name: string, course_uuid: string, course_status: string, is_joinable: bool}|null
      */
     public function describeGroupCohort(string $uuid): ?array;
 
@@ -285,6 +293,30 @@ interface CohortDirectory
      * @return list<array{uuid: string, name: string, description: string|null, status: string, seats_left: int|null, is_joinable: bool, id: int}>
      */
     public function publicCohortsFor(int $courseId): array;
+
+    /**
+     * The groups of this course a STUDENT may be offered, ready for the picker.
+     *
+     * ⛔ THE GATE IS INSIDE THIS METHOD, NOT AT THE CALLER (٠٣٦ · FR-003 · T042).
+     * A group no live price reaches is **absent**, not flagged: a card offering
+     * the one action that cannot succeed is worse than no card. The filter lives
+     * here for the same reason `assignableOptionsFor()` exists — two screens
+     * asking one question as their own query is how one answer reaches the
+     * screen and another reaches the door.
+     *
+     * ⚠️ AND A MEMBER STILL SEES THEIR OWN GROUP. Their membership is read by a
+     * separate query that does not pass through here at all, so a group that has
+     * dropped out of the offer stays visible to the people already in it — which
+     * is what makes «لماذا لا أرى مجموعتي؟» answerable after this gate, and is
+     * the promise that replaced the old «keep closed groups in the list» comment.
+     *
+     * ⚠️ Archived groups are out and `closed` ones are in: a closed group is a
+     * run the reader can see is happening and cannot join, and hiding it makes
+     * the same question unanswerable for a student whose classmates are in it.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function pickerCohortsFor(int $courseId): array;
 
     /**
      * Every group of each of these courses, as the TEACHER's list reads them —
@@ -353,6 +385,30 @@ interface CohortDirectory
     public function namesFor(array $cohortIds): array;
 
     /**
+     * The public identifiers of EVERY group of this course, whatever its status.
+     *
+     * ⛔ IT EXISTS SO THAT «IS THIS COURSE SOLD AT ALL» CAN SEE A GROUP PRICE
+     * (٠٣٦ · T012). A plan may name a group, `plans.coverage_uuid` is a `uuid`
+     * column, and `Payments` may not turn a cohort id into one — that would be
+     * `Payments` reading `cohorts`. Without this, a course sold ONLY through its
+     * groups reads as «no price attached», and the free-enrolment door opens it
+     * to anybody who asks.
+     *
+     * ⚠️ NO STATUS FILTER, AND THAT IS THE POINT. The question is whether a
+     * price exists, not whether a seat is open today: a course whose only group
+     * is full or closed is still a course that is sold, and filtering here would
+     * hand it out free for as long as it stays that way.
+     *
+     * ⚠️ AND IT IS DELIBERATELY NOT THE BULK SHAPE THE REST OF THIS FILE USES.
+     * Both callers hold exactly one course — the free-enrolment door and the
+     * public course page — so a list-shaped signature here would be a parameter
+     * every caller wraps and unwraps for nothing.
+     *
+     * @return list<string>
+     */
+    public function cohortUuidsFor(int $courseId): array;
+
+    /**
      * The public identifiers of these groups, by internal id (٠٢٦).
      *
      * ⚠️ **THE TWIN OF {@see namesFor()}, AND IT EXISTS BECAUSE AN ID NEVER
@@ -370,4 +426,68 @@ interface CohortDirectory
      * @return array<int, string> keyed by cohort id
      */
     public function uuidsFor(array $cohortIds): array;
+
+    /**
+     * Groups with people in them that no live price reaches (٠٣٦ · FR-010 · FR-013).
+     *
+     * ⛔ ONE SPELLING FOR TWO READERS, AND FR-013 NAMES THAT AS THE
+     * REQUIREMENT RATHER THAN AS TIDINESS: «والعددُ يُحسَبُ بتهجئةِ FR-002
+     * نفسِها التي يقرؤها حارسُ ما قبلَ النشر (FR-010)». The pre-deploy
+     * guard counts who loses their group when the gate bites; the teacher's
+     * warning counts who loses their group when THIS edit lands. A warning that
+     * says a number while the gate does otherwise is worse than no warning, so
+     * the two read one method rather than two queries that agree today.
+     *
+     * The predicate is the offer's own: a GROUP cohort, not archived, carrying
+     * at least one open `cohort_memberships` row, which `priceReaches()` says no
+     * live price covers.
+     *
+     * ⚠️ «WITH MEMBERS» IS THE WHOLE FILTER, AND IT IS A REAL ROW. An empty
+     * unlisted group is a group nobody was ever offered and nobody is in —
+     * hiding it takes nothing from anybody. And the count comes from the
+     * membership rows rather than from `cohorts.members_count`, because that
+     * counter is a cache of them and the answer would then depend on whichever
+     * column the reader happened to reach for.
+     *
+     * ⚠️ `null` IS THE PLATFORM, and it is what the pre-deploy guard passes. A
+     * workspace id narrows it to one teacher, which is what the warning needs:
+     * an edit in one workspace cannot move a group in another, and walking every
+     * group on the platform to prove that is a cost that grows with the
+     * platform on a screen one teacher opened.
+     *
+     * @return array<int, array{uuid: string, name: string, workspace_id: int, members: int}>
+     *                                                                                        keyed by cohort id
+     */
+    public function unlistedCohortsWithMembers(?int $workspaceId = null): array;
+
+    /**
+     * Where a student of this course could ask to be MOVED (٠٣٦ · T118 · FR-019).
+     *
+     * ⛔ **ITS OWN READ, AND WITHOUT ONE FR-019 IS UNIMPLEMENTABLE.** The
+     * transfer picker used to build its options out of the student PICKER's list
+     * and then filter those again on `is_joinable` — and ٠٣٦ narrowed both:
+     * {@see pickerCohortsFor()} DROPS a group no live price reaches, and
+     * `Cohort::isJoinable()` now asks the price too. So the destination FR-019
+     * is about — «a group that is open and has room but is not on sale» — is
+     * deleted twice over before the screen sees it, and the requirement to mark
+     * it could never fire.
+     *
+     * ⚠️ **STRUCTURALLY JOINABLE IS THE FILTER; THE PRICE IS A LABEL.** Open
+     * and not full is what makes a room a possible destination; whether it is on
+     * sale is what the officer deciding the transfer needs to KNOW, not a reason
+     * to hide the option — a student asking to move into an unpriced group is a
+     * request somebody can answer, and an option missing from a list is a
+     * question nobody can ask.
+     *
+     * ⚠️ AND THE GROUP THE READER IS ALREADY IN IS NOT EXCLUDED HERE. The
+     * caller knows which one that is; this method answers about the course.
+     *
+     * ⚠️ THE MEETING TIMES TRAVEL WITH IT, READ IN ONE CALL FOR THE WHOLE
+     * LIST. «الأحد ٦م» is the fact a student picks a destination on — a
+     * group named «المجموعة الثانية» says nothing — and asked per row it
+     * would be one query per option inside a picker.
+     *
+     * @return list<array{uuid: string, name: string, schedule_preview: list<string>, is_on_sale: bool}>
+     */
+    public function transferDestinationsFor(int $courseId): array;
 }

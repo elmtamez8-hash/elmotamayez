@@ -343,7 +343,7 @@ class NotificationTemplateSeeder extends Seeder
             */
             NotificationType::WaitlistInvited->value => [
                 'فُتح مكان في «{{ course_title }}»',
-                'جاء دورك في «{{ course_title }}»: فُتح مكان في مجموعة «{{ cohort_name }}». سجِّل الآن — المقعد ليس محجوزاً لك، وهو لمن يسبق.',
+                'جاء دورك في «{{ course_title }}»: فُتح مكان في مجموعة «{{ cohort_name }}». افتحِ الكورس لتكمل — المقعد ليس محجوزاً لك، وهو لمن يسبق.',
                 ['course_title', 'cohort_name'],
             ],
             NotificationType::CohortTransferRequestDropped->value => [
@@ -610,6 +610,22 @@ class NotificationTemplateSeeder extends Seeder
                 ['plan_title', 'teacher_name', 'starts_on', 'ends_on', 'schedule', 'next_session'],
             ],
             /*
+            | ٠٣٦ · FR-020 — باقةُ حصصٍ فُعِّلَت.
+            |
+            | ⛔ **بلا تاريخَين، وهذا سببُ وجودِها منفصلةً.** قالبُ الاشتراكِ
+            | فوقَها يطلبُ `starts_on` و`ends_on` ويرمي على أيِّ فراغ، وباقةُ
+            | الحصصِ بلا نافذة — فإعادةُ استعمالِه إمّا ترمي بعدَ قبضِ المال
+            | وإمّا تخترعُ تاريخاً يقرؤُه الطالبُ حقيقة.
+            |
+            | ⚠️ و«الرصيد» يُمرَّرُ مصاغاً بـ`CountedNoun`: «حصّتان» لا «٢
+            | حصص»، لأنّ العربيّةَ تُوافِقُ المعدودَ في خمسِ نطاقات.
+            */
+            NotificationType::SessionPlanActivated->value => [
+                'تم تفعيل باقة الحصص مع {{ teacher_name }}',
+                'باقتك «{{ plan_title }}» مع {{ teacher_name }} فُعِّلت، وأُضيف إلى رصيدك {{ sessions }}. {{ schedule }} {{ next_session }}',
+                ['plan_title', 'teacher_name', 'sessions', 'schedule', 'next_session'],
+            ],
+            /*
             | 027 · FR-042. It names the lesson and the reason, because «تعذّر
             | الحجز» alone sends the student to ask a question the message could
             | have answered. One notice per activation however many sessions it
@@ -627,10 +643,41 @@ class NotificationTemplateSeeder extends Seeder
             | ورسالةٌ تقولُ «أُنشِئَت باقة» بلا رقمٍ تتركُ الشيءَ الوحيدَ الذي
             | يحتاجُ المدرّسُ أن يعترضَ عليه خارجَ الرسالة.
             */
+            /*
+            | ⛔ ٠٣٦ · FR-013 — `{{ hidden_cohorts }}`, وبدونِه لا يعرفُ
+            | المدرّسُ أبداً أنّ مجموعةً من مجموعاتِه خرجَت من العرض.
+            | الموظّفُ يُحذَّرُ ويُعلِّمُ المربّعَ ويمضي — وقبلَ هذا كانَ يقرأُ
+            | صاحبُ المجموعةِ «وافقت الإدارة» ولا شيءَ أكثر، ثمّ يعرفُ
+            | حينَ يسألُه طالبٌ «ليه مجموعتنا مش ظاهرة؟».
+            |
+            | ⚠️ **والمتغيّرُ لا يكونُ فارغاً أبداً**: `TemplateRenderer`
+            | يعدُّ المتغيّرَ الفارغَ غائباً ويرمي فشلَ تسليمٍ دائماً،
+            | فموافقةٌ لم تُخفِ شيئاً تُسقِطُ الرسالةَ كلَّها. والجملةُ
+            | الهادئةُ تُقالُ عمداً — سطرٌ لا يظهرُ إلّا عندَ العطبِ سطرٌ
+            | لا يعرفُ أحدٌ أن يبحثَ عنه.
+            */
+            NotificationType::PlanChangeApproved->value => [
+                'قُبل تعديل باقة «{{ plan_title }}»',
+                'وافقت الإدارة على تعديل باقة «{{ plan_title }}». الباقة الجديدة تبيع {{ shape }}، '
+                .'والقديمة أُوقفت عن البيع ويبقى اشتراك من اشترك بها كما هو. {{ hidden_cohorts }} {{ reason }}',
+                ['plan_title', 'shape', 'hidden_cohorts', 'reason'],
+            ],
+            NotificationType::PlanChangeRejected->value => [
+                'لم يُقبل تعديل باقة «{{ plan_title }}»',
+                'لم توافق الإدارة على تعديل باقة «{{ plan_title }}» إلى {{ shape }}، والباقة كما هي. {{ reason }}',
+                ['plan_title', 'shape', 'reason'],
+            ],
             NotificationType::PlanCreatedForYou->value => [
                 'أُنشئت باقة باسمك: «{{ plan_title }}»',
-                'أنشأت إدارة المنصّة باقة «{{ plan_title }}» باسمك بسعر {{ price }} لمدّة {{ duration_days }} يوماً. راجعها في باقاتك، وتواصل مع الإدارة إن كان فيها ما يحتاج تعديلاً.',
-                ['plan_title', 'price', 'duration_days'],
+                /*
+                | ⛔ ٠٣٦ — «{{ shape }}» بدلَ «{{ duration_days }} يوماً»، وبدونِ
+                | هذا التغييرِ تسقطُ الرسالةُ كلَّها في صمت. `TemplateRenderer`
+                | يرفضُ متغيّراً فارغاً، وباقةُ الحصصِ لا تحملُ مدّةً إطلاقاً —
+                | فالمدرّسُ الذي أُنشئَت باسمِه باقةُ اثنتَي عشرةَ حصّةً لا يعلمُ
+                | بها، والصفُّ مكتوبٌ والمالُ مُسعَّرٌ ولا سطرَ في السجلّ.
+                */
+                'أنشأت إدارة المنصّة باقة «{{ plan_title }}» باسمك بسعر {{ price }}، وتبيع {{ shape }}. راجعها في باقاتك، وتواصل مع الإدارة إن كان فيها ما يحتاج تعديلاً.',
+                ['plan_title', 'price', 'shape'],
             ],
             /*
             | ⚠️ THE NUMBERS ARE IN THE BODY, NOT A LINK TO THEM. A report that

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { formatCredits, type CreditBalance } from "@/lib/billing";
 
+import { arabicNumber } from "@/lib/numerals";
 /**
  * One card per course, never a total.
  *
@@ -85,7 +86,7 @@ export function BalanceSummary({ balances }: { balances: CreditBalance[] }) {
             {balance.credit_limit_credits > 0 && (
               <p className="mt-3 text-xs text-ink-muted">
                 يسمح لك معلّمك بالحجز حتى{" "}
-                <bdi>{balance.credit_limit_credits.toLocaleString("ar-EG")}</bdi>{" "}
+                <bdi>{arabicNumber(balance.credit_limit_credits)}</bdi>{" "}
                 حصة قبل السداد.
               </p>
             )}
@@ -110,7 +111,7 @@ export function BalanceSummary({ balances }: { balances: CreditBalance[] }) {
             {balance.is_withheld && (
               <Alert tone="warning" title="توقّف الحجز في هذا الكورس">
                 رصيدك لم يعد يكفي لحجز حصة جديدة. تحتاج{" "}
-                <bdi>{balance.credits_needed.toLocaleString("ar-EG")}</bdi>{" "}
+                <bdi>{arabicNumber(balance.credits_needed)}</bdi>{" "}
                 حصة على الأقل لاستئنافه. حصصك المحجوزة سابقاً وتسجيلك في الكورس لا
                 يتأثّران، ويعود الحجز فور اعتماد الدفع بلا أي إجراء منك.
               </Alert>

@@ -19,11 +19,14 @@ use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Learning\Actions\EnrollStudent;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\LiveSessions\Actions\BookSeat;
+use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\CreditTransactionType;
+use App\Modules\Payments\Enums\PlanCoverage;
+use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Tenancy\Actions\CreateWorkspace;
@@ -296,6 +299,37 @@ class DemoDataSeeder extends Seeder
                 'is_preview' => $i === 0,
             ]);
         }
+
+        /*
+        | ⛔ ٠٣٦ · T101 — ONE LIVE GROUP PRICE, AND WITHOUT IT `migrate:fresh
+        | --seed` PRODUCES A DATABASE WHERE EVERY GROUP IS HIDDEN FROM EVERY
+        | PICKER. Nothing in `database/seeders/` wrote a `plans` row before this
+        | line: the three groups below were seeded, listed and joinable for as
+        | long as the gate did not exist — and the day it shipped they vanished
+        | from the student's picker, from the public course page and from the
+        | join door, with the demo reading as a product that lists no groups at
+        | all.
+        |
+        | ⚠️ WORKSPACE COVERAGE AND `group`: the widest thing this seeder means
+        | is «this teacher sells groups». A plan naming ONE group would stop the
+        | other two inheriting (the overrule rule), and an `individual` plan
+        | lists no group at all — both would seed the defect this line exists to
+        | prevent, wearing a price.
+        |
+        | ⚠️ AND IT IS PRICED. An unpriced plan is not sellable, so a row here
+        | with a null price would look like a fix and change nothing.
+        */
+        Plan::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'title' => 'اشتراك شهري — المجموعات',
+            'duration_days' => 30,
+            'session_count' => null,
+            'session_type' => ClassSessionType::Group,
+            'coverage_type' => PlanCoverage::Workspace,
+            'coverage_uuid' => null,
+            'price_minor' => 30_000,
+            'is_active' => true,
+        ]);
 
         // The three states US2 must tell apart. The full one is full by its
         // COUNTER reaching its capacity, not by a status — `isFull()` is derived

@@ -149,6 +149,13 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     Route::get('/manage/plans', [PlanController::class, 'index']);
     Route::post('/manage/plans', [PlanController::class, 'store']);
     Route::patch('/manage/plans/{plan}', [PlanController::class, 'update']);
+    /*
+    | ٠٣٦ — المخرجُ من رفضِ `SavePlan` لتحريكِ باقةٍ مسعَّرة. المعرِّفُ نصٌّ
+    | يُحَلُّ داخلَ المتحكِّم: ربطٌ ضمنيٌّ هنا كانَ سيُجيبُ ٤٠٤ عن باقةٍ
+    | موجودةٍ يومَ يُنادى المسارُ من سياقٍ لا يُطابِقُ — وهو عطبُ ٠٣٢ بنصِّه.
+    */
+    Route::get('/manage/plan-change-requests', [PlanController::class, 'changeRequests']);
+    Route::post('/manage/plans/{planUuid}/change-requests', [PlanController::class, 'requestChange']);
 
 });
 

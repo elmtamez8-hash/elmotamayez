@@ -16,6 +16,7 @@ import { CtaBand } from "@/components/blog/CtaBand";
 import { BookIcon, ChevronEndIcon, ChevronStartIcon } from "@/components/icons";
 import { counted } from "@/lib/labels";
 
+import { arabicNumber } from "@/lib/numerals";
 const TITLE = "المدوّنة";
 const DESCRIPTION =
   "مقالات يكتبها مدرّسو المنصّة: خطط مراجعة، شرح مفاهيم، ونصائح للطلاب وأولياء الأمور.";
@@ -323,8 +324,8 @@ export default async function BlogIndexPage({
           )}
 
           <span className="text-sm text-ink-muted">
-            صفحة {current.toLocaleString("ar-QA")} من{" "}
-            {lastPage.toLocaleString("ar-QA")}
+            صفحة {arabicNumber(current)} من{" "}
+            {arabicNumber(lastPage)}
           </span>
 
           {current < lastPage ? (

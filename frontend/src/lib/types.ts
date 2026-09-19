@@ -310,7 +310,14 @@ export interface SubscriptionIntent {
   mode: "cohort" | "private";
   planUuid: string;
   planTitle: string;
-  durationDays: number;
+  /**
+   * 036 -- one of these two, never both. A month-shaped plan carries a
+   * duration; an hours-shaped one carries a count and writes no subscription
+   * row at all. Typed non-null, `orders/page.tsx` printed «null يوماً» to the
+   * buyer of the second with nothing failing anywhere.
+   */
+  durationDays: number | null;
+  sessionCount: number | null;
   sessionType: "individual" | "group";
   cohortUuid: string | null;
   cohortName: string | null;

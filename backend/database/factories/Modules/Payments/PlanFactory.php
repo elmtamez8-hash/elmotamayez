@@ -44,6 +44,22 @@ class PlanFactory extends Factory
         return $this->state(fn (): array => ['price_minor' => null]);
     }
 
+    /**
+     * A plan sold by the HOUR — a number of sessions and no window (٠٣٦ · FR-020).
+     *
+     * ⚠️ IT CLEARS `duration_days`, and that is the point rather than tidiness.
+     * `SavePlan` refuses to write both, and a fixture carrying both would let a
+     * shape branch read whichever it happened to look at first — which is the
+     * one thing a test of the branch must not allow.
+     */
+    public function bySessions(int $count = 12): self
+    {
+        return $this->state(fn (): array => [
+            'duration_days' => null,
+            'session_count' => $count,
+        ]);
+    }
+
     public function inactive(): self
     {
         return $this->state(fn (): array => ['is_active' => false]);
@@ -54,6 +70,23 @@ class PlanFactory extends Factory
         return $this->state(fn (): array => [
             'coverage_type' => PlanCoverage::Course,
             'coverage_uuid' => $courseUuid,
+        ]);
+    }
+
+    /**
+     * A plan written for ONE GROUP (٠٣٦ · FR-021).
+     *
+     * ⚠️ IT IS ALWAYS A GROUP-SIZED PLAN, because `SavePlan` refuses to write
+     * any other combination: the bridge filters on `group`, so a cohort plan
+     * priced for a one-to-one hour would be saved, would list nothing, and would
+     * make the group vanish with no reason FR-014 could give for it.
+     */
+    public function forCohort(string $cohortUuid): self
+    {
+        return $this->state(fn (): array => [
+            'coverage_type' => PlanCoverage::Cohort,
+            'coverage_uuid' => $cohortUuid,
+            'session_type' => ClassSessionType::Group,
         ]);
     }
 

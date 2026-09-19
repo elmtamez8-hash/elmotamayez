@@ -38,6 +38,15 @@ function cohortCourse(): array
         'course_type' => Course::TYPE_GROUP,
     ]));
 
+    /*
+     | ⛔ A PRICE, OR THIS WHOLE FILE IS ABOUT A COURSE NOBODY CAN BUY INTO.
+     | ٠٣٦ · FR-003 drops a group no live price reaches from the public page
+     | entirely, so a fixture with groups and no plan publishes an empty list —
+     | which is the correct answer to a question none of these cases is asking.
+     | Every case here is about which groups a VISITOR may tell apart.
+     */
+    groupPriceFor($course);
+
     return [$course, $workspace, $teacher];
 }
 

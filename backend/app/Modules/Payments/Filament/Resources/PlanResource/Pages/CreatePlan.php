@@ -11,6 +11,7 @@ use App\Modules\Payments\Actions\CreatePlanForTeacher;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Filament\Resources\PlanResource;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Shared\Contracts\CohortDirectory;
 use DomainException;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -92,12 +93,45 @@ class CreatePlan extends CreateRecord
                         ->required()
                         ->maxLength(255),
 
+                    /*
+                    | 036 . T071 -- THE SHAPE IS PICKED, AND WITHOUT IT NO OFFICER
+                    | COULD WRITE AN HOURS PLAN AT ALL. The duration was
+                    | `required()->minValue(1)`, so the form refused to submit
+                    | without one; and `SavePlan` refuses a row carrying both, so
+                    | a second always-visible field would have made every save
+                    | fail from the other side.
+                    |
+                    | It is a picker rather than «fill whichever you mean» because
+                    | one of the two IS the decision -- and a form that lets both
+                    | be typed is a form whose only error message arrives after
+                    | the save.
+                    */
+                    Select::make('shape')
+                        ->label('ما تبيعه الباقة')
+                        ->required()
+                        ->live()
+                        ->default('duration')
+                        ->options([
+                            'duration' => 'مدّة بالأيّام',
+                            'sessions' => 'عدد من الحصص',
+                        ])
+                        ->helperText('باقةُ الحصصِ تصبُّ رصيداً في دفترِ الطالب ولا تكتبُ اشتراكاً، '
+                            .'ولا بدَّ أن تخصَّ كورساً أو مجموعة.'),
+
                     TextInput::make('duration_days')
                         ->label('المدّة بالأيّام')
                         ->numeric()
-                        ->required()
+                        ->required(fn (callable $get): bool => $get('shape') !== 'sessions')
+                        ->visible(fn (callable $get): bool => $get('shape') !== 'sessions')
                         ->minValue(1)
                         ->default(30),
+
+                    TextInput::make('session_count')
+                        ->label('عدد الحصص')
+                        ->numeric()
+                        ->required(fn (callable $get): bool => $get('shape') === 'sessions')
+                        ->visible(fn (callable $get): bool => $get('shape') === 'sessions')
+                        ->minValue(1),
 
                     Select::make('session_type')
                         ->label('نوع الحصص')
@@ -121,12 +155,29 @@ class CreatePlan extends CreateRecord
                     | تعرِضُ كورساتِ الموظَّفِ أو لا شيء. والشرطُ الصريحُ بمساحةِ
                     | المدرّسِ هو الحارس — وهو نفسُه ما يعيدُ `SavePlan` فحصَه.
                     */
+                    /*
+                    | ⛔ 036 . T087 -- IT ALSO OFFERS THE TEACHER'S GROUPS, and the
+                    | list comes from the CHOSEN TEACHER, never from the writer.
+                    | On this door the writer is a platform officer who is a member
+                    | of no teacher's workspace, so a scoped picker shows their own
+                    | groups or nothing at all -- the mirror of what `coursesOf()`
+                    | below already writes down for courses.
+                    |
+                    | One field for both narrow coverages rather than two, because
+                    | the column IS one: `coverage_uuid` holds whichever public
+                    | identifier the coverage names, and a second field would be a
+                    | second writer for it.
+                    */
                     Select::make('coverage_uuid')
-                        ->label('الكورس')
-                        ->options(fn (callable $get): array => $this->coursesOf($get('teacher')))
+                        ->label(fn (callable $get): string => $get('coverage_type') === PlanCoverage::Cohort->value
+                            ? 'المجموعة'
+                            : 'الكورس')
+                        ->options(fn (callable $get): array => $get('coverage_type') === PlanCoverage::Cohort->value
+                            ? $this->cohortsOf($get('teacher'))
+                            : $this->coursesOf($get('teacher')))
                         ->searchable()
-                        ->required(fn (callable $get): bool => $get('coverage_type') === PlanCoverage::Course->value)
-                        ->visible(fn (callable $get): bool => $get('coverage_type') === PlanCoverage::Course->value)
+                        ->required(fn (callable $get): bool => self::namesOne($get('coverage_type')))
+                        ->visible(fn (callable $get): bool => self::namesOne($get('coverage_type')))
                         ->helperText('اختَرِ المدرّسَ أوّلاً.'),
                 ]),
 
@@ -173,7 +224,15 @@ class CreatePlan extends CreateRecord
                 $workspace,
                 [
                     'title' => $data['title'],
-                    'duration_days' => $data['duration_days'],
+                    /*
+                    | ⛔ THE HIDDEN FIELD IS SENT AS NULL, NOT LEFT OUT. Filament
+                    | keeps the state of a field it stopped showing, so an officer
+                    | who fills 30, switches to «حصص» and saves would otherwise
+                    | reach the Action with BOTH -- refused with a sentence about a
+                    | field the form is no longer displaying.
+                    */
+                    'duration_days' => ($data['shape'] ?? 'duration') === 'sessions' ? null : ($data['duration_days'] ?? null),
+                    'session_count' => ($data['shape'] ?? 'duration') === 'sessions' ? ($data['session_count'] ?? null) : null,
                     'session_type' => $data['session_type'],
                     'coverage_type' => $data['coverage_type'],
                     'coverage_uuid' => $data['coverage_uuid'] ?? null,
@@ -188,6 +247,60 @@ class CreatePlan extends CreateRecord
 
             throw new Halt;
         }
+    }
+
+    /**
+     * Does this coverage name one thing, or the whole workspace?
+     *
+     * ⚠️ IT ASKS THE ENUM, NEVER A LIST OF TWO VALUES WRITTEN OUT HERE.
+     * `PlanCoverage::requiresUuid()` is what `SavePlan` resolves against, and a
+     * form that disagrees with it either hides a required field -- an officer who
+     * cannot submit and is not told why -- or shows one the Action then ignores.
+     */
+    private static function namesOne(mixed $coverage): bool
+    {
+        return is_string($coverage)
+            && PlanCoverage::tryFrom($coverage)?->requiresUuid() === true;
+    }
+
+    /**
+     * The group cohorts of the chosen teacher, labelled by their course.
+     *
+     * ⚠️ THROUGH THE DIRECTORY, NEVER A QUERY ON `cohorts`. That table belongs to
+     * `Learning` and `ContextIsolationTest` fails the build over a Payments file
+     * that names it -- and the directory is already filtered to GROUP cohorts,
+     * which is what stops a plan being pointed at a named student's private room.
+     *
+     * ⚠️ AND THE COURSE IS IN THE LABEL. A teacher with «مجموعة السبت» in two
+     * courses would otherwise be shown the same words twice with no way to tell
+     * which is which -- and the wrong pick writes a plan that opens a course the
+     * buyer never asked for.
+     *
+     * @return array<string, string>
+     */
+    private function cohortsOf(mixed $workspaceUuid): array
+    {
+        $courses = $this->coursesById($workspaceUuid);
+
+        if ($courses === []) {
+            return [];
+        }
+
+        $options = [];
+
+        foreach (app(CohortDirectory::class)->teacherCohortsFor(array_keys($courses)) as $courseId => $cohorts) {
+            foreach ($cohorts as $cohort) {
+                $uuid = $cohort['uuid'] ?? null;
+
+                if (is_string($uuid) && $uuid !== '') {
+                    $options[$uuid] = ($courses[$courseId] ?? '—').' — '.(string) ($cohort['name'] ?? '—');
+                }
+            }
+        }
+
+        asort($options);
+
+        return $options;
     }
 
     /**
@@ -210,6 +323,32 @@ class CreatePlan extends CreateRecord
             ->where('workspace_id', $workspaceId)
             ->orderBy('title')
             ->pluck('title', 'uuid')
+            ->all();
+    }
+
+    /**
+     * The chosen teacher's courses keyed by their numeric id — what the cohort
+     * directory takes, and the titles the picker's labels are built from.
+     *
+     * @return array<int, string>
+     */
+    private function coursesById(mixed $workspaceUuid): array
+    {
+        if (! is_string($workspaceUuid) || $workspaceUuid === '') {
+            return [];
+        }
+
+        $workspaceId = Workspace::query()->where('uuid', $workspaceUuid)->value('id');
+
+        if ($workspaceId === null) {
+            return [];
+        }
+
+        return Course::query()
+            ->withoutWorkspaceScope()
+            ->where('workspace_id', $workspaceId)
+            ->orderBy('title')
+            ->pluck('title', 'id')
             ->all();
     }
 }

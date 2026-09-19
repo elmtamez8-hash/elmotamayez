@@ -7,14 +7,26 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * `credit_purchases.order_id` had no index at all.
+ * `credit_purchases.order_id` becomes UNIQUE.
  *
- * ⚠️ AND IT IS READ ON EVERY PAGE OF `/orders`. `Order::creditPurchase()` is
- * eager-loaded by `OrderController::index()` (paginated fifteen at a time) and by
- * `show()`, which compiles to `WHERE order_id IN (…15 ids…)` — a FULL SCAN of a
- * table that grows with every sale on the platform, on the screen every buyer
- * opens to find their receipt. The table carried exactly two indexes,
- * `(workspace_id, purchased_at)` and `credit_balance_id`, and neither serves it.
+ * ⛔ **TWO SENTENCES OF THIS DOCBLOCK WERE FALSE AND ARE CORRECTED HERE
+ * (٢٠٢٦-٠٩-١٩).** It opened «`credit_purchases.order_id` had no index at all»
+ * and went on to say «the table carried exactly two indexes». Both were wrong:
+ * `_2026_08_11_001000_add_reporting_indexes` had added `index('order_id')` a
+ * month earlier, naming that very column «the FR-028 chain's hinge». So this
+ * migration added a SECOND index to a column that already had one, and the
+ * redundant plain one is dropped by
+ * `_2026_09_19_000600_drop_duplicate_credit_purchases_order_index`.
+ *
+ * The correction is left in place rather than the paragraph deleted: a claim of
+ * ABSENCE and a claim of EXHAUSTIVENESS are the two this tree's own rule says
+ * must be measured before they are written, and this is what one costs.
+ *
+ * ⚠️ AND THE COLUMN IS READ ON EVERY PAGE OF `/orders`. `Order::creditPurchase()`
+ * is eager-loaded by `OrderController::index()` (paginated fifteen at a time) and
+ * by `show()`, which compiles to `WHERE order_id IN (…15 ids…)` on a table that
+ * grows with every sale on the platform, on the screen every buyer opens to find
+ * their receipt.
  *
  * ⚠️ UNIQUE RATHER THAN A PLAIN INDEX, and that is a claim about the domain, not
  * a micro-optimisation: `Order::creditPurchase()` is a `HasOne`, so a second

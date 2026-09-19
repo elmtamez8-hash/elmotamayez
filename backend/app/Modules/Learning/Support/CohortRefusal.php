@@ -53,6 +53,25 @@ class CohortRefusal extends DomainException
         return new self('cohort_closed', 'هذه المجموعة غير مفتوحة للانضمام.');
     }
 
+    /**
+     * No live price reaches this group, so nobody can be sold a place in it
+     * (٠٣٦ · FR-012).
+     *
+     * ⚠️ A SEPARATE CODE FROM `cohort_closed`, AND THE SENTENCES DIFFER FOR THE
+     * SAME REASON. «مغلقة» describes a decision the teacher made about the door;
+     * this describes a plan that has not been priced, switched off, or never
+     * written — none of which the student can read, act on, or wait out in any
+     * predictable way. Folding it into `cohort_closed` would send them to ask
+     * about a door that is not the problem.
+     *
+     * ⚠️ AND IT CARRIES NO REASON. Whether the platform has priced a teacher's
+     * plan is a commercial fact between the two of them.
+     */
+    public static function notListed(): self
+    {
+        return new self('cohort_not_listed', 'هذه المجموعة غير متاحة للانضمام الآن.');
+    }
+
     public static function notEnrolled(): self
     {
         return new self('not_enrolled', 'لست مسجَّلاً في هذا الكورس.', 403);

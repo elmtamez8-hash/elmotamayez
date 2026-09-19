@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
 | 027 — THE REFUSAL IS AT THE TOP AND THE SEND BUTTON IS AT THE BOTTOM.
@@ -34,6 +34,23 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams("course=course-uuid&cohort=cohort-uuid"),
 }));
 
+/** الباقةُ بالشهر — الشكلُ الذي شحنَه ٠٢٧، وهو افتراضُ كلِّ حالةٍ أدناه. */
+const MONTH_PLAN = {
+  uuid: "plan-uuid",
+  title: "الشهري",
+  duration_days: 30,
+  session_count: null,
+  session_type: "group",
+  price_minor: 45_000,
+  currency: "QAR",
+};
+
+/* ما سُئِلَ عنه الخادمُ فعلاً — قائمةُ وسائطِ كلِّ نداءٍ لقارئِ الباقات. */
+const plansAsked: unknown[][] = [];
+
+/* ما يردُّه الخادمُ من باقات — يُبدَّلُ في حالاتِ الشكلَينِ وحدَها. */
+let mockPlans: Record<string, unknown>[] = [MONTH_PLAN];
+
 vi.mock("@/lib/subscribe", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/subscribe")>();
 
@@ -48,18 +65,11 @@ vi.mock("@/lib/subscribe", async (importOriginal) => {
           cohorts: [{ uuid: "cohort-uuid", name: "مجموعة السبت", schedule: [] }],
         },
       })),
-      plans: vi.fn(async () => ({
-        data: [
-          {
-            uuid: "plan-uuid",
-            title: "الشهري",
-            duration_days: 30,
-            session_type: "group",
-            price_minor: 45_000,
-            currency: "QAR",
-          },
-        ],
-      })),
+      plans: vi.fn(async (...args: unknown[]) => {
+        plansAsked.push(args);
+
+        return { data: mockPlans };
+      }),
       create: (body: unknown) => create(body),
       uploadReceipt: (...args: unknown[]) => uploadReceipt(...args),
     },
@@ -292,5 +302,83 @@ describe("the subscription screen for a guardian", () => {
     expect(screen.queryByLabelText(/لمن هذا الاشتراك/)).toBeNull();
     // ولا يُسألُ الخادمُ عن أبناءٍ لحسابٍ ليسَ وليَّ أمر.
     expect(listRelations).not.toHaveBeenCalled();
+  });
+});
+
+/*
+| ٠٣٦ · US2 · T063 — الشاشةُ تصفُ كلَّ شكلٍ بصدقِه.
+|
+| ⛔ **وبعددٍ في نطاقِ التثنيةِ أو ٣–١٠، لا ١٢ ولا ٣٠.** الاثنا عشرَ والثلاثونَ
+| هما بالضبطِ النطاقُ («many») الذي يتّفقُ فيه قالبٌ نصّيٌّ ساذجٌ مع قاعدةِ
+| العدِّ العربيّة، فحالةٌ مكتوبةٌ بأحدِهما تمرُّ فوقَ «٣ حصّة» و«حصّتان» معاً.
+*/
+describe("what the buyer is told a plan sells", () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    mockPlans = [MONTH_PLAN];
+  });
+
+  it("names the months for a plan sold by time", async () => {
+    const { default: SubscribePage } = await import("./page");
+
+    render(<SubscribePage />);
+
+    await screen.findByRole("radio");
+
+    expect(screen.getByText("شهر واحد · حصص جماعية")).toBeDefined();
+  });
+
+  it("names the COUNT for a plan sold by sessions, and never a duration", async () => {
+    mockPlans = [
+      { ...MONTH_PLAN, uuid: "plan-two", title: "باقة الحصص", duration_days: null, session_count: 2 },
+      { ...MONTH_PLAN, uuid: "plan-three", title: "باقة الثلاث", duration_days: null, session_count: 3 },
+    ];
+
+    const { default: SubscribePage } = await import("./page");
+
+    render(<SubscribePage />);
+
+    await screen.findAllByRole("radio");
+
+    // «حصّتان» بلا رقم — العربيّةُ تحملُ العدَّ في الكلمةِ نفسِها — و«٣ حصص»
+    // بالرقم. القاعدةُ في `counted()` وحدَها، ولا تُهجّى هنا مرّةً ثانية.
+    expect(screen.getByText("حصّتان · حصص جماعية")).toBeDefined();
+    expect(screen.getByText("٣ حصص · حصص جماعية")).toBeDefined();
+
+    // ⛔ ولا كلمةَ «يوماً» في الصفحةِ كلِّها: `null % 30 === 0` صحيحٌ في
+    // JavaScript، فالسقوطُ القديمُ كانَ يطبعُ «null يوماً» لمشترٍ يقرأُ سعراً.
+    expect(document.body.textContent).not.toContain("يوماً");
+    expect(document.body.textContent).not.toContain("null");
+  });
+});
+
+/*
+| ٠٣٦ · US3 · T089 — المجموعةُ تُمرَّرُ إلى قارئِ الباقات.
+|
+| ⛔ **ويُقاسُ ما طُلِبَ من الخادمِ لا ما رُسِمَ على الشاشة.** الاستبدالُ يقعُ
+| في الخادم؛ ما تملكُه هذه الشاشةُ هو أن تقولَ له على أيِّ مجموعةٍ يقفُ
+| المشتري. فتأكيدٌ على الباقاتِ المعروضةِ يقيسُ عيّنةَ الاختبارِ لا الشاشة،
+| ويبقى أخضرَ وقد سقطَ الوسيطُ بالكامل — وحينَها يعرِضُ المنتَجُ باقةَ الكورسِ
+| ويرفضُها البابُ بجملةٍ عن المجموعة.
+*/
+describe("what the screen asks the server for", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    plansAsked.length = 0;
+  });
+
+  it("names the group the buyer is standing on", async () => {
+    const { default: SubscribePage } = await import("./page");
+
+    render(<SubscribePage />);
+
+    await screen.findByRole("radio");
+
+    expect(plansAsked).toHaveLength(1);
+    // الكورسُ · نوعُ الحصّةِ · والمجموعةُ — الثالثُ هو ما أضافَه ٠٣٦.
+    expect(plansAsked[0]).toEqual(["course-uuid", "group", "cohort-uuid"]);
   });
 });

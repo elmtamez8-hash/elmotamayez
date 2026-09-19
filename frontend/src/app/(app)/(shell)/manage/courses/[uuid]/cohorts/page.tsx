@@ -27,6 +27,7 @@ import {
   manageCohorts,
   type CohortHistoryEvent,
   type CohortOption,
+  type ManagedCohort,
   type CohortTransferRequest,
 } from "@/lib/cohorts";
 import { userMessage } from "@/lib/errors";
@@ -78,7 +79,7 @@ export default function ManageCohortsPage({
 }) {
   const { uuid: courseUuid } = use(params);
 
-  const [groups, setGroups] = useState<CohortOption[]>([]);
+  const [groups, setGroups] = useState<ManagedCohort[]>([]);
   const [queue, setQueue] = useState<CohortTransferRequest[]>([]);
   const [hidden, setHidden] = useState<{
     data: Array<{ uuid: string; title: string; starts_at: string }>;
@@ -450,8 +451,18 @@ export default function ManageCohortsPage({
                       <div className="flex flex-wrap items-center gap-2">
                         {group.status === "archived" && <Badge tone="neutral">مؤرشفة</Badge>}
                         {group.status === "closed" && <Badge tone="warning">مغلقة للانضمام</Badge>}
-                        {group.status === "open" && !group.is_full && (
-                          <Badge tone="success">مفتوحة</Badge>
+                        {/*
+                          ⛔ THE SERVER'S VERDICT, NOT A CONDITION REBUILT HERE
+                          (٠٣٦ · T054). This read `status === "open" && !is_full`
+                          — the ONLY such derivation left in the tree — and after
+                          the price gate that badge says «مفتوحة» about a group no
+                          student can see. `is_joinable` is the same predicate the
+                          picker and the join door read, which is the whole point
+                          of the server answering it.
+                        */}
+                        {group.is_joinable && <Badge tone="success">مفتوحة</Badge>}
+                        {group.absence_reason !== undefined && (
+                          <Badge tone="warning">{group.absence_reason.label}</Badge>
                         )}
                         {group.is_full && <Badge tone="danger">مكتملة</Badge>}
                       </div>

@@ -20,6 +20,7 @@ import { Table, type Column } from "@/components/ui/Table";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 
+import { arabicNumber } from "@/lib/numerals";
 /**
  * The teacher's statement.
  *
@@ -140,7 +141,7 @@ export default function SettlementPage() {
   // «—», never «٠». A unit delivered before ٠٣٥ carries no verdict at all, and a
   // zero there would tell a teacher nobody attended an hour they taught in full.
   const seatCount = (seats: number | null) =>
-    seats === null ? "—" : seats.toLocaleString("ar-QA");
+    seats === null ? "—" : arabicNumber(seats);
 
   const columns: Column<TeachingUnit>[] = [
     {
@@ -157,7 +158,7 @@ export default function SettlementPage() {
       key: "frozen_seats",
       header: "المقاعد المحجوزة",
       numeric: true,
-      render: (unit) => unit.frozen_seats.toLocaleString("ar-QA"),
+      render: (unit) => arabicNumber(unit.frozen_seats),
     },
     {
       key: "attended_seats",

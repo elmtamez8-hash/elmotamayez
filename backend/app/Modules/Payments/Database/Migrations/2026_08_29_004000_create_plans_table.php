@@ -18,12 +18,22 @@ use Illuminate\Support\Facades\Schema;
  *   · «بعددٍ من الحصص»     ⇒ `CreditPackage(credits: N)`, priced per course.
  *   · «بالشهر»             ⇒ THIS TABLE.
  *
- * A `session_count` column here would be a second credit engine standing beside
- * the first — two vocabularies for one fact, and the day they disagree is the
- * day a student is charged twice for one seat. Worse, FR-028 forbids a plan
- * session from moving a balance at all, so the pack would have to reimplement
- * lots, expiry, the floor and the reconciliation invariants rather than reuse
- * them. Sessions are bought as credits; time is bought here.
+ * ⛔ **AND THE PARAGRAPH THAT STOOD HERE IS NOW FALSE: `session_count` EXISTS
+ * ON THIS TABLE SINCE ٠٣٦ (`_2026_09_17_000200_add_session_count_to_plans`).**
+ * It read «a `session_count` column here would be a second credit engine
+ * standing beside the first», and the argument was sound and the conclusion was
+ * overtaken: FR-020 makes a plan «either a window or a number of hours», and the
+ * hours shape does NOT reimplement anything — it mints ordinary credits through
+ * `CreditLedger` from the order itself, so lots, expiry, the floor and the
+ * reconciliation invariants are the SAME ones, reused rather than rebuilt. The
+ * fear the paragraph named is real and is answered by that reuse, not by the
+ * column's absence.
+ *
+ * The correction is left in place rather than the paragraph deleted: a reader
+ * who finds a column the file swears cannot exist stops trusting the file, and
+ * the rule «exactly one of the two shapes, never both» is enforced in
+ * {@see SavePlan::resolveShape()} rather than by the engine — the sentence that
+ * matters most is the one a migration cannot hold.
  *
  * ⚠️ AND THERE IS A PRICE COLUMN, WHICH `credit_packages` DELIBERATELY LACKS.
  * That is not a regression of 006's rule, it is the boundary of it: a credit

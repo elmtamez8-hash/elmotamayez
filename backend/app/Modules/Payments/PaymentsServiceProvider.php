@@ -48,6 +48,7 @@ use App\Modules\Payments\Policies\SubscriptionPolicy;
 use App\Modules\Payments\Policies\TermsConsentPolicy;
 use App\Modules\Payments\Providers\ManualTransferProvider;
 use App\Modules\Payments\Providers\PaymentProviderRegistry;
+use App\Modules\Payments\Support\CohortPlanReach;
 use App\Modules\Payments\Support\EloquentAccountStanding;
 use App\Modules\Payments\Support\EloquentConsentDirectory;
 use App\Modules\Payments\Support\EloquentSessionContentAccess;
@@ -56,7 +57,9 @@ use App\Modules\Payments\Support\EloquentSessionSeatCharges;
 use App\Modules\Payments\Support\PaymentsPersonalData;
 use App\Modules\Payments\Support\SubscriptionEligibility;
 use App\Shared\Contracts\AccountStanding;
+use App\Shared\Contracts\CohortPricingReasonDirectory;
 use App\Shared\Contracts\ConsentDirectory;
+use App\Shared\Contracts\SellableCohortDirectory;
 use App\Shared\Contracts\SessionContentAccess;
 use App\Shared\Contracts\SessionCreditHolds;
 use App\Shared\Contracts\SessionSeatCharges;
@@ -152,6 +155,31 @@ class PaymentsServiceProvider extends Module
         | point of the moment parameter is that this answer moves.
         */
         $this->app->bind(SubscriptionDirectory::class, SubscriptionEligibility::class);
+
+        /*
+        | ٠٣٦ — الجسرُ الثاني: «أيُّ هذه المجموعاتِ يصلُها ثمنٌ نافذ؟» وسببُ الغياب.
+        |
+        | TWO CONTRACTS AND ONE CLASS BEHIND THEM, deliberately. The listing
+        | answer and the teacher's reason are the same three reads; two
+        | implementations would be two spellings of the overrule rule, and the
+        | day somebody changed one the screen and the door would disagree — which
+        | is the whole defect this bridge exists to prevent. They stay two
+        | INTERFACES because `Learning` asks the first one from a public page and
+        | the second only from the teacher's, and a single interface carrying
+        | both is one forgotten branch away from putting a plan's pricing state
+        | in front of a guest.
+        |
+        | `bind()`, the lifetime {@see SubscriptionDirectory} above carries and
+        | for the same two reasons. NOT `scoped()`: this is asked once per screen
+        | — a course's group list, a teacher's groups tab — not the dozens of
+        | times per page that `AssistantScopeDirectory` and `Flags` memoise for,
+        | and a memo would have the `LedgerEntry` blind spot the paragraph above
+        | records, since a bulk `update()` on `plans` fires no model event. NOT
+        | `singleton()`: a worker's container outlives the job, and the one thing
+        | this answer must do is change the minute an officer prices a plan.
+        */
+        $this->app->bind(SellableCohortDirectory::class, CohortPlanReach::class);
+        $this->app->bind(CohortPricingReasonDirectory::class, CohortPlanReach::class);
 
         /*
         | ٠٣٥ — عقدُ الكتابة: الحجزُ يُجمِّدُ الرصيدَ ولا يخصمُه.

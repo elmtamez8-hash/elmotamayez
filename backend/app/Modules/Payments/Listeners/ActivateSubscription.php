@@ -12,16 +12,25 @@ use App\Modules\LiveSessions\Jobs\ClaimSubscriptionSeatsJob;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Data\SubscriptionIntent;
+use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Enums\SubscriptionStatus;
 use App\Modules\Payments\Events\Contracts\CarriesPaidOrder;
+use App\Modules\Payments\Models\CreditBalance;
+use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\Subscription;
+use App\Modules\Payments\Support\CoveredCourses;
+use App\Modules\Payments\Support\CreditAccounts;
+use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Payments\Support\EffectiveSubscriptionEnd;
+use App\Modules\Payments\Support\SubscriptionAccess;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\CohortScheduleDirectory;
+use App\Shared\Support\CountedNoun;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
@@ -73,6 +82,31 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
 {
     use InteractsWithQueue;
 
+    /**
+     * The idempotency key's type half for an hours purchase (٠٣٦ · T066).
+     *
+     * ⚠️ ≤ 32 CHARACTERS AND DISTINCT FROM `credit_purchase`. `source_type` is
+     * part of `credit_tx_idempotency` — `(credit_balance_id, type, source_type,
+     * source_id)` — so two shapes sharing one type would collide the moment a
+     * package row and an order row happen to share an id.
+     *
+     * ⚠️ AND IT IS PUBLIC BECAUSE TWO READERS ASK FOR IT BY NAME: the auditor's
+     * chain behind one payment and the nightly reconciliation. Spelled out at
+     * either of those sites instead, an hours sale reads as a sale that minted
+     * nothing — which is exactly what both of them shipped doing.
+     */
+    public const CREDIT_SOURCE_TYPE = 'session_plan_order';
+
+    /**
+     * The enrolment source for the hours shape (٠٣٦ · T067).
+     *
+     * ⛔ NOT `subscription`. `SubscriptionAccess::close()` closes every enrolment
+     * matching `(order_id, source = subscription)` — and there is no
+     * subscription row behind this order, so that sweep would be closing access
+     * nothing was ever going to re-open.
+     */
+    private const ENROLMENT_SOURCE = 'session_plan';
+
     public function __construct(
         private readonly EnrollStudent $enroll,
         private readonly MoveMember $move,
@@ -81,6 +115,10 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
         private readonly DispatchNotification $notify,
         private readonly EffectiveSubscriptionEnd $ends,
         private readonly WorkspaceContext $workspace,
+        private readonly CoveredCourses $covered,
+        // 036 - the second shape: credits in 035's ledger, no subscription row.
+        private readonly CreditAccounts $accounts,
+        private readonly CreditLedger $ledger,
     ) {}
 
     public function handle(CarriesPaidOrder $event): void
@@ -104,7 +142,58 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
             return;
         }
 
-        $subscription = $this->claim($order, $plan);
+        /*
+        | ٠٣٦ — A SHAPE WITH NO WINDOW IS NOT A SUBSCRIPTION ROW, AND THIS IS THE
+        | HALF OF IT THAT EXISTS SO FAR. A plan sold by the hour carries no
+        | `duration_days`, so there is no end date to write and `subscriptions`
+        | is the wrong table for it entirely — the hours belong in the credit
+        | ledger, which is T064's arm and is not built yet.
+        |
+        | ⛔ IT MUST NOT FALL THROUGH TO `addDays(0)`. That writes a row whose end
+        | date equals its start date: a subscription that expired the instant it
+        | was activated, after the student paid, with every screen correct about
+        | an empty window and nothing logged anywhere. Logged rather than thrown,
+        | in the shape the branch above already uses — the payment is real and
+        | every other listener on this event must still run.
+        */
+        /*
+        | ⛔ THE SHAPE DECIDES WHICH TABLE THIS IS (٠٣٦ · T064), AND IT IS READ
+        | FROM THE ORDER'S SNAPSHOT — never from the plan row. A manual transfer
+        | takes days to clear and the teacher may legitimately re-shape the plan
+        | inside that lag; everything else about this order already reads the
+        | snapshot for that reason, and the officer's queue prints it.
+        |
+        | A plan sold by the HOUR writes no `subscriptions` row at all: there is
+        | no window to store, and a row with a made-up end date is a promise
+        | nobody made. The hours go into ٠٣٥'s ledger, which is where the product
+        | already knows how to spend them.
+        */
+        $intent = SubscriptionIntent::fromOrder($order);
+
+        if ($intent !== null && $intent->isSessionShaped()) {
+            $this->activateSessionPlan($order, $plan, $intent);
+
+            return;
+        }
+
+        /*
+        | ⚠️ THE OLD ARM, AND IT IS GUARDED RATHER THAN TRUSTED. An order placed
+        | before ٠٢٧ carries no snapshot at all and falls through to the live
+        | plan — which may by now be a session plan with a null duration. «No
+        | window ⇒ record and return», never `addDays(0)`.
+        */
+        $window = $this->windowFor($order, $plan);
+
+        if ($window === null) {
+            Log::warning('٠٣٦: طلب اشتراك بلا مدّة ولا لقطة شكل', [
+                'order_id' => $order->getKey(),
+                'plan_id' => $plan->getKey(),
+            ]);
+
+            return;
+        }
+
+        $subscription = $this->claim($order, $plan, $window);
 
         if ($subscription === null) {
             /*
@@ -147,9 +236,17 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
             'effective_ends_on' => $this->ends->forSubscription($subscription),
         ])->save();
 
-        $this->openAccess($order, $plan, $subscription);
+        $this->openAccess(
+            $order,
+            $plan,
+            CarbonImmutable::parse($subscription->effective_ends_on)->endOfDay(),
+            'subscription',
+        );
 
-        $this->joinCohort($order, $subscription);
+        $this->joinCohort(
+            $order,
+            CarbonImmutable::parse($subscription->effective_ends_on)->toDateString(),
+        );
 
         $this->announceActivation($order, $subscription);
     }
@@ -177,7 +274,7 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
      * implementation. The event is now DERIVED inside the writer's transaction,
      * and the actor is the officer who approved.
      */
-    private function joinCohort(Order $order, Subscription $subscription): void
+    private function joinCohort(Order $order, ?string $seatWindowEnd): void
     {
         $intent = SubscriptionIntent::fromOrder($order);
 
@@ -278,12 +375,30 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
         | callback simply runs at once, so this costs nothing and stays correct if
         | anybody ever wraps the steps above.
         */
+        /*
+        | ⛔ NO WINDOW ⇒ NO AUTOMATIC SEAT CLAIM AT ALL (٠٣٦ · T115), AND THIS IS
+        | AN ENGINEERING DECISION RATHER THAN AN OMISSION. The claim job was
+        | written for the buyer of a MONTH: its window-end argument is not
+        | nullable, and with no time limit it would book **every future session
+        | of the group** — twelve hours bought buying forty chairs. Worse, each
+        | of those seats passes through «covered by a subscription» and therefore
+        | skips the credit hold, on a comment that says «a subscriber holds no
+        | credits» — and the buyer of hours holds exactly that. The result is
+        | seats with no hold behind them, charged at attendance.
+        |
+        | So an hours buyer books by hand, through the ordinary door, where ٠٣٥'s
+        | hold is placed for them like anybody else's.
+        */
+        if ($seatWindowEnd === null) {
+            return;
+        }
+
         ClaimSubscriptionSeatsJob::dispatch(
             (int) $described['workspace_id'],
             (int) $student->getKey(),
             (int) $described['course_id'],
             (int) $described['id'],
-            CarbonImmutable::parse($subscription->effective_ends_on)->toDateString(),
+            $seatWindowEnd,
         )->afterCommit();
     }
 
@@ -360,6 +475,217 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
     }
 
     /**
+     * The HOURS shape: credits in ٠٣٥'s ledger, and **zero rows** in `subscriptions`.
+     *
+     * ⛔ THE CREDITS LAND ON THE GROUP'S OWN COURSE BALANCE (٠٣٦ · T065). ٠٣٥
+     * keeps one balance per COURSE, deliberately — «+10 in maths and −6 in
+     * physics» is not +4 — so «the student's balance» is not a place anything can
+     * be put. A plan that names no single course puts them nowhere, and says so
+     * rather than guessing.
+     *
+     * ⛔ AND THE MOVEMENT CARRIES AN IDEMPOTENCY KEY. `credit_transactions` is
+     * unique on FOUR columns, so a source left empty prevents no duplicate at
+     * all: a redelivered approval pours the hours in a second time, the balance
+     * stops equalling the sum of its entries, and nothing notices until the
+     * nightly reconciliation a week later.
+     *
+     * ⛔ AND «ALREADY RECORDED» CONTINUES, IT DOES NOT RETURN. The ledger answers
+     * null for a duplicate; returning there would make a redelivery skip the
+     * enrolment, the membership and the message — the exact failure the
+     * subscription arm above documents at length, reached through the other
+     * shape.
+     */
+    private function activateSessionPlan(Order $order, Plan $plan, SubscriptionIntent $intent): void
+    {
+        $course = $this->creditCourseFor($order, $plan, $intent);
+
+        if ($course === null) {
+            // Logged rather than thrown: the payment is real and the other
+            // listeners on this event must still run. Nothing is written, so a
+            // retry with the coverage repaired finishes the job.
+            Log::warning('٠٣٦: باقة حصص لا تحمل كورساً يُصَبُّ عليه الرصيد', [
+                'order_id' => $order->getKey(),
+                'plan_id' => $plan->getKey(),
+            ]);
+
+            return;
+        }
+
+        $balance = $this->accounts->balanceFor($order->user, $course);
+
+        $this->recordSale($order, $plan, $intent, $course, $balance);
+
+        $this->ledger->post(new CreditMovement(
+            balance: $balance,
+            type: CreditTransactionType::Purchase,
+            credits: (int) $intent->sessionCount,
+            sourceType: self::CREDIT_SOURCE_TYPE,
+            sourceId: (int) $order->getKey(),
+            performedBy: $order->approved_by === null ? null : (int) $order->approved_by,
+        ));
+
+        /*
+        | ⚠️ NO `expires_at` AND NO SEAT CLAIM. Both take a window and this shape
+        | has none — each absence is written down beside the line it changes, in
+        | {@see self::openAccess()} and {@see self::joinCohort()}.
+        */
+        $this->openAccess($order, $plan, null, self::ENROLMENT_SOURCE);
+
+        $this->joinCohort($order, null);
+
+        $this->announceSessionPlan($order, $intent, $course);
+    }
+
+    /**
+     * The course the hours are credited to.
+     *
+     * The group the buyer chose settles it; failing that, a course-scoped plan
+     * names one itself. A plan covering the whole workspace names none — and
+     * FR-022 refuses to let hours be written on that coverage at all, so
+     * reaching here with one means a row older than that guard.
+     */
+    private function creditCourseFor(Order $order, Plan $plan, SubscriptionIntent $intent): ?Course
+    {
+        $courseId = $order->course_id === null ? null : (int) $order->course_id;
+
+        if ($courseId === null && $intent->cohortUuid !== null) {
+            $described = $this->cohorts->describeGroupCohort($intent->cohortUuid);
+            $courseId = $described === null ? null : (int) $described['course_id'];
+        }
+
+        if ($courseId === null) {
+            $courseId = $this->covered->coverageCourseId($plan);
+        }
+
+        return $courseId === null
+            ? null
+            : Course::query()->withoutWorkspaceScope()->whereKey($courseId)->first();
+    }
+
+    /**
+     * The sale row the finance screen reads (٠٣٦ · T068 · T116).
+     *
+     * ⛔ WITHOUT IT «CREDIT ALREADY HELD» SWALLOWS «CREDIT JUST SOLD» on the very
+     * screen where the platform decides a teacher's price: the balance moves and
+     * nothing anywhere records that money came in for it.
+     *
+     * ⚠️ AND THE THREE FEE COLUMNS STAY NULL. They are what `CostPlusPricing`
+     * computes for a PACKAGE; a plan's price is a number a human typed, with no
+     * formula to take apart. Zeros there would be read as facts by the books — a
+     * teacher who earned nothing on a sale that really happened.
+     *
+     * Idempotent on the order, like everything else in this listener.
+     */
+    private function recordSale(
+        Order $order,
+        Plan $plan,
+        SubscriptionIntent $intent,
+        Course $course,
+        CreditBalance $balance,
+    ): void {
+        CreditPurchase::query()->withoutWorkspaceScope()->firstOrCreate(
+            ['order_id' => (int) $order->getKey()],
+            [
+                'credit_balance_id' => (int) $balance->getKey(),
+                'plan_id' => (int) $plan->getKey(),
+                'course_id' => (int) $course->getKey(),
+                'workspace_id' => (int) $course->workspace_id,
+                'credits' => (int) $intent->sessionCount,
+                'total_minor' => (int) $order->amount_minor,
+                'currency' => (string) $order->currency,
+                'purchased_at' => now(),
+            ],
+        );
+    }
+
+    /**
+     * «فُعِّلت باقتك، وهذا رصيدك، وهذه مواعيدك» (٠٣٦ · FR-020 · T117).
+     *
+     * ⛔ ITS OWN TYPE, NOT `SubscriptionActivated`. That template demands
+     * `starts_on` and `ends_on` and throws on any empty variable — so reusing it
+     * would either throw after the money committed, or invent two dates the
+     * student reads as true about something that ends in HOURS rather than on a
+     * day.
+     *
+     * ⚠️ AND THE COUNT GOES THROUGH `CountedNoun`. Arabic agrees the noun with
+     * its number across five bands, so «٢ حصص» is wrong where «حصّتان» is right —
+     * the same CLDR rule the frontend's `counted()` reads.
+     */
+    private function announceSessionPlan(Order $order, SubscriptionIntent $intent, Course $course): void
+    {
+        $schedule = 'مواعيد مدرّسك مفتوحة لحجز حصصك.';
+        $nextSession = 'لم تُجدول حصة قادمة بعد؛ ستصلك رسالة فور جدولتها.';
+        $actionUrl = '/schedule';
+
+        if ($intent->isCohort() && $intent->cohortUuid !== null) {
+            $described = $this->cohorts->describeGroupCohort($intent->cohortUuid);
+
+            if ($described !== null) {
+                $slots = $this->schedules->schedulePreviewFor([$described['id']])[$described['id']] ?? [];
+
+                $schedule = $slots === []
+                    ? sprintf('مجموعة «%s» — لم تُعلَن مواعيدها الأسبوعية بعد.', $described['name'])
+                    : sprintf('مجموعة «%s» — %s.', $described['name'], implode(' · ', $slots));
+
+                $next = $this->schedules->nextSessionFor((int) $described['id']);
+
+                if ($next !== null) {
+                    $nextSession = sprintf('أقرب حصة: %s.', $next['starts_at']);
+                    $actionUrl = '/sessions/'.$next['uuid'].'/room';
+                }
+            }
+        }
+
+        $this->notify->handle(new NotificationRequest(
+            recipient: $order->user,
+            type: NotificationType::SessionPlanActivated,
+            variables: [
+                'plan_title' => $intent->planTitle,
+                'teacher_name' => $intent->teacherName ?? 'مدرّسك',
+                'sessions' => CountedNoun::of((int) $intent->sessionCount, [
+                    'one' => 'حصّة واحدة',
+                    'two' => 'حصّتان',
+                    'few' => 'حصص',
+                    'many' => 'حصّة',
+                    'other' => 'حصّة',
+                ]),
+                'schedule' => $schedule,
+                'next_session' => $nextSession,
+            ],
+            actionUrl: $actionUrl,
+            subject: $order->user,
+            workspaceId: (int) $course->workspace_id,
+        ));
+    }
+
+    /**
+     * How many days this subscription runs for, or `null` when it has no window.
+     *
+     * ⚠️ THE DURATION COMES FROM THE ORDER'S SNAPSHOT, NOT FROM THE PLAN. A
+     * manual transfer takes days to clear, and a teacher may legitimately
+     * re-duration the plan inside that lag — the officer's queue prints the
+     * snapshot, so reading the live plan here sells one number to the officer and
+     * another to the student. Exactly the argument the price already won. The
+     * plan stands in only when the order carries no snapshot at all (an order
+     * placed before 027 shipped).
+     *
+     * ⚠️ AND A ZERO IS «NO WINDOW», NOT A WINDOW OF ZERO. Both sources can
+     * produce one — a truncated metadata blob, or a plan re-shaped to hours while
+     * the transfer cleared — and the whole point of answering `null` is that
+     * `addDays(0)` never gets the chance.
+     */
+    private function windowFor(Order $order, Plan $plan): ?int
+    {
+        $intent = SubscriptionIntent::fromOrder($order);
+
+        $days = $intent === null
+            ? ($plan->duration_days === null ? null : (int) $plan->duration_days)
+            : $intent->durationDays;
+
+        return $days !== null && $days > 0 ? $days : null;
+    }
+
+    /**
      * The plan this order was placed against.
      *
      * Carried on `orders.metadata` rather than in a column of its own: the order
@@ -388,21 +714,10 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
      * subscription would never exist, with the payment approved and nothing
      * logged. The read-back is what tells the two apart.
      */
-    private function claim(Order $order, Plan $plan): ?Subscription
+    private function claim(Order $order, Plan $plan, int $window): ?Subscription
     {
         $starts = CarbonImmutable::today();
-
-        /*
-        | ⚠️ THE DURATION COMES FROM THE ORDER'S SNAPSHOT, NOT FROM THE PLAN. A
-        | manual transfer takes days to clear, and a teacher may legitimately
-        | re-duration the plan inside that lag — the officer's queue prints the
-        | snapshot, so reading the live plan here sells one number to the officer
-        | and another to the student. Exactly the argument the price above already
-        | won. The plan stands in only when the order carries no snapshot at all
-        | (an order placed before 027 shipped).
-        */
-        $intent = SubscriptionIntent::fromOrder($order);
-        $ends = $starts->addDays($intent === null ? (int) $plan->duration_days : $intent->durationDays);
+        $ends = $starts->addDays($window);
 
         try {
             return Subscription::create([
@@ -446,7 +761,22 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
      * their existing, open-ended enrolment back — and stamping an expiry on it
      * would revoke permanent access they paid for, a month later, silently.
      */
-    private function openAccess(Order $order, Plan $plan, Subscription $subscription): void
+    /**
+     * Enrol the buyer in everything this plan covers.
+     *
+     * ⛔ THE END DATE AND THE SOURCE ARE BOTH ARGUMENTS NOW (٠٣٦ · T067), AND
+     * NEITHER IS COSMETIC. A plan sold by the hour has no window at all, so
+     * `expires_at` is simply not written — an invented date is access that
+     * disappears on a day nobody agreed to, while the credits are still there.
+     *
+     * ⛔ AND THE SOURCE MUST NOT BE `subscription` FOR THE HOURS SHAPE.
+     * {@see SubscriptionAccess::close()} closes
+     * every enrolment matching `(order_id, source = subscription)` when a
+     * subscription expires or is cancelled — so an hours enrolment wearing that
+     * source is a row the subscription sweep can reach with **no subscription
+     * behind it**, closing access that nothing was ever going to re-open.
+     */
+    private function openAccess(Order $order, Plan $plan, ?CarbonImmutable $expiresAt, string $source): void
     {
         foreach ($this->coveredCourses($plan) as $course) {
             $enrollment = $this->workspace->forWorkspace(
@@ -454,15 +784,13 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
                 fn () => $this->enroll->handle(
                     course: $course,
                     student: $order->user,
-                    source: 'subscription',
+                    source: $source,
                     orderId: (int) $order->getKey(),
                 ),
             );
 
-            if ($enrollment->wasRecentlyCreated) {
-                $enrollment->forceFill([
-                    'expires_at' => CarbonImmutable::parse($subscription->effective_ends_on)->endOfDay(),
-                ])->save();
+            if ($enrollment->wasRecentlyCreated && $expiresAt !== null) {
+                $enrollment->forceFill(['expires_at' => $expiresAt])->save();
             }
         }
     }
@@ -470,16 +798,14 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
     /**
      * @return EloquentCollection<int, Course>
      */
+    /*
+    | ⛔ DELEGATED, AND THE THIRD COVERAGE IS WHY. Written here, the `when()` above
+    | asked «is this the Course case» — false for a group plan — so the buyer of
+    | one group's term was enrolled in EVERY PUBLISHED COURSE the teacher has.
+    | Silently, at approval, after the money.
+    */
     private function coveredCourses(Plan $plan): EloquentCollection
     {
-        return Course::query()
-            ->withoutWorkspaceScope()
-            ->where('workspace_id', $plan->workspace_id)
-            ->where('status', 'published')
-            ->when(
-                $plan->coverage_type->needsCourse(),
-                fn ($query) => $query->where('uuid', $plan->coverage_uuid),
-            )
-            ->get();
+        return $this->covered->coveredCourses($plan);
     }
 }

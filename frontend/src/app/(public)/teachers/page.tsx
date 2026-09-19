@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { counted } from "@/lib/labels";
 
+import { arabicNumber } from "@/lib/numerals";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
@@ -137,7 +138,7 @@ export default async function TeachersPage({
             خيارات أدق
             {appliedCount > 0 && (
               <span className="ms-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white">
-                {appliedCount.toLocaleString("ar-QA")}
+                {arabicNumber(appliedCount)}
               </span>
             )}
           </span>

@@ -43,6 +43,10 @@ beforeEach(function (): void {
         ]),
     );
 
+    // ⛔ ٠٣٦ · FR-003: a group no live price reaches cannot be joined at all, and
+    // one case here has the student join of their own accord.
+    groupPriceFor($this->course);
+
     $this->saturday = Cohort::factory()->create([
         'workspace_id' => $this->workspace->getKey(),
         'course_id' => $this->course->getKey(),

@@ -43,6 +43,12 @@ function courseForIndividualCohorts(): array
         'course_type' => Course::TYPE_GROUP,
     ]));
 
+    // ⛔ ٠٣٦ · FR-003: a group no live price reaches is not offered at all, and
+    // every case here is about WHICH groups the picker lists rather than about
+    // pricing. Without this the picker is empty and the private-group case
+    // passes for the wrong reason entirely.
+    groupPriceFor($course);
+
     return [$course, $workspace, $owner];
 }
 

@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { errorMessage, fieldErrors } from "@/lib/api";
 import { formatDate } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 import {
   formatMetric,
   reports,
@@ -102,8 +103,8 @@ export default function ReportSubscriptionsPage() {
               <dd className="text-xl font-bold text-ink">{formatMetric(metric)}</dd>
               {metric.is_ratio && (
                 <p className="text-xs text-ink-muted">
-                  {metric.numerator.toLocaleString("ar-QA")} من{" "}
-                  {metric.denominator.toLocaleString("ar-QA")}
+                  {arabicNumber(metric.numerator)} من{" "}
+                  {arabicNumber(metric.denominator)}
                 </p>
               )}
             </div>
@@ -120,7 +121,7 @@ export default function ReportSubscriptionsPage() {
           {report.regions.map((region) => (
             <li key={region.slug} className="flex justify-between">
               <span>{region.name}</span>
-              <span>{region.students.toLocaleString("ar-QA")}</span>
+              <span>{arabicNumber(region.students)}</span>
             </li>
           ))}
         </ul>

@@ -53,6 +53,17 @@ function lockCodes(array $payload): array
 
 function addCohort(array $tree, array $attributes = []): Cohort
 {
+    /*
+    | ⛔ ٠٣٦ · FR-003 — `joinableCohortsExist()` NOW ASKS THE PRICE TOO, and this
+    | file's whole subject is what that answer does to the curriculum. A group
+    | with no plan behind it makes the valve answer `false` for a reason none of
+    | these cases is about; the one case that IS about it says so itself.
+    |
+    | Written on every call rather than once: a second workspace-wide plan is a
+    | second live price, which changes nothing and costs one row.
+    */
+    groupPriceFor($tree['course']);
+
     return Cohort::factory()->create([
         'workspace_id' => $tree['workspace']->getKey(),
         'course_id' => $tree['course']->getKey(),

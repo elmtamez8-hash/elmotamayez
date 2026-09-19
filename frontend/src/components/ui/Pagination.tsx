@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { arabicNumber } from "@/lib/numerals";
 /**
  * Page links are real anchors carrying the full query string, so a given page of
  * a filtered search is shareable and crawlable (FR-050, SC-015).
@@ -63,7 +64,7 @@ export function Pagination({
                   : linkClass
               }
             >
-              {page.toLocaleString("ar-QA")}
+              {arabicNumber(page)}
             </Link>
           </li>
         ))}

@@ -1,5 +1,6 @@
 import { api } from "./api";
 
+import { arabicNumber } from "@/lib/numerals";
 /**
  * The platform's own numbers, and the standing request for a copy of them
  * (spec 011 · US6 · FR-040 · FR-045).
@@ -67,7 +68,7 @@ export const reports = {
 
 /** A metric as one line of text — the ratio rounded, the count grouped. */
 export function formatMetric(metric: PlatformMetric): string {
-  if (!metric.is_ratio) return metric.numerator.toLocaleString("ar-QA");
+  if (!metric.is_ratio) return arabicNumber(metric.numerator);
 
   // A zero denominator is «nothing to divide», not zero percent: printing 0٪
   // for a day with no orders would read as a collection failure.

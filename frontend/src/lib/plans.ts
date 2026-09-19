@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { counted } from "./labels";
 
 /**
  * Subscription plans and the subscriptions bought from them (spec 011 · US4).
@@ -21,14 +22,27 @@ import { api } from "./api";
  * is the only place it becomes text — a formatted string is a number the client
  * has to parse back before it can add anything up.
  */
-export type PlanCoverage = "workspace" | "course";
+/**
+ * 036 -- the third case, and its absence kept `tsc` green over the whole leak.
+ * A plan may cover one GROUP, which is the only coverage a plan sold by
+ * sessions is allowed to carry.
+ */
+export type PlanCoverage = "workspace" | "course" | "cohort";
 export type SessionType = "individual" | "group";
 export type SubscriptionStatus = "active" | "expired" | "cancelled";
 
 export interface Plan {
   uuid: string;
   title: string;
-  duration_days: number;
+  /**
+   * 036 -- NULLABLE NOW, and exactly one of this and `session_count` is set.
+   * Typed `number`, every screen printing it was unreachable to `tsc` on the
+   * day the column turned nullable -- and `null % 30 === 0` is true in
+   * JavaScript, so the fallback printed the word `null` at a buyer.
+   */
+  duration_days: number | null;
+  /** The other shape: a number of sessions, poured into 035's ledger. */
+  session_count: number | null;
   session_type: SessionType;
   coverage_type: PlanCoverage;
   coverage_label: string;
@@ -65,11 +79,67 @@ export interface Subscription {
 
 export interface SavePlanPayload {
   title: string;
-  duration_days: number;
+  /** One of the two, never both and never neither -- the Action refuses the rest. */
+  duration_days?: number | null;
+  session_count?: number | null;
   session_type: SessionType;
   coverage_type: PlanCoverage;
   coverage_uuid?: string | null;
   is_active?: boolean;
+  /**
+   * 036 · FR-013 — «نعم، أعرف أنّ مجموعة ستخرج من العرض».
+   *
+   * ⚠️ THE SECOND REQUEST OF A TWO-STEP, NEVER A FIELD ON THE FORM. The server
+   * runs the save for real, reads the price gate before and after it, rolls the
+   * whole thing back and refuses with `plan_would_hide_cohorts` plus the names —
+   * so the teacher is told BEFORE anything is written, which is what FR-013
+   * asks. Sending this unprompted would switch the warning off for everybody.
+   */
+  acknowledge_hidden_cohorts?: boolean;
+}
+
+/**
+ * What a teacher may ask for on a plan the platform has already priced (036).
+ *
+ * ⚠️ `requested_price_minor` IS OPTIONAL, AND ITS ABSENCE IS «THE PLATFORM
+ * DECIDES» RATHER THAN «FREE». Pricing is the platform's half of the row, so a
+ * teacher asking for a new shape and leaving the number alone is the ordinary
+ * case — and the approval then puts the new plan in the pricing queue.
+ */
+export interface PlanChangePayload {
+  duration_days?: number | null;
+  session_count?: number | null;
+  session_type: SessionType;
+  coverage_type: PlanCoverage;
+  coverage_uuid?: string | null;
+  requested_price_minor?: number | null;
+  reason?: string | null;
+}
+
+export type PlanChangeStatus = "pending" | "approved" | "rejected";
+
+/**
+ * ⚠️ BOTH SIDES ARRIVE AS SENTENCES THE SERVER BUILT. «من حصّة واحدة إلى ١٢
+ * حصّة» is the whole content of a row here, and deriving it in TypeScript would
+ * be a second spelling of `planShape` — which is the defect spec 036 spent a
+ * whole requirement on.
+ */
+export interface PlanChangeRequest {
+  uuid: string;
+  plan_title: string;
+  current_shape: string | null;
+  requested_shape: string | null;
+  current_coverage_label: string;
+  requested_coverage_label: string;
+  current_price_minor: number | null;
+  requested_price_minor: number | null;
+  currency: string;
+  reason: string | null;
+  status: PlanChangeStatus;
+  status_label: string;
+  decision_reason: string | null;
+  requested_at: string | null;
+  decided_at: string | null;
 }
 
 export const plans = {
@@ -103,6 +173,21 @@ export const plans = {
     create: (payload: SavePlanPayload) => api.post<{ data: Plan }>("/manage/plans", payload),
     update: (uuid: string, payload: SavePlanPayload) =>
       api.patch<{ data: Plan }>(`/manage/plans/${uuid}`, payload),
+
+    /**
+     * ⛔ 036 — THE WAY THROUGH ONCE THE PLATFORM HAS PRICED A PLAN. `update`
+     * refuses to move the shape or the coverage of a priced plan, because that
+     * moves the thing the platform put a number on out from under the number.
+     * This asks instead; an officer decides, and approval writes a NEW plan and
+     * retires this one.
+     */
+    requestChange: (planUuid: string, payload: PlanChangePayload) =>
+      api.post<{ data: PlanChangeRequest }>(
+        `/manage/plans/${encodeURIComponent(planUuid)}/change-requests`,
+        payload,
+      ),
+
+    changeRequests: () => api.get<{ data: PlanChangeRequest[] }>("/manage/plan-change-requests"),
   },
 };
 
@@ -134,13 +219,66 @@ export function planDuration(days: number | null | undefined): string | null {
   // Infinity and 30.5, and `<= 0` refuses the zero a half-filled row carries.
   if (typeof days !== "number" || !Number.isInteger(days) || days <= 0) return null;
 
+  /*
+  | ⚠️ **والصيغُ هي صيغُ `PlanShape::describe()` حرفاً بحرف.** الخادمُ يكتبُ
+  | الجملةَ نفسَها لشاشةِ الموظَّفِ ولإشعارِ المدرّسِ ولطلباتِ التعديل، وهذا
+  | يكتبُها لأربعِ شاشاتٍ يقرؤُها المشتري — فحرفٌ واحدٌ يفترقُ هنا يجعلُ للباقةِ
+  | الواحدةِ اسمَين، وقد كانَ لها اسمان: «شهر واحد» هنا و«٣٠ يوماً» هناك.
+  |
+  | ⚠️ **وعبرَ `counted()` لا بقالبٍ نصّيّ.** «3 أشهر» و«٧ يوماً» كلتاهما خطأٌ
+  | في العربيّةِ ببندٍ مختلف، وهي قاعدةُ العددِ المعدودِ التي دفعَ ثمنَها هذا
+  | المنتَجُ مرّةً على السوق.
+  */
   if (days % 30 === 0) {
-    const months = days / 30;
-
-    return months === 1 ? "شهر واحد" : months === 2 ? "شهران" : `${months} أشهر`;
+    return counted(days / 30, {
+      one: "شهر واحد",
+      two: "شهران",
+      few: "أشهر",
+      many: "شهراً",
+      other: "شهر",
+    });
   }
 
-  return days === 1 ? "يوم واحد" : `${days} يوماً`;
+  return counted(days, {
+    one: "يوم واحد",
+    two: "يومان",
+    few: "أيّام",
+    many: "يوماً",
+    other: "يوم",
+  });
+}
+
+/**
+ * «١٢ حصّة» / «شهر واحد» — what this plan actually sells, in one sentence.
+ *
+ * ⛔ ONE SPELLING, FOUR SCREENS. `subscribe`, `manage/plans`, `plans` and
+ * `orders` each printed the duration directly, so the day a plan could be sold
+ * by SESSIONS all four would have printed «null يوماً» at a buyer — three of
+ * them at the student who had already paid. Deriving «which shape is this» in
+ * each of them is the two-spellings defect this tree has paid for a dozen times.
+ *
+ * ⚠️ AND THE COUNT GOES THROUGH `counted()`, NEVER A TEMPLATE LITERAL. Arabic
+ * agrees the noun with its number across five bands, so «٢ حصص» is wrong where
+ * «حصّتان» is right — and 12 and 30 are precisely the band where a hand-written
+ * literal happens to agree, which is why the test for this uses neither.
+ *
+ * Returns `null` for a row carrying neither, so a caller joining parts with
+ * « · » drops it instead of printing a dash inside a sentence.
+ */
+export function planShape(plan: Pick<Plan, "duration_days" | "session_count">): string | null {
+  const sessions = plan.session_count;
+
+  if (typeof sessions === "number" && Number.isInteger(sessions) && sessions > 0) {
+    return counted(sessions, {
+      one: "حصّة واحدة",
+      two: "حصّتان",
+      few: "حصص",
+      many: "حصّة",
+      other: "حصّة",
+    });
+  }
+
+  return planDuration(plan.duration_days);
 }
 
 export const SESSION_TYPE_LABELS: Record<SessionType, string> = {

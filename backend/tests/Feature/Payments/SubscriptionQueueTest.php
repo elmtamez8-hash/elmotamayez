@@ -106,7 +106,13 @@ it('reads the four middle facts from the order’s own snapshot', function (): v
         // only thing that catches a dropped per-relation bypass — a query budget
         // reports that regression as an improvement.
         ->assertSee('الفيزياء ٣')
-        ->assertSee('30 يوماً')
+        /*
+        | ⛔ **«شهر واحد»، لا «٣٠ يوماً» (٠٣٦).** الشاشةُ كانت تقولُ للموظَّفِ
+        | الذي يُسعِّرُ الباقةَ جملةً غيرَ التي يقرؤُها مشتريها — ومدرّسٌ يقرأُ
+        | الإشعارَ ثمّ يفتحُ صفحتَه يظنُّهما باقتَين. والصيغةُ الآنَ من
+        | `PlanShape::describe()` وحدَها، وهي نفسُها التي تكتبُها الواجهة.
+        */
+        ->assertSee('شهر واحد')
         ->assertSee('مجموعة السبت');
 });
 

@@ -10,6 +10,7 @@ use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Enums\Currency;
 use App\Modules\Payments\Models\Plan;
+use App\Modules\Payments\Support\PlanShape;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
@@ -134,7 +135,16 @@ class CreatePlanForTeacher extends Action
             variables: [
                 'plan_title' => (string) $plan->title,
                 'price' => $this->money($priceMinor, (string) $plan->currency),
-                'duration_days' => (string) $plan->duration_days,
+                /*
+                | ⛔ ٠٣٦ — الشكلُ لا المدّة. `(string) null` سلسلةٌ فارغة،
+                | و`TemplateRenderer` يرفضُ الفراغَ و`DispatchNotification`
+                | **يسجّلُ ولا يفشل** — فباقةُ الحصصِ تُكتَبُ وتُسعَّرُ ولا يعلمُ
+                | بها المدرّسُ الذي تُباعُ باسمِه أبداً.
+                */
+                'shape' => PlanShape::describe(
+                    $plan->duration_days === null ? null : (int) $plan->duration_days,
+                    $plan->session_count === null ? null : (int) $plan->session_count,
+                ) ?? '—',
             ],
             actionUrl: '/manage/plans',
             workspaceId: (int) $workspace->getKey(),

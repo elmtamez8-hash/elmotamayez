@@ -68,6 +68,15 @@ beforeEach(function (): void {
         'created_by' => $this->owner->getKey(),
         'status' => Cohort::OPEN,
     ]);
+
+    /*
+    | ⛔ ٠٣٦ · FR-003 — a group no live price reaches cannot be joined at all, and
+    | `joinTheGroup()` below goes through `JoinCohort` on purpose («through the
+    | Action, the way the product does»). Without a price every case in this file
+    | dies on `CohortRefusal` before it can seat anybody — a refusal about
+    | PRICING on a file whose entire subject is SEATS.
+    */
+    groupPriceFor($this->course);
 });
 
 /**
