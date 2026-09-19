@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "@/lib/api";
 
 /*
 | ٠٣٦ — THE TEACHER'S OWN PLAN SCREEN, AND TWO DEFECTS A REVIEW FOUND IN IT.
@@ -190,5 +191,87 @@ describe("writing a plan for one group", () => {
       session_count: 8,
       duration_days: null,
     });
+  });
+});
+
+describe("stopping a plan that a group depends on (036 · FR-013)", () => {
+  /*
+  | ⛔ THE WARNING IS «BEFORE», AND BOTH HALVES ARE MEASURED HERE. The server
+  | runs the save, reads the price gate on both sides of it, rolls the whole
+  | thing back and refuses with the names — so what this screen owes it is to
+  | show them and to re-send THE SAME body with the acknowledgement. A screen
+  | that rebuilt the payload could execute something the warning never described.
+  |
+  | ⚠️ AND IT BRANCHES ON THE `code`, NOT ON THE SENTENCE. Every other refusal
+  | here is final, so a match on Arabic prose would offer «نفِّذ» under a message
+  | that acknowledging cannot get past.
+  */
+  const refusal = () =>
+    new ApiError("هذا التعديل يُخرِج مجموعة واحدة فيها طلاب من العرض: مجموعة السبت.", 422, {
+      message: "…",
+      code: "plan_would_hide_cohorts",
+      cohorts: ["مجموعة السبت"],
+    });
+
+  it("asks first, writes only after the teacher says they know", async () => {
+    await open([UNPRICED_PLAN]);
+
+    update.mockRejectedValueOnce(refusal()).mockResolvedValueOnce({ data: {} });
+
+    fireEvent.click(screen.getByRole("button", { name: "أوقِف عن البيع" }));
+
+    await screen.findByText(/ستخرج من العرض: مجموعة السبت/);
+
+    // ⛔ ONE call so far, and it carried no acknowledgement: the teacher is being
+    // asked, and the server wrote nothing.
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update.mock.calls[0][1]).toMatchObject({ is_active: false });
+    expect(update.mock.calls[0][1]).not.toHaveProperty("acknowledge_hidden_cohorts", true);
+
+    fireEvent.click(screen.getByRole("button", { name: "أعرف، نفِّذ" }));
+
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+
+    expect(update.mock.calls[1][1]).toMatchObject({
+      is_active: false,
+      acknowledge_hidden_cohorts: true,
+    });
+  });
+
+  it("writes nothing at all when the teacher backs out", async () => {
+    await open([UNPRICED_PLAN]);
+
+    update.mockRejectedValueOnce(refusal());
+
+    fireEvent.click(screen.getByRole("button", { name: "أوقِف عن البيع" }));
+
+    await screen.findByText(/ستخرج من العرض: مجموعة السبت/);
+
+    fireEvent.click(screen.getByRole("button", { name: "تراجع" }));
+
+    await waitFor(() => expect(screen.queryByText(/ستخرج من العرض/)).toBeNull());
+
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("editing a plan that is not on sale", () => {
+  it("keeps it off, rather than switching it back on", async () => {
+    /*
+    | ⛔ THE ACTION READS AN ABSENT `is_active` AS `true`, and this form did not
+    | send the field — so a save about the TITLE put a stopped plan back on sale,
+    | silently, on the screen whose whole job is to say what is being sold.
+    */
+    await open([{ ...UNPRICED_PLAN, is_active: false }]);
+
+    update.mockResolvedValue({ data: {} });
+
+    fireEvent.click(screen.getByRole("button", { name: "تعديل" }));
+    fireEvent.change(screen.getByLabelText(/اسم الباقة/), { target: { value: "الشهري الجديد" } });
+    fireEvent.click(screen.getByRole("button", { name: "احفظ التعديل" }));
+
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+
+    expect(update.mock.calls[0][1]).toMatchObject({ is_active: false });
   });
 });

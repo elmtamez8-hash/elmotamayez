@@ -549,6 +549,67 @@ class EloquentCohortDirectory implements CohortDirectory
         return $out;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * ⚠️ THE BODY MOVED HERE OUT OF `CohortGateImpact`, WHICH IS NOW A CALLER.
+     * FR-013 says the teacher's warning is counted «بتهجئةِ FR-002 نفسِها التي
+     * يقرؤها حارسُ ما قبلَ النشر» — so the guard and the warning are one method
+     * rather than two that agree on the day they are written.
+     *
+     * ⚠️ AND IT IS TWO QUERIES PLUS THE BRIDGE'S OWN, WHATEVER THE NUMBER OF
+     * GROUPS. `stamp()` is bulk by signature and the membership counts come back
+     * in one grouped read — a `members()->count()` inside the loop would be the
+     * `ClassSessionResource` N+1 on the write path of every plan edit.
+     */
+    public function unlistedCohortsWithMembers(?int $workspaceId = null): array
+    {
+        /*
+        | The candidate set is the OFFER's own: group cohorts that are not
+        | archived. An archived group is already out of every list, so counting
+        | one would report an impact nothing causes.
+        */
+        $cohorts = Cohort::query()
+            ->withoutWorkspaceScope()
+            ->when($workspaceId !== null, fn ($query) => $query->where('workspace_id', $workspaceId))
+            ->group()
+            ->where('status', '!=', Cohort::ARCHIVED)
+            ->get();
+
+        if ($cohorts->isEmpty()) {
+            return [];
+        }
+
+        // One query for every group's membership count, rather than one per row.
+        $members = CohortMembership::query()
+            ->withoutWorkspaceScope()
+            ->whereNull('closed_at')
+            ->whereIn('cohort_id', $cohorts->modelKeys())
+            ->select('cohort_id')
+            ->selectRaw('count(*) as members')
+            ->groupBy('cohort_id')
+            ->pluck('members', 'cohort_id');
+
+        $out = [];
+
+        foreach ($this->pricing->stamp($cohorts) as $cohort) {
+            $count = (int) ($members[$cohort->getKey()] ?? 0);
+
+            if ($count === 0 || $cohort->priceReaches()) {
+                continue;
+            }
+
+            $out[(int) $cohort->getKey()] = [
+                'uuid' => (string) $cohort->uuid,
+                'name' => (string) $cohort->name,
+                'workspace_id' => (int) $cohort->workspace_id,
+                'members' => $count,
+            ];
+        }
+
+        return $out;
+    }
+
     public function teacherCohortsFor(array $courseIds): array
     {
         if ($courseIds === []) {

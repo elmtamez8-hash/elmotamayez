@@ -86,6 +86,16 @@ export interface SavePlanPayload {
   coverage_type: PlanCoverage;
   coverage_uuid?: string | null;
   is_active?: boolean;
+  /**
+   * 036 · FR-013 — «نعم، أعرف أنّ مجموعة ستخرج من العرض».
+   *
+   * ⚠️ THE SECOND REQUEST OF A TWO-STEP, NEVER A FIELD ON THE FORM. The server
+   * runs the save for real, reads the price gate before and after it, rolls the
+   * whole thing back and refuses with `plan_would_hide_cohorts` plus the names —
+   * so the teacher is told BEFORE anything is written, which is what FR-013
+   * asks. Sending this unprompted would switch the warning off for everybody.
+   */
+  acknowledge_hidden_cohorts?: boolean;
 }
 
 /**

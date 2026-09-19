@@ -48,6 +48,16 @@ class SavePlanRequest extends FormRequest
             // a field this form never marked.
             'coverage_uuid' => ['nullable', 'uuid', 'required_if:coverage_type,course', 'required_if:coverage_type,cohort'],
             'is_active' => ['sometimes', 'boolean'],
+            /*
+            | ٠٣٦ · FR-013 — «نعم، أعرف أنّ مجموعة ستخرج من العرض».
+            |
+            | ⚠️ NOT A COLUMN AND NOT `$fillable`: the Action reads it out of
+            | `$data` exactly as it reads `is_active`, and `Plan` has no such
+            | attribute to fill. It is the SECOND request of a two-step — the
+            | first is refused with the count by `PlanWouldHideCohorts`, having
+            | written nothing.
+            */
+            'acknowledge_hidden_cohorts' => ['sometimes', 'boolean'],
         ];
     }
 }

@@ -426,4 +426,37 @@ interface CohortDirectory
      * @return array<int, string> keyed by cohort id
      */
     public function uuidsFor(array $cohortIds): array;
+
+    /**
+     * Groups with people in them that no live price reaches (٠٣٦ · FR-010 · FR-013).
+     *
+     * ⛔ ONE SPELLING FOR TWO READERS, AND FR-013 NAMES THAT AS THE
+     * REQUIREMENT RATHER THAN AS TIDINESS: «والعددُ يُحسَبُ بتهجئةِ FR-002
+     * نفسِها التي يقرؤها حارسُ ما قبلَ النشر (FR-010)». The pre-deploy
+     * guard counts who loses their group when the gate bites; the teacher's
+     * warning counts who loses their group when THIS edit lands. A warning that
+     * says a number while the gate does otherwise is worse than no warning, so
+     * the two read one method rather than two queries that agree today.
+     *
+     * The predicate is the offer's own: a GROUP cohort, not archived, carrying
+     * at least one open `cohort_memberships` row, which `priceReaches()` says no
+     * live price covers.
+     *
+     * ⚠️ «WITH MEMBERS» IS THE WHOLE FILTER, AND IT IS A REAL ROW. An empty
+     * unlisted group is a group nobody was ever offered and nobody is in —
+     * hiding it takes nothing from anybody. And the count comes from the
+     * membership rows rather than from `cohorts.members_count`, because that
+     * counter is a cache of them and the answer would then depend on whichever
+     * column the reader happened to reach for.
+     *
+     * ⚠️ `null` IS THE PLATFORM, and it is what the pre-deploy guard passes. A
+     * workspace id narrows it to one teacher, which is what the warning needs:
+     * an edit in one workspace cannot move a group in another, and walking every
+     * group on the platform to prove that is a cost that grows with the
+     * platform on a screen one teacher opened.
+     *
+     * @return array<int, array{uuid: string, name: string, workspace_id: int, members: int}>
+     *                                                                                        keyed by cohort id
+     */
+    public function unlistedCohortsWithMembers(?int $workspaceId = null): array;
 }

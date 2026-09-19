@@ -8,11 +8,13 @@ use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Enums\PlanCoverage;
+use App\Modules\Payments\Exceptions\PlanWouldHideCohorts;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\CohortDirectory;
 use DomainException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * A teacher writes a plan's duration and coverage (T091 · FR-025).
@@ -30,6 +32,35 @@ use DomainException;
  * Silently dropping it would be worse than refusing: a teacher who types 300 and
  * is told nothing believes they have set a price, and finds out when a student
  * cannot buy.
+ *
+ * ⛔ **AND THE WRITE RUNS FOR REAL, IS MEASURED, AND IS ROLLED BACK — BECAUSE
+ * FR-013 SAYS «قبلَ التنفيذِ لا بعدَه» (٠٣٦ · T095 · T096).** A teacher who
+ * disables a plan, or narrows what it covers, can be the reason a group with
+ * students in it drops out of every picker on the platform — and nothing told
+ * them. The warning has to carry a NUMBER, and the number has to be the gate's
+ * own: «والعددُ يُحسَبُ بتهجئةِ FR-002 نفسِها التي يقرؤها حارسُ ما قبلَ
+ * النشر». So the gate is read before the save and again after it, inside one
+ * transaction, and the difference is the answer.
+ *
+ * ⚠️ **RUNNING IT RATHER THAN MODELLING IT IS THE WHOLE DESIGN, AND THE SECOND
+ * TRIGGER IS WHY.** Disabling a plan could be simulated — it is exactly «drop
+ * this id from the sellable set». **Narrowing its coverage cannot**: «this plan
+ * now covers one course instead of the workspace» is a hypothetical ROW, and
+ * handing the bridge a hypothetical row is the second spelling of the overrule
+ * rule that `CohortPlanReach` exists to prevent. The performed write is the
+ * only thing that answers both, which is the rule `PreviewPublishImpact` already
+ * wrote down: a change is previewed by the code that performs it, never by an
+ * estimate beside it.
+ *
+ * ⚠️ **AND THE DIFFERENCE, NEVER THE AFTER-READ ALONE.** A group that was
+ * already dark — its own plan sitting unpriced while its course's plan is live,
+ * so the overrule rule holds it out — is not this edit's doing, and reporting it
+ * would teach the teacher to click past a warning that is usually wrong.
+ *
+ * ⚠️ **BOTH READS HAPPEN ON A CREATE TOO.** A NEW plan looks like it can only
+ * add, and it cannot: a group that inherits its course's live price loses that
+ * inheritance the moment it is given an unpriced plan of its own — the overrule
+ * rule again, from the other side.
  */
 class SavePlan extends Action
 {
@@ -74,9 +105,22 @@ class SavePlan extends Action
             'is_active' => (bool) ($data['is_active'] ?? true),
         ]);
 
-        $plan->save();
+        return DB::transaction(function () use ($plan, $workspaceId, $data): Plan {
+            $before = $this->cohorts->unlistedCohortsWithMembers($workspaceId);
 
-        return $plan;
+            $plan->save();
+
+            $hidden = array_diff_key(
+                $this->cohorts->unlistedCohortsWithMembers($workspaceId),
+                $before,
+            );
+
+            if ($hidden !== [] && ! (bool) ($data['acknowledge_hidden_cohorts'] ?? false)) {
+                throw new PlanWouldHideCohorts($hidden);
+            }
+
+            return $plan;
+        });
     }
 
     /**

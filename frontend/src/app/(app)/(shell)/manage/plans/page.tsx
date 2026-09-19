@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { NumberField, SelectField, TextField } from "@/components/ui/Field";
 import { Table, type Column } from "@/components/ui/Table";
-import { api, fieldErrors } from "@/lib/api";
+import { api, ApiError, fieldErrors } from "@/lib/api";
 import { manageCohorts } from "@/lib/cohorts";
-import { userMessage } from "@/lib/errors";
+import { errorCode, userMessage } from "@/lib/errors";
 import { formatMinorMoney } from "@/lib/labels";
 import {
   plans as plansApi,
@@ -82,6 +82,20 @@ export default function ManagePlansPage() {
   const [saving, setSaving] = useState(false);
   const [cohortOptions, setCohortOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [requests, setRequests] = useState<PlanChangeRequest[]>([]);
+
+  /*
+   * ⛔ 036 · FR-013 — «المدرّسُ يُخبَرُ … قبلَ التنفيذِ لا بعدَه». The server
+   * refuses the first request with the names of the groups that would go dark
+   * and writes nothing; this holds what it said until the teacher answers.
+   * Re-sending the SAME payload with `acknowledge_hidden_cohorts` is the answer,
+   * so the payload is kept here rather than rebuilt — a second construction is a
+   * second chance to send something the warning did not describe.
+   */
+  const [hiding, setHiding] = useState<{
+    names: string[];
+    payload: SavePlanPayload;
+    uuid: string | null;
+  } | null>(null);
 
   /*
    * ⚠️ 036 — EDITING A PRICED PLAN IS A REQUEST, NOT A SAVE, and this one boolean
@@ -192,6 +206,89 @@ export default function ManagePlansPage() {
     return null;
   }
 
+  /**
+   * The names of the groups a refusal named, or `null` when it was some other
+   * refusal.
+   *
+   * ⚠️ READ FROM THE `code`, NEVER FROM THE SENTENCE. Every other refusal on
+   * this screen is final — no field the teacher can add makes a platform-priced
+   * plan movable — so a match on Arabic prose would offer «نفِّذ رغم ذلك» under a
+   * message that acknowledging cannot get past, and would break the first time
+   * somebody improved the wording.
+   */
+  function hiddenCohortsIn(error: unknown): string[] | null {
+    if (!(error instanceof ApiError) || errorCode(error.body) !== "plan_would_hide_cohorts") {
+      return null;
+    }
+
+    const body = error.body;
+
+    if (typeof body !== "object" || body === null || !("cohorts" in body)) return [];
+
+    const names = (body as { cohorts: unknown }).cohorts;
+
+    return Array.isArray(names) ? names.filter((name): name is string => typeof name === "string") : [];
+  }
+
+  /**
+   * One write for the form and for the sell/stop switch, so both learn about a
+   * group going dark in the same place.
+   */
+  async function writePlan(payload: SavePlanPayload, uuid: string | null) {
+    if (uuid === null) await plansApi.manage.create(payload);
+    else await plansApi.manage.update(uuid, payload);
+  }
+
+  /**
+   * 036 · FR-013 — stop selling a plan, or start again.
+   *
+   * ⛔ IT DID NOT EXIST, AND THAT IS WHY THE WARNING HAD NOTHING TO WARN ABOUT.
+   * `is_active` was on the payload type and on the badge and on no control at
+   * all, so a teacher could not stop selling a plan from the product — and the
+   * form, which never sent the field, silently switched a stopped plan back ON
+   * at every edit, because the Action defaults an absent `is_active` to true.
+   */
+  function payloadFor(row: Plan, isActive: boolean): SavePlanPayload {
+    return {
+      title: row.title,
+      duration_days: row.duration_days,
+      session_count: row.session_count,
+      session_type: row.session_type,
+      coverage_type: row.coverage_type,
+      coverage_uuid: row.coverage_uuid,
+      is_active: isActive,
+    };
+  }
+
+  async function submit(payload: SavePlanPayload, uuid: string | null) {
+    setSaving(true);
+    setErrors({});
+    setProblem(null);
+
+    try {
+      await writePlan(payload, uuid);
+      setHiding(null);
+      setDraft(EMPTY);
+      setEditing(null);
+      await load();
+    } catch (error) {
+      const hidden = hiddenCohortsIn(error);
+
+      if (hidden !== null) {
+        setHiding({ names: hidden, payload, uuid });
+
+        return;
+      }
+
+      const fields = fieldErrors(error);
+
+      if (Object.keys(fields).length > 0) setErrors(fields);
+      else setProblem(userMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function save() {
     setSaving(true);
     setErrors({});
@@ -216,10 +313,26 @@ export default function ManagePlansPage() {
           session_type: draft.session_type,
           coverage_type: draft.coverage_type,
           coverage_uuid: coverageUuidOf(),
+          /*
+           * ⚠️ CARRIED, NOT DEFAULTED. The Action reads an absent `is_active` as
+           * `true`, so a form that left the field out turned a stopped plan back
+           * on at every edit — a plan back on sale from a save about its title.
+           */
+          is_active: editing?.is_active ?? true,
         };
 
-        if (editing === null) await plansApi.manage.create(payload);
-        else await plansApi.manage.update(editing.uuid, payload);
+        try {
+          await writePlan(payload, editing === null ? null : editing.uuid);
+        } catch (error) {
+          const hidden = hiddenCohortsIn(error);
+
+          if (hidden === null) throw error;
+
+          setHiding({ names: hidden, payload, uuid: editing === null ? null : editing.uuid });
+          setSaving(false);
+
+          return;
+        }
       }
 
       setDraft(EMPTY);
@@ -271,6 +384,27 @@ export default function ManagePlansPage() {
         ) : (
           <Badge tone="neutral">غير معروضة</Badge>
         ),
+    },
+    {
+      key: "selling",
+      header: "",
+      /*
+       * ⛔ 036 · FR-013 — THE SWITCH THE WARNING GUARDS, AND IT WAS MISSING.
+       * `is_active` had a badge and a payload field and no control anywhere in
+       * `frontend/src`, so «أوقِف باقة عن البيع» was a thing the API could do and
+       * the product could not — the endpoint-with-no-caller family. The warning
+       * has nothing to warn about until this button exists.
+       */
+      render: (row) => (
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={saving}
+          onClick={() => void submit(payloadFor(row, !row.is_active), row.uuid)}
+        >
+          {row.is_active ? "أوقِف عن البيع" : "أعِدْ للبيع"}
+        </Button>
+      ),
     },
     {
       key: "edit",
@@ -328,6 +462,43 @@ export default function ManagePlansPage() {
       </Alert>
 
       {problem && <Alert tone="danger" title="تعذّر الحفظ">{problem}</Alert>}
+
+      {/*
+        ⛔ 036 · FR-013 — THE WARNING, AND NOTHING HAS BEEN WRITTEN YET. The
+        server ran the save, read the price gate on both sides of it and rolled
+        it back; these are the groups that would drop out of every picker, and
+        the students already in them would stop seeing their own group offered.
+        A «تراجع» that merely closed a box would be a warning after the fact.
+      */}
+      {hiding !== null && (
+        <Alert tone="warning" title="هذا التعديل يُخرِج مجموعة فيها طلاب من العرض">
+          <div className="space-y-3">
+            <p>
+              {/* ⚠️ THE NAMES, NOT ONLY THE NUMBER. The remedy is to price or
+                  re-enable one particular plan, and a count alone leaves the
+                  teacher guessing which. */}
+              ستخرج من العرض: {hiding.names.join("، ")}. الطلاب الموجودون فيها يبقون مكانهم،
+              ولن تظهر المجموعة لمن يبحث عن مكان.
+            </p>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="danger"
+                loading={saving}
+                loadingLabel="جارٍ التنفيذ…"
+                onClick={() => void submit({ ...hiding.payload, acknowledge_hidden_cohorts: true }, hiding.uuid)}
+              >
+                أعرف، نفِّذ
+              </Button>
+
+              <Button type="button" variant="ghost" onClick={() => setHiding(null)}>
+                تراجع
+              </Button>
+            </div>
+          </div>
+        </Alert>
+      )}
 
       <Card>
         <div className="space-y-4">

@@ -7,6 +7,7 @@ namespace App\Modules\Payments\Http\Controllers\Manage;
 use App\Http\Controllers\Controller;
 use App\Modules\Payments\Actions\RequestPlanChange;
 use App\Modules\Payments\Actions\SavePlan;
+use App\Modules\Payments\Exceptions\PlanWouldHideCohorts;
 use App\Modules\Payments\Http\Requests\RequestPlanChangeRequest;
 use App\Modules\Payments\Http\Requests\SavePlanRequest;
 use App\Modules\Payments\Http\Resources\PlanChangeRequestResource;
@@ -122,6 +123,21 @@ class PlanController extends Controller
                 $request->validated(),
                 $plan,
             );
+        } catch (PlanWouldHideCohorts $e) {
+            /*
+            | ٠٣٦ · FR-013 — A QUESTION, NOT A NO, AND THE SCREEN HAS TO TELL
+            | THE TWO APART. Every other refusal from this Action is final: no
+            | field the teacher can add makes a platform-priced plan movable.
+            | This one is answered by re-sending with `acknowledge_hidden_cohorts`,
+            | so it carries a `code` the client branches on rather than a sentence
+            | it would have to match on. Nothing was written — the Action rolled
+            | its own transaction back.
+            */
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => 'plan_would_hide_cohorts',
+                'cohorts' => $e->names(),
+            ], 422);
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
