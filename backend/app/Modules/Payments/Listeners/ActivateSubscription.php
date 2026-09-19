@@ -89,8 +89,13 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
      * part of `credit_tx_idempotency` — `(credit_balance_id, type, source_type,
      * source_id)` — so two shapes sharing one type would collide the moment a
      * package row and an order row happen to share an id.
+     *
+     * ⚠️ AND IT IS PUBLIC BECAUSE TWO READERS ASK FOR IT BY NAME: the auditor's
+     * chain behind one payment and the nightly reconciliation. Spelled out at
+     * either of those sites instead, an hours sale reads as a sale that minted
+     * nothing — which is exactly what both of them shipped doing.
      */
-    private const CREDIT_SOURCE_TYPE = 'session_plan_order';
+    public const CREDIT_SOURCE_TYPE = 'session_plan_order';
 
     /**
      * The enrolment source for the hours shape (٠٣٦ · T067).

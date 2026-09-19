@@ -7,9 +7,12 @@ namespace App\Modules\Payments\Actions;
 use App\Modules\Payments\Contracts\PaymentProviderInterface;
 use App\Modules\Payments\Data\CallbackEvent;
 use App\Modules\Payments\Data\ReconciliationWindow;
+use App\Modules\Payments\Data\SubscriptionIntent;
 use App\Modules\Payments\Enums\CallbackResult;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Enums\PaymentStatus;
+use App\Modules\Payments\Listeners\ActivateSubscription;
+use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentReconciliationRun;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Support\CallbackPayloadSanitizer;
@@ -111,7 +114,19 @@ class ReconcilePayments extends Action
         // expired out from under it.
         $corrected += $this->expireStalePayments($now);
 
-        $findings = [...$findings, ...$this->creditOrdersWithoutEntries()];
+        $findings = [
+            ...$findings,
+            ...$this->creditOrdersWithoutEntries(),
+            /*
+            | ⛔ THE SAME INVARIANT, ON THE SHAPE THAT WRITES NO PURCHASE ROW
+            | (٠٣٦). An hours plan mints straight from the order, so the walk
+            | above — filtered to `credits` orders and joined through
+            | `credit_purchases` — cannot see one however badly it fails. That
+            | is the one check that catches money taken and nothing minted,
+            | blind to a whole product.
+            */
+            ...$this->sessionPlanOrdersWithoutEntries(),
+        ];
 
         // FR-017 — a notification that exhausted its retries is written down and
         // then read by nobody. Counted here so it reaches the one screen that
@@ -359,6 +374,90 @@ class ReconcilePayments extends Action
 
                 foreach ($uuids as $orderId => $orderUuid) {
                     if (! isset($mintedOrders[$orderId])) {
+                        $findings[] = [
+                            'type' => 'captured_without_credits',
+                            'order_uuid' => $orderUuid,
+                        ];
+                    }
+                }
+            }, 'o.id', 'order_id');
+
+        return $findings;
+    }
+
+    /**
+     * The hours shape of the third check (٠٣٦).
+     *
+     * ⛔ IT CANNOT BE A CLAUSE ADDED TO THE WALK ABOVE, AND THAT IS THE POINT.
+     * A package sale goes order → `credit_purchases` → ledger, keyed on the
+     * purchase row; an hours sale writes no purchase row at all and keys the
+     * ledger on the ORDER. One query cannot ask both, so the choice is two walks
+     * or a check that silently covers one product — and the invariant is the
+     * only thing standing between «the money settled» and «the student got
+     * nothing», since both parties say «paid» when the queued mint dies.
+     *
+     * ⚠️ THE SHAPE IS ASKED OF THE SNAPSHOT THROUGH ITS OWN CLASS, never of a
+     * decoded column here: `SubscriptionIntent::isSessionShaped()` is what the
+     * activation itself branches on, and a second reading of `session_count`
+     * written out in a reconciliation query is a sweep that disagrees with the
+     * thing it is auditing. That is why the chunk is hydrated — `metadata` is a
+     * cast, and a raw row hands back a string.
+     *
+     * ⚠️ AND THE `credits` KIND IS EXCLUDED HERE rather than left to overlap:
+     * every order this walk reports must be one the walk above did not consider,
+     * or a single failure is written into the report twice.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function sessionPlanOrdersWithoutEntries(): array
+    {
+        $findings = [];
+
+        DB::table('payment_transactions as t')
+            ->join('orders as o', 'o.id', '=', 't.captured_order_id')
+            ->where('t.status', PaymentStatus::Captured->value)
+            ->where('o.kind', OrderKind::Subscription->value)
+            ->select(['o.id as order_id'])
+            ->orderBy('o.id')
+            ->chunkById(self::CHUNK, function (iterable $rows) use (&$findings): void {
+                $ids = [];
+
+                foreach ($rows as $row) {
+                    $ids[] = (int) $row->order_id;
+                }
+
+                if ($ids === []) {
+                    return;
+                }
+
+                // ⚠️ `withoutWorkspaceScope()` — this runs on a queue worker with
+                // no workspace context at all, where the scope would be inert,
+                // AND under a platform officer's fallback workspace, where it
+                // would quietly report one teacher's orders as the platform's.
+                $sessionShaped = [];
+
+                foreach (Order::query()->withoutWorkspaceScope()->whereIn('id', $ids)->get() as $order) {
+                    $intent = SubscriptionIntent::fromOrder($order);
+
+                    if ($intent !== null && $intent->isSessionShaped()) {
+                        $sessionShaped[(int) $order->getKey()] = (string) $order->uuid;
+                    }
+                }
+
+                if ($sessionShaped === []) {
+                    return;
+                }
+
+                $minted = DB::table('credit_transactions')
+                    ->where('source_type', ActivateSubscription::CREDIT_SOURCE_TYPE)
+                    ->whereIn('source_id', array_keys($sessionShaped))
+                    ->pluck('source_id')
+                    ->all();
+
+                $mintedIds = array_flip(array_map(intval(...), $minted));
+
+                foreach ($sessionShaped as $orderId => $orderUuid) {
+                    if (! isset($mintedIds[$orderId])) {
                         $findings[] = [
                             'type' => 'captured_without_credits',
                             'order_uuid' => $orderUuid,
