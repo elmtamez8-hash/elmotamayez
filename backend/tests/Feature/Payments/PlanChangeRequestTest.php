@@ -482,3 +482,78 @@ it('says nothing when the approval hides no group anybody is in', function (): v
 
     expect($request->fresh()?->status)->toBe(PlanChangeStatus::Approved);
 });
+
+it('tells the teacher WHICH groups the approval took out of the offer', function (): void {
+    /*
+    | ⛔ ٠٣٦ · FR-013 — THE OFFICER TICKING THE BOX IS THE OFFICER ACCEPTING THE
+    | COST, NOT PERMISSION TO KEEP IT FROM THE PERSON WHOSE GROUPS THEY ARE.
+    | Before this the teacher read «وافقت الإدارة… الباقة الجديدة تبيع ٣٠ يوماً»
+    | and nothing else, and found out a group had gone dark when a student asked
+    | why it was not showing.
+    |
+    | ⚠️ THE ASSERTION IS THE NAME IN THE BODY, never that a row exists: a
+    | notification is written for every decision either way, so counting rows is
+    | equally true of a build that says nothing about the groups at all.
+    */
+    $request = narrowingRequest();
+
+    app(DecidePlanChange::class)->handle(
+        $request->fresh(),
+        $this->officer,
+        approve: true,
+        acknowledgeHiddenCohorts: true,
+    );
+
+    /*
+    | ⚠️ THE MODEL, NEVER `->value('body')`. `notifications.body` is a
+    | TRANSLATABLE column since ٠٥٥ — a JSON document whose key is the locale —
+    | and the query builder applies no cast, so the raw read answers the
+    | document (or nothing) rather than the sentence a teacher reads.
+    */
+    $body = (string) Notification::query()
+        ->where('recipient_user_id', $this->teacher->getKey())
+        ->where('type', 'plan_change_approved')
+        ->latest('id')
+        ->first()?->body;
+
+    expect($body)->toContain('مجموعة الكيمياء')
+        // ⚠️ AND THE COUNT, WHICH IS WHAT FR-013 ASKS FOR — declined through
+        // `CountedNoun`, so one group reads «مجموعة واحدة» and never «١ مجموعة».
+        ->and($body)->toContain('مجموعة واحدة فيها طلاب')
+        // ⚠️ AND THE HALF THAT STOPS A TEACHER PANICKING: nobody was removed.
+        ->and($body)->toContain('يبقون مكانهم');
+});
+
+it('still sends the approval when it hid nothing at all', function (): void {
+    /*
+    | ⛔ THE CASE THAT AN EMPTY VARIABLE WOULD HAVE KILLED, AND KILLED SILENTLY.
+    | `TemplateRenderer` counts a present-but-EMPTY variable as MISSING and
+    | throws a permanent delivery failure — so «send the sentence only when
+    | something was hidden» would drop the WHOLE notification for every ordinary
+    | approval, and a teacher whose request cost them nothing would never be told
+    | it was approved. `reason` beside it already carries the same fallback.
+    */
+    $request = askToChange(['requested_price_minor' => 60_000]);
+
+    app(DecidePlanChange::class)->handle($request->fresh(), $this->officer, approve: true);
+
+    /*
+    | ⚠️ THE MODEL, NEVER `->value('body')`. `notifications.body` is a
+    | TRANSLATABLE column since ٠٥٥ — a JSON document whose key is the locale —
+    | and the query builder applies no cast, so the raw read answers the
+    | document (or nothing) rather than the sentence a teacher reads.
+    */
+    $body = (string) Notification::query()
+        ->where('recipient_user_id', $this->teacher->getKey())
+        ->where('type', 'plan_change_approved')
+        ->latest('id')
+        ->first()?->body;
+
+    expect($body)->toContain('وافقت الإدارة')
+        // ⚠️ SAID OUT LOUD RATHER THAN LEFT OUT. A sentence that appears only
+        // when something went wrong is a sentence nobody knows to look for.
+        ->and($body)->toContain('ولم تخرج أيّ مجموعة من العرض')
+        // ⛔ AND NO VARIABLE NAME SURVIVED INTO THE TEXT — a missing entry in the
+        // template's `variables` list prints the placeholder at a teacher.
+        ->and($body)->not->toContain('{{');
+});

@@ -16,6 +16,7 @@ use App\Modules\Payments\Support\PlanShape;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\CohortDirectory;
+use App\Shared\Support\CountedNoun;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -127,11 +128,9 @@ class DecidePlanChange extends Action
 
         $request->refresh();
 
-        if ($approve) {
-            $this->applyTo($request, $acknowledgeHiddenCohorts);
-        }
+        $hidden = $approve ? $this->applyTo($request, $acknowledgeHiddenCohorts) : [];
 
-        $this->tellTeacher($request, $approve);
+        $this->tellTeacher($request, $approve, $hidden);
 
         return $request->refresh();
     }
@@ -143,7 +142,11 @@ class DecidePlanChange extends Action
      * points at it and a student's own subscription must keep naming what they
      * bought. This is the same reason `PlanResource` refuses deletion outright.
      */
-    private function applyTo(PlanChangeRequest $request, bool $acknowledgeHiddenCohorts): void
+    /**
+     * @return list<string> the names of the groups this approval took out of
+     *                      the offer — empty when it took none
+     */
+    private function applyTo(PlanChangeRequest $request, bool $acknowledgeHiddenCohorts): array
     {
         $old = Plan::query()->withoutWorkspaceScope()->whereKey($request->plan_id)->first();
 
@@ -151,10 +154,10 @@ class DecidePlanChange extends Action
             // The plan went away between the ask and the decision. The request is
             // recorded as approved — the officer did agree — and nothing is
             // written, because there is nothing left to replace.
-            return;
+            return [];
         }
 
-        DB::transaction(function () use ($request, $old, $acknowledgeHiddenCohorts): void {
+        return DB::transaction(function () use ($request, $old, $acknowledgeHiddenCohorts): array {
             $workspaceId = (int) $old->workspace_id;
 
             /*
@@ -231,6 +234,24 @@ class DecidePlanChange extends Action
             if ($hidden !== [] && ! $acknowledgeHiddenCohorts) {
                 throw new PlanWouldHideCohorts($hidden);
             }
+
+            /*
+            | ⛔ **AND THE NAMES TRAVEL OUT TO THE TEACHER'S MESSAGE.** The
+            | officer ticking the box is the officer accepting the cost — it is
+            | not permission to keep it from the person who owns the groups.
+            | Before this the teacher read «وافقت الإدارة» and nothing else, and
+            | found out a group had gone dark when a student asked them why it
+            | was not showing. FR-013 says the TEACHER is told.
+            |
+            | ⚠️ AND THIS NUMBER IS MEASURED RATHER THAN PREDICTED, which is the
+            | whole reason it is sent from here and not from the ask: at the ask
+            | nothing is written, so a count there is a guess about a row that
+            | does not exist yet and a decision days away.
+            */
+            return array_values(array_map(
+                static fn (array $cohort): string => $cohort['name'],
+                $hidden,
+            ));
         });
     }
 
@@ -240,7 +261,8 @@ class DecidePlanChange extends Action
      * notification whose whole content is a second trip to the panel is the
      * defect this tree already records for the scheduled report.
      */
-    private function tellTeacher(PlanChangeRequest $request, bool $approve): void
+    /** @param  list<string>  $hiddenCohorts */
+    private function tellTeacher(PlanChangeRequest $request, bool $approve, array $hiddenCohorts = []): void
     {
         $teacher = $request->requester;
 
@@ -261,10 +283,48 @@ class DecidePlanChange extends Action
             variables: [
                 'plan_title' => (string) ($request->plan->title ?? '—'),
                 'shape' => $shape,
+                'hidden_cohorts' => self::hiddenSentence($hiddenCohorts),
                 'reason' => $request->decision_reason ?? 'بلا ملاحظات.',
             ],
             actionUrl: '/manage/plans',
             workspaceId: (int) $request->workspace_id,
         ));
+    }
+
+    /**
+     * What the teacher reads about what this decision cost them.
+     *
+     * ⛔ **NEVER AN EMPTY STRING, AND THAT IS NOT TIDINESS.** `TemplateRenderer`
+     * counts a present-but-EMPTY variable as MISSING and throws a permanent
+     * delivery failure — so an empty answer here would drop the whole
+     * notification, and a teacher whose approval cost them nothing would be told
+     * nothing about the approval either. `reason` above already carries the same
+     * fallback for the same reason.
+     *
+     * ⚠️ AND THE QUIET CASE IS SAID OUT LOUD ON PURPOSE. A sentence that
+     * appears only when something went wrong is a sentence nobody knows to look
+     * for; one that is always there is one a teacher reads.
+     *
+     * ⚠️ THE COUNTED NOUN GOES THROUGH {@see CountedNoun}. Arabic agrees the
+     * noun in five bands, and this is a sentence about somebody's own students.
+     *
+     * @param  list<string>  $names
+     */
+    private static function hiddenSentence(array $names): string
+    {
+        if ($names === []) {
+            return 'ولم تخرج أيّ مجموعة من العرض.';
+        }
+
+        $counted = CountedNoun::of(count($names), [
+            'one' => 'مجموعة واحدة فيها طلاب',
+            'two' => 'مجموعتان فيهما طلاب',
+            'few' => 'مجموعات فيها طلاب',
+            'many' => 'مجموعةً فيها طلاب',
+            'other' => 'مجموعة فيها طلاب',
+        ]);
+
+        return 'وخرجت من العرض '.$counted.': '.implode('، ', $names)
+            .' — من فيها يبقون مكانهم، ولن تظهر لمن يبحث عن مكان.';
     }
 }

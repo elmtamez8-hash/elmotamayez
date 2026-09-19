@@ -223,6 +223,22 @@ function dispatchOf(User $user, NotificationType $type): void
             // ٠٣٦: صارَ «الشكل» بدلَ المدّةِ — باقةُ الحصصِ لا تحملُ مدّةً،
             // ومتغيّرٌ فارغٌ يرفضُه المُحوِّلُ فتسقطُ الرسالةُ في صمت.
             'shape' => 'شهر واحد',
+            /*
+            | A FOURTEENTH time, with ٠٣٦ · FR-013's `hidden_cohorts`. **73
+            | against 74 the moment it landed**, and thirteen restatements above
+            | did not stop it — which is the argument for this list staying
+            | HAND-WRITTEN: derive it and it supplies whatever each template asks
+            | for and can never fail again.
+            |
+            | ⚠️ AND HERE THE MISS IS THE VERY THING THE VARIABLE WAS ADDED FOR.
+            | It exists so a teacher learns that approving their own change
+            | request took a group with students in it out of the offer; left out
+            | of this list the WHOLE approval notification renders nothing, and
+            | they are not even told the request was decided. The empty-variable
+            | trap is written down twice in `DecidePlanChange::hiddenSentence()`
+            | for exactly this reason, and it still caught the fixture.
+            */
+            'hidden_cohorts' => 'ولم تخرج أيّ مجموعة من العرض.',
         ],
     ));
 }
