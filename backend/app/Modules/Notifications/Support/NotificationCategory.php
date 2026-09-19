@@ -227,6 +227,13 @@ enum NotificationCategory: string
                 | له — ولا يقرؤُها طالبٌ إطلاقاً.
                 */
                 NotificationType::PlanCreatedForYou,
+                /*
+                 * ٠٣٦ — قرارُ المنصّةِ في طلبِ تعديلِ باقة. خبرٌ عمّا يُباعُ
+                 * باسمِ المدرّسِ وبأيِّ ثمن، فهو حيثُ أخوه فوقَه — ولا يقرؤه
+                 * طالبٌ إطلاقاً.
+                 */
+                NotificationType::PlanChangeApproved,
+                NotificationType::PlanChangeRejected,
             ],
             self::Account => [
                 NotificationType::SecurityAlert,

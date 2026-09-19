@@ -643,6 +643,17 @@ class NotificationTemplateSeeder extends Seeder
             | ورسالةٌ تقولُ «أُنشِئَت باقة» بلا رقمٍ تتركُ الشيءَ الوحيدَ الذي
             | يحتاجُ المدرّسُ أن يعترضَ عليه خارجَ الرسالة.
             */
+            NotificationType::PlanChangeApproved->value => [
+                'قُبل تعديل باقة «{{ plan_title }}»',
+                'وافقت الإدارة على تعديل باقة «{{ plan_title }}». الباقة الجديدة تبيع {{ shape }}، '
+                .'والقديمة أُوقفت عن البيع ويبقى اشتراك من اشترك بها كما هو. {{ reason }}',
+                ['plan_title', 'shape', 'reason'],
+            ],
+            NotificationType::PlanChangeRejected->value => [
+                'لم يُقبل تعديل باقة «{{ plan_title }}»',
+                'لم توافق الإدارة على تعديل باقة «{{ plan_title }}» إلى {{ shape }}، والباقة كما هي. {{ reason }}',
+                ['plan_title', 'shape', 'reason'],
+            ],
             NotificationType::PlanCreatedForYou->value => [
                 'أُنشئت باقة باسمك: «{{ plan_title }}»',
                 /*

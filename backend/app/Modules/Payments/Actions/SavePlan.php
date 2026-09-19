@@ -93,10 +93,15 @@ class SavePlan extends Action
      * itself — «مدّة الباقة يوم واحد على الأقل» about a field the teacher had
      * deliberately left empty.
      *
+     * ⚠️ PUBLIC BECAUSE {@see RequestPlanChange} ASKS THE SAME QUESTION OF THE
+     * SAME DATA. A request whose shape this writer would refuse is a request
+     * nobody can approve — and finding that out at the decision means finding
+     * it in front of the officer, days after the teacher could have fixed it.
+     *
      * @param  array<string, mixed>  $data
      * @return array{0: int|null, 1: int|null}
      */
-    private function resolveShape(array $data, PlanCoverage $coverage, ClassSessionType $sessionType): array
+    public function resolveShape(array $data, PlanCoverage $coverage, ClassSessionType $sessionType): array
     {
         $duration = $this->positiveOrNull($data['duration_days'] ?? null);
         $sessionCount = $this->positiveOrNull($data['session_count'] ?? null);
@@ -219,7 +224,7 @@ class SavePlan extends Action
      * somebody else's course is a teacher selling a subscription to a colleague's
      * material.
      */
-    private function resolveCoverage(PlanCoverage $coverage, mixed $uuid, int $workspaceId): ?string
+    public function resolveCoverage(PlanCoverage $coverage, mixed $uuid, int $workspaceId): ?string
     {
         /*
         | ⛔ `requiresUuid()`, NOT `needsCourse()` — AND THE RESTRUCTURE IS THE FIX,

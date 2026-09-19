@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Http\Controllers\Manage;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Payments\Actions\RequestPlanChange;
 use App\Modules\Payments\Actions\SavePlan;
+use App\Modules\Payments\Http\Requests\RequestPlanChangeRequest;
 use App\Modules\Payments\Http\Requests\SavePlanRequest;
+use App\Modules\Payments\Http\Resources\PlanChangeRequestResource;
 use App\Modules\Payments\Http\Resources\PlanResource;
 use App\Modules\Payments\Models\Plan;
+use App\Modules\Payments\Models\PlanChangeRequest;
 use App\Shared\Support\WorkspaceContext;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -47,6 +51,60 @@ class PlanController extends Controller
         $this->authorize('update', $plan);
 
         return $this->save($request, $action, $plan, 200);
+    }
+
+    /**
+     * The teacher's change requests on their own plans, newest first (٠٣٦).
+     *
+     * ⚠️ IT LISTS DECIDED ONES TOO. A teacher who sees only what is pending has
+     * no way to learn what happened to the last one from the screen they asked
+     * on — the answer arrives in a notification and nowhere else, and a
+     * notification is a thing that gets missed.
+     */
+    public function changeRequests(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', Plan::class);
+
+        $requests = PlanChangeRequest::query()
+            ->with('plan')
+            ->orderByDesc('requested_at')
+            ->limit(50)
+            ->get();
+
+        return response()->json(['data' => PlanChangeRequestResource::collection($requests)]);
+    }
+
+    /**
+     * «سعّرتم باقتي، وأنا عايز أغيّرها» (٠٣٦, owner decision 2026-09-19).
+     *
+     * ⚠️ `update` IS THE ABILITY, NOT a new one. Asking to change a plan is the
+     * same authority as changing it — what the platform reserves is the DECISION,
+     * and that is asked of the officer in {@see DecidePlanChange}. A second
+     * permission here would be a second answer to a question the policy answers.
+     */
+    public function requestChange(RequestPlanChangeRequest $request, string $planUuid, RequestPlanChange $action): JsonResponse
+    {
+        /*
+        | ⚠️ RESOLVED HERE, NOT BOUND IN THE ROUTE — and the scope IS the guard on
+        | this one. `/manage/…` is a workspace member's path, where
+        | `WorkspaceContext` resolves and `WorkspaceScope` bites, so a foreign
+        | plan is simply not found. The authorize below is the row-level half.
+        */
+        $plan = Plan::query()->where('uuid', $planUuid)->first();
+
+        if ($plan === null) {
+            return response()->json(['message' => 'هذه الباقة غير موجودة عندك.'], 404);
+        }
+
+        $this->authorize('update', $plan);
+
+        try {
+            $saved = $action->handle($this->currentUser($request), $plan, $request->validated());
+        } catch (DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['data' => PlanChangeRequestResource::make($saved)], 201);
     }
 
     private function save(SavePlanRequest $request, SavePlan $action, ?Plan $plan, int $status): JsonResponse

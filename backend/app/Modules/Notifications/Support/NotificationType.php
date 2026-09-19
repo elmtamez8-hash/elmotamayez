@@ -421,6 +421,19 @@ enum NotificationType: string
     case SessionPlanActivated = 'session_plan_activated';
 
     /*
+    | ٠٣٦ — قرارُ المنصّةِ في طلبِ تعديلِ باقةٍ مسعَّرة. نوعانِ لا واحدٌ بعلَم،
+    | كما في `settlement_rate_approved`/`settlement_rate_rejected`: القبولُ
+    | يقولُ ماذا صارَت الباقةُ تبيع، والرفضُ يقولُ السبب — ونصَّانِ مختلفانِ
+    | تحتَ نوعٍ واحدٍ يعنيانِ قالباً يحملُ متغيّراتِ الاثنَينِ ويُرسَلُ نصفُه فارغاً،
+    | و`TemplateRenderer` يرفضُ الفراغَ فتسقطُ الرسالةُ في صمت.
+    |
+    | ⚠️ ولا يَصِلانِ وليَّ أمرٍ: خبرٌ عن تسعيرِ مدرّسٍ لا يخصُّ أسرةَ طالب.
+    */
+    case PlanChangeApproved = 'plan_change_approved';
+
+    case PlanChangeRejected = 'plan_change_rejected';
+
+    /*
     | A seat the automatic booker could not take (027 · FR-042).
     |
     | ⚠️ IT DELIBERATELY DOES NOT TARGET GUARDIANS. It is operational news for
@@ -551,6 +564,8 @@ enum NotificationType: string
             self::SubscriptionExpiring => 'قرب انتهاء اشتراك',
             self::SubscriptionActivated => 'تفعيل اشتراك',
             self::SessionPlanActivated => 'تفعيل باقة حصص',
+            self::PlanChangeApproved => 'قبول تعديل باقة',
+            self::PlanChangeRejected => 'رفض تعديل باقة',
             self::SubscriptionSeatUnavailable => 'مقعد غير متاح',
             self::PlanCreatedForYou => 'باقة أُنشئت باسمك',
             self::ScheduledReport => 'تقرير مجدول',
