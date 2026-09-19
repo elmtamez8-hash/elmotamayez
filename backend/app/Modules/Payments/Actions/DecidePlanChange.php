@@ -9,11 +9,13 @@ use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Enums\PlanChangeStatus;
+use App\Modules\Payments\Exceptions\PlanWouldHideCohorts;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\PlanChangeRequest;
 use App\Modules\Payments\Support\PlanShape;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\CohortDirectory;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -57,18 +59,54 @@ use Illuminate\Support\Facades\DB;
  */
 class DecidePlanChange extends Action
 {
-    public function __construct(private readonly DispatchNotification $notify) {}
+    public function __construct(
+        private readonly DispatchNotification $notify,
+        private readonly CohortDirectory $cohorts,
+    ) {}
 
     public function handle(
         PlanChangeRequest $request,
         User $officer,
         bool $approve,
         ?string $reason = null,
+        bool $acknowledgeHiddenCohorts = false,
     ): PlanChangeRequest {
         if (! $officer->can(Permissions::PLANS_PRICE)) {
             throw new DomainException('تعديل ما سعّرته المنصّة قرار المنصّة.');
         }
 
+        /*
+        | ⛔ **THE WHOLE DECISION IS ONE TRANSACTION, AND FR-013 IS WHY.** The
+        | status claim below used to stand outside any transaction, above a write
+        | that could fail — so a throw in `applyTo()` left the request recorded
+        | as APPROVED with no plan written and no way back: exactly the
+        | `claimForGrading()` defect this tree already records, where a refusal
+        | after a claim strands the row in the state the refusal exists to
+        | prevent. The FR-013 warning IS such a throw, by design, so it could not
+        | be added without this.
+        |
+        | ⚠️ THE CLAIM IS STILL ATOMIC. A conditional `UPDATE … WHERE status =
+        | pending` inside a transaction takes the row's lock, so a second officer
+        | blocks until the first commits and then matches zero rows — the same
+        | answer, and the loser now also gets the first officer's whole decision
+        | rolled back or committed as one thing rather than half of it.
+        */
+        return DB::transaction(fn (): PlanChangeRequest => $this->decide(
+            $request,
+            $officer,
+            $approve,
+            $reason,
+            $acknowledgeHiddenCohorts,
+        ));
+    }
+
+    private function decide(
+        PlanChangeRequest $request,
+        User $officer,
+        bool $approve,
+        ?string $reason,
+        bool $acknowledgeHiddenCohorts,
+    ): PlanChangeRequest {
         $status = $approve ? PlanChangeStatus::Approved : PlanChangeStatus::Rejected;
 
         $claimed = PlanChangeRequest::query()
@@ -90,7 +128,7 @@ class DecidePlanChange extends Action
         $request->refresh();
 
         if ($approve) {
-            $this->applyTo($request);
+            $this->applyTo($request, $acknowledgeHiddenCohorts);
         }
 
         $this->tellTeacher($request, $approve);
@@ -105,7 +143,7 @@ class DecidePlanChange extends Action
      * points at it and a student's own subscription must keep naming what they
      * bought. This is the same reason `PlanResource` refuses deletion outright.
      */
-    private function applyTo(PlanChangeRequest $request): void
+    private function applyTo(PlanChangeRequest $request, bool $acknowledgeHiddenCohorts): void
     {
         $old = Plan::query()->withoutWorkspaceScope()->whereKey($request->plan_id)->first();
 
@@ -116,7 +154,31 @@ class DecidePlanChange extends Action
             return;
         }
 
-        DB::transaction(function () use ($request, $old): void {
+        DB::transaction(function () use ($request, $old, $acknowledgeHiddenCohorts): void {
+            $workspaceId = (int) $old->workspace_id;
+
+            /*
+            | ⛔ ٠٣٦ · FR-013, ON THE OFFICER'S SIDE — AND THIS IS WHERE THE
+            | WRITE ACTUALLY HAPPENS. A teacher may not move a plan the platform
+            | priced; the way through is this request, and approving it is what
+            | narrows the coverage or retires the old plan. So the edit that can
+            | drop a group with students in it out of every picker arrives HERE,
+            | through a door the teacher's own warning never passes.
+            |
+            | ⚠️ AND THE WARNING BELONGS TO THIS MOMENT RATHER THAN TO THE ASK.
+            | Nothing is written when the teacher submits a request, so a count
+            | there would be a guess about a row that does not exist — the
+            | modelling {@see SavePlan} refuses to do. Here the write is real, so
+            | the gate is read before it and again after it and the difference is
+            | measured, exactly as it is on the teacher's own door.
+            |
+            | ⚠️ THE TEACHER'S WORKSPACE, NOT THE OFFICER'S. Taken from the plan
+            | being replaced: an officer's context falls back to their own
+            | `users.last_workspace_id`, which would count groups in the wrong
+            | catalogue and report zero for the one being changed.
+            */
+            $before = $this->cohorts->unlistedCohortsWithMembers($workspaceId);
+
             $plan = new Plan;
 
             $plan->fill([
@@ -149,6 +211,26 @@ class DecidePlanChange extends Action
             $old->forceFill(['is_active' => false])->save();
 
             $request->forceFill(['approved_plan_id' => (int) $plan->getKey()])->save();
+
+            $hidden = array_diff_key(
+                $this->cohorts->unlistedCohortsWithMembers($workspaceId),
+                $before,
+            );
+
+            /*
+            | ⚠️ THE DIFFERENCE, NEVER THE AFTER-READ ALONE. A group that was
+            | already dark before this decision — its own plan sitting unpriced
+            | while its course's is live — is not this approval's doing, and
+            | naming it would teach the officer to click past a warning that is
+            | usually wrong.
+            |
+            | ⚠️ AND THE THROW ROLLS BACK THE STATUS CLAIM TOO, because
+            | {@see handle()} wraps the whole decision. Without that the request
+            | would read APPROVED over a plan that was never written.
+            */
+            if ($hidden !== [] && ! $acknowledgeHiddenCohorts) {
+                throw new PlanWouldHideCohorts($hidden);
+            }
         });
     }
 

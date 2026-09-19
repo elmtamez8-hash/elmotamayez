@@ -14,6 +14,7 @@ use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use DomainException;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -172,6 +173,25 @@ class ReviewPlanChanges extends Page implements HasTable
                     ->label($approve ? 'ملاحظة للمدرّس (اختياريّة)' : 'سبب الرفض')
                     ->required(! $approve)
                     ->maxLength(500),
+
+                /*
+                | ⛔ ٠٣٦ · FR-013 — THE SECOND PRESS, AND IT IS DELIBERATELY NOT
+                | TICKED IN ADVANCE. The officer presses «موافقة», the Action
+                | runs the write for real, reads the price gate on both sides of
+                | it, rolls the whole decision back and refuses with the NAMES of
+                | the groups that would go dark. Only then is this box worth
+                | ticking — so the first press is the question and the second is
+                | the answer, and nothing is written in between.
+                |
+                | ⚠️ ON THE APPROVAL ONLY. A rejection writes no plan, so there
+                | is nothing it could hide and a box here would be a control that
+                | never does anything.
+                */
+                Checkbox::make('acknowledge_hidden_cohorts')
+                    ->label('أعرف أنّ مجموعات فيها طلاب ستخرج من العرض — نفّذ')
+                    ->helperText('اتركه فارغاً أوّل مرّة: إن كانت الموافقة ستُخفي مجموعة فيها أعضاء، '
+                        .'تُرفَض الموافقة بأسمائها ولا يُكتَب شيء.')
+                    ->visible($approve),
             ])
             ->action(function (PlanChangeRequest $record, array $data) use ($approve): void {
                 $officer = Auth::user();
@@ -186,6 +206,7 @@ class ReviewPlanChanges extends Page implements HasTable
                         $officer,
                         $approve,
                         is_string($data['reason'] ?? null) ? $data['reason'] : null,
+                        (bool) ($data['acknowledge_hidden_cohorts'] ?? false),
                     );
                 } catch (DomainException $e) {
                     Notification::make()->danger()->title($e->getMessage())->persistent()->send();

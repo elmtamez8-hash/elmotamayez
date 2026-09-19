@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Learning\Models\Cohort;
+use App\Modules\Learning\Models\CohortMembershipEvent;
+use App\Modules\Learning\Support\CohortMembershipWriter;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Payments\Actions\DecidePlanChange;
@@ -11,6 +15,7 @@ use App\Modules\Payments\Actions\SavePlan;
 use App\Modules\Payments\Actions\SetPlanPrice;
 use App\Modules\Payments\Enums\PlanChangeStatus;
 use App\Modules\Payments\Enums\PlanCoverage;
+use App\Modules\Payments\Exceptions\PlanWouldHideCohorts;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\PlanChangeRequest;
 use App\Modules\Tenancy\Support\Roles;
@@ -310,4 +315,170 @@ it('carries the ask over the wire and lists it back', function (): void {
         ->assertOk()
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.requested_shape', '١٢ حصّة');
+});
+
+/*
+| ٠٣٦ · FR-013, ON THE OFFICER'S DOOR — «الموافقةُ هي الكتابة، فالتحذيرُ هنا».
+|
+| ⛔ A TEACHER MAY NOT MOVE A PRICED PLAN, SO THIS REQUEST IS THE ONLY WAY ITS
+| COVERAGE EVER NARROWS — and the write happens at the APPROVAL, through a door
+| the teacher's own warning never passes. Without this the officer agrees,
+| groups with students in them drop out of every picker, and nobody ever sees a
+| number.
+|
+| ⚠️ AND THE WARNING BELONGS HERE RATHER THAN AT THE ASK. Nothing is written
+| when the teacher submits a request, so a count there would be a guess about a
+| row that does not exist — the modelling `SavePlan` refuses to do. Here the
+| write is real, so the gate is read on both sides of it and the difference is
+| measured.
+*/
+
+/** A group of this course with real membership rows in it — never a bumped counter. */
+function seatedCohort(string $name, ?Course $course = null, int $members = 1): Cohort
+{
+    $cohort = Cohort::factory()->create([
+        'workspace_id' => test()->workspace->getKey(),
+        'course_id' => ($course ?? test()->course)->getKey(),
+        'created_by' => test()->teacher->getKey(),
+        'name' => $name,
+    ]);
+
+    for ($i = 0; $i < $members; $i++) {
+        CohortMembershipWriter::open(
+            $cohort,
+            User::factory()->create(['last_workspace_id' => null]),
+            CohortMembershipEvent::JOINED,
+            test()->teacher,
+        );
+    }
+
+    return $cohort->refresh();
+}
+
+/**
+ * The shape FR-013's second trigger needs: a WORKSPACE-wide price being asked
+ * down to one course, while a group in a DIFFERENT course has students in it.
+ *
+ * ⚠️ IT CANNOT BE BUILT WITH `is_active`. A teacher may switch their own plan
+ * off without asking anybody, so a deactivation never reaches this Action —
+ * narrowing the coverage is the only edit that has to come through here, which
+ * is exactly why the simulation `SavePlan` rejected could not have covered it.
+ */
+function narrowingRequest(): PlanChangeRequest
+{
+    $chemistry = app(WorkspaceContext::class)->forWorkspace(
+        test()->workspace,
+        fn (): Course => Course::factory()->published()->create([
+            'workspace_id' => test()->workspace->getKey(),
+            'created_by' => test()->teacher->getKey(),
+            'course_type' => Course::TYPE_GROUP,
+            'title' => 'الكيمياء',
+        ]),
+    );
+
+    seatedCohort('مجموعة الكيمياء', $chemistry);
+
+    $wide = groupPriceFor(test()->course);
+    app(SetPlanPrice::class)->handle($wide, 20_000);
+
+    test()->wide = $wide;
+
+    return app(WorkspaceContext::class)->forWorkspace(
+        test()->workspace,
+        fn (): PlanChangeRequest => app(RequestPlanChange::class)->handle(
+            test()->teacher,
+            $wide->fresh(),
+            [
+                'duration_days' => 30,
+                'session_type' => ClassSessionType::Group,
+                'coverage_type' => PlanCoverage::Course,
+                'coverage_uuid' => (string) test()->course->uuid,
+                'reason' => 'هركّز على التفاضل.',
+            ],
+        ),
+    );
+}
+
+it('refuses an approval that would hide a group with students in it', function (): void {
+    $request = narrowingRequest();
+
+    expect(fn () => app(DecidePlanChange::class)->handle($request->fresh(), $this->officer, approve: true))
+        ->toThrow(PlanWouldHideCohorts::class, 'مجموعة الكيمياء');
+});
+
+it('leaves the request PENDING after that refusal, with nothing written', function (): void {
+    /*
+    | ⛔ THE HALF THAT NEEDED THE TRANSACTION, AND IT IS A SEPARATE CASE FROM THE
+    | SENTENCE. The status claim used to stand OUTSIDE any transaction, above the
+    | write — so a throw left the request recorded APPROVED with no plan behind
+    | it and nothing able to decide it again: the `claimForGrading()` defect,
+    | where a refusal after a claim strands the row in the state the refusal
+    | exists to prevent. A build that threw without wrapping passes the case
+    | above word for word and fails here.
+    */
+    $request = narrowingRequest();
+    $before = Plan::query()->withoutWorkspaceScope()->count();
+
+    try {
+        app(DecidePlanChange::class)->handle($request->fresh(), $this->officer, approve: true);
+    } catch (PlanWouldHideCohorts) {
+        // The sentence is measured above; this case is about the rows.
+    }
+
+    expect($request->fresh()?->status)->toBe(PlanChangeStatus::Pending)
+        ->and(Plan::query()->withoutWorkspaceScope()->count())->toBe($before)
+        // ⚠️ AND THE OLD PLAN IS STILL ON SALE. Retiring it is part of the same
+        // transaction, so a half-applied decision would leave the teacher with
+        // nothing sellable at all.
+        ->and((bool) $this->wide->fresh()?->is_active)->toBeTrue();
+});
+
+it('approves when the officer says they know', function (): void {
+    // ⚠️ THE OTHER HALF OF A QUESTION. FR-013 asks that the decision be
+    // INFORMED, not that it be blocked — an officer who still means it goes
+    // through, and the old plan is retired as it always was.
+    $request = narrowingRequest();
+
+    app(DecidePlanChange::class)->handle(
+        $request->fresh(),
+        $this->officer,
+        approve: true,
+        acknowledgeHiddenCohorts: true,
+    );
+
+    expect($request->fresh()?->status)->toBe(PlanChangeStatus::Approved)
+        ->and((bool) $this->wide->fresh()?->is_active)->toBeFalse();
+});
+
+it('says nothing when the approval hides no group anybody is in', function (): void {
+    /*
+    | ⛔ THE CONTROL, AND WITHOUT IT THE THREE CASES ABOVE ARE EQUALLY TRUE OF A
+    | BUILD THAT REFUSES EVERY APPROVAL ON THE PLATFORM. This request moves the
+    | shape of a COURSE plan and leaves its coverage where it was, so no group
+    | anywhere loses its price.
+    |
+    | ⛔ AND THE SECOND GROUP IS THE HALF THAT PROVES THE **DIFFERENCE** WAS
+    | TAKEN. «مجموعة المساء» carries an unpriced plan of its own, so the overrule
+    | rule holds it out of every list ALREADY — «own plan exists» switches the
+    | inheritance off whether that plan can be bought or not. It has students in
+    | it, and this decision does not touch it.
+    |
+    | A build that reported «which member-carrying groups are dark AFTER» rather
+    | than «which went dark BECAUSE of this» refuses here, and teaches the
+    | officer to tick the box on every approval — which is the warning switched
+    | off by the hand of the person it was written for.
+    */
+    seatedCohort('مجموعة التفاضل');
+
+    $evening = seatedCohort('مجموعة المساء');
+
+    Plan::factory()->unpriced()->forCohort((string) $evening->uuid)->create([
+        'workspace_id' => $this->workspace->getKey(),
+    ]);
+
+    $request = askToChange(['requested_price_minor' => 60_000]);
+
+    app(DecidePlanChange::class)->handle($request->fresh(), $this->officer, approve: true);
+
+    expect($request->fresh()?->status)->toBe(PlanChangeStatus::Approved);
 });
