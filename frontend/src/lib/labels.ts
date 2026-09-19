@@ -1,3 +1,4 @@
+import { arabicNumber } from "./numerals";
 /**
  * Arabic labels for the status strings the API returns.
  *
@@ -524,5 +525,5 @@ export function counted(count: number, forms: CountedForms): string {
 
   const noun = band === "few" ? forms.few : band === "many" ? forms.many : forms.other;
 
-  return `${count.toLocaleString("ar-QA")} ${noun}`;
+  return `${arabicNumber(count)} ${noun}`;
 }

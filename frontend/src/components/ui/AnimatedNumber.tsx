@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { arabicNumber } from "@/lib/numerals";
 /**
  * A number that counts up to its value the first time it is seen.
  *
@@ -90,7 +91,7 @@ export function AnimatedNumber({
     // tabular-nums so the box cannot jitter while the digits change: the value
     // moves, the layout does not.
     <span ref={ref} className="tabular-nums">
-      {shown.toLocaleString("ar-QA")}
+      {arabicNumber(shown)}
       {suffix}
     </span>
   );

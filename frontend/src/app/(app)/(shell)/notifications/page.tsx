@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { errorMessage } from "@/lib/api";
 import { relativeDayLabel } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 import {
   notifications,
   type NotificationCategory,
@@ -189,7 +190,7 @@ export default function NotificationsPage() {
           <h1 className="text-xl font-semibold text-ink">الإشعارات</h1>
           <p className="text-sm text-ink-muted">
             {unread > 0
-              ? `لديك ${unread.toLocaleString("ar-EG")} إشعاراً غير مقروء`
+              ? `لديك ${arabicNumber(unread)} إشعاراً غير مقروء`
               : "لا إشعارات غير مقروءة"}
           </p>
         </div>
@@ -282,7 +283,7 @@ export default function NotificationsPage() {
             السابق
           </Button>
           <span className="text-sm text-ink-muted">
-            {page.toLocaleString("ar-EG")} / {lastPage.toLocaleString("ar-EG")}
+            {arabicNumber(page)} / {arabicNumber(lastPage)}
           </span>
           <Button
             variant="secondary"

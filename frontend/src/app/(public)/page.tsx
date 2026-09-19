@@ -12,6 +12,7 @@ import { FaqAccordion } from "@/components/marketplace/FaqAccordion";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { arabicNumber } from "@/lib/numerals";
 import {
   AcademicCapIcon,
   SessionsIcon,
@@ -295,7 +296,7 @@ export default async function HomePage() {
                   // in the rule it sits on, or the line runs through the digit.
                   className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-base font-bold text-primary-ink transition duration-300 ease-out group-hover:border-primary group-hover:bg-primary group-hover:text-white lg:mx-auto lg:mb-5"
                 >
-                  {(index + 1).toLocaleString("ar-QA")}
+                  {arabicNumber((index + 1))}
                 </span>
 
                 <span className="lg:block">

@@ -6,6 +6,7 @@ import { Table, type Column } from "@/components/ui/Table";
 import { formatCredits, type CreditTransaction } from "@/lib/billing";
 import { formatDate } from "@/lib/labels";
 
+import { arabicNumber } from "@/lib/numerals";
 /**
  * The ledger, newest first.
  *
@@ -88,7 +89,7 @@ export function TransactionList({
 
           <span className="text-sm text-ink-muted">
             <bdi>
-              {page.toLocaleString("ar-EG")} من {lastPage.toLocaleString("ar-EG")}
+              {arabicNumber(page)} من {arabicNumber(lastPage)}
             </bdi>
           </span>
 

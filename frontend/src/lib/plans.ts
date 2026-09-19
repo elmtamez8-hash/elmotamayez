@@ -209,13 +209,33 @@ export function planDuration(days: number | null | undefined): string | null {
   // Infinity and 30.5, and `<= 0` refuses the zero a half-filled row carries.
   if (typeof days !== "number" || !Number.isInteger(days) || days <= 0) return null;
 
+  /*
+  | ⚠️ **والصيغُ هي صيغُ `PlanShape::describe()` حرفاً بحرف.** الخادمُ يكتبُ
+  | الجملةَ نفسَها لشاشةِ الموظَّفِ ولإشعارِ المدرّسِ ولطلباتِ التعديل، وهذا
+  | يكتبُها لأربعِ شاشاتٍ يقرؤُها المشتري — فحرفٌ واحدٌ يفترقُ هنا يجعلُ للباقةِ
+  | الواحدةِ اسمَين، وقد كانَ لها اسمان: «شهر واحد» هنا و«٣٠ يوماً» هناك.
+  |
+  | ⚠️ **وعبرَ `counted()` لا بقالبٍ نصّيّ.** «3 أشهر» و«٧ يوماً» كلتاهما خطأٌ
+  | في العربيّةِ ببندٍ مختلف، وهي قاعدةُ العددِ المعدودِ التي دفعَ ثمنَها هذا
+  | المنتَجُ مرّةً على السوق.
+  */
   if (days % 30 === 0) {
-    const months = days / 30;
-
-    return months === 1 ? "شهر واحد" : months === 2 ? "شهران" : `${months} أشهر`;
+    return counted(days / 30, {
+      one: "شهر واحد",
+      two: "شهران",
+      few: "أشهر",
+      many: "شهراً",
+      other: "شهر",
+    });
   }
 
-  return days === 1 ? "يوم واحد" : `${days} يوماً`;
+  return counted(days, {
+    one: "يوم واحد",
+    two: "يومان",
+    few: "أيّام",
+    many: "يوماً",
+    other: "يوم",
+  });
 }
 
 /**

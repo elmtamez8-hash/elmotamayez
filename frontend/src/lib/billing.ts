@@ -1,5 +1,6 @@
 import { api } from "./api";
 
+import { arabicNumber } from "@/lib/numerals";
 /**
  * The student's credits — their balance per course and their ledger.
  *
@@ -420,7 +421,7 @@ export const billing = {
  * before the number is unambiguous in either direction.
  */
 export function formatCredits(credits: number): string {
-  const magnitude = Math.abs(credits).toLocaleString("ar-EG");
+  const magnitude = arabicNumber(Math.abs(credits));
 
   if (credits < 0) return `${magnitude} تحت الصفر`;
 

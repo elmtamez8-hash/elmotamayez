@@ -12,20 +12,14 @@ import {
 import Link from "next/link";
 import { api, errorMessage } from "@/lib/api";
 import type { Order } from "@/lib/types";
-import {
-  counted,
-  formatDate,
-  formatMinorMoney,
-  statusLabel,
-  statusTone,
-  TONE_CLASSES,
-} from "@/lib/labels";
+import { TONE_CLASSES, counted, formatDate, formatMinorMoney, statusLabel, statusTone } from "@/lib/labels";
 import { planShape, SESSION_TYPE_LABELS } from "@/lib/plans";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Field";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
+import { arabicNumber } from "@/lib/numerals";
 import {
   AlertIcon,
   CheckIcon,
@@ -671,7 +665,7 @@ export default function OrdersPage() {
                       label beside it already carries the noun, so the numeral is
                       all that is needed. */}
                   <span className="text-sm font-semibold tabular-nums text-ink">
-                    {count.toLocaleString("ar-QA")}
+                    {arabicNumber(count)}
                   </span>
                   <span className="text-xs text-ink-muted">{label}</span>
                 </span>
