@@ -11,6 +11,7 @@ use App\Modules\Learning\Actions\InviteFromWaitlist;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CourseWaitlistEntry;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\CohortPricingReasonDirectory;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -286,9 +287,13 @@ class CourseWaitlist extends Page implements HasTable
      * دعوةٌ إلى مجموعةٍ مؤرشَفةٍ أو مكتمِلةٍ رسالةٌ لا يستطيعُ قارئُها أن يفعلَ
      * بها شيئاً.
      *
+     * ⚠️ **وعامّةٌ لأنّ المُنتقيَ لا يُرسَمُ على الخادم**: نافذةُ Filament تُبنى
+     * في المتصفّح، فلا اختبارُ Livewire يقرأُ خياراتِها من الصفحة. وهذا هو النصُّ
+     * الذي يراه المسؤولُ حرفاً بحرف، فقياسُه قياسُ ما يُرسَم.
+     *
      * @return array<string, string>
      */
-    private function cohortOptions(): array
+    public function cohortOptions(): array
     {
         $courseId = $this->courseId();
 
@@ -296,17 +301,52 @@ class CourseWaitlist extends Page implements HasTable
             return [];
         }
 
-        return Cohort::query()
+        $cohorts = Cohort::query()
             ->withoutWorkspaceScope()
             ->where('course_id', $courseId)
             ->group()
             ->assignable()
             ->orderBy('name')
-            ->get()
-            ->mapWithKeys(static fn (Cohort $cohort): array => [
-                (string) $cohort->uuid => $cohort->name.($cohort->seatsLeft() === null
-                    ? ' — بلا حدّ' : ' — '.$cohort->seatsLeft()),
-            ])
+            ->get();
+
+        /*
+        | ⛔ **٠٣٦ · FR-020 — يُقالُ للمسؤولِ قبلَ الإرسال، ولا تُمنَعُ الدعوة.**
+        | الدعوةُ إسنادٌ إداريٌّ فلا تقرأُ الباقات (FR-004)، ومنعُها يتركُ مقعداً
+        | فارغاً بسببِ خانةِ سعرٍ عندَ المنصّة. لكنّ دعوةً صامتةً إلى مجموعةٍ
+        | لا يصلُها سعرٌ حيٌّ تُوصِلُ المدعوَّ إلى شاشةٍ لا يشتري منها شيئاً —
+        | **والإخبارُ وحدَه يُسقِطُ الاثنَين**: يُرسِلُ المسؤولُ عالماً أو ينتظر.
+        |
+        | ⚠️ **والسببُ مُسمّىً لا علامةٌ صامتة.** «بانتظار التسعير» عملٌ عندَ
+        | المنصّةِ نفسِها — وهذا المسؤولُ هو المنصّة — بينما «بلا باقة» عملٌ عندَ
+        | المدرّس. علامةٌ واحدةٌ للحالتَينِ تُرسِلُه ينتظرُ قراراً لا ينتظرُه أحد.
+        |
+        | ⚠️ **والقراءةُ جُمليّةٌ لكلِّ الخياراتِ مرّةً واحدة** — سؤالٌ لكلِّ صفٍّ
+        | هنا `N+1` بالبناء، وهو عطبُ `ClassSessionResource` من بابٍ جديد.
+        */
+        /** @var list<array{id: int, uuid: string, course_id: int, workspace_id: int}> $candidates */
+        $candidates = [];
+
+        foreach ($cohorts as $cohort) {
+            $candidates[] = [
+                'id' => (int) $cohort->getKey(),
+                'uuid' => (string) $cohort->uuid,
+                'course_id' => (int) $cohort->course_id,
+                'workspace_id' => (int) $cohort->workspace_id,
+            ];
+        }
+
+        $gaps = app(CohortPricingReasonDirectory::class)->pricingGapsFor($candidates);
+
+        return $cohorts
+            ->mapWithKeys(static function (Cohort $cohort) use ($gaps): array {
+                $seats = $cohort->seatsLeft() === null ? 'بلا حدّ' : (string) $cohort->seatsLeft();
+                $gap = $gaps[(int) $cohort->getKey()] ?? null;
+
+                return [
+                    (string) $cohort->uuid => $cohort->name.' — '.$seats
+                        .($gap === null ? '' : ' ⚠️ '.$gap->label()),
+                ];
+            })
             ->all();
     }
 
