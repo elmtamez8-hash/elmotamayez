@@ -491,6 +491,54 @@ courses gains:    promo_video_id · promo_video_status · promo_video_reviewed_a
   while the predicate (`uuid IS NULL`) shrinks under it — every page after the first skipped
   as many rows as the previous page fixed, and reported success
 
+## Subscription plans (spec 011 · US4 · spec 036)
+
+```
+plans           (workspace) title · duration_days ⚠️ NULLABLE · session_count ⚠️ NULLABLE
+                            session_type · coverage_type · coverage_uuid
+                            price_minor ⚠️ NULLABLE · currency · is_active
+                            index (workspace_id, coverage_uuid)  ← the cohort bridge's own read
+subscriptions   (workspace) plan_id · order_id UNIQUE · price_minor · starts_on · ends_on
+plan_change_requests (workspace) the way out of a refusal to move a PRICED plan
+```
+
+- **Exactly one of `duration_days` and `session_count` is set — never both, never
+  neither** (036 · FR-020). A window of days, or a number of hours; the hours
+  shape mints ordinary credits through `CreditLedger` from the order, so nothing
+  here reimplements a balance. The rule is enforced in
+  `SavePlan::resolveShape()`, NOT by a `CHECK` constraint: that is spelled
+  differently on MySQL and SQLite, is invisible to a suite running on SQLite, and
+  tells the teacher nothing about which field to fix.
+  ⚠️ **`(int) null === 0`**, so a reader that casts the duration without asking
+  the shape sells a month that expires the instant it is activated.
+- **`price_minor` is nullable and the null is a STATE.** Two actors write one row
+  at two moments — the teacher writes the shape and the coverage, the platform
+  writes the price (FR-025 · Q4) — so between them the plan exists unpriced and
+  is not sellable. `Plan::sellable()` is `is_active AND price is not null`.
+- **`coverage_type` has THREE cases** (036 · FR-021): `workspace` · `course` ·
+  `cohort`. `coverage_uuid` names whatever the coverage points at — a second
+  `cohort_uuid` column would be null on two rows out of three, and the first
+  reader to forget it opens a group plan onto every course the teacher has. The
+  predicate is `PlanCoverage::requiresUuid()`, never a check for «is this the
+  Course case»: that question agrees while there are two cases and sends a cohort
+  plan down the «no uuid needed» branch the moment there are three.
+- **A cohort plan is always `session_type = group`.** The bridge filters on the
+  room size, so a cohort plan priced for a one-to-one hour is written, saved,
+  listed on the teacher's screen — and reaches no group at all, while the group
+  it was written for reads «no plan reaches it». `SavePlan` refuses the
+  combination outright.
+- **The overrule rule that decides which groups a plan lists is written ONCE, in
+  `Payments\Support\CohortPlanReach`.** Read that class's header; it is not
+  repeated here, because a second statement of a rule diverges at the first edit.
+  `Payments` may not name the `cohorts` table and `Learning` may not name
+  `plans` — `tests/Feature/Architecture/CohortPlanBoundaryTest.php` fails the
+  build over either, comments stripped first.
+- **The index is `(workspace_id, coverage_uuid)` in that order.** The workspace
+  is the equality condition that cuts the table to one teacher; the bridge's read
+  is literally `whereIn('workspace_id') + whereIn('coverage_uuid')`, and it is
+  asked on every public course page, every group list a student opens and every
+  purchase attempt.
+
 ## Credit Billing (spec 006)
 
 ```

@@ -184,3 +184,36 @@ it('stops offering a group whose own plan is waiting to be priced', function ():
 
     expect(pickerNames())->toBe(['مجموعة السبت']);
 });
+
+it('still offers the unpriced group as a TRANSFER destination, marked', function (): void {
+    /*
+    | ⛔ ٠٣٦ · T098 · T118 · FR-019 — TWO LISTS IN ONE PAYLOAD, AND THEY MUST
+    | DISAGREE HERE. The picker answers «which group may I JOIN», where an option
+    | that cannot succeed is worse than no option, so the unpriced group is
+    | ABSENT from it — asserted above. The transfer list answers «where may I ask
+    | to be MOVED», which an officer decides: a request into an unpriced group is
+    | one somebody can answer, and an option missing from a list is a question
+    | nobody can ask.
+    |
+    | ⚠️ AND THE FLAG IS WHAT MAKES IT HONEST. Offered with nothing said about it,
+    | the student asks for a move into a group their classmates cannot buy into;
+    | `is_on_sale` is the word the screen prints beside the option.
+    |
+    | ⚠️ THE FIXTURE IS TWO GROUPS FOR THE REASON THE FILE'S HEADER GIVES: «it
+    | lists the unpriced one» is equally true of a build that lists everything,
+    | and only the disagreement between the two keys proves the two reads are
+    | two reads.
+    */
+    $payload = $this->actingAs($this->student, 'sanctum')
+        ->getJson('/api/v1/courses/'.$this->course->uuid.'/cohorts')
+        ->assertOk()
+        ->json();
+
+    expect(array_column($payload['cohorts'], 'name'))->toBe(['مجموعة السبت']);
+
+    $destinations = collect($payload['transfer_destinations'])->keyBy('name');
+
+    expect($destinations->keys()->sort()->values()->all())->toBe(['مجموعة الأحد', 'مجموعة السبت'])
+        ->and($destinations['مجموعة السبت']['is_on_sale'])->toBeTrue()
+        ->and($destinations['مجموعة الأحد']['is_on_sale'])->toBeFalse();
+});

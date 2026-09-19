@@ -45,8 +45,20 @@ export function CohortSwitcher({
   */
   if (!membership) return null;
 
-  const elsewhere = (state.cohorts ?? []).filter(
-    (option) => option.uuid !== membership.cohort_uuid && option.is_joinable,
+  /*
+    ⛔ 036 · T118 · FR-019 — THE DESTINATIONS COME FROM THEIR OWN READ, NOT FROM
+    THE PICKER LIST FILTERED. `state.cohorts` answers «which group may I JOIN»
+    and now DROPS any group no live price reaches, and `is_joinable` on those
+    rows asks the price as well — so «open, has room, not on sale», the one case
+    FR-019 exists to mark, was deleted twice over before this component saw it.
+    The requirement was unimplementable from here, not merely unimplemented.
+
+    ⚠️ Truthiness, like the membership check above: this is fed by a side read
+    that is allowed to fail, and a half-loaded body must not take the course page
+    down on `.filter`.
+  */
+  const elsewhere = (state.transfer_destinations ?? []).filter(
+    (option) => option.uuid !== membership.cohort_uuid,
   );
 
   const submit = () => {
@@ -117,10 +129,21 @@ export function CohortSwitcher({
                 { value: "", label: "اختر مجموعة" },
                 ...elsewhere.map((option) => ({
                   value: option.uuid,
-                  label:
-                    option.schedule_preview.length > 0
-                      ? `${option.name} — ${option.schedule_preview.join(" · ")}`
-                      : option.name,
+                  /*
+                    ⚠️ MARKED, NOT HIDDEN (FR-019). A group that is open and has
+                    room but is not on sale is a destination an officer can still
+                    approve — dropping it makes the question unaskable, while
+                    saying so lets the student ask knowing what they are asking
+                    for. The words are on the option itself because a legend
+                    beside a closed `<select>` is a legend nobody reads.
+                  */
+                  label: [
+                    option.name,
+                    option.schedule_preview.length > 0 ? option.schedule_preview.join(" · ") : null,
+                    option.is_on_sale ? null : "غير معروضة للبيع",
+                  ]
+                    .filter((part): part is string => part !== null)
+                    .join(" — "),
                 })),
               ]}
             />

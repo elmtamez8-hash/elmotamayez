@@ -128,6 +128,23 @@ class CohortController extends Controller
                 ->all(),
             'pending_request' => $pending === null ? null : TransferRequestResource::make($pending)->toArray($request),
             'cohorts' => $cohorts,
+            /*
+            | ⛔ ٠٣٦ · T118 · FR-019 — THE TRANSFER PICKER'S OWN READ, AND
+            | WITHOUT IT FR-019 CANNOT BE IMPLEMENTED AT ALL. The switcher built
+            | its destinations out of `cohorts` above and filtered those again on
+            | `is_joinable` — and this spec narrowed BOTH: the picker list drops a
+            | group no live price reaches, and `isJoinable()` now asks the price
+            | too. So «open, has room, not on sale» — the exact destination
+            | FR-019 asks to be MARKED — was deleted twice over before the screen
+            | ever saw it.
+            |
+            | ⚠️ IT IS NOT A WIDENING OF THE PICKER. The picker answers «which
+            | group may I JOIN», where an option that cannot succeed is worse than
+            | no option; this answers «where may I ask to be MOVED», which an
+            | officer decides — a request into an unpriced group is one somebody
+            | can answer, and an absent option is a question nobody can ask.
+            */
+            'transfer_destinations' => $this->cohorts->transferDestinationsFor($courseId),
         ]);
     }
 

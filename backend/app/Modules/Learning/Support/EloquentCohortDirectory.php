@@ -610,6 +610,52 @@ class EloquentCohortDirectory implements CohortDirectory
         return $out;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * ⚠️ `joinable()` IS THE STRUCTURAL SCOPE — open, and not full — and
+     * that is the whole filter here. `isJoinable()` on the model asks the price
+     * as well (T041), which is exactly the condition this list must NOT apply:
+     * a destination that is open and has room but is not on sale is the case
+     * FR-019 exists to mark.
+     *
+     * ⚠️ AND EVERY ROW IS STAMPED, INCLUDING THE ONES THAT ARE NOT ON SALE.
+     * An unstamped row throws on its next read, so «skip the ones that are not
+     * listed» would turn the very case being labelled into a 500.
+     */
+    public function transferDestinationsFor(int $courseId): array
+    {
+        $cohorts = Cohort::query()
+            ->withoutWorkspaceScope()
+            ->where('course_id', $courseId)
+            // `group()`: a private 1:1 room is one student's own and is never a
+            // destination — it is `closed` with capacity 1, so `joinable()` alone
+            // would already exclude it, and saying so here keeps the rule visible.
+            ->group()
+            ->joinable()
+            ->orderBy('name')
+            ->get();
+
+        // ONE call for the whole list — a picker builds its options in a loop,
+        // so a per-row read here is an N+1 by construction.
+        $preview = $this->schedule->schedulePreviewFor(
+            array_values($cohorts->map(static fn (Cohort $cohort): int => (int) $cohort->getKey())->all()),
+        );
+
+        $out = [];
+
+        foreach ($this->pricing->stamp($cohorts) as $cohort) {
+            $out[] = [
+                'uuid' => (string) $cohort->uuid,
+                'name' => (string) $cohort->name,
+                'schedule_preview' => $preview[(int) $cohort->getKey()] ?? [],
+                'is_on_sale' => $cohort->priceReaches(),
+            ];
+        }
+
+        return $out;
+    }
+
     public function teacherCohortsFor(array $courseIds): array
     {
         if ($courseIds === []) {

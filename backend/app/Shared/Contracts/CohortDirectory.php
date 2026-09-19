@@ -459,4 +459,35 @@ interface CohortDirectory
      *                                                                                        keyed by cohort id
      */
     public function unlistedCohortsWithMembers(?int $workspaceId = null): array;
+
+    /**
+     * Where a student of this course could ask to be MOVED (٠٣٦ · T118 · FR-019).
+     *
+     * ⛔ **ITS OWN READ, AND WITHOUT ONE FR-019 IS UNIMPLEMENTABLE.** The
+     * transfer picker used to build its options out of the student PICKER's list
+     * and then filter those again on `is_joinable` — and ٠٣٦ narrowed both:
+     * {@see pickerCohortsFor()} DROPS a group no live price reaches, and
+     * `Cohort::isJoinable()` now asks the price too. So the destination FR-019
+     * is about — «a group that is open and has room but is not on sale» — is
+     * deleted twice over before the screen sees it, and the requirement to mark
+     * it could never fire.
+     *
+     * ⚠️ **STRUCTURALLY JOINABLE IS THE FILTER; THE PRICE IS A LABEL.** Open
+     * and not full is what makes a room a possible destination; whether it is on
+     * sale is what the officer deciding the transfer needs to KNOW, not a reason
+     * to hide the option — a student asking to move into an unpriced group is a
+     * request somebody can answer, and an option missing from a list is a
+     * question nobody can ask.
+     *
+     * ⚠️ AND THE GROUP THE READER IS ALREADY IN IS NOT EXCLUDED HERE. The
+     * caller knows which one that is; this method answers about the course.
+     *
+     * ⚠️ THE MEETING TIMES TRAVEL WITH IT, READ IN ONE CALL FOR THE WHOLE
+     * LIST. «الأحد ٦م» is the fact a student picks a destination on — a
+     * group named «المجموعة الثانية» says nothing — and asked per row it
+     * would be one query per option inside a picker.
+     *
+     * @return list<array{uuid: string, name: string, schedule_preview: list<string>, is_on_sale: bool}>
+     */
+    public function transferDestinationsFor(int $courseId): array;
 }

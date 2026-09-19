@@ -141,6 +141,24 @@ export interface CohortsForCourse {
   past_cohorts: Array<{ uuid: string; name: string; left_at: string | null }>;
   pending_request: CohortTransferRequest | null;
   cohorts: CohortOption[];
+  /**
+   * ⛔ 036 · FR-019 — WHERE A TRANSFER MAY BE ASKED FOR, WHICH IS NOT THE
+   * PICKER LIST NARROWED. `cohorts` above answers «which group may I JOIN» and
+   * drops any group no live price reaches; this answers «where may I ask to be
+   * MOVED», which an officer decides — so it keeps a group that is open and has
+   * room but is not on sale, and says so with `is_on_sale`. Filtering the picker
+   * list instead deleted that case twice over, and the requirement to mark it
+   * could never fire.
+   */
+  transfer_destinations: TransferDestination[];
+}
+
+export interface TransferDestination {
+  uuid: string;
+  name: string;
+  /** «الأحد ٦م» — the fact a student actually picks a destination on. */
+  schedule_preview: string[];
+  is_on_sale: boolean;
 }
 
 /**
