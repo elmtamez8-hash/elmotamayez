@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Marketplace\Models\Subject;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -39,7 +40,44 @@ class CourseFactory extends Factory
             // caller reading $course->structure_version would get null and send
             // it as the concurrency token.
             'structure_version' => 1,
-            'created_by' => User::factory(),
+            /*
+            | ⛔ THE CREATOR IS DERIVED FROM THE WORKSPACE, AND IT USED TO BE
+            | `User::factory()` — A STRANGER TO IT. Measured on production
+            | 2026-09-20: every course's creator is a member of its own workspace
+            | and holds a teacher profile there, and `CreateCourse` writes
+            | `created_by` from the signed-in teacher. So a bare `Course::factory()`
+            | was building a shape the product cannot produce.
+            |
+            | ⚠️ AND IT WAS NOT HARMLESS. ٠٢٧ · T075 made the subscription snapshot
+            | read `$course->creator`, and three tests then measured the name of a
+            | person with no connection to anything — each one correct-looking and
+            | meaningless. Same family as the `ChapterFactory` defaults this repo
+            | already paid for: a factory that contradicts its own parents teaches
+            | every caller to pin the parents by hand, and the one caller who does
+            | not is the one that finds out.
+            |
+            | ⚠️ NAMED BELOW `workspace_id` ON PURPOSE: `expandAttributes()` walks
+            | the definition in order and hands each closure only what it has
+            | already resolved, so a derived key above its parent reads nothing.
+            |
+            | ⚠️ AND READ WITH `DB::table()`, NEVER `Workspace::find()`: the model
+            | runs under a global scope and returns null for any fixture whose
+            | current workspace is not this row's — which is most of them.
+            |
+            | The fallback keeps a workspace-less fixture working rather than
+            | failing it: a course whose `workspace_id` names no row is a fixture
+            | nobody meant to make realistic, and breaking it would be a change
+            | this factory has no business making.
+            */
+            'created_by' => static function (array $attributes): int {
+                $owner = DB::table('workspaces')
+                    ->where('id', $attributes['workspace_id'])
+                    ->value('owner_user_id');
+
+                return $owner === null
+                    ? (int) User::factory()->create()->getKey()
+                    : (int) $owner;
+            },
             'course_type' => Course::TYPE_RECORDED,
             /*
             | ⚠️ EVERY COURSE CARRIES A SUBJECT, INCLUDING EVERY FIXTURE. It is
