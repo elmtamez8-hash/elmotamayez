@@ -119,14 +119,31 @@ class GrantCreditSubscription extends Page implements HasTable
         return Auth::user()?->can(Permissions::BILLING_PURCHASE_APPROVE) ?? false;
     }
 
+    /**
+     * الاسمُ يُسمّي النصفَينِ، لأنّ الشاشةَ منتجانِ لا واحد.
+     *
+     * ⛔ كانَ «منح اشتراك لطالب» فوقَ استمارةٍ تُنشئُ `OrderKind::Credits` عبرَ
+     * {@see PurchaseCredits} — أي تمنحُ **رصيداً** لا اشتراكاً — بينما الجدولُ
+     * فوقَها يقرأُ `OrderKind::Subscription`. وحقلُ الحزمةِ كانَ اسمُه «الباقة»،
+     * وهي الكلمةُ عينُها التي تحملُها باقاتُ الاشتراكِ في الجدولِ أعلاه.
+     *
+     * فسألَ المالكُ في ٢٠٢٦-٠٩-٢٠ عن تناقضٍ ظاهر: الاستمارةُ تعرضُ «أربع حصص
+     * فردية» والعمودُ فوقَها يقولُ «شهر واحد». ولا تناقضَ في البيانات — قِيسَ أنّ
+     * `plans` صفّانِ شهريّانِ وأنّ الستّةَ المعروضةَ `credit_packages` — **وثمنُ
+     * التسميةِ كانَ انتباهَ قارئٍ مدقّقٍ استنتجَ عطباً ليسَ هناك**.
+     *
+     * ⚠️ ولا يُدمَجُ النصفانِ: افتراقُ `OrderKind` بينَهما هو ما يمنعُ الموظّفَ من
+     * اعتمادِ صفٍّ كتبَه بيدِه (قاعدةُ ٠٢٤)، كما تقولُ ترويسةُ هذا الصفِّ أعلاه.
+     * الإصلاحُ نصوصٌ وحدَها، بلا لمسِ الفصلِ الحامل.
+     */
     public static function getNavigationLabel(): string
     {
-        return 'منح اشتراك لطالب';
+        return 'طلبات الاشتراك · منح رصيد';
     }
 
     public function getTitle(): string
     {
-        return 'منح اشتراك لطالب';
+        return 'طلبات الاشتراك · منح رصيد';
     }
 
     /**
@@ -465,7 +482,7 @@ class GrantCreditSubscription extends Page implements HasTable
                                 ->live(),
 
                             Select::make('package')
-                                ->label('الباقة')
+                                ->label('حزمة الحصص')
                                 ->required()
                                 ->options(fn (): array => CreditPackage::query()
                                     ->where('is_active', true)
@@ -604,7 +621,7 @@ class GrantCreditSubscription extends Page implements HasTable
         $missing = array_values(array_filter([
             $student instanceof User ? null : 'الطالب',
             $course instanceof Course ? null : 'الكورس',
-            $packageId === null ? 'الباقة' : null,
+            $packageId === null ? 'حزمة الحصص' : null,
         ]));
 
         return 'اختر '.implode(' و', $missing).'.';

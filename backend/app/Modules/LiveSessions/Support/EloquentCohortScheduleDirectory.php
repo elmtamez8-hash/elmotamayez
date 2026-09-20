@@ -89,7 +89,7 @@ class EloquentCohortScheduleDirectory implements CohortScheduleDirectory
         return $out;
     }
 
-    /** @return array{uuid: string, starts_at: string}|null */
+    /** @return array{uuid: string, starts_at: string, label: string}|null */
     public function nextSessionFor(int $cohortId): ?array
     {
         /*
@@ -113,9 +113,35 @@ class EloquentCohortScheduleDirectory implements CohortScheduleDirectory
             return null;
         }
 
+        /*
+        | ⛔ THE LABEL IS BUILT HERE, NOT AT THE CALL SITE — AND `starts_at` ALONE
+        | REACHED A STUDENT'S NOTIFICATION AS `2026-09-26T14:00:00+00:00`.
+        | Measured on production 2026-09-20 (٠٢٧ · T075): inside an Arabic
+        | paragraph the bidi algorithm reorders it to `26T14:00:00+00:00-09-2026`
+        | — not merely ugly, UNREADABLE — and the line directly above it already
+        | said «السبت 17:00», so one meeting was printed twice in two shapes, one
+        | of them machine text.
+        |
+        | ⚠️ AND IT IS THE SIBLING OF THE FIX ABOVE, WHICH DID NOT REACH IT.
+        | `schedulePreviewFor()` was corrected on 2026-09-15 — its own comment
+        | says the weekday is the sharper half, because 01:00 Qatar is 22:00 the
+        | PREVIOUS day in UTC — while this method, one method below, kept
+        | returning UTC. A rule fixed in one of two adjacent methods is a rule
+        | half-fixed.
+        |
+        | ⚠️ AND THE LABEL BELONGS TO THE DIRECTORY BECAUSE FOUR CALLERS WANT IT.
+        | `OrderResource` had already written its own `setTimezone(...)->format()`
+        | beside its own explanation; copying that into the three notification
+        | sites would have made six spellings of one rule, which is the defect
+        | this repository records more than any other. `starts_at` stays as the
+        | machine value — the uuid's honest sibling — and nothing formats it again.
+        */
+        $local = $session->starts_at->copy()->setTimezone(app(SessionSettings::class)->timezone());
+
         return [
             'uuid' => (string) $session->uuid,
             'starts_at' => $session->starts_at->toIso8601String(),
+            'label' => self::DAYS[(int) $local->format('w')].' '.$local->format('Y-m-d H:i'),
         ];
     }
 }

@@ -11,6 +11,7 @@ use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Testing\TestResponse;
 
@@ -28,6 +29,19 @@ beforeEach(function (): void {
 
     $this->course = courseWithRate((int) $this->workspace->getKey());
     $this->course->forceFill(['status' => 'published'])->save();
+
+    /*
+    | ٠٢٧ · T075 — المدرّسُ هو منشئُ الكورس، وهذه التجهيزةُ هي ما يفرِقُ بينَه وبينَ
+    | المالك. وقِيسَ على الإنتاجِ أنّ منشئَ كلِّ كورسٍ عضوٌ في ورشتِه ويحملُ ملفَّ
+    | مدرّسٍ فيها، و`CreateCourse` يكتبُ `created_by` من المدرّسِ المسجَّلِ دخولَه.
+    |
+    | ⚠️ و`CourseFactory` يكسِرُ ذلك الضمانَ بـ`'created_by' => User::factory()`،
+    | فيبني كورساً منشئُه غريبٌ عن الورشةِ تماماً — شكلٌ لا يُنتِجُه المنتَجُ أبداً.
+    | فالتجهيزةُ تُصحِّحُه هنا بدلَ أن تبنيَ عليه، ولولا ذلك لكانَ التوكيدُ أدناه
+    | يقيسُ اسمَ شخصٍ لا صلةَ له بالورشةِ ويقرأُ صحيحاً بالصدفة.
+    */
+    $this->teacher = $this->addWorkspaceMember($this->workspace, Roles::TEACHER);
+    $this->course->forceFill(['created_by' => $this->teacher->getKey()])->save();
 
     $this->groupPlan = Plan::factory()->group()->create([
         'workspace_id' => $this->workspace->getKey(),
@@ -98,8 +112,11 @@ it('writes the eight-key snapshot from what the server resolved, not from the bo
         ->and($intent->mode)->toBe('cohort')
         ->and($intent->cohortUuid)->toBe((string) $this->cohort->uuid)
         ->and($intent->cohortName)->toBe('مجموعة السبت')
-        ->and($intent->teacherUuid)->toBe((string) $this->owner->uuid)
-        ->and($intent->teacherName)->toBe($this->owner->name);
+        ->and($intent->teacherUuid)->toBe((string) $this->teacher->uuid)
+        ->and($intent->teacherName)->toBe($this->teacher->name)
+        // ولا يكفي إثباتُ الاسمِ الجديد: لو عادَ القارئُ إلى المالكِ لظلَّ الحقلُ
+        // مملوءاً باسمٍ يبدو سليماً — وهو ما شُحِنَ فعلاً ووصلَ جرسَ طالبٍ حيّ.
+        ->and($intent->teacherName)->not->toBe($this->owner->name);
 });
 
 it('keeps the group name readable after the group is archived (FR-013)', function (): void {
@@ -300,7 +317,19 @@ it('requires a mode at all', function (): void {
         ->assertJsonValidationErrors(['mode']);
 });
 
-it('names the teacher from the workspace owner, read once and frozen', function (): void {
+it('names the teacher the buyer was shown, read once and frozen', function (): void {
+    /*
+    | ٠٢٧ · T075 — قرارُ المالكِ ٢٠٢٦-٠٩-٢٠: يُوحَّدُ على ملفِّ المدرّس.
+    |
+    | ⛔ كانَ هذا الاختبارُ يُسمّى «من مالكِ الورشة» ويُثبِتُ ذلك، وكانَ صحيحاً
+    | بالنصِّ ومعطوباً بالأثر: شاشةُ الطالبِ تقرأُ `$course->creator` في
+    | `PublicCourseDetailResource`، فاشترى الطالبُ على اسمٍ واعتمدَ الموظّفُ على
+    | اسمٍ ثانٍ ووصلَ جرسَه اسمٌ ثالثٌ لم يُعرَضْ عليه قطّ. قِيسَ على الإنتاج.
+    |
+    | ⚠️ وانقلبَ التوكيدُ في الطلبِ الذي غيَّرَ ما يحرُسُه، وهو الشكلُ الذي يمرُّ
+    | منه عطبٌ حقيقيٌّ باسمِ «تحديثِ التوكيدات» — فهو مكتوبٌ هنا صراحةً، والقرارُ
+    | مالكيٌّ مؤرَّخٌ لا اجتهادُ قارئ.
+    */
     postSubscriptionOrder($this->buyer, [
         'plan_uuid' => (string) $this->privatePlan->uuid,
         'mode' => 'private',
@@ -308,8 +337,34 @@ it('names the teacher from the workspace owner, read once and frozen', function 
 
     $order = Order::query()->withoutWorkspaceScope()->latest('id')->firstOrFail();
 
-    expect(SubscriptionIntent::fromOrder($order)?->teacherName)
-        ->toBe(Workspace::query()->withoutGlobalScopes()->find($this->workspace->getKey())?->owner?->name);
+    expect(SubscriptionIntent::fromOrder($order)?->teacherName)->toBe($this->teacher->name)
+        ->and(SubscriptionIntent::fromOrder($order)?->teacherName)->not->toBe($this->owner->name);
+});
+
+it('falls back to the workspace owner when the plan names no course at all', function (): void {
+    /*
+    | ⚠️ الفرعُ الآخرُ، ولولاهُ لَما كانَ للبديلِ قارئ: باقةُ تغطيةِ ورشةٍ تُشترى
+    | لحصصٍ خاصّةٍ لا تُسمّي كورساً — `coverageCourseId()` فارغٌ ولا مجموعةَ
+    | تُستعارُ منها — ومدرّسٌ فارغٌ يطبعُ «مدرّسك» في موضعِ اسمٍ في رسالةٍ يقرؤُها
+    | طالب. **وفرعٌ بلا اختبارٍ هو فرعٌ لا يُدرى أيعملُ أم لا.**
+    */
+    $workspacePlan = Plan::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'title' => 'حصص خاصة — الورشة كلها',
+        'duration_days' => 30,
+        'price_minor' => 60_000,
+        'coverage_type' => PlanCoverage::Workspace,
+        'coverage_uuid' => null,
+    ]);
+
+    postSubscriptionOrder($this->buyer, [
+        'plan_uuid' => (string) $workspacePlan->uuid,
+        'mode' => 'private',
+    ])->assertCreated();
+
+    $order = Order::query()->withoutWorkspaceScope()->latest('id')->firstOrFail();
+
+    expect(SubscriptionIntent::fromOrder($order)?->teacherName)->toBe($this->owner->name);
 });
 
 it('is approved at the amount captured when it was ordered, not the new price', function (): void {

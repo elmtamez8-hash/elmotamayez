@@ -34,7 +34,18 @@ beforeEach(function (): void {
     [$this->workspaceB, $this->teacherB] = $this->createWorkspaceWithOwner(['name' => 'أكاديمية سلمى']);
 
     $this->courseB = courseWithRate((int) $this->workspaceB->getKey());
-    $this->courseB->forceFill(['status' => 'published', 'title' => 'الفيزياء ٣'])->save();
+    /*
+        | ٠٢٧ · T075 — عمودُ «المدرّس» يقرأُ اللقطةَ، واللقطةُ تُبنى من منشئِ
+        | الكورسِ منذُ قرارِ المالكِ ٢٠٢٦-٠٩-٢٠. و`CourseFactory` يكتبُ
+        | `'created_by' => User::factory()` — غريباً عن الورشةِ تماماً، وهو شكلٌ
+        | لا يُنتِجُه المنتَجُ: قِيسَ على الإنتاجِ أنّ منشئَ كلِّ كورسٍ عضوٌ في
+        | ورشتِه. فيُصحَّحُ هنا، وإلّا قاسَ هذا الملفُّ اسمَ شخصٍ لا صلةَ له بشيء.
+        */
+    $this->courseB->forceFill([
+        'status' => 'published',
+        'title' => 'الفيزياء ٣',
+        'created_by' => $this->teacherB->getKey(),
+    ])->save();
 
     $this->planB = Plan::factory()->group()->create([
         'workspace_id' => $this->workspaceB->getKey(),

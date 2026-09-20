@@ -328,7 +328,7 @@ class CreateAccount extends Page
             // spec 024's screen is where that happens, and a flow whose second
             // half has to be found in a menu is a flow half of them stop after.
             Action::make('grant')
-                ->label('منح اشتراك لطالب')
+                ->label('منح رصيد حصص')
                 ->icon(Heroicon::OutlinedGift)
                 ->url('/admin/grant-credit-subscription')
                 ->visible(fn (): bool => Auth::user() instanceof User),

@@ -49,7 +49,19 @@ interface CohortScheduleDirectory
      * session is not scheduled yet answers null, and the notification says so in
      * words — dropping the line instead makes its absence read as a fault.
      *
-     * @return array{uuid: string, starts_at: string}|null
+     * ⛔ AND THE CALLER PRINTS `label`, NEVER `starts_at`. The ISO value is the
+     * machine one and belongs nowhere near a sentence a person reads: printed
+     * raw it reached a student's bell on production as
+     * `2026-09-26T14:00:00+00:00` (٠٢٧ · T075, measured 2026-09-20), which an
+     * Arabic paragraph's bidi pass reorders into `26T14:00:00+00:00-09-2026`.
+     *
+     * ⚠️ `label` IS BUILT IN THE PLATFORM'S TIMEZONE, WHICH CHANGES THE WEEKDAY
+     * AND NOT ONLY THE HOUR — 01:00 Qatar is 22:00 the PREVIOUS day in UTC. It
+     * is built inside the implementation on purpose: `OrderResource` had already
+     * written its own `setTimezone(...)->format(...)` and three notification
+     * sites were about to copy it, which is six spellings of one rule.
+     *
+     * @return array{uuid: string, starts_at: string, label: string}|null
      */
     public function nextSessionFor(int $cohortId): ?array;
 }

@@ -97,6 +97,6 @@ class NotifyStudentCohortAssigned implements ShouldHandleEventsAfterCommit, Shou
 
         return $next === null
             ? $line
-            : $line.' أقرب حصّة: '.$next['starts_at'].'.';
+            : $line.' أقرب حصّة: '.$next['label'].'.';
     }
 }
