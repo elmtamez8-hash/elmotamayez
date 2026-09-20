@@ -451,7 +451,7 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
                 $next = $this->schedules->nextSessionFor((int) $described['id']);
 
                 if ($next !== null) {
-                    $nextSession = sprintf('أقرب حصة: %s.', $next['starts_at']);
+                    $nextSession = sprintf('أقرب حصة: %s.', $next['label']);
                     $actionUrl = '/sessions/'.$next['uuid'].'/room';
                 }
             }
@@ -630,7 +630,7 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
                 $next = $this->schedules->nextSessionFor((int) $described['id']);
 
                 if ($next !== null) {
-                    $nextSession = sprintf('أقرب حصة: %s.', $next['starts_at']);
+                    $nextSession = sprintf('أقرب حصة: %s.', $next['label']);
                     $actionUrl = '/sessions/'.$next['uuid'].'/room';
                 }
             }

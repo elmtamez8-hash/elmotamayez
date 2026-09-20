@@ -7,6 +7,9 @@ use App\Modules\Learning\Enums\EnrollmentStatus;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Actions\ApproveOrder;
@@ -17,6 +20,7 @@ use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\Subscription;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
 
 /*
@@ -221,4 +225,47 @@ it('opens the private-session door instead of a group when that is what was boug
         ->exists())->toBeTrue()
         ->and($notification)->not->toBeNull()
         ->and($notification->body)->toContain('مواعيد مدرّسك');
+});
+
+it('prints the next lesson in the platform timezone, never as a raw timestamp', function (): void {
+    /*
+    | ٠٢٧ · T075 — `2026-09-26T14:00:00+00:00` وصلَ فعلاً إلى جرسِ طالبٍ على
+    | الإنتاجِ في ٢٠٢٦-٠٩-٢٠، وفي فقرةٍ عربيّةٍ يُعيدُ الـbidi ترتيبَه إلى
+    | `26T14:00:00+00:00-09-2026`: غيرُ مقروءٍ لا قبيحٌ فحسب. والسطرُ الذي قبلَه
+    | مباشرةً كانَ يقولُ «السبت 17:00» — حصّةٌ واحدةٌ بشكلَينِ أحدُهما نصُّ آلة.
+    |
+    | ⛔ والموعدُ هنا مقصودٌ ولا يُستبدَلُ بموعدٍ «أبسط»: ٢٢:٣٠ بـUTC هي ٠١:٣٠ من
+    | اليومِ **التالي** بتوقيتِ قطر، فالتحويلُ الساقطُ يُخطئُ اليومَ لا الساعةَ
+    | وحدَها — «السبت» عن حصّةِ الأحد. والساعةُ رقمٌ قد يُشكَّكُ فيه، واليومُ
+    | يُقرَأُ حقيقة. وهي الحالةُ التي تصفُها `schedulePreviewFor()` في تعليقِها
+    | منذُ ٢٠٢٦-٠٩-١٥، بينما بقيَتْ أختُها `nextSessionFor()` تُرجِعُ UTC.
+    */
+    app(WorkspaceContext::class)->forWorkspace($this->workspace, function (): void {
+        ClassSession::factory()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'teacher_profile_id' => TeacherProfile::factory()->create([
+                'workspace_id' => $this->workspace->getKey(),
+            ])->getKey(),
+            'course_id' => $this->course->getKey(),
+            'cohort_id' => $this->cohort->getKey(),
+            'starts_at' => CarbonImmutable::parse('2026-10-03 22:30'),
+            'ends_at' => CarbonImmutable::parse('2026-10-03 23:30'),
+            'status' => ClassSessionStatus::Scheduled,
+        ]);
+    });
+
+    approveIt(orderForCohort());
+
+    $body = Notification::query()
+        ->where('recipient_user_id', $this->student->getKey())
+        ->where('type', NotificationType::SubscriptionActivated->value)
+        ->first()?->body;
+
+    /*
+    | ⚠️ والنفيانِ ليسا زينةً حولَ التوكيدِ الأوّل: الأوّلُ يسقطُ حينَ يعودُ
+    | التحويلُ مفقوداً، والثاني وحدَه يسقطُ حينَ يعودُ الطابعُ الخامُّ كما كان.
+    */
+    expect($body)->toContain('الأحد 2026-10-04 01:30')
+        ->and($body)->not->toContain('2026-10-03')
+        ->and($body)->not->toContain('+00:00');
 });

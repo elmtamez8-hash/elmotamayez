@@ -7,7 +7,6 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\OrderResource\Pages;
 use App\Models\User;
 use App\Modules\Identity\Support\TwoFactorMandate;
-use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\RejectOrder;
 use App\Modules\Payments\Enums\OrderKind;
@@ -18,7 +17,6 @@ use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\CohortScheduleDirectory;
 use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
-use Carbon\CarbonImmutable;
 use DomainException;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -511,9 +509,7 @@ class OrderResource extends Resource
              */
             'next' => $next === null
                 ? 'لا حصّةَ قادمةً مجدولة'
-                : 'الحصّةُ القادمة: '.CarbonImmutable::parse($next['starts_at'])
-                    ->setTimezone(app(SessionSettings::class)->timezone())
-                    ->format('Y-m-d H:i'),
+                : 'الحصّةُ القادمة: '.$next['label'],
         ];
     }
 
