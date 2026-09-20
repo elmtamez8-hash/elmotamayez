@@ -17,11 +17,13 @@ use App\Modules\Payments\Actions\PurchaseSubscription;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\Plan;
+use App\Modules\Payments\Models\PlanChangeRequest;
 use App\Modules\Payments\Models\Subscription;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Support\Str;
 
 /*
 | Spec 027 · US3 — one press produces an enrolment, a group, seats and a message.
@@ -321,4 +323,64 @@ it('starts a renewal where the running month ends, not today', function (): void
         ->toBe($runningEnd->addDay()->toDateString())
         ->and(CarbonImmutable::parse($renewal->ends_on)->toDateString())
         ->toBe($runningEnd->addDay()->addDays(30)->toDateString());
+});
+
+it('extends a renewal across a plan the teacher repriced', function (): void {
+    /*
+    | ٠٢٧ · T075 — السقفُ الذي كُتِبَ حينَ شُحِنَ التمديد، ثمّ أُغلِق.
+    |
+    | ⛔ `DecidePlanChange` لا يُحرِّرُ الباقةَ: يكتبُ صفّاً جديداً ويُحيلُ القديم،
+    | فالتجديدُ يقعُ على `plan_id` آخرَ ويجدُ البحثُ لا شيءَ — فيعودُ البدءُ من
+    | اليومِ ويُبتَلَعُ ما تبقّى. **وإعادةُ التسعيرِ أكثرُ ما يفعلُه مدرّس**، فهذا
+    | ليسَ طرفاً نادراً بل الطريقَ المعتاد.
+    |
+    | ⚠️ والتجهيزةُ تكتبُ `approved_plan_id` مباشرةً لأنّ المقصودَ هو الرابطُ لا
+    | مسارُ الموافقة: مشيُ `DecidePlanChange` كاملاً هنا يقيسُ ذلكَ الفعلَ ولا
+    | يقيسُ أنّ التمديدَ يعبُرُه — وهو سؤالُ هذا الملفّ.
+    */
+    $first = approveIt(orderForCohort());
+    $running = Subscription::query()->where('order_id', $first->getKey())->firstOrFail();
+    $runningEnd = CarbonImmutable::parse($running->effective_ends_on);
+
+    $repriced = Plan::factory()->group()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'title' => 'الشهري — جماعي (سعر جديد)',
+        'duration_days' => 30,
+        'price_minor' => 60_000,
+        'coverage_type' => PlanCoverage::Course,
+        'coverage_uuid' => $this->course->uuid,
+    ]);
+
+    PlanChangeRequest::query()->forceCreate([
+        'workspace_id' => $this->workspace->getKey(),
+        'uuid' => (string) Str::uuid(),
+        'plan_id' => $this->plan->getKey(),
+        'approved_plan_id' => $repriced->getKey(),
+        'status' => 'approved',
+        'requested_by' => $this->teacher->getKey(),
+        'requested_at' => now(),
+        'current_session_type' => 'group',
+        'current_coverage_type' => 'course',
+        'current_coverage_uuid' => (string) $this->course->uuid,
+        'current_duration_days' => 30,
+        'requested_session_type' => 'group',
+        'requested_coverage_type' => 'course',
+        'requested_coverage_uuid' => (string) $this->course->uuid,
+        'requested_duration_days' => 30,
+        'current_price_minor' => 45_000,
+        'requested_price_minor' => 60_000,
+    ]);
+
+    $this->plan->forceFill(['is_active' => false])->save();
+    $this->plan = $repriced;
+
+    approveIt(orderForCohort());
+
+    $renewal = Subscription::query()
+        ->where('plan_id', $repriced->getKey())
+        ->orderByDesc('id')
+        ->firstOrFail();
+
+    expect(CarbonImmutable::parse($renewal->starts_on)->toDateString())
+        ->toBe($runningEnd->addDay()->toDateString());
 });
