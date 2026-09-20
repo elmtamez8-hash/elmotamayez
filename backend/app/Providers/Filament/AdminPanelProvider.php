@@ -316,6 +316,15 @@ class AdminPanelProvider extends PanelProvider
                 in: app_path('Modules/Learning/Filament/Pages'),
                 for: 'App\Modules\Learning\Filament\Pages',
             )
+            // ⚠️ والرابعةُ بالسببِ عينِه المكتوبِ فوقَها ثلاثَ مرّات (٠٠٦ · T097):
+            // شاشةُ اعتمادِ أسعارِ المدرّسينَ تسكنُ هذا المجلَّد، ومجلَّدٌ لا
+            // يُذكَرُ هنا لا يُنتِجُ خطأً ولا مساراً — فتمرُّ
+            // `settlement.rate.approve` في كلِّ اختبارٍ لها وهي تحرسُ العدم،
+            // ويبقى المدرّسُ يطلبُ سعرَه ولا أحدَ يستطيعُ أن يُقرِّر.
+            ->discoverPages(
+                in: app_path('Modules/Settlement/Filament/Pages'),
+                for: 'App\Modules\Settlement\Filament\Pages',
+            )
             ->pages([
                 Dashboard::class,
             ])
