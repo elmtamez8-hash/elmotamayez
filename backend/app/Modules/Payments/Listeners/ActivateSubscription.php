@@ -716,7 +716,48 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
      */
     private function claim(Order $order, Plan $plan, int $window): ?Subscription
     {
-        $starts = CarbonImmutable::today();
+        /*
+        | ⛔ THE RENEWAL EXTENDS; IT USED TO START FROM TODAY AND SWALLOW THE REST.
+        | Measured on production 2026-09-20 (٠٢٧ · T075): a student holding an
+        | active month to 2026-10-16 renewed on the 20th and was given a window
+        | from THAT day — 26 paid days overlapped, 600 ر.ق for 34 days instead of
+        | 60, the second purchase buying four net days. Owner-decided 2026-09-20:
+        | extend from the end of what is still running.
+        |
+        | ⚠️ AND THE SPEC IS WHY ONLY HALF OF IT WAS BUILT. Scenario 4 writes the
+        | renewal as «ومدّتُها تقاربُ الانتهاء», and `today` is exactly right for
+        | that case — it loses nothing when nothing is left. The case nobody wrote
+        | down is the one that cost money, and `today` was correct code for a
+        | requirement that had only been half-asked.
+        |
+        | ⚠️ KEYED ON THE PLAN, NOT ON THE WORKSPACE. A student may hold a month
+        | of maths and buy a month of physics from the same teacher; chaining on
+        | the workspace would push the physics month a month into the future —
+        | the same defect wearing the opposite sign. The known ceiling is written
+        | rather than hidden: a plan RETIRED and replaced by `RequestPlanChange`
+        | carries a new `plan_id`, so a renewal onto the replacement starts from
+        | today again. That is the FR-030 lag case and it is not solved here.
+        |
+        | ⚠️ AND `active()` IS DELIBERATELY NOT USED. That scope also asks
+        | `starts_on < tomorrow`, which hides a renewal already dated into the
+        | future — so a third purchase would chain onto the first and land inside
+        | the second. The question here is «what has not ended yet», not «what is
+        | running today».
+        */
+        $today = CarbonImmutable::today();
+
+        $runningEnd = Subscription::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $order->user_id)
+            ->where('plan_id', $plan->getKey())
+            ->where('status', SubscriptionStatus::Active->value)
+            ->where('effective_ends_on', '>=', $today->toDateString())
+            ->max('effective_ends_on');
+
+        $starts = $runningEnd === null
+            ? $today
+            : CarbonImmutable::parse((string) $runningEnd)->addDay();
+
         $ends = $starts->addDays($window);
 
         try {

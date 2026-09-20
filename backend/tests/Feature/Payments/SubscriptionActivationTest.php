@@ -269,3 +269,56 @@ it('prints the next lesson in the platform timezone, never as a raw timestamp', 
         ->and($body)->not->toContain('2026-10-03')
         ->and($body)->not->toContain('+00:00');
 });
+
+it('names the teacher the buyer was shown, not the workspace owner', function (): void {
+    /*
+    | ٠٢٧ · T075 — قرارُ المالكِ ٢٠٢٦-٠٩-٢٠.
+    |
+    | ⛔ الفخُّ أنّ المالكَ والمدرّسَ شخصٌ واحدٌ في خمسِ ورشاتٍ من ستٍّ على
+    | الإنتاج، فتجهيزةٌ «طبيعيّة» تمرُّ خضراءَ فوقَ العطبِ كاملاً. الحالةُ التي
+    | تكشفُه هي الأكاديميّةُ: يملكُها شخصٌ ويُدرِّسُ فيها آخر — وهي الشكلُ الذي
+    | يُباعُ فيه هذا المنتَج، لا حالةٌ شاذّة. فالكورسُ هنا يُنشِئُه مدرّسٌ **غيرُ**
+    | مالكِ الورشة، وهو ما تقرؤُه شاشةُ الطالبِ (`$course->creator`).
+    */
+    $employed = User::factory()->create(['first_name' => 'سامي', 'last_name' => 'المدرّس']);
+
+    $this->course->forceFill(['created_by' => $employed->getKey()])->save();
+
+    $order = orderForCohort();
+
+    expect($order->metadata['teacher_name'])->toBe($employed->name)
+        // ولا يكفي التوكيدُ على الاسمِ الجديد: لو عادَ القارئُ إلى المالكِ
+        // لظلَّ الحقلُ مملوءاً باسمٍ يبدو سليماً، وهذا هو ما شُحِنَ فعلاً.
+        ->and($order->metadata['teacher_name'])->not->toBe($this->teacher->name)
+        ->and($order->metadata['teacher_uuid'])->toBe((string) $employed->uuid);
+});
+
+it('starts a renewal where the running month ends, not today', function (): void {
+    /*
+    | ٠٢٧ · T075 — قرارُ المالكِ ٢٠٢٦-٠٩-٢٠.
+    |
+    | ⛔ المقيسُ على الإنتاج: اشتراكٌ سارٍ إلى ٢٠٢٦-١٠-١٦، وتجديدٌ في العشرينَ
+    | أُعطِيَ نافذةً من **ذلك اليوم** — ٢٦ يوماً متداخلةً دُفِعَتْ مرّتَين، أي
+    | ٦٠٠ ر.ق مقابلَ ٣٤ يوماً لا ٦٠.
+    |
+    | ⚠️ والتوكيدُ على يومِ البدءِ لا على عددِ الأيّام: نافذةُ الثلاثينَ صحيحةٌ
+    | في الحالتَين، والخطأُ كلُّه في المبدأ.
+    */
+    $first = approveIt(orderForCohort());
+
+    $running = Subscription::query()->where('order_id', $first->getKey())->firstOrFail();
+    $runningEnd = CarbonImmutable::parse($running->effective_ends_on);
+
+    approveIt(orderForCohort());
+
+    $renewal = Subscription::query()
+        ->where('student_user_id', $this->student->getKey())
+        ->orderByDesc('id')
+        ->firstOrFail();
+
+    expect($renewal->getKey())->not->toBe($running->getKey())
+        ->and(CarbonImmutable::parse($renewal->starts_on)->toDateString())
+        ->toBe($runningEnd->addDay()->toDateString())
+        ->and(CarbonImmutable::parse($renewal->ends_on)->toDateString())
+        ->toBe($runningEnd->addDay()->addDays(30)->toDateString());
+});

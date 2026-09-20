@@ -115,7 +115,11 @@ class PurchaseSubscription extends Action
 
         $this->guardNoPendingOrder($student, (int) $plan->workspace_id, $grantedBy !== null);
 
-        $teacher = $this->teacherOf($plan);
+        // ٠٢٧ · T075 — واحدةٌ لا اثنتانِ: الكورسُ الذي يُختمُ على الطلبِ هو الذي
+        // يُقرَأُ منهُ المدرّسُ، وتهجئتانِ للسؤالِ نفسِهِ تفترقانِ عندَ أوّلِ تعديل.
+        $courseId = $this->coverageCourseId($plan) ?? $cohort['course_id'] ?? null;
+
+        $teacher = $this->teacherOf($plan, $courseId);
 
         /*
         | ⛔ THE SHAPE IS BRANCHED ON HERE, AND «HERE» IS BEFORE ANY ORDER EXISTS.
@@ -169,7 +173,7 @@ class PurchaseSubscription extends Action
             // creates. It is still null for a workspace plan bought for private
             // hours — which is why FR-011's duplicate guard keys on the teacher
             // rather than on this column.
-            'course_id' => $this->coverageCourseId($plan) ?? $cohort['course_id'] ?? null,
+            'course_id' => $courseId,
             'kind' => OrderKind::Subscription,
             // ⚠️ THE PRICE IS COPIED ONTO THE ORDER AND THE SUBSCRIPTION IS LATER
             // BUILT FROM THE ORDER, NOT FROM THE PLAN. A manual transfer takes
@@ -371,13 +375,41 @@ class PurchaseSubscription extends Action
     /**
      * The teacher, read once and frozen on the order (FR-015).
      *
-     * The workspace owner is the teacher: `orders` has no teacher column, and
-     * deriving one per row in the officer's queue would be a query inside a
-     * Filament column — an N+1 by construction.
+     * ⛔ FROM THE COURSE'S CREATOR, AND IT USED TO BE THE WORKSPACE'S OWNER —
+     * WHICH PUT A DIFFERENT PERSON'S NAME ON EVERY SCREEN THAT READ THE ORDER.
+     * Measured on production 2026-09-20 (٠٢٧ · T075): the student subscribed
+     * from a page saying «Sami Teacher» — `PublicCourseDetailResource` reads
+     * `$course->creator` — while this method answered «Nour Owner», so the
+     * officer's queue, the snapshot and the activation notification all named
+     * somebody the buyer had never been shown. Owner-decided 2026-09-20: the
+     * teacher profile is the answer, so the reading follows the screen.
+     *
+     * ⚠️ AND THE TWO AGREED IN FIVE WORKSPACES OUT OF SIX, WHICH IS WHY IT SAT
+     * UNSEEN. The one that broke was «Nour Academy» — an academy owned by one
+     * person and taught by another — and that is not an exotic fixture, it is
+     * the shape this product is sold into. A rule that holds by coincidence of
+     * data holds until the first customer who is shaped differently.
+     *
+     * ⚠️ THE OWNER STAYS AS THE FALLBACK, NOT AS THE RULE. A workspace-coverage
+     * plan bought for private hours names no course at all — `coverageCourseId()`
+     * is null and there is no cohort to borrow one from — and a null teacher
+     * would print «مدرّسك» into the notification where a name belongs.
+     *
+     * ⚠️ AND IT IS STILL READ ONCE AND FROZEN. `orders` has no teacher column,
+     * and deriving one per row in the officer's queue would be a query inside a
+     * Filament column — an N+1 by construction. What changed is the source, not
+     * the freezing.
      */
-    private function teacherOf(Plan $plan): ?User
+    private function teacherOf(Plan $plan, ?int $courseId): ?User
     {
-        return Workspace::query()
+        $creator = $courseId === null
+            ? null
+            : Course::query()
+                ->withoutWorkspaceScope()
+                ->whereKey($courseId)
+                ->first()?->creator;
+
+        return $creator ?? Workspace::query()
             ->withoutGlobalScopes()
             ->whereKey($plan->workspace_id)
             ->first()?->owner;
