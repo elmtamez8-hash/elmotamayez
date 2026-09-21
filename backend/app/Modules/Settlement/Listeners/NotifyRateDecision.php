@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Modules\Settlement\Actions\DecideRateChange;
 use App\Modules\Settlement\Events\SettlementRateApproved;
 use App\Modules\Settlement\Support\Money;
 
@@ -22,6 +23,11 @@ use App\Modules\Settlement\Support\Money;
  * Through DispatchNotification and nothing else: business logic names a
  * recipient and a type, never a channel (ProviderAgnosticTest fails the build
  * otherwise).
+ *
+ * ⚠️ والنصفُ الآخرُ من «القرار» ليس هنا، والاسمُ وحدَه لا يقولُ ذلك: الرفضُ
+ * يُبلَّغُ من داخلِ {@see DecideRateChange} — لا
+ * حدثَ له، ومستهلِكُه الوحيدُ جرسُ المدرّس، فحدثٌ بمستمِعٍ واحدٍ في الوحدةِ
+ * نفسِها زخرفةٌ لا فصل. والاعتمادُ يمرُّ بحدثٍ لأنّ لذلك الحدثِ مستهلِكاً آخرَ.
  */
 class NotifyRateDecision
 {

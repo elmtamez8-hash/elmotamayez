@@ -8,6 +8,7 @@ use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Carbon\CarbonInterface;
@@ -57,10 +58,24 @@ class SettlementRate extends BaseModel
         ];
     }
 
-    /** @return BelongsTo<TeacherProfile, $this> */
+    /**
+     * @return BelongsTo<TeacherProfile, $this>
+     *
+     * ⛔ بلا نطاقِ ورشة، وقد قِيسَ فشلُه ثلاثَ مرّاتٍ قبلَ هذا السطر.
+     *
+     * `TeacherProfile` تحتَ `BelongsToWorkspace`، و`WorkspaceContext::id()`
+     * ترتدُّ إلى `users.last_workspace_id` لموظَّفِ المنصّةِ أيضاً — وكلُّ قارئٍ
+     * لهذه العلاقةِ خارجَ المدرّسِ نفسِه هو موظَّفُ منصّةٍ يقرِّرُ في ورشةِ
+     * غيرِه. فبالنطاقِ تردُّ `null`: لا يُبلَّغُ المدرّسُ باعتمادِ سعرِه، ويطبعُ
+     * طابورُ القرارِ «—» بدلَ اسمِه، **بلا خطأٍ ولا رسالة**.
+     *
+     * ⚠️ وهنا لا هناك: تجاوزٌ على الاستعلامِ الأمِّ لا يصلُ إلى `with()` —
+     * علاقةٌ محمَّلةٌ مسبقاً تُجري نطاقَها من جديد. وضعُه على العلاقةِ نفسِها هو
+     * التهجئةُ الوحيدةُ التي تُغطّي البابَين، وهو ما فعلَه `Enrollment::course()`.
+     */
     public function teacherProfile(): BelongsTo
     {
-        return $this->belongsTo(TeacherProfile::class);
+        return $this->belongsTo(TeacherProfile::class)->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /** @return BelongsTo<User, $this> */

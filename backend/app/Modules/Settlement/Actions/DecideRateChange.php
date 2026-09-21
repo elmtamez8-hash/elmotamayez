@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\Settlement\Actions;
 
 use App\Models\User;
+use App\Modules\Notifications\Actions\DispatchNotification;
+use App\Modules\Notifications\Data\NotificationRequest;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Settlement\Enums\RateRequestStatus;
 use App\Modules\Settlement\Events\SettlementRateApproved;
 use App\Modules\Settlement\Models\RateChangeRequest;
 use App\Modules\Settlement\Models\SettlementRate;
+use App\Modules\Settlement\Support\Money;
 use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
@@ -29,6 +33,8 @@ use Illuminate\Support\Facades\DB;
 class DecideRateChange extends Action
 {
     use LogsActivity;
+
+    public function __construct(private readonly DispatchNotification $notifications) {}
 
     public function approve(RateChangeRequest $request, User $by): SettlementRate
     {
@@ -96,7 +102,55 @@ class DecideRateChange extends Action
             'reason' => $reason,
         ]);
 
+        $this->tellTeacher($request);
+
         return $request;
+    }
+
+    /**
+     * يُبلَّغُ المدرّسُ برفضِ طلبِه — والسببُ هو الرسالة.
+     *
+     * ⛔ `SettlementRateRejected` كانَ **حالةً مُعدَّدةً بقُرّاءٍ بلا كاتب**: صفٌّ
+     * في `NotificationCategory`، وقالبٌ مبذورٌ وحيٌّ على الإنتاجِ منذُ
+     * ٢٠٢٦-٠٨-٢٨ — ولا سطرَ في الشجرةِ كلِّها يُرسِلُه. عائلةُ
+     * `ClassSessionStatus::Interrupted`: متطلَّبٌ ظنَّ الجميعُ أنّه مُنفَّذٌ لأنّ
+     * كلَّ ما حولَه مكتوب. فالمدرّسُ كانَ يُرفَضُ طلبُه ولا يعلم.
+     *
+     * ⚠️ **من الفعلِ لا من حدث، وسابقتُه `DecidePlanChange::tellTeacher()`** —
+     * وهو أقربُ نظيرٍ في المنتَج: قرارُ منصّةٍ في طلبِ مدرّس، يُبلِّغُ من داخلِ
+     * الفعلِ في الحالتَين. والاعتمادُ يمرُّ بحدثٍ لأنّ لذلك الحدثِ مستهلِكاً
+     * آخرَ (تسعيرُ ٠٠٦)؛ والرفضُ ليس له مستهلِكٌ غيرُ جرسِ المدرّس، وحدثٌ
+     * بمستمِعٍ واحدٍ في الوحدةِ نفسِها زخرفةٌ لا فصل.
+     *
+     * ⚠️ واسمُه `tellTeacher` لا `notify`: `ProviderAgnosticTest` يُسقِطُ البناءَ
+     * على دالّةٍ بهذا الاسمِ داخلَ `Actions/` — وهو محقٌّ، إذ لا يُميِّزُ مساعِداً
+     * خاصّاً من `Notifiable::notify()`.
+     *
+     * ⚠️ وخارجَ أيِّ معاملة: الصفُّ محفوظٌ قبلَ هذا السطر، فإخفاقُ إشعارٍ لا
+     * يُلغي قراراً اتُّخِذ.
+     */
+    private function tellTeacher(RateChangeRequest $request): void
+    {
+        $teacher = User::query()->find($request->teacherProfile?->user_id);
+
+        if ($teacher === null) {
+            return;
+        }
+
+        $this->notifications->handle(new NotificationRequest(
+            recipient: $teacher,
+            type: NotificationType::SettlementRateRejected,
+            variables: [
+                'amount' => Money::format(
+                    (int) $request->requested_amount_minor,
+                    (string) $request->currency,
+                ),
+                'reason' => (string) $request->decision_reason,
+            ],
+            actionUrl: '/manage/settlement',
+            subject: $teacher,
+            workspaceId: (int) $request->workspace_id,
+        ));
     }
 
     private function refuseIfDecided(RateChangeRequest $request): void

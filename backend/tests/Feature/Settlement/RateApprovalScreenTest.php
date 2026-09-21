@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Notifications\Models\Notification;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Settlement\Enums\RateRequestStatus;
 use App\Modules\Settlement\Filament\Pages\ReviewRateRequests;
@@ -130,4 +132,70 @@ it('refuses a rejection with no reason, in the Action’s own words', function (
         ->assertHasTableActionErrors(['reason']);
 
     expect($this->request->fresh()->status)->toBe(RateRequestStatus::Pending);
+});
+
+/*
+| ٠٠٦ · T097 — الخبرُ يصلُ المدرّسَ، والورشةُ لا تحجبُه.
+|
+| ⛔ الحالاتُ الثلاثُ التاليةُ كُتِبَت **حمراءَ أوّلاً** وفشلَت ثلاثتُها:
+| `TeacherProfile` تحتَ `BelongsToWorkspace`، وعلاقةُ `teacherProfile()` على
+| الطلبِ وعلى السعرِ كانت بلا تجاوزٍ للنطاق. فحينَ يُقرِّرُ موظَّفُ منصّةٍ سياقُه
+| ورشةٌ أخرى — وهي حالةُ هذه الشاشةِ بعينِها — تردُّ العلاقةُ `null`:
+| `NotifyRateDecision` يخرجُ باكراً فلا يُبلَّغُ المدرّسُ باعتمادِ سعرِه، والعمودُ
+| يطبعُ «—» بدلَ اسمِه. **بلا خطأٍ ولا رسالةٍ في الحالتَين.**
+|
+| ⚠️ وعلى الإنتاجِ اليومَ `last_workspace_id` للسوبر أدمنِ **NULL** (قِيسَ
+| ٢٠٢٦-٠٩-٢١)، و`WorkspaceScope` لا تُضيفُ شرطاً حينَ يكونُ السياقُ فارغاً —
+| فالفخُّ منصوبٌ ولم يقعْ بعد: أوّلُ مرّةٍ يفتحُ فيها المالكُ ورشةً يقعُ صامتاً.
+| وتجهيزةٌ بورشةٍ واحدةٍ لا تراه إطلاقاً، وهو ما مرَّ به `RateEndpointTest`.
+*/
+it('tells the teacher their rate was approved, from another workspace', function (): void {
+    Livewire::actingAs($this->officer)
+        ->test(ReviewRateRequests::class)
+        ->callTableAction('approve', $this->request);
+
+    $sent = Notification::query()
+        ->where('recipient_user_id', $this->teacher->getKey())
+        ->where('type', NotificationType::SettlementRateApproved->value)
+        ->first();
+
+    // «من متى» هو المقصودُ من الرسالة: رقمٌ جديدٌ بلا تاريخٍ يُقرَأُ كأنّه يسري
+    // على ساعاتٍ دُرِّسَت سلفاً.
+    expect($sent)->not->toBeNull()
+        ->and($sent->body)->toContain('يسري من');
+});
+
+/*
+| ⛔ `SettlementRateRejected` كانَ **حالةً مُعدَّدةً بقُرّاءٍ بلا كاتب**: صفٌّ في
+| `NotificationCategory`، وقالبٌ مبذورٌ **وحيٌّ على الإنتاج** (`id 8` · فعّال ·
+| `not_required`) — ولا سطرَ في الشجرةِ كلِّها يُرسِلُه. عائلةُ
+| `ClassSessionStatus::Interrupted` المسجَّلةُ في `CLAUDE.md`: متطلَّبٌ ظنَّ
+| الجميعُ أنّه مُنفَّذٌ لأنّ كلَّ ما حولَه مكتوب.
+*/
+it('tells the teacher their rate request was refused, with the reason', function (): void {
+    Livewire::actingAs($this->officer)
+        ->test(ReviewRateRequests::class)
+        ->callTableAction('reject', $this->request, ['reason' => 'السعر أعلى من سقف المادة']);
+
+    $sent = Notification::query()
+        ->where('recipient_user_id', $this->teacher->getKey())
+        ->where('type', NotificationType::SettlementRateRejected->value)
+        ->first();
+
+    // السببُ هو الرسالة. «لا» بلا سببٍ طلبٌ يُعادُ إرسالُه الأسبوعَ القادم،
+    // وقاعدةٌ لا يستطيعُ أحدٌ تعلُّمَها — وهو ما يقولُه `DecideRateChange` نفسُه.
+    expect($sent)->not->toBeNull()
+        ->and($sent->body)->toContain('السعر أعلى من سقف المادة');
+});
+
+it('prints the teacher’s name in the queue, not a dash', function (): void {
+    /*
+    | ⚠️ `assertCanSeeTableRecords` تمرُّ فوقَ هذا كاملاً: تسألُ عن **وجودِ
+    | الصفِّ** لا عمّا رُسِمَ فيه. والتجاوزُ على الاستعلامِ الأمِّ لا يصلُ إلى
+    | التحميلِ المسبَق — وهي القاعدةُ التي دفعَتها سلسلةُ التدقيقِ في ٠٢٤:
+    | «يُعادُ التصريحُ به في كلِّ `with()`».
+    */
+    Livewire::actingAs($this->officer)
+        ->test(ReviewRateRequests::class)
+        ->assertTableColumnStateSet('teacher', $this->teacher->name, $this->request);
 });
