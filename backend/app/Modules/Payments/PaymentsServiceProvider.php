@@ -51,6 +51,7 @@ use App\Modules\Payments\Providers\PaymentProviderRegistry;
 use App\Modules\Payments\Support\CohortPlanReach;
 use App\Modules\Payments\Support\EloquentAccountStanding;
 use App\Modules\Payments\Support\EloquentConsentDirectory;
+use App\Modules\Payments\Support\EloquentOutstandingCreditsDirectory;
 use App\Modules\Payments\Support\EloquentSessionContentAccess;
 use App\Modules\Payments\Support\EloquentSessionCreditHolds;
 use App\Modules\Payments\Support\EloquentSessionSeatCharges;
@@ -59,6 +60,7 @@ use App\Modules\Payments\Support\SubscriptionEligibility;
 use App\Shared\Contracts\AccountStanding;
 use App\Shared\Contracts\CohortPricingReasonDirectory;
 use App\Shared\Contracts\ConsentDirectory;
+use App\Shared\Contracts\OutstandingCreditsDirectory;
 use App\Shared\Contracts\SellableCohortDirectory;
 use App\Shared\Contracts\SessionContentAccess;
 use App\Shared\Contracts\SessionCreditHolds;
@@ -213,6 +215,18 @@ class PaymentsServiceProvider extends Module
         | dozens-per-page shape the two memoised bindings above exist for.
         */
         $this->app->bind(SessionSeatCharges::class, EloquentSessionSeatCharges::class);
+
+        /*
+        | 006 · T097 — the counter beside the rate decision, asked not imported.
+        |
+        | `bind()`: read ONCE per screen render (one table, one column), which is
+        | neither the dozens-per-page shape `scoped()` exists for nor anything a
+        | worker holds. The reader is the settlement side, which may not name a
+        | Payments type in any form — `ContextIsolationTest` scans every file
+        | under `Modules/Settlement/` for `use App\Modules\Payments` and for a
+        | quoted billing table name, and forbids both wherever they appear.
+        */
+        $this->app->bind(OutstandingCreditsDirectory::class, EloquentOutstandingCreditsDirectory::class);
     }
 
     public function boot(): void
