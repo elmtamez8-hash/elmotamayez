@@ -7,12 +7,11 @@ namespace App\Modules\Settlement\Filament\Pages;
 use App\Models\User;
 use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Marketplace\Models\Subject;
-use App\Modules\Payments\Models\CreditBalance;
-use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Settlement\Actions\DecideRateChange;
 use App\Modules\Settlement\Enums\RateRequestStatus;
 use App\Modules\Settlement\Models\RateChangeRequest;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\OutstandingCreditsDirectory;
 use BackedEnum;
 use DomainException;
 use Filament\Actions\Action;
@@ -47,9 +46,15 @@ use UnitEnum;
  * كُتِبَت هذه الشاشة. أوّلُ مدرّسٍ يطلبُ كانَ طلبُه سيقف.
  *
  * ٠٠٦ · T097 — والصياغةُ الأصليّةُ كانت غيرَ قابلةٍ للتنفيذ: حقلٌ في حمولةِ اعتمادِ
- * السعرِ يُحتسَبُ من `credit_purchases` هو حمولةُ تسويةٍ تقرأُ جداولَ الفوترة، وهو
- * بعينِه ما يُفشِلُ `ContextIsolationTest`. فالعدّادُ يُقرَأُ هنا **بجوارِ** القرارِ
- * لا داخلَ حمولتِه: سياقانِ وقراءتانِ، بلا مفتاحٍ بينَهما.
+ * السعرِ يُحتسَبُ من جداولِ الفوترةِ هو حمولةُ تسويةٍ تقرأُ السياقَ الآخر، وهو بعينِه
+ * ما يُفشِلُ `ContextIsolationTest`.
+ *
+ * ⛔ **ونقلُ الرقمِ خارجَ الحمولةِ وحدَه لم يكنْ كافياً، وقِيسَ بفشلِ البناء.** كُتِبَ
+ * هذا الملفُّ أوّلَ مرّةٍ وهو يستوردُ نموذجَينِ من الفوترةِ بحجّةِ أنّ العدّادَ «بجوارِ
+ * القرارِ لا داخلَ حمولتِه» — والحارسُ لا يسألُ عن الحمولةِ أصلاً: يمسحُ كلَّ ملفٍّ
+ * تحتَ هذا المجلَّدِ ويرفضُ تسميةَ السياقِ الآخرِ بأيِّ صورة. فالعدّادُ يصلُ الآنَ
+ * عبرَ عقدٍ مشترَك، وهو ما وُضِعَ له `SettlementClearance` في الاتّجاهِ المقابل:
+ * سياقانِ وقراءتانِ، بلا مفتاحٍ بينَهما.
  */
 class ReviewRateRequests extends Page implements HasTable
 {
@@ -216,23 +221,26 @@ class ReviewRateRequests extends Page implements HasTable
     /**
      * الحصصُ المدفوعةُ التي لم تُستهلَكْ بعدُ في هذه الورشة.
      *
-     * ⚠️ `withoutWorkspaceScope()` على الاثنَين: الورشةُ المسؤولُ عنها هي ورشةُ
-     * الطلب، لا التي يصادفُ أنّ الموظَّفَ داخلٌ إليها — وهي القراءةُ نفسُها التي
-     * يكتبُها `OutstandingCreditsController`، فلا رقمانِ لسؤالٍ واحد.
+     * ⛔ يُسأَلُ عنها عبرَ عقدٍ مشترَك، ولا يُستورَدُ نموذجُ فوترةٍ هنا إطلاقاً.
+     *
+     * `ContextIsolationTest` يمسحُ كلَّ ملفٍّ تحتَ `Modules/Settlement/` ويرفضُ
+     * فيه استيرادَ نطاقِ الفوترةِ — **بأيِّ صورةٍ وفي أيِّ موضع**. والمسحُ لا
+     * يُجرِّدُ التعليقاتِ هنا (بخلافِ مسحِ الحمولةِ فوقَه)، فذكرُ ذلك الاستيرادِ
+     * نصّاً في شرحٍ يُسقِطُ البناءَ كما يُسقِطُه الاستيرادُ نفسُه — قِيسَ. فالمسألةُ
+     * ليست أن يبقى الرقمُ خارجَ حمولةِ التسوية: تسميةُ السياقِ الآخرِ هي المحظور.
+     * وهو عينُ ما وُضِعَ له `SettlementClearance` في الاتّجاهِ المقابل.
+     *
+     * والقراءةُ نفسُها خلفَ العقدِ يقرؤُها `OutstandingCreditsController`، فلا
+     * رقمانِ لسؤالٍ واحد.
+     *
+     * ponytail: استعلامانِ لكلِّ صفّ. `rate_change_requests` صفرُ صفوفٍ على
+     * الإنتاجِ والشاشةُ للسوبر أدمنِ وحدَه — سقفٌ لا عطب. لو طالَ الطابورُ
+     * فالحفظُ بمفتاحِ `workspace_id` هو الترقية.
      */
     private static function outstandingFor(int $workspaceId): string
     {
-        $outstanding = (int) CreditBalance::query()
-            ->withoutWorkspaceScope()
-            ->where('workspace_id', $workspaceId)
-            ->where('remaining_credits', '>', 0)
-            ->sum('remaining_credits');
+        $counts = app(OutstandingCreditsDirectory::class)->forWorkspace($workspaceId);
 
-        $sold = (int) CreditPurchase::query()
-            ->withoutWorkspaceScope()
-            ->where('workspace_id', $workspaceId)
-            ->sum('credits');
-
-        return $outstanding.' من '.$sold;
+        return $counts['outstanding'].' من '.$counts['sold'];
     }
 }

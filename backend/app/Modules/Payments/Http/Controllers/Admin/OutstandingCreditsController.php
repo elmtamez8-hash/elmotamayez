@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Payments\Models\CreditBalance;
-use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\OutstandingCreditsDirectory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -36,6 +35,8 @@ use Illuminate\Http\Request;
  */
 class OutstandingCreditsController extends Controller
 {
+    public function __construct(private readonly OutstandingCreditsDirectory $outstanding) {}
+
     public function show(Request $request): JsonResponse
     {
         abort_unless(
@@ -58,27 +59,21 @@ class OutstandingCreditsController extends Controller
         | it was taught. So the second number is the one the decision hangs on,
         | and the first is there to show what share of the book it is.
         |
-        | withoutWorkspaceScope on both: the approver is a platform operator, and
-        | the workspace being asked about is the one in the query string, not the
-        | one they happen to be signed into.
+        | ⚠️ AND THE READ ITSELF MOVED BEHIND A SHARED CONTRACT (006 · T097): the
+        | rate-approval SCREEN is a Filament page inside `Modules/Settlement/`,
+        | which may not name this context in any form, so it cannot call an
+        | endpoint and cannot copy these two queries. One spelling, two readers —
+        | the workspace bypass and the `remaining_credits > 0` predicate included,
+        | since a second copy of them is a second answer to one question.
         */
-        $sold = (int) CreditPurchase::query()
-            ->withoutWorkspaceScope()
-            ->where('workspace_id', $workspaceId)
-            ->sum('credits');
-
-        $outstanding = (int) CreditBalance::query()
-            ->withoutWorkspaceScope()
-            ->where('workspace_id', $workspaceId)
-            ->where('remaining_credits', '>', 0)
-            ->sum('remaining_credits');
+        $counts = $this->outstanding->forWorkspace($workspaceId);
 
         return response()->json([
             'workspace' => $workspace->uuid,
-            'credits_sold' => $sold,
+            'credits_sold' => $counts['sold'],
             // The headline: sessions already paid for that a new rate will be
             // settled against.
-            'credits_outstanding' => $outstanding,
+            'credits_outstanding' => $counts['outstanding'],
         ]);
     }
 }
