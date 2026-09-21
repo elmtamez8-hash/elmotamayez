@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
-use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Settlement\Enums\RateRequestStatus;
 use App\Modules\Settlement\Filament\Pages\ReviewRateRequests;
 use App\Modules\Settlement\Models\RateChangeRequest;
