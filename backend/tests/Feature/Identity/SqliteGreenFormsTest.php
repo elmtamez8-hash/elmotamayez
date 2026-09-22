@@ -42,7 +42,7 @@ function retentionSourceFiles(): array
     ];
 }
 
-function withoutComments(string $php): string
+function retentionSourceWithoutComments(string $php): string
 {
     $kept = '';
 
@@ -59,7 +59,7 @@ function withoutComments(string $php): string
 
 it('builds no anonymised value in SQL', function (): void {
     foreach (retentionSourceFiles() as $file) {
-        $code = withoutComments((string) file_get_contents($file));
+        $code = retentionSourceWithoutComments((string) file_get_contents($file));
 
         expect($code)->not->toContain('CONCAT(', basename($file).' must build the value in PHP.');
 
@@ -72,7 +72,7 @@ it('builds no anonymised value in SQL', function (): void {
 
 it('never subqueries the table it is deleting from', function (): void {
     foreach (retentionSourceFiles() as $file) {
-        $code = withoutComments((string) file_get_contents($file));
+        $code = retentionSourceWithoutComments((string) file_get_contents($file));
 
         expect($code)->not->toContain('NOT IN (SELECT', basename($file).' risks MySQL ERROR 1093.');
         expect($code)->not->toContain('not in (select', basename($file).' risks MySQL ERROR 1093.');
@@ -83,7 +83,7 @@ it('always names its select list before grouping', function (): void {
     $checked = 0;
 
     foreach (retentionSourceFiles() as $file) {
-        $code = withoutComments((string) file_get_contents($file));
+        $code = retentionSourceWithoutComments((string) file_get_contents($file));
 
         /*
         | ⚠️ PER STATEMENT, AND ONLY WHERE A QUERY IS BEING BUILT. `->groupBy()`

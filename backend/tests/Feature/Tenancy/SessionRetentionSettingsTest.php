@@ -40,7 +40,7 @@ function actAsRetentionAdmin(): User
 }
 
 /** One person, `$count` anonymised ended sessions, all `$daysAgo` old. */
-function agedAnonymised(User $user, int $count, int $daysAgo): void
+function agedAnonymisedSessions(User $user, int $count, int $daysAgo): void
 {
     $device = Device::factory()->create(['user_id' => $user->getKey()]);
 
@@ -60,7 +60,7 @@ function agedAnonymised(User $user, int $count, int $daysAgo): void
 
 it('governs the cap with the shipped default when nothing is configured', function (): void {
     $user = User::factory()->create();
-    agedAnonymised($user, 60, 400);
+    agedAnonymisedSessions($user, 60, 400);
 
     /*
     | ⚠️ THE TABLE, NOT `PlatformSettings::all()`. That method returns every key in
@@ -81,7 +81,7 @@ it('follows a cap raised from the screen', function (): void {
     actAsRetentionAdmin();
 
     $user = User::factory()->create();
-    agedAnonymised($user, 60, 400);
+    agedAnonymisedSessions($user, 60, 400);
 
     Livewire::test(ManagePlatformSettings::class)
         ->assertOk()
@@ -101,7 +101,7 @@ it('follows a floor raised from the screen', function (): void {
 
     $user = User::factory()->create();
     // 200 days old: inside a 365-day floor, outside the shipped 180.
-    agedAnonymised($user, 60, 200);
+    agedAnonymisedSessions($user, 60, 200);
 
     Livewire::test(ManagePlatformSettings::class)
         ->set('data.auth_session_cap_min_age_days', 365)

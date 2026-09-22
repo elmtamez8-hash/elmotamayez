@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\DB;
  * deletion survives it — the shape spec 006's US6 shipped nine times over, where
  * removing the whole guard left every case passing.
  */
-function agedTo(AuthSession|Device $row, string $column, int $daysAgo): void
+function ageRetentionRow(AuthSession|Device $row, string $column, int $daysAgo): void
 {
     DB::table($row->getTable())
         ->where('id', $row->getKey())
@@ -37,22 +37,22 @@ function agedTo(AuthSession|Device $row, string $column, int $daysAgo): void
 }
 
 /** A device and a session for one person, both as old as asked. */
-function agedPair(User $user, int $deviceAgeDays, int $sessionEndedDaysAgo): array
+function agedRetentionPair(User $user, int $deviceAgeDays, int $sessionEndedDaysAgo): array
 {
     $device = Device::factory()->create(['user_id' => $user->getKey()]);
-    agedTo($device, 'created_at', $deviceAgeDays);
+    ageRetentionRow($device, 'created_at', $deviceAgeDays);
 
     $session = AuthSession::factory()->ended()->create([
         'user_id' => $user->getKey(),
         'device_id' => $device->getKey(),
     ]);
-    agedTo($session, 'created_at', $deviceAgeDays);
-    agedTo($session, 'ended_at', $sessionEndedDaysAgo);
+    ageRetentionRow($session, 'created_at', $deviceAgeDays);
+    ageRetentionRow($session, 'ended_at', $sessionEndedDaysAgo);
 
     return [$device->fresh(), $session->fresh()];
 }
 
-function sweep(): RetentionSweepRun
+function retentionSweepRun(): RetentionSweepRun
 {
     RunRetentionSweepJob::dispatchSync();
 
@@ -64,12 +64,12 @@ beforeEach(function (): void {
 });
 
 it('clears the address, the panel handle and the device pointer of an aged ended session', function (): void {
-    [$device, $session] = agedPair($this->subject, 400, 300);
+    [$device, $session] = agedRetentionPair($this->subject, 400, 300);
 
     // A positive control in the SAME run: nothing here may touch a recent row.
-    [, $recent] = agedPair($this->subject, 400, 3);
+    [, $recent] = agedRetentionPair($this->subject, 400, 3);
 
-    $run = sweep();
+    $run = retentionSweepRun();
 
     $session->refresh();
     $recent->refresh();
@@ -87,10 +87,10 @@ it('clears the address, the panel handle and the device pointer of an aged ended
 });
 
 it('re-points the session at one fingerprint-less device per user', function (): void {
-    [, $first] = agedPair($this->subject, 400, 300);
-    [, $second] = agedPair($this->subject, 400, 280);
+    [, $first] = agedRetentionPair($this->subject, 400, 300);
+    [, $second] = agedRetentionPair($this->subject, 400, 280);
 
-    sweep();
+    retentionSweepRun();
 
     $tombstones = Device::query()
         ->where('user_id', $this->subject->getKey())
@@ -114,17 +114,17 @@ it('re-points the session at one fingerprint-less device per user', function ():
 
 it('leaves an aged ACTIVE session completely alone', function (): void {
     $device = Device::factory()->create(['user_id' => $this->subject->getKey()]);
-    agedTo($device, 'created_at', 400);
+    ageRetentionRow($device, 'created_at', 400);
 
     $active = AuthSession::factory()->create([
         'user_id' => $this->subject->getKey(),
         'device_id' => $device->getKey(),
     ]);
-    agedTo($active, 'created_at', 400);
+    ageRetentionRow($active, 'created_at', 400);
 
     $before = AuthSession::query()->where('status', AuthSession::STATUS_ACTIVE)->count();
 
-    sweep();
+    retentionSweepRun();
 
     $active->refresh();
 
@@ -139,7 +139,7 @@ it('leaves an aged ACTIVE session completely alone', function (): void {
 
 it('keeps the sign-in door readable on an anonymised panel row', function (): void {
     $device = Device::factory()->create(['user_id' => $this->subject->getKey()]);
-    agedTo($device, 'created_at', 400);
+    ageRetentionRow($device, 'created_at', 400);
 
     $panel = AuthSession::factory()->ended()->create([
         'user_id' => $this->subject->getKey(),
@@ -148,10 +148,10 @@ it('keeps the sign-in door readable on an anonymised panel row', function (): vo
         'token_id' => null,
         'session_id' => Str::random(40),
     ]);
-    agedTo($panel, 'created_at', 400);
-    agedTo($panel, 'ended_at', 300);
+    ageRetentionRow($panel, 'created_at', 400);
+    ageRetentionRow($panel, 'ended_at', 300);
 
-    sweep();
+    retentionSweepRun();
 
     $payload = (new AuthSessionResource($panel->fresh()))->toArray(Request::create('/'));
 
@@ -163,11 +163,11 @@ it('keeps the sign-in door readable on an anonymised panel row', function (): vo
 });
 
 it('never deletes a device row, and leaves no session pointing at nothing', function (): void {
-    agedPair($this->subject, 400, 300);
+    agedRetentionPair($this->subject, 400, 300);
 
     $before = Device::query()->count();
 
-    sweep();
+    retentionSweepRun();
 
     expect(Device::query()->count())->toBeGreaterThanOrEqual($before);
 
@@ -184,24 +184,24 @@ it('never deletes a device row, and leaves no session pointing at nothing', func
 describe('the device arm, one guard per case', function (): void {
     it('spares a device that still has an active session', function (): void {
         $device = Device::factory()->create(['user_id' => $this->subject->getKey()]);
-        agedTo($device, 'created_at', 400);
+        ageRetentionRow($device, 'created_at', 400);
 
         $active = AuthSession::factory()->create([
             'user_id' => $this->subject->getKey(),
             'device_id' => $device->getKey(),
         ]);
-        agedTo($active, 'created_at', 400);
+        ageRetentionRow($active, 'created_at', 400);
 
-        sweep();
+        retentionSweepRun();
 
         expect($device->fresh()->fingerprint_hash)
             ->not->toStartWith(AuthSessionRetention::ANONYMISED_PREFIX);
     });
 
     it('spares a device whose newest session ended recently', function (): void {
-        [$device] = agedPair($this->subject, 400, 3);
+        [$device] = agedRetentionPair($this->subject, 400, 3);
 
-        sweep();
+        retentionSweepRun();
 
         expect($device->fresh()->fingerprint_hash)
             ->not->toStartWith(AuthSessionRetention::ANONYMISED_PREFIX);
@@ -209,7 +209,7 @@ describe('the device arm, one guard per case', function (): void {
 
     it('spares a device whose ended session carries no closing time', function (): void {
         $device = Device::factory()->create(['user_id' => $this->subject->getKey()]);
-        agedTo($device, 'created_at', 400);
+        ageRetentionRow($device, 'created_at', 400);
 
         $session = AuthSession::factory()->create([
             'user_id' => $this->subject->getKey(),
@@ -220,7 +220,7 @@ describe('the device arm, one guard per case', function (): void {
         // without COALESCE the NOT EXISTS reads true and the fingerprint goes.
         DB::table('auth_sessions')->where('id', $session->getKey())->update(['ended_at' => null]);
 
-        sweep();
+        retentionSweepRun();
 
         expect($device->fresh()->fingerprint_hash)
             ->not->toStartWith(AuthSessionRetention::ANONYMISED_PREFIX);
@@ -234,16 +234,16 @@ describe('the device arm, one guard per case', function (): void {
         // student is evicted from the computer they are sitting at.
         $device = Device::factory()->create(['user_id' => $this->subject->getKey()]);
 
-        sweep();
+        retentionSweepRun();
 
         expect($device->fresh()->fingerprint_hash)
             ->not->toStartWith(AuthSessionRetention::ANONYMISED_PREFIX);
     });
 
     it('anonymises a device whose every session is old and ended', function (): void {
-        [$device] = agedPair($this->subject, 400, 300);
+        [$device] = agedRetentionPair($this->subject, 400, 300);
 
-        sweep();
+        retentionSweepRun();
 
         // The positive control the four negations above are worth nothing without.
         expect($device->fresh()->fingerprint_hash)
@@ -252,13 +252,13 @@ describe('the device arm, one guard per case', function (): void {
 });
 
 it('produces the same state twice, and reports zero the second time', function (): void {
-    agedPair($this->subject, 400, 300);
+    agedRetentionPair($this->subject, 400, 300);
 
-    $first = sweep();
+    $first = retentionSweepRun();
 
     $state = AuthSession::query()->orderBy('id')->get(['id', 'ip_hash', 'session_id', 'device_id'])->toArray();
 
-    $second = sweep();
+    $second = retentionSweepRun();
 
     // ⛔ THREE ASSERTIONS, NOT ONE. `RunRetentionSweepJob` catches a throwing
     // category, records it in `findings` and carries on writing
@@ -274,10 +274,10 @@ it('produces the same state twice, and reports zero the second time', function (
 });
 
 it('stops both arms for a held subject and sweeps everybody else', function (): void {
-    [$heldDevice, $heldSession] = agedPair($this->subject, 400, 300);
+    [$heldDevice, $heldSession] = agedRetentionPair($this->subject, 400, 300);
 
     $other = User::factory()->create();
-    [$otherDevice, $otherSession] = agedPair($other, 400, 300);
+    [$otherDevice, $otherSession] = agedRetentionPair($other, 400, 300);
 
     LegalHold::query()->create([
         'subject_user_id' => $this->subject->getKey(),
@@ -289,7 +289,7 @@ it('stops both arms for a held subject and sweeps everybody else', function (): 
     $heldIp = $heldSession->ip_hash;
     $heldFingerprint = $heldDevice->fingerprint_hash;
 
-    sweep();
+    retentionSweepRun();
 
     // ⚠️ BY VALUE, NEVER BY ROW COUNT: nothing here deletes, so a count is
     // identical whether the hold was honoured or ignored.

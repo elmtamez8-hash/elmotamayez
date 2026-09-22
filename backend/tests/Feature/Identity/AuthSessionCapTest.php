@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\DB;
  * explicitly, because the factory now writes one (which is the point: without it
  * every fixture row is born looking already-swept).
  */
-function cappedFixture(User $user, int $count, int $endedDaysAgo, bool $anonymised = true): array
+function cappedSessionFixture(User $user, int $count, int $endedDaysAgo, bool $anonymised = true): array
 {
     $device = Device::factory()->create(['user_id' => $user->getKey()]);
 
@@ -47,7 +47,7 @@ function cappedFixture(User $user, int $count, int $endedDaysAgo, bool $anonymis
     return $ids;
 }
 
-function anonymisedCount(User $user): int
+function anonymisedSessionCount(User $user): int
 {
     return AuthSession::query()
         ->where('user_id', $user->getKey())
@@ -62,10 +62,10 @@ beforeEach(function (): void {
 
 it('trims the anonymised ones past the floor and leaves the rest of the table alone', function (): void {
     // 60 anonymised, a year old — the only rows the cap may reach.
-    cappedFixture($this->subject, 60, 400);
+    cappedSessionFixture($this->subject, 60, 400);
 
     // Recent ended rows, still carrying their address.
-    cappedFixture($this->subject, 55, 5, anonymised: false);
+    cappedSessionFixture($this->subject, 55, 5, anonymised: false);
 
     // And more live sessions than the cap, which FR-003 puts out of reach entirely.
     $device = Device::factory()->create(['user_id' => $this->subject->getKey()]);
@@ -76,7 +76,7 @@ it('trims the anonymised ones past the floor and leaves the rest of the table al
 
     EnforceAuthSessionCapJob::dispatchSync();
 
-    expect(anonymisedCount($this->subject))->toBe(50);
+    expect(anonymisedSessionCount($this->subject))->toBe(50);
 
     expect(AuthSession::query()->where('user_id', $this->subject->getKey())
         ->where('status', AuthSession::STATUS_ENDED)->whereNotNull('ip_hash')->count())
@@ -88,9 +88,9 @@ it('trims the anonymised ones past the floor and leaves the rest of the table al
 });
 
 it('keeps the newest, by the moment they ended', function (): void {
-    $ids = cappedFixture($this->subject, 60, 400);
+    $ids = cappedSessionFixture($this->subject, 60, 400);
 
-    // `cappedFixture` walks backwards in time, so the first ids are the newest.
+    // `cappedSessionFixture` walks backwards in time, so the first ids are the newest.
     $newest = array_slice($ids, 0, 50);
 
     EnforceAuthSessionCapJob::dispatchSync();
@@ -113,7 +113,7 @@ it('deletes nothing from rows that still carry an address', function (): void {
     // predicate survives all of them — and that mutation is precisely "a row that
     // still holds an address was deleted", which is the state production is in on
     // any night before the backfill has run.
-    cappedFixture($this->subject, 60, 400, anonymised: false);
+    cappedSessionFixture($this->subject, 60, 400, anonymised: false);
 
     EnforceAuthSessionCapJob::dispatchSync();
 
@@ -122,15 +122,15 @@ it('deletes nothing from rows that still carry an address', function (): void {
 
 it('deletes nothing inside the age floor', function (): void {
     // Anonymised, over the cap, and 100 days old against a 180-day floor.
-    cappedFixture($this->subject, 60, 100);
+    cappedSessionFixture($this->subject, 60, 100);
 
     EnforceAuthSessionCapJob::dispatchSync();
 
-    expect(anonymisedCount($this->subject))->toBe(60);
+    expect(anonymisedSessionCount($this->subject))->toBe(60);
 });
 
 it('reads a cap of zero as no cap at all', function (): void {
-    cappedFixture($this->subject, 60, 400);
+    cappedSessionFixture($this->subject, 60, 400);
 
     PlatformSettings::set('auth.auth_session_cap_per_user', 0);
 
@@ -140,11 +140,11 @@ it('reads a cap of zero as no cap at all', function (): void {
     // clears the field means to switch the feature off; read as "keep zero rows"
     // it deletes everything, irreversibly. «An account with one session» cannot
     // measure this — it is green at any cap ≥ 1.
-    expect(anonymisedCount($this->subject))->toBe(60);
+    expect(anonymisedSessionCount($this->subject))->toBe(60);
 });
 
 it('keeps the same rows when two sessions ended in the same second', function (): void {
-    cappedFixture($this->subject, 60, 400);
+    cappedSessionFixture($this->subject, 60, 400);
 
     // Two rows on the cap boundary sharing one `ended_at`: with `id DESC` absent
     // from the ordering, which of them survives flips between runs.
@@ -178,8 +178,8 @@ it('spares a held subject and still trims the person discovered after them', fun
     $held = $this->subject;
     $other = User::factory()->create();
 
-    cappedFixture($held, 60, 400);
-    cappedFixture($other, 60, 400);
+    cappedSessionFixture($held, 60, 400);
+    cappedSessionFixture($other, 60, 400);
 
     LegalHold::query()->create([
         'subject_user_id' => $held->getKey(),
@@ -194,12 +194,12 @@ it('spares a held subject and still trims the person discovered after them', fun
     // returns a page shorter than the batch, the loop concludes it is finished,
     // and everybody behind them is never processed — not tonight and not any
     // night. One held account alone cannot show that.
-    expect(anonymisedCount($held))->toBe(60)
-        ->and(anonymisedCount($other))->toBe(50);
+    expect(anonymisedSessionCount($held))->toBe(60)
+        ->and(anonymisedSessionCount($other))->toBe(50);
 });
 
 it('ends nobody s live session anywhere on the platform', function (): void {
-    cappedFixture($this->subject, 60, 400);
+    cappedSessionFixture($this->subject, 60, 400);
 
     // A second account the job never touches — with one account, "platform-wide"
     // and "this fixture" are the same set, and a build that ended everybody
