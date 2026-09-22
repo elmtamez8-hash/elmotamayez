@@ -101,22 +101,23 @@ echo "" | php artisan tinker --execute="
 
 ---
 
-## ٦ · لا جهازَ يتيمٌ ولا إشارةَ إلى محذوف (⛔ **الأخطرُ في القائمة**)
+## ٦ · لا جلسةَ تُشيرُ إلى جهازٍ غيرِ موجود (⛔ **الأخطرُ في القائمة**)
 
 ```bash
 echo "" | php artisan tinker --execute="
-  \$orphanSessions = App\Modules\Identity\Models\AuthSession::whereNotIn('device_id',
+  \$broken = App\Modules\Identity\Models\AuthSession::whereNotIn('device_id',
       App\Modules\Identity\Models\Device::pluck('id'))->count();
-  \$orphanDevices = App\Modules\Identity\Models\Device::whereNotIn('id',
-      App\Modules\Identity\Models\AuthSession::pluck('device_id'))->count();
-  echo 'جلسات تُشير إلى جهاز محذوف: '.\$orphanSessions.PHP_EOL;
-  echo 'أجهزة بلا جلسة: '.\$orphanDevices.PHP_EOL;
+  \$deviceCount = App\Modules\Identity\Models\Device::count();
+  echo 'جلسات تُشير إلى جهاز غير موجود: '.\$broken.PHP_EOL;
+  echo 'عدد صفوف devices: '.\$deviceCount.PHP_EOL;
 "
 ```
 
-**المتوقَّع**: **صفرٌ في الأوّل** · صفرٌ في الثاني بعدَ مرورٍ مكتمِل.
+**المتوقَّع**: **صفرٌ في الأوّل** · وعددُ `devices` **لم ينقُصْ** قبلَ المكنسةِ وبعدَها.
 
-⛔ **ولا مفتاحَ أجنبيَّ على `device_id`** (مقيسٌ في الهجرة)، فالأوّلُ ليس مستحيلاً بل **مُحتمَلٌ لو أُخِّرَ ترتيبُ الحذف**. وصفٌّ واحدٌ منه يجعلُ `$this->device->label` في `AuthSessionResource` خطأَ ٥٠٠ **للطلبِ كلِّه**: شاشةُ «الأجهزة والجلسات» تسقطُ عن صاحبِها كلَّها لأجلِ صفٍّ لا يُسمّي أحداً — وهو عينُ ما حدثَ في `ListStudentBalances` (٠٢٩ · T057).
+⛔ **وهذا هو ما يُثبِتُ أنّ FR-006 نُفِّذَت كما هي**: لا صفَّ جهازٍ يُحذَفُ، ولو لم تبقَ له جلسةٌ واحدة. **وتنفيذٌ «ينظِّفُ» الأجهزةَ اليتيمةَ يُنقِصُ العددَ، ويقرأُ تحسيناً** — وهو مصدرُ العطبِ لا علاجُه.
+
+⛔ **ولا مفتاحَ أجنبيَّ على `device_id`** (مقيسٌ في الهجرة)، فالسطرُ الأوّلُ ليس مستحيلاً بل هو ما يُنتِجُه أيُّ حذفٍ هنا. وصفٌّ واحدٌ منه يجعلُ `$this->device->label` في `AuthSessionResource` خطأَ ٥٠٠ **للطلبِ كلِّه**: شاشةُ «الأجهزة والجلسات» تسقطُ عن صاحبِها كلَّها لأجلِ صفٍّ لا يُسمّي أحداً — وهو عينُ ما حدثَ في `ListStudentBalances` (٠٢٩ · T057).
 
 ---
 
@@ -162,7 +163,19 @@ echo "" | php artisan tinker --execute="
 
 ---
 
-## ١٠ · البوّاباتُ الآليّة
+## ١٠ · صفرُ تغييرٍ في الواجهة (FR-008)
+
+```bash
+git diff --name-only main... -- frontend/
+```
+
+**المتوقَّع**: **لا شيء**.
+
+⛔ **وهذا متطلَّبٌ لا مصادفة.** FR-008 كُتِبَت تطلبُ «جملةً صريحةً بدلَ الفراغ»، وقياسُ الحمولةِ أظهرَ أنّ **لا خانةَ تصيرُ فارغة**: الشاشةُ تعرِضُ اسمَ الجهازِ وبابَ الدخولِ وتاريخَين، ولا تعرِضُ `ip_hash` ولا `fingerprint_hash` إطلاقاً. فشارةٌ تُضافُ لحالةٍ لا تُغيِّرُ حرفاً هي نفسُها ما يُقرَأُ عطباً.
+
+---
+
+## ١١ · البوّاباتُ الآليّة
 
 ```bash
 cd backend
