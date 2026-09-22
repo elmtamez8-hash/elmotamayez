@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Jobs;
 
-use App\Models\User;
+use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
-use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
-use App\Shared\Contracts\SessionAttendanceDirectory;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
@@ -71,66 +70,69 @@ class SendSessionRemindersJob implements ShouldQueue
         return [(new WithoutOverlapping('session-reminders'))->expireAfter(600)];
     }
 
-    public function handle(
-        SessionSettings $settings,
-        SessionAttendanceDirectory $attendance,
-        DispatchNotification $dispatch,
-    ): void {
+    public function handle(SessionSettings $settings, DispatchNotification $dispatch): void
+    {
         $now = now();
         $until = $now->copy()->addMinutes($settings->reminderLeadMinutes());
 
-        ClassSession::query()
+        /*
+        | ⛔ PER SEAT, NOT PER SESSION. The mark used to live on the session and was
+        | stamped the first time the sweep saw a lesson — even with nobody booked —
+        | so whoever booked inside the last hour was never reminded, and a
+        | rescheduled lesson kept its old stamp. A seat booked late is now an
+        | unmarked row the next pass picks up five minutes later.
+        |
+        | `status = booked` is `BookingStatus::occupiesSeat()`, the same «who is in
+        | this room» `seatHolderUserIds()` reads. Unscoped: a job has no context.
+        */
+        SessionBooking::query()
             ->withoutWorkspaceScope()
-            ->whereNull('reminded_at')
-            ->where('status', ClassSessionStatus::Scheduled->value)
+            ->select('session_bookings.*')
+            ->join('class_sessions', 'class_sessions.id', '=', 'session_bookings.class_session_id')
+            ->whereNull('session_bookings.reminded_at')
+            ->where('session_bookings.status', BookingStatus::Booked->value)
+            ->where('class_sessions.status', ClassSessionStatus::Scheduled->value)
             /*
             | Both bounds. The upper one is the lead time; the LOWER one is what
             | stops a pass that has been down for a day announcing every lesson
             | it slept through — a reminder for an hour that already started is
             | worse than none, because it is read as «it is starting now».
             */
-            ->where('starts_at', '>', $now)
-            ->where('starts_at', '<=', $until)
-            ->orderBy('id')
-            ->chunkById(100, function ($sessions) use ($attendance, $dispatch, $settings): void {
-                foreach ($sessions as $session) {
+            ->where('class_sessions.starts_at', '>', $now)
+            ->where('class_sessions.starts_at', '<=', $until)
+            ->with([
+                'classSession' => fn ($query) => $query->withoutWorkspaceScope(),
+                'student',
+            ])
+            ->chunkById(100, function ($bookings) use ($dispatch, $settings): void {
+                foreach ($bookings as $booking) {
                     try {
-                        $this->remind($session, $attendance, $dispatch, $settings);
+                        $this->remind($booking, $dispatch, $settings);
                     } catch (Throwable $e) {
                         report($e);
                     }
                 }
-            });
+            }, 'session_bookings.id', 'id');
     }
 
-    private function remind(
-        ClassSession $session,
-        SessionAttendanceDirectory $attendance,
-        DispatchNotification $dispatch,
-        SessionSettings $settings,
-    ): void {
+    private function remind(SessionBooking $booking, DispatchNotification $dispatch, SessionSettings $settings): void
+    {
         /*
         | ⚠️ THE CLAIM IS BOTH THE CHECK AND THE MARK — the seat idiom, and never
-        | a read followed by a save. Two workers overlapping on one session both
-        | read `reminded_at` as null, both send, and every student is told twice.
-        | Never `lockForUpdate()`, a no-op on SQLite.
+        | a read followed by a save. Two workers overlapping on one seat both read
+        | `reminded_at` as null, both send, and the student is told twice. Never
+        | `lockForUpdate()`, a no-op on SQLite.
         */
-        $claimed = ClassSession::query()
+        $claimed = SessionBooking::query()
             ->withoutWorkspaceScope()
-            ->whereKey($session->getKey())
+            ->whereKey($booking->getKey())
             ->whereNull('reminded_at')
             ->update(['reminded_at' => now()]);
 
-        if ($claimed === 0) {
-            return;
-        }
+        $session = $booking->classSession;
+        $student = $booking->student;
 
-        $seatHolderIds = $attendance->seatHolderUserIds(
-            (int) $session->getKey(),
-            (int) $session->workspace_id,
-        );
-
-        if ($seatHolderIds === []) {
+        if ($claimed === 0 || $session === null || $student === null) {
             return;
         }
 
@@ -139,22 +141,20 @@ class SendSessionRemindersJob implements ShouldQueue
             ->setTimezone($settings->timezone())
             ->format('Y-m-d H:i');
 
-        foreach (User::query()->whereIn('id', $seatHolderIds)->get() as $student) {
-            $dispatch->handle(new NotificationRequest(
-                recipient: $student,
-                type: NotificationType::AppointmentReminder,
-                // The template's three, and no more: `TemplateRenderer` counts a
-                // present-but-blank variable as MISSING and drops the whole
-                // message in silence.
-                variables: [
-                    'student_name' => $student->name,
-                    'session_title' => $session->title,
-                    'starts_at' => $startsAt,
-                ],
-                actionUrl: '/schedule',
-                subject: $student,
-                workspaceId: (int) $session->workspace_id,
-            ));
-        }
+        $dispatch->handle(new NotificationRequest(
+            recipient: $student,
+            type: NotificationType::AppointmentReminder,
+            // The template's three, and no more: `TemplateRenderer` counts a
+            // present-but-blank variable as MISSING and drops the whole
+            // message in silence.
+            variables: [
+                'student_name' => $student->name,
+                'session_title' => $session->title,
+                'starts_at' => $startsAt,
+            ],
+            actionUrl: '/schedule',
+            subject: $student,
+            workspaceId: (int) $session->workspace_id,
+        ));
     }
 }

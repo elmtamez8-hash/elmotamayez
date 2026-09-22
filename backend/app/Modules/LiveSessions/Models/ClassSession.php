@@ -38,7 +38,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CarbonInterface $ends_at
  * @property CarbonInterface|null $delivered_at
  * @property CarbonInterface|null $seats_frozen_at
- * @property CarbonInterface|null $reminded_at
  * @property CarbonInterface|null $room_opened_at
  * @property CarbonInterface|null $room_closed_at
  * @property CarbonInterface|null $recording_attempted_at
@@ -109,7 +108,6 @@ class ClassSession extends BaseModel
             'charged_seats' => 'integer',
             'verdict_stay_seconds' => 'integer',
             'seats_frozen_at' => 'datetime',
-            'reminded_at' => 'datetime',
             'room_opened_at' => 'datetime',
             'room_closed_at' => 'datetime',
             'recording_attempts' => 'integer',
