@@ -13,6 +13,7 @@ use App\Modules\Identity\Http\Resources\AuthSessionResource;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Models\Device;
 use App\Modules\Identity\Support\AuthSessionRetention;
+use App\Shared\Contracts\LegalHoldDirectory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -358,7 +359,7 @@ it('reaches an account that was erased before this feature shipped', function ()
         ->where('id', $this->subject->getKey())
         ->update(['email' => 'anonymised+'.$this->subject->getKey().'@example.test']);
 
-    $written = (new AuthSessionRetention)->backfillErasedAccounts();
+    $written = (new AuthSessionRetention)->backfillErasedAccounts(app(LegalHoldDirectory::class));
 
     expect($written)->toBeGreaterThan(0)
         ->and($session->fresh()->ip_hash)->toBeNull()
@@ -366,5 +367,37 @@ it('reaches an account that was erased before this feature shipped', function ()
         ->toStartWith(AuthSessionRetention::ANONYMISED_PREFIX);
 
     // Converges: a second pass has nothing left to write.
-    expect((new AuthSessionRetention)->backfillErasedAccounts())->toBe(0);
+    expect((new AuthSessionRetention)->backfillErasedAccounts(app(LegalHoldDirectory::class)))->toBe(0);
+});
+
+it('spares an erased account a hold arrived for afterwards, and still reaches the next one', function (): void {
+    $other = User::factory()->create();
+    $sessions = [];
+
+    foreach ([$this->subject, $other] as $user) {
+        $sessions[] = AuthSession::factory()->ended()->create([
+            'user_id' => $user->getKey(),
+            'device_id' => Device::factory()->create(['user_id' => $user->getKey()])->getKey(),
+        ]);
+
+        DB::table('users')->where('id', $user->getKey())
+            ->update(['email' => 'anonymised+'.$user->getKey().'@example.test']);
+    }
+
+    [$heldSession, $otherSession] = $sessions;
+    $heldIp = $heldSession->ip_hash;
+
+    LegalHold::query()->create([
+        'subject_user_id' => $this->subject->getKey(),
+        'reason' => 'نزاع قضائيّ قائم',
+        'placed_by_user_id' => User::factory()->create()->getKey(),
+        'placed_at' => now(),
+    ]);
+
+    (new AuthSessionRetention)->backfillErasedAccounts(app(LegalHoldDirectory::class));
+
+    // ⚠️ The positive half first: an arm that reaches nobody spares the held one too.
+    expect($otherSession->fresh()->ip_hash)->toBeNull()
+        ->and($heldIp)->not->toBeNull()
+        ->and($heldSession->fresh()->ip_hash)->toBe($heldIp);
 });

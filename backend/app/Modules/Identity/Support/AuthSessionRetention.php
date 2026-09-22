@@ -244,7 +244,7 @@ final class AuthSessionRetention
      * offset paging skips as many rows as the previous page fixed — and reports
      * success.
      */
-    public function backfillErasedAccounts(?LegalHoldDirectory $holds = null): int
+    public function backfillErasedAccounts(LegalHoldDirectory $holds): int
     {
         /*
         | ⛔ A HELD SUBJECT IS SPARED HERE TOO, AND THE OMISSION WAS REAL.
@@ -261,21 +261,30 @@ final class AuthSessionRetention
         | accounts 0, holds in force 0, so the migration that already ran touched
         | nobody. The guard is for every later caller.
         |
-        | ⚠️ RESOLVED HERE RATHER THAN REQUIRED, because the one shipped caller is
-        | a migration (`2026_09_22_000200`) which runs inside `migrate:fresh` for
-        | every test in the suite and has no container argument to give.
+        | ⚠️ ASKED BEFORE EVERY CHUNK, as the contract demands — never once above
+        | the walk. A hold placed mid-run has to protect what is left.
+        |
+        | ⚠️ REQUIRED, NOT RESOLVED FROM THE CONTAINER. The container's binding is
+        | `EloquentLegalHoldDirectory`, which reads through the `LegalHold` model —
+        | and the one shipped caller is a migration, which must speak the schema
+        | of its own date. So the migration hands in a raw `DB::table()` reader of
+        | its own, and a job or command hands in the binding.
         */
-        $exempt = ($holds ?? app(LegalHoldDirectory::class))->heldUserIds();
-
         $done = 0;
 
         DB::table('users')
             ->where('email', 'like', 'anonymised+%')
-            ->when($exempt !== [], fn (QueryBuilder $q): QueryBuilder => $q->whereNotIn('id', $exempt))
             ->select('id')
             ->orderBy('id')
-            ->chunkById(200, function (iterable $users) use (&$done): void {
+            ->chunkById(200, function (iterable $users) use (&$done, $holds): void {
+                // A failure here throws out of the walk, never reads as «nobody held».
+                $exempt = $holds->heldUserIds();
+
                 foreach ($users as $user) {
+                    if (in_array((int) $user->id, $exempt, true)) {
+                        continue;
+                    }
+
                     $done += $this->backfillOne((int) $user->id);
                 }
             });

@@ -86,7 +86,7 @@ class RunRetentionSweepJob implements ShouldQueue
     public function handle(PersonalDataRegistry $registry, LegalHoldDirectory $holds): void
     {
         /*
-        | ⚠️ FR-030, RESOLVED ONCE AND PASSED DOWN. A legal hold suspends an erasure
+        | ⚠️ FR-030, RE-READ BEFORE EVERY BATCH (see `walk()`). A legal hold suspends an erasure
         | REQUEST, and retention needs nobody to request anything — so a hold that
         | only touched `data_requests` would let this job delete the exact rows a
         | court ordered kept, on a schedule, with the hold sitting green beside it.
@@ -94,7 +94,9 @@ class RunRetentionSweepJob implements ShouldQueue
         | Passed as ids rather than read by each module: `Compliance` names no
         | module's table, and no module imports `LegalHold`.
         */
-        $exemptUserIds = $holds->heldUserIds();
+        // Fail fast, OUTSIDE the per-category try: a directory that cannot answer
+        // ends the night rather than failing quietly once per category.
+        $holds->heldUserIds();
 
         $processed = 0;
         $rows = [ExpiryBehaviour::Delete->value => 0, ExpiryBehaviour::Anonymise->value => 0, ExpiryBehaviour::Archive->value => 0];
@@ -128,7 +130,7 @@ class RunRetentionSweepJob implements ShouldQueue
             $before = CarbonImmutable::now()->subDays((int) $category->retain_days);
 
             try {
-                $rows[$behaviour->value] += $this->walk($registry, $holds, $category->key, $before, $behaviour, $exemptUserIds);
+                $rows[$behaviour->value] += $this->walk($registry, $holds, $category->key, $before, $behaviour);
             } catch (Throwable $e) {
                 /*
                 | One category's failure must not end the night for the twelve
@@ -159,17 +161,12 @@ class RunRetentionSweepJob implements ShouldQueue
         ]);
     }
 
-    /**
-     * @param  list<int>  $exemptUserIds  the list as it stood at the top of the run,
-     *                                    used only until the first batch re-reads it
-     */
     private function walk(
         PersonalDataRegistry $registry,
         LegalHoldDirectory $holds,
         string $category,
         CarbonImmutable $before,
         ExpiryBehaviour $behaviour,
-        array $exemptUserIds,
     ): int {
         $owner = $registry->forCategory($category);
 

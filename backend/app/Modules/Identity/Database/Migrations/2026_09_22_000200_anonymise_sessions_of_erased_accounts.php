@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Modules\Identity\Support\AuthSessionRetention;
+use App\Shared\Contracts\LegalHoldDirectory;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
 
 /**
  * FR-014 — مَن مُحِيَ حسابُه قبلَ شحنِ هذه الميزة.
@@ -27,7 +29,25 @@ return new class extends Migration
 {
     public function up(): void
     {
-        (new AuthSessionRetention)->backfillErasedAccounts();
+        /*
+        | ⚠️ قارئُ الحظرِ خامٌ هنا عمداً: الربطُ في الحاوية يقرأُ عبرَ نموذجِ
+        | `LegalHold`، والهجرةُ تتكلّمُ مخطَّطَ تاريخِها. `released_at IS NULL` هو
+        | `LegalHold::scopeInForce()` مكتوباً بلا نموذج.
+        */
+        (new AuthSessionRetention)->backfillErasedAccounts(new class implements LegalHoldDirectory
+        {
+            /** @return list<int> */
+            public function heldUserIds(): array
+            {
+                $ids = [];
+
+                foreach (DB::table('legal_holds')->whereNull('released_at')->distinct()->pluck('subject_user_id') as $id) {
+                    $ids[] = (int) $id;
+                }
+
+                return $ids;
+            }
+        });
     }
 
     /*
