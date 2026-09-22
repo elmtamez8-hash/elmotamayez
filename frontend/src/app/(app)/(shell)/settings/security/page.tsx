@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { SetupQr } from "./SetupQr";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -52,7 +53,9 @@ export default function SecuritySettingsPage() {
       // Ending the current session deletes this browser's own token, so the
       // reload below 401s and the handler in lib/api.ts signs it out properly.
       // No special case here: the server decides, and it already has.
-      setList((current) => current.filter((item) => item.uuid !== session.uuid));
+      setList((current) =>
+        current.filter((item) => item.uuid !== session.uuid),
+      );
     } catch (err: unknown) {
       setError(userMessage(err));
     } finally {
@@ -62,11 +65,21 @@ export default function SecuritySettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
+      {/*
+        ⚠️ THE SECOND FACTOR COMES FIRST, AND THE DEVICE LIST IS WHY.
+        Reported 2026-09-22: that list is one row per signed-in device and has no
+        ceiling — 607 rows on a development database — so enrolment sat below a
+        section that can be screens long, on the one screen a person opens
+        *because* they were told to turn it on. Order by what the reader came to
+        do, not by what the endpoint returns first.
+      */}
+      <TwoFactorSection />
+
       <div>
         <h2 className="text-2xl font-bold text-ink">الأجهزة والجلسات</h2>
         <p className="mt-2 text-sm text-ink-muted">
-          هذه هي الأجهزة التي سُجِّل الدخول إلى حسابك منها الآن. إن رأيت جهازاً لا
-          تعرفه، أنهِ جلسته ثم غيّر كلمة مرورك.
+          هذه هي الأجهزة التي سُجِّل الدخول إلى حسابك منها الآن. إن رأيت جهازاً
+          لا تعرفه، أنهِ جلسته ثم غيّر كلمة مرورك.
         </p>
       </div>
 
@@ -92,7 +105,9 @@ export default function SecuritySettingsPage() {
                       <span className="font-semibold text-ink">
                         {session.device.label}
                       </span>
-                      {session.is_current && <Badge tone="success">هذا الجهاز</Badge>}
+                      {session.is_current && (
+                        <Badge tone="success">هذا الجهاز</Badge>
+                      )}
                       {/*
                         اللوحةُ والواجهةُ على الجهازِ نفسِه بصمةٌ واحدةٌ وصفٌّ
                         واحدٌ في `devices` — وهو المقصود، فالحدُّ يَعُدُّ الأجهزةَ
@@ -124,8 +139,6 @@ export default function SecuritySettingsPage() {
           ))}
         </ul>
       )}
-
-      <TwoFactorSection />
     </div>
   );
 }
@@ -144,24 +157,45 @@ function TwoFactorSection() {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  /*
+  | ⚠️ WHICH action is running, never a bare boolean — reported 2026-09-22.
+  |
+  | One shared `busy` put EVERY button in this section into «جارٍ التنفيذ»
+  | the moment any one of them was pressed, so asking for fresh recovery
+  | codes made «إلغاء التحقق بخطوتين» look like it was running too. On a
+  | panel whose other control turns the second factor OFF, that reads as a
+  | destructive action firing by itself.
+  |
+  | The devices list one section above already does it this way (`ending`
+  | holds the uuid, not a flag), which is what makes its per-row spinner
+  | land on the row that was pressed.
+  */
+  const [busy, setBusy] = useState<
+    "start" | "confirm" | "disable" | "codes" | null
+  >(null);
 
   const load = useCallback(() => {
-    twoFactor.state().then(setState).catch(() => setState(null));
+    twoFactor
+      .state()
+      .then(setState)
+      .catch(() => setState(null));
   }, []);
 
   useEffect(load, [load]);
 
-  const run = async (work: () => Promise<void>) => {
+  const run = async (
+    action: Exclude<typeof busy, null>,
+    work: () => Promise<void>,
+  ) => {
     setError("");
-    setBusy(true);
+    setBusy(action);
 
     try {
       await work();
     } catch (err: unknown) {
       setError(userMessage(err));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
@@ -174,17 +208,18 @@ function TwoFactorSection() {
    * inconsistently across browsers, and failing to read the key is the one
    * outcome this screen cannot afford.
    */
-  const setupKey = uri === null ? null : (/[?&]secret=([A-Z2-7]+)/i.exec(uri)?.[1] ?? null);
+  const setupKey =
+    uri === null ? null : (/[?&]secret=([A-Z2-7]+)/i.exec(uri)?.[1] ?? null);
 
   const start = () =>
-    run(async () => {
+    run("start", async () => {
       const { otpauth_uri } = await twoFactor.setup(password);
       setUri(otpauth_uri);
       setPassword("");
     });
 
   const confirm = () =>
-    run(async () => {
+    run("confirm", async () => {
       const result = await twoFactor.confirm(code);
       setCodes(result.recovery_codes);
       setUri(null);
@@ -193,7 +228,7 @@ function TwoFactorSection() {
     });
 
   const disable = () =>
-    run(async () => {
+    run("disable", async () => {
       await twoFactor.disable(password, code);
       setPassword("");
       setCode("");
@@ -209,8 +244,8 @@ function TwoFactorSection() {
     <Card as="section">
       <h3 className="text-lg font-semibold text-ink">التحقق بخطوتين</h3>
       <p className="mt-2 text-sm text-ink-muted">
-        رمز من تطبيق مصادقة بجانب كلمة المرور. من دونه، كلمة مرور مسرّبة تكفي وحدها
-        للدخول إلى حسابك.
+        رمز من تطبيق مصادقة بجانب كلمة المرور. من دونه، كلمة مرور مسرّبة تكفي
+        وحدها للدخول إلى حسابك.
       </p>
 
       {error !== "" && (
@@ -222,8 +257,9 @@ function TwoFactorSection() {
       {deadline && (
         <div className="mt-4">
           <Alert tone="warning" title="مطلوب على حسابك">
-            فعّل التحقق بخطوتين قبل {formatDate(state.required_at)}. بعد هذا التاريخ
-            ستتوقّف العمليات الحسّاسة مثل اعتماد المدفوعات وإدارة الأعضاء.
+            فعّل التحقق بخطوتين قبل {formatDate(state.required_at)}. بعد هذا
+            التاريخ ستتوقّف العمليات الحسّاسة مثل اعتماد المدفوعات وإدارة
+            الأعضاء.
           </Alert>
         </div>
       )}
@@ -231,8 +267,8 @@ function TwoFactorSection() {
       {codes !== null && (
         <div className="mt-4 space-y-3">
           <Alert tone="warning" title="احفظ رموز الاسترداد الآن">
-            هذه هي المرة الوحيدة التي تظهر فيها. كل رمز يعمل مرة واحدة، وهو طريقك
-            إلى حسابك إن فقدت هاتفك.
+            هذه هي المرة الوحيدة التي تظهر فيها. كل رمز يعمل مرة واحدة، وهو
+            طريقك إلى حسابك إن فقدت هاتفك.
           </Alert>
           <ul className="grid grid-cols-2 gap-2 rounded-xl border border-line p-4 font-mono text-sm text-ink">
             {codes.map((item) => (
@@ -270,20 +306,27 @@ function TwoFactorSection() {
           />
 
           <div className="flex flex-wrap gap-3">
-            <Button variant="danger" size="sm" onClick={disable} loading={busy}>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={disable}
+              loading={busy === "disable"}
+              disabled={busy !== null}
+            >
               إلغاء التحقق بخطوتين
             </Button>
             <Button
               variant="secondary"
               size="sm"
               onClick={() =>
-                run(async () => {
+                run("codes", async () => {
                   const result = await twoFactor.regenerateRecoveryCodes();
                   setCodes(result.recovery_codes);
                   load();
                 })
               }
-              loading={busy}
+              loading={busy === "codes"}
+              disabled={busy !== null}
             >
               رموز استرداد جديدة
             </Button>
@@ -292,9 +335,11 @@ function TwoFactorSection() {
       ) : uri !== null ? (
         <div className="mt-4 space-y-4">
           <p className="text-sm text-ink-muted">
-            افتح تطبيق المصادقة واختر «إدخال مفتاح الإعداد»، ثم الصق المفتاح
-            التالي وأدخل الرمز الذي يعرضه التطبيق.
+            صوّر الرمز التالي بتطبيق المصادقة. إن تعذّر، اختر «إدخال مفتاح
+            الإعداد» والصق المفتاح تحته.
           </p>
+
+          <SetupQr uri={uri} />
 
           {/*
             ⚠️ THE KEY, NOT THE URI. This block used to print the whole
@@ -329,7 +374,12 @@ function TwoFactorSection() {
             maxLength={6}
           />
 
-          <Button size="sm" onClick={confirm} loading={busy}>
+          <Button
+            size="sm"
+            onClick={confirm}
+            loading={busy === "confirm"}
+            disabled={busy !== null}
+          >
             تأكيد التفعيل
           </Button>
         </div>
@@ -343,7 +393,12 @@ function TwoFactorSection() {
             autoComplete="current-password"
           />
 
-          <Button size="sm" onClick={start} loading={busy}>
+          <Button
+            size="sm"
+            onClick={start}
+            loading={busy === "start"}
+            disabled={busy !== null}
+          >
             ابدأ التفعيل
           </Button>
         </div>
