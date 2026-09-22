@@ -70,8 +70,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/freeze-periods', [FreezePeriodController::class, 'index']);
 
     Route::get('/class-sessions', [ClassSessionController::class, 'index']);
-    Route::get('/class-sessions/{session}', [ClassSessionController::class, 'show']);
-    Route::get('/class-sessions/{session}/attendance', [AttendanceController::class, 'index']);
+    Route::get('/class-sessions/{sessionUuid}', [ClassSessionController::class, 'show']);
+    Route::get('/class-sessions/{sessionUuid}/attendance', [AttendanceController::class, 'index']);
 
     /*
      | ⚠️ `class-sessions`, NEVER `sessions` (spec 005's rule, still binding).
@@ -84,7 +84,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
      | and rate-limiting the explanation of a block would leave a student
      | staring at a screen that cannot tell them why.
      */
-    Route::get('/class-sessions/{session}/eligibility', EligibilityController::class);
+    Route::get('/class-sessions/{sessionUuid}/eligibility', EligibilityController::class);
 
     /*
      | Names, faces and badges for the uuids the provider echoes into the room.
@@ -103,7 +103,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
      | per-user room chatter with the same shape, and its 240/min leaves the
      | coalesced client (a handful a minute) more headroom than it can use.
      */
-    Route::get('/class-sessions/{session}/participants', [BroadcastController::class, 'participants'])
+    Route::get('/class-sessions/{sessionUuid}/participants', [BroadcastController::class, 'participants'])
         ->middleware('throttle:presence');
 
     /*
@@ -146,10 +146,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::put('/class-sessions/{session}', [ClassSessionController::class, 'update']);
         Route::post('/class-sessions/{session}/cancel', [ClassSessionController::class, 'cancel']);
 
-        Route::post('/class-sessions/{session}/book', [BookingController::class, 'store']);
+        Route::post('/class-sessions/{sessionUuid}/book', [BookingController::class, 'store']);
         Route::delete('/bookings/{booking}', [BookingController::class, 'destroy']);
 
-        Route::post('/class-sessions/{session}/join', [BroadcastController::class, 'join']);
+        Route::post('/class-sessions/{sessionUuid}/join', [BroadcastController::class, 'join']);
         Route::post('/class-sessions/{session}/host/{action}', [BroadcastController::class, 'host']);
 
         Route::post('/attendances/{attendance}/override', [AttendanceController::class, 'override']);
@@ -183,6 +183,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // Its own limiter: one participant sends two a minute, and the ceiling has
     // to leave room for several rooms and reconnection storms without sharing a
     // bucket with the booking endpoints.
-    Route::post('/class-sessions/{session}/presence', [BroadcastController::class, 'presence'])
+    Route::post('/class-sessions/{sessionUuid}/presence', [BroadcastController::class, 'presence'])
         ->middleware('throttle:presence');
 });

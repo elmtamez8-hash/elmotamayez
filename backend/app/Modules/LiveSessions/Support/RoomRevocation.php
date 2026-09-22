@@ -100,7 +100,10 @@ final class RoomRevocation
         }
 
         // مقعدٌ حُرِّرَ — بإلغاءِ الطالبِ أو بكنسِ المقاعدِ غيرِ المستحقّة — يُخرِج.
+        // ⚠️ Unscoped: the reader may be a student stamped with another
+        // teacher's workspace, and the scope would hide their own seat.
         $holdsSeat = $session->bookings()
+            ->withoutWorkspaceScope()
             ->where('student_user_id', $user->getKey())
             ->where('status', BookingStatus::Booked)
             ->exists();

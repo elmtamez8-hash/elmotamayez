@@ -41,8 +41,10 @@ class AttendanceController extends Controller
      * their attendance is theirs, and the register they are not entitled to is
      * simply not there.
      */
-    public function index(Request $request, ClassSession $session): JsonResponse
+    public function index(Request $request, string $sessionUuid): JsonResponse
     {
+        $session = ClassSession::forStudentDoor($sessionUuid);
+
         $this->authorize('view', $session);
 
         $viewer = $this->currentUser($request);

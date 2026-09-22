@@ -32,8 +32,10 @@ class BroadcastController extends Controller
      * has to produce the SAME answer, and a policy that denies differently from
      * the Action is an enumeration oracle (FR-015 · the scenario 2 rule).
      */
-    public function join(Request $request, ClassSession $session, IssueJoinTicket $action): JsonResponse
+    public function join(Request $request, string $sessionUuid, IssueJoinTicket $action): JsonResponse
     {
+        $session = ClassSession::forStudentDoor($sessionUuid);
+
         try {
             $ticket = $action->handle($session, $this->currentUser($request));
         } catch (BroadcastProviderUnavailable $e) {
@@ -97,8 +99,10 @@ class BroadcastController extends Controller
      *
      * ⚠️ **وصنفٌ واحدٌ يملكُها، يسألُه البابانِ** — فلا «بابانِ يختلفان».
      */
-    public function presence(Request $request, ClassSession $session, RoomRevocation $revocation, RecordPresencePing $action): JsonResponse
+    public function presence(Request $request, string $sessionUuid, RoomRevocation $revocation, RecordPresencePing $action): JsonResponse
     {
+        $session = ClassSession::forStudentDoor($sessionUuid);
+
         $user = $this->currentUser($request);
 
         if (! $revocation->stillAdmitted($session, $user)) {
@@ -132,8 +136,10 @@ class BroadcastController extends Controller
      * not a claim to enter, and by the time it is asked the caller already knows
      * the session exists — they are looking at it.
      */
-    public function participants(Request $request, ClassSession $session, ReadSessionRoster $action): JsonResponse
+    public function participants(Request $request, string $sessionUuid, ReadSessionRoster $action): JsonResponse
     {
+        $session = ClassSession::forStudentDoor($sessionUuid);
+
         $user = $this->currentUser($request);
         $isHost = Gate::allows('host', $session);
 

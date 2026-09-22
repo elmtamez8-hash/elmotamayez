@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Support;
 
 use App\Models\User;
+use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Shared\Contracts\AccountStanding;
@@ -163,6 +164,25 @@ class BookingEligibility
         }
 
         if ($this->holds->availableFor($student, (int) $session->course_id) >= 1) {
+            return null;
+        }
+
+        /*
+        | ⛔ THIS ASKS «CAN YOU FUND ANOTHER SEAT», AND AT THE ROOM'S DOOR THE SEAT
+        | IS ALREADY FUNDED. `availableFor` is remaining − held, and `held` includes
+        | the hold placed for THIS session — so a student who spent their last
+        | credit booking a lesson was refused entry to that very lesson (measured:
+        | one credit ⇒ 403, two ⇒ 200), with `/eligibility` saying nothing.
+        |
+        | A seat already held is the answer, whether a hold or a subscription
+        | funded it. At booking no such row exists yet, so the check still bites
+        | there. Unscoped: the student may be stamped with another workspace.
+        */
+        if ($session->bookings()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $student->getKey())
+            ->where('status', BookingStatus::Booked)
+            ->exists()) {
             return null;
         }
 
