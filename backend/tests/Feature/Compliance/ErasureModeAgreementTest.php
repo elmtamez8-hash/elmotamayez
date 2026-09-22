@@ -66,3 +66,38 @@ it('finds a catalogue row for every category a module declares', function (): vo
 
     expect($undeclared)->toBe([]);
 });
+
+/*
+| ⛔ والحالتانِ فوقَ هذه تشتقّانِ من السِّجِلّ، فتُغطّيانِ `identity` تلقائيّاً —
+| **وكلتاهما خضراءُ والمفتاحانِ الجديدانِ غائبان**: أوضاعُ خمسِ فئاتٍ مجموعةٌ
+| واحدةٌ تماماً كأوضاعِ سبع. فما لا يقولُه أيٌّ منهما هو أنّ الصفَّينِ اللذَينِ
+| أضافَتهما ٠٣٨ **داخلَ** تلك المجموعةِ أصلاً.
+|
+| وهذا هو السطرُ الذي يقولُه. وثمنُ غيابِه مقيسٌ لا نظريّ: قيمةٌ مخالفةٌ في أحدِ
+| الصفَّينِ تجعلُ `modeFor()` تُرجِعُ `Retain`، **فيُطفَأُ المحوُ في وحدةِ
+| الهُويّةِ كلِّها** — لا اسمٌ ولا بريدٌ ولا هاتفٌ يُجهَّلُ لأحد — بلا خطأٍ
+| ظاهرٍ وبسطرِ سجلٍّ واحدٍ لا يقرؤُه أحد.
+*/
+it('has the two session categories inside the mode it agreed on', function (): void {
+    $identity = collect(app(PersonalDataRegistry::class)->all())
+        ->first(fn (PersonalDataOwner $owner): bool => $owner->moduleKey() === 'identity');
+
+    expect($identity)->not->toBeNull();
+
+    expect($identity->describe())
+        ->toContain('auth_session')
+        ->toContain('device');
+
+    $modes = DataCategory::query()
+        ->whereIn('key', $identity->describe())
+        ->pluck('erasure_mode')
+        ->map(fn (mixed $mode): string => is_object($mode) ? (string) $mode->value : (string) $mode)
+        ->unique()
+        ->values()
+        ->all();
+
+    expect($modes)->toBe(
+        ['anonymise'],
+        'Spec 038 · the two new rows must carry the mode Identity already agreed on.',
+    );
+});

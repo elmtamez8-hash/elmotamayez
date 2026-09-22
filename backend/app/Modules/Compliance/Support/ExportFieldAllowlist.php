@@ -49,11 +49,28 @@ final class ExportFieldAllowlist
      *   of every payload, and an export is a payload with a longer life than any
      *   other.
      *
+     * - `fingerprint_hash` — spec 038. A browser fingerprint is not a fact the
+     *   subject can read, check or act on: it identifies a MACHINE, proves nothing
+     *   to the person it belongs to, and is forgeable by anyone who wants to look
+     *   like somebody else, which is why `DeviceRegistry` treats it as a merge hint
+     *   and never as an identity. What the archive carries instead is the device's
+     *   readable label and its dates, which is the same thing the screen shows.
+     *
      * `ip_address`, `ip_hash` and `user_agent` are deliberately ABSENT. They record
      * the subject's own device at their own consent or sign-in — their data, and in
      * the case of `terms_consents.ip_address` the evidence that the consent was
      * theirs. Banning them would remove from a person's copy the one field that
      * proves what they agreed to.
+     *
+     * ⚠️ AND THAT SENTENCE IS ABOUT ONE ADDRESS PROVING ONE CONSENT — read it on
+     * its own subject. Spec 038's `auth_session` arm is a ROLLING LOCATION HISTORY,
+     * and `ip_hash` there is unsalted SHA-256 over a 2³² input space, i.e. a
+     * readable address rather than a hash. The archive is downloaded by the
+     * REQUESTER, and a guardian holding `DataRights` may open one for a child — so
+     * that arm emits the column only when the subject asked for their own record
+     * (`$subject->grantedScope === null`). The distinction lives in the arm, where
+     * the caller is known; a ban here would take the field out of the copy the
+     * person asking for their OWN data is entitled to.
      *
      * @return list<string>
      */
@@ -70,6 +87,7 @@ final class ExportFieldAllowlist
             'token',
             'receipt',
             'provider_asset_id',
+            'fingerprint_hash',
         ];
     }
 

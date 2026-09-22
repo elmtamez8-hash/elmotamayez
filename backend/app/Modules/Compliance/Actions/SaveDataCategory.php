@@ -21,10 +21,33 @@ use DomainException;
  */
 class SaveDataCategory extends Action
 {
+    /**
+     * Categories whose retention may not go below a floor of their own, and why.
+     *
+     * ⛔ SPEC 038 — `playback_grants.issued_ip_hash` HOLDS THE SAME VALUE AS
+     * `auth_sessions.ip_hash` and the row is indexed on `auth_session_id`, so one
+     * join recovers the address of a session declared addressless. That table has
+     * no catalogue row and no sweep; its only cleaner is `PruneExpiredGrantsJob`,
+     * at `expires_at + 7 days`. So while the retention is eight days or more,
+     * every grant belonging to a session old enough to be anonymised has already
+     * been pruned — the gap is closed BY CONSTRUCTION rather than by luck.
+     *
+     * ⚠️ AND `minRetainDays()` DEFAULTS TO 1, so without this the operator can
+     * open that window from the settings screen with one keystroke. Owner
+     * decision, 2026-09-22; the wider hole is recorded in the spec's out-of-scope
+     * list and is somebody else's phase.
+     *
+     * @var array<string, int>
+     */
+    private const FLOOR_DAYS = [
+        'auth_session' => 8,
+        'device' => 8,
+    ];
+
     /** @param array<string, mixed> $attributes */
     public function handle(array $attributes, ?DataCategory $category = null): DataCategory
     {
-        $this->guardRetention($attributes);
+        $this->guardRetention($attributes, $category?->key);
 
         if ($category === null) {
             return DataCategory::query()->create($attributes);
@@ -38,7 +61,7 @@ class SaveDataCategory extends Action
     /**
      * @param  array<string, mixed>  $attributes
      */
-    private function guardRetention(array $attributes): void
+    private function guardRetention(array $attributes, ?string $existingKey = null): void
     {
         $days = $attributes['retain_days'] ?? null;
 
@@ -47,6 +70,16 @@ class SaveDataCategory extends Action
         }
 
         $days = (int) $days;
+
+        $key = $attributes['key'] ?? $existingKey;
+        $floor = is_string($key) ? (self::FLOOR_DAYS[$key] ?? null) : null;
+
+        if ($floor !== null && $days < $floor) {
+            throw new DomainException(
+                'مدّةُ الاحتفاظ لسجلّ الجلسات والأجهزة لا تقلّ عن '.$floor.' أيّام: '
+                .'منحُ التشغيل تحمل العنوان نفسه وتُكنَس بعد انتهائها بأسبوع، فمدّةٌ أقصر تُبقي الاثنين في نافذة واحدة.',
+            );
+        }
 
         /*
         | ⚠️ ZERO IS THE ONE TYPO THAT ERASES THE PLATFORM IN A NIGHT. It reads as

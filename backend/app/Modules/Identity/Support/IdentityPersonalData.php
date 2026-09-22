@@ -6,6 +6,8 @@ namespace App\Modules\Identity\Support;
 
 use App\Models\User;
 use App\Modules\Compliance\Support\Anonymiser;
+use App\Modules\Identity\Models\AuthSession;
+use App\Modules\Identity\Models\Device;
 use App\Modules\Identity\Models\ParentStudentRelation;
 use App\Modules\Identity\Models\Referral;
 use App\Modules\Identity\Models\ReferralCode;
@@ -44,7 +46,16 @@ class IdentityPersonalData implements PersonalDataOwner
     /** @return list<string> */
     public function describe(): array
     {
-        return ['student_name', 'contact_phone', 'date_of_birth', 'guardian_link', 'referral_record'];
+        return [
+            'student_name',
+            'contact_phone',
+            'date_of_birth',
+            'guardian_link',
+            'referral_record',
+            // Spec 038 — never swept, never exported, never erased until now.
+            'auth_session',
+            'device',
+        ];
     }
 
     /**
@@ -201,6 +212,68 @@ class IdentityPersonalData implements PersonalDataOwner
                 'reversed_at' => ExportWalk::at($referral->reversed_at),
             ],
         );
+
+        /*
+        | Spec 038 · FR-012 — the sign-in log, in the subject's own archive.
+        |
+        | The spec opens on this: «أين دخلَ حسابُك» was the sharpest thing in this
+        | table and it never reached the person it is about. Declaring the two
+        | categories drags the export and the erasure arms with it; shipping one
+        | without the others is what `PersonalDataContractCoverageTest` fails on.
+        |
+        | ⛔ `ip_hash` IS GATED, AND IT IS NOT A HASH. `StartAuthSession` writes
+        | `hash('sha256', $request->ip())` unsalted over a 2³² input space — a full
+        | reverse table is minutes of commodity compute, so the column is a
+        | READABLE ADDRESS and the file is a rolling location history. Three
+        | measured facts decide the gate: the archive is downloaded by the
+        | REQUESTER rather than the subject, an export is dispatched with no
+        | officer in the loop, and a guardian holding `DataRights` may open one for
+        | a child — the custody dispute this file already names two blocks up.
+        |
+        | ⚠️ AND THIS DOES NOT CONTRADICT `ExportFieldAllowlist`, whose comment
+        | says the absence of `ip_address`/`ip_hash` from the ban list is
+        | deliberate. That decision was written about `terms_consents.ip_address`
+        | — ONE address that is the evidence of ONE consent — not about a log of
+        | every place an account has been. So the distinction lives in the arm,
+        | not in the ban list, exactly as `guardian_link`'s does.
+        |
+        | ⚠️ `device_label` AND NOT `device_id`: the id names nothing on its own and
+        | the label is the closed 6×6 set the screen already renders. The
+        | fingerprint is banned outright (`ExportFieldAllowlist::forbiddenKeys()`).
+        |
+        | ⚠️ `surface` is derived from `token_id`, the same spelling
+        | `AuthSessionResource` uses — never from `session_id`, which FR-015 nulls.
+        | Two spellings of one question is how the screen and the archive end up
+        | disagreeing about which door somebody came in by.
+        */
+        $ownRequest = $subject->grantedScope === null;
+
+        yield from ExportWalk::keyed(
+            'auth_session',
+            AuthSession::query()
+                ->with('device:id,label')
+                ->where('user_id', $user->getKey()),
+            fn (AuthSession $session): array => [
+                'surface' => $session->token_id === null ? 'panel' : 'app',
+                'status' => $session->status,
+                'ended_reason' => $session->ended_reason?->value,
+                'device_label' => $session->device->label,
+                // `started_at` is `created_at`; there is no column of that name.
+                'started_at' => ExportWalk::at($session->created_at),
+                'last_active_at' => ExportWalk::at($session->last_active_at),
+                'ended_at' => ExportWalk::at($session->ended_at),
+            ] + ($ownRequest ? ['ip_hash' => $session->ip_hash] : []),
+        );
+
+        yield from ExportWalk::keyed(
+            'device',
+            Device::query()->where('user_id', $user->getKey()),
+            fn (Device $device): array => [
+                'label' => $device->label,
+                'created_at' => ExportWalk::at($device->created_at),
+                'last_seen_at' => ExportWalk::at($device->last_seen_at),
+            ],
+        );
     }
 
     public function erase(DataSubject $subject, ErasureMode $mode, int $limit): int
@@ -211,8 +284,31 @@ class IdentityPersonalData implements PersonalDataOwner
 
         $user = $subject->user->fresh();
 
-        if ($user === null || $this->alreadyAnonymised($user)) {
+        if ($user === null) {
             return 0;
+        }
+
+        /*
+        | ⛔ SPEC 038 · FR-014 — ABOVE THE GUARD, NOT BELOW IT.
+        |
+        | `alreadyAnonymised()` returns before the transaction for any account
+        | carrying the marker, which is every account erased before this feature
+        | shipped. Written below the guard, these two arms would never reach one of
+        | them: no fresh erasure request arrives for an account already erased, and
+        | the nightly age arm touches OLD ENDED sessions only — while an erased
+        | account may still hold a live one. So every address and every fingerprint
+        | belonging to everyone erased to date would survive FOR EVER.
+        |
+        | ⚠️ AND THE GUARD ITSELF IS NOT WEAKENED. It is what makes
+        | `ExecuteDataErasure`'s `$done < $limit` loop terminate — so the arm above
+        | it has to CONVERGE on its own: each statement selects only rows that are
+        | not yet anonymised, so a second pass over the same account writes nothing
+        | and the loop ends on the next batch.
+        */
+        $swept = app(AuthSessionRetention::class)->eraseFor($user->getKey());
+
+        if ($this->alreadyAnonymised($user)) {
+            return $swept;
         }
 
         /*
@@ -265,16 +361,36 @@ class IdentityPersonalData implements PersonalDataOwner
         array $exemptUserIds = [],
     ): int {
         /*
-        | ⚠️ NOTHING IN THIS MODULE EXPIRES ON A CLOCK, and saying so is the answer
-        | rather than an omission. A name, a phone number and a date of birth are
-        | held for as long as the ACCOUNT is — they have no age of their own, and a
-        | sweep that deleted a living user's name after N days would break the
-        | product on a schedule. Their catalogue rows carry a null retention, so
-        | the sweep never reaches here; this method exists because the contract has
-        | five functions and a silent `return 0` with no reason is how the next
-        | reader concludes it was forgotten.
+        | ⚠️ FIVE OF THIS MODULE'S SEVEN CATEGORIES EXPIRE ON NO CLOCK AT ALL, and
+        | saying so is the answer rather than an omission. A name, a phone number
+        | and a date of birth are held for as long as the ACCOUNT is — they have no
+        | age of their own, and a sweep that deleted a living user's name after N
+        | days would break the product on a schedule. Their catalogue rows carry a
+        | null retention, so `DataCategory::expires()` is false and the sweep never
+        | asks about them.
+        |
+        | ⛔ SPEC 038 ADDED THE TWO THAT DO. A sign-in record ages the way a
+        | security log ages: the fact that somebody signed in stays, and WHERE they
+        | signed in from stops being worth keeping. So these two arms clear the
+        | identifying columns and keep every row — never a delete, which is the
+        | same call spec 013 made for `attendances` and for the same reason: the
+        | row is what other things are counted from.
+        |
+        | ⚠️ AND THE MATCH IS EXHAUSTIVE BY DEFAULT-RETURN, not by `match`: the
+        | sweep asks about every category this module declares, five of which must
+        | answer 0 without doing anything.
         */
-        return 0;
+        if ($mode !== ExpiryBehaviour::Anonymise) {
+            return 0;
+        }
+
+        $retention = app(AuthSessionRetention::class);
+
+        return match ($category) {
+            'auth_session' => $retention->anonymiseSessionsOlderThan($before, $exemptUserIds, $limit),
+            'device' => $retention->anonymiseDevicesOlderThan($before, $exemptUserIds, $limit),
+            default => 0,
+        };
     }
 
     private function alreadyAnonymised(User $user): bool

@@ -87,6 +87,20 @@ final class PlatformSettings
         'billing.transfer' => 'billing.transfer',
         'auth.device_limits' => 'media.device_limits',
         'auth.two_factor_grace_days' => 'media.two_factor_grace_days',
+        /*
+        | Spec 038 · FR-005 — the two numbers that bound the sign-in log.
+        |
+        | ⛔ THE MAP IS WHAT MAKES THEM EXIST. `all()` and `flush()` both iterate
+        | `array_keys(self::KEYS)`, so a key outside it is invisible to the panel
+        | and cannot be invalidated — while `get()` caches `rememberForever`. A
+        | number nobody can see and nobody can clear is a number nobody tunes.
+        |
+        | ⚠️ AND THE PREFIX IS `auth.`, NOT `identity.`: the module already owns
+        | `auth.device_limits` and `auth.two_factor_grace_days`, and a third prefix
+        | would split one screen's numbers across two sections.
+        */
+        'auth.auth_session_cap_per_user' => 'auth_sessions.cap_per_user',
+        'auth.auth_session_cap_min_age_days' => 'auth_sessions.cap_min_age_days',
         'media.max_size_bytes' => 'media.max_size_bytes',
         'media.max_duration_seconds' => 'media.max_duration_seconds',
         'media.max_document_size_bytes' => 'media.max_document_size_bytes',

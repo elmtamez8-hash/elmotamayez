@@ -8,6 +8,9 @@ use App\Modules\Compliance\Models\LegalHold;
 use App\Modules\Compliance\Models\RetentionSweepRun;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Identity\Models\AuthSession;
+use App\Modules\Identity\Models\Device;
+use App\Modules\Identity\Support\AuthSessionRetention;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Models\LessonProgress;
 use App\Modules\LiveSessions\Models\Attendance;
@@ -18,6 +21,7 @@ use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Providers\LocalMediaProvider;
 use App\Modules\Notifications\Models\Notification;
 use App\Shared\Support\WorkspaceContext;
+use Illuminate\Support\Facades\DB;
 
 /**
  * SC-010 — the sweep is idempotent, and the invariant is a TRIPLE.
@@ -140,6 +144,26 @@ beforeEach(function (): void {
     // Aged by query — see the note in the workspace block above.
     Notification::query()->update(['created_at' => now()->subDays(400)]);
 
+    /*
+    | ⛔ AND A SIGN-IN RECORD, BECAUSE THIS FILE HAD NONE AND `rows_anonymised`
+    | IS ALREADY FED BY `attendance_record`. Spec 038 added the first two
+    | `Anonymise` categories that MOVE a pointer rather than blanking a column, and
+    | an assertion bolted onto the existing fixture would be green with the whole
+    | feature absent — the aggregate cannot tell identity's arms from attendance's.
+    |
+    | ⚠️ AGED BY QUERY: `created_at` is not fillable, so a row written "400 days
+    | old" inside `create()` is born today and is never swept at all.
+    */
+    $this->device = Device::factory()->create(['user_id' => $this->student->getKey()]);
+    $this->session = AuthSession::factory()->ended()->create([
+        'user_id' => $this->student->getKey(),
+        'device_id' => $this->device->getKey(),
+    ]);
+    DB::table('devices')->where('id', $this->device->getKey())
+        ->update(['created_at' => now()->subDays(400)]);
+    DB::table('auth_sessions')->where('id', $this->session->getKey())
+        ->update(['created_at' => now()->subDays(400), 'ended_at' => now()->subDays(300)]);
+
     $this->deletes = 0;
 
     /*
@@ -165,12 +189,25 @@ it('leaves the same state behind on a second run, and logs both', function (): v
         'notifications' => Notification::query()->count(),
         'reasons' => Attendance::query()->withoutWorkspaceScope()->whereNotNull('override_reason')->count(),
         'archived' => MediaAsset::query()->withoutWorkspaceScope()->whereNotNull('archived_at')->count(),
+        'addresses' => AuthSession::query()->whereNotNull('ip_hash')->count(),
+        'fingerprints' => Device::query()
+            ->where('fingerprint_hash', 'not like', AuthSessionRetention::ANONYMISED_PREFIX.'%')
+            ->count(),
     ];
     $deletesAfterFirst = $this->deletes;
 
     // Everything that should have gone, went.
     // The unread one survives; only the read one goes.
-    expect($afterFirst)->toBe(['progress' => 0, 'notifications' => 1, 'reasons' => 0, 'archived' => 1]);
+    expect($afterFirst)->toBe([
+        'progress' => 0,
+        'notifications' => 1,
+        'reasons' => 0,
+        'archived' => 1,
+        // The aged sign-in lost its address; the tombstone is the only device row
+        // left carrying a real-looking fingerprint… which is to say, none is.
+        'addresses' => 0,
+        'fingerprints' => 0,
+    ]);
 
     RunRetentionSweepJob::dispatchSync();
 
@@ -180,6 +217,10 @@ it('leaves the same state behind on a second run, and logs both', function (): v
         'notifications' => Notification::query()->count(),
         'reasons' => Attendance::query()->withoutWorkspaceScope()->whereNotNull('override_reason')->count(),
         'archived' => MediaAsset::query()->withoutWorkspaceScope()->whereNotNull('archived_at')->count(),
+        'addresses' => AuthSession::query()->whereNotNull('ip_hash')->count(),
+        'fingerprints' => Device::query()
+            ->where('fingerprint_hash', 'not like', AuthSessionRetention::ANONYMISED_PREFIX.'%')
+            ->count(),
     ])->toBe($afterFirst);
 
     /*
@@ -200,7 +241,19 @@ it('leaves the same state behind on a second run, and logs both', function (): v
     // having looked — the categories were still walked.
     expect($second->categories_processed)->toBeGreaterThan(0)
         ->and($second->rows_deleted)->toBe(0)
-        ->and($second->rows_archived)->toBe(0);
+        ->and($second->rows_archived)->toBe(0)
+        /*
+        | ⛔ AND `rows_anonymised`, WHICH THIS FILE NEVER ASSERTED. It is the one
+        | bucket an arm that never converges keeps re-filling — the same defect the
+        | archive category is in this fixture for, reached from a second door.
+        |
+        | ⛔ AND `findings_count`, WHICH IT NEVER ASSERTED EITHER: the job CATCHES a
+        | throwing category, records it and carries on writing zero — so an arm
+        | that explodes on every pass reports zero twice and satisfies every other
+        | line here perfectly.
+        */
+        ->and($second->rows_anonymised)->toBe(0)
+        ->and($second->findings_count)->toBe(0);
 });
 
 /*

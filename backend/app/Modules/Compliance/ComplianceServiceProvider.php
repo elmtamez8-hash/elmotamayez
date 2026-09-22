@@ -8,8 +8,10 @@ use App\Modules\Compliance\Models\DataRequest;
 use App\Modules\Compliance\Models\LegalHold;
 use App\Modules\Compliance\Policies\DataRequestPolicy;
 use App\Modules\Compliance\Policies\LegalHoldPolicy;
+use App\Modules\Compliance\Support\EloquentLegalHoldDirectory;
 use App\Modules\Compliance\Support\EloquentTeacherOffboardingDirectory;
 use App\Modules\Compliance\Support\PersonalDataRegistry;
+use App\Shared\Contracts\LegalHoldDirectory;
 use App\Shared\Contracts\TeacherOffboardingDirectory;
 use App\Shared\Modules\Module;
 use App\Shared\Modules\ModulesServiceProvider;
@@ -56,6 +58,20 @@ class ComplianceServiceProvider extends Module
         | completed at noon would keep answering `false` until the worker restarted.
         */
         $this->app->scoped(TeacherOffboardingDirectory::class, EloquentTeacherOffboardingDirectory::class);
+
+        /*
+        | ⚠️ `bind()`, against the pattern of the two lines above it, and the
+        | reason is the opposite of theirs. Those are asked dozens of times per
+        | request and must not go stale across a queue job; this one is asked once
+        | per batch of an irreversible walk, ON PURPOSE — a hold placed while
+        | `EnforceAuthSessionCapJob` is running has to protect the rows it has not
+        | deleted yet, so a container-lifetime instance holding a memoised list is
+        | the one shape that breaks it.
+        |
+        | The hold is declared here and obeyed in Identity, which may not import
+        | `LegalHold` (Constitution III). Spec 038 · FR-004.
+        */
+        $this->app->bind(LegalHoldDirectory::class, EloquentLegalHoldDirectory::class);
     }
 
     public function boot(): void
