@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Compliance\Jobs;
 
 use App\Modules\Compliance\Models\DataCategory;
-use App\Modules\Compliance\Models\LegalHold;
 use App\Modules\Compliance\Models\RetentionSweepRun;
 use App\Modules\Compliance\Support\PersonalDataRegistry;
+use App\Shared\Contracts\LegalHoldDirectory;
 use App\Shared\Support\ExpiryBehaviour;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
@@ -83,7 +83,7 @@ class RunRetentionSweepJob implements ShouldQueue
             ->dontRelease()];
     }
 
-    public function handle(PersonalDataRegistry $registry): void
+    public function handle(PersonalDataRegistry $registry, LegalHoldDirectory $holds): void
     {
         /*
         | ⚠️ FR-030, RESOLVED ONCE AND PASSED DOWN. A legal hold suspends an erasure
@@ -94,10 +94,7 @@ class RunRetentionSweepJob implements ShouldQueue
         | Passed as ids rather than read by each module: `Compliance` names no
         | module's table, and no module imports `LegalHold`.
         */
-        $exemptUserIds = array_values(array_unique(array_map(
-            intval(...),
-            LegalHold::query()->inForce()->pluck('subject_user_id')->all(),
-        )));
+        $exemptUserIds = $holds->heldUserIds();
 
         $processed = 0;
         $rows = [ExpiryBehaviour::Delete->value => 0, ExpiryBehaviour::Anonymise->value => 0, ExpiryBehaviour::Archive->value => 0];
@@ -131,7 +128,7 @@ class RunRetentionSweepJob implements ShouldQueue
             $before = CarbonImmutable::now()->subDays((int) $category->retain_days);
 
             try {
-                $rows[$behaviour->value] += $this->walk($registry, $category->key, $before, $behaviour, $exemptUserIds);
+                $rows[$behaviour->value] += $this->walk($registry, $holds, $category->key, $before, $behaviour, $exemptUserIds);
             } catch (Throwable $e) {
                 /*
                 | One category's failure must not end the night for the twelve
@@ -163,10 +160,12 @@ class RunRetentionSweepJob implements ShouldQueue
     }
 
     /**
-     * @param  list<int>  $exemptUserIds
+     * @param  list<int>  $exemptUserIds  the list as it stood at the top of the run,
+     *                                    used only until the first batch re-reads it
      */
     private function walk(
         PersonalDataRegistry $registry,
+        LegalHoldDirectory $holds,
         string $category,
         CarbonImmutable $before,
         ExpiryBehaviour $behaviour,
@@ -181,6 +180,24 @@ class RunRetentionSweepJob implements ShouldQueue
         $total = 0;
 
         for ($batch = 0; $batch < self::MAX_BATCHES_PER_CATEGORY; $batch++) {
+            /*
+            | ⛔ RE-READ BEFORE EVERY BATCH, WHICH IS WHAT THE CONTRACT ASKS FOR.
+            | `LegalHoldDirectory` says in as many words that it «is asked before
+            | every batch, never once at the top of a run», and
+            | `EloquentLegalHoldDirectory` refuses to memoise on that premise —
+            | while this job resolved the list once, above the category loop, and
+            | handed the same array to all 200 batches of all 21 categories.
+            |
+            | A hold placed at 03:31 on a subject with sign-ins past their
+            | retention was therefore anonymised by the 03:30 sweep still walking,
+            | irreversibly, with the hold row sitting green beside it.
+            |
+            | ⚠️ THE TOP-OF-RUN READ STAYS, and it stays OUTSIDE the try: a
+            | directory that cannot answer must end the night, never degrade into
+            | an empty exemption list. Empty means «nobody is held».
+            */
+            $exemptUserIds = $holds->heldUserIds();
+
             $done = $owner->expire($category, $before, $behaviour, self::BATCH, $exemptUserIds);
             $total += $done;
 

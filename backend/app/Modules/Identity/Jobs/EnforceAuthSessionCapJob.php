@@ -115,6 +115,28 @@ class EnforceAuthSessionCapJob implements ShouldQueue
         $deleted = 0;
         $users = 0;
 
+        /*
+        | â A KEYSET CURSOR, NEVER AN OFFSET â and the difference is a night's
+        | work silently dropped. `trim()` leaves each account holding exactly `$cap`
+        | candidates, so `having('total', '>', $cap)` stops matching it and THE
+        | RESULT SET SHRINKS UNDER THE WALK. An offset then steps over a set that
+        | has lost precisely the rows it was meant to step past: with 300 accounts
+        | over the cap, page one trims 200, the set falls to 100, page two asks for
+        | offset 200 of 100 rows, gets nothing, and the run ends reporting
+        | `users_trimmed = 200` as a success with 1,800 of its budget unspent.
+        |
+        | `AuthSessionRetention::backfillErasedAccounts()` carries this same rule in
+        | its own docblock (Â«the predicate shrinks under the walkÂ») â it is the
+        | `chunk` vs `chunkById` defect reached through a GROUP BY.
+        |
+        | â ï¸ It also terminates by construction: the cursor is the last id of the
+        | page and the next query asks for strictly greater, so the walk advances
+        | even when a page trims nothing â a held account, or one whose `trim()`
+        | threw, sits behind the cursor and is retried tomorrow rather than stalling
+        | the loop on itself for ever.
+        */
+        $cursor = 0;
+
         while ($seen < self::MAX_USERS_PER_RUN) {
             /*
             | ⛔ ASKED AT THE HEAD OF EVERY PAGE — never once at the top of the run.
@@ -129,13 +151,14 @@ class EnforceAuthSessionCapJob implements ShouldQueue
             */
             $exempt = $holds->heldUserIds();
 
-            $candidates = $this->overCap($cap, $floor, $exempt, $seen);
+            $candidates = $this->overCap($cap, $floor, $exempt, $cursor);
 
             if ($candidates === []) {
                 break;
             }
 
             $seen += count($candidates);
+            $cursor = $candidates[count($candidates) - 1];
 
             foreach ($candidates as $userId) {
                 try {
@@ -194,7 +217,7 @@ class EnforceAuthSessionCapJob implements ShouldQueue
      * @param  list<int>  $exempt
      * @return list<int>
      */
-    private function overCap(int $cap, CarbonImmutable $floor, array $exempt, int $offset): array
+    private function overCap(int $cap, CarbonImmutable $floor, array $exempt, int $after): array
     {
         /*
         | ⛔ THE SELECT LIST IS EXPLICIT, AND THIS IS A MySQL-ONLY LANDMINE. A bare
@@ -209,12 +232,15 @@ class EnforceAuthSessionCapJob implements ShouldQueue
         */
         $rows = $this->candidates($floor)
             ->when($exempt !== [], fn (Builder $q): Builder => $q->whereNotIn('user_id', $exempt))
+            // The cursor. Pre-grouping, which is exact: every row of a group
+            // carries the same `user_id`, so filtering rows and filtering groups
+            // are the same filter here.
+            ->where('user_id', '>', $after)
             ->select('user_id')
             ->selectRaw('count(*) as total')
             ->groupBy('user_id')
             ->having('total', '>', $cap)
             ->orderBy('user_id')
-            ->offset($offset)
             ->limit(self::DISCOVERY_PAGE)
             ->pluck('user_id');
 

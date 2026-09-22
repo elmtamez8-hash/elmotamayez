@@ -9,6 +9,7 @@ use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Models\Device;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Spec 038 · US2 — the cap, and the floor that keeps it from erasing evidence.
@@ -143,21 +144,45 @@ it('reads a cap of zero as no cap at all', function (): void {
     expect(anonymisedSessionCount($this->subject))->toBe(60);
 });
 
-it('keeps the same rows when two sessions ended in the same second', function (): void {
-    cappedSessionFixture($this->subject, 60, 400);
+it('breaks a tie on the moment by the newer row, not by whatever the engine returns', function (): void {
+    $ids = cappedSessionFixture($this->subject, 60, 400);
 
-    // Two rows on the cap boundary sharing one `ended_at`: with `id DESC` absent
-    // from the ordering, which of them survives flips between runs.
-    $boundary = AuthSession::query()
-        ->where('user_id', $this->subject->getKey())
-        ->orderByDesc('ended_at')
-        ->skip(49)
-        ->take(2)
-        ->pluck('id')
-        ->all();
+    /*
+    | ⛔ THE PAIR ON THE CAP BOUNDARY, TIED ON `ended_at`.
+    |
+    | `cappedSessionFixture` walks backwards in time, so `$ids` ascends while
+    | `ended_at` descends: index 49 is the last survivor and index 50 the first
+    | casualty. Give them one `ended_at` and the ONLY thing left to separate
+    | them is `orderByDesc('id')` — under which the higher id sorts first and
+    | therefore lives.
+    |
+    | ⚠️ THE PREVIOUS SPELLING OF THIS CASE MEASURED NOTHING. It trimmed,
+    | then trimmed again, and compared the survivors to themselves — by the
+    | second run nobody is over the cap, so nothing is deleted and no ordering
+    | decision is ever taken twice. Deleting the tiebreak left all nine cases in
+    | this file green. Naming WHICH row must survive is what bites, because a
+    | database is deterministic for one query over one dataset: two identical
+    | runs agree even with no tiebreak at all.
+    */
+    $lastSurvivor = $ids[49];
+    $firstCasualty = $ids[50];
 
-    DB::table('auth_sessions')->whereIn('id', $boundary)
+    DB::table('auth_sessions')->whereIn('id', [$lastSurvivor, $firstCasualty])
         ->update(['ended_at' => now()->subDays(400)->subSeconds(49)]);
+
+    EnforceAuthSessionCapJob::dispatchSync();
+
+    $survivors = AuthSession::query()->where('user_id', $this->subject->getKey())
+        ->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
+
+    expect($survivors)->toHaveCount(50)
+        // The higher id of the tied pair — and the lower one is gone.
+        ->and($survivors)->toContain($firstCasualty)
+        ->and($survivors)->not->toContain($lastSurvivor);
+});
+
+it('deletes nothing on a second pass', function (): void {
+    cappedSessionFixture($this->subject, 60, 400);
 
     EnforceAuthSessionCapJob::dispatchSync();
 
@@ -166,8 +191,8 @@ it('keeps the same rows when two sessions ended in the same second', function ()
 
     EnforceAuthSessionCapJob::dispatchSync();
 
-    // ⚠️ THE ID SET, NOT THE COUNT (SC-006). A count is identical under an
-    // ordering that changes its mind; only the set shows it.
+    // ⚠️ THE ID SET, NOT THE COUNT. A count is identical under an
+    // implementation that deleted one row and spared another.
     expect(AuthSession::query()->where('user_id', $this->subject->getKey())
         ->orderBy('id')->pluck('id')->all())->toBe($first);
 });
@@ -253,4 +278,81 @@ it('leaves a capped account able to count its sign-ins across at least three mon
     // days survives however many rows there are. Drop the floor to the retention
     // and this criterion goes with it.
     expect($months)->toBeGreaterThanOrEqual(3);
+});
+
+it('walks past the first discovery page without skipping the accounts behind it', function (): void {
+    /*
+    | ⛔ THE ONLY CASE THAT CROSSES `DISCOVERY_PAGE`, AND NOTHING ELSE IN THIS
+    | FILE CAN SEE THE DEFECT IT GUARDS. Paging the discovery query by OFFSET is
+    | green for every fixture smaller than one page — which is every other case
+    | here — because the second page is never asked for.
+    |
+    | The defect: `trim()` leaves each account holding exactly `$cap` candidates,
+    | so `having('total', '>', $cap)` stops matching it and the result set SHRINKS
+    | under the walk. An offset then steps over a set that has lost precisely the
+    | rows it was meant to step past, and the accounts behind the first page are
+    | never reached — while the run logs its partial work as a success.
+    |
+    | ⚠️ THE CAP IS SET TO 1 SO THE FIXTURE STAYS SMALL. At the shipped 50 this
+    | case would need 201 Ã 51 rows to say the same thing; the paging has nothing
+    | to do with the size of the cap.
+    */
+    PlatformSettings::set('auth.auth_session_cap_per_user', 1);
+
+    $users = User::factory()->count(201)->create();
+
+    $devices = [];
+    $sessions = [];
+    $now = now();
+
+    foreach ($users as $i => $user) {
+        $deviceId = $i + 1;
+
+        $devices[] = [
+            'id' => $deviceId,
+            'uuid' => (string) Str::uuid(),
+            'user_id' => $user->getKey(),
+            'fingerprint_hash' => hash('sha256', 'd'.$deviceId),
+            'label' => 'fixture',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
+
+        // Two anonymised, aged rows each — one over a cap of 1.
+        foreach ([0, 1] as $n) {
+            $sessions[] = [
+                'uuid' => (string) Str::uuid(),
+                'user_id' => $user->getKey(),
+                'device_id' => $deviceId,
+                'status' => AuthSession::STATUS_ENDED,
+                'ip_hash' => null,
+                'created_at' => $now->copy()->subDays(401),
+                'updated_at' => $now,
+                'ended_at' => $now->copy()->subDays(400)->subSeconds($n),
+            ];
+        }
+    }
+
+    DB::table('devices')->insert($devices);
+
+    foreach (array_chunk($sessions, 200) as $chunk) {
+        DB::table('auth_sessions')->insert($chunk);
+    }
+
+    EnforceAuthSessionCapJob::dispatchSync();
+
+    /*
+    | ⚠️ THE ACCOUNTS STILL OVER THE CAP, NOT THE TOTAL ROW COUNT. A total is
+    | off by one row out of 402 and reads as rounding; the set of accounts the
+    | job failed to reach is the thing that was actually lost.
+    */
+    $untrimmed = AuthSession::query()
+        ->select('user_id')
+        ->selectRaw('count(*) as total')
+        ->groupBy('user_id')
+        ->having('total', '>', 1)
+        ->pluck('user_id')
+        ->all();
+
+    expect($untrimmed)->toBe([]);
 });
