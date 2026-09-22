@@ -183,6 +183,8 @@ class PublicMarketplaceController extends Controller
         | جعلَ تسجيلاً مدفوعاً غيرَ قابلٍ للفتحِ في ٠١٨.
         */
         $payload['is_full'] = $action->isFull($course);
+        // «سجّل مجاناً» — the enrol door's own predicate, never `price === 0`.
+        $payload['free_enrollment'] = $action->freeEnrollment($course);
 
         return response()->json(['data' => $payload]);
     }

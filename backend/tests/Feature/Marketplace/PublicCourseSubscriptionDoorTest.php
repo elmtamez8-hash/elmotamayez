@@ -238,3 +238,34 @@ it('costs the same number of queries whatever the number of groups', function ()
     expect(count($log))->toBe($withOne, 'a query per group: '
         .implode(' | ', array_column($log, 'query')));
 });
+
+/*
+| ⛔ «سجّل مجاناً» IS DRAWN ON THE ENROL DOOR'S OWN PREDICATE, NEVER ON THE PRICE.
+| `courses.price` defaults to 0 and prices the one-off purchase alone, so a
+| course sold by plan reads as free — a button drawn on `price_minor === 0`
+| would be pressed and refused with `purchase_required`.
+*/
+it('offers free enrolment on a course with no price and no plan', function (): void {
+    $this->course->forceFill(['price_minor' => 0])->save();
+
+    expect(doorPayload($this->course)['free_enrollment'])->toBeTrue();
+});
+
+it('does not offer free enrolment on a course sold by a plan at price zero', function (): void {
+    $this->course->forceFill(['price_minor' => 0])->save();
+
+    Plan::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'price_minor' => 45_000,
+        'coverage_type' => PlanCoverage::Course,
+        'coverage_uuid' => $this->course->uuid,
+    ]);
+
+    expect(doorPayload($this->course)['free_enrollment'])->toBeFalse();
+});
+
+it('does not offer free enrolment on a course with a one-off price', function (): void {
+    $this->course->forceFill(['price_minor' => 25_000])->save();
+
+    expect(doorPayload($this->course)['free_enrollment'])->toBeFalse();
+});

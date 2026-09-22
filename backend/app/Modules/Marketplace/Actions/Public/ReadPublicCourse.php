@@ -246,6 +246,19 @@ class ReadPublicCourse extends Action
     }
 
     /**
+     * Whether «سجّل مجاناً» may be drawn — the free-enrolment door's OWN question.
+     *
+     * ⚠️ `courseRequiresPurchase()`, never `price_minor === 0`: `courses.price`
+     * defaults to 0 and prices the one-off purchase alone, so a course sold by
+     * subscription or by credits reads as free. `EnrollmentController::enroll()`
+     * refuses on exactly this predicate, so the button and the door agree.
+     */
+    public function freeEnrollment(Course $course): bool
+    {
+        return ! $this->subscriptions->courseRequiresPurchase((int) $course->getKey());
+    }
+
+    /**
      * Whether the private-subscription invitation may be shown (FR-003).
      *
      * ⚠️ THE SERVER ANSWERS THIS OR NOBODY CAN. The invitation is only honest

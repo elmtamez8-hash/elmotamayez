@@ -1,7 +1,15 @@
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { SessionsTab } from "./SessionsTab";
 import type { ClassSession } from "@/lib/class-sessions";
+import { ApiError } from "@/lib/api";
+
+const post = vi.fn();
+
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
+  api: { post: (path: string, body: unknown) => post(path, body) },
+}));
 
 /*
 | ⛔ **قائمةٌ فارغةٌ لها سببانِ، وواحدٌ منهما ليسَ ذنبَ المدرّس.**
@@ -50,5 +58,63 @@ describe("SessionsTab", () => {
 
     expect(screen.queryByText(/بعد إسنادك إلى مجموعة/)).toBeNull();
     expect(screen.getByText("القادمة")).toBeTruthy();
+  });
+});
+
+/*
+| ⛔ «احجز» — spec 036: a session package gives CREDIT and the student books by the
+| ordinary path. That path had no button, so the credit could not be spent.
+*/
+describe("the student's own booking", () => {
+  // Far in the future so it lands among the upcoming ones.
+  const upcoming = (overrides: Partial<ClassSession> = {}): ClassSession =>
+    ({
+      ...session("s-9"),
+      starts_at: "2099-01-01T10:00:00Z",
+      ends_at: "2099-01-01T11:00:00Z",
+      status: "scheduled",
+      my_booking: null,
+      ...overrides,
+    }) as ClassSession;
+
+  beforeEach(() => {
+    post.mockReset();
+  });
+
+  it("books a seat and says so", async () => {
+    post.mockResolvedValue({ uuid: "b-1" });
+
+    render(<SessionsTab sessions={[upcoming()]} />);
+    fireEvent.click(screen.getByRole("button", { name: "احجز" }));
+
+    expect(await screen.findByText("محجوز")).toBeTruthy();
+    expect(post).toHaveBeenCalledWith("/class-sessions/s-9/book", {});
+  });
+
+  it("shows the server's own reason, not the generic 409 sentence", async () => {
+    post.mockRejectedValue(
+      new ApiError("رصيدك محجوزٌ لحصصٍ أخرى (1 حصة).", 409, { message: "رصيدك محجوزٌ لحصصٍ أخرى (1 حصة).", code: "booking_refused" }),
+    );
+
+    render(<SessionsTab sessions={[upcoming()]} />);
+    fireEvent.click(screen.getByRole("button", { name: "احجز" }));
+
+    expect(await screen.findByText(/رصيدك محجوزٌ لحصصٍ أخرى/)).toBeTruthy();
+    expect(screen.queryByText(/تغيّرت الحالة/)).toBeNull();
+  });
+
+  it("offers nothing to book on a seat already held, a full session, or the past", () => {
+    render(
+      <SessionsTab
+        sessions={[
+          upcoming({ uuid: "held", my_booking: { uuid: "b", status: "booked", status_label: "محجوز", may_cancel_until: "" } }),
+          upcoming({ uuid: "full", seats: { total: 6, taken: 6, available: 0 } }),
+          upcoming({ uuid: "old", starts_at: "2000-01-01T10:00:00Z", ends_at: "2000-01-01T11:00:00Z" }),
+        ]}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "احجز" })).toBeNull();
+    expect(screen.getByText("محجوز")).toBeTruthy();
   });
 });
