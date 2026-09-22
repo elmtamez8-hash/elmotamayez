@@ -1,33 +1,61 @@
-# Phase 1 — دليلُ التحقّق: كيف يُقاسُ أنّ هذا يعمل
+# Phase 1 — دليلُ التحقّق
 
-**الميزة**: `038-session-log-retention` · **التاريخ**: ٢٠٢٦-٠٩-٢٢
+**الميزة**: `038-session-log-retention` · **التاريخ**: ٢٠٢٦-٠٩-٢٢ · **النسخةُ الثانية** بعدَ [مراجعةِ الوكلاء](./review-findings.md)
 
-⛔ **كلُّ ما هنا قياس، ولا بندَ منه يُعلَنُ «تمّ» بقراءةِ شيفرة.** والجدولانِ اللذانِ تعالجُهما هذه الميزةُ هما بالضبطِ الجدولانِ اللذانِ بقيا عشرينَ إصداراً بلا أن يلحظَهما أحد.
-
----
-
-## المتطلَّباتُ السابقة
-
-- الخلفيّةُ وحدَها. **لا خادمَ واجهةٍ ولا متصفّح** — الحمولةُ لا تتغيّر (`research.md` · ر-٤).
-- عاملُ طابورٍ يستمعُ إلى `compliance`، أو تشغيلُ المهمّةِ متزامنةً في `tinker`.
-- ⚠️ **وعاملٌ قديمٌ يحملُ الشيفرةَ التي أقلعَ بها.** أعِدْ تشغيلَه بعدَ كلِّ تعديل، وإلّا قرأتَ أثراً من بناءٍ لم يعُدْ على القرص.
+⛔ **أوّلُ ما يجبُ أن يُقالَ، لأنّ النسخةَ الأولى بُنِيَت على عكسِه: لا قاعدةَ حقيقيّةٌ اليومَ تُخرِجُ رقماً موجباً.** أقدمُ صفٍّ في الإنتاجِ عمرُه ١٩ يوماً وفي التطويرِ ٤٧، ومدّةُ الاحتفاظِ ٩٠. **فالمرورُ على قاعدةٍ كما هي يُخرِجُ أصفاراً — وهي نفسُها ما يُخرِجُه بناءٌ لم تُكتَبْ فيه الميزةُ أصلاً.** فكلُّ قياسٍ هنا يبدأُ بتشييخِ صفوف، وكلُّ نفيٍ معه ضابطٌ موجَبٌ في التشغيلةِ نفسِها.
 
 ---
 
-## ١ · الكتالوجُ وصلَ فعلاً (FR-001 · FR-002)
+## ٠ · بناءُ المُهيَّأ — وثلاثةُ ألغامٍ فيه
 
 ```bash
 cd backend
 echo "" | php artisan tinker --execute="
-  \$rows = App\Modules\Compliance\Models\DataCategory::whereIn('key', ['auth_session','device'])->get();
-  echo \$rows->count().PHP_EOL;
-  foreach (\$rows as \$r) { echo \$r->key.' | '.\$r->retain_days.' | '.\$r->expiry_behaviour?->value.' | '.\$r->erasure_mode?->value.PHP_EOL; }
+  \$u = App\Models\User::factory()->create();
+  \$d = App\Modules\Identity\Models\Device::factory()->create(['user_id' => \$u->id]);
+
+  // ⚠️ ip_hash يُكتَبُ صراحةً — المصنعُ لا يكتبُه، فصفٌّ منه مولودٌ «مُجهَّلاً»
+  // ⚠️ والوالدُ واحدٌ — المصنعُ يُعلِنُ user_id وdevice_id مصنعَينِ مستقلَّين
+  foreach (range(1, 60) as \$i) {
+      \$s = App\Modules\Identity\Models\AuthSession::factory()->create([
+          'user_id' => \$u->id, 'device_id' => \$d->id,
+          'status' => 'ended', 'ip_hash' => hash('sha256', '10.0.0.'.\$i),
+      ]);
+      // ⚠️ التشييخُ باستعلام: created_at ليس في \$fillable
+      DB::table('auth_sessions')->where('id', \$s->id)->update([
+          'created_at' => now()->subDays(400 - \$i),
+          'ended_at'   => now()->subDays(400 - \$i),
+      ]);
+  }
+  DB::table('devices')->where('id', \$d->id)->update(['created_at' => now()->subDays(400)]);
+  echo \$u->id.PHP_EOL;
 "
 ```
 
-**المتوقَّع**: صفّانِ · `180` · `anonymise` · `anonymise`.
+⛔ **ثلاثةُ ألغامٍ مقيسة**، وكلُّ واحدٍ منها يجعلُ التشغيلةَ خضراءَ على بناءٍ فارغ:
 
-⛔ **وهذا يُعادُ على الإنتاجِ بعدَ النشر، لا على التطويرِ وحدَه.** الكتالوجُ بياناتٌ مرجعيّةٌ يُنادى باذرُها في `migrate:fresh --seed` وفي `tests/Pest.php` فقط، فالصفُّ الجديدُ لا يصلُ قاعدةً قائمةً إلّا بهجرةِ الإملاءِ الخلفيّ. **هذه المرّةُ السادسةُ لهذا العطبِ في هذا المستودَع**، وقياسُ التطويرِ وحدَه أخضرُ وكاذب.
+1. **`AuthSessionFactory` لا يكتبُ `ip_hash`** — و`ip_hash IS NULL` هي علامةُ «جُهِّلَ سلفاً». فصفُّ المصنعِ مولودٌ مُجهَّلاً.
+2. **`user_id` و`device_id` مصنعانِ مستقلّانِ فيه** — فجلسةُ شخصٍ وجهازُ آخر، واختبارُ الحظرِ القضائيِّ يُعفي هذا ويُجهِّلُ جهازَ ذاك **ويمرُّ**.
+3. **`created_at` ليس في `$fillable`** — صفٌّ «قديمٌ» داخلَ `create()` يُولَدُ اليوم.
+
+⚠️ **ويُضافُ `ip_hash` إلى المصنعِ في التنفيذ**، كي لا يتكرّرَ اللغمُ الأوّلُ في كلِّ اختبارٍ يأتي بعدَنا.
+
+---
+
+## ١ · الكتالوجُ وصلَ (FR-001)
+
+```bash
+echo "" | php artisan tinker --execute="
+  foreach (App\Modules\Compliance\Models\DataCategory::whereIn('key',['auth_session','device'])->get() as \$r)
+      echo \$r->key.' | '.\$r->retain_days.' | '.\$r->expiry_behaviour?->value.' | '.\$r->erasure_mode?->value.PHP_EOL;
+"
+```
+
+**المتوقَّع**: صفّانِ · مدّةٌ **غيرُ فارغة** · `anonymise` · `anonymise`.
+
+⚠️ **ولا يُقارَنُ الرقمُ بقيمةٍ حرفيّة**: الباذرُ `firstOrCreate`، فمشغِّلٌ عدّلَ المدّةَ يجعلُ قياساً حرفيّاً يُقرَأُ إخفاقاً. المطلوبُ الحضورُ وعدمُ الفراغِ — و`expires()` تشترطُ الاثنَين.
+
+⛔ **ويُعادُ على الإنتاجِ بعدَ النشر.** الكتالوجُ بياناتٌ مرجعيّة، والصفُّ الجديدُ لا يصلُ قاعدةً قائمةً إلّا بهجرةِ الإملاءِ الخلفيّ — وهي المرّةُ السادسةُ لهذا الصنفِ في هذا المستودَع. وهذه **الخطوةُ الوحيدةُ** التي ترى غيابَ الهجرة.
 
 ---
 
@@ -35,158 +63,203 @@ echo "" | php artisan tinker --execute="
 
 ```bash
 echo "" | php artisan tinker --execute="
-  \$owner = app(App\Modules\Identity\Support\IdentityPersonalData::class);
-  \$modes = App\Modules\Compliance\Models\DataCategory::whereIn('key', \$owner->describe())
-      ->pluck('erasure_mode')->map(fn(\$m) => is_object(\$m) ? \$m->value : (string) \$m)->unique()->values();
-  echo \$modes->count().' :: '.\$modes->implode(',').PHP_EOL;
+  \$o = app(App\Modules\Identity\Support\IdentityPersonalData::class);
+  \$m = App\Modules\Compliance\Models\DataCategory::whereIn('key', \$o->describe())
+      ->pluck('erasure_mode')->map(fn(\$x) => is_object(\$x) ? \$x->value : (string) \$x)->unique()->values();
+  echo \$m->count().' :: '.\$m->implode(',').PHP_EOL;
 "
 ```
 
-**المتوقَّع**: `1 :: anonymise`.
-
-⛔ **وأيُّ عددٍ غيرِ ١ يعني أنّ كلَّ طلبِ محوٍ في `Identity` صارَ `Retain` بلا خطأٍ ظاهر** — لا اسمَ يُجهَّلُ ولا بريدَ ولا هاتف، وأثرُه الوحيدُ سطرُ `compliance.erasure.unclear_mode` لا يقرؤُه أحد. يُقاسُ قبلَ كلِّ ما بعدَه لأنّه العطبُ الوحيدُ هنا الذي لا يُصدِرُ صوتاً.
+**المتوقَّع**: `1 :: anonymise`. وأيُّ عددٍ غيرِ ١ يعني أنّ كلَّ طلبِ محوٍ في `Identity` صارَ `Retain` **بلا خطأٍ ظاهر**.
 
 ---
 
-## ٣ · المكنسةُ تُجهِّلُ وتُسقِّفُ — وتُشغَّلُ **مرّتَين**
+## ٣ · المكنسةُ تُجهِّلُ — مرّتَينِ، ومع أسبابِ الإخفاق
 
 ```bash
 echo "" | php artisan tinker --execute="
-  App\Modules\Compliance\Jobs\RunRetentionSweepJob::dispatchSync();
-  \$a = App\Modules\Compliance\Models\RetentionSweepRun::latest('id')->first();
-  echo 'المرور 1: مُجهَّل='.\$a->rows_anonymised.' محذوف='.\$a->rows_deleted.PHP_EOL;
-
-  App\Modules\Compliance\Jobs\RunRetentionSweepJob::dispatchSync();
-  \$b = App\Modules\Compliance\Models\RetentionSweepRun::latest('id')->first();
-  echo 'المرور 2: مُجهَّل='.\$b->rows_anonymised.' محذوف='.\$b->rows_deleted.PHP_EOL;
+  foreach ([1,2] as \$pass) {
+      App\Modules\Compliance\Jobs\RunRetentionSweepJob::dispatchSync();
+      \$r = App\Modules\Compliance\Models\RetentionSweepRun::latest('id')->first();
+      echo \$pass.': مُجهَّل='.\$r->rows_anonymised.' محذوف='.\$r->rows_deleted
+          .' إخفاقات='.\$r->findings_count.' '.json_encode(\$r->findings).PHP_EOL;
+  }
 "
 ```
 
-**المتوقَّع**: المرورُ الأوّلُ يُحرِّكُ عدداً موجباً، **والثاني صفرانِ**.
+**المتوقَّع**: المرورُ الأوّلُ **موجبٌ في `rows_anonymised`**، والثاني **صفر**، و`findings_count = 0` في الاثنَين.
 
-⛔ **والمرورُ الثاني هو القياس.** تشغيلةٌ واحدةٌ خضراءُ إلى الأبدِ وتُثبِتُ العكس — كتبَها `RollupIdempotencyTest` في هذا المستودَعِ من قبل.
+⛔ **وطباعةُ `findings` ليست زينة**: المكنسةُ تلتقطُ إخفاقَ كلِّ فئةٍ وتُكمِلُ. فاصطدامُ قيمةِ التجهيلِ بالفهرسِ الفريدِ — العطبُ الذي يُحذِّرُ منه قرارُ الخطّةِ ٤ — يُخرِجُ أرقاماً تبدو سليمةً وسطراً واحداً في `findings` لا تراه بدونِ هذا.
+
+⚠️ **والمرورُ الثاني هو القياس**: تشغيلةٌ واحدةٌ خضراءُ إلى الأبدِ وتُثبِتُ العكس.
 
 ---
 
-## ٤ · النشطةُ لم تُمَسّ (FR-006 · SC-003)
-
-يُقاسُ **قبلَ المكنسةِ وبعدَها**، على مستوى المنصّةِ كلِّها:
+## ٤ · ضابطٌ موجَبٌ: الحديثةُ لم تُمَسّ (⛔ **بدونِه المقياسُ كلُّه أجوف**)
 
 ```bash
 echo "" | php artisan tinker --execute="
-  echo App\Modules\Identity\Models\AuthSession::where('status','active')->count().PHP_EOL;
+  \$b = now()->subDays((int) App\Modules\Compliance\Models\DataCategory::where('key','auth_session')->value('retain_days'));
+  echo 'قديمة وما زالت تحمل عنواناً: '.App\Modules\Identity\Models\AuthSession::where('status','ended')
+      ->where('ended_at','<',\$b)->whereNotNull('ip_hash')->count().PHP_EOL;
+  echo 'حديثة وما زالت تحمل عنواناً: '.App\Modules\Identity\Models\AuthSession::where('status','ended')
+      ->where('ended_at','>=',\$b)->whereNotNull('ip_hash')->count().PHP_EOL;
 "
 ```
 
-**المتوقَّع**: الرقمُ **نفسُه** قبلَ وبعد.
+**المتوقَّع**: الأوّلُ **صفر** (SC-001) · الثانيُ **موجب**.
 
-⚠️ **على مستوى المنصّةِ لا على مستخدِمٍ واحد**: قياسُ حسابٍ واحدٍ أخضرُ على تنفيذٍ يُنهي جلساتِ الجميعِ عداه.
+⛔ **والثاني هو الضابط**: حذفُ شرطِ العمرِ من الذراعِ يُجهِّلُ كلَّ شيءٍ بما فيه جلسةُ الأمس، ويُبقي السطرَ الأوّلَ صفراً — أي يمرُّ. الموجَبُ وحدَه يعضُّ.
 
 ---
 
-## ٥ · التجهيلُ أصابَ العمودَينِ وحدَهما
+## ٥ · النشطةُ لم تُمَسّ (FR-003 · SC-003)
+
+يُقاسُ **قبلَ الخطوةِ ٣ وبعدَها**، على المنصّةِ كلِّها:
 
 ```bash
 echo "" | php artisan tinker --execute="
-  echo 'جلسات منتهية بلا ip: '.App\Modules\Identity\Models\AuthSession::where('status','ended')->whereNull('ip_hash')->count().PHP_EOL;
+  echo App\Modules\Identity\Models\AuthSession::where('status','active')->count().PHP_EOL;"
+```
+
+**المتوقَّع**: الرقمُ نفسُه. ⚠️ **على المنصّةِ لا على حسابٍ واحد** — قياسُ حسابٍ واحدٍ أخضرُ على تنفيذٍ يُنهي جلساتِ الجميعِ عداه.
+
+---
+
+## ٦ · المقبرةُ عملَت (FR-013 · SC-001) — ⛔ **وهذا ما يُثبِتُ أنّ التجهيلَ جهّلَ فعلاً**
+
+```bash
+echo "" | php artisan tinker --execute="
+  \$leak = App\Modules\Identity\Models\AuthSession::where('status','ended')->whereNull('ip_hash')
+      ->whereHas('device', fn(\$q) => \$q->where('fingerprint_hash','not like','anonymised:%'))->count();
+  echo 'جلسات مُجهَّلة ما زالت تشير إلى بصمة حقيقية: '.\$leak.PHP_EOL;
   echo 'جلسات بلا device_id: '.App\Modules\Identity\Models\AuthSession::whereNull('device_id')->count().PHP_EOL;
-  echo 'أجهزة مُجهَّلة: '.App\Modules\Identity\Models\Device::where('fingerprint_hash','like','anonymised:%')->count().PHP_EOL;
-  echo 'بصمات مكرّرة: '.App\Modules\Identity\Models\Device::selectRaw('user_id, fingerprint_hash, count(*) c')->groupBy('user_id','fingerprint_hash')->havingRaw('c > 1')->count().PHP_EOL;
+  echo 'بصمات مكرّرة: '.App\Modules\Identity\Models\Device::selectRaw('user_id, fingerprint_hash, count(*) c')
+      ->groupBy('user_id','fingerprint_hash')->havingRaw('c > 1')->get()->count().PHP_EOL;
 "
 ```
 
-**المتوقَّع**: الأوّلُ موجب · **الثاني صفرٌ دائماً** (`device_id` لا يُفرَّغ) · الثالثُ موجب · **الرابعُ صفر**.
+**المتوقَّع**: الثلاثةُ **أصفار**.
 
-⛔ **والرابعُ هو ما يُثبِتُ القيمةَ الفريدة.** ثابتٌ واحدٌ لكلِّ صفٍّ مُجهَّلٍ يصطدمُ بـ`unique(user_id, fingerprint_hash)` عندَ ثاني جهازٍ لنفسِ المستخدِم، وعلى MySQL خطأٌ يقتلُ الفئةَ كلَّها في تلك الليلة. وعلى SQLite قد يُحكى الأمرُ بصورةٍ أخرى، فالقياسُ على الإنتاجِ بعدَ أوّلِ ليلةٍ ليس اختياريّاً.
+⛔ **الأوّلُ هو قياسُ FR-013.** بدونِ المقبرةِ يكونُ موجباً لكلِّ جلسةٍ قديمةٍ على متصفّحٍ ما زالَ يُستعمَل — أي عندَ أكثرِ الناس. **وهذا بالضبطِ ما أسقطَ النسخةَ الأولى من الخطّة.**
+
+⛔ **والثالثُ يُثبِتُ أنّ القيمةَ بُنِيَت في PHP لا بـ`||` في SQL.** على MySQL يكتبُ `||` القيمةَ `'1'` في كلِّ صفّ، فيصطدمُ بالفهرسِ عندَ ثاني جهازٍ لمستخدِمٍ واحد. **وعلى SQLite يعملُ صحيحاً**، فهذا القياسُ لا يُغني عن إعادتِه على الإنتاجِ بعدَ أوّلِ ليلة.
 
 ---
 
-## ٦ · لا جلسةَ تُشيرُ إلى جهازٍ غيرِ موجود (⛔ **الأخطرُ في القائمة**)
+## ٧ · السقف (FR-004 · SC-002) — ثلاثُ قياساتٍ لا واحدة
 
 ```bash
 echo "" | php artisan tinker --execute="
-  \$broken = App\Modules\Identity\Models\AuthSession::whereNotIn('device_id',
-      App\Modules\Identity\Models\Device::pluck('id'))->count();
-  \$deviceCount = App\Modules\Identity\Models\Device::count();
-  echo 'جلسات تُشير إلى جهاز غير موجود: '.\$broken.PHP_EOL;
-  echo 'عدد صفوف devices: '.\$deviceCount.PHP_EOL;
+  App\Modules\Identity\Jobs\EnforceAuthSessionCapJob::dispatchSync();
+  \$u = <ID>;
+  \$cap = (int) App\Modules\Tenancy\Support\PlatformSettings::get('auth.auth_session_cap_per_user', 50);
+  \$q = fn() => App\Modules\Identity\Models\AuthSession::where('user_id', \$u);
+  echo 'مُجهَّلة باقية: '.(clone \$q)()->where('status','ended')->whereNull('ip_hash')->count().' / سقف '.\$cap.PHP_EOL;
+  echo 'حديثة باقية: '.(clone \$q)()->where('status','ended')->whereNotNull('ip_hash')->count().PHP_EOL;
+  echo 'نشطة باقية: '.(clone \$q)()->where('status','active')->count().PHP_EOL;
+  echo 'أحدث الباقيات: '.(clone \$q)()->whereNull('ip_hash')->max('ended_at').PHP_EOL;
 "
 ```
 
-**المتوقَّع**: **صفرٌ في الأوّل** · وعددُ `devices` **لم ينقُصْ** قبلَ المكنسةِ وبعدَها.
+**المتوقَّع**: المُجهَّلةُ = السقفُ بالضبط · الحديثةُ **كما كانت** · النشطةُ **كما كانت** · والباقياتُ هي الأحدث.
 
-⛔ **وهذا هو ما يُثبِتُ أنّ FR-006 نُفِّذَت كما هي**: لا صفَّ جهازٍ يُحذَفُ، ولو لم تبقَ له جلسةٌ واحدة. **وتنفيذٌ «ينظِّفُ» الأجهزةَ اليتيمةَ يُنقِصُ العددَ، ويقرأُ تحسيناً** — وهو مصدرُ العطبِ لا علاجُه.
+⛔ **والسطرانِ الثاني والثالث هما ما يمنعُ العطبَ الأسوأ.** قياسٌ يكتفي بالعدِّ الأوّلِ يمرُّ على تنفيذٍ حذفَ الحديثاتِ والنشطاتِ معاً.
 
-⛔ **ولا مفتاحَ أجنبيَّ على `device_id`** (مقيسٌ في الهجرة)، فالسطرُ الأوّلُ ليس مستحيلاً بل هو ما يُنتِجُه أيُّ حذفٍ هنا. وصفٌّ واحدٌ منه يجعلُ `$this->device->label` في `AuthSessionResource` خطأَ ٥٠٠ **للطلبِ كلِّه**: شاشةُ «الأجهزة والجلسات» تسقطُ عن صاحبِها كلَّها لأجلِ صفٍّ لا يُسمّي أحداً — وهو عينُ ما حدثَ في `ListStudentBalances` (٠٢٩ · T057).
+⛔ **ويُقاسُ أنّ السقفَ لا يبلغُ ما لم يُجهَّلْ**: بناءُ ستّينَ جلسةً منتهيةً **حديثةً** لمستخدِمٍ واحدٍ ثمّ تشغيلُ المهمّةِ يجبُ أن يحذِفَ **صفراً**. هذا قياسُ FR-004 · أرضيّةِ العمر، وهو ما يُبقي `auth_sessions` سجلَّ دخولٍ لا أداةَ محوِ أدلّة.
 
 ---
 
-## ٧ · الأرشيفُ يحملُ ملفَّينِ جديدَين — ولو كانا فارغَين (SC-008)
+## ٨ · الحظرُ القضائيُّ يُوقِفُ الذراعَينِ معاً
+
+ضَعْ حظراً على مستخدِمٍ مُهيَّأٍ كما في (٠)، ثمّ شغِّلِ المكنسةَ **ومهمّةَ السقف**.
+
+**المتوقَّع**: عددُ صفوفِه **لم يتغيّر**، و`ip_hash` و`fingerprint_hash` **بقيمتِهما نفسِها** — لا بعددِ صفوفٍ متساوٍ.
+
+⛔ **ويُقاسُ على الاثنَين.** الإعفاءُ في التجهيلِ وحدَه يترُكُ السقفَ يحذِفُ ما أمرَ قرارٌ بحفظِه — والحذفُ لا يُعكَس.
+
+⚠️ **والمُهيَّأُ يمرُّ باللغمِ الثاني في (٠)**: لو كانَ الجهازُ لمستخدِمٍ آخر، يُعفى صاحبُ الجلسةِ وتُجهَّلُ بصمةُ غيرِه **ويمرُّ القياس**.
+
+---
+
+## ٩ · حدُّ الأجهزةِ لم يتحرّك
+
+سجِّلْ دخولاً من نفسِ المتصفّحِ بعدَ المرور.
+
+**المتوقَّع**: **لا يُطرَدُ أيُّ جهازٍ آخر**، وصفُّ الجهازِ الأصليُّ **ما زالَ يُطابَق** (لم يُجهَّلْ لأنّ عليه جلسةً نشطةً وعمرَه دونَ المدّة).
+
+⛔ **والطردُ هو ما يُقاس.** تجهيلُ جهازٍ عليه جلسةٌ نشطةٌ يكسِرُ المطابقةَ فتصيرُ الآلةُ الواحدةُ آلتَين — وعندَ سقفِ جهازٍ للطالبِ هذا طردٌ من الحاسوبِ الذي يجلسُ أمامَه.
+
+⚠️ **ويُقاسُ السباقُ صراحةً**: صفُّ جهازٍ `created_at = now()` بلا أيِّ جلسة، ثمّ المكنسة ⇒ **لا يُجهَّل**. بدونِ شرطِ `created_at < :before` يُجهَّلُ فراغاً.
+
+---
+
+## ١٠ · المحوُ يصلُ الجدولَين — ومَن مُحِيَ قبلَ اليوم (FR-014)
+
+```bash
+echo "" | php artisan tinker --execute="
+  echo 'حسابات مُجهَّلة ما زالت تحمل عنواناً: '.App\Modules\Identity\Models\AuthSession::whereNotNull('ip_hash')
+      ->whereIn('user_id', App\Models\User::where('email','like','anonymised+%')->pluck('id'))->count().PHP_EOL;
+"
+```
+
+**المتوقَّع**: **صفر** بعدَ الهجرةِ لمرّةٍ واحدة.
+
+⛔ **وبدونِها يبقى كلُّ حسابٍ مُحِيَ قبلَ اليومِ محتفِظاً بعنوانِه إلى الأبد** — الحارسُ يرجِعُ قبلَ المعاملة، ولا ذراعُ عمرٍ تبلغُه.
+
+---
+
+## ١١ · الأرشيفُ يحملُ المفتاحَينِ — ولو فارغَين (SC-008)
 
 يُقاسُ على **حسابَين**: واحدٌ له جلسات، وواحدٌ ليست له.
 
 ```bash
 echo "" | php artisan tinker --execute="
   \$u = App\Models\User::find(<ID>);
-  \$owner = app(App\Modules\Identity\Support\IdentityPersonalData::class);
-  foreach (\$owner->export(new App\Shared\Data\DataSubject(\$u)) as \$key => \$rows) {
-      if (in_array(\$key, ['auth_session','device'], true)) { echo \$key.' => '.count(\$rows).PHP_EOL; }
+  foreach (app(App\Modules\Identity\Support\IdentityPersonalData::class)
+      ->export(new App\Shared\Data\DataSubject(\$u)) as \$k => \$rows) {
+      if (in_array(\$k, ['auth_session','device'], true))
+          echo \$k.' => '.count(\$rows).' | '.implode(',', array_keys(\$rows[0] ?? [])).PHP_EOL;
   }
 "
 ```
 
-**المتوقَّع**: المفتاحانِ **حاضرانِ في الحالتَين**؛ في الثانيةِ بعددِ `0` لا بغياب.
+**المتوقَّع**: المفتاحانِ **حاضرانِ في الحالتَين** (بعددِ `0` في الثانية)، وقائمةُ الحقولِ **فيها `ip_hash` ولا فيها `fingerprint_hash`**.
 
-⛔ **وملفٌّ غائبٌ صمتٌ** بينما «لا جلساتٍ مسجّلةٌ لك» جوابٌ يستحقُّه مَن سأل. و`ExportCompletenessTest` يُسقِطُ البناءَ على غيابِه، فالاختبارُ يعضُّ — لكنّ القياسَ هنا يُثبِتُ **الفارغةَ** وهي الحالةُ التي يمرُّ عليها الحارسُ ولا يُميّزُها.
+⛔ **وطباعةُ أسماءِ الحقولِ ليست زينة**: القياسُ بالعددِ وحدَه لا يرى ما بداخلِ الملفّ.
 
-⚠️ **ولا `ip_hash` ولا `fingerprint_hash` في أيٍّ من الملفَّين**: قيمةٌ مُجزَّأةٌ لا يقرؤُها صاحبُها، وتسليمُها تسليمُ مادّةٍ لهجومِ قاموس.
-
----
-
-## ٨ · الحظرُ القضائيُّ يُوقِفُ الاثنَين (FR على الإعفاء)
-
-ضَعْ حظراً على مستخدِمٍ له جلساتٌ قديمةٌ تتجاوزُ السقفَ والمدّةَ معاً، ثمّ شغِّلِ المكنسة.
-
-**المتوقَّع**: عددُ صفوفِه في `auth_sessions` و`devices` **لم يتغيّرْ**، و`ip_hash` و`fingerprint_hash` كما كانا.
-
-⛔ **ويُقاسُ على الذراعَينِ معاً.** الإعفاءُ في التجهيلِ وحدَه يترُكُ السقفَ يحذِفُ الصفوفَ التي أمرَ قرارٌ بحفظِها — والحذفُ لا يُعكَس.
+⚠️ **و`ip_hash` يُصدَّرُ عن قصد** — `ExportFieldAllowlist` يقولُ بنصِّه إنّه غائبٌ عن قائمةِ المنعِ لأنّه «بياناتُ صاحبِه»، والمواصفةُ تفتحُ بأنّ «أين دخلَ حسابُك» لم يكنْ يصلُه. و`fingerprint_hash` وحدَه ممنوع.
 
 ---
 
-## ٩ · حدُّ الأجهزةِ لم يتحرّك (⚠️ **الأثرُ الجانبيُّ الوحيدُ الذي يمكنُ أن يطردَ مستخدِماً**)
+## ١٢ · الأرقامُ الثلاثةُ تُضبَطُ من الشاشة (FR-005 · SC-005 · SC-007)
 
-سجِّلْ دخولاً من نفسِ المتصفّحِ بعدَ مرورِ المكنسة.
+- **من اللوحة**: افتحْ شاشةَ إعداداتِ المنصّة، غيِّرِ الأرقامَ الثلاثة، شغِّلْ مرّةً أخرى، وقِسْ أنّ السلوكَ تبِعَها — بلا إصدارٍ وبلا إعادةِ تشغيلِ خدمة.
+- **وبلا بذر**: احذِفِ الصفوفَ الثلاثةَ (وامسحِ الذاكرة)، شغِّلْ، وقِسْ أنّها تعملُ بالافتراضاتِ وتنتهي بلا خطأ.
 
-**المتوقَّع**: الدخولُ يُنشِئُ **صفَّ `devices` جديداً** (البصمةُ القديمةُ جُهِّلَت فلا تُطابِق) — وهذا صحيحٌ ومقصود — **ولا يُطرَدُ أيُّ جهازٍ آخر**.
+⛔ **ويُقاسُ أنّ المدّةَ مرَّت على `SaveDataCategory`**: حارسُه يرفضُ ما دونَ الحدِّ الأدنى، وSQL خامٌّ يتخطّاه. اكتبْ قيمةً خارجَ المدى وتوقَّعْ رفضاً.
 
-⛔ **والطردُ هو ما يُقاس، لا عددُ الصفوف.** `enforceLimit()` يَعُدُّ الأجهزةَ **بين الجلساتِ النشطةِ** وحدَها، فصفٌّ مُجهَّلٌ لا يدخلُ العدَّ أبداً. لكنّ تجهيلَ جهازٍ **ما زالَت له جلسةٌ نشطة** يكسِرُ المطابقةَ فيصيرُ الجهازُ الواحدُ جهازَين — وعندَ سقفِ جهازٍ واحدٍ للطالبِ هذا **طردٌ من الحاسوبِ الذي يجلسُ أمامَه**. شرطُ «لا جلسةَ نشطة» في (ب) هو ما يمنعُه، وهذا البندُ هو ما يُثبِتُه.
+⚠️ **والمفتاحانِ يجبُ أن يظهرا في `PlatformSettings::all()`** — غيابُهما عن الخريطةِ يعني أنّ اللوحةَ لا تراهما وأنّ `flush()` لا يُبطِلُهما، والقراءةُ `rememberForever`.
 
 ---
 
-## ١٠ · صفرُ تغييرٍ في الواجهة (FR-008)
+## ١٣ · صفرُ تغييرٍ في الواجهة (FR-008)
 
 ```bash
 git diff --name-only main... -- frontend/
 ```
 
-**المتوقَّع**: **لا شيء**.
-
-⛔ **وهذا متطلَّبٌ لا مصادفة.** FR-008 كُتِبَت تطلبُ «جملةً صريحةً بدلَ الفراغ»، وقياسُ الحمولةِ أظهرَ أنّ **لا خانةَ تصيرُ فارغة**: الشاشةُ تعرِضُ اسمَ الجهازِ وبابَ الدخولِ وتاريخَين، ولا تعرِضُ `ip_hash` ولا `fingerprint_hash` إطلاقاً. فشارةٌ تُضافُ لحالةٍ لا تُغيِّرُ حرفاً هي نفسُها ما يُقرَأُ عطباً.
+**المتوقَّع**: **لا شيء**. الشاشةُ لا تعرِضُ العمودَينِ المُجهَّلَينِ أصلاً، فلا خانةَ تصيرُ فارغةً ولا جملةَ لها ما تصفُه.
 
 ---
 
-## ١١ · البوّاباتُ الآليّة
+## ١٤ · البوّاباتُ الآليّة
 
 ```bash
-cd backend
-./vendor/bin/pint --test
-./vendor/bin/phpstan analyse
+cd backend && ./vendor/bin/pint --test && ./vendor/bin/phpstan analyse
+php vendor/bin/pest --filter="Retention|PersonalData|Erasure|Export|CategoryRegistry"
 ```
 
-ثمّ **ادفَعْ ودَعِ الشرائحَ الأربعَ تُشغِّلُ الحزمة** — لا تُشغَّلُ الحزمةُ كاملةً محلّيّاً، ولا تُشغَّلُ حزمتانِ معاً.
+ثمّ ادفَعْ ودَعِ الشرائحَ الأربعَ تُشغِّلُ الحزمة.
 
-محلّيّاً يكفي المُرشَّح:
-
-```bash
-php vendor/bin/pest --filter="Retention|PersonalData|Erasure|Export"
-```
+⚠️ **ويُوسَّعُ `RetentionSweepIdempotencyTest` القائمُ بتأكيدٍ على `rows_anonymised`** — تأكيدُه اليومَ يُغطّي `rows_deleted` و`rows_archived` وحدَهما، فذراعُ تجهيلٍ لا تتقارَبُ **غيرُ مرئيّةٍ لحارسِ التكرارِ نفسِه**.
