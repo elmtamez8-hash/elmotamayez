@@ -7,6 +7,7 @@ namespace App\Modules\Identity\Support;
 use App\Modules\Compliance\Support\Anonymiser;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Models\Device;
+use App\Shared\Contracts\LegalHoldDirectory;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -243,12 +244,34 @@ final class AuthSessionRetention
      * offset paging skips as many rows as the previous page fixed — and reports
      * success.
      */
-    public function backfillErasedAccounts(): int
+    public function backfillErasedAccounts(?LegalHoldDirectory $holds = null): int
     {
+        /*
+        | ⛔ A HELD SUBJECT IS SPARED HERE TOO, AND THE OMISSION WAS REAL.
+        |
+        | Every other arm in this class takes an exempt list; this one took none
+        | and the file did not import the contract at all. A hold placed AFTER an
+        | account was erased is the gap: a hold already in force blocks the
+        | erasure itself (`ExecuteDataErasure::assertNotHeld`), so nothing held
+        | can become an `anonymised+%` row while it is held — but a hold arriving
+        | afterwards found this walk unguarded, and it destroys sign-in evidence
+        | that does not come back.
+        |
+        | Measured on production 2026-09-22, before the guard existed: erased
+        | accounts 0, holds in force 0, so the migration that already ran touched
+        | nobody. The guard is for every later caller.
+        |
+        | ⚠️ RESOLVED HERE RATHER THAN REQUIRED, because the one shipped caller is
+        | a migration (`2026_09_22_000200`) which runs inside `migrate:fresh` for
+        | every test in the suite and has no container argument to give.
+        */
+        $exempt = ($holds ?? app(LegalHoldDirectory::class))->heldUserIds();
+
         $done = 0;
 
         DB::table('users')
             ->where('email', 'like', 'anonymised+%')
+            ->when($exempt !== [], fn (QueryBuilder $q): QueryBuilder => $q->whereNotIn('id', $exempt))
             ->select('id')
             ->orderBy('id')
             ->chunkById(200, function (iterable $users) use (&$done): void {
