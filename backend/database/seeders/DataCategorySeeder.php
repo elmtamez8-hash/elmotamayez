@@ -422,6 +422,63 @@ class DataCategorySeeder extends Seeder
                 'erasure_mode' => ErasureMode::Anonymise,
             ],
 
+            /*
+            | ⛔ SPEC 038 — THE TWO TABLES THAT WERE NEVER SWEPT, NEVER EXPORTED
+            | AND NEVER ERASED. `PersonalDataContractCoverageTest` is a per-MODULE
+            | guard and says so in its own comment, so a new table inside an
+            | already-registered module is invisible to it: identity's five rows
+            | above all sit on `users` / `student_profiles` /
+            | `parent_student_relations` / `referrals`, and neither of these two
+            | was named by any of them. Second time this limit has been paid for
+            | here (the first was `announcements.author_user_id` in spec 010).
+            |
+            | ⛔ `erasure_mode` IS NOT A CHOICE. `ExecuteDataErasure::modeFor()`
+            | unions the erasure modes of every category a module declares and
+            | requires the result to be EXACTLY ONE; anything else logs
+            | `compliance.erasure.unclear_mode` and returns `Retain`, which
+            | switches erasure off for the WHOLE of Identity with no visible
+            | error. The five rows above are all `Anonymise`.
+            |
+            | ⛔ AND `retain_days` IS A NUMBER, NEVER NULL. `DataCategory::expires()`
+            | requires the duration AND the behaviour, so a null duration makes the
+            | sweep skip the row entirely — and `DataCategoryResource` then prints
+            | «يُحفظ ما دام الحساب قائماً» on the privacy screen, which is a notice
+            | that lies. 90 days is the shipped default; the operator edits it from
+            | the platform-settings screen, through `SaveDataCategory`.
+            |
+            | ⚠️ `is_required` because every account signs in — an optional
+            | category can be WITHDRAWN, and a consent screen offering to withdraw
+            | from having a sign-in log is a control that cannot be honoured.
+            */
+            [
+                'key' => 'auth_session',
+                'subject_roles' => ['student', 'teacher', 'parent'],
+                'label' => 'سجلّ دخولك',
+                'purpose' => 'لتعرف من دخل حسابك ومتى ومن أين، ولتُنهي أيّ جلسة لا تعرفها.',
+                'audience' => 'أنت · إدارة المنصّة',
+                'is_required' => true,
+                'owning_module' => 'identity',
+                'table_name' => 'auth_sessions',
+                'column_name' => 'ip_hash',
+                'retain_days' => 90,
+                'expiry_behaviour' => ExpiryBehaviour::Anonymise,
+                'erasure_mode' => ErasureMode::Anonymise,
+            ],
+            [
+                'key' => 'device',
+                'subject_roles' => ['student', 'teacher', 'parent'],
+                'label' => 'أجهزتك',
+                'purpose' => 'لتمييز الأجهزة التي تدخل منها، ولتطبيق حدّ الأجهزة على الحساب الواحد.',
+                'audience' => 'أنت · إدارة المنصّة',
+                'is_required' => true,
+                'owning_module' => 'identity',
+                'table_name' => 'devices',
+                'column_name' => 'fingerprint_hash',
+                'retain_days' => 90,
+                'expiry_behaviour' => ExpiryBehaviour::Anonymise,
+                'erasure_mode' => ErasureMode::Anonymise,
+            ],
+
             // ── Payments ────────────────────────────────────────────────────
             [
                 'key' => 'payment_record',
