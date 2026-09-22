@@ -361,16 +361,36 @@ class IdentityPersonalData implements PersonalDataOwner
         array $exemptUserIds = [],
     ): int {
         /*
-        | ⚠️ NOTHING IN THIS MODULE EXPIRES ON A CLOCK, and saying so is the answer
-        | rather than an omission. A name, a phone number and a date of birth are
-        | held for as long as the ACCOUNT is — they have no age of their own, and a
-        | sweep that deleted a living user's name after N days would break the
-        | product on a schedule. Their catalogue rows carry a null retention, so
-        | the sweep never reaches here; this method exists because the contract has
-        | five functions and a silent `return 0` with no reason is how the next
-        | reader concludes it was forgotten.
+        | ⚠️ FIVE OF THIS MODULE'S SEVEN CATEGORIES EXPIRE ON NO CLOCK AT ALL, and
+        | saying so is the answer rather than an omission. A name, a phone number
+        | and a date of birth are held for as long as the ACCOUNT is — they have no
+        | age of their own, and a sweep that deleted a living user's name after N
+        | days would break the product on a schedule. Their catalogue rows carry a
+        | null retention, so `DataCategory::expires()` is false and the sweep never
+        | asks about them.
+        |
+        | ⛔ SPEC 038 ADDED THE TWO THAT DO. A sign-in record ages the way a
+        | security log ages: the fact that somebody signed in stays, and WHERE they
+        | signed in from stops being worth keeping. So these two arms clear the
+        | identifying columns and keep every row — never a delete, which is the
+        | same call spec 013 made for `attendances` and for the same reason: the
+        | row is what other things are counted from.
+        |
+        | ⚠️ AND THE MATCH IS EXHAUSTIVE BY DEFAULT-RETURN, not by `match`: the
+        | sweep asks about every category this module declares, five of which must
+        | answer 0 without doing anything.
         */
-        return 0;
+        if ($mode !== ExpiryBehaviour::Anonymise) {
+            return 0;
+        }
+
+        $retention = app(AuthSessionRetention::class);
+
+        return match ($category) {
+            'auth_session' => $retention->anonymiseSessionsOlderThan($before, $exemptUserIds, $limit),
+            'device' => $retention->anonymiseDevicesOlderThan($before, $exemptUserIds, $limit),
+            default => 0,
+        };
     }
 
     private function alreadyAnonymised(User $user): bool
