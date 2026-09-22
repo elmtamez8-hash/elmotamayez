@@ -81,6 +81,15 @@ class ClassSessionResource extends JsonResource
              */
             'room_closed' => $this->room_closed_at !== null,
             /*
+             | Whether the HOST has opened the room yet. A student who presses
+             | «دخول» before the teacher does is refused with the uniform join
+             | sentence («تأكّد من حجز مقعدك…»), which sends them hunting a
+             | booking that is fine. This lets the room page say «لم تُفتح بعد»
+             | and wait instead. Leaks nothing: every reader of this payload may
+             | already read the session, and it does not vary with entitlement.
+             */
+            'room_opened' => $this->room_opened_at !== null,
+            /*
              | ⚠️ ANSWERED HERE, NEVER BY THE BROWSER'S CLOCK (FR-015 · SC-016).
              |
              | The join window is a `platform_settings` row an operator tunes, and

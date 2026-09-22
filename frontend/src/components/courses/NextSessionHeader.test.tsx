@@ -23,6 +23,7 @@ function session(overrides: Partial<ClassSession> = {}): ClassSession {
     status: "scheduled",
     status_label: "مجدولة",
     room_closed: false,
+    room_opened: false,
     join_open: false,
     // ٠٢٩: الحقلانِ يأتيانِ من الخادمِ على كلِّ حصّةٍ الآن. هذه الترويسةُ تقرأُ
     // نظيرَهما العلويَّ من `‎/courses/{c}/next-session` عبرَ خصائصِها، فالقيمتانِ

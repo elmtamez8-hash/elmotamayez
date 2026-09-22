@@ -42,6 +42,12 @@ export interface ClassSession {
    */
   room_closed: boolean;
   /**
+   * Whether the host has opened the room yet. Before that a student's join is
+   * refused with the uniform sentence, so the room page reads this to say
+   * «لم يفتح المدرّس الغرفة بعد» and keep trying instead.
+   */
+  room_opened: boolean;
+  /**
    * Whether the door is open right now — ANSWERED BY THE SERVER.
    *
    * The join window is a `platform_settings` row an operator tunes and the

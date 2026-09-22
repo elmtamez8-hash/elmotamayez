@@ -7,6 +7,7 @@ namespace App\Modules\LiveSessions\Actions;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\LiveSessions\Support\SessionClash;
 use App\Shared\Actions\Action;
 use Carbon\CarbonImmutable;
@@ -101,6 +102,21 @@ class UpdateClassSession extends Action
         }
 
         $session->fill($attributes)->save();
+
+        /*
+        | ⚠️ A NEW TIME IS OWED A NEW REMINDER. The mark says «this seat was
+        | reminded of THIS start»; left in place after a move, nobody is reminded
+        | before the new time. Cleared here because every reschedule path —
+        | the teacher's edit and `DecideSessionRescheduleRequest` — comes through
+        | this Action. Unscoped: the sweep reads the seat, not the context.
+        */
+        if ($session->wasChanged('starts_at')) {
+            SessionBooking::query()
+                ->withoutWorkspaceScope()
+                ->where('class_session_id', $session->getKey())
+                ->whereNotNull('reminded_at')
+                ->update(['reminded_at' => null]);
+        }
 
         return $session->refresh();
     }

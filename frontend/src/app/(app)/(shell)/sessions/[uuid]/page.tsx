@@ -62,6 +62,28 @@ export default function SessionPage({
     void load();
   }, [load]);
 
+  /*
+    ⚠️ `join_open` IS ANSWERED ONCE, AT FETCH. A student who opens this page
+    twenty minutes early would wait in front of a page that never shows
+    «دخول الغرفة» without a reload. The server says how long until the door
+    opens; we ask again then — silently, with no skeleton over the page.
+  */
+  const wait = session?.seconds_until_join_open ?? null;
+
+  useEffect(() => {
+    // ponytail: only within a day — a page left open for a week can reload.
+    if (wait === null || wait <= 0 || wait > 86_400) return;
+
+    const timer = setTimeout(() => {
+      classSessions
+        .show(uuid)
+        .then(setSession)
+        .catch(() => undefined);
+    }, (wait + 1) * 1000);
+
+    return () => clearTimeout(timer);
+  }, [wait, uuid]);
+
   if (loading) {
     return <RowsSkeleton count={4} />;
   }

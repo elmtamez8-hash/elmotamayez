@@ -7,15 +7,16 @@ use App\Modules\Learning\Enums\EnrollmentStatus;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Actions\BookSeat;
+use App\Modules\LiveSessions\Actions\UpdateClassSession;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Jobs\SendSessionRemindersJob;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
-use App\Shared\Contracts\SessionAttendanceDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -104,9 +105,17 @@ function runReminderSweep(): void
 {
     app(SendSessionRemindersJob::class)->handle(
         app(SessionSettings::class),
-        app(SessionAttendanceDirectory::class),
         app(DispatchNotification::class),
     );
+}
+
+/** The reminder's mark lives on the SEAT, not on the session. */
+function reminderMark(ClassSession $session, User $student): mixed
+{
+    return SessionBooking::query()->withoutWorkspaceScope()
+        ->where('class_session_id', $session->getKey())
+        ->where('student_user_id', $student->getKey())
+        ->value('reminded_at');
 }
 
 /** @return EloquentCollection<int, Notification> */
@@ -156,7 +165,7 @@ it('sends once, however many times the sweep runs', function (): void {
     | أعلى ولا تبلغُ الادّعاءَ قط.
     */
     expect(remindersSent())->toHaveCount(1)
-        ->and($session->refresh()->reminded_at)->not->toBeNull();
+        ->and(reminderMark($session, $student))->not->toBeNull();
 });
 
 it('leaves a lesson beyond the lead time alone', function (): void {
@@ -168,7 +177,7 @@ it('leaves a lesson beyond the lead time alone', function (): void {
     runReminderSweep();
 
     expect(remindersSent())->toHaveCount(0)
-        ->and($session->refresh()->reminded_at)->toBeNull();
+        ->and(reminderMark($session, $student))->toBeNull();
 });
 
 it('leaves a lesson that has already started alone', function (): void {
@@ -198,4 +207,74 @@ it('leaves a cancelled lesson alone', function (): void {
     runReminderSweep();
 
     expect(remindersSent())->toHaveCount(0);
+});
+
+/*
+| ⛔ WHOEVER BOOKS AFTER THE FIRST PASS IS STILL REMINDED — and the first pass saw
+| NOBODY. The mark used to live on the session and was stamped even with no seat
+| holders, so every student in a lesson booked inside the last hour was never
+| reminded. Per seat, a late booking is an unmarked row the next pass picks up.
+*/
+it('reminds a student who booked after the first pass, and nobody twice', function (): void {
+    $session = reminderSession(CarbonImmutable::now()->addMinutes(30));
+
+    // The first pass, before anybody has a seat.
+    runReminderSweep();
+
+    $early = reminderStudent('الأوّل');
+    reminderSeatIn($session, $early);
+    runReminderSweep();
+
+    $late = reminderStudent('المتأخّر');
+    reminderSeatIn($session, $late);
+    runReminderSweep();
+
+    $recipients = remindersSent()->pluck('recipient_user_id')->all();
+
+    expect($recipients)->toHaveCount(2)
+        ->and($recipients)->toContain($early->getKey())
+        ->and($recipients)->toContain($late->getKey());
+});
+
+/*
+| ⛔ A NEW TIME IS OWED A NEW REMINDER. A lesson reminded and then moved kept its
+| mark, so nobody was reminded before the new start.
+*/
+it('reminds again after the lesson is moved', function (): void {
+    $student = reminderStudent();
+    $session = reminderSession(CarbonImmutable::now()->addMinutes(30));
+    reminderSeatIn($session, $student);
+
+    runReminderSweep();
+    expect(remindersSent())->toHaveCount(1);
+
+    app(WorkspaceContext::class)->forWorkspace(
+        $this->workspace,
+        fn () => app(UpdateClassSession::class)->handle($session->refresh(), [
+            'starts_at' => CarbonImmutable::now()->addMinutes(50)->toIso8601String(),
+        ]),
+    );
+
+    expect(reminderMark($session, $student))->toBeNull();
+
+    runReminderSweep();
+
+    expect(remindersSent())->toHaveCount(2);
+});
+
+it('does not clear the mark on an edit that keeps the time', function (): void {
+    $student = reminderStudent();
+    $session = reminderSession(CarbonImmutable::now()->addMinutes(30));
+    reminderSeatIn($session, $student);
+
+    runReminderSweep();
+
+    app(WorkspaceContext::class)->forWorkspace(
+        $this->workspace,
+        fn () => app(UpdateClassSession::class)->handle($session->refresh(), ['title' => 'عنوان جديد']),
+    );
+
+    runReminderSweep();
+
+    expect(remindersSent())->toHaveCount(1);
 });

@@ -62,6 +62,12 @@ export default function SessionRoomPage({
   // Not the same thing as `ended`: that one is «you just closed it», this one is
   // «it was already closed before you got here», and it survives a refresh.
   const [closed, setClosed] = useState(false);
+  // The window is open and the HOST has not opened the room yet. The join
+  // refusal is uniform (FR-015) and reads «تأكّد من حجز مقعدك» — a dead end for
+  // a student who is simply early. So we say so, and knock again.
+  const [waiting, setWaiting] = useState(false);
+  // Bumped to knock again; the effect below re-runs the join on each change.
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,7 +85,10 @@ export default function SessionRoomPage({
     classSessions
       .join(uuid)
       .then((result) => {
-        if (!cancelled) setTicket(result);
+        if (cancelled) return;
+        setTicket(result);
+        // Inside now: stop knocking, or the poll re-joins under a live room.
+        setWaiting(false);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -101,7 +110,11 @@ export default function SessionRoomPage({
         classSessions
           .show(uuid)
           .then((result) => {
-            if (!cancelled && result.room_closed) setClosed(true);
+            if (cancelled) return;
+            if (result.room_closed) setClosed(true);
+            // Self-terminating: once the window shuts `join_open` goes false
+            // and the ordinary refusal takes over.
+            setWaiting(result.join_open && !result.room_opened && !result.room_closed);
           })
           .catch(() => undefined);
       })
@@ -112,7 +125,19 @@ export default function SessionRoomPage({
     return () => {
       cancelled = true;
     };
-  }, [uuid]);
+  }, [uuid, attempt]);
+
+  // ponytail: a fixed 20s poll; the `sessions` limiter allows 60/min per user.
+  useEffect(() => {
+    if (!waiting) return;
+
+    const timer = setTimeout(() => {
+      setError("");
+      setAttempt((n) => n + 1);
+    }, 20_000);
+
+    return () => clearTimeout(timer);
+  }, [waiting, attempt]);
 
   const onPresence = useCallback((state: PresenceState) => setPresence(state), []);
 
@@ -164,7 +189,13 @@ export default function SessionRoomPage({
         </Alert>
       )}
 
-      {error !== "" && !closed && (
+      {error !== "" && waiting && (
+        <Alert tone="info" title="لم يفتح المدرّس الغرفة بعد">
+          ستدخل تلقائياً حين يفتحها — لا حاجة لإعادة تحميل الصفحة.
+        </Alert>
+      )}
+
+      {error !== "" && !closed && !waiting && (
         <>
           <Alert tone="danger" title="تعذّر الدخول">
             {error}

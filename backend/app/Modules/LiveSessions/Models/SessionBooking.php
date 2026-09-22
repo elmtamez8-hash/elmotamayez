@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property BookingStatus $status
  * @property CarbonInterface $booked_at
  * @property CarbonInterface|null $cancelled_at
+ * @property CarbonInterface|null $reminded_at
  */
 class SessionBooking extends BaseModel
 {
@@ -49,6 +50,9 @@ class SessionBooking extends BaseModel
             'is_billable' => 'boolean',
             'booked_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            // The reminder's mark, per SEAT (see the 2026_09_23 migration).
+            // Not fillable: claimed by a conditional UPDATE in the sweep.
+            'reminded_at' => 'datetime',
             // ٠٣٥ — the FINANCIAL excuse, written by `ExcuseBooking` before the
             // room closes. Not fillable: it exempts a seat from a charge, so it
             // is written by one Action that asks `EnrollmentDirectory` first,
