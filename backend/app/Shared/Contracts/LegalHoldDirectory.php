@@ -8,8 +8,8 @@ namespace App\Shared\Contracts;
  * Who is under a legal hold right now — for the side that does not know Compliance.
  *
  * ⛔ IT EXISTS BECAUSE THE HOLD IS DECLARED IN `Compliance` AND OBEYED IN EVERY
- * MODULE THAT SWEEPS ITS OWN DATA. `RunRetentionSweepJob` resolves it once and
- * passes ids down to `PersonalDataOwner::expire()`; a module-owned sweep that
+ * MODULE THAT SWEEPS ITS OWN DATA. `RunRetentionSweepJob` re-reads it before
+ * every batch and passes ids down to `PersonalDataOwner::expire()`; a module-owned sweep that
  * never goes through that job needs its own door — and without one it imports
  * `LegalHold` directly, which the third constitutional principle forbids.
  *

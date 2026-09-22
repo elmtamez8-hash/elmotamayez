@@ -116,7 +116,7 @@ class EnforceAuthSessionCapJob implements ShouldQueue
         $users = 0;
 
         /*
-        | â A KEYSET CURSOR, NEVER AN OFFSET â and the difference is a night's
+        | ⛔ A KEYSET CURSOR, NEVER AN OFFSET — and the difference is a night's
         | work silently dropped. `trim()` leaves each account holding exactly `$cap`
         | candidates, so `having('total', '>', $cap)` stops matching it and THE
         | RESULT SET SHRINKS UNDER THE WALK. An offset then steps over a set that
@@ -126,12 +126,12 @@ class EnforceAuthSessionCapJob implements ShouldQueue
         | `users_trimmed = 200` as a success with 1,800 of its budget unspent.
         |
         | `AuthSessionRetention::backfillErasedAccounts()` carries this same rule in
-        | its own docblock (Â«the predicate shrinks under the walkÂ») â it is the
+        | its own docblock («the predicate shrinks under the walk») — it is the
         | `chunk` vs `chunkById` defect reached through a GROUP BY.
         |
-        | â ï¸ It also terminates by construction: the cursor is the last id of the
+        | ⚠️ It also terminates by construction: the cursor is the last id of the
         | page and the next query asks for strictly greater, so the walk advances
-        | even when a page trims nothing â a held account, or one whose `trim()`
+        | even when a page trims nothing — a held account, or one whose `trim()`
         | threw, sits behind the cursor and is retried tomorrow rather than stalling
         | the loop on itself for ever.
         */

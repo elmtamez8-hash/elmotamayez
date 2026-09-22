@@ -294,7 +294,7 @@ it('walks past the first discovery page without skipping the accounts behind it'
     | never reached — while the run logs its partial work as a success.
     |
     | ⚠️ THE CAP IS SET TO 1 SO THE FIXTURE STAYS SMALL. At the shipped 50 this
-    | case would need 201 Ã 51 rows to say the same thing; the paging has nothing
+    | case would need 201 × 51 rows to say the same thing; the paging has nothing
     | to do with the size of the cap.
     */
     PlatformSettings::set('auth.auth_session_cap_per_user', 1);
