@@ -334,7 +334,13 @@ class BookSeat extends Action
      */
     private function claimCapacity(ClassSession $session): void
     {
+        /*
+        | ⚠️ UNSCOPED: the row is already chosen by its key, and the booker may be
+        | a student whose stamped `last_workspace_id` names ANOTHER teacher — under
+        | the scope this matches zero rows and a free seat reads «اكتملت».
+        */
         $claimed = ClassSession::query()
+            ->withoutWorkspaceScope()
             ->whereKey($session->getKey())
             ->whereColumn('seats_taken', '<', 'seats_total')
             ->increment('seats_taken');
@@ -351,6 +357,7 @@ class BookSeat extends Action
     private function releaseCapacity(ClassSession $session): void
     {
         ClassSession::query()
+            ->withoutWorkspaceScope()
             ->whereKey($session->getKey())
             ->where('seats_taken', '>', 0)
             ->decrement('seats_taken');

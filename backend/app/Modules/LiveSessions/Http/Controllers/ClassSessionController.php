@@ -200,11 +200,13 @@ class ClassSessionController extends Controller
         ], 201);
     }
 
-    public function show(Request $request, ClassSession $session, SessionContentAccess $content): JsonResponse
+    public function show(Request $request, string $sessionUuid, SessionContentAccess $content): JsonResponse
     {
+        $session = ClassSession::forStudentDoor($sessionUuid);
+
         $this->authorize('view', $session);
 
-        $session->load(['course', 'bookings', 'recordingLesson']);
+        $session->load(ClassSession::studentEagerLoads());
 
         // One row, so the bulk shape buys nothing here — it is called anyway so
         // the two endpoints answer the same question the same way. A field that

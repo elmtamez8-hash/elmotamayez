@@ -54,7 +54,10 @@ class RecordPresencePing extends Action
         $now = CarbonImmutable::now();
 
         return DB::transaction(function () use ($session, $user, $now): Attendance {
-            $attendance = Attendance::query()->firstOrCreate(
+            // ⚠️ Unscoped read: under the scope a stamped student finds no row,
+            // inserts a second one and collides with the unique index on the
+            // next beat. The write carries `workspace_id` explicitly below.
+            $attendance = Attendance::query()->withoutWorkspaceScope()->firstOrCreate(
                 [
                     'class_session_id' => $session->getKey(),
                     'student_user_id' => $user->getKey(),

@@ -33,10 +33,12 @@ class EligibilityController extends Controller
 {
     public function __invoke(
         Request $request,
-        ClassSession $session,
+        string $sessionUuid,
         UnlockDirectory $unlock,
         BookingEligibility $eligibility,
     ): JsonResponse {
+        $session = ClassSession::forStudentDoor($sessionUuid);
+
         $this->authorize('view', $session);
 
         $student = $this->currentUser($request);

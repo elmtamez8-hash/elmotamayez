@@ -16,8 +16,10 @@ use Illuminate\Http\Request;
 
 class BookingController extends Controller
 {
-    public function store(Request $request, ClassSession $session, BookSeat $action): JsonResponse
+    public function store(Request $request, string $sessionUuid, BookSeat $action): JsonResponse
     {
+        $session = ClassSession::forStudentDoor($sessionUuid);
+
         $this->authorize('view', $session);
 
         try {
