@@ -24,13 +24,12 @@ final class EloquentLegalHoldDirectory implements LegalHoldDirectory
     /** @return list<int> */
     public function heldUserIds(): array
     {
-        /** @var list<int> */
-        return LegalHold::query()
-            ->inForce()
-            ->pluck('subject_user_id')
-            ->map(static fn (mixed $id): int => (int) $id)
-            ->unique()
-            ->values()
-            ->all();
+        $ids = [];
+
+        foreach (LegalHold::query()->inForce()->distinct()->pluck('subject_user_id') as $id) {
+            $ids[] = (int) $id;
+        }
+
+        return $ids;
     }
 }

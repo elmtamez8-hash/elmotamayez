@@ -12,6 +12,7 @@ use App\Modules\Gamification\Jobs\CloseLeaderboardWeekJob;
 use App\Modules\Gamification\Jobs\PruneOldLeaderboardsJob;
 use App\Modules\Gamification\Jobs\ReconcileGamificationJob;
 use App\Modules\Gamification\Jobs\RollUpLeaderboardsJob;
+use App\Modules\Identity\Jobs\EnforceAuthSessionCapJob;
 use App\Modules\Identity\Jobs\TransferDataOwnershipJob;
 use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
 use App\Modules\LiveSessions\Jobs\ExpirePrivateSessionRequestsJob;
@@ -387,6 +388,29 @@ Schedule::job(new PruneExpiredExportsJob, 'maintenance')
 | each half is written on the job.
 */
 Schedule::job(new RunRetentionSweepJob, 'compliance')->dailyAt('03:30');
+
+/*
+| Each account keeps its newest N anonymised sign-ins (038 · FR-004).
+|
+| ⛔ AFTER THE SWEEP, AND THE ORDER IS REQUIRED RATHER THAN PREFERRED. This job's
+| candidate is a row that has ALREADY been anonymised (`ip_hash IS NULL`) and has
+| passed an age floor — and anonymisation is what the 03:30 sweep does. Scheduled
+| before it, the job would work on yesterday's candidate set every night, for ever,
+| with nothing failing.
+|
+| ⚠️ AND IT IS NOT A SECOND PASS INSIDE THE SWEEP. Its deletions have no category,
+| so `retention_sweep_runs` could only record them as somebody else's — SIXTEEN
+| live categories carry `Delete` with a retention, so `rows_deleted` is no emptier
+| a bucket than `rows_anonymised`. `TransferDataOwnershipJob` below is the shipped
+| template for a module-owned sweep on this queue.
+|
+| ⚠️ NO `->withoutOverlapping()` HERE EITHER, for the reason written above the
+| sweep: the scheduler's lock guards the dispatch, not the run. The job carries
+| `WithoutOverlapping` with an `expireAfter()` as middleware.
+|
+| ⚠️ 04:15 is clear of :05/:20/:35/:50, where the quarter-hourly billing sweeps sit.
+*/
+Schedule::job(new EnforceAuthSessionCapJob, 'compliance')->dailyAt('04:15');
 
 /*
 | A student who turned eighteen owns their own data (FR-009).
