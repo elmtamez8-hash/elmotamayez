@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Tenancy\Filament\Pages;
 
 use App\Models\User;
+use App\Modules\Compliance\Actions\SaveDataCategory;
+use App\Modules\Compliance\Models\DataCategory;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Payments\Support\TransferInstructions;
@@ -75,6 +77,14 @@ class ManagePlatformSettings extends Page
             ...self::transferFormState(),
             'student_device_limit' => $limits['student'] ?? 1,
             'two_factor_grace_days' => PlatformSettings::get('auth.two_factor_grace_days'),
+            /*
+            | ⚠️ المدّةُ تُقرَأُ من صفِّ الفئةِ لا من `platform_settings`: شاشةُ
+            | «خصوصيّتي» تقرؤُها من هناك وتطبعُها جملةً، فنسختانِ مخزَّنتانِ
+            | تعنيانِ شاشةً تقولُ شيئاً ومكنسةً تفعلُ غيرَه.
+            */
+            'auth_session_retain_days' => DataCategory::query()->where('key', 'auth_session')->value('retain_days'),
+            'auth_session_cap_per_user' => PlatformSettings::get('auth.auth_session_cap_per_user'),
+            'auth_session_cap_min_age_days' => PlatformSettings::get('auth.auth_session_cap_min_age_days'),
             'max_size_bytes' => PlatformSettings::get('media.max_size_bytes'),
             'max_duration_seconds' => PlatformSettings::get('media.max_duration_seconds'),
             'grant_ttl_seconds' => PlatformSettings::get('media.grant_ttl_seconds'),
@@ -180,6 +190,25 @@ class ManagePlatformSettings extends Page
                             TextInput::make('two_factor_grace_days')
                                 ->label('مهلة إلزام التحقق الثنائي (بالأيام)')
                                 ->numeric()->minValue(0)->maxValue(365)->required(),
+                            /*
+                            | ⛔ **الأرقامُ الثلاثةُ في قسمٍ واحدٍ مع حدِّ الأجهزة،
+                            | لا في قسمٍ ثالث.** تُقرَأُ معاً وتُحرَّرُ معاً،
+                            | وتعليقُ `billing.transfer` في `PlatformSettings`
+                            | يكتبُ القاعدةَ بنصِّها: عدّةُ حقولٍ متفرّقةٍ تعني
+                            | عدّةَ فرصٍ لأن يُملأَ بعضُها ويُنسى الباقي.
+                            */
+                            TextInput::make('auth_session_retain_days')
+                                ->label('مدّة الاحتفاظ بسجلّ الجلسات والأجهزة (بالأيام)')
+                                ->helperText('بعدها يبقى الصفّ ويذهب «من أين»: يُمسَح العنوان وتُمسَح البصمة. لا يقلّ عن ٨ أيّام.')
+                                ->numeric()->minValue(8)->maxValue(65535)->required(),
+                            TextInput::make('auth_session_cap_per_user')
+                                ->label('أقصى عدد جلسات منتهية مُجهَّلة لكلّ حساب')
+                                ->helperText('صفر يعني «بلا سقف» فلا يُحذَف شيء. والنشطة والحديثة خارج هذا العدّ.')
+                                ->numeric()->minValue(0)->maxValue(100000)->required(),
+                            TextInput::make('auth_session_cap_min_age_days')
+                                ->label('أقصر عمر يبلغه السقف (بالأيام)')
+                                ->helperText('السقف لا يحذف صفّاً أحدث من هذا. أطول من مدّة الاحتفاظ، وإلّا لم يبقَ للحساب سجلّ يُقرَأ.')
+                                ->numeric()->minValue(1)->maxValue(65535)->required(),
                         ]),
                     Section::make('الفيديو')
                         ->description('هذه هي الحدودُ المعلَنةُ للمزوّد والمفروضةُ عند الرفع معاً؛ رقمان مختلفان يعني وعداً يخالف ما يُقبَل.')
@@ -301,6 +330,9 @@ class ManagePlatformSettings extends Page
         );
         PlatformSettings::set('auth.device_limits', ['student' => (int) $data['student_device_limit']], $userId);
         PlatformSettings::set('auth.two_factor_grace_days', (int) $data['two_factor_grace_days'], $userId);
+        PlatformSettings::set('auth.auth_session_cap_per_user', (int) $data['auth_session_cap_per_user'], $userId);
+        PlatformSettings::set('auth.auth_session_cap_min_age_days', (int) $data['auth_session_cap_min_age_days'], $userId);
+        $this->saveSessionRetention((int) $data['auth_session_retain_days']);
         PlatformSettings::set('media.max_size_bytes', (int) $data['max_size_bytes'], $userId);
         PlatformSettings::set('media.max_duration_seconds', (int) $data['max_duration_seconds'], $userId);
         PlatformSettings::set('media.grant_ttl_seconds', (int) $data['grant_ttl_seconds'], $userId);
@@ -316,5 +348,44 @@ class ManagePlatformSettings extends Page
         PlatformSettings::set('billing.max_unredeemed_credits', (int) $data['max_unredeemed_credits'], $userId);
 
         Notification::make()->success()->title('حُفظت الإعدادات')->send();
+    }
+
+    /**
+     * The retention, written where the privacy screen reads it.
+     *
+     * ⛔ THROUGH `SaveDataCategory`, NEVER WITH A RAW `update()`. That Action is
+     * the only place the bounds live — zero is "erase everything older than this
+     * instant", 65,536 runs `created_at + n days` off the end of the calendar and
+     * raises ERROR 1441 on MySQL, killing the whole sweep including every other
+     * category, and spec 038 adds a floor of its own because
+     * `playback_grants.issued_ip_hash` holds the same value as a session's and is
+     * pruned only a week after the grant expires. A raw write skips all three.
+     *
+     * ⚠️ AND THE VALUE STAYS IN `data_categories.retain_days` rather than moving
+     * to `platform_settings` beside its two siblings. `DataCategoryResource` sends
+     * it to «خصوصيّتي» with a sentence built from it, and a row with no duration
+     * prints «يُحفظ ما دام الحساب قائماً» — a privacy notice that lies. The owner
+     * asked for one place to EDIT the three numbers, which this is; where each is
+     * stored is a different question.
+     *
+     * ⚠️ AND IT IS THE FIRST TIME A FILAMENT PAGE IN THIS TREE CALLS AN ACTION
+     * FROM ANOTHER MODULE (measured: 25 such calls, all within their own module),
+     * so it is named as a decision rather than left to read as an oversight. This
+     * page already imports `Payments\Support\BillingSettings` and
+     * `LiveSessions\Enums\ClassSessionType` — reads across the same boundary.
+     * The alternative was writing the column raw, which is the one thing the
+     * guards above forbid.
+     */
+    private function saveSessionRetention(int $days): void
+    {
+        $save = app(SaveDataCategory::class);
+
+        foreach (['auth_session', 'device'] as $key) {
+            $category = DataCategory::query()->where('key', $key)->first();
+
+            if ($category !== null) {
+                $save->handle(['retain_days' => $days], $category);
+            }
+        }
     }
 }
