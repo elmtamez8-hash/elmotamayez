@@ -101,6 +101,9 @@ final class PlatformSettings
         */
         'auth.auth_session_cap_per_user' => 'auth_sessions.cap_per_user',
         'auth.auth_session_cap_min_age_days' => 'auth_sessions.cap_min_age_days',
+        // How long a sign-in may go unused before it ends — read on every
+        // bearer-token request by `IdleSessionGuard`.
+        'auth.session_idle_days' => 'auth_sessions.idle_days',
         'media.max_size_bytes' => 'media.max_size_bytes',
         'media.max_duration_seconds' => 'media.max_duration_seconds',
         'media.max_document_size_bytes' => 'media.max_document_size_bytes',

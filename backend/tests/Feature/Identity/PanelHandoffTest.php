@@ -130,3 +130,32 @@ it('lets the ticket die of old age', function (): void {
 | موثَّقاً في المُتحكِّمِ ومسؤوليّةُ إثباتِه على فحصٍ يدويٍّ أو Playwright، حيثُ
 | ثمّةَ متصفّحٌ يحملُ كوكي حقيقيّاً.
 */
+
+/*
+| ⛔ الجسرُ كانَ يتقاسمُ دلوَ `throttle:auth` مع تسجيلِ الدخول، والمفتاحُ الثاني
+| لذلك الدلوِ `email:` + حقلٌ لا يحملُه هذا الطلبُ أبداً — فكانَ `email:` فارغاً،
+| دلواً واحداً لكلِّ مَن على المنصّة. خمسُ ضغطاتٍ من أيِّ طالبٍ في دقيقةٍ تُغلِقُ
+| الجسرَ على كلِّ مسؤولٍ بـ٤٢٩ لا ذنبَ له فيه.
+*/
+it('keeps a stranger\'s presses out of the staff member\'s bucket', function (): void {
+    Sanctum::actingAs(User::factory()->create(['is_super_admin' => false]));
+
+    foreach (range(1, 6) as $_) {
+        $this->postJson('/api/v1/auth/panel-ticket');
+    }
+
+    $this->app['auth']->forgetGuards();
+    Sanctum::actingAs(panelAdmin());
+
+    $this->postJson('/api/v1/auth/panel-ticket')->assertOk();
+});
+
+it('still bounds one account pressing it in a loop', function (): void {
+    Sanctum::actingAs(panelAdmin());
+
+    foreach (range(1, 5) as $_) {
+        $this->postJson('/api/v1/auth/panel-ticket')->assertOk();
+    }
+
+    $this->postJson('/api/v1/auth/panel-ticket')->assertStatus(429);
+});

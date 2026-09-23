@@ -45,15 +45,15 @@ class CompleteTwoFactorChallenge extends Action
         }
 
         if ($recoveryCode !== null) {
-            $this->consumeRecoveryCode($user, $recoveryCode);
+            $this->consumeRecoveryCode($user, $challenge, $recoveryCode);
         } else {
             $secret = (string) $user->getAppAuthenticationSecret();
 
             if ($code === null || ! $this->codes->verify($secret, $code)) {
                 // The challenge survives a wrong code — mistyping six digits is
                 // ordinary, and killing it would send the person back to the
-                // password form. The throttle is what bounds the guessing.
-                throw new DomainException('الرمز غير صحيح.');
+                // password form. Up to a point: the fifth wrong answer spends it.
+                $this->refuse($challenge, 'الرمز غير صحيح.');
             }
         }
 
@@ -63,14 +63,30 @@ class CompleteTwoFactorChallenge extends Action
     }
 
     /**
+     * A wrong answer, counted — whichever of the two kinds it was.
+     *
+     * ⚠️ A wrong RECOVERY code counts against the same five. It is a guess at the
+     * same door, and counting only one kind would hand the guesser a second
+     * budget by switching fields.
+     */
+    private function refuse(string $challenge, string $message): never
+    {
+        if (TwoFactorChallenges::recordFailure($challenge)) {
+            throw new DomainException('تجاوزت عدد المحاولات المسموح بها. سجّل الدخول من جديد.');
+        }
+
+        throw new DomainException($message);
+    }
+
+    /**
      * One use, then gone — and the account holder is told, because a recovery
      * code being spent is either them losing their phone or someone else holding
      * their printed sheet (FR-029).
      */
-    private function consumeRecoveryCode(User $user, string $recoveryCode): void
+    private function consumeRecoveryCode(User $user, string $challenge, string $recoveryCode): void
     {
         if (! $this->codes->consumeRecoveryCode($user, $recoveryCode)) {
-            throw new DomainException('رمز الاسترداد غير صحيح أو استُخدم من قبل.');
+            $this->refuse($challenge, 'رمز الاسترداد غير صحيح أو استُخدم من قبل.');
         }
 
         $remaining = $this->codes->remainingRecoveryCodes($user);

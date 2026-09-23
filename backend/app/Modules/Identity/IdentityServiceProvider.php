@@ -16,6 +16,7 @@ use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Policies\AuthSessionPolicy;
 use App\Modules\Identity\Support\EloquentGuardianDirectory;
 use App\Modules\Identity\Support\IdentityPersonalData;
+use App\Modules\Identity\Support\IdleSessionGuard;
 use App\Modules\Notifications\Events\ContactVerified;
 use App\Modules\Payments\Events\PaymentApproved;
 use App\Modules\Payments\Events\PaymentCaptured;
@@ -28,6 +29,8 @@ use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Laravel\Sanctum\PersonalAccessToken;
+use Laravel\Sanctum\Sanctum;
 
 class IdentityServiceProvider extends Module
 {
@@ -58,6 +61,16 @@ class IdentityServiceProvider extends Module
         parent::boot();
 
         Gate::policy(AuthSession::class, AuthSessionPolicy::class);
+
+        /*
+        | ⛔ A BEARER TOKEN USED TO LIVE FOR EVER. Every token request now asks
+        | whether its session has gone unused past `auth.session_idle_days`, and
+        | ends it with a reason the sign-in screen can print. See the class.
+        */
+        Sanctum::authenticateAccessTokensUsing(
+            fn (PersonalAccessToken $token, bool $isValid): bool => $this->app->make(IdleSessionGuard::class)
+                ->allows($token, $isValid),
+        );
 
         /*
         | ⛔ THE RESET LINK POINTS AT THE FRONTEND, AND WITHOUT THIS LINE IT WAS A 500.

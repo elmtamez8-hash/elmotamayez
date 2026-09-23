@@ -29,12 +29,15 @@ Route::post('/auth/login', [AuthController::class, 'login'])->middleware('thrott
 /*
 | جسرُ لوحةِ الإدارة — يُطلَبُ بالرمزِ القائمِ ويُصرَفُ مرّةً واحدة.
 |
-| `auth:sanctum` لأنّه لا يُسأَلُ إلّا بالمفتاحِ الذي في اليد، و`throttle:auth`
-| لأنّ هذا هو الموضعُ الذي يُصنَعُ فيه مفتاحُ دخولٍ — يُعامَلُ معامَلةَ تسجيلِ
-| الدخولِ نفسِها لا معامَلةَ قراءة.
+| `auth:sanctum` لأنّه لا يُسأَلُ إلّا بالمفتاحِ الذي في اليد، ومحدِّدٌ مسمّى
+| باسمِه لأنّ هذا هو الموضعُ الذي يُصنَعُ فيه مفتاحُ دخول.
+|
+| ⛔ كانَ `throttle:auth`، ومفتاحُه الثاني `email:` + حقلٌ لا يحملُه هذا الطلب —
+| فكانَ دلواً واحداً لكلِّ الحسابات، وخمسُ ضغطاتٍ من أيِّ طالبٍ تُغلِقُ الجسرَ على
+| كلِّ مسؤول. `panel-handoff` مفتاحُه الحسابُ وحدَه.
 */
 Route::post('/auth/panel-ticket', [PanelHandoffController::class, 'mint'])
-    ->middleware(['auth:sanctum', 'throttle:auth']);
+    ->middleware(['auth:sanctum', 'throttle:panel-handoff']);
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth');
 // ⚠️ `throttle:auth` LIKE ITS TWO SIBLINGS ABOVE. The `api` group applies no
 // default limiter, so without this the endpoint is an unlimited account-existence
@@ -52,11 +55,14 @@ Route::get('/auth/sessions/{uuid}/end-reason', [SessionController::class, 'endRe
 
 /*
 | The second half of a sign-in, so it carries no token — there is none yet. The
-| challenge is what stands in for one, and it is keyed by the throttle below as
-| well as by IP: six digits are brute-forceable from a botnet otherwise.
+| challenge is what stands in for one. Its limiter keys on the ACCOUNT the
+| challenge belongs to as well as on the challenge and the IP: whoever is guessing
+| holds the password and can mint a fresh challenge at will, and six digits are
+| brute-forceable from a botnet otherwise. `CompleteTwoFactorChallenge` also
+| spends a challenge after five wrong answers.
 */
 Route::post('/auth/2fa/challenge', [TwoFactorController::class, 'challenge'])
-    ->middleware('throttle:two-factor');
+    ->middleware('throttle:two-factor-challenge');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/auth/logout', [AuthController::class, 'logout']);

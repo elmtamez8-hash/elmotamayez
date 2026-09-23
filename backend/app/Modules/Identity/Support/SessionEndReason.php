@@ -28,6 +28,16 @@ enum SessionEndReason: string
      */
     case Offboarding = 'offboarding';
 
+    /**
+     * Nobody used the session for `auth.session_idle_days` (spec: owner decision
+     * 2026-09-23, thirty days by default).
+     *
+     * ⚠️ NOT `Expired`, whose sentence reads as a fault. This one says WHY — a
+     * long silence — so the person reading it on the sign-in screen knows nothing
+     * happened to their account and signing in again is all it takes.
+     */
+    case Idle = 'idle';
+
     public function label(): string
     {
         return match ($this) {
@@ -38,6 +48,7 @@ enum SessionEndReason: string
             self::Manual => 'أُنهيت هذه الجلسة من قائمة أجهزتك.',
             self::Expired => 'انتهت صلاحية الجلسة.',
             self::Offboarding => 'اكتمل خروجك من مكان العمل.',
+            self::Idle => 'انتهت الجلسة لأنها لم تُستخدم مدّة طويلة.',
         };
     }
 }

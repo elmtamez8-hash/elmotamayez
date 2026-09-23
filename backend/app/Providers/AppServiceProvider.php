@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\Modules\Community\Support\CommunitySettings;
+use App\Modules\Identity\Support\TwoFactorChallenges;
 use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -230,6 +231,46 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(5)->by('ip:'.$request->ip()),
             Limit::perMinute(5)->by('challenge:'.(string) $request->input('challenge', $request->user()?->getKey())),
         ]);
+
+        /*
+        | The second half of a sign-in — its own limiter, because the one above
+        | cannot see the thing that matters here.
+        |
+        | ⛔ A PER-CHALLENGE KEY IS A KEY THE ATTACKER MINTS. Whoever is guessing
+        | already holds the password, so a spent challenge is replaced by signing
+        | in again, and a per-IP key is a key a botnet rotates. What neither can
+        | change is WHOSE account the challenge belongs to — so the ceiling is per
+        | account, read from the challenge itself, and an hourly one beside it:
+        | five a minute alone is still seven thousand guesses a day.
+        |
+        | ⚠️ AN UNRESOLVED CHALLENGE KEYS BY ADDRESS, NEVER BY A CONSTANT. `user:`
+        | with nothing after it is one bucket for everybody — the exact defect
+        | `panel-handoff` below exists to undo.
+        */
+        RateLimiter::for('two-factor-challenge', function (Request $request) {
+            $userId = TwoFactorChallenges::userId((string) $request->input('challenge'));
+            $account = $userId !== null ? 'user:'.$userId : 'ip:'.$request->ip();
+
+            return [
+                Limit::perMinute(5)->by('ip:'.$request->ip()),
+                Limit::perMinute(5)->by('challenge:'.(string) $request->input('challenge')),
+                Limit::perMinute(5)->by('account-minute:'.$account),
+                Limit::perHour(20)->by('account-hour:'.$account),
+            ];
+        });
+
+        /*
+        | Minting the one-use ticket into `/admin`.
+        |
+        | ⛔ IT SHARED `auth` UNTIL 2026-09-23, AND `auth`'S SECOND KEY IS
+        | `email:` + A FIELD THIS REQUEST NEVER CARRIES — so every caller on the
+        | platform landed in the one bucket `email:`, and five presses by any
+        | student in a minute answered 429 to every staff member on their way to
+        | the panel. The route is behind `auth:sanctum`, so the account is always
+        | known and is the whole key.
+        */
+        RateLimiter::for('panel-handoff', fn (Request $request) => Limit::perMinute(5)
+            ->by('user:'.(string) $request->user()?->getKey()));
 
         // Session writes: booking, cancelling, issuing a join ticket. By user for
         // the same reason as playback — a school behind one address is many

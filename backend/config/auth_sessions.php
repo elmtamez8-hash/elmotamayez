@@ -52,4 +52,19 @@ return [
     | regardless of how many rows there are.
     */
     'cap_min_age_days' => 180,
+
+    /*
+    | How many days a sign-in may go UNUSED before it ends (owner decision
+    | 2026-09-23).
+    |
+    | ⛔ UNTIL THEN A BEARER TOKEN NEVER EXPIRED: `sanctum.expiration` is null, so
+    | a token copied off a shared computer opened the account for as long as the
+    | account existed. IDLE, not absolute — somebody who opens the product every
+    | week is never signed out — and measured from the token's own `last_used_at`,
+    | which Sanctum already writes on every request.
+    |
+    | ⚠️ Zero or less reads as "no limit", as `cap_per_user` does above: an
+    | operator who empties the field means to switch the rule off.
+    */
+    'idle_days' => 30,
 ];

@@ -15,13 +15,24 @@ import { BellIcon, LockIcon, SettingsIcon, ShieldIcon, UserIcon } from "@/compon
 import { PublicProfileUrlCard } from "@/components/marketplace/PublicProfileUrlCard";
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   const [profile, setProfile] = useState({
     first_name: user?.first_name ?? "",
     last_name: user?.last_name ?? "",
     email: user?.email ?? "",
   });
+  /*
+  | ⛔ A NEW ADDRESS COSTS THE CURRENT PASSWORD. The address is where the reset
+  | link goes, so changing it is changing who owns the account — the server
+  | refuses it without the password, and this is where the screen asks for it.
+  | Compared against the address as last SAVED, not as first loaded, so a second
+  | edit after a successful one asks again.
+  */
+  const [savedEmail, setSavedEmail] = useState(user?.email ?? "");
+  const [emailPassword, setEmailPassword] = useState("");
+  const emailChanged =
+    profile.email.trim().toLowerCase() !== savedEmail.trim().toLowerCase();
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [profileFields, setProfileFields] = useState<Record<string, string>>({});
@@ -45,8 +56,14 @@ export default function SettingsPage() {
     setSavingProfile(true);
 
     try {
-      await api.patch<User>("/auth/me", profile);
+      await api.patch<User>(
+        "/auth/me",
+        emailChanged ? { ...profile, current_password: emailPassword } : profile,
+      );
+      setSavedEmail(profile.email);
+      setEmailPassword("");
       setProfileSaved(true);
+      await refreshUser();
     } catch (err: unknown) {
       // 422 lands under the field it belongs to; everything else goes to the
       // banner. Mixing them puts "you are not signed in" under a name input.
@@ -125,6 +142,19 @@ export default function SettingsPage() {
             autoComplete="email"
             required
           />
+
+          {emailChanged && (
+            <PasswordField
+              id="profile_current_password"
+              label="كلمة المرور الحالية"
+              value={emailPassword}
+              onChange={setEmailPassword}
+              error={profileFields.current_password}
+              hint="تغيير البريد الإلكتروني يحتاج كلمة مرورك الحالية."
+              autoComplete="current-password"
+              required
+            />
+          )}
 
           <Button type="submit" loading={savingProfile} loadingLabel="جارٍ الحفظ…">
             احفظ التغييرات

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Actions;
 
 use App\Models\User;
+use App\Modules\Notifications\Actions\DispatchNotification;
+use App\Modules\Notifications\Data\NotificationRequest;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Shared\Actions\Action;
 
 /**
@@ -29,9 +32,17 @@ use App\Shared\Actions\Action;
  * ⚠️ وتغييرُ البريدِ يُسقِطُ توثيقَه، وهذا هو القرارُ الذي يملكُه هذا الإجراء:
  * `email_verified_at` جوابٌ عن **العنوانِ الذي وُثِّق**، فنقلُه إلى عنوانٍ جديدٍ
  * يقولُ إنّ إنساناً أثبتَ ملكيّةَ بريدٍ لم يُرسَلْ إليه شيءٌ قطّ.
+ *
+ * ⛔ **ويُخبَرُ صاحبُ الحسابِ بتغييرِ بريدِه، من أيِّ بابٍ جاء.** البريدُ هو حيثُ
+ * يذهبُ رابطُ استعادةِ كلمةِ المرور، فتغييرُه نقلٌ لملكيّةِ الحسابِ لا تصحيحُ حقل.
+ * والتنبيهُ هنا لا في المُتحكِّم لأنّ هذا الإجراءَ بابانِ: `PATCH /auth/me`
+ * (صاحبُ الحسابِ، بكلمةِ مرورِه) ولوحةُ المنصّة (مشرِف) — وتنبيهٌ في أحدِهما
+ * وحدَه هو التغييرُ الذي يمرُّ بصمتٍ من الآخَر.
  */
 class UpdateAccountDetails extends Action
 {
+    public function __construct(private readonly DispatchNotification $notify) {}
+
     /**
      * @param  array{first_name?: string, last_name?: string, email?: string, phone?: string|null, country?: string|null}  $attributes
      */
@@ -47,8 +58,7 @@ class UpdateAccountDetails extends Action
 
         // مقارنةٌ بلا حساسيّةِ حالةٍ وبلا فراغاتٍ طرفيّة: «Ali@X.com» و«ali@x.com»
         // بريدٌ واحد، وإسقاطُ التوثيقِ عليهما عقوبةٌ على مسافةٍ زائدة.
-        $emailChanged = isset($editable['email'])
-            && mb_strtolower(trim($editable['email'])) !== mb_strtolower($user->email);
+        $emailChanged = isset($editable['email']) && self::emailDiffers($user, $editable['email']);
 
         if ($emailChanged) {
             $editable['email_verified_at'] = null;
@@ -56,6 +66,28 @@ class UpdateAccountDetails extends Action
 
         $user->forceFill($editable)->save();
 
+        if ($emailChanged) {
+            $this->notify->handle(new NotificationRequest(
+                recipient: $user,
+                type: NotificationType::SecurityAlert,
+                variables: [
+                    'name' => $user->name,
+                    'event' => 'تغيّر البريد الإلكتروني المسجَّل لحسابك. إن لم تكن أنت من غيّره، غيّر كلمة المرور فوراً وأنهِ الجلسات التي لا تعرفها.',
+                ],
+            ));
+        }
+
         return $user;
+    }
+
+    /**
+     * «Is this a different inbox?» — the one spelling, read by this Action AND by
+     * the request that decides whether a password is required for the change.
+     * Two spellings would let one ask for a password over a capital letter while
+     * the other waves a real change through.
+     */
+    public static function emailDiffers(User $user, string $email): bool
+    {
+        return mb_strtolower(trim($email)) !== mb_strtolower((string) $user->email);
     }
 }
