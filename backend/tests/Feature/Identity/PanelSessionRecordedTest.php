@@ -9,6 +9,7 @@ use App\Modules\Identity\Support\SessionEndReason;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -131,4 +132,49 @@ it('leaves the API door writing a token and no session id', function (): void {
     expect($session)->not->toBeNull()
         ->and($session?->token_id)->not->toBeNull()
         ->and($session?->session_id)->toBeNull();
+});
+
+/*
+| ⛔ **وصفُّ اللوحةِ كانَ يبقى «نشِطاً» إلى الأبد** — جلسةُ الويبِ تنتهي وحدَها بعدَ
+| `session.lifetime` دقيقةً من السكون، ولا شيءَ يُنهي الصفّ. `TouchPanelSession`
+| يُحرِّكُ `last_active_at` ما دامتِ اللوحةُ مُستعمَلة، والكنسُ الليليُّ يُنهي ما سكن
+| (`IdleSessionSweepTest`).
+|
+| الطلبُ التالي يركبُ الجلسةَ المسجَّلةَ نفسَها بكوكيِّها — لا بـ`actingAs`، الذي
+| يُصادِقُ بلا جلسةٍ فلا يبلغُ الصفَّ أبداً.
+*/
+function panelRequest(AuthSession $session, string $method = 'get', string $uri = '/admin'): TestResponse
+{
+    app('auth')->forgetGuards();
+
+    return test()->withCookie((string) config('session.cookie'), (string) $session->session_id)
+        ->{$method}($uri);
+}
+
+it('moves last_active_at while the panel is in use, at most every few minutes', function (): void {
+    $admin = User::factory()->create(['is_super_admin' => true]);
+    $session = panelSignIn($admin);
+
+    $this->travel(6)->minutes();
+    panelRequest($session)->assertOk();
+
+    $touched = $session->fresh()?->last_active_at;
+    expect($touched?->getTimestamp())->toBe(now()->getTimestamp());
+
+    // Inside the interval: no second write.
+    $this->travel(1)->minute();
+    panelRequest($session)->assertOk();
+
+    expect($session->fresh()?->last_active_at?->getTimestamp())->toBe($touched?->getTimestamp());
+});
+
+it('ends the device row when the operator signs out of the panel', function (): void {
+    $admin = User::factory()->create(['is_super_admin' => true]);
+    $session = panelSignIn($admin);
+
+    panelRequest($session, 'post', '/admin/logout');
+
+    $session->refresh();
+    expect($session->status)->toBe(AuthSession::STATUS_ENDED)
+        ->and($session->ended_reason)->toBe(SessionEndReason::Logout);
 });

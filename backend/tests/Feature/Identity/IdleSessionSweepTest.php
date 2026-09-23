@@ -101,15 +101,65 @@ it('deletes an idle token that has no active session behind it', function (): vo
         ->and(PersonalAccessToken::query()->whereKey($fresh->getKey())->exists())->toBeTrue();
 });
 
-it('never ends a panel session, which carries no token', function (): void {
-    ['session_uuid' => $uuid] = sweepSignIn('panel@example.com');
+/*
+| ⛔ A panel sign-in used to stay `active` for ever: its web session expires by
+| itself after `session.lifetime` minutes of silence, and nothing ended the row.
+| The panel arm judges `last_active_at` — kept moving by `TouchPanelSession` —
+| against that lifetime, not against the thirty-day token rule.
+*/
+function sweepPanelRow(string $email): AuthSession
+{
+    ['session_uuid' => $uuid] = sweepSignIn($email);
 
     // Re-shape the row as a panel sign-in: no token, a web session id instead.
     $session = sweepSession($uuid);
     PersonalAccessToken::query()->whereKey($session->token_id)->delete();
-    $session->forceFill(['token_id' => null, 'session_id' => 'panel-session'])->save();
+    $session->forceFill(['token_id' => null, 'session_id' => 'panel-'.$uuid])->save();
 
-    $this->travel(90)->days();
+    return $session;
+}
+
+it('ends a panel session that went quiet for longer than the web session lives', function (): void {
+    $session = sweepPanelRow('panel@example.com');
+
+    $this->travel((int) config('session.lifetime') + 11)->minutes();
+
+    dispatch_sync(new EndIdleAuthSessionsJob);
+
+    $session->refresh();
+    expect($session->status)->toBe(AuthSession::STATUS_ENDED)
+        ->and($session->ended_reason)->toBe(SessionEndReason::Idle);
+});
+
+it('keeps a panel session that was used inside the lifetime', function (): void {
+    $session = sweepPanelRow('panel-busy@example.com');
+
+    $this->travel((int) config('session.lifetime') + 60)->minutes();
+    // What `TouchPanelSession` writes while the operator is working.
+    $session->forceFill(['last_active_at' => now()->subMinutes(5)])->save();
+
+    dispatch_sync(new EndIdleAuthSessionsJob);
+
+    expect($session->fresh()?->status)->toBe(AuthSession::STATUS_ACTIVE);
+});
+
+it('still ends a quiet panel session when the token rule is switched off', function (): void {
+    PlatformSettings::set('auth.session_idle_days', 0);
+
+    $session = sweepPanelRow('panel-off@example.com');
+
+    $this->travel(1)->day();
+
+    dispatch_sync(new EndIdleAuthSessionsJob);
+
+    expect($session->fresh()?->status)->toBe(AuthSession::STATUS_ENDED);
+});
+
+it('leaves a token session alone on the panel clock', function (): void {
+    ['session_uuid' => $uuid] = sweepSignIn('token-day@example.com');
+
+    // A day of silence: past the web session lifetime, far inside thirty days.
+    $this->travel(1)->day();
 
     dispatch_sync(new EndIdleAuthSessionsJob);
 

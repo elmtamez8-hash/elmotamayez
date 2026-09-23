@@ -7,6 +7,7 @@ namespace App\Modules\Identity\Jobs;
 use App\Modules\Identity\Actions\TerminateAuthSession;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Support\IdleSessionGuard;
+use App\Modules\Identity\Support\PanelSessionActivity;
 use App\Modules\Identity\Support\SessionEndReason;
 use App\Shared\Traits\RunsAlone;
 use Carbon\CarbonInterface;
@@ -38,10 +39,14 @@ use Throwable;
  * — the same number, read from the same place, so the nightly sweep and the
  * request-time check cannot disagree about who is idle.
  *
- * ⚠️ TOKEN SESSIONS ONLY (`token_id IS NOT NULL`). A panel sign-in has no token
- * and its `last_active_at` is frozen at sign-in, so a 30-day rule on it would
- * destroy the web session of an operator who used `/admin` every day. The panel
- * is governed by `config/session.php`'s lifetime instead.
+ * ⚠️ AND A SECOND ARM FOR `/admin`, ON A DIFFERENT CLOCK. A panel sign-in has no
+ * token; it rests on a web session that dies by itself after `session.lifetime`
+ * minutes of silence — and its row stayed `active` for ever after, listed on the
+ * devices screen and counted by the limit. {@see PanelSessionActivity} keeps the
+ * row's `last_active_at` moving while the panel is in use, and the panel arm ends
+ * rows that went quiet for longer than the web session can live. It runs whether
+ * or not the token rule is switched on: `auth.session_idle_days = 0` turns off
+ * the THIRTY-DAY rule, not the framework's session lifetime.
  *
  * ⚠️ THROUGH {@see TerminateAuthSession}, never a bare delete: it removes the
  * token AND writes `ended_reason = idle`, which is what the sign-in screen
@@ -63,25 +68,43 @@ class EndIdleAuthSessionsJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public function handle(IdleSessionGuard $guard, TerminateAuthSession $terminate): void
+    public function handle(IdleSessionGuard $guard, PanelSessionActivity $panel, TerminateAuthSession $terminate): void
     {
         $cutoff = $guard->cutoff();
 
-        if ($cutoff === null) {
-            return;
+        $ended = 0;
+        $pruned = 0;
+
+        if ($cutoff !== null) {
+            $ended = $this->endIdleSessions(
+                AuthSession::query()
+                    ->active()
+                    ->whereNotNull('token_id')
+                    ->whereIn('token_id', fn (QueryBuilder $q) => $this->idleTokenIds($q, $cutoff)),
+                $terminate,
+            );
+            $pruned = $this->pruneOrphanTokens($cutoff);
         }
 
-        $ended = $this->endIdleSessions($cutoff, $terminate);
-        $pruned = $this->pruneOrphanTokens($cutoff);
+        $panelEnded = $this->endIdleSessions(
+            AuthSession::query()
+                ->active()
+                ->whereNull('token_id')
+                ->whereNotNull('session_id')
+                ->where('last_active_at', '<', $panel->expiryCutoff()),
+            $terminate,
+        );
 
         // Counts only — see the catch below for why nothing else goes in a log.
         Log::info('identity.idle_sessions.swept', [
             'sessions_ended' => $ended,
             'tokens_pruned' => $pruned,
+            'panel_sessions_ended' => $panelEnded,
         ]);
     }
 
-    private function endIdleSessions(CarbonInterface $cutoff, TerminateAuthSession $terminate): int
+    /** @param Builder<AuthSession> $candidates */
+    private function endIdleSessions(Builder $candidates, TerminateAuthSession $terminate): int
     {
         $ended = 0;
         $seen = 0;
@@ -96,10 +119,7 @@ class EndIdleAuthSessionsJob implements ShouldQueue
         $cursor = 0;
 
         while ($seen < self::MAX_PER_RUN) {
-            $sessions = AuthSession::query()
-                ->active()
-                ->whereNotNull('token_id')
-                ->whereIn('token_id', fn (QueryBuilder $q) => $this->idleTokenIds($q, $cutoff))
+            $sessions = (clone $candidates)
                 ->where('id', '>', $cursor)
                 ->orderBy('id')
                 ->limit(self::PAGE)

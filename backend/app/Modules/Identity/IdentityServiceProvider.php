@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
 use App\Modules\Identity\Listeners\ActivateOnProcessingConsent;
 use App\Modules\Identity\Listeners\CompleteReferral;
+use App\Modules\Identity\Listeners\EndPanelSessionOnLogout;
 use App\Modules\Identity\Listeners\InviteGuardianOnContactVerified;
 use App\Modules\Identity\Listeners\RecordPanelSignIn;
 use App\Modules\Identity\Listeners\ReverseReferralAward;
@@ -26,6 +27,7 @@ use App\Modules\Payments\Events\RefundIssued;
 use App\Shared\Contracts\GuardianDirectory;
 use App\Shared\Modules\Module;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -135,6 +137,8 @@ class IdentityServiceProvider extends Module
         | the hole this closes rather than a new one to open.
         */
         Event::listen(Login::class, RecordPanelSignIn::class);
+        // …and ended like every other door when its owner signs out.
+        Event::listen(Logout::class, EndPanelSessionOnLogout::class);
 
         /*
         | A guardian who signs up after their child is linked the moment they
