@@ -9,6 +9,7 @@ use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Support\WorkspaceContext;
+use App\Shared\Traits\RunsAlone;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -30,7 +31,7 @@ use Illuminate\Queue\SerializesModels;
  */
 class EvaluateCreditLimitsJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     public function handle(WorkspaceContext $context, EvaluateCreditLimit $action, BillingSettings $settings): void
     {

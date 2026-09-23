@@ -9,6 +9,7 @@ use App\Modules\Assessments\Models\QuestionStat;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Support\WorkspaceContext;
+use App\Shared\Traits\RunsAlone;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -40,7 +41,7 @@ use Illuminate\Support\Facades\DB;
  */
 class RollUpQuestionStatsJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     /** How many rollup rows are held before they are written. */
     private const BATCH = 500;

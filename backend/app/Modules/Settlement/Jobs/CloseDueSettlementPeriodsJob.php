@@ -12,6 +12,7 @@ use App\Modules\Settlement\Models\TeachingUnit;
 use App\Modules\Settlement\Support\SettlementWindow;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Support\WorkspaceContext;
+use App\Shared\Traits\RunsAlone;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -35,7 +36,7 @@ use Throwable;
  */
 class CloseDueSettlementPeriodsJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     public function handle(
         WorkspaceContext $context,

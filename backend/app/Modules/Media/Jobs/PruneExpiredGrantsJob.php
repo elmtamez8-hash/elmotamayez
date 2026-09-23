@@ -6,6 +6,7 @@ namespace App\Modules\Media\Jobs;
 
 use App\Modules\Media\Models\PlaybackGrant;
 use App\Modules\Media\Support\PlaybackGuard;
+use App\Shared\Traits\RunsAlone;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -36,7 +37,7 @@ use Illuminate\Support\Facades\Log;
  */
 class PruneExpiredGrantsJob implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, RunsAlone;
 
     private const KEEP_DAYS = 7;
 

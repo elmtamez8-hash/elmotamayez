@@ -9,6 +9,7 @@ use App\Modules\Assessments\Models\Submission;
 use App\Modules\Assessments\Support\ApplyAccommodation;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Support\WorkspaceContext;
+use App\Shared\Traits\RunsAlone;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -43,7 +44,7 @@ use Illuminate\Support\Str;
  */
 class MarkMissedSubmissionsJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     public function handle(WorkspaceContext $context, ApplyAccommodation $accommodations): void
     {

@@ -11,6 +11,7 @@ use App\Modules\Payments\Enums\SubscriptionStatus;
 use App\Modules\Payments\Models\Subscription;
 use App\Modules\Payments\Support\SubscriptionAccess;
 use App\Modules\Tenancy\Support\PlatformSettings;
+use App\Shared\Traits\RunsAlone;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -51,7 +52,7 @@ use Illuminate\Queue\SerializesModels;
  */
 class ExpireSubscriptionsJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     public function handle(DispatchNotification $notifications): void
     {

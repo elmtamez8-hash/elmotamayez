@@ -7,6 +7,7 @@ namespace App\Modules\Gamification\Jobs;
 use App\Modules\Gamification\Actions\RollUpLeaderboards;
 use App\Modules\Gamification\Enums\LeaderboardPeriod;
 use App\Modules\Gamification\Support\GamificationCalendar;
+use App\Shared\Traits\RunsAlone;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -27,7 +28,7 @@ use Illuminate\Queue\SerializesModels;
  */
 class CloseLeaderboardWeekJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     public function __construct()
     {

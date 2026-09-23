@@ -10,6 +10,7 @@ use App\Modules\Payments\Events\CreditExpired;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditLot;
 use App\Modules\Payments\Support\CreditLedger;
+use App\Shared\Traits\RunsAlone;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -42,7 +43,7 @@ use Illuminate\Support\Facades\DB;
  */
 class ExpireCreditLotsJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     public function handle(CreditLedger $ledger): void
     {

@@ -316,8 +316,13 @@ return [
         | same reason it is 1 above: these are idempotent by their unique keys,
         | but a retry storm on a sweep is a second full walk, not a fix.
         |
-        | One process, because every one of them carries `withoutOverlapping()`
-        | — a second worker would only ever be waiting on a lock.
+        | Two processes in production (see `environments`), not one. At one, any
+        | sweep running toward its 900-second timeout held every other job here —
+        | the recording retry, the asset reconcile, the billing sweeps — behind
+        | it for its whole run. The scheduler's `withoutOverlapping()` never kept
+        | two copies of one sweep apart (it guards the push, not the run); the
+        | single process did, by accident. That guard now lives on the jobs:
+        | `RunsAlone`, or a `WithoutOverlapping` + `expireAfter()` of their own.
         |
         | ⚠️ AND IT IS LISTED IN `environments` BELOW, NOT ONLY HERE. `defaults`
         | supplies shared VALUES; `environments` is what decides which
@@ -464,8 +469,10 @@ return [
                 'balanceCooldown' => 3,
             ],
 
+            // Two, so one long sweep does not hold every other one behind it.
+            // Each sweep guards its own run (`RunsAlone` / job middleware).
             'supervisor-maintenance' => [
-                'maxProcesses' => 1,
+                'maxProcesses' => 2,
             ],
 
             // One process on purpose: two exports of one request would produce two
