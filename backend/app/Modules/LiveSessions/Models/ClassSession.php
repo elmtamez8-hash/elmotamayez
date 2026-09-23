@@ -287,10 +287,12 @@ class ClassSession extends BaseModel
      * asked. A freshly built model has no `created_at` yet, so the current
      * moment stands in for it — the only case where they are the same thing.
      */
-    public function billableSeatsFreezeAt(): CarbonInterface
+    public function billableSeatsFreezeAt(?CarbonInterface $scheduledAt = null): CarbonInterface
     {
         $deadline = $this->cancellationDeadline();
-        $bornAt = $this->created_at ?? now();
+        // A MOVE is a second birth: `UpdateClassSession` passes the moment of the
+        // move, so a session moved inside its own window freezes at its start.
+        $bornAt = $scheduledAt ?? $this->created_at ?? now();
 
         return $deadline->greaterThan($bornAt) ? $deadline : $this->starts_at->copy();
     }

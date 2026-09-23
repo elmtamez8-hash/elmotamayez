@@ -92,7 +92,7 @@ class ScheduleClassSession extends Action
         // settled at the moment it stops being able to change (FR-059) — or at
         // the session's start when that deadline is already behind us, which is
         // 027 · FR-039ب. `billableSeatsFreezeAt()` carries the reason.
-        FreezeBillableSeatsJob::dispatch((int) $session->getKey())
+        FreezeBillableSeatsJob::dispatch((int) $session->getKey(), $session->starts_at->getTimestamp())
             ->delay($session->billableSeatsFreezeAt());
 
         SessionScheduled::dispatch($session);
