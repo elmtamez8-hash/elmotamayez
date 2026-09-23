@@ -83,6 +83,20 @@ else
     $COMPOSE run --rm --no-deps -T -u www-data backend php artisan cohorts:gate-impact
 fi
 
+# ⚠️ ملكيّةُ مجلّدِ المرفوعاتِ **قبلَ** رفعِ الخدمات، لا بعدَه فقط. `horizon`
+# و`scheduler` و`reverb` صاروا يعملونَ بـwww-data (انظر `docker-compose.prod.yml`)،
+# وكانوا root — فكلُّ ما كتبوه على مجلّدِ `storage` منذُ آخرِ نشرةٍ ملكُ root،
+# ونبضةُ المجدوِلِ منه. و`up -d` أدناه يُعيدُ إنشاءَهم فوراً بالمستخدمِ الجديد،
+# بينما `chown` الموجودُ أسفلَ الملفِّ يأتي بعدَ الهجراتِ بدقيقة: نافذةٌ يفشلُ فيها
+# لمسُ النبضةِ وكتابةُ المهامِّ في مجلّداتٍ ملكِ root.
+#
+# و`find ! -user` لا `chown -R`: يمسُّ ما ليسَ لـwww-data وحدَه، فيكونُ في كلِّ
+# نشرةٍ بعدَ الأولى مروراً للقراءةِ بلا كتابة — ويبقى آمناً إن أُعيدَ مئةَ مرّة.
+# و`-h` كي لا يتبعَ رابطاً رمزيّاً إلى خارجِ المجلّد.
+echo "▸ ملكيّةُ المرفوعاتِ لـwww-data"
+$COMPOSE run --rm --no-deps -T -u root backend \
+    find storage/app ! -user www-data -exec chown -h www-data:www-data {} +
+
 echo "▸ رفعُ الخدمات"
 $COMPOSE up -d
 
