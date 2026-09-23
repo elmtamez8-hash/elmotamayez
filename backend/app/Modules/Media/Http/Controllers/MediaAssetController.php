@@ -16,6 +16,7 @@ use App\Modules\Media\Http\Requests\StoreMediaAssetRequest;
 use App\Modules\Media\Http\Resources\MediaAssetResource;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Providers\LocalMediaProvider;
+use App\Modules\Media\Support\MediaLimits;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -108,10 +109,10 @@ class MediaAssetController extends Controller
     /**
      * The local provider's upload target.
      *
-     * Reached by an unguessable, expiring ticket token rather than by bearer
-     * auth, because a commercial provider's ticket would point at its own host
-     * with the same shape — keeping one upload path in the client whichever
-     * provider is configured.
+     * Reached by the ticket's temporary signed url (`signed:relative` on the
+     * route) rather than by bearer auth, because a commercial provider's ticket
+     * would point at its own host with the same shape — keeping one upload path
+     * in the client whichever provider is configured.
      */
     public function receiveUpload(Request $request, string $token, LocalMediaProvider $provider): JsonResponse
     {
@@ -124,10 +125,12 @@ class MediaAssetController extends Controller
          * BYTES.
          *
          * The ticket token is the asset's own uuid and this endpoint is
-         * unauthenticated by design — the unguessable token is the credential. What
-         * was missing is that it never asked whose asset it was: with a commercial
-         * provider configured, an asset belonging to THAT provider could be handed
-         * bytes here, which wrote a local disk path into `provider_asset_id`.
+         * unauthenticated by design — the credential is the temporary SIGNATURE on
+         * the ticket's url (`signed:relative` on the route), never the uuid alone,
+         * which API payloads carry. What was also missing is that it never asked
+         * whose asset it was: with a commercial provider configured, an asset
+         * belonging to THAT provider could be handed bytes here, which wrote a
+         * local disk path into `provider_asset_id`.
          * `CompleteMediaUpload` then resolved the commercial provider from the column
          * and asked it about a file that was never created there — so the upload
          * failed with a message naming the wrong cause, and a stray file was left on
@@ -147,10 +150,38 @@ class MediaAssetController extends Controller
             409,
         );
 
+        /*
+        | ⛔ THE SIZE CEILING IS ENFORCED HERE, ON THE BYTES THAT ARRIVED.
+        |
+        | The ticket checked a size the client DECLARED and completion runs later,
+        | so this route used to keep whatever arrived, up to nginx's 512 MiB, for
+        | any kind. `Content-Length` refuses an honest oversize request before
+        | anything is written. The size of the written file is what holds against
+        | a client that lies about it: measured on disk rather than by copying the
+        | stream through a counting buffer first, because PHP has already spooled
+        | the body once and a second full copy of a 2 GiB video is the cost of a
+        | check the disk answers for free. An oversize file is deleted and the
+        | asset goes back to waiting for its bytes, as if this request never came.
+        */
+        $ceiling = MediaLimits::uploadCeilingFor($asset);
+        $declared = $request->header('Content-Length');
+
+        if (is_string($declared) && ctype_digit($declared) && (int) $declared > $ceiling) {
+            abort(413, MediaLimits::sizeRefusal($asset->kind));
+        }
+
         $asset->forceFill(['status' => MediaAssetStatus::Uploading])->save();
 
+        $disk = $provider->disk();
         $path = $provider->pathFor($asset);
-        $provider->disk()->put($path, $request->getContent(true));
+        $disk->put($path, $request->getContent(true));
+
+        if ($disk->size($path) > $ceiling) {
+            $disk->delete($path);
+            $asset->forceFill(['status' => MediaAssetStatus::Pending])->save();
+
+            abort(413, MediaLimits::sizeRefusal($asset->kind));
+        }
 
         $asset->forceFill([
             'provider_asset_id' => $path,

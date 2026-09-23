@@ -149,4 +149,10 @@ it('replays the first response for a repeated idempotency key', function (): voi
 
     expect($second->json('user.uuid'))->toBe($first->json('user.uuid'))
         ->and(User::where('email', 'sara@example.com')->count())->toBe(1);
+
+    // The replay names the account and never carries its credential: a cached
+    // token is a bearer credential handed to whoever matches the key.
+    expect($first->json('token'))->toBeString()->not->toBeEmpty()
+        ->and($second->headers->get('Idempotent-Replay'))->toBe('true')
+        ->and($second->json())->not->toHaveKey('token');
 });

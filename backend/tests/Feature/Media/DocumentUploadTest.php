@@ -67,7 +67,7 @@ function uploadAndComplete(Lesson $lesson, string $filename, string $bytes, stri
     /** @var MediaAsset $asset */
     $asset = MediaAsset::query()->where('uuid', $created->json('asset.uuid'))->firstOrFail();
 
-    test()->call('PUT', "/api/v1/media/upload/{$asset->uuid}", [], [], [], [], $bytes);
+    test()->call('PUT', (string) $created->json('upload.url'), [], [], [], [], $bytes);
 
     return app(CompleteMediaUpload::class)->handle($asset->refresh());
 }

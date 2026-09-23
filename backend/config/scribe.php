@@ -68,7 +68,16 @@ return [
 
     'laravel' => [
         // Whether to automatically create a docs route for you to view your generated docs. You can still set up routing manually.
-        'add_routes' => true,
+        //
+        // ⛔ NEVER IN PRODUCTION. `/docs`, `/docs.openapi` and `/docs.postman` are
+        // a complete, unauthenticated map of every endpoint, parameter and
+        // response shape — the reconnaissance an attacker would otherwise have to
+        // do by hand. They are a development tool, so the routes are simply not
+        // registered in production (and `docker/nginx.prod.conf` no longer routes
+        // `/docs` to PHP either). An unset APP_ENV counts as production, so a
+        // server that forgets the variable fails closed. `env()` is read here, in
+        // a config file, so `config:cache` bakes the answer in.
+        'add_routes' => env('APP_ENV', 'production') !== 'production',
 
         // URL path to use for the docs endpoint (if `add_routes` is true).
         // By default, `/docs` opens the HTML page, `/docs.postman` opens the Postman collection, and `/docs.openapi` the OpenAPI spec.
