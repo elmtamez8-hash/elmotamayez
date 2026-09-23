@@ -276,7 +276,7 @@ function AssignmentCard({
     <Card as="section">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="font-medium text-ink">{assignment.title}</h2>
+          <h4 className="font-medium text-ink">{assignment.title}</h4>
 
           {/* ⚠️ WHICH SUBJECT AND WITH WHOM — the list spans every teacher the
               student studies with, and until this payload carried them two
