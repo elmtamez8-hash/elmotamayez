@@ -171,10 +171,6 @@ class LinkGuardian extends Action
 
     private function hasActiveParent(User $student): bool
     {
-        return ParentStudentRelation::query()
-            ->forStudent($student)
-            ->where('relation_type', RelationType::Parent->value)
-            ->whereIn('status', [RelationStatus::Active->value, RelationStatus::Pending->value])
-            ->exists();
+        return ParentStudentRelation::hasLiveParent($student);
     }
 }

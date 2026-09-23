@@ -49,6 +49,9 @@ class LinkGuardianRequest extends FormRequest
     {
         return [
             'student_name.required' => 'اسم الطالب مطلوب.',
+            // A malformed code is a typo, not a lookup — saying so reveals nothing
+            // about which accounts exist, unlike "not found" vs "not a student".
+            'student_uuid.uuid' => 'رمز حساب الطالب غير صحيح. انسخه كما يظهر في حسابه.',
             'age.between' => 'أدخل عمراً بين 3 و25 سنة.',
             'school_year_slug.in' => 'اختر الصف الدراسي من القائمة.',
             'permissions.min' => 'اختر ما يطّلع عليه هذا المرتبط على الأقل في بند واحد.',

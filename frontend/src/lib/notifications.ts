@@ -210,8 +210,16 @@ export const family = {
   add: (data: {
     student_name: string;
     age?: number | null;
-    grade_level_slug?: string | null;
-    student_uuid?: string | null;
+    // `school_year_slug`, the key `LinkGuardianRequest` reads — this type said
+    // `grade_level_slug`, which the server has never accepted.
+    school_year_slug?: string | null;
+    /*
+     * A child who ALREADY HAS AN ACCOUNT: the code their own `/family` screen
+     * shows them. The row is written `pending` and grants nothing until the
+     * child accepts it. Omit it — never send `""` — for a child with no account:
+     * the `uuid` rule refuses an empty string with a 422 nobody can act on.
+     */
+    student_uuid?: string;
     relation_type: "parent" | "guardian";
     permissions: string[];
   }) => api.post<GuardianRelation>("/family/relations", data),

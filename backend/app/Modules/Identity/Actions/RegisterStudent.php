@@ -6,18 +6,12 @@ namespace App\Modules\Identity\Actions;
 
 use App\Models\User;
 use App\Modules\Identity\Data\RegisterStudentData;
-use App\Modules\Identity\Models\ParentStudentRelation;
 use App\Modules\Identity\Support\GuardianContactResolver;
+use App\Modules\Identity\Support\GuardianInvitation;
 use App\Modules\Identity\Support\PlatformRole;
-use App\Modules\Identity\Support\RelationStatus;
-use App\Modules\Identity\Support\RelationType;
 use App\Modules\Identity\Support\UserStatus;
 use App\Modules\Marketplace\Models\Region;
-use App\Modules\Notifications\Actions\DispatchNotification;
-use App\Modules\Notifications\Data\NotificationRequest;
-use App\Modules\Notifications\Support\NotificationType;
 use App\Shared\Actions\Action;
-use App\Shared\Support\GuardianPermission;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Events\Registered;
 
@@ -25,7 +19,7 @@ class RegisterStudent extends Action
 {
     public function __construct(
         private readonly GuardianContactResolver $guardians,
-        private readonly DispatchNotification $notifications,
+        private readonly GuardianInvitation $invitation,
     ) {}
 
     public function handle(RegisterStudentData $data): User
@@ -115,93 +109,19 @@ class RegisterStudent extends Action
     }
 
     /**
-     * ⚠️ THE RELATION ROW IS THE INVITATION, and there is deliberately no second
-     * token mechanism to build, expire and revoke.
-     *
-     * `Pending` grants nothing at all today — `EloquentGuardianDirectory` asks
-     * `->active()` in all three of its methods — so the row is an invitation
-     * WITHOUT AUTHORITY BY CONSTRUCTION, not by a check anyone has to remember.
-     *
-     * ⚠️ AND IT IS CREATED FROM THE STUDENT'S SIDE, so it carries no permissions
-     * yet. `DataRights` is granted when the guardian ACCEPTS: a self-registering
-     * child must not be able to hand someone authority over their record by typing
-     * a phone number.
+     * The contact resolves to a verified account → the pending row that is the
+     * invitation. No account behind the number → nothing here: the contact is on
+     * the profile, and `InviteGuardianOnContactVerified` writes the same row the
+     * day a guardian proves they own it. {@see GuardianInvitation}
      */
     private function inviteGuardian(User $student, ?string $contact): void
     {
         $guardian = $this->guardians->resolve($contact);
 
         if ($guardian === null) {
-            // No account behind the number. The contact is on the profile, the
-            // account stays pending, and the registration response tells the
-            // student what has to happen — there is nothing here to invent.
             return;
         }
 
-        $name = trim($student->first_name.' '.$student->last_name);
-
-        /*
-        | ⚠️ LIVE ROWS ONLY. This used to be a `firstOrCreate` matching the pair at
-        | ANY status — which, once spec 030 let a refused link be requested again,
-        | meant a student returning after a cut relationship matched the dead row,
-        | `wasRecentlyCreated` came back false, and THE GUARDIAN WAS NEVER TOLD.
-        | Two spellings of one rule in two files; `LinkGuardian::alreadyLinked()`
-        | is the other, and both read `[pending, active]` now.
-        |
-        | A guardian who already holds a live relation needs no invitation: they
-        | can consent from the screen they already have.
-        */
-        $existing = ParentStudentRelation::query()
-            ->where('guardian_user_id', $guardian->getKey())
-            ->where('student_user_id', $student->getKey())
-            ->whereIn('status', [RelationStatus::Pending->value, RelationStatus::Active->value])
-            ->exists();
-
-        if ($existing) {
-            return;
-        }
-
-        ParentStudentRelation::query()->create([
-            'guardian_user_id' => $guardian->getKey(),
-            'student_user_id' => $student->getKey(),
-            'student_name' => $name,
-            'relation_type' => RelationType::Parent->value,
-            /*
-            | `DataRights` and nothing more — the single permission a guardian needs
-            | to consent to processing this child's data, and the one the account
-            | activation is blocked on.
-            |
-            | ⚠️ The comment that stood here said «Empty, and filled on acceptance»
-            | directly above this line, which has always written a value. The
-            | docblock's reasoning survives and its wording did not: a self-registering
-            | child hands over NO authority by typing a phone number, because a
-            | `pending` row grants nothing — every method of `EloquentGuardianDirectory`
-            | asks `active()`. What acceptance adds is the guardian's own act, not a
-            | wider permission set. Widening is the student's decision alone (FR-009).
-            */
-            'permissions' => [GuardianPermission::DataRights->value],
-            'status' => RelationStatus::Pending->value,
-            /*
-            | ⚠️ THE STUDENT ASKED HERE, WHICH IS THE OPPOSITE OF `LinkGuardian`.
-            | So the party who settles this row is the GUARDIAN. One column, one
-            | rule, both directions (spec 030 · FR-002).
-            */
-            'requested_by_user_id' => $student->getKey(),
-        ]);
-
-        $this->notifications->handle(new NotificationRequest(
-            recipient: $guardian,
-            type: NotificationType::GuardianConsentRequired,
-            variables: ['student_name' => $name],
-            /*
-            | ⚠️ ADDED BY SPEC 030, AND IT IS THE HALF THAT MAKES THIS MESSAGE
-            | ACTIONABLE. `NotificationRow` wraps a feed row in a link only when
-            | `action_url` is set, so since 013 this notice has rendered as a plain
-            | <div> — telling a guardian a child is waiting on them and leading
-            | nowhere. There is a button on that page now.
-            */
-            actionUrl: '/family',
-            subject: $student,
-        ));
+        $this->invitation->invite($student, $guardian);
     }
 }

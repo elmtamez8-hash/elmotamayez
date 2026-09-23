@@ -212,6 +212,21 @@ class ParentStudentRelation extends BaseModel
         return $query->where('student_user_id', $student->getKey());
     }
 
+    /**
+     * Does this student already have a PARENT link that is live (pending or
+     * active)? «One parent per student» (FR-019) — ONE spelling, read by
+     * `LinkGuardian` before a parent asks and by `InviteGuardianOnContactVerified`
+     * before a late-verified number invites one.
+     */
+    public static function hasLiveParent(User $student): bool
+    {
+        return self::query()
+            ->forStudent($student)
+            ->where('relation_type', RelationType::Parent->value)
+            ->whereIn('status', [RelationStatus::Active->value, RelationStatus::Pending->value])
+            ->exists();
+    }
+
     /** @return BelongsTo<User, $this> */
     public function guardian(): BelongsTo
     {
