@@ -5,7 +5,16 @@ import { use, useCallback, useEffect, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { StatTile } from "@/components/ui/StatTile";
+import {
+  AlertIcon,
+  CheckIcon,
+  InfoIcon,
+  ListIcon,
+  QuestionBankIcon,
+} from "@/components/icons";
 import { Table, type Column } from "@/components/ui/Table";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -75,21 +84,22 @@ export default function ImportReportPage({ params }: { params: Promise<{ uuid: s
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-ink">تقرير استيراد {report.filename}</h1>
-          <p className="text-sm text-ink-muted">
-            {report.duplicate_policy === "skip"
-              ? "السياسة المختارة: تخطّي السؤال الموجود."
-              : "السياسة المختارة: إضافة نسخةٍ جديدة."}
-          </p>
-        </div>
-        <Badge
-          tone={report.status === "done" ? "success" : report.status === "failed" ? "danger" : "info"}
-        >
-          {importStatusLabel(report.status)}
-        </Badge>
-      </header>
+      <PageHeader
+        Icon={QuestionBankIcon}
+        title={`تقرير استيراد ${report.filename}`}
+        description={
+          report.duplicate_policy === "skip"
+            ? "السياسة المختارة: تخطّي السؤال الموجود."
+            : "السياسة المختارة: إضافة نسخةٍ جديدة."
+        }
+        actions={
+          <Badge
+            tone={report.status === "done" ? "success" : report.status === "failed" ? "danger" : "info"}
+          >
+            {importStatusLabel(report.status)}
+          </Badge>
+        }
+      />
 
       {running && (
         <Alert tone="info" title="قيد المعالجة">
@@ -102,29 +112,15 @@ export default function ImportReportPage({ params }: { params: Promise<{ uuid: s
           find in their spreadsheet. */}
       {report.failure_reason !== null && <Alert tone="danger" title="لم يكتمل الاستيراد">{report.failure_reason}</Alert>}
 
-      <Card>
-        <dl className="grid gap-4 sm:grid-cols-4">
-          <div>
-            <dt className="text-sm text-ink-muted">صفوف الملف</dt>
-            <dd className="text-lg font-semibold text-ink">{report.total_rows}</dd>
-          </div>
-          <div>
-            <dt className="text-sm text-ink-muted">أُضيف</dt>
-            <dd className="text-lg font-semibold text-ink">{report.imported_count}</dd>
-          </div>
-          <div>
-            <dt className="text-sm text-ink-muted">تُخطّي</dt>
-            <dd className="text-lg font-semibold text-ink">{report.skipped_count}</dd>
-          </div>
-          <div>
-            <dt className="text-sm text-ink-muted">تعذّر</dt>
-            <dd className="text-lg font-semibold text-ink">{report.failed_count}</dd>
-          </div>
-        </dl>
-      </Card>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile Icon={ListIcon} label="صفوف الملف" value={String(report.total_rows)} />
+        <StatTile Icon={CheckIcon} label="أُضيف" value={String(report.imported_count)} emphasis />
+        <StatTile Icon={InfoIcon} label="تُخطّي" value={String(report.skipped_count)} />
+        <StatTile Icon={AlertIcon} label="تعذّر" value={String(report.failed_count)} />
+      </div>
 
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold text-ink">الصفوف التي لم تُضَف</h2>
+      <section aria-labelledby="failed-rows" className="space-y-3">
+        <SectionHeading id="failed-rows" Icon={AlertIcon} title="الصفوف التي لم تُضَف" />
         <Table
           columns={columns}
           rows={report.rows}

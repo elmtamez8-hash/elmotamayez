@@ -8,6 +8,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { MembersIcon } from "@/components/icons";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { api } from "@/lib/api";
@@ -82,9 +85,11 @@ export default function AssistantsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">فريق المساعدين</h1>
-        <p className="text-sm text-ink-muted">
+      <PageHeader
+        Icon={MembersIcon}
+        title="فريق المساعدين"
+        description={
+          <>
           من يعمل معك، وعلى أيّ كورسات. أمّا <strong>ما</strong> يستطيع كلٌّ منهم فعله فيُضبط
           بنداً بنداً على دوره من شاشة الأدوار في لوحة الإدارة، لا من هنا. ويُدعى المساعد
           ويُزال من{" "}
@@ -92,8 +97,9 @@ export default function AssistantsPage() {
             شاشة الأعضاء
           </Link>
           . ولا يرى أيّ مساعدٍ بياناتٍ ماليّة مهما مُنح من بنود.
-        </p>
-      </header>
+          </>
+        }
+      />
 
       {problem !== null && <Alert tone="danger" title="تعذّر الحفظ">{problem}</Alert>}
 
@@ -103,10 +109,10 @@ export default function AssistantsPage() {
         </Alert>
       ) : (
         active.map((row) => (
-          <Card key={row.uuid}>
+          <Card key={row.uuid} interactive>
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
-                <h2 className="font-medium text-ink">{row.assistant?.name ?? "—"}</h2>
+                <h3 className="font-medium text-ink">{row.assistant?.name ?? "—"}</h3>
                 <p className="text-sm text-ink-muted">{scopeSummary(row)}</p>
               </div>
               <Button
@@ -129,11 +135,13 @@ export default function AssistantsPage() {
       )}
 
       {past.length > 0 && (
-        <Card>
+        <Card as="section">
           {/* ⚠️ THE WITHDRAWN ARE LISTED RATHER THAN HIDDEN. «من صحّح هذه الورقة في
               آذار» is a question a teacher asks about somebody who has left, and a
               row that vanishes is a row nobody can ask about (FR-009). */}
-          <h2 className="mb-3 font-medium text-ink">مَن انتهت مهمّتهم</h2>
+          <div className="mb-3">
+            <SectionHeading id="past-assistants" title="مَن انتهت مهمّتهم" />
+          </div>
           <ul className="space-y-2">
             {past.map((row) => (
               <li key={row.uuid} className="flex items-center justify-between text-sm text-ink">

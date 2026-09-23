@@ -6,6 +6,8 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { AssignmentIcon } from "@/components/icons";
 import { NumberField, TextareaField } from "@/components/ui/Field";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { EmptyState } from "@/components/ui/states/EmptyState";
@@ -44,12 +46,11 @@ export default function ManageAssignmentsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">الواجبات</h1>
-        <p className="text-sm text-ink-muted">
-          ما نشرته لطلابك، وكم سلّم منهم، وما ينتظر تصحيحك.
-        </p>
-      </header>
+      <PageHeader
+        Icon={AssignmentIcon}
+        title="الواجبات"
+        description="ما نشرته لطلابك، وكم سلّم منهم، وما ينتظر تصحيحك."
+      />
 
       {state === "loading" && <RowsSkeleton count={3} />}
       {state === "error" && <ErrorState onRetry={load} />}
@@ -62,10 +63,10 @@ export default function ManageAssignmentsPage() {
 
       {state === "ready" &&
         items.map((assignment) => (
-          <Card key={assignment.uuid} as="section">
+          <Card key={assignment.uuid} as="section" interactive>
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
-                <h2 className="font-medium text-ink">{assignment.title}</h2>
+                <h3 className="font-medium text-ink">{assignment.title}</h3>
                 <p className="mt-1 text-sm text-ink-muted">
                   من <bdi>{assignment.points}</bdi> درجة
                   {assignment.due_at !== null && (

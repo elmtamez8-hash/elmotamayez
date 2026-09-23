@@ -19,6 +19,8 @@ import {
   type PurchaseBeneficiary,
 } from "@/lib/billing";
 import { formatMinorMoney } from "@/lib/labels";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { CreditsIcon } from "@/components/icons";
 
 import { arabicNumber } from "@/lib/numerals";
 /**
@@ -92,12 +94,11 @@ function StudentPicker() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-ink">شراء أرصدة</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          اختر الابن الذي تشتري له أولاً — الرصيد يُقيَّد باسمه، والدفع باسمك.
-        </p>
-      </div>
+      <PageHeader
+        Icon={CreditsIcon}
+        title="شراء أرصدة"
+        description="اختر الابن الذي تشتري له أولاً — الرصيد يُقيَّد باسمه، والدفع باسمك."
+      />
 
       {loading && <RowsSkeleton />}
 
@@ -136,8 +137,8 @@ function StudentPicker() {
         <ul className="grid gap-4 sm:grid-cols-2">
           {children.map((child) => (
             <li key={child.uuid}>
-              <Card>
-                <h2 className="text-base font-semibold text-ink">{child.name}</h2>
+              <Card interactive>
+                <h3 className="text-base font-semibold text-ink">{child.name}</h3>
 
                 <div className="mt-4">
                   <Button variant="primary" href={hrefFor(null, child.uuid)}>
@@ -188,13 +189,11 @@ function CoursePicker({ student }: { student: string | null }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-ink">شراء أرصدة</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          اختر الكورس أولاً — سعر الحصة يختلف باختلاف المدرّس، فلا يوجد سعر واحد
-          لكل الكورسات.
-        </p>
-      </div>
+      <PageHeader
+        Icon={CreditsIcon}
+        title="شراء أرصدة"
+        description="اختر الكورس أولاً — سعر الحصة يختلف باختلاف المدرّس، فلا يوجد سعر واحد لكل الكورسات."
+      />
 
       {loading && <RowsSkeleton />}
 
@@ -226,8 +225,8 @@ function CoursePicker({ student }: { student: string | null }) {
         <ul className="grid gap-4 sm:grid-cols-2">
           {courses.map((course) => (
             <li key={course.uuid}>
-              <Card>
-                <h2 className="text-base font-semibold text-ink">{course.title}</h2>
+              <Card interactive>
+                <h3 className="text-base font-semibold text-ink">{course.title}</h3>
 
                 {course.teacher_name !== null && (
                   <p className="mt-1 text-sm text-ink-muted">{course.teacher_name}</p>
@@ -330,12 +329,11 @@ export default function PurchaseCreditsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-ink">شراء أرصدة</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          كل رصيد يعادل حصة واحدة، ولا يُخصم إلا عن حصة قُدِّمت فعلاً.
-        </p>
-      </div>
+      <PageHeader
+        Icon={CreditsIcon}
+        title="شراء أرصدة"
+        description="كل رصيد يعادل حصة واحدة، ولا يُخصم إلا عن حصة قُدِّمت فعلاً."
+      />
 
       {error && (
         <Alert tone="danger" title="تعذّر إتمام الطلب">
@@ -373,8 +371,8 @@ export default function PurchaseCreditsPage() {
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {offers.map((offer) => (
             <li key={offer.uuid}>
-              <Card>
-                <h2 className="text-base font-semibold text-ink">{offer.name}</h2>
+              <Card interactive>
+                <h3 className="text-base font-semibold text-ink">{offer.name}</h3>
 
                 <p className="mt-2 text-2xl font-extrabold text-ink">
                   <bdi>{formatCredits(offer.credits)}</bdi>{" "}

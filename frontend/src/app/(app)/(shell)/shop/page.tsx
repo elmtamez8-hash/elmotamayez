@@ -6,6 +6,9 @@ import { RedeemButton } from "@/components/gamification/RedeemButton";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { OrdersIcon, ShopIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -73,12 +76,11 @@ export default function ShopPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">متجر المكافآت</h1>
-        <p className="text-sm text-ink-muted">
-          استبدل عملاتك بمكافآت من مدرّسك. عملات كلّ مدرّسٍ تُنفَق في متجره وحده.
-        </p>
-      </header>
+      <PageHeader
+        Icon={ShopIcon}
+        title="متجر المكافآت"
+        description="استبدل عملاتك بمكافآت من مدرّسك. عملات كلّ مدرّسٍ تُنفَق في متجره وحده."
+      />
 
       {purses.length === 0 ? (
         <EmptyState
@@ -110,10 +112,10 @@ export default function ShopPage() {
                 const affordable = (purse?.coins ?? 0) >= reward.price_coins;
 
                 return (
-                  <Card key={reward.uuid}>
+                  <Card key={reward.uuid} interactive>
                     <div className="space-y-3">
                       <div>
-                        <h2 className="text-base font-semibold text-ink">{reward.title}</h2>
+                        <h3 className="text-base font-semibold text-ink">{reward.title}</h3>
                         <Badge tone="neutral">{reward.type_label_ar}</Badge>
                       </div>
                       <p className="text-sm text-ink">
@@ -149,8 +151,10 @@ export default function ShopPage() {
         </>
       )}
 
-      <Card>
-        <h2 className="mb-3 text-base font-semibold text-ink">طلباتي</h2>
+      <Card as="section">
+        <div className="mb-3">
+          <SectionHeading id="shop-mine" Icon={OrdersIcon} title="طلباتي" />
+        </div>
         {mine.length === 0 ? (
           <EmptyState title="لا طلبات بعد" description="ما تستبدله يظهر هنا بحالته." />
         ) : (

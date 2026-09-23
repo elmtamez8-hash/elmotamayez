@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ShieldIcon } from "@/components/icons";
 import { offboardingQueue, type TeacherOffboarding } from "@/lib/compliance";
 import { userMessage } from "@/lib/errors";
 import { formatDate } from "@/lib/labels";
@@ -59,12 +61,11 @@ export default function OffboardingQueuePage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">خروج المدرّسين</h1>
-        <p className="text-sm text-ink-muted">
-          طلباتُ إنهاء النشاط، وما ينتظره كلٌّ منها قبل أن يكتمل.
-        </p>
-      </header>
+      <PageHeader
+        Icon={ShieldIcon}
+        title="خروج المدرّسين"
+        description="طلباتُ إنهاء النشاط، وما ينتظره كلٌّ منها قبل أن يكتمل."
+      />
 
       {error !== null && (
         <Alert tone="danger" title="تعذّر تنفيذ الإجراء">
@@ -83,7 +84,7 @@ export default function OffboardingQueuePage() {
       ) : (
         <div className="space-y-3">
           {rows.map((row) => (
-            <Card key={row.uuid}>
+            <Card key={row.uuid} interactive>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-ink">{row.status_label}</p>

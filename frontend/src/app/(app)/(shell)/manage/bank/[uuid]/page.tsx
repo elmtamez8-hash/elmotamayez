@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { QuestionBankIcon } from "@/components/icons";
 import { QuestionForm } from "@/components/bank/QuestionForm";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { userMessage } from "@/lib/errors";
 import { bank, type BankQuestion } from "@/lib/bank";
+import { counted } from "@/lib/labels";
 
 export default function EditBankQuestionPage({ params }: { params: Promise<{ uuid: string }> }) {
   const { uuid } = use(params);
@@ -69,19 +72,26 @@ export default function EditBankQuestionPage({ params }: { params: Promise<{ uui
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-ink">تحرير سؤال</h1>
-          <p className="text-sm text-ink-muted">
-            {question.usage_count === undefined || question.usage_count === 0
-              ? "غير مضمومٍ إلى أيّ اختبار بعد."
-              : `مضمومٌ إلى ${question.usage_count} اختبار — التعديل يسري عليها كلّها، ولا يمسّ درجةَ محاولةٍ سابقة.`}
-          </p>
-        </div>
-        <Button variant="danger" onClick={remove} disabled={removing}>
-          {removing ? "…" : "حذف أو تعطيل"}
-        </Button>
-      </header>
+      <PageHeader
+        Icon={QuestionBankIcon}
+        title="تحرير سؤال"
+        description={
+          question.usage_count === undefined || question.usage_count === 0
+            ? "غير مضمومٍ إلى أيّ اختبار بعد."
+            : `مضمومٌ إلى ${counted(question.usage_count, {
+                one: "اختبارٍ واحد",
+                two: "اختبارَين",
+                few: "اختبارات",
+                many: "اختباراً",
+                other: "اختبار",
+              })} —التعديل يسري عليها كلّها، ولا يمسّ درجةَ محاولةٍ سابقة.`
+        }
+        actions={
+          <Button variant="danger" onClick={remove} disabled={removing}>
+            {removing ? "…" : "حذف أو تعطيل"}
+          </Button>
+        }
+      />
 
       {error !== "" && <Alert tone="danger" title="تعذّر التنفيذ">{error}</Alert>}
       {outcome !== "" && <Alert tone="info" title="عُطِّل ولم يُحذف">{outcome}</Alert>}

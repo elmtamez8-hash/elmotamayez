@@ -7,6 +7,8 @@ import { api } from "@/lib/api";
 import type { Exam } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ExamIcon } from "@/components/icons";
 import { Table, type Column } from "@/components/ui/Table";
 import { useAuth } from "@/lib/auth-context";
 import { P, can } from "@/lib/permissions";
@@ -111,15 +113,12 @@ export default function ManageExamsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-ink">إدارة الاختبارات</h1>
-          <p className="text-sm text-ink-muted">
-            المسودّات هنا لا يراها أحدٌ غيرك. ينشرها زرّ «إدارة» داخل كلّ اختبار.
-          </p>
-        </div>
-        {canCreate && <Button href="/exams/new">اختبار جديد</Button>}
-      </header>
+      <PageHeader
+        Icon={ExamIcon}
+        title="إدارة الاختبارات"
+        description="المسودّات هنا لا يراها أحدٌ غيرك. ينشرها زرّ «إدارة» داخل كلّ اختبار."
+        actions={canCreate ? <Button href="/exams/new">اختبار جديد</Button> : undefined}
+      />
 
       <Table
         columns={columns}

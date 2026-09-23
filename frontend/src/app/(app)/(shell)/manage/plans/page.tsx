@@ -6,6 +6,9 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { NumberField, SelectField, TextField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { CreditsIcon, ListIcon, SparkIcon } from "@/components/icons";
 import { Table, type Column } from "@/components/ui/Table";
 import { api, ApiError, fieldErrors } from "@/lib/api";
 import { manageCohorts } from "@/lib/cohorts";
@@ -448,12 +451,11 @@ export default function ManagePlansPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">باقات الاشتراك</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          اشتراك بالشهر يفتح لطلابك ما تغطّيه الباقة طوال مدّتها، وحصصه لا تخصم من رصيدهم.
-        </p>
-      </header>
+      <PageHeader
+        Icon={CreditsIcon}
+        title="باقات الاشتراك"
+        description="اشتراك بالشهر يفتح لطلابك ما تغطّيه الباقة طوال مدّتها، وحصصه لا تخصم من رصيدهم."
+      />
 
       <Alert tone="info" title="ثلاث صيغ للبيع، وهذه واحدة منها">
         الحصّة المفردة وباقة عدد الحصص تُسعَّران تلقائياً من سعرك المعتمَد، وتظهران لطلابك في
@@ -500,11 +502,13 @@ export default function ManagePlansPage() {
         </Alert>
       )}
 
-      <Card>
+      <Card as="section">
         <div className="space-y-4">
-          <h2 className="text-base font-semibold text-ink">
-            {editing === null ? "باقة جديدة" : asking ? "طلب تعديل" : "تعديل الباقة"}
-          </h2>
+          <SectionHeading
+            id="plan-form"
+            Icon={SparkIcon}
+            title={editing === null ? "باقة جديدة" : asking ? "طلب تعديل" : "تعديل الباقة"}
+          />
 
           {/*
             ⚠️ الاسمُ يبقى للمدرّسِ حتى على باقةٍ مسعَّرة — لا يُحرِّكُ ما سُعِّر —
@@ -694,9 +698,9 @@ export default function ManagePlansPage() {
         المحسومةُ هنا أيضاً، وسببُ الرفضِ معها.
       */}
       {requests.length > 0 && (
-        <Card>
+        <Card as="section">
           <div className="space-y-3">
-            <h2 className="text-base font-semibold text-ink">طلبات التعديل</h2>
+            <SectionHeading id="plan-requests" Icon={ListIcon} title="طلبات التعديل" />
 
             <ul className="space-y-3">
               {requests.map((ask) => (

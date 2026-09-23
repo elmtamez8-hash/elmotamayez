@@ -6,6 +6,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { CoursesIcon, LockIcon, SettingsIcon } from "@/components/icons";
 import { CheckboxField, NumberField, SelectField } from "@/components/ui/Field";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -55,16 +58,16 @@ export default function UnlockRulesPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">شرط فتح الحصة التالية</h1>
-        <p className="text-sm text-ink-muted">
-          ما الذي يجب أن يفعله الطالب في الحصة السابقة قبل أن تُفتح له التالية. قاعدةٌ عامّة
-          لكلّ كورساتك، ويجوز أن يغلبها تخصيصٌ لكورسٍ بعينه.
-        </p>
-      </header>
+      <PageHeader
+        Icon={LockIcon}
+        title="شرط فتح الحصة التالية"
+        description="ما الذي يجب أن يفعله الطالب في الحصة السابقة قبل أن تُفتح له التالية. قاعدةٌ عامّة لكلّ كورساتك، ويجوز أن يغلبها تخصيصٌ لكورسٍ بعينه."
+      />
 
-      <Card>
-        <h2 className="mb-3 font-medium text-ink">القاعدة العامّة</h2>
+      <Card as="section">
+        <div className="mb-3">
+          <SectionHeading id="fallback-rule" Icon={LockIcon} title="القاعدة العامّة" />
+        </div>
         {fallback === null ? (
           <Alert tone="info" title="لا شرط مضبوط بعد">
             كلّ الحصص مفتوحة. اضبط قاعدةً عامّة لتبدأ في اشتراط الحضور أو الواجب.
@@ -82,8 +85,10 @@ export default function UnlockRulesPage() {
       />
 
       {rules.filter((rule) => !rule.is_default).length > 0 && (
-        <Card>
-          <h2 className="mb-3 font-medium text-ink">تخصيصات الكورسات</h2>
+        <Card as="section">
+          <div className="mb-3">
+            <SectionHeading id="course-overrides" Icon={CoursesIcon} title="تخصيصات الكورسات" />
+          </div>
           <ul className="space-y-3">
             {rules
               .filter((rule) => !rule.is_default)
@@ -145,10 +150,14 @@ function RuleForm({
   const existing = overrides.find((rule) => rule.course_uuid === courseUuid);
 
   return (
-    <Card>
-      <h2 className="mb-3 font-medium text-ink">
-        {courseUuid === "" ? "اضبط القاعدة العامّة" : "خصّص لهذا الكورس"}
-      </h2>
+    <Card as="section">
+      <div className="mb-3">
+        <SectionHeading
+          id="rule-form"
+          Icon={SettingsIcon}
+          title={courseUuid === "" ? "اضبط القاعدة العامّة" : "خصّص لهذا الكورس"}
+        />
+      </div>
 
       {error !== "" && <Alert tone="danger" title={error} />}
 

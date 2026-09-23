@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { ChevronEndIcon, ScheduleIcon } from "@/components/icons";
+import { ChevronEndIcon, SessionsIcon } from "@/components/icons";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextareaField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { userMessage } from "@/lib/errors";
 import { rescheduleRequests, type RescheduleRequest } from "@/lib/reschedule-requests";
@@ -64,17 +65,12 @@ export default function RescheduleQueuePage() {
     });
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="flex items-center gap-2 text-2xl font-black text-ink">
-          <ScheduleIcon className="h-6 w-6 text-primary-ink" />
-          طلبات تأجيل الحصص
-        </h1>
-        <p className="text-sm text-ink-muted">
-          تأجيل حصة واحدة بعينها. الحصة التالية تبقى في موعدها المعتاد، ولا شيء
-          يتحرك قبل موافقتك.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        Icon={SessionsIcon}
+        title="طلبات تأجيل الحصص"
+        description="تأجيل حصة واحدة بعينها. الحصة التالية تبقى في موعدها المعتاد، ولا شيء يتحرك قبل موافقتك."
+      />
 
       {error !== null && (
         <Alert tone="danger" title="لم يكتمل الإجراء">
@@ -99,12 +95,12 @@ export default function RescheduleQueuePage() {
              after the first; the reduced-motion block zeroes delay and duration. */
           style={{ animationDelay: `${Math.min(index, 6) * 45}ms` }}
         >
-          <Card>
+          <Card interactive>
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="text-sm font-bold text-ink">
+                <h3 className="text-sm font-bold text-ink">
                   {request.student?.name ?? "طالب"} — {request.session?.title ?? "حصة"}
-                </h2>
+                </h3>
               </div>
 
               {/* ⚠️ BOTH TIMES, SIDE BY SIDE. «إلى الأحد ٦م» alone makes a

@@ -6,6 +6,8 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { QuestionBankIcon } from "@/components/icons";
 import { SelectField, TextField } from "@/components/ui/Field";
 import { Table, type Column } from "@/components/ui/Table";
 import {
@@ -133,20 +135,19 @@ export default function BankPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-ink">بنك الأسئلة</h1>
-          <p className="text-sm text-ink-muted">
-            سؤالٌ واحد يخدم كلّ اختباراتك. عدّله مرّةً، ولن تتغيّر درجةُ محاولةٍ سابقة.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button href="/manage/bank/import" variant="secondary">
-            استيراد من ملف
-          </Button>
-          <Button href="/manage/bank/new">سؤال جديد</Button>
-        </div>
-      </header>
+      <PageHeader
+        Icon={QuestionBankIcon}
+        title="بنك الأسئلة"
+        description="سؤالٌ واحد يخدم كلّ اختباراتك. عدّله مرّةً، ولن تتغيّر درجةُ محاولةٍ سابقة."
+        actions={
+          <>
+            <Button href="/manage/bank/import" variant="secondary">
+              استيراد من ملف
+            </Button>
+            <Button href="/manage/bank/new">سؤال جديد</Button>
+          </>
+        }
+      />
 
       <Card>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

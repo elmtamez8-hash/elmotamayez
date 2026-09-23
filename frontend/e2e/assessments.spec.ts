@@ -48,7 +48,7 @@ test.describe("بنك الأسئلة والتحليل — المدرّس", () =>
 
     await expect(page).toHaveURL(/\/manage\/bank$/);
     await expect(
-      page.locator("#main").getByRole("heading", { name: "بنك الأسئلة", level: 1 }),
+      page.locator("#main").getByRole("heading", { name: "بنك الأسئلة", level: 2 }),
     ).toBeVisible();
 
     /*
@@ -77,7 +77,7 @@ test.describe("بنك الأسئلة والتحليل — المدرّس", () =>
 
     await expect(page).toHaveURL(/\/manage\/analytics\/questions$/);
     await expect(
-      page.locator("#main").getByRole("heading", { name: "تحليل الأسئلة", level: 1 }),
+      page.locator("#main").getByRole("heading", { name: "تحليل الأسئلة", level: 2 }),
     ).toBeVisible();
 
     /*
@@ -135,7 +135,7 @@ test.describe("دفتر الأخطاء — الطالب", () => {
 
     await expect(page).toHaveURL(/\/mistakes$/);
     await expect(
-      page.locator("#main").getByRole("heading", { name: "دفتر أخطائي", level: 1 }),
+      page.locator("#main").getByRole("heading", { name: "دفتر أخطائي", level: 2 }),
     ).toBeVisible();
 
     await openNav(page);

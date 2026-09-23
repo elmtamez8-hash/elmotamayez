@@ -1,15 +1,15 @@
 import { QuestionForm } from "@/components/bank/QuestionForm";
+import { QuestionBankIcon } from "@/components/icons";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function NewBankQuestionPage() {
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">سؤال جديد</h1>
-        <p className="text-sm text-ink-muted">
-          الوسوم الأربعة إلزامية — عليها يُبنى تحليل الأخطاء لاحقاً، وبنكٌ يُوسَم بتساهلٍ اليوم
-          ميزةٌ لا يمكن بناؤها غداً.
-        </p>
-      </header>
+      <PageHeader
+        Icon={QuestionBankIcon}
+        title="سؤال جديد"
+        description="الوسوم الأربعة إلزامية — عليها يُبنى تحليل الأخطاء لاحقاً، وبنكٌ يُوسَم بتساهلٍ اليوم ميزةٌ لا يمكن بناؤها غداً."
+      />
 
       <QuestionForm />
     </div>

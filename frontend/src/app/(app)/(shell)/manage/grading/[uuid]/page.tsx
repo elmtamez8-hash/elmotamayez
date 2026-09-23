@@ -7,6 +7,8 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { GradingIcon } from "@/components/icons";
 import { NumberField, TextareaField } from "@/components/ui/Field";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -54,25 +56,30 @@ export default function GradePaperPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">{paper.exam_title ?? "ورقة"}</h1>
-        <p className="text-sm text-ink-muted">
-          {paper.is_anonymous ? "الطالب مُخفى" : (paper.student?.name ?? "—")} · سُلّمت{" "}
-          {formatDateTime(paper.submitted_at)}
-        </p>
-        <p className="mt-1 text-sm text-ink-muted">
-          {/* Named for what it is. A number labelled "الدرجة" over an unmarked
-              paper is a result the student never got. */}
-          المصحَّح آلياً: <bdi>{Math.round(paper.auto_score)}</bdi>٪ ·{" "}
-          {outstanding > 0 ? (
-            <span>
-              يتبقّى <bdi>{outstanding}</bdi> سؤالاً
+      <PageHeader
+        Icon={GradingIcon}
+        title={paper.exam_title ?? "ورقة"}
+        description={
+          <>
+            <span className="block">
+              {paper.is_anonymous ? "الطالب مُخفى" : (paper.student?.name ?? "—")} · سُلّمت{" "}
+              {formatDateTime(paper.submitted_at)}
             </span>
-          ) : (
-            <span>اكتمل التصحيح</span>
-          )}
-        </p>
-      </header>
+            <span className="mt-1 block">
+              {/* Named for what it is. A number labelled "الدرجة" over an unmarked
+                  paper is a result the student never got. */}
+              المصحَّح آلياً: <bdi>{Math.round(paper.auto_score)}</bdi>٪ ·{" "}
+              {outstanding > 0 ? (
+                <span>
+                  يتبقّى <bdi>{outstanding}</bdi> سؤالاً
+                </span>
+              ) : (
+                <span>اكتمل التصحيح</span>
+              )}
+            </span>
+          </>
+        }
+      />
 
       {paper.answers.map((answer, index) => (
         <AnswerCard

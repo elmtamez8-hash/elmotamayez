@@ -5,6 +5,8 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { GradingIcon } from "@/components/icons";
 import { Table, type Column } from "@/components/ui/Table";
 import { grading, type GradingQueueRow } from "@/lib/grading";
 import { formatDateTime } from "@/lib/labels";
@@ -82,13 +84,11 @@ export default function GradingQueuePage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">لوحة التصحيح</h1>
-        <p className="text-sm text-ink-muted">
-          أوراقٌ فيها أسئلة مقالية سُلّمت وتنتظر قراءتك. الأقدم أولاً، ولا تصل النتيجة
-          الطالبَ قبل أن تنتهي منها.
-        </p>
-      </header>
+      <PageHeader
+        Icon={GradingIcon}
+        title="لوحة التصحيح"
+        description="أوراقٌ فيها أسئلة مقالية سُلّمت وتنتظر قراءتك. الأقدم أولاً، ولا تصل النتيجة الطالبَ قبل أن تنتهي منها."
+      />
 
       <Card>
         {state === "ready" && (

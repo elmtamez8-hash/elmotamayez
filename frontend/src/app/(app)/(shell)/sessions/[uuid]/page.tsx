@@ -6,6 +6,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { PlayIcon, SessionsIcon } from "@/components/icons";
 import { CancelBookingButton } from "@/components/sessions/CancelBookingButton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -98,34 +101,41 @@ export default function SessionPage({
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-      <Card as="section" padding="md">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-lg font-semibold text-ink">{session.title}</h1>
-            <p className="mt-1 text-sm text-ink-muted">
-              {formatSessionDay(session.starts_at, session.timezone)} ·{" "}
-              {formatSessionTime(session.starts_at, session.timezone)}
-              {session.course ? ` · ${session.course.title}` : ""}
-              {session.teacher_name ? ` · ${session.teacher_name}` : ""}
-            </p>
-          </div>
-
-          {/*
+      <PageHeader
+        Icon={SessionsIcon}
+        title={session.title}
+        description={
+          <>
+            {formatSessionDay(session.starts_at, session.timezone)} ·{" "}
+            {formatSessionTime(session.starts_at, session.timezone)}
+            {session.course ? ` · ${session.course.title}` : ""}
+            {session.teacher_name ? ` · ${session.teacher_name}` : ""}
+          </>
+        }
+        actions={
+          /*
             ⚠️ `room_closed` يفوقُ الحالة. البثُّ ينتهي قبلَ أن تلحقَ به الحالةُ
             بمقدارِ نافذةِ الدخول، فشارةُ «جارية» على حصّةٍ انتهت تَعِدُ بغرفةٍ
             تُجيبُ «تعذّر الدخول».
-          */}
+          */
           <Badge tone={session.room_closed ? "neutral" : "info"}>
             {session.room_closed ? "انتهت" : session.status_label}
           </Badge>
-        </div>
+        }
+      />
 
+      {/* The card carries only the reader's actions, so it is drawn only when
+          there is one: an empty bordered box under the header reads as a
+          failed load. */}
+      {((session.join_open && !session.room_closed) || session.my_booking) && (
+      <Card as="section" padding="md">
+        <div className="flex flex-col gap-4">
         {/*
           زرُّ الغرفةِ ما دامتِ النافذةُ مفتوحة — والجوابُ من الخادم، لأنّ
           النافذةَ صفٌّ في إعداداتِ المنصّةِ وساعةُ الجهازِ قد تكونُ خطأً بساعة.
         */}
         {session.join_open && !session.room_closed && (
-          <div className="mt-4">
+          <div>
             <Button href={`/sessions/${session.uuid}/room`}>دخول الغرفة</Button>
           </div>
         )}
@@ -136,7 +146,7 @@ export default function SessionPage({
           the page sees nothing here.
         */}
         {session.my_booking && (
-          <div className="mt-4 flex flex-wrap items-start justify-between gap-3 border-t border-line pt-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <Badge tone={session.my_booking.status === "booked" ? "success" : "neutral"}>
               {session.my_booking.status === "booked" ? "لك مقعد في هذه الحصّة" : session.my_booking.status_label}
             </Badge>
@@ -152,7 +162,9 @@ export default function SessionPage({
               )}
           </div>
         )}
+        </div>
       </Card>
+      )}
 
       {locked && offer !== null && (
         <UnlockPanel sessionUuid={session.uuid} offer={offer} onOpened={load} />
@@ -172,7 +184,7 @@ export default function SessionPage({
 
       {session.content_locked === false && session.recording?.lesson_uuid && (
         <Card as="section" padding="md">
-          <h2 className="text-base font-semibold text-ink">تسجيل الحصّة</h2>
+          <SectionHeading id="session-recording" Icon={PlayIcon} title="تسجيل الحصّة" />
           <div className="mt-3">
             <Button href={`/learn/${session.recording.lesson_uuid}`} variant="secondary">
               افتح التسجيل
