@@ -43,7 +43,7 @@ class FamilyController extends Controller
             // `student` as well as `guardian`: the resource sends the child's uuid
             // to their own guardian, and a per-row lazy load here is an N+1 by
             // construction — a Resource runs once per row.
-            ->with(['guardian', 'student:id,uuid'])
+            ->with(['guardian', 'student:id,uuid,status'])
             ->orderBy('id')
             ->get();
 
@@ -68,7 +68,7 @@ class FamilyController extends Controller
         // Hiding that would be indistinguishable from a typo in the uuid.
         abort_unless($this->currentUser($request)->can('view', $relation), 403);
 
-        return ParentStudentRelationResource::make($relation->load(['guardian', 'student:id,uuid']));
+        return ParentStudentRelationResource::make($relation->load(['guardian', 'student:id,uuid,status']));
     }
 
     public function update(
@@ -121,7 +121,7 @@ class FamilyController extends Controller
      */
     private function hydrate(ParentStudentRelation $relation): ParentStudentRelation
     {
-        return $relation->load(['guardian', 'student:id,uuid']);
+        return $relation->load(['guardian', 'student:id,uuid,status']);
     }
 
     public function destroy(Request $request, string $uuid, RevokeRelation $action): ParentStudentRelationResource

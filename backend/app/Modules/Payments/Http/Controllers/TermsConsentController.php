@@ -45,7 +45,7 @@ class TermsConsentController extends Controller
     ): JsonResponse {
         $signer = $this->currentUser($request);
         $document = ConsentDocument::from($request->string('document')->toString());
-        $student = $this->studentFor($request, $signer, $guardians);
+        $student = $this->studentFor($request, $signer, $guardians, $document);
 
         try {
             $action->handle(
@@ -75,7 +75,7 @@ class TermsConsentController extends Controller
      * a 403 mean "this uuid is somebody else's child" — two answers where there
      * should be one.
      */
-    private function studentFor(Request $request, User $signer, GuardianDirectory $guardians): User
+    private function studentFor(Request $request, User $signer, GuardianDirectory $guardians, ConsentDocument $document): User
     {
         $uuid = $request->string('student')->toString();
 
@@ -83,7 +83,19 @@ class TermsConsentController extends Controller
             return $signer;
         }
 
-        $child = $guardians->childrenOf($signer, GuardianPermission::Payments)
+        /*
+        | ⚠️ THE PERMISSION FOLLOWS THE DOCUMENT, exactly as
+        | `RecordTermsConsent::maySignFor()` decides it. Asking `Payments` for
+        | every document refused the one guardian `GuardianInvitation` creates for
+        | a self-registered minor — whose link carries `DataRights` alone — at the
+        | door, before the Action that would have allowed them was reached: two
+        | spellings of «who may sign this», disagreeing.
+        */
+        $permission = $document === ConsentDocument::DataProcessing
+            ? GuardianPermission::DataRights
+            : GuardianPermission::Payments;
+
+        $child = $guardians->childrenOf($signer, $permission)
             ->first(fn (User $student): bool => $student->uuid === $uuid);
 
         abort_if($child === null, 403, 'لا يحقّ لك التوقيع نيابةً عن هذا الطالب.');
