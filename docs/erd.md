@@ -1366,8 +1366,8 @@ the one place in the tree that needs it.
 ### `credit_holds` — a frozen credit is not a spent one
 
 `unique(credit_balance_id, class_session_id, hold_seq)`. The third column is there
-because a seat can legitimately come back: `ReleaseIneligibleBookings` cancels a seat,
-the student is reinstated, and the revived seat needs a second row at `hold_seq = 1`
+because a seat can legitimately come back: a seat is released (a freeze, a transfer),
+the student books it again, and the revived seat needs a second row at `hold_seq = 1`
 rather than colliding with the settled one. It is deliberately **outside `$fillable`**
 — it discriminates a unique key, which is the `captured_order_id` rule — so
 `PlaceCreditHold` writes with `(new CreditHold)->forceFill([...])->save()`.

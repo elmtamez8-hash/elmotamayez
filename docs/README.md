@@ -1981,9 +1981,10 @@ got this wrong" is what makes a teacher delete a good question two students happ
 ### The unlock gate guards two doors and not the third
 
 `BookingEligibility::openingRefusal()` is asked when a seat is booked and when a join ticket
-is issued. The nightly `ReleaseIneligibleBookings` sweep still calls the older
-`refusalReason()`, and the split is deliberate: the sweep **cancels** seats, so folding the
-unlock condition into it would repossess a paid seat over unfinished homework.
+is issued. The narrower `refusalReason()` stays separate on purpose: it is the question a
+seat-**releasing** caller would ask, so folding the unlock condition into it would repossess a
+paid seat over unfinished homework. (The nightly `ReleaseIneligibleBookings` sweep that asked
+it had no production caller and was deleted on 2026-09-23.)
 
 Excused counts as attended — only `absent` fails, because an excusal is the teacher's
 decision that the absence is not held against the student. "Previous" is the latest countable

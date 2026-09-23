@@ -44,12 +44,12 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * `billable_seats` is frozen at the cancellation deadline and never recomputed,
  * so reaching back moves no money and must not try to.
  *
- * ⚠️ AND NOT THROUGH `ReleaseIneligibleBookings`, WHICH IS THE OBVIOUS CHOICE
- * AND THE WRONG ONE. That Action releases on `BookingEligibility::allows()`,
- * which is false during ANY freeze period covering the student — so declaring a
- * holiday would release seats outside the freeze as well as inside it. It also
- * has no production caller at all today; wiring it here would give it one by
- * accident.
+ * ⚠️ AND NOT BY RE-ASKING ELIGIBILITY PER SEAT. A generic «release whoever is
+ * no longer eligible» sweep existed (`ReleaseIneligibleBookings`, deleted
+ * 2026-09-23 with no production caller) and was the wrong tool: eligibility is
+ * false during ANY freeze covering the student, so a declared holiday would
+ * release seats outside the freeze as well as inside it. Release on the fact
+ * that happened — this subscription ended — and nothing wider.
  *
  * Queued and `ShouldHandleEventsAfterCommit`: the expiry sweep claims each row
  * inside its own statement, and a worker reading before commit would find the

@@ -174,8 +174,8 @@ class ClassSession extends BaseModel
      * ⚠️ DELIBERATELY WIDER THAN THE DOOR. `RoomRevocation::isHost()` asks for a
      * `Booked` seat, because entering a room is a live entitlement. This answers
      * "is this session any of your business", which a cancelled seat also settles:
-     * the student whose enrolment lapsed and whose seat `ReleaseIneligibleBookings`
-     * then cancelled is precisely the person `FR-038` exists for, and a
+     * the student whose seat was released (a freeze, a transfer, a subscription
+     * that ended) is precisely the person `FR-038` exists for, and a
      * booked-only read would refuse them the sentence explaining why.
      *
      * The workspace scope is dropped for the same reason `recordingLesson()` drops
@@ -231,9 +231,8 @@ class ClassSession extends BaseModel
      * ٠٣٥ · T063. The sibling above answers «is this session any of your
      * business», which a cancelled seat settles too. This answers the narrower
      * money question: `Booked` or `CancelledLate` — the seat that is, or was,
-     * paid for. A seat cancelled inside the window and one released by
-     * `ReleaseIneligibleBookings` are both outside it, because neither was ever
-     * charged.
+     * paid for. A seat cancelled inside the window and a released one are both
+     * outside it, because neither was ever charged.
      *
      * ⚠️ TWO QUESTIONS, TWO PREDICATES, AND THE WIDER ONE IS NOT NARROWED. The
      * precedent is one file away: `EloquentSessionAttendanceDirectory` keeps
