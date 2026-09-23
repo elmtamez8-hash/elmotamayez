@@ -12,6 +12,7 @@ use App\Modules\Gamification\Jobs\CloseLeaderboardWeekJob;
 use App\Modules\Gamification\Jobs\PruneOldLeaderboardsJob;
 use App\Modules\Gamification\Jobs\ReconcileGamificationJob;
 use App\Modules\Gamification\Jobs\RollUpLeaderboardsJob;
+use App\Modules\Identity\Jobs\EndIdleAuthSessionsJob;
 use App\Modules\Identity\Jobs\EnforceAuthSessionCapJob;
 use App\Modules\Identity\Jobs\TransferDataOwnershipJob;
 use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
@@ -79,6 +80,13 @@ Schedule::command('horizon:snapshot')->everyFiveMinutes();
 | of every bulk delete between 03:15 and 03:45.
 */
 Schedule::command('queue:prune-failed', ['--hours' => 720])->dailyAt('02:50');
+
+// A bearer token nobody has presented for `auth.session_idle_days` is ended here,
+// because the request-time guard only sees tokens that are still being used —
+// and an abandoned one otherwise holds a device slot for ever. 02:40: before the
+// 03:15–03:45 bulk deletes and the 03:30 retention sweep (which then sees these
+// rows as ended), and off :05/:20/:35/:50.
+Schedule::job(new EndIdleAuthSessionsJob, 'maintenance')->dailyAt('02:40');
 
 Schedule::job(new PruneExpiredGrantsJob, 'maintenance')->dailyAt('03:45');
 
