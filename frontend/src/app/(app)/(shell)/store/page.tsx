@@ -7,6 +7,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { ShopIcon, StoreIcon } from "@/components/icons";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -136,12 +139,11 @@ export default function StorePage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-ink">مشترياتي</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          الكتب والمذكّرات التي اشتريتَها من مدرّسيك، وحالة كلٍّ منها.
-        </p>
-      </header>
+      <PageHeader
+        Icon={StoreIcon}
+        title="مشترياتي"
+        description="الكتب والمذكّرات التي اشتريتَها من مدرّسيك، وحالة كلٍّ منها."
+      />
 
       {problem && <Alert tone="danger" title={problem} />}
       {note && <Alert tone="success" title={note} />}
@@ -160,12 +162,12 @@ export default function StorePage() {
         <ul className="grid gap-4 sm:grid-cols-2">
           {purchases.map((purchase) => (
             <li key={purchase.uuid}>
-              <Card>
+              <Card interactive>
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-3">
-                    <h2 className="text-base font-semibold text-ink">
+                    <h3 className="text-base font-semibold text-ink">
                       {purchase.item?.title ?? "منتَج"}
-                    </h2>
+                    </h3>
 
                     {purchase.refunded_at ? (
                       <Badge tone="neutral">مُسترَدّ</Badge>
@@ -215,8 +217,8 @@ export default function StorePage() {
       )}
 
       {teachers.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-ink">متاجر مدرّسيك</h2>
+        <section aria-labelledby="store-teachers" className="space-y-4">
+          <SectionHeading id="store-teachers" Icon={ShopIcon} title="متاجر مدرّسيك" />
 
           <SelectField
             id="teacher"

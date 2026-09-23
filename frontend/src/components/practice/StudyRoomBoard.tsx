@@ -78,7 +78,7 @@ export function StudyRoomBoard({
   return (
     <section className="rounded-2xl border border-line bg-surface-raised p-5">
       <div className="mb-4 flex items-center justify-between gap-4">
-        <h2 className="font-semibold text-ink">لوحة النتائج</h2>
+        <h3 className="font-semibold text-ink">لوحة النتائج</h3>
         {state === "closed" ? (
           <Badge tone="neutral">انتهى الوقت</Badge>
         ) : (

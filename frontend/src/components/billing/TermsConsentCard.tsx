@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { DocumentIcon } from "@/components/icons";
 import { errorMessage } from "@/lib/api";
 import { billing, type ConsentState } from "@/lib/billing";
 
@@ -60,9 +62,7 @@ export function TermsConsentCard() {
 
   return (
     <section aria-labelledby="consents-heading" className="space-y-4">
-      <h2 id="consents-heading" className="text-lg font-semibold text-ink">
-        موافقات مطلوبة
-      </h2>
+      <SectionHeading id="consents-heading" Icon={DocumentIcon} title="موافقات مطلوبة" />
 
       {error !== "" && (
         <Alert tone="danger" title="تعذّرت العملية">
@@ -72,7 +72,7 @@ export function TermsConsentCard() {
 
       {outstanding.map((document) => (
         <Card as="article" key={document.document}>
-          <h3 className="text-base font-semibold text-ink">{document.label}</h3>
+          <h4 className="text-base font-semibold text-ink">{document.label}</h4>
 
           <p className="mt-2 text-sm text-ink-muted">
             {document.document === "deferred_payment_terms"

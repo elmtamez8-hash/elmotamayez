@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import type { Certificate } from "@/lib/types";
 import { certificateReasonLabel, formatDate } from "@/lib/labels";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import {
   CertificateIcon,
   ChevronEndIcon,
@@ -48,12 +49,11 @@ export default function CertificatesPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h2 className="text-2xl font-bold text-ink">شهاداتي</h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          كل شهادة هنا موثّقة برمز تحقّق دائم — افتحها لترى الشهادة نفسها كما تُطبع.
-        </p>
-      </header>
+      <PageHeader
+        Icon={CertificateIcon}
+        title="شهاداتي"
+        description="كل شهادة هنا موثّقة برمز تحقّق دائم — افتحها لترى الشهادة نفسها كما تُطبع."
+      />
 
       {loading ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -94,7 +94,7 @@ function CertificateCard({ certificate, index }: { certificate: Certificate; ind
         reader who asked for less motion gets the card immediately rather than an
         invisible one for the length of the stagger.
       */
-      className="group animate-float-in flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface-raised transition duration-200 hover:-translate-y-1 hover:border-primary hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+      className="group animate-float-in flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-surface-raised transition duration-200 hover:border-primary/40 motion-safe:hover:-translate-y-0.5"
       // Capped: the twentieth card must not arrive a second and a half late.
       style={{ animationDelay: `${Math.min(index, 7) * 60}ms` }}
     >

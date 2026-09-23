@@ -8,6 +8,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { CheckIcon, PracticeIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ApiError } from "@/lib/api";
@@ -127,17 +130,22 @@ export default function StudyRoomPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">{room.concept?.name ?? "غرفة مذاكرة"}</h1>
-          <p className="text-ink-muted">
+      <PageHeader
+        Icon={PracticeIcon}
+        title={room.concept?.name ?? "غرفة مذاكرة"}
+        description={
+          <>
             مع {room.host.name} · <bdi>{room.question_count}</bdi> أسئلة
-          </p>
-        </div>
-        {/* The label travels beside the value: the state is a comparison against
-            the SERVER's clock, never this device's. */}
-        <Badge tone={room.state === "closed" ? "neutral" : "info"}>{room.state_label}</Badge>
-      </div>
+          </>
+        }
+        actions={
+          <>
+            {/* The label travels beside the value: the state is a comparison against
+                the SERVER's clock, never this device's. */}
+            <Badge tone={room.state === "closed" ? "neutral" : "info"}>{room.state_label}</Badge>
+          </>
+        }
+      />
 
       {error !== "" && <Alert tone="danger" title={error} />}
 
@@ -166,7 +174,9 @@ export default function StudyRoomPage() {
 
       {questions.some((question) => question.answered) && (
         <Card>
-          <h2 className="mb-4 font-semibold text-ink">ما أجبتَ عنه</h2>
+          <div className="mb-4">
+            <SectionHeading id="room-answered" Icon={CheckIcon} title="ما أجبتَ عنه" />
+          </div>
           <ul className="space-y-3">
             {questions
               .filter((question) => question.answered)

@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { CheckIcon } from "@/components/icons";
+import { CheckIcon, ExamIcon } from "@/components/icons";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 
 interface AttemptResponse {
@@ -120,13 +121,16 @@ export default function TakeExamPage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-ink">اختبار جارٍ</h2>
-        <p className="text-ink-muted">
-          أجب عن الأسئلة ثم سلّم. أجبت عن <bdi>{answered}</bdi> من{" "}
-          <bdi>{data.questions.length}</bdi>.
-        </p>
-      </div>
+      <PageHeader
+        Icon={ExamIcon}
+        title="اختبار جارٍ"
+        description={
+          <>
+            أجب عن الأسئلة ثم سلّم. أجبت عن <bdi>{answered}</bdi> من{" "}
+            <bdi>{data.questions.length}</bdi>.
+          </>
+        }
+      />
 
       {error && <Alert tone="danger" title={error} />}
 
