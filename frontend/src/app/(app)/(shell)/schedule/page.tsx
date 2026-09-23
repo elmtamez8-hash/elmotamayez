@@ -7,6 +7,7 @@ import { NextSessionCountdown } from "@/components/sessions/NextSessionCountdown
 import { RescheduleAskButton } from "@/components/sessions/RescheduleAskButton";
 import { CancelBookingButton } from "@/components/sessions/CancelBookingButton";
 import { SessionCard } from "@/components/sessions/SessionCard";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -96,10 +97,7 @@ export default function SchedulePage() {
       it is given a column to be scanned down.
     */
     <div className="max-w-3xl space-y-6">
-      <h2 className="flex items-center gap-2 text-2xl font-bold text-ink">
-        <ScheduleIcon className="h-6 w-6 text-primary-ink" />
-        جدولي
-      </h2>
+      <PageHeader Icon={ScheduleIcon} title="جدولي" />
 
       {loading ? (
         <RowsSkeleton />

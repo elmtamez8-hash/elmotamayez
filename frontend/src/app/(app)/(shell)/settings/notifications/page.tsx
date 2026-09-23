@@ -9,6 +9,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { BellIcon, MoonIcon, SettingsIcon, WhatsAppIcon } from "@/components/icons";
 import { errorMessage, fieldErrors } from "@/lib/api";
 import {
   notifications,
@@ -128,16 +131,20 @@ export default function NotificationSettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
-      <h2 className="text-2xl font-bold text-ink">إعدادات الإشعارات</h2>
+      <PageHeader Icon={SettingsIcon} title="إعدادات الإشعارات" />
 
       {error && <Alert tone="danger" title={error} />}
       {saved && <Alert tone="success" title="حُفِظت الإعدادات." />}
 
       <Card as="section">
-        <h3 className="mb-1 font-semibold text-ink">كيف تصلك الإشعارات</h3>
-        <p className="mb-4 text-sm text-ink-muted">
-          اختر القنوات لكل فئة. الإشعارات الإلزامية لا يمكن إيقافها.
-        </p>
+        <div className="mb-4">
+          <SectionHeading
+            id="notifications-channels"
+            Icon={BellIcon}
+            title="كيف تصلك الإشعارات"
+            description="اختر القنوات لكل فئة. الإشعارات الإلزامية لا يمكن إيقافها."
+          />
+        </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-start text-sm">
@@ -200,11 +207,19 @@ export default function NotificationSettingsPage() {
           of showing. */}
       {channels.some((channel) => channel.key === "push") && pushConfigured() && (
         <Card as="section">
-          <h3 className="mb-1 font-semibold text-ink">الإشعار الفوريّ على هذا الجهاز</h3>
-          <p className="mb-4 text-sm text-ink-muted">
-            الجدول أعلاه يقرّر أيَّ الفئات تُدفَع؛ هذه البطاقة تقرّر ما إذا كان هذا
-            الجهاز بالذات يستقبلها. كلُّ جهاز يُفعَّل على حدة.
-          </p>
+          <div className="mb-4">
+            <SectionHeading
+              id="notifications-push"
+              Icon={BellIcon}
+              title="الإشعار الفوريّ على هذا الجهاز"
+              description={
+                <>
+                  الجدول أعلاه يقرّر أيَّ الفئات تُدفَع؛ هذه البطاقة تقرّر ما إذا كان هذا
+                  الجهاز بالذات يستقبلها. كلُّ جهاز يُفعَّل على حدة.
+                </>
+              }
+            />
+          </div>
 
           <PushPermissionPrompt />
         </Card>
@@ -212,22 +227,38 @@ export default function NotificationSettingsPage() {
 
       {channels.some((channel) => channel.key === "whatsapp") && (
         <Card as="section">
-          <h3 className="mb-1 font-semibold text-ink">رقم واتساب</h3>
-          <p className="mb-4 text-sm text-ink-muted">
-            أكّد رقمك ليصلك ما اخترته أعلاه على واتساب. لا تُرسَل أي رسالة إلى رقم غير
-            مؤكَّد.
-          </p>
+          <div className="mb-4">
+            <SectionHeading
+              id="notifications-whatsapp"
+              Icon={WhatsAppIcon}
+              title="رقم واتساب"
+              description={
+                <>
+                  أكّد رقمك ليصلك ما اخترته أعلاه على واتساب. لا تُرسَل أي رسالة إلى رقم غير
+                  مؤكَّد.
+                </>
+              }
+            />
+          </div>
 
           <WhatsAppVerification />
         </Card>
       )}
 
       <Card as="section">
-        <h3 className="mb-1 font-semibold text-ink">فترة الهدوء</h3>
-        <p className="mb-4 text-sm text-ink-muted">
-          لن تصلك الإشعارات غير الإلزامية على القنوات الخارجية خلال هذه الفترة، وتُرسَل
-          بعد انتهائها بدل أن تُلغى.
-        </p>
+        <div className="mb-4">
+          <SectionHeading
+            id="notifications-quiet"
+            Icon={MoonIcon}
+            title="فترة الهدوء"
+            description={
+              <>
+                لن تصلك الإشعارات غير الإلزامية على القنوات الخارجية خلال هذه الفترة، وتُرسَل
+                بعد انتهائها بدل أن تُلغى.
+              </>
+            }
+          />
+        </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <TextField

@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { NumberField, TextField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { PlayIcon, SessionsIcon, SettingsIcon, UsersIcon } from "@/components/icons";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { AttendanceSheet } from "@/components/sessions/AttendanceSheet";
@@ -104,7 +107,9 @@ export default function ManageSessionPage({
         >
           ← حصصي
         </Link>
-        <h2 className="mt-1 text-2xl font-bold text-ink">{session.title}</h2>
+        <div className="mt-2">
+          <PageHeader Icon={SessionsIcon} title={session.title} />
+        </div>
       </div>
 
       {error !== "" && (
@@ -162,11 +167,19 @@ export default function ManageSessionPage({
 
       {session.status === "scheduled" && (
         <Card>
-          <h3 className="mb-2 font-semibold text-ink">تعديل الحصة</h3>
-          <p className="mb-4 text-sm text-ink-muted">
-            نوع الحصة لا يظهر هنا عمداً: تغييره ممنوع بعد أول حجز (FR-001ب)، والخادم هو من
-            يعرف إن كان مقعد قد حُجز.
-          </p>
+          <div className="mb-4">
+            <SectionHeading
+              id="edit-session"
+              Icon={SettingsIcon}
+              title="تعديل الحصة"
+              description={
+                <>
+                  نوع الحصة لا يظهر هنا عمداً: تغييره ممنوع بعد أول حجز (FR-001ب)، والخادم هو من
+                  يعرف إن كان مقعد قد حُجز.
+                </>
+              }
+            />
+          </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <TextField
@@ -194,14 +207,22 @@ export default function ManageSessionPage({
       )}
 
       <Card>
-        <h3 className="mb-3 font-semibold text-ink">كشف الحضور</h3>
+        <div className="mb-3">
+          <SectionHeading id="attendance-sheet" Icon={UsersIcon} title="كشف الحضور" />
+        </div>
         <AttendanceSheet rows={rows} canOverride onChanged={load} sessionUuid={session.uuid} />
       </Card>
 
       {session.recording !== null && (
         <Card>
-          <h3 className="mb-2 font-semibold text-ink">التسجيل</h3>
-          <p className="mb-3 text-sm text-ink-muted">{recordingLabel(session.recording.status)}</p>
+          <div className="mb-3">
+            <SectionHeading
+              id="session-recording"
+              Icon={PlayIcon}
+              title="التسجيل"
+              description={recordingLabel(session.recording.status)}
+            />
+          </div>
 
           {/* A published recording without a way in is a lesson nobody can
               reach — the exact bug this project has already shipped once. */}

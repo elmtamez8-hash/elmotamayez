@@ -8,6 +8,8 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { PracticeIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { adaptive, type AdaptiveConcept, type AdaptiveStart } from "@/lib/adaptive";
@@ -79,7 +81,7 @@ export default function AdaptivePracticePage() {
   if (session !== null) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-ink">تدريب تكيّفي</h1>
+        <PageHeader Icon={PracticeIcon} title="تدريب تكيّفي" />
         <AdaptiveRunner
           start={{ session: session.session, question: session.question }}
           onFinish={() => setSession(null)}
@@ -90,16 +92,16 @@ export default function AdaptivePracticePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-ink">تدريب تكيّفي</h1>
-        <p className="mt-2 text-ink-muted">
-          اختر فكرةً، وسنغيّر صعوبةَ السؤال التالي بحسب إجاباتك حتى تُتقنها. لا تُحتسب هذه
-          الجلسات في درجاتك.
-        </p>
-        <Link href="/practice" className="mt-2 inline-block text-sm text-primary-ink underline">
-          أو ابْنِ ورقةَ تدريبٍ كاملة
-        </Link>
-      </div>
+      <PageHeader
+        Icon={PracticeIcon}
+        title="تدريب تكيّفي"
+        description="اختر فكرةً، وسنغيّر صعوبةَ السؤال التالي بحسب إجاباتك حتى تُتقنها. لا تُحتسب هذه الجلسات في درجاتك."
+        actions={
+          <Link href="/practice" className="text-sm text-primary-ink underline">
+            أو ابْنِ ورقةَ تدريبٍ كاملة
+          </Link>
+        }
+      />
 
       {error !== "" && <Alert tone="danger" title={error} />}
 
@@ -115,10 +117,10 @@ export default function AdaptivePracticePage() {
       {!loading && concepts !== null && concepts.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2">
           {concepts.map((concept) => (
-            <Card key={`${concept.teacher.uuid}:${concept.uuid}`} as="article">
+            <Card key={`${concept.teacher.uuid}:${concept.uuid}`} as="article" interactive>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="font-bold text-ink">{concept.name}</h2>
+                  <h3 className="font-bold text-ink">{concept.name}</h3>
                   <p className="mt-1 text-sm text-ink-muted">{concept.teacher.name}</p>
                 </div>
                 {concept.mastered_at !== null && <Badge tone="success">أُتقِنت</Badge>}

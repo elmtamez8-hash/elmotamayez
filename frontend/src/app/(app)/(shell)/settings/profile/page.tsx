@@ -26,7 +26,9 @@ import { crossesUtcMidnight, toLocalSlot, toUtcSlot } from "@/lib/availability";
 import { useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
 import { profileApi, type Faq, type TeacherProfile } from "@/lib/profile";
-import { QuestionIcon } from "@/components/icons";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { AcademicCapIcon, QuestionIcon, ScheduleIcon, UserIcon } from "@/components/icons";
 import { arabicNumber } from "@/lib/numerals";
 import { TEACHING_LANGUAGES } from "@/lib/teaching-languages";
 
@@ -214,7 +216,7 @@ export default function ProfileSettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
-      <h2 className="text-2xl font-bold text-ink">ملفّي</h2>
+      <PageHeader Icon={UserIcon} title="ملفّي" />
 
       {/*
         ⚠️ **الصورةُ لكلِّ حساب، وحجبُها خلفَ «هل لك ملفّ؟» كانَ يُغلِقُ الشاشةَ
@@ -241,10 +243,14 @@ export default function ProfileSettingsPage() {
 
       {teacher !== null && (
         <Card as="section">
-          <h3 className="mb-1 font-semibold text-ink">ملفك العام</h3>
-          <p className="mb-4 text-sm text-ink-muted">
-            هذا ما يقرأه الطالب وولي أمره على صفحتك. التعديل يظهر فوراً.
-          </p>
+          <div className="mb-4">
+            <SectionHeading
+              id="profile-public"
+              Icon={UserIcon}
+              title="ملفك العام"
+              description="هذا ما يقرأه الطالب وولي أمره على صفحتك. التعديل يظهر فوراً."
+            />
+          </div>
 
           <form
             className="space-y-5"
@@ -494,11 +500,19 @@ export default function ProfileSettingsPage() {
 
       {teacher !== null && (
         <Card as="section">
-          <h3 className="mb-1 font-semibold text-ink">مواعيدي الأسبوعية</h3>
-          <p className="mb-4 text-sm text-ink-muted">
-            الساعات التي يُحجَز فيها عندك. منها تُولَّد حصص مجموعاتك، وعليها يُرفَض
-            طلب الحصة الخاصة خارجها، وهي ما تعرضه صفحتك العامة. بتوقيتك أنت.
-          </p>
+          <div className="mb-4">
+            <SectionHeading
+              id="profile-availability"
+              Icon={ScheduleIcon}
+              title="مواعيدي الأسبوعية"
+              description={
+                <>
+                  الساعات التي يُحجَز فيها عندك. منها تُولَّد حصص مجموعاتك، وعليها يُرفَض
+                  طلب الحصة الخاصة خارجها، وهي ما تعرضه صفحتك العامة. بتوقيتك أنت.
+                </>
+              }
+            />
+          </div>
 
           <form
             className="space-y-4"
@@ -543,10 +557,14 @@ export default function ProfileSettingsPage() {
 
       {user?.student_profile != null && (
         <Card as="section">
-          <h3 className="mb-1 font-semibold text-ink">بياناتي الدراسية</h3>
-          <p className="mb-4 text-sm text-ink-muted">
-            صفّك ومنطقتك. مرحلتك تُحسب من صفّك، فلا تُكتب بجانبه.
-          </p>
+          <div className="mb-4">
+            <SectionHeading
+              id="profile-study"
+              Icon={AcademicCapIcon}
+              title="بياناتي الدراسية"
+              description="صفّك ومنطقتك. مرحلتك تُحسب من صفّك، فلا تُكتب بجانبه."
+            />
+          </div>
 
           <form
             className="space-y-4"

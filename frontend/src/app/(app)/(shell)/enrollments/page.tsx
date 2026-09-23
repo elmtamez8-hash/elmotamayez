@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/Badge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import {
@@ -101,7 +102,7 @@ export default function EnrollmentsPage() {
         className="banner-rise"
         style={{ animationDelay: `${Math.min(index, 6) * 45}ms` }}
       >
-        <article className="flex h-full flex-col rounded-3xl border border-line bg-surface-raised p-5 transition-colors duration-200 hover:border-primary/40 focus-within:border-primary/40">
+        <article className="flex h-full flex-col rounded-3xl border border-line bg-surface-raised p-5 transition duration-200 hover:border-primary/40 hover:bg-primary-soft/30 focus-within:border-primary/40 motion-safe:hover:-translate-y-0.5">
           <div className="mb-3 flex items-start justify-between gap-3">
             <h3 className="font-semibold text-ink">
               {/* The only way into the lessons — and from there into the
@@ -222,10 +223,7 @@ export default function EnrollmentsPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="flex items-center gap-2 text-2xl font-bold text-ink">
-        <LearningIcon className="h-6 w-6 text-primary-ink" />
-        تعلّمي
-      </h2>
+      <PageHeader Icon={LearningIcon} title="تعلّمي" />
 
       {chatProblem !== null && (
         <Alert tone="danger" title="تعذّر فتح المحادثة">

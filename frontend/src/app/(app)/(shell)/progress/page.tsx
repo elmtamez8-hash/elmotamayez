@@ -5,6 +5,17 @@ import { useCallback, useEffect, useState } from "react";
 import { FocusTimer } from "@/components/gamification/FocusTimer";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { StatTile } from "@/components/ui/StatTile";
+import {
+  ProgressIcon,
+  ShieldIcon,
+  SparkIcon,
+  StarIcon,
+  VerifiedBadgeIcon,
+  WalletIcon,
+} from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -45,53 +56,51 @@ export default function ProgressPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">تقدّمي</h1>
-        <p className="text-sm text-ink-muted">
-          خبرتك ومستواك وسلسلتك وشاراتك، عبر كلّ من تدرس عندهم.
-        </p>
-      </header>
+      <PageHeader
+        Icon={ProgressIcon}
+        title="تقدّمي"
+        description="خبرتك ومستواك وسلسلتك وشاراتك، عبر كلّ من تدرس عندهم."
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <p className="text-sm text-ink-muted">الخبرة</p>
-          <p className="text-2xl font-bold text-ink">
-            <bdi>{progress.xp}</bdi>
-          </p>
-        </Card>
-        <Card>
-          <p className="text-sm text-ink-muted">المستوى</p>
-          <p className="text-2xl font-bold text-ink">
-            {progress.level_name ?? <bdi>{progress.level}</bdi>}
-          </p>
-          {toNext !== null && (
-            <p className="text-xs text-ink-muted">
-              يتبقّى <bdi>{toNext}</bdi> للمستوى التالي
-            </p>
-          )}
-        </Card>
-        <Card>
-          <p className="text-sm text-ink-muted">السلسلة</p>
-          <p className="text-2xl font-bold text-ink">
-            <bdi>{progress.current_streak}</bdi> يوماً
-          </p>
-          <p className="text-xs text-ink-muted">
-            أفضل رقم: <bdi>{progress.best_streak}</bdi>
-          </p>
-        </Card>
-        <Card>
-          <p className="text-sm text-ink-muted">دروع الحماية</p>
-          <p className="text-2xl font-bold text-ink">
-            <bdi>{progress.shields}</bdi>
-          </p>
-          <p className="text-xs text-ink-muted">يحفظ سلسلتك عند انقطاع يومٍ واحد.</p>
-        </Card>
+        <StatTile label="الخبرة" value={String(progress.xp)} Icon={SparkIcon} />
+        <StatTile
+          label="المستوى"
+          value={progress.level_name ?? String(progress.level)}
+          Icon={ProgressIcon}
+          emphasis
+          hint={
+            toNext !== null ? (
+              <>
+                يتبقّى <bdi>{toNext}</bdi> للمستوى التالي
+              </>
+            ) : undefined
+          }
+        />
+        <StatTile
+          label="السلسلة"
+          value={`${progress.current_streak} يوماً`}
+          Icon={StarIcon}
+          hint={
+            <>
+              أفضل رقم: <bdi>{progress.best_streak}</bdi>
+            </>
+          }
+        />
+        <StatTile
+          label="دروع الحماية"
+          value={String(progress.shields)}
+          Icon={ShieldIcon}
+          hint="يحفظ سلسلتك عند انقطاع يومٍ واحد."
+        />
       </div>
 
       <FocusTimer onFinished={load} />
 
       <Card>
-        <h2 className="mb-3 text-base font-semibold text-ink">عملاتي</h2>
+        <div className="mb-3">
+          <SectionHeading id="progress-coins" Icon={WalletIcon} title="عملاتي" />
+        </div>
         {progress.coin_balances.length === 0 ? (
           <EmptyState title="لا عملات بعد" description="تُكتسب العملات بحضورك وحلّ واجباتك." />
         ) : (
@@ -116,7 +125,9 @@ export default function ProgressPage() {
       </Card>
 
       <Card>
-        <h2 className="mb-3 text-base font-semibold text-ink">شاراتي</h2>
+        <div className="mb-3">
+          <SectionHeading id="progress-badges" Icon={VerifiedBadgeIcon} title="شاراتي" />
+        </div>
         {progress.badges.length === 0 ? (
           <EmptyState
             title="لا شارات بعد"

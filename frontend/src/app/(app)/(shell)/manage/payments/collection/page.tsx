@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SelectField, TextField } from "@/components/ui/Field";
 import { Table, type Column } from "@/components/ui/Table";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { CheckIcon, CreditsIcon, ListIcon, WalletIcon } from "@/components/icons";
 
 type Bucket = {
   key: string | null;
@@ -72,6 +75,13 @@ const DIMENSIONS = [
   { field: "by_status", title: "بالحالة", labels: STATUS_LABELS },
   { field: "by_source", title: "بالمصدر", labels: SOURCE_LABELS },
 ] as const;
+
+/** Each breakdown's icon — presentation only, beside the table above. */
+const DIMENSION_ICONS = {
+  by_method: WalletIcon,
+  by_status: CheckIcon,
+  by_source: ListIcon,
+} as const;
 
 /** `YYYY-MM-DD`, which is what both the input and the API want. */
 function isoDay(daysAgo: number): string {
@@ -176,12 +186,11 @@ export default function CollectionReportPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-ink">سجلّ التحصيل</h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          ما حُصِّل في فترة: بالطريقة وبالحالة وبالمصدر. صورة الداخل، لا مستحقات المدرّسين.
-        </p>
-      </div>
+      <PageHeader
+        Icon={CreditsIcon}
+        title="سجلّ التحصيل"
+        description="ما حُصِّل في فترة: بالطريقة وبالحالة وبالمصدر. صورة الداخل، لا مستحقات المدرّسين."
+      />
 
       {error !== "" && (
         <Alert tone="danger" title="تعذّر عرض السجلّ">
@@ -225,8 +234,10 @@ export default function CollectionReportPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         {DIMENSIONS.map(({ field, title, labels }) => (
-          <Card key={field}>
-            <h3 className="mb-3 text-sm font-semibold text-ink">{title}</h3>
+          <Card key={field} interactive>
+            <div className="mb-3">
+              <SectionHeading id={`collection-${field}`} Icon={DIMENSION_ICONS[field]} title={title} />
+            </div>
             {summary === null || summary[field].length === 0 ? (
               <p className="text-sm text-ink-muted">لا تحصيل في هذه الفترة.</p>
             ) : (

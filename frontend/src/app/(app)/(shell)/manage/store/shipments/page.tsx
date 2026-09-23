@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ShipmentIcon } from "@/components/icons";
 import { Table, type Column } from "@/components/ui/Table";
 import { userMessage } from "@/lib/errors";
 import { store, type Shipment, type ShipmentStatus } from "@/lib/store";
@@ -89,13 +91,16 @@ export default function ShipmentQueuePage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-ink">الشحنات</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          النسخ المطبوعة التي دُفِع ثمنها، ومكان كلٍّ منها الآن. كل تغيير تصل به
-          رسالة إلى المشتري.
-        </p>
-      </header>
+      <PageHeader
+        Icon={ShipmentIcon}
+        title="الشحنات"
+        description={
+          <>
+            النسخ المطبوعة التي دُفِع ثمنها، ومكان كلٍّ منها الآن. كل تغيير تصل به
+            رسالة إلى المشتري.
+          </>
+        }
+      />
 
       {problem && <Alert tone="danger" title={problem} />}
 

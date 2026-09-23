@@ -20,7 +20,11 @@ import {
   SessionsIcon,
   SettingsIcon,
   SparkIcon,
+  UsersIcon,
 } from "@/components/icons";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { StatTile } from "@/components/ui/StatTile";
 import { classSessions, type ClassSession } from "@/lib/class-sessions";
 import {
   cohortEventLabel,
@@ -140,14 +144,14 @@ export default function ManageCohortPage({
         )}
       </div>
 
-      <div className="animate-float-in flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-ink">{group.name}</h1>
-          {group.description !== null && group.description !== "" && (
-            <p className="mt-1 text-ink-muted">{group.description}</p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        Icon={UsersIcon}
+        title={group.name}
+        description={
+          group.description !== null && group.description !== "" ? group.description : undefined
+        }
+        actions={
+        <>
           <Badge tone={statusTone(group.status)}>{statusLabel(group.status)}</Badge>
           {group.is_full && <Badge tone="danger">مكتملة</Badge>}
           {group.status !== "archived" && (
@@ -167,8 +171,9 @@ export default function ManageCohortPage({
               تعديل
             </Button>
           )}
-        </div>
-      </div>
+        </>
+        }
+      />
 
       {/*
         ⛔ WHY THIS GROUP IS NOT ON SALE (٠٣٦ · FR-014). Without the sentence the
@@ -209,7 +214,7 @@ export default function ManageCohortPage({
       {editing && (
         <Card>
           <div className="animate-float-in space-y-3">
-            <h2 className="font-semibold text-ink">بيانات المجموعة</h2>
+            <SectionHeading id="group-details" Icon={SettingsIcon} title="بيانات المجموعة" />
             <TextField
               id="group-name"
               label="الاسم"
@@ -297,17 +302,17 @@ export default function ManageCohortPage({
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Stat icon={<MembersIcon />} label="الطلاب" value={String(group.members_count)} />
-        <Stat
-          icon={<SessionsIcon />}
+        <StatTile Icon={MembersIcon} label="الطلاب" value={String(group.members_count)} />
+        <StatTile
+          Icon={SessionsIcon}
           label="حصص قادمة"
           value={String(sessions.length)}
         />
-        <Stat
-          icon={<SparkIcon />}
+        <StatTile
+          Icon={SparkIcon}
           label="المقاعد"
           value={group.capacity === null ? "بلا حدّ" : `${group.seats_left ?? 0} متاح`}
-          note={group.capacity === null ? undefined : `من ${group.capacity}`}
+          hint={group.capacity === null ? undefined : `من ${group.capacity}`}
         />
       </div>
 
@@ -319,14 +324,14 @@ export default function ManageCohortPage({
         would mean editing the weekly schedule to add one Tuesday.
       */}
       <Card>
-        <h2 className="mb-1 flex items-center gap-2 font-semibold text-ink">
-          <ScheduleIcon className="h-5 w-5" />
-          أضِف مواعيد لهذه المجموعة
-        </h2>
-        <p className="mb-4 text-sm text-ink-muted">
-          يولِّد حصصاً من جدول توفّرك الأسبوعيّ داخل المدى. المواعيد المتداخلة أو الواقعة في فترة
-          تجميد تُتخطّى ويُقال لك أيّها.
-        </p>
+        <div className="mb-4">
+          <SectionHeading
+            id="group-add-dates"
+            Icon={ScheduleIcon}
+            title="أضِف مواعيد لهذه المجموعة"
+            description="يولِّد حصصاً من جدول توفّرك الأسبوعيّ داخل المدى. المواعيد المتداخلة أو الواقعة في فترة تجميد تُتخطّى ويُقال لك أيّها."
+          />
+        </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <TextField
@@ -381,7 +386,14 @@ export default function ManageCohortPage({
         </div>
 
         <div className="mt-6 border-t border-line pt-4">
-          <h3 className="mb-3 text-sm font-semibold text-ink">أو موعد واحد خارج الجدول</h3>
+          <div className="mb-3">
+            <SectionHeading
+              id="group-one-off"
+              level={4}
+              Icon={ClockIcon}
+              title="أو موعد واحد خارج الجدول"
+            />
+          </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <TextField
               id="one-off-title"
@@ -435,10 +447,9 @@ export default function ManageCohortPage({
       </Card>
 
       <Card>
-        <h2 className="mb-3 flex items-center gap-2 font-semibold text-ink">
-          <ClockIcon className="h-4 w-4" />
-          مواعيد المجموعة القادمة
-        </h2>
+        <div className="mb-3">
+          <SectionHeading id="group-upcoming" Icon={SessionsIcon} title="مواعيد المجموعة القادمة" />
+        </div>
 
         {sessions.length === 0 ? (
           <EmptyState
@@ -489,10 +500,16 @@ export default function ManageCohortPage({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
-          <h2 className="mb-3 flex items-center gap-2 font-semibold text-ink">
-            <MembersIcon className="h-4 w-4" />
-            الطلاب (<bdi>{members.length}</bdi>)
-          </h2>
+          {/* The SectionHeading look spelled by hand: the count sits in a `<bdi>`,
+              and that component's title is a plain string. */}
+          <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-ink">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-ink">
+              <MembersIcon className="h-4 w-4" />
+            </span>
+            <span>
+              الطلاب (<bdi>{members.length}</bdi>)
+            </span>
+          </h3>
 
           {members.length === 0 ? (
             <p className="text-sm text-ink-muted">لا طلاب في هذه المجموعة بعد.</p>
@@ -514,10 +531,9 @@ export default function ManageCohortPage({
         </Card>
 
         <Card>
-          <h2 className="mb-3 flex items-center gap-2 font-semibold text-ink">
-            <HistoryIcon className="h-4 w-4" />
-            سجلّ العضوية
-          </h2>
+          <div className="mb-3">
+            <SectionHeading id="group-history" Icon={HistoryIcon} title="سجلّ العضوية" />
+          </div>
 
           {history.length === 0 ? (
             <p className="text-sm text-ink-muted">لا حركة على هذه المجموعة بعد.</p>
@@ -542,32 +558,6 @@ export default function ManageCohortPage({
             </ol>
           )}
         </Card>
-      </div>
-    </div>
-  );
-}
-
-/** One number the page is opened to read. */
-function Stat({
-  icon,
-  label,
-  value,
-  note,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  note?: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface-raised p-4">
-      <span className="rounded-xl bg-primary-soft p-2 text-primary-ink">{icon}</span>
-      <div className="min-w-0">
-        <p className="text-xs text-ink-muted">{label}</p>
-        <p className="text-lg font-bold text-ink">
-          <bdi>{value}</bdi>
-        </p>
-        {note !== undefined && <p className="text-xs text-ink-muted">{note}</p>}
       </div>
     </div>
   );

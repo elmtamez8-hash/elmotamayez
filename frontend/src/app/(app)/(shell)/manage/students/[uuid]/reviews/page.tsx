@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextareaField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { ListIcon, ProgressIcon, StarIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -132,12 +135,11 @@ export default function StudentReviewsPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-ink">التقييم الدوري — {studentName}</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          يراه الطالب ووليّ أمره بعد النشر، ولا يراه أيّ طالبٍ آخر.
-        </p>
-      </header>
+      <PageHeader
+        Icon={ProgressIcon}
+        title={`التقييم الدوري — ${studentName}`}
+        description="يراه الطالب ووليّ أمره بعد النشر، ولا يراه أيّ طالبٍ آخر."
+      />
 
       {problem !== null && (
         <Alert tone="danger" title="تعذّر الحفظ">
@@ -146,9 +148,13 @@ export default function StudentReviewsPage() {
       )}
 
       <Card as="section">
-        <h2 className="mb-4 text-lg font-bold text-ink">
-          تقييم الفترة {periodLabel({ period_start: period.start, period_end: period.end })}
-        </h2>
+        <div className="mb-4">
+          <SectionHeading
+            id="review-period"
+            Icon={StarIcon}
+            title={`تقييم الفترة ${periodLabel({ period_start: period.start, period_end: period.end })}`}
+          />
+        </div>
 
         <div className="space-y-4">
           {PERIODIC_AXES.map((axis) => (
@@ -177,9 +183,9 @@ export default function StudentReviewsPage() {
       </Card>
 
       <section aria-labelledby="past-reviews">
-        <h2 id="past-reviews" className="mb-3 text-lg font-bold text-ink">
-          التقييمات السابقة
-        </h2>
+        <div className="mb-3">
+          <SectionHeading id="past-reviews" Icon={ListIcon} title="التقييمات السابقة" />
+        </div>
 
         {state === "loading" ? (
           <RowsSkeleton />
@@ -189,7 +195,7 @@ export default function StudentReviewsPage() {
           <ul className="space-y-3">
             {rows.map((review) => (
               <li key={review.uuid}>
-                <Card padding="sm" as="article">
+                <Card padding="sm" as="article" interactive>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="font-semibold text-ink">{periodLabel(review)}</p>
@@ -242,9 +248,9 @@ export default function StudentReviewsPage() {
         NFR-001أ.
       */}
       <section aria-labelledby="segments-heading">
-        <h2 id="segments-heading" className="mb-3 text-lg font-bold text-ink">
-          مساهمتك في كشف التقديرات
-        </h2>
+        <div className="mb-3">
+          <SectionHeading id="segments-heading" Icon={ProgressIcon} title="مساهمتك في كشف التقديرات" />
+        </div>
 
         {segments.length === 0 ? (
           <EmptyState
@@ -255,7 +261,7 @@ export default function StudentReviewsPage() {
           <ul className="space-y-3">
             {segments.map((segment) => (
               <li key={segment.uuid}>
-                <Card as="article">
+                <Card as="article" interactive>
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="font-semibold text-ink">
                       {segment.period === undefined

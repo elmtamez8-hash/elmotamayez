@@ -5,6 +5,8 @@ import { api } from "@/lib/api";
 import type { Exam } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ExamIcon } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
@@ -46,7 +48,7 @@ export default function ExamsPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-ink">الاختبارات</h2>
+      <PageHeader Icon={ExamIcon} title="الاختبارات" />
 
       {loading ? (
         <RowsSkeleton />
@@ -60,7 +62,7 @@ export default function ExamsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {exams.map((exam) => (
-            <Card key={exam.uuid} as="article" padding="sm">
+            <Card key={exam.uuid} as="article" padding="sm" interactive>
               <h3 className="mb-2 font-semibold text-ink">{exam.title}</h3>
               <p className="mb-4 line-clamp-2 text-sm text-ink-muted">{exam.description}</p>
 

@@ -10,6 +10,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SelectField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { difficultyLabel, DIFFICULTIES, type Difficulty } from "@/lib/bank";
@@ -150,10 +151,7 @@ export default function PracticePage() {
   if (paper !== null) {
     return (
       <div className="space-y-6">
-        <h2 className="flex items-center gap-2 text-2xl font-bold text-ink">
-          <PracticeIcon className="h-6 w-6 text-primary-ink" />
-          ورقة تدريب
-        </h2>
+        <PageHeader Icon={PracticeIcon} title="ورقة تدريب" />
 
         {/*
           ⚠️ FR-023: SHORT IS AN ANSWER, NOT A FAILURE — and it is SAID. A paper
@@ -177,15 +175,11 @@ export default function PracticePage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="flex items-center gap-2 text-2xl font-bold text-ink">
-        <PracticeIcon className="h-6 w-6 text-primary-ink" />
-        درّب نفسك
-      </h2>
-
-      <p className="text-sm text-ink-muted">
-        اختر ما تريد التدرّب عليه، فتُبنى لك ورقةٌ من دروسك المسجَّل فيها — تُصحَّح فور تسليمها
-        ومعها الشروح، ولا تُحتسب في درجاتك.
-      </p>
+      <PageHeader
+        Icon={PracticeIcon}
+        title="درّب نفسك"
+        description="اختر ما تريد التدرّب عليه، فتُبنى لك ورقةٌ من دروسك المسجَّل فيها — تُصحَّح فور تسليمها ومعها الشروح، ولا تُحتسب في درجاتك."
+      />
 
       {error !== "" && (
         <Alert tone="danger" title="تعذّر بناء الورقة">
@@ -284,7 +278,7 @@ export default function PracticePage() {
       */}
       <Link
         href="/practice/adaptive"
-        className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-ink transition-colors hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-ink transition duration-200 hover:border-primary/40 hover:bg-primary-soft/30 motion-safe:hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <PracticeIcon className="h-5 w-5 shrink-0 text-primary-ink" />
         <span>
@@ -306,7 +300,7 @@ export default function PracticePage() {
       */}
       <Link
         href="/study-rooms"
-        className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-ink transition-colors hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-ink transition duration-200 hover:border-primary/40 hover:bg-primary-soft/30 motion-safe:hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <PracticeIcon className="h-5 w-5 shrink-0 text-primary-ink" />
         <span>
@@ -320,7 +314,7 @@ export default function PracticePage() {
       {hasStanding && (
         <Link
           href="/mistakes"
-          className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-ink transition-colors hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-ink transition duration-200 hover:border-primary/40 hover:bg-primary-soft/30 motion-safe:hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <MistakesIcon className="h-5 w-5 shrink-0 text-primary-ink" />
           <span>

@@ -90,7 +90,7 @@ export function FocusTimer({ onFinished }: { onFinished?: () => void }) {
     <Card>
       <div className="space-y-4">
         <div>
-          <h2 className="text-base font-semibold text-ink">مؤقّت التركيز</h2>
+          <h3 className="text-base font-semibold text-ink">مؤقّت التركيز</h3>
           <p className="text-sm text-ink-muted">
             تُكتم الإشعارات غير الضرورية طوال الجلسة. التنبيهات الأمنية والمالية تصلك كما هي.
           </p>

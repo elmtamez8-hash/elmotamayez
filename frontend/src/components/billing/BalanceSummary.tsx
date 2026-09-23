@@ -21,12 +21,12 @@ export function BalanceSummary({ balances }: { balances: CreditBalance[] }) {
     <ul className="grid gap-4 sm:grid-cols-2">
       {balances.map((balance) => (
         <li key={balance.uuid}>
-          <Card as="article">
+          <Card as="article" interactive>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h3 className="truncate text-base font-semibold text-ink">
+                <h4 className="truncate text-base font-semibold text-ink">
                   {balance.course.title}
-                </h3>
+                </h4>
                 <p className="mt-1 truncate text-sm text-ink-muted">
                   {balance.course.teacher_name}
                 </p>

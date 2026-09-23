@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { NumberField, TextField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { CreditsIcon, InfoIcon } from "@/components/icons";
 import { Table, type Column } from "@/components/ui/Table";
 import { billing, formatCredits, type StudentBalanceRow } from "@/lib/billing";
 import { useAuth } from "@/lib/auth-context";
@@ -151,12 +153,11 @@ export default function StudentBalancesPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-ink">أرصدة الطلاب</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          الحصص المتبقّية لكل طالب في كل كورس، ومن توقّف حجزه منهم.
-        </p>
-      </header>
+      <PageHeader
+        Icon={CreditsIcon}
+        title="أرصدة الطلاب"
+        description="الحصص المتبقّية لكل طالب في كل كورس، ومن توقّف حجزه منهم."
+      />
 
       {editing && (
         <Card as="section" padding="sm">
@@ -215,7 +216,8 @@ export default function StudentBalancesPage() {
         onRetry={load}
       />
 
-      <p className="text-xs text-ink-muted">
+      <p className="flex items-start gap-1.5 text-xs text-ink-muted">
+        <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         الأرقام بالحصص لا بالمال. يتوقّف الحجز في الكورس الذي نفد رصيده وحده،
         ويعود فور اعتماد الدفع بلا أي إجراء منك.
       </p>

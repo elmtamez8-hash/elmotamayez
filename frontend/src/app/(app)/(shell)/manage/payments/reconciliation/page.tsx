@@ -6,6 +6,8 @@ import { userMessage } from "@/lib/errors";
 import { formatDateTime } from "@/lib/labels";
 import { Alert } from "@/components/ui/Alert";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { CreditsIcon } from "@/components/icons";
 import { Table, type Column } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -94,7 +96,7 @@ export default function PaymentReconciliationPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-ink">تسوية المدفوعات</h2>
+        <PageHeader Icon={CreditsIcon} title="تسوية المدفوعات" />
         <RowsSkeleton />
       </div>
     );
@@ -102,12 +104,11 @@ export default function PaymentReconciliationPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-ink">تسوية المدفوعات</h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          ما التقطته المسحة الدورية من دفعات نجحت بلا إشعار، وما تعذّر حسمه آلياً.
-        </p>
-      </div>
+      <PageHeader
+        Icon={CreditsIcon}
+        title="تسوية المدفوعات"
+        description="ما التقطته المسحة الدورية من دفعات نجحت بلا إشعار، وما تعذّر حسمه آلياً."
+      />
 
       {error !== "" && (
         <Alert tone="danger" title="تعذّر عرض التقرير">

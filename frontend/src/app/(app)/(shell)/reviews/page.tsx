@@ -12,6 +12,7 @@ import {
 } from "@/components/icons";
 import { AxisScore } from "@/components/reviews/AxisScore";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { SelectField } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -127,20 +128,18 @@ export default function MyReviewsPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h2 className="flex items-center gap-2 text-2xl font-bold text-ink">
-          <ProgressIcon className="h-6 w-6 text-primary-ink" />
-          {/* الاسمُ من `panel-nav` لا هنا: هو ما يقرؤُه الشريطُ الجانبيُّ حرفاً
-              بحرف، واسمٌ مكتوبٌ في موضعَينِ يفترقُ عندَ أوّلِ إعادةِ صياغة — وقد
-              افترقَ فعلاً: الشريطُ ظلَّ يقولُ «تقييماتي» لوليِّ أمرٍ لا يُقيَّم. */}
-          {navLabel("/reviews", user) ?? "التقييمات الدورية"}
-        </h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          {isGuardian
+      {/* الاسمُ من `panel-nav` لا هنا: هو ما يقرؤُه الشريطُ الجانبيُّ حرفاً
+          بحرف، واسمٌ مكتوبٌ في موضعَينِ يفترقُ عندَ أوّلِ إعادةِ صياغة — وقد
+          افترقَ فعلاً: الشريطُ ظلَّ يقولُ «تقييماتي» لوليِّ أمرٍ لا يُقيَّم. */}
+      <PageHeader
+        Icon={ProgressIcon}
+        title={navLabel("/reviews", user) ?? "التقييمات الدورية"}
+        description={
+          isGuardian
             ? "ما كتبه المدرّسون عن التزام ابنك ومشاركته وواجباته وتحسّنه."
-            : "ما كتبه مدرّسوك عن التزامك ومشاركتك وواجباتك وتحسّنك."}
-        </p>
-      </header>
+            : "ما كتبه مدرّسوك عن التزامك ومشاركتك وواجباتك وتحسّنك."
+        }
+      />
 
       {isGuardian && children.length > 1 && (
         <SelectField
@@ -183,7 +182,7 @@ export default function MyReviewsPage() {
               className="banner-rise"
               style={{ animationDelay: `${Math.min(index, 6) * 60}ms` }}
             >
-              <Card as="article">
+              <Card as="article" interactive>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-semibold text-ink">{periodLabel(review)}</p>

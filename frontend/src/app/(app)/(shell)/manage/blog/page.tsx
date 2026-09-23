@@ -5,6 +5,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { DocumentIcon, ScheduleIcon, SparkIcon } from "@/components/icons";
 import { TextField, TextareaField, SelectField } from "@/components/ui/Field";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/states/EmptyState";
@@ -166,25 +169,31 @@ export default function ManageBlogPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-ink">المدوّنة</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          ما تكتبه هنا يظهر على صفحتك العامّة في «المدوّنة»، وتُخبَر محرّكات البحث به لحظة
-          نشره. المسوّدة لا يراها أحد غيرك.
-        </p>
-      </header>
-
-      {editing === null && mayCreate ? (
-        <div>
-          <Button onClick={() => open("new")}>مقال جديد</Button>
-        </div>
-      ) : null}
+      <PageHeader
+        Icon={DocumentIcon}
+        title="المدوّنة"
+        description="ما تكتبه هنا يظهر على صفحتك العامّة في «المدوّنة»، وتُخبَر محرّكات البحث به لحظة نشره. المسوّدة لا يراها أحد غيرك."
+        actions={
+          editing === null && mayCreate ? (
+            <Button
+              iconStart={<SparkIcon className="h-4 w-4" />}
+              onClick={() => open("new")}
+            >
+              مقال جديد
+            </Button>
+          ) : undefined
+        }
+      />
 
       {editing !== null ? (
         <Card>
-          <h2 className="mb-4 font-semibold text-ink">
-            {editing === "new" ? "مقال جديد" : "تعديل المقال"}
-          </h2>
+          <div className="mb-4">
+            <SectionHeading
+              id="article-editor"
+              Icon={DocumentIcon}
+              title={editing === "new" ? "مقال جديد" : "تعديل المقال"}
+            />
+          </div>
 
           {error ? <Alert tone="danger" title={error} /> : null}
 
@@ -306,11 +315,12 @@ export default function ManageBlogPage() {
         <ul className="space-y-3">
           {rows.map((article) => (
             <li key={article.uuid}>
-              <Card as="article">
+              <Card as="article" interactive>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="font-semibold text-ink">{article.title}</h3>
-                    <p className="mt-1 text-sm text-ink-muted">
+                    <p className="mt-1 flex items-center gap-1 text-sm text-ink-muted">
+                      <ScheduleIcon className="h-3.5 w-3.5" />
                       {article.status === "published" && article.published_at
                         ? formatDate(article.published_at)
                         : "لم يُنشر بعد"}

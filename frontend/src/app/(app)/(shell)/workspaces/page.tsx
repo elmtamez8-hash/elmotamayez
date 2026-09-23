@@ -9,6 +9,8 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { WorkspaceIcon } from "@/components/icons";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -67,11 +69,7 @@ export default function WorkplacesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-bold text-ink">
-          {loading || failed ? "أماكن عملي" : heading}
-        </h2>
-      </div>
+      <PageHeader Icon={WorkspaceIcon} title={loading || failed ? "أماكن عملي" : heading} />
 
       {error && <Alert tone="danger" title={error} />}
 
@@ -88,9 +86,12 @@ export default function WorkplacesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {places.map((ws) => (
-            <Card key={ws.uuid} as="article" padding="sm">
+            <Card key={ws.uuid} as="article" padding="sm" interactive>
               <div className="mb-3 flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink">
+                    <WorkspaceIcon className="h-5 w-5" />
+                  </span>
                   <h3 className="truncate font-semibold text-ink">{ws.name}</h3>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">

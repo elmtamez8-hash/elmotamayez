@@ -9,6 +9,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { NumberField, SelectField, TextField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { ScheduleIcon, SessionsIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -329,12 +332,12 @@ export default function ManageSessionsPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-ink">حصصي</h2>
+      <PageHeader Icon={SessionsIcon} title="حصصي" />
 
       <Card>
-        <h3 className="mb-4 font-semibold text-ink">
-          توليد حصص من جدول التوفّر
-        </h3>
+        <div className="mb-4">
+          <SectionHeading id="generate-sessions" Icon={ScheduleIcon} title="توليد حصص من جدول التوفّر" />
+        </div>
 
         {/*
           ⚠️ صفٌّ للكورسِ وصفٌّ للمَدى، لا شبكةٌ واحدةٌ تُوزّعُ الثلاثةَ بالترتيب.
@@ -461,11 +464,19 @@ export default function ManageSessionsPage() {
       </Card>
 
       <Card>
-        <h3 className="mb-2 font-semibold text-ink">حصة واحدة</h3>
-        <p className="mb-4 text-sm text-ink-muted">
-          خارج الجدول الأسبوعي — موعد بعينه لمرة واحدة (FR-002). التداخل مع حصة
-          أخرى مرفوض، وكذلك أي موعد داخل فترة تجميد.
-        </p>
+        <div className="mb-4">
+          <SectionHeading
+            id="single-session"
+            Icon={SessionsIcon}
+            title="حصة واحدة"
+            description={
+              <>
+                خارج الجدول الأسبوعي — موعد بعينه لمرة واحدة (FR-002). التداخل مع حصة
+                أخرى مرفوض، وكذلك أي موعد داخل فترة تجميد.
+              </>
+            }
+          />
+        </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <TextField

@@ -20,8 +20,12 @@ import {
   MembersIcon,
   SessionsIcon,
   SettingsIcon,
+  SparkIcon,
   UsersIcon,
 } from "@/components/icons";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { StatTile } from "@/components/ui/StatTile";
 import {
   cohortEventLabel,
   manageCohorts,
@@ -202,20 +206,21 @@ export default function ManageCohortsPage({
         ← الكورس
       </Link>
 
-      <div>
-        <h1 className="text-2xl font-bold text-ink">مجموعات الكورس</h1>
-        <p className="text-ink-muted">كل مجموعة جولة من الكورس، بموعدها وطلابها وسجلّها.</p>
-      </div>
+      <PageHeader
+        Icon={UsersIcon}
+        title="مجموعات الكورس"
+        description="كل مجموعة جولة من الكورس، بموعدها وطلابها وسجلّها."
+      />
 
       {/* The three numbers a teacher opens this page to know, before scrolling. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard icon={<UsersIcon />} label="مجموعات نشطة" value={String(openGroups.length)} />
-        <StatCard icon={<MembersIcon />} label="طلاب في المجموعات" value={String(students)} />
-        <StatCard
-          icon={<SessionsIcon />}
+        <StatTile Icon={UsersIcon} label="مجموعات نشطة" value={String(openGroups.length)} />
+        <StatTile Icon={MembersIcon} label="طلاب في المجموعات" value={String(students)} />
+        <StatTile
+          Icon={SessionsIcon}
           label="مقاعد متاحة"
           value={uncapped && seats === 0 ? "بلا حدّ" : String(seats)}
-          note={uncapped && seats > 0 ? "عدا مجموعات بلا حدّ للسعة" : undefined}
+          hint={uncapped && seats > 0 ? "عدا مجموعات بلا حدّ للسعة" : undefined}
         />
       </div>
 
@@ -239,7 +244,7 @@ export default function ManageCohortsPage({
             {/* The heading follows the same fact as the sentence below it: a
                 title in the present tense over a future-tense body is the same
                 false claim, one line higher. */}
-            <h2 className="flex items-center gap-2 font-bold text-ink">
+            <h3 className="flex items-center gap-2 text-lg font-bold text-ink">
               {/* ⚠️ `text-accent`, NOT `text-warning-ink`. There is no
                   `warning` token in `@theme` — the warning TONE is
                   `bg-accent/20 text-ink` — and Tailwind v4 emits no rule for a
@@ -250,7 +255,7 @@ export default function ManageCohortsPage({
                 <AlertIcon className="h-5 w-5" />
               </span>
               {openGroups.length === 0 ? "حصص بلا مجموعة" : "حصص محجوبة عن الطلاب"}
-            </h2>
+            </h3>
 
             <p className="text-sm text-ink-muted">
               {openGroups.length === 0 ? (
@@ -353,8 +358,8 @@ export default function ManageCohortsPage({
         </Card>
       )}
 
-      <section className="space-y-4">
-        <h2 className="font-bold text-ink">المجموعات</h2>
+      <section aria-labelledby="course-cohorts" className="space-y-4">
+        <SectionHeading id="course-cohorts" Icon={UsersIcon} title="المجموعات" />
 
         {groups.length === 0 ? (
           <EmptyState
@@ -370,7 +375,7 @@ export default function ManageCohortsPage({
                    painting an invisible card, and the reduced-motion block in
                    globals.css zeroes the delay as well as the duration — see
                    the note there. */
-                className="animate-float-in rounded-2xl border border-line bg-surface-raised p-5"
+                className="animate-float-in rounded-3xl border border-line bg-surface-raised p-5 transition-colors duration-200 hover:border-primary/40"
                 style={{ animationDelay: `${Math.min(index, 6) * 40}ms` }}
               >
                 {editing === group.uuid ? (
@@ -435,14 +440,14 @@ export default function ManageCohortsPage({
                         {/* The group's own page: its week, its students, its
                             history and its settings. Everything below on this
                             card is the summary that gets somebody there. */}
-                        <h3 className="font-semibold text-ink">
+                        <h4 className="font-semibold text-ink">
                           <Link
                             href={`/manage/cohorts/${group.uuid}`}
                             className="rounded transition hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                           >
                             {group.name}
                           </Link>
-                        </h3>
+                        </h4>
                         {group.description !== null && group.description !== "" && (
                           <p className="mt-1 text-sm text-ink-muted">{group.description}</p>
                         )}
@@ -569,7 +574,9 @@ export default function ManageCohortsPage({
         )}
 
         <Card>
-          <h3 className="mb-3 font-semibold text-ink">مجموعة جديدة</h3>
+          <div className="mb-3">
+            <SectionHeading id="new-cohort" level={4} Icon={SparkIcon} title="مجموعة جديدة" />
+          </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {/*
@@ -640,14 +647,19 @@ export default function ManageCohortsPage({
 
       <Card>
         <div className="space-y-3">
-          <h2 className="flex items-center gap-2 font-bold text-ink">
+          {/* The SectionHeading look spelled by hand: the count badge sits inside
+              the heading, and that component's title is a plain string. */}
+          <h3 className="flex items-center gap-2 text-lg font-bold text-ink">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-ink">
+              <MembersIcon className="h-4 w-4" />
+            </span>
             طلبات الانتقال
             {queue.length > 0 && (
               <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs text-primary-ink">
                 <bdi>{queue.length}</bdi>
               </span>
             )}
-          </h2>
+          </h3>
 
           {queue.length === 0 ? (
             <p className="text-sm text-ink-muted">لا طلبات معلَّقة.</p>
@@ -699,31 +711,6 @@ export default function ManageCohortsPage({
 }
 
 /** One number the page is opened to read. */
-function StatCard({
-  icon,
-  label,
-  value,
-  note,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  note?: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface-raised p-4">
-      <span className="rounded-xl bg-primary-soft p-2 text-primary-ink">{icon}</span>
-      <div className="min-w-0">
-        <p className="text-xs text-ink-muted">{label}</p>
-        <p className="text-lg font-bold text-ink">
-          <bdi>{value}</bdi>
-        </p>
-        {note !== undefined && <p className="text-xs text-ink-muted">{note}</p>}
-      </div>
-    </div>
-  );
-}
-
 /**
  * How full the group is.
  *

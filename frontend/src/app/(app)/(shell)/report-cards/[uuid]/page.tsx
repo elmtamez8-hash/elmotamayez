@@ -5,6 +5,9 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatTile } from "@/components/ui/StatTile";
+import { ArrowUpIcon, ProgressIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -74,32 +77,32 @@ export default function ReportCardPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-ink">{cardPeriodLabel(card)}</h1>
-        <p className="mt-1 text-sm text-ink-muted">كشف التقديرات التراكمي</p>
-      </header>
+      <PageHeader
+        Icon={ProgressIcon}
+        title={cardPeriodLabel(card)}
+        description="كشف التقديرات التراكمي"
+      />
 
-      <Card>
-        <dl className="grid grid-cols-2 gap-4 text-center">
-          <div>
-            <dt className="text-sm text-ink-muted">التقدير العام</dt>
-            <dd className="text-3xl font-bold text-ink">
-              {card.overall_pct === null ? "—" : `${arabicDecimal(card.overall_pct)}٪`}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-sm text-ink-muted">مؤشّر التحسّن</dt>
-            {/* «—», never «٠٪»: no teacher rated improvement is a different
-                statement from «did not improve», and this is the number a parent
-                reads first. */}
-            <dd className="text-3xl font-bold text-ink">
-              {card.improvement_index === null
-                ? "—"
-                : `${arabicDecimal(card.improvement_index)}٪`}
-            </dd>
-          </div>
-        </dl>
-      </Card>
+      <div className="grid grid-cols-2 gap-4">
+        <StatTile
+          label="التقدير العام"
+          value={card.overall_pct === null ? "—" : `${arabicDecimal(card.overall_pct)}٪`}
+          Icon={ProgressIcon}
+          emphasis
+        />
+        {/* «—», never «٠٪»: no teacher rated improvement is a different
+            statement from «did not improve», and this is the number a parent
+            reads first. */}
+        <StatTile
+          label="مؤشّر التحسّن"
+          value={
+            card.improvement_index === null
+              ? "—"
+              : `${arabicDecimal(card.improvement_index)}٪`
+          }
+          Icon={ArrowUpIcon}
+        />
+      </div>
 
       {card.has_file ? (
         <div className="space-y-2">
@@ -128,9 +131,9 @@ export default function ReportCardPage() {
         <ul className="space-y-4">
           {(card.segments ?? []).map((segment) => (
             <li key={segment.uuid}>
-              <Card as="article">
+              <Card as="article" interactive>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="font-semibold text-ink">{segment.teacher_name ?? "مدرّس"}</h2>
+                  <h3 className="font-semibold text-ink">{segment.teacher_name ?? "مدرّس"}</h3>
                   <p className="text-lg font-bold text-ink">
                     {segment.segment_pct === null
                       ? "—"

@@ -41,7 +41,7 @@ test.describe("الوصول إلى الأرصدة", () => {
     // Scoped to #main: the shell header renders the page title as an h1 too, so
     // an unqualified matcher resolves to two elements and fails on strict mode.
     await expect(
-      page.locator("#main").getByRole("heading", { name: "رصيدي", level: 1 }),
+      page.locator("#main").getByRole("heading", { name: "رصيدي", level: 2 }),
     ).toBeVisible();
 
     // Scoped to #main, like every text assertion below it: the sidebar carries

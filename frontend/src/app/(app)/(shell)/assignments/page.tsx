@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextareaField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -152,10 +153,7 @@ export default function AssignmentsPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="flex items-center gap-2 text-2xl font-bold text-ink">
-        <AssignmentIcon className="h-6 w-6 text-primary-ink" />
-        واجباتي
-      </h2>
+      <PageHeader Icon={AssignmentIcon} title="واجباتي" />
 
       <FacetBar
         facets={facets}
@@ -278,7 +276,7 @@ function AssignmentCard({
     <Card as="section">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="font-medium text-ink">{assignment.title}</h2>
+          <h4 className="font-medium text-ink">{assignment.title}</h4>
 
           {/* ⚠️ WHICH SUBJECT AND WITH WHOM — the list spans every teacher the
               student studies with, and until this payload carried them two

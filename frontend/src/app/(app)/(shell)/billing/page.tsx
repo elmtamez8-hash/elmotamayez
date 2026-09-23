@@ -6,6 +6,9 @@ import { TermsConsentCard } from "@/components/billing/TermsConsentCard";
 import { TransactionList } from "@/components/billing/TransactionList";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { CreditsIcon, ListIcon, WalletIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { CardGridSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { errorMessage } from "@/lib/api";
@@ -65,12 +68,11 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-2xl font-bold text-ink">رصيدي</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          حصصك المتبقّية عند كل معلّم، وسجلّ كل حركة عليها.
-        </p>
-      </header>
+      <PageHeader
+        Icon={CreditsIcon}
+        title="رصيدي"
+        description="حصصك المتبقّية عند كل معلّم، وسجلّ كل حركة عليها."
+      />
 
       {error !== "" && (
         <Alert tone="danger" title="تعذّرت العملية">
@@ -84,9 +86,7 @@ export default function BillingPage() {
       <TermsConsentCard />
 
       <section aria-labelledby="balances-heading" className="space-y-4">
-        <h2 id="balances-heading" className="text-lg font-semibold text-ink">
-          الأرصدة
-        </h2>
+        <SectionHeading id="balances-heading" Icon={WalletIcon} title="الأرصدة" />
 
         {loadingBalances ? (
           <CardGridSkeleton count={2} variant="course" />
@@ -118,9 +118,7 @@ export default function BillingPage() {
       </section>
 
       <section aria-labelledby="ledger-heading" className="space-y-4">
-        <h2 id="ledger-heading" className="text-lg font-semibold text-ink">
-          سجلّ الحركة
-        </h2>
+        <SectionHeading id="ledger-heading" Icon={ListIcon} title="سجلّ الحركة" />
 
         <TransactionList
           transactions={entries}
