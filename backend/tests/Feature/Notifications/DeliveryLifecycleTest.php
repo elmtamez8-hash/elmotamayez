@@ -16,6 +16,7 @@ use App\Modules\Notifications\Support\DeliveryStatus;
 use App\Modules\Notifications\Support\NotificationChannel;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Shared\Contracts\GuardianDirectory;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\RegistersFakeChannels;
@@ -137,4 +138,39 @@ it('ignores a delivery that already reached a terminal state', function (): void
     );
 
     expect($fake->count())->toBe($before);
+});
+
+/*
+| The delivery job is pushed only once the caller's transaction commits.
+|
+| On the `sync` connection a job pushed inside the transaction runs on the spot,
+| so "delivered while the transaction is still open" is exactly what the defect
+| looks like here — and in production it is a worker reading a delivery row that
+| does not exist yet, or never will once the caller rolls back.
+*/
+it('delivers only after the surrounding transaction commits', function (): void {
+    Event::fake([NotificationDelivered::class]);
+
+    $user = User::factory()->create();
+
+    DB::transaction(function () use ($user): void {
+        dispatchEnrollment($user);
+
+        Event::assertNotDispatched(NotificationDelivered::class);
+    });
+
+    Event::assertDispatched(NotificationDelivered::class);
+});
+
+it('delivers nothing when the surrounding transaction rolls back', function (): void {
+    Event::fake([NotificationDelivered::class]);
+
+    $user = User::factory()->create();
+
+    DB::beginTransaction();
+    dispatchEnrollment($user);
+    DB::rollBack();
+
+    Event::assertNotDispatched(NotificationDelivered::class);
+    expect(NotificationDelivery::query()->count())->toBe(0);
 });

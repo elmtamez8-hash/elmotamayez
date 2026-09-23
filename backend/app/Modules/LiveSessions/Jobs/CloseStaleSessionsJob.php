@@ -9,6 +9,7 @@ use App\Modules\LiveSessions\Actions\CloseClassSession;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Shared\Support\WorkspaceContext;
+use App\Shared\Traits\RunsAlone;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -32,7 +33,7 @@ use Throwable;
  */
 class CloseStaleSessionsJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     /** Hours past the scheduled end before a live session counts as stuck. */
     private const STALE_AFTER_HOURS = 6;

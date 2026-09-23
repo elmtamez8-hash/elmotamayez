@@ -6,6 +6,7 @@ namespace App\Modules\Compliance\Jobs;
 
 use App\Modules\Compliance\Models\DataRequest;
 use App\Modules\Compliance\Support\ComplianceSettings;
+use App\Shared\Traits\RunsAlone;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -31,7 +32,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class PruneExpiredExportsJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     private const BATCH = 200;
 

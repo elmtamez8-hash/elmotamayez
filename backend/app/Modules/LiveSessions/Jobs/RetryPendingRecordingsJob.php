@@ -8,6 +8,7 @@ use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
 use App\Modules\LiveSessions\Support\SessionSettings;
+use App\Shared\Traits\RunsAlone;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,7 +45,7 @@ use Illuminate\Support\Facades\Log;
  */
 class RetryPendingRecordingsJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     /** How far back to look. Older than this and a manual upload is the answer. */
     private const WINDOW_HOURS = 48;

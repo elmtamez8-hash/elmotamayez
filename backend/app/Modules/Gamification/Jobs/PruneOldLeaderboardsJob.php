@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Gamification\Jobs;
 
 use App\Modules\Gamification\Support\GamificationSettings;
+use App\Shared\Traits\RunsAlone;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -28,7 +29,7 @@ use Illuminate\Support\Facades\DB;
  */
 class PruneOldLeaderboardsJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     public function __construct()
     {

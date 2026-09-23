@@ -7,6 +7,7 @@ namespace App\Modules\Payments\Jobs;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Models\CreditReconciliationRun;
+use App\Shared\Traits\RunsAlone;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -64,7 +65,7 @@ use Illuminate\Support\Facades\Log;
  */
 class ReconcileCreditBalancesJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     /**
      * How many findings are stored in full.

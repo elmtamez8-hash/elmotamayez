@@ -10,6 +10,7 @@ use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Support\WorkspaceContext;
+use App\Shared\Traits\RunsAlone;
 use Carbon\CarbonInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -41,7 +42,7 @@ use Throwable;
  */
 class ReconcileAssetStatus implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     public function handle(CompleteMediaUpload $complete): void
     {

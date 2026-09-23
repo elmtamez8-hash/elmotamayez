@@ -8,6 +8,7 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Payments\Actions\ChargeSessionSeats;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Support\WorkspaceContext;
+use App\Shared\Traits\RunsAlone;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -34,7 +35,7 @@ use Illuminate\Queue\SerializesModels;
  */
 class ChargeUnbilledDeliveriesJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     public function handle(WorkspaceContext $context, ChargeSessionSeats $action): void
     {

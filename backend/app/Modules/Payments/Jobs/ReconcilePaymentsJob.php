@@ -7,6 +7,7 @@ namespace App\Modules\Payments\Jobs;
 use App\Modules\Payments\Actions\ReconcilePayments;
 use App\Modules\Payments\Contracts\PaymentProviderInterface;
 use App\Modules\Payments\Providers\PaymentProviderRegistry;
+use App\Shared\Traits\RunsAlone;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -39,7 +40,7 @@ use Illuminate\Queue\SerializesModels;
  */
 class ReconcilePaymentsJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     /**
      * ⚠️ THE ENUMERATION LIVES HERE, NOT IN THE ACTION. `ProviderExtensibilityTest`

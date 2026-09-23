@@ -155,7 +155,15 @@ class DispatchNotification extends Action
             return;
         }
 
-        $job = DeliverNotificationJob::dispatch($delivery->getKey())->onQueue($type->queue());
+        // ⚠️ AFTER COMMIT. This is reached from inside the caller's transaction
+        // (an approval, an enrolment, a close) and the job carries only the
+        // delivery's id: pushed before the commit, a fast worker reads a row that
+        // does not exist yet — or never will, if the caller rolls back — and a
+        // message goes out about something that did not happen. Outside any
+        // transaction `afterCommit()` dispatches immediately, so nothing else moves.
+        $job = DeliverNotificationJob::dispatch($delivery->getKey())
+            ->onQueue($type->queue())
+            ->afterCommit();
 
         if ($deferUntil !== null) {
             // The queue itself holds the delay, so a deferred message cannot be

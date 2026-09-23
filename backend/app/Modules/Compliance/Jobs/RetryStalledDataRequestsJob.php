@@ -7,6 +7,7 @@ namespace App\Modules\Compliance\Jobs;
 use App\Modules\Compliance\Enums\DataRequestStatus;
 use App\Modules\Compliance\Models\DataRequest;
 use App\Modules\Compliance\Support\ComplianceSettings;
+use App\Shared\Traits\RunsAlone;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -34,7 +35,7 @@ use Illuminate\Support\Facades\Log;
  */
 class RetryStalledDataRequestsJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, RunsAlone, SerializesModels;
 
     /** A ceiling, so one bad row cannot make this run unbounded. */
     private const BATCH = 50;
