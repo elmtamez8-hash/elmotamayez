@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Shared\Contracts\AccountStanding;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -102,7 +103,7 @@ class EloquentAccountStanding implements AccountStanding
      *
      * @return array{withheld: bool, credits_needed: int}
      */
-    public function refusalFor(User $student, int $courseId): array
+    public function refusalFor(User $student, int $courseId, ?string $sessionType = null, ?DateTimeInterface $moment = null): array
     {
         /*
         | ⚠️ A LIVE SUBSCRIPTION LIFTS WITHHOLDING FOR WHAT IT COVERS (011 ·
@@ -117,7 +118,7 @@ class EloquentAccountStanding implements AccountStanding
         | Asked FIRST, before the balance is read: for a subscriber it is also the
         | cheaper question, and this is the hottest path in the product.
         */
-        if ($this->subscriptions->coversCourse((int) $student->getKey(), $courseId)) {
+        if ($this->subscriptions->coversCourse((int) $student->getKey(), $courseId, $moment, $sessionType)) {
             return ['withheld' => false, 'credits_needed' => 0];
         }
 

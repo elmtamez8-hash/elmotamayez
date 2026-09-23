@@ -33,14 +33,14 @@ use Illuminate\Support\Collection;
  * read below deliberately does not, because opening a lesson's CONTENT has no
  * room size to compare against.
  *
- * ⚠️ KNOWN CEILING, WRITTEN DOWN RATHER THAN HIDDEN: the withholding lift is
- * course-level, so a student holding a group-only plan is not stopped at the
- * booking door from taking a one-to-one session — they book it, and the charge
- * branch then debits a credit for it exactly as it would with no plan at all.
- * The money is right; the surprise is one session wide and self-corrects at the
- * next booking. Closing it properly means teaching `AccountStanding` about
- * session types, which puts a LiveSessions enum inside a shared contract for a
- * case worth one session — do that if it ever bites.
+ * ⛔ THE BOOKING DOOR ASKS WITH THE ROOM SIZE AND THE SESSION'S DATE (2026-09-23).
+ * The withholding lift and the credit hold used to ask course-level and on
+ * `now()`, and the old note here said the gap «self-corrects at the next
+ * booking» — it did not: the lift waived the refusal, no hold was placed, the
+ * charge debited past the floor, and nothing ever refused the next one. A
+ * group-only subscriber booked one-to-one lessons down to −5. The type travels
+ * as a string, the precedent `hasSellablePlanFor()` set, so no LiveSessions
+ * enum enters a shared contract.
  */
 class SubscriptionEligibility implements SubscriptionDirectory
 {
@@ -101,8 +101,12 @@ class SubscriptionEligibility implements SubscriptionDirectory
     /**
      * Whether anything this student holds opens this course's content.
      */
-    public function coversCourse(int $studentUserId, int $courseId, ?DateTimeInterface $moment = null): bool
-    {
+    public function coversCourse(
+        int $studentUserId,
+        int $courseId,
+        ?DateTimeInterface $moment = null,
+        ?string $sessionType = null,
+    ): bool {
         /*
         | ⚠️ THE SUBSCRIPTIONS ARE READ FIRST, AND THE ORDER IS THE WHOLE COST.
         | This sits at the top of `refusalFor()`, which every money refusal in
@@ -118,6 +122,12 @@ class SubscriptionEligibility implements SubscriptionDirectory
         | the code around it moves, or it describes the world before itself.
         */
         $live = $this->liveFor($studentUserId, $moment);
+
+        // Asked about a SEAT, the room size has to match as well — see the class
+        // docblock. Asked about content (no type), any plan on the course opens it.
+        if ($sessionType !== null) {
+            $live = $live->filter(fn (Subscription $subscription): bool => $subscription->plan?->session_type->value === $sessionType);
+        }
 
         if ($live->isEmpty()) {
             return false;
