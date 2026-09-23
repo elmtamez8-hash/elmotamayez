@@ -6,6 +6,9 @@ import { AnnouncementForm } from "@/components/community/AnnouncementForm";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { BellIcon, EyeIcon, SparkIcon, UsersIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -115,16 +118,16 @@ export default function AnnouncementsPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-ink">الإعلانات</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          إعلان واحد يصل من اخترتهم وحدهم. يقرأه الطالب في مركز الإشعارات، ويردّ عليك في
-          محادثته الخاصة إن أراد.
-        </p>
-      </header>
+      <PageHeader
+        Icon={BellIcon}
+        title="الإعلانات"
+        description="إعلان واحد يصل من اخترتهم وحدهم. يقرأه الطالب في مركز الإشعارات، ويردّ عليك في محادثته الخاصة إن أراد."
+      />
 
       <Card>
-        <h2 className="mb-4 font-semibold text-ink">إعلان جديد</h2>
+        <div className="mb-4">
+          <SectionHeading id="new-announcement" Icon={SparkIcon} title="إعلان جديد" />
+        </div>
         <AnnouncementForm
           onSubmit={create}
           busy={busy}
@@ -145,7 +148,7 @@ export default function AnnouncementsPage() {
         <ul className="space-y-3">
           {rows.map((announcement) => (
             <li key={announcement.uuid}>
-              <Card as="article">
+              <Card as="article" interactive>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <p className="whitespace-pre-line text-ink">{announcement.body}</p>
 
@@ -157,14 +160,20 @@ export default function AnnouncementsPage() {
                 </div>
 
                 <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-                  <div className="flex gap-1">
-                    <dt className="text-ink-muted">وصلهم</dt>
+                  <div className="flex items-center gap-1">
+                    <dt className="flex items-center gap-1 text-ink-muted">
+                      <UsersIcon className="h-4 w-4" />
+                      وصلهم
+                    </dt>
                     <dd className="font-semibold text-ink">
                       {arabicNumber(announcement.notified_count ?? 0)}
                     </dd>
                   </div>
-                  <div className="flex gap-1">
-                    <dt className="text-ink-muted">قرأوه</dt>
+                  <div className="flex items-center gap-1">
+                    <dt className="flex items-center gap-1 text-ink-muted">
+                      <EyeIcon className="h-4 w-4" />
+                      قرأوه
+                    </dt>
                     <dd className="font-semibold text-ink">
                       {arabicNumber(announcement.read_count ?? 0)}
                     </dd>

@@ -5,6 +5,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SelectField, TextField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { CreditsIcon, InfoIcon } from "@/components/icons";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { errorMessage, fieldErrors } from "@/lib/api";
@@ -98,13 +101,11 @@ export default function BillingSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-ink">إعدادات الفوترة</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          يسري أي تغيير هنا على ما بعده فقط — لا يُعاد حساب رصيد قائم ولا يسقط
-          مستحقّ سابق.
-        </p>
-      </header>
+      <PageHeader
+        Icon={CreditsIcon}
+        title="إعدادات الفوترة"
+        description="يسري أي تغيير هنا على ما بعده فقط — لا يُعاد حساب رصيد قائم ولا يسقط مستحقّ سابق."
+      />
 
       {error !== "" && (
         <Alert tone="danger" title="تعذّر الحفظ">
@@ -199,7 +200,7 @@ export default function BillingSettingsPage() {
       </Card>
 
       <Card>
-        <h2 className="text-base font-semibold text-ink">الأثر الحالي</h2>
+        <SectionHeading id="billing-effect" Icon={InfoIcon} title="الأثر الحالي" />
         <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-ink-muted">الحجز على الحساب</dt>

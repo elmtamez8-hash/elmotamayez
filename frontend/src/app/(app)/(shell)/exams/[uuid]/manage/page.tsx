@@ -15,7 +15,8 @@ import {
   TextField,
   TextareaField,
 } from "@/components/ui/Field";
-import { CheckIcon, TrashIcon } from "@/components/icons";
+import { CheckIcon, ExamIcon, SettingsIcon, TrashIcon } from "@/components/icons";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { ExamItemsPanel } from "@/components/bank/ExamItemsPanel";
@@ -124,22 +125,24 @@ export default function ManageExamPage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-bold text-ink">{exam.title}</h2>
+      <PageHeader
+        Icon={ExamIcon}
+        title={exam.title}
+        description={
+          <span className="flex flex-wrap items-center gap-2">
             <StatusBadge status={exam.status} />
-          </div>
-          <p className="text-ink-muted">
-            <bdi>{exam.duration_minutes}</bdi> دقيقة · النجاح{" "}
-            <bdi>{exam.passing_score}%</bdi>
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
+            <span>
+              <bdi>{exam.duration_minutes}</bdi> دقيقة · النجاح{" "}
+              <bdi>{exam.passing_score}%</bdi>
+            </span>
+          </span>
+        }
+        actions={
+        <>
           <Button
             variant="secondary"
             size="sm"
+            iconStart={<SettingsIcon className="h-4 w-4" />}
             onClick={() => setShowSettings(!showSettings)}
           >
             {showSettings ? "أغلق الإعدادات" : "إعدادات الاختبار"}
@@ -172,8 +175,9 @@ export default function ManageExamPage({
               حذف
             </Button>
           )}
-        </div>
-      </div>
+        </>
+        }
+      />
 
       {error && <Alert tone="danger" title={error} />}
 

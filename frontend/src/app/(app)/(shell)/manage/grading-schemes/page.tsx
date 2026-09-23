@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 
 import { GradingSchemeForm } from "@/components/community/GradingSchemeForm";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { ProgressIcon, ScheduleIcon, SparkIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -63,16 +66,16 @@ export default function GradingSchemesPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-ink">أوزان التقدير</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          كيف تتركّب درجة الطالب في كشف التقديرات. يصدر الكشف في مطلع كلّ شهر عن الشهر الذي
-          سبقه، ويستعمل الأوزان السارية على تلك الفترة.
-        </p>
-      </header>
+      <PageHeader
+        Icon={ProgressIcon}
+        title="أوزان التقدير"
+        description="كيف تتركّب درجة الطالب في كشف التقديرات. يصدر الكشف في مطلع كلّ شهر عن الشهر الذي سبقه، ويستعمل الأوزان السارية على تلك الفترة."
+      />
 
       <Card>
-        <h2 className="mb-4 font-semibold text-ink">تركيبة جديدة</h2>
+        <div className="mb-4">
+          <SectionHeading id="new-grading-scheme" Icon={SparkIcon} title="تركيبة جديدة" />
+        </div>
         <GradingSchemeForm onSave={save} busy={busy} error={error} />
       </Card>
 
@@ -87,9 +90,12 @@ export default function GradingSchemesPage() {
         <ul className="space-y-3">
           {rows.map((scheme) => (
             <li key={scheme.uuid}>
-              <Card as="article">
-                <p className="font-semibold text-ink">
-                  {scheme.period_start} – {scheme.period_end}
+              <Card as="article" interactive>
+                <p className="flex items-center gap-2 font-semibold text-ink">
+                  <ScheduleIcon className="h-4 w-4 shrink-0 text-ink-muted" />
+                  <span>
+                    {scheme.period_start} – {scheme.period_end}
+                  </span>
                 </p>
                 <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
                   {GRADE_COMPONENTS.map((component) => (

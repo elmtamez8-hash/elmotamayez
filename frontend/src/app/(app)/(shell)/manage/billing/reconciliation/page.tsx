@@ -10,6 +10,14 @@ import { userMessage } from "@/lib/errors";
 import { formatDateTime } from "@/lib/labels";
 import { Alert } from "@/components/ui/Alert";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import {
+  AlertIcon,
+  ClockIcon,
+  CreditsIcon,
+  SessionsIcon,
+  WalletIcon,
+} from "@/components/icons";
 import { Table, type Column } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -113,7 +121,7 @@ export default function CreditReconciliationPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-ink">مطابقة الأرصدة</h2>
+        <PageHeader Icon={CreditsIcon} title="مطابقة الأرصدة" />
         <RowsSkeleton />
       </div>
     );
@@ -123,13 +131,11 @@ export default function CreditReconciliationPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-ink">مطابقة الأرصدة</h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          هل ما يزال دفتر الأرصدة متّسقاً؟ ثلاثة أسئلة تُطرَح كلّ ليلة، واثنان منها يريان ما لا
-          يراه الدفتر عن نفسه — حصّة سُلّمت ولم يُحاسَب عليها أحد.
-        </p>
-      </div>
+      <PageHeader
+        Icon={CreditsIcon}
+        title="مطابقة الأرصدة"
+        description="هل ما يزال دفتر الأرصدة متّسقاً؟ ثلاثة أسئلة تُطرَح كلّ ليلة، واثنان منها يريان ما لا يراه الدفتر عن نفسه — حصّة سُلّمت ولم يُحاسَب عليها أحد."
+      />
 
       {error !== "" && (
         <Alert tone="danger" title="تعذّر عرض التقرير">
@@ -159,7 +165,10 @@ export default function CreditReconciliationPage() {
           <Card>
             <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <dt className="text-sm text-ink-muted">آخر تشغيل</dt>
+                <dt className="flex items-center gap-1.5 text-sm text-ink-muted">
+                  <ClockIcon className="h-4 w-4" />
+                  آخر تشغيل
+                </dt>
                 <dd
                   className={`mt-1 font-semibold ${stale ? "text-danger-ink" : "text-ink"}`}
                 >
@@ -167,15 +176,24 @@ export default function CreditReconciliationPage() {
                 </dd>
               </div>
               <div>
-                <dt className="text-sm text-ink-muted">أرصدة فُحصت</dt>
+                <dt className="flex items-center gap-1.5 text-sm text-ink-muted">
+                  <WalletIcon className="h-4 w-4" />
+                  أرصدة فُحصت
+                </dt>
                 <dd className="mt-1 text-2xl font-bold text-ink">{run.balances_checked}</dd>
               </div>
               <div>
-                <dt className="text-sm text-ink-muted">حصص محاسَبة فُحصت</dt>
+                <dt className="flex items-center gap-1.5 text-sm text-ink-muted">
+                  <SessionsIcon className="h-4 w-4" />
+                  حصص محاسَبة فُحصت
+                </dt>
                 <dd className="mt-1 text-2xl font-bold text-ink">{run.sessions_checked}</dd>
               </div>
               <div>
-                <dt className="text-sm text-ink-muted">اختلالات</dt>
+                <dt className="flex items-center gap-1.5 text-sm text-ink-muted">
+                  <AlertIcon className="h-4 w-4" />
+                  اختلالات
+                </dt>
                 <dd
                   className={`mt-1 text-2xl font-bold ${
                     run.findings_count > 0 ? "text-danger-ink" : "text-ink"
