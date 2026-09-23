@@ -9,8 +9,6 @@ use App\Modules\Identity\Models\ParentStudentRelation;
 use App\Modules\Identity\Models\StudentProfile;
 use App\Modules\Identity\Support\GuardianInvitation;
 use App\Modules\Identity\Support\PlatformRole;
-use App\Modules\Identity\Support\RelationStatus;
-use App\Modules\Identity\Support\RelationType;
 use App\Modules\Notifications\Events\ContactVerified;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -75,20 +73,11 @@ class InviteGuardianOnContactVerified implements ShouldHandleEventsAfterCommit, 
                 continue;
             }
 
-            if ($this->hasLiveParent($student)) {
+            if (ParentStudentRelation::hasLiveParent($student)) {
                 continue;
             }
 
             $this->invitation->invite($student, $guardian);
         }
-    }
-
-    private function hasLiveParent(User $student): bool
-    {
-        return ParentStudentRelation::query()
-            ->forStudent($student)
-            ->where('relation_type', RelationType::Parent->value)
-            ->whereIn('status', [RelationStatus::Pending->value, RelationStatus::Active->value])
-            ->exists();
     }
 }
