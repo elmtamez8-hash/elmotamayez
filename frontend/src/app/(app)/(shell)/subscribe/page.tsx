@@ -8,6 +8,9 @@ import { TransferDestination } from "@/components/billing/TransferDestination";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { CoursesIcon, CreditsIcon, TagIcon, UploadIcon } from "@/components/icons";
 import { Field, SelectField } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -235,14 +238,11 @@ function SubscribeScreen() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">
-          {mode === "cohort" ? "الاشتراك في مجموعة" : "الاشتراك بحصص خاصة"}
-        </h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          اختَرِ الباقة، وارفعْ إيصال التحويل، وأرسِلْ — خطوة واحدة.
-        </p>
-      </header>
+      <PageHeader
+        Icon={CreditsIcon}
+        title={mode === "cohort" ? "الاشتراك في مجموعة" : "الاشتراك بحصص خاصة"}
+        description="اختَرِ الباقة، وارفعْ إيصال التحويل، وأرسِلْ — خطوة واحدة."
+      />
 
       {problem !== null && (
         /*
@@ -327,8 +327,8 @@ function SubscribeScreen() {
         ))}
 
       {/* What is being bought, shown back before any money is named (FR-006). */}
-      <Card>
-        <h2 className="text-sm font-bold text-ink">ما ستشترك فيه</h2>
+      <Card as="section">
+        <SectionHeading id="subscribe-summary" Icon={CoursesIcon} title="ما ستشترك فيه" />
         <dl className="mt-3 space-y-2 text-sm">
           <div className="flex gap-2">
             <dt className="text-ink-muted">الكورس:</dt>
@@ -355,8 +355,8 @@ function SubscribeScreen() {
         </dl>
       </Card>
 
-      <Card>
-        <h2 className="text-sm font-bold text-ink">اختَرِ الباقة</h2>
+      <Card as="section">
+        <SectionHeading id="subscribe-plan" Icon={TagIcon} title="اختَرِ الباقة" />
 
         {plans.length === 0 ? (
           <div className="mt-3">
@@ -403,8 +403,8 @@ function SubscribeScreen() {
         )}
       </Card>
 
-      <Card>
-        <h2 className="text-sm font-bold text-ink">إيصال التحويل</h2>
+      <Card as="section">
+        <SectionHeading id="subscribe-receipt-heading" Icon={UploadIcon} title="إيصال التحويل" />
         <p className="mt-1 text-xs text-ink-muted">
           حوِّلْ قيمة الباقة إلى حساب المنصّة، ثم ارفعْ صورة التحويل أو ملف PDF.
         </p>

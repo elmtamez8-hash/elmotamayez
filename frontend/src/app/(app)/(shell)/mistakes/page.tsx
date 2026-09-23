@@ -14,6 +14,7 @@ import {
 } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -118,19 +119,11 @@ export default function MistakesPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-ink">
-            {/* `className` REPLACES the icon's default size, so it is repeated. */}
-            <MistakesIcon className="h-6 w-6 text-primary-ink" />
-            دفتر أخطائي
-          </h1>
-          <p className="text-sm text-ink-muted">
-            كلّ ما أخطأت فيه، ومعه الصواب وشرحه.
-          </p>
-        </div>
-
-        {hasStanding && (
+      <PageHeader
+        Icon={MistakesIcon}
+        title="دفتر أخطائي"
+        description="كلّ ما أخطأت فيه، ومعه الصواب وشرحه."
+        actions={hasStanding ? (
           /*
             A link, not a handler: the paper is built by the page it opens, on
             mount. Building here would mean an attempt written for somebody who
@@ -150,8 +143,8 @@ export default function MistakesPage() {
           >
             اختبرني في أخطائي
           </Button>
-        )}
-      </header>
+        ) : undefined}
+      />
 
       {/*
         ⚠️ TWO BUTTONS, NOT ONE THAT RENAMES ITSELF. The old control read

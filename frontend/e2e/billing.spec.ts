@@ -83,7 +83,7 @@ test.describe("الوصول إلى الأرصدة", () => {
     // And the destination is not the dead end it used to be: either the packages
     // for a chosen course, or the chooser itself. Never a signpost back.
     await expect(
-      page.locator("#main").getByRole("heading", { name: "شراء أرصدة", level: 1 }),
+      page.locator("#main").getByRole("heading", { name: "شراء أرصدة", level: 2 }),
     ).toBeVisible();
     await expect(page.locator("body")).not.toContainText(
       /Request failed|Server Error|undefined/,

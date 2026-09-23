@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { ConsentScreen } from "@/components/compliance/ConsentScreen";
 import { DataRequestsPanel } from "@/components/compliance/DataRequestsPanel";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ShieldIcon } from "@/components/icons";
 import { compliance, type PrivacyPolicy } from "@/lib/compliance";
 
 /**
@@ -25,12 +27,11 @@ export default function PrivacyPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">خصوصيّتي</h1>
-        <p className="text-sm text-ink-muted">
-          ما نجمعه عنك، ولماذا، ومدّة حفظه — وما يمكنك سحب الموافقة عنه.
-        </p>
-      </header>
+      <PageHeader
+        Icon={ShieldIcon}
+        title="خصوصيّتي"
+        description="ما نجمعه عنك، ولماذا، ومدّة حفظه — وما يمكنك سحب الموافقة عنه."
+      />
 
       {policy !== null && (
         <Card>

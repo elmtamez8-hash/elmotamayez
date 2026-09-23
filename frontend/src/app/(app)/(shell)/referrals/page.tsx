@@ -5,6 +5,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { ReferralIcon, UsersIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -82,12 +85,11 @@ export default function ReferralsPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">دعوة صديق</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          شارِكْ كودك مع من تعرف. حين يشترك صديقك اشتراكاً فعليّاً تُضاف نقاط لكما معاً.
-        </p>
-      </header>
+      <PageHeader
+        Icon={ReferralIcon}
+        title="دعوة صديق"
+        description="شارِكْ كودك مع من تعرف. حين يشترك صديقك اشتراكاً فعليّاً تُضاف نقاط لكما معاً."
+      />
 
       <Card>
         <div className="space-y-3">
@@ -112,10 +114,10 @@ export default function ReferralsPage() {
         </div>
       </Card>
 
-      <Card>
+      <Card as="section">
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-ink">دعواتك</h2>
+          <div className="flex items-center justify-between gap-3">
+            <SectionHeading id="referrals-invites" Icon={UsersIcon} title="دعواتك" />
             <Badge tone="neutral">اكتملت: {code?.completed_count ?? 0}</Badge>
           </div>
 

@@ -107,7 +107,7 @@ export function DataRequestsPanel() {
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-ink">بياناتي: نسخةٌ أو حذف</h2>
+          <h3 className="text-base font-semibold text-ink">بياناتي: نسخةٌ أو حذف</h3>
           <p className="text-sm text-ink-muted">
             نُجهّز ملفاً يضمّ كلّ ما نحتفظ به عنك، ويبقى رابطُ تنزيله متاحاً مدّةً قصيرة.
             وطلبُ الحذف يُراجَع قبل تنفيذه، وبعضُ السجلّات — كالشهادات والقيود الماليّة —

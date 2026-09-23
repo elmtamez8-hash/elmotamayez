@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { MistakesIcon } from "@/components/icons";
 import { PracticeRunner } from "@/components/practice/PracticeRunner";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { userMessage } from "@/lib/errors";
@@ -73,12 +75,11 @@ export default function MistakePracticePage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-ink">اختبرني في أخطائي</h1>
-        <p className="text-sm text-ink-muted">
-          أسئلة أخطأت فيها ولم تُصلحها بعد. لا تُحتسب هذه الورقة في درجاتك.
-        </p>
-      </div>
+      <PageHeader
+        Icon={MistakesIcon}
+        title="اختبرني في أخطائي"
+        description="أسئلة أخطأت فيها ولم تُصلحها بعد. لا تُحتسب هذه الورقة في درجاتك."
+      />
 
       {/* A new round rebuilds from what is STILL standing — the questions
           answered correctly a moment ago are gone from it by construction. */}

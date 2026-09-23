@@ -5,6 +5,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { CreditsIcon, ScheduleIcon, TagIcon } from "@/components/icons";
 import { SelectField } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -114,12 +117,11 @@ export default function PlansPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">اشتراكاتي</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          الاشتراك بالمدّة يفتح ما تغطّيه الباقة طوال مدّتها، وحصصه لا تخصم من رصيدك.
-        </p>
-      </header>
+      <PageHeader
+        Icon={CreditsIcon}
+        title="اشتراكاتي"
+        description="الاشتراك بالمدّة يفتح ما تغطّيه الباقة طوال مدّتها، وحصصه لا تخصم من رصيدك."
+      />
 
       {problem && (
         <Alert tone="danger" title="تعذّر إتمام الطلب">
@@ -134,9 +136,9 @@ export default function PlansPage() {
         </Alert>
       )}
 
-      <Card>
+      <Card as="section">
         <div className="space-y-3">
-          <h2 className="text-base font-semibold text-ink">اشتراكاتي الحالية والسابقة</h2>
+          <SectionHeading id="plans-mine" Icon={ScheduleIcon} title="اشتراكاتي الحالية والسابقة" />
 
           {subscriptions.length === 0 ? (
             <EmptyState
@@ -173,9 +175,9 @@ export default function PlansPage() {
         </div>
       </Card>
 
-      <Card>
+      <Card as="section">
         <div className="space-y-4">
-          <h2 className="text-base font-semibold text-ink">باقات المدرّسين</h2>
+          <SectionHeading id="plans-offers" Icon={TagIcon} title="باقات المدرّسين" />
 
           <SelectField
             id="plans-course"

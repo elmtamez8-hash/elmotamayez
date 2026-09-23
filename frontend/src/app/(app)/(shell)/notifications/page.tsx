@@ -6,6 +6,8 @@ import { categoryIcon } from "@/components/notifications/categoryIcons";
 import { NotificationRow } from "@/components/notifications/NotificationRow";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { BellIcon } from "@/components/icons";
 import { Tabs, TabPanel, useTabParam, type TabDefinition } from "@/components/ui/Tabs";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -185,17 +187,16 @@ export default function NotificationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-ink">الإشعارات</h1>
-          <p className="text-sm text-ink-muted">
-            {unread > 0
-              ? `لديك ${arabicNumber(unread)} إشعاراً غير مقروء`
-              : "لا إشعارات غير مقروءة"}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <PageHeader
+        Icon={BellIcon}
+        title="الإشعارات"
+        description={
+          unread > 0
+            ? `لديك ${arabicNumber(unread)} إشعاراً غير مقروء`
+            : "لا إشعارات غير مقروءة"
+        }
+        actions={
+          <>
           <Button
             variant="secondary"
             size="sm"
@@ -209,8 +210,9 @@ export default function NotificationsPage() {
           <Button size="sm" onClick={markAllRead} disabled={unread === 0}>
             تعليم الكل مقروءاً
           </Button>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {/*
         One tab is «الكل» and the rest are the subjects this reader has. A strip
@@ -247,10 +249,10 @@ export default function NotificationsPage() {
               <section key={group.key} className="space-y-3">
                 {/* A rule to the end of the row, so the eye finds where one day
                     stops without a second border competing with the rows'. */}
-                <h2 className="flex items-center gap-3 text-sm font-semibold text-ink-muted">
+                <h3 className="flex items-center gap-3 text-sm font-semibold text-ink-muted">
                   <span>{group.label}</span>
                   <span aria-hidden className="h-px flex-1 bg-line" />
-                </h2>
+                </h3>
 
                 <ul className="space-y-3">
                   {group.items.map((item, index) => (
