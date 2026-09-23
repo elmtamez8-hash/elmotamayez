@@ -1,4 +1,15 @@
 import { Card } from "@/components/ui/Card";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { StatTile } from "@/components/ui/StatTile";
+import {
+  ClockIcon,
+  CreditsIcon,
+  RefundIcon,
+  ScheduleIcon,
+  SessionsIcon,
+  StudentIcon,
+  WalletIcon,
+} from "@/components/icons";
 import { counted, formatDate, formatMinorMoney } from "@/lib/labels";
 import type { TeacherStatement } from "@/lib/settlement";
 
@@ -14,25 +25,6 @@ import { arabicNumber } from "@/lib/numerals";
  * document is `dir="rtl"`, so `text-start` is the right edge and `ml-*` would put
  * the gutter on the wrong side.
  */
-
-function Figure({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <Card padding="sm">
-      <p className="text-xs font-medium text-ink-muted">{label}</p>
-      {/* <bdi> so a Latin-digit amount cannot reorder the Arabic around it. */}
-      <bdi className="mt-1 block text-2xl font-bold text-ink">{value}</bdi>
-      {hint ? <p className="mt-1 text-xs text-ink-muted">{hint}</p> : null}
-    </Card>
-  );
-}
 
 export function StatementSummary({
   statement,
@@ -57,31 +49,40 @@ export function StatementSummary({
 
   return (
     <section aria-labelledby="statement-summary" className="space-y-4">
-      <h3 id="statement-summary" className="text-lg font-bold text-ink">
-        الفترة الحالية
-      </h3>
-
-      <p className="text-sm text-ink-muted">
-        من {formatDate(statement.period.starts_on)} إلى{" "}
-        {formatDate(statement.period.ends_on)} · الصرف القادم{" "}
-        {formatDate(statement.next_payout_on)}
-      </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <SectionHeading id="statement-summary" Icon={ScheduleIcon} title="الفترة الحالية" />
+        <p className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+          <span className="rounded-full border border-line bg-surface-raised px-3 py-1">
+            من {formatDate(statement.period.starts_on)} إلى {formatDate(statement.period.ends_on)}
+          </span>
+          <span className="rounded-full bg-primary-soft px-3 py-1 font-medium text-primary-ink">
+            الصرف القادم {formatDate(statement.next_payout_on)}
+          </span>
+        </p>
+      </div>
 
       {awaitingPayoutMinor > 0 && (
-        <Card padding="sm">
-          <p className="text-sm text-ink">
-            <span className="font-semibold">مستحقّ من فترات مغلقة لم تُصرَف:</span>{" "}
-            <bdi className="font-bold">{money(awaitingPayoutMinor)}</bdi>
-          </p>
-          <p className="mt-1 text-xs text-ink-muted">
-            أُغلقت فترته وتجمّد مبلغه، وينتظر التحويل. لا يظهر ضمن أرقام الفترة
-            الجارية أدناه.
-          </p>
-        </Card>
+        <div className="flex items-start gap-3 rounded-3xl border border-accent/40 bg-accent/10 p-4">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-accent-foreground">
+            <ClockIcon className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-sm text-ink">
+              <span className="font-semibold">مستحقّ من فترات مغلقة لم تُصرَف:</span>{" "}
+              <bdi className="font-bold">{money(awaitingPayoutMinor)}</bdi>
+            </p>
+            <p className="mt-1 text-xs text-ink-muted">
+              أُغلقت فترته وتجمّد مبلغه، وينتظر التحويل. لا يظهر ضمن أرقام الفترة
+              الجارية أدناه.
+            </p>
+          </div>
+        </div>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Figure
+        <StatTile
+          emphasis
+          Icon={WalletIcon}
           label="الصافي المستحق"
           value={money(statement.net_minor)}
           hint={
@@ -90,13 +91,15 @@ export function StatementSummary({
               : `يشمل مُرحّلاً من الفترة السابقة: ${money(statement.carried_in_minor)}`
           }
         />
-        <Figure label="الإجمالي قبل الخصومات" value={money(statement.gross_minor)} />
-        <Figure
+        <StatTile Icon={CreditsIcon} label="الإجمالي قبل الخصومات" value={money(statement.gross_minor)} />
+        <StatTile
+          Icon={SessionsIcon}
           label="الوحدات المستحقّة"
           value={arabicNumber(statement.units.accrued)}
           hint={`فردية ${arabicNumber(individual)} · جماعية ${arabicNumber(group)}`}
         />
-        <Figure
+        <StatTile
+          Icon={StudentIcon}
           label="الطلاب"
           value={arabicNumber(statement.students_count)}
           hint={
@@ -115,12 +118,14 @@ export function StatementSummary({
 
       {statement.deductions.length > 0 && (
         <Card padding="sm">
-          <h4 className="mb-2 text-sm font-semibold text-ink">الخصومات</h4>
-          <ul className="space-y-1 text-sm">
+          <div className="mb-3">
+            <SectionHeading id="statement-deductions" level={4} Icon={RefundIcon} title="الخصومات" />
+          </div>
+          <ul className="divide-y divide-line text-sm">
             {statement.deductions.map((line) => (
               <li
                 key={`${line.type}-${line.reason ?? ""}`}
-                className="flex items-baseline justify-between gap-4"
+                className="flex items-baseline justify-between gap-4 rounded-lg px-2 py-2 transition hover:bg-primary-soft/30"
               >
                 <span className="text-ink-muted">
                   {line.type_label}
