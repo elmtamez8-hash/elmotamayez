@@ -62,13 +62,16 @@ Schedule::call(static function (): void {
     touch(storage_path('app/scheduler-heartbeat'));
 })->everyMinute()->name('scheduler-heartbeat');
 
-Schedule::job(new PruneExpiredGrantsJob)->dailyAt('03:45');
+Schedule::job(new PruneExpiredGrantsJob, 'maintenance')->dailyAt('03:45');
 
 // The safety net under each session's own delayed close. Hourly rather than
 // nightly because what it repairs is a register nobody can read and a report no
 // guardian received — and at :20, off both bulk deletes above, since a sweep
 // that closes sessions has no business waiting behind a mass delete's locks.
-Schedule::job(new CloseStaleSessionsJob)->hourlyAt(20);
+// On `maintenance` rather than `default`: it walks every stale session with a
+// provider call per row, which is not work to hold a sixty-second notification
+// worker for.
+Schedule::job(new CloseStaleSessionsJob, 'maintenance')->hourlyAt(20);
 
 /*
 | A private-session request nobody answered stops waiting (023 · FR-023).
@@ -146,7 +149,12 @@ Schedule::job(new ReconcileAssetStatus, 'maintenance')
 // no business queueing behind a mass delete's locks. Daily rather than hourly:
 // the boundary it acts on is a DATE, so running it twelve more times a day would
 // find nothing eleven of them.
-Schedule::job(new CloseDueSettlementPeriodsJob)->dailyAt('04:10');
+//
+// On `maintenance`, never `default`, like the other two sweeps above it: it walks
+// every teacher on the platform, and supervisor-1 kills a job at sixty seconds
+// with `tries: 1` — the day the walk outgrew a minute it would be killed every
+// night, silently — while sharing workers with a security alert and a charge.
+Schedule::job(new CloseDueSettlementPeriodsJob, 'maintenance')->dailyAt('04:10');
 
 /*
 | ⚠️ EVERY BILLING SWEEP CARRIES `withoutOverlapping()` AND ITS OWN QUEUE.

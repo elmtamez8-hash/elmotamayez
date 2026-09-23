@@ -19,6 +19,8 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Opens a window for work that has none, and closes one whose days have run out.
@@ -46,8 +48,14 @@ class CloseDueSettlementPeriodsJob implements ShouldQueue
             ->withoutWorkspaceScope()
             ->whereNull('settlement_period_id')
             ->where('status', TeachingUnitStatus::Accrued->value)
+            // A stable walk order, so the teacher a failure stops at — and every
+            // teacher after it — is the same on every engine and every night.
+            ->orderBy('workspace_id')
+            ->orderBy('teacher_profile_id')
             ->get(['workspace_id', 'teacher_profile_id'])
             ->unique(fn (TeachingUnit $unit): string => $unit->workspace_id.':'.$unit->teacher_profile_id);
+
+        $failure = null;
 
         foreach ($teachers as $row) {
             $workspace = Workspace::query()->find($row->workspace_id);
@@ -60,9 +68,37 @@ class CloseDueSettlementPeriodsJob implements ShouldQueue
             // singleton that caches its resolution, so a direct set here leaks
             // this workspace into whatever the same worker handles next.
             // TrustScoreJobIsolationTest's sibling rule fails the build over it.
-            $context->forWorkspace($workspace, function () use ($row, $close, $window): void {
-                $this->settle((int) $row->teacher_profile_id, $close, $window);
-            });
+            try {
+                $context->forWorkspace($workspace, function () use ($row, $close, $window): void {
+                    $this->settle((int) $row->teacher_profile_id, $close, $window);
+                });
+            } catch (Throwable $e) {
+                /*
+                | ⚠️ PER TEACHER, BECAUSE ONE BAD ROW USED TO END THE NIGHT FOR
+                | EVERYONE. The walk is one loop over every teacher on the platform;
+                | a throw on the first stopped every close behind it, and the next
+                | run met the same row first again — nobody's window closed, for as
+                | long as that row stood. Per teacher rather than per period: a
+                | teacher's periods close oldest first, and closing a later window
+                | over an earlier one that failed would freeze a total out of order.
+                |
+                | The CLASS only: a QueryException's message carries its bindings,
+                | and this line ships to a monitoring vendor. The full message is
+                | kept — the first failure is rethrown after the walk, so it lands
+                | in `failed_jobs`, in our own database.
+                */
+                Log::error('settlement.close_due.teacher_failed', [
+                    'workspace_id' => (int) $row->workspace_id,
+                    'teacher_profile_id' => (int) $row->teacher_profile_id,
+                    'exception' => $e::class,
+                ]);
+
+                $failure ??= $e;
+            }
+        }
+
+        if ($failure !== null) {
+            throw $failure;
         }
     }
 
