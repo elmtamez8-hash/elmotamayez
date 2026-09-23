@@ -104,7 +104,14 @@ class RecordTeacherPayout extends Action
 
         // Conditional, like the close: the state machine only ever moves forward,
         // and the payout row above is what already made the money idempotent.
+        //
+        // ⚠️ Unscoped, because the payer is a PLATFORM officer and
+        // `WorkspaceContext::id()` falls back to their own `last_workspace_id`:
+        // scoped, this matched zero rows on every other teacher's period, so the
+        // money left and the period still read «مغلقة» — the third layer of the
+        // defect spec 024 found in the order approval chain.
         SettlementPeriod::query()
+            ->withoutWorkspaceScope()
             ->whereKey($period->getKey())
             ->where('status', SettlementPeriodStatus::Closed->value)
             ->update(['status' => SettlementPeriodStatus::Paid->value]);
@@ -138,7 +145,11 @@ class RecordTeacherPayout extends Action
      */
     private function existingPayout(SettlementPeriod $period): ?TeacherPayout
     {
+        // Unscoped for the reason the status write is: scoped to the officer's
+        // own workspace, «already paid» reads false for every other teacher and
+        // the unique index then surfaces as an exception instead of a no-op.
         return TeacherPayout::query()
+            ->withoutWorkspaceScope()
             ->where('settlement_period_id', $period->getKey())
             ->first();
     }

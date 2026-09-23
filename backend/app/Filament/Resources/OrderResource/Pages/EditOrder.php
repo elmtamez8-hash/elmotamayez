@@ -32,6 +32,7 @@ class EditOrder extends EditRecord
         return [
             OrderResource::approveAction(),
             OrderResource::rejectAction(),
+            OrderResource::reverseAction(),
         ];
     }
 }

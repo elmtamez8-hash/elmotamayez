@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Settlement\Listeners;
 
 use App\Models\User;
+use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
@@ -27,7 +28,20 @@ class NotifyPayoutIssued
     public function handle(TeacherPayoutIssued $event): void
     {
         $payout = $event->payout;
-        $teacher = User::query()->find($payout->teacherProfile?->user_id);
+        /*
+        | ⚠️ The profile is read UNSCOPED. `$payout->teacherProfile` runs
+        | `TeacherProfile`'s workspace scope, and a payout recorded by a platform
+        | officer resolves the context to the OFFICER's `last_workspace_id` — so
+        | the relation came back null for every other teacher and the payout
+        | notification was dropped without a word.
+        */
+        $userId = TeacherProfile::query()
+            ->withoutWorkspaceScope()
+            ->withTrashed()
+            ->whereKey($payout->teacher_profile_id)
+            ->value('user_id');
+
+        $teacher = is_numeric($userId) ? User::query()->find((int) $userId) : null;
 
         if ($teacher === null) {
             return;
