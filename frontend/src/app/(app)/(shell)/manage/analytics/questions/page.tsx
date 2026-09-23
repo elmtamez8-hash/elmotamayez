@@ -5,6 +5,8 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ItemAnalysisIcon } from "@/components/icons";
 import { Table, type Column } from "@/components/ui/Table";
 import {
   analytics,
@@ -122,12 +124,11 @@ export default function ItemAnalysisPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">تحليل الأسئلة</h1>
-        <p className="text-sm text-ink-muted">
-          أين يخطئ طلابك: أيّ الأسئلة أخطأ فيها الأغلبية، وأيّ الأفكار تحتاج إعادة شرح.
-        </p>
-      </header>
+      <PageHeader
+        Icon={ItemAnalysisIcon}
+        title="تحليل الأسئلة"
+        description="أين يخطئ طلابك: أيّ الأسئلة أخطأ فيها الأغلبية، وأيّ الأفكار تحتاج إعادة شرح."
+      />
 
       <Card>
         <p className="text-sm text-ink-muted">

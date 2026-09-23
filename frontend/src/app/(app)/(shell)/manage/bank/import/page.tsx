@@ -8,6 +8,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { QuestionBankIcon, ScheduleIcon } from "@/components/icons";
 import { SelectField } from "@/components/ui/Field";
 import { Table, type Column } from "@/components/ui/Table";
 import { fieldErrors } from "@/lib/api";
@@ -94,13 +97,11 @@ export default function ImportPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">استيراد أسئلة</h1>
-        <p className="text-sm text-ink-muted">
-          صفٌّ معطوب لا يُسقط الملف: تُستورد بقيّة الأسئلة، ويُسمّى كلّ صفٍّ لم يُضَف برقم سطره
-          وسببه.
-        </p>
-      </header>
+      <PageHeader
+        Icon={QuestionBankIcon}
+        title="استيراد أسئلة"
+        description="صفٌّ معطوب لا يُسقط الملف: تُستورد بقيّة الأسئلة، ويُسمّى كلّ صفٍّ لم يُضَف برقم سطره وسببه."
+      />
 
       {error !== "" && <Alert tone="danger" title="تعذّر الرفع">{error}</Alert>}
 
@@ -158,8 +159,8 @@ export default function ImportPage() {
         </div>
       </Card>
 
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold text-ink">عمليات سابقة</h2>
+      <section aria-labelledby="past-imports" className="space-y-3">
+        <SectionHeading id="past-imports" Icon={ScheduleIcon} title="عمليات سابقة" />
         <Table
           columns={columns}
           rows={imports}

@@ -8,6 +8,8 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { CoursesIcon } from "@/components/icons";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { EmptyState } from "@/components/ui/states/EmptyState";
@@ -152,7 +154,9 @@ export default function CourseDetailPage({
 
       {course.sections && course.sections.length > 0 && (
         <Card as="section">
-          <h3 className="mb-4 font-semibold text-ink">محتوى الكورس</h3>
+          <div className="mb-4">
+            <SectionHeading id="course-content" Icon={CoursesIcon} title="محتوى الكورس" />
+          </div>
           <div className="space-y-4">
             {course.sections.map((section) => (
               <div key={section.uuid}>

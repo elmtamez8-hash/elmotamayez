@@ -35,7 +35,7 @@ test.describe("الواجبات — المدرّس", () => {
 
     await expect(page).toHaveURL(/\/manage\/assignments$/);
     await expect(
-      page.locator("#main").getByRole("heading", { name: "الواجبات", level: 1 }),
+      page.locator("#main").getByRole("heading", { name: "الواجبات", level: 2 }),
     ).toBeVisible();
 
     // One of the three states and never a blank panel. Which one depends on the
