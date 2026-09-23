@@ -32,9 +32,17 @@ function budgetCourse(int $sections, int $lessonsPerChapter): array
     $teacher = marketplaceTeacher($workspace);
 
     $course = app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace, $teacher, $sections, $lessonsPerChapter): Course {
+        /*
+        | ⚠️ THE PRICE IS PINNED, AND TO ZERO. The factory draws one at random,
+        | and `free_enrollment` asks the plans only when the course is free — so
+        | two courses drawn apart took two branches and differed by three
+        | queries that have nothing to do with the tree (flaky ~1 run in 3).
+        | Zero is the dearer branch, so the one measured is the full cost.
+        */
         $course = Course::factory()->published()->create([
             'workspace_id' => $workspace->getKey(),
             'created_by' => $teacher->user_id,
+            'price_minor' => 0,
         ]);
 
         foreach (range(1, $sections) as $s) {
