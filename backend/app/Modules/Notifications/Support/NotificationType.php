@@ -507,6 +507,7 @@ enum NotificationType: string
             self::ReceiptApproved => 'اعتماد إيصال',
             self::ReceiptRejected => 'رفض إيصال',
             self::PaymentReversed => 'إعادة دفعة',
+            self::ReceiptAwaitingReview => 'إيصال بانتظار المراجعة',
             self::AppointmentReminder => 'تذكير موعد',
             self::ExamResult => 'نتيجة اختبار',
             self::AcademicWarning => 'إنذار أكاديمي',
@@ -641,6 +642,18 @@ enum NotificationType: string
     case ReceiptApproved = 'receipt_approved';
     case ReceiptRejected = 'receipt_rejected';
     case PaymentReversed = 'payment_reversed';
+
+    /*
+    | The officer's half of the receipt path — the one of the three receipt
+    | moments that had an event and no reader. A receipt uploaded on the manual
+    | path sat in `/admin` until somebody happened to open the orders screen, so
+    | the student's «قيد المراجعة» had nobody on the other end of it.
+    |
+    | ⚠️ NOT MANDATORY AND TARGETS NO GUARDIAN. It is a work item for platform
+    | staff, not a consequence for an account — and `targetsGuardians()` would
+    | give it a paid WhatsApp channel, which `WhatsAppDefaultsTest` pins against.
+    */
+    case ReceiptAwaitingReview = 'receipt_awaiting_review';
 
     /**
      * A mandatory type cannot be switched off by the user (FR-029) and is never

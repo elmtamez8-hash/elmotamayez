@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScheduleIcon } from "@/components/icons";
 import { NextSessionCountdown } from "@/components/sessions/NextSessionCountdown";
 import { RescheduleAskButton } from "@/components/sessions/RescheduleAskButton";
+import { CancelBookingButton } from "@/components/sessions/CancelBookingButton";
 import { SessionCard } from "@/components/sessions/SessionCard";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -60,7 +61,7 @@ export default function SchedulePage() {
     // The session is unpacked here rather than at render: a booking whose
     // session the payload omitted is dropped once, and everything below it is
     // typed without a non-null assertion standing in for that check.
-    const groups: { key: string; label: string; rows: { uuid: string; session: ClassSession }[] }[] = [];
+    const groups: { key: string; label: string; rows: { uuid: string; session: ClassSession; booking: SessionBooking }[] }[] = [];
 
     for (const booking of bookings) {
       const session = booking.session;
@@ -69,7 +70,7 @@ export default function SchedulePage() {
 
       const key = sessionDayKey(session.starts_at, session.timezone);
       const last = groups.at(-1);
-      const row = { uuid: booking.uuid, session };
+      const row = { uuid: booking.uuid, session, booking };
 
       if (last?.key === key) {
         last.rows.push(row);
@@ -176,12 +177,22 @@ export default function SchedulePage() {
                           refuses it too — hiding a control is not a guard.
                         */}
                         {new Date(row.session.starts_at).getTime() > Date.now() && (
-                          <div className="mt-1 flex justify-end">
+                          <div className="mt-1 flex flex-wrap items-start justify-end gap-2">
                             <RescheduleAskButton
                               sessionUuid={row.session.uuid}
                               title={row.session.title}
                               onDone={load}
                             />
+                            {/* The seat can be given back from where it is
+                                listed; the cost is said before the press. */}
+                            {row.booking.status === "booked" && row.booking.may_cancel_until && (
+                              <CancelBookingButton
+                                bookingUuid={row.booking.uuid}
+                                mayCancelUntil={row.booking.may_cancel_until}
+                                timezone={row.session.timezone}
+                                onCancelled={load}
+                              />
+                            )}
                           </div>
                         )}
                       </div>

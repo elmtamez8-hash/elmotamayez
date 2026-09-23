@@ -171,6 +171,8 @@ export interface SessionBooking {
   status_label: string;
   booked_at: string;
   cancelled_at: string | null;
+  /** The free-cancellation deadline — present whenever `session` is. */
+  may_cancel_until?: string | null;
   session?: ClassSession;
 }
 

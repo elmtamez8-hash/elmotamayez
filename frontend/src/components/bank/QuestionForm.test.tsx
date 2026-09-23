@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -18,6 +18,8 @@ import { describe, expect, it, vi } from "vitest";
 | thing that must not be said here.
 */
 
+const createConcept = vi.fn();
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
@@ -32,6 +34,7 @@ vi.mock("@/lib/bank", async (importOriginal) => {
     ...actual,
     bank: {
       concepts: () => Promise.resolve({ data: [] }),
+      createConcept: (name: string) => createConcept(name),
       create: vi.fn(),
       update: vi.fn(),
     },
@@ -77,5 +80,39 @@ describe("QuestionForm", () => {
     expect(correctMarker(1).checked).toBe(false);
     expect(correctMarker(2).checked).toBe(false);
     expect(correctMarker(3).checked).toBe(true);
+  });
+
+  /*
+   | ⚠️ A NEW TEACHER'S BANK HAS NO CONCEPTS, AND THE CONCEPT IS A REQUIRED TAG.
+   | The picker offered only existing ones and nothing called the create route, so
+   | the first question could not be written by hand at all.
+   */
+  it("lets a teacher with an empty bank create a concept and selects it", async () => {
+    createConcept.mockResolvedValue({ data: { uuid: "c-new", name: "المعادلات الخطية" } });
+
+    render(<QuestionForm />);
+
+    // Open without being asked: an empty bank has nothing else to offer.
+    const input = await screen.findByLabelText("فكرة جديدة");
+    fireEvent.change(input, { target: { value: "  المعادلات الخطية " } });
+    fireEvent.click(screen.getByRole("button", { name: "أضف الفكرة" }));
+
+    await waitFor(() => expect((document.getElementById("concept_id") as HTMLSelectElement).value).toBe("c-new"));
+    expect(createConcept).toHaveBeenCalledWith("المعادلات الخطية");
+    expect(screen.queryByLabelText("فكرة جديدة")).toBeNull();
+  });
+
+  it("puts the server's refusal under the field instead of losing it", async () => {
+    const { ApiError } = await import("@/lib/api");
+    createConcept.mockRejectedValue(
+      new ApiError("invalid", 422, { message: "invalid", errors: { name: ["الاسم مستخدم من قبل."] } }),
+    );
+
+    render(<QuestionForm />);
+
+    fireEvent.change(await screen.findByLabelText("فكرة جديدة"), { target: { value: "مكرّرة" } });
+    fireEvent.click(screen.getByRole("button", { name: "أضف الفكرة" }));
+
+    expect(await screen.findByText("الاسم مستخدم من قبل.")).toBeTruthy();
   });
 });

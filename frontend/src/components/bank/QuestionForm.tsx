@@ -42,7 +42,12 @@ export function QuestionForm({ question }: { question?: BankQuestion }) {
   const router = useRouter();
 
   const [concepts, setConcepts] = useState<Concept[]>([]);
+  const [conceptsLoaded, setConceptsLoaded] = useState(false);
   const [conceptId, setConceptId] = useState(question?.concept?.uuid ?? "");
+  const [addingConcept, setAddingConcept] = useState(false);
+  const [newConcept, setNewConcept] = useState("");
+  const [creatingConcept, setCreatingConcept] = useState(false);
+  const [conceptError, setConceptError] = useState<string | undefined>(undefined);
   const [type, setType] = useState<QuestionType>(question?.type ?? "mcq");
   const [difficulty, setDifficulty] = useState<Difficulty>(question?.difficulty ?? "medium");
   const [bloom, setBloom] = useState<BloomLevel>(question?.bloom_level ?? "understand");
@@ -66,8 +71,35 @@ export function QuestionForm({ question }: { question?: BankQuestion }) {
     bank
       .concepts()
       .then((response) => setConcepts(response.data ?? []))
-      .catch(() => setConcepts([]));
+      .catch(() => setConcepts([]))
+      .finally(() => setConceptsLoaded(true));
   }, []);
+
+  /*
+   * ⚠️ A NEW TEACHER HAS NO CONCEPTS, AND THE FORM REQUIRED ONE. The concept is
+   * one of the four mandatory tags (`SaveQuestionRequest`), the picker offered
+   * only existing ones, and `POST /manage/bank/concepts` had no caller anywhere —
+   * so the first question in an empty bank could not be written by hand at all.
+   * Created here, it is appended and selected in one step.
+   */
+  const addConcept = async () => {
+    setCreatingConcept(true);
+    setConceptError(undefined);
+
+    try {
+      const created = await bank.createConcept(newConcept.trim());
+      setConcepts((current) => [...current, created.data]);
+      setConceptId(created.data.uuid);
+      setNewConcept("");
+      setAddingConcept(false);
+    } catch (err: unknown) {
+      setConceptError(fieldErrors(err).name ?? userMessage(err));
+    } finally {
+      setCreatingConcept(false);
+    }
+  };
+
+  const conceptCreatorOpen = addingConcept || (conceptsLoaded && concepts.length === 0);
 
   const isEssay = type === "essay";
 
@@ -167,6 +199,55 @@ export function QuestionForm({ question }: { question?: BankQuestion }) {
               options={BLOOM_LEVELS.map((b) => ({ value: b, label: bloomLabel(b) }))}
             />
           </div>
+
+          {conceptCreatorOpen ? (
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-0 grow">
+                <TextField
+                  id="new_concept"
+                  label="فكرة جديدة"
+                  value={newConcept}
+                  onChange={setNewConcept}
+                  maxLength={120}
+                  error={conceptError}
+                  hint={
+                    concepts.length === 0
+                      ? "لا أفكار في بنكك بعد. اكتب اسم الفكرة التي يقيسها هذا السؤال، مثل «المعادلات الخطية»."
+                      : undefined
+                  }
+                />
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => void addConcept()}
+                disabled={newConcept.trim() === ""}
+                loading={creatingConcept}
+                loadingLabel="جارٍ الإضافة…"
+              >
+                أضف الفكرة
+              </Button>
+              {concepts.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setAddingConcept(false);
+                    setNewConcept("");
+                    setConceptError(undefined);
+                  }}
+                >
+                  تراجع
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div>
+              <Button size="sm" variant="ghost" onClick={() => setAddingConcept(true)}>
+                فكرة جديدة
+              </Button>
+            </div>
+          )}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <NumberField

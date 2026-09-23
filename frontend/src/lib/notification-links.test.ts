@@ -109,6 +109,15 @@ const DESTINATIONS: Array<{ path: string; from: string }> = [
    * press. It has a button on that page now.
    */
   { path: "/family", from: "LinkGuardian · AcceptRelation · RegisterStudent::inviteGuardian" },
+  /*
+   * The store buyer's purchases live on `/store` itself. Both store notices
+   * pointed at `/store/purchases` — the API route's path, not a page — so a
+   * parcel update and a refund notice were each a 404 to whoever pressed them.
+   */
+  { path: "/store", from: "FulfilStorePurchase · AdvanceShipment · NotifyPaymentOutcome (store)" },
+  // The receipt path: a refused receipt is re-uploaded on the SAME order, and the
+  // officer's «a receipt is waiting» lands on the list that shows it.
+  { path: "/orders", from: "NotifyPaymentOutcome (rejected) · NotifyReceiptAwaitingReview" },
 ];
 
 describe("notification destinations", () => {
@@ -136,6 +145,7 @@ describe("notification destinations", () => {
     "/assignments/a1b2c3d4",
     "/manage/assignments/a1b2c3d4",
     "/teacher/application",
+    "/store/purchases",
   ])("%s is still not a route, which is why it was a 404", (path) => {
     expect(known.some((route) => matches(route, path))).toBe(false);
   });

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { CancelBookingButton } from "@/components/sessions/CancelBookingButton";
 import { SessionCard } from "@/components/sessions/SessionCard";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -139,8 +140,10 @@ function Group({
   );
 }
 
+type HeldBooking = NonNullable<ClassSession["my_booking"]>;
+
 /**
- * «احجز» — the student's own door to a seat.
+ * «احجز» — the student's own door to a seat, and «إلغاء الحجز» its way back out.
  *
  * ⛔ SPEC 036 DECIDED «صفرُ حجزٍ آليّ — الباقةُ تُعطي رصيداً، والطالبُ يحجزُ بالمسارِ
  * العاديّ», and `POST /class-sessions/{uuid}/book` had no caller anywhere in the
@@ -151,12 +154,34 @@ function Group({
  * the generic 409 one — «اكتملت المقاعد» and «رصيدك محجوز» are different next steps.
  */
 function BookButton({ session }: { session: ClassSession }) {
-  const [booked, setBooked] = useState(false);
+  const [booking, setBooking] = useState<HeldBooking | null>(session.my_booking ?? null);
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
 
-  if (booked || session.my_booking) {
-    return <Badge tone="success">محجوز</Badge>;
+  if (booking !== null) {
+    /*
+     | ⚠️ A CANCELLED BOOKING IS NOT «محجوز». The badge used to read the mere
+     | presence of `my_booking`, so a seat given up — or taken back by the
+     | system — kept telling the student they held it. The server's own label
+     | says which of the three it was.
+     */
+    if (booking.status !== "booked") {
+      return <Badge tone="neutral">{booking.status_label}</Badge>;
+    }
+
+    return (
+      <div className="flex flex-wrap items-start justify-end gap-2">
+        <Badge tone="success">محجوز</Badge>
+        {session.status === "scheduled" && booking.may_cancel_until && (
+          <CancelBookingButton
+            bookingUuid={booking.uuid}
+            mayCancelUntil={booking.may_cancel_until}
+            timezone={session.timezone}
+            onCancelled={(result) => setBooking({ ...booking, ...result })}
+          />
+        )}
+      </div>
+    );
   }
 
   if (session.status !== "scheduled" || session.seats.available <= 0) return null;
@@ -166,8 +191,15 @@ function BookButton({ session }: { session: ClassSession }) {
     setRefusal(null);
 
     try {
-      await classSessions.book(session.uuid);
-      setBooked(true);
+      const booked = await classSessions.book(session.uuid);
+      // A seat booked a second ago is cancellable too — the deadline arrives
+      // with the booking, since the nested session carries no `my_booking`.
+      setBooking({
+        uuid: booked.uuid,
+        status: "booked",
+        status_label: "محجوز",
+        may_cancel_until: booked.may_cancel_until ?? "",
+      });
     } catch (err) {
       setRefusal(
         err instanceof ApiError && errorCode(err.body) === "booking_refused" ? err.message : userMessage(err),
