@@ -62,6 +62,24 @@ Schedule::call(static function (): void {
     touch(storage_path('app/scheduler-heartbeat'));
 })->everyMinute()->name('scheduler-heartbeat');
 
+/*
+| Horizon's metrics are SNAPSHOTS, and nothing took one. The throughput and
+| runtime graphs on /horizon are built from `horizon:snapshot`; unscheduled, the
+| Metrics tab is empty and a slow queue has no history to compare against. Five
+| minutes is Horizon's own recommendation, and `metrics.trim_snapshots` (24)
+| keeps two hours of them.
+*/
+Schedule::command('horizon:snapshot')->everyFiveMinutes();
+
+/*
+| `failed_jobs` grows for ever unless something trims it. Thirty days: long
+| enough that a failure noticed after a holiday can still be read in full — the
+| full message lives THERE, never in the log (see LogHygieneTest) — and bounded
+| so a job failing every night does not grow the table without end. 02:50, clear
+| of every bulk delete between 03:15 and 03:45.
+*/
+Schedule::command('queue:prune-failed', ['--hours' => 720])->dailyAt('02:50');
+
 Schedule::job(new PruneExpiredGrantsJob, 'maintenance')->dailyAt('03:45');
 
 // The safety net under each session's own delayed close. Hourly rather than
