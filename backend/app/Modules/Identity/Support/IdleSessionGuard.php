@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Support;
 
 use App\Modules\Identity\Actions\TerminateAuthSession;
+use App\Modules\Identity\Jobs\EndIdleAuthSessionsJob;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Tenancy\Support\PlatformSettings;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -62,22 +64,46 @@ final class IdleSessionGuard
         return true;
     }
 
-    private function isIdle(PersonalAccessToken $token): bool
+    /**
+     * The moment before which a token counts as abandoned, or null when the rule
+     * is switched off.
+     *
+     * ⚠️ PUBLIC BECAUSE {@see EndIdleAuthSessionsJob} ASKS IT TOO. The request-time
+     * check and the nightly sweep are one rule, so they read one number from one
+     * place — two spellings of «idle» would agree until an operator changed the
+     * setting and only one of them noticed.
+     */
+    public function cutoff(): ?CarbonInterface
     {
         $days = (int) PlatformSettings::get('auth.session_idle_days', config('auth_sessions.idle_days'));
 
         // Zero or less is «no limit»: an operator who empties the field means to
         // switch the rule off, not to sign everybody out.
         if ($days <= 0) {
+            return null;
+        }
+
+        return now()->subDays($days);
+    }
+
+    private function isIdle(PersonalAccessToken $token): bool
+    {
+        $cutoff = $this->cutoff();
+
+        if ($cutoff === null) {
             return false;
         }
 
         $lastUse = $token->last_used_at ?? $token->created_at;
 
-        return $lastUse !== null && $lastUse->lt(now()->subDays($days));
+        return $lastUse !== null && $lastUse->lt($cutoff);
     }
 
-    private function end(PersonalAccessToken $token): void
+    /**
+     * End an idle token's session with the reason the sign-in screen prints, or
+     * delete the token outright when it predates sessions and has no row.
+     */
+    public function end(PersonalAccessToken $token): void
     {
         $session = AuthSession::query()
             ->active()
