@@ -14,6 +14,9 @@ use App\Modules\Payments\Events\PaymentApproved;
 use App\Modules\Payments\Events\PaymentCaptured;
 use App\Modules\Payments\Events\PaymentFailed;
 use App\Modules\Payments\Events\PaymentReversed;
+use App\Modules\Payments\Events\ReceiptApproved;
+use App\Modules\Payments\Events\ReceiptRejected;
+use App\Modules\Payments\Events\ReceiptUploaded;
 use App\Modules\Payments\Listeners\ActivateSubscription;
 use App\Modules\Payments\Listeners\ChargeSeatsOnDelivery;
 use App\Modules\Payments\Listeners\CreateEnrollmentFromOrder;
@@ -21,6 +24,7 @@ use App\Modules\Payments\Listeners\CreditPurchaseOnApproval;
 use App\Modules\Payments\Listeners\NotifyAccessChange;
 use App\Modules\Payments\Listeners\NotifyBalanceThreshold;
 use App\Modules\Payments\Listeners\NotifyPaymentOutcome;
+use App\Modules\Payments\Listeners\NotifyReceiptAwaitingReview;
 use App\Modules\Payments\Listeners\RecomputeSubscriptionEnds;
 use App\Modules\Payments\Listeners\ReevaluateOnReversal;
 use App\Modules\Payments\Listeners\StampCourseDelivery;
@@ -259,6 +263,15 @@ class PaymentsServiceProvider extends Module
 
         Event::listen(PaymentCaptured::class, [NotifyPaymentOutcome::class, 'handleCaptured']);
         Event::listen(PaymentFailed::class, [NotifyPaymentOutcome::class, 'handleFailed']);
+
+        /*
+        | The receipt's three moments had events since 007 and no reader, so the
+        | manual path told nobody anything: the officer never heard a receipt had
+        | arrived, and the payer never heard it was accepted or refused.
+        */
+        Event::listen(ReceiptUploaded::class, NotifyReceiptAwaitingReview::class);
+        Event::listen(ReceiptApproved::class, [NotifyPaymentOutcome::class, 'handleReceiptApproved']);
+        Event::listen(ReceiptRejected::class, [NotifyPaymentOutcome::class, 'handleReceiptRejected']);
 
         /*
         | A reversal re-opens the question the payment had closed. Bound here and

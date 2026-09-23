@@ -128,7 +128,7 @@ class OrderPolicy extends BasePolicy
             return Response::allow();
         }
 
-        return Response::deny('You can only upload receipts for your own orders.');
+        return Response::deny('لا يمكنك رفع إيصال إلا على طلباتك أنت، أو على طلب أنشأته نيابةً عن صاحبه.');
     }
 
     /**

@@ -117,4 +117,30 @@ describe("the student's own booking", () => {
     expect(screen.queryByRole("button", { name: "احجز" })).toBeNull();
     expect(screen.getByText("محجوز")).toBeTruthy();
   });
+
+  /*
+   | ⚠️ `DELETE /bookings/{uuid}` had no caller: a held seat showed «محجوز» and
+   | nothing else, so a student who could not come had no way to say so.
+   */
+  it("offers a way out of a held seat, and never calls a given-up seat «محجوز»", () => {
+    render(
+      <SessionsTab
+        sessions={[
+          upcoming({
+            uuid: "held",
+            timezone: "Asia/Qatar",
+            my_booking: { uuid: "b", status: "booked", status_label: "محجوز", may_cancel_until: "2098-12-31T10:00:00Z" },
+          }),
+          upcoming({
+            uuid: "gone",
+            my_booking: { uuid: "c", status: "cancelled_in_window", status_label: "أُلغي في المهلة", may_cancel_until: "" },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByRole("button", { name: "إلغاء الحجز" })).toHaveLength(1);
+    expect(screen.getAllByText("محجوز")).toHaveLength(1);
+    expect(screen.getByText("أُلغي في المهلة")).toBeTruthy();
+  });
 });

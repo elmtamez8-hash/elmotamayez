@@ -99,8 +99,7 @@ export function StoreItemForm({
     };
 
     try {
-      const res = item ? await store.updateItem(item.uuid, body) : await store.createItem(body);
-      onSaved(res.data);
+      onSaved(item ? await store.updateItem(item.uuid, body) : await store.createItem(body));
     } catch (error) {
       // 422 lands under its field; everything else becomes one Arabic sentence.
       // A raw error never reaches the teacher.

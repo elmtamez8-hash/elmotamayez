@@ -44,8 +44,8 @@ export default function ShipmentQueuePage() {
     setProblem(null);
 
     try {
-      const res = await store.advanceShipment(shipment.uuid, { status });
-      setRows((current) => current.map((row) => (row.uuid === res.data.uuid ? res.data : row)));
+      const moved = await store.advanceShipment(shipment.uuid, { status });
+      setRows((current) => current.map((row) => (row.uuid === moved.uuid ? moved : row)));
     } catch (error) {
       // Never a raw error: the refusal names both ends of the move it refused.
       setProblem(userMessage(error));

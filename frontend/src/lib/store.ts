@@ -150,16 +150,24 @@ export const store = {
   // ── The teacher ──────────────────────────────────────────────────────────
   items: () => api.get<Paginated<StoreItem>>("/store/items"),
 
-  createItem: (body: StoreItemInput) => api.post<{ data: StoreItem }>("/store/items", body),
+  /*
+   * ⚠️ THE BARE RESOURCE, NOT `{ data }`. `StoreItemController` and
+   * `ShipmentController` return a Resource directly, and `JsonResource::
+   * withoutWrapping()` is global — so the body IS the item. Typed as `{ data }`
+   * these three read `undefined` after a successful write: the shipment screen
+   * threw inside its own `try` and printed an error over a move that had
+   * happened, and the item form handed `undefined` to `onSaved`.
+   */
+  createItem: (body: StoreItemInput) => api.post<StoreItem>("/store/items", body),
 
   updateItem: (uuid: string, body: StoreItemInput) =>
-    api.put<{ data: StoreItem }>(`/store/items/${uuid}`, body),
+    api.put<StoreItem>(`/store/items/${uuid}`, body),
 
   shipments: () =>
     api.get<Paginated<Shipment> & { meta?: { statuses?: Record<string, string> } }>("/store/shipments"),
 
   advanceShipment: (uuid: string, body: { status: ShipmentStatus; tracking_ref?: string | null }) =>
-    api.patch<{ data: Shipment }>(`/store/shipments/${uuid}`, body),
+    api.patch<Shipment>(`/store/shipments/${uuid}`, body),
 
   // ── The buyer ────────────────────────────────────────────────────────────
   catalogue: (workspaceUuid: string) =>

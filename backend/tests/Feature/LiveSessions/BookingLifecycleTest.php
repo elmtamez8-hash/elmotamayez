@@ -12,6 +12,7 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Support\Roles;
 use Carbon\CarbonImmutable;
+use Laravel\Sanctum\Sanctum;
 
 beforeEach(function (): void {
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
@@ -88,6 +89,68 @@ it('refuses to book a session that has already started', function (): void {
 
     expect(fn () => app(BookSeat::class)->handle($session, $this->student))
         ->toThrow(DomainException::class);
+});
+
+/*
+| The student's own door, over HTTP — the one «إلغاء الحجز» presses.
+|
+| ⚠️ `DELETE /bookings/{uuid}` had no caller in the frontend, so these assert the
+| two things that screen reads: the deadline arrives WITH the booking (so the
+| cost can be said before the press), and the answer names the outcome.
+*/
+it('sends the free-cancellation deadline with the booking, and cancels it over HTTP', function (): void {
+    $session = ClassSession::factory()->create([
+        'teacher_profile_id' => $this->teacher->getKey(),
+        'starts_at' => CarbonImmutable::now()->addDays(5),
+        'ends_at' => CarbonImmutable::now()->addDays(5)->addHour(),
+    ]);
+
+    $booking = app(BookSeat::class)->handle($session, $this->student);
+
+    Sanctum::actingAs($this->student);
+
+    $response = $this->deleteJson('/api/v1/bookings/'.$booking->uuid)->assertOk();
+
+    expect($response->json('status'))->toBe(BookingStatus::CancelledInWindow->value)
+        ->and($response->json('may_cancel_until'))
+        ->toBe($session->refresh()->cancellationDeadline()->toIso8601String());
+});
+
+it('shows the booked student their own seat and its deadline on the session page', function (): void {
+    // The session page draws «إلغاء الحجز» off `my_booking`, which is null
+    // unless the page's read loads the bookings — so the control is only real
+    // if this is.
+    $session = ClassSession::factory()->create([
+        'teacher_profile_id' => $this->teacher->getKey(),
+        'starts_at' => CarbonImmutable::now()->addDays(5),
+        'ends_at' => CarbonImmutable::now()->addDays(5)->addHour(),
+    ]);
+
+    $booking = app(BookSeat::class)->handle($session, $this->student);
+
+    Sanctum::actingAs($this->student);
+
+    $this->getJson('/api/v1/class-sessions/'.$session->uuid)
+        ->assertOk()
+        ->assertJsonPath('my_booking.uuid', $booking->uuid)
+        ->assertJsonPath('my_booking.status', BookingStatus::Booked->value)
+        ->assertJsonPath('my_booking.may_cancel_until', $session->refresh()->cancellationDeadline()->toIso8601String());
+});
+
+it('refuses a second cancellation with a sentence rather than a 500', function (): void {
+    $session = ClassSession::factory()->create([
+        'teacher_profile_id' => $this->teacher->getKey(),
+        'starts_at' => CarbonImmutable::now()->addDays(5),
+        'ends_at' => CarbonImmutable::now()->addDays(5)->addHour(),
+    ]);
+
+    $booking = app(CancelBooking::class)->handle(app(BookSeat::class)->handle($session, $this->student));
+
+    Sanctum::actingAs($this->student);
+
+    $this->deleteJson('/api/v1/bookings/'.$booking->uuid)
+        ->assertStatus(409)
+        ->assertJsonPath('message', 'هذا الحجز ملغى بالفعل.');
 });
 
 it('refuses to book a cancelled session', function (): void {

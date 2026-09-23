@@ -171,6 +171,7 @@ enum NotificationCategory: string
                 NotificationType::PaymentReversed,
                 NotificationType::ReceiptApproved,
                 NotificationType::ReceiptRejected,
+                NotificationType::ReceiptAwaitingReview,
                 NotificationType::CreditBalanceLow,
                 NotificationType::CreditBalanceCritical,
                 NotificationType::CreditBalanceDormant,

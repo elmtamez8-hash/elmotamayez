@@ -738,8 +738,25 @@ class NotificationTemplateSeeder extends Seeder
             ],
             NotificationType::ReceiptApproved->value => [
                 'اعتُمد إيصالك',
-                'راجع الفريق إيصالك عن «{{ course }}» واعتمده، وأُضيف رصيدك.',
+                /*
+                 * ⚠️ «وأُضيف رصيدك» WAS TRUE OF ONE KIND OF ORDER. The listener
+                 * sends this for a credit purchase AND a store purchase — the two
+                 * kinds whose manual approval nothing else announces — and a store
+                 * buyer holds no balance. Reworded by
+                 * `2026_09_23_000600_reword_receipt_approved_for_every_kind`.
+                 */
+                'راجع الفريق إيصالك عن «{{ course }}» واعتمده، وبدأ تنفيذ طلبك.',
                 ['course'],
+            ],
+            /*
+             * The officer's half (the receipt's first moment). No amount, for the
+             * reason the rest of this block has none, and because the amount is
+             * one click away on the screen where the decision is taken.
+             */
+            NotificationType::ReceiptAwaitingReview->value => [
+                'إيصال جديد بانتظار المراجعة',
+                'رفع {{ payer }} إيصال تحويل عن «{{ order }}». راجعه واعتمده أو ارفضه من شاشة الطلبات.',
+                ['payer', 'order'],
             ],
             NotificationType::ReceiptRejected->value => [
                 'لم يُعتمد الإيصال',

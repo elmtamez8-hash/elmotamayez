@@ -121,7 +121,7 @@ class FulfilStorePurchase extends Action
             // ⚠️ NO PRICE. A store total minus the published commission is the
             // teacher's net, and neither side may be handed the other's number.
             variables: ['item_title' => $title],
-            actionUrl: '/store/purchases',
+            actionUrl: '/store',
             workspaceId: (int) $purchase->workspace_id,
             sourceType: StoreOrder::class,
             sourceId: (int) $purchase->getKey(),

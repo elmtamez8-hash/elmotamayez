@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { CancelBookingButton } from "@/components/sessions/CancelBookingButton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import {
@@ -126,6 +127,29 @@ export default function SessionPage({
         {session.join_open && !session.room_closed && (
           <div className="mt-4">
             <Button href={`/sessions/${session.uuid}/room`}>دخول الغرفة</Button>
+          </div>
+        )}
+
+        {/*
+          The reader's own seat, and the way to give it back while the lesson has
+          not started. `my_booking` is about THIS reader, so a teacher viewing
+          the page sees nothing here.
+        */}
+        {session.my_booking && (
+          <div className="mt-4 flex flex-wrap items-start justify-between gap-3 border-t border-line pt-4">
+            <Badge tone={session.my_booking.status === "booked" ? "success" : "neutral"}>
+              {session.my_booking.status === "booked" ? "لك مقعد في هذه الحصّة" : session.my_booking.status_label}
+            </Badge>
+            {session.my_booking.status === "booked" &&
+              session.status === "scheduled" &&
+              session.my_booking.may_cancel_until && (
+                <CancelBookingButton
+                  bookingUuid={session.my_booking.uuid}
+                  mayCancelUntil={session.my_booking.may_cancel_until}
+                  timezone={session.timezone}
+                  onCancelled={() => void load()}
+                />
+              )}
           </div>
         )}
       </Card>

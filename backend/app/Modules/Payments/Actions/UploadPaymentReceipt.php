@@ -67,7 +67,7 @@ class UploadPaymentReceipt extends Action
         if ($order->user_id !== $user->getKey()
             && $order->granted_by !== $user->getKey()
             && ! ($order->requiresPlatformApproval() && $user->can(Permissions::BILLING_PURCHASE_APPROVE))) {
-            throw new DomainException('You can only upload receipts for your own orders.');
+            throw new DomainException('لا يمكنك رفع إيصال إلا على طلباتك أنت، أو على طلب أنشأته نيابةً عن صاحبه.');
         }
 
         if (! $order->acceptsReceipt()) {

@@ -239,6 +239,13 @@ function dispatchOf(User $user, NotificationType $type): void
             | for exactly this reason, and it still caught the fixture.
             */
             'hidden_cohorts' => 'ولم تخرج أيّ مجموعة من العرض.',
+            /*
+            | A FIFTEENTH time, with `receipt_awaiting_review`. 74 against 75 the
+            | moment it landed. Missed here, the officer is never told a receipt
+            | is waiting — the silence the type was added to end.
+            */
+            'payer' => 'مريم',
+            'order' => 'الفيزياء',
         ],
     ));
 }

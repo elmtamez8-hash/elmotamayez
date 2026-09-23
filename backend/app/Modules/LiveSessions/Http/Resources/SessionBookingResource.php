@@ -20,6 +20,20 @@ class SessionBookingResource extends JsonResource
             'status_label' => $this->status->label(),
             'booked_at' => $this->booked_at->toIso8601String(),
             'cancelled_at' => $this->cancelled_at?->toIso8601String(),
+            /*
+             | The free-cancellation deadline, beside the booking it prices.
+             |
+             | ⚠️ The nested `session` cannot carry it: `ClassSessionResource`
+             | puts it inside `my_booking`, which it reads from a `bookings`
+             | relation nobody loads on this path — so a seat booked a second ago,
+             | or listed on the timetable, had no deadline to show before the
+             | student pressed «إلغاء الحجز». Only when the session is loaded, so
+             | a list that does not load it pays no query per row.
+             */
+            'may_cancel_until' => $this->whenLoaded(
+                'classSession',
+                fn (): ?string => $this->classSession?->cancellationDeadline()->toIso8601String(),
+            ),
             'session' => ClassSessionResource::make($this->whenLoaded('classSession')),
         ];
     }

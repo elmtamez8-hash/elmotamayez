@@ -99,7 +99,7 @@ class AdvanceShipment extends Action
                 'item_title' => (string) $item->title,
                 'status' => $to->label(),
             ],
-            actionUrl: '/store/purchases',
+            actionUrl: '/store',
             workspaceId: (int) $shipment->workspace_id,
             sourceType: Shipment::class,
             sourceId: (int) $shipment->getKey(),
